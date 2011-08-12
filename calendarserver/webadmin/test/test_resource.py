@@ -54,7 +54,7 @@ class RenderingTests(TestCase):
         # 'fields' will be a list of 4-tuples of (fieldName, searchStr, True,
         # "contains"; implement this for tests which will want to call
         # 'search()')
-        return self.expectedSearches[tuple(fields)]
+        return self.expectedSearches.pop(tuple(fields))
 
 
     def setUp(self):

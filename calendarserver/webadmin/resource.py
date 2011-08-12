@@ -92,13 +92,18 @@ class WebAdminPage(Element):
         returnValue(tag)
 
 
+    _searchResults = None
+
     @inlineCallbacks
     def performSearch(self, request):
+        if self._searchResults is not None:
+            returnValue(self._searchResults)
         searchTerm = request.args.get('resourceSearch', [''])[0]
         if searchTerm:
             results = yield self.resource.search(searchTerm)
         else:
             results = []
+        self._searchResults = results
         returnValue(results)
 
 
