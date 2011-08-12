@@ -1276,25 +1276,11 @@ class MailHandler(LoggingMixIn):
             msgHtmlRelated = MIMEMultipart("related", type="text/html")
             msgAlt.attach(msgHtmlRelated)
 
-            htmlAttendees = []
-            for cn, mailto in attendees:
-                if mailto:
-                    htmlAttendees.append('<a href="mailto:%s">%s</a>' %
-                        (mailto, cn))
-                else:
-                    htmlAttendees.append(cn)
-
-            details['htmlAttendees'] = ", ".join(htmlAttendees)
-
-            if orgEmail:
-                details['htmlOrganizer'] = '<a href="mailto:%s">%s</a>' % (
-                    orgEmail, orgCN)
-            else:
-                details['htmlOrganizer'] = orgCN
-
             details['iconName'] = iconName = "calicon.png"
 
-            addIcon, htmlText = self.renderHTML(details, canceled)
+            addIcon, htmlText = self.renderHTML(
+                details, (orgCN, orgEmail), attendees, canceled
+            )
 
         msgHtml = MIMEText(htmlText.encode("UTF-8"), "html", "UTF-8")
         msgHtmlRelated.attach(msgHtml)
@@ -1326,7 +1312,7 @@ class MailHandler(LoggingMixIn):
         return msgId, msg.as_string()
 
 
-    def renderHTML(self, details, canceled):
+    def renderHTML(self, details, organizer, attendees, canceled):
         """
         Render HTML message part based on invitation details and a flag
         indicating whether the message is a cancellation.
@@ -1335,6 +1321,29 @@ class MailHandler(LoggingMixIn):
             The first element indicates whether the MIME generator needs to add
             a L{cid:} icon image part to satisfy the HTML links.
         """
+        orgCN, orgEmail = organizer
+
+        # TODO: htmlAttendees needs to be a separate element with a separate
+        # template fragment.  Luckily that fragment is the same regardless
+        # of the rest of the template.
+        htmlAttendees = []
+        for cn, mailto in attendees:
+            if mailto:
+                htmlAttendees.append('<a href="mailto:%s">%s</a>' %
+                    (mailto, cn))
+            else:
+                htmlAttendees.append(cn)
+
+        details['htmlAttendees'] = ", ".join(htmlAttendees)
+
+        # TODO: htmlOrganizer is also some HTML that requires additional
+        # template stuff, and once again, it's just a 'mailto:'.
+        # tags.a(href="mailto:"+email)[cn]
+        if orgEmail:
+            details['htmlOrganizer'] = '<a href="mailto:%s">%s</a>' % (
+                orgEmail, orgCN)
+        else:
+            details['htmlOrganizer'] = orgCN
 
         templateDir = config.Scheduling.iMIP.MailTemplatesDirectory.rstrip("/")
         templateName = "cancel.html" if canceled else "invite.html"
