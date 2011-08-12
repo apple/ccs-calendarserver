@@ -293,7 +293,7 @@ class DetailsElement(Element):
     _matrix = None
 
     @inlineCallbacks
-    def proxyMatrix(self):
+    def proxyMatrix(self, request):
         """
         Compute a matrix of proxies to display in a 2-column table.
 
@@ -324,7 +324,8 @@ class DetailsElement(Element):
                 readProxies = []
                 writeProxies = []
                 def getres(ref):
-                    return self.adminResource.getResourceById(str(proxyHRef))
+                    return self.adminResource.getResourceById(request,
+                                                              str(proxyHRef))
                 for proxyHRef in readMembers.children:
                     readProxies.append((yield getres(proxyHRef)))
                 for proxyHRef in writeMembers.children:
@@ -348,7 +349,7 @@ class DetailsElement(Element):
         """
         Renderer which shows its tag if there are no proxies for this resource.
         """
-        mtx = yield self.proxyMatrix()
+        mtx = yield self.proxyMatrix(request)
         if mtx:
             returnValue("")
         returnValue(tag)
@@ -360,7 +361,7 @@ class DetailsElement(Element):
         """
         Renderer which shows its tag if there are any proxies for this resource.
         """
-        mtx = yield self.proxyMatrix()
+        mtx = yield self.proxyMatrix(request)
         if mtx:
             returnValue(tag)
         returnValue("")
@@ -404,7 +405,7 @@ class DetailsElement(Element):
         rows of existing proxies for the currently-viewed resource.
         """
         result = []
-        mtx = yield self.proxyMatrix()
+        mtx = yield self.proxyMatrix(request)
         for idx, (readProxy, writeProxy) in enumerate(mtx):
             result.append(ProxyRow(tag.clone(), idx, readProxy, writeProxy))
         returnValue(result)
