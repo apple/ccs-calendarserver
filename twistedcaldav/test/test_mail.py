@@ -543,7 +543,8 @@ END:VCALENDAR
         )
 
         self.assertIn(u"Us\u00e9r One", plainText)
-        self.assertIn(u"Us\u00e9r One", htmlText)
+        self.assertIn(u'<a href="mailto:user01@localhost">Us\u00e9r One</a>',
+                      htmlText)
 
 
     def test_emailQuoting(self):
