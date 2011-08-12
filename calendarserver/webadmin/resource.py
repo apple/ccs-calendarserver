@@ -71,7 +71,6 @@ class WebAdminPage(Element):
         Main renderer, which fills page-global slots like 'title'.
         """
         return tag.fillSlots(
-            title="Placeholder Title",
             resourceSearch="Placeholder Resource Search",
             resourceTitle="Placeholder Resource Title",
             resourceId="Placeholder Resource ID",
