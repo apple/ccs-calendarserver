@@ -194,7 +194,9 @@
           ><t:attr name="value"><t:slot name="proxySearch" /></t:attr></input>
           <input type="submit" value="Search"></input>
       </form>
-
+      <div style="margin-top:4px"
+          >No matches found for proxy resource <b><t:slot
+              name="proxySearch" /></b>.</div>
       <form id="frm_proxyAdd" name="proxyAddForm" action="/admin/"
           style="margin-top:2px; padding-top:0">
           <input type="hidden" id="hdn_resourceId" name="resourceId"
