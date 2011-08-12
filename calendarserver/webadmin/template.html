@@ -59,13 +59,11 @@
         /></t:attr></input>
         <input type="submit" value="Search" />
       </form>
-      <div t:render="noSearchResults"
-        style="margin-top:4px">No matches found for resource <b><t:slot
-        name="resourceSearch" /></b>.
+      <div t:render="noSearchResults" style="margin-top:4px"
+        >No matches found for resource <b><t:slot name="resourceSearch" /></b>.
       </div>
-      <table t:render="hasSearchResults"
-             cellspacing="0" cellpadding="3" border="1"
-             style="margin-top: 2px">
+      <table t:render="hasSearchResults" cellspacing="0" cellpadding="3"
+             border="1" style="margin-top: 2px">
         <tr class="odd">
           <th>ID</th>
           <th>Full Name</th>
@@ -89,93 +87,94 @@
                   border-bottom:1px #ffffff dotted"></div>
       <div style="background-color: #777; padding-top:2px;
                   border-bottom:1px #ffffff dotted"></div>
+
+      <t:transparent t:render="resourceDetails">
       <h3>Resource Details: <t:slot name="resourceTitle" /></h3>
 
       <!-- propertyHTML -->
       <div style="margin-top:15px; border-bottom:1px #444444 dotted"></div>
       <form id="frm_davProperty" name="davPropertyForm" action="/admin/"
-            style="margin-top:15px; margin-bottom:0; padding-bottom:0">
+        style="margin-top:15px; margin-bottom:0; padding-bottom:0">
         Show a DAV property value:
         <input type="hidden" id="hdn_resourceId" name="resourceId"><t:attr
-          name="value"><t:slot name="resourceId" /></t:attr></input>
+        name="value"><t:slot name="resourceId" /></t:attr></input>
         <input type="text" id="txt_davPropertyName" name="davPropertyName"
-          size="40"><t:attr name="value"><t:slot name="davPropertyName"
-          /></t:attr></input>
-          <input type="submit" value="Get Value" />
+        size="40"><t:attr name="value"><t:slot name="davPropertyName"
+        /></t:attr></input>
+        <input type="submit" value="Get Value" />
       </form>
 
-    <div t:render="propertyParseError">Unable to parse property to read:
-      <b><t:slot name="davPropertyName"
-        /></b></div>
+      <div t:render="propertyParseError">Unable to parse property to read:
+        <b><t:slot name="davPropertyName" /></b></div>
 
-    <div style="margin-top: 7px">Value of property <b><t:slot
-        name="name" /></b>:</div>
-    <pre style="margin-top:5px; padding-top:0"><t:slot name="value" /></pre >
+      <div t:render="davProperty" style="margin-top: 7px">Value of property
+        <b><t:slot name="name" /></b>:</div>
+      <pre style="margin-top:5px; padding-top:0"><t:slot name="value" /></pre>
+
+      <!-- autoScheduleHtml -->
+
+      <div style="margin-top:15px; border-bottom:1px #444444 dotted"></div>
+      <form id="frm_autoSchedule" name="autoScheduleForm" action="/admin/"
+            style="margin-top:15px">
+        <input type="hidden" id="hdn_resourceId" name="resourceId"
+        ><t:attr name="value"><t:slot name="resourceId" /></t:attr></input>
+        <div style="margin-top:7px">
+          Auto-Schedule
+          <select id="sel_autoSchedule" name="autoSchedule">
+            <option t:render="trueOption" value="true">Yes</option>
+            <option t:render="falseOption" value="false">No</option>
+          </select>
+          <input type="submit" value="Change" />
+        </div>
+      </form>
+
+      <!-- currentProxiesHtml -->
+      <div style="margin-top:15px; border-bottom:1px #444444 dotted"></div>
+      <form id="frm_proxies" name="proxiesForm" action="/admin/"
+            style="margin-top:15px">
+        <input type="hidden" id="hdn_resourceId" name="resourceId"
+        ><t:attr name="value"><t:slot name="resourceId" /></t:attr></input>
+
+        <table cellspacing="0" cellpadding="3" border="1">
+          <tr class="odd">
+            <th colspan="2">Read-Only Proxies</th>
+            <th colspan="2">Read-Write Proxies</th>
+          </tr>
+          <tr t:render="proxyRow">
+            <t:attr name="class"><t:slot name="rowClass" /> </t:attr>
+            <t:transparent t:render="readOnlyProxies">
+            <td><t:slot name="proxy" /></td>
+            <td>
+              <input type="submit" value="Make Read-Write"><t:attr
+              name="name">mkWriteProxy|<t:slot name="type" />:<t:slot
+              name="shortName"/></t:attr></input>
+              <input type="submit" value="Remove Proxy"><t:attr
+              name="name">rmProxy|<t:slot name="type" />:<t:slot
+              name="shortName"/></t:attr></input>
+            </td>
+            </t:transparent>
+
+            <t:transparent t:render="noReadOnlyProxies">
+            <td colspan="2"></td>
+            </t:transparent>
+            <t:transparent t:render="readWriteProxies">
+            <td><t:slot name="proxy" /></td>
+            <td>
+              <input type="submit" value="Make Read-Only"><t:attr
+                     name="name">mkReadProxy|<t:slot name="type" />:<t:slot
+                     name="shortName"/></t:attr></input>
+              <input type="submit" value="Remove Proxy"><t:attr
+                     name="name">rmProxy|<t:slot name="type" />:<t:slot
+                     name="shortName"/></t:attr></input>
+            </td>
+            </t:transparent>
+            <t:transparent t:render="noReadWriteProxies">
+            <td colspan="2"></td>
+            </t:transparent>
+          </tr>
+        </table>
+      </form>
+      </t:transparent>
     </div>
-
-    <!-- autoScheduleHtml -->
-
-    <div style="margin-top:15px; border-bottom:1px #444444 dotted"></div>
-    <form id="frm_autoSchedule" name="autoScheduleForm" action="/admin/"
-        style="margin-top:15px">
-      <input type="hidden" id="hdn_resourceId" name="resourceId"
-      ><t:attr name="value"><t:slot name="resourceId" /></t:attr></input>
-      <div style="margin-top:7px">
-        Auto-Schedule
-        <select id="sel_autoSchedule" name="autoSchedule">
-          <option t:render="trueOption" value="true">Yes</option>
-          <option t:render="falseOption" value="false">No</option>
-        </select>
-        <input type="submit" value="Change" />
-      </div>
-    </form>
-
-    <!-- currentProxiesHtml -->
-
-    <div style="margin-top:15px; border-bottom:1px #444444 dotted"></div>
-    <form id="frm_proxies" name="proxiesForm" action="/admin/"
-      style="margin-top:15px">
-      <input type="hidden" id="hdn_resourceId" name="resourceId"
-      ><t:attr name="value"><t:slot name="resourceId" /></t:attr></input>
-
-      <table cellspacing="0" cellpadding="3" border="1">
-        <tr class="odd">
-          <th colspan="2">Read-Only Proxies</th>
-          <th colspan="2">Read-Write Proxies</th>
-        </tr>
-        <tr t:render="proxyRow">
-          <t:attr name="class"><t:slot name="rowClass" /> </t:attr>
-          <t:transparent t:render="readOnlyProxies">
-          <td><t:slot name="proxy" /></td>
-          <td>
-            <input type="submit" value="Make Read-Write"><t:attr
-            name="name">mkWriteProxy|<t:slot name="type" />:<t:slot
-            name="shortName"/></t:attr></input>
-            <input type="submit" value="Remove Proxy"><t:attr
-            name="name">rmProxy|<t:slot name="type" />:<t:slot
-            name="shortName"/></t:attr></input>
-          </td>
-          </t:transparent>
-
-          <t:transparent t:render="noReadOnlyProxies">
-          <td colspan="2"></td>
-          </t:transparent>
-          <t:transparent t:render="readWriteProxies">
-          <td><t:slot name="proxy" /></td>
-          <td>
-            <input type="submit" value="Make Read-Only"><t:attr
-            name="name">mkReadProxy|<t:slot name="type" />:<t:slot
-            name="shortName"/></t:attr></input>
-            <input type="submit" value="Remove Proxy"><t:attr
-            name="name">rmProxy|<t:slot name="type" />:<t:slot
-            name="shortName"/></t:attr></input>
-          </td>
-          </t:transparent>
-          <t:transparent t:render="noReadWriteProxies">
-          <td colspan="2"></td>
-          </t:transparent>
-        </tr>
-      </table>
-    </form>
-</body>
+  </body>
 </html>
