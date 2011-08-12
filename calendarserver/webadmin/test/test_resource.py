@@ -192,9 +192,10 @@ class RenderingTests(TestCase):
 
 
     @inlineCallbacks
-    def test_noProxySearch(self):
+    def test_emptyProxySearch(self):
         """
-        When no results 
+        When no results are found for a search for proxies, a relevant message
+        should be displayed and the table/form for results should not be.
         """
         self.resource.getResourceById = partial(FakePrincipalResource, self)
         self.expectRecordSearch("bob", [])
