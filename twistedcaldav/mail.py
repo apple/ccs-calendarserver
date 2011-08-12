@@ -26,11 +26,7 @@ import email.utils
 import os
 import uuid
 
-try:
-    from cStringIO import StringIO
-    StringIO
-except ImportError:
-    from StringIO import StringIO
+from cStringIO import StringIO
 
 from email.mime.image import MIMEImage
 from email.mime.multipart import MIMEMultipart
@@ -53,7 +49,6 @@ from twext.web2.dav import davxml
 from twext.web2.dav.noneprops import NonePropertyStore
 from twext.web2.http import Response, HTTPError
 from twext.web2.http_headers import MimeType
-
 
 from twext.python.log import Logger, LoggingMixIn
 
