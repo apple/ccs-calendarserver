@@ -373,6 +373,8 @@ class DetailsElement(Element):
         Renderer which shows its tag if there are no proxy search results for
         this request.
         """
+        if not self.proxySearch:
+            returnValue("")
         results = yield self.performProxySearch()
         if results:
             returnValue("")

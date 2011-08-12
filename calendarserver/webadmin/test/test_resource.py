@@ -256,6 +256,9 @@ class RenderingTests(TestCase):
         # I'm not attempting to retrieve a property, there's nothing to fail to
         # parse.
         self.assertNotIn("Unable to parse property", gatherTextNodes(document))
+        # I'm not searching for proxies, so there shouldn't be any results.
+        self.assertNotIn("No matches found for proxy resource",
+                         gatherTextNodes(document))
 
 
     @inlineCallbacks
