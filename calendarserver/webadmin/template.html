@@ -1,54 +1,105 @@
 <html xmlns:t="http://twistedmatrix.com/ns/twisted.web.template/0.1">
-    <head>
-        <style>
-            th, .even td, .odd td {
-                padding-right: 0.5em;
-                font-family: monospace;
-            }
-            .even-dir {
-                background-color: #efe0ef;
-            }
-            .even {
-                background-color: #eee;
-            }
-            .odd-dir {
-                background-color: #f0d0ef;
-            }
-            .odd {
-                background-color: #dedede;
-            }
-            .icon {
-                text-align: center;
-            }
-            .listing {
-                margin-left: auto;
-                margin-right: auto;
-                width: 50%;
-                padding: 0.1em;
-            }
-            .content {
-                padding-left: 10px;
-                padding-right: 10px;
-            }
-            body {
-                border: 0;
-                padding: 0;
-                margin: 0;
-                background-color: #efefef;
-            }
-            h1 {
-                padding: 0.1em;
-                padding-left:10px;
-                padding-right:10px;
-                background-color: #777;
-                color: white;
-                border-bottom: thin white dashed;
-            }
-        </style>
-        <title><t:slot name="title" /></title>
-    </head>
-    <body>
-        <div class="content">
-        </div>
-    </body>
+  <head>
+    <style>
+      th, .even td, .odd td {
+        padding-right: 0.5em;
+        font-family: monospace;
+      }
+      .even-dir {
+        background-color: #efe0ef;
+      }
+      .even {
+        background-color: #eee;
+      }
+      .odd-dir {
+        background-color: #f0d0ef;
+      }
+      .odd {
+        background-color: #dedede;
+      }
+      .icon {
+        text-align: center;
+      }
+      .listing {
+        margin-left: auto;
+        margin-right: auto;
+        width: 50%;
+        padding: 0.1em;
+      }
+      .content {
+        padding-left: 10px;
+        padding-right: 10px;
+      }
+      body {
+        border: 0;
+        padding: 0;
+        margin: 0;
+        background-color: #efefef;
+      }
+      h1 {
+        padding: 0.1em;
+        padding-left:10px;
+        padding-right:10px;
+        background-color: #777;
+        color: white;
+        border-bottom: thin white dashed;
+      }
+    </style>
+    <title><t:slot name="title" /></title>
+  </head>
+  <body>
+    <h1><t:slot name="title" /></h1>
+    <h2>Resource Management</h2>
+    <div class="content">
+      <form id="frm_resource" name="resourceForm">
+        Search for resource to manage:
+        <input type="text" id="txt_resourceSearch" name="resourceSearch"
+        size="40"><t:attr name="value"><t:slot name="resourceSearch"
+        /></t:attr></input>
+        <input type="submit" value="Search" />
+      </form>
+      <div t:render="noSearchResults"
+        style="margin-top:4px">No matches found for resource
+        <b><t:slot name="resourceSearch" /></b>.
+      </div>
+      <table t:render="hasSearchResults"
+             cellspacing="0" cellpadding="3" border="1"
+             style="margin-top:2px">
+        <tr class="odd">
+          <th>ID</th>
+          <th>Full Name</th>
+          <th>Type</th>
+          <th>Short Names</th>
+          <th>Auth IDs</th>
+          <th>Email Addresses</th>
+        </tr>
+        <tr t:render="searchResults">
+          <t:attr name="class"><t:slot name="rowClass" /></t:attr>
+          <td><a>select<t:attr name="href" >/admin/?resourceId=<t:slot
+              name="type" />:<t:slot name="shortName" /></t:attr></a></td>
+          <td><t:slot name="name" /></td>
+          <td><t:slot name="typeStr" /></td>
+          <td><t:slot name="shortNames" /></td>
+          <td><t:slot name="authIds" /></td>
+          <td><t:slot name="emails" /></td>
+        </tr>
+      </table>
+      <div style="margin-top:15px; background-color: #777;
+        border-bottom:1px #ffffff dotted"></div>
+      <div style="background-color: #777; padding-top:2px;
+        border-bottom:1px #ffffff dotted"></div>
+      <h3>Resource Details: <t:slot name="resourceTitle" /></h3>
+      <div style="margin-top:15px; border-bottom:1px #444444 dotted"></div>
+      <form id="frm_davProperty" name="davPropertyForm" action="/admin/"
+        style="margin-top:15px; margin-bottom:0; padding-bottom:0">
+        Show a DAV property value:
+        <input type="hidden" id="hdn_resourceId" name="resourceId"><t:attr
+          name="value"><t:slot name="resourceId" /></t:attr></input>
+        <input type="text" id="txt_davPropertyName" name="davPropertyName"
+          size="40"><t:attr name="value"><t:slot name="davPropertyName"
+          /></t:attr></input>
+          <input type="submit" value="Get Value" />
+      </form>
+    </div>
+  </body>
 </html>
