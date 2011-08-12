@@ -1256,6 +1256,8 @@ class MailHandler(LoggingMixIn):
             'summary' : details['summary']
         }
 
+        details['iconName'] = iconName = "calicon.png"
+
         details.update(labels)
 
         with translationTo(language):
@@ -1296,8 +1298,6 @@ class MailHandler(LoggingMixIn):
             # html version
             msgHtmlRelated = MIMEMultipart("related", type="text/html")
             msgAlt.attach(msgHtmlRelated)
-
-            details['iconName'] = iconName = "calicon.png"
 
             addIcon, htmlText = self.renderHTML(
                 details, (orgCN, orgEmail), attendees, canceled
