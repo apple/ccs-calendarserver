@@ -184,13 +184,16 @@ class RenderingTests(TestCase):
             def readProperty(self, name, request):
                 return GroupMemberSet()
 
-
         self.resource.getResourceById = FakePrincipalResource
         document = yield self.renderPage(dict(resourceId=["qux"]))
         [detailsTitle] = getElementsByTagName(document, 'h3')
         detailString = gatherTextNodes(detailsTitle)
         self.assertEquals(detailString,
                           "Resource Details: Hello Fake Resource")
+        hiddenResourceId = document.getElementById(
+            "hdn_resourceId").getAttribute("value")
+        self.assertEquals(hiddenResourceId, "qux")
+
 
 
     realmName = 'Fake'
