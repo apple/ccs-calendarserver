@@ -17,8 +17,8 @@
 
 """
 Mail Gateway for Calendar Server
-
 """
+
 from __future__ import with_statement
 
 import datetime
@@ -250,7 +250,9 @@ class IMIPInboxResource(CalDAVResource):
         """
         assert parent is not None
 
-        CalDAVResource.__init__(self, principalCollections=parent.principalCollections())
+        CalDAVResource.__init__(
+            self, principalCollections=parent.principalCollections()
+        )
 
         self.parent = parent
         self._newStore = store
@@ -264,7 +266,8 @@ class IMIPInboxResource(CalDAVResource):
             self.iMIPACL = davxml.ACL(
                 davxml.ACE(
                     davxml.Principal(
-                        davxml.HRef.fromString("/principals/__uids__/%s/" % (guid,))
+                        davxml.HRef.fromString("/principals/__uids__/%s/"
+                                               % (guid,))
                     ),
                     davxml.Grant(
                         davxml.Privilege(caldavxml.ScheduleDeliver()),
@@ -331,7 +334,8 @@ class IMIPInboxResource(CalDAVResource):
         if config.Scheduling.CalDAV.OldDraftCompatibility:
             privs += (davxml.Privilege(caldavxml.Schedule()),)
         return davxml.ACL(
-            # DAV:Read, CalDAV:schedule-deliver for all principals (includes anonymous)
+            # DAV:Read, CalDAV:schedule-deliver for all principals (includes
+            # anonymous)
             davxml.ACE(
                 davxml.Principal(davxml.All()),
                 davxml.Grant(*privs),
@@ -639,7 +643,9 @@ class MailGatewayServiceMaker(LoggingMixIn):
             client.setServiceParent(mailGatewayService)
 
             # Set up /inbox -- server POSTs to it to send out iMIP invites
-            IScheduleService(settings, mailer).setServiceParent(mailGatewayService)
+            IScheduleService(settings, mailer).setServiceParent(
+                mailGatewayService
+            )
 
         else:
             mailer = None
@@ -759,7 +765,8 @@ class MailHandler(LoggingMixIn):
         result = self.db.lookupByToken(token)
         if result is None:
             # This isn't a token we recognize
-            self.log_error("Mail gateway found a token (%s) but didn't recognize it in DSN %s" % (token, msgId))
+            self.log_error("Mail gateway found a token (%s) but didn't "
+                           "recognize it in DSN %s" % (token, msgId))
             return
 
         organizer, attendee, icaluid = result
@@ -788,16 +795,20 @@ class MailHandler(LoggingMixIn):
             # addr looks like: server_address+token@example.com
             token = self._extractToken(addr)
             if not token:
-                self.log_error("Mail gateway didn't find a token in message %s (%s)" % (msg['Message-ID'], msg['To']))
+                self.log_error("Mail gateway didn't find a token in message "
+                               "%s (%s)" % (msg['Message-ID'], msg['To']))
                 return
         else:
-            self.log_error("Mail gateway couldn't parse To: address (%s) in message %s" % (msg['To'], msg['Message-ID']))
+            self.log_error("Mail gateway couldn't parse To: address (%s) in "
+                           "message %s" % (msg['To'], msg['Message-ID']))
             return
 
         result = self.db.lookupByToken(token)
         if result is None:
             # This isn't a token we recognize
-            self.log_error("Mail gateway found a token (%s) but didn't recognize it in message %s" % (token, msg['Message-ID']))
+            self.log_error("Mail gateway found a token (%s) but didn't "
+                           "recognize it in message %s"
+                           % (token, msg['Message-ID']))
             return
 
         organizer, attendee, icaluid = result
@@ -811,7 +822,8 @@ class MailHandler(LoggingMixIn):
                 break
         else:
             # No icalendar attachment
-            self.log_warn("Mail gateway didn't find an icalendar attachment in message %s" % (msg['Message-ID'],))
+            self.log_warn("Mail gateway didn't find an icalendar attachment "
+                          "in message %s" % (msg['Message-ID'],))
 
             toAddr = None
             fromAddr = attendee[7:]
@@ -825,7 +837,8 @@ class MailHandler(LoggingMixIn):
                     toAddr = list(record.emailAddresses)[0]
 
             if toAddr is None:
-                self.log_error("Don't have an email address for the organizer; ignoring reply.")
+                self.log_error("Don't have an email address for the organizer; "
+                               "ignoring reply.")
                 return
 
             if testMode:
@@ -869,7 +882,8 @@ class MailHandler(LoggingMixIn):
         organizerProperty = calendar.getOrganizerProperty()
         if organizerProperty is None:
             # ORGANIZER is required per rfc2446 section 3.2.3
-            self.log_warn("Mail gateway didn't find an ORGANIZER in REPLY %s" % (msg['Message-ID'],))
+            self.log_warn("Mail gateway didn't find an ORGANIZER in REPLY %s"
+                          % (msg['Message-ID'],))
             event.addProperty(Property("ORGANIZER", organizer))
         else:
             organizerProperty.setValue(organizer)
@@ -904,7 +918,8 @@ class MailHandler(LoggingMixIn):
                     return self.processDSN(calBody, msg['Message-ID'], fn)
                 else:
                     # It's a DSN without enough to go on
-                    self.log_error("Mail gateway can't process DSN %s" % (msg['Message-ID'],))
+                    self.log_error("Mail gateway can't process DSN %s"
+                                   % (msg['Message-ID'],))
                     return
 
             self.log_info("Mail gateway received message %s from %s to %s" %
@@ -917,7 +932,8 @@ class MailHandler(LoggingMixIn):
             self.log_error("Failed to process message: %s" % (e,))
 
 
-    def outbound(self, originator, recipient, calendar, language='en', send=True):
+    def outbound(self, originator, recipient, calendar, language='en',
+                 send=True):
         # create token, send email
 
         component = calendar.masterComponent()
@@ -954,7 +970,8 @@ class MailHandler(LoggingMixIn):
         recipient = recipient.lower()
         toAddr = recipient
         if not recipient.startswith("mailto:"):
-            raise ValueError("ATTENDEE address '%s' must be mailto: for iMIP operation." % (recipient,))
+            raise ValueError("ATTENDEE address '%s' must be mailto: for iMIP "
+                             "operation." % (recipient,))
         recipient = recipient[7:]
 
         settings = config.Scheduling['iMIP']['Sending']
@@ -967,10 +984,14 @@ class MailHandler(LoggingMixIn):
             token = self.db.getToken(originator, toAddr, icaluid)
             if token is None:
                 token = self.db.createToken(originator, toAddr, icaluid)
-                self.log_debug("Mail gateway created token %s for %s (originator), %s (recipient) and %s (icaluid)" % (token, originator, toAddr, icaluid))
+                self.log_debug("Mail gateway created token %s for %s "
+                               "(originator), %s (recipient) and %s (icaluid)"
+                               % (token, originator, toAddr, icaluid))
                 inviteState = "new"
             else:
-                self.log_debug("Mail gateway reusing token %s for %s (originator), %s (recipient) and %s (icaluid)" % (token, originator, toAddr, icaluid))
+                self.log_debug("Mail gateway reusing token %s for %s "
+                               "(originator), %s (recipient) and %s (icaluid)"
+                               % (token, originator, toAddr, icaluid))
                 inviteState = "update"
 
             fullServerAddress = settings['Address']
@@ -979,15 +1000,18 @@ class MailHandler(LoggingMixIn):
             addressWithToken = "%s+%s@%s" % (pre, token, post)
 
             organizerProperty = calendar.getOrganizerProperty()
-            organizerEmailAddress = organizerProperty.parameterValue("EMAIL", None)
+            organizerEmailAddress = organizerProperty.parameterValue("EMAIL",
+                                                                     None)
             organizerValue = organizerProperty.value()
             organizerProperty.setValue("mailto:%s" % (addressWithToken,))
 
             # If the organizer is also an attendee, update that attendee value
             # to match
-            organizerAttendeeProperty = calendar.getAttendeeProperty([organizerValue])
+            organizerAttendeeProperty = calendar.getAttendeeProperty(
+                [organizerValue])
             if organizerAttendeeProperty is not None:
-                organizerAttendeeProperty.setValue("mailto:%s" % (addressWithToken,))
+                organizerAttendeeProperty.setValue("mailto:%s" %
+                                                   (addressWithToken,))
 
             # The email's From will include the originator's real name email
             # address if available.  Otherwise it will be the server's email
@@ -1016,16 +1040,22 @@ class MailHandler(LoggingMixIn):
 
             # Look up the attendee property corresponding to the originator
             # of this reply
-            originatorAttendeeProperty = calendar.getAttendeeProperty([originator])
+            originatorAttendeeProperty = calendar.getAttendeeProperty(
+                [originator])
             formattedFrom = fromAddr = originator = ""
             if originatorAttendeeProperty:
-                originatorAttendeeEmailAddress = originatorAttendeeProperty.parameterValue("EMAIL", None)
+                originatorAttendeeEmailAddress = (
+                    originatorAttendeeProperty.parameterValue("EMAIL", None)
+                )
                 if originatorAttendeeEmailAddress:
-                    formattedFrom = fromAddr = originator = originatorAttendeeEmailAddress
+                    formattedFrom = fromAddr = originator = (
+                        originatorAttendeeEmailAddress
+                    )
 
             organizerMailto = str(calendar.getOrganizer())
             if not organizerMailto.lower().startswith("mailto:"):
-                raise ValueError("ORGANIZER address '%s' must be mailto: for REPLY." % (organizerMailto,))
+                raise ValueError("ORGANIZER address '%s' must be mailto: "
+                                 "for REPLY." % (organizerMailto,))
             orgEmail = organizerMailto[7:]
 
             orgCN = calendar.getOrganizerProperty().parameterValue('CN', None)
@@ -1056,8 +1086,10 @@ class MailHandler(LoggingMixIn):
                 return True
 
             def _failure(failure, msgId, fromAddr, toAddr):
-                self.log_error("Mail gateway failed to send message %s from %s to %s (Reason: %s)" %
-                    (msgId, fromAddr, toAddr, failure.getErrorMessage()))
+                self.log_error("Mail gateway failed to send message %s from %s "
+                               "to %s (Reason: %s)" %
+                               (msgId, fromAddr, toAddr,
+                                failure.getErrorMessage()))
                 return False
 
             deferred = defer.Deferred()
@@ -1067,7 +1099,8 @@ class MailHandler(LoggingMixIn):
             else:
                 contextFactory = None
 
-            factory = ESMTPSenderFactory(settings['Username'], settings['Password'],
+            factory = ESMTPSenderFactory(
+                settings['Username'], settings['Password'],
                 fromAddr, toAddr, StringIO(str(message)), deferred,
                 contextFactory=contextFactory,
                 requireAuthentication=False,
@@ -1280,7 +1313,8 @@ class MailHandler(LoggingMixIn):
             msgHtmlRelated.attach(msgIcon)
 
         # the icalendar attachment
-        self.log_debug("Mail gateway sending calendar body: %s" % (str(calendar)))
+        self.log_debug("Mail gateway sending calendar body: %s"
+                       % (str(calendar)))
         msgIcal = MIMEText(str(calendar), "calendar", "UTF-8")
         method = calendar.propertyValue("METHOD").lower()
         msgIcal.set_param("method", method)
@@ -1351,7 +1385,7 @@ class MailHandler(LoggingMixIn):
             results['durationInfo'] = "(%s)" % (duration,) if duration else ""
 
             for propertyName in ("RRULE", "RDATE", "EXRULE", "EXDATE",
-                "RECURRENCE-ID"):
+                                 "RECURRENCE-ID"):
                 if component.hasProperty(propertyName):
                     results['recurrenceInfo'] = _("(Repeating)")
                     break
@@ -1556,7 +1590,8 @@ class IMAP4DownloadProtocol(imap4.IMAP4Client, LoggingMixIn):
                 (self.messageCount - len(self.messageUIDs), self.messageCount,
                 nextUID))
             self.fetchMessage(messageListToFetch, True).addCallback(
-                self.cbGotMessage, messageListToFetch).addErrback(self.ebLogError)
+                self.cbGotMessage, messageListToFetch).addErrback(
+                    self.ebLogError)
         else:
             self.log_debug("Seeing if anything new has arrived")
             # Go back and see if any more messages have come in
@@ -1623,9 +1658,10 @@ class IMAP4DownloadFactory(protocol.ClientFactory, LoggingMixIn):
 
     def buildProtocol(self, addr):
         p = protocol.ClientFactory.buildProtocol(self, addr)
-        p.registerAuthenticator(imap4.CramMD5ClientAuthenticator(self.settings["Username"]))
-        p.registerAuthenticator(imap4.LOGINAuthenticator(self.settings["Username"]))
-        p.registerAuthenticator(imap4.PLAINAuthenticator(self.settings["Username"]))
+        username = self.settings["Username"]
+        p.registerAuthenticator(imap4.CramMD5ClientAuthenticator(username))
+        p.registerAuthenticator(imap4.LOGINAuthenticator(username))
+        p.registerAuthenticator(imap4.PLAINAuthenticator(username))
         return p
 
     def handleMessage(self, message):
