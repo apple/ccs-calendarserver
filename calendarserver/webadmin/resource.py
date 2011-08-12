@@ -199,6 +199,7 @@ class WebAdminPage(Element):
         return ''
 
 
+
 class WebAdminResource (ReadOnlyResourceMixIn, DAVFile):
     """
     Web administration HTTP resource.
