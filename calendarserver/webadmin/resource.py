@@ -445,13 +445,58 @@ class WebAdminResource (ReadOnlyResourceMixIn, DAVFile):
                  "<body>\n"
                  "<div style=\"padding-left:10px; padding-right:10px\">\n" % { "title": title, "style": self.directoryStyleSheet() })
 
+
     def footer(self) :
         return ( "\n</div>\n"
                  "</body>\n"
                  "</html>" )
-              
+
+
     @inlineCallbacks
-    def htmlContent(self, directory, request):
+    def htmlContent(self, request):
+
+        def queryValue(arg):
+            return request.args.get(arg, [""])[0]
+
+        # Read request parameters.
+        resourceId = queryValue("resourceId")
+        resourceSearch = queryValue("resourceSearch")
+        davPropertyName = queryValue("davPropertyName")
+        proxySearch = queryValue("proxySearch")
+
+        # Begin the content
+        content = (
+            "%(header)s\n"
+            "<h2>Resource Management</h2>\n"
+            "%(search)s\n" %
+            {
+                "header": self.header(None),
+                "search": (yield self.searchContent(self.directory,
+                                                    resourceSearch))
+            }
+        )
+
+        # Add details if a resource has been selected.
+        if resourceId:
+            principal = self.getResourceById(request, resourceId)
+            yield self.resourceActions(request, principal)
+            # Add the detailed content
+            content += (yield self.detailContent(
+                self.directory, request, principal, resourceId, davPropertyName,
+                proxySearch)
+            )
+
+        # Add the footer
+        content += self.footer()
+
+        returnValue(content)
+
+
+    @inlineCallbacks
+    def resourceActions(self, request, principal):
+        """
+        Take all actions on the given principal based on the given request.
+        """
 
         def queryValue(arg):
             return request.args.get(arg, [""])[0]
@@ -464,53 +509,33 @@ class WebAdminResource (ReadOnlyResourceMixIn, DAVFile):
                     matches.append(key[len(arg):])
             return matches
 
-        # Read request parameters.
-        resourceId = queryValue("resourceId")
-        resourceSearch = queryValue("resourceSearch")
-        davPropertyName = queryValue("davPropertyName")
         autoSchedule = queryValue("autoSchedule")
-        proxySearch = queryValue("proxySearch")
         makeReadProxies = queryValues("mkReadProxy|")
         makeWriteProxies = queryValues("mkWriteProxy|")
         removeProxies = queryValues("rmProxy|")
 
-        # Begin the content
-        content = ("%(header)s\n"
-                   "<h2>Resource Management</h2>\n"
-                   "%(search)s\n" % { "header": self.header(None),
-                                     "search": (yield self.searchContent(directory, resourceSearch)) })
+        # Update the auto-schedule value if specified.
+        if autoSchedule is not None and (autoSchedule == "true" or
+                                         autoSchedule == "false"):
+            if ( principal.record.recordType != "users" and
+                 principal.record.recordType != "groups"):
+                principal.setAutoSchedule(autoSchedule == "true")
 
-        # Add details if a resource has been selected.
-        if resourceId:
-        
-            principal = self.getResourceById(request, resourceId)
-    
-            # Update the auto-schedule value if specified.
-            if autoSchedule is not None and (autoSchedule == "true" or autoSchedule == "false"):
-                if principal.record.recordType != "users" and principal.record.recordType != "groups":
-                    principal.setAutoSchedule(autoSchedule == "true")
+        # Update the proxies if specified.
+        for proxyId in removeProxies:
+            proxy = self.getResourceById(request, proxyId)
+            (yield action_removeProxyPrincipal(principal, proxy,
+                                               proxyTypes=["read", "write"]))
 
-            # Update the proxies if specified.
-            for proxyId in removeProxies:
-                proxy = self.getResourceById(request, proxyId)
-                (yield action_removeProxyPrincipal(principal, proxy, proxyTypes=["read", "write"]))
+        for proxyId in makeReadProxies:
+            proxy = self.getResourceById(request, proxyId)
+            (yield action_addProxyPrincipal(principal, "read", proxy))
 
-            for proxyId in makeReadProxies:
-                proxy = self.getResourceById(request, proxyId)
-                (yield action_addProxyPrincipal(principal, "read", proxy))
+        for proxyId in makeWriteProxies:
+            proxy = self.getResourceById(request, proxyId)
+            (yield action_addProxyPrincipal(principal, "write", proxy))
 
-            for proxyId in makeWriteProxies:
-                proxy = self.getResourceById(request, proxyId)
-                (yield action_addProxyPrincipal(principal, "write", proxy))
-                
-            # Add the detailed content
-            content += (yield self.detailContent(directory, request, principal, resourceId, davPropertyName, proxySearch))
 
-        # Add the footer
-        content += self.footer()
-
-        returnValue(content)
-        
     @inlineCallbacks
     def searchContent(self, directory, resourceSearch):
         
@@ -784,7 +809,7 @@ class WebAdminResource (ReadOnlyResourceMixIn, DAVFile):
             return response
 
         # Generate the HTML and return the response when it's ready.
-        htmlContent = self.htmlContent(self.directory, request)
+        htmlContent = self.htmlContent(request)
         htmlContent.addCallback(_defer)
         return htmlContent
 
