@@ -237,8 +237,9 @@ class DetailsElement(Element):
         Renderer which sets the 'selected' attribute on its tag if the resource
         is auto-schedule.
         """
-        # FIXME IMPLEMENT
-        return ''
+        if self.principalResource.getAutoSchedule():
+            tag(selected='selected')
+        return tag
 
 
     @renderer
@@ -247,8 +248,9 @@ class DetailsElement(Element):
         Renderer which sets the 'selected' attribute on its tag if the resource
         is not auto-schedule.
         """
-        # FIXME IMPLEMENT
-        return ''
+        if not self.principalResource.getAutoSchedule():
+            tag(selected='selected')
+        return tag
 
 
     @renderer
