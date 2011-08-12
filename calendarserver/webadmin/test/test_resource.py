@@ -36,6 +36,8 @@ from calendarserver.webadmin.resource import WebAdminResource
 from twext.web2.dav.element.rfc3744 import GroupMemberSet
 from twext.web2.dav.element.rfc2518 import DisplayName
 
+from twext.web2.http import HTTPError
+from twext.web2.responsecode import CONFLICT
 from twistedcaldav.directory.directory import DirectoryRecord
 
 
@@ -253,10 +255,17 @@ class FakePrincipalResource(object):
         return self
 
 
+    @inlineCallbacks
     def readProperty(self, name, request):
+        yield None
+        if not isinstance(name, tuple):
+            name = name.qname()
         if name == DisplayName.qname():
-            return DisplayName("The Name To Display")
-        return GroupMemberSet()
+            returnValue(DisplayName("The Name To Display"))
+        elif name == GroupMemberSet.qname():
+            returnValue(GroupMemberSet())
+        else:
+            raise HTTPError(CONFLICT)
 
 
     def getAutoSchedule(self):
