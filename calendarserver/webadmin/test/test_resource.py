@@ -337,9 +337,11 @@ class RenderingTests(TestCase):
         """
         Resource principals will have their proxies listed in a table.
         """
+        def fakeResourceById(request, resid):
+            return FakePrincipalResource(self, request, resid,
+                                         recordType="resources")
 
-        self.resource.getResourceById = partial(FakePrincipalResource, self,
-                                                recordType="resources")
+        self.resource.getResourceById = fakeResourceById
         document = yield self.renderPage(dict(resourceId=["qux"]))
         proxiesForm = document.getElementById("frm_proxies")
         [proxiesTable] = getElementsByTagName(proxiesForm, "table")
