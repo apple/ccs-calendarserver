@@ -42,6 +42,7 @@ from twisted.python.modules import getModule
 from twext.web2.http_headers import MimeType
 from zope.interface.declarations import implements
 from twext.web2.stream import MemoryStream
+from twext.web2.http import HTTPError
 from twext.web2.dav import davxml
 
 from twisted.web.iweb import ITemplateLoader
@@ -235,10 +236,16 @@ class DetailsElement(Element):
         name.
         """
         if self.error is None:
-            propval = yield self.principalResource.readProperty(
-                (self.namespace, self.name), request
-            )
-            returnValue(tag.fillSlots(value=propval.toxml()))
+            try:
+                propval = yield self.principalResource.readProperty(
+                    (self.namespace, self.name), request
+                )
+            except HTTPError:
+                propval = "No such property: " + "#".join([self.namespace,
+                                                           self.name])
+            else:
+                propval = propval.toxml()
+            returnValue(tag.fillSlots(value=propval))
         else:
             returnValue("")
 

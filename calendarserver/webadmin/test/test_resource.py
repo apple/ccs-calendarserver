@@ -417,3 +417,20 @@ class NewRenderingTests(RenderingTests):
         returnValue((yield super(NewRenderingTests, self).renderPage(args)))
 
 
+    @inlineCallbacks
+    def test_noDavProperty(self):
+        """
+        When a DAV property is not found, an error will be displayed.
+        """
+        self.resource.getResourceById = partial(FakePrincipalResource, self)
+        document = yield self.renderPage(
+            dict(resourceId=["qux"],
+                 davPropertyName=["DAV:#blub"])
+        )
+        propertyName = document.getElementById('txt_davPropertyName')
+        self.assertEquals(propertyName.getAttribute("value"),
+                          "DAV:#blub")
+        propertyValue = "No such property: DAV:#blub"
+        self.assertIn(cgi.escape(propertyValue),
+                      gatherTextNodes(document))
+
