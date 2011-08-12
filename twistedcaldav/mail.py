@@ -1115,6 +1115,51 @@ class MailHandler(LoggingMixIn):
                       attendees, fromAddress, replyToAddress, toAddress,
                       language='en'):
 
+        """
+        Generate MIME text containing an iMIP invitation, cancellation, update
+        or reply.
+
+        @param inviteState: 'new', 'update', or 'reply'.
+
+        @type inviteState: C{str}
+
+        @param calendar: the iCalendar component to attach to the email.
+
+        @type calendar: L{twistedcaldav.ical.Component}
+
+        @param orgEmail: The email for the organizer, in C{localhost@domain}
+            format, or C{None} if the organizer has no email address.
+
+        @type orgEmail: C{str} or C{NoneType}
+
+        @param orgCN: Common name / display name for the organizer.
+
+        @param attendees: A C{list} of 2-C{tuple}s of (common name, email
+            address) similar to (orgEmail, orgCN).
+
+        @param fromAddress: the address to use in the C{From:} header of the
+            email.
+
+        @type fromAddress: C{str}
+
+        @param replyToAddress: the address to use in the C{Reply-To} header.
+
+        @type replyToAddress: C{str}
+
+        @param toAddress: the address to use in the C{To} header.
+
+        @type toAddress: C{str}
+
+        @param language: a 2-letter language code describing the target
+            language that the email should be generated in.
+
+        @type language: C{str}
+
+        @return: a 2-tuple of C{str}s: (message ID, message text).  The message
+            ID is the value of the C{Message-ID} header, and the message text is
+            the full MIME message, ready for transport over SMTP.
+        """
+
         details = self.getEventDetails(calendar, language=language)
         canceled = (calendar.propertyValue("METHOD") == "CANCEL")
         iconPath = self.getIconPath(details, canceled, language=language)
