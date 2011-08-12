@@ -153,7 +153,13 @@ class WebAdminPage(Element):
         Renderer which fills slots for details of the resource selected by
         the resourceId request parameter.
         """
-        return DetailsElement(tag)
+        resourceId = request.args.get('resourceId', [''])[0]
+        if resourceId:
+            principalResource = self.resource.getResourceById(
+                request, resourceId)
+            return DetailsElement(principalResource, tag)
+        else:
+            return ""
 
 
 
@@ -175,9 +181,10 @@ class stan(object):
 
 class DetailsElement(Element):
 
-    def __init__(self, tag):
+    def __init__(self, principalResource, tag):
         # FIXME IMPLEMENT
-        tag.fillSlots(resourceTitle="",
+        self.principalResource = principalResource
+        tag.fillSlots(resourceTitle=unicode(principalResource),
                       resourceId="",
                       davPropertyName="")
         super(DetailsElement, self).__init__(loader=stan(tag))
