@@ -111,21 +111,19 @@ class WebAdminPage(Element):
         def searchPerformed(results):
             for idx, record in enumerate(results):
                 yield tag.clone().fillSlots(
-                    **{
-                        "rowClass": "even" if (idx % 2 == 0) else "odd",
-                        "type": record.recordType,
-                        "shortName": record.shortNames[0],
-                        "name": record.fullName,
-                        "typeStr": {
-                            "users"     : "User",
-                            "groups"    : "Group",
-                            "locations" : "Place",
-                            "resources" : "Resource",
-                        }.get(record.recordType),
-                        "shortNames": str(", ".join(record.shortNames)),
-                        "authIds": str(", ".join(record.authIDs)),
-                        "emails": str(", ".join(record.emailAddresses)),
-                    }
+                    rowClass="even" if (idx % 2 == 0) else "odd",
+                    type=record.recordType,
+                    shortName=record.shortNames[0],
+                    name= record.fullName,
+                    typeStr={
+                        "users"     : "User",
+                        "groups"    : "Group",
+                        "locations" : "Place",
+                        "resources" : "Resource",
+                    }.get(record.recordType),
+                    shortNames=str(", ".join(record.shortNames)),
+                    authIds=str(", ".join(record.authIDs)),
+                    emails=str(", ".join(record.emailAddresses)),
                 )
         return d.addCallback(searchPerformed)
 
