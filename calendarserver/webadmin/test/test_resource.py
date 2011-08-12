@@ -132,6 +132,24 @@ class RenderingTests(TestCase):
             "/admin/?resourceId=users:bob"
         )
         self.assertEquals(gatherTextNodes(resourceLink), "select")
+        self.assertNotIn(
+            "No matches found for resource bob",
+            gatherTextNodes(document)
+        )
+
+
+    @inlineCallbacks
+    def test_noResourceFound(self):
+        """
+        Searching for resources which don't exist should result in an
+        informative message.
+        """
+        self.expectRecordSearch("bob", [])
+        document = yield self.renderPage(dict(resourceSearch=["bob"]))
+        self.assertIn(
+            "No matches found for resource bob",
+            gatherTextNodes(document)
+        )
 
 
     realmName = 'Fake'
