@@ -42,6 +42,7 @@ from twisted.mail.smtp import messageid, rfc822date, ESMTPSenderFactory
 from twisted.plugin import IPlugin
 from twisted.python.usage import Options, UsageError
 from twisted.web import client
+from twisted.web.template import XMLString
 
 from twext.web2 import server, responsecode
 from twext.web2.channel.http import HTTPFactory
@@ -142,6 +143,38 @@ htmlInviteTemplate = u"""<html>
     <h3>%(attLabel)s:</h3> %(htmlAttendees)s
     </p>
     """
+
+
+class StringFormatTemplateLoader(object):
+    """
+    Loader for twisted.web.template that converts a template with %()s slots.
+    """
+    def __init__(self, fileFactory, rendererName):
+        """
+        @param fileFactory: a 1-argument callable which returns a file-like
+            object that contains the %()s-format template.
+
+        @param rendererName: the name of the renderer.
+
+        @type rendererName: C{str}
+        """
+        self.fileFactory = fileFactory
+        self.rendererName = rendererName
+
+
+    def load(self):
+        class FormatterShim(object):
+            def __getitem__(self, item):
+                return "<t:slot name=%r />" % (item,)
+
+        starttag, everything = self.fileFactory().read().split(">", 1)
+        html = starttag + (
+            ' xmlns:t="http://twistedmatrix.com/ns/twisted.web.template/0.1"'
+            ' t:render=%r >' % (self.rendererName,))
+        html += everything % FormatterShim()
+        print html
+        return XMLString(html).load()
+
 
 
 def localizedLabels(language, canceled, inviteState):
