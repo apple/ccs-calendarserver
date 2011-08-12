@@ -450,7 +450,7 @@ class ProxyRow(Element):
     def proxies(self, proxyResource, tag):
         if proxyResource is None:
             return ''
-        return tag.fillSlots(proxy=unicode(proxyResource.record),
+        return tag.fillSlots(proxy=str(proxyResource),
                              type=proxyResource.record.recordType,
                              shortName=proxyResource.record.shortNames[0])
 
