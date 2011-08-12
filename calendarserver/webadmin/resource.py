@@ -185,11 +185,21 @@ class stan(object):
 class DetailsElement(Element):
 
     def __init__(self, resourceId, principalResource, davPropertyName, tag):
-        # FIXME IMPLEMENT
         self.principalResource = principalResource
         tag.fillSlots(resourceTitle=unicode(principalResource),
                       resourceId=resourceId,
                       davPropertyName=davPropertyName)
+        try:
+            namespace, name = davPropertyName.split("#")
+        except Exception:
+            self.namespace = None
+            self.name = None
+            self.error = True
+        else:
+            self.namespace = namespace
+            self.name = name
+            self.error = False
+
         super(DetailsElement, self).__init__(loader=stan(tag))
 
 
@@ -204,13 +214,16 @@ class DetailsElement(Element):
 
 
     @renderer
+    @inlineCallbacks
     def davProperty(self, request, tag):
         """
         Renderer to display an error when the user specifies an invalid property
         name.
         """
-        # FIXME IMPLEMENT
-        return tag.fillSlots(value="sample value")
+        propval = yield self.principalResource.readProperty(
+            (self.namespace, self.name), request
+        )
+        returnValue(tag.fillSlots(value=propval.toxml()))
 
 
     @renderer
