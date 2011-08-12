@@ -121,8 +121,8 @@
         <div style="margin-top:7px">
           Auto-Schedule
           <select id="sel_autoSchedule" name="autoSchedule">
-            <option t:render="trueOption" value="true">Yes</option>
-            <option t:render="falseOption" value="false">No</option>
+            <option t:render="isAutoSchedule" value="true">Yes</option>
+            <option t:render="isntAutoSchedule" value="false">No</option>
           </select>
           <input type="submit" value="Change" />
         </div>
@@ -140,7 +140,7 @@
             <th colspan="2">Read-Only Proxies</th>
             <th colspan="2">Read-Write Proxies</th>
           </tr>
-          <tr t:render="proxyRow">
+          <tr t:render="proxyRows">
             <t:attr name="class"><t:slot name="rowClass" /> </t:attr>
             <t:transparent t:render="readOnlyProxies">
             <td><t:slot name="proxy" /></td>
