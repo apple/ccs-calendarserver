@@ -214,6 +214,10 @@ class RenderingTests(TestCase):
             "hdn_resourceId").getAttribute("value")
         self.assertEquals(hiddenResourceId, "qux")
 
+        autoScheduleMenu = document.getElementById("sel_autoSchedule")
+        # Not an auto-schedule resource; there should be no auto-schedule menu.
+        self.assertIdentical(autoScheduleMenu, None)
+
 
     @inlineCallbacks
     def test_davProperty(self):
@@ -310,6 +314,20 @@ class RenderingTests(TestCase):
         self.assertEquals(lastRowCells[-1].getAttribute("colspan"), "2")
 
 
+    @inlineCallbacks
+    def test_noProxiesListing(self):
+        """
+        When the selected resource principal has no proxies, the page should
+        display a message saying so.
+        """
+        self.resource.getResourceById = partial(FakePrincipalResource, self,
+                                                recordType='resources',
+                                                hasProxies=False)
+        document = yield self.renderPage(dict(resourceId=['qux']))
+        self.assertIn("This resource has no proxies.",
+                      ''.join(gatherTextNodes(document)))
+
+
     # Properties for being a fake directory service as far as the implementation
     # of DirectoryRecord is concerned.
     realmName = 'Fake'
@@ -348,24 +366,21 @@ class FakePrincipalResource(object):
     def getChild(self, name):
         if name == 'calendar-proxy-read':
             if self.hasProxies:
-                proxyProps = [GroupMemberSet(HRef("read-1"),
-                                             HRef("read-2"),
-                                             HRef("read-3"))]
+                proxyProps = [HRef("read-1"), HRef("read-2"), HRef("read-3")]
             else:
                 proxyProps = []
             return FakePrincipalResource(
                 self.test,
-                extraProperties=proxyProps
+                extraProperties=[GroupMemberSet(*proxyProps)]
             )
         elif name == 'calendar-proxy-write':
             if self.hasProxies:
-                proxyProps = [GroupMemberSet(HRef("write-1"),
-                                             HRef("write-2"))]
+                proxyProps = [HRef("write-1"), HRef("write-2")]
             else:
                 proxyProps = []
             return FakePrincipalResource(
                 self.test,
-                extraProperties=proxyProps
+                extraProperties=[GroupMemberSet(*proxyProps)]
             )
 
 
