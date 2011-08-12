@@ -220,6 +220,31 @@ class RenderingTests(TestCase):
                       gatherTextNodes(document))
 
 
+    @inlineCallbacks
+    def test_autoScheduleMenu(self):
+        """
+        When rendering a resource, an "Auto-Schedule" menu with "Yes/No" options
+        should be displayed.
+        """
+        self.resource.getResourceById = partial(FakePrincipalResource, self,
+                                                recordType='resources')
+        document = yield self.renderPage(dict(resourceId=["qux"]))
+        autoScheduleMenu = document.getElementById("sel_autoSchedule")
+        self.assertEquals(autoScheduleMenu.getAttribute("name"), "autoSchedule")
+
+        yes, no = getElementsByTagName(autoScheduleMenu, 'option')
+
+        # Sanity checks to make sure we got the right items
+        self.assertEquals(yes.getAttribute("value"), "true")
+        self.assertEquals(no.getAttribute("value"), "false")
+
+        expectedTrue, expectedFalse = yes, no
+
+        self.assertEquals(expectedTrue.hasAttribute("selected"), True)
+        self.assertEquals(expectedFalse.hasAttribute("selected"), False)
+        self.assertEquals(expectedTrue.getAttribute("selected"), "selected")
+
+
     # Properties for being a fake directory service as far as the implementation
     # of DirectoryRecord is concerned.
     realmName = 'Fake'
@@ -228,10 +253,11 @@ class RenderingTests(TestCase):
 
 
 class FakePrincipalResource(object):
-    def __init__(self, test, req, resid, autosched=True):
+    def __init__(self, test, req, resid, autosched=True, recordType="users"):
         self.test = test
         test.assertEquals(resid, "qux")
         self.autosched = autosched
+        self.recordType = recordType
 
 
     @property
@@ -241,7 +267,7 @@ class FakePrincipalResource(object):
         shortNames = ['fake short name']
         fullName = 'nobody'
         return DirectoryRecord(
-            service=self.test, recordType='users', guid=None,
+            service=self.test, recordType=self.recordType, guid=None,
             authIDs=authIds, emailAddresses=tuple(emails),
             shortNames=tuple(shortNames), fullName=fullName
         )
