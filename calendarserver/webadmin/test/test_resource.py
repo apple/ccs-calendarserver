@@ -283,7 +283,7 @@ class RenderingTests(TestCase):
 
 
 class FakePrincipalResource(object):
-    def __init__(self, test, req=None, resid=None, autosched=True,
+    def __init__(self, test, req=None, resid='no-id-given', autosched=True,
                  recordType="users", extraProperties=()):
         self.test = test
         self.resid = resid
