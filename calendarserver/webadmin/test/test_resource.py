@@ -27,6 +27,7 @@ from calendarserver.tap.util import FakeRequest
 from twisted.internet.defer import inlineCallbacks
 from twisted.internet.defer import returnValue
 from calendarserver.webadmin.resource import WebAdminResource
+from twext.web2.dav.element.rfc3744 import GroupMemberSet
 from twistedcaldav.directory.directory import DirectoryRecord
 
 
@@ -102,10 +103,10 @@ class RenderingTests(TestCase):
                 )
                 for (shortNames, fullName, authIds, emails)
                 in [
-                    (["bob"], "Bob Bobson", ["boblogin"], [
-                        "bob@example.com",
-                        "bob@other.example.com"]),
-                    (["bobd"], "Bob Dobson", ["bobdlogin"], ["bobd@example.com"]),
+                    (["bob"], "Bob Bobson", ["boblogin"],
+                     ["bob@example.com", "bob@other.example.com"]),
+                    (["bobd"], "Bob Dobson", ["bobdlogin"],
+                     ["bobd@example.com"]),
                    ]
             ])
         document = yield self.renderPage(dict(resourceSearch=["bob"]))
@@ -150,6 +151,46 @@ class RenderingTests(TestCase):
             "No matches found for resource bob",
             gatherTextNodes(document)
         )
+
+
+    @inlineCallbacks
+    def test_selectResourceById(self):
+        """
+        When a resource is selected by a 'resourceId' parameter, 
+        """
+        test = self
+        class FakePrincipalResource(object):
+            def __init__(self, req, resid):
+                test.assertEquals(resid, "qux")
+
+            @property
+            def record(self):
+                authIds = ['fake auth id']
+                emails = ['fake email']
+                shortNames = ['fake short name']
+                fullName = 'nobody'
+                return DirectoryRecord(
+                    service=test, recordType='users', guid=None,
+                    authIDs=authIds, emailAddresses=tuple(emails),
+                    shortNames=tuple(shortNames), fullName=fullName
+                )
+
+            def __str__(self):
+                return 'Hello Fake Resource'
+
+            def getChild(self, name):
+                return self
+
+            def readProperty(self, name, request):
+                return GroupMemberSet()
+
+
+        self.resource.getResourceById = FakePrincipalResource
+        document = yield self.renderPage(dict(resourceId=["qux"]))
+        [detailsTitle] = getElementsByTagName(document, 'h3')
+        detailString = gatherTextNodes(detailsTitle)
+        self.assertEquals(detailString,
+                          "Resource Details: Hello Fake Resource")
 
 
     realmName = 'Fake'
