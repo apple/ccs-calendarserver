@@ -120,9 +120,18 @@ class RenderingTests(TestCase):
         rows = getElementsByTagName(tables[0], 'tr')
         self.assertEquals(len(rows), 3)
         firstRowCells = getElementsByTagName(rows[1], 'td')
-        self.assertEquals([gatherTextNodes(cell) for cell in firstRowCells[1:]],
-                         ["Bob Bobson", "User", "bob", "boblogin",
-                          "bob@example.com, bob@other.example.com"])
+        self.assertEquals(
+            [gatherTextNodes(cell) for cell in firstRowCells[1:]],
+            ["Bob Bobson", "User", "bob", "boblogin",
+             "bob@example.com, bob@other.example.com"]
+        )
+        [resourceLink] = getElementsByTagName(
+            firstRowCells[0], 'a')
+        self.assertEquals(
+            resourceLink.getAttribute("href"),
+            "/admin/?resourceId=users:bob"
+        )
+        self.assertEquals(gatherTextNodes(resourceLink), "select")
 
 
     realmName = 'Fake'
