@@ -209,6 +209,8 @@ class DetailsElement(Element):
         Renderer to display an error when the user specifies an invalid property
         name.
         """
+        if not self.error:
+            return ""
         # FIXME IMPLEMENT
         return tag
 
