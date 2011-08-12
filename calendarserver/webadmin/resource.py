@@ -326,15 +326,15 @@ class DetailsElement(Element):
                 def getres(ref):
                     return self.adminResource.getResourceById(request,
                                                               str(proxyHRef))
-                for proxyHRef in readMembers.children:
+                for proxyHRef in sorted(readMembers.children, key=str):
                     readProxies.append((yield getres(proxyHRef)))
-                for proxyHRef in writeMembers.children:
+                for proxyHRef in sorted(writeMembers.children, key=str):
                     writeProxies.append((yield getres(proxyHRef)))
                 lendiff = len(readProxies) - len(writeProxies)
                 if lendiff > 0:
                     writeProxies += [None] * lendiff
                 elif lendiff < 0:
-                    readProxies += [None] * lendiff
+                    readProxies += [None] * -lendiff
                 self._matrix = zip(readProxies, writeProxies)
             else:
                 self._matrix = []
