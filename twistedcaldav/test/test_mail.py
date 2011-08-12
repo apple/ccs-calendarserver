@@ -14,11 +14,12 @@
 # limitations under the License.
 ##
 
-import os
 import datetime
 import email
 
 from twisted.internet.defer import inlineCallbacks
+from twisted.python.modules import getModule
+from twisted.python.filepath import FilePath
 
 from twistedcaldav.test.util import TestCase
 
@@ -63,7 +64,8 @@ class MailHandlerTests(TestCase):
     def setUp(self):
         TestCase.setUp(self)
         self.handler = MailHandler(dataRoot=":memory:")
-        self.dataDir = os.path.join(os.path.dirname(__file__), "data", "mail")
+        module = getModule(__name__)
+        self.dataPath = module.filePath.sibling("data").child("mail")
 
 
     def dataFile(self, name):
@@ -71,7 +73,7 @@ class MailHandlerTests(TestCase):
         Get the contents of a given data file from the 'data/mail' test
         fixtures directory.
         """
-        return file(os.path.join(self.dataDir, name)).read()
+        return self.dataPath.child(name).getContent()
 
 
     def test_purge(self):
@@ -102,12 +104,16 @@ class MailHandlerTests(TestCase):
     def test_iconPath(self):
         iconPath = self.handler.getIconPath({'day':'1', 'month':'1'}, False,
                                             language='en')
-        iconDir = "/usr/share/caldavd/share/date_icons"
-        if os.path.exists(iconDir):
-            if os.path.exists("%s/JAN/01.png" % (iconDir,)):
-                self.assertEquals(iconPath, "%s/JAN/01.png" % (iconDir,))
+        iconDir = FilePath("/usr/share/caldavd/share/date_icons")
+
+        if iconDir.exists():
+            if iconDir.child("JAN").child("01.png"):
+                monthName = "JAN"
             else:
-                self.assertEquals(iconPath, "%s/01/01.png" % (iconDir,))
+                monthName = "01"
+            monthPath = iconDir.child(monthName)
+            self.assertEquals(iconPath, monthPath.child("01.png").path)
+
 
     def test_checkDSNFailure(self):
 
