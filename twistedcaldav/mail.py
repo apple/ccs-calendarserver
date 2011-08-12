@@ -1193,15 +1193,15 @@ class MailHandler(LoggingMixIn):
         canceled = (calendar.propertyValue("METHOD") == "CANCEL")
         iconPath = self.getIconPath(details, canceled, language=language)
 
-        with translationTo(language):
-            msg = MIMEMultipart()
-            msg["From"] = fromAddress
-            msg["Reply-To"] = replyToAddress
-            msg["To"] = toAddress
-            msg["Date"] = rfc822date()
-            msgId = messageid()
-            msg["Message-ID"] = msgId
+        msg = MIMEMultipart()
+        msg["From"] = fromAddress
+        msg["Reply-To"] = replyToAddress
+        msg["To"] = toAddress
+        msg["Date"] = rfc822date()
+        msgId = messageid()
+        msg["Message-ID"] = msgId
 
+        with translationTo(language):
             if canceled:
                 formatString = _("Event canceled: %(summary)s")
             elif inviteState == "new":
