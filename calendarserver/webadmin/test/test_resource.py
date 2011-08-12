@@ -109,6 +109,12 @@ class RenderingTests(TestCase):
                    ]
             ])
         document = yield self.renderPage(dict(resourceSearch=["bob"]))
+
+        # Form is filled out with existing input.
+        self.assertEquals(
+            document.getElementById("txt_resourceSearch").getAttribute("value"),
+            "bob"
+        )
         tables = getElementsByTagName(document, "table")
         # search results are the first table
         rows = getElementsByTagName(tables[0], 'tr')
