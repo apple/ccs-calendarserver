@@ -189,7 +189,7 @@ class DetailsElement(Element):
         self.principalResource = principalResource
         tag.fillSlots(resourceTitle=unicode(principalResource),
                       resourceId=resourceId,
-                      davPropertyName="")
+                      davPropertyName=davPropertyName)
         super(DetailsElement, self).__init__(loader=stan(tag))
 
 
