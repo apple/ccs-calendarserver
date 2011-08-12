@@ -157,7 +157,7 @@ class WebAdminPage(Element):
         if resourceId:
             principalResource = self.resource.getResourceById(
                 request, resourceId)
-            return DetailsElement(principalResource, tag)
+            return DetailsElement(resourceId, principalResource, tag)
         else:
             return ""
 
@@ -181,11 +181,11 @@ class stan(object):
 
 class DetailsElement(Element):
 
-    def __init__(self, principalResource, tag):
+    def __init__(self, resourceId, principalResource, tag):
         # FIXME IMPLEMENT
         self.principalResource = principalResource
         tag.fillSlots(resourceTitle=unicode(principalResource),
-                      resourceId="",
+                      resourceId=resourceId,
                       davPropertyName="")
         super(DetailsElement, self).__init__(loader=stan(tag))
 
