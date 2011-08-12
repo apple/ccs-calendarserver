@@ -159,7 +159,8 @@ class WebAdminPage(Element):
             principalResource = self.resource.getResourceById(
                 request, resourceId)
             return DetailsElement(
-                resourceId, principalResource, propertyName, tag
+                resourceId, principalResource, propertyName, tag,
+                self.resource
             )
         else:
             return ""
@@ -184,8 +185,10 @@ class stan(object):
 
 class DetailsElement(Element):
 
-    def __init__(self, resourceId, principalResource, davPropertyName, tag):
+    def __init__(self, resourceId, principalResource, davPropertyName, tag,
+                 adminResource):
         self.principalResource = principalResource
+        self.adminResource = adminResource
         tag.fillSlots(resourceTitle=unicode(principalResource),
                       resourceId=resourceId,
                       davPropertyName=davPropertyName)
@@ -254,13 +257,91 @@ class DetailsElement(Element):
 
 
     @renderer
+    @inlineCallbacks
     def proxyRows(self, request, tag):
         """
         Renderer which does zipping logic to render read-only and read-write
         rows of existing proxies for the currently-viewed resource.
         """
-        # FIXME IMPLEMENT
-        return ''
+        result = []
+        (readSubPrincipal, writeSubPrincipal) = (
+            proxySubprincipal(self.principalResource, "read"),
+            proxySubprincipal(self.principalResource, "write")
+        )
+        if readSubPrincipal or writeSubPrincipal:
+            (readMembers, writeMembers) = (
+                (yield readSubPrincipal.readProperty(davxml.GroupMemberSet,
+                                                     None)),
+                (yield writeSubPrincipal.readProperty(davxml.GroupMemberSet,
+                                                      None))
+            )
+            if readMembers.children or writeMembers.children:
+                # FIXME: 'else' case needs to be handled by separate renderer
+                readProxies = []
+                writeProxies = []
+                def getres(ref):
+                    return self.adminResource.getResourceById(str(proxyHRef))
+                for proxyHRef in readMembers.children:
+                    readProxies.append((yield getres(proxyHRef)))
+                for proxyHRef in writeMembers.children:
+                    writeProxies.append((yield getres(proxyHRef)))
+                lendiff = len(readProxies) - len(writeProxies)
+                if lendiff > 0:
+                    writeProxies += [None] * lendiff
+                elif lendiff < 0:
+                    readProxies += [None] * lendiff
+                for idx, (readProxy, writeProxy) in enumerate(
+                        zip(readProxies, writeProxies)
+                    ):
+                    result.append(
+                        ProxyRow(tag.clone(), idx, readProxy, writeProxy)
+                    )
+        returnValue(result)
+
+
+
+class ProxyRow(Element):
+
+    def __init__(self, tag, index, readProxy, writeProxy):
+        tag.fillSlots(rowClass="even" if (index % 2 == 0) else "odd")
+        super(ProxyRow, self).__init__(loader=stan(tag))
+        self.readProxy = readProxy
+        self.writeProxy = writeProxy
+
+
+    def proxies(self, proxyResource, tag):
+        if proxyResource is None:
+            return ''
+        return tag.fillSlots(proxy=unicode(proxyResource.record),
+                             type=proxyResource.record.recordType,
+                             shortName=proxyResource.record.shortNames[0])
+
+
+    def noProxies(self, proxyResource, tag):
+        if proxyResource is None:
+            return tag
+        else:
+            return ""
+
+
+    @renderer
+    def readOnlyProxies(self, request, tag):
+        return self.proxies(self.readProxy, tag)
+
+
+    @renderer
+    def noReadOnlyProxies(self, request, tag):
+        return self.noProxies(self.readProxy, tag)
+
+
+    @renderer
+    def readWriteProxies(self, request, tag):
+        return self.proxies(self.writeProxy, tag)
+
+
+    @renderer
+    def noReadWriteProxies(self, request, tag):
+        return self.noProxies(self.writeProxy, tag)
 
 
 
