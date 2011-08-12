@@ -1266,21 +1266,22 @@ class MailHandler(LoggingMixIn):
 
         details.update(labels)
 
+        plainText = self.renderPlainText(
+            details, (orgCN, orgEmail), attendees, canceled
+        )
+        addIcon, htmlText = self.renderHTML(
+            details, (orgCN, orgEmail), attendees, canceled
+        )
+
         msgAlt = MIMEMultipart("alternative")
         msg.attach(msgAlt)
 
-        plainText = self.renderPlainText(details, (orgCN, orgEmail),
-                                         attendees, canceled)
         msgPlain = MIMEText(plainText.encode("UTF-8"), "plain", "UTF-8")
         msgAlt.attach(msgPlain)
 
         # html version
         msgHtmlRelated = MIMEMultipart("related", type="text/html")
         msgAlt.attach(msgHtmlRelated)
-
-        addIcon, htmlText = self.renderHTML(
-            details, (orgCN, orgEmail), attendees, canceled
-        )
 
         msgHtml = MIMEText(htmlText.encode("UTF-8"), "html", "UTF-8")
         msgHtmlRelated.attach(msgHtml)
