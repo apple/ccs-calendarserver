@@ -103,6 +103,11 @@ class WebAdminPage(Element):
 
     @inlineCallbacks
     def performSearch(self, request):
+        """
+        Perform a directory search for users, groups, and resources based on the
+        resourceSearch query parameter.  Cache the results of that search so
+        that it will only be done once per request.
+        """
         if self._searchResults is not None:
             returnValue(self._searchResults)
         searchTerm = request.args.get('resourceSearch', [''])[0]
