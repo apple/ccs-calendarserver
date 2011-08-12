@@ -108,16 +108,16 @@ class RenderingTests(TestCase):
         self.expectRecordSearch(
             "bob", [
                 DirectoryRecord(
-                    service=self, recordType='users', guid=None,
+                    service=self, recordType=recordType, guid=None,
                     authIDs=authIds, emailAddresses=tuple(emails),
                     shortNames=tuple(shortNames), fullName=fullName
                 )
-                for (shortNames, fullName, authIds, emails)
+                for (shortNames, fullName, authIds, emails, recordType)
                 in [
                     (["bob"], "Bob Bobson", ["boblogin"],
-                     ["bob@example.com", "bob@other.example.com"]),
+                     ["bob@example.com", "bob@other.example.com"], 'users'),
                     (["bobd"], "Bob Dobson", ["bobdlogin"],
-                     ["bobd@example.com"]),
+                     ["bobd@example.com"], 'sudoers'),
                    ]
             ])
 

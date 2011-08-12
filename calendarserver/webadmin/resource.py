@@ -166,7 +166,7 @@ def searchToSlots(results, tag):
                 "groups"    : "Group",
                 "locations" : "Place",
                 "resources" : "Resource",
-            }.get(record.recordType),
+            }.get(record.recordType, repr(record.recordType)),
             shortNames=str(", ".join(record.shortNames)),
             authIds=str(", ".join(record.authIDs)),
             emails=str(", ".join(record.emailAddresses)),
