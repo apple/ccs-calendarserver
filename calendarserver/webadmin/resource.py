@@ -70,8 +70,9 @@ class WebAdminPage(Element):
         """
         Main renderer, which fills page-global slots like 'title'.
         """
+        searchTerm = request.args.get('resourceSearch', [''])[0]
         return tag.fillSlots(
-            resourceSearch="Placeholder Resource Search",
+            resourceSearch=searchTerm,
             resourceTitle="Placeholder Resource Title",
             resourceId="Placeholder Resource ID",
             davPropertyName="placeholder DAV property name",
