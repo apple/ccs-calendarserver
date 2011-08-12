@@ -536,6 +536,7 @@ END:VCALENDAR
         self.assertIn(expectedHTML, htmlPart)
 
 
+
 def partByType(message, contentType):
     """
     Retrieve a MIME part from an L{email.message.Message} based on a content

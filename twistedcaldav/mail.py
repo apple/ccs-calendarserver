@@ -1261,29 +1261,13 @@ class MailHandler(LoggingMixIn):
 
             details['iconName'] = iconName = "calicon.png"
 
-            templateDir = config.Scheduling.iMIP.MailTemplatesDirectory.rstrip("/")
-            templateName = "cancel.html" if canceled else "invite.html"
-            templatePath = os.path.join(templateDir, templateName)
-
-            if not os.path.exists(templatePath):
-                # Fall back to built-in simple templates:
-                if canceled:
-                    htmlTemplate = htmlCancelTemplate
-                else:
-                    htmlTemplate = htmlInviteTemplate
-            else: # HTML template file exists
-
-                with open(templatePath) as templateFile:
-                    htmlTemplate = templateFile.read()
-
-            htmlText = htmlTemplate % details
+            addIcon, htmlText = self.renderHTML(details, canceled)
 
         msgHtml = MIMEText(htmlText.encode("UTF-8"), "html", "UTF-8")
         msgHtmlRelated.attach(msgHtml)
 
         # an image for html version
-        if (iconPath != None and os.path.exists(iconPath) and
-            htmlTemplate.find("cid:%(iconName)s") != -1):
+        if addIcon and iconPath != None and os.path.exists(iconPath):
 
             with open(iconPath) as iconFile:
                 msgIcon = MIMEImage(iconFile.read(),
@@ -1306,6 +1290,38 @@ class MailHandler(LoggingMixIn):
         msg.attach(msgIcal)
 
         return msgId, msg.as_string()
+
+
+    def renderHTML(self, details, canceled):
+        """
+        Render HTML message part based on invitation details and a flag
+        indicating whether the message is a cancellation.
+
+        @return: a 2-tuple of (should add icon (C{bool}), html text (C{str})).
+            The first element indicates whether the MIME generator needs to add
+            a L{cid:} icon image part to satisfy the HTML links.
+        """
+
+        templateDir = config.Scheduling.iMIP.MailTemplatesDirectory.rstrip("/")
+        templateName = "cancel.html" if canceled else "invite.html"
+        templatePath = os.path.join(templateDir, templateName)
+
+        if not os.path.exists(templatePath):
+            # Fall back to built-in simple templates:
+            if canceled:
+                htmlTemplate = htmlCancelTemplate
+            else:
+                htmlTemplate = htmlInviteTemplate
+        else: # HTML template file exists
+
+            with open(templatePath) as templateFile:
+                htmlTemplate = templateFile.read()
+        htmlText = htmlTemplate % details
+
+        # If the template refers to an icon in a cid: link, it needs to be added
+        # in the MIME.
+        addIcon = (htmlTemplate.find("cid:%(iconName)s") != -1)
+        return (addIcon, htmlText)
 
 
     def getEventDetails(self, calendar, language='en'):
