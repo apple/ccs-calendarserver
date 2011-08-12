@@ -119,7 +119,7 @@
     <form id="frm_autoSchedule" name="autoScheduleForm" action="/admin/"
         style="margin-top:15px">
       <input type="hidden" id="hdn_resourceId" name="resourceId"
-        value="%(resourceId)s" />
+      ><t:attr name="value"><t:slot name="resourceId" /></t:attr></input>
       <div style="margin-top:7px">
         Auto-Schedule
         <select id="sel_autoSchedule" name="autoSchedule">
@@ -136,33 +136,40 @@
     <form id="frm_proxies" name="proxiesForm" action="/admin/"
       style="margin-top:15px">
       <input type="hidden" id="hdn_resourceId" name="resourceId"
-      value="%(resourceId)s" />
+      ><t:attr name="value"><t:slot name="resourceId" /></t:attr></input>
+
       <table cellspacing="0" cellpadding="3" border="1">
         <tr class="odd">
           <th colspan="2">Read-Only Proxies</th>
           <th colspan="2">Read-Write Proxies</th>
         </tr>
-        <tr class="%(rowClass)s" t:render="proxyRow">
+        <tr t:render="proxyRow">
+          <t:attr name="class"><t:slot name="rowClass" /> </t:attr>
           <t:transparent t:render="readOnlyProxies">
-          <td>%(proxy)s</td>
+          <td><t:slot name="proxy" /></td>
           <td>
-            <input type="submit" name="mkWriteProxy|%(type)s:%(shortName)s"
-              value="Make Read-Write" />
-            <input type="submit" name="rmProxy|%(type)s:%(shortName)s"
-              value="Remove Proxy" />
+            <input type="submit" value="Make Read-Write"><t:attr
+            name="name">mkWriteProxy|<t:slot name="type" />:<t:slot
+            name="shortName"/></t:attr></input>
+            <input type="submit" value="Remove Proxy"><t:attr
+            name="name">rmProxy|<t:slot name="type" />:<t:slot
+            name="shortName"/></t:attr></input>
           </td>
           </t:transparent>
+
           <t:transparent t:render="noReadOnlyProxies">
-            <td colspan="2"></td>
+          <td colspan="2"></td>
           </t:transparent>
           <t:transparent t:render="readWriteProxies">
-            <td>%(proxy)s</td>
-            <td>
-              <input type="submit" name="mkReadProxy|%(type)s:%(shortName)s"
-                value="Make Read-Only" />
-              <input type="submit" name="rmProxy|%(type)s:%(shortName)s"
-                value="Remove Proxy" />
-            </td>
+          <td><t:slot name="proxy" /></td>
+          <td>
+            <input type="submit" value="Make Read-Only"><t:attr
+            name="name">mkReadProxy|<t:slot name="type" />:<t:slot
+            name="shortName"/></t:attr></input>
+            <input type="submit" value="Remove Proxy"><t:attr
+            name="name">rmProxy|<t:slot name="type" />:<t:slot
+            name="shortName"/></t:attr></input>
+          </td>
           </t:transparent>
           <t:transparent t:render="noReadWriteProxies">
           <td colspan="2"></td>
@@ -170,5 +177,5 @@
         </tr>
       </table>
     </form>
-  </body>
+</body>
 </html>
