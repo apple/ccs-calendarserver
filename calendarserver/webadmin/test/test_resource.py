@@ -203,9 +203,10 @@ class RenderingTests(TestCase):
 
 
 class FakePrincipalResource(object):
-    def __init__(self, test, req, resid):
+    def __init__(self, test, req, resid, autosched=True):
         self.test = test
         test.assertEquals(resid, "qux")
+        self.autosched = autosched
 
 
     @property
@@ -233,6 +234,10 @@ class FakePrincipalResource(object):
         if name == DisplayName.qname():
             return DisplayName("The Name To Display")
         return GroupMemberSet()
+
+
+    def getAutoSchedule(self):
+        return self.autosched
 
 
 

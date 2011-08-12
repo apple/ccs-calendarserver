@@ -229,7 +229,8 @@ class DetailsElement(Element):
     @renderer
     def isAutoSchedule(self, request, tag):
         """
-        Renderer which returns its tag if the resource is auto-schedule.
+        Renderer which sets the 'selected' attribute on its tag if the resource
+        is auto-schedule.
         """
         # FIXME IMPLEMENT
         return ''
@@ -238,7 +239,8 @@ class DetailsElement(Element):
     @renderer
     def isntAutoSchedule(self, request, tag):
         """
-        Renderer which returns its tag if the resource is not auto-schedule.
+        Renderer which sets the 'selected' attribute on its tag if the resource
+        is not auto-schedule.
         """
         # FIXME IMPLEMENT
         return ''
