@@ -685,12 +685,15 @@ class IScheduleService(service.MultiService, LoggingMixIn):
 
 class MailHandler(LoggingMixIn):
 
-    def __init__(self, dataRoot=None):
+    def __init__(self, dataRoot=None, directory=None):
         if dataRoot is None:
             dataRoot = config.DataRoot
+        if directory is None:
+            directory = directoryFromConfig(config)
         self.db = MailGatewayTokensDatabase(dataRoot)
         self.days = config.Scheduling['iMIP']['InvitationDaysToLive']
-        self.directory = directoryFromConfig(config)
+        self.directory = directory
+
 
     def purge(self):
         """
@@ -698,6 +701,7 @@ class MailHandler(LoggingMixIn):
         """
         self.db.purgeOldTokens(datetime.date.today() -
             datetime.timedelta(days=self.days))
+
 
     def checkDSN(self, message):
         # returns (isDSN, Action, icalendar attachment)
@@ -746,6 +750,7 @@ class MailHandler(LoggingMixIn):
             return token
         except ValueError:
             return None
+
 
     def processDSN(self, calBody, msgId, fn):
         calendar = ical.Component.fromString(calBody)
@@ -859,7 +864,6 @@ class MailHandler(LoggingMixIn):
             _reactor.connectTCP(settings["Server"], settings["Port"], factory)
             return deferred
 
-
         # Process the imip attachment; inject to calendar server
 
         self.log_debug(calBody)
@@ -916,8 +920,6 @@ class MailHandler(LoggingMixIn):
         except Exception, e:
             # Don't let a failure of any kind stop us
             self.log_error("Failed to process message: %s" % (e,))
-
-
 
 
     def outbound(self, originator, recipient, calendar, language='en', send=True):
