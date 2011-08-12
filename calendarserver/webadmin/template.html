@@ -59,8 +59,8 @@
         <input type="submit" value="Search" />
       </form>
       <div t:render="noSearchResults"
-        style="margin-top:4px">No matches found for resource
-        <b><t:slot name="resourceSearch" /></b>.
+        style="margin-top:4px">No matches found for resource <b><t:slot
+        name="resourceSearch" /></b>.
       </div>
       <table t:render="hasSearchResults"
              cellspacing="0" cellpadding="3" border="1"
@@ -85,13 +85,15 @@
         </tr>
       </table>
       <div style="margin-top:15px; background-color: #777;
-        border-bottom:1px #ffffff dotted"></div>
+                  border-bottom:1px #ffffff dotted"></div>
       <div style="background-color: #777; padding-top:2px;
-        border-bottom:1px #ffffff dotted"></div>
+                  border-bottom:1px #ffffff dotted"></div>
       <h3>Resource Details: <t:slot name="resourceTitle" /></h3>
+
+      <!-- propertyHTML -->
       <div style="margin-top:15px; border-bottom:1px #444444 dotted"></div>
       <form id="frm_davProperty" name="davPropertyForm" action="/admin/"
-        style="margin-top:15px; margin-bottom:0; padding-bottom:0">
+            style="margin-top:15px; margin-bottom:0; padding-bottom:0">
         Show a DAV property value:
         <input type="hidden" id="hdn_resourceId" name="resourceId"><t:attr
           name="value"><t:slot name="resourceId" /></t:attr></input>
@@ -100,6 +102,72 @@
           /></t:attr></input>
           <input type="submit" value="Get Value" />
       </form>
+
+    <div t:render="propertyParseError">Unable to parse property to read:
+      <b><t:slot name="davPropertyName"
+        /></b></div>
+
+    <div style="margin-top: 7px">Value of property <b><t:slot
+        name="name" /></b>:</div>
+    <pre style="margin-top:5px; padding-top:0"><t:slot name="value" /></pre >
     </div>
+
+    <!-- autoScheduleHtml -->
+
+    <div style="margin-top:15px; border-bottom:1px #444444 dotted"></div>
+    <form id="frm_autoSchedule" name="autoScheduleForm" action="/admin/"
+        style="margin-top:15px">
+      <input type="hidden" id="hdn_resourceId" name="resourceId"
+        value="%(resourceId)s" />
+      <div style="margin-top:7px">
+        Auto-Schedule
+        <select id="sel_autoSchedule" name="autoSchedule">
+          <option t:render="trueOption" value="true">Yes</option>
+          <option t:render="falseOption" value="false">No</option>
+        </select>
+        <input type="submit" value="Change" />
+      </div>
+    </form>
+
+    <!-- currentProxiesHtml -->
+
+    <div style="margin-top:15px; border-bottom:1px #444444 dotted"></div>
+    <form id="frm_proxies" name="proxiesForm" action="/admin/"
+      style="margin-top:15px">
+      <input type="hidden" id="hdn_resourceId" name="resourceId"
+      value="%(resourceId)s" />
+      <table cellspacing="0" cellpadding="3" border="1">
+        <tr class="odd">
+          <th colspan="2">Read-Only Proxies</th>
+          <th colspan="2">Read-Write Proxies</th>
+        </tr>
+        <tr class="%(rowClass)s" t:render="proxyRow">
+          <t:transparent t:render="readOnlyProxies">
+          <td>%(proxy)s</td>
+          <td>
+            <input type="submit" name="mkWriteProxy|%(type)s:%(shortName)s"
+              value="Make Read-Write" />
+            <input type="submit" name="rmProxy|%(type)s:%(shortName)s"
+              value="Remove Proxy" />
+          </td>
+          </t:transparent>
+          <t:transparent t:render="noReadOnlyProxies">
+            <td colspan="2"></td>
+          </t:transparent>
+          <t:transparent t:render="readWriteProxies">
+            <td>%(proxy)s</td>
+            <td>
+              <input type="submit" name="mkReadProxy|%(type)s:%(shortName)s"
+                value="Make Read-Only" />
+              <input type="submit" name="rmProxy|%(type)s:%(shortName)s"
+                value="Remove Proxy" />
+            </td>
+          </t:transparent>
+          <t:transparent t:render="noReadWriteProxies">
+          <td colspan="2"></td>
+          </t:transparent>
+        </tr>
+      </table>
+    </form>
   </body>
 </html>
