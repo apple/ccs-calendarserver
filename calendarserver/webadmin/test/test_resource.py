@@ -243,8 +243,16 @@ class RenderingTests(TestCase):
         self.assertEquals(hiddenResourceId, "qux")
 
         autoScheduleMenu = document.getElementById("sel_autoSchedule")
+
+        # Now, some assertions about features that are covered in other tests
+        # which should be turned _off_ here since we're not asking for them.
+
         # Not an auto-schedule resource; there should be no auto-schedule menu.
         self.assertIdentical(autoScheduleMenu, None)
+        # No resource search present; we shouldn't be performing the search.
+        self.assertNotIn("No matches found for resource",
+                         gatherTextNodes(document))
+        self.assertIdentical(document.getElementById("tab_searchResults"), None)
 
 
     @inlineCallbacks

@@ -84,6 +84,8 @@ class WebAdminPage(Element):
         Renderer which detects if there are resource search results and
         continues if so.
         """
+        if 'resourceSearch' not in request.args:
+            returnValue('')
         yield self.performSearch(request)
         returnValue(tag)
 
@@ -95,6 +97,8 @@ class WebAdminPage(Element):
         Renderer which detects if there are resource search results and
         continues if so.
         """
+        if 'resourceSearch' not in request.args:
+            returnValue('')
         rows = yield self.performSearch(request)
         if rows:
             returnValue("")
