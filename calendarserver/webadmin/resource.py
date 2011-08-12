@@ -361,6 +361,34 @@ class DetailsElement(Element):
 
     @renderer
     @inlineCallbacks
+    def noProxyResults(self, request, tag):
+        """
+        Renderer which shows its tag if there are no proxy search results for
+        this request.
+        """
+        results = yield self.performProxySearch()
+        if results:
+            returnValue("")
+        else:
+            returnValue(tag)
+
+
+    @renderer
+    @inlineCallbacks
+    def hasProxyResults(self, request, tag):
+        """
+        Renderer which shows its tag if there are any proxy search results for
+        this request.
+        """
+        results = yield self.performProxySearch()
+        if results:
+            returnValue(tag)
+        else:
+            returnValue("")
+
+
+    @renderer
+    @inlineCallbacks
     def proxyRows(self, request, tag):
         """
         Renderer which does zipping logic to render read-only and read-write
@@ -373,10 +401,16 @@ class DetailsElement(Element):
         returnValue(result)
 
 
-    def performProxySearch(self, request):
+    _proxySearchResults = None
+
+    def performProxySearch(self):
+        if self._proxySearchResults is not None:
+            return succeed(self._proxySearchResults)
+
         if self.proxySearch:
             def nameSorted(records):
                 records.sort(key=operator.attrgetter('fullName'))
+                self._proxySearchResults = records
                 return records
             return self.adminResource.search(
                 self.proxySearch).addCallback(nameSorted)
@@ -389,7 +423,7 @@ class DetailsElement(Element):
         """
         Renderer which renders search results for the proxy form.
         """
-        d = self.performProxySearch(request)
+        d = self.performProxySearch()
         return d.addCallback(searchToSlots, tag)
 
 
