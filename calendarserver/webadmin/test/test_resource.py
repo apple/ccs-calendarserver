@@ -17,6 +17,9 @@
 """
 Tests for L{calendarserver.webadmin.resource}.
 """
+
+import cgi
+
 from functools import partial
 
 from twisted.trial.unittest import TestCase
@@ -24,11 +27,15 @@ from twisted.trial.unittest import TestCase
 from twisted.web.microdom import parseString, getElementsByTagName
 from twisted.web.domhelpers import gatherTextNodes
 
+
 from calendarserver.tap.util import FakeRequest
 from twisted.internet.defer import inlineCallbacks
 from twisted.internet.defer import returnValue
 from calendarserver.webadmin.resource import WebAdminResource
+
 from twext.web2.dav.element.rfc3744 import GroupMemberSet
+from twext.web2.dav.element.rfc2518 import DisplayName
+
 from twistedcaldav.directory.directory import DirectoryRecord
 
 
@@ -177,8 +184,17 @@ class RenderingTests(TestCase):
         property is selected by the 'davPropertyName' parameter, that property
         will displayed.
         """
-        self.fail('implement')
-
+        self.resource.getResourceById = partial(FakePrincipalResource, self)
+        document = yield self.renderPage(
+            dict(resourceId=["qux"],
+                 davPropertyName=["DAV:#displayname"])
+        )
+        propertyName = document.getElementById('txt_davPropertyName')
+        self.assertEquals(propertyName.getAttribute("value"),
+                          "DAV:#displayname")
+        propertyValue = DisplayName("The Name To Display").toxml()
+        self.assertIn(cgi.escape(propertyValue),
+                      gatherTextNodes(document))
 
 
     realmName = 'Fake'
@@ -210,6 +226,8 @@ class FakePrincipalResource(object):
         return self
 
     def readProperty(self, name, request):
+        if name == DisplayName.qname():
+            return DisplayName("The Name To Display")
         return GroupMemberSet()
 
 
