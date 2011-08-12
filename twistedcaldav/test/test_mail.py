@@ -612,6 +612,32 @@ END:VCALENDAR
                            'inner</alpha>world</test>'])
 
 
+    def test_templateLoaderTagSoup(self):
+        """
+        L{StringFormatTemplateLoader.load} will convert a template with
+        C{%(x)s}-format slots into t:slot slots, and render a well-formed output
+        document, even if the input is malformed (i.e. missing necessary closing
+        tags).
+        """
+        class StubElement(Element):
+            loader = StringFormatTemplateLoader(
+                lambda : StringIO(
+                    '<test><alpha beta="before %(slot1)s after">inner</alpha>'
+                    '%(other)s'
+                ),
+                "testRenderHere"
+            )
+
+            @renderer
+            def testRenderHere(self, request, tag):
+                return tag.fillSlots(slot1="hello",
+                                     other="world")
+        result = []
+        flattenString(None, StubElement()).addCallback(result.append)
+        self.assertEquals(result,
+                          ['<test><alpha beta="before hello after">'
+                           'inner</alpha>world</test>'])
+
 
 def partByType(message, contentType):
     """
