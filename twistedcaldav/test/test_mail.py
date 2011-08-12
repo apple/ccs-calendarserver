@@ -35,6 +35,22 @@ from twistedcaldav.directory.directory import DirectoryRecord
 def echo(*args):
     return args
 
+initialInviteText = u"""BEGIN:VCALENDAR
+VERSION:2.0
+METHOD:REQUEST
+BEGIN:VEVENT
+UID:CFDD5E46-4F74-478A-9311-B3FF905449C3
+DTSTART:20100325T154500Z
+DTEND:20100325T164500Z
+ATTENDEE;CN=Th\xe9 Attendee;CUTYPE=INDIVIDUAL;PARTSTAT=NEEDS-ACTION;RSVP=TRUE:mailto:attendee@example.com
+ATTENDEE;CN=Th\xe9 Organizer;CUTYPE=INDIVIDUAL;EMAIL=organizer@example.com;PARTSTAT=ACCEPTED:urn:uuid:C3B38B00-4166-11DD-B22C-A07C87E02F6A
+ATTENDEE;CN=An Attendee without CUTYPE;EMAIL=nocutype@example.com;PARTSTAT=ACCEPTED:urn:uuid:4DB528DC-3E60-44FA-9546-2A00FCDCFFAB
+ATTENDEE;EMAIL=nocn@example.com;PARTSTAT=ACCEPTED:urn:uuid:A592CF8B-4FC8-4E4F-B543-B2F29A7EEB0B
+ORGANIZER;CN=Th\xe9 Organizer;EMAIL=organizer@example.com:urn:uuid:C3B38B00-4166-11DD-B22C-A07C87E02F6A
+SUMMARY:t\xe9sting outbound( )
+END:VEVENT
+END:VCALENDAR
+"""
 
 class MailHandlerTests(TestCase):
 
@@ -267,22 +283,7 @@ END:VCALENDAR
         data = (
             # Initial invite
             (
-                u"""BEGIN:VCALENDAR
-VERSION:2.0
-METHOD:REQUEST
-BEGIN:VEVENT
-UID:CFDD5E46-4F74-478A-9311-B3FF905449C3
-DTSTART:20100325T154500Z
-DTEND:20100325T164500Z
-ATTENDEE;CN=Th\xe9 Attendee;CUTYPE=INDIVIDUAL;PARTSTAT=NEEDS-ACTION;RSVP=TRUE:mailto:attendee@example.com
-ATTENDEE;CN=Th\xe9 Organizer;CUTYPE=INDIVIDUAL;EMAIL=organizer@example.com;PARTSTAT=ACCEPTED:urn:uuid:C3B38B00-4166-11DD-B22C-A07C87E02F6A
-ATTENDEE;CN=An Attendee without CUTYPE;EMAIL=nocutype@example.com;PARTSTAT=ACCEPTED:urn:uuid:4DB528DC-3E60-44FA-9546-2A00FCDCFFAB
-ATTENDEE;EMAIL=nocn@example.com;PARTSTAT=ACCEPTED:urn:uuid:A592CF8B-4FC8-4E4F-B543-B2F29A7EEB0B
-ORGANIZER;CN=Th\xe9 Organizer;EMAIL=organizer@example.com:urn:uuid:C3B38B00-4166-11DD-B22C-A07C87E02F6A
-SUMMARY:t\xe9sting outbound( )
-END:VEVENT
-END:VCALENDAR
-""",
+                initialInviteText,
                 "CFDD5E46-4F74-478A-9311-B3FF905449C3",
                 "urn:uuid:C3B38B00-4166-11DD-B22C-A07C87E02F6A",
                 "mailto:attendee@example.com",
@@ -400,6 +401,33 @@ END:VCALENDAR
                   # reply to remote organizer
 
                 self.assertEquals(actualReplyTo, actualFrom)
+
+
+    def test_generateEmail(self):
+        """
+        L{MailHandler.generateEmail} generates a MIME-formatted email with a
+        text/plain part, a text/html part, and a text/calendar part.
+        """
+        calendar = Component.fromString(initialInviteText)
+        msgID, msgTxt = self.handler.generateEmail(
+            inviteState='new',
+            calendar=calendar,
+            orgEmail="user01@localhost",
+            orgCN="User Zero One",
+            attendees=[("User 1", "user01@localhost"),
+                       ("User 2", "user02@localhost")],
+            fromAddress="user01@localhost",
+            replyToAddress="imip-system@localhost",
+            toAddress="user03@localhost",
+        )
+        message = email.message_from_string(msgTxt)
+        self.assertEquals(message['Message-ID'], msgID)
+        expectedTypes = set(["text/plain", "text/html", "text/calendar"])
+        actualTypes = set([
+            part.get_content_type() for part in message.walk()
+            if not part.get_content_type().startswith("multipart/")
+        ])
+        self.assertEquals(actualTypes, expectedTypes)
 
 
 class MailGatewayTokensDatabaseTests(TestCase):
