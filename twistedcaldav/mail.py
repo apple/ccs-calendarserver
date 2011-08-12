@@ -85,6 +85,71 @@ __all__ = [
 log = Logger()
 
 #
+# Templates
+#
+
+plainCancelTemplate = u"""%(subject)s
+
+%(orgLabel)s: %(plainOrganizer)s
+%(dateLabel)s: %(dateInfo)s %(recurrenceInfo)s
+%(timeLabel)s: %(timeInfo)s %(durationInfo)s
+"""
+
+plainInviteTemplate = u"""%(subject)s
+
+%(orgLabel)s: %(plainOrganizer)s
+%(locLabel)s: %(location)s
+%(dateLabel)s: %(dateInfo)s %(recurrenceInfo)s
+%(timeLabel)s: %(timeInfo)s %(durationInfo)s
+%(descLabel)s: %(description)s
+%(attLabel)s: %(plainAttendees)s
+"""
+
+
+htmlCancelTemplate = u"""<html>
+    <body><div>
+
+    <h1>%(subject)s</h1>
+    <p>
+    <h3>%(orgLabel)s:</h3> %(htmlOrganizer)s
+    </p>
+    <p>
+    <h3>%(dateLabel)s:</h3> %(dateInfo)s %(recurrenceInfo)s
+    </p>
+    <p>
+    <h3>%(timeLabel)s:</h3> %(timeInfo)s %(durationInfo)s
+    </p>
+    """
+
+
+htmlInviteTemplate = u"""<html>
+    <body><div>
+    <p>%(inviteLabel)s</p>
+
+    <h1>%(summary)s</h1>
+    <p>
+    <h3>%(orgLabel)s:</h3> %(htmlOrganizer)s
+    </p>
+    <p>
+    <h3>%(locLabel)s:</h3> %(location)s
+    </p>
+    <p>
+    <h3>%(dateLabel)s:</h3> %(dateInfo)s %(recurrenceInfo)s
+    </p>
+    <p>
+    <h3>%(timeLabel)s:</h3> %(timeInfo)s %(durationInfo)s
+    </p>
+    <p>
+    <h3>%(descLabel)s:</h3> %(description)s
+    </p>
+    <p>
+    <h3>%(attLabel)s:</h3> %(htmlAttendees)s
+    </p>
+    """
+
+
+
+#
 # Mail gateway service config
 #
 
@@ -1046,7 +1111,8 @@ class MailHandler(LoggingMixIn):
 
 
     def generateEmail(self, inviteState, calendar, orgEmail, orgCN,
-        attendees, fromAddress, replyToAddress, toAddress, language='en'):
+                      attendees, fromAddress, replyToAddress, toAddress,
+                      language='en'):
 
         details = self.getEventDetails(calendar, language=language)
         canceled = (calendar.propertyValue("METHOD") == "CANCEL")
@@ -1123,22 +1189,9 @@ class MailHandler(LoggingMixIn):
 
             # plain text version
             if canceled:
-                plainTemplate = u"""%(subject)s
-
-%(orgLabel)s: %(plainOrganizer)s
-%(dateLabel)s: %(dateInfo)s %(recurrenceInfo)s
-%(timeLabel)s: %(timeInfo)s %(durationInfo)s
-"""
+                plainTemplate = plainCancelTemplate
             else:
-                plainTemplate = u"""%(subject)s
-
-%(orgLabel)s: %(plainOrganizer)s
-%(locLabel)s: %(location)s
-%(dateLabel)s: %(dateInfo)s %(recurrenceInfo)s
-%(timeLabel)s: %(timeInfo)s %(durationInfo)s
-%(descLabel)s: %(description)s
-%(attLabel)s: %(plainAttendees)s
-"""
+                plainTemplate = plainInviteTemplate
 
             plainText = plainTemplate % details
 
@@ -1175,50 +1228,10 @@ class MailHandler(LoggingMixIn):
             if not os.path.exists(templatePath):
                 # Fall back to built-in simple templates:
                 if canceled:
-
-                    htmlTemplate = u"""<html>
-    <body><div>
-
-    <h1>%(subject)s</h1>
-    <p>
-    <h3>%(orgLabel)s:</h3> %(htmlOrganizer)s
-    </p>
-    <p>
-    <h3>%(dateLabel)s:</h3> %(dateInfo)s %(recurrenceInfo)s
-    </p>
-    <p>
-    <h3>%(timeLabel)s:</h3> %(timeInfo)s %(durationInfo)s
-    </p>
-
-    """
-
+                    htmlTemplate = htmlCancelTemplate
                 else:
 
-                    htmlTemplate = u"""<html>
-    <body><div>
-    <p>%(inviteLabel)s</p>
-
-    <h1>%(summary)s</h1>
-    <p>
-    <h3>%(orgLabel)s:</h3> %(htmlOrganizer)s
-    </p>
-    <p>
-    <h3>%(locLabel)s:</h3> %(location)s
-    </p>
-    <p>
-    <h3>%(dateLabel)s:</h3> %(dateInfo)s %(recurrenceInfo)s
-    </p>
-    <p>
-    <h3>%(timeLabel)s:</h3> %(timeInfo)s %(durationInfo)s
-    </p>
-    <p>
-    <h3>%(descLabel)s:</h3> %(description)s
-    </p>
-    <p>
-    <h3>%(attLabel)s:</h3> %(htmlAttendees)s
-    </p>
-
-    """
+                    htmlTemplate = htmlInviteTemplate
             else: # HTML template file exists
 
                 with open(templatePath) as templateFile:
