@@ -195,6 +195,8 @@ class RenderingTests(TestCase):
         propertyValue = DisplayName("The Name To Display").toxml()
         self.assertIn(cgi.escape(propertyValue),
                       gatherTextNodes(document))
+        self.assertNotIn("Unable to parse property to read:",
+                         gatherTextNodes(document))
 
 
     @inlineCallbacks
