@@ -47,13 +47,13 @@ from twisted.web.template import (
     Element, renderer, XMLFile, flattenString
 )
 
-from twisted.web.error import MissingRenderMethod
-
 
 
 class WebAdminPage(Element):
     """
     Web administration renderer for HTML.
+
+    @ivar resource: a L{WebAdminResource}.
     """
 
     loader = XMLFile(
@@ -117,7 +117,7 @@ class WebAdminPage(Element):
     @renderer
     def searchResults(self, request, tag):
         """
-        docstring for searchResults
+        Renderer which renders resource search results.
         """
         d = self.performSearch(request)
         def searchPerformed(results):
@@ -140,16 +140,13 @@ class WebAdminPage(Element):
         return d.addCallback(searchPerformed)
 
 
-    def lookupRenderMethod(self, name):
+    @renderer
+    def resourceDetails(self, request, tag):
         """
-        FOR TESTING ONLY: construct valid renderers for any unknown renderer.
+        Renderer which fills slots for details of the resource selected by
+        the resourceId request parameter.
         """
-        try:
-            return super(WebAdminPage, self).lookupRenderMethod(name)
-        except MissingRenderMethod:
-            def stub(request, tag):
-                return "Stub " + name
-            return stub
+        return ""
 
 
 
