@@ -66,6 +66,14 @@ class MailHandlerTests(TestCase):
         self.dataDir = os.path.join(os.path.dirname(__file__), "data", "mail")
 
 
+    def dataFile(self, name):
+        """
+        Get the contents of a given data file from the 'data/mail' test
+        fixtures directory.
+        """
+        return file(os.path.join(self.dataDir, name)).read()
+
+
     def test_purge(self):
         """
         Ensure that purge( ) cleans out old tokens
@@ -150,9 +158,7 @@ END:VCALENDAR
         }
 
         for filename, expected in data.iteritems():
-            msg = email.message_from_string(
-                file(os.path.join(self.dataDir, filename)).read()
-            )
+            msg = email.message_from_string(self.dataFile(filename))
             self.assertEquals(self.handler.checkDSN(msg), expected)
 
 
@@ -250,11 +256,8 @@ END:VCALENDAR
         self.assertEquals(msgId, 'xyzzy')
 
 
-
     def test_processReply(self):
-        msg = email.message_from_string(
-            file(os.path.join(self.dataDir, 'good_reply')).read()
-        )
+        msg = email.message_from_string(self.dataFile('good_reply'))
 
         # Make sure an unknown token is not processed
         result = self.handler.processReply(msg, echo)
@@ -276,9 +279,7 @@ END:VCALENDAR
                           '<1983F777-BE86-4B98-881E-06D938E60920@example.com>')
 
     def test_processReplyMissingOrganizer(self):
-        msg = email.message_from_string(
-            file(os.path.join(self.dataDir, 'reply_missing_organizer')).read()
-        )
+        msg = email.message_from_string(self.dataFile('reply_missing_organizer'))
         # stick the token in the database first
         self.handler.db.createToken(
             "urn:uuid:9DC04A70-E6DD-11DF-9492-0800200C9A66",
@@ -296,9 +297,7 @@ END:VCALENDAR
 
 
     def test_processReplyMissingAttendee(self):
-        msg = email.message_from_string(
-            file(os.path.join(self.dataDir, 'reply_missing_attendee')).read()
-        )
+        msg = email.message_from_string(self.dataFile('reply_missing_attendee'))
 
         # stick the token in the database first
         self.handler.db.createToken(
@@ -329,7 +328,7 @@ END:VCALENDAR
             "guids"]["9DC04A70-E6DD-11DF-9492-0800200C9A66"] = record
 
         msg = email.message_from_string(
-            file(os.path.join(self.dataDir, 'reply_missing_attachment')).read()
+            self.dataFile('reply_missing_attachment')
         )
         # stick the token in the database first
         self.handler.db.createToken(
