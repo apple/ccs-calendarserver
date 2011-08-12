@@ -44,7 +44,7 @@ from twisted.python.usage import Options, UsageError
 
 from twisted.web import client
 from twisted.web.template import (
-    XMLString, TEMPLATE_NAMESPACE, Element, renderer, flattenString
+    XMLString, TEMPLATE_NAMESPACE, Element, renderer, flattenString, tags
 )
 from twisted.web.microdom import parseString
 from twisted.web.microdom import Text as DOMText, Element as DOMElement
@@ -1433,12 +1433,15 @@ class MailHandler(LoggingMixIn):
         htmlAttendees = []
         for cn, mailto in attendees:
             if mailto:
-                htmlAttendees.append('<a href="mailto:%s">%s</a>' %
-                    (mailto, cn))
+                if not cn:
+                    cn = mailto
+                htmlAttendees.append(
+                    tags.a(href="mailto:%s" % (mailto,))(cn)
+                )
             else:
                 htmlAttendees.append(cn)
 
-        details['htmlAttendees'] = ", ".join(htmlAttendees)
+        details['htmlAttendees'] = htmlAttendees
 
         # TODO: htmlOrganizer is also some HTML that requires additional
         # template stuff, and once again, it's just a 'mailto:'.
