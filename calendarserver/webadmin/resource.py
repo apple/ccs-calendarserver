@@ -177,8 +177,7 @@ class WebAdminResource (ReadOnlyResourceMixIn, DAVFile):
     def htmlContent(self, directory, request):
 
         def queryValue(arg):
-            query = cgi.parse_qs(urlparse.urlparse(request.uri).query, True)
-            return query.get(arg, [""])[0]
+            return request.args.get(arg, [""])[0]
 
         def queryValues(arg):
             query = cgi.parse_qs(urlparse.urlparse(request.uri).query, True)
