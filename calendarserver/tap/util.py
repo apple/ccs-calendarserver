@@ -675,10 +675,11 @@ def computeProcessCount(minimum, perCPU, perGB, cpuCount=None, memSize=None):
 
 class FakeRequest(object):
 
-    def __init__(self, rootResource, method, path):
+    def __init__(self, rootResource, method, path, uri='/'):
         self.rootResource = rootResource
         self.method = method
         self.path = path
+        self.uri = uri
         self._resourcesByURL = {}
         self._urlsByResource = {}
         self.headers = Headers()
