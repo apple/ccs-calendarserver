@@ -1215,6 +1215,8 @@ class MailHandler(LoggingMixIn):
 
         @param orgCN: Common name / display name for the organizer.
 
+        @type orgCN: C{unicode}
+
         @param attendees: A C{list} of 2-C{tuple}s of (common name, email
             address) similar to (orgEmail, orgCN).
 
@@ -1270,14 +1272,14 @@ class MailHandler(LoggingMixIn):
         msg.attach(msgAlt)
 
         # plain version
-        msgPlain = MIMEText(plainText.encode("UTF-8"), "plain", "UTF-8")
+        msgPlain = MIMEText(plainText, "plain", "UTF-8")
         msgAlt.attach(msgPlain)
 
         # html version
         msgHtmlRelated = MIMEMultipart("related", type="text/html")
         msgAlt.attach(msgHtmlRelated)
 
-        msgHtml = MIMEText(htmlText.encode("UTF-8"), "html", "UTF-8")
+        msgHtml = MIMEText(htmlText, "html", "UTF-8")
         msgHtmlRelated.attach(msgHtml)
 
         # an image for html version

@@ -494,10 +494,10 @@ END:VCALENDAR
         msgID, msgTxt = self.handler.generateEmail(
             inviteState='new',
             calendar=calendar,
-            orgEmail="user01@localhost",
-            orgCN="User Zero One",
-            attendees=[("User 1", "user01@localhost"),
-                       ("User 2", "user02@localhost")],
+            orgEmail=u"user01@localhost",
+            orgCN=u"User Z\xe9ro One",
+            attendees=[(u"Us\xe9r One", "user01@localhost"),
+                       (u"User 2", "user02@localhost")],
             fromAddress="user01@localhost",
             replyToAddress="imip-system@localhost",
             toAddress="user03@localhost",
@@ -519,6 +519,26 @@ END:VCALENDAR
             if not part.get_content_type().startswith("multipart/")
         ])
         self.assertEquals(actualTypes, expectedTypes)
+
+
+    def test_emailEncoding(self):
+        """
+        L{MailHandler.generateEmail} will preserve any non-ASCII characters
+        present in the fields that it formats in the message body.
+        """
+        msgID, message = self.generateSampleEmail()
+        textPart = partByType(message, "text/plain")
+        htmlPart = partByType(message, "text/html")
+
+        plainText = textPart.get_payload(decode=True).decode(
+            textPart.get_content_charset()
+        )
+        htmlText = htmlPart.get_payload(decode=True).decode(
+            htmlPart.get_content_charset()
+        )
+
+        self.assertIn(u"Us\u00e9r One", plainText)
+        self.assertIn(u"Us\u00e9r One", htmlText)
 
 
     def test_emailQuoting(self):
