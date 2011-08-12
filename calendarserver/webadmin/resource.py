@@ -60,12 +60,13 @@ class WebAdminPage(Element):
         getModule(__name__).filePath.sibling("template.html").open()
     )
 
-    def __init__(self):
+    def __init__(self, resource):
         super(WebAdminPage, self).__init__()
+        self.resource = resource
 
 
     @renderer
-    def main(self, render, tag):
+    def main(self, request, tag):
         """
         Main renderer, which fills page-global slots like 'title'.
         """
@@ -78,6 +79,55 @@ class WebAdminPage(Element):
             name="Placeholder Name",
             value="Placeholder Value",
         )
+
+
+    @renderer
+    @inlineCallbacks
+    def hasSearchResults(self, request, tag):
+        """
+        Renderer which detects if there are resource search results and
+        continues if so.
+        """
+        yield self.performSearch(request)
+        returnValue(tag)
+
+
+    @inlineCallbacks
+    def performSearch(self, request):
+        searchTerm = request.args.get('resourceSearch', [''])[0]
+        if searchTerm:
+            results = yield self.resource.search(searchTerm)
+        else:
+            results = []
+        returnValue(results)
+
+
+    @renderer
+    def searchResults(self, request, tag):
+        """
+        docstring for searchResults
+        """
+        d = self.performSearch(request)
+        def searchPerformed(results):
+            for idx, record in enumerate(results):
+                yield tag.clone().fillSlots(
+                    **{
+                        "rowClass": "even" if (idx % 2 == 0) else "odd",
+                        "type": record.recordType,
+                        "shortName": record.shortNames[0],
+                        "name": record.fullName,
+                        "typeStr": {
+                            "users"     : "User",
+                            "groups"    : "Group",
+                            "locations" : "Place",
+                            "resources" : "Resource",
+                        }.get(record.recordType),
+                        "shortNames": str(", ".join(record.shortNames)),
+                        "authIds": str(", ".join(record.authIDs)),
+                        "emails": str(", ".join(record.emailAddresses)),
+                    }
+                )
+        return d.addCallback(searchPerformed)
 
 
     def lookupRenderMethod(self, name):
@@ -480,7 +530,7 @@ class WebAdminResource (ReadOnlyResourceMixIn, DAVFile):
         Create a L{WebAdminPage} to render HTML content for this request, and
         return a response.
         """
-        htmlContent = yield flattenString(request, WebAdminPage())
+        htmlContent = yield flattenString(request, WebAdminPage(self))
         response = Response()
         response.stream = MemoryStream(htmlContent)
         for (header, value) in (
