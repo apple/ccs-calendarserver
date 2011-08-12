@@ -17,6 +17,7 @@
 """
 Tests for L{calendarserver.webadmin.resource}.
 """
+from functools import partial
 
 from twisted.trial.unittest import TestCase
 
@@ -158,33 +159,7 @@ class RenderingTests(TestCase):
         """
         When a resource is selected by a 'resourceId' parameter, 
         """
-        test = self
-        class FakePrincipalResource(object):
-            def __init__(self, req, resid):
-                test.assertEquals(resid, "qux")
-
-            @property
-            def record(self):
-                authIds = ['fake auth id']
-                emails = ['fake email']
-                shortNames = ['fake short name']
-                fullName = 'nobody'
-                return DirectoryRecord(
-                    service=test, recordType='users', guid=None,
-                    authIDs=authIds, emailAddresses=tuple(emails),
-                    shortNames=tuple(shortNames), fullName=fullName
-                )
-
-            def __str__(self):
-                return 'Hello Fake Resource'
-
-            def getChild(self, name):
-                return self
-
-            def readProperty(self, name, request):
-                return GroupMemberSet()
-
-        self.resource.getResourceById = FakePrincipalResource
+        self.resource.getResourceById = partial(FakePrincipalResource, self)
         document = yield self.renderPage(dict(resourceId=["qux"]))
         [detailsTitle] = getElementsByTagName(document, 'h3')
         detailString = gatherTextNodes(detailsTitle)
@@ -198,6 +173,35 @@ class RenderingTests(TestCase):
 
     realmName = 'Fake'
     guid = '28c57671-2bf8-4ebd-bc45-fda5ffcee1e8'
+
+
+
+class FakePrincipalResource(object):
+    def __init__(self, test, req, resid):
+        self.test = test
+        test.assertEquals(resid, "qux")
+
+    @property
+    def record(self):
+        authIds = ['fake auth id']
+        emails = ['fake email']
+        shortNames = ['fake short name']
+        fullName = 'nobody'
+        return DirectoryRecord(
+            service=self.test, recordType='users', guid=None,
+            authIDs=authIds, emailAddresses=tuple(emails),
+            shortNames=tuple(shortNames), fullName=fullName
+        )
+
+    def __str__(self):
+        return 'Hello Fake Resource'
+
+    def getChild(self, name):
+        return self
+
+    def readProperty(self, name, request):
+        return GroupMemberSet()
+
 
 
 class NewRenderingTests(RenderingTests):
