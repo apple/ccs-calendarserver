@@ -114,10 +114,10 @@ class RenderingTests(TestCase):
                 )
                 for (shortNames, fullName, authIds, emails, recordType)
                 in [
-                    (["bob"], "Bob Bobson", ["boblogin"],
-                     ["bob@example.com", "bob@other.example.com"], 'users'),
                     (["bobd"], "Bob Dobson", ["bobdlogin"],
                      ["bobd@example.com"], 'sudoers'),
+                    (["bob"], "Bob Bobson", ["boblogin"],
+                     ["bob@example.com", "bob@other.example.com"], 'users'),
                    ]
             ])
 
@@ -225,6 +225,8 @@ class RenderingTests(TestCase):
             "No matches found for resource bob",
             gatherTextNodes(document)
         )
+        # Search results table should not be displayed.
+        self.assertIdentical(document.getElementById("tab_searchResults"), None)
 
 
     @inlineCallbacks
@@ -237,7 +239,7 @@ class RenderingTests(TestCase):
         [detailsTitle] = getElementsByTagName(document, 'h3')
         detailString = gatherTextNodes(detailsTitle)
         self.assertEquals(detailString,
-                          "Resource Details: Hello Fake Resource")
+                          "Resource Details: Hello Fake Resource: 'qux'")
         hiddenResourceId = document.getElementById(
             "hdn_resourceId").getAttribute("value")
         self.assertEquals(hiddenResourceId, "qux")
@@ -425,7 +427,7 @@ class FakePrincipalResource(object):
 
 
     def __str__(self):
-        return 'Hello Fake Resource'
+        return 'Hello Fake Resource: %r' % (self.resid,)
 
 
     def getChild(self, name):

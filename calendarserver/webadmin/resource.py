@@ -86,8 +86,10 @@ class WebAdminPage(Element):
         """
         if 'resourceSearch' not in request.args:
             returnValue('')
-        yield self.performSearch(request)
-        returnValue(tag)
+        if (yield self.performSearch(request)):
+            returnValue(tag)
+        else:
+            returnValue('')
 
 
     @renderer
@@ -119,7 +121,8 @@ class WebAdminPage(Element):
             returnValue(self._searchResults)
         searchTerm = request.args.get('resourceSearch', [''])[0]
         if searchTerm:
-            results = yield self.resource.search(searchTerm)
+            results = sorted((yield self.resource.search(searchTerm)),
+                             key=lambda record: record.shortNames[0])
         else:
             results = []
         self._searchResults = results
@@ -204,7 +207,6 @@ class DetailsElement(Element):
         tag.fillSlots(resourceTitle=unicode(principalResource),
                       resourceId=resourceId,
                       davPropertyName=davPropertyName,
-                      # FIXME implement
                       proxySearch=proxySearch)
         try:
             namespace, name = davPropertyName.split("#")
