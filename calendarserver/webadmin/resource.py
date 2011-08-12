@@ -1,3 +1,4 @@
+# -*- test-case-name: calendarserver.webadmin.test.test_resource -*-
 ##
 # Copyright (c) 2009-2010 Apple Inc. All rights reserved.
 #
@@ -20,25 +21,82 @@ Calendar Server Web Admin UI.
 
 __all__ = [
     "WebAdminResource",
+    "WebAdminPage",
 ]
 
 import cgi
 import operator
 import urlparse
 
-from calendarserver.tools.principals import principalForPrincipalID, proxySubprincipal, action_addProxyPrincipal, action_removeProxyPrincipal
+from calendarserver.tools.principals import (
+    principalForPrincipalID, proxySubprincipal, action_addProxyPrincipal,
+    action_removeProxyPrincipal
+)
 
 from twistedcaldav.config import config
 from twistedcaldav.extensions import DAVFile, ReadOnlyResourceMixIn
 
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twext.web2.http import Response
+from twisted.python.modules import getModule
 from twext.web2.http_headers import MimeType
 from twext.web2.stream import MemoryStream
 from twext.web2.dav import davxml
 
+from twisted.web.template import (
+    Element, renderer, XMLFile, flattenString
+)
+
+from twisted.web.error import MissingRenderMethod
+
+
+
+class WebAdminPage(Element):
+    """
+    Web administration renderer for HTML.
+    """
+
+    loader = XMLFile(
+        getModule(__name__).filePath.sibling("template.html").open()
+    )
+
+    def __init__(self):
+        super(WebAdminPage, self).__init__()
+
+
+    @renderer
+    def main(self, render, tag):
+        """
+        Main renderer, which fills page-global slots like 'title'.
+        """
+        return tag.fillSlots(
+            title="Placeholder Title",
+            resourceSearch="Placeholder Resource Search",
+            resourceTitle="Placeholder Resource Title",
+            resourceId="Placeholder Resource ID",
+            davPropertyName="placeholder DAV property name",
+            name="Placeholder Name",
+            value="Placeholder Value",
+        )
+
+
+    def lookupRenderMethod(self, name):
+        """
+        FOR TESTING ONLY: construct valid renderers for any unknown renderer.
+        """
+        try:
+            return super(WebAdminPage, self).lookupRenderMethod(name)
+        except MissingRenderMethod:
+            def stub(request, tag):
+                return "Stub " + name
+            return stub
+
+
 
 class WebAdminResource (ReadOnlyResourceMixIn, DAVFile):
+    """
+    Web administration HTTP resource.
+    """
 
     def __init__(self, path, root, directory, principalCollections=()):
         self.root = root
@@ -49,7 +107,7 @@ class WebAdminResource (ReadOnlyResourceMixIn, DAVFile):
     # Only allow administrators to access
     def defaultAccessControlList(self):
         return davxml.ACL(*config.AdminACEs)
-    
+
     def etag(self):
         # Can't be calculated here
         return None
@@ -415,6 +473,25 @@ class WebAdminResource (ReadOnlyResourceMixIn, DAVFile):
         detailHtml = "%s%s%s%s%s" % (headerHtml, propertyHtml, autoScheduleHtml, currentProxiesHtml, proxySearchHtml)
 
         returnValue(detailHtml)
+
+
+    @inlineCallbacks
+    def renderNew(self, request):
+        """
+        Create a L{WebAdminPage} to render HTML content for this request, and
+        return a response.
+        """
+        htmlContent = yield flattenString(request, WebAdminPage())
+        response = Response()
+        response.stream = MemoryStream(htmlContent)
+        for (header, value) in (
+                ("content-type", self.contentType()),
+                ("content-encoding", self.contentEncoding()),
+            ):
+            if value is not None:
+                response.headers.setHeader(header, value)
+        returnValue(response)
+
 
     def render(self, request):
 

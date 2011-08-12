@@ -23,7 +23,10 @@ from twisted.trial.unittest import TestCase
 from twisted.web.microdom import parseString
 from calendarserver.tap.util import FakeRequest
 from twisted.internet.defer import inlineCallbacks
+from twisted.internet.defer import returnValue
 from calendarserver.webadmin.resource import WebAdminResource
+
+
 
 class RenderingTests(TestCase):
     """
@@ -44,10 +47,10 @@ class RenderingTests(TestCase):
 
 
     @inlineCallbacks
-    def test_simplestRender(self):
+    def renderPage(self):
         """
-        Rendering a L{WebAdminResource} will result in something vaguely
-        parseable as HTML.
+        Render a page, returning a Deferred that fires with the HTML as a
+        result..
         """
         req = FakeRequest(method='GET', path='/webadmin',
                           rootResource=self.resource)
@@ -55,5 +58,28 @@ class RenderingTests(TestCase):
         self.assertEquals(response.code, 200)
         content = response.stream.mem
         document = parseString(content)
+        returnValue(document)
+
+
+    @inlineCallbacks
+    def test_simplestRender(self):
+        """
+        Rendering a L{WebAdminResource} will result in something vaguely
+        parseable as HTML.
+        """
+        document = yield self.renderPage()
         self.assertEquals(document.documentElement.tagName, 'html')
+
+
+
+class NewRenderingTests(RenderingTests):
+    """
+    Tests for new L{WebAdminPage} renderer.
+    """
+
+    @inlineCallbacks
+    def renderPage(self):
+        self.resource.render = self.resource.renderNew
+        returnValue((yield super(NewRenderingTests, self).renderPage()))
+
 
