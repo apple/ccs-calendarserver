@@ -207,6 +207,7 @@ class FakePrincipalResource(object):
         self.test = test
         test.assertEquals(resid, "qux")
 
+
     @property
     def record(self):
         authIds = ['fake auth id']
@@ -219,11 +220,14 @@ class FakePrincipalResource(object):
             shortNames=tuple(shortNames), fullName=fullName
         )
 
+
     def __str__(self):
         return 'Hello Fake Resource'
 
+
     def getChild(self, name):
         return self
+
 
     def readProperty(self, name, request):
         if name == DisplayName.qname():
