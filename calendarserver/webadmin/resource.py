@@ -154,10 +154,13 @@ class WebAdminPage(Element):
         the resourceId request parameter.
         """
         resourceId = request.args.get('resourceId', [''])[0]
+        propertyName = request.args.get('davPropertyName', [''])[0]
         if resourceId:
             principalResource = self.resource.getResourceById(
                 request, resourceId)
-            return DetailsElement(resourceId, principalResource, tag)
+            return DetailsElement(
+                resourceId, principalResource, propertyName, tag
+            )
         else:
             return ""
 
@@ -181,7 +184,7 @@ class stan(object):
 
 class DetailsElement(Element):
 
-    def __init__(self, resourceId, principalResource, tag):
+    def __init__(self, resourceId, principalResource, davPropertyName, tag):
         # FIXME IMPLEMENT
         self.principalResource = principalResource
         tag.fillSlots(resourceTitle=unicode(principalResource),
@@ -207,7 +210,7 @@ class DetailsElement(Element):
         name.
         """
         # FIXME IMPLEMENT
-        return tag.fillSlots(name="sample property", value="sample value")
+        return tag.fillSlots(value="sample value")
 
 
     @renderer
