@@ -146,8 +146,57 @@ class WebAdminPage(Element):
         Renderer which fills slots for details of the resource selected by
         the resourceId request parameter.
         """
-        return ""
+        # FIXME IMPLEMENT
+        return tag.fillSlots(resourceTitle="",
+                             resourceId="",
+                             davPropertyName="")
 
+    @renderer
+    def propertyParseError(self, request, tag):
+        """
+        Renderer to display an error when the user specifies an invalid property
+        name.
+        """
+        # FIXME IMPLEMENT
+        return tag
+
+
+    @renderer
+    def davProperty(self, request, tag):
+        """
+        Renderer to display an error when the user specifies an invalid property
+        name.
+        """
+        # FIXME IMPLEMENT
+        return tag.fillSlots(name="sample property", value="sample value")
+
+
+    @renderer
+    def isAutoSchedule(self, request, tag):
+        """
+        Renderer which returns its tag if the resource is auto-schedule.
+        """
+        # FIXME IMPLEMENT
+        return ''
+
+
+    @renderer
+    def isntAutoSchedule(self, request, tag):
+        """
+        Renderer which returns its tag if the resource is not auto-schedule.
+        """
+        # FIXME IMPLEMENT
+        return ''
+
+
+    @renderer
+    def proxyRows(self, request, tag):
+        """
+        Renderer which does zipping logic to render read-only and read-write
+        rows of existing proxies for the currently-viewed resource.
+        """
+        # FIXME IMPLEMENT
+        return ''
 
 
 class WebAdminResource (ReadOnlyResourceMixIn, DAVFile):
