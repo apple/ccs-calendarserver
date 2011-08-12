@@ -359,6 +359,24 @@ class RenderingTests(TestCase):
                       ''.join(gatherTextNodes(document)))
 
 
+    @inlineCallbacks
+    def test_noDavProperty(self):
+        """
+        When a DAV property is not found, an error will be displayed.
+        """
+        self.resource.getResourceById = partial(FakePrincipalResource, self)
+        document = yield self.renderPage(
+            dict(resourceId=["qux"],
+                 davPropertyName=["DAV:#blub"])
+        )
+        propertyName = document.getElementById('txt_davPropertyName')
+        self.assertEquals(propertyName.getAttribute("value"),
+                          "DAV:#blub")
+        propertyValue = "No such property: DAV:#blub"
+        self.assertIn(cgi.escape(propertyValue),
+                      gatherTextNodes(document))
+
+
     # Properties for being a fake directory service as far as the implementation
     # of DirectoryRecord is concerned.
     realmName = 'Fake'
@@ -432,33 +450,4 @@ class FakePrincipalResource(object):
     def getAutoSchedule(self):
         return self.autosched
 
-
-
-class NewRenderingTests(RenderingTests):
-    """
-    Tests for new L{WebAdminPage} renderer.
-    """
-
-    @inlineCallbacks
-    def renderPage(self, args={}):
-        self.resource.render = self.resource.renderNew
-        returnValue((yield super(NewRenderingTests, self).renderPage(args)))
-
-
-    @inlineCallbacks
-    def test_noDavProperty(self):
-        """
-        When a DAV property is not found, an error will be displayed.
-        """
-        self.resource.getResourceById = partial(FakePrincipalResource, self)
-        document = yield self.renderPage(
-            dict(resourceId=["qux"],
-                 davPropertyName=["DAV:#blub"])
-        )
-        propertyName = document.getElementById('txt_davPropertyName')
-        self.assertEquals(propertyName.getAttribute("value"),
-                          "DAV:#blub")
-        propertyValue = "No such property: DAV:#blub"
-        self.assertIn(cgi.escape(propertyValue),
-                      gatherTextNodes(document))
 
