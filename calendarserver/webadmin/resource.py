@@ -486,12 +486,12 @@ class WebAdminResource (ReadOnlyResourceMixIn, DAVFile):
                 namespace, name = davPropertyName.split("#")
             except Exception:
                 propertyHtml += "<div>Unable to parse property to read: <b>%s</b></div>" % davPropertyName
-
-            result = (yield resource.readProperty((namespace, name), None))
-            propertyHtml += "<div style=\"margin-top:7px\">Value of property <b>%(name)s</b>:</div><pre style=\"margin-top:5px; padding-top:0\">%(value)s</pre>" % { 
-                "name": davPropertyName, 
-                "value": cgi.escape(result.toxml())
-            }
+            else:
+                result = (yield resource.readProperty((namespace, name), None))
+                propertyHtml += "<div style=\"margin-top:7px\">Value of property <b>%(name)s</b>:</div><pre style=\"margin-top:5px; padding-top:0\">%(value)s</pre>" % { 
+                    "name": davPropertyName, 
+                    "value": cgi.escape(result.toxml())
+                }
 
         ###
         # Auto-schedule

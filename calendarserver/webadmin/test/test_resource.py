@@ -197,6 +197,27 @@ class RenderingTests(TestCase):
                       gatherTextNodes(document))
 
 
+    @inlineCallbacks
+    def test_notADavProperty(self):
+        """
+        When a DAV property is selected without the proper syntax (i.e. no "#"
+        to separate namespace and name), an error will be displayed.
+        """
+        self.resource.getResourceById = partial(FakePrincipalResource, self)
+        document = yield self.renderPage(
+            dict(resourceId=["qux"],
+                 davPropertyName=["blub"])
+        )
+        propertyName = document.getElementById('txt_davPropertyName')
+        self.assertEquals(propertyName.getAttribute("value"),
+                          "blub")
+        propertyValue = "Unable to parse property to read: blub"
+        self.assertIn(cgi.escape(propertyValue),
+                      gatherTextNodes(document))
+
+
+    # Properties for being a fake directory service as far as the implementation
+    # of DirectoryRecord is concerned.
     realmName = 'Fake'
     guid = '28c57671-2bf8-4ebd-bc45-fda5ffcee1e8'
 
