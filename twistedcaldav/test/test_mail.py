@@ -486,10 +486,9 @@ END:VCALENDAR
                 self.assertEquals(actualReplyTo, actualFrom)
 
 
-    def test_generateEmail(self):
+    def generateSampleEmail(self):
         """
-        L{MailHandler.generateEmail} generates a MIME-formatted email with a
-        text/plain part, a text/html part, and a text/calendar part.
+        Invoke L{MailHandler.generateEmail} and parse the result.
         """
         calendar = Component.fromString(initialInviteText)
         msgID, msgTxt = self.handler.generateEmail(
@@ -504,6 +503,15 @@ END:VCALENDAR
             toAddress="user03@localhost",
         )
         message = email.message_from_string(msgTxt)
+        return msgID, message
+
+
+    def test_generateEmail(self):
+        """
+        L{MailHandler.generateEmail} generates a MIME-formatted email with a
+        text/plain part, a text/html part, and a text/calendar part.
+        """
+        msgID, message = self.generateSampleEmail()
         self.assertEquals(message['Message-ID'], msgID)
         expectedTypes = set(["text/plain", "text/html", "text/calendar"])
         actualTypes = set([
@@ -512,6 +520,20 @@ END:VCALENDAR
         ])
         self.assertEquals(actualTypes, expectedTypes)
 
+
+    def test_emailQuoting(self):
+        """
+        L{MailHandler.generateEmail} will HTML-quote all relevant fields in the
+        HTML part, but not the text/plain part.
+        """
+        msgID, message = self.generateSampleEmail()
+        htmlPart = partByType(message, "text/html").get_payload(decode=True)
+        plainPart = partByType(message, "text/plain").get_payload(decode=True)
+        expectedPlain = 'awesome description with "<" and "&"'
+        expectedHTML = expectedPlain.replace("&", "&amp;").replace("<", "&lt;")
+
+        self.assertIn(expectedPlain, plainPart)
+        self.assertIn(expectedHTML, htmlPart)
 
 
 def partByType(message, contentType):
@@ -531,6 +553,7 @@ class MailGatewayTokensDatabaseTests(TestCase):
     def setUp(self):
         TestCase.setUp(self)
         self.db = MailGatewayTokensDatabase(":memory:")
+
 
     def test_tokens(self):
         self.assertEquals(self.db.lookupByToken("xyzzy"), None)
