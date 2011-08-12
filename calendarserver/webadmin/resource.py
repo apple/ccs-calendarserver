@@ -92,6 +92,20 @@ class WebAdminPage(Element):
         returnValue(tag)
 
 
+    @renderer
+    @inlineCallbacks
+    def noSearchResults(self, request, tag):
+        """
+        Renderer which detects if there are resource search results and
+        continues if so.
+        """
+        rows = yield self.performSearch(request)
+        if rows:
+            returnValue("")
+        else:
+            returnValue(tag)
+
+
     _searchResults = None
 
     @inlineCallbacks
