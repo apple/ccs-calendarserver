@@ -1447,8 +1447,8 @@ class MailHandler(LoggingMixIn):
         # template stuff, and once again, it's just a 'mailto:'.
         # tags.a(href="mailto:"+email)[cn]
         if orgEmail:
-            details['htmlOrganizer'] = '<a href="mailto:%s">%s</a>' % (
-                orgEmail, orgCN)
+            details['htmlOrganizer'] = tags.a(href="mailto:%s" % (orgEmail,))(
+                orgCN)
         else:
             details['htmlOrganizer'] = orgCN
 
