@@ -113,6 +113,12 @@ def doSetup():
                                "zoneinfo/*/*/*.ics",
                                "images/*/*.jpg",
                              ],
+                             "calendarserver.webadmin": [
+                                 "*.html"
+                             ],
+                             "twistedcaldav": [
+                                 "*.html"
+                             ],
                              "txdav.common.datastore": [
                                "sql_schema/*.sql",
                                "sql_schema/*/*.sql",
