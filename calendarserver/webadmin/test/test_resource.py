@@ -170,6 +170,16 @@ class RenderingTests(TestCase):
         self.assertEquals(hiddenResourceId, "qux")
 
 
+    @inlineCallbacks
+    def test_davProperty(self):
+        """
+        When a resource is selected by a resourceId parameter, and a DAV
+        property is selected by the 'davPropertyName' parameter, that property
+        will displayed.
+        """
+        self.fail('implement')
+
+
 
     realmName = 'Fake'
     guid = '28c57671-2bf8-4ebd-bc45-fda5ffcee1e8'
