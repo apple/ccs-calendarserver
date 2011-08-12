@@ -189,7 +189,13 @@ def localizedLabels(language, canceled, inviteState):
             inviteLabel = inviteLabel,
         )
 
-    return subjectFormatString, labels
+        # The translations we get back from gettext are utf-8 encoded
+        # strings, so convert to unicode
+        for key in labels.keys():
+            if isinstance(labels[key], str):
+                labels[key] = labels[key].decode("utf-8")
+
+    return subjectFormatString.decode("utf-8"), labels
 
 #
 # Mail gateway service config
@@ -1252,7 +1258,7 @@ class MailHandler(LoggingMixIn):
         # The translations we get back from gettext are utf-8 encoded strings,
         # so convert to unicode.
 
-        details['subject'] = msg['Subject'] = subjectFormat.decode('utf-8') % {
+        details['subject'] = msg['Subject'] = subjectFormat % {
             'summary' : details['summary']
         }
 
@@ -1265,33 +1271,8 @@ class MailHandler(LoggingMixIn):
             msgAlt = MIMEMultipart("alternative")
             msg.attach(msgAlt)
 
-            plainAttendeeList = []
-            for cn, mailto in attendees:
-                if cn:
-                    plainAttendeeList.append(cn if not mailto else
-                        "%s <%s>" % (cn, mailto))
-                elif mailto:
-                    plainAttendeeList.append("<%s>" % (mailto,))
-
-            details['plainAttendees'] = ", ".join(plainAttendeeList)
-
-            details['plainOrganizer'] = (orgCN if not orgEmail else
-                "%s <%s>" % (orgCN, orgEmail))
-
-            # The translations we get back from gettext are utf-8 encoded
-            # strings, so convert to unicode
-            for key in details.keys():
-                if isinstance(details[key], str):
-                    details[key] = details[key].decode("utf-8")
-
-            # plain text version
-            if canceled:
-                plainTemplate = plainCancelTemplate
-            else:
-                plainTemplate = plainInviteTemplate
-
-            plainText = plainTemplate % details
-
+            plainText = self.renderPlainText(details, (orgCN, orgEmail),
+                                             attendees, canceled)
             msgPlain = MIMEText(plainText.encode("UTF-8"), "plain", "UTF-8")
             msgAlt.attach(msgPlain)
 
@@ -1331,6 +1312,33 @@ class MailHandler(LoggingMixIn):
         msg.attach(msgIcal)
 
         return msgId, msg.as_string()
+
+
+    def renderPlainText(self, details, (orgCN, orgEmail), attendees, canceled):
+        """
+        Render text/plain message part based on invitation details and a flag
+        indicating whether the message is a cancellation.
+        """
+        plainAttendeeList = []
+        for cn, mailto in attendees:
+            if cn:
+                plainAttendeeList.append(cn if not mailto else
+                    "%s <%s>" % (cn, mailto))
+            elif mailto:
+                plainAttendeeList.append("<%s>" % (mailto,))
+
+        details['plainAttendees'] = ", ".join(plainAttendeeList)
+
+        details['plainOrganizer'] = (orgCN if not orgEmail else
+            "%s <%s>" % (orgCN, orgEmail))
+
+        # plain text version
+        if canceled:
+            plainTemplate = plainCancelTemplate
+        else:
+            plainTemplate = plainInviteTemplate
+
+        return plainTemplate % details
 
 
     def renderHTML(self, details, organizer, attendees, canceled):
