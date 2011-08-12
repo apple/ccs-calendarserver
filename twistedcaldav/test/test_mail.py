@@ -570,7 +570,9 @@ END:VCALENDAR
         """
         class StubElement(Element):
             loader = StringFormatTemplateLoader(
-                StringIO("<test><alpha>%(slot1)s</alpha>%(other)s</test>"),
+                lambda : StringIO(
+                    "<test><alpha>%(slot1)s</alpha>%(other)s</test>"
+                ),
                 "testRenderHere"
             )
 
