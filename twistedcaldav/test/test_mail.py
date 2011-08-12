@@ -546,6 +546,11 @@ END:VCALENDAR
         self.assertIn(u'<a href="mailto:user01@localhost">Us\u00e9r One</a>',
                       htmlText)
 
+        # The same assertion, but with the organizer's form.
+        self.assertIn(
+            u'<a href="mailto:user01@localhost">User Z\u00e9ro One</a>',
+            htmlText)
+
 
     def test_emailQuoting(self):
         """
