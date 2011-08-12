@@ -185,7 +185,7 @@ def _walk(document, n):
 
 
 def _fixup(data, rendererName):
-    document = parseString(data)
+    document = parseString(data, beExtremelyLenient=True)
     document.documentElement.setAttribute(
         "xmlns:t", TEMPLATE_NAMESPACE
     )
