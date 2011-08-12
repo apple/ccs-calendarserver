@@ -161,7 +161,9 @@ class RenderingTests(TestCase):
     @inlineCallbacks
     def test_proxySearch(self):
         """
-        Test for searching for a proxy.
+        When the user searches for a proxy, the results are displayed in a
+        table, in a form that will allow them to submit it to add new read or
+        write proxies.
         """
         self.expectSomeRecords()
         self.resource.getResourceById = partial(FakePrincipalResource, self)
@@ -182,6 +184,31 @@ class RenderingTests(TestCase):
         self.assertEquals(
             [gatherTextNodes(cell) for cell in firstRowCells[1:]],
             ["User", "bob", "bob@example.com, bob@other.example.com", ""]
+        )
+        self.assertNotIn(
+            "No matches found for proxy resource bob",
+            gatherTextNodes(document)
+        )
+
+
+    @inlineCallbacks
+    def test_noProxySearch(self):
+        """
+        When no results 
+        """
+        self.resource.getResourceById = partial(FakePrincipalResource, self)
+        self.expectRecordSearch("bob", [])
+        document = yield self.renderPage(dict(resourceId=["qux"],
+                                              proxySearch=["bob"]))
+        self.assertEquals(
+            document.getElementById("txt_proxySearch").getAttribute("value"),
+            "bob"
+        )
+        proxyAddForm = document.getElementById("frm_proxyAdd")
+        self.assertIdentical(proxyAddForm, None)
+        self.assertIn(
+            "No matches found for proxy resource bob",
+            gatherTextNodes(document)
         )
 
 
