@@ -1,0 +1,54 @@
+<html xmlns:t="http://twistedmatrix.com/ns/twisted.web.template/0.1">
+    <head>
+        <style>
+            th, .even td, .odd td {
+                padding-right: 0.5em;
+                font-family: monospace;
+            }
+            .even-dir {
+                background-color: #efe0ef;
+            }
+            .even {
+                background-color: #eee;
+            }
+            .odd-dir {
+                background-color: #f0d0ef;
+            }
+            .odd {
+                background-color: #dedede;
+            }
+            .icon {
+                text-align: center;
+            }
+            .listing {
+                margin-left: auto;
+                margin-right: auto;
+                width: 50%;
+                padding: 0.1em;
+            }
+            .content {
+                padding-left: 10px;
+                padding-right: 10px;
+            }
+            body {
+                border: 0;
+                padding: 0;
+                margin: 0;
+                background-color: #efefef;
+            }
+            h1 {
+                padding: 0.1em;
+                padding-left:10px;
+                padding-right:10px;
+                background-color: #777;
+                color: white;
+                border-bottom: thin white dashed;
+            }
+        </style>
+        <title><t:slot name="title" /></title>
+    </head>
+    <body>
+        <div class="content">
+        </div>
+    </body>
+</html>
