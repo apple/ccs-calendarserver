@@ -108,14 +108,15 @@
       Unable to parse property to read: <b><t:slot name="davPropertyName" /></b>
       </div>
 
-      <t:invisible t:render="davProperty">
+      <t:transparent t:render="davProperty">
       <div style="margin-top: 7px">Value of property
         <b><t:slot name="davPropertyName" /></b>:</div>
       <pre style="margin-top:5px; padding-top:0"><t:slot name="value" /></pre>
-      </t:invisible>
+      </t:transparent>
 
       <!-- autoScheduleHtml -->
 
+      <t:transparent t:render="autoSchedule">
       <div style="margin-top:15px; border-bottom:1px #444444 dotted"></div>
       <form id="frm_autoSchedule" name="autoScheduleForm" action="/admin/"
             style="margin-top:15px">
@@ -130,6 +131,7 @@
           <input type="submit" value="Change" />
         </div>
       </form>
+      </t:transparent>
 
       <!-- currentProxiesHtml -->
       <div style="margin-top:15px; border-bottom:1px #444444 dotted"></div>

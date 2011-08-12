@@ -244,6 +244,17 @@ class DetailsElement(Element):
 
 
     @renderer
+    def autoSchedule(self, request, tag):
+        """
+        Renderer which elides its tag for non-resource-type principals.
+        """
+        if (self.principalResource.record.recordType != "users" and
+            self.principalResource.record.recordType != "groups"):
+            return tag
+        return ""
+
+
+    @renderer
     def isAutoSchedule(self, request, tag):
         """
         Renderer which sets the 'selected' attribute on its tag if the resource
