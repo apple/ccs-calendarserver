@@ -375,7 +375,11 @@ class DetailsElement(Element):
 
     def performProxySearch(self, request):
         if self.proxySearch:
-            return self.adminResource.search(self.proxySearch)
+            def nameSorted(records):
+                records.sort(key=operator.attrgetter('fullName'))
+                return records
+            return self.adminResource.search(
+                self.proxySearch).addCallback(nameSorted)
         else:
             return succeed([])
 
