@@ -14,10 +14,14 @@
 # limitations under the License.
 ##
 
+
+from cStringIO import StringIO
 import datetime
 import email
 
 from twisted.internet.defer import inlineCallbacks
+
+from twisted.web.template import Element, renderer, flattenString
 from twisted.python.modules import getModule
 from twisted.python.filepath import FilePath
 
@@ -28,6 +32,7 @@ from twistedcaldav.config import config
 from twistedcaldav.scheduling.itip import iTIPRequestStatus
 
 from twistedcaldav.mail import MailHandler
+from twistedcaldav.mail import StringFormatTemplateLoader
 from twistedcaldav.mail import MailGatewayTokensDatabase
 
 from twistedcaldav.directory.directory import DirectoryRecord
@@ -554,6 +559,29 @@ END:VCALENDAR
 
         self.assertIn(expectedPlain, plainPart)
         self.assertIn(expectedHTML, htmlPart)
+
+
+    def test_stringFormatTemplateLoader(self):
+        """
+        L{StringFormatTemplateLoader.load} will convert a template with
+        C{%(x)s}-format slots by converting it to a template with C{<t:slot
+        name="x" />} slots, and a renderer on the document element named
+        according to the constructor argument.
+        """
+        class StubElement(Element):
+            loader = StringFormatTemplateLoader(
+                StringIO("<test><alpha>%(slot1)s</alpha>%(other)s</test>"),
+                "testRenderHere"
+            )
+
+            @renderer
+            def testRenderHere(self, request, tag):
+                return tag.fillSlots(slot1="hello",
+                                     other="world")
+        result = []
+        flattenString(None, StubElement()).addCallback(result.append)
+        self.assertEquals(result,
+                          ["<test><alpha>hello</alpha>world</test>"])
 
 
 
