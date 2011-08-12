@@ -277,6 +277,14 @@ class DetailsElement(Element):
 
 
     @renderer
+    def noProxies(self, request, tag):
+        """
+        Renderer which shows its tag if there are no proxies for this resource.
+        """
+        return tag
+
+
+    @renderer
     @inlineCallbacks
     def proxyRows(self, request, tag):
         """

@@ -313,6 +313,9 @@ class RenderingTests(TestCase):
         self.assertEquals(len(lastRowCells), 3)
         self.assertEquals(lastRowCells[-1].getAttribute("colspan"), "2")
 
+        self.assertNotIn("This resource has no proxies.",
+                         ''.join(gatherTextNodes(document)))
+
 
     @inlineCallbacks
     def test_noProxiesListing(self):
