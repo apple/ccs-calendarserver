@@ -226,23 +226,28 @@ class RenderingTests(TestCase):
         When rendering a resource, an "Auto-Schedule" menu with "Yes/No" options
         should be displayed.
         """
-        self.resource.getResourceById = partial(FakePrincipalResource, self,
-                                                recordType='resources')
-        document = yield self.renderPage(dict(resourceId=["qux"]))
-        autoScheduleMenu = document.getElementById("sel_autoSchedule")
-        self.assertEquals(autoScheduleMenu.getAttribute("name"), "autoSchedule")
+        for expectValue in [True, False]:
 
-        yes, no = getElementsByTagName(autoScheduleMenu, 'option')
+            self.resource.getResourceById = partial(FakePrincipalResource, self,
+                                                    recordType='resources',
+                                                    autosched=expectValue)
+            document = yield self.renderPage(dict(resourceId=["qux"]))
+            autoScheduleMenu = document.getElementById("sel_autoSchedule")
+            self.assertEquals(autoScheduleMenu.getAttribute("name"),
+                              "autoSchedule")
 
-        # Sanity checks to make sure we got the right items
-        self.assertEquals(yes.getAttribute("value"), "true")
-        self.assertEquals(no.getAttribute("value"), "false")
+            yesno = getElementsByTagName(autoScheduleMenu, 'option')
 
-        expectedTrue, expectedFalse = yes, no
+            # Sanity checks to make sure we got the right items
+            self.assertEquals(yesno[0].getAttribute("value"), "true")
+            self.assertEquals(yesno[1].getAttribute("value"), "false")
 
-        self.assertEquals(expectedTrue.hasAttribute("selected"), True)
-        self.assertEquals(expectedFalse.hasAttribute("selected"), False)
-        self.assertEquals(expectedTrue.getAttribute("selected"), "selected")
+            [expectedTrue, expectedFalse] = [yesno[not expectValue],
+                                             yesno[expectValue]]
+
+            self.assertEquals(expectedTrue.hasAttribute("selected"), True)
+            self.assertEquals(expectedFalse.hasAttribute("selected"), False)
+            self.assertEquals(expectedTrue.getAttribute("selected"), "selected")
 
 
     # Properties for being a fake directory service as far as the implementation
