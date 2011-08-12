@@ -36,13 +36,12 @@ from calendarserver.tools.principals import (
 from twistedcaldav.config import config
 from twistedcaldav.extensions import DAVFile, ReadOnlyResourceMixIn
 
-from twisted.internet.defer import inlineCallbacks, returnValue
+from twisted.internet.defer import inlineCallbacks, returnValue, succeed
 from twext.web2.http import Response
 from twisted.python.modules import getModule
 from twext.web2.http_headers import MimeType
 from zope.interface.declarations import implements
 from twext.web2.stream import MemoryStream
-from twisted.internet.defer import succeed
 from twext.web2.dav import davxml
 
 from twisted.web.iweb import ITemplateLoader
@@ -139,11 +138,12 @@ class WebAdminPage(Element):
         """
         resourceId = request.args.get('resourceId', [''])[0]
         propertyName = request.args.get('davPropertyName', [''])[0]
+        proxySearch = request.args.get('proxySearch', [''])[0]
         if resourceId:
             principalResource = self.resource.getResourceById(
                 request, resourceId)
             return DetailsElement(
-                resourceId, principalResource, propertyName, tag,
+                resourceId, principalResource, propertyName, proxySearch, tag,
                 self.resource
             )
         else:
@@ -191,15 +191,16 @@ class stan(object):
 
 class DetailsElement(Element):
 
-    def __init__(self, resourceId, principalResource, davPropertyName, tag,
-                 adminResource):
+    def __init__(self, resourceId, principalResource, davPropertyName,
+                 proxySearch, tag, adminResource):
         self.principalResource = principalResource
         self.adminResource = adminResource
+        self.proxySearch = proxySearch
         tag.fillSlots(resourceTitle=unicode(principalResource),
                       resourceId=resourceId,
                       davPropertyName=davPropertyName,
                       # FIXME implement
-                      proxySearch="")
+                      proxySearch=proxySearch)
         try:
             namespace, name = davPropertyName.split("#")
         except Exception:
@@ -308,7 +309,10 @@ class DetailsElement(Element):
 
 
     def performProxySearch(self, request):
-        return succeed([])
+        if self.proxySearch:
+            return self.adminResource.search(self.proxySearch)
+        else:
+            return succeed([])
 
 
     @renderer
