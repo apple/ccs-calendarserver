@@ -1337,20 +1337,13 @@ class MailHandler(LoggingMixIn):
         results['month'] = dtStart.getMonth()
         results['day'] = dtStart.getDay()
 
-        summary = component.propertyValue("SUMMARY").decode("utf-8")
-        if summary is None:
-            summary = ""
-        results['summary'] = summary
-
-        description = component.propertyValue("DESCRIPTION")
-        if description is None:
-            description = ""
-        results['description'] = description
-
-        location = component.propertyValue("LOCATION")
-        if location is None:
-            location = ""
-        results['location'] = location
+        for propertyToResult in ['summary', 'description', 'location']:
+            result = component.propertyValue(propertyToResult.upper())
+            if result is None:
+                result = u""
+            else:
+                result = result.decode('utf-8')
+            results[propertyToResult] = result
 
         with translationTo(language) as trans:
             results['dateInfo'] = trans.date(component)
@@ -1366,10 +1359,6 @@ class MailHandler(LoggingMixIn):
                 results['recurrenceInfo'] = ""
 
         return results
-
-
-
-
 
 
 
