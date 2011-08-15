@@ -27,7 +27,8 @@ from twistedcaldav.directory.principal import DirectoryCalendarPrincipalResource
 from twistedcaldav.ical import Property
 from twistedcaldav.scheduling import addressmapping
 from twistedcaldav.scheduling.cuaddress import InvalidCalendarUser,\
-    LocalCalendarUser, PartitionedCalendarUser, OtherServerCalendarUser
+    LocalCalendarUser, PartitionedCalendarUser, OtherServerCalendarUser,\
+    normalizeCUAddr
 from twistedcaldav.scheduling.icaldiff import iCalDiff
 from twistedcaldav.scheduling.itip import iTipGenerator, iTIPRequestStatus
 from twistedcaldav.scheduling.scheduler import CalDAVScheduler
@@ -279,7 +280,7 @@ class ImplicitScheduler(object):
         self.request.suppressRefresh = False
 
         for attendee in self.calendar.getAllAttendeeProperties():
-            if attendee.parameterValue("PARTSTAT", "NEEDS-ACTION") == "NEEDS-ACTION":
+            if attendee.parameterValue("PARTSTAT", "NEEDS-ACTION").upper() == "NEEDS-ACTION":
                 self.request.suppressRefresh = True
         
         if hasattr(self.request, "doing_attendee_refresh"):
@@ -468,6 +469,8 @@ class ImplicitScheduler(object):
 
             # Read in existing data
             self.oldcalendar = (yield self.resource.iCalendarForUser(self.request))
+            self.oldAttendeesByInstance = self.oldcalendar.getAttendeesByInstance(True, onlyScheduleAgentServer=True)
+            self.coerceAttendeesPartstatOnModify()
             
             # Significant change
             no_change, self.changed_rids, self.needs_action_rids, reinvites, recurrence_reschedule = self.isOrganizerChangeInsignificant()
@@ -503,10 +506,11 @@ class ImplicitScheduler(object):
 
         elif self.action == "create":
             log.debug("Implicit - organizer '%s' is creating UID: '%s'" % (self.organizer, self.uid))
+            self.coerceAttendeesPartstatOnCreate()
             
         # Always set RSVP=TRUE for any NEEDS-ACTION
         for attendee in self.calendar.getAllAttendeeProperties():
-            if attendee.parameterValue("PARTSTAT", "NEEDS-ACTION") == "NEEDS-ACTION":
+            if attendee.parameterValue("PARTSTAT", "NEEDS-ACTION").upper() == "NEEDS-ACTION":
                 attendee.setParameter("RSVP", "TRUE")
 
         yield self.scheduleWithAttendees()
@@ -602,7 +606,7 @@ class ImplicitScheduler(object):
             reinvites = set()
             for attendee in self.calendar.getAllAttendeeProperties():
                 try:
-                    if attendee.parameterValue("SCHEDULE-FORCE-SEND") == "REQUEST":
+                    if attendee.parameterValue("SCHEDULE-FORCE-SEND", "").upper() == "REQUEST":
                         reinvites.add(attendee.value())
                 except KeyError:
                     pass
@@ -626,9 +630,7 @@ class ImplicitScheduler(object):
         
         # TODO: the later three will be ignored for now.
 
-        oldAttendeesByInstance = self.oldcalendar.getAttendeesByInstance(onlyScheduleAgentServer=True)
-        
-        mappedOld = set(oldAttendeesByInstance)
+        mappedOld = set(self.oldAttendeesByInstance)
         mappedNew = set(self.attendeesByInstance)
         
         # Get missing instances
@@ -683,6 +685,77 @@ class ImplicitScheduler(object):
             for rid in addedInstances:
                 if (attendee, rid) not in mappedNew and rid not in oldexdates:
                     self.cancelledAttendees.add((attendee, rid))
+
+    def coerceAttendeesPartstatOnCreate(self):
+        """
+        Make sure any attendees handled by the server start off with PARTSTAT=NEEDS-ACTION as
+        we do not allow the organizer to forcibly set PARTSTAT to anything else.
+        """
+        for attendee in self.calendar.getAllAttendeeProperties():
+            # Don't adjust ORGANIZER's ATTENDEE
+            if attendee.value() in self.organizerPrincipal.calendarUserAddresses():
+                continue
+            if attendee.parameterValue("SCHEDULE-AGENT", "SERVER").upper() == "SERVER" and attendee.hasParameter("PARTSTAT"):
+                attendee.setParameter("PARTSTAT", "NEEDS-ACTION")
+    
+    def coerceAttendeesPartstatOnModify(self):
+        """
+        Make sure that the organizer does not change attendees' PARTSTAT to anything
+        other than NEEDS-ACTION for those attendees handled by the server.
+        """
+        
+        # Get the set of Rids in each calendar
+        newRids = set(self.calendar.getComponentInstances())
+        oldRids = set(self.oldcalendar.getComponentInstances())
+        
+        # Test/fix ones that are the same
+        for rid in (newRids & oldRids):
+            self.compareAttendeePartstats(self.oldcalendar.overriddenComponent(rid), self.calendar.overriddenComponent(rid))
+        
+        # Test/fix ones added
+        for rid in (newRids - oldRids):
+            # Compare the new one to the old master
+            self.compareAttendeePartstats(self.oldcalendar.overriddenComponent(None), self.calendar.overriddenComponent(rid))
+
+        # For removals, we ignore ones that are no longer valid
+        valid_old_rids = self.calendar.validInstances(oldRids - newRids)
+    
+        # Test/fix ones removed         
+        for rid in valid_old_rids:
+            # Compare the old one to the new master
+            # Note it is hard to recover from this state so raise instead
+            self.compareAttendeePartstats(
+                self.oldcalendar.overriddenComponent(rid),
+                self.calendar.overriddenComponent(None),
+                raiseOnMisMatch=True
+            )
+        
+    def compareAttendeePartstats(self, old_component, new_component, raiseOnMisMatch=False):
+        """
+        Compare two components, old and new, and make sure the Organizer has not changed the PARTSTATs
+        in the new one to anything other than NEEDS-ACTION. If there is a change, undo it.
+        """
+        
+        old_attendees = dict([(normalizeCUAddr(attendee.value()), attendee) for attendee in old_component.getAllAttendeeProperties()])
+        new_attendees = dict([(normalizeCUAddr(attendee.value()), attendee) for attendee in new_component.getAllAttendeeProperties()])
+        
+        for cuaddr, newattendee in new_attendees.items():
+            # Don't adjust ORGANIZER's ATTENDEE
+            if newattendee.value() in self.organizerPrincipal.calendarUserAddresses():
+                continue
+            new_partstat = newattendee.parameterValue("PARTSTAT", "NEEDS-ACTION").upper()
+            if newattendee.parameterValue("SCHEDULE-AGENT", "SERVER").upper() == "SERVER" and new_partstat != "NEEDS-ACTION":
+                old_attendee = old_attendees.get(cuaddr)
+                old_partstat = old_attendee.parameterValue("PARTSTAT", "NEEDS-ACTION").upper() if old_attendee else "NEEDS-ACTION"
+                if old_attendee is None or old_partstat != new_partstat:
+                    if raiseOnMisMatch:
+                        raise HTTPError(ErrorResponse(
+                            responsecode.FORBIDDEN,
+                            (caldav_namespace, "valid-organizer-change"),
+                            "Organizer cannot change Attendee PARTSTAT",
+                        ))
+                    else:
+                        newattendee.setParameter("PARTSTAT", old_partstat)
 
     @inlineCallbacks
     def scheduleWithAttendees(self):
