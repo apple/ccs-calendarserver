@@ -462,19 +462,6 @@
         </array>
       </dict>
 
-      <!-- General options for scheduling -->
-      <key>Options</key>
-      <dict>
-        <key>AllowGroupAsOrganizer</key>
-        <false/>
-        <key>AllowLocationAsOrganizer</key>
-        <false/>
-        <key>AllowResourceAsOrganizer</key>
-        <false/>
-        <key>AttendeeRefreshInterval</key>
-        <integer>0</integer>
-      </dict>
-
     </dict>
 
 
