@@ -751,6 +751,7 @@ END:VCALENDAR
             scheduler.resource = None
             scheduler.request = None
             scheduler.oldcalendar = Component.fromString(calendar1)
+            scheduler.oldAttendeesByInstance = scheduler.oldcalendar.getAttendeesByInstance(True, onlyScheduleAgentServer=True)
             scheduler.calendar = Component.fromString(calendar2)
             scheduler.extractCalendarData()
             scheduler.findRemovedAttendees()
