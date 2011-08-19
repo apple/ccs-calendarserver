@@ -186,6 +186,20 @@
       </dict>
     </dict>
 
+    <!-- XML File Augment Service -->
+    <key>AugmentService</key>
+    <dict>
+      <key>type</key>
+      <string>twistedcaldav.directory.augment.AugmentXMLDB</string>
+
+      <key>params</key>
+      <dict>
+        <key>xmlFiles</key>
+        <array>
+          <string>augments.xml</string>
+        </array>
+      </dict>
+    </dict>
 
     <!--
         Special principals
