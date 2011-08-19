@@ -432,8 +432,11 @@ def upgrade_to_1(config):
                         if len(second) == 2:
                             secondPath = os.path.join(firstPath, second)
                             for home in os.listdir(secondPath):
-                                total += 1
                                 homePath = os.path.join(secondPath, home)
+                                if not os.path.isdir(homePath):
+                                    # Skip non-directories
+                                    continue
+                                total += 1
                                 inboxPath = os.path.join(homePath, "inbox")
                                 if os.path.exists(inboxPath):
                                     for inboxItem in os.listdir(inboxPath):
@@ -461,7 +464,7 @@ def upgrade_to_1(config):
                                 for home in os.listdir(secondPath):
                                     homePath = os.path.join(secondPath, home)
 
-                                    if not os.path.isdir(oldHome):
+                                    if not os.path.isdir(homePath):
                                         # Skip non-directories
                                         continue
 
