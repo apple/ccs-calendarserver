@@ -37,7 +37,6 @@ from twistedcaldav.directory.resourceinfo import ResourceInfoDatabase
 from twistedcaldav.mail import MailGatewayTokensDatabase
 from twistedcaldav.ical import Component
 from twistedcaldav import caldavxml
-from twistedcaldav.ical import Component
 from twistedcaldav.scheduling.cuaddress import LocalCalendarUser
 from twistedcaldav.scheduling.scheduler import DirectScheduler
 
@@ -457,6 +456,9 @@ def upgrade_to_1(config):
                                 for home in os.listdir(secondPath):
                                     homePath = os.path.join(secondPath, home)
 
+                                    if not os.path.isdir(oldHome):
+                                        # Skip non-directories
+                                        continue
 
                                     if not upgradeCalendarHome(homePath,
                                         directory):
