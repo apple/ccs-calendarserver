@@ -768,11 +768,11 @@ DEFAULT_CONFIG = {
     },
 
     "GroupCaching" : {
-        "Enabled": True,
+        "Enabled": False,
         "MemcachedPool" : "Default",
         "UpdateSeconds" : 300,
         "ExpireSeconds" : 3600,
-        "EnableUpdater" : True,
+        "EnableUpdater" : False,
         "UseExternalProxies" : False,
     },
 
