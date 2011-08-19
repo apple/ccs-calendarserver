@@ -53,6 +53,7 @@ from calendarserver.tools.util import getDirectory
 from calendarserver.tools.resources import migrateResources
 
 from twisted.python.reflect import namedAny
+from twisted.python.runtime import platform
 
 deadPropertyXattrPrefix = namedAny(
     "txdav.base.propertystore.xattr.PropertyStore.deadPropertyXattrPrefix"
@@ -192,14 +193,17 @@ def upgrade_to_1(config):
                 with open(resPath, "w") as res:
                     res.write(data)
 
-                md5value = "<?xml version='1.0' encoding='UTF-8'?>\r\n<getcontentmd5 xmlns='http://twistedmatrix.com/xml_namespace/dav/'>%s</getcontentmd5>\r\n" % (hashlib.md5(data).hexdigest(),)
-                md5value = zlib.compress(md5value)
-                xattr.setxattr(resPath, xattrname("{http:%2F%2Ftwistedmatrix.com%2Fxml_namespace%2Fdav%2F}getcontentmd5"), md5value)
+                # On non-native xattr systems we cannot do this, but those systems will typically not be migrating from pre-v1
+                if platform.isMacOSX():
+                    md5value = "<?xml version='1.0' encoding='UTF-8'?>\r\n<getcontentmd5 xmlns='http://twistedmatrix.com/xml_namespace/dav/'>%s</getcontentmd5>\r\n" % (hashlib.md5(data).hexdigest(),)
+                    md5value = zlib.compress(md5value)
+                    xattr.setxattr(resPath, xattrname("{http:%2F%2Ftwistedmatrix.com%2Fxml_namespace%2Fdav%2F}getcontentmd5"), md5value)
 
                 collectionUpdated = True
 
 
-        if collectionUpdated:
+        # On non-native xattr systems we cannot do this, but those systems will typically not be migrating from pre-v1
+        if collectionUpdated and platform.isMacOSX():
             ctagValue = "<?xml version='1.0' encoding='UTF-8'?>\r\n<getctag xmlns='http://calendarserver.org/ns/'>%s</getctag>\r\n" % (str(datetime.datetime.now()),)
             ctagValue = zlib.compress(ctagValue)
             xattr.setxattr(calPath, xattrname("{http:%2F%2Fcalendarserver.org%2Fns%2F}getctag"), ctagValue)
@@ -230,7 +234,8 @@ def upgrade_to_1(config):
 
                 # Change the calendar-free-busy-set xattrs of the inbox to the
                 # __uids__/<guid> form
-                if cal == "inbox":
+                # On non-native xattr systems we cannot do this, but those systems will typically not be migrating from pre-v1
+                if cal == "inbox" and platform.isMacOSX():
                     for attr, value in xattr.xattr(calPath).iteritems():
                         if attr == xattrname("{urn:ietf:params:xml:ns:caldav}calendar-free-busy-set"):
                             value = updateFreeBusySet(value, directory)
