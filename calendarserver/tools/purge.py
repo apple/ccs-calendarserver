@@ -669,7 +669,7 @@ def purgeGUID(guid, directory, root, verbose=False, dryrun=False, proxies=True,
 
     for collName in (yield calendarHome.listChildren()):
         collection = (yield calendarHome.getChild(collName))
-        if collection.isCalendarCollection():
+        if collection.isCalendarCollection() or collName == "inbox":
 
             childNames = []
 
