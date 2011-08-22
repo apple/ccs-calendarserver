@@ -491,6 +491,47 @@ END:VCALENDAR
                 self.assertEquals(actualReplyTo, actualFrom)
 
 
+    @inlineCallbacks
+    def test_mailtoTokens(self):
+        """
+        Make sure old mailto tokens are still honored
+        """
+
+        organizerEmail = "mailto:organizer@example.com"
+
+        config.Scheduling.iMIP.Sending.Address = "server@example.com"
+
+        # Explictly store a token with mailto: CUA for organizer
+        # (something that doesn't happen any more, but did in the past)
+        origToken = self.handler.db.createToken(organizerEmail,
+            "mailto:attendee@example.com",
+            "CFDD5E46-4F74-478A-9311-B3FF905449C3")
+
+        inputCalendar = initialInviteText
+        UID = "CFDD5E46-4F74-478A-9311-B3FF905449C3"
+        inputOriginator = "urn:uuid:C3B38B00-4166-11DD-B22C-A07C87E02F6A"
+        inputRecipient = "mailto:attendee@example.com"
+
+        (actualInviteState, actualCalendar, actualOrganizerEmail,
+            actualOrganizerName, actualAttendeeList, actualFrom,
+            actualRecipient, actualReplyTo) = (yield self.handler.outbound(
+                inputOriginator,
+                inputRecipient,
+                Component.fromString(inputCalendar.replace("\n", "\r\n")),
+                send=False)
+            )
+
+        # Verify we didn't create a new token...
+        token = self.handler.db.getToken(inputOriginator,
+            inputRecipient, UID)
+        self.assertEquals(token, None)
+
+        # But instead kept the old one...
+        token = self.handler.db.getToken(organizerEmail,
+            inputRecipient, UID)
+        self.assertEquals(token, origToken)
+
+
     def generateSampleEmail(self):
         """
         Invoke L{MailHandler.generateEmail} and parse the result.
