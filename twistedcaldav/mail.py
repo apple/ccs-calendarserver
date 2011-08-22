@@ -903,11 +903,25 @@ class MailHandler(LoggingMixIn):
             # event uid
             token = self.db.getToken(originator, toAddr, icaluid)
             if token is None:
+
+                # Because in the past the originator was sometimes in mailto:
+                # form, lookup an existing token by mailto: as well
+                organizerProperty = calendar.getOrganizerProperty()
+                organizerEmailAddress = organizerProperty.parameterValue("EMAIL", None)
+                if organizerEmailAddress is not None:
+                    token = self.db.getToken("mailto:%s" % (organizerEmailAddress,), toAddr, icaluid)
+
+            if token is None:
                 token = self.db.createToken(originator, toAddr, icaluid)
-                self.log_debug("Mail gateway created token %s for %s (originator), %s (recipient) and %s (icaluid)" % (token, originator, toAddr, icaluid))
+                self.log_debug("Mail gateway created token %s for %s "
+                               "(originator), %s (recipient) and %s (icaluid)"
+                               % (token, originator, toAddr, icaluid))
                 inviteState = "new"
+
             else:
-                self.log_debug("Mail gateway reusing token %s for %s (originator), %s (recipient) and %s (icaluid)" % (token, originator, toAddr, icaluid))
+                self.log_debug("Mail gateway reusing token %s for %s "
+                               "(originator), %s (recipient) and %s (icaluid)"
+                               % (token, originator, toAddr, icaluid))
                 inviteState = "update"
 
             fullServerAddress = settings['Address']
