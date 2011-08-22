@@ -116,6 +116,34 @@ class CalendarHome(CommonHome):
     listCalendars = CommonHome.listChildren
     loadCalendars = CommonHome.loadChildren
 
+    @inlineCallbacks
+    def remove(self):
+        ch = schema.CALENDAR_HOME
+        cb = schema.CALENDAR_BIND
+        chm = schema.CALENDAR_HOME_METADATA
+        cor = schema.CALENDAR_OBJECT_REVISIONS
+
+        yield Delete(
+            From=chm,
+            Where=chm.RESOURCE_ID == self._resourceID
+        ).on(self._txn)
+
+        yield Delete(
+            From=cb,
+            Where=cb.CALENDAR_HOME_RESOURCE_ID == self._resourceID
+        ).on(self._txn)
+
+        yield Delete(
+            From=cor,
+            Where=cor.CALENDAR_HOME_RESOURCE_ID == self._resourceID
+        ).on(self._txn)
+
+        yield Delete(
+            From=ch,
+            Where=ch.RESOURCE_ID == self._resourceID
+        ).on(self._txn)
+
+        yield self._cacher.delete(str(self._ownerUID))
 
     @inlineCallbacks
     def hasCalendarResourceUIDSomewhereElse(self, uid, ok_object, type):

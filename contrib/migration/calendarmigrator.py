@@ -157,7 +157,7 @@ RedirectHTTPToHTTPS
 SSLPort
 """.split()
 
-ignoredKkeys = """
+ignoredKeys = """
 ControlSocket
 EnableAnonymousReadRoot
 EnableFindSharedReport

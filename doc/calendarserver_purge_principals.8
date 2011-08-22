@@ -22,6 +22,7 @@
 .Nd Darwin Calendar Server deprovisioned user clean-up utility
 .Sh SYNOPSIS
 .Nm
+.Op Fl -completely
 .Op Fl -config Ar file
 .Op Fl -dry-run
 .Op Fl -verbose
@@ -30,7 +31,7 @@
 .Op guid ...
 .Sh DESCRIPTION
 .Nm
-is a tool for removing one or more principals' future events, proxy assignments, and contacts from the calendar server.  Events in the past are retained, but any ongoing events are canceled.
+is a tool for removing one or more principals' future events, proxy assignments, and contacts from the calendar server.  By default, events in the past are retained, but any ongoing events are canceled.
 .Pp
 .Nm
 should be run as a user with the same priviledges as the Calendar
@@ -40,6 +41,8 @@ server.
 .Bl -tag -width flag
 .It Fl h, -help
 Display usage information
+.It Fl c, -completely
+Delete/cancel all events
 .It Fl f, -config Ar FILE
 Use the Calendar Server configuration specified in the given file.  Defaults to /etc/caldavd/caldavd.plist.
 .It Fl n, -dry-run

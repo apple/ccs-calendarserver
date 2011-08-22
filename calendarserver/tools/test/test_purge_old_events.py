@@ -543,6 +543,44 @@ class PurgeOldEventsTests(CommonCommonTests, unittest.TestCase):
         abColl = (yield abHome.addressbookWithName("addressbook"))
         self.assertEquals(abColl, None)
 
+        calHome = (yield txn.calendarHomeWithUID("home1"))
+        calColl = (yield calHome.calendarWithName("calendar1"))
+        self.assertEquals(len( (yield calColl.calendarObjects()) ), 2)
+
+
+    @inlineCallbacks
+    def test_purgeGUIDCompletely(self):
+        txn = self._sqlCalendarStore.newTransaction()
+
+        # Create an addressbook and one CardDAV resource
+        abHome = (yield txn.addressbookHomeWithUID("home1", create=True))
+        abColl = (yield abHome.addressbookWithName("addressbook"))
+        (yield abColl.createAddressBookObjectWithName("card1",
+            VCardComponent.fromString(VCARD_1)))
+        self.assertEquals(len( (yield abColl.addressbookObjects()) ), 1)
+
+        # Verify there are 3 events in calendar1
+        calHome = (yield txn.calendarHomeWithUID("home1"))
+        calColl = (yield calHome.calendarWithName("calendar1"))
+        self.assertEquals(len( (yield calColl.calendarObjects()) ), 3)
+
+        # Make the newly created objects available to the purgeGUID transaction
+        (yield txn.commit())
+
+        # Purge home1 completely
+        total, ignored = (yield purgeGUID("home1", self.directory,
+            self.rootResource, verbose=False, proxies=False, completely=True))
+
+        # 4 items deleted: 3 events and 1 vcard
+        self.assertEquals(total, 4)
+
+        # Homes have been deleted as well
+        txn = self._sqlCalendarStore.newTransaction()
+        abHome = (yield txn.addressbookHomeWithUID("home1"))
+        self.assertEquals(abHome, None)
+        calHome = (yield txn.calendarHomeWithUID("home1"))
+        self.assertEquals(calHome, None)
+
 
     @inlineCallbacks
     def test_purgeOrphanedAttachments(self):
