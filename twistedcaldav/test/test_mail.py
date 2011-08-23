@@ -562,7 +562,7 @@ END:VCALENDAR
         expectedTypes = set(["text/plain", "text/html", "text/calendar"])
         actualTypes = set([
             part.get_content_type() for part in message.walk()
-            if not part.get_content_type().startswith("multipart/")
+            if part.get_content_type().startswith("text/")
         ])
         self.assertEquals(actualTypes, expectedTypes)
 
