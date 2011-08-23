@@ -1407,6 +1407,10 @@ class MailHandler(LoggingMixIn):
         """
         Render text/plain message part based on invitation details and a flag
         indicating whether the message is a cancellation.
+
+        @return: UTF-8 encoded text.
+
+        @rtype: C{str}
         """
         plainAttendeeList = []
         for cn, mailto in attendees:
@@ -1427,7 +1431,7 @@ class MailHandler(LoggingMixIn):
         else:
             plainTemplate = plainInviteTemplate
 
-        return plainTemplate % details
+        return (plainTemplate % details).encode("UTF-8")
 
 
     def renderHTML(self, details, organizer, attendees, canceled):
@@ -1435,9 +1439,10 @@ class MailHandler(LoggingMixIn):
         Render HTML message part based on invitation details and a flag
         indicating whether the message is a cancellation.
 
-        @return: a 2-tuple of (should add icon (C{bool}), html text (C{str})).
-            The first element indicates whether the MIME generator needs to add
-            a L{cid:} icon image part to satisfy the HTML links.
+        @return: a 2-tuple of (should add icon (C{bool}), html text (C{str},
+            representing utf-8 encoded bytes)).  The first element indicates
+            whether the MIME generator needs to add a L{cid:} icon image part to
+            satisfy the HTML links.
         """
         orgCN, orgEmail = organizer
 
