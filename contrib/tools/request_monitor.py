@@ -24,6 +24,14 @@ import sys
 import time
 import traceback
 
+NETSTAT = "/usr/sbin/netstat"
+enableListenQueue = os.path.exists(NETSTAT)
+IOSTAT = "/usr/sbin/iostat"
+enableCpuIdle = os.path.exists(IOSTAT)
+VMSTAT = "/usr/bin/vm_stat"
+enableFreeMem = os.path.exists(VMSTAT)
+
+
 sys.stdout = os.fdopen(sys.stdout.fileno(), 'w', 0) 
 
 
@@ -33,7 +41,7 @@ debug = False
 def listenq():
     child = Popen(
         args=[
-            "/usr/sbin/netstat", "-L", "-anp", "tcp",
+            NETSTAT, "-L", "-anp", "tcp",
         ],
         stdout=PIPE, stderr=STDOUT,
     )
@@ -96,7 +104,7 @@ def cpuPerDaemon():
 def cpuidle():
     child = Popen(
         args=[
-            "/usr/sbin/iostat", "-c", "2", "-n", "0",
+            IOSTAT, "-c", "2", "-n", "0",
         ],
         stdout=PIPE, stderr=STDOUT,
     )
@@ -107,7 +115,7 @@ def freemem():
     try:
         child = Popen(
             args=[
-                "/usr/bin/vm_stat",
+                VMSTAT,
             ],
             stdout=PIPE, stderr=STDOUT,
         )
@@ -389,12 +397,15 @@ while True:
             avg = "%.1f average requests per second" % (avgRequests,)
 
         print "- " * 40
-        q, lqssl, lqnon = listenQueueHistory()
         print datetime.datetime.now().strftime("%Y/%m/%d %H:%M:%S"), 
-        print "Listenq (ssl+non):", q[0], " (Recent", ", ".join(q[1:]), "Oldest)"
-        q = idleHistory()
-        print "CPU idle %:", q[0], " (Recent", ", ".join(q[1:]), "Oldest)"
-        print "Memory free:", freemem()
+        if enableListenQueue:
+            q, lqssl, lqnon = listenQueueHistory()
+            print "Listenq (ssl+non):", q[0], " (Recent", ", ".join(q[1:]), "Oldest)"
+        if enableCpuIdle:
+            q = idleHistory()
+            print "CPU idle %:", q[0], " (Recent", ", ".join(q[1:]), "Oldest)"
+        if enableFreeMem:
+            print "Memory free:", freemem()
         print "CPU Per Daemon:", cpuPerDaemon()
 
         if avg:
@@ -406,13 +417,16 @@ while True:
             print "| %d (%d %%) server-to-server" % (numServerToServer, safePercent(numServerToServer, numRequests),),
         print
         
-        lqlatency = (lqssl / avgRequests, lqnon / avgRequests,) if avgRequests else (0.0, 0.0,)
-        print "Response time: average %.1f ms, max %.1f ms, listenq latency (ssl+non): %.1f s %.1f s" % (
+        print "Response time: average %.1f ms, max %.1f ms" % (
             totalRespTime / numRequests,
             maxRespTime,
-            lqlatency[0],
-            lqlatency[1],
         )
+        if enableListenQueue:
+            lqlatency = (lqssl / avgRequests, lqnon / avgRequests,) if avgRequests else (0.0, 0.0,)
+            print " listenq latency (ssl+non): %.1f s %.1f s" % (
+                lqlatency[0],
+                lqlatency[1],
+            )
         print "<10ms: %d  >10ms: %d  >100ms: %d  >1s: %d  >10s: %d  >30s: %d  >60s: %d" % (under10ms, over10ms, over100ms, over1s, over10s, over30s, over60s)
         print
         if errorCount:
