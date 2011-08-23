@@ -539,9 +539,9 @@ class PurgeOldEventsTests(CommonCommonTests, unittest.TestCase):
         self.assertEquals(total, 2)
 
         txn = self._sqlCalendarStore.newTransaction()
+        # adressbook home is deleted since it's now empty
         abHome = (yield txn.addressbookHomeWithUID("home1"))
-        abColl = (yield abHome.addressbookWithName("addressbook"))
-        self.assertEquals(abColl, None)
+        self.assertEquals(abHome, None)
 
         calHome = (yield txn.calendarHomeWithUID("home1"))
         calColl = (yield calHome.calendarWithName("calendar1"))
