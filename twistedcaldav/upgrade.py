@@ -193,20 +193,35 @@ def upgrade_to_1(config):
                 with open(resPath, "w") as res:
                     res.write(data)
 
-                # On non-native xattr systems we cannot do this, but those systems will typically not be migrating from pre-v1
-                if platform.isMacOSX():
-                    md5value = "<?xml version='1.0' encoding='UTF-8'?>\r\n<getcontentmd5 xmlns='http://twistedmatrix.com/xml_namespace/dav/'>%s</getcontentmd5>\r\n" % (hashlib.md5(data).hexdigest(),)
-                    md5value = zlib.compress(md5value)
+                md5value = "<?xml version='1.0' encoding='UTF-8'?>\r\n<getcontentmd5 xmlns='http://twistedmatrix.com/xml_namespace/dav/'>%s</getcontentmd5>\r\n" % (hashlib.md5(data).hexdigest(),)
+                md5value = zlib.compress(md5value)
+                try:
                     xattr.setxattr(resPath, xattrname("{http:%2F%2Ftwistedmatrix.com%2Fxml_namespace%2Fdav%2F}getcontentmd5"), md5value)
+                except IOError, ioe:
+                    if ioe.errno == errno.EOPNOTSUPP:
+                        # On non-native xattr systems we cannot do this,
+                        # but those systems will typically not be migrating
+                        # from pre-v1
+                        pass
+                except:
+                    raise
 
                 collectionUpdated = True
 
 
-        # On non-native xattr systems we cannot do this, but those systems will typically not be migrating from pre-v1
-        if collectionUpdated and platform.isMacOSX():
+        if collectionUpdated:
             ctagValue = "<?xml version='1.0' encoding='UTF-8'?>\r\n<getctag xmlns='http://calendarserver.org/ns/'>%s</getctag>\r\n" % (str(datetime.datetime.now()),)
             ctagValue = zlib.compress(ctagValue)
-            xattr.setxattr(calPath, xattrname("{http:%2F%2Fcalendarserver.org%2Fns%2F}getctag"), ctagValue)
+            try:
+                xattr.setxattr(calPath, xattrname("{http:%2F%2Fcalendarserver.org%2Fns%2F}getctag"), ctagValue)
+            except IOError, ioe:
+                if ioe.errno == errno.EOPNOTSUPP:
+                    # On non-native xattr systems we cannot do this,
+                    # but those systems will typically not be migrating
+                    # from pre-v1
+                    pass
+            except:
+                raise
 
         return errorOccurred
 
@@ -234,14 +249,23 @@ def upgrade_to_1(config):
 
                 # Change the calendar-free-busy-set xattrs of the inbox to the
                 # __uids__/<guid> form
-                # On non-native xattr systems we cannot do this, but those systems will typically not be migrating from pre-v1
-                if cal == "inbox" and platform.isMacOSX():
-                    for attr, value in xattr.xattr(calPath).iteritems():
-                        if attr == xattrname("{urn:ietf:params:xml:ns:caldav}calendar-free-busy-set"):
-                            value = updateFreeBusySet(value, directory)
-                            if value is not None:
-                                # Need to write the xattr back to disk
-                                xattr.setxattr(calPath, attr, value)
+                if cal == "inbox":
+                    try:
+                        for attr, value in xattr.xattr(calPath).iteritems():
+                            if attr == xattrname("{urn:ietf:params:xml:ns:caldav}calendar-free-busy-set"):
+                                value = updateFreeBusySet(value, directory)
+                                if value is not None:
+                                    # Need to write the xattr back to disk
+                                    xattr.setxattr(calPath, attr, value)
+                    except IOError, ioe:
+                        if ioe.errno == errno.EOPNOTSUPP:
+                            # On non-native xattr systems we cannot do this,
+                            # but those systems will typically not be migrating
+                            # from pre-v1
+                            pass
+                    except:
+                        raise
+
 
         except Exception, e:
             log.error("Failed to upgrade calendar home %s: %s" % (homePath, e))

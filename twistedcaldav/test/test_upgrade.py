@@ -16,7 +16,6 @@
 
 
 from twisted.internet.defer import inlineCallbacks
-from twisted.python.runtime import platform
 from twext.web2.dav import davxml
 from twistedcaldav.config import config
 from twistedcaldav.directory.calendaruserproxy import ProxySqliteDB
@@ -1394,10 +1393,6 @@ class UpgradeTests(TestCase):
     test_migrateResourceInfo.todo = "FIXME: perhaps ProxySqliteDB isn't being set up correctly?"
 
 
-
-# Conditionally bypass these tests on non-OSX
-if not platform.isMacOSX():
-    UpgradeTests.todo = "Currently only running on OSX until we resolve xattr situation"
 
 
 event01_before = """BEGIN:VCALENDAR
