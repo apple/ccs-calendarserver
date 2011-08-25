@@ -817,6 +817,48 @@ END:VCALENDAR
 """,
                 True, "mailto:user1@example.com", (("", True, False),),
             ),
+            (
+                "#6.3 Bad REQUEST-STATUS",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+METHOD:REPLY
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE;PARTSTAT=ACCEPTED:mailto:user1@example.com
+REQUEST-STATUS:2.0\;Success
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+ATTENDEE;PARTSTAT=ACCEPTED;SCHEDULE-STATUS=2.0:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+ORGANIZER;CN=User 01:mailto:user1@example.com
+END:VEVENT
+END:VCALENDAR
+""",
+                True, "mailto:user1@example.com", (("", True, False),),
+            ),
         )
 
         for description, calendar_txt, itipmsg_txt, result, success, attendee, rids in data:
