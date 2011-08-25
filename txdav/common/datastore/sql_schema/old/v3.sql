@@ -174,7 +174,7 @@ create table CALENDAR_OBJECT (
   ORGANIZER_OBJECT     integer      references CALENDAR_OBJECT,
   RECURRANCE_MAX       date,        -- maximum date that recurrences have been expanded to.
   ACCESS               integer      default 0 not null,
-  SCHEDULE_OBJECT      boolean      default false,
+  SCHEDULE_OBJECT      boolean      default false not null,
   SCHEDULE_TAG         varchar(36)  default null,
   SCHEDULE_ETAGS       text         default null,
   PRIVATE_COMMENTS     boolean      default false not null,
@@ -479,5 +479,5 @@ create table CALENDARSERVER (
   unique(NAME)
 );
 
-insert into CALENDARSERVER values ('VERSION', '4');
+insert into CALENDARSERVER values ('VERSION', '3');
 

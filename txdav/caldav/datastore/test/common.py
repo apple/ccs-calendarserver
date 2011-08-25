@@ -175,7 +175,7 @@ class CommonTests(CommonCommonTests):
     }
     metadata3 = {
         "accessMode": "PUBLIC",
-        "isScheduleObject": True,
+        "isScheduleObject": None,
         "scheduleTag": "abc",
         "scheduleEtags": (),
         "hasPrivateComment": True,

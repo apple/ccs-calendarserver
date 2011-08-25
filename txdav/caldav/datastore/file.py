@@ -439,11 +439,18 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
     accessMode = property(_get_accessMode, _set_accessMode)
 
     def _get_isScheduleObject(self):
-        return str(self.properties().get(PropertyName.fromElement(customxml.TwistedSchedulingObjectResource), "false")) == "true"
+        """
+        If the property is not present, then return None, else return a bool based on the
+        str "true" or "false" value.
+        """
+        prop = self.properties().get(PropertyName.fromElement(customxml.TwistedSchedulingObjectResource))
+        if prop is not None:
+            prop = str(prop) == "true"
+        return prop
 
     def _set_isScheduleObject(self, value):
         pname = PropertyName.fromElement(customxml.TwistedSchedulingObjectResource)
-        if value:
+        if value is not None:
             self.properties()[pname] = customxml.TwistedSchedulingObjectResource.fromString("true" if value else "false")
         elif pname in self.properties():
             del self.properties()[pname]

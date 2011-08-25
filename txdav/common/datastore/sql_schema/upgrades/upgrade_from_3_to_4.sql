@@ -14,18 +14,14 @@
 -- limitations under the License.
 ----
 
--- The file name must be of the form:
---
--- upgrade_from_X_to_Y.sql
---
--- where X is the start version number, and Y the end version
--- number for the upgrade 
-
 -------------------------------------------------
--- Upgrade database schema from VERSION X to Y --
+-- Upgrade database schema from VERSION 3 to 4 --
 -------------------------------------------------
 
+-- Just need to modify one column
+alter table CALENDAR_OBJECT
+ alter column SCHEDULE_OBJECT drop not null;
 
 -- Now update the version
-update CALENDARSERVER set VALUE = 'Y' where NAME = 'VERSION';
+update CALENDARSERVER set VALUE = '4' where NAME = 'VERSION';
 

@@ -30,6 +30,7 @@ from txdav.common.datastore.sql_tables import SchemaBroken
 from twext.enterprise.dal.parseschema import addSQLToSchema
 from twext.enterprise.dal.model import Schema
 from twext.enterprise.dal.syntax import SchemaSyntax
+from twisted.python.modules import getModule
 from twisted.trial.unittest import TestCase
 
 class SampleSomeColumns(TestCase):
@@ -58,10 +59,17 @@ class SampleSomeColumns(TestCase):
         """
         _translateSchema includes 'insert' rows too.
         """
+        
+        pathObj = getModule(__name__).filePath.parent().sibling("sql_schema").child("current.sql")
+        schema = pathObj.getContent()
+        pos = schema.find("('VERSION', '")
+        version = int(schema[pos+13])
+        
         io = StringIO()
         _translateSchema(io)
+        
         self.assertIn("insert into CALENDARSERVER (NAME, VALUE) "
-                      "values ('VERSION', '3');",
+                      "values ('VERSION', '%s');" % version,
                       io.getvalue())
 
 

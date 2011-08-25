@@ -67,7 +67,7 @@ class ImplicitScheduler(object):
         self.internal_request = internal_request
 
         existing_resource = resource.exists()
-        is_scheduling_object = self.checkSchedulingObjectResource(resource)
+        is_scheduling_object = (yield self.checkSchedulingObjectResource(resource))
         existing_type = "schedule" if is_scheduling_object else "calendar"
         new_type = "schedule" if (yield self.checkImplicitState()) else "calendar"
 
@@ -114,8 +114,8 @@ class ImplicitScheduler(object):
         new_type = "schedule" if (yield self.checkImplicitState()) else "calendar"
 
         dest_exists = destresource.exists()
-        dest_is_implicit = self.checkSchedulingObjectResource(destresource)
-        src_is_implicit = self.checkSchedulingObjectResource(srcresource) or new_type == "schedule"
+        dest_is_implicit = (yield self.checkSchedulingObjectResource(destresource))
+        src_is_implicit = (yield self.checkSchedulingObjectResource(srcresource)) or new_type == "schedule"
 
         if srccal and destcal:
             if src_is_implicit and dest_exists or dest_is_implicit:
@@ -148,8 +148,8 @@ class ImplicitScheduler(object):
 
         new_type = "schedule" if (yield self.checkImplicitState()) else "calendar"
 
-        dest_is_implicit = self.checkSchedulingObjectResource(destresource)
-        src_is_implicit = self.checkSchedulingObjectResource(srcresource) or new_type == "schedule"
+        dest_is_implicit = (yield self.checkSchedulingObjectResource(destresource))
+        src_is_implicit = (yield self.checkSchedulingObjectResource(srcresource)) or new_type == "schedule"
 
         if srccal and destcal:
             if src_is_implicit or dest_is_implicit:
@@ -181,15 +181,36 @@ class ImplicitScheduler(object):
 
         yield self.checkImplicitState()
 
-        is_scheduling_object = self.checkSchedulingObjectResource(resource)
+        is_scheduling_object = (yield self.checkSchedulingObjectResource(resource))
         resource_type = "schedule" if is_scheduling_object else "calendar"
         self.action = "remove" if resource_type == "schedule" else "none"
 
         returnValue((self.action != "none", False,))
 
+    @inlineCallbacks
     def checkSchedulingObjectResource(self, resource):
         
-        return resource.isScheduleObject if resource and resource.exists() else False
+        if resource and resource.exists():
+            implicit = resource.isScheduleObject
+            if implicit is not None:
+                returnValue(implicit)
+            else:
+                calendar = (yield self.resource.iCalendarForUser(self.request))
+                # Get the ORGANIZER and verify it is the same for all components
+                try:
+                    organizer = calendar.validOrganizerForScheduling()
+                except ValueError:
+                    # We have different ORGANIZERs in the same iCalendar object - this is an error
+                    returnValue(False)
+                organizerPrincipal = resource.principalForCalendarUserAddress(organizer) if organizer else None
+                implicit = organizerPrincipal != None
+                log.debug("Implicit - checked scheduling object resource state for UID: '%s', result: %s" % (
+                    calendar.resourceUID(),
+                    implicit,
+                ))
+                returnValue(implicit)
+
+        returnValue(False)
         
     @inlineCallbacks
     def checkImplicitState(self):
