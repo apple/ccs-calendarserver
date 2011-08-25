@@ -17,7 +17,7 @@
 
 from __future__ import with_statement
 
-import xattr, os, zlib, hashlib, datetime, pwd, grp, shutil
+import xattr, os, zlib, hashlib, datetime, pwd, grp, shutil, errno
 from zlib import compress
 from cPickle import loads as unpickle, UnpicklingError
 
@@ -53,7 +53,6 @@ from calendarserver.tools.util import getDirectory
 from calendarserver.tools.resources import migrateResources
 
 from twisted.python.reflect import namedAny
-from twisted.python.runtime import platform
 
 deadPropertyXattrPrefix = namedAny(
     "txdav.base.propertystore.xattr.PropertyStore.deadPropertyXattrPrefix"
