@@ -634,7 +634,9 @@ class CalDAVResource (
                 # For backwards compatibility we need to sync this up with the calendar-free-busy-set on the inbox
                 principal = (yield self.resourceOwnerPrincipal(request))
                 fbset = (yield principal.calendarFreeBusyURIs(request))
+                fbset = [fburl.rstrip("/") for fburl in fbset]
                 url = (yield self.canonicalURL(request))
+                url = url.rstrip("/")
                 opaque = url in fbset
                 self.writeDeadProperty(caldavxml.ScheduleCalendarTransp(caldavxml.Opaque() if opaque else caldavxml.Transparent()))
 
