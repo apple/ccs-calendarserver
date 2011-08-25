@@ -330,7 +330,7 @@ class SnowLeopard(BaseClient):
         user and return a L{Principal} instance constructed from the
         response.
         """
-        principalURL = '/principals/__uids__/' + user + '/'
+        principalURL = '/principals/users/' + user + '/'
         d = self._request(
             MULTI_STATUS,
             'PROPFIND',
