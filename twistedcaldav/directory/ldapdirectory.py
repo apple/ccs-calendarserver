@@ -81,6 +81,8 @@ class LdapDirectoryService(CachingDirectoryService):
             "groupMembershipCache" : None,
             "cacheTimeout": 1, # Minutes
             "negativeCaching": False,
+            "warningThresholdSeconds": 3,
+            "queryLocationsImplicitly": True,
             "restrictEnabledRecords": False,
             "restrictToGroup": "",
             "recordTypes": ("users", "groups"),
@@ -187,6 +189,8 @@ class LdapDirectoryService(CachingDirectoryService):
         super(LdapDirectoryService, self).__init__(params["cacheTimeout"],
                                                    params["negativeCaching"])
 
+        self.warningThresholdSeconds = params["warningThresholdSeconds"]
+        self.queryLocationsImplicitly = params["queryLocationsImplicitly"]
         self.augmentService = params["augmentService"]
         self.groupMembershipCache = params["groupMembershipCache"]
         self.realmName = params["uri"]
@@ -292,7 +296,11 @@ class LdapDirectoryService(CachingDirectoryService):
         self.log_debug("Querying ldap for records matching base %s and filter %s for attributes %s." %
             (ldap.dn.dn2str(base), filter, self.attrList))
 
-        results = self.ldap.search_s(ldap.dn.dn2str(base),
+        # This takes a while, so if you don't want to have a "long request"
+        # warning logged, use this instead of timedSearch:
+        # results = self.ldap.search_s(ldap.dn.dn2str(base),
+        #     ldap.SCOPE_SUBTREE, filter, self.attrList)
+        results = self.timedSearch(ldap.dn.dn2str(base),
             ldap.SCOPE_SUBTREE, filter, self.attrList)
 
         records = []
@@ -394,6 +402,20 @@ class LdapDirectoryService(CachingDirectoryService):
         self.log_debug("Authentication succeeded for %s" % (dn,))
 
 
+    def timedSearch(self, *args, **kwds):
+        """
+        Execute an ldap.search_s( ); if it takes longer than the configured
+        threshold, emit a log error.
+        """
+        startTime = time.time()
+        result = self.ldap.search_s(*args, **kwds)
+        totalTime = time.time() - startTime
+        if totalTime > self.warningThresholdSeconds:
+            self.log_error("LDAP query exceeded threshold: %.2f seconds for %s %s (#results=%d)" %
+                (totalTime, args, kwds, len(result)))
+        return result
+
+
     @property
     def restrictedGUIDs(self):
         """
@@ -465,7 +487,7 @@ class LdapDirectoryService(CachingDirectoryService):
 
             self.log_debug("Retrieving ldap record with base %s and filter %s." %
                 (ldap.dn.dn2str(base), filter))
-            result = self.ldap.search_s(ldap.dn.dn2str(base),
+            result = self.timedSearch(ldap.dn.dn2str(base),
                 ldap.SCOPE_SUBTREE, filter, self.attrList)
 
             if len(result) == 0:
@@ -759,7 +781,7 @@ class LdapDirectoryService(CachingDirectoryService):
             # Query the LDAP server
             self.log_debug("Retrieving ldap record with base %s and filter %s." %
                 (ldap.dn.dn2str(base), filter))
-            result = self.ldap.search_s(ldap.dn.dn2str(base),
+            result = self.timedSearch(ldap.dn.dn2str(base),
                 ldap.SCOPE_SUBTREE, filter, self.attrList)
 
             if result:
@@ -787,6 +809,9 @@ class LdapDirectoryService(CachingDirectoryService):
 
                     record.applySACLs()
 
+                    # We got a match, so don't bother checking other types
+                    break
+
                 except MissingGuidException:
                     self.log_warn("Ignoring record missing guid attribute: recordType %s, indexType %s and indexKey %s"
                         % (recordTypes, indexType, indexKey))
@@ -799,7 +824,20 @@ class LdapDirectoryService(CachingDirectoryService):
         records = []
 
         self.log_debug("Peforming principal property search for %s" % (fields,))
-        recordTypes = [recordType] if recordType else self.recordTypes()
+
+        if recordType is None:
+            recordTypes = self.recordTypes()
+            # principal-property-search syntax doesn't provide a way to ask
+            # for 3 of the 4 types (either all types or a single type).  This
+            # is wasteful in the case of iCal looking for event attendees
+            # since it always ignores the locations.  This config flag lets
+            # you skip querying for locations in this case:
+            if not self.queryLocationsImplicitly:
+                if self.recordType_locations in recordTypes:
+                    recordTypes.remove(self.recordType_locations)
+        else:
+            recordTypes = [recordType]
+
         guidAttr = self.rdnSchema["guidAttr"]
         for recordType in recordTypes:
             filter = buildFilter(self.rdnSchema[recordType]["mapping"], fields,
@@ -811,10 +849,9 @@ class LdapDirectoryService(CachingDirectoryService):
 
                 self.log_debug("LDAP search %s %s" %
                     (ldap.dn.dn2str(base), filter))
-                results = self.ldap.search_s(ldap.dn.dn2str(base),
+                results = self.timedSearch(ldap.dn.dn2str(base),
                     ldap.SCOPE_SUBTREE, filter, self.attrList)
                 self.log_debug("LDAP search returned %d results" % (len(results),))
-
                 numMissingGuids = 0
                 for dn, attrs in results:
                     # Skip if group restriction is in place and guid is not
@@ -957,13 +994,13 @@ class LdapDirectoryRecord(CachingDirectoryRecord):
                     self.log_debug("Retrieving subtree of %s with filter %s" %
                         (ldap.dn.dn2str(base), filter),
                         system="LdapDirectoryService")
-                    result = self.service.ldap.search_s(ldap.dn.dn2str(base),
+                    result = self.service.timedSearch(ldap.dn.dn2str(base),
                         ldap.SCOPE_SUBTREE, filter, self.service.attrList)
 
                 else:
                     self.log_debug("Retrieving %s." % memberId,
                         system="LdapDirectoryService")
-                    result = self.service.ldap.search_s(memberId,
+                    result = self.service.timedSearch(memberId,
                         ldap.SCOPE_BASE, attrlist=self.service.attrList)
 
                 if result:
@@ -1022,7 +1059,7 @@ class LdapDirectoryRecord(CachingDirectoryRecord):
         groups = []
 
         try:
-            results = self.service.ldap.search_s(ldap.dn.dn2str(base),
+            results = self.service.timedSearch(ldap.dn.dn2str(base),
                 ldap.SCOPE_SUBTREE, filter, self.service.attrList)
 
             for dn, attrs in results:

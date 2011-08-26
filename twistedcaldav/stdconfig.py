@@ -57,6 +57,8 @@ DEFAULT_SERVICE_PARAMS = {
     "twistedcaldav.directory.ldapdirectory.LdapDirectoryService": {
         "cacheTimeout": 1, # Minutes
         "negativeCaching": False,
+        "warningThresholdSeconds": 3,
+        "queryLocationsImplicitly": True,
         "restrictEnabledRecords": False,
         "restrictToGroup": "",
         "recordTypes": ("users", "groups"),

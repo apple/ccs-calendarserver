@@ -120,6 +120,8 @@ else:
                 "groupMembershipCache" : None,
                 "cacheTimeout": 1, # Minutes
                 "negativeCaching": False,
+                "warningThresholdSeconds": 3,
+                "queryLocationsImplicitly": True,
                 "restrictEnabledRecords": False,
                 "restrictToGroup": "",
                 "recordTypes": ("users", "groups", "locations", "resources"),
