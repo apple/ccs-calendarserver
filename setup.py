@@ -122,6 +122,7 @@ def doSetup():
                              "txdav.common.datastore": [
                                "sql_schema/*.sql",
                                "sql_schema/*/*.sql",
+                               "sql_schema/*/*/*.sql",
                              ],
                            },
         scripts          = [
