@@ -1450,6 +1450,7 @@ class VFreeBusyTests(SnowLeopardMixin, TestCase):
         """
         self.client.uuid = u'urn:uuid:user01'
         self.client.email = u'mailto:user01@example.com'
+        self.client.outbox = "/calendars/__uids__/%s/outbox/" % (self.record.uid,)
         requests = self.interceptRequests()
 
         start = PyCalendarDateTime(2011, 6, 10, 10, 45, 0, tzid=PyCalendarTimezone(utc=True))
