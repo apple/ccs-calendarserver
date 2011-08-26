@@ -15,6 +15,7 @@
 #
 ##
 
+import random
 from uuid import uuid4
 from urlparse import urlparse, urlunparse
 
@@ -677,7 +678,14 @@ class SnowLeopard(BaseClient):
 
     def addEventAttendee(self, href, attendee):
         name = attendee.parameterValue('CN').encode("utf-8")
-        prefix = name[:4].lower()
+
+        # Temporarily use some non-test names (some which will return
+        # many results, and others which will return fewer) because the
+        # test account names are all too similar
+        # prefix = name[:4].lower()
+        prefix = random.choice(["chris", "cyru", "dre", "eric", "morg",
+            "well", "wilfr", "witz"])
+
         email = attendee.parameterValue('EMAIL').encode("utf-8")
 
         event = self._events[href]
