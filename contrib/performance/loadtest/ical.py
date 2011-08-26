@@ -681,8 +681,8 @@ class SnowLeopard(BaseClient):
         def specific(ignored):
             # Now learn about the attendee's availability
             return self.requestAvailability(
-                vevent.mainComponent.getStartDateUTC(),
-                vevent.mainComponent.getEndDateUTC(),
+                vevent.mainComponent().getStartDateUTC(),
+                vevent.mainComponent().getEndDateUTC(),
                 [self.email, u'mailto:' + email],
                 [vevent.resourceUID()])
             return d
