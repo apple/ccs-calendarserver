@@ -645,9 +645,9 @@ class SnowLeopard(BaseClient):
 
 
     def addEventAttendee(self, href, attendee):
-        name = attendee.parameterValue('CN')
+        name = attendee.parameterValue('CN').encode("utf-8")
         prefix = name[:4].lower()
-        email = attendee.parameterValue('EMAIL')
+        email = attendee.parameterValue('EMAIL').encode("utf-8")
 
         event = self._events[href]
         vevent = event.vevent
