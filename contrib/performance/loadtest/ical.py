@@ -183,6 +183,7 @@ class SnowLeopard(BaseClient):
     # The maximum number of resources to retrieve in a single multiget
     MULTIGET_BATCH_SIZE = 200
 
+    _STARTUP_PRINCIPAL_PROPFIND_INITIAL = loadRequestBody('sl_startup_principal_propfind_initial')
     _STARTUP_PRINCIPAL_PROPFIND = loadRequestBody('sl_startup_principal_propfind')
     _STARTUP_PRINCIPALS_REPORT = loadRequestBody('sl_startup_principals_report')
     _STARTUP_CALENDARHOME_PROPFIND = loadRequestBody('sl_startup_calendarhome_propfind')
@@ -324,11 +325,10 @@ class SnowLeopard(BaseClient):
         return calendars
 
 
-    def _principalPropfind(self, user):
+    def _principalPropfindInitial(self, user):
         """
-        Issue a PROPFIND on the likely principal URL for the given
-        user and return a L{Principal} instance constructed from the
-        response.
+        Issue a PROPFIND on the /principals/users/<uid> URL to retrieve
+        the /principals/__uids__/<guid> principal URL
         """
         principalURL = '/principals/users/' + user + '/'
         d = self._request(
@@ -338,11 +338,33 @@ class SnowLeopard(BaseClient):
             Headers({
                     'content-type': ['text/xml'],
                     'depth': ['0']}),
-            StringProducer(self._STARTUP_PRINCIPAL_PROPFIND))
+            StringProducer(self._STARTUP_PRINCIPAL_PROPFIND_INITIAL))
         d.addCallback(readBody)
         d.addCallback(self._parseMultiStatus)
         def get(result):
             return result[principalURL]
+        d.addCallback(get)
+        return d
+
+
+    def _principalPropfind(self):
+        """
+        Issue a PROPFIND on the likely principal URL for the given
+        user and return a L{Principal} instance constructed from the
+        response.
+        """
+        d = self._request(
+            MULTI_STATUS,
+            'PROPFIND',
+            self.root + self.principalURL[1:].encode('utf-8'),
+            Headers({
+                    'content-type': ['text/xml'],
+                    'depth': ['0']}),
+            StringProducer(self._STARTUP_PRINCIPAL_PROPFIND))
+        d.addCallback(readBody)
+        d.addCallback(self._parseMultiStatus)
+        def get(result):
+            return result[self.principalURL]
         d.addCallback(get)
         return d
 
@@ -518,10 +540,19 @@ class SnowLeopard(BaseClient):
 
     @inlineCallbacks
     def startup(self):
-        # Orient ourselves, or something
-        principal = yield self._principalPropfind(self.record.uid)
+
+        # PROPFIND /principals/users/<uid> to retrieve /principals/__uids__/<guid>
+        response = yield self._principalPropfindInitial(self.record.uid)
+        hrefs = response.getHrefProperties()
+        self.principalURL = hrefs[davxml.principal_URL].toString()
+
+        # Using the actual principal URL, retrieve principal information
+        principal = yield self._principalPropfind()
 
         hrefs = principal.getHrefProperties()
+
+        # Remember our outbox
+        self.outbox = hrefs[caldavxml.schedule_outbox_URL].toString()
 
         # Remember our own email-like principal address
         for principalURL in hrefs[caldavxml.calendar_user_address_set]:
@@ -689,7 +720,7 @@ class SnowLeopard(BaseClient):
         d.addCallback(specific)
         def availability(ignored):
             # If the event has no attendees, add ourselves as an attendee.
-            attendees = tuple(vevent.mainComponent().properties('ATTENDEE'))
+            attendees = list(vevent.mainComponent().properties('ATTENDEE'))
             if len(attendees) == 0:
                 # First add ourselves as a participant and as the
                 # organizer.  In the future for this event we should
@@ -807,8 +838,7 @@ class SnowLeopard(BaseClient):
         @return: A C{Deferred} which fires with a C{dict}.  Keys in the dict
             are user UUIDs (those requested) and values are something else.
         """
-        outbox = self.root + 'calendars/__uids__/%s/outbox/' % (
-            self.record.uid.encode('utf-8'),)
+        outbox = self.root + self.outbox[1:]
 
         if mask:
             maskStr = u'\r\n'.join(['X-CALENDARSERVER-MASK-UID:' + uid
