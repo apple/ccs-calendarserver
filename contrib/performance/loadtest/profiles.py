@@ -96,7 +96,7 @@ class ProfileBase(object):
             success = not isinstance(passthrough, Failure)
             if not success:
                 passthrough.trap(IncorrectResponseCode)
-                passthrough = passthrough.response
+                passthrough = passthrough.value.response
             after = self._reactor.seconds()
             msg(type="operation", phase="end", duration=after - before,
                 user=self._client.record.uid, label=label, success=success)
