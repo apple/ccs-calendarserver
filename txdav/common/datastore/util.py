@@ -267,6 +267,7 @@ class UpgradeDatabaseSchemaService(Service, LoggingMixIn, object):
         
         # Get the schema version in the current database
         sqlTxn = self.sqlStore.newTransaction()
+        dialect = sqlTxn.dialect
         try:
             actual_version = yield sqlTxn.schemaVersion()
             yield sqlTxn.commit()
@@ -284,7 +285,7 @@ class UpgradeDatabaseSchemaService(Service, LoggingMixIn, object):
             self.log_error(msg)
             raise RuntimeError(msg)
         else:
-            yield self.upgradeVersion(actual_version, required_version)
+            yield self.upgradeVersion(actual_version, required_version, dialect)
             
         self.log_warn(
             "Database schema check complete, launching database service."
@@ -294,7 +295,7 @@ class UpgradeDatabaseSchemaService(Service, LoggingMixIn, object):
 
     @inlineCallbacks
 
-    def upgradeVersion(self, fromVersion, toVersion):
+    def upgradeVersion(self, fromVersion, toVersion, dialect):
         """
         Update the database from one version to another (the current one). Do this by
         looking for upgrade_from_X_to_Y.sql files that cover the full range of upgrades.
@@ -303,10 +304,10 @@ class UpgradeDatabaseSchemaService(Service, LoggingMixIn, object):
         self.log_warn("Starting schema upgrade from version %d to %d." % (fromVersion, toVersion,))
         
         # Scan for all possible upgrade files - returned sorted
-        files = self.scanForUpgradeFiles()
+        files = self.scanForUpgradeFiles(dialect)
         
         # Determine upgrade sequence and run each upgrade
-        upgrades = self.determineUpgradeSequence(fromVersion, toVersion, files)
+        upgrades = self.determineUpgradeSequence(fromVersion, toVersion, files, dialect)
 
         # Use one transaction for the entire set of upgrades
         sqlTxn = self.sqlStore.newTransaction()
@@ -321,12 +322,12 @@ class UpgradeDatabaseSchemaService(Service, LoggingMixIn, object):
 
         self.log_warn("Schema upgraded from version %d to %d." % (fromVersion, toVersion,))
 
-    def scanForUpgradeFiles(self):
+    def scanForUpgradeFiles(self, dialect):
         """
         Scan the module path for upgrade files with the require name.
         """
         
-        fp = self.schemaLocation.child("upgrades")
+        fp = self.schemaLocation.child("upgrades").child(dialect)
         upgrades = []
         regex = re.compile("upgrade_from_(\d)+_to_(\d)+.sql")
         for child in fp.globChildren("upgrade_*.sql"):
@@ -339,7 +340,7 @@ class UpgradeDatabaseSchemaService(Service, LoggingMixIn, object):
         upgrades.sort(key=lambda x:(x[0], x[1]))
         return upgrades
     
-    def determineUpgradeSequence(self, fromVersion, toVersion, files):
+    def determineUpgradeSequence(self, fromVersion, toVersion, files, dialect):
         """
         Determine the upgrade_from_X_to_Y.sql files that cover the full range of upgrades.
         Note that X and Y may not be consecutive, e.g., we might have an upgrade from 3 to 4,
@@ -358,7 +359,7 @@ class UpgradeDatabaseSchemaService(Service, LoggingMixIn, object):
         nextVersion = fromVersion
         while nextVersion != toVersion:
             if nextVersion not in filesByFromVersion:
-                msg = "Missing upgrade file from version %d" % (nextVersion, )
+                msg = "Missing upgrade file from version %d with dialect %s" % (nextVersion, dialect,)
                 self.log_error(msg)
                 raise RuntimeError(msg)
             else:
