@@ -796,6 +796,9 @@ DEFAULT_CONFIG = {
     # version which uses OpenDirectory.framework
     "OpenDirectoryModule": "opendirectory",
 
+    # The RootResource uses a twext property store. Specify the class here
+    "RootResourcePropStoreClass": "twext.web2.dav.xattrprops.xattrPropertyStore",
+
     # Used in the command line utilities to specify which service class to
     # use to carry out work.
     "UtilityServiceClass": "",

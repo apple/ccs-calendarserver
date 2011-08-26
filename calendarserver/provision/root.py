@@ -23,10 +23,12 @@ from twext.python.log import Logger
 from twext.web2 import responsecode
 from twext.web2.auth.wrapper import UnauthorizedResponse
 from twext.web2.dav import davxml
+from twext.web2.dav.xattrprops import xattrPropertyStore
 from twext.web2.http import HTTPError, StatusResponse, RedirectResponse
 
 from twisted.cred.error import LoginFailed, UnauthorizedLogin
 from twisted.internet.defer import inlineCallbacks, returnValue
+from twisted.python.reflect import namedClass
 from twisted.web.xmlrpc import Proxy
 
 from twistedcaldav.cache import _CachedResponseResource
@@ -108,10 +110,11 @@ class RootResource (ReadOnlyResourceMixIn, DirectoryPrincipalPropertySearchMixIn
     def deadProperties(self):
         if not hasattr(self, "_dead_properties"):
             # Get the property store from super
-            deadProperties = super(RootResource, self).deadProperties()
+            deadProperties = namedClass(config.RootResourcePropStoreClass)(self)
 
             # Wrap the property store in a memory store
-            deadProperties = CachingPropertyStore(deadProperties)
+            if isinstance(deadProperties, xattrPropertyStore):
+                deadProperties = CachingPropertyStore(deadProperties)
 
             self._dead_properties = deadProperties
 
