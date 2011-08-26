@@ -39,7 +39,7 @@ limitations under the License.
     <enable-addressbook>true</enable-addressbook>
     <auto-schedule>true</auto-schedule>
   </record>
-  <record repeat="4">
+  <record repeat="10">
     <uid>group%02d</uid>
     <enable>true</enable>
   </record>

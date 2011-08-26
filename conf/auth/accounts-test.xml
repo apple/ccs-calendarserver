@@ -147,6 +147,36 @@ limitations under the License.
       <member type="users">user10</member>
     </members>
   </group>
+  <group> <!-- delegategroup -->
+    <uid>group05</uid>
+    <guid>group05</guid>
+    <password>group05</password>
+    <name>Group 05</name>
+    <members>
+      <member type="groups">group06</member>
+      <member type="users">user20</member>
+    </members>
+  </group>
+  <group> <!-- delegatesubgroup -->
+    <uid>group06</uid>
+    <guid>group06</guid>
+    <password>group06</password>
+    <name>Group 06</name>
+    <members>
+      <member type="users">user21</member>
+    </members>
+  </group>
+  <group> <!-- readonlydelegategroup -->
+    <uid>group07</uid>
+    <guid>group07</guid>
+    <password>group07</password>
+    <name>Group 07</name>
+    <members>
+      <member type="users">user22</member>
+      <member type="users">user23</member>
+      <member type="users">user24</member>
+    </members>
+  </group>
   <group>
     <uid>disabledgroup</uid>
     <guid>disabledgroup</guid>
@@ -154,36 +184,6 @@ limitations under the License.
     <name>Disabled Group</name>
     <members>
       <member type="users">user01</member>
-    </members>
-  </group>
-  <group>
-    <uid>delegategroup</uid>
-    <guid>delegategroup</guid>
-    <password>delegategroup</password>
-    <name>Delegated Group</name>
-    <members>
-      <member type="groups">delegatesubgroup</member>
-      <member type="users">user20</member>
-    </members>
-  </group>
-  <group>
-    <uid>delegatesubgroup</uid>
-    <guid>delegatesubgroup</guid>
-    <password>delegatesubgroup</password>
-    <name>Delegated Subgroup</name>
-    <members>
-      <member type="users">user21</member>
-    </members>
-  </group>
-  <group>
-    <uid>readonlydelegategroup</uid>
-    <guid>readonlydelegategroup</guid>
-    <password>readonlydelegategroup</password>
-    <name>Read Only Delegated Group</name>
-    <members>
-      <member type="users">user22</member>
-      <member type="users">user23</member>
-      <member type="users">user24</member>
     </members>
   </group>
 </accounts>

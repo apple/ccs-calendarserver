@@ -31,10 +31,10 @@ limitations under the License.
   <record>
     <guid>delegatedroom</guid>
     <proxies>
-      <member>delegategroup</member>
+      <member>group05</member>
     </proxies>
     <read-only-proxies>
-      <member>readonlydelegategroup</member>
+      <member>group07</member>
     </read-only-proxies>
   </record>
 </proxies>
