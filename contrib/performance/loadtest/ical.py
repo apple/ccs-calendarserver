@@ -704,7 +704,7 @@ class SnowLeopard(BaseClient):
                 Headers({
                         'content-type': ['text/calendar'],
                         'if-match': [event.etag]}),
-                StringProducer(vevent.serialize()))
+                StringProducer(vevent.getTextWithTimezones(includeTimezones=True)))
             return d
         d.addCallback(availability)
         # Finally, re-retrieve the event to update the etag
