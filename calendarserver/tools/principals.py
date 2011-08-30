@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 ##
-# Copyright (c) 2006-2010 Apple Inc. All rights reserved.
+# Copyright (c) 2006-2011 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -62,7 +62,7 @@ def usage(e=None):
     print ""
     print "  Principals are identified by one of the following:"
     print "    Type and shortname (eg.: users:wsanchez)"
-   #print "    A principal path (eg.: /principals/users/wsanchez/)"
+    #print "    A principal path (eg.: /principals/users/wsanchez/)"
     print "    A GUID (eg.: E415DBA7-40B5-49F5-A7CC-ACC81E4DEC79)"
     print ""
     print "options:"
@@ -674,8 +674,12 @@ def removeProxy(principal, proxyPrincipal, **kwargs):
 
 @inlineCallbacks
 def action_setAutoSchedule(principal, autoSchedule):
-    if autoSchedule and principal.record.recordType in ("users", "groups"):
+    if principal.record.recordType == "groups":
         print "Enabling auto-schedule for %s is not allowed." % (principal,)
+        
+    elif principal.record.recordType == "users" and not config.Scheduling.Options.AllowUserAutoAccept:
+        print "Enabling auto-schedule for %s is not allowed." % (principal,)
+
     else:
         print "Setting auto-schedule to %s for %s" % (
             { True: "true", False: "false" }[autoSchedule],

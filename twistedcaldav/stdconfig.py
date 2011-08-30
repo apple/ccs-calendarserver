@@ -599,6 +599,7 @@ DEFAULT_CONFIG = {
             "AllowGroupAsOrganizer"      : False, # Allow groups to be Organizers
             "AllowLocationAsOrganizer"   : False, # Allow locations to be Organizers
             "AllowResourceAsOrganizer"   : False, # Allow resources to be Organizers
+            "AllowUserAutoAccept"        : False, # Allow auto-accept for users
             "LimitFreeBusyAttendees"     : 30,    # Maximum number of attendees to request freebusy for
             "AttendeeRefreshInterval"    : 0,     # Time after an iTIP REPLY at which attendee refresh will trigger 
         }

@@ -205,7 +205,7 @@ class DirectoryProvisioningResource (
         If property is a DAV property that maps to a directory field, return
         that field's name, otherwise return None
         """
-        field, converter, description, xmlClass = self._fieldMap.get(
+        field, converter, _ignore_description, _ignore_xmlClass = self._fieldMap.get(
             property.qname(), (None, None, None, None))
         if field is None:
             return (None, None)
@@ -215,7 +215,7 @@ class DirectoryProvisioningResource (
 
     def principalSearchPropertySet(self):
         props = []
-        for field, converter, description, xmlClass in self._fieldMap.itervalues():
+        for _ignore_field, _ignore_converter, description, xmlClass in self._fieldMap.itervalues():
             props.append(
                 davxml.PrincipalSearchProperty(
                     davxml.PropertyContainer(
@@ -811,6 +811,9 @@ class DirectoryPrincipalResource (PropfindCacheMixin, PermissionsMixIn, DAVPrinc
 
     def getAutoSchedule(self):
         return self.record.autoSchedule
+
+    def getCUType(self):
+        return self.record.getCUType()
 
     ##
     # Static

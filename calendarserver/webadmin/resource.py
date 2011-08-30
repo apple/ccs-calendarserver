@@ -1,6 +1,6 @@
 # -*- test-case-name: calendarserver.webadmin.test.test_resource -*-
 ##
-# Copyright (c) 2009-2010 Apple Inc. All rights reserved.
+# Copyright (c) 2009-2011 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -265,7 +265,9 @@ class DetailsElement(Element):
         Renderer which elides its tag for non-resource-type principals.
         """
         if (self.principalResource.record.recordType != "users" and
-            self.principalResource.record.recordType != "groups"):
+            self.principalResource.record.recordType != "groups" or
+            self.principalResource.record.recordType == "users" and
+            config.Scheduling.Options.AllowUserAutoAccept):
             return tag
         return ""
 
@@ -553,8 +555,10 @@ class WebAdminResource (ReadOnlyResourceMixIn, DAVFile):
         if autoSchedule is not None and (autoSchedule == "true" or
                                          autoSchedule == "false"):
             if ( principal.record.recordType != "users" and
-                 principal.record.recordType != "groups"):
-                principal.setAutoSchedule(autoSchedule == "true")
+                 principal.record.recordType != "groups" or
+                 principal.record.recordType == "users" and
+                 config.Scheduling.Options.AllowUserAutoAccept):
+                (yield principal.setAutoSchedule(autoSchedule == "true"))
 
         # Update the proxies if specified.
         for proxyId in removeProxies:
