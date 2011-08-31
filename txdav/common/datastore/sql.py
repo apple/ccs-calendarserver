@@ -161,7 +161,7 @@ class CommonDataStore(Service, object):
             self.sqlTxnFactory(),
             self.enableCalendars,
             self.enableAddressBooks,
-            self.notifierFactory,
+            None if migrating else self.notifierFactory,
             label,
             migrating,
         )
