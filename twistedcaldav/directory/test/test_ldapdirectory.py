@@ -95,19 +95,19 @@ else:
     class LdapDirectoryTestWrapper(object):
         """
         A test stub which replaces search_s( ) with a version that will return
-        whatever you have previously called setTestResults( ) with.
+        whatever you have previously called addTestResults( ) with.
         """
 
         def __init__(self, actual):
             self.actual = actual
-            self.testResults = None
+            self.testResults = []
 
-        def setTestResults(self, results):
-            self.testResults = results
+        def addTestResults(self, results):
+            self.testResults.insert(0, results)
 
-        def search_s(self, base, scope, filter="(objectClass=*)",
-            attrList=None):
-            return self.testResults
+        def search_s(self, base, scope, filterstr="(objectClass=*)",
+            attrlist=None):
+            return self.testResults.pop()
 
 
     class LdapDirectoryServiceTestCase(TestCase):
@@ -419,7 +419,7 @@ else:
             and turns the results into records
             """
 
-            self.service.ldap.setTestResults([
+            self.service.ldap.addTestResults([
                 (
                     "uid=odtestamanda,cn=users,dc=example,dc=com",
                     {
@@ -483,11 +483,35 @@ else:
                 self.service, 30, cache=cache, useExternalProxies=False)
 
             # Fake LDAP results for the group listRecords performed within updateCache()
-            self.service.ldap.setTestResults([
+
+            # Also include recursive groups to make sure we handle that situation
+            self.service.ldap.addTestResults([
                 (
-                    "cn=bothcoasts,cn=groups,dc=example,dc=com",
+                    "cn=recursive1_coasts,cn=groups,dc=example,dc=com",
                     {
-                        'cn': ['topgroup'],
+                        'cn': ['recursive1_coasts'],
+                        'apple-generateduid': ['recursive1_coasts'],
+                        'uniqueMember': [
+                            'cn=recursive2_coasts,cn=groups,dc=example,dc=com',
+                            'uid=wsanchez,cn=users,dc=example,dc=com',
+                        ],
+                    }
+                ),
+                (
+                    "cn=recursive2_coasts,cn=groups,dc=example,dc=com",
+                    {
+                        'cn': ['recursive2_coasts'],
+                        'apple-generateduid': ['recursive2_coasts'],
+                        'uniqueMember': [
+                            'cn=recursive1_coasts,cn=groups,dc=example,dc=com',
+                            'uid=cdaboo,cn=users,dc=example,dc=com',
+                        ],
+                    }
+                ),
+                (
+                    'cn=both_coasts,cn=groups,dc=example,dc=com',
+                    {
+                        'cn': ['both_coasts'],
                         'apple-generateduid': ['both_coasts'],
                         'uniqueMember': [
                             'cn=right_coast,cn=groups,dc=example,dc=com',
@@ -518,18 +542,57 @@ else:
                     }
                 ),
             ])
+            self.service.ldap.addTestResults([
+                (
+                    "cn=recursive2_coasts,cn=groups,dc=example,dc=com",
+                    {
+                        'cn': ['recursive2_coasts'],
+                        'apple-generateduid': ['recursive2_coasts'],
+                        'uniqueMember': [
+                            'cn=recursive1_coasts,cn=groups,dc=example,dc=com',
+                            'uid=cdaboo,cn=users,dc=example,dc=com',
+                        ],
+                    }
+                ),
+            ])
+            self.service.ldap.addTestResults([
+                (
+                    'cn=left_coast,cn=groups,dc=example,dc=com',
+                    {
+                        'cn': ['left_coast'],
+                        'apple-generateduid': ['left_coast'],
+                        'uniqueMember': [
+                            'uid=wsanchez,cn=users,dc=example,dc=com',
+                            'uid=lecroy,cn=users,dc=example,dc=com',
+                            'uid=dreid,cn=users,dc=example,dc=com',
+                        ],
+                    }
+                ),
+            ])
+            self.service.ldap.addTestResults([
+                (
+                    'cn=right_coast,cn=groups,dc=example,dc=com',
+                    {
+                        'cn': ['right_coast'],
+                        'apple-generateduid': ['right_coast'],
+                        'uniqueMember': [
+                            'uid=cdaboo,cn=users,dc=example,dc=com',
+                        ],
+                    }
+                ),
+            ])
 
-            self.assertEquals((False, 6), (yield updater.updateCache()))
+            self.assertEquals((False, 8), (yield updater.updateCache()))
 
             users = self.service.recordType_users
 
             for shortName, groups in [
-                ("cdaboo", set(["both_coasts"])),
-                ("wsanchez", set(["both_coasts", "left_coast"])),
+                ("cdaboo", set(["both_coasts", "recursive1_coasts", "recursive2_coasts"])),
+                ("wsanchez", set(["both_coasts", "left_coast", "recursive1_coasts", "recursive2_coasts"])),
             ]:
 
                 # Fake LDAP results for the record lookup
-                self.service.ldap.setTestResults([
+                self.service.ldap.addTestResults([
                     (
                         "uid=%s,cn=users,dc=example,dc=com" % (shortName,),
                         {

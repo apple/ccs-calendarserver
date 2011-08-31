@@ -194,7 +194,7 @@ class GroupMembershipTests (TestCase):
             cache=cache, useExternalProxies=False)
 
         # Exercise getGroups()
-        groups, aliases = updater.getGroups()
+        groups, aliases = (yield updater.getGroups())
         self.assertEquals(
             groups,
             {

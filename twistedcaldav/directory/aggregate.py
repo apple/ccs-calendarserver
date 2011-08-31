@@ -164,6 +164,15 @@ class AggregateDirectoryService(DirectoryService):
 
         returnValue(itertools.chain(*generators))
 
+    def getGroups(self, guids):
+        """
+        Returns a set of group records for the list of guids passed in.  For
+        any group that also contains subgroups, those subgroups' records are
+        also returned, and so on.
+        """
+        recordType = self.recordType_groups
+        service = self.serviceForRecordType(recordType)
+        return service.getGroups(guids)
 
 
     def serviceForRecordType(self, recordType):

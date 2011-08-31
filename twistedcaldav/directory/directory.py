@@ -298,6 +298,13 @@ class DirectoryService(LoggingMixIn):
 
         return succeed(yieldMatches(recordType))
 
+    def getGroups(self, guids):
+        """
+        This implementation returns all groups, not just the ones specified
+        by guids
+        """
+        return succeed(self.listRecords(self.recordType_groups))
+
     def getResourceInfo(self):
         return ()
 
@@ -473,24 +480,38 @@ class GroupMembershipCacheUpdater(LoggingMixIn):
         self.cache = cache
 
 
-    def getGroups(self):
+    @inlineCallbacks
+    def getGroups(self, guids=None):
         """
         Retrieve all groups and their member info (but don't actually fault in
-        the records of the members), and return two dictionaries.  The first maps
-        group-guid to members.  The keys will be guids, the values are lists of
-        members usually specified by guid, but in a directory system like LDAP which
-        can use a different attribute to refer to members this could be a DN.  The
-        second dictionary returns maps that member attribute back to the corresponding
-        guid.  These dictionaries are used to reverse-index the groups that users are
-        in by expandedMembers().
+        the records of the members), and return two dictionaries.  The first
+        contains group records; the keys for this dictionary are the identifiers
+        used by the directory service to specify members.  In OpenDirectory
+        these would be guids, but in LDAP these could be DNs, or some other
+        attribute.  This attribute can be retrieved from a record using
+        record.cachedGroupsAlias().
+        The second dictionary returned maps that member attribute back to the
+        corresponding guid.  These dictionaries are used to reverse-index the
+        groups that users are in by expandedMembers().
+
+        @param guids: if provided, retrieve only the groups corresponding to
+            these guids (including their sub groups)
+        @type guids: list of guid strings
         """
         groups = {}
         aliases = {}
-        for record in self.directory.listRecords(self.directory.recordType_groups):
+
+        if guids is None: # get all group guids
+            records = self.directory.listRecords(self.directory.recordType_groups)
+        else: # get only the ones we know have been delegated to
+            records = (yield self.directory.getGroups(guids))
+
+        for record in records:
             alias = record.cachedGroupsAlias()
             groups[alias] = record.memberGUIDs()
             aliases[record.guid] = alias
-        return groups, aliases
+
+        returnValue((groups, aliases))
 
 
     def expandedMembers(self, groups, guid, members=None, seen=None):
@@ -618,10 +639,10 @@ class GroupMembershipCacheUpdater(LoggingMixIn):
             # attribute value comes from record.cachedGroupsAlias().
             # "aliases" maps the record.cachedGroupsAlias() value for a group
             # back to the group's guid.
-            groups, aliases = self.getGroups()
+            groups, aliases = (yield self.getGroups(guids=delegatedGUIDs))
             groupGUIDs = set(aliases.keys())
-            self.log_info("There are %d groups in the directory" %
-                           (len(groupGUIDs),))
+            self.log_info("%d groups retrieved from the directory" %
+                (len(groupGUIDs),))
 
             delegatedGUIDs = delegatedGUIDs.intersection(groupGUIDs)
             self.log_info("%d groups are proxies" % (len(delegatedGUIDs),))
