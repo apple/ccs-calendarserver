@@ -129,8 +129,11 @@ def _migrateCalendar(inCalendar, outCalendar, getComponent):
     @param outCalendar: the L{ICalendar} to store calendar objects to.
     @param getComponent: a 1-argument callable; see L{migrateHome}.
 
-    @return: a L{Deferred} which fires when the calendar has migrated.
+    @return: a tuple of (ok count, bad count)
     """
+    
+    ok_count = 0
+    bad_count = 0
     outCalendar.properties().update(inCalendar.properties())
     for calendarObject in (yield inCalendar.calendarObjects()):
         
@@ -164,15 +167,27 @@ def _migrateCalendar(inCalendar, outCalendar, getComponent):
                 proto =_AttachmentMigrationProto(transport)
                 attachment.retrieve(proto)
                 yield proto.done
+            
+            ok_count += 1 
 
         except InternalDataStoreError:
-            log.error("  Failed to migrate calendar object: %s/%s/%s" % (
+            log.error("  InternalDataStoreError: Failed to migrate calendar object: %s/%s/%s" % (
                 inCalendar.ownerHome().name(),
                 inCalendar.name(),
                 calendarObject.name(),
             ))
+            bad_count += 1 
 
+        except Exception, e:
+            log.error("  %s: Failed to migrate calendar object: %s/%s/%s" % (
+                str(e),
+                inCalendar.ownerHome().name(),
+                inCalendar.name(),
+                calendarObject.name(),
+            ))
+            bad_count += 1 
 
+    returnValue((ok_count, bad_count,))
 
 class _AttachmentMigrationProto(Protocol, object):
     def __init__(self, storeTransport):

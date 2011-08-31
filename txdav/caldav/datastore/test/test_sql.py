@@ -153,6 +153,23 @@ class CalendarSQLStorageTests(CalendarCommonTests, unittest.TestCase):
 
 
     @inlineCallbacks
+    def test_migrateBadCalendarFromFile(self):
+        """
+        C{_migrateCalendar()} can migrate a file-backed calendar to a database-
+        backed calendar.
+        """
+        fromCalendar = yield (yield self.fileTransaction().calendarHomeWithUID(
+            "home_bad")).calendarWithName("calendar_bad")
+        toHome = yield self.transactionUnderTest().calendarHomeWithUID(
+            "new-home", create=True)
+        toCalendar = yield toHome.calendarWithName("calendar")
+        ok, bad = (yield _migrateCalendar(fromCalendar, toCalendar,
+                               lambda x: x.component()))
+        self.assertEqual(ok, 1)
+        self.assertEqual(bad, 1)
+
+
+    @inlineCallbacks
     def test_migrateHomeFromFile(self):
         """
         L{migrateHome} will migrate an L{ICalendarHome} provider from one
