@@ -677,11 +677,11 @@ class SnowLeopard(BaseClient):
 
 
     def addEventAttendee(self, href, attendee):
-        name = attendee.parameterValue('CN').encode("utf-8")
 
         # Temporarily use some non-test names (some which will return
         # many results, and others which will return fewer) because the
         # test account names are all too similar
+        # name = attendee.parameterValue('CN').encode("utf-8")
         # prefix = name[:4].lower()
         prefix = random.choice(["chris", "cyru", "dre", "eric", "morg",
             "well", "wilfr", "witz"])
@@ -703,20 +703,6 @@ class SnowLeopard(BaseClient):
                     'lastname': prefix,
                     }))
         d.addCallback(readBody)
-        def narrowed(ignored):
-            # Next just learn about the one name we selected.
-            d = self._request(
-                MULTI_STATUS, 'REPORT', self.root + 'principals/',
-                Headers({'content-type': ['text/xml']}),
-                StringProducer(self._USER_LIST_PRINCIPAL_PROPERTY_SEARCH % {
-                        'displayname': name,
-                        'email': name,
-                        'firstname': name,
-                        'lastname': name,
-                        }))
-            d.addCallback(readBody)
-            return d
-        d.addCallback(narrowed)
         def specific(ignored):
             # Now learn about the attendee's availability
             return self.requestAvailability(
