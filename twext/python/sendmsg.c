@@ -160,19 +160,28 @@ static PyObject *sendmsg_sendmsg(PyObject *self, PyObject *args, PyObject *keywd
         while ( (item = PyIter_Next(iterator)) ) {
             int type, level;
             Py_ssize_t data_len;
+            size_t prev_all_data_len;
             char *data;
-            if (!PyArg_ParseTuple(item, "iit#:sendmsg ancillary data (level, type, data)",
-                                  &level,
-                                  &type,
-                                  &data,
-                                  &data_len)) {
+            if (!PyArg_ParseTuple(
+                        item, "iit#:sendmsg ancillary data (level, type, data)",
+                        &level, &type, &data, &data_len)) {
                 Py_DECREF(item);
                 Py_DECREF(iterator);
                 return NULL;
             }
+
+            prev_all_data_len = all_data_len;
             all_data_len += CMSG_SPACE(data_len);
 
             Py_DECREF(item);
+
+            if (all_data_len < prev_all_data_len) {
+                Py_DECREF(iterator);
+                PyErr_Format(PyExc_OverflowError,
+                             "Too much msg_control to fit in a size_t: %zu",
+                             prev_all_data_len);
+                return NULL;
+            }
         }
 
         Py_DECREF(iterator);
