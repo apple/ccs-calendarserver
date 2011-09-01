@@ -676,6 +676,28 @@ class MailGatewayTokensDatabase(AbstractSQLDatabase, LoggingMixIn):
         )
         self._db_commit()
 
+    def lowercase(self):
+        rows = self._db_execute(
+            """
+            select ORGANIZER, ATTENDEE from TOKENS
+            """
+        )
+        for row in rows:
+            organizer = row[0]
+            attendee = row[1]
+            if organizer.lower().startswith("mailto:"):
+                self._db_execute(
+                    """
+                    update TOKENS set ORGANIZER = :1 WHERE ORGANIZER = :2
+                    """, organizer.lower(), organizer
+                )
+            self._db_execute(
+                """
+                update TOKENS set ATTENDEE = :1 WHERE ATTENDEE = :2
+                """, attendee.lower(), attendee
+            )
+        self._db_commit()
+
     def _db_version(self):
         """
         @return: the schema version assigned to this index.
@@ -740,6 +762,7 @@ class MailGatewayService(service.MultiService):
         mailer = getattr(self, "mailer", None)
         if mailer is not None:
             mailer.purge()
+            mailer.lowercase()
 
 
 class MailGatewayServiceMaker(LoggingMixIn):
@@ -837,6 +860,12 @@ class MailHandler(LoggingMixIn):
         """
         self.db.purgeOldTokens(datetime.date.today() -
             datetime.timedelta(days=self.days))
+
+    def lowercase(self):
+        """
+        Convert all mailto: to lowercase
+        """
+        self.db.lowercase()
 
 
     def checkDSN(self, message):
@@ -1102,9 +1131,8 @@ class MailHandler(LoggingMixIn):
                     attendees.append( (cn, mailto) )
 
 
-        recipient = recipient.lower()
         toAddr = recipient
-        if not recipient.startswith("mailto:"):
+        if not recipient.lower().startswith("mailto:"):
             raise ValueError("ATTENDEE address '%s' must be mailto: for iMIP "
                              "operation." % (recipient,))
         recipient = recipient[7:]
@@ -1116,7 +1144,7 @@ class MailHandler(LoggingMixIn):
 
             # Reuse or generate a token based on originator, toAddr, and
             # event uid
-            token = self.db.getToken(originator, toAddr, icaluid)
+            token = self.db.getToken(originator, toAddr.lower(), icaluid)
             if token is None:
 
                 # Because in the past the originator was sometimes in mailto:
@@ -1124,10 +1152,10 @@ class MailHandler(LoggingMixIn):
                 organizerProperty = calendar.getOrganizerProperty()
                 organizerEmailAddress = organizerProperty.parameterValue("EMAIL", None)
                 if organizerEmailAddress is not None:
-                    token = self.db.getToken("mailto:%s" % (organizerEmailAddress,), toAddr, icaluid)
+                    token = self.db.getToken("mailto:%s" % (organizerEmailAddress.lower(),), toAddr.lower(), icaluid)
 
             if token is None:
-                token = self.db.createToken(originator, toAddr, icaluid)
+                token = self.db.createToken(originator, toAddr.lower(), icaluid)
                 self.log_debug("Mail gateway created token %s for %s "
                                "(originator), %s (recipient) and %s (icaluid)"
                                % (token, originator, toAddr, icaluid))

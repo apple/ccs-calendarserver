@@ -81,15 +81,17 @@ class MailHandlerTests(TestCase):
         return self.dataPath.child(name).getContent()
 
 
-    def test_purge(self):
+    def test_purge_and_lowercase(self):
         """
-        Ensure that purge( ) cleans out old tokens
+        Ensure that purge( ) cleans out old tokens, and that lowercase( )
+        converts all mailto: to lowercase, since earlier server versions
+        didn't do that before inserting into the database.
         """
 
         # Insert an "old" token
-        token = "test_token"
-        organizer = "me@example.com"
-        attendee = "you@example.com"
+        token = "test_token_1"
+        organizer = "urn:uuid:19BFE23D-0269-46CA-877C-D4B521A7A9A5"
+        attendee = "mailto:you@example.com"
         icaluid = "123"
         pastDate = datetime.date(2009,1,1)
         self.handler.db._db_execute(
@@ -104,6 +106,46 @@ class MailHandlerTests(TestCase):
         self.handler.purge()
         retrieved = self.handler.db.getToken(organizer, attendee, icaluid)
         self.assertEquals(retrieved, None)
+
+
+        # Insert a token with (old-format) mailto:
+        token = "test_token_2"
+        organizer = "MailTo:Organizer@Example.com"
+        attendee = "MAILTO:YouTwo@Example.com"
+        icaluid = "456"
+        futureDate = datetime.date(2100,1,1)
+        self.handler.db._db_execute(
+            """
+            insert into TOKENS (TOKEN, ORGANIZER, ATTENDEE, ICALUID, DATESTAMP)
+            values (:1, :2, :3, :4, :5)
+            """, token, organizer, attendee, icaluid, futureDate
+        )
+        self.handler.db._db_commit()
+
+        self.handler.lowercase()
+        retrieved = self.handler.db.getToken(organizer.lower(),
+            attendee.lower(), icaluid)
+        self.assertEquals(retrieved, token)
+
+        # Insert a token with (new-format) urn:uuid:
+        token = "test_token_3"
+        organizer = "urn:uuid:E0CF4031-676B-4668-A9D3-8F33A0212F70"
+        attendee = "MAILTO:YouTwo@Example.com"
+        icaluid = "789"
+        futureDate = datetime.date(2100,1,1)
+        self.handler.db._db_execute(
+            """
+            insert into TOKENS (TOKEN, ORGANIZER, ATTENDEE, ICALUID, DATESTAMP)
+            values (:1, :2, :3, :4, :5)
+            """, token, organizer, attendee, icaluid, futureDate
+        )
+        self.handler.db._db_commit()
+
+        self.handler.lowercase()
+        retrieved = self.handler.db.getToken(organizer,
+            attendee.lower(), icaluid)
+        self.assertEquals(retrieved, token)
+
 
 
     def test_iconPath(self):
