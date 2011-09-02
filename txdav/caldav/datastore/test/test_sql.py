@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2010 Apple Inc. All rights reserved.
+# Copyright (c) 2010-2011 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -156,7 +156,8 @@ class CalendarSQLStorageTests(CalendarCommonTests, unittest.TestCase):
     def test_migrateBadCalendarFromFile(self):
         """
         C{_migrateCalendar()} can migrate a file-backed calendar to a database-
-        backed calendar.
+        backed calendar. We need to test what happens when there is "bad" calendar data
+        present in the file-backed calendar.
         """
         fromCalendar = yield (yield self.fileTransaction().calendarHomeWithUID(
             "home_bad")).calendarWithName("calendar_bad")
