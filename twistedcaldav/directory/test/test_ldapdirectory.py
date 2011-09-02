@@ -52,6 +52,17 @@ else:
                 },
                 {
                     "fields" : [
+                        ("fullName", "mor(", True, u"starts-with"),
+                        ("emailAddresses", "mor)", True, u"contains"),
+                        ("firstName", "mor*", True, u"exact"),
+                        ("lastName", "mor\\", True, u"starts-with")
+                    ],
+                    "operand" : "or",
+                    "recordType" : None,
+                    "expected" : "(|(cn=mor\\28*)(mail=*mor\\29*)(givenName=mor\\2a)(sn=mor\\5c*))"
+                },
+                {
+                    "fields" : [
                         ("fullName", "mor", True, u"starts-with"),
                     ],
                     "operand" : "or",
