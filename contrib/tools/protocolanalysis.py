@@ -131,7 +131,7 @@ class CalendarServerLogAnalyzer(object):
 
     class LogLine(object):
         
-        def __init__(self, userid, logDateTime, logTime, method, uri, status, bytes, referer, client, extended):
+        def __init__(self, userid, logDateTime, logTime, method, uri, status, reqbytes, referer, client, extended):
 
             self.userid = userid
             self.logDateTime = logDateTime
@@ -139,7 +139,7 @@ class CalendarServerLogAnalyzer(object):
             self.method = method
             self.uri = uri
             self.status = status
-            self.bytes = bytes
+            self.bytes = reqbytes
             self.referer = referer
             self.client = client
             self.extended = extended
@@ -439,7 +439,7 @@ class CalendarServerLogAnalyzer(object):
         
         startPos += 4
         endPos = line.find(' ', startPos)
-        bytes = int(line[startPos:endPos])
+        reqbytes = int(line[startPos:endPos])
         
         startPos = endPos + 2
         endPos = line.find('"', startPos)
@@ -471,7 +471,7 @@ class CalendarServerLogAnalyzer(object):
             items = line[startPos:].split()
             extended = dict([item.split('=') for item in items])
     
-        self.currentLine = CalendarServerLogAnalyzer.LogLine(userid, logDateTime, logTime, method, uri, status, bytes, referrer, client, extended)
+        self.currentLine = CalendarServerLogAnalyzer.LogLine(userid, logDateTime, logTime, method, uri, status, reqbytes, referrer, client, extended)
     
     def getClientAdjustedName(self):
     
@@ -511,36 +511,35 @@ class CalendarServerLogAnalyzer(object):
     
     def getAdjustedMethodName(self):
 
-        uribits = self.currentLine.uri.split('/')[1:]
+        uribits = self.currentLine.uri.rstrip("/").split('/')[1:]
         if len(uribits) == 0:
             uribits = [self.currentLine.uri]
 
+        calendar_specials = ("dropbox", "notification", "freebusy", "outbox",)
+        adbk_specials = ("notification",)
+   
         if self.currentLine.method == "PROPFIND":
             
             cached = "cached" in self.currentLine.extended
 
             if uribits[0] == "calendars":
                 
-                if len(uribits) > 3:
-                    if uribits[3] == "":
-                        return "PROPFIND%s Calendar Home" % ("-cached" if cached else "")
-                    elif uribits[3] == "inbox":
-                        return "PROPFIND Inbox"
-                    elif uribits[3] == ("dropbox", "freebusy"):
-                        pass
-                    elif uribits[3] == "notification":
-                        return "PROPFIND Notification"
-                    else:
+                if len(uribits) == 3:
+                    return "PROPFIND%s Calendar Home" % ("-cached" if cached else "")
+                elif len(uribits) > 3:
+                    if uribits[3] in calendar_specials:
+                        return "PROPFIND %s" % (uribits[3],)
+                    elif len(uribits) == 4:
                         return "PROPFIND Calendar"
     
             elif uribits[0] == "addressbooks":
                 
-                if len(uribits) > 3:
-                    if uribits[3] == "":
-                        return "PROPFIND%s Adbk Home" % ("-cached" if cached else "")
-                    elif uribits[3] == "notification":
-                        return "PROPFIND Notification"
-                    else:
+                if len(uribits) == 3:
+                    return "PROPFIND%s Adbk Home" % ("-cached" if cached else "")
+                elif len(uribits) > 3:
+                    if uribits[3] in adbk_specials:
+                        return "PROPFIND %s" % (uribits[3],)
+                    elif len(uribits) == 4:
                         return "PROPFIND Adbk"
     
             elif uribits[0] == "directory":
@@ -576,7 +575,7 @@ class CalendarServerLogAnalyzer(object):
             
         elif self.currentLine.method == "POST":
             
-            if uribits[0] == "calendars" and len(uribits) > 3 and uribits[3] == "outbox":
+            if uribits[0] == "calendars" and len(uribits) == 4 and uribits[3] == "outbox":
                 if "freebusy" in self.currentLine.extended:
                     return "POST Freebusy"
                 else:
@@ -587,10 +586,10 @@ class CalendarServerLogAnalyzer(object):
                         return "POST Attendee"
             elif uribits[0] == "calendars":
                 
-                if len(uribits) > 3:
-                    if uribits[3] == "":
-                        return "POST Calendar Home"
-                    elif uribits[3] == "outbox":
+                if len(uribits) == 3:
+                    return "POST Calendar Home"
+                elif len(uribits) == 4:
+                    if uribits[3] == "outbox":
                         if "freebusy" in self.currentLine.extended:
                             return "POST Freebusy"
                         else:
@@ -599,17 +598,17 @@ class CalendarServerLogAnalyzer(object):
                                     return "POST Organizer"
                             else:
                                 return "POST Attendee"
-                    elif uribits[3] in ("dropbox", "freebusy", "notification"):
+                    elif uribits[3] in calendar_specials:
                         pass
                     else:
                         return "POST Calendar"
     
             elif uribits[0] == "addressbooks":
                 
-                if len(uribits) > 3:
-                    if uribits[3] == "":
-                        return "POST Adbk Home"
-                    elif uribits[3] == "notification":
+                if len(uribits) == 3:
+                    return "POST Adbk Home"
+                elif len(uribits) == 4:
+                    if uribits[3] in adbk_specials:
                         pass
                     else:
                         return "POST Adbk"
@@ -619,37 +618,82 @@ class CalendarServerLogAnalyzer(object):
             
         elif self.currentLine.method == "PUT":
             
-            if len(uribits) > 3 and uribits[3] == "dropbox":
-                return "PUT Dropbox"
-            
+            if uribits[0] == "calendars":
+                if len(uribits) > 3:
+                    if uribits[3] in calendar_specials:
+                        return "PUT %s" % (uribits[3],)
+                    elif len(uribits) == 4:
+                        return "PUT Calendar"
+                    else:
+                        return "PUT ics"
+
+            elif uribits[0] == "addressbooks":
+                if len(uribits) > 3:
+                    if uribits[3] in adbk_specials:
+                        return "PUT %s" % (uribits[3],)
+                    elif len(uribits) == 4:
+                        return "PUT Adbk"
+                    else:
+                        return "PUT vcf"
+        
         elif self.currentLine.method == "GET":
             
             if uribits[0] == "calendars":
                 
-                if len(uribits) > 3:
-                    if uribits[3] == "":
-                        return "GET Calendar Home"
-                    elif uribits[3] in ("notification", "outbox"):
-                        pass
-                    elif uribits[3] == "dropbox":
-                        return "GET Dropbox"
-                    elif uribits[3] == "freebusy":
-                        return "GET Freebusy"
-                    else:
+                if len(uribits) == 3:
+                    return "GET Calendar Home"
+                elif len(uribits) > 3:
+                    if uribits[3] in calendar_specials:
+                        return "GET %s" % (uribits[3],)
+                    elif len(uribits) == 4:
                         return "GET Calendar"
+                    elif uribits[3] == "inbox":
+                        return "GET inbox ics"
+                    else:
+                        return "GET ics"
     
             elif uribits[0] == "addressbooks":
                 
-                if len(uribits) > 3:
-                    if uribits[3] == "":
-                        return "GET Adbk Home"
-                    elif uribits[3] == "notification":
-                        pass
-                    else:
+                if len(uribits) == 3:
+                    return "GET Adbk Home"
+                elif len(uribits) > 3:
+                    if uribits[3] in adbk_specials:
+                        return "GET %s" % (uribits[3],)
+                    elif len(uribits) == 4:
                         return "GET Adbk"
+                    else:
+                        return "GET vcf"
 
             elif uribits[0].startswith("timezones"):
                 return "GET Timezones"
+
+        elif self.currentLine.method == "DELETE":
+            
+            if uribits[0] == "calendars":
+                
+                if len(uribits) == 3:
+                    return "DELETE Calendar Home"
+                elif len(uribits) > 3:
+                    if uribits[3] in calendar_specials:
+                        return "DELETE %s" % (uribits[3],)
+                    elif len(uribits) == 4:
+                        return "DELETE Calendar"
+                    elif uribits[3] == "inbox":
+                        return "DELETE inbox ics"
+                    else:
+                        return "DELETE ics"
+    
+            elif uribits[0] == "addressbooks":
+                
+                if len(uribits) == 3:
+                    return "DELETE Adbk Home"
+                elif len(uribits) > 3:
+                    if uribits[3] in adbk_specials:
+                        return "DELETE %s" % (uribits[3],)
+                    elif len(uribits) == 4:
+                        return "DELETE Adbk"
+                    else:
+                        return "DELETE vcf"
 
         return self.currentLine.method
     
@@ -1299,14 +1343,14 @@ class TablePrinter(object):
                     row.append(value)
                 else:
                     if type(value) is float:
-                        format = "%.1f"
+                        fmt = "%.1f"
                     else:
-                        format = "%d"
+                        fmt = "%d"
                     if " TOTAL" in v:
                         total = v[" TOTAL"]
-                        row.append((format + " (%2d%%)") % (value, safePercent(value, total),))
+                        row.append((fmt + " (%2d%%)") % (value, safePercent(value, total),))
                     else:
-                        row.append(format % (value,))
+                        row.append(fmt % (value,))
             table.addRow(row)
     
         if " TOTAL" in rowNames:
@@ -1315,12 +1359,12 @@ class TablePrinter(object):
             for k,v in sorted(data.iteritems(), key=lambda x:x[0].lower()):
                 value = v[" TOTAL"]
                 if type(value) is str:
-                    format = "%s"
+                    fmt = "%s"
                 elif type(value) is float:
-                    format = "%.1f"
+                    fmt = "%.1f"
                 else:
-                    format = "%d"
-                row.append(format % (value,))
+                    fmt = "%d"
+                row.append(fmt % (value,))
             table.addFooter(row)
     
         table.printTabDelimitedData() if doTabs else table.printTable()
