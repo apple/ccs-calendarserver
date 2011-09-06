@@ -654,7 +654,6 @@ def relocateData(sourceRoot, targetRoot, oldServerRootValue,
 
     log("RelocateData: sourceRoot=%s, targetRoot=%s, oldServerRootValue=%s, oldCalDocumentRootValue=%s, oldCalDataRootValue=%s, oldABDocumentRootValue=%s, uid=%d, gid=%d" % (sourceRoot, targetRoot, oldServerRootValue, oldCalDocumentRootValue, oldCalDataRootValue, oldABDocumentRootValue, uid, gid))
 
-
     if oldServerRootValue:
         newServerRootValue = oldServerRootValue
         # Source is Lion; see if ServerRoot refers to an external volume
@@ -697,7 +696,7 @@ def relocateData(sourceRoot, targetRoot, oldServerRootValue,
     # Old Calendar DocumentRoot
     if oldCalDocumentRootValueProcessed:
         if diskAccessor.exists(oldCalDocumentRootValueProcessed):
-            # Must be on an external volume if we see it existing at the point
+            # Must be on an external volume if we see it existing at this point
             # so don't copy it
             newDocumentRoot = newDocumentRootValue = oldCalDocumentRootValueProcessed
         elif diskAccessor.exists(absolutePathWithRoot(sourceRoot, oldCalDocumentRootValueProcessed)):
@@ -710,7 +709,7 @@ def relocateData(sourceRoot, targetRoot, oldServerRootValue,
     # Old Calendar DataRoot
     if oldCalDataRootValueProcessed:
         if diskAccessor.exists(oldCalDataRootValueProcessed):
-            # Must be on an external volume if we see it existing at the point
+            # Must be on an external volume if we see it existing at this point
             # so don't copy it
             newDataRootValue = oldCalDataRootValueProcessed
         elif diskAccessor.exists(
