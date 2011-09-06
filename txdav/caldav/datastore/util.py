@@ -19,20 +19,24 @@
 Utility logic common to multiple backend implementations.
 """
 
+from twext.python.log import Logger
+from twext.python.vcomponent import InvalidICalendarDataError
+from twext.python.vcomponent import VComponent
+from twext.web2 import http_headers
+
 from twisted.internet.defer import inlineCallbacks, Deferred, returnValue
 from twisted.internet.protocol import Protocol
 
-from twext.python.vcomponent import InvalidICalendarDataError
-from twext.python.vcomponent import VComponent
-
-from txdav.common.icommondatastore import InvalidObjectResourceError, \
-    NoSuchObjectResourceError, InternalDataStoreError
-
-from twistedcaldav.datafilters.privateevents import PrivateEventFilter
 from twistedcaldav.datafilters.peruserdata import PerUserDataFilter
-from zope.interface.declarations import implements
+from twistedcaldav.datafilters.privateevents import PrivateEventFilter
+
 from txdav.caldav.icalendarstore import IAttachmentStorageTransport
-from twext.python.log import Logger
+from txdav.common.icommondatastore import InvalidObjectResourceError, NoSuchObjectResourceError, InternalDataStoreError
+
+from zope.interface.declarations import implements
+
+import os
+
 log = Logger()
 
 def validateCalendarComponent(calendarObject, calendar, component, inserting):
@@ -189,6 +193,52 @@ def _migrateCalendar(inCalendar, outCalendar, getComponent):
 
     returnValue((ok_count, bad_count,))
 
+
+# MIME helpers - mostly copied from twext.web2.static
+ 
+def loadMimeTypes(mimetype_locations=['/etc/mime.types']):
+    """
+    Multiple file locations containing mime-types can be passed as a list.
+    The files will be sourced in that order, overriding mime-types from the
+    files sourced beforehand, but only if a new entry explicitly overrides
+    the current entry.
+    """
+    import mimetypes
+    # Grab Python's built-in mimetypes dictionary.
+    contentTypes = mimetypes.types_map #@UndefinedVariable
+    # Update Python's semi-erroneous dictionary with a few of the
+    # usual suspects.
+    contentTypes.update(
+        {
+            '.conf':  'text/plain',
+            '.diff':  'text/plain',
+            '.exe':   'application/x-executable',
+            '.flac':  'audio/x-flac',
+            '.java':  'text/plain',
+            '.ogg':   'application/ogg',
+            '.oz':    'text/x-oz',
+            '.swf':   'application/x-shockwave-flash',
+            '.tgz':   'application/x-gtar',
+            '.wml':   'text/vnd.wap.wml',
+            '.xul':   'application/vnd.mozilla.xul+xml',
+            '.py':    'text/plain',
+            '.patch': 'text/plain',
+        }
+    )
+    # Users can override these mime-types by loading them out configuration
+    # files (this defaults to ['/etc/mime.types']).
+    for location in mimetype_locations:
+        if os.path.exists(location):
+            contentTypes.update(mimetypes.read_mime_types(location))
+
+    return contentTypes
+
+def getType(filename, types, defaultType="application/octet-stream"):
+    _ignore_p, ext = os.path.splitext(filename)
+    ext = ext.lower()
+    return types.get(ext, defaultType)
+
+
 class _AttachmentMigrationProto(Protocol, object):
     def __init__(self, storeTransport):
         self.storeTransport = storeTransport
@@ -277,9 +327,9 @@ class CalendarObjectBase(object):
         calendar = self.calendar()
         isOwner = asAdmin or (calendar._owned and
                               calendar.ownerCalendarHome().uid() == accessUID)
-        for filter in [PrivateEventFilter(self.accessMode, isOwner),
+        for data_filter in [PrivateEventFilter(self.accessMode, isOwner),
                        PerUserDataFilter(accessUID)]:
-            component = filter.filter(component)
+            component = data_filter.filter(component)
         returnValue(component)
 
 
@@ -313,7 +363,6 @@ class StorageTransportAddress(object):
         return '<Storing Attachment: %r%s>' % (self.attachment.name(), host)
 
 
-
 class StorageTransportBase(object):
     """
     Base logic shared between file- and sql-based L{IAttachmentStorageTransport}
@@ -322,6 +371,8 @@ class StorageTransportBase(object):
 
     implements(IAttachmentStorageTransport)
 
+    contentTypes = loadMimeTypes()
+
     def __init__(self, attachment, contentType):
         """
         Create a storage transport with a reference to an L{IAttachment} and a
@@ -329,6 +380,10 @@ class StorageTransportBase(object):
         """
         self._attachment = attachment
         self._contentType = contentType
+        
+        # Make sure we have some kind of contrent-type
+        if self._contentType is None:
+            self._contentType = http_headers.MimeType.fromString(getType(self._attachment.name(), self.contentTypes))
 
 
     def getPeer(self):
@@ -341,5 +396,3 @@ class StorageTransportBase(object):
 
     def writeSequence(self, seq):
         return self.write(''.join(seq))
-
-

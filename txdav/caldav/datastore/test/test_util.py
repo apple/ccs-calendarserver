@@ -18,10 +18,15 @@
 Tests for txdav.caldav.datastore.util.
 """
 
+from twext.web2.http_headers import MimeType
+
 from twisted.internet.defer import inlineCallbacks
+
 from twistedcaldav.ical import Component
 from twistedcaldav.test.util import TestCase
-from txdav.caldav.datastore.util import dropboxIDFromCalendarObject
+
+from txdav.caldav.datastore.util import dropboxIDFromCalendarObject,\
+    StorageTransportBase
 
 class DropboxIDTests(TestCase):
     """
@@ -270,3 +275,29 @@ END:VCALENDAR
                 (yield dropboxIDFromCalendarObject(resource)),
                 "%s.dropbox" % (result,),
             )
+
+class StorageTransportTests(TestCase):
+
+    def test_MissingContentType(self):
+        
+        test_files = (
+            ("plain.txt", MimeType.fromString("text/plain"),),
+            ("word.doc", MimeType.fromString("application/msword"),),
+            ("markup.xml", MimeType.fromString("application/xml"),),
+            ("octet", MimeType.fromString("application/octet-stream"),),
+            ("bogus.bog", MimeType.fromString("application/octet-stream"),),
+        )
+
+        class FakeAttachment(object):
+            
+            def __init__(self, name):
+                self._name = name
+            
+            def name(self):
+                return self._name
+    
+        for filename, result in test_files:
+            item = StorageTransportBase(FakeAttachment(filename), None)
+            self.assertEquals(item._contentType, result)
+            item = StorageTransportBase(FakeAttachment(filename), result)
+            self.assertEquals(item._contentType, result)
