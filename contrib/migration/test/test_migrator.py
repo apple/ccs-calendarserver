@@ -1031,6 +1031,83 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
         ),
 
         (
+            "Snow -> Lion Migration, external DocumentRoot",
+            {
+                "/Volumes/old/private/etc/caldavd/caldavd.plist" : """
+                    <plist version="1.0">
+                    <dict>
+                        <key>DocumentRoot</key>
+                        <string>/Volumes/External/CalendarServer/Documents</string>
+                        <key>DataRoot</key>
+                        <string>/Library/CalendarServer/Data</string>
+                        <key>UserName</key>
+                        <string>calendar</string>
+                        <key>GroupName</key>
+                        <string>calendar</string>
+                    </dict>
+                    </plist>
+                """,
+                "/Volumes/old/private/etc/carddavd/carddavd.plist" : """
+                    <plist version="1.0">
+                    <dict>
+                        <key>DocumentRoot</key>
+                        <string>/Volumes/External/AddressBookServer/Documents</string>
+                        <key>DataRoot</key>
+                        <string>/Library/AddressBookServer/Data</string>
+                    </dict>
+                    </plist>
+                """,
+                "/Volumes/new/private/etc/caldavd/caldavd.plist" : """
+                    <plist version="1.0">
+                    <dict>
+                        <key>ServerRoot</key>
+                        <string>/Library/Server/Calendar and Contacts</string>
+                        <key>DocumentRoot</key>
+                        <string>Documents</string>
+                        <key>DataRoot</key>
+                        <string>Data</string>
+                        <key>UserName</key>
+                        <string>calendar</string>
+                        <key>GroupName</key>
+                        <string>calendar</string>
+                    </dict>
+                    </plist>
+                """,
+
+                "/Volumes/External/CalendarServer/Documents/calendars/" : True,
+                "/Volumes/External/CalendarServer/Calendar and Contacts/" : True,
+                "/Volumes/old/Library/CalendarServer/Data/" : True,
+                "/Volumes/External/AddressBookServer/Documents/addressbooks/" : True,
+                "/Volumes/old/Library/AddressBookServer/Data/" : True,
+                "/Volumes/new/Library/Server/Calendar and Contacts" : True,
+            },
+            (   # args
+                "/Volumes/old", # sourceRoot
+                "/Volumes/new", # targetRoot
+                None, # oldServerRootValue
+                "/Volumes/External/CalendarServer/Documents", # oldCalDocumentRootValue
+                "/Library/CalendarServer/Data", # oldCalDataRootValue
+                "/Volumes/External/AddressBookServer/Documents", # oldABDocumentRootValue
+                FakeUser.pw_uid, FakeGroup.gr_gid, # user id, group id
+            ),
+            (   # expected return values
+                "/Volumes/External/CalendarServer/Calendar and Contacts",
+                "/Volumes/External/CalendarServer/Calendar and Contacts",
+                "Documents",
+                "Data"
+            ),
+            [   # expected DiskAccessor history
+                ('rename', '/Volumes/External/CalendarServer/Calendar and Contacts', '/Volumes/External/CalendarServer/Calendar and Contacts.bak'),
+                ('mkdir', '/Volumes/External/CalendarServer/Calendar and Contacts'),
+                ('rename', '/Volumes/External/CalendarServer/Documents', '/Volumes/External/CalendarServer/Calendar and Contacts/Documents'),
+                ('ditto', '/Volumes/old/Library/CalendarServer/Data', '/Volumes/External/CalendarServer/Calendar and Contacts/Data'),
+                ('chown-recursive', '/Volumes/External/CalendarServer/Calendar and Contacts/Data', FakeUser.pw_uid, FakeGroup.gr_gid),
+                ('ditto', '/Volumes/External/AddressBookServer/Documents/addressbooks', '/Volumes/External/CalendarServer/Calendar and Contacts/Documents/addressbooks'),
+                ('chown-recursive', '/Volumes/External/CalendarServer/Calendar and Contacts/Documents/addressbooks', FakeUser.pw_uid, FakeGroup.gr_gid),
+            ]
+        ),
+
+        (
             "Snow -> Lion Migration, in non-standard locations",
             {
                 "/Volumes/old/private/etc/caldavd/caldavd.plist" : """
@@ -1165,14 +1242,18 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
                 FakeUser.pw_uid, FakeGroup.gr_gid, # user id, group id
             ),
             (   # expected return values
-                "/Volumes/new/Library/Server/Calendar and Contacts",
-                "/Library/Server/Calendar and Contacts",
-                "/Volumes/External/CalendarServer/Documents",
-                "/Volumes/External/CalendarServer/Data"
+                "/Volumes/External/CalendarServer/Calendar and Contacts",
+                "/Volumes/External/CalendarServer/Calendar and Contacts",
+                "Documents",
+                "Data"
             ),
             [
-                ('ditto', '/Volumes/old/Library/AddressBookServer/Documents/addressbooks', '/Volumes/External/CalendarServer/Documents/addressbooks'),
-                ('chown-recursive', '/Volumes/External/CalendarServer/Documents/addressbooks', FakeUser.pw_uid, FakeGroup.gr_gid),
+                ('mkdir', '/Volumes/External/CalendarServer/Calendar and Contacts'),
+                ('rename', '/Volumes/External/CalendarServer/Documents', '/Volumes/External/CalendarServer/Calendar and Contacts/Documents'),
+                ('ditto', '/Volumes/External/CalendarServer/Data', '/Volumes/External/CalendarServer/Calendar and Contacts/Data'),
+                ('chown-recursive', '/Volumes/External/CalendarServer/Calendar and Contacts/Data', FakeUser.pw_uid, FakeGroup.gr_gid),
+                ('ditto', '/Volumes/old/Library/AddressBookServer/Documents/addressbooks', '/Volumes/External/CalendarServer/Calendar and Contacts/Documents/addressbooks'),
+                ('chown-recursive', '/Volumes/External/CalendarServer/Calendar and Contacts/Documents/addressbooks', FakeUser.pw_uid, FakeGroup.gr_gid),
             ]
         ),
 
@@ -1387,7 +1468,6 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
         ]
 
         for description, paths, args, expected, history in info:
-            # print "-=-=-=- %s -=-=-=-" % (description,)
             accessor = StubDiskAccessor(paths)
             actual = relocateData(*args, diskAccessor=accessor)
             self.assertEquals(expected, actual)
