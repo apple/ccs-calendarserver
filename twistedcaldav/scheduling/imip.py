@@ -82,8 +82,8 @@ class ScheduleViaIMip(DeliveryService):
 
             for recipient in self.recipients:
                 try:
-                    toAddr = str(recipient.cuaddr).lower()
-                    if not toAddr.startswith("mailto:"):
+                    toAddr = str(recipient.cuaddr)
+                    if not toAddr.lower().startswith("mailto:"):
                         raise ValueError("ATTENDEE address '%s' must be mailto: for iMIP operation." % (toAddr,))
 
                     fromAddr = str(self.scheduler.originator.cuaddr)
