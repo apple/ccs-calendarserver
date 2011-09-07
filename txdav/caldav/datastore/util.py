@@ -166,11 +166,13 @@ def _migrateCalendar(inCalendar, outCalendar, getComponent):
             for attachment in (yield calendarObject.attachments()):
                 name = attachment.name()
                 ctype = attachment.contentType()
-                newattachment = yield outObject.createAttachmentWithName(name)
-                transport = newattachment.store(ctype)
-                proto =_AttachmentMigrationProto(transport)
-                attachment.retrieve(proto)
-                yield proto.done
+                exists = yield outObject.attachmentWithName(name)
+                if exists is None:
+                    newattachment = yield outObject.createAttachmentWithName(name)
+                    transport = newattachment.store(ctype)
+                    proto =_AttachmentMigrationProto(transport)
+                    attachment.retrieve(proto)
+                    yield proto.done
             
             ok_count += 1 
 
