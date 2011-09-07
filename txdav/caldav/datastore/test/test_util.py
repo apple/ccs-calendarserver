@@ -283,7 +283,7 @@ class StorageTransportTests(TestCase):
         test_files = (
             ("plain.txt", MimeType.fromString("text/plain"),),
             ("word.doc", MimeType.fromString("application/msword"),),
-            ("markup.xml", MimeType.fromString("application/xml"),),
+            ("markup.html", MimeType.fromString("text/html"),),
             ("octet", MimeType.fromString("application/octet-stream"),),
             ("bogus.bog", MimeType.fromString("application/octet-stream"),),
         )
