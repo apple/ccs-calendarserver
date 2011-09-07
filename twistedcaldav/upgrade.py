@@ -892,6 +892,11 @@ class PostDBImportService(Service, object):
                 useExternalProxies=self.config.GroupCaching.UseExternalProxies)
             yield updater.updateCache(fast=True)
 
+            uid, gid = getCalendarServerIDs(self.config)
+            dbPath = os.path.join(self.config.DataRoot, "proxies.sqlite")
+            if os.path.exists(dbPath):
+                os.chown(dbPath, uid, gid)
+
         # Process old inbox items
         yield self.processInboxItems()
 
