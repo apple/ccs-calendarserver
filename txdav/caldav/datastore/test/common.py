@@ -1855,8 +1855,7 @@ END:VCALENDAR
             if self.requirements[uid] is not None
         ])
         additionalUIDs.add("home_bad")
+        additionalUIDs.add("home_attachments")
         expectedUIDs = additionalUIDs.union(requiredUIDs)
         self.assertEquals(foundUIDs, expectedUIDs)
-
-
 

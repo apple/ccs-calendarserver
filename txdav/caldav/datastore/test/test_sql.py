@@ -171,6 +171,22 @@ class CalendarSQLStorageTests(CalendarCommonTests, unittest.TestCase):
 
 
     @inlineCallbacks
+    def test_migrateDuplicateAttachmentsCalendarFromFile(self):
+        """
+        C{_migrateCalendar()} can migrate a file-backed calendar to a database-
+        backed calendar. We need to test what happens when migrating attachments.
+        """
+        fromCalendar = yield (yield self.fileTransaction().calendarHomeWithUID(
+            "home_attachments")).calendarWithName("calendar_1")
+        toHome = yield self.transactionUnderTest().calendarHomeWithUID(
+            "home_attachments", create=True)
+        toCalendar = yield toHome.calendarWithName("calendar")
+        ok, bad = (yield _migrateCalendar(fromCalendar, toCalendar,
+                               lambda x: x.component()))
+        self.assertEqual(ok, 3)
+        self.assertEqual(bad, 0)
+
+    @inlineCallbacks
     def test_migrateHomeFromFile(self):
         """
         L{migrateHome} will migrate an L{ICalendarHome} provider from one

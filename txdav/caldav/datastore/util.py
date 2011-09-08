@@ -249,9 +249,10 @@ class _AttachmentMigrationProto(Protocol, object):
     def dataReceived(self, data):
         self.storeTransport.write(data)
 
+    @inlineCallbacks
     def connectionLost(self, reason):
         try:
-            self.storeTransport.loseConnection()
+            yield self.storeTransport.loseConnection()
         except:
             self.done.errback()
         else:
