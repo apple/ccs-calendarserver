@@ -23,7 +23,8 @@ from twistedcaldav.directory.xmlfile import XMLDirectoryService
 from twistedcaldav.directory.resourceinfo import ResourceInfoDatabase
 from twistedcaldav.mail import MailGatewayTokensDatabase
 from twistedcaldav.upgrade import (
-    xattrname, UpgradeError, upgradeData, updateFreeBusySet
+    xattrname, UpgradeError, upgradeData, updateFreeBusySet,
+    removeIllegalCharacters
 )
 from twistedcaldav.test.util import TestCase
 from calendarserver.tools.util import getDirectory
@@ -1393,6 +1394,19 @@ class UpgradeTests(TestCase):
     test_migrateResourceInfo.todo = "FIXME: perhaps ProxySqliteDB isn't being set up correctly?"
 
 
+    def test_removeIllegalCharacters(self):
+        """
+        Control characters aside from NL and CR are removed.
+        """
+        data = "Contains\x03 control\x06 characters\x12 some\x0a allowed\x0d"
+        after, changed = removeIllegalCharacters(data)
+        self.assertEquals(after, "Contains control characters some\x0a allowed\x0d")
+        self.assertTrue(changed)
+
+        data = "Contains only\x0a legal\x0d"
+        after, changed = removeIllegalCharacters(data)
+        self.assertEquals(after, "Contains only\x0a legal\x0d")
+        self.assertFalse(changed)
 
 
 event01_before = """BEGIN:VCALENDAR
@@ -1484,6 +1498,7 @@ END:VCALENDAR
 event02_broken = "Invalid!"
 
 event01_after_md5 = hashlib.md5(event01_after).hexdigest()
+
 
 def isValidCTag(value):
     """

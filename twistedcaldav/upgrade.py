@@ -178,6 +178,17 @@ def upgrade_to_1(config):
                     continue
 
                 try:
+                    data, fixed = removeIllegalCharacters(data)
+                    if fixed:
+                        log.warn("Removing illegal characters in %s" % (resPath,))
+                        needsRewrite = True
+                except Exception, e:
+                    log.error("Error while removing illegal characters in %s: %s" %
+                        (resPath, e))
+                    errorOccurred = True
+                    continue
+
+                try:
                     data, fixed = normalizeCUAddrs(data, directory)
                     if fixed:
                         log.debug("Normalized CUAddrs in %s" % (resPath,))
@@ -807,6 +818,22 @@ def archive(config, srcPath, uid, gid):
         shutil.copy2(srcPath, destPath)
         os.remove(srcPath)
 
+
+DELETECHARS = ''.join(chr(i) for i in xrange(32) if i not in (10, 13))
+def removeIllegalCharacters(data):
+    """
+    Remove all characters below ASCII 32 except NL and CR
+
+    Return tuple with the processed data, and a boolean indicating wether
+    the data changed.
+    """
+    beforeLen = len(data)
+    data =  data.translate(None, DELETECHARS)
+    afterLen = len(data)
+    if afterLen != beforeLen:
+        return data, True
+    else:
+        return data, False
 
 
 class UpgradeFileSystemFormatService(Service, object):
