@@ -742,6 +742,11 @@ DEFAULT_CONFIG = {
 #                   "DIGESTCREDENTIALS",
 #                   "resourceInfoDB",
 #                   "pubsubnodes",
+#                   "FBCache",
+#                   "ScheduleAddressMapper",
+#                   "SQL.props",
+#                   "SQL.calhome",
+#                   "SQL.adbkhome",
                 ]
             },
 #            "Shared": {
@@ -752,17 +757,13 @@ DEFAULT_CONFIG = {
 #                "HandleCacheTypes": [
 #                    "ProxyDB",
 #                    "PrincipalToken",
-#                    "FBCache",
-#                    "ScheduleAddressMapper",
-#                    "SQL.props",
-#                    "SQL.calhome",
-#                    "SQL.adbkhome",
 #                ]
 #            },
         },
         "memcached": "memcached", # Find in PATH
         "MaxMemory": 0, # Megabytes
         "Options": [],
+        "ProxyDBKeyNormalization": True,
     },
 
     "Postgres": {

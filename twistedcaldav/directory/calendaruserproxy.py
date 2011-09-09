@@ -390,6 +390,9 @@ class ProxyDB(AbstractADBAPIDatabase, LoggingMixIn):
     
     class ProxyDBMemcacher(Memcacher):
         
+        def __init__(self, namespace):
+            super(ProxyDB.ProxyDBMemcacher, self).__init__(namespace, key_normalization=config.Memcached.ProxyDBKeyNormalization)
+
         def setMembers(self, guid, members):
             return self.set("members:%s" % (str(guid),), str(",".join(members)))
 
