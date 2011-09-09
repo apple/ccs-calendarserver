@@ -736,6 +736,12 @@ DEFAULT_CONFIG = {
                 "Port": 11211,
                 "HandleCacheTypes": [
                     "Default",
+#                   "OpenDirectoryBacker",
+#                   "ImplicitUIDLock",
+#                   "RefreshUIDLock",
+#                   "DIGESTCREDENTIALS",
+#                   "resourceInfoDB",
+#                   "pubsubnodes",
                 ]
             },
 #            "Shared": {
