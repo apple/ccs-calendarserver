@@ -16,7 +16,8 @@
 
 try:
     from twistedcaldav.directory.ldapdirectory import (
-        buildFilter, LdapDirectoryService, MissingGuidException
+        buildFilter, LdapDirectoryService, MissingGuidException,
+        splitIntoBatches
     )
     from twistedcaldav.test.util import proxiesFile
     from twistedcaldav.directory.calendaruserproxyloader import XMLCalendarUserProxyLoader
@@ -132,6 +133,7 @@ else:
                 "cacheTimeout": 1, # Minutes
                 "negativeCaching": False,
                 "warningThresholdSeconds": 3,
+                "batchSize": 500,
                 "queryLocationsImplicitly": True,
                 "restrictEnabledRecords": False,
                 "restrictToGroup": "",
@@ -493,9 +495,9 @@ else:
             updater = GroupMembershipCacheUpdater(calendaruserproxy.ProxyDBService,
                 self.service, 30, cache=cache, useExternalProxies=False)
 
-            # Fake LDAP results for the group listRecords performed within updateCache()
-
-            # Also include recursive groups to make sure we handle that situation
+            # Fake LDAP results for the getGroups() call performed within
+            # updateCache().  Also include recursive groups to make sure we
+            # handle that situation.
             self.service.ldap.addTestResults([
                 (
                     "cn=recursive1_coasts,cn=groups,dc=example,dc=com",
@@ -616,3 +618,19 @@ else:
 
                 record = self.service.recordWithShortName(users, shortName)
                 self.assertEquals(groups, (yield record.cachedGroups()))
+
+
+        def test_splitIntoBatches(self):
+            # Data is perfect multiple of size
+            results = list(splitIntoBatches(set(range(12)), 4))
+            self.assertEquals(results,
+                [set([0, 1, 2, 3]), set([4, 5, 6, 7]), set([8, 9, 10, 11])])
+
+            # Some left overs
+            results = list(splitIntoBatches(set(range(12)), 5))
+            self.assertEquals(results,
+                [set([0, 1, 2, 3, 4]), set([8, 9, 5, 6, 7]), set([10, 11])])
+
+            # Empty
+            results = list(splitIntoBatches(set([]), 5)) # empty data
+            self.assertEquals(results, [set([])])

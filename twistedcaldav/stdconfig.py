@@ -58,6 +58,7 @@ DEFAULT_SERVICE_PARAMS = {
         "cacheTimeout": 1, # Minutes
         "negativeCaching": False,
         "warningThresholdSeconds": 3,
+        "batchSize": 500, # for splitting up large queries
         "queryLocationsImplicitly": True,
         "restrictEnabledRecords": False,
         "restrictToGroup": "",

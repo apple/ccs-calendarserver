@@ -84,6 +84,7 @@ class LdapDirectoryService(CachingDirectoryService):
             "cacheTimeout": 1, # Minutes
             "negativeCaching": False,
             "warningThresholdSeconds": 3,
+            "batchSize": 500, # for splitting up large queries
             "queryLocationsImplicitly": True,
             "restrictEnabledRecords": False,
             "restrictToGroup": "",
@@ -192,6 +193,7 @@ class LdapDirectoryService(CachingDirectoryService):
                                                    params["negativeCaching"])
 
         self.warningThresholdSeconds = params["warningThresholdSeconds"]
+        self.batchSize = params["batchSize"]
         self.queryLocationsImplicitly = params["queryLocationsImplicitly"]
         self.augmentService = params["augmentService"]
         self.groupMembershipCache = params["groupMembershipCache"]
@@ -931,22 +933,24 @@ class LdapDirectoryService(CachingDirectoryService):
         valuesToFetch = guids
 
         while valuesToFetch:
+            results = []
 
             if attributeToSearch == "dn":
                 # Since DN can't be searched on in a filter we have to call
                 # recordsMatchingFields for *each* DN.
-                results = []
                 for value in valuesToFetch:
                     fields = [["dn", value, False, "equals"]]
                     result = (yield self.recordsMatchingFields(fields,
                         recordType=self.recordType_groups))
                     results.extend(result)
             else:
-                fields = []
-                for value in valuesToFetch:
-                    fields.append([attributeToSearch, value, False, "equals"])
-                results = (yield self.recordsMatchingFields(fields,
-                    recordType=self.recordType_groups))
+                for batch in splitIntoBatches(valuesToFetch, self.batchSize):
+                    fields = []
+                    for value in batch:
+                        fields.append([attributeToSearch, value, False, "equals"])
+                    result = (yield self.recordsMatchingFields(fields,
+                        recordType=self.recordType_groups))
+                    results.extend(result)
 
             # Reset values for next iteration
             valuesToFetch = set()
@@ -1028,6 +1032,20 @@ def buildFilter(mapping, fields, operand="or"):
         filterstr = "(%s%s)" % (operand, "".join(converted))
 
     return filterstr
+
+
+def splitIntoBatches(data, size):
+    """
+    Return a generator of sets consisting of the contents of the data set
+    split into parts no larger than size.
+    """
+    if not data:
+        yield set([])
+    data = list(data)
+    while data:
+        yield set(data[:size])
+        del data[:size]
+
 
 
 class LdapDirectoryRecord(CachingDirectoryRecord):
