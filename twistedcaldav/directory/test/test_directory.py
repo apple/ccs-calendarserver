@@ -121,9 +121,16 @@ class GroupMembershipTests (TestCase):
         """
         clock = Clock()
         self.count = 0
+
+        # Deliberately set the expireSeconds lower than updateSeconds to verify
+        # expireSeconds gets set to 2 * updateSeconds in that scenario
+
         service = GroupMembershipCacherService(
-            None, None, "Testing", 30, 60, reactor=clock,
+            None, None, "Testing", 30, 20, 30, reactor=clock,
             updateMethod=self._updateMethod)
+
+        # expireSeconds = 2 * 30 updateSeconds
+        self.assertEquals(service.updater.cache.expireSeconds, 60)
 
         yield service.startService()
 
@@ -190,7 +197,7 @@ class GroupMembershipTests (TestCase):
         self.directoryService.groupMembershipCache = cache
 
         updater = GroupMembershipCacheUpdater(
-            calendaruserproxy.ProxyDBService, self.directoryService, 30,
+            calendaruserproxy.ProxyDBService, self.directoryService, 30, 30,
             cache=cache, useExternalProxies=False)
 
         # Exercise getGroups()
@@ -375,7 +382,7 @@ class GroupMembershipTests (TestCase):
             ]
 
         updater = GroupMembershipCacheUpdater(
-            calendaruserproxy.ProxyDBService, self.directoryService, 30,
+            calendaruserproxy.ProxyDBService, self.directoryService, 30, 30,
             cache=cache, useExternalProxies=True,
             externalProxiesSource=fakeExternalProxies)
 
@@ -461,7 +468,7 @@ class GroupMembershipTests (TestCase):
         self.directoryService.groupMembershipCache = cache
 
         updater = GroupMembershipCacheUpdater(
-            calendaruserproxy.ProxyDBService, self.directoryService, 30,
+            calendaruserproxy.ProxyDBService, self.directoryService, 30, 30,
             cache=cache)
 
         dataRoot = FilePath(config.DataRoot)

@@ -547,14 +547,14 @@ class DirectoryPrincipalResource (PropfindCacheMixin, PermissionsMixIn, DAVPrinc
         elif namespace == calendarserver_namespace:
             if name == "first-name":
                 firstName = self.record.firstName
-                if firstName:
+                if firstName is not None:
                     returnValue(customxml.FirstNameProperty(firstName))
                 else:
                     returnValue(None)
 
             elif name == "last-name":
                 lastName = self.record.lastName
-                if lastName:
+                if lastName is not None:
                     returnValue(customxml.LastNameProperty(lastName))
                 else:
                     returnValue(None)

@@ -414,13 +414,14 @@ class GroupMembershipCache(Memcacher, LoggingMixIn):
     """
 
     def __init__(self, namespace, pickle=True, no_invalidation=False,
-        key_normalization=True, expireSeconds=0):
+        key_normalization=True, expireSeconds=0, lockSeconds=60):
 
         super(GroupMembershipCache, self).__init__(namespace, pickle=pickle,
             no_invalidation=no_invalidation,
             key_normalization=key_normalization)
 
         self.expireSeconds = expireSeconds
+        self.lockSeconds = lockSeconds
 
     def setGroupsFor(self, guid, memberships):
         self.log_debug("set groups-for %s : %s" % (guid, memberships))
@@ -451,7 +452,7 @@ class GroupMembershipCache(Memcacher, LoggingMixIn):
 
     def acquireLock(self):
         self.log_debug("add group-cacher-lock")
-        return self.add("group-cacher-lock", "1", expireTime=self.expireSeconds)
+        return self.add("group-cacher-lock", "1", expireTime=self.lockSeconds)
 
     def releaseLock(self):
         self.log_debug("delete group-cacher-lock")
@@ -465,8 +466,9 @@ class GroupMembershipCacheUpdater(LoggingMixIn):
     proxy database, and the location/resource info in the directory system.
     """
 
-    def __init__(self, proxyDB, directory, expireSeconds, cache=None,
-        namespace=None, useExternalProxies=False, externalProxiesSource=None):
+    def __init__(self, proxyDB, directory, expireSeconds, lockSeconds,
+        cache=None, namespace=None, useExternalProxies=False,
+        externalProxiesSource=None):
         self.proxyDB = proxyDB
         self.directory = directory
         self.useExternalProxies = useExternalProxies
@@ -476,7 +478,8 @@ class GroupMembershipCacheUpdater(LoggingMixIn):
 
         if cache is None:
             assert namespace is not None, "namespace must be specified if GroupMembershipCache is not provided"
-            cache = GroupMembershipCache(namespace, expireSeconds=expireSeconds)
+            cache = GroupMembershipCache(namespace, expireSeconds=expireSeconds,
+                lockSeconds=lockSeconds)
         self.cache = cache
 
 
@@ -808,11 +811,15 @@ class GroupMembershipCacherService(service.Service, LoggingMixIn):
     """
 
     def __init__(self, proxyDB, directory, namespace, updateSeconds,
-        expireSeconds, reactor=None, updateMethod=None,
+        expireSeconds, lockSeconds, reactor=None, updateMethod=None,
         useExternalProxies=False):
 
+        if updateSeconds >= expireSeconds:
+            expireSeconds = updateSeconds * 2
+            self.log_warn("Configuration warning: GroupCaching.ExpireSeconds needs to be longer than UpdateSeconds; setting to %d seconds" % (expireSeconds,))
+
         self.updater = GroupMembershipCacheUpdater(proxyDB, directory,
-            expireSeconds, namespace=namespace,
+            expireSeconds, lockSeconds, namespace=namespace,
             useExternalProxies=useExternalProxies)
 
         if reactor is None:
@@ -885,6 +892,7 @@ class GroupMembershipCacherServiceMaker(LoggingMixIn):
             config.GroupCaching.MemcachedPool,
             config.GroupCaching.UpdateSeconds,
             config.GroupCaching.ExpireSeconds,
+            config.GroupCaching.LockSeconds,
             useExternalProxies=config.GroupCaching.UseExternalProxies
             )
 

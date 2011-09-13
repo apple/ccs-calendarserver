@@ -570,8 +570,8 @@ class LdapDirectoryService(CachingDirectoryService):
         shortNames = ()
         authIDs = set()
         fullName = None
-        firstName = None
-        lastName = None
+        firstName = ""
+        lastName = ""
         emailAddresses = set()
         enabledForCalendaring = None
         enabledForAddressBooks = None

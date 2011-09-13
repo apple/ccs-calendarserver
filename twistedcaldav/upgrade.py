@@ -915,6 +915,7 @@ class PostDBImportService(Service, object):
 
             updater = GroupMembershipCacheUpdater(proxydb,
                 directory, self.config.GroupCaching.ExpireSeconds,
+                self.config.GroupCaching.LockSeconds,
                 namespace=self.config.GroupCaching.MemcachedPool,
                 useExternalProxies=self.config.GroupCaching.UseExternalProxies)
             yield updater.updateCache(fast=True)
