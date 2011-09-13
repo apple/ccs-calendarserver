@@ -105,6 +105,7 @@ plainInviteTemplate = u"""%(subject)s
 %(dateLabel)s: %(dateInfo)s %(recurrenceInfo)s
 %(timeLabel)s: %(timeInfo)s %(durationInfo)s
 %(descLabel)s: %(description)s
+%(urlLabel)s: %(url)s
 %(attLabel)s: %(plainAttendees)s
 """
 
@@ -144,6 +145,9 @@ htmlInviteTemplate = u"""<html>
     </p>
     <p>
     <h3>%(descLabel)s:</h3> %(description)s
+    </p>
+    <p>
+    <h3>%(urlLabel)s:</h3> <a href="%(url)s">%(url)s</a>
     </p>
     <p>
     <h3>%(attLabel)s:</h3> %(htmlAttendees)s
@@ -266,6 +270,7 @@ def localizedLabels(language, canceled, inviteState):
             durationLabel = _("Duration"),
             recurrenceLabel = _("Occurs"),
             descLabel = _("Description"),
+            urlLabel = _("URL"),
             orgLabel = _("Organizer"),
             attLabel = _("Attendees"),
             locLabel = _("Location"),
@@ -1541,7 +1546,8 @@ class MailHandler(LoggingMixIn):
     def getEventDetails(self, calendar, language='en'):
         """
         Create a dictionary mapping slot names - specifically: summary,
-        description, location, dateInfo, timeInfo, durationInfo, recurrenceInfo
+        description, location, dateInfo, timeInfo, durationInfo, recurrenceInfo,
+        url
         - with localized string values that should be placed into the HTML and
         plain-text templates.
 
@@ -1569,7 +1575,7 @@ class MailHandler(LoggingMixIn):
         results['month'] = dtStart.getMonth()
         results['day'] = dtStart.getDay()
 
-        for propertyToResult in ['summary', 'description', 'location']:
+        for propertyToResult in ['summary', 'description', 'location', 'url']:
             result = component.propertyValue(propertyToResult.upper())
             if result is None:
                 result = u""
