@@ -1,3 +1,4 @@
+# -*- test-case-name: twistedcaldav.directory.test.test_proxyprincipalmembers -*-
 ##
 # Copyright (c) 2006-2010 Apple Inc. All rights reserved.
 #
@@ -79,14 +80,21 @@ class PermissionsMixIn (ReadOnlyWritePropertiesResourceMixIn):
 
         return davxml.ACL(*aces)
 
-    def accessControlList(self, request, inheritance=True, expanding=False, inherited_aces=None):
+
+    def accessControlList(self, request, inheritance=True, expanding=False,
+                          inherited_aces=None):
         # Permissions here are fixed, and are not subject to inheritance rules, etc.
         return succeed(self.defaultAccessControlList())
 
-class CalendarUserProxyPrincipalResource (CalDAVComplianceMixIn, PermissionsMixIn, DAVResourceWithChildrenMixin, DAVPrincipalResource):
+
+
+class CalendarUserProxyPrincipalResource (
+        CalDAVComplianceMixIn, PermissionsMixIn, DAVResourceWithChildrenMixin,
+        DAVPrincipalResource):
     """
     Calendar user proxy principal resource.
     """
+
     def __init__(self, parent, proxyType):
         """
         @param parent: the parent of this resource.
@@ -102,27 +110,26 @@ class CalendarUserProxyPrincipalResource (CalDAVComplianceMixIn, PermissionsMixI
         super(CalendarUserProxyPrincipalResource, self).__init__()
         DAVResourceWithChildrenMixin.__init__(self)
 
-        self.parent      = parent
-        self.proxyType   = proxyType
-        self.pcollection = self.parent.parent.parent # FIXME: if this is supposed to be public, it needs a better name
-        self._url        = url
+        self.parent          = parent
+        self.proxyType       = proxyType
+        self._url            = url
 
-        # Not terribly useful at present because we don't have a way
-        # to map a GUID back to the correct principal.
-        #self.guid = uuidFromName(self.parent.principalUID(), proxyType)
+        # FIXME: if this is supposed to be public, it needs a better name:
+        self.pcollection     = self.parent.parent.parent
 
-        # Principal UID is parent's GUID plus the proxy type; this we
-        # can easily map back to a principal.
-        self.uid = "%s#%s" % (self.parent.principalUID(), proxyType)
-
+        # Principal UID is parent's GUID plus the proxy type; this we can easily
+        # map back to a principal.
+        self.uid             = "%s#%s" % (self.parent.principalUID(), proxyType)
         self._alternate_urls = tuple(
             joinURL(url, proxyType) + slash
             for url in parent.alternateURIs()
             if url.startswith("/")
         )
 
+
     def __str__(self):
         return "%s [%s]" % (self.parent, self.proxyType)
+
 
     def _index(self):
         """
@@ -160,24 +167,29 @@ class CalendarUserProxyPrincipalResource (CalDAVComplianceMixIn, PermissionsMixI
             self._dead_properties = NonePropertyStore(self)
         return self._dead_properties
 
+
     def writeProperty(self, property, request):
         assert isinstance(property, davxml.WebDAVElement)
 
         if property.qname() == (dav_namespace, "group-member-set"):
             return self.setGroupMemberSet(property, request)
 
-        return super(CalendarUserProxyPrincipalResource, self).writeProperty(property, request)
+        return super(CalendarUserProxyPrincipalResource, self).writeProperty(
+            property, request)
+
 
     @inlineCallbacks
     def setGroupMemberSet(self, new_members, request):
-        # FIXME: as defined right now it is not possible to specify a calendar-user-proxy group as
-        # a member of any other group since the directory service does not know how to lookup
-        # these special resource UIDs.
+        # FIXME: as defined right now it is not possible to specify a
+        # calendar-user-proxy group as a member of any other group since the
+        # directory service does not know how to lookup these special resource
+        # UIDs.
         #
-        # Really, c-u-p principals should be treated the same way as any other principal, so
-        # they should be allowed as members of groups.
+        # Really, c-u-p principals should be treated the same way as any other
+        # principal, so they should be allowed as members of groups.
         #
-        # This implementation now raises an exception for any principal it cannot find.
+        # This implementation now raises an exception for any principal it
+        # cannot find.
 
         # Break out the list into a set of URIs.
         members = [str(h) for h in new_members.children]
@@ -191,28 +203,30 @@ class CalendarUserProxyPrincipalResource (CalDAVComplianceMixIn, PermissionsMixI
             if principal is None or principal.principalURL() != uri:
                 raise HTTPError(StatusResponse(
                     responsecode.BAD_REQUEST,
-                    "Attempt to use a non-existent principal %s as a group member of %s." % (uri, self.principalURL(),)
+                    "Attempt to use a non-existent principal %s "
+                    "as a group member of %s." % (uri, self.principalURL(),)
                 ))
             principals.append(principal)
             newUIDs.add(principal.principalUID())
 
         # Get the old set of UIDs
         oldUIDs = (yield self._index().getMembers(self.uid))
-        
+
         # Change membership
         yield self.setGroupMemberSetPrincipals(principals)
-        
+
         # Invalidate the primary principal's cache, and any principal's whose
         # membership status changed
         yield self.parent.cacheNotifier.changed()
-        
+
         changedUIDs = newUIDs.symmetric_difference(oldUIDs)
         for uid in changedUIDs:
             principal = self.pcollection.principalForUID(uid)
             if principal:
                 yield principal.cacheNotifier.changed()
-            
+
         returnValue(True)
+
 
     def setGroupMemberSetPrincipals(self, principals):
         # Map the principals to UIDs.
