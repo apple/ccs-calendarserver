@@ -39,7 +39,7 @@ from twisted.cred.credentials import UsernamePassword
 from twisted.python.failure import Failure
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.internet.defer import succeed
-from twisted.web.template import XMLFile, Element, renderer
+from twisted.web.template import XMLFile, Element, renderer, tags
 
 from twext.web2.auth.digest import DigestedCredentials
 from twext.web2 import responsecode
@@ -522,29 +522,61 @@ class DirectoryPrincipalDetailElement(Element):
         """
         Top-level renderer in the template.
         """
+        record = self.resource.record
         return tag.fillSlots(
-            directoryGUID="<PLACEHOLDER>",
-            realm="<PLACEHOLDER>",
-            hostedAt="<PLACEHOLDER>",
-            partition="<PLACEHOLDER>",
-            principalGUID="<PLACEHOLDER>",
-            recordType="<PLACEHOLDER>",
-            shortNames="<PLACEHOLDER>",
-            securityIDs="<PLACEHOLDER>",
-            fullName="<PLACEHOLDER>",
-            firstName="<PLACEHOLDER>",
-            lastName="<PLACEHOLDER>",
-            principalUID="<PLACEHOLDER>",
-            principalURL="<PLACEHOLDER>",
-            alternateURIs="<PLACEHOLDER>",
-            groupMembers="<PLACEHOLDER>",
-            groupMemberships="<PLACEHOLDER>",
-            readWriteProxyFor="<PLACEHOLDER>",
-            readOnlyProxyFor="<PLACEHOLDER>",
-            calendarHomes="<PLACEHOLDER>",
-            calendarUserAddresses="<PLACEHOLDER>",
-            addressBookHomes="<PLACEHOLDER>",
+            directoryGUID=str(record.service.guid),
+            realm=str(record.service.realmName),
+            hostedAt=str(record.serverURI()
+                         if config.Servers.Enabled else ""),
+            partition=str(record.effectivePartitionID()
+                          if config.Servers.Enabled else ""),
+            principalGUID=str(record.guid),
+            recordType=str(record.recordType),
+            shortNames=",".join(record.shortNames),
+            securityIDs=",".join(record.authIDs),
+            fullName=str(record.fullName),
+            firstName=str(record.firstName),
+            lastName=str(record.lastName),
+            principalUID=str(self.resource.principalUID()),
+            principalURL=self.formatLink(self.resource.principalURL()),
+            alternateURIs=self.formatList(
+                self.formatLink(u) for u in self.resource.alternateURIs()
+            ),
+            groupMembers=self.resource.groupMembers().addCallback(
+                self.formatPrincipals
+            ),
+            groupMemberships=self.resource.groupMemberships().addCallback(
+                self.formatPrincipals
+            ),
+            readWriteProxyFor=self.resource.proxyFor(True).addCallback(
+                self.formatPrincipals
+            ),
+            readOnlyProxyFor=self.resource.proxyFor(False).addCallback(
+                self.formatPrincipals
+            ),
         )
+
+
+    def formatPrincipals(self, principals):
+        """
+        Format a list of principals into some twisted.web.template DOM objects.
+        """
+        return '<Principals Placeholder: ' + str(principals) + '>'
+
+
+    def formatList(self, iterable):
+        """
+        Format a list of stuff as an interable.
+        """
+        return '<List Placeholder: ' + str(iterable) + '>'
+
+
+    def formatLink(self, url):
+        """
+        Convert a URL string into some twisted.web.template DOM objects for
+        rendering as a link to itself.
+        """
+        return tags.a(href=url)(url)
 
 
     @renderer
@@ -704,17 +736,17 @@ class DirectoryPrincipalResource (
             """<pre><blockquote>"""
             """Directory Information\n"""
             """---------------------\n"""
-            """Directory GUID: %s\n"""         % (self.record.service.guid,),
-            """Realm: %s\n"""                  % (self.record.service.realmName,),
-            """Hosted-At: %s\n"""              % (self.record.serverURI(),) if config.Servers.Enabled else "", 
-            """Partition: %s\n"""              % (self.record.effectivePartitionID(),) if config.Servers.Enabled else "", 
+            """Directory GUID: %s\n"""         % 
+            """Realm: %s\n"""                  % 
+            """Hosted-At: %s\n"""              % 
+            """Partition: %s\n"""              % 
             """\n"""
             """Principal Information\n"""
             """---------------------\n"""
-            """GUID: %s\n"""                   % (self.record.guid,),
-            """Record type: %s\n"""            % (self.record.recordType,),
-            """Short names: %s\n"""            % (",".join(self.record.shortNames),),
-            """Security Identities: %s\n"""    % (",".join(self.record.authIDs),),
+            """GUID: %s\n"""                   % 
+            """Record type: %s\n"""            %
+            """Short names: %s\n"""            % 
+            """Security Identities: %s\n"""    % 
             """Full name: %s\n"""              % (self.record.fullName,),
             """First name: %s\n"""             % (self.record.firstName,),
             """Last name: %s\n"""              % (self.record.lastName,),
