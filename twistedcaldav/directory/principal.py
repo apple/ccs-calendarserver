@@ -59,11 +59,8 @@ from twisted.python.modules import getModule
 from twistedcaldav.config import config
 from twistedcaldav.cache import DisabledCacheNotifier, PropfindCacheMixin
 
-from twistedcaldav.directory import calendaruserproxy
 from twistedcaldav.extensions import DirectoryElement
-from twistedcaldav.directory.calendaruserproxy import (
-    CalendarUserProxyPrincipalResource
-)
+
 from twistedcaldav.directory.common import uidsResourceName
 from twistedcaldav.directory.directory import DirectoryService, DirectoryRecord
 from twistedcaldav.extensions import ReadOnlyResourceMixIn, DAVPrincipalResource,\
@@ -757,55 +754,10 @@ class DirectoryPrincipalResource (
     ##
 
     def htmlElement(self):
+        """
+        Customize HTML rendering for directory principals.
+        """
         return DirectoryPrincipalElement(self)
-
-    @inlineCallbacks
-    def renderDirectoryBody(self, request):
-
-        extras = self.extraDirectoryBodyItems(request)
-        output = (yield super(DirectoryPrincipalResource, self).renderDirectoryBody(request))
-
-        members = (yield self.groupMembers())
-        
-        memberships = (yield self.groupMemberships())
-
-        proxyFor = (yield self.proxyFor(True))
-        readOnlyProxyFor = (yield self.proxyFor(False))
-        
-        returnValue("".join((
-            """<div class="directory-listing">"""
-            """<h1>Principal Details</h1>"""
-            """<pre><blockquote>"""
-            """Directory Information\n"""
-            """---------------------\n"""
-            """Directory GUID: %s\n"""         % 
-            """Realm: %s\n"""                  % 
-            """Hosted-At: %s\n"""              % 
-            """Partition: %s\n"""              % 
-            """\n"""
-            """Principal Information\n"""
-            """---------------------\n"""
-            """GUID: %s\n"""                   % 
-            """Record type: %s\n"""            %
-            """Short names: %s\n"""            % 
-            """Security Identities: %s\n"""    % 
-            """Full name: %s\n"""              % (self.record.fullName,),
-            """First name: %s\n"""             % (self.record.firstName,),
-            """Last name: %s\n"""              % (self.record.lastName,),
-            """Email addresses:\n"""           , format_list(self.record.emailAddresses),
-            """Principal UID: %s\n"""          % (self.principalUID(),),
-            """Principal URL: %s\n"""          % (format_link(self.principalURL()),),
-            """\nAlternate URIs:\n"""          , format_list(format_link(u) for u in self.alternateURIs()),
-            """\nGroup members:\n"""           , format_principals(members),
-            """\nGroup memberships:\n"""       , format_principals(memberships),
-            """\nRead-write Proxy For:\n"""    , format_principals(proxyFor),
-            """\nRead-only Proxy For:\n"""     , format_principals(readOnlyProxyFor),
-            """%s</pre></blockquote></div>"""  % extras,
-            output
-        )))
-
-    def extraDirectoryBodyItems(self, request):
-        return ""
 
     ##
     # DAV
@@ -832,7 +784,9 @@ class DirectoryPrincipalResource (
         """
 
         # The db is located in the principal collection root
-        return calendaruserproxy.ProxyDBService
+        from twistedcaldav.directory.calendaruserproxy import ProxyDBService
+        return ProxyDBService
+
 
     def alternateURIs(self):
         # FIXME: Add API to IDirectoryRecord for getting a record URI?
@@ -1019,7 +973,8 @@ class DirectoryPrincipalResource (
         return ()
 
 
-class DirectoryCalendarPrincipalResource (DirectoryPrincipalResource, CalendarPrincipalResource):
+class DirectoryCalendarPrincipalResource(DirectoryPrincipalResource,
+                                         CalendarPrincipalResource):
     """
     Directory calendar principal resource.
     """
@@ -1041,18 +996,6 @@ class DirectoryCalendarPrincipalResource (DirectoryPrincipalResource, CalendarPr
             result = (yield CalendarPrincipalResource.readProperty(self, property, request))
         returnValue(result)
 
-    def extraDirectoryBodyItems(self, request):
-        extra = ""
-        if self.record.enabledForCalendaring:
-            extra += "".join((
-                """\nCalendar homes:\n"""          , format_list(format_link(u) for u in self.calendarHomeURLs()),
-                """\nCalendar user addresses:\n""" , format_list(format_link(a) for a in self.calendarUserAddresses()),
-            ))
-        if self.record.enabledForAddressBooks:
-            extra += "".join((
-                """\nAddress Book homes:\n"""       , format_list(format_link(u) for u in self.addressBookHomeURLs()),
-            ))
-        return extra
 
     ##
     # CalDAV
@@ -1077,8 +1020,13 @@ class DirectoryCalendarPrincipalResource (DirectoryPrincipalResource, CalendarPr
 
         return addresses
 
+
     def htmlElement(self):
+        """
+        Customize HTML generation for calendar principals.
+        """
         return DirectoryCalendarPrincipalElement(self)
+
 
     def canonicalCalendarUserAddress(self):
         """
@@ -1235,8 +1183,12 @@ class DirectoryCalendarPrincipalResource (DirectoryPrincipalResource, CalendarPr
         if name == "":
             return self
 
-        if config.EnableProxyPrincipals and name in ("calendar-proxy-read", "calendar-proxy-write"):
+        if config.EnableProxyPrincipals and name in ("calendar-proxy-read",
+                                                     "calendar-proxy-write"):
             # name is required to be str
+            from twistedcaldav.directory.calendaruserproxy import (
+                CalendarUserProxyPrincipalResource
+            )
             return CalendarUserProxyPrincipalResource(self, str(name))
         else:
             return None
