@@ -43,6 +43,9 @@ from twext.python.log import Logger, LoggingMixIn
 from twisted.web.template import XMLFile, Element, renderer
 from twisted.python.modules import getModule
 from twistedcaldav.extensions import DirectoryElement
+from twistedcaldav.directory.principal import formatLink
+from twistedcaldav.directory.principal import formatLinks
+from twistedcaldav.directory.principal import formatPrincipals
 
 from twistedcaldav.config import config, fullServerPath
 from twistedcaldav.database import AbstractADBAPIDatabase, ADBAPISqliteMixin,\
@@ -112,22 +115,26 @@ class ProxyPrincipalDetailElement(Element):
         """
         Top-level renderer in the template.
         """
+        record = self.resource.parent.record
+        resource = self.resource
+        parent = self.resource.parent
         return tag.fillSlots(
-            directoryGUID="<PLACEHOLDER>",
-            realm="<PLACEHOLDER>",
-            guid="<PLACEHOLDER>",
-            recordType="<PLACEHOLDER>",
-            shortNames="<PLACEHOLDER>",
-            fullName="<PLACEHOLDER>",
-            principalUID="<PLACEHOLDER>",
-            principalURL="<PLACEHOLDER>",
-            proxyPrincipalUID="<PLACEHOLDER>",
-            proxyPrincipalURL="<PLACEHOLDER>",
-            alternateURIs="<PLACEHOLDER>",
-            groupMembers="<PLACEHOLDER>",
-            groupMemberships="<PLACEHOLDER>",
+            directoryGUID=record.service.guid,
+            realm=record.service.realmName,
+            guid=record.guid,
+            recordType=record.recordType,
+            shortNames=record.shortNames,
+            fullName=record.fullName,
+            principalUID=parent.principalUID(),
+            principalURL=formatLink(parent.principalURL()),
+            proxyPrincipalUID=resource.principalUID(),
+            proxyPrincipalURL=formatLink(resource.principalURL()),
+            alternateURIs=formatLinks(resource.alternateURIs()),
+            groupMembers=resource.groupMembers().addCallback(formatPrincipals),
+            groupMemberships=resource.groupMemberships().addCallback(
+                formatPrincipals
+            ),
         )
-
 
 
 
