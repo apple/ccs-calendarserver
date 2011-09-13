@@ -30,7 +30,6 @@ __all__ = [
 ]
 
 import urllib
-import cgi
 import time
 from itertools import cycle
 
@@ -517,7 +516,6 @@ class DirectoryElement(Element):
         whenPropertiesListed = self.resource.listProperties(request)
         @whenPropertiesListed.addCallback
         def gotProperties(qnames):
-            noneValue         = object()
             accessDeniedValue = object()
 
             def gotError(f, name):
@@ -534,7 +532,8 @@ class DirectoryElement(Element):
 
             whenAllProperties = gatherResults([
                 maybeDeferred(self.resource.readProperty, qn, request)
-                .addCallback(lambda p: (p.sname(), p.toxml()))
+                .addCallback(lambda p, iqn=qn: (p.sname(), p.toxml())
+                             if p is not None else ("{%s}%s" % iqn, None) )
                 .addErrback(gotError, "{%s}%s" % qn)
                 for qn in sorted(qnames)
             ])
@@ -543,17 +542,9 @@ class DirectoryElement(Element):
             def gotValues(items):
                 for even, [name, value] in zip(cycle(["even", "odd"]), items):
                     if value is None:
-                        # An AssertionError might be appropriate, but
-                        # we may as well continue rendering.
-                        log.err("Unexpected None value for property: %s" %
-                                (name,))
-                        continue
-                    elif value is noneValue:
                         value = tags.i("(no value)")
                     elif value is accessDeniedValue:
                         value = tags.i("(access forbidden)")
-                    else:
-                        value = cgi.escape(value)
                     yield tag.clone().fillSlots(
                         even=even, name=name, value=value,
                     )
