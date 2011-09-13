@@ -417,8 +417,8 @@ class File(StaticRenderMixin):
                     # Render from the index file
                     standin = self.createSimilarFile(ifp.path)
                 else:
-                    # Render from a DirectoryLister
-                    standin = Data("Directory: %s" % (self.fp.path,),
+                    # Directory listing is in twistedcaldav.extensions
+                    standin = Data("Directory: %s" % (req.path,),
                                    "text/plain")
                 return standin.render(req)
 
