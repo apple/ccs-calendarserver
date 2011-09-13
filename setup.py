@@ -108,6 +108,7 @@ def doSetup():
         packages         = find_modules(),
         package_data     = {
                              "twistedcaldav": [
+                               "*.html",
                                "zoneinfo/*.ics",
                                "zoneinfo/*/*.ics",
                                "zoneinfo/*/*/*.ics",
@@ -116,7 +117,7 @@ def doSetup():
                              "calendarserver.webadmin": [
                                  "*.html"
                              ],
-                             "twistedcaldav": [
+                             "twistedcaldav.directory": [
                                  "*.html"
                              ],
                              "txdav.common.datastore": [
