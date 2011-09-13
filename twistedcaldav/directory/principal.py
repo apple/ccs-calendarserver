@@ -50,17 +50,22 @@ from twext.python.log import Logger
 
 try:
     from twistedcaldav.authkerb import NegotiateCredentials
+    NegotiateCredentials # sigh, pyflakes
 except ImportError:
     NegotiateCredentials = None
 from twistedcaldav.config import config
 from twistedcaldav.cache import DisabledCacheNotifier, PropfindCacheMixin
 from twistedcaldav.directory import calendaruserproxy
-from twistedcaldav.directory.calendaruserproxy import CalendarUserProxyPrincipalResource
+from twistedcaldav.directory.calendaruserproxy import (
+    CalendarUserProxyPrincipalResource
+)
 from twistedcaldav.directory.common import uidsResourceName
 from twistedcaldav.directory.directory import DirectoryService, DirectoryRecord
 from twistedcaldav.extensions import ReadOnlyResourceMixIn, DAVPrincipalResource,\
     DAVResourceWithChildrenMixin
-from twistedcaldav.resource import CalendarPrincipalCollectionResource, CalendarPrincipalResource
+from twistedcaldav.resource import (
+    CalendarPrincipalCollectionResource, CalendarPrincipalResource
+)
 from twistedcaldav.directory.idirectory import IDirectoryService
 from twistedcaldav import caldavxml, customxml
 from twistedcaldav.customxml import calendarserver_namespace
@@ -487,7 +492,8 @@ class DirectoryPrincipalUIDProvisioningResource (DirectoryProvisioningResource):
     def principalCollections(self):
         return self.parent.principalCollections()
 
-class DirectoryPrincipalResource (PropfindCacheMixin, PermissionsMixIn, DAVPrincipalResource):
+class DirectoryPrincipalResource (
+        PropfindCacheMixin, PermissionsMixIn, DAVPrincipalResource):
     """
     Directory principal resource.
     """
