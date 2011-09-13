@@ -56,32 +56,32 @@ from twisted.web.template import Element, flattenString, XMLString, renderer
 ERROR_MESSAGES = {
     # 300
     # no MULTIPLE_CHOICES
-    MOVED_PERMANENTLY: 'The document has permanently moved <a>here<t:attr name="href"><t:slot name="location"></t:slot></t:attr></a>.',
-    FOUND: 'The document has temporarily moved <a>here<t:attr name="href"><t:slot name="location"></t:slot></t:attr></a>.',
-    SEE_OTHER: 'The results are available <a>here<t:attr name="href"><t:slot name="location"></t:slot></t:attr></a>.',
+    MOVED_PERMANENTLY: 'The document has permanently moved <a>here<t:attr name="href"><t:slot name="location" /></t:attr></a>.',
+    FOUND: 'The document has temporarily moved <a>here<t:attr name="href"><t:slot name="location" /></t:attr></a>.',
+    SEE_OTHER: 'The results are available <a>here<t:attr name="href"><t:slot name="location" /></t:attr></a>.',
     # no NOT_MODIFIED
-    USE_PROXY: 'Access to this resource must be through the proxy <t:slot name="location"></t:slot>.',
+    USE_PROXY: 'Access to this resource must be through the proxy <t:slot name="location" />.',
     # 306 unused
-    TEMPORARY_REDIRECT: 'The document has temporarily moved <a>here<t:attr name="href"><t:slot name="location"></t:slot></t:attr></a>.',
+    TEMPORARY_REDIRECT: 'The document has temporarily moved <a>here<t:attr name="href"><t:slot name="location" /></t:attr></a>.',
 
     # 400
     BAD_REQUEST: 'Your browser sent an invalid request.',
-    UNAUTHORIZED: 'You are not authorized to view the resource at <t:slot name="uri"></t:slot>. Perhaps you entered a wrong password, or perhaps your browser doesn\'t support authentication.',
+    UNAUTHORIZED: 'You are not authorized to view the resource at <t:slot name="uri" />. Perhaps you entered a wrong password, or perhaps your browser doesn\'t support authentication.',
     PAYMENT_REQUIRED: 'Payment Required (useful result code, this...).',
-    FORBIDDEN: 'You don\'t have permission to access <t:slot name="uri"></t:slot>.',
-    NOT_FOUND: 'The resource <t:slot name="uri"></t:slot> cannot be found.',
-    NOT_ALLOWED: 'The requested method <t:slot name="method"></t:slot> is not supported by <t:slot name="uri"></t:slot>.',
-    NOT_ACCEPTABLE: 'No representation of <t:slot name="uri"></t:slot> that is acceptable to your client could be found.',
-    PROXY_AUTH_REQUIRED: 'You are not authorized to view the resource at <t:slot name="uri"></t:slot>. Perhaps you entered a wrong password, or perhaps your browser doesn\'t support authentication.',
+    FORBIDDEN: 'You don\'t have permission to access <t:slot name="uri" />.',
+    NOT_FOUND: 'The resource <t:slot name="uri" /> cannot be found.',
+    NOT_ALLOWED: 'The requested method <t:slot name="method" /> is not supported by <t:slot name="uri" />.',
+    NOT_ACCEPTABLE: 'No representation of <t:slot name="uri" /> that is acceptable to your client could be found.',
+    PROXY_AUTH_REQUIRED: 'You are not authorized to view the resource at <t:slot name="uri" />. Perhaps you entered a wrong password, or perhaps your browser doesn\'t support authentication.',
     REQUEST_TIMEOUT: 'Server timed out waiting for your client to finish sending the HTTP request.',
     CONFLICT: 'Conflict (?)',
-    GONE: 'The resource <t:slot name="uri"></t:slot> has been permanently removed.',
-    LENGTH_REQUIRED: 'The resource <t:slot name="uri"></t:slot> requires a Content-Length header.',
+    GONE: 'The resource <t:slot name="uri" /> has been permanently removed.',
+    LENGTH_REQUIRED: 'The resource <t:slot name="uri" /> requires a Content-Length header.',
     PRECONDITION_FAILED: 'A precondition evaluated to false.',
-    REQUEST_ENTITY_TOO_LARGE: 'The provided request entity data is too longer than the maximum for the method <t:slot name="method"></t:slot> at <t:slot name="uri"></t:slot>.',
+    REQUEST_ENTITY_TOO_LARGE: 'The provided request entity data is too longer than the maximum for the method <t:slot name="method" /> at <t:slot name="uri" />.',
     REQUEST_URI_TOO_LONG: 'The request URL is longer than the maximum on this server.',
-    UNSUPPORTED_MEDIA_TYPE: 'The provided request data has a format not understood by the resource at <t:slot name="uri"></t:slot>.',
-    REQUESTED_RANGE_NOT_SATISFIABLE: 'None of the ranges given in the Range request header are satisfiable by the resource <t:slot name="uri"></t:slot>.',
+    UNSUPPORTED_MEDIA_TYPE: 'The provided request data has a format not understood by the resource at <t:slot name="uri" />.',
+    REQUESTED_RANGE_NOT_SATISFIABLE: 'None of the ranges given in the Range request header are satisfiable by the resource <t:slot name="uri" />.',
     EXPECTATION_FAILED: 'The server does support one of the expectations given in the Expect header.',
 
     # 500
