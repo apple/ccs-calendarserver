@@ -45,7 +45,7 @@ from twisted.web.template import Element, flattenString, XMLString, renderer
 # 300 - Should include entity with choices
 # 301 -
 # 304 - Must include Date, ETag, Content-Location, Expires, Cache-Control, Vary.
-# 
+
 # 401 - Must include WWW-Authenticate.
 # 405 - Must include Allow.
 # 406 - Should include entity describing allowable characteristics
@@ -53,46 +53,93 @@ from twisted.web.template import Element, flattenString, XMLString, renderer
 # 413 - May  include Retry-After
 # 416 - Should include Content-Range
 # 503 - Should include Retry-After
+
 ERROR_MESSAGES = {
     # 300
     # no MULTIPLE_CHOICES
-    MOVED_PERMANENTLY: 'The document has permanently moved <a>here<t:attr name="href"><t:slot name="location" /></t:attr></a>.',
-    FOUND: 'The document has temporarily moved <a>here<t:attr name="href"><t:slot name="location" /></t:attr></a>.',
-    SEE_OTHER: 'The results are available <a>here<t:attr name="href"><t:slot name="location" /></t:attr></a>.',
+    MOVED_PERMANENTLY:
+    'The document has permanently moved <a>here<t:attr name="href">'
+    '<t:slot name="location" /></t:attr></a>.',
+    FOUND:
+    'The document has temporarily moved <a>here<t:attr name="href">'
+    '<t:slot name="location" /></t:attr></a>.',
+    SEE_OTHER:
+    'The results are available <a>here<t:attr name="href">'
+    '<t:slot name="location" /></t:attr></a>.',
     # no NOT_MODIFIED
-    USE_PROXY: 'Access to this resource must be through the proxy <t:slot name="location" />.',
+    USE_PROXY:
+    'Access to this resource must be through the proxy '
+    '<t:slot name="location" />.',
     # 306 unused
-    TEMPORARY_REDIRECT: 'The document has temporarily moved <a>here<t:attr name="href"><t:slot name="location" /></t:attr></a>.',
+    TEMPORARY_REDIRECT:
+    'The document has temporarily moved <a><t:attr name="href">'
+    '<t:slot name="location" /></t:attr>here</a>.',
 
     # 400
-    BAD_REQUEST: 'Your browser sent an invalid request.',
-    UNAUTHORIZED: 'You are not authorized to view the resource at <t:slot name="uri" />. Perhaps you entered a wrong password, or perhaps your browser doesn\'t support authentication.',
-    PAYMENT_REQUIRED: 'Payment Required (useful result code, this...).',
-    FORBIDDEN: 'You don\'t have permission to access <t:slot name="uri" />.',
-    NOT_FOUND: 'The resource <t:slot name="uri" /> cannot be found.',
-    NOT_ALLOWED: 'The requested method <t:slot name="method" /> is not supported by <t:slot name="uri" />.',
-    NOT_ACCEPTABLE: 'No representation of <t:slot name="uri" /> that is acceptable to your client could be found.',
-    PROXY_AUTH_REQUIRED: 'You are not authorized to view the resource at <t:slot name="uri" />. Perhaps you entered a wrong password, or perhaps your browser doesn\'t support authentication.',
-    REQUEST_TIMEOUT: 'Server timed out waiting for your client to finish sending the HTTP request.',
-    CONFLICT: 'Conflict (?)',
-    GONE: 'The resource <t:slot name="uri" /> has been permanently removed.',
-    LENGTH_REQUIRED: 'The resource <t:slot name="uri" /> requires a Content-Length header.',
-    PRECONDITION_FAILED: 'A precondition evaluated to false.',
-    REQUEST_ENTITY_TOO_LARGE: 'The provided request entity data is too longer than the maximum for the method <t:slot name="method" /> at <t:slot name="uri" />.',
-    REQUEST_URI_TOO_LONG: 'The request URL is longer than the maximum on this server.',
-    UNSUPPORTED_MEDIA_TYPE: 'The provided request data has a format not understood by the resource at <t:slot name="uri" />.',
-    REQUESTED_RANGE_NOT_SATISFIABLE: 'None of the ranges given in the Range request header are satisfiable by the resource <t:slot name="uri" />.',
-    EXPECTATION_FAILED: 'The server does support one of the expectations given in the Expect header.',
+    BAD_REQUEST:
+    'Your browser sent an invalid request.',
+    UNAUTHORIZED:
+    'You are not authorized to view the resource at <t:slot name="uri" />. '
+    "Perhaps you entered a wrong password, or perhaps your browser doesn't "
+    'support authentication.',
+    PAYMENT_REQUIRED:
+    'Payment Required (useful result code, this...).',
+    FORBIDDEN:
+    'You don\'t have permission to access <t:slot name="uri" />.',
+    NOT_FOUND:
+    'The resource <t:slot name="uri" /> cannot be found.',
+    NOT_ALLOWED:
+    'The requested method <t:slot name="method" /> is not supported by '
+    '<t:slot name="uri" />.',
+    NOT_ACCEPTABLE:
+    'No representation of <t:slot name="uri" /> that is acceptable to your '
+    'client could be found.',
+    PROXY_AUTH_REQUIRED:
+    'You are not authorized to view the resource at <t:slot name="uri" />. '
+    'Perhaps you entered a wrong password, or perhaps your browser doesn\'t '
+    'support authentication.',
+    REQUEST_TIMEOUT:
+    'Server timed out waiting for your client to finish sending the request.',
+    CONFLICT:
+    'Conflict (?)',
+    GONE:
+    'The resource <t:slot name="uri" /> has been permanently removed.',
+    LENGTH_REQUIRED:
+    'The resource <t:slot name="uri" /> requires a Content-Length header.',
+    PRECONDITION_FAILED:
+    'A precondition evaluated to false.',
+    REQUEST_ENTITY_TOO_LARGE:
+    'The provided request entity data is too longer than the maximum for '
+    'the method <t:slot name="method" /> at <t:slot name="uri" />.',
+    REQUEST_URI_TOO_LONG:
+    'The request URL is longer than the maximum on this server.',
+    UNSUPPORTED_MEDIA_TYPE:
+    'The provided request data has a format not understood by the resource '
+    'at <t:slot name="uri" />.',
+    REQUESTED_RANGE_NOT_SATISFIABLE:
+    'None of the ranges given in the Range request header are satisfiable by '
+    'the resource <t:slot name="uri" />.',
+    EXPECTATION_FAILED:
+    'The server does support one of the expectations given in the Expect '
+    'header.',
 
     # 500
-    INTERNAL_SERVER_ERROR: 'An internal error occurred trying to process your request. Sorry.',
-    NOT_IMPLEMENTED: 'Some functionality requested is not implemented on this server.',
-    BAD_GATEWAY: 'An upstream server returned an invalid response.',
-    SERVICE_UNAVAILABLE: 'This server cannot service your request becaues it is overloaded.',
-    GATEWAY_TIMEOUT: 'An upstream server is not responding.',
-    HTTP_VERSION_NOT_SUPPORTED: 'HTTP Version not supported.',
-    INSUFFICIENT_STORAGE_SPACE: 'There is insufficient storage space available to perform that request.',
-    NOT_EXTENDED: 'This server does not support the a mandatory extension requested.'
+    INTERNAL_SERVER_ERROR:
+    'An internal error occurred trying to process your request. Sorry.',
+    NOT_IMPLEMENTED:
+    'Some functionality requested is not implemented on this server.',
+    BAD_GATEWAY:
+    'An upstream server returned an invalid response.',
+    SERVICE_UNAVAILABLE:
+    'This server cannot service your request becaues it is overloaded.',
+    GATEWAY_TIMEOUT:
+    'An upstream server is not responding.',
+    HTTP_VERSION_NOT_SUPPORTED:
+    'HTTP Version not supported.',
+    INSUFFICIENT_STORAGE_SPACE:
+    'There is insufficient storage space available to perform that request.',
+    NOT_EXTENDED:
+    'This server does not support the a mandatory extension requested.'
 }
 
 
@@ -147,11 +194,17 @@ class DefaultErrorElement(Element):
 
 
 
-
 def defaultErrorHandler(request, response):
+    """
+    Handle errors which do not have any stream (i.e. output) associated with
+    them, so that users will see a nice message in their browser.
+
+    This is used as a response filter in L{twext.web2.server.Request}.
+    """
     if response.stream is not None:
         # Already got an error message
         return response
+
     if response.code < 300:
         # We only do error messages
         return response
@@ -166,22 +219,26 @@ def defaultErrorHandler(request, response):
         'location': response.headers.getHeader('location'),
         'method': request.method,
     }
+
     data = []
     error = []
+
     (flattenString(request, DefaultErrorElement(request, response))
      .addCallbacks(data.append, error.append))
+
     # No deferreds from our renderers above, so this has always already fired.
     if data:
         subtype = 'html'
         body = data[0]
     else:
         subtype = 'error'
-        data = 'Error in default error handler:\n' + error[0].getTraceback()
-    ctype = http_headers.MimeType('text', subtype,
-                                  {'charset':'utf-8'})
+        body = 'Error in default error handler:\n' + error[0].getTraceback()
+
+    ctype = http_headers.MimeType('text', subtype, {'charset':'utf-8'})
     response.headers.setHeader("content-type", ctype)
     response.stream = stream.MemoryStream(body)
     return response
+
 defaultErrorHandler.handleErrors = True
 
 
