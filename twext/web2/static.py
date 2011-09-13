@@ -418,8 +418,10 @@ class File(StaticRenderMixin):
                     standin = self.createSimilarFile(ifp.path)
                 else:
                     # Directory listing is in twistedcaldav.extensions
-                    standin = Data("Directory: %s" % (req.path,),
-                                   "text/plain")
+                    standin = Data(
+                        "\n".join(["Directory: " + str(req.path), "---"] +
+                                  [x.basename() for x in self.fp.children()]),
+                        "text/plain")
                 return standin.render(req)
 
         try:
