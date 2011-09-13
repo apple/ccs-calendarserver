@@ -105,7 +105,8 @@ class DirectoryListingTest(TestCase):
     """
 
     @inlineCallbacks
-    def doDirectoryTest(self, addedNames, modify=lambda x: None, expectedNames=None):
+    def doDirectoryTest(self, addedNames, modify=lambda x: None,
+                        expectedNames=None):
         """
         Do a test of a L{DAVFile} pointed at a directory, verifying that files
         existing with the given names will be faithfully 'played back' via HTML
@@ -119,9 +120,8 @@ class DirectoryListingTest(TestCase):
             fp.child(sampleName).touch()
         df = DAVFile(fp)
         modify(df)
-        responseXML = browserHTML2ETree(
-            (yield df.render(SimpleFakeRequest('/'))).stream.read()
-        )
+        responseText = (yield df.render(SimpleFakeRequest('/'))).stream.read()
+        responseXML = browserHTML2ETree(responseText)
         names = set([element.text.encode("utf-8")
                      for element in responseXML.findall(".//a")])
         self.assertEquals(set(expectedNames), names)
@@ -183,6 +183,15 @@ class DirectoryListingTest(TestCase):
             davFile.writeProperty(StrProperty(), None)
         yield self.doDirectoryTest([nonASCIIFilename], addUnicodeChild,
                                    [nonASCIIFilename.encode("utf-8")])
+
+
+    def test_quotedCharacters(self):
+        """
+        Filenames might contain < or > characters, which need to be quoted in
+        HTML.
+        """
+        return self.doDirectoryTest([u'<a>.txt', u'<script>.html',
+                                     u'<style>.xml'])
 
 
 
