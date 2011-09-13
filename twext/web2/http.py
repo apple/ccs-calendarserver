@@ -33,10 +33,11 @@ Maintainer: James Y Knight
 #        import traceback; log.msg(''.join(traceback.format_stack()))
 
 import time
-import cgi
 
 from twisted.internet import interfaces, error
 from twisted.python import components
+from twisted.web.template import Element, XMLString, renderer, flattenString
+
 from zope.interface import implements
 
 from twext.python.log import Logger
@@ -138,11 +139,43 @@ class Response(object):
         return "<%s.%s code=%d, streamlen=%s>" % (self.__module__, self.__class__.__name__, self.code, streamlen)
 
 
+class StatusResponseElement(Element):
+    """
+    Render the HTML for a L{StatusResponse}
+    """
+
+    loader = XMLString("""
+        <html xmlns:t="http://twistedmatrix.com/ns/twisted.web.template/0.1"
+              t:render="response">
+            <head><title><t:slot name="title" /></title></head>
+            <body>
+                <h1><t:slot name="title" /></h1>
+                <p><t:slot name="description" /></p>
+            </body>
+        </html>
+        """)
+
+    def __init__(self, title, description):
+        super(StatusResponseElement, self).__init__()
+        self.title = title
+        self.description = description
+
+
+    @renderer
+    def response(self, request, tag):
+        """
+        Top-level renderer.
+        """
+        return tag.fillSlots(title=self.title, description=self.description)
+
+
+
 class StatusResponse (Response):
     """
-    A L{Response} object which simply contains a status code and a description of
-    what happened.
+    A L{Response} object which simply contains a status code and a description
+    of what happened.
     """
+
     def __init__(self, code, description, title=None):
         """
         @param code: a response code in L{responsecode.RESPONSES}.
@@ -151,34 +184,25 @@ class StatusResponse (Response):
             to C{responsecode.RESPONSES[code]}.
         """
         if title is None:
-            title = cgi.escape(responsecode.RESPONSES[code])
+            title = responsecode.RESPONSES[code]
 
-        output = "".join((
-            "<html>",
-            "<head>",
-            "<title>%s</title>" % (title,),
-            "</head>",
-            "<body>",
-            "<h1>%s</h1>" % (title,),
-            "<p>%s</p>" % (cgi.escape(description),),
-            "</body>",
-            "</html>",
-        ))
+        element = StatusResponseElement(title, description)
+        out = []
+        flattenString(None, element).addCallback(out.append)
 
-        if type(output) == unicode:
-            output = output.encode("utf-8")
-            mime_params = {"charset": "utf-8"}
-        else:
-            mime_params = {}
+        mime_params = {"charset": "utf-8"}
+        super(StatusResponse, self).__init__(code=code, stream=out[0])
 
-        super(StatusResponse, self).__init__(code=code, stream=output)
-
-        self.headers.setHeader("content-type", http_headers.MimeType("text", "html", mime_params))
+        self.headers.setHeader(
+            "content-type", http_headers.MimeType("text", "html", mime_params)
+        )
 
         self.description = description
 
+
     def __repr__(self):
         return "<%s %s %s>" % (self.__class__.__name__, self.code, self.description)
+
 
 
 class RedirectResponse (StatusResponse):
