@@ -39,6 +39,8 @@ from twisted.cred.credentials import UsernamePassword
 from twisted.python.failure import Failure
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.internet.defer import succeed
+from twisted.web.template import XMLFile, Element, renderer
+
 from twext.web2.auth.digest import DigestedCredentials
 from twext.web2 import responsecode
 from twext.web2.http import HTTPError
@@ -53,9 +55,12 @@ try:
     NegotiateCredentials # sigh, pyflakes
 except ImportError:
     NegotiateCredentials = None
+from twisted.python.modules import getModule
 from twistedcaldav.config import config
 from twistedcaldav.cache import DisabledCacheNotifier, PropfindCacheMixin
+
 from twistedcaldav.directory import calendaruserproxy
+from twistedcaldav.extensions import DirectoryElement
 from twistedcaldav.directory.calendaruserproxy import (
     CalendarUserProxyPrincipalResource
 )
@@ -71,13 +76,16 @@ from twistedcaldav import caldavxml, customxml
 from twistedcaldav.customxml import calendarserver_namespace
 from twistedcaldav.scheduling.cuaddress import normalizeCUAddr
 
+thisModule = getModule(__name__)
 log = Logger()
+
 
 class PermissionsMixIn (ReadOnlyResourceMixIn):
     def defaultAccessControlList(self):
         return authReadACL
 
-    def accessControlList(self, request, inheritance=True, expanding=False, inherited_aces=None):
+    def accessControlList(self, request, inheritance=True, expanding=False,
+                          inherited_aces=None):
 
         return succeed(self.defaultAccessControlList())
 
@@ -492,6 +500,95 @@ class DirectoryPrincipalUIDProvisioningResource (DirectoryProvisioningResource):
     def principalCollections(self):
         return self.parent.principalCollections()
 
+
+
+class DirectoryPrincipalDetailElement(Element):
+    """
+    Element that can render the details of a
+    L{CalendarUserDirectoryPrincipalResource}.
+    """
+
+    loader = XMLFile(thisModule.filePath.sibling(
+        "directory-principal-resource.html").open()
+    )
+
+    def __init__(self, resource):
+        super(DirectoryPrincipalDetailElement, self).__init__()
+        self.resource = resource
+
+
+    @renderer
+    def principal(self, request, tag):
+        """
+        Top-level renderer in the template.
+        """
+        return tag.fillSlots(
+            directoryGUID="<PLACEHOLDER>",
+            realm="<PLACEHOLDER>",
+            hostedAt="<PLACEHOLDER>",
+            partition="<PLACEHOLDER>",
+            principalGUID="<PLACEHOLDER>",
+            recordType="<PLACEHOLDER>",
+            shortNames="<PLACEHOLDER>",
+            securityIDs="<PLACEHOLDER>",
+            fullName="<PLACEHOLDER>",
+            firstName="<PLACEHOLDER>",
+            lastName="<PLACEHOLDER>",
+            principalUID="<PLACEHOLDER>",
+            principalURL="<PLACEHOLDER>",
+            alternateURIs="<PLACEHOLDER>",
+            groupMembers="<PLACEHOLDER>",
+            groupMemberships="<PLACEHOLDER>",
+            readWriteProxyFor="<PLACEHOLDER>",
+            readOnlyProxyFor="<PLACEHOLDER>",
+            calendarHomes="<PLACEHOLDER>",
+            calendarUserAddresses="<PLACEHOLDER>",
+            addressBookHomes="<PLACEHOLDER>",
+        )
+
+
+    @renderer
+    def extra(self, request, tag):
+        """
+        Renderer for extra directory body items for calendar/addressbook
+        principals.
+        """
+        return ''
+
+
+    @renderer
+    def enabledForCalendaring(self, request, tag):
+        """
+        Renderer which returns its tag when the wrapped record is enabled for
+        calendaring.
+        """
+        return ''
+
+
+    @renderer
+    def enabledForAddressBooks(self, request, tag):
+        """
+        Renderer which returnst its tag when the wrapped record is enabled for
+        addressbooks.
+        """
+        return ''
+
+
+
+class DirectoryPrincipalElement(DirectoryElement):
+    """
+    L{DirectoryPrincipalElement} is a renderer for directory details.
+    """
+
+    @renderer
+    def resourceDetail(self, request, tag):
+        """
+        Render the directory principal's details.
+        """
+        return DirectoryPrincipalDetailElement(self.resource)
+
+
+
 class DirectoryPrincipalResource (
         PropfindCacheMixin, PermissionsMixIn, DAVPrincipalResource):
     """
@@ -584,6 +681,9 @@ class DirectoryPrincipalResource (
     ##
     # HTTP
     ##
+
+    def htmlElement(self):
+        return DirectoryPrincipalElement(self)
 
     @inlineCallbacks
     def renderDirectoryBody(self, request):

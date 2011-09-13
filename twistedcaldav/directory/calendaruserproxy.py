@@ -40,6 +40,9 @@ from twext.web2.dav.noneprops import NonePropertyStore
 
 from twext.python.log import Logger, LoggingMixIn
 
+from twisted.web.template import XMLFile, Element, renderer
+from twisted.python.modules import getModule
+from twistedcaldav.extensions import DirectoryElement
 
 from twistedcaldav.config import config, fullServerPath
 from twistedcaldav.database import AbstractADBAPIDatabase, ADBAPISqliteMixin,\
@@ -50,6 +53,7 @@ from twistedcaldav.extensions import ReadOnlyWritePropertiesResourceMixIn
 from twistedcaldav.memcacher import Memcacher
 from twistedcaldav.resource import CalDAVComplianceMixIn
 
+thisModule = getModule(__name__)
 log = Logger()
 
 class PermissionsMixIn (ReadOnlyWritePropertiesResourceMixIn):
@@ -85,6 +89,59 @@ class PermissionsMixIn (ReadOnlyWritePropertiesResourceMixIn):
                           inherited_aces=None):
         # Permissions here are fixed, and are not subject to inheritance rules, etc.
         return succeed(self.defaultAccessControlList())
+
+
+
+class ProxyPrincipalDetailElement(Element):
+    """
+    Element that can render the details of a
+    L{CalendarUserProxyPrincipalResource}.
+    """
+
+    loader = XMLFile(thisModule.filePath.sibling(
+        "calendar-user-proxy-principal-resource.html").open()
+    )
+
+    def __init__(self, resource):
+        super(ProxyPrincipalDetailElement, self).__init__()
+        self.resource = resource
+
+
+    @renderer
+    def principal(self, request, tag):
+        """
+        Top-level renderer in the template.
+        """
+        return tag.fillSlots(
+            directoryGUID="<PLACEHOLDER>",
+            realm="<PLACEHOLDER>",
+            guid="<PLACEHOLDER>",
+            recordType="<PLACEHOLDER>",
+            shortNames="<PLACEHOLDER>",
+            fullName="<PLACEHOLDER>",
+            principalUID="<PLACEHOLDER>",
+            principalURL="<PLACEHOLDER>",
+            proxyPrincipalUID="<PLACEHOLDER>",
+            proxyPrincipalURL="<PLACEHOLDER>",
+            alternateURIs="<PLACEHOLDER>",
+            groupMembers="<PLACEHOLDER>",
+            groupMemberships="<PLACEHOLDER>",
+        )
+
+
+
+
+class ProxyPrincipalElement(DirectoryElement):
+    """
+    L{ProxyPrincipalElement} is a renderer for proxy details.
+    """
+
+    @renderer
+    def resourceDetail(self, request, tag):
+        """
+        Render the proxy principal's details.
+        """
+        return ProxyPrincipalDetailElement(self.resource)
 
 
 
@@ -238,6 +295,10 @@ class CalendarUserProxyPrincipalResource (
     ##
     # HTTP
     ##
+
+    def htmlElement(self):
+        return ProxyPrincipalElement(self)
+
 
     def renderDirectoryBody(self, request):
         # FIXME: Too much code duplication here from principal.py

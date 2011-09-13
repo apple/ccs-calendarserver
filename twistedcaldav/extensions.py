@@ -473,6 +473,15 @@ class DirectoryElement(Element):
 
 
     @renderer
+    def resourceDetail(self, request, tag):
+        """
+        Renderer which returns a distinct element for this resource's data.
+        Subclasses should override.
+        """
+        return ''
+
+
+    @renderer
     def children(self, request, tag):
         """
         Renderer which yields all child object tags as table rows.
@@ -490,12 +499,13 @@ class DirectoryElement(Element):
         @whenChildren.addCallback
         def gotChildren(children):
             for even, [child, name] in zip(cycle(["even", "odd"]), children):
-                [url, name, size, lastModified, contentType] = (
-                    self.resource.getChildDirectoryEntry(child, name, request)
+                [url, name, size, lastModified, contentType] = map(
+                    str, self.resource.getChildDirectoryEntry(
+                        child, name, request)
                 )
                 yield tag.clone().fillSlots(
-                    url=url, name=name, size=str(size), lastModified=lastModified,
-                    even=even, type=contentType,
+                    url=url, name=name, size=str(size),
+                    lastModified=lastModified, even=even, type=contentType,
                 )
         return whenChildren
 
@@ -567,7 +577,15 @@ class DirectoryRenderingMixIn(object):
                 MimeType("text", "html", mime_params)
             )
             return response
-        return flattenString(request, DirectoryElement(self)).addCallback(gotBody)
+        return flattenString(request, self.htmlElement()).addCallback(gotBody)
+
+
+    def htmlElement(self):
+        """
+        Create a L{DirectoryElement} or appropriate subclass for rendering this
+        resource.
+        """
+        return DirectoryElement(self)
 
 
     def getChildDirectoryEntry(self, child, name, request):
@@ -617,7 +635,7 @@ class DirectoryRenderingMixIn(object):
                 if rtypes:
                     contentType = "(%s)" % (", ".join(rtypes),)
 
-        return ((
+        return (
             url,
             name,
             orNone(size),
@@ -625,9 +643,9 @@ class DirectoryRenderingMixIn(object):
                 lastModified,
                 default="",
                 f=lambda t: time.strftime("%Y-%b-%d %H:%M", time.localtime(t))
-             ),
-             contentType,
-         ))
+            ),
+            contentType,
+        )
 
 
 

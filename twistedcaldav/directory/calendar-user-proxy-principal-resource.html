@@ -4,7 +4,7 @@
 <t:transparent xmlns:t="http://twistedmatrix.com/ns/twisted.web.template/0.1"
      t:render="principal">
      <div class="directory-listing">
-    <h1>Principal Details</h1>
+    <h1>Proxy Principal Details</h1>
 <pre><blockquote>Directory Information
 ---------------------
 Directory GUID: <t:slot name="directoryGUID"></t:slot>
@@ -32,7 +32,4 @@ Group memberships:
 <t:slot name="groupMemberships"></t:slot>
 </blockquote></pre>
 </div>
-<t:transparent t:render="output">
-<!-- parent / superclass output goes here -->
-</t:transparent>
 </t:transparent>

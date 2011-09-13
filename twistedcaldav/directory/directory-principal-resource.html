@@ -1,6 +1,7 @@
 <div xmlns:t="http://twistedmatrix.com/ns/twisted.web.template/0.1"
     t:render="principal"  class="directory-listing">
-    <h1>Principal Details</h1><pre><blockquote>Directory Information
+    <h1>Principal Details</h1>
+    <pre><blockquote>Directory Information
 ---------------------
 Directory GUID: <t:slot name="directoryGUID"></t:slot>
 Realm: <t:slot name="realm"></t:slot>
@@ -29,13 +30,12 @@ Group memberships:
 <t:slot name="readWriteProxyFor"></t:slot>
 Read-only Proxy For:
 <t:slot name="readOnlyProxyFor"></t:slot><t:transparent
-t:render="extra"><t:transparent t:render="enabledForCalendaring" />
-Calendar Homes: <t:slot name="calendarHomes" />
-Calendar user addresses: <t:slot name="calendarUserAddresses" /><t:transparent
+t:render="extra"><t:transparent t:render="enabledForCalendaring">
+Calendar Homes:
+<t:slot name="calendarHomes" />
+Calendar user addresses:
+<t:slot name="calendarUserAddresses" /></t:transparent><t:transparent
 t:render="enabledForAddressBooks">
 Address Book homes:<t:slot name="addressBookHomes" />
-</t:transparent></t:transparent>
-</blockquote></pre>
-
-    </div>
-
+</t:transparent></t:transparent></blockquote></pre>
+</div>
