@@ -14,6 +14,7 @@ from twisted.internet import defer
 from twisted.internet.defer import waitForDeferred, deferredGenerator
 from twisted.protocols import loopback
 from twisted.python import util, runtime
+from twext.web2.channel.http import SSLRedirectRequest
 from twisted.internet.task import deferLater
 
 class PreconditionTestCase(unittest.TestCase):
@@ -292,19 +293,30 @@ class LoopbackRelay(loopback.LoopbackRelay):
     def pauseProducing(self):
         self.paused = True
 
+
     def resumeProducing(self):
         self.paused = False
 
+
     def stopProducing(self):
         self.loseConnection()
+
 
     def loseWriteConnection(self):
         # HACK.
         self.loseConnection()
 
-class TestRequest(http.Request):
+
+    def getHost(self):
+        """
+        Synthesize a slightly more realistic 'host' thing.
+        """
+        return address.IPv4Address('TCP', 'localhost', 4321)
+
+
+class TestRequestMixin(object):
     def __init__(self, *args, **kwargs):
-        http.Request.__init__(self, *args, **kwargs)
+        super(TestRequestMixin, self).__init__(*args, **kwargs)
         self.cmds = []
         headers = list(self.headers.getAllRawHeaders())
         headers.sort()
@@ -323,6 +335,19 @@ class TestRequest(http.Request):
 
     def _finished(self, x):
         self._reallyFinished(x)
+
+
+class TestRequest(TestRequestMixin, http.Request):
+    """
+    Stub request for testing.
+    """
+
+
+class TestSSLRedirectRequest(TestRequestMixin, SSLRedirectRequest):
+    """
+    Stub request for HSTS testing.
+    """
+
 
 class TestResponse(object):
     implements(iweb.IResponse)
@@ -369,11 +394,14 @@ class TestConnection:
         self.callLaters.append(f)
 
 class HTTPTests(unittest.TestCase):
+
+    requestClass = TestRequest
+
     def connect(self, logFile=None, **protocol_kwargs):
         cxn = TestConnection()
 
         def makeTestRequest(*args):
-            cxn.requests.append(TestRequest(*args))
+            cxn.requests.append(self.requestClass(*args))
             return cxn.requests[-1]
 
         factory = channel.HTTPFactory(requestFactory=makeTestRequest,
@@ -628,7 +656,7 @@ class CoreHTTPTestCase(HTTPTests):
         cxn.client.loseConnection()
         self.assertDone(cxn)
 
-    def testHTTP1_1_chunking(self):
+    def testHTTP1_1_chunking(self, extraHeaders=""):
         cxn = self.connect()
         cmds = [[]]
         data = ""
@@ -651,7 +679,17 @@ class CoreHTTPTestCase(HTTPTests):
         response = TestResponse()
         cxn.requests[0].writeResponse(response)
         response.write("Output")
-        data += "HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n6\r\nOutput\r\n"
+        expected = ["HTTP/1.1 200 OK"]
+        if extraHeaders:
+            expected.append(extraHeaders)
+        expected.extend([
+            "Transfer-Encoding: chunked",
+            "",
+            "6",
+            "Output",
+            "",
+        ])
+        data += "\r\n".join(expected)
         self.compareResult(cxn, cmds, data)
 
         response.write("blahblahblah")
@@ -664,6 +702,18 @@ class CoreHTTPTestCase(HTTPTests):
 
         cxn.client.loseConnection()
         self.assertDone(cxn)
+
+
+    def test_http1_1_sts(self):
+        """
+        L{SSLRedirectRequest} uses strict transport security, and will set the
+        appropriate header.
+        """
+        self.requestClass = TestSSLRedirectRequest
+        return self.testHTTP1_1_chunking(
+            "Strict-Transport-Security: max-age=600"
+        )
+
 
     def testHTTP1_1_expect_continue(self):
         cxn = self.connect()
@@ -1083,6 +1133,7 @@ class TCPServerTest(unittest.TestCase, AbstractServerTestMixin):
 
 try:
     from twisted.internet import ssl
+    ssl # pyflakes
 except ImportError:
     # happens the first time the interpreter tries to import it
     ssl = None

@@ -74,8 +74,26 @@ class OverloadedLoggingServerProtocol (protocol.Protocol):
         )
         self.transport.loseConnection()
 
+
+
 class SSLRedirectRequest(Request):
-    """ For redirecting HTTP to HTTPS port """
+    """
+    An L{SSLRedirectRequest} prevents processing if the request is over plain
+    HTTP; instead, it redirects to HTTPS.
+
+    If the request is already secured, it instead sets the
+    Strict-Transport-Security header as documented by the U{HTTP Strict
+    Transport Security specification
+    <http://tools.ietf.org/html/draft-ietf-websec-strict-transport-sec-02>}.
+
+    @ivar maxAge: the number of seconds that a client must wait after receiving
+        an HTTPS response, before they may attempt to make an HTTP request
+        again.
+
+    @type maxAge: C{int}
+    """
+
+    maxAge = 600
 
     def process(self):
         ignored, secure = self.chanRequest.getHostInfo()
@@ -90,9 +108,21 @@ class SSLRedirectRequest(Request):
                     "https://%s:%d%s"
                     % (config.ServerHostName, config.SSLPort, self.uri)
                 )
-            self.writeResponse(RedirectResponse(location))
+            return super(SSLRedirectRequest, self).writeResponse(
+                RedirectResponse(location)
+            )
         else:
             return super(SSLRedirectRequest, self).process()
+
+
+    def writeResponse(self, response):
+        """
+        Response filter to add HSTS header.
+        """
+        response.headers.addRawHeader("Strict-Transport-Security",
+                                      "max-age={max_age:d}"
+                                      .format(max_age=self.maxAge))
+        return super(SSLRedirectRequest, self).writeResponse(response)
 
 # >%
 
