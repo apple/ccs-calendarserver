@@ -144,16 +144,12 @@ class StatusResponseElement(Element):
     Render the HTML for a L{StatusResponse}
     """
 
-    loader = XMLString("""
-        <html xmlns:t="http://twistedmatrix.com/ns/twisted.web.template/0.1"
-              t:render="response">
-            <head><title><t:slot name="title" /></title></head>
-            <body>
-                <h1><t:slot name="title" /></h1>
-                <p><t:slot name="description" /></p>
-            </body>
-        </html>
-        """)
+    loader = XMLString("""<html
+        xmlns:t="http://twistedmatrix.com/ns/twisted.web.template/0.1"
+        t:render="response"><head><title><t:slot name="title"
+                /></title></head><body><h1><t:slot name="title"
+                /></h1><p><t:slot name="description"
+            /></p></body></html>""")
 
     def __init__(self, title, description):
         super(StatusResponseElement, self).__init__()
