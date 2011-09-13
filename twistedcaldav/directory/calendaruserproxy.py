@@ -97,8 +97,8 @@ class PermissionsMixIn (ReadOnlyWritePropertiesResourceMixIn):
 
 class ProxyPrincipalDetailElement(Element):
     """
-    Element that can render the details of a
-    L{CalendarUserProxyPrincipalResource}.
+    A L{ProxyPrincipalDetailElement} is an L{Element} that can render the
+    details of a L{CalendarUserProxyPrincipalResource}.
     """
 
     loader = XMLFile(thisModule.filePath.sibling(
@@ -140,7 +140,8 @@ class ProxyPrincipalDetailElement(Element):
 
 class ProxyPrincipalElement(DirectoryElement):
     """
-    L{ProxyPrincipalElement} is a renderer for proxy details.
+    L{ProxyPrincipalElement} is a renderer for a
+    L{CalendarUserProxyPrincipalResource}.
     """
 
     @renderer
