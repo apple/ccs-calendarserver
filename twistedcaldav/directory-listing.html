@@ -31,8 +31,6 @@
         }
     </style>
     <body>
-        <t:transparent t:render="directoryBody"
-        >
         <div class="directory-listing">
             <h1>Collection Listing</h1>
             <table>
@@ -40,7 +38,7 @@
                     <th>Name</th><th>Size</th><th>Last Modified</th>
                     <th>MIME Type</th>
                 </tr>
-                <tr>
+                <tr t:render="children">
                     <t:attr name="class"><t:slot name="even"/></t:attr>
                     <td><a><t:slot name="name"/><t:attr
                             name="href"><t:slot name="url"/></t:attr></a></td>
@@ -54,13 +52,12 @@
             <h1>Properties</h1>
             <table>
                 <tr><th>Name</th><th>Value</th></tr>
-                <tr>
+                <tr t:render="properties">
                     <t:attr name="class"><t:slot name="even"/></t:attr>
                     <td valign="top"><t:slot name="name"/></td>
                     <td><pre><t:slot name="value"/></pre></td>
                 </tr>
             </table>
         </div>
-        </t:transparent>
     </body>
 </html>
