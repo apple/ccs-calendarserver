@@ -493,7 +493,7 @@ else:
             cache = GroupMembershipCache("ProxyDB", expireSeconds=60)
             self.service.groupMembershipCache = cache
             updater = GroupMembershipCacheUpdater(calendaruserproxy.ProxyDBService,
-                self.service, 30, cache=cache, useExternalProxies=False)
+                self.service, 30, 15, cache=cache, useExternalProxies=False)
 
             # Fake LDAP results for the getGroups() call performed within
             # updateCache().  Also include recursive groups to make sure we
