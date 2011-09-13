@@ -3,33 +3,34 @@
     <h1>Principal Details</h1>
     <pre><blockquote>Directory Information
 ---------------------
-Directory GUID: <t:slot name="directoryGUID"></t:slot>
-Realm: <t:slot name="realm"></t:slot>
-Hosted-At: <t:slot name="hostedAt"></t:slot>
-Partition: <t:slot name="partition"></t:slot>
-
+Directory GUID: <t:slot name="directoryGUID"/>
+Realm: <t:slot name="realm"/>
+<t:transparent t:render="serversEnabled">Hosted-At: <t:slot name="hostedAt"/>
+Partition: <t:slot name="partition"/></t:transparent>
 Principal Information
 ---------------------
-GUID: <t:slot name="principalGUID"></t:slot>
-Record type: <t:slot name="recordType"></t:slot>
-Short names: <t:slot name="shortNames"></t:slot>
-Security Identities: <t:slot name="securityIDs"></t:slot>
-Full name: <t:slot name="fullName"></t:slot>
-First name: <t:slot name="firstName"></t:slot>
-Last name: <t:slot name="lastName"></t:slot>
+GUID: <t:slot name="principalGUID"/>
+Record type: <t:slot name="recordType"/>
+Short names: <t:slot name="shortNames"/>
+Security Identities: <t:slot name="securityIDs"/>
+Full name: <t:slot name="fullName"/>
+First name: <t:slot name="firstName"/>
+Last name: <t:slot name="lastName"/>
 Email addresses:
-Principal UID: <t:slot name="principalUID"></t:slot>
-Principal URL: <t:slot name="principalURL"></t:slot>
+<t:slot name="emailAddresses" />Principal UID: <t:slot name="principalUID"/>
+Principal URL: <t:slot name="principalURL"/>
 
 Alternate URIs:
-<t:slot name="alternateURIs"></t:slot>
+<t:slot name="alternateURIs"/>
 Group members:
-<t:slot name="groupMembers"></t:slot>)
+<t:slot name="groupMembers"/>
 Group memberships:
-<t:slot name="groupMemberships"></t:slot>Read-write Proxy For:
-<t:slot name="readWriteProxyFor"></t:slot>
+<t:slot name="groupMemberships"/>
+Read-write Proxy For:
+<t:slot name="readWriteProxyFor"/>
 Read-only Proxy For:
-<t:slot name="readOnlyProxyFor"></t:slot><t:transparent
+<t:slot name="readOnlyProxyFor"/>
+<t:transparent
 t:render="extra"><t:transparent t:render="enabledForCalendaring">
 Calendar Homes:
 <t:slot name="calendarHomes" />

@@ -518,6 +518,20 @@ class DirectoryPrincipalDetailElement(Element):
 
 
     @renderer
+    def serversEnabled(self, request, tag):
+        """
+        Renderer for when servers are enabled.
+        """
+        if not config.Servers.Enabled:
+            return ""
+        record = self.resource.record
+        return tag.fillSlots(
+            hostedAt=str(record.serverURI()),
+            partition=str(record.effectivePartitionID()),
+        )
+
+
+    @renderer
     def principal(self, request, tag):
         """
         Top-level renderer in the template.
@@ -526,10 +540,6 @@ class DirectoryPrincipalDetailElement(Element):
         return tag.fillSlots(
             directoryGUID=str(record.service.guid),
             realm=str(record.service.realmName),
-            hostedAt=str(record.serverURI()
-                         if config.Servers.Enabled else ""),
-            partition=str(record.effectivePartitionID()
-                          if config.Servers.Enabled else ""),
             principalGUID=str(record.guid),
             recordType=str(record.recordType),
             shortNames=",".join(record.shortNames),
@@ -537,46 +547,25 @@ class DirectoryPrincipalDetailElement(Element):
             fullName=str(record.fullName),
             firstName=str(record.firstName),
             lastName=str(record.lastName),
+            emailAddresses=formatList(record.emailAddresses),
             principalUID=str(self.resource.principalUID()),
-            principalURL=self.formatLink(self.resource.principalURL()),
-            alternateURIs=self.formatList(
-                self.formatLink(u) for u in self.resource.alternateURIs()
+            principalURL=formatLink(self.resource.principalURL()),
+            alternateURIs=formatList(
+                formatLink(u) for u in self.resource.alternateURIs()
             ),
             groupMembers=self.resource.groupMembers().addCallback(
-                self.formatPrincipals
+                formatPrincipals
             ),
             groupMemberships=self.resource.groupMemberships().addCallback(
-                self.formatPrincipals
+                formatPrincipals
             ),
             readWriteProxyFor=self.resource.proxyFor(True).addCallback(
-                self.formatPrincipals
+                formatPrincipals
             ),
             readOnlyProxyFor=self.resource.proxyFor(False).addCallback(
-                self.formatPrincipals
+                formatPrincipals
             ),
         )
-
-
-    def formatPrincipals(self, principals):
-        """
-        Format a list of principals into some twisted.web.template DOM objects.
-        """
-        return '<Principals Placeholder: ' + str(principals) + '>'
-
-
-    def formatList(self, iterable):
-        """
-        Format a list of stuff as an interable.
-        """
-        return '<List Placeholder: ' + str(iterable) + '>'
-
-
-    def formatLink(self, url):
-        """
-        Convert a URL string into some twisted.web.template DOM objects for
-        rendering as a link to itself.
-        """
-        return tags.a(href=url)(url)
 
 
     @renderer
@@ -1214,6 +1203,68 @@ authReadACL = davxml.ACL(
         davxml.Protected(),
     ),
 )
+
+
+def formatPrincipals(principals):
+    """
+    Format a list of principals into some twisted.web.template DOM objects.
+    """
+    def recordKey(principal):
+        try:
+            record = principal.record
+        except AttributeError:
+            try:
+                record = principal.parent.record
+            except:
+                return None
+        return (record.recordType, record.shortNames[0])
+
+    def describe(principal):
+        if hasattr(principal, "record"):
+            return " - %s" % (principal.record.fullName,)
+        else:
+            return ""
+
+    return formatList(
+        tags.a(href=principal.principalURL())(
+            str(principal), describe(principal)
+        )
+        for principal in sorted(principals, key=recordKey)
+    )
+
+
+def formatList(iterable):
+    """
+    Format a list of stuff as an interable.
+    """
+    thereAreAny = False
+    try:
+        item = None
+        for item in iterable:
+            thereAreAny = True
+            yield " -> "
+            if item is None:
+                yield "None"
+            else:
+                yield item
+            yield "\n"
+    except Exception, e:
+        log.err("Exception while rendering: %s" % (e,))
+        Failure().printTraceback()
+        yield "  ** %s **: %s\n" % (e.__class__.__name__, e)
+    if not thereAreAny:
+        yield " '()\n"
+
+
+
+def formatLink(url):
+    """
+    Convert a URL string into some twisted.web.template DOM objects for
+    rendering as a link to itself.
+    """
+    return tags.a(href=url)(url)
+
+
 
 def format_list(items, *args):
     def genlist():
