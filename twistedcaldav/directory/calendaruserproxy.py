@@ -304,57 +304,11 @@ class CalendarUserProxyPrincipalResource (
     ##
 
     def htmlElement(self):
+        """
+        Customize HTML display of proxy groups.
+        """
         return ProxyPrincipalElement(self)
 
-
-    def renderDirectoryBody(self, request):
-        # FIXME: Too much code duplication here from principal.py
-        from twistedcaldav.directory.principal import format_list, format_principals, format_link
-
-        closure = {}
-
-        d = super(CalendarUserProxyPrincipalResource, self).renderDirectoryBody(request)
-        d.addCallback(lambda output: closure.setdefault("output", output))
-
-        d.addCallback(lambda _: self.groupMembers())
-        d.addCallback(lambda members: closure.setdefault("members", members))
-
-        d.addCallback(lambda _: self.groupMemberships())
-        d.addCallback(lambda memberships: closure.setdefault("memberships", memberships))
-        
-        d.addCallback(
-            lambda _: "".join((
-                """<div class="directory-listing">"""
-                """<h1>Principal Details</h1>"""
-                """<pre><blockquote>"""
-                """Directory Information\n"""
-                """---------------------\n"""
-                """Directory GUID: %s\n"""         % (self.parent.record.service.guid,),
-                """Realm: %s\n"""                  % (self.parent.record.service.realmName,),
-                """\n"""
-                """Parent Principal Information\n"""
-                """---------------------\n"""
-                """GUID: %s\n"""                   % (self.parent.record.guid,),
-                """Record type: %s\n"""            % (self.parent.record.recordType,),
-                """Short names: %s\n"""            % (",".join(self.parent.record.shortNames,)),
-                """Full name: %s\n"""              % (self.parent.record.fullName,),
-                """Principal UID: %s\n"""          % (self.parent.principalUID(),),
-                """Principal URL: %s\n"""          % (format_link(self.parent.principalURL()),),
-                """\n"""
-                """Proxy Principal Information\n"""
-                """---------------------\n"""
-               #"""GUID: %s\n"""                   % (self.guid,),
-                """Principal UID: %s\n"""          % (self.principalUID(),),
-                """Principal URL: %s\n"""          % (format_link(self.principalURL()),),
-                """\nAlternate URIs:\n"""          , format_list(format_link(u) for u in self.alternateURIs()),
-                """\nGroup members:\n"""           , format_principals(closure["members"]),
-                """\nGroup memberships:\n"""       , format_principals(closure["memberships"]),
-                """</pre></blockquote></div>""",
-                closure["output"]
-            ))
-        )
-
-        return d
 
     ##
     # DAV
@@ -362,6 +316,7 @@ class CalendarUserProxyPrincipalResource (
 
     def displayName(self):
         return self.proxyType
+
 
     ##
     # ACL

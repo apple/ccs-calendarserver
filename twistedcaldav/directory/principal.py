@@ -26,12 +26,8 @@ __all__ = [
     "DirectoryPrincipalUIDProvisioningResource",
     "DirectoryPrincipalResource",
     "DirectoryCalendarPrincipalResource",
-    "format_list",
-    "format_principals",
-    "format_link",
 ]
 
-from cgi import escape
 from urllib import unquote
 from urlparse import urlparse
 
@@ -1279,45 +1275,3 @@ def formatLinks(urls):
     """
     return formatList(formatLink(link) for link in urls)
 
-
-
-def format_list(items, *args):
-    def genlist():
-        try:
-            item = None
-            for item in items:
-                yield " -> %s\n" % (item,)
-            if item is None:
-                yield " '()\n"
-        except Exception, e:
-            log.err("Exception while rendering: %s" % (e,))
-            Failure().printTraceback()
-            yield "  ** %s **: %s\n" % (e.__class__.__name__, e)
-    return "".join(genlist())
-
-def format_principals(principals):
-    def recordKey(principal):
-        try:
-            record = principal.record
-        except AttributeError:
-            try:
-                record = principal.parent.record
-            except:
-                return None
-
-        return (record.recordType, record.shortNames[0])
-
-    def describe(principal):
-        if hasattr(principal, "record"):
-            return " - %s" % (principal.record.fullName,)
-        else:
-            return ""
-
-    return format_list(
-        """<a href="%s">%s%s</a>"""
-        % (principal.principalURL(), escape(str(principal)), describe(principal))
-        for principal in sorted(principals, key=recordKey)
-    )
-
-def format_link(url):
-    return """<a href="%s">%s</a>""" % (url, url)
