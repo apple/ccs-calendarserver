@@ -498,7 +498,7 @@ class DirectoryElement(Element):
         )
         @whenChildren.addCallback
         def gotChildren(children):
-            for even, [child, name] in zip(cycle(["even", "odd"]), children):
+            for even, [child, name] in zip(cycle(["odd", "even"]), children):
                 [url, name, size, lastModified, contentType] = map(
                     str, self.resource.getChildDirectoryEntry(
                         child, name, request)
@@ -550,7 +550,7 @@ class DirectoryElement(Element):
 
             @whenAllProperties.addCallback
             def gotValues(items):
-                for even, [name, value] in zip(cycle(["even", "odd"]), items):
+                for even, [name, value] in zip(cycle(["odd", "even"]), items):
                     if value is None:
                         value = tags.i("(no value)")
                     elif value is accessDeniedValue:

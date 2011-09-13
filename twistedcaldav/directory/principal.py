@@ -550,9 +550,7 @@ class DirectoryPrincipalDetailElement(Element):
             emailAddresses=formatList(record.emailAddresses),
             principalUID=str(self.resource.principalUID()),
             principalURL=formatLink(self.resource.principalURL()),
-            alternateURIs=formatList(
-                formatLink(u) for u in self.resource.alternateURIs()
-            ),
+            alternateURIs=formatLinks(self.resource.alternateURIs()),
             groupMembers=self.resource.groupMembers().addCallback(
                 formatPrincipals
             ),
@@ -571,8 +569,7 @@ class DirectoryPrincipalDetailElement(Element):
     @renderer
     def extra(self, request, tag):
         """
-        Renderer for extra directory body items for calendar/addressbook
-        principals.
+        No-op; implemented in subclass.
         """
         return ''
 
@@ -580,8 +577,7 @@ class DirectoryPrincipalDetailElement(Element):
     @renderer
     def enabledForCalendaring(self, request, tag):
         """
-        Renderer which returns its tag when the wrapped record is enabled for
-        calendaring.
+        No-op; implemented in subclass.
         """
         return ''
 
@@ -589,8 +585,7 @@ class DirectoryPrincipalDetailElement(Element):
     @renderer
     def enabledForAddressBooks(self, request, tag):
         """
-        Renderer which returnst its tag when the wrapped record is enabled for
-        addressbooks.
+        No-op; implemented in subclass.
         """
         return ''
 
@@ -608,6 +603,64 @@ class DirectoryPrincipalElement(DirectoryElement):
         """
         return DirectoryPrincipalDetailElement(self.resource)
 
+
+class DirectoryCalendarPrincipalDetailElement(DirectoryPrincipalDetailElement):
+
+    @renderer
+    def extra(self, request, tag):
+        """
+        Renderer for extra directory body items for calendar/addressbook
+        principals.
+        """
+        return tag
+
+
+    @renderer
+    def enabledForCalendaring(self, request, tag):
+        """
+        Renderer which returns its tag when the wrapped record is enabled for
+        calendaring.
+        """
+        resource = self.resource
+        record = resource.record
+        if record.enabledForCalendaring:
+            return tag.fillSlots(
+                calendarUserAddresses=formatLinks(
+                    resource.calendarUserAddresses()
+                ),
+                calendarHomes=formatLinks(resource.calendarHomeURLs())
+            )
+        return ''
+
+
+    @renderer
+    def enabledForAddressBooks(self, request, tag):
+        """
+        Renderer which returnst its tag when the wrapped record is enabled for
+        addressbooks.
+        """
+        resource = self.resource
+        record = resource.record
+        if record.enabledForAddressBooks:
+            return tag.fillSlots(
+                addressBookHomes=formatLinks(resource.addressBookHomeURLs())
+            )
+        return ''
+
+
+
+class DirectoryCalendarPrincipalElement(DirectoryPrincipalElement):
+    """
+    L{DirectoryPrincipalElement} is a renderer for directory details, with
+    calendaring additions.
+    """
+
+    @renderer
+    def resourceDetail(self, request, tag):
+        """
+        Render the directory calendar principal's details.
+        """
+        return DirectoryCalendarPrincipalDetailElement(self.resource)
 
 
 class DirectoryPrincipalResource (
@@ -1024,6 +1077,9 @@ class DirectoryCalendarPrincipalResource (DirectoryPrincipalResource, CalendarPr
 
         return addresses
 
+    def htmlElement(self):
+        return DirectoryCalendarPrincipalElement(self)
+
     def canonicalCalendarUserAddress(self):
         """
         Return a CUA for this principal, preferring in this order:
@@ -1263,6 +1319,13 @@ def formatLink(url):
     rendering as a link to itself.
     """
     return tags.a(href=url)(url)
+
+
+def formatLinks(urls):
+    """
+    Format a list of URL strings as a list of twisted.web.template DOM links.
+    """
+    return formatList(formatLink(link) for link in urls)
 
 
 
