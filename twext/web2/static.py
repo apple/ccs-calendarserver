@@ -420,7 +420,8 @@ class File(StaticRenderMixin):
                     # Directory listing is in twistedcaldav.extensions
                     standin = Data(
                         "\n".join(["Directory: " + str(req.path), "---"] +
-                                  [x.basename() for x in self.fp.children()]),
+                                  [x.basename() + ("/" if x.isdir() else "")
+                                   for x in self.fp.children()]),
                         "text/plain")
                 return standin.render(req)
 
