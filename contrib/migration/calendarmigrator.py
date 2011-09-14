@@ -276,8 +276,8 @@ def examineRunState(options):
     CardDAV was enabled
     """
 
-    enableCalDAV = False
-    enableCardDAV = False
+    enableCalDAV = None
+    enableCardDAV = None
 
     try:
         disabled = isServiceDisabled(options.sourceRoot, CALDAV_LAUNCHD_KEY)
@@ -296,6 +296,27 @@ def examineRunState(options):
     except ServiceStateError, e:
         log("Couldn't determine previous state of addressbook service '%s': %s" %
             (CARDDAV_LAUNCHD_KEY, e))
+
+    if enableCalDAV:
+        # Check previous plist in case previous system was Lion, since there
+        # is now only one launchd key for both services
+        oldCalDAVPlistPath = os.path.join(options.sourceRoot,
+            CALDAVD_CONFIG_DIR, CALDAVD_PLIST)
+        if os.path.exists(oldCalDAVPlistPath):
+            log("Examining previous caldavd.plist for EnableCalDAV and EnableCardDAV: %s" % (oldCalDAVPlistPath,))
+            oldCalDAVDPlist = readPlist(oldCalDAVPlistPath)
+            if "EnableCalDAV" in oldCalDAVDPlist:
+                enableCalDAV = oldCalDAVDPlist["EnableCalDAV"]
+                log("Based on caldavd.plist, setting EnableCalDAV to %s" % (enableCalDAV,))
+            if "EnableCardDAV" in oldCalDAVDPlist:
+                enableCardDAV = oldCalDAVDPlist["EnableCardDAV"]
+                log("Based on caldavd.plist, setting EnableCardDAV to %s" % (enableCardDAV,))
+
+    # A value of None means we weren't able to determine, so default to off
+    if enableCalDAV is None:
+        enableCalDAV = False
+    if enableCardDAV is None:
+        enableCardDAV = False
 
     return (enableCalDAV, enableCardDAV)
 
