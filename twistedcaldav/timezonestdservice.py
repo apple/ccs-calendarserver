@@ -141,7 +141,7 @@ class TimezoneStdServiceResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithou
         )
 
     def contentType(self):
-        return None
+        return MimeType.fromString("text/html; charset=utf-8");
 
     def resourceType(self):
         return None
