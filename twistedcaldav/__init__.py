@@ -16,9 +16,9 @@
 ##
 
 """
-WebDAV support for Twext.Web2.
+CalDAV support for Twext.Web2.
 
-See draft spec: http://ietf.webdav.org/caldav/draft-dusseault-caldav.txt
+See RFC 4791.
 """
 
 #

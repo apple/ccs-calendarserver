@@ -59,7 +59,7 @@ class CardDAVTextElement (davxml.WebDAVTextElement):
 class AddressBookHomeSet (CardDAVElement):
     """
     The address book collections URLs for this principal.
-    (CardDAV, section 7.1.1)
+    (CardDAV, RFC 6352 section 7.1.1)
     """
     name = "addressbook-home-set"
     hidden = True
@@ -70,7 +70,7 @@ class AddressBookDescription (CardDAVTextElement):
     """
     Provides a human-readable description of what this address book collection
     represents.
-    (CardDAV, section 62.1)
+    (CardDAV, RFC 6352 section 6.2.1)
     """
     name = "addressbook-description"
     hidden = True
@@ -79,7 +79,7 @@ class AddressBookDescription (CardDAVTextElement):
 class SupportedAddressData (CardDAVElement):
     """
     Specifies restrictions on an address book collection.
-    (CardDAV, section 6.2.2)
+    (CardDAV, RFC 6352 section 6.2.2)
     """
     name = "supported-address-data"
     hidden = True
@@ -90,7 +90,7 @@ class SupportedAddressData (CardDAVElement):
 class MaxResourceSize (CardDAVTextElement):
     """
     Specifies restrictions on an address book collection.
-    (CardDAV, section 6.2.3)
+    (CardDAV, RFC 6352 section 6.2.3)
     """
     name = "max-resource-size"
     hidden = True
@@ -99,14 +99,14 @@ class MaxResourceSize (CardDAVTextElement):
 class AddressBook (CardDAVEmptyElement):
     """
     Denotes an address book collection.
-    (CardDAV, sections 5.2)
+    (CardDAV, RFC 6352 sections 5.2, 10.1)
     """
     name = "addressbook"
 
 class AddressBookQuery (CardDAVElement):
     """
     Defines a report for querying address book data.
-    (CardDAV, section 8.6)
+    (CardDAV, RFC 6352 section 10.3)
     """
     name = "addressbook-query"
 
@@ -159,7 +159,7 @@ class AddressDataType (CardDAVEmptyElement):
     """
     Defines which parts of a address component object should be returned by a
     report.
-    (CardDAV, section 6.2.2)
+    (CardDAV, RFC 6352 section 6.2.2)
     """
     name = "address-data-type"
 
@@ -172,7 +172,7 @@ class AddressData (CardDAVElement):
     """
     Defines which parts of a address component object should be returned by a
     report.
-    (CardDAV, section 10.4)
+    (CardDAV, RFC 6352 section 10.4)
     """
     name = "address-data"
 
@@ -302,14 +302,14 @@ class AddressData (CardDAVElement):
 class AllProperties (CardDAVEmptyElement):
     """
     Specifies that all properties shall be returned.
-    (CardDAV, section 10.4.1)
+    (CardDAV, RFC 6352 section 10.4.1)
     """
     name = "allprop"
 
 class Property (CardDAVEmptyElement):
     """
     Defines a property to return in a response.
-    (CardDAV, section 10.4.2)
+    (CardDAV, RFC 6352 section 10.4.2)
     """
     name = "prop"
 
@@ -337,7 +337,7 @@ class Property (CardDAVEmptyElement):
 class Filter (CardDAVElement):
     """
     Determines which matching components are returned.
-    (CardDAV, section 10.5)
+    (CardDAV, RFC 6352 section 10.5)
     """
     name = "filter"
 
@@ -347,7 +347,7 @@ class Filter (CardDAVElement):
 class PropertyFilter (CardDAVElement):
     """
     Limits a search to specific properties.
-    (CardDAV-access-09, section 10.5.1)
+    (CardDAV-access-09, RFC 6352 section 10.5.1)
     """
     name = "prop-filter"
 
@@ -364,7 +364,7 @@ class PropertyFilter (CardDAVElement):
 class ParameterFilter (CardDAVElement):
     """
     Limits a search to specific parameters.
-    (CardDAV, section 10.5.2)
+    (CardDAV, RFC 6352 section 10.5.2)
     """
     name = "param-filter"
 
@@ -395,14 +395,14 @@ class NResults (davxml.WebDAVTextElement):
 class IsNotDefined (CardDAVEmptyElement):
     """
     Specifies that the named vCard item does not exist.
-    (CardDAV, section 10.5.3)
+    (CardDAV, RFC 6352 section 10.5.3)
     """
     name = "is-not-defined"
 
 class TextMatch (CardDAVTextElement):
     """
     Specifies a substring match on a property or parameter value.
-    (CardDAV, section 10.5.4)
+    (CardDAV, RFC 6352 section 10.5.4)
     """
     name = "text-match"
 
@@ -425,7 +425,7 @@ class TextMatch (CardDAVTextElement):
 class AddressBookMultiGet (CardDAVElement):
     """
     CardDAV report used to retrieve specific vCard items via their URIs.
-    (CardDAV, section 10.6)
+    (CardDAV, RFC 6352 section 10.7)
     """
     name = "addressbook-multiget"
 
