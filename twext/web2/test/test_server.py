@@ -116,7 +116,7 @@ class AdaptionTestCase(unittest.TestCase):
 
 class SimpleRequest(server.Request):
     """I can be used in cases where a Request object is necessary
-    but it is benificial to bypass the chanRequest
+    but it is beneficial to bypass the chanRequest
     """
 
     clientproto = (1,1)
@@ -361,6 +361,57 @@ class SampleWebTest(BaseCase):
         return self.assertResponse(
             (redirectResource, 'http://localhost/'),
             (301, {'location': 'https://localhost/foo?bar=baz'}, None))
+
+    def test_redirectResourceWithSchemeRemapping(self):
+
+        def chanrequest2(root, uri, length, headers, method, version, prepath, content):
+            site = server.Site(root)
+            site.EnableSSL = True
+            site.SSLPort = 8443
+            site.BindSSLPorts = []
+            return TestChanRequest(site, method, prepath, uri, length, headers, version, content)
+    
+        self.patch(self, "chanrequest", chanrequest2)
+
+        redirectResource = resource.RedirectResource(path='/foo')
+
+        return self.assertResponse(
+            (redirectResource, 'http://localhost:8443/'),
+            (301, {'location': 'https://localhost:8443/foo'}, None))
+
+    def test_redirectResourceWithoutSchemeRemapping(self):
+
+        def chanrequest2(root, uri, length, headers, method, version, prepath, content):
+            site = server.Site(root)
+            site.EnableSSL = True
+            site.SSLPort = 8443
+            site.BindSSLPorts = []
+            return TestChanRequest(site, method, prepath, uri, length, headers, version, content)
+    
+        self.patch(self, "chanrequest", chanrequest2)
+
+        redirectResource = resource.RedirectResource(path='/foo')
+
+        return self.assertResponse(
+            (redirectResource, 'http://localhost:8008/'),
+            (301, {'location': 'http://localhost:8008/foo'}, None))
+
+    def test_redirectResourceWithoutSSLSchemeRemapping(self):
+
+        def chanrequest2(root, uri, length, headers, method, version, prepath, content):
+            site = server.Site(root)
+            site.EnableSSL = False
+            site.SSLPort = 8443
+            site.BindSSLPorts = []
+            return TestChanRequest(site, method, prepath, uri, length, headers, version, content)
+    
+        self.patch(self, "chanrequest", chanrequest2)
+
+        redirectResource = resource.RedirectResource(path='/foo')
+
+        return self.assertResponse(
+            (redirectResource, 'http://localhost:8443/'),
+            (301, {'location': 'http://localhost:8443/foo'}, None))
 
 
 class URLParsingTest(BaseCase):

@@ -1,6 +1,6 @@
 # -*- test-case-name: calendarserver.tap.test.test_caldav -*-
 ##
-# Copyright (c) 2005-2010 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2011 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -162,7 +162,7 @@ class CalDAVStatisticsServer (Factory):
 
 
 class ErrorLoggingMultiService(MultiService):
-    """ Registers a rotating file logger for error logging, iff
+    """ Registers a rotating file logger for error logging, if
         config.ErrorLogEnabled is True. """
 
     def setServiceParent(self, app):
@@ -261,7 +261,7 @@ class CalDAVOptions (Options, LoggingMixIn):
     def opt_option(self, option):
         """
         Set an option to override a value in the config file. True, False, int,
-        and float options are supported, as well as comma seperated lists. Only
+        and float options are supported, as well as comma separated lists. Only
         one option may be given for each --option flag, however multiple
         --option flags may be specified.
         """
@@ -592,7 +592,7 @@ class CalDAVServiceMaker (LoggingMixIn):
 
             import signal
             def sighup_handler(num, frame):
-                self.log_info("SIGHUP recieved at %s" % (location(frame),))
+                self.log_info("SIGHUP received at %s" % (location(frame),))
 
                 # Reload the config file
                 try:
@@ -725,6 +725,13 @@ class CalDAVServiceMaker (LoggingMixIn):
         rootResource = getRootResource(config, store, additional)
 
         underlyingSite = Site(rootResource)
+        
+        # Need to cache SSL port info here so we can access it in a Request to deal with the
+        # possibility of being behind an SSL decoder
+        underlyingSite.EnableSSL = config.EnableSSL
+        underlyingSite.SSLPort = config.SSLPort
+        underlyingSite.BindSSLPorts = config.BindSSLPorts
+        
         requestFactory = underlyingSite
 
         if config.RedirectHTTPToHTTPS:
@@ -891,7 +898,7 @@ class CalDAVServiceMaker (LoggingMixIn):
         main service.
 
         This has the effect of delaying any child process spawning or
-        standalone port-binding until the backing for the selected data store
+        stand alone port-binding until the backing for the selected data store
         implementation is ready to process requests.
 
         @param createMainService: This is the service that will be doing the main
@@ -1439,7 +1446,7 @@ class DelayedStartupProcessMonitor(Service, object):
 
 
     def startService(self):
-        # Now we're ready to build the command lines and actualy add the
+        # Now we're ready to build the command lines and actually add the
         # processes to procmon.
         super(DelayedStartupProcessMonitor, self).startService()
         for name in self.processes:
@@ -1513,7 +1520,7 @@ class DelayedStartupProcessMonitor(Service, object):
         del self.protocols[name]
 
         if self._reactor.seconds() - self.timeStarted[name] < self.threshold:
-            # The process died too fast - backoff
+            # The process died too fast - back off
             nextDelay = self.delay[name]
             self.delay[name] = min(self.delay[name] * 2, self.maxRestartDelay)
 
