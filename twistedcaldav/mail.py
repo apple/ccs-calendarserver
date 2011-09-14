@@ -420,6 +420,9 @@ class IMIPInboxResource(CalDAVResource):
     def resourceType(self):
         return davxml.ResourceType.ischeduleinbox
 
+    def contentType(self):
+        return MimeType.fromString("text/html; charset=utf-8");
+
     def isCollection(self):
         return False
 
