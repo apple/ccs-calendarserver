@@ -33,7 +33,6 @@ from twisted.python import hashlib
 from twext.web2.dav.util import joinURL, parentForURL
 from twext.web2 import responsecode
 from twext.web2.dav import davxml
-from twext.web2.dav.element.base import PCDATAElement
 
 from twext.web2.http import HTTPError
 from twext.web2.http import StatusResponse
@@ -46,9 +45,7 @@ from twext.web2.dav.http import ErrorResponse
 from txdav.common.icommondatastore import ReservationError
 
 from twistedcaldav.config import config
-from twistedcaldav.caldavxml import NoUIDConflict
-from twistedcaldav.caldavxml import NumberOfRecurrencesWithinLimits
-from twistedcaldav.caldavxml import caldav_namespace, MaxAttendeesPerInstance
+from twistedcaldav.caldavxml import caldav_namespace, NoUIDConflict, MaxInstances, MaxAttendeesPerInstance
 from twistedcaldav import customxml
 from twistedcaldav.customxml import calendarserver_namespace
 from twistedcaldav.datafilters.peruserdata import PerUserDataFilter
@@ -394,7 +391,7 @@ class StoreCalendarObjectResource(object):
                 #    considered a "weak" match to the current Schedule-Tag,
                 #    then do smart merge, else reject with a 412.
                 #
-                # Actually by the time we get here the pre-condition will
+                # Actually by the time we get here the precondition will
                 # already have been tested and found to be OK, so we can just
                 # always do smart merge now if If-Match is present.
                 self.schedule_tag_match = self.request.headers.getHeader("If-Match") is not None
@@ -953,7 +950,7 @@ class StoreCalendarObjectResource(object):
                     etags = ()
                 else:
                     # Schedule-Tag did not change => add current ETag to list of those that can
-                    # be used in a weak pre-condition test
+                    # be used in a weak precondition test
                     etags = self.destination.scheduleEtags
                     if etags is None:
                         etags = ()
@@ -1107,7 +1104,7 @@ class StoreCalendarObjectResource(object):
             elif isinstance(err, TooManyInstancesError):
                 raise HTTPError(ErrorResponse(
                     responsecode.FORBIDDEN,
-                    NumberOfRecurrencesWithinLimits(PCDATAElement(str(err.max_allowed))),
+                    MaxInstances.fromString(str(err.max_allowed)),
                     "Too many recurrence instances",
                 ))
             else:

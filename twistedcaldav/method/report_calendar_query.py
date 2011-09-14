@@ -27,14 +27,12 @@ from twisted.internet.defer import succeed, inlineCallbacks, returnValue,\
     maybeDeferred
 from twext.web2 import responsecode
 from twext.web2.dav import davxml
-from twext.web2.dav.element.base import PCDATAElement
 from twext.web2.dav.http import MultiStatusResponse
 from twext.web2.dav.method.report import NumberOfMatchesWithinLimits
 from twext.web2.dav.util import joinURL
 from twext.web2.http import HTTPError, StatusResponse
 
-from twistedcaldav.caldavxml import caldav_namespace,\
-    NumberOfRecurrencesWithinLimits
+from twistedcaldav.caldavxml import caldav_namespace, MaxInstances
 from twistedcaldav.config import config
 from txdav.common.icommondatastore import IndexedSearchException
 from twistedcaldav.instance import TooManyInstancesError
@@ -125,7 +123,7 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_query(self, request, calendar_
         Run a query on the specified calendar collection
         accumulating the query responses.
         @param calresource: the L{CalDAVResource} for a calendar collection.
-        @param uri: the uri for the calendar collecton resource.
+        @param uri: the uri for the calendar collection resource.
         """
         
         def queryCalendarObjectResource(resource, uri, name, calendar, timezone, query_ok=False, isowner=True):
@@ -169,7 +167,7 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_query(self, request, calendar_
                 filter.settimezone(tz)
                 timezone = tuple(tz.calendar().subcomponents())[0]
 
-            # Do some optimisation of access control calculation by determining any inherited ACLs outside of
+            # Do some optimization of access control calculation by determining any inherited ACLs outside of
             # the child resource loop and supply those to the checkPrivileges on each child.
             filteredaces = (yield calresource.inheritedACEsforChildren(request))
 
@@ -244,8 +242,8 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_query(self, request, calendar_
         log.err("Too many instances need to be computed in calendar-query report")
         raise HTTPError(ErrorResponse(
             responsecode.FORBIDDEN,
-            NumberOfRecurrencesWithinLimits(PCDATAElement(str(ex.max_allowed))),
-            "Too many instrances",
+            MaxInstances.fromString(str(ex.max_allowed)),
+            "Too many instances",
         ))
     except NumberOfMatchesWithinLimits:
         log.err("Too many matching components in calendar-query report")

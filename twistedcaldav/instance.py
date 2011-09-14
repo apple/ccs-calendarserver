@@ -18,6 +18,7 @@
 iCalendar Recurrence Expansion Utilities
 """
 
+from twistedcaldav.config import config
 from twistedcaldav.dateops import normalizeForIndex, differenceDateTime
 
 from pycalendar.datetime import PyCalendarDateTime
@@ -25,14 +26,10 @@ from pycalendar.duration import PyCalendarDuration
 from pycalendar.period import PyCalendarPeriod
 from pycalendar.timezone import PyCalendarTimezone
 
-# The maximum number of instances we will expand out to.
-# Raise a TooManyInstancesError exception if we exceed this.
-max_allowed_instances = 1000
-
 class TooManyInstancesError(Exception):
     def __init__(self):
         Exception.__init__(self)
-        self.max_allowed = max_allowed_instances
+        self.max_allowed = config.MaxAllowedInstances
 
     def __repr__(self):
         return "<%s max:%s>" % (self.__class__.__name__, self.max_allowed)
@@ -165,7 +162,7 @@ class InstanceList(object):
         self.instances[str(instance.rid)] = instance
         
         # Check for too many instances
-        if len(self.instances) > max_allowed_instances:
+        if config.MaxAllowedInstances and len(self.instances) > config.MaxAllowedInstances:
             raise TooManyInstancesError()
 
     def _getMasterEventDetails(self, component):

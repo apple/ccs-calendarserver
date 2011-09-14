@@ -314,6 +314,7 @@ DEFAULT_CONFIG = {
     "MaxResourcesPerCollection" :   10000, # Maximum number of resources in a calendar/address book
     "MaxResourceSize"           : 1048576, # Maximum resource size (in bytes)
     "MaxAttendeesPerInstance"   :     100, # Maximum number of unique attendees
+    "MaxAllowedInstances"       :    3000, # Maximum number of instances the server will index
     "MaxInstancesForRRULE"      :     400, # Maximum number of instances for an RRULE
 
     # Set to URL path of wiki authentication service, e.g. "/auth", in order
@@ -377,7 +378,7 @@ DEFAULT_CONFIG = {
     # Permissions
     #
     "EnableAnonymousReadRoot": True,    # Allow unauthenticated read access to /
-    "EnableAnonymousReadNav": False,    # Allow unauthenticated read access to hierachcy
+    "EnableAnonymousReadNav": False,    # Allow unauthenticated read access to hierarchy
     "EnablePrincipalListings": True,    # Allow listing of principal collections
     "EnableMonolithicCalendars": True,  # Render calendar collections as a monolithic iCalendar object
 
@@ -488,9 +489,9 @@ DEFAULT_CONFIG = {
         "Enabled"       : False,     # Overall on/off switch
         "Mode"          : "primary", # Can be "primary" or "secondary"
         "BasePath"      : "",        # Path to zoneinfo - if None use default package path
-                                     # secondary service MUST define its own writeable path
+                                     # secondary service MUST define its own writable path
         "XMLInfoPath"   : "",        # Path to db cache info - if None use default package path
-                                     # secondary service MUST define its own writeable path if
+                                     # secondary service MUST define its own writable path if
                                      # not None
         
         "SecondaryService" : {
@@ -553,7 +554,7 @@ DEFAULT_CONFIG = {
         "CalDAV": {
             "EmailDomain"                : "",    # Domain for mailto calendar user addresses on this server
             "HTTPDomain"                 : "",    # Domain for http calendar user addresses on this server
-            "AddressPatterns"            : [],    # Reg-ex patterns to match local calendar user addresses
+            "AddressPatterns"            : [],    # Regex patterns to match local calendar user addresses
             "OldDraftCompatibility"      : True,  # Whether to maintain compatibility with non-implicit mode
             "ScheduleTagCompatibility"   : True,  # Whether to support older clients that do not use Schedule-Tag feature
             "EnablePrivateComments"      : True,  # Private comments from attendees to organizer
@@ -587,10 +588,10 @@ DEFAULT_CONFIG = {
                 "UseSSL"        : True,
                 "Type"          : "",    # Type of message access server: 'pop' or 'imap'
                 "PollingSeconds"    : 30,  # How often to fetch mail
-                "Username"      : "",    # For account receving mail
-                "Password"      : "",    # For account receving mail
+                "Username"      : "",    # For account receiving mail
+                "Password"      : "",    # For account receiving mail
             },
-            "AddressPatterns"   : [],    # Reg-ex patterns to match iMIP-able calendar user addresses
+            "AddressPatterns"   : [],    # Regex patterns to match iMIP-able calendar user addresses
             "MailTemplatesDirectory": "/usr/share/caldavd/share/email_templates", # Directory containing HTML templates for email invitations (invite.html, cancel.html)
             "MailIconsDirectory": "/usr/share/caldavd/share/date_icons", # Directory containing language-specific subdirectories containing date-specific icons for email invitations
             "InvitationDaysToLive" : 90, # How many days invitations are valid

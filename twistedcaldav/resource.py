@@ -324,7 +324,7 @@ class CalDAVResource (
         Copy this resource's dead properties to another resource.  This requires
         that the new resource have a back-end store.
 
-        @param other: a resource to copy all properites to.
+        @param other: a resource to copy all properties to.
         @type other: subclass of L{CalDAVResource}
         """
         self.newStoreProperties().update(other.newStoreProperties())
@@ -392,6 +392,10 @@ class CalDAVResource (
             if config.MaxResourceSize:
                 baseProperties += (
                     caldavxml.MaxResourceSize.qname(),
+                )
+            if config.MaxAllowedInstances:
+                baseProperties += (
+                    caldavxml.MaxInstances.qname(),
                 )
             if config.MaxAttendeesPerInstance:
                 baseProperties += (
@@ -592,13 +596,11 @@ class CalDAVResource (
             returnValue(davxml.AddMember(davxml.HRef.fromString(url + "/;add-member")))
 
         elif qname == caldavxml.SupportedCalendarComponentSet.qname():
-            # CalDAV-access-09, section 5.2.3
             if self.hasDeadProperty(qname):
                 returnValue(self.readDeadProperty(qname))
             returnValue(self.supportedCalendarComponentSet)
 
         elif qname == caldavxml.SupportedCalendarData.qname():
-            # CalDAV-access-09, section 5.2.4
             returnValue(caldavxml.SupportedCalendarData(
                 caldavxml.CalendarData(**{
                     "content-type": "text/calendar",
@@ -607,14 +609,18 @@ class CalDAVResource (
             ))
 
         elif qname == caldavxml.MaxResourceSize.qname():
-            # CalDAV-access-15, section 5.2.5
             if config.MaxResourceSize:
                 returnValue(caldavxml.MaxResourceSize.fromString(
                     str(config.MaxResourceSize)
                 ))
 
+        elif qname == caldavxml.MaxInstances.qname():
+            if config.MaxAllowedInstances:
+                returnValue(caldavxml.MaxInstances.fromString(
+                    str(config.MaxAllowedInstances)
+                ))
+
         elif qname == caldavxml.MaxAttendeesPerInstance.qname():
-            # CalDAV-access-15, section 5.2.9
             if config.MaxAttendeesPerInstance:
                 returnValue(caldavxml.MaxAttendeesPerInstance.fromString(
                     str(config.MaxAttendeesPerInstance)
