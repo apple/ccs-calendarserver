@@ -101,13 +101,10 @@ class HomeMigrationTests(TestCase):
                 self.assertNotIdentical(
                     None, (yield txn.calendarHomeWithUID(uid))
                 )
-        # Un-migrated data should be preserved.
-        self.assertEquals(self.filesPath.child("calendars-migrated").child(
-            "__uids__").child("ho").child("me").child("home1").child(
-                ".some-extra-data").getContent(),
-                "some extra data"
-        )
-        
+        # Successfully migrated calendar homes are deleted
+        self.assertFalse(self.filesPath.child("calendars").child(
+            "__uids__").child("ho").child("me").child("home1").exists())
+
         # Want metadata preserved
         home = (yield txn.calendarHomeWithUID("home1"))
         calendar = (yield home.calendarWithName("calendar_1"))
@@ -209,13 +206,10 @@ class HomeMigrationTests(TestCase):
                 self.assertNotIdentical(
                     None, (yield txn.addressbookHomeWithUID(uid))
                 )
-        # Un-migrated data should be preserved.
-        self.assertEquals(self.filesPath.child("addressbooks-migrated").child(
-            "__uids__").child("ho").child("me").child("home1").child(
-                ".some-extra-data").getContent(),
-                "some extra data"
-        )
-        
+        # Successfully migrated addressbook homes are deleted
+        self.assertFalse(self.filesPath.child("addressbooks").child(
+            "__uids__").child("ho").child("me").child("home1").exists())
+
         # Want metadata preserved
         home = (yield txn.addressbookHomeWithUID("home1"))
         adbk = (yield home.addressbookWithName("addressbook_1"))

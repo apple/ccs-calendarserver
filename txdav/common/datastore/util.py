@@ -162,18 +162,9 @@ class UpgradeToDatabaseService(Service, LoggingMixIn, object):
                 yield sqlTxn.commit()
                 # FIXME: need a public remove...HomeWithUID() for de-
                 # provisioning
-                storePath = self.fileStore._path # Documents
-                topPath = storePath.child(topPathName) # calendars|addressbooks
-                fromParent = fileHome._path.segmentsFrom(topPath)
-                topPath = topPath.realpath() # follow possible symlink
-                backupPath = topPath.sibling(topPathName + "-migrated")
-                for segment in fromParent:
-                    try:
-                        backupPath.createDirectory()
-                    except OSError:
-                        pass
-                    backupPath = backupPath.child(segment)
-                fileHome._path.moveTo(backupPath)
+
+                # Remove file home after migration
+                fileHome._path.remove()
         for homeType in TOPPATHS:
             homesPath = self.fileStore._path.child(homeType)
             if homesPath.isdir():
