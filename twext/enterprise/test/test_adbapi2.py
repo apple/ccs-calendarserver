@@ -719,6 +719,11 @@ class ConnectionPoolTests(TestCase):
         txns = []
         txns.append(self.pool.connection())
         txns.append(self.pool.connection())
+        for txn in txns:
+            # Make sure rollback will actually be executed.
+            results = resultOf(txn.execSQL("maybe change something!"))
+            [[[counter, echo]]] = results
+            self.assertEquals("maybe change something!", echo)
         # Fail one (and only one) call to rollback().
         self.factory.rollbackFail = True
         stopResult = resultOf(self.pool.stopService())
@@ -877,6 +882,57 @@ class ConnectionPoolTests(TestCase):
         self.assertEquals(self.factory.connections[1].closed, False)
 
 
+    def test_reConnectWhenFirstExecOnExistingConnectionFails(self):
+        """
+        Another situation that might arise is that a connection will be
+        successfully connected, executed and recycled into the connection pool;
+        then, the database server will shut down and the connections will die,
+        but we will be none the wiser until we try to use them.
+        """
+        txn = self.pool.connection()
+        self.assertEquals(len(self.factory.connections), 1,
+                          "Sanity check failed.")
+        results = resultOf(txn.execSQL("hello, world!"))
+        txn.commit()
+        [[[counter, echo]]] = results
+        self.assertEquals("hello, world!", echo)
+        txn2 = self.pool.connection()
+        self.assertEquals(len(self.factory.connections), 1,
+                          "Sanity check failed.")
+        self.factory.connections[0].executeWillFail(RuntimeError)
+        results = resultOf(txn2.execSQL("second try!"))
+        txn2.commit()
+        [[[counter, echo]]] = results
+        self.assertEquals("second try!", echo)
+
+
+    def test_noOpCommitDoesntHinderReconnection(self):
+        """
+        Until you've executed a query or performed a statement on an ADBAPI
+        connection, the connection is semantically idle (between transactions).
+        A .commit() or .rollback() followed immediately by a .commit() is
+        therefore pointless, and can be ignored.  Furthermore, actually
+        executing the commit and propagating a possible connection-oriented
+        error causes clients to see errors, when, if those clients had actually
+        executed any statements, the connection would have been recycled and the
+        statement transparently re-executed by the logic tested by
+        L{test_reConnectWhenFirstExecFails}.
+        """
+        txn = self.pool.connection()
+        self.factory.commitFail = True
+        self.factory.rollbackFail = True
+        [x] = resultOf(txn.commit())
+
+        # No statements have been executed, so 'commit' will *not* be executed.
+        self.assertEquals(self.factory.commitFail, True)
+        self.assertIdentical(x, None)
+        self.assertEquals(len(self.pool._free), 1)
+        self.assertIn(txn._baseTxn, self.pool._free)
+        self.assertEquals(self.pool._finishing, [])
+        self.assertEquals(len(self.factory.connections), 1)
+        self.assertEquals(self.factory.connections[0].closed, False)
+
+
     def test_reConnectWhenSecondExecFailsThenFirstExecFails(self):
         """
         Other connection-oriented errors might raise exceptions if they occur in
@@ -921,6 +977,9 @@ class ConnectionPoolTests(TestCase):
         size the same.
         """
         txn = self.pool.connection()
+        results = resultOf(txn.execSQL("maybe change something!"))
+        [[[counter, echo]]] = results
+        self.assertEquals("maybe change something!", echo)
         self.factory.rollbackFail = True
         [x] = resultOf(txn.abort())
         # Abort does not propagate the error on, the transaction merely gets
@@ -944,6 +1003,9 @@ class ConnectionPoolTests(TestCase):
         """
         txn = self.pool.connection()
         self.factory.commitFail = True
+        results = resultOf(txn.execSQL("maybe change something!"))
+        [[[counter, echo]]] = results
+        self.assertEquals("maybe change something!", echo)
         [x] = resultOf(txn.commit())
         x.trap(CommitFail)
         self.assertEquals(len(self.pool._free), 1)

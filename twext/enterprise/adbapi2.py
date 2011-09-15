@@ -187,7 +187,7 @@ class _ConnectedTxn(object):
                 Do the database work and set appropriate flags.  Executed in the
                 cursor thread.
                 """
-                if self._cursor is None:
+                if self._cursor is None or self._first:
                     return
                 really()
                 self._first = True
