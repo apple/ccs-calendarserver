@@ -209,6 +209,12 @@ class SchemaBroken(Exception):
     """
 
 
+_translatedTypes = {
+    'text': 'nclob',
+    'boolean': 'integer',
+    'varchar': 'nvarchar2',
+    'char': 'nchar',
+}
 
 def _translateSchema(out, schema=schema):
     """
@@ -236,18 +242,11 @@ def _translateSchema(out, schema=schema):
             else:
                 out.write(",\n")
             typeName = column.model.type.name
-            if typeName == 'text':
-                typeName = 'nclob'
-            if typeName == 'boolean':
-                typeName = 'integer'
-            if typeName == 'varchar':
-                typeName = 'nvarchar2'
-            if typeName == 'char':
-                typeName = 'nchar'
+            typeName = _translatedTypes.get(typeName, typeName)
             out.write('    "%s" %s' % (column.model.name, typeName))
             if column.model.type.length:
                 out.write("(%s)" % (column.model.type.length,))
-            if column.model is table.model.primaryKey:
+            if [column.model] == table.model.primaryKey:
                 out.write(' primary key')
             default = column.model.default
             if default is not NO_DEFAULT:
@@ -273,12 +272,27 @@ def _translateSchema(out, schema=schema):
                  and typeName not in ('varchar', 'nclob', 'char', 'nchar',
                                       'nvarchar', 'nvarchar2') ):
                 out.write(' not null')
-            if set([column.model]) in list(table.model.uniques()):
+            if [column.model] in list(table.model.uniques()):
                 out.write(' unique')
             if column.model.references is not None:
                 out.write(" references %s" % (column.model.references.name,))
             if column.model.cascade:
                 out.write(" on delete cascade")
+
+        def writeConstraint(name, cols):
+            out.write(", \n") # the table has to have some preceding columns
+            out.write("    %s(%s)" % (
+                name, ", ".join('"' + col.name + '"' for col in cols)
+            ))
+
+        for uniqueColumns in table.model.uniques():
+            if len(uniqueColumns) == 1:
+                continue # already done inline, skip
+            writeConstraint("unique", uniqueColumns)
+
+        pk = table.model.primaryKey
+        if pk is not None and len(pk) > 1:
+            writeConstraint("primary key", pk)
 
         out.write('\n);\n\n')
 

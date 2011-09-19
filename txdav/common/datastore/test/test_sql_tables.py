@@ -25,19 +25,40 @@ by L{txdav.base.datastore.test.test_parseschema}.
 
 from cStringIO import StringIO
 
-from txdav.common.datastore.sql_tables import schema, _translateSchema
-from txdav.common.datastore.sql_tables import SchemaBroken
-from twext.enterprise.dal.parseschema import addSQLToSchema
-from twext.enterprise.dal.model import Schema
-from twext.enterprise.dal.syntax import SchemaSyntax
 from twisted.python.modules import getModule
 from twisted.trial.unittest import TestCase
 
-class SampleSomeColumns(TestCase):
+from twext.enterprise.dal.syntax import SchemaSyntax
+
+from txdav.common.datastore.sql_tables import schema, _translateSchema
+from txdav.common.datastore.sql_tables import SchemaBroken
+
+from twext.enterprise.dal.test.test_parseschema import SchemaTestHelper
+
+class SampleSomeColumns(TestCase, SchemaTestHelper):
     """
     Sample some columns from the tables defined by L{schema} and verify that
     they look correct.
     """
+
+    def translated(self, *schema):
+        """
+        Translate the given schema (or the default schema if no schema given)
+        and return the resulting SQL as a string.
+        """
+        io = StringIO()
+        _translateSchema(io, *schema)
+        return io.getvalue()
+
+
+    def assertSortaEquals(self, a, b):
+        """
+        Assert that two strings are equals, modulo whitespace differences.
+        """
+        sortaA = " ".join(a.split())
+        sortaB = " ".join(b.split())
+        self.assertEquals(sortaA, sortaB)
+
 
     def test_addressbookObjectResourceID(self):
         ao = schema.ADDRESSBOOK_OBJECT
@@ -47,30 +68,128 @@ class SampleSomeColumns(TestCase):
 
     def test_schemaTranslation(self):
         """
-        Basic integration test to make sure that the schema can be translated
-        without exception.
+        Basic integration test to make sure that the current, production schema
+        can be translated without errors.
         """
-        # TODO: better test coverage of the actual functionality here; there are
-        # no unit tests.
-        _translateSchema(StringIO())
+        self.translated()
 
 
     def test_schemaTranslationIncludesVersion(self):
         """
         _translateSchema includes 'insert' rows too.
         """
-        
-        pathObj = getModule(__name__).filePath.parent().sibling("sql_schema").child("current.sql")
+
+        pathObj = (
+            getModule(__name__).filePath
+            .parent().sibling("sql_schema").child("current.sql")
+        )
         schema = pathObj.getContent()
         pos = schema.find("('VERSION', '")
         version = int(schema[pos+13])
-        
-        io = StringIO()
-        _translateSchema(io)
-        
         self.assertIn("insert into CALENDARSERVER (NAME, VALUE) "
                       "values ('VERSION', '%s');" % version,
-                      io.getvalue())
+                      self.translated())
+
+
+    def test_translateSingleUnique(self):
+        """
+        L{_translateSchema} translates single-column 'unique' statements inline.
+        """
+        self.assertSortaEquals(
+            self.translated(
+                SchemaSyntax(
+                    self.schemaFromString(
+                        "create table alpha (beta integer unique)"
+                    )
+                )
+            ),
+            'create table alpha ( "beta" integer unique );'
+        )
+
+
+    def test_translateSingleTableUnique(self):
+        """
+        L{_translateSchema} translates single-column 'unique' statements inline,
+        even if they were originally at the table level.
+        """
+        stx = SchemaSyntax(
+            self.schemaFromString(
+                "create table alpha (beta integer, unique(beta))"
+            )
+        )
+        self.assertSortaEquals(
+            self.translated(stx),
+            'create table alpha ( "beta" integer unique );'
+        )
+
+
+    def test_multiTableUnique(self):
+        """
+        L{_translateSchema} translates multi-column 'unique' statements.
+        """
+
+        stx = SchemaSyntax(
+            self.schemaFromString(
+                "create table alpha ("
+                "beta integer, gamma text, unique(beta, gamma))"
+            )
+        )
+        self.assertSortaEquals(
+            self.translated(stx),
+            'create table alpha ( "beta" integer, "gamma" nclob, '
+            'unique("beta", "gamma") );'
+        )
+
+
+    def test_translateSinglePrimaryKey(self):
+        """
+        L{_translateSchema} translates single-column 'primary key' statements
+        inline.
+        """
+        self.assertSortaEquals(
+            self.translated(
+                SchemaSyntax(
+                    self.schemaFromString(
+                        "create table alpha (beta integer primary key)"
+                    )
+                )
+            ),
+            'create table alpha ( "beta" integer primary key );'
+        )
+
+
+    def test_translateSingleTablePrimaryKey(self):
+        """
+        L{_translateSchema} translates single-column 'primary key' statements
+        inline, even if they were originally at the table level.
+        """
+        stx = SchemaSyntax(
+            self.schemaFromString(
+                "create table alpha (beta integer, primary key(beta))"
+            )
+        )
+        self.assertSortaEquals(
+            self.translated(stx),
+            'create table alpha ( "beta" integer primary key );'
+        )
+
+
+    def test_multiTablePrimaryKey(self):
+        """
+        L{_translateSchema} translates multi-column 'primary key' statements.
+        """
+
+        stx = SchemaSyntax(
+            self.schemaFromString(
+                "create table alpha ("
+                "beta integer, gamma text, primary key(beta, gamma))"
+            )
+        )
+        self.assertSortaEquals(
+            self.translated(stx),
+            'create table alpha ( "beta" integer, "gamma" nclob, '
+            'primary key("beta", "gamma") );'
+        )
 
 
     def test_youBrokeTheSchema(self):
@@ -83,16 +202,14 @@ class SampleSomeColumns(TestCase):
         happens.)
         """
         # TODO: same thing for sequences.
-        schema = Schema()
-        addSQLToSchema(
-            schema, """
+        schema = self.schemaFromString(
+            """
             create table same_012345678012345678990123456789_1 (foo integer);
             create table same_012345678012345678990123456789_2 (bar text);
             """
         )
-        io = StringIO()
         self.assertRaises(
-            SchemaBroken, _translateSchema, io, SchemaSyntax(schema)
+            SchemaBroken, self.translated, SchemaSyntax(schema)
         )
 
 

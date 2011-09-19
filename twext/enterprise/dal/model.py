@@ -209,8 +209,6 @@ class Column(FancyEqMixin, object):
         @type name: L{str}
         """
         self.references = self.table.schema.tableNamed(name)
-        if self.references.primaryKey.type != self.type:
-            print 'Mismatch', self.references.primaryKey.type, self.type
 
 
 
@@ -224,6 +222,9 @@ class Table(FancyEqMixin, object):
     @type descriptiveComment: C{str}
 
     @ivar schema: a reference to the L{Schema} to which this table belongs.
+
+    @ivar primaryKey: a C{list} of L{Column} objects representing the primary
+        key of this table, or C{None} if no primary key has been specified.
     """
 
     compareAttributes = 'schema name'.split()
@@ -321,12 +322,15 @@ class Table(FancyEqMixin, object):
 
     def uniques(self):
         """
-        @return: an iterable of C{set}s of C{Column}s which are unique within
+        Get the groups of unique columns for this L{Table}.
+
+        @return: an iterable of C{list}s of C{Column}s which are unique within
             this table.
         """
         for constraint in self.constraints:
             if constraint.type is Constraint.UNIQUE:
-                yield set(constraint.affectsColumns)
+                yield list(constraint.affectsColumns)
+
 
 
 class Index(object):
