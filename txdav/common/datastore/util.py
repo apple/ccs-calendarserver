@@ -282,7 +282,8 @@ class UpgradeDatabaseSchemaService(Service, LoggingMixIn, object):
             "Database schema check complete, launching database service."
         )
         # see http://twistedmatrix.com/trac/ticket/4649
-        reactor.callLater(0, self.wrappedService.setServiceParent, self.parent)
+        if self.wrappedService:
+            reactor.callLater(0, self.wrappedService.setServiceParent, self.parent)
 
     @inlineCallbacks
 
