@@ -285,14 +285,14 @@ def _translateSchema(out, schema=schema):
                 name, ", ".join('"' + col.name + '"' for col in cols)
             ))
 
+        pk = table.model.primaryKey
+        if pk is not None and len(pk) > 1:
+            writeConstraint("primary key", pk)
+
         for uniqueColumns in table.model.uniques():
             if len(uniqueColumns) == 1:
                 continue # already done inline, skip
             writeConstraint("unique", uniqueColumns)
-
-        pk = table.model.primaryKey
-        if pk is not None and len(pk) > 1:
-            writeConstraint("primary key", pk)
 
         out.write('\n);\n\n')
 

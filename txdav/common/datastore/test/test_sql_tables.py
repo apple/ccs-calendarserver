@@ -192,6 +192,27 @@ class SampleSomeColumns(TestCase, SchemaTestHelper):
         )
 
 
+    def test_primaryKeyUniqueOrdering(self):
+        """
+        If a table specifies both a PRIMARY KEY and a UNIQUE constraint, the
+        PRIMARY KEY will always be emitted first.
+        """
+        stx = SchemaSyntax(
+            self.schemaFromString(
+                "create table alpha ("
+                "beta integer, gamma text, delta integer, "
+                "unique(beta, delta), primary key(beta, gamma))"
+            )
+        )
+        self.assertSortaEquals(
+            self.translated(stx),
+            'create table alpha ( '
+            '"beta" integer, "gamma" nclob, "delta" integer, '
+            'primary key("beta", "gamma"), unique("beta", "delta") );'
+        )
+
+
+
     def test_youBrokeTheSchema(self):
         """
         Oracle table names have a 30-character limit.  Our schema translator
