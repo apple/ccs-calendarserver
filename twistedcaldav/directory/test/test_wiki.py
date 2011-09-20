@@ -15,7 +15,13 @@
 ##
 
 from twistedcaldav.test.util import TestCase
-from twistedcaldav.directory.wiki import WikiDirectoryService, WikiDirectoryRecord
+from twistedcaldav.directory.wiki import (
+    WikiDirectoryService, WikiDirectoryRecord, getWikiAccess
+)
+from twisted.internet.defer import inlineCallbacks, succeed
+from twisted.web.xmlrpc import Fault
+from twext.web2.http import HTTPError
+from twext.web2 import responsecode
 
 class WikiTestCase(TestCase):
     """
@@ -32,3 +38,39 @@ class WikiTestCase(TestCase):
         )
         self.assertTrue(record.enabled)
         self.assertTrue(record.enabledForCalendaring)
+
+
+    @inlineCallbacks
+    def test_getWikiAccess(self):
+        """
+        XMLRPC Faults result in HTTPErrors
+        """
+
+        def successful(self, user, wiki):
+            return succeed("read")
+
+        def fault2(self, user, wiki):
+            raise Fault(2, "Bad session")
+
+        def fault12(self, user, wiki):
+            raise Fault(12, "Non-existent wiki")
+
+        def fault13(self, user, wiki):
+            raise Fault(13, "Non-existent wiki")
+
+        access = (yield getWikiAccess("user", "wiki", method=successful))
+        self.assertEquals(access, "read")
+
+        for (method, code) in (
+            (fault2, responsecode.FORBIDDEN),
+            (fault12, responsecode.NOT_FOUND),
+            (fault13, responsecode.SERVICE_UNAVAILABLE),
+        ):
+            try:
+                access = (yield getWikiAccess("user", "wiki", method=method))
+            except HTTPError, e:
+                self.assertEquals(e.response.code, code)
+            except:
+                self.fail("Incorrect exception")
+            else:
+                self.fail("Didn't raise exception")

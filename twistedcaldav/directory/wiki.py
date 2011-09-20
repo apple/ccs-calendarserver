@@ -129,19 +129,20 @@ class WikiDirectoryRecord(DirectoryRecord):
 
 
 @inlineCallbacks
-def getWikiAccess(userID, wikiID):
+def getWikiAccess(userID, wikiID, method=None):
     """
     Ask the wiki server we're paired with what level of access the userID has
     for the given wikiID.  Possible values are "read", "write", and "admin"
     (which we treat as "write").
     """
     wikiConfig = config.Authentication.Wiki
-    proxy = Proxy(wikiConfig["URL"])
+    if method is None:
+        method = Proxy(wikiConfig["URL"]).callRemote
     try:
 
         log.debug("Looking up Wiki ACL for: user [%s], wiki [%s]" % (userID,
             wikiID))
-        access = (yield proxy.callRemote(wikiConfig["WikiMethod"],
+        access = (yield method(wikiConfig["WikiMethod"],
             userID, wikiID))
 
         log.debug("Wiki ACL result: user [%s], wiki [%s], access [%s]" % (userID,
@@ -154,10 +155,19 @@ def getWikiAccess(userID, wikiID):
             wikiID, fault))
 
         if fault.faultCode == 2: # non-existent user
-            raise HTTPError(StatusResponse(responsecode.FORBIDDEN, fault.faultString))
+            raise HTTPError(StatusResponse(responsecode.FORBIDDEN,
+                fault.faultString))
 
-        else: # fault.faultCode == 12, non-existent wiki
-            raise HTTPError(StatusResponse(responsecode.NOT_FOUND, fault.faultString))
+        elif fault.faultCode == 12: # non-existent wiki
+            raise HTTPError(StatusResponse(responsecode.NOT_FOUND,
+                fault.faultString))
+
+        else: # Unknown fault returned from wiki server.  Log the error and
+              # return 503 Service Unavailable to the client.
+            log.error("Wiki ACL error: user [%s], wiki [%s], FAULT [%s]" %
+                (userID, wikiID, fault))
+            raise HTTPError(StatusResponse(responsecode.SERVICE_UNAVAILABLE,
+                fault.faultString))
 
 
 @inlineCallbacks
