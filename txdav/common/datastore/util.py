@@ -228,6 +228,9 @@ class UpgradeDatabaseSchemaService(Service, LoggingMixIn, object):
     def __init__(self, sqlStore, service, uid=None, gid=None):
         """
         Initialize the service.
+        
+        @param sqlStore: The store to operate on. Can be C{None} when doing unit tests.
+        @param service:  Wrapped service. Can be C{None} when doing unit tests.
         """
         self.wrappedService = service
         self.sqlStore = sqlStore
@@ -282,7 +285,7 @@ class UpgradeDatabaseSchemaService(Service, LoggingMixIn, object):
             "Database schema check complete, launching database service."
         )
         # see http://twistedmatrix.com/trac/ticket/4649
-        if self.wrappedService:
+        if self.wrappedService is not None:
             reactor.callLater(0, self.wrappedService.setServiceParent, self.parent)
 
     @inlineCallbacks

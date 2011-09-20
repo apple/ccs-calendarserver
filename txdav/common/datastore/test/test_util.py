@@ -340,16 +340,22 @@ class SchemaUpgradeTests(TestCase):
             yield startTxn.execSQL("drop schema test_dbUpgrades cascade;")
             yield startTxn.commit()
 
+        @inlineCallbacks
+        def _cleanupOldSchema():
+            startTxn = store.newTransaction("test_dbUpgrades")        
+            yield startTxn.execSQL("set search_path to public;")
+            yield startTxn.execSQL("drop schema if exists test_dbUpgrades cascade;")
+            yield startTxn.commit()
+
+        self.addCleanup(_cleanupOldSchema)
+
         test_upgrader = UpgradeDatabaseSchemaService(None, None)
         expected_version = self._getSchemaVersion(test_upgrader.schemaLocation.child("current.sql"))
         for child in test_upgrader.schemaLocation.child("old").globChildren("*.sql"):
-            try:
-                upgrader = UpgradeDatabaseSchemaService(store, None)
-                yield _loadOldSchema(child)
-                yield upgrader.doUpgrade()
-                new_version = yield _loadVersion()
-                yield _unloadOldSchema()
-            except Exception, e:
-                self.fail("Upgrade from %s failed with %s" % (child.basename(), str(e),))
+            upgrader = UpgradeDatabaseSchemaService(store, None)
+            yield _loadOldSchema(child)
+            yield upgrader.doUpgrade()
+            new_version = yield _loadVersion()
+            yield _unloadOldSchema()
 
             self.assertEqual(new_version, expected_version)
