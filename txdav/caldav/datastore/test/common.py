@@ -152,6 +152,25 @@ event1modified_text = event4_text.replace(
 )
 
 
+class CaptureProtocol(Protocol):
+    """
+    A proocol that captures the data delivered to it, and calls back a Deferred
+    with that data.
+
+    @ivar deferred: a L{Deferred} which will be called back with all the data
+        yet delivered to C{dataReceived} when C{connectionLost} is called.
+    """
+
+    def __init__(self):
+        self.deferred = Deferred()
+        self.io = StringIO()
+        self.dataReceived = self.io.write
+
+
+    def connectionLost(self, reason):
+        self.deferred.callback(self.io.getvalue())
+
+
 
 class CommonTests(CommonCommonTests):
     """
@@ -247,14 +266,14 @@ class CommonTests(CommonCommonTests):
 
 
     @inlineCallbacks
-    def calendarObjectUnderTest(self):
+    def calendarObjectUnderTest(self, name="1.ics"):
         """
         Get the calendar detailed by
-        C{requirements['home1']['calendar_1']['1.ics']}.
+        C{requirements['home1']['calendar_1'][name]}.
         """
         returnValue(
             (yield (yield self.calendarUnderTest())
-                .calendarObjectWithName("1.ics")))
+                .calendarObjectWithName(name)))
 
 
     def test_calendarStoreProvides(self):
@@ -1560,18 +1579,9 @@ END:VCALENDAR
         t.write(" text")
         yield t.loseConnection()
         obj = yield refresh(obj)
-        class CaptureProtocol(Protocol):
-            buf = ''
-            def dataReceived(self, data):
-                self.buf += data
-            def connectionLost(self, reason):
-                self.deferred.callback(self.buf)
-        capture = CaptureProtocol()
-        capture.deferred = Deferred()
         attachment = yield obj.attachmentWithName("new.attachment")
         self.assertProvides(IAttachment, attachment)
-        attachment.retrieve(capture)
-        data = yield capture.deferred
+        data = yield self.attachmentToString(attachment)
         self.assertEquals(data, "new attachment text")
         contentType = attachment.contentType()
         self.assertIsInstance(contentType, MimeType)
@@ -1581,6 +1591,68 @@ END:VCALENDAR
             [attachment.name() for attachment in (yield obj.attachments())],
             ['new.attachment']
         )
+
+
+    @inlineCallbacks
+    def test_twoAttachmentsWithTheSameName(self):
+        """
+        Attachments are uniquely identified by their associated object and path;
+        two attachments with the same name won't overwrite each other.
+        """
+        obj = yield self.calendarObjectUnderTest()
+        obj2 = yield self.calendarObjectUnderTest("2.ics")
+        att1 = yield self.stringToAttachment(obj, "sample.attachment",
+                                             "test data 1")
+        att2 = yield self.stringToAttachment(obj2, "sample.attachment",
+                                             "test data 2")
+        data1 = yield self.attachmentToString(att1)
+        data2 = yield self.attachmentToString(att2)
+        self.assertEquals(data1, "test data 1")
+        self.assertEquals(data2, "test data 2")
+
+
+    @inlineCallbacks
+    def stringToAttachment(self, obj, name, contents,
+                           mimeType=MimeType("text", "x-fixture")):
+        """
+        Convenience for producing an attachment from a calendar object.
+
+        @param obj: the calendar object which owns the dropbox associated with
+            the to-be-created attachment.
+
+        @param name: the (utf-8 encoded) name to create the attachment with.
+
+        @type name: C{bytes}
+
+        @param contents: the desired contents of the new attachment.
+
+        @type contents: C{bytes}
+
+        @param mimeType: the mime type of the incoming bytes.
+
+        @return: a L{Deferred} that fires with the L{IAttachment} that is
+            created, once all the bytes have been stored.
+        """
+        att = yield obj.createAttachmentWithName(name)
+        t = att.store(mimeType)
+        t.write(contents)
+        yield t.loseConnection()
+        returnValue(att)
+
+
+    def attachmentToString(self, attachment):
+        """
+        Convenience to convert an L{IAttachment} to a string.
+
+        @param attachment: an L{IAttachment} provider to convert into a string.
+
+        @return: a L{Deferred} that fires with the contents of the attachment.
+
+        @rtype: L{Deferred} firing C{bytes}
+        """
+        capture = CaptureProtocol()
+        attachment.retrieve(capture)
+        return capture.deferred
 
 
     def test_createAttachment(self):

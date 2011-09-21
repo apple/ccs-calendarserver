@@ -729,10 +729,14 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
     @inlineCallbacks
     def createAttachmentWithName(self, name):
 
-        # We need to know the resource_ID of the home collection of the owner (not sharee)
-        # of this event
+        # We need to know the resource_ID of the home collection of the owner
+        # (not sharee) of this event
         sharerHomeID = (yield self._parentCollection.sharerHomeID())
-        returnValue((yield Attachment.create(self._txn, self._dropboxID, name, sharerHomeID)))
+        returnValue((
+            yield Attachment.create(
+                self._txn, (yield self.dropboxID()), name, sharerHomeID
+            )
+        ))
 
     @inlineCallbacks
     def removeAttachmentWithName(self, name):
@@ -849,7 +853,9 @@ class AttachmentStorageTransport(StorageTransportBase):
                     att.MD5          : self._attachment._md5,
                     att.MODIFIED     : utcNowSQL
                 },
-                Where=att.PATH == self._attachment.name(),
+                Where=(att.PATH == self._attachment.name()).And(
+                    att.DROPBOX_ID == self._attachment._dropboxID
+                ),
                 Return=(att.CREATED, att.MODIFIED)).on(self._txn))[0]
         )
 
