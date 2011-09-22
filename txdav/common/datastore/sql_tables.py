@@ -29,6 +29,7 @@ from twext.enterprise.dal.syntax import Insert
 from twext.enterprise.ienterprise import ORACLE_TABLE_NAME_MAX
 from twext.enterprise.dal.parseschema import schemaFromPath
 
+import hashlib
 
 
 def _populateSchema():
@@ -316,14 +317,15 @@ def _translateSchema(out, schema=schema):
             out.write(";\n")
 
 
-    for (num, index) in enumerate(schema.model.indexes):
+    for index in schema.model.indexes:
         # Index names combine and repeat multiple table names and column names,
         # so several of them conflict once oracle's length limit is applied.
-        # Luckily, index names don't matter to application code at all, so we
-        # can add a little disambiguating prefix without breaking anything.
-        # -glyph
-        uniqueIndexName = 'IDX_%d_%s' % (num, index.name)
-        shortIndexName = uniqueIndexName[:30]
+        # To keep them unique within the limit we truncate and append 8 characters
+        # of the md5 hash of the full name.
+        shortIndexName = "%s_%s" % (
+            index.name[:21],
+            str(hashlib.md5(index.name).hexdigest())[:8],
+        )
         shortTableName = index.table.name[:30]
         out.write(
             'create index %s on %s (\n    ' % (shortIndexName, shortTableName)
