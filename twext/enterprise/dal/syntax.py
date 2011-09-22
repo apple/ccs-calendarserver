@@ -20,6 +20,7 @@ Syntax wrappers and generators for SQL.
 """
 
 from itertools import count, repeat
+from operator import eq, ne
 
 from zope.interface import implements
 
@@ -565,6 +566,7 @@ _KEYWORDS = ["access",
             ]
 
 
+
 class ColumnSyntax(ExpressionSyntax):
     """
     Syntactic convenience for L{Column}.
@@ -590,6 +592,10 @@ class ColumnSyntax(ExpressionSyntax):
                                                tableSyntax.model.columns):
                     return SQLFragment((self.model.table.name + '.' + name))
         return SQLFragment(name)
+
+
+    def __hash__(self):
+        return hash(self.model) + 10
 
 
 
@@ -668,11 +674,20 @@ class CompoundComparison(Comparison):
 
 
 
+_operators = {"=": eq, "!=": ne}
+
 class ColumnComparison(CompoundComparison):
     """
     Comparing two columns is the same as comparing any other two expressions,
-    (for now).
+    except that Python can retrieve a truth value, so that columns may be
+    compared for value equality in scripts that want to interrogate schemas.
     """
+
+    def __nonzero__(self):
+        thunk = _operators.get(self.op)
+        if thunk is None:
+            return super(ColumnComparison, self).__nonzero__()
+        return thunk(self.a.model, self.b.model)
 
 
 

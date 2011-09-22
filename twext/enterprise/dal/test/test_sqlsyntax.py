@@ -134,12 +134,15 @@ class GenerationTests(TestCase):
 
     def test_comparisonTestErrorPrevention(self):
         """
-        The comparison object between columns raises an exception when compared
-        for a truth value, so that code will not accidentally test for '==' and
-        always get a true value.
+        The comparison object between SQL expressions raises an exception when
+        compared for a truth value, so that code will not accidentally operate
+        on SQL objects and get a truth value.
+
+        (Note that this has a caveat, in test_columnsAsDictKeys and
+        test_columnEqualityTruth.)
         """
         def sampleComparison():
-            if self.schema.FOO.BAR == self.schema.FOO.BAZ:
+            if self.schema.FOO.BAR > self.schema.FOO.BAZ:
                 return 'comparison should not succeed'
         self.assertRaises(ValueError, sampleComparison)
 
@@ -1091,5 +1094,30 @@ class GenerationTests(TestCase):
                 "(?)", [1]
             )
         )
+
+
+    def test_columnEqualityTruth(self):
+        """
+        Mostly in support of test_columnsAsDictKeys, the 'same' column should
+        compare True to itself and False to other values.
+        """
+        s = self.schema
+        self.assertEquals(bool(s.FOO.BAR == s.FOO.BAR), True)
+        self.assertEquals(bool(s.FOO.BAR != s.FOO.BAR), False)
+        self.assertEquals(bool(s.FOO.BAZ != s.FOO.BAR), True)
+
+
+    def test_columnsAsDictKeys(self):
+        """
+        An odd corner of the syntactic sugar provided by the DAL is that the
+        column objects have to participate both in augmented equality comparison
+        ("==" returns an expression object) as well as dictionary keys (for
+        Insert and Update statement objects).  Therefore it should be possible
+        to I{manipulate} dictionaries of keys as well.
+        """
+        values = {self.schema.FOO.BAR: 1}
+        self.assertEquals(values, {self.schema.FOO.BAR: 1})
+        values.pop(self.schema.FOO.BAR)
+        self.assertEquals(values, {})
 
 
