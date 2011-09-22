@@ -2243,6 +2243,9 @@ class CommonHomeResource(PropfindCacheMixin, SharedHomeMixin, CalDAVResource):
                                     customxml.PubSubAPSBundleIDProperty(
                                         apsConfiguration["APSBundleID"]
                                     ),
+                                    customxml.PubSubAPSEnvironmentProperty(
+                                        apsConfiguration["APSEnvironment"]
+                                    ),
                                     type="APSD",
                                 )
                             )

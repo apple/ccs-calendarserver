@@ -60,7 +60,8 @@ class RecordTypeCache(object):
         
 class DictRecordTypeCache(RecordTypeCache, LoggingMixIn):
     """
-    Cache implementation using a dict. Does not share the cache with other instances.
+    Cache implementation using a dict, and uses memcached to share records
+    with other instances.
     """
     
     def __init__(self, directoryService, recordType):
@@ -108,6 +109,7 @@ class DictRecordTypeCache(RecordTypeCache, LoggingMixIn):
     def removeRecord(self, record):
         if record in self.records:
             self.records.remove(record)
+            self.log_debug("Removed record %s" % (record.guid,))
             for indexType in self.directoryService.indexTypes():
                 try:
                     indexData = getattr(record, CachingDirectoryService.indexTypeToRecordAttribute[indexType])
@@ -119,7 +121,7 @@ class DictRecordTypeCache(RecordTypeCache, LoggingMixIn):
                     try:
                         del self.recordsIndexedBy[indexType][item]
                     except KeyError:
-                        self.log_debug("Missing record index item; type: %s, item: %s" % (indexType, item))
+                        pass
         
     def findRecord(self, indexType, indexKey):
         self.purgeExpiredRecords()

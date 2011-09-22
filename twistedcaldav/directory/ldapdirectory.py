@@ -815,16 +815,16 @@ class LdapDirectoryService(CachingDirectoryService):
                     record = self._ldapResultToRecord(dn, attrs, recordType)
                     self.log_debug("Got LDAP record %s" % (record,))
 
-                    self.recordCacheForType(recordType).addRecord(record,
-                        indexType, indexKey
-                    )
-
                     if not unrestricted:
                         self.log_debug("%s is not enabled because it's not a member of group: %s" % (guid, self.restrictToGroup))
                         record.enabledForCalendaring = False
                         record.enabledForAddressBooks = False
 
                     record.applySACLs()
+
+                    self.recordCacheForType(recordType).addRecord(record,
+                        indexType, indexKey
+                    )
 
                     # We got a match, so don't bother checking other types
                     break

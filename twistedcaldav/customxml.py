@@ -319,6 +319,7 @@ class PubSubTransportProperty (davxml.WebDAVTextElement):
     allowed_children = {
         (calendarserver_namespace, "subscription-url") : (1, 1),
         (calendarserver_namespace, "apsbundleid") : (1, 1),
+        (calendarserver_namespace, "env") : (1, 1),
         (calendarserver_namespace, "xmpp-server") : (1, 1),
         (calendarserver_namespace, "xmpp-uri") : (1, 1),
     }
@@ -333,6 +334,12 @@ class PubSubSubscriptionProperty (davxml.WebDAVTextElement):
 class PubSubAPSBundleIDProperty (davxml.WebDAVTextElement):
     namespace = calendarserver_namespace
     name = "apsbundleid"
+    protected = True
+    hidden = True
+
+class PubSubAPSEnvironmentProperty (davxml.WebDAVTextElement):
+    namespace = calendarserver_namespace
+    name = "env"
     protected = True
     hidden = True
 

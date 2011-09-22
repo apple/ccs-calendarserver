@@ -640,10 +640,12 @@ DEFAULT_CONFIG = {
                 "CalDAV" : {
                     "APSBundleID" : "",
                     "SubscriptionURL" : "",
+                    "APSEnvironment" : "PRODUCTION",
                 },
                 "CardDAV" : {
                     "APSBundleID" : "",
                     "SubscriptionURL" : "",
+                    "APSEnvironment" : "PRODUCTION",
                 },
                 "NodeConfiguration" : {
                     "pubsub#deliver_payloads" : "1",

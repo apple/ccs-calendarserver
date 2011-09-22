@@ -601,7 +601,7 @@ class ConfigurationTests(TestCase):
         conf = getPubSubConfiguration(enabledConfig)
         self.assertEquals(conf, {'heartrate': 30, 'service': 'pubsub.example.com', 'xmpp-server': 'example.com', 'enabled': True, 'host': '', 'port': 0} )
         conf = getPubSubAPSConfiguration("CalDAV|foo", enabledConfig)
-        self.assertEquals(conf, {'SubscriptionURL': 'CalDAVSubscriptionURL', 'APSBundleID': 'CalDAVAPSBundleID'} )
+        self.assertEquals(conf, {'SubscriptionURL': 'CalDAVSubscriptionURL', 'APSBundleID': 'CalDAVAPSBundleID', 'APSEnvironment' : 'PRODUCTION'} )
         conf = getPubSubAPSConfiguration("noprefix", enabledConfig)
         self.assertEquals(conf, None)
         conf = getPubSubAPSConfiguration("UnknownPrefix|foo", enabledConfig)
