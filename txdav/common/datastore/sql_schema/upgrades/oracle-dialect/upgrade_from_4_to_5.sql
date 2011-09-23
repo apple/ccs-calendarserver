@@ -21,12 +21,14 @@
 -- We have changed the hashing schema for index names, so rename
 -- all indexes first
 
-alter index IDX_0_CALENDAR_HOME_OWNER_UID rename to CALENDAR_HOME_OWNER_U_78016c63;
+-- Note that Oracle already suppressed some indexes because they were implicit or invalid
+
+--implicit alter index IDX_0_CALENDAR_HOME_OWNER_UID rename to CALENDAR_HOME_OWNER_U_78016c63;
 alter index IDX_1_CALENDAR_HOME_METADATA_R rename to CALENDAR_HOME_METADAT_35a84eec;
 alter index IDX_2_INVITE_INVITE_UID rename to INVITE_INVITE_UID_9b0902ff;
-alter index IDX_3_INVITE_RESOURCE_ID rename to INVITE_RESOURCE_ID_b36ddc23;
-alter index IDX_4_INVITE_HOME_RESOURCE_ID rename to INVITE_HOME_RESOURCE__e9bdf77e;
-alter index IDX_5_NOTIFICATION_HOME_OWNER_ rename to NOTIFICATION_HOME_OWN_401a6203;
+--invalid alter index IDX_3_INVITE_RESOURCE_ID rename to INVITE_RESOURCE_ID_b36ddc23;
+--invalid alter index IDX_4_INVITE_HOME_RESOURCE_ID rename to INVITE_HOME_RESOURCE__e9bdf77e;
+--implicit alter index IDX_5_NOTIFICATION_HOME_OWNER_ rename to NOTIFICATION_HOME_OWN_401a6203;
 alter index IDX_6_NOTIFICATION_NOTIFICATIO rename to NOTIFICATION_NOTIFICA_f891f5f9;
 alter index IDX_7_NOTIFICATION_NOTIFICATIO rename to NOTIFICATION_NOTIFICA_62daf834;
 alter index IDX_8_CALENDAR_BIND_HOME_RESOU rename to CALENDAR_BIND_HOME_RE_0d980be6;
@@ -40,7 +42,7 @@ alter index IDX_15_TIME_RANGE_CALENDAR_RES rename to TIME_RANGE_CALENDAR_R_beb6e
 alter index IDX_16_TIME_RANGE_CALENDAR_OBJ rename to TIME_RANGE_CALENDAR_O_acf37bd1;
 alter index IDX_17_TRANSPARENCY_TIME_RANGE rename to TRANSPARENCY_TIME_RAN_5f34467f;
 alter index IDX_18_ATTACHMENT_DROPBOX_ID rename to ATTACHMENT_DROPBOX_ID_5073cf23;
-alter index IDX_19_ADDRESSBOOK_HOME_OWNER_ rename to ADDRESSBOOK_HOME_OWNE_44f7f53b;
+--implicit alter index IDX_19_ADDRESSBOOK_HOME_OWNER_ rename to ADDRESSBOOK_HOME_OWNE_44f7f53b;
 alter index IDX_20_ADDRESSBOOK_HOME_METADA rename to ADDRESSBOOK_HOME_META_cfe06701;
 alter index IDX_21_ADDRESSBOOK_BIND_HOME_R rename to ADDRESSBOOK_BIND_HOME_6a6dc8ce;
 alter index IDX_22_ADDRESSBOOK_BIND_RESOUR rename to ADDRESSBOOK_BIND_RESO_205aa75c;
@@ -53,19 +55,19 @@ alter index IDX_28_NOTIFICATION_OBJECT_REV rename to NOTIFICATION_OBJECT_R_47002
 
 -- Changes related to primary key and index optimizations
 
-drop index CALENDAR_HOME_OWNER_U_78016c63;
+--implicit drop index CALENDAR_HOME_OWNER_U_78016c63;
 
 drop index CALENDAR_HOME_METADAT_35a84eec;
 alter table CALENDAR_HOME_METADATA
  add primary key(RESOURCE_ID);
 
-drop index INVITE_RESOURCE_ID_b36ddc23;
+--invalid drop index INVITE_RESOURCE_ID_b36ddc23;
 create index INVITE_RESOURCE_ID_b36ddc23 on INVITE(RESOURCE_ID);
 
-drop index INVITE_HOME_RESOURCE__e9bdf77e;
+--invalid drop index INVITE_HOME_RESOURCE__e9bdf77e;
 create index INVITE_HOME_RESOURCE__e9bdf77e on INVITE(HOME_RESOURCE_ID);
 
-drop index NOTIFICATION_HOME_OWN_401a6203;
+--implicit drop index NOTIFICATION_HOME_OWN_401a6203;
 
 drop index NOTIFICATION_NOTIFICA_62daf834;
 
@@ -80,7 +82,7 @@ alter table ATTACHMENT
 create index ATTACHMENT_CALENDAR_H_0078845c on
   ATTACHMENT(CALENDAR_HOME_RESOURCE_ID);
 
-drop index ADDRESSBOOK_HOME_OWNE_44f7f53b;
+--implicit drop index ADDRESSBOOK_HOME_OWNE_44f7f53b;
   
 drop index ADDRESSBOOK_HOME_META_cfe06701;
 alter table ADDRESSBOOK_HOME_METADATA
