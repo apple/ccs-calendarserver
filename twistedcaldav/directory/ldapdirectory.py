@@ -351,8 +351,8 @@ class LdapDirectoryService(CachingDirectoryService):
         assignments = []
 
         guidAttr = self.rdnSchema["guidAttr"]
-        readAttr = self.resourceSchema["proxyAttr"]
-        writeAttr = self.resourceSchema["readOnlyProxyAttr"]
+        readAttr = self.resourceSchema["readOnlyProxyAttr"]
+        writeAttr = self.resourceSchema["proxyAttr"]
         if not (guidAttr and readAttr and writeAttr):
             self.log_error("LDAP configuration requires guidAttr, proxyAttr, and readOnlyProxyAttr in order to use external proxy assignments efficiently; falling back to slower method")
             # Fall back to the less-specialized version
