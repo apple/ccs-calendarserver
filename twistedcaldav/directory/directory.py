@@ -363,6 +363,32 @@ class DirectoryService(LoggingMixIn):
         return (autoaccept, proxy, read_only_proxy,)
 
 
+    def getExternalProxyAssignments(self):
+        """
+        Retrieve proxy assignments for locations and resources from the
+        directory and return a list of (principalUID, ([memberUIDs)) tuples,
+        suitable for passing to proxyDB.setGroupMembers( )
+
+        This generic implementation fetches all locations and resources.
+        More specialized implementations can perform whatever operation is
+        most efficient for their particular directory service.
+        """
+        assignments = []
+
+        resources = itertools.chain(
+            self.listRecords(self.recordType_locations),
+            self.listRecords(self.recordType_resources)
+        )
+        for record in resources:
+            guid = record.guid
+            assignments.append(("%s#calendar-proxy-write" % (guid,),
+                               record.externalProxies()))
+            assignments.append(("%s#calendar-proxy-read" % (guid,),
+                               record.externalReadOnlyProxies()))
+
+        return assignments
+
+
     def createRecord(self, recordType, guid=None, shortNames=(), authIDs=set(),
         fullName=None, firstName=None, lastName=None, emailAddresses=set(),
         uid=None, password=None, **kwargs):
@@ -472,8 +498,8 @@ class GroupMembershipCacheUpdater(LoggingMixIn):
         self.proxyDB = proxyDB
         self.directory = directory
         self.useExternalProxies = useExternalProxies
-        if externalProxiesSource is None:
-            externalProxiesSource = self.getExternalProxyAssignments
+        if useExternalProxies and externalProxiesSource is None:
+            externalProxiesSource = self.directory.getExternalProxyAssignments
         self.externalProxiesSource = externalProxiesSource
 
         if cache is None:
@@ -692,28 +718,6 @@ class GroupMembershipCacheUpdater(LoggingMixIn):
         returnValue((fast, len(members)))
 
 
-
-
-    def getExternalProxyAssignments(self):
-        """
-        Retrieve proxy assignments for locations and resources from the
-        directory and return a list of (principalUID, ([memberUIDs)) tuples,
-        suitable for passing to proxyDB.setGroupMembers( )
-        """
-        assignments = []
-
-        resources = itertools.chain(
-            self.directory.listRecords(self.directory.recordType_locations),
-            self.directory.listRecords(self.directory.recordType_resources)
-        )
-        for record in resources:
-            guid = record.guid
-            assignments.append(("%s#calendar-proxy-write" % (guid,),
-                               record.externalProxies()))
-            assignments.append(("%s#calendar-proxy-read" % (guid,),
-                               record.externalReadOnlyProxies()))
-
-        return assignments
 
 
 

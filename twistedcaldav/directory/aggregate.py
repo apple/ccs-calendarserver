@@ -225,6 +225,12 @@ class AggregateDirectoryService(DirectoryService):
                     results.append(result)
         return results
 
+
+    def getExternalProxyAssignments(self):
+        service = self.serviceForRecordType(self.recordType_locations)
+        return service.getExternalProxyAssignments()
+
+
     def createRecord(self, recordType, guid=None, shortNames=(), authIDs=set(),
         fullName=None, firstName=None, lastName=None, emailAddresses=set(),
         uid=None, password=None, **kwargs):

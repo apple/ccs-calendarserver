@@ -342,6 +342,47 @@ class LdapDirectoryService(CachingDirectoryService):
 
         return records
 
+    def getExternalProxyAssignments(self):
+        """
+        Retrieve proxy assignments for locations and resources from the
+        directory and return a list of (principalUID, ([memberUIDs)) tuples,
+        suitable for passing to proxyDB.setGroupMembers( )
+        """
+        assignments = []
+
+        guidAttr = self.rdnSchema["guidAttr"]
+        readAttr = self.resourceSchema["proxyAttr"]
+        writeAttr = self.resourceSchema["readOnlyProxyAttr"]
+        if not (guidAttr and readAttr and writeAttr):
+            self.log_error("LDAP configuration requires guidAttr, proxyAttr, and readOnlyProxyAttr in order to use external proxy assignments efficiently; falling back to slower method")
+            # Fall back to the less-specialized version
+            return super(LdapDirectoryService, self).getExternalProxyAssignments()
+
+        # Build filter
+        filterstr = "(|(%s=*)(%s=*))" % (readAttr, writeAttr)
+        attrlist = [guidAttr, readAttr, writeAttr]
+
+        # Query the LDAP server
+        self.log_debug("Querying ldap for records matching base %s and filter %s for attributes %s." %
+            (ldap.dn.dn2str(self.base), filterstr, attrlist))
+
+        results = self.timedSearch(ldap.dn.dn2str(self.base),
+            ldap.SCOPE_SUBTREE, filterstr=filterstr, attrlist=attrlist)
+
+        for dn, attrs in results:
+            guid = self._getUniqueLdapAttribute(attrs, guidAttr)
+            if guid:
+                readDelegate = self._getUniqueLdapAttribute(attrs, readAttr)
+                if readDelegate:
+                    assignments.append(("%s#calendar-proxy-read" % (guid,),
+                        [readDelegate]))
+                writeDelegate = self._getUniqueLdapAttribute(attrs, writeAttr)
+                if writeDelegate:
+                    assignments.append(("%s#calendar-proxy-write" % (guid,),
+                        [writeDelegate]))
+
+        return assignments
+
 
     def createLDAPConnection(self):
         """
@@ -386,6 +427,7 @@ class LdapDirectoryService(CachingDirectoryService):
                 self.authLDAP = self.createLDAPConnection()
 
             try:
+                startTime = time.time()
                 self.authLDAP.simple_bind_s(dn, password)
                 # Getting here means success, so break the retry loop
                 break
@@ -401,6 +443,11 @@ class LdapDirectoryService(CachingDirectoryService):
             except Exception, e:
                 self.log_error("LDAP authentication failed with %s." % (e,))
                 raise
+
+            finally:
+                totalTime = time.time() - startTime
+                if totalTime > self.warningThresholdSeconds:
+                    self.log_error("LDAP auth exceeded threshold: %.2f seconds for %s" % (totalTime, dn))
 
         else:
             self.log_error("Giving up on LDAP authentication after %d tries.  Responding with 503." % (TRIES,))
