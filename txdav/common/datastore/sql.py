@@ -81,6 +81,7 @@ from twistedcaldav.dateops import datetimeMktime, parseSQLTimestamp,\
 
 from sqlparse import parse
 import collections
+import sys
 import time
 
 current_sql_schema = getModule(__name__).filePath.sibling("sql_schema").child("current.sql").getContent()
@@ -189,22 +190,22 @@ class TransactionStatsCollector(object):
         self.statement = None
         self.tstamp = None
         
-    def printReport(self):
+    def printReport(self, toFile=sys.stdout):
         
-        print "*** SQL Stats ***"
-        print 
-        print "Unique statements: %d" % (len(self.count,),)
-        print "Total statements: %d" % (sum(self.count.values()),)
-        print "Total time (ms): %.3f" % (sum(self.times.values()) * 1000.0,)
-        print
+        toFile.write("*** SQL Stats ***\n")
+        toFile.write("\n")
+        toFile.write("Unique statements: %d\n" % (len(self.count,),))
+        toFile.write("Total statements: %d\n" % (sum(self.count.values()),))
+        toFile.write("Total time (ms): %.3f\n" % (sum(self.times.values()) * 1000.0,))
+        toFile.write("\n")
         for k, v in self.count.items():
-            print k
-            print "Count: %s" % (v,)
-            print "Total Time (ms): %.3f" % (self.times[k] * 1000.0,)
+            toFile.write("%s\n" % (k,))
+            toFile.write("Count: %s\n" % (v,))
+            toFile.write("Total Time (ms): %.3f\n" % (self.times[k] * 1000.0,))
             if v > 1:
-                print "Average Time (ms): %.3f" % (self.times[k] * 1000.0 / v,)
-            print
-        print "***"
+                toFile.write("Average Time (ms): %.3f\n" % (self.times[k] * 1000.0 / v,))
+            toFile.write("\n")
+        toFile.write("***\n")
 
 class CommonStoreTransaction(object):
     """
@@ -248,6 +249,7 @@ class CommonStoreTransaction(object):
         self.paramstyle = sqlTxn.paramstyle
         self.dialect = sqlTxn.dialect
         
+        # FIXME: want to pass a "debug" option in to enable this via config - off for now
         self._stats = None #TransactionStatsCollector()
 
 
@@ -423,6 +425,9 @@ class CommonStoreTransaction(object):
         """
         Execute a block of SQL by parsing it out into individual statements and execute
         each of those.
+        
+        FIXME: temporary measure for handling large schema upgrades. This should NOT be used
+        for regular SQL operations - only upgrades. 
         """
         parsed = parse(sql)
         for stmt in parsed:
