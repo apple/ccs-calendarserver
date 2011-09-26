@@ -370,7 +370,7 @@ class UpgradeDatabaseSchemaService(Service, LoggingMixIn, object):
         """
         self.log_warn("Applying schema upgrade: %s" % (fp.basename(),))
         sql = fp.getContent()
-        yield sqlTxn.execSQL(sql)
+        yield sqlTxn.execSQLBlock(sql)
         
     def startService(self):
         """

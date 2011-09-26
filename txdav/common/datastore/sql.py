@@ -61,6 +61,7 @@ from txdav.common.inotifications import INotificationCollection, \
 
 from twext.python.clsprop import classproperty
 from twext.enterprise.ienterprise import AlreadyFinishedError
+from twext.enterprise.dal.parseschema import significant
 from twext.enterprise.dal.syntax import Delete
 from twext.enterprise.dal.syntax import Insert
 from twext.enterprise.dal.syntax import Len
@@ -77,6 +78,10 @@ from txdav.base.propertystore.sql import PropertyStore
 from twistedcaldav.customxml import NotificationType
 from twistedcaldav.dateops import datetimeMktime, parseSQLTimestamp,\
     pyCalendarTodatetime
+
+from sqlparse import parse
+import collections
+import time
 
 current_sql_schema = getModule(__name__).filePath.sibling("sql_schema").child("current.sql").getContent()
 
@@ -166,7 +171,40 @@ class CommonDataStore(Service, object):
             migrating,
         )
 
+class TransactionStatsCollector(object):
+    
+    def __init__(self):
+        self.count = collections.defaultdict(int)
+        self.times = collections.defaultdict(float)
+        self.tstamp = None
+        self.statement = None
+    
+    def startStatement(self, sql):
+        self.statement = sql
+        self.tstamp = time.time()
+        self.count[self.statement] += 1
 
+    def endStatement(self):
+        self.times[self.statement] += time.time() - self.tstamp
+        self.statement = None
+        self.tstamp = None
+        
+    def printReport(self):
+        
+        print "*** SQL Stats ***"
+        print 
+        print "Unique statements: %d" % (len(self.count,),)
+        print "Total statements: %d" % (sum(self.count.values()),)
+        print "Total time (ms): %.3f" % (sum(self.times.values()) * 1000.0,)
+        print
+        for k, v in self.count.items():
+            print k
+            print "Count: %s" % (v,)
+            print "Total Time (ms): %.3f" % (self.times[k] * 1000.0,)
+            if v > 1:
+                print "Average Time (ms): %.3f" % (self.times[k] * 1000.0 / v,)
+            print
+        print "***"
 
 class CommonStoreTransaction(object):
     """
@@ -209,6 +247,8 @@ class CommonStoreTransaction(object):
         self._sqlTxn = sqlTxn
         self.paramstyle = sqlTxn.paramstyle
         self.dialect = sqlTxn.dialect
+        
+        self._stats = None #TransactionStatsCollector()
 
 
     def store(self):
@@ -366,13 +406,32 @@ class CommonStoreTransaction(object):
             # caller shouldn't be paying attention anyway.
             block.end()
 
-
+    @inlineCallbacks
     def execSQL(self, *a, **kw):
         """
         Execute some SQL (delegate to L{IAsyncTransaction}).
         """
-        return self._sqlTxn.execSQL(*a, **kw)
+        if self._stats:        
+            self._stats.startStatement(a[0])
+        results = (yield self._sqlTxn.execSQL(*a, **kw))
+        if self._stats:        
+            self._stats.endStatement()
+        returnValue(results)
 
+    @inlineCallbacks
+    def execSQLBlock(self, sql):
+        """
+        Execute a block of SQL by parsing it out into individual statements and execute
+        each of those.
+        """
+        parsed = parse(sql)
+        for stmt in parsed:
+            while stmt.tokens and not significant(stmt.tokens[0]):
+                stmt.tokens.pop(0)
+            if not stmt.tokens:
+                continue
+            stmt = str(stmt).rstrip(";")
+            yield self.execSQL(stmt)
 
     def commit(self):
         """
@@ -382,6 +441,10 @@ class CommonStoreTransaction(object):
             for operation in self._postCommitOperations:
                 operation()
             return ignored
+
+        if self._stats:        
+            self._stats.printReport()
+
         return self._sqlTxn.commit().addCallback(postCommit)
 
 
