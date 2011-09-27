@@ -71,6 +71,7 @@ class DBInspectOptions(Options):
 
     optFlags = [
         ['verbose', 'v', "Verbose logging."],
+        ['purging', 'p', "Enable Purge command."],
     ]
 
     optParameters = [
@@ -307,6 +308,157 @@ class EventsByUID(Cmd):
         returnValue(tuple(rows))
 
 
+class EventsByName(Cmd):
+    
+    _name = "Get Event Data by resource name"
+    
+    @inlineCallbacks
+    def doIt(self, txn):
+        
+        
+        name = raw_input("Resource Name: ")
+        rows = yield self.getData(txn, name)
+        if rows:
+            for owner, calendar, resource_id, resource, created, modified, data in rows:
+                shortname = UserNameFromUID(txn, owner)
+                table = tables.Table()
+                table.addRow(("User Name:", shortname,))
+                table.addRow(("Calendar:", calendar,))
+                table.addRow(("Resource Name:", resource))
+                table.addRow(("Resource ID:", resource_id))
+                table.addRow(("Created", created))
+                table.addRow(("Modified", modified))
+                print "\n"
+                table.printTable()
+                print data
+        else:
+            print "Could not find icalendar data"
+
+    @inlineCallbacks
+    def getData(self, txn, name):
+        ch = schema.CALENDAR_HOME
+        cb = schema.CALENDAR_BIND
+        co = schema.CALENDAR_OBJECT
+        rows = (yield Select(
+            [
+                ch.OWNER_UID,
+                cb.CALENDAR_RESOURCE_NAME,
+                co.RESOURCE_ID,
+                co.RESOURCE_NAME,
+                co.CREATED,
+                co.MODIFIED,
+                co.ICALENDAR_TEXT,
+            ],
+            From=ch.join(
+                cb, type="inner", on=(ch.RESOURCE_ID == cb.CALENDAR_HOME_RESOURCE_ID).And(
+                    cb.BIND_MODE == _BIND_MODE_OWN)).join(
+                co, type="inner", on=(cb.CALENDAR_RESOURCE_ID == co.CALENDAR_RESOURCE_ID)),
+            Where=(co.RESOURCE_NAME == Parameter("Name")),
+        ).on(txn, **{"Name": name}))
+        returnValue(tuple(rows))
+
+
+class EventsByOwner(Cmd):
+    
+    _name = "Get Event Data by Owner UID"
+    
+    @inlineCallbacks
+    def doIt(self, txn):
+        
+        
+        uid = raw_input("Owner UID: ")
+        rows = yield self.getData(txn, uid)
+        if rows:
+            for owner, calendar, resource_id, resource, created, modified, data in rows:
+                shortname = UserNameFromUID(txn, owner)
+                table = tables.Table()
+                table.addRow(("User Name:", shortname,))
+                table.addRow(("Calendar:", calendar,))
+                table.addRow(("Resource Name:", resource))
+                table.addRow(("Resource ID:", resource_id))
+                table.addRow(("Created", created))
+                table.addRow(("Modified", modified))
+                print "\n"
+                table.printTable()
+                print data
+        else:
+            print "Could not find icalendar data"
+
+    @inlineCallbacks
+    def getData(self, txn, uid):
+        ch = schema.CALENDAR_HOME
+        cb = schema.CALENDAR_BIND
+        co = schema.CALENDAR_OBJECT
+        rows = (yield Select(
+            [
+                ch.OWNER_UID,
+                cb.CALENDAR_RESOURCE_NAME,
+                co.RESOURCE_ID,
+                co.RESOURCE_NAME,
+                co.CREATED,
+                co.MODIFIED,
+                co.ICALENDAR_TEXT,
+            ],
+            From=ch.join(
+                cb, type="inner", on=(ch.RESOURCE_ID == cb.CALENDAR_HOME_RESOURCE_ID).And(
+                    cb.BIND_MODE == _BIND_MODE_OWN)).join(
+                co, type="inner", on=(cb.CALENDAR_RESOURCE_ID == co.CALENDAR_RESOURCE_ID)),
+            Where=(ch.OWNER_UID == Parameter("UID")),
+        ).on(txn, **{"UID": uid}))
+        returnValue(tuple(rows))
+
+
+class EventsByOwnerCalendar(Cmd):
+    
+    _name = "Get Event Data by Owner UID and calendar name"
+    
+    @inlineCallbacks
+    def doIt(self, txn):
+        
+        
+        uid = raw_input("Owner UID: ")
+        name = raw_input("Calendar resource name: ")
+        rows = yield self.getData(txn, uid, name)
+        if rows:
+            for owner, calendar, resource_id, resource, created, modified, data in rows:
+                shortname = UserNameFromUID(txn, owner)
+                table = tables.Table()
+                table.addRow(("User Name:", shortname,))
+                table.addRow(("Calendar:", calendar,))
+                table.addRow(("Resource Name:", resource))
+                table.addRow(("Resource ID:", resource_id))
+                table.addRow(("Created", created))
+                table.addRow(("Modified", modified))
+                print "\n"
+                table.printTable()
+                print data
+        else:
+            print "Could not find icalendar data"
+
+    @inlineCallbacks
+    def getData(self, txn, uid, name):
+        ch = schema.CALENDAR_HOME
+        cb = schema.CALENDAR_BIND
+        co = schema.CALENDAR_OBJECT
+        rows = (yield Select(
+            [
+                ch.OWNER_UID,
+                cb.CALENDAR_RESOURCE_NAME,
+                co.RESOURCE_ID,
+                co.RESOURCE_NAME,
+                co.CREATED,
+                co.MODIFIED,
+                co.ICALENDAR_TEXT,
+            ],
+            From=ch.join(
+                cb, type="inner", on=(ch.RESOURCE_ID == cb.CALENDAR_HOME_RESOURCE_ID).And(
+                    cb.BIND_MODE == _BIND_MODE_OWN)).join(
+                co, type="inner", on=(cb.CALENDAR_RESOURCE_ID == co.CALENDAR_RESOURCE_ID)),
+            Where=((ch.OWNER_UID == Parameter("UID")).And(cb.CALENDAR_RESOURCE_NAME == Parameter("NAME"))),
+        ).on(txn, **{"UID": uid, "NAME": name}))
+        returnValue(tuple(rows))
+
+
 class EventsByContent(Cmd):
     
     _name = "Get Event Data by Searching its Text Data"
@@ -457,6 +609,9 @@ class DBInspectService(Service, object):
         self.registerCommand(Events)
         self.registerCommand(Event)
         self.registerCommand(EventsByUID)
+        self.registerCommand(EventsByName)
+        self.registerCommand(EventsByOwner)
+        self.registerCommand(EventsByOwnerCalendar)
         self.registerCommand(EventsByContent)
         self.doDBInspect()
 
@@ -497,7 +652,8 @@ class DBInspectService(Service, object):
         print "\n<---- Commands ---->"
         for ctr, name in enumerate(self.commands):
             print "%d. %s" % (ctr+1, name,)
-        print "P. Purge\n"
+        if self.options["purging"]:
+            print "P. Purge\n"
         print "Q. Quit\n"
 
     @inlineCallbacks
@@ -511,7 +667,7 @@ class DBInspectService(Service, object):
             cmd = raw_input("Command: ")
             if cmd.lower() == 'q':
                 break
-            if cmd.lower() == 'p':
+            if self.options["purging"] and cmd.lower() == 'p':
                 yield self.runCommand(Purge)
             else:
                 try:
