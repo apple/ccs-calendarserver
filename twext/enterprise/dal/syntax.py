@@ -658,16 +658,22 @@ class CompoundComparison(Comparison):
 
 
     def subSQL(self, metadata, allTables):
+        if ( metadata.dialect == ORACLE_DIALECT
+             and isinstance(self.b, Constant) and self.b.value == ''
+             and self.op in ('=', '!=') ):
+            return NullComparison(self.a, self.op).subSQL(metadata, allTables)
         stmt = SQLFragment()
         result = self._subexpression(self.a, metadata, allTables)
-        if isinstance(self.a, CompoundComparison) and self.a.op == 'or' and self.op == 'and':
+        if (isinstance(self.a, CompoundComparison)
+            and self.a.op == 'or' and self.op == 'and'):
             result = _inParens(result)
         stmt.append(result)
 
         stmt.text += ' %s ' % (self.op,)
 
         result = self._subexpression(self.b, metadata, allTables)
-        if isinstance(self.b, CompoundComparison) and self.b.op == 'or' and self.op == 'and':
+        if (isinstance(self.b, CompoundComparison)
+            and self.b.op == 'or' and self.op == 'and'):
             result = _inParens(result)
         stmt.append(result)
         return stmt

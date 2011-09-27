@@ -164,6 +164,36 @@ class GenerationTests(TestCase):
                               "select * from FOO where BAR is not null", []))
 
 
+    def test_compareWithEmptyStringOracleSpecialCase(self):
+        """
+        Oracle considers the empty string to be a NULL value, so comparisons
+        with the empty string should be 'is NULL' comparisons.
+        """
+        # Sanity check: let's make sure that the non-oracle case looks normal.
+        self.assertEquals(Select(
+            From=self.schema.FOO,
+            Where=self.schema.FOO.BAR == '').toSQL(),
+            SQLFragment(
+                "select * from FOO where BAR = ?", [""]))
+        self.assertEquals(Select(
+            From=self.schema.FOO,
+            Where=self.schema.FOO.BAR != '').toSQL(),
+            SQLFragment(
+                "select * from FOO where BAR != ?", [""]))
+        self.assertEquals(Select(
+            From=self.schema.FOO,
+            Where=self.schema.FOO.BAR == ''
+        ).toSQL(NumericPlaceholder(ORACLE_DIALECT)),
+            SQLFragment(
+                "select * from FOO where BAR is null", []))
+        self.assertEquals(Select(
+            From=self.schema.FOO,
+            Where=self.schema.FOO.BAR != ''
+        ).toSQL(NumericPlaceholder(ORACLE_DIALECT)),
+            SQLFragment(
+                "select * from FOO where BAR is not null", []))
+
+
     def test_compoundWhere(self):
         """
         L{Select.And} and L{Select.Or} will return compound columns.
