@@ -253,7 +253,6 @@ if debug:
 
 while True:
 
-    samples = []
     currentSec = None
     currentCount = 0
     times = []
@@ -372,29 +371,9 @@ while True:
         times.sort()
         startTime = times[0]
         endTime = times[-1]
-        for logTime in times:
-
-            if currentSec is None:
-                currentCount = 0
-                currentSec = logTime
-            else:
-                currentCount += 1
-                if logTime != currentSec:
-                    samples.append(currentCount)
-                    currentCount = 0
-                    currentSec = logTime
-
-
-        if len(samples) < 3:
-            avgRequests = 0
-            avg = ""
-        else:
-            samples = samples[1:-1]
-            total = 0
-            for sample in samples:
-                total += sample
-            avgRequests = float(total) / len(samples)
-            avg = "%.1f average requests per second" % (avgRequests,)
+        deltaTime = endTime - startTime
+        avgRequests = float(len(times)) / deltaTime.seconds
+        avg = "%.1f average requests per second" % (avgRequests,)
 
         print "- " * 40
         print datetime.datetime.now().strftime("%Y/%m/%d %H:%M:%S"), 
