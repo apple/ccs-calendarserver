@@ -38,6 +38,7 @@ from twistedcaldav.memcachelock import MemcacheLock, MemcacheLockTimeoutError
 from pycalendar.duration import PyCalendarDuration
 from pycalendar.datetime import PyCalendarDateTime
 from pycalendar.timezone import PyCalendarTimezone
+from twistedcaldav.memcachefifolock import MemcacheFIFOLock
 
 __all__ = [
     "ImplicitProcessor",
@@ -231,9 +232,9 @@ class ImplicitProcessor(object):
 
         # Use a memcachelock to ensure others don't refresh whilst we have an enqueued call
         self.uid = self.recipient_calendar.resourceUID()
-        if config.Scheduling.Options.AttendeeRefreshInterval:
+        if config.Scheduling.Options.AttendeeRefreshIntervalSeconds and self.recipient_calendar.countAllUniqueAttendees() > config.Scheduling.Options.AttendeeRefreshThreshold:
             attendees = ()
-            lock = MemcacheLock("RefreshUIDLock", self.uid, timeout=0.0, expire_time=config.Scheduling.Options.AttendeeRefreshInterval)
+            lock = MemcacheLock("RefreshUIDLock", self.uid, timeout=0.0, expire_time=config.Scheduling.Options.AttendeeRefreshIntervalSeconds)
             
             # Try lock, but fail immediately if already taken
             try:
@@ -248,7 +249,7 @@ class ImplicitProcessor(object):
             log.debug("ImplicitProcessing - refreshing UID: '%s'" % (self.uid,))
             from twistedcaldav.scheduling.implicit import ImplicitScheduler
             scheduler = ImplicitScheduler()
-            yield scheduler.refreshAllAttendeesExceptSome(self.request, organizer_resource, self.recipient_calendar, attendees)
+            yield scheduler.refreshAllAttendeesExceptSome(self.request, organizer_resource, attendees)
 
         @inlineCallbacks
         def _doDelayedRefresh():
@@ -256,7 +257,7 @@ class ImplicitProcessor(object):
             # We need to get the UID lock for implicit processing whilst we send the auto-reply
             # as the Organizer processing will attempt to write out data to other attendees to
             # refresh them. To prevent a race we need a lock.
-            uidlock = MemcacheLock("ImplicitUIDLock", self.uid, timeout=60.0)
+            uidlock = MemcacheFIFOLock("ImplicitUIDLock", self.uid, timeout=60.0)
     
             try:
                 yield uidlock.acquire()
@@ -288,7 +289,7 @@ class ImplicitProcessor(object):
                 yield uidlock.clean()
 
         if lock:
-            reactor.callLater(config.Scheduling.Options.AttendeeRefreshInterval, _doDelayedRefresh)
+            reactor.callLater(config.Scheduling.Options.AttendeeRefreshIntervalSeconds, _doDelayedRefresh)
         else:
             yield _doRefresh(resource)
 
@@ -507,7 +508,7 @@ class ImplicitProcessor(object):
         # We need to get the UID lock for implicit processing whilst we send the auto-reply
         # as the Organizer processing will attempt to write out data to other attendees to
         # refresh them. To prevent a race we need a lock.
-        lock = MemcacheLock("ImplicitUIDLock", calendar.resourceUID(), timeout=60.0)
+        lock = MemcacheFIFOLock("ImplicitUIDLock", calendar.resourceUID(), timeout=60.0)
 
         # Note that this lock also protects the request, as this request is
         # being re-used by potentially multiple transactions and should not be

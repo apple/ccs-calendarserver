@@ -70,6 +70,32 @@ class Memcacher(LoggingMixIn, CachePoolUserMixIn):
             except KeyError:
                 return succeed(False)
 
+        def incr(self, key, delta=1):
+            value = self._cache.get(key, None)
+            if value is not None:
+                try:
+                    value = int(value)
+                except ValueError:
+                    value = None
+                else:
+                    value += delta
+                    self._cache[key] = str(value)
+            return succeed(value)
+
+        def decr(self, key, delta=1):
+            value = self._cache.get(key, None)
+            if value is not None:
+                try:
+                    value = int(value)
+                except ValueError:
+                    value = None
+                else:
+                    value -= delta
+                    if value < 0:
+                        value = 0
+                    self._cache[key] = str(value)
+            return succeed(value)
+
         def flush_all(self):
             self._cache = {}
             return succeed(True)
@@ -96,6 +122,12 @@ class Memcacher(LoggingMixIn, CachePoolUserMixIn):
 
         def delete(self, key):
             return succeed(True)
+
+        def incr(self, key, delta=1):
+            return succeed(None)
+
+        def decr(self, key, delta=1):
+            return succeed(None)
 
         def flush_all(self):
             return succeed(True)
@@ -194,6 +226,14 @@ class Memcacher(LoggingMixIn, CachePoolUserMixIn):
     def delete(self, key):
         self.log_debug("Deleting Cache Token for %r" % (key,))
         return self._getMemcacheProtocol().delete('%s:%s' % (self._namespace, self._normalizeKey(key)))
+
+    def incr(self, key, delta=1):
+        self.log_debug("Incrementing Cache Token for %r" % (key,))
+        return self._getMemcacheProtocol().incr('%s:%s' % (self._namespace, self._normalizeKey(key)), delta)
+
+    def decr(self, key, delta=1):
+        self.log_debug("Decrementing Cache Token for %r" % (key,))
+        return self._getMemcacheProtocol().incr('%s:%s' % (self._namespace, self._normalizeKey(key)), delta)
 
     def flush_all(self):
         self.log_debug("Flushing All Cache Tokens")

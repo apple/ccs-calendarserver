@@ -16,7 +16,7 @@
 
 import random, time, datetime
 
-import pytz
+#import pytz
 
 from zope.interface import Interface, implements
 
@@ -317,7 +317,7 @@ class WorkDistribution(object, FancyEqMixin):
         self._daysOfWeek = [self._weekdayNames.index(day) for day in daysOfWeek]
         self._beginHour = beginHour
         self._endHour = endHour
-        self._tzinfo = pytz.timezone(tzname)
+        self._tzinfo = None #pytz.timezone(tzname)
         self._helperDistribution = NormalDistribution(
             # Mean 6 workdays in the future
             60 * 60 * 8 * 6,

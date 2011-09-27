@@ -56,7 +56,8 @@ from twistedcaldav.datafilters.peruserdata import PerUserDataFilter
 from twistedcaldav.ical import Component, Property
 from twistedcaldav.instance import TooManyInstancesError,\
     InvalidOverriddenInstanceError
-from twistedcaldav.memcachelock import MemcacheLock, MemcacheLockTimeoutError
+from twistedcaldav.memcachelock import MemcacheLockTimeoutError
+from twistedcaldav.memcachefifolock import MemcacheFIFOLock
 from twistedcaldav.scheduling.implicit import ImplicitScheduler
 
 log = Logger()
@@ -69,7 +70,7 @@ class StoreCalendarObjectResource(object):
             if internal_request:
                 self.lock = None
             else:
-                self.lock = MemcacheLock("ImplicitUIDLock", uid, timeout=60.0)
+                self.lock = MemcacheFIFOLock("ImplicitUIDLock", uid, timeout=60.0, retry_interval=0.01)
             self.reserved = False
             self.index = index
             self.uid = uid
@@ -88,7 +89,7 @@ class StoreCalendarObjectResource(object):
             # Lets use a deferred for this and loop a few times if we cannot reserve so that we give
             # time to whoever has the reservation to finish and release it.
             failure_count = 0
-            while(failure_count < 10):
+            while(failure_count < 100):
                 try:
                     yield self.index.reserveUID(self.uid)
                     self.reserved = True
@@ -100,7 +101,7 @@ class StoreCalendarObjectResource(object):
                 pause = Deferred()
                 def _timedDeferred():
                     pause.callback(True)
-                reactor.callLater(0.5, _timedDeferred)
+                reactor.callLater(0.05, _timedDeferred)
                 yield pause
             
             if self.uri and not self.reserved:
@@ -938,7 +939,7 @@ class StoreCalendarObjectResource(object):
                     # All auto-processed updates for an Organizer leave the tag unchanged
                     change_scheduletag = False
                 elif self.processing_organizer == False:
-                    # Auto-processed updates that are the result of an organizer "refresh' due
+                    # Auto-processed updates that are the result of an organizer "refresh" due
                     # to another Attendee's REPLY should leave the tag unchanged
                     change_scheduletag = not hasattr(self.request, "doing_attendee_refresh")
 

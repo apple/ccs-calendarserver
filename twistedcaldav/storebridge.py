@@ -44,7 +44,8 @@ from twistedcaldav.carddavxml import carddav_namespace
 from twistedcaldav.config import config
 from twistedcaldav.ical import Component as VCalendar, Property as VProperty,\
     InvalidICalendarDataError, iCalendarProductID
-from twistedcaldav.memcachelock import MemcacheLock, MemcacheLockTimeoutError
+from twistedcaldav.memcachelock import MemcacheLockTimeoutError
+from twistedcaldav.memcachefifolock import MemcacheFIFOLock
 from twistedcaldav.method.put_addressbook_common import StoreAddressObjectResource
 from twistedcaldav.method.put_common import StoreCalendarObjectResource
 from twistedcaldav.notifications import (
@@ -1874,7 +1875,7 @@ class CalendarObjectResource(_CalendarObjectMetaDataMixin, _CommonObjectResource
                 )
             )
             if do_implicit_action:
-                lock = MemcacheLock(
+                lock = MemcacheFIFOLock(
                     "ImplicitUIDLock", calendar.resourceUID(), timeout=60.0
                 )
 

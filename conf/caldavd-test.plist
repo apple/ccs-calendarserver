@@ -782,7 +782,7 @@
         <false/>
         <key>AllowResourceAsOrganizer</key>
         <false/>
-        <key>AttendeeRefreshInterval</key>
+        <key>AttendeeRefreshIntervalSeconds</key>
         <integer>0</integer>
       </dict>
 
