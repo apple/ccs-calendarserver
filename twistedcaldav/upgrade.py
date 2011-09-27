@@ -984,21 +984,23 @@ class PostDBImportService(Service, object):
                             request.path = uri
                             request._rememberResource(inboxItemResource, uri)
 
-                            yield self.processInboxItem(
-                                root,
-                                directory,
-                                principal,
-                                request,
-                                inbox,
-                                inboxItemResource,
-                                uuid,
-                                uri
-                            )
+                            try:
+                                yield self.processInboxItem(
+                                    root,
+                                    directory,
+                                    principal,
+                                    request,
+                                    inbox,
+                                    inboxItemResource,
+                                    uuid,
+                                    uri
+                                )
+                            except Exception, e:
+                                log.error("Error processing inbox item: %s (%s)"
+                                    % (inboxItem, e))
+
                     inboxItems.remove(inboxItem)
 
-            except Exception, e:
-                log.error("Error processing inbox item: %s (%s)" % (inboxItem, e))
-                log.error("Restart calendar service to reattempt processing")
 
             finally:
                 # Rewrite the inbox items file in case we exit before we're
@@ -1008,6 +1010,7 @@ class PostDBImportService(Service, object):
                         for inboxItem in inboxItems:
                             output.write("%s\n" % (inboxItem,))
                     os.rename(inboxItemsList + ".tmp", inboxItemsList)
+                    log.error("Restart calendar service to reattempt processing")
                 else:
                     os.remove(inboxItemsList)
 
@@ -1030,29 +1033,33 @@ class PostDBImportService(Service, object):
             inbox, ownerPrincipal.scheduleInboxURL())
 
         calendar = yield inboxItem.iCalendar()
-        try:
-            method = calendar.propertyValue("METHOD")
-        except ValueError:
-            returnValue(None)
+        if calendar.mainType() is not None:
+            try:
+                method = calendar.propertyValue("METHOD")
+            except ValueError:
+                returnValue(None)
 
-        if method == "REPLY":
-            # originator is attendee sending reply
-            originator = calendar.getAttendees()[0]
+            if method == "REPLY":
+                # originator is attendee sending reply
+                originator = calendar.getAttendees()[0]
+            else:
+                # originator is the organizer
+                originator = calendar.getOrganizer()
+
+            principalCollection = directory.principalCollection
+            originatorPrincipal = principalCollection.principalForCalendarUserAddress(originator)
+            originator = LocalCalendarUser(originator, originatorPrincipal)
+            recipients = (owner,)
+
+            scheduler = DirectScheduler(request, inboxItem)
+            # Process inbox item
+            yield scheduler.doSchedulingViaPUT(originator, recipients, calendar,
+                internal_request=False)
         else:
-            # originator is the organizer
-            originator = calendar.getOrganizer()
+            log.warn("Removing invalid inbox item: %s" % (uri,))
 
-        principalCollection = directory.principalCollection
-        originatorPrincipal = principalCollection.principalForCalendarUserAddress(originator)
-        originator = LocalCalendarUser(originator, originatorPrincipal)
-        recipients = (owner,)
-
-        txn = request._newStoreTransaction
-        scheduler = DirectScheduler(request, inboxItem)
-        # Process inbox item
-        yield scheduler.doSchedulingViaPUT(originator, recipients, calendar,
-            internal_request=False)
         # Remove item
+        txn = request._newStoreTransaction
         yield inboxItem.storeRemove(request, True, uri)
         yield txn.commit()
 
