@@ -1058,8 +1058,11 @@ class PostDBImportService(Service, object):
         else:
             log.warn("Removing invalid inbox item: %s" % (uri,))
 
+        #
         # Remove item
+        #
         txn = request._newStoreTransaction
+        txn._notifierFactory = None # Do not send push notifications
         yield inboxItem.storeRemove(request, True, uri)
         yield txn.commit()
 
