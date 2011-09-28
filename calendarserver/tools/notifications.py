@@ -345,7 +345,9 @@ class PushMonitorService(Service):
                     if self.verbose:
                         print name, homes
                     for home in homes:
-                        paths.add(home)
+                        if home.startswith("/"):
+                            # Only support homes on the same server for now.
+                            paths.add(home)
                 for path in paths:
                     host, port, nodes = (yield self.getPushInfo(path))
                     subscribeNodes.update(nodes)
@@ -355,6 +357,8 @@ class PushMonitorService(Service):
                 host = self.host
                 port = self.port
 
+            # TODO: support talking to multiple hosts (to support delegates
+            # from other calendar servers)
             if subscribeNodes:
                 self.startMonitoring(host, port, subscribeNodes)
             else:
