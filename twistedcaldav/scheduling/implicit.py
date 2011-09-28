@@ -475,6 +475,8 @@ class ImplicitScheduler(object):
         self.cancelledAttendees = ()
         self.reinvites = None
         self.needs_action_rids = None
+        
+        self.needs_sequence_change = False
 
         # Check for a delete
         if self.action == "remove":
@@ -484,6 +486,9 @@ class ImplicitScheduler(object):
 
             # Cancel all attendees
             self.cancelledAttendees = [(attendee, None) for attendee in self.attendees]
+            
+            # CANCEL always bumps sequence
+            self.needs_sequence_change = True
 
         # Check for a new resource or an update
         elif self.action == "modify":
@@ -524,6 +529,10 @@ class ImplicitScheduler(object):
                 # Check for removed attendees
                 if not recurrence_reschedule:
                     self.findRemovedAttendees()
+                    
+                # For now we always bump the sequence number on modifications because we cannot track DTSTAMP on
+                # the Attendee side. But we check the old and the new and only bump if the client did not already do it.
+                self.needs_sequence_change = self.calendar.needsiTIPSequenceChange(self.oldcalendar)
 
         elif self.action == "create":
             log.debug("Implicit - organizer '%s' is creating UID: '%s'" % (self.organizer, self.uid))
@@ -533,6 +542,9 @@ class ImplicitScheduler(object):
         for attendee in self.calendar.getAllAttendeeProperties():
             if attendee.parameterValue("PARTSTAT", "NEEDS-ACTION").upper() == "NEEDS-ACTION":
                 attendee.setParameter("RSVP", "TRUE")
+
+        if self.needs_sequence_change:
+            self.calendar.bumpiTIPInfo(oldcalendar=self.oldcalendar, doSequence=True)
 
         yield self.scheduleWithAttendees()
         

@@ -526,6 +526,7 @@ class Component (object):
     def overriddenComponent(self, recurrence_id):
         """
         Return the overridden iCal component in this calendar matching the supplied RECURRENCE-ID property.
+        This also returns the matching master component if recurrence_id is C{None}.
 
         @param recurrence_id: The RECURRENCE-ID property value to match.
         @type recurrence_id: L{PyCalendarDateTime}
@@ -729,7 +730,7 @@ class Component (object):
         """
         Return the trigger information for the specified alarm component.
         @param component: the Component whose start should be returned.
-        @return: ta tuple consisting of:
+        @return: a tuple consisting of:
             trigger : the 'native' trigger value
             related : either True (for START) or False (for END)
             repeat : an integer for the REPEAT count
@@ -1890,7 +1891,7 @@ class Component (object):
         @param from_calendar: the old calendar to copy from
         @type from_calendar: L{Component}
         @param properties: the property names to copy over
-        @type properties: C{typle} or C{list}
+        @type properties: C{tuple} or C{list}
         """
 
         assert from_calendar.name() == "VCALENDAR", "Not a calendar: %r" % (self,)
@@ -1947,7 +1948,7 @@ class Component (object):
                 if not found_all_attendees:
                     removed_master = True
                 
-        # Now remove the unwanted components - but we may need to exdate the master
+        # Now remove the unwanted components - but we may need to EXDATE the master
         exdates = []
         for component in remove_components:
             rid = component.getRecurrenceIDUTC()
@@ -2085,6 +2086,129 @@ class Component (object):
                 for param, value in paramvalues:
                     prop.removeParameterValue(param, value)
 
+    def getITIPInfo(self):
+        """
+        Get property value details needed to synchronize iTIP components.
+        
+        @return: C{tuple} of (uid, seq, dtstamp, r-id) some of which may be C{None} if property does not exist
+        """
+        try:
+            # Extract items from component
+            uid = self.propertyValue("UID")
+            seq = self.propertyValue("SEQUENCE")
+            if seq:
+                seq = int(seq)
+            dtstamp = self.propertyValue("DTSTAMP")
+            rid = self.propertyValue("RECURRENCE-ID")
+            
+        except ValueError:
+            return (None, None, None, None)
+        
+        return (uid, seq, dtstamp, rid)
+
+    @staticmethod
+    def compareComponentsForITIP(component1, component2, use_dtstamp=True):
+        """
+        Compare synchronization information for two components to see if they match according to iTIP.
+    
+        @param component1: first component to check.
+        @type component1: L{Component}
+        @param component2: second component to check.
+        @type component2: L{Component}
+        @param use_dtstamp: whether DTSTAMP is used in addition to SEQUENCE.
+        @type component2: C{bool}
+        
+        @return: 0, 1, -1 as per compareSyncInfo.
+        """
+        info1 = (None,) + Component.getITIPInfo(component1)
+        info2 = (None,) + Component.getITIPInfo(component2)
+        return Component.compareITIPInfo(info1, info2, use_dtstamp)
+    
+    @staticmethod
+    def compareITIPInfo(info1, info2, use_dtstamp=True):
+        """
+        Compare two synchronization information records.
+        
+        @param info1: a C{tuple} as returned by L{getSyncInfo}.
+        @param info2: a C{tuple} as returned by L{getSyncInfo}.
+        @return: 1 if info1 > info2, 0 if info1 == info2, -1 if info1 < info2
+        """
+        
+        _ignore_name1, uid1, seq1, dtstamp1, _ignore_rid1 = info1
+        _ignore_name2, uid2, seq2, dtstamp2, _ignore_rid2 = info2
+        
+        # UIDs MUST match
+        assert uid1 == uid2
+        
+        # Look for sequence
+        if (seq1 is not None) and (seq2 is not None):
+            if seq1 > seq2:
+                return 1
+            if seq1 < seq2:
+                return -1
+        elif (seq1 is not None) and (seq2 is None):
+            return 1
+        elif (seq1 is None) and (seq2 is not None):
+            return -1
+    
+        # Look for DTSTAMP
+        if use_dtstamp:
+            if (dtstamp1 is not None) and (dtstamp2 is not None):
+                if dtstamp1 > dtstamp2:
+                    return 1
+                if dtstamp1 < dtstamp2:
+                    return -1
+            elif (dtstamp1 is not None) and (dtstamp2 is None):
+                return 1
+            elif (dtstamp1 is None) and (dtstamp2 is not None):
+                return -1
+    
+        return 0
+
+    def needsiTIPSequenceChange(self, oldcalendar):
+        """
+        Compare this calendar with the old one and indicate whether the current one has SEQUENCE
+        that is always greater than the old.
+        """
+        
+        for component in self.subcomponents():
+            if component.name() in ignoredComponents:
+                continue
+            oldcomponent = oldcalendar.overriddenComponent(component.getRecurrenceIDUTC())
+            if oldcomponent is None:
+                oldcomponent = oldcalendar.masterComponent()
+                if oldcomponent is None:
+                    continue
+            newseq = component.propertyValue("SEQUENCE")
+            if newseq is None:
+                newseq = 0
+            oldseq = oldcomponent.propertyValue("SEQUENCE")
+            if oldseq is None:
+                oldseq = 0
+            if newseq <= oldseq:
+                return True
+
+        return False
+
+    def bumpiTIPInfo(self, oldcalendar=None, doSequence=False):
+        """
+        Change DTSTAMP and optionally SEQUENCE on all components.
+        """
+        
+        if doSequence:
+            
+            def maxSequence(calendar):
+                seqs = calendar.getAllPropertiesInAnyComponent("SEQUENCE", depth=1)
+                return max(seqs, key=lambda x:x.value()).value() if seqs else 0
+
+            # Determine value to bump to from old calendar (if exists) or self
+            newseq = maxSequence(oldcalendar if oldcalendar is not None else self) + 1                
+                
+            # Bump all components
+            self.replacePropertyInAllComponents(Property("SEQUENCE", newseq))
+        
+        self.replacePropertyInAllComponents(Property("DTSTAMP", PyCalendarDateTime.getNowUTC()))
+            
     def normalizeAll(self):
         
         # Normalize all properties

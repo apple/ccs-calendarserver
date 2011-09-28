@@ -722,7 +722,6 @@ class iCalDiff(object):
                 "DTSTAMP",
                 "CREATED",
                 "LAST-MODIFIED",
-                "SEQUENCE",
                 "X-CALENDARSERVER-PRIVATE-COMMENT",
             ):
                 continue
