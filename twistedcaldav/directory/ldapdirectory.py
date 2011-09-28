@@ -891,7 +891,9 @@ class LdapDirectoryService(CachingDirectoryService):
         self.log_debug("Peforming principal property search for %s" % (fields,))
 
         if recordType is None:
-            recordTypes = self.recordTypes()
+            # Make a copy since we're modifying it
+            recordTypes = list(self.recordTypes())
+
             # principal-property-search syntax doesn't provide a way to ask
             # for 3 of the 4 types (either all types or a single type).  This
             # is wasteful in the case of iCal looking for event attendees
