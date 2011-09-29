@@ -661,7 +661,8 @@ class CalDAVServiceMaker (LoggingMixIn):
             else:
                 raise UsageError("unknown DB type: %r" % (config.DBType,))
             pool = ConnectionPool(connectionFactory, dialect=dialect,
-                                  paramstyle=paramstyle)
+                                  paramstyle=paramstyle,
+                                  maxConnections=config.MaxDBConnectionsPerPool)
             txnFactory = pool.connection
         else:
             raise UsageError(
@@ -964,7 +965,8 @@ class CalDAVServiceMaker (LoggingMixIn):
         def subServiceFactory(connectionFactory):
             ms = MultiService()
             cp = ConnectionPool(connectionFactory, dialect=dialect,
-                                paramstyle=paramstyle)
+                                paramstyle=paramstyle,
+                                maxConnections=config.MaxDBConnectionsPerPool)
             cp.setServiceParent(ms)
             store = storeFromConfig(config, cp.connection)
             mainService = createMainService(cp, store)

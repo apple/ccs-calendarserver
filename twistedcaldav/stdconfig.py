@@ -676,6 +676,16 @@ DEFAULT_CONFIG = {
     "MaxRequests": 80,
     "MaxAccepts": 1,
 
+    "MaxDBConnectionsPerPool": 10, # The maximum number of outstanding database
+                                   # connections per database connection pool.
+                                   # When SharedConnectionPool (see above) is
+                                   # set to True, this is the total number of
+                                   # outgoing database connections allowed to
+                                   # the entire server; when
+                                   # SharedConnectionPool is False - this is the
+                                   # default - this is the number of database
+                                   # connections used per worker process.
+
     "ListenBacklog": 2024,
     "IdleConnectionTimeOut": 15,
     "UIDReservationTimeOut": 30 * 60,
