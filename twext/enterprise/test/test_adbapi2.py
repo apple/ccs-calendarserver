@@ -63,7 +63,10 @@ class Child(object):
         self.parent = parent
         self.parent.children.append(self)
 
+
     def close(self):
+        if self.parent._closeFailQueue:
+            raise self.parent._closeFailQueue.pop(0)
         self.closed = True
 
 
@@ -75,6 +78,16 @@ class Parent(object):
 
     def __init__(self):
         self.children = []
+        self._closeFailQueue = []
+
+
+    def childCloseWillFail(self, exception):
+        """
+        Closing children of this object will result in the given exception.
+
+        @see: L{ConnectionFactory}
+        """
+        self._closeFailQueue.append(exception)
 
 
 
@@ -867,7 +880,11 @@ class ConnectionPoolTests(TestCase):
         txn = self.pool.connection()
         self.assertEquals(len(self.factory.connections), 1,
                           "Sanity check failed.")
-        self.factory.connections[0].executeWillFail(RuntimeError)
+        class CustomExecuteFailed(Exception):
+            """
+            Custom 'execute-failed' exception.
+            """
+        self.factory.connections[0].executeWillFail(CustomExecuteFailed)
         results = resultOf(txn.execSQL("hello, world!"))
         [[[counter, echo]]] = results
         self.assertEquals("hello, world!", echo)
@@ -881,8 +898,13 @@ class ConnectionPoolTests(TestCase):
         self.assertEquals(self.factory.connections[0].closed, True)
         self.assertEquals(self.factory.connections[1].closed, False)
 
+        # Nevertheless, since there is currently no classification of 'safe'
+        # errors, we should probably log these messages when they occur.
+        self.assertEquals(len(self.flushLoggedErrors(CustomExecuteFailed)), 1)
 
-    def test_reConnectWhenFirstExecOnExistingConnectionFails(self):
+
+    def test_reConnectWhenFirstExecOnExistingConnectionFails(
+            self, moreFailureSetup=lambda factory: None):
         """
         Another situation that might arise is that a connection will be
         successfully connected, executed and recycled into the connection pool;
@@ -890,6 +912,7 @@ class ConnectionPoolTests(TestCase):
         but we will be none the wiser until we try to use them.
         """
         txn = self.pool.connection()
+        moreFailureSetup(self.factory)
         self.assertEquals(len(self.factory.connections), 1,
                           "Sanity check failed.")
         results = resultOf(txn.execSQL("hello, world!"))
@@ -899,11 +922,40 @@ class ConnectionPoolTests(TestCase):
         txn2 = self.pool.connection()
         self.assertEquals(len(self.factory.connections), 1,
                           "Sanity check failed.")
-        self.factory.connections[0].executeWillFail(RuntimeError)
+        class CustomExecFail(Exception):
+            """
+            Custom 'execute()' failure.
+            """
+        self.factory.connections[0].executeWillFail(CustomExecFail)
         results = resultOf(txn2.execSQL("second try!"))
         txn2.commit()
         [[[counter, echo]]] = results
         self.assertEquals("second try!", echo)
+        self.assertEquals(len(self.flushLoggedErrors(CustomExecFail)), 1)
+
+
+    def test_closeExceptionDoesntHinderReconnection(self):
+        """
+        In some database bindings, if the server closes the connection,
+        C{close()} will fail.  If C{close} fails, there's not much that could
+        mean except that the connection is already closed, so similar to the
+        condition described in
+        L{test_reConnectWhenFirstExecOnExistingConnectionFails}, the
+        failure should be logged, but transparent to application code.
+        """
+        class BindingSpecificException(Exception):
+            """
+            Exception that's a placeholder for something that a database binding
+            might raise.
+            """
+        def alsoFailClose(factory):
+            factory.childCloseWillFail(BindingSpecificException())
+        t = self.test_reConnectWhenFirstExecOnExistingConnectionFails(
+            alsoFailClose
+        )
+        errors = self.flushLoggedErrors(BindingSpecificException)
+        self.assertEquals(len(errors), 1)
+        return t
 
 
     def test_noOpCommitDoesntHinderReconnection(self):
