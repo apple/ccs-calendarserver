@@ -67,6 +67,7 @@ calendar1_objectNames = [
     "1.ics",
     "2.ics",
     "3.ics",
+    "4.ics",
 ]
 
 
@@ -77,7 +78,7 @@ home1_calendarNames = [
 ]
 
 
-event4_text = (
+test_event_text = (
     "BEGIN:VCALENDAR\r\n"
       "VERSION:2.0\r\n"
       "PRODID:-//Apple Inc.//iCal 4.0.1//EN\r\n"
@@ -101,7 +102,7 @@ event4_text = (
       "END:VTIMEZONE\r\n"
       "BEGIN:VEVENT\r\n"
         "CREATED:20100203T013849Z\r\n"
-        "UID:uid4\r\n"
+        "UID:uid-test\r\n"
         "DTEND;TZID=US/Pacific:20100207T173000\r\n"
         "TRANSP:OPAQUE\r\n"
         "SUMMARY:New Event\r\n"
@@ -120,14 +121,14 @@ event4_text = (
 
 
 
-event4notCalDAV_text = (
+test_event_notCalDAV_text = (
     "BEGIN:VCALENDAR\r\n"
       "VERSION:2.0\r\n"
       "PRODID:-//Apple Inc.//iCal 4.0.1//EN\r\n"
       "CALSCALE:GREGORIAN\r\n"
       "BEGIN:VEVENT\r\n"
         "CREATED:20100203T013849Z\r\n"
-        "UID:4\r\n"
+        "UID:test\r\n"
         "DTEND;TZID=US/Pacific:20100207T173000\r\n" # TZID without VTIMEZONE
         "TRANSP:OPAQUE\r\n"
         "SUMMARY:New Event\r\n"
@@ -146,8 +147,8 @@ event4notCalDAV_text = (
 
 
 
-event1modified_text = event4_text.replace(
-    "\r\nUID:uid4\r\n",
+event1modified_text = test_event_text.replace(
+    "\r\nUID:uid-test\r\n",
     "\r\nUID:uid1\r\n"
 )
 
@@ -199,11 +200,19 @@ class CommonTests(CommonCommonTests):
         "scheduleEtags": (),
         "hasPrivateComment": True,
     }
+    metadata4 = {
+        "accessMode": "PUBLIC",
+        "isScheduleObject": None,
+        "scheduleTag": "abc",
+        "scheduleEtags": (),
+        "hasPrivateComment": True,
+    }
 
     md5Values = (
         hashlib.md5("1234").hexdigest(),
         hashlib.md5("5678").hexdigest(),
         hashlib.md5("9ABC").hexdigest(),
+        hashlib.md5("EFGH").hexdigest(),
     )
     requirements = {
         "home1": {
@@ -211,6 +220,7 @@ class CommonTests(CommonCommonTests):
                 "1.ics": (cal1Root.child("1.ics").getContent(), metadata1),
                 "2.ics": (cal1Root.child("2.ics").getContent(), metadata2),
                 "3.ics": (cal1Root.child("3.ics").getContent(), metadata3),
+                "4.ics": (cal1Root.child("4.ics").getContent(), metadata4),
             },
             "calendar_2": {},
             "calendar_empty": {},
@@ -224,6 +234,7 @@ class CommonTests(CommonCommonTests):
                 "1.ics": md5Values[0],
                 "2.ics": md5Values[1],
                 "3.ics": md5Values[2],
+                "4.ics": md5Values[3],
             },
             "calendar_2": {},
             "calendar_empty": {},
@@ -785,6 +796,8 @@ class CommonTests(CommonCommonTests):
                 ("update", "CalDAV|home1/calendar_1"),
                 ("update", "CalDAV|home1"),
                 ("update", "CalDAV|home1/calendar_1"),
+                ("update", "CalDAV|home1"),
+                ("update", "CalDAV|home1/calendar_1"),
             ]
         )
 
@@ -1161,11 +1174,11 @@ END:VCALENDAR
         L{ICalendarObject}.
         """
         calendar1 = yield self.calendarUnderTest()
-        name = "4.ics"
+        name = "test.ics"
         self.assertIdentical(
             (yield calendar1.calendarObjectWithName(name)), None
         )
-        component = VComponent.fromString(event4_text)
+        component = VComponent.fromString(test_event_text)
         metadata = {
             "accessMode": "PUBLIC",
             "isScheduleObject": True,
@@ -1199,7 +1212,7 @@ END:VCALENDAR
         given name already exists in that calendar.
         """
         cal = yield self.calendarUnderTest()
-        comp = VComponent.fromString(event4_text)
+        comp = VComponent.fromString(test_event_text)
         yield self.failUnlessFailure(
             maybeDeferred(cal.createCalendarObjectWithName, "1.ics", comp),
             ObjectResourceNameAlreadyExistsError,
@@ -1215,7 +1228,7 @@ END:VCALENDAR
         """
         yield self.failUnlessFailure(
             maybeDeferred((yield self.calendarUnderTest()).createCalendarObjectWithName,
-            "new", VComponent.fromString(event4notCalDAV_text)),
+            "new", VComponent.fromString(test_event_notCalDAV_text)),
             InvalidObjectResourceError,
         )
 
@@ -1228,7 +1241,7 @@ END:VCALENDAR
         calendarObject = yield self.calendarObjectUnderTest()
         yield self.failUnlessFailure(
             maybeDeferred(calendarObject.setComponent,
-                          VComponent.fromString(event4notCalDAV_text)),
+                          VComponent.fromString(test_event_notCalDAV_text)),
             InvalidObjectResourceError,
         )
 
@@ -1240,7 +1253,7 @@ END:VCALENDAR
         when given a L{VComponent} whose UID does not match its existing UID.
         """
         calendar1 = yield self.calendarUnderTest()
-        component = VComponent.fromString(event4_text)
+        component = VComponent.fromString(test_event_text)
         calendarObject = yield calendar1.calendarObjectWithName("1.ics")
         yield self.failUnlessFailure(
             maybeDeferred(calendarObject.setComponent, component),
@@ -1348,9 +1361,9 @@ END:VCALENDAR
         """
         calendar = yield self.calendarUnderTest()
         yield calendar.createCalendarObjectWithName(
-            "4.ics", VComponent.fromString(event4_text)
+            "test.ics", VComponent.fromString(test_event_text)
         )
-        newEvent = yield calendar.calendarObjectWithName("4.ics")
+        newEvent = yield calendar.calendarObjectWithName("test.ics")
         self.assertEquals(newEvent.properties().items(), [])
 
 

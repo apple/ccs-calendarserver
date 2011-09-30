@@ -1250,7 +1250,9 @@ class PostgresLegacyIndexEmulator(LegacyIndexHelper):
                 row = list(row)
                 row[4] = 'Y' if row[4] else 'N'
                 row[7] = indexfbtype_to_icalfbtype[row[7]]
-                row[8] = 'T' if row[9] else 'F'
+                if row[9] is not None:
+                    row[8] = row[9]
+                row[8] = 'T' if row[8] else 'F'
                 del row[9]
             results.append(row)
         returnValue(results)
