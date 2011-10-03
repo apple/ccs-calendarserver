@@ -234,7 +234,7 @@ class TimezoneStdServiceResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithou
                 timezonexml.Action.fromString("list"),
                 timezonexml.Description.fromString("List timezones on the server"),
                 timezonexml.AcceptParameter(
-                    timezonexml.Name.fromString("changesince"),
+                    timezonexml.Name.fromString("changedsince"),
                     timezonexml.Required.fromString("false"),
                     timezonexml.Multi.fromString("false"),
                 ),
@@ -253,7 +253,7 @@ class TimezoneStdServiceResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithou
                 timezonexml.AcceptParameter(
                     timezonexml.Name.fromString("tzid"),
                     timezonexml.Required.fromString("true"),
-                    timezonexml.Multi.fromString("true"),
+                    timezonexml.Multi.fromString("false"),
                 ),
             ),
             
@@ -263,7 +263,7 @@ class TimezoneStdServiceResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithou
                 timezonexml.AcceptParameter(
                     timezonexml.Name.fromString("tzid"),
                     timezonexml.Required.fromString("true"),
-                    timezonexml.Multi.fromString("true"),
+                    timezonexml.Multi.fromString("false"),
                 ),
                 timezonexml.AcceptParameter(
                     timezonexml.Name.fromString("start"),
@@ -284,31 +284,31 @@ class TimezoneStdServiceResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithou
         Return a list of all timezones known to the server.
         """
         
-        changesince = request.args.get("changesince", ())
-        if len(changesince) > 1:
+        changedsince = request.args.get("changedsince", ())
+        if len(changedsince) > 1:
             raise HTTPError(StatusResponse(
                 responsecode.BAD_REQUEST,
-                "Invalid changesince query parameter",
+                "Invalid changedsince query parameter",
             ))
-        if len(changesince) == 1:
+        if len(changedsince) == 1:
             # Validate a date-time stamp
-            changesince = changesince[0]
+            changedsince = changedsince[0]
             try:
-                dt = PyCalendarDateTime.parseText(changesince)
+                dt = PyCalendarDateTime.parseText(changedsince)
             except ValueError:
                 raise HTTPError(StatusResponse(
                     responsecode.BAD_REQUEST,
-                    "Invalid changesince query parameter value",
+                    "Invalid changedsince query parameter value",
                 ))
             if not dt.utc():
                 raise HTTPError(StatusResponse(
                     responsecode.BAD_REQUEST,
-                    "Invalid changesince query parameter value",
+                    "Invalid changedsince query parameter value",
                 ))
                 
 
         timezones = []
-        for tz in self.timezones.listTimezones(changesince):
+        for tz in self.timezones.listTimezones(changedsince):
             timezones.append(
                 timezonexml.Summary(
                     timezonexml.Tzid.fromString(tz.tzid),
@@ -506,7 +506,7 @@ class CommonTimezoneDatabase(object):
                     for alias in tz.aliases:
                         self.aliases[alias] = tz.tzid
 
-    def listTimezones(self, changesince):
+    def listTimezones(self, changedsince):
         """
         List timezones (not aliases) possibly changed since a particular dtstamp.
         """
@@ -517,7 +517,7 @@ class CommonTimezoneDatabase(object):
                 continue
             
             # Detect timestamp changes
-            if changesince and tzinfo.dtstamp <= changesince:
+            if changedsince and tzinfo.dtstamp <= changedsince:
                 continue
             
             yield tzinfo
@@ -742,7 +742,7 @@ class SecondaryTimezoneDatabase(CommonTimezoneDatabase):
         # List all from the server
         url = "%s?action=list" % (self.uri,)
         if self.dtstamp:
-            url = "%s&changesince=%s" % (url, self.dtstamp,)
+            url = "%s&changedsince=%s" % (url, self.dtstamp,)
         response = (yield getURL(url))
         if response is None or response.code / 100 != 2:
             returnValue(None)
