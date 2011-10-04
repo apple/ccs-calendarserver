@@ -256,7 +256,7 @@ class ImplicitProcessor(object):
             # We need to get the UID lock for implicit processing whilst we send the auto-reply
             # as the Organizer processing will attempt to write out data to other attendees to
             # refresh them. To prevent a race we need a lock.
-            uidlock = MemcacheLock("ImplicitUIDLock", self.uid, timeout=60.0)
+            uidlock = MemcacheLock("ImplicitUIDLock", self.uid, timeout=60.0, expire_time=5*60)
     
             try:
                 yield uidlock.acquire()
@@ -285,6 +285,7 @@ class ImplicitProcessor(object):
                 else:
                     yield txn.commit()
             finally:
+                # This correctly gets called only after commit or abort is done
                 yield uidlock.clean()
 
         if lock:
@@ -513,7 +514,7 @@ class ImplicitProcessor(object):
         # We need to get the UID lock for implicit processing whilst we send the auto-reply
         # as the Organizer processing will attempt to write out data to other attendees to
         # refresh them. To prevent a race we need a lock.
-        lock = MemcacheLock("ImplicitUIDLock", calendar.resourceUID(), timeout=60.0)
+        lock = MemcacheLock("ImplicitUIDLock", calendar.resourceUID(), timeout=60.0, expire_time=5*60)
 
         # Note that this lock also protects the request, as this request is
         # being re-used by potentially multiple transactions and should not be
@@ -542,6 +543,7 @@ class ImplicitProcessor(object):
             else:
                 yield txn.commit()
         finally:
+            # This correctly gets called only after commit or abort is done
             yield lock.clean()
 
             # Track outstanding auto-reply processing

@@ -497,8 +497,8 @@ class IMIPReplyInboxResource(IMIPInboxResource):
         Set up a transaction which will be used and committed by implicit
         scheduling.
         """
-        txn = transactionFromRequest(request, self._newStore)
-        return super(IMIPReplyInboxResource, self).renderHTTP(request, txn)
+        self.transaction = transactionFromRequest(request, self._newStore)
+        return super(IMIPReplyInboxResource, self).renderHTTP(request, self.transaction)
 
     @inlineCallbacks
     def http_POST(self, request):
@@ -513,7 +513,7 @@ class IMIPReplyInboxResource(IMIPInboxResource):
         scheduler = IMIPScheduler(request, self)
 
         # Do the POST processing treating this as a non-local schedule
-        result = (yield scheduler.doSchedulingViaPOST(use_request_headers=True))
+        result = (yield scheduler.doSchedulingViaPOST(self.transaction, use_request_headers=True))
         returnValue(result.response())
 
 

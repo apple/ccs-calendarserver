@@ -62,15 +62,16 @@ class StoreCalendarObjectResource(object):
 
     class UIDReservation(object):
         
-        def __init__(self, index, uid, uri, internal_request):
+        def __init__(self, index, uid, uri, internal_request, transaction):
             if internal_request:
                 self.lock = None
             else:
-                self.lock = MemcacheLock("ImplicitUIDLock", uid, timeout=60.0)
+                self.lock = MemcacheLock("ImplicitUIDLock", uid, timeout=60.0, expire_time=5*60)
             self.reserved = False
             self.index = index
             self.uid = uid
             self.uri = uri
+            self.transaction = transaction
             
         @inlineCallbacks
         def reserve(self):
@@ -102,6 +103,7 @@ class StoreCalendarObjectResource(object):
             
             if self.uri and not self.reserved:
                 if self.lock:
+                    # Can release immediately as nothing happened
                     yield self.lock.release()
                 raise HTTPError(StatusResponse(responsecode.CONFLICT, "Resource: %s currently in use in calendar." % (self.uri,)))
         
@@ -111,7 +113,9 @@ class StoreCalendarObjectResource(object):
                 yield self.index.unreserveUID(self.uid)
                 self.reserved = False
             if self.lock:
-                yield self.lock.clean()
+                # Release lock after commit or abort
+                self.transaction.postCommit(self.lock.clean)
+                self.transaction.postAbort(self.lock.clean)
 
     def __init__(
         self,
@@ -1000,7 +1004,8 @@ class StoreCalendarObjectResource(object):
                 self.destination_index = self.destinationparent.index()
                 reservation = StoreCalendarObjectResource.UIDReservation(
                     self.destination_index, self.uid, self.destination_uri,
-                    self.internal_request or self.isiTIP
+                    self.internal_request or self.isiTIP,
+                    self.destination._associatedTransaction,
                 )
                 yield reservation.reserve()
                 # UID conflict check - note we do this after reserving the UID to avoid a race condition where two requests 

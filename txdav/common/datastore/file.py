@@ -925,6 +925,8 @@ class CommonObjectResource(FileMetaDataMixin, LoggingMixIn, FancyEqMixin):
     def __repr__(self):
         return "<%s: %s>" % (self.__class__.__name__, self._path.path)
 
+    def transaction(self):
+        return self._transaction
 
     @writeOperation
     def setComponent(self, component, inserting=False):

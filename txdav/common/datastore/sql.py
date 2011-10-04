@@ -223,6 +223,7 @@ class CommonStoreTransaction(object):
         self._addressbookHomes = {}
         self._notificationHomes = {}
         self._postCommitOperations = []
+        self._postAbortOperations = []
         self._notifierFactory = notifierFactory
         self._label = label
         self._migrating = migrating
@@ -328,6 +329,13 @@ class CommonStoreTransaction(object):
         Run things after C{commit}.
         """
         self._postCommitOperations.append(operation)
+
+
+    def postAbort(self, operation):
+        """
+        Run things after C{abort}.
+        """
+        self._postAbortOperations.append(operation)
 
 
     _savepointCounter = 0
@@ -457,7 +465,11 @@ class CommonStoreTransaction(object):
         """
         Abort the transaction.
         """
-        return self._sqlTxn.abort()
+        def postAbort(ignored):
+            for operation in self._postAbortOperations:
+                operation()
+            return ignored
+        return self._sqlTxn.abort().addCallback(postAbort)
 
 
     def _oldEventsBase(limited): #@NoSelf
@@ -2411,6 +2423,8 @@ class CommonObjectResource(LoggingMixIn, FancyEqMixin):
     def _txn(self):
         return self._parentCollection._txn
 
+    def transaction(self):
+        return self._parentCollection._txn
 
     def setComponent(self, component, inserting=False):
         raise NotImplementedError
