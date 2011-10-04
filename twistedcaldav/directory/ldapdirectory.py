@@ -625,7 +625,7 @@ class LdapDirectoryService(CachingDirectoryService):
         uid = None
         enabledForLogin = True
 
-        shortNames = (self._getUniqueLdapAttribute(attrs, self.rdnSchema[recordType]["mapping"]["recordName"]),)
+        shortNames = tuple(self._getMultipleLdapAttributes(attrs, self.rdnSchema[recordType]["mapping"]["recordName"]))
 
         # First check for and add guid
         guidAttr = self.rdnSchema["guidAttr"]
