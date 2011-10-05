@@ -147,15 +147,16 @@ class Notifier(LoggingMixIn):
         id = self.getID(label=label)
         pubSubConfig = self._notifierFactory.pubSubConfig
         name = getPubSubPath(id, pubSubConfig)
-        try:
-            if self._notifierFactory.nodeCacher:
-                nodeCacher = self._notifierFactory.nodeCacher
-            else:
-                nodeCacher = getNodeCacher()
-            (yield nodeCacher.waitForNode(self, name))
-        except NodeCreationException, e:
-            self.log_warn(e)
-            returnValue(None)
+        if pubSubConfig["enabled"]:
+            try:
+                if self._notifierFactory.nodeCacher:
+                    nodeCacher = self._notifierFactory.nodeCacher
+                else:
+                    nodeCacher = getNodeCacher()
+                (yield nodeCacher.waitForNode(self, name))
+            except NodeCreationException, e:
+                self.log_warn(e)
+                returnValue(None)
         returnValue(name)
 
 class NotificationClientLineProtocol(LineReceiver, LoggingMixIn):
@@ -458,7 +459,7 @@ class INotifier(Interface):
 
     def enqueue(self, op, id):
         """
-        Let's the notifier object know that a change has been made for this
+        Let the notifier object know that a change has been made for this
         id, and enough time has passed to allow for coalescence.
 
         @type op: C{str}
@@ -1258,12 +1259,11 @@ def getXMPPSettings(config):
 
 def getPubSubConfiguration(config):
     # TODO: Should probably cache this
-    results = { 'enabled' : False }
+    results = { 'enabled' : False, 'host' : config.ServerHostName }
     settings = getXMPPSettings(config)
     if settings is not None:
         results['enabled'] = True
         results['service'] = settings['ServiceAddress']
-        results['host'] = config.ServerHostName
         results['port'] = config.SSLPort or config.HTTPPort
         results['xmpp-server'] = (
             settings['Host'] if settings['Port'] == 5222
@@ -1278,14 +1278,31 @@ def getPubSubAPSConfiguration(id, config):
     Returns the Apple push notification settings specific to the notifier
     ID, which includes a prefix that is either "CalDAV" or "CardDAV"
     """
-    settings = getXMPPSettings(config)
-    if settings is None:
-        return None
-
     try:
         prefix, id = id.split("|", 1)
     except ValueError:
         # id has no prefix, so we can't look up APS config
+        return None
+
+    # If we are directly talking to apple push, advertise those settings
+    applePushSettings = config.Notifications.Services.ApplePushNotifier
+    if applePushSettings.Enabled:
+        settings = {}
+        settings["APSBundleID"] = applePushSettings[prefix]["Topic"]
+        if config.EnableSSL:
+            url = "https://%s:%s/%s" % (config.ServerHostName, config.SSLPort,
+                applePushSettings.SubscriptionURL)
+        else:
+            url = "http://%s:%s/%s" % (config.ServerHostName, config.HTTPPort,
+                applePushSettings.SubscriptionURL)
+        settings["SubscriptionURL"] = url
+        settings["APSEnvironment"] = applePushSettings.Environment
+        return settings
+
+    # ...otherwise pick up the apple push settings we get via XMPP and
+    # apn bridge
+    settings = getXMPPSettings(config)
+    if settings is None:
         return None
 
     if (settings.has_key(prefix) and
@@ -1441,12 +1458,47 @@ class NotificationServiceMaker(object):
             config.Memcached.MaxClients,
         )
 
+        from calendarserver.tap.util import (
+            storeFromConfig, pgConnectorFromConfig, oracleConnectorFromConfig,
+            pgServiceFromConfig
+        )
+        from twext.enterprise.ienterprise import POSTGRES_DIALECT
+        from twext.enterprise.ienterprise import ORACLE_DIALECT
+        from twext.enterprise.adbapi2 import ConnectionPool
+
+        pool = None
+        if not config.UseDatabase:
+            txnFactory = None
+        else:
+            dialect = POSTGRES_DIALECT
+            paramstyle = 'pyformat'
+            if config.DBType == '':
+                # get a PostgresService to tell us what the local connection
+                # info is, but *don't* start it (that would start one postgres
+                # master per slave, resulting in all kinds of mayhem...)
+                connectionFactory = pgServiceFromConfig(
+                    config, None).produceConnection
+            elif config.DBType == 'postgres':
+                connectionFactory = pgConnectorFromConfig(config)
+            elif config.DBType == 'oracle':
+                dialect = ORACLE_DIALECT
+                paramstyle = 'numeric'
+                connectionFactory = oracleConnectorFromConfig(config)
+            else:
+                raise UsageError("unknown DB type: %r" % (config.DBType,))
+            pool = ConnectionPool(connectionFactory, dialect=dialect,
+                                  paramstyle=paramstyle)
+            txnFactory = pool.connection
+
+        store = storeFromConfig(config, txnFactory)
+
         multiService = service.MultiService()
 
         notifiers = []
         for key, settings in config.Notifications.Services.iteritems():
             if settings["Enabled"]:
-                notifier = namedClass(settings["Service"])(settings)
+                notifier = namedClass(settings["Service"]).makeService(settings,
+                    store)
                 notifier.setServiceParent(multiService)
                 notifiers.append(notifier)
 
@@ -1461,6 +1513,10 @@ class NotificationServiceMaker(object):
 
 
 class SimpleLineNotifierService(service.Service):
+
+    @classmethod
+    def makeService(cls, settings, store):
+        return cls(settings)
 
     def __init__(self, settings):
         self.notifier = SimpleLineNotifier(settings)
@@ -1478,6 +1534,10 @@ class SimpleLineNotifierService(service.Service):
 
 
 class XMPPNotifierService(service.Service):
+
+    @classmethod
+    def makeService(cls, settings, store):
+        return cls(settings)
 
     def __init__(self, settings):
         self.notifier = XMPPNotifier(settings)

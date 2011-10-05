@@ -56,6 +56,7 @@ from twistedcaldav.directory.principal import DirectoryPrincipalProvisioningReso
 from twistedcaldav.directory.sudo import SudoDirectoryService
 from twistedcaldav.directory.wiki import WikiDirectoryService
 from twistedcaldav.notify import NotifierFactory, getPubSubConfiguration
+from twistedcaldav.applepush import APNSubscriptionResource
 from twistedcaldav.directorybackedaddressbook import DirectoryBackedAddressBookResource
 from twistedcaldav.resource import CalDAVResource, AuthenticationWrapper
 from twistedcaldav.schedule import IScheduleInboxResource
@@ -358,6 +359,7 @@ def getRootResource(config, newStore, resources=None):
     webAdminResourceClass           = WebAdminResource
     addressBookResourceClass        = DirectoryAddressBookHomeProvisioningResource
     directoryBackedAddressBookResourceClass = DirectoryBackedAddressBookResource
+    apnSubscriptionResourceClass    = APNSubscriptionResource
 
     directory = directoryFromConfig(config)
 
@@ -591,6 +593,16 @@ def getRootResource(config, newStore, resources=None):
             principalCollections=(principalCollection,),
         )
         root.putChild("admin", webAdmin)
+
+    #
+    # Apple Push Notification Subscriptions
+    #
+    apnConfig = config.Notifications.Services["ApplePushNotifier"]
+    if apnConfig.Enabled:
+        log.info("Setting up APNS resource at /%s" %
+            (apnConfig["SubscriptionURL"],))
+        apnResource = apnSubscriptionResourceClass(newStore)
+        root.putChild(apnConfig["SubscriptionURL"], apnResource)
 
     #
     # Configure ancillary data

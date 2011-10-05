@@ -2224,7 +2224,10 @@ class CommonHomeResource(PropfindCacheMixin, SharedHomeMixin, CalDAVResource):
             returnValue(customxml.MaxCollections.fromString(config.MaxCollectionsPerHome))
             
         elif qname == (customxml.calendarserver_namespace, "push-transports"):
-            if config.Notifications.Services.XMPPNotifier.Enabled:
+
+            if (config.Notifications.Services.XMPPNotifier.Enabled or
+                config.Notifications.Services.ApplePushNotifier.Enabled):
+
                 nodeName = (yield self._newStoreHome.nodeName())
                 if nodeName:
                     notifierID = self._newStoreHome.notifierID()
@@ -2251,7 +2254,8 @@ class CommonHomeResource(PropfindCacheMixin, SharedHomeMixin, CalDAVResource):
                             )
 
                         pubSubConfiguration = getPubSubConfiguration(config)
-                        if pubSubConfiguration['xmpp-server']:
+                        if (pubSubConfiguration['enabled'] and
+                            pubSubConfiguration['xmpp-server']):
                             children.append(
                                 customxml.PubSubTransportProperty(
                                     customxml.PubSubXMPPServerProperty(
@@ -2268,7 +2272,8 @@ class CommonHomeResource(PropfindCacheMixin, SharedHomeMixin, CalDAVResource):
             returnValue(None)
 
         elif qname == (customxml.calendarserver_namespace, "pushkey"):
-            if config.Notifications.Services.XMPPNotifier.Enabled:
+            if (config.Notifications.Services.XMPPNotifier.Enabled or
+                config.Notifications.Services.ApplePushNotifier.Enabled):
                 nodeName = (yield self._newStoreHome.nodeName())
                 if nodeName:
                     returnValue(customxml.PubSubXMPPPushKeyProperty(nodeName))

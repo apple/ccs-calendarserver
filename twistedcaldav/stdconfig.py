@@ -629,6 +629,27 @@ DEFAULT_CONFIG = {
                 "Enabled" : False,
                 "Port" : 62308,
             },
+            "ApplePushNotifier" : {
+                "Service" : "twistedcaldav.applepush.ApplePushNotifierService",
+                "Enabled" : False,
+                "SubscriptionURL" : "apns",
+                "DataHost" : "",
+                "ProviderHost" : "gateway.push.apple.com",
+                "ProviderPort" : 2195,
+                "FeedbackHost" : "feedback.push.apple.com",
+                "FeedbackPort" : 2196,
+                "Environment" : "PRODUCTION",
+                "CalDAV" : {
+                    "CertificatePath" : "",
+                    "PrivateKeyPath" : "",
+                    "Topic" : "",
+                },
+                "CardDAV" : {
+                    "CertificatePath" : "",
+                    "PrivateKeyPath" : "",
+                    "Topic" : "",
+                },
+            },
             "XMPPNotifier" : {
                 "Service" : "twistedcaldav.notify.XMPPNotifierService",
                 "Enabled" : False,
@@ -1173,6 +1194,14 @@ def _updateNotifications(configDict):
         configDict.Notifications["Enabled"] = False
 
     for key, service in configDict.Notifications["Services"].iteritems():
+
+        # The default for apple push DataHost is ServerHostName
+        if (
+            service["Service"] == "twistedcaldav.applepush.ApplePushNotifierService" and
+            service["DataHost"] == ""
+        ):
+            service["DataHost"] = configDict.ServerHostName
+
         if (
             service["Service"] == "twistedcaldav.notify.XMPPNotifierService" and
             service["Enabled"]

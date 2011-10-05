@@ -147,7 +147,21 @@ class ICommonTransaction(ITransaction):
             notification collection exists.
         """
 
+    def addAPNSubscription(token, key, timestamp, subscriber):
+        """
+        """
 
+    def removeAPNSubscription(token, key):
+        """
+        """
+
+    def apnSubscriptionsByToken(token):
+        """
+        """
+
+    def apnSubscriptionsByKey(key):
+        """
+        """
 
 class IShareableCollection(Interface):
     """
