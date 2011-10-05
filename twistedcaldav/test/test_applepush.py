@@ -15,10 +15,11 @@
 ##
 
 from twistedcaldav.applepush import (
-    ApplePushNotifierService, APNProviderService
+    ApplePushNotifierService, APNProviderService, APNProviderProtocol
 )
 from twistedcaldav.test.util import TestCase
 from twisted.internet.defer import inlineCallbacks, succeed
+from twisted.internet.task import Clock
 import struct
 import time
 
@@ -36,6 +37,7 @@ class ApplePushNotifierServiceTests(TestCase):
             "ProviderPort" : 2195,
             "FeedbackHost" : "feedback.push.apple.com",
             "FeedbackPort" : 2196,
+            "FeedbackUpdateSeconds" : 300,
             "CalDAV" : {
                 "CertificatePath" : "caldav.cer",
                 "PrivateKeyPath" : "caldav.pem",
@@ -49,18 +51,23 @@ class ApplePushNotifierServiceTests(TestCase):
         }
 
 
-        # Add a subscription
+        # Add subscriptions
         store = StubStore()
         txn = store.newTransaction()
         token = "2d0d55cd7f98bcb81c6e24abcdc35168254c7846a43e2828b1ba5a8f82e219df"
-        key = "/CalDAV/calendars.example.com/user01/calendar/"
-        now = int(time.time())
+        key1 = "/CalDAV/calendars.example.com/user01/calendar/"
+        timestamp1 = 1000
         guid = "D2256BCC-48E2-42D1-BD89-CBA1E4CCDFFB"
-        yield txn.addAPNSubscription(token, key, now, guid)
+        yield txn.addAPNSubscription(token, key1, timestamp1, guid)
+
+        key2 = "/CalDAV/calendars.example.com/user02/calendar/"
+        timestamp2 = 3000
+        yield txn.addAPNSubscription(token, key2, timestamp2, guid)
 
         # Set up the service
+        clock = Clock()
         service = (yield ApplePushNotifierService.makeService(settings, store,
-            testConnectorClass=TestConnector))
+            testConnectorClass=TestConnector, reactor=clock))
         self.assertEquals(set(service.providers.keys()), set(["CalDAV","CardDAV"]))
         self.assertEquals(set(service.feedbacks.keys()), set(["CalDAV","CardDAV"]))
         service.startService()
@@ -69,7 +76,8 @@ class ApplePushNotifierServiceTests(TestCase):
         service.enqueue("update", "CalDAV|user01/calendar")
 
         # Verify data sent to APN
-        rawData = service.providers["CalDAV"].testConnector.getData()
+        connector = service.providers["CalDAV"].testConnector
+        rawData = connector.transport.data
         self.assertEquals(len(rawData), 103)
         data = struct.unpack("!BIIH32sH", rawData[:45])
         self.assertEquals(data[0], 1) # command
@@ -77,19 +85,39 @@ class ApplePushNotifierServiceTests(TestCase):
         payloadLength = data[5]
         payload = struct.unpack("%ds" % (payloadLength,),
             rawData[45:])
-        self.assertEquals(payload[0], '{"key" : "%s"}' % (key,))
+        self.assertEquals(payload[0], '{"key" : "%s"}' % (key1,))
+
+        # Simulate an error
+        errorData = struct.pack("!BBI", APNProviderProtocol.COMMAND_ERROR, 1, 1)
+        connector.receiveData(errorData)
+        clock.advance(301)
+
+        # Prior to feedback, there are 2 subscriptions
+        self.assertEquals(len(store.subscriptions), 2)
+
+        # Simulate feedback
+        timestamp = 2000
+        connector = service.feedbacks["CalDAV"].testConnector
+        binaryToken = token.decode("hex")
+        feedbackData = struct.pack("!IH32s", timestamp, len(binaryToken),
+            binaryToken)
+        connector.receiveData(feedbackData)
+
+        # The second subscription should now be gone
+        self.assertEquals(len(store.subscriptions), 1)
 
 
 class TestConnector(object):
 
     def connect(self, service, factory):
+        self.service = service
         service.protocol = factory.buildProtocol(None)
         service.connected = 1
         self.transport = StubTransport()
         service.protocol.makeConnection(self.transport)
 
-    def getData(self):
-        return self.transport.data
+    def receiveData(self, data):
+        self.service.protocol.dataReceived(data)
 
 
 class StubTransport(object):
@@ -122,9 +150,24 @@ class StubTransaction(object):
                 matches.append((subscription.token, subscription.guid))
         return succeed(matches)
 
+    def apnSubscriptionsByToken(self, token):
+        matches = []
+        for subscription in self.store.subscriptions:
+            if subscription.token == token:
+                matches.append((subscription.key, subscription.timestamp,
+                    subscription.guid))
+        return succeed(matches)
+
     def addAPNSubscription(self, token, key, timestamp, guid):
         subscription = Subscription(token, key, timestamp, guid)
         self.store.subscriptions.append(subscription)
+        return succeed(None)
+
+    def removeAPNSubscription(self, token, key):
+        matches = []
+        for subscription in list(self.store.subscriptions):
+            if subscription.token == token and subscription.key == key:
+                self.store.subscriptions.remove(subscription)
         return succeed(None)
 
     def commit(self):

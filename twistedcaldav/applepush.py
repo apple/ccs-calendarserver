@@ -48,7 +48,9 @@ log = Logger()
 class ApplePushNotifierService(service.MultiService, LoggingMixIn):
 
     @classmethod
-    def makeService(cls, settings, store):
+    def makeService(cls, settings, store, testConnectorClass=None,
+        reactor=None):
+
         service = cls()
 
         service.store = store
@@ -58,11 +60,19 @@ class ApplePushNotifierService(service.MultiService, LoggingMixIn):
 
         for protocol in ("CalDAV", "CardDAV"):
 
+            providerTestConnector = None
+            feedbackTestConnector = None
+            if testConnectorClass is not None:
+                providerTestConnector = testConnectorClass()
+                feedbackTestConnector = testConnectorClass()
+
             provider = APNProviderService(
                 settings["ProviderHost"],
                 settings["ProviderPort"],
                 settings[protocol]["CertificatePath"],
                 settings[protocol]["PrivateKeyPath"],
+                testConnector=providerTestConnector,
+                reactor=reactor,
             )
             provider.setServiceParent(service)
             service.providers[protocol] = provider
@@ -70,14 +80,17 @@ class ApplePushNotifierService(service.MultiService, LoggingMixIn):
                 (protocol, settings[protocol]["Topic"]))
 
             feedback = APNFeedbackService(
+                service.store,
+                settings["FeedbackUpdateSeconds"],
                 settings["FeedbackHost"],
                 settings["FeedbackPort"],
                 settings[protocol]["CertificatePath"],
                 settings[protocol]["PrivateKeyPath"],
+                testConnector=feedbackTestConnector,
+                reactor=reactor,
             )
             feedback.setServiceParent(service)
             service.feedbacks[protocol] = feedback
-
 
         return service
 
@@ -99,7 +112,7 @@ class ApplePushNotifierService(service.MultiService, LoggingMixIn):
             # Look up subscriptions for this key
             txn = self.store.newTransaction()
             subscriptions = (yield txn.apnSubscriptionsByKey(key))
-            yield txn.commit()
+            yield txn.commit() # TODO: Glyph, needed?
 
             for token, guid in subscriptions:
                 self.log_debug("Sending APNS: token='%s' key='%s' guid='%s'" %
@@ -136,7 +149,7 @@ class APNProviderProtocol(protocol.Protocol, LoggingMixIn):
 
     def makeConnection(self, transport):
         self.identifier = 0
-        self.log_debug("ProviderProtocol makeConnection")
+        # self.log_debug("ProviderProtocol makeConnection")
         protocol.Protocol.makeConnection(self, transport)
 
     def connectionMade(self):
@@ -148,7 +161,7 @@ class APNProviderProtocol(protocol.Protocol, LoggingMixIn):
         # self.sendNotification(TOKEN, "xyzzy")
 
     def connectionLost(self, reason=None):
-        self.log_error("ProviderProtocol connectionLost: %s" % (reason,))
+        # self.log_debug("ProviderProtocol connectionLost: %s" % (reason,))
         # TODO: glyph review
         # Clear the reference to us from the factory
         self.factory.connection = None
@@ -202,7 +215,7 @@ class APNProviderFactory(ReconnectingClientFactory, LoggingMixIn):
         return p
 
     def clientConnectionLost(self, connector, reason):
-        self.log_error("Connection to APN server lost: %s" % (reason,))
+        # self.log_info("Connection to APN server lost: %s" % (reason,))
         ReconnectingClientFactory.clientConnectionLost(self, connector, reason)
 
     def clientConnectionFailed(self, connector, reason):
@@ -215,7 +228,7 @@ class APNProviderFactory(ReconnectingClientFactory, LoggingMixIn):
 class APNConnectionService(service.Service, LoggingMixIn):
 
     def __init__(self, host, port, certPath, keyPath, chainPath="",
-        sslMethod="TLSv1_METHOD", testConnector=None):
+        sslMethod="TLSv1_METHOD", testConnector=None, reactor=None):
 
         self.host = host
         self.port = port
@@ -224,6 +237,10 @@ class APNConnectionService(service.Service, LoggingMixIn):
         self.chainPath = chainPath
         self.sslMethod = sslMethod
         self.testConnector = testConnector
+
+        if reactor is None:
+            from twisted.internet import reactor
+        self.reactor = reactor
 
     def connect(self, factory):
         if self.testConnector is not None:
@@ -242,11 +259,11 @@ class APNConnectionService(service.Service, LoggingMixIn):
 class APNProviderService(APNConnectionService):
 
     def __init__(self, host, port, certPath, keyPath, chainPath="",
-        sslMethod="TLSv1_METHOD", testConnector=None):
+        sslMethod="TLSv1_METHOD", testConnector=None, reactor=None):
 
         APNConnectionService.__init__(self, host, port, certPath, keyPath,
             chainPath="", sslMethod=sslMethod,
-            testConnector=testConnector)
+            testConnector=testConnector, reactor=reactor)
 
     def startService(self):
         self.log_debug("APNProviderService startService")
@@ -273,21 +290,37 @@ class APNFeedbackProtocol(protocol.Protocol, LoggingMixIn):
     Implements the Feedback portion of APNS
     """
 
+    def connectionMade(self):
+        self.log_debug("FeedbackProtocol connectionMade")
+
     def dataReceived(self, data):
         self.log_debug("FeedbackProtocol dataReceived %d bytes" % (len(data),))
         timestamp, tokenLength, binaryToken = struct.unpack("!IH32s", data)
         token = binaryToken.encode("hex")
         self.processFeedback(timestamp, token)
 
+    @inlineCallbacks
     def processFeedback(self, timestamp, token):
         self.log_debug("FeedbackProtocol processFeedback time=%d token=%s" %
             (timestamp, token))
         # TODO: actually see if we need to remove the token from subscriptions
+        txn = self.store.newTransaction()
+        subscriptions = (yield txn.apnSubscriptionsByToken(token))
+        yield txn.commit() # TODO: Glyph, needed?
+
+        for key, modified, guid in subscriptions:
+            if timestamp > modified:
+                self.log_debug("FeedbackProtocol removing subscription: %s %s" %
+                    (token, key))
+                yield txn.removeAPNSubscription(token, key)
 
 
 class APNFeedbackFactory(ClientFactory, LoggingMixIn):
 
     protocol = APNFeedbackProtocol
+
+    def __init__(self, store):
+        self.store = store
 
     def buildProtocol(self, addr):
         p = self.protocol()
@@ -295,11 +328,8 @@ class APNFeedbackFactory(ClientFactory, LoggingMixIn):
         # Give protocol a back-reference to factory so it can set/clear
         # the "connection" reference on the factory
         p.factory = self
+        p.store = self.store
         return p
-
-    def clientConnectionLost(self, connector, reason):
-        self.log_error("Connection to APN feedback server lost: %s" % (reason,))
-        ClientFactory.clientConnectionLost(self, connector, reason)
 
     def clientConnectionFailed(self, connector, reason):
         self.log_error("Unable to connect to APN feedback server: %s" %
@@ -310,22 +340,33 @@ class APNFeedbackFactory(ClientFactory, LoggingMixIn):
 
 class APNFeedbackService(APNConnectionService):
 
-    def __init__(self, host, port, certPath, keyPath, chainPath="",
-        sslMethod="TLSv1_METHOD", testConnector=None):
+    def __init__(self, store, updateSeconds, host, port, certPath, keyPath,
+        chainPath="", sslMethod="TLSv1_METHOD", testConnector=None,
+        reactor=None):
 
         APNConnectionService.__init__(self, host, port, certPath, keyPath,
             chainPath="", sslMethod=sslMethod,
-            testConnector=testConnector)
+            testConnector=testConnector, reactor=reactor)
+
+        self.store = store
+        self.updateSeconds = updateSeconds
 
     def startService(self):
         self.log_debug("APNFeedbackService startService")
-        # TODO: Set a timer to connect to feedback at an interval
-        # self.factory = APNFeedbackFactory()
-        # self.connect(self.factory)
+        self.factory = APNFeedbackFactory(self.store)
+        self.checkForFeedback()
 
     def stopService(self):
         self.log_debug("APNFeedbackService stopService")
+        if self.nextCheck is not None:
+            self.nextCheck.cancel()
 
+    def checkForFeedback(self):
+        self.nextCheck = None
+        self.log_debug("APNFeedbackService checkForFeedback")
+        self.connect(self.factory)
+        self.nextCheck = self.reactor.callLater(self.updateSeconds,
+            self.checkForFeedback)
 
 class APNSubscriptionResource(Resource):
 
@@ -336,7 +377,7 @@ class APNSubscriptionResource(Resource):
 
     def __init__(self, store):
         self.store = store
-        # Hopefully we can use this store to manage subscriptions
+        # TODO: add authentication
 
     def http_GET(self, request):
         return self.processSubscription(request.args)
@@ -366,9 +407,10 @@ class APNSubscriptionResource(Resource):
     def addSubscription(self, token, key):
         now = int(time.time()) # epoch seconds
         txn = self.store.newTransaction()
+        # TODO: use actual guid
         yield txn.addAPNSubscription(token, key, now, "xyzzy")
-        subscriptions = (yield txn.apnSubscriptionsByToken(token))
-        print subscriptions
+        # subscriptions = (yield txn.apnSubscriptionsByToken(token))
+        # print subscriptions
         yield txn.commit()
 
     def renderResponse(self, code, body=None):
