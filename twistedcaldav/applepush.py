@@ -379,7 +379,7 @@ class APNSubscriptionResource(Resource):
         # TODO: add authentication
 
     def http_GET(self, request):
-        return self.processSubscription(request.args)
+        return self.processSubscription(None, request.args)
 
     def http_POST(self, request):
         return parsePOSTData(request).addCallback(
