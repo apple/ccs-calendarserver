@@ -1,7 +1,7 @@
 BEGIN:VCALENDAR
+VERSION:2.0
 CALSCALE:GREGORIAN
 PRODID:-//calendarserver.org//Zonal//EN
-VERSION:2.0
 BEGIN:VTIMEZONE
 TZID:America/Argentina/Rio_Gallegos
 X-LIC-LOCATION:America/Argentina/Rio_Gallegos
