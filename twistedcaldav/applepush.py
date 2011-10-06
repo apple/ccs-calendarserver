@@ -306,13 +306,13 @@ class APNFeedbackProtocol(protocol.Protocol, LoggingMixIn):
         # TODO: actually see if we need to remove the token from subscriptions
         txn = self.store.newTransaction()
         subscriptions = (yield txn.apnSubscriptionsByToken(token))
-        yield txn.commit() # TODO: Glyph, needed?
 
         for key, modified, guid in subscriptions:
             if timestamp > modified:
                 self.log_debug("FeedbackProtocol removing subscription: %s %s" %
                     (token, key))
                 yield txn.removeAPNSubscription(token, key)
+        yield txn.commit()
 
 
 class APNFeedbackFactory(ClientFactory, LoggingMixIn):
