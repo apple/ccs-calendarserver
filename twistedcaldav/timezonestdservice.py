@@ -37,7 +37,8 @@ from twext.web2.http import XMLResponse
 from twext.web2.http_headers import MimeType
 from twext.web2.stream import MemoryStream
 
-from twisted.internet.defer import succeed, inlineCallbacks, returnValue
+from twisted.internet.defer import succeed, inlineCallbacks, returnValue,\
+    DeferredList
 
 from twistedcaldav import timezonexml, xmlutil
 from twistedcaldav.client.geturl import getURL
@@ -582,7 +583,7 @@ class PrimaryTimezoneDatabase(CommonTimezoneDatabase):
         Create a new DB xml file from scratch by scanning zoneinfo.
         """
 
-        self.dtstamp = PyCalendarDateTime.getNowUTC().getText()
+        self.dtstamp = PyCalendarDateTime.getNowUTC().getXMLText()
         self._scanTZs("")
         self._dumpTZs()
 
@@ -635,7 +636,7 @@ class PrimaryTimezoneDatabase(CommonTimezoneDatabase):
         """
         Update existing DB info by comparing md5's.
         """
-        self.dtstamp = PyCalendarDateTime.getNowUTC().getText()
+        self.dtstamp = PyCalendarDateTime.getNowUTC().getXMLText()
         self.changeCount = 0
         self.changed = set()
         self._scanTZs("", checkIfChanged=True)
@@ -652,7 +653,9 @@ class SecondaryTimezoneDatabase(CommonTimezoneDatabase):
         self.uri = uri
         self.discovered = False
         self._url = None
-        
+
+        log.debug("Configuring secondary server with basepath: %s" % (self.basepath,))
+
         if not os.path.exists(self.basepath):
             os.makedirs(self.basepath)
             
@@ -671,9 +674,11 @@ class SecondaryTimezoneDatabase(CommonTimezoneDatabase):
         Sync local data with that from the server we are replicating.
         """
         
+        log.debug("Sync'ing with secondary server")
         result = (yield self._getTimezoneListFromServer())
         if result is None:
             # Nothing changed since last sync
+            log.debug("No changes on secondary server")
             returnValue(None)
         newdtstamp, newtimezones = result
         
@@ -688,13 +693,21 @@ class SecondaryTimezoneDatabase(CommonTimezoneDatabase):
             if self.timezones[tzid].dtstamp < newtimezones[tzid].dtstamp:
                 changedtzids.add(tzid)
         
-        # Now apply changes
-        for tzid in itertools.chain(newtzids, changedtzids):
-            yield self._getTimezoneFromServer(newtimezones[tzid])
-            
+        log.debug("Fetching %d new, %d changed timezones on secondary server" % (len(newtzids), len(changedtzids),))
+
+        # Now apply changes - do requests in parallel for speedier fetching
+        BATCH = 5
+        tzids = list(itertools.chain(newtzids, changedtzids))
+        tzids.sort()
+        while tzids:
+            yield DeferredList([self._getTimezoneFromServer(newtimezones[tzid]) for tzid in tzids[0:BATCH]])
+            tzids = tzids[BATCH:]
+
         self.dtstamp = newdtstamp
         self._dumpTZs()
         self._buildAliases()
+
+        log.debug("Sync with secondary server complete")
         
         returnValue((len(newtzids), len(changedtzids),))
         
@@ -706,21 +719,24 @@ class SecondaryTimezoneDatabase(CommonTimezoneDatabase):
         
         if self.uri is None:
             if config.TimezoneService.SecondaryService.Host:
-                self.uri = "https://%s/.well-known/timezone" % (self.config.TimezoneService.SecondaryService.Host,)
+                self.uri = "https://%s/.well-known/timezone" % (config.TimezoneService.SecondaryService.Host,)
             elif config.TimezoneService.SecondaryService.URI:
                 self.uri = config.TimezoneService.SecondaryService.URI
         elif not self.uri.startswith("https:") and not self.uri.startswith("http:"):
             self.uri = "https://%s/.well-known/timezone" % (self.uri,)
             
         testURI = "%s?action=capabilities" % (self.uri,)
+        log.debug("Discovering secondary server: %s" % (testURI,))
         response = (yield getURL(testURI))
         if response is None or response.code / 100 != 2:
+            log.error("Unable to discover secondary server: %s" % (testURI,))
             self.discovered = False
             returnValue(False)
         
         # Cache the redirect target
         if hasattr(response, "location"):
             self.uri = response.location 
+            log.debug("Redirected secondary server to: %s" % (self.uri,))
 
         # TODO: Ignoring the data from capabilities for now
 
@@ -743,6 +759,7 @@ class SecondaryTimezoneDatabase(CommonTimezoneDatabase):
         url = "%s?action=list" % (self.uri,)
         if self.dtstamp:
             url = "%s&changedsince=%s" % (url, self.dtstamp,)
+        log.debug("Getting timezone list from secondary server: %s" % (url,))
         response = (yield getURL(url))
         if response is None or response.code / 100 != 2:
             returnValue(None)
@@ -761,13 +778,17 @@ class SecondaryTimezoneDatabase(CommonTimezoneDatabase):
             lastmod = summary.findtext(timezonexml.LastModified.sname())
             aliases = tuple([alias_node.text for alias_node in summary.findall(timezonexml.Alias.sname())])
             timezones[tzid] = TimezoneInfo(tzid, aliases, lastmod, None)
+
+        log.debug("Got %s timezones from secondary server" % (len(timezones),))
         
         returnValue((dtstamp, timezones,))
 
     @inlineCallbacks
     def _getTimezoneFromServer(self, tzinfo):
         # List all from the server
-        response = (yield getURL("%s?action=get&tzid=%s" % (self.uri, tzinfo.tzid,)))
+        url = "%s?action=get&tzid=%s" % (self.uri, tzinfo.tzid,)
+        log.debug("Getting timezone from secondary server: %s" % (url,))
+        response = (yield getURL(url))
         if response is None or response.code / 100 != 2:
             returnValue(None)
         
