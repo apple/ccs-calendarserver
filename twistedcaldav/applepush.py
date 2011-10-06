@@ -303,7 +303,6 @@ class APNFeedbackProtocol(protocol.Protocol, LoggingMixIn):
     def processFeedback(self, timestamp, token):
         self.log_debug("FeedbackProtocol processFeedback time=%d token=%s" %
             (timestamp, token))
-        # TODO: actually see if we need to remove the token from subscriptions
         txn = self.store.newTransaction()
         subscriptions = (yield txn.apnSubscriptionsByToken(token))
 
@@ -382,13 +381,12 @@ class APNSubscriptionResource(Resource):
     def http_GET(self, request):
         return self.processSubscription(request.args)
 
-    @inlineCallbacks
     def http_POST(self, request):
-        yield parsePOSTData(request)
-        returnValue(self.processSubscription(request.args))
+        return parsePOSTData(request).addCallback(
+            self.processSubscription, request.args)
 
     @inlineCallbacks
-    def processSubscription(self, args):
+    def processSubscription(self, ignored, args):
         token = args.get("token", None)
         key = args.get("key", None)
         if key and token:
