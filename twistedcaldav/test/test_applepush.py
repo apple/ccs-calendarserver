@@ -70,10 +70,22 @@ class ApplePushNotifierServiceTests(TestCase):
             testConnectorClass=TestConnector, reactor=clock))
         self.assertEquals(set(service.providers.keys()), set(["CalDAV","CardDAV"]))
         self.assertEquals(set(service.feedbacks.keys()), set(["CalDAV","CardDAV"]))
-        service.startService()
+
+        # First, enqueue a notification while we have no connection, in this
+        # case by doing it prior to startService()
 
         # Notification arrives from calendar server
         service.enqueue("update", "CalDAV|user01/calendar")
+
+        # The notification should be in the queue
+        self.assertEquals(service.providers["CalDAV"].queue, [(token, key1)])
+
+        # Start the service, making the connection which should service the
+        # queue
+        service.startService()
+
+        # The queue should be empty
+        self.assertEquals(service.providers["CalDAV"].queue, [])
 
         # Verify data sent to APN
         connector = service.providers["CalDAV"].testConnector

@@ -112,12 +112,14 @@ class ApplePushNotifierService(service.MultiService, LoggingMixIn):
             # Look up subscriptions for this key
             txn = self.store.newTransaction()
             subscriptions = (yield txn.apnSubscriptionsByKey(key))
-            yield txn.commit() # TODO: Glyph, needed?
+            yield txn.commit() # TODO: Glyph, needed?  No changes being made.
 
-            for token, guid in subscriptions:
-                self.log_debug("Sending APNS: token='%s' key='%s' guid='%s'" %
-                    (token, key, guid))
-                provider.sendNotification(token, key)
+            numSubscriptions = len(subscriptions)
+            if numSubscriptions > 0:
+                self.log_debug("Sending %d APNS notifications for %s" %
+                    (numSubscriptions, key))
+                for token, guid in subscriptions:
+                    provider.sendNotification(token, key)
 
 
 
@@ -154,15 +156,13 @@ class APNProviderProtocol(protocol.Protocol, LoggingMixIn):
 
     def connectionMade(self):
         self.log_debug("ProviderProtocol connectionMade")
-        # TODO: glyph review
         # Store a reference to ourself on the factory so the service can
         # later call us
         self.factory.connection = self
-        # self.sendNotification(TOKEN, "xyzzy")
+        self.factory.clientConnectionMade()
 
     def connectionLost(self, reason=None):
         # self.log_debug("ProviderProtocol connectionLost: %s" % (reason,))
-        # TODO: glyph review
         # Clear the reference to us from the factory
         self.factory.connection = None
 
@@ -187,7 +187,8 @@ class APNProviderProtocol(protocol.Protocol, LoggingMixIn):
         self.identifier += 1
         payload = '{"key" : "%s"}' % (node,)
         payloadLength = len(payload)
-        self.log_debug("ProviderProtocol sendNotification identifier=%d payload=%s" % (self.identifier, payload))
+        self.log_debug("Sending APNS notification to %s: id=%d payload=%s" %
+            (token, self.identifier, payload))
 
         self.transport.write(
             struct.pack("!BIIH32sH%ds" % (payloadLength,),
@@ -206,13 +207,11 @@ class APNProviderFactory(ReconnectingClientFactory, LoggingMixIn):
 
     protocol = APNProviderProtocol
 
-    def buildProtocol(self, addr):
-        p = self.protocol()
-        # TODO: glyph review
-        # Give protocol a back-reference to factory so it can set/clear
-        # the "connection" reference on the factory
-        p.factory = self
-        return p
+    def __init__(self, service):
+        self.service = service
+
+    def clientConnectionMade(self):
+        self.service.clientConnectionMade()
 
     def clientConnectionLost(self, connector, reason):
         # self.log_info("Connection to APN server lost: %s" % (reason,))
@@ -265,23 +264,36 @@ class APNProviderService(APNConnectionService):
             chainPath="", sslMethod=sslMethod,
             testConnector=testConnector, reactor=reactor)
 
+        self.factory = None
+        self.queue = []
+
     def startService(self):
         self.log_debug("APNProviderService startService")
-        self.factory = APNProviderFactory()
+        self.factory = APNProviderFactory(self)
         self.connect(self.factory)
 
     def stopService(self):
         self.log_debug("APNProviderService stopService")
 
+    def clientConnectionMade(self):
+        # Service the queue
+        if self.queue:
+            # Copy and clear the queue.  Any notifications that don't get
+            # sent will be put back into the queue.
+            queued = list(self.queue)
+            self.queue = []
+            for token, key in queued:
+                self.sendNotification(token, key)
+
     def sendNotification(self, token, key):
-        # TODO: glyph review
         # Service has reference to factory has reference to protocol instance
         connection = getattr(self.factory, "connection", None)
         if connection is None:
-            self.log_debug("APNProviderService sendNotification has no connection")
+            self.log_debug("APNProviderService has no connection; queuing: %s %s" % (token, key))
+            tokenKeyPair = (token, key)
+            if tokenKeyPair not in self.queue:
+                self.queue.append(tokenKeyPair)
         else:
-            self.log_debug("APNProviderService sendNotification: %s %s" %
-                (token, key))
             connection.sendNotification(token, key)
 
 
@@ -303,7 +315,7 @@ class APNFeedbackProtocol(protocol.Protocol, LoggingMixIn):
     def processFeedback(self, timestamp, token):
         self.log_debug("FeedbackProtocol processFeedback time=%d token=%s" %
             (timestamp, token))
-        txn = self.store.newTransaction()
+        txn = self.factory.store.newTransaction()
         subscriptions = (yield txn.apnSubscriptionsByToken(token))
 
         for key, modified, guid in subscriptions:
@@ -320,15 +332,6 @@ class APNFeedbackFactory(ClientFactory, LoggingMixIn):
 
     def __init__(self, store):
         self.store = store
-
-    def buildProtocol(self, addr):
-        p = self.protocol()
-        # TODO: glyph review
-        # Give protocol a back-reference to factory so it can set/clear
-        # the "connection" reference on the factory
-        p.factory = self
-        p.store = self.store
-        return p
 
     def clientConnectionFailed(self, connector, reason):
         self.log_error("Unable to connect to APN feedback server: %s" %
