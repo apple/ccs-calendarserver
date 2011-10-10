@@ -46,12 +46,9 @@ ORACLE_TABLE_NAME_MAX = 30
 
 
 
-class IAsyncTransaction(Interface):
+class ISQLExecutor(Interface):
     """
-    Asynchronous execution of SQL.
-
-    Note that there is no {begin()} method; if an L{IAsyncTransaction} exists,
-    it is assumed to have been started.
+    Base SQL-execution interface, for a group of commands or a transaction.
     """
 
     paramstyle = Attribute(
@@ -87,6 +84,15 @@ class IAsyncTransaction(Interface):
         """
 
 
+
+class IAsyncTransaction(ISQLExecutor):
+    """
+    Asynchronous execution of SQL.
+
+    Note that there is no {begin()} method; if an L{IAsyncTransaction} exists at
+    all, it is assumed to have been started.
+    """
+
     def commit():
         """
         Commit changes caused by this transaction.
@@ -102,6 +108,55 @@ class IAsyncTransaction(Interface):
 
         @return: L{Deferred} which fires with C{None} upon successful
             rollback of this transaction.
+        """
+
+
+    def commandBlock():
+        """
+        Create an object which will cause the commands executed on it to be
+        grouped together.
+
+        This is useful when using database-specific features such as
+        sub-transactions where order of execution is importnat, but where
+        application code may need to perform I/O to determine what SQL, exactly,
+        it wants to execute.  Consider this fairly contrived example for an
+        imaginary database::
+
+            def storeWebPage(url, block):
+                block.execSQL("BEGIN SUB TRANSACTION")
+                got = getPage(url)
+                def gotPage(data):
+                    block.execSQL("INSERT INTO PAGES (TEXT) VALUES (?)", [data])
+                    block.execSQL("INSERT INTO INDEX (TOKENS) VALUES (?)",
+                                 [tokenize(data)])
+                    lastStmt = block.execSQL("END SUB TRANSACTION")
+                    block.end()
+                    return lastStmt
+                return got.addCallback(gotPage)
+            gatherResults([storeWebPage(url, txn.commandBlock())
+                          for url in urls]).addCallbacks(
+                            lambda x: txn.commit(), lambda f: txn.abort()
+                          )
+
+        This fires off all the C{getPage} requests in parallel, and prepares all
+        the necessary SQL immediately as the results arrive, but executes those
+        statements in order.  In the above example, this makes sure to store the
+        page and its tokens together, another use for this might be to store a
+        computed aggregate (such as a sum) at a particular point in a
+        transaction, without sacrificing parallelism.
+
+        @rtype: L{ICommandBlock}
+        """
+
+
+
+class ICommandBlock(ISQLExecutor):
+    """
+    This is a block of SQL commands that are grouped together.
+    """
+
+    def end():
+        """
         """
 
 
