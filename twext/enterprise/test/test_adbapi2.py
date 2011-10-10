@@ -866,13 +866,14 @@ class ConnectionPoolTests(ConnectionPoolHelper, TestCase):
 
     def test_propagateParamstyle(self):
         """
-        Each different type of L{IAsyncTransaction} relays the C{paramstyle}
+        Each different type of L{ISQLExecutor} relays the C{paramstyle}
         attribute from the L{ConnectionPool}.
         """
         TEST_PARAMSTYLE = "justtesting"
         self.setParamstyle(TEST_PARAMSTYLE)
         normaltxn = self.createTransaction()
         self.assertEquals(normaltxn.paramstyle, TEST_PARAMSTYLE)
+        self.assertEquals(normaltxn.commandBlock().paramstyle, TEST_PARAMSTYLE)
         self.pauseHolders()
         extra = []
         extra.append(self.createTransaction())
@@ -893,13 +894,14 @@ class ConnectionPoolTests(ConnectionPoolHelper, TestCase):
 
     def test_propagateDialect(self):
         """
-        Each different type of L{IAsyncTransaction} relays the C{dialect}
+        Each different type of L{ISQLExecutor} relays the C{dialect}
         attribute from the L{ConnectionPool}.
         """
         TEST_DIALECT = "otherdialect"
         self.setDialect(TEST_DIALECT)
         normaltxn = self.createTransaction()
         self.assertEquals(normaltxn.dialect, TEST_DIALECT)
+        self.assertEquals(normaltxn.commandBlock().dialect, TEST_DIALECT)
         self.pauseHolders()
         extra = []
         extra.append(self.createTransaction())
