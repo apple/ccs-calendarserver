@@ -20,19 +20,30 @@ Tests for L{twext.enterprise.adbapi2}.
 
 from itertools import count
 
-from zope.interface.verify import verifyClass
+from zope.interface.verify import verifyClass, verifyObject
+from zope.interface.declarations import implements
 
 from twisted.python.threadpool import ThreadPool
+
 from twisted.trial.unittest import TestCase
 
 from twisted.internet.defer import execute
 from twisted.internet.task import Clock
 
+from twisted.internet.interfaces import IReactorThreads
 from twisted.internet.defer import Deferred
+
+from twisted.test.proto_helpers import StringTransport
+
 from twext.enterprise.ienterprise import ConnectionError
 from twext.enterprise.ienterprise import AlreadyFinishedError
-from twisted.internet.interfaces import IReactorThreads
-from zope.interface.declarations import implements
+from twext.enterprise.adbapi2 import ConnectionPoolClient
+from twext.enterprise.adbapi2 import ConnectionPoolConnection
+from twext.enterprise.ienterprise import IAsyncTransaction
+from twext.enterprise.ienterprise import POSTGRES_DIALECT
+from twext.enterprise.ienterprise import ICommandBlock
+from twext.enterprise.adbapi2 import FailsafeException
+from twext.enterprise.adbapi2 import DEFAULT_PARAM_STYLE
 from twext.enterprise.adbapi2 import ConnectionPool
 
 
@@ -214,6 +225,10 @@ class FakeVariable(object):
         if vv:
             return vv.pop(0)
         return self.cursor.variables.index(self) + 300
+
+
+    def __reduce__(self):
+        raise RuntimeError("Not pickleable (since oracle vars aren't)")
 
 
 
@@ -421,10 +436,14 @@ class ConnectionPoolBootTests(TestCase):
 
 
 
-class ConnectionPoolTests(TestCase):
+class ConnectionPoolHelper(object):
     """
-    Tests for L{ConnectionPool}.
+    Connection pool setting-up facilities for tests that need a
+    L{ConnectionPool}.
     """
+
+    dialect = POSTGRES_DIALECT
+    paramstyle = DEFAULT_PARAM_STYLE
 
     def setUp(self):
         """
@@ -435,23 +454,20 @@ class ConnectionPoolTests(TestCase):
         self.holders            = []
         self.factory            = ConnectionFactory()
         self.pool               = ConnectionPool(self.factory.connect,
-                                                 maxConnections=2)
+                                                 maxConnections=2,
+                                                 dialect=self.dialect,
+                                                 paramstyle=self.paramstyle)
         self.pool._createHolder = self.makeAHolder
         self.clock              = self.pool.reactor = ClockWithThreads()
         self.pool.startService()
-
-
-    def tearDown(self):
-        """
-        Make sure the service is stopped and the fake ThreadHolders are all
-        executing their queues so failed tests can exit cleanly.
-        """
-        self.flushHolders()
+        self.addCleanup(self.flushHolders)
 
 
     def flushHolders(self):
         """
-        Flush all pending C{submit}s since C{pauseHolders} was called.
+        Flush all pending C{submit}s since C{pauseHolders} was called.  This
+        makes sure the service is stopped and the fake ThreadHolders are all
+        executing their queues so failed tests can exit cleanly.
         """
         self.paused = False
         for holder in self.holders:
@@ -475,6 +491,24 @@ class ConnectionPoolTests(TestCase):
         return fth
 
 
+    def resultOf(self, it):
+        return resultOf(it)
+
+
+    def createTransaction(self):
+        return self.pool.connection()
+
+
+    def translateError(self, err):
+        return err
+
+
+
+class ConnectionPoolTests(ConnectionPoolHelper, TestCase):
+    """
+    Tests for L{ConnectionPool}.
+    """
+
     def test_tooManyConnections(self):
         """
         When the number of outstanding busy transactions exceeds the number of
@@ -483,29 +517,29 @@ class ConnectionPoolTests(TestCase):
         not backed by any real database connection; this object will queue its
         SQL statements until an existing connection becomes available.
         """
-        a = self.pool.connection()
+        a = self.createTransaction()
 
-        alphaResult = resultOf(a.execSQL("alpha"))
+        alphaResult = self.resultOf(a.execSQL("alpha"))
         [[counter, echo]] = alphaResult[0]
 
-        b = self.pool.connection()
+        b = self.createTransaction()
         # 'b' should have opened a connection.
         self.assertEquals(len(self.factory.connections), 2)
-        betaResult = resultOf(b.execSQL("beta"))
+        betaResult = self.resultOf(b.execSQL("beta"))
         [[bcounter, becho]] = betaResult[0]
 
         # both 'a' and 'b' are holding open a connection now; let's try to open
         # a third one.  (The ordering will be deterministic even if this fails,
         # because those threads are already busy.)
-        c = self.pool.connection()
-        gammaResult = resultOf(c.execSQL("gamma"))
+        c = self.createTransaction()
+        gammaResult = self.resultOf(c.execSQL("gamma"))
 
         # Did 'c' open a connection?  Let's hope not...
         self.assertEquals(len(self.factory.connections), 2)
         # SQL shouldn't be executed too soon...
         self.assertEquals(gammaResult, [])
 
-        commitResult = resultOf(b.commit())
+        commitResult = self.resultOf(b.commit())
 
         # Now that 'b' has committed, 'c' should be able to complete.
         [[ccounter, cecho]] = gammaResult[0]
@@ -523,8 +557,8 @@ class ConnectionPoolTests(TestCase):
         L{ConnectionPool.stopService} stops all the associated L{ThreadHolder}s
         and thereby frees up the resources it is holding.
         """
-        a = self.pool.connection()
-        alphaResult = resultOf(a.execSQL("alpha"))
+        a = self.createTransaction()
+        alphaResult = self.resultOf(a.execSQL("alpha"))
         [[[counter, echo]]] = alphaResult
         self.assertEquals(len(self.factory.connections), 1)
         self.assertEquals(len(self.holders), 1)
@@ -549,7 +583,7 @@ class ConnectionPoolTests(TestCase):
         self.factory.willFail()
         self.factory.willFail()
         self.factory.willConnect()
-        c = self.pool.connection()
+        c = self.createTransaction()
         def checkOneFailure():
             errors = self.flushLoggedErrors(FakeConnectionError)
             self.assertEquals(len(errors), 1)
@@ -562,6 +596,7 @@ class ConnectionPoolTests(TestCase):
         checkOneFailure()
         self.assertEquals(happened, [])
         self.clock.advance(self.pool.RETRY_TIMEOUT + 0.01)
+        self.flushHolders()
         self.assertEquals(happened, [[[1, "alpha"]]])
 
 
@@ -573,7 +608,7 @@ class ConnectionPoolTests(TestCase):
         as normal.
         """
         self.factory.defaultFail()
-        self.pool.connection()
+        self.createTransaction()
         errors = self.flushLoggedErrors(FakeConnectionError)
         self.assertEquals(len(errors), 1)
         stopd = []
@@ -592,7 +627,7 @@ class ConnectionPoolTests(TestCase):
         connection attempt has finished; in this case, succeeded.
         """
         self.pauseHolders()
-        self.pool.connection()
+        self.createTransaction()
         stopd = []
         self.pool.stopService().addBoth(stopd.append)
         self.assertEquals(stopd, [])
@@ -611,7 +646,7 @@ class ConnectionPoolTests(TestCase):
         """
         self.factory.defaultFail()
         self.pauseHolders()
-        self.pool.connection()
+        self.createTransaction()
         stopd = []
         self.pool.stopService().addBoth(stopd.append)
         self.assertEquals(stopd, [])
@@ -633,13 +668,13 @@ class ConnectionPoolTests(TestCase):
         """
         # TODO: commit() too?
         self.pauseHolders()
-        c = self.pool.connection()
-        abortResult = resultOf(c.abort())
+        c = self.createTransaction()
+        abortResult = self.resultOf(c.abort())
         # Should abort instantly, as it hasn't managed to unspool anything yet.
         # FIXME: kill all Deferreds associated with this thing, make sure that
         # any outstanding query callback chains get nuked.
         self.assertEquals(abortResult, [None])
-        stopResult = resultOf(self.pool.stopService())
+        stopResult = self.resultOf(self.pool.stopService())
         self.assertEquals(stopResult, [])
         self.flushHolders()
         #self.assertEquals(abortResult, [None])
@@ -654,17 +689,17 @@ class ConnectionPoolTests(TestCase):
         """
         # Use up the free slots so we have to spool.
         hold = []
-        hold.append(self.pool.connection())
-        hold.append(self.pool.connection())
+        hold.append(self.createTransaction())
+        hold.append(self.createTransaction())
 
-        c = self.pool.connection()
-        se = resultOf(c.execSQL("alpha"))
-        ce = resultOf(c.commit())
+        c = self.createTransaction()
+        se = self.resultOf(c.execSQL("alpha"))
+        ce = self.resultOf(c.commit())
         self.assertEquals(se, [])
         self.assertEquals(ce, [])
-        self.pool.stopService()
-        self.assertEquals(se[0].type, ConnectionError)
-        self.assertEquals(ce[0].type, ConnectionError)
+        self.resultOf(self.pool.stopService())
+        self.assertEquals(se[0].type, self.translateError(ConnectionError))
+        self.assertEquals(ce[0].type, self.translateError(ConnectionError))
 
 
     def test_repoolSpooled(self):
@@ -675,15 +710,15 @@ class ConnectionPoolTests(TestCase):
         behind any detritus that prevents stopService from working.
         """
         self.pauseHolders()
-        c = self.pool.connection()
-        c2 = self.pool.connection()
-        c3 = self.pool.connection()
+        c = self.createTransaction()
+        c2 = self.createTransaction()
+        c3 = self.createTransaction()
         c.commit()
         c2.commit()
         c3.commit()
         self.flushHolders()
         self.assertEquals(len(self.factory.connections), 2)
-        stopResult = resultOf(self.pool.stopService())
+        stopResult = self.resultOf(self.pool.stopService())
         self.assertEquals(stopResult, [None])
         self.assertEquals(len(self.factory.connections), 2)
         self.assertEquals(self.factory.connections[0].closed, True)
@@ -695,13 +730,14 @@ class ConnectionPoolTests(TestCase):
         Calls to connection() after stopService() result in transactions which
         immediately fail all operations.
         """
-        stopResults = resultOf(self.pool.stopService())
+        stopResults = self.resultOf(self.pool.stopService())
         self.assertEquals(stopResults, [None])
         self.pauseHolders()
-        postClose = self.pool.connection()
-        queryResult = resultOf(postClose.execSQL("hello"))
+        postClose = self.createTransaction()
+        queryResult = self.resultOf(postClose.execSQL("hello"))
         self.assertEquals(len(queryResult), 1)
-        self.assertEquals(queryResult[0].type, ConnectionError)
+        self.assertEquals(queryResult[0].type,
+                          self.translateError(ConnectionError))
 
 
     def test_connectAfterStartedStopping(self):
@@ -711,16 +747,18 @@ class ConnectionPoolTests(TestCase):
         operations.
         """
         self.pauseHolders()
-        preClose = self.pool.connection()
-        preCloseResult = resultOf(preClose.execSQL('statement'))
-        stopResult = resultOf(self.pool.stopService())
-        postClose = self.pool.connection()
-        queryResult = resultOf(postClose.execSQL("hello"))
+        preClose = self.createTransaction()
+        preCloseResult = self.resultOf(preClose.execSQL('statement'))
+        stopResult = self.resultOf(self.pool.stopService())
+        postClose = self.createTransaction()
+        queryResult = self.resultOf(postClose.execSQL("hello"))
         self.assertEquals(stopResult, [])
         self.assertEquals(len(queryResult), 1)
-        self.assertEquals(queryResult[0].type, ConnectionError)
+        self.assertEquals(queryResult[0].type,
+                          self.translateError(ConnectionError))
         self.assertEquals(len(preCloseResult), 1)
-        self.assertEquals(preCloseResult[0].type, ConnectionError)
+        self.assertEquals(preCloseResult[0].type,
+                          self.translateError(ConnectionError))
 
 
     def test_abortFailsDuringStopService(self):
@@ -730,16 +768,16 @@ class ConnectionPoolTests(TestCase):
         happens, shutdown should continue.
         """
         txns = []
-        txns.append(self.pool.connection())
-        txns.append(self.pool.connection())
+        txns.append(self.createTransaction())
+        txns.append(self.createTransaction())
         for txn in txns:
             # Make sure rollback will actually be executed.
-            results = resultOf(txn.execSQL("maybe change something!"))
+            results = self.resultOf(txn.execSQL("maybe change something!"))
             [[[counter, echo]]] = results
             self.assertEquals("maybe change something!", echo)
         # Fail one (and only one) call to rollback().
         self.factory.rollbackFail = True
-        stopResult = resultOf(self.pool.stopService())
+        stopResult = self.resultOf(self.pool.stopService())
         self.assertEquals(stopResult, [None])
         self.assertEquals(len(self.flushLoggedErrors(RollbackFail)), 1)
         self.assertEquals(self.factory.connections[0].closed, True)
@@ -751,11 +789,11 @@ class ConnectionPoolTests(TestCase):
         L{ConnectionPool.stopService} will shut down if a recycled transaction
         is still pending.
         """
-        recycled = self.pool.connection()
-        recycled.commit()
+        recycled = self.createTransaction()
+        self.resultOf(recycled.commit())
         remember = []
-        remember.append(self.pool.connection())
-        self.assertEquals(resultOf(self.pool.stopService()), [None])
+        remember.append(self.createTransaction())
+        self.assertEquals(self.resultOf(self.pool.stopService()), [None])
 
 
     def test_abortSpooled(self):
@@ -766,14 +804,14 @@ class ConnectionPoolTests(TestCase):
         """
         # Use up the available connections ...
         for i in xrange(self.pool.maxConnections):
-            self.pool.connection()
+            self.createTransaction()
         # ... so that this one has to be spooled.
-        spooled = self.pool.connection()
-        result = resultOf(spooled.execSQL("alpha"))
+        spooled = self.createTransaction()
+        result = self.resultOf(spooled.execSQL("alpha"))
         # sanity check, it would be bad if this actually executed.
         self.assertEqual(result, [])
-        spooled.abort()
-        self.assertEqual(result[0].type, ConnectionError)
+        self.resultOf(spooled.abort())
+        self.assertEqual(result[0].type, self.translateError(ConnectionError))
 
 
     def test_waitForAlreadyAbortedTransaction(self):
@@ -781,9 +819,9 @@ class ConnectionPoolTests(TestCase):
         L{ConnectionPool.stopService} will wait for all transactions to shut
         down before exiting, including those which have already been stopped.
         """
-        it = self.pool.connection()
+        it = self.createTransaction()
         self.pauseHolders()
-        abortResult = resultOf(it.abort())
+        abortResult = self.resultOf(it.abort())
 
         # steal it from the queue so we can do it out of order
         d, work = self.holders[0].queue.pop()
@@ -792,12 +830,13 @@ class ConnectionPoolTests(TestCase):
         self.assertEquals(self.holders[0].queue, [])
         self.assertEquals(len(self.holders), 1)
         self.flushHolders()
-        stopResult = resultOf(self.pool.stopService())
+        stopResult = self.resultOf(self.pool.stopService())
         # Sanity check that we haven't actually stopped it yet
         self.assertEquals(abortResult, [])
         # We haven't fired it yet, so the service had better not have stopped...
         self.assertEquals(stopResult, [])
         d.callback(None)
+        self.flushHolders()
         self.assertEquals(abortResult, [None])
         self.assertEquals(stopResult, [None])
 
@@ -807,56 +846,72 @@ class ConnectionPoolTests(TestCase):
         L{ConnectionPool.connection} will not spawn more than the maximum
         connections if there are finishing transactions outstanding.
         """
-        a = self.pool.connection()
-        b = self.pool.connection()
+        a = self.createTransaction()
+        b = self.createTransaction()
         self.pauseHolders()
         a.abort()
         b.abort()
         # Remove the holders for the existing connections, so that the 'extra'
         # connection() call wins the race and gets executed first.
         self.holders[:] = []
-        self.pool.connection()
+        self.createTransaction()
         self.flushHolders()
         self.assertEquals(len(self.factory.connections), 2)
 
 
+    def setParamstyle(self, paramstyle):
+        """
+        Change the paramstyle of the transaction under test.
+        """
+        self.pool.paramstyle = paramstyle
+
+
     def test_propagateParamstyle(self):
         """
-        Each different type of L{IAsyncTransaction} relays the C{paramstyle}
+        Each different type of L{ISQLExecutor} relays the C{paramstyle}
         attribute from the L{ConnectionPool}.
         """
         TEST_PARAMSTYLE = "justtesting"
-        self.pool.paramstyle = TEST_PARAMSTYLE
-        normaltxn = self.pool.connection()
+        self.setParamstyle(TEST_PARAMSTYLE)
+        normaltxn = self.createTransaction()
         self.assertEquals(normaltxn.paramstyle, TEST_PARAMSTYLE)
+        self.assertEquals(normaltxn.commandBlock().paramstyle, TEST_PARAMSTYLE)
         self.pauseHolders()
         extra = []
-        extra.append(self.pool.connection())
-        waitingtxn = self.pool.connection()
+        extra.append(self.createTransaction())
+        waitingtxn = self.createTransaction()
         self.assertEquals(waitingtxn.paramstyle, TEST_PARAMSTYLE)
         self.flushHolders()
         self.pool.stopService()
-        notxn = self.pool.connection()
+        notxn = self.createTransaction()
         self.assertEquals(notxn.paramstyle, TEST_PARAMSTYLE)
+
+
+    def setDialect(self, dialect):
+        """
+        Change the dialect of the transaction under test.
+        """
+        self.pool.dialect = dialect
 
 
     def test_propagateDialect(self):
         """
-        Each different type of L{IAsyncTransaction} relays the C{dialect}
+        Each different type of L{ISQLExecutor} relays the C{dialect}
         attribute from the L{ConnectionPool}.
         """
         TEST_DIALECT = "otherdialect"
-        self.pool.dialect = TEST_DIALECT
-        normaltxn = self.pool.connection()
+        self.setDialect(TEST_DIALECT)
+        normaltxn = self.createTransaction()
         self.assertEquals(normaltxn.dialect, TEST_DIALECT)
+        self.assertEquals(normaltxn.commandBlock().dialect, TEST_DIALECT)
         self.pauseHolders()
         extra = []
-        extra.append(self.pool.connection())
-        waitingtxn = self.pool.connection()
+        extra.append(self.createTransaction())
+        waitingtxn = self.createTransaction()
         self.assertEquals(waitingtxn.dialect, TEST_DIALECT)
         self.flushHolders()
         self.pool.stopService()
-        notxn = self.pool.connection()
+        notxn = self.createTransaction()
         self.assertEquals(notxn.dialect, TEST_DIALECT)
 
 
@@ -877,7 +932,7 @@ class ConnectionPoolTests(TestCase):
         # it's recycling the underlying transaction, or connect() just
         # succeeded.  Either way you just have a _SingleTxn wrapping a
         # _ConnectedTxn.
-        txn = self.pool.connection()
+        txn = self.createTransaction()
         self.assertEquals(len(self.factory.connections), 1,
                           "Sanity check failed.")
         class CustomExecuteFailed(Exception):
@@ -885,7 +940,7 @@ class ConnectionPoolTests(TestCase):
             Custom 'execute-failed' exception.
             """
         self.factory.connections[0].executeWillFail(CustomExecuteFailed)
-        results = resultOf(txn.execSQL("hello, world!"))
+        results = self.resultOf(txn.execSQL("hello, world!"))
         [[[counter, echo]]] = results
         self.assertEquals("hello, world!", echo)
         # Two execution attempts should have been made, one on each connection.
@@ -911,15 +966,15 @@ class ConnectionPoolTests(TestCase):
         then, the database server will shut down and the connections will die,
         but we will be none the wiser until we try to use them.
         """
-        txn = self.pool.connection()
+        txn = self.createTransaction()
         moreFailureSetup(self.factory)
         self.assertEquals(len(self.factory.connections), 1,
                           "Sanity check failed.")
-        results = resultOf(txn.execSQL("hello, world!"))
+        results = self.resultOf(txn.execSQL("hello, world!"))
         txn.commit()
         [[[counter, echo]]] = results
         self.assertEquals("hello, world!", echo)
-        txn2 = self.pool.connection()
+        txn2 = self.createTransaction()
         self.assertEquals(len(self.factory.connections), 1,
                           "Sanity check failed.")
         class CustomExecFail(Exception):
@@ -927,7 +982,7 @@ class ConnectionPoolTests(TestCase):
             Custom 'execute()' failure.
             """
         self.factory.connections[0].executeWillFail(CustomExecFail)
-        results = resultOf(txn2.execSQL("second try!"))
+        results = self.resultOf(txn2.execSQL("second try!"))
         txn2.commit()
         [[[counter, echo]]] = results
         self.assertEquals("second try!", echo)
@@ -970,16 +1025,15 @@ class ConnectionPoolTests(TestCase):
         statement transparently re-executed by the logic tested by
         L{test_reConnectWhenFirstExecFails}.
         """
-        txn = self.pool.connection()
+        txn = self.createTransaction()
         self.factory.commitFail = True
         self.factory.rollbackFail = True
-        [x] = resultOf(txn.commit())
+        [x] = self.resultOf(txn.commit())
 
         # No statements have been executed, so 'commit' will *not* be executed.
         self.assertEquals(self.factory.commitFail, True)
         self.assertIdentical(x, None)
         self.assertEquals(len(self.pool._free), 1)
-        self.assertIn(txn._baseTxn, self.pool._free)
         self.assertEquals(self.pool._finishing, [])
         self.assertEquals(len(self.factory.connections), 1)
         self.assertEquals(self.factory.connections[0].closed, False)
@@ -1001,18 +1055,18 @@ class ConnectionPoolTests(TestCase):
         relaying the exception back to application code but attempting a
         re-connection on the next try.
         """
-        txn = self.pool.connection()
-        [[[counter, echo]]] = resultOf(txn.execSQL("hello, world!", []))
+        txn = self.createTransaction()
+        [[[counter, echo]]] = self.resultOf(txn.execSQL("hello, world!", []))
         self.factory.connections[0].executeWillFail(ZeroDivisionError)
-        [f] = resultOf(txn.execSQL("divide by zero", []))
-        f.trap(ZeroDivisionError)
+        [f] = self.resultOf(txn.execSQL("divide by zero", []))
+        f.trap(self.translateError(ZeroDivisionError))
         self.assertEquals(self.factory.connections[0].executions, 2)
         # Reconnection should work exactly as before.
         self.assertEquals(self.factory.connections[0].closed, False)
         # Application code has to roll back its transaction at this point, since
         # it failed (and we don't necessarily know why it failed: not enough
         # information).
-        txn.abort()
+        self.resultOf(txn.abort())
         self.factory.connections[0].executions = 0 # re-set for next test
         self.assertEquals(len(self.factory.connections), 1)
         self.test_reConnectWhenFirstExecFails()
@@ -1028,17 +1082,16 @@ class ConnectionPoolTests(TestCase):
         Also, a new connection will immediately be established to keep the pool
         size the same.
         """
-        txn = self.pool.connection()
-        results = resultOf(txn.execSQL("maybe change something!"))
+        txn = self.createTransaction()
+        results = self.resultOf(txn.execSQL("maybe change something!"))
         [[[counter, echo]]] = results
         self.assertEquals("maybe change something!", echo)
         self.factory.rollbackFail = True
-        [x] = resultOf(txn.abort())
+        [x] = self.resultOf(txn.abort())
         # Abort does not propagate the error on, the transaction merely gets
         # disposed of.
         self.assertIdentical(x, None)
         self.assertEquals(len(self.pool._free), 1)
-        self.assertNotIn(txn._baseTxn, self.pool._free)
         self.assertEquals(self.pool._finishing, [])
         self.assertEquals(len(self.factory.connections), 2)
         self.assertEquals(self.factory.connections[0].closed, True)
@@ -1053,15 +1106,14 @@ class ConnectionPoolTests(TestCase):
         C{commit} has to be relayed to client code, since that actually means
         some changes didn't hit the database.
         """
-        txn = self.pool.connection()
+        txn = self.createTransaction()
         self.factory.commitFail = True
-        results = resultOf(txn.execSQL("maybe change something!"))
+        results = self.resultOf(txn.execSQL("maybe change something!"))
         [[[counter, echo]]] = results
         self.assertEquals("maybe change something!", echo)
-        [x] = resultOf(txn.commit())
-        x.trap(CommitFail)
+        [x] = self.resultOf(txn.commit())
+        x.trap(self.translateError(CommitFail))
         self.assertEquals(len(self.pool._free), 1)
-        self.assertNotIn(txn._baseTxn, self.pool._free)
         self.assertEquals(self.pool._finishing, [])
         self.assertEquals(len(self.factory.connections), 2)
         self.assertEquals(self.factory.connections[0].closed, True)
@@ -1073,14 +1125,15 @@ class ConnectionPoolTests(TestCase):
         L{IAsyncTransaction.commandBlock} returns an L{IAsyncTransaction}
         provider which ensures that a block of commands are executed together.
         """
-        txn = self.pool.connection()
-        a = resultOf(txn.execSQL("a"))
+        txn = self.createTransaction()
+        a = self.resultOf(txn.execSQL("a"))
         cb = txn.commandBlock()
-        b = resultOf(cb.execSQL("b"))
-        d = resultOf(txn.execSQL("d"))
-        c = resultOf(cb.execSQL("c"))
+        verifyObject(ICommandBlock, cb)
+        b = self.resultOf(cb.execSQL("b"))
+        d = self.resultOf(txn.execSQL("d"))
+        c = self.resultOf(cb.execSQL("c"))
         cb.end()
-        e = resultOf(txn.execSQL("e"))
+        e = self.resultOf(txn.execSQL("e"))
         self.assertEquals(self.factory.connections[0].cursors[0].allExecutions,
                           [("a", []), ("b", []), ("c", []), ("d", []),
                            ("e", [])])
@@ -1097,13 +1150,13 @@ class ConnectionPoolTests(TestCase):
         executing until all SQL statements scheduled before it have completed.
         """
         self.pauseHolders()
-        txn = self.pool.connection()
-        a = resultOf(txn.execSQL("a"))
-        b = resultOf(txn.execSQL("b"))
+        txn = self.createTransaction()
+        a = self.resultOf(txn.execSQL("a"))
+        b = self.resultOf(txn.execSQL("b"))
         cb = txn.commandBlock()
-        c = resultOf(cb.execSQL("c"))
-        d = resultOf(cb.execSQL("d"))
-        e = resultOf(txn.execSQL("e"))
+        c = self.resultOf(cb.execSQL("c"))
+        d = self.resultOf(cb.execSQL("d"))
+        e = self.resultOf(txn.execSQL("e"))
         cb.end()
         self.flushHolders()
 
@@ -1123,7 +1176,7 @@ class ConnectionPoolTests(TestCase):
         When execution of one command block is complete, it will proceed to the
         next queued block, then to regular SQL executed on the transaction.
         """
-        txn = self.pool.connection()
+        txn = self.createTransaction()
         cb1 = txn.commandBlock()
         cb2 = txn.commandBlock()
         txn.execSQL("e")
@@ -1134,6 +1187,7 @@ class ConnectionPoolTests(TestCase):
         cb2.end()
         cb1.end()
         flush()
+        self.flushHolders()
         self.assertEquals(self.factory.connections[0].cursors[0].allExecutions,
                           [("a", []), ("b", []), ("c", []), ("d", []),
                            ("e", [])])
@@ -1152,7 +1206,7 @@ class ConnectionPoolTests(TestCase):
         L{CommandBlock.end} will raise L{AlreadyFinishedError} when called more
         than once.
         """
-        txn = self.pool.connection()
+        txn = self.createTransaction()
         block = txn.commandBlock()
         block.end()
         self.assertRaises(AlreadyFinishedError, block.end)
@@ -1165,14 +1219,15 @@ class ConnectionPoolTests(TestCase):
         when you call {IAsyncTransaction.commit}(), it should not actually take
         effect if there are any pending command blocks.
         """
-        txn = self.pool.connection()
+        txn = self.createTransaction()
         block = txn.commandBlock()
-        commitResult = resultOf(txn.commit())
-        block.execSQL("in block")
+        commitResult = self.resultOf(txn.commit())
+        self.resultOf(block.execSQL("in block"))
         self.assertEquals(commitResult, [])
         self.assertEquals(self.factory.connections[0].cursors[0].allExecutions,
                           [("in block", [])])
         block.end()
+        self.flushHolders()
         self.assertEquals(commitResult, [None])
 
 
@@ -1183,10 +1238,10 @@ class ConnectionPoolTests(TestCase):
         all outstanding C{execSQL}s will fail immediately, on both command
         blocks and on the transaction itself.
         """
-        txn = self.pool.connection()
+        txn = self.createTransaction()
         block = txn.commandBlock()
         block2 = txn.commandBlock()
-        abortResult = resultOf(txn.abort())
+        abortResult = self.resultOf(txn.abort())
         self.assertEquals(abortResult, [None])
         self.assertRaises(AlreadyFinishedError, block2.execSQL, "bar")
         self.assertRaises(AlreadyFinishedError, block.execSQL, "foo")
@@ -1206,7 +1261,7 @@ class ConnectionPoolTests(TestCase):
         Attempting to execute SQL on a L{CommandBlock} which has had C{end}
         called on it will result in an L{AlreadyFinishedError}.
         """
-        txn = self.pool.connection()
+        txn = self.createTransaction()
         block = txn.commandBlock()
         block.end()
         self.assertRaises(AlreadyFinishedError, block.execSQL, "hello")
@@ -1219,7 +1274,7 @@ class ConnectionPoolTests(TestCase):
         Once an L{IAsyncTransaction} has been committed, L{commandBlock} raises
         an exception.
         """
-        txn = self.pool.connection()
+        txn = self.createTransaction()
         txn.commit()
         self.assertRaises(AlreadyFinishedError, txn.commandBlock)
 
@@ -1229,9 +1284,154 @@ class ConnectionPoolTests(TestCase):
         Once an L{IAsyncTransaction} has been committed, L{commandBlock} raises
         an exception.
         """
-        txn = self.pool.connection()
-        txn.abort()
+        txn = self.createTransaction()
+        self.resultOf(txn.abort())
         self.assertRaises(AlreadyFinishedError, txn.commandBlock)
 
+
+
+class IOPump(object):
+    """
+    Connect a client and a server.
+
+    @ivar client: a client protocol
+
+    @ivar server: a server protocol
+    """
+
+    def __init__(self, client, server):
+        self.client = client
+        self.server = server
+        self.clientTransport = StringTransport()
+        self.serverTransport = StringTransport()
+        self.client.makeConnection(self.clientTransport)
+        self.server.makeConnection(self.serverTransport)
+        self.c2s = [self.clientTransport, self.server]
+        self.s2c = [self.serverTransport, self.client]
+
+
+    def moveData(self, (outTransport, inProtocol)):
+        """
+        Move data from a L{StringTransport} to an L{IProtocol}.
+
+        @return: C{True} if any data was moved, C{False} if no data was moved.
+        """
+        data = outTransport.io.getvalue()
+        outTransport.io.seek(0)
+        outTransport.io.truncate()
+        if data:
+            inProtocol.dataReceived(data)
+            return True
+        else:
+            return False
+
+
+    def pump(self):
+        """
+        Deliver all input from the client to the server, then from the server to
+        the client.
+        """
+        a = self.moveData(self.c2s)
+        b = self.moveData(self.s2c)
+        return a or b
+
+
+    def flush(self, maxTurns=100):
+        """
+        Continue pumping until no more data is flowing.
+        """
+        turns = 0
+        while self.pump():
+            turns += 1
+            if turns > maxTurns:
+                raise RuntimeError("Ran too long!")
+
+
+
+class NetworkedPoolHelper(ConnectionPoolHelper):
+    """
+    An extension of L{ConnectionPoolHelper} that can set up a
+    L{ConnectionPoolClient} and L{ConnectionPoolConnection} attached to each
+    other.
+    """
+
+    def setUp(self):
+        """
+        Do the same setup from L{ConnectionPoolBase}, but also establish a
+        loopback connection between a L{ConnectionPoolConnection} and a
+        L{ConnectionPoolClient}.
+        """
+        super(NetworkedPoolHelper, self).setUp()
+        self.pump = IOPump(ConnectionPoolClient(dialect=self.dialect,
+                                                paramstyle=self.paramstyle),
+                           ConnectionPoolConnection(self.pool))
+
+
+    def flushHolders(self):
+        """
+        In addition to flushing the L{ThreadHolder} stubs, also flush any
+        pending network I/O.
+        """
+        self.pump.flush()
+        super(NetworkedPoolHelper, self).flushHolders()
+        self.pump.flush()
+
+
+    def createTransaction(self):
+        txn = self.pump.client.newTransaction()
+        self.pump.flush()
+        return txn
+
+
+    def translateError(self, err):
+        """
+        All errors raised locally will unfortunately be translated into
+        UnknownRemoteError, since AMP requires specific enumeration of all of
+        them.  Flush the locally logged error of the given type and return
+        L{UnknownRemoteError}.
+        """
+        self.flushLoggedErrors(err)
+        return FailsafeException
+
+
+    def resultOf(self, it):
+        result = resultOf(it)
+        self.pump.flush()
+        return result
+
+
+
+class NetworkedConnectionPoolTests(NetworkedPoolHelper, ConnectionPoolTests):
+    """
+    Tests for L{ConnectionPoolConnection} and L{ConnectionPoolClient}
+    interacting with each other.
+    """
+
+
+    def setParamstyle(self, paramstyle):
+        """
+        Change the paramstyle on both the pool and the client.
+        """
+        super(NetworkedConnectionPoolTests, self).setParamstyle(paramstyle)
+        self.pump.client.paramstyle = paramstyle
+
+
+    def setDialect(self, dialect):
+        """
+        Change the dialect on both the pool and the client.
+        """
+        super(NetworkedConnectionPoolTests, self).setDialect(dialect)
+        self.pump.client.dialect = dialect
+
+
+    def test_newTransaction(self):
+        """
+        L{ConnectionPoolClient.newTransaction} returns a provider of
+        L{IAsyncTransaction}, and creates a new transaction on the server side.
+        """
+        txn = self.pump.client.newTransaction()
+        verifyObject(IAsyncTransaction, txn)
+        self.pump.flush()
+        self.assertEquals(len(self.factory.connections), 1)
 
 

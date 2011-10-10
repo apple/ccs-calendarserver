@@ -18,23 +18,24 @@
 Tests for L{twext.enterprise.dal.syntax}
 """
 
-from twext.enterprise.dal.model import Schema
 from twext.enterprise.dal.parseschema import addSQLToSchema
 from twext.enterprise.dal import syntax
 from twext.enterprise.dal.syntax import (
-    SchemaSyntax, Select, Insert, Update, Delete, Lock, SQLFragment,
-    TableMismatch, Parameter, Max, Len, NotEnoughValues
-, Savepoint, RollbackToSavepoint, ReleaseSavepoint, SavepointAction)
+    Select, Insert, Update, Delete, Lock, SQLFragment,
+    TableMismatch, Parameter, Max, Len, NotEnoughValues,
+    Savepoint, RollbackToSavepoint, ReleaseSavepoint, SavepointAction
+)
 
 from twext.enterprise.dal.syntax import Function
 
 from twext.enterprise.dal.syntax import FixedPlaceholder, NumericPlaceholder
 from twext.enterprise.ienterprise import POSTGRES_DIALECT, ORACLE_DIALECT
-from twext.enterprise.test.test_adbapi2 import ConnectionFactory
-from twext.enterprise.adbapi2 import ConnectionPool
 from twext.enterprise.test.test_adbapi2 import resultOf
-from twext.enterprise.test.test_adbapi2 import FakeThreadHolder
 from twisted.internet.defer import succeed
+from twext.enterprise.dal.test.test_parseschema import SchemaTestHelper
+from twext.enterprise.dal.syntax import SchemaSyntax
+from twext.enterprise.test.test_adbapi2 import ConnectionPoolHelper
+from twext.enterprise.test.test_adbapi2 import NetworkedPoolHelper
 from twisted.trial.unittest import TestCase
 
 
@@ -69,26 +70,34 @@ class NullTestingOracleTxn(object):
     def execSQL(self, text, params, exc):
         return succeed([[None, None]])
 
-class GenerationTests(TestCase):
+
+EXAMPLE_SCHEMA = """
+create sequence A_SEQ;
+create table FOO (BAR integer, BAZ varchar(255));
+create table BOZ (QUX integer, QUUX integer);
+create table OTHER (BAR integer,
+                    FOO_BAR integer not null);
+create table TEXTUAL (MYTEXT varchar(255));
+create table LEVELS (ACCESS integer,
+                     USERNAME varchar(255));
+create table NULLCHECK (ASTRING varchar(255) not null,
+                        ANUMBER integer);
+"""
+
+class ExampleSchemaHelper(SchemaTestHelper):
     """
-    Tests for syntactic helpers to generate SQL queries.
+    setUp implementor.
     """
 
     def setUp(self):
-        s = Schema(self.id())
-        addSQLToSchema(schema=s, schemaData="""
-                       create sequence A_SEQ;
-                       create table FOO (BAR integer, BAZ varchar(255));
-                       create table BOZ (QUX integer, QUUX integer);
-                       create table OTHER (BAR integer,
-                                           FOO_BAR integer not null);
-                       create table TEXTUAL (MYTEXT varchar(255));
-                       create table LEVELS (ACCESS integer,
-                                            USERNAME varchar(255));
-                       create table NULLCHECK (ASTRING varchar(255) not null,
-                                               ANUMBER integer);
-                       """)
-        self.schema = SchemaSyntax(s)
+        self.schema = SchemaSyntax(self.schemaFromString(EXAMPLE_SCHEMA))
+
+
+
+class GenerationTests(ExampleSchemaHelper, TestCase):
+    """
+    Tests for syntactic helpers to generate SQL queries.
+    """
 
 
     def test_simplestSelect(self):
@@ -623,46 +632,6 @@ class GenerationTests(TestCase):
         )
 
 
-    def simulateOracleConnection(self):
-        """
-        Create a fake oracle-ish connection pool without using real threads or a
-        real database.
-
-        @return: a 3-tuple of L{IAsyncTransaction}, L{ConnectionPool},
-            L{ConnectionFactory}.
-        """
-        self.patch(syntax, 'cx_Oracle', FakeCXOracleModule)
-        factory    = ConnectionFactory()
-        pool       = ConnectionPool(factory.connect, maxConnections=2,
-                                    dialect=ORACLE_DIALECT,
-                                    paramstyle='numeric')
-        self.paused = False
-        pool._createHolder = lambda : FakeThreadHolder(self)
-        pool.startService()
-        conn = pool.connection()
-        return conn, pool, factory
-
-
-    def test_insertMultiReturnOnOracleTxn(self):
-        """
-        As described in L{test_insertMultiReturnOracle}, Oracle deals with
-        'returning' clauses by using out parameters.  However, this is not quite
-        enough, as the code needs to actually retrieve the values from the out
-        parameters.
-        """
-        conn, _ignore_pool, factory = self.simulateOracleConnection()
-        i = Insert({self.schema.FOO.BAR: 40,
-                    self.schema.FOO.BAZ: 50},
-                   Return=(self.schema.FOO.BAR, self.schema.FOO.BAZ))
-        # See fake result generation in test_adbapi2.py.
-        result = resultOf(i.on(conn))
-        self.assertEquals(result, [[[300, 301]]])
-        curvars = factory.connections[0].cursors[0].variables
-        self.assertEquals(len(curvars), 2)
-        self.assertEquals(curvars[0].type, FakeCXOracleModule.NUMBER)
-        self.assertEquals(curvars[1].type, FakeCXOracleModule.STRING)
-
-
     def test_insertMismatch(self):
         """
         L{Insert} raises L{TableMismatch} if the columns specified aren't all
@@ -985,26 +954,6 @@ class GenerationTests(TestCase):
         self.assertEquals(rows, [['', None]])
 
 
-    def test_rewriteOracleNULLs_Insert(self):
-        """
-        The behavior described in L{test_rewriteOracleNULLs_Select} applies to
-        other statement types as well, specifically those with 'returning'
-        clauses.
-        """
-        conn, _ignore_pool, factory = self.simulateOracleConnection()
-        # Add 2 cursor variable values so that these will be used by
-        # FakeVariable.getvalue.
-        factory.varvals.extend([None, None])
-        rows = resultOf(
-            Insert({self.schema.NULLCHECK.ASTRING: '',
-                    self.schema.NULLCHECK.ANUMBER: None},
-                   Return=[self.schema.NULLCHECK.ASTRING,
-                           self.schema.NULLCHECK.ANUMBER]
-                  ).on(conn))[0]
-
-        self.assertEquals(rows, [['', None]])
-
-
     def test_nestedLogicalExpressions(self):
         """
         Make sure that logical operator precedence inserts proper parenthesis
@@ -1149,5 +1098,77 @@ class GenerationTests(TestCase):
         self.assertEquals(values, {self.schema.FOO.BAR: 1})
         values.pop(self.schema.FOO.BAR)
         self.assertEquals(values, {})
+
+
+
+class OracleConnectionMethods(object):
+    def test_rewriteOracleNULLs_Insert(self):
+        """
+        The behavior described in L{test_rewriteOracleNULLs_Select} applies to
+        other statement types as well, specifically those with 'returning'
+        clauses.
+        """
+        # Add 2 cursor variable values so that these will be used by
+        # FakeVariable.getvalue.
+        self.factory.varvals.extend([None, None])
+        rows = self.resultOf(
+            Insert({self.schema.NULLCHECK.ASTRING: '',
+                    self.schema.NULLCHECK.ANUMBER: None},
+                   Return=[self.schema.NULLCHECK.ASTRING,
+                           self.schema.NULLCHECK.ANUMBER]
+                  ).on(self.createTransaction()))[0]
+        self.assertEquals(rows, [['', None]])
+
+
+    def test_insertMultiReturnOnOracleTxn(self):
+        """
+        As described in L{test_insertMultiReturnOracle}, Oracle deals with
+        'returning' clauses by using out parameters.  However, this is not quite
+        enough, as the code needs to actually retrieve the values from the out
+        parameters.
+        """
+        i = Insert({self.schema.FOO.BAR: 40,
+                    self.schema.FOO.BAZ: 50},
+                   Return=(self.schema.FOO.BAR, self.schema.FOO.BAZ))
+        self.factory.varvals.extend(["first val!", "second val!"])
+        result = self.resultOf(i.on(self.createTransaction()))
+        self.assertEquals(result, [[["first val!", "second val!"]]])
+        curvars = self.factory.connections[0].cursors[0].variables
+        self.assertEquals(len(curvars), 2)
+        self.assertEquals(curvars[0].type, FakeCXOracleModule.NUMBER)
+        self.assertEquals(curvars[1].type, FakeCXOracleModule.STRING)
+
+
+
+class OracleConnectionTests(ConnectionPoolHelper, ExampleSchemaHelper,
+                            OracleConnectionMethods, TestCase):
+    """
+    Tests which use an oracle connection.
+    """
+
+    dialect = ORACLE_DIALECT
+
+    def setUp(self):
+        """
+        Create a fake oracle-ish connection pool without using real threads or a
+        real database.
+        """
+        self.patch(syntax, 'cx_Oracle', FakeCXOracleModule)
+        super(OracleConnectionTests, self).setUp()
+        ExampleSchemaHelper.setUp(self)
+
+
+
+
+class OracleNetConnectionTests(NetworkedPoolHelper, ExampleSchemaHelper,
+                               OracleConnectionMethods, TestCase):
+
+    dialect = ORACLE_DIALECT
+
+    def setUp(self):
+        self.patch(syntax, 'cx_Oracle', FakeCXOracleModule)
+        super(OracleNetConnectionTests, self).setUp()
+        ExampleSchemaHelper.setUp(self)
+        self.pump.client.dialect = ORACLE_DIALECT
 
 

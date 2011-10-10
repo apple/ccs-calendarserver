@@ -638,14 +638,20 @@ class CalDAVServiceMaker (LoggingMixIn):
         L{makeService_Combined}, which does the work of actually handling
         CalDAV and CardDAV requests.
         """
+        if config.DBType == 'oracle':
+            dialect = ORACLE_DIALECT
+            paramstyle = 'numeric'
+        else:
+            dialect = POSTGRES_DIALECT
+            paramstyle = 'pyformat'
         pool = None
         if config.DBAMPFD:
-            txnFactory = transactionFactoryFromFD(int(config.DBAMPFD))
+            txnFactory = transactionFactoryFromFD(
+                int(config.DBAMPFD), dialect, paramstyle
+            )
         elif not config.UseDatabase:
             txnFactory = None
         elif not config.SharedConnectionPool:
-            dialect = POSTGRES_DIALECT
-            paramstyle = 'pyformat'
             if config.DBType == '':
                 # get a PostgresService to tell us what the local connection
                 # info is, but *don't* start it (that would start one postgres
@@ -655,8 +661,6 @@ class CalDAVServiceMaker (LoggingMixIn):
             elif config.DBType == 'postgres':
                 connectionFactory = pgConnectorFromConfig(config)
             elif config.DBType == 'oracle':
-                dialect = ORACLE_DIALECT
-                paramstyle = 'numeric'
                 connectionFactory = oracleConnectorFromConfig(config)
             else:
                 raise UsageError("unknown DB type: %r" % (config.DBType,))

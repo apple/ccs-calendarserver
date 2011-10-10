@@ -448,7 +448,7 @@ def expect(iterator, **kw):
     Retrieve a value from an iterator and check its properties.  Same signature
     as L{expectSingle}, except it takes an iterator instead of a value.
 
-    @see L{expectSingle}
+    @see: L{expectSingle}
     """
     nextval = iterator.next()
     return expectSingle(nextval, **kw)

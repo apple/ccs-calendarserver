@@ -156,13 +156,13 @@ class ConnectionWithPeer(Connection):
 
 
 
-def transactionFactoryFromFD(dbampfd):
+def transactionFactoryFromFD(dbampfd, dialect, paramstyle):
     """
     Create a transaction factory from an inherited file descriptor.
     """
     skt = fromfd(dbampfd, AF_UNIX, SOCK_STREAM)
     os.close(dbampfd)
-    protocol = ConnectionPoolClient()
+    protocol = ConnectionPoolClient(dialect=dialect, paramstyle=paramstyle)
     transport = ConnectionWithPeer(skt, protocol)
     protocol.makeConnection(transport)
     transport.startReading()
