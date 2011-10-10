@@ -42,6 +42,7 @@ from twext.enterprise.ienterprise import AlreadyFinishedError
 from twext.enterprise.adbapi2 import ConnectionPoolClient
 from twext.enterprise.adbapi2 import ConnectionPoolConnection
 from twext.enterprise.ienterprise import IAsyncTransaction
+from twext.enterprise.ienterprise import POSTGRES_DIALECT
 from twext.enterprise.adbapi2 import ConnectionPool
 
 
@@ -223,6 +224,10 @@ class FakeVariable(object):
         if vv:
             return vv.pop(0)
         return self.cursor.variables.index(self) + 300
+
+
+    def __reduce__(self):
+        raise RuntimeError("Not pickleable (since oracle vars aren't)")
 
 
 
@@ -430,10 +435,13 @@ class ConnectionPoolBootTests(TestCase):
 
 
 
-class ConnectionPoolBase(TestCase):
+class ConnectionPoolHelper(object):
     """
-    Common functionality for testing L{ConnectionPool}.
+    Connection pool setting-up facilities for tests that need a
+    L{ConnectionPool}.
     """
+
+    dialect = POSTGRES_DIALECT
 
     def setUp(self):
         """
@@ -444,7 +452,8 @@ class ConnectionPoolBase(TestCase):
         self.holders            = []
         self.factory            = ConnectionFactory()
         self.pool               = ConnectionPool(self.factory.connect,
-                                                 maxConnections=2)
+                                                 maxConnections=2,
+                                                dialect=self.dialect)
         self.pool._createHolder = self.makeAHolder
         self.clock              = self.pool.reactor = ClockWithThreads()
         self.pool.startService()
@@ -492,7 +501,7 @@ class ConnectionPoolBase(TestCase):
 
 
 
-class ConnectionPoolTests(ConnectionPoolBase):
+class ConnectionPoolTests(ConnectionPoolHelper, TestCase):
     """
     Tests for L{ConnectionPool}.
     """
@@ -1319,21 +1328,12 @@ class IOPump(object):
 
 
 
-class NetworkedConnectionPoolTests(ConnectionPoolTests):
+class NetworkedPoolHelper(ConnectionPoolHelper):
     """
-    Tests for L{ConnectionPoolConnection} and L{ConnectionPoolClient}
-    interacting with each other.
+    An extension of L{ConnectionPoolHelper} that can set up a
+    L{ConnectionPoolClient} and L{ConnectionPoolConnection} attached to each
+    other.
     """
-
-    # Don't run these tests.
-    def test_propagateDialect(self):
-        """
-        Paramstyle and dialect are configured differently for
-        shared-connection-pool transactions.
-        """
-
-    test_propagateParamstyle = test_propagateDialect
-    test_propagateParamstyle.skip = test_propagateParamstyle.__doc__.strip()
 
     def setUp(self):
         """
@@ -1341,7 +1341,7 @@ class NetworkedConnectionPoolTests(ConnectionPoolTests):
         loopback connection between a L{ConnectionPoolConnection} and a
         L{ConnectionPoolClient}.
         """
-        super(NetworkedConnectionPoolTests, self).setUp()
+        super(NetworkedPoolHelper, self).setUp()
         self.pump = IOPump(ConnectionPoolClient(),
                            ConnectionPoolConnection(self.pool))
 
@@ -1352,7 +1352,7 @@ class NetworkedConnectionPoolTests(ConnectionPoolTests):
         pending network I/O.
         """
         self.pump.flush()
-        super(NetworkedConnectionPoolTests, self).flushHolders()
+        super(NetworkedPoolHelper, self).flushHolders()
         self.pump.flush()
 
 
@@ -1378,6 +1378,24 @@ class NetworkedConnectionPoolTests(ConnectionPoolTests):
         self.pump.flush()
         return result
 
+
+
+class NetworkedConnectionPoolTests(NetworkedPoolHelper, ConnectionPoolTests):
+    """
+    Tests for L{ConnectionPoolConnection} and L{ConnectionPoolClient}
+    interacting with each other.
+    """
+
+    # Don't run these tests.
+    def test_propagateDialect(self):
+        """
+        Paramstyle and dialect are configured differently for
+        shared-connection-pool transactions.
+        """
+
+
+    test_propagateParamstyle = test_propagateDialect
+    test_propagateParamstyle.skip = test_propagateParamstyle.__doc__.strip()
 
     def test_newTransaction(self):
         """
