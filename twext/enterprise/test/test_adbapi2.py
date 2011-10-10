@@ -43,6 +43,7 @@ from twext.enterprise.ienterprise import IAsyncTransaction
 from twext.enterprise.ienterprise import POSTGRES_DIALECT
 from twext.enterprise.ienterprise import ICommandBlock
 from twext.enterprise.adbapi2 import FailsafeException
+from twext.enterprise.adbapi2 import DEFAULT_PARAM_STYLE
 from twext.enterprise.adbapi2 import ConnectionPool
 
 
@@ -442,6 +443,7 @@ class ConnectionPoolHelper(object):
     """
 
     dialect = POSTGRES_DIALECT
+    paramstyle = DEFAULT_PARAM_STYLE
 
     def setUp(self):
         """
@@ -453,7 +455,8 @@ class ConnectionPoolHelper(object):
         self.factory            = ConnectionFactory()
         self.pool               = ConnectionPool(self.factory.connect,
                                                  maxConnections=2,
-                                                dialect=self.dialect)
+                                                 dialect=self.dialect,
+                                                 paramstyle=self.paramstyle)
         self.pool._createHolder = self.makeAHolder
         self.clock              = self.pool.reactor = ClockWithThreads()
         self.pool.startService()
@@ -1359,7 +1362,8 @@ class NetworkedPoolHelper(ConnectionPoolHelper):
         L{ConnectionPoolClient}.
         """
         super(NetworkedPoolHelper, self).setUp()
-        self.pump = IOPump(ConnectionPoolClient(),
+        self.pump = IOPump(ConnectionPoolClient(dialect=self.dialect,
+                                                paramstyle=self.paramstyle),
                            ConnectionPoolConnection(self.pool))
 
 

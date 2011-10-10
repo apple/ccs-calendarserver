@@ -1276,7 +1276,7 @@ class ConnectionPoolClient(AMP):
     A client which can execute SQL.
     """
 
-    def __init__(self, dialect=POSTGRES_DIALECT, paramstyle=POSTGRES_DIALECT):
+    def __init__(self, dialect=POSTGRES_DIALECT, paramstyle=DEFAULT_PARAM_STYLE):
         # See DEFAULT_PARAM_STYLE FIXME above.
         super(ConnectionPoolClient, self).__init__()
         self._nextID    = count().next
