@@ -186,6 +186,11 @@ class IDerivedParameter(Interface):
     C{args} argument to L{IAsyncTransaction.execSQL}, it will have its
     C{prequery} and C{postquery} methods invoked on it before and after
     executing the SQL query in question, respectively.
+
+    @note: L{IDerivedParameter} providers must also always be I{pickleable},
+        because in some cases the actual database cursor objects will be on the
+        other end of a network connection.  For an explanation of why this
+        might be, see L{twext.enterprise.adbapi2.ConnectionPoolConnection}.
     """
 
     def preQuery(cursor):
