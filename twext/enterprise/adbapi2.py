@@ -1141,6 +1141,14 @@ class ConnectionPoolConnection(AMP):
         self._blocks = {}
 
 
+    def unhandledError(self, failure):
+        """
+        An unhandled error has occurred.  Since we can't really classify errors
+        well on this protocol, log it and forget it.
+        """
+        log.err(failure, "Shared connection pool server encountered an error.")
+
+
     @StartTxn.responder
     def start(self, transactionID):
         self._txns[transactionID] = self.pool.connection()
@@ -1228,6 +1236,14 @@ class ConnectionPoolClient(AMP):
         self._queries   = {}
         self.dialect    = dialect
         self.paramstyle = paramstyle
+
+
+    def unhandledError(self, failure):
+        """
+        An unhandled error has occurred.  Since we can't really classify errors
+        well on this protocol, log it and forget it.
+        """
+        log.err(failure, "Shared connection pool client encountered an error.")
 
 
     def newTransaction(self):
