@@ -25,8 +25,6 @@ from zope.interface.declarations import implements
 
 from twisted.python.threadpool import ThreadPool
 
-from twisted.protocols.amp import UnknownRemoteError
-
 from twisted.trial.unittest import TestCase
 
 from twisted.internet.defer import execute
@@ -44,6 +42,7 @@ from twext.enterprise.adbapi2 import ConnectionPoolConnection
 from twext.enterprise.ienterprise import IAsyncTransaction
 from twext.enterprise.ienterprise import POSTGRES_DIALECT
 from twext.enterprise.ienterprise import ICommandBlock
+from twext.enterprise.adbapi2 import FailsafeException
 from twext.enterprise.adbapi2 import ConnectionPool
 
 
@@ -1388,7 +1387,7 @@ class NetworkedPoolHelper(ConnectionPoolHelper):
         L{UnknownRemoteError}.
         """
         self.flushLoggedErrors(err)
-        return UnknownRemoteError
+        return FailsafeException
 
 
     def resultOf(self, it):
