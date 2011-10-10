@@ -1,7 +1,7 @@
 
 from __future__ import nested_scopes
 
-import time, sys
+import time, sys, os
 
 from zope.interface import implements
 
@@ -1092,7 +1092,10 @@ class AbstractServerTestMixin:
     def testBasicWorkingness(self):
         args = ('-u', util.sibpath(__file__, "simple_client.py"), "basic",
                 str(self.port), self.type)
-        d = waitForDeferred(utils.getProcessOutputAndValue(sys.executable, args=args))
+        d = waitForDeferred(
+            utils.getProcessOutputAndValue(sys.executable, args=args,
+                                           env=os.environ)
+        )
         yield d; out,err,code = d.getResult()
 
         self.assertEquals(code, 0, "Error output:\n%s" % (err,))
@@ -1102,7 +1105,10 @@ class AbstractServerTestMixin:
     def testLingeringClose(self):
         args = ('-u', util.sibpath(__file__, "simple_client.py"),
                 "lingeringClose", str(self.port), self.type)
-        d = waitForDeferred(utils.getProcessOutputAndValue(sys.executable, args=args))
+        d = waitForDeferred(
+            utils.getProcessOutputAndValue(sys.executable, args=args,
+                                           env=os.environ)
+        )
         yield d; out,err,code = d.getResult()
         self.assertEquals(code, 0, "Error output:\n%s" % (err,))
         self.assertEquals(out, "HTTP/1.1 402 Payment Required\r\nContent-Length: 0\r\nConnection: close\r\n\r\n")
