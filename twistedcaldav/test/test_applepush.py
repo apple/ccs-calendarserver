@@ -122,16 +122,14 @@ class ApplePushNotifierServiceTests(CommonCommonTests, TestCase):
         binaryToken = token.decode("hex")
         feedbackData = struct.pack("!IH32s", timestamp, len(binaryToken),
             binaryToken)
-        connector.receiveData(feedbackData)
+        yield connector.receiveData(feedbackData)
 
         # The second subscription should now be gone
         # Prior to feedback, there are 2 subscriptions
-        """ TODO: uncomment this
         txn = self.store.newTransaction()
         subscriptions = (yield txn.apnSubscriptionsByToken(token))
         yield txn.commit()
         self.assertEquals(len(subscriptions), 1)
-        """
 
 
 class TestConnector(object):
@@ -144,7 +142,7 @@ class TestConnector(object):
         service.protocol.makeConnection(self.transport)
 
     def receiveData(self, data):
-        self.service.protocol.dataReceived(data)
+        return self.service.protocol.dataReceived(data)
 
 
 class StubTransport(object):

@@ -312,7 +312,7 @@ class APNFeedbackProtocol(protocol.Protocol, LoggingMixIn):
         self.log_debug("FeedbackProtocol dataReceived %d bytes" % (len(data),))
         timestamp, tokenLength, binaryToken = struct.unpack("!IH32s", data)
         token = binaryToken.encode("hex")
-        self.processFeedback(timestamp, token)
+        return self.processFeedback(timestamp, token)
 
     @inlineCallbacks
     def processFeedback(self, timestamp, token):
