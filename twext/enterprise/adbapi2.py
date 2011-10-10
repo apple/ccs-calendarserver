@@ -1154,7 +1154,9 @@ class ConnectionPoolConnection(AMP):
         """
         Successfully complete the given transaction.
         """
-        return self._complete(transactionID, lambda x: x.commit())
+        def commitme(x):
+            return x.commit()
+        return self._complete(transactionID, commitme)
 
 
     @Abort.responder
@@ -1162,7 +1164,9 @@ class ConnectionPoolConnection(AMP):
         """
         Roll back the given transaction.
         """
-        return self._complete(transactionID, lambda x: x.abort())
+        def abortme(x):
+            return x.abort()
+        return self._complete(transactionID, abortme)
 
 
 
@@ -1170,6 +1174,11 @@ class ConnectionPoolClient(AMP):
     """
     A client which can execute SQL.
     """
+
+    # See DEFAULT_PARAM_STYLE FIXME above.
+    paramstyle = DEFAULT_PARAM_STYLE
+    dialect = POSTGRES_DIALECT
+
     def __init__(self):
         super(ConnectionPoolClient, self).__init__()
         self._nextID  = count().next
@@ -1243,9 +1252,6 @@ class _NetTransaction(object):
 
     implements(IAsyncTransaction)
 
-    # See DEFAULT_PARAM_STYLE FIXME above.
-    paramstyle = DEFAULT_PARAM_STYLE
-
     def __init__(self, client, transactionID):
         """
         Initialize a transaction with a L{ConnectionPoolClient} and a unique
@@ -1256,14 +1262,35 @@ class _NetTransaction(object):
         self._completed     = False
 
 
+    @property
+    def paramstyle(self):
+        """
+        Forward 'paramstyle' attribute to the client.
+        """
+        return self._client.paramstyle
+
+
+    @property
+    def dialect(self):
+        """
+        Forward 'dialect' attribute to the client.
+        """
+        return self._client.dialect
+
+
     def execSQL(self, sql, args=None, raiseOnZeroRowCount=None):
         if args is None:
             args = []
         queryID = str(self._client._nextID())
         query = self._client._queries[queryID] = _Query(raiseOnZeroRowCount)
-        self._client.callRemote(ExecSQL, queryID=queryID, sql=sql, args=args,
-                                transactionID=self._transactionID)
-        return query.deferred
+        result = (
+            self._client.callRemote(
+                ExecSQL, queryID=queryID, sql=sql, args=args,
+                transactionID=self._transactionID
+            )
+            .addCallback(lambda nothing: query.deferred)
+        )
+        return result
 
 
     def _complete(self, command):
@@ -1272,7 +1299,7 @@ class _NetTransaction(object):
         self._completed = True
         return self._client.callRemote(
             command, transactionID=self._transactionID
-            ).addCallback(lambda x: None)
+        ).addCallback(lambda x: None)
 
 
     def commit(self):
@@ -1281,5 +1308,10 @@ class _NetTransaction(object):
 
     def abort(self):
         return self._complete(Abort)
+
+
+    def commandBlock(self):
+        raise NotImplementedError()
+
 
 
