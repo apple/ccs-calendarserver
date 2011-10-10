@@ -1221,12 +1221,12 @@ class ConnectionPoolClient(AMP):
     """
 
     def __init__(self, dialect=POSTGRES_DIALECT, paramstyle=POSTGRES_DIALECT):
-        super(ConnectionPoolClient, self).__init__()
-        self._nextID  = count().next
-        self._txns    = {}
-        self._queries = {}
         # See DEFAULT_PARAM_STYLE FIXME above.
-        self.dialect = dialect
+        super(ConnectionPoolClient, self).__init__()
+        self._nextID    = count().next
+        self._txns      = {}
+        self._queries   = {}
+        self.dialect    = dialect
         self.paramstyle = paramstyle
 
 
