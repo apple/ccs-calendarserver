@@ -1064,12 +1064,19 @@ quashErrors = {
 
 
 def failsafeResponder(command):
+    """
+    Wrap an AMP command responder in some fail-safe logic, to make it so that
+    unknown errors won't drop the connection, as AMP's default behavior would.
+    """
     def wrap(inner):
         @inlineCallbacks
         def innerinner(*a, **k):
             try:
                 val = yield inner(*a, **k)
             except:
+                # FIXME: if this were a general thing, it should probably allow
+                # known errors through; look at the command's 'errors' attribute
+                # before collapsing into FailsafeException.
                 log.err(Failure(),
                         "shared database connection pool encountered error")
                 raise FailsafeException()
