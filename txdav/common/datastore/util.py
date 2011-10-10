@@ -195,11 +195,23 @@ class UpgradeToDatabaseService(Service, LoggingMixIn, object):
         self.doMigration()
 
 
+
 class UpgradeDatabaseSchemaService(Service, LoggingMixIn, object):
     """
     Checks and upgrades the database schema. This assumes there are a bunch of
-    upgrade files in sql syntax that we can execute against the database to accomplish
-    the upgrade.
+    upgrade files in sql syntax that we can execute against the database to
+    accomplish the upgrade.
+
+    @ivar sqlStore: The store to operate on.
+
+    @type sqlStore: L{txdav.idav.IDataStore}
+
+    @ivar wrappedService: Wrapped L{IService} that will be started after this
+        L{UpgradeDatabaseSchemaService}'s work is done and the database schema
+        of C{sqlStore} is fully upgraded.  This may also be specified as
+        C{None}, in which case no service will be started.
+
+    @type wrappedService: L{IService} or C{NoneType}
     """
 
     @classmethod
@@ -217,6 +229,8 @@ class UpgradeDatabaseSchemaService(Service, LoggingMixIn, object):
 
         @param store: the SQL storage service.
 
+        @type store: L{txdav.idav.IDataStore}
+
         @type service: L{IService}
 
         @return: a service
@@ -228,9 +242,6 @@ class UpgradeDatabaseSchemaService(Service, LoggingMixIn, object):
     def __init__(self, sqlStore, service, uid=None, gid=None):
         """
         Initialize the service.
-        
-        @param sqlStore: The store to operate on. Can be C{None} when doing unit tests.
-        @param service:  Wrapped service. Can be C{None} when doing unit tests.
         """
         self.wrappedService = service
         self.sqlStore = sqlStore
@@ -238,27 +249,34 @@ class UpgradeDatabaseSchemaService(Service, LoggingMixIn, object):
         self.gid = gid
         self.schemaLocation = getModule(__name__).filePath.sibling("sql_schema")
 
+
     @inlineCallbacks
     def doUpgrade(self):
         """
-        Do the schema check and upgrade if needed.  Called by C{startService}, but a different method
-        because C{startService} should return C{None}, not a L{Deferred}.
+        Do the schema check and upgrade if needed.  Called by C{startService},
+        but a different method because C{startService} should return C{None},
+        not a L{Deferred}.
 
         @return: a Deferred which fires when the migration is complete.
         """
         self.log_warn("Beginning database schema check.")
-        
+
         # Retrieve the version number from the schema file
         current_schema = self.schemaLocation.child("current.sql").getContent()
-        found = re.search("insert into CALENDARSERVER values \('VERSION', '(\d)+'\);", current_schema)
+        found = re.search(
+            "insert into CALENDARSERVER values \('VERSION', '(\d)+'\);",
+            current_schema)
         if found is None:
-            msg = "Schema is missing required schema VERSION insert statement: %s" % (current_schema,)
+            msg = (
+                "Schema is missing required schema VERSION insert statement: %s"
+                % (current_schema,)
+            )
             self.log_error(msg)
             raise RuntimeError(msg)
         else:
             required_version = int(found.group(1))
             self.log_warn("Required schema version: %s." % (required_version,))
-        
+
         # Get the schema version in the current database
         sqlTxn = self.sqlStore.newTransaction()
         dialect = sqlTxn.dialect
@@ -275,21 +293,24 @@ class UpgradeDatabaseSchemaService(Service, LoggingMixIn, object):
         if required_version == actual_version:
             self.log_warn("Schema version check complete: no upgrade needed.")
         elif required_version < actual_version:
-            msg = "Actual schema version %s is more recent than the expected version %s. The service cannot be started" % (actual_version, required_version,)
+            msg = ("Actual schema version %s is more recent than the expected"
+                   " version %s. The service cannot be started" %
+                   (actual_version, required_version,))
             self.log_error(msg)
             raise RuntimeError(msg)
         else:
             yield self.upgradeVersion(actual_version, required_version, dialect)
-            
+
         self.log_warn(
             "Database schema check complete, launching database service."
         )
         # see http://twistedmatrix.com/trac/ticket/4649
         if self.wrappedService is not None:
-            reactor.callLater(0, self.wrappedService.setServiceParent, self.parent)
+            reactor.callLater(0, self.wrappedService.setServiceParent,
+                              self.parent)
+
 
     @inlineCallbacks
-
     def upgradeVersion(self, fromVersion, toVersion, dialect):
         """
         Update the database from one version to another (the current one). Do this by
