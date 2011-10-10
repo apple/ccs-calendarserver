@@ -1102,7 +1102,8 @@ class QueryComplete(Command):
     """
 
     arguments = [('queryID', String()),
-                 ('norows', Boolean())]
+                 ('norows', Boolean()),
+                 ('derived', Pickle())]
 
 
 
@@ -1160,6 +1161,12 @@ class ConnectionPoolConnection(AMP):
     @ExecSQL.responder
     @inlineCallbacks
     def receivedSQL(self, transactionID, queryID, sql, args, blockID):
+        derived = None
+        for param in args:
+            if IDerivedParameter.providedBy(param):
+                if derived is None:
+                    derived = []
+                derived.append(param)
         if blockID:
             txn = self._blocks[blockID]
         else:
@@ -1175,7 +1182,9 @@ class ConnectionPoolConnection(AMP):
                     # Either this should be yielded or it should be
                     # requiresAnswer=False
                     self.callRemote(Row, queryID=queryID, row=row)
-        self.callRemote(QueryComplete, queryID=queryID, norows=norows)
+
+        self.callRemote(QueryComplete, queryID=queryID, norows=norows,
+                        derived=derived)
         returnValue({})
 
 
@@ -1244,14 +1253,15 @@ class ConnectionPoolClient(AMP):
 
 
     @QueryComplete.responder
-    def complete(self, queryID, norows):
-        self._queries.pop(queryID).done(norows)
+    def complete(self, queryID, norows, derived):
+        self._queries.pop(queryID).done(norows, derived)
         return {}
 
 
 
 class _Query(object):
-    def __init__(self, raiseOnZeroRowCount):
+    def __init__(self, raiseOnZeroRowCount, args):
+        self.args                = args
         self.results             = []
         self.deferred            = Deferred()
         self.raiseOnZeroRowCount = raiseOnZeroRowCount
@@ -1264,17 +1274,43 @@ class _Query(object):
         self.results.append(row)
 
 
-    def done(self, norows):
+    def done(self, norows, derived):
         """
         The query is complete.
 
         @param norows: A boolean.  True if there were not any rows.
+
+        @param derived: either C{None} or a C{list} of L{IDerivedParameter}
+            providers initially passed into the C{execSQL} that started this
+            query.  The values of these object swill mutate the original input
+            parameters to resemble them.  Although L{IDerivedParameter.preQuery}
+            and L{IDerivedParameter.postQuery} are invoked on the other end of
+            the wire, the local objects will be made to appear as though they
+            were called here.
         """
+        if derived is not None:
+            # 1) Bleecchh.
+            # 2) FIXME: add some direct tests in test_adbapi2, the unit test for
+            # this crosses some abstraction boundaries so it's a little
+            # integration-y and in the tests for twext.enterprise.dal
+            for remote, local in zip(derived, self._deriveDerived()):
+                local.__dict__ = remote.__dict__
+
         if norows and (self.raiseOnZeroRowCount is not None):
             exc = self.raiseOnZeroRowCount()
             self.deferred.errback(Failure(exc))
         else:
             self.deferred.callback(self.results)
+
+
+    def _deriveDerived(self):
+        derived = None
+        for param in self.args:
+            if IDerivedParameter.providedBy(param):
+                if derived is None:
+                    derived = []
+                derived.append(param)
+        return derived
 
 
 
@@ -1321,10 +1357,11 @@ class _NetTransaction(object):
                 raise AlreadyFinishedError()
         if args is None:
             args = []
-        queryID = str(self._client._nextID())
-        query = self._client._queries[queryID] = _Query(raiseOnZeroRowCount)
+        client = self._client
+        queryID = str(client._nextID())
+        query = client._queries[queryID] = _Query(raiseOnZeroRowCount, args)
         result = (
-            self._client.callRemote(
+            client.callRemote(
                 ExecSQL, queryID=queryID, sql=sql, args=args,
                 transactionID=self._transactionID, blockID=blockID
             )
