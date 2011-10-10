@@ -601,7 +601,7 @@ def getRootResource(config, newStore, resources=None):
     if apnConfig.Enabled:
         log.info("Setting up APNS resource at /%s" %
             (apnConfig["SubscriptionURL"],))
-        apnResource = apnSubscriptionResourceClass(newStore)
+        apnResource = apnSubscriptionResourceClass(root, newStore)
         root.putChild(apnConfig["SubscriptionURL"], apnResource)
 
     #

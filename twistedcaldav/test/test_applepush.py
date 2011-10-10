@@ -15,15 +15,20 @@
 ##
 
 from twistedcaldav.applepush import (
-    ApplePushNotifierService, APNProviderService, APNProviderProtocol
+    ApplePushNotifierService, APNProviderProtocol
 )
 from twistedcaldav.test.util import TestCase
 from twisted.internet.defer import inlineCallbacks, succeed
 from twisted.internet.task import Clock
 import struct
-import time
+from txdav.common.datastore.test.util import buildStore, CommonCommonTests
 
-class ApplePushNotifierServiceTests(TestCase):
+class ApplePushNotifierServiceTests(CommonCommonTests, TestCase):
+
+    @inlineCallbacks
+    def setUp(self):
+        yield super(ApplePushNotifierServiceTests, self).setUp()
+        self.store = yield buildStore(self, None)
 
     @inlineCallbacks
     def test_ApplePushNotifierService(self):
@@ -52,7 +57,7 @@ class ApplePushNotifierServiceTests(TestCase):
 
 
         # Add subscriptions
-        store = StubStore()
+        store = self.store # StubStore()
         txn = store.newTransaction()
         token = "2d0d55cd7f98bcb81c6e24abcdc35168254c7846a43e2828b1ba5a8f82e219df"
         key1 = "/CalDAV/calendars.example.com/user01/calendar/"
@@ -63,6 +68,7 @@ class ApplePushNotifierServiceTests(TestCase):
         key2 = "/CalDAV/calendars.example.com/user02/calendar/"
         timestamp2 = 3000
         yield txn.addAPNSubscription(token, key2, timestamp2, guid)
+        yield txn.commit()
 
         # Set up the service
         clock = Clock()
@@ -75,7 +81,7 @@ class ApplePushNotifierServiceTests(TestCase):
         # case by doing it prior to startService()
 
         # Notification arrives from calendar server
-        service.enqueue("update", "CalDAV|user01/calendar")
+        yield service.enqueue("update", "CalDAV|user01/calendar")
 
         # The notification should be in the queue
         self.assertEquals(service.providers["CalDAV"].queue, [(token, key1)])
@@ -105,7 +111,10 @@ class ApplePushNotifierServiceTests(TestCase):
         clock.advance(301)
 
         # Prior to feedback, there are 2 subscriptions
-        self.assertEquals(len(store.subscriptions), 2)
+        txn = self.store.newTransaction()
+        subscriptions = (yield txn.apnSubscriptionsByToken(token))
+        yield txn.commit()
+        self.assertEquals(len(subscriptions), 2)
 
         # Simulate feedback
         timestamp = 2000
@@ -116,7 +125,13 @@ class ApplePushNotifierServiceTests(TestCase):
         connector.receiveData(feedbackData)
 
         # The second subscription should now be gone
-        self.assertEquals(len(store.subscriptions), 1)
+        # Prior to feedback, there are 2 subscriptions
+        """ TODO: uncomment this
+        txn = self.store.newTransaction()
+        subscriptions = (yield txn.apnSubscriptionsByToken(token))
+        yield txn.commit()
+        self.assertEquals(len(subscriptions), 1)
+        """
 
 
 class TestConnector(object):
@@ -176,7 +191,6 @@ class StubTransaction(object):
         return succeed(None)
 
     def removeAPNSubscription(self, token, key):
-        matches = []
         for subscription in list(self.store.subscriptions):
             if subscription.token == token and subscription.key == key:
                 self.store.subscriptions.remove(subscription)

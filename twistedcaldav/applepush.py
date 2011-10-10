@@ -18,14 +18,18 @@ from twext.internet.ssl import ChainingOpenSSLContextFactory
 from twext.python.log import Logger, LoggingMixIn
 from twext.python.log import LoggingMixIn
 from twext.web2 import responsecode
+from twext.web2.dav import davxml
+from twext.web2.dav.noneprops import NonePropertyStore
+from twext.web2.dav.resource import DAVResource
 from twext.web2.http import Response
 from twext.web2.http_headers import MimeType
-from twext.web2.resource import Resource
 from twext.web2.server import parsePOSTData
 from twisted.application import service
 from twisted.internet import reactor, protocol
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.internet.protocol import ClientFactory, ReconnectingClientFactory
+from twistedcaldav.extensions import DAVResource, DAVResourceWithoutChildrenMixin
+from twistedcaldav.resource import ReadOnlyNoCopyResourceMixIn
 import OpenSSL
 import struct
 import time
@@ -174,8 +178,7 @@ class APNProviderProtocol(protocol.Protocol, LoggingMixIn):
 
     def processError(self, status, identifier):
         msg = self.STATUS_CODES.get(status, "Unknown status code")
-        self.log_debug("ProviderProtocol processError %d on identifier %d: %s" % (status, identifier, msg))
-        # TODO: do we want to retry after certain errors?
+        self.log_error("Received APN error %d on identifier %d: %s" % (status, identifier, msg))
 
     def sendNotification(self, token, node):
         try:
@@ -370,46 +373,107 @@ class APNFeedbackService(APNConnectionService):
         self.nextCheck = self.reactor.callLater(self.updateSeconds,
             self.checkForFeedback)
 
-class APNSubscriptionResource(Resource):
+
+class APNSubscriptionResource(ReadOnlyNoCopyResourceMixIn, DAVResourceWithoutChildrenMixin, DAVResource, LoggingMixIn):
 
     # method can be GET or POST
     # params are "token" (device token) and "key" (push key), e.g.:
     # token=2d0d55cd7f98bcb81c6e24abcdc35168254c7846a43e2828b1ba5a8f82e219df
     # key=/CalDAV/calendar.example.com/E0B38B00-4166-11DD-B22C-A07C87F02F6A/
 
-    def __init__(self, store):
+    def __init__(self, parent, store):
+        DAVResource.__init__(
+            self, principalCollections=parent.principalCollections()
+        )
+        self.parent = parent
         self.store = store
-        # TODO: add authentication
 
-    def http_GET(self, request):
-        return self.processSubscription(None, request.args)
+    def deadProperties(self):
+        if not hasattr(self, "_dead_properties"):
+            self._dead_properties = NonePropertyStore(self)
+        return self._dead_properties
 
-    def http_POST(self, request):
-        return parsePOSTData(request).addCallback(
-            self.processSubscription, request.args)
+    def etag(self):
+        return None
+
+    def checkPreconditions(self, request):
+        return None
+
+    def defaultAccessControlList(self):
+        return davxml.ACL(
+            # DAV:Read for authenticated principals
+            davxml.ACE(
+                davxml.Principal(davxml.Authenticated()),
+                davxml.Grant(
+                    davxml.Privilege(davxml.Read()),
+                ),
+                davxml.Protected(),
+            ),
+            # DAV:Write for authenticated principals
+            davxml.ACE(
+                davxml.Principal(davxml.Authenticated()),
+                davxml.Grant(
+                    davxml.Privilege(davxml.Write()),
+                ),
+                davxml.Protected(),
+            ),
+        )
+
+    def contentType(self):
+        return MimeType.fromString("text/html; charset=utf-8");
+
+    def resourceType(self):
+        return None
+
+    def isCollection(self):
+        return False
+
+    def isCalendarCollection(self):
+        return False
+
+    def isPseudoCalendarCollection(self):
+        return False
 
     @inlineCallbacks
-    def processSubscription(self, ignored, args):
-        token = args.get("token", None)
-        key = args.get("key", None)
+    def http_POST(self, request):
+        yield self.authorize(request, (davxml.Write(),))
+        yield parsePOSTData(request)
+        code, msg = (yield self.processSubscription(request))
+        returnValue(self.renderResponse(code, body=msg))
+
+    http_GET = http_POST
+
+    def principalFromRequest(self, request):
+        principal = None
+        for collection in self.principalCollections():
+            data = request.authnUser.children[0].children[0].data
+            principal = collection._principalForURI(data)
+            if principal is not None:
+                return principal
+
+    @inlineCallbacks
+    def processSubscription(self, request):
+        token = request.args.get("token", None)
+        key = request.args.get("key", None)
         if key and token:
             key = key[0]
             token = token[0].replace(" ", "")
-            yield self.addSubscription(token, key)
+            principal = self.principalFromRequest(request)
+            guid = principal.record.guid
+            yield self.addSubscription(token, key, guid)
             code = responsecode.OK
             msg = None
         else:
             code = responsecode.BAD_REQUEST
             msg = "Invalid request: both 'token' and 'key' must be provided"
 
-        returnValue(self.renderResponse(code, body=msg))
+        returnValue((code, msg))
 
     @inlineCallbacks
-    def addSubscription(self, token, key):
+    def addSubscription(self, token, key, guid):
         now = int(time.time()) # epoch seconds
         txn = self.store.newTransaction()
-        # TODO: use actual guid
-        yield txn.addAPNSubscription(token, key, now, "xyzzy")
+        yield txn.addAPNSubscription(token, key, now, guid)
         # subscriptions = (yield txn.apnSubscriptionsByToken(token))
         # print subscriptions
         yield txn.commit()
