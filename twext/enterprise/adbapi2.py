@@ -57,8 +57,9 @@ from twext.enterprise.ienterprise import ConnectionError
 from twext.enterprise.ienterprise import IDerivedParameter
 
 from twisted.internet.defer import fail
+
 from twext.enterprise.ienterprise import (
-    AlreadyFinishedError, IAsyncTransaction, POSTGRES_DIALECT
+    AlreadyFinishedError, IAsyncTransaction, POSTGRES_DIALECT, ICommandBlock
 )
 
 
@@ -1063,7 +1064,24 @@ class ExecSQL(Command):
     """
     arguments = [('sql', String()),
                  ('queryID', String()),
-                 ('args', Pickle())] + txnarg()
+                 ('args', Pickle()),
+                 ('blockID', String())] + txnarg()
+
+
+
+class StartBlock(Command):
+    """
+    Create a new SQL command block.
+    """
+    arguments = [("blockID", String())] + txnarg()
+
+
+
+class EndBlock(Command):
+    """
+    Create a new SQL command block.
+    """
+    arguments = [("blockID", String())] + txnarg()
 
 
 
@@ -1118,6 +1136,7 @@ class ConnectionPoolConnection(AMP):
         super(ConnectionPoolConnection, self).__init__()
         self.pool  = pool
         self._txns = {}
+        self._blocks = {}
 
 
     @StartTxn.responder
@@ -1126,11 +1145,27 @@ class ConnectionPoolConnection(AMP):
         return {}
 
 
+    @StartBlock.responder
+    def startBlock(self, transactionID, blockID):
+        self._blocks[blockID] = self._txns[transactionID].commandBlock()
+        return {}
+
+
+    @EndBlock.responder
+    def endBlock(self, transactionID, blockID):
+        self._blocks[blockID].end()
+        return {}
+
+
     @ExecSQL.responder
     @inlineCallbacks
-    def receivedSQL(self, transactionID, queryID, sql, args):
+    def receivedSQL(self, transactionID, queryID, sql, args, blockID):
+        if blockID:
+            txn = self._blocks[blockID]
+        else:
+            txn = self._txns[transactionID]
         try:
-            rows = yield self._txns[transactionID].execSQL(sql, args, _NoRows)
+            rows = yield txn.execSQL(sql, args, _NoRows)
         except _NoRows:
             norows = True
         else:
@@ -1260,6 +1295,8 @@ class _NetTransaction(object):
         self._client        = client
         self._transactionID = transactionID
         self._completed     = False
+        self._committing    = False
+        self._committed     = False
 
 
     @property
@@ -1278,7 +1315,10 @@ class _NetTransaction(object):
         return self._client.dialect
 
 
-    def execSQL(self, sql, args=None, raiseOnZeroRowCount=None):
+    def execSQL(self, sql, args=None, raiseOnZeroRowCount=None, blockID=""):
+        if not blockID:
+            if self._completed:
+                raise AlreadyFinishedError()
         if args is None:
             args = []
         queryID = str(self._client._nextID())
@@ -1286,7 +1326,7 @@ class _NetTransaction(object):
         result = (
             self._client.callRemote(
                 ExecSQL, queryID=queryID, sql=sql, args=args,
-                transactionID=self._transactionID
+                transactionID=self._transactionID, blockID=blockID
             )
             .addCallback(lambda nothing: query.deferred)
         )
@@ -1303,7 +1343,11 @@ class _NetTransaction(object):
 
 
     def commit(self):
-        return self._complete(Commit)
+        self._committing = True
+        def done(whatever):
+            self._committed = True
+            return whatever
+        return self._complete(Commit).addBoth(done)
 
 
     def abort(self):
@@ -1311,7 +1355,51 @@ class _NetTransaction(object):
 
 
     def commandBlock(self):
-        raise NotImplementedError()
+        if self._completed:
+            raise AlreadyFinishedError()
+        blockID = str(self._client._nextID())
+        self._client.callRemote(
+            StartBlock, blockID=blockID, transactionID=self._transactionID
+        )
+        return _NetCommandBlock(self, blockID)
 
 
+
+class _NetCommandBlock(object):
+    """
+    Net command block.
+    """
+
+    implements(ICommandBlock)
+
+    def __init__(self, transaction, blockID):
+        self._transaction = transaction
+        self._blockID = blockID
+        self._ended = False
+
+
+    def execSQL(self, sql, args=None, raiseOnZeroRowCount=None):
+        """
+        Execute some SQL on this command block.
+        """
+        if  (self._ended or
+             self._transaction._completed and
+             not self._transaction._committing or
+             self._transaction._committed):
+            raise AlreadyFinishedError()
+        return self._transaction.execSQL(sql, args, raiseOnZeroRowCount,
+                                         self._blockID)
+
+
+    def end(self):
+        """
+        End this block.
+        """
+        if self._ended:
+            raise AlreadyFinishedError()
+        self._ended = True
+        self._transaction._client.callRemote(
+            EndBlock, blockID=self._blockID,
+            transactionID=self._transaction._transactionID
+        )
 

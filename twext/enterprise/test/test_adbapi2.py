@@ -1158,6 +1158,7 @@ class ConnectionPoolTests(ConnectionPoolBase):
         cb2.end()
         cb1.end()
         flush()
+        self.flushHolders()
         self.assertEquals(self.factory.connections[0].cursors[0].allExecutions,
                           [("a", []), ("b", []), ("c", []), ("d", []),
                            ("e", [])])
@@ -1192,11 +1193,12 @@ class ConnectionPoolTests(ConnectionPoolBase):
         txn = self.createTransaction()
         block = txn.commandBlock()
         commitResult = self.resultOf(txn.commit())
-        block.execSQL("in block")
+        self.resultOf(block.execSQL("in block"))
         self.assertEquals(commitResult, [])
         self.assertEquals(self.factory.connections[0].cursors[0].allExecutions,
                           [("in block", [])])
         block.end()
+        self.flushHolders()
         self.assertEquals(commitResult, [None])
 
 
@@ -1254,7 +1256,7 @@ class ConnectionPoolTests(ConnectionPoolBase):
         an exception.
         """
         txn = self.createTransaction()
-        txn.abort()
+        self.resultOf(txn.abort())
         self.assertRaises(AlreadyFinishedError, txn.commandBlock)
 
 
@@ -1326,7 +1328,8 @@ class NetworkedConnectionPoolTests(ConnectionPoolTests):
     # Don't run these tests.
     def test_propagateDialect(self):
         """
-        Paramstyle and dialect are configured differently.
+        Paramstyle and dialect are configured differently for
+        shared-connection-pool transactions.
         """
 
     test_propagateParamstyle = test_propagateDialect
