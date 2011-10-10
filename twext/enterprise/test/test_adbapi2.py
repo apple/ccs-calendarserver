@@ -43,6 +43,7 @@ from twext.enterprise.adbapi2 import ConnectionPoolClient
 from twext.enterprise.adbapi2 import ConnectionPoolConnection
 from twext.enterprise.ienterprise import IAsyncTransaction
 from twext.enterprise.ienterprise import POSTGRES_DIALECT
+from twext.enterprise.ienterprise import ICommandBlock
 from twext.enterprise.adbapi2 import ConnectionPool
 
 
@@ -856,13 +857,20 @@ class ConnectionPoolTests(ConnectionPoolHelper, TestCase):
         self.assertEquals(len(self.factory.connections), 2)
 
 
+    def setParamstyle(self, paramstyle):
+        """
+        Change the paramstyle of the transaction under test.
+        """
+        self.pool.paramstyle = paramstyle
+
+
     def test_propagateParamstyle(self):
         """
         Each different type of L{IAsyncTransaction} relays the C{paramstyle}
         attribute from the L{ConnectionPool}.
         """
         TEST_PARAMSTYLE = "justtesting"
-        self.pool.paramstyle = TEST_PARAMSTYLE
+        self.setParamstyle(TEST_PARAMSTYLE)
         normaltxn = self.createTransaction()
         self.assertEquals(normaltxn.paramstyle, TEST_PARAMSTYLE)
         self.pauseHolders()
@@ -876,13 +884,20 @@ class ConnectionPoolTests(ConnectionPoolHelper, TestCase):
         self.assertEquals(notxn.paramstyle, TEST_PARAMSTYLE)
 
 
+    def setDialect(self, dialect):
+        """
+        Change the dialect of the transaction under test.
+        """
+        self.pool.dialect = dialect
+
+
     def test_propagateDialect(self):
         """
         Each different type of L{IAsyncTransaction} relays the C{dialect}
         attribute from the L{ConnectionPool}.
         """
         TEST_DIALECT = "otherdialect"
-        self.pool.dialect = TEST_DIALECT
+        self.setDialect(TEST_DIALECT)
         normaltxn = self.createTransaction()
         self.assertEquals(normaltxn.dialect, TEST_DIALECT)
         self.pauseHolders()
@@ -1109,6 +1124,7 @@ class ConnectionPoolTests(ConnectionPoolHelper, TestCase):
         txn = self.createTransaction()
         a = self.resultOf(txn.execSQL("a"))
         cb = txn.commandBlock()
+        verifyObject(ICommandBlock, cb)
         b = self.resultOf(cb.execSQL("b"))
         d = self.resultOf(txn.execSQL("d"))
         c = self.resultOf(cb.execSQL("c"))
@@ -1386,16 +1402,22 @@ class NetworkedConnectionPoolTests(NetworkedPoolHelper, ConnectionPoolTests):
     interacting with each other.
     """
 
-    # Don't run these tests.
-    def test_propagateDialect(self):
+
+    def setParamstyle(self, paramstyle):
         """
-        Paramstyle and dialect are configured differently for
-        shared-connection-pool transactions.
+        Change the paramstyle on both the pool and the client.
         """
+        super(NetworkedConnectionPoolTests, self).setParamstyle(paramstyle)
+        self.pump.client.paramstyle = paramstyle
 
 
-    test_propagateParamstyle = test_propagateDialect
-    test_propagateParamstyle.skip = test_propagateParamstyle.__doc__.strip()
+    def setDialect(self, dialect):
+        """
+        Change the dialect on both the pool and the client.
+        """
+        super(NetworkedConnectionPoolTests, self).setDialect(dialect)
+        self.pump.client.dialect = dialect
+
 
     def test_newTransaction(self):
         """
