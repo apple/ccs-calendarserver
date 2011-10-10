@@ -153,10 +153,27 @@ class IAsyncTransaction(ISQLExecutor):
 class ICommandBlock(ISQLExecutor):
     """
     This is a block of SQL commands that are grouped together.
+
+    @see: L{IAsyncTransaction.commandBlock}
     """
 
     def end():
         """
+        End this command block, allowing other commands queued on the underlying
+        transaction to end.
+
+        @note: This is I{not} the same as either L{IAsyncTransaction.commit} or
+            L{IAsyncTransaction.abort}, since it does not denote success or
+            failure; merely that the command block has completed and other
+            statements may now be executed.  Since sub-transactions are a
+            database-specific feature, they must be implemented at a
+            higher-level than this facility provides (although this facility may
+            be useful in their implementation).  Also note that, unlike either
+            of those methods, this does I{not} return a Deferred: if you want to
+            know when the block has completed, simply add a callback to the last
+            L{ICommandBlock.execSQL} call executed on this L{ICommandBlock}.
+            (This may be changed in a future version for the sake of
+            convenience, however.)
         """
 
 
