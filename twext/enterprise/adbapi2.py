@@ -671,6 +671,7 @@ class CommandBlock(object):
     understanding of the SQL dialect in use by the underlying connection is
     required.  Instead, it provides 'end'.
     """
+    implements(ICommandBlock)
 
     def __init__(self, singleTxn):
         self._singleTxn = singleTxn
@@ -1219,15 +1220,14 @@ class ConnectionPoolClient(AMP):
     A client which can execute SQL.
     """
 
-    # See DEFAULT_PARAM_STYLE FIXME above.
-    paramstyle = DEFAULT_PARAM_STYLE
-    dialect = POSTGRES_DIALECT
-
-    def __init__(self):
+    def __init__(self, dialect=POSTGRES_DIALECT, paramstyle=POSTGRES_DIALECT):
         super(ConnectionPoolClient, self).__init__()
         self._nextID  = count().next
         self._txns    = {}
         self._queries = {}
+        # See DEFAULT_PARAM_STYLE FIXME above.
+        self.dialect = dialect
+        self.paramstyle = paramstyle
 
 
     def newTransaction(self):
@@ -1413,6 +1413,23 @@ class _NetCommandBlock(object):
         self._transaction = transaction
         self._blockID = blockID
         self._ended = False
+
+
+    @property
+    def paramstyle(self):
+        """
+        Forward 'paramstyle' attribute to the transaction.
+        """
+        return self._transaction.paramstyle
+
+
+    @property
+    def dialect(self):
+        """
+        Forward 'dialect' attribute to the transaction.
+        """
+        return self._transaction.dialect
+
 
 
     def execSQL(self, sql, args=None, raiseOnZeroRowCount=None):
