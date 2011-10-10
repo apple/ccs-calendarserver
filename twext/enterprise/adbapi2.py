@@ -1107,7 +1107,8 @@ class _NoRows(Exception):
 class ConnectionPoolConnection(AMP):
     """
     A L{ConnectionPoolConnection} is a single connection to a
-    L{ConnectionPool}.
+    L{ConnectionPool}.  This is the server side of the connection-pool-sharing
+    protocol; it implements all the AMP responders necessary.
     """
 
     def __init__(self, pool):
