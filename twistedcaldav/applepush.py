@@ -116,7 +116,7 @@ class ApplePushNotifierService(service.MultiService, LoggingMixIn):
             # Look up subscriptions for this key
             txn = self.store.newTransaction()
             subscriptions = (yield txn.apnSubscriptionsByKey(key))
-            yield txn.commit() # TODO: Glyph, needed?  No changes being made.
+            yield txn.commit()
 
             numSubscriptions = len(subscriptions)
             if numSubscriptions > 0:

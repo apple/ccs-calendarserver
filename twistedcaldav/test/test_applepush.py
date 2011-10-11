@@ -57,8 +57,7 @@ class ApplePushNotifierServiceTests(CommonCommonTests, TestCase):
 
 
         # Add subscriptions
-        store = self.store # StubStore()
-        txn = store.newTransaction()
+        txn = self.store.newTransaction()
         token = "2d0d55cd7f98bcb81c6e24abcdc35168254c7846a43e2828b1ba5a8f82e219df"
         key1 = "/CalDAV/calendars.example.com/user01/calendar/"
         timestamp1 = 1000
@@ -72,8 +71,8 @@ class ApplePushNotifierServiceTests(CommonCommonTests, TestCase):
 
         # Set up the service
         clock = Clock()
-        service = (yield ApplePushNotifierService.makeService(settings, store,
-            testConnectorClass=TestConnector, reactor=clock))
+        service = (yield ApplePushNotifierService.makeService(settings,
+            self.store, testConnectorClass=TestConnector, reactor=clock))
         self.assertEquals(set(service.providers.keys()), set(["CalDAV","CardDAV"]))
         self.assertEquals(set(service.feedbacks.keys()), set(["CalDAV","CardDAV"]))
 
@@ -107,7 +106,7 @@ class ApplePushNotifierServiceTests(CommonCommonTests, TestCase):
 
         # Simulate an error
         errorData = struct.pack("!BBI", APNProviderProtocol.COMMAND_ERROR, 1, 1)
-        connector.receiveData(errorData)
+        yield connector.receiveData(errorData)
         clock.advance(301)
 
         # Prior to feedback, there are 2 subscriptions
@@ -152,56 +151,3 @@ class StubTransport(object):
 
     def write(self, data):
         self.data = data
-
-
-class StubStore(object):
-
-    def __init__(self):
-        self.subscriptions = []
-
-    def newTransaction(self):
-        return StubTransaction(self)
-
-
-class StubTransaction(object):
-
-    def __init__(self, store):
-        self.store = store
-
-    def apnSubscriptionsByKey(self, key):
-        matches = []
-        for subscription in self.store.subscriptions:
-            if subscription.key == key:
-                matches.append((subscription.token, subscription.guid))
-        return succeed(matches)
-
-    def apnSubscriptionsByToken(self, token):
-        matches = []
-        for subscription in self.store.subscriptions:
-            if subscription.token == token:
-                matches.append((subscription.key, subscription.timestamp,
-                    subscription.guid))
-        return succeed(matches)
-
-    def addAPNSubscription(self, token, key, timestamp, guid):
-        subscription = Subscription(token, key, timestamp, guid)
-        self.store.subscriptions.append(subscription)
-        return succeed(None)
-
-    def removeAPNSubscription(self, token, key):
-        for subscription in list(self.store.subscriptions):
-            if subscription.token == token and subscription.key == key:
-                self.store.subscriptions.remove(subscription)
-        return succeed(None)
-
-    def commit(self):
-        pass
-
-
-class Subscription(object):
-
-    def __init__(self, token, key, timestamp, guid):
-        self.token = token
-        self.key = key
-        self.timestamp = timestamp
-        self.guid = guid
