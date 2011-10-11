@@ -324,6 +324,91 @@ class CommonStoreTransaction(object):
         return NotificationCollection.notificationsWithUID(self, uid)
 
 
+    @classproperty
+    def _insertAPNSubscriptionQuery(cls): #@NoSelf
+        apn = schema.APN_SUBSCRIPTIONS
+        return Insert({apn.TOKEN: Parameter("token"),
+                       apn.RESOURCE_KEY: Parameter("resourceKey"),
+                       apn.MODIFIED: Parameter("modified"),
+                       apn.SUBSCRIBER_GUID: Parameter("subscriber")})
+
+
+    @classproperty
+    def _updateAPNSubscriptionQuery(cls): #@NoSelf
+        apn = schema.APN_SUBSCRIPTIONS
+        return Update({apn.MODIFIED: Parameter("modified")},
+                      Where=(apn.TOKEN == Parameter("token")).And(
+                             apn.RESOURCE_KEY == Parameter("resourceKey")))
+
+
+    @classproperty
+    def _selectAPNSubscriptionQuery(cls): #@NoSelf
+        apn = schema.APN_SUBSCRIPTIONS
+        return Select([apn.MODIFIED, apn.SUBSCRIBER_GUID], From=apn,
+                Where=(
+                    apn.TOKEN == Parameter("token")).And(
+                    apn.RESOURCE_KEY == Parameter("resourceKey")
+                )
+            )
+
+
+    @inlineCallbacks
+    def addAPNSubscription(self, token, key, timestamp, subscriber):
+        row = yield self._selectAPNSubscriptionQuery.on(self,
+            token=token, resourceKey=key)
+        if not row: # Subscription does not yet exist
+            try:
+                yield self._insertAPNSubscriptionQuery.on(self,
+                    token=token, resourceKey=key, modified=timestamp,
+                    subscriber=subscriber)
+            except Exception:
+                # Subscription may have been added by someone else, which is fine
+                pass
+
+        else: # Subscription exists, so update with new timestamp
+            try:
+                yield self._updateAPNSubscriptionQuery.on(self,
+                    token=token, resourceKey=key, modified=timestamp)
+            except Exception:
+                # Subscription may have been added by someone else, which is fine
+                pass
+
+
+    @classproperty
+    def _removeAPNSubscriptionQuery(cls): #@NoSelf
+        apn = schema.APN_SUBSCRIPTIONS
+        return Delete(From=apn,
+                      Where=(apn.TOKEN == Parameter("token")).And(
+                          apn.RESOURCE_KEY == Parameter("resourceKey")))
+
+
+    def removeAPNSubscription(self, token, key):
+        return self._removeAPNSubscriptionQuery.on(self,
+            token=token, resourceKey=key)
+
+
+    @classproperty
+    def _apnSubscriptionsByTokenQuery(cls): #@NoSelf
+        apn = schema.APN_SUBSCRIPTIONS
+        return Select([apn.RESOURCE_KEY, apn.MODIFIED, apn.SUBSCRIBER_GUID],
+                      From=apn, Where=apn.TOKEN == Parameter("token"))
+
+
+    def apnSubscriptionsByToken(self, token):
+        return self._apnSubscriptionsByTokenQuery.on(self, token=token)
+
+
+    @classproperty
+    def _apnSubscriptionsByKeyQuery(cls): #@NoSelf
+        apn = schema.APN_SUBSCRIPTIONS
+        return Select([apn.TOKEN, apn.SUBSCRIBER_GUID],
+                      From=apn, Where=apn.RESOURCE_KEY == Parameter("resourceKey"))
+
+
+    def apnSubscriptionsByKey(self, key):
+        return self._apnSubscriptionsByKeyQuery.on(self, resourceKey=key)
+
+
     def postCommit(self, operation):
         """
         Run things after C{commit}.

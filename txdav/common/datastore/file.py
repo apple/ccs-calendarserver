@@ -232,6 +232,20 @@ class CommonStoreTransaction(DataStoreTransaction):
         return NotificationCollection.notificationsFromHome(self, home)
 
 
+    # File-based storage of APN subscriptions not implementated.
+    def addAPNSubscription(self, token, key, timestamp, subscriber):
+        return NotImplementedError
+
+    def removeAPNSubscription(self, token, key):
+        return NotImplementedError
+
+    def apnSubscriptionsByToken(self, token):
+        return NotImplementedError
+
+    def apnSubscriptionsByKey(self, key):
+        return NotImplementedError
+
+
 class StubResource(object):
     """
     Just enough resource to keep the shared sql DB classes going.

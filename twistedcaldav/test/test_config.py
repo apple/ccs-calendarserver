@@ -95,7 +95,7 @@ class ConfigTests(TestCase):
 
     def testDefaults(self):
         for key, value in DEFAULT_CONFIG.iteritems():
-            if key in ("ServerHostName",):
+            if key in ("ServerHostName", "Notifications"):
                 # Value is calculated and may vary
                 continue
             for item in RELATIVE_PATHS:
