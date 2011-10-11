@@ -18,7 +18,7 @@ from twistedcaldav.applepush import (
     ApplePushNotifierService, APNProviderProtocol
 )
 from twistedcaldav.test.util import TestCase
-from twisted.internet.defer import inlineCallbacks, succeed
+from twisted.internet.defer import inlineCallbacks
 from twisted.internet.task import Clock
 import struct
 from txdav.common.datastore.test.util import buildStore, CommonCommonTests

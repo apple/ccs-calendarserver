@@ -149,18 +149,50 @@ class ICommonTransaction(ITransaction):
 
     def addAPNSubscription(token, key, timestamp, subscriber):
         """
+        Add (or update) a subscription entry in the database.
+
+        @param token: The device token of the subscriber
+        @type token: C{str}
+
+        @param key: The push key to subscribe to
+        @type key: C{str}
+
+        @param timestamp: The number of seconds since the epoch
+        @type timestamp: C{int}
+
+        @param subscriber: The GUID of the subscribing principal
+        @type subscrbier: C{str}
         """
 
     def removeAPNSubscription(token, key):
         """
+        Remove a subscription entry from the database.
+
+        @param token: The device token of the subscriber
+        @type token: C{str}
+
+        @param key: The push key
+        @type key: C{str}
         """
 
     def apnSubscriptionsByToken(token):
         """
+        Retrieve all subscription entries for the token.
+
+        @param token: The device token of the subscriber
+        @type token: C{str}
+
+        @return: tuples of (key, timestamp, guid)
         """
 
     def apnSubscriptionsByKey(key):
         """
+        Retrieve all subscription entries for the key.
+
+        @param key: The push key
+        @type key: C{str}
+
+        @return: tuples of (token, guid)
         """
 
 class IShareableCollection(Interface):

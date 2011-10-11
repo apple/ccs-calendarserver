@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2005-2011 Apple Inc. All rights reserved.
+# Copyright (c) 2011 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -34,26 +34,47 @@ import OpenSSL
 import struct
 import time
 
-"""
-ApplePushNotifierService is a MultiService responsible for setting up the
-APN provider and feedback connections.  Once connected, calling its enqueue( )
-method sends notifications to any device token which is subscribed to the
-enqueued key.
-
-The Apple Push Notification protocol is described here:
-
-http://developer.apple.com/library/ios/#documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/CommunicatingWIthAPS/CommunicatingWIthAPS.html
-"""
 
 
 log = Logger()
 
 
 class ApplePushNotifierService(service.MultiService, LoggingMixIn):
+    """
+    ApplePushNotifierService is a MultiService responsible for
+    setting up the APN provider and feedback connections.  Once
+    connected, calling its enqueue( ) method sends notifications
+    to any device token which is subscribed to the enqueued key.
+
+    The Apple Push Notification protocol is described here:
+
+    http://developer.apple.com/library/ios/#documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/CommunicatingWIthAPS/CommunicatingWIthAPS.html
+    """
 
     @classmethod
     def makeService(cls, settings, store, testConnectorClass=None,
         reactor=None):
+        """
+        Creates the various "subservices" that work together to implement
+        APN, including "provider" and "feedback" services for CalDAV and
+        CardDAV.
+
+        @param settings: The portion of the configuration specific to APN
+        @type settings: C{dict}
+
+        @param store: The db store for storing/retrieving subscriptions
+        @type store: L{IDataStore}
+
+        @param testConnectorClass: Used for unit testing; implements
+            connect( ) and receiveData( )
+        @type testConnectorClass: C{class}
+
+        @param reactor: Used for unit testing; allows tests to advance the
+            clock in order to test the feedback polling service.
+        @type reactor: L{twisted.internet.task.Clock}
+
+        @return: instance of L{ApplePushNotifierService}
+        """
 
         service = cls()
 
@@ -101,6 +122,25 @@ class ApplePushNotifierService(service.MultiService, LoggingMixIn):
 
     @inlineCallbacks
     def enqueue(self, op, id):
+        """
+        Sends an Apple Push Notification to any device token subscribed to
+        this id.
+
+        @param op: The operation that took place, either "create" or "update"
+            (ignored in this implementation)
+        @type op: C{str}
+
+        @param id: The identifier of the resource that was updated, including
+            a prefix indicating whether this is CalDAV or CardDAV related.
+            The prefix is separated from the id with "|", e.g.:
+
+            "CalDAV|abc/def"
+
+            The id is an opaque token as far as this code is concerned, and
+            is used in conjunction with the prefix and the server hostname
+            to build the actual key value that devices subscribe to.
+        @type id: C{str}
+        """
 
         try:
             protocol, id = id.split("|", 1)
@@ -177,10 +217,32 @@ class APNProviderProtocol(protocol.Protocol, LoggingMixIn):
             self.processError(status, identifier)
 
     def processError(self, status, identifier):
+        """
+        Handles an error message we've received from on feedback channel.
+        Not much to do here besides logging the error.
+
+        @param status: The status value returned from APN Feedback server
+        @type status: C{int}
+
+        @param identifier: The identifier of the outbound push notification
+            message which had a problem.
+        @type status: C{int}
+        """
         msg = self.STATUS_CODES.get(status, "Unknown status code")
         self.log_error("Received APN error %d on identifier %d: %s" % (status, identifier, msg))
 
-    def sendNotification(self, token, node):
+    def sendNotification(self, token, key):
+        """
+        Sends a push notification message for the key to the device associated
+        with the token.
+
+        @param token: The device token subscribed to the key
+        @type token: C{str}
+
+        @param key: The key we're sending a notification about
+        @type key: C{str}
+        """
+
         try:
             binaryToken = token.replace(" ", "").decode("hex")
         except:
@@ -188,7 +250,7 @@ class APNProviderProtocol(protocol.Protocol, LoggingMixIn):
             return
 
         self.identifier += 1
-        payload = '{"key" : "%s"}' % (node,)
+        payload = '{"key" : "%s"}' % (key,)
         payloadLength = len(payload)
         self.log_debug("Sending APNS notification to %s: id=%d payload=%s" %
             (token, self.identifier, payload))
@@ -316,6 +378,19 @@ class APNFeedbackProtocol(protocol.Protocol, LoggingMixIn):
 
     @inlineCallbacks
     def processFeedback(self, timestamp, token):
+        """
+        Handles a feedback message indicating that the given token is no
+        longer active as of the timestamp, and its subscription should be
+        removed as long as that device has not re-subscribed since the
+        timestamp.
+
+        @param timestamp: Seconds since the epoch
+        @type timestamp: C{int}
+
+        @param token: The device token to unsubscribe
+        @type token: C{str}
+        """
+
         self.log_debug("FeedbackProtocol processFeedback time=%d token=%s" %
             (timestamp, token))
         txn = self.factory.store.newTransaction()
@@ -374,12 +449,16 @@ class APNFeedbackService(APNConnectionService):
             self.checkForFeedback)
 
 
-class APNSubscriptionResource(ReadOnlyNoCopyResourceMixIn, DAVResourceWithoutChildrenMixin, DAVResource, LoggingMixIn):
-
-    # method can be GET or POST
-    # params are "token" (device token) and "key" (push key), e.g.:
-    # token=2d0d55cd7f98bcb81c6e24abcdc35168254c7846a43e2828b1ba5a8f82e219df
-    # key=/CalDAV/calendar.example.com/E0B38B00-4166-11DD-B22C-A07C87F02F6A/
+class APNSubscriptionResource(ReadOnlyNoCopyResourceMixIn,
+    DAVResourceWithoutChildrenMixin, DAVResource, LoggingMixIn):
+    """
+    The DAV resource allowing clients to subscribe to Apple push notifications.
+    To subscribe, a client should first determine the key they are interested
+    in my examining the "pushkey" DAV property on the home or collection they
+    want to monitor.  Next the client sends an authenticated HTTP GET or POST
+    request to this resource, passing their device token and the key in either
+    the URL params or in the POST body.
+    """
 
     def __init__(self, parent, store):
         DAVResource.__init__(
@@ -444,6 +523,10 @@ class APNSubscriptionResource(ReadOnlyNoCopyResourceMixIn, DAVResourceWithoutChi
     http_GET = http_POST
 
     def principalFromRequest(self, request):
+        """
+        Given an authenticated request, return the principal based on
+        request.authnUser
+        """
         principal = None
         for collection in self.principalCollections():
             data = request.authnUser.children[0].children[0].data
@@ -453,6 +536,14 @@ class APNSubscriptionResource(ReadOnlyNoCopyResourceMixIn, DAVResourceWithoutChi
 
     @inlineCallbacks
     def processSubscription(self, request):
+        """
+        Given an authenticated request, use the token and key arguments
+        to add a subscription entry to the database.
+
+        @param request: The request to process
+        @type request: L{twext.web2.server.Request}
+        """
+
         token = request.args.get("token", None)
         key = request.args.get("key", None)
         if key and token:
@@ -471,11 +562,21 @@ class APNSubscriptionResource(ReadOnlyNoCopyResourceMixIn, DAVResourceWithoutChi
 
     @inlineCallbacks
     def addSubscription(self, token, key, guid):
+        """
+        Add a subscription (or update its timestamp if already there).
+
+        @param token: The device token
+        @type token: C{str}
+
+        @param key: The push key
+        @type key: C{str}
+
+        @param guid: The GUID of the subscriber principal
+        @type guid: C{str}
+        """
         now = int(time.time()) # epoch seconds
         txn = self.store.newTransaction()
         yield txn.addAPNSubscription(token, key, now, guid)
-        # subscriptions = (yield txn.apnSubscriptionsByToken(token))
-        # print subscriptions
         yield txn.commit()
 
     def renderResponse(self, code, body=None):

@@ -573,7 +573,7 @@ class ConfigurationTests(TestCase):
         # Overall notifications are disabled
         disabledConfig.Notifications["Enabled"] = False
         conf = getPubSubConfiguration(disabledConfig)
-        self.assertEquals(conf, { "enabled" : False })
+        self.assertEquals(conf, { "enabled" : False, "host" : "" })
         conf = getXMPPSettings(disabledConfig)
         self.assertEquals(conf, None)
 

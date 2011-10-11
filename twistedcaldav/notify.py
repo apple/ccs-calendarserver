@@ -1458,6 +1458,8 @@ class NotificationServiceMaker(object):
             config.Memcached.MaxClients,
         )
 
+        # TODO: This code is copied from makeService_Slave, and needs to be
+        # refactored so it can be shared instead.
         from calendarserver.tap.util import (
             storeFromConfig, pgConnectorFromConfig, oracleConnectorFromConfig,
             pgServiceFromConfig

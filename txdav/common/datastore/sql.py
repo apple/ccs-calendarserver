@@ -331,12 +331,14 @@ class CommonStoreTransaction(object):
                        apn.MODIFIED: Parameter("modified"),
                        apn.SUBSCRIBER_GUID: Parameter("subscriber")})
 
+
     @classproperty
     def _updateAPNSubscriptionQuery(cls): #@NoSelf
         apn = schema.APN_SUBSCRIPTIONS
         return Update({apn.MODIFIED: Parameter("modified")},
                       Where=(apn.TOKEN == Parameter("token")).And(
                              apn.RESOURCE_KEY == Parameter("resourceKey")))
+
 
     @classproperty
     def _selectAPNSubscriptionQuery(cls): #@NoSelf
@@ -348,20 +350,9 @@ class CommonStoreTransaction(object):
                 )
             )
 
+
     @inlineCallbacks
     def addAPNSubscription(self, token, key, timestamp, subscriber):
-        """
-        Add an Apple Push Notification subscription
-        """
-        # Select
-        # if not there, insert
-        #   if insert fails, pass (since someone just added it)
-        #   if it succeeds, return
-        # if there, update
-        #   if update fails, insert
-        #   if update succeeds, return
-
-
         row = yield self._selectAPNSubscriptionQuery.on(self,
             token=token, resourceKey=key)
         if not row: # Subscription does not yet exist
@@ -389,36 +380,33 @@ class CommonStoreTransaction(object):
                       Where=(apn.TOKEN == Parameter("token")).And(
                           apn.RESOURCE_KEY == Parameter("resourceKey")))
 
+
     def removeAPNSubscription(self, token, key):
-        """
-        Remove an Apple Push Notification subscription
-        """
         return self._removeAPNSubscriptionQuery.on(self,
             token=token, resourceKey=key)
 
+
     @classproperty
     def _apnSubscriptionsByTokenQuery(cls): #@NoSelf
-        """
-        Look up Apple Push Notification subscriptions by device token
-        """
         apn = schema.APN_SUBSCRIPTIONS
         return Select([apn.RESOURCE_KEY, apn.MODIFIED, apn.SUBSCRIBER_GUID],
                       From=apn, Where=apn.TOKEN == Parameter("token"))
 
+
     def apnSubscriptionsByToken(self, token):
         return self._apnSubscriptionsByTokenQuery.on(self, token=token)
 
+
     @classproperty
     def _apnSubscriptionsByKeyQuery(cls): #@NoSelf
-        """
-        Look up Apple Push Notification subscriptions by key
-        """
         apn = schema.APN_SUBSCRIPTIONS
         return Select([apn.TOKEN, apn.SUBSCRIBER_GUID],
                       From=apn, Where=apn.RESOURCE_KEY == Parameter("resourceKey"))
 
+
     def apnSubscriptionsByKey(self, key):
         return self._apnSubscriptionsByKeyQuery.on(self, resourceKey=key)
+
 
     def postCommit(self, operation):
         """
