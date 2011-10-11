@@ -880,6 +880,10 @@
     <key>EnableSACLs</key>
     <false/>
 
+    <!-- Make entire server read-only -->
+    <key>EnableReadOnlyServer</key>
+    <false/>
+
     <!-- Web-based administration -->
     <key>EnableWebAdmin</key>
     <true/>

@@ -470,6 +470,8 @@ DEFAULT_CONFIG = {
     #
     "EnableSACLs": False,
 
+    "EnableReadOnlyServer": False, # Make all data read-only
+
     #
     # Standard (or draft) WebDAV extensions
     #
