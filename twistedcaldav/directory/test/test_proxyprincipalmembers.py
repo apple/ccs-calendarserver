@@ -14,8 +14,7 @@
 # limitations under the License.
 ##
 
-from twisted.internet.defer import DeferredList, inlineCallbacks, returnValue,\
-    succeed
+from twisted.internet.defer import DeferredList, inlineCallbacks, succeed
 from twext.web2.dav import davxml
 
 from twistedcaldav.directory.directory import DirectoryService
@@ -25,7 +24,6 @@ from twistedcaldav.directory.principal import DirectoryPrincipalProvisioningReso
 from twistedcaldav.directory.xmlfile import XMLDirectoryService
 
 import twistedcaldav.test.util
-from twistedcaldav.config import config
 from twistedcaldav.directory import augment, calendaruserproxy
 from twistedcaldav.directory.calendaruserproxyloader import XMLCalendarUserProxyLoader
 
