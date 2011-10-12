@@ -34,6 +34,8 @@ from twistedcaldav.config import config, _mergeData, fullServerPath
 from twistedcaldav.util import getPasswordFromKeychain
 from twistedcaldav.util import KeychainAccessError, KeychainPasswordNotFound
 
+from calendarserver.push.util import getAPNTopicFromCertificate
+
 log = Logger()
 
 
@@ -1208,12 +1210,21 @@ def _updateNotifications(configDict):
 
     for key, service in configDict.Notifications["Services"].iteritems():
 
-        # The default for apple push DataHost is ServerHostName
         if (
             service["Service"] == "calendarserver.push.applepush.ApplePushNotifierService" and
-            service["DataHost"] == ""
+            service["Enabled"]
         ):
-            service["DataHost"] = configDict.ServerHostName
+            # The default for apple push DataHost is ServerHostName
+            if service["DataHost"] == "":
+                service["DataHost"] = configDict.ServerHostName
+
+            # Retrieve APN topics from certificates if not explicitly set
+            for protocol in ("CalDAV", "CardDAV"):
+                if not service[protocol]["Topic"]:
+                    certPath = service[protocol]["CertificatePath"]
+                    if certPath and os.path.exists(certPath):
+                        topic = getAPNTopicFromCertificate(certPath)
+                        service[protocol]["Topic"] = topic
 
         if (
             service["Service"] == "twistedcaldav.notify.XMPPNotifierService" and
