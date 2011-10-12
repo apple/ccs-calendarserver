@@ -64,6 +64,18 @@ class StringProducer(object):
         return succeed(None)
 
 
+    def stopProducing(self):
+        pass
+
+
+    def resumeProducing(self):
+        pass
+
+
+    def pauseProducing(self):
+        pass
+
+
 
 class MemoryConsumer(object):
     implements(IConsumer)
