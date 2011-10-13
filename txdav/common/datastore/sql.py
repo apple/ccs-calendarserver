@@ -1483,6 +1483,36 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
                                  bind.BIND_MODE == _BIND_MODE_OWN))
 
 
+    @classmethod
+    def metadataColumns(cls):
+        """
+        Return a list of column name for retrieval of metadata. This allows
+        different child classes to have their own type specific data, but still make use of the
+        common base logic.
+        """
+        
+        # Common behavior is to have created and modified
+        
+        return (
+            cls._homeChildSchema.CREATED,
+            cls._homeChildSchema.MODIFIED,
+        )
+        
+    @classmethod
+    def metadataAttributes(cls):
+        """
+        Return a list of attribute names for retrieval of metadata. This allows
+        different child classes to have their own type specific data, but still make use of the
+        common base logic.
+        """
+        
+        # Common behavior is to have created and modified
+        
+        return (
+            "_created",
+            "_modified",
+        )
+        
     @classproperty
     def _sharedChildListQuery(cls): #@NoSelf
         bind = cls._bindSchema
@@ -1491,7 +1521,6 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
                              Parameter("resourceID")).And(
                                  bind.BIND_MODE != _BIND_MODE_OWN).And(
                                  bind.RESOURCE_NAME != None))
-
 
     @classmethod
     @inlineCallbacks
@@ -1521,10 +1550,10 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
         else:
             ownedPiece = (bind.BIND_MODE != _BIND_MODE_OWN).And(
                 bind.RESOURCE_NAME != None)
-        return Select([child.RESOURCE_ID,
-                       bind.RESOURCE_NAME,
-                       child.CREATED,
-                       child.MODIFIED],
+        
+        columns = [child.RESOURCE_ID, bind.RESOURCE_NAME,]
+        columns.extend(cls.metadataColumns())
+        return Select(columns,
                      From=child.join(
                          bind, child.RESOURCE_ID == bind.RESOURCE_ID,
                          'left outer'),
@@ -1585,10 +1614,12 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
             revisions = dict(revisions)
 
         # Create the actual objects merging in properties
-        for resourceID, resource_name, created, modified in dataRows:
+        for items in dataRows:
+            resourceID, resource_name = items[:2]
+            metadata = items[2:]
             child = cls(home, resource_name, resourceID, owned)
-            child._created = created
-            child._modified = modified
+            for attr, value in zip(cls.metadataAttributes(), metadata):
+                setattr(child, attr, value)
             child._syncTokenRevision = revisions[resourceID]
             propstore = propertyStores.get(resourceID, None)
             yield child._loadPropertyStore(propstore)
@@ -1759,12 +1790,12 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
 
 
     @classproperty
-    def _datesByIDQuery(cls): #@NoSelf
+    def _metadataByIDQuery(cls): #@NoSelf
         """
         DAL query to retrieve created/modified dates based on a resource ID.
         """
         child = cls._homeChildSchema
-        return Select([child.CREATED, child.MODIFIED],
+        return Select(cls.metadataColumns(),
                       From=child,
                       Where=child.RESOURCE_ID == Parameter("resourceID"))
 
@@ -1776,9 +1807,11 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
         resource ID. We read in and cache all the extra metadata from the DB to
         avoid having to do DB queries for those individually later.
         """
-        self._created, self._modified = (
-            yield self._datesByIDQuery.on(self._txn,
+        dataRows = (
+            yield self._metadataByIDQuery.on(self._txn,
                                           resourceID=self._resourceID))[0]
+        for attr, value in zip(self.metadataAttributes(), dataRows):
+            setattr(self, attr, value)
         yield self._loadPropertyStore()
 
 

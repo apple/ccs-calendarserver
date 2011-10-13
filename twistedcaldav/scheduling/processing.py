@@ -341,14 +341,7 @@ class ImplicitProcessor(object):
         if self.new_resource:
             
             # Check for default calendar
-            default = (yield self.recipient.inbox.readProperty((caldav_namespace, "schedule-default-calendar-URL"), self.request))
-            if len(default.children) == 1:
-                defaultURL = str(default.children[0])
-                default = (yield self.request.locateResource(defaultURL))
-            else:
-                default = None
-            
-            # Must have a default calendar
+            default = (yield self.recipient.inbox.defaultCalendar(self.request, self.message.mainType()))
             if default is None:
                 log.error("No default calendar for recipient: '%s'." % (self.recipient.cuaddr,))
                 raise ImplicitProcessorException(iTIPRequestStatus.NO_USER_SUPPORT)
@@ -357,13 +350,13 @@ class ImplicitProcessor(object):
             autoprocessed = self.recipient.principal.getAutoSchedule()
             store_inbox = not autoprocessed or self.recipient.principal.getCUType() == "INDIVIDUAL"
             new_calendar = iTipProcessing.processNewRequest(self.message, self.recipient.cuaddr, autoprocessing=autoprocessed)
-            name =  md5(str(new_calendar) + str(time.time()) + defaultURL).hexdigest() + ".ics"
+            name =  md5(str(new_calendar) + str(time.time()) + default.url()).hexdigest() + ".ics"
             
             # Handle auto-reply behavior
             if autoprocessed:
                 send_reply, partstat = (yield self.checkAttendeeAutoReply(new_calendar))
 
-            new_resource = (yield self.writeCalendarResource(defaultURL, default, name, new_calendar))
+            new_resource = (yield self.writeCalendarResource(default.url(), default, name, new_calendar))
             
             if autoprocessed and send_reply:
                 # Track outstanding auto-reply processing

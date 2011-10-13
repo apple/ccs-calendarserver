@@ -56,6 +56,7 @@ from txdav.caldav.icalendarstore import QuotaExceeded
 from txdav.common.datastore.test.util import deriveQuota
 from txdav.common.datastore.test.util import withSpecialQuota
 from twistedcaldav.ical import Component
+from twistedcaldav.config import config
 
 storePath = FilePath(__file__).parent().child("calendar_store")
 
@@ -535,6 +536,33 @@ class CommonTests(CommonCommonTests):
 
 
     @inlineCallbacks
+    def test_calendarTasks_exists(self):
+        """
+        L{ICalendarHome.createdHome} creates a calendar only, or a calendar and tasks
+        collection only, in addition to inbox.
+        """
+        home1 = yield self.transactionUnderTest().calendarHomeWithUID("home_provision1", create=True)
+        for name in ("calendar", "inbox",):
+            calendar = yield home1.calendarWithName(name)
+            if calendar is None:
+                self.fail("calendar %r didn't exist" % (name,))
+            self.assertProvides(ICalendar, calendar)
+            self.assertEquals(calendar.name(), name)
+        for name in ("tasks",):
+            calendar = yield home1.calendarWithName(name)
+            if calendar is not None:
+                self.fail("calendar %r exists" % (name,))
+
+        self.patch(config.CalDAV.AccountProvisioning, "KeepComponentTypesSeparate", True)
+        home2 = yield self.transactionUnderTest().calendarHomeWithUID("home_provision2", create=True)
+        for name in ("calendar", "tasks", "inbox",):
+            calendar = yield home2.calendarWithName(name)
+            if calendar is None:
+                self.fail("calendar %r didn't exist" % (name,))
+            self.assertProvides(ICalendar, calendar)
+            self.assertEquals(calendar.name(), name)
+
+    @inlineCallbacks
     def test_calendarWithName_exists(self):
         """
         L{ICalendarHome.calendarWithName} returns an L{ICalendar} provider,
@@ -682,6 +710,24 @@ class CommonTests(CommonCommonTests):
             NoSuchHomeChildError
         )
 
+
+    @inlineCallbacks
+    def test_supportedComponentSet(self):
+        """
+        Attempt to remove an non-existing calendar object should raise.
+        """
+        calendar = yield self.calendarUnderTest()
+
+        result = yield maybeDeferred(calendar.getSupportedComponents)
+        self.assertEquals(result, None)
+
+        yield maybeDeferred(calendar.setSupportedComponents, "VEVENT,VTODO")
+        result = yield maybeDeferred(calendar.getSupportedComponents)
+        self.assertEquals(result, "VEVENT,VTODO")
+
+        yield maybeDeferred(calendar.setSupportedComponents, None)
+        result = yield maybeDeferred(calendar.getSupportedComponents)
+        self.assertEquals(result, None)
 
     @inlineCallbacks
     def test_calendarObjects(self):

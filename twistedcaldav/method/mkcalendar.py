@@ -92,7 +92,7 @@ def http_MKCALENDAR(self, request):
             for property in makecalendar.children[0].children[0].children:
                 try:
                     if property.qname() == (caldavxml.caldav_namespace, "supported-calendar-component-set"):
-                        self.writeDeadProperty(property)
+                        self.setSupportedComponentSet(property)
                     else:
                         yield self.writeProperty(property, request)
                 except HTTPError:

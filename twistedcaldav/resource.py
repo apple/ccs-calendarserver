@@ -71,7 +71,6 @@ from twistedcaldav.extensions import DAVResource, DAVPrincipalResource,\
     PropertyNotFoundError, DAVResourceWithChildrenMixin
 from twistedcaldav.ical import Component
 
-from twistedcaldav.ical import allowedComponents
 from twistedcaldav.icaldav import ICalDAVResource, ICalendarPrincipalResource
 from twistedcaldav.linkresource import LinkResource
 from twistedcaldav.notify import (
@@ -447,10 +446,6 @@ class CalDAVResource (
                 
         return super(CalDAVResource, self).liveProperties() + baseProperties
 
-    supportedCalendarComponentSet = caldavxml.SupportedCalendarComponentSet(
-        *[caldavxml.CalendarComponent(name=item) for item in allowedComponents]
-    )
-
     def isShadowableProperty(self, qname):
         """
         Shadowable properties are ones on shared resources where a "default" exists until
@@ -596,9 +591,7 @@ class CalDAVResource (
             returnValue(davxml.AddMember(davxml.HRef.fromString(url + "/;add-member")))
 
         elif qname == caldavxml.SupportedCalendarComponentSet.qname():
-            if self.hasDeadProperty(qname):
-                returnValue(self.readDeadProperty(qname))
-            returnValue(self.supportedCalendarComponentSet)
+            returnValue(self.getSupportedComponentSet())
 
         elif qname == caldavxml.SupportedCalendarData.qname():
             returnValue(caldavxml.SupportedCalendarData(

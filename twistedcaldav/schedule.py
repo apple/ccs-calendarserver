@@ -284,6 +284,51 @@ class ScheduleInboxResource (CalendarSchedulingCollectionResource):
             davxml.HRef(defaultCalendarURL))
         )
 
+    @inlineCallbacks
+    def defaultCalendar(self, request, componentType):
+        """
+        Find the default calendar for the supplied iCalendar component type. If one does
+        not exist, automatically provision it. 
+        """
+
+        # Check any default calendar property first
+        default = (yield self.readProperty((caldav_namespace, "schedule-default-calendar-URL"), request))
+        if len(default.children) == 1:
+            defaultURL = str(default.children[0])
+            default = (yield request.locateResource(defaultURL))
+        else:
+            default = None
+
+        # Check that default handles the component type
+        if default is not None:
+            if not default.isSupportedComponent(componentType):
+                default = None
+        
+        # Must have a default - provision one if not
+        if default is None:
+            
+            # Try to find a calendar supporting the required component type. If there are multiple, pick
+            # the one with the oldest created timestamp as that will likely be the initial provision.
+            for calendarName in (yield self.parent._newStoreHome.listCalendars()):  # These are only unshared children
+                if calendarName == "inbox":
+                    continue
+                calendar = (yield self.parent._newStoreHome.calendarWithName(calendarName))
+                if not calendar.isSupportedComponent(componentType):
+                    continue
+                if default is None or calendar.created() < default.created():
+                    default = calendar
+            
+            # If none can be found, provision one
+            if default is None:
+                new_name = "%ss" % (componentType.lower()[1:],)
+                default = yield self.parent._newStoreHome.createCalendarWithName(new_name)
+                default.setSupportedComponents(componentType.upper())
+            
+            # Need L{DAVResource} object to return not new store object
+            default = (yield request.locateResource(joinURL(self.parent.url(), default.name())))
+        
+        returnValue(default)
+
     ##
     # ACL
     ##

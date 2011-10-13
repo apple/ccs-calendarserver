@@ -211,10 +211,20 @@ class CalendarHome(CommonHome):
 
     @inlineCallbacks
     def createdHome(self):
-        defaultCal = yield self.createCalendarWithName("calendar")
+        
+        # Default calendar
+        defaultCal = yield self.createCalendarWithName(config.CalDAV.AccountProvisioning.CalendarName)
         props = defaultCal.properties()
-        props[PropertyName(*ScheduleCalendarTransp.qname())] = ScheduleCalendarTransp(
-            Opaque())
+        props[PropertyName(*ScheduleCalendarTransp.qname())] = ScheduleCalendarTransp(Opaque())
+        
+        # Check whether components type must be separate
+        if config.CalDAV.AccountProvisioning.KeepComponentTypesSeparate:
+            defaultCal.setSupportedComponents("VEVENT")
+            
+            # Default tasks
+            defaultTasks = yield self.createCalendarWithName(config.CalDAV.AccountProvisioning.TasksName)
+            defaultTasks.setSupportedComponents("VTODO")
+            
         yield self.createCalendarWithName("inbox")
 
 
@@ -257,8 +267,42 @@ class Calendar(CommonHomeChild):
             self._index = PostgresLegacyIndexEmulator(self)
         self._invites = SQLLegacyCalendarInvites(self)
         self._objectResourceClass = CalendarObject
+        
+        self._supportedComponents = None
 
 
+    @classmethod
+    def metadataColumns(cls):
+        """
+        Return a list of column name for retrieval of metadata. This allows
+        different child classes to have their own type specific data, but still make use of the
+        common base logic.
+        """
+        
+        # Common behavior is to have created and modified
+        
+        return (
+            cls._homeChildSchema.CREATED,
+            cls._homeChildSchema.MODIFIED,
+            cls._homeChildSchema.SUPPORTED_COMPONENTS,
+        )
+        
+    @classmethod
+    def metadataAttributes(cls):
+        """
+        Return a list of attribute names for retrieval of metadata. This allows
+        different child classes to have their own type specific data, but still make use of the
+        common base logic.
+        """
+        
+        # Common behavior is to have created and modified
+        
+        return (
+            "_created",
+            "_modified",
+            "_supportedComponents",
+        )
+        
     @property
     def _calendarHome(self):
         return self._home
@@ -289,6 +333,31 @@ class Calendar(CommonHomeChild):
         Other calendars do not have object resources with properties.
         """
         return self._name == "inbox"
+
+    @inlineCallbacks
+    def setSupportedComponents(self, supported_components):
+        """
+        Update the database column with the supported components. Technically this should only happen once
+        on collection creation, but for migration we may need to change after the fact - hence a separate api.
+        """
+        
+        cal = self._homeChildSchema
+        yield Update(
+            {
+                cal.SUPPORTED_COMPONENTS : supported_components
+            },
+            Where=(cal.RESOURCE_ID == self._resourceID)
+        ).on(self._txn)
+        self._supportedComponents = supported_components
+
+    def getSupportedComponents(self):
+        return self._supportedComponents
+
+    def isSupportedComponent(self, componentType):
+        if self._supportedComponents:
+            return componentType.upper() in self._supportedComponents.split(",")
+        else:
+            return True
 
     def initPropertyStore(self, props):
         # Setup peruser special properties

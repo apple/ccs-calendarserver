@@ -47,9 +47,8 @@ create table CALENDAR_HOME_METADATA (
 
 create table CALENDAR (
   RESOURCE_ID integer   primary key default nextval('RESOURCE_ID_SEQ'), -- implicit index
-  SUPPORTED_COMPONENTS  varchar(255) default null,
-  CREATED               timestamp default timezone('UTC', CURRENT_TIMESTAMP),
-  MODIFIED              timestamp default timezone('UTC', CURRENT_TIMESTAMP)
+  CREATED     timestamp default timezone('UTC', CURRENT_TIMESTAMP),
+  MODIFIED    timestamp default timezone('UTC', CURRENT_TIMESTAMP)
 );
 
 
@@ -445,5 +444,5 @@ create table CALENDARSERVER (
   VALUE                         varchar(255)
 );
 
-insert into CALENDARSERVER values ('VERSION', '6');
+insert into CALENDARSERVER values ('VERSION', '5');
 

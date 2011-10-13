@@ -43,7 +43,7 @@ from twistedcaldav.caldavxml import caldav_namespace
 from twistedcaldav.carddavxml import carddav_namespace
 from twistedcaldav.config import config
 from twistedcaldav.ical import Component as VCalendar, Property as VProperty,\
-    InvalidICalendarDataError, iCalendarProductID
+    InvalidICalendarDataError, iCalendarProductID, allowedComponents
 from twistedcaldav.memcachelock import MemcacheLock, MemcacheLockTimeoutError
 from twistedcaldav.method.put_addressbook_common import StoreAddressObjectResource
 from twistedcaldav.method.put_common import StoreCalendarObjectResource
@@ -929,6 +929,33 @@ class CalendarCollectionResource(_CommonHomeChildCollectionMixin, CalDAVResource
         """
         return True
 
+    def setSupportedComponentSet(self, support_components_property):
+        """
+        Parse out XML property into list of components and give to store.
+        """
+        support_components = ",".join(sorted([comp.attributes["name"].upper() for comp in support_components_property.children]))
+        return maybeDeferred(self._newStoreObject.setSupportedComponents, support_components)
+    
+    def getSupportedComponentSet(self):
+        comps = self._newStoreObject.getSupportedComponents()
+        if comps:
+            comps = comps.split(",")
+        else:
+            comps = allowedComponents
+        return caldavxml.SupportedCalendarComponentSet(
+            *[caldavxml.CalendarComponent(name=item) for item in comps]
+        )
+
+    def getSupportedComponents(self):
+        comps = self._newStoreObject.getSupportedComponents()
+        if comps:
+            comps = comps.split(",")
+        else:
+            comps = allowedComponents
+        return comps
+
+    def isSupportedComponent(self, componentType):
+        return self._newStoreObject.isSupportedComponent(componentType)
 
     @inlineCallbacks
     def iCalendarRolledup(self, request):
@@ -1168,6 +1195,9 @@ class StoreScheduleInboxResource(_CommonHomeChildCollectionMixin, ScheduleInboxR
 
     def provision(self):
         pass
+
+    def isSupportedComponent(self, componentType):
+        return self._newStoreObject.isSupportedComponent(componentType)
 
     def http_DELETE(self, request):
         return FORBIDDEN

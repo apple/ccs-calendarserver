@@ -520,6 +520,17 @@ DEFAULT_CONFIG = {
             "Enabled"         : True,  # Address Books on/off switch
         }        
     },
+    
+    "CalDAV": {
+        "AccountProvisioning": {
+            "CalendarName":                "calendar",  # Name to use when provisioning calendar for VEVENTs only, or
+                                                        # VEVENTs and VTODOs if KeepComponentTypesSeparate is False
+            "TasksName":                   "tasks",     # Name to use when provisioning calendar for VTODOs only, not
+                                                        # provisioned if KeepComponentTypesSeparate is False
+            "KeepComponentTypesSeparate" : False,       # Provision collections with separate
+                                                        # for separate component types
+        },
+    },
 
     # CardDAV Features
     "DirectoryAddressBook": {

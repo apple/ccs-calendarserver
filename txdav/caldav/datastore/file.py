@@ -14,7 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
-from twistedcaldav.ical import InvalidICalendarDataError
 
 """
 File calendar store.
@@ -44,6 +43,8 @@ from twext.web2.http_headers import generateContentType, MimeType
 
 from twistedcaldav import caldavxml, customxml
 from twistedcaldav.caldavxml import ScheduleCalendarTransp, Opaque
+from twistedcaldav.config import config
+from twistedcaldav.ical import InvalidICalendarDataError
 from twistedcaldav.sharing import InvitesDatabase
 
 from txdav.caldav.icalendarstore import IAttachment
@@ -181,12 +182,22 @@ class CalendarHome(CommonHome):
 
 
     def createdHome(self):
+
+        # Default calendar
         defaultCal = self.createCalendarWithName("calendar")
         props = defaultCal.properties()
-        props[PropertyName(*ScheduleCalendarTransp.qname())] = ScheduleCalendarTransp(
-            Opaque())
+        props[PropertyName(*ScheduleCalendarTransp.qname())] = ScheduleCalendarTransp(Opaque())
+        
+        # Check whether components type must be separate
+        if config.CalDAV.AccountProvisioning.KeepComponentTypesSeparate:
+            defaultCal.setSupportedComponents("VEVENT")
+            
+            # Default tasks
+            defaultTasks = self.createCalendarWithName(config.CalDAV.AccountProvisioning.TasksName)
+            props = defaultTasks.properties()
+            defaultTasks.setSupportedComponents("VTODO")
+            
         self.createCalendarWithName("inbox")
-
 
 
 class Calendar(CommonHomeChild):
@@ -240,6 +251,22 @@ class Calendar(CommonHomeChild):
     def calendarObjectsInTimeRange(self, start, end, timeZone):
         raise NotImplementedError()
 
+
+    def setSupportedComponents(self, supported_components):
+        """
+        Update the private property with the supported components. Technically this should only happen once
+        on collection creation, but for migration we may need to change after the fact - hence a separate api.
+        """
+        
+        pname = PropertyName.fromElement(customxml.TwistedCalendarSupportedComponents)
+        if supported_components:
+            self.properties()[pname] = customxml.TwistedCalendarSupportedComponents.fromString(supported_components)
+        elif pname in self.properties():
+            del self.properties()[pname]
+
+    def getSupportedComponents(self):
+        result = str(self.properties().get(PropertyName.fromElement(customxml.TwistedCalendarSupportedComponents), ""))
+        return result if result else None
 
     def initPropertyStore(self, props):
         # Setup peruser special properties

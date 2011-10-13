@@ -60,6 +60,17 @@ calendarserver_sharing_no_scheduling_compliance = (
     "calendarserver-sharing-no-scheduling",
 )
 
+class TwistedCalendarSupportedComponents (davxml.WebDAVTextElement):
+    """
+    Contains the calendar supported components list.
+    """
+    namespace = twisted_dav_namespace
+    name = "calendar-supported-components"
+    hidden = True
+
+    def getValue(self):
+        return str(self)
+
 class TwistedCalendarAccessProperty (davxml.WebDAVTextElement):
     """
     Contains the calendar access level (private events) for the resource.
