@@ -32,9 +32,11 @@ include $(MAKEFILEPATH)/CoreOS/ReleaseControl/Common.make
 SIPP = $(SERVER_INSTALL_PATH_PREFIX)
 SERVERSETUP = $(NSSYSTEMDIR)$(NSLIBRARYSUBDIR)/ServerSetup
 
+CALDAVDSUBDIR = /caldavd
+
 PYTHON = $(USRBINDIR)/python
-PY_HOME = $(SIPP)$(SHAREDIR)/caldavd
-PY_INSTALL_FLAGS = --root="$(DSTROOT)" --prefix="$(SIPP)" --install-lib="$(PY_HOME)/lib/python"
+PY_HOME = $(SIPP)$(SHAREDIR)$(CALDAVDSUBDIR)
+PY_INSTALL_FLAGS = --root="$(DSTROOT)" --prefix="$(SIPP)" --install-lib="$(PY_HOME)/lib/python" --install-scripts="$(SIPP)$(LIBEXECDIR)$(CALDAVDSUBDIR)"
 
 USER  = calendar
 GROUP = calendar
@@ -65,19 +67,15 @@ PyKerberos PyXML-0.8.4 pycalendar PyGreSQL-4.0 sqlparse-0.1.2 $(Project)::
 	$(_v) cd $(BuildDirectory)/$@ && $(Environment) $(PYTHON) setup.py build
 
 install:: build
-	$(_v) cd $(BuildDirectory)/$(Project) && $(Environment) $(PYTHON) setup.py install \
-	          $(PY_INSTALL_FLAGS)                                                      \
-	          --install-scripts="$(SIPP)$(USRSBINDIR)"                                 \
-	          --install-data="$(SIPP)$(ETCDIR)"
-
+	$(_v) cd $(BuildDirectory)/$(Project)       && $(Environment) $(PYTHON) setup.py install $(PY_INSTALL_FLAGS) --install-scripts="$(SIPP)$(USRBINDIR)" --install-data="$(SIPP)$(ETCDIR)"
 	$(_v) cd $(BuildDirectory)/PyKerberos       && $(Environment) $(PYTHON) setup.py install $(PY_INSTALL_FLAGS)
 	$(_v) cd $(BuildDirectory)/PyXML-0.8.4      && $(Environment) $(PYTHON) setup.py install $(PY_INSTALL_FLAGS)
 	$(_v) cd $(BuildDirectory)/pycalendar       && $(Environment) $(PYTHON) setup.py install $(PY_INSTALL_FLAGS)
 	$(_v) cd $(BuildDirectory)/PyGreSQL-4.0     && $(Environment) $(PYTHON) setup.py install $(PY_INSTALL_FLAGS)
 	$(_v) cd $(BuildDirectory)/sqlparse-0.1.2   && $(Environment) $(PYTHON) setup.py install $(PY_INSTALL_FLAGS)
 	$(_v) for so in $$(find "$(DSTROOT)$(PY_HOME)/lib" -type f -name '*.so'); do $(STRIP) -Sx "$${so}"; done 
-	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)$(SIPP)$(ETCDIR)/caldavd"
-	$(_v) $(INSTALL_FILE) "$(Sources)/conf/caldavd-apple.plist" "$(DSTROOT)$(SIPP)$(ETCDIR)/caldavd/caldavd.plist"
+	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)$(SIPP)$(ETCDIR)$(CALDAVDSUBDIR)"
+	$(_v) $(INSTALL_FILE) "$(Sources)/conf/caldavd-apple.plist" "$(DSTROOT)$(SIPP)$(ETCDIR)$(CALDAVDSUBDIR)/caldavd.plist"
 	$(_v) chmod -R ugo+r "$(DSTROOT)$(PY_HOME)"
 	$(_v) for f in $$(find "$(DSTROOT)$(SIPP)$(ETCDIR)" -type f ! -name '*.default'); do cp "$${f}" "$${f}.default"; done
 
@@ -97,7 +95,7 @@ install::
 	$(_v) gzip -9 -f "$(DSTROOT)$(SIPP)$(MANDIR)/man8/"*.[0-9]
 	@echo "Installing launchd config..."
 	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)$(NSLOCALDIR)/$(NSLIBRARYSUBDIR)/Server/Calendar and Contacts"
-	$(_v) $(INSTALL_DIRECTORY) -o calendar -g calendar -m 0755 "$(DSTROOT)$(VARDIR)/log/caldavd"
+	$(_v) $(INSTALL_DIRECTORY) -o calendar -g calendar -m 0755 "$(DSTROOT)$(VARDIR)/log$(CALDAVDSUBDIR)"
 	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)$(NSLIBRARYDIR)/LaunchDaemons"
 	$(_v) $(INSTALL_FILE) "$(Sources)/contrib/launchd/calendarserver.plist" "$(DSTROOT)$(NSLIBRARYDIR)/LaunchDaemons/org.calendarserver.calendarserver.plist"
 	@echo "Installing migration config..."
