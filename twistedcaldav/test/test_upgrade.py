@@ -329,7 +329,10 @@ class UpgradeTests(TestCase):
                 "@contents" : "2",
             },
             MailGatewayTokensDatabase.dbFilename : { "@contents" : None },
-            "%s-journal" % (MailGatewayTokensDatabase.dbFilename,) : { "@contents" : None },
+            "%s-journal" % (MailGatewayTokensDatabase.dbFilename,) : {
+                "@contents" : None,
+                "@optional" : True,
+            },
         }
 
         (yield self.verifyDirectoryComparison(before, after))
@@ -477,7 +480,8 @@ class UpgradeTests(TestCase):
             },
             "%s-journal" % (MailGatewayTokensDatabase.dbFilename,) :
             {
-                "@contents" : None
+                "@contents" : None,
+                "@optional" : True,
             },
         }
 
@@ -548,7 +552,8 @@ class UpgradeTests(TestCase):
             },
             "%s-journal" % (MailGatewayTokensDatabase.dbFilename,) :
             {
-                "@contents" : None
+                "@contents" : None,
+                "@optional" : True,
             },
         }
 
@@ -634,7 +639,8 @@ class UpgradeTests(TestCase):
             },
             "%s-journal" % (MailGatewayTokensDatabase.dbFilename,) :
             {
-                "@contents" : None
+                "@contents" : None,
+                "@optional" : True,
             },
         }
 
@@ -727,7 +733,8 @@ class UpgradeTests(TestCase):
             },
             "%s-journal" % (MailGatewayTokensDatabase.dbFilename,) :
             {
-                "@contents" : None
+                "@contents" : None,
+                "@optional" : True,
             },
         }
 
@@ -837,7 +844,8 @@ class UpgradeTests(TestCase):
             },
             "%s-journal" % (MailGatewayTokensDatabase.dbFilename,) :
             {
-                "@contents" : None
+                "@contents" : None,
+                "@optional" : True,
             },
         }
 
@@ -947,7 +955,8 @@ class UpgradeTests(TestCase):
             },
             "%s-journal" % (MailGatewayTokensDatabase.dbFilename,) :
             {
-                "@contents" : None
+                "@contents" : None,
+                "@optional" : True,
             },
         }
 
@@ -1074,7 +1083,8 @@ class UpgradeTests(TestCase):
             },
             "%s-journal" % (MailGatewayTokensDatabase.dbFilename,) :
             {
-                "@contents" : None
+                "@contents" : None,
+                "@optional" : True,
             },
         }
 
@@ -1200,7 +1210,8 @@ class UpgradeTests(TestCase):
             },
             "%s-journal" % (MailGatewayTokensDatabase.dbFilename,) :
             {
-                "@contents" : None
+                "@contents" : None,
+                "@optional" : True,
             },
         }
 
@@ -1293,7 +1304,8 @@ class UpgradeTests(TestCase):
             },
             "%s-journal" % (MailGatewayTokensDatabase.dbFilename,) :
             {
-                "@contents" : None
+                "@contents" : None,
+                "@optional" : True,
             },
         }
 
@@ -1350,7 +1362,8 @@ class UpgradeTests(TestCase):
             },
             "%s-journal" % (MailGatewayTokensDatabase.dbFilename,) :
             {
-                "@contents" : None
+                "@contents" : None,
+                "@optional" : True,
             },
             ResourceInfoDatabase.dbFilename :
             {
@@ -1359,6 +1372,7 @@ class UpgradeTests(TestCase):
             "%s-journal" % (ResourceInfoDatabase.dbFilename,) :
             {
                 "@contents" : None,
+                "@optional" : True,
             }
         }
         root = self.createHierarchy(before)

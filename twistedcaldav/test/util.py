@@ -238,10 +238,12 @@ class TestCase(twext.web2.dav.test.util.TestCase):
 
                 childPath = os.path.join(parent, childName)
 
-                if (not os.path.exists(childPath) and
-                    not childStructure.has_key("@optional")):
-                    print "Missing:", childPath
-                    return False
+                if not os.path.exists(childPath):
+                    if childStructure.has_key("@optional"):
+                        return True
+                    else:
+                        print "Missing:", childPath
+                        return False
 
                 if childStructure.has_key("@contents"):
                     # This is a file
