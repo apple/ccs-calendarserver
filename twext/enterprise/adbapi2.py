@@ -275,7 +275,6 @@ class _ConnectedTxn(object):
                 result = self._reallyExecSQL(sql, args, raiseOnZeroRowCount)
                 return result
             else:
-                log.err(Failure(), "Failed to execute SQL: %s\n  with args: %s" % (sql, args,))
                 raise
         if derived is not None:
             _deriveQueryEnded(self._cursor, derived)
