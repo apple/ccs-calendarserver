@@ -474,7 +474,7 @@ class DirectoryPrincipalUIDProvisioningResource (DirectoryProvisioningResource):
         record = self.directory.recordWithUID(primaryUID)
         primaryPrincipal = self.principalForRecord(record)
         if primaryPrincipal is None:
-            log.err("No principal found for UID: %s" % (name,))
+            log.info("No principal found for UID: %s" % (name,))
             return None
 
         if subType is None:
