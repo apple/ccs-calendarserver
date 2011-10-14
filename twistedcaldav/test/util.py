@@ -273,23 +273,24 @@ class TestCase(twext.web2.dav.test.util.TestCase):
                         return False
 
                 if childStructure.has_key("@xattrs"):
-                    xattrs = childStructure["@xattrs"]
-                    for attr, value in xattrs.iteritems():
-                        if isinstance(value, str):
-                            try:
+                    try:
+                        xattrs = childStructure["@xattrs"]
+                        for attr, value in xattrs.iteritems():
+                            if isinstance(value, str):
                                 if xattr.getxattr(childPath, attr) != value:
                                     print "Xattr mismatch:", childPath, attr
                                     print (xattr.getxattr(childPath, attr), " != ", value)
                                     return False
-                            except:
-                                return False
-                        else: # method
-                            if not value(xattr.getxattr(childPath, attr)):
-                                return False
+                            else: # method
+                                if not value(xattr.getxattr(childPath, attr)):
+                                    return False
 
-                    for attr, value in xattr.xattr(childPath).iteritems():
-                        if attr not in xattrs:
-                            return False
+                        for attr, value in xattr.xattr(childPath).iteritems():
+                            if attr not in xattrs:
+                                return False
+                    except:
+                        # xattr not enabled/supported
+                        pass
 
             if actual:
                 # There are unexpected children
