@@ -432,6 +432,10 @@ class LdapDirectoryService(CachingDirectoryService):
                 # Getting here means success, so break the retry loop
                 break
 
+            except ldap.INAPPROPRIATE_AUTH:
+                # Seen when using an empty password, treat as invalid creds
+                raise ldap.INVALID_CREDENTIALS()
+
             except ldap.INVALID_CREDENTIALS:
                 raise
 
