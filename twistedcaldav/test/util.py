@@ -189,7 +189,10 @@ class TestCase(twext.web2.dav.test.util.TestCase):
                 if childStructure.has_key("@xattrs"):
                     xattrs = childStructure["@xattrs"]
                     for attr, value in xattrs.iteritems():
-                        xattr.setxattr(childPath, attr, value)
+                        try:
+                            xattr.setxattr(childPath, attr, value)
+                        except IOError:
+                            pass
 
         createChildren(root, structure)
         return root
@@ -288,7 +291,7 @@ class TestCase(twext.web2.dav.test.util.TestCase):
                         for attr, value in xattr.xattr(childPath).iteritems():
                             if attr not in xattrs:
                                 return False
-                    except:
+                    except IOError:
                         # xattr not enabled/supported
                         pass
 
