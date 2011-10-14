@@ -435,22 +435,6 @@ create table NOTIFICATION_OBJECT_REVISIONS (
 );
 
 
--------------------------------------------
--- Apple Push Notification Subscriptions --
--------------------------------------------
-
-create table APN_SUBSCRIPTIONS (
-  TOKEN                         varchar(255) not null,
-  RESOURCE_KEY                  varchar(255) not null,
-  MODIFIED                      integer not null,
-  SUBSCRIBER_GUID               varchar(255) not null,
-  unique(TOKEN, RESOURCE_KEY) -- implicit index
-);
-
-create index APN_SUBSCRIPTIONS_RESOURCE_KEY
-   on APN_SUBSCRIPTIONS(RESOURCE_KEY);
-
-
 --------------------
 -- Schema Version --
 --------------------
@@ -460,5 +444,5 @@ create table CALENDARSERVER (
   VALUE                         varchar(255)
 );
 
-insert into CALENDARSERVER values ('VERSION', '6');
+insert into CALENDARSERVER values ('VERSION', '5');
 

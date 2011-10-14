@@ -30,9 +30,7 @@ create table APN_SUBSCRIPTIONS (
   unique(TOKEN, RESOURCE_KEY) -- implicit index
 );
 
-create index APN_SUBSCRIPTIONS_TOKENS
-  on APN_SUBSCRIPTIONS(TOKEN);
-create index APN_SUBSCRIPTIONS_RESOURCE_KEY
+create index APN_SUBSCRIPTIONS_RES_9610d78e
   on APN_SUBSCRIPTIONS(RESOURCE_KEY);
 
 -- Now update the version
