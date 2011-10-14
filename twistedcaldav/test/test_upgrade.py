@@ -18,7 +18,6 @@
 from twisted.internet.defer import inlineCallbacks
 from twext.web2.dav import davxml
 from twistedcaldav.config import config
-from twistedcaldav.directory.calendaruserproxy import ProxySqliteDB
 from twistedcaldav.directory.xmlfile import XMLDirectoryService
 from twistedcaldav.directory.resourceinfo import ResourceInfoDatabase
 from twistedcaldav.mail import MailGatewayTokensDatabase
@@ -32,6 +31,7 @@ from calendarserver.tools.util import getDirectory
 import hashlib
 import os, zlib, cPickle
 from txdav.caldav.datastore.index_file import db_basename
+from twisted.python.reflect import namedClass
 
 
 
@@ -1368,20 +1368,20 @@ class UpgradeTests(TestCase):
         (yield upgradeData(config))
         self.assertTrue(self.verifyHierarchy(root, after))
 
-        calendarUserProxyDatabase = ProxySqliteDB(NEWPROXYFILE)
+        proxydbClass = namedClass(config.ProxyDBService.type)
+        calendarUserProxyDatabase = proxydbClass(**config.ProxyDBService.params)
         resourceInfoDatabase = ResourceInfoDatabase(root)
 
         for guid, info in assignments.iteritems():
-
             proxyGroup = "%s#calendar-proxy-write" % (guid,)
-            result = set([row[0] for row in calendarUserProxyDatabase._db_execute("select MEMBER from GROUPS where GROUPNAME = :1", proxyGroup)])
+            result = (yield calendarUserProxyDatabase.getMembers(proxyGroup))
             if info[1]:
                 self.assertTrue(info[1] in result)
             else:
                 self.assertTrue(not result)
 
             readOnlyProxyGroup = "%s#calendar-proxy-read" % (guid,)
-            result = set([row[0] for row in calendarUserProxyDatabase._db_execute("select MEMBER from GROUPS where GROUPNAME = :1", readOnlyProxyGroup)])
+            result = (yield calendarUserProxyDatabase.getMembers(readOnlyProxyGroup))
             if info[2]:
                 self.assertTrue(info[2] in result)
             else:
@@ -1391,7 +1391,6 @@ class UpgradeTests(TestCase):
             autoSchedule = autoSchedule == 1
             self.assertEquals(info[0], autoSchedule)
 
-    test_migrateResourceInfo.todo = "FIXME: perhaps ProxySqliteDB isn't being set up correctly?"
 
 
     def test_removeIllegalCharacters(self):

@@ -29,7 +29,6 @@ from twisted.python.reflect import namedClass
 
 from twistedcaldav.directory.appleopendirectory import OpenDirectoryService
 from twistedcaldav.directory.xmlfile import XMLDirectoryService
-from twistedcaldav.directory.calendaruserproxy import ProxySqliteDB
 from twistedcaldav.directory.directory import DirectoryService, GroupMembershipCacheUpdater
 from twistedcaldav.directory import calendaruserproxy
 from twistedcaldav.directory.calendaruserproxyloader import XMLCalendarUserProxyLoader
@@ -90,6 +89,7 @@ def getCalendarServerIDs(config):
 # Upconverts data from any calendar server version prior to data format 1
 #
 
+@inlineCallbacks
 def upgrade_to_1(config):
 
     errorOccurred = False
@@ -337,20 +337,32 @@ def upgrade_to_1(config):
         os.rename(oldHome, newHome)
 
 
+    @inlineCallbacks
     def migrateResourceInfo(config, directory, uid, gid):
+        """
+        Retrieve delegate assignments and auto-schedule flag from the directory
+        service, because in "v1" that's where this info lived.
+        """
+
         log.info("Fetching delegate assignments and auto-schedule settings from directory")
-        resourceInfoDatabase = ResourceInfoDatabase(config.DataRoot)
-        calendarUserProxyDatabase = ProxySqliteDB(**config.ProxyDBService.params)
         resourceInfo = directory.getResourceInfo()
+        if len(resourceInfo) == 0:
+            # Nothing to migrate, or else not appleopendirectory
+            return
+
+        resourceInfoDatabase = ResourceInfoDatabase(config.DataRoot)
+        proxydbClass = namedClass(config.ProxyDBService.type)
+        calendarUserProxyDatabase = proxydbClass(**config.ProxyDBService.params)
+
         for guid, autoSchedule, proxy, readOnlyProxy in resourceInfo:
             resourceInfoDatabase.setAutoScheduleInDatabase(guid, autoSchedule)
             if proxy:
-                calendarUserProxyDatabase.setGroupMembersInDatabase(
+                yield calendarUserProxyDatabase.setGroupMembersInDatabase(
                     "%s#calendar-proxy-write" % (guid,),
                     [proxy]
                 )
             if readOnlyProxy:
-                calendarUserProxyDatabase.setGroupMembersInDatabase(
+                yield calendarUserProxyDatabase.setGroupMembersInDatabase(
                     "%s#calendar-proxy-read" % (guid,),
                     [readOnlyProxy]
                 )
@@ -513,13 +525,12 @@ def upgrade_to_1(config):
 
                 log.warn("Done processing calendar homes")
 
-    # migrateResourceInfo(config, directory, uid, gid)
+    yield migrateResourceInfo(config, directory, uid, gid)
     createMailTokensDatabase(config, uid, gid)
 
     if errorOccurred:
         raise UpgradeError("Data upgrade failed, see error.log for details")
 
-    return succeed(None)
 
 @inlineCallbacks
 def upgrade_to_2(config):
