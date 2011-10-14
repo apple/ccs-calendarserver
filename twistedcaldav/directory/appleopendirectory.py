@@ -970,8 +970,10 @@ class OpenDirectoryService(CachingDirectoryService):
                 recordGUID = value.get(dsattributes.kDS1AttrGeneratedUID)
                 resourceInfo = value.get(dsattributes.kDSNAttrResourceInfo)
                 if resourceInfo is not None:
+                    if type(resourceInfo) is not str:
+                        resourceInfo = resourceInfo[0]
                     try:
-                        autoSchedule, proxy, readOnlyProxy = self._parseResourceInfo(resourceInfo,
+                        autoSchedule, proxy, readOnlyProxy = self.parseResourceInfo(resourceInfo,
                             recordGUID, recordType, recordShortName)
                     except ValueError:
                         continue
