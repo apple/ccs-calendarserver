@@ -277,6 +277,9 @@ class TestCase(twext.web2.dav.test.util.TestCase):
 
                 if childStructure.has_key("@xattrs"):
                     try:
+                        # See if we have xattr support; IOError if not
+                        ignored = xattr.getxattr(childPath, "test")
+
                         xattrs = childStructure["@xattrs"]
                         for attr, value in xattrs.iteritems():
                             if isinstance(value, str):
