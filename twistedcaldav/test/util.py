@@ -279,7 +279,7 @@ class TestCase(twext.web2.dav.test.util.TestCase):
                     try:
                         # See if we have xattr support; IOError if not
                         try:
-                            ignored = xattr.getxattr(childPath, "test")
+                            xattr.getxattr(childPath, "test")
                         except KeyError:
                             pass
 
