@@ -244,13 +244,15 @@ class Property (object):
         self._pycalendar.setAttributes({})
 
     def removeParameterValue(self, paramname, paramvalue):
-        
-        for attr in tuple(self._pycalendar.getAttributes()):
-            if attr.getName() == paramname:
-                for value in attr.getValues():
-                    if value == paramvalue:
-                        if not attr.removeValue(value):
-                            self._pycalendar.removeAttributes(paramname)
+
+        paramname = paramname.upper()
+        for attrName in self.parameterNames():
+            if attrName.upper() == paramname:
+                for attr in tuple(self._pyalendar.getAttributes()[attrName]):
+                    for value in attr.getValues():
+                        if value == paramvalue:
+                            if not attr.removeValue(value):
+                                self._pyalendar.removeAttributes(paramname)
 
     def containsTimeRange(self, start, end, defaulttz=None):
         """
