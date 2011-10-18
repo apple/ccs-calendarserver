@@ -85,37 +85,39 @@ class ApplePushNotifierService(service.MultiService, LoggingMixIn):
 
         for protocol in ("CalDAV", "CardDAV"):
 
-            providerTestConnector = None
-            feedbackTestConnector = None
-            if testConnectorClass is not None:
-                providerTestConnector = testConnectorClass()
-                feedbackTestConnector = testConnectorClass()
+            if settings[protocol]["CertificatePath"]:
 
-            provider = APNProviderService(
-                settings["ProviderHost"],
-                settings["ProviderPort"],
-                settings[protocol]["CertificatePath"],
-                settings[protocol]["PrivateKeyPath"],
-                testConnector=providerTestConnector,
-                reactor=reactor,
-            )
-            provider.setServiceParent(service)
-            service.providers[protocol] = provider
-            service.log_info("APNS %s topic: %s" %
-                (protocol, settings[protocol]["Topic"]))
+                providerTestConnector = None
+                feedbackTestConnector = None
+                if testConnectorClass is not None:
+                    providerTestConnector = testConnectorClass()
+                    feedbackTestConnector = testConnectorClass()
 
-            feedback = APNFeedbackService(
-                service.store,
-                settings["FeedbackUpdateSeconds"],
-                settings["FeedbackHost"],
-                settings["FeedbackPort"],
-                settings[protocol]["CertificatePath"],
-                settings[protocol]["PrivateKeyPath"],
-                testConnector=feedbackTestConnector,
-                reactor=reactor,
-            )
-            feedback.setServiceParent(service)
-            service.feedbacks[protocol] = feedback
+                provider = APNProviderService(
+                    settings["ProviderHost"],
+                    settings["ProviderPort"],
+                    settings[protocol]["CertificatePath"],
+                    settings[protocol]["PrivateKeyPath"],
+                    testConnector=providerTestConnector,
+                    reactor=reactor,
+                )
+                provider.setServiceParent(service)
+                service.providers[protocol] = provider
+                service.log_info("APNS %s topic: %s" %
+                    (protocol, settings[protocol]["Topic"]))
+
+                feedback = APNFeedbackService(
+                    service.store,
+                    settings["FeedbackUpdateSeconds"],
+                    settings["FeedbackHost"],
+                    settings["FeedbackPort"],
+                    settings[protocol]["CertificatePath"],
+                    settings[protocol]["PrivateKeyPath"],
+                    testConnector=feedbackTestConnector,
+                    reactor=reactor,
+                )
+                feedback.setServiceParent(service)
+                service.feedbacks[protocol] = feedback
 
         return service
 
@@ -373,7 +375,7 @@ class APNFeedbackProtocol(protocol.Protocol, LoggingMixIn):
     def dataReceived(self, data):
         self.log_debug("FeedbackProtocol dataReceived %d bytes" % (len(data),))
         timestamp, tokenLength, binaryToken = struct.unpack("!IH32s", data)
-        token = binaryToken.encode("hex")
+        token = binaryToken.encode("hex").lower()
         return self.processFeedback(timestamp, token)
 
     @inlineCallbacks
@@ -548,7 +550,7 @@ class APNSubscriptionResource(ReadOnlyNoCopyResourceMixIn,
         key = request.args.get("key", None)
         if key and token:
             key = key[0]
-            token = token[0].replace(" ", "")
+            token = token[0].replace(" ", "").lower()
             principal = self.principalFromRequest(request)
             guid = principal.record.guid
             yield self.addSubscription(token, key, guid)
@@ -565,7 +567,7 @@ class APNSubscriptionResource(ReadOnlyNoCopyResourceMixIn,
         """
         Add a subscription (or update its timestamp if already there).
 
-        @param token: The device token
+        @param token: The device token, must be lowercase
         @type token: C{str}
 
         @param key: The push key
