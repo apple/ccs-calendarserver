@@ -527,13 +527,13 @@ DEFAULT_CONFIG = {
 
     # CardDAV Features
     "DirectoryAddressBook": {
-        "Enabled": False,
+        "Enabled": True,
         "type":    "twistedcaldav.directory.opendirectorybacker.OpenDirectoryBackingService",
         "params":  directoryAddressBookBackingServiceDefaultParams["twistedcaldav.directory.opendirectorybacker.OpenDirectoryBackingService"],
         "name":    "directory",
         "MaxQueryResults": 1000,
     },
-    "EnableSearchAddressBook": True, # /directory resource exists
+    "EnableSearchAddressBook": False, # /directory resource exists
     "AnonymousDirectoryAddressBookAccess": False, # Anonymous users may access directory address book
 
     "GlobalAddressBook": {
