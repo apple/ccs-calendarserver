@@ -68,6 +68,7 @@ from twistedcaldav.directory.idirectory import IDirectoryService
 from twistedcaldav import caldavxml, customxml
 from twistedcaldav.customxml import calendarserver_namespace
 from twistedcaldav.scheduling.cuaddress import normalizeCUAddr
+from twistedcaldav.directory.wiki import getWikiACL
 
 thisModule = getModule(__name__)
 log = Logger()
@@ -77,11 +78,23 @@ class PermissionsMixIn (ReadOnlyResourceMixIn):
     def defaultAccessControlList(self):
         return authReadACL
 
-    def accessControlList(self, request, inheritance=True, expanding=False,
-                          inherited_aces=None):
 
-        return succeed(self.defaultAccessControlList())
+    @inlineCallbacks
+    def accessControlList(self, request, inheritance=True, expanding=False, inherited_aces=None):
 
+        try:
+            wikiACL = (yield getWikiACL(self, request))
+        except HTTPError:
+            wikiACL = None
+
+        if wikiACL is not None:
+            # ACL depends on wiki server...
+            log.debug("Wiki ACL: %s" % (wikiACL.toxml(),))
+            returnValue(wikiACL)
+        else:
+            # ...otherwise permissions are fixed, and are not subject to
+            # inheritance rules, etc.
+            returnValue(self.defaultAccessControlList())
 
 
 # Converter methods for recordsMatchingFields()
