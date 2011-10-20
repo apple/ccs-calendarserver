@@ -24,7 +24,7 @@ from twext.web2.test.test_server import SimpleRequest
 
 from twisted.internet.defer import inlineCallbacks
 
-from twistedcaldav import caldavxml
+from twistedcaldav import caldavxml, customxml
 from twistedcaldav.test.util import HomeTestCase, TestCase
 
 class Properties (HomeTestCase):
@@ -91,12 +91,11 @@ class DefaultCalendar (TestCase):
         self.setupCalendars()
 
     @inlineCallbacks
-    def test_pick_default_calendar(self):
+    def test_pick_default_vevent_calendar(self):
         """
         Make calendar
         """
         
-
         request = SimpleRequest(self.site, "GET", "/calendars/users/wsanchez/")
         inbox = yield request.locateResource("/calendars/users/wsanchez/inbox")
 
@@ -116,6 +115,34 @@ class DefaultCalendar (TestCase):
             self.fail("caldavxml.ScheduleDefaultCalendarURL is not present")
         else:
             self.assertEqual(str(default.children[0]), "/calendars/__uids__/6423F94A-6B76-4A3A-815B-D52CFD77935D/calendar")
+
+        request._newStoreTransaction.abort()
+
+    @inlineCallbacks
+    def test_pick_default_vtodo_calendar(self):
+        """
+        Make calendar
+        """
+        
+        request = SimpleRequest(self.site, "GET", "/calendars/users/wsanchez/")
+        inbox = yield request.locateResource("/calendars/users/wsanchez/inbox")
+
+        # default property initially not present
+        try:
+            inbox.readDeadProperty(customxml.ScheduleDefaultTasksURL)
+        except HTTPError:
+            pass
+        else:
+            self.fail("customxml.ScheduleDefaultTasksURL is not empty")
+
+        yield inbox.pickNewDefaultCalendar(request, tasks=True)
+
+        try:
+            default = inbox.readDeadProperty(customxml.ScheduleDefaultTasksURL)
+        except HTTPError:
+            self.fail("customxml.ScheduleDefaultTasksURL is not present")
+        else:
+            self.assertEqual(str(default.children[0]), "/calendars/__uids__/6423F94A-6B76-4A3A-815B-D52CFD77935D/tasks")
 
         request._newStoreTransaction.abort()
 
@@ -206,3 +233,71 @@ class DefaultCalendar (TestCase):
             self.assertEqual(str(default.children[0]), "/calendars/__uids__/6423F94A-6B76-4A3A-815B-D52CFD77935D/calendar")
 
         request._newStoreTransaction.abort()
+
+    @inlineCallbacks
+    def test_set_default_vevent_other(self):
+        """
+        Test that the default URL can be set to another VEVENT calendar
+        """
+
+        request = SimpleRequest(self.site, "GET", "/calendars/users/wsanchez/")
+        inbox = yield request.locateResource("/calendars/users/wsanchez/inbox")
+
+        # default property not present
+        try:
+            inbox.readDeadProperty(caldavxml.ScheduleDefaultCalendarURL)
+        except HTTPError:
+            pass
+        else:
+            self.fail("caldavxml.ScheduleDefaultCalendarURL is not empty")
+
+        # Create a new default calendar
+        newcalendar = yield request.locateResource("/calendars/users/wsanchez/newcalendar")
+        yield newcalendar.createCalendarCollection()
+        yield newcalendar.setSupportedComponents(("VEVENT",))
+        request._newStoreTransaction.commit()
+        
+        request = SimpleRequest(self.site, "GET", "/calendars/users/wsanchez/")
+        inbox = yield request.locateResource("/calendars/users/wsanchez/inbox")
+        yield inbox.writeProperty(caldavxml.ScheduleDefaultCalendarURL(davxml.HRef("/calendars/__uids__/6423F94A-6B76-4A3A-815B-D52CFD77935D/newcalendar")), request)
+
+        try:
+            default = inbox.readDeadProperty(caldavxml.ScheduleDefaultCalendarURL)
+        except HTTPError:
+            self.fail("caldavxml.ScheduleDefaultCalendarURL is not present")
+        else:
+            self.assertEqual(str(default.children[0]), "/calendars/__uids__/6423F94A-6B76-4A3A-815B-D52CFD77935D/newcalendar")
+
+        request._newStoreTransaction.commit()
+
+    @inlineCallbacks
+    def test_is_default_calendar(self):
+        """
+        Test .isDefaultCalendar() returns the proper class or None.
+        """
+        
+        # Create a new non-default calendar
+        request = SimpleRequest(self.site, "GET", "/calendars/users/wsanchez/")
+        newcalendar = yield request.locateResource("/calendars/users/wsanchez/newcalendar")
+        yield newcalendar.createCalendarCollection()
+        yield newcalendar.setSupportedComponents(("VEVENT",))
+        inbox = yield request.locateResource("/calendars/users/wsanchez/inbox")
+        yield inbox.pickNewDefaultCalendar(request)
+        request._newStoreTransaction.commit()
+        
+        request = SimpleRequest(self.site, "GET", "/calendars/users/wsanchez/")
+        inbox = yield request.locateResource("/calendars/users/wsanchez/inbox")
+        calendar = yield request.locateResource("/calendars/users/wsanchez/calendar")
+        newcalendar = yield request.locateResource("/calendars/users/wsanchez/newcalendar")
+        tasks = yield request.locateResource("/calendars/users/wsanchez/tasks")
+
+        result = yield inbox.isDefaultCalendar(request, calendar)
+        self.assertEqual(result, caldavxml.ScheduleDefaultCalendarURL)
+        
+        result = yield inbox.isDefaultCalendar(request, newcalendar)
+        self.assertEqual(result, None)
+        
+        result = yield inbox.isDefaultCalendar(request, tasks)
+        self.assertEqual(result, customxml.ScheduleDefaultTasksURL)
+
+        request._newStoreTransaction.commit()

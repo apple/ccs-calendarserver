@@ -131,7 +131,7 @@ def http_MOVE(self, request):
     result, sourcecal, sourceparent, destination_uri, destination, destinationcal, destinationparent = (yield checkForCalendarAction(self, request))
     if not result:
         is_calendar_collection = isPseudoCalendarCollectionResource(self)
-        defaultCalendar = (yield self.isDefaultCalendar(request)) if is_calendar_collection else False
+        defaultCalendarType = (yield self.isDefaultCalendar(request)) if is_calendar_collection else None
         is_addressbook_collection = isAddressBookCollectionResource(self)
         defaultAddressBook = (yield self.isDefaultAddressBook(request)) if is_addressbook_collection else False
 
@@ -146,7 +146,7 @@ def http_MOVE(self, request):
         if result == responsecode.NO_CONTENT:
             if is_calendar_collection:
                 # Do some clean up
-                yield self.movedCalendar(request, defaultCalendar, destination, destination_uri)
+                yield self.movedCalendar(request, defaultCalendarType, destination, destination_uri)
             elif is_addressbook_collection:
                 # Do some clean up
                 yield self.movedAddressBook(request, defaultAddressBook, destination, destination_uri)

@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+from twistedcaldav.config import config
 
 """
 Store test utility functions
@@ -260,7 +261,9 @@ def populateCalendarsFrom(requirements, store):
             # We don't want the default calendar or inbox to appear unless it's
             # explicitly listed.
             try:
-                yield home.removeCalendarWithName("calendar")
+                yield home.removeCalendarWithName(config.CalDAV.AccountProvisioning.CalendarName)
+                if config.CalDAV.AccountProvisioning.KeepComponentTypesSeparate:
+                    yield home.removeCalendarWithName(config.CalDAV.AccountProvisioning.TasksName)
                 yield home.removeCalendarWithName("inbox")
             except NoSuchHomeChildError:
                 pass
@@ -496,7 +499,6 @@ def disableMemcacheForTest(aTest):
     # else in this module; nothing else in this module should ever touch global
     # configuration. -glyph
 
-    from twistedcaldav.config import config
     from twistedcaldav.memcacher import Memcacher
 
     aTest.patch(config.Memcached.Pools.Default, "ClientEnabled", False)

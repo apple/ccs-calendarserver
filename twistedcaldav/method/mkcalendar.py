@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+from twistedcaldav.config import config
 
 """
 CalDAV MKCALENDAR method.
@@ -76,6 +77,7 @@ def http_MKCALENDAR(self, request):
         log.err("Error while handling MKCALENDAR: %s" % (e,))
         raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, str(e)))
 
+    set_supported_component_set = False
     if doc is not None:
         makecalendar = doc.root_element
         if not isinstance(makecalendar, caldavxml.MakeCalendar):
@@ -92,7 +94,8 @@ def http_MKCALENDAR(self, request):
             for property in makecalendar.children[0].children[0].children:
                 try:
                     if property.qname() == (caldavxml.caldav_namespace, "supported-calendar-component-set"):
-                        self.setSupportedComponentSet(property)
+                        yield self.setSupportedComponentSet(property)
+                        set_supported_component_set = True
                     else:
                         yield self.writeProperty(property, request)
                 except HTTPError:
@@ -106,5 +109,10 @@ def http_MKCALENDAR(self, request):
             self.transactionError()
             errors.error()
             raise HTTPError(MultiStatusResponse([errors.response()]))
+        
+    # When calendar collections are single component only, default MKCALENDAR is VEVENT only
+    if not set_supported_component_set and config.CalDAV.AccountProvisioning.KeepComponentTypesSeparate:
+        yield self.setSupportedComponents(("VEVENT",))
+            
 
     returnValue(responsecode.CREATED)

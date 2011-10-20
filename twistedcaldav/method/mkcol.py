@@ -122,6 +122,7 @@ def http_MKCOL(self, request):
         errors = PropertyStatusResponseQueue("PROPPATCH", request.uri, responsecode.NO_CONTENT)
         got_an_error = False
     
+        set_supported_component_set = False
         if mkcol.children:
             # mkcol -> set -> prop -> property*
             properties = mkcol.children[0].children[0].children
@@ -166,7 +167,8 @@ def http_MKCOL(self, request):
             for property in mkcol.children[0].children[0].children:
                 try:
                     if rtype == "calendar" and property.qname() == (caldavxml.caldav_namespace, "supported-calendar-component-set"):
-                        self.setSupportedComponentSet(property)
+                        yield self.setSupportedComponentSet(property)
+                        set_supported_component_set = True
                     else:
                         yield self.writeProperty(property, request)
                 except HTTPError:
@@ -183,6 +185,10 @@ def http_MKCOL(self, request):
                     code=responsecode.BAD_REQUEST,
                     stream=mkcolxml.MakeCollectionResponse(errors.response()).toxml()
             ))
+        
+        # When calendar collections are single component only, default MKCALENDAR is VEVENT only
+        if rtype == "calendar" and not set_supported_component_set and config.CalDAV.AccountProvisioning.KeepComponentTypesSeparate:
+            yield self.setSupportedComponents(("VEVENT",))
 
         yield returnValue(responsecode.CREATED)
     

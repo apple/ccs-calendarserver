@@ -184,7 +184,7 @@ class CalendarHome(CommonHome):
     def createdHome(self):
 
         # Default calendar
-        defaultCal = self.createCalendarWithName("calendar")
+        defaultCal = self.createCalendarWithName(config.CalDAV.AccountProvisioning.CalendarName)
         props = defaultCal.properties()
         props[PropertyName(*ScheduleCalendarTransp.qname())] = ScheduleCalendarTransp(Opaque())
         
@@ -267,6 +267,13 @@ class Calendar(CommonHomeChild):
     def getSupportedComponents(self):
         result = str(self.properties().get(PropertyName.fromElement(customxml.TwistedCalendarSupportedComponents), ""))
         return result if result else None
+
+    def isSupportedComponent(self, componentType):
+        supported = self.getSupportedComponents()
+        if supported:
+            return componentType.upper() in supported.split(",")
+        else:
+            return True
 
     def initPropertyStore(self, props):
         # Setup peruser special properties

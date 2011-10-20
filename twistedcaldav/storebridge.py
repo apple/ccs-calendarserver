@@ -890,7 +890,52 @@ class _CommonHomeChildCollectionMixin(ResponseCacheMixin):
     def notifyChanged(self):
         self._newStoreObject.notifyChanged()
 
-class CalendarCollectionResource(_CommonHomeChildCollectionMixin, CalDAVResource):
+class _CalendarCollectionBehaviorMixin():
+    """
+    Functions common to calendar and inbox collections
+    """
+    
+    # Support component set behaviors
+    def setSupportedComponentSet(self, support_components_property):
+        """
+        Parse out XML property into list of components and give to store.
+        """
+        support_components = ",".join(sorted([comp.attributes["name"].upper() for comp in support_components_property.children]))
+        return maybeDeferred(self._newStoreObject.setSupportedComponents, support_components)
+    
+    def getSupportedComponentSet(self):
+        comps = self._newStoreObject.getSupportedComponents()
+        if comps:
+            comps = comps.split(",")
+        else:
+            comps = allowedComponents
+        return caldavxml.SupportedCalendarComponentSet(
+            *[caldavxml.CalendarComponent(name=item) for item in comps]
+        )
+
+    def setSupportedComponents(self, components):
+        """
+        Set the allowed component set for this calendar.
+
+        @param components: list of names of components to support
+        @type components: C{list}
+        """
+        support_components = ",".join(sorted([comp.upper() for comp in components]))
+        return maybeDeferred(self._newStoreObject.setSupportedComponents, support_components)
+    
+    def getSupportedComponents(self):
+        comps = self._newStoreObject.getSupportedComponents()
+        if comps:
+            comps = comps.split(",")
+        else:
+            comps = allowedComponents
+        return comps
+
+    def isSupportedComponent(self, componentType):
+        return self._newStoreObject.isSupportedComponent(componentType)
+
+    
+class CalendarCollectionResource(_CalendarCollectionBehaviorMixin, _CommonHomeChildCollectionMixin, CalDAVResource):
     """
     Wrapper around a L{txdav.caldav.icalendar.ICalendar}.
     """
@@ -928,34 +973,6 @@ class CalendarCollectionResource(_CommonHomeChildCollectionMixin, CalDAVResource
         Yes, it is a calendar collection.
         """
         return True
-
-    def setSupportedComponentSet(self, support_components_property):
-        """
-        Parse out XML property into list of components and give to store.
-        """
-        support_components = ",".join(sorted([comp.attributes["name"].upper() for comp in support_components_property.children]))
-        return maybeDeferred(self._newStoreObject.setSupportedComponents, support_components)
-    
-    def getSupportedComponentSet(self):
-        comps = self._newStoreObject.getSupportedComponents()
-        if comps:
-            comps = comps.split(",")
-        else:
-            comps = allowedComponents
-        return caldavxml.SupportedCalendarComponentSet(
-            *[caldavxml.CalendarComponent(name=item) for item in comps]
-        )
-
-    def getSupportedComponents(self):
-        comps = self._newStoreObject.getSupportedComponents()
-        if comps:
-            comps = comps.split(",")
-        else:
-            comps = allowedComponents
-        return comps
-
-    def isSupportedComponent(self, componentType):
-        return self._newStoreObject.isSupportedComponent(componentType)
 
     @inlineCallbacks
     def iCalendarRolledup(self, request):
@@ -1149,18 +1166,18 @@ class CalendarCollectionResource(_CommonHomeChildCollectionMixin, CalDAVResource
         Moving a calendar collection is allowed for the purposes of changing
         that calendar's name.
         """
-        defaultCalendar = (yield self.isDefaultCalendar(request))
+        defaultCalendarType = (yield self.isDefaultCalendar(request))
         
         result = (yield super(CalendarCollectionResource, self).http_MOVE(request))
         if result == NO_CONTENT:
             destinationURI = urlsplit(request.headers.getHeader("destination"))[2]
             destination = yield request.locateResource(destinationURI)
-            yield self.movedCalendar(request, defaultCalendar,
+            yield self.movedCalendar(request, defaultCalendarType,
                                destination, destinationURI)
         returnValue(result)
 
 
-class StoreScheduleInboxResource(_CommonHomeChildCollectionMixin, ScheduleInboxResource):
+class StoreScheduleInboxResource(_CalendarCollectionBehaviorMixin, _CommonHomeChildCollectionMixin, ScheduleInboxResource):
 
     def __init__(self, *a, **kw):
 
@@ -1195,9 +1212,6 @@ class StoreScheduleInboxResource(_CommonHomeChildCollectionMixin, ScheduleInboxR
 
     def provision(self):
         pass
-
-    def isSupportedComponent(self, componentType):
-        return self._newStoreObject.isSupportedComponent(componentType)
 
     def http_DELETE(self, request):
         return FORBIDDEN

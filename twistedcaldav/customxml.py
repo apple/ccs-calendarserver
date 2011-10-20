@@ -518,6 +518,15 @@ class ScheduleChanges (davxml.WebDAVElement):
         (calendarserver_namespace, "action" )      : (0, 1), # Have to allow 0 as element is empty in PROPFIND requests
     }
 
+class ScheduleDefaultTasksURL (davxml.WebDAVElement):
+    """
+    A single href indicating which calendar is the default for VTODO scheduling.
+    """
+    namespace = calendarserver_namespace
+    name = "schedule-default-tasks-URL"
+
+    allowed_children = { (davxml.dav_namespace, "href"): (0, 1) }
+
 class DTStamp (davxml.WebDAVTextElement):
     """
     A UTC timestamp in iCal format.

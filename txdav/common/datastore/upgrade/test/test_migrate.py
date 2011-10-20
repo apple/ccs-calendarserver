@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+from twistedcaldav.config import config
 
 """
 Tests for L{txdav.common.datastore.upgrade.migrate}.
@@ -129,7 +130,7 @@ class HomeMigrationTests(TestCase):
         self.addCleanup(vrfyTxn.commit)
         home = yield vrfyTxn.calendarHomeWithUID("home1")
         # The default calendar is still there.
-        self.assertNotIdentical(None, (yield home.calendarWithName("calendar")))
+        self.assertNotIdentical(None, (yield home.calendarWithName(config.CalDAV.AccountProvisioning.CalendarName)))
         # The migrated calendar isn't.
         self.assertIdentical(None, (yield home.calendarWithName("calendar_1")))
 

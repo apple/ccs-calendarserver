@@ -85,7 +85,7 @@ class SharingTests(HomeTestCase):
             request = norequest()
         result = yield super(SharingTests, self)._refreshRoot(request)
         self.resource = (
-            yield self.site.resource.locateChild(request, ["calendar"])
+            yield self.site.resource.locateChild(request, [config.CalDAV.AccountProvisioning.CalendarName])
         )[0]
         returnValue(result)
 

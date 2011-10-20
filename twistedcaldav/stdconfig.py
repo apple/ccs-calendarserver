@@ -527,8 +527,7 @@ DEFAULT_CONFIG = {
                                                         # VEVENTs and VTODOs if KeepComponentTypesSeparate is False
             "TasksName":                   "tasks",     # Name to use when provisioning calendar for VTODOs only, not
                                                         # provisioned if KeepComponentTypesSeparate is False
-            "KeepComponentTypesSeparate" : False,       # Provision collections with separate
-                                                        # for separate component types
+            "KeepComponentTypesSeparate" : True,        # Provision collections with separate component types
         },
     },
 

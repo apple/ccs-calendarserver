@@ -590,10 +590,10 @@ class CalDAVResource (
             url = (yield self.canonicalURL(request))
             returnValue(davxml.AddMember(davxml.HRef.fromString(url + "/;add-member")))
 
-        elif qname == caldavxml.SupportedCalendarComponentSet.qname():
+        elif qname == caldavxml.SupportedCalendarComponentSet.qname() and self.isPseudoCalendarCollection():
             returnValue(self.getSupportedComponentSet())
 
-        elif qname == caldavxml.SupportedCalendarData.qname():
+        elif qname == caldavxml.SupportedCalendarData.qname() and self.isPseudoCalendarCollection():
             returnValue(caldavxml.SupportedCalendarData(
                 caldavxml.CalendarData(**{
                     "content-type": "text/calendar",
@@ -601,19 +601,19 @@ class CalDAVResource (
                 }),
             ))
 
-        elif qname == caldavxml.MaxResourceSize.qname():
+        elif qname == caldavxml.MaxResourceSize.qname() and self.isPseudoCalendarCollection():
             if config.MaxResourceSize:
                 returnValue(caldavxml.MaxResourceSize.fromString(
                     str(config.MaxResourceSize)
                 ))
 
-        elif qname == caldavxml.MaxInstances.qname():
+        elif qname == caldavxml.MaxInstances.qname() and self.isPseudoCalendarCollection():
             if config.MaxAllowedInstances:
                 returnValue(caldavxml.MaxInstances.fromString(
                     str(config.MaxAllowedInstances)
                 ))
 
-        elif qname == caldavxml.MaxAttendeesPerInstance.qname():
+        elif qname == caldavxml.MaxAttendeesPerInstance.qname() and self.isPseudoCalendarCollection():
             if config.MaxAttendeesPerInstance:
                 returnValue(caldavxml.MaxAttendeesPerInstance.fromString(
                     str(config.MaxAttendeesPerInstance)
@@ -626,10 +626,10 @@ class CalDAVResource (
                     self.scheduleTag
                 ))
 
-        elif qname == caldavxml.ScheduleCalendarTransp.qname():
+        elif qname == caldavxml.ScheduleCalendarTransp.qname() and self.isCalendarCollection():
             # For backwards compatibility, if the property does not exist we need to create
             # it and default to the old free-busy-set value.
-            if self.isCalendarCollection() and not self.hasDeadProperty(property):
+            if not self.hasDeadProperty(property):
                 # For backwards compatibility we need to sync this up with the calendar-free-busy-set on the inbox
                 principal = (yield self.resourceOwnerPrincipal(request))
                 fbset = (yield principal.calendarFreeBusyURIs(request))
@@ -639,7 +639,7 @@ class CalDAVResource (
                 opaque = url in fbset
                 self.writeDeadProperty(caldavxml.ScheduleCalendarTransp(caldavxml.Opaque() if opaque else caldavxml.Transparent()))
 
-        elif qname == carddavxml.SupportedAddressData.qname():
+        elif qname == carddavxml.SupportedAddressData.qname() and self.isAddressBookCollection():
             # CardDAV, section 6.2.2
             returnValue(carddavxml.SupportedAddressData(
                 carddavxml.AddressDataType(**{
@@ -648,7 +648,7 @@ class CalDAVResource (
                 }),
             ))
 
-        elif qname == carddavxml.MaxResourceSize.qname():
+        elif qname == carddavxml.MaxResourceSize.qname() and self.isAddressBookCollection():
             # CardDAV, section 6.2.3
             if config.MaxResourceSize:
                 returnValue(carddavxml.MaxResourceSize.fromString(
@@ -1069,7 +1069,7 @@ class CalDAVResource (
             inbox.processFreeBusyCalendar(request.path, False)
 
     @inlineCallbacks
-    def movedCalendar(self, request, defaultCalendar, destination, destination_uri):
+    def movedCalendar(self, request, defaultCalendarType, destination, destination_uri):
         """
         Calendar has been moved. Need to do some extra clean-up.
         """
@@ -1085,8 +1085,8 @@ class CalDAVResource (
             inbox.processFreeBusyCalendar(destination_uri, destination.isCalendarOpaque())
             
             # Adjust the default calendar setting if necessary
-            if defaultCalendar:
-                yield inbox.writeProperty(caldavxml.ScheduleDefaultCalendarURL(davxml.HRef(destination_path)), request)               
+            if defaultCalendarType is not None:
+                yield inbox.writeProperty(defaultCalendarType(davxml.HRef(destination_path)), request)               
 
     def isCalendarOpaque(self):
         
@@ -1108,13 +1108,10 @@ class CalDAVResource (
         inboxURL = principal.scheduleInboxURL()
         if inboxURL:
             inbox = (yield request.locateResource(inboxURL))
-            default = (yield inbox.readProperty((caldav_namespace, "schedule-default-calendar-URL"), request))
-            if default and len(default.children) == 1:
-                defaultURL = normalizeURL(str(default.children[0]))
-                myURL = (yield self.canonicalURL(request))
-                returnValue(defaultURL == myURL)
+            result = (yield inbox.isDefaultCalendar(request, self))
+            returnValue(result)
 
-        returnValue(False)
+        returnValue(None)
 
     @inlineCallbacks
     def iCalendarForUser(self, request):
@@ -2415,7 +2412,7 @@ class CalendarHomeResource(CommonHomeResource):
         # this URL live from a back-end method that tells us what the
         # default calendar is.
         inbox = yield self.getChild("inbox")
-        childURL = joinURL(self.url(), "calendar")
+        childURL = joinURL(self.url(), config.CalDAV.AccountProvisioning.CalendarName)
         inbox.processFreeBusyCalendar(childURL, True)
 
 
