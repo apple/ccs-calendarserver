@@ -160,6 +160,7 @@ class RootResource (ReadOnlyResourceMixIn, DirectoryPrincipalPropertySearchMixIn
                 request.credentialFactories,
                 request.remoteAddr
             ))
+            log.info("Unauthenticated user denied by SACLs")
             raise HTTPError(response)
 
         # Cache the authentication details
@@ -326,7 +327,7 @@ class RootResource (ReadOnlyResourceMixIn, DirectoryPrincipalPropertySearchMixIn
         if segments[0] in ("inbox", "timezones"):
             request.checkedSACL = True
 
-        elif (len(segments) > 2 and segments[0] == "calendars" and
+        elif (len(segments) > 2 and segments[0] in ("calendars", "principals") and
             (
                 segments[1] == "wikis" or
                 (segments[1] == "__uids__" and segments[2].startswith("wiki-"))
