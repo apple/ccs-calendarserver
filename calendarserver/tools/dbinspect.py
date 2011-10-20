@@ -137,6 +137,59 @@ class CalendarHomes(Cmd):
         returnValue(tuple([row[0] for row in rows]))
 
 
+class CalendarHomesSummary(Cmd):
+    
+    _name = "List Calendar Homes with summary information"
+    
+    @inlineCallbacks
+    def doIt(self, txn):
+        
+        uids = yield self.getCalendars(txn)
+        
+        results = {}
+        for uid, calname, count in sorted(uids, key=lambda x:x[0]):
+            totalname, totalcount = results.get(uid, (0, 0,))
+            if calname != "inbox":
+                totalname += 1
+                totalcount += count
+                results[uid] = (totalname, totalcount,)
+        
+        # Print table of results
+        table = tables.Table()
+        table.addHeader(("Owner UID", "Short Name", "Calendars", "Resources"))
+        for uid in sorted(results.keys()):
+            shortname = UserNameFromUID(txn, uid)
+            table.addRow((
+                uid,
+                shortname,
+                results[uid][0],
+                results[uid][1],
+            ))
+        
+        print "\n"
+        print "Calendars with resource count (total=%d):\n" % (len(results),)
+        table.printTable()
+
+    @inlineCallbacks
+    def getCalendars(self, txn):
+        ch = schema.CALENDAR_HOME
+        cb = schema.CALENDAR_BIND
+        co = schema.CALENDAR_OBJECT
+        rows = (yield Select(
+            [
+                ch.OWNER_UID,
+                cb.CALENDAR_RESOURCE_NAME,
+                Count(co.RESOURCE_ID),
+            ],
+            From=ch.join(
+                cb, type="inner", on=(ch.RESOURCE_ID == cb.CALENDAR_HOME_RESOURCE_ID).And(
+                    cb.BIND_MODE == _BIND_MODE_OWN)).join(
+                co, type="left", on=(cb.CALENDAR_RESOURCE_ID == co.CALENDAR_RESOURCE_ID)),
+            GroupBy=(ch.OWNER_UID, cb.CALENDAR_RESOURCE_NAME)
+        ).on(txn))
+        returnValue(tuple(rows))
+
+
 class Calendars(Cmd):
     
     _name = "List Calendars"
@@ -699,6 +752,7 @@ class DBInspectService(Service, object):
         
         # Register commands
         self.registerCommand(CalendarHomes)
+        self.registerCommand(CalendarHomesSummary)
         self.registerCommand(Calendars)
         self.registerCommand(Events)
         self.registerCommand(Event)
