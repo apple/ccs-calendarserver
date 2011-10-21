@@ -115,37 +115,9 @@ def upgrade_to_1(config):
 
 
 
-    def normalizeCUAddrs(data, directory):
-        cal = Component.fromString(data)
-
-        def lookupFunction(cuaddr):
-            try:
-                principal = directory.principalForCalendarUserAddress(cuaddr)
-            except Exception, e:
-                log.debug("Lookup of %s failed: %s" % (cuaddr, e))
-                principal = None
-
-            if principal is None:
-                return (None, None, None)
-            else:
-                rec = principal.record
-
-                # RFC5545 syntax does not allow backslash escaping in
-                # parameter values. A double-quote is thus not allowed
-                # in a parameter value except as the start/end delimiters.
-                # Single quotes are allowed, so we convert any double-quotes
-                # to single-quotes.
-                fullName = rec.fullName.replace('"', "'")
-
-                return (fullName, rec.guid, rec.calendarUserAddresses)
-
-        cal.normalizeCalendarUserAddresses(lookupFunction)
-
-        newData = str(cal)
-        return newData, not newData == data
 
 
-    def upgradeCalendarCollection(calPath, directory):
+    def upgradeCalendarCollection(calPath, directory, cuaCache):
 
         errorOccurred = False
         collectionUpdated = False
@@ -189,7 +161,7 @@ def upgrade_to_1(config):
                     continue
 
                 try:
-                    data, fixed = normalizeCUAddrs(data, directory)
+                    data, fixed = normalizeCUAddrs(data, directory, cuaCache)
                     if fixed:
                         log.debug("Normalized CUAddrs in %s" % (resPath,))
                         needsRewrite = True
@@ -236,7 +208,7 @@ def upgrade_to_1(config):
         return errorOccurred
 
 
-    def upgradeCalendarHome(homePath, directory):
+    def upgradeCalendarHome(homePath, directory, cuaCache):
 
         errorOccurred = False
 
@@ -254,7 +226,7 @@ def upgrade_to_1(config):
                     rmdir(calPath)
                     continue
                 log.debug("Upgrading calendar: %s" % (calPath,))
-                if not upgradeCalendarCollection(calPath, directory):
+                if not upgradeCalendarCollection(calPath, directory, cuaCache):
                     errorOccurred = True
 
                 # Change the calendar-free-busy-set xattrs of the inbox to the
@@ -392,6 +364,7 @@ def upgrade_to_1(config):
 
 
     directory = getDirectory()
+    cuaCache = {}
 
     docRoot = config.DocumentRoot
 
@@ -515,7 +488,7 @@ def upgrade_to_1(config):
                                         continue
 
                                     if not upgradeCalendarHome(homePath,
-                                        directory):
+                                        directory, cuaCache):
                                         errorOccurred = True
 
                                     count += 1
@@ -530,6 +503,55 @@ def upgrade_to_1(config):
 
     if errorOccurred:
         raise UpgradeError("Data upgrade failed, see error.log for details")
+
+
+def normalizeCUAddrs(data, directory, cuaCache):
+    """
+    Normalize calendar user addresses to urn:uuid: form.
+
+    @param data: the calendar data to convert
+    @type data: C{str}
+    @param directory: the directory service to lookup CUAs with
+    @type data: L{DirectoryService}
+    @param cuaCache: the dictionary to use as a cache across calls, which is
+        updated as a side-effect
+    @type cuaCache: C{dict}
+    @return: tuple of (converted calendar data, boolean signaling whether
+        there were any changes to the data)
+    """
+    cal = Component.fromString(data)
+
+    def lookupFunction(cuaddr):
+        try:
+            if cuaCache.has_key(cuaddr):
+                principal = cuaCache[cuaddr]
+            else:
+                principal = directory.principalForCalendarUserAddress(cuaddr)
+        except Exception, e:
+            log.debug("Lookup of %s failed: %s" % (cuaddr, e))
+            principal = None
+
+        cuaCache[cuaddr] = principal
+
+        if principal is None:
+            return (None, None, None)
+        else:
+            rec = principal.record
+
+            # RFC5545 syntax does not allow backslash escaping in
+            # parameter values. A double-quote is thus not allowed
+            # in a parameter value except as the start/end delimiters.
+            # Single quotes are allowed, so we convert any double-quotes
+            # to single-quotes.
+            fullName = rec.fullName.replace('"', "'")
+
+            return (fullName, rec.guid, rec.calendarUserAddresses)
+
+    cal.normalizeCalendarUserAddresses(lookupFunction)
+
+    newData = str(cal)
+    return newData, not newData == data
+
 
 
 @inlineCallbacks

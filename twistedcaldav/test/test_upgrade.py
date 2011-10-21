@@ -23,7 +23,7 @@ from twistedcaldav.directory.resourceinfo import ResourceInfoDatabase
 from twistedcaldav.mail import MailGatewayTokensDatabase
 from twistedcaldav.upgrade import (
     xattrname, UpgradeError, upgradeData, updateFreeBusySet,
-    removeIllegalCharacters
+    removeIllegalCharacters, normalizeCUAddrs
 )
 from twistedcaldav.test.util import TestCase
 from calendarserver.tools.util import getDirectory
@@ -1420,6 +1420,69 @@ class UpgradeTests(TestCase):
         after, changed = removeIllegalCharacters(data)
         self.assertEquals(after, "Contains only\x0a legal\x0d")
         self.assertFalse(changed)
+
+
+    def test_normalizeCUAddrs(self):
+        """
+        Ensure that calendar user addresses (CUAs) are cached so we can
+        reduce the number of principal lookup calls during upgrade.
+        """
+
+        class StubPrincipal(object):
+            def __init__(self, record):
+                self.record = record
+
+        class StubRecord(object):
+            def __init__(self, fullName, guid, cuas):
+                self.fullName = fullName
+                self.guid = guid
+                self.calendarUserAddresses = cuas
+
+        class StubDirectory(object):
+            def __init__(self):
+                self.count = 0
+
+            def principalForCalendarUserAddress(self, cuaddr):
+                self.count += 1
+                record = records.get(cuaddr, None)
+                if record is not None:
+                    return StubPrincipal(record)
+                else:
+                    raise Exception
+
+        records = {
+            "mailto:a@example.com" :
+                StubRecord("User A", 123, ("mailto:a@example.com", "urn:uuid:123")),
+            "mailto:b@example.com" :
+                StubRecord("User B", 234, ("mailto:b@example.com", "urn:uuid:234")),
+        }
+
+        directory = StubDirectory()
+        cuaCache = {}
+        normalizeCUAddrs(normalizeEvent, directory, cuaCache)
+        normalizeCUAddrs(normalizeEvent, directory, cuaCache)
+
+        # Ensure we only called principalForCalendarUserAddress 3 times.  It
+        # would have been 8 times without the cuaCache.
+        self.assertEquals(directory.count, 3)
+
+normalizeEvent = """BEGIN:VCALENDAR
+VERSION:2.0
+BEGIN:VEVENT
+TRANSP:OPAQUE
+UID:1E238CA1-3C95-4468-B8CD-C8A399F78C71
+DTSTART:20090203
+DTEND:20090204
+ORGANIZER;CN="User A":mailto:a@example.com
+SUMMARY:New Event
+DESCRIPTION:Foo
+ATTENDEE;CN="User A";CUTYPE=INDIVIDUAL;PARTSTAT=ACCEPTED:mailto:a@example.com
+ATTENDEE;CN="User B";CUTYPE=INDIVIDUAL;PARTSTAT=ACCEPTED:mailto:b@example.com
+ATTENDEE;CN="Unknown";CUTYPE=INDIVIDUAL;PARTSTAT=ACCEPTED:mailto:unknown@example.com
+END:VEVENT
+END:VCALENDAR
+""".replace("\n", "\r\n")
+
 
 
 event01_before = """BEGIN:VCALENDAR
