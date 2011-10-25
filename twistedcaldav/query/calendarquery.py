@@ -217,18 +217,18 @@ def getTimerangeArguments(timerange):
         pyCalendarTodatetime(endfloat) if endfloat else None,
     )
 
-def sqlcalendarquery(filter, calendarid=None, userid=None, generator=sqlgenerator.sqlgenerator):
+def sqlcalendarquery(filter, calendarid=None, userid=None, freebusy=False, generator=sqlgenerator.sqlgenerator):
     """
     Convert the supplied calendar-query into a oartial SQL statement.
 
-    @param filter: the L{Filter} for thw calendar-query to convert.
+    @param filter: the L{Filter} for the calendar-query to convert.
     @return: a C{tuple} of (C{str}, C{list}), where the C{str} is the partial SQL statement,
             and the C{list} is the list of argument substitutions to use with the SQL API execute method.
             Or return C{None} if it is not possible to create an SQL query to fully match the calendar-query.
     """
     try:
         expression = calendarquery(filter, generator.FIELDS)
-        sql = generator(expression, calendarid, userid)
+        sql = generator(expression, calendarid, userid, freebusy)
         return sql.generate()
     except ValueError:
         return None

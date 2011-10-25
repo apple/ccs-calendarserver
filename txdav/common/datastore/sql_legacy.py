@@ -933,21 +933,10 @@ class CalDAVSQLBehaviorMixin(RealSQLBehaviorMixin):
                 hasTimerange = any([_hasTopLevelTimerange(expr) for expr in self.expression.expressions])
 
                 if hasTimerange:
-                    # AND each of the non-timerange expressions
-                    trexpressions = []
-                    orexpressions = []
-                    for expr in self.expression.expressions:
-                        if _hasTopLevelTimerange(expr):
-                            trexpressions.append(expr)
-                        else:
-                            orexpressions.append(expr)
-                    
-                    if orexpressions:
-                        self.expression.expressions = tuple(trexpressions) + (
-                            test.andWith(expression.orExpression(orexpressions)),
-                        )
+                    # timerange expression forces a join on calendarid
+                    pass
                 else:
-                    # AND the whole thing
+                    # AND the whole thing with calendarid
                     self.expression = test.andWith(self.expression)    
 
             
@@ -963,19 +952,32 @@ class CalDAVSQLBehaviorMixin(RealSQLBehaviorMixin):
                 self.expression = test.andWith(self.expression)
 
         # Generate ' where ...' partial statement
-        self.sout.write(self.WHERE)
         self.generateExpression(self.expression)
 
         # Prefix with ' from ...' partial statement
         select = self.FROM + self.RESOURCEDB
         if self.usedtimespan:
-            self.frontArgument(self.userid)
-            select += ", %s LEFT OUTER JOIN %s ON (%s)" % (
-                self.TIMESPANDB,
-                self.TRANSPARENCYDB,
-                self.TIMESPANTEST_JOIN_ON_PIECE
-            )
+
+            # Free busy needs transparency join            
+            if self.freebusy:
+                self.frontArgument(self.userid)
+                select += ", %s LEFT OUTER JOIN %s ON (%s)" % (
+                    self.TIMESPANDB,
+                    self.TRANSPARENCYDB,
+                    self.TIMESPANTEST_JOIN_ON_PIECE
+                )
+            else:
+                select += ", %s" % (
+                    self.TIMESPANDB,
+                )
+        select += self.WHERE
+        if self.usedtimespan:
+            select += "("
         select += self.sout.getvalue()
+        if self.usedtimespan:
+            if self.calendarid:
+                self.setArgument(self.calendarid)
+            select += ")%s" % (self.TIMESPANTEST_TAIL_PIECE,)
 
         select = select % tuple(self.substitutions)
 
@@ -1188,7 +1190,7 @@ class PostgresLegacyIndexEmulator(LegacyIndexHelper):
         # statement to use.
         if isinstance(filter, calendarqueryfilter.Filter):
             qualifiers = calendarquery.sqlcalendarquery(
-                filter, self.calendar._resourceID, useruid,
+                filter, self.calendar._resourceID, useruid, fbtype,
                 generator=generator
             )
             if qualifiers is not None:

@@ -319,6 +319,177 @@ END:VCALENDAR
 
 
     @inlineCallbacks
+    def test_index_timerange(self):
+        """
+        A plain (not freebusy) time range test.
+        """
+        data = (
+            (
+                "#1.1 Simple component - busy",
+                "1.1",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1.1
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+DTSTAMP:20080601T120000Z
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+END:VEVENT
+END:VCALENDAR
+""",
+                "20080601T000000Z", "20080602T000000Z",
+            ),
+            (
+                "#1.2 Simple component - transparent",
+                "1.2",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1.2
+DTSTART:20080602T120000Z
+DTEND:20080602T130000Z
+DTSTAMP:20080601T120000Z
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+TRANSP:TRANSPARENT
+END:VEVENT
+END:VCALENDAR
+""",
+                "20080602T000000Z", "20080603T000000Z",
+            ),
+            (
+                "#1.3 Simple component - canceled",
+                "1.3",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1.3
+DTSTART:20080603T120000Z
+DTEND:20080603T130000Z
+DTSTAMP:20080601T120000Z
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+STATUS:CANCELLED
+END:VEVENT
+END:VCALENDAR
+""",
+                "20080603T000000Z", "20080604T000000Z",
+            ),
+            (
+                "#1.4 Simple component - tentative",
+                "1.4",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1.4
+DTSTART:20080604T120000Z
+DTEND:20080604T130000Z
+DTSTAMP:20080601T120000Z
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+STATUS:TENTATIVE
+END:VEVENT
+END:VCALENDAR
+""",
+                "20080604T000000Z", "20080605T000000Z",
+            ),
+            (
+                "#2.1 Recurring component - busy",
+                "2.1",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-2.1
+DTSTART:20080605T120000Z
+DTEND:20080605T130000Z
+DTSTAMP:20080601T120000Z
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+RRULE:FREQ=DAILY;COUNT=2
+END:VEVENT
+END:VCALENDAR
+""",
+                "20080605T000000Z", "20080607T000000Z",
+            ),
+            (
+                "#2.2 Recurring component - busy",
+                "2.2",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-2.2
+DTSTART:20080607T120000Z
+DTEND:20080607T130000Z
+DTSTAMP:20080601T120000Z
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+RRULE:FREQ=DAILY;COUNT=2
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890-2.2
+RECURRENCE-ID:20080608T120000Z
+DTSTART:20080608T140000Z
+DTEND:20080608T150000Z
+DTSTAMP:20080601T120000Z
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+TRANSP:TRANSPARENT
+END:VEVENT
+END:VCALENDAR
+""",
+                "20080607T000000Z", "20080609T000000Z",
+            ),
+        )
+
+        for description, name, calendar_txt, trstart, trend in data:
+            calendar = Component.fromString(calendar_txt)
+
+            f = open(os.path.join(self.indexDirPath.path, name), "w")
+            f.write(calendar_txt)
+            del f
+
+            self.db.addResource(name, calendar)
+            self.assertTrue(self.db.resourceExists(name), msg=description)
+
+            # Create fake filter element to match time-range
+            filter =  caldavxml.Filter(
+                  caldavxml.ComponentFilter(
+                      caldavxml.ComponentFilter(
+                          TimeRange(
+                              start=trstart,
+                              end=trend,
+                          ),
+                          name=("VEVENT", "VFREEBUSY", "VAVAILABILITY"),
+                      ),
+                      name="VCALENDAR",
+                   )
+              )
+            filter = calendarqueryfilter.Filter(filter)
+
+            resources = yield self.db.indexedSearch(filter)
+            index_results = set()
+            for found_name, _ignore_uid, _ignore_type in resources:
+                index_results.add(found_name)
+
+            self.assertEqual(set((name,)), index_results, msg=description)
+
+
+    @inlineCallbacks
     def test_index_timespan(self):
         data = (
             (
