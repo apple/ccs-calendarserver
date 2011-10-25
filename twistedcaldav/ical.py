@@ -248,11 +248,11 @@ class Property (object):
         paramname = paramname.upper()
         for attrName in self.parameterNames():
             if attrName.upper() == paramname:
-                for attr in tuple(self._pyalendar.getAttributes()[attrName]):
+                for attr in tuple(self._pycalendar.getAttributes()[attrName]):
                     for value in attr.getValues():
                         if value == paramvalue:
                             if not attr.removeValue(value):
-                                self._pyalendar.removeAttributes(paramname)
+                                self._pycalendar.removeAttributes(paramname)
 
     def containsTimeRange(self, start, end, defaulttz=None):
         """
