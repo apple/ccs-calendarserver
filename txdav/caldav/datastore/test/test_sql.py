@@ -175,7 +175,8 @@ class CalendarSQLStorageTests(CalendarCommonTests, unittest.TestCase):
     def test_migrateDuplicateAttachmentsCalendarFromFile(self):
         """
         C{_migrateCalendar()} can migrate a file-backed calendar to a database-
-        backed calendar. We need to test what happens when migrating attachments.
+        backed calendar. Test that migrating a calendar containing duplicate attachments
+        will de-duplicate those attachments and proceed without error.
         """
         fromCalendar = yield (yield self.fileTransaction().calendarHomeWithUID(
             "home_attachments")).calendarWithName("calendar_1")
