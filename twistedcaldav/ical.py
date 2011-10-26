@@ -1167,7 +1167,7 @@ class Component (object):
         newcomp.addProperty(Property("RECURRENCE-ID", dtstart.value(), params={}))
         
         if didCancel:
-            newcomp.addProperty(Property("STATUS", "CANCELLED"))
+            newcomp.replaceProperty(Property("STATUS", "CANCELLED"))
 
         # After creating/changing a component we need to do this to keep PyCalendar happy
         newcomp._pycalendar.finalise()

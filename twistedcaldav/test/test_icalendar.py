@@ -3531,6 +3531,73 @@ END:VEVENT
                 derived = str(derived).replace("\r", "") if derived else None
                 self.assertEqual(derived, result, "Failed derive instance test: %s" % (title,))
 
+    def test_derive_instance_with_cancel(self):
+        """
+        Test that derivation of cancelled instances works and only results in one STATUS property present.
+        """
+        
+        data = (
+            (
+                "1.1 - simple no existing STATUS",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20090101T080000Z
+DTEND:20090101T090000Z
+DTSTAMP:20080601T120000Z
+RRULE:FREQ=DAILY
+EXDATE:20090102T080000Z
+END:VEVENT
+END:VCALENDAR
+""",
+                PyCalendarDateTime(2009, 1, 2, 8, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                """BEGIN:VEVENT
+UID:12345-67890-1
+RECURRENCE-ID:20090102T080000Z
+DTSTART:20090102T080000Z
+DTEND:20090102T090000Z
+DTSTAMP:20080601T120000Z
+STATUS:CANCELLED
+END:VEVENT
+""",
+            ),
+            (
+                "1.2 - simple with existing STATUS",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20090101T080000Z
+DTEND:20090101T090000Z
+DTSTAMP:20080601T120000Z
+RRULE:FREQ=DAILY
+EXDATE:20090102T080000Z
+STATUS:CONFIRMED
+END:VEVENT
+END:VCALENDAR
+""",
+                PyCalendarDateTime(2009, 1, 2, 8, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                """BEGIN:VEVENT
+UID:12345-67890-1
+RECURRENCE-ID:20090102T080000Z
+DTSTART:20090102T080000Z
+DTEND:20090102T090000Z
+DTSTAMP:20080601T120000Z
+STATUS:CANCELLED
+END:VEVENT
+""",
+            ),
+        )
+        
+        for title, calendar, rid, result in data:
+            ical = Component.fromString(calendar)
+            derived = ical.deriveInstance(rid, allowCancelled=True)
+            derived = str(derived).replace("\r", "") if derived else None
+            self.assertEqual(derived, result, "Failed derive instance test: %s" % (title,))
+
     def test_truncate_recurrence(self):
         
         data = (
