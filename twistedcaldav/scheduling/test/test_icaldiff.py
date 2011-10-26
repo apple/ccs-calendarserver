@@ -1180,7 +1180,7 @@ END:VCALENDAR
             diffResult = (
                 diffResult[0],
                 diffResult[1],
-                tuple(diffResult[2]),
+                tuple(sorted(diffResult[2])),
                 str(diffResult[3]).replace("\r", "") if diffResult[3] else None,
             )
             self.assertEqual(diffResult, result, msg="%s: actual result: (%s)" % (description, ", ".join([str(i).replace("\r", "") for i in diffResult]),))
@@ -1677,7 +1677,7 @@ END:VCALENDAR
             diffResult = (
                 diffResult[0],
                 diffResult[1],
-                tuple(diffResult[2]),
+                tuple(sorted(diffResult[2])),
                 str(diffResult[3]).replace("\r", "") if diffResult[3] else None,
             )
             self.assertEqual(diffResult, result, msg="%s: actual result: (%s)" % (description, ", ".join([str(i).replace("\r", "") for i in diffResult]),))
@@ -2019,7 +2019,7 @@ END:VCALENDAR
             diffResult = (
                 diffResult[0],
                 diffResult[1],
-                tuple(diffResult[2]),
+                tuple(sorted(diffResult[2])),
                 str(diffResult[3]).replace("\r", "") if diffResult[3] else None,
             )
             self.assertEqual(diffResult, result, msg="%s: actual result: (%s)" % (description, ", ".join([str(i).replace("\r", "") for i in diffResult]),))
@@ -2383,7 +2383,7 @@ END:VCALENDAR
             diffResult = (
                 diffResult[0],
                 diffResult[1],
-                tuple(diffResult[2]),
+                tuple(sorted(diffResult[2])),
                 str(diffResult[3]).replace("\r", "") if diffResult[3] else None,
             )
             self.assertEqual(diffResult, result, msg="%s: actual result: (%s)" % (description, ", ".join([str(i).replace("\r", "") for i in diffResult]),))
@@ -2662,7 +2662,7 @@ END:VCALENDAR
             diffResult = (
                 diffResult[0],
                 diffResult[1],
-                tuple(diffResult[2]),
+                tuple(sorted(diffResult[2])),
                 str(diffResult[3]).replace("\r", "") if diffResult[3] else None,
             )
             self.assertEqual(diffResult, result, msg="%s: actual result: (%s)" % (description, ", ".join([str(i).replace("\r", "") for i in diffResult]),))
