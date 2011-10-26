@@ -489,7 +489,7 @@ class ProxyDB(AbstractADBAPIDatabase, LoggingMixIn):
     def __init__(self, dbID, dbapiName, dbapiArgs, **kwargs):
         AbstractADBAPIDatabase.__init__(self, dbID, dbapiName, dbapiArgs, True, **kwargs)
         
-        self._memcacher = ProxyDB.ProxyDBMemcacher("proxyDB")
+        self._memcacher = ProxyDB.ProxyDBMemcacher("ProxyDB")
 
     @inlineCallbacks
     def setGroupMembers(self, principalUID, members):
