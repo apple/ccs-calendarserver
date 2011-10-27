@@ -257,7 +257,7 @@ class LdapDirectoryService(CachingDirectoryService):
         self.typeDNs = {}
         for recordType in self.recordTypes():
             self.typeDNs[recordType] = ldap.dn.str2dn(
-                self.rdnSchema[recordType]["rdn"]
+                self.rdnSchema[recordType]["rdn"].lower()
             ) + self.base
 
         # Create LDAP connection
@@ -1034,12 +1034,16 @@ class LdapDirectoryService(CachingDirectoryService):
 
         returnValue(recordsByAlias.values())
 
-    def recordTypeForDN(self, dn):
+    def recordTypeForDN(self, dnStr):
         """
-        Examine a dn to determine which recordType it belongs to
+        Examine a DN to determine which recordType it belongs to
+        @param dn: DN to compare
+        @type dn: string
+        @return: recordType string, or None if no match
         """
+        dn = ldap.dn.str2dn(dnStr.lower())
         for recordType in self.recordTypes():
-            base = self.typeDNs[recordType]
+            base = self.typeDNs[recordType] # already lowercase
             if dnContainedIn(dn, base):
                 return recordType
         return None
@@ -1191,7 +1195,7 @@ class LdapDirectoryRecord(CachingDirectoryRecord):
 
                 dn, attrs = result.pop()
                 self.log_debug("Retrieved: %s %s" % (dn,attrs))
-                recordType = self.service.recordTypeForDN(ldap.dn.str2dn(dn))
+                recordType = self.service.recordTypeForDN(dn)
                 if recordType is None:
                     self.log_error("Unable to map %s to a record type" % (dn,))
                     continue
