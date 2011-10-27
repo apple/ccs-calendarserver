@@ -2667,8 +2667,10 @@ class AddressBookHomeResource (CommonHomeResource):
                     "Invalid URI",
                 ))
             else:
-                # Canonicalize the URL to __uids__ form
+                # Canonicalize the URL to __uids__ form and always ensure a trailing /
                 adbkURI = (yield adbk.canonicalURL(request))
+                if not adbkURI.endswith("/"):
+                    adbkURI += "/"
                 property = carddavxml.DefaultAddressBookURL(davxml.HRef(adbkURI))
 
         yield super(AddressBookHomeResource, self).writeProperty(property, request)
@@ -2730,6 +2732,10 @@ class AddressBookHomeResource (CommonHomeResource):
                 raise RuntimeError("No address books at all.")
 
             defaultAddressBookURL = joinURL(self.url(), anAddressBook.name())
+
+        # Always ensure a trailing /
+        if not defaultAddressBookURL.endswith("/"):
+            defaultAddressBookURL += "/"
 
         self.writeDeadProperty(
             carddavxml.DefaultAddressBookURL(
