@@ -42,6 +42,13 @@ class FakeGrp(object):
         return FakeGroup()
 
 
+DEFAULT_AUGMENT_SERVICE = {
+    "params" : {
+        "xmlFiles" : ["augments.xml"],
+    },
+    "type" : "twistedcaldav.directory.augment.AugmentXMLDB",
+}
+
 class MigrationTests(twistedcaldav.test.util.TestCase):
     """
     Calendar Server Migration Tests
@@ -88,6 +95,7 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
             "SSLCertificate": "/etc/certificates/test.cert.pem",
             "SSLPort": 8443,
             "SSLPrivateKey": "/etc/certificates/test.key.pem",
+            "AugmentService" : DEFAULT_AUGMENT_SERVICE,
         }
         newCombined = { }
         mergePlist(oldCalDAV, oldCardDAV, newCombined)
@@ -124,6 +132,7 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
             "SSLCertificate": "",
             "SSLPort": 8443,
             "SSLPrivateKey": "",
+            "AugmentService" : DEFAULT_AUGMENT_SERVICE,
         }
         newCombined = { }
         mergePlist(oldCalDAV, oldCardDAV, newCombined)
@@ -160,6 +169,7 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
             "SSLCertificate": "/etc/certificates/test.cert.pem",
             "SSLPort": 8443,
             "SSLPrivateKey": "/etc/certificates/test.key.pem",
+            "AugmentService" : DEFAULT_AUGMENT_SERVICE,
         }
         newCombined = { }
         mergePlist(oldCalDAV, oldCardDAV, newCombined)
@@ -196,6 +206,7 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
             "SSLCertificate": "/etc/certificates/test.cert.pem",
             "SSLPort": 8443,
             "SSLPrivateKey": "/etc/certificates/test.key.pem",
+            "AugmentService" : DEFAULT_AUGMENT_SERVICE,
         }
         newCombined = { }
         mergePlist(oldCalDAV, oldCardDAV, newCombined)
@@ -232,6 +243,7 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
             "SSLCertificate": "/etc/certificates/test.cert.pem",
             "SSLPort": 9999,
             "SSLPrivateKey": "/etc/certificates/test.key.pem",
+            "AugmentService" : DEFAULT_AUGMENT_SERVICE,
         }
         newCombined = { }
         mergePlist(oldCalDAV, oldCardDAV, newCombined)
@@ -265,6 +277,7 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
             "SSLCertificate": "",
             "SSLPort": 8443,
             "SSLPrivateKey": "",
+            "AugmentService" : DEFAULT_AUGMENT_SERVICE,
         }
         newCombined = { }
         mergePlist(oldCalDAV, oldCardDAV, newCombined)
@@ -293,6 +306,7 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
             "SSLCertificate": "/etc/certificates/test.cert.pem",
             "SSLPort": 8443,
             "SSLPrivateKey": "/etc/certificates/test.key.pem",
+            "AugmentService" : DEFAULT_AUGMENT_SERVICE,
         }
         newCombined = { }
         mergePlist(oldCalDAV, oldCardDAV, newCombined)
@@ -312,6 +326,7 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
             "SSLCertificate": "",
             "SSLPort": 8443,
             "SSLPrivateKey": "",
+            "AugmentService" : DEFAULT_AUGMENT_SERVICE,
         }
         newCombined = { }
         mergePlist(oldCalDAV, oldCardDAV, newCombined)
@@ -357,6 +372,7 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
             "SSLCertificate": "",
             "SSLPort": 8443,
             "SSLPrivateKey": "",
+            "AugmentService" : DEFAULT_AUGMENT_SERVICE,
         }
         newCombined = { }
         mergePlist(oldCalDAV, oldCardDAV, newCombined)
@@ -394,6 +410,7 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
             "SSLCertificate": "",
             "SSLPort": 8443,
             "SSLPrivateKey": "",
+            "AugmentService" : DEFAULT_AUGMENT_SERVICE,
         }
         newCombined = { }
         mergePlist(oldCalDAV, oldCardDAV, newCombined)
@@ -431,6 +448,7 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
             "SSLCertificate": "",
             "SSLPort": 8443,
             "SSLPrivateKey": "",
+            "AugmentService" : DEFAULT_AUGMENT_SERVICE,
         }
         newCombined = { }
         mergePlist(oldCalDAV, oldCardDAV, newCombined)
