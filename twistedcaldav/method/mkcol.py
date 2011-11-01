@@ -182,12 +182,12 @@ def http_MKCOL(self, request):
             self.transactionError()
             errors.error()
             raise HTTPError(Response(
-                    code=responsecode.BAD_REQUEST,
+                    code=responsecode.FORBIDDEN,
                     stream=mkcolxml.MakeCollectionResponse(errors.response()).toxml()
             ))
         
         # When calendar collections are single component only, default MKCALENDAR is VEVENT only
-        if rtype == "calendar" and not set_supported_component_set and config.CalDAV.AccountProvisioning.KeepComponentTypesSeparate:
+        if rtype == "calendar" and not set_supported_component_set and config.RestrictCalendarsToOneComponentType:
             yield self.setSupportedComponents(("VEVENT",))
 
         yield returnValue(responsecode.CREATED)

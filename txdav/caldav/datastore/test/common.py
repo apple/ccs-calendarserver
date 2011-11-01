@@ -541,22 +541,22 @@ class CommonTests(CommonCommonTests):
         L{ICalendarHome.createdHome} creates a calendar only, or a calendar and tasks
         collection only, in addition to inbox.
         """
-        self.patch(config.CalDAV.AccountProvisioning, "KeepComponentTypesSeparate", False)
+        self.patch(config, "RestrictCalendarsToOneComponentType", False)
         home1 = yield self.transactionUnderTest().calendarHomeWithUID("home_provision1", create=True)
-        for name in (config.CalDAV.AccountProvisioning.CalendarName, "inbox",):
+        for name in ("calendar", "inbox",):
             calendar = yield home1.calendarWithName(name)
             if calendar is None:
                 self.fail("calendar %r didn't exist" % (name,))
             self.assertProvides(ICalendar, calendar)
             self.assertEquals(calendar.name(), name)
-        for name in (config.CalDAV.AccountProvisioning.TasksName,):
+        for name in ("tasks",):
             calendar = yield home1.calendarWithName(name)
             if calendar is not None:
                 self.fail("calendar %r exists" % (name,))
 
-        self.patch(config.CalDAV.AccountProvisioning, "KeepComponentTypesSeparate", True)
+        self.patch(config, "RestrictCalendarsToOneComponentType", True)
         home2 = yield self.transactionUnderTest().calendarHomeWithUID("home_provision2", create=True)
-        for name in (config.CalDAV.AccountProvisioning.CalendarName, config.CalDAV.AccountProvisioning.TasksName, "inbox",):
+        for name in ("calendar", "tasks", "inbox",):
             calendar = yield home2.calendarWithName(name)
             if calendar is None:
                 self.fail("calendar %r didn't exist" % (name,))
@@ -1315,7 +1315,7 @@ END:VCALENDAR
         self.assertProvides(ICalendarHome, calendarHome)
         # Default calendar should be automatically created.
         self.assertProvides(ICalendar,
-                            (yield calendarHome.calendarWithName(config.CalDAV.AccountProvisioning.CalendarName)))
+                            (yield calendarHome.calendarWithName("calendar")))
         # A concurrent transaction shouldn't be able to read it yet:
         self.assertIdentical((yield readOtherTxn()), None)
         yield self.commit()
@@ -1936,9 +1936,9 @@ END:VCALENDAR
         home2 = yield self.transactionUnderTest().calendarHomeWithUID(
             "home2", create=True)
         calendar1 = yield home1.calendarWithName("calendar_1")
-        calendar2 = yield home2.calendarWithName(config.CalDAV.AccountProvisioning.CalendarName)
+        calendar2 = yield home2.calendarWithName("calendar")
         objects = list(
-            (yield (yield home2.calendarWithName(config.CalDAV.AccountProvisioning.CalendarName)).calendarObjects()))
+            (yield (yield home2.calendarWithName("calendar")).calendarObjects()))
         self.assertEquals(objects, [])
         for resourceName in self.requirements['home1']['calendar_1'].keys():
             obj = yield calendar1.calendarObjectWithName(resourceName)

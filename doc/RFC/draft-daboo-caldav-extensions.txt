@@ -1,0 +1,672 @@
+
+
+
+Network Working Group                                           C. Daboo
+Internet-Draft                                                     Apple
+Intended status: Standards Track                        October 28, 2011
+Expires: April 30, 2012
+
+
+                     Collected Extensions to CalDAV
+                    draft-daboo-caldav-extensions-01
+
+Abstract
+
+   This document defines a set of extensions to the CalDAV calendar
+   access protocol.
+
+Status of this Memo
+
+   This Internet-Draft is submitted in full conformance with the
+   provisions of BCP 78 and BCP 79.
+
+   Internet-Drafts are working documents of the Internet Engineering
+   Task Force (IETF).  Note that other groups may also distribute
+   working documents as Internet-Drafts.  The list of current Internet-
+   Drafts is at http://datatracker.ietf.org/drafts/current/.
+
+   Internet-Drafts are draft documents valid for a maximum of six months
+   and may be updated, replaced, or obsoleted by other documents at any
+   time.  It is inappropriate to use Internet-Drafts as reference
+   material or to cite them other than as "work in progress."
+
+   This Internet-Draft will expire on April 30, 2012.
+
+Copyright Notice
+
+   Copyright (c) 2011 IETF Trust and the persons identified as the
+   document authors.  All rights reserved.
+
+   This document is subject to BCP 78 and the IETF Trust's Legal
+   Provisions Relating to IETF Documents
+   (http://trustee.ietf.org/license-info) in effect on the date of
+   publication of this document.  Please review these documents
+   carefully, as they describe your rights and restrictions with respect
+   to this document.  Code Components extracted from this document must
+   include Simplified BSD License text as described in Section 4.e of
+   the Trust Legal Provisions and are provided without warranty as
+   described in the Simplified BSD License.
+
+
+
+
+
+
+Daboo                    Expires April 30, 2012                 [Page 1]
+
+Internet-Draft              CalDAV Extensions               October 2011
+
+
+Table of Contents
+
+   1.  Introduction . . . . . . . . . . . . . . . . . . . . . . . . .  3
+   2.  Conventions Used in This Document  . . . . . . . . . . . . . .  3
+   3.  Extended Calendar Query Report . . . . . . . . . . . . . . . .  3
+     3.1.  CALDAV:comp-filter XML Element . . . . . . . . . . . . . .  4
+     3.2.  CALDAV:prop-filter XML Element . . . . . . . . . . . . . .  5
+     3.3.  CALDAV:text-match XML Element  . . . . . . . . . . . . . .  5
+     3.4.  Examples . . . . . . . . . . . . . . . . . . . . . . . . .  6
+   4.  Advertising Supported Calendar Component Sets  . . . . . . . .  7
+     4.1.  CALDAV:supported-calendar-component-sets Property  . . . .  8
+   5.  Filtering by Calendar Component Type . . . . . . . . . . . . .  9
+   6.  Security Considerations  . . . . . . . . . . . . . . . . . . . 10
+   7.  IANA Considerations  . . . . . . . . . . . . . . . . . . . . . 10
+   8.  Acknowledgments  . . . . . . . . . . . . . . . . . . . . . . . 10
+   9.  References . . . . . . . . . . . . . . . . . . . . . . . . . . 11
+     9.1.  Normative References . . . . . . . . . . . . . . . . . . . 11
+     9.2.  Informative References . . . . . . . . . . . . . . . . . . 11
+   Appendix A.  Change History (To be removed by RFC Editor
+                before publication) . . . . . . . . . . . . . . . . . 11
+   Author's Address . . . . . . . . . . . . . . . . . . . . . . . . . 12
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Daboo                    Expires April 30, 2012                 [Page 2]
+
+Internet-Draft              CalDAV Extensions               October 2011
+
+
+1.  Introduction
+
+   [RFC4791] defines the CalDAV Calendar Access protocol for accessing
+   calendar data stored on a server.  With the popularity of CalDAV
+   increasing, a number of useful extensions have been proposed to
+   improve the protocol.  This specification collects several of those
+   extensions into one document for convenience.  Each extension defined
+   in this specification can be implemented independently of any of the
+   others.
+
+   Discussion of this Internet-Draft is taking place on the mailing list
+   <https://www.ietf.org/mailman/listinfo/caldav>.
+
+
+2.  Conventions Used in This Document
+
+   The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT",
+   "SHOULD", "SHOULD NOT", "RECOMMENDED", "NOT RECOMMENDED", "MAY", and
+   "OPTIONAL" in this document are to be interpreted as described in
+   [RFC2119].
+
+   Other notations used in this memo follow the notations of [RFC4791].
+
+
+3.  Extended Calendar Query Report
+
+   The CALDAV:calendar-query report defined in Section 7.8 of [RFC4791]
+   allows a client to search calendar data for a match to iCalendar
+   component, property or parameter details.  As defined, this option
+   supports querying multiple attributes of the iCalendar data at
+   various "nesting" levels based on the syntactic structure of
+   iCalendar itself.  When multiple attributes are queried at the same
+   level, each has to match for the query to be successful - effectively
+   defining a logical "and" operation.  This does not allow clients to
+   execute a single query to match different attributes of different
+   component types (e.g., clients cannot search for VEVENTs with a
+   particular time-range, or VTODOs that are not completed).  Since
+   there is a need to be able to execute such queries, a logical "or"
+   operation is needed.
+
+   This specification adds a "test" XML attribute to the CALDAV:comp-
+   filter and CALDAV:prop-filter XML elements that accepts values of
+   "allof" or "anyof" to indicate logical "and" or "or" operations
+   respectively.  This copies the behavior defined for CARDDAV:
+   addressbook-query reports defined in Section 10.5 of [RFC6352], with
+   the exception that the default value for the attribute is "allof" to
+   match the current behavior.
+
+
+
+
+Daboo                    Expires April 30, 2012                 [Page 3]
+
+Internet-Draft              CalDAV Extensions               October 2011
+
+
+   The text comparison operation in [RFC4791] is a simple "contains"
+   operation, however more sophisticated comparisons are sometimes
+   needed (e.g., 'starts with', 'equals', etc).
+
+   This specification adds a "match-type" XML attribute to the CALDAV:
+   text-match XML element that accepts values of "equals", "contains",
+   "starts-with", or "ends-with", to indicate the comparison operation
+   to be used.  This copies the behavior defined for CARDDAV:
+   addressbook-query reports defined in Section 10.5.4 of [RFC6352].
+
+   Sometimes clients want to search all component types for a match
+   (e.g., clients cannot find all calendar object resources that contain
+   a SUMMARY property value matching some text irrespective of the top-
+   level component type).
+
+   This specification allows the use of a single "*" character in the
+   "name" attribute of "comp-filter" elements to require the server to
+   match any component type.
+
+   Servers advertise support for this extension by including the token
+   "calendar-query-extended" in the DAV response header to an OPTIONS
+   request on any resource supporting the extended query report.
+   Clients MUST check for the presence of that token before using the
+   "test" or "match-type" XML attributes.
+
+   This specification extends the [RFC4791] XML syntax for the CALDAV:
+   comp-filter, CALDAV:prop-filter and CALDAV:text-match XML elements as
+   follows.
+
+3.1.  CALDAV:comp-filter XML Element
+
+   XML Element:  CALDAV:comp-filter
+
+   Updated Definition:
+
+   <!ELEMENT comp-filter (is-not-defined | (time-range?,
+                          prop-filter*, comp-filter*))>
+
+   <!ATTLIST comp-filter name CDATA #REQUIRED
+                         test (allof | anyof) "allof">
+   <!-- name value:
+           a calendar object or calendar component type (e.g., VEVENT),
+           or the value "*" to indicate a match against any type
+
+        test value:
+           allof logical AND for matches
+           anyof logical OR for matches
+    -->
+
+
+
+Daboo                    Expires April 30, 2012                 [Page 4]
+
+Internet-Draft              CalDAV Extensions               October 2011
+
+
+   Additional Description:  The "test" attribute specifies whether any
+      (logical OR) or all (logical AND) of the is-not-defined, time-
+      range, comp-filter or param-filter tests need to match in order
+      for the overall filter to match.
+
+3.2.  CALDAV:prop-filter XML Element
+
+   XML Element:  CALDAV:prop-filter
+
+   Updated Definition:
+
+   <!ELEMENT prop-filter (is-not-defined |
+                          ((time-range | text-match)?,
+                           param-filter*))>
+
+   <!ATTLIST prop-filter name CDATA #REQUIRED
+                         test (allof | anyof) "allof">
+   <!-- name value:
+           a calendar property name (e.g., ATTENDEE)
+
+        test value:
+           allof logical AND for matches
+           anyof logical OR for matches
+    -->
+
+   Additional Description:  The "test" attribute specifies whether any
+      (logical OR) or all (logical AND) of the is-not-defined, time-
+      range, text-filter or param-filter tests need to match in order
+      for the overall filter to match.
+
+3.3.  CALDAV:text-match XML Element
+
+   XML Element:  CALDAV:text-match
+
+   Updated Definition:
+
+   <!ELEMENT text-match (#PCDATA)>
+   <!-- PCDATA value: string -->
+
+   <!ATTLIST text-match
+       collation        CDATA "i;ascii-casemap"
+       negate-condition (yes | no) "no"
+       match-type (equals|contains|starts-with|ends-with) "contains">
+
+   Additional Description:  The "match-type" attribute is used to
+      indicate the type of match operation to use.  Possible choices
+      are:
+
+
+
+
+Daboo                    Expires April 30, 2012                 [Page 5]
+
+Internet-Draft              CalDAV Extensions               October 2011
+
+
+         "equals" - an exact match to the target string
+
+         "contains" - a substring match, matching anywhere within the
+         target string
+
+         "starts-with" - a substring match, matching only at the start
+         of the target string
+
+         "ends-with" - a substring match, matching only at the end of
+         the target string
+
+3.4.  Examples
+
+   In this request, the client is querying for VEVENTs that start on or
+   after a specific date, or VTODOs that are not completed and not
+   cancelled.
+
+   REPORT /bernard/work/ HTTP/1.1
+   Host: cal.example.com
+   Depth: 1
+   Content-Type: application/xml; charset="utf-8"
+   Content-Length: xxxx
+
+   <?xml version="1.0" encoding="utf-8" ?>
+   <C:calendar-query xmlns:D="DAV:"
+                 xmlns:C="urn:ietf:params:xml:ns:caldav">
+     <D:prop>
+       <D:getetag/>
+     </D:prop>
+     <C:filter>
+       <C:comp-filter name="VCALENDAR" test="anyof">
+         <C:comp-filter name="VEVENT">
+           <C:time-range start="20110101T000000Z"/>
+         </C:comp-filter>
+         <C:comp-filter name="VTODO" test="allof">
+           <C:prop-filter name="COMPLETED">
+             <C:is-not-defined/>
+           </C:prop-filter>
+           <C:prop-filter name="STATUS">
+             <C:text-match
+                negate-condition="yes"
+                match-type="equals">CANCELLED</C:text-match>
+           </C:prop-filter>
+         </C:comp-filter>
+       </C:comp-filter>
+     </C:filter>
+   </C:calendar-query>
+
+
+
+
+Daboo                    Expires April 30, 2012                 [Page 6]
+
+Internet-Draft              CalDAV Extensions               October 2011
+
+
+   In this request, the client is querying for any component that
+   contains a VALARM sub-component.
+
+   REPORT /bernard/work/ HTTP/1.1
+   Host: cal.example.com
+   Depth: 1
+   Content-Type: application/xml; charset="utf-8"
+   Content-Length: xxxx
+
+   <?xml version="1.0" encoding="utf-8" ?>
+   <C:calendar-query xmlns:D="DAV:"
+                 xmlns:C="urn:ietf:params:xml:ns:caldav">
+     <D:prop>
+       <D:getetag/>
+     </D:prop>
+     <C:filter>
+       <C:comp-filter name="VCALENDAR">
+         <C:comp-filter name="*">
+           <C:comp-filter name="VALARM" />
+         </C:comp-filter>
+       </C:comp-filter>
+     </C:filter>
+   </C:calendar-query>
+
+
+4.  Advertising Supported Calendar Component Sets
+
+   CalDAV [RFC4791] supports the notion of calendar collections that are
+   restricted to only containing components of a certain type, or set of
+   types.  The protocol allows clients to specify the restricted
+   component sets by supplying a CALDAV:supported-calendar-component-set
+   WebDAV property in an MKCALENDAR or extended MKCOL [RFC5689] request
+   that creates a calendar collection.  However, servers themselves
+   might need to restrict the allowed sets of components that can be
+   used in any one calendar (e.g., some servers might only support
+   calendar collections containing components of one type).  Currently
+   there is no way for a client to determine what the allowed
+   combination of component types is for use with MKCALENDAR or extended
+   MKCOL.
+
+   This specification adds a new CALDAV:supported-calendar-component-
+   sets WebDAV property for use on calendar home collections.  This
+   property enumerates the allowed sets of calendar components that the
+   server will support for use with MKCALENDAR or extended MKCOL
+   requests.  Clients SHOULD check for the presence of this property
+   before issuing an MKCALENDAR or extended MKCOL request that includes
+   a CALDAV:supported-calendar-component-set WebDAV property.  When the
+   new property is found on a calendar home, clients MUST only use a
+
+
+
+Daboo                    Expires April 30, 2012                 [Page 7]
+
+Internet-Draft              CalDAV Extensions               October 2011
+
+
+   CALDAV:supported-calendar-component-set is one advertised as being
+   supported.
+
+4.1.  CALDAV:supported-calendar-component-sets Property
+
+   Name:  supported-calendar-component-sets
+
+   Namespace:  urn:ietf:params:xml:ns:caldav
+
+   Purpose:  Enumerates the sets of component restrictions the server is
+      willing to allow the client to specify in MKCALENDAR or extended
+      MKCOL requests.
+
+   Protected:  This property MUST be protected and SHOULD NOT be
+      returned by a PROPFIND allprop request (as defined in Section 14.2
+      of [RFC4918]).
+
+   COPY/MOVE behavior:  This property value MUST be preserved in COPY
+      and MOVE operations.
+
+   Description:  If servers apply restrictions on the allowed calendar
+      component sets used when creating a calendar, then those servers
+      SHOULD advertise this property on each calendar home collection
+      within which the restrictions apply.  In the absence of this
+      property, clients cannot assume anything about whether the server
+      will enforce a set of restrictions or not - in that case clients
+      need to handle the server rejecting certain combinations of
+      restricted component sets.  If this property is present, but
+      contains no child XML elements, then clients can assume that the
+      server imposes no restrictions on the combinations of component
+      types it is willing to accept.  If present, each CALDAV:supported-
+      calendar-component-set element represents a valid restriction the
+      client can use in an MKCALENDAR or extended MKCOL request when
+      creating a calendar.
+
+   Definition:
+
+      <!ELEMENT supported-calendar-component-sets
+                (supported-calendar-component-set*) >
+      <!-- supported-calendar-component-set defined in RFC4791 -->
+
+   Example:
+
+
+
+
+
+
+
+
+
+Daboo                    Expires April 30, 2012                 [Page 8]
+
+Internet-Draft              CalDAV Extensions               October 2011
+
+
+   <C:supported-calendar-component-sets
+        xmlns:C="urn:ietf:params:xml:ns:caldav">
+
+     <!-- Calendars with any standard iCalendar component -->
+     <C:supported-calendar-component-set>
+       <C:comp name="VEVENT" />
+       <C:comp name="VFREEBUSY" />
+       <C:comp name="VJOURNAL" />
+       <C:comp name="VTODO" />
+     </C:supported-calendar-component-set>
+
+     <!-- Calendars with just VEVENT or VFREEBUSY -->
+     <C:supported-calendar-component-set>
+       <C:comp name="VEVENT" />
+       <C:comp name="VFREEBUSY" />
+     </C:supported-calendar-component-set>
+
+     <!-- Calendars with just VEVENT -->
+     <C:supported-calendar-component-set>
+       <C:comp name="VEVENT" />
+     </C:supported-calendar-component-set>
+
+     <!-- Calendars with just VTODO -->
+     <C:supported-calendar-component-set>
+       <C:comp name="VTODO" />
+     </C:supported-calendar-component-set>
+   </C:supported-calendar-component-sets>
+
+
+5.  Filtering by Calendar Component Type
+
+   Calendar clients are sometimes "scoped" to only utilize one type of
+   main calendar component type (e.g., a scheduling client that only
+   handles "VEVENT" components, or a task manager that only handles
+   "VTODO" components).  CalDAV provides a calendar query report that
+   allows clients to find only calendar object resources that contain a
+   specified main component type, which is useful when initially loading
+   the contents of a calendar into a local cache.  However, clients also
+   need to keep that cache updated as changes occur on the server.  One
+   way to do that is to use the WebDAV sync report
+   [I-D.daboo-webdav-sync], but that report will return changes for all
+   calendar object resources within a calendar collection.  Thus
+   "scoped" clients will be forced to load calendar object resources
+   containing component types they do not care about to discover what
+   type they are, or issue additional queries to see whether the changes
+   reported by the sync report are for component types it handles.  A
+   better approach would be to have a way for the WebDAV sync report
+   response to include details of the calendar component type for each
+
+
+
+Daboo                    Expires April 30, 2012                 [Page 9]
+
+Internet-Draft              CalDAV Extensions               October 2011
+
+
+   calendar object resource that it reports as changed.
+
+   To better "scope" a WebDAV sync report, this specification recommends
+   that servers SHOULD always include a "component=" parameter (as
+   defined in Section 8.1 of [RFC5545]) in the DAV:getcontenttype WebDAV
+   property media-type value reported for calendar object resources.
+   Clients can then request that property be returned in the WebDAV sync
+   report response for each resource, and thus quickly determine which
+   changes are relevant to them based on component type.
+
+   Example partial WebDAV sync report response with a component type
+   included.
+
+   <D:response>
+     <D:href
+   >http://calendar.example.com/cyrusdaboo/calendar.ics</D:href>
+     <D:propstat>
+       <D:prop>
+         <D:getetag>"00003-abcd1"</D:getetag>
+         <D:getcontenttype
+         >text/calendar;charset=utf-8;component=vevent<
+         /D:getcontenttype>
+       </D:prop>
+       <D:status>HTTP/1.1 200 OK</D:status>
+     </D:propstat>
+    </D:response>
+
+
+6.  Security Considerations
+
+   This specification does not introduce any new security concerns
+   beyond those addressed in CalDAV [RFC4791] and iCalendar [RFC5545].
+
+
+7.  IANA Considerations
+
+   No IANA actions are needed.
+
+
+8.  Acknowledgments
+
+   Thanks to Bernard Desruisseaux, Mike Douglass, Jeffrey Harris, Arnaud
+   Quillaud, and Nick Zitzmann.  This specification came about via
+   discussions at the Calendaring and Scheduling Consortium.
+
+
+9.  References
+
+
+
+
+Daboo                    Expires April 30, 2012                [Page 10]
+
+Internet-Draft              CalDAV Extensions               October 2011
+
+
+9.1.  Normative References
+
+   [I-D.daboo-webdav-sync]
+              Daboo, C. and A. Quillaud, "Collection Synchronization for
+              WebDAV", draft-daboo-webdav-sync-06 (work in progress),
+              July 2011.
+
+   [RFC2119]  Bradner, S., "Key words for use in RFCs to Indicate
+              Requirement Levels", BCP 14, RFC 2119, March 1997.
+
+   [RFC4791]  Daboo, C., Desruisseaux, B., and L. Dusseault,
+              "Calendaring Extensions to WebDAV (CalDAV)", RFC 4791,
+              March 2007.
+
+   [RFC4918]  Dusseault, L., "HTTP Extensions for Web Distributed
+              Authoring and Versioning (WebDAV)", RFC 4918, June 2007.
+
+   [RFC5545]  Desruisseaux, B., "Internet Calendaring and Scheduling
+              Core Object Specification (iCalendar)", RFC 5545,
+              September 2009.
+
+   [RFC5689]  Daboo, C., "Extended MKCOL for Web Distributed Authoring
+              and Versioning (WebDAV)", RFC 5689, September 2009.
+
+9.2.  Informative References
+
+   [RFC6352]  Daboo, C., "CardDAV: vCard Extensions to Web Distributed
+              Authoring and Versioning (WebDAV)", RFC 6352, August 2011.
+
+
+Appendix A.  Change History (To be removed by RFC Editor before
+             publication)
+
+   Changes in -01:
+
+   1.  Changed description of COPY/MOVE for supported-calendar-
+       component-sets property
+
+   2.  Removed bogus text in property description.
+
+   3.  Changed supported-calendar-component-sets to use supported-
+       calendar-component-set as a child element.
+
+   4.  Added recommendation to use "component=" parameter in DAV:
+       getcontenttype WebDAV properties on calendar object resources.
+
+
+
+
+
+
+Daboo                    Expires April 30, 2012                [Page 11]
+
+Internet-Draft              CalDAV Extensions               October 2011
+
+
+Author's Address
+
+   Cyrus Daboo
+   Apple Inc.
+   1 Infinite Loop
+   Cupertino, CA  95014
+   USA
+
+   Email: cyrus@daboo.name
+   URI:   http://www.apple.com/
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Daboo                    Expires April 30, 2012                [Page 12]
+

@@ -213,16 +213,16 @@ class CalendarHome(CommonHome):
     def createdHome(self):
         
         # Default calendar
-        defaultCal = yield self.createCalendarWithName(config.CalDAV.AccountProvisioning.CalendarName)
+        defaultCal = yield self.createCalendarWithName("calendar")
         props = defaultCal.properties()
         props[PropertyName(*ScheduleCalendarTransp.qname())] = ScheduleCalendarTransp(Opaque())
         
         # Check whether components type must be separate
-        if config.CalDAV.AccountProvisioning.KeepComponentTypesSeparate:
+        if config.RestrictCalendarsToOneComponentType:
             defaultCal.setSupportedComponents("VEVENT")
             
             # Default tasks
-            defaultTasks = yield self.createCalendarWithName(config.CalDAV.AccountProvisioning.TasksName)
+            defaultTasks = yield self.createCalendarWithName("tasks")
             defaultTasks.setSupportedComponents("VTODO")
             
         yield self.createCalendarWithName("inbox")

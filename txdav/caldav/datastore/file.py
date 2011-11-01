@@ -184,16 +184,16 @@ class CalendarHome(CommonHome):
     def createdHome(self):
 
         # Default calendar
-        defaultCal = self.createCalendarWithName(config.CalDAV.AccountProvisioning.CalendarName)
+        defaultCal = self.createCalendarWithName("calendar")
         props = defaultCal.properties()
         props[PropertyName(*ScheduleCalendarTransp.qname())] = ScheduleCalendarTransp(Opaque())
         
         # Check whether components type must be separate
-        if config.CalDAV.AccountProvisioning.KeepComponentTypesSeparate:
+        if config.RestrictCalendarsToOneComponentType:
             defaultCal.setSupportedComponents("VEVENT")
             
             # Default tasks
-            defaultTasks = self.createCalendarWithName(config.CalDAV.AccountProvisioning.TasksName)
+            defaultTasks = self.createCalendarWithName("tasks")
             props = defaultTasks.properties()
             defaultTasks.setSupportedComponents("VTODO")
             

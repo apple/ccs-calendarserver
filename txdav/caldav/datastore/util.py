@@ -277,9 +277,9 @@ def migrateHome(inHome, outHome, getComponent=lambda x: x.component()):
         (from a calendar in C{inHome}) and returns a L{VComponent} (to store in
         a calendar in outHome).
     """
-    yield outHome.removeCalendarWithName(config.CalDAV.AccountProvisioning.CalendarName)
-    if config.CalDAV.AccountProvisioning.KeepComponentTypesSeparate:
-        yield outHome.removeCalendarWithName(config.CalDAV.AccountProvisioning.TasksName)
+    yield outHome.removeCalendarWithName("calendar")
+    if config.RestrictCalendarsToOneComponentType:
+        yield outHome.removeCalendarWithName("tasks")
     yield outHome.removeCalendarWithName("inbox")
     outHome.properties().update(inHome.properties())
     inCalendars = yield inHome.calendars()

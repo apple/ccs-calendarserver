@@ -121,7 +121,7 @@ class WrappingTests(TestCase):
             pass
         txn = self.calendarCollection._newStore.newTransaction()
         home = yield txn.calendarHomeWithUID(uid, True)
-        cal = yield home.calendarWithName(config.CalDAV.AccountProvisioning.CalendarName)
+        cal = yield home.calendarWithName("calendar")
         yield cal.createCalendarObjectWithName(
             objectName, VComponent.fromString(objectText)
         )

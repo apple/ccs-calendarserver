@@ -111,7 +111,7 @@ def http_MKCALENDAR(self, request):
             raise HTTPError(MultiStatusResponse([errors.response()]))
         
     # When calendar collections are single component only, default MKCALENDAR is VEVENT only
-    if not set_supported_component_set and config.CalDAV.AccountProvisioning.KeepComponentTypesSeparate:
+    if not set_supported_component_set and config.RestrictCalendarsToOneComponentType:
         yield self.setSupportedComponents(("VEVENT",))
             
 

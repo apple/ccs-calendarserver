@@ -261,9 +261,9 @@ def populateCalendarsFrom(requirements, store):
             # We don't want the default calendar or inbox to appear unless it's
             # explicitly listed.
             try:
-                yield home.removeCalendarWithName(config.CalDAV.AccountProvisioning.CalendarName)
-                if config.CalDAV.AccountProvisioning.KeepComponentTypesSeparate:
-                    yield home.removeCalendarWithName(config.CalDAV.AccountProvisioning.TasksName)
+                yield home.removeCalendarWithName("calendar")
+                if config.RestrictCalendarsToOneComponentType:
+                    yield home.removeCalendarWithName("tasks")
                 yield home.removeCalendarWithName("inbox")
             except NoSuchHomeChildError:
                 pass

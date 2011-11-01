@@ -2384,6 +2384,45 @@ class CalendarHomeResource(CommonHomeResource):
         returnValue((storeHome, created))
 
 
+    def liveProperties(self):
+        
+        existing = super(CalendarHomeResource, self).liveProperties()
+        existing += (caldavxml.SupportedCalendarComponentSets.qname(),)
+        existing += (
+            (customxml.calendarserver_namespace, "xmpp-uri"),
+            (customxml.calendarserver_namespace, "xmpp-heartbeat-uri"),
+            (customxml.calendarserver_namespace, "xmpp-server"),
+        )
+        return existing
+
+    @inlineCallbacks
+    def readProperty(self, property, request):
+        if type(property) is tuple:
+            qname = property
+        else:
+            qname = property.qname()
+
+        if qname == caldavxml.SupportedCalendarComponentSets.qname():
+            if config.RestrictCalendarsToOneComponentType:
+                prop = caldavxml.SupportedCalendarComponentSets(
+                    caldavxml.SupportedCalendarComponentSet(
+                        caldavxml.CalendarComponent(
+                            name="VEVENT",
+                        ),
+                    ),
+                    caldavxml.SupportedCalendarComponentSet(
+                        caldavxml.CalendarComponent(
+                            name="VTODO",
+                        ),
+                    ),
+                )
+            else:
+                prop = caldavxml.SupportedCalendarComponentSets()
+            returnValue(prop)
+            
+        result = (yield super(CalendarHomeResource, self).readProperty(property, request))
+        returnValue(result)
+
     def _setupProvisions(self):
 
         # Cache children which must be of a specific type
@@ -2412,7 +2451,7 @@ class CalendarHomeResource(CommonHomeResource):
         # this URL live from a back-end method that tells us what the
         # default calendar is.
         inbox = yield self.getChild("inbox")
-        childURL = joinURL(self.url(), config.CalDAV.AccountProvisioning.CalendarName)
+        childURL = joinURL(self.url(), "calendar")
         inbox.processFreeBusyCalendar(childURL, True)
 
 
@@ -2547,14 +2586,6 @@ class CalendarHomeResource(CommonHomeResource):
 
         returnValue((changed, deleted, notallowed))
 
-
-    def liveProperties(self):
-
-        return super(CalendarHomeResource, self).liveProperties() + (
-            (customxml.calendarserver_namespace, "xmpp-uri"),
-            (customxml.calendarserver_namespace, "xmpp-heartbeat-uri"),
-            (customxml.calendarserver_namespace, "xmpp-server"),
-        )
 
 class AddressBookHomeResource (CommonHomeResource):
     """

@@ -900,8 +900,8 @@ class _CalendarCollectionBehaviorMixin():
         """
         Parse out XML property into list of components and give to store.
         """
-        support_components = ",".join(sorted([comp.attributes["name"].upper() for comp in support_components_property.children]))
-        return maybeDeferred(self._newStoreObject.setSupportedComponents, support_components)
+        support_components = tuple([comp.attributes["name"].upper() for comp in support_components_property.children])
+        return self.setSupportedComponents(support_components)
     
     def getSupportedComponentSet(self):
         comps = self._newStoreObject.getSupportedComponents()
@@ -920,6 +920,11 @@ class _CalendarCollectionBehaviorMixin():
         @param components: list of names of components to support
         @type components: C{list}
         """
+        
+        # Validate them first - raise on failure
+        if not self.validSupportedComponents(components):
+            raise HTTPError(StatusResponse(responsecode.FORBIDDEN, "Invalid CALDAV:supported-calendar-component-set"))
+
         support_components = ",".join(sorted([comp.upper() for comp in components]))
         return maybeDeferred(self._newStoreObject.setSupportedComponents, support_components)
     
@@ -933,6 +938,15 @@ class _CalendarCollectionBehaviorMixin():
 
     def isSupportedComponent(self, componentType):
         return self._newStoreObject.isSupportedComponent(componentType)
+
+    def validSupportedComponents(self, components):
+        """
+        Test whether the supplied set of components is valid for the current server's component set
+        restrictions.
+        """
+        if config.RestrictCalendarsToOneComponentType:
+            return components in (("VEVENT",), ("VTODO",),)
+        return True
 
     
 class CalendarCollectionResource(_CalendarCollectionBehaviorMixin, _CommonHomeChildCollectionMixin, CalDAVResource):

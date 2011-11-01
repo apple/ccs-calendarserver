@@ -188,10 +188,21 @@ class CalendarTimeZone (CalDAVTimeZoneElement):
     name = "calendar-timezone"
     hidden = True
 
+class SupportedCalendarComponentSets (CalDAVElement):
+    """
+    Indicates what set of calendar components the server is willing to allow
+    the client to use in MKCALENDAR.
+    (CalDAV-extensions, draft-daboo-caldav-extensions section XXX)
+    """
+    name = "supported-calendar-component-sets"
+    hidden = True
+    protected = True
+
+    allowed_children = { (caldav_namespace, "supported-calendar-component-set"): (0, None) }
+
 class SupportedCalendarComponentSet (CalDAVElement):
     """
-    Provides a human-readable description of what this calendar collection
-    represents.
+    Indicates what set of calendar components are allowed in a collection.
     (CalDAV-access, RFC 4791 section 5.2.3)
     """
     name = "supported-calendar-component-set"

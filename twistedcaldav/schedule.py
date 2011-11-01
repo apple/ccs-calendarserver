@@ -289,7 +289,7 @@ class ScheduleInboxResource (CalendarSchedulingCollectionResource):
         """
         
         componentType = "VTODO" if tasks else "VEVENT"
-        test_name = config.CalDAV.AccountProvisioning.TasksName if tasks else config.CalDAV.AccountProvisioning.CalendarName
+        test_name = "tasks" if tasks else "calendar"
         prop_to_set = customxml.ScheduleDefaultTasksURL if tasks else caldavxml.ScheduleDefaultCalendarURL
 
         calendarHomeURL = self.parent.url()

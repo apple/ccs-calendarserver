@@ -521,15 +521,11 @@ DEFAULT_CONFIG = {
         }        
     },
     
-    "CalDAV": {
-        "AccountProvisioning": {
-            "CalendarName":                "calendar",  # Name to use when provisioning calendar for VEVENTs only, or
-                                                        # VEVENTs and VTODOs if KeepComponentTypesSeparate is False
-            "TasksName":                   "tasks",     # Name to use when provisioning calendar for VTODOs only, not
-                                                        # provisioned if KeepComponentTypesSeparate is False
-            "KeepComponentTypesSeparate" : True,        # Provision collections with separate component types
-        },
-    },
+    "RestrictCalendarsToOneComponentType" : True,  # Only allow calendars to be created with a single component type
+                                                   # If this is on, it will also trigger an upgrade behavior that will
+                                                   # split existing calendars into multiples based on component type.
+                                                   # If on, it will also cause new accounts to provision with separate
+                                                   # calendars for events and tasks.
 
     # CardDAV Features
     "DirectoryAddressBook": {
