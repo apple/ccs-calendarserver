@@ -16,6 +16,7 @@
 #
 ##
 
+from os import environ
 from xml.parsers.expat import ExpatError
 from sys import argv, stdout
 from random import Random
@@ -31,11 +32,16 @@ from twisted.python.reflect import namedAny
 from twisted.application.service import Service
 from twisted.application.service import MultiService
 
+from twisted.internet.protocol import ProcessProtocol
+
 from contrib.performance.loadtest.ical import SnowLeopard
 from contrib.performance.loadtest.profiles import Eventer, Inviter, Accepter
 from contrib.performance.loadtest.population import (
     Populator, ProfileType, ClientType, PopulationParameters, SmoothRampUp,
     CalendarClientSimulator)
+from twisted.internet.defer import Deferred
+from twisted.internet.defer import gatherResults
+from contrib.performance.loadtest.ampsim import Manager
 
 
 class _DirectoryRecord(object):
@@ -176,7 +182,8 @@ class LoadSimulator(object):
         under load.
     """
     def __init__(self, server, arrival, parameters, observers=None,
-                 records=None, reactor=None, runtime=None):
+                 records=None, reactor=None, runtime=None, workers=None,
+                 configTemplate=None, workerID=None):
         if reactor is None:
             from twisted.internet import reactor
         self.server = server
@@ -186,6 +193,9 @@ class LoadSimulator(object):
         self.records = records
         self.reactor = LagTrackingReactor(reactor)
         self.runtime = runtime
+        self.workers = workers
+        self.configTemplate = configTemplate
+        self.workerID = workerID
 
 
     @classmethod
@@ -203,39 +213,51 @@ class LoadSimulator(object):
 
 
     @classmethod
-    def fromConfig(cls, config, runtime=None, output=stdout):
+    def fromConfig(cls, config, runtime=None, output=stdout, reactor=None):
         """
         Create a L{LoadSimulator} from a parsed instance of a configuration
         property list.
         """
 
-        server = 'http://127.0.0.1:8008/'
-        if 'server' in config:
-            server = config['server']
+        workers = config.get("workers")
+        if workers is None:
+            # Client / place where the simulator actually runs configuration
+            workerID = config.get("workerID")
+            configTemplate = None
+            server = 'http://127.0.0.1:8008/'
+            if 'server' in config:
+                server = config['server']
 
-        if 'arrival' in config:
-            arrival = Arrival(
-                namedAny(config['arrival']['factory']), 
-                config['arrival']['params'])
+            if 'arrival' in config:
+                arrival = Arrival(
+                    namedAny(config['arrival']['factory']), 
+                    config['arrival']['params'])
+            else:
+                arrival = Arrival(
+                    SmoothRampUp, dict(groups=10, groupSize=1, interval=3))
+
+            parameters = PopulationParameters()
+            if 'clients' in config:
+                for clientConfig in config['clients']:
+                    parameters.addClient(
+                        clientConfig["weight"],
+                        ClientType(
+                            namedAny(clientConfig["software"]),
+                            cls._convertParams(clientConfig["params"]),
+                            [ProfileType(
+                                    namedAny(profile["class"]),
+                                    cls._convertParams(profile["params"]))
+                             for profile in clientConfig["profiles"]]))
+            if not parameters.clients:
+                parameters.addClient(1,
+                                     ClientType(SnowLeopard, {},
+                                                [Eventer, Inviter, Accepter]))
         else:
-            arrival = Arrival(
-                SmoothRampUp, dict(groups=10, groupSize=1, interval=3))
-
-        parameters = PopulationParameters()
-        if 'clients' in config:
-            for clientConfig in config['clients']:
-                parameters.addClient(
-                    clientConfig["weight"],
-                    ClientType(
-                        namedAny(clientConfig["software"]),
-                        cls._convertParams(clientConfig["params"]),
-                        [ProfileType(
-                                namedAny(profile["class"]),
-                                cls._convertParams(profile["params"]))
-                         for profile in clientConfig["profiles"]]))
-        if not parameters.clients:
-            parameters.addClient(
-                1, ClientType(SnowLeopard, {}, [Eventer, Inviter, Accepter]))
+            # Manager / observer process.
+            server = ''
+            arrival = None
+            parameters = None
+            configTemplate = config
 
         observers = []
         if 'observers' in config:
@@ -249,9 +271,10 @@ class LoadSimulator(object):
             records.extend(namedAny(loader)(**params))
             output.write("Loaded {0} accounts.\n".format(len(records)))
 
-        return cls(server, arrival, parameters,
-                   observers=observers, records=records,
-                   runtime=runtime)
+        return cls(server, arrival, parameters, observers=observers,
+                   records=records, runtime=runtime, reactor=reactor,
+                   workers=workers, configTemplate=configTemplate,
+                   workerID=workerID)
 
 
     @classmethod
@@ -295,21 +318,39 @@ class LoadSimulator(object):
         return self.arrival.factory(self.reactor, **self.arrival.parameters)
 
 
-    def run(self, output=stdout):
-        ms = MultiService()
-        for svcclass in [
-                ObserverService,
-                SimulatorService,
-                ReporterService,
-            ]:
-            svcclass(self, output).setServiceParent(ms)
+    def serviceClasses(self):
+        """
+        Return a list of L{SimService} subclasses for C{attachServices} to
+        instantiate and attach to the reactor.
+        """
+        if self.workers is not None:
+            return [
+                WorkerSpawnerService,
+            ]
+        return [
+            ObserverService,
+            SimulatorService,
+            ReporterService,
+        ]
 
+
+    def attachServices(self, output):
+        ms = MultiService()
+        for svcclass in self.serviceClasses():
+            svcclass(self, output).setServiceParent(ms)
         attachService(self.reactor, ms)
+
+
+    def run(self, output=stdout):
+        self.attachServices(output)
 
         if self.runtime is not None:
             self.reactor.callLater(self.runtime, self.reactor.stop)
 
         self.reactor.run()
+
+
+main = LoadSimulator.main
 
 
 
@@ -383,6 +424,9 @@ class ReporterService(SimService):
     """
 
     def stopService(self):
+        """
+        Emit the report to the specified output file.
+        """
         super(ReporterService, self).stopService()
         failures = []
         for obs in self.loadsim.observers:
@@ -396,9 +440,57 @@ class ReporterService(SimService):
             self.output.write('PASS\n')
 
 
-main = LoadSimulator.main
+
+class ProcessProtocolBridge(ProcessProtocol):
+
+    def __init__(self, spawner, proto):
+        self.spawner = spawner
+        self.proto = proto
+        self.deferred = Deferred()
+
+
+    def connectionMade(self):
+        self.proto.makeConnection(self.transport)
+
+
+    def dataReceived(self, data):
+        self.proto.dataReceived(data)
+
+
+    def connectionLost(self, reactor):
+        self.proto.connectionLost(reactor)
+        self.deferred.callback(None)
+        self.spawner.bridges.remove(self)
+
+
+
+class WorkerSpawnerService(SimService):
+
+    def startService(self):
+        super(WorkerSpawnerService, self).startService()
+        self.bridges = []
+        for workerID, worker in enumerate(self.loadsim.workers):
+            bridge = ProcessProtocolBridge(
+                self, Manager(self.loadsim, workerID, len(self.loadsim.workers))
+            )
+            self.bridges.append(bridge)
+            sh = '/bin/sh'
+            self.reactor.spawnProcess(
+                bridge, sh, [sh, "-c", worker], env=environ
+            )
+
+
+    def stopService(self):
+        TERMINATE_TIMEOUT = 30.0
+        def killThemAll(name):
+            for bridge in self.bridges:
+                bridge.transport.signalProcess(name)
+        killThemAll("TERM")
+        self.reactor.callLater(TERMINATE_TIMEOUT, killThemAll, "KILL")
+        return gatherResults([bridge.deferred for bridge in self.bridges])
 
 
 
 if __name__ == '__main__':
     main()
+
