@@ -16,6 +16,7 @@
 ##
 
 from plistlib import writePlistToString
+from cStringIO import StringIO
 
 from twisted.python.log import msg
 from twisted.python.usage import UsageError
@@ -176,12 +177,26 @@ class CalendarClientSimulatorTests(TestCase):
 class Reactor(object):
     message = "some event to be observed"
 
+    def __init__(self):
+        self._triggers = []
+        self._whenRunning = []
+
+
     def run(self):
+        for thunk in self._whenRunning:
+            thunk()
         msg(self.message)
+        for phase, event, thunk in self._triggers:
+            if event == 'shutdown':
+                thunk()
 
 
-    def addSystemEventTrigger(self, *args):
-        pass
+    def callWhenRunning(self, thunk):
+        self._whenRunning.append(thunk)
+
+
+    def addSystemEventTrigger(self, phase, event, thunk):
+        self._triggers.append((phase, event, thunk))
 
 
 class Observer(object):
@@ -261,7 +276,9 @@ class LoadSimulatorTests(TestCase):
             }
         configpath = FilePath(self.mktemp())
         configpath.setContent(writePlistToString(config))
-        sim = LoadSimulator.fromCommandLine(['--config', configpath.path])
+        io = StringIO()
+        sim = LoadSimulator.fromCommandLine(['--config', configpath.path], io)
+        self.assertEquals(io.getvalue(), "Loaded 2 accounts.\n")
         self.assertEqual(2, len(sim.records))
         self.assertEqual(sim.records[0].uid, 'foo')
         self.assertEqual(sim.records[0].password, 'bar')
@@ -287,7 +304,8 @@ class LoadSimulatorTests(TestCase):
             }
         configpath = FilePath(self.mktemp())
         configpath.setContent(writePlistToString(config))
-        sim = LoadSimulator.fromCommandLine(['--config', configpath.path])
+        sim = LoadSimulator.fromCommandLine(['--config', configpath.path],
+                                            StringIO())
         self.assertEqual(99, len(sim.records))
         self.assertEqual(sim.records[0].uid, 'user01')
         self.assertEqual(sim.records[0].password, 'user01')
@@ -313,7 +331,8 @@ class LoadSimulatorTests(TestCase):
         }
         configpath = FilePath(self.mktemp())
         configpath.setContent(writePlistToString(config))
-        sim = LoadSimulator.fromCommandLine(['--config', configpath.path])
+        sim = LoadSimulator.fromCommandLine(['--config', configpath.path],
+                                            StringIO())
         self.assertEqual(2, len(sim.records))
         self.assertEqual(sim.records[0].uid, 'user1')
         self.assertEqual(sim.records[0].password, 'user1')
@@ -343,7 +362,8 @@ class LoadSimulatorTests(TestCase):
         }
         configpath = FilePath(self.mktemp())
         configpath.setContent(writePlistToString(config))
-        sim = LoadSimulator.fromCommandLine(['--config', configpath.path])
+        sim = LoadSimulator.fromCommandLine(['--config', configpath.path],
+                                            StringIO())
         self.assertEqual(3, len(sim.records))
         self.assertEqual(sim.records[0].uid, 'USER001')
         self.assertEqual(sim.records[0].password, 'PASSWORD001')
@@ -491,7 +511,10 @@ class LoadSimulatorTests(TestCase):
             "http://example.com:123/",
             Arrival(lambda reactor: NullArrival(), {}),
             None, observers, reactor=Reactor())
-        sim.run()
+        io = StringIO()
+        sim.run(io)
+        self.assertEquals(io.getvalue(), "PASS\n")
         self.assertTrue(observers[0].reported)
         self.assertEquals(
             observers[0].events[0]['message'], (Reactor.message,))
+
