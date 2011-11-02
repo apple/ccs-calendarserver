@@ -26,11 +26,9 @@ if __name__ == '__main__':
         import traceback
         try:
             from twisted.python.log import startLogging
-            from os import getpid
-            from sys import exit#, stderr
+            from sys import exit, stderr
 
-            #startLogging(stderr)
-            startLogging(file("ampsim-{0:d}.log".format(getpid()), "wb"))
+            startLogging(stderr)
 
             from twisted.internet import reactor
             from twisted.internet.stdio import StandardIO
