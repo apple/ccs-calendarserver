@@ -1,3 +1,4 @@
+# -*- test-case-name: contrib.performance.loadtest.test_population -*-
 ##
 # Copyright (c) 2010 Apple Inc. All rights reserved.
 #

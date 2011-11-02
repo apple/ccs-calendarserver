@@ -1,3 +1,4 @@
+# -*- test-case-name: contrib.performance.loadtest.test_sim -*-
 ##
 # Copyright (c) 2011 Apple Inc. All rights reserved.
 #
@@ -185,7 +186,7 @@ class LoadSimulator(object):
 
 
     @classmethod
-    def fromCommandLine(cls, args=None):
+    def fromCommandLine(cls, args=None, output=stdout):
         if args is None:
             args = argv[1:]
 
@@ -233,7 +234,7 @@ class LoadSimulator(object):
             loader = options.config['accounts']['loader']
             params = options.config['accounts']['params']
             records.extend(namedAny(loader)(**params))
-            print 'Loaded', len(records), 'accounts.'
+            output.write("Loaded {0} accounts.\n".format(len(records)))
 
         return cls(server, arrival, parameters,
                    observers=observers, records=records,
@@ -278,9 +279,9 @@ class LoadSimulator(object):
 
     def createArrivalPolicy(self):
         return self.arrival.factory(self.reactor, **self.arrival.parameters)
-        
 
-    def run(self):
+
+    def run(self, output=stdout):
         for obs in self.observers:
             addObserver(obs.observe)
         sim = self.createSimulator()
@@ -301,10 +302,11 @@ class LoadSimulator(object):
             obs.report()
             failures.extend(obs.failures())
         if failures:
-            print 'FAIL'
-            print '\n'.join(failures)
+            output.write('FAIL\n')
+            output.write('\n'.join(failures))
+            output.write('\n')
         else:
-            print 'PASS'
+            output.write('PASS\n')
 
 main = LoadSimulator.main
 
