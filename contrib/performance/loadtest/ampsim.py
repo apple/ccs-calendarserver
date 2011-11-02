@@ -52,11 +52,8 @@ from copy import deepcopy
 
 from plistlib import writePlistToString, readPlistFromString
 
-from zope.interface import implements
-
 from twisted.python.log import msg, addObserver
 from twisted.protocols.amp import AMP, Command, String, Unicode
-from twisted.internet.interfaces import IHalfCloseableProtocol
 
 from twext.enterprise.adbapi2 import Pickle
 
@@ -99,8 +96,6 @@ class Worker(AMP):
     manager.
     """
 
-    implements(IHalfCloseableProtocol)
-
     def __init__(self, reactor):
         super(Worker, self).__init__()
         self.reactor = reactor
@@ -134,14 +129,7 @@ class Worker(AMP):
     def connectionLost(self, reason):
         super(Worker, self).connectionLost(reason)
         msg("Standard IO connection lost.")
-
-
-    def readConnectionLost(self):
-        msg("Read connection lost.")
-
-
-    def writeConnectionLost(self):
-        msg("Write connection lost.")
+        self.reactor.stop()
 
 
 
