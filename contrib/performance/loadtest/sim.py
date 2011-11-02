@@ -73,6 +73,15 @@ def recordsFromCSVFile(path):
         in pathObj.getContent().splitlines()]
 
 
+
+def recordsFromCount(count, uid=u"user%02d", password=u"user%02d",
+                     commonName=u"User %02d", email=u"user%02d@example.com"):
+    for i in range(1, count + 1):
+        yield _DirectoryRecord(uid % i, password % i,
+                               commonName % i, email % i)
+
+
+
 class LagTrackingReactor(object):
     """
     This reactor wraps another reactor and proxies all attribute
