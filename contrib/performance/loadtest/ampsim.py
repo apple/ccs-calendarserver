@@ -26,9 +26,11 @@ if __name__ == '__main__':
         import traceback
         try:
             from twisted.python.log import startLogging
-            from sys import stderr, exit
+            from os import getpid
+            from sys import exit#, stderr
 
-            startLogging(stderr)
+            #startLogging(stderr)
+            startLogging(file("ampsim-{0:d}.log".format(getpid()), "wb"))
 
             from twisted.internet import reactor
             from twisted.internet.stdio import StandardIO
@@ -120,6 +122,11 @@ class Worker(AMP):
             self.reactor.callFromThread(
                 self.callRemote, LogMessage, event=eventDict
             )
+
+
+    def connectionLost(self, reason):
+        super(Worker, self).connectionLost(reason)
+        msg("Standard IO connection lost.")
 
 
 
