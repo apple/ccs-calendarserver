@@ -541,19 +541,23 @@ def cancelEvent(event, when, cua):
     whenDate = when.duplicate()
     whenDate.setDateOnly(True)
 
-    master = event.masterComponent()
-
     # Only process VEVENT
-    if master.name() != "VEVENT":
+    if event.mainType() != "VEVENT":
         return CANCELEVENT_SKIPPED
 
+    main = event.masterComponent()
+    if main is None:
+        # No master component, so this is an attendee being invited to one or
+        # more occurrences
+        main = event.mainComponent(allow_multiple=True)
+
     # Anything completely in the future is deleted
-    dtstart = master.getStartDateUTC()
+    dtstart = main.getStartDateUTC()
     isDateTime = not dtstart.isDateOnly()
     if dtstart > when:
         return CANCELEVENT_SHOULD_DELETE
 
-    organizer = master.getOrganizer()
+    organizer = main.getOrganizer()
 
     # Non-meetings are deleted
     if organizer is None:
@@ -569,8 +573,8 @@ def cancelEvent(event, when, cua):
     dirty = False
 
     # Set the UNTIL on RRULE to cease at the cutoff
-    if master.hasProperty("RRULE"):
-        for rrule in master.properties("RRULE"):
+    if main.hasProperty("RRULE"):
+        for rrule in main.properties("RRULE"):
             rrule = rrule.value()
             if rrule.getUseCount():
                 rrule.setUseCount(False)
@@ -584,8 +588,8 @@ def cancelEvent(event, when, cua):
 
     # Remove any EXDATEs and RDATEs beyond the cutoff
     for dateType in ("EXDATE", "RDATE"):
-        if master.hasProperty(dateType):
-            for exdate_rdate in master.properties(dateType):
+        if main.hasProperty(dateType):
+            for exdate_rdate in main.properties(dateType):
                 newValues = []
                 for value in exdate_rdate.value():
                     if value.getValue() < when:
@@ -594,7 +598,7 @@ def cancelEvent(event, when, cua):
                         exdate_rdate.value().remove(value)
                         dirty = True
                 if not newValues:
-                    master.removeProperty(exdate_rdate)
+                    main.removeProperty(exdate_rdate)
                     dirty = True
 
 
