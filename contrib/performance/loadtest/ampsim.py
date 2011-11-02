@@ -33,8 +33,9 @@ if __name__ == '__main__':
         from twisted.internet.stdio import StandardIO
 
         from contrib.performance.loadtest.ampsim import Worker
+        from contrib.performance.loadtest.sim import LagTrackingReactor
 
-        StandardIO(Worker(reactor))
+        StandardIO(Worker(LagTrackingReactor(reactor)))
         reactor.run()
     except:
         traceback.print_exc()
@@ -83,17 +84,19 @@ class Worker(AMP):
     def config(self, plist):
         from plistlib import readPlistFromString
         from contrib.performance.loadtest.sim import LoadSimulator
+        from sys import stderr
         cfg = readPlistFromString(plist)
         addObserver(self.emit)
         sim = LoadSimulator.fromConfig(cfg)
-        sim.attachServices()
+        sim.attachServices(stderr)
         return {}
 
 
     def emit(self, eventDict):
-        self.reactor.callFromThread(
-            self.callRemote, LogMessage, event=eventDict
-        )
+        if 'type' in eventDict:
+            self.reactor.callFromThread(
+                self.callRemote, LogMessage, event=eventDict
+            )
 
 
 
@@ -103,11 +106,12 @@ class Manager(AMP):
     a single worker.
     """
 
-    def __init__(self, loadsim, whichWorker, numWorkers):
+    def __init__(self, loadsim, whichWorker, numWorkers, output):
         super(Manager, self).__init__()
         self.loadsim = loadsim
         self.whichWorker = whichWorker
         self.numWorkers = numWorkers
+        self.output = output
 
 
     def connectionMade(self):
@@ -116,11 +120,19 @@ class Manager(AMP):
         del workerConfig["workers"]
         workerConfig["workerID"] = self.whichWorker
         workerConfig["workerCount"] = self.numWorkers
-        self.callRemote(Configure, plist=writePlistToString(workerConfig))
+        workerConfig["observers"] = []
+        plist = writePlistToString(workerConfig)
+        self.output.write("Initiating worker configuration\n")
+        def completed(x):
+            self.output.write("Worker configuration complete.\n")
+        (self.callRemote(Configure, plist=plist)
+         .addCallback(completed))
 
 
     @LogMessage.responder
     def observed(self, event):
+        #from pprint import pformat
+        #self.output.write(pformat(event)+"\n")
         msg(**event)
         return {}
 

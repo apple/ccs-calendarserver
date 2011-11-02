@@ -183,7 +183,7 @@ class LoadSimulator(object):
     """
     def __init__(self, server, arrival, parameters, observers=None,
                  records=None, reactor=None, runtime=None, workers=None,
-                 configTemplate=None, workerID=None):
+                 configTemplate=None, workerID=None, workerCount=1):
         if reactor is None:
             from twisted.internet import reactor
         self.server = server
@@ -196,6 +196,7 @@ class LoadSimulator(object):
         self.workers = workers
         self.configTemplate = configTemplate
         self.workerID = workerID
+        self.workerCount = workerCount
 
 
     @classmethod
@@ -222,7 +223,8 @@ class LoadSimulator(object):
         workers = config.get("workers")
         if workers is None:
             # Client / place where the simulator actually runs configuration
-            workerID = config.get("workerID")
+            workerID = config.get("workerID", 0)
+            workerCount = config.get("workerCount", 1)
             configTemplate = None
             server = 'http://127.0.0.1:8008/'
             if 'server' in config:
@@ -257,7 +259,9 @@ class LoadSimulator(object):
             server = ''
             arrival = None
             parameters = None
+            workerID = 0
             configTemplate = config
+            workerCount = 1
 
         observers = []
         if 'observers' in config:
@@ -274,7 +278,7 @@ class LoadSimulator(object):
         return cls(server, arrival, parameters, observers=observers,
                    records=records, runtime=runtime, reactor=reactor,
                    workers=workers, configTemplate=configTemplate,
-                   workerID=workerID)
+                   workerID=workerID, workerCount=workerCount)
 
 
     @classmethod
@@ -311,7 +315,9 @@ class LoadSimulator(object):
     def createSimulator(self):
         populator = Populator(Random())
         return CalendarClientSimulator(
-            self.records, populator, self.parameters, self.reactor, self.server)
+            self.records, populator, self.parameters, self.reactor, self.server,
+            self.workerID, self.workerCount
+        )
 
 
     def createArrivalPolicy(self):
@@ -325,7 +331,9 @@ class LoadSimulator(object):
         """
         if self.workers is not None:
             return [
+                ObserverService,
                 WorkerSpawnerService,
+                ReporterService,
             ]
         return [
             ObserverService,
@@ -343,10 +351,8 @@ class LoadSimulator(object):
 
     def run(self, output=stdout):
         self.attachServices(output)
-
         if self.runtime is not None:
             self.reactor.callLater(self.runtime, self.reactor.stop)
-
         self.reactor.run()
 
 
@@ -450,15 +456,31 @@ class ProcessProtocolBridge(ProcessProtocol):
 
 
     def connectionMade(self):
+        self.transport.getPeer = self.getPeer
+        self.transport.getHost = self.getHost
         self.proto.makeConnection(self.transport)
 
 
-    def dataReceived(self, data):
+    def getPeer(self):
+        return "Peer:PID:" + str(self.transport.pid)
+
+
+    def getHost(self):
+        return "Host:PID:" + str(self.transport.pid)
+
+
+    def outReceived(self, data):
         self.proto.dataReceived(data)
 
 
-    def connectionLost(self, reactor):
-        self.proto.connectionLost(reactor)
+    def errReceived(self, error):
+        from twisted.python.log import msg
+        msg("stderr received from " + str(self.transport.pid))
+        msg("    " + repr(error))
+
+
+    def processEnded(self, reason):
+        self.proto.connectionLost(reason)
         self.deferred.callback(None)
         self.spawner.bridges.remove(self)
 
@@ -471,11 +493,12 @@ class WorkerSpawnerService(SimService):
         self.bridges = []
         for workerID, worker in enumerate(self.loadsim.workers):
             bridge = ProcessProtocolBridge(
-                self, Manager(self.loadsim, workerID, len(self.loadsim.workers))
+                self, Manager(self.loadsim, workerID, len(self.loadsim.workers),
+                              self.output)
             )
             self.bridges.append(bridge)
             sh = '/bin/sh'
-            self.reactor.spawnProcess(
+            self.loadsim.reactor.spawnProcess(
                 bridge, sh, [sh, "-c", worker], env=environ
             )
 
@@ -486,7 +509,7 @@ class WorkerSpawnerService(SimService):
             for bridge in self.bridges:
                 bridge.transport.signalProcess(name)
         killThemAll("TERM")
-        self.reactor.callLater(TERMINATE_TIMEOUT, killThemAll, "KILL")
+        self.loadsim.reactor.callLater(TERMINATE_TIMEOUT, killThemAll, "KILL")
         return gatherResults([bridge.deferred for bridge in self.bridges])
 
 
