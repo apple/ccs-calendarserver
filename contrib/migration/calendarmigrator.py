@@ -533,14 +533,6 @@ def mergePlist(caldav, carddav, combined):
     # If SSL is enabled, redirect HTTP to HTTPS.
     combined["RedirectHTTPToHTTPS"] = enableSSL
 
-    # Add AugmentService which is now not on by default in stdconfig.py
-    combined["AugmentService"] = {
-        "params" : {
-            "xmlFiles" : ["augments.xml"],
-        },
-        "type" : "twistedcaldav.directory.augment.AugmentXMLDB",
-    }
-
 
 def isServiceDisabled(source, service):
     """
