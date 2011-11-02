@@ -22,36 +22,38 @@ AMP-based simulator.
 if __name__ == '__main__':
     # When run as a script, this is the worker process, receiving commands over
     # stdin.
-    import traceback
-    try:
-        from twisted.python.log import startLogging
-        from sys import stderr, exit
+    def runmain():
+        import traceback
+        try:
+            from twisted.python.log import startLogging
+            from sys import stderr, exit
 
-        startLogging(stderr)
+            startLogging(stderr)
 
-        from twisted.internet import reactor
-        from twisted.internet.stdio import StandardIO
+            from twisted.internet import reactor
+            from twisted.internet.stdio import StandardIO
 
-        from contrib.performance.loadtest.ampsim import Worker
-        from contrib.performance.loadtest.sim import LagTrackingReactor
+            from contrib.performance.loadtest.ampsim import Worker
+            from contrib.performance.loadtest.sim import LagTrackingReactor
 
-        StandardIO(Worker(LagTrackingReactor(reactor)))
-        reactor.run()
-    except:
-        traceback.print_exc()
-        exit(1)
-    else:
-        exit(0)
+            StandardIO(Worker(LagTrackingReactor(reactor)))
+            reactor.run()
+        except:
+            traceback.print_exc()
+            exit(1)
+        else:
+            exit(0)
+    runmain()
 
 
 from copy import deepcopy
 
-from plistlib import writePlistToString
-from twisted.protocols.amp import AMP, Command, String
+from plistlib import writePlistToString, readPlistFromString
+from twisted.protocols.amp import AMP, Command, String, Unicode
 from twext.enterprise.adbapi2 import Pickle
-
 from twisted.python.log import msg, addObserver
 
+from contrib.performance.loadtest.sim import _DirectoryRecord,  LoadSimulator
 
 class Configure(Command):
     """
@@ -63,9 +65,24 @@ class Configure(Command):
 
 class LogMessage(Command):
     """
-    A log message was received.
+    This message represents an observed log message being relayed from a worker
+    process to the manager process.
     """
     arguments = [("event", Pickle())]
+
+
+
+class Account(Command):
+    """
+    This message represents a L{_DirectoryRecord} loaded by the manager process
+    being relayed to a worker.
+    """
+    arguments = [
+        ("uid", Unicode()),
+        ("password", Unicode()),
+        ("commonName", Unicode()),
+        ("email", Unicode()),
+    ]
 
 
 
@@ -78,16 +95,22 @@ class Worker(AMP):
     def __init__(self, reactor):
         super(Worker, self).__init__()
         self.reactor = reactor
+        self.records = []
+
+
+    @Account.responder
+    def account(self, **kw):
+        self.records.append(_DirectoryRecord(**kw))
+        return {}
 
 
     @Configure.responder
     def config(self, plist):
-        from plistlib import readPlistFromString
-        from contrib.performance.loadtest.sim import LoadSimulator
         from sys import stderr
         cfg = readPlistFromString(plist)
         addObserver(self.emit)
         sim = LoadSimulator.fromConfig(cfg)
+        sim.records = self.records
         sim.attachServices(stderr)
         return {}
 
@@ -116,11 +139,29 @@ class Manager(AMP):
 
     def connectionMade(self):
         super(Manager, self).connectionMade()
+
+        for record in self.loadsim.records:
+            self.callRemote(Account,
+                            uid=record.uid,
+                            password=record.password,
+                            commonName=record.commonName,
+                            email=record.email)
+
         workerConfig = deepcopy(self.loadsim.configTemplate)
+        # The list of workers is for the manager only; the workers themselves
+        # know they're workers because they _don't_ receive this list.
         del workerConfig["workers"]
+        # The manager loads the accounts via the configured loader, then sends
+        # them out to the workers (right above), which look at the state at an
+        # instance level and therefore don't need a globally-named directory
+        # record loader.
+        del workerConfig["accounts"]
+
         workerConfig["workerID"] = self.whichWorker
         workerConfig["workerCount"] = self.numWorkers
         workerConfig["observers"] = []
+        workerConfig.pop("accounts", None)
+
         plist = writePlistToString(workerConfig)
         self.output.write("Initiating worker configuration\n")
         def completed(x):

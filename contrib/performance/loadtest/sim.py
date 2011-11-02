@@ -41,7 +41,6 @@ from contrib.performance.loadtest.population import (
     CalendarClientSimulator)
 from twisted.internet.defer import Deferred
 from twisted.internet.defer import gatherResults
-from contrib.performance.loadtest.ampsim import Manager
 
 
 class _DirectoryRecord(object):
@@ -177,7 +176,7 @@ class LoadSimulator(object):
     @type arrival: L{Arrival}
     @type parameters: L{PopulationParameters}
 
-    @ivar records: A C{list} of L{DirectoryRecord} instances giving
+    @ivar records: A C{list} of L{_DirectoryRecord} instances giving
         user information about the accounts on the server being put
         under load.
     """
@@ -489,6 +488,7 @@ class ProcessProtocolBridge(ProcessProtocol):
 class WorkerSpawnerService(SimService):
 
     def startService(self):
+        from contrib.performance.loadtest.ampsim import Manager
         super(WorkerSpawnerService, self).startService()
         self.bridges = []
         for workerID, worker in enumerate(self.loadsim.workers):
