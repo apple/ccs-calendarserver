@@ -196,21 +196,31 @@ class LoadSimulator(object):
         except UsageError, e:
             raise SystemExit(str(e))
 
-        server = 'http://127.0.0.1:8008/'
-        if 'server' in options.config:
-            server = options.config['server']
+        return cls.fromConfig(options.config, options['runtime'], output)
 
-        if 'arrival' in options.config:
+
+    @classmethod
+    def fromConfig(cls, config, runtime=None, output=stdout):
+        """
+        Create a L{LoadSimulator} from a parsed instance of a configuration
+        property list.
+        """
+
+        server = 'http://127.0.0.1:8008/'
+        if 'server' in config:
+            server = config['server']
+
+        if 'arrival' in config:
             arrival = Arrival(
-                namedAny(options.config['arrival']['factory']), 
-                options.config['arrival']['params'])
+                namedAny(config['arrival']['factory']), 
+                config['arrival']['params'])
         else:
             arrival = Arrival(
                 SmoothRampUp, dict(groups=10, groupSize=1, interval=3))
 
         parameters = PopulationParameters()
-        if 'clients' in options.config:
-            for clientConfig in options.config['clients']:
+        if 'clients' in config:
+            for clientConfig in config['clients']:
                 parameters.addClient(
                     clientConfig["weight"],
                     ClientType(
@@ -225,20 +235,21 @@ class LoadSimulator(object):
                 1, ClientType(SnowLeopard, {}, [Eventer, Inviter, Accepter]))
 
         observers = []
-        if 'observers' in options.config:
-            for observerName in options.config['observers']:
+        if 'observers' in config:
+            for observerName in config['observers']:
                 observers.append(namedAny(observerName)())
 
         records = []
-        if 'accounts' in options.config:
-            loader = options.config['accounts']['loader']
-            params = options.config['accounts']['params']
+        if 'accounts' in config:
+            loader = config['accounts']['loader']
+            params = config['accounts']['params']
             records.extend(namedAny(loader)(**params))
             output.write("Loaded {0} accounts.\n".format(len(records)))
 
         return cls(server, arrival, parameters,
                    observers=observers, records=records,
-                   runtime=options['runtime'])
+                   runtime=runtime)
+
 
     @classmethod
     def _convertParams(cls, params):
