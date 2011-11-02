@@ -28,6 +28,9 @@ from twisted.python.log import startLogging, addObserver, removeObserver
 from twisted.python.usage import UsageError, Options
 from twisted.python.reflect import namedAny
 
+from twisted.application.service import Service
+from twisted.application.service import MultiService
+
 from contrib.performance.loadtest.ical import SnowLeopard
 from contrib.performance.loadtest.profiles import Eventer, Inviter, Accepter
 from contrib.performance.loadtest.population import (
@@ -293,33 +296,109 @@ class LoadSimulator(object):
 
 
     def run(self, output=stdout):
-        for obs in self.observers:
-            addObserver(obs.observe)
-        sim = self.createSimulator()
+        ms = MultiService()
+        for svcclass in [
+                ObserverService,
+                SimulatorService,
+                ReporterService,
+            ]:
+            svcclass(self, output).setServiceParent(ms)
 
-        def stop():
-            for obs in self.observers:
-                removeObserver(obs.observe)
-            sim.stop()
-        self.reactor.addSystemEventTrigger('before', 'shutdown', stop)
+        attachService(self.reactor, ms)
 
-        arrivalPolicy = self.createArrivalPolicy()
-        arrivalPolicy.run(sim)
         if self.runtime is not None:
             self.reactor.callLater(self.runtime, self.reactor.stop)
+
         self.reactor.run()
+
+
+
+def attachService(reactor, service):
+    """
+    Attach a given L{IService} provider to the given L{IReactorCore}; cause it
+    to be started when the reactor starts, and stopped when the reactor stops.
+    """
+    reactor.callWhenRunning(service.startService)
+    reactor.addSystemEventTrigger('before', 'shutdown', service.stopService)
+
+
+
+class SimService(Service, object):
+    """
+    Base class for services associated with the L{LoadSimulator}.
+    """
+
+    def __init__(self, loadsim, output):
+        super(SimService, self).__init__()
+        self.loadsim = loadsim
+        self.output = output
+
+
+
+class ObserverService(SimService):
+    """
+    A service that adds and removes a L{LoadSimulator}'s set of observers at
+    start and stop time.
+    """
+
+    def startService(self):
+        """
+        Start observing.
+        """
+        super(ObserverService, self).startService()
+        for obs in self.loadsim.observers:
+            addObserver(obs.observe)
+
+
+    def stopService(self):
+        super(ObserverService, self).startService()
+        for obs in self.loadsim.observers:
+            removeObserver(obs.observe)
+
+
+
+class SimulatorService(SimService):
+    """
+    A service that starts the L{CalendarClientSimulator} associated with the
+    L{LoadSimulator} and stops it at shutdown.
+    """
+
+    def startService(self):
+        super(SimulatorService, self).startService()
+        self.clientsim = self.loadsim.createSimulator()
+        arrivalPolicy = self.loadsim.createArrivalPolicy()
+        arrivalPolicy.run(self.clientsim)
+
+
+    def stopService(self):
+        super(SimulatorService, self).stopService()
+        return self.clientsim.stop()
+
+
+
+class ReporterService(SimService):
+    """
+    A service which reports all the results from all the observers on a load
+    simulator when it is stopped.
+    """
+
+    def stopService(self):
+        super(ReporterService, self).stopService()
         failures = []
-        for obs in self.observers:
+        for obs in self.loadsim.observers:
             obs.report()
             failures.extend(obs.failures())
         if failures:
-            output.write('FAIL\n')
-            output.write('\n'.join(failures))
-            output.write('\n')
+            self.output.write('FAIL\n')
+            self.output.write('\n'.join(failures))
+            self.output.write('\n')
         else:
-            output.write('PASS\n')
+            self.output.write('PASS\n')
+
 
 main = LoadSimulator.main
+
+
 
 if __name__ == '__main__':
     main()

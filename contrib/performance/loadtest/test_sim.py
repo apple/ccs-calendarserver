@@ -177,12 +177,26 @@ class CalendarClientSimulatorTests(TestCase):
 class Reactor(object):
     message = "some event to be observed"
 
+    def __init__(self):
+        self._triggers = []
+        self._whenRunning = []
+
+
     def run(self):
+        for thunk in self._whenRunning:
+            thunk()
         msg(self.message)
+        for phase, event, thunk in self._triggers:
+            if event == 'shutdown':
+                thunk()
 
 
-    def addSystemEventTrigger(self, *args):
-        pass
+    def callWhenRunning(self, thunk):
+        self._whenRunning.append(thunk)
+
+
+    def addSystemEventTrigger(self, phase, event, thunk):
+        self._triggers.append((phase, event, thunk))
 
 
 class Observer(object):
