@@ -101,6 +101,11 @@ class SQLStoreBuilder(object):
             self.sharedService = PostgresService(
                 dbRoot, getReady, current_sql_schema, resetSchema=True,
                 databaseName="caldav",
+                options = [
+                    "-c log_lock_waits=TRUE",
+                    "-c log_statement=all",
+                    "-c log_line_prefix='%p.%x '",
+                ],
                 testMode=True
             )
             self.sharedService.startService()

@@ -294,7 +294,54 @@ class Calendar(CommonHomeChild):
         """
         return MimeType.fromString("text/calendar; charset=utf-8")
 
+    def splitCollectionByComponentTypes(self):
+        """
+        If the calendar contains iCalendar data with different component types, then split it into separate collections
+        each containing only one component type. When doing this make sure properties and sharing state are preserved
+        on any new calendars created.
+        """
+        
+        # TODO: implement this for filestore
+        pass
 
+    def _countComponentTypes(self):
+        """
+        Count each component type in this calendar.
+        
+        @return: a C{tuple} of C{tuple} containing the component type name and count. 
+        """
+
+        rows = self._index._oldIndex.componentTypeCounts()
+        result = tuple([(componentType, componentCount) for componentType, componentCount in sorted(rows, key=lambda x:x[0])])
+        return result
+
+    def _splitComponentType(self, component):
+        """
+        Create a new calendar and move all components of the specified component type into the new one.
+        Make sure properties and sharing state is preserved on the new calendar.
+        
+        @param component: Component type to split out
+        @type component: C{str}
+        """
+        
+        # TODO: implement this for filestore
+        pass
+
+    def _transferSharingDetails(self, newcalendar, component):
+        """
+        If the current calendar is shared, make the new calendar shared in the same way, but tweak the name.
+        """
+        
+        # TODO: implement this for filestore
+        pass
+    
+    def _transferCalendarObjects(self, newcalendar, component):
+        """
+        Move all calendar components of the specified type to the specified calendar.
+        """
+        
+        # TODO: implement this for filestore
+        pass
 
 class CalendarObject(CommonObjectResource, CalendarObjectBase):
     """

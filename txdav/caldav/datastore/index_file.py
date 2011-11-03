@@ -185,6 +185,12 @@ class AbstractCalendarIndex(AbstractSQLDatabase, LoggingMixIn):
 
         return uid
 
+    def componentTypeCounts(self):
+        """
+        Count each type of component.
+        """
+        return self._db_execute("select TYPE, COUNT(TYPE) from RESOURCE group by TYPE")
+
     def addResource(self, name, calendar, fast=False, reCreate=False):
         """
         Adding or updating an existing resource.

@@ -1158,6 +1158,10 @@ class _SharedSyncLogic(object):
                       Where=rev.RESOURCE_ID == Parameter("resourceID"))
 
 
+    def revisionFromToken(self, token):
+        _ignore_uuid, revision = token.split("_", 1)
+        return int(revision)
+
     @inlineCallbacks
     def syncToken(self):
         if self._syncTokenRevision is None:
@@ -1184,6 +1188,12 @@ class _SharedSyncLogic(object):
 
     @inlineCallbacks
     def resourceNamesSinceToken(self, token):
+        
+        if token is None:
+            token = 0
+        elif isinstance(token, str):
+            token = self.revisionFromToken(token)
+
         results = [
             (name if name else "", deleted)
             for name, deleted in
@@ -2128,6 +2138,61 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
             yield self._deleteRevision(name)
             self.notifyChanged()
 
+    @classproperty
+    def _moveParentUpdateQuery(cls): #@NoSelf
+        """
+        DAL query to update a child to be in a new parent.
+        """
+        obj = cls._objectSchema
+        return Update(
+            {obj.PARENT_RESOURCE_ID: Parameter("newParentID")},
+            Where=obj.RESOURCE_ID == Parameter("resourceID")
+        )
+
+    def _movedObjectResource(self, child, newparent):
+        """
+        Method that subclasses can override to do an extra DB adjustments when a resource
+        is moved.
+        """
+        return succeed(True)
+
+    @inlineCallbacks
+    def moveObjectResource(self, child, newparent):
+        """
+        Move a child of this collection into another collection without actually removing/re-inserting the data.
+        Make sure sync and cache details for both collections are updated.
+        
+        TODO: check that the resource name does not exist in the new parent, or that the UID
+        does not exist there too.
+
+        @param child: the child resource to move
+        @type child: L{CommonObjectResource}
+        @param newparent: the parent to move to
+        @type newparent: L{CommonHomeChild}
+        """
+
+        name = child.name()
+        uid = child.uid()
+
+        # Clean this collections cache and signal sync change
+        self._objects.pop(name, None)
+        self._objects.pop(uid, None)
+        self._objects.pop(child._resourceID, None)
+        yield self._deleteRevision(name)
+        self.notifyChanged()
+        
+        # Adjust the child to be a child of the new parent and update ancillary tables
+        yield self._moveParentUpdateQuery.on(
+            self._txn,
+            newParentID=newparent._resourceID,
+            resourceID=child._resourceID
+        )
+        yield self._movedObjectResource(child, newparent)
+        child._parentCollection = newparent
+
+        # Signal sync change on new collection
+        yield newparent._insertRevision(name)
+        newparent.notifyChanged()
 
     def objectResourcesHaveProperties(self):
         return False

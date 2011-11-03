@@ -304,8 +304,7 @@ class PropertyStoreTest(NonePropertyStoreTest):
         yield self._changed(self.propertyStore1)
 
         self.failUnless(name in self.propertyStore2.keys())
-
-
+ 
 def propertyName(name):
     return PropertyName("http://calendarserver.org/ns/test/", name)
 

@@ -312,3 +312,20 @@ class PropertyStore(AbstractPropertyStore):
     def abort(self):
         self.removed.clear()
         self.modified.clear()
+
+    def copyAllProperties(self, other):
+        """
+        Copy all the properties from another store into this one. This needs to be done
+        independently of the UID.
+        """
+        try:
+            iterattr = iter(other.attrs)
+        except IOError, e:
+            if e.errno != errno.ENOENT:
+                raise
+            iterattr = iter(())
+
+        for key in iterattr:
+            if not key.startswith(self.deadPropertyXattrPrefix):
+                continue
+            self.attrs[key] = other.attrs[key]

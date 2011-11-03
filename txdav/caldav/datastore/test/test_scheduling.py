@@ -61,6 +61,7 @@ class ImplicitStoreTests(FileStorageTests, TestCase):
         raise SkipTest("No private attribute tests.")
 
     test_calendarObjectsWithDotFile = skipit
+    test_countComponentTypes = skipit
     test_init = skipit
 
 del FileStorageTests
