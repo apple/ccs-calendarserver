@@ -21,6 +21,7 @@ Utilities for assembling the service and resource hierarchy.
 
 __all__ = [
     "getRootResource",
+    "getDBPool",
     "FakeRequest",
 ]
 
@@ -65,6 +66,9 @@ from twistedcaldav.timezones import TimezoneCache
 from twistedcaldav.timezoneservice import TimezoneServiceResource
 from twistedcaldav.timezonestdservice import TimezoneStdServiceResource
 from twistedcaldav.util import getMemorySize, getNCPU
+from twext.enterprise.ienterprise import POSTGRES_DIALECT
+from twext.enterprise.ienterprise import ORACLE_DIALECT
+from twext.enterprise.adbapi2 import ConnectionPool
 
 try:
     from twistedcaldav.authkerb import NegotiateCredentialFactory
@@ -87,6 +91,7 @@ from txdav.common.datastore.file import CommonDataStore as CommonFileDataStore
 from txdav.common.datastore.sql import current_sql_schema
 from twext.python.filepath import CachingFilePath
 from urllib import quote
+from twisted.python.usage import UsageError
 
 
 log = Logger()
@@ -649,6 +654,50 @@ def getRootResource(config, newStore, resources=None):
     )
 
     return logWrapper
+
+
+def getDBPool(config):
+    """
+    Inspect configuration to determine what database connection pool
+    to set up.
+    return: (L{ConnectionPool}, transactionFactory)
+    """
+    if config.DBType == 'oracle':
+        dialect = ORACLE_DIALECT
+        paramstyle = 'numeric'
+    else:
+        dialect = POSTGRES_DIALECT
+        paramstyle = 'pyformat'
+    pool = None
+    if config.DBAMPFD:
+        txnFactory = transactionFactoryFromFD(
+            int(config.DBAMPFD), dialect, paramstyle
+        )
+    elif not config.UseDatabase:
+        txnFactory = None
+    elif not config.SharedConnectionPool:
+        if config.DBType == '':
+            # get a PostgresService to tell us what the local connection
+            # info is, but *don't* start it (that would start one postgres
+            # master per slave, resulting in all kinds of mayhem...)
+            connectionFactory = pgServiceFromConfig(
+                config, None).produceConnection
+        elif config.DBType == 'postgres':
+            connectionFactory = pgConnectorFromConfig(config)
+        elif config.DBType == 'oracle':
+            connectionFactory = oracleConnectorFromConfig(config)
+        else:
+            raise UsageError("unknown DB type: %r" % (config.DBType,))
+        pool = ConnectionPool(connectionFactory, dialect=dialect,
+                              paramstyle=paramstyle,
+                              maxConnections=config.MaxDBConnectionsPerPool)
+        txnFactory = pool.connection
+    else:
+        raise UsageError(
+            "trying to use DB in slave, but no connection info from parent"
+        )
+
+    return (pool, txnFactory)
 
 
 

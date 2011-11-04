@@ -1458,43 +1458,13 @@ class NotificationServiceMaker(object):
             config.Memcached.MaxClients,
         )
 
-        # TODO: This code is copied from makeService_Slave, and needs to be
-        # refactored so it can be shared instead.
-        from calendarserver.tap.util import (
-            storeFromConfig, pgConnectorFromConfig, oracleConnectorFromConfig,
-            pgServiceFromConfig
-        )
-        from twext.enterprise.ienterprise import POSTGRES_DIALECT
-        from twext.enterprise.ienterprise import ORACLE_DIALECT
-        from twext.enterprise.adbapi2 import ConnectionPool
-
-        pool = None
-        if not config.UseDatabase:
-            txnFactory = None
-        else:
-            dialect = POSTGRES_DIALECT
-            paramstyle = 'pyformat'
-            if config.DBType == '':
-                # get a PostgresService to tell us what the local connection
-                # info is, but *don't* start it (that would start one postgres
-                # master per slave, resulting in all kinds of mayhem...)
-                connectionFactory = pgServiceFromConfig(
-                    config, None).produceConnection
-            elif config.DBType == 'postgres':
-                connectionFactory = pgConnectorFromConfig(config)
-            elif config.DBType == 'oracle':
-                dialect = ORACLE_DIALECT
-                paramstyle = 'numeric'
-                connectionFactory = oracleConnectorFromConfig(config)
-            else:
-                raise UsageError("unknown DB type: %r" % (config.DBType,))
-            pool = ConnectionPool(connectionFactory, dialect=dialect,
-                                  paramstyle=paramstyle)
-            txnFactory = pool.connection
-
-        store = storeFromConfig(config, txnFactory)
-
         multiService = service.MultiService()
+
+        from calendarserver.tap.util import storeFromConfig, getDBPool
+        pool, txnFactory = getDBPool(config)
+        if pool is not None:
+            pool.setServiceParent(multiService)
+        store = storeFromConfig(config, txnFactory)
 
         notifiers = []
         for key, settings in config.Notifications.Services.iteritems():
