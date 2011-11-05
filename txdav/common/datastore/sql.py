@@ -262,23 +262,20 @@ class CommonStoreTransaction(object):
 
 
     @classproperty
-    def _schemaVersion(cls): #@NoSelf
+    def _calendarserver(cls): #@NoSelf
         cs = schema.CALENDARSERVER
         return Select(
             [cs.VALUE,],
             From=cs,
-            Where=cs.NAME == "VERSION",
+            Where=cs.NAME == Parameter('name'),
         )
 
     @inlineCallbacks
-    def schemaVersion(self):
-        result = yield self._schemaVersion.on(self)
+    def calendarserverValue(self, key):
+        result = yield self._calendarserver.on(self, name=key)
         if result and len(result) == 1:
-            try:
-                returnValue(int(result[0][0]))
-            except ValueError:
-                pass
-        raise RuntimeError("Database schema version cannot be determined.")
+            returnValue(result[0][0])
+        raise RuntimeError("Database key %s cannot be determined." % (key,))
         
 
     @memoizedKey('uid', '_calendarHomes')

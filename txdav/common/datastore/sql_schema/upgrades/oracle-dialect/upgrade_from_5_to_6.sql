@@ -18,6 +18,10 @@
 -- Upgrade database schema from VERSION 5 to 6 --
 -------------------------------------------------
 
+-- Just need to add one column
+alter table CALENDAR_HOME
+ add ("DATAVERSION" integer default 1 null);
+ 
 -- Just need to modify one column
 alter table CALENDAR_OBJECT
  add ("SUPPORTED_COMPONENTS" nvarchar2(255) default null);
@@ -25,3 +29,5 @@ alter table CALENDAR_OBJECT
 -- Now update the version
 update CALENDARSERVER set VALUE = '6' where NAME = 'VERSION';
 
+-- Also insert the initial data version which we will use in the data upgrade
+insert into CALENDARSERVER values ('DATAVERSION', '1');

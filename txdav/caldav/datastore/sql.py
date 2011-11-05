@@ -229,7 +229,22 @@ class CalendarHome(CommonHome):
             
         yield self.createCalendarWithName("inbox")
 
-
+    @inlineCallbacks
+    def splitCalendars(self):
+        """
+        Split all regular calendars by component type
+        """
+        
+        # Make sure the loop does not operate on any new calendars created during the loop
+        self.log_warn("Splitting calendars for user %s" % (self._ownerUID,))
+        calendars = yield self.calendars()
+        for calendar in calendars:
+            
+            # Ignore inbox - also shared calendars are not part of .calendars() 
+            if calendar.name() == "inbox":
+                continue
+            split_count = yield calendar.splitCollectionByComponentTypes()
+            self.log_warn("  Calendar: '%s', split into %d" % (calendar.name(), split_count+1,))
 
 class Calendar(CommonHomeChild):
     """
@@ -386,19 +401,20 @@ class Calendar(CommonHomeChild):
         """
         If the calendar contains iCalendar data with different component types, then split it into separate collections
         each containing only one component type. When doing this make sure properties and sharing state are preserved
-        on any new calendars created. Also restrict the new calendars to only the one appropriate component type.
+        on any new calendars created. Also restrict the new calendars to only the one appropriate component type. Return
+        the number of splits done.
         """
         
         # First see how many different component types there are
+        split_count = 0
         components = yield self._countComponentTypes()
         if len(components) <= 1:
 
             # Restrict calendar to single component type
-            if components:
-                component = components[0][0] if components else "VEVENT"
+            component = components[0][0] if components else "VEVENT"
             yield self.setSupportedComponents(component.upper())
 
-            returnValue(None)
+            returnValue(split_count)
         
         # We will leave the component type with the highest count in the current calendar and create new calendars
         # for the others which will be moved over
@@ -407,10 +423,13 @@ class Calendar(CommonHomeChild):
         for component, _ignore_count in components:
             if component == maxComponent:
                 continue
+            split_count += 1
             yield self._splitComponentType(component)
 
         # Restrict calendar to single component type
         yield self.setSupportedComponents(maxComponent.upper())
+
+        returnValue(split_count)
 
     @inlineCallbacks
     def _countComponentTypes(self):

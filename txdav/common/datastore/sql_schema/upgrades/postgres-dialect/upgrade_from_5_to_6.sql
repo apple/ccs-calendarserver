@@ -19,9 +19,15 @@
 -------------------------------------------------
 
 -- Just need to add one column
+alter table CALENDAR_HOME
+ add column DATAVERSION integer default 1 null;
+ 
+-- Just need to add one column
 alter table CALENDAR
  add column SUPPORTED_COMPONENTS varchar(255) default null;
 
 -- Now update the version
 update CALENDARSERVER set VALUE = '6' where NAME = 'VERSION';
 
+-- Also insert the initial data version which we will use in the data upgrade
+insert into CALENDARSERVER values ('DATAVERSION', '1');

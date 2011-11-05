@@ -24,7 +24,8 @@ from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.python.modules import getModule
 from twisted.trial.unittest import TestCase
 from txdav.common.datastore.test.util import theStoreBuilder, StubNotifierFactory
-from txdav.common.datastore.upgrade.sql.upgrade import UpgradeDatabaseSchemaService
+from txdav.common.datastore.upgrade.sql.upgrade import UpgradeDatabaseSchemaService,\
+    UpgradeDatabaseDataService
 import re
 
 class SchemaUpgradeTests(TestCase):
@@ -32,11 +33,14 @@ class SchemaUpgradeTests(TestCase):
     Tests for L{UpgradeDatabaseSchemaService}.
     """
 
-    def _getSchemaVersion(self, fp):
+    def _getSchemaVersion(self, fp, versionKey):
         schema = fp.getContent()
-        found = re.search("insert into CALENDARSERVER values \('VERSION', '(\d)+'\);", schema)
+        found = re.search("insert into CALENDARSERVER values \('%s', '(\d)+'\);" % (versionKey,), schema)
         if found is None:
-            self.fail("Could not determine schema version for: %s" % (fp,))
+            if versionKey == "VERSION":
+                self.fail("Could not determine schema version for: %s" % (fp,))
+            else:
+                return 1
         return int(found.group(1))
 
     def test_scanUpgradeFiles(self):
@@ -101,28 +105,28 @@ class SchemaUpgradeTests(TestCase):
             upgrader = UpgradeDatabaseSchemaService(None, None)
             files = upgrader.scanForUpgradeFiles(dialect)
 
-            current_version = self._getSchemaVersion(upgrader.schemaLocation.child("current.sql"))
+            current_version = self._getSchemaVersion(upgrader.schemaLocation.child("current.sql"), "VERSION")
             
             for child in upgrader.schemaLocation.child("old").globChildren("*.sql"):
-                old_version = self._getSchemaVersion(child)
+                old_version = self._getSchemaVersion(child, "VERSION")
                 upgrades = upgrader.determineUpgradeSequence(old_version, current_version, files, dialect)
                 self.assertNotEqual(len(upgrades), 0)
 
-    def test_upgradeDataAvailability(self):
-        """
-        Make sure that each upgrade file has a valid data upgrade file or None.
-        """
-        
-        for dialect in (POSTGRES_DIALECT, ORACLE_DIALECT,):
-            upgrader = UpgradeDatabaseSchemaService(None, None)
-            files = upgrader.scanForUpgradeFiles(dialect)
-            for _ignore_from, _ignore_to, fp in files:
-                result = upgrader.getDataUpgrade(fp)
-                if result is not None:
-                    self.assertIsInstance(result, types.FunctionType)
+#    def test_upgradeDataAvailability(self):
+#        """
+#        Make sure that each upgrade file has a valid data upgrade file or None.
+#        """
+#        
+#        for dialect in (POSTGRES_DIALECT, ORACLE_DIALECT,):
+#            upgrader = UpgradeDatabaseSchemaService(None, None)
+#            files = upgrader.scanForUpgradeFiles(dialect)
+#            for _ignore_from, _ignore_to, fp in files:
+#                result = upgrader.getDataUpgrade(fp)
+#                if result is not None:
+#                    self.assertIsInstance(result, types.FunctionType)
 
     @inlineCallbacks
-    def test_dbUpgrades(self):
+    def test_dbSchemaUpgrades(self):
         """
         This does a full DB test of all possible upgrade paths. For each old schema, it loads it into the DB
         then runs the upgrade service. This ensures all the upgrade.sql files work correctly - at least for
@@ -169,12 +173,75 @@ class SchemaUpgradeTests(TestCase):
         self.addCleanup(_cleanupOldSchema)
 
         test_upgrader = UpgradeDatabaseSchemaService(None, None)
-        expected_version = self._getSchemaVersion(test_upgrader.schemaLocation.child("current.sql"))
+        expected_version = self._getSchemaVersion(test_upgrader.schemaLocation.child("current.sql"), "VERSION")
         for child in test_upgrader.schemaLocation.child("old").globChildren("*.sql"):
             upgrader = UpgradeDatabaseSchemaService(store, None)
             yield _loadOldSchema(child)
-            yield upgrader.doUpgrade()
+            yield upgrader.databaseUpgrade()
             new_version = yield _loadVersion()
             yield _unloadOldSchema()
+
+            self.assertEqual(new_version, expected_version)
+
+    @inlineCallbacks
+    def test_dbDataUpgrades(self):
+        """
+        This does a full DB test of all possible upgrade paths. For each old schema, it loads it into the DB
+        then runs the upgrade service. This ensures all the upgrade.sql files work correctly - at least for
+        postgres.
+        """
+
+        store = yield theStoreBuilder.buildStore(
+            self, StubNotifierFactory()
+        )
+
+        @inlineCallbacks
+        def _loadOldData(path, oldVersion):
+            """
+            Use the postgres schema mechanism to do tests under a separate "namespace"
+            in postgres that we can quickly wipe clean afterwards.
+            """
+            startTxn = store.newTransaction("test_dbUpgrades")        
+            yield startTxn.execSQL("create schema test_dbUpgrades;")
+            yield startTxn.execSQL("set search_path to test_dbUpgrades;")
+            yield startTxn.execSQL(path.getContent())
+            yield startTxn.execSQL("update CALENDARSERVER set VALUE = '%s' where NAME = 'DATAVERSION';" % (oldVersion,))
+            yield startTxn.commit()
+
+        @inlineCallbacks
+        def _loadVersion():
+            startTxn = store.newTransaction("test_dbUpgrades")        
+            new_version = yield startTxn.execSQL("select value from calendarserver where name = 'DATAVERSION';")
+            yield startTxn.commit()
+            returnValue(int(new_version[0][0]))
+
+        @inlineCallbacks
+        def _unloadOldData():
+            startTxn = store.newTransaction("test_dbUpgrades")        
+            yield startTxn.execSQL("set search_path to public;")
+            yield startTxn.execSQL("drop schema test_dbUpgrades cascade;")
+            yield startTxn.commit()
+
+        @inlineCallbacks
+        def _cleanupOldData():
+            startTxn = store.newTransaction("test_dbUpgrades")        
+            yield startTxn.execSQL("set search_path to public;")
+            yield startTxn.execSQL("drop schema if exists test_dbUpgrades cascade;")
+            yield startTxn.commit()
+
+        self.addCleanup(_cleanupOldData)
+
+        test_upgrader = UpgradeDatabaseSchemaService(None, None)
+        expected_version = self._getSchemaVersion(test_upgrader.schemaLocation.child("current.sql"), "DATAVERSION")
+        versions = set()
+        for child in test_upgrader.schemaLocation.child("old").globChildren("*.sql"):
+            versions.add(self._getSchemaVersion(child, "DATAVERSION"))
+
+        for oldVersion in sorted(versions):
+            upgrader = UpgradeDatabaseDataService(store, None)
+            yield _loadOldData(test_upgrader.schemaLocation.child("current.sql"), oldVersion)
+            yield upgrader.databaseUpgrade()
+            new_version = yield _loadVersion()
+            yield _unloadOldData()
 
             self.assertEqual(new_version, expected_version)

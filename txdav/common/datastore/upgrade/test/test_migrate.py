@@ -13,7 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
-from twistedcaldav.config import config
 
 """
 Tests for L{txdav.common.datastore.upgrade.migrate}.

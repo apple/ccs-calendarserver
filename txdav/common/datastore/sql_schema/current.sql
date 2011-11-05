@@ -29,7 +29,8 @@ create sequence RESOURCE_ID_SEQ;
 
 create table CALENDAR_HOME (
   RESOURCE_ID      integer      primary key default nextval('RESOURCE_ID_SEQ'), -- implicit index
-  OWNER_UID        varchar(255) not null unique                                 -- implicit index
+  OWNER_UID        varchar(255) not null unique,                                 -- implicit index
+  DATAVERSION	   integer      default 0 not null
 );
 
 ----------------------------
@@ -446,4 +447,4 @@ create table CALENDARSERVER (
 );
 
 insert into CALENDARSERVER values ('VERSION', '6');
-
+insert into CALENDARSERVER values ('DATAVERSION', '2');
