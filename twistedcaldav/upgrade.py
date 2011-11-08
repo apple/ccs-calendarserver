@@ -894,7 +894,16 @@ class UpgradeFileSystemFormatService(Service, object):
 
         @return: a Deferred which fires when the upgrade is complete.
         """
+
+        # Don't try to use memcached during upgrade; it's not necessarily
+        # running yet.
+        memcacheEnabled = self.config.Memcached.Pools.Default.ClientEnabled
+        self.config.Memcached.Pools.Default.ClientEnabled = False
+
         yield upgradeData(self.config)
+
+        # Restore memcached client setting
+        self.config.Memcached.Pools.Default.ClientEnabled = memcacheEnabled
 
         # see http://twistedmatrix.com/trac/ticket/4649
         reactor.callLater(0, self.wrappedService.setServiceParent, self.parent)
