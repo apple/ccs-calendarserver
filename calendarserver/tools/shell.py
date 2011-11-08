@@ -22,13 +22,18 @@ Interactive shell for navigating the data store.
 import os
 import sys
 import traceback
+import tty
+import termios
 from shlex import shlex
 
+from twisted.python.log import startLogging
 from twisted.python.text import wordWrap
 from twisted.python.usage import Options, UsageError
-from twisted.internet.defer import succeed, maybeDeferred
+from twisted.internet.defer import succeed, fail, maybeDeferred, Deferred
+from twisted.internet.stdio import StandardIO
 from twisted.conch.stdio import runWithProtocol as shellWithProtocol
-from twisted.conch.recvline import RecvLine as ReceiveLineProtocol
+from twisted.conch.recvline import HistoricRecvLine as ReceiveLineProtocol
+from twisted.conch.insults.insults import ServerProtocol
 from twisted.application.service import Service
 
 from txdav.common.icommondatastore import NotFoundError
@@ -76,23 +81,38 @@ class ShellOptions(Options):
 class ShellService(Service, object):
     def __init__(self, store, options, reactor, config):
         super(ShellService, self).__init__()
-        self.store   = store
-        self.options = options
-        self.reactor = reactor
-        self.config = config
+        self.store      = store
+        self.options    = options
+        self.reactor    = reactor
+        self.config     = config
+        self.terminalFD = None
+        self.protocol   = None
 
     def startService(self):
         """
         Start the service.
         """
+        # For debugging
+        #f = open("/tmp/shell.log", "w")
+        #startLogging(f)
+
         super(ShellService, self).startService()
-        shellWithProtocol(lambda: ShellProtocol(self.store))
-        self.reactor.stop()
+
+        # Set up the terminal for interactive action
+        self.terminalFD = sys.__stdin__.fileno()
+        self._oldTerminalSettings = termios.tcgetattr(self.terminalFD)
+        tty.setraw(self.terminalFD)
+
+        self.protocol = ServerProtocol(lambda: ShellProtocol(self))
+        StandardIO(self.protocol)
 
     def stopService(self):
         """
         Stop the service.
         """
+        # Restore terminal settings
+        termios.tcsetattr(self.terminalFD, termios.TCSANOW, self._oldTerminalSettings)
+        os.write(self.terminalFD, "\r\x1bc\r")
 
 
 class UnknownArguments (Exception):
@@ -115,11 +135,67 @@ class ShellProtocol(ReceiveLineProtocol):
 
     ps = ("ds% ", "... ")
 
-    def __init__(self, store):
+    def __init__(self, service):
         ReceiveLineProtocol.__init__(self)
-        self.wd = RootDirectory(store)
+        self.service = service
+        self.wd = RootDirectory(service.store)
+        self.inputLines = []
+        self.activeCommand = None
+
+    def connectionMade(self):
+        ReceiveLineProtocol.connectionMade(self)
+
+        CTRL_C = '\x03'
+        CTRL_D = '\x04'
+        CTRL_BACKSLASH = '\x1c'
+        CTRL_L = '\x0c'
+
+        self.keyHandlers[CTRL_C] = self.handle_INT
+        self.keyHandlers[CTRL_D] = self.handle_EOF
+        self.keyHandlers[CTRL_L] = self.handle_FF
+        self.keyHandlers[CTRL_BACKSLASH] = self.handle_QUIT
+
+    def handle_INT(self):
+        """
+        Handle ^C as an interrupt keystroke by resetting the current input
+        variables to their initial state.
+        """
+        self.pn = 0
+        self.lineBuffer = []
+        self.lineBufferIndex = 0
+
+        self.terminal.nextLine()
+        self.terminal.write("KeyboardInterrupt")
+        self.terminal.nextLine()
+        self.exit()
+
+    def handle_EOF(self):
+        if self.lineBuffer:
+            self.terminal.write('\a')
+        else:
+            self.handle_QUIT()
+
+    def handle_FF(self):
+        """
+        Handle a 'form feed' byte - generally used to request a screen
+        refresh/redraw.
+        """
+        self.terminal.eraseDisplay()
+        self.terminal.cursorHome()
+        self.drawInputLine()
+
+    def handle_QUIT(self):
+        self.exit()
+
+    def exit(self):
+        self.terminal.loseConnection()
+        self.service.reactor.stop()
 
     def lineReceived(self, line):
+        if self.activeCommand is not None:
+            self.inputLines.append(line)
+            return
+
         lexer = shlex(line)
         lexer.whitespace_split = True
 
@@ -136,20 +212,39 @@ class ShellProtocol(ReceiveLineProtocol):
 
             m = getattr(self, "cmd_%s" % (cmd,), None)
             if m:
-                try:
-                    m(tokens)
-                except UnknownArguments, e:
-                    self.terminal.write("%s\n" % (e,))
-                except Exception, e:
-                    print "Error: %s" % (e,)
-                    print "-"*80
-                    f.printTraceback()
-                    print "-"*80
+                def handleUnknownArguments(f):
+                    f.trap(UnknownArguments)
+                    self.terminal.write("%s\n" % (f.value,))
 
+                def handleException(f):
+                    self.terminal.write("Error: %s\n" % (e,))
+                    self.terminal.write("-"*80 + "\n")
+                    self.terminal.write(f.getTraceback())
+                    self.terminal.write("-"*80 + "\n")
+
+                def next(_):
+                    self.activeCommand = None
+                    self.drawInputLine()
+                    if self.inputLines:
+                        line = self.inputLines.pop(0)
+                        self.lineReceived(line)
+
+                d = Deferred()
+                self.activeCommand = d
+                d.addCallback(lambda _: m(tokens))
+                if True:
+                    d.callback(None)
+                else:
+                    # Add time to test callbacks
+                    self.service.reactor.callLater(4, d.callback, None)
+                d.addErrback(handleUnknownArguments)
+                d.addErrback(handleException)
+                d.addBoth(next)
             else:
                 self.terminal.write("Unknown command: %s\n" % (cmd,))
-
-        self.drawInputLine()
+                self.drawInputLine()
+        else:
+            self.drawInputLine()
 
     def cmd_pwd(self, tokens):
         """
@@ -214,8 +309,7 @@ class ShellProtocol(ReceiveLineProtocol):
         """
         Exit the shell.
         """
-        self.terminal.loseConnection()
-        # FIXME: This is insufficient.
+        self.exit()
 
     def cmd_python(self, tokens):
         """
@@ -270,9 +364,9 @@ class Directory(object):
         if name == ".":
             return succeed(self)
         if name == "..":
-            return RootDirectory(self.store).locate(self.path[:-1])
+            return succeed(RootDirectory(self.store).locate(self.path[:-1]))
 
-        raise NotFoundError("Directory %r has no subdirectory %r" % (str(self), name))
+        return fail(NotFoundError("Directory %r has no subdirectory %r" % (str(self), name)))
 
     def list(self):
         return ()
