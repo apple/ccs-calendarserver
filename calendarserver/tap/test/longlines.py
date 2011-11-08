@@ -19,7 +19,7 @@ import sys
 length = int(sys.argv[1])
 
 data = (("x" * length) +
-        ("y" * length) + "\n" +
+        ("y" * (length + 1)) + "\n" +
         ("z" + "\n"))
 
 sys.stdout.write(data)

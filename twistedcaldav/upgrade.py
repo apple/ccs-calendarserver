@@ -584,7 +584,7 @@ def upgrade_to_2(config):
         if os.path.exists(triggerPath):
             os.remove(triggerPath)
     
-            log.info("Migrating locations and resources")
+            log.warn("Migrating locations and resources")
     
             directory = getDirectory()
             userService = directory.serviceForRecordType("users")
