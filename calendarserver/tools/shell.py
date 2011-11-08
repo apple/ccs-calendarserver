@@ -24,12 +24,11 @@ import sys
 import traceback
 from shlex import shlex
 
-#from twisted.python import log
 from twisted.python.text import wordWrap
 from twisted.python.usage import Options, UsageError
 from twisted.internet.defer import succeed, maybeDeferred
 from twisted.conch.stdio import runWithProtocol as shellWithProtocol
-from twisted.conch.recvline import HistoricRecvLine
+from twisted.conch.recvline import RecvLine as ReceiveLineProtocol
 from twisted.application.service import Service
 
 from txdav.common.icommondatastore import NotFoundError
@@ -96,7 +95,16 @@ class ShellService(Service, object):
         """
 
 
-class ShellProtocol(HistoricRecvLine):
+class UnknownArguments (Exception):
+    """
+    Unknown arguments.
+    """
+    def __init__(self, arguments):
+        Exception.__init__(self, "Unknown arguments: %s" % (arguments,))
+        self.arguments = arguments
+
+
+class ShellProtocol(ReceiveLineProtocol):
     """
     Data store shell protocol.
     """
@@ -108,103 +116,49 @@ class ShellProtocol(HistoricRecvLine):
     ps = ("ds% ", "... ")
 
     def __init__(self, store):
-        HistoricRecvLine.__init__(self)
+        ReceiveLineProtocol.__init__(self)
         self.wd = RootDirectory(store)
 
-    def connectionMade(self):
-        HistoricRecvLine.connectionMade(self)
-
-        CTRL_C         = "\x03"
-        CTRL_D         = "\x04"
-        CTRL_L         = "\x0c"
-        CTRL_BACKSLASH = "\x1c"
-
-        self.keyHandlers[CTRL_C        ] = self.handle_INT
-        self.keyHandlers[CTRL_D        ] = self.handle_EOF
-        self.keyHandlers[CTRL_L        ] = self.handle_FF
-        self.keyHandlers[CTRL_BACKSLASH] = self.handle_QUIT
-
-    def handle_INT(self):
-        """
-        Handle ^C as an interrupt keystroke by resetting the current input
-        variables to their initial state.
-        """
-        self.pn = 0
-        self.lineBuffer = []
-        self.lineBufferIndex = 0
-        self.interpreter.resetBuffer()
-
-        self.terminal.nextLine()
-        self.terminal.write("KeyboardInterrupt")
-        self.terminal.nextLine()
-        self.terminal.write(self.ps[self.pn])
-
-    def handle_EOF(self):
-        if self.lineBuffer:
-            self.terminal.write("\a")
-        else:
-            self.handle_QUIT()
-
-    def handle_FF(self):
-        """
-        Handle a "form feed" byte - generally used to request a screen
-        refresh/redraw.
-        """
-        self.terminal.eraseDisplay()
-        self.terminal.cursorHome()
-        self.drawInputLine()
-
-    def handle_QUIT(self):
-        self.terminal.loseConnection()
-
-    def prompt(self):
-        pass
-
     def lineReceived(self, line):
-        try:
-            lexer = shlex(line)
-            lexer.whitespace_split = True
+        lexer = shlex(line)
+        lexer.whitespace_split = True
 
-            tokens = []
-            while True:
-                token = lexer.get_token()
-                if not token:
-                    break
-                tokens.append(token)
+        tokens = []
+        while True:
+            token = lexer.get_token()
+            if not token:
+                break
+            tokens.append(token)
 
-            if tokens:
-                cmd = tokens.pop(0)
-                #print "Arguments: %r" % (tokens,)
+        if tokens:
+            cmd = tokens.pop(0)
+            #print "Arguments: %r" % (tokens,)
 
-                m = getattr(self, "cmd_%s" % (cmd,), None)
-                if m:
-                    def onError(f):
-                        print "Error: %s" % (f.getErrorMessage(),)
-                        print "-"*80
-                        f.printTraceback()
-                        print "-"*80
+            m = getattr(self, "cmd_%s" % (cmd,), None)
+            if m:
+                try:
+                    m(tokens)
+                except UnknownArguments, e:
+                    self.terminal.write("%s\n" % (e,))
+                except Exception, e:
+                    print "Error: %s" % (e,)
+                    print "-"*80
+                    f.printTraceback()
+                    print "-"*80
 
-                    d = maybeDeferred(m, tokens)
-                    d.addCallback(lambda _: self.prompt)
-                    d.addErrback(onError)
-                    return d
-                else:
-                    print "Unknown command: %s" % (cmd,)
+            else:
+                self.terminal.write("Unknown command: %s\n" % (cmd,))
 
-        except Exception, e:
-            print "Error: %s" % (e,)
-            print "-"*80
-            traceback.print_exc()
-            print "-"*80
+        self.drawInputLine()
 
     def cmd_pwd(self, tokens):
         """
         Print working directory.
         """
         if tokens:
-            print "Unknown arguments: %s" % (tokens,)
+            raise UnknownArguments(tokens)
             return
-        print self.wd
+        self.terminal.write("%s\n" % (self.wd,))
 
     def cmd_cd(self, tokens):
         """
@@ -216,14 +170,14 @@ class ShellProtocol(HistoricRecvLine):
             return
 
         if tokens:
-            print "Unknown arguments: %s" % (tokens,)
+            raise UnknownArguments(tokens)
             return
 
         path = dirname.split("/")
 
         def notFound(f):
             f.trap(NotFoundError)
-            print "No such directory: %s" % (dirname,)
+            self.terminal.write("No such directory: %s\n" % (dirname,))
 
         def setWD(wd):
             self.wd = wd
@@ -238,16 +192,20 @@ class ShellProtocol(HistoricRecvLine):
         List working directory.
         """
         if tokens:
-            print "Unknown arguments: %s" % (tokens,)
+            raise UnknownArguments(tokens)
             return
 
         for name in self.wd.list():
-            print name
+            self.terminal.write("%s\n" % (name,))
 
     def cmd_info(self, tokens):
         """
         Print information about working directory.
         """
+        if tokens:
+            raise UnknownArguments(tokens)
+            return
+
         d = self.wd.describe()
         d.addCallback(lambda x: sys.stdout.write(x))
         return d
