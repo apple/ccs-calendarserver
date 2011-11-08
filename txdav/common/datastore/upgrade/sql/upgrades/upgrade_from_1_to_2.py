@@ -38,7 +38,7 @@ def doUpgrade(sqlStore):
     yield splitCalendars(sqlStore)
     
     # Always bump the DB value
-    yield updateDataVersion(sqlStore, UPGRADE_TO_VERSION)
+    yield updateDataVersion(sqlStore, "CALENDAR-DATAVERSION", UPGRADE_TO_VERSION)
 
 @inlineCallbacks
 def moveSupportedComponentSetProperties(sqlStore):

@@ -102,6 +102,8 @@ class CalendarHome(CommonHome):
     _notifierPrefix = "CalDAV"
     _revisionsTable = CALENDAR_OBJECT_REVISIONS_TABLE
 
+    _dataVersionKey = "CALENDAR-DATAVERSION"
+
     _cacher = Memcacher("SQL.calhome", pickle=True, key_normalization=False)
 
     def __init__(self, transaction, ownerUID, notifiers):

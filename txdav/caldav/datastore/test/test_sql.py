@@ -223,6 +223,28 @@ class CalendarSQLStorageTests(CalendarCommonTests, unittest.TestCase):
         self.assertPropertiesSimilar(fromHome, toHome, builtinProperties)
 
 
+    def test_calendarHomeVersion(self):
+        """
+        The DATAVERSION column for new calendar homes must match the
+        CALENDAR-DATAVERSION value.
+        """
+        
+        home = yield self.transactionUnderTest().calendarHomeWithUID("home_version")
+        self.assertTrue(home is not None)
+        yield self.transactionUnderTest().commit
+        
+        txn = yield self.transactionUnderTest()
+        version = yield txn.calendarserverValue("CALENDAR-DATAVERSION")[0][0]
+        ch = schema.CALENDAR_HOME
+        homeVersion = yield Select(
+            [ch.DATAVERSION,],
+            From=ch,
+            Where=ch.OWNER_UID == "home_version",
+        ).on(txn)[0][0]
+        self.assertEqual(int(homeVersion, version))
+        
+        
+
     def test_eachCalendarHome(self):
         """
         L{ICalendarStore.eachCalendarHome} is currently stubbed out by

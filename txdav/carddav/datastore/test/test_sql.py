@@ -201,6 +201,28 @@ class AddressBookSQLStorageTests(AddressBookCommonTests, unittest.TestCase):
         self.assertPropertiesSimilar(fromHome, toHome, builtinProperties)
 
 
+    def test_addressBookHomeVersion(self):
+        """
+        The DATAVERSION column for new calendar homes must match the
+        ADDRESSBOOK-DATAVERSION value.
+        """
+        
+        home = yield self.transactionUnderTest().addressbookHomeWithUID("home_version")
+        self.assertTrue(home is not None)
+        yield self.transactionUnderTest().commit
+        
+        txn = yield self.transactionUnderTest()
+        version = yield txn.calendarserverValue("ADDRESSBOOK-DATAVERSION")[0][0]
+        ch = schema.ADDRESSBOOK_HOME
+        homeVersion = yield Select(
+            [ch.DATAVERSION,],
+            From=ch,
+            Where=ch.OWNER_UID == "home_version",
+        ).on(txn)[0][0]
+        self.assertEqual(int(homeVersion, version))
+        
+        
+
     def test_eachAddressbookHome(self):
         """
         L{IAddressbookStore.eachAddressbookHome} is currently stubbed out by

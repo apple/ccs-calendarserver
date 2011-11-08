@@ -43,15 +43,21 @@ def removeProperty(txn, propelement):
     ).on(txn)
 
 @inlineCallbacks
-def updateDataVersion(store, version):
+def updateDataVersion(store, key, version):
 
     txn = store.newTransaction("updateDataVersion")    
     cs = schema.CALENDARSERVER
     yield Update(
         {cs.VALUE: version},
-        Where=cs.NAME == "DATAVERSION",
+        Where=cs.NAME == key,
     ).on(txn)
     yield txn.commit()
+
+def updateCalendarDataVersion(store, version):
+    return updateDataVersion(store, "CALENDAR-DATAVERSION", version)
+
+def updateAddressBookDataVersion(store, version):
+    return updateDataVersion(store, "ADDRESSBOOK-DATAVERSION", version)
 
 @inlineCallbacks
 def doToEachCalendarHomeNotAtVersion(store, version, doIt):

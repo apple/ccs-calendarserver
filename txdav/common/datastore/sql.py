@@ -592,6 +592,9 @@ class CommonHome(LoggingMixIn):
     _revisionsTable = None
     _notificationRevisionsTable = NOTIFICATION_OBJECT_REVISIONS_TABLE
     
+    _dataVersionKey = None
+    _dataVersionValue = None
+    
     _cacher = None  # Initialize in derived classes
 
     def __init__(self, transaction, ownerUID, notifiers):
@@ -674,9 +677,14 @@ class CommonHome(LoggingMixIn):
             savepoint = SavepointAction("homeWithUID")
             yield savepoint.acquire(txn)
 
+            if cls._dataVersionValue is None:
+                cls._dataVersionValue = yield txn.calendarserverValue(cls._dataVersionKey)
             try:
                 resourceid = (yield Insert(
-                    {cls._homeSchema.OWNER_UID: uid},
+                    {
+                        cls._homeSchema.OWNER_UID: uid,
+                        cls._homeSchema.DATAVERSION: cls._dataVersionValue,
+                    },
                     Return=cls._homeSchema.RESOURCE_ID).on(txn))[0][0]
                 yield Insert(
                     {cls._homeMetaDataSchema.RESOURCE_ID: resourceid}).on(txn)

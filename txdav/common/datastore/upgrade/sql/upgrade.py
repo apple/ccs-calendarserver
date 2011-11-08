@@ -283,7 +283,7 @@ class UpgradeDatabaseDataService(UpgradeDatabaseCoreService):
         """
         super(UpgradeDatabaseDataService, self).__init__(sqlStore, service, uid, gid)
         
-        self.versionKey = "DATAVERSION"
+        self.versionKey = "CALENDAR-DATAVERSION"
         self.versionDescriptor = "data"
         self.upgradeFileSuffix = ".py"
 

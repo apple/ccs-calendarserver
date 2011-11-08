@@ -13,7 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
-import types
 
 """
 Tests for L{txdav.common.datastore.upgrade.sql.upgrade}.
@@ -186,9 +185,12 @@ class SchemaUpgradeTests(TestCase):
     @inlineCallbacks
     def test_dbDataUpgrades(self):
         """
-        This does a full DB test of all possible upgrade paths. For each old schema, it loads it into the DB
-        then runs the upgrade service. This ensures all the upgrade.sql files work correctly - at least for
+        This does a full DB test of all possible data upgrade paths. For each old schema, it loads it into the DB
+        then runs the data upgrade service. This ensures all the upgrade_XX.py files work correctly - at least for
         postgres.
+        
+        TODO: this currently does not create any calendar data to test with. It simply runs the upgrade on an empty
+        store.
         """
 
         store = yield theStoreBuilder.buildStore(
@@ -205,13 +207,13 @@ class SchemaUpgradeTests(TestCase):
             yield startTxn.execSQL("create schema test_dbUpgrades;")
             yield startTxn.execSQL("set search_path to test_dbUpgrades;")
             yield startTxn.execSQL(path.getContent())
-            yield startTxn.execSQL("update CALENDARSERVER set VALUE = '%s' where NAME = 'DATAVERSION';" % (oldVersion,))
+            yield startTxn.execSQL("update CALENDARSERVER set VALUE = '%s' where NAME = 'CALENDAR-DATAVERSION';" % (oldVersion,))
             yield startTxn.commit()
 
         @inlineCallbacks
         def _loadVersion():
             startTxn = store.newTransaction("test_dbUpgrades")        
-            new_version = yield startTxn.execSQL("select value from calendarserver where name = 'DATAVERSION';")
+            new_version = yield startTxn.execSQL("select value from calendarserver where name = 'CALENDAR-DATAVERSION';")
             yield startTxn.commit()
             returnValue(int(new_version[0][0]))
 
@@ -232,10 +234,10 @@ class SchemaUpgradeTests(TestCase):
         self.addCleanup(_cleanupOldData)
 
         test_upgrader = UpgradeDatabaseSchemaService(None, None)
-        expected_version = self._getSchemaVersion(test_upgrader.schemaLocation.child("current.sql"), "DATAVERSION")
+        expected_version = self._getSchemaVersion(test_upgrader.schemaLocation.child("current.sql"), "CALENDAR-DATAVERSION")
         versions = set()
         for child in test_upgrader.schemaLocation.child("old").globChildren("*.sql"):
-            versions.add(self._getSchemaVersion(child, "DATAVERSION"))
+            versions.add(self._getSchemaVersion(child, "CALENDAR-DATAVERSION"))
 
         for oldVersion in sorted(versions):
             upgrader = UpgradeDatabaseDataService(store, None)
