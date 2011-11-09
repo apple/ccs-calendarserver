@@ -332,7 +332,7 @@ class Directory(object):
         return "/" + "/".join(self.path)
 
     def describe(self):
-        return succeed("%s (%s)" % (self, self.__class__))
+        return succeed("%s (%s)" % (self, self.__class__.__name__))
 
     def locate(self, path):
         #log.msg("locate(%r)" % (path,))
