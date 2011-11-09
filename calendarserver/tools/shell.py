@@ -284,8 +284,18 @@ class ShellProtocol(ReceiveLineProtocol):
             raise UnknownArguments(tokens)
             return
 
-        for name in self.wd.list():
-            self.terminal.write("%s\n" % (name,))
+        def write(names):
+            #
+            # FIXME: this can be ugly if, for example, there are
+            # zillions of calendar homes or events to output. Paging
+            # would be good.
+            #
+            for name in names:
+                self.terminal.write("%s\n" % (name,))
+
+        d = self.wd.list()
+        d.addCallback(write)
+        return d
 
     def cmd_info(self, tokens):
         """
@@ -376,7 +386,7 @@ class Directory(object):
         return fail(NotFoundError("Directory %r has no subdirectory %r" % (str(self), name)))
 
     def list(self):
-        return ()
+        return succeed(())
 
 
 class RootDirectory(Directory):
@@ -403,7 +413,7 @@ class RootDirectory(Directory):
         return Directory.subdir(self, name)
 
     def list(self):
-        return ("%s/" % (n,) for n in self._childClasses)
+        return succeed(("%s/" % (n,) for n in self._childClasses))
 
 
 class UIDDirectory(Directory):
@@ -414,18 +424,20 @@ class UIDDirectory(Directory):
         txn = self.store.newTransaction()
 
         def gotHome(home):
-            if home:
-                return HomeDirectory(self.store, self.path + (name,), home)
+            if not home:
+                return fail(NotFoundError("No calendar home for UID %r" % (name,)))
 
-            return Directory.subdir(self, name)
+            return HomeDirectory(self.store, self.path + (name,), home)
 
         d = txn.calendarHomeWithUID(name)
         d.addCallback(gotHome)
         return d
 
     def list(self):
-        for (txn, home) in self.store.eachCalendarHome():
-            yield home.uid()
+        raise NotImplementedError("UIDDirectory.list() isn't implemented.")
+        d = self.store.eachCalendarHome()
+        d.addCallback(lambda homes: (home.uid() for (txn, home) in homes))
+        return d
 
 
 class HomeDirectory(Directory):
