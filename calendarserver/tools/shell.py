@@ -295,8 +295,12 @@ class ShellProtocol(ReceiveLineProtocol):
             raise UnknownArguments(tokens)
             return
 
+        def write(description):
+            self.terminal.write(description)
+            self.terminal.nextLine()
+
         d = self.wd.describe()
-        d.addCallback(lambda x: sys.stdout.write(x))
+        d.addCallback(write)
         return d
 
     def cmd_exit(self, tokens):
@@ -328,7 +332,7 @@ class Directory(object):
         return "/" + "/".join(self.path)
 
     def describe(self):
-        return succeed(str(self))
+        return succeed("%s (%s)" % (self, self.__class__))
 
     def locate(self, path):
         #log.msg("locate(%r)" % (path,))
