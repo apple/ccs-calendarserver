@@ -26,6 +26,7 @@ import tty
 import termios
 from shlex import shlex
 
+from twisted.python import log
 from twisted.python.log import startLogging
 from twisted.python.text import wordWrap
 from twisted.python.usage import Options, UsageError
@@ -93,8 +94,8 @@ class ShellService(Service, object):
         Start the service.
         """
         # For debugging
-        #f = open("/tmp/shell.log", "w")
-        #startLogging(f)
+        f = open("/tmp/shell.log", "w")
+        startLogging(f)
 
         super(ShellService, self).startService()
 
@@ -217,10 +218,10 @@ class ShellProtocol(ReceiveLineProtocol):
                     self.terminal.write("%s\n" % (f.value,))
 
                 def handleException(f):
-                    self.terminal.write("Error: %s\n" % (e,))
-                    self.terminal.write("-"*80 + "\n")
-                    self.terminal.write(f.getTraceback())
-                    self.terminal.write("-"*80 + "\n")
+                    self.terminal.write("Error: %s\n" % (f.value,))
+                    log.msg("-"*80 + "\n")
+                    log.msg(f.getTraceback())
+                    log.msg("-"*80 + "\n")
 
                 def next(_):
                     self.activeCommand = None
@@ -229,8 +230,7 @@ class ShellProtocol(ReceiveLineProtocol):
                         line = self.inputLines.pop(0)
                         self.lineReceived(line)
 
-                d = Deferred()
-                self.activeCommand = d
+                d = self.activeCommand = Deferred()
                 d.addCallback(lambda _: m(tokens))
                 if True:
                     d.callback(None)
@@ -239,7 +239,7 @@ class ShellProtocol(ReceiveLineProtocol):
                     self.service.reactor.callLater(4, d.callback, None)
                 d.addErrback(handleUnknownArguments)
                 d.addErrback(handleException)
-                d.addBoth(next)
+                d.addCallback(next)
             else:
                 self.terminal.write("Unknown command: %s\n" % (cmd,))
                 self.drawInputLine()
@@ -268,18 +268,12 @@ class ShellProtocol(ReceiveLineProtocol):
             raise UnknownArguments(tokens)
             return
 
-        path = dirname.split("/")
-
-        def notFound(f):
-            f.trap(NotFoundError)
-            self.terminal.write("No such directory: %s\n" % (dirname,))
-
         def setWD(wd):
+            log.msg("wd -> %s" % (wd,))
             self.wd = wd
 
-        d = self.wd.locate(path)
+        d = self.wd.locate(dirname.split("/"))
         d.addCallback(setWD)
-        d.addErrback(notFound)
         return d
 
     def cmd_ls(self, tokens):
@@ -337,14 +331,18 @@ class Directory(object):
         return succeed(str(self))
 
     def locate(self, path):
+        #log.msg("locate(%r)" % (path,))
+
         if not path:
             return succeed(RootDirectory(self.store))
 
         name = path[0]
+        #log.msg("  name: %s" % (name,))
         if not name:
-            return succeed(self.locate(path[1:]))
+            return self.locate(path[1:])
 
         path = list(path)
+        #log.msg("  path: %s" % (path,))
 
         if name.startswith("/"):
             path[0] = path[0][1:]
@@ -352,19 +350,24 @@ class Directory(object):
         else:
             path.pop(0)
             subdir = self.subdir(name)
+        #log.msg("  subdir: %s" % (subdir,))
 
         if path:
-            return subdir.addCallback(lambda path: self.locate(path))
+            return subdir.addCallback(lambda subdir: subdir.locate(path))
         else:
             return subdir
 
     def subdir(self, name):
+        #log.msg("subdir(%r)" % (name,))
         if not name:
             return succeed(self)
         if name == ".":
             return succeed(self)
         if name == "..":
-            return succeed(RootDirectory(self.store).locate(self.path[:-1]))
+            path = self.path[:-1]
+            if not path:
+                path = "/"
+            return RootDirectory(self.store).locate(path)
 
         return fail(NotFoundError("Directory %r has no subdirectory %r" % (str(self), name)))
 
