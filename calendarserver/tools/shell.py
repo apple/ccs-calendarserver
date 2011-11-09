@@ -450,16 +450,28 @@ class HomeDirectory(Directory):
         self.home = home
 
     def describe(self):
-        return succeed(
-            """Calendar home for UID: %(uid)s\n"""
-            """Quota: %(quotaUsed)s of %(quotaMax)s (%(quotaPercent).2s%%)\n"""
-            % {
-                "uid"          : self.home.uid(),
-                "quotaUsed"    : self.home.quotaUsed(),
-                "quotaMax"     : self.home.quotaAllowedBytes(),
-                "quotaPercent" : self.home.quotaUsed() / self.home.quotaAllowedBytes(),
-            }
-        )
+        d = maybeDeferred(self.home.quotaUsedBytes)
+
+        def gotQuotaUsed(quotaUsed):
+            quotaAllowed = self.home.quotaAllowedBytes()
+
+            return (
+                """Calendar home for UID: %(uid)s\n"""
+                """Quota: %(quotaUsed)s of %(quotaMax)s (%(quotaPercent).2s%%)"""
+                % {
+                    "uid"          : self.home.uid(),
+                    "quotaUsed"    : quotaUsed,
+                    "quotaMax"     : quotaAllowed,
+                    "quotaPercent" : quotaUsed / quotaAllowed,
+                }
+            )
+        d.addCallback(gotQuotaUsed)
+
+        return d
+
+    def list(self):
+        # FIXME
+        return succeed(())
 
 
 def main(argv=sys.argv, stderr=sys.stderr, reactor=None):
