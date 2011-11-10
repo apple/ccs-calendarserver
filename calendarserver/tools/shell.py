@@ -21,7 +21,6 @@ Interactive shell for navigating the data store.
 
 import os
 import sys
-import traceback
 import tty
 import termios
 from shlex import shlex
@@ -32,7 +31,6 @@ from twisted.python.text import wordWrap
 from twisted.python.usage import Options, UsageError
 from twisted.internet.defer import succeed, fail, maybeDeferred, Deferred
 from twisted.internet.stdio import StandardIO
-from twisted.conch.stdio import runWithProtocol as shellWithProtocol
 from twisted.conch.recvline import HistoricRecvLine as ReceiveLineProtocol
 from twisted.conch.insults.insults import ServerProtocol
 from twisted.application.service import Service
