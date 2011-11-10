@@ -232,6 +232,20 @@ class CommonStoreTransaction(DataStoreTransaction):
         return NotificationCollection.notificationsFromHome(self, home)
 
 
+    # File-based storage of APN subscriptions not implementated.
+    def addAPNSubscription(self, token, key, timestamp, subscriber):
+        return NotImplementedError
+
+    def removeAPNSubscription(self, token, key):
+        return NotImplementedError
+
+    def apnSubscriptionsByToken(self, token):
+        return NotImplementedError
+
+    def apnSubscriptionsByKey(self, key):
+        return NotImplementedError
+
+
 class StubResource(object):
     """
     Just enough resource to keep the shared sql DB classes going.
@@ -925,6 +939,8 @@ class CommonObjectResource(FileMetaDataMixin, LoggingMixIn, FancyEqMixin):
     def __repr__(self):
         return "<%s: %s>" % (self.__class__.__name__, self._path.path)
 
+    def transaction(self):
+        return self._transaction
 
     @writeOperation
     def setComponent(self, component, inserting=False):

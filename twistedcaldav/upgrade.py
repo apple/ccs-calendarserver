@@ -29,7 +29,6 @@ from twisted.python.reflect import namedClass
 
 from twistedcaldav.directory.appleopendirectory import OpenDirectoryService
 from twistedcaldav.directory.xmlfile import XMLDirectoryService
-from twistedcaldav.directory.calendaruserproxy import ProxySqliteDB
 from twistedcaldav.directory.directory import DirectoryService, GroupMembershipCacheUpdater
 from twistedcaldav.directory import calendaruserproxy
 from twistedcaldav.directory.calendaruserproxyloader import XMLCalendarUserProxyLoader
@@ -90,6 +89,7 @@ def getCalendarServerIDs(config):
 # Upconverts data from any calendar server version prior to data format 1
 #
 
+@inlineCallbacks
 def upgrade_to_1(config):
 
     errorOccurred = False
@@ -115,37 +115,9 @@ def upgrade_to_1(config):
 
 
 
-    def normalizeCUAddrs(data, directory):
-        cal = Component.fromString(data)
-
-        def lookupFunction(cuaddr):
-            try:
-                principal = directory.principalForCalendarUserAddress(cuaddr)
-            except Exception, e:
-                log.debug("Lookup of %s failed: %s" % (cuaddr, e))
-                principal = None
-
-            if principal is None:
-                return (None, None, None)
-            else:
-                rec = principal.record
-
-                # RFC5545 syntax does not allow backslash escaping in
-                # parameter values. A double-quote is thus not allowed
-                # in a parameter value except as the start/end delimiters.
-                # Single quotes are allowed, so we convert any double-quotes
-                # to single-quotes.
-                fullName = rec.fullName.replace('"', "'")
-
-                return (fullName, rec.guid, rec.calendarUserAddresses)
-
-        cal.normalizeCalendarUserAddresses(lookupFunction)
-
-        newData = str(cal)
-        return newData, not newData == data
 
 
-    def upgradeCalendarCollection(calPath, directory):
+    def upgradeCalendarCollection(calPath, directory, cuaCache):
 
         errorOccurred = False
         collectionUpdated = False
@@ -189,7 +161,7 @@ def upgrade_to_1(config):
                     continue
 
                 try:
-                    data, fixed = normalizeCUAddrs(data, directory)
+                    data, fixed = normalizeCUAddrs(data, directory, cuaCache)
                     if fixed:
                         log.debug("Normalized CUAddrs in %s" % (resPath,))
                         needsRewrite = True
@@ -236,7 +208,7 @@ def upgrade_to_1(config):
         return errorOccurred
 
 
-    def upgradeCalendarHome(homePath, directory):
+    def upgradeCalendarHome(homePath, directory, cuaCache):
 
         errorOccurred = False
 
@@ -254,7 +226,7 @@ def upgrade_to_1(config):
                     rmdir(calPath)
                     continue
                 log.debug("Upgrading calendar: %s" % (calPath,))
-                if not upgradeCalendarCollection(calPath, directory):
+                if not upgradeCalendarCollection(calPath, directory, cuaCache):
                     errorOccurred = True
 
                 # Change the calendar-free-busy-set xattrs of the inbox to the
@@ -337,20 +309,32 @@ def upgrade_to_1(config):
         os.rename(oldHome, newHome)
 
 
+    @inlineCallbacks
     def migrateResourceInfo(config, directory, uid, gid):
+        """
+        Retrieve delegate assignments and auto-schedule flag from the directory
+        service, because in "v1" that's where this info lived.
+        """
+
         log.info("Fetching delegate assignments and auto-schedule settings from directory")
-        resourceInfoDatabase = ResourceInfoDatabase(config.DataRoot)
-        calendarUserProxyDatabase = ProxySqliteDB(**config.ProxyDBService.params)
         resourceInfo = directory.getResourceInfo()
+        if len(resourceInfo) == 0:
+            # Nothing to migrate, or else not appleopendirectory
+            return
+
+        resourceInfoDatabase = ResourceInfoDatabase(config.DataRoot)
+        proxydbClass = namedClass(config.ProxyDBService.type)
+        calendarUserProxyDatabase = proxydbClass(**config.ProxyDBService.params)
+
         for guid, autoSchedule, proxy, readOnlyProxy in resourceInfo:
             resourceInfoDatabase.setAutoScheduleInDatabase(guid, autoSchedule)
             if proxy:
-                calendarUserProxyDatabase.setGroupMembersInDatabase(
+                yield calendarUserProxyDatabase.setGroupMembersInDatabase(
                     "%s#calendar-proxy-write" % (guid,),
                     [proxy]
                 )
             if readOnlyProxy:
-                calendarUserProxyDatabase.setGroupMembersInDatabase(
+                yield calendarUserProxyDatabase.setGroupMembersInDatabase(
                     "%s#calendar-proxy-read" % (guid,),
                     [readOnlyProxy]
                 )
@@ -380,6 +364,7 @@ def upgrade_to_1(config):
 
 
     directory = getDirectory()
+    cuaCache = {}
 
     docRoot = config.DocumentRoot
 
@@ -503,7 +488,7 @@ def upgrade_to_1(config):
                                         continue
 
                                     if not upgradeCalendarHome(homePath,
-                                        directory):
+                                        directory, cuaCache):
                                         errorOccurred = True
 
                                     count += 1
@@ -513,13 +498,65 @@ def upgrade_to_1(config):
 
                 log.warn("Done processing calendar homes")
 
-    # migrateResourceInfo(config, directory, uid, gid)
+    yield migrateResourceInfo(config, directory, uid, gid)
     createMailTokensDatabase(config, uid, gid)
 
     if errorOccurred:
         raise UpgradeError("Data upgrade failed, see error.log for details")
 
-    return succeed(None)
+
+def normalizeCUAddrs(data, directory, cuaCache):
+    """
+    Normalize calendar user addresses to urn:uuid: form.
+
+    @param data: the calendar data to convert
+    @type data: C{str}
+    @param directory: the directory service to lookup CUAs with
+    @type data: L{DirectoryService}
+    @param cuaCache: the dictionary to use as a cache across calls, which is
+        updated as a side-effect
+    @type cuaCache: C{dict}
+    @return: tuple of (converted calendar data, boolean signaling whether
+        there were any changes to the data)
+    """
+    cal = Component.fromString(data)
+
+    def lookupFunction(cuaddr):
+
+        # Return cached results, if any.
+        if cuaCache.has_key(cuaddr):
+            return cuaCache[cuaddr]
+
+        try:
+            principal = directory.principalForCalendarUserAddress(cuaddr)
+        except Exception, e:
+            log.debug("Lookup of %s failed: %s" % (cuaddr, e))
+            principal = None
+
+        if principal is None:
+            result = (None, None, None)
+        else:
+            rec = principal.record
+
+            # RFC5545 syntax does not allow backslash escaping in
+            # parameter values. A double-quote is thus not allowed
+            # in a parameter value except as the start/end delimiters.
+            # Single quotes are allowed, so we convert any double-quotes
+            # to single-quotes.
+            fullName = rec.fullName.replace('"', "'")
+
+            result = (fullName, rec.guid, rec.calendarUserAddresses)
+
+        # Cache the result
+        cuaCache[cuaddr] = result
+        return result
+
+    cal.normalizeCalendarUserAddresses(lookupFunction)
+
+    newData = str(cal)
+    return newData, not newData == data
+
+
 
 @inlineCallbacks
 def upgrade_to_2(config):
@@ -1027,6 +1064,9 @@ class PostDBImportService(Service, object):
 
         log.debug("Processing inbox item %s" % (inboxItem,))
 
+        txn = request._newStoreTransaction
+        txn._notifierFactory = None # Do not send push notifications
+
         ownerPrincipal = principal
         cua = "urn:uuid:%s" % (uuid,)
         owner = LocalCalendarUser(cua, ownerPrincipal,
@@ -1058,8 +1098,9 @@ class PostDBImportService(Service, object):
         else:
             log.warn("Removing invalid inbox item: %s" % (uri,))
 
+        #
         # Remove item
-        txn = request._newStoreTransaction
+        #
         yield inboxItem.storeRemove(request, True, uri)
         yield txn.commit()
 

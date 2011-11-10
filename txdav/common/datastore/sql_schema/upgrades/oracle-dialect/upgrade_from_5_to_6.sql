@@ -18,21 +18,21 @@
 -- Upgrade database schema from VERSION 5 to 6 --
 -------------------------------------------------
 
--- Just need to add one column
-alter table CALENDAR_HOME
- add ("DATAVERSION" integer default 1 null);
- 
--- Just need to modify one column
-alter table CALENDAR_OBJECT
- add ("SUPPORTED_COMPONENTS" nvarchar2(255) default null);
+---------------------------------------------------------
+-- New table for Apple Push Notification Subscriptions --
+---------------------------------------------------------
 
--- Just need to add one column
-alter table ADDRESSBOOK_HOME
- add ("DATAVERSION" integer default 1 null);
- 
+create table APN_SUBSCRIPTIONS (
+  TOKEN                         varchar(255) not null,
+  RESOURCE_KEY                  varchar(255) not null,
+  MODIFIED                      integer not null,
+  SUBSCRIBER_GUID               varchar(255) not null,
+  unique(TOKEN, RESOURCE_KEY) -- implicit index
+);
+
+create index APN_SUBSCRIPTIONS_RES_9610d78e
+  on APN_SUBSCRIPTIONS(RESOURCE_KEY);
+
 -- Now update the version
 update CALENDARSERVER set VALUE = '6' where NAME = 'VERSION';
 
--- Also insert the initial data version which we will use in the data upgrade
-insert into CALENDARSERVER values ('CALENDAR-DATAVERSION', '1');
-insert into CALENDARSERVER values ('ADDRESSBOOK-DATAVERSION', '1');

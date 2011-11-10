@@ -1020,6 +1020,7 @@ class _OracleOutParam(object):
 
     def postQuery(self, cursor):
         self.value = mapOracleOutputType(self.var.getvalue())
+        self.var = None
 
 
 

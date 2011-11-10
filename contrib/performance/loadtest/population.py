@@ -1,3 +1,4 @@
+# -*- test-case-name: contrib.performance.loadtest.test_population -*-
 ##
 # Copyright (c) 2010 Apple Inc. All rights reserved.
 #
@@ -149,7 +150,8 @@ class Populator(object):
 
 
 class CalendarClientSimulator(object):
-    def __init__(self, records, populator, parameters, reactor, server):
+    def __init__(self, records, populator, parameters, reactor, server,
+                 workerIndex=0, workerCount=1):
         self._records = records
         self.populator = populator
         self.reactor = reactor
@@ -157,6 +159,8 @@ class CalendarClientSimulator(object):
         self._pop = self.populator.populate(parameters)
         self._user = 0
         self._stopped = False
+        self.workerIndex = workerIndex
+        self.workerCount = workerCount
 
         TimezoneCache.create()
 
@@ -196,9 +200,15 @@ class CalendarClientSimulator(object):
     def add(self, numClients):
         for _ignore_n in range(numClients):
             number = self._nextUserNumber()
+            clientType = self._pop.next()
+            if (number % self.workerCount) != self.workerIndex:
+                # If we're in a distributed work scenario and we are worker N,
+                # we have to skip all but every Nth request (since every node
+                # runs the same arrival policy).
+                continue
+
             _ignore_user, auth = self._createUser(number)
 
-            clientType = self._pop.next()
             reactor = loggedReactor(self.reactor)
             client = clientType.new(
                 reactor, self.server, self.getUserRecord(number), auth)
@@ -210,6 +220,8 @@ class CalendarClientSimulator(object):
                 if profile.enabled:
                     d = profile.run()
                     d.addErrback(self._profileFailure, profileType, reactor)
+        # XXX this status message is prone to be slightly inaccurate, but isn't
+        # really used by much anyway.
         msg(type="status", clientCount=self._user - 1)
 
 

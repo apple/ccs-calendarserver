@@ -393,15 +393,14 @@ create table CALENDAR_OBJECT_REVISIONS (
   CALENDAR_NAME             varchar(255) default null,
   RESOURCE_NAME             varchar(255),
   REVISION                  integer      default nextval('REVISION_SEQ') not null,
-  DELETED                   boolean      not null,
-
-  unique(CALENDAR_RESOURCE_ID, RESOURCE_NAME) -- implicit index
+  DELETED                   boolean      not null
 );
-
 
 create index CALENDAR_OBJECT_REVISIONS_HOME_RESOURCE_ID
   on CALENDAR_OBJECT_REVISIONS(CALENDAR_HOME_RESOURCE_ID);
 
+create index CALENDAR_OBJECT_REVISIONS_RESOURCE_ID_RESOURCE_NAME
+  on CALENDAR_OBJECT_REVISIONS(CALENDAR_RESOURCE_ID, RESOURCE_NAME);
 
 -------------------------------
 -- AddressBook Object Revisions --
@@ -413,13 +412,14 @@ create table ADDRESSBOOK_OBJECT_REVISIONS (
   ADDRESSBOOK_NAME             varchar(255) default null,
   RESOURCE_NAME                varchar(255),
   REVISION                     integer      default nextval('REVISION_SEQ') not null,
-  DELETED                      boolean      not null,
-
-  unique(ADDRESSBOOK_RESOURCE_ID, RESOURCE_NAME) -- implicit index
+  DELETED                      boolean      not null
 );
 
 create index ADDRESSBOOK_OBJECT_REVISIONS_HOME_RESOURCE_ID
   on ADDRESSBOOK_OBJECT_REVISIONS(ADDRESSBOOK_HOME_RESOURCE_ID);
+
+create index ADDRESSBOOK_OBJECT_REVISIONS_RESOURCE_ID_RESOURCE_NAME
+  on ADDRESSBOOK_OBJECT_REVISIONS(ADDRESSBOOK_RESOURCE_ID, RESOURCE_NAME);
 
 -----------------------------------
 -- Notification Object Revisions --

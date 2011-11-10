@@ -499,6 +499,7 @@ class OperationLogger(SummarizingMixin):
 
     def observe(self, event):
         if event.get("type") == "operation":
+            event = event.copy()
             lag = event.get('lag')
             if lag is None:
                 event['lag'] = ''

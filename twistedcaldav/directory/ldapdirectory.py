@@ -257,7 +257,7 @@ class LdapDirectoryService(CachingDirectoryService):
         self.typeDNs = {}
         for recordType in self.recordTypes():
             self.typeDNs[recordType] = ldap.dn.str2dn(
-                self.rdnSchema[recordType]["rdn"]
+                self.rdnSchema[recordType]["rdn"].lower()
             ) + self.base
 
         # Create LDAP connection
@@ -431,6 +431,10 @@ class LdapDirectoryService(CachingDirectoryService):
                 self.authLDAP.simple_bind_s(dn, password)
                 # Getting here means success, so break the retry loop
                 break
+
+            except ldap.INAPPROPRIATE_AUTH:
+                # Seen when using an empty password, treat as invalid creds
+                raise ldap.INVALID_CREDENTIALS()
 
             except ldap.INVALID_CREDENTIALS:
                 raise
@@ -625,7 +629,7 @@ class LdapDirectoryService(CachingDirectoryService):
         uid = None
         enabledForLogin = True
 
-        shortNames = (self._getUniqueLdapAttribute(attrs, self.rdnSchema[recordType]["mapping"]["recordName"]),)
+        shortNames = tuple(self._getMultipleLdapAttributes(attrs, self.rdnSchema[recordType]["mapping"]["recordName"]))
 
         # First check for and add guid
         guidAttr = self.rdnSchema["guidAttr"]
@@ -891,7 +895,9 @@ class LdapDirectoryService(CachingDirectoryService):
         self.log_debug("Peforming principal property search for %s" % (fields,))
 
         if recordType is None:
-            recordTypes = self.recordTypes()
+            # Make a copy since we're modifying it
+            recordTypes = list(self.recordTypes())
+
             # principal-property-search syntax doesn't provide a way to ask
             # for 3 of the 4 types (either all types or a single type).  This
             # is wasteful in the case of iCal looking for event attendees
@@ -1028,12 +1034,16 @@ class LdapDirectoryService(CachingDirectoryService):
 
         returnValue(recordsByAlias.values())
 
-    def recordTypeForDN(self, dn):
+    def recordTypeForDN(self, dnStr):
         """
-        Examine a dn to determine which recordType it belongs to
+        Examine a DN to determine which recordType it belongs to
+        @param dn: DN to compare
+        @type dn: string
+        @return: recordType string, or None if no match
         """
+        dn = ldap.dn.str2dn(dnStr.lower())
         for recordType in self.recordTypes():
-            base = self.typeDNs[recordType]
+            base = self.typeDNs[recordType] # already lowercase
             if dnContainedIn(dn, base):
                 return recordType
         return None
@@ -1185,7 +1195,7 @@ class LdapDirectoryRecord(CachingDirectoryRecord):
 
                 dn, attrs = result.pop()
                 self.log_debug("Retrieved: %s %s" % (dn,attrs))
-                recordType = self.service.recordTypeForDN(ldap.dn.str2dn(dn))
+                recordType = self.service.recordTypeForDN(dn)
                 if recordType is None:
                     self.log_error("Unable to map %s to a record type" % (dn,))
                     continue

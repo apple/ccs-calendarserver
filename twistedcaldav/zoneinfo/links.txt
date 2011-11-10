@@ -33,11 +33,12 @@ Turkey	Europe/Istanbul
 America/Jujuy	America/Argentina/Jujuy
 America/Cordoba	America/Argentina/Cordoba
 Europe/Skopje	Europe/Belgrade
+America/Kralendijk	America/Curacao
 Australia/Tasmania	Australia/Hobart
 Europe/Jersey	Europe/London
 Europe/Nicosia	Asia/Nicosia
 Asia/Macao	Asia/Macau
-Eire	Europe/Dublin
+Australia/Canberra	Australia/Sydney
 ROK	Asia/Seoul
 US/Hawaii	Pacific/Honolulu
 Asia/Ujung_Pandang	Asia/Makassar
@@ -69,6 +70,7 @@ Asia/Ulan_Bator	Asia/Ulaanbaatar
 Kwajalein	Pacific/Kwajalein
 Australia/Yancowinna	Australia/Broken_Hill
 America/Marigot	America/Guadeloupe
+America/Lower_Princes	America/Curacao
 Greenwich	Etc/GMT
 America/Mendoza	America/Argentina/Mendoza
 Asia/Dacca	Asia/Dhaka
@@ -119,7 +121,7 @@ Australia/Queensland	Australia/Brisbane
 Africa/Timbuktu	Africa/Bamako
 UTC	Etc/UTC
 Mexico/BajaNorte	America/Tijuana
-Australia/Canberra	Australia/Sydney
+Eire	Europe/Dublin
 Europe/Zagreb	Europe/Belgrade
 Europe/Belfast	Europe/London
 Brazil/West	America/Manaus

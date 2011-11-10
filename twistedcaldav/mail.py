@@ -24,6 +24,7 @@ from __future__ import with_statement
 import datetime
 import email.utils
 import os
+import urlparse
 import uuid
 
 from cStringIO import StringIO
@@ -497,8 +498,8 @@ class IMIPReplyInboxResource(IMIPInboxResource):
         Set up a transaction which will be used and committed by implicit
         scheduling.
         """
-        txn = transactionFromRequest(request, self._newStore)
-        return super(IMIPReplyInboxResource, self).renderHTTP(request, txn)
+        self.transaction = transactionFromRequest(request, self._newStore)
+        return super(IMIPReplyInboxResource, self).renderHTTP(request, self.transaction)
 
     @inlineCallbacks
     def http_POST(self, request):
@@ -513,7 +514,7 @@ class IMIPReplyInboxResource(IMIPInboxResource):
         scheduler = IMIPScheduler(request, self)
 
         # Do the POST processing treating this as a non-local schedule
-        result = (yield scheduler.doSchedulingViaPOST(use_request_headers=True))
+        result = (yield scheduler.doSchedulingViaPOST(self.transaction, use_request_headers=True))
         returnValue(result.response())
 
 
@@ -545,8 +546,34 @@ class IMIPInvitationInboxResource(IMIPInboxResource):
         returnValue(Response(code=responsecode.OK))
 
 
+def injectionSettingsFromURL(url, config):
+    """
+    Given a url returned from server podding info (or None if not podding),
+    generate the url that should be used to inject an iMIP reply.  If the
+    url is None, then compute the url from config.
+    """
+    path = "inbox"
+    if url is None:
+        # Didn't get url from server podding configuration, so use caldavd.plist
+        if config.Scheduling.iMIP.MailGatewayServer == "localhost":
+            hostname = "localhost"
+        else:
+            hostname = config.ServerHostName
+        if config.EnableSSL:
+            useSSL = True
+            port = config.SSLPort
+        else:
+            useSSL = False
+            port = config.HTTPPort
+        scheme = "https:" if useSSL else "http:"
+        url = "%s//%s:%d/%s/" % (scheme, hostname, port, path)
+    else:
+        url = "%s/%s/" % (url.rstrip("/"), path)
+    return url
 
-def injectMessage(organizer, attendee, calendar, msgId, reactor=None):
+
+
+def injectMessage(url, organizer, attendee, calendar, msgId, reactor=None):
 
     if reactor is None:
         reactor = _reactor
@@ -559,22 +586,8 @@ def injectMessage(organizer, attendee, calendar, msgId, reactor=None):
     }
 
     data = str(calendar)
-
-    if config.EnableSSL:
-        useSSL = True
-        port = config.SSLPort
-    else:
-        useSSL = False
-        port = config.HTTPPort
-
-    # If we're running on same host as calendar server, inject via localhost
-    if config.Scheduling.iMIP.MailGatewayServer == 'localhost':
-        host = 'localhost'
-    else:
-        host = config.ServerHostName
-    path = "inbox"
-    scheme = "https:" if useSSL else "http:"
-    url = "%s//%s:%d/%s/" % (scheme, host, port, path)
+    url = injectionSettingsFromURL(url, config)
+    parsed = urlparse.urlparse(url)
 
     log.debug("Injecting to %s: %s %s" % (url, str(headers), data))
 
@@ -584,10 +597,11 @@ def injectMessage(organizer, attendee, calendar, msgId, reactor=None):
     factory.noisy = False
     factory.protocol = AuthorizedHTTPGetter
 
-    if useSSL:
-        reactor.connectSSL(host, port, factory, ssl.ClientContextFactory())
+    if parsed.scheme == "https":
+        reactor.connectSSL(parsed.hostname, parsed.port, factory,
+            ssl.ClientContextFactory())
     else:
-        reactor.connectTCP(host, port, factory)
+        reactor.connectTCP(parsed.hostname, parsed.port, factory)
 
     def _success(result, msgId):
         log.info("Mail gateway successfully injected message %s" % (msgId,))
@@ -601,6 +615,33 @@ def injectMessage(organizer, attendee, calendar, msgId, reactor=None):
     return factory.deferred
 
 
+def serverForOrganizer(directory, organizer):
+    """
+    Return the URL for the server hosting the organizer, or None if podding
+    is not enabled or organizer is hosted locally.
+    Raises ServerNotFound if we can't find the record for the organizer.
+    @param directory: service to look for organizer in
+    @type directory: L{DirectoryService}
+    @param organizer: CUA of organizer
+    @type organizer: C{str}
+    @return: string URL
+    """
+    record = directory.recordWithCalendarUserAddress(organizer)
+    if record is None:
+        log.warn("Can't find server for %s" % (organizer,))
+        raise ServerNotFound()
+
+    server = record.server() # None means hosted locally
+    if server is None:
+        return None
+    else:
+        return server.uri
+
+
+class ServerNotFound(Exception):
+    """
+    Can't determine which server is hosting a given user
+    """
 
 
 class MailGatewayTokensDatabase(AbstractSQLDatabase, LoggingMixIn):
@@ -957,8 +998,16 @@ class MailHandler(LoggingMixIn):
             # TODO: what to do in this case?
             pass
 
-        self.log_warn("Mail gateway processing DSN %s" % (msgId,))
-        return fn(organizer, attendee, calendar, msgId)
+        try:
+            hostname = serverForOrganizer(self.directory, organizer)
+        except ServerNotFound:
+            # We can't determine which server hosts the organizer
+            self.log_error("Unable to determine which server hosts organizer %s"
+                % (organizer,))
+            return succeed(None)
+
+        self.log_warn("Mail gateway processing DSN %s to server %s" % (msgId, hostname))
+        return fn(hostname, organizer, attendee, calendar, msgId)
 
     def processReply(self, msg, injectFunction, testMode=False):
         # extract the token from the To header
@@ -1076,7 +1125,16 @@ class MailHandler(LoggingMixIn):
             # the appropriate ATTENDEE.  This will require a new localizable
             # email template for the message.
 
-        return injectFunction(organizer, attendee, calendar, msg['Message-ID'])
+        try:
+            hostname = serverForOrganizer(self.directory, organizer)
+        except ServerNotFound:
+            # We can't determine which server hosts the organizer
+            self.log_error("Unable to determine which server hosts organizer %s"
+                % (organizer,))
+            return succeed(None)
+
+        return injectFunction(hostname, organizer, attendee, calendar,
+            msg['Message-ID'])
 
 
     def inbound(self, message, fn=injectMessage):

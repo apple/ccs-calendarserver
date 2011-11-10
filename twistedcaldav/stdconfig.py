@@ -34,6 +34,8 @@ from twistedcaldav.config import config, _mergeData, fullServerPath
 from twistedcaldav.util import getPasswordFromKeychain
 from twistedcaldav.util import KeychainAccessError, KeychainPasswordNotFound
 
+from calendarserver.push.util import getAPNTopicFromCertificate
+
 log = Logger()
 
 
@@ -353,8 +355,8 @@ DEFAULT_CONFIG = {
     #    Augments for the directory service records to add calendar specific attributes.
     #
     "AugmentService": {
-        "type": "",
-        "params" : {}
+        "type": "twistedcaldav.directory.augment.AugmentXMLDB",
+        "params" : DEFAULT_AUGMENT_PARAMS["twistedcaldav.directory.augment.AugmentXMLDB"],
     },
 
     #
@@ -470,6 +472,8 @@ DEFAULT_CONFIG = {
     #
     "EnableSACLs": False,
 
+    "EnableReadOnlyServer": False, # Make all data read-only
+
     #
     # Standard (or draft) WebDAV extensions
     #
@@ -529,13 +533,13 @@ DEFAULT_CONFIG = {
 
     # CardDAV Features
     "DirectoryAddressBook": {
-        "Enabled": False,
+        "Enabled": True,
         "type":    "twistedcaldav.directory.opendirectorybacker.OpenDirectoryBackingService",
         "params":  directoryAddressBookBackingServiceDefaultParams["twistedcaldav.directory.opendirectorybacker.OpenDirectoryBackingService"],
         "name":    "directory",
         "MaxQueryResults": 1000,
     },
-    "EnableSearchAddressBook": True, # /directory resource exists
+    "EnableSearchAddressBook": False, # /directory resource exists
     "AnonymousDirectoryAddressBookAccess": False, # Anonymous users may access directory address book
 
     "GlobalAddressBook": {
@@ -635,6 +639,28 @@ DEFAULT_CONFIG = {
                 "Enabled" : False,
                 "Port" : 62308,
             },
+            "ApplePushNotifier" : {
+                "Service" : "calendarserver.push.applepush.ApplePushNotifierService",
+                "Enabled" : False,
+                "SubscriptionURL" : "apns",
+                "DataHost" : "",
+                "ProviderHost" : "gateway.push.apple.com",
+                "ProviderPort" : 2195,
+                "FeedbackHost" : "feedback.push.apple.com",
+                "FeedbackPort" : 2196,
+                "FeedbackUpdateSeconds" : 300, # 5 minutes
+                "Environment" : "PRODUCTION",
+                "CalDAV" : {
+                    "CertificatePath" : "",
+                    "PrivateKeyPath" : "",
+                    "Topic" : "",
+                },
+                "CardDAV" : {
+                    "CertificatePath" : "",
+                    "PrivateKeyPath" : "",
+                    "Topic" : "",
+                },
+            },
             "XMPPNotifier" : {
                 "Service" : "twistedcaldav.notify.XMPPNotifierService",
                 "Enabled" : False,
@@ -681,6 +707,16 @@ DEFAULT_CONFIG = {
     # Set the maximum number of outstanding requests to this server.
     "MaxRequests": 80,
     "MaxAccepts": 1,
+
+    "MaxDBConnectionsPerPool": 10, # The maximum number of outstanding database
+                                   # connections per database connection pool.
+                                   # When SharedConnectionPool (see above) is
+                                   # set to True, this is the total number of
+                                   # outgoing database connections allowed to
+                                   # the entire server; when
+                                   # SharedConnectionPool is False - this is the
+                                   # default - this is the number of database
+                                   # connections used per worker process.
 
     "ListenBacklog": 2024,
     "IdleConnectionTimeOut": 15,
@@ -1179,6 +1215,23 @@ def _updateNotifications(configDict):
         configDict.Notifications["Enabled"] = False
 
     for key, service in configDict.Notifications["Services"].iteritems():
+
+        if (
+            service["Service"] == "calendarserver.push.applepush.ApplePushNotifierService" and
+            service["Enabled"]
+        ):
+            # The default for apple push DataHost is ServerHostName
+            if service["DataHost"] == "":
+                service["DataHost"] = configDict.ServerHostName
+
+            # Retrieve APN topics from certificates if not explicitly set
+            for protocol in ("CalDAV", "CardDAV"):
+                if not service[protocol]["Topic"]:
+                    certPath = service[protocol]["CertificatePath"]
+                    if certPath and os.path.exists(certPath):
+                        topic = getAPNTopicFromCertificate(certPath)
+                        service[protocol]["Topic"] = topic
+
         if (
             service["Service"] == "twistedcaldav.notify.XMPPNotifierService" and
             service["Enabled"]

@@ -129,6 +129,7 @@ class DataStoreTransaction(LoggingMixIn):
         self._termination = None
         self._operations = []
         self._postCommitOperations = []
+        self._postAbortOperations = []
         self._tracker = _CommitTracker(name)
 
 
@@ -162,6 +163,9 @@ class DataStoreTransaction(LoggingMixIn):
     def abort(self):
         self._terminate("aborted")
 
+        for operation in self._postAbortOperations:
+            operation()
+
 
     def commit(self):
         self._terminate("committed")
@@ -188,6 +192,9 @@ class DataStoreTransaction(LoggingMixIn):
 
     def postCommit(self, operation):
         self._postCommitOperations.append(operation)
+
+    def postAbort(self, operation):
+        self._postAbortOperations.append(operation)
 
 class FileMetaDataMixin(object):
     

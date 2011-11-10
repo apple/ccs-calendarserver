@@ -396,15 +396,14 @@ create table CALENDAR_OBJECT_REVISIONS (
   CALENDAR_NAME             varchar(255) default null,
   RESOURCE_NAME             varchar(255),
   REVISION                  integer      default nextval('REVISION_SEQ') not null,
-  DELETED                   boolean      not null,
-
-  unique(CALENDAR_RESOURCE_ID, RESOURCE_NAME) -- implicit index
+  DELETED                   boolean      not null
 );
-
 
 create index CALENDAR_OBJECT_REVISIONS_HOME_RESOURCE_ID
   on CALENDAR_OBJECT_REVISIONS(CALENDAR_HOME_RESOURCE_ID);
 
+create index CALENDAR_OBJECT_REVISIONS_RESOURCE_ID_RESOURCE_NAME
+  on CALENDAR_OBJECT_REVISIONS(CALENDAR_RESOURCE_ID, RESOURCE_NAME);
 
 -------------------------------
 -- AddressBook Object Revisions --
@@ -416,13 +415,14 @@ create table ADDRESSBOOK_OBJECT_REVISIONS (
   ADDRESSBOOK_NAME             varchar(255) default null,
   RESOURCE_NAME                varchar(255),
   REVISION                     integer      default nextval('REVISION_SEQ') not null,
-  DELETED                      boolean      not null,
-
-  unique(ADDRESSBOOK_RESOURCE_ID, RESOURCE_NAME) -- implicit index
+  DELETED                      boolean      not null
 );
 
 create index ADDRESSBOOK_OBJECT_REVISIONS_HOME_RESOURCE_ID
   on ADDRESSBOOK_OBJECT_REVISIONS(ADDRESSBOOK_HOME_RESOURCE_ID);
+
+create index ADDRESSBOOK_OBJECT_REVISIONS_RESOURCE_ID_RESOURCE_NAME
+  on ADDRESSBOOK_OBJECT_REVISIONS(ADDRESSBOOK_RESOURCE_ID, RESOURCE_NAME);
 
 -----------------------------------
 -- Notification Object Revisions --
@@ -438,6 +438,22 @@ create table NOTIFICATION_OBJECT_REVISIONS (
 );
 
 
+-------------------------------------------
+-- Apple Push Notification Subscriptions --
+-------------------------------------------
+
+create table APN_SUBSCRIPTIONS (
+  TOKEN                         varchar(255) not null,
+  RESOURCE_KEY                  varchar(255) not null,
+  MODIFIED                      integer not null,
+  SUBSCRIBER_GUID               varchar(255) not null,
+  unique(TOKEN, RESOURCE_KEY) -- implicit index
+);
+
+create index APN_SUBSCRIPTIONS_RESOURCE_KEY
+   on APN_SUBSCRIPTIONS(RESOURCE_KEY);
+
+
 --------------------
 -- Schema Version --
 --------------------
@@ -447,6 +463,6 @@ create table CALENDARSERVER (
   VALUE                         varchar(255)
 );
 
-insert into CALENDARSERVER values ('VERSION', '6');
+insert into CALENDARSERVER values ('VERSION', '7');
 insert into CALENDARSERVER values ('CALENDAR-DATAVERSION', '2');
 insert into CALENDARSERVER values ('ADDRESSBOOK-DATAVERSION', '1');

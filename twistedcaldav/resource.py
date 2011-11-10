@@ -2214,7 +2214,10 @@ class CommonHomeResource(PropfindCacheMixin, SharedHomeMixin, CalDAVResource):
             returnValue(customxml.MaxCollections.fromString(config.MaxCollectionsPerHome))
             
         elif qname == (customxml.calendarserver_namespace, "push-transports"):
-            if config.Notifications.Services.XMPPNotifier.Enabled:
+
+            if (config.Notifications.Services.XMPPNotifier.Enabled or
+                config.Notifications.Services.ApplePushNotifier.Enabled):
+
                 nodeName = (yield self._newStoreHome.nodeName())
                 if nodeName:
                     notifierID = self._newStoreHome.notifierID()
@@ -2241,7 +2244,8 @@ class CommonHomeResource(PropfindCacheMixin, SharedHomeMixin, CalDAVResource):
                             )
 
                         pubSubConfiguration = getPubSubConfiguration(config)
-                        if pubSubConfiguration['xmpp-server']:
+                        if (pubSubConfiguration['enabled'] and
+                            pubSubConfiguration['xmpp-server']):
                             children.append(
                                 customxml.PubSubTransportProperty(
                                     customxml.PubSubXMPPServerProperty(
@@ -2258,7 +2262,8 @@ class CommonHomeResource(PropfindCacheMixin, SharedHomeMixin, CalDAVResource):
             returnValue(None)
 
         elif qname == (customxml.calendarserver_namespace, "pushkey"):
-            if config.Notifications.Services.XMPPNotifier.Enabled:
+            if (config.Notifications.Services.XMPPNotifier.Enabled or
+                config.Notifications.Services.ApplePushNotifier.Enabled):
                 nodeName = (yield self._newStoreHome.nodeName())
                 if nodeName:
                     returnValue(customxml.PubSubXMPPPushKeyProperty(nodeName))
@@ -2327,11 +2332,20 @@ class CommonHomeResource(PropfindCacheMixin, SharedHomeMixin, CalDAVResource):
     def defaultAccessControlList(self):
         myPrincipal = self.principalForRecord()
 
+        # Server may be read only
+        if config.EnableReadOnlyServer:
+            owner_privs = (
+                davxml.Privilege(davxml.Read()),
+                davxml.Privilege(davxml.ReadCurrentUserPrivilegeSet()),
+            )
+        else:
+            owner_privs = (davxml.Privilege(davxml.All()),)
+
         aces = (
-            # Inheritable DAV:all access for the resource's associated principal.
+            # Inheritable access for the resource's associated principal.
             davxml.ACE(
                 davxml.Principal(davxml.HRef(myPrincipal.principalURL())),
-                davxml.Grant(davxml.Privilege(davxml.All())),
+                davxml.Grant(*owner_privs),
                 davxml.Protected(),
                 TwistedACLInheritable(),
             ),
@@ -2490,11 +2504,20 @@ class CalendarHomeResource(CommonHomeResource):
     def defaultAccessControlList(self):
         myPrincipal = self.principalForRecord()
 
+        # Server may be read only
+        if config.EnableReadOnlyServer:
+            owner_privs = (
+                davxml.Privilege(davxml.Read()),
+                davxml.Privilege(davxml.ReadCurrentUserPrivilegeSet()),
+            )
+        else:
+            owner_privs = (davxml.Privilege(davxml.All()),)
+
         aces = (
-            # Inheritable DAV:all access for the resource's associated principal.
+            # Inheritable access for the resource's associated principal.
             davxml.ACE(
                 davxml.Principal(davxml.HRef(myPrincipal.principalURL())),
-                davxml.Grant(davxml.Privilege(davxml.All())),
+                davxml.Grant(*owner_privs),
                 davxml.Protected(),
                 TwistedACLInheritable(),
             ),
@@ -2513,6 +2536,19 @@ class CalendarHomeResource(CommonHomeResource):
         aces += config.AdminACEs
         
         if config.EnableProxyPrincipals:
+            # Server may be read only
+            if config.EnableReadOnlyServer:
+                rw_proxy_privs = (
+                    davxml.Privilege(davxml.Read()),
+                    davxml.Privilege(davxml.ReadCurrentUserPrivilegeSet()),
+                )
+            else:
+                rw_proxy_privs = (
+                    davxml.Privilege(davxml.Read()),
+                    davxml.Privilege(davxml.ReadCurrentUserPrivilegeSet()),
+                    davxml.Privilege(davxml.Write()),
+                )
+
             aces += (
                 # DAV:read/DAV:read-current-user-privilege-set access for this principal's calendar-proxy-read users.
                 davxml.ACE(
@@ -2527,11 +2563,7 @@ class CalendarHomeResource(CommonHomeResource):
                 # DAV:read/DAV:read-current-user-privilege-set/DAV:write access for this principal's calendar-proxy-write users.
                 davxml.ACE(
                     davxml.Principal(davxml.HRef(joinURL(myPrincipal.principalURL(), "calendar-proxy-write/"))),
-                    davxml.Grant(
-                        davxml.Privilege(davxml.Read()),
-                        davxml.Privilege(davxml.ReadCurrentUserPrivilegeSet()),
-                        davxml.Privilege(davxml.Write()),
-                    ),
+                    davxml.Grant(*rw_proxy_privs),
                     davxml.Protected(),
                     TwistedACLInheritable(),
                 ),
@@ -2656,8 +2688,10 @@ class AddressBookHomeResource (CommonHomeResource):
                     "Invalid URI",
                 ))
             else:
-                # Canonicalize the URL to __uids__ form
+                # Canonicalize the URL to __uids__ form and always ensure a trailing /
                 adbkURI = (yield adbk.canonicalURL(request))
+                if not adbkURI.endswith("/"):
+                    adbkURI += "/"
                 property = carddavxml.DefaultAddressBookURL(davxml.HRef(adbkURI))
 
         yield super(AddressBookHomeResource, self).writeProperty(property, request)
@@ -2719,6 +2753,10 @@ class AddressBookHomeResource (CommonHomeResource):
                 raise RuntimeError("No address books at all.")
 
             defaultAddressBookURL = joinURL(self.url(), anAddressBook.name())
+
+        # Always ensure a trailing /
+        if not defaultAddressBookURL.endswith("/"):
+            defaultAddressBookURL += "/"
 
         self.writeDeadProperty(
             carddavxml.DefaultAddressBookURL(

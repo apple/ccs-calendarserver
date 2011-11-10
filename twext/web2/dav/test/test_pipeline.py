@@ -21,12 +21,13 @@
 #
 # DRI: Wilfredo Sanchez, wsanchez@apple.com
 ##
+import sys, os
+
 from twisted.internet import utils
 from twext.web2.test import test_server
 from twext.web2 import resource
 from twext.web2 import http
 from twext.web2.test import test_http
-import sys
 
 from twisted.internet.defer import waitForDeferred, deferredGenerator
 
@@ -62,7 +63,9 @@ class SSLPipeline(test_http.SSLServerTest):
     def testAdvancedWorkingness(self):
         args = ('-u', util.sibpath(__file__, "tworequest_client.py"), "basic",
                 str(self.port), self.type)
-        d = waitForDeferred(utils.getProcessOutputAndValue(sys.executable, args=args))
+        d = waitForDeferred(utils.getProcessOutputAndValue(sys.executable,
+                                                           args=args,
+                                                           env=os.environ))
         yield d; out,err,code = d.getResult()
 
         self.assertEquals(code, 0, "Error output:\n%s" % (err,))

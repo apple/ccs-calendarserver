@@ -42,6 +42,13 @@ class FakeGrp(object):
         return FakeGroup()
 
 
+DEFAULT_AUGMENT_SERVICE = {
+    "params" : {
+        "xmlFiles" : ["augments.xml"],
+    },
+    "type" : "twistedcaldav.directory.augment.AugmentXMLDB",
+}
+
 class MigrationTests(twistedcaldav.test.util.TestCase):
     """
     Calendar Server Migration Tests

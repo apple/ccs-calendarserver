@@ -155,7 +155,7 @@ class ProxyPrincipalElement(DirectoryElement):
 
 class CalendarUserProxyPrincipalResource (
         CalDAVComplianceMixIn, PermissionsMixIn, DAVResourceWithChildrenMixin,
-        DAVPrincipalResource):
+        DAVPrincipalResource, LoggingMixIn):
     """
     Calendar user proxy principal resource.
     """
@@ -370,7 +370,6 @@ class CalendarUserProxyPrincipalResource (
         # Get member UIDs from database and map to principal resources
         members = yield self._index().getMembers(self.uid)
         found = []
-        missing = []
         for uid in members:
             p = self.pcollection.principalForUID(uid)
             if p:
@@ -379,14 +378,7 @@ class CalendarUserProxyPrincipalResource (
                 # existing principals are removed
                 yield self._index().refreshPrincipal(uid)
             else:
-                missing.append(uid)
-
-        # Clean-up ones that are missing
-        for uid in missing:
-            cacheTimeout = config.DirectoryService.params.get("cacheTimeout", 30) * 60 # in seconds
-
-            yield self._index().removePrincipal(uid,
-                delay=cacheTimeout*2)
+                self.log_warn("Delegate is missing from directory: %s" % (uid,))
 
         returnValue(found)
 

@@ -30,12 +30,14 @@ limitations under the License.
     <enable>true</enable>
     <enable-calendar>true</enable-calendar>
     <enable-addressbook>true</enable-addressbook>
+    <server-id>00001</server-id>
   </record>
   <record>
     <uid>5A985493-EE2C-4665-94CF-4DFEA3A89500</uid>
     <enable>true</enable>
     <enable-calendar>true</enable-calendar>
     <enable-addressbook>true</enable-addressbook>
+    <server-id>00002</server-id>
   </record>
   <record>
     <uid>8B4288F6-CC82-491D-8EF9-642EF4F3E7D0</uid>

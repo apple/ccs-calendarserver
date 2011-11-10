@@ -164,12 +164,14 @@ class Property (object):
     def removeParameterValue(self, paramname, paramvalue):
         
         paramname = paramname.upper()
-        for attr in tuple(self._pycard.getAttributes()):
-            if attr.getName().upper() == paramname:
-                for value in attr.getValues():
-                    if value == paramvalue:
-                        if not attr.removeValue(value):
-                            self._pycard.removeAttributes(paramname)
+        for attrName in self.parameterNames():
+            if attrName.upper() == paramname:
+                for attr in tuple(self._pycard.getAttributes()[attrName]):
+                    for value in attr.getValues():
+                        if value == paramvalue:
+                            if not attr.removeValue(value):
+                                self._pycard.removeAttributes(paramname)
+
 
 
 class Component (object):

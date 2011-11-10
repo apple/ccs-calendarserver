@@ -312,7 +312,7 @@ class AbstractCalendarIndex(AbstractSQLDatabase, LoggingMixIn):
             else:
                 dbuseruid = ""
 
-            qualifiers = calendarquery.sqlcalendarquery(filter, None, dbuseruid)
+            qualifiers = calendarquery.sqlcalendarquery(filter, None, dbuseruid, fbtype)
             if qualifiers is not None:
                 # Determine how far we need to extend the current expansion of
                 # events. If we have an open-ended time-range we will expand one
@@ -337,12 +337,6 @@ class AbstractCalendarIndex(AbstractSQLDatabase, LoggingMixIn):
             rowiter = self._db_execute("select NAME, UID, TYPE from RESOURCE")
         else:
             if fbtype:
-                # Lookup the useruid - try the empty (default) one if needed
-                dbuseruid = self._db_value_for_sql(
-                    "select PERUSERID from PERUSER where USERUID == :1",
-                    useruid,
-                )
-
                 # For a free-busy time-range query we return all instances
                 rowiter = self._db_execute(
                     "select DISTINCT RESOURCE.NAME, RESOURCE.UID, RESOURCE.TYPE, RESOURCE.ORGANIZER, TIMESPAN.FLOAT, TIMESPAN.START, TIMESPAN.END, TIMESPAN.FBTYPE, TIMESPAN.TRANSPARENT, TRANSPARENCY.TRANSPARENT" + 

@@ -69,7 +69,7 @@ from twistedcaldav import memcachepool
 from twistedcaldav.stdconfig import DEFAULT_CONFIG, DEFAULT_CONFIG_FILE
 from twistedcaldav.upgrade import UpgradeFileSystemFormatService, PostDBImportService
 
-from calendarserver.tap.util import pgServiceFromConfig
+from calendarserver.tap.util import pgServiceFromConfig, getDBPool
 
 from twext.enterprise.ienterprise import POSTGRES_DIALECT
 from twext.enterprise.ienterprise import ORACLE_DIALECT
@@ -88,7 +88,6 @@ from calendarserver.accesslog import RotatingFileAccessLoggingObserver
 from calendarserver.tap.util import getRootResource, computeProcessCount
 from calendarserver.tap.util import ConnectionWithPeer
 from calendarserver.tap.util import storeFromConfig
-from calendarserver.tap.util import transactionFactoryFromFD
 from calendarserver.tap.util import pgConnectorFromConfig
 from calendarserver.tap.util import oracleConnectorFromConfig
 from calendarserver.tools.util import checkDirectory
@@ -639,35 +638,7 @@ class CalDAVServiceMaker (LoggingMixIn):
         L{makeService_Combined}, which does the work of actually handling
         CalDAV and CardDAV requests.
         """
-        pool = None
-        if config.DBAMPFD:
-            txnFactory = transactionFactoryFromFD(int(config.DBAMPFD))
-        elif not config.UseDatabase:
-            txnFactory = None
-        elif not config.SharedConnectionPool:
-            dialect = POSTGRES_DIALECT
-            paramstyle = 'pyformat'
-            if config.DBType == '':
-                # get a PostgresService to tell us what the local connection
-                # info is, but *don't* start it (that would start one postgres
-                # master per slave, resulting in all kinds of mayhem...)
-                connectionFactory = pgServiceFromConfig(
-                    config, None).produceConnection
-            elif config.DBType == 'postgres':
-                connectionFactory = pgConnectorFromConfig(config)
-            elif config.DBType == 'oracle':
-                dialect = ORACLE_DIALECT
-                paramstyle = 'numeric'
-                connectionFactory = oracleConnectorFromConfig(config)
-            else:
-                raise UsageError("unknown DB type: %r" % (config.DBType,))
-            pool = ConnectionPool(connectionFactory, dialect=dialect,
-                                  paramstyle=paramstyle)
-            txnFactory = pool.connection
-        else:
-            raise UsageError(
-                "trying to use DB in slave, but no connection info from parent"
-            )
+        pool, txnFactory = getDBPool(config)
         store = storeFromConfig(config, txnFactory)
         result = self.requestProcessingService(options, store)
         if pool is not None:
@@ -965,7 +936,8 @@ class CalDAVServiceMaker (LoggingMixIn):
         def subServiceFactory(connectionFactory):
             ms = MultiService()
             cp = ConnectionPool(connectionFactory, dialect=dialect,
-                                paramstyle=paramstyle)
+                                paramstyle=paramstyle,
+                                maxConnections=config.MaxDBConnectionsPerPool)
             cp.setServiceParent(ms)
             store = storeFromConfig(config, cp.connection)
             mainService = createMainService(cp, store)

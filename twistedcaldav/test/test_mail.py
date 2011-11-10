@@ -16,26 +16,25 @@
 
 
 from cStringIO import StringIO
-import datetime
-import email
-
 from twisted.internet.defer import inlineCallbacks
-
-from twisted.web.template import Element, renderer, flattenString
-from twisted.python.modules import getModule
 from twisted.python.filepath import FilePath
-
-from twistedcaldav.test.util import TestCase
-
+from twisted.python.modules import getModule
+from twisted.web.template import Element, renderer, flattenString
+from twistedcaldav.config import config, ConfigDict
+from twistedcaldav.directory import augment
+from twistedcaldav.directory.xmlfile import XMLDirectoryService
 from twistedcaldav.ical import Component
-from twistedcaldav.config import config
-from twistedcaldav.scheduling.itip import iTIPRequestStatus
-
+from twistedcaldav.mail import injectionSettingsFromURL
+from twistedcaldav.mail import MailGatewayTokensDatabase
 from twistedcaldav.mail import MailHandler
 from twistedcaldav.mail import StringFormatTemplateLoader
-from twistedcaldav.mail import MailGatewayTokensDatabase
-
-from twistedcaldav.directory.directory import DirectoryRecord
+from twistedcaldav.mail import serverForOrganizer
+from twistedcaldav.scheduling.itip import iTIPRequestStatus
+from twistedcaldav.servers import Servers
+from twistedcaldav.test.util import TestCase
+from twistedcaldav.test.util import xmlFile, augmentsFile
+import datetime
+import email
 
 
 def echo(*args):
@@ -67,10 +66,29 @@ END:VCALENDAR
 class MailHandlerTests(TestCase):
 
     def setUp(self):
-        TestCase.setUp(self)
-        self.handler = MailHandler(dataRoot=":memory:")
+        super(MailHandlerTests, self).setUp()
+
+        self._setupServers(serverData)
+        self.directory = XMLDirectoryService(
+            {
+                'xmlFile' : xmlFile,
+                'augmentService' :
+                    augment.AugmentXMLDB(xmlFiles=(augmentsFile.path,)),
+            }
+        )
+        self.handler = MailHandler(dataRoot=":memory:", directory=self.directory)
         module = getModule(__name__)
         self.dataPath = module.filePath.sibling("data").child("mail")
+
+
+    def _setupServers(self, data):
+        self.patch(config, "ServerHostName", "caldav1.example.com")
+        self.patch(config, "HTTPPort", 8008)
+        self.patch(config.Servers, "Enabled", True)
+
+        xmlFile = StringIO(data)
+        servers = Servers
+        servers.load(xmlFile, ignoreIPLookupFailures=True)
 
 
     def dataFile(self, name):
@@ -80,6 +98,22 @@ class MailHandlerTests(TestCase):
         """
         return self.dataPath.child(name).getContent()
 
+    def test_serverDetection(self):
+        wsanchez = self.directory.recordWithShortName("users",
+            "wsanchez")
+        cdaboo = self.directory.recordWithShortName("users",
+            "cdaboo")
+        server = wsanchez.server()
+        self.assertEquals(server.uri, "http://caldav1.example.com:8008")
+        server = cdaboo.server()
+        self.assertEquals(server.uri, "https://caldav2.example.com:8843")
+
+        url = serverForOrganizer(self.directory,
+            "mailto:wsanchez@example.com")
+        self.assertEquals(url, "http://caldav1.example.com:8008")
+        url = serverForOrganizer(self.directory,
+            "mailto:cdaboo@example.com")
+        self.assertEquals(url, "https://caldav2.example.com:8843")
 
     def test_purge_and_lowercase(self):
         """
@@ -263,12 +297,13 @@ END:VCALENDAR
            None)
 
         # Make sure a known token *is* processed
-        token = self.handler.db.createToken("mailto:user01@example.com",
+        token = self.handler.db.createToken(
+            "urn:uuid:5A985493-EE2C-4665-94CF-4DFEA3A89500",
             "mailto:user02@example.com", "1E71F9C8-AEDA-48EB-98D0-76E898F6BB5C")
         calBody = template % token
-        organizer, attendee, calendar, msgId = self.handler.processDSN(calBody,
+        url, organizer, attendee, calendar, msgId = self.handler.processDSN(calBody,
             "xyzzy", echo)
-        self.assertEquals(organizer, 'mailto:user01@example.com')
+        self.assertEquals(organizer, 'urn:uuid:5A985493-EE2C-4665-94CF-4DFEA3A89500')
         self.assertEquals(attendee, 'mailto:user02@example.com')
         self.assertEquals(str(calendar), """BEGIN:VCALENDAR
 VERSION:2.0
@@ -298,7 +333,7 @@ DTSTART;TZID=US/Pacific:20080812T094500
 DTEND;TZID=US/Pacific:20080812T104500
 CREATED:20080812T191857Z
 DTSTAMP:20080812T191932Z
-ORGANIZER;CN=User 01:mailto:user01@example.com
+ORGANIZER;CN=User 01:urn:uuid:5A985493-EE2C-4665-94CF-4DFEA3A89500
 REQUEST-STATUS:5.1;Service unavailable
 SEQUENCE:2
 SUMMARY:New Event
@@ -318,35 +353,85 @@ END:VCALENDAR
 
         # Make sure a known token *is* processed
         self.handler.db.createToken(
-            "urn:uuid:9DC04A70-E6DD-11DF-9492-0800200C9A66",
+            "urn:uuid:5A985493-EE2C-4665-94CF-4DFEA3A89500",
             "mailto:xyzzy@example.com",
             icaluid="1E71F9C8-AEDA-48EB-98D0-76E898F6BB5C",
             token="d7cdf68d-8b73-4df1-ad3b-f08002fb285f"
         )
-        organizer, attendee, calendar, msgId = self.handler.processReply(msg,
-            echo)
+        url, organizer, attendee, calendar, msgId = self.handler.processReply(msg, echo)
+        self.assertEquals(url, "https://caldav2.example.com:8843")
         self.assertEquals(organizer,
-                          'urn:uuid:9DC04A70-E6DD-11DF-9492-0800200C9A66')
+                          'urn:uuid:5A985493-EE2C-4665-94CF-4DFEA3A89500')
         self.assertEquals(attendee, 'mailto:xyzzy@example.com')
         self.assertEquals(msgId,
                           '<1983F777-BE86-4B98-881E-06D938E60920@example.com>')
+
+    def test_injectionSettingsFromURL(self):
+        testData = (
+            (
+                None,
+                {
+                    "Scheduling": {
+                        "iMIP" : {
+                            "MailGatewayServer" : "localhost",
+                        },
+                    },
+                    "EnableSSL" : True,
+                    "ServerHostName" : "calendar.example.com",
+                    "HTTPPort" : 1111,
+                    "SSLPort" : 2222,
+                },
+                "https://localhost:2222/inbox/",
+            ),
+            (
+                None,
+                {
+                    "Scheduling": {
+                        "iMIP" : {
+                            "MailGatewayServer" : "mailgateway.example.com",
+                        },
+                    },
+                    "EnableSSL" : False,
+                    "ServerHostName" : "calendar.example.com",
+                    "HTTPPort" : 1111,
+                    "SSLPort" : 2222,
+                },
+                "http://calendar.example.com:1111/inbox/",
+            ),
+            (
+                "https://calendar.example.com:1234/",
+                { },
+                "https://calendar.example.com:1234/inbox/",
+            ),
+            (
+                "https://calendar.example.com:1234",
+                { },
+                "https://calendar.example.com:1234/inbox/",
+            ),
+        )
+
+        for url, configData, expected in testData:
+            self.assertEquals(
+                expected,
+                injectionSettingsFromURL(url, ConfigDict(mapping=configData))
+            )
 
     def test_processReplyMissingOrganizer(self):
         msg = email.message_from_string(self.dataFile('reply_missing_organizer'))
         # stick the token in the database first
         self.handler.db.createToken(
-            "urn:uuid:9DC04A70-E6DD-11DF-9492-0800200C9A66",
+            "urn:uuid:5A985493-EE2C-4665-94CF-4DFEA3A89500",
             "mailto:xyzzy@example.com",
             icaluid="1E71F9C8-AEDA-48EB-98D0-76E898F6BB5C",
             token="d7cdf68d-8b73-4df1-ad3b-f08002fb285f"
         )
 
-        organizer, attendee, calendar, msgId = self.handler.processReply(msg,
-            echo)
+        url, organizer, attendee, calendar, msgId = self.handler.processReply(
+            msg, echo)
         organizerProp = calendar.mainComponent().getOrganizerProperty()
         self.assertTrue(organizerProp is not None)
         self.assertEquals(organizer,
-                          "urn:uuid:9DC04A70-E6DD-11DF-9492-0800200C9A66")
+                          "urn:uuid:5A985493-EE2C-4665-94CF-4DFEA3A89500")
 
 
     def test_processReplyMissingAttendee(self):
@@ -354,14 +439,14 @@ END:VCALENDAR
 
         # stick the token in the database first
         self.handler.db.createToken(
-            "urn:uuid:9DC04A70-E6DD-11DF-9492-0800200C9A66",
+            "urn:uuid:5A985493-EE2C-4665-94CF-4DFEA3A89500",
             "mailto:xyzzy@example.com",
             icaluid="1E71F9C8-AEDA-48EB-98D0-76E898F6BB5C",
             token="d7cdf68d-8b73-4df1-ad3b-f08002fb285f"
         )
 
-        organizer, attendee, calendar, msgId = self.handler.processReply(msg,
-            echo)
+        url, organizer, attendee, calendar, msgId = self.handler.processReply(
+            msg, echo)
 
         # Since the expected attendee was missing, the reply processor should
         # have added an attendee back in with a "5.1;Service unavailable"
@@ -372,20 +457,12 @@ END:VCALENDAR
 
     def test_processReplyMissingAttachment(self):
 
-        # Fake a directory record
-        record = DirectoryRecord(self.handler.directory, "users",
-            "9DC04A70-E6DD-11DF-9492-0800200C9A66", shortNames=("user01",),
-            emailAddresses=("user01@example.com",))
-        record.enabled = True
-        self.handler.directory._tmpRecords[
-            "guids"]["9DC04A70-E6DD-11DF-9492-0800200C9A66"] = record
-
         msg = email.message_from_string(
             self.dataFile('reply_missing_attachment')
         )
         # stick the token in the database first
         self.handler.db.createToken(
-            "urn:uuid:9DC04A70-E6DD-11DF-9492-0800200C9A66",
+            "urn:uuid:5A985493-EE2C-4665-94CF-4DFEA3A89500",
             "mailto:xyzzy@example.com",
             icaluid="1E71F9C8-AEDA-48EB-98D0-76E898F6BB5C",
             token="d7cdf68d-8b73-4df1-ad3b-f08002fb285f"
@@ -393,7 +470,7 @@ END:VCALENDAR
 
         self.assertEquals(
             self.handler.processReply(msg, echo, testMode=True),
-            ("user01@example.com", "xyzzy@example.com")
+            ("cdaboo@example.com", "xyzzy@example.com")
         )
 
 
@@ -757,5 +834,31 @@ class MailGatewayTokensDatabaseTests(TestCase):
             ("organizer", "attendee", "icaluid"))
         self.db.deleteToken(token)
         self.assertEquals(self.db.lookupByToken(token), None)
+
+
+serverData = """<?xml version="1.0" encoding="utf-8"?>
+<servers>
+  <server>
+    <id>00001</id>
+    <uri>http://caldav1.example.com:8008</uri>
+    <allowed-from>127.0.0.1</allowed-from>
+    <shared-secret>foobar</shared-secret>
+  </server>
+  <server>
+    <id>00002</id>
+    <uri>https://caldav2.example.com:8843</uri>
+    <partitions>
+        <partition>
+            <id>A</id>
+            <uri>https://machine1.example.com:8443</uri>
+        </partition>
+        <partition>
+            <id>B</id>
+            <uri>https://machine2.example.com:8443</uri>
+        </partition>
+    </partitions>
+  </server>
+</servers>
+"""
 
 

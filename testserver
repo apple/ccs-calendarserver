@@ -69,5 +69,5 @@ fi;
 
 "${python}" twistedcaldav/test/data/makelargecalendars.py -o 9 -d "${documentroot}";
 
-cd "${cdt}" && "${python}" testcaldav.py -s "${serverinfo}" "$@";
+cd "${cdt}" && "${python}" testcaldav.py --print-details-onfail -s "${serverinfo}" "$@";
 

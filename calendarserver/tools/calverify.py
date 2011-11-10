@@ -279,7 +279,10 @@ class CalVerifyService(Service, object):
         cb = schema.CALENDAR_BIND
         ch = schema.CALENDAR_HOME
         tr = schema.TIME_RANGE
-        kwds = { "Start" : pyCalendarTodatetime(start) }
+        kwds = {
+            "Start" : pyCalendarTodatetime(start),
+            "Max"   : pyCalendarTodatetime(PyCalendarDateTime(1900, 1, 1))
+        }
         rows = (yield Select(
             [ch.OWNER_UID, co.RESOURCE_ID, co.ICALENDAR_UID, co.MD5, co.ORGANIZER,],
             From=ch.join(
@@ -289,7 +292,7 @@ class CalVerifyService(Service, object):
                     cb.CALENDAR_RESOURCE_NAME != "inbox").And(
                     co.ORGANIZER != "")).join(
                 tr, type="left", on=(co.RESOURCE_ID == tr.CALENDAR_OBJECT_RESOURCE_ID)),
-            Where=(tr.START_DATE >= Parameter("Start")).Or(co.RECURRANCE_MAX == "1900-01-01"),
+            Where=(tr.START_DATE >= Parameter("Start")).Or(co.RECURRANCE_MAX == Parameter("Max")),
             GroupBy=(ch.OWNER_UID, co.RESOURCE_ID, co.ICALENDAR_UID, co.MD5, co.ORGANIZER,),
         ).on(self.txn, **kwds))
         returnValue(tuple(rows))
@@ -306,6 +309,7 @@ class CalVerifyService(Service, object):
 
         results_missing = []
         results_mismatch = []
+        attendeeResIDs = {}
         organized_len = len(self.organized)
         organizer_div = 1 if organized_len < 100 else organized_len / 100
 
@@ -339,12 +343,17 @@ class CalVerifyService(Service, object):
                 owner, resid, uid, _ignore_md5, _ignore_organizer = attendeeEvent
                 calendar = yield self.getCalendar(resid)
                 eachAttendeesOwnStatus[owner] = self.buildAttendeeStates(calendar, self.start, self.end, attendee_only=owner)
+                attendeeResIDs[(owner, uid)] = resid
             
             # Look at each attendee in the organizer's meeting
             for organizerAttendee, organizerViewOfStatus in organizerViewOfAttendees.iteritems():
                 broken = False
 
                 self.matched_attendee_to_organizer[uid].add(organizerAttendee)
+                
+                attendeeRecord = self.directoryService().recordWithGUID(organizerAttendee)
+                if attendeeRecord is None or not attendeeRecord.thisServer():
+                    continue
 
                 # If an entry for the attendee exists, then check whether attendee status matches
                 if organizerAttendee in eachAttendeesOwnStatus:
@@ -354,14 +363,14 @@ class CalVerifyService(Service, object):
                         # Check that the difference is only cancelled or declined on the organizers side
                         for _ignore_organizerInstance, partstat in organizerViewOfStatus.difference(attendeeOwnStatus):
                             if partstat not in ("DECLINED", "CANCELLED"):
-                                results_mismatch.append((uid, organizer, organizerAttendee))
+                                results_mismatch.append((uid, resid, organizer, organizerAttendee))
                                 broken = True
                                 break
                         # Check that the difference is only cancelled on the attendees side
                         for _ignore_attendeeInstance, partstat in attendeeOwnStatus.difference(organizerViewOfStatus):
                             if partstat not in ("CANCELLED",):
                                 if not broken:
-                                    results_mismatch.append((uid, organizer, organizerAttendee))
+                                    results_mismatch.append((uid, resid, organizer, organizerAttendee))
                                 broken = True
                                 break
 
@@ -369,7 +378,7 @@ class CalVerifyService(Service, object):
                 else:
                     for _ignore_instance_id, partstat in organizerViewOfStatus:
                         if partstat not in ("DECLINED", "CANCELLED"):
-                            results_missing.append((uid, organizer, organizerAttendee,))
+                            results_missing.append((uid, resid, organizer, organizerAttendee,))
                             broken = True
                             break
                 
@@ -381,15 +390,16 @@ class CalVerifyService(Service, object):
                 
         # Print table of results
         table = tables.Table()
-        table.addHeader(("Organizer", "Attendee", "Event UID",))
+        table.addHeader(("Organizer", "Attendee", "Event UID", "Organizer RID",))
         for item in results_missing:
-            uid, organizer, attendee = item
+            uid, resid, organizer, attendee = item
             organizer_record = self.directoryService().recordWithGUID(organizer)
             attendee_record = self.directoryService().recordWithGUID(attendee)
             table.addRow((
                 "%s/%s (%s)" % (organizer_record.recordType if organizer_record else "-", organizer_record.shortNames[0] if organizer_record else "-", organizer,),
                 "%s/%s (%s)" % (attendee_record.recordType if attendee_record else "-", attendee_record.shortNames[0] if attendee_record else "-", attendee,),
                 uid,
+                resid,
             ))
         
         self.output.write("\n")
@@ -398,15 +408,17 @@ class CalVerifyService(Service, object):
             
         # Print table of results
         table = tables.Table()
-        table.addHeader(("Organizer", "Attendee", "Event UID",))
+        table.addHeader(("Organizer", "Attendee", "Event UID", "Organizer RID", "Attendee RID",))
         for item in results_mismatch:
-            uid, organizer, attendee = item
+            uid, org_resid, organizer, attendee = item
             organizer_record = self.directoryService().recordWithGUID(organizer)
             attendee_record = self.directoryService().recordWithGUID(attendee)
             table.addRow((
                 "%s/%s (%s)" % (organizer_record.recordType if organizer_record else "-", organizer_record.shortNames[0] if organizer_record else "-", organizer,),
                 "%s/%s (%s)" % (attendee_record.recordType if attendee_record else "-", attendee_record.shortNames[0] if attendee_record else "-", attendee,),
                 uid,
+                org_resid,
+                attendeeResIDs[(attendee, uid)],
             ))
         
         self.output.write("\n")
@@ -449,13 +461,17 @@ class CalVerifyService(Service, object):
                 continue
             organizer = organizer[9:]
 
+            organizerRecord = self.directoryService().recordWithGUID(organizer)
+            if not organizerRecord.thisServer():
+                continue
+
             if uid not in self.organized_byuid:
 
                 # Check whether attendee has all instances cancelled
                 if self.allCancelled(eachAttendeesOwnStatus):
                     continue
                 
-                missing.append((uid, attendee, organizer,))
+                missing.append((uid, attendee, organizer, resid,))
                 
                 # If there is a miss we fix by removing the attendee data
                 if self.fix:
@@ -467,7 +483,7 @@ class CalVerifyService(Service, object):
                 if self.allCancelled(eachAttendeesOwnStatus):
                     continue
 
-                mismatched.append((uid, attendee, organizer,))
+                mismatched.append((uid, attendee, organizer, resid,))
                 
                 # If there is a mismatch we fix by re-inviting the attendee
                 if self.fix:
@@ -476,20 +492,21 @@ class CalVerifyService(Service, object):
 
         # Print table of results
         table = tables.Table()
-        table.addHeader(("UID", "Owner", "Organizer",))
+        table.addHeader(("Organizer", "Attendee", "UID", "Attendee RID",))
         missing.sort()
         unique_set = set()
         for item in missing:
-            uid, attendee, organizer = item
+            uid, attendee, organizer, resid = item
             unique_set.add(uid)
             if organizer:
                 organizerRecord = self.directoryService().recordWithGUID(organizer)
                 organizer = "%s/%s (%s)" % (organizerRecord.recordType if organizerRecord else "-", organizerRecord.shortNames[0] if organizerRecord else "-", organizer,)
             attendeeRecord = self.directoryService().recordWithGUID(attendee)
             table.addRow((
-                uid,
-                "%s/%s (%s)" % (attendeeRecord.recordType if attendeeRecord else "-", attendeeRecord.shortNames[0] if attendeeRecord else "-", attendee,),
                 organizer,
+                "%s/%s (%s)" % (attendeeRecord.recordType if attendeeRecord else "-", attendeeRecord.shortNames[0] if attendeeRecord else "-", attendee,),
+                uid,
+                resid,
             ))
         
         self.output.write("\n")
@@ -498,18 +515,20 @@ class CalVerifyService(Service, object):
 
         # Print table of results
         table = tables.Table()
-        table.addHeader(("UID", "Owner", "Organizer",))
+        table.addHeader(("Organizer", "Attendee", "UID", "Organizer RID", "Attendee RID",))
         mismatched.sort()
         for item in mismatched:
-            uid, attendee, organizer = item
+            uid, attendee, organizer, resid = item
             if organizer:
                 organizerRecord = self.directoryService().recordWithGUID(organizer)
                 organizer = "%s/%s (%s)" % (organizerRecord.recordType if organizerRecord else "-", organizerRecord.shortNames[0] if organizerRecord else "-", organizer,)
             attendeeRecord = self.directoryService().recordWithGUID(attendee)
             table.addRow((
-                uid,
-                "%s/%s (%s)" % (attendeeRecord.recordType if attendeeRecord else "-", attendeeRecord.shortNames[0] if attendeeRecord else "-", attendee,),
                 organizer,
+                "%s/%s (%s)" % (attendeeRecord.recordType if attendeeRecord else "-", attendeeRecord.shortNames[0] if attendeeRecord else "-", attendee,),
+                uid,
+                self.organized_byuid[uid][1],
+                resid,
             ))
         
         self.output.write("\n")

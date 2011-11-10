@@ -937,6 +937,49 @@ class OpenDirectoryService(CachingDirectoryService):
 
             self.recordCacheForType(recordType).addRecord(record, indexType, origIndexKey)
 
+
+    def getResourceInfo(self):
+        """
+        Resource information including proxy assignments for resource and
+        locations, as well as auto-schedule settings, used to live in the
+        directory.  This method fetches old resource info for migration
+        purposes.
+        """
+        attrs = [
+            dsattributes.kDS1AttrGeneratedUID,
+            dsattributes.kDSNAttrResourceInfo,
+        ]
+
+        for recordType in (dsattributes.kDSStdRecordTypePlaces, dsattributes.kDSStdRecordTypeResources):
+            try:
+                self.log_debug("opendirectory.listAllRecordsWithAttributes_list(%r,%r,%r)" % (
+                    self.directory,
+                    recordType,
+                    attrs,
+                ))
+                results = self.odModule.listAllRecordsWithAttributes_list(
+                    self.directory,
+                    recordType,
+                    attrs,
+                )
+            except self.odModule.ODError, ex:
+                self.log_error("OpenDirectory (node=%s) error: %s" % (self.realmName, str(ex)))
+                raise
+
+            for (recordShortName, value) in results:
+                recordGUID = value.get(dsattributes.kDS1AttrGeneratedUID)
+                resourceInfo = value.get(dsattributes.kDSNAttrResourceInfo)
+                if resourceInfo is not None:
+                    if type(resourceInfo) is not str:
+                        resourceInfo = resourceInfo[0]
+                    try:
+                        autoSchedule, proxy, readOnlyProxy = self.parseResourceInfo(resourceInfo,
+                            recordGUID, recordType, recordShortName)
+                    except ValueError:
+                        continue
+                    yield recordGUID, autoSchedule, proxy, readOnlyProxy
+
+
     def isAvailable(self):
         """
         Returns True if all configured directory nodes are accessible, False otherwise

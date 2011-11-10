@@ -244,13 +244,15 @@ class Property (object):
         self._pycalendar.setAttributes({})
 
     def removeParameterValue(self, paramname, paramvalue):
-        
-        for attr in tuple(self._pycalendar.getAttributes()):
-            if attr.getName() == paramname:
-                for value in attr.getValues():
-                    if value == paramvalue:
-                        if not attr.removeValue(value):
-                            self._pycalendar.removeAttributes(paramname)
+
+        paramname = paramname.upper()
+        for attrName in self.parameterNames():
+            if attrName.upper() == paramname:
+                for attr in tuple(self._pycalendar.getAttributes()[attrName]):
+                    for value in attr.getValues():
+                        if value == paramvalue:
+                            if not attr.removeValue(value):
+                                self._pycalendar.removeAttributes(paramname)
 
     def containsTimeRange(self, start, end, defaulttz=None):
         """
@@ -1165,7 +1167,7 @@ class Component (object):
         newcomp.addProperty(Property("RECURRENCE-ID", dtstart.value(), params={}))
         
         if didCancel:
-            newcomp.addProperty(Property("STATUS", "CANCELLED"))
+            newcomp.replaceProperty(Property("STATUS", "CANCELLED"))
 
         # After creating/changing a component we need to do this to keep PyCalendar happy
         newcomp._pycalendar.finalise()

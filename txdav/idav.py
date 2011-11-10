@@ -210,6 +210,18 @@ class ITransaction(Interface):
         """
 
 
+    def postAbort(operation):
+        """
+        Registers an operation to be executed after the transaction is
+        aborted.
+
+        postAbort can be called multiple times, and operations are executed
+        in the order which they were registered.
+
+        @param operation: a callable.
+        """
+
+
     def store():
         """
         The store that this transaction was initiated from.

@@ -24,6 +24,7 @@ try:
     from twistedcaldav.directory import calendaruserproxy
     from twistedcaldav.directory.directory import GroupMembershipCache, GroupMembershipCacheUpdater
     from twisted.internet.defer import inlineCallbacks
+    import ldap
 except ImportError:
     print "Skipping because ldap module not installed"
 else:
@@ -152,7 +153,7 @@ else:
                     "base": "dc=example,dc=com",
                     "guidAttr": "apple-generateduid",
                     "users": {
-                        "rdn": "cn=users",
+                        "rdn": "cn=Users",
                         "attr": "uid", # used only to synthesize email address
                         "emailSuffix": None, # used only to synthesize email address
                         "filter": "(objectClass=apple-user)", # additional filter for this type
@@ -169,7 +170,7 @@ else:
                         },
                     },
                     "groups": {
-                        "rdn": "cn=groups",
+                        "rdn": "cn=Groups",
                         "attr": "cn", # used only to synthesize email address
                         "emailSuffix": None, # used only to synthesize email address
                         "filter": "(objectClass=apple-group)", # additional filter for this type
@@ -182,7 +183,7 @@ else:
                         },
                     },
                     "locations": {
-                        "rdn": "cn=places",
+                        "rdn": "cn=Places",
                         "attr": "cn", # used only to synthesize email address
                         "emailSuffix": None, # used only to synthesize email address
                         "filter": "(objectClass=apple-resource)", # additional filter for this type
@@ -197,7 +198,7 @@ else:
                         },
                     },
                     "resources": {
-                        "rdn": "cn=resources",
+                        "rdn": "cn=Resources",
                         "attr": "cn", # used only to synthesize email address
                         "emailSuffix": None, # used only to synthesize email address
                         "filter": "(objectClass=apple-resource)", # additional filter for this type
@@ -634,3 +635,26 @@ else:
             # Empty
             results = list(splitIntoBatches(set([]), 5)) # empty data
             self.assertEquals(results, [set([])])
+
+        def test_recordTypeForDN(self):
+            # Ensure dn comparison is case insensitive and ignores extra
+            # whitespace
+
+            # Base DNs for each recordtype should already be lowercase
+            for dn in self.service.typeDNs.itervalues():
+                dnStr = ldap.dn.dn2str(dn)
+                self.assertEquals(dnStr, dnStr.lower())
+
+            # Match
+            dnStr = "uid=foo,cn=USers ,dc=EXAMple,dc=com"
+            self.assertEquals(self.service.recordTypeForDN(dnStr), "users")
+            dnStr = "uid=foo,cn=PLaces,dc=EXAMple,dc=com"
+            self.assertEquals(self.service.recordTypeForDN(dnStr), "locations")
+            dnStr = "uid=foo,cn=Groups  ,dc=EXAMple,dc=com"
+            self.assertEquals(self.service.recordTypeForDN(dnStr), "groups")
+            dnStr = "uid=foo,cn=Resources  ,dc=EXAMple,dc=com"
+            self.assertEquals(self.service.recordTypeForDN(dnStr), "resources")
+
+            # No Match
+            dnStr = "uid=foo,cn=US ers ,dc=EXAMple,dc=com"
+            self.assertEquals(self.service.recordTypeForDN(dnStr), None)

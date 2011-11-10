@@ -24,6 +24,7 @@ of simple commands.
 from calendarserver.tap.util import directoryFromConfig
 from calendarserver.tools import tables
 from calendarserver.tools.cmdline import utilityMain
+from pycalendar.datetime import PyCalendarDateTime
 from twext.enterprise.dal.syntax import Select, Parameter, Count, Delete
 from twisted.application.service import Service
 from twisted.internet.defer import inlineCallbacks, returnValue
@@ -31,8 +32,11 @@ from twisted.python.filepath import FilePath
 from twisted.python.reflect import namedClass
 from twisted.python.text import wordWrap
 from twisted.python.usage import Options
+from twistedcaldav import caldavxml
 from twistedcaldav.config import config
+from twistedcaldav.datafilters.peruserdata import PerUserDataFilter
 from twistedcaldav.directory import calendaruserproxy
+from twistedcaldav.query import calendarqueryfilter
 from twistedcaldav.stdconfig import DEFAULT_CONFIG_FILE
 from txdav.common.datastore.sql_tables import schema, _BIND_MODE_OWN
 import os
@@ -131,6 +135,59 @@ class CalendarHomes(Cmd):
             From=ch,
         ).on(txn))
         returnValue(tuple([row[0] for row in rows]))
+
+
+class CalendarHomesSummary(Cmd):
+    
+    _name = "List Calendar Homes with summary information"
+    
+    @inlineCallbacks
+    def doIt(self, txn):
+        
+        uids = yield self.getCalendars(txn)
+        
+        results = {}
+        for uid, calname, count in sorted(uids, key=lambda x:x[0]):
+            totalname, totalcount = results.get(uid, (0, 0,))
+            if calname != "inbox":
+                totalname += 1
+                totalcount += count
+                results[uid] = (totalname, totalcount,)
+        
+        # Print table of results
+        table = tables.Table()
+        table.addHeader(("Owner UID", "Short Name", "Calendars", "Resources"))
+        for uid in sorted(results.keys()):
+            shortname = UserNameFromUID(txn, uid)
+            table.addRow((
+                uid,
+                shortname,
+                results[uid][0],
+                results[uid][1],
+            ))
+        
+        print "\n"
+        print "Calendars with resource count (total=%d):\n" % (len(results),)
+        table.printTable()
+
+    @inlineCallbacks
+    def getCalendars(self, txn):
+        ch = schema.CALENDAR_HOME
+        cb = schema.CALENDAR_BIND
+        co = schema.CALENDAR_OBJECT
+        rows = (yield Select(
+            [
+                ch.OWNER_UID,
+                cb.CALENDAR_RESOURCE_NAME,
+                Count(co.RESOURCE_ID),
+            ],
+            From=ch.join(
+                cb, type="inner", on=(ch.RESOURCE_ID == cb.CALENDAR_HOME_RESOURCE_ID).And(
+                    cb.BIND_MODE == _BIND_MODE_OWN)).join(
+                co, type="left", on=(cb.CALENDAR_RESOURCE_ID == co.CALENDAR_RESOURCE_ID)),
+            GroupBy=(ch.OWNER_UID, cb.CALENDAR_RESOURCE_NAME)
+        ).on(txn))
+        returnValue(tuple(rows))
 
 
 class Calendars(Cmd):
@@ -239,9 +296,16 @@ class Event(Cmd):
         except ValueError:
             print 'Resource ID must be an integer'
             returnValue(None)
-        data = yield self.getData(txn, rid)
-        if data:
+        result = yield self.getData(txn, rid)
+        if result:
+            resource, created, modified, data = result
+            table = tables.Table()
+            table.addRow(("Resource Name:", resource))
+            table.addRow(("Resource ID:", rid))
+            table.addRow(("Created", created))
+            table.addRow(("Modified", modified))
             print "\n"
+            table.printTable()
             print data
         else:
             print "Could not find resource"
@@ -251,12 +315,15 @@ class Event(Cmd):
         co = schema.CALENDAR_OBJECT
         rows = (yield Select(
             [
+                co.RESOURCE_NAME,
+                co.CREATED,
+                co.MODIFIED,
                 co.ICALENDAR_TEXT,
             ],
             From=co,
             Where=(co.RESOURCE_ID == Parameter("ResourceID")),
         ).on(txn, **{"ResourceID": rid}))
-        returnValue(rows[0][0] if rows else None)
+        returnValue(rows[0] if rows else None)
 
 class EventsByUID(Cmd):
     
@@ -509,6 +576,86 @@ class EventsByContent(Cmd):
         returnValue(tuple(rows))
 
 
+class EventsInTimerange(Cmd):
+    
+    _name = "Get Event Data within a specified time range"
+    
+    @inlineCallbacks
+    def doIt(self, txn):
+        
+        
+        uid = raw_input("Owner UID: ")
+        start = raw_input("Start Time (UTC YYYYMMDDTHHMMSSZ or YYYYMMDD): ")
+        if len(start) == 8:
+            start += "T000000Z"
+        end = raw_input("End Time (UTC YYYYMMDDTHHMMSSZ or YYYYMMDD): ")
+        if len(end) == 8:
+            end += "T000000Z"
+
+        try:
+            start = PyCalendarDateTime.parseText(start)
+        except ValueError:
+            print "Invalid start value"
+            returnValue(None)
+        try:
+            end = PyCalendarDateTime.parseText(end)
+        except ValueError:
+            print "Invalid end value"
+            returnValue(None)
+        timerange = caldavxml.TimeRange(start=start.getText(), end=end.getText())
+
+        home = yield txn.calendarHomeWithUID(uid)
+        if home is None:
+            print "Could not find calendar home"
+            returnValue(None)
+            
+        yield self.eventsForEachCalendar(home, uid, timerange)
+
+    @inlineCallbacks
+    def eventsForEachCalendar(self, home, uid, timerange):
+        
+        calendars = yield home.calendars()
+        for calendar in calendars:
+            if calendar.name() == "inbox":
+                continue
+            yield self.eventsInTimeRange(calendar, uid, timerange)
+
+    @inlineCallbacks
+    def eventsInTimeRange(self, calendar, uid, timerange):
+        
+        # Create fake filter element to match time-range
+        filter =  caldavxml.Filter(
+                      caldavxml.ComponentFilter(
+                          caldavxml.ComponentFilter(
+                              timerange,
+                              name=("VEVENT",),
+                          ),
+                          name="VCALENDAR",
+                       )
+                  )
+        filter = calendarqueryfilter.Filter(filter)
+        filter.settimezone(None)
+
+        matches = yield calendar._index.indexedSearch(filter, useruid=uid, fbtype=False)
+        if matches is None:
+            returnValue(None)
+        for name, _ignore_uid, _ignore_type in matches:
+            event = yield calendar.calendarObjectWithName(name)
+            ical_data = yield event.component()
+            ical_data = PerUserDataFilter(uid).filter(ical_data)
+            ical_data.stripKnownTimezones()
+
+            table = tables.Table()
+            table.addRow(("Calendar:", calendar.name(),))
+            table.addRow(("Resource Name:", name))
+            table.addRow(("Resource ID:", event._resourceID))
+            table.addRow(("Created", event.created()))
+            table.addRow(("Modified", event.modified()))
+            print "\n"
+            table.printTable()
+            print ical_data.getTextWithTimezones(includeTimezones=False)
+
+
 class Purge(Cmd):
     
     _name = "Purge all data from tables"
@@ -605,6 +752,7 @@ class DBInspectService(Service, object):
         
         # Register commands
         self.registerCommand(CalendarHomes)
+        self.registerCommand(CalendarHomesSummary)
         self.registerCommand(Calendars)
         self.registerCommand(Events)
         self.registerCommand(Event)
@@ -613,6 +761,7 @@ class DBInspectService(Service, object):
         self.registerCommand(EventsByOwner)
         self.registerCommand(EventsByOwnerCalendar)
         self.registerCommand(EventsByContent)
+        self.registerCommand(EventsInTimerange)
         self.doDBInspect()
 
 

@@ -189,7 +189,10 @@ class TestCase(twext.web2.dav.test.util.TestCase):
                 if childStructure.has_key("@xattrs"):
                     xattrs = childStructure["@xattrs"]
                     for attr, value in xattrs.iteritems():
-                        xattr.setxattr(childPath, attr, value)
+                        try:
+                            xattr.setxattr(childPath, attr, value)
+                        except IOError:
+                            pass
 
         createChildren(root, structure)
         return root
@@ -238,10 +241,12 @@ class TestCase(twext.web2.dav.test.util.TestCase):
 
                 childPath = os.path.join(parent, childName)
 
-                if (not os.path.exists(childPath) and
-                    not childStructure.has_key("@optional")):
-                    print "Missing:", childPath
-                    return False
+                if not os.path.exists(childPath):
+                    if childStructure.has_key("@optional"):
+                        return True
+                    else:
+                        print "Missing:", childPath
+                        return False
 
                 if childStructure.has_key("@contents"):
                     # This is a file
@@ -271,23 +276,30 @@ class TestCase(twext.web2.dav.test.util.TestCase):
                         return False
 
                 if childStructure.has_key("@xattrs"):
-                    xattrs = childStructure["@xattrs"]
-                    for attr, value in xattrs.iteritems():
-                        if isinstance(value, str):
-                            try:
+                    try:
+                        # See if we have xattr support; IOError if not
+                        try:
+                            xattr.getxattr(childPath, "test")
+                        except KeyError:
+                            pass
+
+                        xattrs = childStructure["@xattrs"]
+                        for attr, value in xattrs.iteritems():
+                            if isinstance(value, str):
                                 if xattr.getxattr(childPath, attr) != value:
                                     print "Xattr mismatch:", childPath, attr
                                     print (xattr.getxattr(childPath, attr), " != ", value)
                                     return False
-                            except:
-                                return False
-                        else: # method
-                            if not value(xattr.getxattr(childPath, attr)):
-                                return False
+                            else: # method
+                                if not value(xattr.getxattr(childPath, attr)):
+                                    return False
 
-                    for attr, value in xattr.xattr(childPath).iteritems():
-                        if attr not in xattrs:
-                            return False
+                        for attr, value in xattr.xattr(childPath).iteritems():
+                            if attr not in xattrs:
+                                return False
+                    except IOError:
+                        # xattr not enabled/supported
+                        pass
 
             if actual:
                 # There are unexpected children

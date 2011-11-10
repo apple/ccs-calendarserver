@@ -33,6 +33,20 @@ from twisted.python.reflect import namedObject
 class UpgradeDatabaseCoreService(Service, LoggingMixIn, object):
     """
     Base class for either schema or data upgrades on the database.
+
+    upgrade files in sql syntax that we can execute against the database to
+    accomplish the upgrade.
+
+    @ivar sqlStore: The store to operate on.
+
+    @type sqlStore: L{txdav.idav.IDataStore}
+
+    @ivar wrappedService: Wrapped L{IService} that will be started after this
+        L{UpgradeDatabaseSchemaService}'s work is done and the database schema
+        of C{sqlStore} is fully upgraded.  This may also be specified as
+        C{None}, in which case no service will be started.
+
+    @type wrappedService: L{IService} or C{NoneType}
     """
 
     @classmethod
@@ -52,6 +66,8 @@ class UpgradeDatabaseCoreService(Service, LoggingMixIn, object):
 
         @type service: L{IService}
 
+        @type store: L{txdav.idav.IDataStore}
+
         @return: a service
         @rtype: L{IService}
         """
@@ -60,9 +76,6 @@ class UpgradeDatabaseCoreService(Service, LoggingMixIn, object):
     def __init__(self, sqlStore, service, uid=None, gid=None):
         """
         Initialize the service.
-        
-        @param sqlStore: The store to operate on. Can be C{None} when doing unit tests.
-        @param service:  Wrapped service. Can be C{None} when doing unit tests.
         """
         self.wrappedService = service
         self.sqlStore = sqlStore
@@ -232,8 +245,19 @@ class UpgradeDatabaseCoreService(Service, LoggingMixIn, object):
 class UpgradeDatabaseSchemaService(UpgradeDatabaseCoreService):
     """
     Checks and upgrades the database schema. This assumes there are a bunch of
-    upgrade files in sql syntax that we can execute against the database to accomplish
-    the upgrade.
+    upgrade files in sql syntax that we can execute against the database to
+    accomplish the upgrade.
+
+    @ivar sqlStore: The store to operate on.
+
+    @type sqlStore: L{txdav.idav.IDataStore}
+
+    @ivar wrappedService: Wrapped L{IService} that will be started after this
+        L{UpgradeDatabaseSchemaService}'s work is done and the database schema
+        of C{sqlStore} is fully upgraded.  This may also be specified as
+        C{None}, in which case no service will be started.
+
+    @type wrappedService: L{IService} or C{NoneType}
     """
 
     def __init__(self, sqlStore, service, uid=None, gid=None):
@@ -270,8 +294,19 @@ class UpgradeDatabaseSchemaService(UpgradeDatabaseCoreService):
 class UpgradeDatabaseDataService(UpgradeDatabaseCoreService):
     """
     Checks and upgrades the database data. This assumes there are a bunch of
-    upgrade python modules that we can execute against the database to accomplish
-    the upgrade.
+    upgrade python modules that we can execute against the database to
+    accomplish the upgrade.
+
+    @ivar sqlStore: The store to operate on.
+
+    @type sqlStore: L{txdav.idav.IDataStore}
+
+    @ivar wrappedService: Wrapped L{IService} that will be started after this
+        L{UpgradeDatabaseSchemaService}'s work is done and the database schema
+        of C{sqlStore} is fully upgraded.  This may also be specified as
+        C{None}, in which case no service will be started.
+
+    @type wrappedService: L{IService} or C{NoneType}
     """
 
     def __init__(self, sqlStore, service, uid=None, gid=None):
