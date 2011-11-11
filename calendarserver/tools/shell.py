@@ -30,6 +30,7 @@ from twisted.python.log import startLogging
 from twisted.python.text import wordWrap
 from twisted.python.usage import Options, UsageError
 from twisted.internet.defer import succeed, fail, maybeDeferred, Deferred
+from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.internet.stdio import StandardIO
 from twisted.conch.recvline import HistoricRecvLine as ReceiveLineProtocol
 from twisted.conch.insults.insults import ServerProtocol
@@ -217,9 +218,10 @@ class ShellProtocol(ReceiveLineProtocol):
 
                 def handleException(f):
                     self.terminal.write("Error: %s\n" % (f.value,))
-                    log.msg("-"*80 + "\n")
-                    log.msg(f.getTraceback())
-                    log.msg("-"*80 + "\n")
+                    if not f.check(NotImplementedError):
+                        log.msg("-"*80 + "\n")
+                        log.msg(f.getTraceback())
+                        log.msg("-"*80 + "\n")
 
                 def next(_):
                     self.activeCommand = None
@@ -447,25 +449,37 @@ class HomeDirectory(Directory):
 
         self.home = home
 
+    @inlineCallbacks
     def describe(self):
-        d = maybeDeferred(self.home.quotaUsedBytes)
+        # created() -> int
+        # modified() -> int
+        # properties -> IPropertyStore
 
-        def gotQuotaUsed(quotaUsed):
-            quotaAllowed = self.home.quotaAllowedBytes()
+        uid          = self.home.uid()
+        created      = self.home.created()
+        modified     = self.home.modified()
+        quotaUsed    = (yield self.home.quotaUsedBytes())
+        quotaAllowed = self.home.quotaAllowedBytes()
+        quotaPercent = quotaUsed / quotaAllowed,
+        properties   = self.home.properties()
 
-            return (
-                """Calendar home for UID: %(uid)s\n"""
-                """Quota: %(quotaUsed)s of %(quotaMax)s (%(quotaPercent).2s%%)"""
-                % {
-                    "uid"          : self.home.uid(),
-                    "quotaUsed"    : quotaUsed,
-                    "quotaMax"     : quotaAllowed,
-                    "quotaPercent" : quotaUsed / quotaAllowed,
-                }
-            )
-        d.addCallback(gotQuotaUsed)
+        result = []
+        result.append("Calendar home for UID: %s" % (uid,))
+        if created is not None:
+            # FIXME: convert to string
+            result.append("Created: %s" % (created,))
+        if modified is not None:
+            # FIXME: convert to string
+            result.append("Last modified: %s" % (modified,))
+        if quotaUsed is not None:
+            result.append("Quota: %s of %s (%.2s%%)"
+                          % (quotaUsed, quotaAllowed, quotaUsed / quotaAllowed))
 
-        return d
+        if properties:
+            for name in sorted(properties):
+                result.append("%s: %s" % (name, properties[name]))
+
+        returnValue(result)
 
     def list(self):
         # FIXME
