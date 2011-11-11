@@ -637,10 +637,13 @@ class GroupMembershipCacheUpdater(LoggingMixIn):
             self.log_info("Applying proxy assignment changes")
             assignmentCount = 0
             for principalUID, members in assignments:
-                current = (yield self.proxyDB.getMembers(principalUID))
-                if members != current:
-                    assignmentCount += 1
-                    yield self.proxyDB.setGroupMembers(principalUID, members)
+                try:
+                    current = (yield self.proxyDB.getMembers(principalUID))
+                    if members != current:
+                        assignmentCount += 1
+                        yield self.proxyDB.setGroupMembers(principalUID, members)
+                except Exception, e:
+                    self.log_error("Unable to apply proxy assignment: principal=%s, members=%s, error=%s" % (principalUID, members, e))
             self.log_info("Applied %d assignment%s to proxy database" %
                 (assignmentCount, "" if assignmentCount == 1 else "s"))
 
