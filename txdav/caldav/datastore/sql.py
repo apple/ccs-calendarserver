@@ -264,6 +264,7 @@ class Calendar(CommonHomeChild):
         return self._home
 
 
+    # FIXME: resource type is DAV.  This doesn't belong in the data store.  -wsv
     def resourceType(self):
         return ResourceType.calendar #@UndefinedVariable
 
@@ -303,6 +304,8 @@ class Calendar(CommonHomeChild):
             ),
         )
 
+    # FIXME: this is DAV-ish.  Data store calendar objects don't have
+    # mime types.  -wsv
     def contentType(self):
         """
         The content type of Calendar objects is text/calendar.
@@ -1022,6 +1025,7 @@ class Attachment(object):
 
     def created(self):
         return self._created
+
 
     def modified(self):
         return self._modified
