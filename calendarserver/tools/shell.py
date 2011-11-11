@@ -427,7 +427,7 @@ class UIDDirectory(Directory):
             if not home:
                 return fail(NotFoundError("No calendar home for UID %r" % (name,)))
 
-            return HomeDirectory(self.store, self.path + (name,), home)
+            return CalendarHomeDirectory(self.store, self.path + (name,), home)
 
         d = txn.calendarHomeWithUID(name)
         d.addCallback(gotHome)
@@ -440,7 +440,7 @@ class UIDDirectory(Directory):
         return d
 
 
-class HomeDirectory(Directory):
+class CalendarHomeDirectory(Directory):
     """
     Home directory.
     """
@@ -478,9 +478,11 @@ class HomeDirectory(Directory):
             for name in sorted(properties):
                 result.append("%s: %s" % (name, properties[name]))
 
-        returnValue(result)
+        returnValue("\n".join(result))
 
     def list(self):
+        calendars = self.home.calendars()
+        
         # FIXME
         return succeed(())
 
