@@ -352,6 +352,9 @@ class SampleWebTest(BaseCase):
             (200, {}, "prepath:[] postpath:['consumed', 'path', 'segments']"))
 
     def test_redirectResource(self):
+        """
+        Make sure a redirect response has the correct status and Location header.
+        """
         redirectResource = resource.RedirectResource(scheme='https',
                                                      host='localhost',
                                                      port=443,
@@ -363,6 +366,10 @@ class SampleWebTest(BaseCase):
             (301, {'location': 'https://localhost/foo?bar=baz'}, None))
 
     def test_redirectResourceWithSchemeRemapping(self):
+        """
+        Make sure a redirect response has the correct status and Location header, when
+        SSL is on, and the client request uses scheme http with the SSL port.
+        """
 
         def chanrequest2(root, uri, length, headers, method, version, prepath, content):
             site = server.Site(root)
@@ -380,6 +387,10 @@ class SampleWebTest(BaseCase):
             (301, {'location': 'https://localhost:8443/foo'}, None))
 
     def test_redirectResourceWithoutSchemeRemapping(self):
+        """
+        Make sure a redirect response has the correct status and Location header, when
+        SSL is on, and the client request uses scheme http with the non-SSL port.
+        """
 
         def chanrequest2(root, uri, length, headers, method, version, prepath, content):
             site = server.Site(root)
@@ -397,6 +408,10 @@ class SampleWebTest(BaseCase):
             (301, {'location': 'http://localhost:8008/foo'}, None))
 
     def test_redirectResourceWithoutSSLSchemeRemapping(self):
+        """
+        Make sure a redirect response has the correct status and Location header, when
+        SSL is off, and the client request uses scheme http with the SSL port.
+        """
 
         def chanrequest2(root, uri, length, headers, method, version, prepath, content):
             site = server.Site(root)
