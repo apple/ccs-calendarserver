@@ -29,7 +29,7 @@ from twisted.python import log
 from twisted.python.log import startLogging
 from twisted.python.text import wordWrap
 from twisted.python.usage import Options, UsageError
-from twisted.internet.defer import succeed, fail, maybeDeferred, Deferred
+from twisted.internet.defer import succeed, fail, Deferred
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.internet.stdio import StandardIO
 from twisted.conch.recvline import HistoricRecvLine as ReceiveLineProtocol
@@ -460,7 +460,6 @@ class HomeDirectory(Directory):
         modified     = self.home.modified()
         quotaUsed    = (yield self.home.quotaUsedBytes())
         quotaAllowed = self.home.quotaAllowedBytes()
-        quotaPercent = quotaUsed / quotaAllowed,
         properties   = self.home.properties()
 
         result = []
