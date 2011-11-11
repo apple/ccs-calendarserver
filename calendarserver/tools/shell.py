@@ -455,12 +455,12 @@ class CalendarHomeDirectory(Directory):
         # modified() -> int
         # properties -> IPropertyStore
 
-        uid          = self.home.uid()
-        created      = self.home.created()
-        modified     = self.home.modified()
+        uid          = (yield self.home.uid())
+        created      = (yield self.home.created())
+        modified     = (yield self.home.modified())
         quotaUsed    = (yield self.home.quotaUsedBytes())
-        quotaAllowed = self.home.quotaAllowedBytes()
-        properties   = self.home.properties()
+        quotaAllowed = (yield self.home.quotaAllowedBytes())
+        properties   = (yield self.home.properties())
 
         result = []
         result.append("Calendar home for UID: %s" % (uid,))
@@ -480,11 +480,10 @@ class CalendarHomeDirectory(Directory):
 
         returnValue("\n".join(result))
 
+    @inlineCallbacks
     def list(self):
-        calendars = self.home.calendars()
-        
-        # FIXME
-        return succeed(())
+        calendars = (yield self.home.calendars())
+        returnValue((c.name() for c in calendars))
 
 
 def main(argv=sys.argv, stderr=sys.stderr, reactor=None):
