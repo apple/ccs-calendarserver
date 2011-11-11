@@ -420,18 +420,15 @@ class UIDDirectory(Directory):
     """
     Directory containing all principals by UID.
     """
+    @inlineCallbacks
     def subdir(self, name):
-        txn = self.store.newTransaction()
+        txn  = self.store.newTransaction()
+        home = (yield txn.calendarHomeWithUID(name))
 
-        def gotHome(home):
-            if not home:
-                return fail(NotFoundError("No calendar home for UID %r" % (name,)))
-
-            return CalendarHomeDirectory(self.store, self.path + (name,), home)
-
-        d = txn.calendarHomeWithUID(name)
-        d.addCallback(gotHome)
-        return d
+        if home:
+            returnValue(CalendarHomeDirectory(self.store, self.path + (name,), home))
+        else:
+            raise NotFoundError("No calendar home for UID %r" % (name,))
 
     def list(self):
         raise NotImplementedError("UIDDirectory.list() isn't implemented.")
@@ -481,9 +478,27 @@ class CalendarHomeDirectory(Directory):
         returnValue("\n".join(result))
 
     @inlineCallbacks
+    def subdir(self, name):
+        calendar = (yield self.home.calendarWithName(name))
+        if calendar:
+            returnValue(Calendar(self.store, self.path + (name,), calendar))
+        else:
+            raise NotFoundError("No calendar named %r" % (name,))
+
+    @inlineCallbacks
     def list(self):
         calendars = (yield self.home.calendars())
         returnValue((c.name() for c in calendars))
+
+
+class Calendar(Directory):
+    """
+    Calendar.
+    """
+    def __init__(self, store, path, calendar):
+        Directory.__init__(self, store, path)
+
+        self.calendar = calendar
 
 
 def main(argv=sys.argv, stderr=sys.stderr, reactor=None):
