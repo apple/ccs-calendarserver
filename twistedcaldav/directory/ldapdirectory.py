@@ -1068,7 +1068,7 @@ def normalizeDNstr(dnStr):
     @type dnStr: C{str}
     @return: normalized dn C{str}
     """
-    return ldap.dn.dn2str(ldap.dn.str2dn(dnStr.lower()))
+    return ' '.join(ldap.dn.dn2str(ldap.dn.str2dn(dnStr.lower())).split())
 
 
 def buildFilter(mapping, fields, operand="or"):

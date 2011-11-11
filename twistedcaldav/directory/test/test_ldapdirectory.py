@@ -671,5 +671,7 @@ else:
                  "uid=foo,cn=users,dc=example,dc=com"),
                 ("uid=FoO , cn=uS eRs , dc=ExA mPlE ,   dc=CoM",
                  "uid=foo,cn=us ers,dc=exa mple,dc=com"),
+                ("uid=FoO , cn=uS  eRs , dc=ExA    mPlE ,   dc=CoM",
+                 "uid=foo,cn=us ers,dc=exa mple,dc=com"),
             ):
                 self.assertEquals(expected, normalizeDNstr(input))
