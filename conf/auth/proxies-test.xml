@@ -28,4 +28,13 @@ limitations under the License.
       <member>user03</member>
     </read-only-proxies>
   </record>
+  <record>
+    <guid>delegatedroom</guid>
+    <proxies>
+      <member>group05</member>
+    </proxies>
+    <read-only-proxies>
+      <member>group07</member>
+    </read-only-proxies>
+  </record>
 </proxies>

@@ -1,7 +1,7 @@
 # -*- test-case-name: twext.web2.test.test_server -*-
 ##
 # Copyright (c) 2001-2008 Twisted Matrix Laboratories.
-# Copyright (c) 2010 Apple Computer, Inc. All rights reserved.
+# Copyright (c) 2010-2011 Apple Computer, Inc. All rights reserved.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -296,6 +296,31 @@ class Request(http.Request):
             self.postpath = path
         #print "_parseURL", self.uri, (self.uri, self.scheme, self.host, self.path, self.params, self.querystring)
 
+    def _schemeFromPort(self, port):
+        """
+        Try to determine the scheme matching the supplied server port. This is needed in case
+        where a device in front of the server is changing the scheme (e.g. decoding SSL) but not
+        rewriting the scheme in URIs returned in responses (e.g. in Location headers). This could trick
+        clients into using an inappropriate scheme for subsequent requests. What we should do is
+        take the port number from the Host header or request-URI and map that to the scheme that
+        matches the service we configured to listen on that port.
+ 
+        @param port: the port number to test
+        @type port: C{int}
+        
+        @return: C{True} if scheme is https (secure), C{False} otherwise
+        @rtype: C{bool}
+        """
+
+        #from twistedcaldav.config import config
+        if hasattr(self.site, "EnableSSL") and self.site.EnableSSL:
+            if port == self.site.SSLPort:
+                return True
+            elif port in self.site.BindSSLPorts:
+                return True
+        
+        return False
+
     def _fixupURLParts(self):
         hostaddr, secure = self.chanRequest.getHostInfo()
         if not self.scheme:
@@ -303,11 +328,13 @@ class Request(http.Request):
 
         if self.host:
             self.host, self.port = http.splitHostPort(self.scheme, self.host)
+            self.scheme = ('http', 'https')[self._schemeFromPort(self.port)]
         else:
             # If GET line wasn't an absolute URL
             host = self.headers.getHeader('host')
             if host:
                 self.host, self.port = http.splitHostPort(self.scheme, host)
+                self.scheme = ('http', 'https')[self._schemeFromPort(self.port)]
             else:
                 # When no hostname specified anywhere, either raise an
                 # error, or use the interface hostname, depending on
@@ -465,7 +492,7 @@ class Request(http.Request):
         nor whether the same URL is returned in subsequent calls.
 
         @param resource: the resource to find a URI for.  This resource must
-            have been obtained from the request (ie. via its C{uri} attribute, or
+            have been obtained from the request (i.e. via its C{uri} attribute, or
             through its C{locateResource} or C{locateChildResource} methods).
         @return: a valid URL for C{resource} in this request.
         @raise NoURLForResourceError: if C{resource} has no URL in this request
@@ -544,7 +571,7 @@ class Request(http.Request):
         resource.  This is similar to locateResource(), but doesn't have to
         start the lookup from the root resource, so it is potentially faster.
         @param parent: the parent of the resource being looked up.  This resource
-            must have been obtained from the request (ie. via its C{uri} attribute,
+            must have been obtained from the request (i.e. via its C{uri} attribute,
             or through its C{locateResource} or C{locateChildResource} methods).
         @param childName: the name of the child of C{parent} to looked up.
             to C{parent}.
@@ -599,7 +626,7 @@ class Request(http.Request):
         log.err(origReason)
 
         body = ("<html><head><title>Internal Server Error</title></head>"
-                "<body><h1>Internal Server Error</h1>An error occurred rendering the requested page. Additionally, an error occured rendering the error page.</body></html>")
+                "<body><h1>Internal Server Error</h1>An error occurred rendering the requested page. Additionally, an error occurred rendering the error page.</body></html>")
 
         response = http.Response(
             responsecode.INTERNAL_SERVER_ERROR,

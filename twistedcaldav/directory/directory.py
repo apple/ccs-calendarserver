@@ -28,15 +28,21 @@ __all__ = [
     "UnknownRecordTypeError",
 ]
 
+import datetime
+import os
 import sys
 import types
+import pwd, grp
+import cPickle as pickle
+import itertools
+
 
 from zope.interface import implements
 
 from twisted.cred.error import UnauthorizedLogin
 from twisted.cred.checkers import ICredentialsChecker
 from twext.web2.dav.auth import IPrincipalCredentials
-from twisted.internet.defer import succeed
+from twisted.internet.defer import succeed, inlineCallbacks, returnValue
 
 from twext.python.log import LoggingMixIn
 
@@ -45,6 +51,17 @@ from twistedcaldav.directory.idirectory import IDirectoryService, IDirectoryReco
 from twistedcaldav.directory.util import uuidFromName
 from twistedcaldav.scheduling.cuaddress import normalizeCUAddr
 from twistedcaldav import servers
+from twistedcaldav.memcacher import Memcacher
+from twistedcaldav import memcachepool
+from twisted.python.filepath import FilePath
+from twisted.python.reflect import namedClass
+from twisted.python.usage import Options, UsageError
+from twistedcaldav.stdconfig import DEFAULT_CONFIG, DEFAULT_CONFIG_FILE
+from twisted.application import service
+from twisted.plugin import IPlugin
+from zope.interface import implements
+from xml.parsers.expat import ExpatError
+from plistlib import readPlistFromString
 
 class DirectoryService(LoggingMixIn):
     implements(IDirectoryService, ICredentialsChecker)
@@ -281,6 +298,13 @@ class DirectoryService(LoggingMixIn):
 
         return succeed(yieldMatches(recordType))
 
+    def getGroups(self, guids):
+        """
+        This implementation returns all groups, not just the ones specified
+        by guids
+        """
+        return succeed(self.listRecords(self.recordType_groups))
+
     def getResourceInfo(self):
         return ()
 
@@ -311,6 +335,59 @@ class DirectoryService(LoggingMixIn):
             raise DirectoryConfigurationError("Invalid directory service parameter(s): %s" % (", ".join(list(keys)),))
         return result
 
+    def parseResourceInfo(self, plist, guid, recordType, shortname):
+        """
+        Parse ResourceInfo plist and extract information that the server needs.
+
+        @param plist: the plist that is the attribute value.
+        @type plist: str
+        @param guid: the directory GUID of the record being parsed.
+        @type guid: str
+        @param shortname: the record shortname of the record being parsed.
+        @type shortname: str
+        @return: a C{tuple} of C{bool} for auto-accept, C{str} for proxy GUID, C{str} for read-only proxy GUID.
+        """
+        try:
+            plist = readPlistFromString(plist)
+            wpframework = plist.get("com.apple.WhitePagesFramework", {})
+            autoaccept = wpframework.get("AutoAcceptsInvitation", False)
+            proxy = wpframework.get("CalendaringDelegate", None)
+            read_only_proxy = wpframework.get("ReadOnlyCalendaringDelegate", None)
+        except (ExpatError, AttributeError), e:
+            self.log_error(
+                "Failed to parse ResourceInfo attribute of record (%s)%s (guid=%s): %s\n%s" %
+                (recordType, shortname, guid, e, plist,)
+            )
+            raise ValueError("Invalid ResourceInfo")
+
+        return (autoaccept, proxy, read_only_proxy,)
+
+
+    def getExternalProxyAssignments(self):
+        """
+        Retrieve proxy assignments for locations and resources from the
+        directory and return a list of (principalUID, ([memberUIDs)) tuples,
+        suitable for passing to proxyDB.setGroupMembers( )
+
+        This generic implementation fetches all locations and resources.
+        More specialized implementations can perform whatever operation is
+        most efficient for their particular directory service.
+        """
+        assignments = []
+
+        resources = itertools.chain(
+            self.listRecords(self.recordType_locations),
+            self.listRecords(self.recordType_resources)
+        )
+        for record in resources:
+            guid = record.guid
+            assignments.append(("%s#calendar-proxy-write" % (guid,),
+                               record.externalProxies()))
+            assignments.append(("%s#calendar-proxy-read" % (guid,),
+                               record.externalReadOnlyProxies()))
+
+        return assignments
+
 
     def createRecord(self, recordType, guid=None, shortNames=(), authIDs=set(),
         fullName=None, firstName=None, lastName=None, emailAddresses=set(),
@@ -340,6 +417,495 @@ class DirectoryService(LoggingMixIn):
         """
         raise NotImplementedError("Subclass must implement createRecords")
 
+
+
+class GroupMembershipCache(Memcacher, LoggingMixIn):
+    """
+    Caches group membership information
+
+    This cache is periodically updated by a side car so that worker processes
+    never have to ask the directory service directly for group membership
+    information.
+
+    Keys in this cache are:
+
+    "groups-for:<GUID>" : comma-separated list of groups that GUID is a member
+    of.  Note that when using LDAP, the key for this is an LDAP DN.
+
+    "group-cacher-populated" : contains a datestamp indicating the most recent
+    population.
+
+    "group-cacher-lock" : used to prevent multiple updates, it has a value of "1"
+
+    """
+
+    def __init__(self, namespace, pickle=True, no_invalidation=False,
+        key_normalization=True, expireSeconds=0, lockSeconds=60):
+
+        super(GroupMembershipCache, self).__init__(namespace, pickle=pickle,
+            no_invalidation=no_invalidation,
+            key_normalization=key_normalization)
+
+        self.expireSeconds = expireSeconds
+        self.lockSeconds = lockSeconds
+
+    def setGroupsFor(self, guid, memberships):
+        self.log_debug("set groups-for %s : %s" % (guid, memberships))
+        return self.set("groups-for:%s" %
+            (str(guid)), memberships,
+            expireTime=self.expireSeconds)
+
+    def getGroupsFor(self, guid):
+        self.log_debug("get groups-for %s" % (guid,))
+        def _value(value):
+            if value:
+                return value
+            else:
+                return set()
+        d = self.get("groups-for:%s" % (str(guid),))
+        d.addCallback(_value)
+        return d
+
+    def setPopulatedMarker(self):
+        self.log_debug("set group-cacher-populated")
+        return self.set("group-cacher-populated", str(datetime.datetime.now()))
+
+    @inlineCallbacks
+    def isPopulated(self):
+        self.log_debug("is group-cacher-populated")
+        value = (yield self.get("group-cacher-populated"))
+        returnValue(value is not None)
+
+    def acquireLock(self):
+        self.log_debug("add group-cacher-lock")
+        return self.add("group-cacher-lock", "1", expireTime=self.lockSeconds)
+
+    def releaseLock(self):
+        self.log_debug("delete group-cacher-lock")
+        return self.delete("group-cacher-lock")
+
+
+class GroupMembershipCacheUpdater(LoggingMixIn):
+    """
+    Responsible for updating memcached with group memberships.  This will run
+    in a sidecar.  There are two sources of proxy data to pull from: the local
+    proxy database, and the location/resource info in the directory system.
+    """
+
+    def __init__(self, proxyDB, directory, expireSeconds, lockSeconds,
+        cache=None, namespace=None, useExternalProxies=False,
+        externalProxiesSource=None):
+        self.proxyDB = proxyDB
+        self.directory = directory
+        self.useExternalProxies = useExternalProxies
+        if useExternalProxies and externalProxiesSource is None:
+            externalProxiesSource = self.directory.getExternalProxyAssignments
+        self.externalProxiesSource = externalProxiesSource
+
+        if cache is None:
+            assert namespace is not None, "namespace must be specified if GroupMembershipCache is not provided"
+            cache = GroupMembershipCache(namespace, expireSeconds=expireSeconds,
+                lockSeconds=lockSeconds)
+        self.cache = cache
+
+
+    @inlineCallbacks
+    def getGroups(self, guids=None):
+        """
+        Retrieve all groups and their member info (but don't actually fault in
+        the records of the members), and return two dictionaries.  The first
+        contains group records; the keys for this dictionary are the identifiers
+        used by the directory service to specify members.  In OpenDirectory
+        these would be guids, but in LDAP these could be DNs, or some other
+        attribute.  This attribute can be retrieved from a record using
+        record.cachedGroupsAlias().
+        The second dictionary returned maps that member attribute back to the
+        corresponding guid.  These dictionaries are used to reverse-index the
+        groups that users are in by expandedMembers().
+
+        @param guids: if provided, retrieve only the groups corresponding to
+            these guids (including their sub groups)
+        @type guids: list of guid strings
+        """
+        groups = {}
+        aliases = {}
+
+        if guids is None: # get all group guids
+            records = self.directory.listRecords(self.directory.recordType_groups)
+        else: # get only the ones we know have been delegated to
+            records = (yield self.directory.getGroups(guids))
+
+        for record in records:
+            alias = record.cachedGroupsAlias()
+            groups[alias] = record.memberGUIDs()
+            aliases[record.guid] = alias
+
+        returnValue((groups, aliases))
+
+
+    def expandedMembers(self, groups, guid, members=None, seen=None):
+        """
+        Return the complete, flattened set of members of a group, including
+        all sub-groups, based on the group hierarchy described in the
+        groups dictionary.
+        """
+        if members is None:
+            members = set()
+        if seen is None:
+            seen = set()
+
+        if guid not in seen:
+            seen.add(guid)
+            for member in groups[guid]:
+                members.add(member)
+                if groups.has_key(member): # it's a group then
+                    self.expandedMembers(groups, member, members=members,
+                                         seen=seen)
+        return members
+
+
+    @inlineCallbacks
+    def updateCache(self, fast=False):
+        """
+        Iterate the proxy database to retrieve all the principals who have been
+        delegated to.  Fault these principals in.  For any of these principals
+        that are groups, expand the members of that group and store those in
+        the cache
+
+        If fast=True, we're in quick-start mode, used only by the master process
+        to start servicing requests as soon as possible.  In this mode we look
+        for DataRoot/memberships_cache which is a pickle of a dictionary whose
+        keys are guids (except when using LDAP where the keys will be DNs), and
+        the values are lists of group guids.  If the cache file does not exist
+        we switch to fast=False.
+
+        The return value is mainly used for unit tests; it's a tuple containing
+        the (possibly modified) value for fast, and the number of members loaded
+        into the cache (which can be zero if fast=True and isPopulated(), or
+        fast=False and the cache is locked by someone else).
+
+        The pickled snapshot file is a dict whose keys represent a record and
+        the values are the guids of the groups that record is a member of.  The
+        keys are normally guids except in the case of a directory system like LDAP
+        where there can be a different attribute used for referring to members,
+        such as a DN.
+        """
+
+        # TODO: add memcached eviction protection
+
+        # See if anyone has completely populated the group membership cache
+        isPopulated = (yield self.cache.isPopulated())
+
+        useLock = True
+
+        if fast:
+            # We're in quick-start mode.  Check first to see if someone has
+            # populated the membership cache, and if so, return immediately
+            if isPopulated:
+                self.log_info("Group membership cache is already populated")
+                returnValue((fast, 0))
+
+            # We don't care what others are doing right now, we need to update
+            useLock = False
+
+        self.log_info("Updating group membership cache")
+
+        dataRoot = FilePath(config.DataRoot)
+        snapshotFile = dataRoot.child("memberships_cache")
+
+        if not snapshotFile.exists():
+            self.log_info("Group membership snapshot file does not yet exist")
+            fast = False
+        else:
+            self.log_info("Group membership snapshot file exists: %s" %
+                (snapshotFile.path,))
+
+        if useLock:
+            self.log_info("Attempting to acquire group membership cache lock")
+            acquiredLock = (yield self.cache.acquireLock())
+            if not acquiredLock:
+                self.log_info("Group membership cache lock held by another process")
+                returnValue((fast, 0))
+            self.log_info("Acquired lock")
+
+        if not fast and self.useExternalProxies:
+            self.log_info("Retrieving proxy assignments from directory")
+            assignments = self.externalProxiesSource()
+            self.log_info("%d proxy assignments retrieved from directory" %
+                (len(assignments),))
+            # populate proxy DB from external resource info
+            self.log_info("Applying proxy assignment changes")
+            assignmentCount = 0
+            for principalUID, members in assignments:
+                try:
+                    current = (yield self.proxyDB.getMembers(principalUID))
+                    if members != current:
+                        assignmentCount += 1
+                        yield self.proxyDB.setGroupMembers(principalUID, members)
+                except Exception, e:
+                    self.log_error("Unable to apply proxy assignment: principal=%s, members=%s, error=%s" % (principalUID, members, e))
+            self.log_info("Applied %d assignment%s to proxy database" %
+                (assignmentCount, "" if assignmentCount == 1 else "s"))
+
+        if fast:
+            # If there is an on-disk snapshot of the membership information,
+            # load that and put into memcached, bypassing the faulting in of
+            # any records, so that the server can start up quickly.
+
+            self.log_info("Loading group memberships from snapshot")
+            members = pickle.loads(snapshotFile.getContent())
+
+        else:
+            # Fetch the group hierarchy from the directory, fetch the list
+            # of delegated-to guids, intersect those and build a dictionary
+            # containing which delegated-to groups a user is a member of
+
+            self.log_info("Retrieving list of all proxies")
+            # This is always a set of guids:
+            delegatedGUIDs = set((yield self.proxyDB.getAllMembers()))
+            self.log_info("There are %d proxies" % (len(delegatedGUIDs),))
+            self.log_info("Retrieving group hierarchy from directory")
+
+            # "groups" maps a group to its members; the keys and values consist
+            # of whatever directory attribute is used to refer to members.  The
+            # attribute value comes from record.cachedGroupsAlias().
+            # "aliases" maps the record.cachedGroupsAlias() value for a group
+            # back to the group's guid.
+            groups, aliases = (yield self.getGroups(guids=delegatedGUIDs))
+            groupGUIDs = set(aliases.keys())
+            self.log_info("%d groups retrieved from the directory" %
+                (len(groupGUIDs),))
+
+            delegatedGUIDs = delegatedGUIDs.intersection(groupGUIDs)
+            self.log_info("%d groups are proxies" % (len(delegatedGUIDs),))
+
+            # Reverse index the group membership from cache
+            members = {}
+            for groupGUID in delegatedGUIDs:
+                groupMembers = self.expandedMembers(groups, aliases[groupGUID])
+                # groupMembers is in cachedGroupsAlias() format
+                for member in groupMembers:
+                    memberships = members.setdefault(member, set())
+                    memberships.add(groupGUID)
+
+            self.log_info("There are %d users delegated-to via groups" %
+                (len(members),))
+
+            # Store snapshot
+            self.log_info("Taking snapshot of group memberships to %s" %
+                (snapshotFile.path,))
+            snapshotFile.setContent(pickle.dumps(members))
+
+            # Update ownership
+            uid = gid = -1
+            if config.UserName:
+                uid = pwd.getpwnam(config.UserName).pw_uid
+            if config.GroupName:
+                gid = grp.getgrnam(config.GroupName).gr_gid
+            os.chown(snapshotFile.path, uid, gid)
+
+        self.log_info("Storing %d group memberships in memcached" %
+                       (len(members),))
+        for member, groups in members.iteritems():
+            # self.log_debug("%s is in %s" % (member, groups))
+            yield self.cache.setGroupsFor(member, groups)
+
+        yield self.cache.setPopulatedMarker()
+
+        if useLock:
+            self.log_info("Releasing lock")
+            yield self.cache.releaseLock()
+
+        self.log_info("Group memberships cache updated")
+
+        returnValue((fast, len(members)))
+
+
+
+
+
+
+class GroupMembershipCacherOptions(Options):
+    optParameters = [[
+        "config", "f", DEFAULT_CONFIG_FILE, "Path to configuration file."
+    ]]
+
+    def __init__(self, *args, **kwargs):
+        super(GroupMembershipCacherOptions, self).__init__(*args, **kwargs)
+
+        self.overrides = {}
+
+    def _coerceOption(self, configDict, key, value):
+        """
+        Coerce the given C{val} to type of C{configDict[key]}
+        """
+        if key in configDict:
+            if isinstance(configDict[key], bool):
+                value = value == "True"
+
+            elif isinstance(configDict[key], (int, float, long)):
+                value = type(configDict[key])(value)
+
+            elif isinstance(configDict[key], (list, tuple)):
+                value = value.split(',')
+
+            elif isinstance(configDict[key], dict):
+                raise UsageError(
+                    "Dict options not supported on the command line"
+                )
+
+            elif value == 'None':
+                value = None
+
+        return value
+
+    def _setOverride(self, configDict, path, value, overrideDict):
+        """
+        Set the value at path in configDict
+        """
+        key = path[0]
+
+        if len(path) == 1:
+            overrideDict[key] = self._coerceOption(configDict, key, value)
+            return
+
+        if key in configDict:
+            if not isinstance(configDict[key], dict):
+                raise UsageError(
+                    "Found intermediate path element that is not a dictionary"
+                )
+
+            if key not in overrideDict:
+                overrideDict[key] = {}
+
+            self._setOverride(
+                configDict[key], path[1:],
+                value, overrideDict[key]
+            )
+
+
+    def opt_option(self, option):
+        """
+        Set an option to override a value in the config file. True, False, int,
+        and float options are supported, as well as comma seperated lists. Only
+        one option may be given for each --option flag, however multiple
+        --option flags may be specified.
+        """
+
+        if "=" in option:
+            path, value = option.split('=')
+            self._setOverride(
+                DEFAULT_CONFIG,
+                path.split('/'),
+                value,
+                self.overrides
+            )
+        else:
+            self.opt_option('%s=True' % (option,))
+
+    opt_o = opt_option
+
+    def postOptions(self):
+        config.load(self['config'])
+        config.updateDefaults(self.overrides)
+        self.parent['pidfile'] = None
+
+
+
+class GroupMembershipCacherService(service.Service, LoggingMixIn):
+    """
+    Service to update the group membership cache at a configured interval
+    """
+
+    def __init__(self, proxyDB, directory, namespace, updateSeconds,
+        expireSeconds, lockSeconds, reactor=None, updateMethod=None,
+        useExternalProxies=False):
+
+        if updateSeconds >= expireSeconds:
+            expireSeconds = updateSeconds * 2
+            self.log_warn("Configuration warning: GroupCaching.ExpireSeconds needs to be longer than UpdateSeconds; setting to %d seconds" % (expireSeconds,))
+
+        self.updater = GroupMembershipCacheUpdater(proxyDB, directory,
+            expireSeconds, lockSeconds, namespace=namespace,
+            useExternalProxies=useExternalProxies)
+
+        if reactor is None:
+            from twisted.internet import reactor
+        self.reactor = reactor
+        self.updateSeconds = updateSeconds
+        self.nextUpdate = None
+        if updateMethod:
+            self.updateMethod = updateMethod
+        else:
+            self.updateMethod = self.updater.updateCache
+
+    def startService(self):
+        self.log_warn("Starting group membership cacher service")
+        service.Service.startService(self)
+        return self.update()
+
+    @inlineCallbacks
+    def update(self):
+        self.nextUpdate = None
+        try:
+            yield self.updateMethod()
+        finally:
+            self.log_info("Scheduling next group membership update")
+            self.nextUpdate = self.reactor.callLater(self.updateSeconds,
+                self.update)
+
+    def stopService(self):
+        self.log_warn("Stopping group membership cacher service")
+        service.Service.stopService(self)
+        if self.nextUpdate is not None:
+            self.nextUpdate.cancel()
+
+
+
+class GroupMembershipCacherServiceMaker(LoggingMixIn):
+    """
+    Configures and returns a GroupMembershipCacherService
+    """
+    implements(IPlugin, service.IServiceMaker)
+
+    tapname = "caldav_groupcacher"
+    description = "Group Membership Cacher"
+    options = GroupMembershipCacherOptions
+
+    def makeService(self, options):
+
+        # Setup the directory
+        from calendarserver.tap.util import directoryFromConfig
+        directory = directoryFromConfig(config)
+
+        # Setup the ProxyDB Service
+        proxydbClass = namedClass(config.ProxyDBService.type)
+
+        self.log_warn("Configuring proxydb service of type: %s" % (proxydbClass,))
+
+        try:
+            proxyDB = proxydbClass(**config.ProxyDBService.params)
+        except IOError:
+            self.log_error("Could not start proxydb service")
+            raise
+
+        # Setup memcached pools
+        memcachepool.installPools(
+            config.Memcached.Pools,
+            config.Memcached.MaxClients,
+        )
+
+        cacherService = GroupMembershipCacherService(proxyDB, directory,
+            config.GroupCaching.MemcachedPool,
+            config.GroupCaching.UpdateSeconds,
+            config.GroupCaching.ExpireSeconds,
+            config.GroupCaching.LockSeconds,
+            useExternalProxies=config.GroupCaching.UseExternalProxies
+            )
+
+        return cacherService
+
+
 class DirectoryRecord(LoggingMixIn):
     implements(IDirectoryRecord)
 
@@ -364,6 +930,7 @@ class DirectoryRecord(LoggingMixIn):
         enabledForAddressBooks=None,
         uid=None,
         enabledForLogin=True,
+        extProxies=(), extReadOnlyProxies=(),
         **kwargs
     ):
         assert service.realmName is not None
@@ -396,6 +963,8 @@ class DirectoryRecord(LoggingMixIn):
         self.autoSchedule           = autoSchedule
         self.enabledForAddressBooks = enabledForAddressBooks
         self.enabledForLogin        = enabledForLogin
+        self.extProxies             = extProxies
+        self.extReadOnlyProxies     = extReadOnlyProxies
         self.extras                 = kwargs
 
 
@@ -492,6 +1061,7 @@ class DirectoryRecord(LoggingMixIn):
     def members(self):
         return ()
 
+
     def expandedMembers(self, members=None, seen=None):
         """
         Return the complete, flattened set of members of a group, including
@@ -514,6 +1084,45 @@ class DirectoryRecord(LoggingMixIn):
 
     def groups(self):
         return ()
+
+
+    def cachedGroups(self):
+        """
+        Return the set of groups (guids) this record is a member of, based on
+        the data cached by cacheGroupMembership( )
+        """
+        return self.service.groupMembershipCache.getGroupsFor(self.cachedGroupsAlias())
+
+    def cachedGroupsAlias(self):
+        """
+        The GroupMembershipCache uses keys based on this value.  Normally it's
+        a record's guid but in a directory system like LDAP which can use a
+        different attribute to refer to group members, we need to be able to
+        look up an entry in the GroupMembershipCache by that attribute.
+        Subclasses which don't use record.guid to look up group membership
+        should override this method.
+        """
+        return self.guid
+
+    def externalProxies(self):
+        """
+        Return the set of proxies defined in the directory service, as opposed
+        to assignments in the proxy DB itself.
+        """
+        return set(self.extProxies)
+
+    def externalReadOnlyProxies(self):
+        """
+        Return the set of read-only proxies defined in the directory service,
+        as opposed to assignments in the proxy DB itself.
+        """
+        return set(self.extReadOnlyProxies)
+
+    def memberGUIDs(self):
+        """
+        Return the set of GUIDs that are members of this group
+        """
+        return set()
 
     def verifyCredentials(self, credentials):
         return False
@@ -572,9 +1181,19 @@ class DirectoryRecord(LoggingMixIn):
         if config.Servers.Enabled and self.serverID:
             s = servers.Servers.getServerById(self.serverID)
             if s:
-                return s.thisServer and (not self.partitionID or self.partitionID == config.ServerPartitionID)
+                return s.thisServer and (not s.isPartitioned() or not self.partitionID or self.partitionID == config.ServerPartitionID)
         return True
 
+    def effectivePartitionID(self):
+        """
+        Record partition ID taking into account whether the server is partitioned.
+        """
+        if config.Servers.Enabled and self.serverID:
+            s = servers.Servers.getServerById(self.serverID)
+            if s and s.isPartitioned():
+                return self.partitionID
+        return ""
+        
     def thisServer(self):
         if config.Servers.Enabled and self.serverID:
             s = servers.Servers.getServerById(self.serverID)

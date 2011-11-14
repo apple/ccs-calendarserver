@@ -34,6 +34,7 @@ import zlib
 from twext.python.plistlib import readPlistFromString
 
 from pycalendar.calendar import PyCalendar
+from pycalendar.attribute import PyCalendarAttribute
 
 COPY_CAL_XATTRS = (
     'WebDAV:{DAV:}resourcetype',
@@ -301,10 +302,12 @@ def anonymizeData(directoryMap, data):
                             continue
                     prop.setValue("urn:uuid:%s" % (record['guid'],))
                     if prop.hasAttribute('X-CALENDARSERVER-EMAIL'):
-                        prop.setAttribute('X-CALENDARSERVER-EMAIL', record['email'])
+                        prop.replaceAttribute(PyCalendarAttribute('X-CALENDARSERVER-EMAIL', record['email']))
                     else:
-                        prop.setAttribute('EMAIL', record['email'])
-                    prop.setAttribute('CN', record['name'])
+                        prop.removeAttributes('EMAIL')
+                        prop.addAttribute(PyCalendarAttribute('EMAIL', record['email']))
+                    prop.removeAttributes('CN')
+                    prop.addAttribute(PyCalendarAttribute('CN', record['name']))
             except KeyError:
                 pass
 
@@ -331,7 +334,7 @@ def anonymizeData(directoryMap, data):
             except KeyError:
                 pass
 
-    return pyobj.serialize()
+    return pyobj.getText(includeTimezones=True)
 
 
 class DirectoryMap(object):

@@ -1,0 +1,41 @@
+<div xmlns:t="http://twistedmatrix.com/ns/twisted.web.template/0.1"
+    t:render="principal"  class="directory-listing">
+    <h1>Principal Details</h1>
+    <pre><blockquote>Directory Information
+---------------------
+Directory GUID: <t:slot name="directoryGUID"/>
+Realm: <t:slot name="realm"/>
+<t:transparent t:render="serversEnabled">Hosted-At: <t:slot name="hostedAt"/>
+Partition: <t:slot name="partition"/></t:transparent>
+Principal Information
+---------------------
+GUID: <t:slot name="principalGUID"/>
+Record type: <t:slot name="recordType"/>
+Short names: <t:slot name="shortNames"/>
+Security Identities: <t:slot name="securityIDs"/>
+Full name: <t:slot name="fullName"/>
+First name: <t:slot name="firstName"/>
+Last name: <t:slot name="lastName"/>
+Email addresses:
+<t:slot name="emailAddresses" />Principal UID: <t:slot name="principalUID"/>
+Principal URL: <t:slot name="principalURL"/>
+
+Alternate URIs:
+<t:slot name="alternateURIs"/>
+Group members:
+<t:slot name="groupMembers"/>
+Group memberships:
+<t:slot name="groupMemberships"/>
+Read-write Proxy For:
+<t:slot name="readWriteProxyFor"/>
+Read-only Proxy For:
+<t:slot name="readOnlyProxyFor"/><t:transparent
+t:render="extra"><t:transparent t:render="enabledForCalendaring">
+Calendar Homes:
+<t:slot name="calendarHomes" />
+Calendar user addresses:
+<t:slot name="calendarUserAddresses" /></t:transparent><t:transparent
+t:render="enabledForAddressBooks">
+Address Book homes:
+<t:slot name="addressBookHomes"
+/></t:transparent></t:transparent></blockquote></pre></div>

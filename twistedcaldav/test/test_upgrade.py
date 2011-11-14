@@ -18,12 +18,12 @@
 from twisted.internet.defer import inlineCallbacks
 from twext.web2.dav import davxml
 from twistedcaldav.config import config
-from twistedcaldav.directory.calendaruserproxy import ProxySqliteDB
 from twistedcaldav.directory.xmlfile import XMLDirectoryService
 from twistedcaldav.directory.resourceinfo import ResourceInfoDatabase
 from twistedcaldav.mail import MailGatewayTokensDatabase
 from twistedcaldav.upgrade import (
-    xattrname, UpgradeError, upgradeData, updateFreeBusySet
+    xattrname, UpgradeError, upgradeData, updateFreeBusySet,
+    removeIllegalCharacters, normalizeCUAddrs
 )
 from twistedcaldav.test.util import TestCase
 from calendarserver.tools.util import getDirectory
@@ -31,6 +31,7 @@ from calendarserver.tools.util import getDirectory
 import hashlib
 import os, zlib, cPickle
 from txdav.caldav.datastore.index_file import db_basename
+from twisted.python.reflect import namedClass
 
 
 
@@ -48,6 +49,7 @@ OLDPROXYFILE = ".db.calendaruserproxy"
 NEWPROXYFILE = "proxies.sqlite"
 
 class UpgradeTests(TestCase):
+
     
     def setUpXMLDirectory(self):
         xmlFile = os.path.join(os.path.dirname(os.path.dirname(__file__)),
@@ -56,6 +58,7 @@ class UpgradeTests(TestCase):
 
         xmlAugmentsFile = os.path.join(os.path.dirname(os.path.dirname(__file__)),
             "directory", "test", "augments.xml")
+        config.AugmentService.type = "twistedcaldav.directory.augment.AugmentXMLDB"
         config.AugmentService.params.xmlFiles = (xmlAugmentsFile,)
 
         resourceFile = os.path.join(os.path.dirname(os.path.dirname(__file__)),
@@ -326,7 +329,10 @@ class UpgradeTests(TestCase):
                 "@contents" : "2",
             },
             MailGatewayTokensDatabase.dbFilename : { "@contents" : None },
-            "%s-journal" % (MailGatewayTokensDatabase.dbFilename,) : { "@contents" : None },
+            "%s-journal" % (MailGatewayTokensDatabase.dbFilename,) : {
+                "@contents" : None,
+                "@optional" : True,
+            },
         }
 
         (yield self.verifyDirectoryComparison(before, after))
@@ -474,7 +480,8 @@ class UpgradeTests(TestCase):
             },
             "%s-journal" % (MailGatewayTokensDatabase.dbFilename,) :
             {
-                "@contents" : None
+                "@contents" : None,
+                "@optional" : True,
             },
         }
 
@@ -545,7 +552,8 @@ class UpgradeTests(TestCase):
             },
             "%s-journal" % (MailGatewayTokensDatabase.dbFilename,) :
             {
-                "@contents" : None
+                "@contents" : None,
+                "@optional" : True,
             },
         }
 
@@ -631,7 +639,8 @@ class UpgradeTests(TestCase):
             },
             "%s-journal" % (MailGatewayTokensDatabase.dbFilename,) :
             {
-                "@contents" : None
+                "@contents" : None,
+                "@optional" : True,
             },
         }
 
@@ -724,7 +733,8 @@ class UpgradeTests(TestCase):
             },
             "%s-journal" % (MailGatewayTokensDatabase.dbFilename,) :
             {
-                "@contents" : None
+                "@contents" : None,
+                "@optional" : True,
             },
         }
 
@@ -834,7 +844,8 @@ class UpgradeTests(TestCase):
             },
             "%s-journal" % (MailGatewayTokensDatabase.dbFilename,) :
             {
-                "@contents" : None
+                "@contents" : None,
+                "@optional" : True,
             },
         }
 
@@ -944,7 +955,8 @@ class UpgradeTests(TestCase):
             },
             "%s-journal" % (MailGatewayTokensDatabase.dbFilename,) :
             {
-                "@contents" : None
+                "@contents" : None,
+                "@optional" : True,
             },
         }
 
@@ -1071,7 +1083,8 @@ class UpgradeTests(TestCase):
             },
             "%s-journal" % (MailGatewayTokensDatabase.dbFilename,) :
             {
-                "@contents" : None
+                "@contents" : None,
+                "@optional" : True,
             },
         }
 
@@ -1197,7 +1210,8 @@ class UpgradeTests(TestCase):
             },
             "%s-journal" % (MailGatewayTokensDatabase.dbFilename,) :
             {
-                "@contents" : None
+                "@contents" : None,
+                "@optional" : True,
             },
         }
 
@@ -1290,7 +1304,8 @@ class UpgradeTests(TestCase):
             },
             "%s-journal" % (MailGatewayTokensDatabase.dbFilename,) :
             {
-                "@contents" : None
+                "@contents" : None,
+                "@optional" : True,
             },
         }
 
@@ -1347,7 +1362,8 @@ class UpgradeTests(TestCase):
             },
             "%s-journal" % (MailGatewayTokensDatabase.dbFilename,) :
             {
-                "@contents" : None
+                "@contents" : None,
+                "@optional" : True,
             },
             ResourceInfoDatabase.dbFilename :
             {
@@ -1356,6 +1372,7 @@ class UpgradeTests(TestCase):
             "%s-journal" % (ResourceInfoDatabase.dbFilename,) :
             {
                 "@contents" : None,
+                "@optional" : True,
             }
         }
         root = self.createHierarchy(before)
@@ -1365,20 +1382,20 @@ class UpgradeTests(TestCase):
         (yield upgradeData(config))
         self.assertTrue(self.verifyHierarchy(root, after))
 
-        calendarUserProxyDatabase = ProxySqliteDB(NEWPROXYFILE)
+        proxydbClass = namedClass(config.ProxyDBService.type)
+        calendarUserProxyDatabase = proxydbClass(**config.ProxyDBService.params)
         resourceInfoDatabase = ResourceInfoDatabase(root)
 
         for guid, info in assignments.iteritems():
-
             proxyGroup = "%s#calendar-proxy-write" % (guid,)
-            result = set([row[0] for row in calendarUserProxyDatabase._db_execute("select MEMBER from GROUPS where GROUPNAME = :1", proxyGroup)])
+            result = (yield calendarUserProxyDatabase.getMembers(proxyGroup))
             if info[1]:
                 self.assertTrue(info[1] in result)
             else:
                 self.assertTrue(not result)
 
             readOnlyProxyGroup = "%s#calendar-proxy-read" % (guid,)
-            result = set([row[0] for row in calendarUserProxyDatabase._db_execute("select MEMBER from GROUPS where GROUPNAME = :1", readOnlyProxyGroup)])
+            result = (yield calendarUserProxyDatabase.getMembers(readOnlyProxyGroup))
             if info[2]:
                 self.assertTrue(info[2] in result)
             else:
@@ -1388,7 +1405,84 @@ class UpgradeTests(TestCase):
             autoSchedule = autoSchedule == 1
             self.assertEquals(info[0], autoSchedule)
 
-    test_migrateResourceInfo.todo = "FIXME: perhaps ProxySqliteDB isn't being set up correctly?"
+
+
+    def test_removeIllegalCharacters(self):
+        """
+        Control characters aside from NL and CR are removed.
+        """
+        data = "Contains\x03 control\x06 characters\x12 some\x0a allowed\x0d"
+        after, changed = removeIllegalCharacters(data)
+        self.assertEquals(after, "Contains control characters some\x0a allowed\x0d")
+        self.assertTrue(changed)
+
+        data = "Contains only\x0a legal\x0d"
+        after, changed = removeIllegalCharacters(data)
+        self.assertEquals(after, "Contains only\x0a legal\x0d")
+        self.assertFalse(changed)
+
+
+    def test_normalizeCUAddrs(self):
+        """
+        Ensure that calendar user addresses (CUAs) are cached so we can
+        reduce the number of principal lookup calls during upgrade.
+        """
+
+        class StubPrincipal(object):
+            def __init__(self, record):
+                self.record = record
+
+        class StubRecord(object):
+            def __init__(self, fullName, guid, cuas):
+                self.fullName = fullName
+                self.guid = guid
+                self.calendarUserAddresses = cuas
+
+        class StubDirectory(object):
+            def __init__(self):
+                self.count = 0
+
+            def principalForCalendarUserAddress(self, cuaddr):
+                self.count += 1
+                record = records.get(cuaddr, None)
+                if record is not None:
+                    return StubPrincipal(record)
+                else:
+                    raise Exception
+
+        records = {
+            "mailto:a@example.com" :
+                StubRecord("User A", 123, ("mailto:a@example.com", "urn:uuid:123")),
+            "mailto:b@example.com" :
+                StubRecord("User B", 234, ("mailto:b@example.com", "urn:uuid:234")),
+        }
+
+        directory = StubDirectory()
+        cuaCache = {}
+        normalizeCUAddrs(normalizeEvent, directory, cuaCache)
+        normalizeCUAddrs(normalizeEvent, directory, cuaCache)
+
+        # Ensure we only called principalForCalendarUserAddress 3 times.  It
+        # would have been 8 times without the cuaCache.
+        self.assertEquals(directory.count, 3)
+
+normalizeEvent = """BEGIN:VCALENDAR
+VERSION:2.0
+BEGIN:VEVENT
+TRANSP:OPAQUE
+UID:1E238CA1-3C95-4468-B8CD-C8A399F78C71
+DTSTART:20090203
+DTEND:20090204
+ORGANIZER;CN="User A":mailto:a@example.com
+SUMMARY:New Event
+DESCRIPTION:Foo
+ATTENDEE;CN="User A";CUTYPE=INDIVIDUAL;PARTSTAT=ACCEPTED:mailto:a@example.com
+ATTENDEE;CN="User B";CUTYPE=INDIVIDUAL;PARTSTAT=ACCEPTED:mailto:b@example.com
+ATTENDEE;CN="Unknown";CUTYPE=INDIVIDUAL;PARTSTAT=ACCEPTED:mailto:unknown@example.com
+END:VEVENT
+END:VCALENDAR
+""".replace("\n", "\r\n")
+
 
 
 event01_before = """BEGIN:VCALENDAR
@@ -1480,6 +1574,7 @@ END:VCALENDAR
 event02_broken = "Invalid!"
 
 event01_after_md5 = hashlib.md5(event01_after).hexdigest()
+
 
 def isValidCTag(value):
     """

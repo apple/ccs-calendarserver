@@ -15,16 +15,16 @@
 #
 ##
 
+import random
 from uuid import uuid4
-from datetime import timedelta, datetime
 from urlparse import urlparse, urlunparse
 
 from xml.etree import ElementTree
+from twistedcaldav.ical import Component, Property
+from pycalendar.duration import PyCalendarDuration
+from pycalendar.timezone import PyCalendarTimezone
+from pycalendar.datetime import PyCalendarDateTime
 ElementTree.QName.__repr__ = lambda self: '<QName %r>' % (self.text,)
-
-from vobject import readComponents
-from vobject.base import ContentLine
-from vobject.icalendar import VEvent, dateTimeToString
 
 from twisted.python.log import addObserver, err, msg
 from twisted.python.filepath import FilePath
@@ -41,12 +41,13 @@ from caldavclientlibrary.protocol.webdav.definitions import davxml
 from caldavclientlibrary.protocol.caldav.definitions import caldavxml
 from caldavclientlibrary.protocol.caldav.definitions import csxml
 
-from httpclient import StringProducer, readBody
-from httpauth import AuthHandlerAgent
-
-from subscribe import Periodical
-
 from calendarserver.tools.notifications import PubSubClientFactory
+
+from contrib.performance.httpclient import StringProducer, readBody
+from contrib.performance.httpauth import AuthHandlerAgent
+
+from contrib.performance.loadtest.subscribe import Periodical
+
 
 def loadRequestBody(label):
     return FilePath(__file__).sibling('request-data').child(label + '.request').getContent()
@@ -97,8 +98,7 @@ class Event(object):
         Return the UID from the vevent, if there is one.
         """
         if self.vevent is not None:
-            uid = self.vevent.contents['vevent'][0].contents['uid'][0]
-            return uid.value
+            return self.vevent.resourceUID()
         return None
 
 
@@ -156,7 +156,7 @@ class _PubSubClientFactory(PubSubClientFactory):
         if item:
             node = item.getAttribute("node")
             if node:
-                url, name, kind = self.nodes.get(node, (None, None, None))
+                url, _ignore_name, _ignore_kind = self.nodes.get(node, (None, None, None))
                 if url is not None:
                     self._client._checkCalendarsForEvents(url)
 
@@ -180,7 +180,11 @@ class SnowLeopard(BaseClient):
     # configuration.  This is also the actual value used by Snow
     # Leopard iCal.
     CALENDAR_HOME_POLL_INTERVAL = 15 * 60
+    
+    # The maximum number of resources to retrieve in a single multiget
+    MULTIGET_BATCH_SIZE = 200
 
+    _STARTUP_PRINCIPAL_PROPFIND_INITIAL = loadRequestBody('sl_startup_principal_propfind_initial')
     _STARTUP_PRINCIPAL_PROPFIND = loadRequestBody('sl_startup_principal_propfind')
     _STARTUP_PRINCIPALS_REPORT = loadRequestBody('sl_startup_principals_report')
     _STARTUP_CALENDARHOME_PROPFIND = loadRequestBody('sl_startup_calendarhome_propfind')
@@ -189,6 +193,7 @@ class SnowLeopard(BaseClient):
 
     _CALENDAR_PROPFIND = loadRequestBody('sl_calendar_propfind')
     _CALENDAR_REPORT = loadRequestBody('sl_calendar_report')
+    _CALENDAR_REPORT_HREF = loadRequestBody('sl_calendar_report_href')
 
     _USER_LIST_PRINCIPAL_PROPERTY_SEARCH = loadRequestBody('sl_user_list_principal_property_search')
     _POST_AVAILABILITY = loadRequestBody('sl_post_availability')
@@ -297,11 +302,15 @@ class SnowLeopard(BaseClient):
 
             if principal == calendarHome:
                 text = principals[principal].getTextProperties()
-                server = text[csxml.xmpp_server]
-                uri = text[csxml.xmpp_uri]
-                pushkey = text[csxml.pushkey]
-                if server and uri:
-                    self.xmpp[principal] = XMPPPush(server, uri, pushkey)
+                try:
+                    server = text[csxml.xmpp_server]
+                    uri = text[csxml.xmpp_uri]
+                    pushkey = text[csxml.pushkey]
+                except KeyError:
+                    pass
+                else:
+                    if server and uri:
+                        self.xmpp[principal] = XMPPPush(server, uri, pushkey)
 
             nodes = principals[principal].getNodeProperties()
             for nodeType in nodes[davxml.resourcetype].getchildren():
@@ -317,13 +326,12 @@ class SnowLeopard(BaseClient):
         return calendars
 
 
-    def _principalPropfind(self, user):
+    def _principalPropfindInitial(self, user):
         """
-        Issue a PROPFIND on the likely principal URL for the given
-        user and return a L{Principal} instance constructed from the
-        response.
+        Issue a PROPFIND on the /principals/users/<uid> URL to retrieve
+        the /principals/__uids__/<guid> principal URL
         """
-        principalURL = '/principals/__uids__/' + user + '/'
+        principalURL = '/principals/users/' + user + '/'
         d = self._request(
             MULTI_STATUS,
             'PROPFIND',
@@ -331,11 +339,33 @@ class SnowLeopard(BaseClient):
             Headers({
                     'content-type': ['text/xml'],
                     'depth': ['0']}),
-            StringProducer(self._STARTUP_PRINCIPAL_PROPFIND))
+            StringProducer(self._STARTUP_PRINCIPAL_PROPFIND_INITIAL))
         d.addCallback(readBody)
         d.addCallback(self._parseMultiStatus)
         def get(result):
             return result[principalURL]
+        d.addCallback(get)
+        return d
+
+
+    def _principalPropfind(self):
+        """
+        Issue a PROPFIND on the likely principal URL for the given
+        user and return a L{Principal} instance constructed from the
+        response.
+        """
+        d = self._request(
+            MULTI_STATUS,
+            'PROPFIND',
+            self.root + self.principalURL[1:].encode('utf-8'),
+            Headers({
+                    'content-type': ['text/xml'],
+                    'depth': ['0']}),
+            StringProducer(self._STARTUP_PRINCIPAL_PROPFIND))
+        d.addCallback(readBody)
+        d.addCallback(self._parseMultiStatus)
+        def get(result):
+            return result[self.principalURL]
         d.addCallback(get)
         return d
 
@@ -391,6 +421,7 @@ class SnowLeopard(BaseClient):
         body = yield readBody(response)
 
         result = self._parseMultiStatus(body)
+        changed = []
         for responseHref in result:
             if responseHref == calendar.url:
                 continue
@@ -406,9 +437,17 @@ class SnowLeopard(BaseClient):
                 
             event = self._events[responseHref]
             if event.etag != etag:
-                response = yield self._eventReport(url, responseHref)
-                body = yield readBody(response)
-                res = self._parseMultiStatus(body)[responseHref]
+                changed.append(responseHref)
+            
+        while changed:
+            batchedHrefs = changed[:self.MULTIGET_BATCH_SIZE]
+            changed = changed[self.MULTIGET_BATCH_SIZE:]
+    
+            response = yield self._eventReport(url, batchedHrefs)
+            body = yield readBody(response)
+            multistatus = self._parseMultiStatus(body)
+            for responseHref in batchedHrefs:
+                res = multistatus[responseHref]
                 if res.getStatus() is None or " 404 " not in res.getStatus():
                     text = res.getTextProperties()
                     etag = text[davxml.getetag]
@@ -425,19 +464,20 @@ class SnowLeopard(BaseClient):
         event.etag = etag
         if scheduleTag is not None:
             event.scheduleTag = scheduleTag
-        event.vevent = list(readComponents(body))[0]
+        event.vevent = Component.fromString(body)
         self.catalog["eventChanged"].issue(href)
 
                 
-    def _eventReport(self, calendar, event):
-        # Next do a REPORT on each event that might have information
+    def _eventReport(self, calendar, events):
+        # Next do a REPORT on events that might have information
         # we don't know about.
+        hrefs = "".join([self._CALENDAR_REPORT_HREF % {'href': event} for event in events])
         return self._request(
             MULTI_STATUS,
             'REPORT',
             self.root + calendar,
             Headers({'content-type': ['text/xml']}),
-            StringProducer(self._CALENDAR_REPORT % {'href': event}))
+            StringProducer(self._CALENDAR_REPORT % {'hrefs': hrefs}))
 
 
     def _checkCalendarsForEvents(self, calendarHomeSet):
@@ -448,7 +488,13 @@ class SnowLeopard(BaseClient):
         @inlineCallbacks
         def cbCalendars(calendars):
             for cal in calendars:
-                if self._calendars.setdefault(cal.url, cal).ctag != cal.ctag or True:
+                if cal.url not in self._calendars:
+                    # Calendar seen for the first time - reload it
+                    self._calendars[cal.url] = cal
+                    yield self._updateCalendar(cal)
+                elif self._calendars[cal.url].ctag != cal.ctag:
+                    # Calendar changed - update to new ctag and reload
+                    self._calendars[cal.url].ctag = cal.ctag
                     yield self._updateCalendar(cal)
         d.addCallback(cbCalendars)
         d = self._newOperation("poll", d)
@@ -495,10 +541,19 @@ class SnowLeopard(BaseClient):
 
     @inlineCallbacks
     def startup(self):
-        # Orient ourselves, or something
-        principal = yield self._principalPropfind(self.record.uid)
+
+        # PROPFIND /principals/users/<uid> to retrieve /principals/__uids__/<guid>
+        response = yield self._principalPropfindInitial(self.record.uid)
+        hrefs = response.getHrefProperties()
+        self.principalURL = hrefs[davxml.principal_URL].toString()
+
+        # Using the actual principal URL, retrieve principal information
+        principal = yield self._principalPropfind()
 
         hrefs = principal.getHrefProperties()
+
+        # Remember our outbox
+        self.outbox = hrefs[caldavxml.schedule_outbox_URL].toString()
 
         # Remember our own email-like principal address
         for principalURL in hrefs[caldavxml.calendar_user_address_set]:
@@ -540,6 +595,8 @@ class SnowLeopard(BaseClient):
         msg(type="operation", phase="start", user=self.record.uid, label=label)
         def finished(passthrough):
             success = not isinstance(passthrough, Failure)
+            if not success:
+                passthrough.trap(IncorrectResponseCode)
             after = self.reactor.seconds()
             msg(type="operation", phase="end", duration=after - before,
                 user=self.record.uid, label=label, success=success)
@@ -555,7 +612,7 @@ class SnowLeopard(BaseClient):
         host, port = params.server.split(':')
         port = int(port)
 
-        service, stuff = params.uri.split('?')
+        service, _ignore_stuff = params.uri.split('?')
         service = service.split(':', 1)[1]
 
         # XXX What is the domain of the 2nd argument supposed to be?  The
@@ -596,33 +653,40 @@ class SnowLeopard(BaseClient):
 
 
     def _makeSelfAttendee(self):
-        attendee = ContentLine(
-            name=u'ATTENDEE', params=[
-                [u'CN', self.record.commonName],
-                [u'CUTYPE', u'INDIVIDUAL'],
-                [u'PARTSTAT', u'ACCEPTED'],
-                ],
+        attendee = Property(
+            name=u'ATTENDEE',
             value=self.uuid,
-            encoded=True)
-        attendee.parentBehavior = VEvent
+            params={
+                'CN': self.record.commonName,
+                'CUTYPE': 'INDIVIDUAL',
+                'PARTSTAT': 'ACCEPTED',
+            },
+        )
         return attendee
 
 
     def _makeSelfOrganizer(self):
-        organizer = ContentLine(
-            name=u'ORGANIZER', params=[
-                [u'CN', self.record.commonName],
-                ],
+        organizer = Property(
+            name=u'ORGANIZER',
             value=self.uuid,
-            encoded=True)
-        organizer.parentBehavior = VEvent
+            params={
+                'CN': self.record.commonName,
+            },
+        )
         return organizer
 
 
     def addEventAttendee(self, href, attendee):
-        name = attendee.params[u'CN'][0].encode('utf-8')
-        prefix = name[:4].lower()
-        email = attendee.params[u'EMAIL'][0].encode('utf-8')
+
+        # Temporarily use some non-test names (some which will return
+        # many results, and others which will return fewer) because the
+        # test account names are all too similar
+        # name = attendee.parameterValue('CN').encode("utf-8")
+        # prefix = name[:4].lower()
+        prefix = random.choice(["chris", "cyru", "dre", "eric", "morg",
+            "well", "wilfr", "witz"])
+
+        email = attendee.parameterValue('EMAIL').encode("utf-8")
 
         event = self._events[href]
         vevent = event.vevent
@@ -639,38 +703,24 @@ class SnowLeopard(BaseClient):
                     'lastname': prefix,
                     }))
         d.addCallback(readBody)
-        def narrowed(ignored):
-            # Next just learn about the one name we selected.
-            d = self._request(
-                MULTI_STATUS, 'REPORT', self.root + 'principals/',
-                Headers({'content-type': ['text/xml']}),
-                StringProducer(self._USER_LIST_PRINCIPAL_PROPERTY_SEARCH % {
-                        'displayname': name,
-                        'email': name,
-                        'firstname': name,
-                        'lastname': name,
-                        }))
-            d.addCallback(readBody)
-            return d
-        d.addCallback(narrowed)
         def specific(ignored):
             # Now learn about the attendee's availability
             return self.requestAvailability(
-                vevent.contents[u'vevent'][0].contents[u'dtstart'][0].value,
-                vevent.contents[u'vevent'][0].contents[u'dtend'][0].value,
+                vevent.mainComponent().getStartDateUTC(),
+                vevent.mainComponent().getEndDateUTC(),
                 [self.email, u'mailto:' + email],
-                [vevent.contents[u'vevent'][0].contents[u'uid'][0].value])
+                [vevent.resourceUID()])
             return d
         d.addCallback(specific)
         def availability(ignored):
             # If the event has no attendees, add ourselves as an attendee.
-            attendees = vevent.contents[u'vevent'][0].contents.setdefault(u'attendee', [])
+            attendees = list(vevent.mainComponent().properties('ATTENDEE'))
             if len(attendees) == 0:
                 # First add ourselves as a participant and as the
                 # organizer.  In the future for this event we should
                 # already have those roles.
-                attendees.append(self._makeSelfAttendee())
-                vevent.contents[u'vevent'][0].contents[u'organizer'] = [self._makeSelfOrganizer()]
+                vevent.mainComponent().addProperty(self._makeSelfOrganizer())
+                vevent.mainComponent().addProperty(self._makeSelfAttendee())
             attendees.append(attendee)
 
             # At last, upload the new event definition
@@ -679,7 +729,7 @@ class SnowLeopard(BaseClient):
                 Headers({
                         'content-type': ['text/calendar'],
                         'if-match': [event.etag]}),
-                StringProducer(vevent.serialize()))
+                StringProducer(vevent.getTextWithTimezones(includeTimezones=True)))
             return d
         d.addCallback(availability)
         # Finally, re-retrieve the event to update the etag
@@ -692,9 +742,8 @@ class SnowLeopard(BaseClient):
         vevent = event.vevent
 
         # Change the event to have the new attendee instead of the old attendee
-        attendees = vevent.contents[u'vevent'][0].contents[u'attendee']
-        attendees.remove(oldAttendee)
-        attendees.append(newAttendee)
+        vevent.mainComponent().removeProperty(oldAttendee)
+        vevent.mainComponent().addProperty(newAttendee)
         headers = Headers({
                 'content-type': ['text/calendar'],
                 })
@@ -703,7 +752,7 @@ class SnowLeopard(BaseClient):
 
         d = self._request(
             NO_CONTENT, 'PUT', self.root + href[1:].encode('utf-8'),
-            headers, StringProducer(vevent.serialize()))
+            headers, StringProducer(vevent.getTextWithTimezones(includeTimezones=True)))
         d.addCallback(self._updateEvent, href)
         return d
 
@@ -729,7 +778,7 @@ class SnowLeopard(BaseClient):
                 })
         d = self._request(
             CREATED, 'PUT', self.root + href[1:].encode('utf-8'),
-            headers, StringProducer(vcalendar.serialize()))
+            headers, StringProducer(vcalendar.getTextWithTimezones(includeTimezones=True)))
         d.addCallback(self._localUpdateEvent, href, vcalendar)
         return d
 
@@ -783,8 +832,7 @@ class SnowLeopard(BaseClient):
         @return: A C{Deferred} which fires with a C{dict}.  Keys in the dict
             are user UUIDs (those requested) and values are something else.
         """
-        outbox = self.root + 'calendars/__uids__/%s/outbox/' % (
-            self.record.uid.encode('utf-8'),)
+        outbox = self.root + self.outbox[1:]
 
         if mask:
             maskStr = u'\r\n'.join(['X-CALENDARSERVER-MASK-UID:' + uid
@@ -797,24 +845,17 @@ class SnowLeopard(BaseClient):
                                    for uuid in users]) + '\r\n'
 
         # iCal issues 24 hour wide vfreebusy requests, starting and ending at 4am.
-        if start.date() != end.date():
+        if start.compareDate(end):
             msg("Availability request spanning multiple days (%r to %r), "
                 "dropping the end date." % (start, end))
 
-        start = start.replace(hour=0, minute=0, second=0, microsecond=0)
-        end = start + timedelta(hours=24)
+        start.setTimezone(PyCalendarTimezone(utc=True))
+        start.setHHMMSS(0, 0, 0)
+        end = start + PyCalendarDuration(hours=24)
 
-        start = dateTimeToString(start, convertToUTC=True)
-        end = dateTimeToString(end, convertToUTC=True)
-        now = dateTimeToString(datetime.now(), convertToUTC=True)
-
-        # XXX Why does it not end up UTC sometimes?
-        if not start.endswith('Z'):
-            start = start + 'Z'
-        if not end.endswith('Z'):
-            end = end + 'Z'
-        if not now.endswith('Z'):
-            now = now + 'Z'
+        start = start.getText()
+        end = end.getText()
+        now = PyCalendarDateTime.getNowUTC().getText()
 
         d = self._request(
             OK, 'POST', outbox,
@@ -860,6 +901,10 @@ class RequestLogger(object):
 
     def report(self):
         pass
+
+
+    def failures(self):
+        return []
 
 
     

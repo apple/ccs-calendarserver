@@ -147,6 +147,36 @@ limitations under the License.
       <member type="users">user10</member>
     </members>
   </group>
+  <group> <!-- delegategroup -->
+    <uid>group05</uid>
+    <guid>group05</guid>
+    <password>group05</password>
+    <name>Group 05</name>
+    <members>
+      <member type="groups">group06</member>
+      <member type="users">user20</member>
+    </members>
+  </group>
+  <group> <!-- delegatesubgroup -->
+    <uid>group06</uid>
+    <guid>group06</guid>
+    <password>group06</password>
+    <name>Group 06</name>
+    <members>
+      <member type="users">user21</member>
+    </members>
+  </group>
+  <group> <!-- readonlydelegategroup -->
+    <uid>group07</uid>
+    <guid>group07</guid>
+    <password>group07</password>
+    <name>Group 07</name>
+    <members>
+      <member type="users">user22</member>
+      <member type="users">user23</member>
+      <member type="users">user24</member>
+    </members>
+  </group>
   <group>
     <uid>disabledgroup</uid>
     <guid>disabledgroup</guid>
@@ -156,58 +186,4 @@ limitations under the License.
       <member type="users">user01</member>
     </members>
   </group>
-  <location>
-    <uid>mercury</uid>
-    <guid>mercury</guid>
-    <password>test</password>
-    <name>Mecury Conference Room, Building 1, 2nd Floor</name>
-  </location>
-  <location>
-    <uid>venus</uid>
-    <guid>venus</guid>
-    <password>test</password>
-    <name>Venus Conference Room, Building 1, 2nd Floor</name>
-  </location>
-  <location>
-    <uid>Earth</uid>
-    <guid>Earth</guid>
-    <password>test</password>
-    <name>Earth Conference Room, Building 1, 1st Floor</name>
-  </location>
-  <location>
-    <uid>mars</uid>
-    <guid>mars</guid>
-    <password>test</password>
-    <name>Mars Conference Room, Building 1, 1st Floor</name>
-  </location>
-  <location>
-    <uid>jupiter</uid>
-    <guid>jupiter</guid>
-    <password>test</password>
-    <name>Jupiter Conference Room, Building 2, 1st Floor</name>
-  </location>
-  <location>
-    <uid>neptune</uid>
-    <guid>neptune</guid>
-    <password>test</password>
-    <name>Neptune Conference Room, Building 2, 1st Floor</name>
-  </location>
-  <location>
-    <uid>pluto</uid>
-    <guid>pluto</guid>
-    <password>test</password>
-    <name>Pluto Conference Room, Building 2, 1st Floor</name>
-  </location>
-  <location>
-    <uid>saturn</uid>
-    <guid>saturn</guid>
-    <password>test</password>
-    <name>Saturn Conference Room, Building 2, 1st Floor</name>
-  </location>
-  <location>
-    <uid>uranus</uid>
-    <guid>uranus</guid>
-    <password>test</password>
-    <name>Uranus Conference Room, Building 3, 1st Floor</name>
-  </location>
 </accounts>

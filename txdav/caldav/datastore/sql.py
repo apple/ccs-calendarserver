@@ -116,6 +116,34 @@ class CalendarHome(CommonHome):
     listCalendars = CommonHome.listChildren
     loadCalendars = CommonHome.loadChildren
 
+    @inlineCallbacks
+    def remove(self):
+        ch = schema.CALENDAR_HOME
+        cb = schema.CALENDAR_BIND
+        chm = schema.CALENDAR_HOME_METADATA
+        cor = schema.CALENDAR_OBJECT_REVISIONS
+
+        yield Delete(
+            From=chm,
+            Where=chm.RESOURCE_ID == self._resourceID
+        ).on(self._txn)
+
+        yield Delete(
+            From=cb,
+            Where=cb.CALENDAR_HOME_RESOURCE_ID == self._resourceID
+        ).on(self._txn)
+
+        yield Delete(
+            From=cor,
+            Where=cor.CALENDAR_HOME_RESOURCE_ID == self._resourceID
+        ).on(self._txn)
+
+        yield Delete(
+            From=ch,
+            Where=ch.RESOURCE_ID == self._resourceID
+        ).on(self._txn)
+
+        yield self._cacher.delete(str(self._ownerUID))
 
     @inlineCallbacks
     def hasCalendarResourceUIDSomewhereElse(self, uid, ok_object, type):
@@ -236,6 +264,7 @@ class Calendar(CommonHomeChild):
         return self._home
 
 
+    # FIXME: resource type is DAV.  This doesn't belong in the data store.  -wsv
     def resourceType(self):
         return ResourceType.calendar #@UndefinedVariable
 
@@ -275,6 +304,8 @@ class Calendar(CommonHomeChild):
             ),
         )
 
+    # FIXME: this is DAV-ish.  Data store calendar objects don't have
+    # mime types.  -wsv
     def contentType(self):
         """
         The content type of Calendar objects is text/calendar.
@@ -701,10 +732,14 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
     @inlineCallbacks
     def createAttachmentWithName(self, name):
 
-        # We need to know the resource_ID of the home collection of the owner (not sharee)
-        # of this event
+        # We need to know the resource_ID of the home collection of the owner
+        # (not sharee) of this event
         sharerHomeID = (yield self._parentCollection.sharerHomeID())
-        returnValue((yield Attachment.create(self._txn, self._dropboxID, name, sharerHomeID)))
+        returnValue((
+            yield Attachment.create(
+                self._txn, (yield self.dropboxID()), name, sharerHomeID
+            )
+        ))
 
     @inlineCallbacks
     def removeAttachmentWithName(self, name):
@@ -821,7 +856,9 @@ class AttachmentStorageTransport(StorageTransportBase):
                     att.MD5          : self._attachment._md5,
                     att.MODIFIED     : utcNowSQL
                 },
-                Where=att.PATH == self._attachment.name(),
+                Where=(att.PATH == self._attachment.name()).And(
+                    att.DROPBOX_ID == self._attachment._dropboxID
+                ),
                 Return=(att.CREATED, att.MODIFIED)).on(self._txn))[0]
         )
 
@@ -988,6 +1025,7 @@ class Attachment(object):
 
     def created(self):
         return self._created
+
 
     def modified(self):
         return self._modified

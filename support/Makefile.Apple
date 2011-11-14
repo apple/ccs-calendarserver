@@ -27,10 +27,16 @@ ToolType    = Applications
 
 # Include common makefile targets for B&I
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/Common.make
+-include /AppleInternal/ServerTools/ServerBuildVariables.xcconfig
 
-PYTHON = /usr/bin/python
-PY_HOME = $(SHAREDIR)/caldavd
-PY_INSTALL_FLAGS = --root="$(DSTROOT)" --home="$(PY_HOME)"
+SIPP = $(SERVER_INSTALL_PATH_PREFIX)
+SERVERSETUP = $(NSSYSTEMDIR)$(NSLIBRARYSUBDIR)/ServerSetup
+
+CALDAVDSUBDIR = /caldavd
+
+PYTHON = $(USRBINDIR)/python
+PY_HOME = $(SIPP)$(SHAREDIR)$(CALDAVDSUBDIR)
+PY_INSTALL_FLAGS = --root="$(DSTROOT)" --prefix="$(SIPP)" --install-lib="$(PY_HOME)/lib/python" --install-scripts="$(SIPP)$(LIBEXECDIR)$(CALDAVDSUBDIR)"
 
 USER  = calendar
 GROUP = calendar
@@ -60,58 +66,54 @@ PyKerberos PyXML-0.8.4 pycalendar PyGreSQL-4.0 sqlparse-0.1.2 $(Project)::
 	@echo "Building $@..."
 	$(_v) cd $(BuildDirectory)/$@ && $(Environment) $(PYTHON) setup.py build
 
-TwistedSubEnvironment = $(Environment) PYTHONPATH="$(DSTROOT)$(PY_HOME)/lib/python"
-
 install:: build
-	$(_v) cd $(BuildDirectory)/$(Project) && $(Environment) $(PYTHON) setup.py install \
-	          $(PY_INSTALL_FLAGS)                                                      \
-	          --install-scripts="$(USRSBINDIR)"                                        \
-	          --install-data="$(ETCDIR)"
+	$(_v) cd $(BuildDirectory)/$(Project)       && $(Environment) $(PYTHON) setup.py install $(PY_INSTALL_FLAGS) --install-scripts="$(SIPP)$(USRSBINDIR)" --install-data="$(SIPP)$(ETCDIR)"
 	$(_v) cd $(BuildDirectory)/PyKerberos       && $(Environment) $(PYTHON) setup.py install $(PY_INSTALL_FLAGS)
 	$(_v) cd $(BuildDirectory)/PyXML-0.8.4      && $(Environment) $(PYTHON) setup.py install $(PY_INSTALL_FLAGS)
 	$(_v) cd $(BuildDirectory)/pycalendar       && $(Environment) $(PYTHON) setup.py install $(PY_INSTALL_FLAGS)
 	$(_v) cd $(BuildDirectory)/PyGreSQL-4.0     && $(Environment) $(PYTHON) setup.py install $(PY_INSTALL_FLAGS)
 	$(_v) cd $(BuildDirectory)/sqlparse-0.1.2   && $(Environment) $(PYTHON) setup.py install $(PY_INSTALL_FLAGS)
 	$(_v) for so in $$(find "$(DSTROOT)$(PY_HOME)/lib" -type f -name '*.so'); do $(STRIP) -Sx "$${so}"; done 
-	$(_v) $(INSTALL_FILE) "$(Sources)/conf/caldavd-apple.plist" "$(DSTROOT)$(ETCDIR)/caldavd/caldavd.plist"
+	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)$(SIPP)$(ETCDIR)$(CALDAVDSUBDIR)"
+	$(_v) $(INSTALL_FILE) "$(Sources)/conf/caldavd-apple.plist" "$(DSTROOT)$(SIPP)$(ETCDIR)$(CALDAVDSUBDIR)/caldavd.plist"
 	$(_v) chmod -R ugo+r "$(DSTROOT)$(PY_HOME)"
-	$(_v) for f in $$(find "$(DSTROOT)$(ETCDIR)" -type f ! -name '*.default'); do cp "$${f}" "$${f}.default"; done
+	$(_v) for f in $$(find "$(DSTROOT)$(SIPP)$(ETCDIR)" -type f ! -name '*.default'); do cp "$${f}" "$${f}.default"; done
 
 install::
 	@echo "Installing manual pages..."
-	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)$(MANDIR)/man8"
-	$(_v) $(INSTALL_FILE) "$(Sources)/doc/caldavd.8"                          "$(DSTROOT)$(MANDIR)/man8"
-	$(_v) $(INSTALL_FILE) "$(Sources)/doc/calendarserver_export.8"            "$(DSTROOT)$(MANDIR)/man8"
-	$(_v) $(INSTALL_FILE) "$(Sources)/doc/calendarserver_manage_principals.8" "$(DSTROOT)$(MANDIR)/man8"
-	$(_v) $(INSTALL_FILE) "$(Sources)/doc/calendarserver_migrate_resources.8" "$(DSTROOT)$(MANDIR)/man8"
-	$(_v) $(INSTALL_FILE) "$(Sources)/doc/calendarserver_command_gateway.8"   "$(DSTROOT)$(MANDIR)/man8"
-	$(_v) $(INSTALL_FILE) "$(Sources)/doc/calendarserver_purge_events.8"   "$(DSTROOT)$(MANDIR)/man8"
-	$(_v) $(INSTALL_FILE) "$(Sources)/doc/calendarserver_monitor_notifications.8"   "$(DSTROOT)$(MANDIR)/man8"
-	$(_v) $(INSTALL_FILE) "$(Sources)/doc/calendarserver_bootstrap_database.8"   "$(DSTROOT)$(MANDIR)/man8"
-	$(_v) $(INSTALL_FILE) "$(Sources)/doc/calendarserver_purge_attachments.8"   "$(DSTROOT)$(MANDIR)/man8"
-	$(_v) $(INSTALL_FILE) "$(Sources)/doc/calendarserver_purge_principals.8"   "$(DSTROOT)$(MANDIR)/man8"
-	$(_v) gzip -9 -f "$(DSTROOT)$(MANDIR)/man8/"*.[0-9]
+	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)$(SIPP)$(MANDIR)/man8"
+	$(_v) $(INSTALL_FILE) "$(Sources)/doc/caldavd.8"                              "$(DSTROOT)$(SIPP)$(MANDIR)/man8"
+	$(_v) $(INSTALL_FILE) "$(Sources)/doc/calendarserver_export.8"                "$(DSTROOT)$(SIPP)$(MANDIR)/man8"
+	$(_v) $(INSTALL_FILE) "$(Sources)/doc/calendarserver_manage_principals.8"     "$(DSTROOT)$(SIPP)$(MANDIR)/man8"
+	$(_v) $(INSTALL_FILE) "$(Sources)/doc/calendarserver_migrate_resources.8"     "$(DSTROOT)$(SIPP)$(MANDIR)/man8"
+	$(_v) $(INSTALL_FILE) "$(Sources)/doc/calendarserver_command_gateway.8"       "$(DSTROOT)$(SIPP)$(MANDIR)/man8"
+	$(_v) $(INSTALL_FILE) "$(Sources)/doc/calendarserver_purge_events.8"          "$(DSTROOT)$(SIPP)$(MANDIR)/man8"
+	$(_v) $(INSTALL_FILE) "$(Sources)/doc/calendarserver_monitor_notifications.8" "$(DSTROOT)$(SIPP)$(MANDIR)/man8"
+	$(_v) $(INSTALL_FILE) "$(Sources)/doc/calendarserver_bootstrap_database.8"    "$(DSTROOT)$(SIPP)$(MANDIR)/man8"
+	$(_v) $(INSTALL_FILE) "$(Sources)/doc/calendarserver_purge_attachments.8"     "$(DSTROOT)$(SIPP)$(MANDIR)/man8"
+	$(_v) $(INSTALL_FILE) "$(Sources)/doc/calendarserver_purge_principals.8"      "$(DSTROOT)$(SIPP)$(MANDIR)/man8"
+	$(_v) gzip -9 -f "$(DSTROOT)$(SIPP)$(MANDIR)/man8/"*.[0-9]
 	@echo "Installing launchd config..."
 	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)$(NSLOCALDIR)/$(NSLIBRARYSUBDIR)/Server/Calendar and Contacts"
-	$(_v) $(INSTALL_DIRECTORY) -o calendar -g calendar -m 0755 "$(DSTROOT)$(VARDIR)/log/caldavd"
+	$(_v) $(INSTALL_DIRECTORY) -o calendar -g calendar -m 0755 "$(DSTROOT)$(VARDIR)/log$(CALDAVDSUBDIR)"
 	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)$(NSLIBRARYDIR)/LaunchDaemons"
 	$(_v) $(INSTALL_FILE) "$(Sources)/contrib/launchd/calendarserver.plist" "$(DSTROOT)$(NSLIBRARYDIR)/LaunchDaemons/org.calendarserver.calendarserver.plist"
 	@echo "Installing migration config..."
-	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)/System/Library/ServerSetup/MigrationExtras"
-	$(_v) $(INSTALL_FILE) "$(Sources)/contrib/migration/calendarmigrator.py" "$(DSTROOT)/System/Library/ServerSetup/MigrationExtras/59_calendarmigrator.py"
-	$(_v) chmod ugo+x "$(DSTROOT)/System/Library/ServerSetup/MigrationExtras/59_calendarmigrator.py"
+	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)$(SERVERSETUP)/MigrationExtras"
+	$(_v) $(INSTALL_FILE) "$(Sources)/contrib/migration/calendarmigrator.py" "$(DSTROOT)$(SERVERSETUP)/MigrationExtras/59_calendarmigrator.py"
+	$(_v) chmod ugo+x "$(DSTROOT)$(SERVERSETUP)/MigrationExtras/59_calendarmigrator.py"
 	@echo "Installing database configuration scripts..."
-	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)/System/Library/ServerSetup/CommonExtras/PostgreSQLExtras"
-	$(_v) $(INSTALL_FILE) "$(Sources)/contrib/create_caldavd_db.sh" "$(DSTROOT)/System/Library/ServerSetup/CommonExtras/PostgreSQLExtras/create_caldavd_db.sh"
-	$(_v) chmod ugo+x "$(DSTROOT)/System/Library/ServerSetup/CommonExtras/PostgreSQLExtras/create_caldavd_db.sh"
+	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)$(SERVERSETUP)/CommonExtras/PostgreSQLExtras"
+	$(_v) $(INSTALL_FILE) "$(Sources)/contrib/create_caldavd_db.sh" "$(DSTROOT)$(SERVERSETUP)/CommonExtras/PostgreSQLExtras/create_caldavd_db.sh"
+	$(_v) chmod ugo+x "$(DSTROOT)$(SERVERSETUP)/CommonExtras/PostgreSQLExtras/create_caldavd_db.sh"
 	@echo "Installing changeip config..."
-	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)/usr/libexec/changeip"
-	$(_v) $(INSTALL_FILE) "$(Sources)/calendarserver/tools/changeip_calendar.py" "$(DSTROOT)/usr/libexec/changeip/changeip_calendar.py"
-	$(_v) chmod ugo+x "$(DSTROOT)/usr/libexec/changeip/changeip_calendar.py"
+	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)$(SIPP)$(LIBEXECDIR)/changeip"
+	$(_v) $(INSTALL_FILE) "$(Sources)/calendarserver/tools/changeip_calendar.py" "$(DSTROOT)$(SIPP)$(LIBEXECDIR)/changeip/changeip_calendar.py"
+	$(_v) chmod ugo+x "$(DSTROOT)$(SIPP)$(LIBEXECDIR)/changeip/changeip_calendar.py"
 	@echo "Installing certificate update scripts..."
-	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)/usr/libexec/certupdate"
-	$(_v) $(INSTALL_FILE) "$(Sources)/contrib/certupdate/calendarcertupdate.py" "$(DSTROOT)/usr/libexec/certupdate/calendarcertupdate.py"
-	$(_v) chmod ugo+x "$(DSTROOT)/usr/libexec/certupdate/calendarcertupdate.py"
+	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)$(SIPP)$(LIBEXECDIR)/certupdate"
+	$(_v) $(INSTALL_FILE) "$(Sources)/contrib/certupdate/calendarcertupdate.py" "$(DSTROOT)$(SIPP)$(LIBEXECDIR)/certupdate/calendarcertupdate.py"
+	$(_v) chmod ugo+x "$(DSTROOT)$(SIPP)$(LIBEXECDIR)/certupdate/calendarcertupdate.py"
 
 install::
 	@echo "Installing CalDAVTester package..."
@@ -150,8 +152,8 @@ $(BuildDirectory)/%: %.tgz
 # Open Source Hooey
 #
 
-OSV = /usr/local/OpenSourceVersions
-OSL = /usr/local/OpenSourceLicenses
+OSV = $(USRDIR)/local/OpenSourceVersions
+OSL = $(USRDIR)/local/OpenSourceLicenses
 
 #install:: install-ossfiles
 

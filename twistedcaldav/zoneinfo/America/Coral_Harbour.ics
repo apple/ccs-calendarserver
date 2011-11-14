@@ -1,7 +1,7 @@
 BEGIN:VCALENDAR
+VERSION:2.0
 CALSCALE:GREGORIAN
 PRODID:-//calendarserver.org//Zonal//EN
-VERSION:2.0
 BEGIN:VTIMEZONE
 TZID:America/Coral_Harbour
 X-LIC-LOCATION:America/Coral_Harbour

@@ -67,6 +67,7 @@ calendar1_objectNames = [
     "1.ics",
     "2.ics",
     "3.ics",
+    "4.ics",
 ]
 
 
@@ -77,7 +78,7 @@ home1_calendarNames = [
 ]
 
 
-event4_text = (
+test_event_text = (
     "BEGIN:VCALENDAR\r\n"
       "VERSION:2.0\r\n"
       "PRODID:-//Apple Inc.//iCal 4.0.1//EN\r\n"
@@ -101,7 +102,7 @@ event4_text = (
       "END:VTIMEZONE\r\n"
       "BEGIN:VEVENT\r\n"
         "CREATED:20100203T013849Z\r\n"
-        "UID:uid4\r\n"
+        "UID:uid-test\r\n"
         "DTEND;TZID=US/Pacific:20100207T173000\r\n"
         "TRANSP:OPAQUE\r\n"
         "SUMMARY:New Event\r\n"
@@ -120,14 +121,14 @@ event4_text = (
 
 
 
-event4notCalDAV_text = (
+test_event_notCalDAV_text = (
     "BEGIN:VCALENDAR\r\n"
       "VERSION:2.0\r\n"
       "PRODID:-//Apple Inc.//iCal 4.0.1//EN\r\n"
       "CALSCALE:GREGORIAN\r\n"
       "BEGIN:VEVENT\r\n"
         "CREATED:20100203T013849Z\r\n"
-        "UID:4\r\n"
+        "UID:test\r\n"
         "DTEND;TZID=US/Pacific:20100207T173000\r\n" # TZID without VTIMEZONE
         "TRANSP:OPAQUE\r\n"
         "SUMMARY:New Event\r\n"
@@ -146,10 +147,29 @@ event4notCalDAV_text = (
 
 
 
-event1modified_text = event4_text.replace(
-    "\r\nUID:uid4\r\n",
+event1modified_text = test_event_text.replace(
+    "\r\nUID:uid-test\r\n",
     "\r\nUID:uid1\r\n"
 )
+
+
+class CaptureProtocol(Protocol):
+    """
+    A proocol that captures the data delivered to it, and calls back a Deferred
+    with that data.
+
+    @ivar deferred: a L{Deferred} which will be called back with all the data
+        yet delivered to C{dataReceived} when C{connectionLost} is called.
+    """
+
+    def __init__(self):
+        self.deferred = Deferred()
+        self.io = StringIO()
+        self.dataReceived = self.io.write
+
+
+    def connectionLost(self, reason):
+        self.deferred.callback(self.io.getvalue())
 
 
 
@@ -175,7 +195,14 @@ class CommonTests(CommonCommonTests):
     }
     metadata3 = {
         "accessMode": "PUBLIC",
-        "isScheduleObject": True,
+        "isScheduleObject": None,
+        "scheduleTag": "abc",
+        "scheduleEtags": (),
+        "hasPrivateComment": True,
+    }
+    metadata4 = {
+        "accessMode": "PUBLIC",
+        "isScheduleObject": None,
         "scheduleTag": "abc",
         "scheduleEtags": (),
         "hasPrivateComment": True,
@@ -185,6 +212,7 @@ class CommonTests(CommonCommonTests):
         hashlib.md5("1234").hexdigest(),
         hashlib.md5("5678").hexdigest(),
         hashlib.md5("9ABC").hexdigest(),
+        hashlib.md5("EFGH").hexdigest(),
     )
     requirements = {
         "home1": {
@@ -192,6 +220,7 @@ class CommonTests(CommonCommonTests):
                 "1.ics": (cal1Root.child("1.ics").getContent(), metadata1),
                 "2.ics": (cal1Root.child("2.ics").getContent(), metadata2),
                 "3.ics": (cal1Root.child("3.ics").getContent(), metadata3),
+                "4.ics": (cal1Root.child("4.ics").getContent(), metadata4),
             },
             "calendar_2": {},
             "calendar_empty": {},
@@ -205,6 +234,7 @@ class CommonTests(CommonCommonTests):
                 "1.ics": md5Values[0],
                 "2.ics": md5Values[1],
                 "3.ics": md5Values[2],
+                "4.ics": md5Values[3],
             },
             "calendar_2": {},
             "calendar_empty": {},
@@ -247,14 +277,14 @@ class CommonTests(CommonCommonTests):
 
 
     @inlineCallbacks
-    def calendarObjectUnderTest(self):
+    def calendarObjectUnderTest(self, name="1.ics"):
         """
         Get the calendar detailed by
-        C{requirements['home1']['calendar_1']['1.ics']}.
+        C{requirements['home1']['calendar_1'][name]}.
         """
         returnValue(
             (yield (yield self.calendarUnderTest())
-                .calendarObjectWithName("1.ics")))
+                .calendarObjectWithName(name)))
 
 
     def test_calendarStoreProvides(self):
@@ -766,6 +796,8 @@ class CommonTests(CommonCommonTests):
                 ("update", "CalDAV|home1/calendar_1"),
                 ("update", "CalDAV|home1"),
                 ("update", "CalDAV|home1/calendar_1"),
+                ("update", "CalDAV|home1"),
+                ("update", "CalDAV|home1/calendar_1"),
             ]
         )
 
@@ -1142,11 +1174,11 @@ END:VCALENDAR
         L{ICalendarObject}.
         """
         calendar1 = yield self.calendarUnderTest()
-        name = "4.ics"
+        name = "test.ics"
         self.assertIdentical(
             (yield calendar1.calendarObjectWithName(name)), None
         )
-        component = VComponent.fromString(event4_text)
+        component = VComponent.fromString(test_event_text)
         metadata = {
             "accessMode": "PUBLIC",
             "isScheduleObject": True,
@@ -1180,7 +1212,7 @@ END:VCALENDAR
         given name already exists in that calendar.
         """
         cal = yield self.calendarUnderTest()
-        comp = VComponent.fromString(event4_text)
+        comp = VComponent.fromString(test_event_text)
         yield self.failUnlessFailure(
             maybeDeferred(cal.createCalendarObjectWithName, "1.ics", comp),
             ObjectResourceNameAlreadyExistsError,
@@ -1196,7 +1228,7 @@ END:VCALENDAR
         """
         yield self.failUnlessFailure(
             maybeDeferred((yield self.calendarUnderTest()).createCalendarObjectWithName,
-            "new", VComponent.fromString(event4notCalDAV_text)),
+            "new", VComponent.fromString(test_event_notCalDAV_text)),
             InvalidObjectResourceError,
         )
 
@@ -1209,7 +1241,7 @@ END:VCALENDAR
         calendarObject = yield self.calendarObjectUnderTest()
         yield self.failUnlessFailure(
             maybeDeferred(calendarObject.setComponent,
-                          VComponent.fromString(event4notCalDAV_text)),
+                          VComponent.fromString(test_event_notCalDAV_text)),
             InvalidObjectResourceError,
         )
 
@@ -1221,7 +1253,7 @@ END:VCALENDAR
         when given a L{VComponent} whose UID does not match its existing UID.
         """
         calendar1 = yield self.calendarUnderTest()
-        component = VComponent.fromString(event4_text)
+        component = VComponent.fromString(test_event_text)
         calendarObject = yield calendar1.calendarObjectWithName("1.ics")
         yield self.failUnlessFailure(
             maybeDeferred(calendarObject.setComponent, component),
@@ -1329,9 +1361,9 @@ END:VCALENDAR
         """
         calendar = yield self.calendarUnderTest()
         yield calendar.createCalendarObjectWithName(
-            "4.ics", VComponent.fromString(event4_text)
+            "test.ics", VComponent.fromString(test_event_text)
         )
-        newEvent = yield calendar.calendarObjectWithName("4.ics")
+        newEvent = yield calendar.calendarObjectWithName("test.ics")
         self.assertEquals(newEvent.properties().items(), [])
 
 
@@ -1560,18 +1592,9 @@ END:VCALENDAR
         t.write(" text")
         yield t.loseConnection()
         obj = yield refresh(obj)
-        class CaptureProtocol(Protocol):
-            buf = ''
-            def dataReceived(self, data):
-                self.buf += data
-            def connectionLost(self, reason):
-                self.deferred.callback(self.buf)
-        capture = CaptureProtocol()
-        capture.deferred = Deferred()
         attachment = yield obj.attachmentWithName("new.attachment")
         self.assertProvides(IAttachment, attachment)
-        attachment.retrieve(capture)
-        data = yield capture.deferred
+        data = yield self.attachmentToString(attachment)
         self.assertEquals(data, "new attachment text")
         contentType = attachment.contentType()
         self.assertIsInstance(contentType, MimeType)
@@ -1581,6 +1604,68 @@ END:VCALENDAR
             [attachment.name() for attachment in (yield obj.attachments())],
             ['new.attachment']
         )
+
+
+    @inlineCallbacks
+    def test_twoAttachmentsWithTheSameName(self):
+        """
+        Attachments are uniquely identified by their associated object and path;
+        two attachments with the same name won't overwrite each other.
+        """
+        obj = yield self.calendarObjectUnderTest()
+        obj2 = yield self.calendarObjectUnderTest("2.ics")
+        att1 = yield self.stringToAttachment(obj, "sample.attachment",
+                                             "test data 1")
+        att2 = yield self.stringToAttachment(obj2, "sample.attachment",
+                                             "test data 2")
+        data1 = yield self.attachmentToString(att1)
+        data2 = yield self.attachmentToString(att2)
+        self.assertEquals(data1, "test data 1")
+        self.assertEquals(data2, "test data 2")
+
+
+    @inlineCallbacks
+    def stringToAttachment(self, obj, name, contents,
+                           mimeType=MimeType("text", "x-fixture")):
+        """
+        Convenience for producing an attachment from a calendar object.
+
+        @param obj: the calendar object which owns the dropbox associated with
+            the to-be-created attachment.
+
+        @param name: the (utf-8 encoded) name to create the attachment with.
+
+        @type name: C{bytes}
+
+        @param contents: the desired contents of the new attachment.
+
+        @type contents: C{bytes}
+
+        @param mimeType: the mime type of the incoming bytes.
+
+        @return: a L{Deferred} that fires with the L{IAttachment} that is
+            created, once all the bytes have been stored.
+        """
+        att = yield obj.createAttachmentWithName(name)
+        t = att.store(mimeType)
+        t.write(contents)
+        yield t.loseConnection()
+        returnValue(att)
+
+
+    def attachmentToString(self, attachment):
+        """
+        Convenience to convert an L{IAttachment} to a string.
+
+        @param attachment: an L{IAttachment} provider to convert into a string.
+
+        @return: a L{Deferred} that fires with the contents of the attachment.
+
+        @rtype: L{Deferred} firing C{bytes}
+        """
+        capture = CaptureProtocol()
+        attachment.retrieve(capture)
+        return capture.deferred
 
 
     def test_createAttachment(self):
@@ -1854,8 +1939,8 @@ END:VCALENDAR
             uid for uid in self.requirements
             if self.requirements[uid] is not None
         ])
+        additionalUIDs.add("home_bad")
+        additionalUIDs.add("home_attachments")
         expectedUIDs = additionalUIDs.union(requiredUIDs)
         self.assertEquals(foundUIDs, expectedUIDs)
-
-
 

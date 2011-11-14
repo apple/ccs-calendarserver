@@ -19,14 +19,10 @@
 Implementation of specific end-user behaviors.
 """
 
-import random
+from __future__ import division
+
+import sys, random
 from uuid import uuid4
-
-from datetime import datetime, timedelta
-
-from vobject import readComponents
-from vobject.base import Component, ContentLine
-from vobject.icalendar import VEvent
 
 from caldavclientlibrary.protocol.caldav.definitions import caldavxml
 
@@ -37,10 +33,14 @@ from twisted.internet.defer import Deferred, succeed, fail
 from twisted.internet.task import LoopingCall
 from twisted.web.http import PRECONDITION_FAILED
 
-from stats import NearFutureDistribution, NormalDistribution, UniformDiscreteDistribution, mean
-from loadtest.logger import SummarizingMixin
-from loadtest.ical import IncorrectResponseCode
+from twistedcaldav.ical import Property, Component
 
+from contrib.performance.stats import NearFutureDistribution, NormalDistribution, UniformDiscreteDistribution, mean, median
+from contrib.performance.loadtest.logger import SummarizingMixin
+from contrib.performance.loadtest.ical import IncorrectResponseCode
+
+from pycalendar.datetime import PyCalendarDateTime
+from pycalendar.duration import PyCalendarDuration
 
 class ProfileBase(object):
     """
@@ -75,7 +75,7 @@ class ProfileBase(object):
         C{self._client}'s identifiers.  Return C{True} if something matches,
         C{False} otherwise.
         """
-        return attendee.params[u'EMAIL'][0] == self._client.email[len('mailto:'):]
+        return attendee.parameterValue('EMAIL') == self._client.email[len('mailto:'):]
 
 
     def _newOperation(self, label, deferred):
@@ -94,6 +94,9 @@ class ProfileBase(object):
 
         def finished(passthrough):
             success = not isinstance(passthrough, Failure)
+            if not success:
+                passthrough.trap(IncorrectResponseCode)
+                passthrough = passthrough.value.response
             after = self._reactor.seconds()
             msg(type="operation", phase="end", duration=after - before,
                 user=self._client.record.uid, label=label, success=success)
@@ -129,9 +132,13 @@ class Inviter(ProfileBase):
     """
     A Calendar user who invites and de-invites other users to events.
     """
-    def setParameters(self,
-                      sendInvitationDistribution=NormalDistribution(600, 60),
-                      inviteeDistanceDistribution=UniformDiscreteDistribution(range(-10, 11))):
+    def setParameters(
+        self,
+        enabled=True,
+        sendInvitationDistribution=NormalDistribution(600, 60),
+        inviteeDistanceDistribution=UniformDiscreteDistribution(range(-10, 11))
+    ):
+        self.enabled = enabled
         self._sendInvitationDistribution = sendInvitationDistribution
         self._inviteeDistanceDistribution = inviteeDistanceDistribution
 
@@ -149,9 +156,9 @@ class Inviter(ProfileBase):
         selfRecord = self._sim.getUserRecord(self._number)
         invitees = set([u'urn:uuid:%s' % (selfRecord.uid,)])
         for att in attendees:
-            invitees.add(att.value)
+            invitees.add(att.value())
 
-        for i in range(10):
+        for _ignore_i in range(10):
             invitee = max(
                 0, self._number + self._inviteeDistanceDistribution.sample())
             try:
@@ -164,19 +171,19 @@ class Inviter(ProfileBase):
         else:
             return fail(CannotAddAttendee("Can't find uninvited user to invite."))
 
-        attendee = ContentLine(
-            name=u'ATTENDEE', params=[
-                [u'CN', record.commonName],
-                [u'CUTYPE', u'INDIVIDUAL'],
-                [u'EMAIL', record.email],
-                [u'PARTSTAT', u'NEEDS-ACTION'],
-                [u'ROLE', u'REQ-PARTICIPANT'],
-                [u'RSVP', u'TRUE'],
-                # [u'SCHEDULE-STATUS', u'1.2'],
-                ],
+        attendee = Property(
+            name=u'ATTENDEE',
             value=uuid,
-            encoded=True)
-        attendee.parentBehavior = VEvent
+            params={
+            'CN': record.commonName,
+            'CUTYPE': 'INDIVIDUAL',
+            'EMAIL': record.email,
+            'PARTSTAT': 'NEEDS-ACTION',
+            'ROLE': 'REQ-PARTICIPANT',
+            'RSVP': 'TRUE',
+            #'SCHEDULE-STATUS': '1.2',
+            },
+        )
 
         return succeed(attendee)
 
@@ -210,8 +217,8 @@ class Inviter(ProfileBase):
                 if event is None:
                     continue
 
-                vevent = event.contents[u'vevent'][0]
-                organizer = vevent.contents.get('organizer', [None])[0]
+                vevent = event.mainComponent()
+                organizer = vevent.getOrganizerProperty()
                 if organizer is not None and not self._isSelfAttendee(organizer):
                     # This event was organized by someone else, don't try to invite someone to it.
                     continue
@@ -219,7 +226,7 @@ class Inviter(ProfileBase):
                 href = calendar.url + uuid
 
                 # Find out who might attend
-                attendees = vevent.contents.get('attendee', [])
+                attendees = tuple(vevent.properties('ATTENDEE'))
 
                 d = self._addAttendee(event, attendees)
                 d.addCallbacks(
@@ -236,9 +243,15 @@ class Inviter(ProfileBase):
 
 class Accepter(ProfileBase):
     """
-    A Calendar user who accepts invitations to events.
+    A Calendar user who accepts invitations to events. As well as accepting requests, this
+    will also remove cancels and replies.
     """
-    def setParameters(self, acceptDelayDistribution=NormalDistribution(1200, 60)):
+    def setParameters(
+        self,
+        enabled=True,
+        acceptDelayDistribution=NormalDistribution(1200, 60)
+    ):
+        self.enabled = enabled
         self._accepting = set()
         self._acceptDelayDistribution = acceptDelayDistribution
 
@@ -256,22 +269,50 @@ class Accepter(ProfileBase):
             calendar = self._client._calendars[calendar]
         except KeyError:
             return
-        if calendar.resourceType != caldavxml.calendar:
+
+        if calendar.resourceType == caldavxml.schedule_inbox:
+            # Handle inbox differently
+            self.inboxEventChanged(calendar, href)
+        elif calendar.resourceType == caldavxml.calendar:
+            self.calendarEventChanged(calendar, href)
+        else:
             return
+
+    def calendarEventChanged(self, calendar, href):
         if href in self._accepting:
             return
 
         vevent = self._client._events[href].vevent
         # Check to see if this user is in the attendee list in the
         # NEEDS-ACTION PARTSTAT.
-        attendees = vevent.contents['vevent'][0].contents.get('attendee', [])
+        attendees = tuple(vevent.mainComponent().properties('ATTENDEE'))
         for attendee in attendees:
             if self._isSelfAttendee(attendee):
-                if attendee.params[u'PARTSTAT'][0] == 'NEEDS-ACTION':
+                if attendee.parameterValue('PARTSTAT') == 'NEEDS-ACTION':
                     delay = self._acceptDelayDistribution.sample()
                     self._accepting.add(href)
                     self._reactor.callLater(
                         delay, self._acceptInvitation, href, attendee)
+
+
+    def inboxEventChanged(self, calendar, href):
+        if href in self._accepting:
+            return
+
+        vevent = self._client._events[href].vevent
+        method = vevent.propertyValue('METHOD')
+        if method == "REPLY":
+            # Replies are immediately deleted
+            self._accepting.add(href)
+            self._reactor.callLater(
+                0, self._handleReply, href)
+
+        elif method == "CANCEL":
+            # Cancels are handled after a user delay
+            delay = self._acceptDelayDistribution.sample()
+            self._accepting.add(href)
+            self._reactor.callLater(
+                delay, self._handleCancel, href)
 
 
     def _acceptInvitation(self, href, attendee):
@@ -283,7 +324,7 @@ class Accepter(ProfileBase):
         def scheduleError(reason):
             reason.trap(IncorrectResponseCode)
             if reason.value.response.code != PRECONDITION_FAILED:
-                return reason
+                return reason.value.response.code
 
             # Download the event again and attempt to make the change
             # to the attendee list again.
@@ -312,13 +353,45 @@ class Accepter(ProfileBase):
         return self._newOperation("accept", d)
 
 
+    def _handleReply(self, href):
+        d = self._client.deleteEvent(href)
+        def finished(passthrough):
+            self._accepting.remove(href)
+            if isinstance(passthrough, Failure):
+                passthrough.trap(IncorrectResponseCode)
+                passthrough = passthrough.response
+            return passthrough
+        d.addBoth(finished)
+        return self._newOperation("reply done", d)
+
+
+    def _handleCancel(self, href):
+
+        uid = self._client._events[href].getUID()
+        d = self._client.deleteEvent(href)
+
+        def removed(ignored):
+            # Find the corresponding event in any calendar and delete it.
+            for cal in self._client._calendars.itervalues():
+                if cal.resourceType == caldavxml.calendar:
+                    for event in cal.events.itervalues():
+                        if uid == event.getUID():
+                            return self._client.deleteEvent(event.url)
+        d.addCallback(removed)
+        def finished(passthrough):
+            self._accepting.remove(href)
+            if isinstance(passthrough, Failure):
+                passthrough.trap(IncorrectResponseCode)
+                passthrough = passthrough.response
+            return passthrough
+        d.addBoth(finished)
+        return self._newOperation("cancelled", d)
+
+
     def _makeAcceptedAttendee(self, attendee):
-        accepted = ContentLine.duplicate(attendee)
-        accepted.params[u'PARTSTAT'] = [u'ACCEPTED']
-        try:
-            del accepted.params[u'RSVP']
-        except KeyError:
-            msg("Duplicated an attendee with no RSVP: %r" % (attendee,))
+        accepted = attendee.duplicate()
+        accepted.setParameter('PARTSTAT', 'ACCEPTED')
+        accepted.removeParameter('RSVP')
         return accepted
 
 
@@ -327,28 +400,11 @@ class Eventer(ProfileBase):
     """
     A Calendar user who creates new events.
     """
-    _eventTemplate = list(readComponents("""\
+    _eventTemplate = Component.fromString("""\
 BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//Apple Inc.//iCal 4.0.3//EN
 CALSCALE:GREGORIAN
-BEGIN:VTIMEZONE
-TZID:America/New_York
-BEGIN:DAYLIGHT
-TZOFFSETFROM:-0500
-RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=2SU
-DTSTART:20070311T020000
-TZNAME:EDT
-TZOFFSETTO:-0400
-END:DAYLIGHT
-BEGIN:STANDARD
-TZOFFSETFROM:-0400
-RRULE:FREQ=YEARLY;BYMONTH=11;BYDAY=1SU
-DTSTART:20071104T020000
-TZNAME:EST
-TZOFFSETTO:-0500
-END:STANDARD
-END:VTIMEZONE
 BEGIN:VEVENT
 CREATED:20101018T155431Z
 UID:C98AD237-55AD-4F7D-9009-0D355D835822
@@ -360,14 +416,20 @@ DTSTAMP:20101018T155438Z
 SEQUENCE:2
 END:VEVENT
 END:VCALENDAR
-"""))[0]
+""".replace("\n", "\r\n"))
+
     def setParameters(
-        self, interval=25,
+        self,
+        enabled=True,
+        interval=25,
         eventStartDistribution=NearFutureDistribution(),
         eventDurationDistribution=UniformDiscreteDistribution([
-                15 * 60, 30 * 60,
-                45 * 60, 60 * 60,
-                120 * 60])):
+            15 * 60, 30 * 60,
+            45 * 60, 60 * 60,
+            120 * 60
+        ])
+    ):
+        self.enabled = enabled
         self._interval = interval
         self._eventStartDistribution = eventStartDistribution
         self._eventDurationDistribution = eventDurationDistribution
@@ -388,20 +450,18 @@ END:VCALENDAR
 
             # Copy the template event and fill in some of its fields
             # to make a new event to create on the calendar.
-            vcalendar = Component.duplicate(self._eventTemplate)
-            vevent = vcalendar.contents[u'vevent'][0]
-            tz = vevent.contents[u'created'][0].value.tzinfo
-            dtstamp = datetime.now(tz)
-            dtstart = datetime.fromtimestamp(self._eventStartDistribution.sample(), tz)
-            dtend = dtstart + timedelta(seconds=self._eventDurationDistribution.sample())
-            vevent.contents[u'created'][0].value = dtstamp
-            vevent.contents[u'dtstamp'][0].value = dtstamp
-            vevent.contents[u'dtstart'][0].value = dtstart
-            vevent.contents[u'dtend'][0].value = dtend
-            vevent.contents[u'uid'][0].value = unicode(uuid4())
+            vcalendar = self._eventTemplate.duplicate()
+            vevent = vcalendar.mainComponent()
+            uid = str(uuid4())
+            dtstart = self._eventStartDistribution.sample()
+            dtend = dtstart + PyCalendarDuration(seconds=self._eventDurationDistribution.sample())
+            vevent.replaceProperty(Property("CREATED", PyCalendarDateTime.getNowUTC()))
+            vevent.replaceProperty(Property("DTSTAMP", PyCalendarDateTime.getNowUTC()))
+            vevent.replaceProperty(Property("DTSTART", dtstart))
+            vevent.replaceProperty(Property("DTEND", dtend))
+            vevent.replaceProperty(Property("UID", uid))
 
-            href = '%s%s.ics' % (
-                calendar.url, vevent.contents[u'uid'][0].value)
+            href = '%s%s.ics' % (calendar.url, uid)
             d = self._client.addEvent(href, vcalendar)
             return self._newOperation("create", d)
 
@@ -429,19 +489,26 @@ class OperationLogger(SummarizingMixin):
         ('avglag (ms)', 8, '%8.4f'),
         ]
 
-    def __init__(self):
+    def __init__(self, outfile=None):
         self._perOperationTimes = {}
         self._perOperationLags = {}
+        if outfile is None:
+            outfile = sys.stdout
+        self._outfile = outfile
 
 
     def observe(self, event):
         if event.get("type") == "operation":
+            event = event.copy()
             lag = event.get('lag')
             if lag is None:
                 event['lag'] = ''
             else:
                 event['lag'] = self.lagFormat % (lag * 1000.0,)
-            print (self.formats[event[u'phase']] % event).encode('utf-8')
+
+            self._outfile.write(
+                (self.formats[event[u'phase']] % event).encode('utf-8') + '\n')
+
             if event[u'phase'] == u'end':
                 dataset = self._perOperationTimes.setdefault(event[u'label'], [])
                 dataset.append((event[u'success'], event[u'duration']))
@@ -458,8 +525,33 @@ class OperationLogger(SummarizingMixin):
         print
         self.printHeader([
                 (label, width)
-                for (label, width, fmt)
+                for (label, width, _ignore_fmt)
                 in self._fields])
         self.printData(
             [fmt for (label, width, fmt) in self._fields],
             sorted(self._perOperationTimes.items()))
+
+    _LATENCY_REASON = "Median %(operation)s scheduling lag greater than %(cutoff)sms"
+    _FAILED_REASON = "Greater than %(cutoff).0f%% %(operation)s failed"
+
+    def failures(self):
+        reasons = []
+
+        # Maximum allowed median scheduling latency, seconds
+        lagCutoff = 1.0
+
+        # Maximum allowed ratio of failed operations
+        failCutoff = 0.01
+
+        for operation, lags in self._perOperationLags.iteritems():
+            if median(lags) > lagCutoff:
+                reasons.append(self._LATENCY_REASON % dict(
+                        operation=operation.upper(), cutoff=lagCutoff * 1000))
+
+        for operation, times in self._perOperationTimes.iteritems():
+            failures = len([success for (success, _ignore_duration) in times if not success])
+            if failures / len(times) > failCutoff:
+                reasons.append(self._FAILED_REASON % dict(
+                        operation=operation.upper(), cutoff=failCutoff * 100))
+
+        return reasons

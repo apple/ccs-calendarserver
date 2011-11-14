@@ -28,133 +28,133 @@ class Implicit (twistedcaldav.test.util.TestCase):
     def test_removed_attendees(self):
         
         data = (
-#            (
-#                "#1.1 Simple component, no change",
-#                """BEGIN:VCALENDAR
-#VERSION:2.0
-#PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
-#BEGIN:VEVENT
-#UID:12345-67890
-#DTSTART:20080601T120000Z
-#DTEND:20080601T130000Z
-#ORGANIZER;CN="User 01":mailto:user1@example.com
-#ATTENDEE:mailto:user1@example.com
-#ATTENDEE:mailto:user2@example.com
-#END:VEVENT
-#END:VCALENDAR
-#""",
-#                """BEGIN:VCALENDAR
-#VERSION:2.0
-#PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
-#BEGIN:VEVENT
-#UID:12345-67890
-#DTSTART:20080601T120000Z
-#DTEND:20080601T130000Z
-#ORGANIZER;CN="User 01":mailto:user1@example.com
-#ATTENDEE:mailto:user1@example.com
-#ATTENDEE:mailto:user2@example.com
-#END:VEVENT
-#END:VCALENDAR
-#""",
-#                (),
-#            ),
-#            (
-#                "#1.2 Simple component, one removal",
-#                """BEGIN:VCALENDAR
-#VERSION:2.0
-#PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
-#BEGIN:VEVENT
-#UID:12345-67890
-#DTSTART:20080601T120000Z
-#DTEND:20080601T130000Z
-#ORGANIZER;CN="User 01":mailto:user1@example.com
-#ATTENDEE:mailto:user1@example.com
-#ATTENDEE:mailto:user2@example.com
-#END:VEVENT
-#END:VCALENDAR
-#""",
-#                """BEGIN:VCALENDAR
-#VERSION:2.0
-#PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
-#BEGIN:VEVENT
-#UID:12345-67890
-#DTSTART:20080601T120000Z
-#DTEND:20080601T130000Z
-#ORGANIZER;CN="User 01":mailto:user1@example.com
-#ATTENDEE:mailto:user1@example.com
-#END:VEVENT
-#END:VCALENDAR
-#""",
-#                (("mailto:user2@example.com", None),),
-#            ),
-#            (
-#                "#1.3 Simple component, two removals",
-#                """BEGIN:VCALENDAR
-#VERSION:2.0
-#PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
-#BEGIN:VEVENT
-#UID:12345-67890
-#DTSTART:20080601T120000Z
-#DTEND:20080601T130000Z
-#ORGANIZER;CN="User 01":mailto:user1@example.com
-#ATTENDEE:mailto:user1@example.com
-#ATTENDEE:mailto:user2@example.com
-#ATTENDEE:mailto:user3@example.com
-#END:VEVENT
-#END:VCALENDAR
-#""",
-#                """BEGIN:VCALENDAR
-#VERSION:2.0
-#PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
-#BEGIN:VEVENT
-#UID:12345-67890
-#DTSTART:20080601T120000Z
-#DTEND:20080601T130000Z
-#ORGANIZER;CN="User 01":mailto:user1@example.com
-#ATTENDEE:mailto:user1@example.com
-#END:VEVENT
-#END:VCALENDAR
-#""",
-#                (
-#                    ("mailto:user2@example.com", None),
-#                    ("mailto:user3@example.com", None),
-#                ),
-#            ),
-#            (
-#                "#2.1 Simple recurring component, two removals",
-#                """BEGIN:VCALENDAR
-#VERSION:2.0
-#PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
-#BEGIN:VEVENT
-#UID:12345-67890
-#DTSTART:20080601T120000Z
-#DTEND:20080601T130000Z
-#ORGANIZER;CN="User 01":mailto:user1@example.com
-#ATTENDEE:mailto:user1@example.com
-#ATTENDEE:mailto:user2@example.com
-#ATTENDEE:mailto:user3@example.com
-#RRULE:FREQ=MONTHLY
-#END:VEVENT
-#END:VCALENDAR
-#""",
-#                """BEGIN:VCALENDAR
-#VERSION:2.0
-#PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
-#BEGIN:VEVENT
-#UID:12345-67890
-#DTSTART:20080601T120000Z
-#DTEND:20080601T130000Z
-#ORGANIZER;CN="User 01":mailto:user1@example.com
-#ATTENDEE:mailto:user1@example.com
-#RRULE:FREQ=MONTHLY
-#END:VEVENT
-#END:VCALENDAR
-#""",
-#                (
-#                    ("mailto:user2@example.com", None),
-#                    ("mailto:user3@example.com", None),
-#                ),
-#            ),
+            (
+                "#1.1 Simple component, no change",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+END:VEVENT
+END:VCALENDAR
+""",
+                (),
+            ),
+            (
+                "#1.2 Simple component, one removal",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+END:VEVENT
+END:VCALENDAR
+""",
+                (("mailto:user2@example.com", None),),
+            ),
+            (
+                "#1.3 Simple component, two removals",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+ATTENDEE:mailto:user3@example.com
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+END:VEVENT
+END:VCALENDAR
+""",
+                (
+                    ("mailto:user2@example.com", None),
+                    ("mailto:user3@example.com", None),
+                ),
+            ),
+            (
+                "#2.1 Simple recurring component, two removals",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+ATTENDEE:mailto:user3@example.com
+RRULE:FREQ=MONTHLY
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+RRULE:FREQ=MONTHLY
+END:VEVENT
+END:VCALENDAR
+""",
+                (
+                    ("mailto:user2@example.com", None),
+                    ("mailto:user3@example.com", None),
+                ),
+            ),
             (
                 "#2.2 Simple recurring component, add exdate",
                 """BEGIN:VCALENDAR
@@ -751,13 +751,9 @@ END:VCALENDAR
             scheduler.resource = None
             scheduler.request = None
             scheduler.oldcalendar = Component.fromString(calendar1)
+            scheduler.oldAttendeesByInstance = scheduler.oldcalendar.getAttendeesByInstance(True, onlyScheduleAgentServer=True)
             scheduler.calendar = Component.fromString(calendar2)
             scheduler.extractCalendarData()
             scheduler.findRemovedAttendees()
-#            if not description.startswith("#4.3"):
-#                continue
-#            print description
-#            print scheduler.cancelledAttendees
-#            print set(result)
             self.assertEqual(scheduler.cancelledAttendees, set(result), msg=description)
 

@@ -21,6 +21,7 @@ Utilities for assembling the service and resource hierarchy.
 
 __all__ = [
     "getRootResource",
+    "getDBPool",
     "FakeRequest",
 ]
 
@@ -50,11 +51,13 @@ from twistedcaldav.directory.addressbook import DirectoryAddressBookHomeProvisio
 from twistedcaldav.directory.aggregate import AggregateDirectoryService
 from twistedcaldav.directory.calendar import DirectoryCalendarHomeProvisioningResource
 from twistedcaldav.directory.digest import QopDigestCredentialFactory
+from twistedcaldav.directory.directory import GroupMembershipCache
 from twistedcaldav.directory.internal import InternalDirectoryService
 from twistedcaldav.directory.principal import DirectoryPrincipalProvisioningResource
 from twistedcaldav.directory.sudo import SudoDirectoryService
 from twistedcaldav.directory.wiki import WikiDirectoryService
 from twistedcaldav.notify import NotifierFactory, getPubSubConfiguration
+from calendarserver.push.applepush import APNSubscriptionResource
 from twistedcaldav.directorybackedaddressbook import DirectoryBackedAddressBookResource
 from twistedcaldav.resource import CalDAVResource, AuthenticationWrapper
 from twistedcaldav.schedule import IScheduleInboxResource
@@ -63,6 +66,9 @@ from twistedcaldav.timezones import TimezoneCache
 from twistedcaldav.timezoneservice import TimezoneServiceResource
 from twistedcaldav.timezonestdservice import TimezoneStdServiceResource
 from twistedcaldav.util import getMemorySize, getNCPU
+from twext.enterprise.ienterprise import POSTGRES_DIALECT
+from twext.enterprise.ienterprise import ORACLE_DIALECT
+from twext.enterprise.adbapi2 import ConnectionPool
 
 try:
     from twistedcaldav.authkerb import NegotiateCredentialFactory
@@ -85,6 +91,7 @@ from txdav.common.datastore.file import CommonDataStore as CommonFileDataStore
 from txdav.common.datastore.sql import current_sql_schema
 from twext.python.filepath import CachingFilePath
 from urllib import quote
+from twisted.python.usage import UsageError
 
 
 log = Logger()
@@ -155,13 +162,13 @@ class ConnectionWithPeer(Connection):
 
 
 
-def transactionFactoryFromFD(dbampfd):
+def transactionFactoryFromFD(dbampfd, dialect, paramstyle):
     """
     Create a transaction factory from an inherited file descriptor.
     """
     skt = fromfd(dbampfd, AF_UNIX, SOCK_STREAM)
     os.close(dbampfd)
-    protocol = ConnectionPoolClient()
+    protocol = ConnectionPoolClient(dialect=dialect, paramstyle=paramstyle)
     transport = ConnectionWithPeer(skt, protocol)
     protocol.makeConnection(transport)
     transport.startReading()
@@ -214,23 +221,26 @@ def directoryFromConfig(config):
     #
     # Setup the Augment Service
     #
-    augmentClass = namedClass(config.AugmentService.type)
-
-    log.info("Configuring augment service of type: %s" % (augmentClass,))
-
-    try:
-        augmentService = augmentClass(**config.AugmentService.params)
-    except IOError:
-        log.error("Could not start augment service")
-        raise
-
-    #
-    # Setup the proxy cacher
-    #
-    if config.ProxyCaching.Enabled:
-        proxyCache = calendaruserproxy.ProxyMemberCache(config.ProxyCaching.MemcachedPool)
+    if config.AugmentService.type:
+        augmentClass = namedClass(config.AugmentService.type)
+        log.info("Configuring augment service of type: %s" % (augmentClass,))
+        try:
+            augmentService = augmentClass(**config.AugmentService.params)
+        except IOError:
+            log.error("Could not start augment service")
+            raise
     else:
-        proxyCache = None
+        augmentService = None
+
+    #
+    # Setup the group membership cacher
+    #
+    if config.GroupCaching.Enabled:
+        groupMembershipCache = GroupMembershipCache(
+            config.GroupCaching.MemcachedPool,
+            expireSeconds=config.GroupCaching.ExpireSeconds)
+    else:
+        groupMembershipCache = None
 
     #
     # Setup the Directory
@@ -244,7 +254,7 @@ def directoryFromConfig(config):
         % (config.DirectoryService.type,))
 
     config.DirectoryService.params.augmentService = augmentService
-    config.DirectoryService.params.proxyCache = proxyCache
+    config.DirectoryService.params.groupMembershipCache = groupMembershipCache
     baseDirectory = directoryClass(config.DirectoryService.params)
 
     # Wait for the directory to become available
@@ -262,7 +272,7 @@ def directoryFromConfig(config):
         log.info("Configuring resource service of type: %s" % (resourceClass,))
 
         config.ResourceService.params.augmentService = augmentService
-        config.ResourceService.params.proxyCache = proxyCache
+        config.ResourceService.params.groupMembershipCache = groupMembershipCache
         resourceDirectory = resourceClass(config.ResourceService.params)
         resourceDirectory.realmName = baseDirectory.realmName
         directories.append(resourceDirectory)
@@ -302,7 +312,7 @@ def directoryFromConfig(config):
         internalDirectory = InternalDirectoryService(baseDirectory.realmName)
         directories.append(internalDirectory)
 
-    directory = AggregateDirectoryService(directories)
+    directory = AggregateDirectoryService(directories, groupMembershipCache)
 
     if sudoDirectory:
         directory.userRecordTypes.insert(0,
@@ -354,6 +364,7 @@ def getRootResource(config, newStore, resources=None):
     webAdminResourceClass           = WebAdminResource
     addressBookResourceClass        = DirectoryAddressBookHomeProvisioningResource
     directoryBackedAddressBookResourceClass = DirectoryBackedAddressBookResource
+    apnSubscriptionResourceClass    = APNSubscriptionResource
 
     directory = directoryFromConfig(config)
 
@@ -589,6 +600,16 @@ def getRootResource(config, newStore, resources=None):
         root.putChild("admin", webAdmin)
 
     #
+    # Apple Push Notification Subscriptions
+    #
+    apnConfig = config.Notifications.Services["ApplePushNotifier"]
+    if apnConfig.Enabled:
+        log.info("Setting up APNS resource at /%s" %
+            (apnConfig["SubscriptionURL"],))
+        apnResource = apnSubscriptionResourceClass(root, newStore)
+        root.putChild(apnConfig["SubscriptionURL"], apnResource)
+
+    #
     # Configure ancillary data
     #
     log.info("Setting up Timezone Cache")
@@ -635,6 +656,50 @@ def getRootResource(config, newStore, resources=None):
     return logWrapper
 
 
+def getDBPool(config):
+    """
+    Inspect configuration to determine what database connection pool
+    to set up.
+    return: (L{ConnectionPool}, transactionFactory)
+    """
+    if config.DBType == 'oracle':
+        dialect = ORACLE_DIALECT
+        paramstyle = 'numeric'
+    else:
+        dialect = POSTGRES_DIALECT
+        paramstyle = 'pyformat'
+    pool = None
+    if config.DBAMPFD:
+        txnFactory = transactionFactoryFromFD(
+            int(config.DBAMPFD), dialect, paramstyle
+        )
+    elif not config.UseDatabase:
+        txnFactory = None
+    elif not config.SharedConnectionPool:
+        if config.DBType == '':
+            # get a PostgresService to tell us what the local connection
+            # info is, but *don't* start it (that would start one postgres
+            # master per slave, resulting in all kinds of mayhem...)
+            connectionFactory = pgServiceFromConfig(
+                config, None).produceConnection
+        elif config.DBType == 'postgres':
+            connectionFactory = pgConnectorFromConfig(config)
+        elif config.DBType == 'oracle':
+            connectionFactory = oracleConnectorFromConfig(config)
+        else:
+            raise UsageError("unknown DB type: %r" % (config.DBType,))
+        pool = ConnectionPool(connectionFactory, dialect=dialect,
+                              paramstyle=paramstyle,
+                              maxConnections=config.MaxDBConnectionsPerPool)
+        txnFactory = pool.connection
+    else:
+        raise UsageError(
+            "trying to use DB in slave, but no connection info from parent"
+        )
+
+    return (pool, txnFactory)
+
+
 
 def computeProcessCount(minimum, perCPU, perGB, cpuCount=None, memSize=None):
     """
@@ -671,10 +736,11 @@ def computeProcessCount(minimum, perCPU, perGB, cpuCount=None, memSize=None):
 
 class FakeRequest(object):
 
-    def __init__(self, rootResource, method, path):
+    def __init__(self, rootResource, method, path, uri='/'):
         self.rootResource = rootResource
         self.method = method
         self.path = path
+        self.uri = uri
         self._resourcesByURL = {}
         self._urlsByResource = {}
         self.headers = Headers()

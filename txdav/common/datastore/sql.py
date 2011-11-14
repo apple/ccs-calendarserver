@@ -61,6 +61,7 @@ from txdav.common.inotifications import INotificationCollection, \
 
 from twext.python.clsprop import classproperty
 from twext.enterprise.ienterprise import AlreadyFinishedError
+from twext.enterprise.dal.parseschema import significant
 from twext.enterprise.dal.syntax import Delete
 from twext.enterprise.dal.syntax import Insert
 from twext.enterprise.dal.syntax import Len
@@ -77,6 +78,11 @@ from txdav.base.propertystore.sql import PropertyStore
 from twistedcaldav.customxml import NotificationType
 from twistedcaldav.dateops import datetimeMktime, parseSQLTimestamp,\
     pyCalendarTodatetime
+
+from sqlparse import parse
+import collections
+import sys
+import time
 
 current_sql_schema = getModule(__name__).filePath.sibling("sql_schema").child("current.sql").getContent()
 
@@ -161,12 +167,45 @@ class CommonDataStore(Service, object):
             self.sqlTxnFactory(),
             self.enableCalendars,
             self.enableAddressBooks,
-            self.notifierFactory,
+            None if migrating else self.notifierFactory,
             label,
             migrating,
         )
 
+class TransactionStatsCollector(object):
+    
+    def __init__(self):
+        self.count = collections.defaultdict(int)
+        self.times = collections.defaultdict(float)
+        self.tstamp = None
+        self.statement = None
+    
+    def startStatement(self, sql):
+        self.statement = sql
+        self.tstamp = time.time()
+        self.count[self.statement] += 1
 
+    def endStatement(self):
+        self.times[self.statement] += time.time() - self.tstamp
+        self.statement = None
+        self.tstamp = None
+        
+    def printReport(self, toFile=sys.stdout):
+        
+        toFile.write("*** SQL Stats ***\n")
+        toFile.write("\n")
+        toFile.write("Unique statements: %d\n" % (len(self.count,),))
+        toFile.write("Total statements: %d\n" % (sum(self.count.values()),))
+        toFile.write("Total time (ms): %.3f\n" % (sum(self.times.values()) * 1000.0,))
+        toFile.write("\n")
+        for k, v in self.count.items():
+            toFile.write("%s\n" % (k,))
+            toFile.write("Count: %s\n" % (v,))
+            toFile.write("Total Time (ms): %.3f\n" % (self.times[k] * 1000.0,))
+            if v > 1:
+                toFile.write("Average Time (ms): %.3f\n" % (self.times[k] * 1000.0 / v,))
+            toFile.write("\n")
+        toFile.write("***\n")
 
 class CommonStoreTransaction(object):
     """
@@ -184,6 +223,7 @@ class CommonStoreTransaction(object):
         self._addressbookHomes = {}
         self._notificationHomes = {}
         self._postCommitOperations = []
+        self._postAbortOperations = []
         self._notifierFactory = notifierFactory
         self._label = label
         self._migrating = migrating
@@ -209,6 +249,9 @@ class CommonStoreTransaction(object):
         self._sqlTxn = sqlTxn
         self.paramstyle = sqlTxn.paramstyle
         self.dialect = sqlTxn.dialect
+        
+        # FIXME: want to pass a "debug" option in to enable this via config - off for now
+        self._stats = None #TransactionStatsCollector()
 
 
     def store(self):
@@ -281,11 +324,103 @@ class CommonStoreTransaction(object):
         return NotificationCollection.notificationsWithUID(self, uid)
 
 
+    @classproperty
+    def _insertAPNSubscriptionQuery(cls): #@NoSelf
+        apn = schema.APN_SUBSCRIPTIONS
+        return Insert({apn.TOKEN: Parameter("token"),
+                       apn.RESOURCE_KEY: Parameter("resourceKey"),
+                       apn.MODIFIED: Parameter("modified"),
+                       apn.SUBSCRIBER_GUID: Parameter("subscriber")})
+
+
+    @classproperty
+    def _updateAPNSubscriptionQuery(cls): #@NoSelf
+        apn = schema.APN_SUBSCRIPTIONS
+        return Update({apn.MODIFIED: Parameter("modified")},
+                      Where=(apn.TOKEN == Parameter("token")).And(
+                             apn.RESOURCE_KEY == Parameter("resourceKey")))
+
+
+    @classproperty
+    def _selectAPNSubscriptionQuery(cls): #@NoSelf
+        apn = schema.APN_SUBSCRIPTIONS
+        return Select([apn.MODIFIED, apn.SUBSCRIBER_GUID], From=apn,
+                Where=(
+                    apn.TOKEN == Parameter("token")).And(
+                    apn.RESOURCE_KEY == Parameter("resourceKey")
+                )
+            )
+
+
+    @inlineCallbacks
+    def addAPNSubscription(self, token, key, timestamp, subscriber):
+        row = yield self._selectAPNSubscriptionQuery.on(self,
+            token=token, resourceKey=key)
+        if not row: # Subscription does not yet exist
+            try:
+                yield self._insertAPNSubscriptionQuery.on(self,
+                    token=token, resourceKey=key, modified=timestamp,
+                    subscriber=subscriber)
+            except Exception:
+                # Subscription may have been added by someone else, which is fine
+                pass
+
+        else: # Subscription exists, so update with new timestamp
+            try:
+                yield self._updateAPNSubscriptionQuery.on(self,
+                    token=token, resourceKey=key, modified=timestamp)
+            except Exception:
+                # Subscription may have been added by someone else, which is fine
+                pass
+
+
+    @classproperty
+    def _removeAPNSubscriptionQuery(cls): #@NoSelf
+        apn = schema.APN_SUBSCRIPTIONS
+        return Delete(From=apn,
+                      Where=(apn.TOKEN == Parameter("token")).And(
+                          apn.RESOURCE_KEY == Parameter("resourceKey")))
+
+
+    def removeAPNSubscription(self, token, key):
+        return self._removeAPNSubscriptionQuery.on(self,
+            token=token, resourceKey=key)
+
+
+    @classproperty
+    def _apnSubscriptionsByTokenQuery(cls): #@NoSelf
+        apn = schema.APN_SUBSCRIPTIONS
+        return Select([apn.RESOURCE_KEY, apn.MODIFIED, apn.SUBSCRIBER_GUID],
+                      From=apn, Where=apn.TOKEN == Parameter("token"))
+
+
+    def apnSubscriptionsByToken(self, token):
+        return self._apnSubscriptionsByTokenQuery.on(self, token=token)
+
+
+    @classproperty
+    def _apnSubscriptionsByKeyQuery(cls): #@NoSelf
+        apn = schema.APN_SUBSCRIPTIONS
+        return Select([apn.TOKEN, apn.SUBSCRIBER_GUID],
+                      From=apn, Where=apn.RESOURCE_KEY == Parameter("resourceKey"))
+
+
+    def apnSubscriptionsByKey(self, key):
+        return self._apnSubscriptionsByKeyQuery.on(self, resourceKey=key)
+
+
     def postCommit(self, operation):
         """
         Run things after C{commit}.
         """
         self._postCommitOperations.append(operation)
+
+
+    def postAbort(self, operation):
+        """
+        Run things after C{abort}.
+        """
+        self._postAbortOperations.append(operation)
 
 
     _savepointCounter = 0
@@ -366,13 +501,35 @@ class CommonStoreTransaction(object):
             # caller shouldn't be paying attention anyway.
             block.end()
 
-
+    @inlineCallbacks
     def execSQL(self, *a, **kw):
         """
         Execute some SQL (delegate to L{IAsyncTransaction}).
         """
-        return self._sqlTxn.execSQL(*a, **kw)
+        if self._stats:        
+            self._stats.startStatement(a[0])
+        results = (yield self._sqlTxn.execSQL(*a, **kw))
+        if self._stats:        
+            self._stats.endStatement()
+        returnValue(results)
 
+    @inlineCallbacks
+    def execSQLBlock(self, sql):
+        """
+        Execute a block of SQL by parsing it out into individual statements and execute
+        each of those.
+        
+        FIXME: temporary measure for handling large schema upgrades. This should NOT be used
+        for regular SQL operations - only upgrades. 
+        """
+        parsed = parse(sql)
+        for stmt in parsed:
+            while stmt.tokens and not significant(stmt.tokens[0]):
+                stmt.tokens.pop(0)
+            if not stmt.tokens:
+                continue
+            stmt = str(stmt).rstrip(";")
+            yield self.execSQL(stmt)
 
     def commit(self):
         """
@@ -382,6 +539,10 @@ class CommonStoreTransaction(object):
             for operation in self._postCommitOperations:
                 operation()
             return ignored
+
+        if self._stats:        
+            self._stats.printReport()
+
         return self._sqlTxn.commit().addCallback(postCommit)
 
 
@@ -389,7 +550,11 @@ class CommonStoreTransaction(object):
         """
         Abort the transaction.
         """
-        return self._sqlTxn.abort()
+        def postAbort(ignored):
+            for operation in self._postAbortOperations:
+                operation()
+            return ignored
+        return self._sqlTxn.abort().addCallback(postAbort)
 
 
     def _oldEventsBase(limited): #@NoSelf
@@ -2343,6 +2508,8 @@ class CommonObjectResource(LoggingMixIn, FancyEqMixin):
     def _txn(self):
         return self._parentCollection._txn
 
+    def transaction(self):
+        return self._parentCollection._txn
 
     def setComponent(self, component, inserting=False):
         raise NotImplementedError

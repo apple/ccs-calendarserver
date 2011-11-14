@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2010 Apple Inc. All rights reserved.
+# Copyright (c) 2010-2011 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -38,7 +38,7 @@ from twistedcaldav.storebridge import DropboxCollection,\
 from twistedcaldav.test.util import TestCase
 
 from txdav.idav import IDataStore
-from txdav.caldav.datastore.test.test_file import event4_text
+from txdav.caldav.datastore.test.test_file import test_event_text
 
 from txdav.carddav.datastore.test.test_file import vcard4_text
 
@@ -382,7 +382,7 @@ class WrappingTests(TestCase):
         parallel L{CalendarObject} will be created.  Its principal collections
         and transaction should match.
         """
-        yield self.populateOneObject("1.ics", event4_text)
+        yield self.populateOneObject("1.ics", test_event_text)
         calendarHome = yield self.getResource("calendars/users/wsanchez")
         calDavFileCalendar = yield self.getResource(
             "calendars/users/wsanchez/calendar/1.ics"
@@ -400,9 +400,9 @@ class WrappingTests(TestCase):
         Exceeding quota on an attachment returns an HTTP error code.
         """
         patchConfig(testCase=self, EnableDropBox=True)
-        yield self.populateOneObject("1.ics", event4_text)
+        yield self.populateOneObject("1.ics", test_event_text)
         calendarObject = yield self.getResource(
-            "/calendars/users/wsanchez/dropbox/uid4.dropbox/too-big-attachment",
+            "/calendars/users/wsanchez/dropbox/uid-test.dropbox/too-big-attachment",
             "PUT", "wsanchez"
         )
         self.requestUnderTest.stream = MemoryStream(

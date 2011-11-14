@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2005-2010 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2011 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -153,7 +153,7 @@ class ImplicitProcessor(object):
         yield self.getRecipientsCopy()
         if self.recipient_calendar is None:
             log.debug("ImplicitProcessing - originator '%s' to recipient '%s' ignoring UID: '%s' - organizer has no copy" % (self.originator.cuaddr, self.recipient.cuaddr, self.uid))
-            returnValue((True, True, None,))
+            returnValue((True, True, False, None,))
 
         # Handle new items differently than existing ones.
         if self.method == "REPLY":
@@ -161,7 +161,7 @@ class ImplicitProcessor(object):
         elif self.method == "REFRESH":
             # With implicit we ignore refreshes.
             # TODO: for iMIP etc we do need to handle them 
-            result = (True, True, None,)
+            result = (True, True, False, None,)
 
         returnValue(result)
 
@@ -207,11 +207,11 @@ class ImplicitProcessor(object):
             if partstatChanged:
                 yield self.queueAttendeeUpdate(recipient_calendar_resource, (attendeeReplying,))
 
-            result = (True, False, changes,)
+            result = (True, False, True, changes,)
 
         else:
             # Ignore scheduling message
-            result = (True, True, None,)
+            result = (True, True, False, None,)
 
         returnValue(result)
 
@@ -257,7 +257,7 @@ class ImplicitProcessor(object):
             # We need to get the UID lock for implicit processing whilst we send the auto-reply
             # as the Organizer processing will attempt to write out data to other attendees to
             # refresh them. To prevent a race we need a lock.
-            uidlock = MemcacheFIFOLock("ImplicitUIDLock", self.uid, timeout=60.0)
+            uidlock = MemcacheFIFOLock("ImplicitUIDLock", self.uid, timeout=60.0, expire_time=5*60)
     
             try:
                 yield uidlock.acquire()
@@ -286,6 +286,7 @@ class ImplicitProcessor(object):
                 else:
                     yield txn.commit()
             finally:
+                # This correctly gets called only after commit or abort is done
                 yield uidlock.clean()
 
         if lock:
@@ -302,7 +303,7 @@ class ImplicitProcessor(object):
 
         # Handle new items differently than existing ones.
         if self.new_resource and self.method == "CANCEL":
-            result = (True, True, None)
+            result = (True, True, False, None)
         else:
             result = (yield self.doImplicitAttendeeUpdate())
         
@@ -328,10 +329,10 @@ class ImplicitProcessor(object):
             result = (yield self.doImplicitAttendeeCancel())
         elif self.method == "ADD":
             # TODO: implement ADD
-            result = (False, False, None)
+            result = (False, False, False, None)
         else:
             # NB We should never get here as we will have rejected unsupported METHODs earlier.
-            result = (True, True, None,)
+            result = (True, True, False, None,)
             
         returnValue(result)
 
@@ -356,6 +357,7 @@ class ImplicitProcessor(object):
 
             log.debug("ImplicitProcessing - originator '%s' to recipient '%s' processing METHOD:REQUEST, UID: '%s' - new processed" % (self.originator.cuaddr, self.recipient.cuaddr, self.uid))
             autoprocessed = self.recipient.principal.getAutoSchedule()
+            store_inbox = not autoprocessed or self.recipient.principal.getCUType() == "INDIVIDUAL"
             new_calendar = iTipProcessing.processNewRequest(self.message, self.recipient.cuaddr, autoprocessing=autoprocessed)
             name =  md5(str(new_calendar) + str(time.time()) + defaultURL).hexdigest() + ".ics"
             
@@ -380,10 +382,11 @@ class ImplicitProcessor(object):
                     customxml.Create(),
                 ),
             )
-            result = (True, autoprocessed, changes,)
+            result = (True, autoprocessed, store_inbox, changes,)
         else:
             # Processing update to existing event
             autoprocessed = self.recipient.principal.getAutoSchedule()
+            store_inbox = not autoprocessed or self.recipient.principal.getCUType() == "INDIVIDUAL"
             new_calendar, rids = iTipProcessing.processRequest(self.message, self.recipient_calendar, self.recipient.cuaddr, autoprocessing=autoprocessed)
             if new_calendar:
      
@@ -428,13 +431,14 @@ class ImplicitProcessor(object):
                 # Refresh from another Attendee should not have Inbox item
                 if hasattr(self.request, "doing_attendee_refresh"):
                     autoprocessed = True
+                    store_inbox = False
 
-                result = (True, autoprocessed, changes,)
+                result = (True, autoprocessed, store_inbox, changes,)
                 
             else:
                 # Request needs to be ignored
                 log.debug("ImplicitProcessing - originator '%s' to recipient '%s' processing METHOD:REQUEST, UID: '%s' - ignoring" % (self.originator.cuaddr, self.recipient.cuaddr, self.uid))
-                result = (True, True, None,)
+                result = (True, True, False, None,)
 
         returnValue(result)
 
@@ -448,8 +452,11 @@ class ImplicitProcessor(object):
             result = (True, True, None)
         else:
             # Need to check for auto-respond attendees. These need to suppress the inbox message
-            # if the cancel is processed.
-            autoprocessed = self.recipient.principal.getAutoSchedule()
+            # if the cancel is processed. However, if the principal is a user we always force the
+            # inbox item on them even if auto-schedule is true so that they get a notification
+            # of the cancel.
+            autoprocessed = self.recipient.principal.getAutoSchedule() and self.recipient.principal.getCUType() != "INDIVIDUAL"
+            store_inbox = not autoprocessed or self.recipient.principal.getCUType() == "INDIVIDUAL"
 
             # Check to see if this is a cancel of the entire event
             processed_message, delete_original, rids = iTipProcessing.processCancel(self.message, self.recipient_calendar, autoprocessing=autoprocessed)
@@ -467,7 +474,7 @@ class ImplicitProcessor(object):
                             customxml.Cancel(),
                         ),
                     )
-                    result = (True, autoprocessed, changes,)
+                    result = (True, autoprocessed, store_inbox, changes,)
                     
                 else:
          
@@ -486,10 +493,10 @@ class ImplicitProcessor(object):
                         customxml.DTStamp(),
                         customxml.Action(action),
                     )
-                    result = (True, autoprocessed, changes)
+                    result = (True, autoprocessed, store_inbox, changes)
             else:
                 log.debug("ImplicitProcessing - originator '%s' to recipient '%s' processing METHOD:CANCEL, UID: '%s' - ignoring" % (self.originator.cuaddr, self.recipient.cuaddr, self.uid))
-                result = (True, True, None)
+                result = (True, True, False, None)
 
         returnValue(result)
 
@@ -508,7 +515,7 @@ class ImplicitProcessor(object):
         # We need to get the UID lock for implicit processing whilst we send the auto-reply
         # as the Organizer processing will attempt to write out data to other attendees to
         # refresh them. To prevent a race we need a lock.
-        lock = MemcacheFIFOLock("ImplicitUIDLock", calendar.resourceUID(), timeout=60.0)
+        lock = MemcacheFIFOLock("ImplicitUIDLock", calendar.resourceUID(), timeout=60.0, expire_time=5*60)
 
         # Note that this lock also protects the request, as this request is
         # being re-used by potentially multiple transactions and should not be
@@ -537,6 +544,7 @@ class ImplicitProcessor(object):
             else:
                 yield txn.commit()
         finally:
+            # This correctly gets called only after commit or abort is done
             yield lock.clean()
 
             # Track outstanding auto-reply processing

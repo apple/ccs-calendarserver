@@ -20,6 +20,7 @@ Syntax wrappers and generators for SQL.
 """
 
 from itertools import count, repeat
+from operator import eq, ne
 
 from zope.interface import implements
 
@@ -443,6 +444,17 @@ class SequenceSyntax(ExpressionSyntax):
 
 
 
+def _nameForDialect(name, dialect):
+    """
+    If the given name is being computed in the oracle dialect, truncate it to 30
+    characters.
+    """
+    if dialect == ORACLE_DIALECT:
+        name = name[:30]
+    return name
+
+
+
 class TableSyntax(Syntax):
     """
     Syntactic convenience for L{Table}.
@@ -462,7 +474,7 @@ class TableSyntax(Syntax):
         """
         # XXX maybe there should be a specific method which is only invoked
         # from the FROM clause, that only tables and joins would implement?
-        return SQLFragment(self.model.name)
+        return SQLFragment(_nameForDialect(self.model.name, metadata.dialect))
 
 
     def __getattr__(self, attr):
@@ -554,6 +566,7 @@ _KEYWORDS = ["access",
             ]
 
 
+
 class ColumnSyntax(ExpressionSyntax):
     """
     Syntactic convenience for L{Column}.
@@ -579,6 +592,10 @@ class ColumnSyntax(ExpressionSyntax):
                                                tableSyntax.model.columns):
                     return SQLFragment((self.model.table.name + '.' + name))
         return SQLFragment(name)
+
+
+    def __hash__(self):
+        return hash(self.model) + 10
 
 
 
@@ -641,27 +658,42 @@ class CompoundComparison(Comparison):
 
 
     def subSQL(self, metadata, allTables):
+        if ( metadata.dialect == ORACLE_DIALECT
+             and isinstance(self.b, Constant) and self.b.value == ''
+             and self.op in ('=', '!=') ):
+            return NullComparison(self.a, self.op).subSQL(metadata, allTables)
         stmt = SQLFragment()
         result = self._subexpression(self.a, metadata, allTables)
-        if isinstance(self.a, CompoundComparison) and self.a.op == 'or' and self.op == 'and':
+        if (isinstance(self.a, CompoundComparison)
+            and self.a.op == 'or' and self.op == 'and'):
             result = _inParens(result)
         stmt.append(result)
 
         stmt.text += ' %s ' % (self.op,)
 
         result = self._subexpression(self.b, metadata, allTables)
-        if isinstance(self.b, CompoundComparison) and self.b.op == 'or' and self.op == 'and':
+        if (isinstance(self.b, CompoundComparison)
+            and self.b.op == 'or' and self.op == 'and'):
             result = _inParens(result)
         stmt.append(result)
         return stmt
 
 
 
+_operators = {"=": eq, "!=": ne}
+
 class ColumnComparison(CompoundComparison):
     """
     Comparing two columns is the same as comparing any other two expressions,
-    (for now).
+    except that Python can retrieve a truth value, so that columns may be
+    compared for value equality in scripts that want to interrogate schemas.
     """
+
+    def __nonzero__(self):
+        thunk = _operators.get(self.op)
+        if thunk is None:
+            return super(ColumnComparison, self).__nonzero__()
+        return thunk(self.a.model, self.b.model)
 
 
 
@@ -988,6 +1020,7 @@ class _OracleOutParam(object):
 
     def postQuery(self, cursor):
         self.value = mapOracleOutputType(self.var.getvalue())
+        self.var = None
 
 
 

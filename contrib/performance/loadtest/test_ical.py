@@ -15,12 +15,6 @@
 #
 ##
 
-from datetime import datetime
-
-from vobject import readComponents
-from vobject.base import Component, ContentLine
-from vobject.icalendar import dateTimeToString
-
 from twisted.python.failure import Failure
 from twisted.internet.defer import Deferred
 from twisted.trial.unittest import TestCase
@@ -34,9 +28,13 @@ from caldavclientlibrary.protocol.webdav.definitions import davxml
 from caldavclientlibrary.protocol.caldav.definitions import caldavxml
 from caldavclientlibrary.protocol.caldav.definitions import csxml
 
-from loadtest.ical import XMPPPush, Event, Calendar, SnowLeopard
-from loadtest.sim import _DirectoryRecord
-from httpclient import MemoryConsumer, StringProducer
+from contrib.performance.loadtest.ical import XMPPPush, Event, Calendar, SnowLeopard
+from contrib.performance.loadtest.sim import _DirectoryRecord
+from contrib.performance.httpclient import MemoryConsumer, StringProducer
+from twistedcaldav.ical import Component
+from pycalendar.datetime import PyCalendarDateTime
+from pycalendar.timezone import PyCalendarTimezone
+from twistedcaldav.timezones import TimezoneCache
 
 EVENT_UID = 'D94F247D-7433-43AF-B84B-ADD684D023B0'
 
@@ -45,20 +43,170 @@ BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//Apple Inc.//iCal 4.0.3//EN
 CALSCALE:GREGORIAN
+BEGIN:VEVENT
+CREATED:20101018T155454Z
+UID:%(UID)s
+DTEND;TZID=America/New_York:20101028T130000
+ATTENDEE;CN="User 03";CUTYPE=INDIVIDUAL;EMAIL="user03@example.com";PARTS
+ TAT=NEEDS-ACTION;ROLE=REQ-PARTICIPANT;RSVP=TRUE:mailto:user03@example.co
+ m
+ATTENDEE;CN="User 01";CUTYPE=INDIVIDUAL;PARTSTAT=ACCEPTED:mailto:user01@
+ example.com
+TRANSP:OPAQUE
+SUMMARY:Attended Event
+DTSTART;TZID=America/New_York:20101028T120000
+DTSTAMP:20101018T155513Z
+ORGANIZER;CN="User 01":mailto:user01@example.com
+SEQUENCE:3
+END:VEVENT
+END:VCALENDAR
+""".replace("\n", "\r\n") % {'UID': EVENT_UID}
+
+EVENT_AND_TIMEZONE = """\
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Apple Inc.//iCal 4.0.3//EN
+CALSCALE:GREGORIAN
 BEGIN:VTIMEZONE
 TZID:America/New_York
+X-LIC-LOCATION:America/New_York
+BEGIN:STANDARD
+DTSTART:18831118T120358
+RDATE:18831118T120358
+TZNAME:EST
+TZOFFSETFROM:-045602
+TZOFFSETTO:-0500
+END:STANDARD
 BEGIN:DAYLIGHT
-TZOFFSETFROM:-0500
-RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=2SU
-DTSTART:20070311T020000
+DTSTART:19180331T020000
+RRULE:FREQ=YEARLY;UNTIL=19190330T070000Z;BYDAY=-1SU;BYMONTH=3
 TZNAME:EDT
+TZOFFSETFROM:-0500
 TZOFFSETTO:-0400
 END:DAYLIGHT
 BEGIN:STANDARD
-TZOFFSETFROM:-0400
-RRULE:FREQ=YEARLY;BYMONTH=11;BYDAY=1SU
-DTSTART:20071104T020000
+DTSTART:19181027T020000
+RRULE:FREQ=YEARLY;UNTIL=19191026T060000Z;BYDAY=-1SU;BYMONTH=10
 TZNAME:EST
+TZOFFSETFROM:-0400
+TZOFFSETTO:-0500
+END:STANDARD
+BEGIN:STANDARD
+DTSTART:19200101T000000
+RDATE:19200101T000000
+RDATE:19420101T000000
+RDATE:19460101T000000
+RDATE:19670101T000000
+TZNAME:EST
+TZOFFSETFROM:-0500
+TZOFFSETTO:-0500
+END:STANDARD
+BEGIN:DAYLIGHT
+DTSTART:19200328T020000
+RDATE:19200328T020000
+RDATE:19740106T020000
+RDATE:19750223T020000
+TZNAME:EDT
+TZOFFSETFROM:-0500
+TZOFFSETTO:-0400
+END:DAYLIGHT
+BEGIN:STANDARD
+DTSTART:19201031T020000
+RDATE:19201031T020000
+RDATE:19450930T020000
+TZNAME:EST
+TZOFFSETFROM:-0400
+TZOFFSETTO:-0500
+END:STANDARD
+BEGIN:DAYLIGHT
+DTSTART:19210424T020000
+RRULE:FREQ=YEARLY;UNTIL=19410427T070000Z;BYDAY=-1SU;BYMONTH=4
+TZNAME:EDT
+TZOFFSETFROM:-0500
+TZOFFSETTO:-0400
+END:DAYLIGHT
+BEGIN:STANDARD
+DTSTART:19210925T020000
+RRULE:FREQ=YEARLY;UNTIL=19410928T060000Z;BYDAY=-1SU;BYMONTH=9
+TZNAME:EST
+TZOFFSETFROM:-0400
+TZOFFSETTO:-0500
+END:STANDARD
+BEGIN:DAYLIGHT
+DTSTART:19420209T020000
+RDATE:19420209T020000
+TZNAME:EWT
+TZOFFSETFROM:-0500
+TZOFFSETTO:-0400
+END:DAYLIGHT
+BEGIN:DAYLIGHT
+DTSTART:19450814T190000
+RDATE:19450814T190000
+TZNAME:EPT
+TZOFFSETFROM:-0400
+TZOFFSETTO:-0400
+END:DAYLIGHT
+BEGIN:DAYLIGHT
+DTSTART:19460428T020000
+RRULE:FREQ=YEARLY;UNTIL=19660424T070000Z;BYDAY=-1SU;BYMONTH=4
+TZNAME:EDT
+TZOFFSETFROM:-0500
+TZOFFSETTO:-0400
+END:DAYLIGHT
+BEGIN:STANDARD
+DTSTART:19460929T020000
+RRULE:FREQ=YEARLY;UNTIL=19540926T060000Z;BYDAY=-1SU;BYMONTH=9
+TZNAME:EST
+TZOFFSETFROM:-0400
+TZOFFSETTO:-0500
+END:STANDARD
+BEGIN:STANDARD
+DTSTART:19551030T020000
+RRULE:FREQ=YEARLY;UNTIL=19661030T060000Z;BYDAY=-1SU;BYMONTH=10
+TZNAME:EST
+TZOFFSETFROM:-0400
+TZOFFSETTO:-0500
+END:STANDARD
+BEGIN:DAYLIGHT
+DTSTART:19670430T020000
+RRULE:FREQ=YEARLY;UNTIL=19730429T070000Z;BYDAY=-1SU;BYMONTH=4
+TZNAME:EDT
+TZOFFSETFROM:-0500
+TZOFFSETTO:-0400
+END:DAYLIGHT
+BEGIN:STANDARD
+DTSTART:19671029T020000
+RRULE:FREQ=YEARLY;UNTIL=20061029T060000Z;BYDAY=-1SU;BYMONTH=10
+TZNAME:EST
+TZOFFSETFROM:-0400
+TZOFFSETTO:-0500
+END:STANDARD
+BEGIN:DAYLIGHT
+DTSTART:19760425T020000
+RRULE:FREQ=YEARLY;UNTIL=19860427T070000Z;BYDAY=-1SU;BYMONTH=4
+TZNAME:EDT
+TZOFFSETFROM:-0500
+TZOFFSETTO:-0400
+END:DAYLIGHT
+BEGIN:DAYLIGHT
+DTSTART:19870405T020000
+RRULE:FREQ=YEARLY;UNTIL=20060402T070000Z;BYDAY=1SU;BYMONTH=4
+TZNAME:EDT
+TZOFFSETFROM:-0500
+TZOFFSETTO:-0400
+END:DAYLIGHT
+BEGIN:DAYLIGHT
+DTSTART:20070311T020000
+RRULE:FREQ=YEARLY;BYDAY=2SU;BYMONTH=3
+TZNAME:EDT
+TZOFFSETFROM:-0500
+TZOFFSETTO:-0400
+END:DAYLIGHT
+BEGIN:STANDARD
+DTSTART:20071104T020000
+RRULE:FREQ=YEARLY;BYDAY=1SU;BYMONTH=11
+TZNAME:EST
+TZOFFSETFROM:-0400
 TZOFFSETTO:-0500
 END:STANDARD
 END:VTIMEZONE
@@ -79,7 +227,7 @@ ORGANIZER;CN="User 01":mailto:user01@example.com
 SEQUENCE:3
 END:VEVENT
 END:VCALENDAR
-""" % {'UID': EVENT_UID}
+""".replace("\n", "\r\n") % {'UID': EVENT_UID}
 
 
 class EventTests(TestCase):
@@ -91,7 +239,7 @@ class EventTests(TestCase):
         When the C{vevent} attribute of an L{Event} instance is set,
         L{Event.getUID} returns the UID value from it.
         """
-        event = Event(u'/foo/bar', u'etag', list(readComponents(EVENT))[0])
+        event = Event(u'/foo/bar', u'etag', Component.fromString(EVENT))
         self.assertEquals(event.getUID(), EVENT_UID)
 
 
@@ -809,6 +957,8 @@ CALENDAR_HOME_PROPFIND_RESPONSE_WITH_XMPP = _CALENDAR_HOME_PROPFIND_RESPONSE_TEM
         <xmpp-uri xmlns='http://calendarserver.org/ns/'>xmpp:pubsub.xmpp.example.invalid?pubsub;node=/CalDAV/another.example.invalid/user01/</xmpp-uri>""",
     }
 
+CALENDAR_HOME_PROPFIND_RESPONSE_XMPP_MISSING = _CALENDAR_HOME_PROPFIND_RESPONSE_TEMPLATE % {"xmpp": ""}
+
 
 class MemoryResponse(object):
     def __init__(self, version, code, phrase, headers, bodyProducer):
@@ -832,6 +982,7 @@ class SnowLeopardMixin:
     Mixin for L{TestCase}s for L{SnowLeopard}.
     """
     def setUp(self):
+        TimezoneCache.create()
         self.record = _DirectoryRecord(
             u"user91", u"user91", u"User 91", u"user91@example.org")
         self.client = SnowLeopard(None, "http://127.0.0.1/", self.record, None)
@@ -859,7 +1010,7 @@ class SnowLeopardTests(SnowLeopardMixin, TestCase):
         I{/principals/__uids__/<uid>/} and returns a C{PropFindResult}
         representing the data from it.
         """
-        principals = self.client._parsePROPFINDResponse(PRINCIPAL_PROPFIND_RESPONSE)
+        principals = self.client._parseMultiStatus(PRINCIPAL_PROPFIND_RESPONSE)
         principal = principals['/principals/__uids__/user01/']
         self.assertEquals(
             principal.getHrefProperties(),
@@ -946,6 +1097,13 @@ class SnowLeopardTests(SnowLeopardMixin, TestCase):
                          self.client.xmpp)
 
 
+    def test_handleMissingXMPP(self):
+        home = "/calendars/__uids__/user01/"
+        self.client._extractCalendars(
+            CALENDAR_HOME_PROPFIND_RESPONSE_XMPP_MISSING, home)
+        self.assertEqual({}, self.client.xmpp)
+
+
     def test_changeEventAttendee(self):
         """
         SnowLeopard.changeEventAttendee removes one attendee from an
@@ -953,19 +1111,19 @@ class SnowLeopardTests(SnowLeopardMixin, TestCase):
         """
         requests = self.interceptRequests()
 
-        vevent = list(readComponents(EVENT))[0]
-        attendees = vevent.contents[u'vevent'][0].contents[u'attendee']
+        vevent = Component.fromString(EVENT)
+        attendees = tuple(vevent.mainComponent().properties("ATTENDEE"))
         old = attendees[0]
-        new = ContentLine.duplicate(old)
-        new.params[u'CN'] = [u'Some Other Guy']
+        new = old.duplicate()
+        new.setParameter('CN', 'Some Other Guy')
         event = Event(u'/some/calendar/1234.ics', None, vevent)
         self.client._events[event.url] = event
         self.client.changeEventAttendee(event.url, old, new)
 
-        result, req = requests.pop(0)
+        _ignore_result, req = requests.pop(0)
 
         # iCal PUTs the new VCALENDAR object.
-        expectedResponseCode, method, url, headers, body = req
+        _ignore_expectedResponseCode, method, url, headers, body = req
         self.assertEquals(method, 'PUT')
         self.assertEquals(url, 'http://127.0.0.1' + event.url)
         self.assertIsInstance(url, str)
@@ -974,11 +1132,11 @@ class SnowLeopardTests(SnowLeopardMixin, TestCase):
         consumer = MemoryConsumer()
         finished = body.startProducing(consumer)
         def cbFinished(ignored):
-            vevent = list(readComponents(consumer.value()))[0]
-            attendees = vevent.contents[u'vevent'][0].contents[u'attendee']
+            vevent = Component.fromString(consumer.value())
+            attendees = tuple(vevent.mainComponent().properties("ATTENDEE"))
             self.assertEquals(len(attendees), 2)
-            self.assertEquals(attendees[0].params[u'CN'], [u'User 01'])
-            self.assertEquals(attendees[1].params[u'CN'], [u'Some Other Guy'])
+            self.assertEquals(attendees[0].parameterValue('CN'), 'User 01')
+            self.assertEquals(attendees[1].parameterValue('CN'), 'Some Other Guy')
         finished.addCallback(cbFinished)
         return finished
 
@@ -993,7 +1151,7 @@ class SnowLeopardTests(SnowLeopardMixin, TestCase):
         calendar = Calendar(caldavxml.calendar, u'calendar', u'/mumble/', None)
         self.client._calendars[calendar.url] = calendar
 
-        vcalendar = list(readComponents(EVENT))[0]
+        vcalendar = Component.fromString(EVENT)
         d = self.client.addEvent(u'/mumble/frotz.ics', vcalendar)
 
         result, req = requests.pop(0)
@@ -1009,9 +1167,9 @@ class SnowLeopardTests(SnowLeopardMixin, TestCase):
         consumer = MemoryConsumer()
         finished = body.startProducing(consumer)
         def cbFinished(ignored):
-            self.assertComponentsEqual(
-                list(readComponents(consumer.value()))[0],
-                vcalendar)
+            self.assertEqual(
+                Component.fromString(consumer.value()),
+                Component.fromString(EVENT_AND_TIMEZONE))
         finished.addCallback(cbFinished)
 
         def requested(ignored):
@@ -1056,39 +1214,6 @@ class SnowLeopardTests(SnowLeopardMixin, TestCase):
             StringProducer(""))
         result.callback(response)
         return d
-
-
-    def assertComponentsEqual(self, first, second):
-        self.assertEquals(first.name, second.name, "Component names not equal")
-        self.assertEquals(first.behavior, second.behavior, "Component behaviors not equal")
-
-        for k in first.contents:
-            if k not in second.contents:
-                self.fail("Content %r present in first but not second" % (k,))
-            self.assertEquals(
-                len(first.contents[k]), len(second.contents[k]), "Different length content %r" % (k,))
-            for (a, b) in zip(first.contents[k], second.contents[k]):
-                if isinstance(a, ContentLine):
-                    f = self.assertContentLinesEqual
-                elif isinstance(a, Component):
-                    f = self.assertComponentsEqual
-                else:
-                    f = self.assertEquals
-                f(a, b)
-        for k in second.contents:
-            if k not in first.contents:
-                self.fail("Content %r present in second but not first" % (k,))
-
-
-    def assertContentLinesEqual(self, first, second):
-        self.assertEquals(first.name, second.name, "ContentLine names not equal")
-        self.assertEquals(first.behavior, second.behavior, "ContentLine behaviors not equal")
-        self.assertEquals(first.value, second.value, "ContentLine values not equal")
-        self.assertEquals(first.params, second.params, "ContentLine params not equal")
-        self.assertEquals(
-            first.singletonparams, second.singletonparams,
-            "ContentLine singletonparams not equal")
-
 
 
 class UpdateCalendarTests(SnowLeopardMixin, TestCase):
@@ -1137,8 +1262,87 @@ class UpdateCalendarTests(SnowLeopardMixin, TestCase):
     <href>/something/anotherthing.ics</href>
     <status>HTTP/1.1 404 Not Found</status>
   </response>
+  <response>
+    <href>/something/else.ics</href>
+    <propstat>
+      <prop>
+        <getetag>"ef70beb4cb7da4b2e2950350b09e9a01"</getetag>
+        <calendar-data xmlns='urn:ietf:params:xml:ns:caldav'><![CDATA[BEGIN:VCALENDAR
+VERSION:2.0
+CALSCALE:GREGORIAN
+PRODID:-//Apple Inc.//iCal 4.0.3//EN
+BEGIN:VEVENT
+UID:CD54161A13AA8A4649D3781E@caldav.corp.apple.com
+DTSTART:20110715T140000Z
+DURATION:PT1H
+DTSTAMP:20110715T144217Z
+SUMMARY:Test2
+END:VEVENT
+END:VCALENDAR
+]]></calendar-data>
+      </prop>
+      <status>HTTP/1.1 200 OK</status>
+    </propstat>
+  </response>
 </multistatus>
 """
+
+    _CALENDAR_REPORT_RESPONSE_BODY_1 = """\
+<?xml version='1.0' encoding='UTF-8'?>
+<multistatus xmlns='DAV:'>
+  <response>
+    <href>/something/anotherthing.ics</href>
+    <propstat>
+      <prop>
+        <getetag>"ef70beb4cb7da4b2e2950350b09e9a01"</getetag>
+        <calendar-data xmlns='urn:ietf:params:xml:ns:caldav'><![CDATA[BEGIN:VCALENDAR
+VERSION:2.0
+CALSCALE:GREGORIAN
+PRODID:-//Apple Inc.//iCal 4.0.3//EN
+BEGIN:VEVENT
+UID:anotherthing@caldav.corp.apple.com
+DTSTART:20110715T140000Z
+DURATION:PT1H
+DTSTAMP:20110715T144217Z
+SUMMARY:Test1
+END:VEVENT
+END:VCALENDAR
+]]></calendar-data>
+      </prop>
+      <status>HTTP/1.1 200 OK</status>
+    </propstat>
+  </response>
+</multistatus>
+"""
+
+    _CALENDAR_REPORT_RESPONSE_BODY_2 = """\
+<?xml version='1.0' encoding='UTF-8'?>
+<multistatus xmlns='DAV:'>
+  <response>
+    <href>/something/else.ics</href>
+    <propstat>
+      <prop>
+        <getetag>"ef70beb4cb7da4b2e2950350b09e9a01"</getetag>
+        <calendar-data xmlns='urn:ietf:params:xml:ns:caldav'><![CDATA[BEGIN:VCALENDAR
+VERSION:2.0
+CALSCALE:GREGORIAN
+PRODID:-//Apple Inc.//iCal 4.0.3//EN
+BEGIN:VEVENT
+UID:else@caldav.corp.apple.com
+DTSTART:20110715T140000Z
+DURATION:PT1H
+DTSTAMP:20110715T144217Z
+SUMMARY:Test2
+END:VEVENT
+END:VCALENDAR
+]]></calendar-data>
+      </prop>
+      <status>HTTP/1.1 200 OK</status>
+    </propstat>
+  </response>
+</multistatus>
+"""
+
     def test_eventMissing(self):
         """
         If an event included in the calendar PROPFIND response no longer exists
@@ -1151,7 +1355,7 @@ class UpdateCalendarTests(SnowLeopardMixin, TestCase):
         self.client._calendars[calendar.url] = calendar
         self.client._updateCalendar(calendar)
         result, req = requests.pop(0)
-        expectedResponseCode, method, url, headers, body = req
+        expectedResponseCode, method, url, _ignore_headers, _ignore_body = req
         self.assertEqual('PROPFIND', method)
         self.assertEqual('http://127.0.0.1/something/', url)
         self.assertEqual(MULTI_STATUS, expectedResponseCode)
@@ -1162,7 +1366,7 @@ class UpdateCalendarTests(SnowLeopardMixin, TestCase):
                 StringProducer(self._CALENDAR_PROPFIND_RESPONSE_BODY)))
         
         result, req = requests.pop(0)
-        expectedResponseCode, method, url, headers, body = req
+        expectedResponseCode, method, url, _ignore_headers, _ignore_body = req
         self.assertEqual('REPORT', method)
         self.assertEqual('http://127.0.0.1/something/', url)
         self.assertEqual(MULTI_STATUS, expectedResponseCode)
@@ -1180,6 +1384,58 @@ class UpdateCalendarTests(SnowLeopardMixin, TestCase):
         self.assertIn('/something/else.ics', self.client._events)
 
 
+    def test_multigetBatch(self):
+        """
+        If an event included in the calendar PROPFIND response no longer exists
+        by the time a REPORT is issued for that event, the 404 is handled and
+        the rest of the normal update logic for that event is skipped.
+        """
+        requests = self.interceptRequests()
+
+        self.patch(self.client, "MULTIGET_BATCH_SIZE", 1)
+
+        calendar = Calendar(None, 'calendar', '/something/', None)
+        self.client._calendars[calendar.url] = calendar
+        self.client._updateCalendar(calendar)
+        result, req = requests.pop(0)
+        expectedResponseCode, method, url, _ignore_headers, _ignore_body = req
+        self.assertEqual('PROPFIND', method)
+        self.assertEqual('http://127.0.0.1/something/', url)
+        self.assertEqual(MULTI_STATUS, expectedResponseCode)
+
+        result.callback(
+            MemoryResponse(
+                ('HTTP', '1', '1'), MULTI_STATUS, "Multi-status", None,
+                StringProducer(self._CALENDAR_PROPFIND_RESPONSE_BODY)))
+        
+        result, req = requests.pop(0)
+        expectedResponseCode, method, url, _ignore_headers, _ignore_body = req
+        self.assertEqual('REPORT', method)
+        self.assertEqual('http://127.0.0.1/something/', url)
+        self.assertEqual(MULTI_STATUS, expectedResponseCode)
+
+        result.callback(
+            MemoryResponse(
+                ('HTTP', '1', '1'), MULTI_STATUS, "Multi-status", None,
+                StringProducer(self._CALENDAR_REPORT_RESPONSE_BODY_1)))
+
+        self.assertTrue(self.client._events['/something/anotherthing.ics'].etag is not None)
+        self.assertTrue(self.client._events['/something/else.ics'].etag is None)
+        
+        result, req = requests.pop(0)
+        expectedResponseCode, method, url, _ignore_headers, _ignore_body = req
+        self.assertEqual('REPORT', method)
+        self.assertEqual('http://127.0.0.1/something/', url)
+        self.assertEqual(MULTI_STATUS, expectedResponseCode)
+
+        result.callback(
+            MemoryResponse(
+                ('HTTP', '1', '1'), MULTI_STATUS, "Multi-status", None,
+                StringProducer(self._CALENDAR_REPORT_RESPONSE_BODY_2)))
+
+        self.assertTrue(self.client._events['/something/anotherthing.ics'].etag is not None)
+        self.assertTrue(self.client._events['/something/else.ics'].etag is not None)
+
 
 class VFreeBusyTests(SnowLeopardMixin, TestCase):
     """
@@ -1194,10 +1450,11 @@ class VFreeBusyTests(SnowLeopardMixin, TestCase):
         """
         self.client.uuid = u'urn:uuid:user01'
         self.client.email = u'mailto:user01@example.com'
+        self.client.outbox = "/calendars/__uids__/%s/outbox/" % (self.record.uid,)
         requests = self.interceptRequests()
 
-        start = datetime(2011, 6, 10, 10, 45, 0)
-        end = datetime(2011, 6, 10, 11, 15, 0)
+        start = PyCalendarDateTime(2011, 6, 10, 10, 45, 0, tzid=PyCalendarTimezone(utc=True))
+        end = PyCalendarDateTime(2011, 6, 10, 11, 15, 0, tzid=PyCalendarTimezone(utc=True))
         d = self.client.requestAvailability(
             start, end, [u"urn:uuid:user05", u"urn:uuid:user10"])
 
@@ -1217,10 +1474,10 @@ class VFreeBusyTests(SnowLeopardMixin, TestCase):
         consumer = MemoryConsumer()
         finished = body.startProducing(consumer)
         def cbFinished(ignored):
-            vevent = list(readComponents(consumer.value()))[0]
-            uid = vevent.contents[u'vfreebusy'][0].contents[u'uid'][0].value.encode('utf-8')
-            dtstamp = vevent.contents[u'vfreebusy'][0].contents[u'dtstamp'][0].value
-            dtstamp = dateTimeToString(dtstamp, False)
+            vevent = Component.fromString(consumer.value())
+            uid = vevent.resourceUID()
+            dtstamp = vevent.mainComponent().propertyValue("DTSTAMP")
+            dtstamp = dtstamp.getText()
             self.assertEqual(
 """\
 BEGIN:VCALENDAR

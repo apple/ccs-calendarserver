@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2010 Apple Inc. All rights reserved.
+# Copyright (c) 2010-2011 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -144,6 +144,24 @@ class AddressBookSQLStorageTests(AddressBookCommonTests, unittest.TestCase):
         yield _migrateAddressbook(fromAddressbook, toAddressbook,
                                   lambda x: x.component())
         yield self.assertAddressbooksSimilar(fromAddressbook, toAddressbook)
+
+
+    @inlineCallbacks
+    def test_migrateBadAddressbookFromFile(self):
+        """
+        C{_migrateAddressbook()} can migrate a file-backed addressbook to a
+        database-backed addressbook. We need to test what happens when there
+        is "bad" address data present in the file-backed addressbook.
+        """
+        fromAddressbook = yield self.fileTransaction().addressbookHomeWithUID(
+            "home_bad").addressbookWithName("addressbook_bad")
+        toHome = yield self.transactionUnderTest().addressbookHomeWithUID(
+            "new-home", create=True)
+        toAddressbook = yield toHome.addressbookWithName("addressbook")
+        ok, bad = (yield _migrateAddressbook(fromAddressbook, toAddressbook,
+                                  lambda x: x.component()))
+        self.assertEqual(ok, 1)
+        self.assertEqual(bad, 1)
 
 
     @inlineCallbacks

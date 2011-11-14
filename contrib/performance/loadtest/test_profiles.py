@@ -19,9 +19,9 @@
 Tests for loadtest.profiles.
 """
 
-from vobject import readComponents
+from StringIO import StringIO
 
-from caldavclientlibrary.protocol.caldav.definitions import caldavxml
+from caldavclientlibrary.protocol.caldav.definitions import caldavxml, csxml
 
 from twisted.trial.unittest import TestCase
 from twisted.internet.task import Clock
@@ -29,10 +29,12 @@ from twisted.internet.defer import succeed, fail
 from twisted.web.http import NO_CONTENT, PRECONDITION_FAILED
 from twisted.web.client import Response
 
-from loadtest.profiles import Eventer, Inviter, Accepter
-from loadtest.population import Populator, CalendarClientSimulator
-from loadtest.ical import IncorrectResponseCode, Calendar, Event, BaseClient
-from loadtest.sim import _DirectoryRecord
+from twistedcaldav.ical import Component
+
+from contrib.performance.loadtest.profiles import Eventer, Inviter, Accepter, OperationLogger
+from contrib.performance.loadtest.population import Populator, CalendarClientSimulator
+from contrib.performance.loadtest.ical import IncorrectResponseCode, Calendar, Event, BaseClient
+from contrib.performance.loadtest.sim import _DirectoryRecord
 
 SIMPLE_EVENT = """\
 BEGIN:VCALENDAR
@@ -223,8 +225,7 @@ class StubClient(BaseClient):
 
     def addEventAttendee(self, href, attendee):
         vevent = self._events[href].vevent
-        attendees = vevent.contents[u'vevent'][0].contents.setdefault(u'attendee', [])
-        attendees.append(attendee)
+        vevent.mainComponent().addProperty(attendee)
 
 
     def changeEventAttendee(self, href, old, new):
@@ -236,9 +237,8 @@ class StubClient(BaseClient):
                         'Precondition Failed', None, None)))
 
         vevent = self._events[href].vevent
-        attendees = vevent.contents[u'vevent'][0].contents.setdefault(u'attendee', [])
-        attendees.remove(old)
-        attendees.append(new)
+        vevent.mainComponent().removeProperty(old)
+        vevent.mainComponent().addProperty(new)
         return succeed(None)
 
 
@@ -263,7 +263,7 @@ class InviterTests(TestCase):
 
 
     def _simpleAccount(self, userNumber, eventText):
-        vevent = list(readComponents(eventText))[0]
+        vevent = Component.fromString(eventText)
         calendar = Calendar(
             caldavxml.calendar, u'calendar', u'/cal/', None)
         event = Event(calendar.url + u'1234.ics', None, vevent)
@@ -275,18 +275,28 @@ class InviterTests(TestCase):
         return vevent, event, calendar, client
 
 
+    def test_enabled(self):
+        userNumber = 13
+        client = StubClient(userNumber)
+
+        inviter = Inviter(None, self.sim, client, userNumber, **{"enabled":False})
+        self.assertEqual(inviter.enabled, False)
+
+        inviter = Inviter(None, self.sim, client, userNumber, **{"enabled":True})
+        self.assertEqual(inviter.enabled, True)
+
     def test_doNotAddAttendeeToInbox(self):
         """
         When the only calendar with any events is a schedule inbox, no
         attempt is made to add attendees to an event on that calendar.
         """
         userNumber = 10
-        vevent, event, calendar, client = self._simpleAccount(
+        vevent, _ignore_event, calendar, client = self._simpleAccount(
             userNumber, SIMPLE_EVENT)
         calendar.resourceType = caldavxml.schedule_inbox
         inviter = Inviter(None, self.sim, client, userNumber)
         inviter._invite()
-        self.assertNotIn(u'attendee', vevent.contents[u'vevent'][0].contents)
+        self.assertFalse(vevent.mainComponent().hasProperty('ATTENDEE'))
 
 
     def test_doNotAddAttendeeToNoCalendars(self):
@@ -309,7 +319,7 @@ class InviterTests(TestCase):
         invitees to that event.
         """
         userNumber = 19
-        vevent, event, calendar, client = self._simpleAccount(
+        _ignore_vevent, event, calendar, client = self._simpleAccount(
             userNumber, SIMPLE_EVENT)
         event.vevent = event.etag = event.scheduleTag = None
         inviter = Inviter(None, self.sim, client, userNumber)
@@ -324,20 +334,23 @@ class InviterTests(TestCase):
         attendee to it.
         """
         userNumber = 16
-        vevent, event, calendar, client = self._simpleAccount(
+        vevent, _ignore_event, _ignore_calendar, client = self._simpleAccount(
             userNumber, SIMPLE_EVENT)
         inviter = Inviter(Clock(), self.sim, client, userNumber)
         inviter.setParameters(inviteeDistanceDistribution=Deterministic(1))
         inviter._invite()
-        attendees = vevent.contents[u'vevent'][0].contents[u'attendee']
+        attendees = tuple(vevent.mainComponent().properties('ATTENDEE'))
         self.assertEquals(len(attendees), 1)
-        self.assertEquals(attendees[0].params, {
-                u'CN': [u'User %d' % (userNumber + 1,)],
-                u'CUTYPE': [u'INDIVIDUAL'],
-                u'EMAIL': [u'user%d@example.com' % (userNumber + 1,)],
-                u'PARTSTAT': [u'NEEDS-ACTION'],
-                u'ROLE': [u'REQ-PARTICIPANT'],
-                u'RSVP': [u'TRUE']})
+        for paramname, paramvalue in {
+            'CN': 'User %d' % (userNumber + 1,),
+            'CUTYPE': 'INDIVIDUAL',
+            'EMAIL': 'user%d@example.com' % (userNumber + 1,),
+            'PARTSTAT': 'NEEDS-ACTION',
+            'ROLE': 'REQ-PARTICIPANT',
+            'RSVP': 'TRUE'
+        }.items():
+            self.assertTrue(attendees[0].hasParameter(paramname))
+            self.assertEqual(attendees[0].parameterValue(paramname), paramvalue)
 
 
 
@@ -347,7 +360,7 @@ class InviterTests(TestCase):
         the attendee list, a different user is added instead.
         """
         selfNumber = 12
-        vevent, event, calendar, client = self._simpleAccount(
+        vevent, _ignore_event, _ignore_calendar, client = self._simpleAccount(
             selfNumber, SIMPLE_EVENT)
 
         otherNumber = 20
@@ -356,15 +369,18 @@ class InviterTests(TestCase):
         inviter = Inviter(Clock(), self.sim, client, selfNumber)
         inviter.setParameters(inviteeDistanceDistribution=SequentialDistribution(values))
         inviter._invite()
-        attendees = vevent.contents[u'vevent'][0].contents[u'attendee']
+        attendees = tuple(vevent.mainComponent().properties('ATTENDEE'))
         self.assertEquals(len(attendees), 1)
-        self.assertEquals(attendees[0].params, {
-                u'CN': [u'User %d' % (otherNumber,)],
-                u'CUTYPE': [u'INDIVIDUAL'],
-                u'EMAIL': [u'user%d@example.com' % (otherNumber,)],
-                u'PARTSTAT': [u'NEEDS-ACTION'],
-                u'ROLE': [u'REQ-PARTICIPANT'],
-                u'RSVP': [u'TRUE']})
+        for paramname, paramvalue in {
+            'CN': 'User %d' % (otherNumber,),
+            'CUTYPE': 'INDIVIDUAL',
+            'EMAIL': 'user%d@example.com' % (otherNumber,),
+            'PARTSTAT': 'NEEDS-ACTION',
+            'ROLE': 'REQ-PARTICIPANT',
+            'RSVP': 'TRUE'
+        }.items():
+            self.assertTrue(attendees[0].hasParameter(paramname))
+            self.assertEqual(attendees[0].parameterValue(paramname), paramvalue)
 
 
 
@@ -374,26 +390,29 @@ class InviterTests(TestCase):
         invitee on the event, a different user is added instead.
         """
         selfNumber = 1
-        vevent, event, calendar, client = self._simpleAccount(
+        vevent, _ignore_event, _ignore_calendar, client = self._simpleAccount(
             selfNumber, INVITED_EVENT)
 
-        invitee = vevent.contents[u'vevent'][0].contents[u'attendee'][0]
-        inviteeNumber = int(invitee.params[u'CN'][0].split()[1])
+        invitee = tuple(vevent.mainComponent().properties('ATTENDEE'))[0]
+        inviteeNumber = int(invitee.parameterValue('CN').split()[1])
         anotherNumber = inviteeNumber + 5
         values = [inviteeNumber - selfNumber, anotherNumber - selfNumber]
 
         inviter = Inviter(Clock(), self.sim, client, selfNumber)
         inviter.setParameters(inviteeDistanceDistribution=SequentialDistribution(values))
         inviter._invite()
-        attendees = vevent.contents[u'vevent'][0].contents[u'attendee']
+        attendees = tuple(vevent.mainComponent().properties('ATTENDEE'))
         self.assertEquals(len(attendees), 3)
-        self.assertEquals(attendees[2].params, {
-                u'CN': [u'User %02d' % (anotherNumber,)],
-                u'CUTYPE': [u'INDIVIDUAL'],
-                u'EMAIL': [u'user%02d@example.com' % (anotherNumber,)],
-                u'PARTSTAT': [u'NEEDS-ACTION'],
-                u'ROLE': [u'REQ-PARTICIPANT'],
-                u'RSVP': [u'TRUE']})
+        for paramname, paramvalue in {
+            'CN': 'User %02d' % (anotherNumber,),
+            'CUTYPE': 'INDIVIDUAL',
+            'EMAIL': 'user%02d@example.com' % (anotherNumber,),
+            'PARTSTAT': 'NEEDS-ACTION',
+            'ROLE': 'REQ-PARTICIPANT',
+            'RSVP': 'TRUE'
+        }.items():
+            self.assertTrue(attendees[2].hasParameter(paramname))
+            self.assertEqual(attendees[2].parameterValue(paramname), paramvalue)
 
 
     def test_everybodyInvitedAlready(self):
@@ -403,13 +422,13 @@ class InviterTests(TestCase):
         abandoned.
         """
         selfNumber = 1
-        vevent, event, calendar, client = self._simpleAccount(
+        vevent, _ignore_event, _ignore_calendar, client = self._simpleAccount(
             selfNumber, INVITED_EVENT)
         inviter = Inviter(Clock(), self.sim, client, selfNumber)
         # Always return a user number which has already been invited.
         inviter.setParameters(inviteeDistanceDistribution=Deterministic(2 - selfNumber))
         inviter._invite()
-        attendees = vevent.contents[u'vevent'][0].contents[u'attendee']
+        attendees = tuple(vevent.mainComponent().properties('ATTENDEE'))
         self.assertEquals(len(attendees), 2)
 
 
@@ -420,17 +439,17 @@ class InviterTests(TestCase):
         users to them.
         """
         selfNumber = 2
-        vevent, event, calendar, client = self._simpleAccount(
+        vevent, _ignore_event, _ignore_calendar, client = self._simpleAccount(
             selfNumber, INVITED_EVENT)
         inviter = Inviter(None, self.sim, client, selfNumber)
         # Try to send an invitation, but with only one event on the
         # calendar, of which we are not the organizer.  It should be
         # unchanged afterwards.
         inviter._invite()
-        attendees = event.vevent.contents[u'vevent'][0].contents[u'attendee']
+        attendees = tuple(vevent.mainComponent().properties('ATTENDEE'))
         self.assertEqual(len(attendees), 2)
-        self.assertEqual(attendees[0].params['CN'], [u'User 01'])
-        self.assertEqual(attendees[1].params['CN'], [u'User 02'])
+        self.assertEqual(attendees[0].parameterValue('CN'), 'User 01')
+        self.assertEqual(attendees[1].parameterValue('CN'), 'User 02')
 
 
 
@@ -442,6 +461,16 @@ class AccepterTests(TestCase):
         self.sim = CalendarClientSimulator(
             AnyUser(), Populator(None), None, None, None)
 
+
+    def test_enabled(self):
+        userNumber = 13
+        client = StubClient(userNumber)
+
+        accepter = Accepter(None, self.sim, client, userNumber, **{"enabled":False})
+        self.assertEqual(accepter.enabled, False)
+
+        accepter = Accepter(None, self.sim, client, userNumber, **{"enabled":True})
+        self.assertEqual(accepter.enabled, True)
 
     def test_ignoreEventOnUnknownCalendar(self):
         """
@@ -461,7 +490,7 @@ class AccepterTests(TestCase):
         userNumber = 14
         calendarURL = '/some/calendar/'
         calendar = Calendar(
-            caldavxml.schedule_inbox, u'inbox', calendarURL, None)
+            csxml.dropbox_home, u'notification', calendarURL, None)
         client = StubClient(userNumber)
         client._calendars[calendarURL] = calendar
         accepter = Accepter(None, self.sim, client, userNumber)
@@ -473,9 +502,9 @@ class AccepterTests(TestCase):
         If the client is an attendee on an event but the PARTSTAT is
         not NEEDS-ACTION, the event is ignored.
         """
-        vevent = list(readComponents(ACCEPTED_EVENT))[0]
-        attendees = vevent.contents[u'vevent'][0].contents[u'attendee']
-        userNumber = int(attendees[1].params[u'CN'][0].split(None, 1)[1])
+        vevent = Component.fromString(ACCEPTED_EVENT)
+        attendees = tuple(vevent.mainComponent().properties('ATTENDEE'))
+        userNumber = int(attendees[1].parameterValue('CN').split(None, 1)[1])
         calendarURL = '/some/calendar/'
         calendar = Calendar(
             caldavxml.calendar, u'calendar', calendarURL, None)
@@ -496,9 +525,9 @@ class AccepterTests(TestCase):
         """
         clock = Clock()
         randomDelay = 7
-        vevent = list(readComponents(INVITED_EVENT))[0]
-        attendees = vevent.contents[u'vevent'][0].contents[u'attendee']
-        userNumber = int(attendees[1].params[u'CN'][0].split(None, 1)[1])
+        vevent = Component.fromString(INVITED_EVENT)
+        attendees = tuple(vevent.mainComponent().properties('ATTENDEE'))
+        userNumber = int(attendees[1].parameterValue('CN').split(None, 1)[1])
         calendarURL = '/some/calendar/'
         calendar = Calendar(
             caldavxml.calendar, u'calendar', calendarURL, None)
@@ -523,9 +552,9 @@ class AccepterTests(TestCase):
         """
         clock = Clock()
         randomDelay = 7
-        vevent = list(readComponents(INVITED_EVENT))[0]
-        attendees = vevent.contents[u'vevent'][0].contents[u'attendee']
-        userNumber = int(attendees[1].params[u'CN'][0].split(None, 1)[1])
+        vevent = Component.fromString(INVITED_EVENT)
+        attendees = tuple(vevent.mainComponent().properties('ATTENDEE'))
+        userNumber = int(attendees[1].parameterValue('CN').split(None, 1)[1])
         client = StubClient(userNumber)
 
         calendarURL = '/some/calendar/'
@@ -545,18 +574,18 @@ class AccepterTests(TestCase):
         client._setEvent(inboxEvent.url, inboxEvent)
 
         accepter = Accepter(clock, self.sim, client, userNumber)
-        accepter.setParameters(Deterministic(randomDelay))
+        accepter.setParameters(acceptDelayDistribution=Deterministic(randomDelay))
         accepter.eventChanged(event.url)
         clock.advance(randomDelay)
 
         vevent = client._events[event.url].vevent
-        attendees = vevent.contents[u'vevent'][0].contents[u'attendee']
+        attendees = tuple(vevent.mainComponent().properties('ATTENDEE'))
         self.assertEquals(len(attendees), 2)
         self.assertEquals(
-            attendees[1].params[u'CN'], [u'User %02d' % (userNumber,)])
+            attendees[1].parameterValue('CN'), 'User %02d' % (userNumber,))
         self.assertEquals(
-            attendees[1].params[u'PARTSTAT'], [u'ACCEPTED'])
-        self.assertNotIn(u'RSVP', attendees[1].params)
+            attendees[1].parameterValue('PARTSTAT'), 'ACCEPTED')
+        self.assertFalse(attendees[1].hasParameter('RSVP'))
 
         self.assertNotIn(inboxEvent.url, client._events)
         self.assertNotIn('4321.ics', inbox.events)
@@ -570,9 +599,9 @@ class AccepterTests(TestCase):
         """
         clock = Clock()
         randomDelay = 7
-        vevent = list(readComponents(INVITED_EVENT))[0]
-        attendees = vevent.contents[u'vevent'][0].contents[u'attendee']
-        userNumber = int(attendees[1].params[u'CN'][0].split(None, 1)[1])
+        vevent = Component.fromString(INVITED_EVENT)
+        attendees = tuple(vevent.mainComponent().properties('ATTENDEE'))
+        userNumber = int(attendees[1].parameterValue('CN').split(None, 1)[1])
         calendarURL = '/some/calendar/'
         calendar = Calendar(
             caldavxml.calendar, u'calendar', calendarURL, None)
@@ -581,12 +610,12 @@ class AccepterTests(TestCase):
         event = Event(calendarURL + u'1234.ics', None, vevent)
         client._events[event.url] = event
         accepter = Accepter(clock, self.sim, client, userNumber)
-        accepter.setParameters(Deterministic(randomDelay))
+        accepter.setParameters(acceptDelayDistribution=Deterministic(randomDelay))
         accepter.eventChanged(event.url)
         clock.advance(randomDelay)
 
         # Now re-set the event so it has to be accepted again
-        event.vevent = list(readComponents(INVITED_EVENT))[0]
+        event.vevent = Component.fromString(INVITED_EVENT)
 
         # And now re-deliver it
         accepter.eventChanged(event.url)
@@ -594,13 +623,13 @@ class AccepterTests(TestCase):
 
         # And ensure that it was accepted again
         vevent = client._events[event.url].vevent
-        attendees = vevent.contents[u'vevent'][0].contents[u'attendee']
+        attendees = tuple(vevent.mainComponent().properties('ATTENDEE'))
         self.assertEquals(len(attendees), 2)
         self.assertEquals(
-            attendees[1].params[u'CN'], [u'User %02d' % (userNumber,)])
+            attendees[1].parameterValue('CN'), 'User %02d' % (userNumber,))
         self.assertEquals(
-            attendees[1].params[u'PARTSTAT'], [u'ACCEPTED'])
-        self.assertNotIn(u'RSVP', attendees[1].params)
+            attendees[1].parameterValue('PARTSTAT'), 'ACCEPTED')
+        self.assertFalse(attendees[1].hasParameter('RSVP'))
 
 
     def test_changeEventAttendeePreconditionFailed(self):
@@ -619,12 +648,12 @@ class AccepterTests(TestCase):
             caldavxml.calendar, u'calendar', calendarURL, None)
         client._calendars[calendarURL] = calendar
 
-        vevent = list(readComponents(INVITED_EVENT))[0]
+        vevent = Component.fromString(INVITED_EVENT)
         event = Event(calendarURL + u'1234.ics', None, vevent)
         client._setEvent(event.url, event)
 
         accepter = Accepter(clock, self.sim, client, userNumber)
-        accepter.setParameters(Deterministic(randomDelay))
+        accepter.setParameters(acceptDelayDistribution=Deterministic(randomDelay))
 
         client.rescheduled.add(event.url)
 
@@ -644,6 +673,16 @@ class EventerTests(TestCase):
         self.sim = CalendarClientSimulator(
             AnyUser(), Populator(None), None, None, None)
 
+
+    def test_enabled(self):
+        userNumber = 13
+        client = StubClient(userNumber)
+
+        eventer = Eventer(None, self.sim, client, None, **{"enabled":False})
+        self.assertEqual(eventer.enabled, False)
+
+        eventer = Eventer(None, self.sim, client, None, **{"enabled":True})
+        self.assertEqual(eventer.enabled, True)
 
     def test_doNotAddEventOnInbox(self):
         """
@@ -677,3 +716,58 @@ class EventerTests(TestCase):
         self.assertEquals(len(client._events), 1)
 
         # XXX Vary the event period/interval and the uid
+
+
+
+class OperationLoggerTests(TestCase):
+    """
+    Tests for L{OperationLogger}.
+    """
+    def test_noFailures(self):
+        """
+        If the median lag is below 1 second and the failure rate is below 1%,
+        L{OperationLogger.failures} returns an empty list.
+        """
+        logger = OperationLogger(outfile=StringIO())
+        logger.observe(dict(
+                type='operation', phase='start', user='user01',
+                label='testing', lag=0.5))
+        logger.observe(dict(
+                type='operation', phase='end', user='user01',
+                duration=0.35, label='testing', success=True))
+        self.assertEqual([], logger.failures())
+
+
+    def test_lagLimitExceeded(self):
+        """
+        If the median scheduling lag for any operation in the simulation
+        exceeds 1 second, L{OperationLogger.failures} returns a list containing
+        a string describing that issue.
+        """
+        logger = OperationLogger(outfile=StringIO())
+        for lag in [100.0, 1100.0, 1200.0]:
+            logger.observe(dict(
+                    type='operation', phase='start', user='user01',
+                    label='testing', lag=lag))
+        self.assertEqual(
+            ["Median TESTING scheduling lag greater than 1000.0ms"],
+            logger.failures())
+
+
+    def test_failureLimitExceeded(self):
+        """
+        If the failure rate for any operation exceeds 1%,
+        L{OperationLogger.failures} returns a list containing a string
+        describing that issue.
+        """
+        logger = OperationLogger(outfile=StringIO())
+        for _ignore in range(98):
+            logger.observe(dict(
+                    type='operation', phase='end', user='user01',
+                    duration=0.25, label='testing', success=True))
+        logger.observe(dict(
+                type='operation', phase='end', user='user01',
+                duration=0.25, label='testing', success=False))
+        self.assertEqual(
+            ["Greater than 1% TESTING failed"],
+            logger.failures())

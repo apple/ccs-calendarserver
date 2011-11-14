@@ -38,11 +38,12 @@ class AggregateDirectoryService(DirectoryService):
     """
     baseGUID = "06FB225F-39E7-4D34-B1D1-29925F5E619B"
 
-    def __init__(self, services):
+    def __init__(self, services, groupMembershipCache):
         super(AggregateDirectoryService, self).__init__()
 
         realmName = None
         recordTypes = {}
+        self.groupMembershipCache = groupMembershipCache
 
         for service in services:
             service = IDirectoryService(service)
@@ -163,6 +164,15 @@ class AggregateDirectoryService(DirectoryService):
 
         returnValue(itertools.chain(*generators))
 
+    def getGroups(self, guids):
+        """
+        Returns a set of group records for the list of guids passed in.  For
+        any group that also contains subgroups, those subgroups' records are
+        also returned, and so on.
+        """
+        recordType = self.recordType_groups
+        service = self.serviceForRecordType(recordType)
+        return service.getGroups(guids)
 
 
     def serviceForRecordType(self, recordType):
@@ -214,6 +224,12 @@ class AggregateDirectoryService(DirectoryService):
                 if result:
                     results.append(result)
         return results
+
+
+    def getExternalProxyAssignments(self):
+        service = self.serviceForRecordType(self.recordType_locations)
+        return service.getExternalProxyAssignments()
+
 
     def createRecord(self, recordType, guid=None, shortNames=(), authIDs=set(),
         fullName=None, firstName=None, lastName=None, emailAddresses=set(),

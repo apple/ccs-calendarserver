@@ -26,12 +26,8 @@ __all__ = [
     "DirectoryPrincipalUIDProvisioningResource",
     "DirectoryPrincipalResource",
     "DirectoryCalendarPrincipalResource",
-    "format_list",
-    "format_principals",
-    "format_link",
 ]
 
-from cgi import escape
 from urllib import unquote
 from urlparse import urlparse
 
@@ -39,40 +35,66 @@ from twisted.cred.credentials import UsernamePassword
 from twisted.python.failure import Failure
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.internet.defer import succeed
+from twisted.web.template import XMLFile, Element, renderer, tags
+
 from twext.web2.auth.digest import DigestedCredentials
 from twext.web2 import responsecode
-from twext.web2.http import HTTPError, StatusResponse
+from twext.web2.http import HTTPError
 from twext.web2.dav import davxml
 from twext.web2.dav.util import joinURL
 from twext.web2.dav.noneprops import NonePropertyStore
 
 from twext.python.log import Logger
 
-from twistedcaldav.authkerb import NegotiateCredentials
+try:
+    from twistedcaldav.authkerb import NegotiateCredentials
+    NegotiateCredentials # sigh, pyflakes
+except ImportError:
+    NegotiateCredentials = None
+from twisted.python.modules import getModule
 from twistedcaldav.config import config
 from twistedcaldav.cache import DisabledCacheNotifier, PropfindCacheMixin
-from twistedcaldav.directory import calendaruserproxy
-from twistedcaldav.directory.calendaruserproxy import CalendarUserProxyPrincipalResource
+
+from twistedcaldav.extensions import DirectoryElement
+
 from twistedcaldav.directory.common import uidsResourceName
 from twistedcaldav.directory.directory import DirectoryService, DirectoryRecord
 from twistedcaldav.extensions import ReadOnlyResourceMixIn, DAVPrincipalResource,\
     DAVResourceWithChildrenMixin
-from twistedcaldav.resource import CalendarPrincipalCollectionResource, CalendarPrincipalResource
+from twistedcaldav.resource import (
+    CalendarPrincipalCollectionResource, CalendarPrincipalResource
+)
 from twistedcaldav.directory.idirectory import IDirectoryService
 from twistedcaldav import caldavxml, customxml
 from twistedcaldav.customxml import calendarserver_namespace
 from twistedcaldav.scheduling.cuaddress import normalizeCUAddr
+from twistedcaldav.directory.wiki import getWikiACL
 
+thisModule = getModule(__name__)
 log = Logger()
+
 
 class PermissionsMixIn (ReadOnlyResourceMixIn):
     def defaultAccessControlList(self):
         return authReadACL
 
+
+    @inlineCallbacks
     def accessControlList(self, request, inheritance=True, expanding=False, inherited_aces=None):
 
-        return succeed(self.defaultAccessControlList())
+        try:
+            wikiACL = (yield getWikiACL(self, request))
+        except HTTPError:
+            wikiACL = None
 
+        if wikiACL is not None:
+            # ACL depends on wiki server...
+            log.debug("Wiki ACL: %s" % (wikiACL.toxml(),))
+            returnValue(wikiACL)
+        else:
+            # ...otherwise permissions are fixed, and are not subject to
+            # inheritance rules, etc.
+            returnValue(self.defaultAccessControlList())
 
 
 # Converter methods for recordsMatchingFields()
@@ -153,7 +175,7 @@ class DirectoryProvisioningResource (
         # Basic/Digest creds -> just lookup user name
         if isinstance(user, UsernamePassword) or isinstance(user, DigestedCredentials):
             return self.principalForUser(user.username)
-        elif isinstance(user, NegotiateCredentials):
+        elif NegotiateCredentials is not None and isinstance(user, NegotiateCredentials):
             authID = "Kerberos:%s" % (user.principal,)
             principal = self.principalForRecord(self.directory.recordWithAuthID(authID))
             if principal:
@@ -202,7 +224,7 @@ class DirectoryProvisioningResource (
         If property is a DAV property that maps to a directory field, return
         that field's name, otherwise return None
         """
-        field, converter, description, xmlClass = self._fieldMap.get(
+        field, converter, _ignore_description, _ignore_xmlClass = self._fieldMap.get(
             property.qname(), (None, None, None, None))
         if field is None:
             return (None, None)
@@ -212,7 +234,7 @@ class DirectoryProvisioningResource (
 
     def principalSearchPropertySet(self):
         props = []
-        for field, converter, description, xmlClass in self._fieldMap.itervalues():
+        for _ignore_field, _ignore_converter, description, xmlClass in self._fieldMap.itervalues():
             props.append(
                 davxml.PrincipalSearchProperty(
                     davxml.PropertyContainer(
@@ -465,7 +487,7 @@ class DirectoryPrincipalUIDProvisioningResource (DirectoryProvisioningResource):
         record = self.directory.recordWithUID(primaryUID)
         primaryPrincipal = self.principalForRecord(record)
         if primaryPrincipal is None:
-            log.err("No principal found for UID: %s" % (name,))
+            log.info("No principal found for UID: %s" % (name,))
             return None
 
         if subType is None:
@@ -484,7 +506,171 @@ class DirectoryPrincipalUIDProvisioningResource (DirectoryProvisioningResource):
     def principalCollections(self):
         return self.parent.principalCollections()
 
-class DirectoryPrincipalResource (PropfindCacheMixin, PermissionsMixIn, DAVPrincipalResource):
+
+
+class DirectoryPrincipalDetailElement(Element):
+    """
+    Element that can render the details of a
+    L{CalendarUserDirectoryPrincipalResource}.
+    """
+
+    loader = XMLFile(thisModule.filePath.sibling(
+        "directory-principal-resource.html").open()
+    )
+
+    def __init__(self, resource):
+        super(DirectoryPrincipalDetailElement, self).__init__()
+        self.resource = resource
+
+
+    @renderer
+    def serversEnabled(self, request, tag):
+        """
+        Renderer for when servers are enabled.
+        """
+        if not config.Servers.Enabled:
+            return ""
+        record = self.resource.record
+        return tag.fillSlots(
+            hostedAt=str(record.serverURI()),
+            partition=str(record.effectivePartitionID()),
+        )
+
+
+    @renderer
+    def principal(self, request, tag):
+        """
+        Top-level renderer in the template.
+        """
+        record = self.resource.record
+        return tag.fillSlots(
+            directoryGUID=str(record.service.guid),
+            realm=str(record.service.realmName),
+            principalGUID=str(record.guid),
+            recordType=str(record.recordType),
+            shortNames=",".join(record.shortNames),
+            securityIDs=",".join(record.authIDs),
+            fullName=str(record.fullName),
+            firstName=str(record.firstName),
+            lastName=str(record.lastName),
+            emailAddresses=formatList(record.emailAddresses),
+            principalUID=str(self.resource.principalUID()),
+            principalURL=formatLink(self.resource.principalURL()),
+            alternateURIs=formatLinks(self.resource.alternateURIs()),
+            groupMembers=self.resource.groupMembers().addCallback(
+                formatPrincipals
+            ),
+            groupMemberships=self.resource.groupMemberships().addCallback(
+                formatPrincipals
+            ),
+            readWriteProxyFor=self.resource.proxyFor(True).addCallback(
+                formatPrincipals
+            ),
+            readOnlyProxyFor=self.resource.proxyFor(False).addCallback(
+                formatPrincipals
+            ),
+        )
+
+
+    @renderer
+    def extra(self, request, tag):
+        """
+        No-op; implemented in subclass.
+        """
+        return ''
+
+
+    @renderer
+    def enabledForCalendaring(self, request, tag):
+        """
+        No-op; implemented in subclass.
+        """
+        return ''
+
+
+    @renderer
+    def enabledForAddressBooks(self, request, tag):
+        """
+        No-op; implemented in subclass.
+        """
+        return ''
+
+
+
+class DirectoryPrincipalElement(DirectoryElement):
+    """
+    L{DirectoryPrincipalElement} is a renderer for directory details.
+    """
+
+    @renderer
+    def resourceDetail(self, request, tag):
+        """
+        Render the directory principal's details.
+        """
+        return DirectoryPrincipalDetailElement(self.resource)
+
+
+class DirectoryCalendarPrincipalDetailElement(DirectoryPrincipalDetailElement):
+
+    @renderer
+    def extra(self, request, tag):
+        """
+        Renderer for extra directory body items for calendar/addressbook
+        principals.
+        """
+        return tag
+
+
+    @renderer
+    def enabledForCalendaring(self, request, tag):
+        """
+        Renderer which returns its tag when the wrapped record is enabled for
+        calendaring.
+        """
+        resource = self.resource
+        record = resource.record
+        if record.enabledForCalendaring:
+            return tag.fillSlots(
+                calendarUserAddresses=formatLinks(
+                    resource.calendarUserAddresses()
+                ),
+                calendarHomes=formatLinks(resource.calendarHomeURLs())
+            )
+        return ''
+
+
+    @renderer
+    def enabledForAddressBooks(self, request, tag):
+        """
+        Renderer which returnst its tag when the wrapped record is enabled for
+        addressbooks.
+        """
+        resource = self.resource
+        record = resource.record
+        if record.enabledForAddressBooks:
+            return tag.fillSlots(
+                addressBookHomes=formatLinks(resource.addressBookHomeURLs())
+            )
+        return ''
+
+
+
+class DirectoryCalendarPrincipalElement(DirectoryPrincipalElement):
+    """
+    L{DirectoryPrincipalElement} is a renderer for directory details, with
+    calendaring additions.
+    """
+
+    @renderer
+    def resourceDetail(self, request, tag):
+        """
+        Render the directory calendar principal's details.
+        """
+        return DirectoryCalendarPrincipalDetailElement(self.resource)
+
+
+class DirectoryPrincipalResource (
+        PropfindCacheMixin, PermissionsMixIn, DAVPrincipalResource):
     """
     Directory principal resource.
     """
@@ -544,14 +730,14 @@ class DirectoryPrincipalResource (PropfindCacheMixin, PermissionsMixIn, DAVPrinc
         elif namespace == calendarserver_namespace:
             if name == "first-name":
                 firstName = self.record.firstName
-                if firstName:
+                if firstName is not None:
                     returnValue(customxml.FirstNameProperty(firstName))
                 else:
                     returnValue(None)
 
             elif name == "last-name":
                 lastName = self.record.lastName
-                if lastName:
+                if lastName is not None:
                     returnValue(customxml.LastNameProperty(lastName))
                 else:
                     returnValue(None)
@@ -576,53 +762,11 @@ class DirectoryPrincipalResource (PropfindCacheMixin, PermissionsMixIn, DAVPrinc
     # HTTP
     ##
 
-    @inlineCallbacks
-    def renderDirectoryBody(self, request):
-
-        extras = self.extraDirectoryBodyItems(request)
-        output = (yield super(DirectoryPrincipalResource, self).renderDirectoryBody(request))
-
-        members = (yield self.groupMembers())
-        
-        memberships = (yield self.groupMemberships())
-
-        proxyFor = (yield self.proxyFor(True))
-        readOnlyProxyFor = (yield self.proxyFor(False))
-        
-        returnValue("".join((
-            """<div class="directory-listing">"""
-            """<h1>Principal Details</h1>"""
-            """<pre><blockquote>"""
-            """Directory Information\n"""
-            """---------------------\n"""
-            """Directory GUID: %s\n"""         % (self.record.service.guid,),
-            """Realm: %s\n"""                  % (self.record.service.realmName,),
-            """Hosted-At: %s\n"""              % (self.record.serverURI(),) if config.Servers.Enabled else "", 
-            """Partition: %s\n"""              % (self.record.partitionID,) if config.Servers.Enabled and self.record.partitionID else "", 
-            """\n"""
-            """Principal Information\n"""
-            """---------------------\n"""
-            """GUID: %s\n"""                   % (self.record.guid,),
-            """Record type: %s\n"""            % (self.record.recordType,),
-            """Short names: %s\n"""            % (",".join(self.record.shortNames),),
-            """Security Identities: %s\n"""    % (",".join(self.record.authIDs),),
-            """Full name: %s\n"""              % (self.record.fullName,),
-            """First name: %s\n"""             % (self.record.firstName,),
-            """Last name: %s\n"""              % (self.record.lastName,),
-            """Email addresses:\n"""           , format_list(self.record.emailAddresses),
-            """Principal UID: %s\n"""          % (self.principalUID(),),
-            """Principal URL: %s\n"""          % (format_link(self.principalURL()),),
-            """\nAlternate URIs:\n"""          , format_list(format_link(u) for u in self.alternateURIs()),
-            """\nGroup members:\n"""           , format_principals(members),
-            """\nGroup memberships:\n"""       , format_principals(memberships),
-            """\nRead-write Proxy For:\n"""    , format_principals(proxyFor),
-            """\nRead-only Proxy For:\n"""     , format_principals(readOnlyProxyFor),
-            """%s</pre></blockquote></div>"""  % extras,
-            output
-        )))
-
-    def extraDirectoryBodyItems(self, request):
-        return ""
+    def htmlElement(self):
+        """
+        Customize HTML rendering for directory principals.
+        """
+        return DirectoryPrincipalElement(self)
 
     ##
     # DAV
@@ -649,7 +793,9 @@ class DirectoryPrincipalResource (PropfindCacheMixin, PermissionsMixIn, DAVPrinc
         """
 
         # The db is located in the principal collection root
-        return calendaruserproxy.ProxyDBService
+        from twistedcaldav.directory.calendaruserproxy import ProxyDBService
+        return ProxyDBService
+
 
     def alternateURIs(self):
         # FIXME: Add API to IDirectoryRecord for getting a record URI?
@@ -664,28 +810,21 @@ class DirectoryPrincipalResource (PropfindCacheMixin, PermissionsMixIn, DAVPrinc
     @inlineCallbacks
     def proxyFor(self, read_write, resolve_memberships=True):
 
-        cache = getattr(self.record.service, "proxyCache", None)
-        if cache is not None:
-            log.debug("proxyFor is using proxyCache")
-            if not (yield cache.checkMarker()):
-                raise HTTPError(StatusResponse(responsecode.SERVICE_UNAVAILABLE,
-                    "Proxy membership cache not yet populated"))
-
-            principals = set()
-            proxyType = "write" if read_write else "read"
-            delegatorUIDs = (yield cache.getProxyFor(self.record.guid, proxyType))
-            if delegatorUIDs:
-                for uid in delegatorUIDs:
-                    principal = self.parent.principalForUID(uid)
-                    if principal is not None:
-                        principals.add(principal)
-            returnValue(principals)
-
-        # Slower, non cached method:
         proxyFors = set()
 
         if resolve_memberships:
-            memberships = self._getRelatives("groups", infinity=True)
+            cache = getattr(self.record.service, "groupMembershipCache", None)
+            if cache:
+                log.debug("proxyFor is using groupMembershipCache")
+                guids = (yield self.record.cachedGroups())
+                memberships = set()
+                for guid in guids:
+                    principal = self.parent.principalForUID(guid)
+                    if principal:
+                        memberships.add(principal)
+            else:
+                memberships = self._getRelatives("groups", infinity=True)
+
             for membership in memberships:
                 results = (yield membership.proxyFor(read_write, False))
                 proxyFors.update(results)
@@ -751,28 +890,17 @@ class DirectoryPrincipalResource (PropfindCacheMixin, PermissionsMixIn, DAVPrinc
     @inlineCallbacks
     def groupMemberships(self, infinity=False):
 
-        cache = getattr(self.record.service, "proxyCache", None)
-        if cache is not None:
-            # We only need to worry about groups participating in delegation
-            log.debug("groupMemberships is using proxyCache")
-            if not (yield cache.checkMarker()):
-                raise HTTPError(StatusResponse(responsecode.SERVICE_UNAVAILABLE,
-                    "Proxy membership cache not yet populated"))
+        cache = getattr(self.record.service, "groupMembershipCache", None)
+        if cache:
+            log.debug("groupMemberships is using groupMembershipCache")
+            guids = (yield self.record.cachedGroups())
             groups = set()
-            for proxyType in ("read", "write"):
-                delegatorUIDs = (yield cache.getProxyFor(self.record.guid,
-                    proxyType))
-                if delegatorUIDs:
-                    for uid in delegatorUIDs:
-                        principal = self.parent.principalForUID(uid)
-                        if principal is not None:
-                            group = principal.getChild("calendar-proxy-%s" %
-                                (proxyType,))
-                            groups.add(group)
-            returnValue(groups)
-
-        # Slower, fetching-many-groups method:
-        groups = self._getRelatives("groups", infinity=infinity)
+            for guid in guids:
+                principal = self.parent.principalForUID(guid)
+                if principal:
+                    groups.add(principal)
+        else:
+            groups = self._getRelatives("groups", infinity=infinity)
 
         if config.EnableProxyPrincipals:
             # Get proxy group UIDs and map to principal resources
@@ -827,6 +955,9 @@ class DirectoryPrincipalResource (PropfindCacheMixin, PermissionsMixIn, DAVPrinc
     def getAutoSchedule(self):
         return self.record.autoSchedule
 
+    def getCUType(self):
+        return self.record.getCUType()
+
     ##
     # Static
     ##
@@ -851,7 +982,8 @@ class DirectoryPrincipalResource (PropfindCacheMixin, PermissionsMixIn, DAVPrinc
         return ()
 
 
-class DirectoryCalendarPrincipalResource (DirectoryPrincipalResource, CalendarPrincipalResource):
+class DirectoryCalendarPrincipalResource(DirectoryPrincipalResource,
+                                         CalendarPrincipalResource):
     """
     Directory calendar principal resource.
     """
@@ -873,18 +1005,6 @@ class DirectoryCalendarPrincipalResource (DirectoryPrincipalResource, CalendarPr
             result = (yield CalendarPrincipalResource.readProperty(self, property, request))
         returnValue(result)
 
-    def extraDirectoryBodyItems(self, request):
-        extra = ""
-        if self.record.enabledForCalendaring:
-            extra += "".join((
-                """\nCalendar homes:\n"""          , format_list(format_link(u) for u in self.calendarHomeURLs()),
-                """\nCalendar user addresses:\n""" , format_list(format_link(a) for a in self.calendarUserAddresses()),
-            ))
-        if self.record.enabledForAddressBooks:
-            extra += "".join((
-                """\nAddress Book homes:\n"""       , format_list(format_link(u) for u in self.addressBookHomeURLs()),
-            ))
-        return extra
 
     ##
     # CalDAV
@@ -908,6 +1028,14 @@ class DirectoryCalendarPrincipalResource (DirectoryPrincipalResource, CalendarPr
                 addresses.add("https://%s:%s%s" % (config.ServerHostName, config.SSLPort, uri))
 
         return addresses
+
+
+    def htmlElement(self):
+        """
+        Customize HTML generation for calendar principals.
+        """
+        return DirectoryCalendarPrincipalElement(self)
+
 
     def canonicalCalendarUserAddress(self):
         """
@@ -1064,8 +1192,12 @@ class DirectoryCalendarPrincipalResource (DirectoryPrincipalResource, CalendarPr
         if name == "":
             return self
 
-        if config.EnableProxyPrincipals and name in ("calendar-proxy-read", "calendar-proxy-write"):
+        if config.EnableProxyPrincipals and name in ("calendar-proxy-read",
+                                                     "calendar-proxy-write"):
             # name is required to be str
+            from twistedcaldav.directory.calendaruserproxy import (
+                CalendarUserProxyPrincipalResource
+            )
             return CalendarUserProxyPrincipalResource(self, str(name))
         else:
             return None
@@ -1089,21 +1221,11 @@ authReadACL = davxml.ACL(
     ),
 )
 
-def format_list(items, *args):
-    def genlist():
-        try:
-            item = None
-            for item in items:
-                yield " -> %s\n" % (item,)
-            if item is None:
-                yield " '()\n"
-        except Exception, e:
-            log.err("Exception while rendering: %s" % (e,))
-            Failure().printTraceback()
-            yield "  ** %s **: %s\n" % (e.__class__.__name__, e)
-    return "".join(genlist())
 
-def format_principals(principals):
+def formatPrincipals(principals):
+    """
+    Format a list of principals into some twisted.web.template DOM objects.
+    """
     def recordKey(principal):
         try:
             record = principal.record
@@ -1112,7 +1234,6 @@ def format_principals(principals):
                 record = principal.parent.record
             except:
                 return None
-
         return (record.recordType, record.shortNames[0])
 
     def describe(principal):
@@ -1121,11 +1242,49 @@ def format_principals(principals):
         else:
             return ""
 
-    return format_list(
-        """<a href="%s">%s%s</a>"""
-        % (principal.principalURL(), escape(str(principal)), describe(principal))
+    return formatList(
+        tags.a(href=principal.principalURL())(
+            str(principal), describe(principal)
+        )
         for principal in sorted(principals, key=recordKey)
     )
 
-def format_link(url):
-    return """<a href="%s">%s</a>""" % (url, url)
+
+def formatList(iterable):
+    """
+    Format a list of stuff as an interable.
+    """
+    thereAreAny = False
+    try:
+        item = None
+        for item in iterable:
+            thereAreAny = True
+            yield " -> "
+            if item is None:
+                yield "None"
+            else:
+                yield item
+            yield "\n"
+    except Exception, e:
+        log.err("Exception while rendering: %s" % (e,))
+        Failure().printTraceback()
+        yield "  ** %s **: %s\n" % (e.__class__.__name__, e)
+    if not thereAreAny:
+        yield " '()\n"
+
+
+
+def formatLink(url):
+    """
+    Convert a URL string into some twisted.web.template DOM objects for
+    rendering as a link to itself.
+    """
+    return tags.a(href=url)(url)
+
+
+def formatLinks(urls):
+    """
+    Format a list of URL strings as a list of twisted.web.template DOM links.
+    """
+    return formatList(formatLink(link) for link in urls)
+

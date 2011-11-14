@@ -116,7 +116,7 @@ class AdaptionTestCase(unittest.TestCase):
 
 class SimpleRequest(server.Request):
     """I can be used in cases where a Request object is necessary
-    but it is benificial to bypass the chanRequest
+    but it is beneficial to bypass the chanRequest
     """
 
     clientproto = (1,1)
@@ -352,6 +352,9 @@ class SampleWebTest(BaseCase):
             (200, {}, "prepath:[] postpath:['consumed', 'path', 'segments']"))
 
     def test_redirectResource(self):
+        """
+        Make sure a redirect response has the correct status and Location header.
+        """
         redirectResource = resource.RedirectResource(scheme='https',
                                                      host='localhost',
                                                      port=443,
@@ -361,6 +364,69 @@ class SampleWebTest(BaseCase):
         return self.assertResponse(
             (redirectResource, 'http://localhost/'),
             (301, {'location': 'https://localhost/foo?bar=baz'}, None))
+
+    def test_redirectResourceWithSchemeRemapping(self):
+        """
+        Make sure a redirect response has the correct status and Location header, when
+        SSL is on, and the client request uses scheme http with the SSL port.
+        """
+
+        def chanrequest2(root, uri, length, headers, method, version, prepath, content):
+            site = server.Site(root)
+            site.EnableSSL = True
+            site.SSLPort = 8443
+            site.BindSSLPorts = []
+            return TestChanRequest(site, method, prepath, uri, length, headers, version, content)
+    
+        self.patch(self, "chanrequest", chanrequest2)
+
+        redirectResource = resource.RedirectResource(path='/foo')
+
+        return self.assertResponse(
+            (redirectResource, 'http://localhost:8443/'),
+            (301, {'location': 'https://localhost:8443/foo'}, None))
+
+    def test_redirectResourceWithoutSchemeRemapping(self):
+        """
+        Make sure a redirect response has the correct status and Location header, when
+        SSL is on, and the client request uses scheme http with the non-SSL port.
+        """
+
+        def chanrequest2(root, uri, length, headers, method, version, prepath, content):
+            site = server.Site(root)
+            site.EnableSSL = True
+            site.SSLPort = 8443
+            site.BindSSLPorts = []
+            return TestChanRequest(site, method, prepath, uri, length, headers, version, content)
+    
+        self.patch(self, "chanrequest", chanrequest2)
+
+        redirectResource = resource.RedirectResource(path='/foo')
+
+        return self.assertResponse(
+            (redirectResource, 'http://localhost:8008/'),
+            (301, {'location': 'http://localhost:8008/foo'}, None))
+
+    def test_redirectResourceWithoutSSLSchemeRemapping(self):
+        """
+        Make sure a redirect response has the correct status and Location header, when
+        SSL is off, and the client request uses scheme http with the SSL port.
+        """
+
+        def chanrequest2(root, uri, length, headers, method, version, prepath, content):
+            site = server.Site(root)
+            site.EnableSSL = False
+            site.SSLPort = 8443
+            site.BindSSLPorts = []
+            return TestChanRequest(site, method, prepath, uri, length, headers, version, content)
+    
+        self.patch(self, "chanrequest", chanrequest2)
+
+        redirectResource = resource.RedirectResource(path='/foo')
+
+        return self.assertResponse(
+            (redirectResource, 'http://localhost:8443/'),
+            (301, {'location': 'http://localhost:8443/foo'}, None))
 
 
 class URLParsingTest(BaseCase):

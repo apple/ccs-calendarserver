@@ -27,7 +27,8 @@ from twistedcaldav.directory.principal import DirectoryCalendarPrincipalResource
 from twistedcaldav.ical import Property
 from twistedcaldav.scheduling import addressmapping
 from twistedcaldav.scheduling.cuaddress import InvalidCalendarUser,\
-    LocalCalendarUser, PartitionedCalendarUser, OtherServerCalendarUser
+    LocalCalendarUser, PartitionedCalendarUser, OtherServerCalendarUser,\
+    normalizeCUAddr
 from twistedcaldav.scheduling.icaldiff import iCalDiff
 from twistedcaldav.scheduling.itip import iTipGenerator, iTIPRequestStatus
 from twistedcaldav.scheduling.scheduler import CalDAVScheduler
@@ -66,7 +67,7 @@ class ImplicitScheduler(object):
         self.internal_request = internal_request
 
         existing_resource = resource.exists()
-        is_scheduling_object = self.checkSchedulingObjectResource(resource)
+        is_scheduling_object = (yield self.checkSchedulingObjectResource(resource))
         existing_type = "schedule" if is_scheduling_object else "calendar"
         new_type = "schedule" if (yield self.checkImplicitState()) else "calendar"
 
@@ -113,8 +114,8 @@ class ImplicitScheduler(object):
         new_type = "schedule" if (yield self.checkImplicitState()) else "calendar"
 
         dest_exists = destresource.exists()
-        dest_is_implicit = self.checkSchedulingObjectResource(destresource)
-        src_is_implicit = self.checkSchedulingObjectResource(srcresource) or new_type == "schedule"
+        dest_is_implicit = (yield self.checkSchedulingObjectResource(destresource))
+        src_is_implicit = (yield self.checkSchedulingObjectResource(srcresource)) or new_type == "schedule"
 
         if srccal and destcal:
             if src_is_implicit and dest_exists or dest_is_implicit:
@@ -147,8 +148,8 @@ class ImplicitScheduler(object):
 
         new_type = "schedule" if (yield self.checkImplicitState()) else "calendar"
 
-        dest_is_implicit = self.checkSchedulingObjectResource(destresource)
-        src_is_implicit = self.checkSchedulingObjectResource(srcresource) or new_type == "schedule"
+        dest_is_implicit = (yield self.checkSchedulingObjectResource(destresource))
+        src_is_implicit = (yield self.checkSchedulingObjectResource(srcresource)) or new_type == "schedule"
 
         if srccal and destcal:
             if src_is_implicit or dest_is_implicit:
@@ -180,15 +181,36 @@ class ImplicitScheduler(object):
 
         yield self.checkImplicitState()
 
-        is_scheduling_object = self.checkSchedulingObjectResource(resource)
+        is_scheduling_object = (yield self.checkSchedulingObjectResource(resource))
         resource_type = "schedule" if is_scheduling_object else "calendar"
         self.action = "remove" if resource_type == "schedule" else "none"
 
         returnValue((self.action != "none", False,))
 
+    @inlineCallbacks
     def checkSchedulingObjectResource(self, resource):
         
-        return resource.isScheduleObject if resource and resource.exists() else False
+        if resource and resource.exists():
+            implicit = resource.isScheduleObject
+            if implicit is not None:
+                returnValue(implicit)
+            else:
+                calendar = (yield self.resource.iCalendarForUser(self.request))
+                # Get the ORGANIZER and verify it is the same for all components
+                try:
+                    organizer = calendar.validOrganizerForScheduling()
+                except ValueError:
+                    # We have different ORGANIZERs in the same iCalendar object - this is an error
+                    returnValue(False)
+                organizerPrincipal = resource.principalForCalendarUserAddress(organizer) if organizer else None
+                implicit = organizerPrincipal != None
+                log.debug("Implicit - checked scheduling object resource state for UID: '%s', result: %s" % (
+                    calendar.resourceUID(),
+                    implicit,
+                ))
+                returnValue(implicit)
+
+        returnValue(False)
         
     @inlineCallbacks
     def checkImplicitState(self):
@@ -273,7 +295,7 @@ class ImplicitScheduler(object):
         self.request.suppressRefresh = False
 
         for attendee in self.calendar.getAllAttendeeProperties():
-            if attendee.parameterValue("PARTSTAT", "NEEDS-ACTION") == "NEEDS-ACTION":
+            if attendee.parameterValue("PARTSTAT", "NEEDS-ACTION").upper() == "NEEDS-ACTION":
                 self.request.suppressRefresh = True
         
         if hasattr(self.request, "doing_attendee_refresh"):
@@ -447,6 +469,8 @@ class ImplicitScheduler(object):
         self.cancelledAttendees = ()
         self.reinvites = None
         self.needs_action_rids = None
+        
+        self.needs_sequence_change = False
 
         # Check for a delete
         if self.action == "remove":
@@ -456,12 +480,17 @@ class ImplicitScheduler(object):
 
             # Cancel all attendees
             self.cancelledAttendees = [(attendee, None) for attendee in self.attendees]
+            
+            # CANCEL always bumps sequence
+            self.needs_sequence_change = True
 
         # Check for a new resource or an update
         elif self.action == "modify":
 
             # Read in existing data
             self.oldcalendar = (yield self.resource.iCalendarForUser(self.request))
+            self.oldAttendeesByInstance = self.oldcalendar.getAttendeesByInstance(True, onlyScheduleAgentServer=True)
+            self.coerceAttendeesPartstatOnModify()
             
             # Significant change
             no_change, self.changed_rids, self.needs_action_rids, reinvites, recurrence_reschedule = self.isOrganizerChangeInsignificant()
@@ -494,14 +523,22 @@ class ImplicitScheduler(object):
                 # Check for removed attendees
                 if not recurrence_reschedule:
                     self.findRemovedAttendees()
+                    
+                # For now we always bump the sequence number on modifications because we cannot track DTSTAMP on
+                # the Attendee side. But we check the old and the new and only bump if the client did not already do it.
+                self.needs_sequence_change = self.calendar.needsiTIPSequenceChange(self.oldcalendar)
 
         elif self.action == "create":
             log.debug("Implicit - organizer '%s' is creating UID: '%s'" % (self.organizer, self.uid))
+            self.coerceAttendeesPartstatOnCreate()
             
         # Always set RSVP=TRUE for any NEEDS-ACTION
         for attendee in self.calendar.getAllAttendeeProperties():
-            if attendee.parameterValue("PARTSTAT", "NEEDS-ACTION") == "NEEDS-ACTION":
+            if attendee.parameterValue("PARTSTAT", "NEEDS-ACTION").upper() == "NEEDS-ACTION":
                 attendee.setParameter("RSVP", "TRUE")
+
+        if self.needs_sequence_change:
+            self.calendar.bumpiTIPInfo(oldcalendar=self.oldcalendar, doSequence=True)
 
         yield self.scheduleWithAttendees()
         
@@ -596,7 +633,7 @@ class ImplicitScheduler(object):
             reinvites = set()
             for attendee in self.calendar.getAllAttendeeProperties():
                 try:
-                    if attendee.parameterValue("SCHEDULE-FORCE-SEND") == "REQUEST":
+                    if attendee.parameterValue("SCHEDULE-FORCE-SEND", "").upper() == "REQUEST":
                         reinvites.add(attendee.value())
                 except KeyError:
                     pass
@@ -620,9 +657,7 @@ class ImplicitScheduler(object):
         
         # TODO: the later three will be ignored for now.
 
-        oldAttendeesByInstance = self.oldcalendar.getAttendeesByInstance(onlyScheduleAgentServer=True)
-        
-        mappedOld = set(oldAttendeesByInstance)
+        mappedOld = set(self.oldAttendeesByInstance)
         mappedNew = set(self.attendeesByInstance)
         
         # Get missing instances
@@ -677,6 +712,77 @@ class ImplicitScheduler(object):
             for rid in addedInstances:
                 if (attendee, rid) not in mappedNew and rid not in oldexdates:
                     self.cancelledAttendees.add((attendee, rid))
+
+    def coerceAttendeesPartstatOnCreate(self):
+        """
+        Make sure any attendees handled by the server start off with PARTSTAT=NEEDS-ACTION as
+        we do not allow the organizer to forcibly set PARTSTAT to anything else.
+        """
+        for attendee in self.calendar.getAllAttendeeProperties():
+            # Don't adjust ORGANIZER's ATTENDEE
+            if attendee.value() in self.organizerPrincipal.calendarUserAddresses():
+                continue
+            if attendee.parameterValue("SCHEDULE-AGENT", "SERVER").upper() == "SERVER" and attendee.hasParameter("PARTSTAT"):
+                attendee.setParameter("PARTSTAT", "NEEDS-ACTION")
+    
+    def coerceAttendeesPartstatOnModify(self):
+        """
+        Make sure that the organizer does not change attendees' PARTSTAT to anything
+        other than NEEDS-ACTION for those attendees handled by the server.
+        """
+        
+        # Get the set of Rids in each calendar
+        newRids = set(self.calendar.getComponentInstances())
+        oldRids = set(self.oldcalendar.getComponentInstances())
+        
+        # Test/fix ones that are the same
+        for rid in (newRids & oldRids):
+            self.compareAttendeePartstats(self.oldcalendar.overriddenComponent(rid), self.calendar.overriddenComponent(rid))
+        
+        # Test/fix ones added
+        for rid in (newRids - oldRids):
+            # Compare the new one to the old master
+            self.compareAttendeePartstats(self.oldcalendar.overriddenComponent(None), self.calendar.overriddenComponent(rid))
+
+        # For removals, we ignore ones that are no longer valid
+        valid_old_rids = self.calendar.validInstances(oldRids - newRids)
+    
+        # Test/fix ones removed         
+        for rid in valid_old_rids:
+            # Compare the old one to the new master
+            # Note it is hard to recover from this state so raise instead
+            self.compareAttendeePartstats(
+                self.oldcalendar.overriddenComponent(rid),
+                self.calendar.overriddenComponent(None),
+                raiseOnMisMatch=True
+            )
+        
+    def compareAttendeePartstats(self, old_component, new_component, raiseOnMisMatch=False):
+        """
+        Compare two components, old and new, and make sure the Organizer has not changed the PARTSTATs
+        in the new one to anything other than NEEDS-ACTION. If there is a change, undo it.
+        """
+        
+        old_attendees = dict([(normalizeCUAddr(attendee.value()), attendee) for attendee in old_component.getAllAttendeeProperties()])
+        new_attendees = dict([(normalizeCUAddr(attendee.value()), attendee) for attendee in new_component.getAllAttendeeProperties()])
+        
+        for cuaddr, newattendee in new_attendees.items():
+            # Don't adjust ORGANIZER's ATTENDEE
+            if newattendee.value() in self.organizerPrincipal.calendarUserAddresses():
+                continue
+            new_partstat = newattendee.parameterValue("PARTSTAT", "NEEDS-ACTION").upper()
+            if newattendee.parameterValue("SCHEDULE-AGENT", "SERVER").upper() == "SERVER" and new_partstat != "NEEDS-ACTION":
+                old_attendee = old_attendees.get(cuaddr)
+                old_partstat = old_attendee.parameterValue("PARTSTAT", "NEEDS-ACTION").upper() if old_attendee else "NEEDS-ACTION"
+                if old_attendee is None or old_partstat != new_partstat:
+                    if raiseOnMisMatch:
+                        raise HTTPError(ErrorResponse(
+                            responsecode.FORBIDDEN,
+                            (caldav_namespace, "valid-organizer-change"),
+                            "Organizer cannot change Attendee PARTSTAT",
+                        ))
+                    else:
+                        newattendee.setParameter("PARTSTAT", old_partstat)
 
     @inlineCallbacks
     def scheduleWithAttendees(self):

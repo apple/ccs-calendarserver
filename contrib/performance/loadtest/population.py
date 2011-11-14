@@ -1,3 +1,4 @@
+# -*- test-case-name: contrib.performance.loadtest.test_population -*-
 ##
 # Copyright (c) 2010 Apple Inc. All rights reserved.
 #
@@ -20,6 +21,8 @@ Tools for generating a population of CalendarServer users based on
 certain usage parameters.
 """
 
+from __future__ import division
+
 from tempfile import mkdtemp
 from itertools import izip
 
@@ -27,11 +30,13 @@ from twisted.python.filepath import FilePath
 from twisted.python.util import FancyEqMixin
 from twisted.python.log import msg, err
 
-from stats import mean, median, stddev, mad
-from loadtest.trafficlogger import loggedReactor
-from loadtest.logger import SummarizingMixin
-from loadtest.ical import SnowLeopard, RequestLogger
-from loadtest.profiles import Eventer, Inviter, Accepter
+from twistedcaldav.timezones import TimezoneCache
+
+from contrib.performance.stats import mean, median, stddev, mad
+from contrib.performance.loadtest.trafficlogger import loggedReactor
+from contrib.performance.loadtest.logger import SummarizingMixin
+from contrib.performance.loadtest.ical import SnowLeopard, RequestLogger
+from contrib.performance.loadtest.profiles import Eventer, Inviter, Accepter
 
 
 class ProfileType(object, FancyEqMixin):
@@ -127,7 +132,7 @@ class Populator(object):
     def _cycle(self, elements):
         while True:
             for (weight, value) in elements:
-                for i in range(weight):
+                for _ignore_i in range(weight):
                     yield value
 
 
@@ -145,14 +150,19 @@ class Populator(object):
 
 
 class CalendarClientSimulator(object):
-    def __init__(self, records, populator, parameters, reactor, server):
+    def __init__(self, records, populator, parameters, reactor, server,
+                 workerIndex=0, workerCount=1):
         self._records = records
         self.populator = populator
         self.reactor = reactor
         self.server = server
         self._pop = self.populator.populate(parameters)
         self._user = 0
+        self._stopped = False
+        self.workerIndex = workerIndex
+        self.workerCount = workerCount
 
+        TimezoneCache.create()
 
     def getUserRecord(self, index):
         return self._records[index]
@@ -177,12 +187,28 @@ class CalendarClientSimulator(object):
         return user, auth
 
 
-    def add(self, numClients):
-        for n in range(numClients):
-            number = self._nextUserNumber()
-            user, auth = self._createUser(number)
+    def stop(self):
+        """
+        Indicate that the simulation is over.  CalendarClientSimulator doesn't
+        actively react to this, but it does cause all future failures to be
+        disregarded (as some are expected, as the simulation will always stop
+        while some requests are in flight).
+        """
+        self._stopped = True
 
+
+    def add(self, numClients):
+        for _ignore_n in range(numClients):
+            number = self._nextUserNumber()
             clientType = self._pop.next()
+            if (number % self.workerCount) != self.workerIndex:
+                # If we're in a distributed work scenario and we are worker N,
+                # we have to skip all but every Nth request (since every node
+                # runs the same arrival policy).
+                continue
+
+            _ignore_user, auth = self._createUser(number)
+
             reactor = loggedReactor(self.reactor)
             client = clientType.new(
                 reactor, self.server, self.getUserRecord(number), auth)
@@ -190,8 +216,12 @@ class CalendarClientSimulator(object):
             d.addErrback(self._clientFailure, reactor)
 
             for profileType in clientType.profileTypes:
-                d = profileType(reactor, self, client, number).run()
-                d.addErrback(self._profileFailure, profileType, reactor)
+                profile = profileType(reactor, self, client, number)
+                if profile.enabled:
+                    d = profile.run()
+                    d.addErrback(self._profileFailure, profileType, reactor)
+        # XXX this status message is prone to be slightly inaccurate, but isn't
+        # really used by much anyway.
         msg(type="status", clientCount=self._user - 1)
 
 
@@ -208,15 +238,17 @@ class CalendarClientSimulator(object):
 
 
     def _clientFailure(self, reason, reactor):
-        where = self._dumpLogs(reactor, reason)
-        err(reason, "Client stopped with error; recent traffic in %r" % (
-                where.path,))
+        if not self._stopped:
+            where = self._dumpLogs(reactor, reason)
+            err(reason, "Client stopped with error; recent traffic in %r" % (
+                    where.path,))
 
 
     def _profileFailure(self, reason, profileType, reactor):
-        where = self._dumpLogs(reactor, reason)
-        err(reason, "Profile stopped with error; recent traffic in %r" % (
-                where.path,))
+        if not self._stopped:
+            where = self._dumpLogs(reactor, reason)
+            err(reason, "Profile stopped with error; recent traffic in %r" % (
+                    where.path,))
 
 
 
@@ -245,6 +277,10 @@ class StatisticsBase(object):
         pass
 
 
+    def failures(self):
+        return []
+
+
 
 class SimpleStatistics(StatisticsBase):
     def __init__(self):
@@ -263,6 +299,13 @@ class SimpleStatistics(StatisticsBase):
 
 
 class ReportStatistics(StatisticsBase, SummarizingMixin):
+    """
+
+    @ivar _users: A C{set} containing all user UIDs which have been observed in
+        events.  When generating the final report, the size of this set is
+        reported as the number of users in the simulation.
+
+    """
     _fields = [
         ('operation', 10, '%10s'),
         ('count', 8, '%8s'),
@@ -274,22 +317,78 @@ class ReportStatistics(StatisticsBase, SummarizingMixin):
 
     def __init__(self):
         self._perMethodTimes = {}
+        self._users = set()
+
+
+    def countUsers(self):
+        return len(self._users)
 
 
     def eventReceived(self, event):
         dataset = self._perMethodTimes.setdefault(event['method'], [])
         dataset.append((event['success'], event['duration']))
+        self._users.add(event['user'])
+
+
+    def printMiscellaneous(self, items):
+        for k, v in sorted(items.iteritems()):
+            print k.title(), ':', v
 
 
     def report(self):
         print
+        self.printMiscellaneous({'users': self.countUsers()})
         self.printHeader([
                 (label, width)
-                for (label, width, fmt)
+                for (label, width, _ignore_fmt)
                 in self._fields])
         self.printData(
             [fmt for (label, width, fmt) in self._fields],
             sorted(self._perMethodTimes.items()))
+
+    _FAILED_REASON = "Greater than %(cutoff)0.f%% %(method)s failed"
+    _THREESEC_REASON = "Greater than %(cutoff)0.f%% %(method)s exceeded 3 second response time"
+    _FIVESEC_REASON = "Greater than %(cutoff)0.f%% %(method)s exceeded 5 second response time"
+
+    def failures(self):
+        # TODO
+        reasons = []
+
+        # Upper limit on ratio of failed requests to total requests
+        failCutoff = 0.01
+
+        # Upper limit on ratio of >3sec requests to total requests
+        threeSecCutoff = 0.05
+
+        # Upper limit on ratio of >5sec requests to total requests
+        fiveSecCutoff = 0.01
+
+        for (method, times) in self._perMethodTimes.iteritems():
+            failures = 0
+            threeSec = 0
+            fiveSec = 0
+
+            for success, duration in times:
+                if not success:
+                    failures += 1
+                if duration > 5:
+                    fiveSec += 1
+                elif duration > 3:
+                    threeSec += 1
+
+            checks = [
+                (failures, failCutoff, self._FAILED_REASON),
+                (threeSec, threeSecCutoff, self._THREESEC_REASON),
+                (fiveSec, fiveSecCutoff, self._FIVESEC_REASON),
+                ]
+
+            for count, cutoff, reason in checks:
+                if count / len(times) > cutoff:
+                    reasons.append(reason % dict(
+                            method=method, cutoff=cutoff * 100))
+
+        return reasons
+
 
 
 def main():

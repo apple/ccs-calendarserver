@@ -57,8 +57,9 @@ from twext.enterprise.ienterprise import ConnectionError
 from twext.enterprise.ienterprise import IDerivedParameter
 
 from twisted.internet.defer import fail
+
 from twext.enterprise.ienterprise import (
-    AlreadyFinishedError, IAsyncTransaction, POSTGRES_DIALECT
+    AlreadyFinishedError, IAsyncTransaction, POSTGRES_DIALECT, ICommandBlock
 )
 
 
@@ -79,6 +80,57 @@ def _forward(thunk):
     def getter(self):
         return getattr(self._pool, thunk.func_name)
     return getter
+
+
+
+def _deriveParameters(cursor, args):
+    """
+    Some DB-API extensions need to call special extension methods on
+    the cursor itself before executing.
+
+    @param cursor: The DB-API cursor object to derive parameters from.
+
+    @param args: the parameters being specified to C{execSQL}.  This list will
+        be modified to present parameters suitable to pass to the C{cursor}'s
+        C{execute} method.
+
+    @return: a list of L{IDerivedParameter} providers which had C{preQuery}
+        executed on them, so that after the query they may have C{postQuery}
+        executed.  This may also be C{None} if no parameters were derived.
+
+    @see: {IDerivedParameter}
+    """
+    # TODO: have the underlying connection report whether it has any
+    # IDerivedParameters that it knows about, so we can skip even inspecting
+    # the arguments if none of them could possibly provide
+    # IDerivedParameter.
+    derived = None
+    for n, arg in enumerate(args):
+        if IDerivedParameter.providedBy(arg):
+            if derived is None:
+                # Be as sparing as possible with extra allocations, as this
+                # usually isn't needed, and we're doing a ton of extra work to
+                # support it.
+                derived = []
+            derived.append(arg)
+            args[n] = arg.preQuery(cursor)
+    return derived
+
+
+def _deriveQueryEnded(cursor, derived):
+    """
+    A query which involved some L{IDerivedParameter}s just ended.  Execute any
+    post-query cleanup or tasks that those parameters have to do.
+
+    @param cursor: The DB-API object that derived the query.
+
+    @param derived: The L{IDerivedParameter} providers that were given
+        C{preQuery} notifications when the query started.
+
+    @return: C{None}
+    """
+    for arg in derived:
+        arg.postQuery(cursor)
 
 
 
@@ -113,33 +165,119 @@ class _ConnectedTxn(object):
 
 
     def _reallyExecSQL(self, sql, args=None, raiseOnZeroRowCount=None):
+        """
+        Execute the given SQL on a thread, using a DB-API 2.0 cursor.
+
+        This method is invoked internally on a non-reactor thread, one dedicated
+        to and associated with the current cursor.  It executes the given SQL,
+        re-connecting first if necessary, re-cycling the old connection if
+        necessary, and then, if there are results from the statement (as
+        determined by the DB-API 2.0 'description' attribute) it will fetch all
+        the rows and return them, leaving them to be relayed to
+        L{_ConnectedTxn.execSQL} via the L{ThreadHolder}.
+
+        The rules for possibly reconnecting automatically are: if this is the
+        very first statement being executed in this transaction, and an error
+        occurs in C{execute}, close the connection and try again.  We will
+        ignore any errors from C{close()} (or C{rollback()}) and log them during
+        this process.  This is OK because adbapi2 always enforces transaction
+        discipline: connections are never in autocommit mode, so if the first
+        statement in a transaction fails, nothing can have happened to the
+        database; as per the ADBAPI spec, a lost connection is a rolled-back
+        transaction.  In the cases where some databases fail to enforce
+        transaction atomicity (i.e. schema manipulations), re-executing the same
+        statement will result, at worst, in a spurious and harmless error (like
+        "table already exists"), not corruption.
+
+        @param sql: The SQL string to execute.
+
+        @type sql: C{str}
+
+        @param args: The bind parameters to pass to adbapi, if any.
+
+        @type args: C{list} or C{None}
+
+        @param raiseOnZeroRowCount: If specified, an exception to raise when no
+            rows are found.
+
+        @return: all the rows that resulted from execution of the given C{sql},
+            or C{None}, if the statement is one which does not produce results.
+
+        @rtype: C{list} of C{tuple}, or C{NoneType}
+
+        @raise Exception: this function may raise any exception raised by the
+            underlying C{dbapi.connect}, C{cursor.execute},
+            L{IDerivedParameter.preQuery}, C{connection.cursor}, or
+            C{cursor.fetchall}.
+
+        @raise raiseOnZeroRowCount: if the argument was specified and no rows
+            were returned by the executed statement.
+        """
         wasFirst = self._first
+        # If this is the first time this cursor has been used in this
+        # transaction, remember that, but mark it as now used.
         self._first = False
         if args is None:
             args = []
-        derived = None
-        for n, arg in enumerate(args):
-            if IDerivedParameter.providedBy(arg):
-                if derived is None:
-                    # Be sparing with extra allocations, as this usually isn't
-                    # needed, and we're doing a ton of extra work to support it.
-                    derived = []
-                derived.append(arg)
-                args[n] = arg.preQuery(self._cursor)
+        # Note: as of this writing, derived parameters are only used to support
+        # cx_Oracle's "host variable" feature (i.e. cursor.var()), and creating
+        # a host variable will never be a connection-oriented error (a
+        # disconnected cursor can happily create variables of all types).
+        # However, this may need to move into the 'try' below if other database
+        # features need to compute database arguments based on runtime state.
+        derived = _deriveParameters(self._cursor, args)
         try:
             self._cursor.execute(sql, args)
         except:
+            # If execute() raised an exception, and this was the first thing to
+            # happen in the transaction, then the connection has probably gone
+            # bad in the meanwhile, and we should try again.
             if wasFirst:
-                self._connection.close()
+                # Report the error before doing anything else, since doing other
+                # things may cause the traceback stack to be eliminated if they
+                # raise exceptions (even internally).
+                log.err(
+                    Failure(),
+                    "Exception from execute() on first statement in "
+                    "transaction.  Possibly caused by a database server "
+                    "restart.  Automatically reconnecting now."
+                )
+                try:
+                    self._connection.close()
+                except:
+                    # close() may raise an exception to alert us of an error as
+                    # well.  Right now the only type of error we know about is
+                    # "the connection is already closed", which obviously
+                    # doesn't need to be handled specially. Unfortunately the
+                    # reporting of this type of error is not consistent or
+                    # predictable across different databases, or even different
+                    # bindings to the same database, so we have to do a
+                    # catch-all here.  While I can't imagine another type of
+                    # error at the moment, bare 'except:'s are notorious for
+                    # making debugging surprising error conditions very
+                    # difficult, so let's make sure that the error is logged
+                    # just in case.
+                    log.err(
+                        Failure(),
+                        "Exception from close() while automatically "
+                        "reconnecting. (Probably not serious.)"
+                    )
+
+                # Now, if either of *these* things fail, there's an error here
+                # that we cannot workaround or address automatically, so no
+                # try:except: for them.
                 self._connection = self._pool.connectionFactory()
                 self._cursor     = self._connection.cursor()
+
+                # Note that although this method is being invoked recursively,
+                # the '_first' flag is re-set at the very top, so we will _not_
+                # be re-entering it more than once.
                 result = self._reallyExecSQL(sql, args, raiseOnZeroRowCount)
                 return result
             else:
                 raise
         if derived is not None:
-            for arg in derived:
-                arg.postQuery(self._cursor)
+            _deriveQueryEnded(self._cursor, derived)
         if raiseOnZeroRowCount is not None and self._cursor.rowcount == 0:
             raise raiseOnZeroRowCount()
         if self._cursor.description:
@@ -187,7 +325,7 @@ class _ConnectedTxn(object):
                 Do the database work and set appropriate flags.  Executed in the
                 cursor thread.
                 """
-                if self._cursor is None:
+                if self._cursor is None or self._first:
                     return
                 really()
                 self._first = True
@@ -533,6 +671,7 @@ class CommandBlock(object):
     understanding of the SQL dialect in use by the underlying connection is
     required.  Instead, it provides 'end'.
     """
+    implements(ICommandBlock)
 
     def __init__(self, singleTxn):
         self._singleTxn = singleTxn
@@ -911,12 +1050,49 @@ class Pickle(BigArgument):
 
 
 
+class FailsafeException(Exception):
+    """
+    Exception raised by all responders.
+    """
+
+
+
+quashErrors = {
+    FailsafeException: "SOMETHING_UNKNOWN"
+}
+
+
+
+def failsafeResponder(command):
+    """
+    Wrap an AMP command responder in some fail-safe logic, to make it so that
+    unknown errors won't drop the connection, as AMP's default behavior would.
+    """
+    def wrap(inner):
+        @inlineCallbacks
+        def innerinner(*a, **k):
+            try:
+                val = yield inner(*a, **k)
+            except:
+                # FIXME: if this were a general thing, it should probably allow
+                # known errors through; look at the command's 'errors' attribute
+                # before collapsing into FailsafeException.
+                log.err(Failure(),
+                        "shared database connection pool encountered error")
+                raise FailsafeException()
+            else:
+                returnValue(val)
+        return command.responder(innerinner)
+    return wrap
+
+
 
 class StartTxn(Command):
     """
     Start a transaction, identified with an ID generated by the client.
     """
     arguments = txnarg()
+    errors = quashErrors
 
 
 
@@ -926,7 +1102,27 @@ class ExecSQL(Command):
     """
     arguments = [('sql', String()),
                  ('queryID', String()),
-                 ('args', Pickle())] + txnarg()
+                 ('args', Pickle()),
+                 ('blockID', String())] + txnarg()
+    errors = quashErrors
+
+
+
+class StartBlock(Command):
+    """
+    Create a new SQL command block.
+    """
+    arguments = [("blockID", String())] + txnarg()
+    errors = quashErrors
+
+
+
+class EndBlock(Command):
+    """
+    Create a new SQL command block.
+    """
+    arguments = [("blockID", String())] + txnarg()
+    errors = quashErrors
 
 
 
@@ -938,6 +1134,7 @@ class Row(Command):
 
     arguments = [('queryID', String()),
                  ('row', Pickle())]
+    errors = quashErrors
 
 
 
@@ -947,17 +1144,21 @@ class QueryComplete(Command):
     """
 
     arguments = [('queryID', String()),
-                 ('norows', Boolean())]
+                 ('norows', Boolean()),
+                 ('derived', Pickle())]
+    errors = quashErrors
 
 
 
 class Commit(Command):
     arguments = txnarg()
+    errors = quashErrors
 
 
 
 class Abort(Command):
     arguments = txnarg()
+    errors = quashErrors
 
 
 
@@ -970,7 +1171,8 @@ class _NoRows(Exception):
 class ConnectionPoolConnection(AMP):
     """
     A L{ConnectionPoolConnection} is a single connection to a
-    L{ConnectionPool}.
+    L{ConnectionPool}.  This is the server side of the connection-pool-sharing
+    protocol; it implements all the AMP responders necessary.
     """
 
     def __init__(self, pool):
@@ -980,19 +1182,54 @@ class ConnectionPoolConnection(AMP):
         super(ConnectionPoolConnection, self).__init__()
         self.pool  = pool
         self._txns = {}
+        self._blocks = {}
 
 
-    @StartTxn.responder
+    def stopReceivingBoxes(self, why):
+        log.msg("(S) Stopped receiving boxes: " + why.getTraceback())
+
+
+    def unhandledError(self, failure):
+        """
+        An unhandled error has occurred.  Since we can't really classify errors
+        well on this protocol, log it and forget it.
+        """
+        log.err(failure, "Shared connection pool server encountered an error.")
+
+
+    @failsafeResponder(StartTxn)
     def start(self, transactionID):
         self._txns[transactionID] = self.pool.connection()
         return {}
 
 
-    @ExecSQL.responder
+    @failsafeResponder(StartBlock)
+    def startBlock(self, transactionID, blockID):
+        self._blocks[blockID] = self._txns[transactionID].commandBlock()
+        return {}
+
+
+    @failsafeResponder(EndBlock)
+    def endBlock(self, transactionID, blockID):
+        self._blocks[blockID].end()
+        return {}
+
+
+    @failsafeResponder(ExecSQL)
     @inlineCallbacks
-    def receivedSQL(self, transactionID, queryID, sql, args):
+    def receivedSQL(self, transactionID, queryID, sql, args, blockID):
+        derived = None
+        for param in args:
+            if IDerivedParameter.providedBy(param):
+                if derived is None:
+                    derived = []
+                derived.append(param)
+        if blockID:
+            txn = self._blocks[blockID]
+        else:
+            txn = self._txns[transactionID]
         try:
-            rows = yield self._txns[transactionID].execSQL(sql, args, _NoRows)
+            rows = yield txn.execSQL(sql, args, _NoRows)
         except _NoRows:
             norows = True
         else:
@@ -1002,7 +1239,9 @@ class ConnectionPoolConnection(AMP):
                     # Either this should be yielded or it should be
                     # requiresAnswer=False
                     self.callRemote(Row, queryID=queryID, row=row)
-        self.callRemote(QueryComplete, queryID=queryID, norows=norows)
+
+        self.callRemote(QueryComplete, queryID=queryID, norows=norows,
+                        derived=derived)
         returnValue({})
 
 
@@ -1011,20 +1250,24 @@ class ConnectionPoolConnection(AMP):
         return thunk(txn).addCallback(lambda ignored: {})
 
 
-    @Commit.responder
+    @failsafeResponder(Commit)
     def commit(self, transactionID):
         """
         Successfully complete the given transaction.
         """
-        return self._complete(transactionID, lambda x: x.commit())
+        def commitme(x):
+            return x.commit()
+        return self._complete(transactionID, commitme)
 
 
-    @Abort.responder
+    @failsafeResponder(Abort)
     def abort(self, transactionID):
         """
         Roll back the given transaction.
         """
-        return self._complete(transactionID, lambda x: x.abort())
+        def abortme(x):
+            return x.abort()
+        return self._complete(transactionID, abortme)
 
 
 
@@ -1032,11 +1275,27 @@ class ConnectionPoolClient(AMP):
     """
     A client which can execute SQL.
     """
-    def __init__(self):
+
+    def __init__(self, dialect=POSTGRES_DIALECT, paramstyle=DEFAULT_PARAM_STYLE):
+        # See DEFAULT_PARAM_STYLE FIXME above.
         super(ConnectionPoolClient, self).__init__()
-        self._nextID  = count().next
-        self._txns    = {}
-        self._queries = {}
+        self._nextID    = count().next
+        self._txns      = {}
+        self._queries   = {}
+        self.dialect    = dialect
+        self.paramstyle = paramstyle
+
+
+    def unhandledError(self, failure):
+        """
+        An unhandled error has occurred.  Since we can't really classify errors
+        well on this protocol, log it and forget it.
+        """
+        log.err(failure, "Shared connection pool client encountered an error.")
+
+
+    def stopReceivingBoxes(self, why):
+        log.msg("(C) Stopped receiving boxes: " + why.getTraceback())
 
 
     def newTransaction(self):
@@ -1055,21 +1314,22 @@ class ConnectionPoolClient(AMP):
         return txn
 
 
-    @Row.responder
+    @failsafeResponder(Row)
     def row(self, queryID, row):
         self._queries[queryID].row(row)
         return {}
 
 
-    @QueryComplete.responder
-    def complete(self, queryID, norows):
-        self._queries.pop(queryID).done(norows)
+    @failsafeResponder(QueryComplete)
+    def complete(self, queryID, norows, derived):
+        self._queries.pop(queryID).done(norows, derived)
         return {}
 
 
 
 class _Query(object):
-    def __init__(self, raiseOnZeroRowCount):
+    def __init__(self, raiseOnZeroRowCount, args):
+        self.args                = args
         self.results             = []
         self.deferred            = Deferred()
         self.raiseOnZeroRowCount = raiseOnZeroRowCount
@@ -1082,17 +1342,43 @@ class _Query(object):
         self.results.append(row)
 
 
-    def done(self, norows):
+    def done(self, norows, derived):
         """
         The query is complete.
 
         @param norows: A boolean.  True if there were not any rows.
+
+        @param derived: either C{None} or a C{list} of L{IDerivedParameter}
+            providers initially passed into the C{execSQL} that started this
+            query.  The values of these object swill mutate the original input
+            parameters to resemble them.  Although L{IDerivedParameter.preQuery}
+            and L{IDerivedParameter.postQuery} are invoked on the other end of
+            the wire, the local objects will be made to appear as though they
+            were called here.
         """
+        if derived is not None:
+            # 1) Bleecchh.
+            # 2) FIXME: add some direct tests in test_adbapi2, the unit test for
+            # this crosses some abstraction boundaries so it's a little
+            # integration-y and in the tests for twext.enterprise.dal
+            for remote, local in zip(derived, self._deriveDerived()):
+                local.__dict__ = remote.__dict__
+
         if norows and (self.raiseOnZeroRowCount is not None):
             exc = self.raiseOnZeroRowCount()
             self.deferred.errback(Failure(exc))
         else:
             self.deferred.callback(self.results)
+
+
+    def _deriveDerived(self):
+        derived = None
+        for param in self.args:
+            if IDerivedParameter.providedBy(param):
+                if derived is None:
+                    derived = []
+                derived.append(param)
+        return derived
 
 
 
@@ -1105,9 +1391,6 @@ class _NetTransaction(object):
 
     implements(IAsyncTransaction)
 
-    # See DEFAULT_PARAM_STYLE FIXME above.
-    paramstyle = DEFAULT_PARAM_STYLE
-
     def __init__(self, client, transactionID):
         """
         Initialize a transaction with a L{ConnectionPoolClient} and a unique
@@ -1116,16 +1399,43 @@ class _NetTransaction(object):
         self._client        = client
         self._transactionID = transactionID
         self._completed     = False
+        self._committing    = False
+        self._committed     = False
 
 
-    def execSQL(self, sql, args=None, raiseOnZeroRowCount=None):
+    @property
+    def paramstyle(self):
+        """
+        Forward 'paramstyle' attribute to the client.
+        """
+        return self._client.paramstyle
+
+
+    @property
+    def dialect(self):
+        """
+        Forward 'dialect' attribute to the client.
+        """
+        return self._client.dialect
+
+
+    def execSQL(self, sql, args=None, raiseOnZeroRowCount=None, blockID=""):
+        if not blockID:
+            if self._completed:
+                raise AlreadyFinishedError()
         if args is None:
             args = []
-        queryID = str(self._client._nextID())
-        query = self._client._queries[queryID] = _Query(raiseOnZeroRowCount)
-        self._client.callRemote(ExecSQL, queryID=queryID, sql=sql, args=args,
-                                transactionID=self._transactionID)
-        return query.deferred
+        client = self._client
+        queryID = str(client._nextID())
+        query = client._queries[queryID] = _Query(raiseOnZeroRowCount, args)
+        result = (
+            client.callRemote(
+                ExecSQL, queryID=queryID, sql=sql, args=args,
+                transactionID=self._transactionID, blockID=blockID
+            )
+            .addCallback(lambda nothing: query.deferred)
+        )
+        return result
 
 
     def _complete(self, command):
@@ -1134,14 +1444,84 @@ class _NetTransaction(object):
         self._completed = True
         return self._client.callRemote(
             command, transactionID=self._transactionID
-            ).addCallback(lambda x: None)
+        ).addCallback(lambda x: None)
 
 
     def commit(self):
-        return self._complete(Commit)
+        self._committing = True
+        def done(whatever):
+            self._committed = True
+            return whatever
+        return self._complete(Commit).addBoth(done)
 
 
     def abort(self):
         return self._complete(Abort)
 
+
+    def commandBlock(self):
+        if self._completed:
+            raise AlreadyFinishedError()
+        blockID = str(self._client._nextID())
+        self._client.callRemote(
+            StartBlock, blockID=blockID, transactionID=self._transactionID
+        )
+        return _NetCommandBlock(self, blockID)
+
+
+
+class _NetCommandBlock(object):
+    """
+    Net command block.
+    """
+
+    implements(ICommandBlock)
+
+    def __init__(self, transaction, blockID):
+        self._transaction = transaction
+        self._blockID = blockID
+        self._ended = False
+
+
+    @property
+    def paramstyle(self):
+        """
+        Forward 'paramstyle' attribute to the transaction.
+        """
+        return self._transaction.paramstyle
+
+
+    @property
+    def dialect(self):
+        """
+        Forward 'dialect' attribute to the transaction.
+        """
+        return self._transaction.dialect
+
+
+
+    def execSQL(self, sql, args=None, raiseOnZeroRowCount=None):
+        """
+        Execute some SQL on this command block.
+        """
+        if  (self._ended or
+             self._transaction._completed and
+             not self._transaction._committing or
+             self._transaction._committed):
+            raise AlreadyFinishedError()
+        return self._transaction.execSQL(sql, args, raiseOnZeroRowCount,
+                                         self._blockID)
+
+
+    def end(self):
+        """
+        End this block.
+        """
+        if self._ended:
+            raise AlreadyFinishedError()
+        self._ended = True
+        self._transaction._client.callRemote(
+            EndBlock, blockID=self._blockID,
+            transactionID=self._transaction._transactionID
+        )
 

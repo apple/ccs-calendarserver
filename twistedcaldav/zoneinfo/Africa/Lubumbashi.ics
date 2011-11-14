@@ -1,7 +1,7 @@
 BEGIN:VCALENDAR
+VERSION:2.0
 CALSCALE:GREGORIAN
 PRODID:-//calendarserver.org//Zonal//EN
-VERSION:2.0
 BEGIN:VTIMEZONE
 TZID:Africa/Lubumbashi
 X-LIC-LOCATION:Africa/Lubumbashi

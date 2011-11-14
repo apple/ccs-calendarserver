@@ -101,6 +101,7 @@ def usage_purge_principal(e=None):
     print "  Remove a principal's events and contacts from the calendar server"
     print ""
     print "options:"
+    print "  -c --completely: By default, only future events are canceled; this option cancels all events"
     print "  -h --help: print this help and exit"
     print "  -f --config <path>: Specify caldavd.plist configuration path"
     print "  -n --dry-run: calculate how many events and contacts to purge, but do not purge data"
@@ -190,13 +191,15 @@ class PurgePrincipalService(WorkerService):
     guids = None
     dryrun = False
     verbose = False
+    completely = False
 
     @inlineCallbacks
     def doWork(self):
         rootResource = self.rootResource()
         directory = rootResource.getDirectory()
         total = (yield purgeGUIDs(directory, rootResource, self.guids,
-            verbose=self.verbose, dryrun=self.dryrun))
+            verbose=self.verbose, dryrun=self.dryrun,
+            completely=self.completely))
         if self.verbose:
             amount = "%d event%s" % (total, "s" if total > 1 else "")
             if self.dryrun:
@@ -348,7 +351,8 @@ def main_purge_principals():
 
     try:
         (optargs, args) = getopt(
-            sys.argv[1:], "f:hnv", [
+            sys.argv[1:], "cf:hnv", [
+                "completely",
                 "dry-run",
                 "config=",
                 "help",
@@ -364,10 +368,14 @@ def main_purge_principals():
     configFileName = None
     dryrun = False
     verbose = False
+    completely = False
 
     for opt, arg in optargs:
         if opt in ("-h", "--help"):
             usage_purge_principal()
+
+        elif opt in ("-c", "--completely"):
+            completely = True
 
         elif opt in ("-v", "--verbose"):
             verbose = True
@@ -383,6 +391,7 @@ def main_purge_principals():
 
     # args is a list of guids
     PurgePrincipalService.guids = args
+    PurgePrincipalService.completely = completely
     PurgePrincipalService.dryrun = dryrun
     PurgePrincipalService.verbose = verbose
 
@@ -487,14 +496,15 @@ def purgeOrphanedAttachments(store, batchSize, verbose=False, dryrun=False):
 
 
 @inlineCallbacks
-def purgeGUIDs(directory, root, guids, verbose=False, dryrun=False):
+def purgeGUIDs(directory, root, guids, verbose=False, dryrun=False,
+    completely=False):
     total = 0
 
     allAssignments = { }
 
     for guid in guids:
         count, allAssignments[guid] = (yield purgeGUID(guid, directory, root,
-            verbose=verbose, dryrun=dryrun))
+            verbose=verbose, dryrun=dryrun, completely=completely))
         total += count
 
     # TODO: figure out what to do with the purged proxy assignments...
@@ -531,19 +541,23 @@ def cancelEvent(event, when, cua):
     whenDate = when.duplicate()
     whenDate.setDateOnly(True)
 
-    master = event.masterComponent()
-
     # Only process VEVENT
-    if master.name() != "VEVENT":
+    if event.mainType() != "VEVENT":
         return CANCELEVENT_SKIPPED
 
+    main = event.masterComponent()
+    if main is None:
+        # No master component, so this is an attendee being invited to one or
+        # more occurrences
+        main = event.mainComponent(allow_multiple=True)
+
     # Anything completely in the future is deleted
-    dtstart = master.getStartDateUTC()
+    dtstart = main.getStartDateUTC()
     isDateTime = not dtstart.isDateOnly()
     if dtstart > when:
         return CANCELEVENT_SHOULD_DELETE
 
-    organizer = master.getOrganizer()
+    organizer = main.getOrganizer()
 
     # Non-meetings are deleted
     if organizer is None:
@@ -559,8 +573,8 @@ def cancelEvent(event, when, cua):
     dirty = False
 
     # Set the UNTIL on RRULE to cease at the cutoff
-    if master.hasProperty("RRULE"):
-        for rrule in master.properties("RRULE"):
+    if main.hasProperty("RRULE"):
+        for rrule in main.properties("RRULE"):
             rrule = rrule.value()
             if rrule.getUseCount():
                 rrule.setUseCount(False)
@@ -574,8 +588,8 @@ def cancelEvent(event, when, cua):
 
     # Remove any EXDATEs and RDATEs beyond the cutoff
     for dateType in ("EXDATE", "RDATE"):
-        if master.hasProperty(dateType):
-            for exdate_rdate in master.properties(dateType):
+        if main.hasProperty(dateType):
+            for exdate_rdate in main.properties(dateType):
                 newValues = []
                 for value in exdate_rdate.value():
                     if value.getValue() < when:
@@ -584,7 +598,7 @@ def cancelEvent(event, when, cua):
                         exdate_rdate.value().remove(value)
                         dirty = True
                 if not newValues:
-                    master.removeProperty(exdate_rdate)
+                    main.removeProperty(exdate_rdate)
                     dirty = True
 
 
@@ -607,7 +621,7 @@ def cancelEvent(event, when, cua):
 
 @inlineCallbacks
 def purgeGUID(guid, directory, root, verbose=False, dryrun=False, proxies=True,
-    when=None):
+    when=None, completely=False):
 
     if when is None:
         when = PyCalendarDateTime.getNowUTC()
@@ -659,13 +673,28 @@ def purgeGUID(guid, directory, root, verbose=False, dryrun=False, proxies=True,
 
     for collName in (yield calendarHome.listChildren()):
         collection = (yield calendarHome.getChild(collName))
-        if collection.isCalendarCollection():
+        if collection.isCalendarCollection() or collName == "inbox":
 
-            for childName, childUid, childType in (yield collection.index().indexedSearch(filter)):
+            childNames = []
+
+            if completely:
+                # all events
+                for childName in (yield collection.listChildren()):
+                    childNames.append(childName)
+            else:
+                # events matching filter
+                for childName, childUid, childType in (yield collection.index().indexedSearch(filter)):
+                    childNames.append(childName)
+
+            for childName in childNames:
+
                 childResource = (yield collection.getChild(childName))
-                event = (yield childResource.iCalendar())
-                event = perUserFilter.filter(event)
-                action = cancelEvent(event, when, cua)
+                if completely:
+                    action = CANCELEVENT_SHOULD_DELETE
+                else:
+                    event = (yield childResource.iCalendar())
+                    event = perUserFilter.filter(event)
+                    action = cancelEvent(event, when, cua)
 
                 uri = "/calendars/__uids__/%s/%s/%s" % (guid, collName, childName)
                 request.path = uri
@@ -705,6 +734,34 @@ def purgeGUID(guid, directory, root, verbose=False, dryrun=False, proxies=True,
 
     txn = request._newStoreTransaction
 
+    # Remove empty calendar collections (and calendar home if no more
+    # calendars)
+    calHome = (yield txn.calendarHomeWithUID(guid))
+    if calHome is not None:
+        calendars = list((yield calHome.calendars()))
+        remainingCalendars = len(calendars)
+        for calColl in calendars:
+            if len(list((yield calColl.calendarObjects()))) == 0:
+                remainingCalendars -= 1
+                calendarName = calColl.name()
+                if verbose:
+                    if dryrun:
+                        print "Would delete calendar: %s" % (calendarName,)
+                    else:
+                        print "Deleting calendar: %s" % (calendarName,)
+                if not dryrun:
+                    (yield calHome.removeChildWithName(calendarName))
+
+        if not remainingCalendars:
+            if verbose:
+                if dryrun:
+                    print "Would delete calendar home"
+                else:
+                    print "Deleting calendar home"
+            if not dryrun:
+                (yield calHome.remove())
+
+
     # Remove VCards
     abHome = (yield txn.addressbookHomeWithUID(guid))
     if abHome is not None:
@@ -720,9 +777,23 @@ def purgeGUID(guid, directory, root, verbose=False, dryrun=False, proxies=True,
                 if not dryrun:
                     (yield abColl.removeObjectResourceWithName(cardName))
                 count += 1
+            if verbose:
+                abName = abColl.name()
+                if dryrun:
+                    print "Would delete addressbook: %s" % (abName,)
+                else:
+                    print "Deleting addressbook: %s" % (abName,)
             if not dryrun:
                 # Also remove the addressbook collection itself
                 (yield abHome.removeChildWithName(abColl.name()))
+
+        if verbose:
+            if dryrun:
+                print "Would delete addressbook home"
+            else:
+                print "Deleting addressbook home"
+        if not dryrun:
+            (yield abHome.remove())
 
     # Commit
     (yield txn.commit())

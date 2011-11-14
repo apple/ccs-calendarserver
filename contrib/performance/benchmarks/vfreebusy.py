@@ -15,7 +15,8 @@
 ##
 
 """
-Benchmark a server's handling of VFREEBUSY requests.
+Benchmark a server's handling of VFREEBUSY requests with a varying number of
+events on the target's calendar.
 """
 
 from urllib2 import HTTPDigestAuthHandler
@@ -28,11 +29,11 @@ from twisted.web.client import Agent
 from twisted.web.http_headers import Headers
 from twisted.web.http import OK
 
-from httpauth import AuthHandlerAgent
-from httpclient import StringProducer
-from benchlib import initialize, sample
+from contrib.performance.httpauth import AuthHandlerAgent
+from contrib.performance.httpclient import StringProducer
+from contrib.performance.benchlib import initialize, sample
 
-# XXX Represent these as vobjects?  Would make it easier to add more vevents.
+# XXX Represent these as pycalendar objects?  Would make it easier to add more vevents.
 event = """\
 BEGIN:VCALENDAR
 VERSION:2.0
@@ -59,7 +60,7 @@ END:VTIMEZONE
 END:VCALENDAR
 """
 
-vfreebusy = """\
+VFREEBUSY = """\
 BEGIN:VCALENDAR
 CALSCALE:GREGORIAN
 VERSION:2.0
@@ -67,9 +68,8 @@ METHOD:REQUEST
 PRODID:-//Apple Inc.//iCal 4.0.3//EN
 BEGIN:VFREEBUSY
 UID:81F582C8-4E7F-491C-85F4-E541864BE0FA
-DTEND:20100730T150000Z
-ATTENDEE:urn:uuid:user02
-DTSTART:20100730T140000Z
+DTEND:%(end)s
+%(attendees)sDTSTART:%(start)s
 X-CALENDARSERVER-MASK-UID:EC75A61B-08A3-44FD-BFBB-2457BBD0D490
 DTSTAMP:20100729T174751Z
 ORGANIZER:mailto:user01@example.com
@@ -81,7 +81,13 @@ END:VCALENDAR
 def formatDate(d):
     return ''.join(filter(str.isalnum, d.isoformat()))
 
+
 def makeEvent(i):
+    # Backwards compat interface, don't delete it for a little while.
+    return makeEventNear(datetime(2010, 7, 30, 11, 15, 00), i)
+
+
+def makeEventNear(base, i):
     s = """\
 BEGIN:VEVENT
 UID:%(UID)s
@@ -94,10 +100,9 @@ SUMMARY:STUFF IS THINGS
 TRANSP:OPAQUE
 END:VEVENT
 """
-    base = datetime(2010, 7, 30, 11, 15, 00)
     interval = timedelta(hours=2)
     duration = timedelta(hours=1)
-    return event % {
+    data = event % {
         'VEVENTS': s % {
             'UID': uuid4(),
             'START': formatDate(base + i * interval),
@@ -105,10 +110,10 @@ END:VEVENT
             'SEQUENCE': i,
             },
         }
+    return data.replace("\n", "\r\n")
 
-
-def makeEvents(n):
-    return [makeEvent(i) for i in range(n)]
+def makeEvents(base, n):
+    return [makeEventNear(base, i) for i in range(n)]
 
 
 @inlineCallbacks
@@ -131,13 +136,25 @@ def measure(host, port, dtrace, events, samples):
         agent, host, port, user, password, root, principal, calendar)
 
     base = "/calendars/users/%s/%s/foo-%%d.ics" % (user, calendar)
-    for i, cal in enumerate(makeEvents(events)):
+    baseTime = datetime.now().replace(hour=12, minute=15, second=0, microsecond=0)
+    for i, cal in enumerate(makeEvents(baseTime, events)):
         yield account.writeData(base % (i,), cal, "text/calendar")
 
     method = 'POST'
     uri = 'http://%s:%d/calendars/__uids__/%s/outbox/' % (host, port, user)
-    headers = Headers({"content-type": ["text/calendar"]})
-    body = StringProducer(vfreebusy)
+    headers = Headers({
+            "content-type": ["text/calendar"],
+            "originator": ["mailto:%s@example.com" % (user,)],
+            "recipient": ["urn:uuid:%s, urn:uuid:user02" % (user,)]})
+    
+    vfb = VFREEBUSY % {
+            "attendees": "".join([
+                    "ATTENDEE:urn:uuid:%s\n" % (user,),
+                    "ATTENDEE:urn:uuid:user02\n"]),
+            "start": formatDate(baseTime.replace(hour=0, minute=0)) + 'Z',
+            "end": formatDate(
+                baseTime.replace(hour=0, minute=0) + timedelta(days=1)) + 'Z'}
+    body = StringProducer(vfb.replace("\n", "\r\n"))
 
     samples = yield sample(
         dtrace, samples,

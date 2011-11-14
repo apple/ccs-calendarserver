@@ -15,7 +15,7 @@
 ##
 
 """
-iTIP (RFC2446) processing.
+iTIP (RFC5546) processing.
 """
 
 #
@@ -33,7 +33,8 @@ iTIP (RFC2446) processing.
 from twext.python.log import Logger
 
 from twistedcaldav.config import config
-from twistedcaldav.ical import Property, iCalendarProductID, Component
+from twistedcaldav.ical import Property, iCalendarProductID, Component,\
+    ignoredComponents
 
 from pycalendar.datetime import PyCalendarDateTime
 
@@ -83,10 +84,14 @@ class iTipProcessing(object):
         
         @return: a C{tuple} of:
             calendar object ready to save, or C{None} (request should be ignored)
-            a C{set} of iCalendar properties that changed, or C{None},
             a C{set} of recurrences that changed, or C{None}
         """
         
+        # Check sequencing
+        if not iTipProcessing.sequenceComparison(itip_message, calendar):
+            # Ignore out of sequence message
+            return None, None
+
         # Merge Organizer data with Attendee's own changes (VALARMs, Comment only for now).
         from twistedcaldav.scheduling.icaldiff import iCalDiff
         rids = iCalDiff(calendar, itip_message, False).whatIsDifferent()
@@ -189,6 +194,11 @@ class iTipProcessing(object):
         assert itip_message.propertyValue("METHOD") == "CANCEL", "iTIP message must have METHOD:CANCEL"
         assert itip_message.resourceUID() == calendar.resourceUID(), "UIDs must be the same to process iTIP message"
 
+        # Check sequencing
+        if not iTipProcessing.sequenceComparison(itip_message, calendar):
+            # Ignore out of sequence message
+            return False, False, None
+
         # Check to see if this is a cancel of the entire event
         if itip_message.masterComponent() is not None:
             if autoprocessing:
@@ -263,6 +273,8 @@ class iTipProcessing(object):
         Process a METHOD=REPLY.
         
         TODO: Yes, I am going to ignore RANGE= on RECURRENCE-ID for now...
+        TODO: We have no way to track SEQUENCE/DTSTAMP on a per-attendee basis to correctly serialize out-of-order
+              replies.
         
         @param itip_message: the iTIP message calendar object to process.
         @type itip_message:
@@ -511,10 +523,93 @@ class iTipProcessing(object):
                     if component.name() == "VEVENT":
                         component.replaceProperty(Property("TRANSP", "TRANSPARENT"))
 
+    @staticmethod
+    def sequenceComparison(itip, calendar):
+        """
+        Do appropriate itip message sequencing based by comparison with existing calendar data.
+        
+        @return: C{True} if the itip message is new and should be processed, C{False}
+            if no processing is needed
+        @rtype: C{bool}
+        """
+        
+        # Master component comparison trumps all else
+        itip_master = itip.masterComponent()
+        cal_master = calendar.masterComponent()
+        
+        # If master component exists, compare all in iTIP and update if any are new
+        if cal_master:
+            for itip_component in itip.subcomponents():
+                if itip_component.name() in ignoredComponents:
+                    continue
+                cal_component = calendar.overriddenComponent(itip_component.getRecurrenceIDUTC())
+                if cal_component is None:
+                    cal_component = cal_master
+                    
+                # TODO: No DTSTAMP comparison because we do not track DTSTAMPs
+                # Treat components the same as meaning so an update - in theory no harm in doing that
+                if Component.compareComponentsForITIP(itip_component, cal_component, use_dtstamp=False) >= 0:
+                    return True
+
+            return False
+
+        elif itip_master:
+            
+            # Do comparison of each appropriate component if any one is new, process the itip
+            for cal_component in calendar.subcomponents():
+                if cal_component.name() in ignoredComponents:
+                    continue
+                itip_component = itip.overriddenComponent(cal_component.getRecurrenceIDUTC())
+                if itip_component is None:
+                    itip_component = itip_master
+
+                # TODO: No DTSTAMP comparison because we do not track DTSTAMPs
+                # Treat components the same as meaning so an update - in theory no harm in doing that
+                if Component.compareComponentsForITIP(itip_component, cal_component, use_dtstamp=False) >= 0:
+                    return True
+            
+            return False
+    
+        else:
+            # Do comparison of each matching component if any one is new, process the entire itip.
+            # There is a race condition here, similar to REPLY, where we could reinstate an instance
+            # that has been removed. Not much we can do about it without additional tracking.
+            
+            cal_rids = set()
+            for cal_component in calendar.subcomponents():
+                if cal_component.name() in ignoredComponents:
+                    continue
+                cal_rids.add(cal_component.getRecurrenceIDUTC())
+            itip_rids = set()
+            for itip_component in itip.subcomponents():
+                if itip_component.name() in ignoredComponents:
+                    continue
+                itip_rids.add(itip_component.getRecurrenceIDUTC())
+            
+            # Compare ones that match
+            for rid in cal_rids & itip_rids:
+                cal_component = calendar.overriddenComponent(rid)
+                itip_component = itip.overriddenComponent(rid)
+
+                # TODO: No DTSTAMP comparison because we do not track DTSTAMPs
+                # Treat components the same as meaning so an update - in theory no harm in doing that
+                if Component.compareComponentsForITIP(itip_component, cal_component, use_dtstamp=False) >= 0:
+                    return True
+            
+            # If there are others in one set and not the other - always process, else no process
+            return len(cal_rids ^ itip_rids) > 0
+            
 class iTipGenerator(object):
+    """
+    This assumes that DTSTAMP and SEQUENCE are already at their new values in the original calendar
+    data passed in to each generateXXX() call.
+    """
     
     @staticmethod
     def generateCancel(original, attendees, instances=None, full_cancel=False):
+        """
+        This assumes that SEQUENCE is already at its new value in the original calendar data.
+        """
         
         itip = Component("VCALENDAR")
         itip.addProperty(Property("VERSION", "2.0"))
@@ -540,18 +635,16 @@ class iTipGenerator(object):
             assert instance is not None, "Need a master component"
 
             # Add some required properties extracted from the original
-            comp.addProperty(Property("DTSTAMP", PyCalendarDateTime.getNowUTC()))
+            comp.addProperty(Property("DTSTAMP", instance.propertyValue("DTSTAMP")))
             comp.addProperty(Property("UID", instance.propertyValue("UID")))
-            seq = instance.propertyValue("SEQUENCE")
-            seq = int(seq) + 1 if seq else 1
-            comp.addProperty(Property("SEQUENCE", seq))
+            comp.addProperty(Property("SEQUENCE", instance.propertyValue("SEQUENCE") if instance.hasProperty("SEQUENCE") else 0))
             comp.addProperty(instance.getOrganizerProperty())
             if instance_rid:
                 comp.addProperty(Property("RECURRENCE-ID", instance_rid.duplicate().adjustToUTC()))
             
             def addProperties(propname):
-                for property in instance.properties(propname):
-                    comp.addProperty(property)
+                for icalproperty in instance.properties(propname):
+                    comp.addProperty(icalproperty)
                     
             addProperties("SUMMARY")
             addProperties("DTSTART")
@@ -589,24 +682,22 @@ class iTipGenerator(object):
 
     @staticmethod
     def generateAttendeeRequest(original, attendees, filter_rids):
-
+        """
+        This assumes that SEQUENCE is already at its new value in the original calendar data.
+        """
+        
         # Start with a copy of the original as we may have to modify bits of it
         itip = original.duplicate()
         itip.replaceProperty(Property("PRODID", iCalendarProductID))
         itip.addProperty(Property("METHOD", "REQUEST"))
         
-        # Force update to DTSTAMP everywhere
-        itip.replacePropertyInAllComponents(Property("DTSTAMP", PyCalendarDateTime.getNowUTC()))
-
         # Now filter out components that do not contain every attendee
         itip.attendeesView(attendees, onlyScheduleAgentServer=True)
         
         # Now filter out components except the ones specified
         if itip.filterComponents(filter_rids):
-
             # Strip out unwanted bits
             iTipGenerator.prepareSchedulingMessage(itip)
-    
             return itip
         
         else:
@@ -623,7 +714,7 @@ class iTipGenerator(object):
         # Now filter out components except the ones specified
         itip.filterComponents(changedRids)
 
-        # Force update to DTSTAMP everywhere
+        # Force update to DTSTAMP everywhere so reply sequencing will work
         itip.replacePropertyInAllComponents(Property("DTSTAMP", PyCalendarDateTime.getNowUTC()))
 
         # Remove all attendees except the one we want

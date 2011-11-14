@@ -36,8 +36,6 @@ from twisted.internet.defer import inlineCallbacks, returnValue, succeed, fail
 
 from twisted.python.failure import Failure
 
-from txdav.base.propertystore.xattr import PropertyStore
-
 from twext.python.vcomponent import VComponent
 from twext.web2.dav import davxml
 from twext.web2.dav.element.rfc2518 import ResourceType, GETContentType
@@ -441,11 +439,18 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
     accessMode = property(_get_accessMode, _set_accessMode)
 
     def _get_isScheduleObject(self):
-        return str(self.properties().get(PropertyName.fromElement(customxml.TwistedSchedulingObjectResource), "false")) == "true"
+        """
+        If the property is not present, then return None, else return a bool based on the
+        str "true" or "false" value.
+        """
+        prop = self.properties().get(PropertyName.fromElement(customxml.TwistedSchedulingObjectResource))
+        if prop is not None:
+            prop = str(prop) == "true"
+        return prop
 
     def _set_isScheduleObject(self, value):
         pname = PropertyName.fromElement(customxml.TwistedSchedulingObjectResource)
-        if value:
+        if value is not None:
             self.properties()[pname] = customxml.TwistedSchedulingObjectResource.fromString("true" if value else "false")
         elif pname in self.properties():
             del self.properties()[pname]
@@ -564,7 +569,8 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         dropboxPath = (yield self._dropboxPath())
         returnValue(
             [Attachment(self, name, dropboxPath)
-            for name in dropboxPath.listdir()]
+             for name in dropboxPath.listdir()
+             if not name.startswith(".")]
         )
 
 
@@ -666,8 +672,10 @@ class Attachment(FileMetaDataMixin):
 
 
     def properties(self):
-        uid = self._calendarObject._parentCollection._home.uid()
-        return PropertyStore(uid, lambda: self._path)
+        home = self._calendarObject._parentCollection._home
+        uid = home.uid()
+        propStoreClass = home._dataStore._propertyStoreClass
+        return propStoreClass(uid, lambda: self._path)
 
 
     def store(self, contentType):

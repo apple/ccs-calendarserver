@@ -22,7 +22,7 @@ from uuid import uuid4
 from itertools import count
 from datetime import datetime, timedelta
 
-from _event_create import (
+from contrib.performance._event_create import (
     makeAttendees, makeVCalendar, formatDate, measure as _measure)
 
 def makeEvent(i, organizerSequence, attendeeCount):

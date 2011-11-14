@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2010 Apple Inc. All rights reserved.
+# Copyright (c) 2010-2011 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,15 +14,16 @@
 # limitations under the License.
 ##
 
-import random, time, datetime
-
-#import pytz
+import random, time
 
 from zope.interface import Interface, implements
 
 from twisted.python.util import FancyEqMixin
 
 import sqlparse
+from pycalendar.datetime import PyCalendarDateTime
+from pycalendar.duration import PyCalendarDuration
+from pycalendar.timezone import PyCalendarTimezone
 
 NANO = 1000000000.0
 
@@ -148,7 +149,7 @@ class SQLDuration(_Statistic):
         results = []
         for data in samples:
             if mode == "duration":
-                value = sum([interval for (sql, interval) in data]) / NANO
+                value = sum([interval for (_ignore_sql, interval) in data]) / NANO
             else:
                 value = len(data)
             results.append(value)
@@ -196,7 +197,7 @@ class SQLDuration(_Statistic):
     def transcript(self, samples):
         statements = []
         data = samples[len(samples) / 2]
-        for (sql, interval) in data:
+        for (sql, _ignore_interval) in data:
             statements.append(self.normalize(sql))
         return '\n'.join(statements) + '\n'
             
@@ -275,7 +276,9 @@ class NearFutureDistribution(object, FancyEqMixin):
 
 
     def sample(self):
-        return time.time() + self._offset.sample()
+        now = PyCalendarDateTime.getNowUTC()
+        now.offsetSeconds(int(self._offset.sample()))
+        return now
 
 
 
@@ -288,7 +291,11 @@ class NormalDistribution(object, FancyEqMixin):
 
 
     def sample(self):
-        return random.normalvariate(self._mu, self._sigma)
+        # Only return positive values or zero
+        v = random.normalvariate(self._mu, self._sigma)
+        while v < 0:
+            v = random.normalvariate(self._mu, self._sigma)
+        return v
 
 
 
@@ -309,20 +316,19 @@ NUM_WEEKDAYS = 7
 class WorkDistribution(object, FancyEqMixin):
     compareAttributes = ["_daysOfWeek", "_beginHour", "_endHour"]
 
-    _weekdayNames = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"]
-
-    now = staticmethod(datetime.datetime.now)
+    _weekdayNames = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"]
 
     def __init__(self, daysOfWeek=["mon", "tue", "wed", "thu", "fri"], beginHour=8, endHour=17, tzname="UTC"):
         self._daysOfWeek = [self._weekdayNames.index(day) for day in daysOfWeek]
         self._beginHour = beginHour
         self._endHour = endHour
-        self._tzinfo = None #pytz.timezone(tzname)
+        self._tzname = tzname
         self._helperDistribution = NormalDistribution(
             # Mean 6 workdays in the future
             60 * 60 * 8 * 6,
             # Standard deviation of 4 workdays
             60 * 60 * 8 * 4)
+        self.now = PyCalendarDateTime.getNow
 
 
     def astimestamp(self, dt):
@@ -336,29 +342,29 @@ class WorkDistribution(object, FancyEqMixin):
         be equal to when.
         """
         # Find a workday that follows the timestamp
-        weekday = when.weekday()
+        weekday = when.getDayOfWeek()
         for i in range(NUM_WEEKDAYS):
-            day = when + datetime.timedelta(days=i)
+            day = when + PyCalendarDuration(days=i)
             if (weekday + i) % NUM_WEEKDAYS in self._daysOfWeek:
                 # Joy, a day on which work might occur.  Find the first hour on
                 # this day when work may start.
-                begin = day.replace(
-                    hour=self._beginHour, minute=0, second=0, microsecond=0)
-                end = begin.replace(hour=self._endHour)
+                day.setHHMMSS(self._beginHour, 0, 0)
+                begin = day
+                end = begin.duplicate()
+                end.setHHMMSS(self._endHour, 0, 0)
                 if end > when:
                     return begin, end
 
 
     def sample(self):
-        offset = datetime.timedelta(seconds=self._helperDistribution.sample())
-        beginning = self.now(self._tzinfo)
+        offset = PyCalendarDuration(seconds=int(self._helperDistribution.sample()))
+        beginning = self.now(PyCalendarTimezone(tzid=self._tzname))
         while offset:
             start, end = self._findWorkAfter(beginning)
             if end - start > offset:
                 result = start + offset
-                return self.astimestamp(
-                    result.replace(
-                        minute=result.minute // 15 * 15,
-                        second=0, microsecond=0))
-            offset -= (end - start)
+                result.setMinutes(result.getMinutes() // 15 * 15)
+                result.setSeconds(0)
+                return result
+            offset.setDuration(offset.getTotalSeconds() - (end - start).getTotalSeconds())
             beginning = end

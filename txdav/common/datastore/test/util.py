@@ -184,11 +184,11 @@ class SQLStoreBuilder(object):
         
         # Deal with memcached items that must be cleared
         from txdav.caldav.datastore.sql import CalendarHome
-        CalendarHome._cacher.flush_all()
+        CalendarHome._cacher.flushAll()
         from txdav.carddav.datastore.sql import AddressBookHome
-        AddressBookHome._cacher.flush_all()
+        AddressBookHome._cacher.flushAll()
         from txdav.base.propertystore.sql import PropertyStore
-        PropertyStore._cacher.flush_all()
+        PropertyStore._cacher.flushAll()
 
 theStoreBuilder = SQLStoreBuilder()
 buildStore = theStoreBuilder.buildStore

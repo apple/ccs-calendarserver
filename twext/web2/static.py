@@ -34,7 +34,7 @@ import tempfile
 
 # Sibling Imports
 from twext.web2 import http_headers, resource
-from twext.web2 import http, iweb, stream, responsecode, server, dirlist
+from twext.web2 import http, iweb, stream, responsecode, server
 from twext.web2.http import HTTPError
 
 # Twisted Imports
@@ -189,10 +189,9 @@ class File(StaticRenderMixin):
     be files underneath that directory. This provides access to an entire
     filesystem tree with a single Resource.
 
-    If you map the URL 'http://server/FILE' to a resource created as
-    File('/tmp'), then http://server/FILE/ will return an HTML-formatted
-    listing of the /tmp/ directory, and http://server/FILE/foo/bar.html will
-    return the contents of /tmp/foo/bar.html .
+    If you map the URL C{http://server/FILE} to a resource created as
+    File('/tmp'), C{http://server/FILE/foo/bar.html} will return the contents of
+    C{/tmp/foo/bar.html} .
     """
     implements(iweb.IResource)
 
@@ -418,14 +417,12 @@ class File(StaticRenderMixin):
                     # Render from the index file
                     standin = self.createSimilarFile(ifp.path)
                 else:
-                    # Render from a DirectoryLister
-                    standin = dirlist.DirectoryLister(
-                        self.fp.path,
-                        self.listChildren(),
-                        self.contentTypes,
-                        self.contentEncodings,
-                        self.defaultType
-                    )
+                    # Directory listing is in twistedcaldav.extensions
+                    standin = Data(
+                        "\n".join(["Directory: " + str(req.path), "---"] +
+                                  [x.basename() + ("/" if x.isdir() else "")
+                                   for x in self.fp.children()]),
+                        "text/plain")
                 return standin.render(req)
 
         try:

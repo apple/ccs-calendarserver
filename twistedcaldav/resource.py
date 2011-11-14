@@ -324,7 +324,7 @@ class CalDAVResource (
         Copy this resource's dead properties to another resource.  This requires
         that the new resource have a back-end store.
 
-        @param other: a resource to copy all properites to.
+        @param other: a resource to copy all properties to.
         @type other: subclass of L{CalDAVResource}
         """
         self.newStoreProperties().update(other.newStoreProperties())
@@ -392,6 +392,10 @@ class CalDAVResource (
             if config.MaxResourceSize:
                 baseProperties += (
                     caldavxml.MaxResourceSize.qname(),
+                )
+            if config.MaxAllowedInstances:
+                baseProperties += (
+                    caldavxml.MaxInstances.qname(),
                 )
             if config.MaxAttendeesPerInstance:
                 baseProperties += (
@@ -592,13 +596,11 @@ class CalDAVResource (
             returnValue(davxml.AddMember(davxml.HRef.fromString(url + "/;add-member")))
 
         elif qname == caldavxml.SupportedCalendarComponentSet.qname():
-            # CalDAV-access-09, section 5.2.3
             if self.hasDeadProperty(qname):
                 returnValue(self.readDeadProperty(qname))
             returnValue(self.supportedCalendarComponentSet)
 
         elif qname == caldavxml.SupportedCalendarData.qname():
-            # CalDAV-access-09, section 5.2.4
             returnValue(caldavxml.SupportedCalendarData(
                 caldavxml.CalendarData(**{
                     "content-type": "text/calendar",
@@ -607,14 +609,18 @@ class CalDAVResource (
             ))
 
         elif qname == caldavxml.MaxResourceSize.qname():
-            # CalDAV-access-15, section 5.2.5
             if config.MaxResourceSize:
                 returnValue(caldavxml.MaxResourceSize.fromString(
                     str(config.MaxResourceSize)
                 ))
 
+        elif qname == caldavxml.MaxInstances.qname():
+            if config.MaxAllowedInstances:
+                returnValue(caldavxml.MaxInstances.fromString(
+                    str(config.MaxAllowedInstances)
+                ))
+
         elif qname == caldavxml.MaxAttendeesPerInstance.qname():
-            # CalDAV-access-15, section 5.2.9
             if config.MaxAttendeesPerInstance:
                 returnValue(caldavxml.MaxAttendeesPerInstance.fromString(
                     str(config.MaxAttendeesPerInstance)
@@ -634,7 +640,9 @@ class CalDAVResource (
                 # For backwards compatibility we need to sync this up with the calendar-free-busy-set on the inbox
                 principal = (yield self.resourceOwnerPrincipal(request))
                 fbset = (yield principal.calendarFreeBusyURIs(request))
+                fbset = [fburl.rstrip("/") for fburl in fbset]
                 url = (yield self.canonicalURL(request))
+                url = url.rstrip("/")
                 opaque = url in fbset
                 self.writeDeadProperty(caldavxml.ScheduleCalendarTransp(caldavxml.Opaque() if opaque else caldavxml.Transparent()))
 
@@ -2216,7 +2224,10 @@ class CommonHomeResource(PropfindCacheMixin, SharedHomeMixin, CalDAVResource):
             returnValue(customxml.MaxCollections.fromString(config.MaxCollectionsPerHome))
             
         elif qname == (customxml.calendarserver_namespace, "push-transports"):
-            if config.Notifications.Services.XMPPNotifier.Enabled:
+
+            if (config.Notifications.Services.XMPPNotifier.Enabled or
+                config.Notifications.Services.ApplePushNotifier.Enabled):
+
                 nodeName = (yield self._newStoreHome.nodeName())
                 if nodeName:
                     notifierID = self._newStoreHome.notifierID()
@@ -2235,12 +2246,16 @@ class CommonHomeResource(PropfindCacheMixin, SharedHomeMixin, CalDAVResource):
                                     customxml.PubSubAPSBundleIDProperty(
                                         apsConfiguration["APSBundleID"]
                                     ),
+                                    customxml.PubSubAPSEnvironmentProperty(
+                                        apsConfiguration["APSEnvironment"]
+                                    ),
                                     type="APSD",
                                 )
                             )
 
                         pubSubConfiguration = getPubSubConfiguration(config)
-                        if pubSubConfiguration['xmpp-server']:
+                        if (pubSubConfiguration['enabled'] and
+                            pubSubConfiguration['xmpp-server']):
                             children.append(
                                 customxml.PubSubTransportProperty(
                                     customxml.PubSubXMPPServerProperty(
@@ -2257,7 +2272,8 @@ class CommonHomeResource(PropfindCacheMixin, SharedHomeMixin, CalDAVResource):
             returnValue(None)
 
         elif qname == (customxml.calendarserver_namespace, "pushkey"):
-            if config.Notifications.Services.XMPPNotifier.Enabled:
+            if (config.Notifications.Services.XMPPNotifier.Enabled or
+                config.Notifications.Services.ApplePushNotifier.Enabled):
                 nodeName = (yield self._newStoreHome.nodeName())
                 if nodeName:
                     returnValue(customxml.PubSubXMPPPushKeyProperty(nodeName))
@@ -2326,11 +2342,20 @@ class CommonHomeResource(PropfindCacheMixin, SharedHomeMixin, CalDAVResource):
     def defaultAccessControlList(self):
         myPrincipal = self.principalForRecord()
 
+        # Server may be read only
+        if config.EnableReadOnlyServer:
+            owner_privs = (
+                davxml.Privilege(davxml.Read()),
+                davxml.Privilege(davxml.ReadCurrentUserPrivilegeSet()),
+            )
+        else:
+            owner_privs = (davxml.Privilege(davxml.All()),)
+
         aces = (
-            # Inheritable DAV:all access for the resource's associated principal.
+            # Inheritable access for the resource's associated principal.
             davxml.ACE(
                 davxml.Principal(davxml.HRef(myPrincipal.principalURL())),
-                davxml.Grant(davxml.Privilege(davxml.All())),
+                davxml.Grant(*owner_privs),
                 davxml.Protected(),
                 TwistedACLInheritable(),
             ),
@@ -2450,11 +2475,20 @@ class CalendarHomeResource(CommonHomeResource):
     def defaultAccessControlList(self):
         myPrincipal = self.principalForRecord()
 
+        # Server may be read only
+        if config.EnableReadOnlyServer:
+            owner_privs = (
+                davxml.Privilege(davxml.Read()),
+                davxml.Privilege(davxml.ReadCurrentUserPrivilegeSet()),
+            )
+        else:
+            owner_privs = (davxml.Privilege(davxml.All()),)
+
         aces = (
-            # Inheritable DAV:all access for the resource's associated principal.
+            # Inheritable access for the resource's associated principal.
             davxml.ACE(
                 davxml.Principal(davxml.HRef(myPrincipal.principalURL())),
-                davxml.Grant(davxml.Privilege(davxml.All())),
+                davxml.Grant(*owner_privs),
                 davxml.Protected(),
                 TwistedACLInheritable(),
             ),
@@ -2473,6 +2507,19 @@ class CalendarHomeResource(CommonHomeResource):
         aces += config.AdminACEs
         
         if config.EnableProxyPrincipals:
+            # Server may be read only
+            if config.EnableReadOnlyServer:
+                rw_proxy_privs = (
+                    davxml.Privilege(davxml.Read()),
+                    davxml.Privilege(davxml.ReadCurrentUserPrivilegeSet()),
+                )
+            else:
+                rw_proxy_privs = (
+                    davxml.Privilege(davxml.Read()),
+                    davxml.Privilege(davxml.ReadCurrentUserPrivilegeSet()),
+                    davxml.Privilege(davxml.Write()),
+                )
+
             aces += (
                 # DAV:read/DAV:read-current-user-privilege-set access for this principal's calendar-proxy-read users.
                 davxml.ACE(
@@ -2487,11 +2534,7 @@ class CalendarHomeResource(CommonHomeResource):
                 # DAV:read/DAV:read-current-user-privilege-set/DAV:write access for this principal's calendar-proxy-write users.
                 davxml.ACE(
                     davxml.Principal(davxml.HRef(joinURL(myPrincipal.principalURL(), "calendar-proxy-write/"))),
-                    davxml.Grant(
-                        davxml.Privilege(davxml.Read()),
-                        davxml.Privilege(davxml.ReadCurrentUserPrivilegeSet()),
-                        davxml.Privilege(davxml.Write()),
-                    ),
+                    davxml.Grant(*rw_proxy_privs),
                     davxml.Protected(),
                     TwistedACLInheritable(),
                 ),
@@ -2624,8 +2667,10 @@ class AddressBookHomeResource (CommonHomeResource):
                     "Invalid URI",
                 ))
             else:
-                # Canonicalize the URL to __uids__ form
+                # Canonicalize the URL to __uids__ form and always ensure a trailing /
                 adbkURI = (yield adbk.canonicalURL(request))
+                if not adbkURI.endswith("/"):
+                    adbkURI += "/"
                 property = carddavxml.DefaultAddressBookURL(davxml.HRef(adbkURI))
 
         yield super(AddressBookHomeResource, self).writeProperty(property, request)
@@ -2687,6 +2732,10 @@ class AddressBookHomeResource (CommonHomeResource):
                 raise RuntimeError("No address books at all.")
 
             defaultAddressBookURL = joinURL(self.url(), anAddressBook.name())
+
+        # Always ensure a trailing /
+        if not defaultAddressBookURL.endswith("/"):
+            defaultAddressBookURL += "/"
 
         self.writeDeadProperty(
             carddavxml.DefaultAddressBookURL(

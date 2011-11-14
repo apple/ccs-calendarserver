@@ -39,12 +39,19 @@ limitations under the License.
     <enable-addressbook>true</enable-addressbook>
     <auto-schedule>true</auto-schedule>
   </record>
-  <record repeat="4">
+  <record repeat="10">
     <uid>group%02d</uid>
     <enable>true</enable>
   </record>
   <record>
     <uid>disabledgroup</uid>
     <enable>false</enable>
+  </record>
+  <record>
+    <uid>delegatedroom</uid>
+    <enable>true</enable>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>false</enable-addressbook>
+    <auto-schedule>false</auto-schedule>
   </record>
 </augments>

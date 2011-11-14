@@ -34,6 +34,7 @@ class ResourcesTestCase(TestCase):
         config.ResourceService.Enabled = True
 
         xmlFile = os.path.join(testRoot, "augments.xml")
+        config.AugmentService.type = "twistedcaldav.directory.augment.AugmentXMLDB"
         config.AugmentService.params.xmlFiles = (xmlFile,)
 
 # Uh, what's this testing?

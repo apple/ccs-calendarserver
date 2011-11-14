@@ -14,10 +14,29 @@
  * limitations under the License.
  */
 
+#define PY_SSIZE_T_CLEAN 1
 #include <Python.h>
+
+#if PY_VERSION_HEX < 0x02050000 && !defined(PY_SSIZE_T_MIN)
+/* This may cause some warnings, but if you want to get rid of them, upgrade
+ * your Python version.  */
+typedef int Py_ssize_t;
+#endif
+
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <signal.h>
+
+/*
+ * As per
+ * <http://pubs.opengroup.org/onlinepubs/007904875/basedefs/sys/socket.h.html
+ * #tag_13_61_05>:
+ *
+ *     "To forestall portability problems, it is recommended that applications
+ *     not use values larger than (2**31)-1 for the socklen_t type."
+ */
+
+#define SOCKLEN_MAX 0x7FFFFFFF
 
 PyObject *sendmsg_socket_error;
 
@@ -91,7 +110,7 @@ static PyObject *sendmsg_sendmsg(PyObject *self, PyObject *args, PyObject *keywd
 
     int fd;
     int flags = 0;
-    int sendmsg_result;
+    Py_ssize_t sendmsg_result;
     struct msghdr message_header;
     struct iovec iov[1];
     PyObject *ancillary = NULL;
@@ -134,25 +153,35 @@ static PyObject *sendmsg_sendmsg(PyObject *self, PyObject *args, PyObject *keywd
             return NULL;
         }
 
-        int all_data_len = 0;
+        size_t all_data_len = 0;
 
         /* First we need to know how big the buffer needs to be in order to
            have enough space for all of the messages. */
         while ( (item = PyIter_Next(iterator)) ) {
-            int data_len, type, level;
+            int type, level;
+            Py_ssize_t data_len;
+            size_t prev_all_data_len;
             char *data;
-            if (!PyArg_ParseTuple(item, "iit#:sendmsg ancillary data (level, type, data)",
-                                  &level,
-                                  &type,
-                                  &data,
-                                  &data_len)) {
+            if (!PyArg_ParseTuple(
+                        item, "iit#:sendmsg ancillary data (level, type, data)",
+                        &level, &type, &data, &data_len)) {
                 Py_DECREF(item);
                 Py_DECREF(iterator);
                 return NULL;
             }
+
+            prev_all_data_len = all_data_len;
             all_data_len += CMSG_SPACE(data_len);
 
             Py_DECREF(item);
+
+            if (all_data_len < prev_all_data_len) {
+                Py_DECREF(iterator);
+                PyErr_Format(PyExc_OverflowError,
+                             "Too much msg_control to fit in a size_t: %zu",
+                             prev_all_data_len);
+                return NULL;
+            }
         }
 
         Py_DECREF(iterator);
@@ -161,6 +190,12 @@ static PyObject *sendmsg_sendmsg(PyObject *self, PyObject *args, PyObject *keywd
         /* Allocate the buffer for all of the ancillary elements, if we have
          * any.  */
         if (all_data_len) {
+            if (all_data_len > SOCKLEN_MAX) {
+                PyErr_Format(PyExc_OverflowError,
+                             "Too much msg_control to fit in a socklen_t: %zu",
+                             all_data_len);
+                return NULL;
+            }
             message_header.msg_control = malloc(all_data_len);
             if (!message_header.msg_control) {
                 PyErr_NoMemory();
@@ -169,7 +204,7 @@ static PyObject *sendmsg_sendmsg(PyObject *self, PyObject *args, PyObject *keywd
         } else {
             message_header.msg_control = NULL;
         }
-        message_header.msg_controllen = all_data_len;
+        message_header.msg_controllen = (socklen_t) all_data_len;
 
         iterator = PyObject_GetIter(ancillary); /* again */
         item = NULL;
@@ -183,7 +218,12 @@ static PyObject *sendmsg_sendmsg(PyObject *self, PyObject *args, PyObject *keywd
         struct cmsghdr *control_message = CMSG_FIRSTHDR(&message_header);
         while ( (item = PyIter_Next(iterator)) ) {
             int data_len, type, level;
+            size_t data_size;
             unsigned char *data, *cmsg_data;
+
+            /* We explicitly allocated enough space for all ancillary data
+               above; if there isn't enough room, all bets are off. */
+            assert(control_message);
 
             if (!PyArg_ParseTuple(item,
                                   "iit#:sendmsg ancillary data (level, type, data)",
@@ -199,7 +239,20 @@ static PyObject *sendmsg_sendmsg(PyObject *self, PyObject *args, PyObject *keywd
 
             control_message->cmsg_level = level;
             control_message->cmsg_type = type;
-            control_message->cmsg_len = CMSG_LEN(data_len);
+            data_size = CMSG_LEN(data_len);
+
+            if (data_size > SOCKLEN_MAX) {
+                Py_DECREF(item);
+                Py_DECREF(iterator);
+                free(message_header.msg_control);
+
+                PyErr_Format(PyExc_OverflowError,
+                             "CMSG_LEN(%d) > SOCKLEN_MAX", data_len);
+
+                return NULL;
+            }
+
+            control_message->cmsg_len = (socklen_t) data_size;
 
             cmsg_data = CMSG_DATA(control_message);
             memcpy(cmsg_data, data, data_len);
@@ -207,14 +260,10 @@ static PyObject *sendmsg_sendmsg(PyObject *self, PyObject *args, PyObject *keywd
             Py_DECREF(item);
 
             control_message = CMSG_NXTHDR(&message_header, control_message);
-
-            /* We explicitly allocated enough space for all ancillary data
-               above; if there isn't enough room, all bets are off. */
-            assert(control_message);
         }
-        
+
         Py_DECREF(iterator);
-        
+
         if (PyErr_Occurred()) {
             free(message_header.msg_control);
             return NULL;
@@ -231,15 +280,17 @@ static PyObject *sendmsg_sendmsg(PyObject *self, PyObject *args, PyObject *keywd
         return NULL;
     }
 
-    return Py_BuildValue("i", sendmsg_result);
+    return Py_BuildValue("n", sendmsg_result);
 }
 
 static PyObject *sendmsg_recvmsg(PyObject *self, PyObject *args, PyObject *keywds) {
     int fd = -1;
     int flags = 0;
-    size_t maxsize = 8192;
-    size_t cmsg_size = 4*1024;
-    int recvmsg_result;
+    int maxsize = 8192;
+    int cmsg_size = 4*1024;
+    size_t cmsg_space;
+    Py_ssize_t recvmsg_result;
+
     struct msghdr message_header;
     struct cmsghdr *control_message;
     struct iovec iov[1];
@@ -254,7 +305,15 @@ static PyObject *sendmsg_recvmsg(PyObject *self, PyObject *args, PyObject *keywd
         return NULL;
     }
 
-    cmsg_size = CMSG_SPACE(cmsg_size);
+    cmsg_space = CMSG_SPACE(cmsg_size);
+
+    /* overflow check */
+    if (cmsg_space > SOCKLEN_MAX) {
+        PyErr_Format(PyExc_OverflowError,
+                     "CMSG_SPACE(cmsg_size) greater than SOCKLEN_MAX: %d",
+                     cmsg_size);
+        return NULL;
+    }
 
     message_header.msg_name = NULL;
     message_header.msg_namelen = 0;
@@ -270,7 +329,7 @@ static PyObject *sendmsg_recvmsg(PyObject *self, PyObject *args, PyObject *keywd
     message_header.msg_iov = iov;
     message_header.msg_iovlen = 1;
 
-    cmsgbuf = malloc(cmsg_size);
+    cmsgbuf = malloc(cmsg_space);
 
     if (!cmsgbuf) {
         free(iov[0].iov_base);
@@ -278,9 +337,10 @@ static PyObject *sendmsg_recvmsg(PyObject *self, PyObject *args, PyObject *keywd
         return NULL;
     }
 
-    memset(cmsgbuf, 0, cmsg_size);
+    memset(cmsgbuf, 0, cmsg_space);
     message_header.msg_control = cmsgbuf;
-    message_header.msg_controllen = cmsg_size;
+    /* see above for overflow check */
+    message_header.msg_controllen = (socklen_t) cmsg_space;
 
     recvmsg_result = recvmsg(fd, &message_header, flags);
     if (recvmsg_result < 0) {
@@ -313,7 +373,7 @@ static PyObject *sendmsg_recvmsg(PyObject *self, PyObject *args, PyObject *keywd
             control_message->cmsg_level,
             control_message->cmsg_type,
             CMSG_DATA(control_message),
-            control_message->cmsg_len - sizeof(struct cmsghdr));
+            (Py_ssize_t) (control_message->cmsg_len - sizeof(struct cmsghdr)));
 
         if (!entry) {
             Py_DECREF(ancillary);

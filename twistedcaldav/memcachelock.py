@@ -62,7 +62,7 @@ class MemcacheLock(Memcacher):
         waiting = False
         while True:
             
-            result = (yield self.add(self._locktoken, "1", self._expire_time))
+            result = (yield self.add(self._locktoken, "1", expireTime=self._expire_time))
             if result:
                 self._hasLock = True
                 if waiting:

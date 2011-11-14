@@ -70,7 +70,7 @@ class XMLDirectoryService(DirectoryService):
             'realmName' : '/Search',
             'statSeconds' : 15,
             'augmentService' : None,
-            'proxyCache' : None,
+            'groupMembershipCache' : None,
         }
         ignored = None
         params = self.getParams(params, defaults, ignored)
@@ -79,7 +79,7 @@ class XMLDirectoryService(DirectoryService):
         self.realmName = params['realmName']
         self.statSeconds = params['statSeconds']
         self.augmentService = params['augmentService']
-        self.proxyCache = params['proxyCache']
+        self.groupMembershipCache = params['groupMembershipCache']
 
         super(XMLDirectoryService, self).__init__()
 
@@ -172,9 +172,10 @@ class XMLDirectoryService(DirectoryService):
                             shortNames    = tuple(xmlAccountRecord.shortNames),
                             xmlPrincipal  = xmlAccountRecord,
                         )
-                        d = self.augmentService.getAugmentRecord(record.guid,
-                            record.recordType)
-                        d.addCallback(lambda x:record.addAugmentInformation(x))
+                        if self.augmentService is not None:
+                            d = self.augmentService.getAugmentRecord(record.guid,
+                                record.recordType)
+                            d.addCallback(lambda x:record.addAugmentInformation(x))
 
                         self._addToIndex(record)
 
@@ -595,6 +596,13 @@ class XMLDirectoryRecord(DirectoryRecord):
     def groups(self):
         for shortName in self._groups:
             yield self.service.recordWithShortName(DirectoryService.recordType_groups, shortName)
+
+    def memberGUIDs(self):
+        results = set()
+        for recordType, shortName in self._members:
+            record = self.service.recordWithShortName(recordType, shortName)
+            results.add(record.guid)
+        return results
 
     def verifyCredentials(self, credentials):
         if self.enabled:

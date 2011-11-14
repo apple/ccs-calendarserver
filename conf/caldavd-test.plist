@@ -162,6 +162,11 @@
     <key>MaxAttendeesPerInstance</key>
     <integer>100</integer>
 
+    <!-- Maximum number of instances allowed during expansion -->
+    <!-- 0 for no limit -->
+    <key>MaxAllowedInstances</key>
+    <integer>3000</integer>
+
     <!-- Maximum number of instances allowed for a single RRULE -->
     <!-- 0 for no limit -->
     <key>MaxInstancesForRRULE</key>
@@ -257,12 +262,23 @@
             <string></string>
             <key>filter</key>
             <string></string>
-            <key>recordName</key>
-            <string>uid</string>
             <key>loginEnabledAttr</key>
             <string></string>
             <key>loginEnabledValue</key>
             <string>yes</string>
+            <key>mapping</key>
+            <dict>
+              <key>recordName</key>
+              <string>uid</string>
+              <key>fullName</key>
+              <string>cn</string>
+              <key>emailAddresses</key>
+              <string>mail</string>
+              <key>firstName</key>
+              <string>givenName</string>
+              <key>lastName</key>
+              <string>sn</string>
+            </dict>
           </dict>
           <key>groups</key>
           <dict>
@@ -274,19 +290,19 @@
             <string></string>
             <key>filter</key>
             <string></string>
-            <key>recordName</key>
-            <string>cn</string>
-          </dict>
-          <key>attributeMapping</key>
-          <dict>
-            <key>fullName</key>
-            <string>cn</string>
-            <key>emailAddresses</key>
-            <string>mail</string>
-            <key>firstName</key>
-            <string>givenName</string>
-            <key>lastName</key>
-            <string>sn</string>
+            <key>mapping</key>
+            <dict>
+              <key>recordName</key>
+              <string>cn</string>
+              <key>fullName</key>
+              <string>cn</string>
+              <key>emailAddresses</key>
+              <string>mail</string>
+              <key>firstName</key>
+              <string>givenName</string>
+              <key>lastName</key>
+              <string>sn</string>
+            </dict>
           </dict>
         </dict>
         <key>groupSchema</key>
@@ -297,6 +313,19 @@
           <string>apple-group-nestedgroup</string>
           <key>memberIdAttr</key>
           <string>apple-generateduid</string>
+        </dict>
+        <key>resourceSchema</key>
+        <dict>
+          <key>resourceInfoAttr</key>
+          <string>apple-resource-info</string>
+          <key>autoScheduleAttr</key>
+          <string></string>
+          <key>autoScheduleEnabledValue</key>
+          <string>yes</string>
+          <key>proxyAttr</key>
+          <string></string>
+          <key>readOnlyProxyAttr</key>
+          <string></string>
         </dict>
       </dict>
     </dict>
@@ -851,6 +880,10 @@
     <key>EnableSACLs</key>
     <false/>
 
+    <!-- Make entire server read-only -->
+    <key>EnableReadOnlyServer</key>
+    <false/>
+
     <!-- Web-based administration -->
     <key>EnableWebAdmin</key>
     <true/>
@@ -898,15 +931,23 @@
       </array>
     </dict>
 
-    <!-- Proxy Membership Caching -->
-    <key>ProxyCaching</key>
+    <!-- Group Membership Caching -->
+    <key>GroupCaching</key>
     <dict>
       <key>Enabled</key>
-      <false/>
+      <true/>
+      <key>EnableUpdater</key>
+      <true/>
       <key>MemcachedPool</key>
-      <string>ProxyDB</string>
+      <string>Default</string>
       <key>UpdateSeconds</key>
       <integer>300</integer>
+      <key>ExpireSeconds</key>
+      <integer>3600</integer>
+      <key>LockSeconds</key>
+      <integer>300</integer>
+      <key>UseExternalProxies</key>
+      <false/>
     </dict>
 
     <!--

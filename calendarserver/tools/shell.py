@@ -21,15 +21,19 @@ Interactive shell for navigating the data store.
 
 import os
 import sys
-import traceback
+import tty
+import termios
 from shlex import shlex
 
-#from twisted.python import log
+from twisted.python import log
+from twisted.python.log import startLogging
 from twisted.python.text import wordWrap
 from twisted.python.usage import Options, UsageError
-from twisted.internet.defer import succeed, maybeDeferred
-from twisted.conch.stdio import runWithProtocol as shellWithProtocol
-from twisted.conch.recvline import HistoricRecvLine
+from twisted.internet.defer import succeed, fail, Deferred
+from twisted.internet.defer import inlineCallbacks, returnValue
+from twisted.internet.stdio import StandardIO
+from twisted.conch.recvline import HistoricRecvLine as ReceiveLineProtocol
+from twisted.conch.insults.insults import ServerProtocol
 from twisted.application.service import Service
 
 from txdav.common.icommondatastore import NotFoundError
@@ -77,26 +81,50 @@ class ShellOptions(Options):
 class ShellService(Service, object):
     def __init__(self, store, options, reactor, config):
         super(ShellService, self).__init__()
-        self.store   = store
-        self.options = options
-        self.reactor = reactor
-        self.config = config
+        self.store      = store
+        self.options    = options
+        self.reactor    = reactor
+        self.config     = config
+        self.terminalFD = None
+        self.protocol   = None
 
     def startService(self):
         """
         Start the service.
         """
+        # For debugging
+        f = open("/tmp/shell.log", "w")
+        startLogging(f)
+
         super(ShellService, self).startService()
-        shellWithProtocol(lambda: ShellProtocol(self.store))
-        self.reactor.stop()
+
+        # Set up the terminal for interactive action
+        self.terminalFD = sys.__stdin__.fileno()
+        self._oldTerminalSettings = termios.tcgetattr(self.terminalFD)
+        tty.setraw(self.terminalFD)
+
+        self.protocol = ServerProtocol(lambda: ShellProtocol(self))
+        StandardIO(self.protocol)
 
     def stopService(self):
         """
         Stop the service.
         """
+        # Restore terminal settings
+        termios.tcsetattr(self.terminalFD, termios.TCSANOW, self._oldTerminalSettings)
+        os.write(self.terminalFD, "\r\x1bc\r")
 
 
-class ShellProtocol(HistoricRecvLine):
+class UnknownArguments (Exception):
+    """
+    Unknown arguments.
+    """
+    def __init__(self, arguments):
+        Exception.__init__(self, "Unknown arguments: %s" % (arguments,))
+        self.arguments = arguments
+
+
+class ShellProtocol(ReceiveLineProtocol):
     """
     Data store shell protocol.
     """
@@ -107,21 +135,24 @@ class ShellProtocol(HistoricRecvLine):
 
     ps = ("ds% ", "... ")
 
-    def __init__(self, store):
-        HistoricRecvLine.__init__(self)
-        self.wd = RootDirectory(store)
+    def __init__(self, service):
+        ReceiveLineProtocol.__init__(self)
+        self.service = service
+        self.wd = RootDirectory(service.store)
+        self.inputLines = []
+        self.activeCommand = None
 
     def connectionMade(self):
-        HistoricRecvLine.connectionMade(self)
+        ReceiveLineProtocol.connectionMade(self)
 
-        CTRL_C         = "\x03"
-        CTRL_D         = "\x04"
-        CTRL_L         = "\x0c"
-        CTRL_BACKSLASH = "\x1c"
+        CTRL_C = '\x03'
+        CTRL_D = '\x04'
+        CTRL_BACKSLASH = '\x1c'
+        CTRL_L = '\x0c'
 
-        self.keyHandlers[CTRL_C        ] = self.handle_INT
-        self.keyHandlers[CTRL_D        ] = self.handle_EOF
-        self.keyHandlers[CTRL_L        ] = self.handle_FF
+        self.keyHandlers[CTRL_C] = self.handle_INT
+        self.keyHandlers[CTRL_D] = self.handle_EOF
+        self.keyHandlers[CTRL_L] = self.handle_FF
         self.keyHandlers[CTRL_BACKSLASH] = self.handle_QUIT
 
     def handle_INT(self):
@@ -132,22 +163,21 @@ class ShellProtocol(HistoricRecvLine):
         self.pn = 0
         self.lineBuffer = []
         self.lineBufferIndex = 0
-        self.interpreter.resetBuffer()
 
         self.terminal.nextLine()
         self.terminal.write("KeyboardInterrupt")
         self.terminal.nextLine()
-        self.terminal.write(self.ps[self.pn])
+        self.exit()
 
     def handle_EOF(self):
         if self.lineBuffer:
-            self.terminal.write("\a")
+            self.terminal.write('\a')
         else:
             self.handle_QUIT()
 
     def handle_FF(self):
         """
-        Handle a "form feed" byte - generally used to request a screen
+        Handle a 'form feed' byte - generally used to request a screen
         refresh/redraw.
         """
         self.terminal.eraseDisplay()
@@ -155,56 +185,75 @@ class ShellProtocol(HistoricRecvLine):
         self.drawInputLine()
 
     def handle_QUIT(self):
-        self.terminal.loseConnection()
+        self.exit()
 
-    def prompt(self):
-        pass
+    def exit(self):
+        self.terminal.loseConnection()
+        self.service.reactor.stop()
 
     def lineReceived(self, line):
-        try:
-            lexer = shlex(line)
-            lexer.whitespace_split = True
+        if self.activeCommand is not None:
+            self.inputLines.append(line)
+            return
 
-            tokens = []
-            while True:
-                token = lexer.get_token()
-                if not token:
-                    break
-                tokens.append(token)
+        lexer = shlex(line)
+        lexer.whitespace_split = True
 
-            if tokens:
-                cmd = tokens.pop(0)
-                #print "Arguments: %r" % (tokens,)
+        tokens = []
+        while True:
+            token = lexer.get_token()
+            if not token:
+                break
+            tokens.append(token)
 
-                m = getattr(self, "cmd_%s" % (cmd,), None)
-                if m:
-                    def onError(f):
-                        print "Error: %s" % (f.getErrorMessage(),)
-                        print "-"*80
-                        f.printTraceback()
-                        print "-"*80
+        if tokens:
+            cmd = tokens.pop(0)
+            #print "Arguments: %r" % (tokens,)
 
-                    d = maybeDeferred(m, tokens)
-                    d.addCallback(lambda _: self.prompt)
-                    d.addErrback(onError)
-                    return d
+            m = getattr(self, "cmd_%s" % (cmd,), None)
+            if m:
+                def handleUnknownArguments(f):
+                    f.trap(UnknownArguments)
+                    self.terminal.write("%s\n" % (f.value,))
+
+                def handleException(f):
+                    self.terminal.write("Error: %s\n" % (f.value,))
+                    if not f.check(NotImplementedError):
+                        log.msg("-"*80 + "\n")
+                        log.msg(f.getTraceback())
+                        log.msg("-"*80 + "\n")
+
+                def next(_):
+                    self.activeCommand = None
+                    self.drawInputLine()
+                    if self.inputLines:
+                        line = self.inputLines.pop(0)
+                        self.lineReceived(line)
+
+                d = self.activeCommand = Deferred()
+                d.addCallback(lambda _: m(tokens))
+                if True:
+                    d.callback(None)
                 else:
-                    print "Unknown command: %s" % (cmd,)
-
-        except Exception, e:
-            print "Error: %s" % (e,)
-            print "-"*80
-            traceback.print_exc()
-            print "-"*80
+                    # Add time to test callbacks
+                    self.service.reactor.callLater(4, d.callback, None)
+                d.addErrback(handleUnknownArguments)
+                d.addErrback(handleException)
+                d.addCallback(next)
+            else:
+                self.terminal.write("Unknown command: %s\n" % (cmd,))
+                self.drawInputLine()
+        else:
+            self.drawInputLine()
 
     def cmd_pwd(self, tokens):
         """
         Print working directory.
         """
         if tokens:
-            print "Unknown arguments: %s" % (tokens,)
+            raise UnknownArguments(tokens)
             return
-        print self.wd
+        self.terminal.write("%s\n" % (self.wd,))
 
     def cmd_cd(self, tokens):
         """
@@ -216,21 +265,15 @@ class ShellProtocol(HistoricRecvLine):
             return
 
         if tokens:
-            print "Unknown arguments: %s" % (tokens,)
+            raise UnknownArguments(tokens)
             return
 
-        path = dirname.split("/")
-
-        def notFound(f):
-            f.trap(NotFoundError)
-            print "No such directory: %s" % (dirname,)
-
         def setWD(wd):
+            log.msg("wd -> %s" % (wd,))
             self.wd = wd
 
-        d = self.wd.locate(path)
+        d = self.wd.locate(dirname.split("/"))
         d.addCallback(setWD)
-        d.addErrback(notFound)
         return d
 
     def cmd_ls(self, tokens):
@@ -238,26 +281,43 @@ class ShellProtocol(HistoricRecvLine):
         List working directory.
         """
         if tokens:
-            print "Unknown arguments: %s" % (tokens,)
+            raise UnknownArguments(tokens)
             return
 
-        for name in self.wd.list():
-            print name
+        def write(names):
+            #
+            # FIXME: this can be ugly if, for example, there are
+            # zillions of calendar homes or events to output. Paging
+            # would be good.
+            #
+            for name in names:
+                self.terminal.write("%s\n" % (name,))
+
+        d = self.wd.list()
+        d.addCallback(write)
+        return d
 
     def cmd_info(self, tokens):
         """
         Print information about working directory.
         """
+        if tokens:
+            raise UnknownArguments(tokens)
+            return
+
+        def write(description):
+            self.terminal.write(description)
+            self.terminal.nextLine()
+
         d = self.wd.describe()
-        d.addCallback(lambda x: sys.stdout.write(x))
+        d.addCallback(write)
         return d
 
     def cmd_exit(self, tokens):
         """
         Exit the shell.
         """
-        self.terminal.loseConnection()
-        # FIXME: This is insufficient.
+        self.exit()
 
     def cmd_python(self, tokens):
         """
@@ -282,17 +342,21 @@ class Directory(object):
         return "/" + "/".join(self.path)
 
     def describe(self):
-        return succeed(str(self))
+        return succeed("%s (%s)" % (self, self.__class__.__name__))
 
     def locate(self, path):
+        #log.msg("locate(%r)" % (path,))
+
         if not path:
             return succeed(RootDirectory(self.store))
 
         name = path[0]
+        #log.msg("  name: %s" % (name,))
         if not name:
-            return succeed(self.locate(path[1:]))
+            return self.locate(path[1:])
 
         path = list(path)
+        #log.msg("  path: %s" % (path,))
 
         if name.startswith("/"):
             path[0] = path[0][1:]
@@ -300,24 +364,29 @@ class Directory(object):
         else:
             path.pop(0)
             subdir = self.subdir(name)
+        #log.msg("  subdir: %s" % (subdir,))
 
         if path:
-            return subdir.addCallback(lambda path: self.locate(path))
+            return subdir.addCallback(lambda subdir: subdir.locate(path))
         else:
             return subdir
 
     def subdir(self, name):
+        #log.msg("subdir(%r)" % (name,))
         if not name:
             return succeed(self)
         if name == ".":
             return succeed(self)
         if name == "..":
-            return RootDirectory(self.store).locate(self.path[:-1])
+            path = self.path[:-1]
+            if not path:
+                path = "/"
+            return RootDirectory(self.store).locate(path)
 
-        raise NotFoundError("Directory %r has no subdirectory %r" % (str(self), name))
+        return fail(NotFoundError("Directory %r has no subdirectory %r" % (str(self), name)))
 
     def list(self):
-        return ()
+        return succeed(())
 
 
 class RootDirectory(Directory):
@@ -344,32 +413,31 @@ class RootDirectory(Directory):
         return Directory.subdir(self, name)
 
     def list(self):
-        return ("%s/" % (n,) for n in self._childClasses)
+        return succeed(("%s/" % (n,) for n in self._childClasses))
 
 
 class UIDDirectory(Directory):
     """
     Directory containing all principals by UID.
     """
+    @inlineCallbacks
     def subdir(self, name):
-        txn = self.store.newTransaction()
+        txn  = self.store.newTransaction()
+        home = (yield txn.calendarHomeWithUID(name))
 
-        def gotHome(home):
-            if home:
-                return HomeDirectory(self.store, self.path + (name,), home)
-
-            return Directory.subdir(self, name)
-
-        d = txn.calendarHomeWithUID(name)
-        d.addCallback(gotHome)
-        return d
+        if home:
+            returnValue(CalendarHomeDirectory(self.store, self.path + (name,), home))
+        else:
+            raise NotFoundError("No calendar home for UID %r" % (name,))
 
     def list(self):
-        for (txn, home) in self.store.eachCalendarHome():
-            yield home.uid()
+        raise NotImplementedError("UIDDirectory.list() isn't implemented.")
+        d = self.store.eachCalendarHome()
+        d.addCallback(lambda homes: (home.uid() for (txn, home) in homes))
+        return d
 
 
-class HomeDirectory(Directory):
+class CalendarHomeDirectory(Directory):
     """
     Home directory.
     """
@@ -378,17 +446,59 @@ class HomeDirectory(Directory):
 
         self.home = home
 
+    @inlineCallbacks
     def describe(self):
-        return succeed(
-            """Calendar home for UID: %(uid)s\n"""
-            """Quota: %(quotaUsed)s of %(quotaMax)s (%(quotaPercent).2s%%)\n"""
-            % {
-                "uid"          : self.home.uid(),
-                "quotaUsed"    : self.home.quotaUsed(),
-                "quotaMax"     : self.home.quotaAllowedBytes(),
-                "quotaPercent" : self.home.quotaUsed() / self.home.quotaAllowedBytes(),
-            }
-        )
+        # created() -> int
+        # modified() -> int
+        # properties -> IPropertyStore
+
+        uid          = (yield self.home.uid())
+        created      = (yield self.home.created())
+        modified     = (yield self.home.modified())
+        quotaUsed    = (yield self.home.quotaUsedBytes())
+        quotaAllowed = (yield self.home.quotaAllowedBytes())
+        properties   = (yield self.home.properties())
+
+        result = []
+        result.append("Calendar home for UID: %s" % (uid,))
+        if created is not None:
+            # FIXME: convert to string
+            result.append("Created: %s" % (created,))
+        if modified is not None:
+            # FIXME: convert to string
+            result.append("Last modified: %s" % (modified,))
+        if quotaUsed is not None:
+            result.append("Quota: %s of %s (%.2s%%)"
+                          % (quotaUsed, quotaAllowed, quotaUsed / quotaAllowed))
+
+        if properties:
+            for name in sorted(properties):
+                result.append("%s: %s" % (name, properties[name]))
+
+        returnValue("\n".join(result))
+
+    @inlineCallbacks
+    def subdir(self, name):
+        calendar = (yield self.home.calendarWithName(name))
+        if calendar:
+            returnValue(Calendar(self.store, self.path + (name,), calendar))
+        else:
+            raise NotFoundError("No calendar named %r" % (name,))
+
+    @inlineCallbacks
+    def list(self):
+        calendars = (yield self.home.calendars())
+        returnValue((c.name() for c in calendars))
+
+
+class Calendar(Directory):
+    """
+    Calendar.
+    """
+    def __init__(self, store, path, calendar):
+        Directory.__init__(self, store, path)
+
+        self.calendar = calendar
 
 
 def main(argv=sys.argv, stderr=sys.stderr, reactor=None):

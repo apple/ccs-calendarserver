@@ -61,10 +61,22 @@ class sqlgenerator(object):
     TIMESPANTEST_TAIL_PIECE = " AND TIMESPAN.RESOURCEID == RESOURCE.RESOURCEID"
     TIMESPANTEST_JOIN_ON_PIECE = "TIMESPAN.INSTANCEID == TRANSPARENCY.INSTANCEID AND TRANSPARENCY.PERUSERID == %s"
 
-    def __init__(self, expr, calendarid, userid):
+    def __init__(self, expr, calendarid, userid, freebusy=False):
+        """
+        
+        @param expr: the query expression object model
+        @type expr: L{twistedcaldav.query.calendarqueryfilter.Filter}
+        @param calendarid: resource ID - not used for file-based per-calendar indexes
+        @type calendarid: C{int}
+        @param userid: user for whom query is being done - query will be scoped to that user's privileges and their transparency
+        @type userid: C{str}
+        @param freebusy: whether or not a freebusy query is being done - if it is, additional time range and transparency information is returned
+        @type freebusy: C{bool}
+        """
         self.expression = expr
         self.calendarid = calendarid
         self.userid = userid if userid else ""
+        self.freebusy = freebusy
         self.usedtimespan = False
         
     def generate(self):
@@ -82,21 +94,33 @@ class sqlgenerator(object):
         self.usedtimespan = False
         
         # Generate ' where ...' partial statement
-        self.sout.write(self.WHERE)
         self.generateExpression(self.expression)
             
         # Prefix with ' from ...' partial statement
         select = self.FROM + self.RESOURCEDB
         if self.usedtimespan:
-            self.frontArgument(self.userid)
-            select += ", %s, %s LEFT OUTER JOIN %s ON (%s)" % (
-                self.TIMESPANDB,
-                self.PERUSERDB,
-                self.TRANSPARENCYDB,
-                self.TIMESPANTEST_JOIN_ON_PIECE
-            )
+            
+            # Free busy needs transparency join
+            if self.freebusy:
+                self.frontArgument(self.userid)
+                select += ", %s LEFT OUTER JOIN %s ON (%s)" % (
+                    self.TIMESPANDB,
+                    self.TRANSPARENCYDB,
+                    self.TIMESPANTEST_JOIN_ON_PIECE
+                )
+            else:
+                select += ", %s" % (
+                    self.TIMESPANDB,
+                )
+        select += self.WHERE
+        if self.usedtimespan:
+            select += "("
         select += self.sout.getvalue()
-        
+        if self.usedtimespan:
+            if self.calendarid:
+                self.setArgument(self.calendarid)
+            select += ")%s" % (self.TIMESPANTEST_TAIL_PIECE,)
+    
         select = select % tuple(self.substitutions)
 
         return select, self.arguments
@@ -161,9 +185,6 @@ class sqlgenerator(object):
                 self.setArgument(expr.endfloat)
                 test = self.TIMESPANTEST_NOSTART
                 
-            if self.calendarid:
-                self.setArgument(self.calendarid)
-            test += self.TIMESPANTEST_TAIL_PIECE
             self.sout.write(test)
             self.usedtimespan = True
         

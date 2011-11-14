@@ -334,7 +334,7 @@ class ScheduleOutboxResource (CalendarSchedulingCollectionResource):
         scheduler = CalDAVScheduler(request, self)
 
         # Do the POST processing treating
-        result = (yield scheduler.doSchedulingViaPOST())
+        result = (yield scheduler.doSchedulingViaPOST(self._associatedTransaction))
         returnValue(result.response())
 
 
@@ -405,6 +405,9 @@ class IScheduleInboxResource (ReadOnlyNoCopyResourceMixIn, DAVResource):
     def resourceType(self):
         return davxml.ResourceType.ischeduleinbox
 
+    def contentType(self):
+        return MimeType.fromString("text/html; charset=utf-8");
+
     def isCollection(self):
         return False
 
@@ -453,7 +456,7 @@ class IScheduleInboxResource (ReadOnlyNoCopyResourceMixIn, DAVResource):
          
         # Do the POST processing treating this as a non-local schedule
         try:
-            result = (yield scheduler.doSchedulingViaPOST(use_request_headers=True))
+            result = (yield scheduler.doSchedulingViaPOST(txn, use_request_headers=True))
         except Exception, e:
             yield txn.abort()
             raise e

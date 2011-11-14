@@ -441,15 +441,8 @@ class SharedCollectionMixin(object):
         if type(cn) is not list:
             cn = [cn]
             
-        def _defer(resultset):
-            results = [result if success else False for success, result in resultset]
-            if resultIsList:
-                return results
-            else:
-                return results[0]
-
         dl = [self.inviteSingleUserToShare(user, cn, ace, summary, request) for user, cn in zip(userid, cn)]
-        return DeferredList(dl).addCallback(_defer)
+        return self._processShareActionList(dl, resultIsList)
 
     def uninviteUserToShare(self, userid, ace, request):
         """ Send out in uninvite first, and then remove this user from the share list."""
@@ -459,9 +452,13 @@ class SharedCollectionMixin(object):
         # anything known to be invalid.
 
         # TODO: Check if this collection is shared, and error out if it isn't
+        resultIsList = True
         if type(userid) is not list:
             userid = [userid]
-        return DeferredList([self.uninviteSingleUserFromShare(user, ace, request) for user in userid]).addCallback(lambda _:True)
+            resultIsList = False
+
+        dl = [self.uninviteSingleUserFromShare(user, ace, request) for user in userid]
+        return self._processShareActionList(dl, resultIsList)
 
     def inviteUserUpdateToShare(self, userid, cn, aceOLD, aceNEW, summary, request):
 
@@ -472,17 +469,15 @@ class SharedCollectionMixin(object):
         if type(cn) is not list:
             cn = [cn]
             
+        dl = [self.inviteSingleUserUpdateToShare(user, cn, aceOLD, aceNEW, summary, request) for user, cn in zip(userid, cn)]
+        return self._processShareActionList(dl, resultIsList)
+
+    def _processShareActionList(self, dl, resultIsList):
         def _defer(resultset):
             results = [result if success else False for success, result in resultset]
-            if resultIsList:
-                return results
-            else:
-                return results[0]
-
-        dl = [self.inviteSingleUserUpdateToShare(user, cn, aceOLD, aceNEW, summary, request) for user, cn in zip(userid, cn)]
+            return results if resultIsList else results[0]
         return DeferredList(dl).addCallback(_defer)
-
-
+        
     @inlineCallbacks
     def inviteSingleUserToShare(self, userid, cn, ace, summary, request):
         
@@ -519,7 +514,7 @@ class SharedCollectionMixin(object):
         if record:
             result = (yield self.uninviteRecordFromShare(record, request))
         else:
-            result = True
+            result = False
         returnValue(result)
 
 
@@ -701,6 +696,8 @@ class SharedCollectionMixin(object):
 
             # Only make changes if all OK
             if len(badusers) == 0:
+                okusers = set()
+                badusers = set()
                 # Special case removing and adding the same user and treat that as an add
                 sameUseridInRemoveAndSet = [u for u in removeDict.keys() if u in setDict]
                 for u in sameUseridInRemoveAndSet:
@@ -719,6 +716,12 @@ class SharedCollectionMixin(object):
                     result = (yield self.inviteUserUpdateToShare(userid, cn, removeACL, newACL, summary, request))
                     (okusers if result else badusers).add(userid)
 
+                # In this case bad items do not prevent ok items from being processed
+                ok_code = responsecode.OK
+            else:
+                # In this case a bad item causes all ok items not to be processed so failed dependency is returned
+                ok_code = responsecode.FAILED_DEPENDENCY
+
             # Do a final validation of the entire set of invites
             yield self.validateInvites()
             
@@ -726,7 +729,7 @@ class SharedCollectionMixin(object):
             if badusers:
                 xml_responses = []
                 xml_responses.extend([
-                    davxml.StatusResponse(davxml.HRef(userid), davxml.Status.fromResponseCode(responsecode.FAILED_DEPENDENCY))
+                    davxml.StatusResponse(davxml.HRef(userid), davxml.Status.fromResponseCode(ok_code))
                     for userid in sorted(okusers)
                 ])
                 xml_responses.extend([

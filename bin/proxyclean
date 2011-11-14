@@ -16,10 +16,15 @@
 # limitations under the License.
 ##
 
+import sys
 import commands
 import getopt
 import os
-import sys
+
+try:
+    import _calendarserver_preamble
+except ImportError:
+    sys.exc_clear()
 
 from twext.python.plistlib import readPlist
 

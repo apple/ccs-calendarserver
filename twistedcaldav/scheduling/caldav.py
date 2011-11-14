@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2005-2010 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2011 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -150,7 +150,7 @@ class ScheduleViaCalDAV(DeliveryService):
         # Do implicit scheduling message processing.
         try:
             processor = ImplicitProcessor()
-            _ignore_processed, autoprocessed, changes = (yield processor.doImplicitProcessing(
+            _ignore_processed, autoprocessed, store_inbox, changes = (yield processor.doImplicitProcessing(
                 self.scheduler.request,
                 self.scheduler.calendar,
                 self.scheduler.originator,
@@ -166,14 +166,7 @@ class ScheduleViaCalDAV(DeliveryService):
             responses.add(recipient.cuaddr, Failure(exc_value=err), reqstatus=e.msg)
             returnValue(False)
 
-        if autoprocessed:
-            # No need to write the inbox item as it has already been auto-processed
-            responses.add(recipient.cuaddr, responsecode.OK, reqstatus=iTIPRequestStatus.MESSAGE_DELIVERED)
-            if not hasattr(self.scheduler.request, "extendedLogItems"):
-                self.scheduler.request.extendedLogItems = {}
-            self.scheduler.request.extendedLogItems["itip.auto"] = self.scheduler.request.extendedLogItems.get("itip.auto", 0) + 1
-            returnValue(True)
-        else:
+        if store_inbox:
             # Copy calendar to inbox 
             try:
                 from twistedcaldav.method.put_common import StoreCalendarObjectResource
@@ -198,8 +191,6 @@ class ScheduleViaCalDAV(DeliveryService):
                 responses.add(recipient.cuaddr, Failure(exc_value=err), reqstatus=iTIPRequestStatus.NO_AUTHORITY)
                 returnValue(False)
             else:
-                responses.add(recipient.cuaddr, responsecode.OK, reqstatus=iTIPRequestStatus.MESSAGE_DELIVERED)
-    
                 # Store CALDAV:originator property
                 child.writeDeadProperty(caldavxml.Originator(davxml.HRef(self.scheduler.originator.cuaddr)))
             
@@ -209,9 +200,14 @@ class ScheduleViaCalDAV(DeliveryService):
                 # Store CS:schedule-changes property if present
                 if changes:
                     child.writeDeadProperty(changes)
-                    
-                returnValue(True)
-    
+
+        responses.add(recipient.cuaddr, responsecode.OK, reqstatus=iTIPRequestStatus.MESSAGE_DELIVERED)
+        if autoprocessed:
+            if not hasattr(self.scheduler.request, "extendedLogItems"):
+                self.scheduler.request.extendedLogItems = {}
+            self.scheduler.request.extendedLogItems["itip.auto"] = self.scheduler.request.extendedLogItems.get("itip.auto", 0) + 1
+        returnValue(True)
+
     @inlineCallbacks
     def generateFreeBusyResponse(self, recipient, responses, organizerProp, organizerPrincipal, uid):
 

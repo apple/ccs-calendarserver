@@ -41,7 +41,8 @@ CALDAVD_CONFIG_DIR = "private/etc/caldavd"
 CARDDAVD_CONFIG_DIR = "private/etc/carddavd"
 CALDAVD_PLIST = "caldavd.plist"
 CARDDAVD_PLIST = "carddavd.plist"
-NEW_SERVER_ROOT = "/Library/Server/Calendar and Contacts"
+NEW_SERVER_DIR = "Calendar and Contacts"
+NEW_SERVER_ROOT = "/Library/Server/" + NEW_SERVER_DIR
 RESOURCE_MIGRATION_TRIGGER = "trigger_resource_migration"
 SERVER_ADMIN = "/usr/sbin/serveradmin"
 LAUNCHCTL = "/bin/launchctl"
@@ -157,7 +158,7 @@ RedirectHTTPToHTTPS
 SSLPort
 """.split()
 
-ignoredKkeys = """
+ignoredKeys = """
 ControlSocket
 EnableAnonymousReadRoot
 EnableFindSharedReport
@@ -275,8 +276,8 @@ def examineRunState(options):
     CardDAV was enabled
     """
 
-    enableCalDAV = False
-    enableCardDAV = False
+    enableCalDAV = None
+    enableCardDAV = None
 
     try:
         disabled = isServiceDisabled(options.sourceRoot, CALDAV_LAUNCHD_KEY)
@@ -295,6 +296,27 @@ def examineRunState(options):
     except ServiceStateError, e:
         log("Couldn't determine previous state of addressbook service '%s': %s" %
             (CARDDAV_LAUNCHD_KEY, e))
+
+    if enableCalDAV:
+        # Check previous plist in case previous system was Lion, since there
+        # is now only one launchd key for both services
+        oldCalDAVPlistPath = os.path.join(options.sourceRoot,
+            CALDAVD_CONFIG_DIR, CALDAVD_PLIST)
+        if os.path.exists(oldCalDAVPlistPath):
+            log("Examining previous caldavd.plist for EnableCalDAV and EnableCardDAV: %s" % (oldCalDAVPlistPath,))
+            oldCalDAVDPlist = readPlist(oldCalDAVPlistPath)
+            if "EnableCalDAV" in oldCalDAVDPlist:
+                enableCalDAV = oldCalDAVDPlist["EnableCalDAV"]
+                log("Based on caldavd.plist, setting EnableCalDAV to %s" % (enableCalDAV,))
+            if "EnableCardDAV" in oldCalDAVDPlist:
+                enableCardDAV = oldCalDAVDPlist["EnableCardDAV"]
+                log("Based on caldavd.plist, setting EnableCardDAV to %s" % (enableCardDAV,))
+
+    # A value of None means we weren't able to determine, so default to off
+    if enableCalDAV is None:
+        enableCalDAV = False
+    if enableCardDAV is None:
+        enableCardDAV = False
 
     return (enableCalDAV, enableCardDAV)
 
@@ -654,7 +676,6 @@ def relocateData(sourceRoot, targetRoot, oldServerRootValue,
 
     log("RelocateData: sourceRoot=%s, targetRoot=%s, oldServerRootValue=%s, oldCalDocumentRootValue=%s, oldCalDataRootValue=%s, oldABDocumentRootValue=%s, uid=%d, gid=%d" % (sourceRoot, targetRoot, oldServerRootValue, oldCalDocumentRootValue, oldCalDataRootValue, oldABDocumentRootValue, uid, gid))
 
-
     if oldServerRootValue:
         newServerRootValue = oldServerRootValue
         # Source is Lion; see if ServerRoot refers to an external volume
@@ -697,9 +718,31 @@ def relocateData(sourceRoot, targetRoot, oldServerRootValue,
     # Old Calendar DocumentRoot
     if oldCalDocumentRootValueProcessed:
         if diskAccessor.exists(oldCalDocumentRootValueProcessed):
-            # Must be on an external volume if we see it existing at the point
-            # so don't copy it
-            newDocumentRoot = newDocumentRootValue = oldCalDocumentRootValueProcessed
+            # Must be on an external volume if we see it existing at this point
+
+            # If data is pre-lion (no ServerRoot value), and DocumentRoot
+            # is external, let's consolidate everything so that the old
+            # DocumentRoot becomes the new ServerRoot, and Documents and
+            # Data become children
+            if not oldServerRootValue: # pre-lion
+                newServerRoot = newServerRootValue = os.path.join(os.path.dirname(oldCalDocumentRootValue.rstrip("/")), NEW_SERVER_DIR)
+                if diskAccessor.exists(newServerRootValue):
+                    diskAccessor.rename(newServerRootValue, newServerRootValue + ".bak")
+                diskAccessor.mkdir(newServerRootValue)
+                newDocumentRoot = newDocumentRootValue = os.path.join(newServerRootValue, "Documents")
+                # Move old DocumentRoot under new ServerRoot
+                diskAccessor.rename(oldCalDocumentRootValue, newDocumentRoot)
+                newDataRoot = newDataRootValue = os.path.join(newServerRootValue, "Data")
+                if diskAccessor.exists(absolutePathWithRoot(sourceRoot, oldCalDataRootValueProcessed)):
+                    diskAccessor.ditto(
+                        absolutePathWithRoot(sourceRoot, oldCalDataRootValueProcessed),
+                        newDataRoot
+                    )
+                    diskAccessor.chown(newDataRoot, uid, gid, recursive=True)
+                oldCalDataRootValueProcessed = None # to bypass processing below
+
+            else: # Lion or later
+                newDocumentRoot = newDocumentRootValue = oldCalDocumentRootValueProcessed
         elif diskAccessor.exists(absolutePathWithRoot(sourceRoot, oldCalDocumentRootValueProcessed)):
             diskAccessor.ditto(
                 absolutePathWithRoot(sourceRoot, oldCalDocumentRootValueProcessed),
@@ -710,7 +753,7 @@ def relocateData(sourceRoot, targetRoot, oldServerRootValue,
     # Old Calendar DataRoot
     if oldCalDataRootValueProcessed:
         if diskAccessor.exists(oldCalDataRootValueProcessed):
-            # Must be on an external volume if we see it existing at the point
+            # Must be on an external volume if we see it existing at this point
             # so don't copy it
             newDataRootValue = oldCalDataRootValueProcessed
         elif diskAccessor.exists(

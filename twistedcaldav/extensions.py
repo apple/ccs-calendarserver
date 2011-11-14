@@ -30,12 +30,15 @@ __all__ = [
 ]
 
 import urllib
-import cgi
 import time
+from itertools import cycle
 
-from twisted.internet.defer import succeed, DeferredList, maybeDeferred
+from twisted.internet.defer import succeed, maybeDeferred
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.cred.error import LoginFailed, UnauthorizedLogin
+
+from twisted.web.template import Element, XMLFile, renderer, tags, flattenString
+from twisted.python.modules import getModule
 
 from twext.web2 import responsecode, server
 from twext.web2.auth.wrapper import UnauthorizedResponse
@@ -51,7 +54,10 @@ from twext.web2.dav.http import MultiStatusResponse
 from twext.web2.dav.idav import IDAVPrincipalResource
 from twext.web2.dav.static import DAVFile as SuperDAVFile
 from twext.web2.dav.resource import DAVResource as SuperDAVResource
-from twext.web2.dav.resource import DAVPrincipalResource as SuperDAVPrincipalResource
+from twext.web2.dav.resource import (
+    DAVPrincipalResource as SuperDAVPrincipalResource
+)
+from twisted.internet.defer import gatherResults
 from twext.web2.dav.method import prop_common
 from twext.web2.dav.method.report import max_number_of_matches
 
@@ -59,10 +65,13 @@ from twext.python.log import Logger, LoggingMixIn
 
 from twistedcaldav import customxml
 from twistedcaldav.customxml import calendarserver_namespace
-from twistedcaldav.util import Alternator
+
 from twistedcaldav.directory.sudo import SudoDirectoryService
 from twistedcaldav.directory.directory import DirectoryService
 from twistedcaldav.method.report import http_REPORT
+
+
+thisModule = getModule(__name__)
 
 log = Logger()
 
@@ -429,196 +438,155 @@ class DirectoryPrincipalPropertySearchMixIn(object):
 
         if resultsWereLimited is not None:
             if resultsWereLimited[0] == "server":
-                log.err("Too many matching resources in principal-property-search report")
+                log.err("Too many matching resources in "
+                        "principal-property-search report")
             responses.append(davxml.StatusResponse(
                 davxml.HRef.fromString(request.uri),
-                davxml.Status.fromResponseCode(responsecode.INSUFFICIENT_STORAGE_SPACE),
+                davxml.Status.fromResponseCode(
+                    responsecode.INSUFFICIENT_STORAGE_SPACE
+                ),
                 davxml.Error(davxml.NumberOfMatchesWithinLimits()),
-                davxml.ResponseDescription("Results limited by %s at %d" % resultsWereLimited),
+                davxml.ResponseDescription("Results limited by %s at %d"
+                                           % resultsWereLimited),
             ))
         returnValue(MultiStatusResponse(responses))
 
 
-class DirectoryRenderingMixIn(object):
 
-    def directoryStyleSheet(self):
-        return (
-            "th, .even td, .odd td { padding-right: 0.5em; font-family: monospace}"
-            ".even-dir { background-color: #efe0ef }"
-            ".even { background-color: #eee }"
-            ".odd-dir {background-color: #f0d0ef }"
-            ".odd { background-color: #dedede }"
-            ".icon { text-align: center }"
-            ".listing {"
-              "margin-left: auto;"
-              "margin-right: auto;"
-              "width: 50%;"
-              "padding: 0.1em;"
-            "}"
-            "body { border: 0; padding: 0; margin: 0; background-color: #efefef;}"
-            "h1 {padding: 0.1em; background-color: #777; color: white; border-bottom: thin white dashed;}"
+class DirectoryElement(Element):
+    """
+    A L{DirectoryElement} is an L{Element} for rendering the contents of a
+    L{DirectoryRenderingMixIn} resource as HTML.
+    """
+
+    loader = XMLFile(
+        thisModule.filePath.sibling("directory-listing.html").open()
+    )
+
+    def __init__(self, resource):
+        """
+        @param resource: the L{DirectoryRenderingMixIn} resource being
+            listed.
+        """
+        super(DirectoryElement, self).__init__()
+        self.resource = resource
+
+
+    @renderer
+    def resourceDetail(self, request, tag):
+        """
+        Renderer which returns a distinct element for this resource's data.
+        Subclasses should override.
+        """
+        return ''
+
+
+    @renderer
+    def children(self, request, tag):
+        """
+        Renderer which yields all child object tags as table rows.
+        """
+        whenChildren = (
+            maybeDeferred(self.resource.listChildren)
+            .addCallback(sorted)
+            .addCallback(
+                lambda names: gatherResults(
+                    [maybeDeferred(self.resource.getChild, x) for x in names]
+                )
+                .addCallback(lambda children: zip(children, names))
+            )
         )
+        @whenChildren.addCallback
+        def gotChildren(children):
+            for even, [child, name] in zip(cycle(["odd", "even"]), children):
+                [url, name, size, lastModified, contentType] = map(
+                    str, self.resource.getChildDirectoryEntry(
+                        child, name, request)
+                )
+                yield tag.clone().fillSlots(
+                    url=url, name=name, size=str(size),
+                    lastModified=lastModified, even=even, type=contentType,
+                )
+        return whenChildren
+
+
+    @renderer
+    def main(self, request, tag):
+        """
+        Main renderer; fills slots for title, etc.
+        """
+        return tag.fillSlots(name=request.path)
+
+
+    @renderer
+    def properties(self, request, tag):
+        """
+        Renderer which yields all properties as table row tags.
+        """
+        whenPropertiesListed = self.resource.listProperties(request)
+        @whenPropertiesListed.addCallback
+        def gotProperties(qnames):
+            accessDeniedValue = object()
+
+            def gotError(f, name):
+                f.trap(HTTPError)
+                code = f.value.response.code
+                if code == responsecode.NOT_FOUND:
+                    log.err("Property %s was returned by listProperties() "
+                            "but does not exist for resource %s."
+                            % (name, self.resource))
+                    return (name, None)
+                if code == responsecode.UNAUTHORIZED:
+                    return (name, accessDeniedValue)
+                return f
+
+            whenAllProperties = gatherResults([
+                maybeDeferred(self.resource.readProperty, qn, request)
+                .addCallback(lambda p, iqn=qn: (p.sname(), p.toxml())
+                             if p is not None else ("{%s}%s" % iqn, None) )
+                .addErrback(gotError, "{%s}%s" % qn)
+                for qn in sorted(qnames)
+            ])
+
+            @whenAllProperties.addCallback
+            def gotValues(items):
+                for even, [name, value] in zip(cycle(["odd", "even"]), items):
+                    if value is None:
+                        value = tags.i("(no value)")
+                    elif value is accessDeniedValue:
+                        value = tags.i("(access forbidden)")
+                    yield tag.clone().fillSlots(
+                        even=even, name=name, value=value,
+                    )
+            return whenAllProperties
+        return whenPropertiesListed
+
+
+
+class DirectoryRenderingMixIn(object):
 
     def renderDirectory(self, request):
         """
         Render a directory listing.
         """
-        output = [
-            """<html>"""
-            """<head>"""
-            """<title>Collection listing for %(path)s</title>"""
-            """<style>%(style)s</style>"""
-            """</head>"""
-            """<body>"""
-            % {
-                "path": "%s" % cgi.escape(urllib.unquote(request.path)),
-                "style": self.directoryStyleSheet(),
-            }
-        ]
-
-        def gotBody(body, output=output):
-            output.append(body)
-            output.append("</body></html>")
-
-            output = "".join(output)
-
-            if isinstance(output, unicode):
-                output = output.encode("utf-8")
-
+        def gotBody(output):
             mime_params = {"charset": "utf-8"}
-
             response = Response(200, {}, output)
-            response.headers.setHeader("content-type", MimeType("text", "html", mime_params))
-            return response
-
-        d = self.renderDirectoryBody(request)
-        d.addCallback(gotBody)
-        return d
-
-    @inlineCallbacks
-    def renderDirectoryBody(self, request):
-        """
-        Generate a directory listing table in HTML.
-        """
-        output = [
-            """<div class="directory-listing">"""
-            """<h1>Collection Listing</h1>"""
-            """<table>"""
-            """<tr><th>Name</th> <th>Size</th> <th>Last Modified</th> <th>MIME Type</th></tr>"""
-        ]
-
-        even = Alternator()
-        for name in sorted((yield self.listChildren())):
-            child = (yield maybeDeferred(self.getChild, name))
-
-            url, name, size, lastModified, contentType = self.getChildDirectoryEntry(child, name, request)
-
-            # FIXME: gray out resources that are not readable
-            output.append(
-                """<tr class="%(even)s">"""
-                """<td><a href="%(url)s">%(name)s</a></td>"""
-                """<td align="right">%(size)s</td>"""
-                """<td>%(lastModified)s</td>"""
-                """<td>%(type)s</td>"""
-                """</tr>"""
-                % {
-                    "even": even.state() and "even" or "odd",
-                    "url": url,
-                    "name": cgi.escape(name),
-                    "size": size,
-                    "lastModified": lastModified,
-                    "type": contentType,
-                }
+            response.headers.setHeader(
+                "content-type",
+                MimeType("text", "html", mime_params)
             )
+            return response
+        return flattenString(request, self.htmlElement()).addCallback(gotBody)
 
-        output.append(
-            """</table></div>"""
-            """<div class="directory-listing">"""
-            """<h1>Properties</h1>"""
-            """<table>"""
-            """<tr><th>Name</th> <th>Value</th></tr>"""
-        )
 
-        def gotProperties(qnames):
-            ds = []
+    def htmlElement(self):
+        """
+        Create a L{DirectoryElement} or appropriate subclass for rendering this
+        resource.
+        """
+        return DirectoryElement(self)
 
-            noneValue         = object()
-            accessDeniedValue = object()
-
-            def gotProperty(property):
-                if property is None:
-                    name = "{%s}%s" % qname
-                    value = noneValue
-                else:
-                    name = property.sname()
-                    value = property.toxml()
-
-                return (name, value)
-
-            def gotError(f, qname):
-                f.trap(HTTPError)
-
-                name = "{%s}%s" % qname
-                code = f.value.response.code
-
-                if code == responsecode.NOT_FOUND:
-                    log.err("Property {%s}%s was returned by listProperties() but does not exist for resource %s."
-                            % (qname[0], qname[1], self))
-                    return (name, None)
-
-                if code == responsecode.UNAUTHORIZED:
-                    return (name, accessDeniedValue)
-
-                return f
-
-            for qname in sorted(qnames):
-                d = self.readProperty(qname, request)
-                d.addCallback(gotProperty)
-                d.addErrback(gotError, qname)
-                ds.append(d)
-
-            even = Alternator()
-
-            def gotValues(items):
-                for result, (name, value) in items:
-                    if not result:
-                        continue
-
-                    if value is None:
-                        # An AssertionError might be appropriate, but
-                        # we may as well continue rendering.
-                        log.err("Unexpected None value for property: %s" % (name,))
-                        continue
-                    elif value is noneValue:
-                        value = "<i>(no value)</i>"
-                    elif value is accessDeniedValue:
-                        value = "<i>(access forbidden)</i>"
-                    else:
-                        value = cgi.escape(value)
-
-                    output.append(
-                        str("""<tr class="%(even)s">"""
-                            """<td valign="top">%(name)s</td>"""
-                            """<td><pre>%(value)s</pre></td>"""
-                            """</tr>"""
-                            % {
-                                "even": even.state() and "even" or "odd",
-                                "name": name,
-                                "value": value,
-                            }
-                        )
-                    )
-
-                output.append("</div>")
-                return "".join(output)
-
-            d = DeferredList(ds)
-            d.addCallback(gotValues)
-            return d
-
-        qnames = (yield self.listProperties(request))
-        result = (yield gotProperties(qnames))
-        returnValue(result)
 
     def getChildDirectoryEntry(self, child, name, request):
         def orNone(value, default="?", f=None):
@@ -628,7 +596,7 @@ class DirectoryRenderingMixIn(object):
                 return f(value)
             else:
                 return value
-            
+
         url = urllib.quote(name, '/')
         if isinstance(child, DAVResource) and child.isCollection():
             url += "/"
@@ -666,9 +634,8 @@ class DirectoryRenderingMixIn(object):
                     rtypes.append(rtype.name)
                 if rtypes:
                     contentType = "(%s)" % (", ".join(rtypes),)
-                
 
-        return ((
+        return (
             url,
             name,
             orNone(size),
@@ -676,9 +643,10 @@ class DirectoryRenderingMixIn(object):
                 lastModified,
                 default="",
                 f=lambda t: time.strftime("%Y-%b-%d %H:%M", time.localtime(t))
-             ),
-             contentType,
-         ))
+            ),
+            contentType,
+        )
+
 
 
 def updateCacheTokenOnCallback(f):

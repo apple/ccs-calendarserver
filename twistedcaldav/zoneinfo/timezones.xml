@@ -2,1947 +2,1979 @@
 <!DOCTYPE timezones SYSTEM "timezones.dtd">
 
 <timezones>
-  <dtstamp>20110524T222343Z</dtstamp>
+  <dtstamp>2011-10-05T11:50:21Z</dtstamp>
   <timezone>
     <tzid>Africa/Abidjan</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>0fcf05e48d7a36e6f99b0ccf127acf05</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>dc9468decb9742f08bafcd6d65a50f32</md5>
   </timezone>
   <timezone>
     <tzid>Africa/Accra</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>5b122005ea7053af7128646e10e386e9</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>b8ccb06b2506954bb7a44aab22c51c77</md5>
   </timezone>
   <timezone>
     <tzid>Africa/Addis_Ababa</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>98d0ae0479c533434b42e559cb5aa969</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>c9234d83755971b0f7723f588fbea74b</md5>
   </timezone>
   <timezone>
     <tzid>Africa/Algiers</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>1b81eb50a949c36bf56da7c422b074fc</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>f240a1491a11a31075b0c82ca7c49d04</md5>
   </timezone>
   <timezone>
     <tzid>Africa/Asmara</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
     <alias>Africa/Asmera</alias>
-    <md5>008462a5d69e7f36667ff243a8c12d4a</md5>
+    <md5>44f78e1256485756d3b171a7b3c9440a</md5>
   </timezone>
   <timezone>
     <tzid>Africa/Asmera</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>d6969bf3236ba061d39d1c353c86e5c6</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>bfa1d6f0cc8e1895614300ce0fcb1722</md5>
   </timezone>
   <timezone>
     <tzid>Africa/Bamako</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
     <alias>Africa/Timbuktu</alias>
-    <md5>0fbb4cea7867d343edc63e473f3cb31f</md5>
+    <md5>36c24c8559ca140fcd5caab5f818f3ef</md5>
   </timezone>
   <timezone>
     <tzid>Africa/Bangui</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>cbe8342b0479cdb8f486aca13eb56d75</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>9a0f306cd8a4057dff71d29e067ca809</md5>
   </timezone>
   <timezone>
     <tzid>Africa/Banjul</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>fb9af78ae09a763d1a864f74aa61f14f</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>2d075b945749ad66ad0752c266832782</md5>
   </timezone>
   <timezone>
     <tzid>Africa/Bissau</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>a45f2cb081f69be295d57f37c3e21c58</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>f5cb6a8bbcb51d9fd01fe4068ad7f695</md5>
   </timezone>
   <timezone>
     <tzid>Africa/Blantyre</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>4090f0bc0ebca23d542b2a14ae259877</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>00bb2539a1e42a31e952eef31caa4661</md5>
   </timezone>
   <timezone>
     <tzid>Africa/Brazzaville</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>b8c4a6d0df9e1e125321edf3a36bbfea</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>1f60c637e189c8777a9e0e7d1d22cfeb</md5>
   </timezone>
   <timezone>
     <tzid>Africa/Bujumbura</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>edfab88164558e23b5860b0180445672</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>3cdc5d3e03e30eb547c744a779a3c4c0</md5>
   </timezone>
   <timezone>
     <tzid>Africa/Cairo</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
     <alias>Egypt</alias>
-    <md5>303628a1b15934d89c65236b214d5ef1</md5>
+    <md5>980126ac8c359826ee19b69882ca8e50</md5>
   </timezone>
   <timezone>
     <tzid>Africa/Casablanca</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>807ef6d6bfcb4b8c82ea3b6930092b03</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>d29bdf449d5696876b3d081a7cc9d97a</md5>
   </timezone>
   <timezone>
     <tzid>Africa/Ceuta</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>b7a453375ad3bc01e66127013467fef5</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>9ab21c1136add174dd009d88538315cc</md5>
   </timezone>
   <timezone>
     <tzid>Africa/Conakry</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>d9fa87e17b785562f7f6791afdc2f896</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>dc03ad3587d98adc83d2e454fc8c4e5e</md5>
   </timezone>
   <timezone>
     <tzid>Africa/Dakar</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>bcab3d81c32f9a38677544cf8eea6cb1</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>a5e281f47227c240805e0f0cfd4911ea</md5>
   </timezone>
   <timezone>
     <tzid>Africa/Dar_es_Salaam</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>144461fadf38879a137acb180d577046</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>b4943937a1c88fc9f7995d1563eada11</md5>
   </timezone>
   <timezone>
     <tzid>Africa/Djibouti</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>df8f9f5b5519df56f95d84bbb3888b73</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>d18c2e4b68deae8e65e8aff4703d3776</md5>
   </timezone>
   <timezone>
     <tzid>Africa/Douala</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>168bceefa704a63b7c2e962a32da15b3</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>126f13183a2adbea15907b7c4c0b4aaa</md5>
   </timezone>
   <timezone>
     <tzid>Africa/El_Aaiun</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>6bff529e2345232c0797cb6d700de9eb</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>494500808e8542fd83e4706654c43545</md5>
   </timezone>
   <timezone>
     <tzid>Africa/Freetown</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>d2f77ae19cf07a10dd3f9f741cf930ac</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>04bb2c81c6cff903bc5f3a9223acc1e3</md5>
   </timezone>
   <timezone>
     <tzid>Africa/Gaborone</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>ba0254f317a0b0535490c712b020534e</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>89131ae04058f5a2efd3f0c038c10b32</md5>
   </timezone>
   <timezone>
     <tzid>Africa/Harare</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>6ccb1f2a4e632a447df8ad2bfe4d4a06</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>b1650f9d08a5950ec5fcc187ac661b10</md5>
   </timezone>
   <timezone>
     <tzid>Africa/Johannesburg</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>f6802d899b5695b447ba598dd1504040</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>a39046b0f33a7af0af58c951b8766453</md5>
+  </timezone>
+  <timezone>
+    <tzid>Africa/Juba</tzid>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>2cecec633d0950df56d2022393afdfdb</md5>
   </timezone>
   <timezone>
     <tzid>Africa/Kampala</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>867a67e59780ff3091afea520ad29648</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>0a8e97a4644a204f7dfcffe5faf3eca7</md5>
   </timezone>
   <timezone>
     <tzid>Africa/Khartoum</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>728c7aad82c6a4ff7df077905ecb9fd7</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>e4a944da17c50b3e031e19dee17bec58</md5>
   </timezone>
   <timezone>
     <tzid>Africa/Kigali</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>8f0b1985803bda290999f6039493bcc3</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>d0d7f2f150f0355d62f3db04f380972c</md5>
   </timezone>
   <timezone>
     <tzid>Africa/Kinshasa</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>2c2fff072133754a5fdc928763c001e4</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>f5a4143d7731d54aec64b4d2933f7111</md5>
   </timezone>
   <timezone>
     <tzid>Africa/Lagos</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>7d2904f2dd1d2841c6f107f5c4db4387</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>c22edde6ebc4dc407706841c17665286</md5>
   </timezone>
   <timezone>
     <tzid>Africa/Libreville</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>d4c99bfd201d9594675595ac87699bf1</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>96847710c6f68dbc50e1051c3b199a1f</md5>
   </timezone>
   <timezone>
     <tzid>Africa/Lome</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>214d7d2fe79686bb7c77f27c7b49edca</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>657a384ba6b08c900645d99d21928f5f</md5>
   </timezone>
   <timezone>
     <tzid>Africa/Luanda</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>a66c4cb806fc68fb3b71bcac8521e68e</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>b553888dbbdba24294ed7f544146a9a0</md5>
   </timezone>
   <timezone>
     <tzid>Africa/Lubumbashi</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>3edcaddf532595f14f48f03304c6f9e7</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>a680c06cc01dcb11f4eb02319d917a89</md5>
   </timezone>
   <timezone>
     <tzid>Africa/Lusaka</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>c0954c9c3a470bc3a32f696d0af411a0</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>74cd00ea97b6d6dd02bb07bfe6c573d2</md5>
   </timezone>
   <timezone>
     <tzid>Africa/Malabo</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>46315c4f896cfa72e9d17cd53434cb51</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>d9b48a59cff1b560f97ae2af9e06af43</md5>
   </timezone>
   <timezone>
     <tzid>Africa/Maputo</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>dcf772ef78be810e2f25e556d812b0da</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>6c35a7afdba6a160615bebaea9ff5da2</md5>
   </timezone>
   <timezone>
     <tzid>Africa/Maseru</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>bf538a98f8f0ec9520ee76acea669040</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>5930187b8a65c419445b16ef81aa53c5</md5>
   </timezone>
   <timezone>
     <tzid>Africa/Mbabane</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>bff6ce865b01857423c6a1019c98b744</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>85389210a6eee92c0fb08eb1f4dcd652</md5>
   </timezone>
   <timezone>
     <tzid>Africa/Mogadishu</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>1372052d8814730798c2e05d0113af41</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>e2ca770bc74c8d3bc98df62584852f6d</md5>
   </timezone>
   <timezone>
     <tzid>Africa/Monrovia</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>989f40756a0d6bf894733dbceeafede5</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>25533dd1589bdadfc4880d3e8add92a3</md5>
   </timezone>
   <timezone>
     <tzid>Africa/Nairobi</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>e3874408ce87ac7ee2082cb3b953e1d5</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>0f834f9942a32756fcf3ecb8bcfd6459</md5>
   </timezone>
   <timezone>
     <tzid>Africa/Ndjamena</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>2f07ce43a48854996ddbcd86eab687b0</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>e42e7efb8890f61982baf81521cf9868</md5>
   </timezone>
   <timezone>
     <tzid>Africa/Niamey</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>66721856ee219a64bc7d24f501acd20d</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>9e9ae84e637cf9c76702c276f7bb5f7e</md5>
   </timezone>
   <timezone>
     <tzid>Africa/Nouakchott</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>93ee884b82837b957f7fa6134286af82</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>4ff77ed24d7a670bff2bcbc68d6c0386</md5>
   </timezone>
   <timezone>
     <tzid>Africa/Ouagadougou</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>eb188aeb9b64eb470bf5d2f0bf823b3e</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>2739667ed4d639130dc5a8448cec220a</md5>
   </timezone>
   <timezone>
     <tzid>Africa/Porto-Novo</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>18851af5e4bc5b483a30e78201aafd2f</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>051684d374e00423fb0b98909361cf0e</md5>
   </timezone>
   <timezone>
     <tzid>Africa/Sao_Tome</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>dc3c3befd8d22a744757778db6af8d8a</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>64891151395186aa0e9d998be5258075</md5>
   </timezone>
   <timezone>
     <tzid>Africa/Timbuktu</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>776e14e3bcf1653254111adfa4230aa2</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>7b774241c34b5f1404a886b5d25de274</md5>
   </timezone>
   <timezone>
     <tzid>Africa/Tripoli</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
     <alias>Libya</alias>
-    <md5>07ce9436455949eab6e53bf750ba726e</md5>
+    <md5>056c3dc247ee9ebca73a671524fc4617</md5>
   </timezone>
   <timezone>
     <tzid>Africa/Tunis</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>dde6e185317319134d961ab1abf0bee7</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>ae5e2a52ff491ba9e6b867a0a1290503</md5>
   </timezone>
   <timezone>
     <tzid>Africa/Windhoek</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>be23afeacad3051b4ceda0a205010326</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>f289f3354d98138b5946f174a4f6048c</md5>
   </timezone>
   <timezone>
     <tzid>America/Adak</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
     <alias>America/Atka</alias>
     <alias>US/Aleutian</alias>
-    <md5>88197e1ab2d6434581dadc577d1fe676</md5>
+    <md5>052d205780da0a75457acf62f87e183e</md5>
   </timezone>
   <timezone>
     <tzid>America/Anchorage</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
     <alias>US/Alaska</alias>
-    <md5>4045943bac76495d07cbf1e5a980208f</md5>
+    <md5>de9f2f0cfb6cf0265a48f3edf1dbfc8d</md5>
   </timezone>
   <timezone>
     <tzid>America/Anguilla</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>687cbf868c6b12e10c51ef407a390cf7</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>3a0d92a114885c5ee40e6b4115e7d144</md5>
   </timezone>
   <timezone>
     <tzid>America/Antigua</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>b4cce7c9da9c13f23719d6b45c38316f</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>8edd393d02001da1bd38a7db63cc1922</md5>
   </timezone>
   <timezone>
     <tzid>America/Araguaina</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>b84dda238314659b3a16971733d8ba36</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>4c7d123f689678a9f8e694de612bf465</md5>
   </timezone>
   <timezone>
     <tzid>America/Argentina/Buenos_Aires</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
     <alias>America/Buenos_Aires</alias>
-    <md5>6e4aacdd8790f88716470cd84aac7426</md5>
+    <md5>7c55847413ff40afee023ac108321bea</md5>
   </timezone>
   <timezone>
     <tzid>America/Argentina/Catamarca</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
     <alias>America/Argentina/ComodRivadavia</alias>
     <alias>America/Catamarca</alias>
-    <md5>63178ac98e79386ed9dc99b7b3f4e9b7</md5>
+    <md5>dd84a9f20039849d4eebde7a31810088</md5>
   </timezone>
   <timezone>
     <tzid>America/Argentina/ComodRivadavia</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>d28191983cf0bd57dead07e33ab113f1</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>fa2eb8a113b960f8cce869f5c1071447</md5>
   </timezone>
   <timezone>
     <tzid>America/Argentina/Cordoba</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
     <alias>America/Cordoba</alias>
     <alias>America/Rosario</alias>
-    <md5>86bc9fa178cfcb8a3e96415c93d4bfe0</md5>
+    <md5>1d379d81a3291f80320ed92e14782fd1</md5>
   </timezone>
   <timezone>
     <tzid>America/Argentina/Jujuy</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
     <alias>America/Jujuy</alias>
-    <md5>5a9335b53eed5eb4b39fc62fa9326f7a</md5>
+    <md5>0dc8dcd87ba6a1c38b05ee148a50e343</md5>
   </timezone>
   <timezone>
     <tzid>America/Argentina/La_Rioja</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>f20c2176753855ab917c5010767d7e77</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>072849b2122b5f800ee7e223e063fe9d</md5>
   </timezone>
   <timezone>
     <tzid>America/Argentina/Mendoza</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
     <alias>America/Mendoza</alias>
-    <md5>9adeea740fdebaa6ab19b3618c3f826b</md5>
+    <md5>96329a35a49f4d40ab3b042a31e2e8eb</md5>
   </timezone>
   <timezone>
     <tzid>America/Argentina/Rio_Gallegos</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>a83b3a1cc070744b030d6a44a019b8bf</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>f8212b076682790a8b5701ad9b92aa1e</md5>
   </timezone>
   <timezone>
     <tzid>America/Argentina/Salta</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>11fc6d584e894a7036101fa3cead7d2b</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>d957cf76d4b39892fde6830c4b9fb33b</md5>
   </timezone>
   <timezone>
     <tzid>America/Argentina/San_Juan</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>214e46795aacd0a5c8c6fd5397d4967d</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>72a2df029cb4ba82764930b0dd7df0a9</md5>
   </timezone>
   <timezone>
     <tzid>America/Argentina/San_Luis</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>9e98700a6f7e9e9697e972e57cce6991</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>783baf3a55ec90ab162cb47c3fd07121</md5>
   </timezone>
   <timezone>
     <tzid>America/Argentina/Tucuman</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>d8e7f19248d91f2a44c62fbcf092aff5</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>97cc8fdae1643797c2823cd898b49198</md5>
   </timezone>
   <timezone>
     <tzid>America/Argentina/Ushuaia</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>3c4c40d3f2e17062e4c572d1d722b762</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>e03471715d0072273e2cbee3e0711a26</md5>
   </timezone>
   <timezone>
     <tzid>America/Aruba</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>08e321eadf83a0d5d08feb2f8492591d</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>473119154a575c5de70495c9082565f2</md5>
   </timezone>
   <timezone>
     <tzid>America/Asuncion</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>774e58420bb30828098c8f2e26a60b3e</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>d3b6adbc83b6a15a3be6d93e4cf61585</md5>
   </timezone>
   <timezone>
     <tzid>America/Atikokan</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
     <alias>America/Coral_Harbour</alias>
-    <md5>129dead78651811d3745c820fba72cfb</md5>
+    <md5>e2eb597046bbddc0d6d659d20872e4f2</md5>
   </timezone>
   <timezone>
     <tzid>America/Atka</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>c2dd02409b639ad69b2a8eee12ec6d0b</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>e774d482c768b93f14f3af6a2d91214b</md5>
   </timezone>
   <timezone>
     <tzid>America/Bahia</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>32755285c8e0775179e3ca12b896122e</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>9c3e1760594f4ebebb619b7a86101eaf</md5>
   </timezone>
   <timezone>
     <tzid>America/Bahia_Banderas</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>29c32e9e20e5acbc7285994503e58ead</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>d53625addc530467068358fe5596516c</md5>
   </timezone>
   <timezone>
     <tzid>America/Barbados</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>aea469a179590023606cedf8fd211dad</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>1466e8535d6daf50d390932688c49f4a</md5>
   </timezone>
   <timezone>
     <tzid>America/Belem</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>76dd0eb2e455786c76322ea471c82356</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>7ee3514e27ffe92a6d7979d716e1d426</md5>
   </timezone>
   <timezone>
     <tzid>America/Belize</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>6c33d2d0b6b595e0f64db176e7b5b147</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>9ee73b369b676485e500a55ddbbde08a</md5>
   </timezone>
   <timezone>
     <tzid>America/Blanc-Sablon</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>78c833c646fe05d7ddc3b545b895b453</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>243c5f9deb930e838a0ee345abcb19b2</md5>
   </timezone>
   <timezone>
     <tzid>America/Boa_Vista</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>8ed43179497419109543893baddcd819</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>a55f4d01f1828bebb23ca192e79e37b8</md5>
   </timezone>
   <timezone>
     <tzid>America/Bogota</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>0d3afa42de84aaa4b1fe67bad7feb0a9</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>2c1cbae13e8e6313af9f84f79fc2a984</md5>
   </timezone>
   <timezone>
     <tzid>America/Boise</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>8781a79edbfc1ac61e7b8731f4294a35</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>0652f8de49b9826df860c64ef010c955</md5>
   </timezone>
   <timezone>
     <tzid>America/Buenos_Aires</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>7e7edd686d32a75090f5e07a98a529d5</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>8814f42968145e742683596ed2951683</md5>
   </timezone>
   <timezone>
     <tzid>America/Cambridge_Bay</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>c27fbb6abb8f3b982df0c0d68eb6a658</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>de9bb35f5cf6cdde3795858d341177f4</md5>
   </timezone>
   <timezone>
     <tzid>America/Campo_Grande</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>43b8c58d3937c7d1e545bc3b90110da9</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>91f40ed32ffd45cccab772c911e16e8b</md5>
   </timezone>
   <timezone>
     <tzid>America/Cancun</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>063210c9c8d70f2868637c12410c3578</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>4f57ae0acb5b7414d0481cb6e0615489</md5>
   </timezone>
   <timezone>
     <tzid>America/Caracas</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>d4159627744e51e6f71d0a546e2588f3</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>6a4df646dbe97d59022ea0aad3da0e48</md5>
   </timezone>
   <timezone>
     <tzid>America/Catamarca</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>4695f5d57964a61843e5f3e2362df39d</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>3205d1483722193e1bd9b9cf62c0f898</md5>
   </timezone>
   <timezone>
     <tzid>America/Cayenne</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>300cdcbc3a351f82443864a74be2540c</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>298d74a0126387086229e0e55f0d4ef3</md5>
   </timezone>
   <timezone>
     <tzid>America/Cayman</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>08ac4be77e2bad55db61bff1dbfd7662</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>07ca09e17378e117aac517b98ef07824</md5>
   </timezone>
   <timezone>
     <tzid>America/Chicago</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
     <alias>US/Central</alias>
-    <md5>d2472c1a90094942dc907c11399bd593</md5>
+    <md5>afaa6e4df36635addbf6aafbf639a99d</md5>
   </timezone>
   <timezone>
     <tzid>America/Chihuahua</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>73c3882a58b5497c83099130a4035ca6</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>43622e982e100ca20b06991c4f938b50</md5>
   </timezone>
   <timezone>
     <tzid>America/Coral_Harbour</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>1385660407294496fb5b46d8fab8d77b</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>d9de6470e1760f70b213b5a1a1e4a9ff</md5>
   </timezone>
   <timezone>
     <tzid>America/Cordoba</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>38dc0e5786839e93bf0fbf5c4d5941a1</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>9608ec583432097731b31738d2279a88</md5>
   </timezone>
   <timezone>
     <tzid>America/Costa_Rica</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>96111388fda324f3c1a9b6fc06b524d6</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>1470dc0c22e8fba3c9ca462c6f617261</md5>
   </timezone>
   <timezone>
     <tzid>America/Cuiaba</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>95d95935d3f5fb2a946767d65e2cfda0</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>24241f96742ae0d523dcfee27804d382</md5>
   </timezone>
   <timezone>
     <tzid>America/Curacao</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>ff9d225c499f36ba2f333fc65eae936f</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <alias>America/Kralendijk</alias>
+    <alias>America/Lower_Princes</alias>
+    <md5>3f298c5d0125051e96413376fb92476f</md5>
   </timezone>
   <timezone>
     <tzid>America/Danmarkshavn</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>5f46e7416701c9734215a0ab7f7a0dbd</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>a3175f6b91cc5ebe8c2a2b1f500930e5</md5>
   </timezone>
   <timezone>
     <tzid>America/Dawson</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>95023b66c8ea2c455093094bb5ed69a2</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>92cc3b9eb6940bc656e130ef8d464b58</md5>
   </timezone>
   <timezone>
     <tzid>America/Dawson_Creek</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>556674734541cebc5c0d047bfd5f682f</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>4a29d5a3ff159aca495868f7f5b6157e</md5>
   </timezone>
   <timezone>
     <tzid>America/Denver</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
     <alias>US/Mountain</alias>
     <alias>America/Shiprock</alias>
     <alias>Navajo</alias>
-    <md5>59328ae6483fe7489da7c343fee2463d</md5>
+    <md5>436e14808b14901d516be96a6cb63709</md5>
   </timezone>
   <timezone>
     <tzid>America/Detroit</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
     <alias>US/Michigan</alias>
-    <md5>ea8dc7e7951dd0620ea3322116382e87</md5>
+    <md5>719084f02512fb7f86556c25d8c45b01</md5>
   </timezone>
   <timezone>
     <tzid>America/Dominica</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>5176a0dd76b1bd16d6a19d1f1c3da99e</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>86c1ba04b479911b0cf0aa917a76e3fd</md5>
   </timezone>
   <timezone>
     <tzid>America/Edmonton</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
     <alias>Canada/Mountain</alias>
-    <md5>8fb9d50bac48b2eb5787148125020a39</md5>
+    <md5>6978cb66f7b47e195a540c934bafa4b5</md5>
   </timezone>
   <timezone>
     <tzid>America/Eirunepe</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>5c82e3d7242c086a5df5ed76196f4918</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>d3c4df84162ebac445e1c2dcdb81f3b2</md5>
   </timezone>
   <timezone>
     <tzid>America/El_Salvador</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>13c9b18527916dd09b18bb930ff89179</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>15a3874396ce8d309deb8e28f76126f6</md5>
   </timezone>
   <timezone>
     <tzid>America/Ensenada</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>1e35baa391c76bf929ace6c13d797be4</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>85c2046b5c1936ae291e0db100b30768</md5>
   </timezone>
   <timezone>
     <tzid>America/Fort_Wayne</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>1c7b9385d4c028df6b64d83f485d3f89</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>89d10c6899856593be99c302ee8f8c8e</md5>
   </timezone>
   <timezone>
     <tzid>America/Fortaleza</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>e872bf96bf17b47176a36feb448f5523</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>5bb469255b1525188a5acd97d33871e8</md5>
   </timezone>
   <timezone>
     <tzid>America/Glace_Bay</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>89dcfb2c4d6e7e300ff2c09dc57b82ad</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>64d3feeac7d8b0ba46d6df7d7c1bf7c8</md5>
   </timezone>
   <timezone>
     <tzid>America/Godthab</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>bdba8cbc6cbf7992fa986fbb015e5d41</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>b164983aee94fca41a9c8cc6c84425ee</md5>
   </timezone>
   <timezone>
     <tzid>America/Goose_Bay</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>0626638e85e62379f3898d3196c2b396</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>1050a8cb28c250b1543277d77dbeafc8</md5>
   </timezone>
   <timezone>
     <tzid>America/Grand_Turk</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>3b8284f092daa70de261550da55536fd</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>794fd7b29a023a5722b25b99bbb6281d</md5>
   </timezone>
   <timezone>
     <tzid>America/Grenada</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>14dd2ca572daea2b10dc5043e08de847</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>32c4916ced899420efcc39a4ca47936e</md5>
   </timezone>
   <timezone>
     <tzid>America/Guadeloupe</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
     <alias>America/St_Barthelemy</alias>
     <alias>America/Marigot</alias>
-    <md5>7a9859133c587de0a20af7d1140e60ca</md5>
+    <md5>4b93fee3397a9dfc3687da25df948494</md5>
   </timezone>
   <timezone>
     <tzid>America/Guatemala</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>cde93fef47ee68b6df6c659fa56104bc</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>3f5dcae7aa6bebf3c51fad853b57f91e</md5>
   </timezone>
   <timezone>
     <tzid>America/Guayaquil</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>28f8c5ed72c5d4def311371370ad5ddf</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>21ed9dff66fd173039e03fb6552e4105</md5>
   </timezone>
   <timezone>
     <tzid>America/Guyana</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>757ce000cf306242a43353619f19b688</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>e141f56ad733370ee92d340fa8189ea4</md5>
   </timezone>
   <timezone>
     <tzid>America/Halifax</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
     <alias>Canada/Atlantic</alias>
-    <md5>15b97bde388255fdf7c1ce9ae30aa023</md5>
+    <md5>084d4e929fc4b0bca4290c338843d8d5</md5>
   </timezone>
   <timezone>
     <tzid>America/Havana</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
     <alias>Cuba</alias>
-    <md5>02d557f40ae2c50d09063c2513200fcc</md5>
+    <md5>38fea04bb5c2f84db2687d7078eafab6</md5>
   </timezone>
   <timezone>
     <tzid>America/Hermosillo</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>649e4044558ee398099fa718d26ba79e</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>da0d9289c3121cbc23dfa27d98fa2ea7</md5>
   </timezone>
   <timezone>
     <tzid>America/Indiana/Indianapolis</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
     <alias>America/Fort_Wayne</alias>
     <alias>America/Indianapolis</alias>
     <alias>US/East-Indiana</alias>
-    <md5>90721c154cf9b86b3af093b170d9eb0b</md5>
+    <md5>d6c5e69d3f0f66644f5d6fc5bd20a2da</md5>
   </timezone>
   <timezone>
     <tzid>America/Indiana/Knox</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
     <alias>America/Knox_IN</alias>
     <alias>US/Indiana-Starke</alias>
-    <md5>6f06884417c25e90a20361a47c526952</md5>
+    <md5>183979417f44ff5a69caa4c4c88d90d1</md5>
   </timezone>
   <timezone>
     <tzid>America/Indiana/Marengo</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>887d9ce76bc78593ed588e476222eacd</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>407883b0b98a68caf113155a1420605d</md5>
   </timezone>
   <timezone>
     <tzid>America/Indiana/Petersburg</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>c758f4fc8e24b07099c563bdf56c2ed3</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>6042c395817954fdb836a84d3d8a3f46</md5>
   </timezone>
   <timezone>
     <tzid>America/Indiana/Tell_City</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>0996af2b65e7418191e3fe7f697fdf6a</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>150951054eb2517ca26d132979515d99</md5>
   </timezone>
   <timezone>
     <tzid>America/Indiana/Vevay</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>8fbce0e2377e20762fcc5a0df2dfdc26</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>554d78ee1ff3b52724fece9849ede5f1</md5>
   </timezone>
   <timezone>
     <tzid>America/Indiana/Vincennes</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>1c8c903c6ccd665a50d6aedc140b378f</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>c536774aa403629002b6c9fddd461b5f</md5>
   </timezone>
   <timezone>
     <tzid>America/Indiana/Winamac</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>8c03a299852f6f5129fd8d615a09670f</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>7401e1b6e0f243c75cf7d50bcdda7214</md5>
   </timezone>
   <timezone>
     <tzid>America/Indianapolis</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>3f868e4cdcdd6eb29c1bbf5d7798848c</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>6e96ffc0ee1b866a61e213a74d73b92b</md5>
   </timezone>
   <timezone>
     <tzid>America/Inuvik</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>68dc3551e5baf71a179d96169a5a36b2</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>75b287d7fa234e629fb3ebb871cfd623</md5>
   </timezone>
   <timezone>
     <tzid>America/Iqaluit</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>b514429c80db9b068b65891548e83618</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>02462e190e1c5313cf58e71f524e6667</md5>
   </timezone>
   <timezone>
     <tzid>America/Jamaica</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
     <alias>Jamaica</alias>
-    <md5>08bef878a5cb3556220b971f3f62dfd6</md5>
+    <md5>d724fa4276cb5420ecc60d5371e4ceef</md5>
   </timezone>
   <timezone>
     <tzid>America/Jujuy</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>0c4f2bc0ef8753e31ebd2d444e75b1dc</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>9af342d45a2cf1ab125c5a59c40136b1</md5>
   </timezone>
   <timezone>
     <tzid>America/Juneau</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>3b74fda207d428c0bc60fe2a2ca307e2</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>14a98f49f1689c554e9921b57775cae5</md5>
   </timezone>
   <timezone>
     <tzid>America/Kentucky/Louisville</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
     <alias>America/Louisville</alias>
-    <md5>49b2100010ffdf428d380cfe4c6fe86d</md5>
+    <md5>dc14d1f32704b2edd53a1d2b207eaa82</md5>
   </timezone>
   <timezone>
     <tzid>America/Kentucky/Monticello</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>db657abd841d3d8d4fd70444dcee94bc</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>5a10d04a0ad2c8879e8757b16f86b9b8</md5>
   </timezone>
   <timezone>
     <tzid>America/Knox_IN</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>898c27f22999edcd197e925170662679</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>f1c0a5a9b7ce9b86be0b906718ce8e21</md5>
+  </timezone>
+  <timezone>
+    <tzid>America/Kralendijk</tzid>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>45fb05b190eac8a15d76dac8a8d6d57b</md5>
   </timezone>
   <timezone>
     <tzid>America/La_Paz</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>e9a262d2c2a19aeda5a4b3427da01e1b</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>098e905a3dc2d7342fd4a966448557c8</md5>
   </timezone>
   <timezone>
     <tzid>America/Lima</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>bb02df766781c421856375c9d96d0392</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>435eabd8a0a16343b7c9a038af520d54</md5>
   </timezone>
   <timezone>
     <tzid>America/Los_Angeles</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
     <alias>US/Pacific</alias>
-    <md5>91fe68a09e03398fd9132b28cdaedd86</md5>
+    <md5>fca9e0d643cee547beae8212c0b53443</md5>
   </timezone>
   <timezone>
     <tzid>America/Louisville</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>089feb5f58851bbcd974c299acb019f1</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>8846f514b0e3642c753dd30b429108bb</md5>
+  </timezone>
+  <timezone>
+    <tzid>America/Lower_Princes</tzid>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>fb828ab9f7e8455946d67d4d3abb39b1</md5>
   </timezone>
   <timezone>
     <tzid>America/Maceio</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>985f8f6e98f067fea274850a6e20b223</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>f1d1e125c6d67e76eefdd215a2ff0ed9</md5>
   </timezone>
   <timezone>
     <tzid>America/Managua</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>d947cff195825a905305a7e0c47fea48</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>a42c67a86908aa8c42268c15a6e3a135</md5>
   </timezone>
   <timezone>
     <tzid>America/Manaus</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
     <alias>Brazil/West</alias>
-    <md5>1098c0fa21edb2e460c9f4792758e4d5</md5>
+    <md5>bc91b57f3996921fe8756fabd0b1e1fb</md5>
   </timezone>
   <timezone>
     <tzid>America/Marigot</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>f17d6c8f11c96d7972c20658e56b3124</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>5112b932cc80557d4e01190ab86f19de</md5>
   </timezone>
   <timezone>
     <tzid>America/Martinique</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>2784b7444b5d95dbf6fca33783f23323</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>decdff5a68dae812d0c1944c598fe9d2</md5>
   </timezone>
   <timezone>
     <tzid>America/Matamoros</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>9c5f5da35d8b9fd8cd22cab8eade6a3d</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>72a80a6d46bdc487762ce665168c03a5</md5>
   </timezone>
   <timezone>
     <tzid>America/Mazatlan</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
     <alias>Mexico/BajaSur</alias>
-    <md5>2ffdda7f2d12e778feb1766fa62e1eab</md5>
+    <md5>24c68eb3d8327634c9f1b8dce3bed458</md5>
   </timezone>
   <timezone>
     <tzid>America/Mendoza</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>d4987b2f5ceca90a08e292aebfe0522c</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>8a6109cd3324e91ad65078cda0501212</md5>
   </timezone>
   <timezone>
     <tzid>America/Menominee</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>3b1b2d818ef32aa1394da914c50a7c46</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>9fb30be5feca9f974d087acec9d6fc5c</md5>
   </timezone>
   <timezone>
     <tzid>America/Merida</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>7b8842f7bf22ce867c85b8076f223ad0</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>a0fae46b60bdb1d763e4809d012f4b54</md5>
+  </timezone>
+  <timezone>
+    <tzid>America/Metlakatla</tzid>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>dea1e126a4dab896a439fa543b278275</md5>
   </timezone>
   <timezone>
     <tzid>America/Mexico_City</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
     <alias>Mexico/General</alias>
-    <md5>34d1e4a19267a3b927db2be82e02a617</md5>
+    <md5>2bf2d4a670f01d28901866cc57a13b62</md5>
   </timezone>
   <timezone>
     <tzid>America/Miquelon</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>3b2377d0278a6f8e5069b4c36654ae78</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>9544c4a062b62253abc28060069bf59f</md5>
   </timezone>
   <timezone>
     <tzid>America/Moncton</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>61428154465c9cbecb5d4759c00cbe26</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>0c8a8d8bdcf8783f2df1fbbbe4d75179</md5>
   </timezone>
   <timezone>
     <tzid>America/Monterrey</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>3a56a0088389aace524eae546b4430bf</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>972d0a68dc2762665d9dfec68101c625</md5>
   </timezone>
   <timezone>
     <tzid>America/Montevideo</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>2a700fb7942d5705552d0dd1c66fafa0</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>36ddafeab5424d45c4ca20d9d0d7f389</md5>
   </timezone>
   <timezone>
     <tzid>America/Montreal</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>4b9a778da2c46d3eafa43bb376e13205</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>24ab7668e9c7285ef01b635ee501cb64</md5>
   </timezone>
   <timezone>
     <tzid>America/Montserrat</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>66757f6278e87427751fde2a2758ff7b</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>1278c06be965a9444decd86efc81338d</md5>
   </timezone>
   <timezone>
     <tzid>America/Nassau</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>598abb2fc5b19d532497385a200fe488</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>870de727277299189392eb184e1a5454</md5>
   </timezone>
   <timezone>
     <tzid>America/New_York</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
     <alias>US/Eastern</alias>
-    <md5>2d9bec32695c62ab323636894d74cb65</md5>
+    <md5>7f02ecc0b9c5f6a0145794886fb1e411</md5>
   </timezone>
   <timezone>
     <tzid>America/Nipigon</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>553f98de3ffc46b292eaaeb65f2ce9fe</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>87d538a5fc42bc0f12955ceb9ba171f2</md5>
   </timezone>
   <timezone>
     <tzid>America/Nome</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>a9bd10af72c7a4462d468fd2c06a8ba4</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>630b48d08b9133057cf9cf1d6b581b80</md5>
   </timezone>
   <timezone>
     <tzid>America/Noronha</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
     <alias>Brazil/DeNoronha</alias>
-    <md5>e5a143e48abdb682af49e9b53663fead</md5>
+    <md5>1ecec7d8ed64a562f19dedd34ebfbf7c</md5>
   </timezone>
   <timezone>
     <tzid>America/North_Dakota/Beulah</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>ef88313c87f08f7cd28a517d5086f079</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>060d3de8fadfd6b2b9c081bb4166c82e</md5>
   </timezone>
   <timezone>
     <tzid>America/North_Dakota/Center</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>5488fb40869601823685bd12ca80c3c3</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>7b99f45af7eb194b07245620c5739cbf</md5>
   </timezone>
   <timezone>
     <tzid>America/North_Dakota/New_Salem</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>3f021d6261af68e23d2d2d45e5d3e22f</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>e363646cd30c2bcb75475a99bb8bb234</md5>
   </timezone>
   <timezone>
     <tzid>America/Ojinaga</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>b87762b86efda39216e28dac813f0fdb</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>158306a6a0b7f33097c5a209e2d9a758</md5>
   </timezone>
   <timezone>
     <tzid>America/Panama</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>d578cae741e9d61f0bfed9d5daf1782b</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>ac55fd15a3d0e6480308eaa395765d1c</md5>
   </timezone>
   <timezone>
     <tzid>America/Pangnirtung</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>ebcb38b8258be794086d4386389a5d49</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>14dcab83cecd70e2134dbf58d7656106</md5>
   </timezone>
   <timezone>
     <tzid>America/Paramaribo</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>5368cf9fdcdb553c3afd78f0d6c44a73</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>13f0d12b0402897e7a68efe73e308bf5</md5>
   </timezone>
   <timezone>
     <tzid>America/Phoenix</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
     <alias>US/Arizona</alias>
-    <md5>38acd916e1359510361235c9afcd5cb6</md5>
+    <md5>36f6704008b6a5150fe6b7895c131c91</md5>
   </timezone>
   <timezone>
     <tzid>America/Port-au-Prince</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>c5742eee6723863cf24e543777042afb</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>b4c7c8890eb7d0f187a2c4cfaaec1c50</md5>
   </timezone>
   <timezone>
     <tzid>America/Port_of_Spain</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>e67c574e550aff70b0ff733b26985d8e</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>e0bb07b4ce7859ca493cb6bba549e114</md5>
   </timezone>
   <timezone>
     <tzid>America/Porto_Acre</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>1ca5f2c2cb5a40614d14a89697977dd6</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>ce88b8461b7217e1d9ec8f4dfac34670</md5>
   </timezone>
   <timezone>
     <tzid>America/Porto_Velho</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>a9e2f24e9a40a68c9a3aae205bcacf9c</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>f78c4e4a4b7dd97d33578a92456aeeb3</md5>
   </timezone>
   <timezone>
     <tzid>America/Puerto_Rico</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>51eb32aa5363bc4fe6098f88b2de0d58</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>e8b25a2b2302eefcf7bc63e89056c725</md5>
   </timezone>
   <timezone>
     <tzid>America/Rainy_River</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>89767f86a4c2c52ecab7b18876a34f9a</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>d394635ab6af436e6d8de1c71563d9d6</md5>
   </timezone>
   <timezone>
     <tzid>America/Rankin_Inlet</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>9ad0d08947747170f209421ff4a65017</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>a10b8199639bd62aff226b5c71b48b08</md5>
   </timezone>
   <timezone>
     <tzid>America/Recife</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>9b037e7ad14c0f52786fb9eb3c4b8667</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>20321ae3fdff4f0bad72c3e4d1bfa83b</md5>
   </timezone>
   <timezone>
     <tzid>America/Regina</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
     <alias>Canada/Saskatchewan</alias>
     <alias>Canada/East-Saskatchewan</alias>
-    <md5>6fc39ad0bacee7a181f236b9217af82b</md5>
+    <md5>0ef05f6edd26a13b19cd25e86942d216</md5>
   </timezone>
   <timezone>
     <tzid>America/Resolute</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>0b133fb621c14025c5e99b54dfd9ea9e</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>7cb27278d7d8bf430980b149d24385eb</md5>
   </timezone>
   <timezone>
     <tzid>America/Rio_Branco</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
     <alias>America/Porto_Acre</alias>
     <alias>Brazil/Acre</alias>
-    <md5>9e065ab026516d3a4312f1b729f1cc45</md5>
+    <md5>c41ff8b67906037ce014d42019e5831f</md5>
   </timezone>
   <timezone>
     <tzid>America/Rosario</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>b45f45929dd036f7d3fa79f07186ea18</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>4283b20ea1d5f58e092ac74d4f4c8f0e</md5>
   </timezone>
   <timezone>
     <tzid>America/Santa_Isabel</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>f4297d1d4f79658b9a9147323e137581</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>258b10f97d147ad0fb9c3815fadf9b40</md5>
   </timezone>
   <timezone>
     <tzid>America/Santarem</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>8a096b2ecc95b9bdfce361c4ca6cb857</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>b8f9580b3198920b4d54331c37ea44ee</md5>
   </timezone>
   <timezone>
     <tzid>America/Santiago</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
     <alias>Chile/Continental</alias>
-    <md5>abb8104f47f738b9214dadf8d18e5682</md5>
+    <md5>88bd5131c72c87c3ce0bbca13134ca7a</md5>
   </timezone>
   <timezone>
     <tzid>America/Santo_Domingo</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>e7f512605821377cde466372565b9222</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>47d3a2d59a95167b7f8d37c447f41bf9</md5>
   </timezone>
   <timezone>
     <tzid>America/Sao_Paulo</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
     <alias>Brazil/East</alias>
-    <md5>d92556c31e129514037b82e49a18116a</md5>
+    <md5>70b6c992341d503d191bca71461f1d0d</md5>
   </timezone>
   <timezone>
     <tzid>America/Scoresbysund</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>d4905e6eb95a733d6eb902bec279e740</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>b77ab8f21acbb83f3fe3ebb3fabac3d6</md5>
   </timezone>
   <timezone>
     <tzid>America/Shiprock</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>8fa4d78e424556e881f1c3135e8fbdfa</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>0d1376f4ddaf68b378adc96d68d4eadf</md5>
+  </timezone>
+  <timezone>
+    <tzid>America/Sitka</tzid>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>3471ced20f493871b71306f4a67c3a03</md5>
   </timezone>
   <timezone>
     <tzid>America/St_Barthelemy</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>eeb885d2d5d89cf20d2fa62ee928d742</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>0df0f96dd6aee2faae600ea4bda5792f</md5>
   </timezone>
   <timezone>
     <tzid>America/St_Johns</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
     <alias>Canada/Newfoundland</alias>
-    <md5>9367260975a764eebf334f99f3f6a409</md5>
+    <md5>3337a22eeaa3f1daf6d42619edb791f4</md5>
   </timezone>
   <timezone>
     <tzid>America/St_Kitts</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>226f9372a3ed5bd1fd306c1d1779c5a6</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>9b1065952186f4159a5aafe130eef8e2</md5>
   </timezone>
   <timezone>
     <tzid>America/St_Lucia</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>828fd653e5f71f019c7280332d86789d</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>7cc48ba354a2f44b1a516c388ea6ac6f</md5>
   </timezone>
   <timezone>
     <tzid>America/St_Thomas</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
     <alias>America/Virgin</alias>
-    <md5>107adceeed7f4679fd06ff3b8ae629d4</md5>
+    <md5>f35dd65d25337d2b67195a4000765881</md5>
   </timezone>
   <timezone>
     <tzid>America/St_Vincent</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>3f2c721f9c4d7b37bac3ebbcae88c508</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>e34a65b69696732682902a6bba3abb29</md5>
   </timezone>
   <timezone>
     <tzid>America/Swift_Current</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>2cf915990ddab08ad95a6bb836109da6</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>a5f66af8c5cb1a3fb195c31fcb260260</md5>
   </timezone>
   <timezone>
     <tzid>America/Tegucigalpa</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>482941e3834bcc0aa38d1c566bf4126c</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>4ccca027527894a72f9d33f2b7f26786</md5>
   </timezone>
   <timezone>
     <tzid>America/Thule</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>a544d0ce7e95055a29ee35e2a018f2e9</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>8407b379865c544a03cc190bea8d4980</md5>
   </timezone>
   <timezone>
     <tzid>America/Thunder_Bay</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>550ec3e5697c597d40a3bb9865698109</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>aca23e8da3ddf706c59b20c669011a6c</md5>
   </timezone>
   <timezone>
     <tzid>America/Tijuana</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
     <alias>America/Ensenada</alias>
     <alias>Mexico/BajaNorte</alias>
-    <md5>d573dcb4a5d5d91abadf7b0622c947a8</md5>
+    <md5>6e5df24afff030e0e4ee771e91e28713</md5>
   </timezone>
   <timezone>
     <tzid>America/Toronto</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
     <alias>Canada/Eastern</alias>
-    <md5>22e97d2cf539bcd4ddc864a38668ff79</md5>
+    <md5>2a791cddb7c810a1f81399e81c24da66</md5>
   </timezone>
   <timezone>
     <tzid>America/Tortola</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>7d516b83878b788f5b6f533ed48cfb73</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>36252a7ac5c1544d56691117fe4bedf0</md5>
   </timezone>
   <timezone>
     <tzid>America/Vancouver</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
     <alias>Canada/Pacific</alias>
-    <md5>a109a219e552cedeb5aec84e59d9a908</md5>
+    <md5>6ab8c443c1bdb96a083bcd94511a43c3</md5>
   </timezone>
   <timezone>
     <tzid>America/Virgin</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>69618fb5ef9c96a9de1c94de85dbecfb</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>302f38a85c5ed04952bed5372587578e</md5>
   </timezone>
   <timezone>
     <tzid>America/Whitehorse</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
     <alias>Canada/Yukon</alias>
-    <md5>87310162bf0bcce9488e2e76dbf504a3</md5>
+    <md5>871e90245f87d951850e9e410d321c74</md5>
   </timezone>
   <timezone>
     <tzid>America/Winnipeg</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
     <alias>Canada/Central</alias>
-    <md5>0bb842a956cfd302c849fac5783476a0</md5>
+    <md5>9bbd9d44ce618dbcdc2ab767fa583f69</md5>
   </timezone>
   <timezone>
     <tzid>America/Yakutat</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>ad84735840866913c01a765b386c8cd4</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>a7d1c7f8aaca68cf3b6a213635a74d79</md5>
   </timezone>
   <timezone>
     <tzid>America/Yellowknife</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>836a537bfff3769996a63183ff5ab000</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>5d5d8c310682008f777445370de37560</md5>
   </timezone>
   <timezone>
     <tzid>Antarctica/Casey</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>b7de8273028691980174dcf7ad5e3005</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>c1060afadf7d755f5176e8a347d0159e</md5>
   </timezone>
   <timezone>
     <tzid>Antarctica/Davis</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>63ebdd9e12db8dc01d0000f8d1078b61</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>ac9dcdbfd292ce6884147b0395f65756</md5>
   </timezone>
   <timezone>
     <tzid>Antarctica/DumontDUrville</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>be0807f6e8dc9dce3ad0995a4212d706</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>e0a1cd5da53860548dd1151108e1263b</md5>
   </timezone>
   <timezone>
     <tzid>Antarctica/Macquarie</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>16ad04266385e18df3a99da9c068b08a</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>5af19eedce01fccb76e721f04e7d3316</md5>
   </timezone>
   <timezone>
     <tzid>Antarctica/Mawson</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>f710ce03a9194b180e129b1ec3583d5d</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>de4e5db2d2f670d035c4bde39f241e49</md5>
   </timezone>
   <timezone>
     <tzid>Antarctica/McMurdo</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
     <alias>Antarctica/South_Pole</alias>
-    <md5>d45b23ee73e5eabd9d7fec0d92aa83b2</md5>
+    <md5>7866bc7215b5160ba92b9c0ff17f2567</md5>
   </timezone>
   <timezone>
     <tzid>Antarctica/Palmer</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>ed72a95eeab146b34b41a69f7d0dcf78</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>8d98c1c83d05f3a958b6b50d77f01535</md5>
   </timezone>
   <timezone>
     <tzid>Antarctica/Rothera</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>641756a5e90259dca12c5b709d96d9b8</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>21f021680f8dce01a060c23ecc4b7162</md5>
   </timezone>
   <timezone>
     <tzid>Antarctica/South_Pole</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>5bdfa920c3f8154ad9820d6d1403f41f</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>ecbf324f6216e2aba53f2d333c26141e</md5>
   </timezone>
   <timezone>
     <tzid>Antarctica/Syowa</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>bd9314be6dd35bec6543286a090b52db</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>2cd5c9f2fab386295101115b3670a495</md5>
   </timezone>
   <timezone>
     <tzid>Antarctica/Vostok</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>2ee2b3ce6051d0dd89ab165688af2d6c</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>986ca28dcc682891b0833e0b1b2352d7</md5>
   </timezone>
   <timezone>
     <tzid>Arctic/Longyearbyen</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>a784eb877319bb02fbdde034d1820f27</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>40145ed84de3f926275f1c2b5d68df7b</md5>
   </timezone>
   <timezone>
     <tzid>Asia/Aden</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>6b80c23b01e366ef42d4422263762794</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>72bdabb5ef3828bee344488b7111e306</md5>
   </timezone>
   <timezone>
     <tzid>Asia/Almaty</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>14169b06da736d1b5aa3dfd6e92d9ea0</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>2d28e8027a12d6bb578500fba1212a3d</md5>
   </timezone>
   <timezone>
     <tzid>Asia/Amman</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>f218a425648f8b300ca4ac2722e2ba36</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>4d42a3e2d81a5f0f423b96d12df0d53d</md5>
   </timezone>
   <timezone>
     <tzid>Asia/Anadyr</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>913a8114b7a49535e2a735515b776317</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>06249b19fe482a0b2bed8bcc34c5f8b9</md5>
   </timezone>
   <timezone>
     <tzid>Asia/Aqtau</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>015da5d2caf25879dfcd898d113aacdd</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>830f92a62980c57f76d40a685c528cb3</md5>
   </timezone>
   <timezone>
     <tzid>Asia/Aqtobe</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>380097cb325d5e54e07d390839646814</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>5599d3d3b9bcfe1f475e962ac7edb4d7</md5>
   </timezone>
   <timezone>
     <tzid>Asia/Ashgabat</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
     <alias>Asia/Ashkhabad</alias>
-    <md5>0ba18870ac7b67df1611888f80cbc3aa</md5>
+    <md5>099834ad8db4f4eda369943fb64e8416</md5>
   </timezone>
   <timezone>
     <tzid>Asia/Ashkhabad</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>9651940409633c796b8ea1988bebb2bb</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>bd392cf58dd95d8de8815f70053b41b7</md5>
   </timezone>
   <timezone>
     <tzid>Asia/Baghdad</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>394c10742e185ebb8741083ae64dc587</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>6b989fb5fc7f59e9b039e33d632361eb</md5>
   </timezone>
   <timezone>
     <tzid>Asia/Bahrain</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>4922f230b548503963a25da79bf50524</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>25a54a452113b53915112d5be0913e64</md5>
   </timezone>
   <timezone>
     <tzid>Asia/Baku</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>5ae16fd73000dfa945272d7038508136</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>89b1b87654cad2c27815ac8d7d5a82bb</md5>
   </timezone>
   <timezone>
     <tzid>Asia/Bangkok</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>5e97576c0b3331066fd06dc98bcdf51e</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>0ee6b61e4db09003f6f98d6d285a7f5d</md5>
   </timezone>
   <timezone>
     <tzid>Asia/Beirut</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>f9344d4f40b9ac3014d31432e25e8325</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>ec07a7c21ed6e237900981ba9c627313</md5>
   </timezone>
   <timezone>
     <tzid>Asia/Bishkek</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>2d80252be1aea7d46826b8847e28a741</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>7aedef57bdcef7c097d133beb66500cc</md5>
   </timezone>
   <timezone>
     <tzid>Asia/Brunei</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>83eb034daccc4140b8fed0f91f4bc714</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>21ce0c633c3577552ef588e1312aba03</md5>
   </timezone>
   <timezone>
     <tzid>Asia/Calcutta</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>9084c38b0529749f095b21982af6bd07</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>43bbd7aad1dd165dc2343be99e5edffe</md5>
   </timezone>
   <timezone>
     <tzid>Asia/Choibalsan</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>b5a33b682af25cb940f8d9985fb72135</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>2b920f4fddfc354fe6facc5d17466d93</md5>
   </timezone>
   <timezone>
     <tzid>Asia/Chongqing</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
     <alias>Asia/Chungking</alias>
-    <md5>2a2b85332b18ac228a79734f6a5c5bed</md5>
+    <md5>20f06242c241a8acff06126ebc9fa0b2</md5>
   </timezone>
   <timezone>
     <tzid>Asia/Chungking</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>1991f7c6c7b26b0c3ae7fc88501195c3</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>91f7215bff1684393b0e26ee8a47fe19</md5>
   </timezone>
   <timezone>
     <tzid>Asia/Colombo</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>eeecebef588c1451c29501a1dc34fdc9</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>db90d93971d1fcf94b3958ccab478003</md5>
   </timezone>
   <timezone>
     <tzid>Asia/Dacca</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>7bdc0d7bccaf44e5d6e87737be776b8d</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>d61213592cf3c9854562892a4116b041</md5>
   </timezone>
   <timezone>
     <tzid>Asia/Damascus</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>e893cd07eafa890a098ead4efb41f811</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>084ea233b8818a65efbe58cfc92a4a6b</md5>
   </timezone>
   <timezone>
     <tzid>Asia/Dhaka</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
     <alias>Asia/Dacca</alias>
-    <md5>acaea67e7653bd9b07bfc3f280d41bd9</md5>
+    <md5>88035bd99ca7de5590cd00d7fdf3a8c4</md5>
   </timezone>
   <timezone>
     <tzid>Asia/Dili</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>4cf070386075a128e2ca1359bbebae2e</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>51ad0f3231ff8a47222ed92137ea4dc3</md5>
   </timezone>
   <timezone>
     <tzid>Asia/Dubai</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>75694e6dd67c50c95197a9929b8ae561</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>e762e58c96d3726bbaf84bb914949d8e</md5>
   </timezone>
   <timezone>
     <tzid>Asia/Dushanbe</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>dbfba9788e393138194469d081172ba6</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>c7b665d8c6693571d8f3da0da87dedf7</md5>
   </timezone>
   <timezone>
     <tzid>Asia/Gaza</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>c245ad4fce54247a654109d2aac96c47</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>94f0029ae23c4ae66c10c2c1936452bb</md5>
   </timezone>
   <timezone>
     <tzid>Asia/Harbin</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>529321b154e4bed45ecd549dc363e05b</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>8d8c66b3749017ef82fbda759f135028</md5>
+  </timezone>
+  <timezone>
+    <tzid>Asia/Hebron</tzid>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>0c9fc3e296dcb9e61c0e384fa8b8f259</md5>
   </timezone>
   <timezone>
     <tzid>Asia/Ho_Chi_Minh</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
     <alias>Asia/Saigon</alias>
-    <md5>97580c4eeb597ab8655d3e75262c3a0a</md5>
+    <md5>761dfd90a12d7edb0e38e68ab4ec13f0</md5>
   </timezone>
   <timezone>
     <tzid>Asia/Hong_Kong</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
     <alias>Hongkong</alias>
-    <md5>368d1a2f6dff586bcb2d9250e22cca6a</md5>
+    <md5>1bf94fa0b1003914132d5958357fadb7</md5>
   </timezone>
   <timezone>
     <tzid>Asia/Hovd</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>775f6ec6a92bb6e85dd02a70947133ec</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>08742642d2233876df61f686b391709a</md5>
   </timezone>
   <timezone>
     <tzid>Asia/Irkutsk</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>7b9b16c323377b25580acbfde099ebbe</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>29acf8ac702a7d7841a3356c3962ff88</md5>
   </timezone>
   <timezone>
     <tzid>Asia/Istanbul</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>a8600aaef50f079c14e290c42969013b</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>ed7e5efff443788364a43ad36a9f6e46</md5>
   </timezone>
   <timezone>
     <tzid>Asia/Jakarta</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>8c185f964eb7ef23070614ffc4385d7c</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>361f6e5683f19c99e1f024b3b80227be</md5>
   </timezone>
   <timezone>
     <tzid>Asia/Jayapura</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>9199923119ce086ce72c4536e15736c5</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>292c823058149d8c8bee5398924bf64a</md5>
   </timezone>
   <timezone>
     <tzid>Asia/Jerusalem</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
     <alias>Asia/Tel_Aviv</alias>
     <alias>Israel</alias>
-    <md5>facda736f3700f52f0669856d5c0bbdf</md5>
+    <md5>f1a8f9e6a80c9b8e29922e420bacbdfc</md5>
   </timezone>
   <timezone>
     <tzid>Asia/Kabul</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>539d1033b88a3d04f0e1f23879b1fe3d</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>aed7a26e32e4c36ee37c5c82d54a362d</md5>
   </timezone>
   <timezone>
     <tzid>Asia/Kamchatka</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>041fd5edc6307323383b830c4b59df96</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>3532d247ed7e9148fb500372f1ddff29</md5>
   </timezone>
   <timezone>
     <tzid>Asia/Karachi</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>719fb183063f58bfb0dc31687676406e</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>a643fc5fed6a7cc9160a7d54da4c6e60</md5>
   </timezone>
   <timezone>
     <tzid>Asia/Kashgar</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>e339aaf1f2ceede2c3ca39dfe76ae7c0</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>322ee93357cf482f7d3249a33e2be4b8</md5>
   </timezone>
   <timezone>
     <tzid>Asia/Kathmandu</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
     <alias>Asia/Katmandu</alias>
-    <md5>eaf245f9f94f408b4e10a68af275178e</md5>
+    <md5>2d26857827b178c66f3ad5e4ab7374e4</md5>
   </timezone>
   <timezone>
     <tzid>Asia/Katmandu</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>91b62fd029fbd792b4c5ee4536d7fafa</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>dfcdb151e17499a38c4fa456c6d603f6</md5>
   </timezone>
   <timezone>
     <tzid>Asia/Kolkata</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
     <alias>Asia/Calcutta</alias>
-    <md5>444dccb232345981738808def1ebf508</md5>
+    <md5>262f867727cea4fb725260c76ac8af7c</md5>
   </timezone>
   <timezone>
     <tzid>Asia/Krasnoyarsk</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>ba36e054c863b726fe849af2e1258fb8</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>3e4dbf51d4e4d8988d4d52bc8e3932ed</md5>
   </timezone>
   <timezone>
     <tzid>Asia/Kuala_Lumpur</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>ede5f66d5a982e04605e7c86e0a803b6</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>71f566a1ddf673e1705491dbdcb8d91f</md5>
   </timezone>
   <timezone>
     <tzid>Asia/Kuching</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>326df0c3de6245a28005153c1bf23003</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>1825fa4a570ecb00553b210978a4c96d</md5>
   </timezone>
   <timezone>
     <tzid>Asia/Kuwait</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>d0c4f475d2c7952a2f05410ec59af5c1</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>8488291a11082e8c8a6c6bb9015191b5</md5>
   </timezone>
   <timezone>
     <tzid>Asia/Macao</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>777da83161869952b0c291f282d614ed</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>9c403f19909de59800eed99888689e0c</md5>
   </timezone>
   <timezone>
     <tzid>Asia/Macau</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
     <alias>Asia/Macao</alias>
-    <md5>70b015f9ab27ba97972c818b01a289d6</md5>
+    <md5>97b56bc1c103d2184a87a5f223430450</md5>
   </timezone>
   <timezone>
     <tzid>Asia/Magadan</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>28499637b8f50f9d2e4cdd2636a787ef</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>feb4df3f54948a62c9260a8ff0d8560c</md5>
   </timezone>
   <timezone>
     <tzid>Asia/Makassar</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
     <alias>Asia/Ujung_Pandang</alias>
-    <md5>26b9060acaf481056fa44fdf8d92a734</md5>
+    <md5>efbc6213ee5099feeafaeacd6bbbb797</md5>
   </timezone>
   <timezone>
     <tzid>Asia/Manila</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>53e964708083dd40aaf004f2dd290e6b</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>9d4ffa55833a81e021587ecbce498589</md5>
   </timezone>
   <timezone>
     <tzid>Asia/Muscat</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>f6cb2f96600471881b0619abe568d711</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>a2477cb691fa92df2249e475582582dc</md5>
   </timezone>
   <timezone>
     <tzid>Asia/Nicosia</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
     <alias>Europe/Nicosia</alias>
-    <md5>66839c9b2439f4b2e8322a5609c4ce89</md5>
+    <md5>89053abb8deb454081add25351a7f9b6</md5>
   </timezone>
   <timezone>
     <tzid>Asia/Novokuznetsk</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>ac59178fd52dd4d92f1cd81027e1b43a</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>b88718e35ff62bcb169bf2ad91d2b37a</md5>
   </timezone>
   <timezone>
     <tzid>Asia/Novosibirsk</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>758d2569721bc7fe8fceb254631a6d06</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>b8e017738a63324214d6586cbf078d62</md5>
   </timezone>
   <timezone>
     <tzid>Asia/Omsk</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>cc1956e671ea66262db3528b381bd0eb</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>b3b7662bc01e6871876853ce6e765105</md5>
   </timezone>
   <timezone>
     <tzid>Asia/Oral</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>828d4ff0ba41b8cd736b2a180d05afdb</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>71aef65267ff2e5d89656cad08dd9c32</md5>
   </timezone>
   <timezone>
     <tzid>Asia/Phnom_Penh</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>9e211b43ac0bd1ba9be5a172af0b0d1e</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>81f9a62270d9ecf41a1df84fee76b26f</md5>
   </timezone>
   <timezone>
     <tzid>Asia/Pontianak</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>81f6f3d1de5bed831a9c18a7ebb2d2ff</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>5558eaba9bfdf39ef008593707cadcda</md5>
   </timezone>
   <timezone>
     <tzid>Asia/Pyongyang</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>d5d783f5ce5c76c3f7eedc83b5f51afb</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>b6861280b8dc28affa6aeca079c88a8e</md5>
   </timezone>
   <timezone>
     <tzid>Asia/Qatar</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>041820546d49daa7d188d4f461a7612f</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>1f5766aa379a0983e2a7febc0a89037c</md5>
   </timezone>
   <timezone>
     <tzid>Asia/Qyzylorda</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>7017be9df67c7789cfcbf970540ce965</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>8a6a15afce4cf1d585c91eb4a5b6ad08</md5>
   </timezone>
   <timezone>
     <tzid>Asia/Rangoon</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>27e308a3ef5f4bca4406297ffe3046ca</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>c438262da15f7ea331c7f17f3cd9741b</md5>
   </timezone>
   <timezone>
     <tzid>Asia/Riyadh</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>3b35f2dc4b38354d324aa7da7af40392</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>6d11d7edcfa78b32acf9a17169ce728c</md5>
   </timezone>
   <timezone>
     <tzid>Asia/Saigon</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>c0476c0c86db56b0dc85e4df385e6046</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>1909d3c03fdba843ae7de0d1da66d9f9</md5>
   </timezone>
   <timezone>
     <tzid>Asia/Sakhalin</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>4b6ba872cde485f81c797e5ce2dac90a</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>b53ad0ddb957456a2074f2778268f0d2</md5>
   </timezone>
   <timezone>
     <tzid>Asia/Samarkand</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>1d30a9f2b6a5f165d1f7dfeed4c6cc31</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>4c5fbc2617e145b85bfc2260591d4daa</md5>
   </timezone>
   <timezone>
     <tzid>Asia/Seoul</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
     <alias>ROK</alias>
-    <md5>4605e756d086fd9b0f95ba6bdbcbae90</md5>
+    <md5>ddab80bd6902fd85f4a75a99fe066c50</md5>
   </timezone>
   <timezone>
     <tzid>Asia/Shanghai</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
     <alias>PRC</alias>
-    <md5>c7985096e8a727a4ab3b79ac7a828040</md5>
+    <md5>e862e9eff8846445c99bde5abba2569f</md5>
   </timezone>
   <timezone>
     <tzid>Asia/Singapore</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
     <alias>Singapore</alias>
-    <md5>3f7332e42f78ac89d9c1a28b8622f106</md5>
+    <md5>f2f8be51082b2ede9114b3c78a24c608</md5>
   </timezone>
   <timezone>
     <tzid>Asia/Taipei</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
     <alias>ROC</alias>
-    <md5>9d392a8ef42db0bbf519dafef412bcc6</md5>
+    <md5>392c0daab0b369c725eaef960e59cb77</md5>
   </timezone>
   <timezone>
     <tzid>Asia/Tashkent</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>0fb54d04b852464dc5761ea8c446b8ff</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>ed56064ae96e061f96e38e1414ff1e40</md5>
   </timezone>
   <timezone>
     <tzid>Asia/Tbilisi</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>26f7f38c4a2b671824e97f2f778c544f</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>a473849976251aac174309b4c54cc7b8</md5>
   </timezone>
   <timezone>
     <tzid>Asia/Tehran</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
     <alias>Iran</alias>
-    <md5>50f2759139ffa076f5dd89762aa82805</md5>
+    <md5>7cc49f33778450e85624f0f9489bb42e</md5>
   </timezone>
   <timezone>
     <tzid>Asia/Tel_Aviv</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>19f82c10e5fd8e13e0e9051fdfc3e183</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>8bed5e3cbfdc3d315de1b40d91e6981a</md5>
   </timezone>
   <timezone>
     <tzid>Asia/Thimbu</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>ffd6af2808fd9504cb7f08c24a0db9c1</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>895c0dfb8ff2432fb13ac753396068c8</md5>
   </timezone>
   <timezone>
     <tzid>Asia/Thimphu</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
     <alias>Asia/Thimbu</alias>
-    <md5>ce16342503096656df6094233c121ccc</md5>
+    <md5>3b523bb3f75bd0323a6336bb2fd3a51d</md5>
   </timezone>
   <timezone>
     <tzid>Asia/Tokyo</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
     <alias>Japan</alias>
-    <md5>22ec39f98d3d8fc2ee920a90b4a06ec2</md5>
+    <md5>596917b840456dcac60971ed275e06f9</md5>
   </timezone>
   <timezone>
     <tzid>Asia/Ujung_Pandang</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>784b80ca0113aab679b200e44fe70b84</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>d05b22df61dea5d57753440e8b5ef386</md5>
   </timezone>
   <timezone>
     <tzid>Asia/Ulaanbaatar</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
     <alias>Asia/Ulan_Bator</alias>
-    <md5>a45a3e93d090e56ea43c73ed6d285acc</md5>
+    <md5>5aadca75f29da32a0ff78e3775363d06</md5>
   </timezone>
   <timezone>
     <tzid>Asia/Ulan_Bator</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>d1fdbf7f908c69c5b3df79715ab6f5ec</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>c6c0c26aa2bdc2936972a34fc086149b</md5>
   </timezone>
   <timezone>
     <tzid>Asia/Urumqi</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>f87206b1c9198689ce720df233bb7036</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>bc247e6fadd19729ce941a5c4e52d163</md5>
   </timezone>
   <timezone>
     <tzid>Asia/Vientiane</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>22fbabecf32f048104ded204479aec86</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>c54d00005929463b7c5ba889c5ae9b1b</md5>
   </timezone>
   <timezone>
     <tzid>Asia/Vladivostok</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>29bfdba180c86001360f6031b89cebfb</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>2f8cf1b4ef5274cf8e117d0a8a591c44</md5>
   </timezone>
   <timezone>
     <tzid>Asia/Yakutsk</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>d8b81a9798f0299c7255452c03d5975a</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>c8446d91924f4f5f899e821604f6e2dd</md5>
   </timezone>
   <timezone>
     <tzid>Asia/Yekaterinburg</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>0536395d4b8f29cf17db7d61277ee7a3</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>ceb73b7be048c14a0ee0ecc9a91d3652</md5>
   </timezone>
   <timezone>
     <tzid>Asia/Yerevan</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>4ee91fa55df5ae4b4ef127d839f1b3fe</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>be8ad304fccc142e66de98c75e33a5ab</md5>
   </timezone>
   <timezone>
     <tzid>Atlantic/Azores</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>2a7fa08397e5a253d6dbba46a75ce948</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>791fd8faf7c5e495ca3f1f5f6569730a</md5>
   </timezone>
   <timezone>
     <tzid>Atlantic/Bermuda</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>52eac82e4b5e6a497458af0364ea859b</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>c89a0fd896e18b423abfc88e3832112b</md5>
   </timezone>
   <timezone>
     <tzid>Atlantic/Canary</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>3b0db623a5448caf0a942768773940ec</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>9146a32bcc02553fcb1f9ec281da9779</md5>
   </timezone>
   <timezone>
     <tzid>Atlantic/Cape_Verde</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>1d4c63a7ed97112e4425c00c12b1d8a3</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>486c6cca3174d50e3d3454c5f1f73480</md5>
   </timezone>
   <timezone>
     <tzid>Atlantic/Faeroe</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>a769309c5ba22877acd1ba4224b1fe78</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>b494bcd3f53a9d8163d314897336c5f2</md5>
   </timezone>
   <timezone>
     <tzid>Atlantic/Faroe</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
     <alias>Atlantic/Faeroe</alias>
-    <md5>76ce21b7fb95da27b51dcc03c746791f</md5>
+    <md5>0b8454be6b72d3aa43e58a0f70ed9b81</md5>
   </timezone>
   <timezone>
     <tzid>Atlantic/Jan_Mayen</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>bbc1a692c33a89efb127f06e1020dc21</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>fd246a3cc9a7e70abaab4c3ef57f79f3</md5>
   </timezone>
   <timezone>
     <tzid>Atlantic/Madeira</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>93b67a3a4740e9617b9cca79812cb91b</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>a3bba0ab3f973d6a4e60478c934b7e09</md5>
   </timezone>
   <timezone>
     <tzid>Atlantic/Reykjavik</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
     <alias>Iceland</alias>
-    <md5>64b4a295229ba36c828762d5e0e75532</md5>
+    <md5>992200e91e57b5dc3b4c1387c8b97466</md5>
   </timezone>
   <timezone>
     <tzid>Atlantic/South_Georgia</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>d4709c22407d9e9025a510d9ca252640</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>a39b381162f4cca3a0423cc71824c55f</md5>
   </timezone>
   <timezone>
     <tzid>Atlantic/St_Helena</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>e81bce49d94a6d9c69e96392bd05222a</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>0166dbc020d487b7bb903f17769b3720</md5>
   </timezone>
   <timezone>
     <tzid>Atlantic/Stanley</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>23c31bfc7aea9467056b4ea937305573</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>0617de8449f0b759c7d09cefc1dddd16</md5>
   </timezone>
   <timezone>
     <tzid>Australia/ACT</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>db066c2df2f404d656f75e51767b8e40</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>9c9e45a080f6c7f427aec34e11291278</md5>
   </timezone>
   <timezone>
     <tzid>Australia/Adelaide</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
     <alias>Australia/South</alias>
-    <md5>f57af299a6520fec76ec1f1d068455f4</md5>
+    <md5>ca7281d2d6822a955147c350b7b1cb71</md5>
   </timezone>
   <timezone>
     <tzid>Australia/Brisbane</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
     <alias>Australia/Queensland</alias>
-    <md5>20ca89ab215143e09b6ad5f65fa68d5f</md5>
+    <md5>a35c97646a88eec10ad3a6e6b567e508</md5>
   </timezone>
   <timezone>
     <tzid>Australia/Broken_Hill</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
     <alias>Australia/Yancowinna</alias>
-    <md5>cff07762dda8c8347a593edc248bb469</md5>
+    <md5>0f8e51628d17d8f91b3971d3a809a3bf</md5>
   </timezone>
   <timezone>
     <tzid>Australia/Canberra</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>99778b87101117e2dced4ebcff7b5dd3</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>2505a7cf51647c591b3919e64a7c9c6b</md5>
   </timezone>
   <timezone>
     <tzid>Australia/Currie</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>e2411588e21765b8df6af886f5632833</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>42409348c1d54c59f3181351025814d4</md5>
   </timezone>
   <timezone>
     <tzid>Australia/Darwin</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
     <alias>Australia/North</alias>
-    <md5>c89f5110c34efe3560346e7a62c57d59</md5>
+    <md5>73bbf21cb68354d5fab3393f9e0cc467</md5>
   </timezone>
   <timezone>
     <tzid>Australia/Eucla</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>b43e564dc008242e1d906ef6e97163f9</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>1b3c9e044ce22312c26bb983c59bb736</md5>
   </timezone>
   <timezone>
     <tzid>Australia/Hobart</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
     <alias>Australia/Tasmania</alias>
-    <md5>1b0c6adc67fec258c788b649921e8fb7</md5>
+    <md5>3f93782299131bc5e257f74b156c7bff</md5>
   </timezone>
   <timezone>
     <tzid>Australia/LHI</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>71a13c2df13822df8a78a18e1149b86b</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>6b36a74e6c684ccbce21b77e4d4091f5</md5>
   </timezone>
   <timezone>
     <tzid>Australia/Lindeman</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>50a95c7265324d3d7370b88d68c3d7a9</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>1e8f20bbf164fcd3cc7b73f9f75719ff</md5>
   </timezone>
   <timezone>
     <tzid>Australia/Lord_Howe</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
     <alias>Australia/LHI</alias>
-    <md5>fae96929a55eaf8ce70b77f2ac6805d2</md5>
+    <md5>daf0954473ef7d097f05ec2eb76f3351</md5>
   </timezone>
   <timezone>
     <tzid>Australia/Melbourne</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
     <alias>Australia/Victoria</alias>
-    <md5>7a19941128d1288302e5cb9c7c5fa219</md5>
+    <md5>037416e5be342cd637de9d2e3ed77463</md5>
   </timezone>
   <timezone>
     <tzid>Australia/NSW</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>b7bc7491fdd7fab117c37b2d29c8d852</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>21e3bc63a47ad045e53077f1d438f93d</md5>
   </timezone>
   <timezone>
     <tzid>Australia/North</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>2c73d84d10141e282a4f9557a9346b9f</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>721e27da253b8e74cb741374b9b0369d</md5>
   </timezone>
   <timezone>
     <tzid>Australia/Perth</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
     <alias>Australia/West</alias>
-    <md5>f8bc3c2a4f45fa8bf56f17d84b405a9c</md5>
+    <md5>a9da90a8b6373ae57da42a972cfa5e67</md5>
   </timezone>
   <timezone>
     <tzid>Australia/Queensland</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>71aac1a36656fdff0bf8e431d2795a6c</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>e01eda0a4b9dc7109c6c6f6a58c2be9f</md5>
   </timezone>
   <timezone>
     <tzid>Australia/South</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>b5d9388a610d79ea43763f46397e2a77</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>a06d5be7aef4ebe989cb2935a6e72474</md5>
   </timezone>
   <timezone>
     <tzid>Australia/Sydney</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <alias>Australia/Canberra</alias>
     <alias>Australia/ACT</alias>
     <alias>Australia/NSW</alias>
-    <alias>Australia/Canberra</alias>
-    <md5>f0afeb2de78c01d9b9cee8399cdb58cc</md5>
+    <md5>bcdd3fd1c6c326bdef770905bedab9d1</md5>
   </timezone>
   <timezone>
     <tzid>Australia/Tasmania</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>cf82f5362ae99083bdedeffe58901d4d</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>6e5ed2a391ecf3e73f6a681c54f6a812</md5>
   </timezone>
   <timezone>
     <tzid>Australia/Victoria</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>6292197647dca58c18fa597701226cb0</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>c377fc0182ffacac506bc15b2a3a85ac</md5>
   </timezone>
   <timezone>
     <tzid>Australia/West</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>bd5a8bf4399ba7b5f8b22b57af822a43</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>0bd8e32dd1533af639e9a0de85a95f87</md5>
   </timezone>
   <timezone>
     <tzid>Australia/Yancowinna</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>f87ac1003867f02010bb8bf0cc58fcc1</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>da6459a041f1b5580ffb691930c7c6ce</md5>
   </timezone>
   <timezone>
     <tzid>Brazil/Acre</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>2d42afecfe9b9569eba8a2fc453b96aa</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>b034140cdfc442b0f989f6a6dd6ec620</md5>
   </timezone>
   <timezone>
     <tzid>Brazil/DeNoronha</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>4d854d29975bff69f6c462db85701bf2</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>076a9732c2a10e6f4f83e815315c8b8e</md5>
   </timezone>
   <timezone>
     <tzid>Brazil/East</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>43bdb6e7291587256aa4d3a635e2071a</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>ee00e2715bd490456eb11be0f7354ad6</md5>
   </timezone>
   <timezone>
     <tzid>Brazil/West</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>b72b36b3d708816e735ea600683fedf0</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>0418c9a738a469a96ff39a2a1bd4dd72</md5>
   </timezone>
   <timezone>
     <tzid>CET</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>c96065172df48923dfda9a0d441f8d41</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>38e699fdd6cc85fe609f4cec162faf67</md5>
   </timezone>
   <timezone>
     <tzid>CST6CDT</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>b8caeb201f96ca8956c964f4d355e86d</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>2ac180eb45fdda3460f26cee12a017e9</md5>
   </timezone>
   <timezone>
     <tzid>Canada/Atlantic</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>670187f29c0dab1f2a533d46c7db6220</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>cca2a3b24abaf7b369d38c4ba0e5e964</md5>
   </timezone>
   <timezone>
     <tzid>Canada/Central</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>d5374b13077ef7d816a8f42f84567416</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>759abb1125e957fa0172761810e152ec</md5>
   </timezone>
   <timezone>
     <tzid>Canada/East-Saskatchewan</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>ef29666d71da2726525fb5e7c4628675</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>5e73df69273394d0417d0586f5c31fe7</md5>
   </timezone>
   <timezone>
     <tzid>Canada/Eastern</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>a03b6a887ccf2779dcb99f14256edb8e</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>44075f2012d734ef8770ed4549bc56f3</md5>
   </timezone>
   <timezone>
     <tzid>Canada/Mountain</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>022ddebe4c52e691a26a082d93714a2a</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>2582c4ad9b1e3dd66a269e725ea19e19</md5>
   </timezone>
   <timezone>
     <tzid>Canada/Newfoundland</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>805a030b9a8113fd92ab3674f378cb41</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>1c3ab8a47cd50747678fe05c41abda49</md5>
   </timezone>
   <timezone>
     <tzid>Canada/Pacific</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>0b2620879c72adb20ee147064fc9af31</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>d38b48abfb92ce98b5177fc31c6c430b</md5>
   </timezone>
   <timezone>
     <tzid>Canada/Saskatchewan</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>18a2594bcc9609c49872a158b6d309d0</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>80e2456cc6032219f674def5bd23c35d</md5>
   </timezone>
   <timezone>
     <tzid>Canada/Yukon</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>680327261b3fc3494152d2f290ea102a</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>ee6648283e8bedb3fdb8c57b9f434a26</md5>
   </timezone>
   <timezone>
     <tzid>Chile/Continental</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>680bf0697fc77a3dd8922420abb1f306</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>033739e6415501a8cf6efb309ffb25ba</md5>
   </timezone>
   <timezone>
     <tzid>Chile/EasterIsland</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>ed84071967448af72fea11ea8c2ff531</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>99c0caf1092c3c9ca614ceebe0421967</md5>
   </timezone>
   <timezone>
     <tzid>Cuba</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>c98d755cfe335f1901ebdbe25224d8cc</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>94c9e7655a3ce235e58471df582f8115</md5>
   </timezone>
   <timezone>
     <tzid>EET</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>c7d529b441f0a786c4f01424c42547b5</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>4313a5a54018d63bbe5556966813bd9e</md5>
   </timezone>
   <timezone>
     <tzid>EST</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>5ecfc6b93f491d7b3795ea398c319493</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>1f7a798a672bb625ef9a9dc38865ad26</md5>
   </timezone>
   <timezone>
     <tzid>EST5EDT</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>d65f1fc659b6bfa7bda141b578f31378</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>a9e719d7f0be1abb2846120179599a2c</md5>
   </timezone>
   <timezone>
     <tzid>Egypt</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>59587cdfeecb9698857ec613108fa34a</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>3ce395ffeaef379ab31b9674a99e7f5c</md5>
   </timezone>
   <timezone>
     <tzid>Eire</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>5413caa2a5719c9126a08dc445db0718</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>f8c85e542a416cd7fd792f21241475bb</md5>
   </timezone>
   <timezone>
     <tzid>Etc/GMT</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
     <alias>Etc/GMT+0</alias>
     <alias>Etc/Greenwich</alias>
     <alias>Etc/GMT0</alias>
@@ -1952,1026 +1984,1026 @@
     <alias>GMT</alias>
     <alias>Etc/GMT-0</alias>
     <alias>GMT-0</alias>
-    <md5>24a9dcffbb77262f96d66c173f05315f</md5>
+    <md5>ab58ab7e40554f9e1532b5c91c4a2290</md5>
   </timezone>
   <timezone>
     <tzid>Etc/GMT+0</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>8267ba3c62bfe5326b43d13f0ab972ad</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>31ae129ddb11ee36d193f9a3ed6fbbf5</md5>
   </timezone>
   <timezone>
     <tzid>Etc/GMT+1</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>e033ac67903ae6e007aef4de9a2cff21</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>ad1164edd3afc437582b0c21ddb606d8</md5>
   </timezone>
   <timezone>
     <tzid>Etc/GMT+10</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>eb3cd710e7dceae90ef72fae5e7fc573</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>e7cf511156c742301ae9bbe08e28f0f1</md5>
   </timezone>
   <timezone>
     <tzid>Etc/GMT+11</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>3da83b8fd36b99f1e14d5be1b35dd7b4</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>e9f05290e38fd9ed728763e4b9e5439d</md5>
   </timezone>
   <timezone>
     <tzid>Etc/GMT+12</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>0fe6a06c5b907e281201838cad33dba5</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>aba6f221c1ac0cb8d72aea5956a7ef5d</md5>
   </timezone>
   <timezone>
     <tzid>Etc/GMT+2</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>db3f55cb06eb3d7b60a6974b42f0dc60</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>a9135520a98c2e3d61629c16e58e6017</md5>
   </timezone>
   <timezone>
     <tzid>Etc/GMT+3</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>177e90679792ce0a9e2f5417baa1f3e4</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>d7fde3e7da31297ae97b445d1ef7e988</md5>
   </timezone>
   <timezone>
     <tzid>Etc/GMT+4</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>28f404574e68f6d8f84eaa3a0a63a469</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>407acba91437208e0c78f7b42f403227</md5>
   </timezone>
   <timezone>
     <tzid>Etc/GMT+5</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>92ff5fa1f10039769a498dc6c0ae1ced</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>4b48f011dc987087dcb8d4346a567888</md5>
   </timezone>
   <timezone>
     <tzid>Etc/GMT+6</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>ebd993f92514cf7ff0b99b448b8b8846</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>d396d35ab185928620e0e4bbfda60f0c</md5>
   </timezone>
   <timezone>
     <tzid>Etc/GMT+7</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>db078e01eb87f0d635f4a797def5cbd0</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>e4d4cfbf1cd6026b8955c0314e2816ec</md5>
   </timezone>
   <timezone>
     <tzid>Etc/GMT+8</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>365cce7e2d2806ef0d7c5b058e35c219</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>59d50ed00acda4bb3d5fc6bc572f0ab2</md5>
   </timezone>
   <timezone>
     <tzid>Etc/GMT+9</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>f5542c5230d30c619033b74c27cc901f</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>4362eb31ba80786261b4edf00f962ecf</md5>
   </timezone>
   <timezone>
     <tzid>Etc/GMT-0</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>7f24bca21b2e01edfa7ff176d66e1740</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>744c1800ff66f96718354844f1e7f822</md5>
   </timezone>
   <timezone>
     <tzid>Etc/GMT-1</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>4d71df3025dce932498fcf34b82365e9</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>24af656c7462bda0079f141819b3f2e4</md5>
   </timezone>
   <timezone>
     <tzid>Etc/GMT-10</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>d43a63c01b501ada0b8587ab9b68508a</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>3015128d09b28b9b61af7b2d2f079387</md5>
   </timezone>
   <timezone>
     <tzid>Etc/GMT-11</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>5790bda8dcc20f060308d9996d48aac2</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>d05697c24a8f26f513b0aa47d0e2647f</md5>
   </timezone>
   <timezone>
     <tzid>Etc/GMT-12</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>f3dbbb903b3edc3797f98b7156148ac7</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>24e457e75e5a2ca8b4d5699a3b16a0c1</md5>
   </timezone>
   <timezone>
     <tzid>Etc/GMT-13</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>c4a1754b45e30b4ad0841189a5ad47be</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>34225980f61b23b0550e21d2b4d60eef</md5>
   </timezone>
   <timezone>
     <tzid>Etc/GMT-14</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>ea5d1e3b84a2b416019d1b4561c0f8fc</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>46389ea78726bbb63bbb8095da03d086</md5>
   </timezone>
   <timezone>
     <tzid>Etc/GMT-2</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>08f530f55a73e55403029dc0920e3f3b</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>af46d7d274fc8c305026a00e1255f3b4</md5>
   </timezone>
   <timezone>
     <tzid>Etc/GMT-3</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>e04228519eb5ee052efcb550ab794e5d</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>e38758c514f3283fad317074adc8b4a9</md5>
   </timezone>
   <timezone>
     <tzid>Etc/GMT-4</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>94efac1123c46b50ac559454d8e4b9f1</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>d611bddf444a4e898c1bcfc0321f9b20</md5>
   </timezone>
   <timezone>
     <tzid>Etc/GMT-5</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>2561b58917cceb29226258f5ab17656a</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>30b26f9ae0dc2fb80dc6906d80b3a369</md5>
   </timezone>
   <timezone>
     <tzid>Etc/GMT-6</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>f1e61aacfe9b7ac9e988c639848f775f</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>78bb41c2b0709dbe08ad4e6cebae4cb1</md5>
   </timezone>
   <timezone>
     <tzid>Etc/GMT-7</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>d2782bd83e7b07c706960aac63a7dc83</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>1e039799bd225c5baf1d7d615bb87ebe</md5>
   </timezone>
   <timezone>
     <tzid>Etc/GMT-8</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>d417f51f4a45c0407e1f73113d854a3b</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>9369469235996de1914e60d39bec2c2b</md5>
   </timezone>
   <timezone>
     <tzid>Etc/GMT-9</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>aa44bd3b5cc062288f393ea8e9a61f98</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>5c38c2f0daf2e5c09d98e4dd24c6efc4</md5>
   </timezone>
   <timezone>
     <tzid>Etc/GMT0</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>e7c20064a273c4d3b99983da17b880ca</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>220f0fe2271e1e10abd5f1e96091badf</md5>
   </timezone>
   <timezone>
     <tzid>Etc/Greenwich</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>494fe0852a5b8ab69539c88cd32ac001</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>c19e43fa0d921314045d341929b2b6a6</md5>
   </timezone>
   <timezone>
     <tzid>Etc/UCT</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
     <alias>UCT</alias>
-    <md5>dbebdb901d3ca63b44fae8ea59c58de0</md5>
+    <md5>9d822cf62e78f59186f283100747776b</md5>
   </timezone>
   <timezone>
     <tzid>Etc/UTC</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
     <alias>Etc/Universal</alias>
     <alias>Universal</alias>
     <alias>Etc/Zulu</alias>
     <alias>UTC</alias>
     <alias>Zulu</alias>
-    <md5>647f260e8bdf958f5889d1dd2a4ba248</md5>
+    <md5>d50331d2de5a7bf1f6e364e0381f366a</md5>
   </timezone>
   <timezone>
     <tzid>Etc/Universal</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>1d5131e1b6976ee063e21bfd88173f25</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>9ecca0082312e52e65024a0e1358719c</md5>
   </timezone>
   <timezone>
     <tzid>Etc/Zulu</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>445e8cefe9b4f22f952505fbc56e7a75</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>760f08d7ada624fe6b4a09fc8536daa6</md5>
   </timezone>
   <timezone>
     <tzid>Europe/Amsterdam</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>6a8841f753a5e5ff3f3183baa1b80387</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>c9008d7c6b2ea2302724da69ef061594</md5>
   </timezone>
   <timezone>
     <tzid>Europe/Andorra</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>401c2f9a1b8d9becadf9811d3e47ce61</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>3b455db928554d5877c1ee399a8f3fa5</md5>
   </timezone>
   <timezone>
     <tzid>Europe/Athens</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>57fcad5e5797427b4321d47353b776a1</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>a6b491efd7b9264946b09a6d1f348ab6</md5>
   </timezone>
   <timezone>
     <tzid>Europe/Belfast</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>8915fc1f64309699bdb635ffe17d6b34</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>39a805411344938e8e8655bfa3c37565</md5>
   </timezone>
   <timezone>
     <tzid>Europe/Belgrade</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
     <alias>Europe/Podgorica</alias>
     <alias>Europe/Sarajevo</alias>
     <alias>Europe/Skopje</alias>
     <alias>Europe/Ljubljana</alias>
     <alias>Europe/Zagreb</alias>
-    <md5>f35688a3e389163467e9f191c0fa97e5</md5>
+    <md5>01899f70edc28e85861ae9634c8d4818</md5>
   </timezone>
   <timezone>
     <tzid>Europe/Berlin</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>87587b2ec8a203f2e6646e36a3f4867b</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>7eff1fef65c43f08d542edcfa1d67180</md5>
   </timezone>
   <timezone>
     <tzid>Europe/Bratislava</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>1c059970c03f59d05085e1a7b7e4f1a9</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>4c177543b6efc02239561bbcd97738b1</md5>
   </timezone>
   <timezone>
     <tzid>Europe/Brussels</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>729d9c8a130038acc430bedf91fd247f</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>992c1070f650acab5ee1f6fc3fcdbae6</md5>
   </timezone>
   <timezone>
     <tzid>Europe/Bucharest</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>1c985250aa1b8313c219936af02c2852</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>06f5949f16196a72a928d48015af4da9</md5>
   </timezone>
   <timezone>
     <tzid>Europe/Budapest</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>d2c154bfb7b7e0d2310681a12efeca3e</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>5d9410ec171c22f3cb6af853666832b8</md5>
   </timezone>
   <timezone>
     <tzid>Europe/Chisinau</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
     <alias>Europe/Tiraspol</alias>
-    <md5>605c553e75fc606cce53516b6b8d7528</md5>
+    <md5>cb3ac02f4459388440bd3dcadcebc8c6</md5>
   </timezone>
   <timezone>
     <tzid>Europe/Copenhagen</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>0cdebfda1b1c2e9c76023140a7e27f81</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>2623d7ea241c980ff79009dc9811425d</md5>
   </timezone>
   <timezone>
     <tzid>Europe/Dublin</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
     <alias>Eire</alias>
-    <md5>84d40b0758b82158b2f95f9069d2d34e</md5>
+    <md5>e1a3557f809de4528198a637f8aab203</md5>
   </timezone>
   <timezone>
     <tzid>Europe/Gibraltar</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>98b2c65efc5ea6f9c75621a0aa251d46</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>c6ee0d863222572b689a5cd5c4309449</md5>
   </timezone>
   <timezone>
     <tzid>Europe/Guernsey</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>328904ecf06664daae7be948338fd864</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>cc746c3c4eb498e3dd0272b7e6d90f53</md5>
   </timezone>
   <timezone>
     <tzid>Europe/Helsinki</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
     <alias>Europe/Mariehamn</alias>
-    <md5>30f6c8d68f93d4303f901e315339dfbf</md5>
+    <md5>dd283cbfe6254558e2bb8ea6d02d29de</md5>
   </timezone>
   <timezone>
     <tzid>Europe/Isle_of_Man</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>1e1909739a043b39cbcf127c63902e7d</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>a9d43de9437d94f2a986a3d980908996</md5>
   </timezone>
   <timezone>
     <tzid>Europe/Istanbul</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
     <alias>Turkey</alias>
     <alias>Asia/Istanbul</alias>
-    <md5>c4e556c58c092a82e739ef031c5cafc3</md5>
+    <md5>04abd7350e974dc2a3c18d0ec3165bee</md5>
   </timezone>
   <timezone>
     <tzid>Europe/Jersey</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>1aea27a8b7f62f695a7442edd792e303</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>0d7a5c63ac8e17078ea4d572b0271b0c</md5>
   </timezone>
   <timezone>
     <tzid>Europe/Kaliningrad</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>a6da2d2a77bb83dfe0ef56025ba5f210</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>4c60c5a58f54e04b1e78ca79090900b5</md5>
   </timezone>
   <timezone>
     <tzid>Europe/Kiev</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>fc20427bf432f3f7f8258ac5e4395e8c</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>37f1114be2ca8c943d1f7a4530ffa7ff</md5>
   </timezone>
   <timezone>
     <tzid>Europe/Lisbon</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
     <alias>Portugal</alias>
-    <md5>4ade386f9efa48dfe4d2e800057f1768</md5>
+    <md5>f0c81cd5f6992f5d1e1530ac57a08861</md5>
   </timezone>
   <timezone>
     <tzid>Europe/Ljubljana</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>2e487b3ab93245ab43b421fead5a3553</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>f19fdf5faedc9ff69ac5c212f3da1b44</md5>
   </timezone>
   <timezone>
     <tzid>Europe/London</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
     <alias>Europe/Guernsey</alias>
     <alias>GB</alias>
     <alias>Europe/Jersey</alias>
     <alias>Europe/Isle_of_Man</alias>
     <alias>GB-Eire</alias>
     <alias>Europe/Belfast</alias>
-    <md5>58f67f2f002b163e076430e45c36abc1</md5>
+    <md5>d9c25d5b2eb02260bc94730e235938b9</md5>
   </timezone>
   <timezone>
     <tzid>Europe/Luxembourg</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>71663add4e36bc621fb4f35a97263f08</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>7abe6541def13604c311c9b7392557a6</md5>
   </timezone>
   <timezone>
     <tzid>Europe/Madrid</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>8f3709ac1d2373792ce5012af6352ab2</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>829616d918093c1dea4bfb9fbc2fce3d</md5>
   </timezone>
   <timezone>
     <tzid>Europe/Malta</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>74e10dddff64fce62ec2da4235e67402</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>e6e445c7126dec6762ea09ca841cf1f2</md5>
   </timezone>
   <timezone>
     <tzid>Europe/Mariehamn</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>f0e960187ee2ac713245c5581a2885e3</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>66beba42e7efc813938aaf2c8e9d5342</md5>
   </timezone>
   <timezone>
     <tzid>Europe/Minsk</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>2387b7d888b8ae24802f0dbed79c6453</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>a7692716e353f8b168b7dc238deb8fc9</md5>
   </timezone>
   <timezone>
     <tzid>Europe/Monaco</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>21c576af4b5b8b010dac151b4adc987a</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>bcae1d6ca668c9272a4c665abb59d0f1</md5>
   </timezone>
   <timezone>
     <tzid>Europe/Moscow</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
     <alias>W-SU</alias>
-    <md5>26fe3e7feaa8637be6a3997385f31221</md5>
+    <md5>163c9f35321ad3b6d79c5e13d3de4a66</md5>
   </timezone>
   <timezone>
     <tzid>Europe/Nicosia</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>ff83e9e0072ae9fb9cefbc63f0e694c8</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>c7d45824ebedc5f1501013ff28549574</md5>
   </timezone>
   <timezone>
     <tzid>Europe/Oslo</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
     <alias>Arctic/Longyearbyen</alias>
     <alias>Atlantic/Jan_Mayen</alias>
-    <md5>336dc94f1f3226ab1ec106790f06bab8</md5>
+    <md5>dc0867bc64f0b19c7f7cad019d713ae1</md5>
   </timezone>
   <timezone>
     <tzid>Europe/Paris</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>6eb808f296dfc5a7015f57602e02983d</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>9b680a4ecc341188ff6443d32341388b</md5>
   </timezone>
   <timezone>
     <tzid>Europe/Podgorica</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>3c13722b53d2b2092c45e17e63ac4142</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>189746d0f121fd91c331af15e338bf21</md5>
   </timezone>
   <timezone>
     <tzid>Europe/Prague</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
     <alias>Europe/Bratislava</alias>
-    <md5>6cc2b1728d7e41c4d3605de294dc7b26</md5>
+    <md5>66c9d95e26a9cae9210793f2f321eaac</md5>
   </timezone>
   <timezone>
     <tzid>Europe/Riga</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>184739fe132abae94c28b1f8cf34d7fa</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>c681c3dc7a02d76ca5504e9c98f8eeb5</md5>
   </timezone>
   <timezone>
     <tzid>Europe/Rome</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
     <alias>Europe/San_Marino</alias>
     <alias>Europe/Vatican</alias>
-    <md5>fde39f923a7adc43058de5b1d85aa81a</md5>
+    <md5>6045fad13fa140ad98a6e6a1994ef18e</md5>
   </timezone>
   <timezone>
     <tzid>Europe/Samara</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>d822617a64ba10802f8b3a673efb82d3</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>9c1b93f97de31a294309b3bc69003bf6</md5>
   </timezone>
   <timezone>
     <tzid>Europe/San_Marino</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>07053032ce760b8a06c756695f598598</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>73432e03baedf81e25473f83b35f772d</md5>
   </timezone>
   <timezone>
     <tzid>Europe/Sarajevo</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>d05aea27301b5f26c54ec097d3e186f6</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>1fadc0b163b84df6069d6234e4e1c9f9</md5>
   </timezone>
   <timezone>
     <tzid>Europe/Simferopol</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>11811a2e4e92ebf8fdd2b7eb1c08b3b3</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>5fe75859a24528324fafe56d6a576ac6</md5>
   </timezone>
   <timezone>
     <tzid>Europe/Skopje</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>9dd7e535562f7915898e965ade8fc1c0</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>169bf6247dfd235d384a2d60c6ab6ed5</md5>
   </timezone>
   <timezone>
     <tzid>Europe/Sofia</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>31af5d53eae9e7a4a19a89b08fd0afa8</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>fffde28610fca378b8a81afbf91aeedc</md5>
   </timezone>
   <timezone>
     <tzid>Europe/Stockholm</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>869ae8dce97ddec76423a3a91c0316c4</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>30ce2f07809346abb90dfca1627ef79d</md5>
   </timezone>
   <timezone>
     <tzid>Europe/Tallinn</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>8f63dbfb2fa4e066896a30cc14dd730a</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>24889827a14902c6f2791849c9c3c6e0</md5>
   </timezone>
   <timezone>
     <tzid>Europe/Tirane</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>14087b815ef08b31491a53f2eb9947f5</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>477f6423bb055be4bd0d08e6b9275057</md5>
   </timezone>
   <timezone>
     <tzid>Europe/Tiraspol</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>9670d258f90059332afef75251a1faf9</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>2e2bb67b97eab1d8184bd249663219c4</md5>
   </timezone>
   <timezone>
     <tzid>Europe/Uzhgorod</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>3e6eeeb7888155257d639c526cbdcaeb</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>d92867599074cb7acc31b58e91f2aae2</md5>
   </timezone>
   <timezone>
     <tzid>Europe/Vaduz</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>955a91de9941da5cb21c3582870f4588</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>a8a4e48e0a06cd9b54304b82614447c1</md5>
   </timezone>
   <timezone>
     <tzid>Europe/Vatican</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>72600aff75a9d3183bcf2ad976ee7556</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>02695f2268c1364e5bc032c460c28e2c</md5>
   </timezone>
   <timezone>
     <tzid>Europe/Vienna</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>3285d0e0be4c62b1dc1601a3be468926</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>de7310f3598fd5d0226590b6b775e70d</md5>
   </timezone>
   <timezone>
     <tzid>Europe/Vilnius</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>1cd371865c3988c4bea034de76d4ec9a</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>a79f6b31b1c5d6357a360793e5e720f8</md5>
   </timezone>
   <timezone>
     <tzid>Europe/Volgograd</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>ced875b92a331bd159de9c66bc58ab3d</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>ff054663b12ac0c37e90adf89a5c1f6b</md5>
   </timezone>
   <timezone>
     <tzid>Europe/Warsaw</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
     <alias>Poland</alias>
-    <md5>cb0a91ba298572bf2e0eff7f104d9b90</md5>
+    <md5>9011dff96ae67331fefb285befee32c7</md5>
   </timezone>
   <timezone>
     <tzid>Europe/Zagreb</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>7218b5bc34a3a0c9653a136377de18d1</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>28a36cb8a47ac95405a47d249387cb79</md5>
   </timezone>
   <timezone>
     <tzid>Europe/Zaporozhye</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>86bb9c3ce1578fafee3f59b44345a5e9</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>493d948c98cb82cbbb0a11480a9d9944</md5>
   </timezone>
   <timezone>
     <tzid>Europe/Zurich</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>feea02ba1f781d2de1a4e4fe05f45813</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>189add82d7c3280b544ca70f5696e68c</md5>
   </timezone>
   <timezone>
     <tzid>GB</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>3fcbdd522c06e287b61133fef1234038</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>cf499d3386c1547d82ada718d426302a</md5>
   </timezone>
   <timezone>
     <tzid>GB-Eire</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>6af799cf04d1377b9f5942313a07fe17</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>96eedeecef8152ed33eef35c5f80ddea</md5>
   </timezone>
   <timezone>
     <tzid>GMT</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>6ba85e7d1059adba124a6acabb6ad41f</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>7e1ee359c14980b307a35b4ea42e2ddf</md5>
   </timezone>
   <timezone>
     <tzid>GMT+0</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>5c4dca67fa25eaf88c22c4f8bed6ea17</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>ce675f57f78b3a1e213c8ad399205020</md5>
   </timezone>
   <timezone>
     <tzid>GMT-0</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>02ebda7049fb71d3243be70ad947b850</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>bab3cfab355f4a23a6101500cc0ad9e0</md5>
   </timezone>
   <timezone>
     <tzid>GMT0</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>48bce60e4b08807a1d108d2bd9dac404</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>b02b3430b23d30714a470ed456a9f19a</md5>
   </timezone>
   <timezone>
     <tzid>Greenwich</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>ccc18b6668d177d18eb0e13bfbae7e75</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>47885ad66487af94b749e903f8fcc942</md5>
   </timezone>
   <timezone>
     <tzid>HST</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>bb10ead18ee3b6b071e8e64437546a28</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>406972d8f460561b5ed0cc9635075cec</md5>
   </timezone>
   <timezone>
     <tzid>Hongkong</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>8e2ac8066c8dbe5d81fb9edcc44f22d2</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>f1eb6afd387c6c934bc1ab7463a7e41e</md5>
   </timezone>
   <timezone>
     <tzid>Iceland</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>1bc6207ff16853f23e2237e33d3867c6</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>1f3e3f1d74ac62c6309335ba7def679e</md5>
   </timezone>
   <timezone>
     <tzid>Indian/Antananarivo</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>98591ed19e14d2a861ee484fb7bc62e3</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>54b8cf688972faef6254eda042d0b759</md5>
   </timezone>
   <timezone>
     <tzid>Indian/Chagos</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>3d065171da207e8bd3d4c7bcee1ad968</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>567365fd5ab73a691202c4c0f1a89b67</md5>
   </timezone>
   <timezone>
     <tzid>Indian/Christmas</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>1b65a4f45cc018318368b23f7da6e9f1</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>78e32232b4c9563521b1178292e99be2</md5>
   </timezone>
   <timezone>
     <tzid>Indian/Cocos</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>4bc74d878f6399a2cd98cbbead37587b</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>3ab1a4b77f94a0c3f9ed940bd9b3c2f2</md5>
   </timezone>
   <timezone>
     <tzid>Indian/Comoro</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>379d2a695aa1d6d107be590c8b95ac1d</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>879eb3167957c61c64124dab0ecbb50f</md5>
   </timezone>
   <timezone>
     <tzid>Indian/Kerguelen</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>e854dc48a0276f518b46adf65f338a47</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>a11047abe096321e035ef3c15e87e580</md5>
   </timezone>
   <timezone>
     <tzid>Indian/Mahe</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>7caffc0b04929cecb6f4da84ca3c3664</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>eecf72296c7f28bb356da5af1dcbd181</md5>
   </timezone>
   <timezone>
     <tzid>Indian/Maldives</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>f97c205812b4d7cc6ce7c7f926936d01</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>f72bd0ab0609e41586f0b8819c78e015</md5>
   </timezone>
   <timezone>
     <tzid>Indian/Mauritius</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>d0a212c3bfff2d3eb4be2d7a623e8e05</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>1ef668c409d1c581977fd40fc7505481</md5>
   </timezone>
   <timezone>
     <tzid>Indian/Mayotte</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>8e9f8bd79d21fbbbb5ddf1e94a8e0bfe</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>de8757aa5b9a58932bac913852e921e7</md5>
   </timezone>
   <timezone>
     <tzid>Indian/Reunion</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>ee1edd8f14571fca667f44ce6ca556f9</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>741555128a2c97b186f5f050b397e4e5</md5>
   </timezone>
   <timezone>
     <tzid>Iran</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>254b93b06c4e8559b8784cfa8f4ceb82</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>a3a23dd1119cd8362fd4019ba9e5a8ec</md5>
   </timezone>
   <timezone>
     <tzid>Israel</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>511a4f3bd79d9cffc83f6dc2a5371c6b</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>ddc7408ffeda022e46aaaa72aaf228be</md5>
   </timezone>
   <timezone>
     <tzid>Jamaica</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>f63311b92b1fff9b7e37ac95fd05a706</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>1f8889ee038dede3ef4868055adf897a</md5>
   </timezone>
   <timezone>
     <tzid>Japan</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>ab1b976c6c7e14224875a7ba8ab884bc</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>ff59375f1fd8af619f193e904888c448</md5>
   </timezone>
   <timezone>
     <tzid>Kwajalein</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>2d8a09ce01d1e53859125344f67af9b9</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>18865d3f0f1a93f2b96d77d8b63b86be</md5>
   </timezone>
   <timezone>
     <tzid>Libya</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>777b5dadc151693fff1610683ac98d88</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>0946628c34cfcb3d3d019ef1493961ff</md5>
   </timezone>
   <timezone>
     <tzid>MET</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>e845cf9a734871d08f5470975b583e7d</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>3176603f9d378e550950e8139ee1bfef</md5>
   </timezone>
   <timezone>
     <tzid>MST</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>21321000c39a3b2c967d9ba61e8e5970</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>5db2edcdc9114abad158ab89eb658360</md5>
   </timezone>
   <timezone>
     <tzid>MST7MDT</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>6489b38dfd96a6759b1b0a4fc944e094</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>d43bd95c6a43197ff72e084d1bebb875</md5>
   </timezone>
   <timezone>
     <tzid>Mexico/BajaNorte</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>03171c7f556dc761a0c65e32a620e24f</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>7ccf81b88f1e609f28623b2d917dbbde</md5>
   </timezone>
   <timezone>
     <tzid>Mexico/BajaSur</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>3467f1b8e5d39a25f69fbe8dfe192590</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>8d51778693bcfb2b3e89fe2da5016786</md5>
   </timezone>
   <timezone>
     <tzid>Mexico/General</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>dc6639f5a4f32d3f095437ec42237033</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>3b33093afd8c0a554948130f54cc23f4</md5>
   </timezone>
   <timezone>
     <tzid>NZ</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>a7a403d2f1029a4ab621a34e3debd94f</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>6f3e44f4f50b3e2e6e8fa002734e37a2</md5>
   </timezone>
   <timezone>
     <tzid>NZ-CHAT</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>dbe6877ea982ad43e2562dfbe22a44d7</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>b7ab01dcc64ed6b0877b41a48a5f5bf1</md5>
   </timezone>
   <timezone>
     <tzid>Navajo</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>09f0be86c9120759c0e5ef8fd578a11c</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>46c72b3a055bd29862b55ac4bf1a62ed</md5>
   </timezone>
   <timezone>
     <tzid>PRC</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>7a6c96a0e336cd323b7ecba0da2c5b8a</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>36f302069bbea086137f096fd957a3ec</md5>
   </timezone>
   <timezone>
     <tzid>PST8PDT</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>df438b76ce105eb522ba7ea5886df723</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>b519fb841c7d3f389a584fdfa7372b93</md5>
   </timezone>
   <timezone>
     <tzid>Pacific/Apia</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>e07a9fea53548911ed888c59dabf328e</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>aef8f66329a5e26715f1375237691865</md5>
   </timezone>
   <timezone>
     <tzid>Pacific/Auckland</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
     <alias>NZ</alias>
-    <md5>43742c853d5f857fd57b2847d4f736ad</md5>
+    <md5>31b52d15573225aff7940c24fbe45343</md5>
   </timezone>
   <timezone>
     <tzid>Pacific/Chatham</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
     <alias>NZ-CHAT</alias>
-    <md5>af494699ee19988c4dd3cf6e8ba99e28</md5>
+    <md5>95a97b69d55aa2c0f804cc64e2c7372a</md5>
   </timezone>
   <timezone>
     <tzid>Pacific/Chuuk</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
     <alias>Pacific/Truk</alias>
     <alias>Pacific/Yap</alias>
-    <md5>edf697313a6ec2df5211461821a361db</md5>
+    <md5>e27f3d75919a1cccffd60028972b0b69</md5>
   </timezone>
   <timezone>
     <tzid>Pacific/Easter</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
     <alias>Chile/EasterIsland</alias>
-    <md5>d9e3a90955fd7bc20cb8e06e83bbfa16</md5>
+    <md5>263c7e02c6aab8ff3976c3667234a804</md5>
   </timezone>
   <timezone>
     <tzid>Pacific/Efate</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>ecab3823013b5231f5206fc6a54f0ab8</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>9be7cc469122983be742519de9a5d279</md5>
   </timezone>
   <timezone>
     <tzid>Pacific/Enderbury</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>2d7cb1a5c3a6ae23d9e1fbba773e9063</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>0cc659854c0dc9f17c11d74823aa3b44</md5>
   </timezone>
   <timezone>
     <tzid>Pacific/Fakaofo</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>8863e28156be6fe9579ab3dfc4f73d11</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>a8fa713b3ee90cef8fc79493481f1911</md5>
   </timezone>
   <timezone>
     <tzid>Pacific/Fiji</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>14b67550bfbf013adbafc48b01bbfa9a</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>d1f75438bb60b9c64143e10ee39d5c34</md5>
   </timezone>
   <timezone>
     <tzid>Pacific/Funafuti</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>73e0d79b4382f59ad1751dbaa34bc434</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>8151c0448f128c96a822d59ebb336a0b</md5>
   </timezone>
   <timezone>
     <tzid>Pacific/Galapagos</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>436e928b179d64b69f368fec7b9683e1</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>36c139cfb7a806b0152535b4052bce12</md5>
   </timezone>
   <timezone>
     <tzid>Pacific/Gambier</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>7082560be85745030298835ed0e8c734</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>146cdb3c5780a970b653600d5501ca9a</md5>
   </timezone>
   <timezone>
     <tzid>Pacific/Guadalcanal</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>8c0404e1facaa3b76339ccacecbd6762</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>ac17a77c46959df23f3d6d8f21ebf380</md5>
   </timezone>
   <timezone>
     <tzid>Pacific/Guam</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>0494e2ea81ca8bffdd63c937c682940c</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>77d1448c52ccbfe2608beb604b103060</md5>
   </timezone>
   <timezone>
     <tzid>Pacific/Honolulu</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
     <alias>US/Hawaii</alias>
-    <md5>01a66f2be316e7b40eefeb83e8e77be6</md5>
+    <md5>be013195b929c48b73f0234a5226a763</md5>
   </timezone>
   <timezone>
     <tzid>Pacific/Johnston</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>b5e61e04cd31d756a0f02b81bfeb48b3</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>fdd50497d420099a0f7faabcc47e967e</md5>
   </timezone>
   <timezone>
     <tzid>Pacific/Kiritimati</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>68de4d111a56e4ef0eb268afbeca8044</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>8f91b87bd5f890f31ed630cbdd65bfe0</md5>
   </timezone>
   <timezone>
     <tzid>Pacific/Kosrae</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>3970c20d9f40401dd85d7ef96e1c4f3f</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>d7026bbafd9c16c828faddbcbd54e187</md5>
   </timezone>
   <timezone>
     <tzid>Pacific/Kwajalein</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
     <alias>Kwajalein</alias>
-    <md5>65503ba52897d18a46a262a73f02a931</md5>
+    <md5>3f9fde4ba2943bb738e8c1924e0f096f</md5>
   </timezone>
   <timezone>
     <tzid>Pacific/Majuro</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>aae48e0261b08ff580c1dcdcf88c85e7</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>0ba8b75760ab452f92b756af581b4f94</md5>
   </timezone>
   <timezone>
     <tzid>Pacific/Marquesas</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>8083df31e2e3bd0c679d4d28962f1e72</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>c0b76e212cd626515ce49ccde8f9be8e</md5>
   </timezone>
   <timezone>
     <tzid>Pacific/Midway</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>7b063107e83ba78326f0a3b430c66875</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>9272f8c6887fa8f574c5c5ba418f95b2</md5>
   </timezone>
   <timezone>
     <tzid>Pacific/Nauru</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>c7a502bdf1aab68e7537ee010f44a6ea</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>0a61ad27dac0def1ead26816406e78c9</md5>
   </timezone>
   <timezone>
     <tzid>Pacific/Niue</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>140bc8f5d7bbeb88a633f8ae17f60d22</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>104f51b65268a84648497d4630f313f9</md5>
   </timezone>
   <timezone>
     <tzid>Pacific/Norfolk</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>ea6ba22f347bc510b94087e99b32ed6d</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>3d8fb92babf03f7aaa36ecc4e45b7cb1</md5>
   </timezone>
   <timezone>
     <tzid>Pacific/Noumea</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>fed390c911a3f700ddc19801db633e26</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>5a2e4e6bab69c3158bf4a6e26be36f08</md5>
   </timezone>
   <timezone>
     <tzid>Pacific/Pago_Pago</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
     <alias>US/Samoa</alias>
     <alias>Pacific/Samoa</alias>
-    <md5>88d50883689e3b2bcc5e2c5c7c65fb52</md5>
+    <md5>4a94a3c2a6fd989abce492f2558c0c01</md5>
   </timezone>
   <timezone>
     <tzid>Pacific/Palau</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>2ecfb1899ac3611cb2ee6355c31edf5e</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>e47c8195ec326afab7f697df36fe22c8</md5>
   </timezone>
   <timezone>
     <tzid>Pacific/Pitcairn</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>bc6bcb2947080b897f8b5a69c42ddb97</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>1edbcbc683541d34dc1e9dfbd227e9d3</md5>
   </timezone>
   <timezone>
     <tzid>Pacific/Pohnpei</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
     <alias>Pacific/Ponape</alias>
-    <md5>99284b8e4ace3f271242f083a64bbec7</md5>
+    <md5>a35aee50c70f59e05ba2d55f1bdaeafd</md5>
   </timezone>
   <timezone>
     <tzid>Pacific/Ponape</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>8e3c63bb26f2ea83a40bad65d6ce9d11</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>dfcf75fdd418cae92159911a6da346a8</md5>
   </timezone>
   <timezone>
     <tzid>Pacific/Port_Moresby</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>2088ac9268ca879ac7861ac6cd07ecc7</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>042a04dfc570e2936ad064894529f41c</md5>
   </timezone>
   <timezone>
     <tzid>Pacific/Rarotonga</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>bf72fd971f9d34cdf038d46c4f55ee0f</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>09807d21db92730922a60125663d0368</md5>
   </timezone>
   <timezone>
     <tzid>Pacific/Saipan</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>8c4f128eff40bcf6724a42be810a7b40</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>cf05f7ec55a5e2279e28cfedb248ede3</md5>
   </timezone>
   <timezone>
     <tzid>Pacific/Samoa</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>cb9844b2c5ab155ecda31e42910a4b86</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>0ef449f6efcf8af5e231acd565527b15</md5>
   </timezone>
   <timezone>
     <tzid>Pacific/Tahiti</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>64f9c28c36e1a38a8238c592d85d126e</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>9ea877f5d48d98918ea1209675906ff9</md5>
   </timezone>
   <timezone>
     <tzid>Pacific/Tarawa</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>0f043df0c42fc01870fa9ad491fa621f</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>f081bd2e38ba54f76976c855d7127359</md5>
   </timezone>
   <timezone>
     <tzid>Pacific/Tongatapu</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>1df0d6ee4f9a2cde99f859f59a5e03e5</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>2124717920b350ba81643915b321d139</md5>
   </timezone>
   <timezone>
     <tzid>Pacific/Truk</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>1d89cc24b941b8565728168adcc19822</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>f57c9c7a7b416fcdb8eb141ce553d0ab</md5>
   </timezone>
   <timezone>
     <tzid>Pacific/Wake</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>4ea873023e61d888d4d8ebfa501c1f18</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>9ccddcd5565ba37cdf69b3b685eafcab</md5>
   </timezone>
   <timezone>
     <tzid>Pacific/Wallis</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>1b81253f838a09a884f2b81b8e51b059</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>bc5d9160c9a3c89b0fe7c90fa61a1d42</md5>
   </timezone>
   <timezone>
     <tzid>Pacific/Yap</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>2100464c1d660a6ace68e9d207eaedae</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>721ea1e811f10f00a44b2079ceece1f3</md5>
   </timezone>
   <timezone>
     <tzid>Poland</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>33a1f92a2ccf5d1d2f03130239702b9d</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>95a5dc1d445e1abc4a5f3626f4552800</md5>
   </timezone>
   <timezone>
     <tzid>Portugal</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>bfd437807ef90134d3dc49cd5f6ff19a</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>84ac9b94013de10f1726ad9dada81743</md5>
   </timezone>
   <timezone>
     <tzid>ROC</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>8622ca5e6054e73f32b7eef77c5a82d4</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>89de140cb0176610bffea12b53ad6d12</md5>
   </timezone>
   <timezone>
     <tzid>ROK</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>47bb8acc258dd8ac19abb4c5c987e55c</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>b4ce7399fc454c07647554d069239558</md5>
   </timezone>
   <timezone>
     <tzid>Singapore</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>5d8526426ea9b8954c8ed47f82cf2ab8</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>94dcb7e58cfd771fa8ec1bd1ea6a5248</md5>
   </timezone>
   <timezone>
     <tzid>Turkey</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>3451ed290d878ab1e668ec6c9b9d8c99</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>bf1f1275922c18a8271e890e1d137a89</md5>
   </timezone>
   <timezone>
     <tzid>UCT</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>341c04d57095a3a9aa2850b83bebb1bd</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>77ab109760c523113f36441e0a218999</md5>
   </timezone>
   <timezone>
     <tzid>US/Alaska</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>33e7f2f6afbdd0461937859cd0d6a1bb</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>0079a04f2e0aafab32b4d4230d97cfde</md5>
   </timezone>
   <timezone>
     <tzid>US/Aleutian</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>8c32ea8de3417b0f7954d6e5ce8908be</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>e2363554818e6b144bc767e60d7bddad</md5>
   </timezone>
   <timezone>
     <tzid>US/Arizona</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>4f37c0e4bfa8e246fb385ab61201bb39</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>37d8a4aaa8f25545ab70a4adf0c3d9e4</md5>
   </timezone>
   <timezone>
     <tzid>US/Central</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>a04b79a29db61324da5f5e83650c3b60</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>bbd226d028c1b450541be5fbe0c01dae</md5>
   </timezone>
   <timezone>
     <tzid>US/East-Indiana</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>79b0dd4f35fe8607bb61a8d85b5fdee5</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>38b5608b46be56f329dde3dc8f0148fd</md5>
   </timezone>
   <timezone>
     <tzid>US/Eastern</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>22bc6f1e0d9828a2d180b1ce6483b029</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>6857581108bc470d0caf0024104714de</md5>
   </timezone>
   <timezone>
     <tzid>US/Hawaii</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>54116c5f57857a61c86c698046462edd</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>ec730fd926e64c6957fe2d1087016ed3</md5>
   </timezone>
   <timezone>
     <tzid>US/Indiana-Starke</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>04577aa85bfa16f4b9d9d48c6e48f776</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>4af48147902ca00f5d08bbae17d1af52</md5>
   </timezone>
   <timezone>
     <tzid>US/Michigan</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>745597bb69268eceb50faac185f18308</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>cae1c31df8990586c12f42180492e3a4</md5>
   </timezone>
   <timezone>
     <tzid>US/Mountain</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>d982832a6aee0f6081ce846e0bdb478e</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>85f5a54d3dd13f996d3ada4ac144ff4d</md5>
   </timezone>
   <timezone>
     <tzid>US/Pacific</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>e5d5382ba8d275e201c3d6581abb85b6</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>3ad0990bea538591e1790556c162f920</md5>
   </timezone>
   <timezone>
     <tzid>US/Samoa</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>e8705de5512988bd3c5b671cb684c160</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>25dab73c0f7efc3a997a2efa5466c12e</md5>
   </timezone>
   <timezone>
     <tzid>UTC</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>6c90373ab52559ca7a0abb2e245014ae</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>3b4bdbd492aa1796c10f37c1969dbd4b</md5>
   </timezone>
   <timezone>
     <tzid>Universal</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>006d17434c50cfbb7473d0b887060173</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>50bcbcc5d95d03946dd65a7d53877ac7</md5>
   </timezone>
   <timezone>
     <tzid>W-SU</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>4b9f14691328dd4c0595586c8504a058</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>3fdc23a1e84d1e77026ef5134217ffa3</md5>
   </timezone>
   <timezone>
     <tzid>WET</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>2e8bf9ac5e45e798c9953a821e0bbd53</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>f7d652d5d227809a7c9a9d75fea34c08</md5>
   </timezone>
   <timezone>
     <tzid>Zulu</tzid>
-    <dtstamp>20110524T222343Z</dtstamp>
-    <md5>ee86469cac668e25e1619fd59d11f619</md5>
+    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <md5>fa5e48a172aaa63cbd2193b233b2d9a4</md5>
   </timezone>
 </timezones>

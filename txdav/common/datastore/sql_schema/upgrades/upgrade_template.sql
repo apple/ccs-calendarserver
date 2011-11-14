@@ -14,6 +14,13 @@
 -- limitations under the License.
 ----
 
+-- The file name must be of the form:
+--
+-- upgrade_from_X_to_Y.sql
+--
+-- where X is the start version number, and Y the end version
+-- number for the upgrade 
+
 -------------------------------------------------
 -- Upgrade database schema from VERSION X to Y --
 -------------------------------------------------

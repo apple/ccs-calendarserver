@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2010 Apple Inc. All rights reserved.
+# Copyright (c) 2010-2011 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -40,7 +40,7 @@ from txdav.caldav.datastore.file import Calendar, CalendarObject
 
 from txdav.common.datastore.test.util import deriveQuota
 from txdav.caldav.datastore.test.common import (
-    CommonTests, event4_text, event1modified_text)
+    CommonTests, test_event_text, event1modified_text)
 
 storePath = FilePath(__file__).parent().child("calendar_store")
 
@@ -256,7 +256,7 @@ class CalendarTest(unittest.TestCase):
         self.assertRaises(
             ObjectResourceNameNotAllowedError,
             self.calendar1.createCalendarObjectWithName,
-            ".foo", VComponent.fromString(event4_text)
+            ".foo", VComponent.fromString(test_event_text)
         )
 
 
@@ -330,7 +330,7 @@ class CalendarTest(unittest.TestCase):
         yield self._refresh()
         self.calendar1.createCalendarObjectWithName(
             "sample.ics",
-            VComponent.fromString(event4_text)
+            VComponent.fromString(test_event_text)
         )
         yield self.txn.abort()
         yield self._refresh()

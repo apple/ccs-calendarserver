@@ -72,7 +72,7 @@ class AggregatedDirectories (twistedcaldav.directory.test.util.DirectoryTestCase
         xmlService.recordTypePrefix = xml_prefix
 
 
-        return AggregateDirectoryService((xmlService,))
+        return AggregateDirectoryService((xmlService,), None)
 
     def test_setRealm(self):
         """

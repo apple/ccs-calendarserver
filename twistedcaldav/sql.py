@@ -31,6 +31,8 @@ try:
 except ImportError:
     from pysqlite2 import dbapi2 as sqlite
 
+sqlite.connect(":memory:")
+
 from twext.python.log import Logger
 
 log = Logger()

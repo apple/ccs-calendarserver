@@ -24,11 +24,11 @@ from twisted.web.client import Agent
 from twisted.web.http_headers import Headers
 from twisted.web.http import MULTI_STATUS
 
-from httpauth import AuthHandlerAgent
-from httpclient import StringProducer
+from contrib.performance.httpauth import AuthHandlerAgent
+from contrib.performance.httpclient import StringProducer
 
-from benchlib import CalDAVAccount, sample
-from event import makeEvent
+from contrib.performance.benchlib import CalDAVAccount, sample
+from contrib.performance.benchmarks.event import makeEvent
 
 PROPFIND = """\
 <?xml version="1.0" encoding="utf-8"?>

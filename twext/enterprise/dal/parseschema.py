@@ -259,8 +259,7 @@ class _ColumnParser(object):
         if constraintType.match(Keyword, 'PRIMARY'):
             expect(self, ttype=Keyword, value='KEY')
             names = self.namesInParens(expect(self, cls=Parenthesis))
-            self.table.primaryKey = tuple(self.table.columnNamed(n)
-                                          for n in names)
+            self.table.primaryKey = [self.table.columnNamed(n) for n in names]
         elif constraintType.match(Keyword, 'UNIQUE'):
             names = self.namesInParens(expect(self, cls=Parenthesis))
             self.table.tableConstraint(Constraint.UNIQUE, names)
@@ -320,7 +319,7 @@ class _ColumnParser(object):
                 if val.match(Keyword, 'PRIMARY'):
                     expect(self, ttype=Keyword, value='KEY')
                     # XXX check to make sure there's no other primary key yet
-                    self.table.primaryKey = theColumn
+                    self.table.primaryKey = [theColumn]
                 elif val.match(Keyword, 'UNIQUE'):
                     # XXX add UNIQUE constraint
                     oneConstraint(Constraint.UNIQUE)
@@ -449,7 +448,7 @@ def expect(iterator, **kw):
     Retrieve a value from an iterator and check its properties.  Same signature
     as L{expectSingle}, except it takes an iterator instead of a value.
 
-    @see L{expectSingle}
+    @see: L{expectSingle}
     """
     nextval = iterator.next()
     return expectSingle(nextval, **kw)

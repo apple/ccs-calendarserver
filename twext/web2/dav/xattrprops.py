@@ -57,10 +57,11 @@ from twext.web2.dav.http import statusForFailure
 
 # RFC 2518 Section 12.13.1 says that removal of non-existing property
 # is not an error.  python-xattr on Linux fails with ENODATA in this
-# case.  On OS X, the xattr library fails with ENOATTR, which CPython
-# does not expose.  Its value is 93.
-_ATTR_MISSING = (errno.ENODATA, 93)
-
+# case.  On Darwin and FreeBSD, the xattr library fails with ENOATTR,
+# which CPython does not expose.  Its value is 93.
+_ATTR_MISSING = (93,)
+if hasattr(errno, "ENODATA"):
+    _ATTR_MISSING += (errno.ENODATA,)
 
 class xattrPropertyStore (object):
     """

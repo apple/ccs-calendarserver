@@ -199,6 +199,9 @@ class Server(object):
     def getPartitionURIForId(self, id):
         return self.partitions.get(id)
     
+    def isPartitioned(self):
+        return len(self.partitions) != 0
+
     def installReverseProxies(self, ownUID, maxClients):
         
         for partition, url in self.partitions.iteritems():

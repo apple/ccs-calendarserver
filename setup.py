@@ -108,14 +108,22 @@ def doSetup():
         packages         = find_modules(),
         package_data     = {
                              "twistedcaldav": [
+                               "*.html",
                                "zoneinfo/*.ics",
                                "zoneinfo/*/*.ics",
                                "zoneinfo/*/*/*.ics",
                                "images/*/*.jpg",
                              ],
+                             "calendarserver.webadmin": [
+                                 "*.html"
+                             ],
+                             "twistedcaldav.directory": [
+                                 "*.html"
+                             ],
                              "txdav.common.datastore": [
                                "sql_schema/*.sql",
                                "sql_schema/*/*.sql",
+                               "sql_schema/*/*/*.sql",
                              ],
                            },
         scripts          = [

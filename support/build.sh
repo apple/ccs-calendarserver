@@ -1,4 +1,3 @@
-#! /bin/bash
 # -*- sh-basic-offset: 2 -*-
 
 ##
@@ -419,7 +418,7 @@ py_dependency () {
   local  inplace="";      # Do development in-place; don't run setup.py to
                           # build, and instead add the source directory plus the
                           # given relative path directly to sys.path.  twisted
-                          # and vobject are developed often enough that this is
+                          # and pycalendar are developed often enough that this is
                           # convenient.
   local skip_egg="false"; # Skip even the 'egg_info' step, because nothing needs
                           # to be built.
@@ -575,10 +574,10 @@ write_environment () {
   cat > "${dstroot}/environment.sh" << __EOF__
 export              PATH="${dstroot}/bin:\${PATH}";
 export    C_INCLUDE_PATH="${dstroot}/include:\${C_INCLUDE_PATH:-}";
-export   LD_LIBRARY_PATH="${dstroot}/lib:\${LD_LIBRARY_PATH:-}";
+export   LD_LIBRARY_PATH="${dstroot}/lib:\${LD_LIBRARY_PATH:-}:\$ORACLE_HOME";
 export          CPPFLAGS="-I${dstroot}/include \${CPPFLAGS:-} ";
 export           LDFLAGS="-L${dstroot}/lib \${LDFLAGS:-} ";
-export DYLD_LIBRARY_PATH="${dstroot}/lib:\${DYLD_LIBRARY_PATH:-}";
+export DYLD_LIBRARY_PATH="${dstroot}/lib:\${DYLD_LIBRARY_PATH:-}:\$ORACLE_HOME";
 __EOF__
 }
 
@@ -699,14 +698,6 @@ dependencies () {
           "http://${sf}/project/cx-oracle/5.1/${cx}.tar.gz";
   fi;
 
-  if [ "${py_version}" != "${py_version##2.5}" ] && \
-      ! py_have_module select26; then
-    local s26="select26-0.1a3";
-    py_dependency -m "01b8929e7cfc4a8deb777b92e3115c15" \
-      "select26" "select26" "${s26}" \
-      "${pypi}/s/select26/${s26}.tar.gz";
-  fi;
-
   local pg="PyGreSQL-4.0";
   py_dependency -v 4.0 -m "1aca50e59ff4cc56abe9452a9a49c5ff" -o \
     "PyGreSQL" "pgdb" "${pg}" \
@@ -723,16 +714,11 @@ dependencies () {
 
   local ld="python-ldap-2.3.13";
   py_dependency -v "2.3.13" -m "895223d32fa10bbc29aa349bfad59175" \
-    "python-ldap" "python-ldap" "${ld}" \
+    "python-ldap" "ldap" "${ld}" \
     "${pypi}/p/python-ldap/${ld}.tar.gz";
 
-  # XXX actually vObject should be imported in-place.
-  py_dependency -fe -i "" -r 219 \
-    "vobject" "vobject" "vobject" \
-    "http://svn.osafoundation.org/vobject/trunk";
-
   # XXX actually PyCalendar should be imported in-place.
-  py_dependency -fe -i "src" -r 169 \
+  py_dependency -fe -i "src" -r 179 \
     "pycalendar" "pycalendar" "pycalendar" \
     "http://svn.mulberrymail.com/repos/PyCalendar/branches/server";
 
@@ -750,7 +736,7 @@ dependencies () {
     "${pypi}/p/pyflakes/pyflakes-0.4.0.tar.gz";
  
   py_dependency -o -r HEAD \
-    "CalDAVClientLibrary" "CalDAVClientLibrary" "CalDAVClientLibrary" \
+    "CalDAVClientLibrary" "caldavclientlibrary" "CalDAVClientLibrary" \
     "${svn_uri_base}/CalDAVClientLibrary/trunk";
 
   # Can't add "-v 2011g" to args because the version check expects numbers.

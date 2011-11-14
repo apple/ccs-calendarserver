@@ -1,4 +1,4 @@
-# -*- test-case-name: txdav.caldav.datastore.test.test_sql -*-
+# -*- test-case-name: txdav.common.datastore.test.test_sql_tables -*-
 ##
 # Copyright (c) 2010 Apple Inc. All rights reserved.
 #
@@ -23,8 +23,13 @@ from twisted.python.modules import getModule
 from twext.enterprise.dal.syntax import SchemaSyntax
 from twext.enterprise.dal.model import NO_DEFAULT
 from twext.enterprise.dal.model import Sequence, ProcedureCall
+from twext.enterprise.dal.syntax import FixedPlaceholder
+from twext.enterprise.ienterprise import ORACLE_DIALECT
+from twext.enterprise.dal.syntax import Insert
+from twext.enterprise.ienterprise import ORACLE_TABLE_NAME_MAX
 from twext.enterprise.dal.parseschema import schemaFromPath
 
+import hashlib
 
 
 def _populateSchema():
@@ -199,19 +204,37 @@ ADDRESSBOOK_OBJECT_REVISIONS_AND_BIND_TABLE = _combine(
 
 
 
-def _translateSchema(out):
+class SchemaBroken(Exception):
+    """
+    The schema is broken and cannot be translated.
+    """
+
+
+_translatedTypes = {
+    'text': 'nclob',
+    'boolean': 'integer',
+    'varchar': 'nvarchar2',
+    'char': 'nchar',
+}
+
+def _translateSchema(out, schema=schema):
     """
     When run as a script, translate the schema to another dialect.  Currently
     only postgres and oracle are supported, and native format is postgres, so
     emit in oracle format.
     """
+    shortNames = {}
     for sequence in schema.model.sequences:
         out.write('create sequence %s;\n' % (sequence.name,))
     for table in schema:
         # The only table name which actually exceeds the length limit right now
         # is CALENDAR_OBJECT_ATTACHMENTS_MODE, which isn't actually _used_
         # anywhere, so we can fake it for now.
-        shortName = table.model.name[:30]
+        shortName = table.model.name[:ORACLE_TABLE_NAME_MAX]
+        if shortName in shortNames:
+            raise SchemaBroken("short-name conflict between %s and %s" %
+                               (table.model.name, shortNames[shortName]))
+        shortNames[shortName] = table.model.name
         out.write('create table %s (\n' % (shortName,))
         first = True
         for column in table:
@@ -220,18 +243,11 @@ def _translateSchema(out):
             else:
                 out.write(",\n")
             typeName = column.model.type.name
-            if typeName == 'text':
-                typeName = 'nclob'
-            if typeName == 'boolean':
-                typeName = 'integer'
-            if typeName == 'varchar':
-                typeName = 'nvarchar2'
-            if typeName == 'char':
-                typeName = 'nchar'
+            typeName = _translatedTypes.get(typeName, typeName)
             out.write('    "%s" %s' % (column.model.name, typeName))
             if column.model.type.length:
                 out.write("(%s)" % (column.model.type.length,))
-            if column.model is table.model.primaryKey:
+            if [column.model] == table.model.primaryKey:
                 out.write(' primary key')
             default = column.model.default
             if default is not NO_DEFAULT:
@@ -257,23 +273,59 @@ def _translateSchema(out):
                  and typeName not in ('varchar', 'nclob', 'char', 'nchar',
                                       'nvarchar', 'nvarchar2') ):
                 out.write(' not null')
-            if set([column.model]) in list(table.model.uniques()):
+            if [column.model] in list(table.model.uniques()):
                 out.write(' unique')
             if column.model.references is not None:
                 out.write(" references %s" % (column.model.references.name,))
             if column.model.cascade:
                 out.write(" on delete cascade")
 
+        def writeConstraint(name, cols):
+            out.write(", \n") # the table has to have some preceding columns
+            out.write("    %s(%s)" % (
+                name, ", ".join('"' + col.name + '"' for col in cols)
+            ))
+
+        pk = table.model.primaryKey
+        if pk is not None and len(pk) > 1:
+            writeConstraint("primary key", pk)
+
+        for uniqueColumns in table.model.uniques():
+            if len(uniqueColumns) == 1:
+                continue # already done inline, skip
+            writeConstraint("unique", uniqueColumns)
+
         out.write('\n);\n\n')
 
-    for (num, index) in enumerate(schema.model.indexes):
+        fakeMeta = FixedPlaceholder(ORACLE_DIALECT, '%s')
+        def quoted(x):
+            if isinstance(x, (str, unicode)):
+                return ''.join(["'", x.replace("'", "''"), "'"])
+            else:
+                return str(x)
+
+        for row in table.model.schemaRows:
+            cmap = dict(
+                [(getattr(table, cmodel.name), val)
+                 for (cmodel, val) in row.items()]
+            )
+            fragment = Insert(cmap).toSQL(fakeMeta)
+            out.write(
+                fragment.text % tuple([quoted(param)
+                                       for param in fragment.parameters]),
+            )
+            out.write(";\n")
+
+
+    for index in schema.model.indexes:
         # Index names combine and repeat multiple table names and column names,
         # so several of them conflict once oracle's length limit is applied.
-        # Luckily, index names don't matter to application code at all, so we
-        # can add a little disambiguating prefix without breaking anything.
-        # -glyph
-        uniqueIndexName = 'IDX_%d_%s' % (num, index.name)
-        shortIndexName = uniqueIndexName[:30]
+        # To keep them unique within the limit we truncate and append 8 characters
+        # of the md5 hash of the full name.
+        shortIndexName = "%s_%s" % (
+            index.name[:21],
+            str(hashlib.md5(index.name).hexdigest())[:8],
+        )
         shortTableName = index.table.name[:30]
         out.write(
             'create index %s on %s (\n    ' % (shortIndexName, shortTableName)

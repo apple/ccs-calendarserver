@@ -15,16 +15,29 @@
 # limitations under the License.
 ##
 
+"""
+Utilities, mostly related to upgrading, common to calendar and addresbook
+data stores.
+"""
+
+import os
+import re
+import errno
+import xattr
+
 from twext.python.log import LoggingMixIn
 from twisted.application.service import Service
 from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks
 from twisted.python.modules import getModule
+from twisted.python.runtime import platform
+
 from txdav.caldav.datastore.util import migrateHome as migrateCalendarHome
 from txdav.carddav.datastore.util import migrateHome as migrateAddressbookHome
 from txdav.common.datastore.file import CommonDataStore as FileStore, TOPPATHS
-import os
-import re
+from txdav.base.propertystore.xattr import PropertyStore as XattrPropertyStore
+from txdav.base.propertystore.appledouble_xattr import (
+    PropertyStore as AppleDoubleStore)
 
 
 class UpgradeToDatabaseService(Service, LoggingMixIn, object):
@@ -38,7 +51,8 @@ class UpgradeToDatabaseService(Service, LoggingMixIn, object):
         Create an L{UpgradeToDatabaseService} if there are still file-based
         calendar or addressbook homes remaining in the given path.
 
-        @param path: a path pointing at the document root.
+        @param path: a path pointing at the document root, where the file-based
+            data-store is located.
         @type path: L{CachingFilePath}
 
         @param service: the service to wrap.  This service should be started
@@ -59,8 +73,39 @@ class UpgradeToDatabaseService(Service, LoggingMixIn, object):
         # not hard coded.
         for homeType in TOPPATHS:
             if path.child(homeType).exists():
+                if platform.isMacOSX():
+                    appropriateStoreClass = XattrPropertyStore
+                else:
+                    attrs = xattr.xattr(path.path)
+                    try:
+                        attrs.get('user.should-not-be-set')
+                    except IOError, ioe:
+                        if ioe.errno == errno.ENODATA:
+                            # xattrs are supported and enabled on the filesystem
+                            # where the calendar data lives.  this takes some
+                            # doing (you have to edit fstab), so this means
+                            # we're trying to migrate some 2.x data from a
+                            # previous linux installation.
+                            appropriateStoreClass = XattrPropertyStore
+                        elif ioe.errno == errno.EOPNOTSUPP:
+                            # The operation wasn't supported.  This is what will
+                            # usually happen on a naively configured filesystem,
+                            # so this means we're most likely trying to migrate
+                            # some data from an untarred archive created on an
+                            # OS X installation using xattrs.
+                            appropriateStoreClass = AppleDoubleStore
+                        else:
+                            # No need to check for ENOENT and the like; we just
+                            # checked above to make sure the parent exists.
+                            # Other errors are not anticipated here, so fail
+                            # fast.
+                            raise
+
+                    appropriateStoreClass = AppleDoubleStore
+
                 self = cls(
-                    FileStore(path, None, True, True),
+                    FileStore(path, None, True, True,
+                              propertyStoreClass=appropriateStoreClass),
                     store, service, uid=uid, gid=gid,
                 )
                 return self
@@ -117,18 +162,9 @@ class UpgradeToDatabaseService(Service, LoggingMixIn, object):
                 yield sqlTxn.commit()
                 # FIXME: need a public remove...HomeWithUID() for de-
                 # provisioning
-                storePath = self.fileStore._path # Documents
-                topPath = storePath.child(topPathName) # calendars|addressbooks
-                fromParent = fileHome._path.segmentsFrom(topPath)
-                topPath = topPath.realpath() # follow possible symlink
-                backupPath = topPath.sibling(topPathName + "-migrated")
-                for segment in fromParent:
-                    try:
-                        backupPath.createDirectory()
-                    except OSError:
-                        pass
-                    backupPath = backupPath.child(segment)
-                fileHome._path.moveTo(backupPath)
+
+                # Remove file home after migration
+                fileHome._path.remove()
         for homeType in TOPPATHS:
             homesPath = self.fileStore._path.child(homeType)
             if homesPath.isdir():
@@ -159,11 +195,23 @@ class UpgradeToDatabaseService(Service, LoggingMixIn, object):
         self.doMigration()
 
 
+
 class UpgradeDatabaseSchemaService(Service, LoggingMixIn, object):
     """
     Checks and upgrades the database schema. This assumes there are a bunch of
-    upgrade files in sql syntax that we can execute against the database to accomplish
-    the upgrade.
+    upgrade files in sql syntax that we can execute against the database to
+    accomplish the upgrade.
+
+    @ivar sqlStore: The store to operate on.
+
+    @type sqlStore: L{txdav.idav.IDataStore}
+
+    @ivar wrappedService: Wrapped L{IService} that will be started after this
+        L{UpgradeDatabaseSchemaService}'s work is done and the database schema
+        of C{sqlStore} is fully upgraded.  This may also be specified as
+        C{None}, in which case no service will be started.
+
+    @type wrappedService: L{IService} or C{NoneType}
     """
 
     @classmethod
@@ -180,6 +228,8 @@ class UpgradeDatabaseSchemaService(Service, LoggingMixIn, object):
             L{MultiService} or similar.)
 
         @param store: the SQL storage service.
+
+        @type store: L{txdav.idav.IDataStore}
 
         @type service: L{IService}
 
@@ -199,29 +249,37 @@ class UpgradeDatabaseSchemaService(Service, LoggingMixIn, object):
         self.gid = gid
         self.schemaLocation = getModule(__name__).filePath.sibling("sql_schema")
 
+
     @inlineCallbacks
     def doUpgrade(self):
         """
-        Do the schema check and upgrade if needed.  Called by C{startService}, but a different method
-        because C{startService} should return C{None}, not a L{Deferred}.
+        Do the schema check and upgrade if needed.  Called by C{startService},
+        but a different method because C{startService} should return C{None},
+        not a L{Deferred}.
 
         @return: a Deferred which fires when the migration is complete.
         """
         self.log_warn("Beginning database schema check.")
-        
+
         # Retrieve the version number from the schema file
         current_schema = self.schemaLocation.child("current.sql").getContent()
-        found = re.search("insert into CALENDARSERVER values \('VERSION', '(\d)+'\);", current_schema)
+        found = re.search(
+            "insert into CALENDARSERVER values \('VERSION', '(\d)+'\);",
+            current_schema)
         if found is None:
-            msg = "Schema is missing required schema VERSION insert statement: %s" % (current_schema,)
+            msg = (
+                "Schema is missing required schema VERSION insert statement: %s"
+                % (current_schema,)
+            )
             self.log_error(msg)
             raise RuntimeError(msg)
         else:
             required_version = int(found.group(1))
             self.log_warn("Required schema version: %s." % (required_version,))
-        
+
         # Get the schema version in the current database
         sqlTxn = self.sqlStore.newTransaction()
+        dialect = sqlTxn.dialect
         try:
             actual_version = yield sqlTxn.schemaVersion()
             yield sqlTxn.commit()
@@ -235,21 +293,25 @@ class UpgradeDatabaseSchemaService(Service, LoggingMixIn, object):
         if required_version == actual_version:
             self.log_warn("Schema version check complete: no upgrade needed.")
         elif required_version < actual_version:
-            msg = "Actual schema version %s is more recent than the expected version %s. The service cannot be started" % (actual_version, required_version,)
+            msg = ("Actual schema version %s is more recent than the expected"
+                   " version %s. The service cannot be started" %
+                   (actual_version, required_version,))
             self.log_error(msg)
             raise RuntimeError(msg)
         else:
-            yield self.upgradeVersion(actual_version, required_version)
-            
+            yield self.upgradeVersion(actual_version, required_version, dialect)
+
         self.log_warn(
             "Database schema check complete, launching database service."
         )
         # see http://twistedmatrix.com/trac/ticket/4649
-        reactor.callLater(0, self.wrappedService.setServiceParent, self.parent)
+        if self.wrappedService is not None:
+            reactor.callLater(0, self.wrappedService.setServiceParent,
+                              self.parent)
+
 
     @inlineCallbacks
-
-    def upgradeVersion(self, fromVersion, toVersion):
+    def upgradeVersion(self, fromVersion, toVersion, dialect):
         """
         Update the database from one version to another (the current one). Do this by
         looking for upgrade_from_X_to_Y.sql files that cover the full range of upgrades.
@@ -258,10 +320,10 @@ class UpgradeDatabaseSchemaService(Service, LoggingMixIn, object):
         self.log_warn("Starting schema upgrade from version %d to %d." % (fromVersion, toVersion,))
         
         # Scan for all possible upgrade files - returned sorted
-        files = self.scanForUpgradeFiles()
+        files = self.scanForUpgradeFiles(dialect)
         
         # Determine upgrade sequence and run each upgrade
-        upgrades = self.determineUpgradeSequence(fromVersion, toVersion, files)
+        upgrades = self.determineUpgradeSequence(fromVersion, toVersion, files, dialect)
 
         # Use one transaction for the entire set of upgrades
         sqlTxn = self.sqlStore.newTransaction()
@@ -276,12 +338,12 @@ class UpgradeDatabaseSchemaService(Service, LoggingMixIn, object):
 
         self.log_warn("Schema upgraded from version %d to %d." % (fromVersion, toVersion,))
 
-    def scanForUpgradeFiles(self):
+    def scanForUpgradeFiles(self, dialect):
         """
         Scan the module path for upgrade files with the require name.
         """
         
-        fp = self.schemaLocation.child("upgrades")
+        fp = self.schemaLocation.child("upgrades").child(dialect)
         upgrades = []
         regex = re.compile("upgrade_from_(\d)+_to_(\d)+.sql")
         for child in fp.globChildren("upgrade_*.sql"):
@@ -294,7 +356,7 @@ class UpgradeDatabaseSchemaService(Service, LoggingMixIn, object):
         upgrades.sort(key=lambda x:(x[0], x[1]))
         return upgrades
     
-    def determineUpgradeSequence(self, fromVersion, toVersion, files):
+    def determineUpgradeSequence(self, fromVersion, toVersion, files, dialect):
         """
         Determine the upgrade_from_X_to_Y.sql files that cover the full range of upgrades.
         Note that X and Y may not be consecutive, e.g., we might have an upgrade from 3 to 4,
@@ -313,7 +375,7 @@ class UpgradeDatabaseSchemaService(Service, LoggingMixIn, object):
         nextVersion = fromVersion
         while nextVersion != toVersion:
             if nextVersion not in filesByFromVersion:
-                msg = "Missing upgrade file from version %d" % (nextVersion, )
+                msg = "Missing upgrade file from version %d with dialect %s" % (nextVersion, dialect,)
                 self.log_error(msg)
                 raise RuntimeError(msg)
             else:
@@ -329,7 +391,7 @@ class UpgradeDatabaseSchemaService(Service, LoggingMixIn, object):
         """
         self.log_warn("Applying schema upgrade: %s" % (fp.basename(),))
         sql = fp.getContent()
-        yield sqlTxn.execSQL(sql)
+        yield sqlTxn.execSQLBlock(sql)
         
     def startService(self):
         """

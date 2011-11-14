@@ -247,7 +247,7 @@ class DefaultAddressBook (TestCase):
         except HTTPError:
             self.fail("carddavxml.DefaultAddressBookURL is not present")
         else:
-            self.assertEqual(str(default.children[0]), "/addressbooks/__uids__/6423F94A-6B76-4A3A-815B-D52CFD77935D/addressbook")
+            self.assertEqual(str(default.children[0]), "/addressbooks/__uids__/6423F94A-6B76-4A3A-815B-D52CFD77935D/addressbook/")
 
         request._newStoreTransaction.abort()
 
@@ -273,7 +273,7 @@ class DefaultAddressBook (TestCase):
         newadbk = yield request.locateResource("/addressbooks/users/wsanchez/newadbk")
         yield newadbk.createAddressBookCollection()
         home.writeDeadProperty(carddavxml.DefaultAddressBookURL(
-            davxml.HRef("/addressbooks/__uids__/6423F94A-6B76-4A3A-815B-D52CFD77935D/newadbk")
+            davxml.HRef("/addressbooks/__uids__/6423F94A-6B76-4A3A-815B-D52CFD77935D/newadbk/")
         ))
         request._newStoreTransaction.commit()
         
@@ -303,7 +303,7 @@ class DefaultAddressBook (TestCase):
         except HTTPError:
             self.fail("carddavxml.DefaultAddressBookURL is not present")
         else:
-            self.assertEqual(str(default.children[0]), "/addressbooks/__uids__/6423F94A-6B76-4A3A-815B-D52CFD77935D/newadbk")
+            self.assertEqual(str(default.children[0]), "/addressbooks/__uids__/6423F94A-6B76-4A3A-815B-D52CFD77935D/newadbk/")
 
         request._newStoreTransaction.abort()
 
@@ -318,17 +318,17 @@ class DefaultAddressBook (TestCase):
         home = yield request.locateResource("/addressbooks/users/wsanchez")
 
         # Create a new default adbk
-        newadbk = yield request.locateResource("/addressbooks/__uids__/6423F94A-6B76-4A3A-815B-D52CFD77935D/newadbk")
+        newadbk = yield request.locateResource("/addressbooks/__uids__/6423F94A-6B76-4A3A-815B-D52CFD77935D/newadbk/")
         yield newadbk.createAddressBookCollection()
         home.writeDeadProperty(carddavxml.DefaultAddressBookURL(
-            davxml.HRef("/addressbooks/__uids__/6423F94A-6B76-4A3A-815B-D52CFD77935D/newadbk")
+            davxml.HRef("/addressbooks/__uids__/6423F94A-6B76-4A3A-815B-D52CFD77935D/newadbk/")
         ))
         try:
             default = yield home.readProperty(carddavxml.DefaultAddressBookURL, request)
         except HTTPError:
             self.fail("carddavxml.DefaultAddressBookURL is not present")
         else:
-            self.assertEqual(str(default.children[0]), "/addressbooks/__uids__/6423F94A-6B76-4A3A-815B-D52CFD77935D/newadbk")
+            self.assertEqual(str(default.children[0]), "/addressbooks/__uids__/6423F94A-6B76-4A3A-815B-D52CFD77935D/newadbk/")
         
         # Force the new calendar to think it is a virtual share
         newadbk._isVirtualShare = True
@@ -338,6 +338,6 @@ class DefaultAddressBook (TestCase):
         except HTTPError:
             self.fail("carddavxml.DefaultAddressBookURL is not present")
         else:
-            self.assertEqual(str(default.children[0]), "/addressbooks/__uids__/6423F94A-6B76-4A3A-815B-D52CFD77935D/addressbook")
+            self.assertEqual(str(default.children[0]), "/addressbooks/__uids__/6423F94A-6B76-4A3A-815B-D52CFD77935D/addressbook/")
 
         request._newStoreTransaction.abort()

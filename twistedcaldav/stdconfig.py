@@ -28,11 +28,13 @@ from twext.python.plistlib import PlistParser #@UnresolvedImport
 from twext.python.log import Logger, InvalidLogLevelError
 from twext.python.log import clearLogLevels, setLogLevelForNamespace
 
-from twistedcaldav import caldavxml, customxml, carddavxml
+from twistedcaldav import caldavxml, customxml, carddavxml, mkcolxml
 from twistedcaldav.config import ConfigProvider, ConfigurationError
 from twistedcaldav.config import config, _mergeData, fullServerPath
 from twistedcaldav.util import getPasswordFromKeychain
 from twistedcaldav.util import KeychainAccessError, KeychainPasswordNotFound
+
+from calendarserver.push.util import getAPNTopicFromCertificate
 
 log = Logger()
 
@@ -57,6 +59,9 @@ DEFAULT_SERVICE_PARAMS = {
     "twistedcaldav.directory.ldapdirectory.LdapDirectoryService": {
         "cacheTimeout": 1, # Minutes
         "negativeCaching": False,
+        "warningThresholdSeconds": 3,
+        "batchSize": 500, # for splitting up large queries
+        "queryLocationsImplicitly": True,
         "restrictEnabledRecords": False,
         "restrictToGroup": "",
         "recordTypes": ("users", "groups"),
@@ -78,30 +83,60 @@ DEFAULT_SERVICE_PARAMS = {
                 "attr": "uid", # used only to synthesize email address
                 "emailSuffix": None, # used only to synthesize email address
                 "filter": None, # additional filter for this type
-                "recordName": "userid", # uniquely identifies user records
-                "loginEnabledAttr" : "loginEnabled", # attribute controlling login
-                "loginEnabledValue" : "yes", # value of above attribute
+                "loginEnabledAttr" : "", # attribute controlling login
+                "loginEnabledValue" : "yes", # "True" value of above attribute
+                "calendarEnabledAttr" : "", # attribute controlling enabledForCalendaring
+                "calendarEnabledValue" : "yes", # "True" value of above attribute
+                "mapping" : { # maps internal record names to LDAP
+                    "recordName": "uid",
+                    "fullName" : "cn",
+                    "emailAddresses" : "mail",
+                    "firstName" : "givenName",
+                    "lastName" : "sn",
+                },
             },
             "groups": {
                 "rdn": "ou=Group",
                 "attr": "cn", # used only to synthesize email address
                 "emailSuffix": None, # used only to synthesize email address
                 "filter": None, # additional filter for this type
-                "recordName": "cn", # uniquely identifies group records
+                "mapping" : { # maps internal record names to LDAP
+                    "recordName": "cn",
+                    "fullName" : "cn",
+                    "emailAddresses" : "mail",
+                    "firstName" : "givenName",
+                    "lastName" : "sn",
+                },
             },
             "locations": {
-                "rdn": "ou=Locations",
+                "rdn": "ou=Places",
                 "attr": "cn", # used only to synthesize email address
                 "emailSuffix": None, # used only to synthesize email address
                 "filter": None, # additional filter for this type
-                "recordName": "cn", # uniquely identifies location records
+                "calendarEnabledAttr" : "", # attribute controlling enabledForCalendaring
+                "calendarEnabledValue" : "yes", # "True" value of above attribute
+                "mapping" : { # maps internal record names to LDAP
+                    "recordName": "cn",
+                    "fullName" : "cn",
+                    "emailAddresses" : "mail",
+                    "firstName" : "givenName",
+                    "lastName" : "sn",
+                },
             },
             "resources": {
                 "rdn": "ou=Resources",
                 "attr": "cn", # used only to synthesize email address
                 "emailSuffix": None, # used only to synthesize email address
                 "filter": None, # additional filter for this type
-                "recordName": "cn", # uniquely identifies resource records
+                "calendarEnabledAttr" : "", # attribute controlling enabledForCalendaring
+                "calendarEnabledValue" : "yes", # "True" value of above attribute
+                "mapping" : { # maps internal record names to LDAP
+                    "recordName": "cn",
+                    "fullName" : "cn",
+                    "emailAddresses" : "mail",
+                    "firstName" : "givenName",
+                    "lastName" : "sn",
+                },
             },
         },
         "groupSchema": {
@@ -109,11 +144,12 @@ DEFAULT_SERVICE_PARAMS = {
             "nestedGroupsAttr": None, # how nested groups are specified
             "memberIdAttr": None, # which attribute the above refer to
         },
-        "attributeMapping": { # maps internal record names to LDAP
-            "fullName" : "cn",
-            "emailAddresses" : "mail",
-            "firstName" : "givenName",
-            "lastName" : "sn",
+        "resourceSchema": {
+            "resourceInfoAttr": None, # contains location/resource info
+        },
+        "partitionSchema": {
+            "serverIdAttr": None, # maps to augments server-id
+            "partitionIdAttr": None, # maps to augments partition-id
         },
     },
 }
@@ -280,6 +316,7 @@ DEFAULT_CONFIG = {
     "MaxResourcesPerCollection" :   10000, # Maximum number of resources in a calendar/address book
     "MaxResourceSize"           : 1048576, # Maximum resource size (in bytes)
     "MaxAttendeesPerInstance"   :     100, # Maximum number of unique attendees
+    "MaxAllowedInstances"       :    3000, # Maximum number of instances the server will index
     "MaxInstancesForRRULE"      :     400, # Maximum number of instances for an RRULE
 
     # Set to URL path of wiki authentication service, e.g. "/auth", in order
@@ -319,7 +356,7 @@ DEFAULT_CONFIG = {
     #
     "AugmentService": {
         "type": "twistedcaldav.directory.augment.AugmentXMLDB",
-        "params": DEFAULT_AUGMENT_PARAMS["twistedcaldav.directory.augment.AugmentXMLDB"],
+        "params" : DEFAULT_AUGMENT_PARAMS["twistedcaldav.directory.augment.AugmentXMLDB"],
     },
 
     #
@@ -343,7 +380,7 @@ DEFAULT_CONFIG = {
     # Permissions
     #
     "EnableAnonymousReadRoot": True,    # Allow unauthenticated read access to /
-    "EnableAnonymousReadNav": False,    # Allow unauthenticated read access to hierachcy
+    "EnableAnonymousReadNav": False,    # Allow unauthenticated read access to hierarchy
     "EnablePrincipalListings": True,    # Allow listing of principal collections
     "EnableMonolithicCalendars": True,  # Render calendar collections as a monolithic iCalendar object
 
@@ -435,6 +472,8 @@ DEFAULT_CONFIG = {
     #
     "EnableSACLs": False,
 
+    "EnableReadOnlyServer": False, # Make all data read-only
+
     #
     # Standard (or draft) WebDAV extensions
     #
@@ -451,12 +490,12 @@ DEFAULT_CONFIG = {
     "EnableTimezoneService"   : False, # Old Timezone service
     
     "TimezoneService"         : {    # New standard timezone service
-        "Enabled"       : True,      # Overall on/off switch
+        "Enabled"       : False,     # Overall on/off switch
         "Mode"          : "primary", # Can be "primary" or "secondary"
         "BasePath"      : "",        # Path to zoneinfo - if None use default package path
-                                     # secondary service MUST define its own writeable path
+                                     # secondary service MUST define its own writable path
         "XMLInfoPath"   : "",        # Path to db cache info - if None use default package path
-                                     # secondary service MUST define its own writeable path if
+                                     # secondary service MUST define its own writable path if
                                      # not None
         
         "SecondaryService" : {
@@ -488,13 +527,13 @@ DEFAULT_CONFIG = {
 
     # CardDAV Features
     "DirectoryAddressBook": {
-        "Enabled": False,
+        "Enabled": True,
         "type":    "twistedcaldav.directory.opendirectorybacker.OpenDirectoryBackingService",
         "params":  directoryAddressBookBackingServiceDefaultParams["twistedcaldav.directory.opendirectorybacker.OpenDirectoryBackingService"],
         "name":    "directory",
         "MaxQueryResults": 1000,
     },
-    "EnableSearchAddressBook": True, # /directory resource exists
+    "EnableSearchAddressBook": False, # /directory resource exists
     "AnonymousDirectoryAddressBookAccess": False, # Anonymous users may access directory address book
 
     "GlobalAddressBook": {
@@ -519,7 +558,7 @@ DEFAULT_CONFIG = {
         "CalDAV": {
             "EmailDomain"                : "",    # Domain for mailto calendar user addresses on this server
             "HTTPDomain"                 : "",    # Domain for http calendar user addresses on this server
-            "AddressPatterns"            : [],    # Reg-ex patterns to match local calendar user addresses
+            "AddressPatterns"            : [],    # Regex patterns to match local calendar user addresses
             "OldDraftCompatibility"      : True,  # Whether to maintain compatibility with non-implicit mode
             "ScheduleTagCompatibility"   : True,  # Whether to support older clients that do not use Schedule-Tag feature
             "EnablePrivateComments"      : True,  # Private comments from attendees to organizer
@@ -553,10 +592,10 @@ DEFAULT_CONFIG = {
                 "UseSSL"        : True,
                 "Type"          : "",    # Type of message access server: 'pop' or 'imap'
                 "PollingSeconds"    : 30,  # How often to fetch mail
-                "Username"      : "",    # For account receving mail
-                "Password"      : "",    # For account receving mail
+                "Username"      : "",    # For account receiving mail
+                "Password"      : "",    # For account receiving mail
             },
-            "AddressPatterns"   : [],    # Reg-ex patterns to match iMIP-able calendar user addresses
+            "AddressPatterns"   : [],    # Regex patterns to match iMIP-able calendar user addresses
             "MailTemplatesDirectory": "/usr/share/caldavd/share/email_templates", # Directory containing HTML templates for email invitations (invite.html, cancel.html)
             "MailIconsDirectory": "/usr/share/caldavd/share/date_icons", # Directory containing language-specific subdirectories containing date-specific icons for email invitations
             "InvitationDaysToLive" : 90, # How many days invitations are valid
@@ -566,6 +605,7 @@ DEFAULT_CONFIG = {
             "AllowGroupAsOrganizer"          : False, # Allow groups to be Organizers
             "AllowLocationAsOrganizer"       : False, # Allow locations to be Organizers
             "AllowResourceAsOrganizer"       : False, # Allow resources to be Organizers
+            "AllowUserAutoAccept"            : False, # Allow auto-accept for users
             "LimitFreeBusyAttendees"         : 30,    # Maximum number of attendees to request freebusy for
             "AttendeeRefreshIntervalSeconds" : 60,    # Time after an iTIP REPLY at which attendee refresh will trigger 
             "AttendeeRefreshThreshold"       : 20,    # Number of attendees above which refresh delays are used 
@@ -594,6 +634,28 @@ DEFAULT_CONFIG = {
                 "Enabled" : False,
                 "Port" : 62308,
             },
+            "ApplePushNotifier" : {
+                "Service" : "calendarserver.push.applepush.ApplePushNotifierService",
+                "Enabled" : False,
+                "SubscriptionURL" : "apns",
+                "DataHost" : "",
+                "ProviderHost" : "gateway.push.apple.com",
+                "ProviderPort" : 2195,
+                "FeedbackHost" : "feedback.push.apple.com",
+                "FeedbackPort" : 2196,
+                "FeedbackUpdateSeconds" : 300, # 5 minutes
+                "Environment" : "PRODUCTION",
+                "CalDAV" : {
+                    "CertificatePath" : "",
+                    "PrivateKeyPath" : "",
+                    "Topic" : "",
+                },
+                "CardDAV" : {
+                    "CertificatePath" : "",
+                    "PrivateKeyPath" : "",
+                    "Topic" : "",
+                },
+            },
             "XMPPNotifier" : {
                 "Service" : "twistedcaldav.notify.XMPPNotifierService",
                 "Enabled" : False,
@@ -605,10 +667,12 @@ DEFAULT_CONFIG = {
                 "CalDAV" : {
                     "APSBundleID" : "",
                     "SubscriptionURL" : "",
+                    "APSEnvironment" : "PRODUCTION",
                 },
                 "CardDAV" : {
                     "APSBundleID" : "",
                     "SubscriptionURL" : "",
+                    "APSEnvironment" : "PRODUCTION",
                 },
                 "NodeConfiguration" : {
                     "pubsub#deliver_payloads" : "1",
@@ -638,6 +702,16 @@ DEFAULT_CONFIG = {
     # Set the maximum number of outstanding requests to this server.
     "MaxRequests": 80,
     "MaxAccepts": 1,
+
+    "MaxDBConnectionsPerPool": 10, # The maximum number of outstanding database
+                                   # connections per database connection pool.
+                                   # When SharedConnectionPool (see above) is
+                                   # set to True, this is the total number of
+                                   # outgoing database connections allowed to
+                                   # the entire server; when
+                                   # SharedConnectionPool is False - this is the
+                                   # default - this is the number of database
+                                   # connections used per worker process.
 
     "ListenBacklog": 2024,
     "IdleConnectionTimeOut": 15,
@@ -703,6 +777,17 @@ DEFAULT_CONFIG = {
                 "Port": 11211,
                 "HandleCacheTypes": [
                     "Default",
+#                   "OpenDirectoryBacker",
+#                   "ImplicitUIDLock",
+#                   "RefreshUIDLock",
+#                   "DIGESTCREDENTIALS",
+#                   "resourceInfoDB",
+#                   "pubsubnodes",
+#                   "FBCache",
+#                   "ScheduleAddressMapper",
+#                   "SQL.props",
+#                   "SQL.calhome",
+#                   "SQL.adbkhome",
                 ]
             },
 #            "Shared": {
@@ -713,17 +798,13 @@ DEFAULT_CONFIG = {
 #                "HandleCacheTypes": [
 #                    "ProxyDB",
 #                    "PrincipalToken",
-#                    "FBCache",
-#                    "ScheduleAddressMapper",
-#                    "SQL.props",
-#                    "SQL.calhome",
-#                    "SQL.adbkhome",
 #                ]
 #            },
         },
         "memcached": "memcached", # Find in PATH
         "MaxMemory": 0, # Megabytes
         "Options": [],
+        "ProxyDBKeyNormalization": True,
     },
 
     "Postgres": {
@@ -737,10 +818,14 @@ DEFAULT_CONFIG = {
         ],
     },
 
-    "ProxyCaching" : {
-        "Enabled": False,
-        "MemcachedPool" : "ProxyDB",
+    "GroupCaching" : {
+        "Enabled": True,
+        "MemcachedPool" : "Default",
         "UpdateSeconds" : 300,
+        "ExpireSeconds" : 3600,
+        "LockSeconds" : 300,
+        "EnableUpdater" : True,
+        "UseExternalProxies" : False,
     },
 
     "EnableKeepAlive": True,
@@ -762,6 +847,9 @@ DEFAULT_CONFIG = {
     # "calendarserver.platform.darwin.od.opendirectory" is the new PyObjC
     # version which uses OpenDirectory.framework
     "OpenDirectoryModule": "opendirectory",
+
+    # The RootResource uses a twext property store. Specify the class here
+    "RootResourcePropStoreClass": "twext.web2.dav.xattrprops.xattrPropertyStore",
 
     # Used in the command line utilities to specify which service class to
     # use to carry out work.
@@ -1122,6 +1210,23 @@ def _updateNotifications(configDict):
         configDict.Notifications["Enabled"] = False
 
     for key, service in configDict.Notifications["Services"].iteritems():
+
+        if (
+            service["Service"] == "calendarserver.push.applepush.ApplePushNotifierService" and
+            service["Enabled"]
+        ):
+            # The default for apple push DataHost is ServerHostName
+            if service["DataHost"] == "":
+                service["DataHost"] = configDict.ServerHostName
+
+            # Retrieve APN topics from certificates if not explicitly set
+            for protocol in ("CalDAV", "CardDAV"):
+                if not service[protocol]["Topic"]:
+                    certPath = service[protocol]["CertificatePath"]
+                    if certPath and os.path.exists(certPath):
+                        topic = getAPNTopicFromCertificate(certPath)
+                        service[protocol]["Topic"] = topic
+
         if (
             service["Service"] == "twistedcaldav.notify.XMPPNotifierService" and
             service["Enabled"]
@@ -1238,6 +1343,9 @@ def _updateCompliance(configDict):
 
     if configDict.EnableCardDAV:
         compliance += carddavxml.carddav_compliance
+
+    if configDict.EnableCalDAV or configDict.EnableCardDAV:
+        compliance += mkcolxml.mkcol_compliance
 
     # Principal property search is always enabled
     compliance += customxml.calendarserver_principal_property_search_compliance

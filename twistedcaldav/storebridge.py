@@ -1855,6 +1855,7 @@ class CalendarObjectResource(_CalendarObjectMetaDataMixin, _CommonObjectResource
         # delete from happening.
 
         isinbox = self._newStoreObject._calendar.name() == "inbox"
+        transaction = self._newStoreObject.transaction()
 
         # Do If-Schedule-Tag-Match behavior first
         # Important: this should only ever be done when storeRemove is called
@@ -1876,7 +1877,7 @@ class CalendarObjectResource(_CalendarObjectMetaDataMixin, _CommonObjectResource
             )
             if do_implicit_action:
                 lock = MemcacheFIFOLock(
-                    "ImplicitUIDLock", calendar.resourceUID(), timeout=60.0
+                    "ImplicitUIDLock", calendar.resourceUID(), timeout=60.0, expire_time=5*60
                 )
 
         try:
@@ -1897,7 +1898,9 @@ class CalendarObjectResource(_CalendarObjectMetaDataMixin, _CommonObjectResource
 
         finally:
             if lock:
-                yield lock.clean()
+                # Release lock after commit or abort
+                transaction.postCommit(lock.clean)
+                transaction.postAbort(lock.clean)
 
         returnValue(NO_CONTENT)
 

@@ -1,3 +1,4 @@
+# -*- test-case-name: twistedcaldav.directory.test.test_proxyprincipalmembers -*-
 ##
 # Copyright (c) 2006-2010 Apple Inc. All rights reserved.
 #
@@ -39,6 +40,12 @@ from twext.web2.dav.noneprops import NonePropertyStore
 
 from twext.python.log import Logger, LoggingMixIn
 
+from twisted.web.template import XMLFile, Element, renderer
+from twisted.python.modules import getModule
+from twistedcaldav.extensions import DirectoryElement
+from twistedcaldav.directory.principal import formatLink
+from twistedcaldav.directory.principal import formatLinks
+from twistedcaldav.directory.principal import formatPrincipals
 
 from twistedcaldav.config import config, fullServerPath
 from twistedcaldav.database import AbstractADBAPIDatabase, ADBAPISqliteMixin,\
@@ -46,16 +53,10 @@ from twistedcaldav.database import AbstractADBAPIDatabase, ADBAPISqliteMixin,\
 from twistedcaldav.extensions import DAVPrincipalResource,\
     DAVResourceWithChildrenMixin
 from twistedcaldav.extensions import ReadOnlyWritePropertiesResourceMixIn
-from twistedcaldav import memcachepool
 from twistedcaldav.memcacher import Memcacher
 from twistedcaldav.resource import CalDAVComplianceMixIn
-from twisted.python.reflect import namedClass
-from twisted.python.usage import Options, UsageError
-from twistedcaldav.stdconfig import DEFAULT_CONFIG, DEFAULT_CONFIG_FILE
-from twisted.application import service
-from twisted.plugin import IPlugin
-from zope.interface import implements
 
+thisModule = getModule(__name__)
 log = Logger()
 
 class PermissionsMixIn (ReadOnlyWritePropertiesResourceMixIn):
@@ -86,14 +87,79 @@ class PermissionsMixIn (ReadOnlyWritePropertiesResourceMixIn):
 
         return davxml.ACL(*aces)
 
-    def accessControlList(self, request, inheritance=True, expanding=False, inherited_aces=None):
+
+    def accessControlList(self, request, inheritance=True, expanding=False,
+                          inherited_aces=None):
         # Permissions here are fixed, and are not subject to inheritance rules, etc.
         return succeed(self.defaultAccessControlList())
 
-class CalendarUserProxyPrincipalResource (CalDAVComplianceMixIn, PermissionsMixIn, DAVResourceWithChildrenMixin, DAVPrincipalResource):
+
+
+class ProxyPrincipalDetailElement(Element):
+    """
+    A L{ProxyPrincipalDetailElement} is an L{Element} that can render the
+    details of a L{CalendarUserProxyPrincipalResource}.
+    """
+
+    loader = XMLFile(thisModule.filePath.sibling(
+        "calendar-user-proxy-principal-resource.html").open()
+    )
+
+    def __init__(self, resource):
+        super(ProxyPrincipalDetailElement, self).__init__()
+        self.resource = resource
+
+
+    @renderer
+    def principal(self, request, tag):
+        """
+        Top-level renderer in the template.
+        """
+        record = self.resource.parent.record
+        resource = self.resource
+        parent = self.resource.parent
+        return tag.fillSlots(
+            directoryGUID=record.service.guid,
+            realm=record.service.realmName,
+            guid=record.guid,
+            recordType=record.recordType,
+            shortNames=record.shortNames,
+            fullName=record.fullName,
+            principalUID=parent.principalUID(),
+            principalURL=formatLink(parent.principalURL()),
+            proxyPrincipalUID=resource.principalUID(),
+            proxyPrincipalURL=formatLink(resource.principalURL()),
+            alternateURIs=formatLinks(resource.alternateURIs()),
+            groupMembers=resource.groupMembers().addCallback(formatPrincipals),
+            groupMemberships=resource.groupMemberships().addCallback(
+                formatPrincipals
+            ),
+        )
+
+
+
+class ProxyPrincipalElement(DirectoryElement):
+    """
+    L{ProxyPrincipalElement} is a renderer for a
+    L{CalendarUserProxyPrincipalResource}.
+    """
+
+    @renderer
+    def resourceDetail(self, request, tag):
+        """
+        Render the proxy principal's details.
+        """
+        return ProxyPrincipalDetailElement(self.resource)
+
+
+
+class CalendarUserProxyPrincipalResource (
+        CalDAVComplianceMixIn, PermissionsMixIn, DAVResourceWithChildrenMixin,
+        DAVPrincipalResource, LoggingMixIn):
     """
     Calendar user proxy principal resource.
     """
+
     def __init__(self, parent, proxyType):
         """
         @param parent: the parent of this resource.
@@ -109,27 +175,26 @@ class CalendarUserProxyPrincipalResource (CalDAVComplianceMixIn, PermissionsMixI
         super(CalendarUserProxyPrincipalResource, self).__init__()
         DAVResourceWithChildrenMixin.__init__(self)
 
-        self.parent      = parent
-        self.proxyType   = proxyType
-        self.pcollection = self.parent.parent.parent # FIXME: if this is supposed to be public, it needs a better name
-        self._url        = url
+        self.parent          = parent
+        self.proxyType       = proxyType
+        self._url            = url
 
-        # Not terribly useful at present because we don't have a way
-        # to map a GUID back to the correct principal.
-        #self.guid = uuidFromName(self.parent.principalUID(), proxyType)
+        # FIXME: if this is supposed to be public, it needs a better name:
+        self.pcollection     = self.parent.parent.parent
 
-        # Principal UID is parent's GUID plus the proxy type; this we
-        # can easily map back to a principal.
-        self.uid = "%s#%s" % (self.parent.principalUID(), proxyType)
-
+        # Principal UID is parent's GUID plus the proxy type; this we can easily
+        # map back to a principal.
+        self.uid             = "%s#%s" % (self.parent.principalUID(), proxyType)
         self._alternate_urls = tuple(
             joinURL(url, proxyType) + slash
             for url in parent.alternateURIs()
             if url.startswith("/")
         )
 
+
     def __str__(self):
         return "%s [%s]" % (self.parent, self.proxyType)
+
 
     def _index(self):
         """
@@ -167,24 +232,29 @@ class CalendarUserProxyPrincipalResource (CalDAVComplianceMixIn, PermissionsMixI
             self._dead_properties = NonePropertyStore(self)
         return self._dead_properties
 
+
     def writeProperty(self, property, request):
         assert isinstance(property, davxml.WebDAVElement)
 
         if property.qname() == (dav_namespace, "group-member-set"):
             return self.setGroupMemberSet(property, request)
 
-        return super(CalendarUserProxyPrincipalResource, self).writeProperty(property, request)
+        return super(CalendarUserProxyPrincipalResource, self).writeProperty(
+            property, request)
+
 
     @inlineCallbacks
     def setGroupMemberSet(self, new_members, request):
-        # FIXME: as defined right now it is not possible to specify a calendar-user-proxy group as
-        # a member of any other group since the directory service does not know how to lookup
-        # these special resource UIDs.
+        # FIXME: as defined right now it is not possible to specify a
+        # calendar-user-proxy group as a member of any other group since the
+        # directory service does not know how to lookup these special resource
+        # UIDs.
         #
-        # Really, c-u-p principals should be treated the same way as any other principal, so
-        # they should be allowed as members of groups.
+        # Really, c-u-p principals should be treated the same way as any other
+        # principal, so they should be allowed as members of groups.
         #
-        # This implementation now raises an exception for any principal it cannot find.
+        # This implementation now raises an exception for any principal it
+        # cannot find.
 
         # Break out the list into a set of URIs.
         members = [str(h) for h in new_members.children]
@@ -198,28 +268,30 @@ class CalendarUserProxyPrincipalResource (CalDAVComplianceMixIn, PermissionsMixI
             if principal is None or principal.principalURL() != uri:
                 raise HTTPError(StatusResponse(
                     responsecode.BAD_REQUEST,
-                    "Attempt to use a non-existent principal %s as a group member of %s." % (uri, self.principalURL(),)
+                    "Attempt to use a non-existent principal %s "
+                    "as a group member of %s." % (uri, self.principalURL(),)
                 ))
             principals.append(principal)
             newUIDs.add(principal.principalUID())
 
         # Get the old set of UIDs
         oldUIDs = (yield self._index().getMembers(self.uid))
-        
+
         # Change membership
         yield self.setGroupMemberSetPrincipals(principals)
-        
+
         # Invalidate the primary principal's cache, and any principal's whose
         # membership status changed
         yield self.parent.cacheNotifier.changed()
-        
+
         changedUIDs = newUIDs.symmetric_difference(oldUIDs)
         for uid in changedUIDs:
             principal = self.pcollection.principalForUID(uid)
             if principal:
                 yield principal.cacheNotifier.changed()
-            
+
         returnValue(True)
+
 
     def setGroupMemberSetPrincipals(self, principals):
         # Map the principals to UIDs.
@@ -232,54 +304,12 @@ class CalendarUserProxyPrincipalResource (CalDAVComplianceMixIn, PermissionsMixI
     # HTTP
     ##
 
-    def renderDirectoryBody(self, request):
-        # FIXME: Too much code duplication here from principal.py
-        from twistedcaldav.directory.principal import format_list, format_principals, format_link
+    def htmlElement(self):
+        """
+        Customize HTML display of proxy groups.
+        """
+        return ProxyPrincipalElement(self)
 
-        closure = {}
-
-        d = super(CalendarUserProxyPrincipalResource, self).renderDirectoryBody(request)
-        d.addCallback(lambda output: closure.setdefault("output", output))
-
-        d.addCallback(lambda _: self.groupMembers())
-        d.addCallback(lambda members: closure.setdefault("members", members))
-
-        d.addCallback(lambda _: self.groupMemberships())
-        d.addCallback(lambda memberships: closure.setdefault("memberships", memberships))
-        
-        d.addCallback(
-            lambda _: "".join((
-                """<div class="directory-listing">"""
-                """<h1>Principal Details</h1>"""
-                """<pre><blockquote>"""
-                """Directory Information\n"""
-                """---------------------\n"""
-                """Directory GUID: %s\n"""         % (self.parent.record.service.guid,),
-                """Realm: %s\n"""                  % (self.parent.record.service.realmName,),
-                """\n"""
-                """Parent Principal Information\n"""
-                """---------------------\n"""
-                """GUID: %s\n"""                   % (self.parent.record.guid,),
-                """Record type: %s\n"""            % (self.parent.record.recordType,),
-                """Short names: %s\n"""            % (",".join(self.parent.record.shortNames,)),
-                """Full name: %s\n"""              % (self.parent.record.fullName,),
-                """Principal UID: %s\n"""          % (self.parent.principalUID(),),
-                """Principal URL: %s\n"""          % (format_link(self.parent.principalURL()),),
-                """\n"""
-                """Proxy Principal Information\n"""
-                """---------------------\n"""
-               #"""GUID: %s\n"""                   % (self.guid,),
-                """Principal UID: %s\n"""          % (self.principalUID(),),
-                """Principal URL: %s\n"""          % (format_link(self.principalURL()),),
-                """\nAlternate URIs:\n"""          , format_list(format_link(u) for u in self.alternateURIs()),
-                """\nGroup members:\n"""           , format_principals(closure["members"]),
-                """\nGroup memberships:\n"""       , format_principals(closure["memberships"]),
-                """</pre></blockquote></div>""",
-                closure["output"]
-            ))
-        )
-
-        return d
 
     ##
     # DAV
@@ -287,6 +317,7 @@ class CalendarUserProxyPrincipalResource (CalDAVComplianceMixIn, PermissionsMixI
 
     def displayName(self):
         return self.proxyType
+
 
     ##
     # ACL
@@ -339,7 +370,6 @@ class CalendarUserProxyPrincipalResource (CalDAVComplianceMixIn, PermissionsMixI
         # Get member UIDs from database and map to principal resources
         members = yield self._index().getMembers(self.uid)
         found = []
-        missing = []
         for uid in members:
             p = self.pcollection.principalForUID(uid)
             if p:
@@ -348,50 +378,20 @@ class CalendarUserProxyPrincipalResource (CalDAVComplianceMixIn, PermissionsMixI
                 # existing principals are removed
                 yield self._index().refreshPrincipal(uid)
             else:
-                missing.append(uid)
-
-        # Clean-up ones that are missing
-        for uid in missing:
-            cacheTimeout = config.DirectoryService.params.get("cacheTimeout", 30) * 60 # in seconds
-
-            yield self._index().removePrincipal(uid,
-                delay=cacheTimeout*2)
+                self.log_warn("Delegate is missing from directory: %s" % (uid,))
 
         returnValue(found)
 
     def groupMembers(self):
-        cache = getattr(self.parent.record.service, "proxyCache", None)
-        if cache is not None:
-            return self.expandedGroupMembers()
-        else:
-            return self._expandMemberUIDs()
+        return self._expandMemberUIDs()
 
     @inlineCallbacks
     def expandedGroupMembers(self):
         """
         Return the complete, flattened set of principals belonging to this
         group.
-
-        If the directory service is using a ProxyMemberCache, take advantage
-        of it and use the set of cached uids.  Otherwise go through
-        _expandMemberUIDs.
         """
-        cache = getattr(self.parent.record.service, "proxyCache", None)
-        if cache is not None:
-            log.debug("expandedGroupMembers using proxyCache")
-            if not (yield cache.checkMarker()):
-                raise HTTPError(StatusResponse(responsecode.SERVICE_UNAVAILABLE,
-                    "Proxy membership cache not yet populated"))
-            principals = set()
-            memberUIDs = (yield cache.getMembers(self.uid))
-            if memberUIDs:
-                for uid in memberUIDs:
-                    principal = self.pcollection.principalForUID(uid)
-                    if principal is not None:
-                        principals.add(principal)
-            returnValue(principals)
-        else:
-            returnValue((yield self._expandMemberUIDs(infinity=True)))
+        returnValue((yield self._expandMemberUIDs(infinity=True)))
 
     def groupMemberships(self):
         # Get membership UIDs and map to principal resources
@@ -420,6 +420,9 @@ class ProxyDB(AbstractADBAPIDatabase, LoggingMixIn):
     
     class ProxyDBMemcacher(Memcacher):
         
+        def __init__(self, namespace):
+            super(ProxyDB.ProxyDBMemcacher, self).__init__(namespace, key_normalization=config.Memcached.ProxyDBKeyNormalization)
+
         def setMembers(self, guid, members):
             return self.set("members:%s" % (str(guid),), str(",".join(members)))
 
@@ -817,8 +820,11 @@ class ProxyDB(AbstractADBAPIDatabase, LoggingMixIn):
         yield super(ProxyDB, self).clean()
 
     @inlineCallbacks
-    def getAllGroups(self):
-        returnValue([row[0] for row in (yield self.query("select DISTINCT GROUPNAME from GROUPS"))])
+    def getAllMembers(self):
+        """
+        Retrieve all members that have been directly delegated to
+        """
+        returnValue([row[0] for row in (yield self.query("select DISTINCT MEMBER from GROUPS"))])
 
 ProxyDBService = None   # Global proxyDB service
 
@@ -857,354 +863,3 @@ authReadACL = davxml.ACL(
         davxml.Protected(),
     ),
 )
-
-
-class ProxyMemberCache(Memcacher, LoggingMixIn):
-    """
-    Caches expanded proxy membership information
-
-    This cache is periodically updated by a side car so that worker processes
-    never have to ask the directory service directly for group membership
-    information.
-
-    Keys in this cache are:
-
-    "proxy-members:<GUID>" : comma-separated list of member guids (flattened)
-    (where <GUID> will be that of a sub-principal, e.g.
-    5A985493-EE2C-4665-94CF-4DFEA3A89500#calendar-proxy-write)
-
-    "read-proxy-for:<GUID>" : comma-separated list of principals
-    who have granted read access to GUID
-
-    "write-proxy-for:<GUID>" : comma-separated list of principals
-    who have granted read-write access to GUID
-
-    "proxy-cache-populated" : gets set to "true" after the cache is populated,
-    so clients know they can now use it.  Note, this needs to be made robust
-    in the face of memcached evictions.
-
-    """
-
-
-    def setMembers(self, guid, members):
-        self.log_debug("set proxy-members %s : %s" % (guid, members))
-        return self.set("proxy-members:%s" % (str(guid),), str(",".join(members)))
-    def getMembers(self, guid):
-        self.log_debug("get proxy-members %s" % (guid,))
-        def _value(value):
-            if value:
-                return set(value.split(","))
-            elif value is None:
-                return None
-            else:
-                return set()
-        d = self.get("proxy-members:%s" % (str(guid),))
-        d.addCallback(_value)
-        return d
-
-    def deleteMembers(self, guid):
-        return self.delete("proxy-members:%s" % (str(guid),))
-
-    def setProxyFor(self, guid, proxyType, memberships):
-        self.log_debug("set %s-proxy-for %s : %s" %
-            (proxyType, guid, memberships))
-        return self.set("%s-proxy-for:%s" %
-            (proxyType, str(guid)), str(",".join(memberships)))
-
-    def getProxyFor(self, guid, proxyType):
-        self.log_debug("get %s-proxy-for %s" % (proxyType, guid))
-        def _value(value):
-            if value:
-                return set(value.split(","))
-            elif value is None:
-                return None
-            else:
-                return set()
-        d = self.get("%s-proxy-for:%s" % (proxyType, str(guid),))
-        d.addCallback(_value)
-        return d
-
-    def deleteProxyFor(self, guid, proxyType):
-        return self.delete("%s-proxy-for:%s" % (proxyType, str(guid),))
-
-    def createMarker(self):
-        return self.set("proxy-cache-populated", "true")
-
-    def checkMarker(self):
-        def _value(value):
-            return value == "true"
-        d = self.get("proxy-cache-populated")
-        d.addCallback(_value)
-        return d
-
-class ProxyMemberCacheUpdater(LoggingMixIn):
-    """
-    Responsible for updating memcached with proxy assignments.  This will run
-    in a sidecar.  There are two sources of proxy data to pull from: the local
-    proxy database, and the location/resource info in the directory system.
-
-    TODO: Implement location/resource
-    """
-
-    def __init__(self, proxyDB, directory, cache=None, namespace=None):
-        self.proxyDB = proxyDB
-        self.directory = directory
-        if cache is None:
-            assert namespace is not None, "namespace must be specified if ProxyMemberCache is not provided"
-            cache = ProxyMemberCache(namespace)
-        self.cache = cache
-        self.previousProxyGroups = set()
-        self.previousProxyFor = {
-            "read" : { },
-            "write" : { },
-        }
-
-    @inlineCallbacks
-    def updateCache(self):
-        """
-        Iterate the proxy database to retrieve all the principals who have been
-        delegated to.  Fault these principals in.  For any of these principals
-        that are groups, expand the members of that group and store those in
-        the cache
-        """
-        # TODO: add memcached eviction protection
-
-        self.log_debug("Updating proxy membership cache")
-
-        numProxyGroupsUpdated = 0
-        numProxiesUpdated = {
-            "read" : 0,
-            "write" : 0,
-        }
-
-        currentProxyGroups = set()
-        currentProxyFor = {
-            "read" : { },
-            "write" : { },
-        }
-        proxyGroups = (yield self.proxyDB.getAllGroups())
-        for proxyGroup in proxyGroups:
-
-            # Protect against bogus entries in proxy db:
-            if "#" not in proxyGroup:
-                continue
-
-            # Populate delegator -> delegate cache
-            combinedGUIDs = set()
-            for proxyGUID in (yield self.proxyDB.getMembers(proxyGroup)):
-                record = self.directory.recordWithGUID(proxyGUID)
-                if record:
-                    # TODO: What if this guid is not in the directory?
-                    combinedGUIDs.add(record.guid)
-                    if record.recordType == self.directory.recordType_groups:
-                        members = record.expandedMembers()
-                        guids = set([r.guid for r in members])
-                        combinedGUIDs.update(guids)
-
-            self.cache.setMembers(proxyGroup, combinedGUIDs)
-            numProxyGroupsUpdated += 1
-
-            if proxyGroup in self.previousProxyGroups:
-                # whatever remains in previousProxyGroups needs to be deleted
-                # from memcached
-                self.previousProxyGroups.remove(proxyGroup)
-            currentProxyGroups.add(proxyGroup)
-
-            # Populate delegate -> delegator mapping
-            delegator, suffix = proxyGroup.split("#")
-            proxyType = "read" if suffix.endswith("read") else "write"
-            for guid in combinedGUIDs:
-                proxyFor = currentProxyFor[proxyType].setdefault(guid, set())
-                proxyFor.add(delegator)
-
-        for proxyType in ("read", "write"):
-            for guid, memberships in currentProxyFor[proxyType].iteritems():
-                self.cache.setProxyFor(guid, proxyType, memberships)
-                numProxiesUpdated[proxyType] += 1
-                if self.previousProxyFor[proxyType].has_key(guid):
-                    # whatever remains in previousProxyFor needs to be deleted
-                    # from memcached
-                    del self.previousProxyFor[proxyType][guid]
-
-        self.log_debug("%d proxyGroups updated" % (numProxyGroupsUpdated,))
-        for proxyType in ("read", "write"):
-            self.log_debug("%d %s proxies updated" % (numProxiesUpdated[proxyType], proxyType))
-
-        # Delete obsolete memcached keys
-        for proxyGroup in self.previousProxyGroups:
-            self.log_debug("Deleting proxyGroup members for %s" % (proxyGroup,))
-            self.cache.deleteMembers(proxyGroup)
-        for proxyType in ("read", "write"):
-            for guid in self.previousProxyFor[proxyType].iterkeys():
-                self.log_debug("Deleting %s proxyFor members for %s" % (proxyType, guid,))
-                self.cache.deleteProxyFor(guid, proxyType)
-
-        self.previousProxyGroups = currentProxyGroups
-        self.previousProxyFor = currentProxyFor
-
-        # Put a special key into memcached to let workers know proxyCache is
-        # populated
-        self.cache.createMarker()
-
-
-class ProxyCacherOptions(Options):
-    optParameters = [[
-        "config", "f", DEFAULT_CONFIG_FILE, "Path to configuration file."
-    ]]
-
-    def __init__(self, *args, **kwargs):
-        super(ProxyCacherOptions, self).__init__(*args, **kwargs)
-
-        self.overrides = {}
-
-    def _coerceOption(self, configDict, key, value):
-        """
-        Coerce the given C{val} to type of C{configDict[key]}
-        """
-        if key in configDict:
-            if isinstance(configDict[key], bool):
-                value = value == "True"
-
-            elif isinstance(configDict[key], (int, float, long)):
-                value = type(configDict[key])(value)
-
-            elif isinstance(configDict[key], (list, tuple)):
-                value = value.split(',')
-
-            elif isinstance(configDict[key], dict):
-                raise UsageError(
-                    "Dict options not supported on the command line"
-                )
-
-            elif value == 'None':
-                value = None
-
-        return value
-
-    def _setOverride(self, configDict, path, value, overrideDict):
-        """
-        Set the value at path in configDict
-        """
-        key = path[0]
-
-        if len(path) == 1:
-            overrideDict[key] = self._coerceOption(configDict, key, value)
-            return
-
-        if key in configDict:
-            if not isinstance(configDict[key], dict):
-                raise UsageError(
-                    "Found intermediate path element that is not a dictionary"
-                )
-
-            if key not in overrideDict:
-                overrideDict[key] = {}
-
-            self._setOverride(
-                configDict[key], path[1:],
-                value, overrideDict[key]
-            )
-
-
-    def opt_option(self, option):
-        """
-        Set an option to override a value in the config file. True, False, int,
-        and float options are supported, as well as comma seperated lists. Only
-        one option may be given for each --option flag, however multiple
-        --option flags may be specified.
-        """
-
-        if "=" in option:
-            path, value = option.split('=')
-            self._setOverride(
-                DEFAULT_CONFIG,
-                path.split('/'),
-                value,
-                self.overrides
-            )
-        else:
-            self.opt_option('%s=True' % (option,))
-
-    opt_o = opt_option
-
-    def postOptions(self):
-        config.load(self['config'])
-        config.updateDefaults(self.overrides)
-        self.parent['pidfile'] = None
-
-
-
-class ProxyCacherService(service.Service, LoggingMixIn):
-    """
-    Service to update the proxy cache at a configured interval
-    """
-
-    def __init__(self, proxyDB, directory, namespace, seconds, reactor=None):
-        self.updater = ProxyMemberCacheUpdater(proxyDB, directory,
-            namespace=namespace)
-        if reactor is None:
-            from twisted.internet import reactor
-        self.reactor = reactor
-        self.seconds = seconds
-        self.nextUpdate = None
-
-    def startService(self):
-        self.log_warn("Starting proxy cacher service")
-        service.Service.startService(self)
-        self.update()
-
-    @inlineCallbacks
-    def update(self):
-        self.nextUpdate = None
-        try:
-            yield self.updater.updateCache()
-        finally:
-            self.log_debug("Scheduling next proxy cacher update")
-            self.nextUpdate = self.reactor.callLater(self.seconds, self.update)
-
-    def stopService(self):
-        self.log_warn("Stopping proxy cacher service")
-        service.Service.stopService(self)
-        if self.nextUpdate is not None:
-            self.nextUpdate.cancel()
-
-
-class ProxyCacherServiceMaker(LoggingMixIn):
-    """
-    Configures and returns a ProxyCacherService
-    """
-    implements(IPlugin, service.IServiceMaker)
-
-    tapname = "caldav_proxycacher"
-    description = "Proxy Cacher"
-    options = ProxyCacherOptions
-
-    def makeService(self, options):
-
-        # Setup the directory
-        from calendarserver.tap.util import directoryFromConfig
-        directory = directoryFromConfig(config)
-
-        # Setup the ProxyDB Service
-        proxydbClass = namedClass(config.ProxyDBService.type)
-
-        self.log_warn("Configuring proxydb service of type: %s" % (proxydbClass,))
-
-        try:
-            proxyDB = proxydbClass(**config.ProxyDBService.params)
-        except IOError:
-            self.log_error("Could not start proxydb service")
-            raise
-
-        # Setup memcached pools
-        memcachepool.installPools(
-            config.Memcached.Pools,
-            config.Memcached.MaxClients,
-        )
-
-        proxyCacherService = ProxyCacherService(proxyDB, directory,
-            config.ProxyCaching.MemcachedPool,
-            config.ProxyCaching.UpdateSeconds)
-
-        return proxyCacherService
-

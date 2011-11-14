@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2010 Apple Inc. All rights reserved.
+# Copyright (c) 2010-2011 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -31,7 +31,7 @@ from twext.web2.dav.element.rfc2518 import GETContentLanguage, ResourceType
 
 from txdav.base.propertystore.base import PropertyName
 from txdav.caldav.datastore.test.common import CommonTests as CalendarCommonTests,\
-    event4_text
+    test_event_text
 from txdav.caldav.datastore.test.test_file import setUpCalendarStore
 from txdav.caldav.datastore.util import _migrateCalendar, migrateHome
 from txdav.common.datastore.sql import ECALENDARTYPE
@@ -41,6 +41,7 @@ from txdav.common.datastore.test.util import buildStore, populateCalendarsFrom
 from twistedcaldav import caldavxml
 
 from twistedcaldav.dateops import datetimeMktime
+from twistedcaldav.query import calendarqueryfilter
 from twistedcaldav.sharing import SharedCollectionRecord
 
 import datetime
@@ -151,6 +152,73 @@ class CalendarSQLStorageTests(CalendarCommonTests, unittest.TestCase):
                                lambda x: x.component())
         yield self.assertCalendarsSimilar(fromCalendar, toCalendar)
 
+
+    @inlineCallbacks
+    def test_migrateBadCalendarFromFile(self):
+        """
+        C{_migrateCalendar()} can migrate a file-backed calendar to a database-
+        backed calendar. We need to test what happens when there is "bad" calendar data
+        present in the file-backed calendar.
+        """
+        fromCalendar = yield (yield self.fileTransaction().calendarHomeWithUID(
+            "home_bad")).calendarWithName("calendar_bad")
+        toHome = yield self.transactionUnderTest().calendarHomeWithUID(
+            "new-home", create=True)
+        toCalendar = yield toHome.calendarWithName("calendar")
+        ok, bad = (yield _migrateCalendar(fromCalendar, toCalendar,
+                               lambda x: x.component()))
+        self.assertEqual(ok, 1)
+        self.assertEqual(bad, 1)
+
+
+    @inlineCallbacks
+    def test_migrateDuplicateAttachmentsCalendarFromFile(self):
+        """
+        C{_migrateCalendar()} can migrate a file-backed calendar to a database-
+        backed calendar. Test that migrating a calendar containing duplicate attachments
+        will de-duplicate those attachments and proceed without error.
+        """
+        fromCalendar = yield (yield self.fileTransaction().calendarHomeWithUID(
+            "home_attachments")).calendarWithName("calendar_1")
+        toHome = yield self.transactionUnderTest().calendarHomeWithUID(
+            "home_attachments", create=True)
+        toCalendar = yield toHome.calendarWithName("calendar")
+        ok, bad = (yield _migrateCalendar(fromCalendar, toCalendar,
+                               lambda x: x.component()))
+        self.assertEqual(ok, 3)
+        self.assertEqual(bad, 0)
+
+    @inlineCallbacks
+    def test_migrateCalendarFromFile_Transparency(self):
+        """
+        C{_migrateCalendar()} can migrate a file-backed calendar to a database-
+        backed calendar.
+        """
+        fromCalendar = yield (yield self.fileTransaction().calendarHomeWithUID(
+            "home1")).calendarWithName("calendar_1")
+        toHome = yield self.transactionUnderTest().calendarHomeWithUID(
+            "new-home", create=True)
+        toCalendar = yield toHome.calendarWithName("calendar")
+        yield _migrateCalendar(fromCalendar, toCalendar,
+                               lambda x: x.component())
+
+        filter =  caldavxml.Filter(
+                      caldavxml.ComponentFilter(
+                          caldavxml.ComponentFilter(
+                              caldavxml.TimeRange(start="20060201T000000Z", end="20060202T000000Z"),
+                              name=("VEVENT", "VFREEBUSY", "VAVAILABILITY"),
+                          ),
+                          name="VCALENDAR",
+                       )
+                  )
+        filter = calendarqueryfilter.Filter(filter)
+        filter.settimezone(None)
+
+        results = yield toCalendar._index.indexedSearch(filter, 'user01', True)
+        self.assertEquals(len(results), 1)
+        _ignore_name, uid, _ignore_type, _ignore_organizer, _ignore_float, _ignore_start, _ignore_end, _ignore_fbtype, transp = results[0]
+        self.assertEquals(uid, "uid4")
+        self.assertEquals(transp, 'T')
 
     @inlineCallbacks
     def test_migrateHomeFromFile(self):
@@ -484,8 +552,8 @@ class CalendarSQLStorageTests(CalendarCommonTests, unittest.TestCase):
 
         # Create calendar object
         calendar1 = yield self.calendarUnderTest()
-        name = "4.ics"
-        component = VComponent.fromString(event4_text)
+        name = "test.ics"
+        component = VComponent.fromString(test_event_text)
         metadata = {
             "accessMode": "PUBLIC",
             "isScheduleObject": True,
@@ -530,8 +598,8 @@ class CalendarSQLStorageTests(CalendarCommonTests, unittest.TestCase):
         home = yield self.homeUnderTest()
         inbox = yield home.createCalendarWithName("inbox")
         
-        name = "4.ics"
-        component = VComponent.fromString(event4_text)
+        name = "test.ics"
+        component = VComponent.fromString(test_event_text)
         metadata = {
             "accessMode": "PUBLIC",
             "isScheduleObject": True,

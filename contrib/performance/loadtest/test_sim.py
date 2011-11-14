@@ -16,27 +16,29 @@
 ##
 
 from plistlib import writePlistToString
+from cStringIO import StringIO
 
 from twisted.python.log import msg
 from twisted.python.usage import UsageError
 from twisted.python.filepath import FilePath
+from twisted.internet.defer import Deferred
 from twisted.trial.unittest import TestCase
 
 from twistedcaldav.directory.directory import DirectoryRecord
 
-from stats import NormalDistribution
-from loadtest.ical import SnowLeopard
-from loadtest.profiles import Eventer, Inviter, Accepter
-from loadtest.population import (
+from contrib.performance.stats import NormalDistribution
+from contrib.performance.loadtest.ical import SnowLeopard
+from contrib.performance.loadtest.profiles import Eventer, Inviter, Accepter
+from contrib.performance.loadtest.population import (
     SmoothRampUp, ClientType, PopulationParameters, Populator, CalendarClientSimulator,
     ProfileType, SimpleStatistics)
-from loadtest.sim import (
+from contrib.performance.loadtest.sim import (
     Arrival, SimOptions, LoadSimulator, LagTrackingReactor)
 
 VALID_CONFIG = {
     'server': 'tcp:127.0.0.1:8008',
     'arrival': {
-        'factory': 'loadtest.population.SmoothRampUp',
+        'factory': 'contrib.performance.loadtest.population.SmoothRampUp',
         'params': {
             'groups': 10,
             'groupSize': 1,
@@ -49,16 +51,13 @@ VALID_CONFIG_PLIST = writePlistToString(VALID_CONFIG)
 
 
 class SimOptionsTests(TestCase):
-    def test_missingConfig(self):
+    def test_defaultConfig(self):
         """
-        If the I{config} option is not specified,
-        L{SimOptions.parseOptions} raises a L{UsageError} indicating
-        it is required.
+        If the I{config} option is not specified, the default config.plist in
+        the source tree is used.
         """
         options = SimOptions()
-        exc = self.assertRaises(UsageError, options.parseOptions, [])
-        self.assertEquals(
-            str(exc), "Specify a configuration file using --config <path>")
+        self.assertEqual(options['config'], FilePath(__file__).sibling('config.plist'))
 
 
     def test_configFileNotFound(self):
@@ -67,12 +66,12 @@ class SimOptionsTests(TestCase):
         L{SimOptions.parseOptions} raises a L{UsageError} indicating
         this.
         """
-        name = self.mktemp()
+        name = FilePath(self.mktemp())
         options = SimOptions()
         exc = self.assertRaises(
-            UsageError, options.parseOptions, ['--config', name])
+            UsageError, options.parseOptions, ['--config', name.path])
         self.assertEquals(
-            str(exc), "--config %s: No such file or directory" % (name,))
+            str(exc), "--config %s: No such file or directory" % (name.path,))
 
 
     def test_configFileNotParseable(self):
@@ -82,14 +81,14 @@ class SimOptionsTests(TestCase):
         L{SimOptions.parseOptions} raises a L{UsageError} indicating
         this.
         """
-        config = self.mktemp()
-        FilePath(config).setContent("some random junk")
+        config = FilePath(self.mktemp())
+        config.setContent("some random junk")
         options = SimOptions()
         exc = self.assertRaises(
-            UsageError, options.parseOptions, ['--config', config])
+            UsageError, options.parseOptions, ['--config', config.path])
         self.assertEquals(
             str(exc),
-            "--config %s: syntax error: line 1, column 0" % (config,))
+            "--config %s: syntax error: line 1, column 0" % (config.path,))
 
 
 
@@ -137,15 +136,67 @@ class CalendarClientSimulatorTests(TestCase):
             'password-' + user)
 
 
+    def test_stop(self):
+        """
+        After L{CalendarClientSimulator.stop} is called, failed clients and
+        profiles are not logged.
+        """
+        class BrokenClient(object):
+            def __init__(self, reactor, serverAddress, userInfo, auth, runResult):
+                self._runResult = runResult
+
+            def run(self):
+                return self._runResult
+                
+        class BrokenProfile(object):
+            def __init__(self, reactor, simulator, client, userNumber, runResult):
+                self._runResult = runResult
+                self.enabled = True
+
+            def run(self):
+                return self._runResult
+
+        clientRunResult = Deferred()
+        profileRunResult = Deferred()
+
+        params = PopulationParameters()
+        params.addClient(1, ClientType(
+                BrokenClient, {'runResult': clientRunResult},
+                [ProfileType(BrokenProfile, {'runResult': profileRunResult})]))
+        sim = CalendarClientSimulator(
+            [self._user('alice')], Populator(None), params, None, 'http://example.com:1234/')
+        sim.add(1)
+        sim.stop()
+        clientRunResult.errback(RuntimeError("Some fictional client problem"))
+        profileRunResult.errback(RuntimeError("Some fictional profile problem"))
+
+        self.assertEqual([], self.flushLoggedErrors())
+
+
+
 class Reactor(object):
     message = "some event to be observed"
 
+    def __init__(self):
+        self._triggers = []
+        self._whenRunning = []
+
+
     def run(self):
+        for thunk in self._whenRunning:
+            thunk()
         msg(self.message)
+        for phase, event, thunk in self._triggers:
+            if event == 'shutdown':
+                thunk()
 
 
-    def addSystemEventTrigger(self, *args):
-        pass
+    def callWhenRunning(self, thunk):
+        self._whenRunning.append(thunk)
+
+
+    def addSystemEventTrigger(self, phase, event, thunk):
+        self._triggers.append((phase, event, thunk))
 
 
 class Observer(object):
@@ -161,6 +212,9 @@ class Observer(object):
     def report(self):
         self.reported = True
 
+
+    def failures(self):
+        return []
 
 
 class NullArrival(object):
@@ -216,13 +270,15 @@ class LoadSimulatorTests(TestCase):
         accounts.setContent("foo,bar,baz,quux\nfoo2,bar2,baz2,quux2\n")
         config = VALID_CONFIG.copy()
         config["accounts"] = {
-            "loader": "loadtest.sim.recordsFromCSVFile",
+            "loader": "contrib.performance.loadtest.sim.recordsFromCSVFile",
             "params": {
                 "path": accounts.path},
             }
         configpath = FilePath(self.mktemp())
         configpath.setContent(writePlistToString(config))
-        sim = LoadSimulator.fromCommandLine(['--config', configpath.path])
+        io = StringIO()
+        sim = LoadSimulator.fromCommandLine(['--config', configpath.path], io)
+        self.assertEquals(io.getvalue(), "Loaded 2 accounts.\n")
         self.assertEqual(2, len(sim.records))
         self.assertEqual(sim.records[0].uid, 'foo')
         self.assertEqual(sim.records[0].password, 'bar')
@@ -233,6 +289,90 @@ class LoadSimulatorTests(TestCase):
         self.assertEqual(sim.records[1].commonName, 'baz2')
         self.assertEqual(sim.records[1].email, 'quux2')
 
+
+    def test_loadDefaultAccountsFromFile(self):
+        """
+        L{LoadSimulator.fromCommandLine} takes an account loader (with
+        empty path)from the config file and uses it to create user
+        records for use in the simulation.
+        """
+        config = VALID_CONFIG.copy()
+        config["accounts"] = {
+            "loader": "contrib.performance.loadtest.sim.recordsFromCSVFile",
+            "params": {
+                "path": ""},
+            }
+        configpath = FilePath(self.mktemp())
+        configpath.setContent(writePlistToString(config))
+        sim = LoadSimulator.fromCommandLine(['--config', configpath.path],
+                                            StringIO())
+        self.assertEqual(99, len(sim.records))
+        self.assertEqual(sim.records[0].uid, 'user01')
+        self.assertEqual(sim.records[0].password, 'user01')
+        self.assertEqual(sim.records[0].commonName, 'User 01')
+        self.assertEqual(sim.records[0].email, 'user01@example.com')
+        self.assertEqual(sim.records[98].uid, 'user99')
+        self.assertEqual(sim.records[98].password, 'user99')
+        self.assertEqual(sim.records[98].commonName, 'User 99')
+        self.assertEqual(sim.records[98].email, 'user99@example.com')
+
+    def test_generateRecordsDefaultPatterns(self):
+        """
+        L{LoadSimulator.fromCommandLine} takes an account loader from the
+        config file and uses it to generate user records for use in the
+        simulation.
+        """
+        config = VALID_CONFIG.copy()
+        config["accounts"] = {
+            "loader": "contrib.performance.loadtest.sim.generateRecords",
+            "params": {
+                "count": 2
+            },
+        }
+        configpath = FilePath(self.mktemp())
+        configpath.setContent(writePlistToString(config))
+        sim = LoadSimulator.fromCommandLine(['--config', configpath.path],
+                                            StringIO())
+        self.assertEqual(2, len(sim.records))
+        self.assertEqual(sim.records[0].uid, 'user1')
+        self.assertEqual(sim.records[0].password, 'user1')
+        self.assertEqual(sim.records[0].commonName, 'User 1')
+        self.assertEqual(sim.records[0].email, 'user1@example.com')
+        self.assertEqual(sim.records[1].uid, 'user2')
+        self.assertEqual(sim.records[1].password, 'user2')
+        self.assertEqual(sim.records[1].commonName, 'User 2')
+        self.assertEqual(sim.records[1].email, 'user2@example.com')
+
+    def test_generateRecordsNonDefaultPatterns(self):
+        """
+        L{LoadSimulator.fromCommandLine} takes an account loader from the
+        config file and uses it to generate user records for use in the
+        simulation.
+        """
+        config = VALID_CONFIG.copy()
+        config["accounts"] = {
+            "loader": "contrib.performance.loadtest.sim.generateRecords",
+            "params": {
+                "count": 3,
+                "uidPattern": "USER%03d",
+                "passwordPattern": "PASSWORD%03d",
+                "namePattern": "Test User %03d",
+                "emailPattern": "USER%03d@example2.com",
+            },
+        }
+        configpath = FilePath(self.mktemp())
+        configpath.setContent(writePlistToString(config))
+        sim = LoadSimulator.fromCommandLine(['--config', configpath.path],
+                                            StringIO())
+        self.assertEqual(3, len(sim.records))
+        self.assertEqual(sim.records[0].uid, 'USER001')
+        self.assertEqual(sim.records[0].password, 'PASSWORD001')
+        self.assertEqual(sim.records[0].commonName, 'Test User 001')
+        self.assertEqual(sim.records[0].email, 'USER001@example2.com')
+        self.assertEqual(sim.records[2].uid, 'USER003')
+        self.assertEqual(sim.records[2].password, 'PASSWORD003')
+        self.assertEqual(sim.records[2].commonName, 'Test User 003')
+        self.assertEqual(sim.records[2].email, 'USER003@example2.com')
 
     def test_specifyRuntime(self):
         """
@@ -265,7 +405,7 @@ class LoadSimulatorTests(TestCase):
         config = FilePath(self.mktemp())
         config.setContent(writePlistToString({
                     "arrival": {
-                        "factory": "loadtest.population.SmoothRampUp",
+                        "factory": "contrib.performance.loadtest.population.SmoothRampUp",
                         "params": {
                             "groups": 10,
                             "groupSize": 1,
@@ -308,18 +448,18 @@ class LoadSimulatorTests(TestCase):
         config = FilePath(self.mktemp())
         config.setContent(writePlistToString({
                     "clients": [{
-                            "software": "loadtest.ical.SnowLeopard",
+                            "software": "contrib.performance.loadtest.ical.SnowLeopard",
                             "params": {"foo": "bar"},
                             "profiles": [{
                                     "params": {
                                         "interval": 25,
                                         "eventStartDistribution": {
-                                            "type": "stats.NormalDistribution",
+                                            "type": "contrib.performance.stats.NormalDistribution",
                                             "params": {
                                                 "mu": 123,
                                                 "sigma": 456,
                                                 }}},
-                                    "class": "loadtest.profiles.Eventer"}],
+                                    "class": "contrib.performance.loadtest.profiles.Eventer"}],
                             "weight": 3,
                             }]}))
                             
@@ -354,7 +494,7 @@ class LoadSimulatorTests(TestCase):
         """
         config = FilePath(self.mktemp())
         config.setContent(writePlistToString({
-                    "observers": ["loadtest.population.SimpleStatistics"]}))
+                    "observers": ["contrib.performance.loadtest.population.SimpleStatistics"]}))
         sim = LoadSimulator.fromCommandLine(['--config', config.path])
         self.assertEquals(len(sim.observers), 1)
         self.assertIsInstance(sim.observers[0], SimpleStatistics)
@@ -371,7 +511,10 @@ class LoadSimulatorTests(TestCase):
             "http://example.com:123/",
             Arrival(lambda reactor: NullArrival(), {}),
             None, observers, reactor=Reactor())
-        sim.run()
+        io = StringIO()
+        sim.run(io)
+        self.assertEquals(io.getvalue(), "PASS\n")
         self.assertTrue(observers[0].reported)
         self.assertEquals(
             observers[0].events[0]['message'], (Reactor.message,))
+

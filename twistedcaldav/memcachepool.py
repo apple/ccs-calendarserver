@@ -348,14 +348,14 @@ class MemCachePool(LoggingMixIn):
     def get(self, *args, **kwargs):
         return self.performRequest('get', *args, **kwargs)
 
-
     def set(self, *args, **kwargs):
         return self.performRequest('set', *args, **kwargs)
 
+    def checkAndSet(self, *args, **kwargs):
+        return self.performRequest('checkAndSet', *args, **kwargs)
 
     def delete(self, *args, **kwargs):
         return self.performRequest('delete', *args, **kwargs)
-
 
     def add(self, *args, **kwargs):
         return self.performRequest('add', *args, **kwargs)
@@ -366,8 +366,8 @@ class MemCachePool(LoggingMixIn):
     def decr(self, *args, **kwargs):
         return self.performRequest('decrement', *args, **kwargs)
 
-    def flush_all(self, *args, **kwargs):
-        return self.performRequest('flush_all', *args, **kwargs)
+    def flushAll(self, *args, **kwargs):
+        return self.performRequest('flushAll', *args, **kwargs)
 
 
 

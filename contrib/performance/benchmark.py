@@ -32,7 +32,7 @@ from twisted.internet import reactor
 from twisted.python.log import msg
 from twisted.python.modules import getModule
 
-from stats import SQLDuration, Bytes
+from contrib.performance.stats import SQLDuration, Bytes
 
 
 class DTraceBug(Exception):
@@ -431,7 +431,7 @@ def whichPIDs(source, conf):
         pid.getContent() for pid in run.globChildren('*instance*')]
 
 
-_benchmarks = getModule("benchmarks")
+_benchmarks = getModule("contrib.performance.benchmarks")
 def resolveBenchmark(name):
     for module in _benchmarks.iterModules():
         if module.name == ".".join((_benchmarks.name, name)):

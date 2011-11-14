@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+from twext.enterprise.ienterprise import ORACLE_DIALECT, POSTGRES_DIALECT
 
 """
 Tests for L{txdav.common.datastore.util}.
@@ -100,13 +101,10 @@ class HomeMigrationTests(TestCase):
                 self.assertNotIdentical(
                     None, (yield txn.calendarHomeWithUID(uid))
                 )
-        # Un-migrated data should be preserved.
-        self.assertEquals(self.filesPath.child("calendars-migrated").child(
-            "__uids__").child("ho").child("me").child("home1").child(
-                ".some-extra-data").getContent(),
-                "some extra data"
-        )
-        
+        # Successfully migrated calendar homes are deleted
+        self.assertFalse(self.filesPath.child("calendars").child(
+            "__uids__").child("ho").child("me").child("home1").exists())
+
         # Want metadata preserved
         home = (yield txn.calendarHomeWithUID("home1"))
         calendar = (yield home.calendarWithName("calendar_1"))
@@ -208,13 +206,10 @@ class HomeMigrationTests(TestCase):
                 self.assertNotIdentical(
                     None, (yield txn.addressbookHomeWithUID(uid))
                 )
-        # Un-migrated data should be preserved.
-        self.assertEquals(self.filesPath.child("addressbooks-migrated").child(
-            "__uids__").child("ho").child("me").child("home1").child(
-                ".some-extra-data").getContent(),
-                "some extra data"
-        )
-        
+        # Successfully migrated addressbook homes are deleted
+        self.assertFalse(self.filesPath.child("addressbooks").child(
+            "__uids__").child("ho").child("me").child("home1").exists())
+
         # Want metadata preserved
         home = (yield txn.addressbookHomeWithUID("home1"))
         adbk = (yield home.addressbookWithName("addressbook_1"))
@@ -231,23 +226,30 @@ class SchemaUpgradeTests(TestCase):
     Tests for L{UpgradeDatabaseSchemaService}.
     """
 
+    def _getSchemaVersion(self, fp):
+        schema = fp.getContent()
+        found = re.search("insert into CALENDARSERVER values \('VERSION', '(\d)+'\);", schema)
+        if found is None:
+            self.fail("Could not determine schema version for: %s" % (fp,))
+        return int(found.group(1))
+
     def test_scanUpgradeFiles(self):
         
         upgrader = UpgradeDatabaseSchemaService(None, None)
 
         upgrader.schemaLocation = getModule(__name__).filePath.sibling("fake_schema1")
-        files = upgrader.scanForUpgradeFiles()
+        files = upgrader.scanForUpgradeFiles("fake_dialect")
         self.assertEqual(files, 
-            [(3, 4, upgrader.schemaLocation.child("upgrades").child("upgrade_from_3_to_4.sql"))],
+            [(3, 4, upgrader.schemaLocation.child("upgrades").child("fake_dialect").child("upgrade_from_3_to_4.sql"))],
         )
 
         upgrader.schemaLocation = getModule(__name__).filePath.sibling("fake_schema2")
-        files = upgrader.scanForUpgradeFiles()
+        files = upgrader.scanForUpgradeFiles("fake_dialect")
         self.assertEqual(files, 
             [
-                (3, 4, upgrader.schemaLocation.child("upgrades").child("upgrade_from_3_to_4.sql")),
-                (3, 5, upgrader.schemaLocation.child("upgrades").child("upgrade_from_3_to_5.sql")),
-                (4, 5, upgrader.schemaLocation.child("upgrades").child("upgrade_from_4_to_5.sql")),
+                (3, 4, upgrader.schemaLocation.child("upgrades").child("fake_dialect").child("upgrade_from_3_to_4.sql")),
+                (3, 5, upgrader.schemaLocation.child("upgrades").child("fake_dialect").child("upgrade_from_3_to_5.sql")),
+                (4, 5, upgrader.schemaLocation.child("upgrades").child("fake_dialect").child("upgrade_from_4_to_5.sql")),
             ]
         )
 
@@ -256,31 +258,31 @@ class SchemaUpgradeTests(TestCase):
         upgrader = UpgradeDatabaseSchemaService(None, None)
 
         upgrader.schemaLocation = getModule(__name__).filePath.sibling("fake_schema1")
-        files = upgrader.scanForUpgradeFiles()
-        upgrades = upgrader.determineUpgradeSequence(3, 4, files)
+        files = upgrader.scanForUpgradeFiles("fake_dialect")
+        upgrades = upgrader.determineUpgradeSequence(3, 4, files, "fake_dialect")
         self.assertEqual(upgrades, 
-            [upgrader.schemaLocation.child("upgrades").child("upgrade_from_3_to_4.sql")],
+            [upgrader.schemaLocation.child("upgrades").child("fake_dialect").child("upgrade_from_3_to_4.sql")],
         )
-        self.assertRaises(RuntimeError, upgrader.determineUpgradeSequence, 3, 5, files)
+        self.assertRaises(RuntimeError, upgrader.determineUpgradeSequence, 3, 5, files, "fake_dialect")
 
         upgrader.schemaLocation = getModule(__name__).filePath.sibling("fake_schema2")
-        files = upgrader.scanForUpgradeFiles()
-        upgrades = upgrader.determineUpgradeSequence(3, 5, files)
+        files = upgrader.scanForUpgradeFiles("fake_dialect")
+        upgrades = upgrader.determineUpgradeSequence(3, 5, files, "fake_dialect")
         self.assertEqual(upgrades, 
-            [upgrader.schemaLocation.child("upgrades").child("upgrade_from_3_to_5.sql")]
+            [upgrader.schemaLocation.child("upgrades").child("fake_dialect").child("upgrade_from_3_to_5.sql")]
         )
-        upgrades = upgrader.determineUpgradeSequence(4, 5, files)
+        upgrades = upgrader.determineUpgradeSequence(4, 5, files, "fake_dialect")
         self.assertEqual(upgrades, 
-            [upgrader.schemaLocation.child("upgrades").child("upgrade_from_4_to_5.sql")]
+            [upgrader.schemaLocation.child("upgrades").child("fake_dialect").child("upgrade_from_4_to_5.sql")]
         )
 
         upgrader.schemaLocation = getModule(__name__).filePath.sibling("fake_schema3")
-        files = upgrader.scanForUpgradeFiles()
-        upgrades = upgrader.determineUpgradeSequence(3, 5, files)
+        files = upgrader.scanForUpgradeFiles("fake_dialect")
+        upgrades = upgrader.determineUpgradeSequence(3, 5, files, "fake_dialect")
         self.assertEqual(upgrades, 
             [
-                upgrader.schemaLocation.child("upgrades").child("upgrade_from_3_to_4.sql"),
-                upgrader.schemaLocation.child("upgrades").child("upgrade_from_4_to_5.sql"),
+                upgrader.schemaLocation.child("upgrades").child("fake_dialect").child("upgrade_from_3_to_4.sql"),
+                upgrader.schemaLocation.child("upgrades").child("fake_dialect").child("upgrade_from_4_to_5.sql"),
             ]
         )
 
@@ -289,20 +291,71 @@ class SchemaUpgradeTests(TestCase):
         Make sure that each old schema has a valid upgrade path to the current one.
         """
         
-        upgrader = UpgradeDatabaseSchemaService(None, None)
-        files = upgrader.scanForUpgradeFiles()
-        
-        def _getSchemaVersion(fp):
-            schema = fp.getContent()
-            found = re.search("insert into CALENDARSERVER values \('VERSION', '(\d)+'\);", schema)
-            if found is None:
-                self.fail("Could not determine schema version for: %s" % (fp,))
-            return int(found.group(1))
+        for dialect in (POSTGRES_DIALECT, ORACLE_DIALECT,):
+            upgrader = UpgradeDatabaseSchemaService(None, None)
+            files = upgrader.scanForUpgradeFiles(dialect)
+
+            current_version = self._getSchemaVersion(upgrader.schemaLocation.child("current.sql"))
             
-            
-        current_version = _getSchemaVersion(upgrader.schemaLocation.child("current.sql"))
-        
-        for child in upgrader.schemaLocation.child("old").globChildren("*.sql"):
-            old_version = _getSchemaVersion(child)
-            upgrades = upgrader.determineUpgradeSequence(old_version, current_version, files)
-            self.assertNotEqual(len(upgrades), 0)
+            for child in upgrader.schemaLocation.child("old").globChildren("*.sql"):
+                old_version = self._getSchemaVersion(child)
+                upgrades = upgrader.determineUpgradeSequence(old_version, current_version, files, dialect)
+                self.assertNotEqual(len(upgrades), 0)
+
+    @inlineCallbacks
+    def test_dbUpgrades(self):
+        """
+        This does a full DB test of all possible upgrade paths. For each old schema, it loads it into the DB
+        then runs the upgrade service. This ensures all the upgrade.sql files work correctly - at least for
+        postgres.
+        """
+
+        store = yield theStoreBuilder.buildStore(
+            self, StubNotifierFactory()
+        )
+
+        @inlineCallbacks
+        def _loadOldSchema(path):
+            """
+            Use the postgres schema mechanism to do tests under a separate "namespace"
+            in postgres that we can quickly wipe clean afterwards.
+            """
+            startTxn = store.newTransaction("test_dbUpgrades")        
+            yield startTxn.execSQL("create schema test_dbUpgrades;")
+            yield startTxn.execSQL("set search_path to test_dbUpgrades;")
+            yield startTxn.execSQL(path.getContent())
+            yield startTxn.commit()
+
+        @inlineCallbacks
+        def _loadVersion():
+            startTxn = store.newTransaction("test_dbUpgrades")        
+            new_version = yield startTxn.execSQL("select value from calendarserver where name = 'VERSION';")
+            yield startTxn.commit()
+            returnValue(int(new_version[0][0]))
+
+        @inlineCallbacks
+        def _unloadOldSchema():
+            startTxn = store.newTransaction("test_dbUpgrades")        
+            yield startTxn.execSQL("set search_path to public;")
+            yield startTxn.execSQL("drop schema test_dbUpgrades cascade;")
+            yield startTxn.commit()
+
+        @inlineCallbacks
+        def _cleanupOldSchema():
+            startTxn = store.newTransaction("test_dbUpgrades")        
+            yield startTxn.execSQL("set search_path to public;")
+            yield startTxn.execSQL("drop schema if exists test_dbUpgrades cascade;")
+            yield startTxn.commit()
+
+        self.addCleanup(_cleanupOldSchema)
+
+        test_upgrader = UpgradeDatabaseSchemaService(None, None)
+        expected_version = self._getSchemaVersion(test_upgrader.schemaLocation.child("current.sql"))
+        for child in test_upgrader.schemaLocation.child("old").globChildren("*.sql"):
+            upgrader = UpgradeDatabaseSchemaService(store, None)
+            yield _loadOldSchema(child)
+            yield upgrader.doUpgrade()
+            new_version = yield _loadVersion()
+            yield _unloadOldSchema()
+
+            self.assertEqual(new_version, expected_version)

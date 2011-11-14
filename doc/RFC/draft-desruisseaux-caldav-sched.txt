@@ -3,115 +3,13 @@
 
 Network Working Group                                           C. Daboo
 Internet-Draft                                                Apple Inc.
-Intended status: Standards Track                         B. Desruisseaux
-Expires: December 21, 2009                                        Oracle
-                                                           June 19, 2009
+Updates: 4791 (if approved)                              B. Desruisseaux
+Intended status: Standards Track                                  Oracle
+Expires: April 28, 2011                                 October 25, 2010
 
 
                  CalDAV Scheduling Extensions to WebDAV
-                   draft-desruisseaux-caldav-sched-07
-
-Status of This Memo
-
-   This Internet-Draft is submitted to IETF in full conformance with the
-   provisions of BCP 78 and BCP 79.  This document may contain material
-   from IETF Documents or IETF Contributions published or made publicly
-   available before November 10, 2008.  The person(s) controlling the
-   copyright in some of this material may not have granted the IETF
-   Trust the right to allow modifications of such material outside the
-   IETF Standards Process.  Without obtaining an adequate license from
-   the person(s) controlling the copyright in such materials, this
-   document may not be modified outside the IETF Standards Process, and
-   derivative works of it may not be created outside the IETF Standards
-   Process, except to format it for publication as an RFC or to
-   translate it into languages other than English.
-
-   Internet-Drafts are working documents of the Internet Engineering
-   Task Force (IETF), its areas, and its working groups.  Note that
-   other groups may also distribute working documents as Internet-
-   Drafts.
-
-   Internet-Drafts are draft documents valid for a maximum of six months
-   and may be updated, replaced, or obsoleted by other documents at any
-   time.  It is inappropriate to use Internet-Drafts as reference
-   material or to cite them other than as "work in progress."
-
-   The list of current Internet-Drafts can be accessed at
-   http://www.ietf.org/ietf/1id-abstracts.txt.
-
-   The list of Internet-Draft Shadow Directories can be accessed at
-   http://www.ietf.org/shadow.html.
-
-   This Internet-Draft will expire on December 21, 2009.
-
-Copyright Notice
-
-   Copyright (c) 2009 IETF Trust and the persons identified as the
-   document authors.  All rights reserved.
-
-
-
-
-Daboo & Desruisseaux    Expires December 21, 2009               [Page 1]
-
-Internet-Draft        CalDAV Scheduling Extensions             June 2009
-
-
-   This document is subject to BCP 78 and the IETF Trust's Legal
-   Provisions Relating to IETF Documents in effect on the date of
-   publication of this document (http://trustee.ietf.org/license-info).
-   Please review these documents carefully, as they describe your rights
-   and restrictions with respect to this document.
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-Daboo & Desruisseaux    Expires December 21, 2009               [Page 2]
-
-Internet-Draft        CalDAV Scheduling Extensions             June 2009
-
+                   draft-desruisseaux-caldav-sched-09
 
 Abstract
 
@@ -120,31 +18,82 @@ Abstract
    transactions with iCalendar-based calendar components.  This document
    defines the "calendar-auto-schedule" feature of CalDAV.
 
+Status of This Memo
+
+   This Internet-Draft is submitted in full conformance with the
+   provisions of BCP 78 and BCP 79.
+
+   Internet-Drafts are working documents of the Internet Engineering
+   Task Force (IETF).  Note that other groups may also distribute
+   working documents as Internet-Drafts.  The list of current Internet-
+   Drafts is at http://datatracker.ietf.org/drafts/current/.
+
+   Internet-Drafts are draft documents valid for a maximum of six months
+   and may be updated, replaced, or obsoleted by other documents at any
+   time.  It is inappropriate to use Internet-Drafts as reference
+   material or to cite them other than as "work in progress."
+
+   This Internet-Draft will expire on April 28, 2011.
+
+Copyright Notice
+
+   Copyright (c) 2010 IETF Trust and the persons identified as the
+   document authors.  All rights reserved.
+
+   This document is subject to BCP 78 and the IETF Trust's Legal
+   Provisions Relating to IETF Documents
+   (http://trustee.ietf.org/license-info) in effect on the date of
+   publication of this document.  Please review these documents
+   carefully, as they describe your rights and restrictions with respect
+   to this document.  Code Components extracted from this document must
+   include Simplified BSD License text as described in Section 4.e of
+   the Trust Legal Provisions and are provided without warranty as
+   described in the Simplified BSD License.
+
+
+
+Daboo & Desruisseaux     Expires April 28, 2011                 [Page 1]
+
+Internet-Draft        CalDAV Scheduling Extensions          October 2010
+
+
+   This document may contain material from IETF Documents or IETF
+   Contributions published or made publicly available before November
+   10, 2008.  The person(s) controlling the copyright in some of this
+   material may not have granted the IETF Trust the right to allow
+   modifications of such material outside the IETF Standards Process.
+   Without obtaining an adequate license from the person(s) controlling
+   the copyright in such materials, this document may not be modified
+   outside the IETF Standards Process, and derivative works of it may
+   not be created outside the IETF Standards Process, except to format
+   it for publication as an RFC or to translate it into languages other
+   than English.
+
 Table of Contents
 
-   1.  Introduction . . . . . . . . . . . . . . . . . . . . . . . . .  7
-     1.1.  Terminology  . . . . . . . . . . . . . . . . . . . . . . .  7
-     1.2.  Approach . . . . . . . . . . . . . . . . . . . . . . . . .  8
-     1.3.  Limitations  . . . . . . . . . . . . . . . . . . . . . . .  8
-     1.4.  Notational Conventions . . . . . . . . . . . . . . . . . .  9
-     1.5.  XML Namespaces and Processing  . . . . . . . . . . . . . .  9
-   2.  Scheduling Process . . . . . . . . . . . . . . . . . . . . . . 11
-   3.  Scheduling Support . . . . . . . . . . . . . . . . . . . . . . 12
-   4.  Scheduling Collections . . . . . . . . . . . . . . . . . . . . 13
-     4.1.  Scheduling Outbox Collection . . . . . . . . . . . . . . . 13
-     4.2.  Scheduling Inbox Collection  . . . . . . . . . . . . . . . 14
-     4.3.  Calendaring Reports Extensions . . . . . . . . . . . . . . 16
-   5.  Scheduling Transactions  . . . . . . . . . . . . . . . . . . . 17
-     5.1.  Identifying Scheduling Object Resources  . . . . . . . . . 17
-     5.2.  Handling Scheduling Object Resources . . . . . . . . . . . 17
-       5.2.1.  Organizer Scheduling Object Resources  . . . . . . . . 17
-         5.2.1.1.  Create . . . . . . . . . . . . . . . . . . . . . . 18
-         5.2.1.2.  Modify . . . . . . . . . . . . . . . . . . . . . . 19
-         5.2.1.3.  Remove . . . . . . . . . . . . . . . . . . . . . . 20
-       5.2.2.  Attendee Scheduling Object Resources . . . . . . . . . 21
-         5.2.2.1.  Allowed Attendee Changes . . . . . . . . . . . . . 21
-         5.2.2.2.  Create . . . . . . . . . . . . . . . . . . . . . . 22
-         5.2.2.3.  Modify . . . . . . . . . . . . . . . . . . . . . . 22
+   1.  Introduction . . . . . . . . . . . . . . . . . . . . . . . . .  6
+     1.1.  Terminology  . . . . . . . . . . . . . . . . . . . . . . .  6
+     1.2.  Approach . . . . . . . . . . . . . . . . . . . . . . . . .  7
+     1.3.  Limitations  . . . . . . . . . . . . . . . . . . . . . . .  7
+     1.4.  Notational Conventions . . . . . . . . . . . . . . . . . .  8
+     1.5.  XML Namespaces and Processing  . . . . . . . . . . . . . .  8
+   2.  Scheduling Process . . . . . . . . . . . . . . . . . . . . . . 10
+   3.  Scheduling Support . . . . . . . . . . . . . . . . . . . . . . 11
+   4.  Scheduling Collections . . . . . . . . . . . . . . . . . . . . 12
+     4.1.  Scheduling Outbox Collection . . . . . . . . . . . . . . . 12
+     4.2.  Scheduling Inbox Collection  . . . . . . . . . . . . . . . 13
+     4.3.  Calendaring Reports Extensions . . . . . . . . . . . . . . 15
+   5.  Scheduling Transactions  . . . . . . . . . . . . . . . . . . . 16
+     5.1.  Identifying Scheduling Object Resources  . . . . . . . . . 16
+     5.2.  Handling Scheduling Object Resources . . . . . . . . . . . 16
+       5.2.1.  Organizer Scheduling Object Resources  . . . . . . . . 16
+         5.2.1.1.  Create . . . . . . . . . . . . . . . . . . . . . . 17
+         5.2.1.2.  Modify . . . . . . . . . . . . . . . . . . . . . . 18
+         5.2.1.3.  Remove . . . . . . . . . . . . . . . . . . . . . . 19
+       5.2.2.  Attendee Scheduling Object Resources . . . . . . . . . 20
+         5.2.2.1.  Allowed Attendee Changes . . . . . . . . . . . . . 20
+         5.2.2.2.  Create . . . . . . . . . . . . . . . . . . . . . . 21
+         5.2.2.3.  Modify . . . . . . . . . . . . . . . . . . . . . . 21
          5.2.2.4.  Remove . . . . . . . . . . . . . . . . . . . . . . 22
        5.2.3.  HTTP Methods . . . . . . . . . . . . . . . . . . . . . 23
          5.2.3.1.  PUT  . . . . . . . . . . . . . . . . . . . . . . . 23
@@ -155,21 +104,21 @@ Table of Contents
          5.2.4.1.  CALDAV:unique-scheduling-object-resource
                    Precondition . . . . . . . . . . . . . . . . . . . 25
          5.2.4.2.  CALDAV:same-organizer-in-all-components
-                   Precondition . . . . . . . . . . . . . . . . . . . 25
+                   Precondition . . . . . . . . . . . . . . . . . . . 26
+
+
+
+Daboo & Desruisseaux     Expires April 28, 2011                 [Page 2]
+
+Internet-Draft        CalDAV Scheduling Extensions          October 2010
+
+
          5.2.4.3.  CALDAV:allowed-organizer-scheduling-object-chan
                    Precondition . . . . . . . . . . . . . . . . . . . 26
          5.2.4.4.  CALDAV:allowed-attendee-scheduling-object-chang
                    Precondition . . . . . . . . . . . . . . . . . . . 27
        5.2.5.  DTSTAMP and SEQUENCE Properties  . . . . . . . . . . . 27
-
-
-
-Daboo & Desruisseaux    Expires December 21, 2009               [Page 3]
-
-Internet-Draft        CalDAV Scheduling Extensions             June 2009
-
-
-       5.2.6.  Limit Recurrence Instances Sent to Attendees . . . . . 27
+       5.2.6.  Limit Recurrence Instances Sent to Attendees . . . . . 28
        5.2.7.  Forcing the Server to Send a Scheduling Message  . . . 28
    6.  Processing Incoming Scheduling Messages  . . . . . . . . . . . 29
      6.1.  Processing Attendee Replies  . . . . . . . . . . . . . . . 29
@@ -193,102 +142,106 @@ Internet-Draft        CalDAV Scheduling Extensions             June 2009
        7.2.6.  CALDAV:organizer-allowed Precondition  . . . . . . . . 36
        7.2.7.  CALDAV:max-resource-size Precondition  . . . . . . . . 37
      7.3.  Response to a POST request . . . . . . . . . . . . . . . . 37
-   8.  Conditional Requests on Scheduling Object Resources  . . . . . 38
-     8.1.  PUT  . . . . . . . . . . . . . . . . . . . . . . . . . . . 40
-     8.2.  DELETE . . . . . . . . . . . . . . . . . . . . . . . . . . 40
-     8.3.  COPY or MOVE . . . . . . . . . . . . . . . . . . . . . . . 41
-   9.  Other Scheduling Considerations  . . . . . . . . . . . . . . . 42
-     9.1.  Attendee Participation Status  . . . . . . . . . . . . . . 42
-     9.2.  Schedule Status Values . . . . . . . . . . . . . . . . . . 43
-     9.3.  Organizer is an Attendee . . . . . . . . . . . . . . . . . 45
-   10. Additional iCalendar Property Parameters . . . . . . . . . . . 46
-     10.1. Schedule Agent Parameter . . . . . . . . . . . . . . . . . 46
-     10.2. Schedule Force Send Parameter  . . . . . . . . . . . . . . 47
-     10.3. Schedule Status Parameter  . . . . . . . . . . . . . . . . 48
-   11. Additional Message Header Fields . . . . . . . . . . . . . . . 50
-     11.1. Schedule-Reply Request Header  . . . . . . . . . . . . . . 50
-     11.2. Schedule-Tag Response Header . . . . . . . . . . . . . . . 50
-     11.3. If-Schedule-Tag-Match Request Header . . . . . . . . . . . 51
-   12. Additional WebDAV Properties . . . . . . . . . . . . . . . . . 52
-     12.1. CALDAV:schedule-calendar-transp Property . . . . . . . . . 52
-     12.2. CALDAV:schedule-default-calendar-URL Property  . . . . . . 53
-     12.3. CALDAV:schedule-tag Property . . . . . . . . . . . . . . . 54
-   13. Scheduling Access Control  . . . . . . . . . . . . . . . . . . 55
-     13.1. Scheduling Privileges  . . . . . . . . . . . . . . . . . . 55
-       13.1.1. Privileges on Scheduling Inbox Collections . . . . . . 55
-         13.1.1.1. CALDAV:schedule-deliver Privilege  . . . . . . . . 55
+   8.  Avoiding Conflicts when Updating Scheduling Object
+       Resources  . . . . . . . . . . . . . . . . . . . . . . . . . . 39
+     8.1.  PUT  . . . . . . . . . . . . . . . . . . . . . . . . . . . 41
+     8.2.  DELETE . . . . . . . . . . . . . . . . . . . . . . . . . . 41
+     8.3.  COPY or MOVE . . . . . . . . . . . . . . . . . . . . . . . 42
+   9.  Other Scheduling Considerations  . . . . . . . . . . . . . . . 43
+     9.1.  Attendee Participation Status  . . . . . . . . . . . . . . 43
+     9.2.  Schedule Status Values . . . . . . . . . . . . . . . . . . 44
+     9.3.  Organizer is an Attendee . . . . . . . . . . . . . . . . . 47
+   10. Additional iCalendar Property Parameters . . . . . . . . . . . 48
+     10.1. Schedule Agent Parameter . . . . . . . . . . . . . . . . . 48
+     10.2. Schedule Force Send Parameter  . . . . . . . . . . . . . . 49
+     10.3. Schedule Status Parameter  . . . . . . . . . . . . . . . . 50
+   11. Additional Message Header Fields . . . . . . . . . . . . . . . 52
+     11.1. Schedule-Reply Request Header  . . . . . . . . . . . . . . 52
+     11.2. Schedule-Tag Response Header . . . . . . . . . . . . . . . 52
+     11.3. If-Schedule-Tag-Match Request Header . . . . . . . . . . . 53
+   12. Additional WebDAV Properties . . . . . . . . . . . . . . . . . 54
+     12.1. CALDAV:schedule-calendar-transp Property . . . . . . . . . 54
 
 
 
-Daboo & Desruisseaux    Expires December 21, 2009               [Page 4]
+Daboo & Desruisseaux     Expires April 28, 2011                 [Page 3]
 
-Internet-Draft        CalDAV Scheduling Extensions             June 2009
+Internet-Draft        CalDAV Scheduling Extensions          October 2010
 
 
-         13.1.1.2. CALDAV:schedule-deliver-invite Privilege . . . . . 56
-         13.1.1.3. CALDAV:schedule-deliver-reply Privilege  . . . . . 56
-         13.1.1.4. CALDAV:schedule-query-freebusy Privilege . . . . . 56
-       13.1.2. Privileges on Scheduling Outbox Collections  . . . . . 56
-         13.1.2.1. CALDAV:schedule-send Privilege . . . . . . . . . . 56
-         13.1.2.2. CALDAV:schedule-send-invite Privilege  . . . . . . 57
-         13.1.2.3. CALDAV:schedule-send-reply Privilege . . . . . . . 57
-         13.1.2.4. CALDAV:schedule-send-freebusy Privilege  . . . . . 57
-       13.1.3. Aggregation of Scheduling Privileges . . . . . . . . . 57
-     13.2. Additional Principal Properties  . . . . . . . . . . . . . 58
-       13.2.1. CALDAV:schedule-inbox-URL Property . . . . . . . . . . 58
-       13.2.2. CALDAV:schedule-outbox-URL Property  . . . . . . . . . 59
-       13.2.3. CALDAV:calendar-user-address-set Property  . . . . . . 59
-       13.2.4. CALDAV:calendar-user-type Property . . . . . . . . . . 60
-   14. XML Element Definitions  . . . . . . . . . . . . . . . . . . . 62
-     14.1. CALDAV:schedule-response XML Element . . . . . . . . . . . 62
-     14.2. CALDAV:response XML Element  . . . . . . . . . . . . . . . 62
-     14.3. CALDAV:recipient XML Element . . . . . . . . . . . . . . . 62
-     14.4. CALDAV:request-status XML Element  . . . . . . . . . . . . 63
-   15. Security Considerations  . . . . . . . . . . . . . . . . . . . 64
-     15.1. Verifying Scheduling Transactions  . . . . . . . . . . . . 64
-     15.2. Verifying Busy Time Information Requests . . . . . . . . . 64
-     15.3. Privacy Issues . . . . . . . . . . . . . . . . . . . . . . 65
-   16. IANA Considerations  . . . . . . . . . . . . . . . . . . . . . 66
-     16.1. Message Header Field Registrations . . . . . . . . . . . . 66
-       16.1.1. Schedule-Reply . . . . . . . . . . . . . . . . . . . . 66
-       16.1.2. Schedule-Tag . . . . . . . . . . . . . . . . . . . . . 66
-       16.1.3. If-Schedule-Tag-Match  . . . . . . . . . . . . . . . . 66
-     16.2. iCalendar Property Parameter Registrations . . . . . . . . 67
-     16.3. Additional iCalendar Elements Registries . . . . . . . . . 67
-       16.3.1. Schedule Agent Values Registry . . . . . . . . . . . . 67
-       16.3.2. Schedule Force Send Values Registry  . . . . . . . . . 67
-   17. Acknowledgements . . . . . . . . . . . . . . . . . . . . . . . 69
-   18. References . . . . . . . . . . . . . . . . . . . . . . . . . . 70
-     18.1. Normative References . . . . . . . . . . . . . . . . . . . 70
-     18.2. Informative References . . . . . . . . . . . . . . . . . . 71
-   Appendix A.  Scheduling Privileges Summary . . . . . . . . . . . . 72
-     A.1.  Scheduling Inbox Privileges  . . . . . . . . . . . . . . . 72
-     A.2.  Scheduling Outbox Privileges . . . . . . . . . . . . . . . 72
-   Appendix B.  Example Scheduling Transactions . . . . . . . . . . . 74
-     B.1.  Example: Organizer Inviting Multiple Attendees . . . . . . 74
-     B.2.  Example: Attendee Receiving an Invitation  . . . . . . . . 76
-     B.3.  Example: Attendee Replying to an Invitation  . . . . . . . 78
-     B.4.  Example: Organizer Receiving a Reply to an Invitation  . . 80
-     B.5.  Example: Organizer Requesting Busy Time Information  . . . 82
+     12.2. CALDAV:schedule-default-calendar-URL Property  . . . . . . 55
+     12.3. CALDAV:schedule-tag Property . . . . . . . . . . . . . . . 56
+   13. Scheduling Access Control  . . . . . . . . . . . . . . . . . . 57
+     13.1. Scheduling Privileges  . . . . . . . . . . . . . . . . . . 57
+       13.1.1. Privileges on Scheduling Inbox Collections . . . . . . 57
+         13.1.1.1. CALDAV:schedule-deliver Privilege  . . . . . . . . 57
+         13.1.1.2. CALDAV:schedule-deliver-invite Privilege . . . . . 58
+         13.1.1.3. CALDAV:schedule-deliver-reply Privilege  . . . . . 58
+         13.1.1.4. CALDAV:schedule-query-freebusy Privilege . . . . . 58
+       13.1.2. Privileges on Scheduling Outbox Collections  . . . . . 58
+         13.1.2.1. CALDAV:schedule-send Privilege . . . . . . . . . . 58
+         13.1.2.2. CALDAV:schedule-send-invite Privilege  . . . . . . 59
+         13.1.2.3. CALDAV:schedule-send-reply Privilege . . . . . . . 59
+         13.1.2.4. CALDAV:schedule-send-freebusy Privilege  . . . . . 59
+       13.1.3. Aggregation of Scheduling Privileges . . . . . . . . . 59
+     13.2. Additional Principal Properties  . . . . . . . . . . . . . 60
+       13.2.1. CALDAV:schedule-inbox-URL Property . . . . . . . . . . 60
+       13.2.2. CALDAV:schedule-outbox-URL Property  . . . . . . . . . 61
+       13.2.3. CALDAV:calendar-user-address-set Property  . . . . . . 61
+       13.2.4. CALDAV:calendar-user-type Property . . . . . . . . . . 62
+   14. XML Element Definitions  . . . . . . . . . . . . . . . . . . . 64
+     14.1. CALDAV:schedule-response XML Element . . . . . . . . . . . 64
+     14.2. CALDAV:response XML Element  . . . . . . . . . . . . . . . 64
+     14.3. CALDAV:recipient XML Element . . . . . . . . . . . . . . . 64
+     14.4. CALDAV:request-status XML Element  . . . . . . . . . . . . 65
+   15. Security Considerations  . . . . . . . . . . . . . . . . . . . 66
+     15.1. Verifying Scheduling Transactions  . . . . . . . . . . . . 66
+     15.2. Verifying Busy Time Information Requests . . . . . . . . . 66
+     15.3. Privacy Issues . . . . . . . . . . . . . . . . . . . . . . 67
+   16. IANA Considerations  . . . . . . . . . . . . . . . . . . . . . 68
+     16.1. Message Header Field Registrations . . . . . . . . . . . . 68
+       16.1.1. Schedule-Reply . . . . . . . . . . . . . . . . . . . . 68
+       16.1.2. Schedule-Tag . . . . . . . . . . . . . . . . . . . . . 68
+       16.1.3. If-Schedule-Tag-Match  . . . . . . . . . . . . . . . . 68
+     16.2. iCalendar Property Parameter Registrations . . . . . . . . 69
+     16.3. iCalendar REQUEST-STATUS Value Registrations . . . . . . . 69
+     16.4. Additional iCalendar Elements Registries . . . . . . . . . 69
+       16.4.1. Schedule Agent Values Registry . . . . . . . . . . . . 69
+       16.4.2. Schedule Force Send Values Registry  . . . . . . . . . 70
+   17. Acknowledgements . . . . . . . . . . . . . . . . . . . . . . . 71
+   18. References . . . . . . . . . . . . . . . . . . . . . . . . . . 72
+     18.1. Normative References . . . . . . . . . . . . . . . . . . . 72
+     18.2. Informative References . . . . . . . . . . . . . . . . . . 73
+   Appendix A.  Scheduling Privileges Summary . . . . . . . . . . . . 74
+     A.1.  Scheduling Inbox Privileges  . . . . . . . . . . . . . . . 74
+     A.2.  Scheduling Outbox Privileges . . . . . . . . . . . . . . . 74
+   Appendix B.  Example Scheduling Transactions . . . . . . . . . . . 76
+     B.1.  Example: Organizer Inviting Multiple Attendees . . . . . . 76
+
+
+
+Daboo & Desruisseaux     Expires April 28, 2011                 [Page 4]
+
+Internet-Draft        CalDAV Scheduling Extensions          October 2010
+
+
+     B.2.  Example: Attendee Receiving an Invitation  . . . . . . . . 78
+     B.3.  Example: Attendee Replying to an Invitation  . . . . . . . 80
+     B.4.  Example: Organizer Receiving a Reply to an Invitation  . . 82
+     B.5.  Example: Organizer Requesting Busy Time Information  . . . 84
      B.6.  Example: User Attempting to Invite Attendee on behalf
-           of Organizer . . . . . . . . . . . . . . . . . . . . . . . 84
+           of Organizer . . . . . . . . . . . . . . . . . . . . . . . 86
      B.7.  Example: Attendee Declining an Instance of a Recurring
-
-
-
-Daboo & Desruisseaux    Expires December 21, 2009               [Page 5]
-
-Internet-Draft        CalDAV Scheduling Extensions             June 2009
-
-
-           Event  . . . . . . . . . . . . . . . . . . . . . . . . . . 85
+           Event  . . . . . . . . . . . . . . . . . . . . . . . . . . 87
      B.8.  Example: Attendee Removing an Instance of a Recurring
-           Event  . . . . . . . . . . . . . . . . . . . . . . . . . . 89
+           Event  . . . . . . . . . . . . . . . . . . . . . . . . . . 91
    Appendix C.  Changes (to be removed by RFC Editor prior to
-                publication)  . . . . . . . . . . . . . . . . . . . . 92
-     C.1.  Changes in -07 . . . . . . . . . . . . . . . . . . . . . . 92
-     C.2.  Changes in -06 . . . . . . . . . . . . . . . . . . . . . . 92
-     C.3.  Changes in -05 . . . . . . . . . . . . . . . . . . . . . . 93
+                publication)  . . . . . . . . . . . . . . . . . . . . 94
+     C.1.  Changes in -09 . . . . . . . . . . . . . . . . . . . . . . 94
+     C.2.  Changes in -08 . . . . . . . . . . . . . . . . . . . . . . 95
+     C.3.  Changes in -07 . . . . . . . . . . . . . . . . . . . . . . 95
+     C.4.  Changes in -06 . . . . . . . . . . . . . . . . . . . . . . 96
+     C.5.  Changes in -05 . . . . . . . . . . . . . . . . . . . . . . 96
 
 
 
@@ -323,31 +276,21 @@ Internet-Draft        CalDAV Scheduling Extensions             June 2009
 
 
 
-
-
-
-
-
-
-
-
-
-Daboo & Desruisseaux    Expires December 21, 2009               [Page 6]
+Daboo & Desruisseaux     Expires April 28, 2011                 [Page 5]
 
-Internet-Draft        CalDAV Scheduling Extensions             June 2009
+Internet-Draft        CalDAV Scheduling Extensions          October 2010
 
 
 1.  Introduction
 
    This document specifies extensions to the CalDAV "calendar-access"
-   [RFC4791] feature to enable scheduling of iCalendar-based
-   [I-D.ietf-calsify-rfc2445bis] calendar components between Calendar
-   Users.  This extension leverages the scheduling methods defined in
-   the iCalendar Transport-independent Interoperability Protocol (iTIP)
-   [I-D.ietf-calsify-2446bis] to permit Calendar Users to perform
-   scheduling transactions such as schedule, reschedule, respond to
-   scheduling request or cancel scheduled calendar components, as well
-   as search for busy time information.
+   [RFC4791] feature to enable scheduling of iCalendar-based [RFC5545]
+   calendar components between Calendar Users.  This extension leverages
+   the scheduling methods defined in the iCalendar Transport-independent
+   Interoperability Protocol (iTIP) [RFC5546] to permit Calendar Users
+   to perform scheduling transactions such as schedule, reschedule,
+   respond to scheduling request or cancel scheduled calendar
+   components, as well as search for busy time information.
 
    Discussion of this Internet-Draft is taking place on the mailing list
    <https://www.ietf.org/mailman/listinfo/caldav>.
@@ -355,9 +298,9 @@ Internet-Draft        CalDAV Scheduling Extensions             June 2009
 1.1.  Terminology
 
    This specification uses much of the same terminology as iCalendar
-   [I-D.ietf-calsify-rfc2445bis], iTIP [I-D.ietf-calsify-2446bis],
-   WebDAV [RFC4918], and CalDAV [RFC4791].  The following definitions
-   are provided to aid the reader in understanding this specification.
+   [RFC5545], iTIP [RFC5546], WebDAV [RFC4918], and CalDAV [RFC4791].
+   The following definitions are provided to aid the reader in
+   understanding this specification.
 
    Calendar User (CU):  An entity (often a human) that accesses calendar
       information [RFC3283].
@@ -388,9 +331,10 @@ Internet-Draft        CalDAV Scheduling Extensions             June 2009
 
 
 
-Daboo & Desruisseaux    Expires December 21, 2009               [Page 7]
+
+Daboo & Desruisseaux     Expires April 28, 2011                 [Page 6]
 
-Internet-Draft        CalDAV Scheduling Extensions             June 2009
+Internet-Draft        CalDAV Scheduling Extensions          October 2010
 
 
    Automatic scheduling transaction:  Add, change or remove operations
@@ -409,14 +353,14 @@ Internet-Draft        CalDAV Scheduling Extensions             June 2009
 
 1.2.  Approach
 
-   iTIP [I-D.ietf-calsify-2446bis] outlines a model where Calendar Users
-   exchange scheduling messages with one another.  Often times, Calendar
-   User Agents are made responsible for generating and sending
-   scheduling messages as well as processing incoming scheduling
-   messages.  This approach yields a number of problems, including:
+   iTIP [RFC5546] outlines a model where Calendar Users exchange
+   scheduling messages with one another.  Often times, Calendar User
+   Agents are made responsible for generating and sending scheduling
+   messages as well as processing incoming scheduling messages.  This
+   approach yields a number of problems, including:
 
    o  For most updates to a scheduled calendar component, Calendar User
-      Agents need to address a separate scheduling messages to the
+      Agents need to address separate scheduling messages to the
       Organizer or the Attendees.
 
    o  The handling of incoming scheduling messages and the updates to
@@ -438,21 +382,20 @@ Internet-Draft        CalDAV Scheduling Extensions             June 2009
 1.3.  Limitations
 
    While the scheduling features described in this specification are
-   based on iTIP [I-D.ietf-calsify-2446bis], some of its more complex
-   features have deliberately been left out in order to keep this
-   specification simple.  In particular, the following iTIP
+   based on iTIP [RFC5546], some of its more complex features have
+   deliberately been left out in order to keep this specification
+   simple.  In particular, the following iTIP [RFC5546] features are not
 
 
 
-Daboo & Desruisseaux    Expires December 21, 2009               [Page 8]
+Daboo & Desruisseaux     Expires April 28, 2011                 [Page 7]
 
-Internet-Draft        CalDAV Scheduling Extensions             June 2009
+Internet-Draft        CalDAV Scheduling Extensions          October 2010
 
 
-   [I-D.ietf-calsify-2446bis] features are not covered: publishing,
-   countering, delegating, refreshing and forwarding calendar
-   components, as well as replacing the Organizer of a calendar
-   component.
+   covered: publishing, countering, delegating, refreshing and
+   forwarding calendar components, as well as replacing the Organizer of
+   a calendar component.
 
    The goal of this specification is to provide the essential scheduling
    features needed.  It is expected that future extensions will be
@@ -473,44 +416,54 @@ Internet-Draft        CalDAV Scheduling Extensions             June 2009
    "SHOULD", "SHOULD NOT", "RECOMMENDED", "MAY", and "OPTIONAL" in this
    document are to be interpreted as described in [RFC2119].
 
-   When XML element types in the namespaces "DAV:" and
-   "urn:ietf:params:xml:ns:caldav" are referenced in this document
-   outside of the context of an XML fragment, the string "DAV:" and
-   "CALDAV:" will be prefixed to the element types respectively.
+   The term "protected" is used in the Conformance field of property
+   definitions as defined in Section 15 of [RFC4918].
 
 1.5.  XML Namespaces and Processing
 
-   Definitions of XML elements in this document use XML element type
-   declarations (as found in XML Document Type Declarations), described
-   in Section 3.2 of [W3C.REC-xml-20081126].
+   This document uses XML DTD fragments ([W3C.REC-xml-20081126], Section
+   3.2) as a purely notational convention.  WebDAV request and response
+   bodies cannot be validated by a DTD due to the specific extensibility
+   rules defined in Section 17 of [RFC4918] and due to the fact that all
+   XML elements defined by this specification use the XML namespace name
+   "DAV:".  In particular:
+
+   1.  element names use the "DAV:" namespace,
+
+   2.  element ordering is irrelevant unless explicitly stated,
+
+   3.  extension elements (elements not already defined as valid child
+       elements) may be added anywhere, except when explicitly stated
+       otherwise,
+
+   4.  extension attributes (attributes not already defined as valid for
+       this element) may be added anywhere, except when explicitly
+       stated otherwise.
 
    The XML elements specified in this document are defined in the
+
+
+
+Daboo & Desruisseaux     Expires April 28, 2011                 [Page 8]
+
+Internet-Draft        CalDAV Scheduling Extensions          October 2010
+
+
    "urn:ietf:params:xml:ns:caldav" XML namespace registered by CalDAV
    [RFC4791].
 
-   The XML declarations used in this document do not include namespace
-   information.  Thus, implementers must not use these declarations as
-   the only way to create valid CalDAV properties or to validate CalDAV
-   XML element type.  Some of the declarations refer to XML elements
-   defined by WebDAV [RFC4918] which use the "DAV:" namespace.  Wherever
-   such XML elements appear, they are explicitly prefixed with "DAV:" to
-   avoid confusion.  Additionally, some of the elements used here are
-   defined in CalDAV "calendar-access" [RFC4791].
+   When XML element types in the namespaces "DAV:" and
+   "urn:ietf:params:xml:ns:caldav" are referenced in this document
+   outside of the context of an XML fragment, the strings "DAV:" and
+   "CALDAV:" will be prefixed to the element types, respectively.
 
-
-
-
-Daboo & Desruisseaux    Expires December 21, 2009               [Page 9]
-
-Internet-Draft        CalDAV Scheduling Extensions             June 2009
-
+   This document inherits, and sometimes extends, DTD productions from
+   Section 14 of [RFC4918].
 
    Also note that some CalDAV XML element names are identical to WebDAV
    XML element names, though their namespace differs.  Care must be
    taken not to confuse the two sets of names.
 
-   Processing of XML by CalDAV clients and servers MUST follow the rules
-   described in Section 17 of [RFC4918].
 
 
 
@@ -547,18 +500,9 @@ Internet-Draft        CalDAV Scheduling Extensions             June 2009
 
 
 
-
-
-
-
-
-
-
-
-
-Daboo & Desruisseaux    Expires December 21, 2009              [Page 10]
+Daboo & Desruisseaux     Expires April 28, 2011                 [Page 9]
 
-Internet-Draft        CalDAV Scheduling Extensions             June 2009
+Internet-Draft        CalDAV Scheduling Extensions          October 2010
 
 
 2.  Scheduling Process
@@ -574,7 +518,7 @@ Internet-Draft        CalDAV Scheduling Extensions             June 2009
 
    In the first phase, the Organizer will query the busy time
    information of each Attendee to determine the most appropriate time
-   for the event.  This request is sometimes called a freebusy lookup.
+   for the event.  This request is sometimes called a "freebusy" lookup.
 
    In the second phase, the Organizer sends out invitations to each
    Attendee using the time previously determined from the freebusy
@@ -593,8 +537,8 @@ Internet-Draft        CalDAV Scheduling Extensions             June 2009
    each Attendee will reply with their participation status in their own
    time, so delays in receiving replies are anticipated.  Thus
    calendaring and scheduling systems should treat these two operational
-   phases in different ways to accommodate the user expectations, and
-   this specification does that.
+   phases in different ways to accommodate the user expectations, which
+   is what this specification does.
 
    While the scenario described above only covers the case of scheduling
    events between Calendar Users, and requesting busy time information,
@@ -612,9 +556,9 @@ Internet-Draft        CalDAV Scheduling Extensions             June 2009
 
 
 
-Daboo & Desruisseaux    Expires December 21, 2009              [Page 11]
+Daboo & Desruisseaux     Expires April 28, 2011                [Page 10]
 
-Internet-Draft        CalDAV Scheduling Extensions             June 2009
+Internet-Draft        CalDAV Scheduling Extensions          October 2010
 
 
 3.  Scheduling Support
@@ -668,9 +612,9 @@ Internet-Draft        CalDAV Scheduling Extensions             June 2009
 
 
 
-Daboo & Desruisseaux    Expires December 21, 2009              [Page 12]
+Daboo & Desruisseaux     Expires April 28, 2011                [Page 11]
 
-Internet-Draft        CalDAV Scheduling Extensions             June 2009
+Internet-Draft        CalDAV Scheduling Extensions          October 2010
 
 
 4.  Scheduling Collections
@@ -724,9 +668,9 @@ Internet-Draft        CalDAV Scheduling Extensions             June 2009
 
 
 
-Daboo & Desruisseaux    Expires December 21, 2009              [Page 13]
+Daboo & Desruisseaux     Expires April 28, 2011                [Page 12]
 
-Internet-Draft        CalDAV Scheduling Extensions             June 2009
+Internet-Draft        CalDAV Scheduling Extensions          October 2010
 
 
       collection with the POST method.
@@ -750,9 +694,8 @@ Internet-Draft        CalDAV Scheduling Extensions             June 2009
       scheduling messages submitted to the scheduling Outbox collection
       with the POST method.
 
-   While there is currently no defined use for child resources in a
-   scheduling Outbox collection, a scheduling Outbox collection MAY
-   contain child resources.
+   The use of child resources in a scheduling Outbox collection is
+   reserved for future revisions or extensions of this specification.
 
 4.2.  Scheduling Inbox Collection
 
@@ -775,29 +718,28 @@ Internet-Draft        CalDAV Scheduling Extensions             June 2009
       </D:resourcetype>
 
    Scheduling Inbox collections MUST only contain calendar object
-   resources that obey the restrictions specified in iTIP
-   [I-D.ietf-calsify-2446bis].  Consequently, scheduling Inbox
+   resources that obey the restrictions specified in iTIP [RFC5546].
+   Consequently, scheduling Inbox collections MUST NOT contain any types
+   of collection resources.  Restrictions defined in Section 4.1 of
 
 
 
-Daboo & Desruisseaux    Expires December 21, 2009              [Page 14]
+Daboo & Desruisseaux     Expires April 28, 2011                [Page 13]
 
-Internet-Draft        CalDAV Scheduling Extensions             June 2009
+Internet-Draft        CalDAV Scheduling Extensions          October 2010
 
 
-   collections MUST NOT contain any types of collection resources.
-   Restrictions defined in Section 4.1 of CalDAV "calendar-access"
-   [RFC4791] on calendar object resources contained in calendar
-   collections (e.g., "UID" uniqueness) don't apply to calendar object
-   resources contained in a scheduling Inbox collection.  Multiple
-   calendar object resources contained in a scheduling Inbox collection
-   MAY have the same "UID" property value (i.e., multiple scheduling
-   messages for the same calendar component).
+   CalDAV "calendar-access" [RFC4791] on calendar object resources
+   contained in calendar collections (e.g., "UID" uniqueness) don't
+   apply to calendar object resources contained in a scheduling Inbox
+   collection.  Thus, multiple calendar object resources contained in a
+   scheduling Inbox collection can have the same "UID" property value
+   (i.e., multiple scheduling messages for the same calendar component).
 
    New WebDAV ACL [RFC3744] privileges can be set on the scheduling
-   Inbox collection to control who the Calendar User associated with the
-   scheduling Inbox collection will accept scheduling messages from.
-   See Section 13.1 for more details.
+   Inbox collection to control from whom the Calendar User associated
+   with the scheduling Inbox collection will accept scheduling messages
+   from.  See Section 13.1 for more details.
 
    A scheduling Inbox collection MUST NOT be a child (at any depth) of a
    calendar collection resource.
@@ -833,16 +775,16 @@ Internet-Draft        CalDAV Scheduling Extensions             June 2009
       DATE or DATE-TIME value in scheduling messages delivered to the
       scheduling Inbox collection.
 
-
-
-
-Daboo & Desruisseaux    Expires December 21, 2009              [Page 15]
-
-Internet-Draft        CalDAV Scheduling Extensions             June 2009
-
-
       CALDAV:max-instances - when present this indicates the maximum
       number of recurrence instances in scheduling messages delivered to
+
+
+
+Daboo & Desruisseaux     Expires April 28, 2011                [Page 14]
+
+Internet-Draft        CalDAV Scheduling Extensions          October 2010
+
+
       the scheduling Inbox collection.
 
       CALDAV:max-attendees-per-instance - when present this indicates
@@ -864,9 +806,8 @@ Internet-Draft        CalDAV Scheduling Extensions             June 2009
    When a CALDAV:calendar-query REPORT includes a time-range query and
    targets a scheduling Inbox collection, if any calendar object
    resources contain "VEVENT" calendar components that do not include a
-   "DTSTART" iCalendar property (as allowed by iTIP
-   [I-D.ietf-calsify-2446bis]) then such components MUST always match
-   the time-range query test.
+   "DTSTART" iCalendar property (as allowed by iTIP [RFC5546]) then such
+   components MUST always match the time-range query test.
 
    Note that the CALDAV:free-busy-query REPORT is not supported on
    scheduling Inbox collections.
@@ -892,9 +833,12 @@ Internet-Draft        CalDAV Scheduling Extensions             June 2009
 
 
 
-Daboo & Desruisseaux    Expires December 21, 2009              [Page 16]
+
+
+
+Daboo & Desruisseaux     Expires April 28, 2011                [Page 15]
 
-Internet-Draft        CalDAV Scheduling Extensions             June 2009
+Internet-Draft        CalDAV Scheduling Extensions          October 2010
 
 
 5.  Scheduling Transactions
@@ -911,9 +855,9 @@ Internet-Draft        CalDAV Scheduling Extensions             June 2009
 5.1.  Identifying Scheduling Object Resources
 
    Calendar object resources on which the server performs automatic
-   scheduling transactons are refered to as scheduling object resources.
-   There are two types of scheduling object resources: organizer
-   scheduling object resources, and attendee scheduling object
+   scheduling transactions are referred to as scheduling object
+   resources.  There are two types of scheduling object resources:
+   organizer scheduling object resources, and attendee scheduling object
    resources.
 
    A calendar object resource is considered to be a valid organizer
@@ -948,9 +892,9 @@ Internet-Draft        CalDAV Scheduling Extensions             June 2009
 
 
 
-Daboo & Desruisseaux    Expires December 21, 2009              [Page 17]
+Daboo & Desruisseaux     Expires April 28, 2011                [Page 16]
 
-Internet-Draft        CalDAV Scheduling Extensions             June 2009
+Internet-Draft        CalDAV Scheduling Extensions          October 2010
 
 
    next, and the way these are invoked via HTTP requests is described in
@@ -980,7 +924,7 @@ Internet-Draft        CalDAV Scheduling Extensions             June 2009
    iCalendar property in the scheduling object resource being created,
    and set its value as described in Section 9.2.  This will result in
    the created calendar object resource differing from the calendar data
-   sent in the HTTP request.  As a result clients MAY reload the
+   sent in the HTTP request.  As a result clients can reload the
    calendar data from the server as soon as it is created on the server
    in order to update to the new server generated state information.
    Servers MUST NOT set the "SCHEDULE-STATUS" property parameter on the
@@ -1004,9 +948,9 @@ Internet-Draft        CalDAV Scheduling Extensions             June 2009
 
 
 
-Daboo & Desruisseaux    Expires December 21, 2009              [Page 18]
+Daboo & Desruisseaux     Expires April 28, 2011                [Page 17]
 
-Internet-Draft        CalDAV Scheduling Extensions             June 2009
+Internet-Draft        CalDAV Scheduling Extensions          October 2010
 
 
        in a scheduling object resource contained in another calendar
@@ -1060,9 +1004,9 @@ Internet-Draft        CalDAV Scheduling Extensions             June 2009
 
 
 
-Daboo & Desruisseaux    Expires December 21, 2009              [Page 19]
+Daboo & Desruisseaux     Expires April 28, 2011                [Page 18]
 
-Internet-Draft        CalDAV Scheduling Extensions             June 2009
+Internet-Draft        CalDAV Scheduling Extensions          October 2010
 
 
    The attempt to deliver the scheduling message will either succeed or
@@ -1116,9 +1060,9 @@ Internet-Draft        CalDAV Scheduling Extensions             June 2009
 
 
 
-Daboo & Desruisseaux    Expires December 21, 2009              [Page 20]
+Daboo & Desruisseaux     Expires April 28, 2011                [Page 19]
 
-Internet-Draft        CalDAV Scheduling Extensions             June 2009
+Internet-Draft        CalDAV Scheduling Extensions          October 2010
 
 
    Restrictions:
@@ -1172,9 +1116,9 @@ Internet-Draft        CalDAV Scheduling Extensions             June 2009
 
 
 
-Daboo & Desruisseaux    Expires December 21, 2009              [Page 21]
+Daboo & Desruisseaux     Expires April 28, 2011                [Page 20]
 
-Internet-Draft        CalDAV Scheduling Extensions             June 2009
+Internet-Draft        CalDAV Scheduling Extensions          October 2010
 
 
 5.2.2.2.  Create
@@ -1185,30 +1129,82 @@ Internet-Draft        CalDAV Scheduling Extensions             June 2009
    Section 6).  However, in some cases a scheduling message may get
    delivered directly to the client, and the Attendee may wish to store
    that on the server.  In that case the client creates a scheduling
-   object resource in a suitable calendar belonging to the Attendee.
-   Once stored, it is then subject to the usual rules for attendee
-   scheduling object resources.
+   object resource in a suitable calendar belonging to the Attendee.  It
+   can then set the "SCHEDULE-AGENT" iCalendar property parameter on all
+   "ORGANIZER" iCalendar properties in the resource to determine how the
+   server treats the resource.  The value of the "SCHEDULE-AGENT"
+   iCalendar property parameter on all "ORGANIZER" iCalendar properties
+   MUST be the same.
+
+   +----------------+--------------------------------------------------+
+   | SCHEDULE-AGENT | Action                                           |
+   +----------------+--------------------------------------------------+
+   | SERVER         | The server will attempt to process changes to    |
+   | (default)      | the resource using the normal rules for attendee |
+   |                | scheduling object resources.                     |
+   |                |                                                  |
+   | CLIENT         | The server does no special processing of the     |
+   |                | resource.  The client is assumed to be handling  |
+   |                | Attendee replies etc.                            |
+   |                |                                                  |
+   | NONE           | The server does no special processing of the     |
+   |                | resource.                                        |
+   +----------------+--------------------------------------------------+
 
    In some cases a server may not be able to process an Attendee
    scheduling object resource that originated from another system (i.e.,
    where the server is unable to deliver scheduling messages to the
-   Organizer).  In such cases the server MUST add a "SCHEDULE-AGENT"
+   Organizer).  In such cases the server MUST add a "SCHEDULE-STATUS"
    iCalendar property parameter to all "ORGANIZER" iCalendar properties
-   in the resource and set the value of each to "NONE".  The server MAY
-   reject any attempt by the client to remove the "SCHEDULE-AGENT"
-   property parameter or change its value.
+   in the resource with a value indicating a suitable error.
 
 5.2.2.3.  Modify
 
    When a scheduling object resource is modified by an Attendee, the
-   server will inspect the changes by comparing it with the existing
-   scheduling object resource being replaced.
+   server behavior depends on the value of the "SCHEDULE-AGENT"
+   iCalendar property parameter on the "ORGANIZER" iCalendar properties:
+
+
+
+
+
+
+
+
+
+Daboo & Desruisseaux     Expires April 28, 2011                [Page 21]
+
+Internet-Draft        CalDAV Scheduling Extensions          October 2010
+
+
+   +----------------+--------------------------------------------------+
+   | SCHEDULE-AGENT | Action                                           |
+   +----------------+--------------------------------------------------+
+   | SERVER         | The server will attempt to process the removal   |
+   | (default)      | using the behavior listed below.                 |
+   |                |                                                  |
+   | CLIENT         | The server does no special processing of the     |
+   |                | resource.  The client is assumed to be handling  |
+   |                | any Attendee replies etc.                        |
+   |                |                                                  |
+   | NONE           | The server does no special processing of the     |
+   |                | resource.                                        |
+   +----------------+--------------------------------------------------+
+
+   The server will inspect the changes by comparing the new scheduling
+   object resource with the existing scheduling object resource.
 
    If the Attendee changes one or more "PARTSTAT" iCalendar property
    values on any component, or adds an overridden component with a
    changed "PARTSTAT" property, then the server MUST deliver an iTIP
    "REPLY" scheduling message to the Organizer to indicate the new
    participation status of the Attendee.
+
+   If the Attendee adds an "EXDATE" property value to, in effect, remove
+   an overridden instance, the server MUST deliver an iTIP "REPLY"
+   scheduling message to the Organizer to indicate that the Attendee has
+   declined to instance (i.e., the Attendee's "PARTSTAT" iCalendar
+   property parameter value is set to "DECLINED").
 
    The attempt to deliver the scheduling message will either succeed or
    fail.  In all cases, the server MUST add a "SCHEDULE-STATUS"
@@ -1222,16 +1218,34 @@ Internet-Draft        CalDAV Scheduling Extensions             June 2009
 
 5.2.2.4.  Remove
 
-   When a scheduling object resource is removed by the Attendee, one of
-   two possibilities exist:
+   When a scheduling object resource is removed by an Attendee, the
+   server behavior depends on the value of the "SCHEDULE-AGENT"
+   iCalendar property parameter on the "ORGANIZER" iCalendar properties:
 
 
 
 
-Daboo & Desruisseaux    Expires December 21, 2009              [Page 22]
+
+
+
+Daboo & Desruisseaux     Expires April 28, 2011                [Page 22]
 
-Internet-Draft        CalDAV Scheduling Extensions             June 2009
+Internet-Draft        CalDAV Scheduling Extensions          October 2010
 
+
+   +----------------+--------------------------------------------------+
+   | SCHEDULE-AGENT | Action                                           |
+   +----------------+--------------------------------------------------+
+   | SERVER         | The server will attempt to process the removal   |
+   | (default)      | using either behaviors (1) or (2) listed below.  |
+   |                |                                                  |
+   | CLIENT         | The server does no special processing of the     |
+   |                | resource.  The client is assumed to be handling  |
+   |                | any Attendee replies etc.                        |
+   |                |                                                  |
+   | NONE           | The server does no special processing of the     |
+   |                | resource.                                        |
+   +----------------+--------------------------------------------------+
 
    1.  If the HTTP request contains a "Schedule-Reply" request header
        set to the value "T" or there is no "Schedule-Reply" request
@@ -1263,6 +1277,18 @@ Internet-Draft        CalDAV Scheduling Extensions             June 2009
    When a PUT method request is received, the server will execute the
    following actions, provided all appropriate preconditions are met:
 
+
+
+
+
+
+
+
+Daboo & Desruisseaux     Expires April 28, 2011                [Page 23]
+
+Internet-Draft        CalDAV Scheduling Extensions          October 2010
+
+
    +--------------------------+--------------------------+-------------+
    | Existing Destination     | Resulting Destination    | Server      |
    | Resource                 | Resource                 | Action      |
@@ -1280,15 +1306,6 @@ Internet-Draft        CalDAV Scheduling Extensions             June 2009
    | Scheduling object        | Calendar object resource | Remove      |
    | resource                 |                          |             |
    |                          |                          |             |
-
-
-
-
-Daboo & Desruisseaux    Expires December 21, 2009              [Page 23]
-
-Internet-Draft        CalDAV Scheduling Extensions             June 2009
-
-
    | Scheduling object        | Scheduling object        | Modify      |
    | resource                 | resource                 |             |
    +--------------------------+--------------------------+-------------+
@@ -1320,6 +1337,14 @@ Internet-Draft        CalDAV Scheduling Extensions             June 2009
    following actions based on the source and destination collections in
    the request:
 
+
+
+
+Daboo & Desruisseaux     Expires April 28, 2011                [Page 24]
+
+Internet-Draft        CalDAV Scheduling Extensions          October 2010
+
+
    +-------------------------+-------------------------+---------------+
    | Source Collection       | Destination Collection  | Server Action |
    +-------------------------+-------------------------+---------------+
@@ -1337,13 +1362,6 @@ Internet-Draft        CalDAV Scheduling Extensions             June 2009
 
    Note 2.  The same rules as used for DELETE below are applied for the
    source of the MOVE request.
-
-
-
-Daboo & Desruisseaux    Expires December 21, 2009              [Page 24]
-
-Internet-Draft        CalDAV Scheduling Extensions             June 2009
-
 
 5.2.3.4.  DELETE
 
@@ -1375,6 +1393,14 @@ Internet-Draft        CalDAV Scheduling Extensions             June 2009
       already in use by another scheduling object resource owned by the
       same user in other calendar collections.  Servers SHOULD report
       the URL of the scheduling object resource that is already making
+
+
+
+Daboo & Desruisseaux     Expires April 28, 2011                [Page 25]
+
+Internet-Draft        CalDAV Scheduling Extensions          October 2010
+
+
       use of the same "UID" property value in the DAV:href element.
 
    Definition:
@@ -1389,17 +1415,6 @@ Internet-Draft        CalDAV Scheduling Extensions             June 2009
       </C:unique-scheduling-object-resource>
 
 5.2.4.2.  CALDAV:same-organizer-in-all-components Precondition
-
-
-
-
-
-
-
-Daboo & Desruisseaux    Expires December 21, 2009              [Page 25]
-
-Internet-Draft        CalDAV Scheduling Extensions             June 2009
-
 
    Name:  same-organizer-in-all-components
 
@@ -1432,6 +1447,16 @@ Internet-Draft        CalDAV Scheduling Extensions             June 2009
 
    Use with:  409 Conflict
 
+
+
+
+
+
+Daboo & Desruisseaux     Expires April 28, 2011                [Page 26]
+
+Internet-Draft        CalDAV Scheduling Extensions          October 2010
+
+
    Purpose:  (precondition) -- Servers MAY impose restrictions on
       modifications allowed by an Organizer.  For instance, servers MAY
       prevent the Organizer setting the "PARTSTAT" property parameter to
@@ -1448,14 +1473,6 @@ Internet-Draft        CalDAV Scheduling Extensions             June 2009
 
       <C:allowed-organizer-scheduling-object-change
           xmlns:C="urn:ietf:params:xml:ns:caldav"/>
-
-
-
-
-Daboo & Desruisseaux    Expires December 21, 2009              [Page 26]
-
-Internet-Draft        CalDAV Scheduling Extensions             June 2009
-
 
 5.2.4.4.  CALDAV:allowed-attendee-scheduling-object-change Precondition
 
@@ -1487,13 +1504,20 @@ Internet-Draft        CalDAV Scheduling Extensions             June 2009
    present and MUST set the value to the UTC time that the scheduling
    message was generated (as required by iCalendar).
 
-   iTIP [I-D.ietf-calsify-2446bis] places certain requirements on how
-   the "SEQUENCE" iCalendar property value in scheduling messages
-   changes.  The server MUST ensure that for each type of scheduling
-   operation, the "SEQUENCE" iCalendar property value is appropriately
-   updated.  If the client does not update the "SEQUENCE" iCalendar
-   property itself when that is required, the server MUST update the
-   property.
+   iTIP [RFC5546] places certain requirements on how the "SEQUENCE"
+
+
+
+Daboo & Desruisseaux     Expires April 28, 2011                [Page 27]
+
+Internet-Draft        CalDAV Scheduling Extensions          October 2010
+
+
+   iCalendar property value in scheduling messages changes.  The server
+   MUST ensure that for each type of scheduling operation, the
+   "SEQUENCE" iCalendar property value is appropriately updated.  If the
+   client does not update the "SEQUENCE" iCalendar property itself when
+   that is required, the server MUST update the property.
 
 5.2.6.  Limit Recurrence Instances Sent to Attendees
 
@@ -1505,14 +1529,6 @@ Internet-Draft        CalDAV Scheduling Extensions             June 2009
    For example, if an Attendee is invited to a single recurrence
    instance of a recurring event, and no others, the scheduling object
    resource contained in the Organizer's calendar collection will
-
-
-
-Daboo & Desruisseaux    Expires December 21, 2009              [Page 27]
-
-Internet-Draft        CalDAV Scheduling Extensions             June 2009
-
-
    contain an overridden instance in the form of a separate calendar
    component.  That separate calendar component will include the
    "ATTENDEE" property referencing the "one-off" Attendee.  That
@@ -1548,25 +1564,9 @@ Internet-Draft        CalDAV Scheduling Extensions             June 2009
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-Daboo & Desruisseaux    Expires December 21, 2009              [Page 28]
+Daboo & Desruisseaux     Expires April 28, 2011                [Page 28]
 
-Internet-Draft        CalDAV Scheduling Extensions             June 2009
+Internet-Draft        CalDAV Scheduling Extensions          October 2010
 
 
 6.  Processing Incoming Scheduling Messages
@@ -1607,7 +1607,7 @@ Internet-Draft        CalDAV Scheduling Extensions             June 2009
    recurring event).
 
    The server MUST also update or add the "SCHEDULE-STATUS" property
-   parameter on each matching "ATTENDEE" iCalendar property and sets its
+   parameter on each matching "ATTENDEE" iCalendar property and set its
    value to that of the "REQUEST-STATUS" property in the reply, or to
    "2.0" if "REQUEST-STATUS" is not present (also taking into account
    recurrence instances).  If there are multiple "REQUEST-STATUS"
@@ -1620,16 +1620,15 @@ Internet-Draft        CalDAV Scheduling Extensions             June 2009
 
 
 
-Daboo & Desruisseaux    Expires December 21, 2009              [Page 29]
+Daboo & Desruisseaux     Expires April 28, 2011                [Page 29]
 
-Internet-Draft        CalDAV Scheduling Extensions             June 2009
+Internet-Draft        CalDAV Scheduling Extensions          October 2010
 
 
    replying, subject to the recurrence requirements of Section 5.2.6.
 
-   In this case, the scheduling message MUST only appear in the
-   Organizer's scheduling Inbox collection once all automatic processing
-   has been done.
+   The scheduling message MUST only appear in the Organizer's scheduling
+   Inbox collection once all automatic processing has been done.
 
 6.2.  Processing Organizer Requests, Additions, and Cancellations
 
@@ -1676,9 +1675,10 @@ Internet-Draft        CalDAV Scheduling Extensions             June 2009
 
 
 
-Daboo & Desruisseaux    Expires December 21, 2009              [Page 30]
+
+Daboo & Desruisseaux     Expires April 28, 2011                [Page 30]
 
-Internet-Draft        CalDAV Scheduling Extensions             June 2009
+Internet-Draft        CalDAV Scheduling Extensions          October 2010
 
 
    Servers MAY allow clients to change the default calendar collection
@@ -1732,9 +1732,9 @@ Internet-Draft        CalDAV Scheduling Extensions             June 2009
 
 
 
-Daboo & Desruisseaux    Expires December 21, 2009              [Page 31]
+Daboo & Desruisseaux     Expires April 28, 2011                [Page 31]
 
-Internet-Draft        CalDAV Scheduling Extensions             June 2009
+Internet-Draft        CalDAV Scheduling Extensions          October 2010
 
 
    Namespace:  urn:ietf:params:xml:ns:caldav
@@ -1768,7 +1768,7 @@ Internet-Draft        CalDAV Scheduling Extensions             June 2009
    message, to serve as a notification that a change has been made to
    the corresponding scheduling object resource.  Scheduling messages
    are typically removed from the scheduling Inbox collection by the
-   client once it has acknowledged the change.
+   client once the calendar user has acknowledged the change.
 
 
 
@@ -1788,21 +1788,23 @@ Internet-Draft        CalDAV Scheduling Extensions             June 2009
 
 
 
-Daboo & Desruisseaux    Expires December 21, 2009              [Page 32]
+Daboo & Desruisseaux     Expires April 28, 2011                [Page 32]
 
-Internet-Draft        CalDAV Scheduling Extensions             June 2009
+Internet-Draft        CalDAV Scheduling Extensions          October 2010
 
 
 7.  Request for Busy Time Information
 
    The POST method is used to request busy time information of one or
-   more Calendar Users by targeting the request at a scheduling Outbox
-   collection.  The request body of a POST method MUST contain a
-   "VFREEBUSY" calendar compoment with the "METHOD" iCalendar property
+   more Calendar Users by targeting a freebusy request at the scheduling
+   Outbox collection of the Calendar User requesting the information
+   (the Organizer).  The request body of a POST method MUST contain a
+   "VFREEBUSY" calendar component with the "METHOD" iCalendar property
    set to the value "REQUEST" as specified in Section 3.3.2 of iTIP
-   [I-D.ietf-calsify-2446bis].  The resource identified by the Request-
-   URI MUST be a resource collection of type CALDAV:schedule-outbox
-   (Section 4.1).
+   [RFC5546].  The resource identified by the Request-URI MUST be a
+   resource collection of type CALDAV:schedule-outbox (Section 4.1).
+   The "ORGANIZER" property in the "VFREEBUSY" component MUST match that
+   of the Calendar User who "owns" the Outbox collection.
 
 7.1.  Status Codes
 
@@ -1836,18 +1838,18 @@ Internet-Draft        CalDAV Scheduling Extensions             June 2009
 
 7.2.1.  DAV:need-privileges Precondition
 
-   Name:  need-privileges
 
 
 
 
 
 
-
-Daboo & Desruisseaux    Expires December 21, 2009              [Page 33]
+Daboo & Desruisseaux     Expires April 28, 2011                [Page 33]
 
-Internet-Draft        CalDAV Scheduling Extensions             June 2009
+Internet-Draft        CalDAV Scheduling Extensions          October 2010
 
+
+   Name:  need-privileges
 
    Namespace:  DAV:
 
@@ -1892,18 +1894,20 @@ Internet-Draft        CalDAV Scheduling Extensions             June 2009
 
       <!ELEMENT supported-collection EMPTY >
 
+
+
+
+
+
+
+Daboo & Desruisseaux     Expires April 28, 2011                [Page 34]
+
+Internet-Draft        CalDAV Scheduling Extensions          October 2010
+
+
    Example:
 
       <C:supported-collection xmlns:C="urn:ietf:params:xml:ns:caldav"/>
-
-
-
-
-
-Daboo & Desruisseaux    Expires December 21, 2009              [Page 34]
-
-Internet-Draft        CalDAV Scheduling Extensions             June 2009
-
 
 7.2.3.  CALDAV:supported-calendar-data Precondition
 
@@ -1945,21 +1949,21 @@ Internet-Draft        CalDAV Scheduling Extensions             June 2009
 
       <!ELEMENT valid-calendar-data EMPTY>
 
+
+
+
+
+
+
+
+Daboo & Desruisseaux     Expires April 28, 2011                [Page 35]
+
+Internet-Draft        CalDAV Scheduling Extensions          October 2010
+
+
    Example:
 
       <C:valid-calendar-data xmlns:C="urn:ietf:params:xml:ns:caldav"/>
-
-
-
-
-
-
-
-
-Daboo & Desruisseaux    Expires December 21, 2009              [Page 35]
-
-Internet-Draft        CalDAV Scheduling Extensions             June 2009
-
 
 7.2.5.  CALDAV:valid-scheduling-message Precondition
 
@@ -2004,18 +2008,18 @@ Internet-Draft        CalDAV Scheduling Extensions             June 2009
 
       <!ELEMENT organizer-allowed EMPTY >
 
+
+
+
+
+Daboo & Desruisseaux     Expires April 28, 2011                [Page 36]
+
+Internet-Draft        CalDAV Scheduling Extensions          October 2010
+
+
    Example:
 
       <C:organizer-allowed xmlns:C="urn:ietf:params:xml:ns:caldav"/>
-
-
-
-
-
-Daboo & Desruisseaux    Expires December 21, 2009              [Page 36]
-
-Internet-Draft        CalDAV Scheduling Extensions             June 2009
-
 
 7.2.7.  CALDAV:max-resource-size Precondition
 
@@ -2028,10 +2032,10 @@ Internet-Draft        CalDAV Scheduling Extensions             June 2009
    Use with:  403 Forbidden
 
    Purpose:  (precondition) -- The resource submitted in the POST
-      request MUST have an octet size less than or equal to the value of
-      the CALDAV:max-resource-size property (defined in Section 5.2.5 of
-      [RFC4791]) specified on the scheduling Outbox collection targeted
-      by the request.
+      request MUST have a size in octets less than or equal to the value
+      of the CALDAV:max-resource-size property (defined in Section 5.2.5
+      of [RFC4791]) specified on the scheduling Outbox collection
+      targeted by the request.
 
    Definition:
 
@@ -2044,22 +2048,31 @@ Internet-Draft        CalDAV Scheduling Extensions             June 2009
 7.3.  Response to a POST request
 
    A POST request may deliver a scheduling message to one or more
-   Calendar Users.  Since the behavior of each recipient may vary, it is
-   useful to get response status information for each recipient in the
-   overall POST response.  This specification defines a new XML response
-   to convey multiple recipient status.
+   Calendar Users.  Thus the response needs to contain separate status
+   information for each recipient.  This specification defines a new XML
+   response body to convey multiple recipient status.
 
    A response to a POST method that indicates status for one or more
-   recipients MUST be a CALDAV:schedule-response XML element.  This MUST
-   contain one or more CALDAV:response elements for each recipient, with
-   each of those containing elements that indicate which recipient they
-   correspond to, the scheduling status for that recipient, any error
-   codes and an optional description.  See Section 14.1.
+   recipients MUST be an XML document with a CALDAV:schedule-response
+   XML element as its root element.  This MUST contain one or more
+   CALDAV:response elements for each recipient, with each of those
+   containing elements that indicate which recipient they correspond to,
+   the scheduling status for that recipient, any error codes and an
+   optional description.  See Section 14.1 for the detail on the child
+   elements.
 
    In the case of a freebusy request, the CALDAV:response elements can
    also contain CALDAV:calendar-data elements which contain freebusy
    information (e.g., an iCalendar VFREEBUSY component) indicating the
    busy state of the corresponding recipient, assuming that the freebusy
+
+
+
+Daboo & Desruisseaux     Expires April 28, 2011                [Page 37]
+
+Internet-Draft        CalDAV Scheduling Extensions          October 2010
+
+
    request for that recipient succeeded.  See Appendix B.5 for an
    example freebusy request and response.
 
@@ -2068,12 +2081,55 @@ Internet-Draft        CalDAV Scheduling Extensions             June 2009
 
 
 
-Daboo & Desruisseaux    Expires December 21, 2009              [Page 37]
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Daboo & Desruisseaux     Expires April 28, 2011                [Page 38]
 
-Internet-Draft        CalDAV Scheduling Extensions             June 2009
+Internet-Draft        CalDAV Scheduling Extensions          October 2010
 
 
-8.  Conditional Requests on Scheduling Object Resources
+8.  Avoiding Conflicts when Updating Scheduling Object Resources
 
    Because replies from Attendees and updates from Organizers are
    automatically processed by the server, clients might be in a
@@ -2081,8 +2137,8 @@ Internet-Draft        CalDAV Scheduling Extensions             June 2009
    the one currently on the server.  When an Attendee or Organizer makes
    a change to the client's copy of the calendar resource, if the client
    writes the data to the server it could overwrite the changes already
-   made there.  Typically, HTTP clients use the ETag value and If-Match
-   request header to avoid the "lost update problem".
+   made there.  Typically, clients use the ETag value and If-Match
+   request headers to avoid the "lost update problem".
 
    Calendar user agents can also use ETag and If-Match to avoid this
    problem.  However, when doing so the client will likely have to
@@ -2124,9 +2180,9 @@ Internet-Draft        CalDAV Scheduling Extensions             June 2009
 
 
 
-Daboo & Desruisseaux    Expires December 21, 2009              [Page 38]
+Daboo & Desruisseaux     Expires April 28, 2011                [Page 39]
 
-Internet-Draft        CalDAV Scheduling Extensions             June 2009
+Internet-Draft        CalDAV Scheduling Extensions          October 2010
 
 
    header "Schedule-Tag", and a new "If-Schedule-Tag-Match" request
@@ -2136,20 +2192,20 @@ Internet-Draft        CalDAV Scheduling Extensions             June 2009
    "inconsequential" scheduling message is one which simply updates the
    status information of Attendees due to a reply from an Attendee.
 
-   Servers MUST support conditional requests targeted at scheduling
-   object resources using the "If-Schedule-Tag-Match" request header.
-   Consequently, the server MUST support the "Schedule-Tag" response
-   header and CALDAV:schedule-tag property for scheduling object
-   resources.  Servers MUST automatically resolve conflicts with
-   "inconsequential" changes done to scheduling object resources when
-   the "If-Schedule-Tag-Match" request header is specified.
+   Servers MUST support requests targeted at scheduling object resources
+   using the "If-Schedule-Tag-Match" request header.  Consequently, the
+   server MUST support the "Schedule-Tag" response header and CALDAV:
+   schedule-tag property for scheduling object resources.  Servers MUST
+   automatically resolve conflicts with "inconsequential" changes done
+   to scheduling object resources when the "If-Schedule-Tag-Match"
+   request header is specified.
 
    The If-Schedule-Tag-Match request header applies only to the Request-
    URI, and not to the Destination of a COPY or MOVE in the same way as
    the If-Match request header.
 
-   Clients SHOULD use conditional requests using the If-Schedule-Tag-
-   Match request header.
+   Clients SHOULD use the If-Schedule-Tag-Match header on requests that
+   update scheduling object resources.
 
    A response to any successful GET or PUT request targeting a
    scheduling object resource MUST include a Schedule-Tag response
@@ -2180,16 +2236,16 @@ Internet-Draft        CalDAV Scheduling Extensions             June 2009
 
 
 
-Daboo & Desruisseaux    Expires December 21, 2009              [Page 39]
+Daboo & Desruisseaux     Expires April 28, 2011                [Page 40]
 
-Internet-Draft        CalDAV Scheduling Extensions             June 2009
+Internet-Draft        CalDAV Scheduling Extensions          October 2010
 
 
           automatically updated by the server with the Attendee's new
           participation status.
 
       2.  The server MUST change CALDAV:schedule-tag property value when
-          the schedulng object resource is changed directly via an HTTP
+          the scheduling object resource is changed directly via an HTTP
           request (e.g., PUT, COPY or MOVE).
 
    o  For an Attendee's copy of a scheduling object resource:
@@ -2216,48 +2272,48 @@ Internet-Draft        CalDAV Scheduling Extensions             June 2009
 
 8.1.  PUT
 
-   Clients can use the If-Schedule-Tag-Match request header to do a
-   conditional PUT request that ensures that "inconsequential" changes
-   on the server do not result in a precondition error.  The value of
-   the request header is set to the last Schedule-Tag value received for
-   the resource being modified.  If the value of the If-Schedule-Tag-
-   Match header matches the current value of the CALDAV:schedule-tag
-   property the server MUST take any "ATTENDEE" property changes for all
-   Attendees other than the owner of the scheduling object resource and
-   apply those to the new resource being stored.  Otherwise, the server
-   MUST fail the request with a 412 Precondition Failed status code.
+   Clients can use the If-Schedule-Tag-Match request header to do a PUT
+   request that ensures that "inconsequential" changes on the server do
+   not result in a precondition error.  The value of the request header
+   is set to the last Schedule-Tag value received for the resource being
+   modified.  If the value of the If-Schedule-Tag-Match header matches
+   the current value of the CALDAV:schedule-tag property the server MUST
+   take any "ATTENDEE" property changes for all Attendees other than the
+   owner of the scheduling object resource and apply those to the new
+   resource being stored.  Otherwise, the server MUST fail the request
+   with a 412 Precondition Failed status code.
 
 8.2.  DELETE
 
    Clients can use the If-Schedule-Tag-Match request header to do a
-   conditional DELETE request that ensures that "inconsequential"
-   changes on the server do not result in a precondition error.  The
-   value of the request header is set to the last Schedule-Tag value
+   DELETE request that ensures that "inconsequential" changes on the
+   server do not result in a precondition error.  The value of the
+   request header is set to the last Schedule-Tag value received for the
 
 
 
-Daboo & Desruisseaux    Expires December 21, 2009              [Page 40]
+Daboo & Desruisseaux     Expires April 28, 2011                [Page 41]
 
-Internet-Draft        CalDAV Scheduling Extensions             June 2009
+Internet-Draft        CalDAV Scheduling Extensions          October 2010
 
 
-   received for the resource being deleted.  If the value of the If-
-   Schedule-Tag-Match header matches the current value of the CALDAV:
-   schedule-tag property the server performs the normal DELETE request
-   processing for the resource.  Otherwise, the server MUST fail the
-   request with a 412 Precondition Failed status code.
+   resource being deleted.  If the value of the If-Schedule-Tag-Match
+   header matches the current value of the CALDAV:schedule-tag property
+   the server performs the normal DELETE request processing for the
+   resource.  Otherwise, the server MUST fail the request with a 412
+   Precondition Failed status code.
 
 8.3.  COPY or MOVE
 
-   Clients can use the If-Schedule-Tag-Match request header to do
-   conditional COPY or MOVE requests that ensures that "inconsequential"
-   changes on the server do not result in a precondition error.  The
-   value of the request header is set to the last Schedule-Tag value
-   received for the resource being copied or moved.  If the value of the
-   If-Schedule-Tag-Match header matches the current value of the CALDAV:
-   schedule-tag property the server performs the normal COPY or MOVE
-   request processing for the resource.  Otherwise, the server MUST fail
-   the request with a 412 Precondition Failed status code.
+   Clients can use the If-Schedule-Tag-Match request header to do COPY
+   or MOVE requests that ensures that "inconsequential" changes on the
+   server do not result in a precondition error.  The value of the
+   request header is set to the last Schedule-Tag value received for the
+   resource being copied or moved.  If the value of the If-Schedule-Tag-
+   Match header matches the current value of the CALDAV:schedule-tag
+   property the server performs the normal COPY or MOVE request
+   processing for the resource.  Otherwise, the server MUST fail the
+   request with a 412 Precondition Failed status code.
 
 
 
@@ -2292,9 +2348,9 @@ Internet-Draft        CalDAV Scheduling Extensions             June 2009
 
 
 
-Daboo & Desruisseaux    Expires December 21, 2009              [Page 41]
+Daboo & Desruisseaux     Expires April 28, 2011                [Page 42]
 
-Internet-Draft        CalDAV Scheduling Extensions             June 2009
+Internet-Draft        CalDAV Scheduling Extensions          October 2010
 
 
 9.  Other Scheduling Considerations
@@ -2348,9 +2404,9 @@ Internet-Draft        CalDAV Scheduling Extensions             June 2009
 
 
 
-Daboo & Desruisseaux    Expires December 21, 2009              [Page 42]
+Daboo & Desruisseaux     Expires April 28, 2011                [Page 43]
 
-Internet-Draft        CalDAV Scheduling Extensions             June 2009
+Internet-Draft        CalDAV Scheduling Extensions          October 2010
 
 
    | EXDATE   | A change to or removal of this property that results   |
@@ -2404,9 +2460,9 @@ Internet-Draft        CalDAV Scheduling Extensions             June 2009
 
 
 
-Daboo & Desruisseaux    Expires December 21, 2009              [Page 43]
+Daboo & Desruisseaux     Expires April 28, 2011                [Page 44]
 
-Internet-Draft        CalDAV Scheduling Extensions             June 2009
+Internet-Draft        CalDAV Scheduling Extensions          October 2010
 
 
    +----------+--------------------------------------------------------+
@@ -2438,12 +2494,15 @@ Internet-Draft        CalDAV Scheduling Extensions             June 2009
    |          |                                                        |
    | 3.7      | The scheduling message was not delivered because the   |
    |          | server did not recognize the calendar user address as  |
-   |          | a valid calendar user.                                 |
+   |          | a valid calendar user.  Note that this code applies to |
+   |          | both Organizer and Attendee calendar user addresses.   |
    |          |                                                        |
    |          |                                                        |
    |          |                                                        |
    | 3.8      | The scheduling message was not delivered due to        |
-   |          | insufficient privileges.                               |
+   |          | insufficient privileges.  Note that this code applies  |
+   |          | to both privileges granted by both the Organizer and   |
+   |          | Attendee calendar users.                               |
    |          |                                                        |
    |          |                                                        |
    |          |                                                        |
@@ -2454,15 +2513,12 @@ Internet-Draft        CalDAV Scheduling Extensions             June 2009
    |          | later time.                                            |
    |          |                                                        |
    |          |                                                        |
-   |          |                                                        |
 
 
 
-
-
-Daboo & Desruisseaux    Expires December 21, 2009              [Page 44]
+Daboo & Desruisseaux     Expires April 28, 2011                [Page 45]
 
-Internet-Draft        CalDAV Scheduling Extensions             June 2009
+Internet-Draft        CalDAV Scheduling Extensions          October 2010
 
 
    | 5.2      | The scheduling message was not delivered because the   |
@@ -2481,7 +2537,55 @@ Internet-Draft        CalDAV Scheduling Extensions             June 2009
    +----------+--------------------------------------------------------+
 
    The status code for "reply" status can be any of the valid iTIP
-   [I-D.ietf-calsify-2446bis] "REQUEST-STATUS" values.
+   [RFC5546] "REQUEST-STATUS" values.
+
+   The 1.xx "REQUEST-STATUS" codes are new.  This specification modifies
+   item (2) of Section 3.6 of [RFC5546] by adding the following
+   restriction:
+
+      For a 1.xx code, all components MUST have exactly the same code.
+
+   Definition of the new 1.xx codes is as follows:
+
+9.2.1.  Status Code 1.0
+
+   Status Code:  1.0
+
+   Status Description:  Pending.
+
+   Status Exception Data:  None.
+
+   Description:  Delivery of the iTIP message is pending.
+
+9.2.2.  Status Code 1.1
+
+   Status Code:  1.1
+
+   Status Description:  Sent.
+
+   Status Exception Data:  None.
+
+   Description:  The iTIP message has been sent, though no information
+      about successful delivery is known.
+
+
+
+
+
+Daboo & Desruisseaux     Expires April 28, 2011                [Page 46]
+
+Internet-Draft        CalDAV Scheduling Extensions          October 2010
+
+
+9.2.3.  Status Code 1.2
+
+   Status Code:  1.2
+
+   Status Description:  Delivered.
+
+   Status Exception Data:  None.
+
+   Description:  The iTIP message has been sent and delivered.
 
 9.3.  Organizer is an Attendee
 
@@ -2516,9 +2620,17 @@ Internet-Draft        CalDAV Scheduling Extensions             June 2009
 
 
 
-Daboo & Desruisseaux    Expires December 21, 2009              [Page 45]
+
+
+
+
+
+
+
+
+Daboo & Desruisseaux     Expires April 28, 2011                [Page 47]
 
-Internet-Draft        CalDAV Scheduling Extensions             June 2009
+Internet-Draft        CalDAV Scheduling Extensions          October 2010
 
 
 10.  Additional iCalendar Property Parameters
@@ -2562,8 +2674,8 @@ Internet-Draft        CalDAV Scheduling Extensions             June 2009
       Servers MUST NOT include this parameter in any scheduling messages
       sent as the result of an automatic scheduling transaction.
 
-      Clients SHOULD NOT include this parameter in any scheduling
-      messages that they themselves send.
+      Clients MUST NOT include this parameter in any scheduling messages
+      that they themselves send.
 
       Servers and clients MUST treat x-name and iana-token values they
       don't recognize the same way as they would the "NONE" value.
@@ -2572,9 +2684,9 @@ Internet-Draft        CalDAV Scheduling Extensions             June 2009
 
 
 
-Daboo & Desruisseaux    Expires December 21, 2009              [Page 46]
+Daboo & Desruisseaux     Expires April 28, 2011                [Page 48]
 
-Internet-Draft        CalDAV Scheduling Extensions             June 2009
+Internet-Draft        CalDAV Scheduling Extensions          October 2010
 
 
    Example:
@@ -2616,21 +2728,21 @@ Internet-Draft        CalDAV Scheduling Extensions             June 2009
       object resources, nor include it in any scheduling messages sent
       as the result of an automatic scheduling transaction.
 
-      Clients SHOULD NOT include this parameter in any scheduling
-      messages that they themselves send.
+      Clients MUST NOT include this parameter in any scheduling messages
+      that they themselves send.
 
       Servers MUST set the "SCHEDULE-STATUS" parameter of the "ATTENDEE"
       or "ORGANIZER" to 2.3 (i.e., "Success, invalid property parameter
-      ignored", see Section 3.6 of [I-D.ietf-calsify-2446bis]) when the
-      "SCHEDULE-FORCE-SEND" parameter is set to a x-name or iana-token
-      value they don't recognize.
+      ignored", see Section 3.6 of [RFC5546]) when the "SCHEDULE-FORCE-
+      SEND" parameter is set to a x-name or iana-token value they don't
+      recognize.
 
 
 
 
-Daboo & Desruisseaux    Expires December 21, 2009              [Page 47]
+Daboo & Desruisseaux     Expires April 28, 2011                [Page 49]
 
-Internet-Draft        CalDAV Scheduling Extensions             June 2009
+Internet-Draft        CalDAV Scheduling Extensions          October 2010
 
 
    Example:
@@ -2654,7 +2766,7 @@ Internet-Draft        CalDAV Scheduling Extensions             June 2009
                            ( statcode
                           / DQUOTE statcode *("," statcode) DQUOTE)
       ; "statcode" is defined in Section 3.8.8.3 of
-      ; [I-D.ietf-calsify-rfc2445bis]. Value is a single
+      ; [RFC5545]. Value is a single
       ; "statcode" or a comma-separated list of "statcode" values.
 
    Description:  This property parameter MAY be specified on the
@@ -2684,13 +2796,13 @@ Internet-Draft        CalDAV Scheduling Extensions             June 2009
 
 
 
-Daboo & Desruisseaux    Expires December 21, 2009              [Page 48]
+Daboo & Desruisseaux     Expires April 28, 2011                [Page 50]
 
-Internet-Draft        CalDAV Scheduling Extensions             June 2009
+Internet-Draft        CalDAV Scheduling Extensions          October 2010
 
 
-      Clients SHOULD NOT include this parameter in any scheduling
-      messages that they themselves send.
+      Clients MUST NOT include this parameter in any scheduling messages
+      that they themselves send.
 
       Suitable values for this property parameter are described in
       Section 9.2.
@@ -2740,9 +2852,9 @@ Internet-Draft        CalDAV Scheduling Extensions             June 2009
 
 
 
-Daboo & Desruisseaux    Expires December 21, 2009              [Page 49]
+Daboo & Desruisseaux     Expires April 28, 2011                [Page 51]
 
-Internet-Draft        CalDAV Scheduling Extensions             June 2009
+Internet-Draft        CalDAV Scheduling Extensions          October 2010
 
 
 11.  Additional Message Header Fields
@@ -2759,12 +2871,12 @@ Internet-Draft        CalDAV Scheduling Extensions             June 2009
 
       Schedule-Reply: F
 
-   When an Attendee executes an HTTP DELETE request on a scheduling
-   object resource, and the Schedule-Reply header is not present, or
-   present and set to the value "T", the server MUST send an appropriate
-   reply scheduling message with the Attendee's "PARTSTAT" iCalendar
-   property parameter value set to "DECLINED" as part of its normal
-   automatic scheduling transaction processing.
+   When an Attendee removes a scheduling object resource, and the
+   Schedule-Reply header is not present, or present and set to the value
+   "T", the server MUST send an appropriate reply scheduling message
+   with the Attendee's "PARTSTAT" iCalendar property parameter value set
+   to "DECLINED" as part of its normal automatic scheduling transaction
+   processing.
 
    When the Schedule-Reply header is set to the value "F", the server
    MUST NOT send a scheduling message as part of its normal automatic
@@ -2774,10 +2886,10 @@ Internet-Draft        CalDAV Scheduling Extensions             June 2009
    a server whether or not an automatic scheduling transaction should
    occur when an Attendee deletes a scheduling object resource.  In
    particular it controls whether a reply scheduling message is sent to
-   the Organizer as a result of the deletion.  There are situations in
-   which unsolicited scheduling messages need to be silently deleted (or
+   the Organizer as a result of the removal.  There are situations in
+   which unsolicited scheduling messages need to be silently removed (or
    ignored) for security or privacy reasons.  This request header allows
-   the scheduling object resource to be deleted if such a need arises.
+   the scheduling object resource to be removed if such a need arises.
 
    All scheduling object resources MUST support the Schedule-Reply
    request header.
@@ -2796,9 +2908,9 @@ Internet-Draft        CalDAV Scheduling Extensions             June 2009
 
 
 
-Daboo & Desruisseaux    Expires December 21, 2009              [Page 50]
+Daboo & Desruisseaux     Expires April 28, 2011                [Page 52]
 
-Internet-Draft        CalDAV Scheduling Extensions             June 2009
+Internet-Draft        CalDAV Scheduling Extensions          October 2010
 
 
    Example:
@@ -2852,9 +2964,9 @@ Internet-Draft        CalDAV Scheduling Extensions             June 2009
 
 
 
-Daboo & Desruisseaux    Expires December 21, 2009              [Page 51]
+Daboo & Desruisseaux     Expires April 28, 2011                [Page 53]
 
-Internet-Draft        CalDAV Scheduling Extensions             June 2009
+Internet-Draft        CalDAV Scheduling Extensions          October 2010
 
 
 12.  Additional WebDAV Properties
@@ -2876,8 +2988,7 @@ Internet-Draft        CalDAV Scheduling Extensions             June 2009
       [RFC4918]).
 
    COPY/MOVE behavior:  This property value SHOULD be kept during a MOVE
-      operation, but is normally re-initialized when a resource is
-      created with a COPY.  It should not be set in a COPY.
+      operation, and SHOULD be copied and preserved in a COPY.
 
    Description:  This property SHOULD be defined on all calendar
       collections.  If present, it contains one of two XML elements that
@@ -2908,9 +3019,10 @@ Internet-Draft        CalDAV Scheduling Extensions             June 2009
 
 
 
-Daboo & Desruisseaux    Expires December 21, 2009              [Page 52]
+
+Daboo & Desruisseaux     Expires April 28, 2011                [Page 54]
 
-Internet-Draft        CalDAV Scheduling Extensions             June 2009
+Internet-Draft        CalDAV Scheduling Extensions          October 2010
 
 
    Example:
@@ -2964,9 +3076,9 @@ Internet-Draft        CalDAV Scheduling Extensions             June 2009
 
 
 
-Daboo & Desruisseaux    Expires December 21, 2009              [Page 53]
+Daboo & Desruisseaux     Expires April 28, 2011                [Page 55]
 
-Internet-Draft        CalDAV Scheduling Extensions             June 2009
+Internet-Draft        CalDAV Scheduling Extensions          October 2010
 
 
 12.3.  CALDAV:schedule-tag Property
@@ -3020,9 +3132,9 @@ Internet-Draft        CalDAV Scheduling Extensions             June 2009
 
 
 
-Daboo & Desruisseaux    Expires December 21, 2009              [Page 54]
+Daboo & Desruisseaux     Expires April 28, 2011                [Page 56]
 
-Internet-Draft        CalDAV Scheduling Extensions             June 2009
+Internet-Draft        CalDAV Scheduling Extensions          October 2010
 
 
 13.  Scheduling Access Control
@@ -3076,9 +3188,9 @@ Internet-Draft        CalDAV Scheduling Extensions             June 2009
 
 
 
-Daboo & Desruisseaux    Expires December 21, 2009              [Page 55]
+Daboo & Desruisseaux     Expires April 28, 2011                [Page 57]
 
-Internet-Draft        CalDAV Scheduling Extensions             June 2009
+Internet-Draft        CalDAV Scheduling Extensions          October 2010
 
 
 13.1.1.2.  CALDAV:schedule-deliver-invite Privilege
@@ -3119,9 +3231,9 @@ Internet-Draft        CalDAV Scheduling Extensions             June 2009
 
    CALDAV:schedule-send is an aggregate privilege that contains all the
    scheduling privileges that control the use of methods that will cause
-   scheduling messages to be delivered to other users, that is, CALDAV-
-   schedule-send-invite and CALDAV-schedule-send-reply, as well as
-   freebusy requests to be targeted at other users, that is, CALDAV-
+   scheduling messages to be delivered to other users, that is, CALDAV:
+   schedule-send-invite and CALDAV:schedule-send-reply, as well as
+   freebusy requests to be targeted at other users, that is, CALDAV:
    schedule-send-freebusy.
 
    <!ELEMENT schedule-send EMPTY >
@@ -3132,9 +3244,9 @@ Internet-Draft        CalDAV Scheduling Extensions             June 2009
 
 
 
-Daboo & Desruisseaux    Expires December 21, 2009              [Page 56]
+Daboo & Desruisseaux     Expires April 28, 2011                [Page 58]
 
-Internet-Draft        CalDAV Scheduling Extensions             June 2009
+Internet-Draft        CalDAV Scheduling Extensions          October 2010
 
 
 13.1.2.2.  CALDAV:schedule-send-invite Privilege
@@ -3155,7 +3267,7 @@ Internet-Draft        CalDAV Scheduling Extensions             June 2009
 
 13.1.2.3.  CALDAV:schedule-send-reply Privilege
 
-   The CALDAV:schedule-send-invite privilege controls the sending of
+   The CALDAV:schedule-send-reply privilege controls the sending of
    scheduling messages by Attendees.
 
    Users granted the DAV:bind privilege on a calendar collection, or
@@ -3188,9 +3300,9 @@ Internet-Draft        CalDAV Scheduling Extensions             June 2009
 
 
 
-Daboo & Desruisseaux    Expires December 21, 2009              [Page 57]
+Daboo & Desruisseaux     Expires April 28, 2011                [Page 59]
 
-Internet-Draft        CalDAV Scheduling Extensions             June 2009
+Internet-Draft        CalDAV Scheduling Extensions          October 2010
 
 
       CALDAV:schedule-send MUST contain CALDAV:schedule-send-invite,
@@ -3244,9 +3356,9 @@ Internet-Draft        CalDAV Scheduling Extensions             June 2009
 
 
 
-Daboo & Desruisseaux    Expires December 21, 2009              [Page 58]
+Daboo & Desruisseaux     Expires April 28, 2011                [Page 60]
 
-Internet-Draft        CalDAV Scheduling Extensions             June 2009
+Internet-Draft        CalDAV Scheduling Extensions          October 2010
 
 
    COPY/MOVE behavior:  This property value SHOULD be preserved in COPY
@@ -3254,7 +3366,9 @@ Internet-Draft        CalDAV Scheduling Extensions             June 2009
 
    Description:  This property is needed for a client to determine where
       the scheduling Inbox collection of the current user is located so
-      that processing of scheduling messages can occur.
+      that processing of scheduling messages can occur.  If not present,
+      then the associated calendar user is not enabled for reception of
+      scheduling messages on the server.
 
    Definition:
 
@@ -3280,7 +3394,9 @@ Internet-Draft        CalDAV Scheduling Extensions             June 2009
 
    Description:  This property is needed for a client to determine where
       the scheduling Outbox collection of the current user is located so
-      that sending of scheduling messages can occur.
+      that sending of scheduling messages can occur.  If not present,
+      then the associated calendar user is not enabled for the sending
+      of scheduling messages on the server.
 
    Definition:
 
@@ -3290,20 +3406,21 @@ Internet-Draft        CalDAV Scheduling Extensions             June 2009
 
    Name:  calendar-user-address-set
 
+
+
+
+
+
+
+Daboo & Desruisseaux     Expires April 28, 2011                [Page 61]
+
+Internet-Draft        CalDAV Scheduling Extensions          October 2010
+
+
    Namespace:  urn:ietf:params:xml:ns:caldav
 
    Purpose:  Identify the calendar addresses of the associated principal
       resource.
-
-
-
-
-
-
-Daboo & Desruisseaux    Expires December 21, 2009              [Page 59]
-
-Internet-Draft        CalDAV Scheduling Extensions             June 2009
-
 
    Protected:  This property MAY be protected.
 
@@ -3322,7 +3439,8 @@ Internet-Draft        CalDAV Scheduling Extensions             June 2009
       principal resource can be used.  This property SHOULD be
       searchable using the DAV:principal-property-search REPORT.  The
       DAV:principal-search-property-set REPORT SHOULD identify this
-      property as such.
+      property as such.  If not present, then the associated calendar
+      user is not enabled for scheduling on the server.
 
    Definition:
 
@@ -3345,21 +3463,20 @@ Internet-Draft        CalDAV Scheduling Extensions             June 2009
    Purpose:  Identifies the calendar user type of the associated
       principal resource.
 
+
+
+
+
+
+Daboo & Desruisseaux     Expires April 28, 2011                [Page 62]
+
+Internet-Draft        CalDAV Scheduling Extensions          October 2010
+
+
    Value:  Same values allowed for the iCalendar "CUTYPE" property
-      parameter defined in Section 3.2.3 of
-      [I-D.ietf-calsify-rfc2445bis].
+      parameter defined in Section 3.2.3 of [RFC5545].
 
    Protected:  This property MAY be protected.
-
-
-
-
-
-
-Daboo & Desruisseaux    Expires December 21, 2009              [Page 60]
-
-Internet-Draft        CalDAV Scheduling Extensions             June 2009
-
 
    PROPFIND behavior:  This property SHOULD NOT be returned by a
       PROPFIND allprop request (as defined in Section 14.2 of
@@ -3374,7 +3491,9 @@ Internet-Draft        CalDAV Scheduling Extensions             June 2009
       property parameter that can be used on "ATTENDEE" properties.
       This property SHOULD be searchable using the DAV:principal-
       property-search REPORT.  The DAV:principal-search-property-set
-      REPORT SHOULD identify this property as such.
+      REPORT SHOULD identify this property as such.  If not present,
+      then the associated calendar user is not enabled for scheduling on
+      the server.
 
    Definition:
 
@@ -3405,16 +3524,9 @@ Internet-Draft        CalDAV Scheduling Extensions             June 2009
 
 
 
-
-
-
-
-
-
-
-Daboo & Desruisseaux    Expires December 21, 2009              [Page 61]
+Daboo & Desruisseaux     Expires April 28, 2011                [Page 63]
 
-Internet-Draft        CalDAV Scheduling Extensions             June 2009
+Internet-Draft        CalDAV Scheduling Extensions          October 2010
 
 
 14.  XML Element Definitions
@@ -3451,6 +3563,10 @@ Internet-Draft        CalDAV Scheduling Extensions             June 2009
                        DAV:error?,
                        DAV:responsedescription?)>
 
+   <!-- CALDAV:calendar-data is defined in Section 9.6 of
+   RFC 4791 and when used here uses the definition with
+   content (#PCDATA) only -->
+
 14.3.  CALDAV:recipient XML Element
 
    Name:  recipient
@@ -3460,18 +3576,16 @@ Internet-Draft        CalDAV Scheduling Extensions             June 2009
    Purpose:  The calendar user address that the enclosing response for a
       POST method request is for.
 
-   Description:  See Section 7.3.
 
 
 
 
-
-
-
-Daboo & Desruisseaux    Expires December 21, 2009              [Page 62]
+Daboo & Desruisseaux     Expires April 28, 2011                [Page 64]
 
-Internet-Draft        CalDAV Scheduling Extensions             June 2009
+Internet-Draft        CalDAV Scheduling Extensions          October 2010
 
+
+   Description:  See Section 7.3.
 
    Definition:
 
@@ -3522,11 +3636,9 @@ Internet-Draft        CalDAV Scheduling Extensions             June 2009
 
 
 
-
-
-Daboo & Desruisseaux    Expires December 21, 2009              [Page 63]
+Daboo & Desruisseaux     Expires April 28, 2011                [Page 65]
 
-Internet-Draft        CalDAV Scheduling Extensions             June 2009
+Internet-Draft        CalDAV Scheduling Extensions          October 2010
 
 
 15.  Security Considerations
@@ -3580,9 +3692,9 @@ Internet-Draft        CalDAV Scheduling Extensions             June 2009
 
 
 
-Daboo & Desruisseaux    Expires December 21, 2009              [Page 64]
+Daboo & Desruisseaux     Expires April 28, 2011                [Page 66]
 
-Internet-Draft        CalDAV Scheduling Extensions             June 2009
+Internet-Draft        CalDAV Scheduling Extensions          October 2010
 
 
       Servers MUST verify that the principal associated with the
@@ -3636,9 +3748,9 @@ Internet-Draft        CalDAV Scheduling Extensions             June 2009
 
 
 
-Daboo & Desruisseaux    Expires December 21, 2009              [Page 65]
+Daboo & Desruisseaux     Expires April 28, 2011                [Page 67]
 
-Internet-Draft        CalDAV Scheduling Extensions             June 2009
+Internet-Draft        CalDAV Scheduling Extensions          October 2010
 
 
 16.  IANA Considerations
@@ -3692,16 +3804,16 @@ Internet-Draft        CalDAV Scheduling Extensions             June 2009
 
 
 
-Daboo & Desruisseaux    Expires December 21, 2009              [Page 66]
+Daboo & Desruisseaux     Expires April 28, 2011                [Page 68]
 
-Internet-Draft        CalDAV Scheduling Extensions             June 2009
+Internet-Draft        CalDAV Scheduling Extensions          October 2010
 
 
 16.2.  iCalendar Property Parameter Registrations
 
    The following iCalendar property parameters should be added to the
    iCalendar Property Parameter Registry defined in Section 8.3.3 of
-   [I-D.ietf-calsify-rfc2445bis].
+   [RFC5545].
 
          +---------------------+---------+-----------------------+
          | Parameter           | Status  | Reference             |
@@ -3713,16 +3825,45 @@ Internet-Draft        CalDAV Scheduling Extensions             June 2009
          | SCHEDULE-FORCE-SEND | Current | RFCXXXX, Section 10.2 |
          +---------------------+---------+-----------------------+
 
-16.3.  Additional iCalendar Elements Registries
+16.3.  iCalendar REQUEST-STATUS Value Registrations
 
-   The IANA should create and maintain the following additional
-   registries for iCalendar elements with pointers to appropriate
-   reference documents.
+   The following iCalendar "REQUEST-STATUS" values should be added to
+   the iCalendar REQUEST-STATUS Value Registry defined in Section 7.3 of
+   [RFC5546].
 
-16.3.1.  Schedule Agent Values Registry
+            +-------------+---------+-------------------------+
+            | Status Code | Status  | Reference               |
+            +-------------+---------+-------------------------+
+            | 1.0         | Current | RFC XXXX, Section 9.2.1 |
+            |             |         |                         |
+            | 1.1         | Current | RFC XXXX, Section 9.2.2 |
+            |             |         |                         |
+            | 1.2         | Current | RFC XXXX, Section 9.2.3 |
+            +-------------+---------+-------------------------+
 
-   The following table should be used to initialize the schedule agent
+16.4.  Additional iCalendar Elements Registries
+
+   This specification adds two new IANA registries for iCalendar
+   elements.  Additional codes MAY be used, provided the process
+   described in Section 8.2.1 of [RFC5545] is used to register them.
+
+16.4.1.  Schedule Agent Values Registry
+
+   The following table has been used to initialize the schedule agent
    values registry.
+
+
+
+
+
+
+
+
+
+Daboo & Desruisseaux     Expires April 28, 2011                [Page 69]
+
+Internet-Draft        CalDAV Scheduling Extensions          October 2010
+
 
            +----------------+---------+------------------------+
            | Schedule Agent | Status  | Reference              |
@@ -3734,9 +3875,9 @@ Internet-Draft        CalDAV Scheduling Extensions             June 2009
            | NONE           | Current | RFC XXXX, Section 10.1 |
            +----------------+---------+------------------------+
 
-16.3.2.  Schedule Force Send Values Registry
+16.4.2.  Schedule Force Send Values Registry
 
-   The following table should be used to initialize the schedule send
+   The following table has been used to initialize the schedule send
    values registry.
 
         +---------------------+---------+------------------------+
@@ -3744,15 +3885,6 @@ Internet-Draft        CalDAV Scheduling Extensions             June 2009
         +---------------------+---------+------------------------+
         | REQUEST             | Current | RFC XXXX, Section 10.2 |
         |                     |         |                        |
-
-
-
-
-Daboo & Desruisseaux    Expires December 21, 2009              [Page 67]
-
-Internet-Draft        CalDAV Scheduling Extensions             June 2009
-
-
         | REPLY               | Current | RFC XXXX, Section 10.2 |
         +---------------------+---------+------------------------+
 
@@ -3784,29 +3916,9 @@ Internet-Draft        CalDAV Scheduling Extensions             June 2009
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-Daboo & Desruisseaux    Expires December 21, 2009              [Page 68]
+Daboo & Desruisseaux     Expires April 28, 2011                [Page 70]
 
-Internet-Draft        CalDAV Scheduling Extensions             June 2009
+Internet-Draft        CalDAV Scheduling Extensions          October 2010
 
 
 17.  Acknowledgements
@@ -3860,25 +3972,14 @@ Internet-Draft        CalDAV Scheduling Extensions             June 2009
 
 
 
-Daboo & Desruisseaux    Expires December 21, 2009              [Page 69]
+Daboo & Desruisseaux     Expires April 28, 2011                [Page 71]
 
-Internet-Draft        CalDAV Scheduling Extensions             June 2009
+Internet-Draft        CalDAV Scheduling Extensions          October 2010
 
 
 18.  References
 
 18.1.  Normative References
-
-   [I-D.ietf-calsify-2446bis]     Daboo, C., "iCalendar Transport-
-                                  Independent Interoperability Protocol
-                                  (iTIP)", draft-ietf-calsify-2446bis-09
-                                  (work in progress), April 2009.
-
-   [I-D.ietf-calsify-rfc2445bis]  Desruisseaux, B., "Internet
-                                  Calendaring and Scheduling Core Object
-                                  Specification (iCalendar)",
-                                  draft-ietf-calsify-rfc2445bis-10 (work
-                                  in progress), April 2009.
 
    [RFC2119]                      Bradner, S., "Key words for use in
                                   RFCs to Indicate Requirement Levels",
@@ -3914,19 +4015,29 @@ Internet-Draft        CalDAV Scheduling Extensions             June 2009
                                   Versioning (WebDAV)", RFC 4918,
                                   June 2007.
 
-
-
-Daboo & Desruisseaux    Expires December 21, 2009              [Page 70]
-
-Internet-Draft        CalDAV Scheduling Extensions             June 2009
-
-
    [RFC5234]                      Crocker, D. and P. Overell, "Augmented
                                   BNF for Syntax Specifications: ABNF",
                                   STD 68, RFC 5234, January 2008.
 
-   [W3C.REC-xml-20081126]         Maler, E., Yergeau, F., Sperberg-
-                                  McQueen, C., Paoli, J., and T. Bray,
+   [RFC5545]                      Desruisseaux, B., "Internet
+                                  Calendaring and Scheduling Core Object
+                                  Specification (iCalendar)", RFC 5545,
+                                  September 2009.
+
+   [RFC5546]                      Daboo, C., "iCalendar Transport-
+
+
+
+Daboo & Desruisseaux     Expires April 28, 2011                [Page 72]
+
+Internet-Draft        CalDAV Scheduling Extensions          October 2010
+
+
+                                  Independent Interoperability Protocol
+                                  (iTIP)", RFC 5546, December 2009.
+
+   [W3C.REC-xml-20081126]         Paoli, J., Yergeau, F., Bray, T.,
+                                  Sperberg-McQueen, C., and E. Maler,
                                   "Extensible Markup Language (XML) 1.0
                                   (Fifth Edition)", World Wide Web
                                   Consortium Recommendation REC-xml-
@@ -3937,8 +4048,8 @@ Internet-Draft        CalDAV Scheduling Extensions             June 2009
 
    [I-D.ietf-calsify-rfc2447bis]  Melnikov, A., "iCalendar Message-Based
                                   Interoperability Protocol (iMIP)",
-                                  draft-ietf-calsify-rfc2447bis-05 (work
-                                  in progress), June 2008.
+                                  draft-ietf-calsify-rfc2447bis-11 (work
+                                  in progress), September 2010.
 
    [RFC3283]                      Mahoney, B., Babics, G., and A. Taler,
                                   "Guide to Internet Calendaring",
@@ -3972,9 +4083,10 @@ Internet-Draft        CalDAV Scheduling Extensions             June 2009
 
 
 
-Daboo & Desruisseaux    Expires December 21, 2009              [Page 71]
+
+Daboo & Desruisseaux     Expires April 28, 2011                [Page 73]
 
-Internet-Draft        CalDAV Scheduling Extensions             June 2009
+Internet-Draft        CalDAV Scheduling Extensions          October 2010
 
 
 Appendix A.  Scheduling Privileges Summary
@@ -4028,9 +4140,9 @@ A.2.  Scheduling Outbox Privileges
 
 
 
-Daboo & Desruisseaux    Expires December 21, 2009              [Page 72]
+Daboo & Desruisseaux     Expires April 28, 2011                [Page 74]
 
-Internet-Draft        CalDAV Scheduling Extensions             June 2009
+Internet-Draft        CalDAV Scheduling Extensions          October 2010
 
 
                                     +--------------------------------+
@@ -4084,9 +4196,9 @@ Internet-Draft        CalDAV Scheduling Extensions             June 2009
 
 
 
-Daboo & Desruisseaux    Expires December 21, 2009              [Page 73]
+Daboo & Desruisseaux     Expires April 28, 2011                [Page 75]
 
-Internet-Draft        CalDAV Scheduling Extensions             June 2009
+Internet-Draft        CalDAV Scheduling Extensions          October 2010
 
 
 Appendix B.  Example Scheduling Transactions
@@ -4140,9 +4252,9 @@ B.1.  Example: Organizer Inviting Multiple Attendees
 
 
 
-Daboo & Desruisseaux    Expires December 21, 2009              [Page 74]
+Daboo & Desruisseaux     Expires April 28, 2011                [Page 76]
 
-Internet-Draft        CalDAV Scheduling Extensions             June 2009
+Internet-Draft        CalDAV Scheduling Extensions          October 2010
 
 
    >> Request <<
@@ -4151,6 +4263,7 @@ Internet-Draft        CalDAV Scheduling Extensions             June 2009
    Host: cal.example.com
    Content-Type: text/calendar; charset="utf-8"
    Content-Length: xxxx
+   If-None-Match: *
 
    BEGIN:VCALENDAR
    VERSION:2.0
@@ -4195,10 +4308,9 @@ Internet-Draft        CalDAV Scheduling Extensions             June 2009
 
 
 
-
-Daboo & Desruisseaux    Expires December 21, 2009              [Page 75]
+Daboo & Desruisseaux     Expires April 28, 2011                [Page 77]
 
-Internet-Draft        CalDAV Scheduling Extensions             June 2009
+Internet-Draft        CalDAV Scheduling Extensions          October 2010
 
 
    >> Request <<
@@ -4231,14 +4343,13 @@ Internet-Draft        CalDAV Scheduling Extensions             June 2009
     mailto:cyrus@example.com
    ATTENDEE;CN="Wilfredo Sanchez Vega";CUTYPE=INDIVIDUAL;PARTSTAT
     =NEEDS-ACTION;ROLE=REQ-PARTICIPANT;RSVP=TRUE;SCHEDULE-STATUS=
-    "1.2;Scheduling message has been delivered":mailto:wilfredo@e
+    1.2:mailto:wilfredo@e
     xample.com
    ATTENDEE;CN="Bernard Desruisseaux";CUTYPE=INDIVIDUAL;PARTSTAT=
-    NEEDS-ACTION;ROLE=REQ-PARTICIPANT;RSVP=TRUE;SCHEDULE-STATUS="
-    1.0;Scheduling message is pending":mailto:bernard@example.net
+    NEEDS-ACTION;ROLE=REQ-PARTICIPANT;RSVP=TRUE;SCHEDULE-STATUS=
+    1.0:mailto:bernard@example.net
    ATTENDEE;CN="Mike Douglass";CUTYPE=INDIVIDUAL;PARTSTAT=NEEDS-A
-    CTION;RSVP=TRUE;SCHEDULE-STATUS="3.7;Invalid calendar user":m
-    ailto:mike@example.org
+    CTION;RSVP=TRUE;SCHEDULE-STATUS=3.7:mailto:mike@example.org
    END:VEVENT
    END:VCALENDAR
 
@@ -4252,9 +4363,10 @@ B.2.  Example: Attendee Receiving an Invitation
 
 
 
-Daboo & Desruisseaux    Expires December 21, 2009              [Page 76]
+
+Daboo & Desruisseaux     Expires April 28, 2011                [Page 78]
 
-Internet-Draft        CalDAV Scheduling Extensions             June 2009
+Internet-Draft        CalDAV Scheduling Extensions          October 2010
 
 
    >> Request <<
@@ -4308,9 +4420,9 @@ Internet-Draft        CalDAV Scheduling Extensions             June 2009
 
 
 
-Daboo & Desruisseaux    Expires December 21, 2009              [Page 77]
+Daboo & Desruisseaux     Expires April 28, 2011                [Page 79]
 
-Internet-Draft        CalDAV Scheduling Extensions             June 2009
+Internet-Draft        CalDAV Scheduling Extensions          October 2010
 
 
    >> Response <<
@@ -4364,9 +4476,9 @@ B.3.  Example: Attendee Replying to an Invitation
 
 
 
-Daboo & Desruisseaux    Expires December 21, 2009              [Page 78]
+Daboo & Desruisseaux     Expires April 28, 2011                [Page 80]
 
-Internet-Draft        CalDAV Scheduling Extensions             June 2009
+Internet-Draft        CalDAV Scheduling Extensions          October 2010
 
 
    >> Response <<
@@ -4384,7 +4496,7 @@ Internet-Draft        CalDAV Scheduling Extensions             June 2009
 
    >> Request <<
 
-   PUT /home/wilfredo/calendars/work/BB64861C2228.ics HTTP/1.1
+   GET /home/wilfredo/calendars/work/BB64861C2228.ics HTTP/1.1
    Host: cal.example.com
 
 
@@ -4420,9 +4532,9 @@ Internet-Draft        CalDAV Scheduling Extensions             June 2009
 
 
 
-Daboo & Desruisseaux    Expires December 21, 2009              [Page 79]
+Daboo & Desruisseaux     Expires April 28, 2011                [Page 81]
 
-Internet-Draft        CalDAV Scheduling Extensions             June 2009
+Internet-Draft        CalDAV Scheduling Extensions          October 2010
 
 
    >> Response <<
@@ -4446,8 +4558,8 @@ Internet-Draft        CalDAV Scheduling Extensions             June 2009
    DTEND:20090602T170000Z
    TRANSP:OPAQUE
    SUMMARY:Lunch
-   ORGANIZER;CN="Cyrus Daboo";SCHEDULE-STATUS="1.2;Scheduling mes
-    sage has been delivered":mailto:cyrus@example.com
+   ORGANIZER;CN="Cyrus Daboo";SCHEDULE-STATUS=1.2:mailto:cyrus@ex
+    ample.com
    ATTENDEE;CN="Cyrus Daboo";CUTYPE=INDIVIDUAL;PARTSTAT=ACCEPTED:
     mailto:cyrus@example.com
    ATTENDEE;CN="Wilfredo Sanchez Vega";CUTYPE=INDIVIDUAL;PARTSTAT
@@ -4476,9 +4588,9 @@ B.4.  Example: Organizer Receiving a Reply to an Invitation
 
 
 
-Daboo & Desruisseaux    Expires December 21, 2009              [Page 80]
+Daboo & Desruisseaux     Expires April 28, 2011                [Page 82]
 
-Internet-Draft        CalDAV Scheduling Extensions             June 2009
+Internet-Draft        CalDAV Scheduling Extensions          October 2010
 
 
    deletes this scheduling message in his scheduling Inbox collection.
@@ -4532,9 +4644,9 @@ Internet-Draft        CalDAV Scheduling Extensions             June 2009
 
 
 
-Daboo & Desruisseaux    Expires December 21, 2009              [Page 81]
+Daboo & Desruisseaux     Expires April 28, 2011                [Page 83]
 
-Internet-Draft        CalDAV Scheduling Extensions             June 2009
+Internet-Draft        CalDAV Scheduling Extensions          October 2010
 
 
    >> Request <<
@@ -4567,30 +4679,30 @@ Internet-Draft        CalDAV Scheduling Extensions             June 2009
    ATTENDEE;CN="Cyrus Daboo";CUTYPE=INDIVIDUAL;PARTSTAT=ACCEPTED:
     mailto:cyrus@example.com
    ATTENDEE;CN="Wilfredo Sanchez Vega";CUTYPE=INDIVIDUAL;PARTSTAT
-    =ACCEPTED;ROLE=REQ-PARTICIPANT;RSVP=TRUE;SCHEDULE-STATUS="2.0
-    ;Reply has been received":mailto:wilfredo@example.com
+    =ACCEPTED;ROLE=REQ-PARTICIPANT;RSVP=TRUE;SCHEDULE-STATUS=2.0:
+    mailto:wilfredo@example.com
    ATTENDEE;CN="Bernard Desruisseaux";CUTYPE=INDIVIDUAL;PARTSTAT=
-    NEEDS-ACTION;ROLE=REQ-PARTICIPANT;RSVP=TRUE;SCHEDULE-STATUS="
-    1.0;Scheduling message is pending":mailto:bernard@example.net
+    NEEDS-ACTION;ROLE=REQ-PARTICIPANT;RSVP=TRUE;SCHEDULE-STATUS=1
+    .0:mailto:bernard@example.net
    ATTENDEE;CN="Mike Douglass";CUTYPE=INDIVIDUAL;PARTSTAT=NEEDS-A
-    CTION;RSVP=TRUE;SCHEDULE-STATUS="3.7;Invalid calendar user":m
-    ailto:mike@example.org
+    CTION;RSVP=TRUE;SCHEDULE-STATUS=3.7:mailto:mike@example.org
    END:VEVENT
    END:VCALENDAR
 
 B.5.  Example: Organizer Requesting Busy Time Information
 
-   In this example, Cyrus requests the busy time information of Wilfredo
-   and Bernard.
+   In this example, Cyrus requests the busy time information of
+   Wilfredo, Bernard and Mike.
 
 
 
 
 
 
-Daboo & Desruisseaux    Expires December 21, 2009              [Page 82]
+
+Daboo & Desruisseaux     Expires April 28, 2011                [Page 84]
 
-Internet-Draft        CalDAV Scheduling Extensions             June 2009
+Internet-Draft        CalDAV Scheduling Extensions          October 2010
 
 
    >> Request <<
@@ -4612,6 +4724,7 @@ Internet-Draft        CalDAV Scheduling Extensions             June 2009
    ORGANIZER;CN="Cyrus Daboo":mailto:cyrus@example.com
    ATTENDEE;CN="Wilfredo Sanchez Vega":mailto:wilfredo@example.com
    ATTENDEE;CN="Bernard Desruisseaux":mailto:bernard@example.net
+   ATTENDEE;CN="Mike Douglass":mailto:mike@example.org
    END:VFREEBUSY
    END:VCALENDAR
 
@@ -4640,15 +4753,15 @@ Internet-Draft        CalDAV Scheduling Extensions             June 2009
    DTSTART:20090602T000000Z
    DTEND:20090604T000000Z
    ORGANIZER;CN="Cyrus Daboo":mailto:cyrus@example.com
-   ATTENDEE;CN="Wilfredo Sanchez Vega":mailto:wilfredo@example.com
 
 
 
-Daboo & Desruisseaux    Expires December 21, 2009              [Page 83]
+Daboo & Desruisseaux     Expires April 28, 2011                [Page 85]
 
-Internet-Draft        CalDAV Scheduling Extensions             June 2009
+Internet-Draft        CalDAV Scheduling Extensions          October 2010
 
 
+   ATTENDEE;CN="Wilfredo Sanchez Vega":mailto:wilfredo@example.com
    FREEBUSY;FBTYPE=BUSY:20090602T110000Z/20090602T120000Z
    FREEBUSY;FBTYPE=BUSY:20090603T170000Z/20090603T180000Z
    END:VFREEBUSY
@@ -4678,6 +4791,12 @@ Internet-Draft        CalDAV Scheduling Extensions             June 2009
    END:VCALENDAR
    </C:calendar-data>
    </C:response>
+   <C:response>
+   <C:recipient>
+   <D:href>mailto:mike@example.org<D:href>
+   </C:recipient>
+   <C:request-status>3.7;Invalid calendar user</C:request-status>
+   </C:response>
    </C:schedule-response>
 
 B.6.  Example: User Attempting to Invite Attendee on behalf of Organizer
@@ -4693,16 +4812,9 @@ B.6.  Example: User Attempting to Invite Attendee on behalf of Organizer
 
 
 
-
-
-
-
-
-
-
-Daboo & Desruisseaux    Expires December 21, 2009              [Page 84]
+Daboo & Desruisseaux     Expires April 28, 2011                [Page 86]
 
-Internet-Draft        CalDAV Scheduling Extensions             June 2009
+Internet-Draft        CalDAV Scheduling Extensions          October 2010
 
 
    >> Request <<
@@ -4711,6 +4823,7 @@ Internet-Draft        CalDAV Scheduling Extensions             June 2009
    Host: cal.example.com
    Content-Type: text/calendar; charset="utf-8"
    Content-Length: xxxx
+   If-None-Match: *
 
    BEGIN:VCALENDAR
    VERSION:2.0
@@ -4752,19 +4865,21 @@ B.7.  Example: Attendee Declining an Instance of a Recurring Event
    In the following example, Bernard declines the second recurrence
    instance of a daily recurring event he's been invited to by Cyrus.
 
-   >> Request <<
 
 
 
-Daboo & Desruisseaux    Expires December 21, 2009              [Page 85]
+Daboo & Desruisseaux     Expires April 28, 2011                [Page 87]
 
-Internet-Draft        CalDAV Scheduling Extensions             June 2009
+Internet-Draft        CalDAV Scheduling Extensions          October 2010
 
+
+   >> Request <<
 
    PUT /home/bernard/calendars/work/4FD3AD926350.ics HTTP/1.1
    Host: cal.example.com
    Content-Type: text/calendar; charset="utf-8"
    Content-Length: xxxx
+   If-Schedule-Tag-Match: "7775FB30-7534-489E-A79A-0EA147B933EB"
 
    BEGIN:VCALENDAR
    VERSION:2.0
@@ -4806,17 +4921,17 @@ Internet-Draft        CalDAV Scheduling Extensions             June 2009
    UID:9263504FD3AD
    SEQUENCE:0
    DTSTAMP:20090603T183823Z
+
+
+
+Daboo & Desruisseaux     Expires April 28, 2011                [Page 88]
+
+Internet-Draft        CalDAV Scheduling Extensions          October 2010
+
+
    RECURRENCE-ID;TZID=America/Montreal:20090602T150000
    DTSTART;TZID=America/Montreal:20090602T150000
    DTEND;TZID=America/Montreal:20090602T160000
-
-
-
-Daboo & Desruisseaux    Expires December 21, 2009              [Page 86]
-
-Internet-Draft        CalDAV Scheduling Extensions             June 2009
-
-
    TRANSP:TRANSPARENT
    SUMMARY:Review Internet-Draft
    ORGANIZER;CN="Cyrus Daboo":mailto:cyrus@example.com
@@ -4865,12 +4980,9 @@ Internet-Draft        CalDAV Scheduling Extensions             June 2009
 
 
 
-
-
-
-Daboo & Desruisseaux    Expires December 21, 2009              [Page 87]
+Daboo & Desruisseaux     Expires April 28, 2011                [Page 89]
 
-Internet-Draft        CalDAV Scheduling Extensions             June 2009
+Internet-Draft        CalDAV Scheduling Extensions          October 2010
 
 
    >> Response <<
@@ -4924,9 +5036,9 @@ Internet-Draft        CalDAV Scheduling Extensions             June 2009
 
 
 
-Daboo & Desruisseaux    Expires December 21, 2009              [Page 88]
+Daboo & Desruisseaux     Expires April 28, 2011                [Page 90]
 
-Internet-Draft        CalDAV Scheduling Extensions             June 2009
+Internet-Draft        CalDAV Scheduling Extensions          October 2010
 
 
 B.8.  Example: Attendee Removing an Instance of a Recurring Event
@@ -4942,6 +5054,7 @@ B.8.  Example: Attendee Removing an Instance of a Recurring Event
    Host: cal.example.com
    Content-Type: text/calendar; charset="utf-8"
    Content-Length: xxxx
+   If-Schedule-Tag-Match: "488177c8-2ea7-4176-a6cb-fab8cfccdea2"
 
    BEGIN:VCALENDAR
    VERSION:2.0
@@ -4976,15 +5089,15 @@ B.8.  Example: Attendee Removing an Instance of a Recurring Event
    ORGANIZER;CN="Cyrus Daboo":mailto:cyrus@example.com
    ATTENDEE;CN="Cyrus Daboo";CUTYPE=INDIVIDUAL;PARTSTAT=ACCEPTED:
     mailto:cyrus@example.com
-   ATTENDEE;CN="Bernard Desruisseaux";CUTYPE=INDIVIDUAL;PARTSTAT=
 
 
 
-Daboo & Desruisseaux    Expires December 21, 2009              [Page 89]
+Daboo & Desruisseaux     Expires April 28, 2011                [Page 91]
 
-Internet-Draft        CalDAV Scheduling Extensions             June 2009
+Internet-Draft        CalDAV Scheduling Extensions          October 2010
 
 
+   ATTENDEE;CN="Bernard Desruisseaux";CUTYPE=INDIVIDUAL;PARTSTAT=
     ACCEPTED;ROLE=REQ-PARTICIPANT;RSVP=TRUE:mailto:bernard@exampl
     e.net
    END:VEVENT
@@ -5035,10 +5148,9 @@ Internet-Draft        CalDAV Scheduling Extensions             June 2009
 
 
 
-
-Daboo & Desruisseaux    Expires December 21, 2009              [Page 90]
+Daboo & Desruisseaux     Expires April 28, 2011                [Page 92]
 
-Internet-Draft        CalDAV Scheduling Extensions             June 2009
+Internet-Draft        CalDAV Scheduling Extensions          October 2010
 
 
    >> Response <<
@@ -5092,14 +5204,86 @@ Internet-Draft        CalDAV Scheduling Extensions             June 2009
 
 
 
-Daboo & Desruisseaux    Expires December 21, 2009              [Page 91]
+Daboo & Desruisseaux     Expires April 28, 2011                [Page 93]
 
-Internet-Draft        CalDAV Scheduling Extensions             June 2009
+Internet-Draft        CalDAV Scheduling Extensions          October 2010
 
 
 Appendix C.  Changes (to be removed by RFC Editor prior to publication)
 
-C.1.  Changes in -07
+C.1.  Changes in -09
+
+   a.  Fixed some examples.
+
+   b.  Tweaked XML conventions.
+
+   c.  Removed description in SCHEDULE-STATUS example values.
+
+   d.  Tweaked 3.7 and 3.8 SCHEDULE-STATUS description to indicate it
+       applies to the Organizer as well as Attendee.
+
+   e.  Updated to RFC 5545 reference.
+
+   f.  AD Review: clarified text about inbox resource deletion being
+       acknowledgment of change.
+
+   g.  AD Review: clarified description of freebusy Outbox POST.
+
+   h.  AD Review: registered new 1.xx request-status codes and added new
+       restriction on usage as per iTIP.
+
+   i.  AD Review: changes SHOULD NOT to MUST NOT for new property
+       parameters when clients send scheduling messages.
+
+   j.  AD Review: CALDAV:schedule-calendar-transp now preserved during
+       COPY.
+
+   k.  AD Review: changed CALDAV- to CALDAV: in acl descriptions.
+
+   l.  AD Review: fixed various minor typos.
+
+   m.  AD Review: Added text to new principal properties to indicate
+       that if they are not present, then the user is not enabled for
+       the various scheduling operations.
+
+   n.  AD Review: clarified use of CALDAV:calendar-data element in
+       CALDAV:response element.
+
+   o.  AD Review: made reference to 5545 IANA registry procedures for
+       the two new element registries.
+
+   p.  AD Review: Fixed description of B5. example.
+
+   q.  Fixed SCHEDULE-AGENT/SCHEDULE-STATUS behavior for Attendee
+       replies.
+
+
+
+
+Daboo & Desruisseaux     Expires April 28, 2011                [Page 94]
+
+Internet-Draft        CalDAV Scheduling Extensions          October 2010
+
+
+C.2.  Changes in -08
+
+   a.  Added "Updates 4791".
+
+   b.  XML conventions changed to match that in CardDAV spec.
+
+   c.  Reworded child response behavior for Outbox.
+
+   d.  Reworded "octet size".
+
+   e.  If-Schedule-Match descriptions changed to remove implication that
+       it is purely a conditional operation.
+
+   f.  Schedule-Reply header descriptions generalized to resource
+       removal rather than just HTTP DELETE.
+
+   g.  Fixed various examples.
+
+C.3.  Changes in -07
 
    a.  Restructured document.
 
@@ -5129,13 +5313,21 @@ C.1.  Changes in -07
 
    l.  Removed handling of VJOURNAL components.
 
+
+
+
+Daboo & Desruisseaux     Expires April 28, 2011                [Page 95]
+
+Internet-Draft        CalDAV Scheduling Extensions          October 2010
+
+
    m.  Completed IANA Considerations section.
 
    n.  Added references to RFC3283 and RFC5234.
 
    o.  Updated references to iCalendar, iTIP and iMIP.
 
-C.2.  Changes in -06
+C.4.  Changes in -06
 
    a.  Removed distinction between scheduling calendar collections and
        basic calendar collections - now just have calendar collections.
@@ -5143,15 +5335,6 @@ C.2.  Changes in -06
    b.  Clients now "MAY" reload data rather than "SHOULD" reload data.
 
    c.  Fixed <C:recipient> in examples.
-
-
-
-
-
-Daboo & Desruisseaux    Expires December 21, 2009              [Page 92]
-
-Internet-Draft        CalDAV Scheduling Extensions             June 2009
-
 
    d.  Removed CALDAV:attachments-allowed precondition on POST to Outbox
        as that is no longer relevant.
@@ -5172,7 +5355,7 @@ Internet-Draft        CalDAV Scheduling Extensions             June 2009
 
    j.  Minor typos fixed.
 
-C.3.  Changes in -05
+C.5.  Changes in -05
 
    This draft has changed substantially since the -04 version.  The
    primary reason for this change was implementation experience from a
@@ -5186,6 +5369,14 @@ C.3.  Changes in -05
    Whilst this adds significant complexity to the server in that it
    needs to be a full blown iTIP processing agent, it does remove a lot
    of the same complexity from clients, opening up the possibility of
+
+
+
+Daboo & Desruisseaux     Expires April 28, 2011                [Page 96]
+
+Internet-Draft        CalDAV Scheduling Extensions          October 2010
+
+
    supporting complex scheduling behaviors even with "thin" clients.
 
    In the judgement of the authors, we consider this new specification
@@ -5204,9 +5395,42 @@ C.3.  Changes in -05
 
 
 
-Daboo & Desruisseaux    Expires December 21, 2009              [Page 93]
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Daboo & Desruisseaux     Expires April 28, 2011                [Page 97]
 
-Internet-Draft        CalDAV Scheduling Extensions             June 2009
+Internet-Draft        CalDAV Scheduling Extensions          October 2010
 
 
 Authors' Addresses
@@ -5260,5 +5484,5 @@ Authors' Addresses
 
 
 
-Daboo & Desruisseaux    Expires December 21, 2009              [Page 94]
+Daboo & Desruisseaux     Expires April 28, 2011                [Page 98]
 

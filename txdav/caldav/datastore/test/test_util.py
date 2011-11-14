@@ -18,10 +18,15 @@
 Tests for txdav.caldav.datastore.util.
 """
 
+from twext.web2.http_headers import MimeType
+
 from twisted.internet.defer import inlineCallbacks
+
 from twistedcaldav.ical import Component
 from twistedcaldav.test.util import TestCase
-from txdav.caldav.datastore.util import dropboxIDFromCalendarObject
+
+from txdav.caldav.datastore.util import dropboxIDFromCalendarObject,\
+    StorageTransportBase
 
 class DropboxIDTests(TestCase):
     """
@@ -242,3 +247,57 @@ END:VCALENDAR
         )
 
 
+    @inlineCallbacks
+    def test_UIDbadPath(self):
+        
+        test_UIDs = (
+            ("12345/67890", "12345-67890"),
+            ("http://12345,67890", "12345,67890"),
+            ("https://12345,67890", "12345,67890"),
+            ("12345:67890", "1234567890"),
+            ("12345.67890", "1234567890"),
+            ("12345/6:7.890", "12345-67890"),
+        )
+
+        for uid, result in test_UIDs:
+            resource = DropboxIDTests.FakeCalendarResource("""BEGIN:VCALENDAR
+VERSION:2.0
+BEGIN:VEVENT
+UID:%s
+DTSTART:20071114T000000Z
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+END:VEVENT
+END:VCALENDAR
+""" % (uid,))
+    
+            self.assertEquals(
+                (yield dropboxIDFromCalendarObject(resource)),
+                "%s.dropbox" % (result,),
+            )
+
+class StorageTransportTests(TestCase):
+
+    def test_MissingContentType(self):
+        
+        test_files = (
+            ("plain.txt", MimeType.fromString("text/plain"),),
+            ("word.doc", MimeType.fromString("application/msword"),),
+            ("markup.html", MimeType.fromString("text/html"),),
+            ("octet", MimeType.fromString("application/octet-stream"),),
+            ("bogus.bog", MimeType.fromString("application/octet-stream"),),
+        )
+
+        class FakeAttachment(object):
+            
+            def __init__(self, name):
+                self._name = name
+            
+            def name(self):
+                return self._name
+    
+        for filename, result in test_files:
+            item = StorageTransportBase(FakeAttachment(filename), None)
+            self.assertEquals(item._contentType, result)
+            item = StorageTransportBase(FakeAttachment(filename), result)
+            self.assertEquals(item._contentType, result)

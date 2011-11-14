@@ -163,7 +163,7 @@ class CalDAVTimeZoneElement (CalDAVTextElement):
 class CalendarHomeSet (CalDAVElement):
     """
     The calendar collections URLs for this principal's calendar user.
-    (CalDAV-access, section 6.2.1)
+    (CalDAV-access, RFC 4791 section 6.2.1)
     """
     name = "calendar-home-set"
     hidden = True
@@ -174,7 +174,7 @@ class CalendarDescription (CalDAVTextElement):
     """
     Provides a human-readable description of what this calendar collection
     represents.
-    (CalDAV-access-09, section 5.2.1)
+    (CalDAV-access, RFC 4791 section 5.2.1)
     """
     name = "calendar-description"
     hidden = True
@@ -183,7 +183,7 @@ class CalendarDescription (CalDAVTextElement):
 class CalendarTimeZone (CalDAVTimeZoneElement):
     """
     Specifies a time zone on a calendar collection.
-    (CalDAV-access-09, section 5.2.2)
+    (CalDAV-access, RFC 4791 section 5.2.2)
     """
     name = "calendar-timezone"
     hidden = True
@@ -192,7 +192,7 @@ class SupportedCalendarComponentSet (CalDAVElement):
     """
     Provides a human-readable description of what this calendar collection
     represents.
-    (CalDAV-access-09, section 5.2.3)
+    (CalDAV-access, RFC 4791 section 5.2.3)
     """
     name = "supported-calendar-component-set"
     hidden = True
@@ -203,7 +203,7 @@ class SupportedCalendarComponentSet (CalDAVElement):
 class SupportedCalendarData (CalDAVElement):
     """
     Specifies restrictions on a calendar collection.
-    (CalDAV-access-09, section 5.2.4)
+    (CalDAV-access, RFC 4791 section 5.2.4)
     """
     name = "supported-calendar-data"
     hidden = True
@@ -214,16 +214,43 @@ class SupportedCalendarData (CalDAVElement):
 class MaxResourceSize (CalDAVTextElement):
     """
     Specifies restrictions on a calendar collection.
-    (CalDAV-access-15, section 5.2.5)
+    (CalDAV-access, RFC 4791 section 5.2.5)
     """
     name = "max-resource-size"
+    hidden = True
+    protected = True
+
+class MinDateTime (CalDAVTextElement):
+    """
+    Specifies restrictions on a calendar collection.
+    (CalDAV-access, RFC 4791 section 5.2.6)
+    """
+    name = "min-date-time"
+    hidden = True
+    protected = True
+
+class MaxDateTime (CalDAVTextElement):
+    """
+    Specifies restrictions on a calendar collection.
+    (CalDAV-access, RFC 4791 section 5.2.7)
+    """
+    name = "max-date-time"
+    hidden = True
+    protected = True
+
+class MaxInstances (CalDAVTextElement):
+    """
+    Specifies restrictions on a calendar collection.
+    (CalDAV-access, RFC 4791 section 5.2.8)
+    """
+    name = "max-instances"
     hidden = True
     protected = True
 
 class MaxAttendeesPerInstance (CalDAVTextElement):
     """
     Specifies restrictions on a calendar collection.
-    (CalDAV-access-15, section 5.2.9)
+    (CalDAV-access, RFC 4791 section 5.2.9)
     """
     name = "max-attendees-per-instance"
     hidden = True
@@ -232,14 +259,14 @@ class MaxAttendeesPerInstance (CalDAVTextElement):
 class Calendar (CalDAVEmptyElement):
     """
     Denotes a calendar collection.
-    (CalDAV-access-09, sections 4.2 & 9.1)
+    (CalDAV-access, RFC 4791 sections 4.2 & 9.1)
     """
     name = "calendar"
 
 class MakeCalendar (CalDAVElement):
     """
     Top-level element for request body in MKCALENDAR.
-    (CalDAV-access-09, section 9.2)
+    (CalDAV-access, RFC 4791 section 9.2)
     """
     name = "mkcalendar"
 
@@ -250,7 +277,7 @@ class MakeCalendar (CalDAVElement):
 class MakeCalendarResponse (CalDAVElement):
     """
     Top-level element for response body in MKCALENDAR.
-    (CalDAV-access-09, section 9.3)
+    (CalDAV-access, RFC 4791 section 9.3)
     """
     name = "mkcalendar-response"
 
@@ -259,7 +286,7 @@ class MakeCalendarResponse (CalDAVElement):
 class CalendarQuery (CalDAVElement):
     """
     Defines a report for querying calendar data.
-    (CalDAV-access-09, section 9.4)
+    (CalDAV-access, RFC 4791 section 9.5)
     """
     name = "calendar-query"
 
@@ -311,7 +338,7 @@ class CalendarData (CalDAVElement):
     """
     Defines which parts of a calendar component object should be returned by a
     report.
-    (CalDAV-access-09, section 9.5)
+    (CalDAV-access, RFC 4791 section 9.6)
     """
     name = "calendar-data"
 
@@ -444,7 +471,7 @@ class CalendarData (CalDAVElement):
 class CalendarComponent (CalDAVElement):
     """
     Defines which component types to return.
-    (CalDAV-access-09, section 9.5.1)
+    (CalDAV-access, RFC 4791 section 9.6.1)
     """
     name = "comp"
 
@@ -546,21 +573,21 @@ class CalendarComponent (CalDAVElement):
 class AllComponents (CalDAVEmptyElement):
     """
     Specifies that all components shall be returned.
-    (CalDAV-access-09, section 9.5.2)
+    (CalDAV-access, RFC 4791 section 9.6.2)
     """
     name = "allcomp"
 
 class AllProperties (CalDAVEmptyElement):
     """
     Specifies that all properties shall be returned.
-    (CalDAV-access-09, section 9.5.3)
+    (CalDAV-access, RFC 4791 section 9.6.3)
     """
     name = "allprop"
 
 class Property (CalDAVEmptyElement):
     """
     Defines a property to return in a response.
-    (CalDAV-access-09, section 9.5.4)
+    (CalDAV-access, RFC 4791 section 9.6.4)
     """
     name = "prop"
 
@@ -589,7 +616,7 @@ class Expand (CalDAVTimeRangeElement):
     """
     Specifies that the server should expand recurring components into separate
     instances.
-    (CalDAV-access-09, section 9.5.5)
+    (CalDAV-access, RFC 4791 section 9.6.5)
     """
     name = "expand"
 
@@ -597,7 +624,7 @@ class LimitRecurrenceSet (CalDAVTimeRangeElement):
     """
     Specifies a time range to limit the set of recurrence instances returned by
     the server.
-    (CalDAV-access-09, section 9.5.6)
+    (CalDAV-access, RFC 4791 section 9.6.6)
     """
     name = "limit-recurrence-set"
 
@@ -605,14 +632,14 @@ class LimitFreeBusySet (CalDAVTimeRangeElement):
     """
     Specifies a time range to limit the set of FREEBUSY properties returned by
     the server.
-    (CalDAV-access-09, section 9.5.7)
+    (CalDAV-access, RFC 4791 section 9.6.7)
     """
     name = "limit-freebusy-set"
 
 class Filter (CalDAVElement):
     """
     Determines which matching components are returned.
-    (CalDAV-access-09, section 9.6)
+    (CalDAV-access, RFC 4791 section 9.7)
     """
     name = "filter"
 
@@ -621,7 +648,7 @@ class Filter (CalDAVElement):
 class ComponentFilter (CalDAVElement):
     """
     Limits a search to only the chosen component types.
-    (CalDAV-access-09, section 9.6.1)
+    (CalDAV-access, RFC 4791 section 9.7.1)
     """
     name = "comp-filter"
 
@@ -639,7 +666,7 @@ class ComponentFilter (CalDAVElement):
 class PropertyFilter (CalDAVElement):
     """
     Limits a search to specific properties.
-    (CalDAV-access-09, section 9.6.2)
+    (CalDAV-access, RFC 4791 section 9.7.2)
     """
     name = "prop-filter"
 
@@ -657,7 +684,7 @@ class PropertyFilter (CalDAVElement):
 class ParameterFilter (CalDAVElement):
     """
     Limits a search to specific parameters.
-    (CalDAV-access-09, section 9.6.3)
+    (CalDAV-access, RFC 4791 section 9.7.3)
     """
     name = "param-filter"
 
@@ -670,14 +697,14 @@ class ParameterFilter (CalDAVElement):
 class IsNotDefined (CalDAVEmptyElement):
     """
     Specifies that the named iCalendar item does not exist.
-    (CalDAV-access-11, section 9.6.4)
+    (CalDAV-access, RFC 4791 section 9.7.4)
     """
     name = "is-not-defined"
 
 class TextMatch (CalDAVTextElement):
     """
     Specifies a substring match on a property or parameter value.
-    (CalDAV-access-09, section 9.6.4)
+    (CalDAV-access, RFC 4791 section 9.7.5)
     """
     name = "text-match"
 
@@ -705,14 +732,14 @@ class TextMatch (CalDAVTextElement):
 class TimeZone (CalDAVTimeZoneElement):
     """
     Specifies a time zone component.
-    (CalDAV-access-09, section 9.7)
+    (CalDAV-access, RFC 4791 section 9.8)
     """
     name = "timezone"
 
 class TimeRange (CalDAVTimeRangeElement):
     """
     Specifies a time for testing components against.
-    (CalDAV-access-09, section 9.8)
+    (CalDAV-access, RFC 4791 section 9.9)
     """
     name = "time-range"
 
@@ -720,7 +747,7 @@ class CalendarMultiGet (CalDAVElement):
     """
     CalDAV report used to retrieve specific calendar component items via their
     URIs.
-    (CalDAV-access-09, section 9.9)
+    (CalDAV-access, RFC 4791 section 9.10)
     """
     name = "calendar-multiget"
 
@@ -761,7 +788,7 @@ class FreeBusyQuery (CalDAVElement):
     """
     CalDAV report used to generate a VFREEBUSY to determine busy time over a
     specific time range.
-    (CalDAV-access-09, section 9.10)
+    (CalDAV-access, RFC 4791 section 9.11)
     """
     name = "free-busy-query"
 
@@ -789,7 +816,7 @@ class FreeBusyQuery (CalDAVElement):
 class ReadFreeBusy(CalDAVEmptyElement):
     """
     Privilege which allows the free busy report to be executed.
-    (CalDAV-access, section 6.1.1)
+    (CalDAV-access, RFC 4791 section 6.1.1)
     """
     name = "read-free-busy"
     
@@ -802,13 +829,6 @@ class NoUIDConflict(CalDAVElement):
 
     allowed_children = { (davxml.dav_namespace, "href"): (1, 1) }
     
-class NumberOfRecurrencesWithinLimits(CalDAVTextElement):
-    """
-    CalDAV precondition used to indicate that the server limits the number
-    of instances a recurring component is allowed to have.
-    """
-    name = "number-of-recurrences-within-limits"
-
 class SupportedFilter(CalDAVElement):
     """
     CalDAV precondition used to indicate an unsupported component type in a

@@ -1031,16 +1031,48 @@ class DelayedStartupProcessMonitorTests(TestCase):
         def assertions(result):
             self.assertEquals(["[Dummy] x",
                                "[Dummy] y",
+                               "[Dummy] y", # final segment
                                "[Dummy] z"],
                               [''.join(evt['message'])[:len('[Dummy]') + 2]
                                for evt in logged])
             self.assertEquals([" (truncated, continued)",
                                " (truncated, continued)",
+                               "[Dummy] y",
                                "[Dummy] z"],
                               [''.join(evt['message'])[-len(" (truncated, continued)"):]
                                for evt in logged])
         d.addCallback(assertions)
         return d
+
+
+    def test_breakLineIntoSegments(self):
+        """
+        Exercise the line-breaking logic with various key lengths
+        """
+        testLogger = DelayedStartupLineLogger()
+        testLogger.MAX_LENGTH = 10
+        for input, output in [
+            ("", []),
+            ("a", ["a"]),
+            ("abcde", ["abcde"]),
+            ("abcdefghij", ["abcdefghij"]),
+            ("abcdefghijk",
+                ["abcdefghij (truncated, continued)",
+                 "k"
+                ]
+            ),
+            ("abcdefghijklmnopqrst",
+                ["abcdefghij (truncated, continued)",
+                 "klmnopqrst"
+                ]
+            ),
+            ("abcdefghijklmnopqrstuv",
+                ["abcdefghij (truncated, continued)",
+                 "klmnopqrst (truncated, continued)",
+                 "uv"]
+            ),
+        ]:
+            self.assertEquals(output, testLogger._breakLineIntoSegments(input))
 
 
     def test_acceptDescriptorInheritance(self):

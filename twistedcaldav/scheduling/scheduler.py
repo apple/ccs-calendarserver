@@ -37,6 +37,7 @@ from twistedcaldav.customxml import calendarserver_namespace
 from twistedcaldav.accounting import accountingEnabled, emitAccounting
 from twistedcaldav.config import config
 from twistedcaldav.ical import Component
+from twistedcaldav.memcachelock import MemcacheLock, MemcacheLockTimeoutError
 from twistedcaldav.scheduling import addressmapping
 from twistedcaldav.scheduling.caldav import ScheduleViaCalDAV
 from twistedcaldav.scheduling.cuaddress import InvalidCalendarUser,\
@@ -84,7 +85,7 @@ class Scheduler(object):
         self.internal_request = False
     
     @inlineCallbacks
-    def doSchedulingViaPOST(self, use_request_headers=False):
+    def doSchedulingViaPOST(self, transaction, use_request_headers=False):
         """
         The Scheduling POST operation on an Outbox.
         """
@@ -107,6 +108,24 @@ class Scheduler(object):
         # Do some extra authorization checks
         self.checkAuthorization()
 
+        # We might trigger an implicit scheduling operation here that will require consistency
+        # of data for all events with the same UID. So detect this and use a lock
+        lock = None
+        if self.calendar.resourceType() != "VFREEBUSY":
+            uid = self.calendar.resourceUID()
+            lock = MemcacheLock("ImplicitUIDLock", uid, timeout=60.0, expire_time=5*60)
+
+        # Implicit lock
+        if lock:
+            try:
+                yield lock.acquire()
+            except MemcacheLockTimeoutError:
+                raise HTTPError(StatusResponse(responsecode.CONFLICT, "Resource: %s currently in use on the server." % (self.uri,)))
+            else:
+                # Release lock after commit or abort
+                transaction.postCommit(lock.clean)
+                transaction.postAbort(lock.clean)
+                
         result = (yield self.doScheduling())
         returnValue(result)
 
@@ -558,12 +577,12 @@ class CalDAVScheduler(Scheduler):
         super(CalDAVScheduler, self).__init__(request, resource)
         self.doingPOST = False
 
-    def doSchedulingViaPOST(self):
+    def doSchedulingViaPOST(self, transaction):
         """
         The Scheduling POST operation on an Outbox.
         """
         self.doingPOST = True
-        return super(CalDAVScheduler, self).doSchedulingViaPOST()
+        return super(CalDAVScheduler, self).doSchedulingViaPOST(transaction)
 
     def checkAuthorization(self):
         # Must have an authenticated user

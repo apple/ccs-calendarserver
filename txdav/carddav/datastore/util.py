@@ -18,7 +18,7 @@
 """
 Utility logic common to multiple backend implementations.
 """
-from twisted.internet.defer import inlineCallbacks
+from twisted.internet.defer import inlineCallbacks, returnValue
 
 from twistedcaldav.vcard import Component as VCard
 from twistedcaldav.vcard import InvalidVCardDataError
@@ -76,6 +76,9 @@ def _migrateAddressbook(inAddressbook, outAddressbook, getComponent):
     @param outAddressbook: the L{IAddressbook} to store addressbook objects to.
     @param getComponent: a 1-argument callable; see L{migrateHome}.
     """
+
+    ok_count = 0
+    bad_count = 0
     outAddressbook.properties().update(inAddressbook.properties())
     inObjects = yield inAddressbook.addressbookObjects()
     for addressbookObject in inObjects:
@@ -95,14 +98,26 @@ def _migrateAddressbook(inAddressbook, outAddressbook, getComponent):
             if outAddressbook.objectResourcesHaveProperties():
                 outObject.properties().update(addressbookObject.properties())
 
+            ok_count += 1 
 
         except InternalDataStoreError:
-            log.error("  Failed to migrate adress book object: %s/%s/%s" % (
+            log.error("  InternalDataStoreError: Failed to migrate address book object: %s/%s/%s" % (
                 inAddressbook.ownerHome().name(),
                 inAddressbook.name(),
                 addressbookObject.name(),
             ))
+            bad_count += 1 
 
+        except Exception, e:
+            log.error("  %s: Failed to migrate address book object: %s/%s/%s" % (
+                str(e),
+                inAddressbook.ownerHome().name(),
+                inAddressbook.name(),
+                addressbookObject.name(),
+            ))
+            bad_count += 1 
+
+    returnValue((ok_count, bad_count,))
 
 
 @inlineCallbacks

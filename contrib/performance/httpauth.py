@@ -24,6 +24,15 @@ from caldavclientlibrary.protocol.http.authentication.digest import Digest
 
 class BasicChallenge(object):
     def __init__(self, realm):
+        # The sim has no real reason to differentiate between credentials by
+        # realm.  It will only ever talk to a single realm.  Since the server
+        # being tested may have a different notion of its realm depending on
+        # various configuration issues, just ignore it and use the realm
+        # encoded in population.py.  It might be nice to someday properly
+        # handle realm values, but presently it would just be an additional
+        # configuration hassle.  See also DigestChallenge.
+        realm = "Test Realm"
+
         self.realm = realm
 
 
@@ -37,6 +46,9 @@ class BasicChallenge(object):
 
 class DigestChallenge(object):
     def __init__(self, realm, **fields):
+        # See the comment in BasicChallenge.
+        realm = "Test Realm"
+
         self.realm = realm
         self.fields = fields
         self.fields['realm'] = realm
@@ -44,6 +56,8 @@ class DigestChallenge(object):
 
     def response(self, uri, method, keyring):
         username, password = keyring.passwd.find_user_password(self.realm, uri)
+        if username is None:
+            raise RuntimeError("Credentials for realm=%s uri=%s not found" % (self.realm, uri))
         digest = Digest(username, password, [])
         digest.fields.update(self.fields)
         authorization = []

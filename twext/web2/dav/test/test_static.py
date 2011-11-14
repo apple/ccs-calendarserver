@@ -49,7 +49,7 @@ class DAVFileTest(util.TestCase):
             data = []
             d = readStream(response.stream, lambda s: data.append(str(s)))
             d.addCallback(lambda _: self.failIf(
-                'href="dir2/"' not in "".join(data),
+                'dir2/' not in "".join(data),
                 "'dir2' expected in listing: %r" % (data,)
             ))
             return d

@@ -14,8 +14,8 @@
 # limitations under the License.
 ##
 
-from _event_create import SUMMARY
-from _event_change import measure as _measure
+from contrib.performance._event_create import SUMMARY
+from contrib.performance._event_change import measure as _measure
 
 def replaceSummary(event, i):
     return event.replace(SUMMARY, 'Replacement summary %d' % (i,))

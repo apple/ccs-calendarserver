@@ -33,7 +33,6 @@ from twisted.python import hashlib
 from twext.web2.dav.util import joinURL, parentForURL
 from twext.web2 import responsecode
 from twext.web2.dav import davxml
-from twext.web2.dav.element.base import PCDATAElement
 
 from twext.web2.http import HTTPError
 from twext.web2.http import StatusResponse
@@ -46,9 +45,7 @@ from twext.web2.dav.http import ErrorResponse
 from txdav.common.icommondatastore import ReservationError
 
 from twistedcaldav.config import config
-from twistedcaldav.caldavxml import NoUIDConflict
-from twistedcaldav.caldavxml import NumberOfRecurrencesWithinLimits
-from twistedcaldav.caldavxml import caldav_namespace, MaxAttendeesPerInstance
+from twistedcaldav.caldavxml import caldav_namespace, NoUIDConflict, MaxInstances, MaxAttendeesPerInstance
 from twistedcaldav import customxml
 from twistedcaldav.customxml import calendarserver_namespace
 from twistedcaldav.datafilters.peruserdata import PerUserDataFilter
@@ -66,15 +63,16 @@ class StoreCalendarObjectResource(object):
 
     class UIDReservation(object):
         
-        def __init__(self, index, uid, uri, internal_request):
+        def __init__(self, index, uid, uri, internal_request, transaction):
             if internal_request:
                 self.lock = None
             else:
-                self.lock = MemcacheFIFOLock("ImplicitUIDLock", uid, timeout=60.0, retry_interval=0.01)
+                self.lock = MemcacheFIFOLock("ImplicitUIDLock", uid, timeout=60.0, retry_interval=0.01, expire_time=5*60)
             self.reserved = False
             self.index = index
             self.uid = uid
             self.uri = uri
+            self.transaction = transaction
             
         @inlineCallbacks
         def reserve(self):
@@ -106,6 +104,7 @@ class StoreCalendarObjectResource(object):
             
             if self.uri and not self.reserved:
                 if self.lock:
+                    # Can release immediately as nothing happened
                     yield self.lock.release()
                 raise HTTPError(StatusResponse(responsecode.CONFLICT, "Resource: %s currently in use in calendar." % (self.uri,)))
         
@@ -115,7 +114,9 @@ class StoreCalendarObjectResource(object):
                 yield self.index.unreserveUID(self.uid)
                 self.reserved = False
             if self.lock:
-                yield self.lock.clean()
+                # Release lock after commit or abort
+                self.transaction.postCommit(self.lock.clean)
+                self.transaction.postAbort(self.lock.clean)
 
     def __init__(
         self,
@@ -310,7 +311,7 @@ class StoreCalendarObjectResource(object):
                         ErrorResponse(
                             responsecode.FORBIDDEN,
                             MaxAttendeesPerInstance.fromString(str(config.MaxAttendeesPerInstance)),
-                            "Too many attendees in calenbdar data",
+                            "Too many attendees in calendar data",
                         )
                     )
 
@@ -395,7 +396,7 @@ class StoreCalendarObjectResource(object):
                 #    considered a "weak" match to the current Schedule-Tag,
                 #    then do smart merge, else reject with a 412.
                 #
-                # Actually by the time we get here the pre-condition will
+                # Actually by the time we get here the precondition will
                 # already have been tested and found to be OK, so we can just
                 # always do smart merge now if If-Match is present.
                 self.schedule_tag_match = self.request.headers.getHeader("If-Match") is not None
@@ -954,7 +955,7 @@ class StoreCalendarObjectResource(object):
                     etags = ()
                 else:
                     # Schedule-Tag did not change => add current ETag to list of those that can
-                    # be used in a weak pre-condition test
+                    # be used in a weak precondition test
                     etags = self.destination.scheduleEtags
                     if etags is None:
                         etags = ()
@@ -1004,7 +1005,8 @@ class StoreCalendarObjectResource(object):
                 self.destination_index = self.destinationparent.index()
                 reservation = StoreCalendarObjectResource.UIDReservation(
                     self.destination_index, self.uid, self.destination_uri,
-                    self.internal_request or self.isiTIP
+                    self.internal_request or self.isiTIP,
+                    self.destination._associatedTransaction,
                 )
                 yield reservation.reserve()
                 # UID conflict check - note we do this after reserving the UID to avoid a race condition where two requests 
@@ -1108,7 +1110,7 @@ class StoreCalendarObjectResource(object):
             elif isinstance(err, TooManyInstancesError):
                 raise HTTPError(ErrorResponse(
                     responsecode.FORBIDDEN,
-                    NumberOfRecurrencesWithinLimits(PCDATAElement(str(err.max_allowed))),
+                    MaxInstances.fromString(str(err.max_allowed)),
                     "Too many recurrence instances",
                 ))
             else:

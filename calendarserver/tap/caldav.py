@@ -1,6 +1,6 @@
 # -*- test-case-name: calendarserver.tap.test.test_caldav -*-
 ##
-# Copyright (c) 2005-2010 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2011 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -37,11 +37,9 @@ from zope.interface import implements
 from twisted.python.log import FileLogObserver, ILogObserver
 from twisted.python.logfile import LogFile
 from twisted.python.usage import Options, UsageError
-from twisted.python.reflect import namedClass
 from twisted.plugin import IPlugin
 from twisted.internet.defer import gatherResults, Deferred
 from twisted.internet import reactor as _reactor
-from twisted.internet.reactor import addSystemEventTrigger
 from twisted.internet.process import ProcessExitedAlready
 from twisted.internet.protocol import Protocol, Factory
 from twisted.internet.protocol import ProcessProtocol
@@ -64,15 +62,13 @@ from txdav.common.datastore.util import UpgradeToDatabaseService,\
 
 from twistedcaldav.config import ConfigurationError
 from twistedcaldav.config import config
-from twistedcaldav.directory import calendaruserproxy
-from twistedcaldav.directory.calendaruserproxyloader import XMLCalendarUserProxyLoader
 from twistedcaldav.localization import processLocalizationFiles
 from twistedcaldav.mail import IMIPReplyInboxResource
 from twistedcaldav import memcachepool
 from twistedcaldav.stdconfig import DEFAULT_CONFIG, DEFAULT_CONFIG_FILE
 from twistedcaldav.upgrade import UpgradeFileSystemFormatService, PostDBImportService
 
-from calendarserver.tap.util import pgServiceFromConfig
+from calendarserver.tap.util import pgServiceFromConfig, getDBPool
 
 from twext.enterprise.ienterprise import POSTGRES_DIALECT
 from twext.enterprise.ienterprise import ORACLE_DIALECT
@@ -91,7 +87,6 @@ from calendarserver.accesslog import RotatingFileAccessLoggingObserver
 from calendarserver.tap.util import getRootResource, computeProcessCount
 from calendarserver.tap.util import ConnectionWithPeer
 from calendarserver.tap.util import storeFromConfig
-from calendarserver.tap.util import transactionFactoryFromFD
 from calendarserver.tap.util import pgConnectorFromConfig
 from calendarserver.tap.util import oracleConnectorFromConfig
 from calendarserver.tools.util import checkDirectory
@@ -166,7 +161,7 @@ class CalDAVStatisticsServer (Factory):
 
 
 class ErrorLoggingMultiService(MultiService):
-    """ Registers a rotating file logger for error logging, iff
+    """ Registers a rotating file logger for error logging, if
         config.ErrorLogEnabled is True. """
 
     def setServiceParent(self, app):
@@ -265,7 +260,7 @@ class CalDAVOptions (Options, LoggingMixIn):
     def opt_option(self, option):
         """
         Set an option to override a value in the config file. True, False, int,
-        and float options are supported, as well as comma seperated lists. Only
+        and float options are supported, as well as comma separated lists. Only
         one option may be given for each --option flag, however multiple
         --option flags may be specified.
         """
@@ -301,8 +296,8 @@ class CalDAVOptions (Options, LoggingMixIn):
 
         config.updateDefaults(self.overrides)
 
-    def checkDirectory(self, dirpath, description, access=None, create=None):
-        checkDirectory(dirpath, description, access=access, create=create)
+    def checkDirectory(self, dirpath, description, access=None, create=None, wait=False):
+        checkDirectory(dirpath, description, access=access, create=create, wait=wait)
 
     def checkConfiguration(self):
 
@@ -340,6 +335,7 @@ class CalDAVOptions (Options, LoggingMixIn):
             "Server root",
             # Require write access because one might not allow editing on /
             access=os.W_OK,
+            wait=True # Wait in a loop until ServerRoot exists
         )
 
         #
@@ -506,24 +502,24 @@ class SlaveSpawnerService(Service):
             self.monitor.addProcess("mailgateway", mailGatewayArgv,
                                env=PARENT_ENVIRONMENT)
 
-        if config.ProxyCaching.Enabled:
-            self.maker.log_info("Adding proxy caching service")
+        if config.GroupCaching.Enabled and config.GroupCaching.EnableUpdater:
+            self.maker.log_info("Adding group caching service")
 
-            proxyCacherArgv = [
+            groupMembershipCacherArgv = [
                 sys.executable,
                 sys.argv[0],
             ]
             if config.UserName:
-                proxyCacherArgv.extend(("-u", config.UserName))
+                groupMembershipCacherArgv.extend(("-u", config.UserName))
             if config.GroupName:
-                proxyCacherArgv.extend(("-g", config.GroupName))
-            proxyCacherArgv.extend((
+                groupMembershipCacherArgv.extend(("-g", config.GroupName))
+            groupMembershipCacherArgv.extend((
                 "--reactor=%s" % (config.Twisted.reactor,),
-                "-n", self.maker.proxyCacherTapName,
+                "-n", self.maker.groupMembershipCacherTapName,
                 "-f", self.configPath,
             ))
 
-            self.monitor.addProcess("proxycache", proxyCacherArgv,
+            self.monitor.addProcess("groupcacher", groupMembershipCacherArgv,
                                env=PARENT_ENVIRONMENT)
 
 
@@ -540,7 +536,7 @@ class CalDAVServiceMaker (LoggingMixIn):
     #
     mailGatewayTapName = "caldav_mailgateway"
     notifierTapName = "caldav_notifier"
-    proxyCacherTapName = "caldav_proxycacher"
+    groupMembershipCacherTapName = "caldav_groupcacher"
 
 
     def makeService(self, options):
@@ -569,26 +565,8 @@ class CalDAVServiceMaker (LoggingMixIn):
 
             if config.ProcessType in ('Combined', 'Single'):
 
-                # Memcached is not needed for the "master" process
-                if config.ProcessType in ('Combined',):
-                    config.Memcached.Pools.Default.ClientEnabled = False
-
-                # Note: if the master process ever needs access to memcached
-                # we'll either have to start memcached prior to the
-                # updateProxyDB call below, or disable memcached
-                # client config only while updateProxyDB is running.
-
                 # Process localization string files
                 processLocalizationFiles(config.Localization)
-
-                # Make sure proxies get initialized
-                if config.ProxyLoadFromFile:
-                    def _doProxyUpdate():
-                        proxydbClass = namedClass(config.ProxyDBService.type)
-                        calendaruserproxy.ProxyDBService = proxydbClass(**config.ProxyDBService.params)
-                        loader = XMLCalendarUserProxyLoader(config.ProxyLoadFromFile)
-                        return loader.updateProxyDB()
-                    addSystemEventTrigger("after", "startup", _doProxyUpdate)
 
             try:
                 service = serviceMethod(options)
@@ -613,7 +591,7 @@ class CalDAVServiceMaker (LoggingMixIn):
 
             import signal
             def sighup_handler(num, frame):
-                self.log_info("SIGHUP recieved at %s" % (location(frame),))
+                self.log_info("SIGHUP received at %s" % (location(frame),))
 
                 # Reload the config file
                 try:
@@ -659,35 +637,7 @@ class CalDAVServiceMaker (LoggingMixIn):
         L{makeService_Combined}, which does the work of actually handling
         CalDAV and CardDAV requests.
         """
-        pool = None
-        if config.DBAMPFD:
-            txnFactory = transactionFactoryFromFD(int(config.DBAMPFD))
-        elif not config.UseDatabase:
-            txnFactory = None
-        elif not config.SharedConnectionPool:
-            dialect = POSTGRES_DIALECT
-            paramstyle = 'pyformat'
-            if config.DBType == '':
-                # get a PostgresService to tell us what the local connection
-                # info is, but *don't* start it (that would start one postgres
-                # master per slave, resulting in all kinds of mayhem...)
-                connectionFactory = pgServiceFromConfig(
-                    config, None).produceConnection
-            elif config.DBType == 'postgres':
-                connectionFactory = pgConnectorFromConfig(config)
-            elif config.DBType == 'oracle':
-                dialect = ORACLE_DIALECT
-                paramstyle = 'numeric'
-                connectionFactory = oracleConnectorFromConfig(config)
-            else:
-                raise UsageError("unknown DB type: %r" % (config.DBType,))
-            pool = ConnectionPool(connectionFactory, dialect=dialect,
-                                  paramstyle=paramstyle)
-            txnFactory = pool.connection
-        else:
-            raise UsageError(
-                "trying to use DB in slave, but no connection info from parent"
-            )
+        pool, txnFactory = getDBPool(config)
         store = storeFromConfig(config, txnFactory)
         result = self.requestProcessingService(options, store)
         if pool is not None:
@@ -746,6 +696,13 @@ class CalDAVServiceMaker (LoggingMixIn):
         rootResource = getRootResource(config, store, additional)
 
         underlyingSite = Site(rootResource)
+        
+        # Need to cache SSL port info here so we can access it in a Request to deal with the
+        # possibility of being behind an SSL decoder
+        underlyingSite.EnableSSL = config.EnableSSL
+        underlyingSite.SSLPort = config.SSLPort
+        underlyingSite.BindSSLPorts = config.BindSSLPorts
+        
         requestFactory = underlyingSite
 
         if config.RedirectHTTPToHTTPS:
@@ -912,7 +869,7 @@ class CalDAVServiceMaker (LoggingMixIn):
         main service.
 
         This has the effect of delaying any child process spawning or
-        standalone port-binding until the backing for the selected data store
+        stand alone port-binding until the backing for the selected data store
         implementation is ready to process requests.
 
         @param createMainService: This is the service that will be doing the main
@@ -978,7 +935,8 @@ class CalDAVServiceMaker (LoggingMixIn):
         def subServiceFactory(connectionFactory):
             ms = MultiService()
             cp = ConnectionPool(connectionFactory, dialect=dialect,
-                                paramstyle=paramstyle)
+                                paramstyle=paramstyle,
+                                maxConnections=config.MaxDBConnectionsPerPool)
             cp.setServiceParent(ms)
             store = storeFromConfig(config, cp.connection)
             mainService = createMainService(cp, store)
@@ -1460,7 +1418,7 @@ class DelayedStartupProcessMonitor(Service, object):
 
 
     def startService(self):
-        # Now we're ready to build the command lines and actualy add the
+        # Now we're ready to build the command lines and actually add the
         # processes to procmon.
         super(DelayedStartupProcessMonitor, self).startService()
         for name in self.processes:
@@ -1534,7 +1492,7 @@ class DelayedStartupProcessMonitor(Service, object):
         del self.protocols[name]
 
         if self._reactor.seconds() - self.timeStarted[name] < self.threshold:
-            # The process died too fast - backoff
+            # The process died too fast - back off
             nextDelay = self.delay[name]
             self.delay[name] = min(self.delay[name] * 2, self.maxRestartDelay)
 
@@ -1677,6 +1635,7 @@ class DelayedStartupLineLogger(object):
     """
 
     MAX_LENGTH = 1024
+    CONTINUED_TEXT = " (truncated, continued)"
     tag = None
     exceeded = False            # Am I in the middle of parsing a long line?
     _buffer = ''
@@ -1717,10 +1676,29 @@ class DelayedStartupLineLogger(object):
         A very long line is being received.  Log it immediately and forget
         about buffering it.
         """
-        for i in range(len(line)/self.MAX_LENGTH):
-            self.lineReceived(line[i*self.MAX_LENGTH:(i+1)*self.MAX_LENGTH]
-                              + " (truncated, continued)")
+        segments = self._breakLineIntoSegments(line)
+        for segment in segments:
+            self.lineReceived(segment)
+            
 
+    def _breakLineIntoSegments(self, line):
+        """
+        Break a line into segments no longer than self.MAX_LENGTH.  Each
+        segment (except for the final one) has self.CONTINUED_TEXT appended.
+        Returns the array of segments.
+        @param line: The line to break up
+        @type line: C{str}
+        @return: array of C{str}
+        """
+        length = len(line)
+        numSegments = length/self.MAX_LENGTH + (1 if length%self.MAX_LENGTH else 0)
+        segments = []
+        for i in range(numSegments):
+            msg = line[i*self.MAX_LENGTH:(i+1)*self.MAX_LENGTH]
+            if i < numSegments - 1: # not the last segment
+                msg += self.CONTINUED_TEXT
+            segments.append(msg)
+        return segments
 
 
 class DelayedStartupLoggingProtocol(ProcessProtocol):

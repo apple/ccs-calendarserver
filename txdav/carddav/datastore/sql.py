@@ -48,6 +48,7 @@ from txdav.carddav.iaddressbookstore import IAddressBookHome, IAddressBook,\
 
 from txdav.common.datastore.sql import CommonHome, CommonHomeChild,\
     CommonObjectResource
+from twext.enterprise.dal.syntax import Delete
 from twext.enterprise.dal.syntax import Insert
 from twext.enterprise.dal.syntax import Update
 from twext.enterprise.dal.syntax import utcNowSQL
@@ -96,6 +97,36 @@ class AddressBookHome(CommonHome):
     addressbookWithName = CommonHome.childWithName
     createAddressBookWithName = CommonHome.createChildWithName
     removeAddressBookWithName = CommonHome.removeChildWithName
+
+
+    @inlineCallbacks
+    def remove(self):
+        ah = schema.ADDRESSBOOK_HOME
+        ab = schema.ADDRESSBOOK_BIND
+        ahm = schema.ADDRESSBOOK_HOME_METADATA
+        aor = schema.ADDRESSBOOK_OBJECT_REVISIONS
+
+        yield Delete(
+            From=ahm,
+            Where=ahm.RESOURCE_ID == self._resourceID
+        ).on(self._txn)
+
+        yield Delete(
+            From=ab,
+            Where=ab.ADDRESSBOOK_HOME_RESOURCE_ID == self._resourceID
+        ).on(self._txn)
+
+        yield Delete(
+            From=aor,
+            Where=aor.ADDRESSBOOK_HOME_RESOURCE_ID == self._resourceID
+        ).on(self._txn)
+
+        yield Delete(
+            From=ah,
+            Where=ah.RESOURCE_ID == self._resourceID
+        ).on(self._txn)
+
+        yield self._cacher.delete(str(self._ownerUID))
 
 
     def createdHome(self):

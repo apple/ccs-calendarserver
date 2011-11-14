@@ -180,7 +180,7 @@ def http_MKCOL(self, request):
             self.transactionError()
             errors.error()
             raise HTTPError(Response(
-                    code=responsecode.BAD_REQUEST,
+                    code=responsecode.FORBIDDEN,
                     stream=mkcolxml.MakeCollectionResponse(errors.response()).toxml()
             ))
 

@@ -125,3 +125,53 @@ class MemcacherTestCase(TestCase):
             self.assertTrue("\n" not in key)
             self.assertTrue("\t" not in key)
             self.assertTrue("\r" not in key)
+
+    @inlineCallbacks
+    def test_expiration(self):
+
+        config.ProcessType = "Single"
+        cacher = Memcacher("testing")
+
+        # Expire this key in 10 seconds
+        result = yield cacher.set("akey", "avalue", 10)
+        self.assertTrue(result)
+
+        result = yield cacher.get("akey")
+        self.assertEquals("avalue", result)
+
+        # Advance time 9 seconds, key still there
+        cacher._memcacheProtocol.advanceClock(9)
+        result = yield cacher.get("akey")
+        self.assertEquals("avalue", result)
+
+        # Advance time 1 more second, key expired
+        cacher._memcacheProtocol.advanceClock(1)
+        result = yield cacher.get("akey")
+        self.assertEquals(None, result)
+
+    @inlineCallbacks
+    def test_checkAndSet(self):
+
+        config.ProcessType = "Single"
+        cacher = Memcacher("testing")
+
+        result = yield cacher.set("akey", "avalue")
+        self.assertTrue(result)
+
+        value, identifier = yield cacher.get("akey", withIdentifier=True)
+        self.assertEquals("avalue", value)
+        self.assertEquals(identifier, "0")
+
+        # Make sure cas identifier changes (we know the test implementation increases
+        # by 1 each time)
+        result = yield cacher.set("akey", "anothervalue")
+        value, identifier = yield cacher.get("akey", withIdentifier=True)
+        self.assertEquals("anothervalue", value)
+        self.assertEquals(identifier, "1")
+
+        # Should not work because key doesn't exist:
+        self.assertFalse((yield cacher.checkAndSet("missingkey", "val", "0")))
+        # Should not work because identifier doesn't match:
+        self.assertFalse((yield cacher.checkAndSet("akey", "yetanother", "0")))
+        # Should work because identifier does match:
+        self.assertTrue((yield cacher.checkAndSet("akey", "yetanother", "1")))

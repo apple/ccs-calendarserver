@@ -15,14 +15,14 @@
 ##
 
 """
-CalDAV XML Support.
+Extended MKCOL Support.
 
-This module provides XML utilities for use with CalDAV.
+This module provides XML utilities for use with Extended MKCOL.
 
 This API is considered private to static.py and is therefore subject to
 change.
 
-See draft spec: http://ietf.webdav.org/caldav/draft-dusseault-caldav.txt
+See RFC 5689.
 """
 
 from twext.web2.dav import davxml
@@ -38,7 +38,7 @@ mkcol_compliance = (
 class MakeCollection (davxml.WebDAVElement):
     """
     Top-level element for request body in MKCOL.
-    (Extended-MKCOL, section 5.1)
+    (Extended-MKCOL, RFC 5689 section 5.1)
     """
     name = "mkcol"
 
@@ -49,7 +49,7 @@ class MakeCollection (davxml.WebDAVElement):
 class MakeCollectionResponse (davxml.WebDAVElement):
     """
     Top-level element for response body in MKCOL.
-    (Extended-MKCOL, section 5.2)
+    (Extended-MKCOL, RFC 5689 section 5.2)
     """
     name = "mkcol-response"
 

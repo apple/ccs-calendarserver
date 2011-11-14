@@ -18,7 +18,7 @@
 Shared main-point between utilities.
 """
 
-import sys
+import os, sys
 
 from calendarserver.tap.caldav import CalDAVServiceMaker, CalDAVOptions
 from calendarserver.tools.util import loadConfig, autoDisableMemcached
@@ -57,6 +57,11 @@ def utilityMain(configFileName, serviceClass, reactor=None):
     try:
         config = loadConfig(configFileName)
 
+        # If we don't have permission to access the DataRoot directory, we
+        # can't proceed.  If this fails it should raise OSError which we
+        # catch below.
+        os.listdir(config.DataRoot)
+
         config.ProcessType = "Utility"
         config.UtilityServiceClass = serviceClass
 
@@ -71,6 +76,10 @@ def utilityMain(configFileName, serviceClass, reactor=None):
 
     except ConfigurationError, e:
         sys.stderr.write("Error: %s\n" % (e,))
+        return
+
+    except OSError: # Permission
+        sys.stderr.write("Please run as root\n")
         return
 
     reactor.run()

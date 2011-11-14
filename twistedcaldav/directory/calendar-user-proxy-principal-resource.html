@@ -1,0 +1,33 @@
+<?xml version="1.0"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<t:transparent xmlns:t="http://twistedmatrix.com/ns/twisted.web.template/0.1"
+     t:render="principal">
+     <div class="directory-listing">
+    <h1>Proxy Principal Details</h1>
+<pre><blockquote>Directory Information
+---------------------
+Directory GUID: <t:slot name="directoryGUID"></t:slot>
+Realm: <t:slot name="realm"></t:slot>
+
+Parent Principal Information
+---------------------
+GUID: <t:slot name="guid"></t:slot>
+Record type: <t:slot name="recordType"></t:slot>
+Short names: <t:slot name="shortNames"></t:slot>
+Full name: <t:slot name="fullName"></t:slot>
+Principal UID: <t:slot name="principalUID"></t:slot>
+Principal URL: <t:slot name="principalURL"></t:slot>
+
+Proxy Principal Information
+---------------------
+Principal UID: <t:slot name="proxyPrincipalUID"></t:slot>
+Principal URL: <t:slot name="proxyPrincipalURL"></t:slot>
+
+Alternate URIs:
+<t:slot name="alternateURIs"></t:slot>
+Group members:
+<t:slot name="groupMembers"></t:slot>
+Group memberships:
+<t:slot name="groupMemberships"></t:slot></blockquote></pre></div>
+    </t:transparent>

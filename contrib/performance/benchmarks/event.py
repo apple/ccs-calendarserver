@@ -20,7 +20,7 @@ Benchmark a server's handling of event creation.
 
 from itertools import count
 
-from _event_create import makeEvent, measure as _measure
+from contrib.performance._event_create import makeEvent, measure as _measure
 
 def measure(host, port, dtrace, attendeeCount, samples):
     calendar = "event-creation-benchmark"
