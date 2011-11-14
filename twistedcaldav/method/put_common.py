@@ -53,8 +53,7 @@ from twistedcaldav.datafilters.peruserdata import PerUserDataFilter
 from twistedcaldav.ical import Component, Property
 from twistedcaldav.instance import TooManyInstancesError,\
     InvalidOverriddenInstanceError
-from twistedcaldav.memcachelock import MemcacheLockTimeoutError
-from twistedcaldav.memcachefifolock import MemcacheFIFOLock
+from twistedcaldav.memcachelock import MemcacheLock, MemcacheLockTimeoutError
 from twistedcaldav.scheduling.implicit import ImplicitScheduler
 
 log = Logger()
@@ -67,7 +66,7 @@ class StoreCalendarObjectResource(object):
             if internal_request:
                 self.lock = None
             else:
-                self.lock = MemcacheFIFOLock("ImplicitUIDLock", uid, timeout=60.0, retry_interval=0.01, expire_time=5*60)
+                self.lock = MemcacheLock("ImplicitUIDLock", uid, timeout=60.0, expire_time=5*60)
             self.reserved = False
             self.index = index
             self.uid = uid

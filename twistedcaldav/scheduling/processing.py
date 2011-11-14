@@ -38,7 +38,6 @@ from twistedcaldav.memcachelock import MemcacheLock, MemcacheLockTimeoutError
 from pycalendar.duration import PyCalendarDuration
 from pycalendar.datetime import PyCalendarDateTime
 from pycalendar.timezone import PyCalendarTimezone
-from twistedcaldav.memcachefifolock import MemcacheFIFOLock
 
 __all__ = [
     "ImplicitProcessor",
@@ -257,7 +256,7 @@ class ImplicitProcessor(object):
             # We need to get the UID lock for implicit processing whilst we send the auto-reply
             # as the Organizer processing will attempt to write out data to other attendees to
             # refresh them. To prevent a race we need a lock.
-            uidlock = MemcacheFIFOLock("ImplicitUIDLock", self.uid, timeout=60.0, expire_time=5*60)
+            uidlock = MemcacheLock("ImplicitUIDLock", self.uid, timeout=60.0, expire_time=5*60)
     
             try:
                 yield uidlock.acquire()
@@ -515,7 +514,7 @@ class ImplicitProcessor(object):
         # We need to get the UID lock for implicit processing whilst we send the auto-reply
         # as the Organizer processing will attempt to write out data to other attendees to
         # refresh them. To prevent a race we need a lock.
-        lock = MemcacheFIFOLock("ImplicitUIDLock", calendar.resourceUID(), timeout=60.0, expire_time=5*60)
+        lock = MemcacheLock("ImplicitUIDLock", calendar.resourceUID(), timeout=60.0, expire_time=5*60)
 
         # Note that this lock also protects the request, as this request is
         # being re-used by potentially multiple transactions and should not be
