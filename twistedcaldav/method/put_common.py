@@ -939,7 +939,7 @@ class StoreCalendarObjectResource(object):
                     # All auto-processed updates for an Organizer leave the tag unchanged
                     change_scheduletag = False
                 elif self.processing_organizer == False:
-                    # Auto-processed updates that are the result of an organizer "refresh' due
+                    # Auto-processed updates that are the result of an organizer "refresh" due
                     # to another Attendee's REPLY should leave the tag unchanged
                     change_scheduletag = not hasattr(self.request, "doing_attendee_refresh")
 

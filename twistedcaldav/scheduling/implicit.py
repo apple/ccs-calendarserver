@@ -264,20 +264,14 @@ class ImplicitScheduler(object):
             returnValue(self.return_calendar if hasattr(self, "return_calendar") else self.calendar)
 
     @inlineCallbacks
-    def refreshAllAttendeesExceptSome(self, request, resource, calendar, attendees):
+    def refreshAllAttendeesExceptSome(self, request, resource, attendees):
         """
-        
-        @param request:
-        @type request:
-        @param attendee:
-        @type attendee:
-        @param calendar:
-        @type calendar:
+        Refresh the iCalendar data for all attendees except the one specified in attendees.
         """
 
         self.request = request
         self.resource = resource
-        self.calendar = calendar
+        self.calendar = (yield self.resource.iCalendarForUser(self.request))
         self.state = "organizer"
         self.action = "modify"
 

@@ -364,10 +364,6 @@ class LoadSimulator(object):
         self.reactor.run()
 
 
-main = LoadSimulator.main
-
-
-
 def attachService(reactor, service):
     """
     Attach a given L{IService} provider to the given L{IReactorCore}; cause it
@@ -523,6 +519,7 @@ class WorkerSpawnerService(SimService):
 
 
 
+main = LoadSimulator.main
+
 if __name__ == '__main__':
     main()
-
