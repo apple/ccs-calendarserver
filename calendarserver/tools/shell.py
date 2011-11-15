@@ -276,6 +276,7 @@ class ShellProtocol(ReceiveLineProtocol):
         d.addCallback(setWD)
         return d
 
+    @inlineCallbacks
     def cmd_ls(self, tokens):
         """
         List working directory.
@@ -284,18 +285,15 @@ class ShellProtocol(ReceiveLineProtocol):
             raise UnknownArguments(tokens)
             return
 
-        def write(names):
-            #
-            # FIXME: this can be ugly if, for example, there are
-            # zillions of calendar homes or events to output. Paging
-            # would be good.
-            #
-            for name in names:
-                self.terminal.write("%s\n" % (name,))
+        listing = (yield self.wd.list())
 
-        d = self.wd.list()
-        d.addCallback(write)
-        return d
+        #
+        # FIXME: this can be ugly if, for example, there are
+        # zillions of calendar homes or events to output. Paging
+        # would be good.
+        #
+        for name in listing:
+            self.terminal.write("%s\n" % (name,))
 
     def cmd_info(self, tokens):
         """
@@ -386,7 +384,7 @@ class Directory(object):
         return fail(NotFoundError("Directory %r has no subdirectory %r" % (str(self), name)))
 
     def list(self):
-        return succeed(())
+        raise NotImplementedError("%s.list() isn't implemented." % (self.__class__.__name__,))
 
 
 class RootDirectory(Directory):
@@ -433,7 +431,7 @@ class UIDDirectory(Directory):
     def list(self):
         raise NotImplementedError("UIDDirectory.list() isn't implemented.")
         d = self.store.eachCalendarHome()
-        d.addCallback(lambda homes: (home.uid() for (txn, home) in homes))
+        d.addCallback(lambda th: ("%s/" % (h.uid(),) for (t, h) in th))
         return d
 
 
@@ -481,17 +479,17 @@ class CalendarHomeDirectory(Directory):
     def subdir(self, name):
         calendar = (yield self.home.calendarWithName(name))
         if calendar:
-            returnValue(Calendar(self.store, self.path + (name,), calendar))
+            returnValue(CalendarDirectory(self.store, self.path + (name,), calendar))
         else:
             raise NotFoundError("No calendar named %r" % (name,))
 
     @inlineCallbacks
     def list(self):
         calendars = (yield self.home.calendars())
-        returnValue((c.name() for c in calendars))
+        returnValue(("%s/" % (c.name(),) for c in calendars))
 
 
-class Calendar(Directory):
+class CalendarDirectory(Directory):
     """
     Calendar.
     """
@@ -499,6 +497,15 @@ class Calendar(Directory):
         Directory.__init__(self, store, path)
 
         self.calendar = calendar
+
+    @inlineCallbacks
+    def list(self):
+        objects = (yield self.calendar.calendarObjects())
+
+        returnValue((
+            "%s (%s)" % (o.uid(), o.componentType())
+            for o in objects
+        ))
 
 
 def main(argv=sys.argv, stderr=sys.stderr, reactor=None):
