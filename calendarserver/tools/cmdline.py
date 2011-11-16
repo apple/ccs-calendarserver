@@ -74,13 +74,8 @@ def utilityMain(configFileName, serviceClass, reactor=None):
         reactor.addSystemEventTrigger("during", "startup", service.startService)
         reactor.addSystemEventTrigger("before", "shutdown", service.stopService)
 
-    except ConfigurationError, e:
+    except (ConfigurationError, OSError), e:
         sys.stderr.write("Error: %s\n" % (e,))
         return
 
-    except OSError: # Permission
-        sys.stderr.write("Please run as root\n")
-        return
-
     reactor.run()
-
