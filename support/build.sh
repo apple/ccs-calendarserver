@@ -745,7 +745,7 @@ dependencies () {
     "http://pypi.python.org/packages/source/p/pytz/pytz-2011g.tar.gz";
 
   svn_get "CalDAVTester" "${top}/CalDAVTester" \
-      "${svn_uri_base}/CalDAVTester/trunk" HEAD;
+      "${svn_uri_base}/CalDAVTester/trunk" 8303;
 
   local pd="pydoctor-0.3";
   py_dependency -o -m "b000aa1fb458fe25952dadf26049ae68" \
