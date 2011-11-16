@@ -270,6 +270,10 @@ class LdapDirectoryService(CachingDirectoryService):
                     (repr(self.credentials.get("dn")),))
                 self.ldap.simple_bind_s(self.credentials.get("dn"),
                     self.credentials.get("password"))
+            except ldap.SERVER_DOWN:
+                msg = "Can't connect to LDAP %s: server down" % (self.uri,)
+                self.log_error(msg)
+                raise DirectoryConfigurationError(msg)
             except ldap.INVALID_CREDENTIALS:
                 msg = "Can't bind to LDAP %s: check credentials" % (self.uri,)
                 self.log_error(msg)
@@ -472,6 +476,9 @@ class LdapDirectoryService(CachingDirectoryService):
         try:
             result = self.ldap.search_s(base, scope, filterstr=filterstr,
                 attrlist=attrlist)
+        except ldap.SERVER_DOWN:
+            self.log_error("LDAP server unavailable")
+            raise HTTPError(StatusResponse(responsecode.SERVICE_UNAVAILABLE, "LDAP server unavailable"))
         except ldap.NO_SUCH_OBJECT:
             result = []
         except ldap.FILTER_ERROR, e:
