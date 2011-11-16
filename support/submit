@@ -23,7 +23,7 @@
 set -e
 set -u
 
-version="14";
+version="15";
 
  wd="$(cd "$(dirname "$0")" && pwd)";
 src="$(cd "${wd}/.." && pwd)";
