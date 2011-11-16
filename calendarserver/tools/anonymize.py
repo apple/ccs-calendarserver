@@ -224,6 +224,10 @@ def anonymizeRoot(directoryMap, sourceDirectory, destDirectory):
 
                     data = anonymizeData(directoryMap, data)
 
+                    if data is None:
+                        # Ignore data we can't parse
+                        continue
+
                     destResource = os.path.join(destCal, resource)
                     with open(destResource, "w") as res:
                         res.write(data)
@@ -277,7 +281,11 @@ def anonymizeRoot(directoryMap, sourceDirectory, destDirectory):
 
 
 def anonymizeData(directoryMap, data):
-    pyobj = PyCalendar.parseText(data)
+    try:
+        pyobj = PyCalendar.parseText(data)
+    except Exception, e:
+        print "Failed to parse (%s): %s" % (e, data)
+        return None
 
     # Delete property from the top level
     try:
