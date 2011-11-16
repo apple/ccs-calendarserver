@@ -811,7 +811,7 @@
         <false/>
         <key>AllowResourceAsOrganizer</key>
         <false/>
-        <key>AttendeeRefreshIntervalSeconds</key>
+        <key>AttendeeRefreshBatch</key>
         <integer>0</integer>
       </dict>
 

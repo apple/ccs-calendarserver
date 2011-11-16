@@ -602,13 +602,14 @@ DEFAULT_CONFIG = {
         },
 
         "Options" : {
-            "AllowGroupAsOrganizer"          : False, # Allow groups to be Organizers
-            "AllowLocationAsOrganizer"       : False, # Allow locations to be Organizers
-            "AllowResourceAsOrganizer"       : False, # Allow resources to be Organizers
-            "AllowUserAutoAccept"            : False, # Allow auto-accept for users
-            "LimitFreeBusyAttendees"         : 30,    # Maximum number of attendees to request freebusy for
-            "AttendeeRefreshIntervalSeconds" : 60,    # Time after an iTIP REPLY at which attendee refresh will trigger 
-            "AttendeeRefreshThreshold"       : 20,    # Number of attendees above which refresh delays are used 
+            "AllowGroupAsOrganizer"               : False, # Allow groups to be Organizers
+            "AllowLocationAsOrganizer"            : False, # Allow locations to be Organizers
+            "AllowResourceAsOrganizer"            : False, # Allow resources to be Organizers
+            "AllowUserAutoAccept"                 : False, # Allow auto-accept for users
+            "LimitFreeBusyAttendees"              : 30,    # Maximum number of attendees to request freebusy for
+            "AttendeeRefreshBatch"                :  5,    # Number of attendees to do batched refreshes: 0 - no batching
+            "AttendeeRefreshBatchDelaySeconds"    :  5,    # Time after an iTIP REPLY for first batched attendee refresh
+            "AttendeeRefreshBatchIntervalSeconds" :  5,    # Time between attendee batch refreshes 
         }
     },
 

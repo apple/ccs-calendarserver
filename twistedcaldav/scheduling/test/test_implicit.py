@@ -14,11 +14,34 @@
 # limitations under the License.
 ##
 
-from twistedcaldav.ical import Component
-import twistedcaldav.test.util
-from twistedcaldav.scheduling.implicit import ImplicitScheduler
 from pycalendar.datetime import PyCalendarDateTime
 from pycalendar.timezone import PyCalendarTimezone
+from twext.web2 import responsecode
+from twisted.internet.defer import succeed, inlineCallbacks
+from twistedcaldav.ical import Component
+from twistedcaldav.scheduling.implicit import ImplicitScheduler
+from twistedcaldav.scheduling.scheduler import ScheduleResponseQueue
+import twistedcaldav.test.util
+
+class FakeScheduler(object):
+    """
+    A fake CalDAVScheduler that does nothing except track who messages were sent to.
+    """
+    
+    def __init__(self, recipients):
+        self.recipients = recipients
+
+    def doSchedulingViaPUT(self, originator, recipients, calendar, internal_request=False):
+        self.recipients.extend(recipients)
+        return succeed(ScheduleResponseQueue("FAKE", responsecode.OK))
+
+class FakePrincipal(object):
+    
+    def __init__(self, cuaddr):
+        self.cuaddr = cuaddr
+        
+    def calendarUserAddresses(self):
+        return (self.cuaddr,)
 
 class Implicit (twistedcaldav.test.util.TestCase):
     """
@@ -757,3 +780,60 @@ END:VCALENDAR
             scheduler.findRemovedAttendees()
             self.assertEqual(scheduler.cancelledAttendees, set(result), msg=description)
 
+
+    @inlineCallbacks   
+    def test_process_request_excludes_includes(self):
+        """
+        Test that processRequests correctly excludes or includes the specified attendees.
+        """
+
+        data = (
+            ((), None, 3, ("mailto:user2@example.com", "mailto:user3@example.com", "mailto:user4@example.com",),),
+            (("mailto:user2@example.com",), None, 2, ("mailto:user3@example.com", "mailto:user4@example.com",),),
+            ((), ("mailto:user2@example.com", "mailto:user4@example.com",) , 2, ("mailto:user2@example.com", "mailto:user4@example.com",),),
+        )
+
+        calendar = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE:mailto:user1@example.com
+ATTENDEE:mailto:user2@example.com
+ATTENDEE:mailto:user3@example.com
+ATTENDEE:mailto:user4@example.com
+END:VEVENT
+END:VCALENDAR
+"""
+
+        for excludes, includes, result_count, result_set in data:
+            scheduler = ImplicitScheduler()
+            scheduler.resource = None
+            scheduler.request = None
+            scheduler.calendar = Component.fromString(calendar)
+            scheduler.state = "organizer"
+            scheduler.action = "modify"
+            scheduler.calendar_owner = None
+            scheduler.internal_request = True
+            scheduler.except_attendees = excludes
+            scheduler.only_refresh_attendees = includes
+            scheduler.changed_rids = None
+            scheduler.reinvites = None
+    
+            # Get some useful information from the calendar
+            yield scheduler.extractCalendarData()
+            scheduler.organizerPrincipal = FakePrincipal(scheduler.organizer)
+    
+            recipients = []
+            
+            def makeFakeScheduler():
+                return FakeScheduler(recipients)
+            scheduler.makeScheduler = makeFakeScheduler
+            
+            count = (yield scheduler.processRequests())
+            self.assertEqual(count, result_count)
+            self.assertEqual(len(recipients), result_count)
+            self.assertEqual(set(recipients), set(result_set))

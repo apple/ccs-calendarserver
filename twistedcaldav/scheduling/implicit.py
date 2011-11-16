@@ -247,6 +247,7 @@ class ImplicitScheduler(object):
         # Setup some parameters
         self.do_smart_merge = do_smart_merge
         self.except_attendees = ()
+        self.only_refresh_attendees = None
 
         # Determine what type of scheduling this is: Organizer triggered or Attendee triggered
         if self.state == "organizer":
@@ -264,7 +265,7 @@ class ImplicitScheduler(object):
             returnValue(self.return_calendar if hasattr(self, "return_calendar") else self.calendar)
 
     @inlineCallbacks
-    def refreshAllAttendeesExceptSome(self, request, resource, attendees):
+    def refreshAllAttendeesExceptSome(self, request, resource, except_attendees=(), only_attendees=None):
         """
         Refresh the iCalendar data for all attendees except the one specified in attendees.
         """
@@ -277,7 +278,8 @@ class ImplicitScheduler(object):
 
         self.calendar_owner = None
         self.internal_request = True
-        self.except_attendees = attendees
+        self.except_attendees = except_attendees
+        self.only_refresh_attendees = only_attendees
         self.changed_rids = None
         self.reinvites = None
 
@@ -456,6 +458,12 @@ class ImplicitScheduler(object):
         outboxURL = principal.scheduleOutboxURL()
         outbox = (yield self.request.locateResource(outboxURL))
         yield outbox.authorize(self.request, (caldavxml.ScheduleSend(),))
+
+    def makeScheduler(self):
+        """
+        Convenience method which we can override in unit tests to make testing easier.
+        """
+        return CalDAVScheduler(self.request, self.resource)
 
     @inlineCallbacks
     def doImplicitOrganizer(self):
@@ -829,7 +837,7 @@ class ImplicitScheduler(object):
             # Send scheduling message
             
             # This is a local CALDAV scheduling operation.
-            scheduler = CalDAVScheduler(self.request, self.resource)
+            scheduler = self.makeScheduler()
     
             # Do the PUT processing
             log.info("Implicit CANCEL - organizer: '%s' to attendee: '%s', UID: '%s', RIDs: '%s'" % (self.organizer, attendee, self.uid, rids))
@@ -858,6 +866,10 @@ class ImplicitScheduler(object):
             if attendee in self.except_attendees:
                 continue
 
+            # Only send to specified attendees
+            if self.only_refresh_attendees is not None and attendee not in self.only_refresh_attendees:
+                continue
+
             # If SCHEDULE-FORCE-SEND only change, only send message to those Attendees
             if self.reinvites and attendee in self.reinvites:
                 continue
@@ -867,7 +879,7 @@ class ImplicitScheduler(object):
             # Send scheduling message
             if itipmsg is not None:
                 # This is a local CALDAV scheduling operation.
-                scheduler = CalDAVScheduler(self.request, self.resource)
+                scheduler = self.makeScheduler()
         
                 # Do the PUT processing
                 log.info("Implicit REQUEST - organizer: '%s' to attendee: '%s', UID: '%s'" % (self.organizer, attendee, self.uid,))
@@ -1117,7 +1129,7 @@ class ImplicitScheduler(object):
         # Send scheduling message
 
         # This is a local CALDAV scheduling operation.
-        scheduler = CalDAVScheduler(self.request, self.resource)
+        scheduler = self.makeScheduler()
 
         # Do the PUT processing
         def _gotResponse(response):
