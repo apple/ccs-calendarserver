@@ -707,7 +707,9 @@ class MailGatewayTokensDatabase(AbstractSQLDatabase, LoggingMixIn):
                 update TOKENS set DATESTAMP = :1 WHERE TOKEN = :2
                 """, datetime.date.today(), token
             )
-        return token
+            return str(token)
+        else:
+            return None
 
     def deleteToken(self, token):
         self._db_execute(
