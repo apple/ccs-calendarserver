@@ -29,7 +29,7 @@ from twisted.python import log
 from twisted.python.log import startLogging
 from twisted.python.text import wordWrap
 from twisted.python.usage import Options, UsageError
-from twisted.internet.defer import succeed, fail, Deferred
+from twisted.internet.defer import succeed, Deferred
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.internet.stdio import StandardIO
 from twisted.conch.recvline import HistoricRecvLine as ReceiveLineProtocol
