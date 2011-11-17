@@ -218,7 +218,7 @@ class ShellProtocol(ReceiveLineProtocol):
 
                 def handleException(f):
                     self.terminal.write("Error: %s\n" % (f.value,))
-                    if not f.check(NotImplementedError):
+                    if not f.check(NotImplementedError, NotFoundError):
                         log.msg("-"*80 + "\n")
                         log.msg(f.getTraceback())
                         log.msg("-"*80 + "\n")
@@ -252,9 +252,71 @@ class ShellProtocol(ReceiveLineProtocol):
         else:
             return self.wd
 
+    def cmd_help(self, tokens):
+        """
+        Show help.
+
+        usage: help [command]
+        """
+        if tokens:
+            command = tokens.pop(0)
+        else:
+            command = None
+
+        if tokens:
+            raise UnknownArguments(tokens)
+
+        if command:
+            m = getattr(self, "cmd_%s" % (command,), None)
+            if m:
+                doc = m.__doc__.split("\n")
+
+                # Throw out first and last line if it's empty
+                if doc:
+                    if not doc[0].strip():
+                        doc.pop(0)
+                    if not doc[-1].strip():
+                        doc.pop()
+
+                if doc:
+                    # Get length of indentation
+                    i = len(doc[0]) - len(doc[0].lstrip())
+
+                    for line in doc:
+                        self.terminal.write(line[i:])
+                        self.terminal.nextLine()
+
+                else:
+                    self.terminal.write("(No documentation available for %s)\n" % (command,))
+            else:
+                raise NotFoundError("Unknown command: %s" % (command,))
+        else:
+            self.terminal.write("Available commands:\n")
+
+            result = []
+
+            for attr in dir(self):
+                if attr.startswith("cmd_"):
+                    m = getattr(self, attr)
+
+                    for line in m.__doc__.split("\n"):
+                        line = line.strip()
+                        if line:
+                            doc = line
+                            break
+                    else:
+                        doc = "(no info available)"
+
+                    result.append((attr[4:], doc))
+
+            for info in sorted(result):
+                self.terminal.write("  %s - %s\n" % (info))
+
     def cmd_pwd(self, tokens):
         """
         Print working directory.
+
+        usage: pwd
         """
         if tokens:
             raise UnknownArguments(tokens)
@@ -265,6 +327,8 @@ class ShellProtocol(ReceiveLineProtocol):
     def cmd_cd(self, tokens):
         """
         Change working directory.
+
+        usage: cd [directory]
         """
         if not tokens:
             return
@@ -281,7 +345,9 @@ class ShellProtocol(ReceiveLineProtocol):
     @inlineCallbacks
     def cmd_ls(self, tokens):
         """
-        List working directory.
+        List directory contents.
+
+        usage: ls [directory]
         """
         target = (yield self._getTarget(tokens))
 
@@ -301,7 +367,9 @@ class ShellProtocol(ReceiveLineProtocol):
     @inlineCallbacks
     def cmd_info(self, tokens):
         """
-        Print information about working directory.
+        Print information about a directory.
+
+        usage: info [directory]
         """
         target = (yield self._getTarget(tokens))
 
@@ -315,12 +383,16 @@ class ShellProtocol(ReceiveLineProtocol):
     def cmd_exit(self, tokens):
         """
         Exit the shell.
+
+        usage: exit
         """
         self.exit()
 
     def cmd_python(self, tokens):
         """
         Switch to a python prompt.
+
+        usage: python
         """
         # Crazy idea #19568: switch to an interactive python prompt
         # with self exposed in globals.
@@ -352,16 +424,16 @@ class Directory(object):
 
         name = path[0]
         if name:
-            subdir = (yield self.child(name))
+            target = (yield self.child(name))
             if len(path) > 1:
-                subdir = (yield subdir.locate(path[1:]))
+                target = (yield target.locate(path[1:]))
         else:
-            subdir = (yield RootDirectory(self.store).locate(path[1:]))
+            target = (yield RootDirectory(self.store).locate(path[1:]))
 
-        if isinstance(subdir, Directory):
-            returnValue(subdir)
+        if isinstance(target, Directory):
+            returnValue(target)
         else:
-            raise NotFoundError("Not a directory: %s" % (subdir,))
+            raise NotFoundError("Not found: %s" % (target,))
 
     def child(self, name):
         #log.msg("child(%r)" % (name,))
