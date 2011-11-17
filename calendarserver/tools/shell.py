@@ -138,7 +138,7 @@ class ShellProtocol(ReceiveLineProtocol):
     def __init__(self, service):
         ReceiveLineProtocol.__init__(self)
         self.service = service
-        self.wd = RootDirectory(service.store)
+        self.wd = RootFolder(service.store)
         self.inputLines = []
         self.activeCommand = None
 
@@ -253,7 +253,17 @@ class ShellProtocol(ReceiveLineProtocol):
         if tokens:
             return self.wd.locate(tokens.pop(0).split("/"))
         else:
-            return self.wd
+            return succeed(self.wd)
+
+    @inlineCallbacks
+    def _getTargets(self, tokens):
+        if tokens:
+            result = []
+            for token in tokens:
+                result.append((yield self.wd.locate(token.split("/"))))
+            returnValue(result)
+        else:
+            returnValue((self.wd,))
 
     def cmd_help(self, tokens):
         """
@@ -317,7 +327,7 @@ class ShellProtocol(ReceiveLineProtocol):
 
     def cmd_pwd(self, tokens):
         """
-        Print working directory.
+        Print working folder.
 
         usage: pwd
         """
@@ -329,9 +339,9 @@ class ShellProtocol(ReceiveLineProtocol):
     @inlineCallbacks
     def cmd_cd(self, tokens):
         """
-        Change working directory.
+        Change working folder.
 
-        usage: cd [directory]
+        usage: cd [folder]
         """
         if not tokens:
             return
@@ -343,8 +353,8 @@ class ShellProtocol(ReceiveLineProtocol):
 
         wd = (yield self.wd.locate(dirname.split("/")))
 
-        if not isinstance(wd, Directory):
-            raise NotFoundError("Not a directory: %s" % (wd,))
+        if not isinstance(wd, Folder):
+            raise NotFoundError("Not a folder: %s" % (wd,))
 
         log.msg("wd -> %s" % (wd,))
         self.wd = wd
@@ -352,9 +362,9 @@ class ShellProtocol(ReceiveLineProtocol):
     @inlineCallbacks
     def cmd_ls(self, tokens):
         """
-        List directory contents.
+        List folder contents.
 
-        usage: ls [directory]
+        usage: ls [folder]
         """
         target = (yield self._getTarget(tokens))
 
@@ -374,9 +384,9 @@ class ShellProtocol(ReceiveLineProtocol):
     @inlineCallbacks
     def cmd_info(self, tokens):
         """
-        Print information about a directory.
+        Print information about a folder.
 
-        usage: info [directory]
+        usage: info [folder]
         """
         target = (yield self._getTarget(tokens))
 
@@ -386,6 +396,18 @@ class ShellProtocol(ReceiveLineProtocol):
         description = (yield target.describe())
         self.terminal.write(description)
         self.terminal.nextLine()
+
+    @inlineCallbacks
+    def cmd_cat(self, tokens):
+        """
+        Show contents of target.
+
+        usage: cat target [target ...]
+        """
+        for target in (yield self._getTargets(tokens)):
+            if hasattr(target, "text"):
+                text = (yield target.text())
+                self.terminal.write(text)
 
     def cmd_exit(self, tokens):
         """
@@ -426,14 +448,14 @@ class File(object):
         return succeed(("%s" % (self,),))
 
 
-class Directory(File):
+class Folder(File):
     """
     Location in virtual data hierarchy.
     """
     @inlineCallbacks
     def locate(self, path):
         if not path:
-            returnValue(RootDirectory(self.store))
+            returnValue(RootFolder(self.store))
 
         name = path[0]
         if name:
@@ -441,7 +463,7 @@ class Directory(File):
             if len(path) > 1:
                 target = (yield target.locate(path[1:]))
         else:
-            target = (yield RootDirectory(self.store).locate(path[1:]))
+            target = (yield RootFolder(self.store).locate(path[1:]))
 
         returnValue(target)
 
@@ -455,25 +477,25 @@ class Directory(File):
             path = self.path[:-1]
             if not path:
                 path = "/"
-            return RootDirectory(self.store).locate(path)
+            return RootFolder(self.store).locate(path)
 
-        raise NotFoundError("Directory %r has no child %r" % (str(self), name))
+        raise NotFoundError("Folder %r has no child %r" % (str(self), name))
 
     def list(self):
         raise NotImplementedError("%s.list() isn't implemented." % (self.__class__.__name__,))
 
 
-class RootDirectory(Directory):
+class RootFolder(Folder):
     """
     Root of virtual data hierarchy.
     """
     def __init__(self, store):
-        Directory.__init__(self, store, ())
+        Folder.__init__(self, store, ())
 
         self._children = {}
 
         self._childClasses = {
-            "uids": UIDDirectory,
+            "uids": UIDFolder,
         }
 
     def child(self, name):
@@ -484,15 +506,15 @@ class RootDirectory(Directory):
             self._children[name] = self._childClasses[name](self.store, self.path + (name,))
             return succeed(self._children[name])
 
-        return Directory.child(self, name)
+        return Folder.child(self, name)
 
     def list(self):
         return succeed(("%s/" % (n,) for n in self._childClasses))
 
 
-class UIDDirectory(Directory):
+class UIDFolder(Folder):
     """
-    Directory containing all principals by UID.
+    Folder containing all principals by UID.
     """
     @inlineCallbacks
     def child(self, name):
@@ -500,7 +522,7 @@ class UIDDirectory(Directory):
         home = (yield txn.calendarHomeWithUID(name))
 
         if home:
-            returnValue(CalendarHomeDirectory(self.store, self.path + (name,), home))
+            returnValue(CalendarHomeFolder(self.store, self.path + (name,), home))
         else:
             raise NotFoundError("No calendar home for UID %r" % (name,))
 
@@ -514,12 +536,12 @@ class UIDDirectory(Directory):
         returnValue(result)
 
 
-class CalendarHomeDirectory(Directory):
+class CalendarHomeFolder(Folder):
     """
-    Home directory.
+    Home folder.
     """
     def __init__(self, store, path, home):
-        Directory.__init__(self, store, path)
+        Folder.__init__(self, store, path)
 
         self.home = home
 
@@ -558,7 +580,7 @@ class CalendarHomeDirectory(Directory):
     def child(self, name):
         calendar = (yield self.home.calendarWithName(name))
         if calendar:
-            returnValue(CalendarDirectory(self.store, self.path + (name,), calendar))
+            returnValue(CalendarFolder(self.store, self.path + (name,), calendar))
         else:
             raise NotFoundError("Calendar home %r has no calendar %r" % (self, name))
 
@@ -568,12 +590,12 @@ class CalendarHomeDirectory(Directory):
         returnValue(("%s/" % (c.name(),) for c in calendars))
 
 
-class CalendarDirectory(Directory):
+class CalendarFolder(Folder):
     """
     Calendar.
     """
     def __init__(self, store, path, calendar):
-        Directory.__init__(self, store, path)
+        Folder.__init__(self, store, path)
 
         self.calendar = calendar
 
@@ -627,11 +649,14 @@ class CalendarObject(File):
 
         returnValue(("%s %s: %s" % (uid, componentType, summary),))
 
+    @inlineCallbacks
+    def text(self):
+        log.msg("text(%r)" % (self,))
+        component = (yield self.object.component())
+        returnValue(str(component))
+
 
 def main(argv=sys.argv, stderr=sys.stderr, reactor=None):
-    """
-    Do the export.
-    """
     if reactor is None:
         from twisted.internet import reactor
 
