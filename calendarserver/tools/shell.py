@@ -145,15 +145,10 @@ class ShellProtocol(ReceiveLineProtocol):
     def connectionMade(self):
         ReceiveLineProtocol.connectionMade(self)
 
-        CTRL_C = '\x03'
-        CTRL_D = '\x04'
-        CTRL_BACKSLASH = '\x1c'
-        CTRL_L = '\x0c'
-
-        self.keyHandlers[CTRL_C] = self.handle_INT
-        self.keyHandlers[CTRL_D] = self.handle_EOF
-        self.keyHandlers[CTRL_L] = self.handle_FF
-        self.keyHandlers[CTRL_BACKSLASH] = self.handle_QUIT
+        self.keyHandlers['\x03'] = self.handle_INT  # ^C
+        self.keyHandlers['\x04'] = self.handle_EOF  # ^D
+        self.keyHandlers['\x1c'] = self.handle_QUIT # ^\
+        self.keyHandlers['\x0c'] = self.handle_FF   # ^L
 
     def handle_INT(self):
         """
