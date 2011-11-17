@@ -558,7 +558,6 @@ def normalizeCUAddrs(data, directory, cuaCache):
 
 
 
-@inlineCallbacks
 def upgrade_to_2(config):
     
     errorOccurred = False
@@ -574,45 +573,6 @@ def upgrade_to_2(config):
         newDbPath = os.path.join(config.DataRoot, newFilename)
         if os.path.exists(oldDbPath) and not os.path.exists(newDbPath):
             os.rename(oldDbPath, newDbPath)
-
-    def migrateFromOD():
-        #
-        # Migrates locations and resources from OD
-        #
-        triggerFile = "trigger_resource_migration"
-        triggerPath = os.path.join(config.ServerRoot, triggerFile)
-        if os.path.exists(triggerPath):
-            os.remove(triggerPath)
-    
-            log.warn("Migrating locations and resources")
-    
-            directory = getDirectory()
-            userService = directory.serviceForRecordType("users")
-            resourceService = directory.serviceForRecordType("resources")
-            if (
-                not isinstance(userService, OpenDirectoryService) or
-                not isinstance(resourceService, XMLDirectoryService)
-            ):
-                # Configuration requires no migration
-                return succeed(None)
-    
-            # Fetch the autoSchedule assignments from resourceinfo.sqlite and pass
-            # those to migrateResources
-            autoSchedules = {}
-            dbPath = os.path.join(config.DataRoot, ResourceInfoDatabase.dbFilename)
-            if os.path.exists(dbPath):
-                resourceInfoDatabase = ResourceInfoDatabase(config.DataRoot)
-                results = resourceInfoDatabase._db_execute(
-                    "select GUID, AUTOSCHEDULE from RESOURCEINFO"
-                )
-                for guid, autoSchedule in results:
-                    autoSchedules[guid] = autoSchedule
-    
-            # Create internal copies of resources and locations based on what is
-            # found in OD, overriding the autoSchedule default with existing
-            # assignments from resourceinfo.sqlite
-            return migrateResources(userService, resourceService,
-                autoSchedules=autoSchedules)
 
     def flattenHome(calHome):
 
@@ -658,9 +618,9 @@ def upgrade_to_2(config):
 
         except Exception, e:
             log.error("Failed to upgrade calendar home %s: %s" % (calHome, e))
-            return False
+            return succeed(False)
         
-        return True
+        return succeed(True)
 
     def flattenHomes():
         """
@@ -695,10 +655,6 @@ def upgrade_to_2(config):
         
     renameProxyDB()
     errorOccurred = flattenHomes()
-    try:
-        yield migrateFromOD()
-    except:
-        errorOccurred = True
         
     if errorOccurred:
         raise UpgradeError("Data upgrade failed, see error.log for details")
@@ -715,6 +671,11 @@ upgradeMethods = [
 
 @inlineCallbacks
 def upgradeData(config):
+
+    try:
+        (yield migrateFromOD(config))
+    except Exception, e:
+        raise UpgradeError("Unable to migrate locations and resources from OD: %s" % (e,))
 
     docRoot = config.DocumentRoot
 
@@ -871,6 +832,46 @@ def removeIllegalCharacters(data):
         return data, True
     else:
         return data, False
+
+
+def migrateFromOD(config):
+    #
+    # Migrates locations and resources from OD
+    #
+    triggerFile = "trigger_resource_migration"
+    triggerPath = os.path.join(config.ServerRoot, triggerFile)
+    if os.path.exists(triggerPath):
+        os.remove(triggerPath)
+
+        log.warn("Migrating locations and resources")
+
+        directory = getDirectory()
+        userService = directory.serviceForRecordType("users")
+        resourceService = directory.serviceForRecordType("resources")
+        if (
+            not isinstance(userService, OpenDirectoryService) or
+            not isinstance(resourceService, XMLDirectoryService)
+        ):
+            # Configuration requires no migration
+            return succeed(None)
+
+        # Fetch the autoSchedule assignments from resourceinfo.sqlite and pass
+        # those to migrateResources
+        autoSchedules = {}
+        dbPath = os.path.join(config.DataRoot, ResourceInfoDatabase.dbFilename)
+        if os.path.exists(dbPath):
+            resourceInfoDatabase = ResourceInfoDatabase(config.DataRoot)
+            results = resourceInfoDatabase._db_execute(
+                "select GUID, AUTOSCHEDULE from RESOURCEINFO"
+            )
+            for guid, autoSchedule in results:
+                autoSchedules[guid] = autoSchedule
+
+        # Create internal copies of resources and locations based on what is
+        # found in OD, overriding the autoSchedule default with existing
+        # assignments from resourceinfo.sqlite
+        return migrateResources(userService, resourceService,
+            autoSchedules=autoSchedules)
 
 
 class UpgradeFileSystemFormatService(Service, object):
