@@ -246,6 +246,12 @@ class ShellProtocol(ReceiveLineProtocol):
         else:
             self.drawInputLine()
 
+    def _getTarget(self, tokens):
+        if tokens:
+            return self.wd.locate(tokens.pop(0).split("/"))
+        else:
+            return self.wd
+
     def cmd_pwd(self, tokens):
         """
         Print working directory.
@@ -277,10 +283,12 @@ class ShellProtocol(ReceiveLineProtocol):
         """
         List working directory.
         """
+        target = (yield self._getTarget(tokens))
+
         if tokens:
             raise UnknownArguments(tokens)
 
-        listing = (yield self.wd.list())
+        listing = (yield target.list())
 
         #
         # FIXME: this can be ugly if, for example, there are
@@ -295,11 +303,7 @@ class ShellProtocol(ReceiveLineProtocol):
         """
         Print information about working directory.
         """
-        if tokens:
-            path = tokens.pop(0)
-            target = self.wd.locate(path)
-        else:
-            target = self.wd
+        target = (yield self._getTarget(tokens))
 
         if tokens:
             raise UnknownArguments(tokens)
@@ -347,22 +351,10 @@ class Directory(object):
             returnValue(RootDirectory(self.store))
 
         name = path[0]
-        #log.msg("  name: %s" % (name,))
         if name:
-            path = list(path)
-
-            log.msg("  name: %s" % (name,))
-            log.msg("  path: %s" % (path,))
-
-            path.pop(0)
             subdir = (yield self.child(name))
-
-            log.msg("  path: %s" % (path,))
-            log.msg("  subdir: %s" % (subdir,))
-
-            if path:
-                subdir = (yield subdir.locate(path))
-
+            if len(path) > 1:
+                subdir = (yield subdir.locate(path[1:]))
         else:
             subdir = (yield RootDirectory(self.store).locate(path[1:]))
 
@@ -430,11 +422,14 @@ class UIDDirectory(Directory):
         else:
             raise NotFoundError("No calendar home for UID %r" % (name,))
 
+    @inlineCallbacks
     def list(self):
-        raise NotImplementedError("UIDDirectory.list() isn't implemented.")
-        d = self.store.eachCalendarHome()
-        d.addCallback(lambda th: ("%s/" % (h.uid(),) for (t, h) in th))
-        return d
+        result = []
+
+        for txn, home in (yield self.store.eachCalendarHome()):
+            result.append("%s/" % (home.uid(),))
+
+        returnValue(result)
 
 
 class CalendarHomeDirectory(Directory):
