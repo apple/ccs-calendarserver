@@ -339,6 +339,10 @@ class ShellProtocol(ReceiveLineProtocol):
             raise UnknownArguments(tokens)
 
         wd = (yield self.wd.locate(dirname.split("/")))
+
+        if not isinstance(wd, Directory):
+            raise NotFoundError("Not a directory: %s" % (wd,))
+
         log.msg("wd -> %s" % (wd,))
         self.wd = wd
 
@@ -399,9 +403,9 @@ class ShellProtocol(ReceiveLineProtocol):
         raise NotImplementedError()
 
 
-class Directory(object):
+class File(object):
     """
-    Location in virtual data hierarchy.
+    Object in virtual data hierarchy.
     """
     def __init__(self, store, path):
         assert type(path) is tuple
@@ -415,10 +419,16 @@ class Directory(object):
     def describe(self):
         return succeed("%s (%s)" % (self, self.__class__.__name__))
 
+    def list(self):
+        return succeed(("%s" % (self,),))
+
+
+class Directory(File):
+    """
+    Location in virtual data hierarchy.
+    """
     @inlineCallbacks
     def locate(self, path):
-        #log.msg("locate(%r)" % (path,))
-
         if not path:
             returnValue(RootDirectory(self.store))
 
@@ -430,10 +440,7 @@ class Directory(object):
         else:
             target = (yield RootDirectory(self.store).locate(path[1:]))
 
-        if isinstance(target, Directory):
-            returnValue(target)
-        else:
-            raise NotFoundError("Not found: %s" % (target,))
+        returnValue(target)
 
     def child(self, name):
         #log.msg("child(%r)" % (name,))
@@ -447,7 +454,7 @@ class Directory(object):
                 path = "/"
             return RootDirectory(self.store).locate(path)
 
-        return fail(NotFoundError("Directory %r has no child %r" % (str(self), name)))
+        raise NotFoundError("Directory %r has no child %r" % (str(self), name))
 
     def list(self):
         raise NotImplementedError("%s.list() isn't implemented." % (self.__class__.__name__,))
@@ -550,7 +557,7 @@ class CalendarHomeDirectory(Directory):
         if calendar:
             returnValue(CalendarDirectory(self.store, self.path + (name,), calendar))
         else:
-            raise NotFoundError("No calendar named %r" % (name,))
+            raise NotFoundError("Calendar home %r has no calendar %r" % (self, name))
 
     @inlineCallbacks
     def list(self):
@@ -568,19 +575,54 @@ class CalendarDirectory(Directory):
         self.calendar = calendar
 
     @inlineCallbacks
+    def _childWithObject(self, object):
+        name = (yield object.uid())
+        returnValue(CalendarObject(self.store, self.path + (name,), object))
+
+    @inlineCallbacks
+    def child(self, name):
+        object = (yield self.calendar.calendarObjectWithUID(name))
+
+        if not object:
+            raise NotFoundError("Calendar %r has no object %r" % (str(self), name))
+
+        child = (yield self._childWithObject(object))
+        returnValue(child)
+
+    @inlineCallbacks
     def list(self):
         result = []
 
         for object in (yield self.calendar.calendarObjects()):
-            component = (yield object.component())
-            mainComponent = component.mainComponent()
-            componentType = mainComponent.name()
-            #componentType = (yield object.componentType())
-            summary = mainComponent.propertyValue("SUMMARY")
-
-            result.append("%s %s: %s" % (object.uid(), componentType, summary))
+            object = (yield self._childWithObject(object))
+            items = (yield object.list())
+            assert len(items) == 1
+            result.append(items[0])
 
         returnValue(result)
+
+
+class CalendarObject(File):
+    """
+    Calendar object.
+    """
+    def __init__(self, store, path, calendarObject):
+        File.__init__(self, store, path)
+
+        self.object = calendarObject
+
+    @inlineCallbacks
+    def list(self):
+        component = (yield self.object.component())
+        mainComponent = component.mainComponent()
+        componentType = mainComponent.name()
+        uid = mainComponent.propertyValue("UID")
+        summary = mainComponent.propertyValue("SUMMARY")
+
+        assert uid == self.object.uid()
+        assert componentType == (yield self.object.componentType())
+
+        returnValue(("%s %s: %s" % (uid, componentType, summary),))
 
 
 def main(argv=sys.argv, stderr=sys.stderr, reactor=None):
