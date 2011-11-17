@@ -500,12 +500,18 @@ class CalendarDirectory(Directory):
 
     @inlineCallbacks
     def list(self):
-        objects = (yield self.calendar.calendarObjects())
+        result = []
 
-        returnValue((
-            "%s (%s)" % (o.uid(), o.componentType())
-            for o in objects
-        ))
+        for object in (yield self.calendar.calendarObjects()):
+            component = (yield object.component())
+            mainComponent = component.mainComponent()
+            componentType = mainComponent.name()
+            #componentType = (yield object.componentType())
+            summary = mainComponent.propertyValue("SUMMARY")
+
+            result.append("%s %s: %s" % (object.uid(), componentType, summary))
+
+        returnValue(result)
 
 
 def main(argv=sys.argv, stderr=sys.stderr, reactor=None):
