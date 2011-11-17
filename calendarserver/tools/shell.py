@@ -252,29 +252,25 @@ class ShellProtocol(ReceiveLineProtocol):
         """
         if tokens:
             raise UnknownArguments(tokens)
-            return
+
         self.terminal.write("%s\n" % (self.wd,))
 
+    @inlineCallbacks
     def cmd_cd(self, tokens):
         """
         Change working directory.
         """
-        if tokens:
-            dirname = tokens.pop(0)
-        else:
+        if not tokens:
             return
+
+        dirname = tokens.pop(0)
 
         if tokens:
             raise UnknownArguments(tokens)
-            return
 
-        def setWD(wd):
-            log.msg("wd -> %s" % (wd,))
-            self.wd = wd
-
-        d = self.wd.locate(dirname.split("/"))
-        d.addCallback(setWD)
-        return d
+        wd = (yield self.wd.locate(dirname.split("/")))
+        log.msg("wd -> %s" % (wd,))
+        self.wd = wd
 
     @inlineCallbacks
     def cmd_ls(self, tokens):
@@ -283,7 +279,6 @@ class ShellProtocol(ReceiveLineProtocol):
         """
         if tokens:
             raise UnknownArguments(tokens)
-            return
 
         listing = (yield self.wd.list())
 
@@ -295,21 +290,23 @@ class ShellProtocol(ReceiveLineProtocol):
         for name in listing:
             self.terminal.write("%s\n" % (name,))
 
+    @inlineCallbacks
     def cmd_info(self, tokens):
         """
         Print information about working directory.
         """
         if tokens:
+            path = tokens.pop(0)
+            target = self.wd.locate(path)
+        else:
+            target = self.wd
+
+        if tokens:
             raise UnknownArguments(tokens)
-            return
 
-        def write(description):
-            self.terminal.write(description)
-            self.terminal.nextLine()
-
-        d = self.wd.describe()
-        d.addCallback(write)
-        return d
+        description = (yield target.describe())
+        self.terminal.write(description)
+        self.terminal.nextLine()
 
     def cmd_exit(self, tokens):
         """
@@ -342,35 +339,40 @@ class Directory(object):
     def describe(self):
         return succeed("%s (%s)" % (self, self.__class__.__name__))
 
+    @inlineCallbacks
     def locate(self, path):
         #log.msg("locate(%r)" % (path,))
 
         if not path:
-            return succeed(RootDirectory(self.store))
+            returnValue(RootDirectory(self.store))
 
         name = path[0]
         #log.msg("  name: %s" % (name,))
-        if not name:
-            return self.locate(path[1:])
+        if name:
+            path = list(path)
 
-        path = list(path)
-        #log.msg("  path: %s" % (path,))
+            log.msg("  name: %s" % (name,))
+            log.msg("  path: %s" % (path,))
 
-        if name.startswith("/"):
-            path[0] = path[0][1:]
-            subdir = succeed(RootDirectory(self.store))
-        else:
             path.pop(0)
-            subdir = self.subdir(name)
-        #log.msg("  subdir: %s" % (subdir,))
+            subdir = (yield self.child(name))
 
-        if path:
-            return subdir.addCallback(lambda subdir: subdir.locate(path))
+            log.msg("  path: %s" % (path,))
+            log.msg("  subdir: %s" % (subdir,))
+
+            if path:
+                subdir = (yield subdir.locate(path))
+
         else:
-            return subdir
+            subdir = (yield RootDirectory(self.store).locate(path[1:]))
 
-    def subdir(self, name):
-        #log.msg("subdir(%r)" % (name,))
+        if isinstance(subdir, Directory):
+            returnValue(subdir)
+        else:
+            raise NotFoundError("Not a directory: %s" % (subdir,))
+
+    def child(self, name):
+        #log.msg("child(%r)" % (name,))
         if not name:
             return succeed(self)
         if name == ".":
@@ -381,7 +383,7 @@ class Directory(object):
                 path = "/"
             return RootDirectory(self.store).locate(path)
 
-        return fail(NotFoundError("Directory %r has no subdirectory %r" % (str(self), name)))
+        return fail(NotFoundError("Directory %r has no child %r" % (str(self), name)))
 
     def list(self):
         raise NotImplementedError("%s.list() isn't implemented." % (self.__class__.__name__,))
@@ -400,7 +402,7 @@ class RootDirectory(Directory):
             "uids": UIDDirectory,
         }
 
-    def subdir(self, name):
+    def child(self, name):
         if name in self._children:
             return succeed(self._children[name])
 
@@ -408,7 +410,7 @@ class RootDirectory(Directory):
             self._children[name] = self._childClasses[name](self.store, self.path + (name,))
             return succeed(self._children[name])
 
-        return Directory.subdir(self, name)
+        return Directory.child(self, name)
 
     def list(self):
         return succeed(("%s/" % (n,) for n in self._childClasses))
@@ -419,7 +421,7 @@ class UIDDirectory(Directory):
     Directory containing all principals by UID.
     """
     @inlineCallbacks
-    def subdir(self, name):
+    def child(self, name):
         txn  = self.store.newTransaction()
         home = (yield txn.calendarHomeWithUID(name))
 
@@ -476,7 +478,7 @@ class CalendarHomeDirectory(Directory):
         returnValue("\n".join(result))
 
     @inlineCallbacks
-    def subdir(self, name):
+    def child(self, name):
         calendar = (yield self.home.calendarWithName(name))
         if calendar:
             returnValue(CalendarDirectory(self.store, self.path + (name,), calendar))
