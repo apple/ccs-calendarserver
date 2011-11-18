@@ -55,6 +55,7 @@ from txdav.caldav.icalendarstore import IAttachmentStorageTransport
 from txdav.caldav.icalendarstore import QuotaExceeded
 from txdav.common.datastore.test.util import deriveQuota
 from txdav.common.datastore.test.util import withSpecialQuota
+from txdav.common.icommondatastore import ConcurrentModification
 from twistedcaldav.ical import Component
 
 storePath = FilePath(__file__).parent().child("calendar_store")
@@ -733,17 +734,23 @@ class CommonTests(CommonCommonTests):
     def test_calendarObjectRemoveConcurrent(self):
         """
         If a transaction, C{A}, is examining an L{ICalendarObject} C{O} while
-        another transaction, C{B}, deletes O, L{O.text()} should raise an
-        exception.
+        another transaction, C{B}, deletes O, L{O.component()} should raise
+        L{ConcurrentModification}.  (This assumes that we are in the default
+        serialization level, C{READ COMMITTED}.  This test might fail if
+        something changes that.)
         """
         calendarObject = yield self.calendarObjectUnderTest()
         ctxn = self.concurrentTransaction()
         calendar1prime = yield self.calendarUnderTest(ctxn)
-        removal = calendar1prime.removeCalendarObjectWithName("1.ics")
-        retrieval = calendarObject.component()
-        def oneOf(deferreds):
+        yield calendar1prime.removeCalendarObjectWithName("1.ics")
+        yield ctxn.commit()
+        try:
+            retrieval = yield calendarObject.component()
+        except ConcurrentModification:
             pass
-        yield oneOf([removal, retrieval])
+        else:
+            self.fail("ConcurrentModification not raised, %r returned." %
+                      (retrieval,))
 
 
     @inlineCallbacks
