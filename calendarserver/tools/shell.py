@@ -124,6 +124,8 @@ class UnknownArguments (Exception):
         self.arguments = arguments
 
 
+EMULATE_EMACS = object()
+
 class ShellProtocol(ReceiveLineProtocol):
     """
     Data store shell protocol.
@@ -141,22 +143,24 @@ class ShellProtocol(ReceiveLineProtocol):
         self.wd = RootFolder(service.store)
         self.inputLines = []
         self.activeCommand = None
+        self.emulate = EMULATE_EMACS
 
     def connectionMade(self):
         ReceiveLineProtocol.connectionMade(self)
 
-        self.keyHandlers['\x03'] = self.handle_INT  # Control-C
-        self.keyHandlers['\x04'] = self.handle_EOF  # Control-D
-        self.keyHandlers['\x1c'] = self.handle_QUIT # Control-\
-        self.keyHandlers['\x0c'] = self.handle_FF   # Control-L
+        self.keyHandlers['\x03'] = self.handle_INT   # Control-C
+        self.keyHandlers['\x04'] = self.handle_EOF   # Control-D
+        self.keyHandlers['\x1c'] = self.handle_QUIT  # Control-\
+        self.keyHandlers['\x0c'] = self.handle_FF    # Control-L
 
-        # EMACS key bindinds
-        self.keyHandlers['\x10'] = self.handle_UP    # Control-P
-        self.keyHandlers['\x0e'] = self.handle_DOWN  # Control-N
-        self.keyHandlers['\x02'] = self.handle_LEFT  # Control-B
-        self.keyHandlers['\x06'] = self.handle_RIGHT # Control-F
-        self.keyHandlers['\x01'] = self.handle_HOME  # Control-A
-        self.keyHandlers['\x05'] = self.handle_END   # Control-E
+        if self.emulate is EMULATE_EMACS:
+            # EMACS key bindinds
+            self.keyHandlers['\x10'] = self.handle_UP     # Control-P
+            self.keyHandlers['\x0e'] = self.handle_DOWN   # Control-N
+            self.keyHandlers['\x02'] = self.handle_LEFT   # Control-B
+            self.keyHandlers['\x06'] = self.handle_RIGHT  # Control-F
+            self.keyHandlers['\x01'] = self.handle_HOME   # Control-A
+            self.keyHandlers['\x05'] = self.handle_END    # Control-E
 
     def handle_INT(self):
         """
@@ -174,7 +178,10 @@ class ShellProtocol(ReceiveLineProtocol):
 
     def handle_EOF(self):
         if self.lineBuffer:
-            self.terminal.write('\a')
+            if self.emulate is EMULATE_EMACS:
+                self.handle_DELETE()
+            else:
+                self.terminal.write('\a')
         else:
             self.handle_QUIT()
 
@@ -312,6 +319,9 @@ class ShellProtocol(ReceiveLineProtocol):
                 if attr.startswith("cmd_"):
                     m = getattr(self, attr)
 
+                    if hasattr(m, "hidden"):
+                        continue
+
                     for line in m.__doc__.split("\n"):
                         line = line.strip()
                         if line:
@@ -426,6 +436,8 @@ class ShellProtocol(ReceiveLineProtocol):
         # Crazy idea #19568: switch to an interactive python prompt
         # with self exposed in globals.
         raise NotImplementedError()
+
+    cmd_python.hidden = "Not implemented"
 
 
 class File(object):
@@ -546,6 +558,19 @@ class CalendarHomeFolder(Folder):
         self.home = home
 
     @inlineCallbacks
+    def child(self, name):
+        calendar = (yield self.home.calendarWithName(name))
+        if calendar:
+            returnValue(CalendarFolder(self.store, self.path + (name,), calendar))
+        else:
+            raise NotFoundError("Calendar home %r has no calendar %r" % (self, name))
+
+    @inlineCallbacks
+    def list(self):
+        calendars = (yield self.home.calendars())
+        returnValue(("%s/" % (c.name(),) for c in calendars))
+
+    @inlineCallbacks
     def describe(self):
         # created() -> int
         # modified() -> int
@@ -575,19 +600,6 @@ class CalendarHomeFolder(Folder):
                 result.append("%s: %s" % (name, properties[name]))
 
         returnValue("\n".join(result))
-
-    @inlineCallbacks
-    def child(self, name):
-        calendar = (yield self.home.calendarWithName(name))
-        if calendar:
-            returnValue(CalendarFolder(self.store, self.path + (name,), calendar))
-        else:
-            raise NotFoundError("Calendar home %r has no calendar %r" % (self, name))
-
-    @inlineCallbacks
-    def list(self):
-        calendars = (yield self.home.calendars())
-        returnValue(("%s/" % (c.name(),) for c in calendars))
 
 
 class CalendarFolder(Folder):
@@ -654,6 +666,46 @@ class CalendarObject(File):
         log.msg("text(%r)" % (self,))
         component = (yield self.object.component())
         returnValue(str(component))
+
+    @inlineCallbacks
+    def describe(self):
+        component = (yield self.object.component())
+        mainComponent = component.mainComponent()
+        componentType = mainComponent.name()
+
+        uid = mainComponent.propertyValue("UID")
+        summary = mainComponent.propertyValue("SUMMARY")
+
+        assert uid == self.object.uid()
+        assert componentType == (yield self.object.componentType())
+
+        result = []
+
+        result.append("Calendar object (%s) for UID: %s" % (componentType, uid))
+        result.append("Summary: %s" % (summary,))
+
+        #
+        # Organizer
+        #
+        organizer = mainComponent.getProperty("ORGANIZER")
+        organizerName = organizer.parameterValue("CN")
+        organizerEmail = organizer.parameterValue("EMAIL")
+
+        if organizer:
+            name  = " (%s)" % (organizerName ,) if organizerName  else ""
+            email = " <%s>" % (organizerEmail,) if organizerEmail else ""
+            result.append("Organized by: %s%s%s" % (organizer.value(), name, email))
+
+        #
+        # Attachments
+        #
+#        attachments = (yield self.object.attachments())
+#        log.msg("%r" % (attachments,))
+#        for attachment in attachments:
+#            log.msg("%r" % (attachment,))
+#            # FIXME: Not getting any results here
+
+        returnValue("\n".join(result))
 
 
 def main(argv=sys.argv, stderr=sys.stderr, reactor=None):
