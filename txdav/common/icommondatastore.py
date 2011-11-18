@@ -35,6 +35,7 @@ __all__ = [
     "NotFoundError",
     "NoSuchHomeChildError",
     "NoSuchObjectResourceError",
+    "ConcurrentModification",
     "InvalidObjectResourceError",
     "InternalDataStoreError",
 ]
@@ -96,6 +97,18 @@ class NoSuchHomeChildError(NotFoundError):
 class NoSuchObjectResourceError(NotFoundError):
     """
     The requested object resource does not exist.
+    """
+
+class ConcurrentModification(NotFoundError):
+    """
+    Despite being loaded in the current transaction, the object whose data is
+    being requested has been deleted or modified in another transaction, and
+    therefore that data can no longer be retrieved.
+
+    (Note: in the future we should be able to avoid these types of errors with
+    more usage of locking, but until the impact of that on performance is
+    determined, callers of C{component()} need to be aware that this can
+    happen.)
     """
 
 class InvalidObjectResourceError(CommonStoreError):
