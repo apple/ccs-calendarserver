@@ -116,6 +116,15 @@ class IDataStore(Interface):
         @rtype: L{ITransaction}
         """
 
+    def setMigrating(state):
+        """
+        Set the "migrating" state to either True or False.  This state is
+        used to supress push notifications and etag changes.
+
+        @param state: the boolean value to set the migrating state to
+        @type state: C{boolean}
+        """
+
 
 class IDataStoreObject(Interface):
     """

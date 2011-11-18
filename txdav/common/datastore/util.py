@@ -131,6 +131,8 @@ class UpgradeToDatabaseService(Service, LoggingMixIn, object):
 
         @return: a Deferred which fires when the migration is complete.
         """
+        self.sqlStore.setMigrating(True)
+
         self.log_warn("Beginning filesystem -> database upgrade.")
         for homeType, migrateFunc, eachFunc, destFunc, topPathName in [
             ("calendar", migrateCalendarHome,
@@ -145,7 +147,7 @@ class UpgradeToDatabaseService(Service, LoggingMixIn, object):
             for fileTxn, fileHome in eachFunc():
                 uid = fileHome.uid()
                 self.log_warn("Migrating %s UID %r" % (homeType, uid))
-                sqlTxn = self.sqlStore.newTransaction(migrating=True)
+                sqlTxn = self.sqlStore.newTransaction()
                 homeGetter = destFunc(sqlTxn)
                 if (yield homeGetter(uid, create=False)) is not None:
                     self.log_warn(
@@ -180,6 +182,8 @@ class UpgradeToDatabaseService(Service, LoggingMixIn, object):
             gid = self.gid or -1
             for fp in sqlAttachmentsPath.walk():
                 os.chown(fp.path, uid, gid)
+
+        self.sqlStore.setMigrating(False)
 
         self.log_warn(
             "Filesystem upgrade complete, launching database service."

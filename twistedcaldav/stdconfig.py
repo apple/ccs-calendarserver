@@ -644,7 +644,7 @@ DEFAULT_CONFIG = {
                 "ProviderPort" : 2195,
                 "FeedbackHost" : "feedback.push.apple.com",
                 "FeedbackPort" : 2196,
-                "FeedbackUpdateSeconds" : 300, # 5 minutes
+                "FeedbackUpdateSeconds" : 28800, # 8 hours
                 "Environment" : "PRODUCTION",
                 "CalDAV" : {
                     "CertificatePath" : "",

@@ -142,6 +142,7 @@ class CommonDataStore(Service, object):
         self.enableAddressBooks = enableAddressBooks
         self.label = label
         self.quota = quota
+        self._migrating = False
 
 
     def eachCalendarHome(self):
@@ -159,7 +160,7 @@ class CommonDataStore(Service, object):
 
 
 
-    def newTransaction(self, label="unlabeled", migrating=False):
+    def newTransaction(self, label="unlabeled"):
         """
         @see L{IDataStore.newTransaction}
         """
@@ -168,10 +169,17 @@ class CommonDataStore(Service, object):
             self.sqlTxnFactory(),
             self.enableCalendars,
             self.enableAddressBooks,
-            None if migrating else self.notifierFactory,
+            None if self._migrating else self.notifierFactory,
             label,
-            migrating,
+            self._migrating,
         )
+
+    def setMigrating(self, state):
+        """
+        Set the "migrating" state
+        """
+        self._migrating = state
+
 
 class TransactionStatsCollector(object):
     

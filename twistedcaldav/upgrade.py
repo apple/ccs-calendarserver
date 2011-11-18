@@ -989,7 +989,9 @@ class PostDBImportService(Service, object):
                 os.chown(dbPath, uid, gid)
 
         # Process old inbox items
+        self.store.setMigrating(True)
         yield self.processInboxItems()
+        self.store.setMigrating(False)
 
 
     @inlineCallbacks
@@ -1091,7 +1093,6 @@ class PostDBImportService(Service, object):
         log.debug("Processing inbox item %s" % (inboxItem,))
 
         txn = request._newStoreTransaction
-        txn._notifierFactory = None # Do not send push notifications
 
         ownerPrincipal = principal
         cua = "urn:uuid:%s" % (uuid,)
