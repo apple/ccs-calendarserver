@@ -115,7 +115,12 @@ class ShellService(Service, object):
         os.write(self.terminalFD, "\r\x1bc\r")
 
 
-class UnknownArguments (Exception):
+class UsageError (Exception):
+    """
+    Usage error.
+    """
+
+class UnknownArguments (UsageError):
     """
     Unknown arguments.
     """
@@ -125,6 +130,7 @@ class UnknownArguments (Exception):
 
 
 EMULATE_EMACS = object()
+EMULATE_VI    = object()
 
 class ShellProtocol(ReceiveLineProtocol):
     """
@@ -153,7 +159,7 @@ class ShellProtocol(ReceiveLineProtocol):
         self.keyHandlers['\x1c'] = self.handle_QUIT  # Control-\
         self.keyHandlers['\x0c'] = self.handle_FF    # Control-L
 
-        if self.emulate is EMULATE_EMACS:
+        if self.emulate == EMULATE_EMACS:
             # EMACS key bindinds
             self.keyHandlers['\x10'] = self.handle_UP     # Control-P
             self.keyHandlers['\x0e'] = self.handle_DOWN   # Control-N
@@ -178,7 +184,7 @@ class ShellProtocol(ReceiveLineProtocol):
 
     def handle_EOF(self):
         if self.lineBuffer:
-            if self.emulate is EMULATE_EMACS:
+            if self.emulate == EMULATE_EMACS:
                 self.handle_DELETE()
             else:
                 self.terminal.write('\a')
@@ -222,8 +228,8 @@ class ShellProtocol(ReceiveLineProtocol):
 
             m = getattr(self, "cmd_%s" % (cmd,), None)
             if m:
-                def handleUnknownArguments(f):
-                    f.trap(UnknownArguments)
+                def handleUsageError(f):
+                    f.trap(UsageError)
                     self.terminal.write("%s\n" % (f.value,))
 
                 def handleException(f):
@@ -247,7 +253,7 @@ class ShellProtocol(ReceiveLineProtocol):
                 else:
                     # Add time to test callbacks
                     self.service.reactor.callLater(4, d.callback, None)
-                d.addErrback(handleUnknownArguments)
+                d.addErrback(handleUsageError)
                 d.addErrback(handleException)
                 d.addCallback(next)
             else:
@@ -334,6 +340,31 @@ class ShellProtocol(ReceiveLineProtocol):
 
             for info in sorted(result):
                 self.terminal.write("  %s - %s\n" % (info))
+
+    def cmd_emulate(self, tokens):
+        """
+        Emulate editor behavior.
+        The only correct argument is "emacs".
+
+        usage: emulate editor
+        """
+        if not tokens:
+            raise UsageError("Editor not specified.")
+
+        editor = tokens.pop(0).lower()
+
+        if tokens:
+            raise UnknownArguments(tokens)
+
+        if editor == "emacs":
+            self.terminal.write("Emulating EMACS.")
+            self.emulate = EMULATE_EMACS
+        elif editor == "vi":
+            self.terminal.write("Seriously?!?!?")
+            self.emulate = EMULATE_VI
+        else:
+            raise UsageError("Unknown editor: %s" % (editor,))
+        self.terminal.nextLine()
 
     def cmd_pwd(self, tokens):
         """
