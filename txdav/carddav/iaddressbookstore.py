@@ -254,6 +254,10 @@ class IAddressBookObject(IDataStoreObject):
         """
         Retrieve the addressbook component for this addressbook object.
 
+        @raise ConcurrentModification: if this L{IAddressBookObject} has been
+            deleted and committed by another transaction between its creation
+            and the first call to this method.
+
         @return: a C{VCARD} L{VComponent}.
         """
 
