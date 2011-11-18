@@ -41,6 +41,7 @@ from txdav.common.icommondatastore import NotFoundError
 from twistedcaldav.stdconfig import DEFAULT_CONFIG_FILE
 
 from calendarserver.tools.cmdline import utilityMain
+from calendarserver.tools.util import getDirectory
 
 
 def usage(e=None):
@@ -79,9 +80,10 @@ class ShellOptions(Options):
 
 
 class ShellService(Service, object):
-    def __init__(self, store, options, reactor, config):
+    def __init__(self, store, directory, options, reactor, config):
         super(ShellService, self).__init__()
         self.store      = store
+        self.directory  = directory
         self.options    = options
         self.reactor    = reactor
         self.config     = config
@@ -146,7 +148,7 @@ class ShellProtocol(ReceiveLineProtocol):
     def __init__(self, service):
         ReceiveLineProtocol.__init__(self)
         self.service = service
-        self.wd = RootFolder(service.store)
+        self.wd = RootFolder(service)
         self.inputLines = []
         self.activeCommand = None
         self.emulate = EMULATE_EMACS
@@ -479,11 +481,11 @@ class File(object):
     """
     Object in virtual data hierarchy.
     """
-    def __init__(self, store, path):
+    def __init__(self, service, path):
         assert type(path) is tuple
 
-        self.store = store
-        self.path = path
+        self.service = service
+        self.path    = path
 
     def __str__(self):
         return "/" + "/".join(self.path)
@@ -499,10 +501,16 @@ class Folder(File):
     """
     Location in virtual data hierarchy.
     """
+    def __init__(self, service, path):
+        File.__init__(self, service, path)
+
+        self._children = {}
+        self._childClasses = {}
+
     @inlineCallbacks
     def locate(self, path):
         if not path:
-            returnValue(RootFolder(self.store))
+            returnValue(RootFolder(self.service))
 
         name = path[0]
         if name:
@@ -510,85 +518,96 @@ class Folder(File):
             if len(path) > 1:
                 target = (yield target.locate(path[1:]))
         else:
-            target = (yield RootFolder(self.store).locate(path[1:]))
+            target = (yield RootFolder(self.service).locate(path[1:]))
 
         returnValue(target)
 
+    @inlineCallbacks
     def child(self, name):
-        #log.msg("child(%r)" % (name,))
-        if not name:
-            return succeed(self)
-        if name == ".":
-            return succeed(self)
-        if name == "..":
-            path = self.path[:-1]
-            if not path:
-                path = "/"
-            return RootFolder(self.store).locate(path)
+        # FIXME: Move this logic to locate()
+        #if not name:
+        #    return succeed(self)
+        #if name == ".":
+        #    return succeed(self)
+        #if name == "..":
+        #    path = self.path[:-1]
+        #    if not path:
+        #        path = "/"
+        #    return RootFolder(self.service).locate(path)
+
+        if name in self._children:
+            returnValue(self._children[name])
+
+        if name in self._childClasses:
+            child = (yield self._childClasses[name](self.service, self.path + (name,)))
+            self._children[name] = child
+            returnValue(child)
 
         raise NotFoundError("Folder %r has no child %r" % (str(self), name))
 
     def list(self):
-        raise NotImplementedError("%s.list() isn't implemented." % (self.__class__.__name__,))
+        return succeed(("%s/" % (n,) for n in self._childClasses))
 
 
 class RootFolder(Folder):
     """
     Root of virtual data hierarchy.
     """
-    def __init__(self, store):
-        Folder.__init__(self, store, ())
+    def __init__(self, service):
+        Folder.__init__(self, service, ())
 
-        self._children = {}
-
-        self._childClasses = {
-            "uids": UIDFolder,
-        }
-
-    def child(self, name):
-        if name in self._children:
-            return succeed(self._children[name])
-
-        if name in self._childClasses:
-            self._children[name] = self._childClasses[name](self.store, self.path + (name,))
-            return succeed(self._children[name])
-
-        return Folder.child(self, name)
-
-    def list(self):
-        return succeed(("%s/" % (n,) for n in self._childClasses))
+        self._childClasses["uids"] = UIDFolder
 
 
 class UIDFolder(Folder):
     """
     Folder containing all principals by UID.
     """
-    @inlineCallbacks
     def child(self, name):
-        txn  = self.store.newTransaction()
-        home = (yield txn.calendarHomeWithUID(name))
-
-        if home:
-            returnValue(CalendarHomeFolder(self.store, self.path + (name,), home))
-        else:
-            raise NotFoundError("No calendar home for UID %r" % (name,))
+        return PrincipalHomeFolder(self.service, self.path + (name,), name)
 
     @inlineCallbacks
     def list(self):
         result = []
 
-        for txn, home in (yield self.store.eachCalendarHome()):
+        # FIXME: This should be the merged total of calendar homes and address book homes.
+        # FIXME: Merge in directory UIDs also?
+        # FIXME: Add directory info (eg. name) to listing
+
+        for txn, home in (yield self.service.store.eachCalendarHome()):
             result.append("%s/" % (home.uid(),))
 
         returnValue(result)
+
+
+class PrincipalHomeFolder(Folder):
+    """
+    Folder containing everything related to a given principal.
+    """
+    def __init__(self, service, path, uid):
+        Folder.__init__(self, service, path)
+
+        self.uid = uid
+
+        @inlineCallbacks
+        def calendarHomeFolder(service, path):
+            txn  = self.service.store.newTransaction()
+            home = (yield txn.calendarHomeWithUID(self.uid))
+
+            if home:
+                returnValue(CalendarHomeFolder(service, path, home))
+            else:
+                returnValue(Folder(service, path))
+
+        self._childClasses["calendars"] = calendarHomeFolder
 
 
 class CalendarHomeFolder(Folder):
     """
     Home folder.
     """
-    def __init__(self, store, path, home):
-        Folder.__init__(self, store, path)
+    def __init__(self, service, path, home):
+        Folder.__init__(self, service, path)
 
         self.home = home
 
@@ -596,7 +615,7 @@ class CalendarHomeFolder(Folder):
     def child(self, name):
         calendar = (yield self.home.calendarWithName(name))
         if calendar:
-            returnValue(CalendarFolder(self.store, self.path + (name,), calendar))
+            returnValue(CalendarFolder(self.service, self.path + (name,), calendar))
         else:
             raise NotFoundError("Calendar home %r has no calendar %r" % (self, name))
 
@@ -641,15 +660,15 @@ class CalendarFolder(Folder):
     """
     Calendar.
     """
-    def __init__(self, store, path, calendar):
-        Folder.__init__(self, store, path)
+    def __init__(self, service, path, calendar):
+        Folder.__init__(self, service, path)
 
         self.calendar = calendar
 
     @inlineCallbacks
     def _childWithObject(self, object):
         name = (yield object.uid())
-        returnValue(CalendarObject(self.store, self.path + (name,), object))
+        returnValue(CalendarObject(self.service, self.path + (name,), object))
 
     @inlineCallbacks
     def child(self, name):
@@ -678,8 +697,8 @@ class CalendarObject(File):
     """
     Calendar object.
     """
-    def __init__(self, store, path, calendarObject):
-        File.__init__(self, store, path)
+    def __init__(self, service, path, calendarObject):
+        File.__init__(self, service, path)
 
         self.object = calendarObject
 
@@ -755,7 +774,8 @@ def main(argv=sys.argv, stderr=sys.stderr, reactor=None):
 
     def makeService(store):
         from twistedcaldav.config import config
-        return ShellService(store, options, reactor, config)
+        directory = getDirectory()
+        return ShellService(store, directory, options, reactor, config)
 
     print "Initializing shell..."
 
