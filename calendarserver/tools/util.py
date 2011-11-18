@@ -155,6 +155,7 @@ def getDirectory():
         directories.append(resourceDirectory)
 
     aggregate = MyDirectoryService(directories, None)
+    aggregate.augmentService = augmentService
 
     #
     # Wire up the resource hierarchy

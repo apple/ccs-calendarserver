@@ -90,7 +90,7 @@ def getCalendarServerIDs(config):
 #
 
 @inlineCallbacks
-def upgrade_to_1(config):
+def upgrade_to_1(config, directory):
 
     errorOccurred = False
 
@@ -363,7 +363,6 @@ def upgrade_to_1(config):
 
 
 
-    directory = getDirectory()
     cuaCache = {}
 
     docRoot = config.DocumentRoot
@@ -558,7 +557,8 @@ def normalizeCUAddrs(data, directory, cuaCache):
 
 
 
-def upgrade_to_2(config):
+@inlineCallbacks
+def upgrade_to_2(config, directory):
     
     errorOccurred = False
 
@@ -650,15 +650,19 @@ def upgrade_to_2(config):
                                     continue
                                 if not flattenHome(calHome):
                                     errorOccurred = True
-        
+
         return errorOccurred
-        
+
     renameProxyDB()
+
+    # Move auto-schedule from resourceinfo sqlite to augments:
+    yield migrateAutoSchedule(config, directory)
+
     errorOccurred = flattenHomes()
-        
+
     if errorOccurred:
         raise UpgradeError("Data upgrade failed, see error.log for details")
-    
+
 
 # The on-disk version number (which defaults to zero if .calendarserver_version
 # doesn't exist), is compared with each of the numbers in the upgradeMethods
@@ -672,8 +676,12 @@ upgradeMethods = [
 @inlineCallbacks
 def upgradeData(config):
 
+    directory = getDirectory()
+
     try:
-        (yield migrateFromOD(config))
+        # Migrate locations/resources now because upgrade_to_1 depends on them
+        # being in resources.xml
+        (yield migrateFromOD(config, directory))
     except Exception, e:
         raise UpgradeError("Unable to migrate locations and resources from OD: %s" % (e,))
 
@@ -698,7 +706,7 @@ def upgradeData(config):
     for version, method in upgradeMethods:
         if onDiskVersion < version:
             log.warn("Upgrading to version %d" % (version,))
-            (yield method(config))
+            (yield method(config, directory))
             log.warn("Upgraded to version %d" % (version,))
             with open(versionFilePath, "w") as verFile:
                 verFile.write(str(version))
@@ -834,7 +842,8 @@ def removeIllegalCharacters(data):
         return data, False
 
 
-def migrateFromOD(config):
+# Deferred
+def migrateFromOD(config, directory):
     #
     # Migrates locations and resources from OD
     #
@@ -845,7 +854,6 @@ def migrateFromOD(config):
 
         log.warn("Migrating locations and resources")
 
-        directory = getDirectory()
         userService = directory.serviceForRecordType("users")
         resourceService = directory.serviceForRecordType("resources")
         if (
@@ -855,23 +863,31 @@ def migrateFromOD(config):
             # Configuration requires no migration
             return succeed(None)
 
-        # Fetch the autoSchedule assignments from resourceinfo.sqlite and pass
-        # those to migrateResources
-        autoSchedules = {}
-        dbPath = os.path.join(config.DataRoot, ResourceInfoDatabase.dbFilename)
-        if os.path.exists(dbPath):
-            resourceInfoDatabase = ResourceInfoDatabase(config.DataRoot)
-            results = resourceInfoDatabase._db_execute(
-                "select GUID, AUTOSCHEDULE from RESOURCEINFO"
-            )
-            for guid, autoSchedule in results:
-                autoSchedules[guid] = autoSchedule
-
         # Create internal copies of resources and locations based on what is
-        # found in OD, overriding the autoSchedule default with existing
-        # assignments from resourceinfo.sqlite
-        return migrateResources(userService, resourceService,
-            autoSchedules=autoSchedules)
+        # found in OD
+        return migrateResources(userService, resourceService)
+
+
+@inlineCallbacks
+def migrateAutoSchedule(config, directory):
+    # Fetch the autoSchedule assignments from resourceinfo.sqlite and store
+    # the values in augments
+    augmentService = directory.augmentService
+    augmentRecords = []
+    dbPath = os.path.join(config.DataRoot, ResourceInfoDatabase.dbFilename)
+    if os.path.exists(dbPath):
+        resourceInfoDatabase = ResourceInfoDatabase(config.DataRoot)
+        results = resourceInfoDatabase._db_execute(
+            "select GUID, AUTOSCHEDULE from RESOURCEINFO"
+        )
+        for guid, autoSchedule in results:
+            record = directory.recordWithGUID(guid)
+            if record is not None:
+                augmentRecord = (yield augmentService.getAugmentRecord(guid, record.recordType))
+                augmentRecord.autoSchedule = autoSchedule
+                augmentRecords.append(augmentRecord)
+
+    yield augmentService.addAugmentRecords(augmentRecords)
 
 
 class UpgradeFileSystemFormatService(Service, object):
