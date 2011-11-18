@@ -344,7 +344,8 @@ class ShellProtocol(ReceiveLineProtocol):
     def cmd_emulate(self, tokens):
         """
         Emulate editor behavior.
-        The only correct argument is "emacs".
+        The only correct argument is: emacs
+        Other choices include: vi, none
 
         usage: emulate editor
         """
@@ -362,6 +363,9 @@ class ShellProtocol(ReceiveLineProtocol):
         elif editor == "vi":
             self.terminal.write("Seriously?!?!?")
             self.emulate = EMULATE_VI
+        elif editor == "none":
+            self.terminal.write("Disabling emulation.")
+            self.emulate = None
         else:
             raise UsageError("Unknown editor: %s" % (editor,))
         self.terminal.nextLine()
