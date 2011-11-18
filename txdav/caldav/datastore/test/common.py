@@ -257,34 +257,33 @@ class CommonTests(CommonCommonTests):
 
 
     @inlineCallbacks
-    def homeUnderTest(self):
+    def homeUnderTest(self, txn=None):
         """
         Get the calendar home detailed by C{requirements['home1']}.
         """
-        returnValue(
-            (yield self.transactionUnderTest().calendarHomeWithUID("home1"))
-        )
+        if txn is None:
+            txn = self.transactionUnderTest()
+        returnValue((yield txn.calendarHomeWithUID("home1")))
 
 
     @inlineCallbacks
-    def calendarUnderTest(self):
+    def calendarUnderTest(self, txn=None):
         """
         Get the calendar detailed by C{requirements['home1']['calendar_1']}.
         """
         returnValue((yield
-            (yield self.homeUnderTest()).calendarWithName("calendar_1"))
+            (yield self.homeUnderTest(txn)).calendarWithName("calendar_1"))
         )
 
 
     @inlineCallbacks
-    def calendarObjectUnderTest(self, name="1.ics"):
+    def calendarObjectUnderTest(self, name="1.ics", txn=None):
         """
         Get the calendar detailed by
         C{requirements['home1']['calendar_1'][name]}.
         """
-        returnValue(
-            (yield (yield self.calendarUnderTest())
-                .calendarObjectWithName(name)))
+        returnValue((yield (yield self.calendarUnderTest(txn))
+                     .calendarObjectWithName(name)))
 
 
     def test_calendarStoreProvides(self):
@@ -728,6 +727,23 @@ class CommonTests(CommonCommonTests):
         calendarObjects = list((yield calendar1.calendarObjects()))
         self.assertEquals(set(o.name() for o in calendarObjects),
                           set(calendar1_objectNames) - set(["2.ics"]))
+
+
+    @inlineCallbacks
+    def test_calendarObjectRemoveConcurrent(self):
+        """
+        If a transaction, C{A}, is examining an L{ICalendarObject} C{O} while
+        another transaction, C{B}, deletes O, L{O.text()} should raise an
+        exception.
+        """
+        calendarObject = yield self.calendarObjectUnderTest()
+        ctxn = self.concurrentTransaction()
+        calendar1prime = yield self.calendarUnderTest(ctxn)
+        removal = calendar1prime.removeCalendarObjectWithName("1.ics")
+        retrieval = calendarObject.component()
+        def oneOf(deferreds):
+            pass
+        yield oneOf([removal, retrieval])
 
 
     @inlineCallbacks
