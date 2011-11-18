@@ -368,6 +368,10 @@ class ICalendarObject(IDataStoreObject):
         """
         Retrieve the calendar component for this calendar object.
 
+        @raise ConcurrentModification: if this L{ICalendarObject} has been
+            deleted and committed by another transaction between its creation
+            and the first call to this method.
+
         @return: a C{VCALENDAR} L{VComponent}.
         """
 

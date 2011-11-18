@@ -75,6 +75,7 @@ from txdav.base.propertystore.base import PropertyName
 from txdav.base.propertystore.none import PropertyStore as NonePropertyStore
 from txdav.base.propertystore.sql import PropertyStore
 
+from txdav.common.icommondatastore import ConcurrentModification
 from twistedcaldav.customxml import NotificationType
 from twistedcaldav.dateops import datetimeMktime, parseSQLTimestamp,\
     pyCalendarTodatetime
@@ -2590,12 +2591,16 @@ class CommonObjectResource(LoggingMixIn, FancyEqMixin):
     @inlineCallbacks
     def _text(self):
         if self._objectText is None:
-            text = (
+            texts = (
                 yield self._textByIDQuery.on(self._txn,
                                              resourceID=self._resourceID)
-            )[0][0]
-            self._objectText = text
-            returnValue(text)
+            )
+            if texts:
+                text = texts[0][0]
+                self._objectText = text
+                returnValue(text)
+            else:
+                raise ConcurrentModification()
         else:
             returnValue(self._objectText)
 

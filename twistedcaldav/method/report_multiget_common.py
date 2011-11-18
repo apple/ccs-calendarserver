@@ -38,6 +38,7 @@ from twistedcaldav.caldavxml import caldav_namespace
 from twistedcaldav.carddavxml import carddav_namespace
 from twistedcaldav.config import config
 from twistedcaldav.method import report_common
+from txdav.common.icommondatastore import ConcurrentModification
 from twistedcaldav.method.report_common import COLLECTION_TYPE_CALENDAR,\
     COLLECTION_TYPE_ADDRESSBOOK
 from twistedcaldav.query import addressbookqueryfilter
@@ -217,18 +218,28 @@ def multiget_common(self, request, multiget, collection_type):
             # Get properties for all valid readable resources
             for resource, href in ok_resources:
                 try:
-                    yield report_common.responseForHref(request, responses, davxml.HRef.fromString(href), resource, propertiesForResource, propertyreq, isowner=isowner)
+                    yield report_common.responseForHref(
+                        request, responses, davxml.HRef.fromString(href),
+                        resource, propertiesForResource, propertyreq,
+                        isowner=isowner
+                    )
                 except ValueError:
-                    log.err("Invalid calendar resource during multiget: %s" % (href,))
-                    responses.append(davxml.StatusResponse(davxml.HRef.fromString(href), davxml.Status.fromResponseCode(responsecode.FORBIDDEN)))
-                except IOError:
+                    log.err("Invalid calendar resource during multiget: %s" %
+                            (href,))
+                    responses.append(davxml.StatusResponse(
+                        davxml.HRef.fromString(href),
+                        davxml.Status.fromResponseCode(responsecode.FORBIDDEN)))
+                except ConcurrentModification:
                     # This can happen because of a race-condition between the
                     # time we determine which resources exist and the deletion
                     # of one of these resources in another request.  In this
                     # case, return a 404 for the now missing resource rather
                     # than raise an error for the entire report.
                     log.err("Missing resource during multiget: %s" % (href,))
-                    responses.append(davxml.StatusResponse(davxml.HRef.fromString(href), davxml.Status.fromResponseCode(responsecode.NOT_FOUND)))
+                    responses.append(davxml.StatusResponse(
+                        davxml.HRef.fromString(href),
+                        davxml.Status.fromResponseCode(responsecode.NOT_FOUND)
+                    ))
 
             # Indicate error for all valid non-readable resources
             for ignore_resource, href in bad_resources:

@@ -62,8 +62,8 @@ from txdav.common.datastore.file import (
     CommonObjectResource, CommonStubResource)
 from txdav.caldav.icalendarstore import QuotaExceeded
 
-from txdav.common.icommondatastore import (NoSuchObjectResourceError,
-    InternalDataStoreError)
+from txdav.common.icommondatastore import ConcurrentModification
+from txdav.common.icommondatastore import InternalDataStoreError
 from txdav.base.datastore.file import writeOperation, hidden, FileMetaDataMixin
 from txdav.base.propertystore.base import PropertyName
 
@@ -375,7 +375,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             fh = self._path.open()
         except IOError, e:
             if e[0] == ENOENT:
-                raise NoSuchObjectResourceError(self)
+                raise ConcurrentModification()
             else:
                 raise
 
