@@ -546,7 +546,10 @@ class Folder(File):
         raise NotFoundError("Folder %r has no child %r" % (str(self), name))
 
     def list(self):
-        return succeed(("%s/" % (n,) for n in self._childClasses))
+        result = set()
+        result.update(self._children)
+        result.update(self._childClasses)
+        return succeed(result)
 
 
 class RootFolder(Folder):
@@ -589,22 +592,48 @@ class PrincipalHomeFolder(Folder):
 
         self.uid = uid
 
-        @inlineCallbacks
-        def calendarHomeFolder(service, path):
+    @inlineCallbacks
+    def _initChildren(self):
+        if not hasattr(self, "_didInitChildren"):
             txn  = self.service.store.newTransaction()
+
             home = (yield txn.calendarHomeWithUID(self.uid))
-
             if home:
-                returnValue(CalendarHomeFolder(service, path, home))
-            else:
-                returnValue(Folder(service, path))
+                self._children["calendars"] = CalendarHomeFolder(
+                    self.service,
+                    self.path + ("calendars",),
+                    home,
+                )
 
-        self._childClasses["calendars"] = calendarHomeFolder
+            home = (yield txn.addressbookHomeWithUID(self.uid))
+            if home:
+                self._children["addressbooks"] = AddressBookHomeFolder(
+                    self.service,
+                    self.path + ("addressbooks",),
+                    home,
+                )
+
+        self._didInitChildren = True
+
+    def _needsChildren(m):
+        def decorate(self, *args, **kwargs):
+            d = self._initChildren()
+            d.addCallback(lambda _: m(self, *args, **kwargs))
+            return d
+        return decorate
+
+    @_needsChildren
+    def child(self, name):
+        return Folder.child(self, name)
+
+    @_needsChildren
+    def list(self):
+        return Folder.list(self)
 
 
 class CalendarHomeFolder(Folder):
     """
-    Home folder.
+    Calendar home folder.
     """
     def __init__(self, service, path, home):
         Folder.__init__(self, service, path)
@@ -760,6 +789,12 @@ class CalendarObject(File):
 #            # FIXME: Not getting any results here
 
         returnValue("\n".join(result))
+
+class AddressBookHomeFolder(Folder):
+    """
+    Address book home folder.
+    """
+    # FIXME
 
 
 def main(argv=sys.argv, stderr=sys.stderr, reactor=None):
