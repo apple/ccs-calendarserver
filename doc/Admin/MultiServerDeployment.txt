@@ -14,7 +14,9 @@ Calendar Server version 3 and later uses a database as the primary data store, i
 
 * `Directory Services`_: All servers should have access to the same directory services data that defines users, groups, resources, and locations. Calendar Server provides a highly flexible LDAP client to leverage existing directory servers, or you can use local XML files.
 
-* `Client Connectivity`_:. Use either a load balancer or round robin dns, and configure all servers to use the same ServerHostName in caldavd.plist
+* `Client Connectivity`_: Use either a load balancer or round robin dns, and configure all servers to use the same ServerHostName in caldavd.plist
+
+* `Shared Storage for Attachments`_: AttachmentsRoot should point to storage shared across all servers, e.g. an NFS mount. Used for file attachments to calendar events.
 
 * `General Advise`_: *No one wants advice - only corroboration.*  --John Steinbeck
 
@@ -175,11 +177,17 @@ Client Connectivity
 
 Use either a load balancer or round robin dns, and configure all servers to use the same ServerHostName in caldavd.plist. A load balancer provides the most optimal distribution of work across available servers, and greater resiliency incase of individual server failure. Round robin DNS is simpler, and should work fine - however be aware that DNS caches may result in a given client 'sticking' to a server for a while. Using the same ServerHostName everywhere allows for all servers to have the exact same caldavd.plist, which is strongly recommended for simplicity.
 
+-------------------------------
+Shared Storage for Attachments
+-------------------------------
+
+Set the caldavd.plist key AttachmentsRoot to a filesystem directory that is shared and writable by all Calendar Server machines, for example an NFS export. This will be used to store file attachements that users may attach to calendar events.
+
 -------------------
 General Advise
 -------------------
 
-* Ensure caldavd.plist is identical on all Calendar Server hosts. This is not strictly required, but recommended to keep things as predictable as possible.
+* Ensure caldavd.plist is identical on all Calendar Server hosts. This is not strictly required, but recommended to keep things as predictable as possible. Since you already have shared storage for AttachmentsRoot, use that to host the 'conf' directory for all servers as well; this way you don't need to push config changes out to the servers.
 
 * Use the various `tools and utilities <https://trac.calendarserver.org/browser/CalendarServer/trunk/contrib/tools>`_ to monitor activity in real time, and also for post-processing access logs.
 
@@ -191,6 +199,7 @@ General Advise
 
 * Test Scenario: With a well tuned multi-server deployment of identically configured caldav servers behind a load balancer, and a separate Postgres server with a fast RAID 0, in a low-latency lab environment using simulated iCal client load, it takes 5 or 6 caldav servers to saturate the postgres server (which becomes i/o bound at a load of about 55,000 simulated users in this test).
 
-* To eliminate all single points of failure, implement high-availability for memcache, the database, and the load balancer(s).
+* To eliminate all single points of failure, implement high-availability for memcache, the database, the directory service, the shared storage for AttachmentsRoot, and the network load balancer(s).
 
 * When using an external directory service such as LDAP or Open Directory, overall Calendar Server performance is highly dependent on the responsiveness of the directory service.
+
