@@ -26,7 +26,7 @@ from twext.web2.http_headers import MimeType
 from twext.web2.server import parsePOSTData
 from twisted.application import service
 from twisted.internet import reactor, protocol
-from twisted.internet.defer import inlineCallbacks, returnValue
+from twisted.internet.defer import inlineCallbacks, returnValue, succeed
 from twisted.internet.protocol import ClientFactory, ReconnectingClientFactory
 from twistedcaldav.extensions import DAVResource, DAVResourceWithoutChildrenMixin
 from twistedcaldav.resource import ReadOnlyNoCopyResourceMixIn
@@ -374,7 +374,12 @@ class APNFeedbackProtocol(protocol.Protocol, LoggingMixIn):
 
     def dataReceived(self, data):
         self.log_debug("FeedbackProtocol dataReceived %d bytes" % (len(data),))
-        timestamp, tokenLength, binaryToken = struct.unpack("!IH32s", data)
+        try:
+            timestamp, tokenLength, binaryToken = struct.unpack("!IH32s", data)
+        except struct.error:
+            self.log_warn("FeedbackProtocol received malformed data: %s" %
+                (data.encode("hex"),))
+            return succeed(None)
         token = binaryToken.encode("hex").lower()
         return self.processFeedback(timestamp, token)
 
