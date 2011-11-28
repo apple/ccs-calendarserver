@@ -24,7 +24,7 @@ def version():
     # Compute the version number.
     #
 
-    base_version = "3.2"
+    base_version = "4.0"
 
     branches = (
         "tags/release/CalendarServer-" + base_version,
@@ -49,7 +49,7 @@ def version():
             base_version += "-dev"
 
         if svn_revision == "exported":
-            if "RC_JASPER" in os.environ and os.environ["RC_JASPER"] == "YES":
+            if "RC_XBS" in os.environ and os.environ["RC_XBS"] == "YES":
                 project_name = basename(os.environ["SRCROOT"])
 
                 prefix = "CalendarServer-"

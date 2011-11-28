@@ -1639,6 +1639,7 @@ class DelayedStartupLineLogger(object):
     """
 
     MAX_LENGTH = 1024
+    CONTINUED_TEXT = " (truncated, continued)"
     tag = None
     exceeded = False            # Am I in the middle of parsing a long line?
     _buffer = ''
@@ -1679,10 +1680,29 @@ class DelayedStartupLineLogger(object):
         A very long line is being received.  Log it immediately and forget
         about buffering it.
         """
-        for i in range(len(line)/self.MAX_LENGTH):
-            self.lineReceived(line[i*self.MAX_LENGTH:(i+1)*self.MAX_LENGTH]
-                              + " (truncated, continued)")
+        segments = self._breakLineIntoSegments(line)
+        for segment in segments:
+            self.lineReceived(segment)
+            
 
+    def _breakLineIntoSegments(self, line):
+        """
+        Break a line into segments no longer than self.MAX_LENGTH.  Each
+        segment (except for the final one) has self.CONTINUED_TEXT appended.
+        Returns the array of segments.
+        @param line: The line to break up
+        @type line: C{str}
+        @return: array of C{str}
+        """
+        length = len(line)
+        numSegments = length/self.MAX_LENGTH + (1 if length%self.MAX_LENGTH else 0)
+        segments = []
+        for i in range(numSegments):
+            msg = line[i*self.MAX_LENGTH:(i+1)*self.MAX_LENGTH]
+            if i < numSegments - 1: # not the last segment
+                msg += self.CONTINUED_TEXT
+            segments.append(msg)
+        return segments
 
 
 class DelayedStartupLoggingProtocol(ProcessProtocol):

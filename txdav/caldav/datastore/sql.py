@@ -328,6 +328,7 @@ class Calendar(CommonHomeChild):
         return self._home
 
 
+    # FIXME: resource type is DAV.  This doesn't belong in the data store.  -wsv
     def resourceType(self):
         return ResourceType.calendar #@UndefinedVariable
 
@@ -392,6 +393,8 @@ class Calendar(CommonHomeChild):
             ),
         )
 
+    # FIXME: this is DAV-ish.  Data store calendar objects don't have
+    # mime types.  -wsv
     def contentType(self):
         """
         The content type of Calendar objects is text/calendar.
@@ -905,9 +908,10 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
     @inlineCallbacks
     def component(self):
         """
-        Read calendar data and validate/fix it. Do not raise a store error here if there are unfixable
-        errors as that could prevent the overall request to fail. Instead we will hand bad data off to
-        the caller - that is not ideal but in theory we should have checked everything on the way in and
+        Read calendar data and validate/fix it. Do not raise a store error here
+        if there are unfixable errors as that could prevent the overall request
+        to fail. Instead we will hand bad data off to the caller - that is not
+        ideal but in theory we should have checked everything on the way in and
         only allowed in good data.
         """
         text = yield self._text()
@@ -925,10 +929,12 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         fixed, unfixed = component.validCalendarData(doFix=True, doRaise=False)
 
         if unfixed:
-            self.log_error("Calendar data id=%s had unfixable problems:\n  %s" % (self._resourceID, "\n  ".join(unfixed),))
-        
+            self.log_error("Calendar data id=%s had unfixable problems:\n  %s" %
+                           (self._resourceID, "\n  ".join(unfixed),))
+
         if fixed:
-            self.log_error("Calendar data id=%s had fixable problems:\n  %s" % (self._resourceID, "\n  ".join(fixed),))
+            self.log_error("Calendar data id=%s had fixable problems:\n  %s" %
+                           (self._resourceID, "\n  ".join(fixed),))
 
         returnValue(component)
 
@@ -1283,6 +1289,7 @@ class Attachment(object):
 
     def created(self):
         return self._created
+
 
     def modified(self):
         return self._modified

@@ -23,7 +23,7 @@
 set -e
 set -u
 
-version="14";
+version="15";
 
  wd="$(cd "$(dirname "$0")" && pwd)";
 src="$(cd "${wd}/.." && pwd)";
@@ -45,7 +45,7 @@ usage ()
 
   if [ "${1-}" != "-" ]; then echo "$@"; echo; fi;
 
-  echo "Usage: ${program} release";
+  echo "Usage: ${program} release [release ...]";
   echo "       ${program} -b[ip]";
   echo "";
   echo "Options:";
@@ -74,8 +74,8 @@ if ! "${build}"; then
   if "${install}"; then usage "-i flag requires -b"; fi;
   if "${package}"; then usage "-p flag requires -b"; fi;
 
-  if [ $# == 0 ]; then usage "No release specified"; fi;
-  release="$1"; shift;
+  if [ $# == 0 ]; then usage "No releases specified"; fi;
+  releases="$@"; shift $#;
 
   if ! "${submission_enabled}"; then
     echo "Submissions from this branch are not enabled.";
@@ -190,7 +190,7 @@ if "${build}"; then
 else
   echo "";
   echo "Submitting sources for ${project_version}...";
-  submitproject "${wc}" "${release}";
+  submitproject "${wc}" ${releases};
 fi;
 
 rm -rf "${tmp}";

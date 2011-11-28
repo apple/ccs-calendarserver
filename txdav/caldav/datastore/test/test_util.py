@@ -90,7 +90,7 @@ END:VCALENDAR
 
 
     @inlineCallbacks
-    def test_badXdash(self):
+    def test_emptyXdash(self):
         resource = DropboxIDTests.FakeCalendarResource("""BEGIN:VCALENDAR
 VERSION:2.0
 BEGIN:VEVENT
@@ -103,7 +103,7 @@ END:VEVENT
 END:VCALENDAR
 """)
 
-        self.assertEquals( (yield dropboxIDFromCalendarObject(resource)), "")
+        self.assertEquals( (yield dropboxIDFromCalendarObject(resource)), "12345-67890.dropbox")
 
 
     @inlineCallbacks

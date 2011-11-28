@@ -1729,6 +1729,13 @@ class Component (object):
                 yield attendee
 
 
+    def getAllUniqueAttendees(self, onlyScheduleAgentServer=True):
+        attendeesByInstance = self.getAttendeesByInstance(True, onlyScheduleAgentServer=onlyScheduleAgentServer)
+        attendees = set()
+        for attendee, _ignore in attendeesByInstance:
+            attendees.add(attendee)
+        return attendees
+
     def getMaskUID(self):
         """
         Get the X-CALENDARSEREVR-MASK-UID value. Works on either a VCALENDAR or on a component.

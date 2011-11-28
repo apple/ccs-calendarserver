@@ -159,6 +159,7 @@ class MailHandlerTests(TestCase):
         self.handler.lowercase()
         retrieved = self.handler.db.getToken(organizer.lower(),
             attendee.lower(), icaluid)
+        self.assertIsInstance(retrieved, str)
         self.assertEquals(retrieved, token)
 
         # Insert a token with (new-format) urn:uuid:

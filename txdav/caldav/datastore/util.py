@@ -89,7 +89,7 @@ def dropboxIDFromCalendarObject(calendarObject):
     # Try "X-APPLE-DROPBOX" first
     dropboxProperty = (yield calendarObject.component(
         )).getFirstPropertyInAnyComponent("X-APPLE-DROPBOX")
-    if dropboxProperty is not None:
+    if dropboxProperty is not None and dropboxProperty.value():
         componentDropboxID = dropboxProperty.value().rstrip("/").split("/")[-1]
         returnValue(componentDropboxID)
 

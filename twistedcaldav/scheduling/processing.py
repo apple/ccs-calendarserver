@@ -35,6 +35,7 @@ from twistedcaldav.scheduling.cuaddress import normalizeCUAddr
 from twistedcaldav.scheduling.itip import iTipProcessing, iTIPRequestStatus
 from twistedcaldav.scheduling.utils import getCalendarObjectForPrincipals
 from twistedcaldav.memcachelock import MemcacheLock, MemcacheLockTimeoutError
+from twistedcaldav.memcacher import Memcacher
 from pycalendar.duration import PyCalendarDuration
 from pycalendar.datetime import PyCalendarDateTime
 from pycalendar.timezone import PyCalendarTimezone
@@ -173,7 +174,7 @@ class ImplicitProcessor(object):
  
             # Update the organizer's copy of the event
             log.debug("ImplicitProcessing - originator '%s' to recipient '%s' processing METHOD:REPLY, UID: '%s' - updating event" % (self.originator.cuaddr, self.recipient.cuaddr, self.uid))
-            recipient_calendar_resource = (yield self.writeCalendarResource(self.recipient_calendar_collection_uri, self.recipient_calendar_collection, self.recipient_calendar_name, self.recipient_calendar))
+            self.organizer_calendar_resource = (yield self.writeCalendarResource(self.recipient_calendar_collection_uri, self.recipient_calendar_collection, self.recipient_calendar_name, self.recipient_calendar))
             
             # Build the schedule-changes XML element
             attendeeReplying, rids = processed
@@ -204,7 +205,7 @@ class ImplicitProcessor(object):
 
             # Only update other attendees when the partstat was changed by the reply
             if partstatChanged:
-                yield self.queueAttendeeUpdate(recipient_calendar_resource, (attendeeReplying,))
+                yield self.queueAttendeeUpdate((attendeeReplying,))
 
             result = (True, False, True, changes,)
 
@@ -215,9 +216,12 @@ class ImplicitProcessor(object):
         returnValue(result)
 
     @inlineCallbacks
-    def queueAttendeeUpdate(self, resource, attendees):
+    def queueAttendeeUpdate(self, exclude_attendees):
         """
         Queue up an update to attendees and use a memcache lock to ensure we don't update too frequently.
+        
+        @param exclude_attendees: list of attendees who should not be refreshed (e.g., the one that triggeed the refresh)
+        @type exclude_attendees: C{list}
         """
         
         # When doing auto-processing of replies, only refresh attendees when the last auto-accept is done.
@@ -227,72 +231,159 @@ class ImplicitProcessor(object):
             self.request.auto_reply_suppressed = True
             returnValue(None)
         if hasattr(self.request, "auto_reply_suppressed"):
-            attendees = ()
+            exclude_attendees = ()
 
-        # Use a memcachelock to ensure others don't refresh whilst we have an enqueued call
         self.uid = self.recipient_calendar.resourceUID()
-        if config.Scheduling.Options.AttendeeRefreshInterval:
-            attendees = ()
-            lock = MemcacheLock("RefreshUIDLock", self.uid, timeout=0.0, expire_time=config.Scheduling.Options.AttendeeRefreshInterval)
+
+        # Check for batched refreshes
+        if config.Scheduling.Options.AttendeeRefreshBatch:
             
-            # Try lock, but fail immediately if already taken
+            # Need to lock whilst manipulating the batch list
+            lock = MemcacheLock("BatchRefreshUIDLock", self.uid, timeout=60.0, expire_time=60.0)
             try:
                 yield lock.acquire()
             except MemcacheLockTimeoutError:
+                # If we could not lock then just fail the refresh - not sure what else to do
                 returnValue(None)
-        else:
-            lock = None
-
-        @inlineCallbacks
-        def _doRefresh(organizer_resource):
-            log.debug("ImplicitProcessing - refreshing UID: '%s'" % (self.uid,))
-            from twistedcaldav.scheduling.implicit import ImplicitScheduler
-            scheduler = ImplicitScheduler()
-            yield scheduler.refreshAllAttendeesExceptSome(self.request, organizer_resource, self.recipient_calendar, attendees)
-
-        @inlineCallbacks
-        def _doDelayedRefresh():
-
-            # We need to get the UID lock for implicit processing whilst we send the auto-reply
-            # as the Organizer processing will attempt to write out data to other attendees to
-            # refresh them. To prevent a race we need a lock.
-            uidlock = MemcacheLock("ImplicitUIDLock", self.uid, timeout=60.0, expire_time=5*60)
-    
+            
             try:
-                yield uidlock.acquire()
-            except MemcacheLockTimeoutError:
-                # Just try again to get the lock
-                reactor.callLater(2.0, _doDelayedRefresh)
-            else:
+                # Get all attendees to refresh
+                allAttendees = sorted(list(self.recipient_calendar.getAllUniqueAttendees()))
+    
+                # Always need to refresh every attendee
+                exclude_attendees = ()
                 
-                # Release lock before sending refresh
-                yield lock.release()
-    
-                # inNewTransaction wipes out the remembered resource<-> URL mappings in the
-                # request object but we need to be able to map the actual reply resource to its
-                # URL when doing auto-processing, so we have to sneak that mapping back in here.
-                txn = yield resource.inNewTransaction(self.request)
-                organizer_resource = (yield self.request.locateResource(resource._url))
-    
-                try:
-                    if organizer_resource.exists():
-                        yield _doRefresh(organizer_resource)
-                    else:
-                        log.debug("ImplicitProcessing - skipping refresh of missing UID: '%s'" % (self.uid,))
-                except Exception, e:
-                    log.debug("ImplicitProcessing - refresh exception UID: '%s', %s" % (self.uid, str(e)))
-                    yield txn.abort()
+                # See if there is already a pending refresh and merge current attendees into that list,
+                # otherwise just mark all attendees as pending
+                cache = Memcacher("BatchRefreshAttendees", pickle=True)
+                pendingAttendees = yield cache.get(self.uid)
+                firstTime = False
+                if pendingAttendees:
+                    for attendee in allAttendees:
+                        if attendee not in pendingAttendees:
+                            pendingAttendees.append(attendee)
                 else:
-                    yield txn.commit()
+                    firstTime = True
+                    pendingAttendees = allAttendees
+                yield cache.set(self.uid, pendingAttendees)
+    
+                # Now start the first batch off
+                if firstTime:
+                    reactor.callLater(config.Scheduling.Options.AttendeeRefreshBatchDelaySeconds, self._doBatchRefresh)
             finally:
-                # This correctly gets called only after commit or abort is done
-                yield uidlock.clean()
-
-        if lock:
-            reactor.callLater(config.Scheduling.Options.AttendeeRefreshInterval, _doDelayedRefresh)
+                yield lock.clean()
+        
         else:
-            yield _doRefresh(resource)
+            yield self._doRefresh(self.organizer_calendar_resource, exclude_attendees)
 
+    @inlineCallbacks
+    def _doRefresh(self, organizer_resource, exclude_attendees=(), only_attendees=None):
+        """
+        Do a refresh of attendees.
+
+        @param organizer_resource: the resource for the organizer's calendar data
+        @type organizer_resource: L{DAVResource}
+        @param exclude_attendees: list of attendees to not refresh
+        @type exclude_attendees: C{tuple}
+        @param only_attendees: list of attendees to refresh (C{None} - refresh all) 
+        @type only_attendees: C{tuple}
+        """
+        log.debug("ImplicitProcessing - refreshing UID: '%s', Attendees: %s" % (self.uid, ", ".join(only_attendees) if only_attendees else "all"))
+        from twistedcaldav.scheduling.implicit import ImplicitScheduler
+        scheduler = ImplicitScheduler()
+        yield scheduler.refreshAllAttendeesExceptSome(
+            self.request,
+            organizer_resource,
+            exclude_attendees,
+            only_attendees=only_attendees,
+        )
+        
+    @inlineCallbacks
+    def _doDelayedRefresh(self, attendeesToProcess):
+        """
+        Do an attendee refresh that has been delayed until after processing of the request that called it. That
+        requires that we create a new transaction to work with.
+
+        @param attendeesToProcess: list of attendees to refresh.
+        @type attendeesToProcess: C{list}
+        """
+
+        # We need to get the UID lock for implicit processing whilst we send the auto-reply
+        # as the Organizer processing will attempt to write out data to other attendees to
+        # refresh them. To prevent a race we need a lock.
+        uidlock = MemcacheLock("ImplicitUIDLock", self.uid, timeout=60.0, expire_time=5*60)
+
+        try:
+            yield uidlock.acquire()
+        except MemcacheLockTimeoutError:
+            # Just try again to get the lock
+            reactor.callLater(2.0, self._doDelayedRefresh, attendeesToProcess)
+        else:
+
+            # inNewTransaction wipes out the remembered resource<-> URL mappings in the
+            # request object but we need to be able to map the actual reply resource to its
+            # URL when doing auto-processing, so we have to sneak that mapping back in here.
+            txn = yield self.organizer_calendar_resource.inNewTransaction(self.request)
+            organizer_resource = (yield self.request.locateResource(self.organizer_calendar_resource._url))
+
+            try:
+                if organizer_resource.exists():
+                    yield self._doRefresh(organizer_resource, only_attendees=attendeesToProcess)
+                else:
+                    log.debug("ImplicitProcessing - skipping refresh of missing UID: '%s'" % (self.uid,))
+            except Exception, e:
+                log.debug("ImplicitProcessing - refresh exception UID: '%s', %s" % (self.uid, str(e)))
+                yield txn.abort()
+            else:
+                yield txn.commit()
+        finally:
+            yield uidlock.clean()
+
+    @inlineCallbacks
+    def _doBatchRefresh(self):
+        """
+        Do refresh of attendees in batches until the batch list is empty.
+        """
+
+        # Need to lock whilst manipulating the batch list
+        log.debug("ImplicitProcessing - batch refresh for UID: '%s'" % (self.uid,))
+        lock = MemcacheLock("BatchRefreshUIDLock", self.uid, timeout=60.0, expire_time=60.0)
+        try:
+            yield lock.acquire()
+        except MemcacheLockTimeoutError:
+            # If we could not lock then just fail the refresh - not sure what else to do
+            returnValue(None)
+
+        try:
+            # Get the batch list
+            cache = Memcacher("BatchRefreshAttendees", pickle=True)
+            pendingAttendees = yield cache.get(self.uid)
+            if pendingAttendees:
+                
+                # Get the next batch of attendees to process and update the cache value or remove it if
+                # no more processing is needed
+                attendeesToProcess = pendingAttendees[:config.Scheduling.Options.AttendeeRefreshBatch]
+                pendingAttendees = pendingAttendees[config.Scheduling.Options.AttendeeRefreshBatch:]
+                if pendingAttendees:
+                    yield cache.set(self.uid, pendingAttendees)
+                else:
+                    yield cache.delete(self.uid)
+                    
+                # Make sure we release this here to avoid potential deadlock when grabbing the ImplicitUIDLock in the next call
+                yield lock.release()
+                
+                # Now do the batch refresh
+                yield self._doDelayedRefresh(attendeesToProcess)
+                
+                # Queue the next refresh if needed
+                if pendingAttendees:
+                    reactor.callLater(config.Scheduling.Options.AttendeeRefreshBatchIntervalSeconds, self._doBatchRefresh)
+            else:
+                yield cache.delete(self.uid)
+                yield lock.release()
+        finally:
+            yield lock.clean()
+            
     @inlineCallbacks
     def doImplicitAttendee(self):
 

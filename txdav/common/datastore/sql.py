@@ -75,6 +75,7 @@ from txdav.base.propertystore.base import PropertyName
 from txdav.base.propertystore.none import PropertyStore as NonePropertyStore
 from txdav.base.propertystore.sql import PropertyStore
 
+from txdav.common.icommondatastore import ConcurrentModification
 from twistedcaldav.customxml import NotificationType
 from twistedcaldav.dateops import datetimeMktime, parseSQLTimestamp,\
     pyCalendarTodatetime
@@ -141,6 +142,7 @@ class CommonDataStore(Service, object):
         self.enableAddressBooks = enableAddressBooks
         self.label = label
         self.quota = quota
+        self._migrating = False
 
 
     def eachCalendarHome(self):
@@ -158,7 +160,7 @@ class CommonDataStore(Service, object):
 
 
 
-    def newTransaction(self, label="unlabeled", migrating=False):
+    def newTransaction(self, label="unlabeled"):
         """
         @see L{IDataStore.newTransaction}
         """
@@ -167,10 +169,17 @@ class CommonDataStore(Service, object):
             self.sqlTxnFactory(),
             self.enableCalendars,
             self.enableAddressBooks,
-            None if migrating else self.notifierFactory,
+            None if self._migrating else self.notifierFactory,
             label,
-            migrating,
+            self._migrating,
         )
+
+    def setMigrating(self, state):
+        """
+        Set the "migrating" state
+        """
+        self._migrating = state
+
 
 class TransactionStatsCollector(object):
     
@@ -2693,12 +2702,16 @@ class CommonObjectResource(LoggingMixIn, FancyEqMixin):
     @inlineCallbacks
     def _text(self):
         if self._objectText is None:
-            text = (
+            texts = (
                 yield self._textByIDQuery.on(self._txn,
                                              resourceID=self._resourceID)
-            )[0][0]
-            self._objectText = text
-            returnValue(text)
+            )
+            if texts:
+                text = texts[0][0]
+                self._objectText = text
+                returnValue(text)
+            else:
+                raise ConcurrentModification()
         else:
             returnValue(self._objectText)
 

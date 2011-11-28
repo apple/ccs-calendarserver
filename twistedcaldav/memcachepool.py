@@ -360,6 +360,12 @@ class MemCachePool(LoggingMixIn):
     def add(self, *args, **kwargs):
         return self.performRequest('add', *args, **kwargs)
 
+    def incr(self, *args, **kwargs):
+        return self.performRequest('increment', *args, **kwargs)
+
+    def decr(self, *args, **kwargs):
+        return self.performRequest('decrement', *args, **kwargs)
+
     def flushAll(self, *args, **kwargs):
         return self.performRequest('flushAll', *args, **kwargs)
 

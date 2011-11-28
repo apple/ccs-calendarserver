@@ -115,9 +115,12 @@ class ApplePushNotifierServiceTests(CommonCommonTests, TestCase):
         yield txn.commit()
         self.assertEquals(len(subscriptions), 2)
 
+        # Simulate malformed feedback
+        connector = service.feedbacks["CalDAV"].testConnector
+        yield connector.receiveData("malformed")
+
         # Simulate feedback
         timestamp = 2000
-        connector = service.feedbacks["CalDAV"].testConnector
         binaryToken = token.decode("hex")
         feedbackData = struct.pack("!IH32s", timestamp, len(binaryToken),
             binaryToken)

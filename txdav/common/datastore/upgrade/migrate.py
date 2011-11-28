@@ -128,6 +128,9 @@ class UpgradeToDatabaseService(Service, LoggingMixIn, object):
         @return: a Deferred which fires when the migration is complete.
         """
         self.log_warn("Beginning filesystem -> database upgrade.")
+
+        self.sqlStore.setMigrating(True)
+
         for homeType, migrateFunc, eachFunc, destFunc, _ignore_topPathName in [
             ("calendar", migrateCalendarHome,
                 self.fileStore.eachCalendarHome,
@@ -141,7 +144,7 @@ class UpgradeToDatabaseService(Service, LoggingMixIn, object):
             for fileTxn, fileHome in eachFunc():
                 uid = fileHome.uid()
                 self.log_warn("Migrating %s UID %r" % (homeType, uid))
-                sqlTxn = self.sqlStore.newTransaction(migrating=True)
+                sqlTxn = self.sqlStore.newTransaction()
                 homeGetter = destFunc(sqlTxn)
                 if (yield homeGetter(uid, create=False)) is not None:
                     self.log_warn(
@@ -177,9 +180,11 @@ class UpgradeToDatabaseService(Service, LoggingMixIn, object):
             for fp in sqlAttachmentsPath.walk():
                 os.chown(fp.path, uid, gid)
 
+        self.sqlStore.setMigrating(False) 
         self.log_warn(
             "Filesystem upgrade complete, launching database service."
         )
+
         # see http://twistedmatrix.com/trac/ticket/4649
         reactor.callLater(0, self.wrappedService.setServiceParent, self.parent)
 

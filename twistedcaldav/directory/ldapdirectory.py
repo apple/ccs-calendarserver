@@ -270,6 +270,10 @@ class LdapDirectoryService(CachingDirectoryService):
                     (repr(self.credentials.get("dn")),))
                 self.ldap.simple_bind_s(self.credentials.get("dn"),
                     self.credentials.get("password"))
+            except ldap.SERVER_DOWN:
+                msg = "Can't connect to LDAP %s: server down" % (self.uri,)
+                self.log_error(msg)
+                raise DirectoryConfigurationError(msg)
             except ldap.INVALID_CREDENTIALS:
                 msg = "Can't bind to LDAP %s: check credentials" % (self.uri,)
                 self.log_error(msg)
@@ -314,6 +318,7 @@ class LdapDirectoryService(CachingDirectoryService):
         numMissingGuids = 0
         guidAttr = self.rdnSchema["guidAttr"]
         for dn, attrs in results:
+            dn = normalizeDNstr(dn)
 
             unrestricted = True
             if self.restrictedGUIDs is not None:
@@ -370,6 +375,7 @@ class LdapDirectoryService(CachingDirectoryService):
             ldap.SCOPE_SUBTREE, filterstr=filterstr, attrlist=attrlist)
 
         for dn, attrs in results:
+            dn = normalizeDNstr(dn)
             guid = self._getUniqueLdapAttribute(attrs, guidAttr)
             if guid:
                 readDelegate = self._getUniqueLdapAttribute(attrs, readAttr)
@@ -470,6 +476,9 @@ class LdapDirectoryService(CachingDirectoryService):
         try:
             result = self.ldap.search_s(base, scope, filterstr=filterstr,
                 attrlist=attrlist)
+        except ldap.SERVER_DOWN:
+            self.log_error("LDAP server unavailable")
+            raise HTTPError(StatusResponse(responsecode.SERVICE_UNAVAILABLE, "LDAP server unavailable"))
         except ldap.NO_SUCH_OBJECT:
             result = []
         except ldap.FILTER_ERROR, e:
@@ -508,12 +517,13 @@ class LdapDirectoryService(CachingDirectoryService):
 
                 if len(result) == 1:
                     dn, attrs = result[0]
+                    dn = normalizeDNstr(dn)
                     if self.groupSchema["membersAttr"]:
-                        members = self._getMultipleLdapAttributes(attrs,
-                            self.groupSchema["membersAttr"])
+                        members = set(self._getMultipleLdapAttributes(attrs,
+                            self.groupSchema["membersAttr"]))
                     if self.groupSchema["nestedGroupsAttr"]:
-                        nestedGroups = self._getMultipleLdapAttributes(attrs,
-                            self.groupSchema["nestedGroupsAttr"])
+                        nestedGroups = set(self._getMultipleLdapAttributes(attrs,
+                            self.groupSchema["nestedGroupsAttr"]))
 
                 else:
                     members = []
@@ -563,15 +573,16 @@ class LdapDirectoryService(CachingDirectoryService):
 
             if len(result) == 1:
                 dn, attrs = result[0]
+                dn = normalizeDNstr(dn)
                 if self.groupSchema["membersAttr"]:
-                    subMembers = self._getMultipleLdapAttributes(attrs,
-                        self.groupSchema["membersAttr"])
+                    subMembers = set(self._getMultipleLdapAttributes(attrs,
+                        self.groupSchema["membersAttr"]))
                 else:
                     subMembers = []
 
                 if self.groupSchema["nestedGroupsAttr"]:
-                    subNestedGroups = self._getMultipleLdapAttributes(attrs,
-                        self.groupSchema["nestedGroupsAttr"])
+                    subNestedGroups = set(self._getMultipleLdapAttributes(attrs,
+                        self.groupSchema["nestedGroupsAttr"]))
                 else:
                     subNestedGroups = []
 
@@ -605,7 +616,7 @@ class LdapDirectoryService(CachingDirectoryService):
             values = attrs.get(key)
             if values is not None:
                 results += values
-        return set(results)
+        return results
 
 
     def _ldapResultToRecord(self, dn, attrs, recordType):
@@ -640,7 +651,7 @@ class LdapDirectoryService(CachingDirectoryService):
                 raise MissingGuidException()
 
         # Find or build email
-        emailAddresses = self._getMultipleLdapAttributes(attrs, self.rdnSchema[recordType]["mapping"]["emailAddresses"])
+        emailAddresses = set(self._getMultipleLdapAttributes(attrs, self.rdnSchema[recordType]["mapping"]["emailAddresses"]))
         emailSuffix = self.rdnSchema[recordType]["emailSuffix"]
 
         if len(emailAddresses) == 0 and emailSuffix:
@@ -651,7 +662,7 @@ class LdapDirectoryService(CachingDirectoryService):
         proxyGUIDs = ()
         readOnlyProxyGUIDs = ()
         autoSchedule = False
-        memberGUIDs = set()
+        memberGUIDs = []
 
         # LDAP attribute -> principal matchings
         if recordType == self.recordType_users:
@@ -669,16 +680,14 @@ class LdapDirectoryService(CachingDirectoryService):
 
             if self.groupSchema["membersAttr"]:
                 members = self._getMultipleLdapAttributes(attrs, self.groupSchema["membersAttr"])
-                if members:
-                    if type(members) is str:
-                        members = set([members])
-                    memberGUIDs.update(members)
+                memberGUIDs.extend(members)
             if self.groupSchema["nestedGroupsAttr"]:
                 members = self._getMultipleLdapAttributes(attrs, self.groupSchema["nestedGroupsAttr"])
-                if members:
-                    if type(members) is str:
-                        members = set([members])
-                    memberGUIDs.update(members)
+                memberGUIDs.extend(members)
+
+            # Normalize members if they're in DN form
+            if not self.groupSchema["memberIdAttr"]: # empty = dn
+                memberGUIDs = [normalizeDNstr(dnStr) for dnStr in list(memberGUIDs)]
 
 
         elif recordType in (self.recordType_resources,
@@ -715,11 +724,11 @@ class LdapDirectoryService(CachingDirectoryService):
                     autoSchedule = (autoScheduleValue ==
                         self.resourceSchema["autoScheduleEnabledValue"])
                 if self.resourceSchema["proxyAttr"]:
-                    proxyGUIDs = self._getMultipleLdapAttributes(attrs,
-                        self.resourceSchema["proxyAttr"])
+                    proxyGUIDs = set(self._getMultipleLdapAttributes(attrs,
+                        self.resourceSchema["proxyAttr"]))
                 if self.resourceSchema["readOnlyProxyAttr"]:
-                    readOnlyProxyGUIDs = self._getMultipleLdapAttributes(attrs,
-                        self.resourceSchema["readOnlyProxyAttr"])
+                    readOnlyProxyGUIDs = set(self._getMultipleLdapAttributes(attrs,
+                        self.resourceSchema["readOnlyProxyAttr"]))
 
         serverID = partitionID = None
         if self.partitionSchema["serverIdAttr"]:
@@ -854,6 +863,7 @@ class LdapDirectoryService(CachingDirectoryService):
 
             if result:
                 dn, attrs = result.pop()
+                dn = normalizeDNstr(dn)
 
                 unrestricted = True
                 if self.restrictedGUIDs is not None:
@@ -934,6 +944,7 @@ class LdapDirectoryService(CachingDirectoryService):
                 self.log_debug("LDAP search returned %d results" % (len(results),))
                 numMissingGuids = 0
                 for dn, attrs in results:
+                    dn = normalizeDNstr(dn)
                     # Skip if group restriction is in place and guid is not
                     # a member
                     if (recordType != self.recordType_groups and
@@ -985,6 +996,7 @@ class LdapDirectoryService(CachingDirectoryService):
         attributeToSearch = "guid"
         valuesToFetch = guids
 
+
         while valuesToFetch:
             results = []
 
@@ -1013,10 +1025,10 @@ class LdapDirectoryService(CachingDirectoryService):
                 if alias not in recordsByAlias:
                     recordsByAlias[alias] = record
 
-                # record._memberIds contains the members of this group,
+                # record.memberGUIDs() contains the members of this group,
                 # but it might not be in guid form; it will be data from
                 # self.groupSchema["memberIdAttr"]
-                for memberAlias in record._memberIds:
+                for memberAlias in record.memberGUIDs():
                     if not memberIdAttr:
                         # Members are identified by dn so we can take a short
                         # cut:  we know we only need to examine groups, and
@@ -1054,6 +1066,16 @@ def dnContainedIn(child, parent):
     Return True if child dn is contained within parent dn, otherwise False.
     """
     return child[-len(parent):] == parent
+
+
+def normalizeDNstr(dnStr):
+    """
+    Convert to lowercase and remove extra whitespace
+    @param dnStr: dn
+    @type dnStr: C{str}
+    @return: normalized dn C{str}
+    """
+    return ' '.join(ldap.dn.dn2str(ldap.dn.str2dn(dnStr.lower())).split())
 
 
 def buildFilter(mapping, fields, operand="or"):
@@ -1138,22 +1160,13 @@ class LdapDirectoryRecord(CachingDirectoryRecord):
         # Store copy of member guids
         self._memberGUIDs = memberGUIDs
 
-        # Identifiers of the members of this record if it is a group
-        membersAttrs = []
-        if self.service.groupSchema["membersAttr"]:
-            membersAttrs.append(self.service.groupSchema["membersAttr"])
-        if self.service.groupSchema["nestedGroupsAttr"]:
-            membersAttrs.append(self.service.groupSchema["nestedGroupsAttr"])
-        self._memberIds = self.service._getMultipleLdapAttributes(attrs,
-            *membersAttrs)
-
         # Identifier of this record as a group member
         memberIdAttr = self.service.groupSchema["memberIdAttr"]
         if memberIdAttr:
             self._memberId = self.service._getUniqueLdapAttribute(attrs,
                 memberIdAttr)
         else:
-            self._memberId = self.dn
+            self._memberId = normalizeDNstr(self.dn)
 
 
     def members(self):
@@ -1171,7 +1184,7 @@ class LdapDirectoryRecord(CachingDirectoryRecord):
         memberIdAttr = self.service.groupSchema["memberIdAttr"]
         results = []
 
-        for memberId in self._memberIds:
+        for memberId in self._memberGUIDs:
 
             if memberIdAttr:
 
@@ -1194,6 +1207,7 @@ class LdapDirectoryRecord(CachingDirectoryRecord):
             if result:
 
                 dn, attrs = result.pop()
+                dn = normalizeDNstr(dn)
                 self.log_debug("Retrieved: %s %s" % (dn,attrs))
                 recordType = self.service.recordTypeForDN(dn)
                 if recordType is None:
@@ -1245,6 +1259,7 @@ class LdapDirectoryRecord(CachingDirectoryRecord):
                 ldap.SCOPE_SUBTREE, filterstr=filterstr, attrlist=self.service.attrlist)
 
             for dn, attrs in results:
+                dn = normalizeDNstr(dn)
                 shortName = self.service._getUniqueLdapAttribute(attrs, "cn")
                 self.log_debug("%s is a member of %s" % (self._memberId, shortName))
                 groups.append(self.service.recordWithShortName(recordType,

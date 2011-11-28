@@ -45,6 +45,7 @@ from txdav.common.icommondatastore import NoSuchHomeChildError
 from twext.enterprise.adbapi2 import ConnectionPool
 from twisted.internet.defer import returnValue
 from twistedcaldav.notify import Notifier, NodeCreationException
+from twext.enterprise.ienterprise import AlreadyFinishedError
 from twistedcaldav.vcard import Component as ABComponent
 
 md5key = PropertyName.fromElement(TwistedGETContentMD5)
@@ -408,7 +409,6 @@ class CommonCommonTests(object):
     lastTransaction = None
     savedStore = None
     assertProvides = assertProvides
-    lastCommitSetUp = False
 
     def transactionUnderTest(self):
         """
@@ -416,17 +416,29 @@ class CommonCommonTests(object):
         C[lastTransaction}.  Also makes sure to use the same store, saving the
         value from C{storeUnderTest}.
         """
-        if not self.lastCommitSetUp:
-            self.lastCommitSetUp = True
-            self.addCleanup(self.commitLast)
-        if self.lastTransaction is not None:
-            return self.lastTransaction
+        if self.lastTransaction is None:
+            self.lastTransaction = self.concurrentTransaction()
+        return self.lastTransaction
+
+
+    def concurrentTransaction(self):
+        """
+        Create a transaction from C{storeUnderTest} and save it for later
+        clean-up.
+        """
         if self.savedStore is None:
             self.savedStore = self.storeUnderTest()
         self.counter += 1
-        txn = self.lastTransaction = self.savedStore.newTransaction(
+        txn = self.savedStore.newTransaction(
             self.id() + " #" + str(self.counter)
         )
+        @inlineCallbacks
+        def maybeCommitThis():
+            try:
+                yield txn.commit()
+            except AlreadyFinishedError:
+                pass
+        self.addCleanup(maybeCommitThis)
         return txn
 
 

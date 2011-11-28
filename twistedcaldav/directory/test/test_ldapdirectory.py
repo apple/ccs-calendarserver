@@ -17,13 +17,14 @@
 try:
     from twistedcaldav.directory.ldapdirectory import (
         buildFilter, LdapDirectoryService, MissingGuidException,
-        splitIntoBatches
+        splitIntoBatches, normalizeDNstr, dnContainedIn
     )
     from twistedcaldav.test.util import proxiesFile
     from twistedcaldav.directory.calendaruserproxyloader import XMLCalendarUserProxyLoader
     from twistedcaldav.directory import calendaruserproxy
     from twistedcaldav.directory.directory import GroupMembershipCache, GroupMembershipCacheUpdater
     from twisted.internet.defer import inlineCallbacks
+    from string import maketrans
     import ldap
 except ImportError:
     print "Skipping because ldap module not installed"
@@ -113,14 +114,148 @@ else:
 
         def __init__(self, actual):
             self.actual = actual
-            self.testResults = []
 
-        def addTestResults(self, results):
-            self.testResults.insert(0, results)
+            # Test data returned from search_s.
+            # Note that some DNs have various extra whitespace added and mixed
+            # up case since LDAP is pretty loose about these.
+            self.records = (
+                (
+                    "cn=Recursive1_coasts, cn=gROUps,dc=example, dc=com",
+                    {
+                        'cn': ['recursive1_coasts'],
+                        'apple-generateduid': ['recursive1_coasts'],
+                        'uniqueMember': [
+                            'cn=recursive2_coasts,cn=groups,dc=example,dc=com',
+                            'uid=wsanchez ,cn=users, dc=eXAMple,dc=com',
+                        ],
+                    }
+                ),
+                (
+                    "cn=recursive2_coasts,cn=groups,dc=example,dc=com",
+                    {
+                        'cn': ['recursive2_coasts'],
+                        'apple-generateduid': ['recursive2_coasts'],
+                        'uniqueMember': [
+                            'cn=recursive1_coasts,cn=groups,dc=example,dc=com',
+                            'uid=cdaboo,cn=users,dc=example,dc=com',
+                        ],
+                    }
+                ),
+                (
+                    'cn=both_coasts,cn=groups,dc=example,dc=com',
+                    {
+                        'cn': ['both_coasts'],
+                        'apple-generateduid': ['both_coasts'],
+                        'uniqueMember': [
+                            'cn=right_coast,cn=groups,dc=example,dc=com',
+                            'cn=left_coast,cn=groups,dc=example,dc=com',
+                        ],
+                    }
+                ),
+                (
+                    'cn=right_coast,cn=groups,dc=example,dc=com',
+                    {
+                        'cn': ['right_coast'],
+                        'apple-generateduid': ['right_coast'],
+                        'uniqueMember': [
+                            'uid=cdaboo,cn=users,dc=example,dc=com',
+                        ],
+                    }
+                ),
+                (
+                    'cn=left_coast,cn=groups,dc=example,dc=com',
+                    {
+                        'cn': ['left_coast'],
+                        'apple-generateduid': ['left_coast'],
+                        'uniqueMember': [
+                            'uid=wsanchez, cn=users,dc=example,dc=com',
+                            'uid=lecroy,cn=users,dc=example,dc=com',
+                            'uid=dreid,cn=users,dc=example,dc=com',
+                        ],
+                    }
+                ),
+                (
+                    "uid=odtestamanda,cn=users,dc=example,dc=com",
+                    {
+                        'uid': ['odtestamanda'],
+                        'apple-generateduid': ['9DC04A70-E6DD-11DF-9492-0800200C9A66'],
+                        'sn': ['Test'],
+                        'mail': ['odtestamanda@example.com', 'alternate@example.com'],
+                        'givenName': ['Amanda'],
+                        'cn': ['Amanda Test']
+                    }
+                ),
+                (
+                    "uid=odtestbetty,cn=users,dc=example,dc=com",
+                    {
+                        'uid': ['odtestbetty'],
+                        'apple-generateduid': ['93A8F5C5-49D8-4641-840F-CD1903B0394C'],
+                        'sn': ['Test'],
+                        'mail': ['odtestbetty@example.com'],
+                        'givenName': ['Betty'],
+                        'cn': ['Betty Test']
+                    }
+                ),
+                (
+                    "uid=odtestcarlene,cn=users,dc=example,dc=com",
+                    {
+                        'uid': ['odtestcarlene'],
+                        # Note: no guid here, to test this record is skipped
+                        'sn': ['Test'],
+                        'mail': ['odtestcarlene@example.com'],
+                        'givenName': ['Carlene'],
+                        'cn': ['Carlene Test']
+                    }
+                ),
+                (
+                    "uid=cdaboo,cn=users,dc=example,dc=com",
+                    {
+                        'uid': ['cdaboo'],
+                        'apple-generateduid': ['5A985493-EE2C-4665-94CF-4DFEA3A89500'],
+                        'sn': ['Daboo'],
+                        'mail': ['daboo@example.com'],
+                        'givenName': ['Cyrus'],
+                        'cn': ['Cyrus Daboo']
+                    }
+                ),
+                (
+                    "uid=wsanchez  ,  cn=users  , dc=example,dc=com",
+                    {
+                        'uid': ['wsanchez'],
+                        'apple-generateduid': ['6423F94A-6B76-4A3A-815B-D52CFD77935D'],
+                        'sn': ['Sanchez'],
+                        'mail': ['wsanchez@example.com'],
+                        'givenName': ['Wilfredo'],
+                        'cn': ['Wilfredo Sanchez']
+                    }
+                ),
+            )
 
         def search_s(self, base, scope, filterstr="(objectClass=*)",
             attrlist=None):
-            return self.testResults.pop()
+            """ A simple implementation of LDAP search filter processing """
+
+            base = normalizeDNstr(base)
+            results = []
+            for dn, attrs in self.records:
+                dn = normalizeDNstr(dn)
+                if dn == base:
+                    results.append((dn, attrs))
+                elif dnContainedIn(ldap.dn.str2dn(dn), ldap.dn.str2dn(base)):
+                    if filterstr in ("(objectClass=*)", "(!(objectClass=organizationalUnit))"):
+                        results.append((dn, attrs))
+                    else:
+                        trans = maketrans("&(|)", "   |")
+                        fragments = filterstr.encode("utf-8").translate(trans).split("|")
+                        for fragment in fragments:
+                            if not fragment:
+                                continue
+                            fragment = fragment.strip()
+                            key, value = fragment.split("=")
+                            if value in attrs.get(key, []):
+                                results.append((dn, attrs))
+
+            return results
 
 
     class LdapDirectoryServiceTestCase(TestCase):
@@ -156,7 +291,7 @@ else:
                         "rdn": "cn=Users",
                         "attr": "uid", # used only to synthesize email address
                         "emailSuffix": None, # used only to synthesize email address
-                        "filter": "(objectClass=apple-user)", # additional filter for this type
+                        "filter": "", # additional filter for this type
                         "loginEnabledAttr" : "", # attribute controlling login
                         "loginEnabledValue" : "yes", # "True" value of above attribute
                         "calendarEnabledAttr" : "enable-calendar", # attribute controlling calendaring
@@ -173,7 +308,7 @@ else:
                         "rdn": "cn=Groups",
                         "attr": "cn", # used only to synthesize email address
                         "emailSuffix": None, # used only to synthesize email address
-                        "filter": "(objectClass=apple-group)", # additional filter for this type
+                        "filter": "", # additional filter for this type
                         "mapping": { # maps internal record names to LDAP
                             "recordName": "cn",
                             "fullName" : "cn",
@@ -233,6 +368,20 @@ else:
             self.service = LdapDirectoryService(params)
             self.service.ldap = LdapDirectoryTestWrapper(self.service.ldap)
 
+
+        def test_ldapWrapper(self):
+            """
+            Exercise the fake search_s implementation
+            """
+            # Get all groups
+            self.assertEquals(
+                len(self.service.ldap.search_s("cn=groups,dc=example,dc=com", 0, "(objectClass=*)", [])), 5)
+
+            self.assertEquals(
+                len(self.service.ldap.search_s("cn=recursive1_coasts,cn=groups,dc=example,dc=com", 2, "(objectClass=*)", [])), 1)
+
+            self.assertEquals(
+                len(self.service.ldap.search_s("cn=groups,dc=example,dc=com", 0, "(|(apple-generateduid=right_coast)(apple-generateduid=left_coast))", [])), 2)
 
         def test_ldapRecordCreation(self):
             """
@@ -321,9 +470,9 @@ else:
                 'apple-generateduid': [guid],
                 'uniqueMember':
                     [
-                        '9DC04A70-E6DD-11DF-9492-0800200C9A66',
-                        '9DC04A71-E6DD-11DF-9492-0800200C9A66',
-                        '6C6CD282-E6E3-11DF-9492-0800200C9A66'
+                        'uid=odtestamanda,cn=users,dc=example,dc=com',
+                        'uid=odtestbetty,cn=users,dc=example,dc=com',
+                        'cn=odtestgroupb,cn=groups,dc=example,dc=com',
                     ],
                 'cn': ['odtestgrouptop']
             }
@@ -331,9 +480,11 @@ else:
                 self.service.recordType_groups)
             self.assertEquals(record.guid, guid)
             self.assertEquals(record.memberGUIDs(),
-                set(['6C6CD282-E6E3-11DF-9492-0800200C9A66',
-                     '9DC04A70-E6DD-11DF-9492-0800200C9A66',
-                     '9DC04A71-E6DD-11DF-9492-0800200C9A66'])
+                set([
+                     'cn=odtestgroupb,cn=groups,dc=example,dc=com',
+                     'uid=odtestamanda,cn=users,dc=example,dc=com',
+                     'uid=odtestbetty,cn=users,dc=example,dc=com',
+                     ])
             )
 
             # Resource with delegates and autoSchedule = True
@@ -433,46 +584,11 @@ else:
             and turns the results into records
             """
 
-            self.service.ldap.addTestResults([
-                (
-                    "uid=odtestamanda,cn=users,dc=example,dc=com",
-                    {
-                        'uid': ['odtestamanda'],
-                        'apple-generateduid': ['9DC04A70-E6DD-11DF-9492-0800200C9A66'],
-                        'sn': ['Test'],
-                        'mail': ['odtestamanda@example.com', 'alternate@example.com'],
-                        'givenName': ['Amanda'],
-                        'cn': ['Amanda Test']
-                    }
-                ),
-                (
-                    "uid=odtestbetty,cn=users,dc=example,dc=com",
-                    {
-                        'uid': ['odtestbetty'],
-                        'apple-generateduid': ['93A8F5C5-49D8-4641-840F-CD1903B0394C'],
-                        'sn': ['Test'],
-                        'mail': ['odtestbetty@example.com'],
-                        'givenName': ['Betty'],
-                        'cn': ['Betty Test']
-                    }
-                ),
-                (
-                    "uid=odtestcarlene,cn=users,dc=example,dc=com",
-                    {
-                        'uid': ['odtestcarlene'],
-                        # Note: no guid here, to test this record is skipped
-                        'sn': ['Test'],
-                        'mail': ['odtestcarlene@example.com'],
-                        'givenName': ['Carlene'],
-                        'cn': ['Carlene Test']
-                    }
-                ),
-            ])
             records = self.service.listRecords(self.service.recordType_users)
-            self.assertEquals(len(records), 2)
+            self.assertEquals(len(records), 4)
             self.assertEquals(
                 set([r.firstName for r in records]),
-                set(["Amanda", "Betty"]) # Carlene is skipped because no guid in LDAP
+                set(["Amanda", "Betty", "Cyrus", "Wilfredo"]) # Carlene is skipped because no guid in LDAP
             )
 
         @inlineCallbacks
@@ -496,106 +612,6 @@ else:
             updater = GroupMembershipCacheUpdater(calendaruserproxy.ProxyDBService,
                 self.service, 30, 15, cache=cache, useExternalProxies=False)
 
-            # Fake LDAP results for the getGroups() call performed within
-            # updateCache().  Also include recursive groups to make sure we
-            # handle that situation.
-            self.service.ldap.addTestResults([
-                (
-                    "cn=recursive1_coasts,cn=groups,dc=example,dc=com",
-                    {
-                        'cn': ['recursive1_coasts'],
-                        'apple-generateduid': ['recursive1_coasts'],
-                        'uniqueMember': [
-                            'cn=recursive2_coasts,cn=groups,dc=example,dc=com',
-                            'uid=wsanchez,cn=users,dc=example,dc=com',
-                        ],
-                    }
-                ),
-                (
-                    "cn=recursive2_coasts,cn=groups,dc=example,dc=com",
-                    {
-                        'cn': ['recursive2_coasts'],
-                        'apple-generateduid': ['recursive2_coasts'],
-                        'uniqueMember': [
-                            'cn=recursive1_coasts,cn=groups,dc=example,dc=com',
-                            'uid=cdaboo,cn=users,dc=example,dc=com',
-                        ],
-                    }
-                ),
-                (
-                    'cn=both_coasts,cn=groups,dc=example,dc=com',
-                    {
-                        'cn': ['both_coasts'],
-                        'apple-generateduid': ['both_coasts'],
-                        'uniqueMember': [
-                            'cn=right_coast,cn=groups,dc=example,dc=com',
-                            'cn=left_coast,cn=groups,dc=example,dc=com',
-                        ],
-                    }
-                ),
-                (
-                    'cn=right_coast,cn=groups,dc=example,dc=com',
-                    {
-                        'cn': ['right_coast'],
-                        'apple-generateduid': ['right_coast'],
-                        'uniqueMember': [
-                            'uid=cdaboo,cn=users,dc=example,dc=com',
-                        ],
-                    }
-                ),
-                (
-                    'cn=left_coast,cn=groups,dc=example,dc=com',
-                    {
-                        'cn': ['left_coast'],
-                        'apple-generateduid': ['left_coast'],
-                        'uniqueMember': [
-                            'uid=wsanchez,cn=users,dc=example,dc=com',
-                            'uid=lecroy,cn=users,dc=example,dc=com',
-                            'uid=dreid,cn=users,dc=example,dc=com',
-                        ],
-                    }
-                ),
-            ])
-            self.service.ldap.addTestResults([
-                (
-                    "cn=recursive2_coasts,cn=groups,dc=example,dc=com",
-                    {
-                        'cn': ['recursive2_coasts'],
-                        'apple-generateduid': ['recursive2_coasts'],
-                        'uniqueMember': [
-                            'cn=recursive1_coasts,cn=groups,dc=example,dc=com',
-                            'uid=cdaboo,cn=users,dc=example,dc=com',
-                        ],
-                    }
-                ),
-            ])
-            self.service.ldap.addTestResults([
-                (
-                    'cn=left_coast,cn=groups,dc=example,dc=com',
-                    {
-                        'cn': ['left_coast'],
-                        'apple-generateduid': ['left_coast'],
-                        'uniqueMember': [
-                            'uid=wsanchez,cn=users,dc=example,dc=com',
-                            'uid=lecroy,cn=users,dc=example,dc=com',
-                            'uid=dreid,cn=users,dc=example,dc=com',
-                        ],
-                    }
-                ),
-            ])
-            self.service.ldap.addTestResults([
-                (
-                    'cn=right_coast,cn=groups,dc=example,dc=com',
-                    {
-                        'cn': ['right_coast'],
-                        'apple-generateduid': ['right_coast'],
-                        'uniqueMember': [
-                            'uid=cdaboo,cn=users,dc=example,dc=com',
-                        ],
-                    }
-                ),
-            ])
-
             self.assertEquals((False, 8), (yield updater.updateCache()))
 
             users = self.service.recordType_users
@@ -604,18 +620,6 @@ else:
                 ("cdaboo", set(["both_coasts", "recursive1_coasts", "recursive2_coasts"])),
                 ("wsanchez", set(["both_coasts", "left_coast", "recursive1_coasts", "recursive2_coasts"])),
             ]:
-
-                # Fake LDAP results for the record lookup
-                self.service.ldap.addTestResults([
-                    (
-                        "uid=%s,cn=users,dc=example,dc=com" % (shortName,),
-                        {
-                            'uid': [shortName],
-                            'cn': [shortName],
-                            'apple-generateduid': [shortName],
-                        }
-                    ),
-                ])
 
                 record = self.service.recordWithShortName(users, shortName)
                 self.assertEquals(groups, (yield record.cachedGroups()))
@@ -658,3 +662,16 @@ else:
             # No Match
             dnStr = "uid=foo,cn=US ers ,dc=EXAMple,dc=com"
             self.assertEquals(self.service.recordTypeForDN(dnStr), None)
+
+        def test_normalizeDN(self):
+            for input, expected in (
+                ("uid=foo,cn=users,dc=example,dc=com",
+                 "uid=foo,cn=users,dc=example,dc=com"),
+                ("uid=FoO,cn=uSeRs,dc=ExAmPlE,dc=CoM",
+                 "uid=foo,cn=users,dc=example,dc=com"),
+                ("uid=FoO , cn=uS eRs , dc=ExA mPlE ,   dc=CoM",
+                 "uid=foo,cn=us ers,dc=exa mple,dc=com"),
+                ("uid=FoO , cn=uS  eRs , dc=ExA    mPlE ,   dc=CoM",
+                 "uid=foo,cn=us ers,dc=exa mple,dc=com"),
+            ):
+                self.assertEquals(expected, normalizeDNstr(input))

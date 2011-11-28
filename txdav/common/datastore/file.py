@@ -111,9 +111,10 @@ class CommonDataStore(DataStore):
         self._transactionClass = CommonStoreTransaction
         self._propertyStoreClass = propertyStoreClass
         self.quota = quota
+        self._migrating = False
 
 
-    def newTransaction(self, name='no name', migrating=False):
+    def newTransaction(self, name='no name'):
         """
         Create a new transaction.
 
@@ -125,8 +126,15 @@ class CommonDataStore(DataStore):
             self.enableCalendars,
             self.enableAddressBooks,
             self._notifierFactory,
-            migrating,
+            self._migrating,
         )
+
+
+    def setMigrating(self, state):
+        """
+        Set the "migrating" state
+        """
+        self._migrating = state
 
 
     def _homesOfType(self, storeType):
