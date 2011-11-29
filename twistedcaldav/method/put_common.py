@@ -302,6 +302,16 @@ class StoreCalendarObjectResource(object):
                         "Invalid calendar data",
                     ))
 
+                # Valid calendar component for check
+                result, message = self.validComponentType()
+                if not result:
+                    log.err(message)
+                    raise HTTPError(ErrorResponse(
+                        responsecode.FORBIDDEN,
+                        (caldav_namespace, "supported-component"),
+                        "Invalid calendar data",
+                    ))
+
                 # Valid attendee list size check
                 result, message = self.validAttendeeListSizeCheck()
                 if not result:
@@ -492,6 +502,19 @@ class StoreCalendarObjectResource(object):
         
         return result, message
     
+    def validComponentType(self):
+        """
+        Make sure that any limits on the number of resources in a collection are enforced.
+        """
+        result = True
+        message = ""
+        
+        if not self.destinationparent.isSupportedComponent(self.calendar.mainType()):
+            result = False
+            message = "Invalid component type %s for calendar: %s" % (self.calendar.mainType(), self.destinationparent,)
+
+        return result, message
+        
     def validSizeCheck(self):
         """
         Make sure that the content-type of the source resource is text/calendar.

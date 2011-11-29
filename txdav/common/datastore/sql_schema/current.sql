@@ -29,7 +29,8 @@ create sequence RESOURCE_ID_SEQ;
 
 create table CALENDAR_HOME (
   RESOURCE_ID      integer      primary key default nextval('RESOURCE_ID_SEQ'), -- implicit index
-  OWNER_UID        varchar(255) not null unique                                 -- implicit index
+  OWNER_UID        varchar(255) not null unique,                                 -- implicit index
+  DATAVERSION	   integer      default 0 not null
 );
 
 ----------------------------
@@ -47,8 +48,9 @@ create table CALENDAR_HOME_METADATA (
 
 create table CALENDAR (
   RESOURCE_ID integer   primary key default nextval('RESOURCE_ID_SEQ'), -- implicit index
-  CREATED     timestamp default timezone('UTC', CURRENT_TIMESTAMP),
-  MODIFIED    timestamp default timezone('UTC', CURRENT_TIMESTAMP)
+  SUPPORTED_COMPONENTS  varchar(255) default null,
+  CREATED               timestamp default timezone('UTC', CURRENT_TIMESTAMP),
+  MODIFIED              timestamp default timezone('UTC', CURRENT_TIMESTAMP)
 );
 
 
@@ -312,7 +314,8 @@ create table RESOURCE_PROPERTY (
 
 create table ADDRESSBOOK_HOME (
   RESOURCE_ID      integer      primary key default nextval('RESOURCE_ID_SEQ'), -- implicit index
-  OWNER_UID        varchar(255) not null unique                                 -- implicit index
+  OWNER_UID        varchar(255) not null unique,                                -- implicit index
+  DATAVERSION	   integer      default 0 not null
 );
 
 --------------------------------
@@ -460,5 +463,6 @@ create table CALENDARSERVER (
   VALUE                         varchar(255)
 );
 
-insert into CALENDARSERVER values ('VERSION', '6');
-
+insert into CALENDARSERVER values ('VERSION', '7');
+insert into CALENDARSERVER values ('CALENDAR-DATAVERSION', '2');
+insert into CALENDARSERVER values ('ADDRESSBOOK-DATAVERSION', '1');

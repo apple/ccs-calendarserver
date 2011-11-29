@@ -82,6 +82,8 @@ class AddressBookHome(CommonHome):
     _notifierPrefix = "CardDAV"
     _revisionsTable = ADDRESSBOOK_OBJECT_REVISIONS_TABLE
 
+    _dataVersionKey = "ADDRESSBOOK-DATAVERSION"
+
     _cacher = Memcacher("SQL.adbkhome", pickle=True, key_normalization=False)
 
     def __init__(self, transaction, ownerUID, notifiers):

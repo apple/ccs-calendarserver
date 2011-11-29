@@ -212,6 +212,13 @@ class AbstractPropertyStore(LoggingMixIn, DictMixin):
     def isGlobalProperty(self, key):
         return key in self._globalKeys
 
+    def copyAllProperties(self, other):
+        """
+        Copy all the properties from another store into this one. This needs to be done
+        independently of the UID. Each underlying store will need to implement this.
+        """
+        pass
+        
 # FIXME: Actually, we should replace this with calls to IPropertyName()
 def validKey(key):
     # Used by implementations to verify that keys are valid

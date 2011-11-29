@@ -57,12 +57,16 @@ from txdav.common.datastore.test.util import deriveQuota
 from txdav.common.datastore.test.util import withSpecialQuota
 from txdav.common.icommondatastore import ConcurrentModification
 from twistedcaldav.ical import Component
+from twistedcaldav.config import config
 
 storePath = FilePath(__file__).parent().child("calendar_store")
 
 homeRoot = storePath.child("ho").child("me").child("home1")
-
 cal1Root = homeRoot.child("calendar_1")
+
+homeSplitsRoot = storePath.child("ho").child("me").child("home_splits")
+cal1SplitsRoot = homeSplitsRoot.child("calendar_1")
+cal2SplitsRoot = homeSplitsRoot.child("calendar_2")
 
 calendar1_objectNames = [
     "1.ics",
@@ -203,17 +207,25 @@ class CommonTests(CommonCommonTests):
     }
     metadata4 = {
         "accessMode": "PUBLIC",
-        "isScheduleObject": None,
-        "scheduleTag": "abc",
+        "isScheduleObject": True,
+        "scheduleTag": "abc4",
         "scheduleEtags": (),
-        "hasPrivateComment": True,
+        "hasPrivateComment": False,
+    }
+    metadata5 = {
+        "accessMode": "PUBLIC",
+        "isScheduleObject": True,
+        "scheduleTag": "abc5",
+        "scheduleEtags": (),
+        "hasPrivateComment": False,
     }
 
     md5Values = (
         hashlib.md5("1234").hexdigest(),
         hashlib.md5("5678").hexdigest(),
         hashlib.md5("9ABC").hexdigest(),
-        hashlib.md5("EFGH").hexdigest(),
+        hashlib.md5("DEFG").hexdigest(),
+        hashlib.md5("HIJK").hexdigest(),
     )
     requirements = {
         "home1": {
@@ -227,7 +239,24 @@ class CommonTests(CommonCommonTests):
             "calendar_empty": {},
             "not_a_calendar": None
         },
-        "not_a_home": None
+        "not_a_home": None,
+        "home_splits": {
+            "calendar_1": {
+                "1.ics": (cal1SplitsRoot.child("1.ics").getContent(), metadata1),
+                "2.ics": (cal1SplitsRoot.child("2.ics").getContent(), metadata2),
+                "3.ics": (cal1SplitsRoot.child("3.ics").getContent(), metadata3),
+            },
+            "calendar_2": {
+                "1.ics": (cal2SplitsRoot.child("1.ics").getContent(), metadata1),
+                "2.ics": (cal2SplitsRoot.child("2.ics").getContent(), metadata2),
+                "3.ics": (cal2SplitsRoot.child("3.ics").getContent(), metadata3),
+                "4.ics": (cal2SplitsRoot.child("4.ics").getContent(), metadata4),
+                "5.ics": (cal2SplitsRoot.child("5.ics").getContent(), metadata4),
+            },
+        },
+        "home_splits_shared": {
+            "calendar_1": {},
+        },
     }
     md5s = {
         "home1": {
@@ -241,7 +270,21 @@ class CommonTests(CommonCommonTests):
             "calendar_empty": {},
             "not_a_calendar": None
         },
-        "not_a_home": None
+        "not_a_home": None,
+        "home_splits": {
+            "calendar_1": {
+                "1.ics": md5Values[0],
+                "2.ics": md5Values[1],
+                "3.ics": md5Values[2],
+            },
+            "calendar_2": {
+                "1.ics": md5Values[0],
+                "2.ics": md5Values[1],
+                "3.ics": md5Values[2],
+                "4.ics": md5Values[3],
+                "5.ics": md5Values[4],
+            },
+        },
     }
 
 
@@ -546,6 +589,34 @@ class CommonTests(CommonCommonTests):
 
 
     @inlineCallbacks
+    def test_calendarTasks_exists(self):
+        """
+        L{ICalendarHome.createdHome} creates a calendar only, or a calendar and tasks
+        collection only, in addition to inbox.
+        """
+        self.patch(config, "RestrictCalendarsToOneComponentType", False)
+        home1 = yield self.transactionUnderTest().calendarHomeWithUID("home_provision1", create=True)
+        for name in ("calendar", "inbox",):
+            calendar = yield home1.calendarWithName(name)
+            if calendar is None:
+                self.fail("calendar %r didn't exist" % (name,))
+            self.assertProvides(ICalendar, calendar)
+            self.assertEquals(calendar.name(), name)
+        for name in ("tasks",):
+            calendar = yield home1.calendarWithName(name)
+            if calendar is not None:
+                self.fail("calendar %r exists" % (name,))
+
+        self.patch(config, "RestrictCalendarsToOneComponentType", True)
+        home2 = yield self.transactionUnderTest().calendarHomeWithUID("home_provision2", create=True)
+        for name in ("calendar", "tasks", "inbox",):
+            calendar = yield home2.calendarWithName(name)
+            if calendar is None:
+                self.fail("calendar %r didn't exist" % (name,))
+            self.assertProvides(ICalendar, calendar)
+            self.assertEquals(calendar.name(), name)
+
+    @inlineCallbacks
     def test_calendarWithName_exists(self):
         """
         L{ICalendarHome.calendarWithName} returns an L{ICalendar} provider,
@@ -693,6 +764,41 @@ class CommonTests(CommonCommonTests):
             NoSuchHomeChildError
         )
 
+
+    @inlineCallbacks
+    def test_supportedComponentSet(self):
+        """
+        Attempt to remove an non-existing calendar object should raise.
+        """
+        calendar = yield self.calendarUnderTest()
+
+        result = yield maybeDeferred(calendar.getSupportedComponents)
+        self.assertEquals(result, None)
+
+        yield maybeDeferred(calendar.setSupportedComponents, "VEVENT,VTODO")
+        result = yield maybeDeferred(calendar.getSupportedComponents)
+        self.assertEquals(result, "VEVENT,VTODO")
+
+        yield maybeDeferred(calendar.setSupportedComponents, None)
+        result = yield maybeDeferred(calendar.getSupportedComponents)
+        self.assertEquals(result, None)
+
+    @inlineCallbacks
+    def test_countComponentTypes(self):
+        """
+        Test Calendar._countComponentTypes to make sure correct counts are returned.
+        """
+        
+        tests = (
+            ("calendar_1", (("VEVENT", 3),)),
+            ("calendar_2", (("VEVENT", 3), ("VTODO", 2))),
+        )
+        
+        for calname, results in tests:
+            testalendar = yield (yield self.transactionUnderTest().calendarHomeWithUID(
+                "home_splits")).calendarWithName(calname)
+            result = yield maybeDeferred(testalendar._countComponentTypes)
+            self.assertEquals(result, results)
 
     @inlineCallbacks
     def test_calendarObjects(self):

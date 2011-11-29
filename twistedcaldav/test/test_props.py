@@ -74,7 +74,7 @@ class Properties(HomeTestCase):
                     if not supported_components:
                         self.fail("Expected CalDAV:supported-calendar-component-set element; but got none.")
 
-                    supported = set(("VEVENT", "VTODO", "VFREEBUSY"))
+                    supported = set(("VEVENT",))
 
                     for component in supported_components.children:
                         if component.type in supported:

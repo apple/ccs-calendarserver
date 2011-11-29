@@ -137,6 +137,7 @@ class ImplicitCalendar(FancyEqMixin,
     def __init__(self, parentHome, subCalendar):
         self._parentHome = parentHome
         self._subCalendar = subCalendar
+        self._supportedComponents = None
 
 #    def ownerCalendarHome(self):
 #        return self._parentHome
@@ -162,6 +163,15 @@ class ImplicitCalendar(FancyEqMixin,
 #        #FIXME: wrap
 #        return self._subCalendar.calendarObjectWithName(name)
 
+    def setSupportedComponents(self, supported_components):
+        """
+        Update the database column with the supported components. Technically this should only happen once
+        on collection creation, but for migration we may need to change after the fact - hence a separate api.
+        """
+        self._supportedComponents = supported_components
+
+    def getSupportedComponents(self):
+        return self._supportedComponents
 
 class ImplicitStore(proxyForInterface(ICalendarStore, "_calendarStore")):
     """

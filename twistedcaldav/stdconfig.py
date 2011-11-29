@@ -524,6 +524,12 @@ DEFAULT_CONFIG = {
             "Enabled"         : True,  # Address Books on/off switch
         }        
     },
+    
+    "RestrictCalendarsToOneComponentType" : True,  # Only allow calendars to be created with a single component type
+                                                   # If this is on, it will also trigger an upgrade behavior that will
+                                                   # split existing calendars into multiples based on component type.
+                                                   # If on, it will also cause new accounts to provision with separate
+                                                   # calendars for events and tasks.
 
     # CardDAV Features
     "DirectoryAddressBook": {

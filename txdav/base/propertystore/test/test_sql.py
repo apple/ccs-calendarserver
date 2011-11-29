@@ -133,7 +133,7 @@ class PropertyStoreTest(PropertyStoreTest):
         race = []
         def tiebreaker(label):
             # Let's not get into the business of figuring out who the database
-            # concurrency rules are suppsoed to pick; it might differ.  We just
+            # concurrency rules are supposed to pick; it might differ.  We just
             # take the answer we're given for who gets to be the final writer,
             # and make sure that matches the property read in the next
             # transaction.
@@ -151,6 +151,49 @@ class PropertyStoreTest(PropertyStoreTest):
                   'b': pval2}[race[-1]]
         self.assertEquals(self.propertyStore[pname], winner)
 
+    @inlineCallbacks
+    def test_copy(self):
+
+        # Existing store
+        store1_user1 = yield PropertyStore.load("user01", self._txn, 2)
+        store1_user2 = yield PropertyStore.load("user01", self._txn, 2)
+        store1_user2._setPerUserUID("user02")
+
+        # Populate current store with data
+        props_user1 = (
+            (propertyName("dummy1"), propertyValue("value1-user1")),
+            (propertyName("dummy2"), propertyValue("value2-user1")),
+        )
+        props_user2 = (
+            (propertyName("dummy1"), propertyValue("value1-user2")),
+            (propertyName("dummy3"), propertyValue("value3-user2")),
+        )
+
+        for name, value in props_user1:
+            store1_user1[name] = value
+        for name, value in props_user2:
+            store1_user2[name] = value
+
+        yield self._txn.commit()
+
+        self._txn = self.store.newTransaction()
+
+        # Existing store
+        store1_user1 = yield PropertyStore.load("user01", self._txn, 2)
+
+        # New store
+        store2_user1 = yield PropertyStore.load("user01", self._txn, 3)
+
+        # Do copy and check results
+        yield store2_user1.copyAllProperties(store1_user1)
+        
+        self.assertEqual(store1_user1.keys(), store2_user1.keys())
+
+        store1_user2 = yield PropertyStore.load("user01", self._txn, 2)
+        store1_user2._setPerUserUID("user02")
+        store2_user2 = yield PropertyStore.load("user01", self._txn, 3)
+        store2_user2._setPerUserUID("user02")
+        self.assertEqual(store1_user2.keys(), store2_user2.keys())
 
 
 if PropertyStore is None:

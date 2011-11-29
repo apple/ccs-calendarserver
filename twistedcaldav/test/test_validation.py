@@ -44,6 +44,7 @@ class TestCopyMoveValidation(TestCase):
         self.destination.name = lambda : '1'
         self.destinationParent = CalDAVResource()
         self.destinationParent.name = lambda : '2'
+        self.destinationParent.isSupportedComponent = lambda x: True
 
     def _getSampleCalendar(self):
         return Component.fromString("""BEGIN:VCALENDAR

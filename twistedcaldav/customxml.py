@@ -60,6 +60,17 @@ calendarserver_sharing_no_scheduling_compliance = (
     "calendarserver-sharing-no-scheduling",
 )
 
+class TwistedCalendarSupportedComponents (davxml.WebDAVTextElement):
+    """
+    Contains the calendar supported components list.
+    """
+    namespace = twisted_dav_namespace
+    name = "calendar-supported-components"
+    hidden = True
+
+    def getValue(self):
+        return str(self)
+
 class TwistedCalendarAccessProperty (davxml.WebDAVTextElement):
     """
     Contains the calendar access level (private events) for the resource.
@@ -506,6 +517,15 @@ class ScheduleChanges (davxml.WebDAVElement):
         (calendarserver_namespace, "dtstamp" )     : (0, 1), # Have to allow 0 as element is empty in PROPFIND requests
         (calendarserver_namespace, "action" )      : (0, 1), # Have to allow 0 as element is empty in PROPFIND requests
     }
+
+class ScheduleDefaultTasksURL (davxml.WebDAVElement):
+    """
+    A single href indicating which calendar is the default for VTODO scheduling.
+    """
+    namespace = calendarserver_namespace
+    name = "schedule-default-tasks-URL"
+
+    allowed_children = { (davxml.dav_namespace, "href"): (0, 1) }
 
 class DTStamp (davxml.WebDAVTextElement):
     """

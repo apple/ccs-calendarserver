@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+from twistedcaldav.config import config
 
 """
 Utility logic common to multiple backend implementations.
@@ -277,6 +278,8 @@ def migrateHome(inHome, outHome, getComponent=lambda x: x.component()):
         a calendar in outHome).
     """
     yield outHome.removeCalendarWithName("calendar")
+    if config.RestrictCalendarsToOneComponentType:
+        yield outHome.removeCalendarWithName("tasks")
     yield outHome.removeCalendarWithName("inbox")
     outHome.properties().update(inHome.properties())
     inCalendars = yield inHome.calendars()

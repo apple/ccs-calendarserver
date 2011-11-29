@@ -13,13 +13,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
-from twext.web2.dav.element.base import WebDAVTextElement
 
 """
 Property store tests.
 """
 
 from twext.python.filepath import CachingFilePath as FilePath
+from twext.web2.dav.element.base import WebDAVTextElement
 from txdav.base.propertystore.base import PropertyName
 from txdav.base.propertystore.test import base
 
@@ -81,6 +81,59 @@ class PropertyStoreTest(base.PropertyStoreTest):
         self.propertyStore.attrs[uncompressedKey] = DummyProperty.fromString("data").toxml()
         self.assertEqual(self.propertyStore[name], DummyProperty.fromString("data"))
         self.assertRaises(KeyError, lambda: self.propertyStore.attrs[uncompressedKey])
+
+    def test_copy(self):
+
+        tempDir = FilePath(self.mktemp())
+        tempDir.makedirs()
+        tempFile1 = tempDir.child("test1")
+        tempFile1.touch()
+        tempFile2 = tempDir.child("test2")
+        tempFile2.touch()
+        
+        # Existing store
+        store1_user1 = PropertyStore("user01", lambda : tempFile1)
+        store1_user2 = PropertyStore("user01", lambda : tempFile1)
+        store1_user2._setPerUserUID("user02")
+
+        # New store
+        store2_user1 = PropertyStore("user01", lambda : tempFile2)
+        store2_user2 = PropertyStore("user01", lambda : tempFile2)
+        store2_user2._setPerUserUID("user02")
+
+        # Populate current store with data
+        class DummyProperty1(WebDAVTextElement):
+            namespace = "http://calendarserver.org/ns/"
+            name = "dummy1"
+        class DummyProperty2(WebDAVTextElement):
+            namespace = "http://calendarserver.org/ns/"
+            name = "dummy2"
+        class DummyProperty3(WebDAVTextElement):
+            namespace = "http://calendarserver.org/ns/"
+            name = "dummy3"
+
+        props_user1 = (
+            DummyProperty1.fromString("value1-user1"),
+            DummyProperty2.fromString("value2-user1"),
+        )
+        props_user2 = (
+            DummyProperty1.fromString("value1-user2"),
+            DummyProperty3.fromString("value3-user2"),
+        )
+
+        for prop in props_user1:
+            store1_user1[PropertyName.fromElement(prop)] = prop
+        for prop in props_user2:
+            store1_user2[PropertyName.fromElement(prop)] = prop
+        store1_user1.flush()
+        store1_user2.flush()
+
+        # Do copy and check results
+        store2_user1.copyAllProperties(store1_user1)
+        store2_user1.flush()
+        
+        self.assertEqual(store1_user1.attrs.items(), store2_user1.attrs.items())
+        self.assertEqual(store1_user2.attrs.items(), store2_user2.attrs.items())
 
 if PropertyStore is None:
     PropertyStoreTest.skip = importErrorMessage

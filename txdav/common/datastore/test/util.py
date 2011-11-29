@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+from twistedcaldav.config import config
 
 """
 Store test utility functions
@@ -101,6 +102,11 @@ class SQLStoreBuilder(object):
             self.sharedService = PostgresService(
                 dbRoot, getReady, current_sql_schema, resetSchema=True,
                 databaseName="caldav",
+                options = [
+                    "-c log_lock_waits=TRUE",
+                    "-c log_statement=all",
+                    "-c log_line_prefix='%p.%x '",
+                ],
                 testMode=True
             )
             self.sharedService.startService()
@@ -262,6 +268,8 @@ def populateCalendarsFrom(requirements, store):
             # explicitly listed.
             try:
                 yield home.removeCalendarWithName("calendar")
+                if config.RestrictCalendarsToOneComponentType:
+                    yield home.removeCalendarWithName("tasks")
                 yield home.removeCalendarWithName("inbox")
             except NoSuchHomeChildError:
                 pass
@@ -508,7 +516,6 @@ def disableMemcacheForTest(aTest):
     # else in this module; nothing else in this module should ever touch global
     # configuration. -glyph
 
-    from twistedcaldav.config import config
     from twistedcaldav.memcacher import Memcacher
 
     aTest.patch(config.Memcached.Pools.Default, "ClientEnabled", False)

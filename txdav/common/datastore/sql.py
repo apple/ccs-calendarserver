@@ -272,23 +272,20 @@ class CommonStoreTransaction(object):
 
 
     @classproperty
-    def _schemaVersion(cls): #@NoSelf
+    def _calendarserver(cls): #@NoSelf
         cs = schema.CALENDARSERVER
         return Select(
             [cs.VALUE,],
             From=cs,
-            Where=cs.NAME == "VERSION",
+            Where=cs.NAME == Parameter('name'),
         )
 
     @inlineCallbacks
-    def schemaVersion(self):
-        result = yield self._schemaVersion.on(self)
+    def calendarserverValue(self, key):
+        result = yield self._calendarserver.on(self, name=key)
         if result and len(result) == 1:
-            try:
-                returnValue(int(result[0][0]))
-            except ValueError:
-                pass
-        raise RuntimeError("Database schema version cannot be determined.")
+            returnValue(result[0][0])
+        raise RuntimeError("Database key %s cannot be determined." % (key,))
         
 
     @memoizedKey('uid', '_calendarHomes')
@@ -701,6 +698,9 @@ class CommonHome(LoggingMixIn):
     _revisionsTable = None
     _notificationRevisionsTable = NOTIFICATION_OBJECT_REVISIONS_TABLE
     
+    _dataVersionKey = None
+    _dataVersionValue = None
+    
     _cacher = None  # Initialize in derived classes
 
     def __init__(self, transaction, ownerUID, notifiers):
@@ -783,9 +783,14 @@ class CommonHome(LoggingMixIn):
             savepoint = SavepointAction("homeWithUID")
             yield savepoint.acquire(txn)
 
+            if cls._dataVersionValue is None:
+                cls._dataVersionValue = yield txn.calendarserverValue(cls._dataVersionKey)
             try:
                 resourceid = (yield Insert(
-                    {cls._homeSchema.OWNER_UID: uid},
+                    {
+                        cls._homeSchema.OWNER_UID: uid,
+                        cls._homeSchema.DATAVERSION: cls._dataVersionValue,
+                    },
                     Return=cls._homeSchema.RESOURCE_ID).on(txn))[0][0]
                 yield Insert(
                     {cls._homeMetaDataSchema.RESOURCE_ID: resourceid}).on(txn)
@@ -1264,6 +1269,10 @@ class _SharedSyncLogic(object):
                       Where=rev.RESOURCE_ID == Parameter("resourceID"))
 
 
+    def revisionFromToken(self, token):
+        _ignore_uuid, revision = token.split("_", 1)
+        return int(revision)
+
     @inlineCallbacks
     def syncToken(self):
         if self._syncTokenRevision is None:
@@ -1290,6 +1299,12 @@ class _SharedSyncLogic(object):
 
     @inlineCallbacks
     def resourceNamesSinceToken(self, token):
+        
+        if token is None:
+            token = 0
+        elif isinstance(token, str):
+            token = self.revisionFromToken(token)
+
         results = [
             (name if name else "", deleted)
             for name, deleted in
@@ -1589,6 +1604,36 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
                                  bind.BIND_MODE == _BIND_MODE_OWN))
 
 
+    @classmethod
+    def metadataColumns(cls):
+        """
+        Return a list of column name for retrieval of metadata. This allows
+        different child classes to have their own type specific data, but still make use of the
+        common base logic.
+        """
+        
+        # Common behavior is to have created and modified
+        
+        return (
+            cls._homeChildSchema.CREATED,
+            cls._homeChildSchema.MODIFIED,
+        )
+        
+    @classmethod
+    def metadataAttributes(cls):
+        """
+        Return a list of attribute names for retrieval of metadata. This allows
+        different child classes to have their own type specific data, but still make use of the
+        common base logic.
+        """
+        
+        # Common behavior is to have created and modified
+        
+        return (
+            "_created",
+            "_modified",
+        )
+        
     @classproperty
     def _sharedChildListQuery(cls): #@NoSelf
         bind = cls._bindSchema
@@ -1597,7 +1642,6 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
                              Parameter("resourceID")).And(
                                  bind.BIND_MODE != _BIND_MODE_OWN).And(
                                  bind.RESOURCE_NAME != None))
-
 
     @classmethod
     @inlineCallbacks
@@ -1627,10 +1671,10 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
         else:
             ownedPiece = (bind.BIND_MODE != _BIND_MODE_OWN).And(
                 bind.RESOURCE_NAME != None)
-        return Select([child.RESOURCE_ID,
-                       bind.RESOURCE_NAME,
-                       child.CREATED,
-                       child.MODIFIED],
+        
+        columns = [child.RESOURCE_ID, bind.RESOURCE_NAME,]
+        columns.extend(cls.metadataColumns())
+        return Select(columns,
                      From=child.join(
                          bind, child.RESOURCE_ID == bind.RESOURCE_ID,
                          'left outer'),
@@ -1691,10 +1735,12 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
             revisions = dict(revisions)
 
         # Create the actual objects merging in properties
-        for resourceID, resource_name, created, modified in dataRows:
+        for items in dataRows:
+            resourceID, resource_name = items[:2]
+            metadata = items[2:]
             child = cls(home, resource_name, resourceID, owned)
-            child._created = created
-            child._modified = modified
+            for attr, value in zip(cls.metadataAttributes(), metadata):
+                setattr(child, attr, value)
             child._syncTokenRevision = revisions[resourceID]
             propstore = propertyStores.get(resourceID, None)
             yield child._loadPropertyStore(propstore)
@@ -1865,12 +1911,12 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
 
 
     @classproperty
-    def _datesByIDQuery(cls): #@NoSelf
+    def _metadataByIDQuery(cls): #@NoSelf
         """
         DAL query to retrieve created/modified dates based on a resource ID.
         """
         child = cls._homeChildSchema
-        return Select([child.CREATED, child.MODIFIED],
+        return Select(cls.metadataColumns(),
                       From=child,
                       Where=child.RESOURCE_ID == Parameter("resourceID"))
 
@@ -1882,9 +1928,11 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
         resource ID. We read in and cache all the extra metadata from the DB to
         avoid having to do DB queries for those individually later.
         """
-        self._created, self._modified = (
-            yield self._datesByIDQuery.on(self._txn,
+        dataRows = (
+            yield self._metadataByIDQuery.on(self._txn,
                                           resourceID=self._resourceID))[0]
+        for attr, value in zip(self.metadataAttributes(), dataRows):
+            setattr(self, attr, value)
         yield self._loadPropertyStore()
 
 
@@ -2201,6 +2249,61 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
             yield self._deleteRevision(name)
             self.notifyChanged()
 
+    @classproperty
+    def _moveParentUpdateQuery(cls): #@NoSelf
+        """
+        DAL query to update a child to be in a new parent.
+        """
+        obj = cls._objectSchema
+        return Update(
+            {obj.PARENT_RESOURCE_ID: Parameter("newParentID")},
+            Where=obj.RESOURCE_ID == Parameter("resourceID")
+        )
+
+    def _movedObjectResource(self, child, newparent):
+        """
+        Method that subclasses can override to do an extra DB adjustments when a resource
+        is moved.
+        """
+        return succeed(True)
+
+    @inlineCallbacks
+    def moveObjectResource(self, child, newparent):
+        """
+        Move a child of this collection into another collection without actually removing/re-inserting the data.
+        Make sure sync and cache details for both collections are updated.
+        
+        TODO: check that the resource name does not exist in the new parent, or that the UID
+        does not exist there too.
+
+        @param child: the child resource to move
+        @type child: L{CommonObjectResource}
+        @param newparent: the parent to move to
+        @type newparent: L{CommonHomeChild}
+        """
+
+        name = child.name()
+        uid = child.uid()
+
+        # Clean this collections cache and signal sync change
+        self._objects.pop(name, None)
+        self._objects.pop(uid, None)
+        self._objects.pop(child._resourceID, None)
+        yield self._deleteRevision(name)
+        self.notifyChanged()
+        
+        # Adjust the child to be a child of the new parent and update ancillary tables
+        yield self._moveParentUpdateQuery.on(
+            self._txn,
+            newParentID=newparent._resourceID,
+            resourceID=child._resourceID
+        )
+        yield self._movedObjectResource(child, newparent)
+        child._parentCollection = newparent
+
+        # Signal sync change on new collection
+        yield newparent._insertRevision(name)
+        newparent.notifyChanged()
 
     def objectResourcesHaveProperties(self):
         return False

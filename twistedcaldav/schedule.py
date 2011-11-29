@@ -40,11 +40,12 @@ from twext.web2.http_headers import MimeType
 
 from twisted.internet.defer import inlineCallbacks, returnValue, succeed
 
-from twistedcaldav import caldavxml
+from twistedcaldav import caldavxml, customxml
 from twistedcaldav.caldavxml import caldav_namespace, Opaque,\
     CalendarFreeBusySet, ScheduleCalendarTransp
 from twistedcaldav.config import config
 from twistedcaldav.customxml import calendarserver_namespace
+from twistedcaldav.ical import allowedComponents
 from twistedcaldav.extensions import DAVResource
 from twistedcaldav.resource import CalDAVResource, ReadOnlyNoCopyResourceMixIn
 from twistedcaldav.resource import isCalendarCollectionResource
@@ -135,8 +136,9 @@ class ScheduleInboxResource (CalendarSchedulingCollectionResource):
     def liveProperties(self):
         
         return super(ScheduleInboxResource, self).liveProperties() + (
-            (caldav_namespace, "calendar-free-busy-set"),
-            (caldav_namespace, "schedule-default-calendar-URL"),
+            caldavxml.CalendarFreeBusySet.qname(),
+            caldavxml.ScheduleDefaultCalendarURL.qname(),
+            customxml.ScheduleDefaultTasksURL.qname(),
         )
 
     def resourceType(self):
@@ -149,7 +151,7 @@ class ScheduleInboxResource (CalendarSchedulingCollectionResource):
         else:
             qname = property.qname()
 
-        if qname == (caldav_namespace, "calendar-free-busy-set"):
+        if qname == caldavxml.CalendarFreeBusySet.qname():
             # Always return at least an empty list
             if not self.hasDeadProperty(property):
                 top = self.parent.url()
@@ -159,21 +161,9 @@ class ScheduleInboxResource (CalendarSchedulingCollectionResource):
                     if prop == ScheduleCalendarTransp(Opaque()):
                         values.append(HRef(joinURL(top, cal.name())))
                 returnValue(CalendarFreeBusySet(*values))
-        elif qname == (caldav_namespace, "schedule-default-calendar-URL"):
-            # Must have a valid default
-            try:
-                defaultCalendarProperty = self.readDeadProperty(property)
-            except HTTPError:
-                defaultCalendarProperty = None
-            if defaultCalendarProperty and len(defaultCalendarProperty.children) == 1:
-                defaultCalendar = str(defaultCalendarProperty.children[0])
-                cal = (yield request.locateResource(str(defaultCalendar)))
-                if cal is not None and isCalendarCollectionResource(cal) and cal.exists() and not cal.isVirtualShare():
-                    returnValue(defaultCalendarProperty) 
-            
-            # Default is not valid - we have to try to pick one
-            defaultCalendarProperty = (yield self.pickNewDefaultCalendar(request))
-            returnValue(defaultCalendarProperty)
+        elif qname in (caldavxml.ScheduleDefaultCalendarURL.qname(), customxml.ScheduleDefaultTasksURL.qname()):
+            result = (yield self.readDefaultCalendarProperty(request, qname))
+            returnValue(result)
             
         result = (yield super(ScheduleInboxResource, self).readProperty(property, request))
         returnValue(result)
@@ -186,7 +176,7 @@ class ScheduleInboxResource (CalendarSchedulingCollectionResource):
         # server enforces what can be stored, however it need not actually
         # exist so we cannot list it in liveProperties on this resource, since its
         # its presence there means that hasProperty will always return True for it.
-        if property.qname() == (calendarserver_namespace, "calendar-availability"):
+        if property.qname() == customxml.CalendarAvailability.qname():
             if not property.valid():
                 raise HTTPError(ErrorResponse(
                     responsecode.CONFLICT,
@@ -194,7 +184,7 @@ class ScheduleInboxResource (CalendarSchedulingCollectionResource):
                     description="Invalid property"
                 ))
 
-        elif property.qname() == (caldav_namespace, "calendar-free-busy-set"):
+        elif property.qname() == caldavxml.CalendarFreeBusySet.qname():
             # Verify that the calendars added in the PROPPATCH are valid. We do not check
             # whether existing items in the property are still valid - only new ones.
             property.children = [davxml.HRef(normalizeURL(str(href))) for href in property.children]
@@ -214,36 +204,18 @@ class ScheduleInboxResource (CalendarSchedulingCollectionResource):
                         "Invalid URI",
                     ))
 
-        elif property.qname() == (caldav_namespace, "schedule-default-calendar-URL"):
-            # Verify that the calendar added in the PROPPATCH is valid.
-            property.children = [davxml.HRef(normalizeURL(str(href))) for href in property.children]
-            new_calendar = [str(href) for href in property.children]
-            cal = None
-            if len(new_calendar) == 1:
-                calURI = str(new_calendar[0])
-                cal = (yield request.locateResource(str(new_calendar[0])))
-            # TODO: check that owner of the new calendar is the same as owner of this inbox
-            if cal is None or not cal.exists() or not isCalendarCollectionResource(cal) or cal.isVirtualShare():
-                # Validate that href's point to a valid calendar.
-                raise HTTPError(ErrorResponse(
-                    responsecode.CONFLICT,
-                    (caldav_namespace, "valid-schedule-default-calendar-URL"),
-                    "Invalid URI",
-                ))
-            else:
-                # Canonicalize the URL to __uids__ form
-                calURI = (yield cal.canonicalURL(request))
-                property = caldavxml.ScheduleDefaultCalendarURL(davxml.HRef(calURI))
+        elif property.qname() in (caldavxml.ScheduleDefaultCalendarURL.qname(), customxml.ScheduleDefaultTasksURL.qname()):
+            property = (yield self.writeDefaultCalendarProperty(request, property))
 
         yield super(ScheduleInboxResource, self).writeProperty(property, request)
 
     def processFreeBusyCalendar(self, uri, addit):
         uri = normalizeURL(uri)
 
-        if not self.hasDeadProperty((caldav_namespace, "calendar-free-busy-set")):
+        if not self.hasDeadProperty(caldavxml.CalendarFreeBusySet.qname()):
             fbset = set()
         else:
-            fbset = set([normalizeURL(str(href)) for href in self.readDeadProperty((caldav_namespace, "calendar-free-busy-set")).children])
+            fbset = set([normalizeURL(str(href)) for href in self.readDeadProperty(caldavxml.CalendarFreeBusySet.qname()).children])
         if addit:
             if uri not in fbset:
                 fbset.add(uri)
@@ -254,35 +226,157 @@ class ScheduleInboxResource (CalendarSchedulingCollectionResource):
                 self.writeDeadProperty(caldavxml.CalendarFreeBusySet(*[davxml.HRef(url) for url in fbset]))
 
     @inlineCallbacks
-    def pickNewDefaultCalendar(self, request):
+    def readDefaultCalendarProperty(self, request, qname):
         """
-        First see if "calendar" exists in the calendar home and pick that. Otherwise
-        create "calendar" in the calendar home.
+        Read either the default VEVENT or VTODO calendar property. Try to pick one if not present.
         """
+        
+        tasks = qname == customxml.ScheduleDefaultTasksURL.qname()
+
+        # Must have a valid default
+        try:
+            defaultCalendarProperty = self.readDeadProperty(qname)
+        except HTTPError:
+            defaultCalendarProperty = None
+        if defaultCalendarProperty and len(defaultCalendarProperty.children) == 1:
+            defaultCalendar = str(defaultCalendarProperty.children[0])
+            cal = (yield request.locateResource(str(defaultCalendar)))
+            if cal is not None and isCalendarCollectionResource(cal) and cal.exists() and not cal.isVirtualShare():
+                returnValue(defaultCalendarProperty) 
+        
+        # Default is not valid - we have to try to pick one
+        defaultCalendarProperty = (yield self.pickNewDefaultCalendar(request, tasks=tasks))
+        returnValue(defaultCalendarProperty)
+
+    @inlineCallbacks
+    def writeDefaultCalendarProperty(self, request, property):
+        """
+        Write either the default VEVENT or VTODO calendar property, validating and canonicalizing the value
+        """
+        tasks = property.qname() == customxml.ScheduleDefaultTasksURL
+        componentType = "VTODO" if tasks else "VEVENT"
+        prop_to_set = customxml.ScheduleDefaultTasksURL if tasks else caldavxml.ScheduleDefaultCalendarURL
+        error_element = (calendarserver_namespace, "valid-schedule-default-tasks-URL") if tasks else (caldav_namespace, "valid-schedule-default-calendar-URL")
+
+        # Verify that the calendar added in the PROPPATCH is valid.
+        property.children = [davxml.HRef(normalizeURL(str(href))) for href in property.children]
+        new_calendar = [str(href) for href in property.children]
+        cal = None
+        if len(new_calendar) == 1:
+            calURI = str(new_calendar[0])
+            cal = (yield request.locateResource(str(new_calendar[0])))
+
+        # TODO: check that owner of the new calendar is the same as owner of this inbox
+        if cal is None or not cal.exists() or not isCalendarCollectionResource(cal) or \
+            cal.isVirtualShare() or not cal.isSupportedComponent(componentType):
+            # Validate that href's point to a valid calendar.
+            raise HTTPError(ErrorResponse(
+                responsecode.CONFLICT,
+                error_element,
+                "Invalid URI",
+            ))
+        else:
+            # Canonicalize the URL to __uids__ form
+            calURI = (yield cal.canonicalURL(request))
+            property = prop_to_set(davxml.HRef(calURI))
+            returnValue(property)
+
+    @inlineCallbacks
+    def pickNewDefaultCalendar(self, request, tasks=False):
+        """
+        First see if default provisioned calendar exists in the calendar home and pick that. Otherwise
+        pick another from the calendar home.
+        """
+        
+        componentType = "VTODO" if tasks else "VEVENT"
+        test_name = "tasks" if tasks else "calendar"
+        prop_to_set = customxml.ScheduleDefaultTasksURL if tasks else caldavxml.ScheduleDefaultCalendarURL
+
         calendarHomeURL = self.parent.url()
-        defaultCalendarURL = joinURL(calendarHomeURL, "calendar")
+        defaultCalendarURL = joinURL(calendarHomeURL, test_name)
         defaultCalendar = (yield request.locateResource(defaultCalendarURL))
         if defaultCalendar is None or not defaultCalendar.exists():
             # FIXME: the back-end should re-provision a default calendar here.
             # Really, the dead property shouldn't be necessary, and this should
             # be entirely computed by a back-end method like 'defaultCalendar()'
             for calendarName in (yield self.parent._newStoreHome.listCalendars()):  # These are only unshared children
-                if calendarName != "inbox":
-                    aCalendar = calendarName
-                    break
+                if calendarName == "inbox":
+                    continue
+                calendar = (yield self.parent._newStoreHome.calendarWithName(calendarName))
+                if not calendar.isSupportedComponent(componentType):
+                    continue
+                break
             else:
-                raise RuntimeError("No valid calendars to use as a default calendar.")
+                raise RuntimeError("No valid calendars to use as a default %s calendar." % (componentType,))
 
-            defaultCalendarURL = joinURL(calendarHomeURL, aCalendar)
+            defaultCalendarURL = joinURL(calendarHomeURL, calendarName)
 
-        self.writeDeadProperty(
-            caldavxml.ScheduleDefaultCalendarURL(
-                davxml.HRef(defaultCalendarURL)
-            )
-        )
-        returnValue(caldavxml.ScheduleDefaultCalendarURL(
-            davxml.HRef(defaultCalendarURL))
-        )
+        prop = prop_to_set(davxml.HRef(defaultCalendarURL))
+        self.writeDeadProperty(prop)
+        returnValue(prop)
+
+    @inlineCallbacks
+    def defaultCalendar(self, request, componentType):
+        """
+        Find the default calendar for the supplied iCalendar component type. If one does
+        not exist, automatically provision it. 
+        """
+
+        # Check any default calendar property first
+        default = (yield self.readProperty(caldavxml.ScheduleDefaultCalendarURL.qname(), request))
+        if len(default.children) == 1:
+            defaultURL = str(default.children[0])
+            default = (yield request.locateResource(defaultURL))
+        else:
+            default = None
+
+        # Check that default handles the component type
+        if default is not None:
+            if not default.isSupportedComponent(componentType):
+                default = None
+        
+        # Must have a default - provision one if not
+        if default is None:
+            
+            # Try to find a calendar supporting the required component type. If there are multiple, pick
+            # the one with the oldest created timestamp as that will likely be the initial provision.
+            for calendarName in (yield self.parent._newStoreHome.listCalendars()):  # These are only unshared children
+                if calendarName == "inbox":
+                    continue
+                calendar = (yield self.parent._newStoreHome.calendarWithName(calendarName))
+                if not calendar.isSupportedComponent(componentType):
+                    continue
+                if default is None or calendar.created() < default.created():
+                    default = calendar
+            
+            # If none can be found, provision one
+            if default is None:
+                new_name = "%ss" % (componentType.lower()[1:],)
+                default = yield self.parent._newStoreHome.createCalendarWithName(new_name)
+                default.setSupportedComponents(componentType.upper())
+            
+            # Need L{DAVResource} object to return not new store object
+            default = (yield request.locateResource(joinURL(self.parent.url(), default.name())))
+        
+        returnValue(default)
+
+    @inlineCallbacks
+    def isDefaultCalendar(self, request, calendar):
+        """
+        Is the supplied calendar one of the possible default calendars.
+        """
+        assert calendar.isCalendarCollection()
+        
+        # Not allowed to delete the default calendar
+        for default_prop in (caldavxml.ScheduleDefaultCalendarURL, customxml.ScheduleDefaultTasksURL,):
+            default = (yield self.readProperty(default_prop.qname(), request))
+            if default and len(default.children) == 1:
+                defaultURL = normalizeURL(str(default.children[0]))
+                myURL = (yield calendar.canonicalURL(request))
+                if defaultURL == myURL:
+                    returnValue(default_prop)
+
+        returnValue(None)
 
     ##
     # ACL
@@ -316,6 +410,11 @@ class ScheduleOutboxResource (CalendarSchedulingCollectionResource):
 
     def resourceType(self):
         return davxml.ResourceType.scheduleOutbox
+
+    def getSupportedComponentSet(self):
+        return caldavxml.SupportedCalendarComponentSet(
+            *[caldavxml.CalendarComponent(name=item) for item in allowedComponents]
+        )
 
     @inlineCallbacks
     def http_POST(self, request):

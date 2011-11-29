@@ -14,7 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
-from twistedcaldav.ical import InvalidICalendarDataError
 
 """
 File calendar store.
@@ -44,6 +43,8 @@ from twext.web2.http_headers import generateContentType, MimeType
 
 from twistedcaldav import caldavxml, customxml
 from twistedcaldav.caldavxml import ScheduleCalendarTransp, Opaque
+from twistedcaldav.config import config
+from twistedcaldav.ical import InvalidICalendarDataError
 from twistedcaldav.sharing import InvitesDatabase
 
 from txdav.caldav.icalendarstore import IAttachment
@@ -181,12 +182,22 @@ class CalendarHome(CommonHome):
 
 
     def createdHome(self):
+
+        # Default calendar
         defaultCal = self.createCalendarWithName("calendar")
         props = defaultCal.properties()
-        props[PropertyName(*ScheduleCalendarTransp.qname())] = ScheduleCalendarTransp(
-            Opaque())
+        props[PropertyName(*ScheduleCalendarTransp.qname())] = ScheduleCalendarTransp(Opaque())
+        
+        # Check whether components type must be separate
+        if config.RestrictCalendarsToOneComponentType:
+            defaultCal.setSupportedComponents("VEVENT")
+            
+            # Default tasks
+            defaultTasks = self.createCalendarWithName("tasks")
+            props = defaultTasks.properties()
+            defaultTasks.setSupportedComponents("VTODO")
+            
         self.createCalendarWithName("inbox")
-
 
 
 class Calendar(CommonHomeChild):
@@ -241,6 +252,29 @@ class Calendar(CommonHomeChild):
         raise NotImplementedError()
 
 
+    def setSupportedComponents(self, supported_components):
+        """
+        Update the private property with the supported components. Technically this should only happen once
+        on collection creation, but for migration we may need to change after the fact - hence a separate api.
+        """
+        
+        pname = PropertyName.fromElement(customxml.TwistedCalendarSupportedComponents)
+        if supported_components:
+            self.properties()[pname] = customxml.TwistedCalendarSupportedComponents.fromString(supported_components)
+        elif pname in self.properties():
+            del self.properties()[pname]
+
+    def getSupportedComponents(self):
+        result = str(self.properties().get(PropertyName.fromElement(customxml.TwistedCalendarSupportedComponents), ""))
+        return result if result else None
+
+    def isSupportedComponent(self, componentType):
+        supported = self.getSupportedComponents()
+        if supported:
+            return componentType.upper() in supported.split(",")
+        else:
+            return True
+
     def initPropertyStore(self, props):
         # Setup peruser special properties
         props.setSpecialProperties(
@@ -260,7 +294,54 @@ class Calendar(CommonHomeChild):
         """
         return MimeType.fromString("text/calendar; charset=utf-8")
 
+    def splitCollectionByComponentTypes(self):
+        """
+        If the calendar contains iCalendar data with different component types, then split it into separate collections
+        each containing only one component type. When doing this make sure properties and sharing state are preserved
+        on any new calendars created.
+        """
+        
+        # TODO: implement this for filestore
+        pass
 
+    def _countComponentTypes(self):
+        """
+        Count each component type in this calendar.
+        
+        @return: a C{tuple} of C{tuple} containing the component type name and count. 
+        """
+
+        rows = self._index._oldIndex.componentTypeCounts()
+        result = tuple([(componentType, componentCount) for componentType, componentCount in sorted(rows, key=lambda x:x[0])])
+        return result
+
+    def _splitComponentType(self, component):
+        """
+        Create a new calendar and move all components of the specified component type into the new one.
+        Make sure properties and sharing state is preserved on the new calendar.
+        
+        @param component: Component type to split out
+        @type component: C{str}
+        """
+        
+        # TODO: implement this for filestore
+        pass
+
+    def _transferSharingDetails(self, newcalendar, component):
+        """
+        If the current calendar is shared, make the new calendar shared in the same way, but tweak the name.
+        """
+        
+        # TODO: implement this for filestore
+        pass
+    
+    def _transferCalendarObjects(self, newcalendar, component):
+        """
+        Move all calendar components of the specified type to the specified calendar.
+        """
+        
+        # TODO: implement this for filestore
+        pass
 
 class CalendarObject(CommonObjectResource, CalendarObjectBase):
     """

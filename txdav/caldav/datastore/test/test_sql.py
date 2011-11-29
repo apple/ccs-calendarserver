@@ -25,7 +25,7 @@ from twisted.internet.task import deferLater
 from twisted.python import hashlib
 from twisted.trial import unittest
 
-from twext.enterprise.dal.syntax import Select, Parameter
+from twext.enterprise.dal.syntax import Select, Parameter, Insert
 from twext.python.vcomponent import VComponent
 from twext.web2.dav.element.rfc2518 import GETContentLanguage, ResourceType
 
@@ -35,7 +35,8 @@ from txdav.caldav.datastore.test.common import CommonTests as CalendarCommonTest
 from txdav.caldav.datastore.test.test_file import setUpCalendarStore
 from txdav.caldav.datastore.util import _migrateCalendar, migrateHome
 from txdav.common.datastore.sql import ECALENDARTYPE
-from txdav.common.datastore.sql_tables import schema
+from txdav.common.datastore.sql_tables import schema, _BIND_MODE_DIRECT,\
+    _BIND_STATUS_ACCEPTED
 from txdav.common.datastore.test.util import buildStore, populateCalendarsFrom
 
 from twistedcaldav import caldavxml
@@ -255,6 +256,28 @@ class CalendarSQLStorageTests(CalendarCommonTests, unittest.TestCase):
             )
         self.assertPropertiesSimilar(fromHome, toHome, builtinProperties)
 
+
+    def test_calendarHomeVersion(self):
+        """
+        The DATAVERSION column for new calendar homes must match the
+        CALENDAR-DATAVERSION value.
+        """
+        
+        home = yield self.transactionUnderTest().calendarHomeWithUID("home_version")
+        self.assertTrue(home is not None)
+        yield self.transactionUnderTest().commit
+        
+        txn = yield self.transactionUnderTest()
+        version = yield txn.calendarserverValue("CALENDAR-DATAVERSION")[0][0]
+        ch = schema.CALENDAR_HOME
+        homeVersion = yield Select(
+            [ch.DATAVERSION,],
+            From=ch,
+            Where=ch.OWNER_UID == "home_version",
+        ).on(txn)[0][0]
+        self.assertEqual(int(homeVersion, version))
+        
+        
 
     def test_eachCalendarHome(self):
         """
@@ -688,3 +711,124 @@ class CalendarSQLStorageTests(CalendarCommonTests, unittest.TestCase):
         yield d1
         yield d2
 
+    @inlineCallbacks
+    def test_transferSharingDetails(self):
+        """
+        Test Calendar._transferSharingDetails to make sure sharing details are transferred.
+        """
+        
+        shareeHome = yield self.transactionUnderTest().calendarHomeWithUID("home_splits_shared")
+
+        calendar = yield (yield self.transactionUnderTest().calendarHomeWithUID(
+            "home_splits")).calendarWithName("calendar_1")
+        
+        # Fake a shared binding on the original calendar
+        bind = calendar._bindSchema
+        _bindCreate = Insert({
+            bind.HOME_RESOURCE_ID: shareeHome._resourceID,
+            bind.RESOURCE_ID: calendar._resourceID, 
+            bind.RESOURCE_NAME: "shared_1",
+            bind.MESSAGE: "Shared to you",
+            bind.BIND_MODE: _BIND_MODE_DIRECT,
+            bind.BIND_STATUS: _BIND_STATUS_ACCEPTED,
+            bind.SEEN_BY_OWNER: True,
+            bind.SEEN_BY_SHAREE: True,
+        })
+        yield _bindCreate.on(self.transactionUnderTest())
+        sharedCalendar = yield shareeHome.sharedChildWithName("shared_1")
+        self.assertTrue(sharedCalendar is not None)
+        sharedCalendar = yield shareeHome.sharedChildWithName("shared_1_vtodo")
+        self.assertTrue(sharedCalendar is None)
+
+        # Now do the transfer and see if a new binding exists
+        newcalendar = yield (yield self.transactionUnderTest().calendarHomeWithUID(
+            "home_splits")).createCalendarWithName("calendar_new")
+        yield calendar._transferSharingDetails(newcalendar, "VTODO")
+
+        sharedCalendar = yield shareeHome.sharedChildWithName("shared_1")
+        self.assertTrue(sharedCalendar is not None)
+        self.assertEqual(sharedCalendar._resourceID, calendar._resourceID)
+
+        sharedCalendar = yield shareeHome.sharedChildWithName("shared_1-vtodo")
+        self.assertTrue(sharedCalendar is not None)
+        self.assertEqual(sharedCalendar._resourceID, newcalendar._resourceID)
+
+    @inlineCallbacks
+    def test_moveCalendarObjectResource(self):
+        """
+        Test Calendar._transferSharingDetails to make sure sharing details are transferred.
+        """
+        
+        calendar1 = yield (yield self.transactionUnderTest().calendarHomeWithUID(
+            "home_splits")).calendarWithName("calendar_1")
+        calendar2 = yield (yield self.transactionUnderTest().calendarHomeWithUID(
+            "home_splits")).calendarWithName("calendar_2")
+        
+        child = yield calendar2.calendarObjectWithName("5.ics")
+        
+        yield calendar2.moveObjectResource(child, calendar1)
+        
+        child = yield calendar2.calendarObjectWithName("5.ics")
+        self.assertTrue(child is None)
+        
+        child = yield calendar1.calendarObjectWithName("5.ics")
+        self.assertTrue(child is not None)
+
+    @inlineCallbacks
+    def test_splitCalendars(self):
+        """
+        Test Calendar.splitCollectionByComponentTypes to make sure components are split out,
+        sync information is updated.
+        """
+        
+        # calendar_1 no change
+        home = yield self.transactionUnderTest().calendarHomeWithUID("home_splits")
+        calendar1 = yield home.calendarWithName("calendar_1")
+        original_sync_token1 = yield calendar1.syncToken()
+        yield calendar1.splitCollectionByComponentTypes()
+        yield self.commit()
+
+        home = yield self.transactionUnderTest().calendarHomeWithUID("home_splits")
+
+        child = yield home.calendarWithName("calendar_1-vtodo")
+        self.assertTrue(child is None)
+
+        calendar1 = yield home.calendarWithName("calendar_1")        
+        children = yield calendar1.listCalendarObjects()
+        self.assertEqual(len(children), 3)
+        new_sync_token1 = yield calendar1.syncToken()
+        self.assertEqual(new_sync_token1, original_sync_token1)
+        result = yield calendar1.getSupportedComponents()
+        self.assertEquals(result, "VEVENT")
+
+        yield self.commit()
+
+        # calendar_2 does split
+        home = yield self.transactionUnderTest().calendarHomeWithUID("home_splits")
+        calendar2 = yield home.calendarWithName("calendar_2")        
+        original_sync_token2 = yield calendar2.syncToken()
+        yield calendar2.splitCollectionByComponentTypes()
+        yield self.commit()
+
+        home = yield self.transactionUnderTest().calendarHomeWithUID("home_splits")
+
+        calendar2_vtodo = yield home.calendarWithName("calendar_2-vtodo")
+        self.assertTrue(calendar2_vtodo is not None)
+        children = yield calendar2_vtodo.listCalendarObjects()
+        self.assertEqual(len(children), 2)
+        changed, deleted = yield calendar2_vtodo.resourceNamesSinceToken(None)
+        self.assertEqual(sorted(changed), ["3.ics", "5.ics"])
+        self.assertEqual(len(deleted), 0)
+        result = yield calendar2_vtodo.getSupportedComponents()
+        self.assertEquals(result, "VTODO")
+
+        calendar2 = yield home.calendarWithName("calendar_2")        
+        children = yield calendar2.listCalendarObjects()
+        self.assertEqual(len(children), 3)
+        new_sync_token2 = yield calendar2.syncToken()
+        self.assertNotEqual(new_sync_token2, original_sync_token2)
+        changed, deleted = yield calendar2.resourceNamesSinceToken(original_sync_token2)
+        self.assertEqual(len(changed), 0)
+        self.assertEqual(sorted(deleted), ["3.ics", "5.ics"])
+        result = yield calendar2.getSupportedComponents()
+        self.assertEquals(result, "VEVENT")

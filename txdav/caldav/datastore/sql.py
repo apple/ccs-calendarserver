@@ -25,6 +25,7 @@ __all__ = [
     "CalendarObject",
 ]
 
+from twext.python.clsprop import classproperty
 from twext.python.vcomponent import VComponent
 from twext.web2.dav.element.rfc2518 import ResourceType
 from twext.web2.http_headers import MimeType, generateContentType
@@ -59,7 +60,7 @@ from txdav.common.datastore.sql_tables import CALENDAR_TABLE,\
     CALENDAR_HOME_TABLE, CALENDAR_HOME_METADATA_TABLE,\
     CALENDAR_AND_CALENDAR_BIND, CALENDAR_OBJECT_REVISIONS_AND_BIND_TABLE,\
     CALENDAR_OBJECT_AND_BIND_TABLE, schema
-from twext.enterprise.dal.syntax import Select
+from twext.enterprise.dal.syntax import Select, Count, ColumnSyntax
 from twext.enterprise.dal.syntax import Insert
 from twext.enterprise.dal.syntax import Update
 from twext.enterprise.dal.syntax import Delete
@@ -72,7 +73,8 @@ from txdav.caldav.icalendarstore import QuotaExceeded
 
 from txdav.caldav.datastore.util import StorageTransportBase
 from txdav.common.icommondatastore import IndexedSearchException,\
-    InternalDataStoreError
+    InternalDataStoreError, HomeChildNameAlreadyExistsError,\
+    HomeChildNameNotAllowedError
 
 from pycalendar.datetime import PyCalendarDateTime
 from pycalendar.duration import PyCalendarDuration
@@ -99,6 +101,8 @@ class CalendarHome(CommonHome):
     _objectBindTable = CALENDAR_OBJECT_AND_BIND_TABLE
     _notifierPrefix = "CalDAV"
     _revisionsTable = CALENDAR_OBJECT_REVISIONS_TABLE
+
+    _dataVersionKey = "CALENDAR-DATAVERSION"
 
     _cacher = Memcacher("SQL.calhome", pickle=True, key_normalization=False)
 
@@ -211,13 +215,38 @@ class CalendarHome(CommonHome):
 
     @inlineCallbacks
     def createdHome(self):
+        
+        # Default calendar
         defaultCal = yield self.createCalendarWithName("calendar")
         props = defaultCal.properties()
-        props[PropertyName(*ScheduleCalendarTransp.qname())] = ScheduleCalendarTransp(
-            Opaque())
+        props[PropertyName(*ScheduleCalendarTransp.qname())] = ScheduleCalendarTransp(Opaque())
+        
+        # Check whether components type must be separate
+        if config.RestrictCalendarsToOneComponentType:
+            defaultCal.setSupportedComponents("VEVENT")
+            
+            # Default tasks
+            defaultTasks = yield self.createCalendarWithName("tasks")
+            defaultTasks.setSupportedComponents("VTODO")
+            
         yield self.createCalendarWithName("inbox")
 
-
+    @inlineCallbacks
+    def splitCalendars(self):
+        """
+        Split all regular calendars by component type
+        """
+        
+        # Make sure the loop does not operate on any new calendars created during the loop
+        self.log_warn("Splitting calendars for user %s" % (self._ownerUID,))
+        calendars = yield self.calendars()
+        for calendar in calendars:
+            
+            # Ignore inbox - also shared calendars are not part of .calendars() 
+            if calendar.name() == "inbox":
+                continue
+            split_count = yield calendar.splitCollectionByComponentTypes()
+            self.log_warn("  Calendar: '%s', split into %d" % (calendar.name(), split_count+1,))
 
 class Calendar(CommonHomeChild):
     """
@@ -230,6 +259,7 @@ class Calendar(CommonHomeChild):
     _homeChildSchema = schema.CALENDAR
     _revisionsSchema = schema.CALENDAR_OBJECT_REVISIONS
     _objectSchema = schema.CALENDAR_OBJECT
+    _timeRangeSchema = schema.TIME_RANGE
 
     # string mappings (old, removing)
     _bindTable = CALENDAR_BIND_TABLE
@@ -257,8 +287,42 @@ class Calendar(CommonHomeChild):
             self._index = PostgresLegacyIndexEmulator(self)
         self._invites = SQLLegacyCalendarInvites(self)
         self._objectResourceClass = CalendarObject
+        
+        self._supportedComponents = None
 
 
+    @classmethod
+    def metadataColumns(cls):
+        """
+        Return a list of column name for retrieval of metadata. This allows
+        different child classes to have their own type specific data, but still make use of the
+        common base logic.
+        """
+        
+        # Common behavior is to have created and modified
+        
+        return (
+            cls._homeChildSchema.CREATED,
+            cls._homeChildSchema.MODIFIED,
+            cls._homeChildSchema.SUPPORTED_COMPONENTS,
+        )
+        
+    @classmethod
+    def metadataAttributes(cls):
+        """
+        Return a list of attribute names for retrieval of metadata. This allows
+        different child classes to have their own type specific data, but still make use of the
+        common base logic.
+        """
+        
+        # Common behavior is to have created and modified
+        
+        return (
+            "_created",
+            "_modified",
+            "_supportedComponents",
+        )
+        
     @property
     def _calendarHome(self):
         return self._home
@@ -291,6 +355,31 @@ class Calendar(CommonHomeChild):
         """
         return self._name == "inbox"
 
+    @inlineCallbacks
+    def setSupportedComponents(self, supported_components):
+        """
+        Update the database column with the supported components. Technically this should only happen once
+        on collection creation, but for migration we may need to change after the fact - hence a separate api.
+        """
+        
+        cal = self._homeChildSchema
+        yield Update(
+            {
+                cal.SUPPORTED_COMPONENTS : supported_components
+            },
+            Where=(cal.RESOURCE_ID == self._resourceID)
+        ).on(self._txn)
+        self._supportedComponents = supported_components
+
+    def getSupportedComponents(self):
+        return self._supportedComponents
+
+    def isSupportedComponent(self, componentType):
+        if self._supportedComponents:
+            return componentType.upper() in self._supportedComponents.split(",")
+        else:
+            return True
+
     def initPropertyStore(self, props):
         # Setup peruser special properties
         props.setSpecialProperties(
@@ -312,6 +401,178 @@ class Calendar(CommonHomeChild):
         """
         return MimeType.fromString("text/calendar; charset=utf-8")
 
+    @inlineCallbacks
+    def splitCollectionByComponentTypes(self):
+        """
+        If the calendar contains iCalendar data with different component types, then split it into separate collections
+        each containing only one component type. When doing this make sure properties and sharing state are preserved
+        on any new calendars created. Also restrict the new calendars to only the one appropriate component type. Return
+        the number of splits done.
+        """
+        
+        # First see how many different component types there are
+        split_count = 0
+        components = yield self._countComponentTypes()
+        if len(components) <= 1:
+
+            # Restrict calendar to single component type
+            component = components[0][0] if components else "VEVENT"
+            yield self.setSupportedComponents(component.upper())
+
+            returnValue(split_count)
+        
+        # We will leave the component type with the highest count in the current calendar and create new calendars
+        # for the others which will be moved over
+        maxComponent = max(components, key=lambda x:x[1])[0]
+        
+        for component, _ignore_count in components:
+            if component == maxComponent:
+                continue
+            split_count += 1
+            yield self._splitComponentType(component)
+
+        # Restrict calendar to single component type
+        yield self.setSupportedComponents(maxComponent.upper())
+
+        returnValue(split_count)
+
+    @inlineCallbacks
+    def _countComponentTypes(self):
+        """
+        Count each component type in this calendar.
+        
+        @return: a C{tuple} of C{tuple} containing the component type name and count. 
+        """
+
+        ob = self._objectSchema
+        _componentsQuery = Select(
+            [ob.ICALENDAR_TYPE, Count(ob.ICALENDAR_TYPE)],
+            From=ob,
+            Where=ob.CALENDAR_RESOURCE_ID == Parameter('calID'),
+            GroupBy=ob.ICALENDAR_TYPE
+        )
+
+        rows = yield _componentsQuery.on(self._txn, calID=self._resourceID)
+        result = tuple([(componentType, componentCount) for componentType, componentCount in sorted(rows, key=lambda x:x[0])])
+        returnValue(result)
+        
+    @inlineCallbacks
+    def _splitComponentType(self, component):
+        """
+        Create a new calendar and move all components of the specified component type into the new one.
+        Make sure properties and sharing state is preserved on the new calendar.
+        
+        @param component: Component type to split out
+        @type component: C{str}
+        """
+        
+        # Create the new calendar
+        try:
+            newcalendar = yield self._home.createCalendarWithName("%s-%s" % (self._name, component.lower(),))
+        except HomeChildNameAlreadyExistsError:
+            # If the name we want exists, try repeating with up to ten more
+            for ctr in range(10):
+                try:
+                    newcalendar = yield self._home.createCalendarWithName("%s-%s-%d" % (self._name, component.lower(), ctr+1,))
+                except HomeChildNameAlreadyExistsError:
+                    continue
+            else:
+                # At this point we are stuck
+                raise HomeChildNameNotAllowedError
+        
+        # Restrict calendar to single component type
+        yield newcalendar.setSupportedComponents(component.upper())
+        
+        # Transfer properties over
+        yield self._properties.copyAllProperties(newcalendar._properties)
+        
+        # Transfer sharing
+        yield self._transferSharingDetails(newcalendar, component)
+        
+        # Now move calendar data over
+        yield self._transferCalendarObjects(newcalendar, component)
+        
+    @inlineCallbacks
+    def _transferSharingDetails(self, newcalendar, component):
+        """
+        If the current calendar is shared, make the new calendar shared in the same way, but tweak the name.
+        """
+
+        cb = self._bindSchema
+        columns = [ColumnSyntax(item) for item in self._bindSchema.model.columns]
+        _bindQuery = Select(
+            columns,
+            From=cb,
+            Where=(cb.CALENDAR_RESOURCE_ID == Parameter('calID')).And(
+                cb.CALENDAR_HOME_RESOURCE_ID != Parameter('homeID'))
+        )
+        
+        rows = yield _bindQuery.on(
+            self._txn,
+            calID=self._resourceID,
+            homeID=self._home._resourceID,
+        )
+        
+        if len(rows) == 0:
+            returnValue(None)
+        
+        for row in rows:
+            columnMap = dict(zip(columns, row))
+            columnMap[cb.CALENDAR_RESOURCE_ID] = newcalendar._resourceID
+            columnMap[cb.CALENDAR_RESOURCE_NAME] = "%s-%s" % (columnMap[cb.CALENDAR_RESOURCE_NAME], component.lower(),)
+            yield Insert(columnMap).on(self._txn)   
+
+    @inlineCallbacks
+    def _transferCalendarObjects(self, newcalendar, component):
+        """
+        Move all calendar components of the specified type to the specified calendar.
+        """
+
+        # Find resource-ids for all matching components
+        ob = self._objectSchema
+        _componentsQuery = Select(
+            [ob.RESOURCE_ID],
+            From=ob,
+            Where=(ob.CALENDAR_RESOURCE_ID == Parameter('calID')).And(
+                ob.ICALENDAR_TYPE == Parameter('componentType'))
+        )
+
+        rows = yield _componentsQuery.on(
+            self._txn,
+            calID=self._resourceID,
+            componentType=component,
+        )
+        
+        if len(rows) == 0:
+            returnValue(None)
+        
+        for row in rows:
+            resourceID = row[0]
+            child = yield self.objectResourceWithID(resourceID)
+            yield self.moveObjectResource(child, newcalendar)
+
+    @classproperty
+    def _moveTimeRangeUpdateQuery(cls): #@NoSelf
+        """
+        DAL query to update a child to be in a new parent.
+        """
+        tr = cls._timeRangeSchema
+        return Update(
+            {tr.CALENDAR_RESOURCE_ID: Parameter("newParentID")},
+            Where=tr.CALENDAR_OBJECT_RESOURCE_ID == Parameter("resourceID")
+        )
+
+    @inlineCallbacks
+    def _movedObjectResource(self, child, newparent):
+        """
+        Make sure time range entries have the new parent resource id.
+        """
+        yield self._moveTimeRangeUpdateQuery.on(
+            self._txn,
+            newParentID=newparent._resourceID,
+            resourceID=child._resourceID
+        )
+        
 icalfbtype_to_indexfbtype = {
     "UNKNOWN"         : 0,
     "FREE"            : 1,

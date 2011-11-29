@@ -235,3 +235,27 @@ class PropertyStore(AbstractPropertyStore):
         self._deleteResourceQuery.on(self._txn, resourceID=self._resourceID)
         self._cacher.delete(str(self._resourceID))
 
+    @inlineCallbacks
+    def copyAllProperties(self, other):
+        """
+        Copy all the properties from another store into this one. This needs to be done
+        independently of the UID.
+        """
+
+        rows = yield other._allWithID.on(other._txn, resourceID=other._resourceID)
+        for key_str, uid, value_str in rows:
+            wasCached = [(key_str, uid) in self._cached]
+            if wasCached[0]:
+                yield self._updateQuery.on(
+                    self._txn, resourceID=self._resourceID, value=value_str,
+                    name=key_str, uid=uid)
+            else:
+                yield self._insertQuery.on(
+                    self._txn, resourceID=self._resourceID, value=value_str,
+                    name=key_str, uid=uid)
+                
+
+        # Reload from the DB
+        self._cached = {}
+        self._cacher.delete(str(self._resourceID))
+        yield self._refresh(self._txn)
