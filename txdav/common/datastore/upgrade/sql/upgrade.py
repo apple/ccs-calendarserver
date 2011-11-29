@@ -147,7 +147,7 @@ class UpgradeDatabaseCoreService(Service, LoggingMixIn, object):
             actual_version = yield sqlTxn.calendarserverValue(self.versionKey)
             actual_version = int(actual_version)
             yield sqlTxn.commit()
-        except RuntimeError, ValueError:
+        except (RuntimeError, ValueError):
             self.log_error("Database key %s cannot be determined." % (self.versionKey,))
             yield sqlTxn.abort()
             if self.defaultKeyValue is None:
