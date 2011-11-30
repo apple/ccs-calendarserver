@@ -15,14 +15,14 @@
 ----
 
 -------------------------------------------------
--- Upgrade database schema from VERSION 5 to 6 --
+-- Upgrade database schema from VERSION 6 to 7 --
 -------------------------------------------------
 
 -- Just need to add one column
 alter table CALENDAR_HOME
  add ("DATAVERSION" integer default 1 null);
  
--- Just need to modify one column
+ -- Just need to modify one column
 alter table CALENDAR_OBJECT
  add ("SUPPORTED_COMPONENTS" nvarchar2(255) default null);
 

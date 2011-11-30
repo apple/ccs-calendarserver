@@ -15,7 +15,7 @@
 ----
 
 -------------------------------------------------
--- Upgrade database schema from VERSION 5 to 6 --
+-- Upgrade database schema from VERSION 6 to 7 --
 -------------------------------------------------
 
 -- Just need to add one column
@@ -24,7 +24,7 @@ alter table CALENDAR_HOME
  
 -- Just need to add one column
 alter table CALENDAR
- add column SUPPORTED_COMPONENTS varchar(255) default null;
+ add column SUPPORTED_COMPONENTS        varchar(255) default null;
 
 -- Just need to add one column
 alter table ADDRESSBOOK_HOME
