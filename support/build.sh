@@ -676,7 +676,7 @@ dependencies () {
     "${pypi}/p/pyOpenSSL/${po}.tar.gz";
 
   if type krb5-config > /dev/null 2>&1; then
-    py_dependency -r 4241 \
+    py_dependency -r 8357 \
       "PyKerberos" "kerberos" "PyKerberos" \
       "${svn_uri_base}/PyKerberos/trunk";
   fi;
