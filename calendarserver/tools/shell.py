@@ -764,7 +764,7 @@ class CalendarObject(File):
 
         result = []
 
-        result.append("Calendar object (%s) for UID: %s" % (componentType, uid))
+        result.append("Calendar object (%s) with UID: %s" % (componentType, uid))
         result.append("Summary: %s" % (summary,))
 
         #
