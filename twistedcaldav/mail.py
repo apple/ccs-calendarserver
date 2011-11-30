@@ -33,6 +33,9 @@ from email.mime.image import MIMEImage
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
+from pycalendar.datetime import PyCalendarDateTime
+from pycalendar.duration import PyCalendarDuration
+
 from zope.interface import implements
 
 from twisted.application import internet, service
@@ -1165,8 +1168,14 @@ class MailHandler(LoggingMixIn):
 
 
     def outbound(self, originator, recipient, calendar, language='en',
-                 send=True):
+                 send=True, onlyAfter=None):
         # create token, send email
+
+        settings = config.Scheduling['iMIP']['Sending']
+
+        if onlyAfter is None:
+            duration = PyCalendarDuration(days=settings.SuppressionDays)
+            onlyAfter = PyCalendarDateTime.getNowUTC() - duration
 
         component = calendar.masterComponent()
         if component is None:
@@ -1204,8 +1213,6 @@ class MailHandler(LoggingMixIn):
             raise ValueError("ATTENDEE address '%s' must be mailto: for iMIP "
                              "operation." % (recipient,))
         recipient = recipient[7:]
-
-        settings = config.Scheduling['iMIP']['Sending']
 
         if method != "REPLY":
             # Invites and cancellations:
@@ -1302,6 +1309,12 @@ class MailHandler(LoggingMixIn):
             orgCN = calendar.getOrganizerProperty().parameterValue('CN', None)
             addressWithToken = formattedFrom
 
+        # At the point we've created the token in the db, which we always
+        # want to do, but if this message is for an event completely in
+        # the past we don't want to actually send an email.
+        if not calendar.hasInstancesAfter(onlyAfter):
+            self.log_debug("Skipping IMIP message for old event")
+            return succeed(True)
 
         # Now prevent any "internal" CUAs from being exposed by converting
         # to mailto: if we have one

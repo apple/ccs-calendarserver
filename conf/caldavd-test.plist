@@ -778,6 +778,8 @@
           <string></string>
           <key>Address</key>
           <string></string> <!-- Address email will be sent from -->
+          <key>SupressionDays</key>
+          <integer>7</integer> <!-- Don't send messages for events earlier than this many days in the past -->
         </dict>
         <key>Receiving</key>
         <dict>

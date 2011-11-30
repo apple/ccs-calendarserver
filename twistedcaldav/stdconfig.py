@@ -591,6 +591,7 @@ DEFAULT_CONFIG = {
                 "UseSSL"        : True,
                 "Username"      : "",    # For account sending mail
                 "Password"      : "",    # For account sending mail
+                "SuppressionDays" : 7,   # Messages for events older than this may days are not sent
             },
             "Receiving": {
                 "Server"        : "",    # Server to retrieve email messages from

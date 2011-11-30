@@ -2491,6 +2491,32 @@ class Component (object):
         
         return tuple(results)
 
+
+    def hasInstancesAfter(self, limit):
+        """
+        Determine whether an event exists completely prior to a given moment.
+
+        @param limit: the moment to compare against.
+        @type limit: L{PyCalendarDateTime}
+
+        @return: a C{bool}, True if the event has any instances occurring after
+        limit, False otherwise.
+        """
+        instanceList = self.expandTimeRanges(limit)
+
+        if instanceList.limit is not None:
+            # There are instances after the limit
+            return True
+
+        # All instances begin prior to limit, but now check their end times to
+        # see if they extend beyond limit
+        for instance in instanceList.instances.itervalues():
+            if instance.end > limit:
+                return True
+
+        # Exists completely prior to limit
+        return False
+
 ##
 # Timezones
 ##

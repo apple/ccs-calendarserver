@@ -35,6 +35,7 @@ from twistedcaldav.test.util import TestCase
 from twistedcaldav.test.util import xmlFile, augmentsFile
 import datetime
 import email
+from pycalendar.datetime import PyCalendarDateTime
 
 
 def echo(*args):
@@ -577,7 +578,8 @@ END:VCALENDAR
                     inputOriginator,
                     inputRecipient,
                     Component.fromString(inputCalendar.replace("\n", "\r\n")),
-                    send=False)
+                    send=False,
+                    onlyAfter=PyCalendarDateTime(2010, 1, 1, 0, 0, 0))
                 )
 
             self.assertEquals(actualInviteState, inviteState)
@@ -611,6 +613,18 @@ END:VCALENDAR
                 self.assertEquals(actualReplyTo, actualFrom)
 
 
+            # Check that we don't send any messages for events completely in
+            # the past.
+            result = (yield self.handler.outbound(
+                    inputOriginator,
+                    inputRecipient,
+                    Component.fromString(inputCalendar.replace("\n", "\r\n")),
+                    send=False,
+                    onlyAfter=PyCalendarDateTime(2012, 1, 1, 0, 0, 0))
+                )
+            self.assertEquals(result, True)
+
+
     @inlineCallbacks
     def test_mailtoTokens(self):
         """
@@ -638,7 +652,8 @@ END:VCALENDAR
                 inputOriginator,
                 inputRecipient,
                 Component.fromString(inputCalendar.replace("\n", "\r\n")),
-                send=False)
+                send=False,
+                onlyAfter=PyCalendarDateTime(2010, 1, 1, 0, 0, 0))
             )
 
         # Verify we didn't create a new token...
