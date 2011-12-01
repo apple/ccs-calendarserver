@@ -16,7 +16,8 @@
 
 try:
     from twistedcaldav.directory.ldapdirectory import (
-        buildFilter, LdapDirectoryService, MissingGuidException,
+        buildFilter, LdapDirectoryService,
+        MissingGuidException, MissingRecordNameException,
         splitIntoBatches, normalizeDNstr, dnContainedIn
     )
     from twistedcaldav.test.util import proxiesFile
@@ -459,6 +460,18 @@ else:
             }
 
             self.assertRaises(MissingGuidException,
+                self.service._ldapResultToRecord, dn, attrs,
+                self.service.recordType_users)
+
+            # User missing record name
+
+            dn = "uid=odtestamanda,cn=users,dc=example,dc=com"
+            attrs = {
+                'apple-generateduid': ['9ABDD881-B3A4-4065-9DA7-12095F40A898'],
+                'cn': ['Amanda Test'],
+            }
+
+            self.assertRaises(MissingRecordNameException,
                 self.service._ldapResultToRecord, dn, attrs,
                 self.service.recordType_users)
 

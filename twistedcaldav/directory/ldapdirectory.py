@@ -641,6 +641,8 @@ class LdapDirectoryService(CachingDirectoryService):
         enabledForLogin = True
 
         shortNames = tuple(self._getMultipleLdapAttributes(attrs, self.rdnSchema[recordType]["mapping"]["recordName"]))
+        if not shortNames:
+            raise MissingRecordNameException()
 
         # First check for and add guid
         guidAttr = self.rdnSchema["guidAttr"]
@@ -890,6 +892,10 @@ class LdapDirectoryService(CachingDirectoryService):
                     # We got a match, so don't bother checking other types
                     break
 
+                except MissingRecordNameException:
+                    self.log_warn("Ignoring record missing record name attribute: recordType %s, indexType %s and indexKey %s"
+                        % (recordTypes, indexType, indexKey))
+
                 except MissingGuidException:
                     self.log_warn("Ignoring record missing guid attribute: recordType %s, indexType %s and indexKey %s"
                         % (recordTypes, indexType, indexKey))
@@ -943,6 +949,7 @@ class LdapDirectoryService(CachingDirectoryService):
                     attrlist=self.attrlist)
                 self.log_debug("LDAP search returned %d results" % (len(results),))
                 numMissingGuids = 0
+                numMissingRecordNames = 0
                 for dn, attrs in results:
                     dn = normalizeDNstr(dn)
                     # Skip if group restriction is in place and guid is not
@@ -968,9 +975,16 @@ class LdapDirectoryService(CachingDirectoryService):
                     except MissingGuidException:
                         numMissingGuids += 1
 
+                    except MissingRecordNameException:
+                        numMissingRecordNames += 1
+
                 if numMissingGuids:
                     self.log_warn("%d %s records are missing %s" %
                         (numMissingGuids, recordType, guidAttr))
+
+                if numMissingRecordNames:
+                    self.log_warn("%d %s records are missing record name" %
+                        (numMissingRecordNames, recordType))
 
         self.log_debug("Principal property search matched %d records" % (len(records),))
         return succeed(records)
@@ -1346,6 +1360,10 @@ class LdapDirectoryRecord(CachingDirectoryRecord):
 
         return super(LdapDirectoryRecord, self).verifyCredentials(credentials)
 
+
+class MissingRecordNameException(Exception):
+    """ Raised when LDAP record is missing recordName """
+    pass
 
 class MissingGuidException(Exception):
     """ Raised when LDAP record is missing guidAttr and it's required """
