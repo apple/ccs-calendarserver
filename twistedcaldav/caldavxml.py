@@ -1042,6 +1042,117 @@ class CalendarUserType (CalDAVTextElement):
     protected = True
 
 ##
+# draft-daboo-valarm-extensions
+##
+
+caldav_default_alarms_compliance = (
+    "calendar-default-alarms",
+)
+
+class DefaultAlarmBase (CalDAVTextElement):
+    """
+    Common behavior for default alarm properties.
+    """
+
+    calendartxt = None
+
+    def calendar(self):
+        """
+        Returns a calendar component derived from this element, which contains
+        exactly one VEVENT with the VALARM embedded component, or C{None} if empty.
+        """
+        valarm = str(self)
+        return iComponent.fromString(self.calendartxt % str(self)) if valarm else None
+
+    def valid(self):
+        """
+        Determine whether the content of this element is a valid single VALARM component or empty.
+        
+        @return: True if valid, False if not.
+        """
+        
+        if str(self):
+            try:
+                calendar = self.calendar()
+                if calendar is None:
+                    return False
+            except ValueError:
+                return False
+        
+        return True
+
+class DefaultAlarmVEventDateTime (DefaultAlarmBase):
+
+    name = "default-alarm-vevent-datetime"
+
+    calendartxt = """
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:bogus
+DTSTART:20111129T220000Z
+DURATION:PT1H
+DTSTAMP:20111129T220000Z
+SUMMARY:bogus
+%sEND:VEVENT
+END:VCALENDAR
+"""
+    
+class DefaultAlarmVEventDate (DefaultAlarmBase):
+
+    name = "default-alarm-vevent-date"
+
+    calendartxt = """
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:bogus
+DTSTART:20111129
+DURATION:PT1H
+DTSTAMP:20111129T220000Z
+SUMMARY:bogus
+%sEND:VEVENT
+END:VCALENDAR
+"""
+    
+class DefaultAlarmVToDoDateTime (DefaultAlarmBase):
+
+    name = "default-alarm-vtodo-datetime"
+    
+
+    calendartxt = """
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VTODO
+UID:bogus
+DUE:20111129T220000Z
+DTSTAMP:20111129T220000Z
+SUMMARY:bogus
+%sEND:VTODO
+END:VCALENDAR
+"""
+
+class DefaultAlarmVToDoDate (DefaultAlarmBase):
+
+    name = "default-alarm-vtodo-date"
+    
+    calendartxt = """
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VTODO
+UID:bogus
+DUE:20111129
+DTSTAMP:20111129T220000Z
+SUMMARY:bogus
+%sEND:VTODO
+END:VCALENDAR
+"""
+
+##
 # Extensions to davxml.ResourceType
 ##
 

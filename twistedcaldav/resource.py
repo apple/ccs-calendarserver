@@ -404,6 +404,15 @@ class CalDAVResource (
         if self.isCalendarCollection():
             baseProperties += (
                 davxml.ResourceID.qname(),
+                
+                # These are "live" properties in the sense of WebDAV, however "live" for twext actually means
+                # ones that are also always present, but the default alarm properties are allowed to be absent
+                # and are in fact stored in the property store.
+                #caldavxml.DefaultAlarmVEventDateTime.qname(),
+                #caldavxml.DefaultAlarmVEventDate.qname(),
+                #caldavxml.DefaultAlarmVToDoDateTime.qname(),
+                #caldavxml.DefaultAlarmVToDoDate.qname(),
+
                 customxml.PubSubXMPPPushKeyProperty.qname(),
             )
 
@@ -492,12 +501,28 @@ class CalDAVResource (
                     returnValue(p)
                 
             elif (not self.isGlobalProperty(qname)):
-                ownerPrincipal = (yield self.resourceOwnerPrincipal(request))
-                p = self.deadProperties().contains(qname, uid=ownerPrincipal.principalUID())
-                returnValue(p)
+                result = (yield self._hasSharedProperty(qname, request))
+                returnValue(result)
 
         res = (yield self._hasGlobalProperty(property, request))
         returnValue(res)
+
+    @inlineCallbacks
+    def _hasSharedProperty(self, qname, request):
+
+            # Always have disabled default alarms on shared calendars
+        if qname in (
+            caldavxml.DefaultAlarmVEventDateTime.qname(),
+            caldavxml.DefaultAlarmVEventDate.qname(),
+            caldavxml.DefaultAlarmVToDoDateTime.qname(),
+            caldavxml.DefaultAlarmVToDoDate.qname(),
+        ):
+            if self.isCalendarCollection():
+                returnValue(True)
+
+        ownerPrincipal = (yield self.resourceOwnerPrincipal(request))
+        p = self.deadProperties().contains(qname, uid=ownerPrincipal.principalUID())
+        returnValue(p)
 
     def _hasGlobalProperty(self, property, request):
         """
@@ -512,6 +537,7 @@ class CalDAVResource (
         # Force calendar collections to always appear to have the property
         if qname == caldavxml.ScheduleCalendarTransp.qname() and self.isCalendarCollection():
             return succeed(True)
+        
         else:
             return super(CalDAVResource, self).hasProperty(property, request)
 
@@ -554,12 +580,36 @@ class CalDAVResource (
                     pass
                 
             elif (not self.isGlobalProperty(qname)):
-                ownerPrincipal = (yield self.resourceOwnerPrincipal(request))
-                p = self.deadProperties().get(qname, uid=ownerPrincipal.principalUID())
-                returnValue(p)
+                result = (yield self._readSharedProperty(qname, request))
+                returnValue(result)
 
         res = (yield self._readGlobalProperty(qname, property, request))
         returnValue(res)
+
+    @inlineCallbacks
+    def _readSharedProperty(self, qname, request):
+
+        # Validate default alarm properties (do this even if the default alarm feature is off)
+        if qname in (
+            caldavxml.DefaultAlarmVEventDateTime.qname(),
+            caldavxml.DefaultAlarmVEventDate.qname(),
+            caldavxml.DefaultAlarmVToDoDateTime.qname(),
+            caldavxml.DefaultAlarmVToDoDate.qname(),
+        ):
+            if self.isCalendarCollection():
+                # Always disable default alarms on shared calendars
+                propclass = {
+                    caldavxml.DefaultAlarmVEventDateTime.qname() : caldavxml.DefaultAlarmVEventDateTime,
+                    caldavxml.DefaultAlarmVEventDate.qname()     : caldavxml.DefaultAlarmVEventDate,
+                    caldavxml.DefaultAlarmVToDoDateTime.qname()  : caldavxml.DefaultAlarmVToDoDateTime,
+                    caldavxml.DefaultAlarmVToDoDate.qname()      : caldavxml.DefaultAlarmVToDoDate,
+                }[qname]
+                returnValue(propclass.fromString(""))
+
+        # Default behavior - read per-user dead property
+        ownerPrincipal = (yield self.resourceOwnerPrincipal(request))
+        p = self.deadProperties().get(qname, uid=ownerPrincipal.principalUID())
+        returnValue(p)
 
     @inlineCallbacks
     def _readGlobalProperty(self, qname, property, request):
@@ -689,7 +739,7 @@ class CalDAVResource (
         # Per-user Dav props currently only apply to a sharee's copy of a calendar
         isvirt = self.isVirtualShare()
         if isvirt and (self.isShadowableProperty(property.qname()) or (not self.isGlobalProperty(property.qname()))):
-            yield self._preProcessWriteProperty(property, request)
+            yield self._preProcessWriteProperty(property, request, isShare=True)
             ownerPrincipal = (yield self.resourceOwnerPrincipal(request))
             p = self.deadProperties().set(property, uid=ownerPrincipal.principalUID())
             returnValue(p)
@@ -698,7 +748,7 @@ class CalDAVResource (
         returnValue(res)
 
     @inlineCallbacks
-    def _preProcessWriteProperty(self, property, request):
+    def _preProcessWriteProperty(self, property, request, isShare=False):
         if property.qname() == caldavxml.SupportedCalendarComponentSet.qname():
             if not self.isPseudoCalendarCollection():
                 raise HTTPError(StatusResponse(
@@ -722,6 +772,33 @@ class CalDAVResource (
                     responsecode.FORBIDDEN,
                     "Property %s may only be set on calendar collection." % (property,)
                 ))
+            if not property.valid():
+                raise HTTPError(ErrorResponse(
+                    responsecode.CONFLICT,
+                    (caldav_namespace, "valid-calendar-data"),
+                    description="Invalid property"
+                ))
+
+        # Validate default alarm properties (do this even if the default alarm feature is off)
+        elif property.qname() in (
+            caldavxml.DefaultAlarmVEventDateTime.qname(),
+            caldavxml.DefaultAlarmVEventDate.qname(),
+            caldavxml.DefaultAlarmVToDoDateTime.qname(),
+            caldavxml.DefaultAlarmVToDoDate.qname(),
+        ):
+            if not self.isCalendarCollection() and not isinstance(self, CalendarHomeResource):
+                raise HTTPError(StatusResponse(
+                    responsecode.FORBIDDEN,
+                    "Property %s may only be set on calendar or home collection." % (property,)
+                ))
+                
+            # Do not allow default alarms by sharees
+            if isShare:
+                raise HTTPError(StatusResponse(
+                    responsecode.FORBIDDEN,
+                    "Property %s is protected on shared calendar collections." % (property,)
+                ))
+                
             if not property.valid():
                 raise HTTPError(ErrorResponse(
                     responsecode.CONFLICT,
@@ -1972,6 +2049,43 @@ class CalendarPrincipalResource (CalDAVComplianceMixIn, DAVResourceWithChildrenM
         """
         return None
 
+class DefaultAlarmPropertyMixin(object):
+    """
+    A mixin for use with calendar home and calendars to allow direct access to
+    the default alarm properties in a more useful way that using readProperty.
+    In particular it will handle inheritance of the property from the home if a
+    calendar does not explicitly have the property. 
+    """
+    
+    def getDefaultAlarm(self, vevent, timed):
+        
+        if vevent:
+            propname = caldavxml.DefaultAlarmVEventDateTime if timed else caldavxml.DefaultAlarmVEventDate
+        else:
+            propname = caldavxml.DefaultAlarmVToDoDateTime if timed else caldavxml.DefaultAlarmVToDoDate
+        
+        if self.isCalendarCollection():
+            
+            # Sharees never have default alarms
+            if self.isVirtualShare():
+                return None
+            
+            # Get from calendar or inherit from home
+            try:
+                prop = self.deadProperties().get(propname.qname())
+            except HTTPError:
+                prop = None
+            if prop is None:
+                prop = self.parentResource().getDefaultAlarm(vevent, timed)
+        else:
+            # Just return whatever is on the home
+            try:
+                prop = self.deadProperties().get(propname.qname())
+            except HTTPError:
+                prop = None
+
+        return str(prop) if prop is not None else None
+
 class CommonHomeResource(PropfindCacheMixin, SharedHomeMixin, CalDAVResource):
     """
     Logic common to Calendar and Addressbook home resources.
@@ -2381,7 +2495,7 @@ class CommonHomeResource(PropfindCacheMixin, SharedHomeMixin, CalDAVResource):
     http_MOVE = None
 
 
-class CalendarHomeResource(CommonHomeResource):
+class CalendarHomeResource(DefaultAlarmPropertyMixin, CommonHomeResource):
     """
     Calendar home collection classmethod.
     """
@@ -2401,7 +2515,18 @@ class CalendarHomeResource(CommonHomeResource):
     def liveProperties(self):
         
         existing = super(CalendarHomeResource, self).liveProperties()
-        existing += (caldavxml.SupportedCalendarComponentSets.qname(),)
+        existing += (
+            caldavxml.SupportedCalendarComponentSets.qname(),
+                
+            # These are "live" properties in the sense of WebDAV, however "live" for twext actually means
+            # ones that are also always present, but the default alarm properties are allowed to be absent
+            # and are in fact stored in the property store.
+            #caldavxml.DefaultAlarmVEventDateTime.qname(),
+            #caldavxml.DefaultAlarmVEventDate.qname(),
+            #caldavxml.DefaultAlarmVToDoDateTime.qname(),
+            #caldavxml.DefaultAlarmVToDoDate.qname(),
+
+        )
         existing += (
             (customxml.calendarserver_namespace, "xmpp-uri"),
             (customxml.calendarserver_namespace, "xmpp-heartbeat-uri"),

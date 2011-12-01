@@ -744,6 +744,44 @@ class StoreCalendarObjectResource(object):
         
         returnValue(changed)
 
+    def addDefaultAlarm(self):
+        """
+        Add a default alarm if required.
+        
+        @return: indicate whether a change was made
+        @rtype: C{bool}
+        """
+
+        # Only if feature enabled
+        if not config.EnableDefaultAlarms:
+            return False
+
+        # Check that we are creating and this is not the inbox
+        if not self.destinationcal or self.destination.exists() or self.isiTIP:
+            return False
+        
+        # Add default alarm for VEVENT and VTODO only
+        mtype = self.calendar.mainType().upper()
+        if self.calendar.mainType().upper() not in ("VEVENT", "VTODO"):
+            return False
+        vevent = mtype == "VEVENT"
+        
+        # Check timed or all-day
+        start, _ignore_end = self.calendar.mainComponent(allow_multiple=True).getEffectiveStartEnd()
+        if start is None:
+            # Yes VTODOs might have no DTSTART or DUE - in this case we do not add a default
+            return False
+        timed = not start.isDateOnly()
+        
+        # See if default exists and add using appropriate logic
+        changed = False
+        alarm = self.destinationparent.getDefaultAlarm(vevent, timed)
+        if alarm:
+            changed = self.calendar.addAlarms(alarm)
+            if changed:
+                self.calendardata = None
+        return changed
+
     @inlineCallbacks
     def noUIDConflict(self, uid): 
         """ 
@@ -1063,6 +1101,9 @@ class StoreCalendarObjectResource(object):
             # Handle sharing dropbox normalization
             dropboxChanged = (yield self.dropboxPathNormalization())
 
+            # Default alarms
+            alarmChanged = self.addDefaultAlarm()
+
             # Do scheduling
             implicit_result = (yield self.doImplicitScheduling())
             if isinstance(implicit_result, int):
@@ -1105,7 +1146,7 @@ class StoreCalendarObjectResource(object):
             response = (yield self.doStore(data_changed))
 
             # Must not set ETag in response if data changed
-            if did_implicit_action or rruleChanged or dropboxChanged:
+            if did_implicit_action or rruleChanged or dropboxChanged or alarmChanged:
                 def _removeEtag(request, response):
                     response.headers.removeHeader('etag')
                     return response

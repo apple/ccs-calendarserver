@@ -50,7 +50,8 @@ from twistedcaldav.method.put_common import StoreCalendarObjectResource
 from twistedcaldav.notifications import (
     NotificationCollectionResource, NotificationResource
 )
-from twistedcaldav.resource import CalDAVResource, GlobalAddressBookResource
+from twistedcaldav.resource import CalDAVResource, GlobalAddressBookResource,\
+    DefaultAlarmPropertyMixin
 from twistedcaldav.schedule import ScheduleInboxResource
 from twistedcaldav.scheduling.implicit import ImplicitScheduler
 from twistedcaldav.vcard import Component as VCard, InvalidVCardDataError
@@ -250,6 +251,9 @@ class _CommonHomeChildCollectionMixin(ResponseCacheMixin):
 
     def url(self):
         return joinURL(self._parentResource.url(), self._name, "/")
+
+    def parentResource(self):
+        return self._parentResource
 
     def index(self):
         """
@@ -949,7 +953,7 @@ class _CalendarCollectionBehaviorMixin():
         return True
 
     
-class CalendarCollectionResource(_CalendarCollectionBehaviorMixin, _CommonHomeChildCollectionMixin, CalDAVResource):
+class CalendarCollectionResource(DefaultAlarmPropertyMixin, _CalendarCollectionBehaviorMixin, _CommonHomeChildCollectionMixin, CalDAVResource):
     """
     Wrapper around a L{txdav.caldav.icalendar.ICalendar}.
     """

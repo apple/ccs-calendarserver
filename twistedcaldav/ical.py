@@ -2002,7 +2002,63 @@ class Component (object):
             if component.name() in ignoredComponents:
                 continue
             [component.removeProperty(p) for p in tuple(component.properties("ATTENDEE")) if p.value().lower() != attendee.lower()]
-            
+    
+    def hasAlarm(self):
+        """
+        Test whether the component has a VALARM as an immediate sub-component.
+        """
+        assert self.name().upper() in ("VEVENT", "VTODO",), "Not a VEVENT or VTODO: %r" % (self,)
+
+        for component in self.subcomponents():
+            if component.name().upper() == "VALARM":
+                return True
+        return False
+
+    def addAlarms(self, alarm):
+        """
+        Add an alarm to any VEVENT or VTODO subcomponents that do not already have any.
+
+        @param alarm: the text for a VALARM component
+        @type alarm: C{str}
+        
+        @return: indicate whether a change was made
+        @rtype: C{bool}
+        """
+        
+        # Create a fake component for the alarm text
+        caldata = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:bogus
+DTSTART:20110427T000000Z
+DURATION:PT1H
+DTSTAMP:20110427T000000Z
+SUMMARY:bogus
+%sEND:VEVENT
+END:VCALENDAR
+""".replace("\n", "\r\n") % (alarm,)
+        
+        try:
+            calendar = Component.fromString(caldata)
+            if calendar is None:
+                return False
+        except ValueError:
+            return
+
+        valarm = tuple(tuple(calendar.subcomponents())[0].subcomponents())[0]
+        
+        changed = False
+        for component in self.subcomponents():
+            if component.name().upper() not in ("VEVENT", "VTODO",):
+                continue
+            if component.hasAlarm():
+                continue
+            component.addComponent(valarm.duplicate())
+            changed = True
+        
+        return changed
+
     def removeAlarms(self):
         """
         Remove all Alarms components
