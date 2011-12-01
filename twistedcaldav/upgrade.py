@@ -873,21 +873,22 @@ def migrateAutoSchedule(config, directory):
     # Fetch the autoSchedule assignments from resourceinfo.sqlite and store
     # the values in augments
     augmentService = directory.augmentService
-    augmentRecords = []
-    dbPath = os.path.join(config.DataRoot, ResourceInfoDatabase.dbFilename)
-    if os.path.exists(dbPath):
-        resourceInfoDatabase = ResourceInfoDatabase(config.DataRoot)
-        results = resourceInfoDatabase._db_execute(
-            "select GUID, AUTOSCHEDULE from RESOURCEINFO"
-        )
-        for guid, autoSchedule in results:
-            record = directory.recordWithGUID(guid)
-            if record is not None:
-                augmentRecord = (yield augmentService.getAugmentRecord(guid, record.recordType))
-                augmentRecord.autoSchedule = autoSchedule
-                augmentRecords.append(augmentRecord)
+    if augmentService:
+        augmentRecords = []
+        dbPath = os.path.join(config.DataRoot, ResourceInfoDatabase.dbFilename)
+        if os.path.exists(dbPath):
+            resourceInfoDatabase = ResourceInfoDatabase(config.DataRoot)
+            results = resourceInfoDatabase._db_execute(
+                "select GUID, AUTOSCHEDULE from RESOURCEINFO"
+            )
+            for guid, autoSchedule in results:
+                record = directory.recordWithGUID(guid)
+                if record is not None:
+                    augmentRecord = (yield augmentService.getAugmentRecord(guid, record.recordType))
+                    augmentRecord.autoSchedule = autoSchedule
+                    augmentRecords.append(augmentRecord)
 
-    yield augmentService.addAugmentRecords(augmentRecords)
+        yield augmentService.addAugmentRecords(augmentRecords)
 
 
 class UpgradeFileSystemFormatService(Service, object):

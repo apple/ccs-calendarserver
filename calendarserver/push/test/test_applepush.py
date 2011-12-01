@@ -18,7 +18,7 @@ from calendarserver.push.applepush import (
     ApplePushNotifierService, APNProviderProtocol
 )
 from twistedcaldav.test.util import TestCase
-from twisted.internet.defer import inlineCallbacks
+from twisted.internet.defer import inlineCallbacks, succeed
 from twisted.internet.task import Clock
 import struct
 from txdav.common.datastore.test.util import buildStore, CommonCommonTests
@@ -115,16 +115,39 @@ class ApplePushNotifierServiceTests(CommonCommonTests, TestCase):
         yield txn.commit()
         self.assertEquals(len(subscriptions), 2)
 
-        # Simulate malformed feedback
-        connector = service.feedbacks["CalDAV"].testConnector
-        yield connector.receiveData("malformed")
 
-        # Simulate feedback
+        # Simulate feedback with a single token
+        connector = service.feedbacks["CalDAV"].testConnector
         timestamp = 2000
         binaryToken = token.decode("hex")
         feedbackData = struct.pack("!IH32s", timestamp, len(binaryToken),
             binaryToken)
         yield connector.receiveData(feedbackData)
+
+        # Simulate feedback with multiple tokens, and dataReceived called
+        # with amounts of data not fitting message boundaries
+        history = []
+        def testFunction(timestamp, token):
+            history.append((timestamp, token))
+            return succeed(None)
+        timestamp = 2000
+        binaryToken = token.decode("hex")
+        feedbackData = struct.pack("!IH32sIH32s",
+            timestamp, len(binaryToken), binaryToken,
+            timestamp, len(binaryToken), binaryToken,
+            )
+        # Send 1st 10 bytes
+        yield connector.receiveData(feedbackData[:10], fn=testFunction)
+        # Send remaining bytes
+        yield connector.receiveData(feedbackData[10:], fn=testFunction)
+        self.assertEquals(history, [(timestamp, token), (timestamp, token)])
+        # Buffer is empty
+        self.assertEquals(len(connector.service.protocol.buffer), 0)
+
+        # Sending 39 bytes
+        yield connector.receiveData("!" * 39, fn=testFunction)
+        # Buffer has 1 byte remaining
+        self.assertEquals(len(connector.service.protocol.buffer), 1)
 
         # The second subscription should now be gone
         # Prior to feedback, there are 2 subscriptions
@@ -143,8 +166,8 @@ class TestConnector(object):
         self.transport = StubTransport()
         service.protocol.makeConnection(self.transport)
 
-    def receiveData(self, data):
-        return self.service.protocol.dataReceived(data)
+    def receiveData(self, data, fn=None):
+        return self.service.protocol.dataReceived(data, fn=fn)
 
 
 class StubTransport(object):

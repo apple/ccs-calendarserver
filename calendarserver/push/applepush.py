@@ -26,7 +26,7 @@ from twext.web2.http_headers import MimeType
 from twext.web2.server import parsePOSTData
 from twisted.application import service
 from twisted.internet import reactor, protocol
-from twisted.internet.defer import inlineCallbacks, returnValue, succeed
+from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.internet.protocol import ClientFactory, ReconnectingClientFactory
 from twistedcaldav.extensions import DAVResource, DAVResourceWithoutChildrenMixin
 from twistedcaldav.resource import ReadOnlyNoCopyResourceMixIn
@@ -212,7 +212,7 @@ class APNProviderProtocol(protocol.Protocol, LoggingMixIn):
         # Clear the reference to us from the factory
         self.factory.connection = None
 
-    def dataReceived(self, data):
+    def dataReceived(self, data, fn=None):
         self.log_debug("ProviderProtocol dataReceived %d bytes" % (len(data),))
         command, status, identifier = struct.unpack("!BBI", data)
         if command == self.COMMAND_ERROR:
@@ -369,19 +369,37 @@ class APNFeedbackProtocol(protocol.Protocol, LoggingMixIn):
     Implements the Feedback portion of APNS
     """
 
+    MESSAGE_LENGTH = 38
+
     def connectionMade(self):
         self.log_debug("FeedbackProtocol connectionMade")
+        self.buffer = ""
 
-    def dataReceived(self, data):
+    @inlineCallbacks
+    def dataReceived(self, data, fn=None):
+        """
+        Buffer and divide up received data into feedback messages which are
+        always 38 bytes long
+        """
+
+        if fn is None:
+            fn = self.processFeedback
+
         self.log_debug("FeedbackProtocol dataReceived %d bytes" % (len(data),))
-        try:
-            timestamp, tokenLength, binaryToken = struct.unpack("!IH32s", data)
-        except struct.error:
-            self.log_warn("FeedbackProtocol received malformed data: %s" %
-                (data.encode("hex"),))
-            return succeed(None)
-        token = binaryToken.encode("hex").lower()
-        return self.processFeedback(timestamp, token)
+        self.buffer += data
+
+        while len(self.buffer) >= self.MESSAGE_LENGTH:
+            message = self.buffer[:self.MESSAGE_LENGTH]
+            self.buffer = self.buffer[self.MESSAGE_LENGTH:]
+
+            try:
+                timestamp, tokenLength, binaryToken = struct.unpack("!IH32s",
+                    message)
+                token = binaryToken.encode("hex").lower()
+                yield fn(timestamp, token)
+            except Exception, e:
+                self.log_warn("FeedbackProtocol could not process message: %s (%s)" %
+                    (message.encode("hex"), e))
 
     @inlineCallbacks
     def processFeedback(self, timestamp, token):
