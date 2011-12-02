@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2005-2007 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2011 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,7 +18,7 @@ from twext.web2.stream import MemoryStream
 
 import os
 
-from twext.web2 import responsecode
+from twext.web2 import responsecode, http_headers
 from twext.web2.iweb import IResponse
 from twext.web2.dav import davxml
 from twext.web2.dav.util import davXMLFromStream
@@ -134,7 +134,12 @@ class Properties(HomeTestCase):
                         ),
                     )
 
-            request = SimpleRequest(self.site, "PROPFIND", calendar_uri)
+            request = SimpleRequest(
+                self.site,
+                "PROPFIND",
+                calendar_uri,
+                headers=http_headers.Headers({"Depth":"0"}),
+            )
             request.stream = MemoryStream(query.toxml())
             return self.send(request, propfind_cb)
 
@@ -200,7 +205,12 @@ class Properties(HomeTestCase):
                         davxml.AllProperties(),
                     )
 
-            request = SimpleRequest(self.site, "PROPFIND", calendar_uri)
+            request = SimpleRequest(
+                self.site,
+                "PROPFIND",
+                calendar_uri,
+                headers=http_headers.Headers({"Depth":"0"}),
+            )
             request.stream = MemoryStream(query.toxml())
             return self.send(request, propfind_cb)
 

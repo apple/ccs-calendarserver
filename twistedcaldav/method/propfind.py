@@ -1,6 +1,6 @@
 # -*- test-case-name: twext.web2.dav.test.test_prop.PROP.test_PROPFIND -*-
 ##
-# Copyright (c) 2005-2008 Apple Computer, Inc. All rights reserved.
+# Copyright (c) 2005-2011 Apple Computer, Inc. All rights reserved.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -33,7 +33,8 @@ from twext.web2.http import HTTPError
 from twext.web2 import responsecode
 from twext.web2.http import StatusResponse
 from twext.web2.dav import davxml
-from twext.web2.dav.http import MultiStatusResponse, statusForFailure
+from twext.web2.dav.http import MultiStatusResponse, statusForFailure,\
+    ErrorResponse
 from twext.web2.dav.util import normalizeURL, davXMLFromStream
 
 from twext.python.log import Logger
@@ -102,6 +103,10 @@ def http_PROPFIND(self, request):
     #
     request_uri = request.uri
     depth = request.headers.getHeader("depth", "infinity")
+
+    # By policy we will never allow a depth:infinity propfind
+    if depth == "infinity":
+        raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, davxml.PropfindFiniteDepth()))
 
     xml_responses = []
 

@@ -14,7 +14,7 @@
 # limitations under the License.
 ##
 
-from twext.web2 import responsecode
+from twext.web2 import responsecode, http_headers
 from twext.web2.dav import davxml
 from twext.web2.dav.util import davXMLFromStream
 from twext.web2.http import HTTPError
@@ -79,7 +79,12 @@ class Properties (HomeTestCase):
                     ),
                 )
 
-        request = SimpleRequest(self.site, "PROPFIND", inbox_uri)
+        request = SimpleRequest(
+            self.site,
+            "PROPFIND",
+            inbox_uri,
+            headers=http_headers.Headers({"Depth":"0"}),
+        )
         request.stream = MemoryStream(query.toxml())
         return self.send(request, propfind_cb)
 
