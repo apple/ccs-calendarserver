@@ -1231,10 +1231,11 @@ class LdapDirectoryRecord(CachingDirectoryRecord):
                 shortName = self.service._getUniqueLdapAttribute(attrs,
                     self.service.rdnSchema[recordType]["mapping"]["recordName"])
 
-                record = self.service.recordWithShortName(recordType,
-                    shortName)
-                if record:
-                    results.append(record)
+                if shortName:
+                    record = self.service.recordWithShortName(recordType,
+                        shortName)
+                    if record:
+                        results.append(record)
 
         return results
 
