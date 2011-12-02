@@ -341,7 +341,7 @@
     <key>MultiProcess</key>
     <dict>
       <key>ProcessCount</key>
-      <integer>0</integer> <!-- 0 = larger of: 4 or (2 * CPU count) -->
+      <integer>0</integer> <!-- 0 = automatic -->
     </dict>
 
 
