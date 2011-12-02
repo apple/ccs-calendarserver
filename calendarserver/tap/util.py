@@ -35,7 +35,6 @@ from twext.python.log import Logger
 from twext.web2.auth.basic import BasicCredentialFactory
 from twext.web2.dav import auth
 from twext.web2.http_headers import Headers
-from twext.web2.resource import RedirectResource
 from twext.web2.static import File as FileResource
 
 from twisted.cred.portal import Portal
@@ -61,7 +60,7 @@ from calendarserver.push.applepush import APNSubscriptionResource
 from twistedcaldav.directorybackedaddressbook import DirectoryBackedAddressBookResource
 from twistedcaldav.resource import CalDAVResource, AuthenticationWrapper
 from twistedcaldav.schedule import IScheduleInboxResource
-from twistedcaldav.simpleresource import SimpleResource
+from twistedcaldav.simpleresource import SimpleResource, SimpleRedirectResource
 from twistedcaldav.timezones import TimezoneCache
 from twistedcaldav.timezoneservice import TimezoneServiceResource
 from twistedcaldav.timezonestdservice import TimezoneStdServiceResource
@@ -526,7 +525,11 @@ def getRootResource(config, newStore, resources=None):
                     port = config.HTTPPort
                 wellKnownResource.putChild(
                     wellknown_name,
-                    RedirectResource(scheme=scheme, port=port, path=redirected_to)
+                    SimpleRedirectResource(
+                        principalCollections=(principalCollection,),
+                        isdir=False,
+                        defaultACL=SimpleResource.allReadACL,
+                        scheme=scheme, port=port, path=redirected_to)
                 )
 
     for name, info in config.Aliases.iteritems():

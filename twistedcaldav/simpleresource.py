@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2009-2010 Apple Inc. All rights reserved.
+# Copyright (c) 2009-2011 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -22,8 +22,10 @@ Implements a simple non-file resource.
 __all__ = [
     "SimpleResource",
     "SimpleCalDAVResource",
+    "SimpleRedirectResource",
 ]
 
+from twext.web2 import http
 from twext.web2.dav import davxml
 from twext.web2.dav.noneprops import NonePropertyStore
 
@@ -75,3 +77,21 @@ class SimpleResource (
         return succeed(self.defaultACL)
 
 SimpleCalDAVResource = SimpleResource
+
+class SimpleRedirectResource(SimpleResource):
+    """
+    A L{SimpleResource} which always performs a redirect.
+    """
+
+    def __init__(self, principalCollections, isdir=False, defaultACL=SimpleResource.authReadACL, **kwargs):
+        """
+        Parameters are URL components and are the same as those for
+        L{urlparse.urlunparse}.  URL components which are not specified will
+        default to the corresponding component of the URL of the request being
+        redirected.
+        """
+        SimpleResource.__init__(self, principalCollections=principalCollections, isdir=isdir, defaultACL=defaultACL)
+        self._kwargs = kwargs
+
+    def renderHTTP(self, request):
+        return http.RedirectResponse(request.unparseURL(**self._kwargs))
