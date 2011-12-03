@@ -61,33 +61,53 @@ from twisted.internet.defer import Deferred, succeed
 
 
 class BridgeTransport(object):
+    """
+    ITransport implementation for the protocol in the parent process running a
+    L{SpawnerService}.
+    """
 
     implements(ITransport, IPushProducer, IConsumer)
 
     def __init__(self, processTransport):
+        """
+        Create this bridge transport connected to an L{IProcessTransport}.
+        """
         self.transport = processTransport
 
 
     def __getattr__(self, name):
+        """
+        Delegate all attribute accesses to the process traansport.
+        """
         return getattr(self.transport, name)
 
 
     def getPeer(self):
+        """
+        Get a fake peer address indicating the subprocess's pid.
+        """
         return "Peer:PID:" + str(self.transport.pid)
 
 
     def getHost(self):
+        """
+        Get a fake host address indicating the subprocess's pid.
+        """
         return "Host:PID:" + str(self.transport.pid)
 
 
 
 class BridgeProtocol(ProcessProtocol):
     """
-    A protocol for a bridge.
+    Process protocol implementation that delivers data to the C{hereProto}
+    associated with an invocation of L{SpawnerService.spawn}.
 
     @ivar service: a L{SpawnerService} that created this L{BridgeProtocol}
 
     @ivar protocol: a reference to the L{IProtocol}.
+
+    @ivar killTimeout: number of seconds after sending SIGINT that this process
+        will send SIGKILL.
     """
 
     def __init__(self, service, protocol, killTimeout=15.0):
@@ -134,7 +154,8 @@ class BridgeProtocol(ProcessProtocol):
 
     def processEnded(self, reason):
         """
-        The process has ended; notify the service that this bridge has stopped.
+        The process has ended; notify the L{SpawnerService} that this bridge
+        has stopped.
         """
         if self._killTimeout is not None:
             self._killTimeout.cancel()
@@ -165,11 +186,13 @@ class SpawnerService(Service, object):
 
     def spawn(self, hereProto, thereProto):
         """
-        Spawn a subprocess.
+        Spawn a subprocess with a connected pair of protocol objects, one in
+        the current process, one in the subprocess.
 
         @param hereProto: a L{Protocol} instance to listen in this process.
 
-        @param thereProto: a top-level class or function.
+        @param thereProto: a top-level class or function that will be imported
+            and called in the spawned subprocess.
 
         @return: a L{Deferred} that fires when C{hereProto} is ready.
         """
@@ -178,8 +201,8 @@ class SpawnerService(Service, object):
             return
         name = qual(thereProto)
         self.reactor.spawnProcess(
-            BridgeProtocol(self, hereProto),
-            sys.executable, [sys.executable, '-m', __name__, name], os.environ
+            BridgeProtocol(self, hereProto), sys.executable,
+            [sys.executable, '-m', __name__, name], os.environ
         )
         return succeed(hereProto)
 
