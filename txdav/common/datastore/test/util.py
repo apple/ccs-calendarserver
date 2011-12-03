@@ -83,6 +83,37 @@ class SQLStoreBuilder(object):
 
     SHARED_DB_PATH = "_test_sql_db"
 
+    @classmethod
+    def childStore(cls):
+        """
+        Create a store suitable for use in a child process, that is hooked up
+        to the store that a parent test process is managing.
+        """
+        staticQuota = 3000
+        dbRoot = CachingFilePath(cls.SHARED_DB_PATH)
+        attachmentRoot = dbRoot.child("attachments")
+        stubsvc = PostgresService(
+            dbRoot, lambda cf: Service(), current_sql_schema, resetSchema=True,
+            databaseName="caldav",
+            options = [
+                "-c log_lock_waits=TRUE",
+                "-c log_statement=all",
+                "-c log_line_prefix='%p.%x '",
+            ],
+            testMode=True
+        )
+        cp = ConnectionPool(stubsvc.produceConnection, maxConnections=1)
+        # Attach the service to the running reactor.
+        cp.startService()
+        reactor.addSystemEventTrigger("before", "shutdown", cp.stopService)
+        cds = CommonDataStore(
+            cp.connection, StubNotifierFactory(),
+            attachmentRoot, quota=staticQuota
+        )
+        return cds
+
+
+
     def buildStore(self, testCase, notifierFactory):
         """
         Do the necessary work to build a store for a particular test case.
@@ -145,7 +176,8 @@ class SQLStoreBuilder(object):
         except OSError:
             pass
         currentTestID = testCase.id()
-        cp = ConnectionPool(self.sharedService.produceConnection)
+        cp = ConnectionPool(self.sharedService.produceConnection,
+                            maxConnections=5)
         quota = deriveQuota(testCase)
         store = CommonDataStore(
             cp.connection, notifierFactory, attachmentRoot, quota=quota
