@@ -34,15 +34,18 @@ from OpenSSL.SSL import Error as SSLError
 
 from zope.interface import implements
 
+from twisted.plugin import IPlugin
+
 from twisted.python.log import FileLogObserver, ILogObserver
 from twisted.python.logfile import LogFile
 from twisted.python.usage import Options, UsageError
-from twisted.plugin import IPlugin
+
 from twisted.internet.defer import gatherResults, Deferred
-from twisted.internet import reactor as _reactor
+
 from twisted.internet.process import ProcessExitedAlready
 from twisted.internet.protocol import Protocol, Factory
 from twisted.internet.protocol import ProcessProtocol
+
 from twisted.application.internet import TCPServer, UNIXServer
 from twisted.application.service import MultiService, IServiceMaker
 from twisted.application.service import Service
@@ -57,9 +60,10 @@ from twext.internet.tcp import MaxAcceptTCPServer, MaxAcceptSSLServer
 from twext.web2.channel.http import LimitingHTTPFactory, SSLRedirectRequest
 from twext.web2.metafd import ConnectionLimiter, ReportingHTTPService
 
+from txdav.common.datastore.upgrade.sql.upgrade import (
+    UpgradeDatabaseSchemaService, UpgradeDatabaseDataService,
+)
 from txdav.common.datastore.upgrade.migrate import UpgradeToDatabaseService
-from txdav.common.datastore.upgrade.sql.upgrade import UpgradeDatabaseSchemaService,\
-    UpgradeDatabaseDataService
 
 from twistedcaldav.config import ConfigurationError
 from twistedcaldav.config import config
@@ -74,7 +78,6 @@ from calendarserver.tap.util import pgServiceFromConfig, getDBPool
 from twext.enterprise.ienterprise import POSTGRES_DIALECT
 from twext.enterprise.ienterprise import ORACLE_DIALECT
 from twext.enterprise.adbapi2 import ConnectionPool
-from twext.enterprise.adbapi2 import ConnectionPoolConnection
 
 try:
     from twistedcaldav.authkerb import NegotiateCredentialFactory
@@ -82,14 +85,17 @@ try:
 except ImportError:
     NegotiateCredentialFactory = None
 
+from calendarserver.tap.util import ConnectionDispenser
+
 from calendarserver.accesslog import AMPCommonAccessLoggingObserver
 from calendarserver.accesslog import AMPLoggingFactory
 from calendarserver.accesslog import RotatingFileAccessLoggingObserver
 from calendarserver.tap.util import getRootResource, computeProcessCount
-from calendarserver.tap.util import ConnectionWithPeer
+
 from calendarserver.tap.util import storeFromConfig
 from calendarserver.tap.util import pgConnectorFromConfig
 from calendarserver.tap.util import oracleConnectorFromConfig
+from calendarserver.tap.cfgchild import ConfiguredChildSpawner
 from calendarserver.tools.util import checkDirectory
 
 try:
@@ -208,6 +214,7 @@ class CalDAVOptions (Options, LoggingMixIn):
 
         self.overrides = {}
 
+
     @staticmethod
     def coerceOption(configDict, key, value):
         """
@@ -232,6 +239,7 @@ class CalDAVOptions (Options, LoggingMixIn):
                 value = None
 
         return value
+
 
     @classmethod
     def setOverride(cls, configDict, path, value, overrideDict):
@@ -893,6 +901,47 @@ class CalDAVServiceMaker (LoggingMixIn):
 
         @rtype: L{IService}
         """
+        def createSubServiceFactory(dialect=POSTGRES_DIALECT,
+                                    paramstyle='pyformat'):
+            def subServiceFactory(connectionFactory):
+                ms = MultiService()
+                cp = ConnectionPool(connectionFactory, dialect=dialect,
+                                    paramstyle=paramstyle,
+                                    maxConnections=config.MaxDBConnectionsPerPool)
+                cp.setServiceParent(ms)
+                store = storeFromConfig(config, cp.connection)
+                mainService = createMainService(cp, store)
+                if config.ParallelUpgrades:
+                    parallel = config.MultiProcess.ProcessCount
+                else:
+                    parallel = 0
+                upgradeSvc = UpgradeFileSystemFormatService(
+                    config,
+                    UpgradeDatabaseSchemaService.wrapService(
+                        UpgradeDatabaseDataService.wrapService(
+                            UpgradeToDatabaseService.wrapService(
+                                CachingFilePath(config.DocumentRoot),
+                                PostDBImportService(config, store, mainService),
+                                store, uid=overrideUID, gid=overrideGID,
+                                spawner=ConfiguredChildSpawner(
+                                    self, ConnectionDispenser(cp), config
+                                ),
+                                parallel=parallel
+                            ),
+                            store, uid=overrideUID, gid=overrideGID,
+                        ),
+                        store, uid=overrideUID, gid=overrideGID,
+                    )
+                )
+                upgradeSvc.setServiceParent(ms)
+                return ms
+            return subServiceFactory
+
+        # FIXME: this is replicating the logic of getDBPool(), except for the
+        # part where the pgServiceFromConfig service is actually started here,
+        # and discarded in that function.  This should be refactored to simply
+        # use getDBPool.
+
         if config.UseDatabase:
 
             if os.getuid() == 0: # Only override if root
@@ -907,56 +956,24 @@ class CalDAVServiceMaker (LoggingMixIn):
                 # to it.
                 pgserv = pgServiceFromConfig(
                     config,
-                    self.subServiceFactoryFactory(createMainService,
-                        uid=overrideUID, gid=overrideGID),
+                    createSubServiceFactory(),
                     uid=overrideUID, gid=overrideGID
                 )
                 return pgserv
             elif config.DBType == 'postgres':
                 # Connect to a postgres database that is already running.
-                return self.subServiceFactoryFactory(createMainService,
-                    uid=overrideUID, gid=overrideGID)(
-                            pgConnectorFromConfig(config))
+                return createSubServiceFactory()(pgConnectorFromConfig(config))
             elif config.DBType == 'oracle':
                 # Connect to an Oracle database that is already running.
-                return self.subServiceFactoryFactory(createMainService,
-                    uid=overrideUID, gid=overrideGID,
-                    dialect=ORACLE_DIALECT, paramstyle='numeric')(
-                            oracleConnectorFromConfig(config))
+                return createSubServiceFactory(dialect=ORACLE_DIALECT,
+                                               paramstyle='numeric')(
+                    oracleConnectorFromConfig(config)
+                )
             else:
                 raise UsageError("Unknown database type %r" (config.DBType,))
         else:
             store = storeFromConfig(config, None)
             return createMainService(None, store)
-
-
-    def subServiceFactoryFactory(self, createMainService, uid=None, gid=None,
-                                 dialect=POSTGRES_DIALECT,
-                                 paramstyle='pyformat'):
-        def subServiceFactory(connectionFactory):
-            ms = MultiService()
-            cp = ConnectionPool(connectionFactory, dialect=dialect,
-                                paramstyle=paramstyle,
-                                maxConnections=config.MaxDBConnectionsPerPool)
-            cp.setServiceParent(ms)
-            store = storeFromConfig(config, cp.connection)
-            mainService = createMainService(cp, store)
-            upgradeSvc = UpgradeFileSystemFormatService(config,
-                UpgradeDatabaseSchemaService.wrapService(
-                    UpgradeDatabaseDataService.wrapService(
-                        UpgradeToDatabaseService.wrapService(
-                            CachingFilePath(config.DocumentRoot),
-                            PostDBImportService(config, store, mainService),
-                            store, uid=uid, gid=gid
-                        ),
-                        store, uid=uid, gid=gid
-                    ),
-                    store, uid=uid, gid=gid
-                )
-            )
-            upgradeSvc.setServiceParent(ms)
-            return ms
-        return subServiceFactory
 
 
     def makeService_Combined(self, options):
@@ -1032,6 +1049,7 @@ class CalDAVServiceMaker (LoggingMixIn):
         # Calculate the number of processes to spawn
         #
         if config.MultiProcess.ProcessCount == 0:
+            # TODO: this should probably be happening in a configuration hook.
             processCount = computeProcessCount(
                 config.MultiProcess.MinProcessCount,
                 config.MultiProcess.PerCPU,
@@ -1147,28 +1165,6 @@ class CalDAVServiceMaker (LoggingMixIn):
                     if numConnectFailures == len(testPorts):
                         self.log_warn("Deleting stale socket file (not accepting connections): %s" % checkSocket)
                         os.remove(checkSocket)
-
-
-
-class ConnectionDispenser(object):
-
-    def __init__(self, connectionPool):
-        self.pool = connectionPool
-
-
-    def dispense(self):
-        """
-        Dispense a file descriptor, already connected to a server, for a
-        client.
-        """
-        # FIXME: these sockets need to be re-dispensed when the process is
-        # respawned, and they currently won't be.
-        c, s = socket.socketpair(socket.AF_UNIX, socket.SOCK_STREAM)
-        protocol = ConnectionPoolConnection(self.pool)
-        transport = ConnectionWithPeer(s, protocol)
-        protocol.makeConnection(transport)
-        transport.startReading()
-        return c
 
 
 
@@ -1315,6 +1311,7 @@ class TwistdSlaveProcess(object):
         return args
 
 
+
 class ControlPortTCPServer(TCPServer):
     """ This TCPServer retrieves the port number that was actually assigned
         when the service was started, and stores that into config.ControlPort
@@ -1354,8 +1351,10 @@ class DelayedStartupProcessMonitor(Service, object):
     minRestartDelay = 1
     maxRestartDelay = 3600
 
-    def __init__(self, reactor=_reactor):
+    def __init__(self, reactor=None):
         super(DelayedStartupProcessMonitor, self).__init__()
+        if reactor is None:
+            from twisted.internet import reactor
         self._reactor = reactor
         self.processes = {}
         self.protocols = {}

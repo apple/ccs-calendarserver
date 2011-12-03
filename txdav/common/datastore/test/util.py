@@ -43,6 +43,7 @@ from txdav.base.datastore.dbapiclient import DiagnosticConnectionWrapper
 from txdav.base.propertystore.base import PropertyName
 from txdav.common.icommondatastore import NoSuchHomeChildError
 from twext.enterprise.adbapi2 import ConnectionPool
+from twisted.trial.unittest import TestCase
 from twisted.internet.defer import returnValue
 from twistedcaldav.notify import Notifier, NodeCreationException
 from twext.enterprise.ienterprise import AlreadyFinishedError
@@ -83,6 +84,48 @@ class SQLStoreBuilder(object):
 
     SHARED_DB_PATH = "_test_sql_db"
 
+
+    @classmethod
+    def createService(cls, serviceFactory):
+        """
+        Create a L{PostgresService} to use for building a store.
+        """
+        dbRoot = CachingFilePath(cls.SHARED_DB_PATH)
+        return PostgresService(
+            dbRoot, serviceFactory, current_sql_schema, resetSchema=True,
+            databaseName="caldav",
+            options = [
+                "-c log_lock_waits=TRUE",
+                "-c log_statement=all",
+                "-c log_line_prefix='%p.%x '",
+            ],
+            testMode=True
+        )
+
+
+    @classmethod
+    def childStore(cls):
+        """
+        Create a store suitable for use in a child process, that is hooked up
+        to the store that a parent test process is managing.
+        """
+        disableMemcacheForTest(TestCase())
+        staticQuota = 3000
+        attachmentRoot = (CachingFilePath(cls.SHARED_DB_PATH)
+                          .child("attachments"))
+        stubsvc = cls.createService(lambda cf: Service())
+
+        cp = ConnectionPool(stubsvc.produceConnection, maxConnections=1)
+        # Attach the service to the running reactor.
+        cp.startService()
+        reactor.addSystemEventTrigger("before", "shutdown", cp.stopService)
+        cds = CommonDataStore(
+            cp.connection, StubNotifierFactory(),
+            attachmentRoot, quota=staticQuota
+        )
+        return cds
+
+
     def buildStore(self, testCase, notifierFactory):
         """
         Do the necessary work to build a store for a particular test case.
@@ -99,16 +142,7 @@ class SQLStoreBuilder(object):
                     testCase, notifierFactory, attachmentRoot
                 ).chainDeferred(ready)
                 return Service()
-            self.sharedService = PostgresService(
-                dbRoot, getReady, current_sql_schema, resetSchema=True,
-                databaseName="caldav",
-                options = [
-                    "-c log_lock_waits=TRUE",
-                    "-c log_statement=all",
-                    "-c log_line_prefix='%p.%x '",
-                ],
-                testMode=True
-            )
+            self.sharedService = self.createService(getReady)
             self.sharedService.startService()
             def startStopping():
                 log.msg("Starting stopping.")
@@ -145,7 +179,8 @@ class SQLStoreBuilder(object):
         except OSError:
             pass
         currentTestID = testCase.id()
-        cp = ConnectionPool(self.sharedService.produceConnection)
+        cp = ConnectionPool(self.sharedService.produceConnection,
+                            maxConnections=5)
         quota = deriveQuota(testCase)
         store = CommonDataStore(
             cp.connection, notifierFactory, attachmentRoot, quota=quota

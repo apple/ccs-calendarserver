@@ -24,17 +24,166 @@ import errno
 import xattr
 
 from twext.python.log import LoggingMixIn
+
 from twisted.application.service import Service
 from twisted.internet import reactor
-from twisted.internet.defer import inlineCallbacks
+from twisted.internet.defer import inlineCallbacks, returnValue
+from twisted.internet.defer import maybeDeferred, DeferredList
 from twisted.python.runtime import platform
+
+from twext.python.filepath import CachingFilePath
+from twext.internet.spawnsvc import SpawnerService
+
+from twisted.protocols.amp import AMP, Command, String
 
 from txdav.caldav.datastore.util import migrateHome as migrateCalendarHome
 from txdav.carddav.datastore.util import migrateHome as migrateAddressbookHome
 from txdav.common.datastore.file import CommonDataStore as FileStore, TOPPATHS
 from txdav.base.propertystore.xattr import PropertyStore as XattrPropertyStore
-from txdav.base.propertystore.appledouble_xattr import (
-    PropertyStore as AppleDoubleStore)
+from txdav.base.propertystore.appledouble_xattr import (PropertyStore
+                                                        as AppleDoubleStore)
+
+
+homeTypeLookup = {
+    "calendar": (migrateCalendarHome,
+                 lambda txn: txn.calendarHomeWithUID),
+    "addressbook": (migrateAddressbookHome,
+                    lambda txn: txn.addressbookHomeWithUID)
+}
+
+
+def swapAMP(oldAMP, newAMP):
+    """
+    Swap delivery of messages from an old L{AMP} instance to a new one.
+
+    This is useful for implementors of L{StoreSpawnerService} since they will
+    typically want to create one protocol for initializing the store, and
+    another for processing application commands.
+
+    @param oldAMP: An AMP instance currently hooked up to a transport, whose
+        job is done and wants to stop receiving messages.
+
+    @param newAMP: An AMP instance who wants to take over and start receiving
+        messages previously destined for oldAMP.
+
+    @return: C{newAMP}
+    """
+    oldAMP.boxReceiver = newAMP
+    newAMP.startReceivingBoxes(oldAMP)
+    return newAMP
+
+
+
+class StoreSpawnerService(SpawnerService):
+    """
+    Abstract subclass of L{SpawnerService} that describes how to spawn a subclass.
+    """
+
+    def spawnWithStore(self, here, there):
+        """
+        Like L{SpawnerService.spawn}, but instead of instantiating C{there}
+        with 0 arguments, it instantiates it with an L{ICalendarStore} /
+        L{IAddressbookStore}.
+        """
+        raise NotImplementedError("subclasses must implement the specifics")
+
+
+
+class Configure(Command):
+    """
+    Configure the upgrade helper process.
+    """
+
+    arguments = [("filename", String())]
+
+
+    
+class OneUpgrade(Command):
+    """
+    Upgrade a single calendar home.
+    """
+
+    arguments = [("uid", String()),
+                 ("homeType", String())]
+
+
+
+class LogIt(Command):
+    """
+    Log a message.
+    """
+    arguments = [("message", String())]
+
+
+
+class UpgradeDriver(AMP):
+    """
+    Helper protocol which runs in the master process doing the upgrade.
+    """
+
+    def __init__(self, upgradeService):
+        super(UpgradeDriver, self).__init__()
+        self.service = upgradeService
+
+
+    def configure(self, filename):
+        """
+        Configure the subprocess to examine the file store at the given path
+        name.
+        """
+        return self.callRemote(Configure, filename=filename)
+
+
+    def oneUpgrade(self, uid, homeType):
+        """
+        Upgrade one calendar or addressbook home, with the given uid of the
+        given type, and return a L{Deferred} which will fire when the upgrade
+        is complete.
+        """
+        return self.callRemote(OneUpgrade, uid=uid, homeType=homeType)
+
+
+
+class UpgradeHelperProcess(AMP):
+    """
+    Helper protocol which runs in a subprocess to upgrade.
+    """
+
+    def __init__(self, store):
+        """
+        Create with a reference to an SQL store.
+        """
+        super(UpgradeHelperProcess, self).__init__()
+        self.store = store
+        self.store.setMigrating(True)
+        
+
+    @Configure.responder
+    def configure(self, filename):
+        subsvc = None
+        self.upgrader = UpgradeToDatabaseService.wrapService(
+            CachingFilePath(filename), subsvc, self.store
+        )
+        return {}
+
+
+    @OneUpgrade.responder
+    def oneUpgrade(self, uid, homeType):
+        """
+        Upgrade one calendar home.
+        """
+        migrateFunc, destFunc = homeTypeLookup[homeType]
+        fileTxn = self.upgrader.fileStore.newTransaction()
+        return (
+            maybeDeferred(destFunc(fileTxn), uid)
+            .addCallback(
+                lambda fileHome:
+                self.upgrader.migrateOneHome(fileTxn, homeType, fileHome)
+            )
+            .addCallback(lambda ignored: {})
+        )
+
+
 
 class UpgradeToDatabaseService(Service, LoggingMixIn, object):
     """
@@ -42,7 +191,8 @@ class UpgradeToDatabaseService(Service, LoggingMixIn, object):
     """
 
     @classmethod
-    def wrapService(cls, path, service, store, uid=None, gid=None):
+    def wrapService(cls, path, service, store, uid=None, gid=None,
+                    parallel=0, spawner=None):
         """
         Create an L{UpgradeToDatabaseService} if there are still file-based
         calendar or addressbook homes remaining in the given path.
@@ -61,6 +211,12 @@ class UpgradeToDatabaseService(Service, LoggingMixIn, object):
         @param store: the SQL storage service.
 
         @type service: L{IService}
+
+        @param parallel: The number of parallel subprocesses that should manage
+            the upgrade.
+
+        @param spawner: a concrete L{StoreSpawnerService} subclass that will be
+            used to spawn helper processes.
 
         @return: a service
         @rtype: L{IService}
@@ -103,12 +259,14 @@ class UpgradeToDatabaseService(Service, LoggingMixIn, object):
                     FileStore(path, None, True, True,
                               propertyStoreClass=appropriateStoreClass),
                     store, service, uid=uid, gid=gid,
+                    parallel=parallel, spawner=spawner,
                 )
                 return self
         return service
 
 
-    def __init__(self, fileStore, sqlStore, service, uid=None, gid=None):
+    def __init__(self, fileStore, sqlStore, service, uid=None, gid=None,
+                 parallel=0, spawner=None):
         """
         Initialize the service.
         """
@@ -117,6 +275,37 @@ class UpgradeToDatabaseService(Service, LoggingMixIn, object):
         self.sqlStore = sqlStore
         self.uid = uid
         self.gid = gid
+        self.parallel = parallel
+        self.spawner = spawner
+
+
+    @inlineCallbacks
+    def migrateOneHome(self, fileTxn, homeType, fileHome):
+        """
+        Migrate an individual calendar or addressbook home.
+        """
+        migrateFunc, destFunc = homeTypeLookup.get(homeType)
+        uid = fileHome.uid()
+        self.log_warn("Starting migration transaction %s UID %r" %
+                      (homeType, uid))
+        sqlTxn = self.sqlStore.newTransaction()
+        homeGetter = destFunc(sqlTxn)
+        if (yield homeGetter(uid, create=False)) is not None:
+            self.log_warn(
+                "%s home %r already existed not migrating" % (
+                    homeType, uid))
+            yield sqlTxn.abort()
+            yield fileTxn.commit()
+            returnValue(None)
+        sqlHome = yield homeGetter(uid, create=True)
+        yield migrateFunc(fileHome, sqlHome)
+        yield fileTxn.commit()
+        yield sqlTxn.commit()
+        # Remove file home after migration. FIXME: instead, this should be a
+        # public remove...HomeWithUID() API for de-provisioning.  (If we had
+        # this, this would simply be a store-to-store migrator rather than a
+        # filesystem-to-database upgrade.)
+        fileHome._path.remove()
 
 
     @inlineCallbacks
@@ -127,43 +316,61 @@ class UpgradeToDatabaseService(Service, LoggingMixIn, object):
 
         @return: a Deferred which fires when the migration is complete.
         """
-        self.log_warn("Beginning filesystem -> database upgrade.")
-
         self.sqlStore.setMigrating(True)
+        parallel = self.parallel
+        if parallel:
+            self.log_warn("Starting %d upgrade helper processes." %
+                          (parallel,))
+            spawner = self.spawner
+            spawner.startService()
+            drivers = []
+            for value in xrange(parallel):
+                driver = yield spawner.spawnWithStore(UpgradeDriver(self),
+                                                      UpgradeHelperProcess)
+                drivers.append(driver)
 
-        for homeType, migrateFunc, eachFunc, destFunc, _ignore_topPathName in [
-            ("calendar", migrateCalendarHome,
-                self.fileStore.eachCalendarHome,
-                lambda txn: txn.calendarHomeWithUID,
-                "calendars"),
-            ("addressbook", migrateAddressbookHome,
-                self.fileStore.eachAddressbookHome,
-                lambda txn: txn.addressbookHomeWithUID,
-                "addressbooks")
+            # Wait for all subprocesses to be fully configured before
+            # continuing, but let them configure in any order.
+            self.log_warn("Configuring upgrade helper processes.")
+            yield DeferredList([driver.configure(self.fileStore._path.path)
+                                for driver in drivers])
+            self.log_warn("Upgrade helpers ready.")
+
+        self.log_warn("Beginning filesystem -> database upgrade.")
+        inParallel = []
+        for homeType, eachFunc in [
+                ("calendar", self.fileStore.eachCalendarHome),
+                ("addressbook", self.fileStore.eachAddressbookHome),
             ]:
             for fileTxn, fileHome in eachFunc():
                 uid = fileHome.uid()
                 self.log_warn("Migrating %s UID %r" % (homeType, uid))
-                sqlTxn = self.sqlStore.newTransaction()
-                homeGetter = destFunc(sqlTxn)
-                if (yield homeGetter(uid, create=False)) is not None:
-                    self.log_warn(
-                        "%s home %r already existed not migrating" % (
-                            homeType, uid))
-                    yield sqlTxn.abort()
+                if parallel:
+                    # No-op transaction here: make sure everything's unlocked
+                    # before asking the subprocess to handle it.
                     yield fileTxn.commit()
-                    continue
-                sqlHome = yield homeGetter(uid, create=True)
-                if sqlHome is None:
-                    raise RuntimeError("THIS SHOULD NOT BE POSSIBLE.")
-                yield migrateFunc(fileHome, sqlHome)
-                yield fileTxn.commit()
-                yield sqlTxn.commit()
-                # FIXME: need a public remove...HomeWithUID() for de-
-                # provisioning
+                    if not drivers:
+                        # All the subprocesses are currently busy processing an
+                        # upgrade.  Wait for one to become available.
+                        yield DeferredList(inParallel, fireOnOneCallback=True,
+                                           fireOnOneErrback=True)
+                    busy = drivers.pop(0)
+                    d = busy.oneUpgrade(fileHome.uid(), homeType)
+                    inParallel.append(d)
+                    def freeUp(result, d=d, busy=busy, uid=uid,
+                               homeType=homeType):
+                        inParallel.remove(d)
+                        drivers.append(busy)
+                        self.log_warn("Completed migration of %s uid %r" %
+                                      (homeType, uid))
+                        return result
+                    d.addBoth(freeUp)
+                else:
+                    yield self.migrateOneHome(fileTxn, homeType, fileHome)
 
-                # Remove file home after migration
-                fileHome._path.remove()
+        if inParallel:
+            yield DeferredList(inParallel)
+
         for homeType in TOPPATHS:
             homesPath = self.fileStore._path.child(homeType)
             if homesPath.isdir():
@@ -180,13 +387,19 @@ class UpgradeToDatabaseService(Service, LoggingMixIn, object):
             for fp in sqlAttachmentsPath.walk():
                 os.chown(fp.path, uid, gid)
 
-        self.sqlStore.setMigrating(False) 
+        self.sqlStore.setMigrating(False)
+
+        if parallel:
+            self.log_warn("Stopping upgrade helper processes.")
+            yield spawner.stopService()
+            self.log_warn("Upgrade helpers all stopped.")
         self.log_warn(
             "Filesystem upgrade complete, launching database service."
         )
-
-        # see http://twistedmatrix.com/trac/ticket/4649
-        reactor.callLater(0, self.wrappedService.setServiceParent, self.parent)
+        wrapped = self.wrappedService
+        if wrapped is not None:
+            # see http://twistedmatrix.com/trac/ticket/4649
+            reactor.callLater(0, wrapped.setServiceParent, self.parent)
 
 
     def startService(self):

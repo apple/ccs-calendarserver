@@ -23,6 +23,8 @@ from twext.web2.http_headers import MimeType
 from twisted.application.service import Service, MultiService
 from twisted.internet.defer import inlineCallbacks, Deferred, returnValue
 from twisted.internet.protocol import Protocol
+from twisted.protocols.amp import AMP, Command, String
+from twisted.python.reflect import qual, namedAny
 from twisted.trial.unittest import TestCase
 from txdav.caldav.datastore.test.common import CommonTests
 from txdav.carddav.datastore.test.common import CommonTests as ABCommonTests
@@ -30,12 +32,67 @@ from txdav.common.datastore.file import CommonDataStore
 from txdav.common.datastore.test.util import theStoreBuilder, \
     populateCalendarsFrom, StubNotifierFactory, resetCalendarMD5s,\
     populateAddressBooksFrom, resetAddressBookMD5s
-from txdav.common.datastore.upgrade.migrate import UpgradeToDatabaseService
+
+from txdav.common.datastore.test.util import SQLStoreBuilder
+from txdav.common.datastore.upgrade.migrate import UpgradeToDatabaseService, \
+    StoreSpawnerService, swapAMP
+
+
+
+class CreateStore(Command):
+    """
+    Create a store in a subprocess.
+    """
+    arguments = [('delegateTo', String())]
+
+
+
+class StoreCreator(AMP):
+    """
+    Helper protocol.
+    """
+
+    @CreateStore.responder
+    def createStore(self, delegateTo):
+        """
+        Create a store and pass it to the named delegate class.
+        """
+        swapAMP(self, namedAny(delegateTo)(SQLStoreBuilder.childStore()))
+        return {}
+
+
+
+class StubSpawner(StoreSpawnerService):
+    """
+    Stub spawner service which populates the store forcibly.
+    """
+
+    @inlineCallbacks
+    def spawnWithStore(self, here, there):
+        """
+        'here' and 'there' are the helper protocols; in a slight modification
+        of the signature, 'there' will expect to be created with an instance of
+        a store.
+        """
+        master = yield self.spawn(AMP(), StoreCreator)
+        yield master.callRemote(CreateStore, delegateTo=qual(there))
+        returnValue(swapAMP(master, here))
+
+
 
 class HomeMigrationTests(TestCase):
     """
     Tests for L{UpgradeToDatabaseService}.
     """
+
+    def createUpgradeService(self):
+        """
+        Create an upgrade service.
+        """
+        return UpgradeToDatabaseService(
+            self.fileStore, self.sqlStore, self.stubService
+        )
+
 
     @inlineCallbacks
     def setUp(self):
@@ -59,9 +116,7 @@ class HomeMigrationTests(TestCase):
                 subStarted.callback(None)
         self.stubService = StubService()
         self.topService = MultiService()
-        self.upgrader = UpgradeToDatabaseService(
-            fileStore, self.sqlStore, self.stubService
-        )
+        self.upgrader = self.createUpgradeService()
         self.upgrader.setServiceParent(self.topService)
 
         requirements = CommonTests.requirements
@@ -216,3 +271,21 @@ class HomeMigrationTests(TestCase):
         ):
             object = (yield adbk.addressbookObjectWithName(name))
             self.assertEquals(object.md5(), md5)
+
+
+
+class ParallelHomeMigrationTests(HomeMigrationTests):
+    """
+    Tests for home migrations running in parallel.  Functionally this should be
+    the same, so it's just a store created slightly differently.
+    """
+
+    def createUpgradeService(self):
+        """
+        Create an upgrade service.
+        """
+        return UpgradeToDatabaseService(
+            self.fileStore, self.sqlStore, self.stubService,
+            parallel=2, spawner=StubSpawner()
+        )
+
