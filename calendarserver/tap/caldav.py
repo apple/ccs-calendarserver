@@ -39,8 +39,11 @@ from twisted.plugin import IPlugin
 from twisted.python.log import FileLogObserver, ILogObserver
 from twisted.python.logfile import LogFile
 from twisted.python.usage import Options, UsageError
+from twisted.python.reflect import namedAny, qual
 
 from twisted.internet.defer import gatherResults, Deferred
+from twisted.internet.defer import inlineCallbacks, returnValue
+
 from twisted.internet import reactor as _reactor
 from twisted.internet.process import ProcessExitedAlready
 from twisted.internet.protocol import Protocol, Factory
@@ -62,10 +65,13 @@ from twext.internet.tcp import MaxAcceptTCPServer, MaxAcceptSSLServer
 from twext.web2.channel.http import LimitingHTTPFactory, SSLRedirectRequest
 from twext.web2.metafd import ConnectionLimiter, ReportingHTTPService
 
-from txdav.common.datastore.upgrade.migrate import UpgradeToDatabaseService
-from txdav.common.datastore.upgrade.migrate import StoreSpawnerService
-from txdav.common.datastore.upgrade.sql.upgrade import UpgradeDatabaseSchemaService,\
-    UpgradeDatabaseDataService
+from txdav.common.datastore.upgrade.migrate import (
+    UpgradeToDatabaseService, StoreSpawnerService, swapAMP
+)
+
+from txdav.common.datastore.upgrade.sql.upgrade import (
+    UpgradeDatabaseSchemaService, UpgradeDatabaseDataService,
+)
 
 from twistedcaldav.config import ConfigurationError
 from twistedcaldav.config import config
@@ -214,6 +220,7 @@ class CalDAVOptions (Options, LoggingMixIn):
 
         self.overrides = {}
 
+
     @staticmethod
     def coerceOption(configDict, key, value):
         """
@@ -238,6 +245,7 @@ class CalDAVOptions (Options, LoggingMixIn):
                 value = None
 
         return value
+
 
     @classmethod
     def setOverride(cls, configDict, path, value, overrideDict):
@@ -899,6 +907,12 @@ class CalDAVServiceMaker (LoggingMixIn):
 
         @rtype: L{IService}
         """
+
+        # FIXME: this is replicating the logic of getDBPool(), except for the
+        # part where the pgServiceFromConfig service is actually started here,
+        # and discarded in that function.  This should be refactored to simply
+        # use getDBPool.
+
         if config.UseDatabase:
 
             if os.getuid() == 0: # Only override if root
@@ -947,13 +961,18 @@ class CalDAVServiceMaker (LoggingMixIn):
             cp.setServiceParent(ms)
             store = storeFromConfig(config, cp.connection)
             mainService = createMainService(cp, store)
-            upgradeSvc = UpgradeFileSystemFormatService(config,
+            upgradeSvc = UpgradeFileSystemFormatService(
+                config,
                 UpgradeDatabaseSchemaService.wrapService(
                     UpgradeDatabaseDataService.wrapService(
                         UpgradeToDatabaseService.wrapService(
                             CachingFilePath(config.DocumentRoot),
                             PostDBImportService(config, store, mainService),
-                            store, uid=uid, gid=gid
+                            store, uid=uid, gid=gid,
+                            spawner=ConfiguredChildSpawner(
+                                self, ConnectionDispenser(cp)
+                            ),
+                            parallel=config.MultiProcess.ProcessCount
                         ),
                         store, uid=uid, gid=gid
                     ),
@@ -1038,6 +1057,7 @@ class CalDAVServiceMaker (LoggingMixIn):
         # Calculate the number of processes to spawn
         #
         if config.MultiProcess.ProcessCount == 0:
+            # TODO: this should probably be happening in a configuration hook.
             processCount = computeProcessCount(
                 config.MultiProcess.MinProcessCount,
                 config.MultiProcess.PerCPU,
@@ -1157,6 +1177,13 @@ class CalDAVServiceMaker (LoggingMixIn):
 
 
 class ConnectionDispenser(object):
+    """
+    Object taht can dispense already-connected file descriptors, for use with
+    subprocess spawning.
+    """
+    # Very long term FIXME: this mechanism should ideally be eliminated, by
+    # making all subprocesses have a single stdio AMP connection that
+    # multiplexes between multiple protocols.
 
     def __init__(self, connectionPool):
         self.pool = connectionPool
@@ -1334,8 +1361,9 @@ class ConfigureChild(Command):
         ("logID", String()),
         ("configFile", String()),
 
-        ## same as in config; no need to propagate it
-        # ("processCount", Integer()),
+        # computed value determined only in master, so needs to be propagated
+        # to be correct.
+        ("processCount", Integer()),
 
         ## only needed for request processing
         # ("inheritFDs", ListOf(Integer())),
@@ -1353,24 +1381,37 @@ class ChildConfigurator(AMP):
     """
 
     @ConfigureChild.responder
-    def conf(self, delegateTo, pidfile, logID, configFile, connectionPoolFD=None):
+    def conf(self, delegateTo, pidfile, logID, configFile, processCount,
+             connectionPoolFD=None):
         """
-        Do the configuration.
+        Load the current config file into this child process, create a store
+        based on it, and delegate to the upgrade logic.
         """
-        # This stuff needs to be done by somebody in caldavd.py
-        from twistedcaldav.config import config
-        from calendarserver.tap.util import getDBPool, storeFromConfig
+        # Load the configuration file.
         config.load(configFile)
+
+        # Adjust the child's configuration to add all the relevant options for
+        # the store that won't be mentioned in the config file.
+        config.updateDefaults(dict(
+            LogID            = logID,
+            PIDFile          = pidfile,
+            DBAMPFD          = connectionPoolFD,
+            MultiProcess     = dict(
+                ProcessCount = processCount
+            )
+        ))
+
         pool, txnf = getDBPool(config)
         if pool is not None:
-            from twisted.internet import reactor
             pool.startService()
-            reactor.addSystemEventTrigger("before", "shutdown",
-                                          pool.stopService)
-        # XXX: SharedConnectionPool needs to be relayed out of band, as
-        # calendarserver.tap.caldav does with its own thing.
+            _reactor.addSystemEventTrigger(
+                "before", "shutdown", pool.stopService
+            )
         dbstore = storeFromConfig(config, txnf)
-        dbstore.setMigrating(True)
+        delegateClass = namedAny(delegateTo)
+        swapAMP(self, delegateClass(dbstore))
+        if connectionPoolFD is not None:
+            pass
         return {}
 
 
@@ -1380,11 +1421,48 @@ class ConfiguredChildSpawner(StoreSpawnerService):
     L{StoreSpawnerService} that will load a full configuration into each child.
     """
 
+    def __init__(self, maker, options, dispenser):
+        """
+        Create a L{ConfiguredChildSpawner}.
+
+        @param maker: a L{CalDAVServiceMaker} instance that supplies the
+            configuration.
+
+        @param options: a L{CalDAVOptions} containing the command-line options
+            for the subprocess.
+
+        @param dispenser: a L{ConnectionDispenser} or C{None}.
+        """
+        self.nextID = 0
+        self.maker = maker
+        self.dispenser
+
+
+    @inlineCallbacks
     def spawnWithStore(self, here, there):
         """
         Spawn the child with a store based on a configuration.
         """
-        return {}
+        thisID = self.nextID
+        self.nextID += 1
+        if self.dispenser is not None:
+            poolfd = self.dispenser.dispense()
+            childFDs = {poolfd: poolfd}
+        else:
+            childFDs = None
+        controller = yield self.spawn(
+            AMP(), ChildConfigurator, childFDs=childFDs
+        )
+        yield controller.callRemote(
+            ConfigureChild,
+            delegateTo=qual(there),
+            pidfile="%s-migrator-%s" % (self.maker.tapname,
+                                        thisID),
+            logID="migrator-%s" % (thisID,),
+            configFile=self.options['config'],
+            processCount=config.MultiProcess.processCount,
+        )
+        returnValue(swapAMP(controller, here))
 
 
 
