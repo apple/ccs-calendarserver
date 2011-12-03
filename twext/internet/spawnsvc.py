@@ -184,7 +184,7 @@ class SpawnerService(Service, object):
         self._stopAllDeferred = None
 
 
-    def spawn(self, hereProto, thereProto):
+    def spawn(self, hereProto, thereProto, childFDs=None):
         """
         Spawn a subprocess with a connected pair of protocol objects, one in
         the current process, one in the subprocess.
@@ -194,6 +194,9 @@ class SpawnerService(Service, object):
         @param thereProto: a top-level class or function that will be imported
             and called in the spawned subprocess.
 
+        @param childFDs: File descriptors to share with the subprocess; same
+            format as L{IReactorProcess.spawnProcess}.
+
         @return: a L{Deferred} that fires when C{hereProto} is ready.
         """
         if not self.running:
@@ -202,7 +205,8 @@ class SpawnerService(Service, object):
         name = qual(thereProto)
         self.reactor.spawnProcess(
             BridgeProtocol(self, hereProto), sys.executable,
-            [sys.executable, '-m', __name__, name], os.environ
+            [sys.executable, '-m', __name__, name], os.environ,
+            childFDs=childFDs
         )
         return succeed(hereProto)
 
