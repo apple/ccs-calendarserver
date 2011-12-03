@@ -1357,7 +1357,7 @@ class ConfigureChild(Command):
     arguments = [
         # The name of the class to delegate to once configuration is complete.
         ("delegateTo", String()),
-        ("pidfile", String()),
+        ("pidFile", String()),
         ("logID", String()),
         ("configFile", String()),
 
@@ -1381,7 +1381,7 @@ class ChildConfigurator(AMP):
     """
 
     @ConfigureChild.responder
-    def conf(self, delegateTo, pidfile, logID, configFile, processCount,
+    def conf(self, delegateTo, pidFile, logID, configFile, processCount,
              connectionPoolFD=None):
         """
         Load the current config file into this child process, create a store
@@ -1392,15 +1392,18 @@ class ChildConfigurator(AMP):
 
         # Adjust the child's configuration to add all the relevant options for
         # the store that won't be mentioned in the config file.
-        config.updateDefaults(dict(
+        changedConfig = dict(
             LogID            = logID,
-            PIDFile          = pidfile,
-            DBAMPFD          = connectionPoolFD,
+            PIDFile          = pidFile,
             MultiProcess     = dict(
                 ProcessCount = processCount
             )
-        ))
+        )
+        if connectionPoolFD is not None:
+            changedConfig.update(DBAMPFD=connectionPoolFD)
+        config.updateDefaults(changedConfig)
 
+        # Construct and start database pool and store.
         pool, txnf = getDBPool(config)
         if pool is not None:
             pool.startService()
@@ -1408,10 +1411,10 @@ class ChildConfigurator(AMP):
                 "before", "shutdown", pool.stopService
             )
         dbstore = storeFromConfig(config, txnf)
+
+        # Finally, construct the class we're supposed to delegate to.
         delegateClass = namedAny(delegateTo)
         swapAMP(self, delegateClass(dbstore))
-        if connectionPoolFD is not None:
-            pass
         return {}
 
 
@@ -1456,8 +1459,7 @@ class ConfiguredChildSpawner(StoreSpawnerService):
         yield controller.callRemote(
             ConfigureChild,
             delegateTo=qual(there),
-            pidfile="%s-migrator-%s" % (self.maker.tapname,
-                                        thisID),
+            pidfile="%s-migrator-%s" % (self.maker.tapname, thisID),
             logID="migrator-%s" % (thisID,),
             configFile=self.options['config'],
             processCount=config.MultiProcess.processCount,
