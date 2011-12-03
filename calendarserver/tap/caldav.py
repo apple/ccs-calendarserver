@@ -911,6 +911,10 @@ class CalDAVServiceMaker (LoggingMixIn):
                 cp.setServiceParent(ms)
                 store = storeFromConfig(config, cp.connection)
                 mainService = createMainService(cp, store)
+                if config.ParallelUpgrades:
+                    parallel = config.MultiProcess.ProcessCount
+                else:
+                    parallel = 0
                 upgradeSvc = UpgradeFileSystemFormatService(
                     config,
                     UpgradeDatabaseSchemaService.wrapService(
@@ -922,7 +926,7 @@ class CalDAVServiceMaker (LoggingMixIn):
                                 spawner=ConfiguredChildSpawner(
                                     self, ConnectionDispenser(cp), config
                                 ),
-                                parallel=config.MultiProcess.ProcessCount
+                                parallel=parallel
                             ),
                             store, uid=overrideUID, gid=overrideGID,
                         ),
