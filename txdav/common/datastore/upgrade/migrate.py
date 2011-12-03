@@ -35,8 +35,6 @@ from twext.python.filepath import CachingFilePath
 
 from twisted.protocols.amp import AMP, Command, String
 
-from twext.internet.spawnsvc import SpawnerService
-
 from txdav.caldav.datastore.util import migrateHome as migrateCalendarHome
 from txdav.carddav.datastore.util import migrateHome as migrateAddressbookHome
 from txdav.common.datastore.file import CommonDataStore as FileStore, TOPPATHS
@@ -92,11 +90,11 @@ class UpgradeDriver(AMP):
         self.service = upgradeService
 
 
-    def configure(self):
-        from twistedcaldav.config import config
+    def configure(self, filename):
         return self.callRemote(Configure,
-                               filename=config._provider.getConfigFileName()
-                               or "")
+                               filename=filename
+                               # config._provider.getConfigFileName() or ""
+                           )
 
 
     def oneUpgrade(self, uid, homeType):
@@ -132,13 +130,28 @@ class UpgradeHelperProcess(AMP):
     Helper protocol which runs in a subprocess to upgrade.
     """
 
+    def __init__(self, store):
+        """
+        
+        """
+        super(UpgradeHelperProcess, self).__init__()
+        self.store = store
+        self.store.setMigrating(True)
+        
+
     @Configure.responder
     @logFailures
     def configure(self, filename):
+        subsvc = None
+        self.upgrader = UpgradeToDatabaseService.wrapService(
+            CachingFilePath(filename), subsvc, self.store
+        )
+        return {}
+
+        # This stuff needs to be done by somebody in caldavd.py
         from twistedcaldav.config import config
         from calendarserver.tap.util import getDBPool, storeFromConfig
         config.load(filename)
-        subsvc = object()
         pool, txnf = getDBPool(config)
         if pool is not None:
             pool.startService()
@@ -148,9 +161,6 @@ class UpgradeHelperProcess(AMP):
         # calendarserver.tap.caldav does with its own thing.
         dbstore = storeFromConfig(config, txnf)
         dbstore.setMigrating(True)
-        self.upgrader = UpgradeToDatabaseService.wrapService(
-            CachingFilePath(config.DocumentRoot), subsvc, dbstore
-        )
         return {}
 
 
@@ -179,7 +189,8 @@ class UpgradeToDatabaseService(Service, LoggingMixIn, object):
     """
 
     @classmethod
-    def wrapService(cls, path, service, store, uid=None, gid=None):
+    def wrapService(cls, path, service, store, uid=None, gid=None,
+                    parallel=0, spawner=None):
         """
         Create an L{UpgradeToDatabaseService} if there are still file-based
         calendar or addressbook homes remaining in the given path.
@@ -198,6 +209,11 @@ class UpgradeToDatabaseService(Service, LoggingMixIn, object):
         @param store: the SQL storage service.
 
         @type service: L{IService}
+
+        @param parallel: The number of parallel subprocesses that should manage
+            the upgrade.
+
+        @param spawner: the L{SpawnerService} subclass.
 
         @return: a service
         @rtype: L{IService}
@@ -239,14 +255,14 @@ class UpgradeToDatabaseService(Service, LoggingMixIn, object):
                 self = cls(
                     FileStore(path, None, True, True,
                               propertyStoreClass=appropriateStoreClass),
-                    store, service, uid=uid, gid=gid,
+                    store, service, uid=uid, gid=gid, spawner=spawner
                 )
                 return self
         return service
 
 
     def __init__(self, fileStore, sqlStore, service, uid=None, gid=None,
-                 parallel=5):
+                 parallel=0, spawner=None):
         """
         Initialize the service.
         """
@@ -256,6 +272,7 @@ class UpgradeToDatabaseService(Service, LoggingMixIn, object):
         self.uid = uid
         self.gid = gid
         self.parallel = parallel
+        self.spawner = spawner
 
 
     @inlineCallbacks
@@ -298,18 +315,19 @@ class UpgradeToDatabaseService(Service, LoggingMixIn, object):
         parallel = self.parallel
         if parallel:
             self.log_warn("Starting upgrade helper processes.")
-            spawner = SpawnerService()
+            spawner = self.spawner
             spawner.startService()
             drivers = []
             for value in xrange(parallel):
-                driver = spawner.spawn(UpgradeDriver(self),
-                                       UpgradeHelperProcess)
+                driver = yield spawner.spawn(UpgradeDriver(self),
+                                             UpgradeHelperProcess)
                 drivers.append(driver)
 
             # Wait for all subprocesses to be fully configured before
             # continuing, but let them configure in any order.
             self.log_warn("Configuring upgrade helper processes.")
-            yield DeferredList([driver.configure() for driver in drivers])
+            yield DeferredList([driver.configure(self.fileStore._path.path)
+                                for driver in drivers])
             self.log_warn("Upgrade helpers ready.")
 
         self.log_warn("Beginning filesystem -> database upgrade.")
@@ -340,14 +358,15 @@ class UpgradeToDatabaseService(Service, LoggingMixIn, object):
                     d.addBoth(freeUp)
                 else:
                     yield self.migrateOneHome(fileTxn, homeType, fileHome)
+
+        if inParallel:
+            yield DeferredList(inParallel)
+
         for homeType in TOPPATHS:
             homesPath = self.fileStore._path.child(homeType)
             if homesPath.isdir():
                 homesPath.remove()
 
-        if inParallel:
-            yield DeferredList(inParallel)
-        
         # Set attachment directory ownership.  FIXME: is this still necessary
         # since attachments started living outside the database directory
         # created by initdb?  default permissions might be correct now.
@@ -368,8 +387,10 @@ class UpgradeToDatabaseService(Service, LoggingMixIn, object):
         self.log_warn(
             "Filesystem upgrade complete, launching database service."
         )
-        # see http://twistedmatrix.com/trac/ticket/4649
-        reactor.callLater(0, self.wrappedService.setServiceParent, self.parent)
+        wrapped = self.wrappedService
+        if wrapped is not None:
+            # see http://twistedmatrix.com/trac/ticket/4649
+            reactor.callLater(0, wrapped.setServiceParent, self.parent)
 
 
     def startService(self):
