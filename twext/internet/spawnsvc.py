@@ -21,6 +21,8 @@ Utility service that can spawn subprocesses.
 import os
 import sys
 
+from twisted.python import log
+
 from twisted.python.reflect import namedAny
 from twisted.internet.stdio import StandardIO
 from twisted.internet.error import ReactorNotRunning
@@ -97,7 +99,7 @@ class BridgeTransport(object):
 
 
 
-class BridgeProtocol(ProcessProtocol):
+class BridgeProtocol(ProcessProtocol, object):
     """
     Process protocol implementation that delivers data to the C{hereProto}
     associated with an invocation of L{SpawnerService.spawn}.
@@ -133,8 +135,10 @@ class BridgeProtocol(ProcessProtocol):
 
     def errReceived(self, data):
         """
-        Some standard error was received from the subprocess. (TODO: logging?)
+        Some standard error was received from the subprocess.
         """
+        log.msg("Error output from process: " + data,
+                isError=True)
 
 
     _killTimeout = None
@@ -203,10 +207,10 @@ class SpawnerService(Service, object):
             self.pendingSpawns.append((hereProto, thereProto))
             return
         name = qual(thereProto)
+        argv = [sys.executable, '-u', '-m', __name__, name]
         self.reactor.spawnProcess(
             BridgeProtocol(self, hereProto), sys.executable,
-            [sys.executable, '-m', __name__, name], os.environ,
-            childFDs=childFDs
+            argv, os.environ, childFDs=childFDs
         )
         return succeed(hereProto)
 
