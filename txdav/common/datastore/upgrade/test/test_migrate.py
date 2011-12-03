@@ -32,23 +32,10 @@ from txdav.common.datastore.file import CommonDataStore
 from txdav.common.datastore.test.util import theStoreBuilder, \
     populateCalendarsFrom, StubNotifierFactory, resetCalendarMD5s,\
     populateAddressBooksFrom, resetAddressBookMD5s
-from twext.internet.spawnsvc import SpawnerService
+
 from txdav.common.datastore.test.util import SQLStoreBuilder
-from txdav.common.datastore.upgrade.migrate import UpgradeToDatabaseService, LogIt, logFailures
-
-
-class StoreCreateMaster(AMP):
-    """
-    Helper protocol.
-    """
-
-    @LogIt.responder
-    def logIt(self, message):
-        """
-        Log a message from the subprocess.
-        """
-        print 'LOG:', message
-        return {}
+from txdav.common.datastore.upgrade.migrate import UpgradeToDatabaseService, \
+    StoreSpawnerService, swapAMP
 
 
 
@@ -56,59 +43,40 @@ class CreateStore(Command):
     """
     Create a store in a subprocess.
     """
-
     arguments = [('delegateTo', String())]
 
 
 
-
-class StoreCreatorSlave(AMP):
+class StoreCreator(AMP):
     """
     Helper protocol.
     """
 
     @CreateStore.responder
-    @logFailures
     def createStore(self, delegateTo):
         """
         Create a store and pass it to the named delegate class.
         """
-        from twistedcaldav.memcacher import Memcacher
-        from twistedcaldav.config import config
-
-        # Normally these would be patched out for an individual test, but in
-        # this case, the process lifetime will be shorter than the test.
-        config.Memcached.Pools.Default.ClientEnabled = False
-        config.Memcached.Pools.Default.ServerEnabled = False
-        Memcacher.allowTestCache = True
-
-        cls = namedAny(delegateTo)
-        store = SQLStoreBuilder.childStore()
-        newself = cls(store)
-        self.boxReceiver = newself
-        newself.startReceivingBoxes(self)
+        swapAMP(self, namedAny(delegateTo)(SQLStoreBuilder.childStore()))
         return {}
 
 
 
-class StubSpawner(SpawnerService):
+class StubSpawner(StoreSpawnerService):
     """
     Stub spawner service which populates the store forcibly.
     """
 
     @inlineCallbacks
-    def spawn(self, here, there):
+    def spawnWithStore(self, here, there):
         """
-        'here' and 'there' are the helper protocols; 'there' will expect to
-        have 'storeCreated' called on it.
+        'here' and 'there' are the helper protocols; in a slight modification
+        of the signature, 'there' will expect to be created with an instance of
+        a store.
         """
-        master = yield super(StubSpawner, self).spawn(
-            StoreCreateMaster(),
-            StoreCreatorSlave)
+        master = yield self.spawn(AMP(), StoreCreator)
         yield master.callRemote(CreateStore, delegateTo=qual(there))
-        master.boxReceiver = here
-        here.startReceivingBoxes(master)
-        returnValue(here)
+        returnValue(swapAMP(master, here))
 
 
 

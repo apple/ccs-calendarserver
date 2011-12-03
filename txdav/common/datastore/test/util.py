@@ -43,6 +43,7 @@ from txdav.base.datastore.dbapiclient import DiagnosticConnectionWrapper
 from txdav.base.propertystore.base import PropertyName
 from txdav.common.icommondatastore import NoSuchHomeChildError
 from twext.enterprise.adbapi2 import ConnectionPool
+from twisted.trial.unittest import TestCase
 from twisted.internet.defer import returnValue
 from twistedcaldav.notify import Notifier, NodeCreationException
 from twext.enterprise.ienterprise import AlreadyFinishedError
@@ -108,6 +109,7 @@ class SQLStoreBuilder(object):
         Create a store suitable for use in a child process, that is hooked up
         to the store that a parent test process is managing.
         """
+        disableMemcacheForTest(TestCase())
         staticQuota = 3000
         attachmentRoot = (CachingFilePath(cls.SHARED_DB_PATH)
                           .child("attachments"))

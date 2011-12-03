@@ -30,8 +30,9 @@ from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.internet.defer import maybeDeferred, DeferredList
 from twisted.python.runtime import platform
-from twisted.python import log
+
 from twext.python.filepath import CachingFilePath
+from twext.internet.spawnsvc import SpawnerService
 
 from twisted.protocols.amp import AMP, Command, String
 
@@ -39,7 +40,6 @@ from txdav.caldav.datastore.util import migrateHome as migrateCalendarHome
 from txdav.carddav.datastore.util import migrateHome as migrateAddressbookHome
 from txdav.common.datastore.file import CommonDataStore as FileStore, TOPPATHS
 from txdav.base.propertystore.xattr import PropertyStore as XattrPropertyStore
-
 from txdav.base.propertystore.appledouble_xattr import (PropertyStore
                                                         as AppleDoubleStore)
 
@@ -50,6 +50,42 @@ homeTypeLookup = {
     "addressbook": (migrateAddressbookHome,
                     lambda txn: txn.addressbookHomeWithUID)
 }
+
+
+def swapAMP(oldAMP, newAMP):
+    """
+    Swap delivery of messages from an old L{AMP} instance to a new one.
+
+    This is useful for implementors of L{StoreSpawnerService} since they will
+    typically want to create one protocol for initializing the store, and
+    another for processing application commands.
+
+    @param oldAMP: An AMP instance currently hooked up to a transport, whose
+        job is done and wants to stop receiving messages.
+
+    @param newAMP: An AMP instance who wants to take over and start receiving
+        messages previously destined for oldAMP.
+
+    @return: C{newAMP}
+    """
+    oldAMP.boxReceiver = newAMP
+    newAMP.startReceivingBoxes(oldAMP)
+    return newAMP
+
+
+
+class StoreSpawnerService(SpawnerService):
+    """
+    Abstract subclass of L{SpawnerService} that describes how to spawn a subclass.
+    """
+
+    def spawnWithStore(self, here, there):
+        """
+        Like L{SpawnerService.spawn}, but instead of instantiating C{there}
+        with 0 arguments, it instantiates it with an L{ICalendarStore} /
+        L{IAddressbookStore}.
+        """
+        raise NotImplementedError("subclasses must implement the specifics")
 
 
 
@@ -91,38 +127,21 @@ class UpgradeDriver(AMP):
 
 
     def configure(self, filename):
-        return self.callRemote(Configure,
-                               filename=filename
-                               # config._provider.getConfigFileName() or ""
-                           )
+        """
+        Configure the subprocess to examine the file store at the given path
+        name.
+        """
+        return self.callRemote(Configure, filename=filename)
 
 
     def oneUpgrade(self, uid, homeType):
+        """
+        Upgrade one calendar or addressbook home, with the given uid of the
+        given type, and return a L{Deferred} which will fire when the upgrade
+        is complete.
+        """
         return self.callRemote(OneUpgrade, uid=uid, homeType=homeType)
 
-
-    @LogIt.responder
-    def logIt(self, message):
-        """
-        Log a message from the subprocess.
-        """
-        log.msg("Subprocess: " + message)
-        return {}
-
-
-
-def logFailures(thunk):
-    """
-    Decorator which logs 
-    """
-    def real(self, *a, **kw):
-        d = maybeDeferred(thunk, self, *a, **kw)
-        def logit(failure):
-            self.callRemote(LogIt, message=failure.getTraceback())
-            return failure
-        d.addErrback(logit)
-        return d
-    return real
 
 
 class UpgradeHelperProcess(AMP):
@@ -140,7 +159,6 @@ class UpgradeHelperProcess(AMP):
         
 
     @Configure.responder
-    @logFailures
     def configure(self, filename):
         subsvc = None
         self.upgrader = UpgradeToDatabaseService.wrapService(
@@ -165,7 +183,6 @@ class UpgradeHelperProcess(AMP):
 
 
     @OneUpgrade.responder
-    @logFailures
     def oneUpgrade(self, uid, homeType):
         """
         Upgrade one calendar home.
@@ -213,7 +230,8 @@ class UpgradeToDatabaseService(Service, LoggingMixIn, object):
         @param parallel: The number of parallel subprocesses that should manage
             the upgrade.
 
-        @param spawner: the L{SpawnerService} subclass.
+        @param spawner: a concrete L{StoreSpawnerService} subclass that will be
+            used to spawn helper processes.
 
         @return: a service
         @rtype: L{IService}
@@ -319,8 +337,8 @@ class UpgradeToDatabaseService(Service, LoggingMixIn, object):
             spawner.startService()
             drivers = []
             for value in xrange(parallel):
-                driver = yield spawner.spawn(UpgradeDriver(self),
-                                             UpgradeHelperProcess)
+                driver = yield spawner.spawnWithStore(UpgradeDriver(self),
+                                                      UpgradeHelperProcess)
                 drivers.append(driver)
 
             # Wait for all subprocesses to be fully configured before
