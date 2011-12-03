@@ -21,7 +21,6 @@
 #
 # DRI: Wilfredo Sanchez, wsanchez@apple.com
 ##
-import random
 
 from twext.web2 import responsecode
 from twext.web2.iweb import IResponse
@@ -106,7 +105,7 @@ class PROP(twext.web2.dav.test.util.TestCase):
 
         request = SimpleRequest(self.site, "PROPFIND", "/")
 
-        depth = random.choice(("0", "1", "infinity", None))
+        depth = "1"
         if depth is not None:
             request.headers.setHeader("depth", depth)
 
