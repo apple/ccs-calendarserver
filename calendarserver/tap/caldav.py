@@ -907,6 +907,37 @@ class CalDAVServiceMaker (LoggingMixIn):
 
         @rtype: L{IService}
         """
+        def createSubServiceFactory(dialect=POSTGRES_DIALECT,
+                                    paramstyle='pyformat'):
+            def subServiceFactory(connectionFactory):
+                ms = MultiService()
+                cp = ConnectionPool(connectionFactory, dialect=dialect,
+                                    paramstyle=paramstyle,
+                                    maxConnections=config.MaxDBConnectionsPerPool)
+                cp.setServiceParent(ms)
+                store = storeFromConfig(config, cp.connection)
+                mainService = createMainService(cp, store)
+                upgradeSvc = UpgradeFileSystemFormatService(
+                    config,
+                    UpgradeDatabaseSchemaService.wrapService(
+                        UpgradeDatabaseDataService.wrapService(
+                            UpgradeToDatabaseService.wrapService(
+                                CachingFilePath(config.DocumentRoot),
+                                PostDBImportService(config, store, mainService),
+                                store, uid=uid, gid=gid,
+                                spawner=ConfiguredChildSpawner(
+                                    self, ConnectionDispenser(cp)
+                                ),
+                                parallel=config.MultiProcess.ProcessCount
+                            ),
+                            store, uid=uid, gid=gid
+                        ),
+                        store, uid=uid, gid=gid
+                    )
+                )
+                upgradeSvc.setServiceParent(ms)
+                return ms
+            return subServiceFactory
 
         # FIXME: this is replicating the logic of getDBPool(), except for the
         # part where the pgServiceFromConfig service is actually started here,
@@ -927,61 +958,24 @@ class CalDAVServiceMaker (LoggingMixIn):
                 # to it.
                 pgserv = pgServiceFromConfig(
                     config,
-                    self.subServiceFactoryFactory(createMainService,
-                        uid=overrideUID, gid=overrideGID),
+                    createSubServiceFactory(),
                     uid=overrideUID, gid=overrideGID
                 )
                 return pgserv
             elif config.DBType == 'postgres':
                 # Connect to a postgres database that is already running.
-                return self.subServiceFactoryFactory(createMainService,
-                    uid=overrideUID, gid=overrideGID)(
-                            pgConnectorFromConfig(config))
+                return createSubServiceFactory()(pgConnectorFromConfig(config))
             elif config.DBType == 'oracle':
                 # Connect to an Oracle database that is already running.
-                return self.subServiceFactoryFactory(createMainService,
-                    uid=overrideUID, gid=overrideGID,
-                    dialect=ORACLE_DIALECT, paramstyle='numeric')(
-                            oracleConnectorFromConfig(config))
+                return createSubServiceFactory(dialect=ORACLE_DIALECT,
+                                               paramstyle='numeric')(
+                    oracleConnectorFromConfig(config)
+                )
             else:
                 raise UsageError("Unknown database type %r" (config.DBType,))
         else:
             store = storeFromConfig(config, None)
             return createMainService(None, store)
-
-
-    def subServiceFactoryFactory(self, createMainService, uid=None, gid=None,
-                                 dialect=POSTGRES_DIALECT,
-                                 paramstyle='pyformat'):
-        def subServiceFactory(connectionFactory):
-            ms = MultiService()
-            cp = ConnectionPool(connectionFactory, dialect=dialect,
-                                paramstyle=paramstyle,
-                                maxConnections=config.MaxDBConnectionsPerPool)
-            cp.setServiceParent(ms)
-            store = storeFromConfig(config, cp.connection)
-            mainService = createMainService(cp, store)
-            upgradeSvc = UpgradeFileSystemFormatService(
-                config,
-                UpgradeDatabaseSchemaService.wrapService(
-                    UpgradeDatabaseDataService.wrapService(
-                        UpgradeToDatabaseService.wrapService(
-                            CachingFilePath(config.DocumentRoot),
-                            PostDBImportService(config, store, mainService),
-                            store, uid=uid, gid=gid,
-                            spawner=ConfiguredChildSpawner(
-                                self, ConnectionDispenser(cp)
-                            ),
-                            parallel=config.MultiProcess.ProcessCount
-                        ),
-                        store, uid=uid, gid=gid
-                    ),
-                    store, uid=uid, gid=gid
-                )
-            )
-            upgradeSvc.setServiceParent(ms)
-            return ms
-        return subServiceFactory
 
 
     def makeService_Combined(self, options):
@@ -1365,7 +1359,8 @@ class ConfigureChild(Command):
         # to be correct.
         ("processCount", Integer()),
 
-        ## only needed for request processing
+        ## only needed for request processing, and we're not using this
+        ## facility for that work (yet)
         # ("inheritFDs", ListOf(Integer())),
         # ("inheritSSLFDs", ListOf(Integer())),
         # ("metaFD", String(optional=True)),
@@ -1373,6 +1368,7 @@ class ConfigureChild(Command):
         ## shared connection pool!
         ("connectionPoolFD", Integer(optional=True)),
     ]
+
 
 
 class ChildConfigurator(AMP):
