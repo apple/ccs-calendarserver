@@ -166,21 +166,6 @@ class UpgradeHelperProcess(AMP):
         )
         return {}
 
-        # This stuff needs to be done by somebody in caldavd.py
-        from twistedcaldav.config import config
-        from calendarserver.tap.util import getDBPool, storeFromConfig
-        config.load(filename)
-        pool, txnf = getDBPool(config)
-        if pool is not None:
-            pool.startService()
-            reactor.addSystemEventTrigger("before", "shutdown",
-                                          pool.stopService)
-        # XXX: SharedConnectionPool needs to be relayed out of band, as
-        # calendarserver.tap.caldav does with its own thing.
-        dbstore = storeFromConfig(config, txnf)
-        dbstore.setMigrating(True)
-        return {}
-
 
     @OneUpgrade.responder
     def oneUpgrade(self, uid, homeType):

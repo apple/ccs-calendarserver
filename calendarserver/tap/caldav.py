@@ -34,15 +34,20 @@ from OpenSSL.SSL import Error as SSLError
 
 from zope.interface import implements
 
+from twisted.plugin import IPlugin
+
 from twisted.python.log import FileLogObserver, ILogObserver
 from twisted.python.logfile import LogFile
 from twisted.python.usage import Options, UsageError
-from twisted.plugin import IPlugin
+
 from twisted.internet.defer import gatherResults, Deferred
 from twisted.internet import reactor as _reactor
 from twisted.internet.process import ProcessExitedAlready
 from twisted.internet.protocol import Protocol, Factory
 from twisted.internet.protocol import ProcessProtocol
+
+from twisted.protocols.amp import AMP, Command, String, Integer#, ListOf
+
 from twisted.application.internet import TCPServer, UNIXServer
 from twisted.application.service import MultiService, IServiceMaker
 from twisted.application.service import Service
@@ -58,6 +63,7 @@ from twext.web2.channel.http import LimitingHTTPFactory, SSLRedirectRequest
 from twext.web2.metafd import ConnectionLimiter, ReportingHTTPService
 
 from txdav.common.datastore.upgrade.migrate import UpgradeToDatabaseService
+from txdav.common.datastore.upgrade.migrate import StoreSpawnerService
 from txdav.common.datastore.upgrade.sql.upgrade import UpgradeDatabaseSchemaService,\
     UpgradeDatabaseDataService
 
@@ -1313,6 +1319,73 @@ class TwistdSlaveProcess(object):
                     "-o", "DBAMPFD=%s" % (self.ampDBSocket.fileno(),)
                 ])
         return args
+
+
+class ConfigureChild(Command):
+    """
+    Configure a child process, most especially with all the information that it
+    needs in order to construct a data store.
+    """
+
+    arguments = [
+        # The name of the class to delegate to once configuration is complete.
+        ("delegateTo", String()),
+        ("pidfile", String()),
+        ("logID", String()),
+        ("configFile", String()),
+
+        ## same as in config; no need to propagate it
+        # ("processCount", Integer()),
+
+        ## only needed for request processing
+        # ("inheritFDs", ListOf(Integer())),
+        # ("inheritSSLFDs", ListOf(Integer())),
+        # ("metaFD", String(optional=True)),
+
+        ## shared connection pool!
+        ("connectionPoolFD", Integer(optional=True)),
+    ]
+
+
+class ChildConfigurator(AMP):
+    """
+    Protocol which can configure a child process.
+    """
+
+    @ConfigureChild.responder
+    def conf(self, delegateTo, pidfile, logID, configFile, connectionPoolFD=None):
+        """
+        Do the configuration.
+        """
+        # This stuff needs to be done by somebody in caldavd.py
+        from twistedcaldav.config import config
+        from calendarserver.tap.util import getDBPool, storeFromConfig
+        config.load(configFile)
+        pool, txnf = getDBPool(config)
+        if pool is not None:
+            from twisted.internet import reactor
+            pool.startService()
+            reactor.addSystemEventTrigger("before", "shutdown",
+                                          pool.stopService)
+        # XXX: SharedConnectionPool needs to be relayed out of band, as
+        # calendarserver.tap.caldav does with its own thing.
+        dbstore = storeFromConfig(config, txnf)
+        dbstore.setMigrating(True)
+        return {}
+
+
+
+class ConfiguredChildSpawner(StoreSpawnerService):
+    """
+    L{StoreSpawnerService} that will load a full configuration into each child.
+    """
+
+    def spawnWithStore(self, here, there):
+        """
+        Spawn the child with a store based on a configuration.
+        """
+        return {}
+
 
 
 class ControlPortTCPServer(TCPServer):
