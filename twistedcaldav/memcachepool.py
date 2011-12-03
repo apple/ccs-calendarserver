@@ -128,6 +128,8 @@ class MemCachePool(LoggingMixIn):
     """
     clientFactory = MemCacheClientFactory
 
+    REQUEST_LOGGING_SIZE = 1024
+
     def __init__(self, serverAddress, maxClients=5, reactor=None):
         """
         @param serverAddress: An L{IPv4Address} indicating the server to
@@ -217,6 +219,16 @@ class MemCachePool(LoggingMixIn):
             self.clientFree(client)
             return result
 
+        def _reportError(failure):
+            """
+            Upon memcache error, log the failed request along with the error
+            message and free the client.
+            """
+            self.log_error("Memcache error: %s; request: %s %s" %
+                (failure.value, command,
+                " ".join(args)[:self.REQUEST_LOGGING_SIZE],))
+            self.clientFree(client)
+
         self.clientBusy(client)
         method = getattr(client, command, None)
         if method is not None:
@@ -224,7 +236,7 @@ class MemCachePool(LoggingMixIn):
         else:
             d = fail(Failure(NoSuchCommand()))
 
-        d.addCallback(_freeClientAfterRequest)
+        d.addCallbacks(_freeClientAfterRequest, _reportError)
 
         return d
 
