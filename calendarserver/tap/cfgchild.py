@@ -26,7 +26,7 @@ __all__ = [
     'ConfiguredChildSpawner',
 ]
 
-from calendarserver.tools.util import autoDisableMemcached
+from calendarserver.tools.util import setupMemcached
 from twisted.python.reflect import namedAny, qual
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.protocols.amp import AMP, Command, String, Integer#, ListOf
@@ -102,7 +102,7 @@ class ChildConfigurator(AMP):
                 ProcessCount = processCount
             )
         )
-        autoDisableMemcached(self.config)
+        setupMemcached(self.config)
         if connectionPoolFD is not None:
             changedConfig.update(DBAMPFD=connectionPoolFD)
         self.config.updateDefaults(changedConfig)
