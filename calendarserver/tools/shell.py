@@ -555,14 +555,37 @@ class Folder(File):
 class RootFolder(Folder):
     """
     Root of virtual data hierarchy.
+
+    Hierarchy:
+      /                    RootFolder
+        uids/              UIDsFolder
+          <uid>/           PrincipalHomeFolder
+            calendars/     CalendarHomeFolder
+              <name>/      CalendarFolder
+                <uid>      CalendarObject
+            addressbooks/  AddressBookHomeFolder
+              <name>/      AddressBookFolder
+                <uid>      AddressBookObject
+        users/             UsersFolder
+          <name>/          PrincipalHomeFolder
+            ...
+        locations/         LocationsFolder
+          <name>/          PrincipalHomeFolder
+            ...
+        resources/         ResourcesFolder
+          <name>/          PrincipalHomeFolder
+            ...
     """
     def __init__(self, service):
         Folder.__init__(self, service, ())
 
-        self._childClasses["uids"] = UIDFolder
+        self._childClasses["uids"     ] = UIDsFolder
+        self._childClasses["users"    ] = UsersFolder
+        self._childClasses["locations"] = LocationsFolder
+        self._childClasses["resources"] = ResourcesFolder
 
 
-class UIDFolder(Folder):
+class UIDsFolder(Folder):
     """
     Folder containing all principals by UID.
     """
@@ -583,27 +606,99 @@ class UIDFolder(Folder):
         returnValue(result)
 
 
+
+class RecordFolder(Folder):
+    def _recordForName(self, name):
+        recordTypeAttr = "recordType_" + self.recordType
+        recordType = getattr(self.service.directory, recordTypeAttr)
+
+        log.msg("Record type = %s" % (recordType,))
+
+        return self.service.directory.recordWithShortName(recordType, name)
+
+    def child(self, name):
+        record = self._recordForName(name)
+        log.msg("Record = %s" % (record,))
+        return PrincipalHomeFolder(
+            self.service,
+            self.path + (record.uid,),
+            record.uid,
+            record=record
+        )
+
+    @inlineCallbacks
+    def list(self):
+        result = []
+
+        # ...
+
+        returnValue(result)
+
+
+class UsersFolder(RecordFolder):
+    """
+    Folder containing all user principals by name.
+    """
+    recordType = "users"
+
+
+class LocationsFolder(RecordFolder):
+    """
+    Folder containing all location principals by name.
+    """
+    recordType = "locations"
+
+
+class ResourcesFolder(RecordFolder):
+    """
+    Folder containing all resource principals by name.
+    """
+    recordType = "resources"
+
+
 class PrincipalHomeFolder(Folder):
     """
     Folder containing everything related to a given principal.
     """
-    def __init__(self, service, path, uid):
+    def __init__(self, service, path, uid, record=None):
         Folder.__init__(self, service, path)
 
+        if record is not None:
+            assert uid == record.uid
+
         self.uid = uid
+        self.record = record
 
     @inlineCallbacks
     def _initChildren(self):
         if not hasattr(self, "_didInitChildren"):
             txn  = self.service.store.newTransaction()
 
-            home = (yield txn.calendarHomeWithUID(self.uid))
+            if (
+                self.record is not None and
+                self.service.config.EnableCalDAV and 
+                self.record.enabledForCalendaring
+            ):
+                create = True
+            else:
+                create = False
+
+            home = (yield txn.calendarHomeWithUID(self.uid, create=create))
             if home:
                 self._children["calendars"] = CalendarHomeFolder(
                     self.service,
                     self.path + ("calendars",),
                     home,
                 )
+
+            if (
+                self.record is not None and
+                self.service.config.EnableCardDAV and 
+                self.record.enabledForAddressBooks
+            ):
+                create = True
+            else:
+                create = False
 
             home = (yield txn.addressbookHomeWithUID(self.uid))
             if home:
