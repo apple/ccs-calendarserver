@@ -258,7 +258,8 @@ class UpgradeToDatabaseService(Service, LoggingMixIn, object):
                 self = cls(
                     FileStore(path, None, True, True,
                               propertyStoreClass=appropriateStoreClass),
-                    store, service, uid=uid, gid=gid, spawner=spawner
+                    store, service, uid=uid, gid=gid,
+                    parallel=parallel, spawner=spawner,
                 )
                 return self
         return service
@@ -285,7 +286,8 @@ class UpgradeToDatabaseService(Service, LoggingMixIn, object):
         """
         migrateFunc, destFunc = homeTypeLookup.get(homeType)
         uid = fileHome.uid()
-        self.log_warn("Migrating %s UID %r" % (homeType, uid))
+        self.log_warn("Starting migration transaction %s UID %r" %
+                      (homeType, uid))
         sqlTxn = self.sqlStore.newTransaction()
         homeGetter = destFunc(sqlTxn)
         if (yield homeGetter(uid, create=False)) is not None:
@@ -317,7 +319,8 @@ class UpgradeToDatabaseService(Service, LoggingMixIn, object):
         self.sqlStore.setMigrating(True)
         parallel = self.parallel
         if parallel:
-            self.log_warn("Starting upgrade helper processes.")
+            self.log_warn("Starting %d upgrade helper processes." %
+                          (parallel,))
             spawner = self.spawner
             spawner.startService()
             drivers = []
@@ -354,9 +357,12 @@ class UpgradeToDatabaseService(Service, LoggingMixIn, object):
                     busy = drivers.pop(0)
                     d = busy.oneUpgrade(fileHome.uid(), homeType)
                     inParallel.append(d)
-                    def freeUp(result, d=d, busy=busy):
+                    def freeUp(result, d=d, busy=busy, uid=uid,
+                               homeType=homeType):
                         inParallel.remove(d)
                         drivers.append(busy)
+                        self.log_warn("Completed migration of %s uid %r" %
+                                      (homeType, uid))
                         return result
                     d.addBoth(freeUp)
                 else:
