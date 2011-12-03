@@ -924,15 +924,15 @@ class CalDAVServiceMaker (LoggingMixIn):
                             UpgradeToDatabaseService.wrapService(
                                 CachingFilePath(config.DocumentRoot),
                                 PostDBImportService(config, store, mainService),
-                                store, uid=uid, gid=gid,
+                                store, uid=overrideUID, gid=overrideGID,
                                 spawner=ConfiguredChildSpawner(
                                     self, ConnectionDispenser(cp)
                                 ),
                                 parallel=config.MultiProcess.ProcessCount
                             ),
-                            store, uid=uid, gid=gid
+                            store, uid=overrideUID, gid=overrideGID,
                         ),
-                        store, uid=uid, gid=gid
+                        store, uid=overrideUID, gid=overrideGID,
                     )
                 )
                 upgradeSvc.setServiceParent(ms)
