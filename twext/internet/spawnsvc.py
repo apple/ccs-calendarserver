@@ -23,9 +23,11 @@ import sys
 
 from twisted.python.reflect import namedAny
 from twisted.internet.stdio import StandardIO
+from twisted.internet.error import ReactorNotRunning
 
 if __name__ == '__main__':
 
+    sys.stdout = sys.stderr
     there = sys.argv[1]
     protocolClass = namedAny(there)
     proto = protocolClass()
@@ -34,7 +36,10 @@ if __name__ == '__main__':
         """
         Stop the process if stdin is closed.
         """
-        reactor.stop()
+        try:
+            reactor.stop()
+        except ReactorNotRunning:
+            pass
         return origLost(reason)
     proto.connectionLost = goodbye
     StandardIO(proto)
@@ -106,6 +111,12 @@ class BridgeProtocol(ProcessProtocol):
         self.protocol.dataReceived(data)
 
 
+    def errReceived(self, data):
+        """
+        Some standard error was received from the subprocess. (TODO: logging?)
+        """
+
+
     _killTimeout = None
     def eventuallyStop(self):
         """
@@ -149,6 +160,7 @@ class SpawnerService(Service, object):
         self.reactor = reactor
         self.pendingSpawns = []
         self.bridges = []
+        self._stopAllDeferred = None
 
 
     def spawn(self, hereProto, thereProto):
@@ -159,7 +171,7 @@ class SpawnerService(Service, object):
 
         @param thereProto: a top-level class or function.
 
-        @return: hereProto
+        @return: a L{Deferred} that fires when C{hereProto} is ready.
         """
         if not self.running:
             self.pendingSpawns.append((hereProto, thereProto))
@@ -169,7 +181,7 @@ class SpawnerService(Service, object):
             BridgeProtocol(self, hereProto),
             sys.executable, [sys.executable, '-m', __name__, name], os.environ
         )
-        return hereProto
+        return succeed(hereProto)
 
 
     def startService(self):
