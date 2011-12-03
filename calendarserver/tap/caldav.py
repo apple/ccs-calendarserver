@@ -39,17 +39,12 @@ from twisted.plugin import IPlugin
 from twisted.python.log import FileLogObserver, ILogObserver
 from twisted.python.logfile import LogFile
 from twisted.python.usage import Options, UsageError
-from twisted.python.reflect import namedAny, qual
 
 from twisted.internet.defer import gatherResults, Deferred
-from twisted.internet.defer import inlineCallbacks, returnValue
 
-from twisted.internet import reactor as _reactor
 from twisted.internet.process import ProcessExitedAlready
 from twisted.internet.protocol import Protocol, Factory
 from twisted.internet.protocol import ProcessProtocol
-
-from twisted.protocols.amp import AMP, Command, String, Integer#, ListOf
 
 from twisted.application.internet import TCPServer, UNIXServer
 from twisted.application.service import MultiService, IServiceMaker
@@ -65,13 +60,10 @@ from twext.internet.tcp import MaxAcceptTCPServer, MaxAcceptSSLServer
 from twext.web2.channel.http import LimitingHTTPFactory, SSLRedirectRequest
 from twext.web2.metafd import ConnectionLimiter, ReportingHTTPService
 
-from txdav.common.datastore.upgrade.migrate import (
-    UpgradeToDatabaseService, StoreSpawnerService, swapAMP
-)
-
 from txdav.common.datastore.upgrade.sql.upgrade import (
     UpgradeDatabaseSchemaService, UpgradeDatabaseDataService,
 )
+from txdav.common.datastore.upgrade.migrate import UpgradeToDatabaseService
 
 from twistedcaldav.config import ConfigurationError
 from twistedcaldav.config import config
@@ -86,7 +78,6 @@ from calendarserver.tap.util import pgServiceFromConfig, getDBPool
 from twext.enterprise.ienterprise import POSTGRES_DIALECT
 from twext.enterprise.ienterprise import ORACLE_DIALECT
 from twext.enterprise.adbapi2 import ConnectionPool
-from twext.enterprise.adbapi2 import ConnectionPoolConnection
 
 try:
     from twistedcaldav.authkerb import NegotiateCredentialFactory
@@ -94,14 +85,17 @@ try:
 except ImportError:
     NegotiateCredentialFactory = None
 
+from calendarserver.tap.util import ConnectionDispenser
+
 from calendarserver.accesslog import AMPCommonAccessLoggingObserver
 from calendarserver.accesslog import AMPLoggingFactory
 from calendarserver.accesslog import RotatingFileAccessLoggingObserver
 from calendarserver.tap.util import getRootResource, computeProcessCount
-from calendarserver.tap.util import ConnectionWithPeer
+
 from calendarserver.tap.util import storeFromConfig
 from calendarserver.tap.util import pgConnectorFromConfig
 from calendarserver.tap.util import oracleConnectorFromConfig
+from calendarserver.tap.cfgchild import ConfiguredChildSpawner
 from calendarserver.tools.util import checkDirectory
 
 try:
@@ -926,7 +920,7 @@ class CalDAVServiceMaker (LoggingMixIn):
                                 PostDBImportService(config, store, mainService),
                                 store, uid=overrideUID, gid=overrideGID,
                                 spawner=ConfiguredChildSpawner(
-                                    self, ConnectionDispenser(cp)
+                                    self, ConnectionDispenser(cp), config
                                 ),
                                 parallel=config.MultiProcess.ProcessCount
                             ),
@@ -1170,35 +1164,6 @@ class CalDAVServiceMaker (LoggingMixIn):
 
 
 
-class ConnectionDispenser(object):
-    """
-    Object taht can dispense already-connected file descriptors, for use with
-    subprocess spawning.
-    """
-    # Very long term FIXME: this mechanism should ideally be eliminated, by
-    # making all subprocesses have a single stdio AMP connection that
-    # multiplexes between multiple protocols.
-
-    def __init__(self, connectionPool):
-        self.pool = connectionPool
-
-
-    def dispense(self):
-        """
-        Dispense a file descriptor, already connected to a server, for a
-        client.
-        """
-        # FIXME: these sockets need to be re-dispensed when the process is
-        # respawned, and they currently won't be.
-        c, s = socket.socketpair(socket.AF_UNIX, socket.SOCK_STREAM)
-        protocol = ConnectionPoolConnection(self.pool)
-        transport = ConnectionWithPeer(s, protocol)
-        protocol.makeConnection(transport)
-        transport.startReading()
-        return c
-
-
-
 class TwistdSlaveProcess(object):
     """
     A L{TwistdSlaveProcess} is information about how to start a slave process
@@ -1342,127 +1307,6 @@ class TwistdSlaveProcess(object):
         return args
 
 
-class ConfigureChild(Command):
-    """
-    Configure a child process, most especially with all the information that it
-    needs in order to construct a data store.
-    """
-
-    arguments = [
-        # The name of the class to delegate to once configuration is complete.
-        ("delegateTo", String()),
-        ("pidFile", String()),
-        ("logID", String()),
-        ("configFile", String()),
-
-        # computed value determined only in master, so needs to be propagated
-        # to be correct.
-        ("processCount", Integer()),
-
-        ## only needed for request processing, and we're not using this
-        ## facility for that work (yet)
-        # ("inheritFDs", ListOf(Integer())),
-        # ("inheritSSLFDs", ListOf(Integer())),
-        # ("metaFD", String(optional=True)),
-
-        ## shared connection pool!
-        ("connectionPoolFD", Integer(optional=True)),
-    ]
-
-
-
-class ChildConfigurator(AMP):
-    """
-    Protocol which can configure a child process.
-    """
-
-    @ConfigureChild.responder
-    def conf(self, delegateTo, pidFile, logID, configFile, processCount,
-             connectionPoolFD=None):
-        """
-        Load the current config file into this child process, create a store
-        based on it, and delegate to the upgrade logic.
-        """
-        # Load the configuration file.
-        config.load(configFile)
-
-        # Adjust the child's configuration to add all the relevant options for
-        # the store that won't be mentioned in the config file.
-        changedConfig = dict(
-            LogID            = logID,
-            PIDFile          = pidFile,
-            MultiProcess     = dict(
-                ProcessCount = processCount
-            )
-        )
-        if connectionPoolFD is not None:
-            changedConfig.update(DBAMPFD=connectionPoolFD)
-        config.updateDefaults(changedConfig)
-
-        # Construct and start database pool and store.
-        pool, txnf = getDBPool(config)
-        if pool is not None:
-            pool.startService()
-            _reactor.addSystemEventTrigger(
-                "before", "shutdown", pool.stopService
-            )
-        dbstore = storeFromConfig(config, txnf)
-
-        # Finally, construct the class we're supposed to delegate to.
-        delegateClass = namedAny(delegateTo)
-        swapAMP(self, delegateClass(dbstore))
-        return {}
-
-
-
-class ConfiguredChildSpawner(StoreSpawnerService):
-    """
-    L{StoreSpawnerService} that will load a full configuration into each child.
-    """
-
-    def __init__(self, maker, options, dispenser):
-        """
-        Create a L{ConfiguredChildSpawner}.
-
-        @param maker: a L{CalDAVServiceMaker} instance that supplies the
-            configuration.
-
-        @param options: a L{CalDAVOptions} containing the command-line options
-            for the subprocess.
-
-        @param dispenser: a L{ConnectionDispenser} or C{None}.
-        """
-        self.nextID = 0
-        self.maker = maker
-        self.dispenser
-
-
-    @inlineCallbacks
-    def spawnWithStore(self, here, there):
-        """
-        Spawn the child with a store based on a configuration.
-        """
-        thisID = self.nextID
-        self.nextID += 1
-        if self.dispenser is not None:
-            poolfd = self.dispenser.dispense()
-            childFDs = {poolfd: poolfd}
-        else:
-            childFDs = None
-        controller = yield self.spawn(
-            AMP(), ChildConfigurator, childFDs=childFDs
-        )
-        yield controller.callRemote(
-            ConfigureChild,
-            delegateTo=qual(there),
-            pidfile="%s-migrator-%s" % (self.maker.tapname, thisID),
-            logID="migrator-%s" % (thisID,),
-            configFile=self.options['config'],
-            processCount=config.MultiProcess.processCount,
-        )
-        returnValue(swapAMP(controller, here))
-
-
 
 class ControlPortTCPServer(TCPServer):
     """ This TCPServer retrieves the port number that was actually assigned
@@ -1503,8 +1347,10 @@ class DelayedStartupProcessMonitor(Service, object):
     minRestartDelay = 1
     maxRestartDelay = 3600
 
-    def __init__(self, reactor=_reactor):
+    def __init__(self, reactor=None):
         super(DelayedStartupProcessMonitor, self).__init__()
+        if reactor is None:
+            from twisted.internet import reactor
         self._reactor = reactor
         self.processes = {}
         self.protocols = {}

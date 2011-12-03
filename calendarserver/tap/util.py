@@ -28,7 +28,7 @@ __all__ = [
 import errno
 import os
 from time import sleep
-from socket import fromfd, AF_UNIX, SOCK_STREAM
+from socket import fromfd, AF_UNIX, SOCK_STREAM, socketpair
 
 from twext.python.filepath import CachingFilePath as FilePath
 from twext.python.log import Logger
@@ -67,7 +67,7 @@ from twistedcaldav.timezonestdservice import TimezoneStdServiceResource
 from twistedcaldav.util import getMemorySize, getNCPU
 from twext.enterprise.ienterprise import POSTGRES_DIALECT
 from twext.enterprise.ienterprise import ORACLE_DIALECT
-from twext.enterprise.adbapi2 import ConnectionPool
+from twext.enterprise.adbapi2 import ConnectionPool, ConnectionPoolConnection
 
 try:
     from twistedcaldav.authkerb import NegotiateCredentialFactory
@@ -163,7 +163,8 @@ class ConnectionWithPeer(Connection):
 
 def transactionFactoryFromFD(dbampfd, dialect, paramstyle):
     """
-    Create a transaction factory from an inherited file descriptor.
+    Create a transaction factory from an inherited file descriptor, such as one
+    created by L{ConnectionDispenser}.
     """
     skt = fromfd(dbampfd, AF_UNIX, SOCK_STREAM)
     os.close(dbampfd)
@@ -172,6 +173,35 @@ def transactionFactoryFromFD(dbampfd, dialect, paramstyle):
     protocol.makeConnection(transport)
     transport.startReading()
     return protocol.newTransaction
+
+
+
+class ConnectionDispenser(object):
+    """
+    A L{ConnectionDispenser} can dispense already-connected file descriptors,
+    for use with subprocess spawning.
+    """
+    # Very long term FIXME: this mechanism should ideally be eliminated, by
+    # making all subprocesses have a single stdio AMP connection that
+    # multiplexes between multiple protocols.
+
+    def __init__(self, connectionPool):
+        self.pool = connectionPool
+
+
+    def dispense(self):
+        """
+        Dispense a socket object, already connected to a server, for a client
+        in a subprocess.
+        """
+        # FIXME: these sockets need to be re-dispensed when the process is
+        # respawned, and they currently won't be.
+        c, s = socketpair(AF_UNIX, SOCK_STREAM)
+        protocol = ConnectionPoolConnection(self.pool)
+        transport = ConnectionWithPeer(s, protocol)
+        protocol.makeConnection(transport)
+        transport.startReading()
+        return c
 
 
 
