@@ -23,6 +23,8 @@ from twext.web2.http_headers import MimeType
 from twisted.application.service import Service, MultiService
 from twisted.internet.defer import inlineCallbacks, Deferred, returnValue
 from twisted.internet.protocol import Protocol
+from twisted.protocols.amp import AMP, Command, String
+from twisted.python.reflect import qual, namedAny
 from twisted.trial.unittest import TestCase
 from txdav.caldav.datastore.test.common import CommonTests
 from txdav.carddav.datastore.test.common import CommonTests as ABCommonTests
@@ -30,12 +32,99 @@ from txdav.common.datastore.file import CommonDataStore
 from txdav.common.datastore.test.util import theStoreBuilder, \
     populateCalendarsFrom, StubNotifierFactory, resetCalendarMD5s,\
     populateAddressBooksFrom, resetAddressBookMD5s
-from txdav.common.datastore.upgrade.migrate import UpgradeToDatabaseService
+from twext.internet.spawnsvc import SpawnerService
+from txdav.common.datastore.test.util import SQLStoreBuilder
+from txdav.common.datastore.upgrade.migrate import UpgradeToDatabaseService, LogIt, logFailures
+
+
+class StoreCreateMaster(AMP):
+    """
+    Helper protocol.
+    """
+
+    @LogIt.responder
+    def logIt(self, message):
+        """
+        Log a message from the subprocess.
+        """
+        print 'LOG:', message
+        return {}
+
+
+
+class CreateStore(Command):
+    """
+    Create a store in a subprocess.
+    """
+
+    arguments = [('delegateTo', String())]
+
+
+
+
+class StoreCreatorSlave(AMP):
+    """
+    Helper protocol.
+    """
+
+    @CreateStore.responder
+    @logFailures
+    def createStore(self, delegateTo):
+        """
+        Create a store and pass it to the named delegate class.
+        """
+        from twistedcaldav.memcacher import Memcacher
+        from twistedcaldav.config import config
+
+        # Normally these would be patched out for an individual test, but in
+        # this case, the process lifetime will be shorter than the test.
+        config.Memcached.Pools.Default.ClientEnabled = False
+        config.Memcached.Pools.Default.ServerEnabled = False
+        Memcacher.allowTestCache = True
+
+        cls = namedAny(delegateTo)
+        store = SQLStoreBuilder.childStore()
+        newself = cls(store)
+        self.boxReceiver = newself
+        newself.startReceivingBoxes(self)
+        return {}
+
+
+
+class StubSpawner(SpawnerService):
+    """
+    Stub spawner service which populates the store forcibly.
+    """
+
+    @inlineCallbacks
+    def spawn(self, here, there):
+        """
+        'here' and 'there' are the helper protocols; 'there' will expect to
+        have 'storeCreated' called on it.
+        """
+        master = yield super(StubSpawner, self).spawn(
+            StoreCreateMaster(),
+            StoreCreatorSlave)
+        yield master.callRemote(CreateStore, delegateTo=qual(there))
+        master.boxReceiver = here
+        here.startReceivingBoxes(master)
+        returnValue(here)
+
+
 
 class HomeMigrationTests(TestCase):
     """
     Tests for L{UpgradeToDatabaseService}.
     """
+
+    def createUpgradeService(self):
+        """
+        Create an upgrade service.
+        """
+        return UpgradeToDatabaseService(
+            self.fileStore, self.sqlStore, self.stubService
+        )
+
 
     @inlineCallbacks
     def setUp(self):
@@ -59,9 +148,7 @@ class HomeMigrationTests(TestCase):
                 subStarted.callback(None)
         self.stubService = StubService()
         self.topService = MultiService()
-        self.upgrader = UpgradeToDatabaseService(
-            fileStore, self.sqlStore, self.stubService
-        )
+        self.upgrader = self.createUpgradeService()
         self.upgrader.setServiceParent(self.topService)
 
         requirements = CommonTests.requirements
@@ -216,3 +303,21 @@ class HomeMigrationTests(TestCase):
         ):
             object = (yield adbk.addressbookObjectWithName(name))
             self.assertEquals(object.md5(), md5)
+
+
+
+class ParallelHomeMigrationTests(HomeMigrationTests):
+    """
+    Tests for home migrations running in parallel.  Functionally this should be
+    the same, so it's just a store created slightly differently.
+    """
+
+    def createUpgradeService(self):
+        """
+        Create an upgrade service.
+        """
+        return UpgradeToDatabaseService(
+            self.fileStore, self.sqlStore, self.stubService,
+            parallel=2, spawner=StubSpawner()
+        )
+
