@@ -83,17 +83,15 @@ class SQLStoreBuilder(object):
 
     SHARED_DB_PATH = "_test_sql_db"
 
+
     @classmethod
-    def childStore(cls):
+    def createService(cls, serviceFactory):
         """
-        Create a store suitable for use in a child process, that is hooked up
-        to the store that a parent test process is managing.
+        Create a L{PostgresService} to use for building a store.
         """
-        staticQuota = 3000
         dbRoot = CachingFilePath(cls.SHARED_DB_PATH)
-        attachmentRoot = dbRoot.child("attachments")
-        stubsvc = PostgresService(
-            dbRoot, lambda cf: Service(), current_sql_schema, resetSchema=True,
+        return PostgresService(
+            dbRoot, serviceFactory, current_sql_schema, resetSchema=True,
             databaseName="caldav",
             options = [
                 "-c log_lock_waits=TRUE",
@@ -102,6 +100,19 @@ class SQLStoreBuilder(object):
             ],
             testMode=True
         )
+
+
+    @classmethod
+    def childStore(cls):
+        """
+        Create a store suitable for use in a child process, that is hooked up
+        to the store that a parent test process is managing.
+        """
+        staticQuota = 3000
+        attachmentRoot = (CachingFilePath(cls.SHARED_DB_PATH)
+                          .child("attachments"))
+        stubsvc = cls.createService(lambda cf: Service())
+
         cp = ConnectionPool(stubsvc.produceConnection, maxConnections=1)
         # Attach the service to the running reactor.
         cp.startService()
@@ -111,7 +122,6 @@ class SQLStoreBuilder(object):
             attachmentRoot, quota=staticQuota
         )
         return cds
-
 
 
     def buildStore(self, testCase, notifierFactory):
@@ -130,16 +140,7 @@ class SQLStoreBuilder(object):
                     testCase, notifierFactory, attachmentRoot
                 ).chainDeferred(ready)
                 return Service()
-            self.sharedService = PostgresService(
-                dbRoot, getReady, current_sql_schema, resetSchema=True,
-                databaseName="caldav",
-                options = [
-                    "-c log_lock_waits=TRUE",
-                    "-c log_statement=all",
-                    "-c log_line_prefix='%p.%x '",
-                ],
-                testMode=True
-            )
+            self.sharedService = self.createService(getReady)
             self.sharedService.startService()
             def startStopping():
                 log.msg("Starting stopping.")
