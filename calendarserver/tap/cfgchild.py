@@ -15,8 +15,8 @@
 ##
 
 """
-Tools for spawning general-purpose child processes that have a store devrived
-from a .
+Tools for spawning general-purpose child processes that have a store derived
+from an existing configuration.
 """
 
 __all__ = [
@@ -26,6 +26,7 @@ __all__ = [
     'ConfiguredChildSpawner',
 ]
 
+from calendarserver.tools.util import autoDisableMemcached
 from twisted.python.reflect import namedAny, qual
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.protocols.amp import AMP, Command, String, Integer#, ListOf
@@ -74,7 +75,7 @@ class ChildConfigurator(AMP):
         Optionally accept a configuration for testing, but normally created in
         the subprocess configuration-free.
         """
-        super(AMP, self).__init__()
+        super(ChildConfigurator, self).__init__()
         if config is None:
             from twistedcaldav.config import config
         self.config = config
@@ -93,12 +94,15 @@ class ChildConfigurator(AMP):
         # Adjust the child's configuration to add all the relevant options for
         # the store that won't be mentioned in the config file.
         changedConfig = dict(
-            LogID            = logID,
-            PIDFile          = pidFile,
-            MultiProcess     = dict(
+            EnableCalDAV  = True,
+            EnableCardDAV = True,
+            LogID         = logID,
+            PIDFile       = pidFile,
+            MultiProcess  = dict(
                 ProcessCount = processCount
             )
         )
+        autoDisableMemcached(self.config)
         if connectionPoolFD is not None:
             changedConfig.update(DBAMPFD=connectionPoolFD)
         self.config.updateDefaults(changedConfig)
@@ -137,6 +141,7 @@ class ConfiguredChildSpawner(StoreSpawnerService):
         @param config: the L{twistedcaldav.config.Config} to use to configure
             the subprocess.
         """
+        super(ConfiguredChildSpawner, self).__init__()
         self.nextID = 0
         self.maker = maker
         self.dispenser = dispenser
@@ -151,20 +156,31 @@ class ConfiguredChildSpawner(StoreSpawnerService):
         thisID = self.nextID
         self.nextID += 1
         if self.dispenser is not None:
-            poolfd = self.dispenser.dispense()
-            childFDs = {poolfd: poolfd}
+            # NOTE: important and super subtle, 'poolskt' must not be GC'd
+            # until the call to spawn (and hence spawnProcess) below; otherwise
+            # that end of the socket will be closed and there will be nothing
+            # to inherit.
+            poolskt  = self.dispenser.dispense()
+            poolfd   = poolskt.fileno()
+            childFDs = {
+                0: "w", 1: "r", 2: "r", # behave like normal, but
+                poolfd: poolfd          # bonus FD
+            }
+            extra    = dict(connectionPoolFD=poolfd)
         else:
             childFDs = None
+            extra    = {}
         controller = yield self.spawn(
             AMP(), ChildConfigurator, childFDs=childFDs
         )
         yield controller.callRemote(
             ConfigureChild,
             delegateTo=qual(there),
-            pidfile="%s-migrator-%s" % (self.maker.tapname, thisID),
+            pidFile="%s-migrator-%s" % (self.maker.tapname, thisID),
             logID="migrator-%s" % (thisID,),
             configFile=self.config.getProvider().getConfigFileName(),
-            processCount=self.config.MultiProcess.processCount,
+            processCount=self.config.MultiProcess.ProcessCount,
+            **extra
         )
         returnValue(swapAMP(controller, here))
 
