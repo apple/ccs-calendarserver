@@ -151,7 +151,7 @@ class UpgradeHelperProcess(AMP):
 
     def __init__(self, store):
         """
-        
+        Create with a reference to an SQL store.
         """
         super(UpgradeHelperProcess, self).__init__()
         self.store = store
