@@ -25,11 +25,13 @@ import xattr
 
 from twext.python.log import LoggingMixIn
 
+from twisted.python.runtime import platform
+from twisted.python.reflect import namedAny, qual
+
 from twisted.application.service import Service
 from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.internet.defer import maybeDeferred, DeferredList
-from twisted.python.runtime import platform
 
 from twext.python.filepath import CachingFilePath
 from twext.internet.spawnsvc import SpawnerService
@@ -94,7 +96,8 @@ class Configure(Command):
     Configure the upgrade helper process.
     """
 
-    arguments = [("filename", String())]
+    arguments = [("filename", String()),
+                 ("appropriateStoreClass", String())]
 
 
     
@@ -126,12 +129,13 @@ class UpgradeDriver(AMP):
         self.service = upgradeService
 
 
-    def configure(self, filename):
+    def configure(self, filename, storeClass):
         """
         Configure the subprocess to examine the file store at the given path
-        name.
+        name, with the given dead property storage class.
         """
-        return self.callRemote(Configure, filename=filename)
+        return self.callRemote(Configure, filename=filename,
+                               appropriateStoreClass=qual(storeClass))
 
 
     def oneUpgrade(self, uid, homeType):
@@ -159,10 +163,13 @@ class UpgradeHelperProcess(AMP):
         
 
     @Configure.responder
-    def configure(self, filename):
+    def configure(self, filename, appropriateStoreClass):
         subsvc = None
-        self.upgrader = UpgradeToDatabaseService.wrapService(
-            CachingFilePath(filename), subsvc, self.store
+        self.upgrader = UpgradeToDatabaseService(
+            FileStore(
+                CachingFilePath(filename), None, True, True,
+                propertyStoreClass=namedAny(appropriateStoreClass)
+            ), self.store, subsvc
         )
         return {}
 
@@ -332,7 +339,16 @@ class UpgradeToDatabaseService(Service, LoggingMixIn, object):
             # Wait for all subprocesses to be fully configured before
             # continuing, but let them configure in any order.
             self.log_warn("Configuring upgrade helper processes.")
-            yield DeferredList([driver.configure(self.fileStore._path.path)
+
+            # FIXME: abstraction violations galore here; not too important,
+            # since fileStore and this code are part of the same conceptual
+            # unit, but if these become more independent there should probably
+            # be a store-serialization API so that this code doesn't need to
+            # know the intimate details of the fileStore implementation.
+            # (Alternately, wrapService could just hold on to the details that
+            # it used to construct the service in the first place.)
+            yield DeferredList([driver.configure(self.fileStore._path.path,
+                                                 self.fileStore._propertyStoreClass)
                                 for driver in drivers])
             self.log_warn("Upgrade helpers ready.")
 
