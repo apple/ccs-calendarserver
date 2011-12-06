@@ -485,6 +485,11 @@ class CalendarServerLogAnalyzer(object):
             name = self.currentLine.client[index:self.currentLine.client.find(' ', index)]
             return name
         
+        index = self.currentLine.client.find("iOS/")
+        if index != -1:
+            name = self.currentLine.client[index:self.currentLine.client.find(' ', index)]
+            return name
+        
         index = self.currentLine.client.find("calendarclient")
         if index != -1:
             code = self.currentLine.client[14]
@@ -525,7 +530,7 @@ class CalendarServerLogAnalyzer(object):
             if uribits[0] == "calendars":
                 
                 if len(uribits) == 3:
-                    return "PROPFIND%s Calendar Home" % ("-cached" if cached else "")
+                    return "PROPFIND%s Calendar Home" % (" cached" if cached else "")
                 elif len(uribits) > 3:
                     if uribits[3] in calendar_specials:
                         return "PROPFIND %s" % (uribits[3],)
@@ -535,7 +540,7 @@ class CalendarServerLogAnalyzer(object):
             elif uribits[0] == "addressbooks":
                 
                 if len(uribits) == 3:
-                    return "PROPFIND%s Adbk Home" % ("-cached" if cached else "")
+                    return "PROPFIND%s Adbk Home" % (" cached" if cached else "")
                 elif len(uribits) > 3:
                     if uribits[3] in adbk_specials:
                         return "PROPFIND %s" % (uribits[3],)
@@ -543,10 +548,10 @@ class CalendarServerLogAnalyzer(object):
                         return "PROPFIND Adbk"
     
             elif uribits[0] == "directory":
-                return "PROPFIND%s directory" % ("-cached" if cached else "")
+                return "PROPFIND%s directory" % (" cached" if cached else "")
     
             elif uribits[0] == "principals":
-                return "PROPFIND%s Principal" % ("-cached" if cached else "")
+                return "PROPFIND%s Principal" % (" cached" if cached else "")
         
         elif self.currentLine.method.startswith("REPORT"):
             
@@ -966,24 +971,43 @@ class CalendarServerLogAnalyzer(object):
         totals = [0,] * len(hourlyByXXX)
         table = tables.Table()
     
-        header = ["Local (UTC)",]
-        header2 = ["",]
-        use_header2 = False
+        headers = [["Local (UTC)",], ["",], ["",], ["",],]
+        use_headers = [True, False, False, False]
         formats = [tables.Table.ColumnFormat("%s", tables.Table.ColumnFormat.CENTER_JUSTIFY),]
         for k in sorted(hourlyByXXX.keys(), key=lambda x:str(x).lower()):
             if type(k) is str:
                 if k[0] == ' ':
                     k = k[1:]
-                header.append(k[:k.find(" ")] if " " in k else k)
-                header2.append(k[k.find(" ")+1:] if " " in k else "")
-                use_header2 = use_header2 or header2[-1] != ""
+                ks = k.split(" ")
+                headers[0].append(ks[0])
+                if len(ks) > 1:
+                    headers[1].append(ks[1])
+                    use_headers[1] = use_headers[1] or headers[1][-1]
+                else:
+                    headers[1].append("")
+                if len(ks) > 2:
+                    headers[2].append(ks[2])
+                    use_headers[2] = use_headers[2] or headers[2][-1]
+                else:
+                    headers[2].append("")
+                if len(ks) > 3:
+                    headers[3].append(ks[3])
+                    use_headers[3] = use_headers[3] or headers[3][-1]
+                else:
+                    headers[3].append("")
             else:
-                header.append(k)
-                header2.append("")
+                headers[0].append(k)
+                headers[1].append("")
+                headers[2].append("")
+                headers[3].append("")
             formats.append(tables.Table.ColumnFormat("%s", tables.Table.ColumnFormat.RIGHT_JUSTIFY))
-        table.addHeader(header)
-        if use_header2:
-            table.addHeader(header2)
+        table.addHeader(headers[0])
+        if use_headers[1]:
+            table.addHeader(headers[1])
+        if use_headers[2]:
+            table.addHeader(headers[2])
+        if use_headers[3]:
+            table.addHeader(headers[3])
         table.setDefaultColumnFormats(formats)
     
         for ctr in xrange(self.timeBucketCount):
