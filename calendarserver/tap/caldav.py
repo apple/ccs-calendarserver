@@ -911,6 +911,10 @@ class CalDAVServiceMaker (LoggingMixIn):
                 cp.setServiceParent(ms)
                 store = storeFromConfig(config, cp.connection)
                 mainService = createMainService(cp, store)
+                if config.SharedConnectionPool:
+                    dispenser = ConnectionDispenser(cp)
+                else:
+                    dispenser = None
                 if config.ParallelUpgrades:
                     parallel = config.MultiProcess.ProcessCount
                 else:
@@ -924,7 +928,7 @@ class CalDAVServiceMaker (LoggingMixIn):
                                 PostDBImportService(config, store, mainService),
                                 store, uid=overrideUID, gid=overrideGID,
                                 spawner=ConfiguredChildSpawner(
-                                    self, ConnectionDispenser(cp), config
+                                    self, dispenser, config
                                 ),
                                 parallel=parallel
                             ),
