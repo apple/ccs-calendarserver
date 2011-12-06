@@ -62,7 +62,7 @@ from txdav.common.inotifications import INotificationCollection, \
 from twext.python.clsprop import classproperty
 from twext.enterprise.ienterprise import AlreadyFinishedError
 from twext.enterprise.dal.parseschema import significant
-from twext.enterprise.dal.syntax import Delete
+from twext.enterprise.dal.syntax import Delete, utcNowSQL
 from twext.enterprise.dal.syntax import Insert
 from twext.enterprise.dal.syntax import Len
 from twext.enterprise.dal.syntax import Max
@@ -234,6 +234,7 @@ class CommonStoreTransaction(object):
         self._postCommitOperations = []
         self._postAbortOperations = []
         self._notifierFactory = notifierFactory
+        self._notifiedAlready = set()
         self._label = label
         self._migrating = migrating
         self._primaryHomeType = None
@@ -428,6 +429,12 @@ class CommonStoreTransaction(object):
         """
         self._postAbortOperations.append(operation)
 
+
+    def isNotifiedAlready(self, obj):
+        return obj in self._notifiedAlready
+    
+    def notificationAddedForObject(self, obj):
+        self._notifiedAlready.add(obj)
 
     _savepointCounter = 0
 
@@ -713,6 +720,8 @@ class CommonHome(LoggingMixIn):
         self._sharedChildren = {}
         self._notifiers = notifiers
         self._quotaUsedBytes = None
+        self._created = None
+        self._modified = None
 
         # Needed for REVISION/BIND table join
         self._revisionBindJoinTable = {}
@@ -739,6 +748,13 @@ class CommonHome(LoggingMixIn):
                       From=home,
                       Where=home.RESOURCE_ID == Parameter("resourceID"))
 
+    @classproperty
+    def _metaDataQuery(cls): #@NoSelf
+        metadata = cls._homeMetaDataSchema
+        return Select([metadata.CREATED, metadata.MODIFIED],
+                      From=metadata,
+                      Where=metadata.RESOURCE_ID == Parameter("resourceID"))
+
     @inlineCallbacks
     def initFromStore(self, no_cache=False):
         """
@@ -755,6 +771,8 @@ class CommonHome(LoggingMixIn):
 
         if result:
             self._resourceID = result[0][0]
+            self._created, self._modified = (yield self._metaDataQuery.on(
+                self._txn, resourceID=self._resourceID))[0]
             yield self._loadPropertyStore()
             returnValue(self)
         else:
@@ -956,10 +974,6 @@ class CommonHome(LoggingMixIn):
         child = (yield self.childWithName(name))
         returnValue(child)
 
-    def createdChild(self, child):
-        pass
-
-
     @inlineCallbacks
     def removeChildWithName(self, name):
         child = yield self.childWithName(name)
@@ -1117,11 +1131,11 @@ class CommonHome(LoggingMixIn):
 
 
     def created(self):
-        return None
+        return datetimeMktime(parseSQLTimestamp(self._created)) if self._created else None
 
 
     def modified(self):
-        return None
+        return datetimeMktime(parseSQLTimestamp(self._modified)) if self._modified else None
 
 
     @classproperty
@@ -1218,7 +1232,7 @@ class CommonHome(LoggingMixIn):
                                            resourceID=self._resourceID)
             self._quotaUsedBytes = 0
 
-
+    
     def addNotifier(self, notifier):
         if self._notifiers is None:
             self._notifiers = ()
@@ -1242,13 +1256,45 @@ class CommonHome(LoggingMixIn):
         else:
             returnValue(None)
 
+    @classproperty
+    def _changeLastModifiedQuery(cls): #@NoSelf
+        meta = cls._homeMetaDataSchema
+        return Update({meta.MODIFIED: utcNowSQL},
+                      Where=meta.RESOURCE_ID == Parameter("resourceID"),
+                      Return=meta.MODIFIED)
+
+    @inlineCallbacks
+    def bumpModified(self):
+        """
+        Bump the MODIFIED value. A possible deadlock could happen here if two or more
+        simultaneous changes are happening. In that case it is OK for the MODIFIED change
+        to fail so long as at least one works. We will use SAVEPOINT logic to handle
+        ignoring the deadlock error.
+        """
+
+        def _bumpModified(subtxn):
+            return self._changeLastModifiedQuery.on(subtxn, resourceID=self._resourceID)
+            
+        try:
+            self._modified = (yield self._txn.subtransaction(_bumpModified, retries=0))[0][0]
+        except AllRetriesFailed:
+            pass
+        
+    @inlineCallbacks
     def notifyChanged(self):
         """
         Trigger a notification of a change
         """
-        if self._notifiers:
+        
+        # Update modified if object still exists
+        if self._resourceID:
+            yield self.bumpModified()
+
+        # Only send one set of change notifications per transaction
+        if self._notifiers and not self._txn.isNotifiedAlready(self):
             for notifier in self._notifiers:
                 self._txn.postCommit(notifier.notify)
+            self._txn.notificationAddedForObject(self)
 
 
 
@@ -1903,10 +1949,9 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
             PropertyName.fromElement(ResourceType)
         ] = child.resourceType()
         yield child._initSyncToken()
-        home.createdChild(child)
 
         # Change notification for a create is on the home collection
-        home.notifyChanged()
+        yield home.notifyChanged()
         returnValue(child)
 
 
@@ -1997,8 +2042,11 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
         self._home._children[name] = self
         yield self._renameSyncToken()
 
-        self.notifyChanged()
+        yield self.notifyChanged()
 
+        # Make sure home collection modified is changed - not that we do not use _home.notifiedChanged() here
+        # since we are sending the notification on the existing child collection object
+        yield self._home.bumpModified()
 
 
     @classproperty
@@ -2023,7 +2071,11 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
         self._modified   = None
         self._objects    = {}
 
-        self.notifyChanged()
+        yield self.notifyChanged()
+
+        # Make sure home collection modified is changed - not that we do not use _home.notifiedChanged() here
+        # since we are sending the notification on the previously existing child collection object
+        yield self._home.bumpModified()
 
 
     def ownerHome(self):
@@ -2247,7 +2299,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
             self._objects.pop(name, None)
             self._objects.pop(uid, None)
             yield self._deleteRevision(name)
-            self.notifyChanged()
+            yield self.notifyChanged()
 
     @classproperty
     def _moveParentUpdateQuery(cls): #@NoSelf
@@ -2290,7 +2342,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
         self._objects.pop(uid, None)
         self._objects.pop(child._resourceID, None)
         yield self._deleteRevision(name)
-        self.notifyChanged()
+        yield self.notifyChanged()
         
         # Adjust the child to be a child of the new parent and update ancillary tables
         yield self._moveParentUpdateQuery.on(
@@ -2303,7 +2355,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
 
         # Signal sync change on new collection
         yield newparent._insertRevision(name)
-        newparent.notifyChanged()
+        yield newparent.notifyChanged()
 
     def objectResourcesHaveProperties(self):
         return False
@@ -2376,13 +2428,45 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
         else:
             returnValue(None)
 
+    @classproperty
+    def _changeLastModifiedQuery(cls): #@NoSelf
+        schema = cls._homeChildSchema
+        return Update({schema.MODIFIED: utcNowSQL},
+                      Where=schema.RESOURCE_ID == Parameter("resourceID"),
+                      Return=schema.MODIFIED)
+
+    @inlineCallbacks
+    def bumpModified(self):
+        """
+        Bump the MODIFIED value. A possible deadlock could happen here if two or more
+        simultaneous changes are happening. In that case it is OK for the MODIFIED change
+        to fail so long as at least one works. We will use SAVEPOINT logic to handle
+        ignoring the deadlock error.
+        """
+
+        def _bumpModified(subtxn):
+            return self._changeLastModifiedQuery.on(subtxn, resourceID=self._resourceID)
+            
+        try:
+            self._modified = (yield self._txn.subtransaction(_bumpModified, retries=0))[0][0]
+        except AllRetriesFailed:
+            pass
+        
+    @inlineCallbacks
     def notifyChanged(self):
         """
         Trigger a notification of a change
         """
-        if self._notifiers:
+        
+        # Update modified if object still exists
+        if self._resourceID:
+            yield self.bumpModified()
+
+        # Only send one set of change notifications per transaction
+        if self._notifiers and not self._txn.isNotifiedAlready(self):
             for notifier in self._notifiers:
                 self._txn.postCommit(notifier.notify)
+            self._txn.notificationAddedForObject(self)
 
 
 
@@ -2988,9 +3072,12 @@ class NotificationCollection(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
         """
         Trigger a notification of a change
         """
-        if self._notifiers:
+
+        # Only send one set of change notifications per transaction
+        if self._notifiers and not self._txn.isNotifiedAlready(self):
             for notifier in self._notifiers:
                 self._txn.postCommit(notifier.notify)
+            self._txn.notificationAddedForObject(self)
 
 
     @classproperty

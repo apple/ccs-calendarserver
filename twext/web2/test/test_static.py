@@ -1,4 +1,4 @@
-# Copyright (c) 2008 Twisted Matrix Laboratories.
+# Copyright (c) 2008-2011 Twisted Matrix Laboratories.
 # See LICENSE for details.
 
 """
@@ -34,7 +34,10 @@ class TestData(BaseCase):
         """
         Test that we can get an ETag
         """
-        self.failUnless(self.data.etag())
+        def _defer(result):
+            self.failUnless(result)
+        d = self.data.etag().addCallback(_defer)
+        return d
 
 
     def test_render(self):

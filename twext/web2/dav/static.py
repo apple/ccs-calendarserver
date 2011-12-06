@@ -1,6 +1,6 @@
 # -*- test-case-name: twext.web2.dav.test.test_static -*-
 ##
-# Copyright (c) 2005 Apple Computer, Inc. All rights reserved.
+# Copyright (c) 2005-2011 Apple Computer, Inc. All rights reserved.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -86,9 +86,9 @@ class DAVFile (DAVResource, File):
     ##
 
     def etag(self):
-        if not self.fp.exists(): return None
+        if not self.fp.exists(): return succeed(None)
         if self.hasDeadProperty(TwistedGETContentMD5):
-            return http_headers.ETag(str(self.readDeadProperty(TwistedGETContentMD5)))
+            return succeed(http_headers.ETag(str(self.readDeadProperty(TwistedGETContentMD5))))
         else:
             return super(DAVFile, self).etag()
 

@@ -681,7 +681,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         else:
             yield self._calendar._updateRevision(self._name)
 
-        self._calendar.notifyChanged()
+        yield self._calendar.notifyChanged()
 
 
     @inlineCallbacks

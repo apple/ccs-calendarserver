@@ -59,9 +59,11 @@ from twistedcaldav.vcard import Component as VCard, InvalidVCardDataError
 from txdav.base.propertystore.base import PropertyName
 from txdav.caldav.icalendarstore import QuotaExceeded
 from txdav.common.icommondatastore import NoSuchObjectResourceError
-from urlparse import urlsplit
-import time
 from txdav.idav import PropertyChangeNotAllowedError
+
+import time
+import hashlib
+from urlparse import urlsplit
 
 """
 Wrappers to translate between the APIs in L{txdav.caldav.icalendarstore} and
@@ -172,7 +174,7 @@ class _NewStoreFileMetaDataHelper(object):
 
 
     def etag(self):
-        return ETag(self._newStoreObject.md5()) if self._newStoreObject is not None else None
+        return succeed(ETag(self._newStoreObject.md5()) if self._newStoreObject is not None else None)
 
 
     def contentType(self):
@@ -319,8 +321,16 @@ class _CommonHomeChildCollectionMixin(ResponseCacheMixin):
         return self._name
 
 
+    @inlineCallbacks
     def etag(self):
-        return ETag(self._newStoreObject.md5()) if self._newStoreObject else None
+        """
+        Use the sync token as the etag
+        """
+        if self._newStoreObject:
+            token = (yield self.getInternalSyncToken())
+            returnValue(ETag(hashlib.md5(token).hexdigest()))
+        else:
+            returnValue(None)
 
 
     def lastModified(self):
@@ -586,13 +596,14 @@ class _CommonHomeChildCollectionMixin(ResponseCacheMixin):
             
             if code is None:
                 
+                etag = (yield newchild.etag())
                 if not return_changed or dataChanged is None:
                     xmlresponses.append(
                         davxml.PropertyStatusResponse(
                             davxml.HRef.fromString(newchildURL),
                             davxml.PropertyStatus(
                                 davxml.PropertyContainer(
-                                    davxml.GETETag.fromString(newchild.etag().generate()),
+                                    davxml.GETETag.fromString(etag.generate()),
                                     customxml.UID.fromString(component.resourceUID()),
                                 ),
                                 davxml.Status.fromResponseCode(responsecode.OK),
@@ -605,7 +616,7 @@ class _CommonHomeChildCollectionMixin(ResponseCacheMixin):
                             davxml.HRef.fromString(newchildURL),
                             davxml.PropertyStatus(
                                 davxml.PropertyContainer(
-                                    davxml.GETETag.fromString(newchild.etag().generate()),
+                                    davxml.GETETag.fromString(etag.generate()),
                                     self.xmlDataElementType().fromTextData(dataChanged),
                                 ),
                                 davxml.Status.fromResponseCode(responsecode.OK),
@@ -757,12 +768,13 @@ class _CommonHomeChildCollectionMixin(ResponseCacheMixin):
             code = responsecode.BAD_REQUEST
         
         if code is None:
+            etag = (yield newchild.etag())
             xmlresponses.append(
                 davxml.PropertyStatusResponse(
                     davxml.HRef.fromString(newchildURL),
                     davxml.PropertyStatus(
                         davxml.PropertyContainer(
-                            davxml.GETETag.fromString(newchild.etag().generate()),
+                            davxml.GETETag.fromString(etag.generate()),
                             customxml.UID.fromString(component.resourceUID()),
                         ),
                         davxml.Status.fromResponseCode(responsecode.OK),
@@ -797,7 +809,8 @@ class _CommonHomeChildCollectionMixin(ResponseCacheMixin):
             yield updateResource.authorize(request, (davxml.Write(),))
 
             # Check if match
-            if ifmatch and ifmatch != updateResource.etag().generate():
+            etag = (yield updateResource.etag())
+            if ifmatch and ifmatch != etag.generate():
                 raise HTTPError(responsecode.PRECONDITION_FAILED)
             
             yield self.storeResourceData(request, updateResource, href, component, componentdata)
@@ -820,7 +833,7 @@ class _CommonHomeChildCollectionMixin(ResponseCacheMixin):
                     davxml.HRef.fromString(href),
                     davxml.PropertyStatus(
                         davxml.PropertyContainer(
-                            davxml.GETETag.fromString(updateResource.etag().generate()),
+                            davxml.GETETag.fromString(etag.generate()),
                         ),
                         davxml.Status.fromResponseCode(responsecode.OK),
                     )
@@ -850,7 +863,8 @@ class _CommonHomeChildCollectionMixin(ResponseCacheMixin):
                 raise HTTPError(responsecode.NOT_FOUND)
 
             # Check if match
-            if ifmatch and ifmatch != deleteResource.etag().generate():
+            etag = (yield deleteResource.etag())
+            if ifmatch and ifmatch != etag.generate():
                 raise HTTPError(responsecode.PRECONDITION_FAILED)
 
             yield deleteResource.storeRemove(
@@ -892,7 +906,7 @@ class _CommonHomeChildCollectionMixin(ResponseCacheMixin):
         self._newStoreObject.notifierID(label)
 
     def notifyChanged(self):
-        self._newStoreObject.notifyChanged()
+        return self._newStoreObject.notifyChanged()
 
 class _CalendarCollectionBehaviorMixin():
     """

@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2006-2010 Apple Inc. All rights reserved.
+# Copyright (c) 2006-2011 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -31,7 +31,7 @@ from twext.web2.dav.util import joinURL
 from twext.web2.http import HTTPError
 from twext.web2.http_headers import ETag, MimeType
 
-from twisted.internet.defer import inlineCallbacks, returnValue
+from twisted.internet.defer import inlineCallbacks, returnValue, succeed
 
 from twistedcaldav.config import config
 from twistedcaldav.directory.idirectory import IDirectoryService
@@ -66,7 +66,7 @@ class DirectoryAddressBookProvisioningResource (
         return config.ProvisioningResourceACL
 
     def etag(self):
-        return ETag(str(uuid4()))
+        return succeed(ETag(str(uuid4())))
 
     def contentType(self):
         return MimeType("httpd", "unix-directory")

@@ -22,13 +22,23 @@
 alter table CALENDAR_HOME
  add column DATAVERSION integer default 1 null;
  
+-- Need to add timestamp columns
+alter table CALENDAR_HOME_METADATA
+ add column CREATED  timestamp  default timezone('UTC', CURRENT_TIMESTAMP),
+ add column MODIFIED timestamp  default timezone('UTC', CURRENT_TIMESTAMP);
+ 
 -- Just need to add one column
 alter table CALENDAR
- add column SUPPORTED_COMPONENTS        varchar(255) default null;
+ add column SUPPORTED_COMPONENTS  varchar(255) default null;
 
 -- Just need to add one column
 alter table ADDRESSBOOK_HOME
  add column DATAVERSION integer default 1 null;
+ 
+-- Need to add timestamp columns
+alter table ADDRESSBOOK_HOME_METADATA
+ add column CREATED  timestamp  default timezone('UTC', CURRENT_TIMESTAMP),
+ add column MODIFIED timestamp  default timezone('UTC', CURRENT_TIMESTAMP);
  
 -- Now update the version
 update CALENDARSERVER set VALUE = '7' where NAME = 'VERSION';

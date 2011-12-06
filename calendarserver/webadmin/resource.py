@@ -504,7 +504,7 @@ class WebAdminResource (ReadOnlyResourceMixIn, DAVFile):
 
     def etag(self):
         # Can't be calculated here
-        return None
+        return succeed(None)
 
     def contentLength(self):
         # Can't be calculated here

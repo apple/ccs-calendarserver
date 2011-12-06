@@ -163,7 +163,7 @@ class DirectoryProvisioningResource (
         return self._dead_properties
 
     def etag(self):
-        return None
+        return succeed(None)
 
     def principalForShortName(self, recordType, name):
         return self.principalForRecord(self.directory.recordWithShortName(recordType, name))
@@ -756,7 +756,7 @@ class DirectoryPrincipalResource (
         return self._dead_properties
 
     def etag(self):
-        return None
+        return succeed(None)
 
     ##
     # HTTP

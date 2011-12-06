@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2009 Apple Inc. All rights reserved.
+# Copyright (c) 2009-2011 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -38,6 +38,8 @@ from twext.web2.dav.resource import TwistedACLInheritable
 from twistedcaldav.config import config
 from twistedcaldav.extensions import DAVFile, ReadOnlyResourceMixIn
 
+from twisted.internet.defer import succeed
+
 
 class WebCalendarResource (ReadOnlyResourceMixIn, DAVFile):
 
@@ -55,7 +57,7 @@ class WebCalendarResource (ReadOnlyResourceMixIn, DAVFile):
 
     def etag(self):
         # Can't be calculated here
-        return None
+        return succeed(None)
 
     def contentLength(self):
         # Can't be calculated here

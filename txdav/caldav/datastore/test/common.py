@@ -921,12 +921,6 @@ class CommonTests(CommonCommonTests):
             [
                 ("update", "CalDAV|home1"),
                 ("update", "CalDAV|home1/calendar_1"),
-                ("update", "CalDAV|home1"),
-                ("update", "CalDAV|home1/calendar_1"),
-                ("update", "CalDAV|home1"),
-                ("update", "CalDAV|home1/calendar_1"),
-                ("update", "CalDAV|home1"),
-                ("update", "CalDAV|home1/calendar_1"),
             ]
         )
 

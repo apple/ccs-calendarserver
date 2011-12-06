@@ -1046,7 +1046,7 @@ class SharedHomeMixin(LinkFollowerMixIn):
             yield sharedCollection.writeProperty(caldavxml.ScheduleCalendarTransp(caldavxml.Transparent()), request)
  
         # Notify client of changes
-        self.notifyChanged()
+        yield self.notifyChanged()
 
         # Return the URL of the shared collection
         returnValue(XMLResponse(
@@ -1092,7 +1092,7 @@ class SharedHomeMixin(LinkFollowerMixIn):
         yield self.sharesDB().removeRecordForShareUID(share.shareuid)
  
         # Notify client of changes
-        self.notifyChanged()
+        yield self.notifyChanged()
 
     @inlineCallbacks
     def declineShare(self, request, hostUrl, inviteUID):

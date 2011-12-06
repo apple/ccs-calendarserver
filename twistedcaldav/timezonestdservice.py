@@ -121,7 +121,7 @@ class TimezoneStdServiceResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithou
         return self._dead_properties
 
     def etag(self):
-        return None
+        return succeed(None)
 
     def checkPreconditions(self, request):
         return None

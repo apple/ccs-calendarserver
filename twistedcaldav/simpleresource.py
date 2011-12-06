@@ -71,7 +71,7 @@ class SimpleResource (
         return self._dead_properties
 
     def etag(self):
-        return None
+        return succeed(None)
 
     def accessControlList(self, request, inheritance=True, expanding=False, inherited_aces=None):
         return succeed(self.defaultACL)

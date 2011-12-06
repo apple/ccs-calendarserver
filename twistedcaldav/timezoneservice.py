@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2008 Apple Inc. All rights reserved.
+# Copyright (c) 2008-2011 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -72,7 +72,7 @@ class TimezoneServiceResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithoutCh
         return self._dead_properties
 
     def etag(self):
-        return None
+        return succeed(None)
 
     def checkPreconditions(self, request):
         return None

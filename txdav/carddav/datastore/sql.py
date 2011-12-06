@@ -251,7 +251,7 @@ class AddressBookObject(CommonObjectResource):
         else:
             yield self._addressbook._updateRevision(self._name)
 
-        self._addressbook.notifyChanged()
+        yield self._addressbook.notifyChanged()
 
 
     @inlineCallbacks

@@ -39,7 +39,9 @@ create table CALENDAR_HOME (
 
 create table CALENDAR_HOME_METADATA (
   RESOURCE_ID      integer      primary key references CALENDAR_HOME on delete cascade, -- implicit index
-  QUOTA_USED_BYTES integer      default 0 not null
+  QUOTA_USED_BYTES integer      default 0 not null,
+  CREATED          timestamp    default timezone('UTC', CURRENT_TIMESTAMP),
+  MODIFIED         timestamp    default timezone('UTC', CURRENT_TIMESTAMP)
 );
 
 --------------
@@ -324,7 +326,9 @@ create table ADDRESSBOOK_HOME (
 
 create table ADDRESSBOOK_HOME_METADATA (
   RESOURCE_ID      integer      primary key references ADDRESSBOOK_HOME on delete cascade, -- implicit index
-  QUOTA_USED_BYTES integer      default 0 not null
+  QUOTA_USED_BYTES integer      default 0 not null,
+  CREATED          timestamp    default timezone('UTC', CURRENT_TIMESTAMP),
+  MODIFIED         timestamp    default timezone('UTC', CURRENT_TIMESTAMP)
 );
 
 -----------------

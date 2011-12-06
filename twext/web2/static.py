@@ -1,7 +1,7 @@
 # -*- test-case-name: twext.web2.test.test_static -*-
 ##
 # Copyright (c) 2001-2008 Twisted Matrix Laboratories.
-# Copyright (c) 2010 Apple Computer, Inc. All rights reserved.
+# Copyright (c) 2010-2011 Apple Computer, Inc. All rights reserved.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -39,7 +39,7 @@ from twext.web2.http import HTTPError
 
 # Twisted Imports
 from twext.python.filepath import CachingFilePath as FilePath
-from twisted.internet.defer import inlineCallbacks, returnValue
+from twisted.internet.defer import inlineCallbacks, returnValue, succeed
 from zope.interface import implements
 
 class MetaDataMixin(object):
@@ -51,7 +51,7 @@ class MetaDataMixin(object):
         """
         @return: The current etag for the resource if available, None otherwise.
         """
-        return None
+        return succeed(None)
 
     def lastModified(self):
         """
@@ -102,10 +102,11 @@ class StaticRenderMixin(resource.RenderMixin, MetaDataMixin):
     def checkPreconditions(self, request):
         # This code replaces the code in resource.RenderMixin
         if request.method not in ("GET", "HEAD"):
+            etag = (yield self.etag())
             http.checkPreconditions(
                 request,
                 entityExists = self.exists(),
-                etag = self.etag(),
+                etag = etag,
                 lastModified = self.lastModified(),
             )
 
@@ -134,8 +135,9 @@ class StaticRenderMixin(resource.RenderMixin, MetaDataMixin):
             # Content-* headers refer to the response content, not
             # (necessarily) to the resource content, so they depend on the
             # request method, and therefore can't be set here.
+            etag = (yield self.etag())
             for (header, value) in (
-                ("etag", self.etag()),
+                ("etag", etag),
                 ("last-modified", self.lastModified()),
             ):
                 if value is not None:
@@ -155,8 +157,8 @@ class Data(resource.Resource):
 
     def etag(self):
         lastModified = self.lastModified()
-        return http_headers.ETag("%X-%X" % (lastModified, hash(self.data)),
-                                 weak=(time.time() - lastModified <= 1))
+        return succeed(http_headers.ETag("%X-%X" % (lastModified, hash(self.data)),
+                                            weak=(time.time() - lastModified <= 1)))
 
     def lastModified(self):
         return self.creationDate()
@@ -247,7 +249,7 @@ class File(StaticRenderMixin):
         return self.fp.exists()
 
     def etag(self):
-        if not self.fp.exists(): return None
+        if not self.fp.exists(): return succeed(None)
 
         st = self.fp.statinfo
 
@@ -258,10 +260,10 @@ class File(StaticRenderMixin):
         #
         weak = (time.time() - st.st_mtime <= 1)
 
-        return http_headers.ETag(
+        return succeed(http_headers.ETag(
             "%X-%X-%X" % (st.st_ino, st.st_size, st.st_mtime),
             weak=weak
-        )
+        ))
 
     def lastModified(self):
         if self.fp.exists():

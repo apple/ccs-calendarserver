@@ -22,6 +22,12 @@
 alter table CALENDAR_HOME
  add ("DATAVERSION" integer default 1 null);
  
+-- Need to add timestamp columns
+alter table CALENDAR_HOME_METADATA
+ add ("CREATED" timestamp default CURRENT_TIMESTAMP at time zone 'UTC');
+alter table CALENDAR_HOME_METADATA
+ add ("MODIFIED" timestamp default CURRENT_TIMESTAMP at time zone 'UTC');
+
  -- Just need to modify one column
 alter table CALENDAR_OBJECT
  add ("SUPPORTED_COMPONENTS" nvarchar2(255) default null);
@@ -30,6 +36,12 @@ alter table CALENDAR_OBJECT
 alter table ADDRESSBOOK_HOME
  add ("DATAVERSION" integer default 1 null);
  
+-- Need to add timestamp columns
+alter table ADDRESSBOOK_HOME_METADATA
+ add ("CREATED" timestamp default CURRENT_TIMESTAMP at time zone 'UTC');
+alter table ADDRESSBOOK_HOME_METADATA
+ add ("MODIFIED" timestamp default CURRENT_TIMESTAMP at time zone 'UTC');
+
 -- Now update the version
 update CALENDARSERVER set VALUE = '7' where NAME = 'VERSION';
 

@@ -26,7 +26,7 @@ from twext.web2.http_headers import MimeType
 from twext.web2.server import parsePOSTData
 from twisted.application import service
 from twisted.internet import reactor, protocol
-from twisted.internet.defer import inlineCallbacks, returnValue
+from twisted.internet.defer import inlineCallbacks, returnValue, succeed
 from twisted.internet.protocol import ClientFactory, ReconnectingClientFactory
 from twistedcaldav.extensions import DAVResource, DAVResourceWithoutChildrenMixin
 from twistedcaldav.resource import ReadOnlyNoCopyResourceMixIn
@@ -498,7 +498,7 @@ class APNSubscriptionResource(ReadOnlyNoCopyResourceMixIn,
         return self._dead_properties
 
     def etag(self):
-        return None
+        return succeed(None)
 
     def checkPreconditions(self, request):
         return None

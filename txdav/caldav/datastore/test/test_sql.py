@@ -351,7 +351,7 @@ class CalendarSQLStorageTests(CalendarCommonTests, unittest.TestCase):
     def test_putConcurrency(self):
         """
         Test that two concurrent attempts to PUT different calendar object
-        resources to the same address book home does not cause a deadlock.
+        resources to the same calendar home does not cause a deadlock.
         """
 
         calendarStore = self._sqlCalendarStore

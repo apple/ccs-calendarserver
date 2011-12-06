@@ -199,6 +199,7 @@ class CommonStoreTransaction(DataStoreTransaction):
         self._addressbookHomes = {}
         self._notificationHomes = {}
         self._notifierFactory = notifierFactory
+        self._notifiedAlready = set()
         self._migrating = migrating
 
         extraInterfaces = []
@@ -252,6 +253,12 @@ class CommonStoreTransaction(DataStoreTransaction):
 
     def apnSubscriptionsByKey(self, key):
         return NotImplementedError
+
+    def isNotifiedAlready(self, obj):
+        return obj in self._notifiedAlready
+    
+    def notificationAddedForObject(self, obj):
+        self._notifiedAlready.add(obj)
 
 
 class StubResource(object):
@@ -469,14 +476,9 @@ class CommonHome(FileMetaDataMixin, LoggingMixIn):
         self._transaction.addOperation(do, "create child %r" % (name,))
         props = c.properties()
         props[PropertyName(*ResourceType.qname())] = c.resourceType()
-        self.createdChild(c)
 
         self.notifyChanged()
         return c
-
-    def createdChild(self, child):
-        pass
-
 
     @writeOperation
     def removeChildWithName(self, name):
@@ -584,9 +586,12 @@ class CommonHome(FileMetaDataMixin, LoggingMixIn):
         """
         Trigger a notification of a change
         """
-        if self._notifiers:
+
+        # Only send one set of change notifications per transaction
+        if self._notifiers and not self._transaction.isNotifiedAlready(self):
             for notifier in self._notifiers:
                 self._transaction.postCommit(notifier.notify)
+            self._transaction.notificationAddedForObject(self)
 
 
 class CommonHomeChild(FileMetaDataMixin, LoggingMixIn, FancyEqMixin):
@@ -915,9 +920,12 @@ class CommonHomeChild(FileMetaDataMixin, LoggingMixIn, FancyEqMixin):
         """
         Trigger a notification of a change
         """
-        if self._notifiers:
+
+        # Only send one set of change notifications per transaction
+        if self._notifiers and not self._transaction.isNotifiedAlready(self):
             for notifier in self._notifiers:
                 self._transaction.postCommit(notifier.notify)
+            self._transaction.notificationAddedForObject(self)
 
 
 class CommonObjectResource(FileMetaDataMixin, LoggingMixIn, FancyEqMixin):

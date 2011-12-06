@@ -29,6 +29,7 @@ __all__ = [
     "isAddressBookCollectionResource",
 ]
 
+import hashlib
 from urlparse import urlsplit
 import urllib
 import uuid
@@ -53,7 +54,7 @@ from twext.web2.dav.resource import AccessDeniedError, DAVPrincipalCollectionRes
 from twext.web2.dav.resource import TwistedACLInheritable
 from twext.web2.dav.util import joinURL, parentForURL, normalizeURL
 from twext.web2.http import HTTPError, RedirectResponse, StatusResponse, Response
-from twext.web2.http_headers import MimeType
+from twext.web2.http_headers import MimeType, ETag
 from twext.web2.stream import MemoryStream
 
 from twistedcaldav import caldavxml, customxml
@@ -1479,6 +1480,7 @@ class CalDAVResource (
     # Stuff from CalDAVFile
     #
 
+    @inlineCallbacks
     def checkPreconditions(self, request):
         """
         We override the base class to handle the special implicit scheduling weak ETag behavior
@@ -1494,7 +1496,8 @@ class CalDAVResource (
                     if request.method not in ("GET", "HEAD"):
                         
                         # Always test against the current etag first just in case schedule-etags is out of sync
-                        etags = (self.etag(), ) + tuple([http_headers.ETag(etag) for etag in etags])
+                        etag = (yield self.etag())
+                        etags = (etag, ) + tuple([http_headers.ETag(etag) for etag in etags])
 
                         # Loop over each tag and succeed if any one matches, else re-raise last exception
                         exists = self.exists()
@@ -1519,13 +1522,12 @@ class CalDAVResource (
                     # Check per-method preconditions
                     method = getattr(self, "preconditions_" + request.method, None)
                     if method:
-                        response = maybeDeferred(method, request)
-                        response.addCallback(lambda _: request)
-                        return response
+                        returnValue((yield method(request)))
                     else:
-                        return None
+                        returnValue(None)
 
-        return super(CalDAVResource, self).checkPreconditions(request)
+        result = (yield super(CalDAVResource, self).checkPreconditions(request))
+        returnValue(result)
 
     @inlineCallbacks
     def createCalendar(self, request):
@@ -2483,11 +2485,28 @@ class CommonHomeResource(PropfindCacheMixin, SharedHomeMixin, CalDAVResource):
     def principalForRecord(self):
         raise NotImplementedError("Subclass must implement principalForRecord()")
 
+    @inlineCallbacks
+    def etag(self):
+        """
+        Use the sync token as the etag
+        """
+        if self._newStoreHome:
+            token = (yield self.getInternalSyncToken())
+            returnValue(ETag(hashlib.md5(token).hexdigest()))
+        else:
+            returnValue(None)
+
+    def lastModified(self):
+        return self._newStoreHome.modified() if self._newStoreHome else None
+
+    def creationDate(self):
+        return self._newStoreHome.created() if self._newStoreHome else None
+
     def notifierID(self, label="default"):
         self._newStoreHome.notifierID(label)
 
     def notifyChanged(self):
-        self._newStoreHome.notifyChanged()
+        return self._newStoreHome.notifyChanged()
 
     # Methods not supported
     http_ACL = None

@@ -518,10 +518,6 @@ class CommonTests(CommonCommonTests):
             [
                 ("update", "CardDAV|home1"),
                 ("update", "CardDAV|home1/addressbook_1"),
-                ("update", "CardDAV|home1"),
-                ("update", "CardDAV|home1/addressbook_1"),
-                ("update", "CardDAV|home1"),
-                ("update", "CardDAV|home1/addressbook_1"),
             ]
         )
 
