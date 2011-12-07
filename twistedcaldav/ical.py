@@ -979,7 +979,7 @@ class Component (object):
 
         return newcomp
 
-    def cacheExpandedTimeRanges(self, limit):
+    def cacheExpandedTimeRanges(self, limit, ignoreInvalidInstances=False):
         """
         Expand instances up to the specified limit and cache the results in this object
         so we can return cached results in the future.
@@ -996,7 +996,8 @@ class Component (object):
                 # so return cached instances
                 return self.cachedInstances
         
-        self.cachedInstances = self.expandTimeRanges(limit)
+        self.cachedInstances = self.expandTimeRanges(limit,
+            ignoreInvalidInstances=ignoreInvalidInstances)
         return self.cachedInstances
 
     def expandTimeRanges(self, limit, ignoreInvalidInstances=False):
@@ -1037,7 +1038,7 @@ class Component (object):
         
         @return: a tuple of recurrence-ids
         """
-        
+
         # Extract appropriate sub-component if this is a VCALENDAR
         if self.name() == "VCALENDAR":
             result = ()
@@ -1174,7 +1175,7 @@ class Component (object):
 
         return newcomp
         
-    def validInstances(self, rids):
+    def validInstances(self, rids, ignoreInvalidInstances=False):
         """
         Test whether the specified recurrence-ids are valid instances in this event.
 
@@ -1188,34 +1189,36 @@ class Component (object):
         non_master_rids = [rid for rid in rids if rid is not None]
         if non_master_rids:
             highest_rid = max(non_master_rids)
-            self.cacheExpandedTimeRanges(highest_rid + PyCalendarDuration(days=1))
+            self.cacheExpandedTimeRanges(
+                highest_rid + PyCalendarDuration(days=1),
+                ignoreInvalidInstances=ignoreInvalidInstances
+            )
         for rid in rids:
-            if self.validInstance(rid, clear_cache=False):
+            if self.validInstance(rid, clear_cache=False, ignoreInvalidInstances=ignoreInvalidInstances):
                 valid.add(rid)
         return valid
 
-    def validInstance(self, rid, clear_cache=True):
+    def validInstance(self, rid, clear_cache=True, ignoreInvalidInstances=False):
         """
         Test whether the specified recurrence-id is a valid instance in this event.
 
         @param rid: recurrence-id value
         @type rid: L{PyCalendarDateTime}
-        
+
         @return: C{bool}
         """
-        
-        # First check overridden instances already in this component
-        if not hasattr(self, "cachedComponentInstances") or clear_cache:
-            self.cachedComponentInstances = set(self.getComponentInstances())
-        if rid in self.cachedComponentInstances:
-            return True
-            
-        # Must have a master component
+
         if self.masterComponent() is None:
-            return False
+            return rid in set(self.getComponentInstances())
+
+        if rid is None:
+            return True
 
         # Get expansion
-        instances = self.cacheExpandedTimeRanges(rid + PyCalendarDuration(days=1))
+        instances = self.cacheExpandedTimeRanges(
+            rid + PyCalendarDuration(days=1),
+            ignoreInvalidInstances=ignoreInvalidInstances
+        )
         new_rids = set([instances[key].rid for key in instances])
         return rid in new_rids
 
@@ -1296,8 +1299,38 @@ class Component (object):
             log.debug("Unknown resource type: %s" % (self,))
             raise InvalidICalendarDataError("Unknown resource type")
 
+        fixed = []
+        unfixed = []
+
+        # Detect invalid occurrences and fix by adding RDATEs for them
+        master = self.masterComponent()
+        if master is not None:
+            # Get the set of all recurrence IDs
+            all_rids = set(self.getComponentInstances())
+            if None in all_rids:
+                all_rids.remove(None)
+            # Get the set of all valid recurrence IDs
+            valid_rids = self.validInstances(all_rids, ignoreInvalidInstances=True)
+            # Get the set of all RDATEs and add those to the valid set
+            rdates = []
+            for property in master.properties("RDATE"):
+                rdates.extend([_rdate.getValue() for _rdate in property.value()])
+            valid_rids.update(set(rdates))
+            # Determine the invalid recurrence IDs by set subtraction
+            invalid_rids = all_rids - valid_rids
+            # Add RDATEs for the invalid ones.
+            for invalid_rid in invalid_rids:
+                if doFix:
+                    master.addProperty(Property("RDATE", [invalid_rid,]))
+                    fixed.append("Added RDATE for invalid occurrence: %s" %
+                        (invalid_rid,))
+                else:
+                    unfixed.append("Invalid occurrence: %s" % (invalid_rid,))
+
         # Do underlying iCalendar library validation with data fix
-        fixed, unfixed = self._pycalendar.validate(doFix=doFix)
+        pyfixed, pyunfixed = self._pycalendar.validate(doFix=doFix)
+        fixed.extend(pyfixed)
+        unfixed.extend(pyunfixed)
         if unfixed:
             log.debug("Calendar data had unfixable problems:\n  %s" % ("\n  ".join(unfixed),))
             if doRaise:
@@ -1307,6 +1340,8 @@ class Component (object):
         
         return fixed, unfixed
 
+        
+        
     def validCalendarForCalDAV(self, methodAllowed):
         """
         @param methodAllowed:     True if METHOD property is allowed, False otherwise.

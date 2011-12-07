@@ -365,7 +365,7 @@ class InstanceList(object):
                 if oldinstance.overridden:
                     continue
                 
-                # Determine the start/end of the new instance\
+                # Determine the start/end of the new instance
                 originalStart = oldinstance.rid
                 start = oldinstance.start
                 end = oldinstance.end

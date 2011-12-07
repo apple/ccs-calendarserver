@@ -377,6 +377,79 @@ END:VCALENDAR
         # Now it should pass without fixing
         calendar.validCalendarData(doFix=False)
 
+        # Test invalid occurrences
+        data = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Apple Inc.//iCal 5.0.1//EN
+CALSCALE:GREGORIAN
+BEGIN:VTIMEZONE
+TZID:America/Los_Angeles
+BEGIN:DAYLIGHT
+TZOFFSETFROM:-0800
+RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=2SU
+DTSTART:20070311T020000
+TZNAME:PDT
+TZOFFSETTO:-0700
+END:DAYLIGHT
+BEGIN:STANDARD
+TZOFFSETFROM:-0700
+RRULE:FREQ=YEARLY;BYMONTH=11;BYDAY=1SU
+DTSTART:20071104T020000
+TZNAME:PST
+TZOFFSETTO:-0800
+END:STANDARD
+END:VTIMEZONE
+BEGIN:VEVENT
+CREATED:20111206T203543Z
+UID:5F7FF5FB-2253-4895-8BF1-76E8ED868B4C
+DTEND;TZID=America/Los_Angeles:20111207T153000
+RRULE:FREQ=WEEKLY;COUNT=400
+TRANSP:OPAQUE
+SUMMARY:bogus instance
+DTSTART;TZID=America/Los_Angeles:20111207T143000
+DTSTAMP:20111206T203553Z
+SEQUENCE:3
+END:VEVENT
+BEGIN:VEVENT
+CREATED:20111206T203543Z
+UID:5F7FF5FB-2253-4895-8BF1-76E8ED868B4C
+DTEND;TZID=America/Los_Angeles:20111221T124500
+TRANSP:OPAQUE
+SUMMARY:bogus instance
+DTSTART;TZID=America/Los_Angeles:20111221T114500
+DTSTAMP:20111206T203632Z
+SEQUENCE:5
+RECURRENCE-ID;TZID=America/Los_Angeles:20111221T143000
+END:VEVENT
+BEGIN:VEVENT
+CREATED:20111206T203543Z
+UID:5F7FF5FB-2253-4895-8BF1-76E8ED868B4C
+DTEND;TZID=America/Los_Angeles:20111214T163000
+TRANSP:OPAQUE
+SUMMARY:bogus instance
+DTSTART;TZID=America/Los_Angeles:20111214T153000
+DTSTAMP:20111206T203606Z
+SEQUENCE:4
+RECURRENCE-ID;TZID=America/Los_Angeles:20111215T143000
+END:VEVENT
+END:VCALENDAR
+"""
+        # Ensure it starts off invalid
+        calendar = Component.fromString(data)
+        try:
+            calendar.validCalendarData(doFix=False)
+        except InvalidICalendarDataError:
+            pass
+        else:
+            self.fail("Shouldn't validate for CalDAV")
+
+        # Fix it
+        calendar.validCalendarData(doFix=True)
+        self.assertTrue("RDATE:20111215T223000Z\r\n" in str(calendar))
+
+        # Now it should pass without fixing
+        calendar.validCalendarData(doFix=False)
+
 
     def test_component_timeranges(self):
         """
