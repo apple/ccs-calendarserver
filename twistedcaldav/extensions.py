@@ -349,7 +349,10 @@ class DirectoryPrincipalPropertySearchMixIn(object):
                     log.warn(msg)
                     raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, msg))
 
-                propertySearches.append((props.children, str(match), caseless, matchType))
+                # Ignore any query strings under three letters
+                matchText = str(match)
+                if len(matchText) >= 3:
+                    propertySearches.append((props.children, matchText, caseless, matchType))
 
             elif child.qname() == (calendarserver_namespace, "limit"):
                 try:
