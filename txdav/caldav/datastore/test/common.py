@@ -68,6 +68,9 @@ homeSplitsRoot = storePath.child("ho").child("me").child("home_splits")
 cal1SplitsRoot = homeSplitsRoot.child("calendar_1")
 cal2SplitsRoot = homeSplitsRoot.child("calendar_2")
 
+homeNoSplitsRoot = storePath.child("ho").child("me").child("home_no_splits")
+cal1NoSplitsRoot = homeNoSplitsRoot.child("calendar_1")
+
 calendar1_objectNames = [
     "1.ics",
     "2.ics",
@@ -254,6 +257,13 @@ class CommonTests(CommonCommonTests):
                 "5.ics": (cal2SplitsRoot.child("5.ics").getContent(), metadata4),
             },
         },
+        "home_no_splits": {
+            "calendar_1": {
+                "1.ics": (cal1NoSplitsRoot.child("1.ics").getContent(), metadata1),
+                "2.ics": (cal1NoSplitsRoot.child("2.ics").getContent(), metadata2),
+                "3.ics": (cal1NoSplitsRoot.child("3.ics").getContent(), metadata3),
+            },
+        },
         "home_splits_shared": {
             "calendar_1": {},
         },
@@ -283,6 +293,13 @@ class CommonTests(CommonCommonTests):
                 "3.ics": md5Values[2],
                 "4.ics": md5Values[3],
                 "5.ics": md5Values[4],
+            },
+        },
+        "home_no_splits": {
+            "calendar_1": {
+                "1.ics": md5Values[0],
+                "2.ics": md5Values[1],
+                "3.ics": md5Values[2],
             },
         },
     }

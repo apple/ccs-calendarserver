@@ -82,6 +82,8 @@ from pycalendar.timezone import PyCalendarTimezone
 
 from zope.interface.declarations import implements
 
+import uuid
+
 class CalendarHome(CommonHome):
 
     implements(ICalendarHome)
@@ -248,6 +250,30 @@ class CalendarHome(CommonHome):
             split_count = yield calendar.splitCollectionByComponentTypes()
             self.log_warn("  Calendar: '%s', split into %d" % (calendar.name(), split_count+1,))
 
+        # Double check that we have calendars supporting at least VEVENT and VTODO
+        if config.RestrictCalendarsToOneComponentType:
+            supported_components = set()
+            names = set()
+            calendars = yield self.calendars()
+            for calendar in calendars:
+                if calendar.name() == "inbox":
+                    continue
+                names.add(calendar.name())
+                result = yield calendar.getSupportedComponents()
+                supported_components.update(result.split(","))
+
+            @inlineCallbacks
+            def _requireCalendarWithType(support_component, tryname):
+                if support_component not in supported_components:
+                    newname = tryname
+                    if newname in names:
+                        newname = str(uuid.uuid4())
+                    newcal = yield self.createCalendarWithName(newname)
+                    newcal.setSupportedComponents(support_component)
+            
+            yield _requireCalendarWithType("VEVENT", "calendar")
+            yield _requireCalendarWithType("VTODO", "tasks")
+                
 class Calendar(CommonHomeChild):
     """
     File-based implementation of L{ICalendar}.

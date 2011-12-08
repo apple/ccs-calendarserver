@@ -832,3 +832,29 @@ class CalendarSQLStorageTests(CalendarCommonTests, unittest.TestCase):
         self.assertEqual(sorted(deleted), ["3.ics", "5.ics"])
         result = yield calendar2.getSupportedComponents()
         self.assertEquals(result, "VEVENT")
+
+    @inlineCallbacks
+    def test_noSplitCalendars(self):
+        """
+        Test CalendarHome.splitCalendars to make sure we end up with at least two collections
+        with different supported components.
+        """
+        
+        # Do split
+        home = yield self.transactionUnderTest().calendarHomeWithUID("home_no_splits")
+        calendars = yield home.calendars()
+        self.assertEqual(len(calendars), 1)
+        yield home.splitCalendars()
+        yield self.commit()
+
+        # Make sure we have calendars supporting both VEVENT and VTODO
+        home = yield self.transactionUnderTest().calendarHomeWithUID("home_no_splits")
+        supported_components = set()
+        calendars = yield home.calendars()
+        for calendar in calendars:
+            if calendar.name() == "inbox":
+                continue
+            result = yield calendar.getSupportedComponents()
+            supported_components.add(result)
+            
+        self.assertEqual(supported_components, set(("VEVENT", "VTODO",)))
