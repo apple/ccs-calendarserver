@@ -113,6 +113,75 @@ httpMethods = set((
     "SEARCH",
 ))
 
+# Adjust method names
+
+# PROPFINDs
+METHOD_PROPFIND_CALENDAR_HOME = "PROPFIND Calendar Home"
+METHOD_PROPFIND_CACHED_CALENDAR_HOME = "PROPFIND cached Calendar Home"
+METHOD_PROPFIND_CALENDAR = "PROPFIND Calendar"
+METHOD_PROPFIND_ADDRESSBOOK_HOME = "PROPFIND Adbk Home"
+METHOD_PROPFIND_CACHED_ADDRESSBOOK_HOME = "PROPFIND cached Adbk Home"
+METHOD_PROPFIND_ADDRESSBOOK = "PROPFIND Adbk"
+METHOD_PROPFIND_DIRECTORY = "PROPFIND Directory"
+METHOD_PROPFIND_PRINCIPALS = "PROPFIND Principals"
+METHOD_PROPFIND_CACHED_PRINCIPALS = "PROPFIND cached Principals"
+
+# PROPPATCHs
+METHOD_PROPPATCH_CALENDAR = "PROPPATCH Calendar"
+METHOD_PROPPATCH_ADDRESSBOOK = "PROPPATCH Adbk Home"
+
+# REPORTs
+METHOD_REPORT_CALENDAR_MULTIGET = "REPORT cal-multi"
+METHOD_REPORT_ADDRESSBOOK_MULTIGET = "REPORT adbk-multi"
+METHOD_REPORT_CALENDAR_QUERY = "REPORT cal-query"
+METHOD_REPORT_ADDRESSBOOK_QUERY = "REPORT adbk-query"
+METHOD_REPORT_DIRECTORY_QUERY = "REPORT dir-query"
+METHOD_REPORT_CALENDAR_SYNC = "REPORT cal-sync"
+METHOD_REPORT_ADDRESSBOOK_SYNC = "REPORT adbk-sync"
+METHOD_REPORT_P_SEARCH_P_SET = "REPORT p-set"
+METHOD_REPORT_P_P_SEARCH = "REPORT p-search"
+METHOD_REPORT_EXPAND_P = "REPORT expand"
+
+# POSTs
+METHOD_POST_CALENDAR_HOME = "POST Calendar Home"
+METHOD_POST_CALENDAR = "POST Calendar"
+METHOD_POST_ADDRESSBOOK_HOME = "POST Adbk Home"
+METHOD_POST_ADDRESSBOOK = "POST Adbk"
+METHOD_POST_ISCHEDULE_FREEBUSY = "POST Freebusy iSchedule"
+METHOD_POST_ISCHEDULE = "POST iSchedule"
+METHOD_POST_TIMEZONES = "POST Timezones"
+METHOD_POST_FREEBUSY = "POST Freebusy"
+METHOD_POST_OUTBOX = "POST Outbox"
+METHOD_POST_APNS = "POST apns"
+
+# PUTs
+METHOD_PUT_ICS = "PUT ics"
+METHOD_PUT_ORGANIZER = "PUT Organizer"
+METHOD_PUT_ATTENDEE = "PUT Attendee"
+METHOD_PUT_DROPBOX = "PUT dropbox"
+METHOD_PUT_VCF = "PUT VCF"
+
+# GETs
+METHOD_GET_CALENDAR_HOME = "GET Calendar Home"
+METHOD_GET_CALENDAR = "GET Calendar"
+METHOD_GET_ICS = "GET ics"
+METHOD_GET_INBOX_ICS = "GET inbox ics"
+METHOD_GET_DROPBOX = "GET dropbox"
+METHOD_GET_ADDRESSBOOK_HOME = "GET Adbk Home"
+METHOD_GET_ADDRESSBOOK = "GET Adbk"
+METHOD_GET_VCF = "GET VCF"
+METHOD_GET_TIMEZONES = "GET Timezones"
+
+# DELETEs
+METHOD_DELETE_CALENDAR_HOME = "DELETE Calendar Home"
+METHOD_DELETE_CALENDAR = "DELETE Calendar"
+METHOD_DELETE_ICS = "DELETE ics"
+METHOD_DELETE_INBOX_ICS = "DELETE inbox ics"
+METHOD_DELETE_DROPBOX = "DELETE dropbox"
+METHOD_DELETE_ADDRESSBOOK_HOME = "DELETE Adbk Home"
+METHOD_DELETE_ADDRESSBOOK = "DELETE Adbk"
+METHOD_DELETE_VCF = "DELETE vcf"
+
 class CalendarServerLogAnalyzer(object):
     
     """
@@ -158,6 +227,7 @@ class CalendarServerLogAnalyzer(object):
         self.startHour = startHour
         self.endHour = endHour
         self.utcoffset = utcoffset
+        self.logStart = None
         self.filterByUser = filterByUser
         self.filterByClient = filterByClient
         self.ignoreNonHTTPMethods = ignoreNonHTTPMethods
@@ -170,7 +240,7 @@ class CalendarServerLogAnalyzer(object):
         
         self.resolutionMinutes = resolutionMinutes
         self.timeBucketCount = (24 * 60) / resolutionMinutes
-        self.loggedUTCOffset = utcoffset
+        self.loggedUTCOffset = None
 
         self.hourlyTotals = [[0, 0, 0, collections.defaultdict(int), 0.0,] for _ignore in xrange(self.timeBucketCount)]
         
@@ -239,7 +309,10 @@ class CalendarServerLogAnalyzer(object):
                 # Do hour ranges
                 logHour = int(self.currentLine.logTime[0:2])
                 logMinute = int(self.currentLine.logTime[3:5])
-                hourFromStart = logHour + (0 if self.utcoffset is None else self.utcoffset) - self.startHour
+                
+                if self.logStart is None:
+                    self.logStart = logHour
+                hourFromStart = logHour - self.logStart - self.startHour
                 if hourFromStart < 0:
                     hourFromStart += 24
                 if logHour < self.startHour:
@@ -318,24 +391,32 @@ class CalendarServerLogAnalyzer(object):
                 self.hourlyByStatus[self.currentLine.status][timeBucketIndex] += 1
     
                 # Cache analysis
-                if adjustedMethod == "PROPFIND Calendar" and self.currentLine.status == 207:
+                if adjustedMethod == METHOD_PROPFIND_CALENDAR and self.currentLine.status == 207:
                     responses = int(self.currentLine.extended.get("responses", 0))
                     self.hourlyPropfindByResponseCount[" TOTAL"][timeBucketIndex] += 1
                     self.hourlyPropfindByResponseCount[self.getCountBucket(responses, responseCountBuckets)][timeBucketIndex] += 1
     
                 # Scheduling analysis
-                if adjustedMethod == "POST Freebusy" and "freebusy" in self.currentLine.extended:
-                    recipients = int(self.currentLine.extended["freebusy"])
+                if adjustedMethod == METHOD_POST_FREEBUSY:
+                    recipients = int(self.currentLine.extended["recipients"])
                     self.hourlyByRecipientCount["Freebusy One Offs" if recipients == 1 else "Freebusy Average"][timeBucketIndex][0] += 1
                     self.hourlyByRecipientCount["Freebusy One Offs" if recipients == 1 else "Freebusy Average"][timeBucketIndex][1] += recipients
                     self.hourlyByRecipientCount["Freebusy Max."][timeBucketIndex][0] = max(self.hourlyByRecipientCount["Freebusy Max."][timeBucketIndex][0], recipients)
-                elif adjustedMethod == "POST iTIP Organizer":
-                    for key, value in self.currentLine.extended.iteritems():
-                        if key.startswith("itip."):
-                            recipients = int(value)
-                            self.hourlyByRecipientCount["iTIP Average"][timeBucketIndex][0] += 1
-                            self.hourlyByRecipientCount["iTIP Average"][timeBucketIndex][1] += recipients
-                            self.hourlyByRecipientCount["iTIP Max."][timeBucketIndex][0] = max(self.hourlyByRecipientCount["iTIP Max."][timeBucketIndex][0], recipients)
+                elif adjustedMethod == METHOD_PUT_ORGANIZER:
+                    recipients = int(self.currentLine.extended["itip.requests"])
+                    self.hourlyByRecipientCount["iTIP Average"][timeBucketIndex][0] += 1
+                    self.hourlyByRecipientCount["iTIP Average"][timeBucketIndex][1] += recipients
+                    self.hourlyByRecipientCount["iTIP Max."][timeBucketIndex][0] = max(self.hourlyByRecipientCount["iTIP Max."][timeBucketIndex][0], recipients)
+                elif adjustedMethod == METHOD_POST_ISCHEDULE_FREEBUSY:
+                    recipients = int(self.currentLine.extended["recipients"])
+                    self.hourlyByRecipientCount["iFreebusy One Offs" if recipients == 1 else "iFreebusy Average"][timeBucketIndex][0] += 1
+                    self.hourlyByRecipientCount["iFreebusy One Offs" if recipients == 1 else "iFreebusy Average"][timeBucketIndex][1] += recipients
+                    self.hourlyByRecipientCount["iFreebusy Max."][timeBucketIndex][0] = max(self.hourlyByRecipientCount["iFreebusy Max."][timeBucketIndex][0], recipients)
+                elif adjustedMethod == METHOD_POST_ISCHEDULE:
+                    recipients = int(self.currentLine.extended["recipients"])
+                    self.hourlyByRecipientCount["iSchedule Average"][timeBucketIndex][0] += 1
+                    self.hourlyByRecipientCount["iSchedule Average"][timeBucketIndex][1] += recipients
+                    self.hourlyByRecipientCount["iSchedule Max."][timeBucketIndex][0] = max(self.hourlyByRecipientCount["iSchedule Max."][timeBucketIndex][0], recipients)
     
                 # Queue depth analysis
                 self.responseTimeVsQueueDepth[queueDepth][0] += 1
@@ -348,7 +429,7 @@ class CalendarServerLogAnalyzer(object):
                 if contentLength != -1:
                     self.requestSizeByBucket[" TOTAL"][timeBucketIndex] += 1
                     self.requestSizeByBucket[self.getCountBucket(contentLength, requestSizeBuckets)][timeBucketIndex] += 1
-                if adjustedMethod != "GET Dropbox":
+                if adjustedMethod != METHOD_GET_DROPBOX:
                     self.responseSizeByBucket[" TOTAL"][timeBucketIndex] += 1
                     self.responseSizeByBucket[self.getCountBucket(self.currentLine.bytes, responseSizeBuckets)][timeBucketIndex] += 1
                     
@@ -392,7 +473,7 @@ class CalendarServerLogAnalyzer(object):
         self.averagedHourlyByRecipientCount.clear()
         for method, value in self.hourlyByRecipientCount.iteritems():
             for hour in xrange(self.timeBucketCount):
-                if method in ("Freebusy Average", "iTIP Average",):
+                if method in ("Freebusy Average", "iTIP Average", "iFreebusy Average", "iSchedule Average",):
                     newValue = ((1.0 * value[hour][1]) / value[hour][0]) if value[hour][0] != 0 else 0
                 else:
                     newValue = value[hour][0]
@@ -530,28 +611,28 @@ class CalendarServerLogAnalyzer(object):
             if uribits[0] == "calendars":
                 
                 if len(uribits) == 3:
-                    return "PROPFIND%s Calendar Home" % (" cached" if cached else "")
+                    return METHOD_PROPFIND_CACHED_CALENDAR_HOME if cached else METHOD_PROPFIND_CALENDAR_HOME
                 elif len(uribits) > 3:
                     if uribits[3] in calendar_specials:
                         return "PROPFIND %s" % (uribits[3],)
                     elif len(uribits) == 4:
-                        return "PROPFIND Calendar"
+                        return METHOD_PROPFIND_CALENDAR
     
             elif uribits[0] == "addressbooks":
                 
                 if len(uribits) == 3:
-                    return "PROPFIND%s Adbk Home" % (" cached" if cached else "")
+                    return METHOD_PROPFIND_CACHED_ADDRESSBOOK_HOME if cached else METHOD_PROPFIND_ADDRESSBOOK_HOME
                 elif len(uribits) > 3:
                     if uribits[3] in adbk_specials:
                         return "PROPFIND %s" % (uribits[3],)
                     elif len(uribits) == 4:
-                        return "PROPFIND Adbk"
+                        return METHOD_PROPFIND_ADDRESSBOOK
     
             elif uribits[0] == "directory":
-                return "PROPFIND%s directory" % (" cached" if cached else "")
+                return METHOD_PROPFIND_DIRECTORY
     
             elif uribits[0] == "principals":
-                return "PROPFIND%s Principal" % (" cached" if cached else "")
+                return METHOD_PROPFIND_CACHED_PRINCIPALS if cached else METHOD_PROPFIND_PRINCIPALS
         
         elif self.currentLine.method.startswith("REPORT"):
             
@@ -560,66 +641,70 @@ class CalendarServerLogAnalyzer(object):
                 if report_type == "addressbook-query":
                     if uribits[0] == "directory":
                         report_type = "directory-query"
-                shorter = {
-                    "calendar-multiget"             : "cal-multi",
-                    "addressbook-multiget"          : "adbk-multi",
-                    "calendar-query"                : "cal-query",
-                    "addressbook-query"             : "adbk-query",
-                    "directory-query"               : "directory",
-                    "sync-collection"               : "sync",
-                    "principal-search-property-set" : "p-set",
-                    "principal-property-search"     : "p-search",
-                    "expand-property"               : "expand",
+                if report_type == "sync-collection":
+                    if uribits[0] == "calendars":
+                        report_type = "cal-sync"
+                    elif uribits[0] == "addressbooks":
+                        report_type = "adbk-sync"
+                mappedNames = {
+                    "calendar-multiget"             : METHOD_REPORT_CALENDAR_MULTIGET,
+                    "addressbook-multiget"          : METHOD_REPORT_ADDRESSBOOK_MULTIGET,
+                    "calendar-query"                : METHOD_REPORT_CALENDAR_QUERY,
+                    "addressbook-query"             : METHOD_REPORT_ADDRESSBOOK_QUERY,
+                    "directory-query"               : METHOD_REPORT_DIRECTORY_QUERY,
+                    "cal-sync-collection"           : METHOD_REPORT_CALENDAR_SYNC,
+                    "adbk-sync-collection"          : METHOD_REPORT_ADDRESSBOOK_SYNC,
+                    "principal-search-property-set" : METHOD_REPORT_P_SEARCH_P_SET,
+                    "principal-property-search"     : METHOD_REPORT_P_P_SEARCH,
+                    "expand-property"               : METHOD_REPORT_EXPAND_P,
                 }
-                return "REPORT %s" % (shorter.get(report_type, report_type),)
+                return mappedNames.get(report_type, report_type)
         
         elif self.currentLine.method == "PROPPATCH":
             
             if uribits[0] == "calendars":
-                return "PROPPATCH Calendar"
+                return METHOD_PROPPATCH_CALENDAR
+            elif uribits[0] == "addressbooks":
+                return METHOD_PROPPATCH_ADDRESSBOOK
             
         elif self.currentLine.method == "POST":
             
-            if uribits[0] == "calendars" and len(uribits) == 4 and uribits[3] == "outbox":
-                if "freebusy" in self.currentLine.extended:
-                    return "POST Freebusy"
-                else:
-                    for key in ("itip.publish", "itip.request", "itip.cancel", "itip.add", "itip.decline-counter",):
-                        if key in self.currentLine.extended:
-                            return "POST Organizer"
-                    else:
-                        return "POST Attendee"
-            elif uribits[0] == "calendars":
+            if uribits[0] == "calendars":
                 
                 if len(uribits) == 3:
-                    return "POST Calendar Home"
+                    return METHOD_POST_CALENDAR_HOME
                 elif len(uribits) == 4:
                     if uribits[3] == "outbox":
-                        if "freebusy" in self.currentLine.extended:
-                            return "POST Freebusy"
+                        if "recipients" in self.currentLine.extended:
+                            return METHOD_POST_FREEBUSY
                         else:
-                            for key in ("itip.publish", "itip.request", "itip.cancel", "itip.add", "itip.decline-counter",):
-                                if key in self.currentLine.extended:
-                                    return "POST Organizer"
-                            else:
-                                return "POST Attendee"
+                            return METHOD_POST_OUTBOX
                     elif uribits[3] in calendar_specials:
                         pass
                     else:
-                        return "POST Calendar"
+                        return METHOD_POST_CALENDAR
     
             elif uribits[0] == "addressbooks":
                 
                 if len(uribits) == 3:
-                    return "POST Adbk Home"
+                    return METHOD_POST_ADDRESSBOOK_HOME
                 elif len(uribits) == 4:
                     if uribits[3] in adbk_specials:
                         pass
                     else:
-                        return "POST Adbk"
+                        return METHOD_POST_ADDRESSBOOK
 
+            elif uribits[0] == "ischedule":
+                if "fb-cached" in self.currentLine.extended or "fb-uncached" in self.currentLine.extended:
+                    return METHOD_POST_ISCHEDULE_FREEBUSY
+                else:
+                    return METHOD_POST_ISCHEDULE
+            
             elif uribits[0].startswith("timezones"):
-                return "POST Timezones"
+                return METHOD_POST_TIMEZONES
+            
+            elif uribits[0].startswith("apns"):
+                return METHOD_POST_APNS
             
         elif self.currentLine.method == "PUT":
             
@@ -628,77 +713,82 @@ class CalendarServerLogAnalyzer(object):
                     if uribits[3] in calendar_specials:
                         return "PUT %s" % (uribits[3],)
                     elif len(uribits) == 4:
-                        return "PUT Calendar"
+                        pass
                     else:
-                        return "PUT ics"
+                        if "itip.requests" in self.currentLine.extended:
+                            return METHOD_PUT_ORGANIZER
+                        elif "itip.reply" in self.currentLine.extended:
+                            return METHOD_PUT_ATTENDEE
+                        else:
+                            return METHOD_PUT_ICS
 
             elif uribits[0] == "addressbooks":
                 if len(uribits) > 3:
                     if uribits[3] in adbk_specials:
                         return "PUT %s" % (uribits[3],)
                     elif len(uribits) == 4:
-                        return "PUT Adbk"
+                        pass
                     else:
-                        return "PUT vcf"
+                        return METHOD_PUT_VCF
         
         elif self.currentLine.method == "GET":
             
             if uribits[0] == "calendars":
                 
                 if len(uribits) == 3:
-                    return "GET Calendar Home"
+                    return METHOD_GET_CALENDAR_HOME
                 elif len(uribits) > 3:
                     if uribits[3] in calendar_specials:
                         return "GET %s" % (uribits[3],)
                     elif len(uribits) == 4:
-                        return "GET Calendar"
+                        return METHOD_GET_CALENDAR
                     elif uribits[3] == "inbox":
-                        return "GET inbox ics"
+                        return METHOD_GET_INBOX_ICS
                     else:
-                        return "GET ics"
+                        return METHOD_GET_ICS
     
             elif uribits[0] == "addressbooks":
                 
                 if len(uribits) == 3:
-                    return "GET Adbk Home"
+                    return METHOD_GET_ADDRESSBOOK_HOME
                 elif len(uribits) > 3:
                     if uribits[3] in adbk_specials:
                         return "GET %s" % (uribits[3],)
                     elif len(uribits) == 4:
-                        return "GET Adbk"
+                        return METHOD_GET_ADDRESSBOOK
                     else:
-                        return "GET vcf"
+                        return METHOD_GET_VCF
 
             elif uribits[0].startswith("timezones"):
-                return "GET Timezones"
+                return METHOD_GET_TIMEZONES
 
         elif self.currentLine.method == "DELETE":
             
             if uribits[0] == "calendars":
                 
                 if len(uribits) == 3:
-                    return "DELETE Calendar Home"
+                    return METHOD_DELETE_CALENDAR_HOME
                 elif len(uribits) > 3:
                     if uribits[3] in calendar_specials:
                         return "DELETE %s" % (uribits[3],)
                     elif len(uribits) == 4:
-                        return "DELETE Calendar"
+                        return METHOD_DELETE_CALENDAR
                     elif uribits[3] == "inbox":
-                        return "DELETE inbox ics"
+                        return METHOD_DELETE_INBOX_ICS
                     else:
-                        return "DELETE ics"
+                        return METHOD_DELETE_ICS
     
             elif uribits[0] == "addressbooks":
                 
                 if len(uribits) == 3:
-                    return "DELETE Adbk Home"
+                    return METHOD_DELETE_ADDRESSBOOK_HOME
                 elif len(uribits) > 3:
                     if uribits[3] in adbk_specials:
                         return "DELETE %s" % (uribits[3],)
                     elif len(uribits) == 4:
-                        return "DELETE Adbk"
+                        return METHOD_DELETE_ADDRESSBOOK
                     else:
-                        return "DELETE vcf"
+                        return METHOD_DELETE_VCF
 
         return self.currentLine.method
     
@@ -716,30 +806,32 @@ class CalendarServerLogAnalyzer(object):
         "ACL": lambda x: 3,
         "DELETE" : lambda x: 5,
         "GET" : lambda x:  3 * (1 + x.bytes / (1024 * 1024)),
-        "GET Dropbox" : lambda x: 3 * (1 + x.bytes / (1024 * 1024)),
+        METHOD_GET_DROPBOX : lambda x: 3 * (1 + x.bytes / (1024 * 1024)),
         "HEAD" : lambda x: 1,
         "MKCALENDAR" : lambda x: 2,
         "MKCOL" : lambda x: 2,
         "MOVE" : lambda x: 3,
         "OPTIONS" : lambda x: 1,
-        "POST Freebusy" : lambda x: 5 * int(x.extended.get("recipients", 1)),
-        "POST iTIP Organizer" : lambda x: 5 * int(x.extended.get("recipients", 1)),
-        "POST iTIP Attendee" : lambda x: 5 * int(x.extended.get("recipients", 1)),
+        METHOD_POST_FREEBUSY : lambda x: 5 * int(x.extended.get("recipients", 1)),
+        METHOD_PUT_ORGANIZER : lambda x: 5 * int(x.extended.get("recipients", 1)),
+        METHOD_PUT_ATTENDEE : lambda x: 5 * int(x.extended.get("recipients", 1)),
         "PROPFIND" : lambda x: 3 * int(x.extended.get("responses", 1)),
-        "PROPFIND Calendar" : lambda x: 5 * (int(math.log10(float(x.extended.get("responses", 1)))) + 1),
-        "PROPFIND Calendar Home" : lambda x: 5 * (int(math.log10(float(x.extended.get("responses", 1)))) + 1),
-        "PROPFIND Inbox" : lambda x: 5 * (int(math.log10(float(x.extended.get("responses", 1)))) + 1),
-        "PROPFIND Principal" : lambda x: 5 * (int(math.log10(float(x.extended.get("responses", 1)))) + 1),
-        "PROPFIND-cached Calendar Home" : lambda x: 2,
-        "PROPFIND-cached Principal" : lambda x: 2,
+        METHOD_PROPFIND_CALENDAR : lambda x: 5 * (int(math.log10(float(x.extended.get("responses", 1)))) + 1),
+        METHOD_PROPFIND_CALENDAR_HOME : lambda x: 5 * (int(math.log10(float(x.extended.get("responses", 1)))) + 1),
+        "PROPFIND inbox" : lambda x: 5 * (int(math.log10(float(x.extended.get("responses", 1)))) + 1),
+        METHOD_PROPFIND_PRINCIPALS : lambda x: 5 * (int(math.log10(float(x.extended.get("responses", 1)))) + 1),
+        METHOD_PROPFIND_CACHED_CALENDAR_HOME : lambda x: 2,
+        METHOD_PROPFIND_CACHED_PRINCIPALS : lambda x: 2,
         "PROPPATCH" : lambda x: 4,
-        "PROPPATCH Calendar" : lambda x:8,
-        "PUT" : lambda x: 8,
-        "PUT Dropbox" : lambda x: 10,
+        METHOD_PROPPATCH_CALENDAR : lambda x:8,
+        METHOD_PUT_ICS : lambda x: 4,
+        METHOD_PUT_ORGANIZER : lambda x: 8,
+        METHOD_PUT_ATTENDEE : lambda x: 6,
+        METHOD_PUT_DROPBOX : lambda x: 10,
         "REPORT" : lambda x: 5,
-        "REPORT calendar-multiget" : lambda x: 5 * int(x.extended.get("rcount", 1)),
-        "REPORT calendar-query" : lambda x: 4 * int(x.extended.get("responses", 1)),
-        "REPORT expand-property" : lambda x: 5,
+        METHOD_REPORT_CALENDAR_MULTIGET : lambda x: 5 * int(x.extended.get("rcount", 1)),
+        METHOD_REPORT_CALENDAR_QUERY : lambda x: 4 * int(x.extended.get("responses", 1)),
+        METHOD_REPORT_EXPAND_P : lambda x: 5,
         "REPORT principal-match" : lambda x: 5,
     }
 
@@ -795,7 +887,7 @@ class CalendarServerLogAnalyzer(object):
         self.printHourlyByXXXDetails(self.hourlyByMethodCount, doTabs)
         
         print "Protocol Analysis Average Response Time (ms)"
-        self.printHourlyByXXXDetails(self.averagedHourlyByMethodTime, doTabs)
+        self.printHourlyByXXXDetails(self.averagedHourlyByMethodTime, doTabs, showAverages=True)
         
         print "Status Code Analysis"
         self.printHourlyByXXXDetails(self.hourlyByStatus, doTabs)
@@ -874,8 +966,8 @@ class CalendarServerLogAnalyzer(object):
         totalminutes = index * self.resolutionMinutes
         
         offsethour, minute = divmod(totalminutes, 60)
-        localhour = divmod(offsethour + self.startHour, 24)[1]
-        utchour = divmod(localhour - self.loggedUTCOffset, 24)[1]
+        utchour = divmod(offsethour + self.loggedUTCOffset + self.startHour, 24)[1]
+        localhour = divmod(utchour + self.utcoffset, 24)[1]
         
         # Clip to select hour range
         return "%02d:%02d (%02d:%02d)" % (localhour, minute, utchour, minute,)
@@ -966,7 +1058,7 @@ class CalendarServerLogAnalyzer(object):
         table.printTabDelimitedData() if doTabs else table.printTable()
         print ""
     
-    def printHourlyByXXXDetails(self, hourlyByXXX, doTabs, showTotals=True):
+    def printHourlyByXXXDetails(self, hourlyByXXX, doTabs, showTotals=True, showAverages=False):
     
         totals = [0,] * len(hourlyByXXX)
         table = tables.Table()
@@ -1033,13 +1125,14 @@ class CalendarServerLogAnalyzer(object):
                     totals[colctr] += data
             table.addRow(row)
     
-        if showTotals:
+        if showTotals or showAverages:
             row = ["-"] * (len(hourlyByXXX) + 1)
-            row[0] = "Total:"
+            row[0] = "Average:" if showAverages else "Total:"
             for colctr, data in enumerate(totals):
                 if type(data) is int:
                     row[colctr + 1] = "%d (%2d%%)" % (data, safePercent(data, totals[0]),)
                 elif type(data) is float:
+                    data = (data / self.timeBucketCount) if showAverages else data
                     row[colctr + 1] = "%.1f" % (data,)
             table.addFooter(row)
     
@@ -1093,16 +1186,16 @@ class CalendarServerLogAnalyzer(object):
             row = []
             row.append(hour)
     
-            calHomeUncached = self.hourlyByOKMethodCount["PROPFIND Calendar Home"][ctr]
-            calHomeCached = self.hourlyByOKMethodCount["PROPFIND-cached Calendar Home"][ctr]
+            calHomeUncached = self.hourlyByOKMethodCount[METHOD_PROPFIND_CALENDAR_HOME][ctr]
+            calHomeCached = self.hourlyByOKMethodCount[METHOD_PROPFIND_CACHED_CALENDAR_HOME][ctr]
             calHomeTotal = calHomeUncached + calHomeCached
             
-            adbkHomeUncached = self.hourlyByOKMethodCount["PROPFIND Adbk Home"][ctr]
-            adbkHomeCached = self.hourlyByOKMethodCount["PROPFIND-cached Adbk Home"][ctr]
+            adbkHomeUncached = self.hourlyByOKMethodCount[METHOD_PROPFIND_ADDRESSBOOK_HOME][ctr]
+            adbkHomeCached = self.hourlyByOKMethodCount[METHOD_PROPFIND_CACHED_ADDRESSBOOK_HOME][ctr]
             adbkHomeTotal = adbkHomeUncached + adbkHomeCached
             
-            principalUncached = self.hourlyByOKMethodCount["PROPFIND Principal"][ctr]
-            principalCached = self.hourlyByOKMethodCount["PROPFIND-cached Principal"][ctr]
+            principalUncached = self.hourlyByOKMethodCount[METHOD_PROPFIND_PRINCIPALS][ctr]
+            principalCached = self.hourlyByOKMethodCount[METHOD_PROPFIND_CACHED_PRINCIPALS][ctr]
             principalTotal = principalUncached + principalCached
             
             
@@ -1327,7 +1420,7 @@ class CalendarServerLogAnalyzer(object):
                 tables.Table.ColumnFormat("%0.2f", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
                 ))
         table.addHeader(("# users accessed", "# of users", "% of users"))
-        summary = self.summarizeUserInteraction("PROPFIND Calendar Home")
+        summary = self.summarizeUserInteraction(METHOD_PROPFIND_CALENDAR_HOME)
         total = sum(summary.values())
         for k, v in sorted(summary.iteritems()):
             # Chop off the "(a):" part.
