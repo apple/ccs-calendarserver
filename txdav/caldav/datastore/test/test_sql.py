@@ -40,7 +40,7 @@ from txdav.common.datastore.sql_tables import schema, _BIND_MODE_DIRECT,\
 from txdav.common.datastore.test.util import buildStore, populateCalendarsFrom
 
 from twistedcaldav import caldavxml
-
+from twistedcaldav.config import config
 from twistedcaldav.dateops import datetimeMktime
 from twistedcaldav.query import calendarqueryfilter
 from twistedcaldav.sharing import SharedCollectionRecord
@@ -228,6 +228,10 @@ class CalendarSQLStorageTests(CalendarCommonTests, unittest.TestCase):
         backend to another; in this specific case, from the file-based backend
         to the SQL-based backend.
         """
+        
+        # Need to turn of split calendar behavior just for this test
+        self.patch(config, "RestrictCalendarsToOneComponentType", False)
+
         fromHome = yield self.fileTransaction().calendarHomeWithUID("home1")
 
         builtinProperties = [PropertyName.fromElement(ResourceType)]
@@ -256,6 +260,60 @@ class CalendarSQLStorageTests(CalendarCommonTests, unittest.TestCase):
             )
         self.assertPropertiesSimilar(fromHome, toHome, builtinProperties)
 
+
+    @inlineCallbacks
+    def test_migrateHomeSplits(self):
+        """
+        Make sure L{migrateHome} also splits calendars by component type.
+        """
+        fromHome = yield self.fileTransaction().calendarHomeWithUID("home_splits")
+        toHome = yield self.transactionUnderTest().calendarHomeWithUID(
+            "new-home", create=True
+        )
+        yield migrateHome(fromHome, toHome, lambda x: x.component())
+        toCalendars = yield toHome.calendars()
+        fromCalendars = yield fromHome.calendars()
+        for c in fromCalendars:
+            self.assertTrue(
+                (yield toHome.calendarWithName(c.name())) is not None
+            )
+
+        supported_components = set()
+        self.assertEqual(len(toCalendars), 3)
+        for calendar in toCalendars:
+            if calendar.name() == "inbox":
+                continue
+            result = yield calendar.getSupportedComponents()
+            supported_components.add(result)
+            
+        self.assertEqual(supported_components, set(("VEVENT", "VTODO",)))
+
+    @inlineCallbacks
+    def test_migrateHomeNoSplits(self):
+        """
+        Make sure L{migrateHome} also splits calendars by component type.
+        """
+        fromHome = yield self.fileTransaction().calendarHomeWithUID("home_no_splits")
+        toHome = yield self.transactionUnderTest().calendarHomeWithUID(
+            "new-home", create=True
+        )
+        yield migrateHome(fromHome, toHome, lambda x: x.component())
+        toCalendars = yield toHome.calendars()
+        fromCalendars = yield fromHome.calendars()
+        for c in fromCalendars:
+            self.assertTrue(
+                (yield toHome.calendarWithName(c.name())) is not None
+            )
+
+        supported_components = set()
+        self.assertEqual(len(toCalendars), 2)
+        for calendar in toCalendars:
+            if calendar.name() == "inbox":
+                continue
+            result = yield calendar.getSupportedComponents()
+            supported_components.add(result)
+            
+        self.assertEqual(supported_components, set(("VEVENT", "VTODO",)))
 
     def test_calendarHomeVersion(self):
         """

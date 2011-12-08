@@ -297,6 +297,9 @@ def migrateHome(inHome, outHome, getComponent=lambda x: x.component()):
     # No migration for notifications, since they weren't present in earlier
     # released versions of CalendarServer.
 
+    # May need to split calendars by component type
+    if config.RestrictCalendarsToOneComponentType:
+        yield outHome.splitCalendars()
 
 class CalendarObjectBase(object):
     """
