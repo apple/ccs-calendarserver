@@ -1,5 +1,5 @@
 
-# Copyright (c) 2005-2010 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2011 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -110,17 +110,19 @@ class Scheduler(object):
 
         # We might trigger an implicit scheduling operation here that will require consistency
         # of data for all events with the same UID. So detect this and use a lock
-        lock = None
         if self.calendar.resourceType() != "VFREEBUSY":
             uid = self.calendar.resourceUID()
-            lock = MemcacheLock("ImplicitUIDLock", uid, timeout=60.0, expire_time=5*60)
+            lock = MemcacheLock(
+                "ImplicitUIDLock",
+                uid,
+                timeout=config.Scheduling.Options.UIDLockTimeoutSeconds,
+                expire_time=config.Scheduling.Options.UIDLockExpirySeconds,
+            )
 
-        # Implicit lock
-        if lock:
             try:
                 yield lock.acquire()
             except MemcacheLockTimeoutError:
-                raise HTTPError(StatusResponse(responsecode.CONFLICT, "Resource: %s currently in use on the server." % (self.uri,)))
+                raise HTTPError(StatusResponse(responsecode.CONFLICT, "UID: %s currently in use on the server." % (uid,)))
             else:
                 # Release lock after commit or abort
                 transaction.postCommit(lock.clean)

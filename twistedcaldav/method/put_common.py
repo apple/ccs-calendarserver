@@ -66,7 +66,12 @@ class StoreCalendarObjectResource(object):
             if internal_request:
                 self.lock = None
             else:
-                self.lock = MemcacheLock("ImplicitUIDLock", uid, timeout=60.0, expire_time=5*60)
+                self.lock = MemcacheLock(
+                    "ImplicitUIDLock",
+                    uid,
+                    timeout=config.Scheduling.Options.UIDLockTimeoutSeconds,
+                    expire_time=config.Scheduling.Options.UIDLockExpirySeconds
+                )
             self.reserved = False
             self.index = index
             self.uid = uid

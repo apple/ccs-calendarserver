@@ -239,7 +239,12 @@ class ImplicitProcessor(object):
         if config.Scheduling.Options.AttendeeRefreshBatch:
             
             # Need to lock whilst manipulating the batch list
-            lock = MemcacheLock("BatchRefreshUIDLock", self.uid, timeout=60.0, expire_time=60.0)
+            lock = MemcacheLock(
+                "BatchRefreshUIDLock",
+                self.uid,
+                timeout=config.Scheduling.Options.UIDLockTimeoutSeconds,
+                expire_time=config.Scheduling.Options.UIDLockExpirySeconds,
+            )
             try:
                 yield lock.acquire()
             except MemcacheLockTimeoutError:
@@ -311,7 +316,12 @@ class ImplicitProcessor(object):
         # We need to get the UID lock for implicit processing whilst we send the auto-reply
         # as the Organizer processing will attempt to write out data to other attendees to
         # refresh them. To prevent a race we need a lock.
-        uidlock = MemcacheLock("ImplicitUIDLock", self.uid, timeout=60.0, expire_time=5*60)
+        uidlock = MemcacheLock(
+            "ImplicitUIDLock",
+            self.uid,
+            timeout=config.Scheduling.Options.UIDLockTimeoutSeconds,
+            expire_time=config.Scheduling.Options.UIDLockExpirySeconds,
+        )
 
         try:
             yield uidlock.acquire()
@@ -347,7 +357,12 @@ class ImplicitProcessor(object):
 
         # Need to lock whilst manipulating the batch list
         log.debug("ImplicitProcessing - batch refresh for UID: '%s'" % (self.uid,))
-        lock = MemcacheLock("BatchRefreshUIDLock", self.uid, timeout=60.0, expire_time=60.0)
+        lock = MemcacheLock(
+            "BatchRefreshUIDLock",
+            self.uid,
+            timeout=config.Scheduling.Options.UIDLockTimeoutSeconds,
+            expire_time=config.Scheduling.Options.UIDLockExpirySeconds,
+        )
         try:
             yield lock.acquire()
         except MemcacheLockTimeoutError:
@@ -598,7 +613,12 @@ class ImplicitProcessor(object):
         # We need to get the UID lock for implicit processing whilst we send the auto-reply
         # as the Organizer processing will attempt to write out data to other attendees to
         # refresh them. To prevent a race we need a lock.
-        lock = MemcacheLock("ImplicitUIDLock", calendar.resourceUID(), timeout=60.0, expire_time=5*60)
+        lock = MemcacheLock(
+            "ImplicitUIDLock",
+            calendar.resourceUID(),
+            timeout=config.Scheduling.Options.UIDLockTimeoutSeconds,
+            expire_time=config.Scheduling.Options.UIDLockExpirySeconds,
+        )
 
         # Note that this lock also protects the request, as this request is
         # being re-used by potentially multiple transactions and should not be

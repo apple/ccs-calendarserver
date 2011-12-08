@@ -25,6 +25,9 @@ from twext.web2.test.test_server import SimpleRequest
 from twisted.internet.defer import inlineCallbacks
 
 from twistedcaldav import caldavxml, customxml
+from twistedcaldav.config import config
+from twistedcaldav.memcachelock import MemcacheLock
+from twistedcaldav.schedule import IScheduleInboxResource
 from twistedcaldav.test.util import HomeTestCase, TestCase
 
 class Properties (HomeTestCase):
@@ -306,3 +309,52 @@ class DefaultCalendar (TestCase):
         self.assertEqual(result, customxml.ScheduleDefaultTasksURL)
 
         request._newStoreTransaction.commit()
+
+class iSchedulePOST (TestCase):
+
+    def setUp(self):
+        super(iSchedulePOST, self).setUp()
+        self.createStockDirectoryService()
+        self.setupCalendars()
+        self.site.resource.putChild("ischedule", IScheduleInboxResource(self.site.resource, self._newStore))
+
+    @inlineCallbacks
+    def test_deadlock(self):
+        """
+        Make calendar
+        """
+        
+        request = SimpleRequest(
+            self.site,
+            "POST",
+            "/ischedule",
+            headers=http_headers.Headers(rawHeaders={
+                "Originator": ("mailto:wsanchez@example.com",),
+                "Recipient": ("mailto:cdaboo@example.com",),
+            }),
+            content="""BEGIN:VCALENDAR
+CALSCALE:GREGORIAN
+PRODID:-//Example Inc.//Example Calendar//EN
+VERSION:2.0
+BEGIN:VEVENT
+DTSTAMP:20051222T205953Z
+CREATED:20060101T150000Z
+DTSTART:20060101T100000Z
+DURATION:PT1H
+SUMMARY:event 1
+UID:deadlocked
+ORGANIZER:mailto:wsanchez@example.com
+ATTENDEE;PARTSTAT=ACCEPTED:mailto:wsanchez@example.com
+ATTENDEE;RSVP=TRUE;PARTSTAT=NEEDS-ACTION:mailto:cdaboo@example.com
+END:VEVENT
+END:VCALENDAR
+""".replace("\n", "\r\n")
+        )
+
+        # Lock the UID here to force a deadlock - but adjust the timeout so the test does not wait too long
+        self.patch(config.Scheduling.Options, "UIDLockTimeoutSeconds", 1)
+        lock = MemcacheLock("ImplicitUIDLock", "deadlocked", timeout=60, expire_time=60)
+        yield lock.acquire()
+        
+        response = (yield self.send(request))
+        self.assertEqual(response.code, responsecode.CONFLICT)

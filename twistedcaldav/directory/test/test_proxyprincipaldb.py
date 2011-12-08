@@ -240,6 +240,8 @@ class ProxyPrincipalDBSqlite (twistedcaldav.test.util.TestCase):
             self.assertEqual(membershipsD, set())
             self.assertEqual(membershipsE, set(("A",)))
 
+            yield db.clean()
+
     @inlineCallbacks
     def test_cachingDBRemove(self):
     
@@ -281,6 +283,8 @@ class ProxyPrincipalDBSqlite (twistedcaldav.test.util.TestCase):
             self.assertEqual(membershipsC, set("X",))
             self.assertEqual(membershipsD, set())
 
+            yield db.clean()
+
     @inlineCallbacks
     def test_cachingDBRemoveSpecial(self):
     
@@ -313,6 +317,8 @@ class ProxyPrincipalDBSqlite (twistedcaldav.test.util.TestCase):
             self.assertEqual(membershipsB, set("X",))
             self.assertEqual(membershipsC, set("X",))
             self.assertEqual(membershipsD, set())
+
+            yield db.clean()
 
     @inlineCallbacks
     def test_cachingDBRemovePrincipal(self):
@@ -355,6 +361,8 @@ class ProxyPrincipalDBSqlite (twistedcaldav.test.util.TestCase):
             self.assertEqual(membershipsC, set(("A", "X",)))
             self.assertEqual(membershipsD, set(("A",),))
 
+            yield db.clean()
+
     @inlineCallbacks
     def test_cachingDBInsertUncached(self):
     
@@ -383,6 +391,8 @@ class ProxyPrincipalDBSqlite (twistedcaldav.test.util.TestCase):
             self.assertEqual(membershipsCC, set(("AA",)))
             self.assertEqual(membershipsDD, set())
             self.assertEqual(membershipsEE, set(("AA",)))
+
+            yield db.clean()
 
 class ProxyPrincipalDBPostgreSQL (twistedcaldav.test.util.TestCase):
     """

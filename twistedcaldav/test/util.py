@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2005-2010 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2011 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -116,19 +116,19 @@ class TestCase(twext.web2.dav.test.util.TestCase):
         """
 
         # Need a data store
-        _newStore = self.createDataStore()
+        self._newStore = self.createDataStore()
 
         self.calendarCollection = DirectoryCalendarHomeProvisioningResource(
             self.directoryService,
             "/calendars/",
-            _newStore
+            self._newStore
         )
         self.site.resource.putChild("calendars", self.calendarCollection)
 
         self.addressbookCollection = DirectoryAddressBookHomeProvisioningResource(
             self.directoryService,
             "/addressbooks/",
-            _newStore
+            self._newStore
         )
         self.site.resource.putChild("addressbooks", self.addressbookCollection)
 
@@ -160,6 +160,7 @@ class TestCase(twext.web2.dav.test.util.TestCase):
         config.Memcached.Pools.Default.ServerEnabled = False
         ClientFactory.allowTestCache = True
         memcacher.Memcacher.allowTestCache = True
+        memcacher.Memcacher.memoryCacheInstance = None
 
         config.DirectoryAddressBook.Enabled = False
 

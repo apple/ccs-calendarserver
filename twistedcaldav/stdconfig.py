@@ -620,10 +620,12 @@ DEFAULT_CONFIG = {
             "AllowLocationAsOrganizer"            : False, # Allow locations to be Organizers
             "AllowResourceAsOrganizer"            : False, # Allow resources to be Organizers
             "AllowUserAutoAccept"                 : False, # Allow auto-accept for users
-            "LimitFreeBusyAttendees"              : 30,    # Maximum number of attendees to request freebusy for
-            "AttendeeRefreshBatch"                :  5,    # Number of attendees to do batched refreshes: 0 - no batching
-            "AttendeeRefreshBatchDelaySeconds"    :  5,    # Time after an iTIP REPLY for first batched attendee refresh
-            "AttendeeRefreshBatchIntervalSeconds" :  5,    # Time between attendee batch refreshes 
+            "LimitFreeBusyAttendees"              :  30,    # Maximum number of attendees to request freebusy for
+            "AttendeeRefreshBatch"                :   5,    # Number of attendees to do batched refreshes: 0 - no batching
+            "AttendeeRefreshBatchDelaySeconds"    :   5,    # Time after an iTIP REPLY for first batched attendee refresh
+            "AttendeeRefreshBatchIntervalSeconds" :   5,    # Time between attendee batch refreshes
+            "UIDLockTimeoutSeconds"               :  60,    # Time for implicit UID lock timeout
+            "UIDLockExpirySeconds"                : 300,    # Expiration time for UID lock
         }
     },
 

@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2008-2010 Apple Inc. All rights reserved.
+# Copyright (c) 2008-2011 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -36,6 +36,7 @@ class Memcacher(LoggingMixIn, CachePoolUserMixIn):
     keyNormalizeTranslateTable = string.maketrans("".join([chr(i) for i in range(33)]) + chr(0x7F), "_"*33 + "_")
 
     allowTestCache = False
+    memoryCacheInstance = None
 
     class memoryCacher():
         """
@@ -204,7 +205,9 @@ class Memcacher(LoggingMixIn, CachePoolUserMixIn):
 
         elif config.ProcessType == "Single" or self._noInvalidation or self.allowTestCache:
             # NB no need to pickle the memory cacher as it handles python types natively
-            self._memcacheProtocol = Memcacher.memoryCacher()
+            if Memcacher.memoryCacheInstance is None:
+                Memcacher.memoryCacheInstance = Memcacher.memoryCacher()
+            self._memcacheProtocol = Memcacher.memoryCacheInstance
             self._pickle = False
 
         else:

@@ -1952,7 +1952,10 @@ class CalendarObjectResource(_CalendarObjectMetaDataMixin, _CommonObjectResource
             )
             if do_implicit_action:
                 lock = MemcacheLock(
-                    "ImplicitUIDLock", calendar.resourceUID(), timeout=60.0, expire_time=5*60
+                    "ImplicitUIDLock",
+                    calendar.resourceUID(),
+                    timeout=config.Scheduling.Options.UIDLockTimeoutSeconds,
+                    expire_time=config.Scheduling.Options.UIDLockExpirySeconds,
                 )
 
         try:
