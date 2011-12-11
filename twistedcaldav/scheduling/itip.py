@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2006-2009 Apple Inc. All rights reserved.
+# Copyright (c) 2006-2011 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -608,7 +608,9 @@ class iTipGenerator(object):
     @staticmethod
     def generateCancel(original, attendees, instances=None, full_cancel=False):
         """
-        This assumes that SEQUENCE is already at its new value in the original calendar data.
+        This assumes that SEQUENCE is not already at its new value in the original calendar data. This
+        is because the component passed in is the one that originally contained the attendee that is
+        being removed. 
         """
         
         itip = Component("VCALENDAR")
@@ -637,7 +639,9 @@ class iTipGenerator(object):
             # Add some required properties extracted from the original
             comp.addProperty(Property("DTSTAMP", instance.propertyValue("DTSTAMP")))
             comp.addProperty(Property("UID", instance.propertyValue("UID")))
-            comp.addProperty(Property("SEQUENCE", instance.propertyValue("SEQUENCE") if instance.hasProperty("SEQUENCE") else 0))
+            seq = instance.propertyValue("SEQUENCE")
+            seq = int(seq) + 1 if seq else 1
+            comp.addProperty(Property("SEQUENCE", seq))
             comp.addProperty(instance.getOrganizerProperty())
             if instance_rid:
                 comp.addProperty(Property("RECURRENCE-ID", instance_rid.duplicate().adjustToUTC()))

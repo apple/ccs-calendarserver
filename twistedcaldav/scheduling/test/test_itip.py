@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2005-2007 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2011 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -1739,7 +1739,7 @@ UID:12345-67890-1
 DTSTART:20071114T000000Z
 ATTENDEE:mailto:user2@example.com
 ORGANIZER:mailto:user1@example.com
-SEQUENCE:1
+SEQUENCE:2
 END:VEVENT
 END:VCALENDAR
 """,
@@ -1772,7 +1772,7 @@ DTSTART:20071114T000000Z
 ATTENDEE:mailto:user3@example.com
 ATTENDEE:mailto:user2@example.com
 ORGANIZER:mailto:user1@example.com
-SEQUENCE:2
+SEQUENCE:3
 END:VEVENT
 END:VCALENDAR
 """,
@@ -1805,7 +1805,7 @@ RECURRENCE-ID:20081114T000000Z
 DTSTART:20081114T000000Z
 ATTENDEE:mailto:user2@example.com
 ORGANIZER:mailto:user1@example.com
-SEQUENCE:1
+SEQUENCE:2
 END:VEVENT
 END:VCALENDAR
 """,
@@ -1846,7 +1846,7 @@ RECURRENCE-ID:20081114T000000Z
 DTSTART:20081114T010000Z
 ATTENDEE:mailto:user2@example.com
 ORGANIZER:mailto:user1@example.com
-SEQUENCE:1
+SEQUENCE:2
 END:VEVENT
 END:VCALENDAR
 """,
@@ -1887,7 +1887,7 @@ DTSTART:20071114T000000Z
 ATTENDEE:mailto:user2@example.com
 ORGANIZER:mailto:user1@example.com
 RRULE:FREQ=YEARLY
-SEQUENCE:1
+SEQUENCE:2
 END:VEVENT
 END:VCALENDAR
 """,
