@@ -587,6 +587,7 @@ class CalendarServerLogAnalyzer(object):
             ("AddressBook/", "AddressBook"),
             ("Mail/", "Mail"),
             ("iChat/", "iChat"),
+            ("InterMapper/", "InterMapper"),
         )
         for quick, result in quickclients:
             index = self.currentLine.client.find(quick)
@@ -652,8 +653,8 @@ class CalendarServerLogAnalyzer(object):
                     "calendar-query"                : METHOD_REPORT_CALENDAR_QUERY,
                     "addressbook-query"             : METHOD_REPORT_ADDRESSBOOK_QUERY,
                     "directory-query"               : METHOD_REPORT_DIRECTORY_QUERY,
-                    "cal-sync-collection"           : METHOD_REPORT_CALENDAR_SYNC,
-                    "adbk-sync-collection"          : METHOD_REPORT_ADDRESSBOOK_SYNC,
+                    "cal-sync"                      : METHOD_REPORT_CALENDAR_SYNC,
+                    "adbk-sync"                     : METHOD_REPORT_ADDRESSBOOK_SYNC,
                     "principal-search-property-set" : METHOD_REPORT_P_SEARCH_P_SET,
                     "principal-property-search"     : METHOD_REPORT_P_P_SEARCH,
                     "expand-property"               : METHOD_REPORT_EXPAND_P,
