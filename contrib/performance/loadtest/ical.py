@@ -104,8 +104,9 @@ class Event(object):
 
 
 class Calendar(object):
-    def __init__(self, resourceType, name, url, ctag):
+    def __init__(self, resourceType, componentTypes, name, url, ctag):
         self.resourceType = resourceType
+        self.componentTypes = componentTypes
         self.name = name
         self.url = url
         self.ctag = ctag
@@ -316,8 +317,14 @@ class SnowLeopard(BaseClient):
             for nodeType in nodes[davxml.resourcetype].getchildren():
                 if nodeType.tag in self._CALENDAR_TYPES:
                     textProps = principals[principal].getTextProperties()
+                    componentTypes = set()
+                    if nodeType.tag == caldavxml.calendar:
+                        if caldavxml.supported_calendar_component_set in nodes:
+                            for comp in nodes[caldavxml.supported_calendar_component_set].getchildren():
+                                componentTypes.add(comp.get("name").upper())
                     calendars.append(Calendar(
                             nodeType.tag,
+                            componentTypes,
                             textProps.get(davxml.displayname, None),
                             principal,
                             textProps.get(csxml.getctag, None),

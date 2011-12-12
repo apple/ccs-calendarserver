@@ -61,12 +61,12 @@ class ProfileBase(object):
         pass
 
 
-    def _calendarsOfType(self, calendarType):
+    def _calendarsOfType(self, calendarType, componentType):
         return [
             cal 
             for cal 
             in self._client._calendars.itervalues() 
-            if cal.resourceType == calendarType]
+            if cal.resourceType == calendarType and componentType in cal.componentTypes]
 
 
     def _isSelfAttendee(self, attendee):
@@ -198,7 +198,7 @@ class Inviter(ProfileBase):
             change has been made.
         """
         # Find calendars which are eligible for invites
-        calendars = self._calendarsOfType(caldavxml.calendar)
+        calendars = self._calendarsOfType(caldavxml.calendar, "VEVENT")
 
         while calendars:
             # Pick one at random from which to try to select an event
@@ -442,7 +442,7 @@ END:VCALENDAR
 
 
     def _addEvent(self):
-        calendars = self._calendarsOfType(caldavxml.calendar)
+        calendars = self._calendarsOfType(caldavxml.calendar, "VEVENT")
 
         while calendars:
             calendar = self.random.choice(calendars)
@@ -460,6 +460,65 @@ END:VCALENDAR
             vevent.replaceProperty(Property("DTSTART", dtstart))
             vevent.replaceProperty(Property("DTEND", dtend))
             vevent.replaceProperty(Property("UID", uid))
+
+            href = '%s%s.ics' % (calendar.url, uid)
+            d = self._client.addEvent(href, vcalendar)
+            return self._newOperation("create", d)
+
+
+class Tasker(ProfileBase):
+    """
+    A Calendar user who creates new tasks.
+    """
+    _taskTemplate = Component.fromString("""\
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Apple Inc.//iCal 4.0.3//EN
+CALSCALE:GREGORIAN
+BEGIN:VTODO
+CREATED:20101018T155431Z
+UID:C98AD237-55AD-4F7D-9009-0D355D835822
+SUMMARY:Simple task
+DUE;TZID=America/New_York:20101021T120000
+DTSTAMP:20101018T155438Z
+END:VTODO
+END:VCALENDAR
+""".replace("\n", "\r\n"))
+
+    def setParameters(
+        self,
+        enabled=True,
+        interval=25,
+        taskDueDistribution=NearFutureDistribution(),
+    ):
+        self.enabled = enabled
+        self._interval = interval
+        self._taskStartDistribution = taskDueDistribution
+
+
+    def run(self):
+        self._call = LoopingCall(self._addTask)
+        self._call.clock = self._reactor
+        return self._call.start(self._interval)
+
+
+    def _addTask(self):
+        calendars = self._calendarsOfType(caldavxml.calendar, "VTODO")
+
+        while calendars:
+            calendar = self.random.choice(calendars)
+            calendars.remove(calendar)
+
+            # Copy the template task and fill in some of its fields
+            # to make a new task to create on the calendar.
+            vcalendar = self._taskTemplate.duplicate()
+            vtodo = vcalendar.mainComponent()
+            uid = str(uuid4())
+            due = self._taskStartDistribution.sample()
+            vtodo.replaceProperty(Property("CREATED", PyCalendarDateTime.getNowUTC()))
+            vtodo.replaceProperty(Property("DTSTAMP", PyCalendarDateTime.getNowUTC()))
+            vtodo.replaceProperty(Property("DUE", due))
+            vtodo.replaceProperty(Property("UID", uid))
 
             href = '%s%s.ics' % (calendar.url, uid)
             d = self._client.addEvent(href, vcalendar)
