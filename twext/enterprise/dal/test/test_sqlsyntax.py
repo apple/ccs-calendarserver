@@ -802,11 +802,13 @@ class GenerationTests(ExampleSchemaHelper, TestCase):
         self.assertEquals(ReleaseSavepoint("test").toSQL(),
                           SQLFragment("release savepoint test"))
 
+
     def test_savepointaction(self):
         """
         L{SavepointAction} generates a ('savepoint') statement.
         """
         self.assertEquals(SavepointAction("test")._name, "test")
+
 
     def test_limit(self):
         """
@@ -819,6 +821,25 @@ class GenerationTests(ExampleSchemaHelper, TestCase):
                    Limit=123).toSQL(),
             SQLFragment(
                 "select BAR from FOO limit ?", [123]))
+
+
+    def test_limitOracle(self):
+        """
+        A L{Select} object with a 'Limit' keyword parameter will generate a SQL
+        statement using a ROWNUM subquery for Oracle.
+
+        See U{this "ask tom" article from 2006 for more
+        information
+        <http://www.oracle.com/technetwork/issue-archive/2006/06-sep/o56asktom-086197.html>}.
+        """
+        self.assertEquals(
+            Select([self.schema.FOO.BAR],
+                   From=self.schema.FOO,
+                   Limit=123).toSQL(FixedPlaceholder(ORACLE_DIALECT, "?")),
+            SQLFragment(
+                "select * from (select BAR from FOO) "
+                "where ROWNUM <= ?", [123])
+        )
 
 
     def test_having(self):

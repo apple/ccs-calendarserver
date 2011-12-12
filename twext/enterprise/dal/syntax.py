@@ -840,8 +840,15 @@ class Select(_Statement):
         if self.ForUpdate:
             stmt.text += " for update"
         if self.Limit is not None:
-            stmt.text += " limit "
-            stmt.append(Constant(self.Limit).subSQL(metadata, allTables))
+            limitConst = Constant(self.Limit).subSQL(metadata, allTables)
+            if metadata.dialect == ORACLE_DIALECT:
+                wrapper = SQLFragment("select * from (")
+                wrapper.append(stmt)
+                wrapper.append(SQLFragment(") where ROWNUM <= "))
+                stmt = wrapper
+            else:
+                stmt.text += " limit "
+            stmt.append(limitConst)
         return stmt
 
 
