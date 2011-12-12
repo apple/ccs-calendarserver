@@ -42,6 +42,24 @@ alter table ADDRESSBOOK_HOME_METADATA
 alter table ADDRESSBOOK_HOME_METADATA
  add ("MODIFIED" timestamp default CURRENT_TIMESTAMP at time zone 'UTC');
 
+-- Add an index
+create index CALENDAR_OBJECT_REVIS_265c8acf
+  on CALENDAR_OBJECT_REVISIONS(CALENDAR_RESOURCE_ID, REVISION);
+
+-- Add an index
+create index ADDRESSBOOK_OBJECT_RE_cb101e6b
+  on ADDRESSBOOK_OBJECT_REVISIONS(ADDRESSBOOK_RESOURCE_ID, REVISION);
+
+-- Add an index
+create index NOTIFICATION_OBJECT_R_036a9cee
+  on NOTIFICATION_OBJECT_REVISIONS(NOTIFICATION_HOME_RESOURCE_ID, REVISION);
+
+-- Change a constraint
+alter table APN_SUBSCRIPTIONS
+ drop unique(TOKEN, RESOURCE_KEY);
+alter table APN_SUBSCRIPTIONS
+ add primary key(TOKEN, RESOURCE_KEY);
+
 -- Now update the version
 update CALENDARSERVER set VALUE = '7' where NAME = 'VERSION';
 

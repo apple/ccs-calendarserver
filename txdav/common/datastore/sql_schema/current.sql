@@ -272,7 +272,7 @@ create table TRANSPARENCY (
   USER_ID                     varchar(255) not null,
   TRANSPARENT                 boolean      not null
 );
-
+  
 create index TRANSPARENCY_TIME_RANGE_INSTANCE_ID on
   TRANSPARENCY(TIME_RANGE_INSTANCE_ID);
 
@@ -409,6 +409,9 @@ create index CALENDAR_OBJECT_REVISIONS_HOME_RESOURCE_ID
 create index CALENDAR_OBJECT_REVISIONS_RESOURCE_ID_RESOURCE_NAME
   on CALENDAR_OBJECT_REVISIONS(CALENDAR_RESOURCE_ID, RESOURCE_NAME);
 
+create index CALENDAR_OBJECT_REVISIONS_RESOURCE_ID_REVISION
+  on CALENDAR_OBJECT_REVISIONS(CALENDAR_RESOURCE_ID, REVISION);
+
 -------------------------------
 -- AddressBook Object Revisions --
 -------------------------------
@@ -428,6 +431,9 @@ create index ADDRESSBOOK_OBJECT_REVISIONS_HOME_RESOURCE_ID
 create index ADDRESSBOOK_OBJECT_REVISIONS_RESOURCE_ID_RESOURCE_NAME
   on ADDRESSBOOK_OBJECT_REVISIONS(ADDRESSBOOK_RESOURCE_ID, RESOURCE_NAME);
 
+create index ADDRESSBOOK_OBJECT_REVISIONS_RESOURCE_ID_REVISION
+  on ADDRESSBOOK_OBJECT_REVISIONS(ADDRESSBOOK_RESOURCE_ID, REVISION);
+
 -----------------------------------
 -- Notification Object Revisions --
 -----------------------------------
@@ -441,6 +447,8 @@ create table NOTIFICATION_OBJECT_REVISIONS (
   unique(NOTIFICATION_HOME_RESOURCE_ID, RESOURCE_NAME) -- implicit index
 );
 
+create index NOTIFICATION_OBJECT_REVISIONS_RESOURCE_ID_REVISION
+  on NOTIFICATION_OBJECT_REVISIONS(NOTIFICATION_HOME_RESOURCE_ID, REVISION);
 
 -------------------------------------------
 -- Apple Push Notification Subscriptions --
@@ -451,7 +459,8 @@ create table APN_SUBSCRIPTIONS (
   RESOURCE_KEY                  varchar(255) not null,
   MODIFIED                      integer not null,
   SUBSCRIBER_GUID               varchar(255) not null,
-  unique(TOKEN, RESOURCE_KEY) -- implicit index
+
+  primary key(TOKEN, RESOURCE_KEY) -- implicit index
 );
 
 create index APN_SUBSCRIPTIONS_RESOURCE_KEY
