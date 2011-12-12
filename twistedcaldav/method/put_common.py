@@ -765,6 +765,10 @@ class StoreCalendarObjectResource(object):
         if not self.destinationcal or self.destination.exists() or self.isiTIP:
             return False
         
+        # Never add default alarms to calendar data in shared calendars
+        if self.destinationparent.isVirtualShare():
+            return False
+
         # Add default alarm for VEVENT and VTODO only
         mtype = self.calendar.mainType().upper()
         if self.calendar.mainType().upper() not in ("VEVENT", "VTODO"):

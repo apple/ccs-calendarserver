@@ -1079,6 +1079,14 @@ class DefaultAlarmBase (CalDAVTextElement):
             except ValueError:
                 return False
         
+            # Make sure there is one alarm component
+            try:
+                valarm = tuple(tuple(calendar.subcomponents())[0].subcomponents())[0]
+            except IndexError:
+                return False
+            if valarm.name().upper() != "VALARM":
+                return False
+        
         return True
 
 class DefaultAlarmVEventDateTime (DefaultAlarmBase):

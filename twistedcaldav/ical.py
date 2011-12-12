@@ -2079,10 +2079,13 @@ END:VCALENDAR
             if calendar is None:
                 return False
         except ValueError:
-            return
+            return False
 
-        valarm = tuple(tuple(calendar.subcomponents())[0].subcomponents())[0]
-        
+        try:
+            valarm = tuple(tuple(calendar.subcomponents())[0].subcomponents())[0]
+        except IndexError:
+            return False
+
         changed = False
         for component in self.subcomponents():
             if component.name().upper() not in ("VEVENT", "VTODO",):

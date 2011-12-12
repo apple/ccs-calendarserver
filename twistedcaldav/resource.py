@@ -511,15 +511,14 @@ class CalDAVResource (
     @inlineCallbacks
     def _hasSharedProperty(self, qname, request):
 
-            # Always have disabled default alarms on shared calendars
+        # Always have default alarms on shared calendars
         if qname in (
             caldavxml.DefaultAlarmVEventDateTime.qname(),
             caldavxml.DefaultAlarmVEventDate.qname(),
             caldavxml.DefaultAlarmVToDoDateTime.qname(),
             caldavxml.DefaultAlarmVToDoDate.qname(),
-        ):
-            if self.isCalendarCollection():
-                returnValue(True)
+        ) and self.isCalendarCollection():
+            returnValue(True)
 
         ownerPrincipal = (yield self.resourceOwnerPrincipal(request))
         p = self.deadProperties().contains(qname, uid=ownerPrincipal.principalUID())
@@ -589,23 +588,6 @@ class CalDAVResource (
 
     @inlineCallbacks
     def _readSharedProperty(self, qname, request):
-
-        # Validate default alarm properties (do this even if the default alarm feature is off)
-        if qname in (
-            caldavxml.DefaultAlarmVEventDateTime.qname(),
-            caldavxml.DefaultAlarmVEventDate.qname(),
-            caldavxml.DefaultAlarmVToDoDateTime.qname(),
-            caldavxml.DefaultAlarmVToDoDate.qname(),
-        ):
-            if self.isCalendarCollection():
-                # Always disable default alarms on shared calendars
-                propclass = {
-                    caldavxml.DefaultAlarmVEventDateTime.qname() : caldavxml.DefaultAlarmVEventDateTime,
-                    caldavxml.DefaultAlarmVEventDate.qname()     : caldavxml.DefaultAlarmVEventDate,
-                    caldavxml.DefaultAlarmVToDoDateTime.qname()  : caldavxml.DefaultAlarmVToDoDateTime,
-                    caldavxml.DefaultAlarmVToDoDate.qname()      : caldavxml.DefaultAlarmVToDoDate,
-                }[qname]
-                returnValue(propclass.fromString(""))
 
         # Default behavior - read per-user dead property
         ownerPrincipal = (yield self.resourceOwnerPrincipal(request))
@@ -775,7 +757,7 @@ class CalDAVResource (
                 ))
             if not property.valid():
                 raise HTTPError(ErrorResponse(
-                    responsecode.CONFLICT,
+                    responsecode.FORBIDDEN,
                     (caldav_namespace, "valid-calendar-data"),
                     description="Invalid property"
                 ))
@@ -791,13 +773,6 @@ class CalDAVResource (
                 raise HTTPError(StatusResponse(
                     responsecode.FORBIDDEN,
                     "Property %s may only be set on calendar or home collection." % (property,)
-                ))
-                
-            # Do not allow default alarms by sharees
-            if isShare:
-                raise HTTPError(StatusResponse(
-                    responsecode.FORBIDDEN,
-                    "Property %s is protected on shared calendar collections." % (property,)
                 ))
                 
             if not property.valid():
@@ -2067,10 +2042,6 @@ class DefaultAlarmPropertyMixin(object):
             propname = caldavxml.DefaultAlarmVToDoDateTime if timed else caldavxml.DefaultAlarmVToDoDate
         
         if self.isCalendarCollection():
-            
-            # Sharees never have default alarms
-            if self.isVirtualShare():
-                return None
             
             # Get from calendar or inherit from home
             try:

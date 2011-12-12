@@ -1041,9 +1041,13 @@ class SharedHomeMixin(LinkFollowerMixIn):
         if displayname:
             yield sharedCollection.writeProperty(davxml.DisplayName.fromString(displayname), request)
         
-        # Calendars always start out transparent
+        # Calendars always start out transparent and with empty default alarms
         if not oldShare and sharedCollection.isCalendarCollection():
             yield sharedCollection.writeProperty(caldavxml.ScheduleCalendarTransp(caldavxml.Transparent()), request)
+            yield sharedCollection.writeProperty(caldavxml.DefaultAlarmVEventDateTime.fromString(""), request)
+            yield sharedCollection.writeProperty(caldavxml.DefaultAlarmVEventDate.fromString(""), request)
+            yield sharedCollection.writeProperty(caldavxml.DefaultAlarmVToDoDateTime.fromString(""), request)
+            yield sharedCollection.writeProperty(caldavxml.DefaultAlarmVToDoDate.fromString(""), request)
  
         # Notify client of changes
         yield self.notifyChanged()
