@@ -46,11 +46,15 @@ class ApplePushNotifierServiceTests(CommonCommonTests, TestCase):
             "CalDAV" : {
                 "CertificatePath" : "caldav.cer",
                 "PrivateKeyPath" : "caldav.pem",
+                "AuthorityChainPath" : "chain.pem",
+                "Passphrase" : "",
                 "Topic" : "caldav_topic",
             },
             "CardDAV" : {
                 "CertificatePath" : "carddav.cer",
                 "PrivateKeyPath" : "carddav.pem",
+                "AuthorityChainPath" : "chain.pem",
+                "Passphrase" : "",
                 "Topic" : "carddav_topic",
             },
         }

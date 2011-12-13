@@ -98,6 +98,8 @@ class ApplePushNotifierService(service.MultiService, LoggingMixIn):
                     settings["ProviderPort"],
                     settings[protocol]["CertificatePath"],
                     settings[protocol]["PrivateKeyPath"],
+                    chainPath=settings[protocol]["AuthorityChainPath"],
+                    passphrase=settings[protocol]["Passphrase"],
                     testConnector=providerTestConnector,
                     reactor=reactor,
                 )
@@ -113,6 +115,8 @@ class ApplePushNotifierService(service.MultiService, LoggingMixIn):
                     settings["FeedbackPort"],
                     settings[protocol]["CertificatePath"],
                     settings[protocol]["PrivateKeyPath"],
+                    chainPath=settings[protocol]["AuthorityChainPath"],
+                    passphrase=settings[protocol]["Passphrase"],
                     testConnector=feedbackTestConnector,
                     reactor=reactor,
                 )
@@ -294,13 +298,15 @@ class APNProviderFactory(ReconnectingClientFactory, LoggingMixIn):
 class APNConnectionService(service.Service, LoggingMixIn):
 
     def __init__(self, host, port, certPath, keyPath, chainPath="",
-        sslMethod="TLSv1_METHOD", testConnector=None, reactor=None):
+        passphrase="", sslMethod="TLSv1_METHOD", testConnector=None,
+        reactor=None):
 
         self.host = host
         self.port = port
         self.certPath = certPath
         self.keyPath = keyPath
         self.chainPath = chainPath
+        self.passphrase = passphrase
         self.sslMethod = sslMethod
         self.testConnector = testConnector
 
@@ -313,10 +319,15 @@ class APNConnectionService(service.Service, LoggingMixIn):
             # For testing purposes
             self.testConnector.connect(self, factory)
         else:
+            if self.passphrase:
+                passwdCallback = lambda *ignored : self.passphrase
+            else:
+                passwdCallback = None
             context = ChainingOpenSSLContextFactory(
                 self.keyPath,
                 self.certPath,
                 certificateChainFile=self.chainPath,
+                passwdCallback=passwdCallback,
                 sslmethod=getattr(OpenSSL.SSL, self.sslMethod)
             )
             reactor.connectSSL(self.host, self.port, factory, context)
@@ -325,10 +336,11 @@ class APNConnectionService(service.Service, LoggingMixIn):
 class APNProviderService(APNConnectionService):
 
     def __init__(self, host, port, certPath, keyPath, chainPath="",
-        sslMethod="TLSv1_METHOD", testConnector=None, reactor=None):
+        passphrase="", sslMethod="TLSv1_METHOD", testConnector=None,
+        reactor=None):
 
         APNConnectionService.__init__(self, host, port, certPath, keyPath,
-            chainPath="", sslMethod=sslMethod,
+            chainPath=chainPath, passphrase=passphrase, sslMethod=sslMethod,
             testConnector=testConnector, reactor=reactor)
 
         self.factory = None
@@ -446,11 +458,11 @@ class APNFeedbackFactory(ClientFactory, LoggingMixIn):
 class APNFeedbackService(APNConnectionService):
 
     def __init__(self, store, updateSeconds, host, port, certPath, keyPath,
-        chainPath="", sslMethod="TLSv1_METHOD", testConnector=None,
-        reactor=None):
+        chainPath="", passphrase="", sslMethod="TLSv1_METHOD",
+        testConnector=None, reactor=None):
 
         APNConnectionService.__init__(self, host, port, certPath, keyPath,
-            chainPath="", sslMethod=sslMethod,
+            chainPath=chainPath, passphrase=passphrase, sslMethod=sslMethod,
             testConnector=testConnector, reactor=reactor)
 
         self.store = store

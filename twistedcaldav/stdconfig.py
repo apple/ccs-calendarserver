@@ -665,11 +665,15 @@ DEFAULT_CONFIG = {
                 "CalDAV" : {
                     "CertificatePath" : "",
                     "PrivateKeyPath" : "",
+                    "AuthorityChainPath" : "",
+                    "Passphrase" : "",
                     "Topic" : "",
                 },
                 "CardDAV" : {
                     "CertificatePath" : "",
                     "PrivateKeyPath" : "",
+                    "AuthorityChainPath" : "",
+                    "Passphrase" : "",
                     "Topic" : "",
                 },
             },
@@ -1237,12 +1241,33 @@ def _updateNotifications(configDict):
                 service["DataHost"] = configDict.ServerHostName
 
             # Retrieve APN topics from certificates if not explicitly set
-            for protocol in ("CalDAV", "CardDAV"):
+            for protocol, accountName in (
+                ("CalDAV", "apns:com.apple.calendar"),
+                ("CardDAV", "apns:com.apple.contact"),
+            ):
                 if not service[protocol]["Topic"]:
                     certPath = service[protocol]["CertificatePath"]
                     if certPath and os.path.exists(certPath):
                         topic = getAPNTopicFromCertificate(certPath)
                         service[protocol]["Topic"] = topic
+
+                # If we already have the cert passphrase, don't fetch it again
+                if service[protocol]["Passphrase"]:
+                    continue
+
+                # Get passphrase from keychain.  If not there, fall back to what
+                # is in the plist.
+                try:
+                    passphrase = getPasswordFromKeychain(accountName)
+                    service[protocol]["Passphrase"] = passphrase
+                    log.info("%s APN certificate passphrase retreived from keychain" % (protocol,))
+                except KeychainAccessError:
+                    # The system doesn't support keychain
+                    pass
+                except KeychainPasswordNotFound:
+                    # The password doesn't exist in the keychain.
+                    log.info("%s APN certificate passphrase not found in keychain" % (protocol,))
+
 
         if (
             service["Service"] == "twistedcaldav.notify.XMPPNotifierService" and
