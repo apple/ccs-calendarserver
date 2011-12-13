@@ -40,6 +40,7 @@ from txdav.common.datastore.sql_tables import schema, _BIND_MODE_DIRECT,\
 from txdav.common.datastore.test.util import buildStore, populateCalendarsFrom
 
 from twistedcaldav import caldavxml
+from twistedcaldav.caldavxml import CalendarDescription
 from twistedcaldav.config import config
 from twistedcaldav.dateops import datetimeMktime
 from twistedcaldav.query import calendarqueryfilter
@@ -839,6 +840,13 @@ class CalendarSQLStorageTests(CalendarCommonTests, unittest.TestCase):
         sync information is updated.
         """
         
+        # calendar_2 add a dead property to make sure it gets copied over
+        home = yield self.transactionUnderTest().calendarHomeWithUID("home_splits")
+        calendar2 = yield home.calendarWithName("calendar_2")
+        pkey = PropertyName.fromElement(CalendarDescription)
+        calendar2.properties()[pkey] = CalendarDescription.fromString("A birthday calendar")
+        yield self.commit()
+
         # calendar_1 no change
         home = yield self.transactionUnderTest().calendarHomeWithUID("home_splits")
         calendar1 = yield home.calendarWithName("calendar_1")
@@ -879,6 +887,8 @@ class CalendarSQLStorageTests(CalendarCommonTests, unittest.TestCase):
         self.assertEqual(len(deleted), 0)
         result = yield calendar2_vtodo.getSupportedComponents()
         self.assertEquals(result, "VTODO")
+        self.assertTrue(pkey in calendar2_vtodo.properties())
+        self.assertEqual(str(calendar2_vtodo.properties()[pkey]), "A birthday calendar")
 
         calendar2 = yield home.calendarWithName("calendar_2")        
         children = yield calendar2.listCalendarObjects()
@@ -890,6 +900,8 @@ class CalendarSQLStorageTests(CalendarCommonTests, unittest.TestCase):
         self.assertEqual(sorted(deleted), ["3.ics", "5.ics"])
         result = yield calendar2.getSupportedComponents()
         self.assertEquals(result, "VEVENT")
+        self.assertTrue(pkey in calendar2.properties())
+        self.assertEqual(str(calendar2.properties()[pkey]), "A birthday calendar")
 
     @inlineCallbacks
     def test_noSplitCalendars(self):

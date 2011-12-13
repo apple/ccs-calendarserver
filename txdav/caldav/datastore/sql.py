@@ -510,7 +510,7 @@ class Calendar(CommonHomeChild):
         yield newcalendar.setSupportedComponents(component.upper())
         
         # Transfer properties over
-        yield self._properties.copyAllProperties(newcalendar._properties)
+        yield newcalendar._properties.copyAllProperties(self._properties)
         
         # Transfer sharing
         yield self._transferSharingDetails(newcalendar, component)
