@@ -192,8 +192,8 @@ class FakeCursor(Child):
             raise self.connection._executeFailQueue.pop(0)()
         self.allExecutions.append((sql, args))
         self.sql = sql
-        self.description = True
         factory = self.connection.parent
+        self.description = factory.hasResults
         if factory.hasResults and factory.shouldUpdateRowcount:
             self.rowcount = 1
         else:
@@ -1323,6 +1323,24 @@ class ConnectionPoolTests(ConnectionPoolHelper, TestCase):
         )[0]
         self.assertRaises(ZeroDivisionError, f.raiseException)
         txn.commit()
+
+
+    def test_raiseOnZeroRowCountWithUnreliableRowCount(self):
+        """
+        As it turns out, some databases can't reliably tell you how many rows
+        they're going to fetch via the C{rowcount} attribute before the rows
+        have actually been fetched, so the C{raiseOnZeroRowCount} will I{not}
+        raise an exception if C{rowcount} is zero but C{description} and
+        C{fetchall} indicates the presence of some rows.
+        """
+        self.factory.hasResults = True
+        self.factory.shouldUpdateRowcount = False
+        txn = self.createTransaction()
+        r = self.resultOf(
+            txn.execSQL("some-rows", raiseOnZeroRowCount=RuntimeError)
+        )
+        [[[counter, echo]]] = r
+        self.assertEquals(echo, "some-rows")
 
 
 
