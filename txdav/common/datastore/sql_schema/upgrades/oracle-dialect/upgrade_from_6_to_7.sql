@@ -29,7 +29,7 @@ alter table CALENDAR_HOME_METADATA
  add ("MODIFIED" timestamp default CURRENT_TIMESTAMP at time zone 'UTC');
 
  -- Just need to modify one column
-alter table CALENDAR_OBJECT
+alter table CALENDAR
  add ("SUPPORTED_COMPONENTS" nvarchar2(255) default null);
 
 -- Just need to add one column
