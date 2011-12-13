@@ -981,6 +981,8 @@ class _DMLStatement(_Statement):
 
 
     def _extraVars(self, txn, metadata):
+        if self.Return is None:
+            return []
         result = []
         rvars = self._returnAsList()
         if metadata.dialect == ORACLE_DIALECT:
@@ -1012,7 +1014,7 @@ class _OracleOutParam(object):
     implements(IDerivedParameter)
 
     def __init__(self, columnSyntax):
-        self.columnSyntax = columnSyntax
+        self.typeID = columnSyntax.model.type.name.lower()
 
 
     def preQuery(self, cursor):
@@ -1020,8 +1022,7 @@ class _OracleOutParam(object):
                    'text': cx_Oracle.NCLOB,
                    'varchar': cx_Oracle.STRING,
                    'timestamp': cx_Oracle.TIMESTAMP}
-        typeID = self.columnSyntax.model.type.name.lower()
-        self.var = cursor.var(typeMap[typeID])
+        self.var = cursor.var(typeMap[self.typeID])
         return self.var
 
 

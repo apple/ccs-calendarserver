@@ -278,11 +278,16 @@ class _ConnectedTxn(object):
                 raise
         if derived is not None:
             _deriveQueryEnded(self._cursor, derived)
-        if raiseOnZeroRowCount is not None and self._cursor.rowcount == 0:
-            raise raiseOnZeroRowCount()
         if self._cursor.description:
-            return self._cursor.fetchall()
+            # see test_raiseOnZeroRowCountWithUnreliableRowCount
+            rows = self._cursor.fetchall()
+            if not rows:
+                if raiseOnZeroRowCount is not None:
+                    raise raiseOnZeroRowCount()
+            return rows
         else:
+            if raiseOnZeroRowCount is not None and self._cursor.rowcount == 0:
+                raise raiseOnZeroRowCount()
             return None
 
 
@@ -1103,7 +1108,8 @@ class ExecSQL(Command):
     arguments = [('sql', String()),
                  ('queryID', String()),
                  ('args', Pickle()),
-                 ('blockID', String())] + txnarg()
+                 ('blockID', String()),
+                 ('reportZeroRowCount', Boolean())] + txnarg()
     errors = quashErrors
 
 
@@ -1145,7 +1151,8 @@ class QueryComplete(Command):
 
     arguments = [('queryID', String()),
                  ('norows', Boolean()),
-                 ('derived', Pickle())]
+                 ('derived', Pickle()),
+                 ('noneResult', Boolean())]
     errors = quashErrors
 
 
@@ -1217,8 +1224,10 @@ class ConnectionPoolConnection(AMP):
 
     @failsafeResponder(ExecSQL)
     @inlineCallbacks
-    def receivedSQL(self, transactionID, queryID, sql, args, blockID):
+    def receivedSQL(self, transactionID, queryID, sql, args, blockID,
+                    reportZeroRowCount):
         derived = None
+        noneResult = False
         for param in args:
             if IDerivedParameter.providedBy(param):
                 if derived is None:
@@ -1228,8 +1237,12 @@ class ConnectionPoolConnection(AMP):
             txn = self._blocks[blockID]
         else:
             txn = self._txns[transactionID]
+        if reportZeroRowCount:
+            rozrc = _NoRows
+        else:
+            rozrc = None
         try:
-            rows = yield txn.execSQL(sql, args, _NoRows)
+            rows = yield txn.execSQL(sql, args, rozrc)
         except _NoRows:
             norows = True
         else:
@@ -1239,9 +1252,11 @@ class ConnectionPoolConnection(AMP):
                     # Either this should be yielded or it should be
                     # requiresAnswer=False
                     self.callRemote(Row, queryID=queryID, row=row)
+            else:
+                noneResult = True
 
         self.callRemote(QueryComplete, queryID=queryID, norows=norows,
-                        derived=derived)
+                        derived=derived, noneResult=noneResult)
         returnValue({})
 
 
@@ -1321,14 +1336,15 @@ class ConnectionPoolClient(AMP):
 
 
     @failsafeResponder(QueryComplete)
-    def complete(self, queryID, norows, derived):
-        self._queries.pop(queryID).done(norows, derived)
+    def complete(self, queryID, norows, derived, noneResult):
+        self._queries.pop(queryID).done(norows, derived, noneResult)
         return {}
 
 
 
 class _Query(object):
-    def __init__(self, raiseOnZeroRowCount, args):
+    def __init__(self, sql, raiseOnZeroRowCount, args):
+        self.sql                 = sql
         self.args                = args
         self.results             = []
         self.deferred            = Deferred()
@@ -1342,7 +1358,7 @@ class _Query(object):
         self.results.append(row)
 
 
-    def done(self, norows, derived):
+    def done(self, norows, derived, noneResult):
         """
         The query is complete.
 
@@ -1355,7 +1371,14 @@ class _Query(object):
             and L{IDerivedParameter.postQuery} are invoked on the other end of
             the wire, the local objects will be made to appear as though they
             were called here.
+
+        @param noneResult: should the result of the query be C{None} (i.e. did
+            it not have a C{description} on the cursor).
         """
+        if noneResult and not self.results:
+            results = None
+        else:
+            results = self.results
         if derived is not None:
             # 1) Bleecchh.
             # 2) FIXME: add some direct tests in test_adbapi2, the unit test for
@@ -1368,7 +1391,7 @@ class _Query(object):
             exc = self.raiseOnZeroRowCount()
             self.deferred.errback(Failure(exc))
         else:
-            self.deferred.callback(self.results)
+            self.deferred.callback(results)
 
 
     def _deriveDerived(self):
@@ -1427,11 +1450,12 @@ class _NetTransaction(object):
             args = []
         client = self._client
         queryID = str(client._nextID())
-        query = client._queries[queryID] = _Query(raiseOnZeroRowCount, args)
+        query = client._queries[queryID] = _Query(sql, raiseOnZeroRowCount, args)
         result = (
             client.callRemote(
                 ExecSQL, queryID=queryID, sql=sql, args=args,
-                transactionID=self._transactionID, blockID=blockID
+                transactionID=self._transactionID, blockID=blockID,
+                reportZeroRowCount=raiseOnZeroRowCount is not None,
             )
             .addCallback(lambda nothing: query.deferred)
         )
