@@ -1239,6 +1239,7 @@ class ConnectionPoolConnection(AMP):
             rows = yield txn.execSQL(sql, args, _NoRows)
         except _NoRows:
             norows = True
+            noneResult = True
         else:
             norows = False
             if rows is not None:
