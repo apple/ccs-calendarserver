@@ -322,6 +322,7 @@ class ShellProtocol(ReceiveLineProtocol):
             self.terminal.write("Available commands:\n")
 
             result = []
+            max_len = 0
 
             for attr in dir(self):
                 if attr.startswith("cmd_"):
@@ -338,10 +339,17 @@ class ShellProtocol(ReceiveLineProtocol):
                     else:
                         doc = "(no info available)"
 
-                    result.append((attr[4:], doc))
+                    name = attr[4:]
+
+                    if len(name) > max_len:
+                        max_len = len(name)
+
+                    result.append((name, doc))
+
+            format = "  %%%ds - %%s\n" % (max_len,)
 
             for info in sorted(result):
-                self.terminal.write("  %s - %s\n" % (info))
+                self.terminal.write(format % (info))
 
     def cmd_emulate(self, tokens):
         """
