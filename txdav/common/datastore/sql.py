@@ -143,6 +143,7 @@ class CommonDataStore(Service, object):
         self.label = label
         self.quota = quota
         self._migrating = False
+        self._enableNotifications = True
 
 
     def eachCalendarHome(self):
@@ -169,7 +170,7 @@ class CommonDataStore(Service, object):
             self.sqlTxnFactory(),
             self.enableCalendars,
             self.enableAddressBooks,
-            None if self._migrating else self.notifierFactory,
+            self.notifierFactory if self._enableNotifications else None,
             label,
             self._migrating,
         )
@@ -179,6 +180,13 @@ class CommonDataStore(Service, object):
         Set the "migrating" state
         """
         self._migrating = state
+        self._enableNotifications = not state
+
+    def setUpgrading(self, state):
+        """
+        Set the "upgrading" state
+        """
+        self._enableNotifications = not state
 
 
 class TransactionStatsCollector(object):

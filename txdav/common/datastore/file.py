@@ -112,6 +112,7 @@ class CommonDataStore(DataStore):
         self._propertyStoreClass = propertyStoreClass
         self.quota = quota
         self._migrating = False
+        self._enableNotifications = True
 
 
     def newTransaction(self, name='no name'):
@@ -125,7 +126,7 @@ class CommonDataStore(DataStore):
             name,
             self.enableCalendars,
             self.enableAddressBooks,
-            self._notifierFactory,
+            self._notifierFactory if self._enableNotifications else None,
             self._migrating,
         )
 
@@ -135,6 +136,13 @@ class CommonDataStore(DataStore):
         Set the "migrating" state
         """
         self._migrating = state
+        self._enableNotifications = not state
+
+    def setUpgrading(self, state):
+        """
+        Set the "upgrading" state
+        """
+        self._enableNotifications = not state
 
 
     def _homesOfType(self, storeType):

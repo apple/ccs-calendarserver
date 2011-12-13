@@ -114,7 +114,9 @@ class UpgradeDatabaseCoreService(Service, LoggingMixIn, object):
             self.log_error(msg)
             raise RuntimeError(msg)
         else:
+            self.sqlStore.setUpgrading(True)
             yield self.upgradeVersion(actual_version, required_version, dialect)
+            self.sqlStore.setUpgrading(False)
             
         self.log_warn("Database %s check complete." % (self.versionDescriptor,))
 
