@@ -278,11 +278,16 @@ class _ConnectedTxn(object):
                 raise
         if derived is not None:
             _deriveQueryEnded(self._cursor, derived)
-        if raiseOnZeroRowCount is not None and self._cursor.rowcount == 0:
-            raise raiseOnZeroRowCount()
         if self._cursor.description:
-            return self._cursor.fetchall()
+            # see test_raiseOnZeroRowCountWithUnreliableRowCount
+            rows = self._cursor.fetchall()
+            if not rows:
+                if raiseOnZeroRowCount is not None:
+                    raise raiseOnZeroRowCount()
+            return rows
         else:
+            if raiseOnZeroRowCount is not None and self._cursor.rowcount == 0:
+                raise raiseOnZeroRowCount()
             return None
 
 
