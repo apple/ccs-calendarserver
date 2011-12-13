@@ -1150,7 +1150,8 @@ class QueryComplete(Command):
 
     arguments = [('queryID', String()),
                  ('norows', Boolean()),
-                 ('derived', Pickle())]
+                 ('derived', Pickle()),
+                 ('noneResult', Boolean())]
     errors = quashErrors
 
 
@@ -1224,6 +1225,7 @@ class ConnectionPoolConnection(AMP):
     @inlineCallbacks
     def receivedSQL(self, transactionID, queryID, sql, args, blockID):
         derived = None
+        noneResult = False
         for param in args:
             if IDerivedParameter.providedBy(param):
                 if derived is None:
@@ -1244,9 +1246,11 @@ class ConnectionPoolConnection(AMP):
                     # Either this should be yielded or it should be
                     # requiresAnswer=False
                     self.callRemote(Row, queryID=queryID, row=row)
+            else:
+                noneResult = True
 
         self.callRemote(QueryComplete, queryID=queryID, norows=norows,
-                        derived=derived)
+                        derived=derived, noneResult=noneResult)
         returnValue({})
 
 
@@ -1326,8 +1330,8 @@ class ConnectionPoolClient(AMP):
 
 
     @failsafeResponder(QueryComplete)
-    def complete(self, queryID, norows, derived):
-        self._queries.pop(queryID).done(norows, derived)
+    def complete(self, queryID, norows, derived, noneResult):
+        self._queries.pop(queryID).done(norows, derived, noneResult)
         return {}
 
 
@@ -1347,7 +1351,7 @@ class _Query(object):
         self.results.append(row)
 
 
-    def done(self, norows, derived):
+    def done(self, norows, derived, noneResult):
         """
         The query is complete.
 
@@ -1360,7 +1364,14 @@ class _Query(object):
             and L{IDerivedParameter.postQuery} are invoked on the other end of
             the wire, the local objects will be made to appear as though they
             were called here.
+
+        @param noneResult: should the result of the query be C{None} (i.e. did
+            it not have a C{description} on the cursor).
         """
+        if noneResult and not self.results:
+            results = None
+        else:
+            results = self.results
         if derived is not None:
             # 1) Bleecchh.
             # 2) FIXME: add some direct tests in test_adbapi2, the unit test for
@@ -1373,7 +1384,7 @@ class _Query(object):
             exc = self.raiseOnZeroRowCount()
             self.deferred.errback(Failure(exc))
         else:
-            self.deferred.callback(self.results)
+            self.deferred.callback(results)
 
 
     def _deriveDerived(self):

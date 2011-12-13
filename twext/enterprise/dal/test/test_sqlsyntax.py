@@ -1160,6 +1160,20 @@ class OracleConnectionMethods(object):
         self.assertEquals(curvars[1].type, FakeCXOracleModule.STRING)
 
 
+    def test_insertNoReturnOracle(self):
+        """
+        In addition to being able to execute insert statements with a Return
+        attribute, oracle also ought to be able to execute insert statements
+        with no Return at all.
+        """
+        # This statement should return nothing from .fetchall(), so...
+        self.factory.hasResults = False
+        i = Insert({self.schema.FOO.BAR: 40,
+                    self.schema.FOO.BAZ: 50})
+        result = self.resultOf(i.on(self.createTransaction()))
+        self.assertEquals(result, [None])
+
+
 
 class OracleConnectionTests(ConnectionPoolHelper, ExampleSchemaHelper,
                             OracleConnectionMethods, TestCase):

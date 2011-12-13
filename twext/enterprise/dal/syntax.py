@@ -981,6 +981,8 @@ class _DMLStatement(_Statement):
 
 
     def _extraVars(self, txn, metadata):
+        if self.Return is None:
+            return []
         result = []
         rvars = self._returnAsList()
         if metadata.dialect == ORACLE_DIALECT:
