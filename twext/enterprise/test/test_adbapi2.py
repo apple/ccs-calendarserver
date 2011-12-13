@@ -107,6 +107,7 @@ class FakeConnection(Parent, Child):
     Fake Stand-in for DB-API 2.0 connection.
 
     @ivar executions: the number of statements which have been executed.
+
     """
 
     executions = 0
@@ -192,7 +193,11 @@ class FakeCursor(Child):
         self.allExecutions.append((sql, args))
         self.sql = sql
         self.description = True
-        self.rowcount = 1
+        factory = self.connection.parent
+        if factory.hasResults and factory.shouldUpdateRowcount:
+            self.rowcount = 1
+        else:
+            self.rowcount = 0
         return
 
 
@@ -209,7 +214,11 @@ class FakeCursor(Child):
         """
         Just echo the SQL that was executed in the last query.
         """
-        return [[self.connection.id, self.sql]]
+        if self.connection.parent.hasResults:
+            return [[self.connection.id, self.sql]]
+        if self.description:
+            return []
+        return None
 
 
 
@@ -233,16 +242,28 @@ class FakeVariable(object):
 
 
 class ConnectionFactory(Parent):
+    """
+    A factory for L{FakeConnection} objects.
+
+    @ivar shouldUpdateRowcount: Should C{execute} on cursors produced by
+        connections produced by this factory update their C{rowcount} or just
+        their C{description} attribute?
+
+    @ivar hasResults: should cursors produced by connections by this factory
+        have any results returned by C{fetchall()}?
+    """
 
     rollbackFail = False
     commitFail = False
 
-    def __init__(self):
+    def __init__(self, shouldUpdateRowcount=True, hasResults=True):
         Parent.__init__(self)
         self.idcounter = count(1)
         self._connectResultQueue = []
         self.defaultConnect()
         self.varvals = []
+        self.shouldUpdateRowcount = shouldUpdateRowcount
+        self.hasResults = hasResults
 
 
     @property
@@ -1287,6 +1308,21 @@ class ConnectionPoolTests(ConnectionPoolHelper, TestCase):
         txn = self.createTransaction()
         self.resultOf(txn.abort())
         self.assertRaises(AlreadyFinishedError, txn.commandBlock)
+
+
+    def test_raiseOnZeroRowCount(self):
+        """
+        L{IAsyncTransaction.execSQL} will return a L{Deferred} failing with the
+        exception passed as its raiseOnZeroRowCount argument if the underlying
+        query returns no rows.
+        """
+        self.factory.hasResults = False
+        txn = self.createTransaction()
+        f = self.resultOf(
+            txn.execSQL("hello", raiseOnZeroRowCount=ZeroDivisionError)
+        )[0]
+        self.assertRaises(ZeroDivisionError, f.raiseException)
+        txn.commit()
 
 
 
