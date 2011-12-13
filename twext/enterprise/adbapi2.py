@@ -1108,7 +1108,8 @@ class ExecSQL(Command):
     arguments = [('sql', String()),
                  ('queryID', String()),
                  ('args', Pickle()),
-                 ('blockID', String())] + txnarg()
+                 ('blockID', String()),
+                 ('reportZeroRowCount', Boolean())] + txnarg()
     errors = quashErrors
 
 
@@ -1223,7 +1224,8 @@ class ConnectionPoolConnection(AMP):
 
     @failsafeResponder(ExecSQL)
     @inlineCallbacks
-    def receivedSQL(self, transactionID, queryID, sql, args, blockID):
+    def receivedSQL(self, transactionID, queryID, sql, args, blockID,
+                    reportZeroRowCount):
         derived = None
         noneResult = False
         for param in args:
@@ -1235,11 +1237,14 @@ class ConnectionPoolConnection(AMP):
             txn = self._blocks[blockID]
         else:
             txn = self._txns[transactionID]
+        if reportZeroRowCount:
+            rozrc = _NoRows
+        else:
+            rozrc = None
         try:
-            rows = yield txn.execSQL(sql, args, _NoRows)
+            rows = yield txn.execSQL(sql, args, rozrc)
         except _NoRows:
             norows = True
-            noneResult = True
         else:
             norows = False
             if rows is not None:
@@ -1338,7 +1343,8 @@ class ConnectionPoolClient(AMP):
 
 
 class _Query(object):
-    def __init__(self, raiseOnZeroRowCount, args):
+    def __init__(self, sql, raiseOnZeroRowCount, args):
+        self.sql                 = sql
         self.args                = args
         self.results             = []
         self.deferred            = Deferred()
@@ -1444,11 +1450,12 @@ class _NetTransaction(object):
             args = []
         client = self._client
         queryID = str(client._nextID())
-        query = client._queries[queryID] = _Query(raiseOnZeroRowCount, args)
+        query = client._queries[queryID] = _Query(sql, raiseOnZeroRowCount, args)
         result = (
             client.callRemote(
                 ExecSQL, queryID=queryID, sql=sql, args=args,
-                transactionID=self._transactionID, blockID=blockID
+                transactionID=self._transactionID, blockID=blockID,
+                reportZeroRowCount=raiseOnZeroRowCount is not None,
             )
             .addCallback(lambda nothing: query.deferred)
         )
