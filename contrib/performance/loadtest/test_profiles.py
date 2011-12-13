@@ -265,7 +265,7 @@ class InviterTests(TestCase):
     def _simpleAccount(self, userNumber, eventText):
         vevent = Component.fromString(eventText)
         calendar = Calendar(
-            caldavxml.calendar, u'calendar', u'/cal/', None)
+            caldavxml.calendar, set(('VEVENT',)), u'calendar', u'/cal/', None)
         event = Event(calendar.url + u'1234.ics', None, vevent)
         calendar.events = {u'1234.ics': event}
         client = StubClient(userNumber)
@@ -490,7 +490,7 @@ class AccepterTests(TestCase):
         userNumber = 14
         calendarURL = '/some/calendar/'
         calendar = Calendar(
-            csxml.dropbox_home, u'notification', calendarURL, None)
+            csxml.dropbox_home, set(), u'notification', calendarURL, None)
         client = StubClient(userNumber)
         client._calendars[calendarURL] = calendar
         accepter = Accepter(None, self.sim, client, userNumber)
@@ -507,7 +507,7 @@ class AccepterTests(TestCase):
         userNumber = int(attendees[1].parameterValue('CN').split(None, 1)[1])
         calendarURL = '/some/calendar/'
         calendar = Calendar(
-            caldavxml.calendar, u'calendar', calendarURL, None)
+            caldavxml.calendar, set(('VEVENT',)), u'calendar', calendarURL, None)
         client = StubClient(userNumber)
         client._calendars[calendarURL] = calendar
         event = Event(calendarURL + u'1234.ics', None, vevent)
@@ -530,7 +530,7 @@ class AccepterTests(TestCase):
         userNumber = int(attendees[1].parameterValue('CN').split(None, 1)[1])
         calendarURL = '/some/calendar/'
         calendar = Calendar(
-            caldavxml.calendar, u'calendar', calendarURL, None)
+            caldavxml.calendar, set(('VEVENT',)), u'calendar', calendarURL, None)
         client = StubClient(userNumber)
         client._calendars[calendarURL] = calendar
         event = Event(calendarURL + u'1234.ics', None, vevent)
@@ -559,12 +559,12 @@ class AccepterTests(TestCase):
 
         calendarURL = '/some/calendar/'
         calendar = Calendar(
-            caldavxml.calendar, u'calendar', calendarURL, None)
+            caldavxml.calendar, set(('VEVENT',)), u'calendar', calendarURL, None)
         client._calendars[calendarURL] = calendar
 
         inboxURL = '/some/inbox/'
         inbox = Calendar(
-            caldavxml.schedule_inbox, u'the inbox', inboxURL, None)
+            caldavxml.schedule_inbox, set(), u'the inbox', inboxURL, None)
         client._calendars[inboxURL] = inbox
 
         event = Event(calendarURL + u'1234.ics', None, vevent)
@@ -604,7 +604,7 @@ class AccepterTests(TestCase):
         userNumber = int(attendees[1].parameterValue('CN').split(None, 1)[1])
         calendarURL = '/some/calendar/'
         calendar = Calendar(
-            caldavxml.calendar, u'calendar', calendarURL, None)
+            caldavxml.calendar, set(('VEVENT',)), u'calendar', calendarURL, None)
         client = StubClient(userNumber)
         client._calendars[calendarURL] = calendar
         event = Event(calendarURL + u'1234.ics', None, vevent)
@@ -645,7 +645,7 @@ class AccepterTests(TestCase):
 
         calendarURL = '/some/calendar/'
         calendar = Calendar(
-            caldavxml.calendar, u'calendar', calendarURL, None)
+            caldavxml.calendar, set(('VEVENT',)), u'calendar', calendarURL, None)
         client._calendars[calendarURL] = calendar
 
         vevent = Component.fromString(INVITED_EVENT)
@@ -690,7 +690,7 @@ class EventerTests(TestCase):
         to add events on it.
         """
         calendar = Calendar(
-            caldavxml.schedule_inbox, u'inbox', u'/sched/inbox', None)
+            caldavxml.schedule_inbox, set(), u'inbox', u'/sched/inbox', None)
         client = StubClient(21)
         client._calendars.update({calendar.url: calendar})
 
@@ -706,7 +706,7 @@ class EventerTests(TestCase):
         L{Eventer._addEvent} adds an event to it.
         """
         calendar = Calendar(
-            caldavxml.calendar, u'personal stuff', u'/cals/personal', None)
+            caldavxml.calendar, set(('VEVENT',)), u'personal stuff', u'/cals/personal', None)
         client = StubClient(31)
         client._calendars.update({calendar.url: calendar})
 

@@ -1148,7 +1148,7 @@ class SnowLeopardTests(SnowLeopardMixin, TestCase):
         """
         requests = self.interceptRequests()
 
-        calendar = Calendar(caldavxml.calendar, u'calendar', u'/mumble/', None)
+        calendar = Calendar(caldavxml.calendar, set(('VEVENT',)), u'calendar', u'/mumble/', None)
         self.client._calendars[calendar.url] = calendar
 
         vcalendar = Component.fromString(EVENT)
@@ -1190,7 +1190,7 @@ class SnowLeopardTests(SnowLeopardMixin, TestCase):
         """
         requests = self.interceptRequests()
 
-        calendar = Calendar(caldavxml.calendar, u'calendar', u'/foo/', None)
+        calendar = Calendar(caldavxml.calendar, set(('VEVENT',)), u'calendar', u'/foo/', None)
         event = Event(calendar.url + u'bar.ics', None)
         self.client._calendars[calendar.url] = calendar
         self.client._setEvent(event.url, event)
@@ -1351,7 +1351,7 @@ END:VCALENDAR
         """
         requests = self.interceptRequests()
 
-        calendar = Calendar(None, 'calendar', '/something/', None)
+        calendar = Calendar(None, set(('VEVENT',)), 'calendar', '/something/', None)
         self.client._calendars[calendar.url] = calendar
         self.client._updateCalendar(calendar)
         result, req = requests.pop(0)
@@ -1394,7 +1394,7 @@ END:VCALENDAR
 
         self.patch(self.client, "MULTIGET_BATCH_SIZE", 1)
 
-        calendar = Calendar(None, 'calendar', '/something/', None)
+        calendar = Calendar(None, set(('VEVENT',)), 'calendar', '/something/', None)
         self.client._calendars[calendar.url] = calendar
         self.client._updateCalendar(calendar)
         result, req = requests.pop(0)
