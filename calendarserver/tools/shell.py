@@ -774,6 +774,9 @@ class CalendarHomeFolder(Folder):
         result = []
         result.append("Calendar home for UID: %s" % (uid,))
 
+        #
+        # Attributes
+        #
         rows = []
         if created is not None:
             # FIXME: convert to formatted string
@@ -790,12 +793,17 @@ class CalendarHomeFolder(Folder):
 
         if len(rows):
             result.append("\nAttributes:")
-            rows[0:0] = (("Name", "Value"),)
-            result.append(tableString(rows))
+            result.append(tableString(rows, header=("Name", "Value")))
 
+        #
+        # Properties
+        #
         if properties:
             result.append("\Properties:")
-            result.append(tableString((name, properties[name]) for name in sorted(properties)))
+            result.append(tableString(
+                ((name, properties[name]) for name in sorted(properties)),
+                header=("Name", "Value")
+            ))
 
         returnValue("\n".join(result))
 
@@ -847,63 +855,58 @@ class CalendarObject(File):
         self.object = calendarObject
 
     @inlineCallbacks
+    def lookup(self):
+        if not hasattr(self, "component"):
+            component = (yield self.object.component())
+            mainComponent = component.mainComponent()
+
+            self.componentType = mainComponent.name()
+            self.uid           = mainComponent.propertyValue("UID")
+            self.summary       = mainComponent.propertyValue("SUMMARY")
+            self.mainComponent = mainComponent
+            self.component     = component
+
+    @inlineCallbacks
     def list(self):
-        component = (yield self.object.component())
-        mainComponent = component.mainComponent()
-        componentType = mainComponent.name()
-        uid = mainComponent.propertyValue("UID")
-        summary = mainComponent.propertyValue("SUMMARY")
-
-        assert uid == self.object.uid()
-        assert componentType == (yield self.object.componentType())
-
-        returnValue(("%s %s: %s" % (uid, componentType, summary),))
+        (yield self.lookup())
+        returnValue(("%s %s: %s" % (self.uid, self.componentType, self.summary),))
 
     @inlineCallbacks
     def text(self):
-        log.msg("text(%r)" % (self,))
-        component = (yield self.object.component())
-        returnValue(str(component))
+        (yield self.lookup())
+        returnValue(str(self.component))
 
     @inlineCallbacks
     def describe(self):
-        component = (yield self.object.component())
-        mainComponent = component.mainComponent()
-        componentType = mainComponent.name()
+        (yield self.lookup())
 
-        uid = mainComponent.propertyValue("UID")
-        summary = mainComponent.propertyValue("SUMMARY")
+        rows = []
 
-        assert uid == self.object.uid()
-        assert componentType == (yield self.object.componentType())
-
-        result = []
-
-        result.append("Calendar object (%s) with UID: %s" % (componentType, uid))
-        result.append("Summary: %s" % (summary,))
-
-        #
-        # Organizer
-        #
-        organizer = mainComponent.getProperty("ORGANIZER")
-        organizerName = organizer.parameterValue("CN")
-        organizerEmail = organizer.parameterValue("EMAIL")
-
+        rows.append(("UID", self.uid))
+        rows.append(("Type", self.componentType))
+        rows.append(("Summary", self.summary))
+        
+        organizer = self.mainComponent.getProperty("ORGANIZER")
         if organizer:
+            organizerName = organizer.parameterValue("CN")
+            organizerEmail = organizer.parameterValue("EMAIL")
+
             name  = " (%s)" % (organizerName ,) if organizerName  else ""
             email = " <%s>" % (organizerEmail,) if organizerEmail else ""
-            result.append("Organized by: %s%s%s" % (organizer.value(), name, email))
+
+            rows.append(("Organizer", "%s%s%s" % (organizer.value(), name, email)))
 
         #
         # Attachments
         #
-#        attachments = (yield self.object.attachments())
-#        log.msg("%r" % (attachments,))
-#        for attachment in attachments:
-#            log.msg("%r" % (attachment,))
-#            # FIXME: Not getting any results here
+#       attachments = (yield self.object.attachments())
+#       log.msg("%r" % (attachments,))
+#       for attachment in attachments:
+#           log.msg("%r" % (attachment,))
+#           # FIXME: Not getting any results here
 
-        returnValue("\n".join(result))
+
+        returnValue("Calendar object:\n%s" % tableString(rows))
 
 class AddressBookHomeFolder(Folder):
     """
@@ -912,12 +915,10 @@ class AddressBookHomeFolder(Folder):
     # FIXME
 
 
-def tableString(rows):
-    if not rows:
-        return ""
-
+def tableString(rows, header=None):
     table = Table()
-    table.addHeader(rows.pop(0))
+    if header:
+        table.addHeader(header)
     for row in rows:
         table.addRow(row)
 
