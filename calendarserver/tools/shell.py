@@ -24,6 +24,7 @@ import sys
 import tty
 import termios
 from shlex import shlex
+from cStringIO import StringIO
 
 from twisted.python import log
 from twisted.python.log import startLogging
@@ -42,6 +43,7 @@ from twistedcaldav.stdconfig import DEFAULT_CONFIG_FILE
 
 from calendarserver.tools.cmdline import utilityMain
 from calendarserver.tools.util import getDirectory
+from calendarserver.tools.tables import Table
 
 
 def usage(e=None):
@@ -771,19 +773,29 @@ class CalendarHomeFolder(Folder):
 
         result = []
         result.append("Calendar home for UID: %s" % (uid,))
+
+        rows = []
         if created is not None:
-            # FIXME: convert to string
-            result.append("Created: %s" % (created,))
+            # FIXME: convert to formatted string
+            rows.append(("Created", str(created)))
         if modified is not None:
-            # FIXME: convert to string
-            result.append("Last modified: %s" % (modified,))
+            # FIXME: convert to formatted string
+            rows.append(("Last modified", str(modified)))
         if quotaUsed is not None:
-            result.append("Quota: %s of %s (%.2s%%)"
-                          % (quotaUsed, quotaAllowed, quotaUsed / quotaAllowed))
+            rows.append((
+                "Quota",
+                "%s of %s (%.2s%%)"
+                % (quotaUsed, quotaAllowed, quotaUsed / quotaAllowed)
+            ))
+
+        if len(rows):
+            result.append("\nAttributes:")
+            rows[0:0] = (("Name", "Value"),)
+            result.append(tableString(rows))
 
         if properties:
-            for name in sorted(properties):
-                result.append("%s: %s" % (name, properties[name]))
+            result.append("\Properties:")
+            result.append(tableString((name, properties[name]) for name in sorted(properties)))
 
         returnValue("\n".join(result))
 
@@ -898,6 +910,20 @@ class AddressBookHomeFolder(Folder):
     Address book home folder.
     """
     # FIXME
+
+
+def tableString(rows):
+    if not rows:
+        return ""
+
+    table = Table()
+    table.addHeader(rows.pop(0))
+    for row in rows:
+        table.addRow(row)
+
+    output = StringIO()
+    table.printTable(os=output)
+    return output.getvalue()
 
 
 def main(argv=sys.argv, stderr=sys.stderr, reactor=None):
