@@ -156,6 +156,10 @@ class ShellProtocol(ReceiveLineProtocol):
         self.activeCommand = None
         self.emulate = EMULATE_EMACS
 
+    #
+    # Input handling
+    #
+
     def connectionMade(self):
         ReceiveLineProtocol.connectionMade(self)
 
@@ -248,23 +252,27 @@ class ShellProtocol(ReceiveLineProtocol):
                 self.terminal.write("%s%s\n" % (word, completion))
             self.drawInputLine()
 
+    #
+    # Utilities
+    #
+
     def exit(self):
         self.terminal.loseConnection()
         self.service.reactor.stop()
 
     @staticmethod
-    def tokenize(line):
-        lexer = shlex(line)
-        lexer.whitespace_split = True
+    def _listEntryToString(entry):
+        klass = entry[0]
+        name  = entry[1]
 
-        tokens = []
-        while True:
-            token = lexer.get_token()
-            if not token:
-                break
-            tokens.append(token)
+        if issubclass(klass, Folder):
+            return "%s/" % (name,)
+        else:
+            return name
 
-        return tokens
+    #
+    # Command dispatch
+    #
 
     def lineReceived(self, line):
         if self.activeCommand is not None:
@@ -313,6 +321,20 @@ class ShellProtocol(ReceiveLineProtocol):
         else:
             self.drawInputLine()
 
+    @staticmethod
+    def tokenize(line):
+        lexer = shlex(line)
+        lexer.whitespace_split = True
+
+        tokens = []
+        while True:
+            token = lexer.get_token()
+            if not token:
+                break
+            tokens.append(token)
+
+        return tokens
+
     def _getTarget(self, tokens):
         if tokens:
             return self.wd.locate(tokens.pop(0).split("/"))
@@ -344,6 +366,10 @@ class ShellProtocol(ReceiveLineProtocol):
 
     def _complete_commands(self, word):
         return self._complete(word, (name for name, method in self.commands()))
+
+    #
+    # Commands
+    #
 
     def cmd_help(self, tokens):
         """
@@ -445,6 +471,16 @@ class ShellProtocol(ReceiveLineProtocol):
             raise UsageError("Unknown editor: %s" % (editor,))
         self.terminal.nextLine()
 
+    def complete_emulate(self, tokens):
+        editors = ("emacs", "vi", "none")
+
+        if len(tokens) == 0:
+            return editors
+        elif len(tokens) == 1:
+            return self._complete(tokens[0], editors)
+        else:
+            return ()
+
     def cmd_pwd(self, tokens):
         """
         Print working folder.
@@ -497,11 +533,7 @@ class ShellProtocol(ReceiveLineProtocol):
             #
             table = Table()
             for row in rows:
-                klass = row[0]
-                row = list(row[1:])
-                if issubclass(klass, Folder):
-                    row[0] = "%s/" % (row[0],)
-                table.addRow(row)
+                table.addRow((self._listEntryToString(row),) + tuple(row[2:]))
 
             if multiple:
                 self.terminal.write("%s:\n" % (target,))
@@ -587,6 +619,12 @@ class Folder(File):
 
         self._children = {}
         self._childClasses = {}
+
+    def __str__(self):
+        if self.path:
+            return "/" + "/".join(self.path) + "/"
+        else:
+            return "/"
 
     @inlineCallbacks
     def locate(self, path):
