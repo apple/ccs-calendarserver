@@ -436,7 +436,7 @@ class ShellProtocol(ReceiveLineProtocol):
             for row in rows:
                 klass = row[0]
                 row = list(row[1:])
-                if isinstance(klass, Folder):
+                if issubclass(klass, Folder):
                     row[0] = "%s/" % (row[0],)
                 table.addRow(row)
 
