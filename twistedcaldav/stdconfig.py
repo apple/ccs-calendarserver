@@ -34,13 +34,16 @@ from twistedcaldav.config import config, _mergeData, fullServerPath
 from twistedcaldav.util import getPasswordFromKeychain
 from twistedcaldav.util import KeychainAccessError, KeychainPasswordNotFound
 
+from twisted.python.runtime import platform
+
 from calendarserver.push.util import getAPNTopicFromCertificate
 
 log = Logger()
 
-
-DEFAULT_CONFIG_FILE = "/etc/caldavd/caldavd.plist"
-DEFAULT_CARDDAV_CONFIG_FILE = "/etc/carddavd/carddavd.plist"
+if platform.isMacOSX():
+    DEFAULT_CONFIG_FILE = "/Library/Server/Calendar and Contacts/Config/caldavd.plist"
+else:
+    DEFAULT_CONFIG_FILE = "/etc/caldavd/caldavd.plist"
 
 DEFAULT_SERVICE_PARAMS = {
     "twistedcaldav.directory.xmlfile.XMLDirectoryService": {
@@ -299,7 +302,7 @@ DEFAULT_CONFIG = {
     "DatabaseRoot"            : "Database",
     "AttachmentsRoot"         : "Attachments",
     "DocumentRoot"            : "Documents",
-    "ConfigRoot"              : "/etc/caldavd",
+    "ConfigRoot"              : "Config",
     "LogRoot"                 : "/var/log/caldavd",
     "RunRoot"                 : "/var/run/caldavd",
     "WebCalendarRoot"         : "/usr/share/collabd",
@@ -938,10 +941,10 @@ def _expandPath(path):
 
 RELATIVE_PATHS = [
     ("ServerRoot", "DataRoot"),
-    ("ServerRoot", "DocumentRoot"),
     ("ServerRoot", "ConfigRoot"),
     ("ServerRoot", "LogRoot"),
     ("ServerRoot", "RunRoot"),
+    ("DataRoot", "DocumentRoot"),
     ("DataRoot", "DatabaseRoot"),
     ("DataRoot", "AttachmentsRoot"),
     ("DataRoot", ("TimezoneService", "BasePath",)),

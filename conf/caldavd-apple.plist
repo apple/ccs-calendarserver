@@ -110,7 +110,7 @@
 
     <!-- Configuration root -->
     <key>ConfigRoot</key>
-    <string>/etc/caldavd</string>
+    <string>Config</string>
 
     <!-- Run root -->
     <key>RunRoot</key>

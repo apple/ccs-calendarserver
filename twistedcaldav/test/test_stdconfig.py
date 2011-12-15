@@ -140,7 +140,7 @@ class ConfigParsingTests(TestCase):
         }))
         cfg.addPostUpdateHooks([_updateDataStore])
         cfg.load(tempfile1.path)
-        self.assertEquals(cfg.DocumentRoot, "/root/defaultdoc")
+        self.assertEquals(cfg.DocumentRoot, "/root/overridedata/defaultdoc")
         self.assertEquals(cfg.DataRoot, "/root/overridedata")
 
     def test_updateDataStore(self):

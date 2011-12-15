@@ -350,6 +350,13 @@ class CalDAVOptions (Options, LoggingMixIn):
         #
         # Verify that other root paths are OK
         #
+        if config.DataRoot.startswith(config.ServerRoot + os.sep):
+            self.checkDirectory(
+                config.DataRoot,
+                "Data root",
+                access=os.W_OK,
+                create=(0750, config.UserName, config.GroupName),
+            )
         if config.DocumentRoot.startswith(config.ServerRoot + os.sep):
             self.checkDirectory(
                 config.DocumentRoot,
@@ -358,14 +365,6 @@ class CalDAVOptions (Options, LoggingMixIn):
                 access=os.R_OK,
                 create=(0750, config.UserName, config.GroupName),
             )
-        if config.DataRoot.startswith(config.ServerRoot + os.sep):
-            self.checkDirectory(
-                config.DataRoot,
-                "Data root",
-                access=os.W_OK,
-                create=(0750, config.UserName, config.GroupName),
-            )
-
         if config.ConfigRoot.startswith(config.ServerRoot + os.sep):
             self.checkDirectory(
                 config.ConfigRoot,
