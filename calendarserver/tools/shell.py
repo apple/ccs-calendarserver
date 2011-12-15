@@ -19,6 +19,7 @@
 Interactive shell for navigating the data store.
 """
 
+import string
 import os
 import sys
 import tty
@@ -213,25 +214,26 @@ class ShellProtocol(ReceiveLineProtocol):
         tokens = self.tokenize("".join(self.lineBuffer[:self.lineBufferIndex]))
 
         if tokens:
-            cmd = tokens.pop(0)
+            if len(tokens) == 1 and self.lineBuffer[-1] in string.whitespace:
+                word = ""
+            else:
+                word = tokens[-1]
+            cmd  = tokens.pop(0)
         else:
-            cmd = ""
+            word = cmd = ""
 
-        if tokens:
+        if cmd and (tokens or word == ""):
             # Completing arguments
 
             m = getattr(self, "complete_%s" % (cmd,), None)
             if not m:
                 return
-            completions = m(tokens)
+            completions = tuple(m(tokens))
+
+            log.msg("COMPLETIONS: %r" % (completions,))
         else:
             # Completing command name
-            word = cmd
-
-            completions = set()
-            for name, m in self.commands():
-                if name.startswith(word):
-                    completions.add(name[len(word):])
+            completions = self._complete_commands(cmd)
 
         if len(completions) == 1:
             for completion in completions:
@@ -333,6 +335,13 @@ class ShellProtocol(ReceiveLineProtocol):
                 if not hasattr(m, "hidden"):
                     yield (attr[4:], m)
 
+    def _complete_commands(self, word):
+        completions = set()
+        for name, m in self.commands():
+            if name.startswith(word):
+                completions.add(name[len(word):])
+        return completions
+
     def cmd_help(self, tokens):
         """
         Show help.
@@ -395,6 +404,14 @@ class ShellProtocol(ReceiveLineProtocol):
 
             for info in sorted(result):
                 self.terminal.write(format % (info))
+
+    def complete_help(self, tokens):
+        if len(tokens) == 0:
+            return (name for name, method in self.commands())
+        elif len(tokens) == 1:
+            return self._complete_commands(tokens[0])
+        else:
+            return ()
 
     def cmd_emulate(self, tokens):
         """
