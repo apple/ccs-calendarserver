@@ -230,9 +230,16 @@ class ShellProtocol(ReceiveLineProtocol):
             completions = set()
             for name, m in self.commands():
                 if name.startswith(cmd):
-                    completions.add(name)
+                    completions.add(name[len(cmd):])
 
-        log.msg("TAB: %r :: %r" % ("".join(self.lineBuffer), completions))
+        if len(completions) == 1:
+            for word in completions:
+                break
+            for c in word:
+                self.characterReceived(c, True)
+            self.characterReceived(" ", False)
+        else:
+            log.msg("TAB: %r :: %r" % ("".join(self.lineBuffer), completions))
 
     def exit(self):
         self.terminal.loseConnection()
