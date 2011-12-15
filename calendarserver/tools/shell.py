@@ -878,8 +878,7 @@ class CalendarObject(File):
     @inlineCallbacks
     def list(self):
         (yield self.lookup())
-        returnValue(((CalendarObject, self.uid),))
-        # FIXME: returnValue(("%s %s: %s" % (self.uid, self.componentType, self.summary),))
+        returnValue(((CalendarObject, self.uid, self.componentType, self.summary),))
 
     @inlineCallbacks
     def text(self):
