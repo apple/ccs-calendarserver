@@ -162,6 +162,7 @@ class ShellProtocol(ReceiveLineProtocol):
         self.keyHandlers['\x04'] = self.handle_EOF   # Control-D
         self.keyHandlers['\x1c'] = self.handle_QUIT  # Control-\
         self.keyHandlers['\x0c'] = self.handle_FF    # Control-L
+       #self.keyHandlers['\t'  ] = self.handle_TAB   # Tab
 
         if self.emulate == EMULATE_EMACS:
             # EMACS key bindinds
@@ -207,15 +208,38 @@ class ShellProtocol(ReceiveLineProtocol):
     def handle_QUIT(self):
         self.exit()
 
+    def handle_TAB(self):
+        # Tokenize the text before the cursor
+        tokens = self.tokenize("".join(self.lineBuffer[:self.lineBufferIndex]))
+
+        if tokens:
+            cmd = tokens.pop(0)
+
+            if tokens:
+                # Completing arguments
+
+                m = getattr(self, "complete_%s" % (cmd,), None)
+                if not m:
+                    return
+                completions = m(tokens)
+            else:
+                # Completing command name
+
+                completions = set()
+                for name, m in self.commands():
+                    if name.startswith(cmd):
+                        completions.add(name)
+        else:
+            # Completing command names
+            pass
+
+        log.msg("TAB: %r :: %r" % ("".join(self.lineBuffer), completions))
+
     def exit(self):
         self.terminal.loseConnection()
         self.service.reactor.stop()
 
-    def lineReceived(self, line):
-        if self.activeCommand is not None:
-            self.inputLines.append(line)
-            return
-
+    def tokenize(self, line):
         lexer = shlex(line)
         lexer.whitespace_split = True
 
@@ -225,6 +249,15 @@ class ShellProtocol(ReceiveLineProtocol):
             if not token:
                 break
             tokens.append(token)
+
+        return tokens
+
+    def lineReceived(self, line):
+        if self.activeCommand is not None:
+            self.inputLines.append(line)
+            return
+
+        tokens = self.tokenize(line)
 
         if tokens:
             cmd = tokens.pop(0)
@@ -282,6 +315,13 @@ class ShellProtocol(ReceiveLineProtocol):
         else:
             returnValue((self.wd,))
 
+    def commands(self):
+        for attr in dir(self):
+            if attr.startswith("cmd_"):
+                m = getattr(self, attr)
+                if not hasattr(m, "hidden"):
+                    yield (attr[4:], m)
+
     def cmd_help(self, tokens):
         """
         Show help.
@@ -326,27 +366,19 @@ class ShellProtocol(ReceiveLineProtocol):
             result = []
             max_len = 0
 
-            for attr in dir(self):
-                if attr.startswith("cmd_"):
-                    m = getattr(self, attr)
+            for name, m in self.commands():
+                for line in m.__doc__.split("\n"):
+                    line = line.strip()
+                    if line:
+                        doc = line
+                        break
+                else:
+                    doc = "(no info available)"
 
-                    if hasattr(m, "hidden"):
-                        continue
+                if len(name) > max_len:
+                    max_len = len(name)
 
-                    for line in m.__doc__.split("\n"):
-                        line = line.strip()
-                        if line:
-                            doc = line
-                            break
-                    else:
-                        doc = "(no info available)"
-
-                    name = attr[4:]
-
-                    if len(name) > max_len:
-                        max_len = len(name)
-
-                    result.append((name, doc))
+                result.append((name, doc))
 
             format = "  %%%ds - %%s\n" % (max_len,)
 
