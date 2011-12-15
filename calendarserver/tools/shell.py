@@ -214,24 +214,23 @@ class ShellProtocol(ReceiveLineProtocol):
 
         if tokens:
             cmd = tokens.pop(0)
-
-            if tokens:
-                # Completing arguments
-
-                m = getattr(self, "complete_%s" % (cmd,), None)
-                if not m:
-                    return
-                completions = m(tokens)
-            else:
-                # Completing command name
-
-                completions = set()
-                for name, m in self.commands():
-                    if name.startswith(cmd):
-                        completions.add(name)
         else:
-            # Completing command names
-            pass
+            cmd = ""
+
+        if tokens:
+            # Completing arguments
+
+            m = getattr(self, "complete_%s" % (cmd,), None)
+            if not m:
+                return
+            completions = m(tokens)
+        else:
+            # Completing command name
+
+            completions = set()
+            for name, m in self.commands():
+                if name.startswith(cmd):
+                    completions.add(name)
 
         log.msg("TAB: %r :: %r" % ("".join(self.lineBuffer), completions))
 
