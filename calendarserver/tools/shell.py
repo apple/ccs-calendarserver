@@ -226,20 +226,25 @@ class ShellProtocol(ReceiveLineProtocol):
             completions = m(tokens)
         else:
             # Completing command name
+            word = cmd
 
             completions = set()
             for name, m in self.commands():
-                if name.startswith(cmd):
-                    completions.add(name[len(cmd):])
+                if name.startswith(word):
+                    completions.add(name[len(word):])
 
         if len(completions) == 1:
-            for word in completions:
+            for completion in completions:
                 break
-            for c in word:
+            for c in completion:
                 self.characterReceived(c, True)
             self.characterReceived(" ", False)
         else:
-            log.msg("TAB: %r :: %r" % ("".join(self.lineBuffer), completions))
+            self.terminal.nextLine()
+            for completion in completions:
+                # FIXME Emitting these in columns would be swell
+                self.terminal.write("%s%s\n" % (word, completion))
+            self.drawInputLine()
 
     def exit(self):
         self.terminal.loseConnection()
