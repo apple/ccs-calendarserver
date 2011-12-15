@@ -195,7 +195,7 @@ class ImplicitScheduler(object):
             if implicit is not None:
                 returnValue(implicit)
             else:
-                calendar = (yield self.resource.iCalendarForUser(self.request))
+                calendar = (yield resource.iCalendarForUser(self.request))
                 # Get the ORGANIZER and verify it is the same for all components
                 try:
                     organizer = calendar.validOrganizerForScheduling()
