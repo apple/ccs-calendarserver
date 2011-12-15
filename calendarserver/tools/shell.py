@@ -233,7 +233,7 @@ class ShellProtocol(ReceiveLineProtocol):
             log.msg("COMPLETIONS: %r" % (completions,))
         else:
             # Completing command name
-            completions = self._complete_commands(cmd)
+            completions = tuple(self._complete_commands(cmd))
 
         if len(completions) == 1:
             for completion in completions:
@@ -252,7 +252,8 @@ class ShellProtocol(ReceiveLineProtocol):
         self.terminal.loseConnection()
         self.service.reactor.stop()
 
-    def tokenize(self, line):
+    @staticmethod
+    def tokenize(line):
         lexer = shlex(line)
         lexer.whitespace_split = True
 
@@ -335,12 +336,14 @@ class ShellProtocol(ReceiveLineProtocol):
                 if not hasattr(m, "hidden"):
                     yield (attr[4:], m)
 
+    @staticmethod
+    def _complete(word, items):
+        for item in items:
+            if item.startswith(word):
+                yield item[len(word):]
+
     def _complete_commands(self, word):
-        completions = set()
-        for name, m in self.commands():
-            if name.startswith(word):
-                completions.add(name[len(word):])
-        return completions
+        return self._complete(word, (name for name, method in self.commands()))
 
     def cmd_help(self, tokens):
         """
