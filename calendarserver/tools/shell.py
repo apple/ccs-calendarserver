@@ -423,20 +423,28 @@ class ShellProtocol(ReceiveLineProtocol):
 
         usage: ls [folder]
         """
-        target = (yield self._getTarget(tokens))
+        targets = (yield self._getTargets(tokens))
+        multiple = len(targets) > 0
 
-        if tokens:
-            raise UnknownArguments(tokens)
+        for target in targets:
+            rows = (yield target.list())
+            #
+            # FIXME: this can be ugly if, for example, there are zillions
+            # of entries to output. Paging would be good.
+            #
+            table = Table()
+            for row in rows:
+                klass = row[0]
+                row = list(row[1:])
+                if isinstance(klass, Folder):
+                    row[0] = "%s/" % (row[0],)
+                table.addRow(row)
 
-        listing = (yield target.list())
-
-        #
-        # FIXME: this can be ugly if, for example, there are
-        # zillions of calendar homes or events to output. Paging
-        # would be good.
-        #
-        for name in listing:
-            self.terminal.write("%s\n" % (name,))
+            if multiple:
+                self.terminal.write("%s:\n" % (target,))
+            if table.rows:
+                table.printTable(self.terminal)
+            self.terminal.nextLine()
 
     @inlineCallbacks
     def cmd_info(self, tokens):
@@ -504,7 +512,7 @@ class File(object):
         return succeed("%s (%s)" % (self, self.__class__.__name__))
 
     def list(self):
-        return succeed(("%s" % (self,),))
+        return succeed((File, str(self)))
 
 
 class Folder(File):
@@ -557,8 +565,10 @@ class Folder(File):
 
     def list(self):
         result = set()
-        result.update(self._children)
-        result.update(self._childClasses)
+        for name in self._children:
+            result.add((self._children[name].__class__, name))
+        for name in self._childClasses:
+            result.add((self._childClasses[name], name))
         return succeed(result)
 
 
@@ -604,14 +614,14 @@ class UIDsFolder(Folder):
 
     @inlineCallbacks
     def list(self):
-        result = []
+        result = set()
 
         # FIXME: This should be the merged total of calendar homes and address book homes.
         # FIXME: Merge in directory UIDs also?
         # FIXME: Add directory info (eg. name) to listing
 
         for txn, home in (yield self.service.store.eachCalendarHome()):
-            result.append("%s/" % (home.uid(),))
+            result.add((PrincipalHomeFolder, home.uid()))
 
         returnValue(result)
 
@@ -638,9 +648,9 @@ class RecordFolder(Folder):
 
     @inlineCallbacks
     def list(self):
-        result = []
+        result = set()
 
-        # ...
+        # FIXME ...
 
         returnValue(result)
 
@@ -756,7 +766,7 @@ class CalendarHomeFolder(Folder):
     @inlineCallbacks
     def list(self):
         calendars = (yield self.home.calendars())
-        returnValue(("%s/" % (c.name(),) for c in calendars))
+        returnValue(((CalendarFolder, c.name()) for c in calendars))
 
     @inlineCallbacks
     def describe(self):
@@ -839,7 +849,6 @@ class CalendarFolder(Folder):
         for object in (yield self.calendar.calendarObjects()):
             object = (yield self._childWithObject(object))
             items = (yield object.list())
-            assert len(items) == 1
             result.append(items[0])
 
         returnValue(result)
@@ -869,7 +878,8 @@ class CalendarObject(File):
     @inlineCallbacks
     def list(self):
         (yield self.lookup())
-        returnValue(("%s %s: %s" % (self.uid, self.componentType, self.summary),))
+        returnValue(((CalendarObject, self.uid),))
+        # FIXME: returnValue(("%s %s: %s" % (self.uid, self.componentType, self.summary),))
 
     @inlineCallbacks
     def text(self):
