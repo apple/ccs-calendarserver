@@ -28,7 +28,6 @@ from shlex import shlex
 from cStringIO import StringIO
 
 from twisted.python import log
-from twisted.python.log import startLogging
 from twisted.python.text import wordWrap
 from twisted.python.usage import Options, UsageError
 from twisted.internet.defer import succeed, Deferred
@@ -98,8 +97,9 @@ class ShellService(Service, object):
         Start the service.
         """
         # For debugging
-        f = open("/tmp/shell.log", "w")
-        startLogging(f)
+        #from twisted.python.log import startLogging
+        #f = open("/tmp/shell.log", "w")
+        #startLogging(f)
 
         super(ShellService, self).startService()
 
@@ -785,7 +785,7 @@ class RecordFolder(Folder):
     def list(self):
         result = set()
 
-        # FIXME ...
+        # FIXME ...?
 
         returnValue(result)
 
