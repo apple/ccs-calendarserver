@@ -373,7 +373,7 @@ class ShellProtocol(ReceiveLineProtocol):
             filter = lambda items: True
 
         files = (
-            item[1]
+            self._listEntryToString(item)
             for item in (yield self.wd.list())
             if filter(item)
         )
@@ -538,10 +538,10 @@ class ShellProtocol(ReceiveLineProtocol):
 
     @inlineCallbacks
     def complete_cd(self, tokens):
-        return self._complete_files(
+        returnValue((yield self._complete_files(
             tokens,
             filter = lambda item: issubclass(item[0], Folder)
-        )
+        )))
 
     @inlineCallbacks
     def cmd_ls(self, tokens):
