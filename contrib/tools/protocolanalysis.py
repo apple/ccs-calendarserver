@@ -217,7 +217,7 @@ class CalendarServerLogAnalyzer(object):
         self,
         startHour=None,
         endHour=None,
-        utcoffset = None,
+        utcoffset = 0,
         resolutionMinutes=60,
         filterByUser=None,
         filterByClient=None,
@@ -240,7 +240,7 @@ class CalendarServerLogAnalyzer(object):
         
         self.resolutionMinutes = resolutionMinutes
         self.timeBucketCount = (24 * 60) / resolutionMinutes
-        self.loggedUTCOffset = None
+        self.loggedUTCOffset = 0
 
         self.hourlyTotals = [[0, 0, 0, collections.defaultdict(int), 0.0,] for _ignore in xrange(self.timeBucketCount)]
         
@@ -1775,7 +1775,7 @@ if __name__ == "__main__":
         resolution = 60
         startHour = 0
         endHour = startHour + 23
-        utcoffset = None
+        utcoffset = 0
         filterByUser = None
         filterByClient = None
 
