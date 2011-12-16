@@ -589,6 +589,7 @@ class SharedCollectionMixin(object):
                     customxml.CommonName.fromString(ownerCN),
                 ),
                 customxml.InviteSummary.fromString(record.summary),
+                self.getSupportedComponentSet() if self.isCalendarCollection() else None,
                 **typeAttr
             ),
         ).toxml()
