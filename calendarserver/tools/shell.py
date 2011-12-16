@@ -212,6 +212,7 @@ class ShellProtocol(ReceiveLineProtocol):
     def handle_QUIT(self):
         self.exit()
 
+    @inlineCallbacks
     def handle_TAB(self):
         # Tokenize the text before the cursor
         tokens = self.tokenize("".join(self.lineBuffer[:self.lineBufferIndex]))
@@ -231,7 +232,7 @@ class ShellProtocol(ReceiveLineProtocol):
             m = getattr(self, "complete_%s" % (cmd,), None)
             if not m:
                 return
-            completions = tuple(m(tokens))
+            completions = tuple((yield m(tokens)))
 
             log.msg("COMPLETIONS: %r" % (completions,))
         else:
@@ -516,6 +517,21 @@ class ShellProtocol(ReceiveLineProtocol):
 
         log.msg("wd -> %s" % (wd,))
         self.wd = wd
+
+    @inlineCallbacks
+    def complete_cd(self, tokens):
+        directories = (
+            item[1]
+            for item in (yield self.wd.list())
+            if issubclass(item[0], Folder)
+        )
+
+        if len(tokens) == 0:
+            returnValue(directories)
+        elif len(tokens) == 1:
+            returnValue(self._complete(tokens[0], directories))
+        else:
+            returnValue(())
 
     @inlineCallbacks
     def cmd_ls(self, tokens):
