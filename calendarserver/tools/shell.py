@@ -134,9 +134,6 @@ class UnknownArguments (UsageError):
         self.arguments = arguments
 
 
-EMULATE_EMACS = object()
-EMULATE_VI    = object()
-
 class ShellProtocol(ReceiveLineProtocol):
     """
     Data store shell protocol.
@@ -148,13 +145,15 @@ class ShellProtocol(ReceiveLineProtocol):
 
     ps = ("ds% ", "... ")
 
+    emulation_modes = ("emacs", "none")
+
     def __init__(self, service):
         ReceiveLineProtocol.__init__(self)
         self.service = service
         self.wd = RootFolder(service)
         self.inputLines = []
         self.activeCommand = None
-        self.emulate = EMULATE_EMACS
+        self.emulate = "emacs"
 
     #
     # Input handling
@@ -169,7 +168,7 @@ class ShellProtocol(ReceiveLineProtocol):
         self.keyHandlers['\x0c'] = self.handle_FF    # Control-L
        #self.keyHandlers['\t'  ] = self.handle_TAB   # Tab
 
-        if self.emulate == EMULATE_EMACS:
+        if self.emulate == "emacs":
             # EMACS key bindinds
             self.keyHandlers['\x10'] = self.handle_UP     # Control-P
             self.keyHandlers['\x0e'] = self.handle_DOWN   # Control-N
@@ -194,7 +193,7 @@ class ShellProtocol(ReceiveLineProtocol):
 
     def handle_EOF(self):
         if self.lineBuffer:
-            if self.emulate == EMULATE_EMACS:
+            if self.emulate == "emacs":
                 self.handle_DELETE()
             else:
                 self.terminal.write('\a')
@@ -446,38 +445,37 @@ class ShellProtocol(ReceiveLineProtocol):
         """
         Emulate editor behavior.
         The only correct argument is: emacs
-        Other choices include: vi, none
+        Other choices include: none
 
         usage: emulate editor
         """
         if not tokens:
-            raise UsageError("Editor not specified.")
+            if self.emulate:
+                self.terminal.write("Emulating %s.\n" % (self.emulate,))
+            else:
+                self.terminal.write("Emulation disabled.\n")
+            return
 
         editor = tokens.pop(0).lower()
 
         if tokens:
             raise UnknownArguments(tokens)
 
-        if editor == "emacs":
-            self.terminal.write("Emulating EMACS.")
-            self.emulate = EMULATE_EMACS
-        elif editor == "vi":
-            self.terminal.write("Seriously?!?!?")
-            self.emulate = EMULATE_VI
-        elif editor == "none":
-            self.terminal.write("Disabling emulation.")
-            self.emulate = None
+        if editor == "none":
+            self.terminal.write("Disabling emulation.\n")
+            editor = None
+        elif editor in self.emulation_modes:
+            self.terminal.write("Emulating %s.\n" % (editor,))
         else:
             raise UsageError("Unknown editor: %s" % (editor,))
-        self.terminal.nextLine()
+
+        self.emulate = editor
 
     def complete_emulate(self, tokens):
-        editors = ("emacs", "vi", "none")
-
         if len(tokens) == 0:
-            return editors
+            return self.emulation_modes
         elif len(tokens) == 1:
-            return self._complete(tokens[0], editors)
+            return self._complete(tokens[0], self.emulation_modes)
         else:
             return ()
 
