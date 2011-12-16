@@ -471,6 +471,10 @@ class ShellProtocol(ReceiveLineProtocol):
 
         self.emulate = editor
 
+        # FIXME: Need to update key registrations
+
+    cmd_emulate.hidden = "Incomplete"
+
     def complete_emulate(self, tokens):
         if len(tokens) == 0:
             return self.emulation_modes
