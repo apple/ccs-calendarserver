@@ -367,6 +367,24 @@ class ShellProtocol(ReceiveLineProtocol):
     def _complete_commands(self, word):
         return self._complete(word, (name for name, method in self.commands()))
 
+    @inlineCallbacks
+    def _complete_files(self, tokens, filter=None):
+        if filter is None:
+            filter = lambda items: True
+
+        files = (
+            item[1]
+            for item in (yield self.wd.list())
+            if filter(item)
+        )
+
+        if len(tokens) == 0:
+            returnValue(files)
+        elif len(tokens) == 1:
+            returnValue(self._complete(tokens[0], files))
+        else:
+            returnValue(())
+
     #
     # Commands
     #
@@ -520,18 +538,10 @@ class ShellProtocol(ReceiveLineProtocol):
 
     @inlineCallbacks
     def complete_cd(self, tokens):
-        directories = (
-            item[1]
-            for item in (yield self.wd.list())
-            if issubclass(item[0], Folder)
+        return self._complete_files(
+            tokens,
+            filter = lambda item: issubclass(item[0], Folder)
         )
-
-        if len(tokens) == 0:
-            returnValue(directories)
-        elif len(tokens) == 1:
-            returnValue(self._complete(tokens[0], directories))
-        else:
-            returnValue(())
 
     @inlineCallbacks
     def cmd_ls(self, tokens):
@@ -559,6 +569,8 @@ class ShellProtocol(ReceiveLineProtocol):
                 table.printTable(self.terminal)
             self.terminal.nextLine()
 
+    complete_ls = _complete_files
+
     @inlineCallbacks
     def cmd_info(self, tokens):
         """
@@ -575,6 +587,8 @@ class ShellProtocol(ReceiveLineProtocol):
         self.terminal.write(description)
         self.terminal.nextLine()
 
+    complete_ls = _complete_files
+
     @inlineCallbacks
     def cmd_cat(self, tokens):
         """
@@ -586,6 +600,8 @@ class ShellProtocol(ReceiveLineProtocol):
             if hasattr(target, "text"):
                 text = (yield target.text())
                 self.terminal.write(text)
+
+    complete_ls = _complete_files
 
     def cmd_exit(self, tokens):
         """
