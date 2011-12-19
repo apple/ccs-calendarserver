@@ -1035,7 +1035,11 @@ class PostDBImportService(Service, object):
                         davxml.HRef.fromString("/principals/__uids__/%s/" % (uuid,))
                     )
 
-                    calendarHome = yield principal.calendarHome(request)
+                    try:
+                        calendarHome = yield principal.calendarHome(request)
+                    except AttributeError:
+                        # Not a calendar enabled principal, so ignore the inbox item
+                        calendarHome = None
                     if not calendarHome:
                         continue
 
