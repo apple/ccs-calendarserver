@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2009-2010 Apple Inc. All rights reserved.
+# Copyright (c) 2009-2011 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -71,7 +71,7 @@ class ReverseProxyResource(LeafResource, LoggingMixIn):
             x_server =  request.headers.getHeader("x-forwarded-server")
             if x_server:
                 for item in x_server:
-                    if item == config.ServerHostName:
+                    if item.lower() == config.ServerHostName.lower():
                         raise HTTPError(StatusResponse(responsecode.BAD_GATEWAY, "Too many x-forwarded-server hops"))
                 
             
