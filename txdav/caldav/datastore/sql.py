@@ -225,11 +225,11 @@ class CalendarHome(CommonHome):
         
         # Check whether components type must be separate
         if config.RestrictCalendarsToOneComponentType:
-            defaultCal.setSupportedComponents("VEVENT")
+            yield defaultCal.setSupportedComponents("VEVENT")
             
             # Default tasks
             defaultTasks = yield self.createCalendarWithName("tasks")
-            defaultTasks.setSupportedComponents("VTODO")
+            yield defaultTasks.setSupportedComponents("VTODO")
             
         yield self.createCalendarWithName("inbox")
 
@@ -250,6 +250,15 @@ class CalendarHome(CommonHome):
             split_count = yield calendar.splitCollectionByComponentTypes()
             self.log_warn("  Calendar: '%s', split into %d" % (calendar.name(), split_count+1,))
 
+        yield self.ensureDefaultCalendarsExist()
+
+    @inlineCallbacks
+    def ensureDefaultCalendarsExist(self):
+        """
+        Double check that we have calendars supporting at least VEVENT and VTODO,
+        and create if missing.
+        """
+
         # Double check that we have calendars supporting at least VEVENT and VTODO
         if config.RestrictCalendarsToOneComponentType:
             supported_components = set()
@@ -269,7 +278,7 @@ class CalendarHome(CommonHome):
                     if newname in names:
                         newname = str(uuid.uuid4())
                     newcal = yield self.createCalendarWithName(newname)
-                    newcal.setSupportedComponents(support_component)
+                    yield newcal.setSupportedComponents(support_component)
             
             yield _requireCalendarWithType("VEVENT", "calendar")
             yield _requireCalendarWithType("VTODO", "tasks")

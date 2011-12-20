@@ -101,7 +101,7 @@ class DefaultCalendar (TestCase):
     @inlineCallbacks
     def test_pick_default_vevent_calendar(self):
         """
-        Make calendar
+        Test that pickNewDefaultCalendar will choose the correct calendar.
         """
         
         request = SimpleRequest(self.site, "GET", "/calendars/users/wsanchez/")
@@ -129,8 +129,9 @@ class DefaultCalendar (TestCase):
     @inlineCallbacks
     def test_pick_default_vtodo_calendar(self):
         """
-        Make calendar
+        Test that pickNewDefaultCalendar will choose the correct tasks calendar.
         """
+        
         
         request = SimpleRequest(self.site, "GET", "/calendars/users/wsanchez/")
         inbox = yield request.locateResource("/calendars/users/wsanchez/inbox")
@@ -149,6 +150,75 @@ class DefaultCalendar (TestCase):
             default = inbox.readDeadProperty(customxml.ScheduleDefaultTasksURL)
         except HTTPError:
             self.fail("customxml.ScheduleDefaultTasksURL is not present")
+        else:
+            self.assertEqual(str(default.children[0]), "/calendars/__uids__/6423F94A-6B76-4A3A-815B-D52CFD77935D/tasks")
+
+        request._newStoreTransaction.abort()
+
+    @inlineCallbacks
+    def test_missing_default_vevent_calendar(self):
+        """
+        Test that pickNewDefaultCalendar will create a missing default calendar.
+        """
+        
+        
+        request = SimpleRequest(self.site, "GET", "/calendars/users/wsanchez/")
+        home = yield request.locateResource("/calendars/users/wsanchez/")
+        inbox = yield request.locateResource("/calendars/users/wsanchez/inbox")
+
+        # default property initially not present
+        try:
+            inbox.readDeadProperty(caldavxml.ScheduleDefaultCalendarURL)
+        except HTTPError:
+            pass
+        else:
+            self.fail("caldavxml.ScheduleDefaultCalendarURL is not empty")
+
+        # Forcibly remove the one we need
+        yield home._newStoreHome.removeChildWithName("calendar")
+        names = [calendarName for calendarName in (yield home._newStoreHome.listCalendars())]
+        self.assertTrue("calendar" not in names)
+
+        yield inbox.pickNewDefaultCalendar(request)
+
+        try:
+            default = inbox.readDeadProperty(caldavxml.ScheduleDefaultCalendarURL)
+        except HTTPError:
+            self.fail("caldavxml.ScheduleDefaultCalendarURL is not present")
+        else:
+            self.assertEqual(str(default.children[0]), "/calendars/__uids__/6423F94A-6B76-4A3A-815B-D52CFD77935D/calendar")
+
+        request._newStoreTransaction.abort()
+
+    @inlineCallbacks
+    def test_missing_default_vtodo_calendar(self):
+        """
+        Test that pickNewDefaultCalendar will create a missing default tasks calendar.
+        """
+        
+        request = SimpleRequest(self.site, "GET", "/calendars/users/wsanchez/")
+        home = yield request.locateResource("/calendars/users/wsanchez/")
+        inbox = yield request.locateResource("/calendars/users/wsanchez/inbox")
+
+        # default property initially not present
+        try:
+            inbox.readDeadProperty(customxml.ScheduleDefaultTasksURL)
+        except HTTPError:
+            pass
+        else:
+            self.fail("caldavxml.ScheduleDefaultTasksURL is not empty")
+
+        # Forcibly remove the one we need
+        yield home._newStoreHome.removeChildWithName("tasks")
+        names = [calendarName for calendarName in (yield home._newStoreHome.listCalendars())]
+        self.assertTrue("tasks" not in names)
+
+        yield inbox.pickNewDefaultCalendar(request, tasks=True)
+
+        try:
+            default = inbox.readDeadProperty(customxml.ScheduleDefaultTasksURL)
+        except HTTPError:
+            self.fail("caldavxml.ScheduleDefaultTasksURL is not present")
         else:
             self.assertEqual(str(default.children[0]), "/calendars/__uids__/6423F94A-6B76-4A3A-815B-D52CFD77935D/tasks")
 

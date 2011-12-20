@@ -28,6 +28,7 @@ __all__ = [
 ]
 
 import hashlib
+import uuid
 
 from errno import ENOENT
 
@@ -199,6 +200,33 @@ class CalendarHome(CommonHome):
             
         self.createCalendarWithName("inbox")
 
+    def ensureDefaultCalendarsExist(self):
+        """
+        Double check that we have calendars supporting at least VEVENT and VTODO,
+        and create if missing.
+        """
+
+        # Double check that we have calendars supporting at least VEVENT and VTODO
+        if config.RestrictCalendarsToOneComponentType:
+            supported_components = set()
+            names = set()
+            for calendar in self.calendars():
+                if calendar.name() == "inbox":
+                    continue
+                names.add(calendar.name())
+                result = calendar.getSupportedComponents()
+                supported_components.update(result.split(","))
+
+            def _requireCalendarWithType(support_component, tryname):
+                if support_component not in supported_components:
+                    newname = tryname
+                    if newname in names:
+                        newname = str(uuid.uuid4())
+                    newcal = self.createCalendarWithName(newname)
+                    newcal.setSupportedComponents(support_component)
+            
+            _requireCalendarWithType("VEVENT", "calendar")
+            _requireCalendarWithType("VTODO", "tasks")
 
 class Calendar(CommonHomeChild):
     """

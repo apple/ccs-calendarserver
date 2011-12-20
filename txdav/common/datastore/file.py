@@ -391,7 +391,8 @@ class CommonHome(FileMetaDataMixin, LoggingMixIn):
         return set(self._newChildren.itervalues()) | set(
             self.childWithName(name)
             for name in self._path.listdir()
-            if not name.startswith(".")
+            if not name.startswith(".") and
+                name not in self._removedChildren
         )
 
     # For file store there is no efficient "bulk" load of all children so just
@@ -408,7 +409,9 @@ class CommonHome(FileMetaDataMixin, LoggingMixIn):
         ) | set(
             name
             for name in self._path.listdir()
-            if not name.startswith(".") and self._path.child(name).isdir()
+            if not name.startswith(".") and 
+                self._path.child(name).isdir() and
+                name not in self._removedChildren
         ))
 
 
@@ -500,7 +503,10 @@ class CommonHome(FileMetaDataMixin, LoggingMixIn):
         try:
             child.remove()
         finally:
-            self._removedChildren.add(name)
+            if name in self._newChildren:
+                del self._newChildren[name]
+            else:
+                self._removedChildren.add(name)
 
     @inlineCallbacks
     def syncToken(self):

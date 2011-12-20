@@ -296,20 +296,32 @@ class ScheduleInboxResource (CalendarSchedulingCollectionResource):
         defaultCalendarURL = joinURL(calendarHomeURL, test_name)
         defaultCalendar = (yield request.locateResource(defaultCalendarURL))
         if defaultCalendar is None or not defaultCalendar.exists():
-            # FIXME: the back-end should re-provision a default calendar here.
             # Really, the dead property shouldn't be necessary, and this should
             # be entirely computed by a back-end method like 'defaultCalendar()'
-            for calendarName in (yield self.parent._newStoreHome.listCalendars()):  # These are only unshared children
-                if calendarName == "inbox":
-                    continue
-                calendar = (yield self.parent._newStoreHome.calendarWithName(calendarName))
-                if not calendar.isSupportedComponent(componentType):
-                    continue
-                break
-            else:
-                raise RuntimeError("No valid calendars to use as a default %s calendar." % (componentType,))
+            
+            @inlineCallbacks
+            def _findDefault():
+                for calendarName in (yield self.parent._newStoreHome.listCalendars()):  # These are only unshared children
+                    if calendarName == "inbox":
+                        continue
+                    calendar = (yield self.parent._newStoreHome.calendarWithName(calendarName))
+                    if not calendar.isSupportedComponent(componentType):
+                        continue
+                    break
+                else:
+                    calendarName = None
+                returnValue(calendarName)
+            
+            foundName = yield _findDefault()
+            if foundName is None:
+                # Create a default and try and get its name again
+                yield self.parent._newStoreHome.ensureDefaultCalendarsExist()
+                foundName = yield _findDefault()
+                if foundName is None:
+                    # Failed to even create a default - bad news...
+                    raise RuntimeError("No valid calendars to use as a default %s calendar." % (componentType,))
 
-            defaultCalendarURL = joinURL(calendarHomeURL, calendarName)
+            defaultCalendarURL = joinURL(calendarHomeURL, foundName)
 
         prop = prop_to_set(davxml.HRef(defaultCalendarURL))
         self.writeDeadProperty(prop)
@@ -322,7 +334,7 @@ class ScheduleInboxResource (CalendarSchedulingCollectionResource):
         not exist, automatically provision it. 
         """
 
-        # Check any default calendar property first
+        # Check any default calendar property first - this will create if none exists
         default = (yield self.readProperty(caldavxml.ScheduleDefaultCalendarURL.qname(), request))
         if len(default.children) == 1:
             defaultURL = str(default.children[0])
@@ -353,7 +365,7 @@ class ScheduleInboxResource (CalendarSchedulingCollectionResource):
             if default is None:
                 new_name = "%ss" % (componentType.lower()[1:],)
                 default = yield self.parent._newStoreHome.createCalendarWithName(new_name)
-                default.setSupportedComponents(componentType.upper())
+                yield default.setSupportedComponents(componentType.upper())
             
             # Need L{DAVResource} object to return not new store object
             default = (yield request.locateResource(joinURL(self.parent.url(), default.name())))
