@@ -21,37 +21,35 @@ import xattr, os, zlib, hashlib, datetime, pwd, grp, shutil, errno
 from zlib import compress
 from cPickle import loads as unpickle, UnpicklingError
 
-from twext.web2.dav.fileop import rmdir
-from twext.web2.dav import davxml
 from twext.python.log import Logger
-from twisted.python.reflect import namedClass
+from twext.web2.dav import davxml
+from twext.web2.dav.fileop import rmdir
 
-
-from twistedcaldav.directory.appleopendirectory import OpenDirectoryService
-from twistedcaldav.directory.xmlfile import XMLDirectoryService
-from twistedcaldav.directory.directory import DirectoryService, GroupMembershipCacheUpdater
-from twistedcaldav.directory import calendaruserproxy
-from twistedcaldav.directory.calendaruserproxyloader import XMLCalendarUserProxyLoader
-from twistedcaldav.directory.resourceinfo import ResourceInfoDatabase
-from twistedcaldav.mail import MailGatewayTokensDatabase
-from twistedcaldav.ical import Component
 from twistedcaldav import caldavxml
+from twistedcaldav.directory import calendaruserproxy
+from twistedcaldav.directory.appleopendirectory import OpenDirectoryService
+from twistedcaldav.directory.calendaruserproxyloader import XMLCalendarUserProxyLoader
+from twistedcaldav.directory.directory import DirectoryService, GroupMembershipCacheUpdater
+from twistedcaldav.directory.principal import DirectoryCalendarPrincipalResource
+from twistedcaldav.directory.resourceinfo import ResourceInfoDatabase
+from twistedcaldav.directory.xmlfile import XMLDirectoryService
+from twistedcaldav.ical import Component
+from twistedcaldav.mail import MailGatewayTokensDatabase
 from twistedcaldav.scheduling.cuaddress import LocalCalendarUser
 from twistedcaldav.scheduling.scheduler import DirectScheduler
-
 
 from twisted.application.service import Service
 from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks, succeed, returnValue
+from twisted.python.reflect import namedAny
+from twisted.python.reflect import namedClass
 
 from txdav.caldav.datastore.index_file import db_basename
 
 from calendarserver.tap.util import getRootResource, FakeRequest, directoryFromConfig
-
-from calendarserver.tools.util import getDirectory
 from calendarserver.tools.resources import migrateResources
+from calendarserver.tools.util import getDirectory
 
-from twisted.python.reflect import namedAny
 
 deadPropertyXattrPrefix = namedAny(
     "txdav.base.propertystore.xattr.PropertyStore.deadPropertyXattrPrefix"
@@ -1006,6 +1004,8 @@ class PostDBImportService(Service, object):
         inboxItemsList = os.path.join(self.config.DataRoot, INBOX_ITEMS)
         if os.path.exists(inboxItemsList):
 
+            log.info("Starting inbox item processing.")
+
             root = getRootResource(self.config, self.store)
             directory = root.getDirectory()
             principalCollection = directory.principalCollection
@@ -1017,16 +1017,22 @@ class PostDBImportService(Service, object):
                     inboxItems.add(inboxItem)
 
             try:
-                for inboxItem in list(inboxItems):
-                    log.info("Processing inbox item: %s" % (inboxItem,))
+                itemsToProcess = list(inboxItems)
+                totalItems = len(itemsToProcess)
+                for ctr, inboxItem in enumerate(itemsToProcess):
+                    log.info("Processing %d/%d inbox item: %s" % (ctr+1, totalItems, inboxItem,))
                     ignore, uuid, ignore, fileName = inboxItem.rsplit("/", 3)
 
                     record = directory.recordWithUID(uuid)
-                    if not record:
+                    if record is None:
+                        log.debug("Ignored inbox item - no record: %s" % (inboxItem,))
+                        inboxItems.remove(inboxItem)
                         continue
 
                     principal = principalCollection.principalForRecord(record)
-                    if not principal:
+                    if principal is None or not isinstance(principal, DirectoryCalendarPrincipalResource):
+                        log.debug("Ignored inbox item - no principal: %s" % (inboxItem,))
+                        inboxItems.remove(inboxItem)
                         continue
 
                     request = FakeRequest(root, "PUT", None)
@@ -1035,54 +1041,74 @@ class PostDBImportService(Service, object):
                         davxml.HRef.fromString("/principals/__uids__/%s/" % (uuid,))
                     )
 
+                    # The request may end up with an associated transaction and we must make sure that is
+                    # either committed or aborted, so use try/finally to handle that case.
+                    txnCommitted = False
                     try:
                         calendarHome = yield principal.calendarHome(request)
-                    except AttributeError:
-                        # Not a calendar enabled principal, so ignore the inbox item
-                        calendarHome = None
-                    if not calendarHome:
-                        continue
+                        if calendarHome is None:
+                            log.debug("Ignored inbox item - no calendar home: %s" % (inboxItem,))
+                            inboxItems.remove(inboxItem)
+                            continue
+    
+                        inbox = yield calendarHome.getChild("inbox")
+                        if inbox is not None and inbox.exists():
+    
+                            inboxItemResource = yield inbox.getChild(fileName)
+                            if inboxItemResource is not None and inboxItemResource.exists():
+    
+                                uri = "/calendars/__uids__/%s/inbox/%s" % (uuid, fileName)
+                                request.path = uri
+                                request._rememberResource(inboxItemResource, uri)
+    
+                                try:
+                                    txnCommitted = yield self.processInboxItem(
+                                        root,
+                                        directory,
+                                        principal,
+                                        request,
+                                        inbox,
+                                        inboxItemResource,
+                                        uuid,
+                                        uri
+                                    )
+                                except Exception, e:
+                                    log.error("Error processing inbox item: %s (%s)"
+                                        % (inboxItem, e))
+                            else:
+                                log.debug("Ignored inbox item - no resource: %s" % (inboxItem,))
+                        else:
+                            log.debug("Ignored inbox item - no inbox: %s" % (inboxItem,))
 
-                    inbox = yield calendarHome.getChild("inbox")
-                    if inbox and inbox.exists():
+    
+                        inboxItems.remove(inboxItem)
+                        
+                    finally:
+                        if not txnCommitted and hasattr(request, "_newStoreTransaction"):
+                            request._newStoreTransaction.abort()
 
-                        inboxItemResource = yield inbox.getChild(fileName)
-                        if inboxItemResource and inboxItemResource.exists():
-
-                            uri = "/calendars/__uids__/%s/inbox/%s" % (uuid,
-                                fileName)
-                            request.path = uri
-                            request._rememberResource(inboxItemResource, uri)
-
-                            try:
-                                yield self.processInboxItem(
-                                    root,
-                                    directory,
-                                    principal,
-                                    request,
-                                    inbox,
-                                    inboxItemResource,
-                                    uuid,
-                                    uri
-                                )
-                            except Exception, e:
-                                log.error("Error processing inbox item: %s (%s)"
-                                    % (inboxItem, e))
-
-                    inboxItems.remove(inboxItem)
-
-
+            # FIXME: Some generic exception handlers to deal with unexpected errors that for some reason
+            # we are not logging properly.
+            except Exception, e:
+                log.error("Exception during inbox item processing: %s" % (e,))
+                
+            except:
+                log.error("Unknown exception during inbox item processing.")
+                
             finally:
-                # Rewrite the inbox items file in case we exit before we're
-                # done so we'll pick up where we left off next time we start up.
                 if inboxItems:
+                    # Rewrite the inbox items file in case we exit before we're
+                    # done so we'll pick up where we left off next time we start up.
                     with open(inboxItemsList + ".tmp", "w") as output:
                         for inboxItem in inboxItems:
                             output.write("%s\n" % (inboxItem,))
                     os.rename(inboxItemsList + ".tmp", inboxItemsList)
-                    log.error("Restart calendar service to reattempt processing")
+                    log.info("Inbox item processing did not finish.")
+                    log.error("Restart calendar service to re-attempt inbox item processing")
                 else:
+                    # Remove the inbox items file - nothing more to do
                     os.remove(inboxItemsList)
+                    log.info("Completed inbox item processing.")
 
         reactor.callLater(0, self.wrappedService.setServiceParent, self.parent)
 
@@ -1135,4 +1161,4 @@ class PostDBImportService(Service, object):
         #
         yield inboxItem.storeRemove(request, True, uri)
         yield txn.commit()
-
+        returnValue(True)
