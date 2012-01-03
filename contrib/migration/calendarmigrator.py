@@ -31,6 +31,7 @@ import sys
 
 from plistlib import readPlist, readPlistFromString, writePlist
 
+SERVER_APP_ROOT = "/Applications/Server.app/Contents/ServerRoot"
 CALDAV_LAUNCHD_KEY = "org.calendarserver.calendarserver"
 CARDDAV_LAUNCHD_KEY = "org.addressbookserver.addressbookserver"
 LOG = "/Library/Logs/Migration/calendarmigrator.log"
@@ -44,7 +45,7 @@ CARDDAVD_PLIST = "carddavd.plist"
 NEW_SERVER_DIR = "Calendar and Contacts"
 NEW_SERVER_ROOT = "/Library/Server/" + NEW_SERVER_DIR
 RESOURCE_MIGRATION_TRIGGER = "trigger_resource_migration"
-SERVER_ADMIN = "/usr/sbin/serveradmin"
+SERVER_ADMIN = "%s/usr/sbin/serveradmin" % (SERVER_APP_ROOT,)
 DITTO = "/usr/bin/ditto"
 
 
@@ -249,8 +250,6 @@ def main():
                 enableCardDAV
             )
 
-            configureNotifications()
-
             triggerResourceMigration(newServerRoot)
 
             setRunState(options, enableCalDAV, enableCardDAV)
@@ -324,17 +323,6 @@ def setRunState(options, enableCalDAV, enableCardDAV):
         log("Starting service via serveradmin start %s" % (serviceName,))
         ret = subprocess.call([SERVER_ADMIN, "start", serviceName])
         log("serveradmin exited with %d" % (ret,))
-
-
-def configureNotifications():
-    """
-    Fetch notification settings from servermgr_notification via server admin
-    and write them into caldavd.plist
-    """
-
-    log("Configuring notifications via serveradmin")
-    ret = subprocess.call([SERVER_ADMIN, "command", "calendar:command=configureNotifications"])
-    log("serveradmin exited with %d" % (ret,))
 
 
 def triggerResourceMigration(newServerRootValue):
