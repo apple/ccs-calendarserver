@@ -1019,20 +1019,28 @@ class PostDBImportService(Service, object):
             try:
                 itemsToProcess = list(inboxItems)
                 totalItems = len(itemsToProcess)
+                ignoreUUIDs = set()
                 for ctr, inboxItem in enumerate(itemsToProcess):
                     log.info("Processing %d/%d inbox item: %s" % (ctr+1, totalItems, inboxItem,))
                     ignore, uuid, ignore, fileName = inboxItem.rsplit("/", 3)
+                    
+                    if uuid in ignoreUUIDs:
+                        log.debug("Ignored inbox item - uuid ignored: %s" % (inboxItem,))
+                        inboxItems.remove(inboxItem)
+                        continue
 
                     record = directory.recordWithUID(uuid)
                     if record is None:
                         log.debug("Ignored inbox item - no record: %s" % (inboxItem,))
                         inboxItems.remove(inboxItem)
+                        ignoreUUIDs.add(uuid)
                         continue
 
                     principal = principalCollection.principalForRecord(record)
                     if principal is None or not isinstance(principal, DirectoryCalendarPrincipalResource):
                         log.debug("Ignored inbox item - no principal: %s" % (inboxItem,))
                         inboxItems.remove(inboxItem)
+                        ignoreUUIDs.add(uuid)
                         continue
 
                     request = FakeRequest(root, "PUT", None)
@@ -1049,6 +1057,7 @@ class PostDBImportService(Service, object):
                         if calendarHome is None:
                             log.debug("Ignored inbox item - no calendar home: %s" % (inboxItem,))
                             inboxItems.remove(inboxItem)
+                            ignoreUUIDs.add(uuid)
                             continue
     
                         inbox = yield calendarHome.getChild("inbox")
