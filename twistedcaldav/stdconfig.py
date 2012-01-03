@@ -305,7 +305,7 @@ DEFAULT_CONFIG = {
     "ConfigRoot"              : "Config",
     "LogRoot"                 : "/var/log/caldavd",
     "RunRoot"                 : "/var/run/caldavd",
-    "WebCalendarRoot"         : "/usr/share/collabd",
+    "WebCalendarRoot"         : "/Applications/Server.app/Contents/ServerRoot/usr/share/collabd",
     
     #
     # Quotas
