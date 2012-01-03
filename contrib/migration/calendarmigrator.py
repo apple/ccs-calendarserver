@@ -45,7 +45,6 @@ NEW_SERVER_DIR = "Calendar and Contacts"
 NEW_SERVER_ROOT = "/Library/Server/" + NEW_SERVER_DIR
 RESOURCE_MIGRATION_TRIGGER = "trigger_resource_migration"
 SERVER_ADMIN = "/usr/sbin/serveradmin"
-LAUNCHCTL = "/bin/launchctl"
 DITTO = "/usr/bin/ditto"
 
 
@@ -208,13 +207,7 @@ def main():
 
         if os.path.exists(options.sourceRoot):
 
-            # If calendar service was running on previous system
-            # turn it off while we process configuration.  There
-            # is no need to turn off addressbook because it no longer
-            # has its own launchd plist.
             enableCalDAV, enableCardDAV = examineRunState(options)
-            if enableCalDAV:
-                unloadService(options, CALDAV_LAUNCHD_KEY)
 
             # Pull values out of previous plists
             (
@@ -342,17 +335,6 @@ def configureNotifications():
     log("Configuring notifications via serveradmin")
     ret = subprocess.call([SERVER_ADMIN, "command", "calendar:command=configureNotifications"])
     log("serveradmin exited with %d" % (ret,))
-
-
-def unloadService(options, service):
-    """
-    Use launchctl to unload a service
-    """
-    path = os.path.join(options.targetRoot, LAUNCHD_PREFS_DIR,
-                        "%s.plist" % (service,))
-    log("Unloading %s via launchctl" % (path,))
-    ret = subprocess.call([LAUNCHCTL, "unload", "-w", path])
-    log("launchctl exited with %d" % (ret,))
 
 
 def triggerResourceMigration(newServerRootValue):
