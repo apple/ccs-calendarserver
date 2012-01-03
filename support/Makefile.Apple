@@ -30,7 +30,7 @@ include $(MAKEFILEPATH)/CoreOS/ReleaseControl/Common.make
 -include /AppleInternal/ServerTools/ServerBuildVariables.xcconfig
 
 SIPP = $(SERVER_INSTALL_PATH_PREFIX)
-SERVERSETUP = $(NSSYSTEMDIR)$(NSLIBRARYSUBDIR)/ServerSetup
+SERVERSETUP = $(SIPP)$(NSSYSTEMDIR)$(NSLIBRARYSUBDIR)/ServerSetup
 
 CALDAVDSUBDIR = /caldavd
 
@@ -96,8 +96,8 @@ install::
 	@echo "Installing launchd config..."
 	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)$(NSLOCALDIR)/$(NSLIBRARYSUBDIR)/Server/Calendar and Contacts"
 	$(_v) $(INSTALL_DIRECTORY) -o calendar -g calendar -m 0755 "$(DSTROOT)$(VARDIR)/log$(CALDAVDSUBDIR)"
-	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)$(NSLIBRARYDIR)/LaunchDaemons"
-	$(_v) $(INSTALL_FILE) "$(Sources)/contrib/launchd/calendarserver.plist" "$(DSTROOT)$(NSLIBRARYDIR)/LaunchDaemons/org.calendarserver.calendarserver.plist"
+	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)$(SIPP)$(NSLIBRARYDIR)/LaunchDaemons"
+	$(_v) $(INSTALL_FILE) "$(Sources)/contrib/launchd/calendarserver.plist" "$(DSTROOT)$(SIPP)$(NSLIBRARYDIR)/LaunchDaemons/org.calendarserver.calendarserver.plist"
 	@echo "Installing migration config..."
 	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)$(SERVERSETUP)/MigrationExtras"
 	$(_v) $(INSTALL_FILE) "$(Sources)/contrib/migration/calendarmigrator.py" "$(DSTROOT)$(SERVERSETUP)/MigrationExtras/59_calendarmigrator.py"
