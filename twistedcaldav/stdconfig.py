@@ -724,7 +724,7 @@ DEFAULT_CONFIG = {
     #
 
     # Set the maximum number of outstanding requests to this server.
-    "MaxRequests": 80,
+    "MaxRequests": 3,
     "MaxAccepts": 1,
 
     "MaxDBConnectionsPerPool": 10, # The maximum number of outstanding database
