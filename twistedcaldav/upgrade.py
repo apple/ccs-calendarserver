@@ -508,13 +508,16 @@ def normalizeCUAddrs(data, directory, cuaCache):
 
     @param data: the calendar data to convert
     @type data: C{str}
+
     @param directory: the directory service to lookup CUAs with
-    @type data: L{DirectoryService}
+    @type directory: L{DirectoryService}
+
     @param cuaCache: the dictionary to use as a cache across calls, which is
         updated as a side-effect
     @type cuaCache: C{dict}
-    @return: tuple of (converted calendar data, boolean signaling whether
-        there were any changes to the data)
+
+    @return: tuple of (converted calendar data, boolean signaling whether there
+        were any changes to the data)
     """
     cal = Component.fromString(data)
 
