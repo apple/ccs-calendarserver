@@ -1,4 +1,4 @@
-
+# -*- test-case-name: twext.web2.test.test_metafd -*-
 ##
 # Copyright (c) 2010 Apple Inc. All rights reserved.
 #
@@ -47,13 +47,11 @@ class ReportingHTTPService(Service, object):
 
     @ivar fd: the file descriptor of a UNIX socket being used to receive
         connections from a master process calling accept()
-
     @type fd: C{int}
 
     @ivar contextFactory: A context factory for building SSL/TLS connections
         for inbound connections tagged with the string 'SSL' as their
         descriptive data, or None if SSL is not enabled for this server.
-
     @type contextFactory: L{twisted.internet.ssl.ContextFactory} or C{NoneType}
     """
 
@@ -92,13 +90,12 @@ class ReportingHTTPService(Service, object):
         self.reportingFactory.inheritedPort.stopReading()
 
 
-    def createTransport(self, skt, data, protocol):
+    def createTransport(self, skt, peer, data, protocol):
         """
         Create a TCP transport, from a socket object passed by the parent.
         """
         self._connectionCount += 1
-        transport = Server(skt, protocol,
-                           skt.getpeername(), JustEnoughLikeAPort,
+        transport = Server(skt, protocol, peer, JustEnoughLikeAPort,
                            self._connectionCount, reactor)
         if data == 'SSL':
             transport.startTLS(self.contextFactory)
