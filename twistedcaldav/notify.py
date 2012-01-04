@@ -892,6 +892,9 @@ class XMPPNotifier(LoggingMixIn):
                 (iq.toXml().encode('ascii', 'replace')),)
             self.sendError("Failed to receive configuration form (%s)" %
                 (nodeName,), iq)
+        except AttributeError:
+            # We did not get an XML response; most likely it was a disconnection
+            pass
         finally:
             self.unlockNode(None, nodeName)
 
