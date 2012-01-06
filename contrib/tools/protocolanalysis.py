@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 ##
-# Copyright (c) 2009-2011 Apple Inc. All rights reserved.
+# Copyright (c) 2009-2012 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -240,7 +240,7 @@ class CalendarServerLogAnalyzer(object):
         
         self.resolutionMinutes = resolutionMinutes
         self.timeBucketCount = (24 * 60) / resolutionMinutes
-        self.loggedUTCOffset = 0
+        self.loggedUTCOffset = None
 
         self.hourlyTotals = [[0, 0, 0, collections.defaultdict(int), 0.0,] for _ignore in xrange(self.timeBucketCount)]
         
@@ -967,8 +967,8 @@ class CalendarServerLogAnalyzer(object):
         totalminutes = index * self.resolutionMinutes
         
         offsethour, minute = divmod(totalminutes, 60)
-        utchour = divmod(offsethour + self.loggedUTCOffset + self.startHour, 24)[1]
-        localhour = divmod(utchour + self.utcoffset, 24)[1]
+        utchour = divmod(offsethour - self.loggedUTCOffset + self.startHour, 24)[1]
+        localhour = divmod(utchour + self.loggedUTCOffset, 24)[1]
         
         # Clip to select hour range
         return "%02d:%02d (%02d:%02d)" % (localhour, minute, utchour, minute,)
@@ -1061,7 +1061,7 @@ class CalendarServerLogAnalyzer(object):
     
     def printHourlyByXXXDetails(self, hourlyByXXX, doTabs, showTotals=True, showAverages=False):
     
-        totals = [0,] * len(hourlyByXXX)
+        totals = [(0, 0,)] * len(hourlyByXXX)
         table = tables.Table()
     
         headers = [["Local (UTC)",], ["",], ["",], ["",],]
@@ -1120,20 +1120,23 @@ class CalendarServerLogAnalyzer(object):
                         row[colctr + 1] = "%d (%2d%%)" % (data, safePercent(data, total),)
                     else:
                         row[colctr + 1] = "%d" % (data,)
-                    totals[colctr] += data
+                    if data:
+                        totals[colctr] = (totals[colctr][0] + data, totals[colctr][1] + 1,)
                 elif type(data) is float:
                     row[colctr + 1] = "%.1f" % (data,)
-                    totals[colctr] += data
+                    if data:
+                        totals[colctr] = (totals[colctr][0] + data, totals[colctr][1] + 1,)
             table.addRow(row)
     
         if showTotals or showAverages:
             row = ["-"] * (len(hourlyByXXX) + 1)
             row[0] = "Average:" if showAverages else "Total:"
-            for colctr, data in enumerate(totals):
+            for colctr, totaldata in enumerate(totals):
+                data, count = totaldata
                 if type(data) is int:
-                    row[colctr + 1] = "%d (%2d%%)" % (data, safePercent(data, totals[0]),)
+                    row[colctr + 1] = "%d (%2d%%)" % (data, safePercent(data, totals[0][0]),)
                 elif type(data) is float:
-                    data = (data / self.timeBucketCount) if showAverages else data
+                    data = ((data / count) if count else 0.0) if showAverages else data
                     row[colctr + 1] = "%.1f" % (data,)
             table.addFooter(row)
     
