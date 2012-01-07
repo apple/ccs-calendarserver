@@ -157,6 +157,7 @@ class CalendarHomesSummary(Cmd):
         # Print table of results
         table = tables.Table()
         table.addHeader(("Owner UID", "Short Name", "Calendars", "Resources"))
+        totals = [0, 0, 0]
         for uid in sorted(results.keys()):
             shortname = UserNameFromUID(txn, uid)
             table.addRow((
@@ -165,6 +166,16 @@ class CalendarHomesSummary(Cmd):
                 results[uid][0],
                 results[uid][1],
             ))
+            totals[0] += 1
+            totals[1] += results[uid][0]
+            totals[2] += results[uid][1]
+        table.addFooter(("Total", totals[0], totals[1], totals[2]))
+        table.addFooter((
+            "Average",
+            "",
+            "%.2f" % ((1.0 * totals[1])/totals[0] if totals[0] else 0,),
+            "%.2f" % ((1.0 * totals[2])/totals[0] if totals[0] else 0,),
+        ))
         
         print "\n"
         print "Calendars with resource count (total=%d):\n" % (len(results),)
