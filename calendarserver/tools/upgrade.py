@@ -161,10 +161,8 @@ def main(argv=sys.argv, stderr=sys.stderr, reactor=None):
         return UpgraderService(store, options, output, reactor, config)
 
     def onlyUpgradeEvents(event):
-        if event.get("namespace", "").startswith(upgrade.__name__):
-            output.write(log.textFromEventDict(event)+"\n")
+        output.write(log.textFromEventDict(event)+"\n")
 
-    setLogLevelForNamespace(upgrade.__name__, "info")
-    setLogLevelForNamespace(migrate.__name__, "info")
+    setLogLevelForNamespace(None, "debug")
     log.addObserver(onlyUpgradeEvents)
     utilityMain(options["config"], makeService, reactor)
