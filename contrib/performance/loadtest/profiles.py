@@ -173,7 +173,7 @@ class Inviter(ProfileBase):
 
         attendee = Property(
             name=u'ATTENDEE',
-            value=uuid,
+            value=uuid.encode("utf-8"),
             params={
             'CN': record.commonName,
             'CUTYPE': 'INDIVIDUAL',

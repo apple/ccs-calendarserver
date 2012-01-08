@@ -64,7 +64,7 @@
 			<dict>
 				<!-- groups gives the total number of groups of clients to introduce. -->
 				<key>groups</key>
-				<integer>99</integer>
+				<integer>20</integer>
 
 				<!-- groupSize is the number of clients in each group of clients. It's 
 					really only a "smooth" ramp up if this is pretty small. -->
@@ -241,7 +241,7 @@
 								<dict>
 									<!-- mean -->
 									<key>mu</key>
-									<integer>360</integer>
+									<integer>60</integer>
 									<!-- standard deviation -->
 									<key>sigma</key>
 									<integer>60</integer>

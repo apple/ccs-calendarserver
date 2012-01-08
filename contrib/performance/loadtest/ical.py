@@ -729,6 +729,7 @@ class SnowLeopard(BaseClient):
                 vevent.mainComponent().addProperty(self._makeSelfOrganizer())
                 vevent.mainComponent().addProperty(self._makeSelfAttendee())
             attendees.append(attendee)
+            vevent.mainComponent().addProperty(attendee)
 
             # At last, upload the new event definition
             d = self._request(
