@@ -34,11 +34,11 @@ The sim should begin logging its activity, which might look something like:
 
  Loaded 99 accounts.
  user01 - - - - - - - - - - -  startup BEGIN 
- user01 request 207â[ 0.04 s] PROPFIND /principals/users/user01/
- user01 request 207â[ 0.02 s] PROPFIND /principals/__uids__/user01/
- user01 request 200â[ 0.01 s]   REPORT /principals/
+ user01 request 207✓[ 0.04 s] PROPFIND /principals/users/user01/
+ user01 request 207✓[ 0.02 s] PROPFIND /principals/__uids__/user01/
+ user01 request 200✓[ 0.01 s]   REPORT /principals/
  user01 - - - - - - - - - - -     poll BEGIN 
- user01 request 207â[ 0.19 s] PROPFIND /calendars/__uids__/user01/
+ user01 request 207✓[ 0.19 s] PROPFIND /calendars/__uids__/user01/
  ...
 
 - To stop the sim, simply cntrl-c it.
@@ -57,17 +57,17 @@ For example, the sim logs the following right at startup as it initializes the u
 ::
 
  user01 - - - - - - - - - - -  startup BEGIN 
- user01 request 207â[ 0.04 s] PROPFIND /principals/users/user01/
- user01 request 207â[ 0.02 s] PROPFIND /principals/__uids__/user01/
- user01 request 200â[ 0.01 s]   REPORT /principals/
+ user01 request 207✓[ 0.04 s] PROPFIND /principals/users/user01/
+ user01 request 207✓[ 0.02 s] PROPFIND /principals/__uids__/user01/
+ user01 request 200✓[ 0.01 s]   REPORT /principals/
  user01 - - - - - - - - - - -     poll BEGIN 
- user01 request 207â[ 0.29 s] PROPFIND /calendars/__uids__/user01/
- user01 request 207â[ 0.04 s] PROPFIND /calendars/__uids__/user01/calendar/
- user01 request 207â[ 0.04 s] PROPFIND /calendars/__uids__/user01/inbox/
- user01 request 207â[ 0.05 s] PROPFIND /calendars/__uids__/user01/tasks/
- user01 request 207â[ 0.02 s] PROPFIND /calendars/__uids__/user01/outbox/
- user01 request 207â[ 0.03 s] PROPFIND /calendars/__uids__/user01/dropbox/
- user01 request 207â[ 0.03 s] PROPFIND /calendars/__uids__/user01/notification/
+ user01 request 207✓[ 0.29 s] PROPFIND /calendars/__uids__/user01/
+ user01 request 207✓[ 0.04 s] PROPFIND /calendars/__uids__/user01/calendar/
+ user01 request 207✓[ 0.04 s] PROPFIND /calendars/__uids__/user01/inbox/
+ user01 request 207✓[ 0.05 s] PROPFIND /calendars/__uids__/user01/tasks/
+ user01 request 207✓[ 0.02 s] PROPFIND /calendars/__uids__/user01/outbox/
+ user01 request 207✓[ 0.03 s] PROPFIND /calendars/__uids__/user01/dropbox/
+ user01 request 207✓[ 0.03 s] PROPFIND /calendars/__uids__/user01/notification/
  user01 - - - - - - - - - - -     poll END [ 0.51 s]
  user01 - - - - - - - - - - -  startup END [ 0.59 s]
 
@@ -77,7 +77,7 @@ Client operations are groups of requests that are surrounded by lines with many 
 
 Above, we see two behaviors that are nested; the 'startup' operation starts which includes a few requests and also triggers the 'poll' operation.
 
-Individual requests are logged with the word 'request', followed by the HTTP status, the request duration, the HTTP method of the request, and the URI that is being targeted. Successful requests are indicated by a â while failed requests are indicated with â.
+Individual requests are logged with the word 'request', followed by the HTTP status, the request duration, the HTTP method of the request, and the URI that is being targeted. Successful requests are indicated by a ✓ while failed requests are indicated with ✗.
 
 Most client operations also log a 'lag' time when they start, e.g.
 
