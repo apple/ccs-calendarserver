@@ -307,7 +307,7 @@ class ReportStatistics(StatisticsBase, SummarizingMixin):
 
     """
     _fields = [
-        ('operation', 10, '%10s'),
+        ('request', 10, '%10s'),
         ('count', 8, '%8s'),
         ('failed', 8, '%8s'),
         ('>3sec', 8, '%8s'),
