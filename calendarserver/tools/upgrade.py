@@ -22,6 +22,7 @@ This tool allows any necessary upgrade to complete, then exits.
 
 import os
 import sys
+import time
 
 from twisted.python.text import wordWrap
 from twisted.python import log
@@ -158,8 +159,28 @@ def main(argv=sys.argv, stderr=sys.stderr, reactor=None):
         return UpgraderService(store, options, output, reactor, config)
 
     def onlyUpgradeEvents(event):
-        output.write(log.textFromEventDict(event)+"\n")
+        output.write(logDateString()+' '+log.textFromEventDict(event)+"\n")
 
     setLogLevelForNamespace(None, "debug")
     log.addObserver(onlyUpgradeEvents)
     utilityMain(options["config"], makeService, reactor)
+
+def logDateString():
+    logtime = time.localtime()
+    Y, M, D, h, m, s = logtime[:6]
+    tz = computeTimezoneForLog(time.timezone)
+
+    return '%02d-%02d-%02d %02d:%02d:%02d%s' % (Y, M, D, h, m, s, tz)
+
+def computeTimezoneForLog(tz):
+    if tz > 0:
+        neg = 1
+    else:
+        neg = 0
+        tz = -tz
+    h, rem = divmod(tz, 3600)
+    m, rem = divmod(rem, 60)
+    if neg:
+        return '-%02d%02d' % (h, m)
+    else:
+        return '+%02d%02d' % (h, m)
