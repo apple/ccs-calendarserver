@@ -132,9 +132,6 @@ class UpgraderService(Service, object):
         time.
         """
 
-from txdav.common.datastore import upgrade
-from txdav.common.datastore.upgrade import migrate
-
 
 def main(argv=sys.argv, stderr=sys.stderr, reactor=None):
     """
