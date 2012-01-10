@@ -57,9 +57,9 @@ def version():
                 if project_name.startswith(prefix):
                     rc_version = project_name[len(prefix):]
                     if "." in rc_version:
-                        comment = "iCal Server v%s" % (rc_version,)
+                        comment = "Calendar Server v%s" % (rc_version,)
                     else:
-                        comment = "iCal Server [dev] r%s" % (rc_version,)
+                        comment = "Calendar Server [dev] r%s" % (rc_version,)
                     break
 
             comment = "unknown"
