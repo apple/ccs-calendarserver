@@ -25,7 +25,7 @@ from plistlib import readPlist, writePlist
 
 LOG = "/var/log/caldavd/certupdate.log"
 SERVICE_NAME = "calendar"
-CALDAVD_PLIST = "/etc/caldavd/caldavd.plist"
+CALDAVD_PLIST = "/Library/Server/Calendar and Contacts/Config/caldavd.plist"
 SERVER_ADMIN = "/usr/sbin/serveradmin"
 
 def main():

@@ -23,7 +23,7 @@ import sys
 CONNECTNAME   = "_postgres"
 USERNAME      = "caldav"
 DATABASENAME  = "caldav"
-SCHEMAFILE    = "/usr/share/caldavd/lib/python/txdav/common/datastore/sql_schema/current.sql"
+SCHEMAFILE    = "/Applications/Server.app/Contents/ServerRoot/usr/share/caldavd/lib/python/txdav/common/datastore/sql_schema/current.sql"
 
 # Executables:
 CREATEDB      = "/usr/bin/createdb"

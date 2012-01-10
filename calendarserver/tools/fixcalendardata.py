@@ -27,7 +27,7 @@ import xattr
 
 from plistlib import readPlist
 
-PLIST_FILE = "/etc/caldavd/caldavd.plist"
+PLIST_FILE = "/Library/Server/Calendar and Contacts/Config/caldavd.plist"
 SCAN_FILE = "problems.txt"
 
 totalProblems = 0
