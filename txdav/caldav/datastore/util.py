@@ -1,6 +1,6 @@
 # -*- test-case-name: txdav.caldav.datastore.test.test_util -*-
 ##
-# Copyright (c) 2010-2011 Apple Inc. All rights reserved.
+# Copyright (c) 2010-2012 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -73,6 +73,8 @@ def validateCalendarComponent(calendarObject, calendar, component, inserting, mi
         # Calendar-level API for it.
         component.validCalendarData(validateRecurrences=migrating)
         component.validCalendarForCalDAV(methodAllowed=calendar.name() == 'inbox')
+        if migrating:
+            component.validOrganizerForScheduling(doFix=True)
     except InvalidICalendarDataError, e:
         raise InvalidObjectResourceError(e)
 

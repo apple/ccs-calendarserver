@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2010-2011 Apple Inc. All rights reserved.
+# Copyright (c) 2010-2012 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -189,7 +189,7 @@ class CalendarSQLStorageTests(CalendarCommonTests, unittest.TestCase):
         toCalendar = yield toHome.calendarWithName("calendar")
         ok, bad = (yield _migrateCalendar(fromCalendar, toCalendar,
                                lambda x: x.component()))
-        self.assertEqual(ok, 1)
+        self.assertEqual(ok, 2)
         self.assertEqual(bad, 0)
 
         self.transactionUnderTest().commit()
@@ -240,6 +240,59 @@ DURATION:PT1H
 CREATED:20060102T190000Z
 DESCRIPTION:Some notes
 DTSTAMP:20051222T210507Z
+SUMMARY:event 6-%ctr changed again
+BEGIN:VALARM
+ACTION:AUDIO
+TRIGGER;RELATED=START:-PT10M
+END:VALARM
+END:VEVENT
+END:VCALENDAR
+""".replace("\n", "\r\n"))
+
+        toResource = yield toCalendar.calendarObjectWithName("2.ics")
+        caldata = yield toResource.component()
+        self.assertEqual(str(caldata), """BEGIN:VCALENDAR
+VERSION:2.0
+CALSCALE:GREGORIAN
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VTIMEZONE
+TZID:US/Eastern
+LAST-MODIFIED:20040110T032845Z
+BEGIN:DAYLIGHT
+DTSTART:20000404T020000
+RRULE:FREQ=YEARLY;BYDAY=1SU;BYMONTH=4
+TZNAME:EDT
+TZOFFSETFROM:-0500
+TZOFFSETTO:-0400
+END:DAYLIGHT
+BEGIN:STANDARD
+DTSTART:20001026T020000
+RRULE:FREQ=YEARLY;BYDAY=-1SU;BYMONTH=10
+TZNAME:EST
+TZOFFSETFROM:-0400
+TZOFFSETTO:-0500
+END:STANDARD
+END:VTIMEZONE
+BEGIN:VEVENT
+UID:uid3
+DTSTART;TZID=US/Eastern:20060102T140000
+DURATION:PT1H
+ATTENDEE:urn:uuid:home_bad
+CREATED:20060102T190000Z
+DTSTAMP:20051222T210507Z
+ORGANIZER:urn:uuid:home_bad
+RRULE:FREQ=DAILY;COUNT=5
+SUMMARY:event 6-%ctr
+END:VEVENT
+BEGIN:VEVENT
+UID:uid3
+RECURRENCE-ID;TZID=US/Eastern:20060104T140000
+DTSTART;TZID=US/Eastern:20060104T160000
+DURATION:PT1H
+CREATED:20060102T190000Z
+DESCRIPTION:Some notes
+DTSTAMP:20051222T210507Z
+ORGANIZER:urn:uuid:home_bad
 SUMMARY:event 6-%ctr changed again
 BEGIN:VALARM
 ACTION:AUDIO
