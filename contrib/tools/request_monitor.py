@@ -85,6 +85,16 @@ def tail(filename, n):
     output, _ignore_error = child.communicate()
     return output.split("\n")
 
+def range(filename, start, end):
+    results = []
+    with open(filename) as f:
+        for count, line in enumerate(f):
+            if count >= start:
+                results.append(line)
+            if count > end:
+                break
+    return results
+
 def cpuPerDaemon():
     a = []
     child = Popen(
@@ -206,17 +216,19 @@ def usage():
     print "-h         print help and exit"
     print "--debug    print tracebacks and error details"
     print "--lines N  specifies how many lines to tail from access.log (default: 10000)"
+    print "--range M:N  specifies a range of lines to analyze from access.log (default: all)"
     print "--procs N  specifies how many python processes are expected in the log file (default: 80)"
     print "--router   analyze a partition server router node"
     print "--worker   analyze a partition server worker node"
     print
-    print "Version: 4"
+    print "Version: 5"
 
 numLines = 10000
 numProcs = 80
+lineRange = None
 router = False
 worker = False
-options, args = getopt.getopt(sys.argv[1:], "h", ["debug", "router", "worker", "lines=", "procs=",])
+options, args = getopt.getopt(sys.argv[1:], "h", ["debug", "router", "worker", "lines=", "range=", "procs=",])
 for option, value in options:
     if option == "-h":
         usage()
@@ -229,6 +241,8 @@ for option, value in options:
         worker = True
     elif option == "--lines":
         numLines = int(value)
+    elif option == "--range":
+        lineRange = (int(value.split(":")[0]), int(value.split(":")[1]))
     elif option == "--procs":
         numProcs = int(value)
 
@@ -278,8 +292,9 @@ while True:
     errorCount = 0
     parseErrors = 0
 
-    try: 
-        for line in tail(filename, numLines):
+    try:
+        lines = tail(filename, numLines) if lineRange is None else range(filename, *lineRange)
+        for line in lines:
             if not line or line.startswith("Log"):
                 continue
 
@@ -488,6 +503,11 @@ while True:
                 pass
 
         print
+        
+        # lineRange => do loop only once
+        if lineRange is not None:
+            break
+
         time.sleep(10)
 
     except Exception, e:
