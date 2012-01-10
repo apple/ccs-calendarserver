@@ -40,7 +40,7 @@ import os
 
 log = Logger()
 
-def validateCalendarComponent(calendarObject, calendar, component, inserting):
+def validateCalendarComponent(calendarObject, calendar, component, inserting, migrating):
     """
     Validate a calendar component for a particular calendar.
 
@@ -71,7 +71,7 @@ def validateCalendarComponent(calendarObject, calendar, component, inserting):
     try:
         # FIXME: This is a bad way to do this test (== 'inbox'), there should be a
         # Calendar-level API for it.
-        component.validCalendarData()
+        component.validCalendarData(validateRecurrences=migrating)
         component.validCalendarForCalDAV(methodAllowed=calendar.name() == 'inbox')
     except InvalidICalendarDataError, e:
         raise InvalidObjectResourceError(e)

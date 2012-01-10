@@ -174,6 +174,82 @@ class CalendarSQLStorageTests(CalendarCommonTests, unittest.TestCase):
 
 
     @inlineCallbacks
+    def test_migrateRecurrenceFixCalendarFromFile(self):
+        """
+        C{_migrateCalendar()} can migrate a file-backed calendar to a database-
+        backed calendar. We need to test what happens when there is "bad" calendar data
+        present in the file-backed calendar with a broken recurrence-id that we can fix.
+        """
+        
+        self.storeUnderTest().setMigrating(True)
+        fromCalendar = yield (yield self.fileTransaction().calendarHomeWithUID(
+            "home_bad")).calendarWithName("calendar_fix_recurrence")
+        toHome = yield self.transactionUnderTest().calendarHomeWithUID(
+            "new-home", create=True)
+        toCalendar = yield toHome.calendarWithName("calendar")
+        ok, bad = (yield _migrateCalendar(fromCalendar, toCalendar,
+                               lambda x: x.component()))
+        self.assertEqual(ok, 1)
+        self.assertEqual(bad, 0)
+
+        self.transactionUnderTest().commit()
+        self.storeUnderTest().setMigrating(False)
+
+        toHome = yield self.transactionUnderTest().calendarHomeWithUID(
+            "new-home", create=True)
+        toCalendar = yield toHome.calendarWithName("calendar")
+        toResource = yield toCalendar.calendarObjectWithName("1.ics")
+        caldata = yield toResource.component()
+        self.assertEqual(str(caldata), """BEGIN:VCALENDAR
+VERSION:2.0
+CALSCALE:GREGORIAN
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VTIMEZONE
+TZID:US/Eastern
+LAST-MODIFIED:20040110T032845Z
+BEGIN:DAYLIGHT
+DTSTART:20000404T020000
+RRULE:FREQ=YEARLY;BYDAY=1SU;BYMONTH=4
+TZNAME:EDT
+TZOFFSETFROM:-0500
+TZOFFSETTO:-0400
+END:DAYLIGHT
+BEGIN:STANDARD
+DTSTART:20001026T020000
+RRULE:FREQ=YEARLY;BYDAY=-1SU;BYMONTH=10
+TZNAME:EST
+TZOFFSETFROM:-0400
+TZOFFSETTO:-0500
+END:STANDARD
+END:VTIMEZONE
+BEGIN:VEVENT
+UID:uid2
+DTSTART;TZID=US/Eastern:20060102T140000
+DURATION:PT1H
+CREATED:20060102T190000Z
+DTSTAMP:20051222T210507Z
+RDATE;TZID=US/Eastern:20060104T160000
+RRULE:FREQ=DAILY;COUNT=5
+SUMMARY:event 6-%ctr
+END:VEVENT
+BEGIN:VEVENT
+UID:uid2
+RECURRENCE-ID;TZID=US/Eastern:20060104T160000
+DTSTART;TZID=US/Eastern:20060104T160000
+DURATION:PT1H
+CREATED:20060102T190000Z
+DESCRIPTION:Some notes
+DTSTAMP:20051222T210507Z
+SUMMARY:event 6-%ctr changed again
+BEGIN:VALARM
+ACTION:AUDIO
+TRIGGER;RELATED=START:-PT10M
+END:VALARM
+END:VEVENT
+END:VCALENDAR
+""".replace("\n", "\r\n"))
+        
+    @inlineCallbacks
     def test_migrateDuplicateAttachmentsCalendarFromFile(self):
         """
         C{_migrateCalendar()} can migrate a file-backed calendar to a database-

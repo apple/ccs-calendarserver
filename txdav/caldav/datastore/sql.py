@@ -708,7 +708,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
     @inlineCallbacks
     def setComponent(self, component, inserting=False):
 
-        validateCalendarComponent(self, self._calendar, component, inserting)
+        validateCalendarComponent(self, self._calendar, component, inserting, self._txn._migrating)
 
         yield self.updateDatabase(component, inserting=inserting)
         if inserting:

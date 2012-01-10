@@ -403,7 +403,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
     @writeOperation
     def setComponent(self, component, inserting=False):
 
-        validateCalendarComponent(self, self._calendar, component, inserting)
+        validateCalendarComponent(self, self._calendar, component, inserting, self._transaction._migrating)
 
         self._calendar.retrieveOldIndex().addResource(
             self.name(), component

@@ -437,18 +437,18 @@ END:VCALENDAR
         # Ensure it starts off invalid
         calendar = Component.fromString(data)
         try:
-            calendar.validCalendarData(doFix=False)
+            calendar.validCalendarData(doFix=False, validateRecurrences=True)
         except InvalidICalendarDataError:
             pass
         else:
             self.fail("Shouldn't validate for CalDAV")
 
         # Fix it
-        calendar.validCalendarData(doFix=True)
-        self.assertTrue("RDATE:20111215T223000Z\r\n" in str(calendar))
+        calendar.validCalendarData(doFix=True, validateRecurrences=True)
+        self.assertTrue("RDATE;TZID=America/Los_Angeles:20111215T143000\r\n" in str(calendar))
 
         # Now it should pass without fixing
-        calendar.validCalendarData(doFix=False)
+        calendar.validCalendarData(doFix=False, validateRecurrences=True)
 
 
     def test_component_timeranges(self):

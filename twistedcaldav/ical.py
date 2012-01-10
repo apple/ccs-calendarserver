@@ -1286,7 +1286,7 @@ class Component (object):
 
         return changed
 
-    def validCalendarData(self, doFix=True, doRaise=True):
+    def validCalendarData(self, doFix=True, doRaise=True, validateRecurrences=False):
         """
         @return: tuple of fixed, unfixed issues
         @raise InvalidICalendarDataError: if the given calendar data is not valid and
@@ -1299,6 +1299,27 @@ class Component (object):
             log.debug("Unknown resource type: %s" % (self,))
             raise InvalidICalendarDataError("Unknown resource type")
 
+        # Do underlying iCalendar library validation with data fix
+        fixed, unfixed = self._pycalendar.validate(doFix=doFix)
+
+        # Detect invalid occurrences and fix by adding RDATEs for them
+        if validateRecurrences:
+            rfixed, runfixed = self.validRecurrenceIDs(doFix=doFix)
+            fixed.extend(rfixed)
+            unfixed.extend(runfixed)
+
+        if unfixed:
+            log.debug("Calendar data had unfixable problems:\n  %s" % ("\n  ".join(unfixed),))
+            if doRaise:
+                raise InvalidICalendarDataError("Calendar data had unfixable problems:\n  %s" % ("\n  ".join(unfixed),))
+        if fixed:
+            log.debug("Calendar data had fixable problems:\n  %s" % ("\n  ".join(fixed),))
+        
+        return fixed, unfixed
+
+
+    def validRecurrenceIDs(self, doFix=True):
+
         fixed = []
         unfixed = []
 
@@ -1309,39 +1330,32 @@ class Component (object):
             all_rids = set(self.getComponentInstances())
             if None in all_rids:
                 all_rids.remove(None)
+
             # Get the set of all valid recurrence IDs
             valid_rids = self.validInstances(all_rids, ignoreInvalidInstances=True)
+
             # Get the set of all RDATEs and add those to the valid set
             rdates = []
             for property in master.properties("RDATE"):
                 rdates.extend([_rdate.getValue() for _rdate in property.value()])
             valid_rids.update(set(rdates))
+
             # Determine the invalid recurrence IDs by set subtraction
             invalid_rids = all_rids - valid_rids
+
             # Add RDATEs for the invalid ones.
             for invalid_rid in invalid_rids:
+                brokenComponent = self.overriddenComponent(invalid_rid)
+                brokenRID = brokenComponent.propertyValue("RECURRENCE-ID")
                 if doFix:
-                    master.addProperty(Property("RDATE", [invalid_rid,]))
+                    master.addProperty(Property("RDATE", [brokenRID,]))
                     fixed.append("Added RDATE for invalid occurrence: %s" %
-                        (invalid_rid,))
+                        (brokenRID,))
                 else:
-                    unfixed.append("Invalid occurrence: %s" % (invalid_rid,))
+                    unfixed.append("Invalid occurrence: %s" % (brokenRID,))
 
-        # Do underlying iCalendar library validation with data fix
-        pyfixed, pyunfixed = self._pycalendar.validate(doFix=doFix)
-        fixed.extend(pyfixed)
-        unfixed.extend(pyunfixed)
-        if unfixed:
-            log.debug("Calendar data had unfixable problems:\n  %s" % ("\n  ".join(unfixed),))
-            if doRaise:
-                raise InvalidICalendarDataError("Calendar data had unfixable problems:\n  %s" % ("\n  ".join(unfixed),))
-        if fixed:
-            log.debug("Calendar data had fixable problems:\n  %s" % ("\n  ".join(fixed),))
-        
         return fixed, unfixed
 
-        
-        
     def validCalendarForCalDAV(self, methodAllowed):
         """
         @param methodAllowed:     True if METHOD property is allowed, False otherwise.
@@ -1462,7 +1476,7 @@ class Component (object):
         if len(s.translate(None, "\x00\x01\x02\x03\x04\x05\x06\x07\x08\x0B\x0C\x0E\x0F\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1A\x1B\x1C\x1D\x1E\x1F")) != len(s):
             raise InvalidICalendarDataError("iCalendar contains illegal control character")
 
-    def validOrganizerForScheduling(self):
+    def validOrganizerForScheduling(self, doFix=True):
         """
         Check that the ORGANIZER property is valid for scheduling 
         """
@@ -1487,10 +1501,13 @@ class Component (object):
         
         # If there are some components without an ORGANIZER we will fix the data
         if foundOrganizer and missingRids:
-            log.debug("Fixing missing ORGANIZER properties")
-            organizerProperty = self.overriddenComponent(foundRid).getProperty("ORGANIZER")
-            for rid in missingRids:
-                self.overriddenComponent(rid).addProperty(organizerProperty)
+            if doFix:
+                log.debug("Fixing missing ORGANIZER properties")
+                organizerProperty = self.overriddenComponent(foundRid).getProperty("ORGANIZER")
+                for rid in missingRids:
+                    self.overriddenComponent(rid).addProperty(organizerProperty)
+            else:
+                raise InvalidICalendarDataError("iCalendar missing ORGANIZER properties in some instances")
 
         return foundOrganizer
 
