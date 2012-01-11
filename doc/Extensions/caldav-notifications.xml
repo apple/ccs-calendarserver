@@ -1,0 +1,521 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="../../rfc2629.xslt"?>
+<!DOCTYPE rfc SYSTEM 'rfc2629.dtd' [
+<!ENTITY rfc2119 PUBLIC '' 'bibxml/reference.RFC.2119.xml'>
+<!ENTITY rfc3744 PUBLIC '' 'bibxml/reference.RFC.3744.xml'>
+<!ENTITY rfc4791 PUBLIC '' 'bibxml/reference.RFC.4791.xml'>
+<!ENTITY rfc4918 PUBLIC '' 'bibxml/reference.RFC.4918.xml'>
+]> 
+<?rfc toc="yes"?>
+<?rfc tocdepth="4"?>
+<?rfc strict="yes"?>
+<?rfc comments="yes"?>
+<?rfc inline="yes"?>
+<?rfc symrefs="yes"?>
+<?rfc sortrefs="yes"?>
+<?rfc compact="yes"?>
+<?rfc subcompact="no"?>
+<?rfc private="Calendar Server Extension"?>
+<rfc ipr="none" docName='caldav-notifications-00'>
+    <front>
+        <title abbrev="CalDAV Notifications">CalDAV: Server Notifications</title> 
+        <author initials="C." surname="Daboo" fullname="Cyrus Daboo">
+            <organization abbrev="Apple Inc.">
+                Apple Inc.
+            </organization>
+            <address>
+                <postal>
+                    <street>1 Infinite Loop</street>
+                    <city>Cupertino</city>
+                    <region>CA</region>
+                    <code>95014</code> 
+                    <country>USA</country>
+                </postal>
+                <email>cyrus@daboo.name</email>
+                <uri>http://www.apple.com/</uri>
+            </address>
+        </author>
+        <date/>
+        <abstract>
+            <t>
+                This specification defines an extension to CalDAV that allows the server to provide notifications to a client.
+            </t>
+        </abstract>
+    </front>
+    <middle>
+        <section title='Introduction'>
+            <t><xref target="RFC4791">CalDAV</xref> provides a way for calendar users to store calendar data and exchange this data via scheduling operations. Based on the <xref target='RFC4918'>WebDAV</xref> protocol, it also includes the ability to manage access to calendar data via the <xref target='RFC3744'>WebDAV ACL</xref> extension.</t>
+            <t>It is often useful for servers to communicate arbitrary information to clients, e.g., system status, message of the day, quota warnings, changes to shared resources made by others etc. This specification defines a generic "notification" mechanism that allows a server to do that. Whilst primarily aimed at <xref target="RFC4791">CalDAV</xref>, this mechanism has been designed to be generic to <xref target='RFC4918'>WebDAV</xref>.</t>
+        </section>
+
+        <!--<section title="Open Issues">
+            <t>
+                <list style="numbers">
+                    <t>
+                    </t>
+                </list>
+            </t>
+        </section>-->
+            
+        <section title='Conventions Used in This Document'>
+            <t>
+                The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT", "SHOULD", "SHOULD NOT", "RECOMMENDED", "MAY", and "OPTIONAL" in this document are to be interpreted as described in <xref target='RFC2119' />. 
+            </t>
+            <t>
+                When XML element types in the namespaces "DAV:" and "urn:ietf:params:xml:ns:caldav" are referenced in this document outside of the context of an XML fragment, the string "DAV:" and "CALDAV:" will be prefixed to the element type names respectively. 
+            </t>
+            <t>
+                The namespace "http://calendarserver.org/ns/" is used for XML elements defined in this specification.  When XML element types in that namespace are referenced in this document outside of the context of an XML fragment, the string "CS:" will be prefixed to the element type names. 
+            </t>
+        </section>
+         
+        <section title="Notifications">
+            <t>When this feature is available, a <xref target="CS:notification-URL">CS:notification-URL</xref> property appears on principal resources for those principals who are able to receive notifications. That property specifies a single DAV:href element whose content refers to a WebDAV collection resource. Notification "messages" are deposited into this collection and can be retrieved by clients and acted on accordingly.</t>
+            <t>The notification collection referenced by the <xref target="CS:notification-URL">CS:notification-URL</xref> property MUST have a DAV:resourcetype property with DAV:collection and <xref target="CS:notifications">CS:notifications</xref> child elements.</t>
+            <t>Notification "messages" are XML documents stored as resources in the notification collection. Each XML document contains a <xref target="CS:notification">CS:notification</xref> element as its root. The root element contains a CS:dtstamp element, and one additional element which represents the type of notification being conveyed in the message. That child element will typically contain additional content that describes the notification.</t>
+            <t>Each notification resource has a <xref target="CS:notificationtype">CS:notificationtype</xref> property which contains as its single child element an empty element that matches the child element of the notification resource XML document root. Any attributes on the child element in the XML document are also present in the property child element.</t>
+            <t>Notifications are automatically generated by the server (perhaps in response to a client action) with an appropriate resource stored in the notifications collection of the user to whom the notification is targeted. Clients SHOULD monitor the notification collection looking for new notification resources. When doing so, clients SHOULD look at the <xref target="CS:notificationtype">CS:notificationtype</xref> property to ensure that the notification is of a type that the client can handle. Once a client has handled the notification in whatever way is appropriate it SHOULD delete the notification resource. Clients SHOULD remove notifications being displayed to a user when the notification resource is removed from the notification collection, to enable the user to dismiss a notification on one device and have it automatically removed from others. Servers MAY delete notification resources on their own if they determine that the notifications are no longer relevant or valid. Servers MAY coalesce notifications as appropriate.</t>
+            <t>Servers MUST prevent clients from adding resources in the notification collection.</t>
+            <section title="Additional Principal Properties" anchor='principal-properties'>
+                <t>This section defines new properties for WebDAV principal resources as defined in <xref target="RFC3744">RFC3744</xref>. These properties are likely to be protected but the server MAY allow them to be written by appropriate users.</t>
+                <section title="CS:notification-URL Property" anchor="CS:notification-URL">
+                  <t>
+                    <list style="hanging">
+                      <t hangText="Name:">notification-URL</t>
+                      <t hangText="Namespace:">http://calendarserver.org/ns/</t>
+                      <t hangText="Purpose:">Identify the URL of the notification collection owned by the associated principal resource.</t>
+                      <t hangText="Protected:">This property SHOULD be protected.</t>
+                      <t hangText="PROPFIND behavior:">This property SHOULD NOT be returned by a PROPFIND allprop request (as defined in Section 14.2 of <xref target="RFC4918"/>).</t>
+                      <t hangText="COPY/MOVE behavior:">This property value SHOULD be preserved in COPY and MOVE operations.</t>
+        
+                      <t hangText="Description:">This property is needed for a client to determine where the notification collection of the current user is located so that processing of notification messages can occur. If not present, then the associated calendar user is not enabled for notification messages on the server.</t>
+                      <t hangText="Definition:">
+                        <figure>
+                          <artwork><![CDATA[
+<!ELEMENT notification-URL (DAV:href)>]]></artwork>
+                        </figure>
+                      </t>
+                    </list>
+                  </t>
+                </section>
+            </section>
+            <section title="Properties on Notification Resources" anchor='notification-properties'>
+                <t>The following new WebDAV properties are defined for notification resources.</t>
+                <section title="CS:notificationtype Property" anchor="CS:notificationtype">
+                  <t>
+                    <list style="hanging">
+                      <t hangText="Name:">notificationtype</t>
+                      <t hangText="Namespace:">http://calendarserver.org/ns/</t>
+                      <t hangText="Purpose:">Identify the type of notification of the corresponding resource.</t>
+                      <t hangText="Protected:">This property MUST be protected.</t>
+                      <t hangText="PROPFIND behavior:">This property SHOULD NOT be returned by a PROPFIND allprop request (as defined in Section 14.2 of <xref target="RFC4918"/>).</t>
+                      <t hangText="COPY/MOVE behavior:">This property value MUST be preserved in COPY and MOVE operations.</t>
+        
+                      <t hangText="Description:">This property allows a client, via a PROPFIND Depth:1 request, to quickly find notification messages that the client can handle in a notification collection. The single child element is the notification resource root element's child defining the notification itself. This element MUST be empty, though any attributes on the element in the notification resource MUST be present in the property element.</t>
+                      <t hangText="Definition:">
+                        <figure>
+                          <artwork><![CDATA[
+<!ELEMENT notificationtype ANY>
+<!-- Child elements are empty but will have appropriate attributes.
+     Any valid notification message child element can appear.-->]]></artwork>
+                        </figure>
+                      </t>
+                    </list>
+                  </t>
+                </section>
+            </section>
+            <section title='XML Element Definitions'>
+                <section title="CS:notifications" anchor="CS:notifications">
+                    <t>
+                      <list style="hanging">
+                        <t hangText="Name:">notifications</t>
+                        <t hangText="Namespace:">http://calendarserver.org/ns/</t>
+                        <t hangText="Purpose:">Indicates a notification collection.</t>
+                        <t hangText="Description:">This XML element is used in a DAV:resourcetype element to indicate that the corresponding resource is a notification collection.</t>
+                        <t hangText="Definition:">
+                          <figure>
+                            <artwork><![CDATA[
+<!ELEMENT notifications EMPTY>]]></artwork>
+                          </figure>
+                        </t>
+                      </list>
+                    </t>
+                </section>
+                <section title="CS:notification" anchor="CS:notification">
+                    <t>
+                      <list style="hanging">
+                        <t hangText="Name:">notification</t>
+                        <t hangText="Namespace:">http://calendarserver.org/ns/</t>
+                        <t hangText="Purpose:">Notification message root element.</t>
+                        <t hangText="Description:">The root element used in notification resources.</t>
+                        <t hangText="Definition:">
+                          <figure>
+                            <artwork><![CDATA[
+<!ELEMENT notification (dtstamp, XXX) >
+<!-- Any notification type element can appear after
+     CS:dtstamp -->]]></artwork>
+                          </figure>
+                        </t>
+                      </list>
+                    </t>
+                </section>
+              <section title="CS:dtstamp" anchor="CS:dtstamp">
+                <t>
+                  <list style="hanging">
+                    <t hangText="Name:">dtstamp</t>
+                    <t hangText="Namespace:">http://calendarserver.org/ns/</t>
+                    <t hangText="Purpose:">Date-time stamp.</t>
+                    <t hangText="Description:">Contains the date-time stamp corresponding to the creation of a notification message.</t>
+                    <t hangText="Definition:">
+                      <figure>
+                        <artwork><![CDATA[
+<!ELEMENT dtstamp (#PCDATA)>]]></artwork>
+                      </figure>
+                    </t>
+                  </list>
+                </t>
+              </section>
+            </section>
+
+        </section>
+
+        <section title="Notification Definitions">
+            <t>This section defines a set of common notification types.</t>
+            <section title="System Status Notification">
+                <t>The system status notification is used to convey a URI and/or textual description to the user. The assumption is that the URI points to a webpage where current system status is described in detail, with the provided description being a summary of that. A "type" attribute on the element is used to indicate the importance of the current status notification, and has the values "low", "medium" and "high", representing the increasing level of importance of the message respectively.</t>
+                <t>Servers might have knowledge of specific calendar user language preferences, in which case it MAY localise the CS:description value as appropriate based on the calendar user accessing the notification, but if it does, it SHOULD include an xml:lang attribute on the CS:description element to indicate what language is being used.</t>
+                <section title="CS:systemstatus Element Definition" anchor="CS:systemstatus">
+                    <t>
+                      <list style="hanging">
+                        <t hangText="Name:">systemstatus</t>
+                        <t hangText="Namespace:">http://calendarserver.org/ns/</t>
+                        <t hangText="Purpose:">Indicates a system status notification.</t>
+                        <t hangText="Description:">This XML element is used in a CS:notification element to describe a system status notification.</t>
+                        <t hangText="Definition:">
+                          <figure>
+                            <artwork><![CDATA[
+<!ELEMENT systemstatus (DAV:href?, CS:description?)>
+<!ATTLIST systemstatus type (low | medium | high) "low">
+
+  <!ELEMENT description CDATA>
+
+<!-- One of DAV:href of CS:description MUST be present -->
+]]></artwork>
+                          </figure>
+                        </t>
+                        <t hangText="Example:">This is an example of the body of a notification resource for an emergency system outage:
+                          <figure>
+                            <artwork><![CDATA[
+<?xml version="1.0" encoding="UTF-8"?>
+<CS:notification xmlns:D="DAV:"
+                 xmlns:CS="http://calendarserver.org/ns/">
+  <CS:dtstamp>2011-12-09T11:12:53-05:00</CS:dtstamp>
+  <CS:systemstatus type="high">
+    <D:href>http://example.com/emergency_shutdown.html</D:href>
+    <CS:description xml:lang='en_US'
+    >Emergency shutdown now</CS:description>
+  </CS:systemstatus>
+</CS:notification>]]></artwork>
+                          </figure>
+                        </t>
+                        <t hangText="Example:">This is an example of the WebDAV property on the example notification resource above:
+                          <figure>
+                            <artwork><![CDATA[
+<?xml version="1.0" encoding="UTF-8"?>
+<CS:notificationtype xmlns:D="DAV:"
+                     xmlns:CS="http://calendarserver.org/ns/">
+  <CS:systemstatus type="high" />
+</CS:notificationtype>]]></artwork>
+                          </figure>
+                        </t>
+                      </list>
+                    </t>
+                </section>
+            </section>
+            <section title="Quota Notification">
+                <t>The quota notification is used to convey information about the status of one or more quotas for the user. The notification contains elements for different types of quota being reported to the user. In some cases these may be warnings (e.g., a user getting to 80% of their quota limit), or in other cases errors (e.g., a user exceeding their quota).
+                </t>
+                <section title="CS:quotastatus Element Definition" anchor="CS:quotastatus">
+                    <t>
+                      <list style="hanging">
+                        <t hangText="Name:">quotastatus</t>
+                        <t hangText="Namespace:">http://calendarserver.org/ns/</t>
+                        <t hangText="Purpose:">Indicates a quota status notification.</t>
+                        <t hangText="Description:">This XML element is used in a CS:notification element to describe a quota status notification. The CS:quota-percent-used element contains an integer greater than or equal to zero. If the value is greater than or equal to 100, then the user's quota has been reached or exceeded. The DAV:href element contains a URI for a webpage where the user can go to get further information about their quota status or take corrective action.</t>
+                        <t hangText="Definition:">
+                          <figure>
+                            <artwork><![CDATA[
+<!ELEMENT quota-status (quota+)>
+
+  <!ELEMENT quota (quota-type, quota-percent-used?,
+                   quota-count?, DAV:href?)>
+  <!ATTLIST quota type (warning | exceeded) "exceeded">
+
+  <!ELEMENT quota-type ANY>
+  <!-- Child elements are application specific -->
+
+  <!ELEMENT quota-percent-used CDATA>
+  <!-- Integer value greater than or equal to zero -->
+
+  <!ELEMENT quota-count CDATA>
+  <!-- Integer value greater than or equal to zero -->
+
+]]></artwork>
+                          </figure>
+                        </t>
+                        <t hangText="Example:">This is an example of the body of a notification resource for a quota warning:
+                          <figure>
+                            <artwork><![CDATA[
+<?xml version="1.0" encoding="UTF-8"?>
+<CS:notification xmlns:D="DAV:"
+                 xmlns:CS="http://calendarserver.org/ns/">
+  <CS:dtstamp>2011-12-09T11:12:53-05:00</CS:dtstamp>
+  <CS:quota-status>
+    <CS:quota type="warning">
+      <CS:quota-type><CS:attachments /></CS:quota-type>
+      <CS:quota-percent-used>80</CS:quota-percent-used>
+      <D:href>https://example.com/your-account.html</D:href>
+    </CS:quota>
+  </CS:quota-status>
+</CS:notification>]]></artwork>
+                          </figure>
+                        </t>
+                        <t hangText="Example:">This is an example of the body of a notification resource for a quota that has been exceeded, and a count-based limit that is shown as a warning:
+                          <figure>
+                            <artwork><![CDATA[
+<?xml version="1.0" encoding="UTF-8"?>
+<CS:notification xmlns:D="DAV:"
+                 xmlns:CS="http://calendarserver.org/ns/">
+  <CS:dtstamp>2011-12-09T11:12:53-05:00</CS:dtstamp>
+  <CS:quota-status>
+    <CS:quota type="exceeded">
+      <CS:quota-type><CS:attachments /></CS:quota-type>
+      <CS:quota-percent-used>102</CS:quota-percent-used>
+      <D:href>https://example.com/fix-account.html</D:href>
+    </CS:quota>
+    <CS:quota type="warning">
+      <CS:quota-type><CS:events /></CS:quota-type>
+      <CS:quota-percent-used>82</CS:quota-percent-used>
+      <CS:quota-count>4980</CS:quota-count>
+      <D:href>https://example.com/buy-more-space.html</D:href>
+    </CS:quota>
+  </CS:quota-status>
+</CS:notification>]]></artwork>
+                          </figure>
+                        </t>
+                      </list>
+                    </t>
+                </section>
+            </section>
+            <section title="Resource Changes Notification">
+                <t>The resource change notification is used to inform the user of new, updated or deleted resources caused by changes made by someone else (note: servers MUST NOT generate notifications to users for changes they themselves make). This notification can be used by clients to show changes that a user can acknowledge in their own time. When the notification is present, it can be displayed on all devices a user is accessing their data from. When the user acknowledges and dismisses the notification on one device, other devices SHOULD also remove the notification when they next synchronize the notification collection.</t>
+                <t>A new WebDAV property <xref target="CS:notify-changes">CS:notify-changes</xref> is defined for calendar collections. This allows users to enable or disable the sending of resource change notifications for the calendar and its child resources. Servers MUST allow users to set this property on a per-user basis on any calendars accessible to them and not "owned" by them. Servers MUST honor the chosen setting to enable or disable change notifications.</t>
+                <t>Servers can send notifications for calendar object resources, and ones for calendar collections.</t>
+                <section title="CS:resource-change Element Definition" anchor="CS:resource-change">
+                    <t>
+                      <list style="hanging">
+                        <t hangText="Name:">resource-change</t>
+                        <t hangText="Namespace:">http://calendarserver.org/ns/</t>
+                        <t hangText="Purpose:">Indicates that resources have been created, updated or deleted.</t>
+                        <t hangText="Description:">This XML element is used in a CS:notification element to describe a resource changes notification. It can contain CS:created, CS:updated, CS:deleted elements each of which indicates a created, updated or deleted resource, respectively. The DAV:href element within those three elements, contain the URI of the changed resource, and optionally additional information specific to the nature of the change. Servers SHOULD coalesce resource changes notifications into a single resource. The CS:updated element optionally contains CS:content and/or DAV:prop elements to indicate a change to the body of the resource or resource WebDAV properties, respectively. The DAV:prop element MAY contain a list of property elements to indicate which properties changed. The CS:updated element can also contain zero or more CS:calendar-changes elements to list details of the changes. If no CS:calendar-changes element is present, the specific details are not provided, and clients will need to assume that some set of changes occurred, but the server is unwilling to disclose the full details. The CS:deleted element can also contain zero or more CS:calendar-changes elements to list details of the deleted resource. Servers SHOULD include at least the "SUMMARY" details of the deleted item, and MAY include others.</t>
+                        <t hangText="Definition:">
+                          <figure>
+                            <artwork><![CDATA[
+<!ELEMENT resource-change (created*, updated*, deleted*)>
+  <!ELEMENT created (DAV:href, ANY)>
+  <!ELEMENT updated (DAV:href, CS:content?,
+                     DAV:prop?, CS:calendar-changes*)>
+    <!ELEMENT content EMPTY>
+  <!ELEMENT deleted (DAV:href, CS:calendar-changes*)>
+]]></artwork>
+                          </figure>
+                        </t>
+                        <t hangText="Example:">This is an example of the body of a notification resource for changes where one resource has been created, two updated, and one deleted. One of the updated resources elements contains additional information indicating which recurrence instances in the iCalendar data were changed:
+                          <figure>
+                            <artwork><![CDATA[
+<?xml version="1.0" encoding="UTF-8"?>
+<CS:notification xmlns:D="DAV:"
+                 xmlns:CS="http://calendarserver.org/ns/">
+  <CS:dtstamp>2011-12-09T11:51:14-05:00</CS:dtstamp>
+  <CS:resource-changed>
+    <CS:created>
+      <D:href>http://example.com/cyrus/tasks/new.ics</D:href>
+    </CS:created>
+    <CS:updated>
+      <D:href>http://example.com/cyrus/calendar/event.ics</D:href>
+    </CS:updated>
+    <CS:updated>
+      <D:href>http://example.com/cyrus/tasks/todo.ics</D:href>
+    </CS:updated>
+    <CS:deleted>
+      <D:href>http://example.com/cyrus/calendar/old.ics</D:href>
+    </CS:deleted>
+  </CS:resource-changed>
+</CS:notification>]]></artwork>
+                          </figure>
+                        </t>
+                      </list>
+                    </t>
+                </section>
+                <section title="CS:calendar-changes Element Definition" anchor="CS:calendar-changes">
+                    <t>
+                      <list style="hanging">
+                        <t hangText="Name:">calendar-changes</t>
+                        <t hangText="Namespace:">http://calendarserver.org/ns/</t>
+                        <t hangText="Purpose:">Indicates which portions of an calendar object resource have changed.</t>
+                        <t hangText="Description:">This XML element is used in a CS:updated element to describe how a calendar object resource changed. It can identify the master instance, or individual recurrence instances, and for each indicate which iCalendar properties and parameters changed during the update for which the notification was generated. For details of handling recurrences please see <xref target="recurrence_changes"/>.</t>
+                        <t hangText="Definition:">
+                            <figure>
+                                <artwork><![CDATA[
+    <!ELEMENT calendar-changes (recurrence+) >
+
+    <!ELEMENT recurrence
+        ((master | recurrenceid), added?, removed?, changes?)>
+    <!-- Which instances were affected by the change,
+         and details on the per-instance changes -->
+
+    <!ELEMENT master EMPTY>
+    <!-- The "master" instance was affected -->
+
+    <!ELEMENT recurrenceid CDATA>
+    <!-- RECURRENCE-ID value for the affected instance -->
+
+    <!ELEMENT added EMPTY>
+    <!-- The component was added -->
+
+    <!ELEMENT removed EMPTY>
+    <!-- The component was removed -->
+
+    <!ELEMENT changes changed-property*>
+    <!-- Detailed changes in the iCalendar data -->
+
+    <!ELEMENT changed-property changed-parameter*>
+    <!ATTLIST changed-property name PCDATA>
+    <!-- An iCalendar property changed -->
+
+    <!ELEMENT changed-parameter EMPTY>
+    <!ATTLIST changed-parameter name PCDATA>
+    <!-- An iCalendar property parameter changed -->
+
+                   ]]></artwork>
+                            </figure>
+                        </t>
+                        <t hangText="Example:">
+                          This example indicates that a non-recurring component, or the master component in a recurring component, was changed and that the change was to the "SUMMARY" iCalendar property.
+                            <figure>
+                                <artwork><![CDATA[
+<CS:calendar-changes xmlns:CS="http://calendarserver.org/ns/">
+  <CS:recurrence>
+    <CS:master/>
+    <CS:changes>
+      <CS:changed-property name="SUMMARY"/>
+    </CS:changes>
+  <CS:recurrence/>
+</CS:calendar-changes>
+                   ]]></artwork>
+                            </figure>
+                        </t>
+                        <t hangText="Example:">
+                          This example indicates that an instance of a recurring component was changed and that the change was to the "DTSTART" iCalendar property.
+                            <figure>
+                                <artwork><![CDATA[
+<CS:calendar-changes xmlns:CS="http://calendarserver.org/ns/">
+  <CS:recurrence>
+    <CS:recurrenceid>20111215T160000Z</CS:recurrenceid>
+    <CS:changes>
+      <CS:changed-property name="DTSTART"/>
+    </CS:changes>
+  <CS:recurrence/>
+</CS:calendar-changes>
+                   ]]></artwork>
+                            </figure>
+                        </t>
+                      </list>
+                    </t>
+                    <section title="Handling Recurrences in CS:calendar-changes" anchor="recurrence_changes">
+                      <t>Changes to recurring components can be complex. This section describes the possible set of changes that could occur, and what the CS:calendar-changes element will contain as a result.
+                      <list style="hanging">
+
+                        <t hangText="Master exists, unchanged override added">In this case, a CS:recurrence element will be present, containing a CS:recurrence-id element with a value equal to the RECURRENCE-ID property value (in UTC) of the added component. A CS:added element will be present. There will not be any CS:removed or CS:changes elements.</t>
+
+                        <t hangText="Master exists, changed override added">In this case, a CS:recurrence element will be present, containing a CS:recurrence-id element with a value equal to the RECURRENCE-ID property value (in UTC) of the added component. Both CS:added and CS:changes elements will be present. There will not be a CS:removed element.</t>
+
+                        <t hangText="Master exists, override changed">In this case, a CS:recurrence element will be present, containing a CS:recurrence-id element with a value equal to the RECURRENCE-ID property value (in UTC) of the added component. A CS:changes element will be present. There will not be any CS:added or CS:removed elements.</t>
+
+                        <t hangText="Master exists, override removed">In this case, a CS:recurrence element will be present, containing a CS:recurrence-id element with a value equal to the RECURRENCE-ID property value (in UTC) of the added component. A CS:removed element will be present. There will not be a CS:added element. A CS:changes element will only be present if the removed component differs from the "derived" master instance.</t>
+
+                        <t hangText="Master exists, override cancelled">In this case, a CS:recurrence element will be present, containing a CS:recurrence-id element with a value equal to the RECURRENCE-ID property value (in UTC) of the added component. A CS:removed element will be present. There will not be any CS:added or CS:changes element. There will also be a CS:master element present, with an appropriate CS:changes element, likely covering a change to "RRULE" or addition of "EXDATE" properties.</t>
+
+                        <t hangText="Master does not exist, override added">In this case, a CS:recurrence element will be present, containing a CS:recurrence-id element with a value equal to the RECURRENCE-ID property value (in UTC) of the added component. A CS:added element will be present. There will not be a CS:removed or CS:changes element.</t>
+
+                        <t hangText="Master does not exist, override changed">In this case, a CS:recurrence element will be present, containing a CS:recurrence-id element with a value equal to the RECURRENCE-ID property value (in UTC) of the added component. A CS:changes element will be present. There will not be any CS:added or CS:removed elements.</t>
+
+                        <t hangText="Master does not exist, override removed">In this case, a CS:recurrence element will be present, containing a CS:recurrence-id element with a value equal to the RECURRENCE-ID property value (in UTC) of the added component. A CS:removed element will be present. There will not be any CS:added or CS:changes element.</t>
+                      </list></t>
+                    </section>
+                </section>
+                <section title="CS:notify-changes Property" anchor="CS:notify-changes">
+                  <t>
+                    <list style="hanging">
+                      <t hangText="Name:">notify-changes</t>
+                      <t hangText="Namespace:">http://calendarserver.org/ns/</t>
+                      <t hangText="Purpose:">Allows a user to specify whether resource change notifications are generated by the server.</t>
+                      <t hangText="Protected:">This property MUST NOT be protected.</t>
+                      <t hangText="PROPFIND behavior:">This property SHOULD NOT be returned by a PROPFIND allprop request (as defined in Section 14.2 of <xref target="RFC4918"/>).</t>
+                      <t hangText="COPY/MOVE behavior:">This property value MUST be preserved in COPY and MOVE operations.</t>
+        
+                      <t hangText="Description:">This property allows a user to enable or disable the server generation of resource change notifications for the calendar collection, and all its child resources, on which the property resides. If the property is not present on a calendar collection, the client and server MUST assume that resource change notifications are enabled.</t>
+                      <t hangText="Definition:">
+                        <figure>
+                          <artwork><![CDATA[
+<!ELEMENT notify-changes (true|false)>
+  <!ELEMENT true EMPTY>
+  <!ELEMENT false EMPTY>
+  
+<!-- true - notifications enabled,
+     false - notifications disabled -->]]></artwork>
+                        </figure>
+                      </t>
+                    </list>
+                  </t>
+                </section>
+            </section>
+        </section>
+
+        <section title='Security Considerations'>
+            <t>Some notification mechanisms might allow a user to trigger a notification to be delivered to other users (e.g., an invitation to share a calendar). In such cases servers MUST ensure that suitable limits are placed on the number and frequency of such user generated notifications.</t>
+            <t>
+                TBD: More?
+            </t>
+        </section>
+        <section title='IANA Considerations'>
+            <t>
+                This document does not require any actions on the part of IANA.
+            </t>
+        </section>
+        <section title='Acknowledgments'>
+            <t>
+                This specification is the result of discussions between the Apple calendar server and client teams.
+            </t>
+        </section>
+    </middle>
+    <back>
+        <references title='Normative References'>
+            &rfc2119;
+            &rfc4918;
+        </references>
+        <references title='Informative References'>
+            &rfc3744;
+            &rfc4791;
+        </references>
+        <!--
+        <section title='Change History'>
+            <t>Changes in -01:
+                <list style='numbers'>
+                    <t></t>
+                </list>
+            </t>
+        </section>
+        -->
+    </back>
+</rfc>

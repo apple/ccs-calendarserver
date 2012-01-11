@@ -1,0 +1,896 @@
+
+
+
+Calendar Server Extension                                       C. Daboo
+                                                              Apple Inc.
+                                                        January 11, 2012
+
+
+                      CalDAV: Server Notifications
+
+Abstract
+
+   This specification defines an extension to CalDAV that allows the
+   server to provide notifications to a client.
+
+
+Table of Contents
+
+   1.  Introduction . . . . . . . . . . . . . . . . . . . . . . . . .  2
+   2.  Conventions Used in This Document  . . . . . . . . . . . . . .  2
+   3.  Notifications  . . . . . . . . . . . . . . . . . . . . . . . .  2
+     3.1.  Additional Principal Properties  . . . . . . . . . . . . .  3
+       3.1.1.  CS:notification-URL Property . . . . . . . . . . . . .  3
+     3.2.  Properties on Notification Resources . . . . . . . . . . .  4
+       3.2.1.  CS:notificationtype Property . . . . . . . . . . . . .  4
+     3.3.  XML Element Definitions  . . . . . . . . . . . . . . . . .  5
+       3.3.1.  CS:notifications . . . . . . . . . . . . . . . . . . .  5
+       3.3.2.  CS:notification  . . . . . . . . . . . . . . . . . . .  5
+       3.3.3.  CS:dtstamp . . . . . . . . . . . . . . . . . . . . . .  6
+   4.  Notification Definitions . . . . . . . . . . . . . . . . . . .  6
+     4.1.  System Status Notification . . . . . . . . . . . . . . . .  6
+       4.1.1.  CS:systemstatus Element Definition . . . . . . . . . .  6
+     4.2.  Quota Notification . . . . . . . . . . . . . . . . . . . .  7
+       4.2.1.  CS:quotastatus Element Definition  . . . . . . . . . .  7
+     4.3.  Resource Changes Notification  . . . . . . . . . . . . . .  9
+       4.3.1.  CS:resource-change Element Definition  . . . . . . . . 10
+       4.3.2.  CS:calendar-changes Element Definition . . . . . . . . 11
+         4.3.2.1.  Handling Recurrences in CS:calendar-changes  . . . 13
+       4.3.3.  CS:notify-changes Property . . . . . . . . . . . . . . 14
+   5.  Security Considerations  . . . . . . . . . . . . . . . . . . . 15
+   6.  IANA Considerations  . . . . . . . . . . . . . . . . . . . . . 15
+   7.  Acknowledgments  . . . . . . . . . . . . . . . . . . . . . . . 15
+   8.  References . . . . . . . . . . . . . . . . . . . . . . . . . . 15
+     8.1.  Normative References . . . . . . . . . . . . . . . . . . . 15
+     8.2.  Informative References . . . . . . . . . . . . . . . . . . 16
+   Author's Address . . . . . . . . . . . . . . . . . . . . . . . . . 16
+
+
+
+
+
+
+
+
+Daboo                                                           [Page 1]
+
+                          CalDAV Notifications              January 2012
+
+
+1.  Introduction
+
+   CalDAV [RFC4791] provides a way for calendar users to store calendar
+   data and exchange this data via scheduling operations.  Based on the
+   WebDAV [RFC4918] protocol, it also includes the ability to manage
+   access to calendar data via the WebDAV ACL [RFC3744] extension.
+
+   It is often useful for servers to communicate arbitrary information
+   to clients, e.g., system status, message of the day, quota warnings,
+   changes to shared resources made by others etc.  This specification
+   defines a generic "notification" mechanism that allows a server to do
+   that.  Whilst primarily aimed at CalDAV [RFC4791], this mechanism has
+   been designed to be generic to WebDAV [RFC4918].
+
+
+2.  Conventions Used in This Document
+
+   The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT",
+   "SHOULD", "SHOULD NOT", "RECOMMENDED", "MAY", and "OPTIONAL" in this
+   document are to be interpreted as described in [RFC2119].
+
+   When XML element types in the namespaces "DAV:" and
+   "urn:ietf:params:xml:ns:caldav" are referenced in this document
+   outside of the context of an XML fragment, the string "DAV:" and
+   "CALDAV:" will be prefixed to the element type names respectively.
+
+   The namespace "http://calendarserver.org/ns/" is used for XML
+   elements defined in this specification.  When XML element types in
+   that namespace are referenced in this document outside of the context
+   of an XML fragment, the string "CS:" will be prefixed to the element
+   type names.
+
+
+3.  Notifications
+
+   When this feature is available, a CS:notification-URL (Section 3.1.1)
+   property appears on principal resources for those principals who are
+   able to receive notifications.  That property specifies a single DAV:
+   href element whose content refers to a WebDAV collection resource.
+   Notification "messages" are deposited into this collection and can be
+   retrieved by clients and acted on accordingly.
+
+   The notification collection referenced by the CS:notification-URL
+   (Section 3.1.1) property MUST have a DAV:resourcetype property with
+   DAV:collection and CS:notifications (Section 3.3.1) child elements.
+
+   Notification "messages" are XML documents stored as resources in the
+   notification collection.  Each XML document contains a CS:
+
+
+
+Daboo                                                           [Page 2]
+
+                          CalDAV Notifications              January 2012
+
+
+   notification (Section 3.3.2) element as its root.  The root element
+   contains a CS:dtstamp element, and one additional element which
+   represents the type of notification being conveyed in the message.
+   That child element will typically contain additional content that
+   describes the notification.
+
+   Each notification resource has a CS:notificationtype (Section 3.2.1)
+   property which contains as its single child element an empty element
+   that matches the child element of the notification resource XML
+   document root.  Any attributes on the child element in the XML
+   document are also present in the property child element.
+
+   Notifications are automatically generated by the server (perhaps in
+   response to a client action) with an appropriate resource stored in
+   the notifications collection of the user to whom the notification is
+   targeted.  Clients SHOULD monitor the notification collection looking
+   for new notification resources.  When doing so, clients SHOULD look
+   at the CS:notificationtype (Section 3.2.1) property to ensure that
+   the notification is of a type that the client can handle.  Once a
+   client has handled the notification in whatever way is appropriate it
+   SHOULD delete the notification resource.  Clients SHOULD remove
+   notifications being displayed to a user when the notification
+   resource is removed from the notification collection, to enable the
+   user to dismiss a notification on one device and have it
+   automatically removed from others.  Servers MAY delete notification
+   resources on their own if they determine that the notifications are
+   no longer relevant or valid.  Servers MAY coalesce notifications as
+   appropriate.
+
+   Servers MUST prevent clients from adding resources in the
+   notification collection.
+
+3.1.  Additional Principal Properties
+
+   This section defines new properties for WebDAV principal resources as
+   defined in RFC3744 [RFC3744].  These properties are likely to be
+   protected but the server MAY allow them to be written by appropriate
+   users.
+
+3.1.1.  CS:notification-URL Property
+
+   Name:  notification-URL
+
+   Namespace:  http://calendarserver.org/ns/
+
+
+
+
+
+
+
+Daboo                                                           [Page 3]
+
+                          CalDAV Notifications              January 2012
+
+
+   Purpose:  Identify the URL of the notification collection owned by
+      the associated principal resource.
+
+   Protected:  This property SHOULD be protected.
+
+   PROPFIND behavior:  This property SHOULD NOT be returned by a
+      PROPFIND allprop request (as defined in Section 14.2 of
+      [RFC4918]).
+
+   COPY/MOVE behavior:  This property value SHOULD be preserved in COPY
+      and MOVE operations.
+
+   Description:  This property is needed for a client to determine where
+      the notification collection of the current user is located so that
+      processing of notification messages can occur.  If not present,
+      then the associated calendar user is not enabled for notification
+      messages on the server.
+
+   Definition:
+
+   <!ELEMENT notification-URL (DAV:href)>
+
+3.2.  Properties on Notification Resources
+
+   The following new WebDAV properties are defined for notification
+   resources.
+
+3.2.1.  CS:notificationtype Property
+
+   Name:  notificationtype
+
+   Namespace:  http://calendarserver.org/ns/
+
+   Purpose:  Identify the type of notification of the corresponding
+      resource.
+
+   Protected:  This property MUST be protected.
+
+   PROPFIND behavior:  This property SHOULD NOT be returned by a
+      PROPFIND allprop request (as defined in Section 14.2 of
+      [RFC4918]).
+
+   COPY/MOVE behavior:  This property value MUST be preserved in COPY
+      and MOVE operations.
+
+
+
+
+
+
+
+Daboo                                                           [Page 4]
+
+                          CalDAV Notifications              January 2012
+
+
+   Description:  This property allows a client, via a PROPFIND Depth:1
+      request, to quickly find notification messages that the client can
+      handle in a notification collection.  The single child element is
+      the notification resource root element's child defining the
+      notification itself.  This element MUST be empty, though any
+      attributes on the element in the notification resource MUST be
+      present in the property element.
+
+   Definition:
+
+   <!ELEMENT notificationtype ANY>
+   <!-- Child elements are empty but will have appropriate attributes.
+        Any valid notification message child element can appear.-->
+
+3.3.  XML Element Definitions
+
+3.3.1.  CS:notifications
+
+   Name:  notifications
+
+   Namespace:  http://calendarserver.org/ns/
+
+   Purpose:  Indicates a notification collection.
+
+   Description:  This XML element is used in a DAV:resourcetype element
+      to indicate that the corresponding resource is a notification
+      collection.
+
+   Definition:
+
+   <!ELEMENT notifications EMPTY>
+
+3.3.2.  CS:notification
+
+   Name:  notification
+
+   Namespace:  http://calendarserver.org/ns/
+
+   Purpose:  Notification message root element.
+
+   Description:  The root element used in notification resources.
+
+   Definition:
+
+   <!ELEMENT notification (dtstamp, XXX) >
+   <!-- Any notification type element can appear after
+        CS:dtstamp -->
+
+
+
+
+Daboo                                                           [Page 5]
+
+                          CalDAV Notifications              January 2012
+
+
+3.3.3.  CS:dtstamp
+
+   Name:  dtstamp
+
+   Namespace:  http://calendarserver.org/ns/
+
+   Purpose:  Date-time stamp.
+
+   Description:  Contains the date-time stamp corresponding to the
+      creation of a notification message.
+
+   Definition:
+
+   <!ELEMENT dtstamp (#PCDATA)>
+
+
+4.  Notification Definitions
+
+   This section defines a set of common notification types.
+
+4.1.  System Status Notification
+
+   The system status notification is used to convey a URI and/or textual
+   description to the user.  The assumption is that the URI points to a
+   webpage where current system status is described in detail, with the
+   provided description being a summary of that.  A "type" attribute on
+   the element is used to indicate the importance of the current status
+   notification, and has the values "low", "medium" and "high",
+   representing the increasing level of importance of the message
+   respectively.
+
+   Servers might have knowledge of specific calendar user language
+   preferences, in which case it MAY localise the CS:description value
+   as appropriate based on the calendar user accessing the notification,
+   but if it does, it SHOULD include an xml:lang attribute on the CS:
+   description element to indicate what language is being used.
+
+4.1.1.  CS:systemstatus Element Definition
+
+   Name:  systemstatus
+
+   Namespace:  http://calendarserver.org/ns/
+
+   Purpose:  Indicates a system status notification.
+
+
+
+
+
+
+
+Daboo                                                           [Page 6]
+
+                          CalDAV Notifications              January 2012
+
+
+   Description:  This XML element is used in a CS:notification element
+      to describe a system status notification.
+
+   Definition:
+
+   <!ELEMENT systemstatus (DAV:href?, CS:description?)>
+   <!ATTLIST systemstatus type (low | medium | high) "low">
+
+     <!ELEMENT description CDATA>
+
+   <!-- One of DAV:href of CS:description MUST be present -->
+
+   Example:  This is an example of the body of a notification resource
+      for an emergency system outage:
+
+   <?xml version="1.0" encoding="UTF-8"?>
+   <CS:notification xmlns:D="DAV:"
+                    xmlns:CS="http://calendarserver.org/ns/">
+     <CS:dtstamp>2011-12-09T11:12:53-05:00</CS:dtstamp>
+     <CS:systemstatus type="high">
+       <D:href>http://example.com/emergency_shutdown.html</D:href>
+       <CS:description xml:lang='en_US'
+       >Emergency shutdown now</CS:description>
+     </CS:systemstatus>
+   </CS:notification>
+
+   Example:  This is an example of the WebDAV property on the example
+      notification resource above:
+
+   <?xml version="1.0" encoding="UTF-8"?>
+   <CS:notificationtype xmlns:D="DAV:"
+                        xmlns:CS="http://calendarserver.org/ns/">
+     <CS:systemstatus type="high" />
+   </CS:notificationtype>
+
+4.2.  Quota Notification
+
+   The quota notification is used to convey information about the status
+   of one or more quotas for the user.  The notification contains
+   elements for different types of quota being reported to the user.  In
+   some cases these may be warnings (e.g., a user getting to 80% of
+   their quota limit), or in other cases errors (e.g., a user exceeding
+   their quota).
+
+4.2.1.  CS:quotastatus Element Definition
+
+
+
+
+
+
+Daboo                                                           [Page 7]
+
+                          CalDAV Notifications              January 2012
+
+
+   Name:  quotastatus
+
+   Namespace:  http://calendarserver.org/ns/
+
+   Purpose:  Indicates a quota status notification.
+
+   Description:  This XML element is used in a CS:notification element
+      to describe a quota status notification.  The CS:quota-percent-
+      used element contains an integer greater than or equal to zero.
+      If the value is greater than or equal to 100, then the user's
+      quota has been reached or exceeded.  The DAV:href element contains
+      a URI for a webpage where the user can go to get further
+      information about their quota status or take corrective action.
+
+   Definition:
+
+   <!ELEMENT quota-status (quota+)>
+
+     <!ELEMENT quota (quota-type, quota-percent-used?,
+                      quota-count?, DAV:href?)>
+     <!ATTLIST quota type (warning | exceeded) "exceeded">
+
+     <!ELEMENT quota-type ANY>
+     <!-- Child elements are application specific -->
+
+     <!ELEMENT quota-percent-used CDATA>
+     <!-- Integer value greater than or equal to zero -->
+
+     <!ELEMENT quota-count CDATA>
+     <!-- Integer value greater than or equal to zero -->
+
+
+   Example:  This is an example of the body of a notification resource
+      for a quota warning:
+
+   <?xml version="1.0" encoding="UTF-8"?>
+   <CS:notification xmlns:D="DAV:"
+                    xmlns:CS="http://calendarserver.org/ns/">
+     <CS:dtstamp>2011-12-09T11:12:53-05:00</CS:dtstamp>
+     <CS:quota-status>
+       <CS:quota type="warning">
+         <CS:quota-type><CS:attachments /></CS:quota-type>
+         <CS:quota-percent-used>80</CS:quota-percent-used>
+         <D:href>https://example.com/your-account.html</D:href>
+       </CS:quota>
+     </CS:quota-status>
+   </CS:notification>
+
+
+
+
+Daboo                                                           [Page 8]
+
+                          CalDAV Notifications              January 2012
+
+
+   Example:  This is an example of the body of a notification resource
+      for a quota that has been exceeded, and a count-based limit that
+      is shown as a warning:
+
+   <?xml version="1.0" encoding="UTF-8"?>
+   <CS:notification xmlns:D="DAV:"
+                    xmlns:CS="http://calendarserver.org/ns/">
+     <CS:dtstamp>2011-12-09T11:12:53-05:00</CS:dtstamp>
+     <CS:quota-status>
+       <CS:quota type="exceeded">
+         <CS:quota-type><CS:attachments /></CS:quota-type>
+         <CS:quota-percent-used>102</CS:quota-percent-used>
+         <D:href>https://example.com/fix-account.html</D:href>
+       </CS:quota>
+       <CS:quota type="warning">
+         <CS:quota-type><CS:events /></CS:quota-type>
+         <CS:quota-percent-used>82</CS:quota-percent-used>
+         <CS:quota-count>4980</CS:quota-count>
+         <D:href>https://example.com/buy-more-space.html</D:href>
+       </CS:quota>
+     </CS:quota-status>
+   </CS:notification>
+
+4.3.  Resource Changes Notification
+
+   The resource change notification is used to inform the user of new,
+   updated or deleted resources caused by changes made by someone else
+   (note: servers MUST NOT generate notifications to users for changes
+   they themselves make).  This notification can be used by clients to
+   show changes that a user can acknowledge in their own time.  When the
+   notification is present, it can be displayed on all devices a user is
+   accessing their data from.  When the user acknowledges and dismisses
+   the notification on one device, other devices SHOULD also remove the
+   notification when they next synchronize the notification collection.
+
+   A new WebDAV property CS:notify-changes (Section 4.3.3) is defined
+   for calendar collections.  This allows users to enable or disable the
+   sending of resource change notifications for the calendar and its
+   child resources.  Servers MUST allow users to set this property on a
+   per-user basis on any calendars accessible to them and not "owned" by
+   them.  Servers MUST honor the chosen setting to enable or disable
+   change notifications.
+
+   Servers can send notifications for calendar object resources, and
+   ones for calendar collections.
+
+
+
+
+
+
+Daboo                                                           [Page 9]
+
+                          CalDAV Notifications              January 2012
+
+
+4.3.1.  CS:resource-change Element Definition
+
+   Name:  resource-change
+
+   Namespace:  http://calendarserver.org/ns/
+
+   Purpose:  Indicates that resources have been created, updated or
+      deleted.
+
+   Description:  This XML element is used in a CS:notification element
+      to describe a resource changes notification.  It can contain CS:
+      created, CS:updated, CS:deleted elements each of which indicates a
+      created, updated or deleted resource, respectively.  The DAV:href
+      element within those three elements, contain the URI of the
+      changed resource, and optionally additional information specific
+      to the nature of the change.  Servers SHOULD coalesce resource
+      changes notifications into a single resource.  The CS:updated
+      element optionally contains CS:content and/or DAV:prop elements to
+      indicate a change to the body of the resource or resource WebDAV
+      properties, respectively.  The DAV:prop element MAY contain a list
+      of property elements to indicate which properties changed.  The
+      CS:updated element can also contain zero or more CS:calendar-
+      changes elements to list details of the changes.  If no CS:
+      calendar-changes element is present, the specific details are not
+      provided, and clients will need to assume that some set of changes
+      occurred, but the server is unwilling to disclose the full
+      details.  The CS:deleted element can also contain zero or more CS:
+      calendar-changes elements to list details of the deleted resource.
+      Servers SHOULD include at least the "SUMMARY" details of the
+      deleted item, and MAY include others.
+
+   Definition:
+
+   <!ELEMENT resource-change (created*, updated*, deleted*)>
+     <!ELEMENT created (DAV:href, ANY)>
+     <!ELEMENT updated (DAV:href, CS:content?,
+                        DAV:prop?, CS:calendar-changes*)>
+       <!ELEMENT content EMPTY>
+     <!ELEMENT deleted (DAV:href, CS:calendar-changes*)>
+
+   Example:  This is an example of the body of a notification resource
+      for changes where one resource has been created, two updated, and
+      one deleted.  One of the updated resources elements contains
+      additional information indicating which recurrence instances in
+      the iCalendar data were changed:
+
+
+
+
+
+
+Daboo                                                          [Page 10]
+
+                          CalDAV Notifications              January 2012
+
+
+   <?xml version="1.0" encoding="UTF-8"?>
+   <CS:notification xmlns:D="DAV:"
+                    xmlns:CS="http://calendarserver.org/ns/">
+     <CS:dtstamp>2011-12-09T11:51:14-05:00</CS:dtstamp>
+     <CS:resource-changed>
+       <CS:created>
+         <D:href>http://example.com/cyrus/tasks/new.ics</D:href>
+       </CS:created>
+       <CS:updated>
+         <D:href>http://example.com/cyrus/calendar/event.ics</D:href>
+       </CS:updated>
+       <CS:updated>
+         <D:href>http://example.com/cyrus/tasks/todo.ics</D:href>
+       </CS:updated>
+       <CS:deleted>
+         <D:href>http://example.com/cyrus/calendar/old.ics</D:href>
+       </CS:deleted>
+     </CS:resource-changed>
+   </CS:notification>
+
+4.3.2.  CS:calendar-changes Element Definition
+
+   Name:  calendar-changes
+
+   Namespace:  http://calendarserver.org/ns/
+
+   Purpose:  Indicates which portions of an calendar object resource
+      have changed.
+
+   Description:  This XML element is used in a CS:updated element to
+      describe how a calendar object resource changed.  It can identify
+      the master instance, or individual recurrence instances, and for
+      each indicate which iCalendar properties and parameters changed
+      during the update for which the notification was generated.  For
+      details of handling recurrences please see Section 4.3.2.1.
+
+   Definition:
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Daboo                                                          [Page 11]
+
+                          CalDAV Notifications              January 2012
+
+
+       <!ELEMENT calendar-changes (recurrence+) >
+
+       <!ELEMENT recurrence
+           ((master | recurrenceid), added?, removed?, changes?)>
+       <!-- Which instances were affected by the change,
+            and details on the per-instance changes -->
+
+       <!ELEMENT master EMPTY>
+       <!-- The "master" instance was affected -->
+
+       <!ELEMENT recurrenceid CDATA>
+       <!-- RECURRENCE-ID value for the affected instance -->
+
+       <!ELEMENT added EMPTY>
+       <!-- The component was added -->
+
+       <!ELEMENT removed EMPTY>
+       <!-- The component was removed -->
+
+       <!ELEMENT changes changed-property*>
+       <!-- Detailed changes in the iCalendar data -->
+
+       <!ELEMENT changed-property changed-parameter*>
+       <!ATTLIST changed-property name PCDATA>
+       <!-- An iCalendar property changed -->
+
+       <!ELEMENT changed-parameter EMPTY>
+       <!ATTLIST changed-parameter name PCDATA>
+       <!-- An iCalendar property parameter changed -->
+
+
+   Example:  This example indicates that a non-recurring component, or
+      the master component in a recurring component, was changed and
+      that the change was to the "SUMMARY" iCalendar property.
+
+   <CS:calendar-changes xmlns:CS="http://calendarserver.org/ns/">
+     <CS:recurrence>
+       <CS:master/>
+       <CS:changes>
+         <CS:changed-property name="SUMMARY"/>
+       </CS:changes>
+     <CS:recurrence/>
+   </CS:calendar-changes>
+
+
+
+
+
+
+
+
+Daboo                                                          [Page 12]
+
+                          CalDAV Notifications              January 2012
+
+
+   Example:  This example indicates that an instance of a recurring
+      component was changed and that the change was to the "DTSTART"
+      iCalendar property.
+
+   <CS:calendar-changes xmlns:CS="http://calendarserver.org/ns/">
+     <CS:recurrence>
+       <CS:recurrenceid>20111215T160000Z</CS:recurrenceid>
+       <CS:changes>
+         <CS:changed-property name="DTSTART"/>
+       </CS:changes>
+     <CS:recurrence/>
+   </CS:calendar-changes>
+
+4.3.2.1.  Handling Recurrences in CS:calendar-changes
+
+   Changes to recurring components can be complex.  This section
+   describes the possible set of changes that could occur, and what the
+   CS:calendar-changes element will contain as a result.
+
+   Master exists, unchanged override added  In this case, a CS:
+      recurrence element will be present, containing a CS:recurrence-id
+      element with a value equal to the RECURRENCE-ID property value (in
+      UTC) of the added component.  A CS:added element will be present.
+      There will not be any CS:removed or CS:changes elements.
+
+   Master exists, changed override added  In this case, a CS:recurrence
+      element will be present, containing a CS:recurrence-id element
+      with a value equal to the RECURRENCE-ID property value (in UTC) of
+      the added component.  Both CS:added and CS:changes elements will
+      be present.  There will not be a CS:removed element.
+
+   Master exists, override changed  In this case, a CS:recurrence
+      element will be present, containing a CS:recurrence-id element
+      with a value equal to the RECURRENCE-ID property value (in UTC) of
+      the added component.  A CS:changes element will be present.  There
+      will not be any CS:added or CS:removed elements.
+
+   Master exists, override removed  In this case, a CS:recurrence
+      element will be present, containing a CS:recurrence-id element
+      with a value equal to the RECURRENCE-ID property value (in UTC) of
+      the added component.  A CS:removed element will be present.  There
+      will not be a CS:added element.  A CS:changes element will only be
+      present if the removed component differs from the "derived" master
+      instance.
+
+
+
+
+
+
+
+Daboo                                                          [Page 13]
+
+                          CalDAV Notifications              January 2012
+
+
+   Master exists, override cancelled  In this case, a CS:recurrence
+      element will be present, containing a CS:recurrence-id element
+      with a value equal to the RECURRENCE-ID property value (in UTC) of
+      the added component.  A CS:removed element will be present.  There
+      will not be any CS:added or CS:changes element.  There will also
+      be a CS:master element present, with an appropriate CS:changes
+      element, likely covering a change to "RRULE" or addition of
+      "EXDATE" properties.
+
+   Master does not exist, override added  In this case, a CS:recurrence
+      element will be present, containing a CS:recurrence-id element
+      with a value equal to the RECURRENCE-ID property value (in UTC) of
+      the added component.  A CS:added element will be present.  There
+      will not be a CS:removed or CS:changes element.
+
+   Master does not exist, override changed  In this case, a CS:
+      recurrence element will be present, containing a CS:recurrence-id
+      element with a value equal to the RECURRENCE-ID property value (in
+      UTC) of the added component.  A CS:changes element will be
+      present.  There will not be any CS:added or CS:removed elements.
+
+   Master does not exist, override removed  In this case, a CS:
+      recurrence element will be present, containing a CS:recurrence-id
+      element with a value equal to the RECURRENCE-ID property value (in
+      UTC) of the added component.  A CS:removed element will be
+      present.  There will not be any CS:added or CS:changes element.
+
+4.3.3.  CS:notify-changes Property
+
+   Name:  notify-changes
+
+   Namespace:  http://calendarserver.org/ns/
+
+   Purpose:  Allows a user to specify whether resource change
+      notifications are generated by the server.
+
+   Protected:  This property MUST NOT be protected.
+
+   PROPFIND behavior:  This property SHOULD NOT be returned by a
+      PROPFIND allprop request (as defined in Section 14.2 of
+      [RFC4918]).
+
+   COPY/MOVE behavior:  This property value MUST be preserved in COPY
+      and MOVE operations.
+
+
+
+
+
+
+
+Daboo                                                          [Page 14]
+
+                          CalDAV Notifications              January 2012
+
+
+   Description:  This property allows a user to enable or disable the
+      server generation of resource change notifications for the
+      calendar collection, and all its child resources, on which the
+      property resides.  If the property is not present on a calendar
+      collection, the client and server MUST assume that resource change
+      notifications are enabled.
+
+   Definition:
+
+   <!ELEMENT notify-changes (true|false)>
+     <!ELEMENT true EMPTY>
+     <!ELEMENT false EMPTY>
+
+   <!-- true - notifications enabled,
+        false - notifications disabled -->
+
+
+5.  Security Considerations
+
+   Some notification mechanisms might allow a user to trigger a
+   notification to be delivered to other users (e.g., an invitation to
+   share a calendar).  In such cases servers MUST ensure that suitable
+   limits are placed on the number and frequency of such user generated
+   notifications.
+
+   TBD: More?
+
+
+6.  IANA Considerations
+
+   This document does not require any actions on the part of IANA.
+
+
+7.  Acknowledgments
+
+   This specification is the result of discussions between the Apple
+   calendar server and client teams.
+
+
+8.  References
+
+8.1.  Normative References
+
+   [RFC2119]  Bradner, S., "Key words for use in RFCs to Indicate
+              Requirement Levels", BCP 14, RFC 2119, March 1997.
+
+   [RFC4918]  Dusseault, L., "HTTP Extensions for Web Distributed
+              Authoring and Versioning (WebDAV)", RFC 4918, June 2007.
+
+
+
+Daboo                                                          [Page 15]
+
+                          CalDAV Notifications              January 2012
+
+
+8.2.  Informative References
+
+   [RFC3744]  Clemm, G., Reschke, J., Sedlar, E., and J. Whitehead, "Web
+              Distributed Authoring and Versioning (WebDAV)
+              Access Control Protocol", RFC 3744, May 2004.
+
+   [RFC4791]  Daboo, C., Desruisseaux, B., and L. Dusseault,
+              "Calendaring Extensions to WebDAV (CalDAV)", RFC 4791,
+              March 2007.
+
+
+Author's Address
+
+   Cyrus Daboo
+   Apple Inc.
+   1 Infinite Loop
+   Cupertino, CA  95014
+   USA
+
+   Email: cyrus@daboo.name
+   URI:   http://www.apple.com/
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Daboo                                                          [Page 16]
+
