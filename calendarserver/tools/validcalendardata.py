@@ -149,10 +149,10 @@ class ValidService(Service, object):
         Check the calendar data for valid iCalendar data.
         """
     
-        component = Component.fromString(self.input.read())
         result = True
         message = ""
         try:
+            component = Component.fromString(self.input.read())
             component.validCalendarData(doFix=False, validateRecurrences=True)
             component.validCalendarForCalDAV(methodAllowed=True)
             component.validOrganizerForScheduling(doFix=False)
