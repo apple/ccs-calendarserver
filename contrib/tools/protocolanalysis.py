@@ -132,11 +132,12 @@ METHOD_PROPPATCH_ADDRESSBOOK = "PROPPATCH Adbk Home"
 
 # REPORTs
 METHOD_REPORT_CALENDAR_MULTIGET = "REPORT cal-multi"
-METHOD_REPORT_ADDRESSBOOK_MULTIGET = "REPORT adbk-multi"
 METHOD_REPORT_CALENDAR_QUERY = "REPORT cal-query"
+METHOD_REPORT_CALENDAR_FREEBUSY = "REPORT freebusy"
+METHOD_REPORT_CALENDAR_SYNC = "REPORT cal-sync"
+METHOD_REPORT_ADDRESSBOOK_MULTIGET = "REPORT adbk-multi"
 METHOD_REPORT_ADDRESSBOOK_QUERY = "REPORT adbk-query"
 METHOD_REPORT_DIRECTORY_QUERY = "REPORT dir-query"
-METHOD_REPORT_CALENDAR_SYNC = "REPORT cal-sync"
 METHOD_REPORT_ADDRESSBOOK_SYNC = "REPORT adbk-sync"
 METHOD_REPORT_P_SEARCH_P_SET = "REPORT p-set"
 METHOD_REPORT_P_P_SEARCH = "REPORT p-search"
@@ -151,6 +152,8 @@ METHOD_POST_ISCHEDULE_FREEBUSY = "POST Freebusy iSchedule"
 METHOD_POST_ISCHEDULE = "POST iSchedule"
 METHOD_POST_TIMEZONES = "POST Timezones"
 METHOD_POST_FREEBUSY = "POST Freebusy"
+METHOD_POST_ORGANIZER = "POST Organizer"
+METHOD_POST_ATTENDEE = "POST Attendee"
 METHOD_POST_OUTBOX = "POST Outbox"
 METHOD_POST_APNS = "POST apns"
 
@@ -398,22 +401,27 @@ class CalendarServerLogAnalyzer(object):
     
                 # Scheduling analysis
                 if adjustedMethod == METHOD_POST_FREEBUSY:
-                    recipients = int(self.currentLine.extended["recipients"])
+                    recipients = int(self.currentLine.extended.get("recipients", 0)) + int(self.currentLine.extended.get("freebusy", 0))
                     self.hourlyByRecipientCount["Freebusy One Offs" if recipients == 1 else "Freebusy Average"][timeBucketIndex][0] += 1
                     self.hourlyByRecipientCount["Freebusy One Offs" if recipients == 1 else "Freebusy Average"][timeBucketIndex][1] += recipients
                     self.hourlyByRecipientCount["Freebusy Max."][timeBucketIndex][0] = max(self.hourlyByRecipientCount["Freebusy Max."][timeBucketIndex][0], recipients)
+                elif adjustedMethod == METHOD_POST_ORGANIZER:
+                    recipients = int(self.currentLine.extended.get("itip.request", 0)) + int(self.currentLine.extended.get("itip.cancel", 0))
+                    self.hourlyByRecipientCount["iTIP Average"][timeBucketIndex][0] += 1
+                    self.hourlyByRecipientCount["iTIP Average"][timeBucketIndex][1] += recipients
+                    self.hourlyByRecipientCount["iTIP Max."][timeBucketIndex][0] = max(self.hourlyByRecipientCount["iTIP Max."][timeBucketIndex][0], recipients)
                 elif adjustedMethod == METHOD_PUT_ORGANIZER:
                     recipients = int(self.currentLine.extended["itip.requests"])
                     self.hourlyByRecipientCount["iTIP Average"][timeBucketIndex][0] += 1
                     self.hourlyByRecipientCount["iTIP Average"][timeBucketIndex][1] += recipients
                     self.hourlyByRecipientCount["iTIP Max."][timeBucketIndex][0] = max(self.hourlyByRecipientCount["iTIP Max."][timeBucketIndex][0], recipients)
                 elif adjustedMethod == METHOD_POST_ISCHEDULE_FREEBUSY:
-                    recipients = int(self.currentLine.extended["recipients"])
+                    recipients = int(self.currentLine.extended.get("recipients", 0)) + int(self.currentLine.extended.get("freebusy", 0)) 
                     self.hourlyByRecipientCount["iFreebusy One Offs" if recipients == 1 else "iFreebusy Average"][timeBucketIndex][0] += 1
                     self.hourlyByRecipientCount["iFreebusy One Offs" if recipients == 1 else "iFreebusy Average"][timeBucketIndex][1] += recipients
                     self.hourlyByRecipientCount["iFreebusy Max."][timeBucketIndex][0] = max(self.hourlyByRecipientCount["iFreebusy Max."][timeBucketIndex][0], recipients)
                 elif adjustedMethod == METHOD_POST_ISCHEDULE:
-                    recipients = int(self.currentLine.extended["recipients"])
+                    recipients = int(self.currentLine.extended.get("recipients", 0)) + int(self.currentLine.extended.get("itip.request", 0)) + int(self.currentLine.extended.get("itip.cancel", 0))
                     self.hourlyByRecipientCount["iSchedule Average"][timeBucketIndex][0] += 1
                     self.hourlyByRecipientCount["iSchedule Average"][timeBucketIndex][1] += recipients
                     self.hourlyByRecipientCount["iSchedule Max."][timeBucketIndex][0] = max(self.hourlyByRecipientCount["iSchedule Max."][timeBucketIndex][0], recipients)
@@ -649,17 +657,18 @@ class CalendarServerLogAnalyzer(object):
                         report_type = "adbk-sync"
                 mappedNames = {
                     "calendar-multiget"             : METHOD_REPORT_CALENDAR_MULTIGET,
-                    "addressbook-multiget"          : METHOD_REPORT_ADDRESSBOOK_MULTIGET,
                     "calendar-query"                : METHOD_REPORT_CALENDAR_QUERY,
+                    "free-busy-query"               : METHOD_REPORT_CALENDAR_FREEBUSY,
+                    "cal-sync"                      : METHOD_REPORT_CALENDAR_SYNC,
+                    "addressbook-multiget"          : METHOD_REPORT_ADDRESSBOOK_MULTIGET,
                     "addressbook-query"             : METHOD_REPORT_ADDRESSBOOK_QUERY,
                     "directory-query"               : METHOD_REPORT_DIRECTORY_QUERY,
-                    "cal-sync"                      : METHOD_REPORT_CALENDAR_SYNC,
                     "adbk-sync"                     : METHOD_REPORT_ADDRESSBOOK_SYNC,
                     "principal-search-property-set" : METHOD_REPORT_P_SEARCH_P_SET,
                     "principal-property-search"     : METHOD_REPORT_P_P_SEARCH,
                     "expand-property"               : METHOD_REPORT_EXPAND_P,
                 }
-                return mappedNames.get(report_type, report_type)
+                return mappedNames.get(report_type, "REPORT %s" % (report_type,))
         
         elif self.currentLine.method == "PROPPATCH":
             
@@ -678,6 +687,12 @@ class CalendarServerLogAnalyzer(object):
                     if uribits[3] == "outbox":
                         if "recipients" in self.currentLine.extended:
                             return METHOD_POST_FREEBUSY
+                        elif "freebusy" in self.currentLine.extended:
+                            return METHOD_POST_FREEBUSY
+                        elif "itip.request" in self.currentLine.extended or "itip.cancel" in self.currentLine.extended:
+                            return METHOD_POST_ORGANIZER
+                        elif "itip.reply" in self.currentLine.extended:
+                            return METHOD_POST_ATTENDEE
                         else:
                             return METHOD_POST_OUTBOX
                     elif uribits[3] in calendar_specials:
@@ -696,7 +711,7 @@ class CalendarServerLogAnalyzer(object):
                         return METHOD_POST_ADDRESSBOOK
 
             elif uribits[0] == "ischedule":
-                if "fb-cached" in self.currentLine.extended or "fb-uncached" in self.currentLine.extended:
+                if "fb-cached" in self.currentLine.extended or "fb-uncached" in self.currentLine.extended or "freebusy" in self.currentLine.extended:
                     return METHOD_POST_ISCHEDULE_FREEBUSY
                 else:
                     return METHOD_POST_ISCHEDULE
@@ -967,8 +982,8 @@ class CalendarServerLogAnalyzer(object):
         totalminutes = index * self.resolutionMinutes
         
         offsethour, minute = divmod(totalminutes, 60)
-        utchour = divmod(offsethour - self.loggedUTCOffset + self.startHour, 24)[1]
-        localhour = divmod(utchour + self.loggedUTCOffset, 24)[1]
+        localhour = divmod(offsethour + self.logStart + self.startHour + self.utcoffset, 24)[1]
+        utchour = divmod(localhour - self.loggedUTCOffset - self.utcoffset, 24)[1]
         
         # Clip to select hour range
         return "%02d:%02d (%02d:%02d)" % (localhour, minute, utchour, minute,)
