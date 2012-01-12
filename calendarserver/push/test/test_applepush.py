@@ -108,10 +108,36 @@ class ApplePushNotifierServiceTests(CommonCommonTests, TestCase):
             rawData[45:])
         self.assertEquals(payload[0], '{"key" : "%s"}' % (key1,))
 
+        def errorTestFunction(status, identifier):
+            history.append((status, identifier))
+            return succeed(None)
+
         # Simulate an error
-        errorData = struct.pack("!BBI", APNProviderProtocol.COMMAND_ERROR, 1, 1)
-        yield connector.receiveData(errorData)
+        history = []
+        errorData = struct.pack("!BBI", APNProviderProtocol.COMMAND_ERROR, 1, 2)
+        yield connector.receiveData(errorData, fn=errorTestFunction)
         clock.advance(301)
+
+        # Simulate multiple errors and dataReceived called
+        # with amounts of data not fitting message boundaries
+        # Send 1st 4 bytes
+        history = []
+        errorData = struct.pack("!BBIBBI",
+            APNProviderProtocol.COMMAND_ERROR, 3, 4,
+            APNProviderProtocol.COMMAND_ERROR, 5, 6,
+        )
+        yield connector.receiveData(errorData[:4], fn=errorTestFunction)
+        # Send remaining bytes
+        yield connector.receiveData(errorData[4:], fn=errorTestFunction)
+        self.assertEquals(history, [(3, 4), (5, 6)])
+        # Buffer is empty
+        self.assertEquals(len(connector.service.protocol.buffer), 0)
+
+        # Sending 7 bytes
+        yield connector.receiveData("!" * 7, fn=errorTestFunction)
+        # Buffer has 1 byte remaining
+        self.assertEquals(len(connector.service.protocol.buffer), 1)
+
 
         # Prior to feedback, there are 2 subscriptions
         txn = self.store.newTransaction()
@@ -131,7 +157,7 @@ class ApplePushNotifierServiceTests(CommonCommonTests, TestCase):
         # Simulate feedback with multiple tokens, and dataReceived called
         # with amounts of data not fitting message boundaries
         history = []
-        def testFunction(timestamp, token):
+        def feedbackTestFunction(timestamp, token):
             history.append((timestamp, token))
             return succeed(None)
         timestamp = 2000
@@ -141,15 +167,15 @@ class ApplePushNotifierServiceTests(CommonCommonTests, TestCase):
             timestamp, len(binaryToken), binaryToken,
             )
         # Send 1st 10 bytes
-        yield connector.receiveData(feedbackData[:10], fn=testFunction)
+        yield connector.receiveData(feedbackData[:10], fn=feedbackTestFunction)
         # Send remaining bytes
-        yield connector.receiveData(feedbackData[10:], fn=testFunction)
+        yield connector.receiveData(feedbackData[10:], fn=feedbackTestFunction)
         self.assertEquals(history, [(timestamp, token), (timestamp, token)])
         # Buffer is empty
         self.assertEquals(len(connector.service.protocol.buffer), 0)
 
         # Sending 39 bytes
-        yield connector.receiveData("!" * 39, fn=testFunction)
+        yield connector.receiveData("!" * 39, fn=feedbackTestFunction)
         # Buffer has 1 byte remaining
         self.assertEquals(len(connector.service.protocol.buffer), 1)
 

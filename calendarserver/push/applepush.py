@@ -199,6 +199,8 @@ class APNProviderProtocol(protocol.Protocol, LoggingMixIn):
         255 : "None (unknown)",
     }
 
+    MESSAGE_LENGTH = 6
+
     def makeConnection(self, transport):
         self.identifier = 0
         # self.log_debug("ProviderProtocol makeConnection")
@@ -206,6 +208,7 @@ class APNProviderProtocol(protocol.Protocol, LoggingMixIn):
 
     def connectionMade(self):
         self.log_debug("ProviderProtocol connectionMade")
+        self.buffer = ""
         # Store a reference to ourself on the factory so the service can
         # later call us
         self.factory.connection = self
@@ -217,10 +220,29 @@ class APNProviderProtocol(protocol.Protocol, LoggingMixIn):
         self.factory.connection = None
 
     def dataReceived(self, data, fn=None):
+        """
+        Buffer and divide up received data into error messages which are
+        always 6 bytes long
+        """
+
+        if fn is None:
+            fn = self.processError
+
         self.log_debug("ProviderProtocol dataReceived %d bytes" % (len(data),))
-        command, status, identifier = struct.unpack("!BBI", data)
-        if command == self.COMMAND_ERROR:
-            self.processError(status, identifier)
+        self.buffer += data
+
+        while len(self.buffer) >= self.MESSAGE_LENGTH:
+            message = self.buffer[:self.MESSAGE_LENGTH]
+            self.buffer = self.buffer[self.MESSAGE_LENGTH:]
+
+            try:
+                command, status, identifier = struct.unpack("!BBI", message)
+                if command == self.COMMAND_ERROR:
+                    fn(status, identifier)
+            except Exception, e:
+                self.log_warn("ProviderProtocol could not process error: %s (%s)" %
+                    (message.encode("hex"), e))
+
 
     def processError(self, status, identifier):
         """
