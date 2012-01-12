@@ -77,7 +77,7 @@ It is critically important that your database server keeps updated statistics ab
 Memcached
 --------------
 
-The default memcached settings are found in `stdconfig.py <https://trac.calendarserver.org/browser/CalendarServer/trunk/twistedcaldav/stdconfig.py>`_. By default there is one memcached 'pool' that is automatically managed by Calendar Server. For a multi-server deployment, an additional memcached instance is required, and both instances must be shared across all servers. A sample configuration is shown below, which instructs Calendar Server to connect to the 'Default' pool at example.com port 11211, and the 'Shared' pool at example.com port 11311.
+The default memcached settings are found in `stdconfig.py <https://trac.calendarserver.org/browser/CalendarServer/trunk/twistedcaldav/stdconfig.py>`_. By default there is one memcached 'pool' that is automatically managed by Calendar Server, and memcache is started and stopped along with Calendar Server. For a multi-server deployment, you should manage the memcached lifecycle externally, to make it independent of your Calendar Server hosts. Also, all Calendar Server hosts must be configured to share this memcached instance. A sample configuration is shown below, which instructs Calendar Server to connect to the 'Default' pool at example.com port 11211.
 
 ::
 
@@ -110,28 +110,12 @@ The default memcached settings are found in `stdconfig.py <https://trac.calendar
             <string>Default</string>
           </array>
         </dict>
-        <key>ProxyDB</key>
-        <dict>
-          <key>BindAddress</key>
-          <string>EXAMPLE.COM</string>
-          <key>ClientEnabled</key>
-          <true/>
-          <key>ServerEnabled</key>
-          <false/>
-          <key>HandleCacheTypes</key>
-          <array>
-            <string>ProxyDB</string>
-            <string>PrincipalToken</string>
-          </array>
-          <key>Port</key>
-          <integer>11311</integer>
-        </dict>
       </dict>
       <key>memcached</key>
       <string>memcached</string>
     </dict>
 
-This defines two memcache pools, one called Default and one called ProxyDB. In this configuration, the administrator is expected to ensure that there is a memcache instance running on host EXAMPLE.COM listening on port 11211 (Default), and another one also on EXAMPLE.COM listening on 11311 (ProxyDB). All calendar servers need to have the same memcache configuration. Memcache should start first and stop last, relative to calendar server and postgres
+In this configuration, the administrator is expected to ensure that there is a memcached instance running on host EXAMPLE.COM listening on port 11211 (Default). All calendar servers need to have the same memcache configuration. Memcache should start first and stop last, relative to calendar server and postgres. Note also that memcached should be as close to the Calendar Server hosts as possible to minimize network latency.
 
 ----------------
 Proxy Database
