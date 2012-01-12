@@ -26,9 +26,9 @@ DATABASENAME  = "caldav"
 SCHEMAFILE    = "/Applications/Server.app/Contents/ServerRoot/usr/share/caldavd/lib/python/txdav/common/datastore/sql_schema/current.sql"
 
 # Executables:
-CREATEDB      = "/usr/bin/createdb"
-CREATEUSER    = "/usr/bin/createuser"
-PSQL          = "/usr/bin/psql"
+CREATEDB      = "/Applications/Server.app/Contents/ServerRoot/usr/bin/createdb"
+CREATEUSER    = "/Applications/Server.app/Contents/ServerRoot/usr/bin/createuser"
+PSQL          = "/Applications/Server.app/Contents/ServerRoot/usr/bin/psql"
 
 def usage(e=None):
     name = os.path.basename(sys.argv[0])
