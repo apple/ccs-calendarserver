@@ -352,13 +352,15 @@ class Component (object):
             C{stream}.
         """
         cal = PyCalendar()
+        errmsg = "Unknown"
         try:
             result = cal.parse(stream)
-        except PyCalendarError:
+        except PyCalendarError, e:
+            errmsg = "%s: %s" % (e.mReason, e.mData,)
             result = None
         if not result:
             stream.seek(0)
-            raise InvalidICalendarDataError("%s" % (stream.read(),))
+            raise InvalidICalendarDataError("%s\n%s" % (errmsg, stream.read(),))
         return clazz(None, pycalendar=cal)
 
     @classmethod
