@@ -20,6 +20,8 @@ Tests for L{txdav.common.datastore.upgrade.migrate}.
 
 from twext.python.filepath import CachingFilePath
 from twext.web2.http_headers import MimeType
+
+from twisted.python.modules import getModule
 from twisted.application.service import Service, MultiService
 from twisted.internet.defer import inlineCallbacks, Deferred, returnValue
 from twisted.internet.protocol import Protocol
@@ -29,9 +31,11 @@ from twisted.trial.unittest import TestCase
 from txdav.caldav.datastore.test.common import CommonTests
 from txdav.carddav.datastore.test.common import CommonTests as ABCommonTests
 from txdav.common.datastore.file import CommonDataStore
+
 from txdav.common.datastore.test.util import theStoreBuilder, \
-    populateCalendarsFrom, StubNotifierFactory, resetCalendarMD5s,\
-    populateAddressBooksFrom, resetAddressBookMD5s
+    populateCalendarsFrom, StubNotifierFactory, resetCalendarMD5s, \
+    populateAddressBooksFrom, resetAddressBookMD5s, deriveValue, \
+    withSpecialValue
 
 from txdav.common.datastore.test.util import SQLStoreBuilder
 from txdav.common.datastore.upgrade.migrate import UpgradeToDatabaseService, \
@@ -114,12 +118,35 @@ class HomeMigrationTests(TestCase):
             def startService(self):
                 super(StubService, self).startService()
                 subStarted.callback(None)
+        from twisted.python import log
+        def justOnce(evt):
+            if evt.get('isError') and not hasattr(subStarted, 'result'):
+                subStarted.errback(
+                    evt.get('failure',
+                            RuntimeError("error starting up (see log)"))
+                )
+        log.addObserver(justOnce)
+        def cleanObserver():
+            try:
+                log.removeObserver(justOnce)
+            except ValueError:
+                pass # x not in list, I don't care.
+        self.addCleanup(cleanObserver)
         self.stubService = StubService()
         self.topService = MultiService()
         self.upgrader = self.createUpgradeService()
         self.upgrader.setServiceParent(self.topService)
 
         requirements = CommonTests.requirements
+        extras = deriveValue(self, "extraRequirements", lambda t: {})
+        for homeUID in extras:
+            homereq = requirements.setdefault(homeUID, {})
+            homeExtras = extras[homeUID]
+            for calendarUID in homeExtras:
+                calreq = homereq.setdefault(calendarUID, {})
+                calendarExtras = homeExtras[calendarUID]
+                calreq.update(calendarExtras)
+
         yield populateCalendarsFrom(requirements, fileStore)
         md5s = CommonTests.md5s
         yield resetCalendarMD5s(md5s, fileStore)
@@ -134,6 +161,37 @@ class HomeMigrationTests(TestCase):
         self.filesPath.child("addressbooks").child(
             "__uids__").child("ho").child("me").child("home1").child(
             ".some-extra-data").setContent("some extra data")
+
+
+    @withSpecialValue(
+        "extraRequirements",
+        {
+            "home1": {
+                "calendar_1": {
+                    "bogus.ics": (
+                        getModule("twistedcaldav").filePath.sibling("zoneinfo")
+                        .child("EST.ics").getContent(),
+                        CommonTests.metadata1
+                    )
+                }
+            }
+        }
+    )
+    @inlineCallbacks
+    def test_justVEvent(self):
+        """
+        Just a VEVENT.
+        """
+        self.topService.startService()
+        txn = self.sqlStore.newTransaction()
+        self.addCleanup(txn.commit)
+        yield self.subStarted
+        self.assertIdentical(
+            None,
+            ((yield (yield ((yield txn.calendarHomeWithUID("home1"))
+                                  .calendarWithName("calendar_1"))))
+                                  .calendarObjectWithName("bogus.ics"))
+        )
 
 
     @inlineCallbacks
