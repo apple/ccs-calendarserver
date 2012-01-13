@@ -139,13 +139,7 @@ class HomeMigrationTests(TestCase):
 
         requirements = CommonTests.requirements
         extras = deriveValue(self, "extraRequirements", lambda t: {})
-        for homeUID in extras:
-            homereq = requirements.setdefault(homeUID, {})
-            homeExtras = extras[homeUID]
-            for calendarUID in homeExtras:
-                calreq = homereq.setdefault(calendarUID, {})
-                calendarExtras = homeExtras[calendarUID]
-                calreq.update(calendarExtras)
+        requirements = self.mergeRequirements(requirements, extras)
 
         yield populateCalendarsFrom(requirements, fileStore)
         md5s = CommonTests.md5s
@@ -161,6 +155,31 @@ class HomeMigrationTests(TestCase):
         self.filesPath.child("addressbooks").child(
             "__uids__").child("ho").child("me").child("home1").child(
             ".some-extra-data").setContent("some extra data")
+
+
+    def mergeRequirements(self, a, b):
+        """
+        Merge two requirements dictionaries together, modifying C{a} and
+        returning it.
+
+        @param a: Some requirements, in the format of
+            L{CommonTests.requirements}.
+        @type a: C{dict}
+
+        @param b: Some additional requirements, to be merged into C{a}.
+        @type b: C{dict}
+
+        @return: C{a}
+        @rtype: C{dict}
+        """
+        for homeUID in b:
+            homereq = a.setdefault(homeUID, {})
+            homeExtras = b[homeUID]
+            for calendarUID in homeExtras:
+                calreq = homereq.setdefault(calendarUID, {})
+                calendarExtras = homeExtras[calendarUID]
+                calreq.update(calendarExtras)
+        return a
 
 
     @withSpecialValue(
