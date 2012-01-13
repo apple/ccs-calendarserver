@@ -199,7 +199,8 @@ class HomeMigrationTests(TestCase):
     @inlineCallbacks
     def test_justVEvent(self):
         """
-        Just a VEVENT.
+        Calendar objects that are free-standing VTIMEZONEs are dropped and not
+        migrated from the filesystem to the database.
         """
         self.topService.startService()
         txn = self.sqlStore.newTransaction()
@@ -207,9 +208,10 @@ class HomeMigrationTests(TestCase):
         yield self.subStarted
         self.assertIdentical(
             None,
-            ((yield (yield ((yield txn.calendarHomeWithUID("home1"))
-                                  .calendarWithName("calendar_1"))))
-                                  .calendarObjectWithName("bogus.ics"))
+            (yield (yield (yield
+                (yield txn.calendarHomeWithUID("home1"))
+                          .calendarWithName("calendar_1")))
+                          .calendarObjectWithName("bogus.ics"))
         )
 
 
