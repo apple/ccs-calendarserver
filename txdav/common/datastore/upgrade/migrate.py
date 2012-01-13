@@ -23,6 +23,7 @@ import os
 import errno
 import xattr
 
+from twisted.python.failure import Failure
 from twext.python.log import LoggingMixIn
 
 from twisted.python.runtime import platform
@@ -304,15 +305,23 @@ class UpgradeToDatabaseService(Service, LoggingMixIn, object):
             yield sqlTxn.abort()
             yield fileTxn.commit()
             returnValue(None)
-        sqlHome = yield homeGetter(uid, create=True)
-        yield migrateFunc(fileHome, sqlHome)
-        yield fileTxn.commit()
-        yield sqlTxn.commit()
-        # Remove file home after migration. FIXME: instead, this should be a
-        # public remove...HomeWithUID() API for de-provisioning.  (If we had
-        # this, this would simply be a store-to-store migrator rather than a
-        # filesystem-to-database upgrade.)
-        fileHome._path.remove()
+        try:
+            sqlHome = yield homeGetter(uid, create=True)
+            yield migrateFunc(fileHome, sqlHome)
+        except:
+            f = Failure()
+            yield fileTxn.abort()
+            yield sqlTxn.abort()
+            f.raiseException()
+        else:
+            yield fileTxn.commit()
+            yield sqlTxn.commit()
+            # Remove file home after migration. FIXME: instead, this should be a
+            # public remove...HomeWithUID() API for de-provisioning.  (If we had
+            # this, this would simply be a store-to-store migrator rather than a
+            # filesystem-to-database upgrade.)
+            fileHome._path.remove()
+
 
 
     @inlineCallbacks

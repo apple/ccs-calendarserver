@@ -26,6 +26,8 @@ from twisted.internet.defer import Deferred, inlineCallbacks, returnValue,\
 from twisted.internet.protocol import Protocol
 from twisted.python import hashlib
 
+from twext.python.clsprop import classproperty
+
 from twext.enterprise.ienterprise import AlreadyFinishedError
 
 from twext.python.filepath import CachingFilePath as FilePath
@@ -230,7 +232,14 @@ class CommonTests(CommonCommonTests):
         hashlib.md5("DEFG").hexdigest(),
         hashlib.md5("HIJK").hexdigest(),
     )
-    requirements = {
+
+    @classproperty(cache=False)
+    def requirements(cls):
+        metadata1 = cls.metadata1.copy()
+        metadata2 = cls.metadata2.copy()
+        metadata3 = cls.metadata3.copy()
+        metadata4 = cls.metadata4.copy()
+        return {
         "home1": {
             "calendar_1": {
                 "1.ics": (cal1Root.child("1.ics").getContent(), metadata1),

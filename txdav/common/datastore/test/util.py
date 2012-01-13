@@ -223,7 +223,7 @@ class SQLStoreBuilder(object):
             except:
                 log.err()
         yield cleanupTxn.commit()
-        
+
         # Deal with memcached items that must be cleared
         from txdav.caldav.datastore.sql import CalendarHome
         CalendarHome._cacher.flushAll()
@@ -236,51 +236,97 @@ theStoreBuilder = SQLStoreBuilder()
 buildStore = theStoreBuilder.buildStore
 
 
+_notSet = object()
+
+
+
+def deriveValue(testCase, attribute, computeDefault):
+    """
+    Derive a value for a specific test method, defined by L{withSpecialValue}
+    for that test.
+
+    @param testCase: the test case instance.
+
+    @param attribute: the name of the attribute (the same name passed to
+        L{withSpecialValue}).
+
+    @param computeDefault: A 1-argument callable, which will be called with
+        C{testCase} to compute a default value for the attribute for the given
+        test if no custom one was specified.
+    """
+    testID = testCase.id()
+    testMethodName = testID.split(".")[-1]
+    method = getattr(testCase, testMethodName)
+    value = getattr(method, attribute, _notSet)
+    if value is _notSet:
+        return computeDefault(testCase)
+    else:
+        return value
+
+
+
+def withSpecialValue(attribute, value):
+    """
+    Decorator for a test method which has a special value.  Should be used by
+    tests which use L{deriveValue} in their C{setUp} method.
+    """
+    def thunk(function):
+        setattr(function, attribute, value)
+        return function
+    return thunk
+
+
+
+def _computeDefaultQuota(testCase):
+    """
+    Compute a default value for quota in tests.
+    """
+    h = md5(testCase.id())
+    seed = int(h.hexdigest(), 16)
+    r = Random(seed)
+    baseline = 2000
+    fuzz = r.randint(1, 1000)
+    return baseline + fuzz
+
+
+
+_SPECIAL_QUOTA = "__special_quota__"
+
+
 
 def deriveQuota(testCase):
     """
     Derive a distinctive quota number for a specific test, based on its ID.
-    This generates a quota which is small enough that tests may trivially exceed
-    it if they wish to do so, but distinctive enough that it may be compared
-    without the risk of testing only a single value for quota.
+    This generates a quota which is small enough that tests may trivially
+    exceed it if they wish to do so, but distinctive enough that it may be
+    compared without the risk of testing only a single value for quota.
 
     Since SQL stores are generally built during test construction, it's awkward
     to have tests which specifically construct a store to inspect quota-related
     state; this allows us to have the test and the infrastructure agree on a
     number.
 
-    @param testCase: The identifier for a test, as returned by L{TestCase.id}.
+    @see: deriveValue
 
-    @type testID: C{str}
+    @param testCase: The test case which may have a special quota value
+        assigned.
+    @type testCase: L{TestCase}
+
+    @return: the number of quota bytes to use for C{testCase}
+    @rtype: C{int}
     """
-    testID = testCase.id()
-    testMethodName = testID.split(".")[-1]
-    method = getattr(testCase, testMethodName)
-    notSet = object()
-    specialQuota = getattr(method, _SPECIAL_QUOTA, notSet)
-    if specialQuota is notSet:
-        h = md5(testID)
-        seed = int(h.hexdigest(), 16)
-        r = Random(seed)
-        baseline = 2000
-        fuzz = r.randint(1, 1000)
-        return baseline + fuzz
-    else:
-        return specialQuota
+    return deriveValue(testCase, _SPECIAL_QUOTA, _computeDefaultQuota)
 
 
-
-_SPECIAL_QUOTA = "__special_quota__"
 
 def withSpecialQuota(quotaValue):
     """
     Test method decorator that will cause L{deriveQuota} to return a different
     value for test cases that run that test method.
+
+    @see: withSpecialValue
     """
-    def thunk(function):
-        setattr(function, _SPECIAL_QUOTA, quotaValue)
-        return function
-    return thunk
+    return withSpecialValue(_SPECIAL_QUOTA, quotaValue)
 
 
 

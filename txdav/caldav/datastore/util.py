@@ -138,12 +138,16 @@ def _migrateCalendar(inCalendar, outCalendar, getComponent):
 
     @return: a tuple of (ok count, bad count)
     """
-    
+
     ok_count = 0
     bad_count = 0
     outCalendar.properties().update(inCalendar.properties())
     for calendarObject in (yield inCalendar.calendarObjects()):
-        
+        ctype = yield calendarObject.componentType()
+        if ctype not in ("VEVENT", "VTODO"):
+            log.error("Migration skipping unsupported (%s) calendar object %r"
+                      % (ctype, calendarObject))
+            continue
         try:
             # Must account for metadata
             component = (yield calendarObject.component()) # XXX WRONG SHOULD CALL getComponent
@@ -160,7 +164,7 @@ def _migrateCalendar(inCalendar, outCalendar, getComponent):
                 calendarObject.name())
             if outCalendar.objectResourcesHaveProperties():
                 outObject.properties().update(calendarObject.properties())
-    
+
             if inCalendar.name() == "inbox":
                 # Because of 9023803, skip attachment processing within inboxes
                 continue
@@ -176,8 +180,8 @@ def _migrateCalendar(inCalendar, outCalendar, getComponent):
                     proto =_AttachmentMigrationProto(transport)
                     attachment.retrieve(proto)
                     yield proto.done
-            
-            ok_count += 1 
+
+            ok_count += 1
 
         except InternalDataStoreError:
             log.error("  InternalDataStoreError: Failed to migrate calendar object: %s/%s/%s" % (
@@ -185,7 +189,7 @@ def _migrateCalendar(inCalendar, outCalendar, getComponent):
                 inCalendar.name(),
                 calendarObject.name(),
             ))
-            bad_count += 1 
+            bad_count += 1
 
         except Exception, e:
             log.error("  %s: Failed to migrate calendar object: %s/%s/%s" % (
@@ -194,13 +198,13 @@ def _migrateCalendar(inCalendar, outCalendar, getComponent):
                 inCalendar.name(),
                 calendarObject.name(),
             ))
-            bad_count += 1 
+            bad_count += 1
 
     returnValue((ok_count, bad_count,))
 
 
 # MIME helpers - mostly copied from twext.web2.static
- 
+
 def loadMimeTypes(mimetype_locations=['/etc/mime.types']):
     """
     Multiple file locations containing mime-types can be passed as a list.
@@ -391,7 +395,7 @@ class StorageTransportBase(object):
         """
         self._attachment = attachment
         self._contentType = contentType
-        
+
         # Make sure we have some kind of contrent-type
         if self._contentType is None:
             self._contentType = http_headers.MimeType.fromString(getType(self._attachment.name(), self.contentTypes))

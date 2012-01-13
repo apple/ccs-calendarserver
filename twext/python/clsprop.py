@@ -25,12 +25,19 @@ class classproperty(object):
     will be returned for that class.
     """
 
-    def __init__(self, thunk):
+    def __init__(self, thunk=None, cache=True):
+        self.cache = cache
         self.thunk = thunk
         self._classcache = {}
 
 
+    def __call__(self, thunk):
+        return self.__class__(thunk, self.cache)
+
+
     def __get__(self, instance, owner):
+        if not self.cache:
+            return self.thunk(owner)
         cc = self._classcache
         if owner in cc:
             cached = cc[owner]
