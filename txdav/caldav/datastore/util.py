@@ -143,7 +143,10 @@ def _migrateCalendar(inCalendar, outCalendar, getComponent):
     bad_count = 0
     outCalendar.properties().update(inCalendar.properties())
     for calendarObject in (yield inCalendar.calendarObjects()):
-        if calendarObject.uid() is None:
+        ctype = yield calendarObject.componentType()
+        if ctype not in ("VEVENT", "VTODO"):
+            log.error("Migration skipping unsupported (%s) calendar object %r"
+                      % (ctype, calendarObject))
             continue
         try:
             # Must account for metadata
