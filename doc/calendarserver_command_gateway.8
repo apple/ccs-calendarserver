@@ -1,5 +1,5 @@
 .\"
-.\" Copyright (c) 2006-2010 Apple Inc. All rights reserved.
+.\" Copyright (c) 2006-2012 Apple Inc. All rights reserved.
 .\"
 .\" Licensed under the Apache License, Version 2.0 (the "License");
 .\" you may not use this file except in compliance with the License.
@@ -19,22 +19,23 @@
 .Os
 .Sh NAME
 .Nm calendarserver_command_gateway
-.Nd Darwin Calendar Server Manager Gateway
+.Nd Calendar Server manager gateway
 .Sh SYNOPSIS
 .Nm
 .Op Fl -config Ar file
 .Sh DESCRIPTION
 .Nm
-is a gateway between Apple OS X Server Admin and the calendar server, and is not
-meant to be run by end users.  It processes commands in plist form from stdin
-and writes results in plist form to stdout.
+is a gateway between Apple OS X Server Admin and the calendar server,
+and is not meant to be run by end users.  It processes commands in
+plist form from stdin and writes results in plist form to stdout.
 .Pp
 .Sh OPTIONS
 .Bl -tag -width flag
 .It Fl h, -help
 Displays usage information
 .It Fl f, -config Ar FILE
-Use the Calendar Server configuration specified in the given file.  Defaults to /etc/caldavd/caldavd.plist.
+Use the Calendar Server configuration specified in the given file.
+Defaults to /etc/caldavd/caldavd.plist.
 .El
 .Pp
 .Sh FILES

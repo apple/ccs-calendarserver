@@ -1,5 +1,5 @@
 .\"
-.\" Copyright (c) 2006-2009 Apple Inc. All rights reserved.
+.\" Copyright (c) 2006-2012 Apple Inc. All rights reserved.
 .\"
 .\" Licensed under the Apache License, Version 2.0 (the "License");
 .\" you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@
 .Os
 .Sh NAME
 .Nm calendarserver_manage_principals
-.Nd Darwin Calendar Server principal management utility
+.Nd Calendar Server principal management utility
 .Sh SYNOPSIS
 .Nm
 .Op Fl -config Ar file
@@ -43,9 +43,9 @@
 .Sh DESCRIPTION
 .Nm
 is a tool for accessing and manipulating information regarding
-principals on a Darwin Calendar Server.  Principals represent any form
-of actor that can access the server, such as users, groups, locations
-and resources.
+principals on a Calendar Server.  Principals represent any form of
+actor that can access the server, such as users, groups, locations and
+resources.
 .Pp
 .Nm
 should be run as a user with the same priviledges as the Calendar
@@ -80,7 +80,8 @@ Displays usage information
 .It Fl v, -verbose
 Displays debugging information
 .It Fl f, -config Ar FILE
-Use the Calendar Server configuration specified in the given file.  Defaults to /etc/caldavd/caldavd.plist.
+Use the Calendar Server configuration specified in the given file.
+Defaults to /etc/caldavd/caldavd.plist.
 .El
 .Sh ACTIONS
 .Bl -tag -width flag
@@ -96,7 +97,8 @@ List all of the known principals types.
 .It Fl -list-principals Ar type
 List all of the principals of the given type.
 .It Fl -search Ar search-string
-Search for principals whose name or email address contains the search string.
+Search for principals whose name or email address contains the search
+string.
 .It Fl -list-read-proxies
 List the read proxies.
 .It Fl -list-write-proxies
@@ -120,10 +122,13 @@ Enable or disable automatic scheduling.
 .It Fl -get-auto-schedule
 Get the automatic scheduling state.
 .It Fl -add Ar locations|resources full-name [record-name] [GUID]
-Add a new location or resource. Record name and GUID are optional.  If GUID is not specified, one will be generated.  If record name is not specified, the record name will be set to the GUID.
+Add a new location or resource. Record name and GUID are optional.  If
+GUID is not specified, one will be generated.  If record name is not
+specified, the record name will be set to the GUID.
 .El
 .Sh EXAMPLES
-Add Alice and Bob as read proxies for Joe and display the list of Joe's proxies:
+Add Alice and Bob as read proxies for Joe and display the list of
+Joe's proxies:
 .Pp
 .Dl "calendarserver_manage_principals --add-read-proxy users:alice --add-read-proxy users:bob --list-proxies users:joe"
 .Pp

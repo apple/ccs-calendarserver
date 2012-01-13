@@ -1,5 +1,5 @@
 .\"
-.\" Copyright (c) 2006-2008 Apple Inc. All rights reserved.
+.\" Copyright (c) 2006-2012 Apple Inc. All rights reserved.
 .\"
 .\" Licensed under the Apache License, Version 2.0 (the "License");
 .\" you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@
 .Os
 .Sh NAME
 .Nm caldavd
-.Nd Darwin Calendar Server Control Interface
+.Nd Calendar Server Control Interface
 .Sh SYNOPSIS
 .Nm
 .Op Fl hX 
@@ -30,9 +30,9 @@
 .Op Fl f Ar caldavd.plist
 .Sh DESCRIPTION
 .Nm
-is a front end to the Darwin Calendar Server.  The Darwin Calendar
-Server is provides a calendaring service based on the CalDAV protocol,
-which is in turn based on HTTP and WebDAV.
+is a front end to the Calendar Server.  Calendar Server is provides a
+calendaring service based on the CalDAV protocol, which is in turn
+based on HTTP and WebDAV.
 .Pp
 .Nm
 is a simple tool for starting the server.
@@ -43,7 +43,8 @@ Displays usage information
 .It Fl X
 Starts the server but does not daemonize it.
 .It Fl L
-Sends error logging output to stdout rather than the file specified in caldavd.plist.
+Sends error logging output to stdout rather than the file specified in
+caldavd.plist.
 .It Fl u Ar username
 Drops privileges to the given username.
 .It Fl g Ar groupname
@@ -72,12 +73,11 @@ The server's process ID file.
 .Sh SEE ALSO
 .Xr httpd 8
 .Sh STANDARDS
-Darwin Calendar Server is intended to comply with RFC 2445
-(iCalendar), RFC 2446 (iTIP), RFC 2447 (iMIP), RFC 2612 (HTTP), RFC
-2617 (HTTP Authentication), RFC 4559 (SPNEGO), RFC 2518 (WebDAV), RFC
-3744 (WebDAV ACL), RFC 5397 (WebDAV Current Principal Extension), RFC
-4791 (CalDAV), and draft-desruisseaux-caldav-sched-06 (CalDAV
-Scheduling).
+Calendar Server is intended to comply with RFC 2445 (iCalendar), RFC
+2446 (iTIP), RFC 2447 (iMIP), RFC 2612 (HTTP), RFC 2617 (HTTP
+Authentication), RFC 4559 (SPNEGO), RFC 2518 (WebDAV), RFC 3744
+(WebDAV ACL), RFC 5397 (WebDAV Current Principal Extension), RFC 4791
+(CalDAV), and draft-desruisseaux-caldav-sched-06 (CalDAV Scheduling).
 .Sh HISTORY
 .Nm
-was first introduced as part of Darwin 9 and Mac OS 10.5.
+was first introduced as part of Mac OS X Server 10.5.

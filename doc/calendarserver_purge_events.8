@@ -1,5 +1,5 @@
 .\"
-.\" Copyright (c) 2006-2010 Apple Inc. All rights reserved.
+.\" Copyright (c) 2006-2012 Apple Inc. All rights reserved.
 .\"
 .\" Licensed under the Apache License, Version 2.0 (the "License");
 .\" you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@
 .Os
 .Sh NAME
 .Nm calendarserver_purge_events
-.Nd Darwin Calendar Server event clean-up utility
+.Nd Calendar Server event clean-up utility
 .Sh SYNOPSIS
 .Nm
 .Op Fl -config Ar file
@@ -29,7 +29,11 @@
 .Op Fl -help
 .Sh DESCRIPTION
 .Nm
-is a tool for removing old events from the calendar server.  By default, events older than 365 days are removed, but the user can specify the number of days in the past to use as a cut-off.  Repeating events that have any occurrences after the cut-off day are not removed.
+is a tool for removing old events from the calendar server.  By
+default, events older than 365 days are removed, but the user can
+specify the number of days in the past to use as a cut-off.  Repeating
+events that have any occurrences after the cut-off day are not
+removed.
 .Pp
 .Nm
 should be run as a user with the same priviledges as the Calendar
@@ -40,11 +44,13 @@ server.
 .It Fl h, -help
 Display usage information
 .It Fl f, -config Ar FILE
-Use the Calendar Server configuration specified in the given file.  Defaults to /etc/caldavd/caldavd.plist.
+Use the Calendar Server configuration specified in the given file.
+Defaults to /etc/caldavd/caldavd.plist.
 .It Fl d, -days Ar NUMBER
 Specify how many days in the past to retain.  Defaults to 365 days.
 .It Fl n, -dry-run
-Calculate and display how many events would be removed, but don't actually remove them.  
+Calculate and display how many events would be removed, but don't
+actually remove them.
 .It Fl v, -verbose
 Print progress information.
 .El

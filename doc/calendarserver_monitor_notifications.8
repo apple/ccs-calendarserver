@@ -1,5 +1,5 @@
 .\"
-.\" Copyright (c) 2011 Apple Inc. All rights reserved.
+.\" Copyright (c) 2012 Apple Inc. All rights reserved.
 .\"
 .\" Licensed under the Apache License, Version 2.0 (the "License");
 .\" you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@
 .Os
 .Sh NAME
 .Nm calendarserver_monitor_notifications
-.Nd Darwin Calendar Server push notification monitor
+.Nd Calendar Server push notification monitor
 .Sh SYNOPSIS
 .Nm
 .Op Fl -admin Ar username
@@ -33,7 +33,14 @@
 .Ar username
 .Sh DESCRIPTION
 .Nm
-is a tool for making sure XMPP push notifications are working properly.  Given a username and password it will connect to the calendar server and determine which pubsub node(s) correspond to that user's calendar home, as well as those of any user which has delegated calendar access.  Next it will subscribe to those nodes and await notifications, printing them to stdout.  An administrator can monitor the push notifications for another user by passing the --admin option.  Exit by hitting Control-C.
+is a tool for making sure XMPP push notifications are working
+properly.  Given a username and password it will connect to the
+calendar server and determine which pubsub node(s) correspond to that
+user's calendar home, as well as those of any user which has delegated
+calendar access.  Next it will subscribe to those nodes and await
+notifications, printing them to stdout.  An administrator can monitor
+the push notifications for another user by passing the --admin option.
+Exit by hitting Control-C.
 .Pp
 .Sh OPTIONS
 .Bl -tag -width flag
@@ -42,13 +49,19 @@ Authenticate using the credentials of the given administrator.
 .It Fl h, -help
 Display usage information.
 .It Fl f, -config Ar FILE
-Use the Calendar Server configuration specified in the given file.  Defaults to /etc/caldavd/caldavd.plist.
+Use the Calendar Server configuration specified in the given file.
+Defaults to /etc/caldavd/caldavd.plist.
 .It Fl H, -host Ar HOSTNAME
-Connect to the specified calendar server.  If not passed on the command line, the host name is looked up in the configuration file.
+Connect to the specified calendar server.  If not passed on the
+command line, the host name is looked up in the configuration file.
 .It Fl n, -node Ar NODENAME
-Bypass the auto-discovery of pubsub nodes and specify one explicitly.  Useful on calendar servers which don't support the push-transports DAV property.  When using this option, the host and port options instead refer to the XMPP server host and port numbers.
+Bypass the auto-discovery of pubsub nodes and specify one explicitly.
+Useful on calendar servers which don't support the push-transports DAV
+property.  When using this option, the host and port options instead
+refer to the XMPP server host and port numbers.
 .It Fl p, -port Ar NUMBER
-Connect to the specified port number.  If not passed on the command line, the port number is looked up in the configuration file.
+Connect to the specified port number.  If not passed on the command
+line, the port number is looked up in the configuration file.
 .It Fl s, -ssl
 Use https to connect to calendar server (default is http).
 .It Fl v, -verbose
