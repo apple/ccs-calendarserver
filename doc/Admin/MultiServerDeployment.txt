@@ -24,6 +24,8 @@ Calendar Server version 3 and later uses a database as the primary data store, i
 Database Connectivity
 ---------------------
 
+First, make sure your Postgres service is connectable over the network ; by default it may use only unix domain sockets. Accepting connections over TCP typically involves changes to `listen_address <http://www.postgresql.org/docs/current/static/runtime-config-connection.html#GUC-LISTEN-ADDRESSES>`_ in the main server config file to bind the network socket, and also edits to `pg_hga.conf <http://www.postgresql.org/docs/current/static/auth-pg-hba-conf.html>`_ to allow connections by IP or netmask. Additional discussion of database server setup and tuning is beyond the scope of this document.
+
 There are a few configuration parameters in caldavd.plist that control Calendar Server's behavior with respect to database use. The relevant caldavd.plist entries and their default values are shown and described below (as defined in `stdconfig.py <https://trac.calendarserver.org/browser/CalendarServer/trunk/twistedcaldav/stdconfig.py>`_)
 
 ::
