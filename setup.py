@@ -128,6 +128,7 @@ def doSetup():
                            },
         scripts          = [
                              "bin/caldavd",
+                             "bin/calendarserver_backup",
                              "bin/calendarserver_bootstrap_database",
                              "bin/calendarserver_command_gateway",
                             #"bin/calendarserver_config",
