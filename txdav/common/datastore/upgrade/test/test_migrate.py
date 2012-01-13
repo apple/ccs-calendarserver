@@ -197,10 +197,12 @@ class HomeMigrationTests(TestCase):
         }
     )
     @inlineCallbacks
-    def test_justVEvent(self):
+    def test_unknownTypeNotMigrated(self):
         """
-        Calendar objects that are free-standing VTIMEZONEs are dropped and not
-        migrated from the filesystem to the database.
+        The only types of calendar objects that should get migrated are VEVENTs
+        and VTODOs.  Other component types, such as free-standing VTIMEZONEs,
+        don't have a UID and can't be stored properly in the database, so they
+        should not be migrated.
         """
         self.topService.startService()
         txn = self.sqlStore.newTransaction()
