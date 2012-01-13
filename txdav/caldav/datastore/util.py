@@ -143,7 +143,8 @@ def _migrateCalendar(inCalendar, outCalendar, getComponent):
     bad_count = 0
     outCalendar.properties().update(inCalendar.properties())
     for calendarObject in (yield inCalendar.calendarObjects()):
-
+        if calendarObject.uid() is None:
+            continue
         try:
             # Must account for metadata
             component = (yield calendarObject.component()) # XXX WRONG SHOULD CALL getComponent
