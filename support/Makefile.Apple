@@ -37,6 +37,7 @@ CALDAVDSUBDIR = /caldavd
 PYTHON = $(USRBINDIR)/python
 PY_HOME = $(SIPP)$(SHAREDIR)$(CALDAVDSUBDIR)
 PY_INSTALL_FLAGS = --root="$(DSTROOT)" --prefix="$(SIPP)" --install-lib="$(PY_HOME)/lib/python" --install-scripts="$(SIPP)$(LIBEXECDIR)$(CALDAVDSUBDIR)"
+CS_INSTALL_FLAGS = --install-scripts="$(SIPP)$(USRSBINDIR)" --install-data="$(SIPP)$(ETCDIR)" --include-dirs="$(SIPP)/usr/include" --library-dirs="$(SIPP)/usr/lib"
 
 USER  = calendar
 GROUP = calendar
@@ -67,7 +68,7 @@ PyKerberos PyXML-0.8.4 pycalendar PyGreSQL-4.0 sqlparse-0.1.2 $(Project)::
 	$(_v) cd $(BuildDirectory)/$@ && $(Environment) $(PYTHON) setup.py build
 
 install:: build
-	$(_v) cd $(BuildDirectory)/$(Project)       && $(Environment) $(PYTHON) setup.py install $(PY_INSTALL_FLAGS) --install-scripts="$(SIPP)$(USRSBINDIR)" --install-data="$(SIPP)$(ETCDIR)"
+	$(_v) cd $(BuildDirectory)/$(Project)       && $(Environment) $(PYTHON) setup.py install $(PY_INSTALL_FLAGS) $(CS_INSTALL_FLAGS)
 	$(_v) cd $(BuildDirectory)/PyKerberos       && $(Environment) $(PYTHON) setup.py install $(PY_INSTALL_FLAGS)
 	$(_v) cd $(BuildDirectory)/PyXML-0.8.4      && $(Environment) $(PYTHON) setup.py install $(PY_INSTALL_FLAGS)
 	$(_v) cd $(BuildDirectory)/pycalendar       && $(Environment) $(PYTHON) setup.py install $(PY_INSTALL_FLAGS)
