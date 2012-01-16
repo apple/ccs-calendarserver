@@ -22,6 +22,7 @@ from twisted.internet.defer import inlineCallbacks, succeed
 from twisted.internet.task import Clock
 import struct
 from txdav.common.datastore.test.util import buildStore, CommonCommonTests
+from txdav.common.icommondatastore import InvalidSubscriptionValues
 
 class ApplePushNotifierServiceTests(CommonCommonTests, TestCase):
 
@@ -62,6 +63,17 @@ class ApplePushNotifierServiceTests(CommonCommonTests, TestCase):
 
         # Add subscriptions
         txn = self.store.newTransaction()
+
+        # Ensure empty values don't get through
+        try:
+            yield txn.addAPNSubscription("", "", "", "")
+        except InvalidSubscriptionValues:
+            pass
+        try:
+            yield txn.addAPNSubscription("", "1", "2", "3")
+        except InvalidSubscriptionValues:
+            pass
+
         token = "2d0d55cd7f98bcb81c6e24abcdc35168254c7846a43e2828b1ba5a8f82e219df"
         key1 = "/CalDAV/calendars.example.com/user01/calendar/"
         timestamp1 = 1000

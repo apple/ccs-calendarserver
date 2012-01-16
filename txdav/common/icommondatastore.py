@@ -141,6 +141,13 @@ class IndexedSearchException(ValueError):
 class SyncTokenValidException(ValueError):
     pass
 
+# APN Subscriptions
+
+class InvalidSubscriptionValues(ValueError):
+    """
+    Invalid APN subscription values passed in.
+    """
+
 #
 # Interfaces
 #

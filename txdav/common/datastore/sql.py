@@ -55,7 +55,7 @@ from txdav.common.datastore.sql_tables import _BIND_MODE_OWN, \
 from txdav.common.icommondatastore import HomeChildNameNotAllowedError, \
     HomeChildNameAlreadyExistsError, NoSuchHomeChildError, \
     ObjectResourceNameNotAllowedError, ObjectResourceNameAlreadyExistsError, \
-    NoSuchObjectResourceError, AllRetriesFailed
+    NoSuchObjectResourceError, AllRetriesFailed, InvalidSubscriptionValues
 from txdav.common.inotifications import INotificationCollection, \
     INotificationObject
 
@@ -369,6 +369,9 @@ class CommonStoreTransaction(object):
 
     @inlineCallbacks
     def addAPNSubscription(self, token, key, timestamp, subscriber):
+        if not (token and key and timestamp and subscriber):
+            raise InvalidSubscriptionValues()
+
         row = yield self._selectAPNSubscriptionQuery.on(self,
             token=token, resourceKey=key)
         if not row: # Subscription does not yet exist
