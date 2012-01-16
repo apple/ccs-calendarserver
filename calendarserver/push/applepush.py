@@ -170,7 +170,8 @@ class ApplePushNotifierService(service.MultiService, LoggingMixIn):
                 self.log_debug("Sending %d APNS notifications for %s" %
                     (numSubscriptions, key))
                 for token, guid in subscriptions:
-                    provider.sendNotification(token, key)
+                    if token and guid:
+                        provider.sendNotification(token, key)
 
 
 
@@ -272,6 +273,9 @@ class APNProviderProtocol(protocol.Protocol, LoggingMixIn):
         @type key: C{str}
         """
 
+        if not (token and key):
+            return
+
         try:
             binaryToken = token.replace(" ", "").decode("hex")
         except:
@@ -303,12 +307,15 @@ class APNProviderFactory(ReconnectingClientFactory, LoggingMixIn):
 
     def __init__(self, service):
         self.service = service
+        self.noisy = True
+        self.maxDelay = 30 # max seconds between connection attempts
 
     def clientConnectionMade(self):
+        self.log_warn("Connection to APN server made")
         self.service.clientConnectionMade()
 
     def clientConnectionLost(self, connector, reason):
-        # self.log_info("Connection to APN server lost: %s" % (reason,))
+        self.log_warn("Connection to APN server lost: %s" % (reason,))
         ReconnectingClientFactory.clientConnectionLost(self, connector, reason)
 
     def clientConnectionFailed(self, connector, reason):
@@ -316,6 +323,11 @@ class APNProviderFactory(ReconnectingClientFactory, LoggingMixIn):
         self.connected = False
         ReconnectingClientFactory.clientConnectionFailed(self, connector,
             reason)
+
+    def retry(self, connector=None):
+        self.log_warn("Reconnecting to APN server")
+        ReconnectingClientFactory.retry(self, connector)
+
 
 
 class APNConnectionService(service.Service, LoggingMixIn):
@@ -370,12 +382,14 @@ class APNProviderService(APNConnectionService):
         self.queue = []
 
     def startService(self):
-        self.log_debug("APNProviderService startService")
+        self.log_info("APNProviderService startService")
         self.factory = APNProviderFactory(self)
         self.connect(self.factory)
 
     def stopService(self):
-        self.log_debug("APNProviderService stopService")
+        self.log_info("APNProviderService stopService")
+        if self.factory is not None:
+            self.factory.stopTrying()
 
     def clientConnectionMade(self):
         # Service the queue
@@ -385,9 +399,13 @@ class APNProviderService(APNConnectionService):
             queued = list(self.queue)
             self.queue = []
             for token, key in queued:
-                self.sendNotification(token, key)
+                if token and key:
+                    self.sendNotification(token, key)
 
     def sendNotification(self, token, key):
+        if not (token and key):
+            return
+
         # Service has reference to factory has reference to protocol instance
         connection = getattr(self.factory, "connection", None)
         if connection is None:
