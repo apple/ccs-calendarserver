@@ -29,5 +29,5 @@ if __name__ == "__main__":
         except ImportError:
             sys.exc_clear()
 
-    from calendarserver.tools.shell import main
+    from calendarserver.tools.shell.terminal import main
     main()
