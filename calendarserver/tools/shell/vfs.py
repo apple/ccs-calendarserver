@@ -21,7 +21,7 @@ Virtual file system for data store objects.
 
 from cStringIO import StringIO
 
-from twisted.python import log
+#from twisted.python import log
 from twisted.internet.defer import succeed
 from twisted.internet.defer import inlineCallbacks, returnValue
 
@@ -172,14 +172,14 @@ class RecordFolder(Folder):
     def _recordForName(self, name):
         recordTypeAttr = "recordType_" + self.recordType
         recordType = getattr(self.service.directory, recordTypeAttr)
-
-        log.msg("Record type = %s" % (recordType,))
-
         return self.service.directory.recordWithShortName(recordType, name)
 
     def child(self, name):
         record = self._recordForName(name)
-        log.msg("Record = %s" % (record,))
+
+        if record is None:
+            return Folder.child(self, name)
+
         return PrincipalHomeFolder(
             self.service,
             self.path + (record.uid,),
