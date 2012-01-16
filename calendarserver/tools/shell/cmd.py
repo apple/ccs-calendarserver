@@ -19,7 +19,7 @@
 Data store commands.
 """
 
-from twisted.python import log
+#from twisted.python import log
 from twisted.internet.defer import succeed
 from twisted.internet.defer import inlineCallbacks, returnValue
 
@@ -261,7 +261,7 @@ class Commands (object):
         if not isinstance(wd, Folder):
             raise NotFoundError("Not a folder: %s" % (wd,))
 
-        log.msg("wd -> %s" % (wd,))
+       #log.msg("wd -> %s" % (wd,))
         self.wd = wd
 
     @inlineCallbacks
