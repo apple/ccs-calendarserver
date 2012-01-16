@@ -1,6 +1,6 @@
 # -*- test-case-name: twistedcaldav.test.test_validation -*-
 ##
-# Copyright (c) 2005-2011 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2012 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -205,7 +205,6 @@ class StoreCalendarObjectResource(object):
         """
 
         # Basic validation
-        yield self.validCopyMoveOperation()
         self.validIfScheduleMatch()
 
         if self.destinationcal:
@@ -351,6 +350,9 @@ class StoreCalendarObjectResource(object):
                 # would be better to copy the index entries from the source and add to the destination.
                 self.calendar = (yield self.source.iCalendarForUser(self.request))
 
+            # Check that moves to shared calendars are OK
+            yield self.validCopyMoveOperation()
+
             # Check access
             if self.destinationcal and config.EnablePrivateEvents:
                 result = (yield self.validAccess())
@@ -361,7 +363,11 @@ class StoreCalendarObjectResource(object):
         elif self.sourcecal:
             self.source_index = self.sourceparent.index()
             self.calendar = (yield self.source.iCalendarForUser(self.request))
-    
+
+        # Check that moves to shared calendars are OK
+        yield self.validCopyMoveOperation()
+
+
     @inlineCallbacks
     def validCopyMoveOperation(self):
         """
@@ -377,13 +383,34 @@ class StoreCalendarObjectResource(object):
                 # Moving into a calendar requires regular checks
                 pass
             else:
-                # Calendar to calendar moves are OK if the owner is the same
-                sourceowner = (yield self.sourceparent.owner(self.request))
-                destowner = (yield self.destinationparent.owner(self.request))
+                # Calendar to calendar moves are OK if the resource owner is the same.
+                # Use resourceOwnerPrincipal for this as that takes into account sharing such that the
+                # returned principal relates to the URI path used to access the resource rather than the
+                # underlying resource owner (sharee).
+                sourceowner = (yield self.sourceparent.resourceOwnerPrincipal(self.request))
+                destowner = (yield self.destinationparent.resourceOwnerPrincipal(self.request))
+
                 if sourceowner != destowner:
-                    msg = "Calendar-to-calendar %s with different owners are not supported" % ("moves" if self.deletesource else "copies",)
+                    msg = "Calendar-to-calendar %s with different homes are not supported" % ("moves" if self.deletesource else "copies",)
                     log.debug(msg)
                     raise HTTPError(StatusResponse(responsecode.FORBIDDEN, msg))
+                    
+                # Calendar to calendar moves where Organizer is present are not OK if the owners are different.
+                sourceowner = (yield self.sourceparent.ownerPrincipal(self.request))
+                destowner = (yield self.destinationparent.ownerPrincipal(self.request))
+
+                if sourceowner != destowner:
+                    # Now check whether an ORGANIZER property is present in either sourcecal or destcal
+                    organizer = self.calendar.getOrganizer()
+                    if organizer is None and self.destination.exists() and self.destinationcal:
+                        oldCal = yield self.destination.iCalendar()
+                        organizer = oldCal.getOrganizer()
+                    
+                    if organizer is not None:
+                        msg = "Calendar-to-calendar %s with an organizer property present and different owners are not supported" % ("moves" if self.deletesource else "copies",)
+                        log.debug(msg)
+                        raise HTTPError(StatusResponse(responsecode.FORBIDDEN, msg))
+
 
     def validIfScheduleMatch(self):
         """
