@@ -43,6 +43,15 @@ class File(object):
     def __str__(self):
         return "/" + "/".join(self.path)
 
+    def __repr__(self):
+        return "<%s: %s>" % (self.__class__.__name__, self)
+
+    def __eq__(self, other):
+        if isinstance(other, File):
+            return self.path == other.path
+        else:
+            return NotImplemented
+
     def describe(self):
         return succeed("%s (%s)" % (self, self.__class__.__name__))
 
