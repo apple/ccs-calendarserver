@@ -136,8 +136,8 @@ class ShellProtocol(ReceiveLineProtocol, Commands):
 
     def __init__(self, service):
         ReceiveLineProtocol.__init__(self)
+        Commands.__init__(self, RootFolder(service))
         self.service = service
-        self.wd = RootFolder(service)
         self.inputLines = []
         self.activeCommand = None
         self.emulate = "emacs"

@@ -29,13 +29,13 @@ from calendarserver.tools.tables import Table
 from calendarserver.tools.shell.vfs import Folder
 
 
-class UsageError (Exception):
+class UsageError(Exception):
     """
     Usage error.
     """
 
 
-class UnknownArguments (UsageError):
+class UnknownArguments(UsageError):
     """
     Unknown arguments.
     """
@@ -44,23 +44,22 @@ class UnknownArguments (UsageError):
         self.arguments = arguments
 
 
-class Commands (object):
-    """
-    Data store commands.
-    """
+class CommandsBase(object):
+    def __init__(self, wd):
+        self.wd = wd
 
     #
     # Utilities
     #
 
-    def _getTarget(self, tokens):
+    def getTarget(self, tokens):
         if tokens:
             return self.wd.locate(tokens.pop(0).split("/"))
         else:
             return succeed(self.wd)
 
     @inlineCallbacks
-    def _getTargets(self, tokens):
+    def getTargets(self, tokens):
         if tokens:
             result = []
             for token in tokens:
@@ -77,21 +76,21 @@ class Commands (object):
                     yield (attr[4:], m)
 
     @staticmethod
-    def _complete(word, items):
+    def complete(word, items):
         for item in items:
             if item.startswith(word):
                 yield item[len(word):]
 
-    def _complete_commands(self, word):
-        return self._complete(word, (name for name, method in self.commands()))
+    def complete_commands(self, word):
+        return self.complete(word, (name for name, method in self.commands()))
 
     @inlineCallbacks
-    def _complete_files(self, tokens, filter=None):
+    def complete_files(self, tokens, filter=None):
         if filter is None:
             filter = lambda items: True
 
         files = (
-            self._listEntryToString(item)
+            self.listEntryToString(item)
             for item in (yield self.wd.list())
             if filter(item)
         )
@@ -99,12 +98,12 @@ class Commands (object):
         if len(tokens) == 0:
             returnValue(files)
         elif len(tokens) == 1:
-            returnValue(self._complete(tokens[0], files))
+            returnValue(self.complete(tokens[0], files))
         else:
             returnValue(())
 
     @staticmethod
-    def _listEntryToString(entry):
+    def listEntryToString(entry):
         klass = entry[0]
         name  = entry[1]
 
@@ -113,9 +112,11 @@ class Commands (object):
         else:
             return name
 
-    #
-    # Commands
-    #
+
+class Commands(CommandsBase):
+    """
+    Data store commands.
+    """
 
     def cmd_help(self, tokens):
         """
@@ -184,7 +185,7 @@ class Commands (object):
         if len(tokens) == 0:
             return (name for name, method in self.commands())
         elif len(tokens) == 1:
-            return self._complete_commands(tokens[0])
+            return self.complete_commands(tokens[0])
         else:
             return ()
 
@@ -226,7 +227,7 @@ class Commands (object):
         if len(tokens) == 0:
             return self.emulation_modes
         elif len(tokens) == 1:
-            return self._complete(tokens[0], self.emulation_modes)
+            return self.complete(tokens[0], self.emulation_modes)
         else:
             return ()
 
@@ -266,7 +267,7 @@ class Commands (object):
 
     @inlineCallbacks
     def complete_cd(self, tokens):
-        returnValue((yield self._complete_files(
+        returnValue((yield self.complete_files(
             tokens,
             filter = lambda item: issubclass(item[0], Folder)
         )))
@@ -278,7 +279,7 @@ class Commands (object):
 
         usage: ls [folder]
         """
-        targets = (yield self._getTargets(tokens))
+        targets = (yield self.getTargets(tokens))
         multiple = len(targets) > 0
 
         for target in targets:
@@ -289,7 +290,7 @@ class Commands (object):
             #
             table = Table()
             for row in rows:
-                table.addRow((self._listEntryToString(row),) + tuple(row[2:]))
+                table.addRow((self.listEntryToString(row),) + tuple(row[2:]))
 
             if multiple:
                 self.terminal.write("%s:\n" % (target,))
@@ -297,7 +298,7 @@ class Commands (object):
                 table.printTable(self.terminal)
             self.terminal.nextLine()
 
-    complete_ls = _complete_files
+    complete_ls = CommandsBase.complete_files
 
     @inlineCallbacks
     def cmd_info(self, tokens):
@@ -306,7 +307,7 @@ class Commands (object):
 
         usage: info [folder]
         """
-        target = (yield self._getTarget(tokens))
+        target = (yield self.getTarget(tokens))
 
         if tokens:
             raise UnknownArguments(tokens)
@@ -315,7 +316,7 @@ class Commands (object):
         self.terminal.write(description)
         self.terminal.nextLine()
 
-    complete_ls = _complete_files
+    complete_info = CommandsBase.complete_files
 
     @inlineCallbacks
     def cmd_cat(self, tokens):
@@ -324,12 +325,12 @@ class Commands (object):
 
         usage: cat target [target ...]
         """
-        for target in (yield self._getTargets(tokens)):
+        for target in (yield self.getTargets(tokens)):
             if hasattr(target, "text"):
                 text = (yield target.text())
                 self.terminal.write(text)
 
-    complete_ls = _complete_files
+    complete_cat = CommandsBase.complete_files
 
     def cmd_exit(self, tokens):
         """
