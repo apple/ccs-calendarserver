@@ -34,3 +34,19 @@ def getAPNTopicFromCertificate(certPath):
         if name == "UID":
             return value
     return ""
+
+def validToken(token):
+    """
+    Return True if token is in hex and is 64 characters long, False
+    otherwise
+    """
+    if len(token) != 64:
+        return False
+
+    try:
+        token.decode("hex")
+    except TypeError:
+        return False
+
+    return True
+

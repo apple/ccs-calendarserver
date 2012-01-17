@@ -17,6 +17,7 @@
 from calendarserver.push.applepush import (
     ApplePushNotifierService, APNProviderProtocol
 )
+from calendarserver.push.util import validToken
 from twistedcaldav.test.util import TestCase
 from twisted.internet.defer import inlineCallbacks, succeed
 from twisted.internet.task import Clock
@@ -197,6 +198,12 @@ class ApplePushNotifierServiceTests(CommonCommonTests, TestCase):
         subscriptions = (yield txn.apnSubscriptionsByToken(token))
         yield txn.commit()
         self.assertEquals(len(subscriptions), 1)
+
+    def test_validToken(self):
+        self.assertTrue(validToken("2d0d55cd7f98bcb81c6e24abcdc35168254c7846a43e2828b1ba5a8f82e219df"))
+        self.assertFalse(validToken("d0d55cd7f98bcb81c6e24abcdc35168254c7846a43e2828b1ba5a8f82e219df"))
+        self.assertFalse(validToken("foo"))
+        self.assertFalse(validToken(""))
 
 
 class TestConnector(object):

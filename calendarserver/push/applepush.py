@@ -34,6 +34,7 @@ import OpenSSL
 import struct
 import time
 from txdav.common.icommondatastore import InvalidSubscriptionValues
+from calendarserver.push.util import validToken
 
 
 
@@ -628,6 +629,10 @@ class APNSubscriptionResource(ReadOnlyNoCopyResourceMixIn,
         if not (key and token):
             code = responsecode.BAD_REQUEST
             msg = "Invalid request: both 'token' and 'key' must be provided"
+
+        elif not validToken(token):
+            code = responsecode.BAD_REQUEST
+            msg = "Invalid request: bad 'token' %s" % (token,)
 
         else:
             principal = self.principalFromRequest(request)
