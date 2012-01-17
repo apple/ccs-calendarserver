@@ -28,7 +28,7 @@ from twext.python.plistlib import readPlist
 VERBOSE = os.environ.get('VERBOSE', False)
 FUNCLOG = os.environ.get('FUNCLOG', False)
 
-SERVERADMIN = "/usr/sbin/serveradmin"
+SERVERADMIN = "/Applications/Server.app/Contents/ServerRoot/usr/sbin/serveradmin"
 
 SBSCONF = "/private/etc/sbs_backup"
 
