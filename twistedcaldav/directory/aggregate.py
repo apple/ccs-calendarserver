@@ -72,10 +72,10 @@ class AggregateDirectoryService(DirectoryService):
 
         # FIXME: This is a temporary workaround until new data store is in
         # place.  During the purging of deprovisioned users' data, we need
-        # to be able to look up records by guid and shortName.  The purge
+        # to be able to look up records by uid and shortName.  The purge
         # tool sticks temporary fake records in here.
         self._tmpRecords = {
-            "guids" : { },
+            "uids" : { },
             "shortNames" : { },
         }
 
@@ -134,7 +134,7 @@ class AggregateDirectoryService(DirectoryService):
         # FIXME: These temporary records shouldn't be needed when we move
         # to the new data store API.  They're currently needed when purging
         # deprovisioned users' data.
-        record = self._tmpRecords["guids"].get(uid, None)
+        record = self._tmpRecords["uids"].get(uid, None)
         if record:
             return record
 

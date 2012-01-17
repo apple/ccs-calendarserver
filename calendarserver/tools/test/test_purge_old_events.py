@@ -18,7 +18,7 @@
 Tests for calendarserver.tools.purge
 """
 from calendarserver.tap.util import getRootResource
-from calendarserver.tools.purge import purgeOldEvents, purgeGUID, purgeOrphanedAttachments
+from calendarserver.tools.purge import purgeOldEvents, purgeUID, purgeOrphanedAttachments
 
 from twext.web2.http_headers import MimeType
 
@@ -512,7 +512,7 @@ class PurgeOldEventsTests(CommonCommonTests, unittest.TestCase):
     test_purgeOldEvents.todo = "New lazy indexing broke this"
 
     @inlineCallbacks
-    def test_purgeGUID(self):
+    def test_purgeUID(self):
         txn = self._sqlCalendarStore.newTransaction()
 
         # Create an addressbook and one CardDAV resource
@@ -527,11 +527,11 @@ class PurgeOldEventsTests(CommonCommonTests, unittest.TestCase):
         calColl = (yield calHome.calendarWithName("calendar1"))
         self.assertEquals(len( (yield calColl.calendarObjects()) ), 3)
 
-        # Make the newly created objects available to the purgeGUID transaction
+        # Make the newly created objects available to the purgeUID transaction
         (yield txn.commit())
 
         # Purge home1
-        total, ignored = (yield purgeGUID("home1", self.directory,
+        total, ignored = (yield purgeUID("home1", self.directory,
             self.rootResource, verbose=False, proxies=False,
             when=PyCalendarDateTime(2010, 4, 1, 12, 0, 0, 0, PyCalendarTimezone(utc=True))))
 
@@ -549,7 +549,7 @@ class PurgeOldEventsTests(CommonCommonTests, unittest.TestCase):
 
 
     @inlineCallbacks
-    def test_purgeGUIDCompletely(self):
+    def test_purgeUIDCompletely(self):
         txn = self._sqlCalendarStore.newTransaction()
 
         # Create an addressbook and one CardDAV resource
@@ -564,11 +564,11 @@ class PurgeOldEventsTests(CommonCommonTests, unittest.TestCase):
         calColl = (yield calHome.calendarWithName("calendar1"))
         self.assertEquals(len( (yield calColl.calendarObjects()) ), 3)
 
-        # Make the newly created objects available to the purgeGUID transaction
+        # Make the newly created objects available to the purgeUID transaction
         (yield txn.commit())
 
         # Purge home1 completely
-        total, ignored = (yield purgeGUID("home1", self.directory,
+        total, ignored = (yield purgeUID("home1", self.directory,
             self.rootResource, verbose=False, proxies=False, completely=True))
 
         # 4 items deleted: 3 events and 1 vcard

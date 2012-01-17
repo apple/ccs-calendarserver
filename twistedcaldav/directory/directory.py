@@ -48,7 +48,7 @@ from twext.python.log import LoggingMixIn
 
 from twistedcaldav.config import config
 from twistedcaldav.directory.idirectory import IDirectoryService, IDirectoryRecord
-from twistedcaldav.directory.util import uuidFromName
+from twistedcaldav.directory.util import uuidFromName, normalizeUUID
 from twistedcaldav.scheduling.cuaddress import normalizeCUAddr
 from twistedcaldav import servers
 from twistedcaldav.memcacher import Memcacher
@@ -176,12 +176,14 @@ class DirectoryService(LoggingMixIn):
         return None
 
     def recordWithUID(self, uid):
+        uid = normalizeUUID(uid)
         for record in self.allRecords():
             if record.uid == uid:
                 return record
         return None
 
     def recordWithGUID(self, guid):
+        guid = normalizeUUID(guid)
         for record in self.allRecords():
             if record.guid == guid:
                 return record
@@ -923,7 +925,7 @@ class DirectoryRecord(LoggingMixIn):
         )
 
     def __init__(
-        self, service, recordType, guid,
+        self, service, recordType, guid=None,
         shortNames=(), authIDs=set(), fullName=None,
         firstName=None, lastName=None, emailAddresses=set(),
         calendarUserAddresses=set(), autoSchedule=False, enabledForCalendaring=None,
@@ -937,8 +939,7 @@ class DirectoryRecord(LoggingMixIn):
         assert recordType
         assert shortNames and isinstance(shortNames, tuple) 
 
-        if not guid:
-            guid = uuidFromName(service.guid, "%s:%s" % (recordType, ",".join(shortNames)))
+        guid = normalizeUUID(guid)
 
         if uid is None:
             uid = guid
@@ -978,11 +979,14 @@ class DirectoryRecord(LoggingMixIn):
         """
         if not self.enabledForCalendaring:
             return frozenset()
-        return frozenset(
-            ["urn:uuid:%s" % (self.guid,)] +
+        cuas = set(
             ["mailto:%s" % (emailAddress,)
              for emailAddress in self.emailAddresses]
         )
+        if self.guid:
+            cuas.add("urn:uuid:%s" % (self.guid,))
+
+        return frozenset(cuas)
 
     calendarUserAddresses = property(get_calendarUserAddresses)
 

@@ -126,7 +126,7 @@ class SudoDirectoryRecord(DirectoryRecord):
         super(SudoDirectoryRecord, self).__init__(
             service=service,
             recordType=recordType,
-            guid=None,
+            uid="%s:%s" % (recordType, shortName),
             shortNames=(shortName,),
             fullName=shortName,
         )

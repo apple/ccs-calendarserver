@@ -714,12 +714,8 @@ class OpenDirectoryService(CachingDirectoryService):
                 self.INDEX_TYPE_AUTHID    : dsattributes.kDSNAttrAltSecurityIdentities,
             }.get(indexType)
             assert queryattr is not None, "Invalid type for record faulting query"
-        # mailto: CUAs get normalized to lowercase internally, so do a case
-        # insensitive search
-        if queryattr == dsattributes.kDSNAttrEMailAddress:
-            caseInsensitive = True
-        else:
-            caseInsensitive = False
+        # Make all OD queries case insensitive
+        caseInsensitive = True
 
         results = []
         for recordType in recordTypes:

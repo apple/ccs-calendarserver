@@ -25,6 +25,7 @@ from twistedcaldav.directory.directory import DirectoryService, DirectoryRecord,
 from twistedcaldav.directory.xmlfile import XMLDirectoryService
 from twistedcaldav.directory.calendaruserproxyloader import XMLCalendarUserProxyLoader
 from twistedcaldav.directory import augment, calendaruserproxy
+from twistedcaldav.directory.util import normalizeUUID
 from twistedcaldav.directory.principal import DirectoryPrincipalProvisioningResource
 
 import cPickle as pickle
@@ -38,7 +39,7 @@ def StubCheckSACL(cls, username, service):
         return 0
     return 1
 
-class SALCTests(TestCase):
+class SACLTests(TestCase):
 
     def setUp(self):
         self.patch(DirectoryRecord, "CheckSACL", StubCheckSACL)
@@ -560,3 +561,47 @@ class GroupMembershipTests (TestCase):
         )
 
 
+class GUIDTests(TestCase):
+
+    def setUp(self):
+        self.service = DirectoryService()
+        self.service.setRealm("test")
+        self.service.baseGUID = "0E8E6EC2-8E52-4FF3-8F62-6F398B08A498"
+
+    def test_normalizeUUID(self):
+
+        # Ensure that record.guid automatically gets normalized to
+        # uppercase+hyphenated form if the value is one that uuid.UUID( )
+        # recognizes.
+
+        data = (
+            (
+                "0543A85A-D446-4CF6-80AE-6579FA60957F",
+                "0543A85A-D446-4CF6-80AE-6579FA60957F"
+            ),
+            (
+                "0543a85a-d446-4cf6-80ae-6579fa60957f",
+                "0543A85A-D446-4CF6-80AE-6579FA60957F"
+            ),
+            (
+                "0543A85AD4464CF680AE-6579FA60957F",
+                "0543A85A-D446-4CF6-80AE-6579FA60957F"
+            ),
+            (
+                "0543a85ad4464cf680ae6579fa60957f",
+                "0543A85A-D446-4CF6-80AE-6579FA60957F"
+            ),
+            (
+                "foo",
+                "foo"
+            ),
+            (
+                None,
+                None
+            ),
+        )
+        for original, expected in data:
+            self.assertEquals(expected, normalizeUUID(original))
+            record = DirectoryRecord(self.service, "users", original,
+                shortNames=("testing",))
+            self.assertEquals(expected, record.guid)

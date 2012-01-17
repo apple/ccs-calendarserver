@@ -187,6 +187,9 @@ class GUIDLookups(CachingDirectoryTest):
         self.service.queried = False
         self.assertTrue(self.service.recordWithGUID(self.guidForShortName("user01")) is not None)
         self.assertFalse(self.service.queried)
+
+        # Make sure guid is case-insensitive
+        self.assertTrue(self.service.recordWithGUID(self.guidForShortName("user01").lower()) is not None)
         
     def test_cacheoneshortname(self):
         self.dummyRecords()
