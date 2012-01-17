@@ -317,7 +317,7 @@ class StoreCalendarObjectResource(object):
                     ))
 
                 # Valid attendee list size check
-                result, message = self.validAttendeeListSizeCheck()
+                result, message = (yield self.validAttendeeListSizeCheck())
                 if not result:
                     log.err(message)
                     raise HTTPError(
@@ -562,22 +562,39 @@ class StoreCalendarObjectResource(object):
 
         return result, message
 
+    @inlineCallbacks
     def validAttendeeListSizeCheck(self):
         """
-        Make sure that the Attendee list length is within bounds.
+        Make sure that the Attendee list length is within bounds. We don't do this check for inbox because we
+        will assume that the limit has been applied on the PUT causing the iTIP message to be created.
+        
+        FIXME: The inbox check might not take into account iSchedule stuff from outside. That needs to have
+        the max attendees check applied at the time of delivery.
         """
         result = True
         message = ""
-        if config.MaxAttendeesPerInstance:
+        if config.MaxAttendeesPerInstance and not self.isiTIP:
             uniqueAttendees = set()
             for attendee in self.calendar.getAllAttendeeProperties():
                 uniqueAttendees.add(attendee.value())
             attendeeListLength = len(uniqueAttendees)
             if attendeeListLength > config.MaxAttendeesPerInstance:
-                result = False
-                message = "Attendee list size %d is larger than allowed limit %d" % (attendeeListLength, config.MaxAttendeesPerInstance)
+                
+                # Check to see whether we are increasing the count on an existing resource
+                if self.destination.exists() and self.destinationcal:
+                    oldcalendar = (yield self.destination.iCalendarForUser(self.request))
+                    uniqueAttendees = set()
+                    for attendee in oldcalendar.getAllAttendeeProperties():
+                        uniqueAttendees.add(attendee.value())
+                    oldAttendeeListLength = len(uniqueAttendees)
+                else:
+                    oldAttendeeListLength = 0
+                
+                if attendeeListLength > oldAttendeeListLength:
+                    result = False
+                    message = "Attendee list size %d is larger than allowed limit %d" % (attendeeListLength, config.MaxAttendeesPerInstance)
 
-        return result, message
+        returnValue((result, message,))
 
     def validAccess(self):
         """

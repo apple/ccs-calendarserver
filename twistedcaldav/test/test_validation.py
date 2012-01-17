@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2009 Apple Inc. All rights reserved.
+# Copyright (c) 2009-2012 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -30,6 +30,17 @@ from twistedcaldav.method.put_common import StoreCalendarObjectResource
 from twistedcaldav.caldavxml import MaxAttendeesPerInstance
 from twistedcaldav.resource import CalDAVResource
 
+class InMemoryCalendarObjectResource(CalDAVResource):
+    
+    def exists(self):
+        return hasattr(self, "_data") and self._data is not None
+
+    def iCalendarForUser(self, user):
+        return self._data
+    
+    def setData(self, data):
+        self._data = data
+
 class TestCopyMoveValidation(TestCase):
     """
     Tests for the validation code in L{twistedcaldav.method.put_common}.
@@ -40,7 +51,7 @@ class TestCopyMoveValidation(TestCase):
         Set up some CalDAV stuff.
         """
 
-        self.destination = CalDAVResource()
+        self.destination = InMemoryCalendarObjectResource()
         self.destination.name = lambda : '1'
         self.destinationParent = CalDAVResource()
         self.destinationParent.name = lambda : '2'
@@ -84,13 +95,14 @@ END:VCALENDAR
 
 
     @inlineCallbacks
-    def test_exceedMaximumAttendees(self):
+    def test_exceedMaximumAttendeesIfNew(self):
         """
         If too many attendees are specified (more than the configured maximum
         for the server), the storer raises an exception containing a
         L{MaxAttendeesPerInstance} element that reports the maximum value, as
         per U{RFC4791 section 5.2.9
         <http://www.webdav.org/specs/rfc4791.html#max-attendees-per-instance>}.
+        This test is for new resources.
         """
 
         # Get the event, and add too many attendees to it.
@@ -114,3 +126,99 @@ END:VCALENDAR
             self.assertEquals(int(element.text), config.MaxAttendeesPerInstance)
         else:
             self.fail("No error; validation should have failed!")
+
+
+    @inlineCallbacks
+    def test_exceedMaximumAttendeesWhenIncreasing(self):
+        """
+        If too many attendees are specified (more than the configured maximum
+        for the server), the storer raises an exception containing a
+        L{MaxAttendeesPerInstance} element that reports the maximum value, as
+        per U{RFC4791 section 5.2.9
+        <http://www.webdav.org/specs/rfc4791.html#max-attendees-per-instance>}.
+        This test is for an increase to an already over-sized resource.
+        """
+
+        self.patch(config, "MaxAttendeesPerInstance", config.MaxAttendeesPerInstance + 10)
+
+        # Get the event, and add many attendees to it - but not enough to fail.
+        self.sampleCalendar = self._getSampleCalendar()
+        eventComponent = list(self.sampleCalendar.subcomponents())[0]
+        for x in xrange(config.MaxAttendeesPerInstance - 5):
+            eventComponent.addProperty(
+                Property("ATTENDEE", "mailto:user%d@example.com" % (x+3,)))
+
+        try:
+            yield self._getStorer(self.sampleCalendar).fullValidation()
+        except HTTPError:
+            self.fail("Validation should not have failed!")
+        self.destination.setData(self.sampleCalendar.duplicate())
+
+        # Now reduce the limit and try to add an attendee.
+        config.MaxAttendeesPerInstance -= 10
+        eventComponent.addProperty(
+            Property("ATTENDEE", "mailto:user-extra@example.com"))
+        
+        try:
+            yield self._getStorer(self.sampleCalendar).fullValidation()
+        except HTTPError, err:
+            element = XML(err.response.stream.mem)[0]
+            self.assertEquals(
+                element.tag,
+                "{%s}%s" % (
+                    MaxAttendeesPerInstance.namespace,
+                    MaxAttendeesPerInstance.name
+                )
+            )
+            self.assertEquals(int(element.text), config.MaxAttendeesPerInstance)
+        else:
+            self.fail("No error; validation should have failed!")
+
+
+    @inlineCallbacks
+    def test_doNotExceedMaximumAttendeesIfAlreadyPresent(self):
+        """
+        If too many attendees are specified (more than the configured maximum
+        for the server), the storer raises an exception containing a
+        L{MaxAttendeesPerInstance} element that reports the maximum value, as
+        per U{RFC4791 section 5.2.9
+        <http://www.webdav.org/specs/rfc4791.html#max-attendees-per-instance>}.
+        This test is for no change to an already over-sized resource.
+        """
+
+        self.patch(config, "MaxAttendeesPerInstance", config.MaxAttendeesPerInstance + 10)
+
+        # Get the event, and add many attendees to it - but not enough to fail.
+        self.sampleCalendar = self._getSampleCalendar()
+        eventComponent = list(self.sampleCalendar.subcomponents())[0]
+        for x in xrange(config.MaxAttendeesPerInstance - 5):
+            eventComponent.addProperty(
+                Property("ATTENDEE", "mailto:user%d@example.com" % (x+3,)))
+
+        try:
+            yield self._getStorer(self.sampleCalendar).fullValidation()
+        except HTTPError:
+            self.fail("Validation should not have failed!")
+        self.destination.setData(self.sampleCalendar.duplicate())
+
+        # Now reduce the limit and try to store without any additional attendees.
+        config.MaxAttendeesPerInstance -= 10
+        
+        try:
+            yield self._getStorer(self.sampleCalendar).fullValidation()
+        except HTTPError:
+            self.fail("Validation should not have failed!")
+        self.destination.setData(self.sampleCalendar.duplicate())
+
+        # Now try to store with fewer attendees.
+        self.sampleCalendar = self._getSampleCalendar()
+        eventComponent = list(self.sampleCalendar.subcomponents())[0]
+        for x in xrange(config.MaxAttendeesPerInstance + 2):
+            eventComponent.addProperty(
+                Property("ATTENDEE", "mailto:user%d@example.com" % (x+3,)))
+        
+        try:
+            yield self._getStorer(self.sampleCalendar).fullValidation()
+        except HTTPError:
+            self.fail("Validation should not have failed!")
+        self.destination.setData(self.sampleCalendar.duplicate())
