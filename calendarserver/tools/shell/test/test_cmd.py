@@ -20,7 +20,7 @@ from twisted.internet.defer import inlineCallbacks
 
 from txdav.common.icommondatastore import NotFoundError
 
-from calendarserver.tools.shell.cmd import CommandsBase, Commands
+from calendarserver.tools.shell.cmd import CommandsBase
 from calendarserver.tools.shell.vfs import RootFolder
 
 
