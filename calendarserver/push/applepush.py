@@ -34,7 +34,7 @@ import OpenSSL
 import struct
 import time
 from txdav.common.icommondatastore import InvalidSubscriptionValues
-from calendarserver.push.util import validToken
+from calendarserver.push.util import validToken, TokenHistory
 
 
 
@@ -96,6 +96,7 @@ class ApplePushNotifierService(service.MultiService, LoggingMixIn):
                     feedbackTestConnector = testConnectorClass()
 
                 provider = APNProviderService(
+                    service.store,
                     settings["ProviderHost"],
                     settings["ProviderPort"],
                     settings[protocol]["CertificatePath"],
@@ -202,11 +203,15 @@ class APNProviderProtocol(protocol.Protocol, LoggingMixIn):
         255 : "None (unknown)",
     }
 
+    # If error code comes back as one of these, remove the associated device
+    # token
+    TOKEN_REMOVAL_CODES = (5, 8)
+
     MESSAGE_LENGTH = 6
 
     def makeConnection(self, transport):
-        self.identifier = 0
-        # self.log_debug("ProviderProtocol makeConnection")
+        self.history = TokenHistory()
+        self.log_debug("ProviderProtocol makeConnection")
         protocol.Protocol.makeConnection(self, transport)
 
     def connectionMade(self):
@@ -222,6 +227,7 @@ class APNProviderProtocol(protocol.Protocol, LoggingMixIn):
         # Clear the reference to us from the factory
         self.factory.connection = None
 
+    @inlineCallbacks
     def dataReceived(self, data, fn=None):
         """
         Buffer and divide up received data into error messages which are
@@ -241,16 +247,18 @@ class APNProviderProtocol(protocol.Protocol, LoggingMixIn):
             try:
                 command, status, identifier = struct.unpack("!BBI", message)
                 if command == self.COMMAND_ERROR:
-                    fn(status, identifier)
+                    yield fn(status, identifier)
             except Exception, e:
                 self.log_warn("ProviderProtocol could not process error: %s (%s)" %
                     (message.encode("hex"), e))
 
 
+    @inlineCallbacks
     def processError(self, status, identifier):
         """
         Handles an error message we've received from on feedback channel.
-        Not much to do here besides logging the error.
+        If the error code is one that indicates a bad token, remove all
+        subscriptions corresponding to that token.
 
         @param status: The status value returned from APN Feedback server
         @type status: C{int}
@@ -260,7 +268,20 @@ class APNProviderProtocol(protocol.Protocol, LoggingMixIn):
         @type status: C{int}
         """
         msg = self.STATUS_CODES.get(status, "Unknown status code")
-        self.log_error("Received APN error %d on identifier %d: %s" % (status, identifier, msg))
+        self.log_warn("Received APN error %d on identifier %d: %s" % (status, identifier, msg))
+        if status in self.TOKEN_REMOVAL_CODES:
+            token = self.history.extractIdentifier(identifier)
+            if token is not None:
+                self.log_warn("Removing subscriptions for bad token: %s" %
+                    (token,))
+                txn = self.factory.store.newTransaction()
+                subscriptions = (yield txn.apnSubscriptionsByToken(token))
+                for key, modified, uid in subscriptions:
+                    self.log_warn("Removing subscription: %s %s" %
+                        (token, key))
+                    yield txn.removeAPNSubscription(token, key)
+                yield txn.commit()
+
 
     def sendNotification(self, token, key):
         """
@@ -283,16 +304,16 @@ class APNProviderProtocol(protocol.Protocol, LoggingMixIn):
             self.log_error("Invalid APN token in database: %s" % (token,))
             return
 
-        self.identifier += 1
+        identifier = self.history.add(token)
         payload = '{"key" : "%s"}' % (key,)
         payloadLength = len(payload)
         self.log_debug("Sending APNS notification to %s: id=%d payload=%s" %
-            (token, self.identifier, payload))
+            (token, identifier, payload))
 
         self.transport.write(
             struct.pack("!BIIH32sH%ds" % (payloadLength,),
                 self.COMMAND_ENHANCED,  # Command
-                self.identifier,        # Identifier
+                identifier,             # Identifier
                 0,                      # Expiry
                 32,                     # Token Length
                 binaryToken,            # Token
@@ -306,14 +327,16 @@ class APNProviderFactory(ReconnectingClientFactory, LoggingMixIn):
 
     protocol = APNProviderProtocol
 
-    def __init__(self, service):
+    def __init__(self, service, store):
         self.service = service
+        self.store = store
         self.noisy = True
         self.maxDelay = 30 # max seconds between connection attempts
 
     def clientConnectionMade(self):
         self.log_warn("Connection to APN server made")
         self.service.clientConnectionMade()
+        self.delay = 1.0
 
     def clientConnectionLost(self, connector, reason):
         self.log_warn("Connection to APN server lost: %s" % (reason,))
@@ -371,7 +394,7 @@ class APNConnectionService(service.Service, LoggingMixIn):
 
 class APNProviderService(APNConnectionService):
 
-    def __init__(self, host, port, certPath, keyPath, chainPath="",
+    def __init__(self, store, host, port, certPath, keyPath, chainPath="",
         passphrase="", sslMethod="TLSv1_METHOD", testConnector=None,
         reactor=None):
 
@@ -379,12 +402,13 @@ class APNProviderService(APNConnectionService):
             chainPath=chainPath, passphrase=passphrase, sslMethod=sslMethod,
             testConnector=testConnector, reactor=reactor)
 
+        self.store = store
         self.factory = None
         self.queue = []
 
     def startService(self):
         self.log_info("APNProviderService startService")
-        self.factory = APNProviderFactory(self)
+        self.factory = APNProviderFactory(self, self.store)
         self.connect(self.factory)
 
     def stopService(self):

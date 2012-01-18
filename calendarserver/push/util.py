@@ -50,3 +50,52 @@ def validToken(token):
 
     return True
 
+
+class TokenHistory(object):
+    """
+    Manages a queue of tokens and corresponding identifiers.  Queue is always
+    kept below maxSize in length (older entries removed as needed).
+    """
+
+    def __init__(self, maxSize=200):
+        """
+        @param maxSize: How large the history is allowed to grow.  Once this
+            size is reached, older entries are pruned as needed.
+        @type maxSize: C{int}
+        """
+        self.maxSize = maxSize
+        self.identifier = 0
+        self.history = []
+
+    def add(self, token):
+        """
+        Add a token to the history, and return the new identifier associated
+        with this token.  Identifiers begin at 1 and increase each time this
+        is called.  If the number of items in the history exceeds maxSize,
+        older entries are removed to get the size down to maxSize.
+
+        @param token: The token to store
+        @type token: C{str}
+        @returns: the message identifier associated with this token, C{int}
+        """
+        self.identifier += 1
+        self.history.append((self.identifier, token))
+        del self.history[:-self.maxSize]
+        return self.identifier
+
+    def extractIdentifier(self, identifier):
+        """
+        Look for the token associated with the identifier.  Remove the
+        identifier-token pair from the history and return the token.  Return
+        None if the identifier is not found in the history.
+
+        @param identifier: The identifier to look up
+        @type identifier: C{int}
+        @returns: the token associated with this message identifier, C{str},
+            or None if not found
+        """
+        for index, (id, token) in enumerate(self.history):
+            if id == identifier:
+                del self.history[index]
+                return token
+        return None

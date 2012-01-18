@@ -17,7 +17,7 @@
 from calendarserver.push.applepush import (
     ApplePushNotifierService, APNProviderProtocol
 )
-from calendarserver.push.util import validToken
+from calendarserver.push.util import validToken, TokenHistory
 from twistedcaldav.test.util import TestCase
 from twisted.internet.defer import inlineCallbacks, succeed
 from twisted.internet.task import Clock
@@ -110,8 +110,8 @@ class ApplePushNotifierServiceTests(CommonCommonTests, TestCase):
         self.assertEquals(service.providers["CalDAV"].queue, [])
 
         # Verify data sent to APN
-        connector = service.providers["CalDAV"].testConnector
-        rawData = connector.transport.data
+        providerConnector = service.providers["CalDAV"].testConnector
+        rawData = providerConnector.transport.data
         self.assertEquals(len(rawData), 103)
         data = struct.unpack("!BIIH32sH", rawData[:45])
         self.assertEquals(data[0], 1) # command
@@ -120,6 +120,10 @@ class ApplePushNotifierServiceTests(CommonCommonTests, TestCase):
         payload = struct.unpack("%ds" % (payloadLength,),
             rawData[45:])
         self.assertEquals(payload[0], '{"key" : "%s"}' % (key1,))
+        # Verify token history is updated
+        self.assertEquals(providerConnector.service.protocol.history.history,
+            [(1, token)]
+        )
 
         def errorTestFunction(status, identifier):
             history.append((status, identifier))
@@ -128,7 +132,7 @@ class ApplePushNotifierServiceTests(CommonCommonTests, TestCase):
         # Simulate an error
         history = []
         errorData = struct.pack("!BBI", APNProviderProtocol.COMMAND_ERROR, 1, 2)
-        yield connector.receiveData(errorData, fn=errorTestFunction)
+        yield providerConnector.receiveData(errorData, fn=errorTestFunction)
         clock.advance(301)
 
         # Simulate multiple errors and dataReceived called
@@ -139,17 +143,17 @@ class ApplePushNotifierServiceTests(CommonCommonTests, TestCase):
             APNProviderProtocol.COMMAND_ERROR, 3, 4,
             APNProviderProtocol.COMMAND_ERROR, 5, 6,
         )
-        yield connector.receiveData(errorData[:4], fn=errorTestFunction)
+        yield providerConnector.receiveData(errorData[:4], fn=errorTestFunction)
         # Send remaining bytes
-        yield connector.receiveData(errorData[4:], fn=errorTestFunction)
+        yield providerConnector.receiveData(errorData[4:], fn=errorTestFunction)
         self.assertEquals(history, [(3, 4), (5, 6)])
         # Buffer is empty
-        self.assertEquals(len(connector.service.protocol.buffer), 0)
+        self.assertEquals(len(providerConnector.service.protocol.buffer), 0)
 
         # Sending 7 bytes
-        yield connector.receiveData("!" * 7, fn=errorTestFunction)
+        yield providerConnector.receiveData("!" * 7, fn=errorTestFunction)
         # Buffer has 1 byte remaining
-        self.assertEquals(len(connector.service.protocol.buffer), 1)
+        self.assertEquals(len(providerConnector.service.protocol.buffer), 1)
 
 
         # Prior to feedback, there are 2 subscriptions
@@ -160,12 +164,12 @@ class ApplePushNotifierServiceTests(CommonCommonTests, TestCase):
 
 
         # Simulate feedback with a single token
-        connector = service.feedbacks["CalDAV"].testConnector
+        feedbackConnector = service.feedbacks["CalDAV"].testConnector
         timestamp = 2000
         binaryToken = token.decode("hex")
         feedbackData = struct.pack("!IH32s", timestamp, len(binaryToken),
             binaryToken)
-        yield connector.receiveData(feedbackData)
+        yield feedbackConnector.receiveData(feedbackData)
 
         # Simulate feedback with multiple tokens, and dataReceived called
         # with amounts of data not fitting message boundaries
@@ -180,30 +184,100 @@ class ApplePushNotifierServiceTests(CommonCommonTests, TestCase):
             timestamp, len(binaryToken), binaryToken,
             )
         # Send 1st 10 bytes
-        yield connector.receiveData(feedbackData[:10], fn=feedbackTestFunction)
+        yield feedbackConnector.receiveData(feedbackData[:10], fn=feedbackTestFunction)
         # Send remaining bytes
-        yield connector.receiveData(feedbackData[10:], fn=feedbackTestFunction)
+        yield feedbackConnector.receiveData(feedbackData[10:], fn=feedbackTestFunction)
         self.assertEquals(history, [(timestamp, token), (timestamp, token)])
         # Buffer is empty
-        self.assertEquals(len(connector.service.protocol.buffer), 0)
+        self.assertEquals(len(feedbackConnector.service.protocol.buffer), 0)
 
         # Sending 39 bytes
-        yield connector.receiveData("!" * 39, fn=feedbackTestFunction)
+        yield feedbackConnector.receiveData("!" * 39, fn=feedbackTestFunction)
         # Buffer has 1 byte remaining
-        self.assertEquals(len(connector.service.protocol.buffer), 1)
+        self.assertEquals(len(feedbackConnector.service.protocol.buffer), 1)
 
         # The second subscription should now be gone
-        # Prior to feedback, there are 2 subscriptions
         txn = self.store.newTransaction()
         subscriptions = (yield txn.apnSubscriptionsByToken(token))
         yield txn.commit()
-        self.assertEquals(len(subscriptions), 1)
+        self.assertEquals(subscriptions,
+            [["/CalDAV/calendars.example.com/user02/calendar/", 3000, "D2256BCC-48E2-42D1-BD89-CBA1E4CCDFFB"]]
+        )
+
+        # Verify processError removes associated subscriptions and history
+        yield providerConnector.service.protocol.processError(8, 1)
+        # The token for this identifier is gone
+        self.assertEquals(providerConnector.service.protocol.history.history, [])
+        # All subscriptions for this token should now be gone
+        txn = self.store.newTransaction()
+        subscriptions = (yield txn.apnSubscriptionsByToken(token))
+        yield txn.commit()
+        self.assertEquals(subscriptions, [])
+
 
     def test_validToken(self):
         self.assertTrue(validToken("2d0d55cd7f98bcb81c6e24abcdc35168254c7846a43e2828b1ba5a8f82e219df"))
         self.assertFalse(validToken("d0d55cd7f98bcb81c6e24abcdc35168254c7846a43e2828b1ba5a8f82e219df"))
         self.assertFalse(validToken("foo"))
         self.assertFalse(validToken(""))
+
+
+    def test_TokenHistory(self):
+        history = TokenHistory(maxSize=5)
+
+        # Ensure returned identifiers increment
+        for id, token in enumerate(("one", "two", "three", "four", "five"),
+            start=1):
+            self.assertEquals(id, history.add(token))
+        self.assertEquals(len(history.history), 5)
+
+        # History size never exceeds maxSize
+        id = history.add("six")
+        self.assertEquals(id, 6)
+        self.assertEquals(len(history.history), 5)
+        self.assertEquals(
+            history.history,
+            [(2, "two"), (3, "three"), (4, "four"), (5, "five"), (6, "six")]
+        )
+        id = history.add("seven")
+        self.assertEquals(id, 7)
+        self.assertEquals(len(history.history), 5)
+        self.assertEquals(
+            history.history,
+            [(3, "three"), (4, "four"), (5, "five"), (6, "six"), (7, "seven")]
+        )
+
+        # Look up non-existent identifier
+        token = history.extractIdentifier(9999)
+        self.assertEquals(token, None)
+        self.assertEquals(
+            history.history,
+            [(3, "three"), (4, "four"), (5, "five"), (6, "six"), (7, "seven")]
+        )
+
+        # Look up oldest identifier in history
+        token = history.extractIdentifier(3)
+        self.assertEquals(token, "three")
+        self.assertEquals(
+            history.history,
+            [(4, "four"), (5, "five"), (6, "six"), (7, "seven")]
+        )
+
+        # Look up latest identifier in history
+        token = history.extractIdentifier(7)
+        self.assertEquals(token, "seven")
+        self.assertEquals(
+            history.history,
+            [(4, "four"), (5, "five"), (6, "six")]
+        )
+
+        # Look up an identifier in the middle
+        token = history.extractIdentifier(5)
+        self.assertEquals(token, "five")
+        self.assertEquals(
+            history.history,
+            [(4, "four"), (6, "six")]
+        )
 
 
 class TestConnector(object):
