@@ -22,6 +22,8 @@ from twisted.internet.defer import inlineCallbacks, succeed
 from twisted.web.xmlrpc import Fault
 from twext.web2.http import HTTPError
 from twext.web2 import responsecode
+from twistedcaldav.config import config
+from twisted.web.error import Error as WebError
 
 class WikiTestCase(TestCase):
     """
@@ -41,10 +43,11 @@ class WikiTestCase(TestCase):
 
 
     @inlineCallbacks
-    def test_getWikiAccess(self):
+    def test_getWikiAccessLion(self):
         """
         XMLRPC Faults result in HTTPErrors
         """
+        self.patch(config.Authentication.Wiki, "LionCompatibility", True)
 
         def successful(self, user, wiki):
             return succeed("read")
@@ -65,6 +68,43 @@ class WikiTestCase(TestCase):
             (fault2, responsecode.FORBIDDEN),
             (fault12, responsecode.NOT_FOUND),
             (fault13, responsecode.SERVICE_UNAVAILABLE),
+        ):
+            try:
+                access = (yield getWikiAccess("user", "wiki", method=method))
+            except HTTPError, e:
+                self.assertEquals(e.response.code, code)
+            except:
+                self.fail("Incorrect exception")
+            else:
+                self.fail("Didn't raise exception")
+
+
+    @inlineCallbacks
+    def test_getWikiAccess(self):
+        """
+        Non-200 GET responses result in HTTPErrors
+        """
+        self.patch(config.Authentication.Wiki, "LionCompatibility", False)
+
+        def successful(user, wiki):
+            return succeed("read")
+
+        def forbidden(user, wiki):
+            raise WebError(403, message="Unknown user")
+
+        def notFound(user, wiki):
+            raise WebError(404, message="Non-existent wiki")
+
+        def other(user, wiki):
+            raise WebError(500, "Error")
+
+        access = (yield getWikiAccess("user", "wiki", method=successful))
+        self.assertEquals(access, "read")
+
+        for (method, code) in (
+            (forbidden, responsecode.FORBIDDEN),
+            (notFound, responsecode.NOT_FOUND),
+            (other, responsecode.SERVICE_UNAVAILABLE),
         ):
             try:
                 access = (yield getWikiAccess("user", "wiki", method=method))

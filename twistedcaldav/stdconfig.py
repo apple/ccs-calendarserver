@@ -412,6 +412,9 @@ DEFAULT_CONFIG = {
             "URL": "http://127.0.0.1:8089/RPC2",
             "UserMethod": "userForSession",
             "WikiMethod": "accessLevelForUserWikiCalendar",
+            "LionCompatibility": False,
+            "CollabHost": "localhost",
+            "CollabPort": 4444,
         },
     },
 

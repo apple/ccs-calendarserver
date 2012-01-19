@@ -30,6 +30,7 @@ from twisted.cred.error import LoginFailed, UnauthorizedLogin
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.python.reflect import namedClass
 from twisted.web.xmlrpc import Proxy
+from twisted.web.error import Error as WebError
 
 from twistedcaldav.cache import _CachedResponseResource
 from twistedcaldav.cache import MemcacheResponseCache, MemcacheChangeNotifier
@@ -43,6 +44,7 @@ from twistedcaldav.resource import CalendarHomeResource, AddressBookHomeResource
 from twistedcaldav.directory.principal import DirectoryPrincipalResource
 from twistedcaldav.storebridge import CalendarCollectionResource,\
     AddressBookCollectionResource, StoreNotificationCollectionResource
+from calendarserver.platform.darwin.wiki import usernameForAuthToken
 
 log = Logger()
 
@@ -265,9 +267,25 @@ class RootResource (ReadOnlyResourceMixIn, DirectoryPrincipalPropertySearchMixIn
 
                 if token is not None and token != "unauthenticated":
                     log.debug("Wiki sessionID cookie value: %s" % (token,))
-                    proxy = Proxy(wikiConfig["URL"])
+
                     try:
-                        username = (yield proxy.callRemote(wikiConfig["UserMethod"], token))
+                        if wikiConfig.LionCompatibility:
+                            proxy = Proxy(wikiConfig["URL"])
+                            username = (yield proxy.callRemote(wikiConfig["UserMethod"], token))
+                        else:
+                            username = (yield usernameForAuthToken(token,
+                                host=wikiConfig.CollabHost,
+                                port=wikiConfig.CollabPort))
+
+                    except WebError, w:
+                        username = None
+                        # FORBIDDEN status means it's an unknown token
+                        if int(w.status) == responsecode.FORBIDDEN:
+                            log.debug("Unknown wiki token: %s" % (token,))
+                        else:
+                            log.error("Failed to look up wiki token %s: %s" %
+                                (token, w.message,))
+
                     except Exception, e:
                         log.error("Failed to look up wiki token (%s)" % (e,))
                         username = None

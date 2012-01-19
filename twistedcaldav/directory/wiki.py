@@ -37,6 +37,8 @@ from twistedcaldav.config import config
 from twistedcaldav.directory.directory import (DirectoryService,
                                                DirectoryRecord,
                                                UnknownRecordTypeError)
+from calendarserver.platform.darwin.wiki import accessForUserToWiki
+from twisted.web.error import Error as WebError
 
 log = Logger()
 
@@ -73,8 +75,6 @@ class WikiDirectoryService(DirectoryService):
 
         if self.byShortName.has_key(shortName):
             record = self.byShortName[shortName]
-            self.log_info("Returning existing wiki record with UID %s" %
-                (record.uid,))
             return record
 
         record = self._addRecord(shortName)
@@ -84,8 +84,6 @@ class WikiDirectoryService(DirectoryService):
 
         if self.byUID.has_key(uid):
             record = self.byUID[uid]
-            self.log_info("Returning existing wiki record with UID %s" %
-                (record.uid,))
             return record
 
         if uid.startswith(self.UIDPrefix):
@@ -103,7 +101,6 @@ class WikiDirectoryService(DirectoryService):
             shortName,
             None
         )
-        self.log_info("Creating wiki record with GUID %s" % (record.guid,))
         self.byUID[record.uid] = record
         self.byShortName[shortName] = record
         return record
@@ -137,16 +134,22 @@ def getWikiAccess(userID, wikiID, method=None):
     """
     wikiConfig = config.Authentication.Wiki
     if method is None:
-        method = Proxy(wikiConfig["URL"]).callRemote
+        if wikiConfig.LionCompatibility:
+            method = Proxy(wikiConfig["URL"]).callRemote
+        else:
+            method = accessForUserToWiki
     try:
 
         log.debug("Looking up Wiki ACL for: user [%s], wiki [%s]" % (userID,
             wikiID))
-        access = (yield method(wikiConfig["WikiMethod"],
-            userID, wikiID))
+        if wikiConfig.LionCompatibility:
+            access = (yield method(wikiConfig["WikiMethod"],
+                userID, wikiID))
+        else:
+            access = (yield method(userID, wikiID))
 
-        log.debug("Wiki ACL result: user [%s], wiki [%s], access [%s]" % (userID,
-            wikiID, access))
+        log.debug("Wiki ACL result: user [%s], wiki [%s], access [%s]" %
+            (userID, wikiID, access))
         returnValue(access)
 
     except Fault, fault:
@@ -168,6 +171,27 @@ def getWikiAccess(userID, wikiID, method=None):
                 (userID, wikiID, fault))
             raise HTTPError(StatusResponse(responsecode.SERVICE_UNAVAILABLE,
                 fault.faultString))
+
+    except WebError, w:
+        status = int(w.status)
+
+        log.debug("Wiki ACL result: user [%s], wiki [%s], status [%s]" %
+            (userID, wikiID, status))
+
+        if status == responsecode.FORBIDDEN: # non-existent user
+            raise HTTPError(StatusResponse(responsecode.FORBIDDEN,
+                "Unknown User"))
+
+        elif status == responsecode.NOT_FOUND: # non-existent wiki
+            raise HTTPError(StatusResponse(responsecode.NOT_FOUND,
+                "Unknown Wiki"))
+
+        else: # Unknown fault returned from wiki server.  Log the error and
+              # return 503 Service Unavailable to the client.
+            log.error("Wiki ACL error: user [%s], wiki [%s], status [%s]" %
+                (userID, wikiID, status))
+            raise HTTPError(StatusResponse(responsecode.SERVICE_UNAVAILABLE,
+                w.message))
 
 
 @inlineCallbacks
@@ -283,5 +307,5 @@ def getWikiACL(resource, request):
         raise
 
     except Exception, e:
-        log.error("Wiki ACL RPC failed: %s" % (e,))
-        raise HTTPError(StatusResponse(responsecode.SERVICE_UNAVAILABLE, "Wiki ACL RPC failed"))
+        log.error("Wiki ACL lookup failed: %s" % (e,))
+        raise HTTPError(StatusResponse(responsecode.SERVICE_UNAVAILABLE, "Wiki ACL lookup failed"))
