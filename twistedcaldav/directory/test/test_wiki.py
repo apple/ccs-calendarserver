@@ -86,16 +86,16 @@ class WikiTestCase(TestCase):
         """
         self.patch(config.Authentication.Wiki, "LionCompatibility", False)
 
-        def successful(user, wiki):
+        def successful(user, wiki, host=None, port=None):
             return succeed("read")
 
-        def forbidden(user, wiki):
+        def forbidden(user, wiki, host=None, port=None):
             raise WebError(403, message="Unknown user")
 
-        def notFound(user, wiki):
+        def notFound(user, wiki, host=None, port=None):
             raise WebError(404, message="Non-existent wiki")
 
-        def other(user, wiki):
+        def other(user, wiki, host=None, port=None):
             raise WebError(500, "Error")
 
         access = (yield getWikiAccess("user", "wiki", method=successful))

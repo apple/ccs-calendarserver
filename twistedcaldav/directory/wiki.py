@@ -146,7 +146,8 @@ def getWikiAccess(userID, wikiID, method=None):
             access = (yield method(wikiConfig["WikiMethod"],
                 userID, wikiID))
         else:
-            access = (yield method(userID, wikiID))
+            access = (yield method(userID, wikiID,
+                host=wikiConfig.CollabHost, port=wikiConfig.CollabPort))
 
         log.debug("Wiki ACL result: user [%s], wiki [%s], access [%s]" %
             (userID, wikiID, access))
