@@ -884,9 +884,9 @@ class IScheduleService(service.MultiService, LoggingMixIn):
         rootResource = getRootResource(
             config,
             "IGNORED", # no need for a store - no /calendars nor /addressbooks
-            (
+            resources = [
                 ("inbox", IMIPInvitationInboxResource, (mailer,), "digest"),
-            )
+            ]
         )
 
         self.factory = HTTPFactory(server.Site(rootResource))
