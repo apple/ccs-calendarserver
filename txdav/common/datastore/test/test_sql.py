@@ -65,7 +65,7 @@ class SubTransactionTests(CommonCommonTests, TestCase):
                 Where=cs.NAME == 'VERSION',
             ).on(subtxn)
             
-        _ignore = (yield txn.subtransaction(_test, retries=0))[0][0]
+        (yield txn.subtransaction(_test, retries=0))[0][0]
         self.assertEqual(ctr[0], 1)
 
 
@@ -89,7 +89,7 @@ class SubTransactionTests(CommonCommonTests, TestCase):
                 Where=cs.NAME == 'VERSION',
             ).on(subtxn)
             
-        _ignore = (yield txn.subtransaction(_test, retries=1))[0][0]
+        (yield txn.subtransaction(_test, retries=1))[0][0]
         self.assertEqual(ctr[0], 2)
 
 
@@ -113,7 +113,7 @@ class SubTransactionTests(CommonCommonTests, TestCase):
             ).on(subtxn)
         
         try:
-            _ignore = (yield txn.subtransaction(_test, retries=0))[0][0]
+            (yield txn.subtransaction(_test, retries=0))[0][0]
         except AllRetriesFailed:
             pass
         else:
@@ -141,7 +141,7 @@ class SubTransactionTests(CommonCommonTests, TestCase):
             ).on(subtxn)
         
         try:
-            _ignore = (yield txn.subtransaction(_test, retries=2))[0][0]
+            (yield txn.subtransaction(_test, retries=2))[0][0]
         except AllRetriesFailed:
             pass
         else:
