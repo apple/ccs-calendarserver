@@ -33,7 +33,7 @@ from twisted.python.util import FancyEqMixin
 from twisted.internet.defer import Deferred, inlineCallbacks, returnValue
 from twisted.internet.task import LoopingCall
 from twisted.web.http_headers import Headers
-from twisted.web.http import OK, MULTI_STATUS, CREATED, NO_CONTENT
+from twisted.web.http import OK, MULTI_STATUS, CREATED, NO_CONTENT, PRECONDITION_FAILED
 from twisted.web.client import Agent
 
 from caldavclientlibrary.protocol.webdav.propfindparser import PropFindParser
@@ -59,8 +59,8 @@ class IncorrectResponseCode(Exception):
     """
     Raised when a response has a code other than the one expected.
 
-    @ivar expected: The response code which was expected.
-    @type expected: C{int}
+    @ivar expected: The response codes which was expected.
+    @type expected: C{tuple} of C{int}
 
     @ivar response: The response which was received
     @type response: L{twisted.web.client.Response}
@@ -237,7 +237,9 @@ class SnowLeopard(BaseClient):
             }
 
 
-    def _request(self, expectedResponseCode, method, url, headers=None, body=None):
+    def _request(self, expectedResponseCodes, method, url, headers=None, body=None):
+        if type(expectedResponseCodes) is int:
+            expectedResponseCodes = (expectedResponseCodes,)
         if headers is None:
             headers = Headers({})
         headers.setRawHeaders('User-Agent', [self.USER_AGENT])
@@ -250,7 +252,7 @@ class SnowLeopard(BaseClient):
             # not both.
             after = self.reactor.seconds()
 
-            success = response.code == expectedResponseCode
+            success = response.code in expectedResponseCodes
 
             # if not success:
             #     import pdb; pdb.set_trace()
@@ -261,7 +263,7 @@ class SnowLeopard(BaseClient):
 
             if success:
                 return response
-            raise IncorrectResponseCode(expectedResponseCode, response)
+            raise IncorrectResponseCode(expectedResponseCodes, response)
         d.addCallback(report)
         return d
 
@@ -733,7 +735,9 @@ class SnowLeopard(BaseClient):
 
             # At last, upload the new event definition
             d = self._request(
-                NO_CONTENT, 'PUT', self.root + href[1:].encode('utf-8'),
+                (NO_CONTENT, PRECONDITION_FAILED,),
+                'PUT',
+                self.root + href[1:].encode('utf-8'),
                 Headers({
                         'content-type': ['text/calendar'],
                         'if-match': [event.etag]}),
@@ -752,14 +756,18 @@ class SnowLeopard(BaseClient):
         # Change the event to have the new attendee instead of the old attendee
         vevent.mainComponent().removeProperty(oldAttendee)
         vevent.mainComponent().addProperty(newAttendee)
+        okCodes = NO_CONTENT
         headers = Headers({
                 'content-type': ['text/calendar'],
                 })
         if event.scheduleTag is not None:
             headers.addRawHeader('if-schedule-tag-match', event.scheduleTag)
+            okCodes = (NO_CONTENT, PRECONDITION_FAILED,)
 
         d = self._request(
-            NO_CONTENT, 'PUT', self.root + href[1:].encode('utf-8'),
+            okCodes,
+            'PUT',
+            self.root + href[1:].encode('utf-8'),
             headers, StringProducer(vevent.getTextWithTimezones(includeTimezones=True)))
         d.addCallback(self._updateEvent, href)
         return d

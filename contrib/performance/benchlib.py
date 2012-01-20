@@ -70,9 +70,9 @@ class CalDAVAccount(object):
 
 @inlineCallbacks
 def _serial(fs):
-     for (f, args) in fs:
-         yield f(*args)
-     returnValue(None)
+    for (f, args) in fs:
+        yield f(*args)
+    returnValue(None)
 
 
 
