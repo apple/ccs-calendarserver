@@ -1,7 +1,7 @@
 -- -*- test-case-name: txdav.caldav.datastore.test.test_sql,txdav.carddav.datastore.test.test_sql -*-
 
 ----
--- Copyright (c) 2010-2012 Apple Inc. All rights reserved.
+-- Copyright (c) 2010-2011 Apple Inc. All rights reserved.
 --
 -- Licensed under the Apache License, Version 2.0 (the "License");
 -- you may not use this file except in compliance with the License.
@@ -49,16 +49,7 @@ create table CALENDAR_HOME_METADATA (
 --------------
 
 create table CALENDAR (
-  RESOURCE_ID integer   primary key default nextval('RESOURCE_ID_SEQ') -- implicit index
-);
-
-
------------------------
--- Calendar Metadata --
------------------------
-
-create table CALENDAR_METADATA (
-  RESOURCE_ID           integer   primary key references CALENDAR on delete cascade, -- implicit index
+  RESOURCE_ID integer   primary key default nextval('RESOURCE_ID_SEQ'), -- implicit index
   SUPPORTED_COMPONENTS  varchar(255) default null,
   CREATED               timestamp default timezone('UTC', CURRENT_TIMESTAMP),
   MODIFIED              timestamp default timezone('UTC', CURRENT_TIMESTAMP)
@@ -329,9 +320,9 @@ create table ADDRESSBOOK_HOME (
   DATAVERSION	   integer      default 0 not null
 );
 
--------------------------------
--- AddressBook Home Metadata --
--------------------------------
+--------------------------------
+-- AddressBook Home Meta-data --
+--------------------------------
 
 create table ADDRESSBOOK_HOME_METADATA (
   RESOURCE_ID      integer      primary key references ADDRESSBOOK_HOME on delete cascade, -- implicit index
@@ -345,16 +336,7 @@ create table ADDRESSBOOK_HOME_METADATA (
 -----------------
 
 create table ADDRESSBOOK (
-  RESOURCE_ID integer   primary key default nextval('RESOURCE_ID_SEQ') -- implicit index
-);
-
-
---------------------------
--- AddressBook Metadata --
---------------------------
-
-create table ADDRESSBOOK_METADATA (
-  RESOURCE_ID integer   primary key references ADDRESSBOOK on delete cascade, -- implicit index
+  RESOURCE_ID integer   primary key default nextval('RESOURCE_ID_SEQ'), -- implicit index
   CREATED     timestamp default timezone('UTC', CURRENT_TIMESTAMP),
   MODIFIED    timestamp default timezone('UTC', CURRENT_TIMESTAMP)
 );
@@ -494,6 +476,6 @@ create table CALENDARSERVER (
   VALUE                         varchar(255)
 );
 
-insert into CALENDARSERVER values ('VERSION', '8');
+insert into CALENDARSERVER values ('VERSION', '7');
 insert into CALENDARSERVER values ('CALENDAR-DATAVERSION', '2');
 insert into CALENDARSERVER values ('ADDRESSBOOK-DATAVERSION', '1');

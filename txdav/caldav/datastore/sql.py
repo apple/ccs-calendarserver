@@ -1,6 +1,6 @@
 # -*- test-case-name: txdav.caldav.datastore.test.test_sql -*-
 ##
-# Copyright (c) 2010-2011 Apple Inc. All rights reserved.
+# Copyright (c) 2010-2012 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -292,6 +292,7 @@ class Calendar(CommonHomeChild):
     # structured tables.  (new, preferred)
     _bindSchema = schema.CALENDAR_BIND
     _homeChildSchema = schema.CALENDAR
+    _homeChildMetaDataSchema = schema.CALENDAR_METADATA
     _revisionsSchema = schema.CALENDAR_OBJECT_REVISIONS
     _objectSchema = schema.CALENDAR_OBJECT
     _timeRangeSchema = schema.TIME_RANGE
@@ -337,9 +338,9 @@ class Calendar(CommonHomeChild):
         # Common behavior is to have created and modified
         
         return (
-            cls._homeChildSchema.CREATED,
-            cls._homeChildSchema.MODIFIED,
-            cls._homeChildSchema.SUPPORTED_COMPONENTS,
+            cls._homeChildMetaDataSchema.CREATED,
+            cls._homeChildMetaDataSchema.MODIFIED,
+            cls._homeChildMetaDataSchema.SUPPORTED_COMPONENTS,
         )
         
     @classmethod
@@ -397,7 +398,7 @@ class Calendar(CommonHomeChild):
         on collection creation, but for migration we may need to change after the fact - hence a separate api.
         """
         
-        cal = self._homeChildSchema
+        cal = self._homeChildMetaDataSchema
         yield Update(
             {
                 cal.SUPPORTED_COMPONENTS : supported_components

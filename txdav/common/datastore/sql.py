@@ -458,7 +458,7 @@ class CommonStoreTransaction(object):
 
 
     @inlineCallbacks
-    def subtransaction(self, thunk, retries=1):
+    def subtransaction(self, thunk, retries=1, failureOK=False):
         """
         Create a limited transaction object, which provides only SQL execution,
         and run a function in a sub-transaction (savepoint) context, with that
@@ -469,6 +469,8 @@ class CommonStoreTransaction(object):
 
         @param retries: the number of times to re-try C{thunk} before deciding
             that it's legitimately failed.
+
+        @param failureOK: it is OK if this subtransaction fails so do not log.
 
         @return: a L{Deferred} which fires or fails according to the logic in
             C{thunk}.  If it succeeds, it will return the value that C{thunk}
@@ -490,7 +492,8 @@ class CommonStoreTransaction(object):
                 try:
                     result = yield thunk(block)
                 except:
-                    failuresToMaybeLog.append(Failure())
+                    if not failureOK:
+                        failuresToMaybeLog.append(Failure())
                     yield sp.rollback(block)
                     if triesLeft:
                         triesLeft -= 1
@@ -1268,6 +1271,16 @@ class CommonHome(LoggingMixIn):
             returnValue(None)
 
     @classproperty
+    def _lockLastModifiedQuery(cls): #@NoSelf
+        meta = cls._homeMetaDataSchema
+        return Select(
+            From=meta,
+            Where=meta.RESOURCE_ID == Parameter("resourceID"),
+            ForUpdate=True,
+            NoWait=True
+        )
+
+    @classproperty
     def _changeLastModifiedQuery(cls): #@NoSelf
         meta = cls._homeMetaDataSchema
         return Update({meta.MODIFIED: utcNowSQL},
@@ -1280,16 +1293,20 @@ class CommonHome(LoggingMixIn):
         Bump the MODIFIED value. A possible deadlock could happen here if two or more
         simultaneous changes are happening. In that case it is OK for the MODIFIED change
         to fail so long as at least one works. We will use SAVEPOINT logic to handle
-        ignoring the deadlock error.
+        ignoring the deadlock error. We use SELECT FOR UPDATE NOWAIT to ensure we do not
+        delay the transaction whilst waiting for deadlock detection to kick in.
         """
 
+        @inlineCallbacks
         def _bumpModified(subtxn):
-            return self._changeLastModifiedQuery.on(subtxn, resourceID=self._resourceID)
+            yield self._lockLastModifiedQuery.on(subtxn, resourceID=self._resourceID)
+            result = (yield self._changeLastModifiedQuery.on(subtxn, resourceID=self._resourceID))
+            returnValue(result)
             
         try:
-            self._modified = (yield self._txn.subtransaction(_bumpModified, retries=0))[0][0]
+            self._modified = (yield self._txn.subtransaction(_bumpModified, retries=0, failureOK=True))[0][0]
         except AllRetriesFailed:
-            pass
+            log.debug("CommonHome.bumpModified failed")
         
     @inlineCallbacks
     def notifyChanged(self):
@@ -1616,10 +1633,11 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
 
     _objectResourceClass = None
 
-    _bindSchema           = None
-    _homeChildSchema      = None
-    _revisionsSchema      = None
-    _objectSchema         = None
+    _bindSchema              = None
+    _homeChildSchema         = None
+    _homeChildMetaDataSchema = None
+    _revisionsSchema         = None
+    _objectSchema            = None
 
     _bindTable           = None
     _homeChildTable      = None
@@ -1672,8 +1690,8 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
         # Common behavior is to have created and modified
         
         return (
-            cls._homeChildSchema.CREATED,
-            cls._homeChildSchema.MODIFIED,
+            cls._homeChildMetaDataSchema.CREATED,
+            cls._homeChildMetaDataSchema.MODIFIED,
         )
         
     @classmethod
@@ -1723,6 +1741,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
     def _allHomeChildrenQuery(cls, owned):
         bind = cls._bindSchema
         child = cls._homeChildSchema
+        childMetaData = cls._homeChildMetaDataSchema
         if owned:
             ownedPiece = bind.BIND_MODE == _BIND_MODE_OWN
         else:
@@ -1734,6 +1753,8 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
         return Select(columns,
                      From=child.join(
                          bind, child.RESOURCE_ID == bind.RESOURCE_ID,
+                         'left outer').join(
+                         childMetaData, childMetaData.RESOURCE_ID == bind.RESOURCE_ID,
                          'left outer'),
                      Where=(bind.HOME_RESOURCE_ID == Parameter("resourceID")
                            ).And(ownedPiece))
@@ -1908,13 +1929,23 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
 
 
     @classproperty
-    def _insertDefaultHomeChild(cls): #@NoSelf
+    def _insertHomeChild(cls): #@NoSelf
         """
         DAL statement to create a home child with all default values.
         """
         child = cls._homeChildSchema
         return Insert({child.RESOURCE_ID: schema.RESOURCE_ID_SEQ},
-                      Return=(child.RESOURCE_ID, child.CREATED, child.MODIFIED))
+                      Return=(child.RESOURCE_ID))
+
+
+    @classproperty
+    def _insertHomeChildMetaData(cls): #@NoSelf
+        """
+        DAL statement to create a home child with all default values.
+        """
+        child = cls._homeChildMetaDataSchema
+        return Insert({child.RESOURCE_ID: Parameter("resourceID")},
+                      Return=(child.CREATED, child.MODIFIED))
 
 
     @classproperty
@@ -1942,9 +1973,14 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
         if name.startswith("."):
             raise HomeChildNameNotAllowedError(name)
 
-        # Create and initialize this object, similar to initFromStore
-        resourceID, _created, _modified = (
-            yield cls._insertDefaultHomeChild.on(home._txn))[0]
+        # Create this object
+        resourceID = (
+            yield cls._insertHomeChild.on(home._txn))[0]
+
+        # Initialize this object
+        _created, _modified = (
+            yield cls._insertHomeChildMetaData.on(home._txn,
+                                                  resourceID=resourceID))[0]
 
         # Bind table needs entry
         yield cls._initialOwnerBind.on(home._txn, homeID=home._resourceID,
@@ -1971,7 +2007,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
         """
         DAL query to retrieve created/modified dates based on a resource ID.
         """
-        child = cls._homeChildSchema
+        child = cls._homeChildMetaDataSchema
         return Select(cls.metadataColumns(),
                       From=child,
                       Where=child.RESOURCE_ID == Parameter("resourceID"))
@@ -2440,8 +2476,18 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
             returnValue(None)
 
     @classproperty
+    def _lockLastModifiedQuery(cls): #@NoSelf
+        schema = cls._homeChildMetaDataSchema
+        return Select(
+            From=schema,
+            Where=schema.RESOURCE_ID == Parameter("resourceID"),
+            ForUpdate=True,
+            NoWait=True
+        )
+
+    @classproperty
     def _changeLastModifiedQuery(cls): #@NoSelf
-        schema = cls._homeChildSchema
+        schema = cls._homeChildMetaDataSchema
         return Update({schema.MODIFIED: utcNowSQL},
                       Where=schema.RESOURCE_ID == Parameter("resourceID"),
                       Return=schema.MODIFIED)
@@ -2452,16 +2498,20 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
         Bump the MODIFIED value. A possible deadlock could happen here if two or more
         simultaneous changes are happening. In that case it is OK for the MODIFIED change
         to fail so long as at least one works. We will use SAVEPOINT logic to handle
-        ignoring the deadlock error.
+        ignoring the deadlock error. We use SELECT FOR UPDATE NOWAIT to ensure we do not
+        delay the transaction whilst waiting for deadlock detection to kick in.
         """
 
+        @inlineCallbacks
         def _bumpModified(subtxn):
-            return self._changeLastModifiedQuery.on(subtxn, resourceID=self._resourceID)
+            yield self._lockLastModifiedQuery.on(subtxn, resourceID=self._resourceID)
+            result = (yield self._changeLastModifiedQuery.on(subtxn, resourceID=self._resourceID))
+            returnValue(result)
             
         try:
-            self._modified = (yield self._txn.subtransaction(_bumpModified, retries=0))[0][0]
+            self._modified = (yield self._txn.subtransaction(_bumpModified, retries=0, failureOK=True))[0][0]
         except AllRetriesFailed:
-            pass
+            log.debug("CommonHomeChild.bumpModified failed")
         
     @inlineCallbacks
     def notifyChanged(self):

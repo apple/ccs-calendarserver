@@ -1,6 +1,6 @@
 # -*- test-case-name: txdav.carddav.datastore.test.test_sql -*-
 ##
-# Copyright (c) 2010-2011 Apple Inc. All rights reserved.
+# Copyright (c) 2010-2012 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -145,6 +145,7 @@ class AddressBook(CommonHomeChild):
     # structured tables.  (new, preferred)
     _bindSchema = schema.ADDRESSBOOK_BIND
     _homeChildSchema = schema.ADDRESSBOOK
+    _homeChildMetaDataSchema = schema.ADDRESSBOOK_METADATA
     _revisionsSchema = schema.ADDRESSBOOK_OBJECT_REVISIONS
     _objectSchema = schema.ADDRESSBOOK_OBJECT
 

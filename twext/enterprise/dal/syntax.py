@@ -1,6 +1,6 @@
 # -*- test-case-name: twext.enterprise.dal.test.test_sqlsyntax -*-
 ##
-# Copyright (c) 2010 Apple Inc. All rights reserved.
+# Copyright (c) 2010-2012 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -758,7 +758,7 @@ class Select(_Statement):
     """
 
     def __init__(self, columns=None, Where=None, From=None, OrderBy=None,
-                 GroupBy=None, Limit=None, ForUpdate=False, Ascending=None,
+                 GroupBy=None, Limit=None, ForUpdate=False, NoWait=False, Ascending=None,
                  Having=None, Distinct=False):
         self.From = From
         self.Where = Where
@@ -780,6 +780,7 @@ class Select(_Statement):
             columns = _SomeColumns(columns)
         self.columns = columns
         self.ForUpdate = ForUpdate
+        self.NoWait = NoWait
         self.Ascending = Ascending
 
 
@@ -839,6 +840,8 @@ class Select(_Statement):
                 stmt.append(SQLFragment(kw))
         if self.ForUpdate:
             stmt.text += " for update"
+            if self.NoWait:
+                stmt.text += " nowait"
         if self.Limit is not None:
             limitConst = Constant(self.Limit).subSQL(metadata, allTables)
             if metadata.dialect == ORACLE_DIALECT:
