@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2011 Apple Inc. All rights reserved.
+# Copyright (c) 2011-2012 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -29,9 +29,10 @@ from twisted.internet.defer import succeed, fail
 from twisted.web.http import NO_CONTENT, PRECONDITION_FAILED
 from twisted.web.client import Response
 
-from twistedcaldav.ical import Component
+from twistedcaldav.ical import Component, Property
 
 from contrib.performance.loadtest.profiles import Eventer, Inviter, Accepter, OperationLogger
+from contrib.performance.loadtest.profiles import RealisticInviter
 from contrib.performance.loadtest.population import Populator, CalendarClientSimulator
 from contrib.performance.loadtest.ical import IncorrectResponseCode, Calendar, Event, BaseClient
 from contrib.performance.loadtest.sim import _DirectoryRecord
@@ -201,9 +202,10 @@ class StubClient(BaseClient):
         self._events = {}
         self._calendars = {}
         self.record = _DirectoryRecord(
-            u"user%02d" % (number,), u"user%02d" % (number,),
-            u"User %02d" % (number,), u"user%02d@example.org" % (number,))
-        self.email = u"mailto:user%02d@example.com" % (number,)
+            "user%02d" % (number,), "user%02d" % (number,),
+            "User %02d" % (number,), "user%02d@example.org" % (number,))
+        self.email = "mailto:user%02d@example.com" % (number,)
+        self.uuid = "urn:uuid:user%02d" % (number,)
         self.rescheduled = set()
 
 
@@ -240,6 +242,30 @@ class StubClient(BaseClient):
         vevent.mainComponent().removeProperty(old)
         vevent.mainComponent().addProperty(new)
         return succeed(None)
+
+
+    def _makeSelfAttendee(self):
+        attendee = Property(
+            name=u'ATTENDEE',
+            value=self.uuid,
+            params={
+                'CN': self.record.commonName,
+                'CUTYPE': 'INDIVIDUAL',
+                'PARTSTAT': 'ACCEPTED',
+            },
+        )
+        return attendee
+
+
+    def _makeSelfOrganizer(self):
+        organizer = Property(
+            name=u'ORGANIZER',
+            value=self.uuid,
+            params={
+                'CN': self.record.commonName,
+            },
+        )
+        return organizer
 
 
 
@@ -450,6 +476,175 @@ class InviterTests(TestCase):
         self.assertEqual(len(attendees), 2)
         self.assertEqual(attendees[0].parameterValue('CN'), 'User 01')
         self.assertEqual(attendees[1].parameterValue('CN'), 'User 02')
+
+
+
+class RealisticInviterTests(TestCase):
+    """
+    Tests for loadtest.profiles.RealisticInviter.
+    """
+    def setUp(self):
+        self.sim = CalendarClientSimulator(
+            AnyUser(), Populator(None), None, None, None)
+
+
+    def _simpleAccount(self, userNumber, eventText):
+        vevent = Component.fromString(eventText)
+        calendar = Calendar(
+            caldavxml.calendar, set(('VEVENT',)), u'calendar', u'/cal/', None)
+        event = Event(calendar.url + u'1234.ics', None, vevent)
+        calendar.events = {u'1234.ics': event}
+        client = StubClient(userNumber)
+        client._events.update({event.url: event})
+        client._calendars.update({calendar.url: calendar})
+
+        return vevent, event, calendar, client
+
+
+    def test_enabled(self):
+        userNumber = 13
+        client = StubClient(userNumber)
+
+        inviter = RealisticInviter(None, self.sim, client, userNumber, **{"enabled":False})
+        self.assertEqual(inviter.enabled, False)
+
+        inviter = RealisticInviter(None, self.sim, client, userNumber, **{"enabled":True})
+        self.assertEqual(inviter.enabled, True)
+
+    def test_doNotAddInviteToInbox(self):
+        """
+        When the only calendar with any events is a schedule inbox, no
+        attempt is made to add attendees to that calendar.
+        """
+        calendar = Calendar(
+            caldavxml.schedule_inbox, set(), u'inbox', u'/sched/inbox', None)
+        userNumber = 13
+        client = StubClient(userNumber)
+        client._calendars.update({calendar.url: calendar})
+
+        inviter = RealisticInviter(None, self.sim, client, userNumber, **{"enabled":False})
+        inviter._invite()
+
+        self.assertEquals(client._events, {})
+
+
+    def test_doNotAddInviteToNoCalendars(self):
+        """
+        When there are no calendars and no events at all, the inviter
+        does nothing.
+        """
+        userNumber = 13
+        client = StubClient(userNumber)
+        inviter = RealisticInviter(None, self.sim, client, userNumber)
+        inviter._invite()
+        self.assertEquals(client._events, {})
+        self.assertEquals(client._calendars, {})
+
+
+    def test_addInvite(self):
+        """
+        When there is a normal calendar, inviter adds an invite to it.
+        """
+        calendar = Calendar(
+            caldavxml.calendar, set(('VEVENT',)), u'personal stuff', u'/cals/personal', None)
+        userNumber = 16
+        client = StubClient(userNumber)
+        client._calendars.update({calendar.url: calendar})
+        inviter = RealisticInviter(Clock(), self.sim, client, userNumber)
+        inviter.setParameters(
+            inviteeDistanceDistribution=Deterministic(1),
+            inviteeCountDistribution=Deterministic(1)
+        )
+        inviter._invite()
+        self.assertEquals(len(client._events), 1)
+        attendees = tuple(client._events.values()[0].vevent.mainComponent().properties('ATTENDEE'))
+        expected = set(("urn:uuid:user%02d" %  (userNumber,), "urn:uuid:user%02d" %  (userNumber + 1,),))
+        for attendee in attendees:
+            expected.remove(attendee.value())
+        self.assertEqual(len(expected), 0)
+
+
+
+    def test_doNotAddSelfToEvent(self):
+        """
+        If the inviter randomly selects its own user to be added to
+        the attendee list, a different user is added instead.
+        """
+        calendar = Calendar(
+            caldavxml.calendar, set(('VEVENT',)), u'personal stuff', u'/cals/personal', None)
+        selfNumber = 12
+        client = StubClient(selfNumber)
+        client._calendars.update({calendar.url: calendar})
+
+        otherNumber = 20
+        values = [selfNumber - selfNumber, otherNumber - selfNumber]
+
+        inviter = RealisticInviter(Clock(), self.sim, client, selfNumber)
+        inviter.setParameters(
+            inviteeDistanceDistribution=SequentialDistribution(values),
+            inviteeCountDistribution=Deterministic(1)
+        )
+        inviter._invite()
+        self.assertEquals(len(client._events), 1)
+        attendees = tuple(client._events.values()[0].vevent.mainComponent().properties('ATTENDEE'))
+        expected = set(("urn:uuid:user%02d" %  (selfNumber,), "urn:uuid:user%02d" %  (otherNumber,),))
+        for attendee in attendees:
+            expected.remove(attendee.value())
+        self.assertEqual(len(expected), 0)
+
+
+
+    def test_doNotAddExistingToEvent(self):
+        """
+        If the inviter randomly selects a user which is already an
+        invitee on the event, a different user is added instead.
+        """
+        calendar = Calendar(
+            caldavxml.calendar, set(('VEVENT',)), u'personal stuff', u'/cals/personal', None)
+        selfNumber = 1
+        client = StubClient(selfNumber)
+        client._calendars.update({calendar.url: calendar})
+
+        inviteeNumber = 20
+        anotherNumber = inviteeNumber + 5
+        values = [inviteeNumber - selfNumber, inviteeNumber - selfNumber, anotherNumber - selfNumber]
+
+        inviter = RealisticInviter(Clock(), self.sim, client, selfNumber)
+        inviter.setParameters(
+            inviteeDistanceDistribution=SequentialDistribution(values),
+            inviteeCountDistribution=Deterministic(2)
+        )
+        inviter._invite()
+        self.assertEquals(len(client._events), 1)
+        attendees = tuple(client._events.values()[0].vevent.mainComponent().properties('ATTENDEE'))
+        expected = set((
+            "urn:uuid:user%02d" %  (selfNumber,),
+            "urn:uuid:user%02d" %  (inviteeNumber,),
+            "urn:uuid:user%02d" %  (anotherNumber,),
+        ))
+        for attendee in attendees:
+            expected.remove(attendee.value())
+        self.assertEqual(len(expected), 0)
+
+
+    def test_everybodyInvitedAlready(self):
+        """
+        If the first so-many randomly selected users we come across
+        are already attendees on the event, the invitation attempt is
+        abandoned.
+        """
+        calendar = Calendar(
+            caldavxml.calendar, set(('VEVENT',)), u'personal stuff', u'/cals/personal', None)
+        userNumber = 1
+        client = StubClient(userNumber)
+        client._calendars.update({calendar.url: calendar})
+        inviter = RealisticInviter(Clock(), self.sim, client, userNumber)
+        inviter.setParameters(
+            inviteeDistanceDistribution=Deterministic(1),
+            inviteeCountDistribution=Deterministic(2)
+        )
+        inviter._invite()
+        self.assertEquals(len(client._events), 0)
 
 
 

@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2011 Apple Inc. All rights reserved.
+# Copyright (c) 2011-2012 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -36,6 +36,7 @@ from twisted.web.http import PRECONDITION_FAILED
 from twistedcaldav.ical import Property, Component
 
 from contrib.performance.stats import NearFutureDistribution, NormalDistribution, UniformDiscreteDistribution, mean, median
+from contrib.performance.stats import LogNormalDistribution
 from contrib.performance.loadtest.logger import SummarizingMixin
 from contrib.performance.loadtest.ical import IncorrectResponseCode
 
@@ -240,6 +241,141 @@ class Inviter(ProfileBase):
         return succeed(None)
 
 
+
+class RealisticInviter(ProfileBase):
+    """
+    A Calendar user who invites other users to new events.
+    """
+    _eventTemplate = Component.fromString("""\
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Apple Inc.//iCal 4.0.3//EN
+CALSCALE:GREGORIAN
+BEGIN:VEVENT
+CREATED:20101018T155431Z
+UID:C98AD237-55AD-4F7D-9009-0D355D835822
+DTEND;TZID=America/New_York:20101021T130000
+TRANSP:OPAQUE
+SUMMARY:Simple event
+DTSTART;TZID=America/New_York:20101021T120000
+DTSTAMP:20101018T155438Z
+SEQUENCE:2
+END:VEVENT
+END:VCALENDAR
+""".replace("\n", "\r\n"))
+
+    
+    def setParameters(
+        self,
+        enabled=True,
+        sendInvitationDistribution=NormalDistribution(600, 60),
+        inviteeDistanceDistribution=UniformDiscreteDistribution(range(-10, 11)),
+        inviteeCountDistribution=LogNormalDistribution(1.2, 1.2),
+        eventStartDistribution=NearFutureDistribution(),
+        eventDurationDistribution=UniformDiscreteDistribution([
+            15 * 60, 30 * 60,
+            45 * 60, 60 * 60,
+            120 * 60
+        ])
+    ):
+        self.enabled = enabled
+        self._sendInvitationDistribution = sendInvitationDistribution
+        self._inviteeDistanceDistribution = inviteeDistanceDistribution
+        self._inviteeCountDistribution = inviteeCountDistribution
+        self._eventStartDistribution = eventStartDistribution
+        self._eventDurationDistribution = eventDurationDistribution
+
+
+    def run(self):
+        return loopWithDistribution(
+            self._reactor, self._sendInvitationDistribution, self._invite)
+
+
+    def _addAttendee(self, event, attendees):
+        """
+        Create a new attendee to add to the list of attendees for the
+        given event.
+        """
+        selfRecord = self._sim.getUserRecord(self._number)
+        invitees = set([u'urn:uuid:%s' % (selfRecord.uid,)])
+        for att in attendees:
+            invitees.add(att.value())
+
+        for _ignore_i in range(10):
+            invitee = max(
+                0, self._number + self._inviteeDistanceDistribution.sample())
+            try:
+                record = self._sim.getUserRecord(invitee)
+            except IndexError:
+                continue
+            uuid = u'urn:uuid:%s' % (record.uid,)
+            if uuid not in invitees:
+                break
+        else:
+            raise CannotAddAttendee("Can't find uninvited user to invite.")
+
+        attendee = Property(
+            name=u'ATTENDEE',
+            value=uuid.encode("utf-8"),
+            params={
+            'CN': record.commonName,
+            'CUTYPE': 'INDIVIDUAL',
+            'EMAIL': record.email,
+            'PARTSTAT': 'NEEDS-ACTION',
+            'ROLE': 'REQ-PARTICIPANT',
+            'RSVP': 'TRUE',
+            #'SCHEDULE-STATUS': '1.2',
+            },
+        )
+
+        event.addProperty(attendee)
+        attendees.append(attendee)
+
+
+    def _invite(self):
+        """
+        Try to add a new event, or perhaps remove an
+        existing attendee from an event.
+
+        @return: C{None} if there are no events to play with,
+            otherwise a L{Deferred} which fires when the attendee
+            change has been made.
+        """
+        # Find calendars which are eligible for invites
+        calendars = self._calendarsOfType(caldavxml.calendar, "VEVENT")
+
+        while calendars:
+            # Pick one at random from which to try to create an event
+            # to modify.
+            calendar = self.random.choice(calendars)
+            calendars.remove(calendar)
+
+            # Copy the template event and fill in some of its fields
+            # to make a new event to create on the calendar.
+            vcalendar = self._eventTemplate.duplicate()
+            vevent = vcalendar.mainComponent()
+            uid = str(uuid4())
+            dtstart = self._eventStartDistribution.sample()
+            dtend = dtstart + PyCalendarDuration(seconds=self._eventDurationDistribution.sample())
+            vevent.replaceProperty(Property("CREATED", PyCalendarDateTime.getNowUTC()))
+            vevent.replaceProperty(Property("DTSTAMP", PyCalendarDateTime.getNowUTC()))
+            vevent.replaceProperty(Property("DTSTART", dtstart))
+            vevent.replaceProperty(Property("DTEND", dtend))
+            vevent.replaceProperty(Property("UID", uid))
+
+            vevent.addProperty(self._client._makeSelfOrganizer())
+            vevent.addProperty(self._client._makeSelfAttendee())
+
+            attendees = list(vevent.properties('ATTENDEE'))
+            for _ignore in range(int(self._inviteeCountDistribution.sample())):
+                try:
+                    self._addAttendee(vevent, attendees)
+                except CannotAddAttendee:
+                    return succeed(None)
+
+            href = '%s%s.ics' % (calendar.url, uid)
+            d = self._client.addEvent(href, vcalendar)
+            return self._newOperation("invite", d)
 
 class Accepter(ProfileBase):
     """

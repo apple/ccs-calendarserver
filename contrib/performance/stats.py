@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2010-2011 Apple Inc. All rights reserved.
+# Copyright (c) 2010-2012 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -256,15 +256,24 @@ class LogNormalDistribution(object, FancyEqMixin):
     """
     implements(IPopulation)
 
-    compareAttributes = ['_mu', '_sigma']
+    compareAttributes = ['_mu', '_sigma', '_maximum']
 
-    def __init__(self, mu, sigma):
+    def __init__(self, mu, sigma, maximum=None):
         self._mu = mu
         self._sigma = sigma
+        self._maximum = maximum
 
 
     def sample(self):
-        return random.lognormvariate(self._mu, self._sigma)
+        result = random.lognormvariate(self._mu, self._sigma)
+        if self._maximum is not None and result > self._maximum:
+            for _ignore in range(10):
+                result = random.lognormvariate(self._mu, self._sigma)
+                if result <= self._maximum:
+                    break
+            else:
+                raise ValueError("Unable to generate LogNormalDistribution sample within required range")
+        return result
 
 
 
@@ -368,3 +377,24 @@ class WorkDistribution(object, FancyEqMixin):
                 return result
             offset.setDuration(offset.getTotalSeconds() - (end - start).getTotalSeconds())
             beginning = end
+
+if __name__ == '__main__':
+    
+    from collections import defaultdict
+    mu = 1.5
+    sigma = 1.22
+    distribution = LogNormalDistribution(mu, sigma, 100)
+    result = defaultdict(int)
+    for i in range(100000):
+        s = int(distribution.sample())
+        if s > 300:
+            continue
+        result[s] += 1
+    
+    total = 0
+    for k, v in sorted(result.items(), key=lambda x:x[0]):
+        print "%d\t%.5f" % (k, float(v)/result[1])
+        total += k * v
+        
+    print "Average: %.2f" % (float(total) / sum(result.values()),)
+
