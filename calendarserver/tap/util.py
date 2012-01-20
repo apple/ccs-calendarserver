@@ -378,6 +378,9 @@ def getRootResource(config, newStore, resources=None):
     if newStore is None:
         raise RuntimeError("Internal error, 'newStore' must be specified.")
 
+    if resources is None:
+        resources = []
+
     # FIXME: this is only here to workaround circular imports
     doBind()
 
@@ -639,8 +642,13 @@ def getRootResource(config, newStore, resources=None):
     if apnConfig.Enabled:
         log.info("Setting up APNS resource at /%s" %
             (apnConfig["SubscriptionURL"],))
-        apnResource = apnSubscriptionResourceClass(root, newStore)
-        root.putChild(apnConfig["SubscriptionURL"], apnResource)
+        # Only advertise digest auth on /apns
+        resources.append((
+            apnConfig["SubscriptionURL"],
+            apnSubscriptionResourceClass,
+            [],
+            "digest"
+        ))
 
     #
     # Configure ancillary data
