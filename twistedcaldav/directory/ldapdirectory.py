@@ -56,6 +56,7 @@ from twistedcaldav.directory.cachingdirectory import (CachingDirectoryService,
     CachingDirectoryRecord)
 from twistedcaldav.directory.directory import DirectoryConfigurationError
 from twistedcaldav.directory.augment import AugmentRecord
+from twistedcaldav.directory.util import splitIntoBatches
 from twisted.internet.defer import succeed, inlineCallbacks, returnValue
 from twext.web2.http import HTTPError, StatusResponse
 from twext.web2 import responsecode
@@ -1126,18 +1127,6 @@ def buildFilter(mapping, fields, operand="or"):
 
     return filterstr
 
-
-def splitIntoBatches(data, size):
-    """
-    Return a generator of sets consisting of the contents of the data set
-    split into parts no larger than size.
-    """
-    if not data:
-        yield set([])
-    data = list(data)
-    while data:
-        yield set(data[:size])
-        del data[:size]
 
 
 

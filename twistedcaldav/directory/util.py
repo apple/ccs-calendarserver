@@ -96,3 +96,15 @@ def transactionFromRequest(request, newStore):
     return transaction
 
 
+def splitIntoBatches(data, size):
+    """
+    Return a generator of sets consisting of the contents of the data set
+    split into parts no larger than size.
+    """
+    if not data:
+        yield set([])
+    data = list(data)
+    while data:
+        yield set(data[:size])
+        del data[:size]
+

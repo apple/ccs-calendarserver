@@ -18,8 +18,9 @@ try:
     from twistedcaldav.directory.ldapdirectory import (
         buildFilter, LdapDirectoryService,
         MissingGuidException, MissingRecordNameException,
-        splitIntoBatches, normalizeDNstr, dnContainedIn
+        normalizeDNstr, dnContainedIn
     )
+    from twistedcaldav.directory.util import splitIntoBatches
     from twistedcaldav.test.util import proxiesFile
     from twistedcaldav.directory.calendaruserproxyloader import XMLCalendarUserProxyLoader
     from twistedcaldav.directory import calendaruserproxy

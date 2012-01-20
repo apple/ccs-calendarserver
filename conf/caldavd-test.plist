@@ -207,7 +207,7 @@
         <key>node</key>
         <string>/Search</string>
         <key>cacheTimeout</key>
-        <integer>1</integer>
+        <integer>10</integer>
       </dict>
     </dict>
     -->

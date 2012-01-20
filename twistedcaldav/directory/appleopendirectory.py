@@ -28,7 +28,7 @@ import sys
 import time
 from uuid import UUID
 
-from twisted.internet.defer import succeed
+from twisted.internet.defer import succeed, inlineCallbacks, returnValue
 from twisted.cred.credentials import UsernamePassword
 from twext.web2.auth.digest import DigestedCredentials
 
@@ -37,6 +37,7 @@ from twistedcaldav.directory.cachingdirectory import CachingDirectoryService,\
     CachingDirectoryRecord
 from twistedcaldav.directory.directory import DirectoryService, DirectoryRecord
 from twistedcaldav.directory.directory import DirectoryError, UnknownRecordTypeError
+from twistedcaldav.directory.util import splitIntoBatches
 from twistedcaldav.directory.principal import cuAddressConverter
 
 from calendarserver.platform.darwin.od import dsattributes, dsquery
@@ -72,6 +73,7 @@ class OpenDirectoryService(CachingDirectoryService):
             'restrictEnabledRecords' : False,
             'restrictToGroup' : '',
             'cacheTimeout' : 1, # Minutes
+            'batchSize' : 100, # for splitting up large queries
             'negativeCaching' : False,
             'recordTypes' : (
                 self.recordType_users,
@@ -103,6 +105,7 @@ class OpenDirectoryService(CachingDirectoryService):
         self.node = params['node']
         self.restrictEnabledRecords = params['restrictEnabledRecords']
         self.restrictToGroup = params['restrictToGroup']
+        self.batchSize = params['batchSize']
         try:
             UUID(self.restrictToGroup)
         except:
@@ -269,6 +272,10 @@ class OpenDirectoryService(CachingDirectoryService):
 
         for key, value in results:
             recordGUID = value.get(dsattributes.kDS1AttrGeneratedUID)
+            if not recordGUID:
+                self.log_warn("Ignoring record missing GUID: %s %s" %
+                    (key, value,))
+                continue
 
             # Skip if group restriction is in place and guid is not
             # a member (but don't skip any groups)
@@ -324,8 +331,11 @@ class OpenDirectoryService(CachingDirectoryService):
                     if type(nestedGUIDs) is str:
                         nestedGUIDs = (nestedGUIDs,)
                     memberGUIDs += tuple(nestedGUIDs)
+                else:
+                    nestedGUIDs = ()
             else:
                 memberGUIDs = ()
+                nestedGUIDs = ()
 
             record = OpenDirectoryRecord(
                 service               = self,
@@ -339,6 +349,7 @@ class OpenDirectoryService(CachingDirectoryService):
                 lastName              = "",
                 emailAddresses        = "",
                 memberGUIDs           = memberGUIDs,
+                nestedGUIDs           = nestedGUIDs,
                 extProxies            = proxyGUIDs,
                 extReadOnlyProxies    = readOnlyProxyGUIDs,
             )
@@ -565,6 +576,24 @@ class OpenDirectoryService(CachingDirectoryService):
                         value.get(dsattributes.kDSNAttrEMailAddress),
                         lower=True)
 
+                    # Special case for groups, which have members.
+                    if recordType == self.recordType_groups:
+                        memberGUIDs = value.get(dsattributes.kDSNAttrGroupMembers)
+                        if memberGUIDs is None:
+                            memberGUIDs = ()
+                        elif type(memberGUIDs) is str:
+                            memberGUIDs = (memberGUIDs,)
+                        nestedGUIDs = value.get(dsattributes.kDSNAttrNestedGroups)
+                        if nestedGUIDs:
+                            if type(nestedGUIDs) is str:
+                                nestedGUIDs = (nestedGUIDs,)
+                            memberGUIDs += tuple(nestedGUIDs)
+                        else:
+                            nestedGUIDs = ()
+                    else:
+                        nestedGUIDs = ()
+                        memberGUIDs = ()
+
                     # Create records but don't store them in our index or
                     # send them to memcached, because these are transient,
                     # existing only so we can create principal resource
@@ -581,7 +610,8 @@ class OpenDirectoryService(CachingDirectoryService):
                         firstName             = recordFirstName,
                         lastName              = recordLastName,
                         emailAddresses        = recordEmailAddresses,
-                        memberGUIDs           = (),
+                        memberGUIDs           = memberGUIDs,
+                        nestedGUIDs           = nestedGUIDs,
                         extProxies            = (),
                         extReadOnlyProxies    = (),
                     )
@@ -685,6 +715,8 @@ class OpenDirectoryService(CachingDirectoryService):
                 dsattributes.kDS1AttrLastName,
                 dsattributes.kDSNAttrEMailAddress,
                 dsattributes.kDSNAttrMetaNodeLocation,
+                dsattributes.kDSNAttrGroupMembers,
+                dsattributes.kDSNAttrNestedGroups,
             ],
             operand
         )
@@ -855,8 +887,11 @@ class OpenDirectoryService(CachingDirectoryService):
                     if type(nestedGUIDs) is str:
                         nestedGUIDs = (nestedGUIDs,)
                     memberGUIDs += tuple(nestedGUIDs)
+                else:
+                    nestedGUIDs = ()
             else:
                 memberGUIDs = ()
+                nestedGUIDs = ()
 
             # Special case for resources and locations
             autoSchedule = False
@@ -888,6 +923,7 @@ class OpenDirectoryService(CachingDirectoryService):
                 lastName              = recordLastName,
                 emailAddresses        = recordEmailAddresses,
                 memberGUIDs           = memberGUIDs,
+                nestedGUIDs           = nestedGUIDs,
                 extProxies            = proxyGUIDs,
                 extReadOnlyProxies    = readOnlyProxyGUIDs,
             )
@@ -998,6 +1034,53 @@ class OpenDirectoryService(CachingDirectoryService):
         return True
 
 
+    @inlineCallbacks
+    def getGroups(self, guids):
+        """
+        Returns a set of group records for the list of guids passed in.  For
+        any group that also contains subgroups, those subgroups' records are
+        also returned, and so on.
+        """
+
+        recordsByGUID = {}
+        valuesToFetch = guids
+
+        loop = 1
+        while valuesToFetch:
+            self.log_info("getGroups loop %d" % (loop,))
+
+            results = []
+
+            for batch in splitIntoBatches(valuesToFetch, self.batchSize):
+                fields = []
+                for value in batch:
+                    fields.append(["guid", value, False, "equals"])
+                self.log_info("getGroups fetching batch of %d" %
+                    (len(fields),))
+                result = list((yield self.recordsMatchingFields(fields,
+                    recordType=self.recordType_groups)))
+                results.extend(result)
+                self.log_info("getGroups got back batch of %d for subtotal of %d" %
+                    (len(result), len(results)))
+
+            # Reset values for next iteration
+            valuesToFetch = set()
+
+            for record in results:
+                guid = record.guid
+                if guid not in recordsByGUID:
+                    recordsByGUID[guid] = record
+
+                # record.nestedGUIDs() contains the sub groups of this group
+                for memberGUID in record.nestedGUIDs():
+                    if memberGUID not in recordsByGUID:
+                        self.log_info("getGroups group %s contains group %s" %
+                            (record.guid, memberGUID))
+                        valuesToFetch.add(memberGUID)
+
+            loop += 1
+
+        returnValue(recordsByGUID.values())
 
 def buildQueries(recordTypes, fields, mapping):
     """
@@ -1025,7 +1108,7 @@ class OpenDirectoryRecord(CachingDirectoryRecord):
     """
     def __init__(
         self, service, recordType, guid, nodeName, shortNames, authIDs,
-        fullName, firstName, lastName, emailAddresses, memberGUIDs,
+        fullName, firstName, lastName, emailAddresses, memberGUIDs, nestedGUIDs,
         extProxies, extReadOnlyProxies,
     ):
         super(OpenDirectoryRecord, self).__init__(
@@ -1044,6 +1127,7 @@ class OpenDirectoryRecord(CachingDirectoryRecord):
         self.nodeName = nodeName
 
         self._memberGUIDs = tuple(memberGUIDs)
+        self._nestedGUIDs = tuple(nestedGUIDs)
         self._groupMembershipGUIDs = None
 
 
@@ -1083,6 +1167,9 @@ class OpenDirectoryRecord(CachingDirectoryRecord):
 
     def memberGUIDs(self):
         return set(self._memberGUIDs)
+
+    def nestedGUIDs(self):
+        return set(self._nestedGUIDs)
 
     def verifyCredentials(self, credentials):
         if isinstance(credentials, UsernamePassword):

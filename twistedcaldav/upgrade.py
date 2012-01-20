@@ -875,6 +875,7 @@ def migrateAutoSchedule(config, directory):
     # the values in augments
     augmentService = directory.augmentService
     if augmentService:
+        log.warn("Migrating auto-schedule settings")
         augmentRecords = []
         dbPath = os.path.join(config.DataRoot, ResourceInfoDatabase.dbFilename)
         if os.path.exists(dbPath):
@@ -890,6 +891,7 @@ def migrateAutoSchedule(config, directory):
                     augmentRecords.append(augmentRecord)
 
         yield augmentService.addAugmentRecords(augmentRecords)
+        log.warn("Migrated auto-schedule settings")
 
 
 class UpgradeFileSystemFormatService(Service, object):

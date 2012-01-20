@@ -81,6 +81,7 @@ else:
                 lastName              = "User",
                 emailAddresses        = set(("someuser@example.com",)),
                 memberGUIDs           = [],
+                nestedGUIDs           = [],
                 extProxies            = [],
                 extReadOnlyProxies    = [],
             )
@@ -99,6 +100,7 @@ else:
                 lastName              = "User",
                 emailAddresses        = set(("someuser@example.com",)),
                 memberGUIDs           = [],
+                nestedGUIDs           = [],
                 extProxies            = [],
                 extReadOnlyProxies    = [],
             )
@@ -121,6 +123,7 @@ else:
                 lastName              = "User",
                 emailAddresses        = set(("someuser@example.com",)),
                 memberGUIDs           = [],
+                nestedGUIDs           = [],
                 extProxies            = [],
                 extReadOnlyProxies    = [],
             )
