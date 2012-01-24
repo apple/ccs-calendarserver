@@ -2181,7 +2181,7 @@ class CommonHomeResource(PropfindCacheMixin, SharedHomeMixin, CalDAVResource):
 
     def supportedReports(self):
         result = super(CommonHomeResource, self).supportedReports()
-        if config.EnableSyncReport:
+        if config.EnableSyncReport and config.EnableSyncReportHome:
             # Allowed on any home
             result.append(davxml.Report(SyncCollection(),))
         return result
@@ -2462,7 +2462,10 @@ class CommonHomeResource(PropfindCacheMixin, SharedHomeMixin, CalDAVResource):
         Use the sync token as the etag
         """
         if self._newStoreHome:
-            token = (yield self.getInternalSyncToken())
+            if config.EnableSyncReport and config.EnableSyncReportHome:
+                token = (yield self.getInternalSyncToken())
+            else:
+                token = str(self._newStoreHome.modified())
             returnValue(ETag(hashlib.md5(token).hexdigest()))
         else:
             returnValue(None)
