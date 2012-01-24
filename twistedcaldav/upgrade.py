@@ -582,7 +582,6 @@ def normalizeCUAddrs(data, directory, cuaCache):
     cal = Component.fromString(data)
 
     def lookupFunction(cuaddr):
-        from twisted.python.failure import Failure
         # Return cached results, if any.
         if cuaCache.has_key(cuaddr):
             return cuaCache[cuaddr]
