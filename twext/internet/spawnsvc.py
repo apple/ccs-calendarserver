@@ -222,6 +222,7 @@ class SpawnerService(Service, object):
         super(SpawnerService, self).startService()
         for spawn in self.pendingSpawns:
             self.spawn(*spawn)
+        self.pendingSpawns = []
 
 
     def addBridge(self, bridge):
@@ -242,7 +243,7 @@ class SpawnerService(Service, object):
         if self._stopAllDeferred is not None:
             if len(self.bridges) == 0:
                 self._stopAllDeferred.callback(None)
-                self._stopAllDeferred = False
+                self._stopAllDeferred = None
 
 
     def stopService(self):
