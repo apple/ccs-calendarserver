@@ -32,9 +32,10 @@ from twisted.python.reflect import namedAny, qual
 from twisted.application.service import Service
 from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks, returnValue
-from twisted.internet.defer import maybeDeferred, DeferredList
+from twisted.internet.defer import maybeDeferred, gatherResults
 
 from twext.python.filepath import CachingFilePath
+from twext.python.parallel import Parallelizer
 from twext.internet.spawnsvc import SpawnerService
 
 from twisted.protocols.amp import AMP, Command, String
@@ -339,12 +340,11 @@ class UpgradeToDatabaseService(Service, LoggingMixIn, object):
                           (parallel,))
             spawner = self.spawner
             spawner.startService()
-            drivers = []
-            for value in xrange(parallel):
-                driver = yield spawner.spawnWithStore(UpgradeDriver(self),
-                                                      UpgradeHelperProcess)
-                drivers.append(driver)
-
+            drivers = yield gatherResults(
+                [spawner.spawnWithStore(UpgradeDriver(self),
+                                        UpgradeHelperProcess)
+                 for x in xrange(parallel)]
+            )
             # Wait for all subprocesses to be fully configured before
             # continuing, but let them configure in any order.
             self.log_warn("Configuring upgrade helper processes.")
@@ -356,13 +356,15 @@ class UpgradeToDatabaseService(Service, LoggingMixIn, object):
             # know the intimate details of the fileStore implementation.
             # (Alternately, wrapService could just hold on to the details that
             # it used to construct the service in the first place.)
-            yield DeferredList([driver.configure(self.fileStore._path.path,
-                                                 self.fileStore._propertyStoreClass)
-                                for driver in drivers])
+            yield gatherResults(
+                [driver.configure(self.fileStore._path.path,
+                                  self.fileStore._propertyStoreClass)
+                 for driver in drivers]
+            )
             self.log_warn("Upgrade helpers ready.")
+            parallelizer = Parallelizer(drivers)
 
         self.log_warn("Beginning filesystem -> database upgrade.")
-        inParallel = []
         for homeType, eachFunc in [
                 ("calendar", self.fileStore.eachCalendarHome),
                 ("addressbook", self.fileStore.eachAddressbookHome),
@@ -374,27 +376,17 @@ class UpgradeToDatabaseService(Service, LoggingMixIn, object):
                     # No-op transaction here: make sure everything's unlocked
                     # before asking the subprocess to handle it.
                     yield fileTxn.commit()
-                    if not drivers:
-                        # All the subprocesses are currently busy processing an
-                        # upgrade.  Wait for one to become available.
-                        yield DeferredList(inParallel, fireOnOneCallback=True,
-                                           fireOnOneErrback=True)
-                    busy = drivers.pop(0)
-                    d = busy.oneUpgrade(fileHome.uid(), homeType)
-                    inParallel.append(d)
-                    def freeUp(result, d=d, busy=busy, uid=uid,
-                               homeType=homeType):
-                        inParallel.remove(d)
-                        drivers.append(busy)
+                    @inlineCallbacks
+                    def doOneUpgrade(driver, fileUID=uid):
+                        yield driver.oneUpgrade(fileUID, homeType)
                         self.log_warn("Completed migration of %s uid %r" %
-                                      (homeType, uid))
-                        return result
-                    d.addBoth(freeUp)
+                                      (homeType, fileUID))
+                    yield parallelizer.do(doOneUpgrade)
                 else:
                     yield self.migrateOneHome(fileTxn, homeType, fileHome)
 
-        if inParallel:
-            yield DeferredList(inParallel)
+        if parallel:
+            yield parallelizer.done()
 
         for homeType in TOPPATHS:
             homesPath = self.fileStore._path.child(homeType)
