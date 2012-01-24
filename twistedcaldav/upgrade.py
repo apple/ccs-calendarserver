@@ -17,7 +17,7 @@
 
 from __future__ import with_statement
 
-import xattr, os, zlib, hashlib, datetime, pwd, grp, shutil, errno
+import xattr, os, zlib, hashlib, datetime, pwd, grp, shutil, errno, operator
 from zlib import compress
 from cPickle import loads as unpickle, UnpicklingError
 
@@ -40,16 +40,21 @@ from twistedcaldav.scheduling.scheduler import DirectScheduler
 
 from twisted.application.service import Service
 from twisted.internet import reactor
-from twisted.internet.defer import inlineCallbacks, succeed, returnValue
+from twisted.internet.defer import (
+    inlineCallbacks, succeed, returnValue, gatherResults
+)
 from twisted.python.reflect import namedAny
 from twisted.python.reflect import namedClass
 
 from txdav.caldav.datastore.index_file import db_basename
 
+from twisted.protocols.amp import AMP, Command, String, Boolean
+
 from calendarserver.tap.util import getRootResource, FakeRequest, directoryFromConfig
 from calendarserver.tools.resources import migrateResources
 from calendarserver.tools.util import getDirectory
 
+from twext.python.parallel import Parallelizer
 
 deadPropertyXattrPrefix = namedAny(
     "txdav.base.propertystore.xattr.PropertyStore.deadPropertyXattrPrefix"
@@ -81,119 +86,89 @@ def getCalendarServerIDs(config):
 
     return uid, gid
 
-#
-# upgrade_to_1
-#
-# Upconverts data from any calendar server version prior to data format 1
-#
 
-@inlineCallbacks
-def upgrade_to_1(config, spawner, directory):
+def fixBadQuotes(data):
+    if (
+        data.find('\\"') != -1 or
+        data.find('\\\r\n "') != -1 or
+        data.find('\r\n \r\n "') != -1
+    ):
+        # Fix by continuously replacing \" with " until no more
+        # replacements occur
+        while True:
+            newData = data.replace('\\"', '"').replace('\\\r\n "', '\r\n "').replace('\r\n \r\n "', '\r\n "')
+            if newData == data:
+                break
+            else:
+                data = newData
 
+        return data, True
+    else:
+        return data, False
+
+
+
+def upgradeCalendarCollection(calPath, directory, cuaCache):
     errorOccurred = False
+    collectionUpdated = False
 
-    def fixBadQuotes(data):
-        if (
-            data.find('\\"') != -1 or
-            data.find('\\\r\n "') != -1 or
-            data.find('\r\n \r\n "') != -1
-        ):
-            # Fix by continuously replacing \" with " until no more
-            # replacements occur
-            while True:
-                newData = data.replace('\\"', '"').replace('\\\r\n "', '\r\n "').replace('\r\n \r\n "', '\r\n "')
-                if newData == data:
-                    break
-                else:
-                    data = newData
+    for resource in os.listdir(calPath):
 
-            return data, True
-        else:
-            return data, False
+        if resource.startswith("."):
+            continue
 
+        resPath = os.path.join(calPath, resource)
 
+        if os.path.isdir(resPath):
+            # Skip directories
+            continue
 
+        log.debug("Processing: %s" % (resPath,))
+        needsRewrite = False
+        with open(resPath) as res:
+            data = res.read()
 
-
-    def upgradeCalendarCollection(calPath, directory, cuaCache):
-
-        errorOccurred = False
-        collectionUpdated = False
-
-        for resource in os.listdir(calPath):
-
-            if resource.startswith("."):
-                continue
-
-            resPath = os.path.join(calPath, resource)
-
-            if os.path.isdir(resPath):
-                # Skip directories
-                continue
-
-            log.debug("Processing: %s" % (resPath,))
-            needsRewrite = False
-            with open(resPath) as res:
-                data = res.read()
-
-                try:
-                    data, fixed = fixBadQuotes(data)
-                    if fixed:
-                        log.warn("Fixing bad quotes in %s" % (resPath,))
-                        needsRewrite = True
-                except Exception, e:
-                    log.error("Error while fixing bad quotes in %s: %s" %
-                        (resPath, e))
-                    errorOccurred = True
-                    continue
-
-                try:
-                    data, fixed = removeIllegalCharacters(data)
-                    if fixed:
-                        log.warn("Removing illegal characters in %s" % (resPath,))
-                        needsRewrite = True
-                except Exception, e:
-                    log.error("Error while removing illegal characters in %s: %s" %
-                        (resPath, e))
-                    errorOccurred = True
-                    continue
-
-                try:
-                    data, fixed = normalizeCUAddrs(data, directory, cuaCache)
-                    if fixed:
-                        log.debug("Normalized CUAddrs in %s" % (resPath,))
-                        needsRewrite = True
-                except Exception, e:
-                    log.error("Error while normalizing %s: %s" %
-                        (resPath, e))
-                    errorOccurred = True
-                    continue
-
-            if needsRewrite:
-                with open(resPath, "w") as res:
-                    res.write(data)
-
-                md5value = "<?xml version='1.0' encoding='UTF-8'?>\r\n<getcontentmd5 xmlns='http://twistedmatrix.com/xml_namespace/dav/'>%s</getcontentmd5>\r\n" % (hashlib.md5(data).hexdigest(),)
-                md5value = zlib.compress(md5value)
-                try:
-                    xattr.setxattr(resPath, xattrname("{http:%2F%2Ftwistedmatrix.com%2Fxml_namespace%2Fdav%2F}getcontentmd5"), md5value)
-                except IOError, ioe:
-                    if ioe.errno == errno.EOPNOTSUPP:
-                        # On non-native xattr systems we cannot do this,
-                        # but those systems will typically not be migrating
-                        # from pre-v1
-                        pass
-                except:
-                    raise
-
-                collectionUpdated = True
-
-
-        if collectionUpdated:
-            ctagValue = "<?xml version='1.0' encoding='UTF-8'?>\r\n<getctag xmlns='http://calendarserver.org/ns/'>%s</getctag>\r\n" % (str(datetime.datetime.now()),)
-            ctagValue = zlib.compress(ctagValue)
             try:
-                xattr.setxattr(calPath, xattrname("{http:%2F%2Fcalendarserver.org%2Fns%2F}getctag"), ctagValue)
+                data, fixed = fixBadQuotes(data)
+                if fixed:
+                    log.warn("Fixing bad quotes in %s" % (resPath,))
+                    needsRewrite = True
+            except Exception, e:
+                log.error("Error while fixing bad quotes in %s: %s" %
+                    (resPath, e))
+                errorOccurred = True
+                continue
+
+            try:
+                data, fixed = removeIllegalCharacters(data)
+                if fixed:
+                    log.warn("Removing illegal characters in %s" % (resPath,))
+                    needsRewrite = True
+            except Exception, e:
+                log.error("Error while removing illegal characters in %s: %s" %
+                    (resPath, e))
+                errorOccurred = True
+                continue
+
+            try:
+                data, fixed = normalizeCUAddrs(data, directory, cuaCache)
+                if fixed:
+                    log.debug("Normalized CUAddrs in %s" % (resPath,))
+                    needsRewrite = True
+            except Exception, e:
+                log.error("Error while normalizing %s: %s" %
+                    (resPath, e))
+                errorOccurred = True
+                continue
+
+        if needsRewrite:
+            with open(resPath, "w") as res:
+                res.write(data)
+
+            md5value = "<?xml version='1.0' encoding='UTF-8'?>\r\n<getcontentmd5 xmlns='http://twistedmatrix.com/xml_namespace/dav/'>%s</getcontentmd5>\r\n" % (hashlib.md5(data).hexdigest(),)
+            md5value = zlib.compress(md5value)
+            try:
+                xattr.setxattr(resPath, xattrname("{http:%2F%2Ftwistedmatrix.com%2Fxml_namespace%2Fdav%2F}getcontentmd5"), md5value)
             except IOError, ioe:
                 if ioe.errno == errno.EOPNOTSUPP:
                     # On non-native xattr systems we cannot do this,
@@ -203,56 +178,120 @@ def upgrade_to_1(config, spawner, directory):
             except:
                 raise
 
-        return errorOccurred
+            collectionUpdated = True
 
 
-    def upgradeCalendarHome(homePath, directory, cuaCache):
-
-        errorOccurred = False
-
-        log.debug("Upgrading calendar home: %s" % (homePath,))
-
+    if collectionUpdated:
+        ctagValue = "<?xml version='1.0' encoding='UTF-8'?>\r\n<getctag xmlns='http://calendarserver.org/ns/'>%s</getctag>\r\n" % (str(datetime.datetime.now()),)
+        ctagValue = zlib.compress(ctagValue)
         try:
-            for cal in os.listdir(homePath):
-                calPath = os.path.join(homePath, cal)
-                if not os.path.isdir(calPath):
-                    # Skip non-directories; these might have been uploaded by a
-                    # random DAV client, they can't be calendar collections.
-                    continue
-                if cal == 'notifications':
-                    # Delete the old, now obsolete, notifications directory.
-                    rmdir(calPath)
-                    continue
-                log.debug("Upgrading calendar: %s" % (calPath,))
-                if not upgradeCalendarCollection(calPath, directory, cuaCache):
-                    errorOccurred = True
-
-                # Change the calendar-free-busy-set xattrs of the inbox to the
-                # __uids__/<guid> form
-                if cal == "inbox":
-                    try:
-                        for attr, value in xattr.xattr(calPath).iteritems():
-                            if attr == xattrname("{urn:ietf:params:xml:ns:caldav}calendar-free-busy-set"):
-                                value = updateFreeBusySet(value, directory)
-                                if value is not None:
-                                    # Need to write the xattr back to disk
-                                    xattr.setxattr(calPath, attr, value)
-                    except IOError, ioe:
-                        if ioe.errno == errno.EOPNOTSUPP:
-                            # On non-native xattr systems we cannot do this,
-                            # but those systems will typically not be migrating
-                            # from pre-v1
-                            pass
-                    except:
-                        raise
-
-
-        except Exception, e:
-            log.error("Failed to upgrade calendar home %s: %s" % (homePath, e))
+            xattr.setxattr(calPath, xattrname("{http:%2F%2Fcalendarserver.org%2Fns%2F}getctag"), ctagValue)
+        except IOError, ioe:
+            if ioe.errno == errno.EOPNOTSUPP:
+                # On non-native xattr systems we cannot do this,
+                # but those systems will typically not be migrating
+                # from pre-v1
+                pass
+        except:
             raise
 
-        return errorOccurred
+    return errorOccurred
 
+
+
+def upgradeCalendarHome(homePath, directory, cuaCache):
+
+    errorOccurred = False
+
+    log.debug("Upgrading calendar home: %s" % (homePath,))
+
+    try:
+        for cal in os.listdir(homePath):
+            calPath = os.path.join(homePath, cal)
+            if not os.path.isdir(calPath):
+                # Skip non-directories; these might have been uploaded by a
+                # random DAV client, they can't be calendar collections.
+                continue
+            if cal == 'notifications':
+                # Delete the old, now obsolete, notifications directory.
+                rmdir(calPath)
+                continue
+            log.debug("Upgrading calendar: %s" % (calPath,))
+            if not upgradeCalendarCollection(calPath, directory, cuaCache):
+                errorOccurred = True
+
+            # Change the calendar-free-busy-set xattrs of the inbox to the
+            # __uids__/<guid> form
+            if cal == "inbox":
+                try:
+                    for attr, value in xattr.xattr(calPath).iteritems():
+                        if attr == xattrname("{urn:ietf:params:xml:ns:caldav}calendar-free-busy-set"):
+                            value = updateFreeBusySet(value, directory)
+                            if value is not None:
+                                # Need to write the xattr back to disk
+                                xattr.setxattr(calPath, attr, value)
+                except IOError, ioe:
+                    if ioe.errno == errno.EOPNOTSUPP:
+                        # On non-native xattr systems we cannot do this,
+                        # but those systems will typically not be migrating
+                        # from pre-v1
+                        pass
+                except:
+                    raise
+    except Exception, e:
+        log.error("Failed to upgrade calendar home %s: %s" % (homePath, e))
+        raise
+
+    return errorOccurred
+
+
+
+class UpgradeOneHome(Command):
+    arguments = [('path', String())]
+    response = [('succeeded', Boolean())]
+
+
+
+class To1Driver(AMP):
+    """
+    Upgrade driver which runs in the parent process.
+    """
+
+    def upgradeHomeInHelper(self, path):
+        return self.callRemote(UpgradeOneHome, path=path).addCallback(
+            operator.itemgetter("succeeded")
+        )
+
+
+
+class To1Home(AMP):
+    """
+    Upgrade worker which runs in dedicated subprocesses.
+    """
+
+    def __init__(self, config):
+        super(To1Home, self).__init__()
+        self.directory = getDirectory(config)
+        self.cuaCache = {}
+
+
+    @UpgradeOneHome.responder
+    def upgradeOne(self, path):
+        result = upgradeCalendarHome(path, self.directory, self.cuaCache)
+        return dict(succeeded=result)
+
+
+
+@inlineCallbacks
+def upgrade_to_1(config, spawner, parallel, directory):
+    """
+    Upconvert data from any calendar server version prior to data format 1.
+    """
+    errorOccurred = []
+    def setError(f=None):
+        if f is not None:
+            log.err(f)
+        errorOccurred.append(True)
 
     def doProxyDatabaseMoveUpgrade(config, uid=-1, gid=-1):
         # See if the new one is already present
@@ -467,6 +506,12 @@ def upgrade_to_1(config, spawner, directory):
                 os.chown(inboxItemsFile, uid, gid)
 
             if total:
+                if parallel:
+                    spawner.startService()
+                    parallelizer = Parallelizer((yield gatherResults(
+                        [spawner.spawnWithConfig(config, To1Driver(), To1Home)
+                         for x in xrange(parallel)]
+                    )))
                 log.warn("Processing %d calendar homes in %s" % (total, uidHomes))
 
                 # Upgrade calendar homes in the new location:
@@ -484,15 +529,30 @@ def upgrade_to_1(config, spawner, directory):
                                         # Skip non-directories
                                         continue
 
-                                    if not upgradeCalendarHome(homePath,
-                                        directory, cuaCache):
-                                        errorOccurred = True
+                                    if parallel:
+                                        def doIt(driver, hp=homePath):
+                                            d = driver.upgradeHomeInHelper(hp)
+                                            def itWorked(succeeded):
+                                                if not succeeded:
+                                                    setError()
+                                                return succeeded
+                                            d.addCallback(itWorked)
+                                            d.addErrback(setError)
+                                            return d
+                                        yield parallelizer.do(doIt)
+                                    else:
+                                        if not upgradeCalendarHome(
+                                            homePath, directory, cuaCache
+                                        ):
+                                            setError()
 
                                     count += 1
                                     if count % 10 == 0:
                                         log.warn("Processed calendar home %d of %d"
                                             % (count, total))
-
+                if parallel:
+                    yield parallelizer.done()
+                    yield spawner.stopService()
                 log.warn("Done processing calendar homes")
 
     yield migrateResourceInfo(config, directory, uid, gid)
@@ -522,7 +582,7 @@ def normalizeCUAddrs(data, directory, cuaCache):
     cal = Component.fromString(data)
 
     def lookupFunction(cuaddr):
-
+        from twisted.python.failure import Failure
         # Return cached results, if any.
         if cuaCache.has_key(cuaddr):
             return cuaCache[cuaddr]
@@ -559,7 +619,7 @@ def normalizeCUAddrs(data, directory, cuaCache):
 
 
 @inlineCallbacks
-def upgrade_to_2(config, spawner, directory):
+def upgrade_to_2(config, spawner, parallel, directory):
     
     errorOccurred = False
 
@@ -675,7 +735,7 @@ upgradeMethods = [
 ]
 
 @inlineCallbacks
-def upgradeData(config, spawner=None):
+def upgradeData(config, spawner=None, parallel=0):
 
     directory = getDirectory()
 
@@ -707,7 +767,7 @@ def upgradeData(config, spawner=None):
     for version, method in upgradeMethods:
         if onDiskVersion < version:
             log.warn("Upgrading to version %d" % (version,))
-            (yield method(config, spawner, directory))
+            (yield method(config, spawner, parallel, directory))
             log.warn("Upgraded to version %d" % (version,))
             with open(versionFilePath, "w") as verFile:
                 verFile.write(str(version))
@@ -899,12 +959,14 @@ class UpgradeFileSystemFormatService(Service, object):
     Upgrade filesystem from previous versions.
     """
 
-    def __init__(self, config, service):
+    def __init__(self, spawner, parallel, config, service):
         """
         Initialize the service.
         """
         self.wrappedService = service
         self.config = config
+        self.spawner = spawner
+        self.parallel = parallel
 
 
     @inlineCallbacks
@@ -921,7 +983,7 @@ class UpgradeFileSystemFormatService(Service, object):
         memcacheEnabled = self.config.Memcached.Pools.Default.ClientEnabled
         self.config.Memcached.Pools.Default.ClientEnabled = False
 
-        yield upgradeData(self.config)
+        yield upgradeData(self.config, self.spawner, self.parallel)
 
         # Restore memcached client setting
         self.config.Memcached.Pools.Default.ClientEnabled = memcacheEnabled

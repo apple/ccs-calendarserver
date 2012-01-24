@@ -918,17 +918,16 @@ class CalDAVServiceMaker (LoggingMixIn):
                     parallel = config.MultiProcess.ProcessCount
                 else:
                     parallel = 0
+                spawner = ConfiguredChildSpawner(self, dispenser, config)
                 upgradeSvc = UpgradeFileSystemFormatService(
-                    config,
+                    config, spawner, parallel,
                     UpgradeDatabaseSchemaService.wrapService(
                         UpgradeDatabaseDataService.wrapService(
                             UpgradeToDatabaseService.wrapService(
                                 CachingFilePath(config.DocumentRoot),
                                 PostDBImportService(config, store, mainService),
                                 store, uid=overrideUID, gid=overrideGID,
-                                spawner=ConfiguredChildSpawner(
-                                    self, dispenser, config
-                                ),
+                                spawner=spawner,
                                 parallel=parallel
                             ),
                             store, uid=overrideUID, gid=overrideGID,
