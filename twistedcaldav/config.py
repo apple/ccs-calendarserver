@@ -152,6 +152,8 @@ class Config(object):
         if not attr.startswith("_"):
             self.__dict__["_dirty"] = True
 
+    _dirty = False
+    _data = ()
     def __getattr__(self, attr):
         if self._dirty:
             self.update()
