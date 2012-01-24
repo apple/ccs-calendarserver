@@ -88,7 +88,7 @@ def getCalendarServerIDs(config):
 #
 
 @inlineCallbacks
-def upgrade_to_1(config, directory):
+def upgrade_to_1(config, spawner, directory):
 
     errorOccurred = False
 
@@ -559,7 +559,7 @@ def normalizeCUAddrs(data, directory, cuaCache):
 
 
 @inlineCallbacks
-def upgrade_to_2(config, directory):
+def upgrade_to_2(config, spawner, directory):
     
     errorOccurred = False
 
@@ -675,7 +675,7 @@ upgradeMethods = [
 ]
 
 @inlineCallbacks
-def upgradeData(config):
+def upgradeData(config, spawner=None):
 
     directory = getDirectory()
 
@@ -707,7 +707,7 @@ def upgradeData(config):
     for version, method in upgradeMethods:
         if onDiskVersion < version:
             log.warn("Upgrading to version %d" % (version,))
-            (yield method(config, directory))
+            (yield method(config, spawner, directory))
             log.warn("Upgraded to version %d" % (version,))
             with open(versionFilePath, "w") as verFile:
                 verFile.write(str(version))
