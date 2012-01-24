@@ -92,6 +92,15 @@ class StoreSpawnerService(SpawnerService):
         raise NotImplementedError("subclasses must implement the specifics")
 
 
+    def spawnWithConfig(self, config, here, there):
+        """
+        Like L{SpawnerService.spawn}, but instead of instantiating C{there}
+        with 0 arguments, it instantiates it with the given
+        L{twistedcaldav.config.Config}.
+        """
+        raise NotImplementedError("subclasses must implement the specifics")
+
+
 
 class Configure(Command):
     """
@@ -162,7 +171,7 @@ class UpgradeHelperProcess(AMP):
         super(UpgradeHelperProcess, self).__init__()
         self.store = store
         self.store.setMigrating(True)
-        
+
 
     @Configure.responder
     def configure(self, filename, appropriateStoreClass):
