@@ -959,7 +959,7 @@ class UpgradeFileSystemFormatService(Service, object):
     Upgrade filesystem from previous versions.
     """
 
-    def __init__(self, spawner, parallel, config, service):
+    def __init__(self, config, spawner, parallel, service):
         """
         Initialize the service.
         """
