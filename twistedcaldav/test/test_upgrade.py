@@ -66,6 +66,12 @@ class UpgradeTests(TestCase):
         config.ResourceService.params.xmlFile = resourceFile
 
 
+    def doUpgrade(self, config):
+        """
+        Perform the actual upgrade.  (Hook for parallel tests.)
+        """
+        return upgradeData(config)
+
 
     def setUpInitialStates(self):
         self.setUpXMLDirectory()
@@ -76,6 +82,7 @@ class UpgradeTests(TestCase):
         
         self.setUpNewDataRoot()
         self.setUpDataRootWithProxyDB()
+
 
     def setUpOldDocRoot(self):
         
@@ -155,7 +162,7 @@ class UpgradeTests(TestCase):
         self.assertTrue(os.path.exists(os.path.join(config.DocumentRoot, "principals", OLDPROXYFILE)))
         self.assertFalse(os.path.exists(os.path.join(config.DataRoot, NEWPROXYFILE)))
 
-        (yield upgradeData(config))
+        (yield self.doUpgrade(config))
         
         # Check post-conditions
         self.assertFalse(os.path.exists(os.path.join(config.DocumentRoot, "principals",)))
@@ -177,7 +184,7 @@ class UpgradeTests(TestCase):
         self.assertFalse(os.path.exists(os.path.join(config.DocumentRoot, "principals")))
         self.assertTrue(os.path.exists(os.path.join(config.DataRoot, NEWPROXYFILE)))
 
-        (yield upgradeData(config))
+        (yield self.doUpgrade(config))
         
         # Check post-conditions
         self.assertFalse(os.path.exists(os.path.join(config.DocumentRoot, "principals",)))
@@ -273,12 +280,12 @@ class UpgradeTests(TestCase):
         config.DocumentRoot = root
         config.DataRoot = root
 
-        (yield upgradeData(config))
+        (yield self.doUpgrade(config))
         self.assertTrue(self.verifyHierarchy(root, after))
 
         if reverify:
             # Ensure that repeating the process doesn't change anything
-            (yield upgradeData(config))
+            (yield self.doUpgrade(config))
             self.assertTrue(self.verifyHierarchy(root, after))
 
 
@@ -1316,7 +1323,7 @@ class UpgradeTests(TestCase):
         config.DataRoot = root
 
         try:
-            (yield upgradeData(config))
+            (yield self.doUpgrade(config))
         except UpgradeError:
             pass
         else:
@@ -1379,7 +1386,7 @@ class UpgradeTests(TestCase):
         config.DocumentRoot = root
         config.DataRoot = root
 
-        (yield upgradeData(config))
+        (yield self.doUpgrade(config))
         self.assertTrue(self.verifyHierarchy(root, after))
 
         proxydbClass = namedClass(config.ProxyDBService.type)
@@ -1590,3 +1597,15 @@ def isValidCTag(value):
         return True
     except ValueError:
         return False
+
+
+class ParallelUpgradeTests(UpgradeTests):
+    """
+    Tests for upgradeData in parallel.
+    """
+
+    def doUpgrade(self, config):
+        from txdav.common.datastore.upgrade.test.test_migrate import StubSpawner
+        spawner = StubSpawner(config)
+        return upgradeData(config, spawner, 2)
+

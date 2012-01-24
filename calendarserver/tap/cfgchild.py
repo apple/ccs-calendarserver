@@ -29,7 +29,7 @@ __all__ = [
 from calendarserver.tools.util import setupMemcached
 from twisted.python.reflect import namedAny, qual
 from twisted.internet.defer import inlineCallbacks, returnValue
-from twisted.protocols.amp import AMP, Command, String, Integer#, ListOf
+from twisted.protocols.amp import AMP, Command, String, Integer, Boolean
 from txdav.common.datastore.upgrade.migrate import (
     StoreSpawnerService, swapAMP
 )
@@ -61,6 +61,7 @@ class ConfigureChild(Command):
 
         ## shared connection pool!
         ("connectionPoolFD", Integer(optional=True)),
+        ("withStore", Boolean()),
     ]
 
 
@@ -83,7 +84,7 @@ class ChildConfigurator(AMP):
 
     @ConfigureChild.responder
     def conf(self, delegateTo, pidFile, logID, configFile, processCount,
-             connectionPoolFD=None):
+             connectionPoolFD=None, withStore=True):
         """
         Load the current config file into this child process, create a store
         based on it, and delegate to the upgrade logic.
@@ -107,19 +108,21 @@ class ChildConfigurator(AMP):
             changedConfig.update(DBAMPFD=connectionPoolFD)
         self.config.updateDefaults(changedConfig)
 
-        # Construct and start database pool and store.
-        pool, txnf = getDBPool(self.config)
-        if pool is not None:
-            from twisted.internet import reactor
-            pool.startService()
-            reactor.addSystemEventTrigger(
-                "before", "shutdown", pool.stopService
-            )
-        dbstore = storeFromConfig(self.config, txnf)
-
+        if withStore:
+            # Construct and start database pool and store.
+            pool, txnf = getDBPool(self.config)
+            if pool is not None:
+                from twisted.internet import reactor
+                pool.startService()
+                reactor.addSystemEventTrigger(
+                    "before", "shutdown", pool.stopService
+                )
+            delegateArg = storeFromConfig(self.config, txnf)
+        else:
+            delegateArg = self.config
         # Finally, construct the class we're supposed to delegate to.
         delegateClass = namedAny(delegateTo)
-        swapAMP(self, delegateClass(dbstore))
+        swapAMP(self, delegateClass(delegateArg))
         return {}
 
 
@@ -148,10 +151,24 @@ class ConfiguredChildSpawner(StoreSpawnerService):
         self.config = config
 
 
-    @inlineCallbacks
+    def spawnWithConfig(self, config, here, there):
+        """
+        Spawn the child with a configuration.
+        """
+        return self._doSpawn(config, here, there, False)
+
+
     def spawnWithStore(self, here, there):
         """
         Spawn the child with a store based on a configuration.
+        """
+        return self._doSpawn(self.config, here, there, True)
+
+
+    @inlineCallbacks
+    def _doSpawn(self, config, here, there, withStore):
+        """
+        Common implementation of L{spawnWithStore} and L{spawnWithConfig}.
         """
         thisID = self.nextID
         self.nextID += 1
@@ -178,8 +195,9 @@ class ConfiguredChildSpawner(StoreSpawnerService):
             delegateTo=qual(there),
             pidFile="%s-migrator-%s" % (self.maker.tapname, thisID),
             logID="migrator-%s" % (thisID,),
-            configFile=self.config.getProvider().getConfigFileName(),
-            processCount=self.config.MultiProcess.ProcessCount,
+            configFile=config.getProvider().getConfigFileName(),
+            processCount=config.MultiProcess.ProcessCount,
+            withStore=withStore,
             **extra
         )
         returnValue(swapAMP(controller, here))

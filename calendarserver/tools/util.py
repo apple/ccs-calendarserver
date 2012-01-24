@@ -70,7 +70,7 @@ def loadConfig(configFileName):
 
     return config
 
-def getDirectory():
+def getDirectory(config=config):
 
     class MyDirectoryService (AggregateDirectoryService):
         def getPrincipalCollection(self):

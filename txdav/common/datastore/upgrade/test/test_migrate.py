@@ -20,6 +20,7 @@ Tests for L{txdav.common.datastore.upgrade.migrate}.
 
 from twext.python.filepath import CachingFilePath
 from twext.web2.http_headers import MimeType
+from twext.enterprise.adbapi2 import Pickle
 
 from twisted.python.modules import getModule
 from twisted.application.service import Service, MultiService
@@ -28,6 +29,8 @@ from twisted.internet.protocol import Protocol
 from twisted.protocols.amp import AMP, Command, String
 from twisted.python.reflect import qual, namedAny
 from twisted.trial.unittest import TestCase
+
+
 from txdav.caldav.datastore.test.common import CommonTests
 from txdav.carddav.datastore.test.common import CommonTests as ABCommonTests
 from txdav.common.datastore.file import CommonDataStore
@@ -50,6 +53,14 @@ class CreateStore(Command):
     arguments = [('delegateTo', String())]
 
 
+class PickleConfig(Command):
+    """
+    Unpickle some configuration in a subprocess.
+    """
+    arguments = [('delegateTo', String()),
+                 ('config', Pickle())]
+
+
 
 class StoreCreator(AMP):
     """
@@ -65,21 +76,45 @@ class StoreCreator(AMP):
         return {}
 
 
+    @PickleConfig.responder
+    def pickleConfig(self, config, delegateTo):
+        #from twistedcaldav.config import config as globalConfig
+        #globalConfig._data = config._data
+        swapAMP(self, namedAny(delegateTo)(config))
+        return {}
+
+
 
 class StubSpawner(StoreSpawnerService):
     """
     Stub spawner service which populates the store forcibly.
     """
 
+    def __init__(self, config=None):
+        super(StubSpawner, self).__init__()
+        self.config = config
+
+
     @inlineCallbacks
     def spawnWithStore(self, here, there):
         """
-        'here' and 'there' are the helper protocols; in a slight modification
-        of the signature, 'there' will expect to be created with an instance of
-        a store.
+        'here' and 'there' are the helper protocols 'there' will expect to be
+        created with an instance of a store.
         """
         master = yield self.spawn(AMP(), StoreCreator)
         yield master.callRemote(CreateStore, delegateTo=qual(there))
+        returnValue(swapAMP(master, here))
+
+
+    @inlineCallbacks
+    def spawnWithConfig(self, config, here, there):
+        """
+        Similar to spawnWithStore except the child process gets a configuration
+        object instead.
+        """
+        master = yield self.spawn(AMP(), StoreCreator)
+        yield master.callRemote(PickleConfig, config=self.config,
+                                delegateTo=qual(there))
         returnValue(swapAMP(master, here))
 
 
