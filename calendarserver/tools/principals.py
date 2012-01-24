@@ -676,7 +676,7 @@ def removeProxy(principal, proxyPrincipal, **kwargs):
 def action_setAutoSchedule(principal, autoSchedule):
     if principal.record.recordType == "groups":
         print "Enabling auto-schedule for %s is not allowed." % (principal,)
-        
+
     elif principal.record.recordType == "users" and not config.Scheduling.Options.AllowUserAutoAccept:
         print "Enabling auto-schedule for %s is not allowed." % (principal,)
 
@@ -807,13 +807,26 @@ def updateRecord(create, directory, recordType, **kwargs):
         record = directory.createRecord(recordType, **kwargs)
         kwargs['guid'] = record.guid
     else:
-        record = directory.updateRecord(recordType, **kwargs)
+        try:
+            record = directory.updateRecord(recordType, **kwargs)
+        except NotImplementedError:
+            # Updating of directory information is not supported by underlying
+            # directory implementation, but allow augment information to be
+            # updated
+            record = directory.recordWithGUID(kwargs["guid"])
+            pass
 
     augmentService = directory.serviceForRecordType(recordType).augmentService
     augmentRecord = (yield augmentService.getAugmentRecord(kwargs['guid'], recordType))
     augmentRecord.autoSchedule = autoSchedule
     (yield augmentService.addAugmentRecords([augmentRecord]))
-    directory.updateRecord(recordType, **kwargs)
+    try:
+        directory.updateRecord(recordType, **kwargs)
+    except NotImplementedError:
+        # Updating of directory information is not supported by underlying
+        # directory implementation, but allow augment information to be
+        # updated
+        pass
 
     returnValue(record)
 

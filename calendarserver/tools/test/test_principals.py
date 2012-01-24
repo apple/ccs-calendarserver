@@ -230,17 +230,22 @@ class ManagePrincipalsTestCase(TestCase):
             "locations:location01")
         self.assertTrue(results.startswith('Autoschedule for "Room 01" (locations:location01) is true'))
 
+        results = yield self.runCommand("--set-auto-schedule=true",
+            "users:user01")
+        self.assertTrue(results.startswith('Enabling auto-schedule for (users)user01 is not allowed.'))
+
+
     @inlineCallbacks
     def test_updateRecord(self):
         directory = directoryFromConfig(config)
-        guid = "eee28807-a8c5-46c8-a558-a08281c558a7"
+        guid = "EEE28807-A8C5-46C8-A558-A08281C558A7"
 
         (yield updateRecord(True, directory, "locations",
-            guid=guid, fullName="Test User", shortNames=["testuser",],)
+            guid=guid, fullName="Test Location", shortNames=["testlocation",],)
         )
         try:
             (yield updateRecord(True, directory, "locations",
-                guid=guid, fullName="Test User", shortNames=["testuser",],)
+                guid=guid, fullName="Test Location", shortNames=["testlocation",],)
             )
         except DirectoryError:
             # We're expecting an error for trying to create a record with
@@ -251,11 +256,11 @@ class ManagePrincipalsTestCase(TestCase):
 
         record = directory.recordWithGUID(guid)
         self.assertTrue(record is not None)
-        self.assertEquals(record.fullName, "Test User")
+        self.assertEquals(record.fullName, "Test Location")
         self.assertTrue(record.autoSchedule)
 
         (yield updateRecord(False, directory, "locations",
-            guid=guid, fullName="Changed", shortNames=["testuser",],)
+            guid=guid, fullName="Changed", shortNames=["testlocation",],)
         )
         record = directory.recordWithGUID(guid)
         self.assertTrue(record is not None)
@@ -264,6 +269,28 @@ class ManagePrincipalsTestCase(TestCase):
         directory.destroyRecord("locations", guid=guid)
         record = directory.recordWithGUID(guid)
         self.assertTrue(record is None)
+
+
+        # Create a user, change autoSchedule
+        guid = "F0DE73A8-39D4-4830-8D32-1FA03ABA3470"
+        (yield updateRecord(True, directory, "users",
+            guid=guid, fullName="Test User", shortNames=["testuser",],
+            autoSchedule=True)
+        )
+        record = directory.recordWithGUID(guid)
+        self.assertTrue(record is not None)
+        self.assertEquals(record.fullName, "Test User")
+        self.assertTrue(record.autoSchedule)
+
+        (yield updateRecord(False, directory, "users",
+            guid=guid, fullName="Test User", shortNames=["testuser",],
+            autoSchedule=False)
+        )
+        record = directory.recordWithGUID(guid)
+        self.assertTrue(record is not None)
+        self.assertEquals(record.fullName, "Test User")
+        self.assertFalse(record.autoSchedule)
+
 
     @inlineCallbacks
     def test_setProxies(self):
