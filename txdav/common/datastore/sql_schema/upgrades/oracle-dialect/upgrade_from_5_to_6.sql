@@ -23,10 +23,10 @@
 ---------------------------------------------------------
 
 create table APN_SUBSCRIPTIONS (
-  TOKEN                         varchar(255) not null,
-  RESOURCE_KEY                  varchar(255) not null,
-  MODIFIED                      integer not null,
-  SUBSCRIBER_GUID               varchar(255) not null,
+  "TOKEN"                       nvarchar2(255),
+  "RESOURCE_KEY"                nvarchar2(255),
+  "MODIFIED"                    integer not null,
+  "SUBSCRIBER_GUID"             nvarchar2(255), 
   unique(TOKEN, RESOURCE_KEY) -- implicit index
 );
 

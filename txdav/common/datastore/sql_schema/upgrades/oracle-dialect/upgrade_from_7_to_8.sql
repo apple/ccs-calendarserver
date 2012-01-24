@@ -20,10 +20,10 @@
 
 -- Add new table populated from existing one
 create table CALENDAR_METADATA (
-  RESOURCE_ID integer   primary key references CALENDAR on delete cascade, -- implicit index
-  SUPPORTED_COMPONENTS  varchar(255) default null,
-  CREATED               timestamp default timezone('UTC', CURRENT_TIMESTAMP),
-  MODIFIED              timestamp default timezone('UTC', CURRENT_TIMESTAMP)
+  "RESOURCE_ID"          integer primary key references CALENDAR on delete cascade, -- implicit index
+  "SUPPORTED_COMPONENTS" nvarchar2(255) default null,
+  "CREATED"              timestamp default CURRENT_TIMESTAMP at time zone 'UTC',
+  "MODIFIED"             timestamp default CURRENT_TIMESTAMP at time zone 'UTC'
 );
 insert into CALENDAR_METADATA
  select RESOURCE_ID, SUPPORTED_COMPONENTS, CREATED, MODIFIED from CALENDAR;
@@ -34,9 +34,9 @@ alter table CALENDAR
 
 -- Add new table populated from existing one
 create table ADDRESSBOOK_METADATA (
-  RESOURCE_ID integer   primary key references ADDRESSBOOK on delete cascade, -- implicit index
-  CREATED     timestamp default timezone('UTC', CURRENT_TIMESTAMP),
-  MODIFIED    timestamp default timezone('UTC', CURRENT_TIMESTAMP)
+  "RESOURCE_ID" integer primary key references ADDRESSBOOK on delete cascade, -- implicit index
+  "CREATED" timestamp default CURRENT_TIMESTAMP at time zone 'UTC',
+  "MODIFIED" timestamp default CURRENT_TIMESTAMP at time zone 'UTC'
 );
 insert into ADDRESSBOOK_METADATA
  select RESOURCE_ID, CREATED, MODIFIED from ADDRESSBOOK;
