@@ -28,7 +28,7 @@ limitations under the License.
 
   <key>ProgramArguments</key>
   <array>
-    <string>/usr/sbin/caldavd</string>
+    <string>/Applications/Server.app/Contents/ServerRoot/usr/sbin/caldavd</string>
     <string>-X</string>
     <string>-R</string>
     <string>caldav_kqueue</string>
