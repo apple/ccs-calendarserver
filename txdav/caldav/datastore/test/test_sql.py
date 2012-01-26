@@ -170,7 +170,7 @@ class CalendarSQLStorageTests(CalendarCommonTests, unittest.TestCase):
         ok, bad = (yield _migrateCalendar(fromCalendar, toCalendar,
                                lambda x: x.component()))
         self.assertEqual(ok, 1)
-        self.assertEqual(bad, 1)
+        self.assertEqual(bad, 2)
 
 
     @inlineCallbacks

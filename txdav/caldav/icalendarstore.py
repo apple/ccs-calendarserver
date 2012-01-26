@@ -387,6 +387,12 @@ class ICalendarObject(IDataStoreObject):
         Retrieve the iCalendar component type for the main component
         in this calendar object.
 
+        @raise InvalidICalendarDataError: if this L{ICalendarObject} has invalid
+            calendar data.  This should only ever happen when reading in data
+            that hasn't passed through setComponent( ) or
+            createCalendarObjectXXX( ) such as data imported from an older store
+            or an external system.
+
         @return: a string containing the component type.
         """
 
