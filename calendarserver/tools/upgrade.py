@@ -160,6 +160,7 @@ def main(argv=sys.argv, stderr=sys.stderr, reactor=None):
 
     def onlyUpgradeEvents(event):
         output.write(logDateString()+' '+log.textFromEventDict(event)+"\n")
+        output.flush()
 
     setLogLevelForNamespace(None, "debug")
     log.addObserver(onlyUpgradeEvents)
