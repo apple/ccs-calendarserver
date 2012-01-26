@@ -1975,7 +1975,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
 
         # Create this object
         resourceID = (
-            yield cls._insertHomeChild.on(home._txn))[0]
+            yield cls._insertHomeChild.on(home._txn))[0][0]
 
         # Initialize this object
         _created, _modified = (
