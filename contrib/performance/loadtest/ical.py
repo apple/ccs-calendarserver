@@ -129,6 +129,10 @@ class BaseClient(object):
         raise NotImplementedError("%r does not implement addEvent" % (self.__class__,))
 
 
+    def addInvite(self, href, vcalendar):
+        raise NotImplementedError("%r does not implement addEvent" % (self.__class__,))
+
+
     def deleteEvent(self, href):
         raise NotImplementedError("%r does not implement deleteEvent" % (self.__class__,))
 
@@ -798,6 +802,23 @@ class SnowLeopard(BaseClient):
         d.addCallback(self._localUpdateEvent, href, vcalendar)
         return d
 
+    @inlineCallbacks
+    def addInvite(self, href, vcalendar):
+        """
+        Add an event that is an invite - i.e., has attendees. We will do attendee lookups and freebusy
+        checks on each attendee to simulate what happens when an organizer creates a new invite.
+        """
+        
+        # Do lookup and free busy of each attendee (not self)
+        attendees = list(vcalendar.mainComponent().properties('ATTENDEE'))
+        for attendee in attendees:
+            if attendee.value() == self.uuid:
+                continue
+            yield self.checkAttendee(vcalendar, attendee)
+        
+        # Now do a normal PUT
+        yield self.addEvent(href, vcalendar)
+
 
     def _localUpdateEvent(self, response, href, vcalendar):
         headers = response.headers
@@ -826,6 +847,43 @@ class SnowLeopard(BaseClient):
             self.eventChanged(href, etag, scheduleTag, body)
         d.addCallback(record)
         return d
+
+
+    @inlineCallbacks
+    def checkAttendee(self, vcalendar, attendee):
+        """
+        This is what the client does when a user does attendee auto-complete whilst creating an
+        event invite. We will run this once for each attendee in a new invite.
+        """
+
+        # Temporarily use some non-test names (some which will return
+        # many results, and others which will return fewer) because the
+        # test account names are all too similar
+        # name = attendee.parameterValue('CN').encode("utf-8")
+        # prefix = name[:4].lower()
+        prefix = random.choice(["chris", "cyru", "dre", "eric", "morg",
+            "well", "wilfr", "witz"])
+
+        email = attendee.parameterValue('EMAIL').encode("utf-8")
+
+        # First try to discover some names to supply to the
+        # auto-completion - we will ignore the response
+        yield self._request(
+            MULTI_STATUS, 'REPORT', self.root + 'principals/',
+            Headers({'content-type': ['text/xml']}),
+            StringProducer(self._USER_LIST_PRINCIPAL_PROPERTY_SEARCH % {
+                    'displayname': prefix,
+                    'email': prefix,
+                    'firstname': prefix,
+                    'lastname': prefix,
+                    }))
+
+        # Now learn about the attendee's availability
+        yield self.requestAvailability(
+            vcalendar.mainComponent().getStartDateUTC(),
+            vcalendar.mainComponent().getEndDateUTC(),
+            [u'mailto:' + email],
+            [vcalendar.resourceUID()])
 
 
     def requestAvailability(self, start, end, users, mask=set()):

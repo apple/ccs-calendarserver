@@ -16,7 +16,7 @@
 ##
 
 from twisted.python.failure import Failure
-from twisted.internet.defer import Deferred
+from twisted.internet.defer import Deferred, inlineCallbacks, returnValue
 from twisted.trial.unittest import TestCase
 from twisted.web.http import OK, NO_CONTENT, CREATED, MULTI_STATUS
 from twisted.web.http_headers import Headers
@@ -57,6 +57,175 @@ SUMMARY:Attended Event
 DTSTART;TZID=America/New_York:20101028T120000
 DTSTAMP:20101018T155513Z
 ORGANIZER;CN="User 01":mailto:user01@example.com
+SEQUENCE:3
+END:VEVENT
+END:VCALENDAR
+""".replace("\n", "\r\n") % {'UID': EVENT_UID}
+
+EVENT_INVITE = """\
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Apple Inc.//iCal 4.0.3//EN
+CALSCALE:GREGORIAN
+BEGIN:VTIMEZONE
+TZID:America/New_York
+X-LIC-LOCATION:America/New_York
+BEGIN:STANDARD
+DTSTART:18831118T120358
+RDATE:18831118T120358
+TZNAME:EST
+TZOFFSETFROM:-045602
+TZOFFSETTO:-0500
+END:STANDARD
+BEGIN:DAYLIGHT
+DTSTART:19180331T020000
+RRULE:FREQ=YEARLY;UNTIL=19190330T070000Z;BYDAY=-1SU;BYMONTH=3
+TZNAME:EDT
+TZOFFSETFROM:-0500
+TZOFFSETTO:-0400
+END:DAYLIGHT
+BEGIN:STANDARD
+DTSTART:19181027T020000
+RRULE:FREQ=YEARLY;UNTIL=19191026T060000Z;BYDAY=-1SU;BYMONTH=10
+TZNAME:EST
+TZOFFSETFROM:-0400
+TZOFFSETTO:-0500
+END:STANDARD
+BEGIN:STANDARD
+DTSTART:19200101T000000
+RDATE:19200101T000000
+RDATE:19420101T000000
+RDATE:19460101T000000
+RDATE:19670101T000000
+TZNAME:EST
+TZOFFSETFROM:-0500
+TZOFFSETTO:-0500
+END:STANDARD
+BEGIN:DAYLIGHT
+DTSTART:19200328T020000
+RDATE:19200328T020000
+RDATE:19740106T020000
+RDATE:19750223T020000
+TZNAME:EDT
+TZOFFSETFROM:-0500
+TZOFFSETTO:-0400
+END:DAYLIGHT
+BEGIN:STANDARD
+DTSTART:19201031T020000
+RDATE:19201031T020000
+RDATE:19450930T020000
+TZNAME:EST
+TZOFFSETFROM:-0400
+TZOFFSETTO:-0500
+END:STANDARD
+BEGIN:DAYLIGHT
+DTSTART:19210424T020000
+RRULE:FREQ=YEARLY;UNTIL=19410427T070000Z;BYDAY=-1SU;BYMONTH=4
+TZNAME:EDT
+TZOFFSETFROM:-0500
+TZOFFSETTO:-0400
+END:DAYLIGHT
+BEGIN:STANDARD
+DTSTART:19210925T020000
+RRULE:FREQ=YEARLY;UNTIL=19410928T060000Z;BYDAY=-1SU;BYMONTH=9
+TZNAME:EST
+TZOFFSETFROM:-0400
+TZOFFSETTO:-0500
+END:STANDARD
+BEGIN:DAYLIGHT
+DTSTART:19420209T020000
+RDATE:19420209T020000
+TZNAME:EWT
+TZOFFSETFROM:-0500
+TZOFFSETTO:-0400
+END:DAYLIGHT
+BEGIN:DAYLIGHT
+DTSTART:19450814T190000
+RDATE:19450814T190000
+TZNAME:EPT
+TZOFFSETFROM:-0400
+TZOFFSETTO:-0400
+END:DAYLIGHT
+BEGIN:DAYLIGHT
+DTSTART:19460428T020000
+RRULE:FREQ=YEARLY;UNTIL=19660424T070000Z;BYDAY=-1SU;BYMONTH=4
+TZNAME:EDT
+TZOFFSETFROM:-0500
+TZOFFSETTO:-0400
+END:DAYLIGHT
+BEGIN:STANDARD
+DTSTART:19460929T020000
+RRULE:FREQ=YEARLY;UNTIL=19540926T060000Z;BYDAY=-1SU;BYMONTH=9
+TZNAME:EST
+TZOFFSETFROM:-0400
+TZOFFSETTO:-0500
+END:STANDARD
+BEGIN:STANDARD
+DTSTART:19551030T020000
+RRULE:FREQ=YEARLY;UNTIL=19661030T060000Z;BYDAY=-1SU;BYMONTH=10
+TZNAME:EST
+TZOFFSETFROM:-0400
+TZOFFSETTO:-0500
+END:STANDARD
+BEGIN:DAYLIGHT
+DTSTART:19670430T020000
+RRULE:FREQ=YEARLY;UNTIL=19730429T070000Z;BYDAY=-1SU;BYMONTH=4
+TZNAME:EDT
+TZOFFSETFROM:-0500
+TZOFFSETTO:-0400
+END:DAYLIGHT
+BEGIN:STANDARD
+DTSTART:19671029T020000
+RRULE:FREQ=YEARLY;UNTIL=20061029T060000Z;BYDAY=-1SU;BYMONTH=10
+TZNAME:EST
+TZOFFSETFROM:-0400
+TZOFFSETTO:-0500
+END:STANDARD
+BEGIN:DAYLIGHT
+DTSTART:19760425T020000
+RRULE:FREQ=YEARLY;UNTIL=19860427T070000Z;BYDAY=-1SU;BYMONTH=4
+TZNAME:EDT
+TZOFFSETFROM:-0500
+TZOFFSETTO:-0400
+END:DAYLIGHT
+BEGIN:DAYLIGHT
+DTSTART:19870405T020000
+RRULE:FREQ=YEARLY;UNTIL=20060402T070000Z;BYDAY=1SU;BYMONTH=4
+TZNAME:EDT
+TZOFFSETFROM:-0500
+TZOFFSETTO:-0400
+END:DAYLIGHT
+BEGIN:DAYLIGHT
+DTSTART:20070311T020000
+RRULE:FREQ=YEARLY;BYDAY=2SU;BYMONTH=3
+TZNAME:EDT
+TZOFFSETFROM:-0500
+TZOFFSETTO:-0400
+END:DAYLIGHT
+BEGIN:STANDARD
+DTSTART:20071104T020000
+RRULE:FREQ=YEARLY;BYDAY=1SU;BYMONTH=11
+TZNAME:EST
+TZOFFSETFROM:-0400
+TZOFFSETTO:-0500
+END:STANDARD
+END:VTIMEZONE
+BEGIN:VEVENT
+CREATED:20101018T155454Z
+UID:%(UID)s
+DTEND;TZID=America/New_York:20101028T130000
+ATTENDEE;CN="User 02";CUTYPE=INDIVIDUAL;EMAIL="user02@example.com";PARTS
+ TAT=NEEDS-ACTION;ROLE=REQ-PARTICIPANT;RSVP=TRUE:mailto:user02@example.co
+ m
+ATTENDEE;CN="User 03";CUTYPE=INDIVIDUAL;EMAIL="user03@example.com";PARTS
+ TAT=NEEDS-ACTION;ROLE=REQ-PARTICIPANT;RSVP=TRUE:mailto:user03@example.co
+ m
+ATTENDEE;CN="User 01";CUTYPE=INDIVIDUAL;PARTSTAT=ACCEPTED:urn:uuid:user01
+TRANSP:OPAQUE
+SUMMARY:Attended Event
+DTSTART;TZID=America/New_York:20101028T120000
+DTSTAMP:20101018T155513Z
+ORGANIZER;CN="User 01":urn:uuid:user01
 SEQUENCE:3
 END:VEVENT
 END:VCALENDAR
@@ -1181,6 +1350,96 @@ class SnowLeopardTests(SnowLeopardMixin, TestCase):
 
         return d
 
+
+    @inlineCallbacks
+    def test_addInvite(self):
+        """
+        L{SnowLeopard.addInvite} PUTs the event passed to it to the
+        server and updates local state to reflect its existence, but
+        it also does attendee auto-complete and free-busy checks before
+        the PUT.
+        """
+
+        calendar = Calendar(caldavxml.calendar, set(('VEVENT',)), u'calendar', u'/mumble/', None)
+        self.client._calendars[calendar.url] = calendar
+
+        vcalendar = Component.fromString(EVENT_INVITE)
+
+        self.client.uuid = u'urn:uuid:user01'
+        self.client.email = u'mailto:user01@example.com'
+        self.client.outbox = "/calendars/__uids__/user01/outbox/"
+
+        @inlineCallbacks
+        def _testReport(*args):
+            expectedResponseCode, method, url, headers, body = args
+            self.assertEqual(expectedResponseCode, MULTI_STATUS)
+            self.assertEqual(method, 'REPORT')
+            self.assertEqual(url, 'http://127.0.0.1/principals/')
+            self.assertIsInstance(url, str)
+            self.assertEqual(headers.getRawHeaders('content-type'), ['text/xml'])
+
+            consumer = MemoryConsumer()
+            yield body.startProducing(consumer)
+            
+            response = MemoryResponse(
+                ('HTTP', '1', '1'), MULTI_STATUS, "MultiStatus", Headers({}),
+                StringProducer(""))
+            
+            returnValue(response)
+            
+        @inlineCallbacks
+        def _testPost(*args, **kwargs):
+            expectedResponseCode, method, url, headers, body = args
+            self.assertEqual(expectedResponseCode, OK)
+            self.assertEqual(method, 'POST')
+            self.assertEqual(url, 'http://127.0.0.1/calendars/__uids__/user01/outbox/')
+            self.assertIsInstance(url, str)
+            self.assertEqual(headers.getRawHeaders('content-type'), ['text/calendar'])
+
+            consumer = MemoryConsumer()
+            yield body.startProducing(consumer)
+            self.assertNotEqual(consumer.value().find(kwargs["attendee"]), -1)
+            
+            response = MemoryResponse(
+                ('HTTP', '1', '1'), OK, "OK", Headers({}),
+                StringProducer(""))
+            
+            returnValue(response)
+        
+        def _testPost02(*args):
+            return _testPost(*args, attendee="ATTENDEE:mailto:user02@example.com")
+        
+        def _testPost03(*args):
+            return _testPost(*args, attendee="ATTENDEE:mailto:user03@example.com")
+        
+        @inlineCallbacks
+        def _testPut(*args, **kwargs):
+            expectedResponseCode, method, url, headers, body = args
+            self.assertEqual(expectedResponseCode, CREATED)
+            self.assertEqual(method, 'PUT')
+            self.assertEqual(url, 'http://127.0.0.1/mumble/frotz.ics')
+            self.assertIsInstance(url, str)
+            self.assertEqual(headers.getRawHeaders('content-type'), ['text/calendar'])
+
+            consumer = MemoryConsumer()
+            yield body.startProducing(consumer)
+            self.assertEqual(
+                Component.fromString(consumer.value()),
+                Component.fromString(EVENT_INVITE))
+            
+            response = MemoryResponse(
+                ('HTTP', '1', '1'), CREATED, "Created", Headers({}),
+                StringProducer(""))
+            
+            returnValue(response)
+        
+        requests = [_testReport, _testPost02, _testReport, _testPost03, _testPut,]
+        
+        def _requestHandler(*args):
+            handler = requests.pop(0)
+            return handler(*args)
+        self.client._request = _requestHandler
+        yield self.client.addInvite('/mumble/frotz.ics', vcalendar)
 
     def test_deleteEvent(self):
         """

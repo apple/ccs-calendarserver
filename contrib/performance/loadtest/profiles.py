@@ -374,7 +374,7 @@ END:VCALENDAR
                     return succeed(None)
 
             href = '%s%s.ics' % (calendar.url, uid)
-            d = self._client.addEvent(href, vcalendar)
+            d = self._client.addInvite(href, vcalendar)
             return self._newOperation("invite", d)
 
 class Accepter(ProfileBase):
