@@ -759,16 +759,8 @@ class CommonHomeChild(FileMetaDataMixin, LoggingMixIn, FancyEqMixin):
         """
         Return a list of object resource objects.
         """
-        return sorted((
-            self.objectResourceWithName(name)
-            for name in (
-                set(self._newObjectResources.iterkeys()) |
-                set(name for name in self._path.listdir()
-                    if not name.startswith(".")) -
-                set(self._removedObjectResources)
-            )),
-            key=lambda calObj: calObj.name()
-        )
+        return [self.objectResourceWithName(name)
+                for name in self.listObjectResources()]
 
 
     def listObjectResources(self):
@@ -779,8 +771,9 @@ class CommonHomeChild(FileMetaDataMixin, LoggingMixIn, FancyEqMixin):
             name
             for name in (
                 set(self._newObjectResources.iterkeys()) |
-                set(name for name in self._path.listdir()
-                    if not name.startswith(".")) -
+                set(p.basename() for p in self._path.children()
+                    if not p.basename().startswith(".") and
+                    p.isfile()) -
                 set(self._removedObjectResources)
             ))
         )

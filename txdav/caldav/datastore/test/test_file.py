@@ -477,9 +477,21 @@ class FileStorageTests(CommonTests, unittest.TestCase):
     @inlineCallbacks
     def test_calendarObjectsWithDotFile(self):
         """
-        Adding a dotfile to the calendar home should not increase
+        Adding a dotfile to the calendar home should not increase the number of
+        calendar objects discovered.
         """
         (yield self.homeUnderTest())._path.child(".foo").createDirectory()
+        yield self.test_calendarObjects()
+
+
+    @inlineCallbacks
+    def test_calendarObjectsWithDirectory(self):
+        """
+        If a directory appears (even a non-hidden one) within a calendar, it
+        should not show up in the directory listing.
+        """
+        ((yield self.calendarUnderTest())._path.child("not-a-calendar-object")
+         .createDirectory())
         yield self.test_calendarObjects()
 
 

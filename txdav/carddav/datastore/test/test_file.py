@@ -479,3 +479,15 @@ class FileStorageTests(CommonTests, unittest.TestCase):
         self.homeUnderTest()._path.child(".foo").createDirectory()
         yield self.test_addressbookObjects()
 
+
+    @inlineCallbacks
+    def test_addressbookObjectsWithDirectory(self):
+        """
+        If a directory appears (even a non-hidden one) within an addressbook, it
+        should not show up in the directory listing.
+        """
+        ((yield self.addressbookUnderTest())._path.child("not-a-vcard")
+         .createDirectory())
+        yield self.test_addressbookObjects()
+
+
