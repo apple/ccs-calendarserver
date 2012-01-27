@@ -18,6 +18,8 @@
 Tests for L{txdav.common.datastore.upgrade.migrate}.
 """
 
+import copy
+
 from twext.python.filepath import CachingFilePath
 from twext.web2.http_headers import MimeType
 from twext.enterprise.adbapi2 import Pickle
@@ -113,6 +115,8 @@ class StubSpawner(StoreSpawnerService):
         object instead.
         """
         master = yield self.spawn(AMP(), StoreCreator)
+        subcfg = copy.deepcopy(self.config)
+        del subcfg._postUpdateHooks[:]
         yield master.callRemote(PickleConfig, config=self.config,
                                 delegateTo=qual(there))
         returnValue(swapAMP(master, here))
