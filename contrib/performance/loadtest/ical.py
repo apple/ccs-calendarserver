@@ -130,7 +130,7 @@ class BaseClient(object):
 
 
     def addInvite(self, href, vcalendar):
-        raise NotImplementedError("%r does not implement addEvent" % (self.__class__,))
+        raise NotImplementedError("%r does not implement addInvite" % (self.__class__,))
 
 
     def deleteEvent(self, href):

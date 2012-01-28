@@ -214,6 +214,10 @@ class StubClient(BaseClient):
         return succeed(None)
 
 
+    def addInvite(self, href, vevent):
+        return self.addEvent(href, vevent)
+
+
     def deleteEvent(self, href):
         del self._events[href]
         calendar, uid = href.rsplit('/', 1)
