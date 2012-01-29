@@ -27,14 +27,17 @@ from shutil import rmtree
 from twistedcaldav.config import config
 from calendarserver.tools.util import loadConfig
 
+SIPP          = "/Applications/Server.app/Contents/ServerRoot"
+if not os.path.exists(SIPP):
+    SIPP      = ""
 USERNAME      = "caldav"
 DATABASENAME  = "caldav"
 DUMPFILENAME  = "db_backup"
-PLISTPATH     = "/etc/caldavd/caldavd.plist"
+PLISTPATH     = "%s/etc/caldavd/caldavd.plist" % (SIPP,)
 PLISTNAME     = "caldavd.plist"
 
-PSQL          = "/usr/bin/psql"
-PGDUMP        = "/usr/bin/pg_dump"
+PSQL          = "%s/usr/bin/psql" % (SIPP,)
+PGDUMP        = "%s/usr/bin/pg_dump" % (SIPP,)
 
 def usage(e=None):
     name = os.path.basename(sys.argv[0])
@@ -48,7 +51,7 @@ def usage(e=None):
     print "  -v --verbose: print additional information"
     print ""
     print "commands:"
-    print "  backup: create backup-file"
+    print "  backup: create backup-file in compressed tar format (tgz)"
     print "  restore: restore from backup-file"
     print ""
 
