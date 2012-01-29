@@ -13,17 +13,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
-from txdav.common.datastore.sql_tables import schema
-from twext.enterprise.dal.syntax import Select
-from txdav.common.icommondatastore import AllRetriesFailed
 
 """
 Tests for L{txdav.common.datastore.sql}.
 """
 
+from twext.enterprise.dal.syntax import Select
 from twisted.internet.defer import inlineCallbacks
 from twisted.trial.unittest import TestCase
+from txdav.common.datastore.sql_tables import schema
 from txdav.common.datastore.test.util import CommonCommonTests, buildStore
+from txdav.common.icommondatastore import AllRetriesFailed
 
 
 class SubTransactionTests(CommonCommonTests, TestCase):
@@ -46,6 +46,28 @@ class SubTransactionTests(CommonCommonTests, TestCase):
         """
         return self._sqlStore
 
+
+    @inlineCallbacks
+    def test_logging(self):
+        """
+        txn.execSQL works with all logging options on.
+        """
+        
+        # Patch config to turn on logging then rebuild the store
+        self.patch(self._sqlStore, "logLabels", True)
+        self.patch(self._sqlStore, "logStats", True)
+        self.patch(self._sqlStore, "logSQL", True)
+
+        txn = self.transactionUnderTest()
+        cs = schema.CALENDARSERVER
+        version = (yield Select(
+                [cs.VALUE,],
+                From=cs,
+                Where=cs.NAME == 'VERSION',
+            ).on(txn))
+        self.assertNotEqual(version, None)
+        self.assertEqual(len(version), 1)
+        self.assertEqual(len(version[0]), 1)
 
     @inlineCallbacks
     def test_subtransactionOK(self):

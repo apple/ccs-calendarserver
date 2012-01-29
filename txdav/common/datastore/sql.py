@@ -80,6 +80,7 @@ from twistedcaldav.customxml import NotificationType
 from twistedcaldav.dateops import datetimeMktime, parseSQLTimestamp,\
     pyCalendarTodatetime
 
+from cStringIO import StringIO
 from sqlparse import parse
 import collections
 import sys
@@ -132,7 +133,8 @@ class CommonDataStore(Service, object):
 
     def __init__(self, sqlTxnFactory, notifierFactory, attachmentsPath,
                  enableCalendars=True, enableAddressBooks=True,
-                 label="unlabeled", quota=(2 ** 20)):
+                 label="unlabeled", quota=(2 ** 20),
+                 logLabels=False, logStats=False, logSQL=False):
         assert enableCalendars or enableAddressBooks
 
         self.sqlTxnFactory = sqlTxnFactory
@@ -142,6 +144,9 @@ class CommonDataStore(Service, object):
         self.enableAddressBooks = enableAddressBooks
         self.label = label
         self.quota = quota
+        self.logLabels = logLabels
+        self.logStats = logStats
+        self.logSQL = logSQL
         self._migrating = False
         self._enableNotifications = True
 
@@ -269,7 +274,7 @@ class CommonStoreTransaction(object):
         self.dialect = sqlTxn.dialect
         
         # FIXME: want to pass a "debug" option in to enable this via config - off for now
-        self._stats = None #TransactionStatsCollector()
+        self._stats = TransactionStatsCollector() if self._store.logStats else None
 
 
     def store(self):
@@ -535,6 +540,10 @@ class CommonStoreTransaction(object):
         """
         if self._stats:        
             self._stats.startStatement(a[0])
+        if self._store.logLabels:
+            a = ("-- Label: %s\n" % (self._label.replace("%", "%%"),) + a[0],) + a[1:]
+        if self._store.logSQL:
+            log.error("SQL: %r %r" % (a, kw,))
         results = (yield self._sqlTxn.execSQL(*a, **kw))
         if self._stats:        
             self._stats.endStatement()
@@ -567,8 +576,10 @@ class CommonStoreTransaction(object):
                 operation()
             return ignored
 
-        if self._stats:        
-            self._stats.printReport()
+        if self._stats:
+            s = StringIO()
+            self._stats.printReport(s)
+            log.error(s.getvalue())
 
         return self._sqlTxn.commit().addCallback(postCommit)
 
