@@ -638,7 +638,7 @@ dependencies () {
     c_dependency -m "56386ded2d5dcd8a4ceef0da81c3d22c" \
       "PostgreSQL" "${pg}" \
       "ftp://ftp5.us.postgresql.org/pub/PostgreSQL/source/v${pgv}/${pg}.tar.gz" \
-      --with-python;
+      --with-python ${enable_dtrace};
     :;
   fi;
 
