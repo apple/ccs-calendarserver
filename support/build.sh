@@ -614,7 +614,7 @@ dependencies () {
     init_py;
   fi;
 
-  if ! type memcached > /dev/null 2>&1; then
+  if ! type -P memcached > /dev/null; then
     local le="libevent-1.4.13-stable";
     local mc="memcached-1.4.5";
     c_dependency -m "0b3ea18c634072d12b3c1ee734263664" \
@@ -625,9 +625,16 @@ dependencies () {
       "http://memcached.googlecode.com/files/${mc}.tar.gz";
   fi;
 
-  if ! type postgres > /dev/null 2>&1; then
+  if ! type -P postgres > /dev/null; then
     local pgv="9.0.3";
     local pg="postgresql-${pgv}";
+
+    if type -P dtrace > /dev/null; then
+      local enable_dtrace="--enable-dtrace";
+    else
+      local enable_dtrace="";
+    fi;
+
     c_dependency -m "56386ded2d5dcd8a4ceef0da81c3d22c" \
       "PostgreSQL" "${pg}" \
       "ftp://ftp5.us.postgresql.org/pub/PostgreSQL/source/v${pgv}/${pg}.tar.gz" \
@@ -675,7 +682,7 @@ dependencies () {
     "PyOpenSSL" "OpenSSL" "${po}" \
     "${pypi}/p/pyOpenSSL/${po}.tar.gz";
 
-  if type krb5-config > /dev/null 2>&1; then
+  if type -P krb5-config > /dev/null; then
     py_dependency -r 8357 \
       "PyKerberos" "kerberos" "PyKerberos" \
       "${svn_uri_base}/PyKerberos/trunk";
