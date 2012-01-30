@@ -33,8 +33,6 @@ if not os.path.exists(SIPP):
 USERNAME      = "caldav"
 DATABASENAME  = "caldav"
 DUMPFILENAME  = "db_backup"
-PLISTPATH     = "%s/etc/caldavd/caldavd.plist" % (SIPP,)
-PLISTNAME     = "caldavd.plist"
 
 PSQL          = "%s/usr/bin/psql" % (SIPP,)
 PGDUMP        = "%s/usr/bin/pg_dump" % (SIPP,)
@@ -162,6 +160,7 @@ def main():
     serverRoot = config.ServerRoot
     dataRoot = config.DataRoot
     docRoot = config.DocumentRoot
+    configRoot = config.ConfigRoot
 
     if command == "backup":
 
@@ -180,11 +179,11 @@ def main():
                 print "Adding %s" % (docRoot,)
             tar.add(docRoot, "Documents")
             if verbose:
+                print "Adding %s" % (configRoot,)
+            tar.add(configRoot, "Config")
+            if verbose:
                 print "Adding %s" % (tmpPath,)
             tar.add(tmpPath, DUMPFILENAME)
-            if verbose:
-                print "Adding %s" % (PLISTPATH,)
-            tar.add(PLISTPATH, PLISTNAME)
             tar.close()
 
             if verbose:
@@ -211,6 +210,11 @@ def main():
                 if verbose:
                     print "Removing old DocumentRoot: %s" % (docRoot,)
                 rmtree(docRoot)
+
+            if os.path.exists(configRoot):
+                if verbose:
+                    print "Removing old ConfigRoot: %s" % (configRoot,)
+                rmtree(configRoot)
 
             if verbose:
                 print "Extracting from backup file: %s" % (filename,)
