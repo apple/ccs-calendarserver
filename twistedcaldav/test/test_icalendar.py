@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2005-2009 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2012 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -4062,6 +4062,28 @@ END:VCALENDAR
                     (PyCalendarDateTime(2007, 11, 15, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)), False),
                 )
             ),
+            (
+                "1.12 - fake master OK",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071114T000000Z
+DTSTAMP:20080601T120000Z
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890-1
+RECURRENCE-ID:20071114T000000Z
+DTSTART:20071114T000000Z
+DTSTAMP:20080601T120000Z
+END:VEVENT
+END:VCALENDAR
+""",
+                (
+                    (PyCalendarDateTime(2007, 11, 15, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)), False),
+                )
+            ),
         )
         
         for clear_cache in (True, False):
@@ -4077,6 +4099,55 @@ END:VCALENDAR
             expected_results = set([rid for rid, result in tests if result==True])
             actual_results = ical.validInstances(rids)
             self.assertEqual(actual_results, expected_results, "Failed comparison: %s %s" % (title, actual_results,))
+
+    def test_valid_recurrence_ids(self):
+        
+        data = (
+            (
+                "1.1 - fake master",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071114T000000Z
+DTSTAMP:20080601T120000Z
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890-1
+RECURRENCE-ID:20071114T000000Z
+DTSTART:20071114T000000Z
+DTSTAMP:20080601T120000Z
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071114T000000Z
+DTSTAMP:20080601T120000Z
+RDATE:20071114T000000Z
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890-1
+RECURRENCE-ID:20071114T000000Z
+DTSTART:20071114T000000Z
+DTSTAMP:20080601T120000Z
+END:VEVENT
+END:VCALENDAR
+""",
+            1, 0,
+            ),
+        )
+        
+        for title, calendar, result_calendar, result_fixed, result_unfixed in data:
+            ical = Component.fromString(calendar)
+            fixed, unfixed = ical.validRecurrenceIDs(doFix=True)
+            self.assertEqual(str(ical), result_calendar.replace("\n", "\r\n"), "Failed comparison: %s %s" % (title, str(ical),))
+            self.assertEqual(len(fixed), result_fixed, "Failed fixed comparison: %s %s" % (title, fixed,))
+            self.assertEqual(len(unfixed), result_unfixed, "Failed unfixed: %s %s" % (title, unfixed,))
 
     def test_mismatched_until(self):
         invalid = (

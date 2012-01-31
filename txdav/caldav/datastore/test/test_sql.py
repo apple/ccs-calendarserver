@@ -189,7 +189,7 @@ class CalendarSQLStorageTests(CalendarCommonTests, unittest.TestCase):
         toCalendar = yield toHome.calendarWithName("calendar")
         ok, bad = (yield _migrateCalendar(fromCalendar, toCalendar,
                                lambda x: x.component()))
-        self.assertEqual(ok, 2)
+        self.assertEqual(ok, 3)
         self.assertEqual(bad, 0)
 
         self.transactionUnderTest().commit()
@@ -298,6 +298,53 @@ BEGIN:VALARM
 ACTION:AUDIO
 TRIGGER;RELATED=START:-PT10M
 END:VALARM
+END:VEVENT
+END:VCALENDAR
+""".replace("\n", "\r\n"))
+        
+        toResource = yield toCalendar.calendarObjectWithName("3.ics")
+        caldata = yield toResource.component()
+        self.assertEqual(str(caldata), """BEGIN:VCALENDAR
+VERSION:2.0
+CALSCALE:GREGORIAN
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VTIMEZONE
+TZID:US/Eastern
+LAST-MODIFIED:20040110T032845Z
+BEGIN:DAYLIGHT
+DTSTART:20000404T020000
+RRULE:FREQ=YEARLY;BYDAY=1SU;BYMONTH=4
+TZNAME:EDT
+TZOFFSETFROM:-0500
+TZOFFSETTO:-0400
+END:DAYLIGHT
+BEGIN:STANDARD
+DTSTART:20001026T020000
+RRULE:FREQ=YEARLY;BYDAY=-1SU;BYMONTH=10
+TZNAME:EST
+TZOFFSETFROM:-0400
+TZOFFSETTO:-0500
+END:STANDARD
+END:VTIMEZONE
+BEGIN:VEVENT
+UID:uid4
+DTSTART;TZID=US/Eastern:20060104T160000
+DURATION:PT1H
+CREATED:20060102T190000Z
+DESCRIPTION:Some notes
+DTSTAMP:20051222T210507Z
+RDATE;TZID=US/Eastern:20060104T160000
+SUMMARY:event 6-%ctr changed again
+END:VEVENT
+BEGIN:VEVENT
+UID:uid4
+RECURRENCE-ID;TZID=US/Eastern:20060104T160000
+DTSTART;TZID=US/Eastern:20060104T160000
+DURATION:PT1H
+CREATED:20060102T190000Z
+DESCRIPTION:Some notes
+DTSTAMP:20051222T210507Z
+SUMMARY:event 6-%ctr changed again
 END:VEVENT
 END:VCALENDAR
 """.replace("\n", "\r\n"))

@@ -1,6 +1,6 @@
 # -*- test-case-name: twistedcaldav.test.test_icalendar -*-
 ##
-# Copyright (c) 2005-2011 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2012 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -1333,14 +1333,18 @@ class Component (object):
             if None in all_rids:
                 all_rids.remove(None)
 
-            # Get the set of all valid recurrence IDs
-            valid_rids = self.validInstances(all_rids, ignoreInvalidInstances=True)
-
-            # Get the set of all RDATEs and add those to the valid set
-            rdates = []
-            for property in master.properties("RDATE"):
-                rdates.extend([_rdate.getValue() for _rdate in property.value()])
-            valid_rids.update(set(rdates))
+            # If the master has no recurrence properties treat any other components as invalid
+            if master.isRecurring():
+                # Get the set of all valid recurrence IDs
+                valid_rids = self.validInstances(all_rids, ignoreInvalidInstances=True)
+    
+                # Get the set of all RDATEs and add those to the valid set
+                rdates = []
+                for property in master.properties("RDATE"):
+                    rdates.extend([_rdate.getValue() for _rdate in property.value()])
+                valid_rids.update(set(rdates))
+            else:
+                valid_rids = set()
 
             # Determine the invalid recurrence IDs by set subtraction
             invalid_rids = all_rids - valid_rids

@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2005-2009 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2012 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -254,8 +254,8 @@ class iCalDiff(object):
             except (ValueError, TypeError), ex:
                 log.err("Cannot truncate calendar resource: %s" % (ex,))
 
-        self.newCalendar = self.oldcalendar.duplicate()
-        self.newMaster = self.newCalendar.masterComponent()
+        returnCalendar = self.oldcalendar.duplicate()
+        returnMaster = returnCalendar.masterComponent()
 
         changeCausesReply = False
         changedRids = []
@@ -330,7 +330,7 @@ class iCalDiff(object):
                 # Attendee may decline by EXDATE'ing an instance - we need to handle that
                 if exdatesnew is None or rid in exdatesnew:
                     # Mark Attendee as DECLINED in the server instance
-                    if self._attendeeDecline(self.newCalendar.overriddenComponent(rid)):
+                    if self._attendeeDecline(returnCalendar.overriddenComponent(rid)):
                         changeCausesReply = True
                         changedRids.append(rid.getText() if rid else "")
                 else:
@@ -344,12 +344,12 @@ class iCalDiff(object):
                     self._logDiffError("attendeeMerge: Missing EXDATE for cancelled components from first calendar: %s" % (key,))
                 else:
                     # Remove the CANCELLED component from the new calendar and add an EXDATE
-                    overridden = self.newCalendar.overriddenComponent(rid)
-                    self.newCalendar.removeComponent(overridden)
-                    if self.newMaster:
+                    overridden = returnCalendar.overriddenComponent(rid)
+                    returnCalendar.removeComponent(overridden)
+                    if returnMaster:
                         # Use the original R-ID value so we preserve the timezone
                         original_rid = component.propertyValue("RECURRENCE-ID")
-                        self.newMaster.addProperty(Property("EXDATE", [original_rid,]))
+                        returnMaster.addProperty(Property("EXDATE", [original_rid,]))
         
         # Derive a new component in the new calendar for each new one in setnew
         for key in setnew - setold:
@@ -366,40 +366,40 @@ class iCalDiff(object):
                     setnew.remove(key)
                 else:
                     # Derive new component with STATUS:CANCELLED and remove EXDATE
-                    newOverride = self.newCalendar.deriveInstance(rid, allowCancelled=True)
+                    newOverride = returnCalendar.deriveInstance(rid, allowCancelled=True)
                     if newOverride is None:
                         # We used to generate a 403 here - but instead we now ignore this error and let the server data
                         # override the client
                         self._logDiffError("attendeeMerge: Could not derive instance for cancelled component: %s" % (key,))
                         setnew.remove(key)
                     else:
-                        self.newCalendar.addComponent(newOverride)
+                        returnCalendar.addComponent(newOverride)
             else:
                 # Derive new component
-                newOverride = self.newCalendar.deriveInstance(rid)
+                newOverride = returnCalendar.deriveInstance(rid)
                 if newOverride is None:
                     # We used to generate a 403 here - but instead we now ignore this error and let the server data
                     # override the client
                     self._logDiffError("attendeeMerge: Could not derive instance for uncancelled component: %s" % (key,))
                     setnew.remove(key)
                 else:
-                    self.newCalendar.addComponent(newOverride)
+                    returnCalendar.addComponent(newOverride)
 
-        # So now newCalendar has all the same components as set2. Check changes and do transfers.
+        # So now returnCalendar has all the same components as set2. Check changes and do transfers.
         
         # Make sure the same VCALENDAR properties match
-        if not self._checkVCALENDARProperties(self.newCalendar, self.newcalendar):
+        if not self._checkVCALENDARProperties(returnCalendar, self.newcalendar):
             # We used to generate a 403 here - but instead we now ignore this error and let the server data
             # override the client
             self._logDiffError("attendeeMerge: VCALENDAR properties do not match")
 
         # Now we transfer per-Attendee
-        # data from newcalendar into newCalendar to sync up changes, whilst verifying that other
+        # data from newcalendar into returnCalendar to sync up changes, whilst verifying that other
         # key properties are unchanged
         declines = []
         for key in setnew:
             _ignore_name, _ignore_uid, rid = key
-            serverData = self.newCalendar.overriddenComponent(rid)
+            serverData = returnCalendar.overriddenComponent(rid)
             clientData = mapnew[key]
             
             allowed, reply = self._transferAttendeeData(serverData, clientData, declines)
@@ -414,11 +414,11 @@ class iCalDiff(object):
 
         # We need to derive instances for any declined using an EXDATE
         for decline in sorted(declines):
-            overridden = self.newCalendar.overriddenComponent(decline)
+            overridden = returnCalendar.overriddenComponent(decline)
             if not overridden:
-                overridden = self.newCalendar.deriveInstance(decline)
+                overridden = returnCalendar.deriveInstance(decline)
                 if overridden:
-                    self.newCalendar.addComponent(overridden)
+                    returnCalendar.addComponent(overridden)
                     if self._attendeeDecline(overridden):
                         changeCausesReply = True
                         changedRids.append(decline.getText() if decline else "")
@@ -426,7 +426,7 @@ class iCalDiff(object):
                     self._logDiffError("attendeeMerge: Unable to override an instance to mark as DECLINED: %s" % (decline,))
                     return False, False, (), None
 
-        return True, changeCausesReply, changedRids, self.newCalendar
+        return True, changeCausesReply, changedRids, returnCalendar
 
     def _checkVCALENDARProperties(self, serverData, clientData):
 
@@ -459,6 +459,12 @@ class iCalDiff(object):
         # ATTENDEE/PARTSTAT/RSVP
         serverAttendee = serverComponent.getAttendeeProperty((self.attendee,))
         clientAttendee = clientComponent.getAttendeeProperty((self.attendee,))
+        
+        # Possible case where one ATTENDEE prop is missing - this happens with a "fake" master sometimes
+        if serverAttendee is None or clientAttendee is None:
+            log.err("ATTENDEE for user making an attendee change is missing: %s" % (self.attendee,))
+            return False, False
+    
         if serverAttendee.parameterValue("PARTSTAT", "NEEDS-ACTION") != clientAttendee.parameterValue("PARTSTAT", "NEEDS-ACTION"):
             serverAttendee.setParameter("PARTSTAT", clientAttendee.parameterValue("PARTSTAT", "NEEDS-ACTION"))
             replyNeeded = True
@@ -632,6 +638,12 @@ class iCalDiff(object):
         @return: C{bool} indicating whether the PARTSTAT value was in fact changed
         """
         attendee = component.getAttendeeProperty((self.attendee,))
+
+        # Possible case where ATTENDEE prop is missing - this happens with a "fake" master sometimes
+        if attendee is None:
+            log.err("ATTENDEE for user making an attendee change is missing: %s" % (self.attendee,))
+            return False
+    
         partstatChanged = attendee.parameterValue("PARTSTAT", "NEEDS-ACTION") != "DECLINED"
         attendee.setParameter("PARTSTAT", "DECLINED")
         prop = component.getProperty("X-APPLE-NEEDS-REPLY")
