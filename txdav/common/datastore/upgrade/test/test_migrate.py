@@ -117,7 +117,7 @@ class StubSpawner(StoreSpawnerService):
         master = yield self.spawn(AMP(), StoreCreator)
         subcfg = copy.deepcopy(self.config)
         del subcfg._postUpdateHooks[:]
-        yield master.callRemote(PickleConfig, config=self.config,
+        yield master.callRemote(PickleConfig, config=subcfg,
                                 delegateTo=qual(there))
         returnValue(swapAMP(master, here))
 
