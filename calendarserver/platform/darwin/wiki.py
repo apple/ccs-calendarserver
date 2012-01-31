@@ -14,24 +14,38 @@
 # limitations under the License.
 ##
 
+from twext.python.log import Logger
 from twisted.web.client import HTTPPageGetter, HTTPClientFactory
 from twisted.internet import reactor
+from twisted.internet.defer import inlineCallbacks, returnValue
+import json
 
-def usernameForAuthToken(token, host="localhost", port=4444):
+log = Logger()
+
+@inlineCallbacks
+def usernameForAuthToken(token, host="localhost", port=80):
     """
-    Send a GET request to the wiki collabd service to retrieve the user record
+    Send a GET request to the web auth service to retrieve the user record
     name associated with the provided auth token.
 
     @param token: An auth token, usually passed in via cookie when webcal
         makes a request.
     @type token: C{str}
     @return: deferred returning a record name (C{str}) if successful, or
-        if the auth token is not recognized a twisted.web.error.Error with
-        status FORBIDDEN will errBack.
+        will raise WebAuthError otherwise.
     """
-    url = "http://%s:%d/cal/userForSession/%s" % (host, port, token,)
-    return _getPage(url, host, port)
-
+    url = "http://%s:%d/auth/verify?auth_token=%s" % (host, port, token,)
+    jsonResponse = (yield _getPage(url, host, port))
+    try:
+        response = json.loads(jsonResponse)
+    except Exception, e:
+        log.error("Error parsing JSON response from webauth: %s (%s)" %
+            (jsonResponse, str(e)))
+        raise WebAuthError("Could not look up token: %s" % (token,))
+    if response["succeeded"]:
+        returnValue(response["shortname"])
+    else:
+        raise WebAuthError("Could not look up token: %s" % (token,))
 
 def accessForUserToWiki(user, wiki, host="localhost", port=4444):
     """
@@ -71,3 +85,8 @@ def _getPage(url, host, port):
     factory.protocol = HTTPPageGetter
     reactor.connectTCP(host, port, factory)
     return factory.deferred
+
+class WebAuthError(RuntimeError):
+    """
+    Error in web auth
+    """

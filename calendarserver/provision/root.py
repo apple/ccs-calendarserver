@@ -273,14 +273,12 @@ class RootResource (ReadOnlyResourceMixIn, DirectoryPrincipalPropertySearchMixIn
                             proxy = Proxy(wikiConfig["URL"])
                             username = (yield proxy.callRemote(wikiConfig["UserMethod"], token))
                         else:
-                            username = (yield usernameForAuthToken(token,
-                                host=wikiConfig.CollabHost,
-                                port=wikiConfig.CollabPort))
+                            username = (yield usernameForAuthToken(token))
 
                     except WebError, w:
                         username = None
                         # FORBIDDEN status means it's an unknown token
-                        if int(w.status) == responsecode.FORBIDDEN:
+                        if int(w.status) == responsecode.NOT_FOUND:
                             log.debug("Unknown wiki token: %s" % (token,))
                         else:
                             log.error("Failed to look up wiki token %s: %s" %
