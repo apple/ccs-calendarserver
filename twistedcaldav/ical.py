@@ -2072,12 +2072,15 @@ class Component (object):
                 return True
         return False
 
-    def addAlarms(self, alarm):
+    def addAlarms(self, alarm, ignoreActionNone=True):
         """
         Add an alarm to any VEVENT or VTODO subcomponents that do not already have any.
 
         @param alarm: the text for a VALARM component
         @type alarm: C{str}
+        
+        @param ignoreActionNone: whether or not to skip ACTION:NONE alarms
+        @type ignoreActionNone: C{bool}
         
         @return: indicate whether a change was made
         @rtype: C{bool}
@@ -2109,14 +2112,17 @@ END:VCALENDAR
         except IndexError:
             return False
 
+        # ACTION:NONE not added
         changed = False
-        for component in self.subcomponents():
-            if component.name().upper() not in ("VEVENT", "VTODO",):
-                continue
-            if component.hasAlarm():
-                continue
-            component.addComponent(valarm.duplicate())
-            changed = True
+        action = valarm.propertyValue("ACTION")
+        if not ignoreActionNone or action and action.upper() != "NONE":
+            for component in self.subcomponents():
+                if component.name().upper() not in ("VEVENT", "VTODO",):
+                    continue
+                if component.hasAlarm():
+                    continue
+                component.addComponent(valarm.duplicate())
+                changed = True
         
         return changed
 
