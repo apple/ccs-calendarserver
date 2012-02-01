@@ -1,6 +1,6 @@
 # -*- test-case-name: twext.web2.dav.test.test_prop.PROP.test_PROPFIND -*-
 ##
-# Copyright (c) 2005-2011 Apple Computer, Inc. All rights reserved.
+# Copyright (c) 2005-2012 Apple Computer, Inc. All rights reserved.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -112,6 +112,8 @@ def http_PROPFIND(self, request):
     if depth == "infinity":
         raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, davxml.PropfindFiniteDepth()))
 
+    brief = request.headers.getHeader("brief", False)
+
     xml_responses = []
 
     # FIXME: take advantage of the new generative properties of findChildren
@@ -170,19 +172,17 @@ def http_PROPFIND(self, request):
                         resource_property = resource_property.getResult()
                     except:
                         f = Failure()
-
-                        log.err("Error reading property %r for resource %s: %s" % (property, uri, f.value))
-
                         status = statusForFailure(f, "getting property: %s" % (property,))
                         if status not in properties_by_status:
                             properties_by_status[status] = []
-                        properties_by_status[status].append(propertyName(property))
+                        if not brief or status != responsecode.NOT_FOUND:
+                            properties_by_status[status].append(propertyName(property))
                     else:
                         if resource_property is not None:
                             properties_by_status[responsecode.OK].append(resource_property)
-                        else:
+                        elif not brief:
                             properties_by_status[responsecode.NOT_FOUND].append(propertyName(property))
-                else:
+                elif not brief:
                     properties_by_status[responsecode.NOT_FOUND].append(propertyName(property))
 
         propstats = []

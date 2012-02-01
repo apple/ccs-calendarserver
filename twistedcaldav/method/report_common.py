@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2006-2011 Apple Inc. All rights reserved.
+# Copyright (c) 2006-2012 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -333,6 +333,8 @@ def _namedPropertiesForResource(request, props, resource, calendar=None, timezon
         responsecode.NOT_FOUND : [],
     }
     
+    brief = request.headers.getHeader("brief", False)
+
     for property in props:
         if isinstance(property, caldavxml.CalendarData):
             # Handle private events access restrictions
@@ -364,17 +366,15 @@ def _namedPropertiesForResource(request, props, resource, calendar=None, timezon
                 prop = (yield resource.readProperty(qname, request))
                 if prop is not None:
                     properties_by_status[responsecode.OK].append(prop)
-                else:
+                elif not brief:
                     properties_by_status[responsecode.NOT_FOUND].append(propertyName(qname))
             except HTTPError:
                 f = Failure()
-    
                 status = statusForFailure(f, "getting property: %s" % (qname,))
-                if status != responsecode.NOT_FOUND:
-                    log.err("Error reading property %r for resource %s: %s" % (qname, request.uri, f.value))
                 if status not in properties_by_status: properties_by_status[status] = []
-                properties_by_status[status].append(propertyName(qname))
-        else:
+                if not brief or status != responsecode.NOT_FOUND:
+                    properties_by_status[status].append(propertyName(qname))
+        elif not brief:
             properties_by_status[responsecode.NOT_FOUND].append(propertyName(qname))
     
     returnValue(properties_by_status)

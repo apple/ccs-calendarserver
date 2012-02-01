@@ -1,7 +1,7 @@
 # -*- test-case-name: twext.web2.test.test_http_headers -*-
 ##
 # Copyright (c) 2008 Twisted Matrix Laboratories.
-# Copyright (c) 2010 Apple Computer, Inc. All rights reserved.
+# Copyright (c) 2010-2012 Apple Computer, Inc. All rights reserved.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -1256,6 +1256,18 @@ def generateOverWrite(overwrite):
     else:
         return "F"
 
+def parseBrief(brief):
+    # We accept upper or lower case
+    if brief.upper() == "F":
+        return False
+    elif brief.upper() == "T":
+        return True
+    raise ValueError("Invalid brief header value: %s" % (brief,))
+
+def generateBrief(brief):
+    # MS definition uses lower case
+    return "t" if brief else "f"
+
 ##### Random stuff that looks useful.
 # def sortMimeQuality(s):
 #     def sorter(item1, item2):
@@ -1575,6 +1587,7 @@ generator_entity_headers = {
     }
 
 parser_dav_headers = {
+    'Brief'       : (last, parseBrief),
     'DAV'         : (tokenize, list),
     'Depth'       : (last, parseDepth),
     'Destination' : (last,), # TODO: URI object?
@@ -1586,6 +1599,7 @@ parser_dav_headers = {
 }
 
 generator_dav_headers = {
+    'Brief'       : (),
     'DAV'         : (generateList, singleHeader),
     'Depth'       : (singleHeader),
     'Destination' : (singleHeader),
