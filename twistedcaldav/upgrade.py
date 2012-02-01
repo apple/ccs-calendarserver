@@ -61,6 +61,7 @@ deadPropertyXattrPrefix = namedAny(
 )
 
 INBOX_ITEMS = "inboxitems.txt"
+TRIGGER_FILE = "trigger_resource_migration"
 
 log = Logger()
 
@@ -353,11 +354,14 @@ def upgrade_to_1(config, spawner, parallel, directory):
         service, because in "v1" that's where this info lived.
         """
 
-        log.info("Fetching delegate assignments and auto-schedule settings from directory")
+        log.warn("Fetching delegate assignments and auto-schedule settings from directory")
         resourceInfo = directory.getResourceInfo()
         if len(resourceInfo) == 0:
             # Nothing to migrate, or else not appleopendirectory
+            log.warn("No resource info found in directory")
             return
+
+        log.warn("Found info for %d resources and locations in directory; applying settings" % (len(resourceInfo),))
 
         resourceInfoDatabase = ResourceInfoDatabase(config.DataRoot)
         proxydbClass = namedClass(config.ProxyDBService.type)
@@ -555,7 +559,9 @@ def upgrade_to_1(config, spawner, parallel, directory):
                     yield spawner.stopService()
                 log.warn("Done processing calendar homes")
 
-    yield migrateResourceInfo(config, directory, uid, gid)
+    triggerPath = os.path.join(config.ServerRoot, TRIGGER_FILE)
+    if os.path.exists(triggerPath):
+        yield migrateResourceInfo(config, directory, uid, gid)
     createMailTokensDatabase(config, uid, gid)
 
     if errorOccurred:
@@ -738,12 +744,14 @@ def upgradeData(config, spawner=None, parallel=0):
 
     directory = getDirectory()
 
-    try:
-        # Migrate locations/resources now because upgrade_to_1 depends on them
-        # being in resources.xml
-        (yield migrateFromOD(config, directory))
-    except Exception, e:
-        raise UpgradeError("Unable to migrate locations and resources from OD: %s" % (e,))
+    triggerPath = os.path.join(config.ServerRoot, TRIGGER_FILE)
+    if os.path.exists(triggerPath):
+        try:
+            # Migrate locations/resources now because upgrade_to_1 depends
+            # on them being in resources.xml
+            (yield migrateFromOD(config, directory))
+        except Exception, e:
+            raise UpgradeError("Unable to migrate locations and resources from OD: %s" % (e,))
 
     docRoot = config.DocumentRoot
 
@@ -771,6 +779,10 @@ def upgradeData(config, spawner=None, parallel=0):
             with open(versionFilePath, "w") as verFile:
                 verFile.write(str(version))
             os.chown(versionFilePath, uid, gid)
+
+    # Clean up the resource migration trigger file
+    if os.path.exists(triggerPath):
+        os.remove(triggerPath)
 
 class UpgradeError(RuntimeError):
     """
@@ -907,25 +919,20 @@ def migrateFromOD(config, directory):
     #
     # Migrates locations and resources from OD
     #
-    triggerFile = "trigger_resource_migration"
-    triggerPath = os.path.join(config.ServerRoot, triggerFile)
-    if os.path.exists(triggerPath):
-        os.remove(triggerPath)
+    log.warn("Migrating locations and resources")
 
-        log.warn("Migrating locations and resources")
+    userService = directory.serviceForRecordType("users")
+    resourceService = directory.serviceForRecordType("resources")
+    if (
+        not isinstance(userService, OpenDirectoryService) or
+        not isinstance(resourceService, XMLDirectoryService)
+    ):
+        # Configuration requires no migration
+        return succeed(None)
 
-        userService = directory.serviceForRecordType("users")
-        resourceService = directory.serviceForRecordType("resources")
-        if (
-            not isinstance(userService, OpenDirectoryService) or
-            not isinstance(resourceService, XMLDirectoryService)
-        ):
-            # Configuration requires no migration
-            return succeed(None)
-
-        # Create internal copies of resources and locations based on what is
-        # found in OD
-        return migrateResources(userService, resourceService)
+    # Create internal copies of resources and locations based on what is
+    # found in OD
+    return migrateResources(userService, resourceService)
 
 
 @inlineCallbacks
@@ -934,10 +941,10 @@ def migrateAutoSchedule(config, directory):
     # the values in augments
     augmentService = directory.augmentService
     if augmentService:
-        log.warn("Migrating auto-schedule settings")
         augmentRecords = []
         dbPath = os.path.join(config.DataRoot, ResourceInfoDatabase.dbFilename)
         if os.path.exists(dbPath):
+            log.warn("Migrating auto-schedule settings")
             resourceInfoDatabase = ResourceInfoDatabase(config.DataRoot)
             results = resourceInfoDatabase._db_execute(
                 "select GUID, AUTOSCHEDULE from RESOURCEINFO"
@@ -949,8 +956,9 @@ def migrateAutoSchedule(config, directory):
                     augmentRecord.autoSchedule = autoSchedule
                     augmentRecords.append(augmentRecord)
 
-        yield augmentService.addAugmentRecords(augmentRecords)
-        log.warn("Migrated auto-schedule settings")
+            if augmentRecords:
+                yield augmentService.addAugmentRecords(augmentRecords)
+            log.warn("Migrated %d auto-schedule settings" % (len(augmentRecords),))
 
 
 class UpgradeFileSystemFormatService(Service, object):

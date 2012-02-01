@@ -1353,7 +1353,11 @@ class UpgradeTests(TestCase):
         # XMLDirectoryService.getResourceInfo = _getResourceInfo
         self.patch(XMLDirectoryService, "getResourceInfo", _getResourceInfo)
 
-        before = { }
+        before = {
+            "trigger_resource_migration" : {
+                "@contents" : "x",
+            }
+        }
         after = {
             ".calendarserver_version" :
             {
@@ -1385,6 +1389,7 @@ class UpgradeTests(TestCase):
         root = self.createHierarchy(before)
         config.DocumentRoot = root
         config.DataRoot = root
+        config.ServerRoot = root
 
         (yield self.doUpgrade(config))
         self.assertTrue(self.verifyHierarchy(root, after))
