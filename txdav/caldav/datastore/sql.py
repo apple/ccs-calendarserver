@@ -807,7 +807,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
             # CALENDAR_OBJECT table update
             self._uid = component.resourceUID()
-            self._md5 = hashlib.md5(componentText).hexdigest()
+            self._md5 = hashlib.md5(componentText + (self._schedule_tag if self._schedule_tag else "")).hexdigest()
             self._size = len(componentText)
 
             # Special - if migrating we need to preserve the original md5

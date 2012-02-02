@@ -1072,7 +1072,7 @@ class StoreCalendarObjectResource(object):
                     etags = self.destination.scheduleEtags
                     if etags is None:
                         etags = ()
-                etags += (hashlib.md5(data).hexdigest(),)
+                etags += (hashlib.md5(data + (self.destination.scheduleTag if self.destination.scheduleTag else "")).hexdigest(),)
                 self.destination.scheduleEtags = etags
             else:
                 self.destination.scheduleEtags = ()                
