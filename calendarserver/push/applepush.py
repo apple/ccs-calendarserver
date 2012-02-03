@@ -256,7 +256,7 @@ class APNProviderProtocol(protocol.Protocol, LoggingMixIn):
     @inlineCallbacks
     def processError(self, status, identifier):
         """
-        Handles an error message we've received from on feedback channel.
+        Handles an error message we've received on the provider channel.
         If the error code is one that indicates a bad token, remove all
         subscriptions corresponding to that token.
 
