@@ -698,6 +698,9 @@ class StoreCalendarObjectResource(object):
             new_attendees = self.calendar.getAttendees()
             old_attendees = tuple(old_calendar.getAllAttendeeProperties())
             
+            new_completed = self.calendar.mainComponent().hasProperty("COMPLETED")
+            old_completed = old_calendar.mainComponent().hasProperty("COMPLETED")
+            
             if old_organizer and not new_organizer and len(old_attendees) > 0 and len(new_attendees) == 0:
                 # Transfer old organizer and attendees to new calendar
                 log.debug("Organizer and attendee properties were entirely removed by the client. Restoring existing properties.")
@@ -729,6 +732,38 @@ class StoreCalendarObjectResource(object):
                         component.addProperty(anAttendee)                   
 
                 self.calendardata = None
+
+            elif new_completed ^ old_completed and not self.internal_request:
+                # COMPLETED changed - sync up attendee state
+                # We need this because many VTODO clients are not aware of scheduling,
+                # i.e. they do not adjust any ATTENDEE PARTSTATs. We are going to impose
+                # our own requirement that PARTSTAT is set to COMPLETED when the COMPLETED
+                # property is added.
+
+                # Transfer old organizer and attendees to new calendar
+                log.debug("Sync COMPLETED property change.")
+                
+                # Get the originator who is the owner of the calendar resource being modified
+                originatorPrincipal = (yield self.destination.ownerPrincipal(self.request))
+                originatorAddresses = originatorPrincipal.calendarUserAddresses()
+                
+                changed = False
+                for component in self.calendar.subcomponents():
+                    if component.name() != "VTODO":
+                        continue
+                    
+                    # Change owner partstat
+                    for anAttendee in component.properties("ATTENDEE"):
+                        if anAttendee.value() in originatorAddresses:
+                            oldpartstat = anAttendee.parameterValue("PARTSTAT", "NEEDS-ACTION")
+                            newpartstat = "COMPLETED" if component.hasProperty("COMPLETED") else "IN-PROCESS"
+                            if newpartstat != oldpartstat:
+                                anAttendee.setParameter("PARTSTAT", newpartstat)
+                                changed = True
+
+                if changed:
+                    self.calendardata = None
+                
 
     @inlineCallbacks
     def dropboxPathNormalization(self):
