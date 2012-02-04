@@ -386,7 +386,7 @@ class UpgradeToDatabaseService(Service, LoggingMixIn, object):
                     # before asking the subprocess to handle it.
                     yield fileTxn.commit()
                     @inlineCallbacks
-                    def doOneUpgrade(driver, fileUID=uid):
+                    def doOneUpgrade(driver, fileUID=uid, homeType=homeType):
                         yield driver.oneUpgrade(fileUID, homeType)
                         self.log_warn("Completed migration of %s uid %r" %
                                       (homeType, fileUID))
