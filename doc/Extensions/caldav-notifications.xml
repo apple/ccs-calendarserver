@@ -359,7 +359,7 @@
 <CS:notification xmlns:D="DAV:"
                  xmlns:CS="http://calendarserver.org/ns/">
   <CS:dtstamp>2011-12-09T11:51:14-05:00</CS:dtstamp>
-  <CS:resource-changed>
+  <CS:resource-change>
     <CS:created>
       <D:href>http://example.com/cyrus/calendar/new.ics</D:href>
       <CS:changed-by>
@@ -392,7 +392,7 @@
         <D:href>/principals/cyrusdaboo</D:href>
       </CS:changed-by>
     </CS:deleted>
-  </CS:resource-changed>
+  </CS:resource-change>
 </CS:notification>]]></artwork>
                           </figure>
                         </t>
@@ -403,14 +403,14 @@
 <CS:notification xmlns:D="DAV:"
                  xmlns:CS="http://calendarserver.org/ns/">
   <CS:dtstamp>2011-12-09T11:51:14-05:00</CS:dtstamp>
-  <CS:resource-changed>
+  <CS:resource-change>
     <CS:collection-changes>
       <D:href>http://example.com/cyrus/calendar/</D:href>
       <CS:child-created>1</CS:child-created>
       <CS:child-updated>2</CS:child-updated>
       <CS:child-deleted>1</CS:child-deleted>
     </CS:collection-changes>
-  </CS:resource-changed>
+  </CS:resource-change>
 </CS:notification>]]></artwork>
                           </figure>
                         </t>
