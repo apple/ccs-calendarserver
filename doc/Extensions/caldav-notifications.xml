@@ -18,7 +18,7 @@
 <?rfc private="Calendar Server Extension"?>
 <rfc ipr="none" docName='caldav-notifications-00'>
     <front>
-        <title abbrev="CalDAV Notifications">CalDAV: Server Notifications</title> 
+        <title abbrev="CalDAV User Notifications">CalDAV: Calendar User Notifications</title> 
         <author initials="C." surname="Daboo" fullname="Cyrus Daboo">
             <organization abbrev="Apple Inc.">
                 Apple Inc.
@@ -309,18 +309,21 @@
             <section title="Resource Changes Notification">
                 <t>The resource change notification is used to inform the user of new, updated or deleted resources caused by changes made by someone else (note: servers MUST NOT generate notifications to users for changes they themselves make, though the possibility of an automated process acting on behalf of a user needs to be considered). This notification can be used by clients to show changes that a user can acknowledge in their own time. When the notification is present, it can be displayed on all devices a user is accessing their data from. When the user acknowledges and dismisses the notification on one device, other devices SHOULD also remove the notification when they next synchronize the notification collection.</t>
                 <t>A new WebDAV property <xref target="CS:notify-changes">CS:notify-changes</xref> is defined for calendar collections. This allows users to enable or disable the sending of resource change notifications for the calendar and its child resources. Servers MUST allow users to set this property on a per-user basis on any calendars accessible to them. Servers MUST honor the chosen setting to enable or disable change notifications.</t>
-                <t>Servers can send notifications for calendar object resources, and ones for calendar collections.</t>
+                <t>Servers can send notifications for calendar object resources, and ones for calendar collections. Servers SHOULD coalesce notifications that refer to the same resource into a single notification resource, containing multiple CS:created, CS:updated or CS:deleted elements all with the same DAV:href child element value. Servers MAY coalesce changes to multiple resources into a change notification for the parent collection of those resources and use a CS:collection-changes element to indicate the number of individual resources that changed.</t>
                 <section title="CS:resource-change Element Definition" anchor="CS:resource-change">
                     <t>
                       <list style="hanging">
                         <t hangText="Name:">resource-change</t>
                         <t hangText="Namespace:">http://calendarserver.org/ns/</t>
                         <t hangText="Purpose:">Indicates that resources have been created, updated or deleted.</t>
-                        <t hangText="Description:">This XML element is used in a CS:notification element to describe a resource changes notification. It can contain CS:created, CS:updated, CS:deleted elements each of which indicates a created, updated or deleted resource, respectively. The DAV:href element within those three elements, contain the URI of the changed resource, optional information about who changed the resource and when that change was made (the CS:changed-by element), and information specific to the nature of the change. Servers SHOULD coalesce resource change notifications for the same resource into a single notification resource. Servers MAY coalesce resource change notifications to multiple resources into a single notification resource. The CS:updated element optionally contains CS:content and/or DAV:prop elements to indicate a change to the body of the resource or resource WebDAV properties, respectively. The DAV:prop element MAY contain a list of property elements to indicate which properties changed. The CS:updated element can also contain zero or more CS:calendar-changes elements to list details of the changes. If no CS:calendar-changes element is present, the specific details are not provided, and clients will need to assume that some set of changes occurred, but the server is unwilling to disclose the full details. The CS:deleted element can also contain zero or more CS:deleted-details elements to list details of the deleted resource.</t>
+                        <t hangText="Description:">This XML element is used in a CS:notification element to describe a resource change notification. It can describe a change directly to a calendar object resource or to a calendar collection.</t>
+                        <t>When used for a calendar object resource change, it can contain CS:created, CS:updated, CS:deleted elements each of which indicates a created, updated or deleted resource, respectively. The DAV:href element within those three elements, contain the URI of the changed resource, optional information about who changed the resource and when that change was made (the CS:changed-by element), and information specific to the nature of the change. Servers SHOULD coalesce resource change notifications for the same resource into a single notification resource. Servers MAY coalesce resource change notifications to multiple resources into a single notification resource. The CS:updated element optionally contains CS:content and/or DAV:prop elements to indicate a change to the body of the resource or resource WebDAV properties, respectively. The DAV:prop element MAY contain a list of property elements to indicate which properties changed. The CS:updated element can also contain zero or more CS:calendar-changes elements to list details of the changes. If no CS:calendar-changes element is present, the specific details are not provided, and clients will need to assume that some set of changes occurred, but the server is unwilling to disclose the full details. The CS:deleted element can also contain zero or more CS:deleted-details elements to list details of the deleted resource.</t>
+                        <t>When used for a calendar collection change, it can contain a CS:collection-changes element. The DAV:href element within that element, contains the URI of the changed calendar collection. The DAV:prop element indicates a change to WebDAV properties on the calendar collection resource. The CS:child-created, CS:child-updated, and CS:child-deleted elements each contain a positive integer value indicating how many child resources were added, updated or deleted in the collection, respectively.</t>
                         <t hangText="Definition:">
                           <figure>
                             <artwork><![CDATA[
-<!ELEMENT resource-change (created*, updated*, deleted*)>
+<!ELEMENT resource-change ((created*, updated*, deleted*) |
+                           collection-changes)>
   <!ELEMENT created (DAV:href, changed-by?, ANY)>
   <!ELEMENT updated (DAV:href, changed-by?, content?,
                      DAV:prop?, calendar-changes*)>
@@ -338,6 +341,14 @@
        is the principal URI or email address of the user who made
        the change. -->
 
+  <!ELEMENT collection-changes (DAV:href, DAV:prop?, child-created?,
+                                child-updated? child-deleted?>
+    <!ELEMENT child-created CDATA>
+    <!ELEMENT child-updated CDATA>
+    <!ELEMENT child-deleted CDATA>
+    <!-- Each of the three elements above MUST contain a positive,
+         non-zero integer value indicate the total number of changes
+         being reported for the collection. -->
 ]]></artwork>
                           </figure>
                         </t>
@@ -350,7 +361,7 @@
   <CS:dtstamp>2011-12-09T11:51:14-05:00</CS:dtstamp>
   <CS:resource-changed>
     <CS:created>
-      <D:href>http://example.com/cyrus/tasks/new.ics</D:href>
+      <D:href>http://example.com/cyrus/calendar/new.ics</D:href>
       <CS:changed-by>
         <CS:first-name>Cyrus</CS:first-name>
         <CS:last-name>Daboo</CS:last-name>
@@ -366,7 +377,7 @@
       </CS:changed-by>
     </CS:updated>
     <CS:updated>
-      <D:href>http://example.com/cyrus/tasks/todo.ics</D:href>
+      <D:href>http://example.com/cyrus/calendar/todo.ics</D:href>
       <CS:changed-by>
         <CS:first-name>Eleanor</CS:first-name>
         <CS:last-name>Daboo</CS:last-name>
@@ -381,6 +392,24 @@
         <D:href>/principals/cyrusdaboo</D:href>
       </CS:changed-by>
     </CS:deleted>
+  </CS:resource-changed>
+</CS:notification>]]></artwork>
+                          </figure>
+                        </t>
+                        <t hangText="Example:">This example is the same as the previous one, except that all the individual resource changes have been coalesced into a single notification about changes to the parent calendar collection:
+                          <figure>
+                            <artwork><![CDATA[
+<?xml version="1.0" encoding="UTF-8"?>
+<CS:notification xmlns:D="DAV:"
+                 xmlns:CS="http://calendarserver.org/ns/">
+  <CS:dtstamp>2011-12-09T11:51:14-05:00</CS:dtstamp>
+  <CS:resource-changed>
+    <CS:collection-changes>
+      <D:href>http://example.com/cyrus/calendar/</D:href>
+      <CS:child-created>1</CS:child-created>
+      <CS:child-updated>2</CS:child-updated>
+      <CS:child-deleted>1</CS:child-deleted>
+    </CS:collection-changes>
   </CS:resource-changed>
 </CS:notification>]]></artwork>
                           </figure>
