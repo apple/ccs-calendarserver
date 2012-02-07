@@ -136,7 +136,6 @@ def doSetup():
                              "bin/calendarserver_export",
                             #"bin/calendarserver_load_augmentdb",
                             #"bin/calendarserver_make_partition",
-                            #"bin/calendarserver_manage_augments",
                             #"bin/calendarserver_manage_postgres",
                              "bin/calendarserver_manage_principals",
                             #"bin/calendarserver_manage_timezones",
