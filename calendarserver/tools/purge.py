@@ -199,7 +199,7 @@ class PurgePrincipalService(WorkerService):
         directory = rootResource.getDirectory()
         total = (yield purgeUIDs(directory, rootResource, self.uids,
             verbose=self.verbose, dryrun=self.dryrun,
-            completely=self.completely))
+            completely=self.completely, doimplicit=self.doimplicit))
         if self.verbose:
             amount = "%d event%s" % (total, "s" if total > 1 else "")
             if self.dryrun:
@@ -357,6 +357,7 @@ def main_purge_principals():
                 "config=",
                 "help",
                 "verbose",
+                "noimplicit",
             ],
         )
     except GetoptError, e:
@@ -369,6 +370,7 @@ def main_purge_principals():
     dryrun = False
     verbose = False
     completely = False
+    doimplicit = True
 
     for opt, arg in optargs:
         if opt in ("-h", "--help"):
@@ -386,6 +388,9 @@ def main_purge_principals():
         elif opt in ("-f", "--config"):
             configFileName = arg
 
+        elif opt in ("--noimplicit"):
+            doimplicit = False
+
         else:
             raise NotImplementedError(opt)
 
@@ -394,6 +399,7 @@ def main_purge_principals():
     PurgePrincipalService.completely = completely
     PurgePrincipalService.dryrun = dryrun
     PurgePrincipalService.verbose = verbose
+    PurgePrincipalService.doimplicit = doimplicit
 
 
     utilityMain(
@@ -497,14 +503,14 @@ def purgeOrphanedAttachments(store, batchSize, verbose=False, dryrun=False):
 
 @inlineCallbacks
 def purgeUIDs(directory, root, uids, verbose=False, dryrun=False,
-    completely=False):
+    completely=False, doimplicit=True):
     total = 0
 
     allAssignments = { }
 
     for uid in uids:
         count, allAssignments[uid] = (yield purgeUID(uid, directory, root,
-            verbose=verbose, dryrun=dryrun, completely=completely))
+            verbose=verbose, dryrun=dryrun, completely=completely, doimplicit=doimplicit))
         total += count
 
     # TODO: figure out what to do with the purged proxy assignments...
@@ -621,7 +627,7 @@ def cancelEvent(event, when, cua):
 
 @inlineCallbacks
 def purgeUID(uid, directory, root, verbose=False, dryrun=False, proxies=True,
-    when=None, completely=False):
+    when=None, completely=False, doimplicit=True):
 
     if when is None:
         when = PyCalendarDateTime.getNowUTC()
@@ -726,7 +732,7 @@ def purgeUID(uid, directory, root, verbose=False, dryrun=False, proxies=True,
                         else:
                             print "Deleting: %s" % (uri,)
                     if not dryrun:
-                        result = (yield childResource.storeRemove(request, True, uri))
+                        result = (yield childResource.storeRemove(request, doimplicit, uri))
                         if result != NO_CONTENT:
                             print "Error deleting %s/%s/%s: %s" % (uid,
                                 collName, childName, result)
