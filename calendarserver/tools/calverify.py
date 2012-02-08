@@ -94,8 +94,9 @@ class CalVerifyOptions(Options):
 
     optFlags = [
         ['ical', 'i', "Calendar data check."],
-        ['fix', 'x', "Fix problems."],
+        ['mismatch', 's', "Detect organizer/attendee mismatches."],
         ['missing', 'm', "Show 'orphaned' homes."],
+        ['fix', 'x', "Fix problems."],
         ['verbose', 'v', "Verbose logging."],
     ]
 
@@ -162,7 +163,9 @@ class CalVerifyService(Service, object):
         try:
             if self.options["missing"]:
                 yield self.doOrphans()
-            yield self.doScan(self.options["ical"], self.options["fix"])
+                
+            if self.options["mismatch"] or self.options["ical"]:
+                yield self.doScan(self.options["ical"], self.options["mismatch"], self.options["fix"])
 
             self.output.close()
         except:
@@ -185,6 +188,7 @@ class CalVerifyService(Service, object):
         if self.options["verbose"]:
             print "getAllHomeUIDs time: %.1fs" % (time.time() - t,)
         missing = []
+        wrong_server = []
         uids_len = len(uids)
         uids_div = 1 if uids_len < 100 else uids_len / 100
 
@@ -196,9 +200,13 @@ class CalVerifyService(Service, object):
                     ((ctr+1) * 100 / uids_len),
                 )
 
-            if self.directoryService().recordWithGUID(uid[0]) is None:
+            record = self.directoryService().recordWithGUID(uid)
+            if record is None:
                 contents = yield self.countHomeContents(uid)
-                missing.append((uid[0], contents,))
+                missing.append((uid, contents,))
+            elif not record.thisServer():
+                contents = yield self.countHomeContents(uid)
+                wrong_server.append((uid, contents,))
             
             # To avoid holding locks on all the rows scanned, commit every 100 resources
             if divmod(ctr, 100)[1] == 0:
@@ -211,7 +219,7 @@ class CalVerifyService(Service, object):
         # Print table of results
         table = tables.Table()
         table.addHeader(("Owner UID", "Calendar Objects"))
-        for uid, count in missing:
+        for uid, count in sorted(missing, key=lambda x:x[0]):
             table.addRow((
                 uid,
                 count,
@@ -219,6 +227,19 @@ class CalVerifyService(Service, object):
         
         self.output.write("\n")
         self.output.write("Homes without a matching directory record (total=%d):\n" % (len(missing),))
+        table.printTable(os=self.output)
+        
+        # Print table of results
+        table = tables.Table()
+        table.addHeader(("Owner UID", "Calendar Objects"))
+        for uid, count in sorted(wrong_server, key=lambda x:x[0]):
+            table.addRow((
+                uid,
+                count,
+            ))
+        
+        self.output.write("\n")
+        self.output.write("Homes not hosted on this server (total=%d):\n" % (len(wrong_server),))
         table.printTable(os=self.output)
         
 
@@ -229,7 +250,7 @@ class CalVerifyService(Service, object):
             [ch.OWNER_UID,],
             From=ch,
         ).on(self.txn))
-        returnValue(tuple(rows))
+        returnValue(tuple([uid[0] for uid in rows]))
 
 
     @inlineCallbacks
@@ -250,7 +271,7 @@ class CalVerifyService(Service, object):
 
 
     @inlineCallbacks
-    def doScan(self, ical, fix):
+    def doScan(self, ical, mismatch, fix):
         
         print "\n---- Scanning calendar data ----"
 
@@ -298,7 +319,7 @@ class CalVerifyService(Service, object):
 
         if ical:
             yield self.calendarDataCheck(rows)
-        else:
+        elif mismatch:
             yield self.verifyAllAttendeesForOrganizer()
             yield self.verifyAllOrganizersForAttendee()
         
