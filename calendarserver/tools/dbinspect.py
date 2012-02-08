@@ -25,7 +25,8 @@ from calendarserver.tap.util import directoryFromConfig
 from calendarserver.tools import tables
 from calendarserver.tools.cmdline import utilityMain
 from pycalendar.datetime import PyCalendarDateTime
-from twext.enterprise.dal.syntax import Select, Parameter, Count, Delete
+from twext.enterprise.dal.syntax import Select, Parameter, Count, Delete,\
+    Constant
 from twisted.application.service import Service
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.python.filepath import FilePath
@@ -100,6 +101,42 @@ class Cmd(object):
 
     def doIt(self, txn):
         raise NotImplementedError
+
+
+class TableSizes(Cmd):
+    
+    _name = "Show Size of each Table"
+    
+    @inlineCallbacks
+    def doIt(self, txn):
+        
+        results = []
+        for dbtable in schema.model.tables: #@UndefinedVariable
+            dbtable = getattr(schema, dbtable.name)
+            count = yield self.getTableSize(txn, dbtable)
+            results.append((dbtable.model.name, count,))
+        
+        # Print table of results
+        table = tables.Table()
+        table.addHeader(("Table", "Row Count"))
+        for dbtable, count in sorted(results):
+            table.addRow((
+                dbtable,
+                count,
+            ))
+        
+        print "\n"
+        print "Database Tables (total=%d):\n" % (len(results),)
+        table.printTable()
+
+    @inlineCallbacks
+    def getTableSize(self, txn, dbtable):
+        rows = (yield Select(
+            [Count(Constant(1)),],
+            From=dbtable,
+        ).on(txn))
+        returnValue(rows[0][0])
+
 
 class CalendarHomes(Cmd):
     
@@ -293,6 +330,7 @@ class Events(Cmd):
         ).on(txn))
         returnValue(tuple(rows))
 
+
 class Event(Cmd):
     
     _name = "Get Event Data by Resource-ID"
@@ -335,6 +373,7 @@ class Event(Cmd):
             Where=(co.RESOURCE_ID == Parameter("ResourceID")),
         ).on(txn, **{"ResourceID": rid}))
         returnValue(rows[0] if rows else None)
+
 
 class EventsByUID(Cmd):
     
@@ -762,6 +801,7 @@ class DBInspectService(Service, object):
         super(DBInspectService, self).startService()
         
         # Register commands
+        self.registerCommand(TableSizes)
         self.registerCommand(CalendarHomes)
         self.registerCommand(CalendarHomesSummary)
         self.registerCommand(Calendars)
@@ -803,9 +843,9 @@ class DBInspectService(Service, object):
             yield cmd().doIt(txn)
             yield txn.commit()
         except Exception, e:
-            yield txn.abort()
-            print "Command '%s' failed because of: %s" % (cmd.name(), e,)
             traceback.print_exc()
+            print "Command '%s' failed because of: %s" % (cmd.name(), e,)
+            yield txn.abort()
 
     def printCommands(self):
         
@@ -865,7 +905,6 @@ class DBInspectService(Service, object):
         # loop, but this is not implemented because nothing will actually do it
         # except hitting ^C (which also calls reactor.stop(), so that will exit
         # anyway).
-
 
 
 def main(argv=sys.argv, stderr=sys.stderr, reactor=None):
