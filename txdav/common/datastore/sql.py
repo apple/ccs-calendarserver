@@ -432,6 +432,17 @@ class CommonStoreTransaction(object):
         return self._apnSubscriptionsByKeyQuery.on(self, resourceKey=key)
 
 
+    @classproperty
+    def _apnSubscriptionsBySubscriberQuery(cls): #@NoSelf
+        apn = schema.APN_SUBSCRIPTIONS
+        return Select([apn.TOKEN, apn.RESOURCE_KEY, apn.MODIFIED],
+                      From=apn, Where=apn.SUBSCRIBER_GUID == Parameter("subscriberGUID"))
+
+
+    def apnSubscriptionsBySubscriber(self, guid):
+        return self._apnSubscriptionsBySubscriberQuery.on(self, subscriberGUID=guid)
+
+
     def postCommit(self, operation):
         """
         Run things after C{commit}.

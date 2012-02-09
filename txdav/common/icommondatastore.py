@@ -215,6 +215,17 @@ class ICommonTransaction(ITransaction):
         @return: tuples of (token, guid)
         """
 
+    def apnSubscriptionsBySubscriber(guid):
+        """
+        Retrieve all subscription entries for the subscriber.
+
+        @param guid: The GUID of the subscribed principal
+        @type guid: C{str}
+
+        @return: tuples of (token, key, timestamp)
+        """
+
+
 class IShareableCollection(Interface):
     """
     A collection resource which may be shared.

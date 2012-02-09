@@ -84,6 +84,11 @@ class ApplePushNotifierServiceTests(CommonCommonTests, TestCase):
         key2 = "/CalDAV/calendars.example.com/user02/calendar/"
         timestamp2 = 3000
         yield txn.addAPNSubscription(token, key2, timestamp2, uid)
+
+        subscriptions = (yield txn.apnSubscriptionsBySubscriber(uid))
+        self.assertTrue([token, key1, timestamp1] in subscriptions)
+        self.assertTrue([token, key2, timestamp2] in subscriptions)
+
         yield txn.commit()
 
         # Set up the service

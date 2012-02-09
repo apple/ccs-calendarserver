@@ -262,6 +262,9 @@ class CommonStoreTransaction(DataStoreTransaction):
     def apnSubscriptionsByKey(self, key):
         return NotImplementedError
 
+    def apnSubscriptionsBySubscriber(self, guid):
+        return NotImplementedError
+
     def isNotifiedAlready(self, obj):
         return obj in self._notifiedAlready
     
