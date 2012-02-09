@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2006-2011 Apple Inc. All rights reserved.
+# Copyright (c) 2006-2012 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -673,6 +673,13 @@ class AutoSchedule (davxml.WebDAVTextElement):
     """
     namespace = calendarserver_namespace
     name = "auto-schedule"
+
+class AutoScheduleMode (davxml.WebDAVTextElement):
+    """
+    The principal's auto-schedule mode
+    """
+    namespace = calendarserver_namespace
+    name = "auto-schedule-mode"
 
 ##
 # Sharing

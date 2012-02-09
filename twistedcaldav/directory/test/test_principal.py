@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2005-2011 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2012 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -555,6 +555,40 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
 
                 self.failIf(inboxURL)
                 self.failIf(outboxURL)
+
+    def test_canAutoSchedule(self):
+        """
+        DirectoryPrincipalResource.canAutoSchedule()
+        """
+        
+        # Set all resources and locations to auto-schedule, plus one user
+        for provisioningResource, recordType, recordResource, record in self._allRecords():
+            if record.enabledForCalendaring:
+                if recordType in ("locations", "resources") or record.uid == "cdaboo":
+                    recordResource.record.autoSchedule = True
+
+        # Default state - resources and locations, enabled, others not
+        for provisioningResource, recordType, recordResource, record in self._allRecords():
+            if record.enabledForCalendaring:
+                if recordType in ("locations", "resources"):
+                    self.assertTrue(recordResource.canAutoSchedule())
+                else:
+                    self.assertFalse(recordResource.canAutoSchedule())
+
+        # Set config to allow users
+        self.patch(config.Scheduling.Options.AutoSchedule, "AllowUsers", True)
+        for provisioningResource, recordType, recordResource, record in self._allRecords():
+            if record.enabledForCalendaring:
+                if recordType in ("locations", "resources") or record.uid == "cdaboo":
+                    self.assertTrue(recordResource.canAutoSchedule())
+                else:
+                    self.assertFalse(recordResource.canAutoSchedule())
+
+        # Set config to disallow all
+        self.patch(config.Scheduling.Options.AutoSchedule, "Enabled", False)
+        for provisioningResource, recordType, recordResource, record in self._allRecords():
+            if record.enabledForCalendaring:
+                self.assertFalse(recordResource.canAutoSchedule())
 
     @inlineCallbacks
     def test_defaultAccessControlList_principals(self):

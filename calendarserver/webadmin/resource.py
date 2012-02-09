@@ -1,6 +1,6 @@
 # -*- test-case-name: calendarserver.webadmin.test.test_resource -*-
 ##
-# Copyright (c) 2009-2011 Apple Inc. All rights reserved.
+# Copyright (c) 2009-2012 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -267,7 +267,7 @@ class DetailsElement(Element):
         if (self.principalResource.record.recordType != "users" and
             self.principalResource.record.recordType != "groups" or
             self.principalResource.record.recordType == "users" and
-            config.Scheduling.Options.AllowUserAutoAccept):
+            config.Scheduling.Options.AutoSchedule.AllowUsers):
             return tag
         return ""
 
@@ -290,6 +290,83 @@ class DetailsElement(Element):
         is not auto-schedule.
         """
         if not self.principalResource.getAutoSchedule():
+            tag(selected='selected')
+        return tag
+
+
+    @renderer
+    def autoScheduleModeDefault(self, request, tag):
+        """
+        Renderer which sets the 'selected' attribute on its tag based on the resource
+        auto-schedule-mode.
+        """
+        if self.principalResource.getAutoScheduleMode() == "default":
+            tag(selected='selected')
+        return tag
+
+
+    @renderer
+    def autoScheduleModeNone(self, request, tag):
+        """
+        Renderer which sets the 'selected' attribute on its tag based on the resource
+        auto-schedule-mode.
+        """
+        if self.principalResource.getAutoScheduleMode() == "none":
+            tag(selected='selected')
+        return tag
+
+
+    @renderer
+    def autoScheduleModeAcceptAlways(self, request, tag):
+        """
+        Renderer which sets the 'selected' attribute on its tag based on the resource
+        auto-schedule-mode.
+        """
+        if self.principalResource.getAutoScheduleMode() == "accept-always":
+            tag(selected='selected')
+        return tag
+
+
+    @renderer
+    def autoScheduleModeDeclineAlways(self, request, tag):
+        """
+        Renderer which sets the 'selected' attribute on its tag based on the resource
+        auto-schedule-mode.
+        """
+        if self.principalResource.getAutoScheduleMode() == "decline-always":
+            tag(selected='selected')
+        return tag
+
+
+    @renderer
+    def autoScheduleModeAcceptIfFree(self, request, tag):
+        """
+        Renderer which sets the 'selected' attribute on its tag based on the resource
+        auto-schedule-mode.
+        """
+        if self.principalResource.getAutoScheduleMode() == "accept-if-free":
+            tag(selected='selected')
+        return tag
+
+
+    @renderer
+    def autoScheduleModeDeclineIfBusy(self, request, tag):
+        """
+        Renderer which sets the 'selected' attribute on its tag based on the resource
+        auto-schedule-mode.
+        """
+        if self.principalResource.getAutoScheduleMode() == "decline-if-busy":
+            tag(selected='selected')
+        return tag
+
+
+    @renderer
+    def autoScheduleModeAutomatic(self, request, tag):
+        """
+        Renderer which sets the 'selected' attribute on its tag based on the resource
+        auto-schedule-mode.
+        """
+        if self.principalResource.getAutoScheduleMode() == "automatic" or not self.principalResource.getAutoScheduleMode():
             tag(selected='selected')
         return tag
 
@@ -547,6 +624,7 @@ class WebAdminResource (ReadOnlyResourceMixIn, DAVFile):
             return matches
 
         autoSchedule = queryValue("autoSchedule")
+        autoScheduleMode = queryValue("autoScheduleMode")
         makeReadProxies = queryValues("mkReadProxy|")
         makeWriteProxies = queryValues("mkWriteProxy|")
         removeProxies = queryValues("rmProxy|")
@@ -557,8 +635,9 @@ class WebAdminResource (ReadOnlyResourceMixIn, DAVFile):
             if ( principal.record.recordType != "users" and
                  principal.record.recordType != "groups" or
                  principal.record.recordType == "users" and
-                 config.Scheduling.Options.AllowUserAutoAccept):
+                 config.Scheduling.Options.AutoSchedule.AllowUsers):
                 (yield principal.setAutoSchedule(autoSchedule == "true"))
+                (yield principal.setAutoScheduleMode(autoScheduleMode))
 
         # Update the proxies if specified.
         for proxyId in removeProxies:

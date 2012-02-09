@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2006-2011 Apple Inc. All rights reserved.
+# Copyright (c) 2006-2012 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -50,7 +50,7 @@ __all__ = [
 class iTipProcessing(object):
 
     @staticmethod
-    def processNewRequest(itip_message, recipient=None, autoprocessing=False):
+    def processNewRequest(itip_message, recipient=None):
         """
         Process a METHOD=REQUEST for a brand new calendar object.
         
@@ -65,14 +65,14 @@ class iTipProcessing(object):
         method = calendar.getProperty("METHOD")
         if method:
             calendar.removeProperty(method)
-        
-        if recipient and not autoprocessing:
-            iTipProcessing.fixForiCal3(calendar.subcomponents(), recipient, config.Scheduling.CalDAV.OldDraftCompatibility)
+
+        if recipient:
+            iTipProcessing.addTranspForNeedsAction(calendar.subcomponents(), recipient)
 
         return calendar
         
     @staticmethod
-    def processRequest(itip_message, calendar, recipient, autoprocessing=False):
+    def processRequest(itip_message, calendar, recipient):
         """
         Process a METHOD=REQUEST. We need to merge per-attendee properties such as TRANPS, COMPLETED etc
         with the data coming from the organizer.
@@ -117,7 +117,7 @@ class iTipProcessing(object):
         if itip_message.masterComponent() is not None:
             
             # Get a new calendar object first
-            new_calendar = iTipProcessing.processNewRequest(itip_message, recipient, autoprocessing)
+            new_calendar = iTipProcessing.processNewRequest(itip_message, recipient)
             
             # Copy over master alarms, comments
             master_component = new_calendar.masterComponent()
@@ -167,8 +167,8 @@ class iTipProcessing(object):
                     component = component.duplicate()
                     iTipProcessing.transferItems(calendar, master_valarms, private_comments, transps, completeds, organizer_schedule_status, component, remove_matched=True)
                     calendar.addComponent(component)
-                    if recipient and not autoprocessing:
-                        iTipProcessing.fixForiCal3((component,), recipient, config.Scheduling.CalDAV.OldDraftCompatibility)
+                    if recipient:
+                        iTipProcessing.addTranspForNeedsAction((component,), recipient)
 
             # Write back the modified object
             return calendar, rids
@@ -507,21 +507,15 @@ class iTipProcessing(object):
                     organizer.setParameter("SCHEDULE-STATUS", organizer_schedule_status)
     
     @staticmethod
-    def fixForiCal3(components, recipient, compatibilityMode):
+    def addTranspForNeedsAction(components, recipient):
         # For each component where the ATTENDEE property of the recipient has PARTSTAT
-        # NEEDS-ACTION we need to add X-APPLE-NEEDS-REPLY:TRUE
-        # We also add TRANSP:TRANSPARENT for VEVENTs
+        # NEEDS-ACTION we add TRANSP:TRANSPARENT for VEVENTs
         for component in components:
-            if component.name() == "VTIMEZONE":
+            if component.name() != "VEVENT":
                 continue
             attendee = component.getAttendeeProperty((recipient,))
-            if attendee:
-                partstat = attendee.parameterValue("PARTSTAT", "NEEDS-ACTION")
-                if partstat == "NEEDS-ACTION":
-                    if compatibilityMode:
-                        component.addProperty(Property("X-APPLE-NEEDS-REPLY", "TRUE"))
-                    if component.name() == "VEVENT":
-                        component.replaceProperty(Property("TRANSP", "TRANSPARENT"))
+            if attendee and attendee.parameterValue("PARTSTAT", "NEEDS-ACTION") == "NEEDS-ACTION":
+                component.replaceProperty(Property("TRANSP", "TRANSPARENT"))
 
     @staticmethod
     def sequenceComparison(itip, calendar):

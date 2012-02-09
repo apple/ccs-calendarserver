@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2011 Apple Inc. All rights reserved.
+# Copyright (c) 2011-2012 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -335,6 +335,38 @@ class RenderingTests(TestCase):
 
 
     @inlineCallbacks
+    def test_autoScheduleModeMenu(self):
+        """
+        When rendering a resource, an "Auto-Schedule Mode" menu with various options
+        should be displayed.
+        """
+        
+        modes = ("default", "none", "accept-always", "decline-always", "accept-if-free", "decline-if-busy", "automatic",)
+    
+        for ctr, expectValue in enumerate(modes):
+
+            self.resource.getResourceById = partial(FakePrincipalResource, self,
+                                                    recordType='resources',
+                                                    autosched=True,
+                                                    autoschedmode=expectValue)
+            document = yield self.renderPage(dict(resourceId=["qux"]))
+            autoScheduleModeMenu = document.getElementById("sel_autoScheduleMode")
+            self.assertEquals(autoScheduleModeMenu.getAttribute("name"),
+                              "autoScheduleMode")
+
+            popup = getElementsByTagName(autoScheduleModeMenu, 'option')
+
+            # Sanity checks to make sure we got the right items
+            for i, mode in enumerate(modes):
+                self.assertEquals(popup[i].getAttribute("value"), mode)
+
+            popupValues = [popup[i] for i in range(len(modes))]
+            for i in range(len(modes)):
+                self.assertEquals(popupValues[i].hasAttribute("selected"), ctr == i)
+            self.assertEquals(popupValues[ctr].getAttribute("selected"), "selected")
+
+
+    @inlineCallbacks
     def test_proxiesListing(self):
         """
         Resource principals will have their proxies listed in a table.
@@ -403,11 +435,13 @@ class RenderingTests(TestCase):
 
 
 class FakePrincipalResource(object):
-    def __init__(self, test, req=None, resid='no-id-given', autosched=True,
+    def __init__(self, test, req=None, resid='no-id-given',
+                 autosched=True, autoschedmode=None,
                  recordType="users", extraProperties=(), hasProxies=True):
         self.test = test
         self.resid = resid
         self.autosched = autosched
+        self.autoschedmode = autoschedmode
         self.recordType = recordType
         self.extraProperties = extraProperties
         self.hasProxies = hasProxies
@@ -467,5 +501,9 @@ class FakePrincipalResource(object):
 
     def getAutoSchedule(self):
         return self.autosched
+
+
+    def getAutoScheduleMode(self):
+        return self.autoschedmode
 
 

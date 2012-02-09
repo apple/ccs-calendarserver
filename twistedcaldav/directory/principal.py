@@ -52,23 +52,21 @@ try:
 except ImportError:
     NegotiateCredentials = None
 from twisted.python.modules import getModule
-from twistedcaldav.config import config
+
+from twistedcaldav import caldavxml, customxml
 from twistedcaldav.cache import DisabledCacheNotifier, PropfindCacheMixin
-
-from twistedcaldav.extensions import DirectoryElement
-
+from twistedcaldav.config import config
+from twistedcaldav.customxml import calendarserver_namespace
+from twistedcaldav.directory.augment import allowedAutoScheduleModes
 from twistedcaldav.directory.common import uidsResourceName
 from twistedcaldav.directory.directory import DirectoryService, DirectoryRecord
+from twistedcaldav.directory.idirectory import IDirectoryService
+from twistedcaldav.directory.wiki import getWikiACL
+from twistedcaldav.extensions import DirectoryElement
 from twistedcaldav.extensions import ReadOnlyResourceMixIn, DAVPrincipalResource,\
     DAVResourceWithChildrenMixin
-from twistedcaldav.resource import (
-    CalendarPrincipalCollectionResource, CalendarPrincipalResource
-)
-from twistedcaldav.directory.idirectory import IDirectoryService
-from twistedcaldav import caldavxml, customxml
-from twistedcaldav.customxml import calendarserver_namespace
+from twistedcaldav.resource import CalendarPrincipalCollectionResource, CalendarPrincipalResource
 from twistedcaldav.scheduling.cuaddress import normalizeCUAddr
-from twistedcaldav.directory.wiki import getWikiACL
 
 thisModule = getModule(__name__)
 log = Logger()
@@ -963,6 +961,27 @@ class DirectoryPrincipalResource (
 
     def getAutoSchedule(self):
         return self.record.autoSchedule
+
+    def canAutoSchedule(self):
+        """
+        Determine the auto-schedule state based on record state, type and config settings.
+        """
+        
+        if config.Scheduling.Options.AutoSchedule.Enabled:
+            if config.Scheduling.Options.AutoSchedule.Always or self.getAutoSchedule():
+                if self.getCUType() != "INDIVIDUAL" or config.Scheduling.Options.AutoSchedule.AllowUsers:
+                    return True
+        return False
+
+    @inlineCallbacks
+    def setAutoScheduleMode(self, autoScheduleMode):
+        self.record.autoScheduleMode = autoScheduleMode if autoScheduleMode in allowedAutoScheduleModes else "default"
+        augmentRecord = (yield self.record.service.augmentService.getAugmentRecord(self.record.guid, self.record.recordType))
+        augmentRecord.autoScheduleMode = autoScheduleMode
+        (yield self.record.service.augmentService.addAugmentRecords([augmentRecord]))
+
+    def getAutoScheduleMode(self):
+        return self.record.autoScheduleMode
 
     def getCUType(self):
         return self.record.getCUType()

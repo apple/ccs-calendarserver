@@ -128,6 +128,18 @@
             <option t:render="isAutoSchedule" value="true">Yes</option>
             <option t:render="isntAutoSchedule" value="false">No</option>
           </select>
+          <br/>
+          Auto-Schedule Mode
+          <select id="sel_autoScheduleMode" name="autoScheduleMode">
+            <option t:render="autoScheduleModeDefault" value="default">Default</option>
+            <option t:render="autoScheduleModeNone" value="none">None</option>
+            <option t:render="autoScheduleModeAcceptAlways" value="accept-always">Accept Always</option>
+            <option t:render="autoScheduleModeDeclineAlways" value="decline-always">Decline Always</option>
+            <option t:render="autoScheduleModeAcceptIfFree" value="accept-if-free">Accept If Free</option>
+            <option t:render="autoScheduleModeDeclineIfBusy" value="decline-if-busy">Decline If Busy</option>
+            <option t:render="autoScheduleModeAutomatic" value="automatic">Automatic (Accept and Decline)</option>
+          </select>
+          <br/>
           <input type="submit" value="Change" />
         </div>
       </form>

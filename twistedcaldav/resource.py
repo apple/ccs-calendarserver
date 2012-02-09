@@ -1,6 +1,6 @@
 # -*- test-case-name: twistedcaldav.test.test_resource,twistedcaldav.test.test_wrapping -*-
 ##
-# Copyright (c) 2005-2011 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2012 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -1872,6 +1872,7 @@ class CalendarPrincipalResource (CalDAVComplianceMixIn, DAVResourceWithChildrenM
                 (calendarserver_namespace, "calendar-proxy-read-for"  ),
                 (calendarserver_namespace, "calendar-proxy-write-for" ),
                 (calendarserver_namespace, "auto-schedule" ),
+                (calendarserver_namespace, "auto-schedule-mode" ),
             )
         
         if self.addressBooksEnabled():
@@ -1966,6 +1967,10 @@ class CalendarPrincipalResource (CalDAVComplianceMixIn, DAVResourceWithChildrenM
             elif name == "auto-schedule" and self.calendarsEnabled():
                 autoSchedule = self.getAutoSchedule()
                 returnValue(customxml.AutoSchedule("true" if autoSchedule else "false"))
+
+            elif name == "auto-schedule-mode" and self.calendarsEnabled():
+                autoScheduleMode = self.getAutoScheduleMode()
+                returnValue(customxml.AutoScheduleMode(autoScheduleMode if autoScheduleMode else "default"))
 
         elif namespace == carddav_namespace and self.addressBooksEnabled():
             if name == "addressbook-home-set":

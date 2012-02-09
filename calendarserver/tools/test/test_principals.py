@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2005-2010 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2012 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -25,7 +25,8 @@ from twistedcaldav.config import config
 from twistedcaldav.directory.directory import DirectoryError
 from twistedcaldav.directory import calendaruserproxy
 
-from twistedcaldav.test.util import TestCase, CapturingProcessProtocol
+from twistedcaldav.test.util import TestCase, CapturingProcessProtocol,\
+    ErrorOutput
 
 from calendarserver.tap.util import directoryFromConfig
 from calendarserver.tools.principals import parseCreationArgs, matchStrings, updateRecord, principalForPrincipalID, getProxies, setProxies
@@ -130,7 +131,11 @@ class ManagePrincipalsTestCase(TestCase):
 
         results = yield self.runCommand("--get-auto-schedule",
             "resources:newresource")
-        self.assertTrue(results.startswith('Autoschedule for "New Resource" (resources:newresource) is true'))
+        self.assertTrue(results.startswith('Auto-schedule for "New Resource" (resources:newresource) is true'))
+
+        results = yield self.runCommand("--get-auto-schedule-mode",
+            "resources:newresource")
+        self.assertTrue(results.startswith('Auto-schedule mode for "New Resource" (resources:newresource) is default'))
 
         results = yield self.runCommand("--list-principals=resources")
         self.assertTrue("newresource" in results)
@@ -220,7 +225,7 @@ class ManagePrincipalsTestCase(TestCase):
     def test_autoSchedule(self):
         results = yield self.runCommand("--get-auto-schedule",
             "locations:location01")
-        self.assertTrue(results.startswith('Autoschedule for "Room 01" (locations:location01) is false'))
+        self.assertTrue(results.startswith('Auto-schedule for "Room 01" (locations:location01) is false'))
 
         results = yield self.runCommand("--set-auto-schedule=true",
             "locations:location01")
@@ -228,11 +233,38 @@ class ManagePrincipalsTestCase(TestCase):
 
         results = yield self.runCommand("--get-auto-schedule",
             "locations:location01")
-        self.assertTrue(results.startswith('Autoschedule for "Room 01" (locations:location01) is true'))
+        self.assertTrue(results.startswith('Auto-schedule for "Room 01" (locations:location01) is true'))
 
         results = yield self.runCommand("--set-auto-schedule=true",
             "users:user01")
         self.assertTrue(results.startswith('Enabling auto-schedule for (users)user01 is not allowed.'))
+
+
+    @inlineCallbacks
+    def test_autoScheduleMode(self):
+        results = yield self.runCommand("--get-auto-schedule-mode",
+            "locations:location01")
+        self.assertTrue(results.startswith('Auto-schedule mode for "Room 01" (locations:location01) is default'))
+
+        results = yield self.runCommand("--set-auto-schedule-mode=accept-if-free",
+            "locations:location01")
+        self.assertTrue(results.startswith('Setting auto-schedule mode to accept-if-free for "Room 01" (locations:location01)'))
+
+        results = yield self.runCommand("--get-auto-schedule-mode",
+            "locations:location01")
+        self.assertTrue(results.startswith('Auto-schedule mode for "Room 01" (locations:location01) is accept-if-free'))
+
+        results = yield self.runCommand("--set-auto-schedule-mode=decline-if-busy",
+            "users:user01")
+        self.assertTrue(results.startswith('Setting auto-schedule mode for (users)user01 is not allowed.'))
+
+        try:
+            results = yield self.runCommand("--set-auto-schedule-mode=bogus",
+                "users:user01")
+        except ErrorOutput:
+            pass
+        else:
+            self.fail("Expected command failure")
 
 
     @inlineCallbacks

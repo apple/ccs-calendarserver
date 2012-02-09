@@ -1,6 +1,6 @@
 # -*- test-case-name: twistedcaldav.directory.test -*-
 ##
-# Copyright (c) 2006-2010 Apple Inc. All rights reserved.
+# Copyright (c) 2006-2012 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -59,7 +59,6 @@ from twisted.python.usage import Options, UsageError
 from twistedcaldav.stdconfig import DEFAULT_CONFIG, DEFAULT_CONFIG_FILE
 from twisted.application import service
 from twisted.plugin import IPlugin
-from zope.interface import implements
 from xml.parsers.expat import ExpatError
 from plistlib import readPlistFromString
 
@@ -928,7 +927,9 @@ class DirectoryRecord(LoggingMixIn):
         self, service, recordType, guid=None,
         shortNames=(), authIDs=set(), fullName=None,
         firstName=None, lastName=None, emailAddresses=set(),
-        calendarUserAddresses=set(), autoSchedule=False, enabledForCalendaring=None,
+        calendarUserAddresses=set(),
+        autoSchedule=False, autoScheduleMode=None,
+        enabledForCalendaring=None,
         enabledForAddressBooks=None,
         uid=None,
         enabledForLogin=True,
@@ -962,6 +963,7 @@ class DirectoryRecord(LoggingMixIn):
         self.emailAddresses         = emailAddresses
         self.enabledForCalendaring  = enabledForCalendaring
         self.autoSchedule           = autoSchedule
+        self.autoScheduleMode       = autoScheduleMode
         self.enabledForAddressBooks = enabledForAddressBooks
         self.enabledForLogin        = enabledForLogin
         self.extProxies             = extProxies
@@ -1017,6 +1019,7 @@ class DirectoryRecord(LoggingMixIn):
             self.enabledForCalendaring = augment.enabledForCalendaring
             self.enabledForAddressBooks = augment.enabledForAddressBooks
             self.autoSchedule = augment.autoSchedule
+            self.autoScheduleMode = augment.autoScheduleMode
             self.enabledForLogin = augment.enabledForLogin
 
             if (self.enabledForCalendaring or self.enabledForAddressBooks) and self.recordType == self.service.recordType_groups:

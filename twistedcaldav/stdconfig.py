@@ -633,13 +633,25 @@ DEFAULT_CONFIG = {
             "AllowGroupAsOrganizer"               : False, # Allow groups to be Organizers
             "AllowLocationAsOrganizer"            : False, # Allow locations to be Organizers
             "AllowResourceAsOrganizer"            : False, # Allow resources to be Organizers
-            "AllowUserAutoAccept"                 : False, # Allow auto-accept for users
             "LimitFreeBusyAttendees"              :  30,    # Maximum number of attendees to request freebusy for
             "AttendeeRefreshBatch"                :   5,    # Number of attendees to do batched refreshes: 0 - no batching
             "AttendeeRefreshBatchDelaySeconds"    :   5,    # Time after an iTIP REPLY for first batched attendee refresh
             "AttendeeRefreshBatchIntervalSeconds" :   5,    # Time between attendee batch refreshes
             "UIDLockTimeoutSeconds"               :  60,    # Time for implicit UID lock timeout
-            "UIDLockExpirySeconds"                : 300,    # Expiration time for UID lock
+            "UIDLockExpirySeconds"                : 300,    # Expiration time for UID lock,
+            
+            "AutoSchedule" : {
+                "Enabled"                         : True,   # Auto-scheduling will never occur if set to False
+                "Always"                          : False,  # Override augments setting and always auto-schedule
+                "AllowUsers"                      : False,  # Allow auto-schedule for users
+                "DefaultMode"                     : "automatic",   # Default mode for auto-schedule processing, one of:
+                                                                   # "none"            - no auto-scheduling
+                                                                   # "accept-always"   - always accept, ignore busy time
+                                                                   # "decline-always"  - always decline, ignore free time
+                                                                   # "accept-if-free"  - accept if free, do nothing if busy
+                                                                   # "decline-if-busy" - decline if busy, do nothing if free
+                                                                   # "automatic"       - accept if free, decline if busy
+            }
         }
     },
 

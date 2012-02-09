@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2009-2011 Apple Inc. All rights reserved.
+# Copyright (c) 2009-2012 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -35,6 +35,16 @@ from twistedcaldav.xmlutil import newElementTreeWithRoot, addSubElement,\
 
 log = Logger()
 
+allowedAutoScheduleModes = frozenset((
+    "default",
+    "none",
+    "accept-always",
+    "decline-always",
+    "accept-if-free",
+    "decline-if-busy",
+    "automatic",
+))
+
 class AugmentRecord(object):
     """
     Augmented directory record information
@@ -48,6 +58,7 @@ class AugmentRecord(object):
         partitionID="",
         enabledForCalendaring=False,
         autoSchedule=False,
+        autoScheduleMode="default",
         enabledForAddressBooks=False,
         enabledForLogin=True,
     ):
@@ -59,6 +70,7 @@ class AugmentRecord(object):
         self.enabledForAddressBooks = enabledForAddressBooks
         self.enabledForLogin = enabledForLogin
         self.autoSchedule = autoSchedule
+        self.autoScheduleMode = autoScheduleMode if autoScheduleMode in allowedAutoScheduleModes else "default"
         self.clonedFromDefault = False
 
 recordTypesMap = {
@@ -417,6 +429,8 @@ class AugmentXMLDB(AugmentDB):
         addSubElement(recordNode, xmlaugmentsparser.ELEMENT_ENABLEADDRESSBOOK, "true" if record.enabledForAddressBooks else "false")
         addSubElement(recordNode, xmlaugmentsparser.ELEMENT_ENABLELOGIN, "true" if record.enabledForLogin else "false")
         addSubElement(recordNode, xmlaugmentsparser.ELEMENT_AUTOSCHEDULE, "true" if record.autoSchedule else "false")
+        if record.autoScheduleMode:
+            addSubElement(recordNode, xmlaugmentsparser.ELEMENT_AUTOSCHEDULE_MODE, record.autoScheduleMode)
 
     def refresh(self):
         """
@@ -496,7 +510,7 @@ class AugmentADAPI(AugmentDB, AbstractADBAPIDatabase):
     DBAPI based augment database implementation.
     """
 
-    schema_version = "1"
+    schema_version = "2"
     schema_type    = "AugmentDB"
     
     def __init__(self, dbID, dbapiName, dbapiArgs, **kwargs):
@@ -528,11 +542,11 @@ class AugmentADAPI(AugmentDB, AbstractADBAPIDatabase):
         """
         
         # Query for the record information
-        results = (yield self.query("select UID, ENABLED, SERVERID, PARTITIONID, CALENDARING, ADDRESSBOOKS, AUTOSCHEDULE, LOGINENABLED from AUGMENTS where UID = :1", (uid,)))
+        results = (yield self.query("select UID, ENABLED, SERVERID, PARTITIONID, CALENDARING, ADDRESSBOOKS, AUTOSCHEDULE, AUTOSCHEDULEMODE, LOGINENABLED from AUGMENTS where UID = :1", (uid,)))
         if not results:
             returnValue(None)
         else:
-            uid, enabled, serverid, partitionid, enabledForCalendaring, enabledForAddressBooks, autoSchedule, enabledForLogin = results[0]
+            uid, enabled, serverid, partitionid, enabledForCalendaring, enabledForAddressBooks, autoSchedule, autoScheduleMode, enabledForLogin = results[0]
             
             record = AugmentRecord(
                 uid = uid,
@@ -543,6 +557,7 @@ class AugmentADAPI(AugmentDB, AbstractADBAPIDatabase):
                 enabledForAddressBooks = enabledForAddressBooks == "T",
                 enabledForLogin = enabledForLogin == "T",
                 autoSchedule = autoSchedule == "T",
+                autoScheduleMode = autoScheduleMode,
             )
             
             returnValue(record)
@@ -597,14 +612,15 @@ class AugmentADAPI(AugmentDB, AbstractADBAPIDatabase):
         yield self._create_table(
             "AUGMENTS",
             (
-                ("UID",          "text unique"),
-                ("ENABLED",      "text(1)"),
-                ("SERVERID",     "text"),
-                ("PARTITIONID",  "text"),
-                ("CALENDARING",  "text(1)"),
-                ("ADDRESSBOOKS", "text(1)"),
-                ("AUTOSCHEDULE", "text(1)"),
-                ("LOGINENABLED", "text(1)"),
+                ("UID",              "text unique"),
+                ("ENABLED",          "text(1)"),
+                ("SERVERID",         "text"),
+                ("PARTITIONID",      "text"),
+                ("CALENDARING",      "text(1)"),
+                ("ADDRESSBOOKS",     "text(1)"),
+                ("AUTOSCHEDULE",     "text(1)"),
+                ("AUTOSCHEDULEMODE", "text"),
+                ("LOGINENABLED",     "text(1)"),
             ),
             ifnotexists=True,
         )
@@ -627,8 +643,8 @@ class AugmentSqliteDB(ADBAPISqliteMixin, AugmentADAPI):
     def _addRecord(self, record):
         yield self.execute(
             """insert or replace into AUGMENTS
-            (UID, ENABLED, SERVERID, PARTITIONID, CALENDARING, ADDRESSBOOKS, AUTOSCHEDULE, LOGINENABLED)
-            values (:1, :2, :3, :4, :5, :6, :7, :8)""",
+            (UID, ENABLED, SERVERID, PARTITIONID, CALENDARING, ADDRESSBOOKS, AUTOSCHEDULE, AUTOSCHEDULEMODE, LOGINENABLED)
+            values (:1, :2, :3, :4, :5, :6, :7, :8, :9)""",
             (
                 record.uid,
                 "T" if record.enabled else "F",
@@ -637,6 +653,7 @@ class AugmentSqliteDB(ADBAPISqliteMixin, AugmentADAPI):
                 "T" if record.enabledForCalendaring else "F",
                 "T" if record.enabledForAddressBooks else "F",
                 "T" if record.autoSchedule else "F",
+                record.autoScheduleMode if record.autoScheduleMode else "",
                 "T" if record.enabledForLogin else "F",
             )
         )
@@ -658,8 +675,8 @@ class AugmentPostgreSQLDB(ADBAPIPostgreSQLMixin, AugmentADAPI):
     def _addRecord(self, record):
         yield self.execute(
             """insert into AUGMENTS
-            (UID, ENABLED, SERVERID, PARTITIONID, CALENDARING, ADDRESSBOOKS, AUTOSCHEDULE, LOGINENABLED)
-            values (:1, :2, :3, :4, :5, :6, :7, :8)""",
+            (UID, ENABLED, SERVERID, PARTITIONID, CALENDARING, ADDRESSBOOKS, AUTOSCHEDULE, AUTOSCHEDULEMODE, LOGINENABLED)
+            values (:1, :2, :3, :4, :5, :6, :7, :8, :9)""",
             (
                 record.uid,
                 "T" if record.enabled else "F",
@@ -668,6 +685,7 @@ class AugmentPostgreSQLDB(ADBAPIPostgreSQLMixin, AugmentADAPI):
                 "T" if record.enabledForCalendaring else "F",
                 "T" if record.enabledForAddressBooks else "F",
                 "T" if record.autoSchedule else "F",
+                record.autoScheduleMode if record.autoScheduleMode else "",
                 "T" if record.enabledForLogin else "F",
             )
         )
@@ -676,8 +694,8 @@ class AugmentPostgreSQLDB(ADBAPIPostgreSQLMixin, AugmentADAPI):
     def _modifyRecord(self, record):
         yield self.execute(
             """update AUGMENTS set
-            (UID, ENABLED, SERVERID, PARTITIONID, CALENDARING, ADDRESSBOOKS, AUTOSCHEDULE, LOGINENABLED) =
-            (:1, :2, :3, :4, :5, :6, :7 :8) where UID = :9""",
+            (UID, ENABLED, SERVERID, PARTITIONID, CALENDARING, ADDRESSBOOKS, AUTOSCHEDULE, AUTOSCHEDULEMODE, LOGINENABLED) =
+            (:1, :2, :3, :4, :5, :6, :7, :8, :9) where UID = :10""",
             (
                 record.uid,
                 "T" if record.enabled else "F",
@@ -686,6 +704,7 @@ class AugmentPostgreSQLDB(ADBAPIPostgreSQLMixin, AugmentADAPI):
                 "T" if record.enabledForCalendaring else "F",
                 "T" if record.enabledForAddressBooks else "F",
                 "T" if record.autoSchedule else "F",
+                record.autoScheduleMode if record.autoScheduleMode else "",
                 "T" if record.enabledForLogin else "F",
                 record.uid,
             )

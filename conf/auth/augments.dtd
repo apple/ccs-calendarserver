@@ -1,5 +1,5 @@
 <!--
-Copyright (c) 2009-2010 Apple Inc. All rights reserved.
+Copyright (c) 2009-2012 Apple Inc. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -16,7 +16,7 @@ limitations under the License.
 
 <!ELEMENT augments (record*) >
 
-  <!ELEMENT record (uid, enable, (server-id, partition-id?)?, enable-calendar?, enable-addressbook?, auto-schedule?)>
+  <!ELEMENT record (uid, enable, (server-id, partition-id?)?, enable-calendar?, enable-addressbook?, auto-schedule?, auto-schedule-mode?)>
     <!ATTLIST record repeat CDATA "1">
 
   <!ELEMENT uid                (#PCDATA)>
@@ -26,4 +26,5 @@ limitations under the License.
   <!ELEMENT enable-calendar    (#PCDATA)>
   <!ELEMENT enable-addressbook (#PCDATA)>
   <!ELEMENT auto-schedule      (#PCDATA)>
+  <!ELEMENT auto-schedule-mode (#PCDATA)>
 >

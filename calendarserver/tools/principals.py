@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 ##
-# Copyright (c) 2006-2011 Apple Inc. All rights reserved.
+# Copyright (c) 2006-2012 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -37,6 +37,7 @@ from twistedcaldav.config import config, ConfigurationError
 from twistedcaldav.directory.directory import UnknownRecordTypeError, DirectoryError
 
 from calendarserver.tools.util import loadConfig, getDirectory, setupMemcached,  booleanArgument, checkDirectory
+from twistedcaldav.directory.augment import allowedAutoScheduleModes
 
 __all__ = [
     "principalForPrincipalID", "proxySubprincipal", "addProxy", "removeProxy",
@@ -83,6 +84,8 @@ def usage(e=None):
     print "  --remove-proxy=principal: remove a proxy"
     print "  --set-auto-schedule={true|false}: set auto-accept state"
     print "  --get-auto-schedule: read auto-schedule state"
+    print "  --set-auto-schedule-mode={default|none|accept-always|decline-always|accept-if-free|decline-if-busy|automatic}: set auto-schedule mode"
+    print "  --get-auto-schedule-mode: read auto-schedule mode"
     print "  --add {locations|resources} 'full name' [record name] [GUID]: add a principal"
     print "  --remove: remove a principal"
 
@@ -111,6 +114,8 @@ def main():
                 "remove-proxy=",
                 "set-auto-schedule=",
                 "get-auto-schedule",
+                "set-auto-schedule-mode=",
+                "get-auto-schedule-mode",
                 "verbose",
             ],
         )
@@ -202,6 +207,19 @@ def main():
 
         elif opt in ("", "--get-auto-schedule"):
             principalActions.append((action_getAutoSchedule,))
+
+        elif opt in ("", "--set-auto-schedule-mode"):
+            try:
+                if arg not in allowedAutoScheduleModes:
+                    raise ValueError("Unknown auto-schedule mode: %s" % (arg,))
+                autoScheduleMode = arg
+            except ValueError, e:
+                abort(e)
+
+            principalActions.append((action_setAutoScheduleMode, autoScheduleMode))
+
+        elif opt in ("", "--get-auto-schedule-mode"):
+            principalActions.append((action_getAutoScheduleMode,))
 
         else:
             raise NotImplementedError(opt)
@@ -677,7 +695,7 @@ def action_setAutoSchedule(principal, autoSchedule):
     if principal.record.recordType == "groups":
         print "Enabling auto-schedule for %s is not allowed." % (principal,)
 
-    elif principal.record.recordType == "users" and not config.Scheduling.Options.AllowUserAutoAccept:
+    elif principal.record.recordType == "users" and not config.Scheduling.Options.AutoSchedule.AllowUsers:
         print "Enabling auto-schedule for %s is not allowed." % (principal,)
 
     else:
@@ -697,9 +715,41 @@ def action_setAutoSchedule(principal, autoSchedule):
 
 def action_getAutoSchedule(principal):
     autoSchedule = principal.getAutoSchedule()
-    print "Autoschedule for %s is %s" % (
+    print "Auto-schedule for %s is %s" % (
         prettyPrincipal(principal),
         { True: "true", False: "false" }[autoSchedule],
+    )
+
+@inlineCallbacks
+def action_setAutoScheduleMode(principal, autoScheduleMode):
+    if principal.record.recordType == "groups":
+        print "Setting auto-schedule mode for %s is not allowed." % (principal,)
+
+    elif principal.record.recordType == "users" and not config.Scheduling.Options.AutoSchedule.AllowUsers:
+        print "Setting auto-schedule mode for %s is not allowed." % (principal,)
+
+    else:
+        print "Setting auto-schedule mode to %s for %s" % (
+            autoScheduleMode,
+            prettyPrincipal(principal),
+        )
+
+        (yield updateRecord(False, config.directory,
+            principal.record.recordType,
+            guid=principal.record.guid,
+            shortNames=principal.record.shortNames,
+            fullName=principal.record.fullName,
+            autoScheduleMode=autoScheduleMode,
+            **principal.record.extras
+        ))
+
+def action_getAutoScheduleMode(principal):
+    autoScheduleMode = principal.getAutoScheduleMode()
+    if not autoScheduleMode:
+        autoScheduleMode = "automatic"
+    print "Auto-schedule mode for %s is %s" % (
+        prettyPrincipal(principal),
+        autoScheduleMode,
     )
 
 
@@ -796,6 +846,12 @@ def updateRecord(create, directory, recordType, **kwargs):
     else:
         autoSchedule = recordType in ("locations", "resources")
 
+    if kwargs.has_key("autoScheduleMode"):
+        autoScheduleMode = kwargs["autoScheduleMode"]
+        del kwargs["autoScheduleMode"]
+    else:
+        autoScheduleMode = None
+
     for key, value in kwargs.items():
         if isinstance(value, unicode):
             kwargs[key] = value.encode("utf-8")
@@ -819,6 +875,7 @@ def updateRecord(create, directory, recordType, **kwargs):
     augmentService = directory.serviceForRecordType(recordType).augmentService
     augmentRecord = (yield augmentService.getAugmentRecord(kwargs['guid'], recordType))
     augmentRecord.autoSchedule = autoSchedule
+    augmentRecord.autoScheduleMode = autoScheduleMode
     (yield augmentService.addAugmentRecords([augmentRecord]))
     try:
         directory.updateRecord(recordType, **kwargs)

@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 
 <!--
-Copyright (c) 2009-2010 Apple Inc. All rights reserved.
+Copyright (c) 2009-2012 Apple Inc. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -57,6 +57,24 @@ limitations under the License.
     <enable-calendar>true</enable-calendar>
     <enable-addressbook>true</enable-addressbook>
     <auto-schedule>true</auto-schedule>
+  </record>
+  <record>
+    <uid>C5BAADEE-6B35-4FD5-A98A-5DF6BBAAC47A</uid>
+    <enable>true</enable>
+    <enable>true</enable>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+    <auto-schedule>true</auto-schedule>
+    <auto-schedule-mode/>
+  </record>
+  <record>
+    <uid>8AB34DF9-0297-4BA3-AADB-DB557DDD21E7</uid>
+    <enable>true</enable>
+    <enable>true</enable>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+    <auto-schedule>true</auto-schedule>
+    <auto-schedule-mode>accept-always</auto-schedule-mode>
   </record>
   <record>
     <uid>FC674703-8008-4A77-B80E-0DB55A9CE620</uid>

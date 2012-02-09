@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 
 <!--
-Copyright (c) 2009-2010 Apple Inc. All rights reserved.
+Copyright (c) 2009-2012 Apple Inc. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -32,12 +32,60 @@ limitations under the License.
     <enable-addressbook>true</enable-addressbook>
     <auto-schedule>true</auto-schedule>
   </record>
-  <record repeat="10">
+  <record repeat="4">
     <uid>resource%02d</uid>
     <enable>true</enable>
     <enable-calendar>true</enable-calendar>
     <enable-addressbook>true</enable-addressbook>
     <auto-schedule>true</auto-schedule>
+  </record>
+  <record>
+    <uid>resource05</uid>
+    <enable>true</enable>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+    <auto-schedule>true</auto-schedule>
+    <auto-schedule-mode>none</auto-schedule-mode>
+  </record>
+  <record>
+    <uid>resource06</uid>
+    <enable>true</enable>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+    <auto-schedule>true</auto-schedule>
+    <auto-schedule-mode>accept-always</auto-schedule-mode>
+  </record>
+  <record>
+    <uid>resource07</uid>
+    <enable>true</enable>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+    <auto-schedule>true</auto-schedule>
+    <auto-schedule-mode>decline-always</auto-schedule-mode>
+  </record>
+  <record>
+    <uid>resource08</uid>
+    <enable>true</enable>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+    <auto-schedule>true</auto-schedule>
+    <auto-schedule-mode>accept-if-free</auto-schedule-mode>
+  </record>
+  <record>
+    <uid>resource09</uid>
+    <enable>true</enable>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+    <auto-schedule>true</auto-schedule>
+    <auto-schedule-mode>decline-if-busy</auto-schedule-mode>
+  </record>
+  <record>
+    <uid>resource10</uid>
+    <enable>true</enable>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+    <auto-schedule>true</auto-schedule>
+    <auto-schedule-mode>automatic</auto-schedule-mode>
   </record>
   <record repeat="10">
     <uid>group%02d</uid>

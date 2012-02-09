@@ -454,18 +454,22 @@ class ImplicitProcessor(object):
                 raise ImplicitProcessorException(iTIPRequestStatus.NO_USER_SUPPORT)
 
             log.debug("ImplicitProcessing - originator '%s' to recipient '%s' processing METHOD:REQUEST, UID: '%s' - new processed" % (self.originator.cuaddr, self.recipient.cuaddr, self.uid))
-            autoprocessed = self.recipient.principal.getAutoSchedule()
-            store_inbox = not autoprocessed or self.recipient.principal.getCUType() == "INDIVIDUAL"
-            new_calendar = iTipProcessing.processNewRequest(self.message, self.recipient.cuaddr, autoprocessing=autoprocessed)
+            new_calendar = iTipProcessing.processNewRequest(self.message, self.recipient.cuaddr)
             name =  md5(str(new_calendar) + str(time.time()) + default.url()).hexdigest() + ".ics"
             
             # Handle auto-reply behavior
-            if autoprocessed:
-                send_reply, partstat = (yield self.checkAttendeeAutoReply(new_calendar))
+            if self.recipient.principal.canAutoSchedule():
+                send_reply, store_inbox, partstat = (yield self.checkAttendeeAutoReply(new_calendar, self.recipient.principal.getAutoScheduleMode()))
+                
+                # Only store inbox item when reply is not sent or always for users
+                store_inbox = store_inbox or self.recipient.principal.getCUType() == "INDIVIDUAL"
+            else:
+                send_reply = False
+                store_inbox = True
 
             new_resource = (yield self.writeCalendarResource(default.url(), default, name, new_calendar))
             
-            if autoprocessed and send_reply:
+            if send_reply:
                 # Track outstanding auto-reply processing
                 if not hasattr(self.request, "auto_reply_processing_count"):
                     self.request.auto_reply_processing_count = 1
@@ -480,23 +484,27 @@ class ImplicitProcessor(object):
                     customxml.Create(),
                 ),
             )
-            result = (True, autoprocessed, store_inbox, changes,)
+            result = (True, send_reply, store_inbox, changes,)
         else:
             # Processing update to existing event
-            autoprocessed = self.recipient.principal.getAutoSchedule()
-            store_inbox = not autoprocessed or self.recipient.principal.getCUType() == "INDIVIDUAL"
-            new_calendar, rids = iTipProcessing.processRequest(self.message, self.recipient_calendar, self.recipient.cuaddr, autoprocessing=autoprocessed)
+            new_calendar, rids = iTipProcessing.processRequest(self.message, self.recipient_calendar, self.recipient.cuaddr)
             if new_calendar:
      
                 # Handle auto-reply behavior
-                if autoprocessed:
-                    send_reply, partstat = (yield self.checkAttendeeAutoReply(new_calendar))
+                if self.recipient.principal.canAutoSchedule():
+                    send_reply, store_inbox, partstat = (yield self.checkAttendeeAutoReply(new_calendar, self.recipient.principal.getAutoScheduleMode()))
+                    
+                    # Only store inbox item when reply is not sent or always for users
+                    store_inbox = store_inbox or self.recipient.principal.getCUType() == "INDIVIDUAL"
+                else:
+                    send_reply = False
+                    store_inbox = True
 
                 # Update the attendee's copy of the event
                 log.debug("ImplicitProcessing - originator '%s' to recipient '%s' processing METHOD:REQUEST, UID: '%s' - updating event" % (self.originator.cuaddr, self.recipient.cuaddr, self.uid))
                 new_resource = (yield self.writeCalendarResource(self.recipient_calendar_collection_uri, self.recipient_calendar_collection, self.recipient_calendar_name, new_calendar))
                 
-                if autoprocessed and send_reply:
+                if send_reply:
                     # Track outstanding auto-reply processing
                     if not hasattr(self.request, "auto_reply_processing_count"):
                         self.request.auto_reply_processing_count = 1
@@ -530,7 +538,7 @@ class ImplicitProcessor(object):
                 if hasattr(self.request, "doing_attendee_refresh"):
                     store_inbox = False
 
-                result = (True, autoprocessed, store_inbox, changes,)
+                result = (True, send_reply, store_inbox, changes,)
                 
             else:
                 # Request needs to be ignored
@@ -654,7 +662,7 @@ class ImplicitProcessor(object):
                 self.request.auto_reply_processing_count -= 1
 
     @inlineCallbacks
-    def checkAttendeeAutoReply(self, calendar):
+    def checkAttendeeAutoReply(self, calendar, automode):
         """
         Check whether a reply to the given iTIP message is needed. We will not process a reply
         A reply will either be positive (accepted invitation) or negative (denied invitation).
@@ -664,78 +672,97 @@ class ImplicitProcessor(object):
         BTW The incoming iTIP message may contain multiple components so we need to iterate over all those.
         At the moment we will treat a failure on one instance as a DECLINE of the entire set.
 
-        @return: C{bool} indicating whether changes were made.
+        @param calendar: the iTIP message to process
+        @type calendar: L{Component}
+        @param automode: the auto-schedule mode for the recipient
+        @type automode: C{str}
+
+        @return: C{tuple} of C{bool}, C{bool}, C{str} indicating whether changes were made, whether the inbox item
+            should be added, and the new PARTSTAT.
         """
         
-        log.debug("ImplicitProcessing - recipient '%s' processing UID: '%s' - checking for auto-reply" % (self.recipient.cuaddr, self.uid))
+        # First ignore the none mode
+        if automode == "none":
+            returnValue((False, True, "",))
+        elif not automode or automode == "default":
+            automode = config.Scheduling.Options.AutoSchedule.DefaultMode
 
-        # First expand current one to get instances (only go 1 year into the future)
-        default_future_expansion_duration = PyCalendarDuration(days=356*1)
-        expand_max = PyCalendarDateTime.getToday() + default_future_expansion_duration
-        instances = calendar.expandTimeRanges(expand_max, ignoreInvalidInstances=True)
-        instance_states = dict([(instance, True) for instance in instances.instances.itervalues()])
+        log.debug("ImplicitProcessing - recipient '%s' processing UID: '%s' - checking for auto-reply with mode: %s" % (self.recipient.cuaddr, self.uid, automode,))
+
+        # The accept-always and decline-always modes do not need any freebusy checks
+        if automode in ("accept-always", "decline-always",):
+            all_accepted = automode == "accept-always"
+            all_declined = automode == "decline-always"
         
-        # Extract UID from primary component as we want to ignore this one if we match it
-        # in any calendars.
-        comp = calendar.mainComponent(allow_multiple=True)
-        uid = comp.propertyValue("UID")
-    
-        # Now compare each instance time-range with the index and see if there is an overlap
-        calendars = (yield self._getCalendarsToMatch())
-    
-        for calURL in calendars:
-            testcal = (yield self.request.locateResource(calURL))
-
-            # Get the timezone property from the collection, and store in the query filter
-            # for use during the query itself.
-            has_prop = (yield testcal.hasProperty((caldav_namespace, "calendar-timezone"), self.request))
-            if has_prop:
-                tz = (yield testcal.readProperty((caldav_namespace, "calendar-timezone"), self.request))
-                tzinfo = tz.calendar().gettimezone()
-            else:
-                tzinfo = PyCalendarTimezone(utc=True)
-
-            # Now do search for overlapping time-range
-            for instance in instances.instances.itervalues():
-                if instance_states[instance]:
-                    try:
-                        # First list is BUSY, second BUSY-TENTATIVE, third BUSY-UNAVAILABLE
-                        fbinfo = ([], [], [])
-                        
-                        def makeTimedUTC(dt):
-                            dt = dt.duplicate()
-                            if dt.isDateOnly():
-                                dt.setDateOnly(False)
-                                dt.setHHMMSS(0, 0, 0)
-                            if dt.floating():
-                                dt.setTimezone(tzinfo)
-                                dt.adjustToUTC()
-                            return dt
-                        
-                        tr = caldavxml.TimeRange(
-                            start=str(makeTimedUTC(instance.start)),
-                            end=str(makeTimedUTC(instance.end)),
-                        )
-
-                        yield report_common.generateFreeBusyInfo(self.request, testcal, fbinfo, tr, 0, uid, servertoserver=True)
-                        
-                        # If any fbinfo entries exist we have an overlap
-                        if len(fbinfo[0]) or len(fbinfo[1]) or len(fbinfo[2]):
-                            instance_states[instance] = False
-                    except NumberOfMatchesWithinLimits:
-                        instance_states[instance] = False
-                        log.info("Exceeded number of matches whilst trying to find free-time.")
+        # Other modes need freebusy check
+        else:
+            # First expand current one to get instances (only go 1 year into the future)
+            default_future_expansion_duration = PyCalendarDuration(days=356*1)
+            expand_max = PyCalendarDateTime.getToday() + default_future_expansion_duration
+            instances = calendar.expandTimeRanges(expand_max, ignoreInvalidInstances=True)
+            instance_states = dict([(instance, True) for instance in instances.instances.itervalues()])
             
-            # If everything is declined we can exit now
-            if not any(instance_states.itervalues()):
-                break
+            # Extract UID from primary component as we want to ignore this one if we match it
+            # in any calendars.
+            comp = calendar.mainComponent(allow_multiple=True)
+            uid = comp.propertyValue("UID")
         
-        # TODO: here we should do per-instance ACCEPT/DECLINE behavior
-        # For now we will assume overall ACCEPT/DECLINE
-
-        # Collect all the accepted and declined states
-        all_accepted = all(instance_states.itervalues())
-        all_declined = not any(instance_states.itervalues())
+            # Now compare each instance time-range with the index and see if there is an overlap
+            calendars = (yield self._getCalendarsToMatch())
+        
+            for calURL in calendars:
+                testcal = (yield self.request.locateResource(calURL))
+    
+                # Get the timezone property from the collection, and store in the query filter
+                # for use during the query itself.
+                has_prop = (yield testcal.hasProperty((caldav_namespace, "calendar-timezone"), self.request))
+                if has_prop:
+                    tz = (yield testcal.readProperty((caldav_namespace, "calendar-timezone"), self.request))
+                    tzinfo = tz.calendar().gettimezone()
+                else:
+                    tzinfo = PyCalendarTimezone(utc=True)
+    
+                # Now do search for overlapping time-range
+                for instance in instances.instances.itervalues():
+                    if instance_states[instance]:
+                        try:
+                            # First list is BUSY, second BUSY-TENTATIVE, third BUSY-UNAVAILABLE
+                            fbinfo = ([], [], [])
+                            
+                            def makeTimedUTC(dt):
+                                dt = dt.duplicate()
+                                if dt.isDateOnly():
+                                    dt.setDateOnly(False)
+                                    dt.setHHMMSS(0, 0, 0)
+                                if dt.floating():
+                                    dt.setTimezone(tzinfo)
+                                    dt.adjustToUTC()
+                                return dt
+                            
+                            tr = caldavxml.TimeRange(
+                                start=str(makeTimedUTC(instance.start)),
+                                end=str(makeTimedUTC(instance.end)),
+                            )
+    
+                            yield report_common.generateFreeBusyInfo(self.request, testcal, fbinfo, tr, 0, uid, servertoserver=True)
+                            
+                            # If any fbinfo entries exist we have an overlap
+                            if len(fbinfo[0]) or len(fbinfo[1]) or len(fbinfo[2]):
+                                instance_states[instance] = False
+                        except NumberOfMatchesWithinLimits:
+                            instance_states[instance] = False
+                            log.info("Exceeded number of matches whilst trying to find free-time.")
+                
+                # If everything is declined we can exit now
+                if not any(instance_states.itervalues()):
+                    break
+            
+            # TODO: here we should do per-instance ACCEPT/DECLINE behavior
+            # For now we will assume overall ACCEPT/DECLINE
+    
+            # Collect all the accepted and declined states
+            all_accepted = all(instance_states.itervalues())
+            all_declined = not any(instance_states.itervalues())
 
         # Do the simple case of all accepted or decline separately
         cuas = self.recipient.principal.calendarUserAddresses()
@@ -743,15 +770,22 @@ class ImplicitProcessor(object):
             # Extract the ATTENDEE property matching current recipient from the calendar data
             attendeeProps = calendar.getAttendeeProperties(cuas)
             if not attendeeProps:
-                returnValue((False, "",))
+                returnValue((False, True, "",))
         
-            if all_accepted:
-                partstat = "ACCEPTED"
+            if automode == "accept-always":
+                freePartstat = busyPartstat = "ACCEPTED"
+            elif automode == "decline-always":
+                freePartstat = busyPartstat = "DECLINED"
             else:
-                partstat = "DECLINED"
-            calendar.replacePropertyInAllComponents(Property("TRANSP", "OPAQUE" if all_accepted else "TRANSPARENT"))
+                freePartstat = "ACCEPTED" if automode in ("accept-if-free", "automatic",) else "NEEDS-ACTION"
+                busyPartstat = "DECLINED" if automode in ("decline-if-busy", "automatic",) else "NEEDS-ACTION"
+            freeStateOpaque = freePartstat == "ACCEPTED"
+
+            partstat = freePartstat if all_accepted else busyPartstat
+            calendar.replacePropertyInAllComponents(Property("TRANSP", "OPAQUE" if all_accepted and freeStateOpaque else "TRANSPARENT"))
     
             made_changes = self.changeAttendeePartstat(attendeeProps, partstat)
+            store_inbox = partstat == "NEEDS-ACTION"
         
         else:
             # Hard case: some accepted some declined
@@ -760,24 +794,34 @@ class ImplicitProcessor(object):
             # any other declines.
             
             made_changes = False
+            store_inbox = False
             partstat = "MIXED RESPONSE"
+            
+            freePartstat = "ACCEPTED" if automode in ("accept-if-free", "automatic",) else "NEEDS-ACTION"
+            busyPartstat = "DECLINED" if automode in ("decline-if-busy", "automatic",) else "NEEDS-ACTION"
+            freeStateOpaque = freePartstat == "ACCEPTED"
 
-            # Default state is whichever of ACCEPTED or DECLINED has most instances
-            defaultStateAccepted = len(filter(lambda x:x, instance_states.values())) >= len(instance_states.keys()) / 2
+            # Default state is whichever of free or busy has most instances
+            defaultStateFree = len(filter(lambda x:x, instance_states.values())) >= len(instance_states.keys()) / 2
 
             # See if there is a master component first
+            hadMasterRsvp = False
             master = calendar.masterComponent()
             if master:
                 attendee = master.getAttendeeProperty(cuas)
                 if attendee:
-                    made_changes |= self.changeAttendeePartstat(attendee, "ACCEPTED" if defaultStateAccepted else "DECLINED")
-                    master.replaceProperty(Property("TRANSP", "OPAQUE" if defaultStateAccepted else "TRANSPARENT"))
+                    hadMasterRsvp = attendee.parameterValue("RSVP", "FALSE") == "TRUE"
+                    new_partstat = freePartstat if defaultStateFree else busyPartstat
+                    if new_partstat == "NEEDS-ACTION":
+                        store_inbox = True
+                    made_changes |= self.changeAttendeePartstat(attendee, new_partstat)
+                    master.replaceProperty(Property("TRANSP", "OPAQUE" if defaultStateFree and freeStateOpaque else "TRANSPARENT"))
 
             # Look at expanded instances and change partstat accordingly
-            for instance, accepted in sorted(instance_states.iteritems(), key=lambda x: x[0].rid):
+            for instance, free in sorted(instance_states.iteritems(), key=lambda x: x[0].rid):
                 
                 overridden = calendar.overriddenComponent(instance.rid)
-                if not overridden and accepted == defaultStateAccepted:
+                if not overridden and free == defaultStateFree:
                     # Nothing to do as state matches the master
                     continue 
                 
@@ -785,16 +829,23 @@ class ImplicitProcessor(object):
                     # Change ATTENDEE property to match new state
                     attendee = overridden.getAttendeeProperty(cuas)
                     if attendee:
-                        made_changes |= self.changeAttendeePartstat(attendee, "ACCEPTED" if accepted else "DECLINED")
-                        overridden.replaceProperty(Property("TRANSP", "OPAQUE" if accepted else "TRANSPARENT"))
+                        new_partstat = freePartstat if free else busyPartstat
+                        if new_partstat == "NEEDS-ACTION":
+                            store_inbox = True
+                        made_changes |= self.changeAttendeePartstat(attendee, new_partstat)
+                        overridden.replaceProperty(Property("TRANSP", "OPAQUE" if free and freeStateOpaque else "TRANSPARENT"))
                 else:
-                    # Derive a new overridden component and change partstat
+                    # Derive a new overridden component and change partstat. We also need to make sure we restore any RSVP
+                    # value that may have been overwritten by any change to the master itself. 
                     derived = calendar.deriveInstance(instance.rid)
                     if derived:
                         attendee = derived.getAttendeeProperty(cuas)
                         if attendee:
-                            self.changeAttendeePartstat(attendee, "ACCEPTED" if accepted else "DECLINED")
-                            derived.replaceProperty(Property("TRANSP", "OPAQUE" if accepted else "TRANSPARENT"))
+                            new_partstat = freePartstat if free else busyPartstat
+                            if new_partstat == "NEEDS-ACTION":
+                                store_inbox = True
+                            self.changeAttendeePartstat(attendee, new_partstat, hadMasterRsvp)
+                            derived.replaceProperty(Property("TRANSP", "OPAQUE" if free and freeStateOpaque else "TRANSPARENT"))
                             calendar.addComponent(derived)
                             made_changes = True
             
@@ -802,7 +853,7 @@ class ImplicitProcessor(object):
         if made_changes:
             calendar.setParameterToValueForPropertyWithValue("SCHEDULE-STATUS", iTIPRequestStatus.MESSAGE_DELIVERED_CODE, "ORGANIZER", None)
         
-        returnValue((made_changes, partstat,))
+        returnValue((made_changes, store_inbox, partstat,))
 
     def _getCalendarsToMatch(self):
         # Determine the set of calendar URIs for a principal need to be searched.
@@ -868,7 +919,7 @@ class ImplicitProcessor(object):
         yield delchild.storeRemove(self.request, False, childURL)
 
 
-    def changeAttendeePartstat(self, attendees, partstat):
+    def changeAttendeePartstat(self, attendees, partstat, hadRSVP=False):
         """
         Change the PARTSTAT on any ATTENDEE properties passed in.
 
@@ -876,6 +927,8 @@ class ImplicitProcessor(object):
         @type attendees: L{Property}, C{list} or C{tuple}
         @param partstat: new PARTSTAT to set
         @type partstat: C{str}
+        @param hadRSVP: indicates whether RSVP should be added when changing to NEEDS-ACTION
+        @type hadRSVP: C{bool}
         
         @return: C{True} if any change was made, C{False} otherwise
         """
@@ -889,10 +942,13 @@ class ImplicitProcessor(object):
                 attendee.setParameter("PARTSTAT", partstat)
                 madeChanges = True
 
-            # Always remove RSVP - this is only an attendee change so madeChanges
-            # does not need to be changed
+            # Always remove RSVP when a state other than NEEDS-ACTION is set - this
+            # is only an attendee change so madeChanges does not need to be changed
             try:
-                attendee.removeParameter("RSVP")
+                if attendee.parameterValue("PARTSTAT", "NEEDS-ACTION") != "NEEDS-ACTION":
+                    attendee.removeParameter("RSVP")
+                elif hadRSVP:
+                    attendee.setParameter("RSVP", "TRUE")
             except KeyError:
                 pass
 
