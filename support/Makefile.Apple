@@ -90,10 +90,10 @@ install::
 	$(_v) $(INSTALL_FILE) "$(Sources)/doc/calendarserver_export.8"                "$(DSTROOT)$(SIPP)$(MANDIR)/man8"
 	$(_v) $(INSTALL_FILE) "$(Sources)/doc/calendarserver_manage_principals.8"     "$(DSTROOT)$(SIPP)$(MANDIR)/man8"
 	$(_v) $(INSTALL_FILE) "$(Sources)/doc/calendarserver_migrate_resources.8"     "$(DSTROOT)$(SIPP)$(MANDIR)/man8"
-	$(_v) $(INSTALL_FILE) "$(Sources)/doc/calendarserver_monitor_notifications.8" "$(DSTROOT)$(SIPP)$(MANDIR)/man8"
 	$(_v) $(INSTALL_FILE) "$(Sources)/doc/calendarserver_purge_attachments.8"     "$(DSTROOT)$(SIPP)$(MANDIR)/man8"
 	$(_v) $(INSTALL_FILE) "$(Sources)/doc/calendarserver_purge_events.8"          "$(DSTROOT)$(SIPP)$(MANDIR)/man8"
 	$(_v) $(INSTALL_FILE) "$(Sources)/doc/calendarserver_purge_principals.8"      "$(DSTROOT)$(SIPP)$(MANDIR)/man8"
+	$(_v) $(INSTALL_FILE) "$(Sources)/doc/calendarserver_manage_push.8"           "$(DSTROOT)$(SIPP)$(MANDIR)/man8"
 	$(_v) $(INSTALL_FILE) "$(Sources)/doc/calendarserver_shell.8"                 "$(DSTROOT)$(SIPP)$(MANDIR)/man8"
 	$(_v) gzip -9 -f "$(DSTROOT)$(SIPP)$(MANDIR)/man8/"*.[0-9]
 	@echo "Installing launchd config..."
