@@ -643,14 +643,13 @@ def getRootResource(config, newStore, resources=None):
     #
     apnConfig = config.Notifications.Services["ApplePushNotifier"]
     if apnConfig.Enabled:
-        log.info("Setting up APNS resource at /%s" %
-            (apnConfig["SubscriptionURL"],))
-        # Only advertise digest auth on /apns
+        log.info("Setting up APNS resource at /%s with auth: %s" %
+            (apnConfig["SubscriptionURL"], apnConfig["AuthMechanism"]))
         resources.append((
             apnConfig["SubscriptionURL"],
             apnSubscriptionResourceClass,
             [],
-            "digest"
+            apnConfig["AuthMechanism"]
         ))
 
     #
