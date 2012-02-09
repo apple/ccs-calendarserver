@@ -89,6 +89,19 @@ class ApplePushNotifierServiceTests(CommonCommonTests, TestCase):
         self.assertTrue([token, key1, timestamp1] in subscriptions)
         self.assertTrue([token, key2, timestamp2] in subscriptions)
 
+        # Verify an update to a subscription with a different uid takes on
+        # the new uid
+        timestamp3 = 5000
+        uid2 = "D8FFB335-9D36-4CE8-A3B9-D1859E38C0DA"
+        yield txn.addAPNSubscription(token, key2, timestamp3, uid2)
+        subscriptions = (yield txn.apnSubscriptionsBySubscriber(uid))
+        self.assertTrue([token, key1, timestamp1] in subscriptions)
+        self.assertFalse([token, key2, timestamp3] in subscriptions)
+        subscriptions = (yield txn.apnSubscriptionsBySubscriber(uid2))
+        self.assertTrue([token, key2, timestamp3] in subscriptions)
+        # Change it back
+        yield txn.addAPNSubscription(token, key2, timestamp2, uid)
+
         yield txn.commit()
 
         # Set up the service

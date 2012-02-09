@@ -356,7 +356,8 @@ class CommonStoreTransaction(object):
     @classproperty
     def _updateAPNSubscriptionQuery(cls): #@NoSelf
         apn = schema.APN_SUBSCRIPTIONS
-        return Update({apn.MODIFIED: Parameter("modified")},
+        return Update({apn.MODIFIED: Parameter("modified"),
+                       apn.SUBSCRIBER_GUID: Parameter("subscriber")},
                       Where=(apn.TOKEN == Parameter("token")).And(
                              apn.RESOURCE_KEY == Parameter("resourceKey")))
 
@@ -388,10 +389,11 @@ class CommonStoreTransaction(object):
                 # Subscription may have been added by someone else, which is fine
                 pass
 
-        else: # Subscription exists, so update with new timestamp
+        else: # Subscription exists, so update with new timestamp and subscriber
             try:
                 yield self._updateAPNSubscriptionQuery.on(self,
-                    token=token, resourceKey=key, modified=timestamp)
+                    token=token, resourceKey=key, modified=timestamp,
+                    subscriber=subscriber)
             except Exception:
                 # Subscription may have been added by someone else, which is fine
                 pass
