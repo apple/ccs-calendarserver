@@ -3,7 +3,7 @@
 
 Calendar Server Extension                                       C. Daboo
                                                               Apple Inc.
-                                                        February 7, 2012
+                                                        February 9, 2012
 
 
                   CalDAV: Calendar User Notifications
@@ -14,38 +14,38 @@ Abstract
    server to provide notifications to calendar users.
 
 
-Table of Contents
 
-   1.  Introduction . . . . . . . . . . . . . . . . . . . . . . . . .  2
-   2.  Open Issues  . . . . . . . . . . . . . . . . . . . . . . . . .  2
-   3.  Conventions Used in This Document  . . . . . . . . . . . . . .  2
-   4.  Notifications  . . . . . . . . . . . . . . . . . . . . . . . .  2
-     4.1.  Additional Principal Properties  . . . . . . . . . . . . .  3
-       4.1.1.  CS:notification-URL Property . . . . . . . . . . . . .  4
-     4.2.  Properties on Notification Resources . . . . . . . . . . .  4
-       4.2.1.  CS:notificationtype Property . . . . . . . . . . . . .  4
-     4.3.  XML Element Definitions  . . . . . . . . . . . . . . . . .  5
-       4.3.1.  CS:notifications . . . . . . . . . . . . . . . . . . .  5
-       4.3.2.  CS:notification  . . . . . . . . . . . . . . . . . . .  5
-       4.3.3.  CS:dtstamp . . . . . . . . . . . . . . . . . . . . . .  6
-   5.  Notification Definitions . . . . . . . . . . . . . . . . . . .  6
-     5.1.  System Status Notification . . . . . . . . . . . . . . . .  6
-       5.1.1.  CS:systemstatus Element Definition . . . . . . . . . .  6
-     5.2.  Quota Notification . . . . . . . . . . . . . . . . . . . .  7
-       5.2.1.  CS:quotastatus Element Definition  . . . . . . . . . .  8
-     5.3.  Resource Changes Notification  . . . . . . . . . . . . . .  9
-       5.3.1.  CS:resource-change Element Definition  . . . . . . . . 10
-       5.3.2.  CS:calendar-changes Element Definition . . . . . . . . 13
-         5.3.2.1.  Handling Recurrences in CS:calendar-changes  . . . 15
-       5.3.3.  CS:deleted-details Element Definition  . . . . . . . . 16
-       5.3.4.  CS:notify-changes Property . . . . . . . . . . . . . . 17
-   6.  Security Considerations  . . . . . . . . . . . . . . . . . . . 18
-   7.  IANA Considerations  . . . . . . . . . . . . . . . . . . . . . 18
-   8.  Acknowledgments  . . . . . . . . . . . . . . . . . . . . . . . 18
-   9.  References . . . . . . . . . . . . . . . . . . . . . . . . . . 19
-     9.1.  Normative References . . . . . . . . . . . . . . . . . . . 19
-     9.2.  Informative References . . . . . . . . . . . . . . . . . . 19
-   Author's Address . . . . . . . . . . . . . . . . . . . . . . . . . 19
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -53,6 +53,62 @@ Table of Contents
 
 
 Daboo                                                           [Page 1]
+
+                        CalDAV User Notifications          February 2012
+
+
+Table of Contents
+
+   1.  Introduction . . . . . . . . . . . . . . . . . . . . . . . . .  3
+   2.  Open Issues  . . . . . . . . . . . . . . . . . . . . . . . . .  3
+   3.  Conventions Used in This Document  . . . . . . . . . . . . . .  3
+   4.  Notifications  . . . . . . . . . . . . . . . . . . . . . . . .  3
+     4.1.  Additional Principal Properties  . . . . . . . . . . . . .  4
+       4.1.1.  CS:notification-URL Property . . . . . . . . . . . . .  5
+     4.2.  Properties on Notification Resources . . . . . . . . . . .  5
+       4.2.1.  CS:notificationtype Property . . . . . . . . . . . . .  5
+     4.3.  XML Element Definitions  . . . . . . . . . . . . . . . . .  6
+       4.3.1.  CS:notifications . . . . . . . . . . . . . . . . . . .  6
+       4.3.2.  CS:notification  . . . . . . . . . . . . . . . . . . .  6
+       4.3.3.  CS:dtstamp . . . . . . . . . . . . . . . . . . . . . .  7
+   5.  Notification Definitions . . . . . . . . . . . . . . . . . . .  7
+     5.1.  System Status Notification . . . . . . . . . . . . . . . .  7
+       5.1.1.  CS:systemstatus Element Definition . . . . . . . . . .  8
+     5.2.  Quota Notification . . . . . . . . . . . . . . . . . . . .  8
+       5.2.1.  CS:quotastatus Element Definition  . . . . . . . . . .  9
+     5.3.  Resource Changes Notification  . . . . . . . . . . . . . . 10
+       5.3.1.  CS:resource-change Element Definition  . . . . . . . . 11
+       5.3.2.  CS:calendar-changes Element Definition . . . . . . . . 14
+         5.3.2.1.  Handling Recurrences in CS:calendar-changes  . . . 16
+       5.3.3.  CS:deleted-details Element Definition  . . . . . . . . 17
+       5.3.4.  CS:notify-changes Property . . . . . . . . . . . . . . 19
+   6.  Security Considerations  . . . . . . . . . . . . . . . . . . . 19
+   7.  IANA Considerations  . . . . . . . . . . . . . . . . . . . . . 20
+   8.  Acknowledgments  . . . . . . . . . . . . . . . . . . . . . . . 20
+   9.  References . . . . . . . . . . . . . . . . . . . . . . . . . . 20
+     9.1.  Normative References . . . . . . . . . . . . . . . . . . . 20
+     9.2.  Informative References . . . . . . . . . . . . . . . . . . 20
+   Appendix A.  Examples  . . . . . . . . . . . . . . . . . . . . . . 20
+     A.1.  Resource Created . . . . . . . . . . . . . . . . . . . . . 20
+     A.2.  Resource Updated - Property Change . . . . . . . . . . . . 21
+     A.3.  Resource Updated - Parameter Change  . . . . . . . . . . . 22
+     A.4.  Resource Updated - Multiple Instances Change . . . . . . . 22
+     A.5.  Resource Updated - Multiple User Change  . . . . . . . . . 23
+     A.6.  Resource Deleted . . . . . . . . . . . . . . . . . . . . . 24
+     A.7.  Collection Created . . . . . . . . . . . . . . . . . . . . 25
+     A.8.  Collection Updated . . . . . . . . . . . . . . . . . . . . 25
+     A.9.  Collection Deleted . . . . . . . . . . . . . . . . . . . . 26
+   Author's Address . . . . . . . . . . . . . . . . . . . . . . . . . 26
+
+
+
+
+
+
+
+
+
+Daboo                                                           [Page 2]
 
                         CalDAV User Notifications          February 2012
 
@@ -108,7 +164,7 @@ Daboo                                                           [Page 1]
 
 
 
-Daboo                                                           [Page 2]
+Daboo                                                           [Page 3]
 
                         CalDAV User Notifications          February 2012
 
@@ -164,7 +220,7 @@ Daboo                                                           [Page 2]
 
 
 
-Daboo                                                           [Page 3]
+Daboo                                                           [Page 4]
 
                         CalDAV User Notifications          February 2012
 
@@ -220,7 +276,7 @@ Daboo                                                           [Page 3]
 
 
 
-Daboo                                                           [Page 4]
+Daboo                                                           [Page 5]
 
                         CalDAV User Notifications          February 2012
 
@@ -276,7 +332,7 @@ Daboo                                                           [Page 4]
 
 
 
-Daboo                                                           [Page 5]
+Daboo                                                           [Page 6]
 
                         CalDAV User Notifications          February 2012
 
@@ -296,11 +352,13 @@ Daboo                                                           [Page 5]
    Purpose:  Date-time stamp.
 
    Description:  Contains the date-time stamp corresponding to the
-      creation of a notification message.
+      creation of a notification message, using the format defined in
+      [RFC3339].
 
    Definition:
 
    <!ELEMENT dtstamp (#PCDATA)>
+   <!-- Value is a date-time in UTZ as per [RFC3339] -->
 
 
 5.  Notification Definitions
@@ -324,18 +382,18 @@ Daboo                                                           [Page 5]
    but if it does, it SHOULD include an xml:lang attribute on the CS:
    description element to indicate what language is being used.
 
-5.1.1.  CS:systemstatus Element Definition
 
 
 
 
 
 
-
-Daboo                                                           [Page 6]
+Daboo                                                           [Page 7]
 
                         CalDAV User Notifications          February 2012
 
+
+5.1.1.  CS:systemstatus Element Definition
 
    Name:  systemstatus
 
@@ -383,16 +441,16 @@ Daboo                                                           [Page 6]
    The quota notification is used to convey information about the status
    of one or more quotas for the user.  The notification contains
    elements for different types of quota being reported to the user.  In
-   some cases these may be warnings (e.g., a user getting to 80% of
-   their quota limit), or in other cases errors (e.g., a user exceeding
 
 
 
-Daboo                                                           [Page 7]
+Daboo                                                           [Page 8]
 
                         CalDAV User Notifications          February 2012
 
 
+   some cases these may be warnings (e.g., a user getting to 80% of
+   their quota limit), or in other cases errors (e.g., a user exceeding
    their quota).
 
 5.2.1.  CS:quotastatus Element Definition
@@ -428,7 +486,6 @@ Daboo                                                           [Page 7]
      <!ELEMENT quota-count CDATA>
      <!-- Integer value greater than or equal to zero -->
 
-
    Example:  This is an example of the body of a notification resource
       for a quota warning:
 
@@ -443,8 +500,7 @@ Daboo                                                           [Page 7]
 
 
 
-
-Daboo                                                           [Page 8]
+Daboo                                                           [Page 9]
 
                         CalDAV User Notifications          February 2012
 
@@ -500,7 +556,7 @@ Daboo                                                           [Page 8]
 
 
 
-Daboo                                                           [Page 9]
+Daboo                                                          [Page 10]
 
                         CalDAV User Notifications          February 2012
 
@@ -556,7 +612,7 @@ Daboo                                                           [Page 9]
 
 
 
-Daboo                                                          [Page 10]
+Daboo                                                          [Page 11]
 
                         CalDAV User Notifications          February 2012
 
@@ -612,7 +668,7 @@ Daboo                                                          [Page 10]
 
 
 
-Daboo                                                          [Page 11]
+Daboo                                                          [Page 12]
 
                         CalDAV User Notifications          February 2012
 
@@ -668,7 +724,7 @@ Daboo                                                          [Page 11]
 
 
 
-Daboo                                                          [Page 12]
+Daboo                                                          [Page 13]
 
                         CalDAV User Notifications          February 2012
 
@@ -724,23 +780,24 @@ Daboo                                                          [Page 12]
 
 
 
-Daboo                                                          [Page 13]
+Daboo                                                          [Page 14]
 
                         CalDAV User Notifications          February 2012
 
 
-       <!ELEMENT calendar-changes (recurrence+) >
+   <!ELEMENT calendar-changes (recurrence+) >
 
-       <!ELEMENT recurrence
-           ((master | recurrenceid), added?, removed?, changes?)>
-       <!-- Which instances were affected by the change,
-            and details on the per-instance changes -->
+     <!ELEMENT recurrence
+         ((master | recurrenceid), added?, removed?, changes?)>
+     <!-- Which instances were affected by the change,
+          and details on the per-instance changes -->
 
        <!ELEMENT master EMPTY>
        <!-- The "master" instance was affected -->
 
        <!ELEMENT recurrenceid CDATA>
-       <!-- RECURRENCE-ID value for the affected instance -->
+       <!-- RECURRENCE-ID value in iCalendar form (in UTC if a
+            non-floating DATE-TIME value) for the affected instance -->
 
        <!ELEMENT added EMPTY>
        <!-- The component was added -->
@@ -751,14 +808,13 @@ Daboo                                                          [Page 13]
        <!ELEMENT changes changed-property*>
        <!-- Detailed changes in the iCalendar data -->
 
-       <!ELEMENT changed-property changed-parameter*>
-       <!ATTLIST changed-property name PCDATA>
-       <!-- An iCalendar property changed -->
+         <!ELEMENT changed-property changed-parameter*>
+         <!ATTLIST changed-property name PCDATA>
+         <!-- An iCalendar property changed -->
 
-       <!ELEMENT changed-parameter EMPTY>
-       <!ATTLIST changed-parameter name PCDATA>
-       <!-- An iCalendar property parameter changed -->
-
+           <!ELEMENT changed-parameter EMPTY>
+           <!ATTLIST changed-parameter name PCDATA>
+           <!-- An iCalendar property parameter changed -->
 
    Example:  This example indicates that a non-recurring component, or
       the master component in a recurring component, was changed and
@@ -770,24 +826,20 @@ Daboo                                                          [Page 13]
        <CS:changes>
          <CS:changed-property name="SUMMARY"/>
        </CS:changes>
-     <CS:recurrence/>
+     </CS:recurrence>
    </CS:calendar-changes>
-
-
-
-
-
-
-
-
-Daboo                                                          [Page 14]
-
-                        CalDAV User Notifications          February 2012
-
 
    Example:  This example indicates that an instance of a recurring
       component was changed and that the change was to the "DTSTART"
       iCalendar property.
+
+
+
+
+Daboo                                                          [Page 15]
+
+                        CalDAV User Notifications          February 2012
+
 
    <CS:calendar-changes xmlns:CS="http://calendarserver.org/ns/">
      <CS:recurrence>
@@ -795,7 +847,7 @@ Daboo                                                          [Page 14]
        <CS:changes>
          <CS:changed-property name="DTSTART"/>
        </CS:changes>
-     <CS:recurrence/>
+     </CS:recurrence>
    </CS:calendar-changes>
 
 5.3.2.1.  Handling Recurrences in CS:calendar-changes
@@ -830,17 +882,6 @@ Daboo                                                          [Page 14]
       present if the removed component differs from the "derived" master
       instance.
 
-
-
-
-
-
-
-Daboo                                                          [Page 15]
-
-                        CalDAV User Notifications          February 2012
-
-
    Master exists, override cancelled  In this case, a CS:recurrence
       element will be present, containing a CS:recurrence-id element
       with a value equal to the RECURRENCE-ID property value (in UTC) of
@@ -848,6 +889,14 @@ Daboo                                                          [Page 15]
       will not be any CS:added or CS:changes element.  There will also
       be a CS:master element present, with an appropriate CS:changes
       element, likely covering a change to "RRULE" or addition of
+
+
+
+Daboo                                                          [Page 16]
+
+                        CalDAV User Notifications          February 2012
+
+
       "EXDATE" properties.
 
    Master does not exist, override added  In this case, a CS:recurrence
@@ -874,11 +923,15 @@ Daboo                                                          [Page 15]
 
    Namespace:  http://calendarserver.org/ns/
 
-   Purpose:  Provides summary information about a deleted resource.
+   Purpose:  Provides summary information about a deleted resource or
+      collection.
 
    Description:  This XML element is used in a CS:deleted element to
-      describe specific summary information about a deleted resource, so
-      clients can provide a meaningful notification message to users.
+      describe useful information about a deleted resource or
+      collection, so clients can provide a meaningful notification
+      message to users.  This element has two variants: one for deletion
+      of a calendar object resource, the other for deletion of a
+      calendar collection.
 
    Definition:
 
@@ -892,44 +945,69 @@ Daboo                                                          [Page 15]
 
 
 
-Daboo                                                          [Page 16]
+
+
+
+Daboo                                                          [Page 17]
 
                         CalDAV User Notifications          February 2012
 
 
-       <!ELEMENT deleted-details (deleted-component, deleted-summary,
-                                  deleted-next-instance?,
-                                  deleted-had-more-instances?) >
+   <!ELEMENT deleted-details ((deleted-component,
+                               deleted-summary,
+                               deleted-next-instance?,
+                               deleted-had-more-instances?) |
+                              deleted-displayname)>
+   <!-- deleted-displayname is used for a collection delete, the other
+        elements used for a resource delete. -->
 
-       <!ELEMENT deleted-component CDATA>
-       <!-- The main calendar component type of the deleted
-            resource, e.g., "VEVENT", "VTODO" -->
+     <!ELEMENT deleted-component CDATA>
+     <!-- The main calendar component type of the deleted
+          resource, e.g., "VEVENT", "VTODO" -->
 
-       <!ELEMENT deleted-summary CDATA>
-       <!-- Indicates the "SUMMARY" of the next future instance at the
-            time of deletion, or the previous instance if no future
-            instances existed at the time of deletion. -->
+     <!ELEMENT deleted-summary CDATA>
+     <!-- Indicates the "SUMMARY" of the next future instance at the
+          time of deletion, or the previous instance if no future
+          instances existed at the time of deletion. -->
 
-       <!ELEMENT deleted-next-instance CDATA>
-       <!-- If present indicates the UTC date-time, or date value for
-            the "RECURRENCE-ID" of the next future instance at the time
-            of deletion. If not present, then there were no future
-            instances at the time of deletion. -->
+     <!ELEMENT deleted-next-instance CDATA>
+     <!-- If present indicates the UTC date-time, or date value for
+          the "RECURRENCE-ID" of the next future instance at the time
+          of deletion. If not present, then there were no future
+          instances at the time of deletion. -->
 
-       <!ELEMENT deleted-had-more-instances CDATA>
-       <!-- If present indicates that there was more than one future
-            instances still to occur at the time of deletion. -->
+     <!ELEMENT deleted-had-more-instances CDATA>
+     <!-- If present indicates that there was more than one future
+          instances still to occur at the time of deletion. -->
 
+     <!ELEMENT deleted-displayname CDATA>
+     <!-- The DAV:getdisplayname property for the collection that
+          was deleted.  -->
 
-
-   Example:  This example indicates shows deletion of a non-recurring
-      event that was yet to occur at the time of deletion.
+   Example:  This example indicates deletion of a non-recurring event
+      that was yet to occur at the time of deletion.
 
    <CS:deleted-details xmlns:CS="http://calendarserver.org/ns/">
      <CS:deleted-component>VEVENT</CS:deleted-component>
      <CS:deleted-summary>Birthday Party</CS:deleted-summary>
      <CS:deleted-next-instance>20120505</CS:deleted-next-instance>
    </CS:deleted-details>
+
+   Example:  This example indicates deletion of a calendar.
+
+   <CS:deleted-details xmlns:CS="http://calendarserver.org/ns/">
+     <CS:deleted-displayname>Holidays</CS:deleted-displayname>
+   </CS:deleted-details>
+
+
+
+
+
+
+Daboo                                                          [Page 18]
+
+                        CalDAV User Notifications          February 2012
+
 
 5.3.4.  CS:notify-changes Property
 
@@ -941,17 +1019,6 @@ Daboo                                                          [Page 16]
       notifications are generated by the server.
 
    Protected:  This property MUST NOT be protected.
-
-
-
-
-
-
-
-Daboo                                                          [Page 17]
-
-                        CalDAV User Notifications          February 2012
-
 
    PROPFIND behavior:  This property SHOULD NOT be returned by a
       PROPFIND allprop request (as defined in Section 14.2 of
@@ -988,6 +1055,16 @@ Daboo                                                          [Page 17]
    TBD: More?
 
 
+
+
+
+
+
+Daboo                                                          [Page 19]
+
+                        CalDAV User Notifications          February 2012
+
+
 7.  IANA Considerations
 
    This document does not require any actions on the part of IANA.
@@ -1001,18 +1078,13 @@ Daboo                                                          [Page 17]
 
 9.  References
 
-
-
-
-Daboo                                                          [Page 18]
-
-                        CalDAV User Notifications          February 2012
-
-
 9.1.  Normative References
 
    [RFC2119]  Bradner, S., "Key words for use in RFCs to Indicate
               Requirement Levels", BCP 14, RFC 2119, March 1997.
+
+   [RFC3339]  Klyne, G., Ed. and C. Newman, "Date and Time on the
+              Internet: Timestamps", RFC 3339, July 2002.
 
    [RFC4918]  Dusseault, L., "HTTP Extensions for Web Distributed
               Authoring and Versioning (WebDAV)", RFC 4918, June 2007.
@@ -1026,6 +1098,363 @@ Daboo                                                          [Page 18]
    [RFC4791]  Daboo, C., Desruisseaux, B., and L. Dusseault,
               "Calendaring Extensions to WebDAV (CalDAV)", RFC 4791,
               March 2007.
+
+
+Appendix A.  Examples
+
+   This section provides more detailed examples of resource change
+   notifications for illustrative purposes only.
+
+A.1.  Resource Created
+
+   This is an example of the body of a notification resource where one
+   resource has been created.
+
+
+
+
+
+
+
+Daboo                                                          [Page 20]
+
+                        CalDAV User Notifications          February 2012
+
+
+   <?xml version="1.0" encoding="UTF-8"?>
+   <CS:notification xmlns:D="DAV:"
+                    xmlns:CS="http://calendarserver.org/ns/">
+     <CS:dtstamp>2011-12-09T11:51:14-05:00</CS:dtstamp>
+     <CS:resource-change>
+       <CS:created>
+         <D:href>http://example.com/cyrus/calendar/new.ics</D:href>
+         <CS:changed-by>
+           <CS:first-name>Cyrus</CS:first-name>
+           <CS:last-name>Daboo</CS:last-name>
+           <D:href>/principals/cyrusdaboo</D:href>
+         </CS:changed-by>
+       </CS:created>
+     </CS:resource-change>
+   </CS:notification>
+
+A.2.  Resource Updated - Property Change
+
+   This is an example of the body of a notification resource where one
+   non-recurring event has had its "DTSTART" and "SUMMARY" iCalendar
+   property values changed.
+
+   <?xml version="1.0" encoding="UTF-8"?>
+   <CS:notification xmlns:D="DAV:"
+                    xmlns:CS="http://calendarserver.org/ns/">
+     <CS:dtstamp>2011-12-09T11:51:14-05:00</CS:dtstamp>
+     <CS:resource-change>
+       <CS:updated>
+         <D:href>http://example.com/cyrus/calendar/new.ics</D:href>
+         <CS:changed-by>
+           <CS:first-name>Cyrus</CS:first-name>
+           <CS:last-name>Daboo</CS:last-name>
+           <D:href>/principals/cyrusdaboo</D:href>
+         </CS:changed-by>
+         <CS:calendar-changes>
+           <CS:recurrence>
+             <CS:master/>
+             <CS:changes>
+               <CS:changed-property name="DTSTART"/>
+               <CS:changed-property name="SUMMARY"/>
+             </CS:changes>
+           </CS:recurrence>
+         </CS:calendar-changes>
+       </CS:updated>
+     </CS:resource-change>
+   </CS:notification>
+
+
+
+
+
+Daboo                                                          [Page 21]
+
+                        CalDAV User Notifications          February 2012
+
+
+A.3.  Resource Updated - Parameter Change
+
+   This is an example of the body of a notification resource where one
+   non-recurring event has had the "PARTSTAT" iCalendar property
+   parameter on an "ATTENDEE" property changed, and a "TRANSP" property
+   added.
+
+   <?xml version="1.0" encoding="UTF-8"?>
+   <CS:notification xmlns:D="DAV:"
+                    xmlns:CS="http://calendarserver.org/ns/">
+     <CS:dtstamp>2011-12-09T11:51:14-05:00</CS:dtstamp>
+     <CS:resource-change>
+       <CS:updated>
+         <D:href>http://example.com/cyrus/calendar/new.ics</D:href>
+         <CS:changed-by>
+           <CS:first-name>Cyrus</CS:first-name>
+           <CS:last-name>Daboo</CS:last-name>
+           <D:href>/principals/cyrusdaboo</D:href>
+         </CS:changed-by>
+         <CS:calendar-changes>
+           <CS:recurrence>
+             <CS:master/>
+             <CS:added>
+               <CS:changed-property name="TRANSP"/>
+             </CS:added>
+             <CS:changes>
+               <CS:changed-property name="ATTENDEE">
+                 <CS:changed-parameter name="PARTSTAT"/>
+               </CS:changed-property>
+             </CS:changes>
+           </CS:recurrence>
+         </CS:calendar-changes>
+       </CS:updated>
+     </CS:resource-change>
+   </CS:notification>
+
+A.4.  Resource Updated - Multiple Instances Change
+
+   This is an example of the body of a notification resource where two
+   instances of a recurring event have their "DTSTART" and "SUMMARY"
+   iCalendar property values changed.
+
+
+
+
+
+
+
+
+
+
+Daboo                                                          [Page 22]
+
+                        CalDAV User Notifications          February 2012
+
+
+   <?xml version="1.0" encoding="UTF-8"?>
+   <CS:notification xmlns:D="DAV:"
+                    xmlns:CS="http://calendarserver.org/ns/">
+     <CS:dtstamp>2011-12-09T11:51:14-05:00</CS:dtstamp>
+     <CS:resource-change>
+       <CS:updated>
+         <D:href>http://example.com/cyrus/calendar/new.ics</D:href>
+         <CS:changed-by>
+           <CS:first-name>Cyrus</CS:first-name>
+           <CS:last-name>Daboo</CS:last-name>
+           <D:href>/principals/cyrusdaboo</D:href>
+         </CS:changed-by>
+         <CS:calendar-changes>
+           <CS:recurrence>
+             <CS:recurrenceid>20120209T170000Z</CS:recurrenceid>
+             <CS:changes>
+               <CS:changed-property name="DTSTART"/>
+               <CS:changed-property name="SUMMARY"/>
+             </CS:changes>
+           </CS:recurrence>
+           <CS:recurrence>
+             <CS:recurrenceid>20120210T170000Z</CS:recurrenceid>
+             <CS:changes>
+               <CS:changed-property name="DTSTART"/>
+               <CS:changed-property name="SUMMARY"/>
+             </CS:changes>
+           </CS:recurrence>
+         </CS:calendar-changes>
+       </CS:updated>
+     </CS:resource-change>
+   </CS:notification>
+
+A.5.  Resource Updated - Multiple User Change
+
+   This is an example of the body of a notification resource where two
+   instances of a recurring event have their "DTSTART" and "SUMMARY"
+   iCalendar property values changed.  Each instance was changed by a
+   different user.
+
+
+
+
+
+
+
+
+
+
+
+
+
+Daboo                                                          [Page 23]
+
+                        CalDAV User Notifications          February 2012
+
+
+   <?xml version="1.0" encoding="UTF-8"?>
+   <CS:notification xmlns:D="DAV:"
+                    xmlns:CS="http://calendarserver.org/ns/">
+     <CS:dtstamp>2011-12-09T11:51:14-05:00</CS:dtstamp>
+     <CS:resource-change>
+       <CS:updated>
+         <D:href>http://example.com/cyrus/calendar/new.ics</D:href>
+         <CS:changed-by>
+           <CS:first-name>Cyrus</CS:first-name>
+           <CS:last-name>Daboo</CS:last-name>
+           <D:href>/principals/cyrusdaboo</D:href>
+         </CS:changed-by>
+         <CS:calendar-changes>
+           <CS:recurrence>
+             <CS:recurrenceid>20120209T170000Z</CS:recurrenceid>
+             <CS:changes>
+               <CS:changed-property name="DTSTART"/>
+               <CS:changed-property name="SUMMARY"/>
+             </CS:changes>
+           </CS:recurrence>
+         </CS:calendar-changes>
+       </CS:updated>
+       <CS:updated>
+         <D:href>http://example.com/cyrus/calendar/new.ics</D:href>
+         <CS:changed-by>
+           <CS:first-name>Eric</CS:first-name>
+           <CS:last-name>York</CS:last-name>
+           <D:href>/principals/ericyork</D:href>
+         </CS:changed-by>
+         <CS:calendar-changes>
+           <CS:recurrence>
+             <CS:recurrenceid>20120210T170000Z</CS:recurrenceid>
+             <CS:changes>
+               <CS:changed-property name="DTSTART"/>
+               <CS:changed-property name="SUMMARY"/>
+             </CS:changes>
+           </CS:recurrence>
+         </CS:calendar-changes>
+       </CS:updated>
+     </CS:resource-change>
+   </CS:notification>
+
+A.6.  Resource Deleted
+
+   This is an example of the body of a notification resource where one
+   resource has been deleted.  The resource was a VEVENT whose next
+   occurrence was in the future on 20120210T170000Z.
+
+
+
+
+Daboo                                                          [Page 24]
+
+                        CalDAV User Notifications          February 2012
+
+
+   <?xml version="1.0" encoding="UTF-8"?>
+   <CS:notification xmlns:D="DAV:"
+                    xmlns:CS="http://calendarserver.org/ns/">
+     <CS:dtstamp>2011-12-09T11:51:14-05:00</CS:dtstamp>
+     <CS:resource-change>
+       <CS:deleted>
+         <D:href>http://example.com/cyrus/calendar/new.ics</D:href>
+         <CS:changed-by>
+           <CS:first-name>Cyrus</CS:first-name>
+           <CS:last-name>Daboo</CS:last-name>
+           <D:href>/principals/cyrusdaboo</D:href>
+         </CS:changed-by>
+         <CS:deleted-details>
+           <CS:deleted-component>VEVENT</CS:deleted-component>
+           <CS:deleted-summary>CalDAV Meeting</CS:deleted-summary>
+           <CS:deleted-next-instance
+           >20120210T170000Z</CS:deleted-next-instance>
+         </CS:deleted-details>
+       </CS:deleted>
+     </CS:resource-change>
+   </CS:notification>
+
+A.7.  Collection Created
+
+   This is an example of the body of a notification resource where a
+   calendar collection has been created.
+
+   <?xml version="1.0" encoding="UTF-8"?>
+   <CS:notification xmlns:D="DAV:"
+                    xmlns:CS="http://calendarserver.org/ns/">
+     <CS:dtstamp>2011-12-09T11:51:14-05:00</CS:dtstamp>
+     <CS:resource-change>
+       <CS:created>
+         <D:href>http://example.com/cyrus/new-calendar/</D:href>
+         <CS:changed-by>
+           <CS:first-name>Cyrus</CS:first-name>
+           <CS:last-name>Daboo</CS:last-name>
+           <D:href>/principals/cyrusdaboo</D:href>
+         </CS:changed-by>
+       </CS:created>
+     </CS:resource-change>
+   </CS:notification>
+
+A.8.  Collection Updated
+
+   This is an example of the body of a notification resource where
+   coalesced changes in a calendar collection are shown.  In this case 1
+   child resource was created, 2 updated, and 1 deleted.
+
+
+
+Daboo                                                          [Page 25]
+
+                        CalDAV User Notifications          February 2012
+
+
+   <?xml version="1.0" encoding="UTF-8"?>
+   <CS:notification xmlns:D="DAV:"
+                    xmlns:CS="http://calendarserver.org/ns/">
+     <CS:dtstamp>2011-12-09T11:51:14-05:00</CS:dtstamp>
+     <CS:resource-change>
+       <CS:collection-changes>
+         <D:href>http://example.com/cyrus/calendar/</D:href>
+         <CS:child-created>1</CS:child-created>
+         <CS:child-updated>2</CS:child-updated>
+         <CS:child-deleted>1</CS:child-deleted>
+       </CS:collection-changes>
+     </CS:resource-change>
+   </CS:notification>
+
+A.9.  Collection Deleted
+
+   This is an example of the body of a notification resource where a
+   calendar collection has been deleted.
+
+   <?xml version="1.0" encoding="UTF-8"?>
+   <CS:notification xmlns:D="DAV:"
+                    xmlns:CS="http://calendarserver.org/ns/">
+     <CS:dtstamp>2011-12-09T11:51:14-05:00</CS:dtstamp>
+     <CS:resource-change>
+       <CS:deleted>
+         <D:href>http://example.com/cyrus/old-calendar/</D:href>
+         <CS:changed-by>
+           <CS:first-name>Cyrus</CS:first-name>
+           <CS:last-name>Daboo</CS:last-name>
+           <D:href>/principals/cyrusdaboo</D:href>
+         </CS:changed-by>
+         <CS:deleted-details>
+           <CS:deleted-displayname>Holidays</CS:deleted-displayname>
+         </CS:deleted-details>
+       </CS:deleted>
+     </CS:resource-change>
+   </CS:notification>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Daboo                                                          [Page 26]
+
+                        CalDAV User Notifications          February 2012
 
 
 Author's Address
@@ -1060,5 +1489,24 @@ Author's Address
 
 
 
-Daboo                                                          [Page 19]
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Daboo                                                          [Page 27]
 

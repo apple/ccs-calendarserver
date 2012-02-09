@@ -2,6 +2,7 @@
 <?xml-stylesheet type="text/xsl" href="../../rfc2629.xslt"?>
 <!DOCTYPE rfc SYSTEM 'rfc2629.dtd' [
 <!ENTITY rfc2119 PUBLIC '' 'bibxml/reference.RFC.2119.xml'>
+<!ENTITY rfc3339 PUBLIC '' 'bibxml/reference.RFC.3339.xml'>
 <!ENTITY rfc3744 PUBLIC '' 'bibxml/reference.RFC.3744.xml'>
 <!ENTITY rfc4791 PUBLIC '' 'bibxml/reference.RFC.4791.xml'>
 <!ENTITY rfc4918 PUBLIC '' 'bibxml/reference.RFC.4918.xml'>
@@ -164,11 +165,12 @@
                     <t hangText="Name:">dtstamp</t>
                     <t hangText="Namespace:">http://calendarserver.org/ns/</t>
                     <t hangText="Purpose:">Date-time stamp.</t>
-                    <t hangText="Description:">Contains the date-time stamp corresponding to the creation of a notification message.</t>
+                    <t hangText="Description:">Contains the date-time stamp corresponding to the creation of a notification message, using the format defined in <xref target="RFC3339"/>.</t>
                     <t hangText="Definition:">
                       <figure>
                         <artwork><![CDATA[
-<!ELEMENT dtstamp (#PCDATA)>]]></artwork>
+<!ELEMENT dtstamp (#PCDATA)>
+<!-- Value is a date-time in UTZ as per [RFC3339] -->]]></artwork>
                       </figure>
                     </t>
                   </list>
@@ -257,9 +259,7 @@
   <!-- Integer value greater than or equal to zero -->
 
   <!ELEMENT quota-count CDATA>
-  <!-- Integer value greater than or equal to zero -->
-
-]]></artwork>
+  <!-- Integer value greater than or equal to zero -->]]></artwork>
                           </figure>
                         </t>
                         <t hangText="Example:">This is an example of the body of a notification resource for a quota warning:
@@ -348,8 +348,7 @@
     <!ELEMENT child-deleted CDATA>
     <!-- Each of the three elements above MUST contain a positive,
          non-zero integer value indicate the total number of changes
-         being reported for the collection. -->
-]]></artwork>
+         being reported for the collection. -->]]></artwork>
                           </figure>
                         </t>
                         <t hangText="Example:">This is an example of the body of a notification resource for changes where one resource has been created, two updated, and one deleted. One of the updated resources elements contains additional information indicating which recurrence instances in the iCalendar data were changed:
@@ -427,37 +426,36 @@
                         <t hangText="Definition:">
                             <figure>
                                 <artwork><![CDATA[
-    <!ELEMENT calendar-changes (recurrence+) >
+<!ELEMENT calendar-changes (recurrence+) >
 
-    <!ELEMENT recurrence
-        ((master | recurrenceid), added?, removed?, changes?)>
-    <!-- Which instances were affected by the change,
-         and details on the per-instance changes -->
+  <!ELEMENT recurrence
+      ((master | recurrenceid), added?, removed?, changes?)>
+  <!-- Which instances were affected by the change,
+       and details on the per-instance changes -->
 
     <!ELEMENT master EMPTY>
     <!-- The "master" instance was affected -->
-
+    
     <!ELEMENT recurrenceid CDATA>
-    <!-- RECURRENCE-ID value for the affected instance -->
-
+    <!-- RECURRENCE-ID value in iCalendar form (in UTC if a
+         non-floating DATE-TIME value) for the affected instance -->
+    
     <!ELEMENT added EMPTY>
     <!-- The component was added -->
-
+    
     <!ELEMENT removed EMPTY>
     <!-- The component was removed -->
-
+    
     <!ELEMENT changes changed-property*>
     <!-- Detailed changes in the iCalendar data -->
-
-    <!ELEMENT changed-property changed-parameter*>
-    <!ATTLIST changed-property name PCDATA>
-    <!-- An iCalendar property changed -->
-
-    <!ELEMENT changed-parameter EMPTY>
-    <!ATTLIST changed-parameter name PCDATA>
-    <!-- An iCalendar property parameter changed -->
-
-                   ]]></artwork>
+    
+      <!ELEMENT changed-property changed-parameter*>
+      <!ATTLIST changed-property name PCDATA>
+      <!-- An iCalendar property changed -->
+    
+        <!ELEMENT changed-parameter EMPTY>
+        <!ATTLIST changed-parameter name PCDATA>
+        <!-- An iCalendar property parameter changed -->]]></artwork>
                             </figure>
                         </t>
                         <t hangText="Example:">
@@ -470,9 +468,8 @@
     <CS:changes>
       <CS:changed-property name="SUMMARY"/>
     </CS:changes>
-  <CS:recurrence/>
-</CS:calendar-changes>
-                   ]]></artwork>
+  </CS:recurrence>
+</CS:calendar-changes>]]></artwork>
                             </figure>
                         </t>
                         <t hangText="Example:">
@@ -485,9 +482,8 @@
     <CS:changes>
       <CS:changed-property name="DTSTART"/>
     </CS:changes>
-  <CS:recurrence/>
-</CS:calendar-changes>
-                   ]]></artwork>
+  </CS:recurrence>
+</CS:calendar-changes>]]></artwork>
                             </figure>
                         </t>
                       </list>
@@ -519,48 +515,61 @@
                       <list style="hanging">
                         <t hangText="Name:">deleted-details</t>
                         <t hangText="Namespace:">http://calendarserver.org/ns/</t>
-                        <t hangText="Purpose:">Provides summary information about a deleted resource.</t>
-                        <t hangText="Description:">This XML element is used in a CS:deleted element to describe specific summary information about a deleted resource, so clients can provide a meaningful notification message to users.</t>
+                        <t hangText="Purpose:">Provides summary information about a deleted resource or collection.</t>
+                        <t hangText="Description:">This XML element is used in a CS:deleted element to describe useful information about a deleted resource or collection, so clients can provide a meaningful notification message to users. This element has two variants: one for deletion of a calendar object resource, the other for deletion of a calendar collection.</t>
                         <t hangText="Definition:">
                             <figure>
                                 <artwork><![CDATA[
-    <!ELEMENT deleted-details (deleted-component, deleted-summary,
-                               deleted-next-instance?,
-                               deleted-had-more-instances?) >
+<!ELEMENT deleted-details ((deleted-component,
+                            deleted-summary,
+                            deleted-next-instance?,
+                            deleted-had-more-instances?) |
+                           deleted-displayname)>
+<!-- deleted-displayname is used for a collection delete, the other
+     elements used for a resource delete. -->
 
-    <!ELEMENT deleted-component CDATA>
-    <!-- The main calendar component type of the deleted
-         resource, e.g., "VEVENT", "VTODO" -->
+  <!ELEMENT deleted-component CDATA>
+  <!-- The main calendar component type of the deleted
+       resource, e.g., "VEVENT", "VTODO" -->
 
-    <!ELEMENT deleted-summary CDATA>
-    <!-- Indicates the "SUMMARY" of the next future instance at the
-         time of deletion, or the previous instance if no future
-         instances existed at the time of deletion. -->
+  <!ELEMENT deleted-summary CDATA>
+  <!-- Indicates the "SUMMARY" of the next future instance at the
+       time of deletion, or the previous instance if no future
+       instances existed at the time of deletion. -->
 
-    <!ELEMENT deleted-next-instance CDATA>
-    <!-- If present indicates the UTC date-time, or date value for
-         the "RECURRENCE-ID" of the next future instance at the time
-         of deletion. If not present, then there were no future
-         instances at the time of deletion. -->
+  <!ELEMENT deleted-next-instance CDATA>
+  <!-- If present indicates the UTC date-time, or date value for
+       the "RECURRENCE-ID" of the next future instance at the time
+       of deletion. If not present, then there were no future
+       instances at the time of deletion. -->
 
-    <!ELEMENT deleted-had-more-instances CDATA>
-    <!-- If present indicates that there was more than one future
-         instances still to occur at the time of deletion. -->
+  <!ELEMENT deleted-had-more-instances CDATA>
+  <!-- If present indicates that there was more than one future
+       instances still to occur at the time of deletion. -->
 
-
-                   ]]></artwork>
+  <!ELEMENT deleted-displayname CDATA>
+  <!-- The DAV:getdisplayname property for the collection that
+       was deleted.  -->]]></artwork>
                             </figure>
                         </t>
                         <t hangText="Example:">
-                          This example indicates shows deletion of a non-recurring event that was yet to occur at the time of deletion.
+                          This example indicates deletion of a non-recurring event that was yet to occur at the time of deletion.
                             <figure>
                                 <artwork><![CDATA[
 <CS:deleted-details xmlns:CS="http://calendarserver.org/ns/">
   <CS:deleted-component>VEVENT</CS:deleted-component>
   <CS:deleted-summary>Birthday Party</CS:deleted-summary>
   <CS:deleted-next-instance>20120505</CS:deleted-next-instance>
-</CS:deleted-details>
-                   ]]></artwork>
+</CS:deleted-details>]]></artwork>
+                            </figure>
+                        </t>
+                        <t hangText="Example:">
+                          This example indicates deletion of a calendar.
+                            <figure>
+                                <artwork><![CDATA[
+<CS:deleted-details xmlns:CS="http://calendarserver.org/ns/">
+  <CS:deleted-displayname>Holidays</CS:deleted-displayname>
+</CS:deleted-details>]]></artwork>
                             </figure>
                         </t>
                       </list>
@@ -614,12 +623,267 @@
     <back>
         <references title='Normative References'>
             &rfc2119;
+            &rfc3339;
             &rfc4918;
         </references>
         <references title='Informative References'>
             &rfc3744;
             &rfc4791;
         </references>
+        <section title='Examples'>
+            <t>This section provides more detailed examples of resource change notifications for illustrative purposes only.</t>
+            <section title="Resource Created">
+              <t hangText="Example:">This is an example of the body of a notification resource where one resource has been created.
+                <figure><artwork><![CDATA[
+<?xml version="1.0" encoding="UTF-8"?>
+<CS:notification xmlns:D="DAV:"
+                 xmlns:CS="http://calendarserver.org/ns/">
+  <CS:dtstamp>2011-12-09T11:51:14-05:00</CS:dtstamp>
+  <CS:resource-change>
+    <CS:created>
+      <D:href>http://example.com/cyrus/calendar/new.ics</D:href>
+      <CS:changed-by>
+        <CS:first-name>Cyrus</CS:first-name>
+        <CS:last-name>Daboo</CS:last-name>
+        <D:href>/principals/cyrusdaboo</D:href>
+      </CS:changed-by>
+    </CS:created>
+  </CS:resource-change>
+</CS:notification>]]></artwork></figure>
+              </t>
+            </section>
+            <section title="Resource Updated - Property Change">
+              <t hangText="Example:">This is an example of the body of a notification resource where one non-recurring event has had its "DTSTART" and "SUMMARY" iCalendar property values changed.
+                <figure><artwork><![CDATA[
+<?xml version="1.0" encoding="UTF-8"?>
+<CS:notification xmlns:D="DAV:"
+                 xmlns:CS="http://calendarserver.org/ns/">
+  <CS:dtstamp>2011-12-09T11:51:14-05:00</CS:dtstamp>
+  <CS:resource-change>
+    <CS:updated>
+      <D:href>http://example.com/cyrus/calendar/new.ics</D:href>
+      <CS:changed-by>
+        <CS:first-name>Cyrus</CS:first-name>
+        <CS:last-name>Daboo</CS:last-name>
+        <D:href>/principals/cyrusdaboo</D:href>
+      </CS:changed-by>
+      <CS:calendar-changes>
+        <CS:recurrence>
+          <CS:master/>
+          <CS:changes>
+            <CS:changed-property name="DTSTART"/>
+            <CS:changed-property name="SUMMARY"/>
+          </CS:changes>
+        </CS:recurrence>
+      </CS:calendar-changes>
+    </CS:updated>
+  </CS:resource-change>
+</CS:notification>]]></artwork></figure>
+              </t>
+            </section>
+            <section title="Resource Updated - Parameter Change">
+              <t hangText="Example:">This is an example of the body of a notification resource where one non-recurring event has had the "PARTSTAT" iCalendar property parameter on an "ATTENDEE" property changed, and a "TRANSP" property added.
+                <figure><artwork><![CDATA[
+<?xml version="1.0" encoding="UTF-8"?>
+<CS:notification xmlns:D="DAV:"
+                 xmlns:CS="http://calendarserver.org/ns/">
+  <CS:dtstamp>2011-12-09T11:51:14-05:00</CS:dtstamp>
+  <CS:resource-change>
+    <CS:updated>
+      <D:href>http://example.com/cyrus/calendar/new.ics</D:href>
+      <CS:changed-by>
+        <CS:first-name>Cyrus</CS:first-name>
+        <CS:last-name>Daboo</CS:last-name>
+        <D:href>/principals/cyrusdaboo</D:href>
+      </CS:changed-by>
+      <CS:calendar-changes>
+        <CS:recurrence>
+          <CS:master/>
+          <CS:added>
+            <CS:changed-property name="TRANSP"/>
+          </CS:added>
+          <CS:changes>
+            <CS:changed-property name="ATTENDEE">
+              <CS:changed-parameter name="PARTSTAT"/>
+            </CS:changed-property>
+          </CS:changes>
+        </CS:recurrence>
+      </CS:calendar-changes>
+    </CS:updated>
+  </CS:resource-change>
+</CS:notification>]]></artwork></figure>
+              </t>
+            </section>
+            <section title="Resource Updated - Multiple Instances Change">
+              <t hangText="Example:">This is an example of the body of a notification resource where two instances of a recurring event have their "DTSTART" and "SUMMARY" iCalendar property values changed.
+                <figure><artwork><![CDATA[
+<?xml version="1.0" encoding="UTF-8"?>
+<CS:notification xmlns:D="DAV:"
+                 xmlns:CS="http://calendarserver.org/ns/">
+  <CS:dtstamp>2011-12-09T11:51:14-05:00</CS:dtstamp>
+  <CS:resource-change>
+    <CS:updated>
+      <D:href>http://example.com/cyrus/calendar/new.ics</D:href>
+      <CS:changed-by>
+        <CS:first-name>Cyrus</CS:first-name>
+        <CS:last-name>Daboo</CS:last-name>
+        <D:href>/principals/cyrusdaboo</D:href>
+      </CS:changed-by>
+      <CS:calendar-changes>
+        <CS:recurrence>
+          <CS:recurrenceid>20120209T170000Z</CS:recurrenceid>
+          <CS:changes>
+            <CS:changed-property name="DTSTART"/>
+            <CS:changed-property name="SUMMARY"/>
+          </CS:changes>
+        </CS:recurrence>
+        <CS:recurrence>
+          <CS:recurrenceid>20120210T170000Z</CS:recurrenceid>
+          <CS:changes>
+            <CS:changed-property name="DTSTART"/>
+            <CS:changed-property name="SUMMARY"/>
+          </CS:changes>
+        </CS:recurrence>
+      </CS:calendar-changes>
+    </CS:updated>
+  </CS:resource-change>
+</CS:notification>]]></artwork></figure>
+              </t>
+            </section>
+            <section title="Resource Updated - Multiple User Change">
+              <t hangText="Example:">This is an example of the body of a notification resource where two instances of a recurring event have their "DTSTART" and "SUMMARY" iCalendar property values changed. Each instance was changed by a different user.
+                <figure><artwork><![CDATA[
+<?xml version="1.0" encoding="UTF-8"?>
+<CS:notification xmlns:D="DAV:"
+                 xmlns:CS="http://calendarserver.org/ns/">
+  <CS:dtstamp>2011-12-09T11:51:14-05:00</CS:dtstamp>
+  <CS:resource-change>
+    <CS:updated>
+      <D:href>http://example.com/cyrus/calendar/new.ics</D:href>
+      <CS:changed-by>
+        <CS:first-name>Cyrus</CS:first-name>
+        <CS:last-name>Daboo</CS:last-name>
+        <D:href>/principals/cyrusdaboo</D:href>
+      </CS:changed-by>
+      <CS:calendar-changes>
+        <CS:recurrence>
+          <CS:recurrenceid>20120209T170000Z</CS:recurrenceid>
+          <CS:changes>
+            <CS:changed-property name="DTSTART"/>
+            <CS:changed-property name="SUMMARY"/>
+          </CS:changes>
+        </CS:recurrence>
+      </CS:calendar-changes>
+    </CS:updated>
+    <CS:updated>
+      <D:href>http://example.com/cyrus/calendar/new.ics</D:href>
+      <CS:changed-by>
+        <CS:first-name>Eric</CS:first-name>
+        <CS:last-name>York</CS:last-name>
+        <D:href>/principals/ericyork</D:href>
+      </CS:changed-by>
+      <CS:calendar-changes>
+        <CS:recurrence>
+          <CS:recurrenceid>20120210T170000Z</CS:recurrenceid>
+          <CS:changes>
+            <CS:changed-property name="DTSTART"/>
+            <CS:changed-property name="SUMMARY"/>
+          </CS:changes>
+        </CS:recurrence>
+      </CS:calendar-changes>
+    </CS:updated>
+  </CS:resource-change>
+</CS:notification>]]></artwork></figure>
+              </t>
+            </section>
+            <section title="Resource Deleted">
+              <t hangText="Example:">This is an example of the body of a notification resource where one resource has been deleted. The resource was a VEVENT whose next occurrence was in the future on 20120210T170000Z.
+                <figure><artwork><![CDATA[
+<?xml version="1.0" encoding="UTF-8"?>
+<CS:notification xmlns:D="DAV:"
+                 xmlns:CS="http://calendarserver.org/ns/">
+  <CS:dtstamp>2011-12-09T11:51:14-05:00</CS:dtstamp>
+  <CS:resource-change>
+    <CS:deleted>
+      <D:href>http://example.com/cyrus/calendar/new.ics</D:href>
+      <CS:changed-by>
+        <CS:first-name>Cyrus</CS:first-name>
+        <CS:last-name>Daboo</CS:last-name>
+        <D:href>/principals/cyrusdaboo</D:href>
+      </CS:changed-by>
+      <CS:deleted-details>
+        <CS:deleted-component>VEVENT</CS:deleted-component>
+        <CS:deleted-summary>CalDAV Meeting</CS:deleted-summary>
+        <CS:deleted-next-instance
+        >20120210T170000Z</CS:deleted-next-instance>
+      </CS:deleted-details>
+    </CS:deleted>
+  </CS:resource-change>
+</CS:notification>]]></artwork></figure>
+              </t>
+            </section>
+            <section title="Collection Created">
+              <t hangText="Example:">This is an example of the body of a notification resource where a calendar collection has been created.
+                <figure><artwork><![CDATA[
+<?xml version="1.0" encoding="UTF-8"?>
+<CS:notification xmlns:D="DAV:"
+                 xmlns:CS="http://calendarserver.org/ns/">
+  <CS:dtstamp>2011-12-09T11:51:14-05:00</CS:dtstamp>
+  <CS:resource-change>
+    <CS:created>
+      <D:href>http://example.com/cyrus/new-calendar/</D:href>
+      <CS:changed-by>
+        <CS:first-name>Cyrus</CS:first-name>
+        <CS:last-name>Daboo</CS:last-name>
+        <D:href>/principals/cyrusdaboo</D:href>
+      </CS:changed-by>
+    </CS:created>
+  </CS:resource-change>
+</CS:notification>]]></artwork></figure>
+              </t>
+            </section>
+            <section title="Collection Updated">
+              <t hangText="Example:">This is an example of the body of a notification resource where coalesced changes in a calendar collection are shown. In this case 1 child resource was created, 2 updated, and 1 deleted.
+              <figure><artwork><![CDATA[
+<?xml version="1.0" encoding="UTF-8"?>
+<CS:notification xmlns:D="DAV:"
+                 xmlns:CS="http://calendarserver.org/ns/">
+  <CS:dtstamp>2011-12-09T11:51:14-05:00</CS:dtstamp>
+  <CS:resource-change>
+    <CS:collection-changes>
+      <D:href>http://example.com/cyrus/calendar/</D:href>
+      <CS:child-created>1</CS:child-created>
+      <CS:child-updated>2</CS:child-updated>
+      <CS:child-deleted>1</CS:child-deleted>
+    </CS:collection-changes>
+  </CS:resource-change>
+</CS:notification>]]></artwork></figure>
+              </t>
+            </section>
+            <section title="Collection Deleted">
+              <t hangText="Example:">This is an example of the body of a notification resource where a calendar collection has been deleted.
+                <figure><artwork><![CDATA[
+<?xml version="1.0" encoding="UTF-8"?>
+<CS:notification xmlns:D="DAV:"
+                 xmlns:CS="http://calendarserver.org/ns/">
+  <CS:dtstamp>2011-12-09T11:51:14-05:00</CS:dtstamp>
+  <CS:resource-change>
+    <CS:deleted>
+      <D:href>http://example.com/cyrus/old-calendar/</D:href>
+      <CS:changed-by>
+        <CS:first-name>Cyrus</CS:first-name>
+        <CS:last-name>Daboo</CS:last-name>
+        <D:href>/principals/cyrusdaboo</D:href>
+      </CS:changed-by>
+      <CS:deleted-details>
+        <CS:deleted-displayname>Holidays</CS:deleted-displayname>
+      </CS:deleted-details>
+    </CS:deleted>
+  </CS:resource-change>
+</CS:notification>]]></artwork></figure>
+              </t>
+            </section>
+        </section>
         <!--
         <section title='Change History'>
             <t>Changes in -01:
