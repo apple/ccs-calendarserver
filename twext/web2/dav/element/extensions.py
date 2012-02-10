@@ -2,7 +2,7 @@
 # See LICENSE for details.
 
 ##
-# Copyright (c) 2005 Apple Computer, Inc. All rights reserved.
+# Copyright (c) 2005-2012 Apple Computer, Inc. All rights reserved.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -34,6 +34,7 @@ __all__ = [
     "AddMember",
     "SyncCollection",
     "SyncToken",
+    "SyncLevel",
 ]
 
 from twext.web2.dav.element.base import WebDAVElement, WebDAVTextElement
@@ -74,7 +75,7 @@ class SyncCollection (WebDAVElement):
     """
     DAV report used to retrieve specific calendar component items via their
     URIs.
-    (CalDAV-access-09, section 9.9)
+    (draft-daboo-webdav-sync)
     """
     name = "sync-collection"
 
@@ -82,7 +83,8 @@ class SyncCollection (WebDAVElement):
     # to relax the child restrictions
     allowed_children = {
         (dav_namespace, "sync-token"): (0, 1), # When used in the REPORT this is required
-        (dav_namespace, "prop"    ):   (0, 1),
+        (dav_namespace, "sync-level"): (0, 1), # When used in the REPORT this is required
+        (dav_namespace, "prop"      ): (0, 1),
     }
 
     def __init__(self, *children, **attributes):
@@ -90,17 +92,18 @@ class SyncCollection (WebDAVElement):
 
         self.property = None
         self.sync_token = None
+        self.sync_level = None
 
         for child in self.children:
             qname = child.qname()
 
             if qname == (dav_namespace, "sync-token"):
-                
                 self.sync_token = str(child)
 
-            elif qname in (
-                (dav_namespace, "prop"    ),
-            ):
+            elif qname == (dav_namespace, "sync-level"):
+                self.sync_level = str(child)
+
+            elif qname == (dav_namespace, "prop"):
                 if self.property is not None:
                     raise ValueError("Only one of DAV:prop allowed")
                 self.property = child
@@ -112,3 +115,9 @@ class SyncToken (WebDAVTextElement):
     name = "sync-token"
     hidden = True
     protected = True
+
+class SyncLevel (WebDAVTextElement):
+    """
+    Synchronization level used in report.
+    """
+    name = "sync-level"

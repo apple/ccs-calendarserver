@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2010 Apple Inc. All rights reserved.
+# Copyright (c) 2010-2012 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -59,10 +59,18 @@ def report_DAV__sync_collection(self, request, sync_collection):
    
     responses = []
 
-    depth = request.headers.getHeader("depth", None)
+    # Process Depth and sync-level for backwards compatibility
+    # Use sync-level if present and ignore Depth, else use Depth
+    if sync_collection.sync_level:
+        depth = sync_collection.sync_level
+        descriptor = "DAV:sync-level"
+    else:
+        depth = request.headers.getHeader("depth", None)
+        descriptor = "Depth header without DAV:sync-level"
+    
     if depth not in ("1", "infinity"):
         log.err("sync-collection report with invalid depth header: %s" % (depth,))
-        raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, "Invalid Depth header value"))
+        raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, "Invalid %s value" % (descriptor,)))
         
     propertyreq = sync_collection.property.children if sync_collection.property else None 
     
