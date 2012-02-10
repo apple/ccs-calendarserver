@@ -35,7 +35,7 @@ from fnmatch import fnmatch
 
 from zope.interface import Interface, implements
 
-from twext.python.log import LoggingMixIn
+from twext.python.log import LoggingMixIn, Logger
 
 from twisted.internet.protocol import ReconnectingClientFactory, ServerFactory
 from twisted.internet.ssl import ClientContextFactory
@@ -54,6 +54,8 @@ from twistedcaldav.config import config
 from twistedcaldav.memcacher import Memcacher
 from twistedcaldav.stdconfig import DEFAULT_CONFIG, DEFAULT_CONFIG_FILE
 from twistedcaldav import memcachepool
+
+log = Logger()
 
 __all__ = [
     "Coalescer",
@@ -359,8 +361,13 @@ class InternalNotificationProtocol(LineReceiver):
     """
 
     def lineReceived(self, line):
-        op, id = line.strip().split()
-        self.factory.coalescer.add(op, id)
+        try:
+            op, id = line.strip().split()
+            self.factory.coalescer.add(op, id)
+        except ValueError:
+            # ignore invalid input
+            log.error("Invalid input received on internal notification port: %s"
+                % (line,))
 
 
 class InternalNotificationFactory(ServerFactory):
