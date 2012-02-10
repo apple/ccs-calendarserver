@@ -1,6 +1,6 @@
 # -*- test-case-name: twistedcaldav.test.test_sharing,twistedcaldav.test.test_calendarquery -*-
 ##
-# Copyright (c) 2010-2011 Apple Inc. All rights reserved.
+# Copyright (c) 2010-2012 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -372,6 +372,9 @@ class SQLLegacyInvites(object):
                 status=bindStatus,
                 message=record.summary
             )
+        
+        # Must send notification to ensure cache invalidation occurs
+        self._collection.notifyChanged()
 
 
     @classmethod
@@ -406,6 +409,9 @@ class SQLLegacyInvites(object):
     def removeRecordForInviteUID(self, inviteUID):
         yield self._deleteBindByUID.on(self._txn, uid=inviteUID)
         yield self._deleteInviteByUID.on(self._txn, uid=inviteUID)
+        
+        # Must send notification to ensure cache invalidation occurs
+        self._collection.notifyChanged()
 
 
 
