@@ -1,6 +1,6 @@
 # -*- test-case-name: twistedcaldav.test.test_sharing -*-
 ##
-# Copyright (c) 2010-2011 Apple Inc. All rights reserved.
+# Copyright (c) 2010-2012 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -1035,13 +1035,25 @@ class SharedHomeMixin(LinkFollowerMixIn):
             share = SharedCollectionRecord(shareUID, sharetype, hostUrl, str(uuid4()), displayname)
             yield self.sharesDB().addOrUpdateRecord(share)
         
-        # Set per-user displayname to whatever was given
+        # Get shared collection in non-share mode first
         sharedCollection = (yield request.locateResource(hostUrl))
         ownerPrincipal = (yield self.ownerPrincipal(request))
+
+        # For a direct share we will copy any calendar-color over using the owners view
+        color = None
+        if sharetype == SHARETYPE_DIRECT and not oldShare and sharedCollection.isCalendarCollection():
+            try:
+                color = (yield sharedCollection.readProperty(customxml.CalendarColor, request))
+            except HTTPError:
+                pass
+        
+        # Set per-user displayname or color to whatever was given
         sharedCollection.setVirtualShare(ownerPrincipal, share)
         if displayname:
             yield sharedCollection.writeProperty(davxml.DisplayName.fromString(displayname), request)
-        
+        if color:
+            yield sharedCollection.writeProperty(customxml.CalendarColor.fromString(color), request)
+
         # Calendars always start out transparent and with empty default alarms
         if not oldShare and sharedCollection.isCalendarCollection():
             yield sharedCollection.writeProperty(caldavxml.ScheduleCalendarTransp(caldavxml.Transparent()), request)

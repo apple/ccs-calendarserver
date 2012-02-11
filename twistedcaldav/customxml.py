@@ -1103,6 +1103,14 @@ class MaxBulkBytes (davxml.WebDAVTextElement):
     name = "max-bytes"
 
 
+#
+# Client properties we might care about
+#
+
+class CalendarColor(davxml.WebDAVTextElement):
+    namespace = "http://apple.com/ns/ical/"
+    name = "calendar-color"
+
 ##
 # Extensions to davxml.ResourceType
 ##
