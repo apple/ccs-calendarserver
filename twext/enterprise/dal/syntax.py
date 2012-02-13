@@ -463,10 +463,13 @@ class TableSyntax(Syntax):
     modelType = Table
 
     def alias(self):
-        return self
+        return TableAlias(self.model)
 
 
     def join(self, otherTableSyntax, on=None, type=''):
+        """
+        Create a L{Join}, representing a join between two tables.
+        """
         if on is None:
             type = 'cross'
         return Join(self, type, otherTableSyntax, on)
@@ -474,7 +477,8 @@ class TableSyntax(Syntax):
 
     def subSQL(self, metadata, allTables):
         """
-        For use in a 'from' clause.
+        Generate the L{SQLFragment} for this table's identification; this is
+        for use in a 'from' clause.
         """
         # XXX maybe there should be a specific method which is only invoked
         # from the FROM clause, that only tables and joins would implement?
@@ -482,19 +486,39 @@ class TableSyntax(Syntax):
 
 
     def __getattr__(self, attr):
+        """
+        Attributes named after columns on a L{TableSyntax} are returned by
+        accessing their names as attributes.  For example, if there is a schema
+        syntax object created from SQL equivalent to 'create table foo (bar
+        integer, baz integer)', 'schemaSyntax.foo.bar' and
+        'schemaSyntax.foo.baz'
+        """
         return ColumnSyntax(self.model.columnNamed(attr))
 
 
     def __iter__(self):
+        """
+        Yield a L{ColumnSyntax} for each L{Column} in this L{TableSyntax}'s
+        model's table.
+        """
         for column in self.model.columns:
             yield ColumnSyntax(column)
 
 
     def tables(self):
+        """
+        Return a C{list} of tables involved in the query by this table.  (This
+        method is expected by anything that can act as the C{From} clause: see
+        L{Join.tables})
+        """
         return [self]
 
 
     def aliases(self):
+        """
+        @return: a list of 2-tuples of (alias (C{str}), column
+            (C{ColumnSyntax})), enumerating all of the Python aliases provided.
+        """
         result = {}
         for k, v in self.__dict__.items():
             if isinstance(v, ColumnSyntax):
@@ -506,6 +530,23 @@ class TableSyntax(Syntax):
         if isinstance(columnSyntax, FunctionInvocation):
             columnSyntax = columnSyntax.arg
         return (columnSyntax.model in self.model.columns)
+
+
+
+class TableAlias(TableSyntax):
+    """
+    An alias for a table, under a different name, for the purpose of doing a
+    self-join.
+    """
+
+    def subSQL(self, metadata, allTables):
+        result = super(TableAlias, self).subSQL(metadata, allTables)
+        result.append(SQLFragment(" alias1"))
+        return result
+
+
+    def __getattr__(self, attr):
+        return AliasedColumnSyntax(self.model.columnNamed(attr))
 
 
 
@@ -550,6 +591,11 @@ class Join(object):
 
 
     def tables(self):
+        """
+        Return a C{list} of tables which this L{Join} will involve in a query:
+        all those present on the left side, as well as all those present on the
+        right side.
+        """
         return self.leftSide.tables() + self.rightSide.tables()
 
 
@@ -574,9 +620,16 @@ _KEYWORDS = ["access",
 class ColumnSyntax(ExpressionSyntax):
     """
     Syntactic convenience for L{Column}.
+
+    @ivar _alwaysQualified: a boolean indicating whether to always qualify the
+        column name in generated SQL, regardless of whether the column name is
+        specific enough even when unqualified.
+    @type _alwaysQualified: C{bool}
     """
 
     modelType = Column
+
+    _alwaysQualified = False
 
 
     def allColumns(self):
@@ -590,16 +643,44 @@ class ColumnSyntax(ExpressionSyntax):
         if metadata.dialect == ORACLE_DIALECT and name.lower() in _KEYWORDS:
             name = '"%s"' % (name,)
 
-        for tableSyntax in allTables:
-            if self.model.table is not tableSyntax.model:
-                if self.model.name in (c.name for c in
-                                               tableSyntax.model.columns):
-                    return SQLFragment((self.model.table.name + '.' + name))
-        return SQLFragment(name)
+        if self._alwaysQualified:
+            qualified = True
+        else:
+            qualified = False
+            for tableSyntax in allTables:
+                if self.model.table is not tableSyntax.model:
+                    if self.model.name in (c.name for c in
+                                           tableSyntax.model.columns):
+                        qualified = True
+                        break
+        if qualified:
+            return SQLFragment(self._qualify(name))
+        else:
+            return SQLFragment(name)
 
 
     def __hash__(self):
         return hash(self.model) + 10
+
+
+    def _qualify(self, name):
+        return self.model.table.name + '.' + name
+
+
+
+class AliasedColumnSyntax(ColumnSyntax):
+    """
+    An L{AliasedColumnSyntax} is like a L{ColumnSyntax}, but it generates SQL
+    for a column of a table under an alias, rather than directly.  i.e. this is
+    used for C{'something.col'} in C{'select something.col from tablename
+    something'} rather than the 'col' in C{'select col from tablename'}.
+
+    @see: L{TableSyntax.alias}
+    """
+    _alwaysQualified = True
+
+    def _qualify(self, name):
+        return 'alias1.' + name
 
 
 
