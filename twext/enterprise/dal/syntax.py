@@ -462,6 +462,10 @@ class TableSyntax(Syntax):
 
     modelType = Table
 
+    def alias(self):
+        return self
+
+
     def join(self, otherTableSyntax, on=None, type=''):
         if on is None:
             type = 'cross'
