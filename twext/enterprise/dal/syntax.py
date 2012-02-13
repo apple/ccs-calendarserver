@@ -547,13 +547,33 @@ class TableAlias(TableSyntax):
     """
 
     def subSQL(self, metadata, allTables):
+        """
+        Return an L{SQLFragment} with a string of the form C{'mytable myalias'}
+        suitable for use in a FROM clause.
+        """
         result = super(TableAlias, self).subSQL(metadata, allTables)
-        result.append(SQLFragment(" alias1"))
+        result.append(SQLFragment(" " + self._aliasName(allTables)))
         return result
 
 
+    def _aliasName(self, allTables):
+        """
+        The alias under which this table will be known in the query.
+
+        @param allTables: a C{list}, as passed to a C{subSQL} method during SQL
+            generation.
+
+        @return: a string naming this alias, a unique identifier, albeit one
+            which is only stable within the query which populated C{allTables}.
+        @rtype: C{str}
+        """
+        anum = [t for t in allTables
+                if isinstance(t, TableAlias)].index(self) + 1
+        return 'alias%d' % (anum,)
+
+
     def __getattr__(self, attr):
-        return AliasedColumnSyntax(self.model.columnNamed(attr))
+        return AliasedColumnSyntax(self, self.model.columnNamed(attr))
 
 
 
@@ -661,7 +681,7 @@ class ColumnSyntax(ExpressionSyntax):
                         qualified = True
                         break
         if qualified:
-            return SQLFragment(self._qualify(name))
+            return SQLFragment(self._qualify(name, allTables))
         else:
             return SQLFragment(name)
 
@@ -670,7 +690,7 @@ class ColumnSyntax(ExpressionSyntax):
         return hash(self.model) + 10
 
 
-    def _qualify(self, name):
+    def _qualify(self, name, allTables):
         return self.model.table.name + '.' + name
 
 
@@ -684,10 +704,17 @@ class AliasedColumnSyntax(ColumnSyntax):
 
     @see: L{TableSyntax.alias}
     """
+
     _alwaysQualified = True
 
-    def _qualify(self, name):
-        return 'alias1.' + name
+
+    def __init__(self, tableAlias, model):
+        super(AliasedColumnSyntax, self).__init__(model)
+        self._tableAlias = tableAlias
+
+
+    def _qualify(self, name, allTables):
+        return self._tableAlias._aliasName(allTables) + '.' + name
 
 
 
