@@ -370,6 +370,22 @@ class GenerationTests(ExampleSchemaHelper, TestCase):
         )
 
 
+    def test_multipleTableAliases(self):
+        """
+        When multiple aliases are used for the same table, they will be unique
+        within the query.
+        """
+        foo = self.schema.FOO
+        fooPrime = foo.alias()
+        fooPrimePrime = foo.alias()
+        self.assertEquals(
+            Select([fooPrime.BAR, fooPrimePrime.BAR],
+                   From=fooPrime.join(fooPrimePrime)).toSQL(),
+            SQLFragment("select alias1.BAR, alias2.BAR "
+                        "from FOO alias1 cross join FOO alias2")
+        )
+
+
     def test_columnSelection(self):
         """
         If a column is specified by the argument to L{Select}, those will be
