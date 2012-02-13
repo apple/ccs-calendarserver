@@ -357,7 +357,7 @@ class GenerationTests(ExampleSchemaHelper, TestCase):
         )
 
 
-    def test_aliasedTableColumns(self):
+    def test_columnsOfAliasedTable(self):
         """
         The columns of aliased tables will always be prefixed with their alias
         in the generated SQL.
