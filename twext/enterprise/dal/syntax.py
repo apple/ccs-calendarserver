@@ -514,8 +514,15 @@ class TableSyntax(Syntax):
         return [self]
 
 
-    def aliases(self):
+    def columnAliases(self):
         """
+        Inspect the Python aliases for this table in the given schema.  Python
+        aliases for a table are created by setting an attribute on the schema.
+        For example, in a schema which had "schema.MYTABLE.ID =
+        schema.MYTABLE.MYTABLE_ID" applied to it,
+        schema.MYTABLE.columnAliases() would return C{[("ID",
+        schema.MYTABLE.MYTABLE_ID)]}.
+
         @return: a list of 2-tuples of (alias (C{str}), column
             (C{ColumnSyntax})), enumerating all of the Python aliases provided.
         """

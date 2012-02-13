@@ -118,7 +118,7 @@ def _S(tableSyntax):
     result['sequence'] = schema.model.sequenceNamed('REVISION_SEQ').name
     for columnSyntax in tableSyntax:
         result['column_' + columnSyntax.model.name] = columnSyntax.model.name
-    for alias, realColumnSyntax in tableSyntax.aliases().items():
+    for alias, realColumnSyntax in tableSyntax.columnAliases().items():
         result['column_' + alias] = realColumnSyntax.model.name
     return result
 

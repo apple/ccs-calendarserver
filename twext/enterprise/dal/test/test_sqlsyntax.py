@@ -386,14 +386,14 @@ class GenerationTests(ExampleSchemaHelper, TestCase):
         """
         When attributes are set on a L{TableSyntax}, they will be remembered as
         column aliases, and their alias names may be retrieved via the
-        L{TableSyntax.aliases} method.
+        L{TableSyntax.columnAliases} method.
         """
-        self.assertEquals(self.schema.FOO.aliases(), {})
+        self.assertEquals(self.schema.FOO.columnAliases(), {})
         self.schema.FOO.ALIAS = self.schema.FOO.BAR
         # you comparing ColumnSyntax object results in a ColumnComparison, which
         # you can't test for truth.
         fixedForEquality = dict([(k, v.model) for k, v in
-                                 self.schema.FOO.aliases().items()])
+                                 self.schema.FOO.columnAliases().items()])
         self.assertEquals(fixedForEquality,
                           {'ALIAS': self.schema.FOO.BAR.model})
         self.assertIdentical(self.schema.FOO.ALIAS.model,
