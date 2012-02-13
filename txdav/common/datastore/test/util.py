@@ -14,8 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
-from twistedcaldav.config import config
-
 """
 Store test utility functions
 """
@@ -36,6 +34,8 @@ from twisted.internet.defer import Deferred, inlineCallbacks, succeed
 from twisted.internet.task import deferLater
 from twisted.python import log
 from twisted.application.service import Service
+
+from twistedcaldav.config import config
 
 from txdav.common.datastore.sql import CommonDataStore, current_sql_schema
 from txdav.base.datastore.subpostgres import PostgresService
@@ -349,6 +349,9 @@ def populateCalendarsFrom(requirements, store):
             # explicitly listed.
             try:
                 yield home.removeCalendarWithName("calendar")
+                # FIXME: this should be an argument to the function, not a
+                # global configuration variable.  Related: this needs
+                # independent tests.
                 if config.RestrictCalendarsToOneComponentType:
                     yield home.removeCalendarWithName("tasks")
                 yield home.removeCalendarWithName("inbox")
@@ -369,6 +372,8 @@ def populateCalendarsFrom(requirements, store):
                             metadata = metadata,
                         )
     yield populateTxn.commit()
+
+
 
 @inlineCallbacks
 def resetCalendarMD5s(md5s, store):
