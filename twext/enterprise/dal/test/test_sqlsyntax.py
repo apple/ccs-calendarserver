@@ -345,6 +345,31 @@ class GenerationTests(ExampleSchemaHelper, TestCase):
         )
 
 
+    def test_tableAliasing(self):
+        """
+        Tables may be given aliases, in order to facilitate self-joins.
+        """
+        sfoo = self.schema.FOO
+        sfoo2 = sfoo.alias()
+        self.assertEqual(
+            Select(From=self.schema.FOO.join(sfoo2)).toSQL(),
+            SQLFragment("select * from FOO cross join FOO alias1")
+        )
+
+
+    def test_aliasedTableColumns(self):
+        """
+        The columns of aliased tables will always be prefixed with their alias
+        in the generated SQL.
+        """
+        sfoo = self.schema.FOO
+        sfoo2 = sfoo.alias()
+        self.assertEquals(
+            Select([sfoo2.BAR], From=sfoo2).toSQL(),
+            SQLFragment("select alias1.BAR from alias1")
+        )
+
+
     def test_columnSelection(self):
         """
         If a column is specified by the argument to L{Select}, those will be
