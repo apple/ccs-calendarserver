@@ -108,7 +108,7 @@ def recordToResult(record, encodings):
     details, error = record.recordDetailsForAttributes_error_(None, None)
     if error:
         log.error(error)
-        raise ODError(error)
+        raise ODNSError(error)
     result = {}
     for key, value in details.iteritems():
         encoding = encodings.get(key, None)
@@ -180,7 +180,7 @@ def odInit(nodeName):
             break
 
     log.error(error)
-    raise ODError(error)
+    raise ODNSError(error)
 
 
 
@@ -213,7 +213,7 @@ def getNodeAttributes(directory, nodeName, attributes):
             break
 
     log.error(error)
-    raise ODError(error)
+    raise ODNSError(error)
 
 
 @autoPooled
@@ -262,7 +262,7 @@ def listAllRecordsWithAttributes_list(directory, recordType, attributes, count=0
             break
 
     log.error(error)
-    raise ODError(error)
+    raise ODNSError(error)
 
 
 @autoPooled
@@ -316,7 +316,7 @@ def queryRecordsWithAttribute_list(directory, attr, value, matchType, casei, rec
             break
 
     log.error(error)
-    raise ODError(error)
+    raise ODNSError(error)
 
 
 @autoPooled
@@ -369,7 +369,7 @@ def queryRecordsWithAttributes_list(directory, compound, casei, recordType, attr
             break
 
     log.error(error)
-    raise ODError(error)
+    raise ODNSError(error)
 
 
 def getUserRecord(directory, user):
@@ -401,7 +401,7 @@ def getUserRecord(directory, user):
             break
 
     log.error(error)
-    raise ODError(error)
+    raise ODNSError(error)
 
 
 @autoPooled
@@ -417,7 +417,7 @@ def authenticateUserBasic(directory, nodeName, user, password):
     """
     record = getUserRecord(directory, user)
     if record is None:
-        raise ODError("Record not found")
+        raise ODError("Record not found", 0)
 
     tries = NUM_TRIES
     while tries:
@@ -445,7 +445,7 @@ def authenticateUserBasic(directory, nodeName, user, password):
             break
 
     log.error(error)
-    raise ODError(error)
+    raise ODNSError(error)
 
 
 @autoPooled
@@ -463,7 +463,7 @@ def authenticateUserDigest(directory, nodeName, user, challenge, response, metho
     """
     record = getUserRecord(directory, user)
     if record is None:
-        raise ODError("Record not found")
+        raise ODError("Record not found", 0)
 
     tries = NUM_TRIES
     while tries:
@@ -496,10 +496,24 @@ def authenticateUserDigest(directory, nodeName, user, challenge, response, metho
             break
 
     log.error(error)
-    raise ODError(error)
+    raise ODNSError(error)
 
 
 class ODError(Exception):
     """
     Exceptions from DirectoryServices errors.
     """
+    def __init__(self, msg, code):
+        self.message = (msg, code)
+
+    def __str__(self):
+        return "<OD Error %s %d>" % (self.message[0], self.message[1])
+
+
+class ODNSError(ODError):
+    """
+    Converts an NSError.
+    """
+    def __init__(self, error):
+        super(ODNSError, self).__init__(error.localizedDescription(),
+            error.code())
