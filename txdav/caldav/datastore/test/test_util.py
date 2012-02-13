@@ -242,14 +242,13 @@ END:VCALENDAR
 """)
 
         self.assertEquals(
-            (yield dropboxIDFromCalendarObject(resource)), 
+            (yield dropboxIDFromCalendarObject(resource)),
             "12345-67890.dropbox"
         )
 
 
     @inlineCallbacks
     def test_UIDbadPath(self):
-        
         test_UIDs = (
             ("12345/67890", "12345-67890"),
             ("http://12345,67890", "12345,67890"),
@@ -270,16 +269,18 @@ ATTENDEE:mailto:user2@example.com
 END:VEVENT
 END:VCALENDAR
 """ % (uid,))
-    
+
             self.assertEquals(
                 (yield dropboxIDFromCalendarObject(resource)),
                 "%s.dropbox" % (result,),
             )
 
+
+
 class StorageTransportTests(TestCase):
 
     def test_MissingContentType(self):
-        
+
         test_files = (
             ("plain.txt", MimeType.fromString("text/plain"),),
             ("word.doc", MimeType.fromString("application/msword"),),
@@ -289,15 +290,18 @@ class StorageTransportTests(TestCase):
         )
 
         class FakeAttachment(object):
-            
+
             def __init__(self, name):
                 self._name = name
-            
+
             def name(self):
                 return self._name
-    
+
         for filename, result in test_files:
             item = StorageTransportBase(FakeAttachment(filename), None)
             self.assertEquals(item._contentType, result)
             item = StorageTransportBase(FakeAttachment(filename), result)
             self.assertEquals(item._contentType, result)
+
+
+
