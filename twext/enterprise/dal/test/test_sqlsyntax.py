@@ -345,6 +345,47 @@ class GenerationTests(ExampleSchemaHelper, TestCase):
         )
 
 
+    def test_tableAliasing(self):
+        """
+        Tables may be given aliases, in order to facilitate self-joins.
+        """
+        sfoo = self.schema.FOO
+        sfoo2 = sfoo.alias()
+        self.assertEqual(
+            Select(From=self.schema.FOO.join(sfoo2)).toSQL(),
+            SQLFragment("select * from FOO cross join FOO alias1")
+        )
+
+
+    def test_columnsOfAliasedTable(self):
+        """
+        The columns of aliased tables will always be prefixed with their alias
+        in the generated SQL.
+        """
+        sfoo = self.schema.FOO
+        sfoo2 = sfoo.alias()
+        self.assertEquals(
+            Select([sfoo2.BAR], From=sfoo2).toSQL(),
+            SQLFragment("select alias1.BAR from FOO alias1")
+        )
+
+
+    def test_multipleTableAliases(self):
+        """
+        When multiple aliases are used for the same table, they will be unique
+        within the query.
+        """
+        foo = self.schema.FOO
+        fooPrime = foo.alias()
+        fooPrimePrime = foo.alias()
+        self.assertEquals(
+            Select([fooPrime.BAR, fooPrimePrime.BAR],
+                   From=fooPrime.join(fooPrimePrime)).toSQL(),
+            SQLFragment("select alias1.BAR, alias2.BAR "
+                        "from FOO alias1 cross join FOO alias2")
+        )
+
+
     def test_columnSelection(self):
         """
         If a column is specified by the argument to L{Select}, those will be
@@ -361,14 +402,14 @@ class GenerationTests(ExampleSchemaHelper, TestCase):
         """
         When attributes are set on a L{TableSyntax}, they will be remembered as
         column aliases, and their alias names may be retrieved via the
-        L{TableSyntax.aliases} method.
+        L{TableSyntax.columnAliases} method.
         """
-        self.assertEquals(self.schema.FOO.aliases(), {})
+        self.assertEquals(self.schema.FOO.columnAliases(), {})
         self.schema.FOO.ALIAS = self.schema.FOO.BAR
         # you comparing ColumnSyntax object results in a ColumnComparison, which
         # you can't test for truth.
         fixedForEquality = dict([(k, v.model) for k, v in
-                                 self.schema.FOO.aliases().items()])
+                                 self.schema.FOO.columnAliases().items()])
         self.assertEquals(fixedForEquality,
                           {'ALIAS': self.schema.FOO.BAR.model})
         self.assertIdentical(self.schema.FOO.ALIAS.model,
