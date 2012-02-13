@@ -366,7 +366,7 @@ class GenerationTests(ExampleSchemaHelper, TestCase):
         sfoo2 = sfoo.alias()
         self.assertEquals(
             Select([sfoo2.BAR], From=sfoo2).toSQL(),
-            SQLFragment("select alias1.BAR from alias1")
+            SQLFragment("select alias1.BAR from FOO alias1")
         )
 
 
