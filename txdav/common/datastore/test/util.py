@@ -552,9 +552,6 @@ class CommonCommonTests(object):
         self.counter = 0
         self.notifierFactory = StubNotifierFactory()
 
-    def commitLast(self):
-        if self.lastTransaction is not None:
-            return self.commit()
 
 
 class StubNodeCacher(object):
