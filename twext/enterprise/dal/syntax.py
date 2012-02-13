@@ -463,6 +463,14 @@ class TableSyntax(Syntax):
     modelType = Table
 
     def alias(self):
+        """
+        Return an alias for this L{TableSyntax} so that it might be joined
+        against itself.
+
+        As in SQL, C{someTable.join(someTable)} is an error; you can't join a
+        table against itself.  However, C{t = someTable.alias();
+        someTable.join(t)} is usable as a 'from' clause.
+        """
         return TableAlias(self.model)
 
 
