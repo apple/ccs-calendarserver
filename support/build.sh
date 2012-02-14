@@ -614,13 +614,13 @@ dependencies () {
     init_py;
   fi;
 
-  if ! type -P memcached > /dev/null; then
-    local le="libevent-1.4.13-stable";
-    local mc="memcached-1.4.5";
-    c_dependency -m "0b3ea18c634072d12b3c1ee734263664" \
+  if true || ! type -P memcached > /dev/null; then
+    local le="libevent-2.0.17-stable";
+    local mc="memcached-1.4.13";
+    c_dependency -m "dad64aaaaff16b5fbec25160c06fee9a" \
       "libevent" "${le}" \
-      "http://monkey.org/~provos/${le}.tar.gz";
-    c_dependency -m "583441a25f937360624024f2881e5ea8" \
+      "https://github.com/downloads/libevent/libevent/${le}.tar.gz";
+    c_dependency -m "6d18c6d25da945442fcc1187b3b63b7f" \
       "memcached" "${mc}" \
       "http://memcached.googlecode.com/files/${mc}.tar.gz";
   fi;
