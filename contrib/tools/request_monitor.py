@@ -218,6 +218,7 @@ def usage():
     print "--lines N  specifies how many lines to tail from access.log (default: 10000)"
     print "--range M:N  specifies a range of lines to analyze from access.log (default: all)"
     print "--procs N  specifies how many python processes are expected in the log file (default: 80)"
+    print "--top N    how many long requests to print (default: 10)"
     print "--router   analyze a partition server router node"
     print "--worker   analyze a partition server worker node"
     print
@@ -225,10 +226,11 @@ def usage():
 
 numLines = 10000
 numProcs = 80
+numTop = 10
 lineRange = None
 router = False
 worker = False
-options, args = getopt.getopt(sys.argv[1:], "h", ["debug", "router", "worker", "lines=", "range=", "procs=",])
+options, args = getopt.getopt(sys.argv[1:], "h", ["debug", "router", "worker", "lines=", "range=", "procs=", "top="])
 for option, value in options:
     if option == "-h":
         usage()
@@ -245,6 +247,8 @@ for option, value in options:
         lineRange = (int(value.split(":")[0]), int(value.split(":")[1]))
     elif option == "--procs":
         numProcs = int(value)
+    elif option == "--top":
+        numTop = int(value)
 
 if len(args):
     filename = os.path.expanduser(args[0])
@@ -458,10 +462,10 @@ while True:
             print
 
         print
-        print "Top 10 longest (in most recent %d requests):" % (numRequests,)
+        print "Top %d longest (in most recent %d requests):" % (numTop, numRequests,)
         requests.sort()
         requests.reverse()
-        for i in xrange(10):
+        for i in xrange(numTop):
             try:
                 respTime, userId, method, kb, ext, client, logId, logTime, reqStartTime = requests[i]
                 """
