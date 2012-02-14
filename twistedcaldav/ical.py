@@ -1343,6 +1343,18 @@ class Component (object):
                 for property in master.properties("RDATE"):
                     rdates.extend([_rdate.getValue() for _rdate in property.value()])
                 valid_rids.update(set(rdates))
+
+                # Remove EXDATEs predating master
+                dtstart = master.propertyValue("DTSTART")
+                if dtstart is not None:
+                    for property in list(master.properties("EXDATE")):
+                        for exdate in [_exdate.getValue() for _exdate in property.value()]:
+                            if exdate < dtstart:
+                                if doFix:
+                                    master.removeProperty(property)
+                                    fixed.append("Removed earlier EXDATE: %s" % (exdate,))
+                                else:
+                                    unfixed.append("EXDATE earlier than master: %s" % (exdate,))
             else:
                 valid_rids = set()
 

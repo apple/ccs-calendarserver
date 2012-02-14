@@ -451,6 +451,83 @@ END:VCALENDAR
         calendar.validCalendarData(doFix=False, validateRecurrences=True)
 
 
+        # Test EXDATEs *prior* to master (as the result of client splitting a
+        # a recurring event and copying *all* EXDATEs to new event):
+        data = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Apple Inc.//iCal 5.0.1//EN
+CALSCALE:GREGORIAN
+BEGIN:VTIMEZONE
+TZID:US/Pacific
+BEGIN:DAYLIGHT
+TZOFFSETFROM:-0800
+RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=2SU
+DTSTART:20070311T020000
+TZNAME:PDT
+TZOFFSETTO:-0700
+END:DAYLIGHT
+BEGIN:STANDARD
+TZOFFSETFROM:-0700
+RRULE:FREQ=YEARLY;BYMONTH=11;BYDAY=1SU
+DTSTART:20071104T020000
+TZNAME:PST
+TZOFFSETTO:-0800
+END:STANDARD
+END:VTIMEZONE
+BEGIN:VEVENT
+CREATED:20120213T224430Z
+UID:BD84E32F-15A4-4354-9A72-EA240657734B
+DTEND;TZID=US/Pacific:20120218T160000
+RRULE:FREQ=DAILY;COUNT=396
+TRANSP:OPAQUE
+SUMMARY:RECUR
+DTSTART;TZID=US/Pacific:20120218T140000
+EXDATE;TZID=US/Pacific:20120215T113000
+EXDATE;TZID=US/Pacific:20120216T113000
+EXDATE;TZID=US/Pacific:20120220T113000
+DTSTAMP:20120213T224523Z
+SEQUENCE:3
+END:VEVENT
+BEGIN:VEVENT
+CREATED:20120213T224430Z
+UID:BD84E32F-15A4-4354-9A72-EA240657734B
+DTEND;TZID=US/Pacific:20120221T134500
+TRANSP:OPAQUE
+SUMMARY:RECUR
+DTSTART;TZID=US/Pacific:20120221T114500
+DTSTAMP:20120214T000440Z
+SEQUENCE:4
+RECURRENCE-ID;TZID=US/Pacific:20120221T140000
+END:VEVENT
+END:VCALENDAR
+"""
+        # Ensure it starts off invalid
+        calendar = Component.fromString(data)
+        try:
+            calendar.validCalendarData(doFix=False, validateRecurrences=True)
+        except InvalidICalendarDataError:
+            pass
+        else:
+            self.fail("Shouldn't validate for CalDAV")
+
+        # Fix it
+        fixed, unfixed = calendar.validCalendarData(doFix=True,
+            validateRecurrences=True)
+        self.assertEquals(fixed,
+            ["Removed earlier EXDATE: 20120215T113000",
+            "Removed earlier EXDATE: 20120216T113000"]
+        )
+        self.assertEquals(unfixed, [])
+        # These two old EXDATES are removed
+        self.assertTrue("EXDATE;TZID=US/Pacific:20120215T113000\r\n" not in str(calendar))
+        self.assertTrue("EXDATE;TZID=US/Pacific:20120216T113000\r\n" not in str(calendar))
+        # This EXDATE remains
+        self.assertTrue("EXDATE;TZID=US/Pacific:20120220T113000\r\n" in str(calendar))
+
+        # Now it should pass without fixing
+        calendar.validCalendarData(doFix=False, validateRecurrences=True)
+
+
     def test_component_timeranges(self):
         """
         Component time range query.
