@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2010 Apple Inc. All rights reserved.
+# Copyright (c) 2010-2012 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -23,8 +23,9 @@ from twext.enterprise.dal import syntax
 from twext.enterprise.dal.syntax import (
     Select, Insert, Update, Delete, Lock, SQLFragment,
     TableMismatch, Parameter, Max, Len, NotEnoughValues,
-    Savepoint, RollbackToSavepoint, ReleaseSavepoint, SavepointAction
-)
+    Savepoint, RollbackToSavepoint, ReleaseSavepoint, SavepointAction,
+    Union, Intersect, Except, SetExpression, DALError,
+    ResultAliasSyntax)
 
 from twext.enterprise.dal.syntax import Function
 
@@ -153,7 +154,7 @@ class GenerationTests(ExampleSchemaHelper, TestCase):
         def sampleComparison():
             if self.schema.FOO.BAR > self.schema.FOO.BAZ:
                 return 'comparison should not succeed'
-        self.assertRaises(ValueError, sampleComparison)
+        self.assertRaises(DALError, sampleComparison)
 
 
     def test_compareWithNULL(self):
@@ -483,6 +484,184 @@ class GenerationTests(ExampleSchemaHelper, TestCase):
                    self.schema.FOO.BAZ < 7)).toSQL().bind(testing=173),
             SQLFragment("select * from FOO where BAR > ? and BAZ < ?",
                          [173, 7]))
+
+
+    def test_setSelects(self):
+        """
+        L{SetExpression} produces set operation on selects.
+        """
+        
+        # Simple UNION
+        self.assertEquals(
+            Select(
+                From=self.schema.FOO,
+                Where=(self.schema.FOO.BAR == 1),
+                SetExpression= Union(
+                    Select(
+                        From=self.schema.FOO,
+                        Where=(self.schema.FOO.BAR == 2),
+                    ),
+                ),
+            ).toSQL(FixedPlaceholder(POSTGRES_DIALECT, "?")),
+            SQLFragment(
+                "(select * from FOO where BAR = ?) UNION (select * from FOO where BAR = ?)", [1, 2]))
+
+        # Simple INTERSECT ALL
+        self.assertEquals(
+            Select(
+                From=self.schema.FOO,
+                Where=(self.schema.FOO.BAR == 1),
+                SetExpression=Intersect(
+                    Select(
+                        From=self.schema.FOO,
+                        Where=(self.schema.FOO.BAR == 2),
+                    ),
+                    optype=SetExpression.OPTYPE_ALL
+                ),
+            ).toSQL(FixedPlaceholder(POSTGRES_DIALECT, "?")),
+            SQLFragment(
+                "(select * from FOO where BAR = ?) INTERSECT ALL (select * from FOO where BAR = ?)", [1, 2]))
+
+        # Multiple EXCEPTs, not nested, Postgres dialect
+        self.assertEquals(
+            Select(
+                From=self.schema.FOO,
+                SetExpression=Except(
+                    (
+                        Select(
+                            From=self.schema.FOO,
+                            Where=(self.schema.FOO.BAR == 2),
+                        ),
+                        Select(
+                            From=self.schema.FOO,
+                            Where=(self.schema.FOO.BAR == 3),
+                        ),
+                    ),
+                    optype=SetExpression.OPTYPE_DISTINCT,
+                ),
+            ).toSQL(FixedPlaceholder(POSTGRES_DIALECT, "?")),
+            SQLFragment(
+                "(select * from FOO) EXCEPT DISTINCT (select * from FOO where BAR = ?) EXCEPT DISTINCT (select * from FOO where BAR = ?)", [2, 3]))
+
+        # Nested EXCEPTs, Oracle dialect
+        self.assertEquals(
+            Select(
+                From=self.schema.FOO,
+                SetExpression=Except(
+                    Select(
+                        From=self.schema.FOO,
+                        Where=(self.schema.FOO.BAR == 2),
+                        SetExpression=Except(
+                            Select(
+                                From=self.schema.FOO,
+                                Where=(self.schema.FOO.BAR == 3),
+                            ),
+                        ),
+                    ),
+                ),
+            ).toSQL(FixedPlaceholder(ORACLE_DIALECT, "?")),
+            SQLFragment(
+                "(select * from FOO) MINUS ((select * from FOO where BAR = ?) MINUS (select * from FOO where BAR = ?))", [2, 3]))
+
+        # UNION with order by
+        self.assertEquals(
+            Select(
+                From=self.schema.FOO,
+                Where=(self.schema.FOO.BAR == 1),
+                SetExpression= Union(
+                    Select(
+                        From=self.schema.FOO,
+                        Where=(self.schema.FOO.BAR == 2),
+                    ),
+                ),
+                OrderBy=self.schema.FOO.BAR,
+            ).toSQL(FixedPlaceholder(POSTGRES_DIALECT, "?")),
+            SQLFragment(
+                "(select * from FOO where BAR = ?) UNION (select * from FOO where BAR = ?) order by BAR", [1, 2]))
+
+
+    def test_simpleSubSelects(self):
+        """
+        L{Max}C{(column)} produces an object in the 'columns' clause that
+        renders the 'max' aggregate in SQL.
+        """
+        self.assertEquals(
+            Select(
+                [Max(self.schema.BOZ.QUX)],
+                From=(Select([self.schema.BOZ.QUX], From=self.schema.BOZ))
+            ).toSQL(),
+            SQLFragment(
+                "select max(QUX) from (select QUX from BOZ) alias_1"))
+
+        self.assertEquals(
+            Select(
+                [Max(self.schema.BOZ.QUX)],
+                From=(Select([self.schema.BOZ.QUX], From=self.schema.BOZ, As="alias_BAR")),
+            ).toSQL(),
+            SQLFragment(
+                "select max(QUX) from (select QUX from BOZ) alias_BAR"))
+
+
+    def test_setSubSelects(self):
+        """
+        L{SetExpression} in a From sub-select.
+        """
+        
+        # Simple UNION
+        self.assertEquals(
+            Select(
+                [Max(self.schema.FOO.BAR)],
+                From=Select(
+                    [self.schema.FOO.BAR],
+                    From=self.schema.FOO,
+                    Where=(self.schema.FOO.BAR == 1),
+                    SetExpression= Union(
+                        Select(
+                            [self.schema.FOO.BAR],
+                            From=self.schema.FOO,
+                            Where=(self.schema.FOO.BAR == 2),
+                        ),
+                    ),
+                )
+            ).toSQL(),
+            SQLFragment(
+                "select max(BAR) from ((select BAR from FOO where BAR = ?) UNION (select BAR from FOO where BAR = ?)) alias_1", [1, 2]))
+
+    def test_selectColumnAliases(self):
+        """
+        L{Select} works with aliased columns.
+        """
+        self.assertEquals(
+            Select(
+                [ResultAliasSyntax(self.schema.BOZ.QUX, "BOZ_QUX")],
+                From=self.schema.BOZ
+            ).toSQL(),
+            SQLFragment("select QUX BOZ_QUX from BOZ"))
+
+        self.assertEquals(
+            Select(
+                [ResultAliasSyntax(Max(self.schema.BOZ.QUX), "MAX_QUX")],
+                From=self.schema.BOZ
+            ).toSQL(),
+            SQLFragment("select max(QUX) MAX_QUX from BOZ"))
+
+        alias = ResultAliasSyntax(Max(self.schema.BOZ.QUX), "MAX_QUX")
+        self.assertEquals(
+            Select([alias.columnReference()],
+                From=Select(
+                    [alias],
+                    From=self.schema.BOZ)
+            ).toSQL(),
+            SQLFragment("select MAX_QUX from (select max(QUX) MAX_QUX from BOZ) alias_1"))
+
+        alias = ResultAliasSyntax(Len(self.schema.BOZ.QUX), "LEN_QUX")
+        self.assertEquals(
+            Select([alias.columnReference()],
+                From=Select(
+                    [alias],
+                    From=self.schema.BOZ)
+            ).toSQL(),
+            SQLFragment("select LEN_QUX from (select character_length(QUX) LEN_QUX from BOZ) alias_1"))
 
 
     def test_inSubSelect(self):

@@ -38,11 +38,18 @@ try:
 except ImportError:
     cx_Oracle = None
 
+class DALError(Exception):
+    """
+    Base class for exceptions raised by this module. This can be raised directly for
+    API violations. This exception represents a serious programming error and should
+    normally never be caught or ignored.
+    """
+
 class ConnectionMetadata(object):
     """
     Representation of the metadata about the database connection required to
     generate some SQL, for a single statement.  Contains information necessary
-    to generate placeholder strings and determine the database dialect.
+    to generate place holder strings and determine the database dialect.
     """
 
     def __init__(self, dialect):
@@ -56,7 +63,7 @@ class ConnectionMetadata(object):
 
 class FixedPlaceholder(ConnectionMetadata):
     """
-    Metadata about a connection which uses a fixed string as its placeholder.
+    Metadata about a connection which uses a fixed string as its place holder.
     """
 
     def __init__(self, dialect, placeholder):
@@ -96,7 +103,7 @@ class TableMismatch(Exception):
 
 
 
-class NotEnoughValues(ValueError):
+class NotEnoughValues(DALError):
     """
     Not enough values were supplied for an L{Insert}.
     """
@@ -250,7 +257,7 @@ class Syntax(object):
     def __init__(self, model):
         if not isinstance(model, self.modelType):
             # make sure we don't get a misleading repr()
-            raise ValueError("type mismatch: %r %r", type(self), model)
+            raise DALError("type mismatch: %r %r", type(self), model)
         self.model = model
 
 
@@ -289,7 +296,7 @@ class ExpressionSyntax(Syntax):
 
 
     def __nonzero__(self):
-        raise ValueError(
+        raise DALError(
             "SQL expressions should not be tested for truth value in Python.")
 
 
@@ -353,7 +360,7 @@ class Constant(ExpressionSyntax):
 
 class NamedValue(ExpressionSyntax):
     """
-    A constant within the database; something pre-defined, such as
+    A constant within the database; something predefined, such as
     CURRENT_TIMESTAMP.
     """
     def __init__(self, name):
@@ -702,6 +709,36 @@ class ColumnSyntax(ExpressionSyntax):
         return self.model.table.name + '.' + name
 
 
+class ResultAliasSyntax(ExpressionSyntax):
+    
+    def __init__(self, expression, alias):
+        self.expression = expression
+        self.alias = alias
+
+    def columnReference(self):
+        return AliasReferenceSyntax(self)
+
+    def allColumns(self):
+        return self.expression.allColumns()
+
+    def subSQL(self, metadata, allTables):
+        result = SQLFragment()
+        result.append(self.expression.subSQL(metadata, allTables))
+        result.append(SQLFragment(" %s" % (self.alias,)))
+        return result
+
+
+class AliasReferenceSyntax(ExpressionSyntax):
+    
+    def __init__(self, resultAlias):
+        self.resultAlias = resultAlias
+
+    def allColumns(self):
+        return self.resultAlias.allColumns()
+
+    def subSQL(self, metadata, allTables):
+        return SQLFragment(self.resultAlias.alias)
+
 
 class AliasedColumnSyntax(ColumnSyntax):
     """
@@ -878,6 +915,73 @@ class Tuple(object):
         return self.columns
 
 
+class SetExpression(object):
+    """
+    A UNION, INTERSECT, or EXCEPT construct used inside a SELECT.
+    """
+    
+    OPTYPE_ALL = "all"
+    OPTYPE_DISTINCT = "distinct"
+
+    def __init__(self, selects, optype=None):
+        """
+        
+        @param selects: a single Select or a list of Selects
+        @type selects: C{list} or L{Select}
+        @param optype: whether to use the ALL, DISTINCT constructs: C{None} use neither, OPTYPE_ALL, or OPTYPE_DISTINCT
+        @type optype: C{str}
+        """
+        
+        if isinstance(selects, Select):
+            selects = (selects,)
+        self.selects = selects
+        self.optype = optype
+        
+        for select in self.selects:
+            if not isinstance(select, Select):
+                raise DALError("Must have SELECT statements in a set expression")
+        if self.optype not in (None, SetExpression.OPTYPE_ALL, SetExpression.OPTYPE_DISTINCT,):
+            raise DALError("Must have either 'all' or 'distinct' in a set expression")
+
+    def subSQL(self, metadata, allTables):
+        result = SQLFragment()
+        for select in self.selects:
+            result.append(self.setOpSQL(metadata))
+            if self.optype == SetExpression.OPTYPE_ALL:
+                result.append(SQLFragment("ALL "))
+            elif self.optype == SetExpression.OPTYPE_DISTINCT:
+                result.append(SQLFragment("DISTINCT "))
+            result.append(select.subSQL(metadata, allTables))
+        return result
+
+    def allColumns(self):
+        return []
+
+class Union(SetExpression):
+    """
+    A UNION construct used inside a SELECT.
+    """
+    def setOpSQL(self, metadata):
+        return SQLFragment(" UNION ")
+
+class Intersect(SetExpression):
+    """
+    An INTERSECT construct used inside a SELECT.
+    """
+    def setOpSQL(self, metadata):
+        return SQLFragment(" INTERSECT ")
+
+class Except(SetExpression):
+    """
+    An EXCEPT construct used inside a SELECT.
+    """
+    def setOpSQL(self, metadata):
+        if metadata.dialect == POSTGRES_DIALECT:
+            return SQLFragment(" EXCEPT ")
+        elif metadata.dialect == ORACLE_DIALECT:
+            return SQLFragment(" MINUS ")
+        else:
+            raise NotImplementedError("Unsupported dialect")
 
 class Select(_Statement):
     """
@@ -886,7 +990,8 @@ class Select(_Statement):
 
     def __init__(self, columns=None, Where=None, From=None, OrderBy=None,
                  GroupBy=None, Limit=None, ForUpdate=False, NoWait=False, Ascending=None,
-                 Having=None, Distinct=False):
+                 Having=None, Distinct=False, As=None,
+                 SetExpression=None):
         self.From = From
         self.Where = Where
         self.Distinct = Distinct
@@ -898,18 +1003,25 @@ class Select(_Statement):
         self.GroupBy = GroupBy
         self.Limit = Limit
         self.Having = Having
+        self.SetExpression = SetExpression
+
         if columns is None:
             columns = ALL_COLUMNS
         else:
             if not _columnsMatchTables(columns, From.tables()):
                 raise TableMismatch()
-
             columns = _SomeColumns(columns)
         self.columns = columns
+        
         self.ForUpdate = ForUpdate
         self.NoWait = NoWait
         self.Ascending = Ascending
+        self.As = As
 
+        # A FROM that uses a sub-select will need the AS alias name
+        if isinstance(self.From, Select):
+            if self.From.As is None:
+                self.From.As = ""
 
     def __eq__(self, other):
         """
@@ -926,7 +1038,11 @@ class Select(_Statement):
 
         @rtype: L{SQLFragment}
         """
-        stmt = SQLFragment("select ")
+        if self.SetExpression is not None:
+            stmt = SQLFragment("(")
+        else:
+            stmt = SQLFragment()
+        stmt.append(SQLFragment("select "))
         if self.Distinct:
             stmt.text += "distinct "
         allTables = self.From.tables()
@@ -950,6 +1066,9 @@ class Select(_Statement):
             havingstmt = self.Having.subSQL(metadata, allTables)
             stmt.text += " having "
             stmt.append(havingstmt)
+        if self.SetExpression is not None:
+            stmt.append(SQLFragment(")"))
+            stmt.append(self.SetExpression.subSQL(metadata, allTables))
         if self.OrderBy is not None:
             stmt.text += " order by "
             fst = True
@@ -986,6 +1105,13 @@ class Select(_Statement):
         result = SQLFragment("(")
         result.append(self.toSQL(metadata))
         result.append(SQLFragment(")"))
+        if self.As is not None:
+            if self.As == "":
+                if not hasattr(metadata, "generated_table_aliases"):
+                    metadata.generated_table_aliases = 1
+                self.As = "alias_%d" % (metadata.generated_table_aliases,)
+                metadata.generated_table_aliases += 1
+            result.append(SQLFragment(" %s" % (self.As,)))
         return result
 
 
@@ -1007,6 +1133,22 @@ class Select(_Statement):
             for column in self.columns.columns:
                 yield column
 
+    def tables(self):
+        """
+        Determine the tables used by the result columns.
+        """
+        if self.columns is ALL_COLUMNS:
+            # TODO: Possibly this rewriting should always be done, before even
+            # executing the query, so that if we develop a schema mismatch with
+            # the database (additional columns), the application will still see
+            # the right rows.
+            return self.From.tables()
+        else:
+            tables = set([column.model.table for column in self.columns.columns if isinstance(column, ColumnSyntax)])
+            for table in self.From.tables():
+                tables.add(table.model)
+            return [TableSyntax(table) for table in tables]
+        
 
 def _commaJoined(stmts):
     first = True
@@ -1094,7 +1236,7 @@ class _DMLStatement(_Statement):
                 stmt.text += ' into '
                 params = []
                 retvals = self._returnAsList()
-                for n, v in enumerate(retvals):
+                for n, _ignore_v in enumerate(retvals):
                     params.append(
                         Constant(Parameter("oracle_out_" + str(n)))
                         .subSQL(metadata, allTables)
@@ -1124,7 +1266,7 @@ class _DMLStatement(_Statement):
     def _extraResult(self, result, outvars, metadata):
         if metadata.dialect == ORACLE_DIALECT and self.Return is not None:
             def processIt(shouldBeNone):
-                result = [[v.value for k, v in outvars]]
+                result = [[v.value for _ignore_k, v in outvars]]
                 return result
             return result.addCallback(processIt)
         else:
@@ -1206,7 +1348,7 @@ class Insert(_DMLStatement):
         stmt.append(TableSyntax(tableModel).subSQL(metadata, allTables))
         stmt.append(SQLFragment(" "))
         stmt.append(_inParens(_commaJoined(
-            [c.subSQL(metadata, allTables) for (c, v) in
+            [c.subSQL(metadata, allTables) for (c, _ignore_v) in
              sortedColumns])))
         stmt.append(SQLFragment(" values "))
         stmt.append(_inParens(_commaJoined(
