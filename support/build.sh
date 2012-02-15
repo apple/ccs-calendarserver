@@ -678,10 +678,10 @@ dependencies () {
     "PyXML" "xml.dom.ext" "${px}" \
     "http://${sf}/project/pyxml/pyxml/${pv}/${px}.tar.gz";
 
-  local po="pyOpenSSL-0.10";
-  py_dependency -v 0.9 -m "34db8056ec53ce80c7f5fc58bee9f093" \
+  local po="pyOpenSSL-0.11";
+  py_dependency -v 0.11 -m "9e76e57e00fa48745fcfe23944db1e6c" \
     "PyOpenSSL" "OpenSSL" "${po}" \
-    "${pypi}/p/pyOpenSSL/${po}.tar.gz";
+    "http://launchpadlibrarian.net/58498441/${po}.tar.gz";
 
   if type -P krb5-config > /dev/null; then
     py_dependency -r 8357 \
