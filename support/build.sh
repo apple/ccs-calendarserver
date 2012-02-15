@@ -720,7 +720,7 @@ dependencies () {
     "dateutil" "dateutil" "${du}" \
     "http://www.labix.org/download/python-dateutil/${du}.tar.gz";
 
-  local lv="2.4.7"
+  local lv="2.4.7";
   local ld="python-ldap-${lv}";
   py_dependency -v "${lv}" -m "a1ca19182df40bd9473ac4f41fbca816" \
     "python-ldap" "ldap" "${ld}" \
@@ -736,22 +736,27 @@ dependencies () {
   # they are useful to developers.
   #
 
-  py_dependency -o -v 0.1.2 -m "aa9852ad81822723adcd9f96838de14e" \
-    "SQLParse" "sqlparse" "sqlparse-0.1.2" \
-    "http://python-sqlparse.googlecode.com/files/sqlparse-0.1.2.tar.gz";
+  local sv="0.1.3";
+  local sq="sqlparse-0.1.3";
+  py_dependency -o -v "${sv}" -m "f7e01e8ff3eeddf9bc7be8b8a1cef730" \
+    "SQLParse" "sqlparse" "${sq}" \
+    "http://python-sqlparse.googlecode.com/files/${sq}.tar.gz";
 
-  py_dependency -o -v 0.4.0 -m "630a72510aae8758f48cf60e4fa17176" \
-    "Pyflakes" "pyflakes" "pyflakes-0.4.0" \
-    "${pypi}/p/pyflakes/pyflakes-0.4.0.tar.gz";
+  local fv="0.5.0";
+  local fl="pyflakes-${fv}";
+  py_dependency -o -v "${fv}" -m "568dab27c42e5822787aa8a603898672" \
+    "Pyflakes" "pyflakes" "${fl}" \
+    "${pypi}/p/pyflakes/${fl}.tar.gz";
  
   py_dependency -o -r HEAD \
     "CalDAVClientLibrary" "caldavclientlibrary" "CalDAVClientLibrary" \
     "${svn_uri_base}/CalDAVClientLibrary/trunk";
 
   # Can't add "-v 2011g" to args because the version check expects numbers.
-  py_dependency -o -m "9ffda6e87b5f067a7ca37c54629c9e58" \
-    "pytz" "pytz" "pytz-2011g" \
-    "http://pypi.python.org/packages/source/p/pytz/pytz-2011g.tar.gz";
+  local tz="pytz-2011n";
+  py_dependency -o -m "75ffdc113a4bcca8096ab953df746391" \
+    "pytz" "pytz" "${tz}" \
+    "http://pypi.python.org/packages/source/p/pytz/${tz}.tar.gz";
 
   svn_get "CalDAVTester" "${top}/CalDAVTester" \
       "${svn_uri_base}/CalDAVTester/trunk" HEAD;
