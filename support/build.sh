@@ -711,17 +711,18 @@ dependencies () {
     "PyGreSQL" "pgdb" "${pg}" \
     "${pypi}/P/PyGreSQL/${pg}.tar.gz";
 
-  py_dependency -v 11 -r 31512 \
+  py_dependency -v 12 -r HEAD \
     "Twisted" "twisted" "Twisted" \
-    "svn://svn.twistedmatrix.com/svn/Twisted/tags/releases/twisted-11.0.0";
+    "svn://svn.twistedmatrix.com/svn/Twisted/tags/releases/twisted-12.0.0";
 
   local du="python-dateutil-1.5";
   py_dependency -m "35f3732db3f2cc4afdc68a8533b60a52" \
     "dateutil" "dateutil" "${du}" \
     "http://www.labix.org/download/python-dateutil/${du}.tar.gz";
 
-  local ld="python-ldap-2.3.13";
-  py_dependency -v "2.3.13" -m "895223d32fa10bbc29aa349bfad59175" \
+  local lv="2.4.7"
+  local ld="python-ldap-${lv}";
+  py_dependency -v "${lv}" -m "a1ca19182df40bd9473ac4f41fbca816" \
     "python-ldap" "ldap" "${ld}" \
     "${pypi}/p/python-ldap/${ld}.tar.gz";
 
