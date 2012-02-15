@@ -372,7 +372,7 @@ def getRootResource(config, newStore, resources=None):
 
     Additional resources can be added to the hierarchy by passing a list of
     tuples containing: path, resource class, __init__ args list, and optional
-    authentication scheme ("basic" or "digest").
+    authentication schemes list ("basic", "digest").
 
     If the store is specified, then it has already been constructed, so use it.
     Otherwise build one with L{storeFromConfig}.
@@ -644,12 +644,12 @@ def getRootResource(config, newStore, resources=None):
     apnConfig = config.Notifications.Services["ApplePushNotifier"]
     if apnConfig.Enabled:
         log.info("Setting up APNS resource at /%s with auth: %s" %
-            (apnConfig["SubscriptionURL"], apnConfig["AuthMechanism"]))
+            (apnConfig["SubscriptionURL"], apnConfig["AuthMechanisms"]))
         resources.append((
             apnConfig["SubscriptionURL"],
             apnSubscriptionResourceClass,
             [],
-            apnConfig["AuthMechanism"]
+            apnConfig["AuthMechanisms"]
         ))
 
     #
@@ -663,7 +663,7 @@ def getRootResource(config, newStore, resources=None):
 
     overrides = { }
     if resources:
-        for path, cls, args, scheme in resources:
+        for path, cls, args, schemes in resources:
 
             # putChild doesn't want "/" starting the path
             root.putChild(path, cls(root, newStore, *args))
@@ -671,17 +671,19 @@ def getRootResource(config, newStore, resources=None):
             # overrides requires "/" prepended
             path = "/" + path
 
-            if scheme == "basic":
-                overrides[path] = (BasicCredentialFactory(realm),)
+            overrides[path] = []
+            for scheme in schemes:
+                if scheme == "basic":
+                    overrides[path].append(BasicCredentialFactory(realm))
 
-            elif scheme == "digest":
-                schemeConfig = config.Authentication.Digest
-                overrides[path] = (QopDigestCredentialFactory(
-                    schemeConfig["Algorithm"],
-                    schemeConfig["Qop"],
-                    realm,
-                ),)
-            log.info("Overriding %s with %s (%s)" % (path, cls, scheme))
+                elif scheme == "digest":
+                    schemeConfig = config.Authentication.Digest
+                    overrides[path].append(QopDigestCredentialFactory(
+                        schemeConfig["Algorithm"],
+                        schemeConfig["Qop"],
+                        realm,
+                    ))
+            log.info("Overriding %s with %s (%s)" % (path, cls, schemes))
 
     authWrapper = AuthenticationWrapper(
         root,

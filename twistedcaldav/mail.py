@@ -885,7 +885,7 @@ class IScheduleService(service.MultiService, LoggingMixIn):
             config,
             "IGNORED", # no need for a store - no /calendars nor /addressbooks
             resources = [
-                ("inbox", IMIPInvitationInboxResource, (mailer,), "digest"),
+                ("inbox", IMIPInvitationInboxResource, (mailer,), ("digest",)),
             ]
         )
 
