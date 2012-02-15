@@ -626,7 +626,7 @@ dependencies () {
   fi;
 
   if ! type -P postgres > /dev/null; then
-    local pgv="9.0.3";
+    local pgv="9.1.2";
     local pg="postgresql-${pgv}";
 
     if type -P dtrace > /dev/null; then
@@ -635,7 +635,7 @@ dependencies () {
       local enable_dtrace="";
     fi;
 
-    c_dependency -m "56386ded2d5dcd8a4ceef0da81c3d22c" \
+    c_dependency -m "fe01293f96e04da9879840b1996a3d2c" \
       "PostgreSQL" "${pg}" \
       "ftp://ftp5.us.postgresql.org/pub/PostgreSQL/source/v${pgv}/${pg}.tar.gz" \
       --with-python ${enable_dtrace};
@@ -664,12 +664,13 @@ dependencies () {
 
   py_dependency -m "7df2a529a074f613b509fb44feefe74e" \
     "setuptools" "setuptools" "${st}" \
-    "$pypi/s/setuptools/setuptools-0.6c11.tar.gz";
+    "$pypi/s/setuptools/${st}.tar.gz";
 
-  local zi="zope.interface-3.3.0";
+  local zv="3.3.0";
+  local zi="zope.interface-${zv}";
   py_dependency -m "93668855e37b4691c5c956665c33392c" \
     "Zope Interface" "zope.interface" "${zi}" \
-    "http://www.zope.org/Products/ZopeInterface/3.3.0/zope.interface-3.3.0.tar.gz";
+    "http://www.zope.org/Products/ZopeInterface/${zv}/${zi}.tar.gz";
 
   local pv="0.8.4";
   local px="PyXML-${pv}";
