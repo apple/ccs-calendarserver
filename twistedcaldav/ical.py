@@ -1348,13 +1348,26 @@ class Component (object):
                 dtstart = master.propertyValue("DTSTART")
                 if dtstart is not None:
                     for property in list(master.properties("EXDATE")):
-                        for exdate in [_exdate.getValue() for _exdate in property.value()]:
-                            if exdate < dtstart:
+                        newValues = []
+                        for exdate in property.value():
+                            exdateValue = exdate.getValue()
+                            if exdateValue < dtstart:
                                 if doFix:
-                                    master.removeProperty(property)
-                                    fixed.append("Removed earlier EXDATE: %s" % (exdate,))
+                                    fixed.append("Removed earlier EXDATE: %s" % (exdateValue,))
                                 else:
-                                    unfixed.append("EXDATE earlier than master: %s" % (exdate,))
+                                    unfixed.append("EXDATE earlier than master: %s" % (exdateValue,))
+                            else:
+                                newValues.append(exdateValue)
+
+                        if doFix:
+                            # Remove the property...
+                            master.removeProperty(property)
+                            if newValues:
+                                # ...and add it back only if it still has values
+                                property.setValue(newValues)
+                                master.addProperty(property)
+
+
             else:
                 valid_rids = set()
 

@@ -482,7 +482,8 @@ RRULE:FREQ=DAILY;COUNT=396
 TRANSP:OPAQUE
 SUMMARY:RECUR
 DTSTART;TZID=US/Pacific:20120218T140000
-EXDATE;TZID=US/Pacific:20120215T113000
+EXDATE;TZID=US/Pacific:20120201T113000,20120202T113000
+EXDATE;TZID=US/Pacific:20120214T113000,20120225T113000,20120215T113000
 EXDATE;TZID=US/Pacific:20120216T113000
 EXDATE;TZID=US/Pacific:20120220T113000
 DTSTAMP:20120213T224523Z
@@ -514,15 +515,23 @@ END:VCALENDAR
         fixed, unfixed = calendar.validCalendarData(doFix=True,
             validateRecurrences=True)
         self.assertEquals(fixed,
-            ["Removed earlier EXDATE: 20120215T113000",
+            ["Removed earlier EXDATE: 20120201T113000",
+            "Removed earlier EXDATE: 20120202T113000",
+            "Removed earlier EXDATE: 20120214T113000",
+            "Removed earlier EXDATE: 20120215T113000",
             "Removed earlier EXDATE: 20120216T113000"]
         )
         self.assertEquals(unfixed, [])
-        # These two old EXDATES are removed
+
+        # These five old EXDATES are removed
+        self.assertTrue("EXDATE;TZID=US/Pacific:20120201T113000\r\n" not in str(calendar))
+        self.assertTrue("EXDATE;TZID=US/Pacific:20120202T113000\r\n" not in str(calendar))
+        self.assertTrue("EXDATE;TZID=US/Pacific:20120214T113000\r\n" not in str(calendar))
         self.assertTrue("EXDATE;TZID=US/Pacific:20120215T113000\r\n" not in str(calendar))
         self.assertTrue("EXDATE;TZID=US/Pacific:20120216T113000\r\n" not in str(calendar))
-        # This EXDATE remains
+        # These future EXDATEs remain (one of which used to be in a multi-value EXDATE)
         self.assertTrue("EXDATE;TZID=US/Pacific:20120220T113000\r\n" in str(calendar))
+        self.assertTrue("EXDATE;TZID=US/Pacific:20120225T113000\r\n" in str(calendar))
 
         # Now it should pass without fixing
         calendar.validCalendarData(doFix=False, validateRecurrences=True)
