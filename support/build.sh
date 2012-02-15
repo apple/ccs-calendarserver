@@ -614,7 +614,7 @@ dependencies () {
     init_py;
   fi;
 
-  if true || ! type -P memcached > /dev/null; then
+  if ! type -P memcached > /dev/null; then
     local le="libevent-2.0.17-stable";
     local mc="memcached-1.4.13";
     c_dependency -m "dad64aaaaff16b5fbec25160c06fee9a" \
