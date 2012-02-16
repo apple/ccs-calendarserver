@@ -319,10 +319,12 @@ def migrateHome(inHome, outHome, getComponent=lambda x: x.component(),
     @return: a L{Deferred} that fires with C{None} when the migration is
         complete.
     """
-    yield outHome.removeCalendarWithName("calendar")
-    if config.RestrictCalendarsToOneComponentType:
-        yield outHome.removeCalendarWithName("tasks")
-    yield outHome.removeCalendarWithName("inbox")
+    if not merge:
+        yield outHome.removeCalendarWithName("calendar")
+        if config.RestrictCalendarsToOneComponentType:
+            yield outHome.removeCalendarWithName("tasks")
+        yield outHome.removeCalendarWithName("inbox")
+
     outHome.properties().update(inHome.properties())
     inCalendars = yield inHome.calendars()
     for calendar in inCalendars:
