@@ -111,7 +111,7 @@ class Configure(Command):
                  ("appropriateStoreClass", String())]
 
 
-    
+
 class OneUpgrade(Command):
     """
     Upgrade a single calendar home.
