@@ -18,6 +18,7 @@
 Tests for txdav.caldav.datastore.util.
 """
 
+from twisted.trial.unittest import TestCase as BaseTestCase
 from twext.web2.http_headers import MimeType
 
 from twisted.internet.defer import inlineCallbacks
@@ -25,8 +26,10 @@ from twisted.internet.defer import inlineCallbacks
 from twistedcaldav.ical import Component
 from twistedcaldav.test.util import TestCase
 
+from txdav.common.datastore.test.util import buildStore, populateCalendarsFrom, CommonCommonTests
+
 from txdav.caldav.datastore.util import dropboxIDFromCalendarObject,\
-    StorageTransportBase
+    StorageTransportBase, migrateHome
 
 class DropboxIDTests(TestCase):
     """
@@ -303,5 +306,51 @@ class StorageTransportTests(TestCase):
             item = StorageTransportBase(FakeAttachment(filename), result)
             self.assertEquals(item._contentType, result)
 
+
+
+class HomeMigrationTests(CommonCommonTests, BaseTestCase):
+    """
+    Tests for L{migrateHome}.
+    """
+
+    @inlineCallbacks
+    def setUp(self):
+        yield super(HomeMigrationTests, self).setUp()
+        self.theStore = yield buildStore(self, self.notifierFactory)
+
+
+    def storeUnderTest(self):
+        return self.theStore
+
+
+    @inlineCallbacks
+    def test_migrateEmptyHome(self):
+        """
+        Migrating an empty home into an existing home should destroy all the existing home's calendars.
+        """
+        yield populateCalendarsFrom({
+            "empty_home": {},
+            "non_empty_home": {
+                "calendar": {},
+                "inbox": {},
+                # XXX: implementation is configuration-sensitive regarding the
+                # 'tasks' calendar and it shouldn't be.
+                "tasks": {}
+            }
+        }, self.storeUnderTest())
+        txn = self.transactionUnderTest()
+        emptyHome = yield txn.calendarHomeWithUID("empty_home")
+        self.assertIdentical((yield emptyHome.calendarWithName("calendar")),
+                             None)
+        nonEmpty = yield txn.calendarHomeWithUID("non_empty_home")
+        yield migrateHome(emptyHome, nonEmpty)
+        yield self.commit()
+        txn = self.transactionUnderTest()
+        emptyHome = yield txn.calendarHomeWithUID("empty_home")
+        nonEmpty = yield txn.calendarHomeWithUID("non_empty_home")
+        self.assertIdentical((yield nonEmpty.calendarWithName("inbox")),
+                             None)
+        self.assertIdentical((yield nonEmpty.calendarWithName("calendar")),
+                             None)
 
 
