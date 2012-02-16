@@ -326,10 +326,17 @@ class HomeMigrationTests(CommonCommonTests, BaseTestCase):
     @inlineCallbacks
     def test_migrateEmptyHome(self):
         """
-        Migrating an empty home into an existing home should destroy all the existing home's calendars.
+        Migrating an empty home into an existing home should destroy all the
+        existing home's calendars.
         """
         yield populateCalendarsFrom({
-            "empty_home": {},
+            "empty_home": {
+                # Some of the upgrade logic will ensure that sufficient default
+                # calendars exist for basic usage, so this home is actually only
+                # *mostly* empty; the important thing is that the default
+                # calendar is removed.
+                "other-default-calendar": {}
+            },
             "non_empty_home": {
                 "calendar": {},
                 "inbox": {},
