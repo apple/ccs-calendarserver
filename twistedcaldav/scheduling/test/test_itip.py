@@ -1902,3 +1902,89 @@ END:VCALENDAR
             itipped = str(itipped).replace("\r", "")
             itipped = "".join([line for line in itipped.splitlines(True) if not line.startswith("DTSTAMP:")])
             self.assertEqual(filtered, itipped)
+
+    def test_missingAttendee(self):
+        """
+        When generating a reply, remove all components that are missing
+        the ATTENDEE
+        """
+
+        original = """BEGIN:VCALENDAR
+VERSION:2.0
+CALSCALE:GREGORIAN
+BEGIN:VTIMEZONE
+TZID:America/Los_Angeles
+BEGIN:DAYLIGHT
+TZOFFSETFROM:-0800
+RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=2SU
+DTSTART:20070311T020000
+TZNAME:PDT
+TZOFFSETTO:-0700
+END:DAYLIGHT
+BEGIN:STANDARD
+TZOFFSETFROM:-0700
+RRULE:FREQ=YEARLY;BYMONTH=11;BYDAY=1SU
+DTSTART:20071104T020000
+TZNAME:PST
+TZOFFSETTO:-0800
+END:STANDARD
+END:VTIMEZONE
+BEGIN:VEVENT
+UID:04405DDD-C938-46FC-A4CE-8573613BEA39
+DTEND;TZID=America/Los_Angeles:20100826T130000
+TRANSP:TRANSPARENT
+SUMMARY:Missing attendee in master
+DTSTART;TZID=America/Los_Angeles:20100826T130000
+DTSTAMP:20101115T160533Z
+ORGANIZER;CN="The Organizer":mailto:organizer@example.com
+SEQUENCE:0
+END:VEVENT
+BEGIN:VEVENT
+DTEND;TZID=America/Los_Angeles:20101007T120000
+TRANSP:OPAQUE
+UID:04405DDD-C938-46FC-A4CE-8573613BEA39
+DTSTAMP:20101005T213326Z
+X-APPLE-NEEDS-REPLY:TRUE
+SEQUENCE:24
+RECURRENCE-ID;TZID=America/Los_Angeles:20100826T130000
+SUMMARY:Missing attendee in master
+DTSTART;TZID=America/Los_Angeles:20101007T113000
+CREATED:20100820T235846Z
+ORGANIZER;CN="The Organizer":mailto:organizer@example.com
+ATTENDEE;CN="Attendee 1";CUTYPE=INDIVIDUAL;EMAIL="attendee1@example.com";
+ PARTSTAT=NEEDS-ACTION;ROLE=OPT-PARTICIPANT;RSVP=TRUE:mailto:attendee1@ex
+ ample.com
+ATTENDEE;CN="Attendee 2";CUTYPE=INDIVIDUAL;EMAIL="attendee2@example.com";
+ PARTSTAT=NEEDS-ACTION;ROLE=OPT-PARTICIPANT;RSVP=TRUE:mailto:attendee2@ex
+ ample.com
+ATTENDEE;CN="Missing Attendee";CUTYPE=INDIVIDUAL;EMAIL="missing@example.com";
+ PARTSTAT=NEEDS-ACTION;ROLE=OPT-PARTICIPANT;RSVP=TRUE:mailto:missing@ex
+ ample.com
+END:VEVENT
+END:VCALENDAR
+"""
+
+        filtered = """BEGIN:VCALENDAR
+VERSION:2.0
+CALSCALE:GREGORIAN
+METHOD:REPLY
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:04405DDD-C938-46FC-A4CE-8573613BEA39
+RECURRENCE-ID;TZID=America/Los_Angeles:20100826T130000
+DTSTART;TZID=America/Los_Angeles:20101007T113000
+DTEND;TZID=America/Los_Angeles:20101007T120000
+ATTENDEE;CN=Missing Attendee;CUTYPE=INDIVIDUAL;EMAIL=missing@example.com;P
+ ARTSTAT=DECLINED;ROLE=OPT-PARTICIPANT;RSVP=TRUE:mailto:missing@example.com
+ORGANIZER;CN=The Organizer:mailto:organizer@example.com
+REQUEST-STATUS:2.0;Success
+SEQUENCE:24
+SUMMARY:Missing attendee in master
+END:VEVENT
+END:VCALENDAR
+"""
+        component = Component.fromString(original)
+        itipped = iTipGenerator.generateAttendeeReply(component, "mailto:missing@example.com", force_decline=True)
+        itipped = str(itipped).replace("\r", "")
+        itipped = "".join([line for line in itipped.splitlines(True) if not line.startswith("DTSTAMP:")])
+        self.assertEqual(filtered, itipped)

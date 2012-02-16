@@ -717,7 +717,12 @@ class iTipGenerator(object):
 
         # Remove all attendees except the one we want
         itip.removeAllButOneAttendee(attendee)
-        
+
+        # Remove all components which are missing the attendee
+        for component in itip.subcomponents():
+            if not component.getAttendeeProperty((attendee,)):
+                itip.removeComponent(component)
+
         # No alarms
         itip.removeAlarms()
 
