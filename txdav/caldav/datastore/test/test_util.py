@@ -18,6 +18,8 @@
 Tests for txdav.caldav.datastore.util.
 """
 
+import textwrap
+
 from twisted.trial.unittest import TestCase as BaseTestCase
 from twext.web2.http_headers import MimeType
 
@@ -30,6 +32,8 @@ from txdav.common.datastore.test.util import buildStore, populateCalendarsFrom, 
 
 from txdav.caldav.datastore.util import dropboxIDFromCalendarObject,\
     StorageTransportBase, migrateHome
+
+from txdav.common.icommondatastore import HomeChildNameAlreadyExistsError
 
 class DropboxIDTests(TestCase):
     """
@@ -359,5 +363,114 @@ class HomeMigrationTests(CommonCommonTests, BaseTestCase):
                              None)
         self.assertIdentical((yield nonEmpty.calendarWithName("calendar")),
                              None)
+
+
+    @staticmethod
+    def sampleUnscheduledEvent(uid):
+        """
+        Create the iCalendar text for a sample event that has no organizer nor
+        any attendees.
+        """
+        return textwrap.dedent(
+            """\
+            BEGIN:VCALENDAR
+            VERSION:2.0
+            CALSCALE:GREGORIAN
+            PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+            BEGIN:VEVENT
+            UID:{uid}
+            DTSTART;VALUE=DATE:20060201
+            DURATION:P1D
+            CREATED:20060101T210000Z
+            DTSTAMP:20051222T210146Z
+            LAST-MODIFIED:20051222T210203Z
+            SEQUENCE:1
+            SUMMARY:event {uid}
+            TRANSP:TRANSPARENT
+            END:VEVENT
+            END:VCALENDAR
+            """.replace("\n", "\r\n").format(uid=uid)
+        ), {}
+
+
+    @inlineCallbacks
+    def createConflicted(self, c1=None, c2=None):
+        """
+        Create two calendar homes with calendars with the same names within
+        them.  Parameters are both a mapping of calendar object names to
+        2-tuples of (iCalendar data, metadata).
+
+        @param c1: the calendar data for conflict1/conflicted/*
+
+        @param c2: the calendar data for conflict2/conflicted/*
+        """
+        if c1 is None:
+            c1 = {"1.ics": self.sampleUnscheduledEvent("uid1")}
+        if c2 is None:
+            c2 = {"2.ics": self.sampleUnscheduledEvent("uid2")}
+        defaults = {"calendar": {}, "inbox": {}, "tasks": {}}
+        def conflicted(caldata):
+            d = defaults.copy()
+            d.update(conflicted=caldata)
+            return d
+        yield populateCalendarsFrom({
+            "conflict1": conflicted(c1),
+            "conflict2": conflicted(c2),
+        }, self.storeUnderTest())
+
+
+    @inlineCallbacks
+    def test_migrateConflict(self):
+        """
+        Migrating a home with conflicting (non-default) calendars will cause an
+        error.
+        """
+        yield self.createConflicted()
+        txn = self.transactionUnderTest()
+        conflict1 = yield txn.calendarHomeWithUID("conflict1")
+        conflict2 = yield txn.calendarHomeWithUID("conflict2")
+
+        try:
+            yield migrateHome(conflict1, conflict2)
+        except HomeChildNameAlreadyExistsError:
+            pass
+        else:
+            self.fail("No exception raised.")
+
+
+    @inlineCallbacks
+    def test_migrateMergeCalendars(self):
+        """
+        Migrating a home with a conflicting (non-default) calendar in merge
+        mode will cause the properties on the conflicting calendar to be
+        overridden by the new calendar of the same name, and calendar objects
+        to be copied over.
+        """
+        yield self.createConflicted()
+        from txdav.base.propertystore.base import PropertyName
+        from twext.web2.dav import davxml
+        class StubConflictingElement(davxml.WebDAVTextElement):
+            namespace = "http://example.com/ns/stub-conflict"
+            name = "conflict"
+        beforeProp = StubConflictingElement.fromString("before")
+        afterProp = StubConflictingElement.fromString("after")
+        conflictPropName = PropertyName.fromElement(beforeProp)
+        txn = self.transactionUnderTest()
+        conflict1 = yield txn.calendarHomeWithUID("conflict1")
+        conflict2 = yield txn.calendarHomeWithUID("conflict2")
+        cal1 = yield conflict1.calendarWithName("conflicted")
+        cal2 = yield conflict2.calendarWithName("conflicted")
+        p1 = cal1.properties()
+        p2 = cal2.properties()
+        p1[conflictPropName] = afterProp
+        p2[conflictPropName] = beforeProp
+        yield migrateHome(conflict1, conflict2, merge=True)
+        self.assertEquals(p2[conflictPropName].children[0].data, "after")
+        obj1 = yield cal2.calendarObjectWithName("1.ics")
+        obj2 = yield cal2.calendarObjectWithName("2.ics")
+        # just a really cursory check to make sure they're really there.
+        self.assertEquals(obj1.uid(), "uid1")
+        self.assertEquals(obj2.uid(), "uid2")
+
 
 
