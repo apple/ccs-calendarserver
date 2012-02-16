@@ -285,7 +285,7 @@ class CalendarServerLogAnalyzer(object):
         self.currentLine = None
         self.linesRead = 0
 
-    def analyzeLogFile(self, logFilePath):
+    def analyzeLogFile(self, logFilePath, ctr):
         fpath = os.path.expanduser(logFilePath)
         if fpath.endswith(".gz"):
             f = GzipFile(fpath)
@@ -294,7 +294,6 @@ class CalendarServerLogAnalyzer(object):
             
         self.maxIndex = (self.endHour - self.startHour + 1) * 60 / self.resolutionMinutes
         try:
-            ctr = 0
             for line in f:
                 ctr += 1
                 if ctr <= self.linesRead:
@@ -496,6 +495,8 @@ class CalendarServerLogAnalyzer(object):
             for method, totaltime in data.iteritems():
                 count = self.clientByMethodCount[client][method]
                 self.clientByMethodAveragedTime[client][method] = totaltime/count if count else 0
+        
+        return ctr
 
     def parseLine(self, line):
     
@@ -991,11 +992,12 @@ class CalendarServerLogAnalyzer(object):
     def printHourlyTotals(self, doTabs):
         
         table = tables.Table()
-        table.addHeader(("Local (UTC)", "Total",    "Av. Queue", "Max. Queue", "Av. Response",))
-        table.addHeader(("",               "Requests", "Depth",     "Depth (# queues)",      "Time(ms)",))
+        table.addHeader(("Local (UTC)", "Total",    "Av. Requests", "Av. Queue", "Max. Queue", "Av. Response",))
+        table.addHeader(("",            "Requests", "Per Second",   "Depth",     "Depth (# queues)",      "Time(ms)",))
         table.setDefaultColumnFormats((
             tables.Table.ColumnFormat("%s", tables.Table.ColumnFormat.CENTER_JUSTIFY), 
             tables.Table.ColumnFormat("%d", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
+            tables.Table.ColumnFormat("%.1f", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
             tables.Table.ColumnFormat("%d", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
             tables.Table.ColumnFormat("%d (%2d)", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
             tables.Table.ColumnFormat("%.1f", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
@@ -1016,6 +1018,7 @@ class CalendarServerLogAnalyzer(object):
             table.addRow((
                 hour,
                 countRequests,
+                (1.0 * countRequests) / self.resolutionMinutes / 60,
                 safePercent(countDepth, countRequests, 1),
                 (maxDepthAll, maxDepthCount,),
                 safePercent(countTime, countRequests, 1.0),
@@ -1028,12 +1031,14 @@ class CalendarServerLogAnalyzer(object):
         table.addFooter((
             "Total:",
             totalRequests,
+            (1.0 * totalRequests) / self.timeBucketCount / self.resolutionMinutes / 60,
             safePercent(totalDepth, totalRequests, 1),
             totalMaxDepth,
             safePercent(totalTime, totalRequests, 1.0),
         ), columnFormats=(
             tables.Table.ColumnFormat("%s"), 
             tables.Table.ColumnFormat("%d", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
+            tables.Table.ColumnFormat("%.1f", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
             tables.Table.ColumnFormat("%d", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
             tables.Table.ColumnFormat("%d     ", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
             tables.Table.ColumnFormat("%.1f", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
@@ -1843,6 +1848,7 @@ if __name__ == "__main__":
         pwd = os.getcwd()
 
         analyzers = []
+        ctr = 0
         for arg in args:
             arg = os.path.expanduser(arg)
             if not arg.startswith("/"):
@@ -1855,7 +1861,8 @@ if __name__ == "__main__":
            
             if diffMode or not analyzers:
                 analyzers.append(CalendarServerLogAnalyzer(startHour, endHour, utcoffset, resolution, filterByUser, filterByClient))
-            analyzers[-1].analyzeLogFile(arg)
+            print "Analyzing: %s" % (arg,)
+            ctr = analyzers[-1].analyzeLogFile(arg, ctr)
 
         if diffMode and len(analyzers) > 1:
             Differ(analyzers).printAll(doTabDelimited)
