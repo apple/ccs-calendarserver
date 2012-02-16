@@ -32,7 +32,11 @@ from twistedcaldav.datafilters.peruserdata import PerUserDataFilter
 from twistedcaldav.datafilters.privateevents import PrivateEventFilter
 
 from txdav.caldav.icalendarstore import IAttachmentStorageTransport
-from txdav.common.icommondatastore import InvalidObjectResourceError, NoSuchObjectResourceError, InternalDataStoreError
+
+from txdav.common.icommondatastore import (
+    InvalidObjectResourceError, NoSuchObjectResourceError,
+    InternalDataStoreError, HomeChildNameAlreadyExistsError
+)
 
 from zope.interface.declarations import implements
 
@@ -127,14 +131,19 @@ def dropboxIDFromCalendarObject(calendarObject):
 
 
 @inlineCallbacks
-def _migrateCalendar(inCalendar, outCalendar, getComponent):
+def _migrateCalendar(inCalendar, outCalendar, getComponent, merge=False):
     """
     Copy all calendar objects and properties in the given input calendar to the
     given output calendar.
 
     @param inCalendar: the L{ICalendar} to retrieve calendar objects from.
+
     @param outCalendar: the L{ICalendar} to store calendar objects to.
+
     @param getComponent: a 1-argument callable; see L{migrateHome}.
+
+    @param merge: a boolean indicating whether we should attempt to merge the
+        calendars together.
 
     @return: a tuple of (ok count, bad count)
     """
@@ -142,6 +151,7 @@ def _migrateCalendar(inCalendar, outCalendar, getComponent):
     ok_count = 0
     bad_count = 0
     outCalendar.properties().update(inCalendar.properties())
+    outHome = outCalendar.ownerCalendarHome()
     for calendarObject in (yield inCalendar.calendarObjects()):
         try:
             ctype = yield calendarObject.componentType()
@@ -159,9 +169,20 @@ def _migrateCalendar(inCalendar, outCalendar, getComponent):
             log.error("Migration skipping unsupported (%s) calendar object %r"
                       % (ctype, calendarObject))
             continue
+        if merge:
+            mightConflict = yield outHome.hasCalendarResourceUIDSomewhereElse(
+                calendarObject.uid(), None, "schedule"
+            )
+            if mightConflict:
+                log.warn(
+                    "Not migrating object %s/%s/%s due to potential conflict" %
+                    (outHome.uid(), outCalendar.name(), calendarObject.name())
+                )
+                continue
         try:
             # Must account for metadata
-            component = (yield calendarObject.component()) # XXX WRONG SHOULD CALL getComponent
+            component = (yield calendarObject.component())
+            #            ^ FIXME: TESTME: SHOULD CALL 'getComponent' argument
             component.md5 = calendarObject.md5()
             yield outCalendar.createCalendarObjectWithName(
                 calendarObject.name(),
@@ -279,10 +300,11 @@ class _AttachmentMigrationProto(Protocol, object):
 
 
 @inlineCallbacks
-def migrateHome(inHome, outHome, getComponent=lambda x: x.component()):
+def migrateHome(inHome, outHome, getComponent=lambda x: x.component(),
+                merge=False):
     """
-    Copy all calendars and properties in the given input calendar to the given
-    output calendar.
+    Copy all calendars and properties in the given input calendar home to the
+    given output calendar home.
 
     @param inHome: the L{ICalendarHome} to retrieve calendars and properties
         from.
@@ -293,23 +315,38 @@ def migrateHome(inHome, outHome, getComponent=lambda x: x.component()):
     @param getComponent: a 1-argument callable that takes an L{ICalendarObject}
         (from a calendar in C{inHome}) and returns a L{VComponent} (to store in
         a calendar in outHome).
+
+    @param merge: a boolean indicating whether to raise an exception when
+        encounting a conflicting element of data (calendar or event), or to
+        attempt to merge them together.
+
+    @return: a L{Deferred} that fires with C{None} when the migration is
+        complete.
     """
-    yield outHome.removeCalendarWithName("calendar")
-    if config.RestrictCalendarsToOneComponentType:
-        yield outHome.removeCalendarWithName("tasks")
-    yield outHome.removeCalendarWithName("inbox")
+    if not merge:
+        yield outHome.removeCalendarWithName("calendar")
+        if config.RestrictCalendarsToOneComponentType:
+            yield outHome.removeCalendarWithName("tasks")
+        yield outHome.removeCalendarWithName("inbox")
+
     outHome.properties().update(inHome.properties())
     inCalendars = yield inHome.calendars()
     for calendar in inCalendars:
         name = calendar.name()
         if name == "outbox":
             continue
-        yield outHome.createCalendarWithName(name)
+        d = outHome.createCalendarWithName(name)
+        if merge:
+            d.addErrback(lambda f: f.trap(HomeChildNameAlreadyExistsError))
+        yield d
         outCalendar = yield outHome.calendarWithName(name)
         try:
-            yield _migrateCalendar(calendar, outCalendar, getComponent)
+            yield _migrateCalendar(calendar, outCalendar, getComponent,
+                                   merge=merge)
         except InternalDataStoreError:
-            log.error("  Failed to migrate calendar: %s/%s" % (inHome.name(), name,))
+            log.error(
+                "  Failed to migrate calendar: %s/%s" % (inHome.name(), name,)
+            )
 
     # No migration for notifications, since they weren't present in earlier
     # released versions of CalendarServer.
@@ -317,6 +354,8 @@ def migrateHome(inHome, outHome, getComponent=lambda x: x.component()):
     # May need to split calendars by component type
     if config.RestrictCalendarsToOneComponentType:
         yield outHome.splitCalendars()
+
+
 
 class CalendarObjectBase(object):
     """

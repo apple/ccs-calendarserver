@@ -38,7 +38,7 @@ from twext.python.filepath import CachingFilePath
 from twext.python.parallel import Parallelizer
 from twext.internet.spawnsvc import SpawnerService
 
-from twisted.protocols.amp import AMP, Command, String
+from twisted.protocols.amp import AMP, Command, String, Boolean
 
 from txdav.caldav.datastore.util import migrateHome as migrateCalendarHome
 from txdav.carddav.datastore.util import migrateHome as migrateAddressbookHome
@@ -108,10 +108,11 @@ class Configure(Command):
     """
 
     arguments = [("filename", String()),
-                 ("appropriateStoreClass", String())]
+                 ("appropriateStoreClass", String()),
+                 ("merge", Boolean())]
 
 
-    
+
 class OneUpgrade(Command):
     """
     Upgrade a single calendar home.
@@ -146,7 +147,8 @@ class UpgradeDriver(AMP):
         name, with the given dead property storage class.
         """
         return self.callRemote(Configure, filename=filename,
-                               appropriateStoreClass=qual(storeClass))
+                               appropriateStoreClass=qual(storeClass),
+                               merge=self.service.merge)
 
 
     def oneUpgrade(self, uid, homeType):
@@ -174,13 +176,13 @@ class UpgradeHelperProcess(AMP):
 
 
     @Configure.responder
-    def configure(self, filename, appropriateStoreClass):
+    def configure(self, filename, appropriateStoreClass, merge):
         subsvc = None
         self.upgrader = UpgradeToDatabaseService(
             FileStore(
                 CachingFilePath(filename), None, True, True,
                 propertyStoreClass=namedAny(appropriateStoreClass)
-            ), self.store, subsvc
+            ), self.store, subsvc, merge=merge
         )
         return {}
 
@@ -210,7 +212,7 @@ class UpgradeToDatabaseService(Service, LoggingMixIn, object):
 
     @classmethod
     def wrapService(cls, path, service, store, uid=None, gid=None,
-                    parallel=0, spawner=None):
+                    parallel=0, spawner=None, merge=False):
         """
         Create an L{UpgradeToDatabaseService} if there are still file-based
         calendar or addressbook homes remaining in the given path.
@@ -235,6 +237,9 @@ class UpgradeToDatabaseService(Service, LoggingMixIn, object):
 
         @param spawner: a concrete L{StoreSpawnerService} subclass that will be
             used to spawn helper processes.
+
+        @param merge: merge filesystem homes into SQL homes, rather than
+            skipping them.
 
         @return: a service
         @rtype: L{IService}
@@ -277,14 +282,14 @@ class UpgradeToDatabaseService(Service, LoggingMixIn, object):
                     FileStore(path, None, True, True,
                               propertyStoreClass=appropriateStoreClass),
                     store, service, uid=uid, gid=gid,
-                    parallel=parallel, spawner=spawner,
+                    parallel=parallel, spawner=spawner, merge=merge
                 )
                 return self
         return service
 
 
     def __init__(self, fileStore, sqlStore, service, uid=None, gid=None,
-                 parallel=0, spawner=None):
+                 parallel=0, spawner=None, merge=False):
         """
         Initialize the service.
         """
@@ -295,6 +300,7 @@ class UpgradeToDatabaseService(Service, LoggingMixIn, object):
         self.gid = gid
         self.parallel = parallel
         self.spawner = spawner
+        self.merge = merge
 
 
     @inlineCallbacks
@@ -308,7 +314,8 @@ class UpgradeToDatabaseService(Service, LoggingMixIn, object):
                       (homeType, uid))
         sqlTxn = self.sqlStore.newTransaction()
         homeGetter = destFunc(sqlTxn)
-        if (yield homeGetter(uid, create=False)) is not None:
+        sqlHome = yield homeGetter(uid, create=False)
+        if sqlHome is not None and not self.merge:
             self.log_warn(
                 "%s home %r already existed not migrating" % (
                     homeType, uid))
@@ -316,8 +323,9 @@ class UpgradeToDatabaseService(Service, LoggingMixIn, object):
             yield fileTxn.commit()
             returnValue(None)
         try:
-            sqlHome = yield homeGetter(uid, create=True)
-            yield migrateFunc(fileHome, sqlHome)
+            if sqlHome is None:
+                sqlHome = yield homeGetter(uid, create=True)
+            yield migrateFunc(fileHome, sqlHome, merge=self.merge)
         except:
             f = Failure()
             yield fileTxn.abort()

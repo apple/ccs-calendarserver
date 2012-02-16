@@ -927,7 +927,7 @@ class CalDAVServiceMaker (LoggingMixIn):
                                 CachingFilePath(config.DocumentRoot),
                                 PostDBImportService(config, store, mainService),
                                 store, uid=overrideUID, gid=overrideGID,
-                                spawner=spawner,
+                                spawner=spawner, merge=config.MergeUpgrades,
                                 parallel=parallel
                             ),
                             store, uid=overrideUID, gid=overrideGID,

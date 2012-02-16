@@ -553,6 +553,13 @@ class CommonCommonTests(object):
         self.notifierFactory = StubNotifierFactory()
 
 
+    def storeUnderTest(self):
+        """
+        Subclasses must implement this method.
+        """
+        raise NotImplementedError("CommonCommonTests subclasses must implement.")
+
+
 
 class StubNodeCacher(object):
 
