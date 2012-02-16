@@ -174,6 +174,10 @@ def _migrateCalendar(inCalendar, outCalendar, getComponent, merge):
                 calendarObject.uid(), None, "schedule"
             )
             if mightConflict:
+                log.warn(
+                    "Not migrating object %s/%s/%s due to potential conflict" %
+                    (outHome.uid(), outCalendar.name(), calendarObject.name())
+                )
                 continue
         try:
             # Must account for metadata
