@@ -121,7 +121,8 @@ def _migrateAddressbook(inAddressbook, outAddressbook, getComponent):
 
 
 @inlineCallbacks
-def migrateHome(inHome, outHome, getComponent=lambda x:x.component()):
+def migrateHome(inHome, outHome, getComponent=lambda x:x.component(),
+                merge=None):
     yield outHome.removeAddressBookWithName("addressbook")
     outHome.properties().update(inHome.properties())
     inAddressbooks = yield inHome.addressbooks()
