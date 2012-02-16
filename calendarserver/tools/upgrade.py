@@ -168,9 +168,7 @@ def main(argv=sys.argv, stderr=sys.stderr, reactor=None):
 
     if options.merge:
         def setMerge(data):
-            print 'Setting merge option.'
             data.MergeUpgrades = True
-            print 'Set it?', config.MergeUpgrades
         config.addPostUpdateHooks([setMerge])
 
     def makeService(store):
