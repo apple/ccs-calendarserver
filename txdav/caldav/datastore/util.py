@@ -131,7 +131,7 @@ def dropboxIDFromCalendarObject(calendarObject):
 
 
 @inlineCallbacks
-def _migrateCalendar(inCalendar, outCalendar, getComponent, merge):
+def _migrateCalendar(inCalendar, outCalendar, getComponent, merge=False):
     """
     Copy all calendar objects and properties in the given input calendar to the
     given output calendar.
