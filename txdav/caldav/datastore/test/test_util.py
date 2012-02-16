@@ -366,11 +366,13 @@ class HomeMigrationTests(CommonCommonTests, BaseTestCase):
 
 
     @staticmethod
-    def sampleUnscheduledEvent(uid):
+    def sampleEvent(uid, summary=None):
         """
         Create the iCalendar text for a sample event that has no organizer nor
         any attendees.
         """
+        if summary is None:
+            summary = "event " + uid
         return textwrap.dedent(
             """\
             BEGIN:VCALENDAR
@@ -385,11 +387,11 @@ class HomeMigrationTests(CommonCommonTests, BaseTestCase):
             DTSTAMP:20051222T210146Z
             LAST-MODIFIED:20051222T210203Z
             SEQUENCE:1
-            SUMMARY:event {uid}
+            SUMMARY:{summary}
             TRANSP:TRANSPARENT
             END:VEVENT
             END:VCALENDAR
-            """.replace("\n", "\r\n").format(uid=uid)
+            """.replace("\n", "\r\n").format(uid=uid, summary=summary)
         ), {}
 
 
@@ -405,9 +407,9 @@ class HomeMigrationTests(CommonCommonTests, BaseTestCase):
         @param c2: the calendar data for conflict2/conflicted/*
         """
         if c1 is None:
-            c1 = {"1.ics": self.sampleUnscheduledEvent("uid1")}
+            c1 = {"1.ics": self.sampleEvent("uid1")}
         if c2 is None:
-            c2 = {"2.ics": self.sampleUnscheduledEvent("uid2")}
+            c2 = {"2.ics": self.sampleEvent("uid2")}
         defaults = {"calendar": {}, "inbox": {}, "tasks": {}}
         def conflicted(caldata):
             d = defaults.copy()
@@ -473,4 +475,80 @@ class HomeMigrationTests(CommonCommonTests, BaseTestCase):
         self.assertEquals(obj2.uid(), "uid2")
 
 
+    @inlineCallbacks
+    def test_migrateMergeConflictingObjects(self):
+        """
+        When merging two homes together, calendar objects may conflict in the
+        following ways:
 
+        First, an object may have the same name and the same UID as an object
+        in the target calendar.  We assume the target object is always be newer
+        than the source object, so this type of conflict will leave the source
+        object unmodified.  This type of conflict is expected, and may happen
+        as a result of an implicitly scheduled event where the principal owning
+        the merged calendars is an attendee of the conflicting object, and
+        received a re-invitation.
+
+        Second, an object may have a different name, but the same UID as an
+        object in the target calendar.  While this type of conflict is not
+        expected -- most clients will choose names for objects that correspond
+        to the iCalendar UIDs of their main component -- it is treated the same
+        way as the first conflict.
+
+        Third, an object may have the same UID as an object on a different
+        calendar in the target home.  This may also happen if a scheduled event
+        was previously on a different (most likely non-default) calendar.
+        Technically this is actually valid, and it is possible to have the same
+        object in multiple calendars as long as the object is not scheduled;
+        however, that type of conflict is extremely unlikely as the client
+        would have to generate the same event twice.
+
+        Basically, in all expected cases, conflicts will only occur because an
+        update to a scheduled event was sent out and the target home accepted
+        it.  Therefore, conflicts are always resolved in favor of ignoring the
+        source data and trusting that the target data is more reliable.
+        """
+        # Note: these tests are all performed with un-scheduled data because it
+        # is simpler.  Although the expected conflicts will involve scheduled
+        # data the behavior will be exactly the same.
+        yield self.createConflicted(
+            {
+                "same-name": self.sampleEvent("same-name", "source"),
+                "other-name": self.sampleEvent("other-name", "source other"),
+                "other-calendar": self.sampleEvent("oc", "source calendar"),
+                "no-conflict": self.sampleEvent("no-conflict", "okay"),
+            },
+            {
+                "same-name": self.sampleEvent("same-name", "target"),
+                "different-name": self.sampleEvent("other-name", "tgt other"),
+            },
+        )
+        txn = self.transactionUnderTest()
+        c1 = yield txn.calendarHomeWithUID("conflict1")
+        c2 = yield txn.calendarHomeWithUID("conflict2")
+        otherCal = yield c2.createCalendarWithName("othercal")
+        otherCal.createCalendarObjectWithName(
+            "some-name", Component.fromString(
+                self.sampleEvent("oc", "target calendar")[0]
+            )
+        )
+        yield migrateHome(c1, c2, merge=True)
+        targetCal = yield c2.calendarWithName("conflicted")
+        @inlineCallbacks
+        def checkSummary(name, summary, cal=targetCal):
+            obj = yield cal.calendarObjectWithName(name)
+            if summary is None:
+                self.assertIdentical(obj, None,
+                                     name + " existed but shouldn't have")
+            else:
+                txt = ((yield obj.component()).mainComponent()
+                       .getProperty("SUMMARY").value())
+                self.assertEquals(txt, summary)
+        yield checkSummary("same-name", "target")
+        yield checkSummary("different-name", "tgt other")
+        yield checkSummary("other-calendar", None)
+        yield checkSummary("other-name", None)
+        yield checkSummary("no-conflict", "okay")
+        yield checkSummary("oc", "target calendar", otherCal)
+
+    # TODO: don't delete default calendar in merge mode.
