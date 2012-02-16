@@ -151,18 +151,48 @@ class CalendarHome(CommonHome):
 
         yield self._cacher.delete(str(self._ownerUID))
 
+
     @inlineCallbacks
     def hasCalendarResourceUIDSomewhereElse(self, uid, ok_object, type):
+        """
+        Determine if this calendar home contains any calendar objects which
+        would potentially conflict with the given UID for scheduling purposes.
 
+        @param uid: The UID to search for.
+        @type uid: C{str}
+
+        @param ok_object: a calendar object with the given UID, that doesn't
+            count as a potential conflict (since, for example, it is the one
+            being updated).  May be C{None} if all objects potentially count.
+        @type ok_object: L{CalendarObject} or C{NoneType}
+
+        @param type: a string, indicating the mode to check for conflicts.  If
+            this is the string "schedule", then we are checking for potential
+            conflicts with a new scheduled calendar object, which will conflict
+            with any calendar object matching the given C{uid} in the home.
+            Otherwise, (if this is the string "calendar") we are checking for
+            conflicts with a new unscheduled calendar object, which will
+            conflict only with other scheduled objects.
+        @type type: C{str}
+
+        @return: a L{Deferred} which fires with C{True} if there is a conflict
+            and C{False} if not.
+        """
+        # FIXME: this should be documented on the interface; it should also
+        # refer to calendar *object* UIDs, since calendar *resources* are an
+        # HTTP protocol layer thing, not a data store thing.  (See also
+        # objectResourcesWithUID.)
         objectResources = (yield self.objectResourcesWithUID(uid, ("inbox",)))
         for objectResource in objectResources:
             if ok_object and objectResource._resourceID == ok_object._resourceID:
                 continue
-            matched_type = "schedule" if objectResource.isScheduleObject else "calendar"
+            matched_type = ("schedule" if objectResource.isScheduleObject
+                            else "calendar")
             if type == "schedule" or matched_type == "schedule":
                 returnValue(True)
 
         returnValue(False)
+
 
     @inlineCallbacks
     def getCalendarResourcesForUID(self, uid, allow_shared=False):
