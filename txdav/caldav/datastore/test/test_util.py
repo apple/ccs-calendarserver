@@ -534,21 +534,64 @@ class HomeMigrationTests(CommonCommonTests, BaseTestCase):
         )
         yield migrateHome(c1, c2, merge=True)
         targetCal = yield c2.calendarWithName("conflicted")
-        @inlineCallbacks
-        def checkSummary(name, summary, cal=targetCal):
-            obj = yield cal.calendarObjectWithName(name)
-            if summary is None:
-                self.assertIdentical(obj, None,
-                                     name + " existed but shouldn't have")
-            else:
-                txt = ((yield obj.component()).mainComponent()
-                       .getProperty("SUMMARY").value())
-                self.assertEquals(txt, summary)
-        yield checkSummary("same-name", "target")
-        yield checkSummary("different-name", "tgt other")
-        yield checkSummary("other-calendar", None)
-        yield checkSummary("other-name", None)
-        yield checkSummary("no-conflict", "okay")
-        yield checkSummary("oc", "target calendar", otherCal)
+        yield self.checkSummary("same-name", "target", targetCal)
+        yield self.checkSummary("different-name", "tgt other", targetCal)
+        yield self.checkSummary("other-calendar", None, targetCal)
+        yield self.checkSummary("other-name", None, targetCal)
+        yield self.checkSummary("no-conflict", "okay", targetCal)
+        yield self.checkSummary("oc", "target calendar", otherCal)
 
-    # TODO: don't delete default calendar in merge mode.
+
+    @inlineCallbacks
+    def checkSummary(self, name, summary, cal):
+        """
+        Verify that the summary of the calendar object for the given name in
+        the given calendar matches.
+        """
+        obj = yield cal.calendarObjectWithName(name)
+        if summary is None:
+            self.assertIdentical(obj, None,
+                                 name + " existed but shouldn't have")
+        else:
+            txt = ((yield obj.component()).mainComponent()
+                   .getProperty("SUMMARY").value())
+            self.assertEquals(txt, summary)
+
+
+    @inlineCallbacks
+    def test_migrateMergeDontDeleteDefault(self):
+        """
+        If we're doing a merge migration, it's quite possible that the user has
+        scheduled events onto their default calendar already.  In fact the
+        whole point of a merge migration is to preserve data that might have
+        been created there.  So, let's make sure that we I{don't} delete any
+        data from the default calendars in the case that we're merging.
+        """
+        yield populateCalendarsFrom({
+            "empty_home": {
+                # see test_migrateEmptyHome above.
+                "other-default-calendar": {}
+            },
+            "non_empty_home": {
+                "calendar": {
+                    "some-name": self.sampleEvent("some-uid", "some summary"),
+                }, "inbox": {}, "tasks": {}
+            }
+        }, self.storeUnderTest())
+        txn = self.transactionUnderTest()
+        emptyHome = yield txn.calendarHomeWithUID("empty_home")
+        self.assertIdentical((yield emptyHome.calendarWithName("calendar")),
+                             None)
+        nonEmpty = yield txn.calendarHomeWithUID("non_empty_home")
+        yield migrateHome(emptyHome, nonEmpty)
+        yield self.commit()
+        txn = self.transactionUnderTest()
+        emptyHome = yield txn.calendarHomeWithUID("empty_home")
+        nonEmpty = yield txn.calendarHomeWithUID("non_empty_home")
+        self.assertNotIdentical(
+            (yield nonEmpty.calendarWithName("inbox")), None
+        )
+        defaultCal = (yield nonEmpty.calendarWithName("calendar"))
+        self.assertNotIdentical(
+            (yield defaultCal.calendarObjectWithName("some-name")), None
+        )
