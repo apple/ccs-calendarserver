@@ -583,7 +583,7 @@ class HomeMigrationTests(CommonCommonTests, BaseTestCase):
         self.assertIdentical((yield emptyHome.calendarWithName("calendar")),
                              None)
         nonEmpty = yield txn.calendarHomeWithUID("non_empty_home")
-        yield migrateHome(emptyHome, nonEmpty)
+        yield migrateHome(emptyHome, nonEmpty, merge=True)
         yield self.commit()
         txn = self.transactionUnderTest()
         emptyHome = yield txn.calendarHomeWithUID("empty_home")
