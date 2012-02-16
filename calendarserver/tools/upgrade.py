@@ -76,6 +76,7 @@ class UpgradeOptions(Options):
         super(UpgradeOptions, self).__init__()
         self.upgradeers = []
         self.outputName = '-'
+        self.merge = False
 
 
     def opt_output(self, filename):
@@ -85,6 +86,16 @@ class UpgradeOptions(Options):
         self.outputName = filename
 
     opt_o = opt_output
+
+
+    def opt_merge(self):
+        """
+        Rather than skipping homes that exist on the filesystem but not in the
+        database, merge their data into the existing homes.
+        """
+        self.merge = True
+
+    opt_m = opt_merge
 
 
     def openOutput(self):
@@ -138,6 +149,7 @@ def main(argv=sys.argv, stderr=sys.stderr, reactor=None):
     """
     Do the export.
     """
+    from twistedcaldav.config import config
     if reactor is None:
         from twisted.internet import reactor
 
@@ -154,8 +166,14 @@ def main(argv=sys.argv, stderr=sys.stderr, reactor=None):
                      (e))
         sys.exit(1)
 
+    if options.merge:
+        def setMerge(data):
+            print 'Setting merge option.'
+            data.MergeUpgrades = True
+            print 'Set it?', config.MergeUpgrades
+        config.addPostUpdateHooks([setMerge])
+
     def makeService(store):
-        from twistedcaldav.config import config
         return UpgraderService(store, options, output, reactor, config)
 
     def onlyUpgradeEvents(event):
