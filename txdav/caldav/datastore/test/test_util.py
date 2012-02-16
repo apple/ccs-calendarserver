@@ -514,13 +514,13 @@ class HomeMigrationTests(CommonCommonTests, BaseTestCase):
         yield self.createConflicted(
             {
                 "same-name": self.sampleEvent("same-name", "source"),
-                "other-name": self.sampleEvent("other-name", "source other"),
+                "other-name": self.sampleEvent("other-uid", "source other"),
                 "other-calendar": self.sampleEvent("oc", "source calendar"),
                 "no-conflict": self.sampleEvent("no-conflict", "okay"),
             },
             {
                 "same-name": self.sampleEvent("same-name", "target"),
-                "different-name": self.sampleEvent("other-name", "tgt other"),
+                "different-name": self.sampleEvent("other-uid", "tgt other"),
             },
         )
         txn = self.transactionUnderTest()
