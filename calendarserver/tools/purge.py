@@ -18,6 +18,7 @@
 
 import os
 import sys
+import traceback
 from errno import ENOENT, EACCES
 from getopt import getopt, GetoptError
 
@@ -725,7 +726,7 @@ def purgeUID(uid, directory, root, verbose=False, dryrun=False, proxies=True,
                             result = (yield storer.run())
 
                     elif action == CANCELEVENT_SHOULD_DELETE:
-                        count += 1
+                        incrementCount = dryrun
                         request._rememberResource(childResource, uri)
                         if verbose:
                             if dryrun:
@@ -733,10 +734,39 @@ def purgeUID(uid, directory, root, verbose=False, dryrun=False, proxies=True,
                             else:
                                 print "Deleting: %s" % (uri,)
                         if not dryrun:
-                            result = (yield childResource.storeRemove(request, doimplicit, uri))
-                            if result != NO_CONTENT:
-                                print "Error deleting %s/%s/%s: %s" % (uid,
-                                    collName, childName, result)
+                            retry = False
+                            try:
+                                result = (yield childResource.storeRemove(request, doimplicit, uri))
+                                if result != NO_CONTENT:
+                                    print "Error deleting %s/%s/%s: %s" % (uid,
+                                        collName, childName, result)
+                                    retry = True
+                                else:
+                                    incrementCount = True
+
+                            except Exception, e:
+                                print "Exception deleting %s/%s/%s: %s" % (uid,
+                                    collName, childName, str(e))
+                                traceback.print_stack()
+                                retry = True
+
+                            if retry and doimplicit:
+                                # Try again with implicit scheduling off
+                                print "Retrying deletion of %s/%s/%s with implicit scheduling turned off" % (uid, collName, childName)
+                                try:
+                                    result = (yield childResource.storeRemove(request, False, uri))
+                                    if result != NO_CONTENT:
+                                        print "Error deleting %s/%s/%s: %s" % (uid,
+                                            collName, childName, result)
+                                    else:
+                                        incrementCount = True
+                                except Exception, e:
+                                    print "Still couldn't delete %s/%s/%s even with implicit scheduling turned off: %s" % (uid, collName, childName, str(e))
+                                    traceback.print_stack()
+
+                        if incrementCount:
+                            count += 1
+
 
         txn = request._newStoreTransaction
 
