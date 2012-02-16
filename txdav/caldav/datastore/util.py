@@ -131,14 +131,19 @@ def dropboxIDFromCalendarObject(calendarObject):
 
 
 @inlineCallbacks
-def _migrateCalendar(inCalendar, outCalendar, getComponent):
+def _migrateCalendar(inCalendar, outCalendar, getComponent, merge):
     """
     Copy all calendar objects and properties in the given input calendar to the
     given output calendar.
 
     @param inCalendar: the L{ICalendar} to retrieve calendar objects from.
+
     @param outCalendar: the L{ICalendar} to store calendar objects to.
+
     @param getComponent: a 1-argument callable; see L{migrateHome}.
+
+    @param merge: a boolean indicating whether we should attempt to merge the
+        calendars together.
 
     @return: a tuple of (ok count, bad count)
     """
@@ -146,6 +151,7 @@ def _migrateCalendar(inCalendar, outCalendar, getComponent):
     ok_count = 0
     bad_count = 0
     outCalendar.properties().update(inCalendar.properties())
+    outHome = outCalendar.ownerCalendarHome()
     for calendarObject in (yield inCalendar.calendarObjects()):
         try:
             ctype = yield calendarObject.componentType()
@@ -163,9 +169,16 @@ def _migrateCalendar(inCalendar, outCalendar, getComponent):
             log.error("Migration skipping unsupported (%s) calendar object %r"
                       % (ctype, calendarObject))
             continue
+        if merge:
+            mightConflict = yield outHome.hasCalendarResourceUIDSomewhereElse(
+                calendarObject.uid(), None, "schedule"
+            )
+            if mightConflict:
+                continue
         try:
             # Must account for metadata
-            component = (yield calendarObject.component()) # XXX WRONG SHOULD CALL getComponent
+            component = (yield calendarObject.component())
+            #            ^ FIXME: TESTME: SHOULD CALL 'getComponent' argument
             component.md5 = calendarObject.md5()
             yield outCalendar.createCalendarObjectWithName(
                 calendarObject.name(),
@@ -322,7 +335,8 @@ def migrateHome(inHome, outHome, getComponent=lambda x: x.component(),
         yield d
         outCalendar = yield outHome.calendarWithName(name)
         try:
-            yield _migrateCalendar(calendar, outCalendar, getComponent)
+            yield _migrateCalendar(calendar, outCalendar, getComponent,
+                                   merge=merge)
         except InternalDataStoreError:
             log.error(
                 "  Failed to migrate calendar: %s/%s" % (inHome.name(), name,)
