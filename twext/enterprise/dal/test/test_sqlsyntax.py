@@ -18,27 +18,24 @@
 Tests for L{twext.enterprise.dal.syntax}
 """
 
-from twext.enterprise.dal.parseschema import addSQLToSchema
 from twext.enterprise.dal import syntax
+from twext.enterprise.dal.parseschema import addSQLToSchema
 from twext.enterprise.dal.syntax import (
     Select, Insert, Update, Delete, Lock, SQLFragment,
     TableMismatch, Parameter, Max, Len, NotEnoughValues,
     Savepoint, RollbackToSavepoint, ReleaseSavepoint, SavepointAction,
     Union, Intersect, Except, SetExpression, DALError,
-    ResultAliasSyntax)
-
-from twext.enterprise.dal.syntax import Function
-
+    ResultAliasSyntax, Count, QueryGenerator)
 from twext.enterprise.dal.syntax import FixedPlaceholder, NumericPlaceholder
-from twext.enterprise.ienterprise import POSTGRES_DIALECT, ORACLE_DIALECT
-from twext.enterprise.test.test_adbapi2 import resultOf
-from twisted.internet.defer import succeed
-from twext.enterprise.dal.test.test_parseschema import SchemaTestHelper
+from twext.enterprise.dal.syntax import Function
 from twext.enterprise.dal.syntax import SchemaSyntax
+from twext.enterprise.dal.test.test_parseschema import SchemaTestHelper
+from twext.enterprise.ienterprise import POSTGRES_DIALECT, ORACLE_DIALECT
 from twext.enterprise.test.test_adbapi2 import ConnectionPoolHelper
 from twext.enterprise.test.test_adbapi2 import NetworkedPoolHelper
+from twext.enterprise.test.test_adbapi2 import resultOf
+from twisted.internet.defer import succeed
 from twisted.trial.unittest import TestCase
-
 
 
 class _FakeTransaction(object):
@@ -128,7 +125,7 @@ class GenerationTests(ExampleSchemaHelper, TestCase):
         """
         self.assertEquals(Select(From=self.schema.FOO,
                                  Where=self.schema.FOO.BAR == 1).toSQL(
-                                 FixedPlaceholder(POSTGRES_DIALECT, "$$")),
+                                 QueryGenerator(POSTGRES_DIALECT, FixedPlaceholder("$$"))),
                           SQLFragment("select * from FOO where BAR = $$", [1]))
 
 
@@ -193,13 +190,13 @@ class GenerationTests(ExampleSchemaHelper, TestCase):
         self.assertEquals(Select(
             From=self.schema.FOO,
             Where=self.schema.FOO.BAR == ''
-        ).toSQL(NumericPlaceholder(ORACLE_DIALECT)),
+        ).toSQL(QueryGenerator(ORACLE_DIALECT, NumericPlaceholder())),
             SQLFragment(
                 "select * from FOO where BAR is null", []))
         self.assertEquals(Select(
             From=self.schema.FOO,
             Where=self.schema.FOO.BAR != ''
-        ).toSQL(NumericPlaceholder(ORACLE_DIALECT)),
+        ).toSQL(QueryGenerator(ORACLE_DIALECT, NumericPlaceholder())),
             SQLFragment(
                 "select * from FOO where BAR is not null", []))
 
@@ -502,7 +499,7 @@ class GenerationTests(ExampleSchemaHelper, TestCase):
                         Where=(self.schema.FOO.BAR == 2),
                     ),
                 ),
-            ).toSQL(FixedPlaceholder(POSTGRES_DIALECT, "?")),
+            ).toSQL(QueryGenerator(POSTGRES_DIALECT, FixedPlaceholder("?"))),
             SQLFragment(
                 "(select * from FOO where BAR = ?) UNION (select * from FOO where BAR = ?)", [1, 2]))
 
@@ -518,7 +515,7 @@ class GenerationTests(ExampleSchemaHelper, TestCase):
                     ),
                     optype=SetExpression.OPTYPE_ALL
                 ),
-            ).toSQL(FixedPlaceholder(POSTGRES_DIALECT, "?")),
+            ).toSQL(QueryGenerator(POSTGRES_DIALECT, FixedPlaceholder("?"))),
             SQLFragment(
                 "(select * from FOO where BAR = ?) INTERSECT ALL (select * from FOO where BAR = ?)", [1, 2]))
 
@@ -539,7 +536,7 @@ class GenerationTests(ExampleSchemaHelper, TestCase):
                     ),
                     optype=SetExpression.OPTYPE_DISTINCT,
                 ),
-            ).toSQL(FixedPlaceholder(POSTGRES_DIALECT, "?")),
+            ).toSQL(QueryGenerator(POSTGRES_DIALECT, FixedPlaceholder("?"))),
             SQLFragment(
                 "(select * from FOO) EXCEPT DISTINCT (select * from FOO where BAR = ?) EXCEPT DISTINCT (select * from FOO where BAR = ?)", [2, 3]))
 
@@ -559,7 +556,7 @@ class GenerationTests(ExampleSchemaHelper, TestCase):
                         ),
                     ),
                 ),
-            ).toSQL(FixedPlaceholder(ORACLE_DIALECT, "?")),
+            ).toSQL(QueryGenerator(ORACLE_DIALECT, FixedPlaceholder("?"))),
             SQLFragment(
                 "(select * from FOO) MINUS ((select * from FOO where BAR = ?) MINUS (select * from FOO where BAR = ?))", [2, 3]))
 
@@ -575,7 +572,7 @@ class GenerationTests(ExampleSchemaHelper, TestCase):
                     ),
                 ),
                 OrderBy=self.schema.FOO.BAR,
-            ).toSQL(FixedPlaceholder(POSTGRES_DIALECT, "?")),
+            ).toSQL(QueryGenerator(POSTGRES_DIALECT, FixedPlaceholder("?"))),
             SQLFragment(
                 "(select * from FOO where BAR = ?) UNION (select * from FOO where BAR = ?) order by BAR", [1, 2]))
 
@@ -591,7 +588,15 @@ class GenerationTests(ExampleSchemaHelper, TestCase):
                 From=(Select([self.schema.BOZ.QUX], From=self.schema.BOZ))
             ).toSQL(),
             SQLFragment(
-                "select max(QUX) from (select QUX from BOZ) alias_1"))
+                "select max(QUX) from (select QUX from BOZ) genid_1"))
+
+        self.assertEquals(
+            Select(
+                [Count(self.schema.BOZ.QUX)],
+                From=(Select([self.schema.BOZ.QUX], From=self.schema.BOZ))
+            ).toSQL(),
+            SQLFragment(
+                "select count(QUX) from (select QUX from BOZ) genid_1"))
 
         self.assertEquals(
             Select(
@@ -625,7 +630,7 @@ class GenerationTests(ExampleSchemaHelper, TestCase):
                 )
             ).toSQL(),
             SQLFragment(
-                "select max(BAR) from ((select BAR from FOO where BAR = ?) UNION (select BAR from FOO where BAR = ?)) alias_1", [1, 2]))
+                "select max(BAR) from ((select BAR from FOO where BAR = ?) UNION (select BAR from FOO where BAR = ?)) genid_1", [1, 2]))
 
     def test_selectColumnAliases(self):
         """
@@ -640,28 +645,28 @@ class GenerationTests(ExampleSchemaHelper, TestCase):
 
         self.assertEquals(
             Select(
-                [ResultAliasSyntax(Max(self.schema.BOZ.QUX), "MAX_QUX")],
+                [ResultAliasSyntax(Max(self.schema.BOZ.QUX))],
                 From=self.schema.BOZ
             ).toSQL(),
-            SQLFragment("select max(QUX) MAX_QUX from BOZ"))
+            SQLFragment("select max(QUX) genid_1 from BOZ"))
 
-        alias = ResultAliasSyntax(Max(self.schema.BOZ.QUX), "MAX_QUX")
+        alias = ResultAliasSyntax(Max(self.schema.BOZ.QUX))
         self.assertEquals(
             Select([alias.columnReference()],
                 From=Select(
                     [alias],
                     From=self.schema.BOZ)
             ).toSQL(),
-            SQLFragment("select MAX_QUX from (select max(QUX) MAX_QUX from BOZ) alias_1"))
+            SQLFragment("select genid_1 from (select max(QUX) genid_1 from BOZ) genid_2"))
 
-        alias = ResultAliasSyntax(Len(self.schema.BOZ.QUX), "LEN_QUX")
+        alias = ResultAliasSyntax(Len(self.schema.BOZ.QUX))
         self.assertEquals(
             Select([alias.columnReference()],
                 From=Select(
                     [alias],
                     From=self.schema.BOZ)
             ).toSQL(),
-            SQLFragment("select LEN_QUX from (select character_length(QUX) LEN_QUX from BOZ) alias_1"))
+            SQLFragment("select genid_1 from (select character_length(QUX) genid_1 from BOZ) genid_2"))
 
 
     def test_inSubSelect(self):
@@ -842,7 +847,7 @@ class GenerationTests(ExampleSchemaHelper, TestCase):
             Insert({self.schema.FOO.BAR: 40,
                     self.schema.FOO.BAZ: 50},
                    Return=(self.schema.FOO.BAR, self.schema.FOO.BAZ)).toSQL(
-                       NumericPlaceholder(ORACLE_DIALECT)
+                       QueryGenerator(ORACLE_DIALECT, NumericPlaceholder())
                    ),
             SQLFragment(
                 "insert into FOO (BAR, BAZ) values (:1, :2) returning BAR, BAZ"
@@ -875,7 +880,7 @@ class GenerationTests(ExampleSchemaHelper, TestCase):
         self.assertEquals(
             Insert({self.schema.LEVELS.ACCESS: 1,
                     self.schema.LEVELS.USERNAME:
-                    "hi"}).toSQL(FixedPlaceholder(ORACLE_DIALECT, "?")),
+                    "hi"}).toSQL(QueryGenerator(ORACLE_DIALECT, FixedPlaceholder("?"))),
             SQLFragment(
                 'insert into LEVELS ("ACCESS", USERNAME) values (?, ?)',
                 [1, "hi"])
@@ -883,7 +888,7 @@ class GenerationTests(ExampleSchemaHelper, TestCase):
         self.assertEquals(
             Insert({self.schema.LEVELS.ACCESS: 1,
                     self.schema.LEVELS.USERNAME:
-                    "hi"}).toSQL(FixedPlaceholder(POSTGRES_DIALECT, "?")),
+                    "hi"}).toSQL(QueryGenerator(POSTGRES_DIALECT, FixedPlaceholder("?"))),
             SQLFragment(
                 'insert into LEVELS (ACCESS, USERNAME) values (?, ?)',
                 [1, "hi"])
@@ -1055,7 +1060,7 @@ class GenerationTests(ExampleSchemaHelper, TestCase):
         self.assertEquals(
             Select([self.schema.FOO.BAR],
                    From=self.schema.FOO,
-                   Limit=123).toSQL(FixedPlaceholder(ORACLE_DIALECT, "?")),
+                   Limit=123).toSQL(QueryGenerator(ORACLE_DIALECT, FixedPlaceholder("?"))),
             SQLFragment(
                 "select * from (select BAR from FOO) "
                 "where ROWNUM <= ?", [123])
@@ -1108,7 +1113,7 @@ class GenerationTests(ExampleSchemaHelper, TestCase):
         self.assertEquals(
             Insert({self.schema.BOZ.QUX:
                     self.schema.A_SEQ}).toSQL(
-                        FixedPlaceholder(ORACLE_DIALECT, "?")),
+                        QueryGenerator(ORACLE_DIALECT, FixedPlaceholder("?"))),
             SQLFragment("insert into BOZ (QUX) values (A_SEQ.nextval)", []))
 
 
@@ -1125,7 +1130,7 @@ class GenerationTests(ExampleSchemaHelper, TestCase):
         )
         self.assertEquals(
             Insert({self.schema.DFLTR.a: 'hello'}).toSQL(
-                FixedPlaceholder(ORACLE_DIALECT, "?")
+                QueryGenerator(ORACLE_DIALECT, FixedPlaceholder("?"))
             ),
             SQLFragment("insert into DFLTR (a, b) values "
                         "(?, A_SEQ.nextval)", ['hello']),
@@ -1134,7 +1139,7 @@ class GenerationTests(ExampleSchemaHelper, TestCase):
         self.assertEquals(
             Insert({self.schema.DFLTR.a: 'hello',
                     self.schema.DFLTR.b: self.schema.A_SEQ}).toSQL(
-                FixedPlaceholder(ORACLE_DIALECT, "?")
+                QueryGenerator(ORACLE_DIALECT, FixedPlaceholder("?"))
             ),
             SQLFragment("insert into DFLTR (a, b) values "
                         "(?, A_SEQ.nextval)", ['hello']),
@@ -1308,7 +1313,7 @@ class GenerationTests(ExampleSchemaHelper, TestCase):
         )
         vvl = self.schema.veryveryveryveryveryveryveryverylong
         self.assertEquals(
-            Insert({vvl.foo: 1}).toSQL(FixedPlaceholder(ORACLE_DIALECT, "?")),
+            Insert({vvl.foo: 1}).toSQL(QueryGenerator(ORACLE_DIALECT, FixedPlaceholder("?"))),
             SQLFragment(
                 "insert into veryveryveryveryveryveryveryve (foo) values "
                 "(?)", [1]

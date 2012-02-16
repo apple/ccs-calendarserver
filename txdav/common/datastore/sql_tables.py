@@ -1,6 +1,6 @@
 # -*- test-case-name: txdav.common.datastore.test.test_sql_tables -*-
 ##
-# Copyright (c) 2010 Apple Inc. All rights reserved.
+# Copyright (c) 2010-2012 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,7 +20,7 @@ SQL Table definitions.
 """
 
 from twisted.python.modules import getModule
-from twext.enterprise.dal.syntax import SchemaSyntax
+from twext.enterprise.dal.syntax import SchemaSyntax, QueryGenerator
 from twext.enterprise.dal.model import NO_DEFAULT
 from twext.enterprise.dal.model import Sequence, ProcedureCall
 from twext.enterprise.dal.syntax import FixedPlaceholder
@@ -297,7 +297,7 @@ def _translateSchema(out, schema=schema):
 
         out.write('\n);\n\n')
 
-        fakeMeta = FixedPlaceholder(ORACLE_DIALECT, '%s')
+        fakeQueryGenerator = QueryGenerator(ORACLE_DIALECT, FixedPlaceholder('%s'))
         def quoted(x):
             if isinstance(x, (str, unicode)):
                 return ''.join(["'", x.replace("'", "''"), "'"])
@@ -309,7 +309,7 @@ def _translateSchema(out, schema=schema):
                 [(getattr(table, cmodel.name), val)
                  for (cmodel, val) in row.items()]
             )
-            fragment = Insert(cmap).toSQL(fakeMeta)
+            fragment = Insert(cmap).toSQL(fakeQueryGenerator)
             out.write(
                 fragment.text % tuple([quoted(param)
                                        for param in fragment.parameters]),
