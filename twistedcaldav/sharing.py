@@ -40,6 +40,7 @@ from twistedcaldav.config import config
 from twistedcaldav.customxml import calendarserver_namespace
 from twistedcaldav.directory.wiki import WikiDirectoryService, getWikiAccess
 from twistedcaldav.linkresource import LinkFollowerMixIn
+from twistedcaldav.memcachelock import MemcacheLock, MemcacheLockTimeoutError
 from twistedcaldav.sql import AbstractSQLDatabase, db_prefix
 
 from pycalendar.datetime import PyCalendarDateTime
@@ -478,6 +479,39 @@ class SharedCollectionMixin(object):
             return results if resultIsList else results[0]
         return DeferredList(dl).addCallback(_defer)
         
+
+    @inlineCallbacks
+    def _createLock(self, userid, request):
+        """
+        Create an instance of MemcacheLock whose key is based on the sharee's
+        uid and the collection's URL
+        """
+        returnValue(MemcacheLock(
+            "ShareInviteLock",
+            (yield self._lockToken(userid, request)),
+            timeout=config.Scheduling.Options.UIDLockTimeoutSeconds,
+            expire_time=config.Scheduling.Options.UIDLockExpirySeconds,
+        ))
+
+    @inlineCallbacks
+    def _acquireLock(self, lock):
+        """
+        Attempt to acquire a lock -- can raise MemcacheLockTimeoutError
+        """
+        try:
+            yield lock.acquire()
+        except MemcacheLockTimeoutError:
+            self.log_error("Memcache lock timeout for sharing invite")
+            raise
+
+    @inlineCallbacks
+    def _lockToken(self, userid, request):
+        """
+        Generate a string we can use for a memcache lock key
+        """
+        hosturl = (yield self.canonicalURL(request))
+        returnValue("%s:%s" % (hosturl, userid))
+
     @inlineCallbacks
     def inviteSingleUserToShare(self, userid, cn, ace, summary, request):
         
@@ -488,33 +522,54 @@ class SharedCollectionMixin(object):
         if principalURL is None:
             returnValue(False)
 
-        # Look for existing invite and update its fields or create new one
-        principalUID = principalURL.split("/")[3]
-        record = yield self.invitesDB().recordForPrincipalUID(principalUID)
-        if record:
-            record.name = cn
-            record.access = inviteAccessMapFromXML[type(ace)]
-            record.summary = summary
-        else:
-            record = Invite(str(uuid4()), userid, principalUID, cn, inviteAccessMapFromXML[type(ace)], "NEEDS-ACTION", summary)
-        
-        # Send invite
-        yield self.sendInvite(record, request)
-        
-        # Add to database
-        yield self.invitesDB().addOrUpdateRecord(record)
-        
-        returnValue(True)            
+        # Acquire a memcache lock based on collection URL and sharee UID
+        # TODO: when sharing moves into the store this should be replaced
+        # by DB-level locking
+        lock = (yield self._createLock(userid, request))
+        yield self._acquireLock(lock)
+
+        try:
+            # Look for existing invite and update its fields or create new one
+            principalUID = principalURL.split("/")[3]
+            record = yield self.invitesDB().recordForPrincipalUID(principalUID)
+            if record:
+                record.name = cn
+                record.access = inviteAccessMapFromXML[type(ace)]
+                record.summary = summary
+            else:
+                record = Invite(str(uuid4()), userid, principalUID, cn, inviteAccessMapFromXML[type(ace)], "NEEDS-ACTION", summary)
+
+            # Send invite
+            yield self.sendInvite(record, request)
+
+            # Add to database
+            yield self.invitesDB().addOrUpdateRecord(record)
+
+        finally:
+            lock.clean()
+
+        returnValue(True)
 
 
     @inlineCallbacks
     def uninviteSingleUserFromShare(self, userid, aces, request):
         # Cancel invites - we'll just use whatever userid we are given
-        record = yield self.invitesDB().recordForUserID(userid)
-        if record:
-            result = (yield self.uninviteRecordFromShare(record, request))
-        else:
-            result = False
+
+        # Acquire a memcache lock based on collection URL and sharee UID
+        # TODO: when sharing moves into the store this should be replaced
+        # by DB-level locking
+        lock = (yield self._createLock(userid, request))
+        yield self._acquireLock(lock)
+
+        try:
+            record = yield self.invitesDB().recordForUserID(userid)
+            if record:
+                result = (yield self.uninviteRecordFromShare(record, request))
+            else:
+                result = False
+        finally:
+            lock.clean()
+
         returnValue(result)
 
 
@@ -772,8 +827,8 @@ class SharedCollectionMixin(object):
             ))
 
         root = doc.root_element
-        if type(root) in self.xmlDocHanders:
-            result = (yield self.xmlDocHanders[type(root)](self, request, root))
+        if type(root) in self.xmlDocHandlers:
+            result = (yield self.xmlDocHandlers[type(root)](self, request, root))
             returnValue(result)
         else:
             self.log_error("Unsupported XML (%s)" % (root,))
@@ -783,7 +838,7 @@ class SharedCollectionMixin(object):
                 "Unsupported XML",
             ))
 
-    xmlDocHanders = {
+    xmlDocHandlers = {
         customxml.InviteShare: _xmlHandleInvite,
         customxml.InviteReply: _xmlHandleInviteReply,          
     }

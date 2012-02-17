@@ -986,7 +986,7 @@ class CalendarCollectionResource(DefaultAlarmPropertyMixin, _CalendarCollectionB
 
         if config.EnableBatchUpload:
             self._postHandlers[("text", "calendar")] = _CommonHomeChildCollectionMixin.simpleBatchPOST
-            self.xmlDocHanders[customxml.Multiput] = _CommonHomeChildCollectionMixin.crudBatchPOST
+            self.xmlDocHandlers[customxml.Multiput] = _CommonHomeChildCollectionMixin.crudBatchPOST
 
     def __repr__(self):
         return "<Calendar Collection Resource %r:%r %s>" % (
@@ -2001,7 +2001,7 @@ class AddressBookCollectionResource(_CommonHomeChildCollectionMixin, CalDAVResou
 
         if config.EnableBatchUpload:
             self._postHandlers[("text", "vcard")] = _CommonHomeChildCollectionMixin.simpleBatchPOST
-            self.xmlDocHanders[customxml.Multiput] = _CommonHomeChildCollectionMixin.crudBatchPOST
+            self.xmlDocHandlers[customxml.Multiput] = _CommonHomeChildCollectionMixin.crudBatchPOST
 
     def __repr__(self):
         return "<AddressBook Collection Resource %r:%r %s>" % (
