@@ -20,6 +20,7 @@ from __future__ import with_statement
 import xattr, os, zlib, hashlib, datetime, pwd, grp, shutil, errno, operator
 from zlib import compress
 from cPickle import loads as unpickle, UnpicklingError
+from urlparse import urlsplit
 
 from twext.python.log import Logger
 from twext.web2.dav import davxml
@@ -588,6 +589,12 @@ def normalizeCUAddrs(data, directory, cuaCache):
     cal = Component.fromString(data)
 
     def lookupFunction(cuaddr):
+
+        # If cuaddr is http(s), examine only the path portion, ignoring the
+        # hostname and port
+        if cuaddr.startswith("http"):
+            cuaddr = urlsplit(cuaddr)[2]
+
         # Return cached results, if any.
         if cuaCache.has_key(cuaddr):
             return cuaCache[cuaddr]

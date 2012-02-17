@@ -20,6 +20,7 @@ from twext.web2.dav import davxml
 from twistedcaldav.config import config
 from twistedcaldav.directory.xmlfile import XMLDirectoryService
 from twistedcaldav.directory.resourceinfo import ResourceInfoDatabase
+from twistedcaldav.ical import Component
 from twistedcaldav.mail import MailGatewayTokensDatabase
 from twistedcaldav.upgrade import (
     xattrname, UpgradeError, upgradeData, updateFreeBusySet,
@@ -1467,6 +1468,10 @@ class UpgradeTests(TestCase):
                 StubRecord("User A", 123, ("mailto:a@example.com", "urn:uuid:123")),
             "mailto:b@example.com" :
                 StubRecord("User B", 234, ("mailto:b@example.com", "urn:uuid:234")),
+            "/principals/users/a" :
+                StubRecord("User A", 123, ("mailto:a@example.com", "urn:uuid:123")),
+            "/principals/users/b" :
+                StubRecord("User B", 234, ("mailto:b@example.com", "urn:uuid:234")),
         }
 
         directory = StubDirectory()
@@ -1477,6 +1482,13 @@ class UpgradeTests(TestCase):
         # Ensure we only called principalForCalendarUserAddress 3 times.  It
         # would have been 8 times without the cuaCache.
         self.assertEquals(directory.count, 3)
+
+        # Ensure normalization ignores the non-path part of http(s) CUAs
+        newData, changed = normalizeCUAddrs(normalizeEventWithHTTP, directory, cuaCache)
+        self.assertTrue("urn:uuid:123" in newData)
+        self.assertTrue("urn:uuid:234" in newData)
+        self.assertFalse("http" in newData)
+
 
 normalizeEvent = """BEGIN:VCALENDAR
 VERSION:2.0
@@ -1491,6 +1503,22 @@ DESCRIPTION:Foo
 ATTENDEE;CN="User A";CUTYPE=INDIVIDUAL;PARTSTAT=ACCEPTED:mailto:a@example.com
 ATTENDEE;CN="User B";CUTYPE=INDIVIDUAL;PARTSTAT=ACCEPTED:mailto:b@example.com
 ATTENDEE;CN="Unknown";CUTYPE=INDIVIDUAL;PARTSTAT=ACCEPTED:mailto:unknown@example.com
+END:VEVENT
+END:VCALENDAR
+""".replace("\n", "\r\n")
+
+normalizeEventWithHTTP = """BEGIN:VCALENDAR
+VERSION:2.0
+BEGIN:VEVENT
+TRANSP:OPAQUE
+UID:1E238CA1-3C95-4468-B8CD-C8A399F78C71
+DTSTART:20090203
+DTEND:20090204
+ORGANIZER;CN="User A":http://example.com/principals/users/a/
+SUMMARY:New Event
+DESCRIPTION:Foo
+ATTENDEE;CN="User A";CUTYPE=INDIVIDUAL;PARTSTAT=ACCEPTED:http://example.com/principals/users/a/
+ATTENDEE;CN="User B";CUTYPE=INDIVIDUAL;PARTSTAT=ACCEPTED:http://example.com/principals/users/b/
 END:VEVENT
 END:VCALENDAR
 """.replace("\n", "\r\n")
