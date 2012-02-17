@@ -284,7 +284,7 @@ class CalendarServerLogAnalyzer(object):
 
         self.currentLine = None
         self.linesRead = 0
-
+        
     def analyzeLogFile(self, logFilePath, ctr):
         fpath = os.path.expanduser(logFilePath)
         if fpath.endswith(".gz"):
@@ -565,20 +565,26 @@ class CalendarServerLogAnalyzer(object):
     
     def getClientAdjustedName(self):
     
-        index = self.currentLine.client.find("iCal/")
-        if index != -1:
-            name = self.currentLine.client[index:self.currentLine.client.find(' ', index)]
-            return name
-        
-        index = self.currentLine.client.find("iPhone/")
-        if index != -1:
-            name = self.currentLine.client[index:self.currentLine.client.find(' ', index)]
-            return name
-        
-        index = self.currentLine.client.find("iOS/")
-        if index != -1:
-            name = self.currentLine.client[index:self.currentLine.client.find(' ', index)]
-            return name
+        versionClients = (
+            "iCal/",
+            "iPhone/",
+            "iOS/",
+            "CalendarAgent",
+            "Calendar/",
+            "CoreDAV/",
+            "Safari/",
+            "dataaccessd",
+            "curl/",
+            "DAVKit",
+        )
+        for client in versionClients:
+            index = self.currentLine.client.find(client)
+            if index != -1:
+                endex = self.currentLine.client.find(' ', index)
+                if endex == -1:
+                    endex = len(self.currentLine.client)
+                name = self.currentLine.client[index:endex]
+                return name
         
         index = self.currentLine.client.find("calendarclient")
         if index != -1:
@@ -603,7 +609,7 @@ class CalendarServerLogAnalyzer(object):
             if index != -1:
                 return result
 
-        return "Other"
+        return self.currentLine.client[:20]
     
     def getAdjustedMethodName(self):
 
