@@ -720,6 +720,8 @@ class iTipGenerator(object):
 
         # Remove all components which are missing the attendee
         for component in itip.subcomponents():
+            if component.name() in ignoredComponents:
+                continue
             if not component.getAttendeeProperty((attendee,)):
                 itip.removeComponent(component)
 
