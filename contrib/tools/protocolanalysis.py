@@ -248,7 +248,9 @@ class CalendarServerLogAnalyzer(object):
         self.hourlyTotals = [[0, 0, 0, collections.defaultdict(int), 0.0,] for _ignore in xrange(self.timeBucketCount)]
         
         self.clientTotals = collections.defaultdict(lambda:[0, set()])
+        self.clientIDMap = {}
         self.clientByMethodCount = collections.defaultdict(lambda:collections.defaultdict(int))
+        self.clientIDByMethodCount = {}
         self.clientByMethodTotalTime = collections.defaultdict(lambda:collections.defaultdict(float))
         self.clientByMethodAveragedTime = collections.defaultdict(lambda:collections.defaultdict(float))
         self.statusByMethodCount = collections.defaultdict(lambda:collections.defaultdict(int))
@@ -495,7 +497,14 @@ class CalendarServerLogAnalyzer(object):
             for method, totaltime in data.iteritems():
                 count = self.clientByMethodCount[client][method]
                 self.clientByMethodAveragedTime[client][method] = totaltime/count if count else 0
-        
+
+        self.clientIDMap = {}
+        for ctr, client in enumerate(sorted(self.clientByMethodCount.keys())):
+            self.clientIDMap[client] = "ID-%02d" % (ctr+1,)
+        self.clientIDByMethodCount = {}
+        for client, data in self.clientByMethodCount.iteritems():
+            self.clientIDByMethodCount[self.clientIDMap[client]] = data
+
         return ctr
 
     def parseLine(self, line):
@@ -936,7 +945,7 @@ class CalendarServerLogAnalyzer(object):
         self.printInstanceCount(doTabs)
 
         print "Protocol Analysis by Client"
-        self.printXXXMethodDetails(self.clientByMethodCount, doTabs)
+        self.printXXXMethodDetails(self.clientIDByMethodCount, doTabs)
         
         if len(self.requestSizeByBucket):
             print "Request size distribution"

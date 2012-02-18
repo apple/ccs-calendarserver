@@ -492,7 +492,7 @@ DEFAULT_CONFIG = {
     #
     "EnableAddMember"             : True,  # POST ;add-member extension
     "EnableSyncReport"            : True,  # REPORT collection-sync
-    "EnableSyncReportHome"        : False, # REPORT collection-sync on home collections
+    "EnableSyncReportHome"        : True,  # REPORT collection-sync on home collections
     "EnableWellKnown"             : True,  # /.well-known resource
     "EnableCalendarQueryExtended" : True,  # Extended calendar-query REPORT
 

@@ -62,7 +62,7 @@ from txdav.common.inotifications import INotificationCollection, \
 from twext.python.clsprop import classproperty
 from twext.enterprise.ienterprise import AlreadyFinishedError
 from twext.enterprise.dal.parseschema import significant
-from twext.enterprise.dal.syntax import Delete, utcNowSQL
+from twext.enterprise.dal.syntax import Delete, utcNowSQL, Union
 from twext.enterprise.dal.syntax import Insert
 from twext.enterprise.dal.syntax import Len
 from twext.enterprise.dal.syntax import Max
@@ -1033,12 +1033,27 @@ class CommonHome(LoggingMixIn):
         bind = cls._bindSchema
         return Select(
             [Max(rev.REVISION)],
-            From=rev, Where=(
-                rev.RESOURCE_ID.In(Select(
-                    [bind.RESOURCE_ID], From=bind,
-                    Where=bind.HOME_RESOURCE_ID == Parameter("resourceID")))
-            ).Or((rev.HOME_RESOURCE_ID == Parameter("resourceID")).And(
-                rev.RESOURCE_ID == None))
+            From=Select(
+                [rev.REVISION],
+                From=rev,
+                Where=(
+                    rev.RESOURCE_ID.In(
+                        Select(
+                            [bind.RESOURCE_ID],
+                            From=bind,
+                            Where=bind.HOME_RESOURCE_ID == Parameter("resourceID"),
+                        )
+                    )
+                ),
+                SetExpression=Union(
+                    Select(
+                        [rev.REVISION],
+                        From=rev,
+                        Where=(rev.HOME_RESOURCE_ID == Parameter("resourceID")).And(rev.RESOURCE_ID == None),
+                    ),
+                    optype=Union.OPTYPE_ALL,
+                )
+            ),
         )
 
 
