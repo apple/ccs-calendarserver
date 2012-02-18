@@ -20,7 +20,6 @@ from twext.web2.dav import davxml
 from twistedcaldav.config import config
 from twistedcaldav.directory.xmlfile import XMLDirectoryService
 from twistedcaldav.directory.resourceinfo import ResourceInfoDatabase
-from twistedcaldav.ical import Component
 from twistedcaldav.mail import MailGatewayTokensDatabase
 from twistedcaldav.upgrade import (
     xattrname, UpgradeError, upgradeData, updateFreeBusySet,
