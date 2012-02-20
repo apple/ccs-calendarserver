@@ -269,6 +269,10 @@ DEFAULT_CONFIG = {
                            # to slave processes.
 
     "UseDatabase"  : True, # True: database; False: files
+    
+    "TransactionTimeoutSeconds" : 0, # Timeout transactions that take longer than
+                              # the specified number of seconds. Zero means
+                              # no timeouts
 
     "DBType"       : "",   # 2 possible values: empty, meaning 'spawn postgres
                            # yourself', or 'postgres', meaning 'connect to a
@@ -445,9 +449,10 @@ DEFAULT_CONFIG = {
     "GlobalStatsLoggingFrequency" : 12,
     
     "LogDatabase" : {
-        "LabelsInSQL"   : False,
-        "Statistics"    : False,
-        "SQLStatements" : False,
+        "LabelsInSQL"            : False,
+        "Statistics"             : False,
+        "SQLStatements"          : False,
+        "TransactionWaitSeconds" : 0, 
     },
 
     #
