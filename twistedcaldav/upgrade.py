@@ -882,12 +882,12 @@ def archive(config, srcPath, uid, gid):
         os.remove(srcPath)
 
 
-DELETECHARS = ''.join(chr(i) for i in xrange(32) if i not in (10, 13))
+DELETECHARS = ''.join(chr(i) for i in xrange(32) if i not in (9, 10, 13))
 def removeIllegalCharacters(data):
     """
-    Remove all characters below ASCII 32 except NL and CR
+    Remove all characters below ASCII 32 except HTAB, LF and CR
 
-    Return tuple with the processed data, and a boolean indicating wether
+    Return tuple with the processed data, and a boolean indicating whether
     the data changed.
     """
     beforeLen = len(data)

@@ -1423,14 +1423,14 @@ class UpgradeTests(TestCase):
         """
         Control characters aside from NL and CR are removed.
         """
-        data = "Contains\x03 control\x06 characters\x12 some\x0a allowed\x0d"
+        data = "Contains\x03 control\x06 characters\x12 some\x0a\x09allowed\x0d"
         after, changed = removeIllegalCharacters(data)
-        self.assertEquals(after, "Contains control characters some\x0a allowed\x0d")
+        self.assertEquals(after, "Contains control characters some\x0a\x09allowed\x0d")
         self.assertTrue(changed)
 
-        data = "Contains only\x0a legal\x0d"
+        data = "Contains\x09only\x0a legal\x0d"
         after, changed = removeIllegalCharacters(data)
-        self.assertEquals(after, "Contains only\x0a legal\x0d")
+        self.assertEquals(after, "Contains\x09only\x0a legal\x0d")
         self.assertFalse(changed)
 
 
