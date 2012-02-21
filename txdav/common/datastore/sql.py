@@ -243,6 +243,8 @@ class CommonStoreTransactionMonitor(object):
     the transaction.
     """
     
+    callLater = reactor.callLater
+
     def __init__(self, txn, logTimerSeconds, timeoutSeconds):
         self.txn = txn
         self.delayedLog = None
@@ -268,16 +270,16 @@ class CommonStoreTransactionMonitor(object):
     def _installLogTimer(self):
         def _logTransactionWait():
             if self.txn is not None:
-                log.error("Transaction wait: %r, IUDs: %d, Statement: %s" % (self.txn, self.txn.iudCount, self.txn.currentStatement if self.txn.currentStatement else "None",))
-                self.delayedLog = reactor.callLater(self.logTimerSeconds, _logTransactionWait)
+                log.error("Transaction wait: %r, Statements: %d, IUDs: %d, Statement: %s" % (self.txn, self.txn.statementCount, self.txn.iudCount, self.txn.currentStatement if self.txn.currentStatement else "None",))
+                self.delayedLog = self.callLater(self.logTimerSeconds, _logTransactionWait)
 
         if self.logTimerSeconds:
-            self.delayedLog = reactor.callLater(self.logTimerSeconds, _logTransactionWait)
+            self.delayedLog = self.callLater(self.logTimerSeconds, _logTransactionWait)
     
     def _installTimeout(self):
         def _forceAbort():
             if self.txn is not None:
-                log.error("Transaction abort too long: %r, IUDs: %d, Statement: %s" % (self.txn, self.txn.iudCount, self.txn.currentStatement if self.txn.currentStatement else "None",))
+                log.error("Transaction abort too long: %r, Statements: %d, IUDs: %d, Statement: %s" % (self.txn, self.txn.statementCount, self.txn.iudCount, self.txn.currentStatement if self.txn.currentStatement else "None",))
                 self.delayedTimeout = None
                 if self.delayedLog:
                     self.delayedLog.cancel()
@@ -285,7 +287,7 @@ class CommonStoreTransactionMonitor(object):
                 self.txn.abort()
 
         if self.timeoutSeconds:
-            self.delayedTimeout = reactor.callLater(self.timeoutSeconds, _forceAbort)
+            self.delayedTimeout = self.callLater(self.timeoutSeconds, _forceAbort)
 
 class CommonStoreTransaction(object):
     """
@@ -332,6 +334,7 @@ class CommonStoreTransaction(object):
         self.dialect = sqlTxn.dialect
         
         self._stats = TransactionStatsCollector() if self._store.logStats else None
+        self.statementCount = 0
         self.iudCount = 0
         self.currentStatement = None
 
@@ -615,6 +618,7 @@ class CommonStoreTransaction(object):
         self.currentStatement = a[0]
         if self._store.logTransactionWaits and a[0].split(" ", 1)[0].lower() in ("insert", "update", "delete",):
             self.iudCount += 1
+        self.statementCount += 1
         if self._store.logLabels:
             a = ("-- Label: %s\n" % (self._label.replace("%", "%%"),) + a[0],) + a[1:]
         if self._store.logSQL:
