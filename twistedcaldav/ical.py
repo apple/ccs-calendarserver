@@ -2552,8 +2552,7 @@ END:VCALENDAR
                     oldExternalCUA = prop.parameterValue("CALENDARSERVER-OLD-CUA")
                     if oldExternalCUA:
                         newaddr = oldExternalCUA
-                        prop.removeParameterValue("CALENDARSERVER-OLD-CUA",
-                            oldExternalCUA)
+                        prop.removeParameter("CALENDARSERVER-OLD-CUA")
                     elif oldemail:
                         # Use the EMAIL parameter if it exists
                         newaddr = oldemail
