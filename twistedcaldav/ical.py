@@ -2537,12 +2537,24 @@ END:VCALENDAR
                     oldemail = "mailto:%s" % (oldemail,)
 
                 if toUUID:
+                    # Store the original CUA if http(s):
+                    if cuaddr.startswith("http"):
+                        prop.setParameter("CALENDARSERVER-OLD-CUA",
+                            prop.value())
+
                     # Always re-write value to urn:uuid
                     prop.setValue("urn:uuid:%s" % (guid,))
 
                 # If it is already a non-UUID address leave it be
                 elif cuaddr.startswith("urn:uuid:"):
-                    if oldemail:
+
+                    # Restore old CUA
+                    oldExternalCUA = prop.parameterValue("CALENDARSERVER-OLD-CUA")
+                    if oldExternalCUA:
+                        newaddr = oldExternalCUA
+                        prop.removeParameterValue("CALENDARSERVER-OLD-CUA",
+                            oldExternalCUA)
+                    elif oldemail:
                         # Use the EMAIL parameter if it exists
                         newaddr = oldemail
                     else:
