@@ -455,7 +455,7 @@ def normalizationLookup(cuaddr, principalFunction, config):
         # in a parameter value except as the start/end delimiters.
         # Single quotes are allowed, so we convert any double-quotes
         # to single-quotes.
-        fullName = rec.fullName.decode("utf-8").replace('"', "'")
+        fullName = rec.fullName.replace('"', "'")
 
         # TODO: remove V1Compatibility when V1 migration is complete
         if config.Scheduling.Options.V1Compatibility:
