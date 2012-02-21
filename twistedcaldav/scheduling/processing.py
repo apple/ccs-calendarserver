@@ -333,16 +333,19 @@ class ImplicitProcessor(object):
             # inNewTransaction wipes out the remembered resource<-> URL mappings in the
             # request object but we need to be able to map the actual reply resource to its
             # URL when doing auto-processing, so we have to sneak that mapping back in here.
-            txn = yield self.organizer_calendar_resource.inNewTransaction(self.request)
-            organizer_resource = (yield self.request.locateResource(self.organizer_calendar_resource._url))
+            txn = yield self.organizer_calendar_resource.inNewTransaction(self.request, label="Delayed attendee refresh")
 
             try:
+                organizer_resource = (yield self.request.locateResource(self.organizer_calendar_resource._url))
                 if organizer_resource.exists():
                     yield self._doRefresh(organizer_resource, only_attendees=attendeesToProcess)
                 else:
                     log.debug("ImplicitProcessing - skipping refresh of missing UID: '%s'" % (self.uid,))
             except Exception, e:
                 log.debug("ImplicitProcessing - refresh exception UID: '%s', %s" % (self.uid, str(e)))
+                yield txn.abort()
+            except:
+                log.debug("ImplicitProcessing - refresh bare exception UID: '%s'" % (self.uid,))
                 yield txn.abort()
             else:
                 yield txn.commit()
@@ -640,16 +643,20 @@ class ImplicitProcessor(object):
             # inNewTransaction wipes out the remembered resource<-> URL mappings in the
             # request object but we need to be able to map the actual reply resource to its
             # URL when doing auto-processing, so we have to sneak that mapping back in here.
-            txn = yield resource.inNewTransaction(self.request)
-            self.request._rememberResource(resource, resource._url)
+            txn = yield resource.inNewTransaction(self.request, label="Send Attendee auto-reply")
 
             try:
+                self.request._rememberResource(resource, resource._url)
                 # Send out a reply
                 log.debug("ImplicitProcessing - recipient '%s' processing UID: '%s' - auto-reply: %s" % (self.recipient.cuaddr, self.uid, partstat))
                 from twistedcaldav.scheduling.implicit import ImplicitScheduler
                 scheduler = ImplicitScheduler()
                 yield scheduler.sendAttendeeReply(self.request, resource, calendar, self.recipient)
+            except Exception, e:
+                log.debug("ImplicitProcessing - auto-reply exception UID: '%s', %s" % (self.uid, str(e)))
+                yield txn.abort()
             except:
+                log.debug("ImplicitProcessing - auto-reply bare exception UID: '%s'" % (self.uid,))
                 yield txn.abort()
             else:
                 yield txn.commit()

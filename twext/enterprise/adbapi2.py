@@ -507,7 +507,7 @@ class _SingleTxn(proxyForInterface(iface=IAsyncTransaction,
     def __init__(self, pool, baseTxn):
         self._pool           = pool
         self._baseTxn        = baseTxn
-        self._complete       = False
+        self._completed      = False
         self._currentBlock   = None
         self._blockedQueue   = None
         self._pendingBlocks  = []
@@ -626,7 +626,7 @@ class _SingleTxn(proxyForInterface(iface=IAsyncTransaction,
         """
         If the transaction is complete, raise L{AlreadyFinishedError}
         """
-        if self._complete:
+        if self._completed:
             raise AlreadyFinishedError()
 
 
@@ -635,7 +635,7 @@ class _SingleTxn(proxyForInterface(iface=IAsyncTransaction,
         Mark the transaction as complete, raising AlreadyFinishedError.
         """
         self._checkComplete()
-        self._complete = True
+        self._completed = True
 
 
     def commandBlock(self):
