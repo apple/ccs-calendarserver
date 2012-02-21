@@ -644,6 +644,7 @@ DEFAULT_CONFIG = {
             "AttendeeRefreshBatchIntervalSeconds" :   5,    # Time between attendee batch refreshes
             "UIDLockTimeoutSeconds"               :  60,    # Time for implicit UID lock timeout
             "UIDLockExpirySeconds"                : 300,    # Expiration time for UID lock,
+            "V1Compatibility"                     : False,  # Allow /path-based CUAs in scheduling replies
             
             "AutoSchedule" : {
                 "Enabled"                         : True,   # Auto-scheduling will never occur if set to False

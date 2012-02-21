@@ -815,6 +815,8 @@
         <false/>
         <key>AttendeeRefreshBatch</key>
         <integer>0</integer>
+        <key>V1Compatibility</key> <!-- Allow /path-based CUAs in scheduling replies -->
+        <false/>
 
 		<key>AutoSchedule</key>
 		<dict>

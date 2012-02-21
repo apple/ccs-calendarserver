@@ -309,9 +309,18 @@ class IScheduleRequest(object):
                 if principal is None:
                     return (None, None, None)
                 else:
-                    return (principal.record.fullName,
-                        principal.record.guid,
-                        principal.record.calendarUserAddresses)
+                    # TODO: remove V1Compatibility when V1 migration is complete
+                    if config.Scheduling.Options.V1Compatibility:
+                        # Allow /principals-form CUA
+                        return (principal.record.fullName.decode("utf-8"),
+                            principal.record.guid,
+                            principal.calendarUserAddresses()
+                        )
+                    else:
+                        return (principal.record.fullName.decode("utf-8"),
+                            principal.record.guid,
+                            principal.record.calendarUserAddresses
+                        )
 
             normalizedCalendar = self.scheduler.calendar.duplicate()
             normalizedCalendar.normalizeCalendarUserAddresses(lookupFunction, toUUID=False)

@@ -2539,36 +2539,45 @@ END:VCALENDAR
                 if toUUID:
                     # Always re-write value to urn:uuid
                     prop.setValue("urn:uuid:%s" % (guid,))
-                    
+
                 # If it is already a non-UUID address leave it be
                 elif cuaddr.startswith("urn:uuid:"):
                     if oldemail:
                         # Use the EMAIL parameter if it exists
                         newaddr = oldemail
                     else:
-                        # Pick the first mailto, or failing that the first http, or failing that the first one
+                        # Pick the first mailto,
+                        # or failing that the first path one,
+                        # or failing that the first http one,
+                        # or failing that the first one
                         first_mailto = None
+                        first_path = None
                         first_http = None
                         first = None
                         for addr in cuaddrs:
                             if addr.startswith("mailto:"):
                                 first_mailto = addr
                                 break
+                            elif addr.startswith("/"):
+                                if not first_path:
+                                    first_path = addr
                             elif addr.startswith("http:"):
                                 if not first_http:
                                     first_http = addr
                             elif not first:
                                 first = addr
-                        
+
                         if first_mailto:
                             newaddr = first_mailto
+                        elif first_path:
+                            newaddr = first_path
                         elif first_http:
                             newaddr = first_http
                         elif first:
                             newaddr = first
                         else:
                             newaddr = None
-                    
+
                     # Make the change
                     if newaddr:
                         prop.setValue(newaddr)

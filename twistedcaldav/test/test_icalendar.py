@@ -5975,3 +5975,54 @@ END:VCALENDAR
         for title, expected, body in data:
             ical = Component.fromString(body)
             self.assertEquals(expected, ical.hasInstancesAfter(cutoff))
+
+
+    def test_normalizeCalendarUserAddresses(self):
+        """
+        Ensure mailto is preferred, followed by path form, then http form
+        """
+
+        data = """BEGIN:VCALENDAR
+VERSION:2.0
+DTSTART:20071114T000000Z
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20071114T000000Z
+ATTENDEE:urn:uuid:foo
+ATTENDEE:urn:uuid:bar
+ATTENDEE:urn:uuid:baz
+DTSTAMP:20071114T000000Z
+END:VEVENT
+END:VCALENDAR
+"""
+
+        component = Component.fromString(data)
+
+        def lookupFunction(cuaddr):
+            return {
+                "urn:uuid:foo" : (
+                    "Foo",
+                    "foo",
+                    ("urn:uuid:foo", "http://example.com/foo", "/foo")
+                ),
+                "urn:uuid:bar" : (
+                    "Bar",
+                    "bar",
+                    ("urn:uuid:bar", "mailto:bar@example.com", "http://example.com/bar", "/bar")
+                ),
+                "urn:uuid:baz" : (
+                    "BaZ",
+                    "baz",
+                    ("urn:uuid:baz", "http://example.com/baz")
+                ),
+            }[cuaddr]
+
+        component.normalizeCalendarUserAddresses(lookupFunction, toUUID=False)
+
+        self.assertEquals("mailto:bar@example.com",
+            component.getAttendeeProperty(("mailto:bar@example.com",)).value())
+        self.assertEquals("/foo",
+            component.getAttendeeProperty(("/foo",)).value())
+        self.assertEquals("http://example.com/baz",
+            component.getAttendeeProperty(("http://example.com/baz",)).value())
+

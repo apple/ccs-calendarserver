@@ -852,12 +852,19 @@ class IScheduleScheduler(RemoteScheduler):
                 if principal is None:
                     return (None, None, None)
                 else:
-                    return (
-                        principal.record.fullName.decode("utf-8"),
-                        principal.record.guid,
-                        principal.record.calendarUserAddresses
-                    )
-    
+                    # TODO: remove V1Compatibility when V1 migration is complete
+                    if config.Scheduling.Options.V1Compatibility:
+                        # Allow /principals-form CUA
+                        return (principal.record.fullName.decode("utf-8"),
+                            principal.record.guid,
+                            principal.calendarUserAddresses()
+                        )
+                    else:
+                        return (principal.record.fullName.decode("utf-8"),
+                            principal.record.guid,
+                            principal.record.calendarUserAddresses
+                        )
+
             self.calendar.normalizeCalendarUserAddresses(lookupFunction)
 
     def checkAuthorization(self):
