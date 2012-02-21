@@ -333,7 +333,7 @@ class ImplicitProcessor(object):
             # inNewTransaction wipes out the remembered resource<-> URL mappings in the
             # request object but we need to be able to map the actual reply resource to its
             # URL when doing auto-processing, so we have to sneak that mapping back in here.
-            txn = yield self.organizer_calendar_resource.inNewTransaction(self.request)
+            txn = yield self.organizer_calendar_resource.inNewTransaction(self.request, label="Delayed attendee refresh")
 
             try:
                 organizer_resource = (yield self.request.locateResource(self.organizer_calendar_resource._url))
@@ -643,7 +643,7 @@ class ImplicitProcessor(object):
             # inNewTransaction wipes out the remembered resource<-> URL mappings in the
             # request object but we need to be able to map the actual reply resource to its
             # URL when doing auto-processing, so we have to sneak that mapping back in here.
-            txn = yield resource.inNewTransaction(self.request)
+            txn = yield resource.inNewTransaction(self.request, label="Send Attendee auto-reply")
 
             try:
                 self.request._rememberResource(resource, resource._url)

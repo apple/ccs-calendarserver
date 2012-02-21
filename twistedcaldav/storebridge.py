@@ -1845,7 +1845,7 @@ class CalendarObjectResource(_CalendarObjectMetaDataMixin, _CommonObjectResource
     _componentFromStream = VCalendar.fromString
 
     @inlineCallbacks
-    def inNewTransaction(self, request):
+    def inNewTransaction(self, request, label=""):
         """
         Implicit auto-replies need to span multiple transactions.  Clean out
         the given request's resource-lookup mapping, transaction, and re-look-
@@ -1861,7 +1861,7 @@ class CalendarObjectResource(_CalendarObjectMetaDataMixin, _CommonObjectResource
         ownerHome = calendar.ownerCalendarHome()
         homeUID = ownerHome.uid()
         txn = ownerHome.transaction().store().newTransaction(
-            "new transaction for " + self._newStoreObject.name())
+            "new transaction for %s, doing: %s" % (self._newStoreObject.name(), label,))
         newParent = (yield (yield txn.calendarHomeWithUID(homeUID))
                              .calendarWithName(calendarName))
         newObject = (yield newParent.calendarObjectWithName(objectName))
