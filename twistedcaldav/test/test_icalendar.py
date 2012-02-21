@@ -6000,7 +6000,7 @@ END:VCALENDAR
 
         component = Component.fromString(data)
 
-        def lookupFunction(cuaddr):
+        def lookupFunction(cuaddr, ignored1, ignored2):
             return {
                 "urn:uuid:foo" : (
                     "Foo",
@@ -6024,7 +6024,7 @@ END:VCALENDAR
                 ),
             }[cuaddr]
 
-        component.normalizeCalendarUserAddresses(lookupFunction, toUUID=False)
+        component.normalizeCalendarUserAddresses(lookupFunction, None, toUUID=False)
 
         self.assertEquals("mailto:bar@example.com",
             component.getAttendeeProperty(("mailto:bar@example.com",)).value())
@@ -6057,7 +6057,7 @@ END:VCALENDAR
 
         component = Component.fromString(data)
 
-        def lookupFunction(cuaddr):
+        def lookupFunction(cuaddr, ignored1, ignored2):
             return {
                 "/principals/users/foo" : (
                     "Foo",
@@ -6071,7 +6071,7 @@ END:VCALENDAR
                 ),
             }[cuaddr]
 
-        component.normalizeCalendarUserAddresses(lookupFunction, toUUID=True)
+        component.normalizeCalendarUserAddresses(lookupFunction, None, toUUID=True)
 
         # /principal CUAs are not stored in CALENDARSERVER-OLD-CUA
         prop = component.getAttendeeProperty(("urn:uuid:foo",))

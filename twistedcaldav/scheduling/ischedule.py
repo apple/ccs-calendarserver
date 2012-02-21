@@ -41,7 +41,7 @@ from twistedcaldav.scheduling.delivery import DeliveryService
 from twistedcaldav.scheduling.ischeduleservers import IScheduleServers
 from twistedcaldav.scheduling.ischeduleservers import IScheduleServerRecord
 from twistedcaldav.scheduling.itip import iTIPRequestStatus
-from twistedcaldav.util import utf8String
+from twistedcaldav.util import utf8String, normalizationLookup
 from twistedcaldav.scheduling.cuaddress import PartitionedCalendarUser, RemoteCalendarUser,\
     OtherServerCalendarUser
 
@@ -304,26 +304,11 @@ class IScheduleRequest(object):
 
     def _prepareData(self):
         if self.server.unNormalizeAddresses and self.scheduler.method == "PUT": 
-            def lookupFunction(cuaddr):
-                principal = self.scheduler.resource.principalForCalendarUserAddress(cuaddr)
-                if principal is None:
-                    return (None, None, None)
-                else:
-                    # TODO: remove V1Compatibility when V1 migration is complete
-                    if config.Scheduling.Options.V1Compatibility:
-                        # Allow /principals-form CUA
-                        return (principal.record.fullName.decode("utf-8"),
-                            principal.record.guid,
-                            principal.calendarUserAddresses()
-                        )
-                    else:
-                        return (principal.record.fullName.decode("utf-8"),
-                            principal.record.guid,
-                            principal.record.calendarUserAddresses
-                        )
-
             normalizedCalendar = self.scheduler.calendar.duplicate()
-            normalizedCalendar.normalizeCalendarUserAddresses(lookupFunction, toUUID=False)
+            normalizedCalendar.normalizeCalendarUserAddresses(
+                normalizationLookup,
+                self.scheduler.resource.principalForCalendarUserAddresses,
+                toUUID=False)
         else:
             normalizedCalendar = self.scheduler.calendar
         self.data = str(normalizedCalendar)

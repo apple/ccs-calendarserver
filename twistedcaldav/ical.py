@@ -2509,7 +2509,8 @@ END:VCALENDAR
                     if dataValue.find(dropboxPrefix) != -1:
                         self.removeProperty(attachment)
 
-    def normalizeCalendarUserAddresses(self, lookupFunction, toUUID=True):
+    def normalizeCalendarUserAddresses(self, lookupFunction, principalFunction,
+        toUUID=True):
         """
         Do the ORGANIZER/ATTENDEE property normalization.
 
@@ -2527,7 +2528,8 @@ END:VCALENDAR
                 # Check that we can lookup this calendar user address - if not
                 # we cannot do anything with it
                 cuaddr = normalizeCUAddr(prop.value())
-                name, guid, cuaddrs = lookupFunction(cuaddr)
+                name, guid, cuaddrs = lookupFunction(cuaddr, principalFunction,
+                    config)
                 if guid is None:
                     continue
 

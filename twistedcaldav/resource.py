@@ -79,6 +79,7 @@ from twistedcaldav.notify import (
     getPubSubAPSConfiguration,
 )
 from twistedcaldav.sharing import SharedCollectionMixin, SharedHomeMixin
+from twistedcaldav.util import normalizationLookup
 from twistedcaldav.vcard import Component as vComponent
 
 from txdav.common.icommondatastore import InternalDataStoreError, \
@@ -1188,17 +1189,8 @@ class CalDAVResource (
         @param ical: calendar object to normalize.
         @type ical: L{Component}
         """
-
-        def lookupFunction(cuaddr):
-            principal = self.principalForCalendarUserAddress(cuaddr)
-            if principal is None:
-                return (None, None, None)
-            else:
-                return (principal.record.fullName,
-                    principal.record.guid,
-                    principal.record.calendarUserAddresses)
-
-        ical.normalizeCalendarUserAddresses(lookupFunction)
+        ical.normalizeCalendarUserAddresses(normalizationLookup,
+            self.principalForCalendarUserAddress)
 
 
     def principalForCalendarUserAddress(self, address):

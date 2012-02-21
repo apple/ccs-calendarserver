@@ -1482,12 +1482,6 @@ class UpgradeTests(TestCase):
         # would have been 8 times without the cuaCache.
         self.assertEquals(directory.count, 3)
 
-        # Ensure normalization ignores the non-path part of http(s) CUAs
-        newData, changed = normalizeCUAddrs(normalizeEventWithHTTP, directory, cuaCache)
-        self.assertTrue("urn:uuid:123" in newData)
-        self.assertTrue("urn:uuid:234" in newData)
-        self.assertFalse("http" in newData)
-
 
 normalizeEvent = """BEGIN:VCALENDAR
 VERSION:2.0
@@ -1505,23 +1499,6 @@ ATTENDEE;CN="Unknown";CUTYPE=INDIVIDUAL;PARTSTAT=ACCEPTED:mailto:unknown@example
 END:VEVENT
 END:VCALENDAR
 """.replace("\n", "\r\n")
-
-normalizeEventWithHTTP = """BEGIN:VCALENDAR
-VERSION:2.0
-BEGIN:VEVENT
-TRANSP:OPAQUE
-UID:1E238CA1-3C95-4468-B8CD-C8A399F78C71
-DTSTART:20090203
-DTEND:20090204
-ORGANIZER;CN="User A":http://example.com/principals/users/a/
-SUMMARY:New Event
-DESCRIPTION:Foo
-ATTENDEE;CN="User A";CUTYPE=INDIVIDUAL;PARTSTAT=ACCEPTED:http://example.com/principals/users/a/
-ATTENDEE;CN="User B";CUTYPE=INDIVIDUAL;PARTSTAT=ACCEPTED:http://example.com/principals/users/b/
-END:VEVENT
-END:VCALENDAR
-""".replace("\n", "\r\n")
-
 
 
 event01_before = """BEGIN:VCALENDAR

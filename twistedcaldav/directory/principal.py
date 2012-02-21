@@ -288,7 +288,8 @@ class DirectoryPrincipalProvisioningResource (DirectoryProvisioningResource):
             else:
                 port = int(netloc[1])
 
-            if host != config.ServerHostName:
+            if (host != config.ServerHostName and
+                host not in config.Scheduling.Options.PrincipalHostAliases):
                 return None
 
             if port != {

@@ -20,7 +20,6 @@ from __future__ import with_statement
 import xattr, os, zlib, hashlib, datetime, pwd, grp, shutil, errno, operator
 from zlib import compress
 from cPickle import loads as unpickle, UnpicklingError
-from urlparse import urlsplit
 
 from twext.python.log import Logger
 from twext.web2.dav import davxml
@@ -38,6 +37,7 @@ from twistedcaldav.ical import Component
 from twistedcaldav.mail import MailGatewayTokensDatabase
 from twistedcaldav.scheduling.cuaddress import LocalCalendarUser
 from twistedcaldav.scheduling.scheduler import DirectScheduler
+from twistedcaldav.util import normalizationLookup
 
 from twisted.application.service import Service
 from twisted.internet import reactor
@@ -588,42 +588,20 @@ def normalizeCUAddrs(data, directory, cuaCache):
     """
     cal = Component.fromString(data)
 
-    def lookupFunction(cuaddr):
-
-        # If cuaddr is http(s), examine only the path portion, ignoring the
-        # hostname and port
-        if cuaddr.startswith("http"):
-            cuaddr = urlsplit(cuaddr)[2]
+    def lookupFunction(cuaddr, principalFunction, config):
 
         # Return cached results, if any.
         if cuaCache.has_key(cuaddr):
             return cuaCache[cuaddr]
 
-        try:
-            principal = directory.principalForCalendarUserAddress(cuaddr)
-        except Exception, e:
-            log.debug("Lookup of %s failed: %s" % (cuaddr, e))
-            principal = None
-
-        if principal is None:
-            result = (None, None, None)
-        else:
-            rec = principal.record
-
-            # RFC5545 syntax does not allow backslash escaping in
-            # parameter values. A double-quote is thus not allowed
-            # in a parameter value except as the start/end delimiters.
-            # Single quotes are allowed, so we convert any double-quotes
-            # to single-quotes.
-            fullName = rec.fullName.replace('"', "'")
-
-            result = (fullName, rec.guid, rec.calendarUserAddresses)
+        result = normalizationLookup(cuaddr, principalFunction, config)
 
         # Cache the result
         cuaCache[cuaddr] = result
         return result
 
-    cal.normalizeCalendarUserAddresses(lookupFunction)
+    cal.normalizeCalendarUserAddresses(lookupFunction,
+        directory.principalForCalendarUserAddress)
 
     newData = str(cal)
     return newData, not newData == data

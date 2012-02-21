@@ -25,7 +25,9 @@ from hashlib import md5, sha1
 from twisted.internet import ssl, reactor
 from twisted.web import client
 from twisted.python import failure
-from twext.python.log import LoggingMixIn
+from twext.python.log import LoggingMixIn, Logger
+
+log = Logger()
 
 ##
 # System Resources (Memory size and processor count)
@@ -428,3 +430,38 @@ class AuthorizedHTTPGetter(client.HTTPPageGetter, LoggingMixIn):
             self.factory.deferred.errback(failure.Failure(Unauthorized("Mail gateway not able to process reply; calendar server returned 401 and doesn't support basic or digest")))
             return self.factory.deferred
 
+
+
+def normalizationLookup(cuaddr, principalFunction, config):
+    """
+    Lookup function to be passed to ical.normalizeCalendarUserAddresses.
+    Returns a tuple of (Full name, guid, and calendar user address list)
+    for the given cuaddr.  The principalFunction is called to retrieve the
+    principal for the cuaddr.
+    """
+    try:
+        principal = principalFunction(cuaddr)
+    except Exception, e:
+        log.debug("Lookup of %s failed: %s" % (cuaddr, e))
+        principal = None
+
+    if principal is None:
+        return (None, None, None)
+    else:
+        rec = principal.record
+
+        # RFC5545 syntax does not allow backslash escaping in
+        # parameter values. A double-quote is thus not allowed
+        # in a parameter value except as the start/end delimiters.
+        # Single quotes are allowed, so we convert any double-quotes
+        # to single-quotes.
+        fullName = rec.fullName.decode("utf-8").replace('"', "'")
+
+        # TODO: remove V1Compatibility when V1 migration is complete
+        if config.Scheduling.Options.V1Compatibility:
+            # Allow /principals-form CUA
+            cuas = principal.calendarUserAddresses()
+        else:
+            cuas = principal.record.calendarUserAddresses
+
+        return (fullName, rec.guid, cuas)
