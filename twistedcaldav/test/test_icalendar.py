@@ -20,6 +20,7 @@ import itertools
 
 from twisted.trial.unittest import SkipTest
 
+from twistedcaldav.config import config
 from twistedcaldav.ical import Component, Property, InvalidICalendarDataError
 from twistedcaldav.instance import InvalidOverriddenInstanceError
 import twistedcaldav.test.util
@@ -6071,6 +6072,7 @@ END:VCALENDAR
                 ),
             }[cuaddr]
 
+        self.patch(config.Scheduling.Options, "V1Compatibility", True)
         component.normalizeCalendarUserAddresses(lookupFunction, None, toUUID=True)
 
         # /principal CUAs are not stored in CALENDARSERVER-OLD-CUA

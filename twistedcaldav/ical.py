@@ -2540,9 +2540,10 @@ END:VCALENDAR
 
                 if toUUID:
                     # Store the original CUA if http(s) or /path:
-                    if cuaddr.startswith("http") or cuaddr.startswith("/"):
-                        prop.setParameter("CALENDARSERVER-OLD-CUA",
-                            prop.value())
+                    if config.Scheduling.Options.V1Compatibility:
+                        if cuaddr.startswith("http") or cuaddr.startswith("/"):
+                            prop.setParameter("CALENDARSERVER-OLD-CUA",
+                                prop.value())
 
                     # Always re-write value to urn:uuid
                     prop.setValue("urn:uuid:%s" % (guid,))
