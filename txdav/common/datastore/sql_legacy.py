@@ -347,6 +347,10 @@ class SQLLegacyInvites(object):
         shareeHome = yield self._getHomeWithUID(record.principalUID)
         rows = yield self._idsForInviteUID.on(self._txn,
                                               inviteuid=record.inviteuid)
+        
+        # FIXME: Do the BIND table query before the INVITE table query because BIND currently has proper
+        # constraints in place, whereas INVITE does not. Really we need to do this in a sub-transaction so
+        # we can roll back if any one query fails.
         if rows:
             [[resourceID, homeResourceID]] = rows
             yield self._updateBindQuery.on(
@@ -358,12 +362,6 @@ class SQLLegacyInvites(object):
                 self._txn, name=record.name, uid=record.inviteuid
             )
         else:
-            yield self._insertInviteQuery.on(
-                self._txn, uid=record.inviteuid, name=record.name,
-                homeID=shareeHome._resourceID,
-                resourceID=self._collection._resourceID,
-                recipient=record.userid
-            )
             yield self._insertBindQuery.on(
                 self._txn,
                 homeID=shareeHome._resourceID,
@@ -371,6 +369,12 @@ class SQLLegacyInvites(object):
                 mode=bindMode,
                 status=bindStatus,
                 message=record.summary
+            )
+            yield self._insertInviteQuery.on(
+                self._txn, uid=record.inviteuid, name=record.name,
+                homeID=shareeHome._resourceID,
+                resourceID=self._collection._resourceID,
+                recipient=record.userid
             )
         
         # Must send notification to ensure cache invalidation occurs
