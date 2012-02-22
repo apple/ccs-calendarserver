@@ -307,7 +307,7 @@ class IScheduleRequest(object):
             normalizedCalendar = self.scheduler.calendar.duplicate()
             normalizedCalendar.normalizeCalendarUserAddresses(
                 normalizationLookup,
-                self.scheduler.resource.principalForCalendarUserAddresses,
+                self.scheduler.resource.principalForCalendarUserAddress,
                 toUUID=False)
         else:
             normalizedCalendar = self.scheduler.calendar
