@@ -2539,8 +2539,8 @@ END:VCALENDAR
                     oldemail = "mailto:%s" % (oldemail,)
 
                 if toUUID:
-                    # Store the original CUA if http(s):
-                    if cuaddr.startswith("http"):
+                    # Store the original CUA if http(s) or /path:
+                    if cuaddr.startswith("http") or cuaddr.startswith("/"):
                         prop.setParameter("CALENDARSERVER-OLD-CUA",
                             prop.value())
 

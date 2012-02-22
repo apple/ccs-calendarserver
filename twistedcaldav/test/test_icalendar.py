@@ -6038,8 +6038,8 @@ END:VCALENDAR
 
     def test_normalizeCalendarUserAddressesToUUID(self):
         """
-        Ensure http(s) CUA values are tucked away into the property using
-        CALENDARSERVER-OLD-CUA parameter.
+        Ensure http(s) and /path CUA values are tucked away into the property
+        using CALENDARSERVER-OLD-CUA parameter.
         """
 
         data = """BEGIN:VCALENDAR
@@ -6076,7 +6076,8 @@ END:VCALENDAR
         # /principal CUAs are not stored in CALENDARSERVER-OLD-CUA
         prop = component.getAttendeeProperty(("urn:uuid:foo",))
         self.assertEquals("urn:uuid:foo", prop.value())
-        self.assertEquals(prop.parameterValue("CALENDARSERVER-OLD-CUA"), None)
+        self.assertEquals(prop.parameterValue("CALENDARSERVER-OLD-CUA"),
+            "/principals/users/foo")
 
         # http CUAs are stored in CALENDARSERVER-OLD-CUA
         prop = component.getAttendeeProperty(("urn:uuid:buz",))
