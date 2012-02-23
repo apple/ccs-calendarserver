@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 ##
-# Copyright (c) 2009-2010 Apple Inc. All rights reserved.
+# Copyright (c) 2009-2012 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -25,15 +25,15 @@ import sys
 import time
 
 stateNames = (
-    "SYN_SENT",
-    "SYN_RCVD",
-    "ESTABLISHED",
-    "CLOSE_WAIT",
-    "LAST_ACK",
-    "FIN_WAIT_1",
-    "FIN_WAIT_2",
-    "CLOSING",
-    "TIME_WAIT",
+    ("SYN_SENT",),
+    ("SYN_RCVD",),
+    ("ESTABLISHED",),
+    ("CLOSE_WAIT",),
+    ("LAST_ACK",),
+    ("FIN_WAIT_1", "FIN_WAIT1"),
+    ("FIN_WAIT_2", "FIN_WAIT2"),
+    ("CLOSING",),
+    ("TIME_WAIT",),
 )
 
 if __name__ == '__main__':
@@ -48,23 +48,26 @@ if __name__ == '__main__':
         newqs = {}
         for line in output.split("\n"):
             
-            if line.find("tcp4") == -1:
+            if not line.startswith("tcp4 ") and not line.startswith("tcp "):
                 continue
             splits = line.split()
-            if splits[3].find(".8443") == -1 and splits[3].find(".8008") == -1:
+            if not splits[3].endswith("8443") and not splits[3].endswith("8008"):
                 continue
-            for ctr, item in enumerate(stateNames):
-                if item in line:
-                    
-                    total, recvq, sendq = states[ctr]
-                    total += 1
-                    if splits[1] != "0":
-                        recvq += 1
-                    if splits[2] != "0":
-                        sendq += 1
-                    if item == "ESTABLISHED":
-                        newqs[splits[4]] = (splits[1], splits[2],)
-                    states[ctr] = (total, recvq, sendq,)
+            for ctr, items in enumerate(stateNames):
+                
+                for item in items:
+                    if item in line:
+                        
+                        total, recvq, sendq = states[ctr]
+                        total += 1
+                        if splits[1] != "0":
+                            recvq += 1
+                        if splits[2] != "0":
+                            sendq += 1
+                        if item == "ESTABLISHED":
+                            newqs[splits[4]] = (splits[1], splits[2],)
+                        states[ctr] = (total, recvq, sendq,)
+                        break
         
         oldqs = set(pendingq.keys())
         for key in oldqs.difference(newqs.keys()):
@@ -81,8 +84,8 @@ if __name__ == '__main__':
         print ""
         print time.asctime()
         print "State        Total    RecvQ    SendQ"
-        for ctr, item in enumerate(stateNames):
-            print "%11s  %5d    %5d    %5d" % (item, states[ctr][0], states[ctr][1], states[ctr][2])
+        for ctr, items in enumerate(stateNames):
+            print "%11s  %5d    %5d    %5d" % (items[0], states[ctr][0], states[ctr][1], states[ctr][2])
     
         print ""
         print "Source IP              Established (secs)    RecvQ    SendQ"
