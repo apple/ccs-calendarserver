@@ -1068,22 +1068,27 @@ class SharedHomeMixin(LinkFollowerMixIn):
     @inlineCallbacks
     def acceptInviteShare(self, request, hostUrl, inviteUID, displayname=None):
         
+        # Check for old share
+        oldShare = yield self.sharesDB().recordForShareUID(inviteUID)
+
         # Send the invite reply then add the link
         yield self._changeShare(request, "ACCEPTED", hostUrl, inviteUID, displayname)
 
-        response = (yield self._acceptShare(request, SHARETYPE_INVITE, hostUrl, inviteUID, displayname))
+        response = (yield self._acceptShare(request, oldShare, SHARETYPE_INVITE, hostUrl, inviteUID, displayname))
         returnValue(response)
 
+    @inlineCallbacks
     def acceptDirectShare(self, request, hostUrl, resourceUID, displayname=None):
 
         # Just add the link
-        return self._acceptShare(request, SHARETYPE_DIRECT, hostUrl, resourceUID, displayname)
+        oldShare = yield self.sharesDB().recordForShareUID(resourceUID)
+        response = (yield self._acceptShare(request, oldShare, SHARETYPE_DIRECT, hostUrl, resourceUID, displayname))
+        returnValue(response)
 
     @inlineCallbacks
-    def _acceptShare(self, request, sharetype, hostUrl, shareUID, displayname=None):
+    def _acceptShare(self, request, oldShare, sharetype, hostUrl, shareUID, displayname=None):
 
         # Add or update in DB
-        oldShare = yield self.sharesDB().recordForShareUID(shareUID)
         if oldShare:
             share = oldShare
         else:

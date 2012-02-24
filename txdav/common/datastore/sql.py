@@ -1820,7 +1820,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
                       Where=(bind.HOME_RESOURCE_ID ==
                              Parameter("resourceID")).And(
                                  bind.BIND_MODE != _BIND_MODE_OWN).And(
-                                 bind.RESOURCE_NAME != None))
+                                 bind.BIND_STATUS == _BIND_STATUS_ACCEPTED))
 
     @classmethod
     @inlineCallbacks
@@ -1850,7 +1850,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
             ownedPiece = bind.BIND_MODE == _BIND_MODE_OWN
         else:
             ownedPiece = (bind.BIND_MODE != _BIND_MODE_OWN).And(
-                bind.RESOURCE_NAME != None)
+                bind.BIND_STATUS == _BIND_STATUS_ACCEPTED)
         
         columns = [child.RESOURCE_ID, bind.RESOURCE_NAME,]
         columns.extend(cls.metadataColumns())
@@ -1965,7 +1965,8 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
         (C{homeID}).
         """
         return cls._homeChildLookup(
-            cls._bindSchema.BIND_MODE != _BIND_MODE_OWN)
+            (cls._bindSchema.BIND_MODE != _BIND_MODE_OWN).And(
+                cls._bindSchema.BIND_STATUS == _BIND_STATUS_ACCEPTED))
 
 
     @classmethod

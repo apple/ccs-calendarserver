@@ -310,10 +310,7 @@ class SQLLegacyInvites(object):
                 bind.BIND_MODE: Parameter("mode"),
                 bind.BIND_STATUS: Parameter("status"),
                 bind.MESSAGE: Parameter("message"),
-
-                # name is NULL because the resource is not bound yet, just
-                # invited; let's be explicit about that.
-                bind.RESOURCE_NAME: None,
+                bind.RESOURCE_NAME: Parameter("resourceName"),
                 bind.SEEN_BY_OWNER: False,
                 bind.SEEN_BY_SHAREE: False,
             }
@@ -366,6 +363,7 @@ class SQLLegacyInvites(object):
                 self._txn,
                 homeID=shareeHome._resourceID,
                 resourceID=self._collection._resourceID,
+                resourceName=record.inviteuid,
                 mode=bindMode,
                 status=bindStatus,
                 message=record.summary
@@ -492,7 +490,7 @@ class SQLLegacyShares(object):
             From=bind,
             Where=(bind.HOME_RESOURCE_ID == Parameter("homeID"))
             .And(bind.BIND_MODE != _BIND_MODE_OWN)
-            .And(bind.RESOURCE_NAME != None)
+            .And(bind.BIND_STATUS == _BIND_STATUS_ACCEPTED)
         )
 
 
@@ -654,7 +652,7 @@ class SQLLegacyShares(object):
     def _unbindShareQuery(cls): #@NoSelf
         bind = cls._bindSchema
         return Update({
-            bind.RESOURCE_NAME: None
+            bind.BIND_STATUS: _BIND_STATUS_DECLINED
         }, Where=(bind.RESOURCE_NAME == Parameter("name"))
         .And(bind.HOME_RESOURCE_ID == Parameter("homeID")))
 
@@ -678,7 +676,7 @@ class SQLLegacyShares(object):
         bind = cls._bindSchema
         inv = schema.INVITE
         return Update(
-            {bind.RESOURCE_NAME: None},
+            {bind.BIND_STATUS: _BIND_STATUS_DECLINED},
             Where=(bind.HOME_RESOURCE_ID, bind.RESOURCE_ID) ==
             Select([inv.HOME_RESOURCE_ID, inv.RESOURCE_ID],
                    From=inv, Where=inv.INVITE_UID == Parameter("uid")))
