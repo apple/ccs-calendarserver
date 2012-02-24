@@ -207,18 +207,14 @@ class TransactionStatsCollector(object):
     def __init__(self):
         self.count = collections.defaultdict(int)
         self.times = collections.defaultdict(float)
-        self.tstamp = None
-        self.statement = None
     
     def startStatement(self, sql):
-        self.statement = sql
-        self.tstamp = time.time()
-        self.count[self.statement] += 1
+        self.count[sql] += 1
+        return sql, time.time()
 
-    def endStatement(self):
-        self.times[self.statement] += time.time() - self.tstamp
-        self.statement = None
-        self.tstamp = None
+    def endStatement(self, context):
+        sql, tstamp = context
+        self.times[sql] += time.time() - tstamp
         
     def printReport(self, toFile=sys.stdout):
         
@@ -614,7 +610,7 @@ class CommonStoreTransaction(object):
         Execute some SQL (delegate to L{IAsyncTransaction}).
         """
         if self._stats:        
-            self._stats.startStatement(a[0])
+            statsContext = self._stats.startStatement(a[0])
         self.currentStatement = a[0]
         if self._store.logTransactionWaits and a[0].split(" ", 1)[0].lower() in ("insert", "update", "delete",):
             self.iudCount += 1
@@ -628,7 +624,7 @@ class CommonStoreTransaction(object):
         finally:
             self.currentStatement = None
             if self._stats:        
-                self._stats.endStatement()
+                self._stats.endStatement(statsContext)
         returnValue(results)
 
     @inlineCallbacks
