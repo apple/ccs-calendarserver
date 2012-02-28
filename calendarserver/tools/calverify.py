@@ -53,7 +53,8 @@ from twisted.python import log
 from twisted.python.text import wordWrap
 from twisted.python.usage import Options
 from twistedcaldav.dateops import pyCalendarTodatetime
-from twistedcaldav.ical import Component
+from twistedcaldav.ical import Component, ignoredComponents,\
+    InvalidICalendarDataError
 from twistedcaldav.stdconfig import DEFAULT_CONFIG_FILE
 from txdav.common.datastore.sql_tables import schema, _BIND_MODE_OWN
 from txdav.common.icommondatastore import InternalDataStoreError
@@ -350,6 +351,10 @@ class CalVerifyService(Service, object):
         cb = schema.CALENDAR_BIND
         ch = schema.CALENDAR_HOME
         kwds = {"uuid": uuid}
+        if len(uuid) != 36:
+            where = (ch.OWNER_UID.StartsWith(Parameter("uuid")))
+        else:
+            where = (ch.OWNER_UID == Parameter("uuid"))
         rows = (yield Select(
             [ch.OWNER_UID, co.RESOURCE_ID, co.ICALENDAR_UID, co.MD5, co.ORGANIZER,],
             From=ch.join(
@@ -357,7 +362,7 @@ class CalVerifyService(Service, object):
                 co, type="inner", on=(cb.CALENDAR_RESOURCE_ID == co.CALENDAR_RESOURCE_ID).And(
                     cb.BIND_MODE == _BIND_MODE_OWN).And(
                     cb.CALENDAR_RESOURCE_NAME != "inbox")),
-            Where=(ch.OWNER_UID == Parameter("uuid")),
+            Where=where,
             GroupBy=(ch.OWNER_UID, co.RESOURCE_ID, co.ICALENDAR_UID, co.MD5, co.ORGANIZER,),
         ).on(self.txn, **kwds))
         returnValue(tuple(rows))
@@ -485,6 +490,7 @@ class CalVerifyService(Service, object):
             component.validCalendarData(doFix=False, validateRecurrences=True)
             component.validCalendarForCalDAV(methodAllowed=False)
             component.validOrganizerForScheduling(doFix=False)
+            self.noPrincipalPathCUAddresses(component, doFix=False)
         except ValueError, e:
             result = False
             message = str(e)
@@ -501,6 +507,18 @@ class CalVerifyService(Service, object):
 
         returnValue((result, message,))
 
+
+    def noPrincipalPathCUAddresses(self, component, doFix):
+        
+        for subcomponent in component.subcomponents():
+            if subcomponent.name() in ignoredComponents:
+                continue
+            organizer = subcomponent.getProperty("ORGANIZER")
+            if organizer and organizer.value().startswith("http"):
+                raise InvalidICalendarDataError("iCalendar ORGANIZER starts with 'http(s)'")
+            for attendee in subcomponent.properties("ATTENDEE"):
+                if attendee.value().startswith("http"):
+                    raise InvalidICalendarDataError("iCalendar ATTENDEE starts with 'http(s)'")
 
     @inlineCallbacks
     def fixCalendarData(self, resid):
