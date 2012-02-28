@@ -726,7 +726,7 @@ class CalDAVServiceMaker (LoggingMixIn):
             vary=True,
         )
 
-        def updateFactory(configDict):
+        def updateFactory(configDict, reloading=False):
             httpFactory.maxRequests = configDict.MaxRequests
             httpFactory.maxAccepts = configDict.MaxAccepts
 

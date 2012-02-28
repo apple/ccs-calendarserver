@@ -130,6 +130,10 @@ class ConfigTests(TestCase):
 
         _testResponseCompression(self)
 
+    def _myUpdateHook(self, data, reloading=False):
+        # A stub hook to record the value of reloading=
+        self._reloadingValue = reloading
+
     def testReloading(self):
         self.assertEquals(config.HTTPPort, 0)
 
@@ -139,7 +143,12 @@ class ConfigTests(TestCase):
 
         writePlist({}, self.testConfig)
 
+        self._reloadingValue = None
+        config.addPostUpdateHooks([self._myUpdateHook])
         config.reload()
+
+        # Make sure reloading=True was passed to the update hooks
+        self.assertTrue(self._reloadingValue)
 
         self.assertEquals(config.HTTPPort, 0)
 

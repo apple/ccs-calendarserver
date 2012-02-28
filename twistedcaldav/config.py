@@ -214,7 +214,7 @@ class Config(object):
         _mergeData(self._provider.getDefaults(), items)
         self.update(items)
 
-    def update(self, items=None):
+    def update(self, items=None, reloading=False):
         if self._updating:
             return
         self._updating = True
@@ -224,10 +224,10 @@ class Config(object):
 
         # Call hooks
         for hook in self._preUpdateHooks:
-            hook(self._data, items)
+            hook(self._data, items, reloading=reloading)
         _mergeData(self._data, items)
         for hook in self._postUpdateHooks:
-            hook(self._data)
+            hook(self._data, reloading=reloading)
 
         self._updating = False
         self._dirty = False
@@ -243,7 +243,6 @@ class Config(object):
 
     def reload(self):
         configDict = ConfigDict(self._provider.loadConfig())
-        configDict._reloading = True
         if not self._provider.hasErrors():
             if self._beforeResetHook:
                 # Give the beforeResetHook a chance to stash away values we want
@@ -255,7 +254,7 @@ class Config(object):
             if preserved and self._afterResetHook:
                 # Pass the preserved data back to the afterResetHook
                 self._afterResetHook(self._data, preserved)
-            self.update(configDict)
+            self.update(configDict, reloading=True)
         else:
             raise ConfigurationError("Invalid configuration in %s"
                 % (self._provider.getConfigFileName(), ))

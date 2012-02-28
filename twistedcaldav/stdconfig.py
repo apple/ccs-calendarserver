@@ -995,7 +995,7 @@ RELATIVE_PATHS = [
 ]
 
 
-def _updateDataStore(configDict):
+def _updateDataStore(configDict, reloading=False):
     """
     Post-update configuration hook for making all configured paths relative to
     their respective root directories rather than the current working directory.
@@ -1044,14 +1044,14 @@ def _updateDataStore(configDict):
                 configDict[previousAbsoluteName] = newAbsolutePath
 
 
-def _updateHostName(configDict):
+def _updateHostName(configDict, reloading=False):
     if not configDict.ServerHostName:
         hostname = getfqdn()
         if not hostname:
             hostname = "localhost"
         configDict.ServerHostName = hostname
 
-def _preUpdateDirectoryService(configDict, items):
+def _preUpdateDirectoryService(configDict, items, reloading=False):
     # Special handling for directory services configs
     dsType = items.get("DirectoryService", {}).get("type", None)
     if dsType is None:
@@ -1071,13 +1071,13 @@ def _preUpdateDirectoryService(configDict, items):
         if dsType in DEFAULT_SERVICE_PARAMS and param not in DEFAULT_SERVICE_PARAMS[dsType]:
             log.warn("Parameter %s is not supported by service %s" % (param, dsType))
             
-def _postUpdateDirectoryService(configDict):
+def _postUpdateDirectoryService(configDict, reloading=False):
     if configDict.DirectoryService.type in DEFAULT_SERVICE_PARAMS:
         for param in tuple(configDict.DirectoryService.params):
             if param not in DEFAULT_SERVICE_PARAMS[configDict.DirectoryService.type]:
                 del configDict.DirectoryService.params[param]
 
-def _preUpdateResourceService(configDict, items):
+def _preUpdateResourceService(configDict, items, reloading=False):
     # Special handling for directory services configs
     dsType = items.get("ResourceService", {}).get("type", None)
     if dsType is None:
@@ -1097,14 +1097,14 @@ def _preUpdateResourceService(configDict, items):
         if dsType in DEFAULT_RESOURCE_PARAMS and param not in DEFAULT_RESOURCE_PARAMS[dsType]:
             log.warn("Parameter %s is not supported by service %s" % (param, dsType))
             
-def _postUpdateResourceService(configDict):
+def _postUpdateResourceService(configDict, reloading=False):
     if configDict.ResourceService.type in DEFAULT_RESOURCE_PARAMS:
         for param in tuple(configDict.ResourceService.params):
             if param not in DEFAULT_RESOURCE_PARAMS[configDict.ResourceService.type]:
                 del configDict.ResourceService.params[param]
 
 
-def _preUpdateDirectoryAddressBookBackingDirectoryService(configDict, items):
+def _preUpdateDirectoryAddressBookBackingDirectoryService(configDict, items, reloading=False):
     #
     # Special handling for directory address book configs
     #
@@ -1132,21 +1132,21 @@ def _preUpdateDirectoryAddressBookBackingDirectoryService(configDict, items):
         if param not in directoryAddressBookBackingServiceDefaultParams[configDict.DirectoryAddressBook.type]:
             del configDict.DirectoryAddressBook.params[param]
 
-def _postUpdateAugmentService(configDict):
+def _postUpdateAugmentService(configDict, reloading=False):
     if configDict.AugmentService.type in DEFAULT_AUGMENT_PARAMS:
         for param in tuple(configDict.AugmentService.params):
             if param not in DEFAULT_AUGMENT_PARAMS[configDict.AugmentService.type]:
                 log.warn("Parameter %s is not supported by service %s" % (param, configDict.AugmentService.type))
                 del configDict.AugmentService.params[param]
 
-def _postUpdateProxyDBService(configDict):
+def _postUpdateProxyDBService(configDict, reloading=False):
     if configDict.ProxyDBService.type in DEFAULT_PROXYDB_PARAMS:
         for param in tuple(configDict.ProxyDBService.params):
             if param not in DEFAULT_PROXYDB_PARAMS[configDict.ProxyDBService.type]:
                 log.warn("Parameter %s is not supported by service %s" % (param, configDict.ProxyDBService.type))
                 del configDict.ProxyDBService.params[param]
 
-def _updateACLs(configDict):
+def _updateACLs(configDict, reloading=False):
     #
     # Base resource ACLs
     #
@@ -1232,7 +1232,7 @@ def _updateACLs(configDict):
 
 
 
-def _updateRejectClients(configDict):
+def _updateRejectClients(configDict, reloading=False):
     #
     # Compile RejectClients expressions for speed
     #
@@ -1241,7 +1241,7 @@ def _updateRejectClients(configDict):
     except re.error, e:
         raise ConfigurationError("Invalid regular expression in RejectClients: %s" % (e,))
 
-def _updateLogLevels(configDict):
+def _updateLogLevels(configDict, reloading=False):
     clearLogLevels()
 
     try:
@@ -1257,9 +1257,9 @@ def _updateLogLevels(configDict):
     except InvalidLogLevelError, e:
         raise ConfigurationError("Invalid log level: %s" % (e.level))
 
-def _updateNotifications(configDict):
+def _updateNotifications(configDict, reloading=False):
     # Reloading not supported -- requires process running as root
-    if getattr(configDict, "_reloading", False):
+    if reloading:
         return
 
     for key, service in configDict.Notifications["Services"].iteritems():
@@ -1351,13 +1351,13 @@ def _updateNotifications(configDict):
 
 
 
-def _updateScheduling(configDict):
+def _updateScheduling(configDict, reloading=False):
     #
     # Scheduling
     #
 
     # Reloading not supported -- requires process running as root
-    if getattr(configDict, "_reloading", False):
+    if reloading:
         return
 
     service = configDict.Scheduling["iMIP"]
@@ -1400,7 +1400,7 @@ def _updateScheduling(configDict):
                     log.info("iMIP %s password not found in keychain" %
                         (direction,))
 
-def _updateServers(configDict):
+def _updateServers(configDict, reloading=False):
     import servers
     if configDict.Servers.Enabled:
         servers.Servers.load()
@@ -1411,7 +1411,7 @@ def _updateServers(configDict):
     else:
         servers.Servers.clear()
 
-def _updateCompliance(configDict):
+def _updateCompliance(configDict, reloading=False):
 
     if configDict.EnableCalDAV:
         if configDict.Scheduling.CalDAV.OldDraftCompatibility:
