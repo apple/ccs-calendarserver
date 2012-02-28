@@ -566,7 +566,7 @@ def upgrade_to_1(config, spawner, parallel, directory):
     createMailTokensDatabase(config, uid, gid)
 
     if errorOccurred:
-        raise UpgradeError("Data upgrade failed, see error.log for details")
+        log.warn("Data upgrade encountered errors but will proceed; see error.log for details")
 
 
 def normalizeCUAddrs(data, directory, cuaCache):

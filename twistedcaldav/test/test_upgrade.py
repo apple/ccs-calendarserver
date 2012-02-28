@@ -1272,6 +1272,10 @@ class UpgradeTests(TestCase):
 
 
         after = {
+            ".calendarserver_version" :
+            {
+                "@contents" : "2",
+            },
             "calendars" :
             {
                 "__uids__" :
@@ -1322,12 +1326,7 @@ class UpgradeTests(TestCase):
         config.DocumentRoot = root
         config.DataRoot = root
 
-        try:
-            (yield self.doUpgrade(config))
-        except UpgradeError:
-            pass
-        else:
-            self.fail("UpgradeError expected")
+        (yield self.doUpgrade(config))
 
         self.assertTrue(self.verifyHierarchy(root, after))
 
