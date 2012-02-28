@@ -22,7 +22,7 @@ from twistedcaldav.directory.xmlfile import XMLDirectoryService
 from twistedcaldav.directory.resourceinfo import ResourceInfoDatabase
 from twistedcaldav.mail import MailGatewayTokensDatabase
 from twistedcaldav.upgrade import (
-    xattrname, UpgradeError, upgradeData, updateFreeBusySet,
+    xattrname, upgradeData, updateFreeBusySet,
     removeIllegalCharacters, normalizeCUAddrs
 )
 from twistedcaldav.test.util import TestCase
