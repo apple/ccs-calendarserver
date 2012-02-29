@@ -32,3 +32,5 @@ update NOTIFICATION_HOME set OWNER_UID = lower(OWNER_UID);
 
 alter table NOTIFICATION_HOME
 add constraint NOTIFICATION_HOME_CASE check(OWNER_UID = lower(OWNER_UID));
+
+update CALENDARSERVER set VALUE = '9' where NAME = 'VERSION';
