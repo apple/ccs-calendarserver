@@ -295,24 +295,40 @@ def _translateSchema(out, schema=schema):
                 continue # already done inline, skip
             writeConstraint("unique", uniqueColumns)
 
-        out.write('\n);\n\n')
-
-        fakeQueryGenerator = QueryGenerator(ORACLE_DIALECT, FixedPlaceholder('%s'))
         def quoted(x):
             if isinstance(x, (str, unicode)):
                 return ''.join(["'", x.replace("'", "''"), "'"])
             else:
                 return str(x)
 
+        def staticSQL(sql, doquote=False):
+            qgen = QueryGenerator(ORACLE_DIALECT, FixedPlaceholder('%s'))
+            if doquote:
+                qgen.shouldQuote = lambda name: True
+            if hasattr(sql, 'subSQL'):
+                fragment = sql.subSQL(qgen, [])
+            else:
+                fragment = sql.toSQL(qgen)
+            params = tuple([quoted(param) for param in fragment.parameters])
+            result = fragment.text % params
+            return result
+
+        for checkConstraint in table.model.constraints:
+            if checkConstraint.type == 'CHECK':
+                out.write(", \n")
+
+                out.write("    check(%s)" %
+                          (staticSQL(checkConstraint.expression, True)))
+
+        out.write('\n);\n\n')
+
         for row in table.model.schemaRows:
             cmap = dict(
                 [(getattr(table, cmodel.name), val)
                  for (cmodel, val) in row.items()]
             )
-            fragment = Insert(cmap).toSQL(fakeQueryGenerator)
             out.write(
-                fragment.text % tuple([quoted(param)
-                                       for param in fragment.parameters]),
+                staticSQL(Insert(cmap))
             )
             out.write(";\n")
 
