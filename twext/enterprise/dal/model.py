@@ -94,6 +94,21 @@ class Constraint(object):
 
 
 
+class Check(Constraint):
+    """
+    A 'check' constraint, which evaluates an SQL expression.
+
+    @ivar expression: the expression that should evaluate to True.
+    @type expression: L{twext.enterprise.dal.syntax.ExpressionSyntax}
+    """
+    # XXX TODO: model for expression, rather than 
+
+    def __init__(self, syntaxExpression):
+        self.expression = syntaxExpression
+        self.type = 'CHECK'
+
+
+
 class ProcedureCall(object):
     """
     An invocation of a stored procedure or built-in function.
@@ -288,6 +303,16 @@ class Table(FancyEqMixin, object):
         for name in columnNames:
             affectsColumns.append(self.columnNamed(name))
         self.constraints.append(Constraint(constraintType, affectsColumns))
+
+
+    def checkConstraint(self, protoExpression):
+        """
+        This table is affected by a 'check' constraint.  (Should only be called
+        during schema parsing.)
+
+        @param protoExpression: proto expression.
+        """
+        self.constraints.append(Check(protoExpression))
 
 
     def insertSchemaRow(self, values):
