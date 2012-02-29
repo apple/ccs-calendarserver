@@ -372,7 +372,6 @@ class UpgradeDatabaseSchemaService(UpgradeDatabaseCoreService):
                          Where=home.OWNER_UID == older).on(sqlTxn)
 
 
-
     @inlineCallbacks
     def mergeCaseDuplicates(self, sqlTxn, type):
         """
@@ -398,6 +397,10 @@ class UpgradeDatabaseSchemaService(UpgradeDatabaseCoreService):
                 )
                 self.log_warn("Finished merging case-duplicate home "
                               + repr(newHomeUID) + ".")
+            # Addressbook migration is not (yet) implemented here, because
+            # duplicate data will be somewhat harder to spot and more annoying
+            # there.  The data will still be kept in the database in the in
+            # case-duplicate-prefix home though, so it is possible to retrieve.
 
 
 
