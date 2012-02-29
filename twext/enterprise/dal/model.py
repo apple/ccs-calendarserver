@@ -86,12 +86,12 @@ class Constraint(object):
     NOT_NULL = 'NOT NULL'
     UNIQUE = 'UNIQUE'
 
-    def __init__(self, type, affectsColumns):
+    def __init__(self, type, affectsColumns, name=None):
         self.affectsColumns = affectsColumns
         # XXX: possibly different constraint types should have different
         # classes?
         self.type = type
-        self.name = None
+        self.name = name
 
 
 
@@ -104,10 +104,10 @@ class Check(Constraint):
     """
     # XXX TODO: model for expression, rather than 
 
-    def __init__(self, syntaxExpression):
+    def __init__(self, syntaxExpression, name=None):
         self.expression = syntaxExpression
         super(Check, self).__init__(
-            'CHECK', [c.model for c in self.expression.allColumns()]
+            'CHECK', [c.model for c in self.expression.allColumns()], name
         )
 
 
@@ -308,14 +308,14 @@ class Table(FancyEqMixin, object):
         self.constraints.append(Constraint(constraintType, affectsColumns))
 
 
-    def checkConstraint(self, protoExpression):
+    def checkConstraint(self, protoExpression, name=None):
         """
         This table is affected by a 'check' constraint.  (Should only be called
         during schema parsing.)
 
         @param protoExpression: proto expression.
         """
-        self.constraints.append(Check(protoExpression))
+        self.constraints.append(Check(protoExpression, name))
 
 
     def insertSchemaRow(self, values):

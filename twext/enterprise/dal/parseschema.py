@@ -304,9 +304,11 @@ class _ColumnParser(object):
         Parse a 'free' constraint, described explicitly in the table as opposed
         to being implicitly associated with a column by being placed after it.
         """
-        # only know about PRIMARY KEY and UNIQUE for now
+        ident = None
+        # TODO: make use of identifier in tableConstraint, currently only used
+        # for checkConstraint.
         if constraintType.match(Keyword, 'CONSTRAINT'):
-            expect(self, cls=Identifier) # constraintName
+            ident = expect(self, cls=Identifier).get_name()
             constraintType = expect(self, ttype=Keyword)
         if constraintType.match(Keyword, 'PRIMARY'):
             expect(self, ttype=Keyword, value='KEY')
@@ -316,7 +318,7 @@ class _ColumnParser(object):
             names = self.namesInParens(expect(self, cls=Parenthesis))
             self.table.tableConstraint(Constraint.UNIQUE, names)
         elif constraintType.match(Keyword, 'CHECK'):
-            self.table.checkConstraint(self.readExpression(self.next()))
+            self.table.checkConstraint(self.readExpression(self.next()), ident)
         else:
             raise ViolatedExpectation('PRIMARY or UNIQUE', constraintType)
         return self.checkEnd(self.next())
