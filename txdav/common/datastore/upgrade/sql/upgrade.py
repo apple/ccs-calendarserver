@@ -31,7 +31,7 @@ from twisted.python.modules import getModule
 from twisted.python.reflect import namedObject
 from txdav.common.datastore.sql_tables import schema
 from twext.enterprise.dal.syntax import Select
-from twext.enterprise.dal.syntax import Lower
+from twext.enterprise.dal.syntax import CaseFold
 from twext.enterprise.dal.syntax import Update
 from twext.enterprise.dal.syntax import Max
 
@@ -358,7 +358,7 @@ class UpgradeDatabaseSchemaService(UpgradeDatabaseCoreService):
         right = home.alias()
         qry = Select(
             [left.OWNER_UID, right.OWNER_UID], From=left.join(right),
-            Where=(Lower(left.OWNER_UID) == Lower(right.OWNER_UID))
+            Where=(CaseFold(left.OWNER_UID) == CaseFold(right.OWNER_UID))
             # Use > rather than != so that each duplicate only shows up
             # once.
             .And(left.OWNER_UID > right.OWNER_UID)

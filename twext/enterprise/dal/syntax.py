@@ -425,6 +425,11 @@ Len = Function("character_length", "length")
 Upper = Function("upper")
 Lower = Function("lower")
 
+# Use a specific value here for "the convention for case-insensitive values in
+# the database" so we don't need to keep remembering whether it's upper or
+# lowercase.
+CaseFold = Lower
+
 
 
 class SchemaSyntax(Syntax):

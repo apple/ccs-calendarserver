@@ -43,7 +43,7 @@ from txdav.common.datastore.sql_tables import schema, _BIND_MODE_OWN
 import os
 import sys
 import traceback
-from twext.enterprise.dal.syntax import Lower
+from twext.enterprise.dal.syntax import CaseFold
 
 def usage(e=None):
     if e:
@@ -521,7 +521,7 @@ class EventsByOwner(Cmd):
                 cb, type="inner", on=(ch.RESOURCE_ID == cb.CALENDAR_HOME_RESOURCE_ID).And(
                     cb.BIND_MODE == _BIND_MODE_OWN)).join(
                 co, type="inner", on=(cb.CALENDAR_RESOURCE_ID == co.CALENDAR_RESOURCE_ID)),
-            Where=(ch.OWNER_UID == Lower(Parameter("UID"))),
+            Where=(ch.OWNER_UID == CaseFold(Parameter("UID"))),
         ).on(txn, **{"UID": uid}))
         returnValue(tuple(rows))
 
@@ -572,7 +572,7 @@ class EventsByOwnerCalendar(Cmd):
                 cb, type="inner", on=(ch.RESOURCE_ID == cb.CALENDAR_HOME_RESOURCE_ID).And(
                     cb.BIND_MODE == _BIND_MODE_OWN)).join(
                 co, type="inner", on=(cb.CALENDAR_RESOURCE_ID == co.CALENDAR_RESOURCE_ID)),
-            Where=((ch.OWNER_UID == Lower(Parameter("UID"))).And(cb.CALENDAR_RESOURCE_NAME == Parameter("NAME"))),
+            Where=((ch.OWNER_UID == CaseFold(Parameter("UID"))).And(cb.CALENDAR_RESOURCE_NAME == Parameter("NAME"))),
         ).on(txn, **{"UID": uid, "NAME": name}))
         returnValue(tuple(rows))
 
