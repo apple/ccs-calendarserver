@@ -420,6 +420,8 @@ class Function(object):
 Count = Function("count")
 Max = Function("max")
 Len = Function("character_length", "length")
+Upper = Function("upper")
+Lower = Function("lower")
 
 
 
