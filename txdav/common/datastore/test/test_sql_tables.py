@@ -223,9 +223,9 @@ class SampleSomeColumns(TestCase, SchemaTestHelper):
                             'beta integer, check(beta > 3)'
                             " );"
                         ))),
-            "create table alpha ("
+            "create table alpha ( "
             '"beta" integer, check("beta" > 3)'
-            ");"
+            " );"
         )
 
 
