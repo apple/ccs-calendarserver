@@ -105,7 +105,9 @@ class Check(Constraint):
 
     def __init__(self, syntaxExpression):
         self.expression = syntaxExpression
-        self.type = 'CHECK'
+        super(Check, self).__init__(
+            'CHECK', [c.model for c in self.expression.allColumns()]
+        )
 
 
 
