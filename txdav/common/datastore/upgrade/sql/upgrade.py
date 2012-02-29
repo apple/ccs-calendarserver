@@ -371,7 +371,8 @@ class UpgradeDatabaseSchemaService(UpgradeDatabaseCoreService):
             both.sort(key=lambda x: x[1])
             # Note: determineNewest may return None sometimes.
             older = both[0][0]
-            self.log_warn("Moving aside case-duplicate home " + repr(older))
+            self.log_warn("Moving aside case-duplicate " + repr(type.lower()) +
+                          " home " + repr(older))
             yield Update({home.OWNER_UID: _CASE_DUPLICATE_PREFIX + older},
                          Where=home.OWNER_UID == older).on(sqlTxn)
 
