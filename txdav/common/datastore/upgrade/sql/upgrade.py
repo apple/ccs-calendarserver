@@ -380,9 +380,12 @@ class UpgradeDatabaseSchemaService(UpgradeDatabaseCoreService):
         once the schema is upgraded.
         """
         home = getattr(schema, type + '_HOME')
-        oldHomes = Select([home.OWNER_UID], From=home,
-                          Where=home.OWNER_UID.StartsWith(_CASE_DUPLICATE_PREFIX))
+        oldHomes = yield Select(
+            [home.OWNER_UID], From=home,
+            Where=home.OWNER_UID.StartsWith(_CASE_DUPLICATE_PREFIX)
+        ).on(sqlTxn)
         for oldHomeUID in oldHomes:
+            oldHomeUID = oldHomeUID[0]
             newHomeUID = oldHomeUID[len(_CASE_DUPLICATE_PREFIX):]
             if type == 'CALENDAR':
                 from txdav.caldav.datastore.util import migrateHome
