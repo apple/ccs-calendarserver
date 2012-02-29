@@ -212,6 +212,39 @@ class SampleSomeColumns(TestCase, SchemaTestHelper):
         )
 
 
+    def test_anonymousCheckConstraint(self):
+        """
+        Named 'check' constraints are propagated through translation without
+        modification.
+        """
+        self.assertSortaEquals(
+            self.translated(SchemaSyntax(self.schemaFromString(
+                            "create table alpha ( "
+                            'beta integer, check(beta > 3)'
+                            " );"
+                        ))),
+            "create table alpha ("
+            '"beta" integer, check("beta" > 3)'
+            ");"
+        )
+
+
+    def test_namedCheckConstraint(self):
+        """
+        Named 'check' constraints are propagated through translation without
+        modification.
+        """
+        self.assertSortaEquals(
+            self.translated(SchemaSyntax(self.schemaFromString(
+                            "create table alpha ( "
+                            'beta integer, constraint beta_lt_3 check(beta > 3)'
+                            " );"
+                        ))),
+            "create table alpha ("
+            '"beta" integer, constraint beta_lt_3 check("beta" > 3)'
+            ");"
+        )
+
 
     def test_youBrokeTheSchema(self):
         """
