@@ -242,7 +242,7 @@ class SampleSomeColumns(TestCase, SchemaTestHelper):
                         ))),
             "create table alpha ("
             '"beta" integer, constraint beta_lt_3 check("beta" > 3)'
-            ");"
+            " );"
         )
 
 
