@@ -91,6 +91,7 @@ class Constraint(object):
         # XXX: possibly different constraint types should have different
         # classes?
         self.type = type
+        self.name = None
 
 
 

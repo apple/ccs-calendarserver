@@ -211,7 +211,7 @@ class ParsingExampleTests(TestCase, SchemaTestHelper):
         A column with a CHECK constraint in SQL that uses an inequality will
         result in a L{Check} constraint being added to the L{Table} object.
         """
-        def checkOneConstraint(sqlText):
+        def checkOneConstraint(sqlText, checkName=None):
             s = self.schemaFromString(sqlText)
             table = s.tableNamed('sample')
             self.assertEquals(len(table.constraints), 1)
@@ -221,6 +221,7 @@ class ParsingExampleTests(TestCase, SchemaTestHelper):
             self.assertEqual(expr.a.model, table.columnNamed('example'))
             self.assertEqual(expr.b.value, 5)
             self.assertEqual(expr.op, '>')
+            self.assertEqual(constraint.name, checkName)
         checkOneConstraint(
             "create table sample (example integer check(example >  5));"
         )
@@ -229,7 +230,7 @@ class ParsingExampleTests(TestCase, SchemaTestHelper):
         )
         checkOneConstraint(
             "create table sample "
-            "(example integer, constraint gt_5 check(example>5))"
+            "(example integer, constraint gt_5 check(example>5))", "gt_5"
         )
 
 
