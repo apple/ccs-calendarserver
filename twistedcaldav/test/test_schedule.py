@@ -91,6 +91,78 @@ class Properties (HomeTestCase):
         request.stream = MemoryStream(query.toxml())
         return self.send(request, propfind_cb)
 
+    @inlineCallbacks
+    def test_free_busy_set_remove_broken(self):
+        """
+        ???
+        """
+
+        request = SimpleRequest(self.site, "GET", "/inbox/")
+        inbox = yield request.locateResource("/inbox/")
+        self.assertTrue(inbox.hasDeadProperty(caldavxml.CalendarFreeBusySet))
+        oldfbset = set(("/calendar",))
+        oldset = caldavxml.CalendarFreeBusySet(*[davxml.HRef(url) for url in oldfbset])
+
+        newfbset = set()
+        newfbset.update(oldfbset)
+        newfbset.add("/calendar-broken")
+        newset = caldavxml.CalendarFreeBusySet(*[davxml.HRef(url) for url in newfbset])
+
+        inbox.writeDeadProperty(newset)
+        changedset = inbox.readDeadProperty(caldavxml.CalendarFreeBusySet)
+        self.assertEqual(tuple(changedset.children), tuple(newset.children))
+        
+        yield inbox.writeProperty(newset, request)
+
+        changedset = inbox.readDeadProperty(caldavxml.CalendarFreeBusySet)
+        self.assertEqual(tuple(changedset.children), tuple(oldset.children))
+
+    @inlineCallbacks
+    def test_free_busy_set_strip_slash(self):
+        """
+        ???
+        """
+
+        request = SimpleRequest(self.site, "GET", "/inbox/")
+        inbox = yield request.locateResource("/inbox/")
+        self.assertTrue(inbox.hasDeadProperty(caldavxml.CalendarFreeBusySet))
+
+        oldfbset = set(("/calendar/",))
+        oldset = caldavxml.CalendarFreeBusySet(*[davxml.HRef(url) for url in oldfbset])
+        inbox.writeDeadProperty(oldset)
+        
+        writefbset = set(("/calendar/",))
+        writeset = caldavxml.CalendarFreeBusySet(*[davxml.HRef(url) for url in writefbset])
+        yield inbox.writeProperty(writeset, request)
+
+        correctfbset = set(("/calendar",))
+        correctset = caldavxml.CalendarFreeBusySet(*[davxml.HRef(url) for url in correctfbset])
+        changedset = inbox.readDeadProperty(caldavxml.CalendarFreeBusySet)
+        self.assertEqual(tuple(changedset.children), tuple(correctset.children))
+
+    @inlineCallbacks
+    def test_free_busy_set_strip_slash_remove(self):
+        """
+        ???
+        """
+
+        request = SimpleRequest(self.site, "GET", "/inbox/")
+        inbox = yield request.locateResource("/inbox/")
+        self.assertTrue(inbox.hasDeadProperty(caldavxml.CalendarFreeBusySet))
+
+        oldfbset = set(("/calendar/", "/broken/"))
+        oldset = caldavxml.CalendarFreeBusySet(*[davxml.HRef(url) for url in oldfbset])
+        inbox.writeDeadProperty(oldset)
+        
+        writefbset = set(("/calendar/", "/broken/"))
+        writeset = caldavxml.CalendarFreeBusySet(*[davxml.HRef(url) for url in writefbset])
+        yield inbox.writeProperty(writeset, request)
+
+        correctfbset = set(("/calendar",))
+        correctset = caldavxml.CalendarFreeBusySet(*[davxml.HRef(url) for url in correctfbset])
+        changedset = inbox.readDeadProperty(caldavxml.CalendarFreeBusySet)
+        self.assertEqual(tuple(changedset.children), tuple(correctset.children))
+
 class DefaultCalendar (TestCase):
 
     def setUp(self):

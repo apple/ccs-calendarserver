@@ -192,7 +192,7 @@ class ScheduleInboxResource (CalendarSchedulingCollectionResource):
             if not self.hasDeadProperty(property):
                 old_calendars = set()
             else:
-                old_calendars = set([str(href) for href in self.readDeadProperty(property).children])
+                old_calendars = set([normalizeURL(str(href)) for href in self.readDeadProperty(property).children])
             added_calendars = new_calendars.difference(old_calendars)
             for href in added_calendars:
                 cal = (yield request.locateResource(str(href)))
@@ -203,6 +203,11 @@ class ScheduleInboxResource (CalendarSchedulingCollectionResource):
                         (caldav_namespace, "valid-calendar-url"),
                         "Invalid URI",
                     ))
+            for href in tuple(new_calendars):
+                cal = (yield request.locateResource(str(href)))
+                if cal is None or not cal.exists() or not isCalendarCollectionResource(cal):
+                    new_calendars.remove(href)
+            property.children = [davxml.HRef(href) for href in new_calendars]
 
         elif property.qname() in (caldavxml.ScheduleDefaultCalendarURL.qname(), customxml.ScheduleDefaultTasksURL.qname()):
             property = (yield self.writeDefaultCalendarProperty(request, property))
