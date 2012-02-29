@@ -90,7 +90,8 @@ create index INVITE_HOME_RESOURCE_ID on INVITE(HOME_RESOURCE_ID);
 
 create table NOTIFICATION_HOME (
   RESOURCE_ID integer      primary key default nextval('RESOURCE_ID_SEQ'), -- implicit index
-  OWNER_UID   varchar(255) not null unique                                 -- implicit index
+  OWNER_UID   varchar(255) not null unique,                                -- implicit index
+  constraint NOTIFICATION_HOME_CASE check(OWNER_UID = lower(OWNER_UID))
 );
 
 create table NOTIFICATION (

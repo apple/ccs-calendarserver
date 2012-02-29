@@ -322,6 +322,7 @@ class UpgradeDatabaseSchemaService(UpgradeDatabaseCoreService):
                 # that differ only by case and re-name one of them to 'x.old'.
                 yield self.renameCaseDuplicates(sqlTxn, 'CALENDAR')
                 yield self.renameCaseDuplicates(sqlTxn, 'ADDRESSBOOK')
+                yield self.renameCaseDuplicates(sqlTxn, 'NOTIFICATION')
             yield sqlTxn.execSQLBlock(sql)
             if caseFix:
                 # This does not fit neatly into the existing upgrade machinery,
@@ -329,7 +330,7 @@ class UpgradeDatabaseSchemaService(UpgradeDatabaseCoreService):
                 # upgrade system could take something like this into account,
                 # though.
                 yield self.mergeCaseDuplicates(sqlTxn, 'CALENDAR')
-                yield self.mergeCaseDuplicates(sqlTxn, 'ADDRESSBOOK')
+                # yield self.mergeCaseDuplicates(sqlTxn, 'ADDRESSBOOK')
             yield sqlTxn.commit()
         except RuntimeError:
             yield sqlTxn.abort()
@@ -341,15 +342,17 @@ class UpgradeDatabaseSchemaService(UpgradeDatabaseCoreService):
         """
         Re-name case duplicates.
 
-        Prior to schema version 9, home UIDs were case-sensitive.
+        Prior to schema version 9, home UIDs were case-sensitive.  This method
+        re-names any names which are equivalent except for case differences, so
+        that adding the uniform-case constraint will succeed.
 
         @param type: The type of home to scan; 'CALENDAR' or 'ADDRESSBOOK'
         @type type: C{str}
         """
-        # This is using the most recent 'schema' object, which happens to work for
-        # the moment, but will fail if the schema changes too radically.  Ideally
-        # this should be pointed at a schema object parsed from an older version of
-        # the schema.
+        # This is using the most recent 'schema' object, which happens to work
+        # for the moment, but will fail if the schema changes too radically.
+        # Ideally this should be pointed at a schema object parsed from an older
+        # version of the schema.
         home = getattr(schema, type + '_HOME')
         left = home.alias()
         right = home.alias()
@@ -368,6 +371,7 @@ class UpgradeDatabaseSchemaService(UpgradeDatabaseCoreService):
             both.sort(key=lambda x: x[1])
             # Note: determineNewest may return None sometimes.
             older = both[0][0]
+            self.log_warn("Moving aside case-duplicate home " + repr(older))
             yield Update({home.OWNER_UID: _CASE_DUPLICATE_PREFIX + older},
                          Where=home.OWNER_UID == older).on(sqlTxn)
 
@@ -375,8 +379,8 @@ class UpgradeDatabaseSchemaService(UpgradeDatabaseCoreService):
     @inlineCallbacks
     def mergeCaseDuplicates(self, sqlTxn, type):
         """
-        Merge together homes which were previously case-duplicates of each other,
-        once the schema is upgraded.
+        Merge together homes which were previously case-duplicates of each
+        other, once the schema is upgraded.
         """
         home = getattr(schema, type + '_HOME')
         oldHomes = yield Select(
@@ -414,6 +418,15 @@ def determineNewest(uid, type):
     @param type: The type of home to scan; 'CALENDAR' or 'ADDRESSBOOK'
     @type type: C{str}
     """
+    if type == 'NOTIFICATION':
+        return Select(
+            [Max(schema.NOTIFICATION.MODIFIED)],
+            From=schema.NOTIFICATION_HOME.join(
+                schema.NOTIFICATION,
+                on=schema.NOTIFICATION_HOME.RESOURCE_ID ==
+                    schema.NOTIFICATION.NOTIFICATION_HOME_RESOURCE_ID),
+            Where=schema.NOTIFICATION_HOME.OWNER_UID == uid
+        )
     home = getattr(schema, type + "_HOME")
     bind = getattr(schema, type + "_BIND")
     child = getattr(schema, type)

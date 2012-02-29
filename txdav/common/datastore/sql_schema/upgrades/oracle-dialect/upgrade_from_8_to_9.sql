@@ -27,3 +27,8 @@ update ADDRESSBOOK_HOME set OWNER_UID = lower(OWNER_UID);
 
 alter table ADDRESSBOOK_HOME
 add constraint ADDRESSBOOK_HOME_CASE check(OWNER_UID = lower(OWNER_UID));
+
+update NOTIFICATION_HOME set OWNER_UID = lower(OWNER_UID);
+
+alter table NOTIFICATION_HOME
+add constraint NOTIFICATION_HOME_CASE check(OWNER_UID = lower(OWNER_UID));
