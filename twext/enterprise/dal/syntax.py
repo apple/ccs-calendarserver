@@ -298,6 +298,8 @@ def comparison(comparator):
             return NotImplemented
         if isinstance(other, ColumnSyntax):
             return ColumnComparison(self, comparator, other)
+        if isinstance(other, ExpressionSyntax):
+            return CompoundComparison(self, comparator, other)
         else:
             return CompoundComparison(self, comparator, Constant(other))
     return __
