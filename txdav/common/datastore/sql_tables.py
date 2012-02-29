@@ -315,9 +315,10 @@ def _translateSchema(out, schema=schema):
 
         for checkConstraint in table.model.constraints:
             if checkConstraint.type == 'CHECK':
-                out.write(", \n")
-
-                out.write("    check(%s)" %
+                out.write(", \n    ")
+                if checkConstraint.name is not None:
+                    out.write('constraint "%s" ' % (checkConstraint.name,))
+                out.write("check(%s)" %
                           (staticSQL(checkConstraint.expression, True)))
 
         out.write('\n);\n\n')
