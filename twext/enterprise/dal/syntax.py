@@ -99,7 +99,7 @@ class QueryGenerator(object):
     query. This includes the SQL dialect, the format of the place holder and
     and automated id generator.
     """
-    
+
     def __init__(self, dialect=None, placeholder=None):
         self.dialect = dialect if dialect else POSTGRES_DIALECT
         if placeholder is None:
@@ -107,9 +107,11 @@ class QueryGenerator(object):
         self.placeholder = placeholder
 
         self.generatedID = count(1).next
-    
+
+
     def nextGeneratedID(self):
         return "genid_%d" % (self.generatedID(),)
+
 
 
 class TableMismatch(Exception):
