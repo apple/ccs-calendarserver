@@ -29,6 +29,11 @@ from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.python.modules import getModule
 from twisted.python.reflect import namedObject
+from txdav.common.datastore.sql_tables import schema
+from twext.enterprise.dal.syntax import Select
+from twext.enterprise.dal.syntax import CaseFold
+from twext.enterprise.dal.syntax import Update
+from twext.enterprise.dal.syntax import Max
 
 class UpgradeDatabaseCoreService(Service, LoggingMixIn, object):
     """
@@ -186,29 +191,43 @@ class UpgradeDatabaseCoreService(Service, LoggingMixIn, object):
 
         self.log_warn("%s upgraded from version %d to %d." % (self.versionDescriptor.capitalize(), fromVersion, toVersion,))
 
+
     def getPathToUpgrades(self, dialect):
         """
         Return the path where appropriate upgrade files can be found. 
         """
         raise NotImplementedError
 
+
+    def versionsFromFilename(self, filename):
+        """
+        Extract 'from' and 'to' versions from the given basename, if there are
+        any.
+        """
+        regex = re.compile("upgrade_from_(\d)+_to_(\d)+%s" %
+                           (self.upgradeFileSuffix,))
+        fromV = None
+        toV = None
+        matched = regex.match(filename)
+        if matched is not None:
+            fromV = int(matched.group(1))
+            toV = int(matched.group(2))
+        return fromV, toV
+
+
     def scanForUpgradeFiles(self, dialect):
         """
         Scan for upgrade files with the require name.
         """
-        
         fp = self.getPathToUpgrades(dialect)
         upgrades = []
-        regex = re.compile("upgrade_from_(\d)+_to_(\d)+%s" % (self.upgradeFileSuffix,))
         for child in fp.globChildren("upgrade_*%s" % (self.upgradeFileSuffix,)):
-            matched = regex.match(child.basename())
-            if matched is not None:
-                fromV = int(matched.group(1))
-                toV = int(matched.group(2))
+            fromV, toV = self.versionsFromFilename(child.basename())
+            if fromV is not None:
                 upgrades.append((fromV, toV, child))
-        
         upgrades.sort(key=lambda x:(x[0], x[1]))
         return upgrades
+
 
     def determineUpgradeSequence(self, fromVersion, toVersion, files, dialect):
         """
@@ -243,7 +262,11 @@ class UpgradeDatabaseCoreService(Service, LoggingMixIn, object):
         Apply the supplied upgrade to the database. Always return an L{Deferred"
         """
         raise NotImplementedError
-        
+
+
+
+_CASE_DUPLICATE_PREFIX = "case-duplicate-old:"
+
 class UpgradeDatabaseSchemaService(UpgradeDatabaseCoreService):
     """
     Checks and upgrades the database schema. This assumes there are a bunch of
@@ -265,18 +288,22 @@ class UpgradeDatabaseSchemaService(UpgradeDatabaseCoreService):
     def __init__(self, sqlStore, service, uid=None, gid=None):
         """
         Initialize the service.
-        
-        @param sqlStore: The store to operate on. Can be C{None} when doing unit tests.
-        @param service:  Wrapped service. Can be C{None} when doing unit tests.
+
+        @param sqlStore: The store to operate on.  Can be C{None} when doing
+            unit tests.
+
+        @param service: Wrapped service.  Can be C{None} when doing unit tests.
         """
         super(UpgradeDatabaseSchemaService, self).__init__(sqlStore, service, uid, gid)
-        
+
         self.versionKey = "VERSION"
         self.versionDescriptor = "schema"
         self.upgradeFileSuffix = ".sql"
 
+
     def getPathToUpgrades(self, dialect):
         return self.schemaLocation.child("upgrades").child(dialect)
+
 
     @inlineCallbacks
     def applyUpgrade(self, fp):
@@ -287,11 +314,133 @@ class UpgradeDatabaseSchemaService(UpgradeDatabaseCoreService):
         sqlTxn = self.sqlStore.newTransaction()
         try:
             sql = fp.getContent()
+            fromV, toV = self.versionsFromFilename(fp.basename())
+            caseFix = False
+            if fromV < 9 and toV >= 9:
+                caseFix = True
+                # If we're upgrading past version 9, look for calendar homes
+                # that differ only by case and re-name one of them to 'x.old'.
+                yield self.renameCaseDuplicates(sqlTxn, 'CALENDAR')
+                yield self.renameCaseDuplicates(sqlTxn, 'ADDRESSBOOK')
+                yield self.renameCaseDuplicates(sqlTxn, 'NOTIFICATION')
             yield sqlTxn.execSQLBlock(sql)
+            if caseFix:
+                # This does not fit neatly into the existing upgrade machinery,
+                # so it is just inline code here.  It would be nicer if the
+                # upgrade system could take something like this into account,
+                # though.
+                yield self.mergeCaseDuplicates(sqlTxn, 'CALENDAR')
+                # yield self.mergeCaseDuplicates(sqlTxn, 'ADDRESSBOOK')
             yield sqlTxn.commit()
         except RuntimeError:
             yield sqlTxn.abort()
             raise
+
+
+    @inlineCallbacks
+    def renameCaseDuplicates(self, sqlTxn, type):
+        """
+        Re-name case duplicates.
+
+        Prior to schema version 9, home UIDs were case-sensitive.  This method
+        re-names any names which are equivalent except for case differences, so
+        that adding the uniform-case constraint will succeed.
+
+        @param type: The type of home to scan; 'CALENDAR' or 'ADDRESSBOOK'
+        @type type: C{str}
+        """
+        # This is using the most recent 'schema' object, which happens to work
+        # for the moment, but will fail if the schema changes too radically.
+        # Ideally this should be pointed at a schema object parsed from an older
+        # version of the schema.
+        home = getattr(schema, type + '_HOME')
+        left = home.alias()
+        right = home.alias()
+        qry = Select(
+            [left.OWNER_UID, right.OWNER_UID], From=left.join(right),
+            Where=(CaseFold(left.OWNER_UID) == CaseFold(right.OWNER_UID))
+            # Use > rather than != so that each duplicate only shows up
+            # once.
+            .And(left.OWNER_UID > right.OWNER_UID)
+        )
+        caseDupes = yield qry.on(sqlTxn)
+        for (one, other) in caseDupes:
+            both = []
+            both.append([one, (yield determineNewest(one, type).on(sqlTxn))])
+            both.append([other, (yield determineNewest(other, type).on(sqlTxn))])
+            both.sort(key=lambda x: x[1])
+            # Note: determineNewest may return None sometimes.
+            older = both[0][0]
+            self.log_warn("Moving aside case-duplicate " + repr(type.lower()) +
+                          " home " + repr(older))
+            yield Update({home.OWNER_UID: _CASE_DUPLICATE_PREFIX + older},
+                         Where=home.OWNER_UID == older).on(sqlTxn)
+
+
+    @inlineCallbacks
+    def mergeCaseDuplicates(self, sqlTxn, type):
+        """
+        Merge together homes which were previously case-duplicates of each
+        other, once the schema is upgraded.
+        """
+        home = getattr(schema, type + '_HOME')
+        oldHomes = yield Select(
+            [home.OWNER_UID], From=home,
+            Where=home.OWNER_UID.StartsWith(_CASE_DUPLICATE_PREFIX)
+        ).on(sqlTxn)
+        for oldHomeUID in oldHomes:
+            oldHomeUID = oldHomeUID[0]
+            newHomeUID = oldHomeUID[len(_CASE_DUPLICATE_PREFIX):]
+            if type == 'CALENDAR':
+                from txdav.caldav.datastore.util import migrateHome
+                self.log_warn("Merging case-duplicate home "
+                              + repr(newHomeUID) + "...")
+                yield migrateHome(
+                    (yield sqlTxn.calendarHomeWithUID(oldHomeUID)),
+                    (yield sqlTxn.calendarHomeWithUID(newHomeUID)),
+                    merge=True
+                )
+                self.log_warn("Finished merging case-duplicate home "
+                              + repr(newHomeUID) + ".")
+            # Addressbook migration is not (yet) implemented here, because
+            # duplicate data will be somewhat harder to spot and more annoying
+            # there.  The data will still be kept in the database in the in
+            # case-duplicate-prefix home though, so it is possible to retrieve.
+
+
+
+def determineNewest(uid, type):
+    """
+    Determine the modification time of the newest object in a given home.
+
+    @param uid: the UID of the home to scan.
+    @type uid: C{str}
+
+    @param type: The type of home to scan; 'CALENDAR' or 'ADDRESSBOOK'
+    @type type: C{str}
+    """
+    if type == 'NOTIFICATION':
+        return Select(
+            [Max(schema.NOTIFICATION.MODIFIED)],
+            From=schema.NOTIFICATION_HOME.join(
+                schema.NOTIFICATION,
+                on=schema.NOTIFICATION_HOME.RESOURCE_ID ==
+                    schema.NOTIFICATION.NOTIFICATION_HOME_RESOURCE_ID),
+            Where=schema.NOTIFICATION_HOME.OWNER_UID == uid
+        )
+    home = getattr(schema, type + "_HOME")
+    bind = getattr(schema, type + "_BIND")
+    child = getattr(schema, type)
+    obj = getattr(schema, type + "_OBJECT")
+    return Select(
+        [Max(obj.MODIFIED)],
+        From=home.join(bind, on=bind.HOME_RESOURCE_ID == home.RESOURCE_ID)
+           .join(child, on=child.RESOURCE_ID == bind.RESOURCE_ID)
+           .join(obj, on=obj.PARENT_RESOURCE_ID == child.RESOURCE_ID),
+        Where=(bind.BIND_MODE == 0).And(home.OWNER_UID == uid)
+    )
+
+
 
 class UpgradeDatabaseDataService(UpgradeDatabaseCoreService):
     """

@@ -22,12 +22,18 @@ Parser for SQL schema.
 from itertools import chain
 
 from sqlparse import parse, keywords
-from sqlparse.tokens import Keyword, Punctuation, Number, String, Name
+from sqlparse.tokens import (
+    Keyword, Punctuation, Number, String, Name, Comparison as CompTok
+)
 from sqlparse.sql import (Comment, Identifier, Parenthesis, IdentifierList,
-                          Function)
+                          Function, Comparison)
 
 from twext.enterprise.dal.model import (
     Schema, Table, SQLType, ProcedureCall, Constraint, Sequence, Index)
+
+from twext.enterprise.dal.syntax import (
+    ColumnSyntax, CompoundComparison, Constant, Function as FunctionSyntax
+)
 
 
 
@@ -250,12 +256,60 @@ class _ColumnParser(object):
         return idnames
 
 
+    def readExpression(self, parens):
+        """
+        Read a given expression from a Parenthesis object.  (This is currently
+        a limited parser in support of simple CHECK constraints, not something
+        suitable for a full WHERE Clause.)
+        """
+        parens = iterSignificant(parens)
+        expect(parens, ttype=Punctuation, value="(")
+        nexttok = parens.next()
+        if isinstance(nexttok, Comparison):
+            lhs, op, rhs = list(iterSignificant(nexttok))
+            result = CompoundComparison(self.nameOrValue(lhs),
+                                        op.value.encode("ascii"),
+                                        self.nameOrValue(rhs))
+        elif isinstance(nexttok, Identifier):
+            # our version of SQLParse seems to break down and not create a nice
+            # "Comparison" object when a keyword is present.  This is just a
+            # simple workaround.
+            lhs = self.nameOrValue(nexttok)
+            op = expect(parens, ttype=CompTok).value.encode("ascii")
+            funcName = expect(parens, ttype=Keyword).value.encode("ascii")
+            rhs = FunctionSyntax(funcName)(*[
+                ColumnSyntax(self.table.columnNamed(x)) for x in
+                self.namesInParens(expect(parens, cls=Parenthesis))
+            ])
+            result = CompoundComparison(lhs, op, rhs)
+
+        expect(parens, ttype=Punctuation, value=")")
+        return result
+
+
+    def nameOrValue(self, tok):
+        """
+        Inspecting a token present in an expression (for a CHECK constraint on
+        this table), return a L{twext.enterprise.dal.syntax} object for that
+        value.
+        """
+        if isinstance(tok, Identifier):
+            return ColumnSyntax(self.table.columnNamed(tok.get_name()))
+        elif tok.ttype == Number.Integer:
+            return Constant(int(tok.value))
+
+
     def parseConstraint(self, constraintType):
         """
         Parse a 'free' constraint, described explicitly in the table as opposed
         to being implicitly associated with a column by being placed after it.
         """
-        # only know about PRIMARY KEY and UNIQUE for now
+        ident = None
+        # TODO: make use of identifier in tableConstraint, currently only used
+        # for checkConstraint.
+        if constraintType.match(Keyword, 'CONSTRAINT'):
+            ident = expect(self, cls=Identifier).get_name()
+            constraintType = expect(self, ttype=Keyword)
         if constraintType.match(Keyword, 'PRIMARY'):
             expect(self, ttype=Keyword, value='KEY')
             names = self.namesInParens(expect(self, cls=Parenthesis))
@@ -263,6 +317,8 @@ class _ColumnParser(object):
         elif constraintType.match(Keyword, 'UNIQUE'):
             names = self.namesInParens(expect(self, cls=Parenthesis))
             self.table.tableConstraint(Constraint.UNIQUE, names)
+        elif constraintType.match(Keyword, 'CHECK'):
+            self.table.checkConstraint(self.readExpression(self.next()), ident)
         else:
             raise ViolatedExpectation('PRIMARY or UNIQUE', constraintType)
         return self.checkEnd(self.next())
@@ -313,8 +369,7 @@ class _ColumnParser(object):
             else:
                 expected = True
                 def oneConstraint(t):
-                    self.table.tableConstraint(t,
-                                               [theColumn.name])
+                    self.table.tableConstraint(t, [theColumn.name])
 
                 if val.match(Keyword, 'PRIMARY'):
                     expect(self, ttype=Keyword, value='KEY')
@@ -330,6 +385,8 @@ class _ColumnParser(object):
                     oneConstraint(Constraint.NOT_NULL)
                 elif val.match(Keyword, 'NOT NULL'):
                     oneConstraint(Constraint.NOT_NULL)
+                elif val.match(Keyword, 'CHECK'):
+                    self.table.checkConstraint(self.readExpression(self.next()))
                 elif val.match(Keyword, 'DEFAULT'):
                     theDefault = self.next()
                     if isinstance(theDefault, Function):
@@ -438,7 +495,8 @@ def expectSingle(nextval, ttype=None, value=None, cls=None):
             raise ViolatedExpectation(value, nextval.value)
     if cls is not None:
         if nextval.__class__ != cls:
-            raise ViolatedExpectation(cls, repr(nextval))
+            raise ViolatedExpectation(cls, '%s:%r' %
+                                      (nextval.__class__.__name__, nextval))
     return nextval
 
 
@@ -478,7 +536,7 @@ def iterSignificant(tokenList):
 
 def _destringify(strval):
     """
-    Convert a single-quoted SQL string into its actual represented value.
+    Convert a single-quoted SQL string into its actual repsresented value.
     (Assumes standards compliance, since we should be controlling all the input
     here.  The only quoting syntax respected is "''".)
     """

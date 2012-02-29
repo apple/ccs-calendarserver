@@ -109,7 +109,7 @@ if __name__ == '__main__':
     %(object_name)s = '%(resource)s' and %(object_bind_id)s = (
         select %(bind_id)s from %(bind_table)s where
             %(bind_name)s = '%(collection)s' and %(bind_home_id)s = (
-                select RESOURCE_ID from %(home_table)s where OWNER_UID = '%(uid)s'
+                select RESOURCE_ID from %(home_table)s where OWNER_UID = lower('%(uid)s')
             )
     );""" % sqlstrings[datatype]
     

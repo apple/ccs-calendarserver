@@ -36,15 +36,18 @@ def doUpgrade(sqlStore):
     """
     yield moveSupportedComponentSetProperties(sqlStore)
     yield splitCalendars(sqlStore)
-    
+
     # Always bump the DB value
     yield updateDataVersion(sqlStore, "CALENDAR-DATAVERSION", UPGRADE_TO_VERSION)
+
+
 
 @inlineCallbacks
 def moveSupportedComponentSetProperties(sqlStore):
     """
-    Need to move all the CalDAV:supported-component-set properties in the RESOURCE_PROPERTY
-    table to the new CALENDAR table column, extracting the new format value from the XML property.
+    Need to move all the CalDAV:supported-component-set properties in the
+    RESOURCE_PROPERTY table to the new CALENDAR_METADATA table column,
+    extracting the new format value from the XML property.
     """
 
     sqlTxn = sqlStore.newTransaction()
@@ -53,20 +56,21 @@ def moveSupportedComponentSetProperties(sqlStore):
         for calendar_rid, value in rows:
             prop = WebDAVDocument.fromString(value).root_element
             supported_components = ",".join(sorted([comp.attributes["name"].upper() for comp in prop.children]))
-    
-            cal = schema.CALENDAR
+            meta = schema.CALENDAR_METADATA
             yield Update(
                 {
-                    cal.SUPPORTED_COMPONENTS : supported_components
+                    meta.SUPPORTED_COMPONENTS : supported_components
                 },
-                Where=(cal.RESOURCE_ID == calendar_rid)
+                Where=(meta.RESOURCE_ID == calendar_rid)
             ).on(sqlTxn)
-    
+
         yield removeProperty(sqlTxn, caldavxml.SupportedCalendarComponentSet)
         yield sqlTxn.commit()
     except RuntimeError:
         yield sqlTxn.abort()
         raise
+
+
 
 @inlineCallbacks
 def splitCalendars(sqlStore):

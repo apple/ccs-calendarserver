@@ -56,6 +56,7 @@ from txdav.common.datastore.sql_tables import (
 
 
 from pycalendar.duration import PyCalendarDuration
+from twext.enterprise.dal.syntax import CaseFold
 
 log = Logger()
 
@@ -220,7 +221,8 @@ class SQLLegacyInvites(object):
         inv = schema.INVITE
         home = cls._homeSchema
         return cls._allColumnsQuery(
-            (inv.RESOURCE_ID == Parameter("resourceID")).And(home.OWNER_UID == Parameter("principalUID"))
+            (inv.RESOURCE_ID == Parameter("resourceID"))
+            .And(home.OWNER_UID == CaseFold(Parameter("principalUID")))
         )
 
 

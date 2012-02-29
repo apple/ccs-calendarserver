@@ -99,7 +99,7 @@ class QueryGenerator(object):
     query. This includes the SQL dialect, the format of the place holder and
     and automated id generator.
     """
-    
+
     def __init__(self, dialect=None, placeholder=None):
         self.dialect = dialect if dialect else POSTGRES_DIALECT
         if placeholder is None:
@@ -107,9 +107,15 @@ class QueryGenerator(object):
         self.placeholder = placeholder
 
         self.generatedID = count(1).next
-    
+
+
     def nextGeneratedID(self):
         return "genid_%d" % (self.generatedID(),)
+
+
+    def shouldQuote(self, name):
+        return (self.dialect == ORACLE_DIALECT and name.lower() in _KEYWORDS)
+
 
 
 class TableMismatch(Exception):
@@ -292,6 +298,8 @@ def comparison(comparator):
             return NotImplemented
         if isinstance(other, ColumnSyntax):
             return ColumnComparison(self, comparator, other)
+        if isinstance(other, ExpressionSyntax):
+            return CompoundComparison(self, comparator, other)
         else:
             return CompoundComparison(self, comparator, Constant(other))
     return __
@@ -414,6 +422,13 @@ class Function(object):
 Count = Function("count")
 Max = Function("max")
 Len = Function("character_length", "length")
+Upper = Function("upper")
+Lower = Function("lower")
+
+# Use a specific value here for "the convention for case-insensitive values in
+# the database" so we don't need to keep remembering whether it's upper or
+# lowercase.
+CaseFold = Lower
 
 
 
@@ -697,7 +712,7 @@ class ColumnSyntax(ExpressionSyntax):
         # XXX This, and 'model', could in principle conflict with column names.
         # Maybe do something about that.
         name = self.model.name
-        if queryGenerator.dialect == ORACLE_DIALECT and name.lower() in _KEYWORDS:
+        if queryGenerator.shouldQuote(name):
             name = '"%s"' % (name,)
 
         if self._alwaysQualified:

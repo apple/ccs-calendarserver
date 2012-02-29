@@ -30,8 +30,7 @@ create sequence RESOURCE_ID_SEQ;
 create table CALENDAR_HOME (
   RESOURCE_ID      integer      primary key default nextval('RESOURCE_ID_SEQ'), -- implicit index
   OWNER_UID        varchar(255) not null unique,                                 -- implicit index
-  DATAVERSION	   integer      default 0 not null,
-  constraint CALENDAR_HOME_CASE check(OWNER_UID = lower(OWNER_UID))
+  DATAVERSION	   integer      default 0 not null
 );
 
 ----------------------------
@@ -90,8 +89,7 @@ create index INVITE_HOME_RESOURCE_ID on INVITE(HOME_RESOURCE_ID);
 
 create table NOTIFICATION_HOME (
   RESOURCE_ID integer      primary key default nextval('RESOURCE_ID_SEQ'), -- implicit index
-  OWNER_UID   varchar(255) not null unique,                                -- implicit index
-  constraint NOTIFICATION_HOME_CASE check(OWNER_UID = lower(OWNER_UID))
+  OWNER_UID   varchar(255) not null unique                                 -- implicit index
 );
 
 create table NOTIFICATION (
@@ -328,8 +326,7 @@ create table RESOURCE_PROPERTY (
 create table ADDRESSBOOK_HOME (
   RESOURCE_ID      integer      primary key default nextval('RESOURCE_ID_SEQ'), -- implicit index
   OWNER_UID        varchar(255) not null unique,                                -- implicit index
-  DATAVERSION	   integer      default 0 not null,
-  constraint ADDRESSBOOK_HOME_CASE check(OWNER_UID = lower(OWNER_UID))
+  DATAVERSION	   integer      default 0 not null
 );
 
 -------------------------------
@@ -497,6 +494,6 @@ create table CALENDARSERVER (
   VALUE                         varchar(255)
 );
 
-insert into CALENDARSERVER values ('VERSION', '9');
+insert into CALENDARSERVER values ('VERSION', '8');
 insert into CALENDARSERVER values ('CALENDAR-DATAVERSION', '2');
 insert into CALENDARSERVER values ('ADDRESSBOOK-DATAVERSION', '1');

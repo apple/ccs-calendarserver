@@ -86,11 +86,29 @@ class Constraint(object):
     NOT_NULL = 'NOT NULL'
     UNIQUE = 'UNIQUE'
 
-    def __init__(self, type, affectsColumns):
+    def __init__(self, type, affectsColumns, name=None):
         self.affectsColumns = affectsColumns
         # XXX: possibly different constraint types should have different
         # classes?
         self.type = type
+        self.name = name
+
+
+
+class Check(Constraint):
+    """
+    A 'check' constraint, which evaluates an SQL expression.
+
+    @ivar expression: the expression that should evaluate to True.
+    @type expression: L{twext.enterprise.dal.syntax.ExpressionSyntax}
+    """
+    # XXX TODO: model for expression, rather than 
+
+    def __init__(self, syntaxExpression, name=None):
+        self.expression = syntaxExpression
+        super(Check, self).__init__(
+            'CHECK', [c.model for c in self.expression.allColumns()], name
+        )
 
 
 
@@ -288,6 +306,16 @@ class Table(FancyEqMixin, object):
         for name in columnNames:
             affectsColumns.append(self.columnNamed(name))
         self.constraints.append(Constraint(constraintType, affectsColumns))
+
+
+    def checkConstraint(self, protoExpression, name=None):
+        """
+        This table is affected by a 'check' constraint.  (Should only be called
+        during schema parsing.)
+
+        @param protoExpression: proto expression.
+        """
+        self.constraints.append(Check(protoExpression, name))
 
 
     def insertSchemaRow(self, values):
