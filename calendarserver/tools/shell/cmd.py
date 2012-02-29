@@ -23,11 +23,12 @@ Data store commands.
 from twisted.internet.defer import succeed
 from twisted.internet.defer import inlineCallbacks, returnValue
 
+from twisted.conch.manhole import ManholeInterpreter
+
 from txdav.common.icommondatastore import NotFoundError
 
 from calendarserver.tools.tables import Table
 from calendarserver.tools.shell.vfs import Folder
-
 
 class UsageError(Exception):
     """
@@ -340,14 +341,47 @@ class Commands(CommandsBase):
         """
         self.exit()
 
+
+    interpreter = None
+
     def cmd_python(self, tokens):
         """
         Switch to a python prompt.
 
         usage: python
         """
-        # Crazy idea #19568: switch to an interactive python prompt
-        # with self exposed in globals.
-        raise NotImplementedError()
+        if self.interpreter is None:
+            # Bring in some helpful local variables.
+            from txdav.common.datastore.sql_tables import schema
+            from twext.enterprise.dal import syntax
+            lcls = dict(self=self, store=self.service.store, schema=schema)
+            for key, value in syntax.__dict__.items():
+                if not key.startswith("_"):
+                    lcls[key] = value
+            self.interpreter = ManholeInterpreter(self, lcls)
+        def evalSomePython(line):
+            if line == 'exit':
+                # return to normal command mode.
+                del self.lineReceived
+                del self.ps
+                del self.pn
+                self.drawInputLine()
+                return
+            more = self.interpreter.push(line)
+            self.pn = bool(more)
+            lw = self.terminal.lastWrite
+            if not (lw.endswith("\n") or lw.endswith("\x1bE")):
+                self.terminal.write("\n")
+            self.drawInputLine()
+        self.lineReceived = evalSomePython
+        self.ps = ('>>> ', '... ')
 
-    cmd_python.hidden = "Not implemented"
+    def addOutput(self, bytes, async=False):
+        if async:
+            self.terminal.write("... interrupted for Deferred ...\n")
+        self.terminal.write(bytes)
+        if async:
+            self.terminal.write("\n")
+            self.drawInputLine()
+
+    cmd_python.hidden = "Still experimental / untested."
