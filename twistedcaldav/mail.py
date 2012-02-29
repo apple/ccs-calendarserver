@@ -92,6 +92,17 @@ __all__ = [
 log = Logger()
 
 #
+# Monkey patch imap4.log so it doesn't emit useless logging,
+# specifically, "Unhandled unsolicited response" nonsense.
+#
+class IMAPLogger(Logger):
+    def emit(self, level, message, *args, **kwargs):
+        if not message.startswith("Unhandled unsolicited response: "):
+            super(Logger, self).emit(level, message, *args, **kwargs)
+
+imap4.log = IMAPLogger()
+
+#
 # Templates
 #
 
