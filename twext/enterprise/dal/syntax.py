@@ -113,6 +113,10 @@ class QueryGenerator(object):
         return "genid_%d" % (self.generatedID(),)
 
 
+    def shouldQuote(self, name):
+        return (self.dialect == ORACLE_DIALECT and name.lower() in _KEYWORDS)
+
+
 
 class TableMismatch(Exception):
     """
@@ -699,7 +703,7 @@ class ColumnSyntax(ExpressionSyntax):
         # XXX This, and 'model', could in principle conflict with column names.
         # Maybe do something about that.
         name = self.model.name
-        if queryGenerator.dialect == ORACLE_DIALECT and name.lower() in _KEYWORDS:
+        if queryGenerator.shouldQuote(name):
             name = '"%s"' % (name,)
 
         if self._alwaysQualified:
