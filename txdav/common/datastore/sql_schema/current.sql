@@ -30,7 +30,8 @@ create sequence RESOURCE_ID_SEQ;
 create table CALENDAR_HOME (
   RESOURCE_ID      integer      primary key default nextval('RESOURCE_ID_SEQ'), -- implicit index
   OWNER_UID        varchar(255) not null unique,                                 -- implicit index
-  DATAVERSION	   integer      default 0 not null
+  DATAVERSION	   integer      default 0 not null,
+  constraint CALENDAR_HOME_CASE check(OWNER_UID = lower(OWNER_UID))
 );
 
 ----------------------------
@@ -326,7 +327,8 @@ create table RESOURCE_PROPERTY (
 create table ADDRESSBOOK_HOME (
   RESOURCE_ID      integer      primary key default nextval('RESOURCE_ID_SEQ'), -- implicit index
   OWNER_UID        varchar(255) not null unique,                                -- implicit index
-  DATAVERSION	   integer      default 0 not null
+  DATAVERSION	   integer      default 0 not null,
+  constraint ADDRESSBOOK_HOME_CASE check(OWNER_UID = lower(OWNER_UID))
 );
 
 -------------------------------
