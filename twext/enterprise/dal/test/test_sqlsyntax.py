@@ -483,11 +483,23 @@ class GenerationTests(ExampleSchemaHelper, TestCase):
                          [173, 7]))
 
 
+    def test_rightHandSideExpression(self):
+        """
+        Arbitrary expressions may be used as the right-hand side of a
+        comparison operation.
+        """
+        self.assertEquals(
+            Select(From=self.schema.FOO,
+                   Where=self.schema.FOO.BAR >
+                   (self.schema.FOO.BAZ + 3)).toSQL(),
+            SQLFragment("select * from FOO where BAR > (BAZ + ?)", [3])
+        )
+
+
     def test_setSelects(self):
         """
         L{SetExpression} produces set operation on selects.
         """
-        
         # Simple UNION
         self.assertEquals(
             Select(
