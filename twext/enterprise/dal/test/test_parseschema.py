@@ -195,11 +195,57 @@ class ParsingExampleTests(TestCase, SchemaTestHelper):
         """
         for identicalSchema in [
                 "create table sample (example integer unique);",
-                "create table sample (example integer, unique(example));"]:
+                "create table sample (example integer, unique(example));",
+                "create table sample "
+                "(example integer, constraint unique_example unique(example))"]:
             s = self.schemaFromString(identicalSchema)
             table = s.tableNamed('sample')
             column = table.columnNamed('example')
             self.assertEquals(list(table.uniques()), [[column]])
+
+
+    def test_checkExpressionConstraint(self):
+        """
+        A column with a CHECK constraint in SQL that uses an inequality will
+        result in a L{Check} constraint being added to the L{Table} object.
+        """
+        def checkOneConstraint(sqlText):
+            s = self.schemaFromString(sqlText)
+            table = s.tableNamed('sample')
+            self.assertEquals(len(table.constraints), 1)
+            constraint = table.constraints[0]
+            from twext.enterprise.dal.syntax import CompoundComparison
+            expr = constraint.expression
+            self.assertIsInstance(expr, CompoundComparison)
+            self.assertEqual(expr.a.model, table.columnNamed('example'))
+            self.assertEqual(expr.b.value, 5)
+            self.assertEqual(expr.op, '>')
+        checkOneConstraint(
+            "create table sample (example integer check(example >  5));"
+        )
+        checkOneConstraint(
+            "create table sample (example integer, check(example  > 5));"
+        )
+        checkOneConstraint(
+            "create table sample "
+            "(example integer, constraint gt_5 check(example>5))"
+        )
+
+
+    def test_checkKeywordConstraint(self):
+        """
+        A column with a CHECK constraint in SQL that compares with a keyword
+        expression such as 'lower' will result in a L{Check} constraint being
+        added to the L{Table} object.
+        """
+        def checkOneConstraint(sqlText):
+            s = self.schemaFromString(sqlText)
+            table = s.tableNamed('sample')
+            self.assertEquals(len(table.constraints), 1)
+        checkOneConstraint(
+            "create table sample "
+            "(example integer check(example = lower(example)));"
+        )
 
 
     def test_multiUnique(self):
