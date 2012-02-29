@@ -22,7 +22,9 @@ Parser for SQL schema.
 from itertools import chain
 
 from sqlparse import parse, keywords
-from sqlparse.tokens import Keyword, Punctuation, Number, String, Name
+from sqlparse.tokens import (
+    Keyword, Punctuation, Number, String, Name, Comparison as CompTok
+)
 from sqlparse.sql import (Comment, Identifier, Parenthesis, IdentifierList,
                           Function, Comparison)
 
@@ -30,7 +32,7 @@ from twext.enterprise.dal.model import (
     Schema, Table, SQLType, ProcedureCall, Constraint, Sequence, Index)
 
 from twext.enterprise.dal.syntax import (
-    ColumnSyntax, CompoundComparison, Constant
+    ColumnSyntax, CompoundComparison, Constant, Function as FunctionSyntax
 )
 
 
@@ -269,7 +271,18 @@ class _ColumnParser(object):
                                         op.value.encode("ascii"),
                                         self.nameOrValue(rhs))
         elif isinstance(nexttok, Identifier):
-            result = None
+            # our version of SQLParse seems to break down and not create a nice
+            # "Comparison" object when a keyword is present.  This is just a
+            # simple workaround.
+            lhs = self.nameOrValue(nexttok)
+            op = expect(parens, ttype=CompTok).value.encode("ascii")
+            funcName = expect(parens, ttype=Keyword).value.encode("ascii")
+            rhs = FunctionSyntax(funcName)(*[
+                ColumnSyntax(self.table.columnNamed(x)) for x in
+                self.namesInParens(expect(parens, cls=Parenthesis))
+            ])
+            result = CompoundComparison(lhs, op, rhs)
+
         expect(parens, ttype=Punctuation, value=")")
         return result
 
@@ -480,7 +493,8 @@ def expectSingle(nextval, ttype=None, value=None, cls=None):
             raise ViolatedExpectation(value, nextval.value)
     if cls is not None:
         if nextval.__class__ != cls:
-            raise ViolatedExpectation(cls, repr(nextval))
+            raise ViolatedExpectation(cls, '%s:%r' %
+                                      (nextval.__class__.__name__, nextval))
     return nextval
 
 

@@ -20,8 +20,10 @@ and L{twext.enterprise.dal.parseschema}.
 """
 
 from twext.enterprise.dal.model import Schema
+from twext.enterprise.dal.syntax import CompoundComparison, ColumnSyntax
 
 from twext.enterprise.dal.parseschema import addSQLToSchema
+
 from twisted.trial.unittest import TestCase
 
 
@@ -214,7 +216,6 @@ class ParsingExampleTests(TestCase, SchemaTestHelper):
             table = s.tableNamed('sample')
             self.assertEquals(len(table.constraints), 1)
             constraint = table.constraints[0]
-            from twext.enterprise.dal.syntax import CompoundComparison
             expr = constraint.expression
             self.assertIsInstance(expr, CompoundComparison)
             self.assertEqual(expr.a.model, table.columnNamed('example'))
@@ -242,6 +243,14 @@ class ParsingExampleTests(TestCase, SchemaTestHelper):
             s = self.schemaFromString(sqlText)
             table = s.tableNamed('sample')
             self.assertEquals(len(table.constraints), 1)
+            expr = table.constraints[0].expression
+            self.assertEquals(expr.a.model, table.columnNamed("example"))
+            self.assertEquals(expr.op, "=")
+            self.assertEquals(expr.b.function.name, "lower")
+            self.assertEquals(
+                expr.b.args,
+                tuple([ColumnSyntax(table.columnNamed("example"))])
+            )
         checkOneConstraint(
             "create table sample "
             "(example integer check(example = lower(example)));"
