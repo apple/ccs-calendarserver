@@ -217,6 +217,58 @@ _translatedTypes = {
     'char': 'nchar',
 }
 
+
+
+def _quoted(x):
+    """
+    Quote an object for inclusion into an SQL string.
+
+    @note: Do not use this function with untrusted input, as it may be a
+        security risk.  This is only for translating local, trusted input from
+        the schema.
+
+    @return: the translated SQL string.
+    @rtype: C{str}
+    """
+    if isinstance(x, (str, unicode)):
+        return ''.join(["'", x.replace("'", "''"), "'"])
+    else:
+        return str(x)
+
+
+
+def _staticSQL(sql, doquote=False):
+    """
+    Statically generate some SQL from some DAL syntax objects, interpolating
+    any parameters into the body of the string.
+
+    @note: Do not use this function with untrusted input, as it may be a
+        security risk.  This is only for translating local, trusted input from
+        the schema.
+
+    @param sql: something from L{twext.enterprise.dal}, either a top-level
+        statement like L{Insert} or L{Select}, or a fragment such as an
+        expression.
+
+    @param doquote: Force all identifiers to be double-quoted, whether they
+        conflict with database identifiers or not, for consistency.
+
+    @return: the generated SQL string.
+    @rtype: C{str}
+    """
+    qgen = QueryGenerator(ORACLE_DIALECT, FixedPlaceholder('%s'))
+    if doquote:
+        qgen.shouldQuote = lambda name: True
+    if hasattr(sql, 'subSQL'):
+        fragment = sql.subSQL(qgen, [])
+    else:
+        fragment = sql.toSQL(qgen)
+    params = tuple([_quoted(param) for param in fragment.parameters])
+    result = fragment.text % params
+    return result
+
+
+
 def _translateSchema(out, schema=schema):
     """
     When run as a script, translate the schema to another dialect.  Currently
@@ -295,44 +347,21 @@ def _translateSchema(out, schema=schema):
                 continue # already done inline, skip
             writeConstraint("unique", uniqueColumns)
 
-        def quoted(x):
-            if isinstance(x, (str, unicode)):
-                return ''.join(["'", x.replace("'", "''"), "'"])
-            else:
-                return str(x)
-
-        def staticSQL(sql, doquote=False):
-            qgen = QueryGenerator(ORACLE_DIALECT, FixedPlaceholder('%s'))
-            if doquote:
-                qgen.shouldQuote = lambda name: True
-            if hasattr(sql, 'subSQL'):
-                fragment = sql.subSQL(qgen, [])
-            else:
-                fragment = sql.toSQL(qgen)
-            params = tuple([quoted(param) for param in fragment.parameters])
-            result = fragment.text % params
-            return result
-
         for checkConstraint in table.model.constraints:
             if checkConstraint.type == 'CHECK':
                 out.write(", \n    ")
                 if checkConstraint.name is not None:
                     out.write('constraint "%s" ' % (checkConstraint.name,))
                 out.write("check(%s)" %
-                          (staticSQL(checkConstraint.expression, True)))
+                          (_staticSQL(checkConstraint.expression, True)))
 
         out.write('\n);\n\n')
 
         for row in table.model.schemaRows:
-            cmap = dict(
-                [(getattr(table, cmodel.name), val)
-                 for (cmodel, val) in row.items()]
-            )
-            out.write(
-                staticSQL(Insert(cmap))
-            )
+            cmap = dict([(getattr(table, cmodel.name), val)
+                        for (cmodel, val) in row.items()])
+            out.write(_staticSQL(Insert(cmap)))
             out.write(";\n")
-
 
     for index in schema.model.indexes:
         # Index names combine and repeat multiple table names and column names,
