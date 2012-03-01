@@ -190,6 +190,7 @@ class Commands(CommandsBase):
         else:
             return ()
 
+
     def cmd_emulate(self, tokens):
         """
         Emulate editor behavior.
@@ -232,6 +233,7 @@ class Commands(CommandsBase):
         else:
             return ()
 
+
     def cmd_pwd(self, tokens):
         """
         Print working folder.
@@ -242,6 +244,7 @@ class Commands(CommandsBase):
             raise UnknownArguments(tokens)
 
         self.terminal.write("%s\n" % (self.wd,))
+
 
     @inlineCallbacks
     def cmd_cd(self, tokens):
@@ -266,12 +269,14 @@ class Commands(CommandsBase):
        #log.msg("wd -> %s" % (wd,))
         self.wd = wd
 
+
     @inlineCallbacks
     def complete_cd(self, tokens):
         returnValue((yield self.complete_files(
             tokens,
             filter = lambda item: issubclass(item[0], Folder)
         )))
+
 
     @inlineCallbacks
     def cmd_ls(self, tokens):
@@ -301,6 +306,7 @@ class Commands(CommandsBase):
 
     complete_ls = CommandsBase.complete_files
 
+
     @inlineCallbacks
     def cmd_info(self, tokens):
         """
@@ -319,6 +325,7 @@ class Commands(CommandsBase):
 
     complete_info = CommandsBase.complete_files
 
+
     @inlineCallbacks
     def cmd_cat(self, tokens):
         """
@@ -333,6 +340,7 @@ class Commands(CommandsBase):
 
     complete_cat = CommandsBase.complete_files
 
+
     def cmd_exit(self, tokens):
         """
         Exit the shell.
@@ -342,39 +350,51 @@ class Commands(CommandsBase):
         self.exit()
 
 
-    interpreter = None
-
     def cmd_python(self, tokens):
         """
         Switch to a python prompt.
 
         usage: python
         """
-        if self.interpreter is None:
+        if not hasattr(self, "_interpreter"):
             # Bring in some helpful local variables.
             from txdav.common.datastore.sql_tables import schema
             from twext.enterprise.dal import syntax
-            lcls = dict(self=self, store=self.service.store, schema=schema)
+
+            localVariables = dict(
+                self   = self,
+                store  = self.service.store,
+                schema = schema,
+            )
+
+            # FIXME: Use syntax.__all__, which needs to be defined
             for key, value in syntax.__dict__.items():
                 if not key.startswith("_"):
-                    lcls[key] = value
-            self.interpreter = ManholeInterpreter(self, lcls)
+                    localVariables[key] = value
+
+            self._interpreter = ManholeInterpreter(self, localVariables)
+
         def evalSomePython(line):
-            if line == 'exit':
-                # return to normal command mode.
+            if line == "exit":
+                # Return to normal command mode.
                 del self.lineReceived
                 del self.ps
                 del self.pn
                 self.drawInputLine()
                 return
-            more = self.interpreter.push(line)
+
+            more = self._interpreter.push(line)
             self.pn = bool(more)
             lw = self.terminal.lastWrite
             if not (lw.endswith("\n") or lw.endswith("\x1bE")):
                 self.terminal.write("\n")
             self.drawInputLine()
+
         self.lineReceived = evalSomePython
-        self.ps = ('>>> ', '... ')
+        self.ps = (">>> ", "... ")
+
+    cmd_python.hidden = "Still experimental / untested."
+
 
     def addOutput(self, bytes, async=False):
         if async:
@@ -383,5 +403,3 @@ class Commands(CommandsBase):
         if async:
             self.terminal.write("\n")
             self.drawInputLine()
-
-    cmd_python.hidden = "Still experimental / untested."
