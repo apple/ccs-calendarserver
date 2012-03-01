@@ -38,6 +38,8 @@ from twext.web2.http import HTTPError, StatusResponse
 
 from twistedcaldav.config import config
 
+from txdav.common.icommondatastore import ConcurrentModification
+
 import functools
 
 log = Logger()
@@ -136,23 +138,39 @@ def report_DAV__sync_collection(self, request, sync_collection):
 
     for child, child_uri in ok_resources:
         href = davxml.HRef.fromString(child_uri)
-        yield responseForHref(
-            request,
-            responses,
-            href,
-            child,
-            functools.partial(_namedPropertiesForResource, forbidden=False) if propertyreq else None,
-            propertyreq)
+        try:
+            yield responseForHref(
+                request,
+                responses,
+                href,
+                child,
+                functools.partial(_namedPropertiesForResource, forbidden=False) if propertyreq else None,
+                propertyreq)
+        except ConcurrentModification:
+            # This can happen because of a race-condition between the
+            # time we determine which resources exist and the deletion
+            # of one of these resources in another request.  In this
+            # case, we ignore the now missing resource rather
+            # than raise an error for the entire report.
+            log.err("Missing resource during sync: %s" % (href,))
 
     for child, child_uri in forbidden_resources:
         href = davxml.HRef.fromString(child_uri)
-        yield responseForHref(
-            request,
-            responses,
-            href,
-            child,
-            functools.partial(_namedPropertiesForResource, forbidden=True) if propertyreq else None,
-            propertyreq)
+        try:
+            yield responseForHref(
+                request,
+                responses,
+                href,
+                child,
+                functools.partial(_namedPropertiesForResource, forbidden=True) if propertyreq else None,
+                propertyreq)
+        except ConcurrentModification:
+            # This can happen because of a race-condition between the
+            # time we determine which resources exist and the deletion
+            # of one of these resources in another request.  In this
+            # case, we ignore the now missing resource rather
+            # than raise an error for the entire report.
+            log.err("Missing resource during sync: %s" % (href,))
 
     for name in removed:
         href = davxml.HRef.fromString(joinURL(request.uri, name))

@@ -1,6 +1,6 @@
 # -*- test-case-name: twistedcaldav.test.test_addressbookquery -*-
 ##
-# Copyright (c) 2006-2010 Apple Inc. All rights reserved.
+# Copyright (c) 2006-2012 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -38,6 +38,8 @@ from twistedcaldav.config import config
 from twistedcaldav.carddavxml import carddav_namespace, NResults
 from twistedcaldav.method import report_common
 from twistedcaldav.query import addressbookqueryfilter
+
+from txdav.common.icommondatastore import ConcurrentModification
 
 log = Logger()
 
@@ -123,6 +125,7 @@ def report_urn_ietf_params_xml_ns_carddav_addressbook_query(self, request, addre
                 raise NumberOfMatchesWithinLimits(max_number_of_results[0])
            
         
+        @inlineCallbacks
         def queryAddressBookObjectResource(resource, uri, name, vcard, query_ok = False):
             """
             Run a query on the specified vcard.
@@ -141,11 +144,16 @@ def report_urn_ietf_params_xml_ns_carddav_addressbook_query(self, request, addre
                 else:
                     href = davxml.HRef.fromString(uri)
             
-                return report_common.responseForHref(request, responses, href, resource, propertiesForResource, query, vcard=vcard)
-            else:
-                return succeed(None)
-            
-                                
+                try:
+                    yield report_common.responseForHref(request, responses, href, resource, propertiesForResource, query, vcard=vcard)
+                except ConcurrentModification:
+                    # This can happen because of a race-condition between the
+                    # time we determine which resources exist and the deletion
+                    # of one of these resources in another request.  In this
+                    # case, we ignore the now missing resource rather
+                    # than raise an error for the entire report.
+                    log.err("Missing resource during sync: %s" % (href,))
+              
             
         @inlineCallbacks
         def queryDirectoryBackedAddressBook(directoryBackedAddressBook, addressBookFilter):
@@ -160,8 +168,15 @@ def report_urn_ietf_params_xml_ns_carddav_addressbook_query(self, request, addre
                     # Check size of results is within limit
                     checkMaxResults()
                    
-                    yield report_common.responseForHref(request, responses, vCardRecord.hRef(), vCardRecord, propertiesForResource, query, vcard=(yield vCardRecord.vCard()))
- 
+                    try:
+                        yield report_common.responseForHref(request, responses, vCardRecord.hRef(), vCardRecord, propertiesForResource, query, vcard=(yield vCardRecord.vCard()))
+                    except ConcurrentModification:
+                        # This can happen because of a race-condition between the
+                        # time we determine which resources exist and the deletion
+                        # of one of these resources in another request.  In this
+                        # case, we ignore the now missing resource rather
+                        # than raise an error for the entire report.
+                        log.err("Missing resource during sync: %s" % (vCardRecord.hRef(),))
  
             
         directoryAddressBookLock = None

@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2006-2010 Apple Inc. All rights reserved.
+# Copyright (c) 2006-2012 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -34,7 +34,8 @@ from twext.web2.http import HTTPError, StatusResponse
 
 from twistedcaldav.caldavxml import caldav_namespace, MaxInstances
 from twistedcaldav.config import config
-from txdav.common.icommondatastore import IndexedSearchException
+from txdav.common.icommondatastore import IndexedSearchException,\
+    ConcurrentModification
 from twistedcaldav.instance import TooManyInstancesError
 from twistedcaldav.method import report_common
 from twistedcaldav.query import calendarqueryfilter
@@ -126,6 +127,7 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_query(self, request, calendar_
         @param uri: the uri for the calendar collection resource.
         """
         
+        @inlineCallbacks
         def queryCalendarObjectResource(resource, uri, name, calendar, timezone, query_ok=False, isowner=True):
             """
             Run a query on the specified calendar.
@@ -152,9 +154,15 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_query(self, request, calendar_
                 else:
                     href = davxml.HRef.fromString(uri)
             
-                return report_common.responseForHref(request, responses, href, resource, propertiesForResource, props, isowner, calendar=calendar, timezone=timezone)
-            else:
-                return succeed(None)
+                try:
+                    yield report_common.responseForHref(request, responses, href, resource, propertiesForResource, props, isowner, calendar=calendar, timezone=timezone)
+                except ConcurrentModification:
+                    # This can happen because of a race-condition between the
+                    # time we determine which resources exist and the deletion
+                    # of one of these resources in another request.  In this
+                    # case, we ignore the now missing resource rather
+                    # than raise an error for the entire report.
+                    log.err("Missing resource during query: %s" % (href,))
     
         # Check whether supplied resource is a calendar or a calendar object resource
         if calresource.isPseudoCalendarCollection():
