@@ -23,7 +23,7 @@ __all__ = ["report_urn_ietf_params_xml_ns_carddav_addressbook_query"]
 
 import urllib
 
-from twisted.internet.defer import succeed, inlineCallbacks, returnValue, maybeDeferred
+from twisted.internet.defer import inlineCallbacks, returnValue, maybeDeferred
 
 from twext.python.log import Logger
 from twext.web2 import responsecode
