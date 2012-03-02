@@ -915,6 +915,10 @@ DEFAULT_CONFIG = {
     # use to carry out work.
     "UtilityServiceClass": "",
 
+    # Inbox items created more than MigratedInboxDaysCutoff days in the past are removed
+    # during migration
+    "MigratedInboxDaysCutoff": 60,
+
     "Includes": [],     # Other plists to parse after this one
 }
 

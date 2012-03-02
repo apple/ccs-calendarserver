@@ -1225,6 +1225,110 @@ class UpgradeTests(TestCase):
         (yield self.verifyDirectoryComparison(before, after))
 
 
+
+    @inlineCallbacks
+    def test_calendarsUpgradeWithInboxItems(self):
+        """
+        Verify that inbox items older than 60 days are deleted
+        """
+
+        self.setUpXMLDirectory()
+
+        before = {
+            "calendars" :
+            {
+                "__uids__" :
+                {
+                    "64" :
+                    {
+                        "23" :
+                        {
+                            "6423F94A-6B76-4A3A-815B-D52CFD77935D" :
+                            {
+                                "inbox" :
+                                {
+                                    db_basename : {
+                                        "@contents": "",
+                                    },
+                                    "@xattrs" :
+                                    {
+                                        # Zlib compressed XML
+                                        freeBusyAttr : zlib.compress("<?xml version='1.0' encoding='UTF-8'?>\r\n<calendar-free-busy-set xmlns='urn:ietf:params:xml:ns:caldav'>\r\n  <href xmlns='DAV:'>/calendars/__uids__/6423F94A-6B76-4A3A-815B-D52CFD77935D/calendar/</href>\r\n</calendar-free-busy-set>\r\n"),
+                                    },
+                                    "oldinboxitem" : {
+                                        "@contents": "",
+                                        "@timestamp": 1, # really old file
+                                    },
+                                    "newinboxitem" : {
+                                        "@contents": "",
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+            NEWPROXYFILE :
+            {
+                "@contents" : "",
+            }
+        }
+
+        after = {
+            ".calendarserver_version" :
+            {
+                "@contents" : "2",
+            },
+            "inboxitems.txt" :
+            {
+                "@contents" : None, # ignore contents, the paths inside are random test directory paths
+            },
+            "calendars" :
+            {
+                "__uids__" :
+                {
+                    "64" :
+                    {
+                        "23" :
+                        {
+                            "6423F94A-6B76-4A3A-815B-D52CFD77935D" :
+                            {
+                                "inbox" :
+                                {
+                                    db_basename : {
+                                        "@contents": "",
+                                    },
+                                    "@xattrs" :
+                                    {
+                                        freeBusyAttr : zlib.compress("<?xml version='1.0' encoding='UTF-8'?>\r\n<calendar-free-busy-set xmlns='urn:ietf:params:xml:ns:caldav'>\r\n  <href xmlns='DAV:'>/calendars/__uids__/6423F94A-6B76-4A3A-815B-D52CFD77935D/calendar/</href>\r\n</calendar-free-busy-set>\r\n"),
+                                    },
+                                    "newinboxitem" : {
+                                        "@contents": "",
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+            NEWPROXYFILE :
+            {
+                "@contents" : None,
+            },
+            MailGatewayTokensDatabase.dbFilename :
+            {
+                "@contents" : None,
+            },
+            "%s-journal" % (MailGatewayTokensDatabase.dbFilename,) :
+            {
+                "@contents" : None,
+                "@optional" : True,
+            },
+        }
+
+        (yield self.verifyDirectoryComparison(before, after))
+
+
     @inlineCallbacks
     def test_calendarsUpgradeWithError(self):
         """

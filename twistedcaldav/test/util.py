@@ -182,6 +182,7 @@ class TestCase(twext.web2.dav.test.util.TestCase):
                     with open(childPath, "w") as child:
                         child.write(childStructure["@contents"])
 
+
                 else:
                     # This is a directory
                     os.mkdir(childPath)
@@ -194,6 +195,11 @@ class TestCase(twext.web2.dav.test.util.TestCase):
                             xattr.setxattr(childPath, attr, value)
                         except IOError:
                             pass
+
+                # Set access and modified times
+                if childStructure.has_key("@timestamp"):
+                    timestamp = childStructure["@timestamp"]
+                    os.utime(childPath, (timestamp, timestamp))
 
         createChildren(root, structure)
         return root
