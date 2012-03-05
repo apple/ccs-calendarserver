@@ -19,14 +19,18 @@ Tests for L{txdav.common.datastore.sql}.
 """
 
 from twext.enterprise.dal.syntax import Select
+from twext.web2.dav import davxml
+
 from twisted.internet.defer import inlineCallbacks
 from twisted.internet.task import Clock
 from twisted.trial.unittest import TestCase
-from txdav.common.datastore.sql import log, CommonStoreTransactionMonitor
-from txdav.common.datastore.sql_tables import schema
+
+from txdav.common.datastore.sql import log, CommonStoreTransactionMonitor,\
+    CommonHome, CommonHomeChild, ECALENDARTYPE
+from txdav.common.datastore.sql_tables import schema, CALENDAR_BIND_TABLE,\
+    CALENDAR_OBJECT_REVISIONS_TABLE
 from txdav.common.datastore.test.util import CommonCommonTests, buildStore
 from txdav.common.icommondatastore import AllRetriesFailed
-
 
 class SubTransactionTests(CommonCommonTests, TestCase):
     """
@@ -244,3 +248,60 @@ class SubTransactionTests(CommonCommonTests, TestCase):
         else:
             self.fail("AllRetriesFailed not raised")
         self.assertEqual(ctr[0], 3)
+
+    @inlineCallbacks
+    def test_changeRevision(self):
+        """
+        CommonHomeChild._changeRevision actions.
+        """
+        
+        class TestCommonHome(CommonHome):
+            _bindTable = CALENDAR_BIND_TABLE
+            _revisionsTable = CALENDAR_OBJECT_REVISIONS_TABLE
+    
+        class TestCommonHomeChild(CommonHomeChild):
+            _homeChildSchema = schema.CALENDAR
+            _homeChildMetaDataSchema = schema.CALENDAR_METADATA
+            _bindSchema = schema.CALENDAR_BIND
+            _revisionsSchema = schema.CALENDAR_OBJECT_REVISIONS
+            _bindTable = CALENDAR_BIND_TABLE
+            _revisionsTable = CALENDAR_OBJECT_REVISIONS_TABLE
+            
+            def resourceType(self):
+                return davxml.ResourceType.calendar
+    
+        txn = self.transactionUnderTest()
+        home = yield txn.homeWithUID(ECALENDARTYPE, "uid", create=True)
+        homeChild = yield TestCommonHomeChild.create(home, "B")
+        
+        # insert test
+        token = yield homeChild.syncToken()
+        yield homeChild._changeRevision("insert", "C")
+        changed = yield homeChild.resourceNamesSinceToken(token)
+        self.assertEqual(changed, (["C"], [],))
+
+        # update test
+        token = yield homeChild.syncToken()
+        yield homeChild._changeRevision("update", "C")
+        changed = yield homeChild.resourceNamesSinceToken(token)
+        self.assertEqual(changed, (["C"], [],))
+
+        # delete test
+        token = yield homeChild.syncToken()
+        yield homeChild._changeRevision("delete", "C")
+        changed = yield homeChild.resourceNamesSinceToken(token)
+        self.assertEqual(changed, ([], ["C"],))
+
+        # missing update test
+        token = yield homeChild.syncToken()
+        yield homeChild._changeRevision("update", "D")
+        changed = yield homeChild.resourceNamesSinceToken(token)
+        self.assertEqual(changed, (["D"], [],))
+
+        # missing delete test
+        token = yield homeChild.syncToken()
+        yield homeChild._changeRevision("delete", "E")
+        changed = yield homeChild.resourceNamesSinceToken(token)
+        self.assertEqual(changed, ([], [],))
+
+        txn.abort()

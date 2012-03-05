@@ -1683,15 +1683,26 @@ class _SharedSyncLogic(object):
 
     @inlineCallbacks
     def _changeRevision(self, action, name):
+
+        # Need to handle the case where for some reason the revision entry is
+        # actually missing. For a "delete" we don't care, for an "update" we
+        # will turn it into an "insert".
         if action == "delete":
-            self._syncTokenRevision = (
+            rows = (
                 yield self._deleteBumpTokenQuery.on(
-                    self._txn, resourceID=self._resourceID, name=name))[0][0]
+                    self._txn, resourceID=self._resourceID, name=name))
+            if rows:
+                self._syncTokenRevision = rows[0][0]
         elif action == "update":
-            self._syncTokenRevision = (
+            rows = (
                 yield self._updateBumpTokenQuery.on(
-                    self._txn, resourceID=self._resourceID, name=name))[0][0]
-        elif action == "insert":
+                    self._txn, resourceID=self._resourceID, name=name))
+            if rows:
+                self._syncTokenRevision = rows[0][0]
+            else:
+                action = "insert"
+        
+        if action == "insert":
             # Note that an "insert" may happen for a resource that previously
             # existed and then was deleted. In that case an entry in the
             # REVISIONS table still exists so we have to detect that and do db
