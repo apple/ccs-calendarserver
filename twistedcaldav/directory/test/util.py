@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2005-2009 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2012 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@ from twext.web2.auth.digest import DigestedCredentials, calcResponse, calcHA1
 
 from twistedcaldav.directory.directory import DirectoryService
 from twistedcaldav.directory.directory import UnknownRecordTypeError
+from twistedcaldav.directory.util import transactionFromRequest
 from twistedcaldav.test.util import TestCase
 
 # FIXME: Add tests for GUID hooey, once we figure out what that means here
@@ -348,3 +349,11 @@ class DigestTestCase (DirectoryTestCase):
                     self.failUnless(userRecord.verifyCredentials(credentials))
                 else:
                     self.failIf(userRecord.verifyCredentials(credentials))
+
+def maybeCommit(req):
+    class JustForCleanup(object):
+        def newTransaction(self, *whatever):
+            return self
+        def commit(self):
+            return
+    transactionFromRequest(req, JustForCleanup()).commit()

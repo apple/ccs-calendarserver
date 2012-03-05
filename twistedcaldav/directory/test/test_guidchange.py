@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2005-2010 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2012 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@ from twext.web2.dav import davxml
 from twext.web2.dav.resource import AccessDeniedError
 from twext.web2.test.test_server import SimpleRequest
 
+from twistedcaldav.directory.test.util import maybeCommit
 from twistedcaldav.test.util import TestCase, xmlFile
 
 
@@ -103,6 +104,9 @@ class ProvisionedPrincipals(TestCase):
                     self.fail("%s should not have %s privilege on %r" % (principal, privilege.sname(), resource))
                 d.addCallback(onSuccess)
                 d.addErrback(onError)
+            def _commit(ignore):
+                maybeCommit(request)
+            d.addBoth(_commit)
             return d
 
         d = request.locateResource(url)
