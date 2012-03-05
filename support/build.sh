@@ -625,7 +625,7 @@ dependencies () {
       "http://memcached.googlecode.com/files/${mc}.tar.gz";
   fi;
 
-  if ! type -P postgres > /dev/null; then
+  if ! type -P psql > /dev/null; then
     local pgv="9.1.2";
     local pg="postgresql-${pgv}";
 
