@@ -1110,7 +1110,7 @@ class PostDBImportService(Service, object):
                         continue
 
                     request = FakeRequest(root, "PUT", None)
-                    request.NoAttendeeRefresh = True # tell scheduling to skip refresh
+                    request.noAttendeeRefresh = True # tell scheduling to skip refresh
                     request.checkedSACL = True
                     request.authnUser = request.authzUser = davxml.Principal(
                         davxml.HRef.fromString("/principals/__uids__/%s/" % (uuid,))
