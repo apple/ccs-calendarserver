@@ -165,12 +165,13 @@
                     <t hangText="Name:">dtstamp</t>
                     <t hangText="Namespace:">http://calendarserver.org/ns/</t>
                     <t hangText="Purpose:">Date-time stamp.</t>
-                    <t hangText="Description:">Contains the date-time stamp corresponding to the creation of a notification message, using the format defined in <xref target="RFC3339"/>.</t>
+                    <t hangText="Description:">Contains the date-time stamp corresponding to the creation of a notification message, using the format defined in <xref target="RFC3339"/>, or the "compact" format without "-" and ":" characters between date and time elements, respectively.</t>
                     <t hangText="Definition:">
                       <figure>
                         <artwork><![CDATA[
 <!ELEMENT dtstamp (#PCDATA)>
-<!-- Value is a date-time in UTZ as per [RFC3339] -->]]></artwork>
+<!-- Value is a date-time in UTZ as per [RFC3339] with 
+     "compact" format allowed.-->]]></artwork>
                       </figure>
                     </t>
                   </list>
@@ -341,8 +342,12 @@
        is the principal URI or email address of the user who made
        the change. -->
 
-  <!ELEMENT collection-changes (DAV:href, DAV:prop?, child-created?,
-                                child-updated? child-deleted?>
+  <!ELEMENT collection-changes (DAV:href, changed-by*, DAV:prop?,
+                                child-created?, child-updated?,
+                                child-deleted?>
+    <!-- When coalescing changes from multiple users, the changed-by
+         element can appear more than once. -->
+
     <!ELEMENT child-created CDATA>
     <!ELEMENT child-updated CDATA>
     <!ELEMENT child-deleted CDATA>
@@ -538,12 +543,15 @@
        instances existed at the time of deletion. -->
 
   <!ELEMENT deleted-next-instance CDATA>
-  <!-- If present indicates the UTC date-time, or date value for
-       the "RECURRENCE-ID" of the next future instance at the time
-       of deletion. If not present, then there were no future
-       instances at the time of deletion. -->
+  <!ATTLIST deleted-next-instance tzid PCDATA>
+  <!-- If present, indicates when the next deleted instance would
+       have occurred. For a VEVENT that would be the DTSTART value,
+       for a VTODO that would be either DTSTART or DUE, if present.
+       In each case the value must match the value in the iCalendar
+       data, and any TZID iCalendar property parameter value must
+       be included in the tzid XML element attribute value. -->
 
-  <!ELEMENT deleted-had-more-instances CDATA>
+  <!ELEMENT deleted-had-more-instances EMPTY>
   <!-- If present indicates that there was more than one future
        instances still to occur at the time of deletion. -->
 
@@ -559,7 +567,8 @@
 <CS:deleted-details xmlns:CS="http://calendarserver.org/ns/">
   <CS:deleted-component>VEVENT</CS:deleted-component>
   <CS:deleted-summary>Birthday Party</CS:deleted-summary>
-  <CS:deleted-next-instance>20120505</CS:deleted-next-instance>
+  <CS:deleted-next-instance tzid="America/New_York
+  >20120505T120000</CS:deleted-next-instance>
 </CS:deleted-details>]]></artwork>
                             </figure>
                         </t>

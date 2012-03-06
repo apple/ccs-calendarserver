@@ -3,7 +3,7 @@
 
 Calendar Server Extension                                       C. Daboo
                                                               Apple Inc.
-                                                        February 9, 2012
+                                                           March 6, 2012
 
 
                   CalDAV: Calendar User Notifications
@@ -54,7 +54,7 @@ Abstract
 
 Daboo                                                           [Page 1]
 
-                        CalDAV User Notifications          February 2012
+                        CalDAV User Notifications             March 2012
 
 
 Table of Contents
@@ -110,7 +110,7 @@ Table of Contents
 
 Daboo                                                           [Page 2]
 
-                        CalDAV User Notifications          February 2012
+                        CalDAV User Notifications             March 2012
 
 
 1.  Introduction
@@ -166,7 +166,7 @@ Daboo                                                           [Page 2]
 
 Daboo                                                           [Page 3]
 
-                        CalDAV User Notifications          February 2012
+                        CalDAV User Notifications             March 2012
 
 
    The notification collection referenced by the CS:notification-URL
@@ -222,7 +222,7 @@ Daboo                                                           [Page 3]
 
 Daboo                                                           [Page 4]
 
-                        CalDAV User Notifications          February 2012
+                        CalDAV User Notifications             March 2012
 
 
 4.1.1.  CS:notification-URL Property
@@ -278,7 +278,7 @@ Daboo                                                           [Page 4]
 
 Daboo                                                           [Page 5]
 
-                        CalDAV User Notifications          February 2012
+                        CalDAV User Notifications             March 2012
 
 
    COPY/MOVE behavior:  This property value MUST be preserved in COPY
@@ -334,7 +334,7 @@ Daboo                                                           [Page 5]
 
 Daboo                                                           [Page 6]
 
-                        CalDAV User Notifications          February 2012
+                        CalDAV User Notifications             March 2012
 
 
    Definition:
@@ -353,12 +353,14 @@ Daboo                                                           [Page 6]
 
    Description:  Contains the date-time stamp corresponding to the
       creation of a notification message, using the format defined in
-      [RFC3339].
+      [RFC3339], or the "compact" format without "-" and ":" characters
+      between date and time elements, respectively.
 
    Definition:
 
    <!ELEMENT dtstamp (#PCDATA)>
-   <!-- Value is a date-time in UTZ as per [RFC3339] -->
+   <!-- Value is a date-time in UTZ as per [RFC3339] with
+        "compact" format allowed.-->
 
 
 5.  Notification Definitions
@@ -386,11 +388,9 @@ Daboo                                                           [Page 6]
 
 
 
-
-
 Daboo                                                           [Page 7]
 
-                        CalDAV User Notifications          February 2012
+                        CalDAV User Notifications             March 2012
 
 
 5.1.1.  CS:systemstatus Element Definition
@@ -446,7 +446,7 @@ Daboo                                                           [Page 7]
 
 Daboo                                                           [Page 8]
 
-                        CalDAV User Notifications          February 2012
+                        CalDAV User Notifications             March 2012
 
 
    some cases these may be warnings (e.g., a user getting to 80% of
@@ -502,7 +502,7 @@ Daboo                                                           [Page 8]
 
 Daboo                                                           [Page 9]
 
-                        CalDAV User Notifications          February 2012
+                        CalDAV User Notifications             March 2012
 
 
    <?xml version="1.0" encoding="UTF-8"?>
@@ -558,7 +558,7 @@ Daboo                                                           [Page 9]
 
 Daboo                                                          [Page 10]
 
-                        CalDAV User Notifications          February 2012
+                        CalDAV User Notifications             March 2012
 
 
    next synchronize the notification collection.
@@ -614,7 +614,7 @@ Daboo                                                          [Page 10]
 
 Daboo                                                          [Page 11]
 
-                        CalDAV User Notifications          February 2012
+                        CalDAV User Notifications             March 2012
 
 
       to list details of the changes.  If no CS:calendar-changes element
@@ -654,24 +654,26 @@ Daboo                                                          [Page 11]
           is the principal URI or email address of the user who made
           the change. -->
 
-     <!ELEMENT collection-changes (DAV:href, DAV:prop?, child-created?,
-                                   child-updated? child-deleted?>
+     <!ELEMENT collection-changes (DAV:href, changed-by*, DAV:prop?,
+                                   child-created?, child-updated?,
+                                   child-deleted?>
+       <!-- When coalescing changes from multiple users, the changed-by
+            element can appear more than once. -->
+
        <!ELEMENT child-created CDATA>
        <!ELEMENT child-updated CDATA>
        <!ELEMENT child-deleted CDATA>
        <!-- Each of the three elements above MUST contain a positive,
             non-zero integer value indicate the total number of changes
-            being reported for the collection. -->
-
-
-
 
 
 
 Daboo                                                          [Page 12]
 
-                        CalDAV User Notifications          February 2012
+                        CalDAV User Notifications             March 2012
 
+
+            being reported for the collection. -->
 
    Example:  This is an example of the body of a notification resource
       for changes where one resource has been created, two updated, and
@@ -722,11 +724,9 @@ Daboo                                                          [Page 12]
 
 
 
-
-
 Daboo                                                          [Page 13]
 
-                        CalDAV User Notifications          February 2012
+                        CalDAV User Notifications             March 2012
 
 
    Example:  This example is the same as the previous one, except that
@@ -782,7 +782,7 @@ Daboo                                                          [Page 13]
 
 Daboo                                                          [Page 14]
 
-                        CalDAV User Notifications          February 2012
+                        CalDAV User Notifications             March 2012
 
 
    <!ELEMENT calendar-changes (recurrence+) >
@@ -838,7 +838,7 @@ Daboo                                                          [Page 14]
 
 Daboo                                                          [Page 15]
 
-                        CalDAV User Notifications          February 2012
+                        CalDAV User Notifications             March 2012
 
 
    <CS:calendar-changes xmlns:CS="http://calendarserver.org/ns/">
@@ -894,7 +894,7 @@ Daboo                                                          [Page 15]
 
 Daboo                                                          [Page 16]
 
-                        CalDAV User Notifications          February 2012
+                        CalDAV User Notifications             March 2012
 
 
       "EXDATE" properties.
@@ -950,7 +950,7 @@ Daboo                                                          [Page 16]
 
 Daboo                                                          [Page 17]
 
-                        CalDAV User Notifications          February 2012
+                        CalDAV User Notifications             March 2012
 
 
    <!ELEMENT deleted-details ((deleted-component,
@@ -971,12 +971,15 @@ Daboo                                                          [Page 17]
           instances existed at the time of deletion. -->
 
      <!ELEMENT deleted-next-instance CDATA>
-     <!-- If present indicates the UTC date-time, or date value for
-          the "RECURRENCE-ID" of the next future instance at the time
-          of deletion. If not present, then there were no future
-          instances at the time of deletion. -->
+     <!ATTLIST deleted-next-instance tzid PCDATA>
+     <!-- If present, indicates when the next deleted instance would
+          have occurred. For a VEVENT that would be the DTSTART value,
+          for a VTODO that would be either DTSTART or DUE, if present.
+          In each case the value must match the value in the iCalendar
+          data, and any TZID iCalendar property parameter value must
+          be included in the tzid XML element attribute value. -->
 
-     <!ELEMENT deleted-had-more-instances CDATA>
+     <!ELEMENT deleted-had-more-instances EMPTY>
      <!-- If present indicates that there was more than one future
           instances still to occur at the time of deletion. -->
 
@@ -990,24 +993,23 @@ Daboo                                                          [Page 17]
    <CS:deleted-details xmlns:CS="http://calendarserver.org/ns/">
      <CS:deleted-component>VEVENT</CS:deleted-component>
      <CS:deleted-summary>Birthday Party</CS:deleted-summary>
-     <CS:deleted-next-instance>20120505</CS:deleted-next-instance>
+     <CS:deleted-next-instance tzid="America/New_York
+     >20120505T120000</CS:deleted-next-instance>
    </CS:deleted-details>
 
    Example:  This example indicates deletion of a calendar.
 
    <CS:deleted-details xmlns:CS="http://calendarserver.org/ns/">
      <CS:deleted-displayname>Holidays</CS:deleted-displayname>
-   </CS:deleted-details>
-
-
-
 
 
 
 Daboo                                                          [Page 18]
 
-                        CalDAV User Notifications          February 2012
+                        CalDAV User Notifications             March 2012
 
+
+   </CS:deleted-details>
 
 5.3.4.  CS:notify-changes Property
 
@@ -1058,11 +1060,9 @@ Daboo                                                          [Page 18]
 
 
 
-
-
 Daboo                                                          [Page 19]
 
-                        CalDAV User Notifications          February 2012
+                        CalDAV User Notifications             March 2012
 
 
 7.  IANA Considerations
@@ -1118,7 +1118,7 @@ A.1.  Resource Created
 
 Daboo                                                          [Page 20]
 
-                        CalDAV User Notifications          February 2012
+                        CalDAV User Notifications             March 2012
 
 
    <?xml version="1.0" encoding="UTF-8"?>
@@ -1174,7 +1174,7 @@ A.2.  Resource Updated - Property Change
 
 Daboo                                                          [Page 21]
 
-                        CalDAV User Notifications          February 2012
+                        CalDAV User Notifications             March 2012
 
 
 A.3.  Resource Updated - Parameter Change
@@ -1230,7 +1230,7 @@ A.4.  Resource Updated - Multiple Instances Change
 
 Daboo                                                          [Page 22]
 
-                        CalDAV User Notifications          February 2012
+                        CalDAV User Notifications             March 2012
 
 
    <?xml version="1.0" encoding="UTF-8"?>
@@ -1286,7 +1286,7 @@ A.5.  Resource Updated - Multiple User Change
 
 Daboo                                                          [Page 23]
 
-                        CalDAV User Notifications          February 2012
+                        CalDAV User Notifications             March 2012
 
 
    <?xml version="1.0" encoding="UTF-8"?>
@@ -1342,7 +1342,7 @@ A.6.  Resource Deleted
 
 Daboo                                                          [Page 24]
 
-                        CalDAV User Notifications          February 2012
+                        CalDAV User Notifications             March 2012
 
 
    <?xml version="1.0" encoding="UTF-8"?>
@@ -1398,7 +1398,7 @@ A.8.  Collection Updated
 
 Daboo                                                          [Page 25]
 
-                        CalDAV User Notifications          February 2012
+                        CalDAV User Notifications             March 2012
 
 
    <?xml version="1.0" encoding="UTF-8"?>
@@ -1454,7 +1454,7 @@ A.9.  Collection Deleted
 
 Daboo                                                          [Page 26]
 
-                        CalDAV User Notifications          February 2012
+                        CalDAV User Notifications             March 2012
 
 
 Author's Address
