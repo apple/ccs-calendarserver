@@ -1257,31 +1257,54 @@ class CommonHome(LoggingMixIn):
         return datetimeMktime(parseSQLTimestamp(self._modified)) if self._modified else None
 
 
-    @classproperty
-    def _resourceByUIDQuery(cls): #@NoSelf
+    @classmethod
+    def _objectResourceQuery(cls, checkBindMode):
         obj = cls._objectSchema
         bind = cls._bindSchema
-        return Select([obj.PARENT_RESOURCE_ID, obj.RESOURCE_ID],
-                     From=obj.join(bind, obj.PARENT_RESOURCE_ID ==
-                                   bind.RESOURCE_ID),
-                     Where=(obj.UID == Parameter("uid")).And(
-                            bind.HOME_RESOURCE_ID == Parameter("resourceID")))
+        where = ((obj.UID == Parameter("uid"))
+                 .And(bind.HOME_RESOURCE_ID == Parameter("resourceID")))
+        if checkBindMode:
+            where = where.And(bind.BIND_MODE == Parameter("bindMode"))
+        return Select(
+            [obj.PARENT_RESOURCE_ID, obj.RESOURCE_ID],
+            From=obj.join(bind, obj.PARENT_RESOURCE_ID == bind.RESOURCE_ID),
+            Where=where
+        )
+
+
+    @classproperty
+    def _resourceByUIDQuery(cls): #@NoSelf
+        return cls._objectResourceQuery(checkBindMode=False)
+
+
+    @classproperty
+    def _resourceByUIDBindQuery(cls): #@NoSelf
+        return cls._objectResourceQuery(checkBindMode=True)
 
 
     @inlineCallbacks
-    def objectResourcesWithUID(self, uid, ignore_children=()):
+    def objectResourcesWithUID(self, uid, ignore_children=[], allowShared=True):
         """
         Return all child object resources with the specified UID, ignoring any
         in the named child collections.
         """
         results = []
-        rows = (yield self._resourceByUIDQuery.on(self._txn, uid=uid,
-                                                  resourceID=self._resourceID))
+        if allowShared:
+            rows = (yield self._resourceByUIDQuery.on(
+                self._txn, uid=uid, resourceID=self._resourceID
+            ))
+        else:
+            rows = (yield self._resourceByUIDBindQuery.on(
+                self._txn, uid=uid, resourceID=self._resourceID,
+                bindMode=_BIND_MODE_OWN
+            ))
         if rows:
             for childID, objectID in rows:
                 child = (yield self.childWithID(childID))
                 if child and child.name() not in ignore_children:
-                    objectResource = (yield child.objectResourceWithID(objectID))
+                    objectResource = (
+                        yield child.objectResourceWithID(objectID)
+                    )
                     results.append(objectResource)
 
         returnValue(results)

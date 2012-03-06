@@ -989,8 +989,9 @@ class CommonTests(CommonCommonTests):
     @inlineCallbacks
     def test_hasCalendarResourceUIDSomewhereElse(self):
         """
-        L{ICalendar.calendarObjects} will enumerate the calendar objects present
-        in the filesystem, in name order, but skip those with hidden names.
+        L{ICalendarHome.hasCalendarResourceUIDSomewhereElse} will determine if
+        a calendar object with a conflicting iCalendar UID is found anywhere
+        within the calendar home.
         """
         home = yield self.homeUnderTest()
         object = yield self.calendarObjectUnderTest()
@@ -1002,6 +1003,18 @@ class CommonTests(CommonCommonTests):
 
         result = (yield home.hasCalendarResourceUIDSomewhereElse("uid2", object, "schedule"))
         self.assertTrue(result)
+        from twistedcaldav.sharing import SharedCollectionRecord
+        scr = SharedCollectionRecord(
+            shareuid="opaque", sharetype="D", summary="ignored",
+            hosturl="/.../__uids__/home_splits/calendar_2",
+            localname="shared_other_calendar"
+        )
+        yield home.retrieveOldShares().addOrUpdateRecord(scr)
+        # uid 2-5 is the UID of a VTODO in home_splits/calendar_2.
+        result = (yield home.hasCalendarResourceUIDSomewhereElse(
+            "uid2-5", object, "schedule"
+        ))
+        self.assertFalse(result)
 
 
     @inlineCallbacks

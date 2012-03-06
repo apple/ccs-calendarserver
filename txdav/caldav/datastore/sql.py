@@ -182,7 +182,9 @@ class CalendarHome(CommonHome):
         # refer to calendar *object* UIDs, since calendar *resources* are an
         # HTTP protocol layer thing, not a data store thing.  (See also
         # objectResourcesWithUID.)
-        objectResources = (yield self.objectResourcesWithUID(uid, ("inbox",)))
+        objectResources = (
+            yield self.objectResourcesWithUID(uid, ["inbox"], False)
+        )
         for objectResource in objectResources:
             if ok_object and objectResource._resourceID == ok_object._resourceID:
                 continue
@@ -198,7 +200,7 @@ class CalendarHome(CommonHome):
     def getCalendarResourcesForUID(self, uid, allow_shared=False):
 
         results = []
-        objectResources = (yield self.objectResourcesWithUID(uid, ("inbox",)))
+        objectResources = (yield self.objectResourcesWithUID(uid, ["inbox"]))
         for objectResource in objectResources:
             if allow_shared or objectResource._parentCollection._owned:
                 results.append(objectResource)

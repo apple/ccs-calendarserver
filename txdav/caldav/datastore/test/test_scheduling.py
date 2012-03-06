@@ -64,5 +64,6 @@ class ImplicitStoreTests(FileStorageTests, TestCase):
     test_countComponentTypes = skipit
     test_init = skipit
     test_calendarObjectsWithDirectory = skipit
+    test_hasCalendarResourceUIDSomewhereElse = skipit
 
 del FileStorageTests
