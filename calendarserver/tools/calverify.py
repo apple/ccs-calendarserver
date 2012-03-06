@@ -46,7 +46,7 @@ from pycalendar.calendar import PyCalendar
 from pycalendar.datetime import PyCalendarDateTime
 from pycalendar.exceptions import PyCalendarError
 from pycalendar.period import PyCalendarPeriod
-from twext.enterprise.dal.syntax import Select, Parameter, Count
+from twext.enterprise.dal.syntax import Select, Parameter, Count, CaseFold
 from twisted.application.service import Service
 from twisted.internet.defer import inlineCallbacks, returnValue, succeed
 from twisted.python import log
@@ -62,7 +62,7 @@ import collections
 import os
 import sys
 import time
-from twext.enterprise.dal.syntax import Lower
+
 
 def usage(e=None):
     if e:
@@ -267,7 +267,7 @@ class CalVerifyService(Service, object):
                 cb, type="inner", on=(ch.RESOURCE_ID == cb.CALENDAR_HOME_RESOURCE_ID).And(
                     cb.BIND_MODE == _BIND_MODE_OWN)).join(
                 co, type="inner", on=(cb.CALENDAR_RESOURCE_ID == co.CALENDAR_RESOURCE_ID)),
-            Where=(ch.OWNER_UID == Lower(Parameter("UID")))
+            Where=(ch.OWNER_UID == CaseFold(Parameter("UID")))
         ).on(self.txn, **kwds))
         returnValue(int(rows[0][0]) if rows else 0)
 
@@ -340,7 +340,7 @@ class CalVerifyService(Service, object):
                 cb, type="inner", on=(ch.RESOURCE_ID == cb.CALENDAR_HOME_RESOURCE_ID)).join(
                 co, type="inner", on=(cb.CALENDAR_RESOURCE_ID == co.CALENDAR_RESOURCE_ID).And(
                     cb.BIND_MODE == _BIND_MODE_OWN).And(
-                    cb.CALENDAR_RESOURCE_NAME != Lower("inbox"))),
+                    cb.CALENDAR_RESOURCE_NAME != "inbox")),
             GroupBy=(ch.OWNER_UID, co.RESOURCE_ID, co.ICALENDAR_UID, co.MD5, co.ORGANIZER,),
         ).on(self.txn, **kwds))
         returnValue(tuple(rows))
@@ -353,9 +353,9 @@ class CalVerifyService(Service, object):
         ch = schema.CALENDAR_HOME
         kwds = {"uuid": uuid}
         if len(uuid) != 36:
-            where = (ch.OWNER_UID.StartsWith(Lower(Parameter("uuid"))))
+            where = (ch.OWNER_UID.StartsWith(CaseFold(Parameter("uuid"))))
         else:
-            where = (ch.OWNER_UID == Lower(Parameter("uuid")))
+            where = (ch.OWNER_UID == CaseFold(Parameter("uuid")))
         rows = (yield Select(
             [ch.OWNER_UID, co.RESOURCE_ID, co.ICALENDAR_UID, co.MD5, co.ORGANIZER,],
             From=ch.join(
