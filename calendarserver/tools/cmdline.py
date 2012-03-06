@@ -26,7 +26,7 @@ from twistedcaldav.config import ConfigurationError
 
 # TODO: direct unit tests for this function.
 
-def utilityMain(configFileName, serviceClass, reactor=None):
+def utilityMain(configFileName, serviceClass, reactor=None, serviceMaker=CalDAVServiceMaker):
     """
     Shared main-point for utilities.
 
@@ -67,7 +67,7 @@ def utilityMain(configFileName, serviceClass, reactor=None):
 
         autoDisableMemcached(config)
 
-        maker = CalDAVServiceMaker()
+        maker = serviceMaker()
         options = CalDAVOptions
         service = maker.makeService(options)
 

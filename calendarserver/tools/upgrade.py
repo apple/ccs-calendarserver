@@ -34,6 +34,7 @@ from twisted.application.service import Service
 
 
 from twext.python.log import setLogLevelForNamespace
+from calendarserver.tap.caldav import CalDAVServiceMaker
 
 def usage(e=None):
     if e:
@@ -71,6 +72,8 @@ class UpgradeOptions(Options):
 
     optParameters = [['config', 'f', DEFAULT_CONFIG_FILE,
                       "Specify caldavd.plist configuration path."]]
+
+    optFlags = [['postprocess', 'p', "Perform post-database-import processing."]]
 
     def __init__(self):
         super(UpgradeOptions, self).__init__()
@@ -180,7 +183,11 @@ def main(argv=sys.argv, stderr=sys.stderr, reactor=None):
 
     setLogLevelForNamespace(None, "debug")
     log.addObserver(onlyUpgradeEvents)
-    utilityMain(options["config"], makeService, reactor)
+    def customServiceMaker():
+        customService = CalDAVServiceMaker()
+        customService.doPostImport = options["postprocess"]
+        return customService
+    utilityMain(options["config"], makeService, reactor, customServiceMaker)
 
 def logDateString():
     logtime = time.localtime()

@@ -919,13 +919,17 @@ class CalDAVServiceMaker (LoggingMixIn):
                 else:
                     parallel = 0
                 spawner = ConfiguredChildSpawner(self, dispenser, config)
+                if getattr(self, "doPostImport", True):
+                    postImport = PostDBImportService(config, store, mainService)
+                else:
+                    postImport = mainService
                 upgradeSvc = UpgradeFileSystemFormatService(
                     config, spawner, parallel,
                     UpgradeDatabaseSchemaService.wrapService(
                         UpgradeDatabaseDataService.wrapService(
                             UpgradeToDatabaseService.wrapService(
                                 CachingFilePath(config.DocumentRoot),
-                                PostDBImportService(config, store, mainService),
+                                postImport,
                                 store, uid=overrideUID, gid=overrideGID,
                                 spawner=spawner, merge=config.MergeUpgrades,
                                 parallel=parallel

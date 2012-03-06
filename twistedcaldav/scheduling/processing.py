@@ -203,8 +203,10 @@ class ImplicitProcessor(object):
                 ),
             )
 
-            # Only update other attendees when the partstat was changed by the reply
-            if partstatChanged:
+            # Only update other attendees when the partstat was changed by the reply,
+            # and only if the request does not indicate we should skip attendee refresh
+            # (e.g. inbox item processing during migration from non-implicit server)
+            if partstatChanged and not getattr(self.request, "NoAttendeeRefresh", False):
                 yield self.queueAttendeeUpdate((attendeeReplying,))
 
             result = (True, False, True, changes,)
