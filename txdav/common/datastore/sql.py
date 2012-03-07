@@ -71,7 +71,6 @@ from twext.enterprise.dal.syntax import Parameter
 from twext.enterprise.dal.syntax import SavepointAction
 from twext.enterprise.dal.syntax import Select
 from twext.enterprise.dal.syntax import Update
-from twext.enterprise.dal.syntax import CaseFold
 
 from txdav.base.propertystore.base import PropertyName
 from txdav.base.propertystore.none import PropertyStore as NonePropertyStore
@@ -843,7 +842,7 @@ class CommonHome(LoggingMixIn):
     def _resourceIDFromOwnerQuery(cls): #@NoSelf
         home = cls._homeSchema
         return Select([home.RESOURCE_ID],
-                      From=home, Where=home.OWNER_UID == CaseFold(Parameter("ownerUID")))
+                      From=home, Where=home.OWNER_UID == Parameter("ownerUID"))
 
     @classproperty
     def _ownerFromFromResourceID(cls): #@NoSelf
@@ -910,7 +909,7 @@ class CommonHome(LoggingMixIn):
             try:
                 resourceid = (yield Insert(
                     {
-                        cls._homeSchema.OWNER_UID: CaseFold(uid),
+                        cls._homeSchema.OWNER_UID: uid,
                         cls._homeSchema.DATAVERSION: cls._dataVersionValue,
                     },
                     Return=cls._homeSchema.RESOURCE_ID).on(txn))[0][0]
@@ -3043,11 +3042,11 @@ class NotificationCollection(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
 
     _resourceIDFromUIDQuery = Select(
         [_homeSchema.RESOURCE_ID], From=_homeSchema,
-        Where=_homeSchema.OWNER_UID == CaseFold(Parameter("uid")))
+        Where=_homeSchema.OWNER_UID == Parameter("uid"))
 
 
     _provisionNewNotificationsQuery = Insert(
-        {_homeSchema.OWNER_UID: CaseFold(Parameter("uid"))},
+        {_homeSchema.OWNER_UID: Parameter("uid")},
         Return=_homeSchema.RESOURCE_ID
     )
 

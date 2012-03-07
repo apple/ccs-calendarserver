@@ -115,7 +115,7 @@ class SharedCollectionMixin(object):
         
         principalUID = principalURL.split("/")[3]
         record = yield self.invitesDB().recordForInviteUID(inviteUID)
-        if record is None or record.principalUID.lower() != principalUID.lower():
+        if record is None or record.principalUID != principalUID:
             raise HTTPError(ErrorResponse(
                 responsecode.FORBIDDEN,
                 (customxml.calendarserver_namespace, "valid-request"),

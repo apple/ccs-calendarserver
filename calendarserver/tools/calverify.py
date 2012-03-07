@@ -46,7 +46,7 @@ from pycalendar.calendar import PyCalendar
 from pycalendar.datetime import PyCalendarDateTime
 from pycalendar.exceptions import PyCalendarError
 from pycalendar.period import PyCalendarPeriod
-from twext.enterprise.dal.syntax import Select, Parameter, Count, CaseFold
+from twext.enterprise.dal.syntax import Select, Parameter, Count
 from twisted.application.service import Service
 from twisted.internet.defer import inlineCallbacks, returnValue, succeed
 from twisted.python import log
@@ -62,7 +62,6 @@ import collections
 import os
 import sys
 import time
-
 
 def usage(e=None):
     if e:
@@ -100,12 +99,14 @@ class CalVerifyOptions(Options):
         ['missing', 'm', "Show 'orphaned' homes."],
         ['fix', 'x', "Fix problems."],
         ['verbose', 'v', "Verbose logging."],
+        ['details', 'V', "Detailed logging."],
     ]
 
     optParameters = [
         ['config', 'f', DEFAULT_CONFIG_FILE, "Specify caldavd.plist configuration path."],
         ['data', 'd', "./calverify-data", "Path where ancillary data is stored."],
         ['uuid', 'u', "", "Only check this user."],
+        ['uid', 'U', "", "Only this event UID."],
     ]
 
 
@@ -267,7 +268,7 @@ class CalVerifyService(Service, object):
                 cb, type="inner", on=(ch.RESOURCE_ID == cb.CALENDAR_HOME_RESOURCE_ID).And(
                     cb.BIND_MODE == _BIND_MODE_OWN)).join(
                 co, type="inner", on=(cb.CALENDAR_RESOURCE_ID == co.CALENDAR_RESOURCE_ID)),
-            Where=(ch.OWNER_UID == CaseFold(Parameter("UID")))
+            Where=(ch.OWNER_UID == Parameter("UID"))
         ).on(self.txn, **kwds))
         returnValue(int(rows[0][0]) if rows else 0)
 
@@ -287,19 +288,27 @@ class CalVerifyService(Service, object):
 
         if self.options["verbose"]:
             t = time.time()
+        descriptor = None
         if ical:
             if self.options["uuid"]:
                 rows = yield self.getAllResourceInfoWithUUID(self.options["uuid"])
+                descriptor = "getAllResourceInfoWithUUID"
             else:
                 rows = yield self.getAllResourceInfo()
+                descriptor = "getAllResourceInfo"
         else:
-            rows = yield self.getAllResourceInfoTimeRange(self.start)
+            if self.options["uid"]:
+                rows = yield self.getAllResourceInfoWithUID(self.options["uid"])
+                descriptor = "getAllResourceInfoWithUID"
+            else:
+                rows = yield self.getAllResourceInfoTimeRange(self.start)
+                descriptor = "getAllResourceInfoTimeRange"
 
         yield self.txn.commit()
         self.txn = None
 
         if self.options["verbose"]:
-            print "getAllResourceInfoTimeRange time: %.1fs" % (time.time() - t,)
+            print "%s time: %.1fs" % (descriptor, time.time() - t,)
         print "Number of events to process: %s" % (len(rows,))
         
         # Split into organizer events and attendee events
@@ -308,13 +317,13 @@ class CalVerifyService(Service, object):
         self.attended = []
         self.attended_byuid = collections.defaultdict(list)
         self.matched_attendee_to_organizer = collections.defaultdict(set)
-        for owner, resid, uid, md5, organizer in rows:
+        for owner, resid, uid, md5, organizer, created, modified in rows:
             if organizer.startswith("urn:uuid:") and owner == organizer[9:]:
-                self.organized.append((owner, resid, uid, md5, organizer,))
-                self.organized_byuid[uid] = (owner, resid, uid, md5, organizer,)
+                self.organized.append((owner, resid, uid, md5, organizer, created, modified,))
+                self.organized_byuid[uid] = (owner, resid, uid, md5, organizer, created, modified,)
             else:
-                self.attended.append((owner, resid, uid, md5, organizer,))
-                self.attended_byuid[uid].append((owner, resid, uid, md5, organizer,))
+                self.attended.append((owner, resid, uid, md5, organizer, created, modified,))
+                self.attended_byuid[uid].append((owner, resid, uid, md5, organizer, created, modified,))
                 
         print "Number of organizer events to process: %s" % (len(self.organized),)
         print "Number of attendee events to process: %s" % (len(self.attended,))
@@ -335,13 +344,13 @@ class CalVerifyService(Service, object):
         ch = schema.CALENDAR_HOME
         kwds = {}
         rows = (yield Select(
-            [ch.OWNER_UID, co.RESOURCE_ID, co.ICALENDAR_UID, co.MD5, co.ORGANIZER,],
+            [ch.OWNER_UID, co.RESOURCE_ID, co.ICALENDAR_UID, co.MD5, co.ORGANIZER, co.CREATED, co.MODIFIED],
             From=ch.join(
                 cb, type="inner", on=(ch.RESOURCE_ID == cb.CALENDAR_HOME_RESOURCE_ID)).join(
                 co, type="inner", on=(cb.CALENDAR_RESOURCE_ID == co.CALENDAR_RESOURCE_ID).And(
                     cb.BIND_MODE == _BIND_MODE_OWN).And(
                     cb.CALENDAR_RESOURCE_NAME != "inbox")),
-            GroupBy=(ch.OWNER_UID, co.RESOURCE_ID, co.ICALENDAR_UID, co.MD5, co.ORGANIZER,),
+            GroupBy=(ch.OWNER_UID, co.RESOURCE_ID, co.ICALENDAR_UID, co.MD5, co.ORGANIZER, co.CREATED, co.MODIFIED,),
         ).on(self.txn, **kwds))
         returnValue(tuple(rows))
 
@@ -353,18 +362,18 @@ class CalVerifyService(Service, object):
         ch = schema.CALENDAR_HOME
         kwds = {"uuid": uuid}
         if len(uuid) != 36:
-            where = (ch.OWNER_UID.StartsWith(CaseFold(Parameter("uuid"))))
+            where = (ch.OWNER_UID.StartsWith(Parameter("uuid")))
         else:
-            where = (ch.OWNER_UID == CaseFold(Parameter("uuid")))
+            where = (ch.OWNER_UID == Parameter("uuid"))
         rows = (yield Select(
-            [ch.OWNER_UID, co.RESOURCE_ID, co.ICALENDAR_UID, co.MD5, co.ORGANIZER,],
+            [ch.OWNER_UID, co.RESOURCE_ID, co.ICALENDAR_UID, co.MD5, co.ORGANIZER, co.CREATED, co.MODIFIED],
             From=ch.join(
                 cb, type="inner", on=(ch.RESOURCE_ID == cb.CALENDAR_HOME_RESOURCE_ID)).join(
                 co, type="inner", on=(cb.CALENDAR_RESOURCE_ID == co.CALENDAR_RESOURCE_ID).And(
                     cb.BIND_MODE == _BIND_MODE_OWN).And(
                     cb.CALENDAR_RESOURCE_NAME != "inbox")),
             Where=where,
-            GroupBy=(ch.OWNER_UID, co.RESOURCE_ID, co.ICALENDAR_UID, co.MD5, co.ORGANIZER,),
+            GroupBy=(ch.OWNER_UID, co.RESOURCE_ID, co.ICALENDAR_UID, co.MD5, co.ORGANIZER, co.CREATED, co.MODIFIED,),
         ).on(self.txn, **kwds))
         returnValue(tuple(rows))
 
@@ -380,7 +389,7 @@ class CalVerifyService(Service, object):
             "Max"   : pyCalendarTodatetime(PyCalendarDateTime(1900, 1, 1, 0, 0, 0))
         }
         rows = (yield Select(
-            [ch.OWNER_UID, co.RESOURCE_ID, co.ICALENDAR_UID, co.MD5, co.ORGANIZER,],
+            [ch.OWNER_UID, co.RESOURCE_ID, co.ICALENDAR_UID, co.MD5, co.ORGANIZER, co.CREATED, co.MODIFIED],
             From=ch.join(
                 cb, type="inner", on=(ch.RESOURCE_ID == cb.CALENDAR_HOME_RESOURCE_ID)).join(
                 co, type="inner", on=(cb.CALENDAR_RESOURCE_ID == co.CALENDAR_RESOURCE_ID).And(
@@ -389,7 +398,28 @@ class CalVerifyService(Service, object):
                     co.ORGANIZER != "")).join(
                 tr, type="left", on=(co.RESOURCE_ID == tr.CALENDAR_OBJECT_RESOURCE_ID)),
             Where=(tr.START_DATE >= Parameter("Start")).Or(co.RECURRANCE_MAX == Parameter("Max")),
-            GroupBy=(ch.OWNER_UID, co.RESOURCE_ID, co.ICALENDAR_UID, co.MD5, co.ORGANIZER,),
+            GroupBy=(ch.OWNER_UID, co.RESOURCE_ID, co.ICALENDAR_UID, co.MD5, co.ORGANIZER, co.CREATED, co.MODIFIED,),
+        ).on(self.txn, **kwds))
+        returnValue(tuple(rows))
+
+
+    @inlineCallbacks
+    def getAllResourceInfoWithUID(self, uid):
+        co = schema.CALENDAR_OBJECT
+        cb = schema.CALENDAR_BIND
+        ch = schema.CALENDAR_HOME
+        kwds = {
+            "UID" : uid,
+        }
+        rows = (yield Select(
+            [ch.OWNER_UID, co.RESOURCE_ID, co.ICALENDAR_UID, co.MD5, co.ORGANIZER, co.CREATED, co.MODIFIED],
+            From=ch.join(
+                cb, type="inner", on=(ch.RESOURCE_ID == cb.CALENDAR_HOME_RESOURCE_ID)).join(
+                co, type="inner", on=(cb.CALENDAR_RESOURCE_ID == co.CALENDAR_RESOURCE_ID).And(
+                    cb.BIND_MODE == _BIND_MODE_OWN).And(
+                    cb.CALENDAR_RESOURCE_NAME != "inbox")),
+            Where=(co.ICALENDAR_UID == Parameter("UID")),
+            GroupBy=(ch.OWNER_UID, co.RESOURCE_ID, co.ICALENDAR_UID, co.MD5, co.ORGANIZER, co.CREATED, co.MODIFIED,),
         ).on(self.txn, **kwds))
         returnValue(tuple(rows))
 
@@ -428,7 +458,7 @@ class CalVerifyService(Service, object):
         count = 0
         total = len(rows)
         badlen = 0
-        for owner, resid, uid, _ignore_md5, _ignore_organizer in rows:
+        for owner, resid, uid, _ignore_md5, _ignore_organizer, _ignore_created, _ignore_modified in rows:
             result, message = yield self.validCalendarData(resid)
             if not result:
                 results_bad.append((owner, uid, resid, message))
@@ -591,7 +621,7 @@ class CalVerifyService(Service, object):
                 self.txn = self.store.newTransaction()
 
             # Get the organizer's view of attendee states            
-            organizer, resid, uid, _ignore_md5, _ignore_organizer = organizerEvent
+            organizer, resid, uid, _ignore_md5, _ignore_organizer, org_created, org_modified = organizerEvent
             calendar = yield self.getCalendar(resid)
             if calendar is None:
                 continue
@@ -607,12 +637,12 @@ class CalVerifyService(Service, object):
             # Get attendee states for matching UID
             eachAttendeesOwnStatus = {}
             for attendeeEvent in self.attended_byuid.get(uid, ()):
-                owner, resid, uid, _ignore_md5, _ignore_organizer = attendeeEvent
-                calendar = yield self.getCalendar(resid)
+                owner, attresid, uid, _ignore_md5, _ignore_organizer, att_created, att_modified = attendeeEvent
+                calendar = yield self.getCalendar(attresid)
                 if calendar is None:
                     continue
                 eachAttendeesOwnStatus[owner] = self.buildAttendeeStates(calendar, self.start, self.end, attendee_only=owner)
-                attendeeResIDs[(owner, uid)] = resid
+                attendeeResIDs[(owner, uid)] = attresid
             
             # Look at each attendee in the organizer's meeting
             for organizerAttendee, organizerViewOfStatus in organizerViewOfAttendees.iteritems():
@@ -630,24 +660,35 @@ class CalVerifyService(Service, object):
 
                     if organizerViewOfStatus != attendeeOwnStatus:
                         # Check that the difference is only cancelled or declined on the organizers side
-                        for _ignore_organizerInstance, partstat in organizerViewOfStatus.difference(attendeeOwnStatus):
+                        for _organizerInstance, partstat in organizerViewOfStatus.difference(attendeeOwnStatus):
                             if partstat not in ("DECLINED", "CANCELLED"):
-                                results_mismatch.append((uid, resid, organizer, organizerAttendee))
+                                results_mismatch.append((uid, resid, organizer, org_created, org_modified, organizerAttendee, att_created, att_modified))
                                 broken = True
+                                if self.options["details"]:
+                                    print "Mismatch: on Organizer's side:"
+                                    print "          UID: %s" % (uid,)
+                                    print "          Organizer: %s" % (organizer,)
+                                    print "          Attendee: %s" % (organizerAttendee,)
+                                    print "          Instance: %s" % (_organizerInstance,)
                                 break
                         # Check that the difference is only cancelled on the attendees side
-                        for _ignore_attendeeInstance, partstat in attendeeOwnStatus.difference(organizerViewOfStatus):
+                        for _attendeeInstance, partstat in attendeeOwnStatus.difference(organizerViewOfStatus):
                             if partstat not in ("CANCELLED",):
                                 if not broken:
-                                    results_mismatch.append((uid, resid, organizer, organizerAttendee))
+                                    results_mismatch.append((uid, resid, organizer, org_created, org_modified, organizerAttendee, att_created, att_modified))
                                 broken = True
+                                if self.options["details"]:
+                                    print "Mismatch: on Attendee's side:"
+                                    print "          Organizer: %s" % (organizer,)
+                                    print "          Attendee: %s" % (organizerAttendee,)
+                                    print "          Instance: %s" % (_attendeeInstance,)
                                 break
 
                 # Check that the status for this attendee is always declined which means a missing copy of the event is OK
                 else:
                     for _ignore_instance_id, partstat in organizerViewOfStatus:
                         if partstat not in ("DECLINED", "CANCELLED"):
-                            results_missing.append((uid, resid, organizer, organizerAttendee,))
+                            results_missing.append((uid, resid, organizer, organizerAttendee, org_created, org_modified))
                             broken = True
                             break
                 
@@ -662,9 +703,10 @@ class CalVerifyService(Service, object):
                 
         # Print table of results
         table = tables.Table()
-        table.addHeader(("Organizer", "Attendee", "Event UID", "Organizer RID",))
+        table.addHeader(("Organizer", "Attendee", "Event UID", "Organizer RID", "Created", "Modified",))
+        results_missing.sort()
         for item in results_missing:
-            uid, resid, organizer, attendee = item
+            uid, resid, organizer, attendee, created, modified = item
             organizer_record = self.directoryService().recordWithGUID(organizer)
             attendee_record = self.directoryService().recordWithGUID(attendee)
             table.addRow((
@@ -672,6 +714,8 @@ class CalVerifyService(Service, object):
                 "%s/%s (%s)" % (attendee_record.recordType if attendee_record else "-", attendee_record.shortNames[0] if attendee_record else "-", attendee,),
                 uid,
                 resid,
+                created,
+                modified,
             ))
         
         self.output.write("\n")
@@ -680,9 +724,10 @@ class CalVerifyService(Service, object):
             
         # Print table of results
         table = tables.Table()
-        table.addHeader(("Organizer", "Attendee", "Event UID", "Organizer RID", "Attendee RID",))
+        table.addHeader(("Organizer", "Attendee", "Event UID", "Organizer RID", "Created", "Modified", "Attendee RID", "Created", "Modified",))
+        results_mismatch.sort()
         for item in results_mismatch:
-            uid, org_resid, organizer, attendee = item
+            uid, org_resid, organizer, org_created, org_modified, attendee, att_created, att_modified = item
             organizer_record = self.directoryService().recordWithGUID(organizer)
             attendee_record = self.directoryService().recordWithGUID(attendee)
             table.addRow((
@@ -690,7 +735,11 @@ class CalVerifyService(Service, object):
                 "%s/%s (%s)" % (attendee_record.recordType if attendee_record else "-", attendee_record.shortNames[0] if attendee_record else "-", attendee,),
                 uid,
                 org_resid,
+                org_created,
+                org_modified,
                 attendeeResIDs[(attendee, uid)],
+                att_created,
+                att_modified,
             ))
         
         self.output.write("\n")
@@ -729,7 +778,7 @@ class CalVerifyService(Service, object):
                 yield self.txn.commit()
                 self.txn = self.store.newTransaction()
 
-            attendee, resid, uid, _ignore_md5, organizer = attendeeEvent
+            attendee, resid, uid, _ignore_md5, organizer, att_created, att_modified = attendeeEvent
             calendar = yield self.getCalendar(resid)
             if calendar is None:
                 continue
@@ -752,7 +801,7 @@ class CalVerifyService(Service, object):
                 if self.allCancelled(eachAttendeesOwnStatus):
                     continue
                 
-                missing.append((uid, attendee, organizer, resid,))
+                missing.append((uid, attendee, organizer, resid, att_created, att_modified,))
                 
                 # If there is a miss we fix by removing the attendee data
                 if self.fix:
@@ -764,7 +813,7 @@ class CalVerifyService(Service, object):
                 if self.allCancelled(eachAttendeesOwnStatus):
                     continue
 
-                mismatched.append((uid, attendee, organizer, resid,))
+                mismatched.append((uid, attendee, organizer, resid, att_created, att_modified,))
                 
                 # If there is a mismatch we fix by re-inviting the attendee
                 if self.fix:
@@ -776,11 +825,11 @@ class CalVerifyService(Service, object):
 
         # Print table of results
         table = tables.Table()
-        table.addHeader(("Organizer", "Attendee", "UID", "Attendee RID",))
+        table.addHeader(("Organizer", "Attendee", "UID", "Attendee RID", "Created", "Modified",))
         missing.sort()
         unique_set = set()
         for item in missing:
-            uid, attendee, organizer, resid = item
+            uid, attendee, organizer, resid, created, modified = item
             unique_set.add(uid)
             if organizer:
                 organizerRecord = self.directoryService().recordWithGUID(organizer)
@@ -791,6 +840,8 @@ class CalVerifyService(Service, object):
                 "%s/%s (%s)" % (attendeeRecord.recordType if attendeeRecord else "-", attendeeRecord.shortNames[0] if attendeeRecord else "-", attendee,),
                 uid,
                 resid,
+                created,
+                modified,
             ))
         
         self.output.write("\n")
@@ -799,10 +850,10 @@ class CalVerifyService(Service, object):
 
         # Print table of results
         table = tables.Table()
-        table.addHeader(("Organizer", "Attendee", "UID", "Organizer RID", "Attendee RID",))
+        table.addHeader(("Organizer", "Attendee", "UID", "Organizer RID", "Created", "Modified", "Attendee RID", "Created", "Modified",))
         mismatched.sort()
         for item in mismatched:
-            uid, attendee, organizer, resid = item
+            uid, attendee, organizer, resid, att_created, att_modified = item
             if organizer:
                 organizerRecord = self.directoryService().recordWithGUID(organizer)
                 organizer = "%s/%s (%s)" % (organizerRecord.recordType if organizerRecord else "-", organizerRecord.shortNames[0] if organizerRecord else "-", organizer,)
@@ -812,7 +863,11 @@ class CalVerifyService(Service, object):
                 "%s/%s (%s)" % (attendeeRecord.recordType if attendeeRecord else "-", attendeeRecord.shortNames[0] if attendeeRecord else "-", attendee,),
                 uid,
                 self.organized_byuid[uid][1],
+                self.organized_byuid[uid][5],
+                self.organized_byuid[uid][6],
                 resid,
+                att_created,
+                att_modified,
             ))
         
         self.output.write("\n")
@@ -897,7 +952,7 @@ class CalVerifyService(Service, object):
         all_cancelled = True
         for _ignore_guid, states in attendeesStatus.iteritems():
             for _ignore_instance_id, partstat in states:
-                if partstat not in ("CANCELLED",):
+                if partstat not in ("CANCELLED", "DECLINED",):
                     all_cancelled = False
                     break
             if not all_cancelled:
