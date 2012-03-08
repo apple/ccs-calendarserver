@@ -657,7 +657,11 @@ def action_removeProxy(principal, *proxyIDs, **kwargs):
 @inlineCallbacks
 def action_removeProxyPrincipal(principal, proxyPrincipal, **kwargs):
     try:
-        (yield removeProxy(principal, proxyPrincipal, **kwargs))
+        removed = (yield removeProxy(principal, proxyPrincipal, **kwargs))
+        if removed:
+            print "Removed %s as a proxy for %s" % (
+                prettyPrincipal(proxyPrincipal),
+                prettyPrincipal(principal))
     except ProxyError, e:
         print "Error:", e
     except ProxyWarning, e:
@@ -666,6 +670,7 @@ def action_removeProxyPrincipal(principal, proxyPrincipal, **kwargs):
 
 @inlineCallbacks
 def removeProxy(principal, proxyPrincipal, **kwargs):
+    removed = False
     proxyTypes = kwargs.get("proxyTypes", ("read", "write"))
     for proxyType in proxyTypes:
         proxyURL = proxyPrincipal.url()
@@ -685,9 +690,13 @@ def removeProxy(principal, proxyPrincipal, **kwargs):
         if len(memberURLs) == len(membersProperty.children):
             # No change
             continue
+        else:
+            removed = True
 
         membersProperty = davxml.GroupMemberSet(*memberURLs)
         (yield subPrincipal.writeProperty(membersProperty, None))
+
+        returnValue(removed)
 
 
 @inlineCallbacks
