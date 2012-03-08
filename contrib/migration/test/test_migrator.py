@@ -343,7 +343,7 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
                 },
             },
         }
-        oldCardDAV = { "Is this ignored?" : True }
+        oldCardDAV = { }
         expected = {
             "DirectoryService": {
                 "type" : "twistedcaldav.directory.appleopendirectory.OpenDirectoryService",
@@ -385,48 +385,11 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
                 },
             },
         }
-        oldCardDAV = { "Is this ignored?" : True }
+        oldCardDAV = { }
         expected = {
             "Authentication": {
                 "Wiki" : {
                     "Enabled" : True,
-                },
-            },
-            "BindHTTPPorts": [8008, 8800],
-            "BindSSLPorts": [8443, 8843],
-            "EnableSSL" : False,
-            "HTTPPort": 8008,
-            "RedirectHTTPToHTTPS": False,
-            "SSLAuthorityChain": "",
-            "SSLCertificate": "",
-            "SSLPort": 8443,
-            "SSLPrivateKey": "",
-        }
-        newCombined = { }
-        mergePlist(oldCalDAV, oldCardDAV, newCombined)
-        self.assertEquals(newCombined, expected)
-
-        # If the port is :8089, leave the wiki config as is, since it's
-        # already set for Lio
-
-        oldCalDAV = {
-            "Authentication": {
-                "Wiki" : {
-                    "UseSSL" : False,
-                    "Enabled" : True,
-                    "Hostname" : "127.0.0.1",
-                    "URL" : "http://127.0.0.1:8089/RPC2",
-                },
-            },
-        }
-        oldCardDAV = { "Is this ignored?" : True }
-        expected = {
-            "Authentication": {
-                "Wiki" : {
-                    "UseSSL" : False,
-                    "Enabled" : True,
-                    "Hostname" : "127.0.0.1",
-                    "URL" : "http://127.0.0.1:8089/RPC2",
                 },
             },
             "BindHTTPPorts": [8008, 8800],
@@ -458,10 +421,10 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
         info = [
 
         (
-            "Snow -> Lion Migration, all in default locations",
-            ("/Volumes/old", "/"),
+            "Snow -> Mountain Lion Migration, all in default locations",
+            ("/Library/Server/Previous", "/"),
             {
-                "/Volumes/old/private/etc/caldavd/caldavd.plist" : """
+                "/Library/Server/Previous/private/etc/caldavd/caldavd.plist" : """
                     <plist version="1.0">
                     <dict>
                         <key>DocumentRoot</key>
@@ -475,7 +438,7 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
                     </dict>
                     </plist>
                 """,
-                "/Volumes/old/private/etc/carddavd/carddavd.plist" : """
+                "/Library/Server/Previous/private/etc/carddavd/carddavd.plist" : """
                     <plist version="1.0">
                     <dict>
                         <key>DocumentRoot</key>
@@ -502,10 +465,10 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
                     </plist>
                 """,
 
-                "/Volumes/old/Library/CalendarServer/Documents/calendars/" : True,
-                "/Volumes/old/Library/CalendarServer/Data/" : True,
-                "/Volumes/old/Library/AddressBookServer/Documents/addressbooks/" : True,
-                "/Volumes/old/Library/AddressBookServer/Data/" : True,
+                "/Library/Server/Previous/Library/CalendarServer/Documents/calendars/" : True,
+                "/Library/Server/Previous/Library/CalendarServer/Data/" : True,
+                "/Library/Server/Previous/Library/AddressBookServer/Documents/addressbooks/" : True,
+                "/Library/Server/Previous/Library/AddressBookServer/Data/" : True,
             },
             (
                 None, # Old ServerRoot value
@@ -517,10 +480,10 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
         ),
 
         (
-            "Snow -> Lion Migration, all in default locations, non-/ target",
-            ("/Volumes/old", "/Volumes/new"),
+            "Snow -> Mountain Lion Migration, all in default locations, non-/ target",
+            ("/Library/Server/Previous", "/Volumes/new"),
             {
-                "/Volumes/old/private/etc/caldavd/caldavd.plist" : """
+                "/Library/Server/Previous/private/etc/caldavd/caldavd.plist" : """
                     <plist version="1.0">
                     <dict>
                         <key>DocumentRoot</key>
@@ -534,7 +497,7 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
                     </dict>
                     </plist>
                 """,
-                "/Volumes/old/private/etc/carddavd/carddavd.plist" : """
+                "/Library/Server/Previous/private/etc/carddavd/carddavd.plist" : """
                     <plist version="1.0">
                     <dict>
                         <key>DocumentRoot</key>
@@ -561,10 +524,10 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
                     </plist>
                 """,
 
-                "/Volumes/old/Library/CalendarServer/Documents/calendars/" : True,
-                "/Volumes/old/Library/CalendarServer/Data/" : True,
-                "/Volumes/old/Library/AddressBookServer/Documents/addressbooks/" : True,
-                "/Volumes/old/Library/AddressBookServer/Data/" : True,
+                "/Library/Server/Previous/Library/CalendarServer/Documents/calendars/" : True,
+                "/Library/Server/Previous/Library/CalendarServer/Data/" : True,
+                "/Library/Server/Previous/Library/AddressBookServer/Documents/addressbooks/" : True,
+                "/Library/Server/Previous/Library/AddressBookServer/Data/" : True,
             },
             (
                 None, # Old ServerRoot value
@@ -576,10 +539,10 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
         ),
 
         (
-            "Snow -> Lion Migration, not in default locations",
-            ("/Volumes/old", "/"),
+            "Snow -> Mountain Lion Migration, not in default locations",
+            ("/Library/Server/Previous", "/"),
             {
-                "/Volumes/old/private/etc/caldavd/caldavd.plist" : """
+                "/Library/Server/Previous/private/etc/caldavd/caldavd.plist" : """
                     <plist version="1.0">
                     <dict>
                         <key>DocumentRoot</key>
@@ -593,7 +556,7 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
                     </dict>
                     </plist>
                 """,
-                "/Volumes/old/private/etc/carddavd/carddavd.plist" : """
+                "/Library/Server/Previous/private/etc/carddavd/carddavd.plist" : """
                     <plist version="1.0">
                     <dict>
                         <key>DocumentRoot</key>
@@ -620,10 +583,10 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
                     </plist>
                 """,
 
-                "/Volumes/old/NonStandard/CalendarServer/Documents/calendars/" : True,
-                "/Volumes/old/NonStandard/CalendarServer/Data/" : True,
-                "/Volumes/old/NonStandard/AddressBookServer/Documents/addressbooks/" : True,
-                "/Volumes/old/NonStandard/AddressBookServer/Data/" : True,
+                "/Library/Server/Previous/NonStandard/CalendarServer/Documents/calendars/" : True,
+                "/Library/Server/Previous/NonStandard/CalendarServer/Data/" : True,
+                "/Library/Server/Previous/NonStandard/AddressBookServer/Documents/addressbooks/" : True,
+                "/Library/Server/Previous/NonStandard/AddressBookServer/Data/" : True,
             },
             (
                 None, # Old ServerRoot value
@@ -635,10 +598,10 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
         ),
 
         (
-            "Snow -> Lion Migration, in internal/external locations",
-            ("/Volumes/old", "/"),
+            "Snow -> Mountain Lion Migration, in internal/external locations",
+            ("/Library/Server/Previous", "/"),
             {
-                "/Volumes/old/private/etc/caldavd/caldavd.plist" : """
+                "/Library/Server/Previous/private/etc/caldavd/caldavd.plist" : """
                     <plist version="1.0">
                     <dict>
                         <key>DocumentRoot</key>
@@ -652,7 +615,7 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
                     </dict>
                     </plist>
                 """,
-                "/Volumes/old/private/etc/carddavd/carddavd.plist" : """
+                "/Library/Server/Previous/private/etc/carddavd/carddavd.plist" : """
                     <plist version="1.0">
                     <dict>
                         <key>DocumentRoot</key>
@@ -681,8 +644,8 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
 
                 "/Volumes/External/CalendarServer/Documents/calendars/" : True,
                 "/Volumes/External/CalendarServer/Data/" : True,
-                "/Volumes/old/Library/AddressBookServer/Documents/addressbooks/" : True,
-                "/Volumes/old/Library/AddressBookServer/Data/" : True,
+                "/Library/Server/Previous/Library/AddressBookServer/Documents/addressbooks/" : True,
+                "/Library/Server/Previous/Library/AddressBookServer/Data/" : True,
             },
             (
                 None, # Old ServerRoot value
@@ -695,10 +658,10 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
 
 
         (
-            "Snow -> Lion Migration, only AddressBook data",
-            ("/Volumes/old", "/"),
+            "Snow -> Mountain Lion Migration, only AddressBook data",
+            ("/Library/Server/Previous", "/"),
             {
-                "/Volumes/old/private/etc/carddavd/carddavd.plist" : """
+                "/Library/Server/Previous/private/etc/carddavd/carddavd.plist" : """
                     <plist version="1.0">
                     <dict>
                         <key>DocumentRoot</key>
@@ -725,8 +688,8 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
                     </plist>
                 """,
 
-                "/Volumes/old/Library/AddressBookServer/Documents/addressbooks/" : True,
-                "/Volumes/old/Library/AddressBookServer/Data/" : True,
+                "/Library/Server/Previous/Library/AddressBookServer/Documents/addressbooks/" : True,
+                "/Library/Server/Previous/Library/AddressBookServer/Data/" : True,
             },
             (
                 None, # Old ServerRoot value
@@ -738,10 +701,10 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
         ),
 
         (
-            "Lion -> Lion Migration, all in default locations",
-            ("/Volumes/old", "/"),
+            "Lion -> Mountain Lion Migration, all in default locations",
+            ("/Library/Server/Previous", "/"),
             {
-                "/Volumes/old/private/etc/caldavd/caldavd.plist" : """
+                "/Library/Server/Previous/private/etc/caldavd/caldavd.plist" : """
                     <plist version="1.0">
                     <dict>
                         <key>ServerRoot</key>
@@ -773,8 +736,8 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
                     </dict>
                     </plist>
                 """,
-                "/Volumes/old/Library/Server/Calendar and Contacts/Documents/" : True,
-                "/Volumes/old/Library/Server/Calendar and Contacts/Data/" : True,
+                "/Library/Server/Previous/Library/Server/Calendar and Contacts/Documents/" : True,
+                "/Library/Server/Previous/Library/Server/Calendar and Contacts/Data/" : True,
             },
             (
                 "/Library/Server/Calendar and Contacts", # Old ServerRoot value
@@ -786,10 +749,10 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
         ),
 
         (
-            "Lion -> Lion Migration, not in default locations",
-            ("/Volumes/old", "/"),
+            "Lion -> Mountain Lion Migration, not in default locations",
+            ("/Library/Server/Previous", "/"),
             {
-                "/Volumes/old/private/etc/caldavd/caldavd.plist" : """
+                "/Library/Server/Previous/private/etc/caldavd/caldavd.plist" : """
                     <plist version="1.0">
                     <dict>
                         <key>ServerRoot</key>
@@ -821,8 +784,8 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
                     </dict>
                     </plist>
                 """,
-                "/Volumes/old/NonStandard/Calendar and Contacts/Documents/" : True,
-                "/Volumes/old/NonStandard/Calendar and Contacts/Data/" : True,
+                "/Library/Server/Previous/NonStandard/Calendar and Contacts/Documents/" : True,
+                "/Library/Server/Previous/NonStandard/Calendar and Contacts/Data/" : True,
             },
             (
                 "/NonStandard/Calendar and Contacts", # Old ServerRoot value
@@ -834,10 +797,10 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
         ),
 
         (
-            "Lion -> Lion Migration, non-/ targetRoot",
-            ("/Volumes/old", "/Volumes/new"),
+            "Lion -> Mountain Lion Migration, non-/ targetRoot",
+            ("/Library/Server/Previous", "/Volumes/new"),
             {
-                "/Volumes/old/private/etc/caldavd/caldavd.plist" : """
+                "/Library/Server/Previous/private/etc/caldavd/caldavd.plist" : """
                     <plist version="1.0">
                     <dict>
                         <key>ServerRoot</key>
@@ -869,8 +832,8 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
                     </dict>
                     </plist>
                 """,
-                "/Volumes/old/Library/Server/Calendar and Contacts/Documents/" : True,
-                "/Volumes/old/Library/Server/Calendar and Contacts/Data/" : True,
+                "/Library/Server/Previous/Library/Server/Calendar and Contacts/Documents/" : True,
+                "/Library/Server/Previous/Library/Server/Calendar and Contacts/Data/" : True,
             },
             (
                 "/Library/Server/Calendar and Contacts", # Old ServerRoot value
@@ -882,61 +845,8 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
         ),
 
         (
-            "Lion -> Lion Migration, external ServerRoot with absolute external DocumentRoot and internal DataRoot",
-            ("/Volumes/old", "/Volumes/new"),
-            {
-                "/Volumes/old/private/etc/caldavd/caldavd.plist" : """
-                    <plist version="1.0">
-                    <dict>
-                        <key>ServerRoot</key>
-                        <string>/Volumes/External/Server/Calendar and Contacts</string>
-                        <key>DocumentRoot</key>
-                        <string>/Volumes/External/CalendarDocuments/</string>
-                        <key>DataRoot</key>
-                        <string>/CalendarData</string>
-                        <key>UserName</key>
-                        <string>calendar</string>
-                        <key>GroupName</key>
-                        <string>calendar</string>
-                    </dict>
-                    </plist>
-                """,
-                "/Volumes/new/private/etc/caldavd/caldavd.plist" : """
-                    <plist version="1.0">
-                    <dict>
-                        <key>ServerRoot</key>
-                        <string>/Library/Server/Calendar and Contacts</string>
-                        <key>DocumentRoot</key>
-                        <string>Documents</string>
-                        <key>DataRoot</key>
-                        <string>Data</string>
-                        <key>UserName</key>
-                        <string>calendar</string>
-                        <key>GroupName</key>
-                        <string>calendar</string>
-                    </dict>
-                    </plist>
-                """,
-
-                "/Volumes/External/Library/Server/Calendar and Contacts/" : True,
-                "/Volumes/External/CalendarDocuments/" : True,
-                "/Volumes/old/CalendarData" : True,
-                "/Volumes/new/Library/Server/Calendar and Contacts/" : True,
-            },
-            (
-                "/Volumes/External/Server/Calendar and Contacts", # Old ServerRoot value
-                "/Volumes/External/CalendarDocuments/", # Old Cal DocRoot value
-                "/CalendarData", # Old Cal DocRoot value
-                None, # Old AB Docs
-                FakeUser.pw_uid, FakeGroup.gr_gid, # user id, group id
-            )
-        ),
-
-
-
-        (
             "Empty migration, nothing exists",
-            ("/Volumes/old", "/Volumes/new"),
+            ("/Library/Server/Previous", "/Volumes/new"),
             {
             },
             (
@@ -944,7 +854,7 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
                 None, # Old Cal DocRoot value
                 None, # Old Cal DocRoot value
                 None, # Old AB Docs
-                -1, -1, # user id, group id
+                FakeUser.pw_uid, FakeGroup.gr_gid, # user id, group id
             )
         ),
 
@@ -963,9 +873,9 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
         info = [
 
         (
-            "Snow -> Lion Migration, all in default locations",
+            "Snow -> Mountain Lion Migration, all in default locations",
             {
-                "/Volumes/old/private/etc/caldavd/caldavd.plist" : """
+                "/Library/Server/Previous/private/etc/caldavd/caldavd.plist" : """
                     <plist version="1.0">
                     <dict>
                         <key>DocumentRoot</key>
@@ -979,7 +889,7 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
                     </dict>
                     </plist>
                 """,
-                "/Volumes/old/private/etc/carddavd/carddavd.plist" : """
+                "/Library/Server/Previous/private/etc/carddavd/carddavd.plist" : """
                     <plist version="1.0">
                     <dict>
                         <key>DocumentRoot</key>
@@ -1006,15 +916,15 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
                     </plist>
                 """,
 
-                "/Volumes/old/Library/CalendarServer/Documents/calendars/" : True,
-                "/Volumes/old/Library/CalendarServer/Data/" : True,
-                "/Volumes/old/Library/AddressBookServer/Documents/addressbooks/" : True,
-                "/Volumes/old/Library/AddressBookServer/Data/" : True,
-                "/Volumes/new/Library/Server/Calendar and Contacts" : True,
+                "/Library/Server/Previous/Library/CalendarServer/Documents/calendars/" : True,
+                "/Library/Server/Previous/Library/CalendarServer/Data/" : True,
+                "/Library/Server/Previous/Library/AddressBookServer/Documents/addressbooks/" : True,
+                "/Library/Server/Previous/Library/AddressBookServer/Data/" : True,
             },
             (   # args
-                "/Volumes/old", # sourceRoot
+                "/Library/Server/Previous", # sourceRoot
                 "/Volumes/new", # targetRoot
+                "10.6.8", # sourceVersion
                 None, # oldServerRootValue
                 "/Library/CalendarServer/Documents", # oldCalDocumentRootValue
                 "/Library/CalendarServer/Data", # oldCalDataRootValue
@@ -1024,23 +934,21 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
             (   # expected return values
                 "/Volumes/new/Library/Server/Calendar and Contacts",
                 "/Library/Server/Calendar and Contacts",
-                "Documents",
                 "Data"
             ),
             [   # expected DiskAccessor history
-                ('ditto', '/Volumes/old/Library/CalendarServer/Documents', '/Volumes/new/Library/Server/Calendar and Contacts/Documents'),
-                ('chown-recursive', '/Volumes/new/Library/Server/Calendar and Contacts/Documents', FakeUser.pw_uid, FakeGroup.gr_gid),
-                ('ditto', '/Volumes/old/Library/CalendarServer/Data', '/Volumes/new/Library/Server/Calendar and Contacts/Data'),
-                ('chown-recursive', '/Volumes/new/Library/Server/Calendar and Contacts/Data', FakeUser.pw_uid, FakeGroup.gr_gid),
-                ('ditto', '/Volumes/old/Library/AddressBookServer/Documents/addressbooks', '/Volumes/new/Library/Server/Calendar and Contacts/Documents/addressbooks'),
-                ('chown-recursive', '/Volumes/new/Library/Server/Calendar and Contacts/Documents/addressbooks', FakeUser.pw_uid, FakeGroup.gr_gid),
+                ('mkdir', '/Volumes/new/Library/Server/Calendar and Contacts'),
+                ('ditto', '/Library/Server/Previous/Library/CalendarServer/Data', '/Volumes/new/Library/Server/Calendar and Contacts/Data'),
+                ('ditto', '/Library/Server/Previous/Library/CalendarServer/Documents', '/Volumes/new/Library/Server/Calendar and Contacts/Data/Documents'),
+                ('ditto', '/Library/Server/Previous/Library/AddressBookServer/Documents/addressbooks', '/Volumes/new/Library/Server/Calendar and Contacts/Data/Documents/addressbooks'),
+                ('chown-recursive', '/Volumes/new/Library/Server/Calendar and Contacts', FakeUser.pw_uid, FakeGroup.gr_gid),
             ]
         ),
 
         (
-            "Snow -> Lion Migration, external DocumentRoot",
+            "Snow -> Mountain Lion Migration, external DocumentRoot",
             {
-                "/Volumes/old/private/etc/caldavd/caldavd.plist" : """
+                "/Library/Server/Previous/private/etc/caldavd/caldavd.plist" : """
                     <plist version="1.0">
                     <dict>
                         <key>DocumentRoot</key>
@@ -1054,7 +962,7 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
                     </dict>
                     </plist>
                 """,
-                "/Volumes/old/private/etc/carddavd/carddavd.plist" : """
+                "/Library/Server/Previous/private/etc/carddavd/carddavd.plist" : """
                     <plist version="1.0">
                     <dict>
                         <key>DocumentRoot</key>
@@ -1082,15 +990,15 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
                 """,
 
                 "/Volumes/External/CalendarServer/Documents/calendars/" : True,
-                "/Volumes/External/CalendarServer/Calendar and Contacts/" : True,
-                "/Volumes/old/Library/CalendarServer/Data/" : True,
+                "/Volumes/External/CalendarServer/Calendar and Contacts Data/" : True,
+                "/Library/Server/Previous/Library/CalendarServer/Data/" : True,
                 "/Volumes/External/AddressBookServer/Documents/addressbooks/" : True,
-                "/Volumes/old/Library/AddressBookServer/Data/" : True,
-                "/Volumes/new/Library/Server/Calendar and Contacts" : True,
+                "/Library/Server/Previous/Library/AddressBookServer/Data/" : True,
             },
             (   # args
-                "/Volumes/old", # sourceRoot
+                "/Library/Server/Previous", # sourceRoot
                 "/Volumes/new", # targetRoot
+                "10.6.8", # sourceVersion
                 None, # oldServerRootValue
                 "/Volumes/External/CalendarServer/Documents", # oldCalDocumentRootValue
                 "/Library/CalendarServer/Data", # oldCalDataRootValue
@@ -1098,26 +1006,27 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
                 FakeUser.pw_uid, FakeGroup.gr_gid, # user id, group id
             ),
             (   # expected return values
-                "/Volumes/External/CalendarServer/Calendar and Contacts",
-                "/Volumes/External/CalendarServer/Calendar and Contacts",
-                "Documents",
-                "Data"
+                "/Volumes/new/Library/Server/Calendar and Contacts",
+                "/Library/Server/Calendar and Contacts",
+                "/Volumes/External/CalendarServer/Calendar and Contacts Data",
             ),
             [   # expected DiskAccessor history
-                ('rename', '/Volumes/External/CalendarServer/Calendar and Contacts', '/Volumes/External/CalendarServer/Calendar and Contacts.bak'),
-                ('mkdir', '/Volumes/External/CalendarServer/Calendar and Contacts'),
-                ('rename', '/Volumes/External/CalendarServer/Documents', '/Volumes/External/CalendarServer/Calendar and Contacts/Documents'),
-                ('ditto', '/Volumes/old/Library/CalendarServer/Data', '/Volumes/External/CalendarServer/Calendar and Contacts/Data'),
-                ('chown-recursive', '/Volumes/External/CalendarServer/Calendar and Contacts/Data', FakeUser.pw_uid, FakeGroup.gr_gid),
-                ('ditto', '/Volumes/External/AddressBookServer/Documents/addressbooks', '/Volumes/External/CalendarServer/Calendar and Contacts/Documents/addressbooks'),
-                ('chown-recursive', '/Volumes/External/CalendarServer/Calendar and Contacts/Documents/addressbooks', FakeUser.pw_uid, FakeGroup.gr_gid),
+                ('mkdir', '/Volumes/new/Library/Server/Calendar and Contacts'),
+                ('rename',
+                 '/Volumes/External/CalendarServer/Calendar and Contacts Data',
+                 '/Volumes/External/CalendarServer/Calendar and Contacts Data.bak'),
+                ('ditto', '/Library/Server/Previous/Library/CalendarServer/Data', '/Volumes/External/CalendarServer/Calendar and Contacts Data'),
+                ('rename', '/Volumes/External/CalendarServer/Documents', '/Volumes/External/CalendarServer/Calendar and Contacts Data/Documents'),
+                ('chown-recursive', '/Volumes/External/CalendarServer/Calendar and Contacts Data', FakeUser.pw_uid, FakeGroup.gr_gid),
+                ('ditto', '/Volumes/External/AddressBookServer/Documents/addressbooks', '/Volumes/External/CalendarServer/Calendar and Contacts Data/Documents/addressbooks'),
+                ('chown-recursive', '/Volumes/new/Library/Server/Calendar and Contacts', FakeUser.pw_uid, FakeGroup.gr_gid),
             ]
         ),
 
         (
-            "Snow -> Lion Migration, in non-standard locations",
+            "Snow -> Mountain Lion Migration, in non-standard locations",
             {
-                "/Volumes/old/private/etc/caldavd/caldavd.plist" : """
+                "/Library/Server/Previous/private/etc/caldavd/caldavd.plist" : """
                     <plist version="1.0">
                     <dict>
                         <key>DocumentRoot</key>
@@ -1131,7 +1040,7 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
                     </dict>
                     </plist>
                 """,
-                "/Volumes/old/private/etc/carddavd/carddavd.plist" : """
+                "/Library/Server/Previous/private/etc/carddavd/carddavd.plist" : """
                     <plist version="1.0">
                     <dict>
                         <key>DocumentRoot</key>
@@ -1158,15 +1067,15 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
                     </plist>
                 """,
 
-                "/Volumes/old/NonStandard/CalendarServer/Documents/calendars/" : True,
-                "/Volumes/old/NonStandard/CalendarServer/Data/" : True,
-                "/Volumes/old/NonStandard/AddressBookServer/Documents/addressbooks/" : True,
-                "/Volumes/old/NonStandard/AddressBookServer/Data/" : True,
-                "/Volumes/new/Library/Server/Calendar and Contacts" : True,
+                "/Library/Server/Previous/NonStandard/CalendarServer/Documents/calendars/" : True,
+                "/Library/Server/Previous/NonStandard/CalendarServer/Data/" : True,
+                "/Library/Server/Previous/NonStandard/AddressBookServer/Documents/addressbooks/" : True,
+                "/Library/Server/Previous/NonStandard/AddressBookServer/Data/" : True,
             },
             (   # args
-                "/Volumes/old", # sourceRoot
+                "/Library/Server/Previous", # sourceRoot
                 "/Volumes/new", # targetRoot
+                "10.6.8", # sourceVersion
                 None, # oldServerRootValue
                 "/NonStandard/CalendarServer/Documents", # oldCalDocumentRootValue
                 "/NonStandard/CalendarServer/Data", # oldCalDataRootValue
@@ -1176,29 +1085,27 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
             (   # expected return values
                 "/Volumes/new/Library/Server/Calendar and Contacts",
                 "/Library/Server/Calendar and Contacts",
-                "Documents",
                 "Data"
             ),
             [
-                ('ditto', '/Volumes/old/NonStandard/CalendarServer/Documents', '/Volumes/new/Library/Server/Calendar and Contacts/Documents'),
-                ('chown-recursive', '/Volumes/new/Library/Server/Calendar and Contacts/Documents', FakeUser.pw_uid, FakeGroup.gr_gid),
-                ('ditto', '/Volumes/old/NonStandard/CalendarServer/Data', '/Volumes/new/Library/Server/Calendar and Contacts/Data'),
-                ('chown-recursive', '/Volumes/new/Library/Server/Calendar and Contacts/Data', FakeUser.pw_uid, FakeGroup.gr_gid),
-                ('ditto', '/Volumes/old/NonStandard/AddressBookServer/Documents/addressbooks', '/Volumes/new/Library/Server/Calendar and Contacts/Documents/addressbooks'),
-                ('chown-recursive', '/Volumes/new/Library/Server/Calendar and Contacts/Documents/addressbooks', FakeUser.pw_uid, FakeGroup.gr_gid),
+                ('mkdir', '/Volumes/new/Library/Server/Calendar and Contacts'),
+                ('ditto', '/Library/Server/Previous/NonStandard/CalendarServer/Data', '/Volumes/new/Library/Server/Calendar and Contacts/Data'),
+                ('ditto', '/Library/Server/Previous/NonStandard/CalendarServer/Documents', '/Volumes/new/Library/Server/Calendar and Contacts/Data/Documents'),
+                ('ditto', '/Library/Server/Previous/NonStandard/AddressBookServer/Documents/addressbooks', '/Volumes/new/Library/Server/Calendar and Contacts/Data/Documents/addressbooks'),
+                ('chown-recursive', '/Volumes/new/Library/Server/Calendar and Contacts', FakeUser.pw_uid, FakeGroup.gr_gid),
             ]
         ),
 
         (
-            "Snow -> Lion Migration, internal AB, external Cal",
+            "Snow -> Mountain Lion Migration, internal AB, external Cal",
             {
-                "/Volumes/old/private/etc/caldavd/caldavd.plist" : """
+                "/Library/Server/Previous/private/etc/caldavd/caldavd.plist" : """
                     <plist version="1.0">
                     <dict>
                         <key>DocumentRoot</key>
                         <string>/Volumes/External/CalendarServer/Documents</string>
                         <key>DataRoot</key>
-                        <string>/Volumes/External/CalendarServer/Data</string>
+                        <string>/Library/CalendarServer/Data</string>
                         <key>UserName</key>
                         <string>calendar</string>
                         <key>GroupName</key>
@@ -1206,7 +1113,7 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
                     </dict>
                     </plist>
                 """,
-                "/Volumes/old/private/etc/carddavd/carddavd.plist" : """
+                "/Library/Server/Previous/private/etc/carddavd/carddavd.plist" : """
                     <plist version="1.0">
                     <dict>
                         <key>DocumentRoot</key>
@@ -1234,40 +1141,41 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
                 """,
 
                 "/Volumes/External/CalendarServer/Documents" : True,
-                "/Volumes/External/CalendarServer/Data" : True,
-                "/Volumes/old/Library/AddressBookServer/Documents/addressbooks/" : True,
-                "/Volumes/old/Library/AddressBookServer/Data/" : True,
-                "/Volumes/new/Library/Server/Calendar and Contacts" : True,
+                "/Library/Server/Previous/Library/CalendarServer/Data/" : True,
+                "/Library/Server/Previous/Library/AddressBookServer/Documents/addressbooks/" : True,
+                "/Library/Server/Previous/Library/AddressBookServer/Data/" : True,
             },
             (   # args
-                "/Volumes/old", # sourceRoot
+                "/Library/Server/Previous", # sourceRoot
                 "/Volumes/new", # targetRoot
+                "10.6.8", # sourceVersion
                 None, # oldServerRootValue
                 "/Volumes/External/CalendarServer/Documents", # oldCalDocumentRootValue
-                "/Volumes/External/CalendarServer/Data", # oldCalDataRootValue
+                "/Library/CalendarServer/Data", # oldCalDataRootValue
                 "/Library/AddressBookServer/Documents", # oldABDocumentRootValue
                 FakeUser.pw_uid, FakeGroup.gr_gid, # user id, group id
             ),
             (   # expected return values
-                "/Volumes/External/CalendarServer/Calendar and Contacts",
-                "/Volumes/External/CalendarServer/Calendar and Contacts",
-                "Documents",
-                "Data"
+                "/Volumes/new/Library/Server/Calendar and Contacts",
+                "/Library/Server/Calendar and Contacts",
+                "/Volumes/External/CalendarServer/Calendar and Contacts Data",
             ),
             [
-                ('mkdir', '/Volumes/External/CalendarServer/Calendar and Contacts'),
-                ('rename', '/Volumes/External/CalendarServer/Documents', '/Volumes/External/CalendarServer/Calendar and Contacts/Documents'),
-                ('ditto', '/Volumes/External/CalendarServer/Data', '/Volumes/External/CalendarServer/Calendar and Contacts/Data'),
-                ('chown-recursive', '/Volumes/External/CalendarServer/Calendar and Contacts/Data', FakeUser.pw_uid, FakeGroup.gr_gid),
-                ('ditto', '/Volumes/old/Library/AddressBookServer/Documents/addressbooks', '/Volumes/External/CalendarServer/Calendar and Contacts/Documents/addressbooks'),
-                ('chown-recursive', '/Volumes/External/CalendarServer/Calendar and Contacts/Documents/addressbooks', FakeUser.pw_uid, FakeGroup.gr_gid),
+                ('mkdir', '/Volumes/new/Library/Server/Calendar and Contacts'),
+                ('ditto',
+                 '/Library/Server/Previous/Library/CalendarServer/Data',
+                 '/Volumes/External/CalendarServer/Calendar and Contacts Data'),
+                ('rename', '/Volumes/External/CalendarServer/Documents', '/Volumes/External/CalendarServer/Calendar and Contacts Data/Documents'),
+                ('chown-recursive', '/Volumes/External/CalendarServer/Calendar and Contacts Data', FakeUser.pw_uid, FakeGroup.gr_gid),
+                ('ditto', '/Library/Server/Previous/Library/AddressBookServer/Documents/addressbooks', '/Volumes/External/CalendarServer/Calendar and Contacts Data/Documents/addressbooks'),
+                ('chown-recursive', '/Volumes/new/Library/Server/Calendar and Contacts', FakeUser.pw_uid, FakeGroup.gr_gid),
             ]
         ),
 
         (
-            "Lion -> Lion Migration, all in default locations",
+            "Lion -> Mountain Lion Migration, all in default locations",
             {
-                "/Volumes/old/private/etc/caldavd/caldavd.plist" : """
+                "/Library/Server/Previous/private/etc/caldavd/caldavd.plist" : """
                     <plist version="1.0">
                     <dict>
                         <key>ServerRoot</key>
@@ -1300,13 +1208,14 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
                     </plist>
                 """,
 
-                "/Volumes/old/Library/Server/Calendar and Contacts/Documents/" : True,
-                "/Volumes/old/Library/Server/Calendar and Contacts/Data/" : True,
+                "/Library/Server/Previous/Library/Server/Calendar and Contacts/Documents/" : True,
+                "/Library/Server/Previous/Library/Server/Calendar and Contacts/Data/" : True,
                 "/Volumes/new/Library/Server/Calendar and Contacts/" : True,
             },
             (   # args
-                "/Volumes/old", # sourceRoot
+                "/Library/Server/Previous", # sourceRoot
                 "/Volumes/new", # targetRoot
+                "10.7.3", # sourceVersion
                 "/Library/Server/Calendar and Contacts", # oldServerRootValue
                 "Documents", # oldCalDocumentRootValue
                 "Data", # oldCalDataRootValue
@@ -1316,21 +1225,18 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
             (   # expected return values
                 "/Volumes/new/Library/Server/Calendar and Contacts",
                 "/Library/Server/Calendar and Contacts",
-                "Documents",
                 "Data"
             ),
             [
-                ('ditto', '/Volumes/old/Library/Server/Calendar and Contacts/Documents', '/Volumes/new/Library/Server/Calendar and Contacts/Documents'),
-                ('chown-recursive', '/Volumes/new/Library/Server/Calendar and Contacts/Documents', FakeUser.pw_uid, FakeGroup.gr_gid),
-                ('ditto', '/Volumes/old/Library/Server/Calendar and Contacts/Data', '/Volumes/new/Library/Server/Calendar and Contacts/Data'),
-                ('chown-recursive', '/Volumes/new/Library/Server/Calendar and Contacts/Data', FakeUser.pw_uid, FakeGroup.gr_gid),
+                ('ditto', '/Library/Server/Previous/Library/Server/Calendar and Contacts', '/Volumes/new/Library/Server/Calendar and Contacts'),
+                ('chown-recursive', '/Volumes/new/Library/Server/Calendar and Contacts', FakeUser.pw_uid, FakeGroup.gr_gid),
             ]
         ),
 
         (
-            "Lion -> Lion Migration, external ServerRoot with relative DocumentRoot and DataRoot",
+            "Lion -> Mountain Lion Migration, external ServerRoot",
             {
-                "/Volumes/old/private/etc/caldavd/caldavd.plist" : """
+                "/Library/Server/Previous/private/etc/caldavd/caldavd.plist" : """
                     <plist version="1.0">
                     <dict>
                         <key>ServerRoot</key>
@@ -1365,11 +1271,11 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
 
                 "/Volumes/External/Library/Server/Calendar and Contacts/Documents/" : True,
                 "/Volumes/External/Library/Server/Calendar and Contacts/Data/" : True,
-                "/Volumes/new/Library/Server/Calendar and Contacts/" : True,
             },
             (   # args
-                "/Volumes/old", # sourceRoot
+                "/Library/Server/Previous", # sourceRoot
                 "/Volumes/new", # targetRoot
+                "10.7.3", # sourceVersion
                 "/Volumes/External/Library/Server/Calendar and Contacts", # oldServerRootValue
                 "Documents", # oldCalDocumentRootValue
                 "Data", # oldCalDataRootValue
@@ -1377,28 +1283,30 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
                 FakeUser.pw_uid, FakeGroup.gr_gid, # user id, group id
             ),
             (   # expected return values
-                "/Volumes/External/Library/Server/Calendar and Contacts",
-                "/Volumes/External/Library/Server/Calendar and Contacts",
-                "Documents",
-                "Data"
+                "/Volumes/new/Library/Server/Calendar and Contacts",
+                "/Library/Server/Calendar and Contacts",
+                "/Volumes/External/Library/Server/Calendar and Contacts/Data",
             ),
             [
+            ('mkdir', '/Volumes/new/Library/Server/Calendar and Contacts'),
+            ('rename',
+              '/Volumes/External/Library/Server/Calendar and Contacts/Documents',
+              '/Volumes/External/Library/Server/Calendar and Contacts/Data/Documents'),
+            ('chown-recursive', '/Volumes/new/Library/Server/Calendar and Contacts', FakeUser.pw_uid, FakeGroup.gr_gid),
             ]
         ),
-
-
-        (
-            "Lion -> Lion Migration, external ServerRoot with absolute external DocumentRoot and internal DataRoot",
+(
+            "Mountain Lion -> Mountain Lion Migration, all in default locations",
             {
-                "/Volumes/old/private/etc/caldavd/caldavd.plist" : """
+                "/Library/Server/Previous/private/etc/caldavd/caldavd.plist" : """
                     <plist version="1.0">
                     <dict>
                         <key>ServerRoot</key>
-                        <string>/Volumes/External/Server/Calendar and Contacts</string>
+                        <string>/Library/Server/Calendar and Contacts</string>
                         <key>DocumentRoot</key>
-                        <string>/Volumes/External/CalendarDocuments/</string>
+                        <string>Documents</string>
                         <key>DataRoot</key>
-                        <string>/CalendarData</string>
+                        <string>Data</string>
                         <key>UserName</key>
                         <string>calendar</string>
                         <key>GroupName</key>
@@ -1423,29 +1331,28 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
                     </plist>
                 """,
 
-                "/Volumes/External/Library/Server/Calendar and Contacts/" : True,
-                "/Volumes/External/CalendarDocuments/" : True,
-                "/Volumes/old/CalendarData" : True,
-                "/Volumes/new/Library/Server/Calendar and Contacts/" : True,
+                "/Library/Server/Previous/Library/Server/Calendar and Contacts/Documents/" : True,
+                "/Library/Server/Previous/Library/Server/Calendar and Contacts/Data/" : True,
             },
             (   # args
-                "/Volumes/old", # sourceRoot
+                "/Library/Server/Previous", # sourceRoot
                 "/Volumes/new", # targetRoot
-                "/Volumes/External/Library/Server/Calendar and Contacts", # oldServerRootValue
-                "/Volumes/External/CalendarDocuments/", # oldCalDocumentRootValue
-                "/CalendarData", # oldCalDataRootValue
+                "10.8", # sourceVersion
+                "/Library/Server/Calendar and Contacts", # oldServerRootValue
+                "Documents", # oldCalDocumentRootValue
+                "Data", # oldCalDataRootValue
                 None, # oldABDocumentRootValue
                 FakeUser.pw_uid, FakeGroup.gr_gid, # user id, group id
             ),
             (   # expected return values
-                "/Volumes/External/Library/Server/Calendar and Contacts",
-                "/Volumes/External/Library/Server/Calendar and Contacts",
-                "/Volumes/External/CalendarDocuments",
-                "Data" # Note that DataRoot was copied over to external volume
+                "/Volumes/new/Library/Server/Calendar and Contacts",
+                "/Library/Server/Calendar and Contacts",
+                "Data"
             ),
             [
-                ('ditto', '/Volumes/old/CalendarData', '/Volumes/External/Library/Server/Calendar and Contacts/Data'),
-                ('chown-recursive', '/Volumes/External/Library/Server/Calendar and Contacts/Data', FakeUser.pw_uid, FakeGroup.gr_gid),
+                ('mkdir', '/Volumes/new/Library/Server/Calendar and Contacts'),
+                ('ditto', '/Library/Server/Previous/Library/Server/Calendar and Contacts', '/Volumes/new/Library/Server/Calendar and Contacts'),
+                ('chown-recursive', '/Volumes/new/Library/Server/Calendar and Contacts', FakeUser.pw_uid, FakeGroup.gr_gid),
             ]
         ),
 
@@ -1454,21 +1361,23 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
             {   # no files
             },
             (   # args
-                "/Volumes/old", # sourceRoot
+                "/Library/Server/Previous", # sourceRoot
                 "/Volumes/new", # targetRoot
+                "10.6.8", # sourceVersion
                 None, # oldServerRootValue
                 None, # oldCalDocumentRootValue
                 None, # oldCalDataRootValue
                 None, # oldABDocumentRootValue
-                -1, -1, # user id, group id
+                FakeUser.pw_uid, FakeGroup.gr_gid, # user id, group id
             ),
             (   # expected return values
                 "/Volumes/new/Library/Server/Calendar and Contacts",
                 "/Library/Server/Calendar and Contacts",
-                "Documents",
                 "Data"
             ),
-            [   # no history
+            [
+             ('mkdir', '/Volumes/new/Library/Server/Calendar and Contacts'),
+             ('chown-recursive', '/Volumes/new/Library/Server/Calendar and Contacts', 6543, 7654)
             ]
         ),
 
