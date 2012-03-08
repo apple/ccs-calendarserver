@@ -59,7 +59,6 @@ from twext.web2.dav.resource import (
 )
 from twisted.internet.defer import gatherResults
 from twext.web2.dav.method import prop_common
-from twext.web2.dav.method.report import max_number_of_matches
 
 from twext.python.log import Logger, LoggingMixIn
 
@@ -69,6 +68,8 @@ from twistedcaldav.customxml import calendarserver_namespace
 from twistedcaldav.directory.sudo import SudoDirectoryService
 from twistedcaldav.directory.directory import DirectoryService
 from twistedcaldav.method.report import http_REPORT
+
+from twistedcaldav.config import config
 
 
 thisModule = getModule(__name__)
@@ -422,7 +423,7 @@ class DirectoryPrincipalPropertySearchMixIn(object):
                     if clientLimit is not None and matchcount >= clientLimit:
                         resultsWereLimited = ("client", matchcount)
                         break
-                    if matchcount >= max_number_of_matches:
+                    if matchcount >= config.MaxPrincipalSearchReportResults:
                         resultsWereLimited = ("server", matchcount)
                         break
 

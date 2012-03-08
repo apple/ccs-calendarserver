@@ -780,6 +780,9 @@ DEFAULT_CONFIG = {
     "MaxMultigetWithDataHrefs": 5000,
     "MaxQueryWithDataResults": 1000,
 
+    # How many results to return for principal-property-search REPORT requests
+    "MaxPrincipalSearchReportResults": 500,
+
     #
     # Localization
     #

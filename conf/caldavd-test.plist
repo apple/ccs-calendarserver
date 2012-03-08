@@ -172,7 +172,6 @@
     <key>MaxInstancesForRRULE</key>
     <integer>400</integer>
 
-
     <!--
         Directory service
 
@@ -969,6 +968,10 @@
       <key>UseExternalProxies</key>
       <false/>
     </dict>
+
+    <!-- Maximum number of results returned by principal-property-search REPORT -->
+    <key>MaxPrincipalSearchReportResults</key>
+    <integer>500</integer>
 
     <!--
         Twisted
