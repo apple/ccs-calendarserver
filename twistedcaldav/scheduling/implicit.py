@@ -88,6 +88,9 @@ class ImplicitScheduler(object):
             self.calendar = (yield resource.iCalendarForUser(request))
             yield self.checkImplicitState()
         
+        # Once we have collected sufficient information from the calendar data, check validity of organizer and attendees
+        self.checkValidOrganizer()
+
         # Attendees are not allowed to overwrite one type with another
         if (
             not self.internal_request and
@@ -186,6 +189,22 @@ class ImplicitScheduler(object):
         self.action = "remove" if resource_type == "schedule" else "none"
 
         returnValue((self.action != "none", False,))
+
+    def checkValidOrganizer(self):
+        """
+        Make sure the ORGANIZER is allowed to do certain scheduling operations.
+        """
+        
+        # Check to see whether the organizer principal is enabled for scheduling. If not, do not allow them
+        # to create new scheduling resources.
+        if self.action == "create":
+            if self.organizerPrincipal and not self.organizerPrincipal.enabledAsOrganizer():
+                log.err("ORGANIZER not allowed to be an Organizer: %s" % (self.organizer,))
+                raise HTTPError(ErrorResponse(
+                    responsecode.FORBIDDEN,
+                    (caldav_namespace, "organizer-allowed"),
+                    "Organizer cannot schedule",
+                ))
 
     @inlineCallbacks
     def checkSchedulingObjectResource(self, resource):

@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2005-2007 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2012 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -31,7 +31,7 @@ from twistedcaldav.scheduling.delivery import DeliveryService
 from twistedcaldav.scheduling.itip import iTIPRequestStatus
 
 """
-Class that handles delivery of scheduling messages via iMIP.
+Handles the sending of scheduling messages via iMIP (mail gateway).
 """
 
 __all__ = [

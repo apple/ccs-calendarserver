@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2005-2010 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2012 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -48,7 +48,8 @@ from twistedcaldav.scheduling.cuaddress import PartitionedCalendarUser, RemoteCa
 import OpenSSL
 
 """
-Server to server utility functions and client requests.
+Handles the sending of iSchedule scheduling messages. Used for both cross-domain scheduling,
+as well as internal partitioning or podding.
 """
 
 __all__ = [

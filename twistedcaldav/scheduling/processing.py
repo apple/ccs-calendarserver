@@ -40,6 +40,16 @@ from pycalendar.duration import PyCalendarDuration
 from pycalendar.datetime import PyCalendarDateTime
 from pycalendar.timezone import PyCalendarTimezone
 
+"""
+CalDAV implicit processing.
+
+This module handles the processing of scheduling messages being delivered to a calendar user's inbox.
+It determines who is scheduling (organizer or attendee) and applies the scheduling message changes
+to the recipient's calendar data as well as depositing the scheduling message in the inbox. For users
+who have an auto-accept option on, it will also handle the automatic response. Also, refreshes of other
+attendees (when one attendee replies) are triggered from here.
+"""
+
 __all__ = [
     "ImplicitProcessor",
     "ImplicitProcessorException",

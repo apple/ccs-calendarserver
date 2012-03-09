@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2005-2011 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2012 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -45,7 +45,9 @@ from twistedcaldav.scheduling.itip import iTIPRequestStatus
 from twistedcaldav.scheduling.processing import ImplicitProcessor, ImplicitProcessorException
 
 """
-Class that handles delivery of scheduling messages via CalDAV.
+Handles the sending of scheduling messages to the server itself. This will cause
+actual processing of the delivery of the message to the recipient's inbox, via the
+L{ImplicitProcessor} class.
 """
 
 __all__ = [

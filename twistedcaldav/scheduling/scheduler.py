@@ -55,6 +55,62 @@ from twistedcaldav.util import normalizationLookup
 
 """
 CalDAV/Server-to-Server scheduling behavior.
+
+This module handles the delivery of scheduling messages to organizer and attendees. The basic idea is to first
+confirm the integrity of the incoming scheduling message, check authorization. Appropriate L{DeliveryService}s
+are then used to deliver the message to attendees or organizer. Delivery responses are processed and returned.
+This takes into account partitioning and podding of users by detecting the appropriate host for a calendar
+user and then dispatching the delivery accordingly.
+
+The L{Scheduler} class defines the basic behavior for processing deliveries. Sub-classes are defined for the
+different ways a deliver can be triggered.
+
+L{CalDAVScheduler} - handles deliveries for scheduling messages originating from inside the CalDAV server
+i.e. user PUTs or POSTs.
+
+L{IScheduleScheduler} - handles deliveries for scheduling messages being POSTed to the iSchedule inbox.
+
+L{IMIPScheduler} - handles deliveries for POSTs on the iMIP inbox (coming from the mail gateway).
+
+L{DirectScheduler} - used when doing some internal processing (e.g., inbox item processing during an
+upgrade.
+
+Here is a typical flow of activity for a iTIP between users on the server:
+
+iTIP PUT request
+\
+ \_L{ImplicitScheduler}           - does CalDAV-schedule logic and sends iTIP message
+   \
+    \_L{CalDAVScheduler}          - receives iTIP message
+      \
+       \_L{ScheduleViaCalDAV}     - handles delivery of iTIP message
+         \
+          \_L{ImplicitProcessor}  - dispatches iTIP message (also auto-accept)
+            \
+             \_L{iTipProcessing}  - processes iTIP message
+             
+Here is a typical flow of activity for a iTIP between an organizer on the server and an iMIP attendee:
+
+iTIP PUT request
+\
+ \_L{ImplicitScheduler}
+   \
+    \_L{CalDAVScheduler}
+      \
+       \_L{ScheduleViaIMip}
+
+Here is a typical flow of activity for a iTIP between an organizer not on the server and attendee on the server:
+
+iTIP POST on /ischedule
+\
+ \_L{IScheduleScheduler}
+   \
+    \_L{ScheduleViaCalDAV}
+      \
+       \_L{ImplicitProcessor}
+         \
+          \_L{iTipProcessing}
+
 """
 
 __all__ = [
@@ -671,7 +727,11 @@ class CalDAVScheduler(Scheduler):
             if organizerPrincipal:
                 outboxURL = organizerPrincipal.scheduleOutboxURL()
                 if outboxURL:
-                    if not organizerPrincipal.enabledAsOrganizer():
+                    
+                    # Only do this check for a freebusy request. A check for an invite needs
+                    # to be handled later when we know whether a new invite is being added
+                    # (which we reject) vs an update to an existing one (which we allow).
+                    if self.checkForFreeBusy() and not organizerPrincipal.enabledAsOrganizer():
                         log.err("ORGANIZER not allowed to be an Organizer: %s" % (self.calendar,))
                         raise HTTPError(ErrorResponse(
                             responsecode.FORBIDDEN,
