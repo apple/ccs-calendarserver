@@ -147,7 +147,7 @@ def main():
 
             # Create log directory
             try:
-                logDir = os.path.join(options.targetDir, LOG_DIR)
+                logDir = os.path.join(options.targetRoot, LOG_DIR)
                 os.mkdir(logDir, 0755)
             except OSError:
                 # Already exists
@@ -436,10 +436,6 @@ def relocateData(sourceRoot, targetRoot, sourceVersion, oldServerRootValue,
     newDocumentRootValue = "Documents"
     newDocumentRoot = os.path.join(newDataRoot, newDocumentRootValue)
 
-    if not diskAccessor.exists(newServerRoot):
-        log("Creating calendar server root: %s" % (newServerRoot,))
-        diskAccessor.mkdir(newServerRoot)
-
     if sourceVersion < "10.7":
         # Before 10.7 there was no ServerRoot; DocumentRoot and DataRoot were separate.
         # Reconfigure so DocumentRoot is under DataRoot is under ServerRoot.  DataRoot
@@ -510,6 +506,7 @@ def relocateData(sourceRoot, targetRoot, sourceVersion, oldServerRootValue,
 
         if oldServerRootValue:
             if diskAccessor.exists(oldServerRootValue): # external volume
+                log("Using external calendar server root: %s" % (newServerRoot,))
                 # ServerRoot needs to be /Library/Server/Calendar and Contacts
                 # Since DocumentRoot is now relative to DataRoot, move DocumentRoot into DataRoot
                 newDataRoot = newDataRootValue = os.path.join(oldServerRootValue, "Data")
@@ -522,24 +519,42 @@ def relocateData(sourceRoot, targetRoot, sourceVersion, oldServerRootValue,
                 else:
                     diskAccessor.mkdir(newDocumentRoot)
             elif diskAccessor.exists(absolutePathWithRoot(sourceRoot, oldServerRootValue)):
+                log("Copying calendar server root: %s" % (newServerRoot,))
                 diskAccessor.ditto(
                     absolutePathWithRoot(sourceRoot, oldServerRootValue),
                     newServerRoot
                 )
+            else:
+                log("Creating new calendar server root: %s" % (newServerRoot,))
+                diskAccessor.mkdir(newServerRoot)
+                newDataRoot = os.path.join(newServerRoot, "Data")
+                diskAccessor.mkdir(newDataRoot)
+                newDocumentRoot = os.path.join(newDataRoot, "Documents")
+                diskAccessor.mkdir(newDocumentRoot)
+
 
     else: # 10.8 -> 10.8
 
         if oldServerRootValue:
             if diskAccessor.exists(oldServerRootValue): # external volume
-                pass
+                log("Using external calendar server root: %s" % (oldServerRootValue,))
             elif diskAccessor.exists(absolutePathWithRoot(sourceRoot, oldServerRootValue)):
+                log("Copying calendar server root: %s" % (newServerRoot,))
                 diskAccessor.ditto(
                     absolutePathWithRoot(sourceRoot, oldServerRootValue),
                     newServerRoot
                 )
+            else:
+                log("Creating new calendar server root: %s" % (newServerRoot,))
+                diskAccessor.mkdir(newServerRoot)
+                newDataRoot = os.path.join(newServerRoot, "Data")
+                diskAccessor.mkdir(newDataRoot)
+                newDocumentRoot = os.path.join(newDataRoot, "Documents")
+                diskAccessor.mkdir(newDocumentRoot)
 
-    if diskAccessor.exists(newServerRoot):
-        diskAccessor.chown(newServerRoot, uid, gid, recursive=True)
+    if not diskAccessor.exists(newServerRoot):
+        diskAccessor.mkdir(newServerRoot)
+    diskAccessor.chown(newServerRoot, uid, gid, recursive=True)
 
     newServerRootValue, newDataRootValue = relativize(newServerRootValue,
         newDataRootValue)

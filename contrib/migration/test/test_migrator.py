@@ -937,7 +937,6 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
                 "Data"
             ),
             [   # expected DiskAccessor history
-                ('mkdir', '/Volumes/new/Library/Server/Calendar and Contacts'),
                 ('ditto', '/Library/Server/Previous/Library/CalendarServer/Data', '/Volumes/new/Library/Server/Calendar and Contacts/Data'),
                 ('ditto', '/Library/Server/Previous/Library/CalendarServer/Documents', '/Volumes/new/Library/Server/Calendar and Contacts/Data/Documents'),
                 ('ditto', '/Library/Server/Previous/Library/AddressBookServer/Documents/addressbooks', '/Volumes/new/Library/Server/Calendar and Contacts/Data/Documents/addressbooks'),
@@ -1011,7 +1010,6 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
                 "/Volumes/External/CalendarServer/Calendar and Contacts Data",
             ),
             [   # expected DiskAccessor history
-                ('mkdir', '/Volumes/new/Library/Server/Calendar and Contacts'),
                 ('rename',
                  '/Volumes/External/CalendarServer/Calendar and Contacts Data',
                  '/Volumes/External/CalendarServer/Calendar and Contacts Data.bak'),
@@ -1019,6 +1017,7 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
                 ('rename', '/Volumes/External/CalendarServer/Documents', '/Volumes/External/CalendarServer/Calendar and Contacts Data/Documents'),
                 ('chown-recursive', '/Volumes/External/CalendarServer/Calendar and Contacts Data', FakeUser.pw_uid, FakeGroup.gr_gid),
                 ('ditto', '/Volumes/External/AddressBookServer/Documents/addressbooks', '/Volumes/External/CalendarServer/Calendar and Contacts Data/Documents/addressbooks'),
+                ('mkdir', '/Volumes/new/Library/Server/Calendar and Contacts'),
                 ('chown-recursive', '/Volumes/new/Library/Server/Calendar and Contacts', FakeUser.pw_uid, FakeGroup.gr_gid),
             ]
         ),
@@ -1088,7 +1087,6 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
                 "Data"
             ),
             [
-                ('mkdir', '/Volumes/new/Library/Server/Calendar and Contacts'),
                 ('ditto', '/Library/Server/Previous/NonStandard/CalendarServer/Data', '/Volumes/new/Library/Server/Calendar and Contacts/Data'),
                 ('ditto', '/Library/Server/Previous/NonStandard/CalendarServer/Documents', '/Volumes/new/Library/Server/Calendar and Contacts/Data/Documents'),
                 ('ditto', '/Library/Server/Previous/NonStandard/AddressBookServer/Documents/addressbooks', '/Volumes/new/Library/Server/Calendar and Contacts/Data/Documents/addressbooks'),
@@ -1161,13 +1159,13 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
                 "/Volumes/External/CalendarServer/Calendar and Contacts Data",
             ),
             [
-                ('mkdir', '/Volumes/new/Library/Server/Calendar and Contacts'),
                 ('ditto',
                  '/Library/Server/Previous/Library/CalendarServer/Data',
                  '/Volumes/External/CalendarServer/Calendar and Contacts Data'),
                 ('rename', '/Volumes/External/CalendarServer/Documents', '/Volumes/External/CalendarServer/Calendar and Contacts Data/Documents'),
                 ('chown-recursive', '/Volumes/External/CalendarServer/Calendar and Contacts Data', FakeUser.pw_uid, FakeGroup.gr_gid),
                 ('ditto', '/Library/Server/Previous/Library/AddressBookServer/Documents/addressbooks', '/Volumes/External/CalendarServer/Calendar and Contacts Data/Documents/addressbooks'),
+                ('mkdir', '/Volumes/new/Library/Server/Calendar and Contacts'),
                 ('chown-recursive', '/Volumes/new/Library/Server/Calendar and Contacts', FakeUser.pw_uid, FakeGroup.gr_gid),
             ]
         ),
@@ -1288,10 +1286,10 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
                 "/Volumes/External/Library/Server/Calendar and Contacts/Data",
             ),
             [
-            ('mkdir', '/Volumes/new/Library/Server/Calendar and Contacts'),
             ('rename',
               '/Volumes/External/Library/Server/Calendar and Contacts/Documents',
               '/Volumes/External/Library/Server/Calendar and Contacts/Data/Documents'),
+            ('mkdir', '/Volumes/new/Library/Server/Calendar and Contacts'),
             ('chown-recursive', '/Volumes/new/Library/Server/Calendar and Contacts', FakeUser.pw_uid, FakeGroup.gr_gid),
             ]
         ),
@@ -1350,7 +1348,6 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
                 "Data"
             ),
             [
-                ('mkdir', '/Volumes/new/Library/Server/Calendar and Contacts'),
                 ('ditto', '/Library/Server/Previous/Library/Server/Calendar and Contacts', '/Volumes/new/Library/Server/Calendar and Contacts'),
                 ('chown-recursive', '/Volumes/new/Library/Server/Calendar and Contacts', FakeUser.pw_uid, FakeGroup.gr_gid),
             ]
