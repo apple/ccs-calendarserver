@@ -1894,12 +1894,33 @@ END:VCALENDAR
                 ("mailto:user2@example.com",),
                 (None, ),
             ),
+
+            # Recurring component - cancel non-existent instance
+            (
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-4
+DTSTART:20071114T000000Z
+ATTENDEE:mailto:user2@example.com
+ORGANIZER:mailto:user1@example.com
+RRULE:FREQ=DAILY;COUNT=10
+SEQUENCE:1
+END:VEVENT
+END:VCALENDAR
+""",
+                "",
+                ("mailto:user2@example.com",),
+                (PyCalendarDateTime(2008, 12, 14, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)), ),
+            ),
+
         )
         
         for original, filtered, attendees, instances in data:
             component = Component.fromString(original)
             itipped = iTipGenerator.generateCancel(component, attendees, instances)
-            itipped = str(itipped).replace("\r", "")
+            itipped = str(itipped).replace("\r", "") if itipped else ""
             itipped = "".join([line for line in itipped.splitlines(True) if not line.startswith("DTSTAMP:")])
             self.assertEqual(filtered, itipped)
 

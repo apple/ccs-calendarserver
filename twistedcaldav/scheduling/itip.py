@@ -613,6 +613,7 @@ class iTipGenerator(object):
             instances = (None,)
 
         tzids = set()
+        added = False
         for instance_rid in instances:
             
             # Create a new component matching the type of the original
@@ -621,11 +622,16 @@ class iTipGenerator(object):
             # Use the master component when the instance is None
             if not instance_rid:
                 instance = original.masterComponent()
+                assert instance is not None, "Need a master component"
             else:
                 instance = original.overriddenComponent(instance_rid)
                 if instance is None:
                     instance = original.deriveInstance(instance_rid)
-            assert instance is not None, "Need a master component"
+                    
+                # If the instance to be cancelled did not exist in the original, then
+                # do nothing
+                if instance is None:
+                    continue
 
             # Add some required properties extracted from the original
             comp.addProperty(Property("DTSTAMP", instance.propertyValue("DTSTAMP")))
@@ -662,18 +668,22 @@ class iTipGenerator(object):
             tzids.update(comp.timezoneIDs())
 
             itip.addComponent(comp)
-            
-        # Now include any referenced tzids
-        for comp in original.subcomponents():
-            if comp.name() == "VTIMEZONE":
-                tzid = comp.propertyValue("TZID")
-                if tzid in tzids:
-                    itip.addComponent(comp)
-
-        # Strip out unwanted bits
-        iTipGenerator.prepareSchedulingMessage(itip)
-
-        return itip
+            added = True
+        
+        if added:
+            # Now include any referenced tzids
+            for comp in original.subcomponents():
+                if comp.name() == "VTIMEZONE":
+                    tzid = comp.propertyValue("TZID")
+                    if tzid in tzids:
+                        itip.addComponent(comp)
+    
+            # Strip out unwanted bits
+            iTipGenerator.prepareSchedulingMessage(itip)
+    
+            return itip
+        else:
+            return None
 
     @staticmethod
     def generateAttendeeRequest(original, attendees, filter_rids):

@@ -854,16 +854,16 @@ class ImplicitScheduler(object):
                 itipmsg = iTipGenerator.generateCancel(self.oldcalendar, (attendee,), rids)
 
             # Send scheduling message
-            
-            # This is a local CALDAV scheduling operation.
-            scheduler = self.makeScheduler()
-    
-            # Do the PUT processing
-            log.info("Implicit CANCEL - organizer: '%s' to attendee: '%s', UID: '%s', RIDs: '%s'" % (self.organizer, attendee, self.uid, rids))
-            response = (yield scheduler.doSchedulingViaPUT(self.originator, (attendee,), itipmsg, self.internal_request))
-            self.handleSchedulingResponse(response, True)
-            
-            count += 1
+            if itipmsg:
+                # This is a local CALDAV scheduling operation.
+                scheduler = self.makeScheduler()
+        
+                # Do the PUT processing
+                log.info("Implicit CANCEL - organizer: '%s' to attendee: '%s', UID: '%s', RIDs: '%s'" % (self.organizer, attendee, self.uid, rids))
+                response = (yield scheduler.doSchedulingViaPUT(self.originator, (attendee,), itipmsg, self.internal_request))
+                self.handleSchedulingResponse(response, True)
+                
+                count += 1
             
         returnValue(count)
             
