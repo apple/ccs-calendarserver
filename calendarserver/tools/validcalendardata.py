@@ -24,6 +24,7 @@ from calendarserver.tools.cmdline import utilityMain
 from twisted.application.service import Service
 from twisted.python.text import wordWrap
 from twisted.python.usage import Options
+from twistedcaldav.config import config
 from twistedcaldav.ical import Component
 from twistedcaldav.stdconfig import DEFAULT_CONFIG_FILE
 import os
@@ -151,8 +152,11 @@ class ValidService(Service, object):
     
         result = True
         message = ""
+        truncated = False
         try:
             component = Component.fromString(self.input.read())
+            if config.MaxInstancesForRRULE != 0:
+                truncated = component.truncateRecurrence(config.MaxInstancesForRRULE)
             component.validCalendarData(doFix=False, validateRecurrences=True)
             component.validCalendarForCalDAV(methodAllowed=True)
             component.validOrganizerForScheduling(doFix=False)
@@ -161,6 +165,8 @@ class ValidService(Service, object):
             message = str(e)
             if message.startswith(errorPrefix):
                 message = message[len(errorPrefix):]
+            if truncated:
+                message = "Calendar data RRULE truncated\n" + message
     
         return (result, message,)
 
@@ -184,7 +190,6 @@ def main(argv=sys.argv, stderr=sys.stderr, reactor=None):
         stderr.write("Unable to open input file for reading: %s\n" % (e))
         sys.exit(1)
     def makeService(store):
-        from twistedcaldav.config import config
         return ValidService(store, options, output, input, reactor, config)
     utilityMain(options['config'], makeService, reactor)
 
