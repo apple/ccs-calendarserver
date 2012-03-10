@@ -1125,6 +1125,17 @@ def buildFilter(mapping, fields, operand="or"):
         operand = ("|" if operand == "or" else "&")
         filterstr = "(%s%s)" % (operand, "".join(converted))
 
+    if filterstr:
+        # To reduce the amount of records returned, filter out the ones
+        # that don't have (possibly) required attribute values (record
+        # name, guid)
+        additional = []
+        for key in ("recordName", "guid"):
+            if mapping.has_key(key):
+                additional.append("(%s=*)" % (mapping.get(key),))
+        if additional:
+            filterstr = "(&%s%s)" % ("".join(additional), filterstr)
+
     return filterstr
 
 

@@ -37,10 +37,12 @@ else:
 
         def test_buildFilter(self):
             mapping = {
+                "recordName" : "uid",
                 "fullName" : "cn",
                 "emailAddresses" : "mail",
                 "firstName" : "givenName",
                 "lastName" : "sn",
+                "guid" : "generateduid",
             }
 
             entries = [
@@ -53,7 +55,7 @@ else:
                     ],
                     "operand" : "or",
                     "recordType" : None,
-                    "expected" : "(|(cn=mor*)(mail=mor*)(givenName=mor*)(sn=mor*))"
+                    "expected" : "(&(uid=*)(generateduid=*)(|(cn=mor*)(mail=mor*)(givenName=mor*)(sn=mor*)))"
                 },
                 {
                     "fields" : [
@@ -64,7 +66,7 @@ else:
                     ],
                     "operand" : "or",
                     "recordType" : None,
-                    "expected" : "(|(cn=mor\\28*)(mail=*mor\\29*)(givenName=mor\\2a)(sn=mor\\5c*))"
+                    "expected" : "(&(uid=*)(generateduid=*)(|(cn=mor\\28*)(mail=*mor\\29*)(givenName=mor\\2a)(sn=mor\\5c*)))"
                 },
                 {
                     "fields" : [
@@ -72,7 +74,7 @@ else:
                     ],
                     "operand" : "or",
                     "recordType" : None,
-                    "expected" : "(cn=mor*)"
+                    "expected" : "(&(uid=*)(generateduid=*)(cn=mor*))"
                 },
                 {
                     "fields" : [
@@ -82,7 +84,7 @@ else:
                     ],
                     "operand" : "and",
                     "recordType" : None,
-                    "expected" : "(&(cn=*mor*)(mail=mor))"
+                    "expected" : "(&(uid=*)(generateduid=*)(&(cn=*mor*)(mail=mor)))"
                 },
                 {
                     "fields" : [
