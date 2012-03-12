@@ -65,7 +65,7 @@ elif OS == "Linux":
 sys.stdout = os.fdopen(sys.stdout.fileno(), 'w', 0) 
 
 
-filename = "/var/log/caldavd/access.log"
+filenames = ["/var/log/caldavd/access.log",]
 debug = False
 
 def listenq():
@@ -105,24 +105,28 @@ def idleHistory():
 
 
 
-def tail(filename, n):
-    child = Popen(
-        args=[
-            "/usr/bin/tail", "-%d" % (n,), filename,
-        ],
-        stdout=PIPE, stderr=STDOUT,
-    )
-    output, _ignore_error = child.communicate()
-    return output.split("\n")
-
-def range(filename, start, end):
+def tail(filenames, n):
     results = []
-    with open(filename) as f:
-        for count, line in enumerate(f):
-            if count >= start:
-                results.append(line)
-            if count > end:
-                break
+    for filename in filenames:
+        child = Popen(
+            args=[
+                "/usr/bin/tail", "-%d" % (n,), filename,
+            ],
+            stdout=PIPE, stderr=STDOUT,
+        )
+        output, _ignore_error = child.communicate()
+        results.extend(output.splitlines())
+    return results
+
+def range(filenames, start, end):
+    results = []
+    for filename in filenames:
+        with open(filename) as f:
+            for count, line in enumerate(f):
+                if count >= start:
+                    results.append(line)
+                if count > end:
+                    break
     return results
 
 def cpuPerDaemon():
@@ -161,7 +165,7 @@ def cpuidle():
     elif OS == "Linux":
         child = Popen(
             args=[
-                IOSTAT, "-c",
+                IOSTAT, "-c", "1", "2"
             ],
             stdout=PIPE, stderr=STDOUT,
         )
@@ -312,22 +316,24 @@ for option, value in options:
         numTop = int(value)
 
 if len(args):
-    filename = os.path.expanduser(args[0])
+    filenames = [os.path.expanduser(arg) for arg in args]
 
-if not os.path.isfile(filename):
-    print "Path %s does not exist" % (filename,)
-    print
-    usage()
-    sys.exit(1)
+for filename in filenames:
+    if not os.path.isfile(filename):
+        print "Path %s does not exist" % (filename,)
+        print
+        usage()
+        sys.exit(1)
 
-if not os.access(filename, os.R_OK):
-    print "Path %s does not exist" % (filename,)
-    print
-    usage()
-    sys.exit(1)
+for filename in filenames:
+    if not os.access(filename, os.R_OK):
+        print "Path %s does not exist" % (filename,)
+        print
+        usage()
+        sys.exit(1)
 
 if debug:
-    print "Starting: access log file: %s" % (filename,)
+    print "Starting: access log files: %s" % (", ".join(filenames),)
     print
 
 while True:
@@ -358,7 +364,7 @@ while True:
     parseErrors = 0
 
     try:
-        lines = tail(filename, numLines) if lineRange is None else range(filename, *lineRange)
+        lines = tail(filenames, numLines) if lineRange is None else range(filenames, *lineRange)
         for line in lines:
             if not line or line.startswith("Log"):
                 continue
