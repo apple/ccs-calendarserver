@@ -347,6 +347,9 @@ class Commands(CommandsBase):
 
         usage: exit
         """
+        if tokens:
+            raise UnknownArguments(tokens)
+
         self.exit()
 
 
@@ -356,6 +359,9 @@ class Commands(CommandsBase):
 
         usage: python
         """
+        if tokens:
+            raise UnknownArguments(tokens)
+
         if not hasattr(self, "_interpreter"):
             # Bring in some helpful local variables.
             from txdav.common.datastore.sql_tables import schema
@@ -397,9 +403,26 @@ class Commands(CommandsBase):
 
 
     def addOutput(self, bytes, async=False):
+        """
+        This is a delegate method, called by ManholeInterpreter.
+        """
         if async:
             self.terminal.write("... interrupted for Deferred ...\n")
         self.terminal.write(bytes)
         if async:
             self.terminal.write("\n")
             self.drawInputLine()
+
+
+    def cmd_sql(self, tokens):
+        """
+        Switch to an SQL prompt.
+
+        usage: sql
+        """
+        if tokens:
+            raise UnknownArguments(tokens)
+
+        raise NotImplementedError("")
+
+    cmd_sql.hidden = "Not implemented."
