@@ -1209,6 +1209,8 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
                 "/Library/Server/Previous/Library/Server/Calendar and Contacts/Documents/" : True,
                 "/Library/Server/Previous/Library/Server/Calendar and Contacts/Data/" : True,
                 "/Volumes/new/Library/Server/Calendar and Contacts/" : True,
+                "/Volumes/new/Library/Server/Calendar and Contacts/Data" : True,
+                "/Volumes/new/Library/Server/Calendar and Contacts/Documents" : True,
             },
             (   # args
                 "/Library/Server/Previous", # sourceRoot
@@ -1227,6 +1229,7 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
             ),
             [
                 ('ditto', '/Library/Server/Previous/Library/Server/Calendar and Contacts', '/Volumes/new/Library/Server/Calendar and Contacts'),
+                ('rename', '/Volumes/new/Library/Server/Calendar and Contacts/Documents', '/Volumes/new/Library/Server/Calendar and Contacts/Data/Documents'),
                 ('chown-recursive', '/Volumes/new/Library/Server/Calendar and Contacts', FakeUser.pw_uid, FakeGroup.gr_gid),
             ]
         ),

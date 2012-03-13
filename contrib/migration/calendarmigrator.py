@@ -524,6 +524,16 @@ def relocateData(sourceRoot, targetRoot, sourceVersion, oldServerRootValue,
                     absolutePathWithRoot(sourceRoot, oldServerRootValue),
                     newServerRoot
                 )
+                newDataRoot = os.path.join(newServerRoot, "Data")
+                if not diskAccessor.exists(newDataRoot):
+                    diskAccessor.mkdir(newDataRoot)
+                newDocumentRoot = os.path.join(newDataRoot, "Documents")
+                if diskAccessor.exists(os.path.join(newServerRoot, "Documents")):
+                    log("Moving Documents into Data root: %s" % (newDataRoot,))
+                    diskAccessor.rename(os.path.join(newServerRoot, "Documents"),
+                        newDocumentRoot)
+                else:
+                    diskAccessor.mkdir(newDocumentRoot)
             else:
                 log("Creating new calendar server root: %s" % (newServerRoot,))
                 diskAccessor.mkdir(newServerRoot)
