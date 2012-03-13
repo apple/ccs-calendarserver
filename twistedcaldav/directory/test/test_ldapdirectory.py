@@ -54,8 +54,9 @@ else:
                         ("lastName", "mor", True, u"starts-with")
                     ],
                     "operand" : "or",
-                    "recordType" : None,
-                    "expected" : "(&(uid=*)(generateduid=*)(|(cn=mor*)(mail=mor*)(givenName=mor*)(sn=mor*)))"
+                    "recordType" : "users",
+                    "expected" : "(&(uid=*)(generateduid=*)(|(cn=mor*)(mail=mor*)(givenName=mor*)(sn=mor*)))",
+                    "optimize" : False,
                 },
                 {
                     "fields" : [
@@ -65,16 +66,18 @@ else:
                         ("lastName", "mor\\", True, u"starts-with")
                     ],
                     "operand" : "or",
-                    "recordType" : None,
-                    "expected" : "(&(uid=*)(generateduid=*)(|(cn=mor\\28*)(mail=*mor\\29*)(givenName=mor\\2a)(sn=mor\\5c*)))"
+                    "recordType" : "users",
+                    "expected" : "(&(uid=*)(generateduid=*)(|(cn=mor\\28*)(mail=*mor\\29*)(givenName=mor\\2a)(sn=mor\\5c*)))",
+                    "optimize" : False,
                 },
                 {
                     "fields" : [
                         ("fullName", "mor", True, u"starts-with"),
                     ],
                     "operand" : "or",
-                    "recordType" : None,
-                    "expected" : "(&(uid=*)(generateduid=*)(cn=mor*))"
+                    "recordType" : "users",
+                    "expected" : "(&(uid=*)(generateduid=*)(cn=mor*))",
+                    "optimize" : False,
                 },
                 {
                     "fields" : [
@@ -83,8 +86,9 @@ else:
                         ("invalid", "mor", True, u"starts-with"),
                     ],
                     "operand" : "and",
-                    "recordType" : None,
-                    "expected" : "(&(uid=*)(generateduid=*)(&(cn=*mor*)(mail=mor)))"
+                    "recordType" : "users",
+                    "expected" : "(&(uid=*)(generateduid=*)(&(cn=*mor*)(mail=mor)))",
+                    "optimize" : False,
                 },
                 {
                     "fields" : [
@@ -92,22 +96,123 @@ else:
                         ("invalid", "mor", True, u"starts-with"),
                     ],
                     "operand" : "and",
-                    "recordType" : None,
-                    "expected" : None
+                    "recordType" : "users",
+                    "expected" : None,
+                    "optimize" : False,
                 },
                 {
                     "fields" : [ ],
                     "operand" : "and",
-                    "recordType" : None,
-                    "expected" : None
+                    "recordType" : "users",
+                    "expected" : None,
+                    "optimize" : False,
+                },
+                {
+                    "fields" : [
+                        ("fullName", "mor", True, u"starts-with"),
+                        ("fullName", "sag", True, u"starts-with"),
+                        ("emailAddresses", "mor", True, u"starts-with"),
+                        ("emailAddresses", "sag", True, u"starts-with"),
+                        ("firstName", "mor", True, u"starts-with"),
+                        ("firstName", "sag", True, u"starts-with"),
+                        ("lastName", "mor", True, u"starts-with"),
+                        ("lastName", "sag", True, u"starts-with"),
+                    ],
+                    "operand" : "or",
+                    "recordType" : "users",
+                    "expected" : "(&(uid=*)(generateduid=*)(|(&(givenName=mor*)(sn=sag*))(&(givenName=sag*)(sn=mor*))))",
+                    "optimize" : True,
+                },
+                {
+                    "fields" : [
+                        ("fullName", "mor", True, u"starts-with"),
+                        ("fullName", "sag", True, u"starts-with"),
+                        ("emailAddresses", "mor", True, u"starts-with"),
+                        ("emailAddresses", "sag", True, u"starts-with"),
+                        ("firstName", "mor", True, u"starts-with"),
+                        ("firstName", "sag", True, u"starts-with"),
+                        ("lastName", "mor", True, u"starts-with"),
+                        ("lastName", "sag", True, u"starts-with"),
+                    ],
+                    "operand" : "or",
+                    "recordType" : "groups",
+                    "expected" : None,
+                    "optimize" : True,
+                },
+                {
+                    "fields" : [
+                        ("fullName", "mor", True, u"starts-with"),
+                        ("fullName", "sag", True, u"starts-with"),
+                        ("emailAddresses", "mor", True, u"starts-with"),
+                        ("emailAddresses", "sag", True, u"starts-with"),
+                        ("firstName", "mor", True, u"starts-with"),
+                        ("firstName", "sag", True, u"starts-with"),
+                        ("lastName", "mor", True, u"starts-with"),
+                        ("lastName", "sag", True, u"starts-with"),
+                    ],
+                    "operand" : "or",
+                    "recordType" : "groups",
+                    "expected" : None,
+                    "optimize" : "(&(uid=*)(generateduid=*)(|(cn=mor*)(cn=sag*)(mail=mor*)(mail=sag*)(givenName=mor*)(givenName=sag*)(sn=mor*)(sn=sag*)))",
+                },
+                {
+                    "fields" : [
+                        ("guid", "xyzzy", True, u"equals"),
+                        ("guid", "plugh", True, u"equals"),
+                    ],
+                    "operand" : "or",
+                    "recordType" : "groups",
+                    "expected" : "(&(uid=*)(generateduid=*)(|(generateduid=xyzzy)(generateduid=plugh)))",
+                    "optimize" : True,
+                },
+                {
+                    "fields" : [
+                        ("fullName", "mor", True, u"contains"),
+                        ("fullName", "sag", True, u"contains"),
+                    ],
+                    "operand" : "or",
+                    "recordType" : "locations",
+                    "expected" : "(&(uid=*)(generateduid=*)(|(cn=*mor*)(cn=*sag*)))",
+                    "optimize" : True,
+                },
+                {
+                    "fields" : [
+                        ("fullName", "mor", True, u"contains"),
+                        ("fullName", "sag", True, u"contains"),
+                    ],
+                    "operand" : "or",
+                    "recordType" : "resources",
+                    "expected" : "(&(uid=*)(generateduid=*)(|(cn=*mor*)(cn=*sag*)))",
+                    "optimize" : True,
                 },
             ]
             for entry in entries:
                 self.assertEquals(
-                    buildFilter(mapping, entry["fields"],
-                        operand=entry["operand"]),
+                    buildFilter(entry["recordType"], mapping, entry["fields"],
+                        operand=entry["operand"], optimizeMultiName=entry["optimize"]),
                     entry["expected"]
                 )
+
+    class StubList(object):
+        def __init__(self, wrapper):
+            self.ldap = wrapper
+
+        def startSearch(self, base, scope, filterstr, attrList=None,
+            timeout=-1, sizelimit=0):
+            self.base = base
+            self.scope = scope
+            self.filterstr = filterstr
+            self.attrList = attrList
+            self.timeout = timeout
+            self.sizelimit = sizelimit
+
+        def processResults(self):
+            self.allResults = self.ldap.search_s(self.base, self.scope,
+                self.filterstr, attrlist=self.attrList)
+
+    class StubAsync(object):
+        def List(self, wrapper):
+            return StubList(wrapper)
 
 
     class LdapDirectoryTestWrapper(object):
@@ -116,8 +221,10 @@ else:
         whatever you have previously called addTestResults( ) with.
         """
 
+
         def __init__(self, actual):
             self.actual = actual
+            self.async = StubAsync()
 
             # Test data returned from search_s.
             # Note that some DNs have various extra whitespace added and mixed
@@ -244,10 +351,10 @@ else:
             for dn, attrs in self.records:
                 dn = normalizeDNstr(dn)
                 if dn == base:
-                    results.append((dn, attrs))
+                    results.append(("ignored", (dn, attrs)))
                 elif dnContainedIn(ldap.dn.str2dn(dn), ldap.dn.str2dn(base)):
                     if filterstr in ("(objectClass=*)", "(!(objectClass=organizationalUnit))"):
-                        results.append((dn, attrs))
+                        results.append(("ignored", (dn, attrs)))
                     else:
                         trans = maketrans("&(|)", "   |")
                         fragments = filterstr.encode("utf-8").translate(trans).split("|")
@@ -257,7 +364,7 @@ else:
                             fragment = fragment.strip()
                             key, value = fragment.split("=")
                             if value in attrs.get(key, []):
-                                results.append((dn, attrs))
+                                results.append(("ignored", (dn, attrs)))
 
             return results
 
@@ -371,6 +478,7 @@ else:
 
             self.service = LdapDirectoryService(params)
             self.service.ldap = LdapDirectoryTestWrapper(self.service.ldap)
+            self.patch(ldap, "async", StubAsync())
 
 
         def test_ldapWrapper(self):

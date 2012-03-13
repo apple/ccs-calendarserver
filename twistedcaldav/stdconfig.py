@@ -65,6 +65,9 @@ DEFAULT_SERVICE_PARAMS = {
         "negativeCaching": False,
         "warningThresholdSeconds": 3,
         "batchSize": 500, # for splitting up large queries
+        "requestTimeoutSeconds" : 10,
+        "requestResultsLimit" : 200,
+        "optimizeMultiName" : False,
         "queryLocationsImplicitly": True,
         "restrictEnabledRecords": False,
         "restrictToGroup": "",
