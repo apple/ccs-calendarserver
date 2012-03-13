@@ -287,7 +287,7 @@ class CalendarServerLogAnalyzer(object):
         self.currentLine = None
         self.linesRead = 0
         
-    def analyzeLogFile(self, logFilePath, ctr):
+    def analyzeLogFile(self, logFilePath, lineCtr):
         fpath = os.path.expanduser(logFilePath)
         if fpath.endswith(".gz"):
             f = GzipFile(fpath)
@@ -297,14 +297,18 @@ class CalendarServerLogAnalyzer(object):
         self.maxIndex = (self.endHour - self.startHour + 1) * 60 / self.resolutionMinutes
         try:
             for line in f:
-                ctr += 1
-                if ctr <= self.linesRead:
+                lineCtr += 1
+                if lineCtr <= self.linesRead:
                     continue
                 self.linesRead += 1
                 if line.startswith("Log"):
                     continue
         
-                self.parseLine(line)
+                try:
+                    self.parseLine(line)
+                except:
+                    print "Could not parse line:\n%s" % (line,)
+                    continue
         
                 # Filter method
                 if self.ignoreNonHTTPMethods and not self.currentLine.method.startswith("REPORT(") and self.currentLine.method not in httpMethods:
@@ -461,7 +465,7 @@ class CalendarServerLogAnalyzer(object):
                 self.userInteractionAnalysis(adjustedMethod)
 
         except Exception:
-            print line
+            print "Failed to process line:\n%s" % (line,)
             raise
     
         # Average various items
@@ -505,7 +509,7 @@ class CalendarServerLogAnalyzer(object):
         for client, data in self.clientByMethodCount.iteritems():
             self.clientIDByMethodCount[self.clientIDMap[client]] = data
 
-        return ctr
+        return lineCtr
 
     def parseLine(self, line):
     
@@ -1863,7 +1867,7 @@ if __name__ == "__main__":
         pwd = os.getcwd()
 
         analyzers = []
-        ctr = 0
+        ctr = []
         for arg in args:
             arg = os.path.expanduser(arg)
             if not arg.startswith("/"):
@@ -1876,8 +1880,9 @@ if __name__ == "__main__":
            
             if diffMode or not analyzers:
                 analyzers.append(CalendarServerLogAnalyzer(startHour, endHour, utcoffset, resolution, filterByUser, filterByClient))
+                ctr.append(0)
             print "Analyzing: %s" % (arg,)
-            ctr = analyzers[-1].analyzeLogFile(arg, ctr)
+            ctr[-1] = analyzers[-1].analyzeLogFile(arg, ctr[-1])
 
         if diffMode and len(analyzers) > 1:
             Differ(analyzers).printAll(doTabDelimited)
@@ -1890,9 +1895,9 @@ if __name__ == "__main__":
                     if again.lower()[0] == "n":
                         break
                     print "\n\n\n"
-                    analyzers[0].analyzeLogFile(arg)
+                    analyzers[0].analyzeLogFile(arg, ctr[0])
                     analyzers[0].printAll(doTabDelimited)
                 
     except Exception, e:
-        sys.exit(str(e))
         print traceback.print_exc()
+        sys.exit(str(e))
