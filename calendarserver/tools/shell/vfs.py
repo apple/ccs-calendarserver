@@ -301,6 +301,10 @@ class PrincipalHomeFolder(Folder):
         result.append("Principal home for UID: %s\n" % (self.uid,))
 
         if self.record is not None:
+            #
+            # Basic record info
+            #
+
             rows = []
 
             def add(name, value):
@@ -333,6 +337,18 @@ class PrincipalHomeFolder(Folder):
             if rows:
                 result.append("Directory Record:")
                 result.append(tableString(rows, header=("Name", "Value")))
+
+            #
+            # Group memberships
+            #
+            rows = []
+
+            for group in self.record.groups():
+                rows.append((group.uid, group.shortNames[0], group.fullName))
+
+            if rows:
+                result.append("Group Memberships:")
+                result.append(tableString(rows, header=("UID", "Short Name", "Full Name")))
 
         return "\n".join(result)
 
