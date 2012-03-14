@@ -105,7 +105,8 @@ class RootResource (ReadOnlyResourceMixIn, DirectoryPrincipalPropertySearchMixIn
         if not config.EnableKeepAlive:
             def addConnectionClose(request, response):
                 response.headers.setHeader("connection", ("close",))
-                request.chanRequest.channel.setReadPersistent(False)
+                if request.chanRequest is not None:
+                    request.chanRequest.channel.setReadPersistent(False)
                 return response
             self.contentFilters.append((addConnectionClose, True))
 

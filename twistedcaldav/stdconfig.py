@@ -894,7 +894,7 @@ DEFAULT_CONFIG = {
         "UseExternalProxies" : False,
     },
 
-    "EnableKeepAlive": True,
+    "EnableKeepAlive": False,
 
     "EnableResponseCache":  True,
     "ResponseCacheTimeout": 30, # Minutes
