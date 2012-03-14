@@ -110,7 +110,7 @@ class IDirectoryRecord(Interface):
     fullName              = Attribute("The full name of this record.")
     firstName             = Attribute("The first name of this record.")
     lastName              = Attribute("The last name of this record.")
-    emailAddress          = Attribute("The email address of this record.")
+    emailAddresses        = Attribute("The email addresses of this record.")
     enabledForCalendaring = Attribute("Determines whether this record creates a principal with a calendar home.")
     enabledForAddressBooks = Attribute("Determines whether this record creates a principal with an address book home.")
     calendarUserAddresses = Attribute(
