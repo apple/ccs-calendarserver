@@ -382,11 +382,9 @@ class PrincipalHomeFolder(Folder):
             rows = []
             proxyInfoSeen = set()
             for record in meAndMyGroups():
-                print "Record:", record
                 proxyUIDs = (yield ProxyDBService.getMemberships(record.uid))
 
                 for proxyUID in proxyUIDs:
-                    # print proxyUID
                     # These are of the form: F153A05B-FF27-4B6C-BD6D-D1239D0082B0#calendar-proxy-read
                     # I don't know how to get DirectoryRecord objects for the proxyUID here, so, let's cheat for now.
                     proxyUID, proxyType = proxyUID.split("#")
