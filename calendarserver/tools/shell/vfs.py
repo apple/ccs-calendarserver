@@ -154,6 +154,7 @@ class RootFolder(Folder):
         self._childClasses["users"    ] = UsersFolder
         self._childClasses["locations"] = LocationsFolder
         self._childClasses["resources"] = ResourcesFolder
+        self._childClasses["groups"   ] = GroupsFolder
 
 
 class UIDsFolder(Folder):
@@ -225,6 +226,13 @@ class ResourcesFolder(RecordFolder):
     Folder containing all resource principals by name.
     """
     recordType = "resources"
+
+
+class GroupsFolder(RecordFolder):
+    """
+    Folder containing all group principals by name.
+    """
+    recordType = "groups"
 
 
 class PrincipalHomeFolder(Folder):
