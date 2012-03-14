@@ -421,10 +421,11 @@ class CalendarObject(File):
             component = (yield self.object.component())
 
             try:
-                mainComponent = component.mainComponent()
+                mainComponent = component.mainComponent(allow_multiple=True)
+
+                assert self.uid == mainComponent.propertyValue("UID")
 
                 self.componentType = mainComponent.name()
-               #self.uid           = mainComponent.propertyValue("UID")
                 self.summary       = mainComponent.propertyValue("SUMMARY")
                 self.mainComponent = mainComponent
 
