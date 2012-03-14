@@ -441,7 +441,7 @@ class CalendarObject(File):
     @inlineCallbacks
     def list(self):
         (yield self.lookup())
-        returnValue(((CalendarObject, self.uid, self.componentType, self.summary),))
+        returnValue(((CalendarObject, self.uid, self.componentType, self.summary.replace("\n", " ")),))
 
     @inlineCallbacks
     def text(self):
@@ -476,7 +476,6 @@ class CalendarObject(File):
 #       for attachment in attachments:
 #           log.msg("%r" % (attachment,))
 #           # FIXME: Not getting any results here
-
 
         returnValue("Calendar object:\n%s" % tableString(rows))
 
