@@ -192,7 +192,7 @@ class RecordFolder(Folder):
 
         return PrincipalHomeFolder(
             self.service,
-            self.path + (record.uid,),
+            self.path + (name,),
             record.uid,
             record=record
         )
