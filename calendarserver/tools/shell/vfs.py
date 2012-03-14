@@ -304,6 +304,7 @@ class PrincipalHomeFolder(Folder):
     def list(self):
         return Folder.list(self)
 
+    @inlineCallbacks
     def describe(self):
         result = []
         result.append("Principal home for UID: %s\n" % (self.uid,))
@@ -355,10 +356,55 @@ class PrincipalHomeFolder(Folder):
                 rows.append((group.uid, group.shortNames[0], group.fullName))
 
             if rows:
+                def sortKey(row):
+                    return (row[1], row[2])
                 result.append("Group Memberships:")
-                result.append(tableString(rows, header=("UID", "Short Name", "Full Name")))
+                result.append(tableString(
+                    sorted(rows, key=sortKey),
+                    header=("UID", "Short Name", "Full Name")
+                ))
 
-        return "\n".join(result)
+            #
+            # Proxy for...
+            #
+
+            # FIXME: This logic should be in the DirectoryRecord.
+
+            def meAndMyGroups(record=self.record, groups=set((self.record,))):
+                for group in record.groups():
+                    groups.add(group)
+                    meAndMyGroups(group, groups)
+                return groups
+                
+            # FIXME: This module global is really gross.
+            from twistedcaldav.directory.calendaruserproxy import ProxyDBService
+
+            rows = []
+            proxyInfoSeen = set()
+            for record in meAndMyGroups():
+                print "Record:", record
+                proxyUIDs = (yield ProxyDBService.getMemberships(record.uid))
+
+                for proxyUID in proxyUIDs:
+                    # print proxyUID
+                    # These are of the form: F153A05B-FF27-4B6C-BD6D-D1239D0082B0#calendar-proxy-read
+                    # I don't know how to get DirectoryRecord objects for the proxyUID here, so, let's cheat for now.
+                    proxyUID, proxyType = proxyUID.split("#")
+                    if (proxyUID, proxyType) not in proxyInfoSeen:
+                        proxyRecord = self.service.directory.recordWithUID(proxyUID)
+                        rows.append((proxyUID, proxyRecord.recordType, proxyRecord.shortNames[0], proxyRecord.fullName, proxyType))
+                        proxyInfoSeen.add((proxyUID, proxyType))
+
+            if rows:
+                def sortKey(row):
+                    return (row[1], row[2], row[4])
+                result.append("Proxy Access:")
+                result.append(tableString(
+                    sorted(rows, key=sortKey),
+                    header=("UID", "Record Type", "Short Name", "Full Name", "Access")
+                ))
+
+        returnValue("\n".join(result))
 
 
 class CalendarHomeFolder(Folder):
@@ -519,7 +565,7 @@ class CalendarObject(File):
         rows = []
 
         rows.append(("UID", self.uid))
-        rows.append(("Type", self.componentType))
+        rows.append(("Component Type", self.componentType))
         rows.append(("Summary", self.summary))
         
         organizer = self.mainComponent.getProperty("ORGANIZER")
