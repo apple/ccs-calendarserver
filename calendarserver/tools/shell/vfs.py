@@ -296,6 +296,46 @@ class PrincipalHomeFolder(Folder):
     def list(self):
         return Folder.list(self)
 
+    def describe(self):
+        result = []
+        result.append("Principal home for UID: %s\n" % (self.uid,))
+
+        if self.record is not None:
+            rows = []
+
+            def add(name, value):
+                if value:
+                    rows.append((name, value))
+
+            add("Service"    , self.record.service   )
+            add("Record Type", self.record.recordType)
+
+            for shortName in self.record.shortNames:
+                add("Short Name", shortName)
+
+            add("GUID"      , self.record.guid     )
+            add("Full Name" , self.record.fullName )
+            add("First Name", self.record.firstName)
+            add("Last Name" , self.record.lastName )
+
+            for email in self.record.emailAddresses:
+                add("Email Address", email)
+
+            for cua in self.record.calendarUserAddresses:
+                add("Calendar User Address", cua)
+
+            add("Server ID"           , self.record.serverID              )
+            add("Partition ID"        , self.record.partitionID           )
+            add("Enabled"             , self.record.enabled               )
+            add("Enabled for Calendar", self.record.enabledForCalendaring )
+            add("Enabled for Contacts", self.record.enabledForAddressBooks)
+
+            if rows:
+                result.append("Directory Record:")
+                result.append(tableString(rows, header=("Name", "Value")))
+
+        return "\n".join(result)
+
 
 class CalendarHomeFolder(Folder):
     """
@@ -333,7 +373,7 @@ class CalendarHomeFolder(Folder):
         properties   = (yield self.home.properties())
 
         result = []
-        result.append("Calendar home for UID: %s" % (uid,))
+        result.append("Calendar home for UID: %s\n" % (uid,))
 
         #
         # Attributes
@@ -353,14 +393,14 @@ class CalendarHomeFolder(Folder):
             ))
 
         if len(rows):
-            result.append("\nAttributes:")
+            result.append("Attributes:")
             result.append(tableString(rows, header=("Name", "Value")))
 
         #
         # Properties
         #
         if properties:
-            result.append("\Properties:")
+            result.append("Properties:")
             result.append(tableString(
                 ((name, properties[name]) for name in sorted(properties)),
                 header=("Name", "Value")
