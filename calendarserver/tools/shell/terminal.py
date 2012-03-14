@@ -95,12 +95,6 @@ class ShellService(Service, object):
         """
         Start the service.
         """
-        # For debugging
-        if True:
-            from twisted.python.log import startLogging
-            f = open("/tmp/shell.log", "w")
-            startLogging(f)
-
         super(ShellService, self).startService()
 
         # Set up the terminal for interactive action

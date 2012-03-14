@@ -425,3 +425,35 @@ class Commands(CommandsBase):
         raise NotImplementedError("")
 
     cmd_sql.hidden = "Not implemented."
+
+
+    def cmd_log(self, tokens):
+        """
+        Enable logging.
+
+        usage: log [file]
+        """
+        if hasattr(self, "_logFile"):
+            self.terminal.write("Already logging to file: %s\n" % (self._logFile,))
+            return
+
+        if tokens:
+            fileName = tokens.pop(0)
+        else:
+            fileName = "/tmp/shell.log"
+
+        if tokens:
+            raise UnknownArguments(tokens)
+
+        from twisted.python.log import startLogging
+        try:
+            f = open(fileName, "w")
+        except (IOError, OSError), e:
+            self.terminal.write("Unable to open file %s: %s\n" % (fileName, e))
+            return
+
+        startLogging(f)
+
+        self._logFile = fileName
+
+    cmd_log.hidden = "Debug tool"
