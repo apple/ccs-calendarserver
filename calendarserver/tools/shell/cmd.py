@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 ##
 # Copyright (c) 2011-2012 Apple Inc. All rights reserved.
 #
