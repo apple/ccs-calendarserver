@@ -20,11 +20,13 @@ Virtual file system for data store objects.
 
 from cStringIO import StringIO
 
-#from twisted.python import log
+from twisted.python import log
 from twisted.internet.defer import succeed
 from twisted.internet.defer import inlineCallbacks, returnValue
 
 from txdav.common.icommondatastore import NotFoundError
+
+from twistedcaldav.ical import InvalidICalendarDataError
 
 from calendarserver.tools.tables import Table
 
@@ -378,8 +380,8 @@ class CalendarFolder(Folder):
 
     @inlineCallbacks
     def _childWithObject(self, object):
-        name = (yield object.uid())
-        returnValue(CalendarObject(self.service, self.path + (name,), object))
+        uid = (yield object.uid())
+        returnValue(CalendarObject(self.service, self.path + (uid,), object, uid))
 
     @inlineCallbacks
     def child(self, name):
@@ -407,22 +409,33 @@ class CalendarObject(File):
     """
     Calendar object.
     """
-    def __init__(self, service, path, calendarObject):
+    def __init__(self, service, path, calendarObject, uid):
         File.__init__(self, service, path)
 
         self.object = calendarObject
+        self.uid    = uid
 
     @inlineCallbacks
     def lookup(self):
         if not hasattr(self, "component"):
             component = (yield self.object.component())
-            mainComponent = component.mainComponent()
 
-            self.componentType = mainComponent.name()
-            self.uid           = mainComponent.propertyValue("UID")
-            self.summary       = mainComponent.propertyValue("SUMMARY")
-            self.mainComponent = mainComponent
-            self.component     = component
+            try:
+                mainComponent = component.mainComponent()
+
+                self.componentType = mainComponent.name()
+               #self.uid           = mainComponent.propertyValue("UID")
+                self.summary       = mainComponent.propertyValue("SUMMARY")
+                self.mainComponent = mainComponent
+
+            except InvalidICalendarDataError, e:
+                log.err("%s: %s" % (self.path, e))
+
+                self.componentType = "?"
+                self.summary       = "** Invalid data **"
+                self.mainComponent = None
+
+            self.component = component
 
     @inlineCallbacks
     def list(self):
