@@ -1338,8 +1338,9 @@ class LdapDirectoryRecord(CachingDirectoryRecord):
                 dn = normalizeDNstr(dn)
                 shortName = self.service._getUniqueLdapAttribute(attrs, "cn")
                 self.log_debug("%s is a member of %s" % (self._memberId, shortName))
-                groups.append(self.service.recordWithShortName(recordType,
-                    shortName))
+                record = self.service.recordWithShortName(recordType, shortName)
+                if record is not None:
+                    groups.append(record)
         except ldap.PROTOCOL_ERROR, e:
             self.log_warn(str(e))
 
