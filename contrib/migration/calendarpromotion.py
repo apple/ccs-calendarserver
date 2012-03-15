@@ -36,13 +36,22 @@ def main():
         # Already exists
         pass
 
-    # Turn off services in case this is a re-promotion
     plistPath = os.path.join(DEST_CONFIG_DIR, CALDAVD_PLIST)
     if os.path.exists(plistPath):
         try:
             plistData = readPlist(plistPath)
+
+            # Turn off services in case this is a re-promotion
             plistData["EnableCalDAV"] = False
             plistData["EnableCardDAV"] = False
+
+            # Disable XMPPNotifier now that we're directly talking to APNS
+            try:
+                if plistData["Notifications"]["Services"]["XMPPNotifier"]["Enabled"]:
+                    plistData["Notifications"]["Services"]["XMPPNotifier"]["Enabled"] = False
+            except KeyError:
+                pass
+
             writePlist(plistData, plistPath)
         except Exception, e:
             print "Unable to disable services in %s: %s" % (plistPath, e)

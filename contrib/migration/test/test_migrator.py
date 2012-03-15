@@ -427,6 +427,45 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
         self.assertEquals(newCombined, expected)
 
 
+    def test_disableXMPPNotifier(self):
+
+        # Ensure XMPPNotifier is disabled
+
+        oldCalDAV = {
+            "Notifications": {
+                "Services" : {
+                    "XMPPNotifier" : {
+                        "Enabled" : True,
+                    },
+                },
+            },
+        }
+        oldCardDAV = { }
+        expected = {
+            "Notifications": {
+                "Services" : {
+                    "XMPPNotifier" : {
+                        "Enabled" : False,
+                    },
+                },
+            },
+            "BindHTTPPorts": [8008, 8800],
+            "BindSSLPorts": [8443, 8843],
+            "EnableSSL" : False,
+            "HTTPPort": 8008,
+            "RedirectHTTPToHTTPS": False,
+            "SSLAuthorityChain": "",
+            "SSLCertificate": "",
+            "SSLPort": 8443,
+            "SSLPrivateKey": "",
+            "EnableCalDAV" : False,
+            "EnableCardDAV" : False,
+        }
+        newCombined = { }
+        mergePlist(oldCalDAV, oldCardDAV, newCombined)
+        self.assertEquals(newCombined, expected)
+
+
     def test_examinePreviousSystem(self):
         """
         Set up a virtual system in various configurations, then ensure the

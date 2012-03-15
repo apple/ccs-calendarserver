@@ -278,6 +278,13 @@ def mergePlist(caldav, carddav, combined):
             if key in ("requireComputerRecord",):
                 del combined["DirectoryService"]["params"][key]
 
+    # Disable XMPPNotifier now that we're directly talking to APNS
+    try:
+        if caldav["Notifications"]["Services"]["XMPPNotifier"]["Enabled"]:
+            caldav["Notifications"]["Services"]["XMPPNotifier"]["Enabled"] = False
+    except KeyError:
+        pass
+
     # Merge ports
     if not caldav.get("HTTPPort", 0):
         caldav["HTTPPort"] = 8008
