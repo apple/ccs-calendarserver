@@ -320,6 +320,10 @@ def mergePlist(caldav, carddav, combined):
     # If SSL is enabled, redirect HTTP to HTTPS.
     combined["RedirectHTTPToHTTPS"] = enableSSL
 
+    # Default services to disabled
+    combined["EnableCalDAV"] = False
+    combined["EnableCardDAV"] = False
+
 
 
 def log(msg):
