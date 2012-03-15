@@ -242,6 +242,9 @@ class PrincipalHomeFolder(Folder):
     def __init__(self, service, path, uid, record=None):
         Folder.__init__(self, service, path)
 
+        if record is None:
+            record = self.service.directory.recordWithUID(uid)
+
         if record is not None:
             assert uid == record.uid
 
