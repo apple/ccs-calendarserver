@@ -672,12 +672,6 @@ dependencies () {
     "Zope Interface" "zope.interface" "${zi}" \
     "http://www.zope.org/Products/ZopeInterface/${zv}/${zi}.tar.gz";
 
-  local pv="0.8.4";
-  local px="PyXML-${pv}";
-  py_dependency -v "${pv}" -m "1f7655050cebbb664db976405fdba209" \
-    "PyXML" "xml.dom.ext" "${px}" \
-    "http://${sf}/project/pyxml/pyxml/${pv}/${px}.tar.gz";
-
   local po="pyOpenSSL-0.13";
   py_dependency -v 0.13 -m "767bca18a71178ca353dff9e10941929" \
     "PyOpenSSL" "OpenSSL" "${po}" \
