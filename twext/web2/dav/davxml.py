@@ -42,7 +42,6 @@ See RFC 3744: http://www.ietf.org/rfc/rfc3744.txt (WebDAV ACLs)
 
 from txdav.xml.base    import *
 from txdav.xml.parser  import *
-from txdav.xml.util    import *
 from txdav.xml.rfc2518 import *
 from txdav.xml.rfc3253 import *
 from txdav.xml.rfc3744 import *
@@ -56,7 +55,6 @@ from txdav.xml.extensions import *
 
 from txdav.xml import base as b
 from txdav.xml import parser as p
-from txdav.xml import util as u
 from txdav.xml import rfc2518 as r1
 from txdav.xml import rfc3253 as r2
 from txdav.xml import rfc3744 as r3
@@ -67,7 +65,6 @@ from txdav.xml import extensions as e
 __all__ = (
     registerElements(b) +
     registerElements(p) +
-    registerElements(u) +
     registerElements(r1) +
     registerElements(r2) +
     registerElements(r3) +

@@ -33,6 +33,8 @@ __all__ = [
     "dav_namespace",
     "twisted_dav_namespace",
     "twisted_private_namespace",
+    "encodeXMLName",
+    "decodeXMLName",
     "WebDAVElement",
     "PCDATAElement",
     "WebDAVOneShotElement",
@@ -51,8 +53,6 @@ import re
 from twext.python.log import Logger
 from twext.web2.http_headers import parseDateTime
 
-from txdav.xml.util import encodeXMLName, decodeXMLName
-
 log = Logger()
 
 ##
@@ -62,6 +62,31 @@ log = Logger()
 dav_namespace = "DAV:"
 twisted_dav_namespace = "http://twistedmatrix.com/xml_namespace/dav/"
 twisted_private_namespace = twisted_dav_namespace + "private/"
+
+
+def encodeXMLName(namespace, name):
+    """
+    Encodes an XML namespace and name into a UTF-8 string.
+    If namespace is None, returns "name", otherwise, returns
+    "{namespace}name".
+    """
+    if namespace is None: return name.encode("utf-8")
+    return (u"{%s}%s" % (namespace, name)).encode("utf-8")
+
+
+def decodeXMLName(name):
+    """
+    Decodes an XML (namespace, name) pair from an ASCII string as
+    encoded by encodeXMLName().
+    """
+    if name[0] is not "{": return (None, name.decode("utf-8"))
+
+    index = name.find("}")
+
+    if (index is -1 or not len(name) > index):
+        raise ValueError("Invalid encoded name: %r" % (name,))
+
+    return (name[1:index].decode("utf-8"), name[index+1:].decode("utf-8"))
 
 
 class WebDAVElement (object):
