@@ -4,7 +4,7 @@ set -e
 set -u
 
 wd="$(cd "$(dirname "$0")" && pwd)";
-flakes="$(cd "${wd}/../pyflakes-0.4.0" && pwd)";
+flakes="$(cd "${wd}/../pyflakes-0.5.0" && pwd)";
 
 export PYTHONPATH="${flakes}:${PYTHONPATH:-}";
 
