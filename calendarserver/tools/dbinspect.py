@@ -576,6 +576,67 @@ class EventsByOwnerCalendar(Cmd):
         returnValue(tuple(rows))
 
 
+class EventsByPath(Cmd):
+    
+    _name = "Get Event Data by HTTP Path"
+    
+    @inlineCallbacks
+    def doIt(self, txn):
+        
+        
+        path = raw_input("Path: ")
+        pathbits = path.split("/")
+        if len(pathbits) != 6:
+            print "Not a valid calendar object resource path"
+            returnValue(None)
+        homeName = pathbits[3]
+        calendarName = pathbits[4]
+        resourceName = pathbits[5]
+        rows = yield self.getData(txn, homeName, calendarName, resourceName)
+        if rows:
+            for owner, calendar, resource_id, resource, created, modified, data in rows:
+                shortname = UserNameFromUID(txn, owner)
+                table = tables.Table()
+                table.addRow(("User Name:", shortname,))
+                table.addRow(("Calendar:", calendar,))
+                table.addRow(("Resource Name:", resource))
+                table.addRow(("Resource ID:", resource_id))
+                table.addRow(("Created", created))
+                table.addRow(("Modified", modified))
+                print "\n"
+                table.printTable()
+                print data
+        else:
+            print "Could not find icalendar data"
+
+    @inlineCallbacks
+    def getData(self, txn, homeName, calendarName, resourceName):
+        ch = schema.CALENDAR_HOME
+        cb = schema.CALENDAR_BIND
+        co = schema.CALENDAR_OBJECT
+        rows = (yield Select(
+            [
+                ch.OWNER_UID,
+                cb.CALENDAR_RESOURCE_NAME,
+                co.RESOURCE_ID,
+                co.RESOURCE_NAME,
+                co.CREATED,
+                co.MODIFIED,
+                co.ICALENDAR_TEXT,
+            ],
+            From=ch.join(
+                cb, type="inner", on=(ch.RESOURCE_ID == cb.CALENDAR_HOME_RESOURCE_ID).And(
+                    cb.BIND_MODE == _BIND_MODE_OWN)).join(
+                co, type="inner", on=(cb.CALENDAR_RESOURCE_ID == co.CALENDAR_RESOURCE_ID)),
+            Where=(
+                (ch.OWNER_UID == Parameter("HOME")).And(
+                 cb.CALENDAR_RESOURCE_NAME == Parameter("CALENDAR")).And(
+                 co.RESOURCE_NAME == Parameter("RESOURCE"))
+                ),
+        ).on(txn, **{"HOME": homeName, "CALENDAR": calendarName, "RESOURCE": resourceName}))
+        returnValue(tuple(rows))
+
+
 class EventsByContent(Cmd):
     
     _name = "Get Event Data by Searching its Text Data"
@@ -811,6 +872,7 @@ class DBInspectService(Service, object):
         self.registerCommand(EventsByName)
         self.registerCommand(EventsByOwner)
         self.registerCommand(EventsByOwnerCalendar)
+        self.registerCommand(EventsByPath)
         self.registerCommand(EventsByContent)
         self.registerCommand(EventsInTimerange)
         self.doDBInspect()
