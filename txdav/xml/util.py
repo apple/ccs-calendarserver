@@ -35,7 +35,10 @@ __all__ = [
 
 
 def PrintXML(document, stream):
-    import xml.dom.ext as ext
+    try:
+        import xml.dom.ext as ext
+    except ImportError:
+        import txdav.xml.xmlext as ext
 
     document.normalize()
     ext.Print(document, stream)
@@ -49,25 +52,20 @@ def encodeXMLName(namespace, name):
     If namespace is None, returns "name", otherwise, returns
     "{namespace}name".
     """
-    if namespace is None:
-        return name.encode("utf-8")
-
+    if namespace is None: return name.encode("utf-8")
     return (u"{%s}%s" % (namespace, name)).encode("utf-8")
 
 
 def decodeXMLName(name):
     """
-    Decodes an XML (namespace, name) pair from a UTF-8 string as
+    Decodes an XML (namespace, name) pair from an ASCII string as
     encoded by encodeXMLName().
     """
-    name = name.decode("utf-8")
-
-    if name[0] is not "{":
-        return (None, name)
+    if name[0] is not "{": return (None, name.decode("utf-8"))
 
     index = name.find("}")
 
     if (index is -1 or not len(name) > index):
         raise ValueError("Invalid encoded name: %r" % (name,))
 
-    return (name[1:index], name[index+1:])
+    return (name[1:index].decode("utf-8"), name[index+1:].decode("utf-8"))

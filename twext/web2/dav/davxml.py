@@ -1,5 +1,6 @@
+
 ##
-# Copyright (c) 2005-2012 Apple Computer, Inc. All rights reserved.
+# Copyright (c) 2005-2010 Apple Computer, Inc. All rights reserved.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -90,20 +91,30 @@ def sname2qname(sname):
     @raise ValueError is input is not valid. Note, however, that this
     function does not attempt to fully validate C{sname}.
     """
-    return decodeXMLName(sname)
+    def raiseIf(condition):
+        if condition:
+            raise ValueError("Invalid sname: %s" % (sname,))
+
+    raiseIf(not sname.startswith("{"))
+
+    try:
+        i = sname.index("}")
+    except ValueError:
+        raiseIf(True)
+
+    namespace = sname[1:i]
+    name = sname [i+1:]
+
+    raiseIf("{" in namespace or not name)
+
+    return namespace, name
 
 def qname2sname(qname):
     """
     Convert a qname into an sname.
     """
-    return encodeXMLName(*qname)
-
-
-
-
-
-
-
-
-
+    try:
+        return "{%s}%s" % qname
+    except TypeError:
+        raise ValueError("Invalid qname: %r" % (qname,))
 
