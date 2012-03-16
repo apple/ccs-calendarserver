@@ -909,75 +909,76 @@ class CalendarServerLogAnalyzer(object):
                 others.add(segments[3])
 
 
-    def printAll(self, doTabs):
+    def printAll(self, doTabs, summary):
 
         self.printInfo(doTabs)
         
         print "Load Analysis"
-        self.printHourlyTotals(doTabs)
+        self.printHourlyTotals(doTabs, summary)
         
-        print "Client Analysis"
-        self.printClientTotals(doTabs)
-        
-        print "Protocol Analysis Count"
-        self.printHourlyByXXXDetails(self.hourlyByMethodCount, doTabs)
-        
-        print "Protocol Analysis Average Response Time (ms)"
-        self.printHourlyByXXXDetails(self.averagedHourlyByMethodTime, doTabs, showAverages=True)
-        
-        print "Status Code Analysis"
-        self.printHourlyByXXXDetails(self.hourlyByStatus, doTabs)
-        
-        print "Protocol Analysis by Status"
-        self.printXXXMethodDetails(self.statusByMethodCount, doTabs, False)
-        
-        print "Cache Analysis"
-        self.printHourlyCacheDetails(doTabs)
-        
-        if len(self.hourlyPropfindByResponseCount):
-            print "PROPFIND Calendar response count distribution"
-            self.printHourlyByXXXDetails(self.hourlyPropfindByResponseCount, doTabs)
-        
-        if len(self.averagedHourlyByRecipientCount):
-            print "Average Recipient Counts"
-            self.printHourlyByXXXDetails(self.averagedHourlyByRecipientCount, doTabs, showTotals=False)
+        if not summary:
+            print "Client Analysis"
+            self.printClientTotals(doTabs)
             
-        print "Queue Depth vs Response Time"
-        self.printQueueDepthResponseTime(doTabs)
-        
-        print "Instance Count Distribution"
-        self.printInstanceCount(doTabs)
-
-        print "Protocol Analysis by Client"
-        self.printXXXMethodDetails(self.clientIDByMethodCount, doTabs)
-        
-        if len(self.requestSizeByBucket):
-            print "Request size distribution"
-            self.printHourlyByXXXDetails(self.requestSizeByBucket, doTabs)
-        
-        if len(self.responseSizeByBucket):
-            print "Response size distribution (excluding GET Dropbox)"
-            self.printHourlyByXXXDetails(self.responseSizeByBucket, doTabs)
-        
-        if len(self.averageResponseCountByMethod):
-            print "Average response count by method"
-            self.printResponseCounts(doTabs)
-        
-        if len(self.requestTimeByBucket):
-            print "Response time distribution"
-            self.printHourlyByXXXDetails(self.requestTimeByBucket, doTabs)
-        
-        print "URI Counts"
-        self.printURICounts(doTabs)
-
-        #print "User Interaction Counts"
-        #self.printUserInteractionCounts(doTabs)
-
-        #print "User Weights (top 100)"
-        #self.printUserWeights(doTabs)
-
-        #print "User Response times"
-        #self.printUserResponseTimes(doTabs)
+            print "Protocol Analysis Count"
+            self.printHourlyByXXXDetails(self.hourlyByMethodCount, doTabs)
+            
+            print "Protocol Analysis Average Response Time (ms)"
+            self.printHourlyByXXXDetails(self.averagedHourlyByMethodTime, doTabs, showAverages=True)
+            
+            print "Status Code Analysis"
+            self.printHourlyByXXXDetails(self.hourlyByStatus, doTabs)
+            
+            print "Protocol Analysis by Status"
+            self.printXXXMethodDetails(self.statusByMethodCount, doTabs, False)
+            
+            print "Cache Analysis"
+            self.printHourlyCacheDetails(doTabs)
+            
+            if len(self.hourlyPropfindByResponseCount):
+                print "PROPFIND Calendar response count distribution"
+                self.printHourlyByXXXDetails(self.hourlyPropfindByResponseCount, doTabs)
+            
+            if len(self.averagedHourlyByRecipientCount):
+                print "Average Recipient Counts"
+                self.printHourlyByXXXDetails(self.averagedHourlyByRecipientCount, doTabs, showTotals=False)
+                
+            print "Queue Depth vs Response Time"
+            self.printQueueDepthResponseTime(doTabs)
+            
+            print "Instance Count Distribution"
+            self.printInstanceCount(doTabs)
+    
+            print "Protocol Analysis by Client"
+            self.printXXXMethodDetails(self.clientIDByMethodCount, doTabs)
+            
+            if len(self.requestSizeByBucket):
+                print "Request size distribution"
+                self.printHourlyByXXXDetails(self.requestSizeByBucket, doTabs)
+            
+            if len(self.responseSizeByBucket):
+                print "Response size distribution (excluding GET Dropbox)"
+                self.printHourlyByXXXDetails(self.responseSizeByBucket, doTabs)
+            
+            if len(self.averageResponseCountByMethod):
+                print "Average response count by method"
+                self.printResponseCounts(doTabs)
+            
+            if len(self.requestTimeByBucket):
+                print "Response time distribution"
+                self.printHourlyByXXXDetails(self.requestTimeByBucket, doTabs)
+            
+            print "URI Counts"
+            self.printURICounts(doTabs)
+    
+            #print "User Interaction Counts"
+            #self.printUserInteractionCounts(doTabs)
+    
+            #print "User Weights (top 100)"
+            #self.printUserWeights(doTabs)
+    
+            #print "User Response times"
+            #self.printUserResponseTimes(doTabs)
 
     def printInfo(self, doTabs):
         
@@ -1008,19 +1009,33 @@ class CalendarServerLogAnalyzer(object):
         # Clip to select hour range
         return "%02d:%02d (%02d:%02d)" % (localhour, minute, utchour, minute,)
         
-    def printHourlyTotals(self, doTabs):
+    def printHourlyTotals(self, doTabs, summary):
         
         table = tables.Table()
-        table.addHeader(("Local (UTC)", "Total",    "Av. Requests", "Av. Queue", "Max. Queue", "Av. Response",))
-        table.addHeader(("",            "Requests", "Per Second",   "Depth",     "Depth (# queues)",      "Time(ms)",))
-        table.setDefaultColumnFormats((
-            tables.Table.ColumnFormat("%s", tables.Table.ColumnFormat.CENTER_JUSTIFY), 
-            tables.Table.ColumnFormat("%d", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
-            tables.Table.ColumnFormat("%.1f", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
-            tables.Table.ColumnFormat("%d", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
-            tables.Table.ColumnFormat("%d (%2d)", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
-            tables.Table.ColumnFormat("%.1f", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
-        ))
+        table.addHeader(
+            ("Local (UTC)", "Total",    "Av. Requests", "Av. Response",) if summary else
+            ("Local (UTC)", "Total",    "Av. Requests", "Av. Queue", "Max. Queue", "Av. Response",)
+        )
+        table.addHeader(
+            ("",            "Requests", "Per Second",   "Time(ms)",) if summary else
+            ("",            "Requests", "Per Second",   "Depth",     "Depth (# queues)",      "Time(ms)",)
+        )
+        table.setDefaultColumnFormats(
+            (
+                tables.Table.ColumnFormat("%s", tables.Table.ColumnFormat.CENTER_JUSTIFY), 
+                tables.Table.ColumnFormat("%d", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
+                tables.Table.ColumnFormat("%.1f", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
+                tables.Table.ColumnFormat("%.1f", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
+            ) if summary else
+            (
+                tables.Table.ColumnFormat("%s", tables.Table.ColumnFormat.CENTER_JUSTIFY), 
+                tables.Table.ColumnFormat("%d", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
+                tables.Table.ColumnFormat("%.1f", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
+                tables.Table.ColumnFormat("%d", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
+                tables.Table.ColumnFormat("%d (%2d)", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
+                tables.Table.ColumnFormat("%.1f", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
+            )
+        )
     
         totalRequests = 0
         totalDepth = 0
@@ -1034,34 +1049,58 @@ class CalendarServerLogAnalyzer(object):
             countRequests, _ignore503, countDepth, maxDepth, countTime = value
             maxDepthAll = max(maxDepth.values()) if maxDepth.values() else 0
             maxDepthCount = list(maxDepth.values()).count(maxDepthAll)
-            table.addRow((
-                hour,
-                countRequests,
-                (1.0 * countRequests) / self.resolutionMinutes / 60,
-                safePercent(countDepth, countRequests, 1),
-                (maxDepthAll, maxDepthCount,),
-                safePercent(countTime, countRequests, 1.0),
-            ))
+            table.addRow(
+                (
+                    hour,
+                    countRequests,
+                    (1.0 * countRequests) / self.resolutionMinutes / 60,
+                    safePercent(countTime, countRequests, 1.0),
+                ) if summary else
+                (
+                    hour,
+                    countRequests,
+                    (1.0 * countRequests) / self.resolutionMinutes / 60,
+                    safePercent(countDepth, countRequests, 1),
+                    (maxDepthAll, maxDepthCount,),
+                    safePercent(countTime, countRequests, 1.0),
+                )
+            )
             totalRequests += countRequests
             totalDepth += countDepth
             totalMaxDepth = max(totalMaxDepth, maxDepthAll)
             totalTime += countTime
     
-        table.addFooter((
-            "Total:",
-            totalRequests,
-            (1.0 * totalRequests) / self.timeBucketCount / self.resolutionMinutes / 60,
-            safePercent(totalDepth, totalRequests, 1),
-            totalMaxDepth,
-            safePercent(totalTime, totalRequests, 1.0),
-        ), columnFormats=(
-            tables.Table.ColumnFormat("%s"), 
-            tables.Table.ColumnFormat("%d", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
-            tables.Table.ColumnFormat("%.1f", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
-            tables.Table.ColumnFormat("%d", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
-            tables.Table.ColumnFormat("%d     ", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
-            tables.Table.ColumnFormat("%.1f", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
-        ))
+        table.addFooter(
+            (
+                "Total:",
+                totalRequests,
+                (1.0 * totalRequests) / self.timeBucketCount / self.resolutionMinutes / 60,
+                safePercent(totalTime, totalRequests, 1.0),
+            ) if summary else
+            (
+                "Total:",
+                totalRequests,
+                (1.0 * totalRequests) / self.timeBucketCount / self.resolutionMinutes / 60,
+                safePercent(totalDepth, totalRequests, 1),
+                totalMaxDepth,
+                safePercent(totalTime, totalRequests, 1.0),
+            ),
+            columnFormats=
+            (
+                tables.Table.ColumnFormat("%s"), 
+                tables.Table.ColumnFormat("%d", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
+                tables.Table.ColumnFormat("%.1f", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
+                tables.Table.ColumnFormat("%.1f", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
+            ) if summary else
+            (
+                tables.Table.ColumnFormat("%s"), 
+                tables.Table.ColumnFormat("%d", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
+                tables.Table.ColumnFormat("%.1f", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
+                tables.Table.ColumnFormat("%d", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
+                tables.Table.ColumnFormat("%d     ", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
+                tables.Table.ColumnFormat("%.1f", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
+            )
+        )
     
         table.printTabDelimitedData() if doTabs else table.printTable()
         print ""
@@ -1790,6 +1829,7 @@ Options:
     --user        User to analyze
     --client      Client to analyze
     --tabs        Generate tab-delimited output rather than table
+    --summary     Print the Load Analysis summary only
     --repeat      Parse the file and then allow more data to be parsed
     --diff        Compare two or more files
 
@@ -1814,6 +1854,7 @@ if __name__ == "__main__":
         diffMode = False
         doTabDelimited = False
         repeat = False
+        summary = False
         resolution = 60
         startHour = 0
         endHour = startHour + 23
@@ -1821,7 +1862,7 @@ if __name__ == "__main__":
         filterByUser = None
         filterByClient = None
 
-        options, args = getopt.getopt(sys.argv[1:], "h", ["diff", "hours=", "utcoffset=", "resolution=", "repeat", "tabs", "user=", "client=", ])
+        options, args = getopt.getopt(sys.argv[1:], "h", ["diff", "hours=", "utcoffset=", "resolution=", "repeat", "summary", "tabs", "user=", "client=", ])
 
         for option, value in options:
             if option == "-h":
@@ -1830,6 +1871,8 @@ if __name__ == "__main__":
                 diffMode = True
             elif option == "--repeat":
                 repeat = True
+            elif option == "--summary":
+                summary = True
             elif option == "--tabs":
                 doTabDelimited = True
             elif option == "--hours":
@@ -1885,9 +1928,9 @@ if __name__ == "__main__":
             ctr[-1] = analyzers[-1].analyzeLogFile(arg, ctr[-1])
 
         if diffMode and len(analyzers) > 1:
-            Differ(analyzers).printAll(doTabDelimited)
+            Differ(analyzers).printAll(doTabDelimited, summary)
         else:
-            analyzers[-1].printAll(doTabDelimited)
+            analyzers[-1].printAll(doTabDelimited, summary)
             
             if repeat:
                 while True:
@@ -1896,7 +1939,7 @@ if __name__ == "__main__":
                         break
                     print "\n\n\n"
                     analyzers[0].analyzeLogFile(arg, ctr[0])
-                    analyzers[0].printAll(doTabDelimited)
+                    analyzers[0].printAll(doTabDelimited, summary)
                 
     except Exception, e:
         print traceback.print_exc()
