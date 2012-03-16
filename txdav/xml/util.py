@@ -34,18 +34,6 @@ __all__ = [
 ]
 
 
-def PrintXML(document, stream):
-    try:
-        import xml.dom.ext as ext
-    except ImportError:
-        import txdav.xml.xmlext as ext
-
-    document.normalize()
-    ext.Print(document, stream)
-    # For debugging, this is easier to read: (FIXME: disable for normal use)
-    #ext.PrettyPrint(document, stream)
-
-
 def encodeXMLName(namespace, name):
     """
     Encodes an XML namespace and name into a UTF-8 string.

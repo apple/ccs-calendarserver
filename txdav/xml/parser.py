@@ -40,7 +40,7 @@ import xml.dom.minidom
 import xml.sax
 
 from txdav.xml.base import WebDAVElement, WebDAVUnknownElement, PCDATAElement
-from txdav.xml.util import PrintXML
+from txdav.xml.xmlext import Print as xmlPrint
 
 ##
 # Parsing
@@ -263,7 +263,8 @@ class WebDAVDocument (object):
     def writeXML(self, output):
         document = xml.dom.minidom.Document()
         self.root_element.addToDOM(document, None)
-        PrintXML(document, stream=output)
+        #document.normalize()
+        xmlPrint(document, output)
 
     def toxml(self):
         output = StringIO.StringIO()
