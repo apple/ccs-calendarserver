@@ -57,39 +57,40 @@ class WebDAVElementTestsMixin:
             WebDAVDocument.fromString(document.toxml()))
 
 
+class WebDAVUnknownElementTests(WebDAVElementTestsMixin, TestCase):
+    """
+    Tests for L{WebDAVUnknownElement}.
+    """
+    serialized = (
+        """<?xml version="1.0" encoding="utf-8" ?>"""
+        """<T:foo xmlns:T="http://twistedmatrix.com/"/>"""
+    )
+
+    element = WebDAVUnknownElement.withName(
+        "http://twistedmatrix.com/",
+        "foo"
+    )
+
 
 class MultiStatusTests(WebDAVElementTestsMixin, TestCase):
     """
     Tests for L{MultiStatus}
     """
     serialized = (
-        '<?xml version="1.0" encoding="utf-8" ?>'
-        '<D:multistatus xmlns:D="DAV:">'
-        '  <D:response>'
-        '    <D:href>http://webdav.sb.aol.com/webdav/secret</D:href>'
-        '    <D:status>HTTP/1.1 403 Forbidden</D:status>'
-        '  </D:response>'
-        '</D:multistatus>')
+        """<?xml version="1.0" encoding="utf-8" ?>"""
+        """<D:multistatus xmlns:D="DAV:">"""
+        """  <D:response>"""
+        """    <D:href>http://webdav.sb.aol.com/webdav/secret</D:href>"""
+        """    <D:status>HTTP/1.1 403 Forbidden</D:status>"""
+        """  </D:response>"""
+        """</D:multistatus>"""
+    )
 
     element = MultiStatus(
         Response(
             HRef("http://webdav.sb.aol.com/webdav/secret"),
-            Status("HTTP/1.1 403 Forbidden")))
-
-
-
-class WebDAVUnknownElementTests(WebDAVElementTestsMixin, TestCase):
-    """
-    Tests for L{WebDAVUnknownElement}.
-    """
-    serialized = (
-        '<?xml version="1.0" encoding="utf-8" ?>'
-        '<T:foo xmlns:T="http://twistedmatrix.com/"/>')
-
-    element = WebDAVUnknownElement()
-    element.namespace = "http://twistedmatrix.com/"
-    element.name = "foo"
-
+            Status("HTTP/1.1 403 Forbidden")),
+        )
 
 
 class CurrentUserPrincipalTests(WebDAVElementTestsMixin, TestCase):
@@ -97,9 +98,10 @@ class CurrentUserPrincipalTests(WebDAVElementTestsMixin, TestCase):
     Tests for L{CurrentUserPrincipal}.
     """
     serialized = (
-        '<?xml version="1.0" encoding="utf-8" ?>'
-        '<D:current-user-principal xmlns:D="DAV:">'
-        '  <D:href>foo</D:href>'
-        '</D:current-user-principal>')
+        """<?xml version="1.0" encoding="utf-8" ?>"""
+        """<D:current-user-principal xmlns:D="DAV:">"""
+        """  <D:href>foo</D:href>"""
+        """</D:current-user-principal>"""
+    )
 
     element = CurrentUserPrincipal(HRef("foo"))

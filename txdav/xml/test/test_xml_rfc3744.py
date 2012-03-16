@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2005 Apple Computer, Inc. All rights reserved.
+# Copyright (c) 2005-2012 Apple Computer, Inc. All rights reserved.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -18,13 +18,13 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
-#
-# DRI: Wilfredo Sanchez, wsanchez@apple.com
 ##
 
 from twisted.trial import unittest
+
 from twext.web2.dav import davxml
 from twext.web2.dav.resource import davPrivilegeSet
+
 
 class XML_3744(unittest.TestCase):
     """
@@ -45,8 +45,14 @@ class XML_3744(unittest.TestCase):
             pa = davxml.Privilege(a)
             pb = davxml.Privilege(b)
 
-            self.failUnless(pa.isAggregateOf(pb, davPrivilegeSet), "%s contains %s" % (a.sname(), b.sname()))
-            self.failIf(pb.isAggregateOf(pa, davPrivilegeSet), "%s does not contain %s" % (b.sname(), a.sname()))
+            self.failUnless(
+                pa.isAggregateOf(pb, davPrivilegeSet),
+                "%s contains %s" % (a.sname(), b.sname())
+            )
+            self.failIf(
+                pb.isAggregateOf(pa, davPrivilegeSet),
+                "%s does not contain %s" % (b.sname(), a.sname())
+            )
 
         for a, b in (
             (davxml.Unlock(), davxml.Write()),
@@ -56,4 +62,7 @@ class XML_3744(unittest.TestCase):
             pa = davxml.Privilege(a)
             pb = davxml.Privilege(b)
 
-            self.failIf(pb.isAggregateOf(pa, davPrivilegeSet), "%s does not contain %s" % (b.sname(), a.sname()))
+            self.failIf(
+                pb.isAggregateOf(pa, davPrivilegeSet),
+                "%s does not contain %s" % (b.sname(), a.sname())
+            )
