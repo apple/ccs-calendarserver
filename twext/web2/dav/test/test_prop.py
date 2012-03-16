@@ -26,11 +26,13 @@ from twext.web2 import responsecode
 from twext.web2.iweb import IResponse
 from twext.web2.stream import MemoryStream
 from twext.web2 import http_headers
-from twext.web2.dav import davxml
-from twext.web2.dav.davxml import dav_namespace, lookupElement
 from twext.web2.dav.util import davXMLFromStream
 from twext.web2.test.test_server import SimpleRequest
 from twext.web2.dav.test.util import serialize
+
+from twext.web2.dav import davxml
+from txdav.xml.element import dav_namespace, lookupElement
+
 import twext.web2.dav.test.util
 
 # Remove dynamic live properties that exist

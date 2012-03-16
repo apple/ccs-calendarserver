@@ -65,14 +65,15 @@ from twext.web2.resource import LeafResource
 from twext.web2.server import NoURLForResourceError
 from twext.web2.static import MetaDataMixin, StaticRenderMixin
 from twext.web2.auth.wrapper import UnauthorizedResponse
-from twext.web2.dav import davxml
-from twext.web2.dav.davxml import dav_namespace, lookupElement
-from twext.web2.dav.davxml import twisted_dav_namespace, twisted_private_namespace
 from twext.web2.dav.idav import IDAVResource, IDAVPrincipalResource, IDAVPrincipalCollectionResource
 from twext.web2.dav.http import NeedPrivilegesResponse
 from twext.web2.dav.noneprops import NonePropertyStore
 from twext.web2.dav.util import unimplemented, parentForURL, joinURL
 from twext.web2.dav.auth import PrincipalCredentials
+from twext.web2.dav import davxml
+from txdav.xml.base import dav_namespace
+from txdav.xml.base import twisted_dav_namespace, twisted_private_namespace
+from txdav.xml.element import registerElement, lookupElement
 
 log = Logger()
 
@@ -2520,7 +2521,7 @@ class TwistedACLInheritable (davxml.WebDAVEmptyElement):
     namespace = twisted_dav_namespace
     name = "inheritable"
 
-davxml.registerElement(TwistedACLInheritable)
+registerElement(TwistedACLInheritable)
 davxml.ACE.allowed_children[(twisted_dav_namespace, "inheritable")] = (0, 1)
 
 class TwistedGETContentMD5 (davxml.WebDAVTextElement):
@@ -2530,7 +2531,7 @@ class TwistedGETContentMD5 (davxml.WebDAVTextElement):
     namespace = twisted_dav_namespace
     name = "getcontentmd5"
 
-davxml.registerElement(TwistedGETContentMD5)
+registerElement(TwistedGETContentMD5)
 
 
 class TwistedQuotaRootProperty (davxml.WebDAVTextElement):
@@ -2544,7 +2545,7 @@ class TwistedQuotaRootProperty (davxml.WebDAVTextElement):
     namespace = twisted_private_namespace
     name = "quota-root"
 
-davxml.registerElement(TwistedQuotaRootProperty)
+registerElement(TwistedQuotaRootProperty)
 
 class TwistedQuotaUsedProperty (davxml.WebDAVTextElement):
     """
@@ -2556,7 +2557,7 @@ class TwistedQuotaUsedProperty (davxml.WebDAVTextElement):
     namespace = twisted_private_namespace
     name = "quota-used"
 
-davxml.registerElement(TwistedQuotaUsedProperty)
+registerElement(TwistedQuotaUsedProperty)
 
 allACL = davxml.ACL(
     davxml.ACE(

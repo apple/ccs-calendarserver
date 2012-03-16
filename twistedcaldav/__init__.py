@@ -39,10 +39,12 @@ import twistedcaldav.carddavxml
 import twistedcaldav.mkcolxml
 import twistedcaldav.customxml
 
-twext.web2.dav.davxml.registerElements(twistedcaldav.caldavxml)
-twext.web2.dav.davxml.registerElements(twistedcaldav.customxml)
-twext.web2.dav.davxml.registerElements(twistedcaldav.carddavxml)
-twext.web2.dav.davxml.registerElements(twistedcaldav.mkcolxml)
+from txdav.xml.element import registerElements
+
+registerElements(twistedcaldav.caldavxml)
+registerElements(twistedcaldav.customxml)
+registerElements(twistedcaldav.carddavxml)
+registerElements(twistedcaldav.mkcolxml)
 
 #
 # DefaultHTTPHandler

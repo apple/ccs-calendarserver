@@ -31,9 +31,9 @@ import string
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twext.web2 import responsecode
 from twext.web2.http import HTTPError, StatusResponse
-from twext.web2.dav import davxml
-from txdav.xml.parser import lookupElement
 from twext.web2.dav.util import davXMLFromStream
+from twext.web2.dav import davxml
+from txdav.xml.element import lookupElement
 
 from twext.python.log import Logger
 from twext.web2.dav.http import ErrorResponse

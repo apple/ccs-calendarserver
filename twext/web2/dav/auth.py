@@ -4,6 +4,7 @@ from twisted.cred import checkers, error, portal
 from twext.web2.resource import WrapperResource
 from twext.web2.dav import davxml
 from twext.web2.dav.davxml import twisted_private_namespace
+from txdav.xml.element import registerElement
 
 __all__ = [
     "IPrincipal",
@@ -112,4 +113,4 @@ class TwistedPasswordProperty (davxml.WebDAVTextElement):
     namespace = twisted_private_namespace
     name = "password"
 
-davxml.registerElement(TwistedPasswordProperty)
+registerElement(TwistedPasswordProperty)

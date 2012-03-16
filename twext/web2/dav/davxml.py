@@ -59,6 +59,8 @@ from txdav.xml import rfc4331 as r4
 from txdav.xml import rfc5842 as r5
 from txdav.xml import extensions as e
 
+from txdav.xml.element import registerElements
+
 __all__ = (
     registerElements(b) +
     registerElements(p) +
