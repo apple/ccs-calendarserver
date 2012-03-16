@@ -88,7 +88,7 @@ class INotificationCollection(Interface):
             C{CS:notificationtype} property.
             
         @type xmltype: an instance of
-            L{twext.web2.dav.element.base.WebDAVElement},
+            L{txdav.xml.base.WebDAVElement},
             most likely a subclass like L{twistedcaldav.customxml.InviteReply},
             L{twistedcaldav.customxml.InviteRemove}, etc.
 

@@ -25,7 +25,7 @@ __all__ = [
 from twext.python.log import Logger
 from twext.web2 import responsecode
 from twext.web2.dav import davxml
-from twext.web2.dav.element.extensions import SyncCollection
+from txdav.xml.extensions import SyncCollection
 from twext.web2.dav.resource import TwistedACLInheritable
 from twext.web2.http import HTTPError, StatusResponse
 

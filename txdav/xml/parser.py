@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2005 Apple Computer, Inc. All rights reserved.
+# Copyright (c) 2005-2012 Apple Computer, Inc. All rights reserved.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -18,8 +18,6 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
-#
-# DRI: Wilfredo Sanchez, wsanchez@apple.com
 ##
 
 """
@@ -41,12 +39,15 @@ import cStringIO as StringIO
 import xml.dom.minidom
 import xml.sax
 
-from twext.web2.dav.element.base import WebDAVElement, WebDAVUnknownElement, PCDATAElement
-from twext.web2.dav.element.util import PrintXML
+from txdav.xml.base import WebDAVElement, WebDAVUnknownElement, PCDATAElement
+from txdav.xml.util import PrintXML
 
 ##
 # Parsing
 ##
+
+_elements_by_tag_name = {}
+
 
 def registerElements(module):
     """
@@ -67,30 +68,31 @@ def registerElements(module):
 
     return element_names
 
+
 def registerElement(element_class, element_names=None):
     """
     Register the supplied XML elements with the parser.
     """
     qname = element_class.namespace, element_class.name
     
-    if qname in elements_by_tag_name:
+    if qname in _elements_by_tag_name:
         raise AssertionError(
             "Attempting to register qname %s multiple times: (%r, %r)"
-            % (qname, elements_by_tag_name[qname], element_class)
+            % (qname, _elements_by_tag_name[qname], element_class)
         )
     
-    if not (qname in elements_by_tag_name and issubclass(element_class, elements_by_tag_name[qname])):
-        elements_by_tag_name[qname] = element_class
+    if not (qname in _elements_by_tag_name and issubclass(element_class, _elements_by_tag_name[qname])):
+        _elements_by_tag_name[qname] = element_class
         if element_names is not None:
             element_names.append(element_class.__name__)
+
 
 def lookupElement(qname):
     """
     Return the element class for the element with the given qname.
     """
-    return elements_by_tag_name[qname]
+    return _elements_by_tag_name[qname]
 
-elements_by_tag_name = {}
 
 class WebDAVContentHandler (xml.sax.handler.ContentHandler):
     def setDocumentLocator(self, locator): self.locator = locator
@@ -143,8 +145,8 @@ class WebDAVContentHandler (xml.sax.handler.ContentHandler):
 
         tag_namespace, tag_name = name
 
-        if name in elements_by_tag_name:
-            element_class = elements_by_tag_name[name]
+        if name in _elements_by_tag_name:
+            element_class = _elements_by_tag_name[name]
         elif name in self.unknownElementClasses:
             element_class = self.unknownElementClasses[name]
         else:
@@ -206,6 +208,7 @@ class WebDAVContentHandler (xml.sax.handler.ContentHandler):
 
     def skippedEntity(self, name):
         raise AssertionError("skipped entities are not allowed")
+
 
 class WebDAVDocument (object):
     """

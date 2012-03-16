@@ -28,8 +28,8 @@ from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.python.failure import Failure
 from twext.web2 import responsecode
 from twext.web2.dav import davxml
-from twext.web2.dav.element.base import WebDAVElement
-from twext.web2.dav.element.extensions import SyncCollection
+from txdav.xml.base import WebDAVElement
+from txdav.xml.extensions import SyncCollection
 from twext.web2.dav.http import MultiStatusResponse, statusForFailure
 from twext.web2.dav.method.prop_common import responseForHref
 from twext.web2.dav.method.propfind import propertyName

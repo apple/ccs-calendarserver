@@ -25,7 +25,7 @@ change.
 
 from twext.web2.dav.davxml import dav_namespace
 from twext.web2.dav.davxml import twisted_dav_namespace
-from twext.web2.dav.element.base import twisted_private_namespace
+from txdav.xml.base import twisted_private_namespace
 from twext.web2.dav import davxml
 
 from twistedcaldav import caldavxml, carddavxml

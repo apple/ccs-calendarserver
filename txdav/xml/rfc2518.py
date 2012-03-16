@@ -18,8 +18,6 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
-#
-# DRI: Wilfredo Sanchez, wsanchez@apple.com
 ##
 
 """
@@ -31,8 +29,10 @@ See RFC 2518: http://www.ietf.org/rfc/rfc2518.txt
 """
 
 from twext.web2 import responsecode
-from twext.web2.dav.element.base import *
 from twext.web2.http_headers import MimeType
+
+from txdav.xml.base import *
+
 
 ##
 # Section 12
@@ -53,6 +53,7 @@ class ActiveLock (WebDAVElement):
         (dav_namespace, "locktoken"): (0, 1),
     }
 
+
 class Depth (WebDAVTextElement):
     """
     The value of the depth header. (RFC 2518, section 12.1.1)
@@ -66,6 +67,7 @@ class Depth (WebDAVTextElement):
         if depth not in ("0", "1", "infinity"):
             raise ValueError("Invalid depth: %s" % (depth,))
 
+
 class LockToken (WebDAVElement):
     """
     The lock token associated with a lock. (RFC 2518, section 12.1.2)
@@ -74,11 +76,13 @@ class LockToken (WebDAVElement):
 
     allowed_children = { (dav_namespace, "href"): (1, None) }
 
+
 class Timeout (WebDAVTextElement):
     """
     The timeout associated with a lock. (RFC 2518, section 12.1.3)
     """
     name = "timeout"
+
 
 class Collection (WebDAVEmptyElement):
     """
@@ -86,11 +90,13 @@ class Collection (WebDAVEmptyElement):
     """
     name = "collection"
 
+
 class HRef (WebDAVTextElement):
     """
     Identifies the content of the element as a URI. (RFC 2518, section 12.3)
     """
     name = "href"
+
 
 class Link (WebDAVElement):
     """
@@ -104,17 +110,20 @@ class Link (WebDAVElement):
         (dav_namespace, "dst"): (1, None),
     }
 
+
 class LinkDestination (WebDAVTextElement):
     """
     Indicates the destination of a link. (RFC 2518, section 12.4.1)
     """
     name = "dst"
 
+
 class LinkSource (WebDAVTextElement):
     """
     Indicates the source of a link. (RFC 2518, section 12.4.2)
     """
     name = "src"
+
 
 class LockEntry (WebDAVElement):
     """
@@ -127,6 +136,7 @@ class LockEntry (WebDAVElement):
         (dav_namespace, "lockscope"): (1, 1),
         (dav_namespace, "locktype" ): (1, 1),
     }
+
 
 class LockInfo (WebDAVElement):
     """
@@ -141,6 +151,7 @@ class LockInfo (WebDAVElement):
         (dav_namespace, "owner"    ): (0, 1),
     }
 
+
 class LockScope (WebDAVOneShotElement):
     """
     Specifies whether a lock is an exclusive lock or a shared
@@ -153,6 +164,7 @@ class LockScope (WebDAVOneShotElement):
         (dav_namespace, "shared"   ): (0, 1),
     }
 
+
 class Exclusive (WebDAVEmptyElement):
     """
     Indicates an exclusive lock. (RFC 2518, section 12.7.1)
@@ -160,6 +172,7 @@ class Exclusive (WebDAVEmptyElement):
     name = "exclusive"
 
 LockScope.exclusive = LockScope(Exclusive())
+
 
 class Shared (WebDAVEmptyElement):
     """
@@ -169,6 +182,7 @@ class Shared (WebDAVEmptyElement):
 
 LockScope.shared = LockScope(Shared())
 
+
 class LockType (WebDAVOneShotElement):
     """
     Specifies the access type of a lock. (RFC 2518, section 12.8)
@@ -176,6 +190,7 @@ class LockType (WebDAVOneShotElement):
     name = "locktype"
 
     allowed_children = { (dav_namespace, "write"): (0, 1) }
+
 
 class Write (WebDAVEmptyElement):
     """
@@ -188,6 +203,7 @@ class Write (WebDAVEmptyElement):
 
 LockType.write = LockType(Write())
 
+
 class MultiStatus (WebDAVElement):
     """
     Contains multiple Responses. (RFC 2518, section 12.9)
@@ -198,6 +214,7 @@ class MultiStatus (WebDAVElement):
         (dav_namespace, "response"           ): (0, None),
         (dav_namespace, "responsedescription"): (0, 1),
     }
+
 
 class Response (WebDAVElement):
     """
@@ -246,6 +263,7 @@ class Response (WebDAVElement):
 
         return StatusResponse.__new__(StatusResponse, *children)
 
+
 class StatusResponse (Response):
     """
     Specialized derivative of Response for resource status.
@@ -258,6 +276,7 @@ class StatusResponse (Response):
         (dav_namespace, "error"              ): (0, 1),        # 2518bis
         (dav_namespace, "responsedescription"): (0, 1),
     }
+
 
 class PropertyStatusResponse (Response):
     """
@@ -272,6 +291,7 @@ class PropertyStatusResponse (Response):
         (dav_namespace, "responsedescription"): (0, 1),
     }
 
+
 class PropertyStatus (WebDAVElement):
     """
     Groups together a Property and Status element that is associated
@@ -285,6 +305,7 @@ class PropertyStatus (WebDAVElement):
         (dav_namespace, "error"              ): (0, 1),        # 2518bis
         (dav_namespace, "responsedescription"): (0, 1),
     }
+
 
 class Status (WebDAVTextElement):
     """
@@ -317,12 +338,14 @@ class Status (WebDAVTextElement):
 
         self.code = code
 
+
 class ResponseDescription (WebDAVTextElement):
     """
     Contains a message that can be displayed to the user explaining the nature
     of the response. (RFC 2518, section 12.9.2)
     """
     name = "responsedescription"
+
 
 class Owner (WebDAVElement):
     """
@@ -339,6 +362,7 @@ class Owner (WebDAVElement):
 
     allowed_children = { WebDAVElement: (0, None) }
 
+
 class PropertyContainer (WebDAVElement):
     """
     Contains properties related to a resource. (RFC 2518, section 12.11)
@@ -346,6 +370,7 @@ class PropertyContainer (WebDAVElement):
     name = "prop"
 
     allowed_children = { WebDAVElement: (0, None) }
+
 
 class PropertyBehavior (WebDAVElement):
     """
@@ -369,6 +394,7 @@ class PropertyBehavior (WebDAVElement):
             )
 
         self.behavior = children[0]
+
 
 class KeepAlive (WebDAVElement):
     """
@@ -400,12 +426,14 @@ class KeepAlive (WebDAVElement):
             if str(self) != "*":
                 raise ValueError("Invalid keepalive value: %r", (str(self),))
 
+
 class Omit (WebDAVEmptyElement):
     """
     Instructs the server that it should use best effort to copy properties. (RFC
     2518, section 12.12.2)
     """
     name = "omit"
+
 
 class PropertyUpdate (WebDAVElement):
     """
@@ -419,6 +447,7 @@ class PropertyUpdate (WebDAVElement):
         (dav_namespace, "set"   ): (0, None),
     }
 
+
 class Remove (WebDAVElement):
     """
     Lists the DAV properties to be removed from a resource. (RFC 2518, section
@@ -428,6 +457,7 @@ class Remove (WebDAVElement):
 
     allowed_children = { (dav_namespace, "prop"): (1, 1) }
 
+
 class Set (WebDAVElement):
     """
     Lists the DAV properties to be set for a resource. (RFC 2518, section
@@ -436,6 +466,7 @@ class Set (WebDAVElement):
     name = "set"
 
     allowed_children = { (dav_namespace, "prop"): (1, 1) }
+
 
 class PropertyFind (WebDAVElement):
     """
@@ -459,6 +490,7 @@ class PropertyFind (WebDAVElement):
                 % (self.sname(), self.children)
             )
 
+
 class AllProperties (WebDAVEmptyElement):
     """
     Specifies that all property names and values on the resource are
@@ -466,12 +498,14 @@ class AllProperties (WebDAVEmptyElement):
     """
     name = "allprop"
 
+
 class PropertyName (WebDAVEmptyElement):
     """
     Specifies that only a list of property names on the resource are
     to be returned. (RFC 2518, section 12.14.2)
     """
     name = "propname"
+
 
 ##
 # Section 13
@@ -486,12 +520,14 @@ class CreationDate (WebDAVDateTimeElement):
     # MAY be protected as per RFC2518bis.  We may make this more flexible later.
     protected = True
 
+
 class DisplayName (WebDAVTextElement):
     """
     Provides a name for the resource that is suitable for presentation
     to a user. (RFC 2518, section 13.2)
     """
     name = "displayname"
+
 
 class GETContentLanguage (WebDAVTextElement):
     """
@@ -500,6 +536,7 @@ class GETContentLanguage (WebDAVTextElement):
     """
     name = "getcontentlanguage"
 
+
 class GETContentLength (WebDAVTextElement):
     """
     Contains the Content-Length header returned by a GET without
@@ -507,6 +544,7 @@ class GETContentLength (WebDAVTextElement):
     """
     name = "getcontentlength"
     protected = True
+
 
 class GETContentType (WebDAVTextElement):
     """
@@ -518,6 +556,7 @@ class GETContentType (WebDAVTextElement):
     def mimeType(self):
         return MimeType.fromString(str(self))
 
+
 class GETETag (WebDAVTextElement):
     """
     Contains the ETag header returned by a GET without
@@ -525,6 +564,7 @@ class GETETag (WebDAVTextElement):
     """
     name = "getetag"
     protected = True
+
 
 class GETLastModified (DateTimeHeaderElement):
     """
@@ -534,6 +574,7 @@ class GETLastModified (DateTimeHeaderElement):
     name = "getlastmodified"
     protected = True
 
+
 class LockDiscovery (WebDAVElement):
     """
     Describes the active locks on a resource. (RFC 2518, section 13.8)
@@ -542,6 +583,7 @@ class LockDiscovery (WebDAVElement):
     protected = True
 
     allowed_children = { (dav_namespace, "activelock"): (0, None) }
+
 
 class ResourceType (WebDAVElement):
     """
@@ -555,6 +597,7 @@ class ResourceType (WebDAVElement):
 ResourceType.collection = ResourceType(Collection())
 ResourceType.empty      = ResourceType()
 
+
 class Source (WebDAVElement):
     """
     The destination of the source link identifies the resource that
@@ -564,6 +607,7 @@ class Source (WebDAVElement):
     name = "source"
 
     allowed_children = { (dav_namespace, "link"): (0, None) }
+
 
 class SupportedLock (WebDAVElement):
     """
@@ -575,7 +619,9 @@ class SupportedLock (WebDAVElement):
 
     allowed_children = { (dav_namespace, "lockentry"): (0, None) }
 
+
 # Pre-conditions codes defined in RFC4918
+
 
 class PropfindFiniteDepth (WebDAVEmptyElement):
     """

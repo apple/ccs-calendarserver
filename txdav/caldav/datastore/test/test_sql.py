@@ -27,7 +27,7 @@ from twisted.trial import unittest
 
 from twext.enterprise.dal.syntax import Select, Parameter, Insert
 from twext.python.vcomponent import VComponent
-from twext.web2.dav.element.rfc2518 import GETContentLanguage, ResourceType
+from txdav.xml.rfc2518 import GETContentLanguage, ResourceType
 
 from txdav.base.propertystore.base import PropertyName
 from txdav.caldav.datastore.test.common import CommonTests as CalendarCommonTests,\

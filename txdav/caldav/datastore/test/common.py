@@ -33,7 +33,7 @@ from twext.enterprise.ienterprise import AlreadyFinishedError
 from twext.python.filepath import CachingFilePath as FilePath
 from twext.web2.dav import davxml
 from twext.web2.http_headers import MimeType
-from twext.web2.dav.element.base import WebDAVUnknownElement
+from txdav.xml.base import WebDAVUnknownElement
 from twext.python.vcomponent import VComponent
 
 from txdav.idav import IPropertyStore, IDataStore

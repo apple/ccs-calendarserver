@@ -237,7 +237,7 @@ class PropertyStatusResponseQueue (object):
 
         if len(property.children) > 0:
             # Re-instantiate as empty element.
-            property = property.emptyCopy()
+            property = davxml.WebDAVUnknownElement.withName(property.namespace, property.name)
 
         if code > 400: # Error codes only
             log.err("Error during %s for %s: %s" % (self.method, property, message))

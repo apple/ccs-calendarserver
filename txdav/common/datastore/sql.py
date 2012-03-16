@@ -29,8 +29,8 @@ __all__ = [
 from zope.interface import implements, directlyProvides
 
 from twext.python.log import Logger, LoggingMixIn
-from twext.web2.dav.element.rfc2518 import ResourceType
-from twext.web2.dav.element.parser import WebDAVDocument
+from txdav.xml.rfc2518 import ResourceType
+from txdav.xml.parser import WebDAVDocument
 from twext.web2.http_headers import MimeType
 
 from twisted.python import hashlib

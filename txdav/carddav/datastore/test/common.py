@@ -42,7 +42,7 @@ from twistedcaldav.vcard import Component as VComponent
 
 from twext.python.filepath import CachingFilePath as FilePath
 from twext.web2.dav import davxml
-from twext.web2.dav.element.base import WebDAVUnknownElement
+from txdav.xml.base import WebDAVUnknownElement
 
 
 storePath = FilePath(__file__).parent().child("addressbook_store")

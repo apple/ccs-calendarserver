@@ -27,7 +27,7 @@ __all__ = [
 
 from twext.python.clsprop import classproperty
 from twext.python.vcomponent import VComponent
-from twext.web2.dav.element.rfc2518 import ResourceType
+from txdav.xml.rfc2518 import ResourceType
 from twext.web2.http_headers import MimeType, generateContentType
 
 from twisted.internet.defer import inlineCallbacks, returnValue

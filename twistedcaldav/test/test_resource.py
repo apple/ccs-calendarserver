@@ -17,7 +17,7 @@
 from twext.web2.dav import davxml
 from twext.web2.dav.davxml import Principal
 from twext.web2.dav.davxml import Unauthenticated
-from twext.web2.dav.element.rfc2518 import HRef
+from txdav.xml.rfc2518 import HRef
 from twext.web2.http import HTTPError
 from twext.web2.test.test_server import SimpleRequest
 

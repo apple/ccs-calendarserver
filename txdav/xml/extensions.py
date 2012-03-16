@@ -37,8 +37,8 @@ __all__ = [
     "SyncLevel",
 ]
 
-from twext.web2.dav.element.base import WebDAVElement, WebDAVTextElement
-from twext.web2.dav.element.base import dav_namespace, twisted_dav_namespace
+from txdav.xml.base import WebDAVElement, WebDAVTextElement
+from txdav.xml.base import dav_namespace, twisted_dav_namespace
 
 
 class CurrentUserPrincipal(WebDAVElement):
@@ -52,6 +52,7 @@ class CurrentUserPrincipal(WebDAVElement):
         (dav_namespace, "unauthenticated" )     : (0, 1),
     }
 
+
 class ErrorDescription(WebDAVTextElement):
     """
     The human-readable description of a failed precondition
@@ -59,6 +60,7 @@ class ErrorDescription(WebDAVTextElement):
     namespace = twisted_dav_namespace
     name = "error-description"
     protected = True
+
 
 class AddMember (WebDAVElement):
     """
@@ -70,6 +72,7 @@ class AddMember (WebDAVElement):
     protected = True
 
     allowed_children = { (dav_namespace, "href"): (0, 1) }
+
 
 class SyncCollection (WebDAVElement):
     """
@@ -108,6 +111,7 @@ class SyncCollection (WebDAVElement):
                     raise ValueError("Only one of DAV:prop allowed")
                 self.property = child
 
+
 class SyncToken (WebDAVTextElement):
     """
     Synchronization token used in report and as a property.
@@ -115,6 +119,7 @@ class SyncToken (WebDAVTextElement):
     name = "sync-token"
     hidden = True
     protected = True
+
 
 class SyncLevel (WebDAVTextElement):
     """

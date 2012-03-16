@@ -18,7 +18,7 @@
 from twext.python.log import Logger
 from twext.web2 import responsecode
 from twext.web2.dav import davxml
-from twext.web2.dav.element.base import dav_namespace, WebDAVUnknownElement
+from txdav.xml.base import dav_namespace, WebDAVUnknownElement
 from twext.web2.dav.http import ErrorResponse, ResponseQueue, MultiStatusResponse
 from twext.web2.dav.noneprops import NonePropertyStore
 from twext.web2.dav.resource import TwistedACLInheritable, AccessDeniedError
@@ -630,7 +630,7 @@ class _CommonHomeChildCollectionMixin(ResponseCacheMixin):
                         davxml.HRef.fromString(""),
                         davxml.Status.fromResponseCode(code),
                     davxml.Error(
-                        WebDAVUnknownElement.fromQname(*error),
+                        WebDAVUnknownElement.withName(*error),
                         customxml.UID.fromString(component.resourceUID()),
                     ) if error else None,
                     )
@@ -787,7 +787,7 @@ class _CommonHomeChildCollectionMixin(ResponseCacheMixin):
                     davxml.HRef.fromString(""),
                     davxml.Status.fromResponseCode(code),
                     davxml.Error(
-                        WebDAVUnknownElement.fromQname(*error),
+                        WebDAVUnknownElement.withName(*error),
                         customxml.UID.fromString(component.resourceUID()),
                     ) if error else None,
                 )
@@ -845,7 +845,7 @@ class _CommonHomeChildCollectionMixin(ResponseCacheMixin):
                     davxml.HRef.fromString(href),
                     davxml.Status.fromResponseCode(code),
                     davxml.Error(
-                        WebDAVUnknownElement.fromQname(*error),
+                        WebDAVUnknownElement.withName(*error),
                     ) if error else None,
                 )
             )
@@ -896,7 +896,7 @@ class _CommonHomeChildCollectionMixin(ResponseCacheMixin):
                     davxml.HRef.fromString(href),
                     davxml.Status.fromResponseCode(code),
                     davxml.Error(
-                        WebDAVUnknownElement.fromQname(*error),
+                        WebDAVUnknownElement.withName(*error),
                     ) if error else None,
                 )
             )

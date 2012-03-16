@@ -26,7 +26,7 @@ __all__ = [
 ]
 
 from twext.python.log import LoggingMixIn
-from twext.web2.dav.element.base import dav_namespace
+from txdav.xml.base import dav_namespace
 
 from twistedcaldav.carddavxml import carddav_namespace
 from twistedcaldav.config import config

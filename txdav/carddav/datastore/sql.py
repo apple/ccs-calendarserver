@@ -31,7 +31,7 @@ from zope.interface.declarations import implements
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.python import hashlib
 
-from twext.web2.dav.element.rfc2518 import ResourceType
+from txdav.xml.rfc2518 import ResourceType
 from twext.web2.http_headers import MimeType
 
 from twistedcaldav import carddavxml, customxml

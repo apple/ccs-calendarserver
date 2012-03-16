@@ -1,6 +1,6 @@
 ##
 # Copyright (c) 2007 Twisted Matrix Laboratories.
-# Copyright (c) 2005 Apple Computer, Inc. All rights reserved.
+# Copyright (c) 2005-2012 Apple Computer, Inc. All rights reserved.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -19,8 +19,6 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
-#
-# DRI: Wilfredo Sanchez, wsanchez@apple.com
 ##
 
 """
@@ -48,10 +46,12 @@ __all__ = [
 import datetime
 import string
 import cStringIO as StringIO
+import re
 
 from twext.python.log import Logger
 from twext.web2.http_headers import parseDateTime
-from twext.web2.dav.element.util import decodeXMLName
+
+from txdav.xml.util import encodeXMLName, decodeXMLName
 
 log = Logger()
 
@@ -62,6 +62,7 @@ log = Logger()
 dav_namespace = "DAV:"
 twisted_dav_namespace = "http://twistedmatrix.com/xml_namespace/dav/"
 twisted_private_namespace = twisted_dav_namespace + "private/"
+
 
 class WebDAVElement (object):
     """
@@ -75,21 +76,14 @@ class WebDAVElement (object):
     protected          = False         # See RFC 3253 section 1.4.1
     unregistered       = False         # Subclass of factory; doesn't register
 
-    def qname(cls):
-        return (cls.namespace, cls.name)
-
-    def sname(cls):
-        return "{%s}%s" % (cls.namespace, cls.name)
-
-    qname = classmethod(qname)
-    sname = classmethod(sname)
-
     def __init__(self, *children, **attributes):
         super(WebDAVElement, self).__init__()
 
         if self.allowed_children is None:
-            raise NotImplementedError("WebDAVElement subclass %s is not implemented."
-                                      % (self.__class__.__name__,))
+            raise NotImplementedError(
+                "WebDAVElement subclass %s is not implemented."
+                % (self.__class__.__name__,)
+            )
 
         my_children = []
 
@@ -108,17 +102,25 @@ class WebDAVElement (object):
             my_children.append(child)
 
         self.children = tuple(my_children)
-
         self.attributes = attributes
 
-    def validate(self):
+    @classmethod
+    def qname(cls):
+        return (cls.namespace, cls.name)
 
+    @classmethod
+    def sname(cls):
+        return encodeXMLName(cls.namespace, cls.name)
+
+    def validate(self):
         children = self.children
         attributes = self.attributes
 
         if self.allowed_children is None:
-            raise NotImplementedError("WebDAVElement subclass %s is not implemented."
-                                      % (self.__class__.__name__,))
+            raise NotImplementedError(
+                "WebDAVElement subclass %s is not implemented."
+                % (self.__class__.__name__,)
+            )
 
         #
         # Validate that children are of acceptable types
@@ -155,13 +157,15 @@ class WebDAVElement (object):
                 break
             else:
                 if not (isinstance(child, PCDATAElement) and child.isWhitespace()):
-                    log.msg("Child of type %s is unexpected and therefore ignored in %s element"
-                            % (child.sname(), self.sname()))
+                    log.debug(
+                        "Child of type %s is unexpected and therefore ignored in %s element"
+                        % (child.sname(), self.sname())
+                    )
 
         for qname, (min, max) in allowed_children.items():
             if min != 0:
-                raise ValueError("Not enough children of type {%s}%s for %s"
-                                 % (qname[0], qname[1], self.sname()))
+                raise ValueError("Not enough children of type %s for %s"
+                                 % (encodeXMLName(*qname), self.sname()))
 
         self.children = tuple(my_children)
 
@@ -173,7 +177,7 @@ class WebDAVElement (object):
         if self.allowed_attributes:
             for name in attributes:
                 if name not in self.allowed_attributes:
-                    log.msg("Attribute %s is unexpected in %s element" % (name, self.sname()))
+                    log.debug("Attribute %s is unexpected in %s element" % (name, self.sname()))
                 my_attributes[name] = attributes[name]
 
             for name, required in self.allowed_attributes.items():
@@ -183,14 +187,11 @@ class WebDAVElement (object):
 
         else:
             if not isinstance(self, WebDAVUnknownElement) and attributes:
-                log.msg("Attributes %s are unexpected in %s element"
-                        % (attributes.keys(), self.sname()))
+                log.debug("Attributes %s are unexpected in %s element"
+                          % (attributes.keys(), self.sname()))
             my_attributes.update(attributes)
 
         self.attributes = my_attributes
-
-    def emptyCopy(self):
-        return self.__class__()
 
     def __str__(self):
         return self.sname()
@@ -218,13 +219,11 @@ class WebDAVElement (object):
     def __contains__(self, child):
         return child in self.children
 
-
     def writeXML(self, output, pretty=True):
         output.write("<?xml version='1.0' encoding='UTF-8'?>" + ("\n" if pretty else ""))
-        self.writeToStream(output, "", 0, pretty)
+        self._writeToStream(output, "", 0, pretty)
 
-    
-    def writeToStream(self, output, ns, level, pretty):
+    def _writeToStream(self, output, ns, level, pretty):
         """
         Fast XML output.
 
@@ -246,7 +245,7 @@ class WebDAVElement (object):
             if self.attributes or (ns != self.namespace):
                 output.write("<%s" % (self.name,))
                 for name, value in self.attributes.iteritems():
-                    self.writeAttributeToStream(output, name, value)
+                    self._writeAttributeToStream(output, name, value)
                 if ns != self.namespace:
                     output.write(" xmlns='%s'" % (self.namespace,))
                 output.write("/>")
@@ -257,7 +256,7 @@ class WebDAVElement (object):
             if self.attributes or (ns != self.namespace):
                 output.write("<%s" % (self.name,))
                 for name, value in self.attributes.iteritems():
-                    self.writeAttributeToStream(output, name, value)
+                    self._writeAttributeToStream(output, name, value)
                 if ns != self.namespace:
                     output.write(" xmlns='%s'" % (self.namespace,))
                     ns = self.namespace
@@ -277,7 +276,7 @@ class WebDAVElement (object):
             if pretty and not hasPCDATA:
                 output.write("\r\n")
             for child in self.children:
-                child.writeToStream(output, ns, level+1, pretty)
+                child._writeToStream(output, ns, level+1, pretty)
                 
             # Close the element.
             if pretty and not hasPCDATA and level:
@@ -287,7 +286,7 @@ class WebDAVElement (object):
         if pretty and level:
             output.write("\r\n")
 
-    def writeAttributeToStream(self, output, name, value):
+    def _writeAttributeToStream(self, output, name, value):
         
         # Quote any single quotes. We do not need to be any smarter than this.
         value = value.replace("'", "&apos;")
@@ -367,12 +366,8 @@ class WebDAVElement (object):
                 newchildren.append(child)
         self.children = tuple(newchildren)
 
+
 class PCDATAElement (object):
-    def sname(self): return "#PCDATA"
-
-    qname = classmethod(sname)
-    sname = classmethod(sname)
-
     def __init__(self, data):
         super(PCDATAElement, self).__init__()
 
@@ -384,6 +379,14 @@ class PCDATAElement (object):
             assert type(data) is str, ("PCDATA must be a string: %r" % (data,))
 
         self.data = data
+
+    @classmethod
+    def qname(cls):
+        return (None, "#PCDATA")
+
+    @classmethod
+    def sname(cls):
+        return "#PCDATA"
 
     def validate(self):
         pass
@@ -427,7 +430,7 @@ class PCDATAElement (object):
             log.err("Invalid PCDATA: %r" % (self.data,))
             raise
 
-    def writeToStream(self, output, ns, level, pretty):
+    def _writeToStream(self, output, ns, level, pretty):
         # Do escaping/CDATA behavior
         if "\r" in self.data or "\n" in self.data:
             # Do CDATA
@@ -442,6 +445,7 @@ class PCDATAElement (object):
                 cdata = cdata.replace(">", "&gt;")
 
         output.write(cdata)
+
 
 class WebDAVOneShotElement (WebDAVElement):
     """
@@ -474,6 +478,7 @@ class WebDAVOneShotElement (WebDAVElement):
 
         return WebDAVOneShotElement.__singletons[clazz][child]
 
+
 class WebDAVUnknownElement (WebDAVElement):
     """
     Placeholder for unknown element tag names.
@@ -484,7 +489,7 @@ class WebDAVUnknownElement (WebDAVElement):
     }
 
     @classmethod
-    def fromQname(cls, namespace, name):
+    def withName(cls, namespace, name):
         child = cls()
         child.namespace = namespace
         child.name = name
@@ -494,13 +499,8 @@ class WebDAVUnknownElement (WebDAVElement):
         return (self.namespace, self.name)
 
     def sname(self):
-        return "{%s}%s" % (self.namespace, self.name)
+        return encodeXMLName(self.namespace, self.name)
 
-    def emptyCopy(self):
-        copied = self.__class__()
-        copied.name = self.name
-        copied.namespace = self.namespace
-        return copied
 
 class WebDAVEmptyElement (WebDAVElement):
     """
@@ -519,9 +519,7 @@ class WebDAVEmptyElement (WebDAVElement):
             return WebDAVEmptyElement.__singletons[clazz]
 
     allowed_children = {}
-
     children = ()
-
 
     def __hash__(self):
         """
@@ -530,7 +528,6 @@ class WebDAVEmptyElement (WebDAVElement):
         L{WebDAVOneShotElement}.
         """
         return hash((self.name, self.namespace))
-
 
 
 class WebDAVTextElement (WebDAVElement):
@@ -566,10 +563,12 @@ class WebDAVTextElement (WebDAVElement):
         else:
             return NotImplemented
 
+
 class WebDAVDateTimeElement (WebDAVTextElement):
     """
     WebDAV date-time element. (RFC 2518, section 23.2)
     """
+    @classmethod
     def fromDate(clazz, date):
         """
         date may be a datetime.datetime instance, a POSIX timestamp
@@ -595,8 +594,6 @@ class WebDAVDateTimeElement (WebDAVTextElement):
 
         return clazz(PCDATAElement(date))
 
-    fromDate = classmethod(fromDate)
-
     def __init__(self, *children, **attributes):
         super(WebDAVDateTimeElement, self).__init__(*children, **attributes)
         self.datetime() # Raise ValueError if the format is wrong
@@ -614,11 +611,13 @@ class WebDAVDateTimeElement (WebDAVTextElement):
         else:
             return parse_date(s)
 
+
 class DateTimeHeaderElement (WebDAVTextElement):
     """
     WebDAV date-time element for elements that substitute for HTTP
     headers. (RFC 2068, section 3.3.1)
     """
+    @classmethod
     def fromDate(clazz, date):
         """
         date may be a datetime.datetime instance, a POSIX timestamp
@@ -648,8 +647,6 @@ class DateTimeHeaderElement (WebDAVTextElement):
 
         return clazz(PCDATAElement(date))
 
-    fromDate = classmethod(fromDate)
-
     def __init__(self, *children, **attributes):
         super(DateTimeHeaderElement, self).__init__(*children, **attributes)
         self.datetime() # Raise ValueError if the format is wrong
@@ -666,6 +663,7 @@ class DateTimeHeaderElement (WebDAVTextElement):
             return None
         else:
             return parseDateTime(s)
+
 
 ##
 # Utilities
@@ -685,26 +683,22 @@ class FixedOffset (datetime.tzinfo):
     def tzname   (self, dt): return self._name
     def dst      (self, dt): return datetime.timedelta(0)
 
+
+_regex_ISO8601Date = re.compile(
+    "^" +
+    "(?P<year>\d{4})-(?P<month>\d{2})-(?P<day>\d{2})T" +
+    "(?P<hour>\d{2}):(?P<minute>\d{2}):(?P<second>\d{2})(?:.(?P<subsecond>\d+))*" +
+    "(?:Z|(?P<offset_sign>\+|-)(?P<offset_hour>\d{2}):(?P<offset_minute>\d{2}))" +
+    "$"
+)
+
 def parse_date(date):
     """
     Parse an ISO 8601 date and return a corresponding datetime.datetime object.
     """
     # See http://www.iso.org/iso/en/prods-services/popstds/datesandtime.html
 
-    global regex_date
-
-    if regex_date is None:
-        import re
-
-        regex_date = re.compile(
-            "^" +
-              "(?P<year>\d{4})-(?P<month>\d{2})-(?P<day>\d{2})T" +
-              "(?P<hour>\d{2}):(?P<minute>\d{2}):(?P<second>\d{2})(?:.(?P<subsecond>\d+))*" +
-              "(?:Z|(?P<offset_sign>\+|-)(?P<offset_hour>\d{2}):(?P<offset_minute>\d{2}))" +
-            "$"
-        )
-
-    match = regex_date.match(date)
+    match = _regex_ISO8601Date.match(date)
     if match is not None:
         subsecond = match.group("subsecond")
         if subsecond is None:
@@ -736,5 +730,3 @@ def parse_date(date):
         )
     else:
         raise ValueError("Invalid ISO 8601 date format: %r" % (date,))
-
-regex_date = None

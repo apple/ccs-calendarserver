@@ -31,7 +31,7 @@ __all__ = [
 import urllib
 
 from twext.python.log import LoggingMixIn
-from twext.web2.dav.element.base import dav_namespace
+from txdav.xml.base import dav_namespace
 from twext.web2.http_headers import MimeType
 from twext.web2.http import RedirectResponse, Response
 from twext.web2.stream import MemoryStream

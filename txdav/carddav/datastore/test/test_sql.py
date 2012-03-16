@@ -20,7 +20,7 @@ L{txdav.carddav.datastore.test.common}.
 """
 
 from twext.enterprise.dal.syntax import Select, Parameter
-from twext.web2.dav.element.rfc2518 import GETContentLanguage, ResourceType
+from txdav.xml.rfc2518 import GETContentLanguage, ResourceType
 
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.trial import unittest

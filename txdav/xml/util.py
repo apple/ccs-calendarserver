@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2005 Apple Computer, Inc. All rights reserved.
+# Copyright (c) 2005-2012 Apple Computer, Inc. All rights reserved.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -18,8 +18,6 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
-#
-# DRI: Wilfredo Sanchez, wsanchez@apple.com
 ##
 
 """
@@ -35,31 +33,33 @@ __all__ = [
     "decodeXMLName",
 ]
 
+
 def PrintXML(document, stream):
     try:
         import xml.dom.ext as ext
     except ImportError:
-        import twext.web2.dav.element.xmlext as ext
+        import txdav.xml.xmlext as ext
 
     document.normalize()
     ext.Print(document, stream)
     # For debugging, this is easier to read: (FIXME: disable for normal use)
     #ext.PrettyPrint(document, stream)
 
-def encodeXMLName(name):
+
+def encodeXMLName(namespace, name):
     """
-    Encodes an XML (namespace, localname) pair into an ASCII string.
-    If namespace is None, returns localname encoded as UTF-8.
-    Otherwise, returns {namespace}localname encoded as UTF-8.
+    Encodes an XML namespace and name into a UTF-8 string.
+    If namespace is None, returns "name", otherwise, returns
+    "{namespace}name".
     """
-    namespace, name = name
     if namespace is None: return name.encode("utf-8")
     return (u"{%s}%s" % (namespace, name)).encode("utf-8")
 
+
 def decodeXMLName(name):
     """
-    Decodes an XML (namespace, localname) pair from an ASCII string as encoded
-    by encodeXMLName().
+    Decodes an XML (namespace, name) pair from an ASCII string as
+    encoded by encodeXMLName().
     """
     if name[0] is not "{": return (None, name.decode("utf-8"))
 

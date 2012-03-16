@@ -16,7 +16,7 @@
 ##
 
 from twext.enterprise.dal.syntax import Update
-from twext.web2.dav.element.parser import WebDAVDocument
+from txdav.xml.parser import WebDAVDocument
 from twisted.internet.defer import inlineCallbacks
 from twistedcaldav import caldavxml
 from txdav.common.datastore.sql_tables import schema

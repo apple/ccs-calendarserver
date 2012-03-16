@@ -40,29 +40,29 @@ See RFC 3744: http://www.ietf.org/rfc/rfc3744.txt (WebDAV ACLs)
 # Import all XML element definitions
 #
 
-from twext.web2.dav.element.base    import *
-from twext.web2.dav.element.parser  import *
-from twext.web2.dav.element.util    import *
-from twext.web2.dav.element.rfc2518 import *
-from twext.web2.dav.element.rfc3253 import *
-from twext.web2.dav.element.rfc3744 import *
-from twext.web2.dav.element.rfc4331 import *
-from twext.web2.dav.element.rfc5842 import *
-from twext.web2.dav.element.extensions import *
+from txdav.xml.base    import *
+from txdav.xml.parser  import *
+from txdav.xml.util    import *
+from txdav.xml.rfc2518 import *
+from txdav.xml.rfc3253 import *
+from txdav.xml.rfc3744 import *
+from txdav.xml.rfc4331 import *
+from txdav.xml.rfc5842 import *
+from txdav.xml.extensions import *
 
 #
 # Register all XML elements with the parser
 #
 
-from twext.web2.dav.element import base as b
-from twext.web2.dav.element import parser as p
-from twext.web2.dav.element import util as u
-from twext.web2.dav.element import rfc2518 as r1
-from twext.web2.dav.element import rfc3253 as r2
-from twext.web2.dav.element import rfc3744 as r3
-from twext.web2.dav.element import rfc4331 as r4
-from twext.web2.dav.element import rfc5842 as r5
-from twext.web2.dav.element import extensions as e
+from txdav.xml import base as b
+from txdav.xml import parser as p
+from txdav.xml import util as u
+from txdav.xml import rfc2518 as r1
+from txdav.xml import rfc3253 as r2
+from txdav.xml import rfc3744 as r3
+from txdav.xml import rfc4331 as r4
+from txdav.xml import rfc5842 as r5
+from txdav.xml import extensions as e
 
 __all__ = (
     registerElements(b) +

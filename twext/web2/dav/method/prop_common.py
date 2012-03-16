@@ -14,7 +14,7 @@ from twisted.python.failure import Failure
 from twext.python.log import Logger
 from twext.web2 import responsecode
 from twext.web2.dav import davxml
-from twext.web2.dav.element.base import WebDAVElement
+from txdav.xml.base import WebDAVElement
 from twext.web2.dav.http import statusForFailure
 from twext.web2.dav.method.propfind import propertyName
 

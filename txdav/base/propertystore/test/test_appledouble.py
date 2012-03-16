@@ -29,7 +29,7 @@ from txdav.base.propertystore.appledouble_xattr import (
 
 from txdav.base.propertystore.base import PropertyName
 from twisted.python.filepath import FilePath
-from twext.web2.dav.element.rfc2518 import GETContentType, HRef, Depth
+from txdav.xml.rfc2518 import GETContentType, HRef, Depth
 
 # This tar file contains a single file, 'f', with 2 xattrs; 'alpha' with
 # contents 'beta', and 'gamma' with contents 'delta'.

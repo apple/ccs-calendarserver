@@ -18,8 +18,6 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
-#
-# DRI: Cyrus Daboo, cdaboo@apple.com
 ##
 
 """
@@ -30,7 +28,8 @@ This module provides XML element definitions for use with WebDAV.
 See RFC 4331: http://www.ietf.org/rfc/rfc4331.txt
 """
 
-from twext.web2.dav.element.base import WebDAVTextElement
+from txdav.xml.base import WebDAVTextElement
+
 
 ##
 # Section 3 & 4 (Quota Properties)
@@ -44,6 +43,7 @@ class QuotaAvailableBytes (WebDAVTextElement):
     name = "quota-available-bytes"
     hidden = True
     protected = True
+
 
 class QuotaUsedBytes (WebDAVTextElement):
     """

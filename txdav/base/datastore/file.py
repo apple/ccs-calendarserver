@@ -25,7 +25,7 @@ from twext.enterprise.ienterprise import AlreadyFinishedError
 from txdav.idav import IDataStoreObject
 from txdav.base.propertystore.base import PropertyName
 
-from twext.web2.dav.element.rfc2518 import GETContentType
+from txdav.xml.rfc2518 import GETContentType
 from twext.web2.dav.resource import TwistedGETContentMD5
 
 from twisted.python import hashlib

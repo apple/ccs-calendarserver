@@ -38,7 +38,7 @@ from twisted.python.failure import Failure
 
 from twext.python.vcomponent import VComponent
 from twext.web2.dav import davxml
-from twext.web2.dav.element.rfc2518 import ResourceType, GETContentType
+from txdav.xml.rfc2518 import ResourceType, GETContentType
 from twext.web2.dav.resource import TwistedGETContentMD5
 from twext.web2.http_headers import generateContentType, MimeType
 

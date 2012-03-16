@@ -40,7 +40,7 @@ from twisted.internet.defer import inlineCallbacks, returnValue, maybeDeferred
 from twisted.python.failure import Failure
 from twext.web2 import responsecode
 from twext.web2.dav import davxml
-from twext.web2.dav.element.base import WebDAVElement
+from txdav.xml.base import WebDAVElement
 from twext.web2.dav.http import statusForFailure
 from twext.web2.dav.method.propfind import propertyName
 from twext.web2.dav.method.report import NumberOfMatchesWithinLimits

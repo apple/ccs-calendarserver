@@ -33,12 +33,12 @@ from twisted.internet.defer import inlineCallbacks
 from twisted.internet.defer import returnValue
 from calendarserver.webadmin.resource import WebAdminResource
 
-from twext.web2.dav.element.rfc3744 import GroupMemberSet
-from twext.web2.dav.element.rfc2518 import DisplayName
+from txdav.xml.rfc3744 import GroupMemberSet
+from txdav.xml.rfc2518 import DisplayName
 
 from twext.web2.http import HTTPError
 from twext.web2.responsecode import CONFLICT
-from twext.web2.dav.element.rfc2518 import HRef
+from txdav.xml.rfc2518 import HRef
 from twistedcaldav.directory.directory import DirectoryRecord
 
 

@@ -29,7 +29,7 @@ __all__ = [
 
 from errno import ENOENT
 
-from twext.web2.dav.element.rfc2518 import ResourceType, GETContentType
+from txdav.xml.rfc2518 import ResourceType, GETContentType
 from twext.web2.dav.resource import TwistedGETContentMD5
 from twext.web2.http_headers import MimeType
 

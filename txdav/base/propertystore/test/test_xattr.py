@@ -19,7 +19,7 @@ Property store tests.
 """
 
 from twext.python.filepath import CachingFilePath as FilePath
-from twext.web2.dav.element.base import WebDAVTextElement
+from txdav.xml.base import WebDAVTextElement
 from txdav.base.propertystore.base import PropertyName
 from txdav.base.propertystore.test import base
 

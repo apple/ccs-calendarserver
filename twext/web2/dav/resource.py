@@ -187,7 +187,7 @@ class DAVPropertyMixIn (MetaDataMixin):
         if type(property) is tuple:
             qname = property
         else:
-            qname = property.qname()
+            qname = (property.namespace, property.name)
 
         if qname[0] == twisted_private_namespace:
             return succeed(False)

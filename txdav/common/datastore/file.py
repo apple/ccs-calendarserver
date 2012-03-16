@@ -21,8 +21,8 @@ Common utility functions for a file based datastore.
 
 from twext.internet.decorate import memoizedKey
 from twext.python.log import LoggingMixIn
-from twext.web2.dav.element.rfc2518 import ResourceType, GETContentType, HRef
-from twext.web2.dav.element.rfc5842 import ResourceID
+from txdav.xml.rfc2518 import ResourceType, GETContentType, HRef
+from txdav.xml.rfc5842 import ResourceID
 from twext.web2.http_headers import generateContentType, MimeType
 from twext.web2.dav.resource import TwistedGETContentMD5,\
     TwistedQuotaUsedProperty
