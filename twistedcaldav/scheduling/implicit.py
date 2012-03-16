@@ -104,6 +104,15 @@ class ImplicitScheduler(object):
                 "Cannot change scheduling object mode",
             ))
 
+        # Organizer events must have a master component
+        if self.state == "organizer" and self.calendar.masterComponent() is None:
+            raise HTTPError(ErrorResponse(
+                responsecode.FORBIDDEN,
+                (caldav_namespace, "organizer-allowed"),
+                "Organizer cannot schedule without a master component.",
+            ))
+            
+
         returnValue((self.action != "none", new_type == "schedule",))
 
     @inlineCallbacks
