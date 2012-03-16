@@ -24,45 +24,47 @@
 ##
 
 """
-Tests for L{txdav.xml}.
+Tests for L{txdav.xml.base}.
 """
 
 from twisted.trial.unittest import TestCase
-from twext.web2.dav.davxml import Response, HRef, MultiStatus, Status
-from twext.web2.dav.davxml import CurrentUserPrincipal
-from txdav.xml.test.test_base import WebDAVElementTestsMixin
+from twext.web2.dav.davxml import WebDAVDocument, WebDAVUnknownElement
 
 
-class MultiStatusTests(WebDAVElementTestsMixin, TestCase):
+class WebDAVElementTestsMixin:
     """
-    Tests for L{MultiStatus}
+    Mixin for L{TestCase}s which test a L{WebDAVElement} subclass.
+    """
+    def test_fromString(self):
+        """
+        The XML representation of L{WebDAVDocument} can be parsed into a
+        L{WebDAVDocument} instance using L{WebDAVDocument.fromString}.
+        """
+        doc = WebDAVDocument.fromString(self.serialized)
+        self.assertEquals(doc, WebDAVDocument(self.element))
+
+
+    def test_toxml(self):
+        """
+        L{WebDAVDocument.toxml} returns a C{str} giving the XML representation
+        of the L{WebDAVDocument} instance.
+        """
+        document = WebDAVDocument(self.element)
+        self.assertEquals(
+            document,
+            WebDAVDocument.fromString(document.toxml()))
+
+
+class WebDAVUnknownElementTests(WebDAVElementTestsMixin, TestCase):
+    """
+    Tests for L{WebDAVUnknownElement}.
     """
     serialized = (
         """<?xml version="1.0" encoding="utf-8" ?>"""
-        """<D:multistatus xmlns:D="DAV:">"""
-        """  <D:response>"""
-        """    <D:href>http://webdav.sb.aol.com/webdav/secret</D:href>"""
-        """    <D:status>HTTP/1.1 403 Forbidden</D:status>"""
-        """  </D:response>"""
-        """</D:multistatus>"""
+        """<T:foo xmlns:T="http://twistedmatrix.com/"/>"""
     )
 
-    element = MultiStatus(
-        Response(
-            HRef("http://webdav.sb.aol.com/webdav/secret"),
-            Status("HTTP/1.1 403 Forbidden")),
-        )
-
-
-class CurrentUserPrincipalTests(WebDAVElementTestsMixin, TestCase):
-    """
-    Tests for L{CurrentUserPrincipal}.
-    """
-    serialized = (
-        """<?xml version="1.0" encoding="utf-8" ?>"""
-        """<D:current-user-principal xmlns:D="DAV:">"""
-        """  <D:href>foo</D:href>"""
-        """</D:current-user-principal>"""
+    element = WebDAVUnknownElement.withName(
+        "http://twistedmatrix.com/",
+        "foo"
     )
-
-    element = CurrentUserPrincipal(HRef("foo"))
