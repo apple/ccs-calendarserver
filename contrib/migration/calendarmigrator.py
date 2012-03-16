@@ -42,6 +42,7 @@ NEW_SERVER_ROOT = "/Library/Server/" + NEW_SERVER_DIR
 NEW_CONFIG_DIR = "Library/Server/" + NEW_SERVER_DIR + "/Config"
 LOG_DIR = "var/log/caldavd"
 DITTO = "/usr/bin/ditto"
+RESOURCE_MIGRATION_TRIGGER = "trigger_resource_migration"
 
 
 # Processed by mergePlist
@@ -154,6 +155,9 @@ def main():
                 pass
             # Set ownership
             os.chown(logDir, uid, gid)
+
+            # Trigger migration of locations and resources from OD
+            triggerResourceMigration(newServerRoot)
 
 
     else:
@@ -588,6 +592,22 @@ def relocateData(sourceRoot, targetRoot, sourceVersion, oldServerRootValue,
         newServerRootValue,
         newDataRootValue
     )
+
+
+def triggerResourceMigration(newServerRoot):
+    """
+    Leave a file in the server root to act as a signal that the server
+    should migrate locations and resources from OD when it starts up.
+    """
+    triggerPath = os.path.join(newServerRoot, RESOURCE_MIGRATION_TRIGGER)
+    if not os.path.exists(newServerRoot):
+        log("New server root directory doesn't exist: %s" % (newServerRoot,))
+        return
+
+    if not os.path.exists(triggerPath):
+        # Create an empty trigger file
+        log("Creating resource migration trigger file: %s" % (triggerPath,))
+        open(triggerPath, "w").close()
 
 
 def relativize(parent, child):
