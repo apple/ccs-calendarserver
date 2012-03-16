@@ -1,6 +1,5 @@
-
 ##
-# Copyright (c) 2005-2010 Apple Computer, Inc. All rights reserved.
+# Copyright (c) 2005-2012 Apple Computer, Inc. All rights reserved.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -19,8 +18,6 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
-#
-# DRI: Wilfredo Sanchez, wsanchez@apple.com
 ##
 
 """
@@ -70,48 +67,5 @@ __all__ = (
     registerElements(r3) +
     registerElements(r4) +
     registerElements(r5) +
-    registerElements(e) +
-    [
-        "sname2qname",
-        "qname2sname",
-    ]
+    registerElements(e)
 )
-
-
-def sname2qname(sname):
-    """
-    Convert an sname into a qname.
-
-    That is, parse a property name string (eg: C{"{DAV:}displayname"})
-    into a tuple (eg: C{("DAV:", "displayname")}).
-
-    @raise ValueError is input is not valid. Note, however, that this
-    function does not attempt to fully validate C{sname}.
-    """
-    def raiseIf(condition):
-        if condition:
-            raise ValueError("Invalid sname: %s" % (sname,))
-
-    raiseIf(not sname.startswith("{"))
-
-    try:
-        i = sname.index("}")
-    except ValueError:
-        raiseIf(True)
-
-    namespace = sname[1:i]
-    name = sname [i+1:]
-
-    raiseIf("{" in namespace or not name)
-
-    return namespace, name
-
-def qname2sname(qname):
-    """
-    Convert a qname into an sname.
-    """
-    try:
-        return "{%s}%s" % qname
-    except TypeError:
-        raise ValueError("Invalid qname: %r" % (qname,))
-

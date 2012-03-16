@@ -31,7 +31,8 @@ from twext.web2.dav import davxml
 
 from twext.python.log import clearLogLevels
 from twext.python.log import StandardIOObserver
-from twext.web2.dav.davxml import sname2qname, qname2sname
+
+from txdav.xml.base import decodeXMLName, encodeXMLName
 
 from twistedcaldav.config import config, ConfigurationError
 from twistedcaldav.directory.directory import UnknownRecordTypeError, DirectoryError
@@ -160,7 +161,7 @@ def main():
 
         elif opt in ("", "--read-property"):
             try:
-                qname = sname2qname(arg)
+                qname = decodeXMLName(arg)
             except ValueError, e:
                 abort(e)
             principalActions.append((action_readProperty, qname))
@@ -511,7 +512,7 @@ def action_removePrincipal(principal):
 @inlineCallbacks
 def action_readProperty(resource, qname):
     property = (yield resource.readProperty(qname, None))
-    print "%r on %s:" % (qname2sname(qname), resource)
+    print "%r on %s:" % (encodeXMLName(*qname), resource)
     print ""
     print property.toxml()
 
