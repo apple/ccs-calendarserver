@@ -31,7 +31,10 @@ See RFC 2518: http://www.ietf.org/rfc/rfc2518.txt
 from twext.web2 import responsecode
 from twext.web2.http_headers import MimeType
 
-from txdav.xml.base import *
+from txdav.xml.base import dav_namespace
+from txdav.xml.base import WebDAVElement, WebDAVTextElement, PCDATAElement
+from txdav.xml.base import WebDAVEmptyElement, WebDAVOneShotElement
+from txdav.xml.base import WebDAVDateTimeElement, DateTimeHeaderElement
 
 
 ##
