@@ -1,6 +1,6 @@
 ##
-# Copyright (c) 2007 Twisted Matrix Laboratories.
 # Copyright (c) 2005-2012 Apple Computer, Inc. All rights reserved.
+# Copyright (c) 2007 Twisted Matrix Laboratories.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -70,8 +70,12 @@ def encodeXMLName(namespace, name):
     If namespace is None, returns "name", otherwise, returns
     "{namespace}name".
     """
-    if namespace is None: return name.encode("utf-8")
-    return (u"{%s}%s" % (namespace, name)).encode("utf-8")
+    if not namespace:
+        sname = name
+    else:
+        sname = u"{%s}%s" % (namespace, name)
+
+    return sname.encode("utf-8")
 
 
 def decodeXMLName(name):
@@ -79,14 +83,34 @@ def decodeXMLName(name):
     Decodes an XML (namespace, name) pair from an ASCII string as
     encoded by encodeXMLName().
     """
-    if name[0] is not "{": return (None, name.decode("utf-8"))
-
-    index = name.find("}")
-
-    if (index is -1 or not len(name) > index):
+    def invalid():
         raise ValueError("Invalid encoded name: %r" % (name,))
 
-    return (name[1:index].decode("utf-8"), name[index+1:].decode("utf-8"))
+    if not name:
+        invalid()
+
+    if name[0] is "{":
+        index = name.find("}")
+        if (index is -1 or not len(name) > index):
+            invalid()
+
+        namespace = name[1:index].decode("utf-8")
+        localname = name[index+1:].decode("utf-8")
+
+        if not namespace:
+            namespace = None
+
+        if not localname:
+            invalid()
+
+    else:
+        namespace = None
+        localname = name.decode("utf-8")
+    
+    if "{" in localname or "}" in localname:
+        invalid()
+
+    return (namespace, localname)
 
 
 class WebDAVElement (object):

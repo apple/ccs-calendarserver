@@ -1,8 +1,6 @@
-# Copyright (c) 2009 Twisted Matrix Laboratories.
-# See LICENSE for details.
-
 ##
 # Copyright (c) 2005-2012 Apple Computer, Inc. All rights reserved.
+# Copyright (c) 2009 Twisted Matrix Laboratories.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -28,7 +26,45 @@ Tests for L{txdav.xml.base}.
 """
 
 from twisted.trial.unittest import TestCase
+from txdav.xml.base import decodeXMLName, encodeXMLName
 from twext.web2.dav.davxml import WebDAVDocument, WebDAVUnknownElement
+
+
+class NameEncodeTests(TestCase):
+    """
+    Name encoding tests.
+    """
+    def test_decodeXMLName(self):
+        # Empty name
+        self.assertRaises(ValueError, decodeXMLName, "") 
+        self.assertRaises(ValueError, decodeXMLName, "{}")
+        self.assertRaises(ValueError, decodeXMLName, "{x}")
+
+        # Weird bracket cases
+        self.assertRaises(ValueError, decodeXMLName, "{")
+        self.assertRaises(ValueError, decodeXMLName, "x{")
+        self.assertRaises(ValueError, decodeXMLName, "{x")
+        self.assertRaises(ValueError, decodeXMLName, "}")
+        self.assertRaises(ValueError, decodeXMLName, "x}")
+        self.assertRaises(ValueError, decodeXMLName, "}x")  
+        self.assertRaises(ValueError, decodeXMLName, "{{}")
+        self.assertRaises(ValueError, decodeXMLName, "{{}}")
+        self.assertRaises(ValueError, decodeXMLName, "x{}")
+
+        # Empty namespace is OK
+        self.assertEquals(decodeXMLName(  "x"), (None, "x"))
+        self.assertEquals(decodeXMLName("{}x"), (None, "x"))
+
+        # Normal case
+        self.assertEquals(decodeXMLName("{namespace}name"), ("namespace", "name"))
+
+    def test_encodeXMLName(self):
+        # No namespace
+        self.assertEquals(encodeXMLName(None, "name"), "name")
+        self.assertEquals(encodeXMLName(""  , "name"), "name")
+
+        # Normal case
+        self.assertEquals(encodeXMLName("namespace", "name"), "{namespace}name")
 
 
 class WebDAVElementTestsMixin:
