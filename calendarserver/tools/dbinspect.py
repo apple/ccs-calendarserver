@@ -330,8 +330,49 @@ class Events(Cmd):
         ).on(txn))
         returnValue(tuple(rows))
 
+class EventDetails(Cmd):
+    """
+    Base class for common event details commands.
+    """
+    def printEventDetails(self, txn, details):
+        owner, calendar, resource_id, resource, created, modified, data = details
+        shortname = UserNameFromUID(txn, owner)
+        table = tables.Table()
+        table.addRow(("Owner UID:", owner,))
+        table.addRow(("User Name:", shortname,))
+        table.addRow(("Calendar:", calendar,))
+        table.addRow(("Resource Name:", resource))
+        table.addRow(("Resource ID:", resource_id))
+        table.addRow(("Created", created))
+        table.addRow(("Modified", modified))
+        print "\n"
+        table.printTable()
+        print data
+    
+    @inlineCallbacks
+    def getEventData(self, txn, whereClause, whereParams):
+        ch = schema.CALENDAR_HOME
+        cb = schema.CALENDAR_BIND
+        co = schema.CALENDAR_OBJECT
+        rows = (yield Select(
+            [
+                ch.OWNER_UID,
+                cb.CALENDAR_RESOURCE_NAME,
+                co.RESOURCE_ID,
+                co.RESOURCE_NAME,
+                co.CREATED,
+                co.MODIFIED,
+                co.ICALENDAR_TEXT,
+            ],
+            From=ch.join(
+                cb, type="inner", on=(ch.RESOURCE_ID == cb.CALENDAR_HOME_RESOURCE_ID).And(
+                    cb.BIND_MODE == _BIND_MODE_OWN)).join(
+                co, type="inner", on=(cb.CALENDAR_RESOURCE_ID == co.CALENDAR_RESOURCE_ID)),
+            Where=whereClause,
+        ).on(txn, **whereParams))
+        returnValue(tuple(rows))
 
-class Event(Cmd):
+class Event(EventDetails):
     
     _name = "Get Event Data by Resource-ID"
     
@@ -347,35 +388,16 @@ class Event(Cmd):
             returnValue(None)
         result = yield self.getData(txn, rid)
         if result:
-            resource, created, modified, data = result
-            table = tables.Table()
-            table.addRow(("Resource Name:", resource))
-            table.addRow(("Resource ID:", rid))
-            table.addRow(("Created", created))
-            table.addRow(("Modified", modified))
-            print "\n"
-            table.printTable()
-            print data
+            self.printEventDetails(txn, result[0])
         else:
             print "Could not find resource"
 
-    @inlineCallbacks
     def getData(self, txn, rid):
         co = schema.CALENDAR_OBJECT
-        rows = (yield Select(
-            [
-                co.RESOURCE_NAME,
-                co.CREATED,
-                co.MODIFIED,
-                co.ICALENDAR_TEXT,
-            ],
-            From=co,
-            Where=(co.RESOURCE_ID == Parameter("ResourceID")),
-        ).on(txn, **{"ResourceID": rid}))
-        returnValue(rows[0] if rows else None)
+        return self.getEventData(txn, (co.RESOURCE_ID == Parameter("RID")), {"RID":rid})
 
 
-class EventsByUID(Cmd):
+class EventsByUID(EventDetails):
     
     _name = "Get Event Data by iCalendar UID"
     
@@ -386,46 +408,17 @@ class EventsByUID(Cmd):
         uid = raw_input("UID: ")
         rows = yield self.getData(txn, uid)
         if rows:
-            for owner, calendar, resource_id, resource, created, modified, data in rows:
-                shortname = UserNameFromUID(txn, owner)
-                table = tables.Table()
-                table.addRow(("User Name:", shortname,))
-                table.addRow(("Calendar:", calendar,))
-                table.addRow(("Resource Name:", resource))
-                table.addRow(("Resource ID:", resource_id))
-                table.addRow(("Created", created))
-                table.addRow(("Modified", modified))
-                print "\n"
-                table.printTable()
-                print data
+            for result in rows:
+                self.printEventDetails(txn, result)
         else:
             print "Could not find icalendar data"
 
-    @inlineCallbacks
     def getData(self, txn, uid):
-        ch = schema.CALENDAR_HOME
-        cb = schema.CALENDAR_BIND
         co = schema.CALENDAR_OBJECT
-        rows = (yield Select(
-            [
-                ch.OWNER_UID,
-                cb.CALENDAR_RESOURCE_NAME,
-                co.RESOURCE_ID,
-                co.RESOURCE_NAME,
-                co.CREATED,
-                co.MODIFIED,
-                co.ICALENDAR_TEXT,
-            ],
-            From=ch.join(
-                cb, type="inner", on=(ch.RESOURCE_ID == cb.CALENDAR_HOME_RESOURCE_ID).And(
-                    cb.BIND_MODE == _BIND_MODE_OWN)).join(
-                co, type="inner", on=(cb.CALENDAR_RESOURCE_ID == co.CALENDAR_RESOURCE_ID)),
-            Where=(co.ICALENDAR_UID == Parameter("UID")),
-        ).on(txn, **{"UID": uid}))
-        returnValue(tuple(rows))
+        return self.getEventData(txn, (co.ICALENDAR_UID == Parameter("UID")), {"UID":uid})
 
 
-class EventsByName(Cmd):
+class EventsByName(EventDetails):
     
     _name = "Get Event Data by resource name"
     
@@ -436,46 +429,17 @@ class EventsByName(Cmd):
         name = raw_input("Resource Name: ")
         rows = yield self.getData(txn, name)
         if rows:
-            for owner, calendar, resource_id, resource, created, modified, data in rows:
-                shortname = UserNameFromUID(txn, owner)
-                table = tables.Table()
-                table.addRow(("User Name:", shortname,))
-                table.addRow(("Calendar:", calendar,))
-                table.addRow(("Resource Name:", resource))
-                table.addRow(("Resource ID:", resource_id))
-                table.addRow(("Created", created))
-                table.addRow(("Modified", modified))
-                print "\n"
-                table.printTable()
-                print data
+            for result in rows:
+                self.printEventDetails(txn, result)
         else:
             print "Could not find icalendar data"
 
-    @inlineCallbacks
     def getData(self, txn, name):
-        ch = schema.CALENDAR_HOME
-        cb = schema.CALENDAR_BIND
         co = schema.CALENDAR_OBJECT
-        rows = (yield Select(
-            [
-                ch.OWNER_UID,
-                cb.CALENDAR_RESOURCE_NAME,
-                co.RESOURCE_ID,
-                co.RESOURCE_NAME,
-                co.CREATED,
-                co.MODIFIED,
-                co.ICALENDAR_TEXT,
-            ],
-            From=ch.join(
-                cb, type="inner", on=(ch.RESOURCE_ID == cb.CALENDAR_HOME_RESOURCE_ID).And(
-                    cb.BIND_MODE == _BIND_MODE_OWN)).join(
-                co, type="inner", on=(cb.CALENDAR_RESOURCE_ID == co.CALENDAR_RESOURCE_ID)),
-            Where=(co.RESOURCE_NAME == Parameter("Name")),
-        ).on(txn, **{"Name": name}))
-        returnValue(tuple(rows))
+        return self.getEventData(txn, (co.RESOURCE_NAME == Parameter("NAME")), {"NAME":name})
 
 
-class EventsByOwner(Cmd):
+class EventsByOwner(EventDetails):
     
     _name = "Get Event Data by Owner UID"
     
@@ -486,46 +450,17 @@ class EventsByOwner(Cmd):
         uid = raw_input("Owner UID: ")
         rows = yield self.getData(txn, uid)
         if rows:
-            for owner, calendar, resource_id, resource, created, modified, data in rows:
-                shortname = UserNameFromUID(txn, owner)
-                table = tables.Table()
-                table.addRow(("User Name:", shortname,))
-                table.addRow(("Calendar:", calendar,))
-                table.addRow(("Resource Name:", resource))
-                table.addRow(("Resource ID:", resource_id))
-                table.addRow(("Created", created))
-                table.addRow(("Modified", modified))
-                print "\n"
-                table.printTable()
-                print data
+            for result in rows:
+                self.printEventDetails(txn, result)
         else:
             print "Could not find icalendar data"
 
-    @inlineCallbacks
     def getData(self, txn, uid):
         ch = schema.CALENDAR_HOME
-        cb = schema.CALENDAR_BIND
-        co = schema.CALENDAR_OBJECT
-        rows = (yield Select(
-            [
-                ch.OWNER_UID,
-                cb.CALENDAR_RESOURCE_NAME,
-                co.RESOURCE_ID,
-                co.RESOURCE_NAME,
-                co.CREATED,
-                co.MODIFIED,
-                co.ICALENDAR_TEXT,
-            ],
-            From=ch.join(
-                cb, type="inner", on=(ch.RESOURCE_ID == cb.CALENDAR_HOME_RESOURCE_ID).And(
-                    cb.BIND_MODE == _BIND_MODE_OWN)).join(
-                co, type="inner", on=(cb.CALENDAR_RESOURCE_ID == co.CALENDAR_RESOURCE_ID)),
-            Where=(ch.OWNER_UID == Parameter("UID")),
-        ).on(txn, **{"UID": uid}))
-        returnValue(tuple(rows))
+        return self.getEventData(txn, (ch.OWNER_UID == Parameter("UID")), {"UID":uid})
 
 
-class EventsByOwnerCalendar(Cmd):
+class EventsByOwnerCalendar(EventDetails):
     
     _name = "Get Event Data by Owner UID and calendar name"
     
@@ -537,46 +472,18 @@ class EventsByOwnerCalendar(Cmd):
         name = raw_input("Calendar resource name: ")
         rows = yield self.getData(txn, uid, name)
         if rows:
-            for owner, calendar, resource_id, resource, created, modified, data in rows:
-                shortname = UserNameFromUID(txn, owner)
-                table = tables.Table()
-                table.addRow(("User Name:", shortname,))
-                table.addRow(("Calendar:", calendar,))
-                table.addRow(("Resource Name:", resource))
-                table.addRow(("Resource ID:", resource_id))
-                table.addRow(("Created", created))
-                table.addRow(("Modified", modified))
-                print "\n"
-                table.printTable()
-                print data
+            for result in rows:
+                self.printEventDetails(txn, result)
         else:
             print "Could not find icalendar data"
 
-    @inlineCallbacks
     def getData(self, txn, uid, name):
         ch = schema.CALENDAR_HOME
         cb = schema.CALENDAR_BIND
-        co = schema.CALENDAR_OBJECT
-        rows = (yield Select(
-            [
-                ch.OWNER_UID,
-                cb.CALENDAR_RESOURCE_NAME,
-                co.RESOURCE_ID,
-                co.RESOURCE_NAME,
-                co.CREATED,
-                co.MODIFIED,
-                co.ICALENDAR_TEXT,
-            ],
-            From=ch.join(
-                cb, type="inner", on=(ch.RESOURCE_ID == cb.CALENDAR_HOME_RESOURCE_ID).And(
-                    cb.BIND_MODE == _BIND_MODE_OWN)).join(
-                co, type="inner", on=(cb.CALENDAR_RESOURCE_ID == co.CALENDAR_RESOURCE_ID)),
-            Where=((ch.OWNER_UID == Parameter("UID")).And(cb.CALENDAR_RESOURCE_NAME == Parameter("NAME"))),
-        ).on(txn, **{"UID": uid, "NAME": name}))
-        returnValue(tuple(rows))
+        return self.getEventData(txn, (ch.OWNER_UID == Parameter("UID")).And(cb.CALENDAR_RESOURCE_NAME == Parameter("NAME")), {"UID": uid, "NAME": name})
 
 
-class EventsByPath(Cmd):
+class EventsByPath(EventDetails):
     
     _name = "Get Event Data by HTTP Path"
     
@@ -594,50 +501,27 @@ class EventsByPath(Cmd):
         resourceName = pathbits[5]
         rows = yield self.getData(txn, homeName, calendarName, resourceName)
         if rows:
-            for owner, calendar, resource_id, resource, created, modified, data in rows:
-                shortname = UserNameFromUID(txn, owner)
-                table = tables.Table()
-                table.addRow(("User Name:", shortname,))
-                table.addRow(("Calendar:", calendar,))
-                table.addRow(("Resource Name:", resource))
-                table.addRow(("Resource ID:", resource_id))
-                table.addRow(("Created", created))
-                table.addRow(("Modified", modified))
-                print "\n"
-                table.printTable()
-                print data
+            for result in rows:
+                self.printEventDetails(txn, result)
         else:
             print "Could not find icalendar data"
 
-    @inlineCallbacks
     def getData(self, txn, homeName, calendarName, resourceName):
         ch = schema.CALENDAR_HOME
         cb = schema.CALENDAR_BIND
         co = schema.CALENDAR_OBJECT
-        rows = (yield Select(
-            [
-                ch.OWNER_UID,
-                cb.CALENDAR_RESOURCE_NAME,
-                co.RESOURCE_ID,
-                co.RESOURCE_NAME,
-                co.CREATED,
-                co.MODIFIED,
-                co.ICALENDAR_TEXT,
-            ],
-            From=ch.join(
-                cb, type="inner", on=(ch.RESOURCE_ID == cb.CALENDAR_HOME_RESOURCE_ID).And(
-                    cb.BIND_MODE == _BIND_MODE_OWN)).join(
-                co, type="inner", on=(cb.CALENDAR_RESOURCE_ID == co.CALENDAR_RESOURCE_ID)),
-            Where=(
-                (ch.OWNER_UID == Parameter("HOME")).And(
-                 cb.CALENDAR_RESOURCE_NAME == Parameter("CALENDAR")).And(
-                 co.RESOURCE_NAME == Parameter("RESOURCE"))
-                ),
-        ).on(txn, **{"HOME": homeName, "CALENDAR": calendarName, "RESOURCE": resourceName}))
-        returnValue(tuple(rows))
+        return self.getEventData(
+            txn,
+            (
+                ch.OWNER_UID == Parameter("HOME")).And(
+                cb.CALENDAR_RESOURCE_NAME == Parameter("CALENDAR")).And(
+                co.RESOURCE_NAME == Parameter("RESOURCE")
+            ),
+            {"HOME": homeName, "CALENDAR": calendarName, "RESOURCE": resourceName}
+        )
 
 
-class EventsByContent(Cmd):
+class EventsByContent(EventDetails):
     
     _name = "Get Event Data by Searching its Text Data"
     
@@ -648,43 +532,14 @@ class EventsByContent(Cmd):
         uid = raw_input("Search for: ")
         rows = yield self.getData(txn, uid)
         if rows:
-            for owner, calendar, resource_id, resource, created, modified, data in rows:
-                shortname = UserNameFromUID(txn, owner)
-                table = tables.Table()
-                table.addRow(("User Name:", shortname,))
-                table.addRow(("Calendar:", calendar,))
-                table.addRow(("Resource Name:", resource))
-                table.addRow(("Resource ID:", resource_id))
-                table.addRow(("Created", created))
-                table.addRow(("Modified", modified))
-                print "\n"
-                table.printTable()
-                print data
+            for result in rows:
+                self.printEventDetails(txn, result)
         else:
             print "Could not find icalendar data"
 
-    @inlineCallbacks
     def getData(self, txn, text):
-        ch = schema.CALENDAR_HOME
-        cb = schema.CALENDAR_BIND
         co = schema.CALENDAR_OBJECT
-        rows = (yield Select(
-            [
-                ch.OWNER_UID,
-                cb.CALENDAR_RESOURCE_NAME,
-                co.RESOURCE_ID,
-                co.RESOURCE_NAME,
-                co.CREATED,
-                co.MODIFIED,
-                co.ICALENDAR_TEXT,
-            ],
-            From=ch.join(
-                cb, type="inner", on=(ch.RESOURCE_ID == cb.CALENDAR_HOME_RESOURCE_ID).And(
-                    cb.BIND_MODE == _BIND_MODE_OWN)).join(
-                co, type="inner", on=(cb.CALENDAR_RESOURCE_ID == co.CALENDAR_RESOURCE_ID)),
-            Where=(co.ICALENDAR_TEXT.Contains(Parameter("Text"))),
-        ).on(txn, **{"Text": text}))
-        returnValue(tuple(rows))
+        return self.getEventData(txn, (co.ICALENDAR_TEXT.Contains(Parameter("TEXT"))), {"TEXT":text})
 
 
 class EventsInTimerange(Cmd):
