@@ -70,7 +70,6 @@ class WebDAVContentHandler (xml.sax.handler.ContentHandler):
         del(self.unknownElementClasses)
 
     def startElementNS(self, name, qname, attributes):
-
         if self._characterBuffer is not None:
             pcdata = PCDATAElement("".join(self._characterBuffer))
             self.stack[-1]["children"].append(pcdata)
@@ -104,7 +103,6 @@ class WebDAVContentHandler (xml.sax.handler.ContentHandler):
         })
 
     def endElementNS(self, name, qname):
-        
         if self._characterBuffer is not None:
             pcdata = PCDATAElement("".join(self._characterBuffer))
             self.stack[-1]["children"].append(pcdata)
@@ -127,7 +125,6 @@ class WebDAVContentHandler (xml.sax.handler.ContentHandler):
         self.stack[-1]["children"].append(element)
 
     def characters(self, content):
-        
         # Stash character data away in a list that we will "".join() when done
         if self._characterBuffer is None:
             self._characterBuffer = []
@@ -150,9 +147,6 @@ class WebDAVContentHandler (xml.sax.handler.ContentHandler):
 
 
 class WebDAVDocument(AbstractWebDAVDocument):
-    """
-    WebDAV XML document.
-    """
     @classmethod
     def fromStream(cls, source):
         handler = WebDAVContentHandler()
