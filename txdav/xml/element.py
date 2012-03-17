@@ -25,6 +25,9 @@ WebDAV XML elements.
 """
 
 __all__ = [
+    "dav_namespace",
+    "twisted_dav_namespace",
+    "twisted_private_namespace",
     "registerElement",
     "registerElements",
     "lookupElement",
