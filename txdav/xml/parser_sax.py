@@ -24,12 +24,12 @@ __all__ = [
     "WebDAVDocument",
 ]
 
-import cStringIO as StringIO
 import xml.dom.minidom
 import xml.sax
 
-from txdav.xml.base import WebDAVElement, WebDAVUnknownElement, PCDATAElement
+from txdav.xml.base import WebDAVUnknownElement, PCDATAElement
 from txdav.xml.element import _elements_by_qname
+from txdav.xml.parser_base import AbstractWebDAVDocument
 from txdav.xml.xmlext import Print as xmlPrint
 
 
@@ -149,63 +149,29 @@ class WebDAVContentHandler (xml.sax.handler.ContentHandler):
         raise AssertionError("skipped entities are not allowed")
 
 
-class WebDAVDocument (object):
+class WebDAVDocument(AbstractWebDAVDocument):
     """
     WebDAV XML document.
     """
-    def _parse(source_is_string):
-        def parse(source):
-            handler = WebDAVContentHandler()
-            parser  = xml.sax.make_parser()
+    @classmethod
+    def fromStream(cls, source):
+        handler = WebDAVContentHandler()
+        parser  = xml.sax.make_parser()
 
-            parser.setContentHandler(handler)
-            parser.setFeature(xml.sax.handler.feature_namespaces, True)
+        parser.setContentHandler(handler)
+        parser.setFeature(xml.sax.handler.feature_namespaces, True)
 
-            if source_is_string: source = StringIO.StringIO(source)
+        try:
+            parser.parse(source)
+        except xml.sax.SAXParseException, e:
+            raise ValueError(e)
 
-            try:
-                parser.parse(source)
-            except xml.sax.SAXParseException, e:
-                raise ValueError(e)
+        #handler.dom.root_element.validate()
 
-            #handler.dom.root_element.validate()
-
-            return handler.dom
-
-        return parse
+        return handler.dom
         
-    fromStream = staticmethod(_parse(False))
-    fromString = staticmethod(_parse(True ))
-
-    def __init__(self, root_element):
-        """
-        root_element must be a WebDAVElement instance.
-        """
-        super(WebDAVDocument, self).__init__()
-
-        if not isinstance(root_element, WebDAVElement):
-            raise ValueError("Not a WebDAVElement: %r" % (root_element,))
-
-        self.root_element = root_element
-
-    def __str__(self):
-        output = StringIO.StringIO()
-        self.writeXML(output)
-        return output.getvalue()
-
-    def __eq__(self, other):
-        if isinstance(other, WebDAVDocument):
-            return self.root_element == other.root_element
-        else:
-            return NotImplemented
-
     def writeXML(self, output):
         document = xml.dom.minidom.Document()
         self.root_element.addToDOM(document, None)
         #document.normalize()
         xmlPrint(document, output)
-
-    def toxml(self):
-        output = StringIO.StringIO()
-        self.writeXML(output)
-        return output.getvalue()
