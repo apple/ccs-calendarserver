@@ -25,63 +25,66 @@ WebDAV XML elements.
 """
 
 __all__ = [
+    "WebDAVDocument",
     "dav_namespace",
     "twisted_dav_namespace",
     "twisted_private_namespace",
+    "WebDAVElement",
+    "PCDATAElement",
+    "WebDAVOneShotElement",
+    "WebDAVUnknownElement",
+    "WebDAVEmptyElement",
+    "WebDAVTextElement",
+    "WebDAVDateTimeElement",
+    "DateTimeHeaderElement",
     "registerElement",
-    "registerElements",
+    "registerElementClass",
     "lookupElement",
 ]
 
+from txdav.xml.parser import WebDAVDocument
 from txdav.xml.base import dav_namespace
 from txdav.xml.base import twisted_dav_namespace, twisted_private_namespace
-
 from txdav.xml.base import WebDAVElement
+from txdav.xml.base import PCDATAElement, WebDAVOneShotElement, WebDAVUnknownElement
+from txdav.xml.base import WebDAVEmptyElement, WebDAVTextElement
+from txdav.xml.base import WebDAVDateTimeElement, DateTimeHeaderElement
+from txdav.xml.base import _elements_by_qname
 
 
 ##
 # XML element registration
 ##
 
-_elements_by_qname = {}
-
-
-def registerElements(module):
+def registerElement(elementClass):
     """
-    Register XML elements defined in the given module with the parser.
+    Register an XML element class with the parser and add to this module's namespace.
     """
-    element_names = []
+    assert issubclass(elementClass, WebDAVElement), "Not a WebDAVElement: %s" % (elementClass,)
+    assert elementClass.namespace, "Element has no namespace: %s" % (elementClass,)
+    assert elementClass.name, "Element has no name: %s" % (elementClass,)
 
-    items = module.__all__ if hasattr(module, "__all__") else dir(module)
-    for element_class_name in items:
-        element_class = getattr(module, element_class_name)
-
-        if type(element_class) is type and issubclass(element_class, WebDAVElement):
-            if element_class.namespace is None: continue
-            if element_class.name is None: continue
-            if element_class.unregistered: continue
-
-            registerElement(element_class)
-
-            element_names.append(element_class.__name__)
-
-    return element_names
-
-
-def registerElement(element_class):
-    """
-    Register the supplied XML elements with the parser.
-    """
-    qname = element_class.namespace, element_class.name
+    qname = elementClass.namespace, elementClass.name
     
     if qname in _elements_by_qname:
         raise AssertionError(
-            "Attempting to register qname %s multiple times: (%r, %r)"
-            % (qname, _elements_by_qname[qname], element_class)
+            "Attempting to register element %s multiple times: (%r, %r)"
+            % (elementClass.sname(), _elements_by_qname[qname], elementClass)
         )
     
-    if not (qname in _elements_by_qname and issubclass(element_class, _elements_by_qname[qname])):
-        _elements_by_qname[qname] = element_class
+    if not (qname in _elements_by_qname and issubclass(elementClass, _elements_by_qname[qname])):
+        _elements_by_qname[qname] = elementClass
+
+    return elementClass
+
+
+def registerElementClass(elementClass):
+    """
+    Add an XML element class to this module's namespace.
+    """
+    globals()[elementClass.__name__] = elementClass
+    __all__.append(elementClass.__name__)
+    return elementClass
 
 
 def lookupElement(qname):

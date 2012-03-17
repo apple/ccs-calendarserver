@@ -21,7 +21,7 @@
 ##
 
 from txdav.xml.base import WebDAVTextElement, WebDAVElement
-from txdav.xml.base import dav_namespace
+from txdav.xml.element import dav_namespace, registerElement, registerElementClass
 
 """
 RFC 5842 (Binding Extensions to WebDAV) XML Elements
@@ -31,6 +31,8 @@ This module provides XML element definitions for use with WebDAV.
 See RFC 5842: http://www.ietf.org/rfc/rfc5842.txt
 """
 
+@registerElement
+@registerElementClass
 class ResourceID (WebDAVElement):
     """
     Unique identifier for a resource
@@ -42,6 +44,8 @@ class ResourceID (WebDAVElement):
     allowed_children = { (dav_namespace, "href"): (0, 1) }
 
 
+@registerElement
+@registerElementClass
 class ParentSet (WebDAVElement):
     """
     Identifies other bindings to a resource
@@ -53,6 +57,8 @@ class ParentSet (WebDAVElement):
     allowed_children = { (dav_namespace, "parent"): (0, 1) }
 
 
+@registerElement
+@registerElementClass
 class Parent (WebDAVElement):
 
     name = "parent"
@@ -63,6 +69,8 @@ class Parent (WebDAVElement):
     }
 
 
+@registerElement
+@registerElementClass
 class Segment (WebDAVTextElement):
 
     name = "segment"
@@ -75,6 +83,8 @@ class Segment (WebDAVTextElement):
 # sub-elements and so that can extend it here.
 
 
+#@registerElement
+#@registerElementClass
 #class BindResponse (WebDAVElement):
 #    """
 #    Response body for a BIND request
@@ -87,6 +97,8 @@ class Segment (WebDAVTextElement):
 #    }
 #
 #
+#@registerElement
+#@registerElementClass
 #class UnbindRequest (WebDAVElement):
 #    """
 #    Request body for a UNBIND request
@@ -99,6 +111,8 @@ class Segment (WebDAVTextElement):
 #    }
 #
 #
+#@registerElement
+#@registerElementClass
 #class Unbind (WebDAVElement):
 #    """
 #    Response body for a UNBIND request
@@ -111,6 +125,8 @@ class Segment (WebDAVTextElement):
 #    }
 #
 #
+#@registerElement
+#@registerElementClass
 #class RebindRequest (WebDAVElement):
 #    """
 #    Request body for a REBIND request
@@ -124,6 +140,8 @@ class Segment (WebDAVTextElement):
 #    }
 #
 #
+#@registerElement
+#@registerElementClass
 #class Rebind (WebDAVElement):
 #    """
 #    Response body for a UNBIND request

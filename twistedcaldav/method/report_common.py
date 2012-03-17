@@ -39,8 +39,8 @@ except ImportError:
 from twisted.internet.defer import inlineCallbacks, returnValue, maybeDeferred
 from twisted.python.failure import Failure
 from twext.web2 import responsecode
-from twext.web2.dav import davxml
-from txdav.xml.base import WebDAVElement
+
+from txdav.xml import element
 from twext.web2.dav.http import statusForFailure
 from twext.web2.dav.method.propfind import propertyName
 from twext.web2.dav.method.report import NumberOfMatchesWithinLimits
@@ -183,14 +183,14 @@ def responseForHref(request, responses, href, resource, propertiesForResource, p
         for status in properties_by_status:
             properties = properties_by_status[status]
             if properties:
-                xml_status = davxml.Status.fromResponseCode(status)
-                xml_container = davxml.PropertyContainer(*properties)
-                xml_propstat = davxml.PropertyStatus(xml_container, xml_status)
+                xml_status = element.Status.fromResponseCode(status)
+                xml_container = element.PropertyContainer(*properties)
+                xml_propstat = element.PropertyStatus(xml_container, xml_status)
 
                 propstats.append(xml_propstat)
 
         if propstats:
-            responses.append(davxml.PropertyStatusResponse(href, *propstats))
+            responses.append(element.PropertyStatusResponse(href, *propstats))
 
     d = propertiesForResource(request, propertyreq, resource, calendar, timezone, vcard, isowner)
     d.addCallback(_defer)
@@ -354,7 +354,7 @@ def _namedPropertiesForResource(request, props, resource, calendar=None, timezon
             properties_by_status[responsecode.OK].append(propvalue)
             continue
     
-        if isinstance(property, WebDAVElement):
+        if isinstance(property, element.WebDAVElement):
             qname = property.qname()
         else:
             qname = property

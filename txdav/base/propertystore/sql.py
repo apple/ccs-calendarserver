@@ -29,11 +29,10 @@ from twistedcaldav.memcacher import Memcacher
 from twext.enterprise.dal.syntax import (
     Select, Parameter, Update, Insert, TableSyntax, Delete)
 
+from txdav.xml.parser import WebDAVDocument
 from txdav.common.datastore.sql_tables import schema
 from txdav.base.propertystore.base import (AbstractPropertyStore,
                                            PropertyName, validKey)
-
-from twext.web2.dav.davxml import WebDAVDocument
 
 from twisted.internet.defer import inlineCallbacks, returnValue
 

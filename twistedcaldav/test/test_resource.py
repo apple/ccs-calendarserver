@@ -14,10 +14,7 @@
 # limitations under the License.
 ##
 
-from twext.web2.dav import davxml
-from twext.web2.dav.davxml import Principal
-from twext.web2.dav.davxml import Unauthenticated
-from txdav.xml.rfc2518 import HRef
+from txdav.xml.element import HRef, Principal, Unauthenticated
 from twext.web2.http import HTTPError
 from twext.web2.test.test_server import SimpleRequest
 
@@ -273,7 +270,7 @@ class DefaultAddressBook (TestCase):
         newadbk = yield request.locateResource("/addressbooks/users/wsanchez/newadbk")
         yield newadbk.createAddressBookCollection()
         home.writeDeadProperty(carddavxml.DefaultAddressBookURL(
-            davxml.HRef("/addressbooks/__uids__/6423F94A-6B76-4A3A-815B-D52CFD77935D/newadbk/")
+            HRef("/addressbooks/__uids__/6423F94A-6B76-4A3A-815B-D52CFD77935D/newadbk/")
         ))
         request._newStoreTransaction.commit()
         
@@ -321,7 +318,7 @@ class DefaultAddressBook (TestCase):
         newadbk = yield request.locateResource("/addressbooks/__uids__/6423F94A-6B76-4A3A-815B-D52CFD77935D/newadbk/")
         yield newadbk.createAddressBookCollection()
         home.writeDeadProperty(carddavxml.DefaultAddressBookURL(
-            davxml.HRef("/addressbooks/__uids__/6423F94A-6B76-4A3A-815B-D52CFD77935D/newadbk/")
+            HRef("/addressbooks/__uids__/6423F94A-6B76-4A3A-815B-D52CFD77935D/newadbk/")
         ))
         try:
             default = yield home.readProperty(carddavxml.DefaultAddressBookURL, request)

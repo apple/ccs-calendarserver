@@ -34,8 +34,9 @@ from twisted.internet.defer import deferredGenerator, waitForDeferred
 from twext.python.log import Logger
 from twext.web2 import responsecode
 from twext.web2.http import HTTPError, StatusResponse
-from twext.web2.dav import davxml
-from twext.web2.dav.davxml import dav_namespace
+from txdav.xml.base import PCDATAElement
+from txdav.xml import element
+from txdav.xml.element import dav_namespace
 from twext.web2.dav.http import ErrorResponse, MultiStatusResponse
 from twext.web2.dav.method import prop_common
 from twext.web2.dav.method.report import NumberOfMatchesWithinLimits
@@ -51,9 +52,9 @@ def report_DAV__principal_property_search(self, request, principal_property_sear
     """
 
     # Verify root element
-    if not isinstance(principal_property_search, davxml.PrincipalPropertySearch):
+    if not isinstance(principal_property_search, element.PrincipalPropertySearch):
         raise ValueError("%s expected as root element, not %s."
-                         % (davxml.PrincipalPropertySearch.sname(), principal_property_search.sname()))
+                         % (element.PrincipalPropertySearch.sname(), principal_property_search.sname()))
 
     # Only handle Depth: 0
     depth = request.headers.getHeader("depth", "0")
@@ -73,9 +74,9 @@ def report_DAV__principal_property_search(self, request, principal_property_sear
         elif child.qname() == (dav_namespace, "apply-to-principal-collection-set"):
             applyTo = True
         elif child.qname() == (dav_namespace, "property-search"):
-            props = child.childOfType(davxml.PropertyContainer)
+            props = child.childOfType(element.PropertyContainer)
             props.removeWhitespaceNodes()
-            match = child.childOfType(davxml.Match)
+            match = child.childOfType(element.Match)
             propertySearches.append((props.children, str(match).lower()))
     
     def nodeMatch(node, match):
@@ -88,7 +89,7 @@ def report_DAV__principal_property_search(self, request, principal_property_sear
         """
         node.removeWhitespaceNodes()
         for child in node.children:
-            if isinstance(child, davxml.PCDATAElement):
+            if isinstance(child, PCDATAElement):
                 comp = str(child).lower()
                 if comp.find(match) != -1:
                     return True
@@ -152,7 +153,7 @@ def report_DAV__principal_property_search(self, request, principal_property_sear
 
             children = []
             d = waitForDeferred(resource.findChildren("infinity", request, lambda x, y: children.append((x,y)),
-                                                      privileges=(davxml.Read(),), inherited_aces=filteredaces))
+                                                      privileges=(element.Read(),), inherited_aces=filteredaces))
             yield d
             d.getResult()
 
@@ -170,7 +171,7 @@ def report_DAV__principal_property_search(self, request, principal_property_sear
                         d = waitForDeferred(prop_common.responseForHref(
                             request,
                             responses,
-                            davxml.HRef.fromString(uri),
+                            element.HRef.fromString(uri),
                             child,
                             propertiesForResource,
                             propElement
@@ -182,7 +183,7 @@ def report_DAV__principal_property_search(self, request, principal_property_sear
         log.err("Too many matching components in prinicpal-property-search report")
         raise HTTPError(ErrorResponse(
             responsecode.FORBIDDEN,
-            davxml.NumberOfMatchesWithinLimits()
+            element.NumberOfMatchesWithinLimits()
         ))
 
     yield MultiStatusResponse(responses)

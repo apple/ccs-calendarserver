@@ -34,11 +34,10 @@ from twisted.internet.defer import Deferred
 from twext.python.log import Logger
 from twext.web2.http import HTTPError, StatusResponse
 from twext.web2 import responsecode
-from twext.web2.dav import davxml
-
 from twext.web2.dav.resource import TwistedACLInheritable
 from twext.web2.dav.static import DAVFile
 from twext.web2.dav.util import joinURL
+from txdav.xml import element
 
 log = Logger()
 
@@ -61,7 +60,7 @@ class InMemoryPropertyStore (object):
                 "No such property: {%s}%s" % qname
             ))
 
-        doc = davxml.WebDAVDocument.fromString(property)
+        doc = element.WebDAVDocument.fromString(property)
         return doc.root_element
 
     def set(self, property):
@@ -100,10 +99,10 @@ class TestCase (unittest.TestCase):
     resource_class = TestFile
 
     def grant(*privileges):
-        return davxml.ACL(*[
-            davxml.ACE(
-                davxml.Grant(davxml.Privilege(privilege)),
-                davxml.Principal(davxml.All())
+        return element.ACL(*[
+            element.ACE(
+                element.Grant(element.Privilege(privilege)),
+                element.Principal(element.All())
             )
             for privilege in privileges
         ])
@@ -111,10 +110,10 @@ class TestCase (unittest.TestCase):
     grant = staticmethod(grant)
 
     def grantInherit(*privileges):
-        return davxml.ACL(*[
-            davxml.ACE(
-                davxml.Grant(davxml.Privilege(privilege)),
-                davxml.Principal(davxml.All()),
+        return element.ACL(*[
+            element.ACE(
+                element.Grant(element.Privilege(privilege)),
+                element.Principal(element.All()),
                 TwistedACLInheritable()
             )
             for privilege in privileges
@@ -126,7 +125,7 @@ class TestCase (unittest.TestCase):
         docroot = self.mktemp()
         os.mkdir(docroot)
         rootresource = self.resource_class(docroot)
-        rootresource.setAccessControlList(self.grantInherit(davxml.All()))
+        rootresource.setAccessControlList(self.grantInherit(element.All()))
 
         dirnames = (
             os.path.join(docroot, "dir1"),                          # 0
@@ -173,7 +172,7 @@ class TestCase (unittest.TestCase):
     def _getSite(self):
         if not hasattr(self, "_site"):
             rootresource = self.resource_class(self.docroot)
-            rootresource.setAccessControlList(self.grantInherit(davxml.All()))
+            rootresource.setAccessControlList(self.grantInherit(element.All()))
             self._site = Site(rootresource)
         return self._site
 

@@ -32,12 +32,12 @@ from zlib import compress, decompress, error as ZlibError
 from cPickle import UnpicklingError, loads as unpickle
 from xattr import xattr
 
-from twext.web2.dav.davxml import WebDAVDocument
+from twisted.python.reflect import namedAny
 
+from txdav.xml.parser import WebDAVDocument
 from txdav.base.propertystore.base import AbstractPropertyStore, PropertyName,\
         validKey
 from txdav.idav import PropertyStoreError
-from twisted.python.reflect import namedAny
 
 #
 # RFC 2518 Section 12.13.1 says that removal of non-existing property is not an

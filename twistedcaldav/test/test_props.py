@@ -202,8 +202,8 @@ class Properties(HomeTestCase):
                 return davXMLFromStream(response.stream).addCallback(got_xml)
 
             query = davxml.PropertyFind(
-                        davxml.AllProperties(),
-                    )
+                davxml.AllProperties(),
+            )
 
             request = SimpleRequest(
                 self.site,

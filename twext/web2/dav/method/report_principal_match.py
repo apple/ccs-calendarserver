@@ -35,8 +35,8 @@ from twisted.internet.defer import deferredGenerator, waitForDeferred
 from twext.python.log import Logger
 from twext.web2 import responsecode
 from twext.web2.http import StatusResponse, HTTPError
-from twext.web2.dav import davxml
-from twext.web2.dav.davxml import dav_namespace
+from txdav.xml import element
+from txdav.xml.element import dav_namespace
 from twext.web2.dav.http import ErrorResponse, MultiStatusResponse
 from twext.web2.dav.method import prop_common
 from twext.web2.dav.method.report import NumberOfMatchesWithinLimits
@@ -51,9 +51,9 @@ def report_DAV__principal_match(self, request, principal_match):
     Generate a principal-match REPORT. (RFC 3744, section 9.3)
     """
     # Verify root element
-    if not isinstance(principal_match, davxml.PrincipalMatch):
+    if not isinstance(principal_match, element.PrincipalMatch):
         raise ValueError("%s expected as root element, not %s."
-                         % (davxml.PrincipalMatch.sname(), principal_match.sname()))
+                         % (element.PrincipalMatch.sname(), principal_match.sname()))
 
     # Only handle Depth: 0
     depth = request.headers.getHeader("depth", "0")
@@ -130,7 +130,7 @@ def report_DAV__principal_match(self, request, principal_match):
                         d = waitForDeferred(prop_common.responseForHref(
                             request,
                             responses,
-                            davxml.HRef.fromString(uri),
+                            element.HRef.fromString(uri),
                             principal,
                             propertiesForResource,
                             propElement
@@ -147,7 +147,7 @@ def report_DAV__principal_match(self, request, principal_match):
         
             children = []
             d = waitForDeferred(self.findChildren("infinity", request, lambda x, y: children.append((x,y)),
-                                                  privileges=(davxml.Read(),), inherited_aces=filteredaces))
+                                                  privileges=(element.Read(),), inherited_aces=filteredaces))
             yield d
             d.getResult()
 
@@ -159,7 +159,7 @@ def report_DAV__principal_match(self, request, principal_match):
                     prop = prop.getResult()
                     if prop: prop.removeWhitespaceNodes()
 
-                    if prop and len(prop.children) == 1 and isinstance(prop.children[0], davxml.HRef):
+                    if prop and len(prop.children) == 1 and isinstance(prop.children[0], element.HRef):
                         # Find principal associated with this property and test it
                         principal = waitForDeferred(request.locateResource(str(prop.children[0])))
                         yield principal
@@ -178,7 +178,7 @@ def report_DAV__principal_match(self, request, principal_match):
                                 d = waitForDeferred(prop_common.responseForHref(
                                     request,
                                     responses,
-                                    davxml.HRef.fromString(uri),
+                                    element.HRef.fromString(uri),
                                     child,
                                     propertiesForResource,
                                     propElement
@@ -194,7 +194,7 @@ def report_DAV__principal_match(self, request, principal_match):
         log.err("Too many matching components in principal-match report")
         raise HTTPError(ErrorResponse(
             responsecode.FORBIDDEN,
-            davxml.NumberOfMatchesWithinLimits()
+            element.NumberOfMatchesWithinLimits()
         ))
 
     yield MultiStatusResponse(responses)

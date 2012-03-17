@@ -38,9 +38,12 @@ __all__ = [
 ]
 
 from txdav.xml.base import WebDAVElement, WebDAVTextElement
-from txdav.xml.base import dav_namespace, twisted_dav_namespace
+from txdav.xml.element import dav_namespace, twisted_dav_namespace
+from txdav.xml.element import registerElement, registerElementClass
 
 
+@registerElement
+@registerElementClass
 class CurrentUserPrincipal(WebDAVElement):
     """
     Current principal information
@@ -53,6 +56,8 @@ class CurrentUserPrincipal(WebDAVElement):
     }
 
 
+@registerElement
+@registerElementClass
 class ErrorDescription(WebDAVTextElement):
     """
     The human-readable description of a failed precondition
@@ -62,6 +67,8 @@ class ErrorDescription(WebDAVTextElement):
     protected = True
 
 
+@registerElement
+@registerElementClass
 class AddMember (WebDAVElement):
     """
     A property on a collection to allow for "anonymous" creation of resources.
@@ -74,6 +81,8 @@ class AddMember (WebDAVElement):
     allowed_children = { (dav_namespace, "href"): (0, 1) }
 
 
+@registerElement
+@registerElementClass
 class SyncCollection (WebDAVElement):
     """
     DAV report used to retrieve specific calendar component items via their
@@ -112,6 +121,8 @@ class SyncCollection (WebDAVElement):
                 self.property = child
 
 
+@registerElement
+@registerElementClass
 class SyncToken (WebDAVTextElement):
     """
     Synchronization token used in report and as a property.
@@ -121,6 +132,8 @@ class SyncToken (WebDAVTextElement):
     protected = True
 
 
+@registerElement
+@registerElementClass
 class SyncLevel (WebDAVTextElement):
     """
     Synchronization level used in report.

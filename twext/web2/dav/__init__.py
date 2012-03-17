@@ -52,5 +52,4 @@ __all__ = [
     "xattrprops",
 ]
 
-from twext.web2.dav import davxml
-
+import txdav.xml.element as davxml

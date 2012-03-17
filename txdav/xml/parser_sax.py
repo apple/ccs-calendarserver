@@ -28,7 +28,7 @@ import xml.dom.minidom
 import xml.sax
 
 from txdav.xml.base import WebDAVUnknownElement, PCDATAElement
-from txdav.xml.element import _elements_by_qname
+from txdav.xml.base import _elements_by_qname
 from txdav.xml.parser_base import AbstractWebDAVDocument
 from txdav.xml.xmlext import Print as xmlPrint
 

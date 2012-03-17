@@ -47,15 +47,15 @@ from twext.web2 import responsecode
 from twext.web2.iweb import IResponse
 from twext.web2.http import Response, HTTPError, StatusResponse
 from twext.web2.http_headers import MimeType
-from twext.web2.dav import davxml
 from twext.web2.dav.util import joinURL
+from txdav.xml import element
 
 log = Logger()
 
 
 class ErrorResponse(Response):
     """
-    A L{Response} object which contains a status code and a L{davxml.Error}
+    A L{Response} object which contains a status code and a L{element.Error}
     element.
     Renders itself as a DAV:error XML document.
     """
@@ -65,7 +65,7 @@ class ErrorResponse(Response):
     def __init__(self, code, error, description=None):
         """
         @param code: a response code.
-        @param error: an L{davxml.WebDAVElement} identifying the error, or a
+        @param error: an L{WebDAVElement} identifying the error, or a
             tuple C{(namespace, name)} with which to create an empty element
             denoting the error.  (The latter is useful in the case of
             preconditions ans postconditions, not all of which have defined
@@ -75,15 +75,15 @@ class ErrorResponse(Response):
         """
         if type(error) is tuple:
             xml_namespace, xml_name = error
-            error = davxml.WebDAVUnknownElement()
+            error = element.WebDAVUnknownElement()
             error.namespace = xml_namespace
             error.name = xml_name
 
         self.description = description
         if self.description:
-            output = davxml.Error(error, davxml.ErrorDescription(self.description)).toxml()
+            output = element.Error(error, element.ErrorDescription(self.description)).toxml()
         else:
-            output = davxml.Error(error).toxml()
+            output = element.Error(error).toxml()
 
         Response.__init__(self, code=code, stream=output)
 
@@ -114,10 +114,10 @@ class NeedPrivilegesResponse (ErrorResponse):
                 uri = joinURL(base_uri, subpath)
 
             for p in privileges:
-                denials.append(davxml.Resource(davxml.HRef(uri), 
-                                               davxml.Privilege(p)))
+                denials.append(element.Resource(element.HRef(uri), 
+                                               element.Privilege(p)))
 
-        super(NeedPrivilegesResponse, self).__init__(responsecode.FORBIDDEN, davxml.NeedPrivileges(*denials))
+        super(NeedPrivilegesResponse, self).__init__(responsecode.FORBIDDEN, element.NeedPrivileges(*denials))
 
 class MultiStatusResponse (Response):
     """
@@ -126,10 +126,10 @@ class MultiStatusResponse (Response):
     """
     def __init__(self, xml_responses):
         """
-        @param xml_responses: an interable of davxml.Response objects.
+        @param xml_responses: an interable of element.Response objects.
         """
         Response.__init__(self, code=responsecode.MULTI_STATUS,
-                          stream=davxml.MultiStatus(*xml_responses).toxml())
+                          stream=element.MultiStatus(*xml_responses).toxml())
 
         self.headers.setHeader("content-type", MimeType("text", "xml"))
 
@@ -181,13 +181,13 @@ class ResponseQueue (object):
         uri = path[self.path_basename_len:]
 
         children = []
-        children.append(davxml.HRef(uri))
-        children.append(davxml.Status.fromResponseCode(code))
+        children.append(element.HRef(uri))
+        children.append(element.Status.fromResponseCode(code))
         if error is not None:
             children.append(error)
         if message is not None:
-            children.append(davxml.ResponseDescription(message))
-        self.responses.append(davxml.StatusResponse(*children))
+            children.append(element.ResponseDescription(message))
+        self.responses.append(element.StatusResponse(*children))
 
     def response(self):
         """
@@ -237,19 +237,19 @@ class PropertyStatusResponseQueue (object):
 
         if len(property.children) > 0:
             # Re-instantiate as empty element.
-            property = davxml.WebDAVUnknownElement.withName(property.namespace, property.name)
+            property = element.WebDAVUnknownElement.withName(property.namespace, property.name)
 
         if code > 400: # Error codes only
             log.err("Error during %s for %s: %s" % (self.method, property, message))
 
         children = []
-        children.append(davxml.PropertyContainer(property))
-        children.append(davxml.Status.fromResponseCode(code))
+        children.append(element.PropertyContainer(property))
+        children.append(element.Status.fromResponseCode(code))
         if error is not None:
             children.append(error)
         if message is not None:
-            children.append(davxml.ResponseDescription(message))
-        self.propstats.append(davxml.PropertyStatus(*children))
+            children.append(element.ResponseDescription(message))
+        self.propstats.append(element.PropertyStatus(*children))
 
     def error(self):
         """
@@ -260,32 +260,32 @@ class PropertyStatusResponseQueue (object):
             changed_status = False
             newchildren = []
             for child in propstat.children:
-                if isinstance(child, davxml.Status) and (child.code / 100 == 2):
+                if isinstance(child, element.Status) and (child.code / 100 == 2):
                     # Change the code
-                    newchildren.append(davxml.Status.fromResponseCode(responsecode.FAILED_DEPENDENCY))
+                    newchildren.append(element.Status.fromResponseCode(responsecode.FAILED_DEPENDENCY))
                     changed_status = True
-                elif changed_status and isinstance(child, davxml.ResponseDescription):
-                    newchildren.append(davxml.ResponseDescription(responsecode.RESPONSES[responsecode.FAILED_DEPENDENCY]))
+                elif changed_status and isinstance(child, element.ResponseDescription):
+                    newchildren.append(element.ResponseDescription(responsecode.RESPONSES[responsecode.FAILED_DEPENDENCY]))
                 else:
                     newchildren.append(child)
-            self.propstats[index] = davxml.PropertyStatus(*newchildren)
+            self.propstats[index] = element.PropertyStatus(*newchildren)
 
     def response(self):
         """
         Generate a response from the responses contained in the queue or, if
         there are no such responses, return the C{success_response} provided to
         L{__init__}.
-        @return: a L{davxml.PropertyStatusResponse}.
+        @return: a L{element.PropertyStatusResponse}.
         """
         if self.propstats:
-            return davxml.PropertyStatusResponse(
-                davxml.HRef(self.uri),
+            return element.PropertyStatusResponse(
+                element.HRef(self.uri),
                 *self.propstats
             )
         else:
-            return davxml.StatusResponse(
-                davxml.HRef(self.uri),
-                davxml.Status.fromResponseCode(self.success_response)
+            return element.StatusResponse(
+                element.HRef(self.uri),
+                element.Status.fromResponseCode(self.success_response)
             )
 
 ##
@@ -331,7 +331,7 @@ def statusForFailure(failure, what=None):
 
 def errorForFailure(failure):
     if failure.check(HTTPError) and isinstance(failure.value.response, ErrorResponse):
-        return davxml.Error(failure.value.response.error)
+        return element.Error(failure.value.response.error)
     else:
         return None
 

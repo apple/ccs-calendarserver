@@ -70,10 +70,12 @@ from twext.web2.dav.http import NeedPrivilegesResponse
 from twext.web2.dav.noneprops import NonePropertyStore
 from twext.web2.dav.util import unimplemented, parentForURL, joinURL
 from twext.web2.dav.auth import PrincipalCredentials
-from twext.web2.dav import davxml
-from txdav.xml.base import dav_namespace
-from txdav.xml.base import twisted_dav_namespace, twisted_private_namespace
+from txdav.xml import element
+from txdav.xml.element import WebDAVElement, WebDAVEmptyElement, WebDAVTextElement
+from txdav.xml.element import dav_namespace
+from txdav.xml.element import twisted_dav_namespace, twisted_private_namespace
 from txdav.xml.element import registerElement, lookupElement
+
 
 log = Logger()
 
@@ -174,8 +176,8 @@ class DAVPropertyMixIn (MetaDataMixin):
         @return: a dict-like object from which one can read and to
             which one can write dead properties.  Keys are qname
             tuples (i.e. C{(namespace, name)}) as returned by
-            L{davxml.WebDAVElement.qname()} and values are
-            L{davxml.WebDAVElement} instances.
+            L{WebDAVElement.qname()} and values are
+            L{WebDAVElement} instances.
         """
         if not hasattr(self, "_dead_properties"):
             self._dead_properties = NonePropertyStore(self)
@@ -228,20 +230,20 @@ class DAVPropertyMixIn (MetaDataMixin):
                     if self.deadProperties().contains(qname):
                         returnValue(self.deadProperties().get(qname))
                     if self.isCollection():
-                        returnValue(davxml.ResourceType.collection) #@UndefinedVariable
-                    returnValue(davxml.ResourceType.empty) #@UndefinedVariable
+                        returnValue(element.ResourceType.collection) #@UndefinedVariable
+                    returnValue(element.ResourceType.empty) #@UndefinedVariable
 
                 if name == "getetag":
                     etag = (yield self.etag())
                     if etag is None:
                         returnValue(None)
-                    returnValue(davxml.GETETag(etag.generate()))
+                    returnValue(element.GETETag(etag.generate()))
 
                 if name == "getcontenttype":
                     mimeType = self.contentType()
                     if mimeType is None:
                         returnValue(None)
-                    returnValue(davxml.GETContentType(generateContentType(mimeType)))
+                    returnValue(element.GETContentType(generateContentType(mimeType)))
 
                 if name == "getcontentlength":
                     length = self.contentLength()
@@ -249,43 +251,43 @@ class DAVPropertyMixIn (MetaDataMixin):
                         # TODO: really we should "render" the resource and 
                         # determine its size from that but for now we just 
                         # return an empty element.
-                        returnValue(davxml.GETContentLength(""))
+                        returnValue(element.GETContentLength(""))
                     else:
-                        returnValue(davxml.GETContentLength(str(length)))
+                        returnValue(element.GETContentLength(str(length)))
 
                 if name == "getlastmodified":
                     lastModified = self.lastModified()
                     if lastModified is None:
                         returnValue(None)
-                    returnValue(davxml.GETLastModified.fromDate(lastModified))
+                    returnValue(element.GETLastModified.fromDate(lastModified))
 
                 if name == "creationdate":
                     creationDate = self.creationDate()
                     if creationDate is None:
                         returnValue(None)
-                    returnValue(davxml.CreationDate.fromDate(creationDate))
+                    returnValue(element.CreationDate.fromDate(creationDate))
 
                 if name == "displayname":
                     displayName = self.displayName()
                     if displayName is None:
                         returnValue(None)
-                    returnValue(davxml.DisplayName(displayName))
+                    returnValue(element.DisplayName(displayName))
 
                 if name == "supportedlock":
-                    returnValue(davxml.SupportedLock(
-                        davxml.LockEntry(
-                            davxml.LockScope.exclusive, #@UndefinedVariable
-                            davxml.LockType.write #@UndefinedVariable
+                    returnValue(element.SupportedLock(
+                        element.LockEntry(
+                            element.LockScope.exclusive, #@UndefinedVariable
+                            element.LockType.write #@UndefinedVariable
                         ),
-                        davxml.LockEntry(
-                            davxml.LockScope.shared, #@UndefinedVariable
-                            davxml.LockType.write #@UndefinedVariable
+                        element.LockEntry(
+                            element.LockScope.shared, #@UndefinedVariable
+                            element.LockType.write #@UndefinedVariable
                         ),
                     ))
 
                 if name == "supported-report-set":
-                    returnValue(davxml.SupportedReportSet(*[
-                        davxml.SupportedReport(report,)
+                    returnValue(element.SupportedReportSet(*[
+                        element.SupportedReport(report,)
                         for report in self.supportedReports()
                     ]))
 
@@ -293,14 +295,14 @@ class DAVPropertyMixIn (MetaDataMixin):
                     returnValue((yield self.supportedPrivileges(request)))
 
                 if name == "acl-restrictions":
-                    returnValue(davxml.ACLRestrictions())
+                    returnValue(element.ACLRestrictions())
 
                 if name == "inherited-acl-set":
-                    returnValue(davxml.InheritedACLSet(*self.inheritedACLSet()))
+                    returnValue(element.InheritedACLSet(*self.inheritedACLSet()))
 
                 if name == "principal-collection-set":
-                    returnValue(davxml.PrincipalCollectionSet(*[
-                        davxml.HRef(
+                    returnValue(element.PrincipalCollectionSet(*[
+                        element.HRef(
                             principalCollection.principalCollectionURL()
                         )
                         for principalCollection in self.principalCollections()
@@ -323,9 +325,9 @@ class DAVPropertyMixIn (MetaDataMixin):
                     @inlineCallbacks
                     def callback():
                         privs = yield self.currentPrivileges(request)
-                        returnValue(davxml.CurrentUserPrivilegeSet(*privs))
+                        returnValue(element.CurrentUserPrivilegeSet(*privs))
                     returnValue((yield ifAllowed(
-                        (davxml.ReadCurrentUserPrivilegeSet(),),
+                        (element.ReadCurrentUserPrivilegeSet(),),
                         callback
                     )))
 
@@ -334,14 +336,14 @@ class DAVPropertyMixIn (MetaDataMixin):
                     def callback():
                         acl = yield self.accessControlList(request)
                         if acl is None:
-                            acl = davxml.ACL()
+                            acl = element.ACL()
                         returnValue(acl)
                     returnValue(
-                        (yield ifAllowed((davxml.ReadACL(),), callback))
+                        (yield ifAllowed((element.ReadACL(),), callback))
                     )
 
                 if name == "current-user-principal":
-                    returnValue(davxml.CurrentUserPrincipal(
+                    returnValue(element.CurrentUserPrincipal(
                         self.currentPrincipal(request).children[0]
                     ))
 
@@ -353,7 +355,7 @@ class DAVPropertyMixIn (MetaDataMixin):
                             "Property %s does not exist." % (sname,)
                         ))
                     else:
-                        returnValue(davxml.QuotaAvailableBytes(str(qvalue[0])))
+                        returnValue(element.QuotaAvailableBytes(str(qvalue[0])))
 
                 if name == "quota-used-bytes":
                     qvalue = yield self.quota(request)
@@ -363,7 +365,7 @@ class DAVPropertyMixIn (MetaDataMixin):
                             "Property %s does not exist." % (sname,)
                         ))
                     else:
-                        returnValue(davxml.QuotaUsedBytes(str(qvalue[1])))
+                        returnValue(element.QuotaUsedBytes(str(qvalue[1])))
 
             elif namespace == twisted_dav_namespace:
                 if name == "resource-class":
@@ -384,7 +386,7 @@ class DAVPropertyMixIn (MetaDataMixin):
         """
         See L{IDAVResource.writeProperty}.
         """
-        assert isinstance(property, davxml.WebDAVElement), (
+        assert isinstance(property, WebDAVElement), (
             "Not a property: %r" % (property,)
         )
 
@@ -546,17 +548,17 @@ class DAVPropertyMixIn (MetaDataMixin):
     # to override the values of some HTTP metadata.
     #
     def contentType(self):
-        if self.hasDeadProperty((davxml.dav_namespace, "getcontenttype")):
+        if self.hasDeadProperty((element.dav_namespace, "getcontenttype")):
             return self.readDeadProperty(
-                (davxml.dav_namespace, "getcontenttype")
+                (element.dav_namespace, "getcontenttype")
             ).mimeType()
         else:
             return super(DAVPropertyMixIn, self).contentType()
 
     def displayName(self):
-        if self.hasDeadProperty((davxml.dav_namespace, "displayname")):
+        if self.hasDeadProperty((element.dav_namespace, "displayname")):
             return str(self.readDeadProperty(
-                (davxml.dav_namespace, "displayname")
+                (element.dav_namespace, "displayname")
             ))
         else:
             return super(DAVPropertyMixIn, self).displayName()
@@ -807,7 +809,7 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
         for ace in acl.children:
             for privilege in tuple(pending):
                 if not self.matchPrivilege(
-                    davxml.Privilege(privilege), ace.privileges, privyset
+                    element.Privilege(privilege), ace.privileges, privyset
                 ):
                     continue
 
@@ -862,7 +864,7 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
 
         aces.extend(inherited_aces)
 
-        acl = davxml.ACL(*aces)
+        acl = element.ACL(*aces)
 
         return acl
     
@@ -874,10 +876,10 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
         expand-property.
         """
         result = []
-        result.append(davxml.Report(davxml.ACLPrincipalPropSet(),))
-        result.append(davxml.Report(davxml.PrincipalMatch(),))
-        result.append(davxml.Report(davxml.PrincipalPropertySearch(),))
-        result.append(davxml.Report(davxml.ExpandProperty(),))
+        result.append(element.Report(element.ACLPrincipalPropSet(),))
+        result.append(element.Report(element.PrincipalMatch(),))
+        result.append(element.Report(element.PrincipalPropertySearch(),))
+        result.append(element.Report(element.ExpandProperty(),))
         return result
 
     ##
@@ -907,7 +909,7 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
             def translateError(response):
                 return Failure(HTTPError(response))
 
-            if request.authnUser == davxml.Principal(davxml.Unauthenticated()):
+            if request.authnUser == element.Principal(element.Unauthenticated()):
                 return UnauthorizedResponse.makeResponse(
                     request.credentialFactories,
                     request.remoteAddr).addCallback(translateError)
@@ -933,7 +935,7 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
         necessary authentication metadata.
 
         If the request was not thusly prepared, both C{authzUser} and
-        C{authnUser} will be L{davxml.Unauthenticated}.
+        C{authnUser} will be L{element.Unauthenticated}.
 
         @param request: the request which may contain authentication
             information and a reference to a portal to authenticate
@@ -949,8 +951,8 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
         if not (hasattr(request, 'portal') and
                 hasattr(request, 'credentialFactories') and
                 hasattr(request, 'loginInterfaces')):
-            request.authnUser = davxml.Principal(davxml.Unauthenticated())
-            request.authzUser = davxml.Principal(davxml.Unauthenticated())
+            request.authnUser = element.Principal(element.Unauthenticated())
+            request.authzUser = element.Principal(element.Unauthenticated())
             return succeed((request.authnUser, request.authzUser))
 
         authHeader = request.headers.getHeader('authorization')
@@ -1021,8 +1023,8 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
                 # This request has already been authenticated via the wiki
                 return succeed((request.authnUser, request.authzUser))
 
-            request.authnUser = davxml.Principal(davxml.Unauthenticated())
-            request.authzUser = davxml.Principal(davxml.Unauthenticated())
+            request.authnUser = element.Principal(element.Unauthenticated())
+            request.authzUser = element.Principal(element.Unauthenticated())
             return succeed((request.authnUser, request.authzUser))
 
     ##
@@ -1051,7 +1053,7 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
 
     def defaultRootAccessControlList(self):
         """
-        @return: the L{davxml.ACL} element containing the default
+        @return: the L{element.ACL} element containing the default
             access control list for this resource.
         """
         #
@@ -1063,14 +1065,14 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
 
     def defaultAccessControlList(self):
         """
-        @return: the L{davxml.ACL} element containing the default
+        @return: the L{element.ACL} element containing the default
             access control list for this resource.
         """
         #
         # The default behaviour is no ACL; we should inherit from the parent
         # collection.
         #
-        return davxml.ACL()
+        return element.ACL()
 
     def setAccessControlList(self, acl):
         """
@@ -1092,7 +1094,7 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
         entry. This is the behaviour required by the C{ACL}
         request. (RFC 3744, section 8.1).
 
-        @param new_acl:  an L{davxml.ACL} element
+        @param new_acl:  an L{element.ACL} element
         @param request: the request being processed.
         @return: a tuple of the C{DAV:error} precondition element if
             an error occurred, C{None} otherwise.
@@ -1133,14 +1135,14 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
             and recurse into any DAV:SupportedPrivilege's
             """
             for item in sp.children:
-                if isinstance(item, davxml.Privilege):
+                if isinstance(item, element.Privilege):
                     supported.append(item.children[0])
-                elif isinstance(item, davxml.SupportedPrivilege):
+                elif isinstance(item, element.SupportedPrivilege):
                     addSupportedPrivilege(item)
 
         supportedPrivs = (yield self.supportedPrivileges(request))
         for item in supportedPrivs.children:
-            assert isinstance(item, davxml.SupportedPrivilege), (
+            assert isinstance(item, element.SupportedPrivilege), (
                 "Not a SupportedPrivilege: %r" % (item,)
             )
             addSupportedPrivilege(item)
@@ -1156,7 +1158,7 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
                                 "on resource %r"
                                 % (old_ace, self))
                         returnValue((
-                            davxml.dav_namespace,
+                            element.dav_namespace,
                             "no-protected-ace-conflict"
                         ))
 
@@ -1177,7 +1179,7 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
                     #    log.err("Attempt to overwrite inherited ace %r "
                     #            "on resource %r" % (old_ace, self))
                     #    returnValue((
-                    #        davxml.dav_namespace,
+                    #        element.dav_namespace,
                     #        "no-inherited-ace-conflict"
                     #    ))
 
@@ -1186,7 +1188,7 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
                 log.err("Attempt to set grant ace %r after deny ace "
                         "on resource %r"
                         % (ace, self))
-                returnValue((davxml.dav_namespace, "deny-before-grant"))
+                returnValue((element.dav_namespace, "deny-before-grant"))
             got_deny = not ace.allow
 
             # Step 4: ignore as this server has no abstract privileges
@@ -1199,19 +1201,19 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
                             "in ace %r on resource %r"
                             % (privilege.children[0], ace, self))
                     returnValue((
-                        davxml.dav_namespace,
+                        element.dav_namespace,
                         "not-supported-privilege"
                     ))
 
             if ace.protected:
                 log.err("Attempt to create protected ace %r on resource %r"
                         % (ace, self))
-                returnValue((davxml.dav_namespace, "no-ace-conflict"))
+                returnValue((element.dav_namespace, "no-ace-conflict"))
 
             if ace.inherited:
                 log.err("Attempt to create inherited ace %r on resource %r"
                         % (ace, self))
-                returnValue((davxml.dav_namespace, "no-ace-conflict"))
+                returnValue((element.dav_namespace, "no-ace-conflict"))
 
             # Step 6
             valid = (yield self.validPrincipal(ace.principal, request))
@@ -1220,7 +1222,7 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
                 log.err("Attempt to use unrecognized principal %r "
                         "in ace %r on resource %r"
                         % (ace.principal, ace, self))
-                returnValue((davxml.dav_namespace, "recognized-principal"))
+                returnValue((element.dav_namespace, "recognized-principal"))
 
         # Step 8 & 9
         #
@@ -1257,7 +1259,7 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
         command.
         @param new_aces: C{list} of L{ACE} for ACL being set.
         """
-        return self.setAccessControlList(davxml.ACL(*new_aces))
+        return self.setAccessControlList(element.ACL(*new_aces))
 
 
     def matchPrivilege(self, privilege, ace_privileges, supportedPrivileges):
@@ -1281,15 +1283,15 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
         (RFC 3744, section 5.5)
 
         @param request: the request being processed.
-        @param privileges: an iterable of L{davxml.WebDAVElement}
+        @param privileges: an iterable of L{WebDAVElement}
             elements denoting access control privileges.
         @param recurse: C{True} if a recursive check on all child
             resources of this resource should be performed as well,
             C{False} otherwise.
-        @param principal: the L{davxml.Principal} to check privileges
+        @param principal: the L{element.Principal} to check privileges
             for.  If C{None}, it is deduced from C{request} by calling
             L{currentPrincipal}.
-        @param inherited_aces: a list of L{davxml.ACE}s corresponding
+        @param inherited_aces: a list of L{element.ACE}s corresponding
             to the pre-computed inheritable aces from the parent
             resource hierarchy.
         @return: a L{Deferred} that callbacks with C{None} or errbacks
@@ -1334,7 +1336,7 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
             for ace in acl.children:
                 for privilege in tuple(pending):
                     if not self.matchPrivilege(
-                        davxml.Privilege(privilege),
+                        element.Privilege(privilege),
                         ace.privileges, supportedPrivs
                     ):
                         continue
@@ -1425,7 +1427,7 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
             return url
 
         try:
-            acl = self.readDeadProperty(davxml.ACL)
+            acl = self.readDeadProperty(element.ACL)
         except HTTPError, e:
             assert e.response.code == responsecode.NOT_FOUND, (
                 "Expected %s response from readDeadProperty() exception, "
@@ -1475,9 +1477,9 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
                                 children = list(ace.children)
                                 children.remove(TwistedACLInheritable())
                                 children.append(
-                                    davxml.Inherited(davxml.HRef(parentURL))
+                                    element.Inherited(element.HRef(parentURL))
                                 )
-                                aces.append(davxml.ACE(*children))
+                                aces.append(element.ACE(*children))
             else:
                 aces.extend(inherited_aces)
 
@@ -1486,14 +1488,14 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
             # inheritance.
             if not expanding:
                 aces = [
-                    davxml.ACE(*[
+                    element.ACE(*[
                         c for c in ace.children
                         if c != TwistedACLInheritable()
                     ])
                     for ace in aces
                 ]
 
-            acl = davxml.ACL(*aces)
+            acl = element.ACL(*aces)
 
         returnValue(acl)
 
@@ -1527,11 +1529,11 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
                     children = list(ace.children)
                     children.remove(TwistedACLInheritable())
                     children.append(
-                        davxml.Inherited(
-                            davxml.HRef(request.urlForResource(self))
+                        element.Inherited(
+                            element.HRef(request.urlForResource(self))
                         )
                     )
-                    aces.append(davxml.ACE(*children))
+                    aces.append(element.ACE(*children))
             return aces
 
         d = self.accessControlList(request, inheritance=True, expanding=True)
@@ -1540,7 +1542,7 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
 
     def inheritedACLSet(self):
         """
-        @return: a sequence of L{davxml.HRef}s from which ACLs are
+        @return: a sequence of L{element.HRef}s from which ACLs are
         inherited.
 
         This implementation returns an empty set.
@@ -1628,12 +1630,12 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
         principal2 = principal2.children[0]
 
         if type(principal1) == type(principal2):
-            if isinstance(principal1, davxml.Property):
+            if isinstance(principal1, element.Property):
                 return (
                     type(principal1.children[0]) ==
                     type(principal2.children[0])
                 )
-            elif isinstance(principal1, davxml.HRef):
+            elif isinstance(principal1, element.HRef):
                 return (
                     str(principal1.children[0]) ==
                     str(principal2.children[0])
@@ -1649,7 +1651,7 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
         by principal2.
 
         @param principal1: a L{Principal} to test. C{principal1} must
-            contain a L{davxml.HRef} or L{davxml.Unauthenticated}
+            contain a L{element.HRef} or L{element.Unauthenticated}
             element.
         @param principal2: a L{Principal} to test.
         @param request: the request being processed.
@@ -1671,27 +1673,27 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
             return succeed(match)
 
         def doMatch():
-            if isinstance(principal2, davxml.All):
+            if isinstance(principal2, element.All):
                 return succeed(True)
 
-            elif isinstance(principal2, davxml.Authenticated):
-                if isinstance(principal1, davxml.Unauthenticated):
+            elif isinstance(principal2, element.Authenticated):
+                if isinstance(principal1, element.Unauthenticated):
                     return succeed(False)
-                elif isinstance(principal1, davxml.All):
+                elif isinstance(principal1, element.All):
                     return succeed(False)
                 else:
                     return succeed(True)
 
-            elif isinstance(principal2, davxml.Unauthenticated):
-                if isinstance(principal1, davxml.Unauthenticated):
+            elif isinstance(principal2, element.Unauthenticated):
+                if isinstance(principal1, element.Unauthenticated):
                     return succeed(True)
                 else:
                     return succeed(False)
 
-            elif isinstance(principal1, davxml.Unauthenticated):
+            elif isinstance(principal1, element.Unauthenticated):
                 return succeed(False)
 
-            assert isinstance(principal1, davxml.HRef), (
+            assert isinstance(principal1, element.HRef), (
                 "Not an HRef: %r" % (principal1,)
             )
 
@@ -1766,7 +1768,7 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
             #
             real_principal = ace_principal.children[0]
 
-            if isinstance(real_principal, davxml.Property):
+            if isinstance(real_principal, element.Property):
                 # See comments in matchPrincipal().  We probably need
                 # some common code.
                 log.err("Encountered a property principal (%s), "
@@ -1774,7 +1776,7 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
                         % (real_principal,))
                 return False
 
-            if isinstance(real_principal, davxml.HRef):
+            if isinstance(real_principal, element.HRef):
                 return self.validHrefPrincipal(real_principal, request)
 
             return True
@@ -1810,27 +1812,27 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
 
     def resolvePrincipal(self, principal, request):
         """
-        Resolves a L{davxml.Principal} element into a L{davxml.HRef}
+        Resolves a L{element.Principal} element into a L{element.HRef}
         element if possible.  Specifically, the given C{principal}'s
         contained element is resolved.
 
-        L{davxml.Property} is resolved to the URI in the contained
+        L{element.Property} is resolved to the URI in the contained
         property.
 
-        L{davxml.Self} is resolved to the URI of this resource.
+        L{element.Self} is resolved to the URI of this resource.
 
-        L{davxml.HRef} elements are returned as-is.
+        L{element.HRef} elements are returned as-is.
 
         All other principals, including meta-principals
-        (eg. L{davxml.All}), resolve to C{None}.
+        (eg. L{element.All}), resolve to C{None}.
 
-        @param principal: the L{davxml.Principal} child element to
+        @param principal: the L{element.Principal} child element to
         resolve.
         @param request: the request being processed.
-        @return: a deferred L{davxml.HRef} element or C{None}.
+        @return: a deferred L{element.HRef} element or C{None}.
         """
 
-        if isinstance(principal, davxml.Property):
+        if isinstance(principal, element.Property):
             # NotImplementedError("Property principals are not implemented.")
             #
             # We can't raise here without potentially crippling the
@@ -1861,7 +1863,7 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
                     )
                     return None
 
-                if not isinstance(principal, davxml.Principal):
+                if not isinstance(principal, element.Principal):
                     log.err("Non-principal value in property {%s}%s "
                             "referenced by property principal."
                             % (namespace, name))
@@ -1879,22 +1881,22 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
             d.addCallback(gotPrincipal)
             return d
 
-        elif isinstance(principal, davxml.Self):
+        elif isinstance(principal, element.Self):
             try:
                 self = IDAVPrincipalResource(self)
             except TypeError:
                 log.err("DAV:self ACE is set on non-principal resource %r"
                         % (self,))
                 return succeed(None)
-            principal = davxml.HRef(self.principalURL())
+            principal = element.HRef(self.principalURL())
 
-        if isinstance(principal, davxml.HRef):
+        if isinstance(principal, element.HRef):
             return succeed(principal)
 
         assert isinstance(principal, (
-            davxml.All,
-            davxml.Authenticated,
-            davxml.Unauthenticated
+            element.All,
+            element.Authenticated,
+            element.Unauthenticated
         )), "Not a meta-principal: %r" % (principal,)
 
         return succeed(None)
@@ -1957,7 +1959,7 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
     
     def principalSearchPropertySet(self):
         """
-        @return: a L{davxml.PrincipalSearchPropertySet} element describing the
+        @return: a L{element.PrincipalSearchPropertySet} element describing the
         principal properties that can be searched on this principal collection,
         or C{None} if this is not a principal collection.
         
@@ -2321,19 +2323,19 @@ class DAVPrincipalResource (DAVResource):
 
             if namespace == dav_namespace:
                 if name == "alternate-URI-set":
-                    return davxml.AlternateURISet(*[
-                        davxml.HRef(u) for u in self.alternateURIs()
+                    return element.AlternateURISet(*[
+                        element.HRef(u) for u in self.alternateURIs()
                     ])
 
                 if name == "principal-URL":
-                    return davxml.PrincipalURL(
-                        davxml.HRef(self.principalURL())
+                    return element.PrincipalURL(
+                        element.HRef(self.principalURL())
                     )
 
                 if name == "group-member-set":
                     def callback(members):
-                        return davxml.GroupMemberSet(*[
-                            davxml.HRef(p.principalURL())
+                        return element.GroupMemberSet(*[
+                            element.HRef(p.principalURL())
                             for p in members
                         ])
                     
@@ -2343,8 +2345,8 @@ class DAVPrincipalResource (DAVResource):
 
                 if name == "group-membership":
                     def callback(memberships):
-                        return davxml.GroupMembership(*[
-                            davxml.HRef(g.principalURL())
+                        return element.GroupMembership(*[
+                            element.HRef(g.principalURL())
                             for g in memberships
                         ])
                     
@@ -2354,12 +2356,12 @@ class DAVPrincipalResource (DAVResource):
 
                 if name == "resourcetype":
                     if self.isCollection():
-                        return davxml.ResourceType(
-                            davxml.Collection(),
-                            davxml.Principal()
+                        return element.ResourceType(
+                            element.Collection(),
+                            element.Principal()
                         )
                     else:
-                        return davxml.ResourceType(davxml.Principal())
+                        return element.ResourceType(element.Principal())
 
             return super(DAVPrincipalResource, self).readProperty(
                 qname, request
@@ -2512,7 +2514,7 @@ def isPrincipalResource(resource):
     else:
         return True
 
-class TwistedACLInheritable (davxml.WebDAVEmptyElement):
+class TwistedACLInheritable (WebDAVEmptyElement):
     """
     When set on an ACE, this indicates that the ACE privileges should
     be inherited by all child resources within the resource with this
@@ -2522,9 +2524,9 @@ class TwistedACLInheritable (davxml.WebDAVEmptyElement):
     name = "inheritable"
 
 registerElement(TwistedACLInheritable)
-davxml.ACE.allowed_children[(twisted_dav_namespace, "inheritable")] = (0, 1)
+element.ACE.allowed_children[(twisted_dav_namespace, "inheritable")] = (0, 1)
 
-class TwistedGETContentMD5 (davxml.WebDAVTextElement):
+class TwistedGETContentMD5 (WebDAVTextElement):
     """
     MD5 hash of the resource content.
     """
@@ -2534,7 +2536,7 @@ class TwistedGETContentMD5 (davxml.WebDAVTextElement):
 registerElement(TwistedGETContentMD5)
 
 
-class TwistedQuotaRootProperty (davxml.WebDAVTextElement):
+class TwistedQuotaRootProperty (WebDAVTextElement):
     """
     When set on a collection, this property indicates that the
     collection has a quota limit for the size of all resources stored
@@ -2547,7 +2549,7 @@ class TwistedQuotaRootProperty (davxml.WebDAVTextElement):
 
 registerElement(TwistedQuotaRootProperty)
 
-class TwistedQuotaUsedProperty (davxml.WebDAVTextElement):
+class TwistedQuotaUsedProperty (WebDAVTextElement):
     """
     When set on a collection, this property contains the cached
     running total of the size of all resources stored in the
@@ -2559,28 +2561,28 @@ class TwistedQuotaUsedProperty (davxml.WebDAVTextElement):
 
 registerElement(TwistedQuotaUsedProperty)
 
-allACL = davxml.ACL(
-    davxml.ACE(
-        davxml.Principal(davxml.All()),
-        davxml.Grant(davxml.Privilege(davxml.All())),
-        davxml.Protected(),
+allACL = element.ACL(
+    element.ACE(
+        element.Principal(element.All()),
+        element.Grant(element.Privilege(element.All())),
+        element.Protected(),
         TwistedACLInheritable()
     )
 )
 
-readonlyACL = davxml.ACL(
-    davxml.ACE(
-        davxml.Principal(davxml.All()),
-        davxml.Grant(davxml.Privilege(davxml.Read())),
-        davxml.Protected(),
+readonlyACL = element.ACL(
+    element.ACE(
+        element.Principal(element.All()),
+        element.Grant(element.Privilege(element.Read())),
+        element.Protected(),
         TwistedACLInheritable()
     )
 )
 
-allPrivilegeSet = davxml.SupportedPrivilegeSet(
-    davxml.SupportedPrivilege(
-        davxml.Privilege(davxml.All()),
-        davxml.Description("all privileges", **{"xml:lang": "en"})
+allPrivilegeSet = element.SupportedPrivilegeSet(
+    element.SupportedPrivilege(
+        element.Privilege(element.All()),
+        element.Description("all privileges", **{"xml:lang": "en"})
     )
 )
 
@@ -2588,79 +2590,79 @@ allPrivilegeSet = davxml.SupportedPrivilegeSet(
 # This is one possible graph of the "standard" privileges documented
 # in 3744, section 3.
 #
-davPrivilegeSet = davxml.SupportedPrivilegeSet(
-    davxml.SupportedPrivilege(
-        davxml.Privilege(davxml.All()),
-        davxml.Description(
+davPrivilegeSet = element.SupportedPrivilegeSet(
+    element.SupportedPrivilege(
+        element.Privilege(element.All()),
+        element.Description(
             "all privileges",
             **{"xml:lang": "en"}
         ),
-        davxml.SupportedPrivilege(
-            davxml.Privilege(davxml.Read()),
-            davxml.Description(
+        element.SupportedPrivilege(
+            element.Privilege(element.Read()),
+            element.Description(
                 "read resource",
                 **{"xml:lang": "en"}
             ),
         ),
-        davxml.SupportedPrivilege(
-            davxml.Privilege(davxml.Write()),
-            davxml.Description(
+        element.SupportedPrivilege(
+            element.Privilege(element.Write()),
+            element.Description(
                 "write resource",
                 **{"xml:lang": "en"}
             ),
-            davxml.SupportedPrivilege(
-                davxml.Privilege(davxml.WriteProperties()),
-                davxml.Description(
+            element.SupportedPrivilege(
+                element.Privilege(element.WriteProperties()),
+                element.Description(
                     "write resource properties",
                     **{"xml:lang": "en"}
                 ),
             ),
-            davxml.SupportedPrivilege(
-                davxml.Privilege(davxml.WriteContent()),
-                davxml.Description(
+            element.SupportedPrivilege(
+                element.Privilege(element.WriteContent()),
+                element.Description(
                     "write resource content",
                     **{"xml:lang": "en"}
                 ),
             ),
-            davxml.SupportedPrivilege(
-                davxml.Privilege(davxml.Bind()),
-                davxml.Description(
+            element.SupportedPrivilege(
+                element.Privilege(element.Bind()),
+                element.Description(
                     "add child resource",
                     **{"xml:lang": "en"}
                 ),
             ),
-            davxml.SupportedPrivilege(
-                davxml.Privilege(davxml.Unbind()),
-                davxml.Description(
+            element.SupportedPrivilege(
+                element.Privilege(element.Unbind()),
+                element.Description(
                     "remove child resource",
                     **{"xml:lang": "en"}
                 ),
             ),
         ),
-        davxml.SupportedPrivilege(
-            davxml.Privilege(davxml.Unlock()),
-            davxml.Description(
+        element.SupportedPrivilege(
+            element.Privilege(element.Unlock()),
+            element.Description(
                 "unlock resource without ownership of lock",
                 **{"xml:lang": "en"}
             ),
         ),
-        davxml.SupportedPrivilege(
-            davxml.Privilege(davxml.ReadACL()),
-            davxml.Description(
+        element.SupportedPrivilege(
+            element.Privilege(element.ReadACL()),
+            element.Description(
                 "read resource access control list",
                 **{"xml:lang": "en"}
             ),
         ),
-        davxml.SupportedPrivilege(
-            davxml.Privilege(davxml.WriteACL()),
-            davxml.Description(
+        element.SupportedPrivilege(
+            element.Privilege(element.WriteACL()),
+            element.Description(
                 "write resource access control list",
                 **{"xml:lang": "en"}
             ),
         ),
-        davxml.SupportedPrivilege(
-            davxml.Privilege(davxml.ReadCurrentUserPrivilegeSet()),
-            davxml.Description(
+        element.SupportedPrivilege(
+            element.Privilege(element.ReadCurrentUserPrivilegeSet()),
+            element.Description(
                 "read privileges for current principal",
                 **{"xml:lang": "en"}
             ),
@@ -2668,10 +2670,10 @@ davPrivilegeSet = davxml.SupportedPrivilegeSet(
     ),
 )
 
-unauthenticatedPrincipal = davxml.Principal(davxml.Unauthenticated())
+unauthenticatedPrincipal = element.Principal(element.Unauthenticated())
 
 
-class ResourceClass (davxml.WebDAVTextElement):
+class ResourceClass (WebDAVTextElement):
     namespace = twisted_dav_namespace
     name = "resource-class"
     hidden = False

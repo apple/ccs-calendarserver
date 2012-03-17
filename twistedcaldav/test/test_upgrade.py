@@ -14,9 +14,15 @@
 # limitations under the License.
 ##
 
+import hashlib
+import os, zlib, cPickle
 
+from twisted.python.reflect import namedClass
 from twisted.internet.defer import inlineCallbacks
-from twext.web2.dav import davxml
+
+from txdav.xml.parser import WebDAVDocument
+from txdav.caldav.datastore.index_file import db_basename
+
 from twistedcaldav.config import config
 from twistedcaldav.directory.xmlfile import XMLDirectoryService
 from twistedcaldav.directory.resourceinfo import ResourceInfoDatabase
@@ -27,11 +33,6 @@ from twistedcaldav.upgrade import (
 )
 from twistedcaldav.test.util import TestCase
 from calendarserver.tools.util import getDirectory
-
-import hashlib
-import os, zlib, cPickle
-from txdav.caldav.datastore.index_file import db_basename
-from twisted.python.reflect import namedClass
 
 
 
@@ -214,7 +215,7 @@ class UpgradeTests(TestCase):
 
         # Pickled XML
         value = "<?xml version='1.0' encoding='UTF-8'?>\r\n<calendar-free-busy-set xmlns='urn:ietf:params:xml:ns:caldav'>\r\n  <href xmlns='DAV:'>/calendars/__uids__/BB05932F-DCE7-4195-9ED4-0896EAFF3B0B/calendar</href>\r\n</calendar-free-busy-set>\r\n"
-        doc = davxml.WebDAVDocument.fromString(value)
+        doc = WebDAVDocument.fromString(value)
         value = cPickle.dumps(doc.root_element)
         self.assertEquals(updateFreeBusySet(value, directory), None)
 
@@ -240,7 +241,7 @@ class UpgradeTests(TestCase):
 
         # Pickled XML
         value = "<?xml version='1.0' encoding='UTF-8'?>\r\n<calendar-free-busy-set xmlns='urn:ietf:params:xml:ns:caldav'>\r\n  <href xmlns='DAV:'>/calendars/users/wsanchez/calendar</href>\r\n</calendar-free-busy-set>\r\n"
-        doc = davxml.WebDAVDocument.fromString(value)
+        doc = WebDAVDocument.fromString(value)
         value = cPickle.dumps(doc.root_element)
         newValue = updateFreeBusySet(value, directory)
         newValue = zlib.decompress(newValue)
@@ -387,7 +388,7 @@ class UpgradeTests(TestCase):
                             "@xattrs" :
                             {
                                 # Pickled XML Doc
-                                freeBusyAttr : cPickle.dumps(davxml.WebDAVDocument.fromString("<?xml version='1.0' encoding='UTF-8'?>\r\n<calendar-free-busy-set xmlns='urn:ietf:params:xml:ns:caldav'>\r\n  <href xmlns='DAV:'>/calendars/users/wsanchez/calendar</href>\r\n</calendar-free-busy-set>\r\n").root_element),
+                                freeBusyAttr : cPickle.dumps(WebDAVDocument.fromString("<?xml version='1.0' encoding='UTF-8'?>\r\n<calendar-free-busy-set xmlns='urn:ietf:params:xml:ns:caldav'>\r\n  <href xmlns='DAV:'>/calendars/users/wsanchez/calendar</href>\r\n</calendar-free-busy-set>\r\n").root_element),
                             },
                         },
                     },
@@ -1705,7 +1706,7 @@ def isValidCTag(value):
     except zlib.error:
         return False
     try:
-        davxml.WebDAVDocument.fromString(value)
+        WebDAVDocument.fromString(value)
         return True
     except ValueError:
         return False

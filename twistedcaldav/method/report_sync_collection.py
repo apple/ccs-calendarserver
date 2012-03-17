@@ -20,16 +20,13 @@ DAV sync-collection report
 
 __all__ = ["report_DAV__sync_collection"]
 
-from twext.python.log import Logger
-from twext.web2.dav.davxml import SyncToken
-from twext.web2.dav.http import ErrorResponse
-
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.python.failure import Failure
+
+from twext.python.log import Logger
+from txdav.xml import element
+from twext.web2.dav.http import ErrorResponse
 from twext.web2 import responsecode
-from twext.web2.dav import davxml
-from txdav.xml.base import WebDAVElement
-from txdav.xml.extensions import SyncCollection
 from twext.web2.dav.http import MultiStatusResponse, statusForFailure
 from twext.web2.dav.method.prop_common import responseForHref
 from twext.web2.dav.method.propfind import propertyName
@@ -51,11 +48,11 @@ def report_DAV__sync_collection(self, request, sync_collection):
     """
     
     # These resource support the report
-    if not config.EnableSyncReport or davxml.Report(SyncCollection(),) not in self.supportedReports():
+    if not config.EnableSyncReport or element.Report(element.SyncCollection(),) not in self.supportedReports():
         log.err("sync-collection report is only allowed on calendar/inbox/addressbook/notification collection resources %s" % (self,))
         raise HTTPError(ErrorResponse(
             responsecode.FORBIDDEN,
-            davxml.SupportedReport(),
+            element.SupportedReport(),
             "Report not supported on this resource",
         ))
    
@@ -92,7 +89,7 @@ def report_DAV__sync_collection(self, request, sync_collection):
         }
         
         for property in props:
-            if isinstance(property, WebDAVElement):
+            if isinstance(property, element.WebDAVElement):
                 qname = property.qname()
             else:
                 qname = property
@@ -132,12 +129,12 @@ def report_DAV__sync_collection(self, request, sync_collection):
             lambda x, y: ok_resources.append((x, y)),
             lambda x, y: forbidden_resources.append((x, y)),
             changed,
-            (davxml.Read(),),
+            (element.Read(),),
             inherited_aces=filteredaces
         )
 
     for child, child_uri in ok_resources:
-        href = davxml.HRef.fromString(child_uri)
+        href = element.HRef.fromString(child_uri)
         try:
             yield responseForHref(
                 request,
@@ -155,7 +152,7 @@ def report_DAV__sync_collection(self, request, sync_collection):
             log.err("Missing resource during sync: %s" % (href,))
 
     for child, child_uri in forbidden_resources:
-        href = davxml.HRef.fromString(child_uri)
+        href = element.HRef.fromString(child_uri)
         try:
             yield responseForHref(
                 request,
@@ -173,17 +170,17 @@ def report_DAV__sync_collection(self, request, sync_collection):
             log.err("Missing resource during sync: %s" % (href,))
 
     for name in removed:
-        href = davxml.HRef.fromString(joinURL(request.uri, name))
-        responses.append(davxml.StatusResponse(davxml.HRef.fromString(href), davxml.Status.fromResponseCode(responsecode.NOT_FOUND)))
+        href = element.HRef.fromString(joinURL(request.uri, name))
+        responses.append(element.StatusResponse(element.HRef.fromString(href), element.Status.fromResponseCode(responsecode.NOT_FOUND)))
     
     for name in notallowed:
-        href = davxml.HRef.fromString(joinURL(request.uri, name))
-        responses.append(davxml.StatusResponse(davxml.HRef.fromString(href), davxml.Status.fromResponseCode(responsecode.NOT_ALLOWED)))
+        href = element.HRef.fromString(joinURL(request.uri, name))
+        responses.append(element.StatusResponse(element.HRef.fromString(href), element.Status.fromResponseCode(responsecode.NOT_ALLOWED)))
     
     if not hasattr(request, "extendedLogItems"):
         request.extendedLogItems = {}
     request.extendedLogItems["responses"] = len(responses)
 
-    responses.append(SyncToken.fromString(newtoken))
+    responses.append(element.SyncToken.fromString(newtoken))
 
     returnValue(MultiStatusResponse(responses))

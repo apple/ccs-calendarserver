@@ -23,15 +23,18 @@ This API is considered private to static.py and is therefore subject to
 change.
 """
 
-from twext.web2.dav.davxml import dav_namespace
-from twext.web2.dav.davxml import twisted_dav_namespace
-from txdav.xml.base import twisted_private_namespace
-from twext.web2.dav import davxml
+from txdav.xml.element import registerElement, dav_namespace
+from txdav.xml.element import twisted_dav_namespace, twisted_private_namespace
+from txdav.xml.element import WebDAVElement, PCDATAElement
+from txdav.xml.element import WebDAVEmptyElement, WebDAVTextElement
+from txdav.xml.element import PrincipalPropertySearch, Match
+from txdav.xml.element import ResourceType, Collection, Principal
 
 from twistedcaldav import caldavxml, carddavxml
 from twistedcaldav.ical import Component as iComponent
 
 from pycalendar.datetime import PyCalendarDateTime
+
 
 calendarserver_namespace = "http://calendarserver.org/ns/"
 
@@ -60,7 +63,9 @@ calendarserver_sharing_no_scheduling_compliance = (
     "calendarserver-sharing-no-scheduling",
 )
 
-class TwistedCalendarSupportedComponents (davxml.WebDAVTextElement):
+
+@registerElement
+class TwistedCalendarSupportedComponents (WebDAVTextElement):
     """
     Contains the calendar supported components list.
     """
@@ -71,7 +76,9 @@ class TwistedCalendarSupportedComponents (davxml.WebDAVTextElement):
     def getValue(self):
         return str(self)
 
-class TwistedCalendarAccessProperty (davxml.WebDAVTextElement):
+
+@registerElement
+class TwistedCalendarAccessProperty (WebDAVTextElement):
     """
     Contains the calendar access level (private events) for the resource.
     """
@@ -82,7 +89,9 @@ class TwistedCalendarAccessProperty (davxml.WebDAVTextElement):
     def getValue(self):
         return str(self)
 
-class TwistedSchedulingObjectResource (davxml.WebDAVTextElement):
+
+@registerElement
+class TwistedSchedulingObjectResource (WebDAVTextElement):
     """
     Indicates that the resource is a scheduling object resource.    
     """
@@ -90,7 +99,9 @@ class TwistedSchedulingObjectResource (davxml.WebDAVTextElement):
     name = "scheduling-object-resource"
     hidden = True
 
-class TwistedScheduleMatchETags(davxml.WebDAVElement):
+
+@registerElement
+class TwistedScheduleMatchETags(WebDAVElement):
     """
     List of ETags that can be used for a "weak" If-Match comparison.    
     """
@@ -100,7 +111,9 @@ class TwistedScheduleMatchETags(davxml.WebDAVElement):
 
     allowed_children = { (dav_namespace, "getetag"): (0, None) }
 
-class TwistedCalendarHasPrivateCommentsProperty (davxml.WebDAVEmptyElement):
+
+@registerElement
+class TwistedCalendarHasPrivateCommentsProperty (WebDAVEmptyElement):
     """
     Indicates that a calendar resource has private comments.
     
@@ -112,7 +125,9 @@ class TwistedCalendarHasPrivateCommentsProperty (davxml.WebDAVEmptyElement):
     name = "calendar-has-private-comments"
     hidden = True
 
-class CalendarProxyRead (davxml.WebDAVEmptyElement):
+
+@registerElement
+class CalendarProxyRead (WebDAVEmptyElement):
     """
     A read-only calendar user proxy principal resource.
     (Apple Extension to CalDAV)
@@ -120,7 +135,9 @@ class CalendarProxyRead (davxml.WebDAVEmptyElement):
     namespace = calendarserver_namespace
     name = "calendar-proxy-read"
 
-class CalendarProxyWrite (davxml.WebDAVEmptyElement):
+
+@registerElement
+class CalendarProxyWrite (WebDAVEmptyElement):
     """
     A read-write calendar user proxy principal resource.
     (Apple Extension to CalDAV)
@@ -128,7 +145,9 @@ class CalendarProxyWrite (davxml.WebDAVEmptyElement):
     namespace = calendarserver_namespace
     name = "calendar-proxy-write"
 
-class CalendarProxyReadFor (davxml.WebDAVElement):
+
+@registerElement
+class CalendarProxyReadFor (WebDAVElement):
     """
     List of principals granting read-only proxy status.
     (Apple Extension to CalDAV)
@@ -140,7 +159,9 @@ class CalendarProxyReadFor (davxml.WebDAVElement):
 
     allowed_children = { (dav_namespace, "href"): (0, None) }
 
-class CalendarProxyWriteFor (davxml.WebDAVElement):
+
+@registerElement
+class CalendarProxyWriteFor (WebDAVElement):
     """
     List of principals granting read-write proxy status.
     (Apple Extension to CalDAV)
@@ -152,7 +173,9 @@ class CalendarProxyWriteFor (davxml.WebDAVElement):
 
     allowed_children = { (dav_namespace, "href"): (0, None) }
 
-class DropBoxHome (davxml.WebDAVEmptyElement):
+
+@registerElement
+class DropBoxHome (WebDAVEmptyElement):
     """
     Denotes a drop box home collection (a collection that will contain drop boxes).
     (Apple Extension to CalDAV)
@@ -160,7 +183,9 @@ class DropBoxHome (davxml.WebDAVEmptyElement):
     namespace = calendarserver_namespace
     name = "dropbox-home"
 
-class DropBox (davxml.WebDAVEmptyElement):
+
+@registerElement
+class DropBox (WebDAVEmptyElement):
     """
     Denotes a drop box collection.
     (Apple Extension to CalDAV)
@@ -168,7 +193,9 @@ class DropBox (davxml.WebDAVEmptyElement):
     namespace = calendarserver_namespace
     name = "dropbox"
 
-class DropBoxHomeURL (davxml.WebDAVElement):
+
+@registerElement
+class DropBoxHomeURL (WebDAVElement):
     """
     A principal property to indicate the location of the drop box home.
     (Apple Extension to CalDAV)
@@ -178,9 +205,11 @@ class DropBoxHomeURL (davxml.WebDAVElement):
     hidden = True
     protected = True
 
-    allowed_children = { (davxml.dav_namespace, "href"): (0, 1) }
+    allowed_children = { (dav_namespace, "href"): (0, 1) }
 
-class GETCTag (davxml.WebDAVTextElement):
+
+@registerElement
+class GETCTag (WebDAVTextElement):
     """
     Contains the calendar collection entity tag.
     """
@@ -188,7 +217,9 @@ class GETCTag (davxml.WebDAVTextElement):
     name = "getctag"
     protected = True
 
-class CalendarAvailability (davxml.WebDAVTextElement):
+
+@registerElement
+class CalendarAvailability (WebDAVTextElement):
     """
     Contains the calendar availability property.
     """
@@ -232,7 +263,9 @@ class CalendarAvailability (davxml.WebDAVTextElement):
 
         return found
 
-class MaxCollections (davxml.WebDAVTextElement):
+
+@registerElement
+class MaxCollections (WebDAVTextElement):
     """
     Maximum number of child collections in a home collection
     """
@@ -241,7 +274,9 @@ class MaxCollections (davxml.WebDAVTextElement):
     hidden = True
     protected = True
 
-class MaxResources (davxml.WebDAVTextElement):
+
+@registerElement
+class MaxResources (WebDAVTextElement):
     """
     Maximum number of child resources in a collection
     """
@@ -250,7 +285,9 @@ class MaxResources (davxml.WebDAVTextElement):
     hidden = True
     protected = True
 
-class Timezones (davxml.WebDAVEmptyElement):
+
+@registerElement
+class Timezones (WebDAVEmptyElement):
     """
     Denotes a timezone service resource.
     (Apple Extension to CalDAV)
@@ -258,7 +295,9 @@ class Timezones (davxml.WebDAVEmptyElement):
     namespace = calendarserver_namespace
     name = "timezones"
 
-class TZIDs (davxml.WebDAVElement):
+
+@registerElement
+class TZIDs (WebDAVElement):
     """
     Wraps a list of timezone ids.
     """
@@ -266,14 +305,18 @@ class TZIDs (davxml.WebDAVElement):
     name = "tzids"
     allowed_children = { (calendarserver_namespace, "tzid" ): (0, None) }
 
-class TZID (davxml.WebDAVTextElement):
+
+@registerElement
+class TZID (WebDAVTextElement):
     """
     A timezone id.
     """
     namespace = calendarserver_namespace
     name = "tzid"
 
-class TZData (davxml.WebDAVElement):
+
+@registerElement
+class TZData (WebDAVElement):
     """
     Wraps a list of timezone observances.
     """
@@ -281,7 +324,9 @@ class TZData (davxml.WebDAVElement):
     name = "tzdata"
     allowed_children = { (calendarserver_namespace, "observance" ): (0, None) }
 
-class Observance (davxml.WebDAVElement):
+
+@registerElement
+class Observance (WebDAVElement):
     """
     A timezone observance.
     """
@@ -292,21 +337,27 @@ class Observance (davxml.WebDAVElement):
         (calendarserver_namespace, "utc-offset" ): (1, 1),
     }
 
-class Onset (davxml.WebDAVTextElement):
+
+@registerElement
+class Onset (WebDAVTextElement):
     """
     The onset date-time for a DST transition.
     """
     namespace = calendarserver_namespace
     name = "onset"
 
-class UTCOffset (davxml.WebDAVTextElement):
+
+@registerElement
+class UTCOffset (WebDAVTextElement):
     """
     A UTC offset value for a timezone observance.
     """
     namespace = calendarserver_namespace
     name = "utc-offset"
 
-class PubSubPushTransportsProperty (davxml.WebDAVTextElement):
+
+@registerElement
+class PubSubPushTransportsProperty (WebDAVTextElement):
     """
     A calendar property describing the available push notification transports
     available.
@@ -319,7 +370,9 @@ class PubSubPushTransportsProperty (davxml.WebDAVTextElement):
         (calendarserver_namespace, "transport") : (0, 1),
     }
 
-class PubSubTransportProperty (davxml.WebDAVTextElement):
+
+@registerElement
+class PubSubTransportProperty (WebDAVTextElement):
     namespace = calendarserver_namespace
     name = "transport"
     protected = True
@@ -335,32 +388,42 @@ class PubSubTransportProperty (davxml.WebDAVTextElement):
         (calendarserver_namespace, "xmpp-uri") : (1, 1),
     }
 
-class PubSubSubscriptionProperty (davxml.WebDAVTextElement):
+
+@registerElement
+class PubSubSubscriptionProperty (WebDAVTextElement):
     namespace = calendarserver_namespace
     name = "subscription-url"
     protected = True
     hidden = True
-    allowed_children = { (davxml.dav_namespace, "href"): (0, 1) }
+    allowed_children = { (dav_namespace, "href"): (0, 1) }
 
-class PubSubAPSBundleIDProperty (davxml.WebDAVTextElement):
+
+@registerElement
+class PubSubAPSBundleIDProperty (WebDAVTextElement):
     namespace = calendarserver_namespace
     name = "apsbundleid"
     protected = True
     hidden = True
 
-class PubSubAPSEnvironmentProperty (davxml.WebDAVTextElement):
+
+@registerElement
+class PubSubAPSEnvironmentProperty (WebDAVTextElement):
     namespace = calendarserver_namespace
     name = "env"
     protected = True
     hidden = True
 
-class PubSubXMPPPushKeyProperty (davxml.WebDAVTextElement):
+
+@registerElement
+class PubSubXMPPPushKeyProperty (WebDAVTextElement):
     namespace = calendarserver_namespace
     name = "pushkey"
     protected = True
     hidden = True
 
-class PubSubXMPPURIProperty (davxml.WebDAVTextElement):
+
+@registerElement
+class PubSubXMPPURIProperty (WebDAVTextElement):
     """
     A calendar home property to indicate the pubsub XMPP URI to subscribe to
     for notifications.
@@ -370,7 +433,9 @@ class PubSubXMPPURIProperty (davxml.WebDAVTextElement):
     protected = True
     hidden = True
 
-class PubSubHeartbeatProperty (davxml.WebDAVElement):
+
+@registerElement
+class PubSubHeartbeatProperty (WebDAVElement):
     """
     A calendar home property to indicate the pubsub XMPP URI to subscribe to
     for server heartbeats.
@@ -384,19 +449,25 @@ class PubSubHeartbeatProperty (davxml.WebDAVElement):
         (calendarserver_namespace, "xmpp-heartbeat-minutes" ) : (1, 1),
     }
 
-class PubSubHeartbeatURIProperty (davxml.WebDAVTextElement):
+
+@registerElement
+class PubSubHeartbeatURIProperty (WebDAVTextElement):
     namespace = calendarserver_namespace
     name = "xmpp-heartbeat-uri"
     protected = True
     hidden = True
 
-class PubSubHeartbeatMinutesProperty (davxml.WebDAVTextElement):
+
+@registerElement
+class PubSubHeartbeatMinutesProperty (WebDAVTextElement):
     namespace = calendarserver_namespace
     name = "xmpp-heartbeat-minutes"
     protected = True
     hidden = True
 
-class PubSubXMPPServerProperty (davxml.WebDAVTextElement):
+
+@registerElement
+class PubSubXMPPServerProperty (WebDAVTextElement):
     """
     A calendar home property to indicate the pubsub XMPP hostname to
     contact for notifications.
@@ -406,14 +477,17 @@ class PubSubXMPPServerProperty (davxml.WebDAVTextElement):
     protected = True
     hidden = True
 
-davxml.PrincipalPropertySearch.allowed_children[(calendarserver_namespace, "limit")] = (0, 1)
-davxml.PrincipalPropertySearch.allowed_attributes["type"] = False
-davxml.Match.allowed_attributes = {
+
+PrincipalPropertySearch.allowed_children[(calendarserver_namespace, "limit")] = (0, 1)
+PrincipalPropertySearch.allowed_attributes["type"] = False
+Match.allowed_attributes = {
     "caseless": False,
     "match-type": False,
 }
 
-class Limit (davxml.WebDAVElement):
+
+@registerElement
+class Limit (WebDAVElement):
     """
     Client supplied limit for reports.
     """
@@ -423,14 +497,18 @@ class Limit (davxml.WebDAVElement):
         (calendarserver_namespace, "nresults" )  : (1, 1),
     }
 
-class NResults (davxml.WebDAVTextElement):
+
+@registerElement
+class NResults (WebDAVTextElement):
     """
     Number of results limit.
     """
     namespace = calendarserver_namespace
     name = "nresults"
 
-class FirstNameProperty (davxml.WebDAVTextElement):
+
+@registerElement
+class FirstNameProperty (WebDAVTextElement):
     """
     A property representing first name of a principal
     """
@@ -439,7 +517,9 @@ class FirstNameProperty (davxml.WebDAVTextElement):
     protected = True
     hidden = True
 
-class LastNameProperty (davxml.WebDAVTextElement):
+
+@registerElement
+class LastNameProperty (WebDAVTextElement):
     """
     A property representing last name of a principal
     """
@@ -448,7 +528,9 @@ class LastNameProperty (davxml.WebDAVTextElement):
     protected = True
     hidden = True
 
-class EmailAddressProperty (davxml.WebDAVTextElement):
+
+@registerElement
+class EmailAddressProperty (WebDAVTextElement):
     """
     A property representing email address of a principal
     """
@@ -457,7 +539,9 @@ class EmailAddressProperty (davxml.WebDAVTextElement):
     protected = True
     hidden = True
 
-class EmailAddressSet (davxml.WebDAVElement):
+
+@registerElement
+class EmailAddressSet (WebDAVElement):
     """
     The list of email addresses of a principal
     """
@@ -467,7 +551,9 @@ class EmailAddressSet (davxml.WebDAVElement):
 
     allowed_children = { (calendarserver_namespace, "email-address"): (0, None) }
 
-class ExpandedGroupMemberSet (davxml.WebDAVElement):
+
+@registerElement
+class ExpandedGroupMemberSet (WebDAVElement):
     """
     The expanded list of members of a (group) principal
     """
@@ -478,7 +564,9 @@ class ExpandedGroupMemberSet (davxml.WebDAVElement):
 
     allowed_children = { (dav_namespace, "href"): (0, None) }
 
-class ExpandedGroupMembership (davxml.WebDAVElement):
+
+@registerElement
+class ExpandedGroupMembership (WebDAVElement):
     """
     The expanded list of groups a principal is a member of
     """
@@ -489,7 +577,9 @@ class ExpandedGroupMembership (davxml.WebDAVElement):
 
     allowed_children = { (dav_namespace, "href"): (0, None) }
 
-class IScheduleInbox (davxml.WebDAVEmptyElement):
+
+@registerElement
+class IScheduleInbox (WebDAVEmptyElement):
     """
     Denotes the resourcetype of a iSchedule Inbox.
     (CalDAV-s2s-xx, section x.x.x)
@@ -497,7 +587,9 @@ class IScheduleInbox (davxml.WebDAVEmptyElement):
     namespace = calendarserver_namespace
     name = "ischedule-inbox"
 
-class FreeBusyURL (davxml.WebDAVEmptyElement):
+
+@registerElement
+class FreeBusyURL (WebDAVEmptyElement):
     """
     Denotes the resourcetype of a free-busy URL resource.
     (CalDAV-s2s-xx, section x.x.x)
@@ -505,7 +597,9 @@ class FreeBusyURL (davxml.WebDAVEmptyElement):
     namespace = calendarserver_namespace
     name = "free-busy-url"
 
-class ScheduleChanges (davxml.WebDAVElement):
+
+@registerElement
+class ScheduleChanges (WebDAVElement):
     """
     Change indicator for a scheduling message.
     """
@@ -518,16 +612,20 @@ class ScheduleChanges (davxml.WebDAVElement):
         (calendarserver_namespace, "action" )      : (0, 1), # Have to allow 0 as element is empty in PROPFIND requests
     }
 
-class ScheduleDefaultTasksURL (davxml.WebDAVElement):
+
+@registerElement
+class ScheduleDefaultTasksURL (WebDAVElement):
     """
     A single href indicating which calendar is the default for VTODO scheduling.
     """
     namespace = calendarserver_namespace
     name = "schedule-default-tasks-URL"
 
-    allowed_children = { (davxml.dav_namespace, "href"): (0, 1) }
+    allowed_children = { (dav_namespace, "href"): (0, 1) }
 
-class DTStamp (davxml.WebDAVTextElement):
+
+@registerElement
+class DTStamp (WebDAVTextElement):
     """
     A UTC timestamp in iCal format.
     """
@@ -536,9 +634,11 @@ class DTStamp (davxml.WebDAVTextElement):
 
     def __init__(self, *children):
         super(DTStamp, self).__init__(children)
-        self.children = (davxml.PCDATAElement(PyCalendarDateTime.getNowUTC().getText()),)
+        self.children = (PCDATAElement(PyCalendarDateTime.getNowUTC().getText()),)
 
-class Action (davxml.WebDAVElement):
+
+@registerElement
+class Action (WebDAVElement):
     """
     A UTC timestamp in iCal format.
     """
@@ -551,14 +651,18 @@ class Action (davxml.WebDAVElement):
         (calendarserver_namespace, "reply" )  : (0, 1),
     }
 
-class Create (davxml.WebDAVEmptyElement):
+
+@registerElement
+class Create (WebDAVEmptyElement):
     """
     Event created.
     """
     namespace = calendarserver_namespace
     name = "create"
 
-class Update (davxml.WebDAVElement):
+
+@registerElement
+class Update (WebDAVElement):
     """
     Event updated.
     """
@@ -568,7 +672,9 @@ class Update (davxml.WebDAVElement):
         (calendarserver_namespace, "recurrence" ) : (1, None),
     }
 
-class Cancel (davxml.WebDAVElement):
+
+@registerElement
+class Cancel (WebDAVElement):
     """
     Event cancelled.
     """
@@ -578,7 +684,9 @@ class Cancel (davxml.WebDAVElement):
         (calendarserver_namespace, "recurrence" ) : (0, 1),
     }
 
-class Reply (davxml.WebDAVElement):
+
+@registerElement
+class Reply (WebDAVElement):
     """
     Event replied to.
     """
@@ -589,7 +697,9 @@ class Reply (davxml.WebDAVElement):
         (calendarserver_namespace, "recurrence" )      : (1, None),
     }
 
-class Recurrence (davxml.WebDAVElement):
+
+@registerElement
+class Recurrence (WebDAVElement):
     """
     Changes to an event.
     """
@@ -601,21 +711,27 @@ class Recurrence (davxml.WebDAVElement):
         (calendarserver_namespace, "changes" )      : (0, 1),
     }
 
-class Master (davxml.WebDAVEmptyElement):
+
+@registerElement
+class Master (WebDAVEmptyElement):
     """
     Master instance changed.
     """
     namespace = calendarserver_namespace
     name = "master"
 
-class RecurrenceID (davxml.WebDAVTextElement):
+
+@registerElement
+class RecurrenceID (WebDAVTextElement):
     """
     A recurrence instance changed.
     """
     namespace = calendarserver_namespace
     name = "recurrenceid"
 
-class Changes (davxml.WebDAVElement):
+
+@registerElement
+class Changes (WebDAVElement):
     """
     Changes to an event.
     """
@@ -625,7 +741,9 @@ class Changes (davxml.WebDAVElement):
         (calendarserver_namespace, "changed-property" )  : (0, None),
     }
 
-class ChangedProperty (davxml.WebDAVElement):
+
+@registerElement
+class ChangedProperty (WebDAVElement):
     """
     Changes to a property.
     """
@@ -640,7 +758,9 @@ class ChangedProperty (davxml.WebDAVElement):
         "name" : True,
     }
 
-class ChangedParameter (davxml.WebDAVEmptyElement):
+
+@registerElement
+class ChangedParameter (WebDAVEmptyElement):
     """
     Changes to a parameter.
     """
@@ -651,14 +771,18 @@ class ChangedParameter (davxml.WebDAVEmptyElement):
         "name" : True,
     }
 
-class Attendee (davxml.WebDAVTextElement):
+
+@registerElement
+class Attendee (WebDAVTextElement):
     """
     An attendee calendar user address.
     """
     namespace = calendarserver_namespace
     name = "attendee"
 
-class RecordType (davxml.WebDAVTextElement):
+
+@registerElement
+class RecordType (WebDAVTextElement):
     """
     Exposes the type of a record
     """
@@ -667,68 +791,88 @@ class RecordType (davxml.WebDAVTextElement):
     protected = True
     hidden = True
 
-class AutoSchedule (davxml.WebDAVTextElement):
+
+@registerElement
+class AutoSchedule (WebDAVTextElement):
     """
     Whether the principal automatically accepts invitations
     """
     namespace = calendarserver_namespace
     name = "auto-schedule"
 
-class AutoScheduleMode (davxml.WebDAVTextElement):
+
+@registerElement
+class AutoScheduleMode (WebDAVTextElement):
     """
     The principal's auto-schedule mode
     """
     namespace = calendarserver_namespace
     name = "auto-schedule-mode"
 
+
 ##
 # Sharing
 ##
 
-class ReadAccess (davxml.WebDAVEmptyElement):
+@registerElement
+class ReadAccess (WebDAVEmptyElement):
     """
     Denotes read and update attendee partstat on a shared calendar.
     """
     namespace = calendarserver_namespace
     name = "read"
 
-class ReadWriteAccess (davxml.WebDAVEmptyElement):
+
+@registerElement
+class ReadWriteAccess (WebDAVEmptyElement):
     """
     Denotes read and write access on a shared calendar.
     """
     namespace = calendarserver_namespace
     name = "read-write"
 
-class UID (davxml.WebDAVTextElement):
+
+@registerElement
+class UID (WebDAVTextElement):
     namespace = calendarserver_namespace
     name = "uid"
 
-class InReplyTo (davxml.WebDAVTextElement):
+
+@registerElement
+class InReplyTo (WebDAVTextElement):
     namespace = calendarserver_namespace
     name = "in-reply-to"
 
-class SharedOwner (davxml.WebDAVEmptyElement):
+
+@registerElement
+class SharedOwner (WebDAVEmptyElement):
     """
     Denotes a shared collection.
     """
     namespace = calendarserver_namespace
     name = "shared-owner"
 
-class Shared (davxml.WebDAVEmptyElement):
+
+@registerElement
+class Shared (WebDAVEmptyElement):
     """
     Denotes a shared collection.
     """
     namespace = calendarserver_namespace
     name = "shared"
 
-class Subscribed (davxml.WebDAVEmptyElement):
+
+@registerElement
+class Subscribed (WebDAVEmptyElement):
     """
     Denotes a subscribed calendar collection.
     """
     namespace = calendarserver_namespace
     name = "subscribed"
 
-class SharedURL (davxml.WebDAVTextElement):
+
+@registerElement
+class SharedURL (WebDAVTextElement):
     """
     The source url for a shared calendar.
     """
@@ -737,7 +881,9 @@ class SharedURL (davxml.WebDAVTextElement):
     protected = True
     hidden = True
 
-class SharedAs (davxml.WebDAVElement):
+
+@registerElement
+class SharedAs (WebDAVElement):
     """
     The url for a shared calendar.
     """
@@ -748,21 +894,27 @@ class SharedAs (davxml.WebDAVElement):
         (dav_namespace, "href")    : (1, 1),
     }
 
-class SharedAcceptEmailNotification (davxml.WebDAVTextElement):
+
+@registerElement
+class SharedAcceptEmailNotification (WebDAVTextElement):
     """
     The accept email flag for a shared calendar.
     """
     namespace = calendarserver_namespace
     name = "shared-accept-email-notification"
 
-class Birthday (davxml.WebDAVEmptyElement):
+
+@registerElement
+class Birthday (WebDAVEmptyElement):
     """
     Denotes a birthday calendar collection.
     """
     namespace = calendarserver_namespace
     name = "birthday"
 
-class AllowedSharingModes (davxml.WebDAVElement):
+
+@registerElement
+class AllowedSharingModes (WebDAVElement):
     namespace = calendarserver_namespace
     name = "allowed-sharing-modes"
     protected = True
@@ -773,15 +925,21 @@ class AllowedSharingModes (davxml.WebDAVElement):
         (calendarserver_namespace, "can-be-published") : (0, 1),
     }
 
-class CanBeShared (davxml.WebDAVEmptyElement):
+
+@registerElement
+class CanBeShared (WebDAVEmptyElement):
     namespace = calendarserver_namespace
     name = "can-be-shared"
 
-class CanBePublished (davxml.WebDAVEmptyElement):
+
+@registerElement
+class CanBePublished (WebDAVEmptyElement):
     namespace = calendarserver_namespace
     name = "can-be-published"
 
-class InviteShare (davxml.WebDAVElement):
+
+@registerElement
+class InviteShare (WebDAVElement):
     namespace = calendarserver_namespace
     name = "share"
 
@@ -790,7 +948,9 @@ class InviteShare (davxml.WebDAVElement):
         (calendarserver_namespace, "remove") : (0, None),
     }
 
-class InviteSet (davxml.WebDAVElement):
+
+@registerElement
+class InviteSet (WebDAVElement):
     namespace = calendarserver_namespace
     name = "set"
 
@@ -803,7 +963,9 @@ class InviteSet (davxml.WebDAVElement):
         (calendarserver_namespace, "read-write-schedule") : (0, 1),
     }
 
-class InviteRemove (davxml.WebDAVElement):
+
+@registerElement
+class InviteRemove (WebDAVElement):
     namespace = calendarserver_namespace
     name = "remove"
 
@@ -814,7 +976,9 @@ class InviteRemove (davxml.WebDAVElement):
         (calendarserver_namespace, "read-write-schedule") : (0, 1),
     }
 
-class InviteUser (davxml.WebDAVElement):
+
+@registerElement
+class InviteUser (WebDAVElement):
     namespace = calendarserver_namespace
     name = "user"
 
@@ -831,7 +995,9 @@ class InviteUser (davxml.WebDAVElement):
         (calendarserver_namespace, "summary")           : (0, 1),
     }
 
-class InviteAccess (davxml.WebDAVElement):
+
+@registerElement
+class InviteAccess (WebDAVElement):
     namespace = calendarserver_namespace
     name = "access"
 
@@ -841,7 +1007,9 @@ class InviteAccess (davxml.WebDAVElement):
         (calendarserver_namespace, "read-write-schedule") : (0, 1),
     }
 
-class Invite (davxml.WebDAVElement):
+
+@registerElement
+class Invite (WebDAVElement):
     namespace = calendarserver_namespace
     name = "invite"
 
@@ -849,31 +1017,45 @@ class Invite (davxml.WebDAVElement):
         (calendarserver_namespace, "user") : (0, None),
     }
 
-class InviteSummary (davxml.WebDAVTextElement):
+
+@registerElement
+class InviteSummary (WebDAVTextElement):
     namespace = calendarserver_namespace
     name = "summary"
 
-class InviteStatusNoResponse (davxml.WebDAVEmptyElement):
+
+@registerElement
+class InviteStatusNoResponse (WebDAVEmptyElement):
     namespace = calendarserver_namespace
     name = "invite-noresponse"
 
-class InviteStatusDeleted (davxml.WebDAVEmptyElement):
+
+@registerElement
+class InviteStatusDeleted (WebDAVEmptyElement):
     namespace = calendarserver_namespace
     name = "invite-deleted"
 
-class InviteStatusAccepted (davxml.WebDAVEmptyElement):
+
+@registerElement
+class InviteStatusAccepted (WebDAVEmptyElement):
     namespace = calendarserver_namespace
     name = "invite-accepted"
 
-class InviteStatusDeclined (davxml.WebDAVEmptyElement):
+
+@registerElement
+class InviteStatusDeclined (WebDAVEmptyElement):
     namespace = calendarserver_namespace
     name = "invite-declined"
 
-class InviteStatusInvalid (davxml.WebDAVEmptyElement):
+
+@registerElement
+class InviteStatusInvalid (WebDAVEmptyElement):
     namespace = calendarserver_namespace
     name = "invite-invalid"
 
-class HostURL (davxml.WebDAVElement):
+
+@registerElement
+class HostURL (WebDAVElement):
     """
     The source for a shared calendar
     """
@@ -884,7 +1066,9 @@ class HostURL (davxml.WebDAVElement):
         (dav_namespace, "href") : (0, None)
     }
 
-class Organizer (davxml.WebDAVElement):
+
+@registerElement
+class Organizer (WebDAVElement):
     """
     The organizer for a shared calendar
     """
@@ -896,14 +1080,18 @@ class Organizer (davxml.WebDAVElement):
         (calendarserver_namespace, "common-name")  : (0, 1)
     }
 
-class CommonName (davxml.WebDAVTextElement):
+
+@registerElement
+class CommonName (WebDAVTextElement):
     """
     Common name for Sharer or Sharee
     """
     namespace = calendarserver_namespace
     name = "common-name"
 
-class InviteNotification (davxml.WebDAVElement):
+
+@registerElement
+class InviteNotification (WebDAVElement):
     namespace = calendarserver_namespace
     name = "invite-notification"
 
@@ -924,7 +1112,9 @@ class InviteNotification (davxml.WebDAVElement):
         "shared-type" : True,
     }
 
-class InviteReply (davxml.WebDAVElement):
+
+@registerElement
+class InviteReply (WebDAVElement):
     namespace = calendarserver_namespace
     name = "invite-reply"
 
@@ -937,7 +1127,9 @@ class InviteReply (davxml.WebDAVElement):
         (calendarserver_namespace, "summary")         : (0, 1),
     }
 
-class ResourceUpdateNotification (davxml.WebDAVElement):
+
+@registerElement
+class ResourceUpdateNotification (WebDAVElement):
     namespace = calendarserver_namespace
     name = "resource-update-notification"
 
@@ -949,19 +1141,27 @@ class ResourceUpdateNotification (davxml.WebDAVElement):
         (calendarserver_namespace, "resource-deleted-notification") : (0, 1),
     }
 
-class ResourceUpdateAdded(davxml.WebDAVEmptyElement):
+
+@registerElement
+class ResourceUpdateAdded(WebDAVEmptyElement):
     namespace = calendarserver_namespace
     name = "resource-added-notification"
 
-class ResourceUpdateUpdated(davxml.WebDAVEmptyElement):
+
+@registerElement
+class ResourceUpdateUpdated(WebDAVEmptyElement):
     namespace = calendarserver_namespace
     name = "resource-updated-notification"
 
-class ResourceUpdateDeleted(davxml.WebDAVEmptyElement):
+
+@registerElement
+class ResourceUpdateDeleted(WebDAVEmptyElement):
     namespace = calendarserver_namespace
     name = "resource-deleted-notification"
 
-class SharedCalendarUpdateNotification (davxml.WebDAVElement):
+
+@registerElement
+class SharedCalendarUpdateNotification (WebDAVElement):
     namespace = calendarserver_namespace
     name = "shared-update-notification"
 
@@ -977,7 +1177,8 @@ class SharedCalendarUpdateNotification (davxml.WebDAVElement):
 # Notifications
 ##
 
-class Notification (davxml.WebDAVElement):
+@registerElement
+class Notification (WebDAVElement):
     """
     Denotes a notification collection, or a notification message.
     """
@@ -992,7 +1193,9 @@ class Notification (davxml.WebDAVElement):
         (calendarserver_namespace, "shared-update-notification")    : (0, None),
     }
 
-class NotificationURL (davxml.WebDAVElement):
+
+@registerElement
+class NotificationURL (WebDAVElement):
     """
     A principal property to indicate the notification collection for the principal.
     """
@@ -1005,7 +1208,9 @@ class NotificationURL (davxml.WebDAVElement):
         (dav_namespace, "href") : (0, 1)
     }
 
-class NotificationType (davxml.WebDAVElement):
+
+@registerElement
+class NotificationType (WebDAVElement):
     """
     A property to indicate what type of notification the resource represents.
     """
@@ -1019,16 +1224,20 @@ class NotificationType (davxml.WebDAVElement):
         (calendarserver_namespace, "invite-reply")          : (0, None),
     }
 
-class Link (davxml.WebDAVEmptyElement):
+
+@registerElement
+class Link (WebDAVEmptyElement):
     """
     Denotes a linked resource.
     """
     namespace = calendarserver_namespace
     name = "link"
 
+
 mm_namespace = "http://me.com/_namespace/"
 
-class Multiput (davxml.WebDAVElement):
+@registerElement
+class Multiput (WebDAVElement):
     namespace = mm_namespace
     name = "multiput"
 
@@ -1036,32 +1245,40 @@ class Multiput (davxml.WebDAVElement):
         (mm_namespace, "resource")   : (1, None),
     }
 
-class Resource (davxml.WebDAVElement):
+
+@registerElement
+class Resource (WebDAVElement):
     namespace = mm_namespace
     name = "resource"
 
     allowed_children = {
-        (davxml,       "href")     : (0, 1),
-        (mm_namespace, "if-match") : (0, 1),
-        (davxml,       "set")      : (0, 1),
-        (davxml,       "remove")   : (0, 1),
-        (mm_namespace, "delete")   : (0, 1),
+        (dav_namespace, "href")     : (0, 1),
+        (mm_namespace,  "if-match") : (0, 1),
+        (dav_namespace, "set")      : (0, 1),
+        (dav_namespace, "remove")   : (0, 1),
+        (mm_namespace,  "delete")   : (0, 1),
     }
 
-class IfMatch (davxml.WebDAVElement):
+
+@registerElement
+class IfMatch (WebDAVElement):
     namespace = mm_namespace
     name = "if-match"
 
     allowed_children = {
-        (davxml, "getetag")   : (1, 1),
+        (dav_namespace, "getetag")   : (1, 1),
     }
 
-class Delete (davxml.WebDAVEmptyElement):
+
+@registerElement
+class Delete (WebDAVEmptyElement):
     namespace = mm_namespace
     name = "delete"
 
 
-class BulkRequests (davxml.WebDAVElement):
+
+@registerElement
+class BulkRequests (WebDAVElement):
     namespace = mm_namespace
     name = "bulk-requests"
     hidden = True
@@ -1072,7 +1289,9 @@ class BulkRequests (davxml.WebDAVElement):
         (mm_namespace, "crud")     : (0, 1),
     }
 
-class Simple (davxml.WebDAVElement):
+
+@registerElement
+class Simple (WebDAVElement):
     namespace = mm_namespace
     name = "simple"
     hidden = True
@@ -1083,7 +1302,9 @@ class Simple (davxml.WebDAVElement):
         (mm_namespace, "max-bytes")       : (1, 1),
     }
 
-class CRUD (davxml.WebDAVElement):
+
+@registerElement
+class CRUD (WebDAVElement):
     namespace = mm_namespace
     name = "crud"
     hidden = True
@@ -1094,11 +1315,15 @@ class CRUD (davxml.WebDAVElement):
         (mm_namespace, "max-bytes")       : (1, 1),
     }
 
-class MaxBulkResources (davxml.WebDAVTextElement):
+
+@registerElement
+class MaxBulkResources (WebDAVTextElement):
     namespace = mm_namespace
     name = "max-resources"
 
-class MaxBulkBytes (davxml.WebDAVTextElement):
+
+@registerElement
+class MaxBulkBytes (WebDAVTextElement):
     namespace = mm_namespace
     name = "max-bytes"
 
@@ -1107,23 +1332,31 @@ class MaxBulkBytes (davxml.WebDAVTextElement):
 # Client properties we might care about
 #
 
-class CalendarColor(davxml.WebDAVTextElement):
+@registerElement
+class CalendarColor(WebDAVTextElement):
     namespace = "http://apple.com/ns/ical/"
     name = "calendar-color"
 
 ##
-# Extensions to davxml.ResourceType
+# Extensions to ResourceType
 ##
 
-davxml.ResourceType.dropboxhome = davxml.ResourceType(davxml.Collection(), DropBoxHome())
-davxml.ResourceType.dropbox = davxml.ResourceType(davxml.Collection(), DropBox())
-davxml.ResourceType.calendarproxyread = davxml.ResourceType(davxml.Principal(), davxml.Collection(), CalendarProxyRead())
-davxml.ResourceType.calendarproxywrite = davxml.ResourceType(davxml.Principal(), davxml.Collection(), CalendarProxyWrite())
-davxml.ResourceType.timezones = davxml.ResourceType(Timezones())
-davxml.ResourceType.ischeduleinbox = davxml.ResourceType(IScheduleInbox())
-davxml.ResourceType.freebusyurl = davxml.ResourceType(FreeBusyURL())
-davxml.ResourceType.notification = davxml.ResourceType(davxml.Collection(), Notification())
-davxml.ResourceType.sharedownercalendar = davxml.ResourceType(davxml.Collection(), caldavxml.Calendar(), SharedOwner())
-davxml.ResourceType.sharedcalendar = davxml.ResourceType(davxml.Collection(), caldavxml.Calendar(), Shared())
-davxml.ResourceType.sharedaddressbook = davxml.ResourceType(davxml.Collection(), carddavxml.AddressBook(), Shared())
-davxml.ResourceType.link = davxml.ResourceType(Link())
+ResourceType.dropboxhome = ResourceType(Collection(), DropBoxHome())
+ResourceType.dropbox     = ResourceType(Collection(), DropBox())
+
+ResourceType.calendarproxyread  = ResourceType(Principal(), Collection(), CalendarProxyRead())
+ResourceType.calendarproxywrite = ResourceType(Principal(), Collection(), CalendarProxyWrite())
+
+ResourceType.timezones = ResourceType(Timezones())
+
+ResourceType.ischeduleinbox = ResourceType(IScheduleInbox())
+
+ResourceType.freebusyurl = ResourceType(FreeBusyURL())
+
+ResourceType.notification = ResourceType(Collection(), Notification())
+
+ResourceType.sharedownercalendar = ResourceType(Collection(), caldavxml.Calendar(),     SharedOwner())
+ResourceType.sharedcalendar      = ResourceType(Collection(), caldavxml.Calendar(),     Shared())
+ResourceType.sharedaddressbook   = ResourceType(Collection(), carddavxml.AddressBook(), Shared())
+
+ResourceType.link = ResourceType(Link())

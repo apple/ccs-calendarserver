@@ -16,8 +16,7 @@
 ##
 
 from twext.python.filepath import CachingFilePath as FilePath
-from twext.web2.dav import davxml
-from txdav.xml.base import WebDAVElement
+from txdav.xml.element import WebDAVElement, ResourceType
 from twext.web2.http_headers import MimeType
 from twext.web2.static import MetaDataMixin
 
@@ -164,7 +163,7 @@ class DirectoryListingTest(TestCase):
         def addUnicodeChild(davFile):
             m = MetaDataMixin()
             m.contentType = lambda: MimeType.fromString('text/plain')
-            m.resourceType = lambda: davxml.ResourceType()
+            m.resourceType = lambda: ResourceType()
             m.isCollection = lambda: False
             davFile.putChild(unicodeChildName, m)
         yield self.doDirectoryTest([nonASCIIFilename], addUnicodeChild,

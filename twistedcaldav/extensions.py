@@ -47,9 +47,9 @@ from twext.web2.http import StatusResponse
 from twext.web2.http_headers import MimeType
 from twext.web2.stream import FileStream
 from twext.web2.static import MetaDataMixin, StaticRenderMixin
-from twext.web2.dav import davxml
+from txdav.xml import element
+from txdav.xml.element import dav_namespace
 from twext.web2.dav.auth import PrincipalCredentials
-from twext.web2.dav.davxml import dav_namespace
 from twext.web2.dav.http import MultiStatusResponse
 from twext.web2.dav.idav import IDAVPrincipalResource
 from twext.web2.dav.static import DAVFile as SuperDAVFile
@@ -102,8 +102,8 @@ class SudoersMixin (object):
             hasattr(request, "credentialFactories") and
             hasattr(request, "loginInterfaces")
         ):
-            request.authnUser = davxml.Principal(davxml.Unauthenticated())
-            request.authzUser = davxml.Principal(davxml.Unauthenticated())
+            request.authnUser = element.Principal(element.Unauthenticated())
+            request.authzUser = element.Principal(element.Unauthenticated())
             returnValue((request.authnUser, request.authzUser,))
 
         authHeader = request.headers.getHeader("authorization")
@@ -155,8 +155,8 @@ class SudoersMixin (object):
                 # This request has already been authenticated via the wiki
                 returnValue((request.authnUser, request.authzUser))
 
-            request.authnUser = davxml.Principal(davxml.Unauthenticated())
-            request.authzUser = davxml.Principal(davxml.Unauthenticated())
+            request.authnUser = element.Principal(element.Unauthenticated())
+            request.authzUser = element.Principal(element.Unauthenticated())
             returnValue((request.authnUser, request.authzUser,))
 
     def principalsForAuthID(self, request, creds):
@@ -290,8 +290,8 @@ class DirectoryPrincipalPropertySearchMixIn(object):
         searching.
         """
         # Verify root element
-        if not isinstance(principal_property_search, davxml.PrincipalPropertySearch):
-            msg = "%s expected as root element, not %s." % (davxml.PrincipalPropertySearch.sname(), principal_property_search.sname())
+        if not isinstance(principal_property_search, element.PrincipalPropertySearch):
+            msg = "%s expected as root element, not %s." % (element.PrincipalPropertySearch.sname(), principal_property_search.sname())
             log.warn(msg)
             raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, msg))
 
@@ -334,10 +334,10 @@ class DirectoryPrincipalPropertySearchMixIn(object):
                 applyTo = True
 
             elif child.qname() == (dav_namespace, "property-search"):
-                props = child.childOfType(davxml.PropertyContainer)
+                props = child.childOfType(element.PropertyContainer)
                 props.removeWhitespaceNodes()
 
-                match = child.childOfType(davxml.Match)
+                match = child.childOfType(element.Match)
                 caseless = match.attributes.get("caseless", "yes")
                 if caseless not in ("yes", "no"):
                     msg = "Bad XML: unknown value for caseless attribute: %s" % (caseless,)
@@ -434,7 +434,7 @@ class DirectoryPrincipalPropertySearchMixIn(object):
             yield prop_common.responseForHref(
                 request,
                 responses,
-                davxml.HRef.fromString(url),
+                element.HRef.fromString(url),
                 resource,
                 propertiesForResource,
                 propElement
@@ -444,13 +444,13 @@ class DirectoryPrincipalPropertySearchMixIn(object):
             if resultsWereLimited[0] == "server":
                 log.err("Too many matching resources in "
                         "principal-property-search report")
-            responses.append(davxml.StatusResponse(
-                davxml.HRef.fromString(request.uri),
-                davxml.Status.fromResponseCode(
+            responses.append(element.StatusResponse(
+                element.HRef.fromString(request.uri),
+                element.Status.fromResponseCode(
                     responsecode.INSUFFICIENT_STORAGE_SPACE
                 ),
-                davxml.Error(davxml.NumberOfMatchesWithinLimits()),
-                davxml.ResponseDescription("Results limited by %s at %d"
+                element.Error(element.NumberOfMatchesWithinLimits()),
+                element.ResponseDescription("Results limited by %s at %d"
                                            % resultsWereLimited),
             ))
         returnValue(MultiStatusResponse(responses))
@@ -714,7 +714,7 @@ class DAVResource (DirectoryPrincipalPropertySearchMixIn,
         # Allow live property to be overridden by dead property
         if self.deadProperties().contains((dav_namespace, "resourcetype")):
             return self.deadProperties().get((dav_namespace, "resourcetype"))
-        return davxml.ResourceType(davxml.Collection()) if self.isCollection() else davxml.ResourceType()
+        return element.ResourceType(element.Collection()) if self.isCollection() else element.ResourceType()
 
     def contentType(self):
         return MimeType("httpd", "unix-directory") if self.isCollection() else None
@@ -842,13 +842,13 @@ class DAVPrincipalResource (DirectoryPrincipalPropertySearchMixIn,
             if name == "expanded-group-member-set":
                 principals = (yield self.expandedGroupMembers())
                 returnValue(customxml.ExpandedGroupMemberSet(
-                    *[davxml.HRef(p.principalURL()) for p in principals]
+                    *[element.HRef(p.principalURL()) for p in principals]
                 ))
 
             elif name == "expanded-group-membership":
                 principals = (yield self.expandedGroupMemberships())
                 returnValue(customxml.ExpandedGroupMembership(
-                    *[davxml.HRef(p.principalURL()) for p in principals]
+                    *[element.HRef(p.principalURL()) for p in principals]
                 ))
 
             elif name == "record-type":
@@ -882,9 +882,9 @@ class DAVPrincipalResource (DirectoryPrincipalPropertySearchMixIn,
         if self.deadProperties().contains((dav_namespace, "resourcetype")):
             return self.deadProperties().get((dav_namespace, "resourcetype"))
         if self.isCollection():
-            return davxml.ResourceType(davxml.Principal(), davxml.Collection())
+            return element.ResourceType(element.Principal(), element.Collection())
         else:
-            return davxml.ResourceType(davxml.Principal())
+            return element.ResourceType(element.Principal())
 
 
 
@@ -899,8 +899,8 @@ class DAVFile (SudoersMixin, SuperDAVFile, LoggingMixIn,
         if self.deadProperties().contains((dav_namespace, "resourcetype")):
             return self.deadProperties().get((dav_namespace, "resourcetype"))
         if self.isCollection():
-            return davxml.ResourceType.collection #@UndefinedVariable
-        return davxml.ResourceType.empty #@UndefinedVariable
+            return element.ResourceType.collection #@UndefinedVariable
+        return element.ResourceType.empty #@UndefinedVariable
 
     def render(self, request):
         if not self.fp.exists():

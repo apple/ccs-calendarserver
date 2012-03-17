@@ -52,8 +52,8 @@ from twisted.python.failure import Failure
 from twisted.python.log import err
 from twext.web2 import responsecode
 from twext.web2.http import HTTPError, StatusResponse
-from twext.web2.dav import davxml
 from twext.web2.dav.http import statusForFailure
+from txdav.xml.parser import WebDAVDocument
 
 # RFC 2518 Section 12.13.1 says that removal of non-existing property
 # is not an error.  python-xattr on Linux fails with ENODATA in this
@@ -170,7 +170,7 @@ class xattrPropertyStore (object):
             legacy = True
 
         try:
-            doc = davxml.WebDAVDocument.fromString(data)
+            doc = WebDAVDocument.fromString(data)
         except ValueError:
             try:
                 doc = unpickle(data)

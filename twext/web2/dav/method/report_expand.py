@@ -32,8 +32,8 @@ from twisted.python.failure import Failure
 
 from twext.python.log import Logger
 from twext.web2 import responsecode
-from twext.web2.dav import davxml
-from twext.web2.dav.davxml import dav_namespace
+from txdav.xml import element
+from txdav.xml.element import dav_namespace
 from twext.web2.dav.http import statusForFailure, MultiStatusResponse
 from twext.web2.dav.method import prop_common
 from twext.web2.dav.method.propfind import propertyName
@@ -52,9 +52,9 @@ def report_DAV__expand_property(self, request, expand_property):
     TODO: for simplicity we will only support one level of expansion.
     """
     # Verify root element
-    if not isinstance(expand_property, davxml.ExpandProperty):
+    if not isinstance(expand_property, element.ExpandProperty):
         raise ValueError("%s expected as root element, not %s."
-                         % (davxml.ExpandProperty.sname(), expand_property.sname()))
+                         % (element.ExpandProperty.sname(), expand_property.sname()))
 
     # Only handle Depth: 0
     depth = request.headers.getHeader("depth", "0")
@@ -102,27 +102,27 @@ def report_DAV__expand_property(self, request, expand_property):
             prop = (yield self.readProperty(qname, request))
             
             # Form the PROPFIND-style DAV:prop element we need later
-            props_to_return = davxml.PropertyContainer(*properties[qname])
+            props_to_return = element.PropertyContainer(*properties[qname])
 
             # Now dereference any HRefs
             responses = []
             for href in prop.children:
-                if isinstance(href, davxml.HRef):
+                if isinstance(href, element.HRef):
                     
                     # Locate the Href resource and its parent
                     resource_uri = str(href)
                     child = (yield request.locateResource(resource_uri))
     
                     if not child or not child.exists():
-                        responses.append(davxml.StatusResponse(href, davxml.Status.fromResponseCode(responsecode.NOT_FOUND)))
+                        responses.append(element.StatusResponse(href, element.Status.fromResponseCode(responsecode.NOT_FOUND)))
                         continue
                     parent = (yield request.locateResource(parentForURL(resource_uri)))
     
                     # Check privileges on parent - must have at least DAV:read
                     try:
-                        yield parent.checkPrivileges(request, (davxml.Read(),))
+                        yield parent.checkPrivileges(request, (element.Read(),))
                     except AccessDeniedError:
-                        responses.append(davxml.StatusResponse(href, davxml.Status.fromResponseCode(responsecode.FORBIDDEN)))
+                        responses.append(element.StatusResponse(href, element.Status.fromResponseCode(responsecode.FORBIDDEN)))
                         continue
                     
                     # Cache the last parent's inherited aces for checkPrivileges optimization
@@ -135,9 +135,9 @@ def report_DAV__expand_property(self, request, expand_property):
 
                     # Check privileges - must have at least DAV:read
                     try:
-                        yield child.checkPrivileges(request, (davxml.Read(),), inherited_aces=filteredaces)
+                        yield child.checkPrivileges(request, (element.Read(),), inherited_aces=filteredaces)
                     except AccessDeniedError:
-                        responses.append(davxml.StatusResponse(href, davxml.Status.fromResponseCode(responsecode.FORBIDDEN)))
+                        responses.append(element.StatusResponse(href, element.Status.fromResponseCode(responsecode.FORBIDDEN)))
                         continue
             
                     # Now retrieve all the requested properties on the HRef resource
@@ -163,11 +163,11 @@ def report_DAV__expand_property(self, request, expand_property):
 
     # Build the overall response
     propstats = [
-        davxml.PropertyStatus(
-            davxml.PropertyContainer(*properties_by_status[status]),
-            davxml.Status.fromResponseCode(status)
+        element.PropertyStatus(
+            element.PropertyContainer(*properties_by_status[status]),
+            element.Status.fromResponseCode(status)
         )
         for status in properties_by_status if properties_by_status[status]
     ]
 
-    returnValue(MultiStatusResponse((davxml.PropertyStatusResponse(davxml.HRef(request.uri), *propstats),)))
+    returnValue(MultiStatusResponse((element.PropertyStatusResponse(element.HRef(request.uri), *propstats),)))

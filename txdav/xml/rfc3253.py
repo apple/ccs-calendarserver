@@ -28,14 +28,16 @@ This module provides XML element definitions for use with WebDAV.
 See RFC 3253: http://www.ietf.org/rfc/rfc3253.txt
 """
 
-from txdav.xml.base import dav_namespace
-from txdav.xml.base import WebDAVElement, WebDAVTextElement
+from txdav.xml.base import WebDAVElement, WebDAVTextElement, dav_namespace
+from txdav.xml.element import registerElement, registerElementClass
 
 
 ##
 # Section 1
 ##
 
+@registerElement
+@registerElementClass
 class Error (WebDAVElement):
     """
     Specifies an error condition. (RFC 3253, section 1.6)
@@ -51,6 +53,8 @@ class Error (WebDAVElement):
 # Section 3
 ##
 
+@registerElement
+@registerElementClass
 class Comment (WebDAVTextElement):
     """
     Property used to track a brief comment about a resource that is suitable for
@@ -61,6 +65,8 @@ class Comment (WebDAVTextElement):
     hidden = True
 
 
+@registerElement
+@registerElementClass
 class CreatorDisplayName (WebDAVTextElement):
     """
     Property which contains a description of the creator of the resource that is
@@ -70,6 +76,8 @@ class CreatorDisplayName (WebDAVTextElement):
     hidden = True
 
 
+@registerElement
+@registerElementClass
 class SupportedMethod (WebDAVElement):
     """
     Property which identifies a method that is supported by a resource. A method
@@ -85,6 +93,8 @@ class SupportedMethod (WebDAVElement):
     allowed_attributes = { "name": True }
 
 
+@registerElement
+@registerElementClass
 class SupportedMethodSet (WebDAVElement):
     """
     Property which identifies the methods that are supported by a resource. (RFC
@@ -97,6 +107,8 @@ class SupportedMethodSet (WebDAVElement):
     allowed_children = { (dav_namespace, "supported-method"): (0, None) }
 
 
+@registerElement
+@registerElementClass
 class SupportedLiveProperty (WebDAVElement):
     """
     Property which identifies a live property that is supported by a resource. A
@@ -112,6 +124,8 @@ class SupportedLiveProperty (WebDAVElement):
     allowed_children = { (dav_namespace, "name"): (1, 1) }
 
 
+@registerElement
+@registerElementClass
 class SupportedLivePropertySet (WebDAVElement):
     """
     Property which identifies the live properties that are supported by a
@@ -124,6 +138,8 @@ class SupportedLivePropertySet (WebDAVElement):
     allowed_children = { (dav_namespace, "supported-live-property"): (0, None) }
 
 
+@registerElement
+@registerElementClass
 class Report (WebDAVElement):
     """
     A report. (RFC 3253, section 3.1.5)
@@ -134,6 +150,8 @@ class Report (WebDAVElement):
     allowed_children = { WebDAVElement: (0, None) }
 
 
+@registerElement
+@registerElementClass
 class SupportedReport (WebDAVElement):
     """
     Identifies a report that is supported by the resource.  (RFC 3253, section
@@ -167,6 +185,8 @@ class SupportedReport (WebDAVElement):
     allowed_children = { (dav_namespace, "report"): (0, 1) }
 
 
+@registerElement
+@registerElementClass
 class SupportedReportSet (WebDAVElement):
     """
     Property which identifies the reports that are supported by the resource.
@@ -179,6 +199,8 @@ class SupportedReportSet (WebDAVElement):
     allowed_children = { (dav_namespace, "supported-report"): (0, None) }
 
 
+@registerElement
+@registerElementClass
 class ExpandProperty (WebDAVElement):
     """
     Report which provides a mechanism for retrieving in one request the
@@ -190,6 +212,8 @@ class ExpandProperty (WebDAVElement):
     allowed_children = { (dav_namespace, "property"): (0, None) }
 
 
+@registerElement
+@registerElementClass
 class Property (WebDAVElement):
     """
     Identifies a property by name. (RFC 3253, section 3.8)

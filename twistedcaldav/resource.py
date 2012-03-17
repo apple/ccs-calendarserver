@@ -37,23 +37,23 @@ import uuid
 
 from zope.interface import implements
 
-from twext.python.log import LoggingMixIn
-from twext.web2.dav.davxml import SyncCollection
-from twext.web2.dav.http import ErrorResponse
-
 from twisted.internet.defer import succeed, maybeDeferred, fail
 from twisted.internet.defer import inlineCallbacks, returnValue
 
+from twext.python.log import LoggingMixIn
+
+from txdav.xml import element
+from txdav.xml.element import dav_namespace
+
 from twext.web2 import responsecode, http, http_headers
-from twext.web2.dav import davxml
 from twext.web2.dav.auth import AuthenticationWrapper as SuperAuthenticationWrapper
-from twext.web2.dav.davxml import dav_namespace
 from twext.web2.dav.idav import IDAVPrincipalCollectionResource
 from twext.web2.dav.resource import AccessDeniedError, DAVPrincipalCollectionResource,\
     davPrivilegeSet
 from twext.web2.dav.resource import TwistedACLInheritable
 from twext.web2.dav.util import joinURL, parentForURL, normalizeURL
 from twext.web2.http import HTTPError, RedirectResponse, StatusResponse, Response
+from twext.web2.dav.http import ErrorResponse
 from twext.web2.http_headers import MimeType, ETag
 from twext.web2.stream import MemoryStream
 
@@ -146,37 +146,37 @@ def _calendarPrivilegeSet ():
 
     top_supported_privileges = []
 
-    for supported_privilege in davPrivilegeSet.childrenOfType(davxml.SupportedPrivilege):
-        all_privilege = supported_privilege.childOfType(davxml.Privilege)
-        if isinstance(all_privilege.children[0], davxml.All):
-            all_description = supported_privilege.childOfType(davxml.Description)
+    for supported_privilege in davPrivilegeSet.childrenOfType(element.SupportedPrivilege):
+        all_privilege = supported_privilege.childOfType(element.Privilege)
+        if isinstance(all_privilege.children[0], element.All):
+            all_description = supported_privilege.childOfType(element.Description)
             all_supported_privileges = []
-            for all_supported_privilege in supported_privilege.childrenOfType(davxml.SupportedPrivilege):
-                read_privilege = all_supported_privilege.childOfType(davxml.Privilege)
-                if isinstance(read_privilege.children[0], davxml.Read):
-                    read_description = all_supported_privilege.childOfType(davxml.Description)
-                    read_supported_privileges = list(all_supported_privilege.childrenOfType(davxml.SupportedPrivilege))
+            for all_supported_privilege in supported_privilege.childrenOfType(element.SupportedPrivilege):
+                read_privilege = all_supported_privilege.childOfType(element.Privilege)
+                if isinstance(read_privilege.children[0], element.Read):
+                    read_description = all_supported_privilege.childOfType(element.Description)
+                    read_supported_privileges = list(all_supported_privilege.childrenOfType(element.SupportedPrivilege))
                     read_supported_privileges.append(
-                        davxml.SupportedPrivilege(
-                            davxml.Privilege(caldavxml.ReadFreeBusy()),
-                            davxml.Description("allow free busy report query", **{"xml:lang": "en"}),
+                        element.SupportedPrivilege(
+                            element.Privilege(caldavxml.ReadFreeBusy()),
+                            element.Description("allow free busy report query", **{"xml:lang": "en"}),
                         )
                     )
                     all_supported_privileges.append(
-                        davxml.SupportedPrivilege(read_privilege, read_description, *read_supported_privileges)
+                        element.SupportedPrivilege(read_privilege, read_description, *read_supported_privileges)
                     )
                     edited = True
                 else:
                     all_supported_privileges.append(all_supported_privilege)
             top_supported_privileges.append(
-                davxml.SupportedPrivilege(all_privilege, all_description, *all_supported_privileges)
+                element.SupportedPrivilege(all_privilege, all_description, *all_supported_privileges)
             )
         else:
             top_supported_privileges.append(supported_privilege)
 
     assert edited, "Structure of davPrivilegeSet changed in a way that I don't know how to extend for calendarPrivilegeSet"
 
-    return davxml.SupportedPrivilegeSet(*top_supported_privileges)
+    return element.SupportedPrivilegeSet(*top_supported_privileges)
 
 calendarPrivilegeSet = _calendarPrivilegeSet()
 
@@ -381,7 +381,7 @@ class CalDAVResource (
 
     def liveProperties(self):
         baseProperties = (
-            davxml.Owner.qname(),               # Private Events needs this but it is also OK to return empty
+            element.Owner.qname(),               # Private Events needs this but it is also OK to return empty
         )
         
         if self.isPseudoCalendarCollection():
@@ -405,7 +405,7 @@ class CalDAVResource (
 
         if self.isCalendarCollection():
             baseProperties += (
-                davxml.ResourceID.qname(),
+                element.ResourceID.qname(),
                 
                 # These are "live" properties in the sense of WebDAV, however "live" for twext actually means
                 # ones that are also always present, but the default alarm properties are allowed to be absent
@@ -420,7 +420,7 @@ class CalDAVResource (
 
         if self.isAddressBookCollection():
             baseProperties += (
-                davxml.ResourceID.qname(),
+                element.ResourceID.qname(),
                 carddavxml.SupportedAddressData.qname(),
                 customxml.GETCTag.qname(),
                 customxml.PubSubXMPPPushKeyProperty.qname(),
@@ -435,11 +435,11 @@ class CalDAVResource (
                 caldavxml.ScheduleTag.qname(),
             )
             
-        if config.EnableSyncReport and (davxml.Report(SyncCollection(),) in self.supportedReports()):
-            baseProperties += (davxml.SyncToken.qname(),)
+        if config.EnableSyncReport and (element.Report(element.SyncCollection(),) in self.supportedReports()):
+            baseProperties += (element.SyncToken.qname(),)
             
         if config.EnableAddMember and (self.isCalendarCollection() or self.isAddressBookCollection()):
-            baseProperties += (davxml.AddMember.qname(),)
+            baseProperties += (element.AddMember.qname(),)
             
         if config.Sharing.Enabled:
             if config.Sharing.Calendars.Enabled and self.isCalendarCollection():
@@ -474,7 +474,7 @@ class CalDAVResource (
         """
         if qname in self.liveProperties():
             if qname in (
-                davxml.DisplayName.qname(),
+                element.DisplayName.qname(),
                 customxml.Invite.qname(),
             ):
                 return False
@@ -598,31 +598,31 @@ class CalDAVResource (
     @inlineCallbacks
     def _readGlobalProperty(self, qname, property, request):
 
-        if qname == davxml.Owner.qname():
+        if qname == element.Owner.qname():
             owner = (yield self.owner(request))
-            returnValue(davxml.Owner(owner))
+            returnValue(element.Owner(owner))
 
-        elif qname == davxml.ResourceType.qname():
+        elif qname == element.ResourceType.qname():
             returnValue(self.resourceType())
 
-        elif qname == davxml.ResourceID.qname():
-            returnValue(davxml.ResourceID(davxml.HRef.fromString(self.resourceID())))
+        elif qname == element.ResourceID.qname():
+            returnValue(element.ResourceID(element.HRef.fromString(self.resourceID())))
 
         elif qname == customxml.GETCTag.qname() and (
             self.isPseudoCalendarCollection() or self.isAddressBookCollection()
         ):
             returnValue(customxml.GETCTag.fromString((yield self.getInternalSyncToken())))
 
-        elif qname == davxml.SyncToken.qname() and config.EnableSyncReport and (
-            davxml.Report(SyncCollection(),) in self.supportedReports()
+        elif qname == element.SyncToken.qname() and config.EnableSyncReport and (
+            element.Report(element.SyncCollection(),) in self.supportedReports()
         ):
-            returnValue(davxml.SyncToken.fromString((yield self.getSyncToken())))
+            returnValue(element.SyncToken.fromString((yield self.getSyncToken())))
 
-        elif qname == davxml.AddMember.qname() and config.EnableAddMember and (
+        elif qname == element.AddMember.qname() and config.EnableAddMember and (
             self.isCalendarCollection() or self.isAddressBookCollection()
         ):
             url = (yield self.canonicalURL(request))
-            returnValue(davxml.AddMember(davxml.HRef.fromString(url + "/;add-member")))
+            returnValue(element.AddMember(element.HRef.fromString(url + "/;add-member")))
 
         elif qname == caldavxml.SupportedCalendarComponentSet.qname() and self.isPseudoCalendarCollection():
             returnValue(self.getSupportedComponentSet())
@@ -707,7 +707,7 @@ class CalDAVResource (
             isvirt = self.isVirtualShare()
             
             if isvirt:
-                returnValue(customxml.SharedURL(davxml.HRef.fromString(self._share.hosturl)))
+                returnValue(customxml.SharedURL(element.HRef.fromString(self._share.hosturl)))
             else:
                 returnValue(None)
 
@@ -716,7 +716,7 @@ class CalDAVResource (
 
     @inlineCallbacks
     def writeProperty(self, property, request):
-        assert isinstance(property, davxml.WebDAVElement), (
+        assert isinstance(property, element.WebDAVElement), (
             "%r is not a WebDAVElement instance" % (property,)
         )
         
@@ -805,7 +805,7 @@ class CalDAVResource (
 
         yield self._preProcessWriteProperty(property, request)
 
-        if property.qname() == davxml.ResourceType.qname():
+        if property.qname() == element.ResourceType.qname():
             if self.isCalendarCollection() or self.isAddressBookCollection():
                 sawShare = [child for child in property.children if child.qname() == (calendarserver_namespace, "shared-owner")]
                 if sawShare:
@@ -823,7 +823,7 @@ class CalDAVResource (
                 # Check if adding or removing share
                 shared = (yield self.isShared(request))
                 for child in property.children:
-                    if child.qname() == davxml.Collection.qname():
+                    if child.qname() == element.Collection.qname():
                         break
                 else:
                     raise HTTPError(StatusResponse(
@@ -893,37 +893,37 @@ class CalDAVResource (
                 if self.accessMode == Component.ACCESS_PRIVATE:
                     newacls.extend(config.AdminACEs)
                     newacls.extend(config.ReadACEs)
-                    newacls.append(davxml.ACE(
-                        davxml.Invert(
-                            davxml.Principal(owner),
+                    newacls.append(element.ACE(
+                        element.Invert(
+                            element.Principal(owner),
                         ),
-                        davxml.Deny(
-                            davxml.Privilege(
-                                davxml.Read(),
+                        element.Deny(
+                            element.Privilege(
+                                element.Read(),
                             ),
-                            davxml.Privilege(
-                                davxml.Write(),
+                            element.Privilege(
+                                element.Write(),
                             ),
                         ),
-                        davxml.Protected(),
+                        element.Protected(),
                     ))
                 else:
                     newacls.extend(config.AdminACEs)
                     newacls.extend(config.ReadACEs)
-                    newacls.append(davxml.ACE(
-                        davxml.Invert(
-                            davxml.Principal(owner),
+                    newacls.append(element.ACE(
+                        element.Invert(
+                            element.Principal(owner),
                         ),
-                        davxml.Deny(
-                            davxml.Privilege(
-                                davxml.Write(),
+                        element.Deny(
+                            element.Privilege(
+                                element.Write(),
                             ),
                         ),
-                        davxml.Protected(),
+                        element.Protected(),
                     ))
                 newacls.extend(acls.children)
 
-                acls = davxml.ACL(*newacls)
+                acls = element.ACL(*newacls)
  
         returnValue(acls)
 
@@ -992,7 +992,7 @@ class CalDAVResource (
         current = self.currentPrincipal(request)
         if current in config.AllAdminPrincipalObjects:
             returnValue(True)
-        if davxml.Principal((yield self.owner(request))) == current:
+        if element.Principal((yield self.owner(request))) == current:
             returnValue(True)
         returnValue(False)
 
@@ -1002,7 +1002,7 @@ class CalDAVResource (
     ##
 
     def displayName(self):
-        if self.isAddressBookCollection() and not self.hasDeadProperty((davxml.dav_namespace, "displayname")):
+        if self.isAddressBookCollection() and not self.hasDeadProperty((dav_namespace, "displayname")):
             return None
         
         if 'record' in dir(self):
@@ -1022,10 +1022,10 @@ class CalDAVResource (
         return None
 
     def resourceID(self):
-        if not self.hasDeadProperty(davxml.ResourceID.qname()):
+        if not self.hasDeadProperty(element.ResourceID.qname()):
             uuidval = uuid.uuid4()
-            self.writeDeadProperty(davxml.ResourceID(davxml.HRef.fromString(uuidval.urn)))
-        return str(self.readDeadProperty(davxml.ResourceID.qname()).children[0])
+            self.writeDeadProperty(element.ResourceID(element.HRef.fromString(uuidval.urn)))
+        return str(self.readDeadProperty(element.ResourceID.qname()).children[0])
 
     ##
     # CalDAV
@@ -1140,7 +1140,7 @@ class CalDAVResource (
             
             # Adjust the default calendar setting if necessary
             if defaultCalendarType is not None:
-                yield inbox.writeProperty(defaultCalendarType(davxml.HRef(destination_path)), request)               
+                yield inbox.writeProperty(defaultCalendarType(element.HRef(destination_path)), request)               
 
     def isCalendarOpaque(self):
         
@@ -1219,7 +1219,7 @@ class CalDAVResource (
             principal = (yield self.resourceOwnerPrincipal(request))
             home = (yield principal.addressBookHome(request))
             (_ignore_scheme, _ignore_host, destination_path, _ignore_query, _ignore_fragment) = urlsplit(normalizeURL(destination_uri))
-            yield home.writeProperty(carddavxml.DefaultAddressBookURL(davxml.HRef(destination_path)), request)               
+            yield home.writeProperty(carddavxml.DefaultAddressBookURL(element.HRef(destination_path)), request)               
 
     @inlineCallbacks
     def isDefaultAddressBook(self, request):
@@ -1265,21 +1265,21 @@ class CalDAVResource (
 
     def supportedReports(self):
         result = super(CalDAVResource, self).supportedReports()
-        result.append(davxml.Report(caldavxml.CalendarQuery(),))
-        result.append(davxml.Report(caldavxml.CalendarMultiGet(),))
+        result.append(element.Report(caldavxml.CalendarQuery(),))
+        result.append(element.Report(caldavxml.CalendarMultiGet(),))
         if self.isCollection():
             # Only allowed on collections
-            result.append(davxml.Report(caldavxml.FreeBusyQuery(),))
+            result.append(element.Report(caldavxml.FreeBusyQuery(),))
         if config.EnableCardDAV:
-            result.append(davxml.Report(carddavxml.AddressBookQuery(),))
-            result.append(davxml.Report(carddavxml.AddressBookMultiGet(),))
+            result.append(element.Report(carddavxml.AddressBookQuery(),))
+            result.append(element.Report(carddavxml.AddressBookMultiGet(),))
         if (
             self.isPseudoCalendarCollection() or
             self.isAddressBookCollection() or
             self.isNotificationCollection()
         ) and config.EnableSyncReport:
             # Only allowed on calendar/inbox/addressbook/notification collections
-            result.append(davxml.Report(SyncCollection(),))
+            result.append(element.Report(element.SyncCollection(),))
         return result
 
     def writeNewACEs(self, newaces):
@@ -1300,7 +1300,7 @@ class CalDAVResource (
                 if TwistedACLInheritable() not in ace.children:
                     children = list(ace.children)
                     children.append(TwistedACLInheritable())
-                    edited_aces.append(davxml.ACE(*children))
+                    edited_aces.append(element.ACE(*children))
                 else:
                     edited_aces.append(ace)
         else:
@@ -1817,26 +1817,26 @@ class CalendarPrincipalCollectionResource (DAVPrincipalCollectionResource, CalDA
         principal-search-property-set report.
         """
         result = super(CalendarPrincipalCollectionResource, self).supportedReports()
-        result.append(davxml.Report(davxml.PrincipalSearchPropertySet(),))
+        result.append(element.Report(element.PrincipalSearchPropertySet(),))
         return result
 
     def principalSearchPropertySet(self):
-        return davxml.PrincipalSearchPropertySet(
-            davxml.PrincipalSearchProperty(
-                davxml.PropertyContainer(
-                    davxml.DisplayName()
+        return element.PrincipalSearchPropertySet(
+            element.PrincipalSearchProperty(
+                element.PropertyContainer(
+                    element.DisplayName()
                 ),
-                davxml.Description(
-                    davxml.PCDATAElement("Display Name"),
+                element.Description(
+                    element.PCDATAElement("Display Name"),
                     **{"xml:lang":"en"}
                 ),
             ),
-            davxml.PrincipalSearchProperty(
-                davxml.PropertyContainer(
+            element.PrincipalSearchProperty(
+                element.PropertyContainer(
                     caldavxml.CalendarUserAddressSet()
                 ),
-                davxml.Description(
-                    davxml.PCDATAElement("Calendar User Addresses"),
+                element.Description(
+                    element.PCDATAElement("Calendar User Addresses"),
                     **{"xml:lang":"en"}
                 ),
             ),
@@ -1904,12 +1904,12 @@ class CalendarPrincipalResource (CalDAVComplianceMixIn, DAVResourceWithChildrenM
         if namespace == caldav_namespace and self.calendarsEnabled():
             if name == "calendar-home-set":
                 returnValue(caldavxml.CalendarHomeSet(
-                    *[davxml.HRef(url) for url in self.calendarHomeURLs()]
+                    *[element.HRef(url) for url in self.calendarHomeURLs()]
                 ))
 
             elif name == "calendar-user-address-set":
                 returnValue(caldavxml.CalendarUserAddressSet(
-                    *[davxml.HRef(uri) for uri in self.calendarUserAddresses()]
+                    *[element.HRef(uri) for uri in self.calendarUserAddresses()]
                 ))
 
             elif name == "schedule-inbox-URL":
@@ -1917,14 +1917,14 @@ class CalendarPrincipalResource (CalDAVComplianceMixIn, DAVResourceWithChildrenM
                 if url is None:
                     returnValue(None)
                 else:
-                    returnValue(caldavxml.ScheduleInboxURL(davxml.HRef(url)))
+                    returnValue(caldavxml.ScheduleInboxURL(element.HRef(url)))
 
             elif name == "schedule-outbox-URL":
                 url = self.scheduleOutboxURL()
                 if url is None:
                     returnValue(None)
                 else:
-                    returnValue(caldavxml.ScheduleOutboxURL(davxml.HRef(url)))
+                    returnValue(caldavxml.ScheduleOutboxURL(element.HRef(url)))
 
             elif name == "calendar-user-type":
                 returnValue(caldavxml.CalendarUserType(self.record.getCUType()))
@@ -1935,25 +1935,25 @@ class CalendarPrincipalResource (CalDAVComplianceMixIn, DAVResourceWithChildrenM
                 if url is None:
                     returnValue(None)
                 else:
-                    returnValue(customxml.DropBoxHomeURL(davxml.HRef(url)))
+                    returnValue(customxml.DropBoxHomeURL(element.HRef(url)))
 
             elif name == "notification-URL" and config.Sharing.Enabled:
                 url = yield self.notificationURL()
                 if url is None:
                     returnValue(None)
                 else:
-                    returnValue(customxml.NotificationURL(davxml.HRef(url)))
+                    returnValue(customxml.NotificationURL(element.HRef(url)))
 
             elif name == "calendar-proxy-read-for" and self.calendarsEnabled():
                 results = (yield self.proxyFor(False))
                 returnValue(customxml.CalendarProxyReadFor(
-                    *[davxml.HRef(principal.principalURL()) for principal in results]
+                    *[element.HRef(principal.principalURL()) for principal in results]
                 ))
 
             elif name == "calendar-proxy-write-for" and self.calendarsEnabled():
                 results = (yield self.proxyFor(True))
                 returnValue(customxml.CalendarProxyWriteFor(
-                    *[davxml.HRef(principal.principalURL()) for principal in results]
+                    *[element.HRef(principal.principalURL()) for principal in results]
                 ))
 
             elif name == "auto-schedule" and self.calendarsEnabled():
@@ -1967,11 +1967,11 @@ class CalendarPrincipalResource (CalDAVComplianceMixIn, DAVResourceWithChildrenM
         elif namespace == carddav_namespace and self.addressBooksEnabled():
             if name == "addressbook-home-set":
                 returnValue(carddavxml.AddressBookHomeSet(
-                    *[davxml.HRef(url) for url in self.addressBookHomeURLs()]
+                    *[element.HRef(url) for url in self.addressBookHomeURLs()]
                  ))
             elif name == "directory-gateway" and self.directoryAddressBookEnabled():
                 returnValue(carddavxml.DirectoryGateway(
-                    davxml.HRef.fromString(joinURL("/", config.DirectoryAddressBook.name, "/"))
+                    element.HRef.fromString(joinURL("/", config.DirectoryAddressBook.name, "/"))
                 ))
 
         result = (yield super(CalendarPrincipalResource, self).readProperty(property, request))
@@ -2180,7 +2180,7 @@ class CommonHomeResource(PropfindCacheMixin, SharedHomeMixin, CalDAVResource):
         result = super(CommonHomeResource, self).supportedReports()
         if config.EnableSyncReport and config.EnableSyncReportHome:
             # Allowed on any home
-            result.append(davxml.Report(SyncCollection(),))
+            result.append(element.Report(element.SyncCollection(),))
         return result
 
     def _mergeSyncTokens(self, hometoken, notificationtoken):
@@ -2313,7 +2313,7 @@ class CommonHomeResource(PropfindCacheMixin, SharedHomeMixin, CalDAVResource):
                             children.append(
                                 customxml.PubSubTransportProperty(
                                     customxml.PubSubSubscriptionProperty(
-                                        davxml.HRef(
+                                        element.HRef(
                                             apsConfiguration["SubscriptionURL"]
                                         ),
                                     ),
@@ -2405,7 +2405,7 @@ class CommonHomeResource(PropfindCacheMixin, SharedHomeMixin, CalDAVResource):
     ##
 
     def owner(self, request):
-        return succeed(davxml.HRef(self.principalForRecord().principalURL()))
+        return succeed(element.HRef(self.principalForRecord().principalURL()))
 
     def ownerPrincipal(self, request):
         return succeed(self.principalForRecord())
@@ -2419,18 +2419,18 @@ class CommonHomeResource(PropfindCacheMixin, SharedHomeMixin, CalDAVResource):
         # Server may be read only
         if config.EnableReadOnlyServer:
             owner_privs = (
-                davxml.Privilege(davxml.Read()),
-                davxml.Privilege(davxml.ReadCurrentUserPrivilegeSet()),
+                element.Privilege(element.Read()),
+                element.Privilege(element.ReadCurrentUserPrivilegeSet()),
             )
         else:
-            owner_privs = (davxml.Privilege(davxml.All()),)
+            owner_privs = (element.Privilege(element.All()),)
 
         aces = (
             # Inheritable access for the resource's associated principal.
-            davxml.ACE(
-                davxml.Principal(davxml.HRef(myPrincipal.principalURL())),
-                davxml.Grant(*owner_privs),
-                davxml.Protected(),
+            element.ACE(
+                element.Principal(element.HRef(myPrincipal.principalURL())),
+                element.Grant(*owner_privs),
+                element.Protected(),
                 TwistedACLInheritable(),
             ),
         )
@@ -2441,7 +2441,7 @@ class CommonHomeResource(PropfindCacheMixin, SharedHomeMixin, CalDAVResource):
         # Give all access to config.AdminPrincipals
         aces += config.AdminACEs
         
-        return davxml.ACL(*aces)
+        return element.ACL(*aces)
 
     def accessControlList(self, request, inheritance=True, expanding=False, inherited_aces=None):
         # Permissions here are fixed, and are not subject to inheritance rules, etc.
@@ -2622,24 +2622,24 @@ class CalendarHomeResource(DefaultAlarmPropertyMixin, CommonHomeResource):
         # Server may be read only
         if config.EnableReadOnlyServer:
             owner_privs = (
-                davxml.Privilege(davxml.Read()),
-                davxml.Privilege(davxml.ReadCurrentUserPrivilegeSet()),
+                element.Privilege(element.Read()),
+                element.Privilege(element.ReadCurrentUserPrivilegeSet()),
             )
         else:
-            owner_privs = (davxml.Privilege(davxml.All()),)
+            owner_privs = (element.Privilege(element.All()),)
 
         aces = (
             # Inheritable access for the resource's associated principal.
-            davxml.ACE(
-                davxml.Principal(davxml.HRef(myPrincipal.principalURL())),
-                davxml.Grant(*owner_privs),
-                davxml.Protected(),
+            element.ACE(
+                element.Principal(element.HRef(myPrincipal.principalURL())),
+                element.Grant(*owner_privs),
+                element.Protected(),
                 TwistedACLInheritable(),
             ),
             # Inheritable CALDAV:read-free-busy access for authenticated users.
-            davxml.ACE(
-                davxml.Principal(davxml.Authenticated()),
-                davxml.Grant(davxml.Privilege(caldavxml.ReadFreeBusy())),
+            element.ACE(
+                element.Principal(element.Authenticated()),
+                element.Grant(element.Privilege(caldavxml.ReadFreeBusy())),
                 TwistedACLInheritable(),
             ),
         )
@@ -2654,37 +2654,37 @@ class CalendarHomeResource(DefaultAlarmPropertyMixin, CommonHomeResource):
             # Server may be read only
             if config.EnableReadOnlyServer:
                 rw_proxy_privs = (
-                    davxml.Privilege(davxml.Read()),
-                    davxml.Privilege(davxml.ReadCurrentUserPrivilegeSet()),
+                    element.Privilege(element.Read()),
+                    element.Privilege(element.ReadCurrentUserPrivilegeSet()),
                 )
             else:
                 rw_proxy_privs = (
-                    davxml.Privilege(davxml.Read()),
-                    davxml.Privilege(davxml.ReadCurrentUserPrivilegeSet()),
-                    davxml.Privilege(davxml.Write()),
+                    element.Privilege(element.Read()),
+                    element.Privilege(element.ReadCurrentUserPrivilegeSet()),
+                    element.Privilege(element.Write()),
                 )
 
             aces += (
                 # DAV:read/DAV:read-current-user-privilege-set access for this principal's calendar-proxy-read users.
-                davxml.ACE(
-                    davxml.Principal(davxml.HRef(joinURL(myPrincipal.principalURL(), "calendar-proxy-read/"))),
-                    davxml.Grant(
-                        davxml.Privilege(davxml.Read()),
-                        davxml.Privilege(davxml.ReadCurrentUserPrivilegeSet()),
+                element.ACE(
+                    element.Principal(element.HRef(joinURL(myPrincipal.principalURL(), "calendar-proxy-read/"))),
+                    element.Grant(
+                        element.Privilege(element.Read()),
+                        element.Privilege(element.ReadCurrentUserPrivilegeSet()),
                     ),
-                    davxml.Protected(),
+                    element.Protected(),
                     TwistedACLInheritable(),
                 ),
                 # DAV:read/DAV:read-current-user-privilege-set/DAV:write access for this principal's calendar-proxy-write users.
-                davxml.ACE(
-                    davxml.Principal(davxml.HRef(joinURL(myPrincipal.principalURL(), "calendar-proxy-write/"))),
-                    davxml.Grant(*rw_proxy_privs),
-                    davxml.Protected(),
+                element.ACE(
+                    element.Principal(element.HRef(joinURL(myPrincipal.principalURL(), "calendar-proxy-write/"))),
+                    element.Grant(*rw_proxy_privs),
+                    element.Protected(),
                     TwistedACLInheritable(),
                 ),
             )
 
-        return davxml.ACL(*aces)
+        return element.ACL(*aces)
 
 
     @inlineCallbacks
@@ -2785,11 +2785,11 @@ class AddressBookHomeResource (CommonHomeResource):
 
     @inlineCallbacks
     def writeProperty(self, property, request):
-        assert isinstance(property, davxml.WebDAVElement)
+        assert isinstance(property, element.WebDAVElement)
 
         if property.qname() == carddavxml.DefaultAddressBookURL.qname():
             # Verify that the address book added in the PROPPATCH is valid.
-            property.children = [davxml.HRef(normalizeURL(str(href))) for href in property.children]
+            property.children = [element.HRef(normalizeURL(str(href))) for href in property.children]
             new_adbk = [str(href) for href in property.children]
             adbk = None
             if len(new_adbk) == 1:
@@ -2807,7 +2807,7 @@ class AddressBookHomeResource (CommonHomeResource):
                 adbkURI = (yield adbk.canonicalURL(request))
                 if not adbkURI.endswith("/"):
                     adbkURI += "/"
-                property = carddavxml.DefaultAddressBookURL(davxml.HRef(adbkURI))
+                property = carddavxml.DefaultAddressBookURL(element.HRef(adbkURI))
 
         yield super(AddressBookHomeResource, self).writeProperty(property, request)
 
@@ -2875,11 +2875,11 @@ class AddressBookHomeResource (CommonHomeResource):
 
         self.writeDeadProperty(
             carddavxml.DefaultAddressBookURL(
-                davxml.HRef(defaultAddressBookURL)
+                element.HRef(defaultAddressBookURL)
             )
         )
         returnValue(carddavxml.DefaultAddressBookURL(
-            davxml.HRef(defaultAddressBookURL))
+            element.HRef(defaultAddressBookURL))
         )
 
     @inlineCallbacks
@@ -2929,35 +2929,35 @@ class GlobalAddressBookResource (ReadOnlyResourceMixIn, CalDAVResource):
     """
 
     def resourceType(self):
-        return davxml.ResourceType.sharedaddressbook #@UndefinedVariable
+        return element.ResourceType.sharedaddressbook #@UndefinedVariable
 
     def defaultAccessControlList(self):
 
         aces = (
-            davxml.ACE(
-                davxml.Principal(davxml.Authenticated()),
-                davxml.Grant(
-                    davxml.Privilege(davxml.Read()),
-                    davxml.Privilege(davxml.ReadCurrentUserPrivilegeSet()),
-                    davxml.Privilege(davxml.Write()),
+            element.ACE(
+                element.Principal(element.Authenticated()),
+                element.Grant(
+                    element.Privilege(element.Read()),
+                    element.Privilege(element.ReadCurrentUserPrivilegeSet()),
+                    element.Privilege(element.Write()),
                 ),
-                davxml.Protected(),
+                element.Protected(),
                 TwistedACLInheritable(),
            ),
         )
         
         if config.GlobalAddressBook.EnableAnonymousReadAccess:
             aces += (
-                davxml.ACE(
-                    davxml.Principal(davxml.Unauthenticated()),
-                    davxml.Grant(
-                        davxml.Privilege(davxml.Read()),
+                element.ACE(
+                    element.Principal(element.Unauthenticated()),
+                    element.Grant(
+                        element.Privilege(element.Read()),
                     ),
-                    davxml.Protected(),
+                    element.Protected(),
                     TwistedACLInheritable(),
                ),
             )
-        return davxml.ACL(*aces)
+        return element.ACL(*aces)
 
     def accessControlList(self, request, inheritance=True, expanding=False, inherited_aces=None):
         # Permissions here are fixed, and are not subject to inheritance rules, etc.

@@ -59,6 +59,8 @@ log = Logger()
 # Base XML elements
 ##
 
+_elements_by_qname = {}
+
 dav_namespace = "DAV:"
 twisted_dav_namespace = "http://twistedmatrix.com/xml_namespace/dav/"
 twisted_private_namespace = twisted_dav_namespace + "private/"

@@ -28,8 +28,8 @@ Tests for L{txdav.xml}.
 """
 
 from twisted.trial.unittest import TestCase
-from twext.web2.dav.davxml import Response, HRef, MultiStatus, Status
-from twext.web2.dav.davxml import CurrentUserPrincipal
+from txdav.xml.element import Response, HRef, MultiStatus, Status
+from txdav.xml.element import CurrentUserPrincipal
 from txdav.xml.test.test_base import WebDAVElementTestsMixin
 
 

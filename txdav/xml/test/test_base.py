@@ -27,7 +27,8 @@ Tests for L{txdav.xml.base}.
 
 from twisted.trial.unittest import TestCase
 from txdav.xml.base import decodeXMLName, encodeXMLName
-from twext.web2.dav.davxml import WebDAVDocument, WebDAVUnknownElement
+from txdav.xml.base import WebDAVUnknownElement
+from txdav.xml.parser import WebDAVDocument
 
 
 class NameEncodeTests(TestCase):

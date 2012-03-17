@@ -26,11 +26,11 @@ __all__ = [
 
 from twext.python.log import LoggingMixIn
 from twext.web2 import responsecode
-from twext.web2.dav import davxml
+from twext.web2.http import HTTPError, Response, XMLResponse
 from twext.web2.dav.http import ErrorResponse, MultiStatusResponse
 from twext.web2.dav.resource import TwistedACLInheritable
 from twext.web2.dav.util import allDataFromStream, joinURL
-from twext.web2.http import HTTPError, Response, XMLResponse
+from txdav.xml import element
 
 from twisted.internet.defer import succeed, inlineCallbacks, DeferredList,\
     returnValue
@@ -77,7 +77,7 @@ class SharedCollectionMixin(object):
         
         # Change resourcetype
         rtype = self.resourceType()
-        rtype = davxml.ResourceType(*(rtype.children + (customxml.SharedOwner(),)))
+        rtype = element.ResourceType(*(rtype.children + (customxml.SharedOwner(),)))
         self.writeDeadProperty(rtype)
         
         # Create invites database
@@ -89,7 +89,7 @@ class SharedCollectionMixin(object):
         # Change resource type (note this might be called after deleting a resource
         # so we have to cope with that)
         rtype = self.resourceType()
-        rtype = davxml.ResourceType(*([child for child in rtype.children if child != customxml.SharedOwner()]))
+        rtype = element.ResourceType(*([child for child in rtype.children if child != customxml.SharedOwner()]))
         self.writeDeadProperty(rtype)
         
         # Remove all invitees
@@ -141,11 +141,11 @@ class SharedCollectionMixin(object):
         """
         
         # Need to have at least DAV:read to do this
-        yield self.authorize(request, (davxml.Read(),))
+        yield self.authorize(request, (element.Read(),))
         
         # Find current principal
         authz_principal = self.currentPrincipal(request).children[0]
-        if not isinstance(authz_principal, davxml.HRef):
+        if not isinstance(authz_principal, element.HRef):
             raise HTTPError(ErrorResponse(
                 responsecode.FORBIDDEN,
                 (calendarserver_namespace, "valid-principal"),
@@ -236,13 +236,13 @@ class SharedCollectionMixin(object):
         try:
             superMethod = superObject.resourceType
         except AttributeError:
-            rtype = davxml.ResourceType()
+            rtype = element.ResourceType()
         else:
             rtype = superMethod()
 
         isVirt = self.isVirtualShare()
         if isVirt:
-            rtype = davxml.ResourceType(
+            rtype = element.ResourceType(
                 *(
                     tuple([child for child in rtype.children if child.qname() != customxml.SharedOwner.qname()]) +
                     (customxml.Shared(),)
@@ -299,28 +299,28 @@ class SharedCollectionMixin(object):
                 self._share.shareuid
             )
             if invite is None:
-                returnValue(davxml.ACL())
+                returnValue(element.ACL())
             inviteAccess = invite.access
             
         userprivs = [
         ]
         if inviteAccess in ("read-only", "read-write", "read-write-schedule",):
-            userprivs.append(davxml.Privilege(davxml.Read()))
-            userprivs.append(davxml.Privilege(davxml.ReadACL()))
-            userprivs.append(davxml.Privilege(davxml.ReadCurrentUserPrivilegeSet()))
+            userprivs.append(element.Privilege(element.Read()))
+            userprivs.append(element.Privilege(element.ReadACL()))
+            userprivs.append(element.Privilege(element.ReadCurrentUserPrivilegeSet()))
         if inviteAccess in ("read-only",):
-            userprivs.append(davxml.Privilege(davxml.WriteProperties()))
+            userprivs.append(element.Privilege(element.WriteProperties()))
         if inviteAccess in ("read-write", "read-write-schedule",):
-            userprivs.append(davxml.Privilege(davxml.Write()))
+            userprivs.append(element.Privilege(element.Write()))
         proxyprivs = list(userprivs)
-        proxyprivs.remove(davxml.Privilege(davxml.ReadACL()))
+        proxyprivs.remove(element.Privilege(element.ReadACL()))
 
         aces = (
             # Inheritable specific access for the resource's associated principal.
-            davxml.ACE(
-                davxml.Principal(davxml.HRef(self._shareePrincipal.principalURL())),
-                davxml.Grant(*userprivs),
-                davxml.Protected(),
+            element.ACE(
+                element.Principal(element.HRef(self._shareePrincipal.principalURL())),
+                element.Grant(*userprivs),
+                element.Protected(),
                 TwistedACLInheritable(),
             ),
         )
@@ -328,9 +328,9 @@ class SharedCollectionMixin(object):
         if self.isCalendarCollection():
             aces += (
                 # Inheritable CALDAV:read-free-busy access for authenticated users.
-                davxml.ACE(
-                    davxml.Principal(davxml.Authenticated()),
-                    davxml.Grant(davxml.Privilege(caldavxml.ReadFreeBusy())),
+                element.ACE(
+                    element.Principal(element.Authenticated()),
+                    element.Grant(element.Privilege(caldavxml.ReadFreeBusy())),
                     TwistedACLInheritable(),
                 ),
             )
@@ -344,25 +344,25 @@ class SharedCollectionMixin(object):
         if config.EnableProxyPrincipals:
             aces += (
                 # DAV:read/DAV:read-current-user-privilege-set access for this principal's calendar-proxy-read users.
-                davxml.ACE(
-                    davxml.Principal(davxml.HRef(joinURL(self._shareePrincipal.principalURL(), "calendar-proxy-read/"))),
-                    davxml.Grant(
-                        davxml.Privilege(davxml.Read()),
-                        davxml.Privilege(davxml.ReadCurrentUserPrivilegeSet()),
+                element.ACE(
+                    element.Principal(element.HRef(joinURL(self._shareePrincipal.principalURL(), "calendar-proxy-read/"))),
+                    element.Grant(
+                        element.Privilege(element.Read()),
+                        element.Privilege(element.ReadCurrentUserPrivilegeSet()),
                     ),
-                    davxml.Protected(),
+                    element.Protected(),
                     TwistedACLInheritable(),
                 ),
                 # DAV:read/DAV:read-current-user-privilege-set/DAV:write access for this principal's calendar-proxy-write users.
-                davxml.ACE(
-                    davxml.Principal(davxml.HRef(joinURL(self._shareePrincipal.principalURL(), "calendar-proxy-write/"))),
-                    davxml.Grant(*proxyprivs),
-                    davxml.Protected(),
+                element.ACE(
+                    element.Principal(element.HRef(joinURL(self._shareePrincipal.principalURL(), "calendar-proxy-write/"))),
+                    element.Grant(*proxyprivs),
+                    element.Protected(),
                     TwistedACLInheritable(),
                 ),
             )
 
-        returnValue(davxml.ACL(*aces))
+        returnValue(element.ACL(*aces))
 
     def validUserIDForShare(self, userid):
         """
@@ -633,14 +633,14 @@ class SharedCollectionMixin(object):
             customxml.DTStamp.fromString(PyCalendarDateTime.getNowUTC().getText()),
             customxml.InviteNotification(
                 customxml.UID.fromString(record.inviteuid),
-                davxml.HRef.fromString(record.userid),
+                element.HRef.fromString(record.userid),
                 inviteStatusMapToXML[record.state](),
                 customxml.InviteAccess(inviteAccessMapToXML[record.access]()),
                 customxml.HostURL(
-                    davxml.HRef.fromString(hosturl),
+                    element.HRef.fromString(hosturl),
                 ),
                 customxml.Organizer(
-                    davxml.HRef.fromString(owner),
+                    element.HRef.fromString(owner),
                     customxml.CommonName.fromString(ownerCN),
                 ),
                 customxml.InviteSummary.fromString(record.summary),
@@ -666,7 +666,7 @@ class SharedCollectionMixin(object):
 
     @inlineCallbacks
     def _xmlHandleInvite(self, request, docroot):
-        yield self.authorize(request, (davxml.Read(), davxml.Write()))
+        yield self.authorize(request, (element.Read(), element.Write()))
         result = (yield self._handleInvite(request, docroot))
         returnValue(result)
     
@@ -677,7 +677,7 @@ class SharedCollectionMixin(object):
             access = None
             summary = None
             for item in inviteset.children:
-                if isinstance(item, davxml.HRef):
+                if isinstance(item, element.HRef):
                     userid = str(item)
                     continue
                 if isinstance(item, customxml.CommonName):
@@ -709,7 +709,7 @@ class SharedCollectionMixin(object):
             userid = None
             access = []
             for item in inviteremove.children:
-                if isinstance(item, davxml.HRef):
+                if isinstance(item, element.HRef):
                     userid = str(item)
                     continue
                 if isinstance(item, customxml.ReadAccess) or isinstance(item, customxml.ReadWriteAccess):
@@ -785,11 +785,11 @@ class SharedCollectionMixin(object):
             if badusers:
                 xml_responses = []
                 xml_responses.extend([
-                    davxml.StatusResponse(davxml.HRef(userid), davxml.Status.fromResponseCode(ok_code))
+                    element.StatusResponse(element.HRef(userid), element.Status.fromResponseCode(ok_code))
                     for userid in sorted(okusers)
                 ])
                 xml_responses.extend([
-                    davxml.StatusResponse(davxml.HRef(userid), davxml.Status.fromResponseCode(responsecode.FORBIDDEN))
+                    element.StatusResponse(element.HRef(userid), element.Status.fromResponseCode(responsecode.FORBIDDEN))
                     for userid in sorted(badusers)
                 ])
             
@@ -804,7 +804,7 @@ class SharedCollectionMixin(object):
 
     @inlineCallbacks
     def _xmlHandleInviteReply(self, request, docroot):
-        yield self.authorize(request, (davxml.Read(), davxml.Write()))
+        yield self.authorize(request, (element.Read(), element.Write()))
         result = (yield self._handleInviteReply(request, docroot))
         returnValue(result)
     
@@ -817,7 +817,7 @@ class SharedCollectionMixin(object):
         # Need to read the data and get the root element first
         xmldata = (yield allDataFromStream(request.stream))
         try:
-            doc = davxml.WebDAVDocument.fromString(xmldata)
+            doc = element.WebDAVDocument.fromString(xmldata)
         except ValueError, e:
             self.log_error("Error parsing doc (%s) Doc:\n %s" % (str(e), xmldata,))
             raise HTTPError(ErrorResponse(
@@ -889,7 +889,7 @@ class Invite(object):
         
         return customxml.InviteUser(
             customxml.UID.fromString(self.inviteuid),
-            davxml.HRef.fromString(self.userid),
+            element.HRef.fromString(self.userid),
             customxml.CommonName.fromString(self.name),
             customxml.InviteAccess(inviteAccessMapToXML[self.access]()),
             inviteStatusMapToXML[self.state](),
@@ -1110,7 +1110,7 @@ class SharedHomeMixin(LinkFollowerMixIn):
         # Set per-user displayname or color to whatever was given
         sharedCollection.setVirtualShare(ownerPrincipal, share)
         if displayname:
-            yield sharedCollection.writeProperty(davxml.DisplayName.fromString(displayname), request)
+            yield sharedCollection.writeProperty(element.DisplayName.fromString(displayname), request)
         if color:
             yield sharedCollection.writeProperty(customxml.CalendarColor.fromString(color), request)
 
@@ -1129,7 +1129,7 @@ class SharedHomeMixin(LinkFollowerMixIn):
         returnValue(XMLResponse(
             code = responsecode.OK,
             element = customxml.SharedAs(
-                davxml.HRef.fromString(joinURL(self.url(), share.localname))
+                element.HRef.fromString(joinURL(self.url(), share.localname))
             )
         ))
 
@@ -1219,10 +1219,10 @@ class SharedHomeMixin(LinkFollowerMixIn):
             customxml.InviteReply(
                 *(
                     (
-                        davxml.HRef.fromString(sharee),
+                        element.HRef.fromString(sharee),
                         inviteStatusMapToXML[state](),
                         customxml.HostURL(
-                            davxml.HRef.fromString(hostUrl),
+                            element.HRef.fromString(hostUrl),
                         ),
                         customxml.InReplyTo.fromString(replytoUID),
                     ) + ((customxml.InviteSummary.fromString(displayname),) if displayname is not None else ())
@@ -1248,7 +1248,7 @@ class SharedHomeMixin(LinkFollowerMixIn):
                 summary = str(item)
             elif isinstance(item, customxml.HostURL):
                 for hosturlItem in item.children:
-                    if isinstance(hosturlItem, davxml.HRef):
+                    if isinstance(hosturlItem, element.HRef):
                         hostUrl = str(hosturlItem)
             elif isinstance(item, customxml.InReplyTo):
                 replytoUID = str(item)

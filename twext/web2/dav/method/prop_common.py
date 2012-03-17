@@ -13,8 +13,7 @@ from twisted.python.failure import Failure
 
 from twext.python.log import Logger
 from twext.web2 import responsecode
-from twext.web2.dav import davxml
-from txdav.xml.base import WebDAVElement
+from txdav.xml import element
 from twext.web2.dav.http import statusForFailure
 from twext.web2.dav.method.propfind import propertyName
 
@@ -33,20 +32,20 @@ def responseForHref(request, responses, href, resource, propertiesForResource, p
         for status in properties_by_status:
             properties = properties_by_status[status]
             if properties:
-                xml_status = davxml.Status.fromResponseCode(status)
-                xml_container = davxml.PropertyContainer(*properties)
-                xml_propstat = davxml.PropertyStatus(xml_container, xml_status)
+                xml_status = element.Status.fromResponseCode(status)
+                xml_container = element.PropertyContainer(*properties)
+                xml_propstat = element.PropertyStatus(xml_container, xml_status)
 
                 propstats.append(xml_propstat)
 
         if propstats:
-            responses.append(davxml.PropertyStatusResponse(href, *propstats))
+            responses.append(element.PropertyStatusResponse(href, *propstats))
 
     else:
         responses.append(
-            davxml.StatusResponse(
+            element.StatusResponse(
                 href,
-                davxml.Status.fromResponseCode(responsecode.OK),
+                element.Status.fromResponseCode(responsecode.OK),
             )
         )
 
@@ -77,7 +76,7 @@ def _namedPropertiesForResource(request, props, resource):
     }
     
     for property in props:
-        if isinstance(property, WebDAVElement):
+        if isinstance(property, element.WebDAVElement):
             qname = property.qname()
         else:
             qname = property

@@ -29,17 +29,17 @@ from twisted.cred.portal import Portal
 from twext.web2 import responsecode
 from twext.web2.auth import basic
 from twext.web2.stream import MemoryStream
-from twext.web2.dav import davxml
-
 from twext.web2.dav.util import davXMLFromStream
 from twext.web2.dav.auth import TwistedPasswordProperty, IPrincipal, DavRealm, TwistedPropertyChecker, AuthenticationWrapper
 from twext.web2.dav.fileop import rmdir
-
-import twext.web2.dav.test.util
 from twext.web2.test.test_server import SimpleRequest
 from twext.web2.dav.test.util import Site, serialize
 from twext.web2.dav.test.test_resource import \
     TestDAVPrincipalResource, TestPrincipalsCollection
+
+from txdav.xml import element
+
+import twext.web2.dav.test.util
 
 class ACL(twext.web2.dav.test.util.TestCase):
     """
@@ -75,14 +75,14 @@ class ACL(twext.web2.dav.test.util.TestCase):
             loginInterfaces
         ))
 
-        rootResource.setAccessControlList(self.grant(davxml.All()))
+        rootResource.setAccessControlList(self.grant(element.All()))
 
         for name, acl in (
             ("none"       , self.grant()),
-            ("read"       , self.grant(davxml.Read())),
-            ("read-write" , self.grant(davxml.Read(), davxml.Write())),
-            ("unlock"     , self.grant(davxml.Unlock())),
-            ("all"        , self.grant(davxml.All())),
+            ("read"       , self.grant(element.Read())),
+            ("read-write" , self.grant(element.Read(), element.Write())),
+            ("unlock"     , self.grant(element.Unlock())),
+            ("all"        , self.grant(element.All())),
         ):
             filename = os.path.join(docroot, name)
             if not os.path.isfile(filename):
@@ -92,8 +92,8 @@ class ACL(twext.web2.dav.test.util.TestCase):
 
         for name, acl in (
             ("nobind" , self.grant()),
-            ("bind"   , self.grant(davxml.Bind())),
-            ("unbind" , self.grant(davxml.Bind(), davxml.Unbind())),
+            ("bind"   , self.grant(element.Bind())),
+            ("unbind" , self.grant(element.Bind(), element.Unbind())),
         ):
             dirname = os.path.join(docroot, name)
             if not os.path.isdir(dirname):
@@ -131,15 +131,15 @@ class ACL(twext.web2.dav.test.util.TestCase):
                 src_resource = self.resource_class(src_path)
                 src_resource.setAccessControlList({
                     "nobind": self.grant(),
-                    "bind"  : self.grant(davxml.Bind()),
-                    "unbind": self.grant(davxml.Bind(), davxml.Unbind())
+                    "bind"  : self.grant(element.Bind()),
+                    "unbind": self.grant(element.Bind(), element.Unbind())
                 }[src])
                 for name, acl in (
                     ("none"       , self.grant()),
-                    ("read"       , self.grant(davxml.Read())),
-                    ("read-write" , self.grant(davxml.Read(), davxml.Write())),
-                    ("unlock"     , self.grant(davxml.Unlock())),
-                    ("all"        , self.grant(davxml.All())),
+                    ("read"       , self.grant(element.Read())),
+                    ("read-write" , self.grant(element.Read(), element.Write())),
+                    ("unlock"     , self.grant(element.Unlock())),
+                    ("all"        , self.grant(element.All())),
                 ):
                     filename = os.path.join(src_path, name)
                     if not os.path.isfile(filename):
@@ -318,7 +318,7 @@ class ACL(twext.web2.dav.test.util.TestCase):
 
                 request = SimpleRequest(self.site, "PROPPATCH", "/" + name)
                 request.stream = MemoryStream(
-                    davxml.WebDAVDocument(davxml.PropertyUpdate()).toxml()
+                    element.WebDAVDocument(element.PropertyUpdate()).toxml()
                 )
                 _add_auth_header(request)
 
@@ -354,7 +354,7 @@ class ACL(twext.web2.dav.test.util.TestCase):
 
                     request = SimpleRequest(self.site, method, "/" + name)
                     if method == "REPORT":
-                        request.stream = MemoryStream(davxml.PrincipalPropertySearch().toxml())
+                        request.stream = MemoryStream(element.PrincipalPropertySearch().toxml())
 
                     _add_auth_header(request)
 

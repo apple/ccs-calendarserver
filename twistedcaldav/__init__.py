@@ -38,12 +38,7 @@ import twistedcaldav.carddavxml
 import twistedcaldav.mkcolxml
 import twistedcaldav.customxml
 
-from txdav.xml.element import registerElements
-
-registerElements(twistedcaldav.caldavxml)
-registerElements(twistedcaldav.customxml)
-registerElements(twistedcaldav.carddavxml)
-registerElements(twistedcaldav.mkcolxml)
+twistedcaldav # Shhh.. pyflakes
 
 #
 # DefaultHTTPHandler

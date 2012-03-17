@@ -27,15 +27,12 @@ from twisted.internet.protocol import Protocol
 from twisted.python import hashlib
 
 from twext.python.clsprop import classproperty
-
-from twext.enterprise.ienterprise import AlreadyFinishedError
-
-from twext.python.filepath import CachingFilePath as FilePath
-from twext.web2.dav import davxml
-from twext.web2.http_headers import MimeType
-from txdav.xml.base import WebDAVUnknownElement
 from twext.python.vcomponent import VComponent
+from twext.python.filepath import CachingFilePath as FilePath
+from twext.enterprise.ienterprise import AlreadyFinishedError
+from twext.web2.http_headers import MimeType
 
+from txdav.xml.element import WebDAVUnknownElement, ResourceType
 from txdav.idav import IPropertyStore, IDataStore
 from txdav.base.propertystore.base import PropertyName
 from txdav.common.icommondatastore import HomeChildNameAlreadyExistsError, \
@@ -710,9 +707,9 @@ class CommonTests(CommonCommonTests):
                 yield home.calendarWithName(name)).properties()
             self.assertEquals(
                 calendarProperties[
-                    PropertyName.fromString(davxml.ResourceType.sname())
+                    PropertyName.fromString(ResourceType.sname())
                 ],
-                davxml.ResourceType.calendar #@UndefinedVariable
+                ResourceType.calendar #@UndefinedVariable
             )
         yield checkProperties()
 

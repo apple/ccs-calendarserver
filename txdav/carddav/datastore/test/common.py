@@ -41,8 +41,7 @@ from txdav.common.datastore.test.util import CommonCommonTests
 from twistedcaldav.vcard import Component as VComponent
 
 from twext.python.filepath import CachingFilePath as FilePath
-from twext.web2.dav import davxml
-from txdav.xml.base import WebDAVUnknownElement
+from txdav.xml.element import WebDAVUnknownElement, ResourceType
 
 
 storePath = FilePath(__file__).parent().child("addressbook_store")
@@ -319,10 +318,10 @@ class CommonTests(CommonCommonTests):
         self.assertNotIdentical((yield home.addressbookWithName(name)), None)
         def checkProperties():
             addressbookProperties = (yield home.addressbookWithName(name)).properties()
-            addressbookType = davxml.ResourceType.addressbook #@UndefinedVariable
+            addressbookType = ResourceType.addressbook #@UndefinedVariable
             self.assertEquals(
                 addressbookProperties[
-                    PropertyName.fromString(davxml.ResourceType.sname())
+                    PropertyName.fromString(ResourceType.sname())
                 ],
                 addressbookType
             )

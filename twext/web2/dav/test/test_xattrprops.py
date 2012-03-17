@@ -15,7 +15,7 @@ from twext.web2.responsecode import NOT_FOUND, INTERNAL_SERVER_ERROR
 from twext.web2.responsecode import FORBIDDEN
 from twext.web2.http import HTTPError
 from twext.web2.dav.static import DAVFile
-from twext.web2.dav.davxml import Depth, WebDAVDocument
+from txdav.xml.element import Depth, WebDAVDocument
 
 try:
     from twext.web2.dav.xattrprops import xattrPropertyStore

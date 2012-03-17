@@ -22,7 +22,7 @@ from zlib import compress
 from cPickle import loads as unpickle, UnpicklingError
 
 from twext.python.log import Logger
-from twext.web2.dav import davxml
+from txdav.xml import element
 from twext.web2.dav.fileop import rmdir
 
 from twistedcaldav import caldavxml
@@ -814,7 +814,7 @@ def updateFreeBusySet(value, directory):
         pass
 
     try:
-        doc = davxml.WebDAVDocument.fromString(value)
+        doc = element.WebDAVDocument.fromString(value)
         freeBusySet = doc.root_element
     except ValueError:
         try:
@@ -837,7 +837,7 @@ def updateFreeBusySet(value, directory):
                 fbset.add(newHref)
 
     if didUpdate:
-        property = caldavxml.CalendarFreeBusySet(*[davxml.HRef(href)
+        property = caldavxml.CalendarFreeBusySet(*[element.HRef(href)
             for href in fbset])
         value = compress(property.toxml())
         return value
@@ -1112,8 +1112,8 @@ class PostDBImportService(Service, object):
                     request = FakeRequest(root, "PUT", None)
                     request.noAttendeeRefresh = True # tell scheduling to skip refresh
                     request.checkedSACL = True
-                    request.authnUser = request.authzUser = davxml.Principal(
-                        davxml.HRef.fromString("/principals/__uids__/%s/" % (uuid,))
+                    request.authnUser = request.authzUser = element.Principal(
+                        element.HRef.fromString("/principals/__uids__/%s/" % (uuid,))
                     )
 
                     # The request may end up with an associated transaction and we must make sure that is

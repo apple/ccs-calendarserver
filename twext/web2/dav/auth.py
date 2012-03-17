@@ -1,10 +1,24 @@
-from zope.interface import implements, Interface
-from twisted.internet import defer
-from twisted.cred import checkers, error, portal
-from twext.web2.resource import WrapperResource
-from twext.web2.dav import davxml
-from twext.web2.dav.davxml import twisted_private_namespace
-from txdav.xml.element import registerElement
+##
+# Copyright (c) 2005-2012 Apple Computer, Inc. All rights reserved.
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+# 
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+# 
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+##
 
 __all__ = [
     "IPrincipal",
@@ -13,6 +27,14 @@ __all__ = [
     "PrincipalCredentials",
     "AuthenticationWrapper",
 ]
+
+from zope.interface import implements, Interface
+from twisted.internet import defer
+from twisted.cred import checkers, error, portal
+from twext.web2.resource import WrapperResource
+from txdav.xml.element import twisted_private_namespace, registerElement
+from txdav.xml.element import WebDAVTextElement, Principal, HRef
+
 
 class AuthenticationWrapper(WrapperResource):
     def __init__(self, resource, portal, credentialFactories, loginInterfaces):
@@ -48,7 +70,7 @@ class DavRealm(object):
 
     def requestAvatar(self, avatarId, mind, *interfaces):
         if IPrincipal in interfaces:
-            return IPrincipal, davxml.Principal(davxml.HRef(avatarId[0])), davxml.Principal(davxml.HRef(avatarId[1]))
+            return IPrincipal, Principal(HRef(avatarId[0])), Principal(HRef(avatarId[1]))
         
         raise NotImplementedError("Only IPrincipal interface is supported")
 
@@ -109,7 +131,7 @@ class TwistedPropertyChecker(object):
 # Utilities
 ##
 
-class TwistedPasswordProperty (davxml.WebDAVTextElement):
+class TwistedPasswordProperty (WebDAVTextElement):
     namespace = twisted_private_namespace
     name = "password"
 

@@ -29,12 +29,14 @@ See RFC 4331: http://www.ietf.org/rfc/rfc4331.txt
 """
 
 from txdav.xml.base import WebDAVTextElement
-
+from txdav.xml.element import registerElement, registerElementClass
 
 ##
 # Section 3 & 4 (Quota Properties)
 ##
 
+@registerElement
+@registerElementClass
 class QuotaAvailableBytes (WebDAVTextElement):
     """
     Property which contains the the number of bytes available under the
@@ -45,6 +47,8 @@ class QuotaAvailableBytes (WebDAVTextElement):
     protected = True
 
 
+@registerElement
+@registerElementClass
 class QuotaUsedBytes (WebDAVTextElement):
     """
     Property which contains the the number of bytes used under the

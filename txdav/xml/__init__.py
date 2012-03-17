@@ -2,7 +2,7 @@
 # See LICENSE for details.
 
 ##
-# Copyright (c) 2005-1012 Apple Computer, Inc. All rights reserved.
+# Copyright (c) 2005-2012 Apple Computer, Inc. All rights reserved.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -25,16 +25,28 @@
 
 """
 WebDAV XML support.
+
+This module provides XML utilities for use with WebDAV.
+
+See RFC 2518: http://www.ietf.org/rfc/rfc2518.txt (WebDAV)
+See RFC 3253: http://www.ietf.org/rfc/rfc3253.txt (WebDAV + Versioning)
+See RFC 3744: http://www.ietf.org/rfc/rfc3744.txt (WebDAV ACLs)
+See RFC 4331: http://www.ietf.org/rfc/rfc4331.txt (WebDAV Quota)
+See RFC 5842: http://www.ietf.org/rfc/rfc5842.txt (WebDAV Bind)
 """
 
 __all__ = [
     "base",
+    "element",
     "parser",
-    "util",
-    "rfc2518",
-    "rfc3253",
-    "rfc3744",
-    "rfc4331",
-    "rfc5842",
-    "extensions",
 ]
+
+import txdav.xml.rfc2518
+import txdav.xml.rfc3253
+import txdav.xml.rfc3744
+import txdav.xml.rfc4331
+import txdav.xml.rfc5842
+import txdav.xml.extensions
+
+txdav # Shhh pyflakes
+

@@ -25,7 +25,11 @@ change.
 See draft spec: 
 """
 
-from twext.web2.dav import davxml
+from txdav.xml.element import registerElement, dav_namespace
+from txdav.xml.element import WebDAVElement, PCDATAElement
+from txdav.xml.element import WebDAVEmptyElement, WebDAVTextElement
+from txdav.xml.element import ResourceType, Collection
+
 from twistedcaldav.vcard import Component
 
 ##
@@ -38,24 +42,29 @@ carddav_compliance = (
     "addressbook",
 )
 
-class CardDAVElement (davxml.WebDAVElement):
+
+class CardDAVElement (WebDAVElement):
     """
     CardDAV XML element.
     """
     namespace = carddav_namespace
 
-class CardDAVEmptyElement (davxml.WebDAVEmptyElement):
+
+class CardDAVEmptyElement (WebDAVEmptyElement):
     """
     CardDAV element with no contents.
     """
     namespace = carddav_namespace
 
-class CardDAVTextElement (davxml.WebDAVTextElement):
+
+class CardDAVTextElement (WebDAVTextElement):
     """
     CardDAV element containing PCDATA.
     """
     namespace = carddav_namespace
 
+
+@registerElement
 class AddressBookHomeSet (CardDAVElement):
     """
     The address book collections URLs for this principal.
@@ -64,8 +73,10 @@ class AddressBookHomeSet (CardDAVElement):
     name = "addressbook-home-set"
     hidden = True
 
-    allowed_children = { (davxml.dav_namespace, "href"): (0, None) }
+    allowed_children = { (dav_namespace, "href"): (0, None) }
 
+
+@registerElement
 class AddressBookDescription (CardDAVTextElement):
     """
     Provides a human-readable description of what this address book collection
@@ -76,6 +87,8 @@ class AddressBookDescription (CardDAVTextElement):
     hidden = True
     # May be protected; but we'll let the client set this if they like.
 
+
+@registerElement
 class SupportedAddressData (CardDAVElement):
     """
     Specifies restrictions on an address book collection.
@@ -87,6 +100,8 @@ class SupportedAddressData (CardDAVElement):
 
     allowed_children = { (carddav_namespace, "address-data-type"): (0, None) }
 
+
+@registerElement
 class MaxResourceSize (CardDAVTextElement):
     """
     Specifies restrictions on an address book collection.
@@ -96,6 +111,8 @@ class MaxResourceSize (CardDAVTextElement):
     hidden = True
     protected = True
 
+
+@registerElement
 class AddressBook (CardDAVEmptyElement):
     """
     Denotes an address book collection.
@@ -103,6 +120,8 @@ class AddressBook (CardDAVEmptyElement):
     """
     name = "addressbook"
 
+
+@registerElement
 class AddressBookQuery (CardDAVElement):
     """
     Defines a report for querying address book data.
@@ -111,11 +130,11 @@ class AddressBookQuery (CardDAVElement):
     name = "addressbook-query"
 
     allowed_children = {
-        (davxml.dav_namespace, "allprop" ): (0, None),
-        (davxml.dav_namespace, "propname"): (0, None),
-        (davxml.dav_namespace, "prop"    ): (0, None),
-        (carddav_namespace,    "filter"  ): (0, 1), # Actually (1, 1) unless element is empty
-        (carddav_namespace,    "limit"    ): (0, None),
+        (dav_namespace,     "allprop" ): (0, None),
+        (dav_namespace,     "propname"): (0, None),
+        (dav_namespace,     "prop"    ): (0, None),
+        (carddav_namespace, "filter"  ): (0, 1), # Actually (1, 1) unless element is empty
+        (carddav_namespace, "limit"    ): (0, None),
     }
 
     def __init__(self, *children, **attributes):
@@ -129,9 +148,9 @@ class AddressBookQuery (CardDAVElement):
             qname = child.qname()
 
             if qname in (
-                (davxml.dav_namespace, "allprop" ),
-                (davxml.dav_namespace, "propname"),
-                (davxml.dav_namespace, "prop"    ),
+                (dav_namespace, "allprop" ),
+                (dav_namespace, "propname"),
+                (dav_namespace, "prop"    ),
             ):
                 if props is not None:
                     raise ValueError("Only one of CardDAV:allprop, CardDAV:propname, CardDAV:prop allowed")
@@ -155,6 +174,8 @@ class AddressBookQuery (CardDAVElement):
         self.filter = filter
         self.limit = limit
 
+
+@registerElement
 class AddressDataType (CardDAVEmptyElement):
     """
     Defines which parts of a address component object should be returned by a
@@ -168,6 +189,8 @@ class AddressDataType (CardDAVEmptyElement):
         "version"     : False,
     }
 
+
+@registerElement
 class AddressData (CardDAVElement):
     """
     Defines which parts of a address component object should be returned by a
@@ -178,8 +201,8 @@ class AddressData (CardDAVElement):
 
     allowed_children = {
         (carddav_namespace, "allprop"): (0, 1),
-        (carddav_namespace, "prop"): (0, None),
-        davxml.PCDATAElement:        (0, None),
+        (carddav_namespace, "prop"   ): (0, None),
+        PCDATAElement                 : (0, None),
     }
     allowed_attributes = {
         "content-type": False,
@@ -189,7 +212,7 @@ class AddressData (CardDAVElement):
     @classmethod
     def fromAddress(clazz, address):
         assert address.name() == "VCARD", "Not a vCard: %r" % (address,)
-        return clazz(davxml.PCDATAElement(str(address)))
+        return clazz(PCDATAElement(str(address)))
 
     @classmethod
     def fromAddressData(clazz, addressdata):
@@ -198,7 +221,7 @@ class AddressData (CardDAVElement):
         @param addressdata: a string of valid address data.
         @return: a L{Addressata} element.
         """
-        return clazz(davxml.PCDATAElement(addressdata))
+        return clazz(PCDATAElement(addressdata))
 
     fromTextData = fromAddressData
 
@@ -227,7 +250,7 @@ class AddressData (CardDAVElement):
                     else:
                         raise ValueError("CardDAV:allprop and CardDAV:prop may not be combined")
 
-            elif isinstance(child, davxml.PCDATAElement):
+            elif isinstance(child, PCDATAElement):
                 if data is None:
                     data = child
                 else:
@@ -289,7 +312,7 @@ class AddressData (CardDAVElement):
         Returns an address component derived from this element.
         """
         for data in self.children:
-            if not isinstance(data, davxml.PCDATAElement):
+            if not isinstance(data, PCDATAElement):
                 return None
             else:
                 # We guaranteed in __init__() that there is only one child...
@@ -299,6 +322,8 @@ class AddressData (CardDAVElement):
 
     textData = addressData
 
+
+@registerElement
 class AllProperties (CardDAVEmptyElement):
     """
     Specifies that all properties shall be returned.
@@ -306,6 +331,8 @@ class AllProperties (CardDAVEmptyElement):
     """
     name = "allprop"
 
+
+@registerElement
 class Property (CardDAVEmptyElement):
     """
     Defines a property to return in a response.
@@ -334,6 +361,8 @@ class Property (CardDAVEmptyElement):
         else:
             self.novalue = False
 
+
+@registerElement
 class Filter (CardDAVElement):
     """
     Determines which matching components are returned.
@@ -344,6 +373,8 @@ class Filter (CardDAVElement):
     allowed_children = { (carddav_namespace, "prop-filter"): (0, None) }
     allowed_attributes = { "test": False }
         
+
+@registerElement
 class PropertyFilter (CardDAVElement):
     """
     Limits a search to specific properties.
@@ -361,6 +392,8 @@ class PropertyFilter (CardDAVElement):
         "test": False,
     }
 
+
+@registerElement
 class ParameterFilter (CardDAVElement):
     """
     Limits a search to specific parameters.
@@ -374,7 +407,9 @@ class ParameterFilter (CardDAVElement):
     }
     allowed_attributes = { "name": True }
 
-class Limit (davxml.WebDAVElement):
+
+@registerElement
+class Limit (WebDAVElement):
     """
     Client supplied limit for reports.
     """
@@ -384,7 +419,9 @@ class Limit (davxml.WebDAVElement):
         (carddav_namespace, "nresults" )  : (1, 1),
     }
 
-class NResults (davxml.WebDAVTextElement):
+
+@registerElement
+class NResults (WebDAVTextElement):
     """
     Number of results limit.
     """
@@ -392,6 +429,8 @@ class NResults (davxml.WebDAVTextElement):
     name = "nresults"
 
 
+
+@registerElement
 class IsNotDefined (CardDAVEmptyElement):
     """
     Specifies that the named vCard item does not exist.
@@ -399,6 +438,8 @@ class IsNotDefined (CardDAVEmptyElement):
     """
     name = "is-not-defined"
 
+
+@registerElement
 class TextMatch (CardDAVTextElement):
     """
     Specifies a substring match on a property or parameter value.
@@ -408,11 +449,11 @@ class TextMatch (CardDAVTextElement):
 
     def fromString(clazz, string): #@NoSelf
         if type(string) is str:
-            return clazz(davxml.PCDATAElement(string))
+            return clazz(PCDATAElement(string))
         elif type(string) is unicode:
-            return clazz(davxml.PCDATAElement(string.encode("utf-8")))
+            return clazz(PCDATAElement(string.encode("utf-8")))
         else:
-            return clazz(davxml.PCDATAElement(str(string)))
+            return clazz(PCDATAElement(str(string)))
 
     fromString = classmethod(fromString)
 
@@ -422,6 +463,8 @@ class TextMatch (CardDAVTextElement):
         "match-type": False
     }
 
+
+@registerElement
 class AddressBookMultiGet (CardDAVElement):
     """
     CardDAV report used to retrieve specific vCard items via their URIs.
@@ -432,10 +475,10 @@ class AddressBookMultiGet (CardDAVElement):
     # To allow for an empty element in a supported-report-set property we need
     # to relax the child restrictions
     allowed_children = {
-        (davxml.dav_namespace, "allprop" ): (0, 1),
-        (davxml.dav_namespace, "propname"): (0, 1),
-        (davxml.dav_namespace, "prop"    ): (0, 1),
-        (davxml.dav_namespace, "href"    ): (0, None),    # Actually ought to be (1, None)
+        (dav_namespace, "allprop" ): (0, 1),
+        (dav_namespace, "propname"): (0, 1),
+        (dav_namespace, "prop"    ): (0, 1),
+        (dav_namespace, "href"    ): (0, None),    # Actually ought to be (1, None)
     }
 
     def __init__(self, *children, **attributes):
@@ -448,20 +491,22 @@ class AddressBookMultiGet (CardDAVElement):
             qname = child.qname()
 
             if qname in (
-                (davxml.dav_namespace, "allprop" ),
-                (davxml.dav_namespace, "propname"),
-                (davxml.dav_namespace, "prop"    ),
+                (dav_namespace, "allprop" ),
+                (dav_namespace, "propname"),
+                (dav_namespace, "prop"    ),
             ):
                 if property is not None:
                     raise ValueError("Only one of DAV:allprop, DAV:propname, DAV:prop allowed")
                 property = child
 
-            elif qname == (davxml.dav_namespace, "href"):
+            elif qname == (dav_namespace, "href"):
                 resources.append(child)
 
         self.property  = property
         self.resources = resources
 
+
+@registerElement
 class NoUIDConflict(CardDAVElement):
     """
     CardDAV precondition used to indicate a UID conflict during PUT/COPY/MOVE.
@@ -469,8 +514,10 @@ class NoUIDConflict(CardDAVElement):
     """
     name = "no-uid-conflict"
 
-    allowed_children = { (davxml.dav_namespace, "href"): (1, 1) }
+    allowed_children = { (dav_namespace, "href"): (1, 1) }
     
+
+@registerElement
 class SupportedFilter(CardDAVElement):
     """
     CardDAV precondition used to indicate an unsupported component type in a
@@ -484,6 +531,8 @@ class SupportedFilter(CardDAVElement):
         (carddav_namespace, "param-filter"): (0, None)
     }
     
+
+@registerElement
 class DirectoryGateway(CardDAVElement):
     """
     CardDAV property on a principal to indicate where the directory gateway resource is.
@@ -492,27 +541,32 @@ class DirectoryGateway(CardDAVElement):
     hidden = True
     protected = True
 
-    allowed_children = { (davxml.dav_namespace, "href"): (0, None) }
+    allowed_children = { (dav_namespace, "href"): (0, None) }
     
+
+@registerElement
 class Directory(CardDAVEmptyElement):
     """
     CardDAV property on a principal to indicate where the directory resource is.
     """
     name = "directory"
     
+
+@registerElement
 class DefaultAddressBookURL (CardDAVElement):
     """
     A single href indicating which addressbook is the default.
     """
     name = "default-addressbook-URL"
 
-    allowed_children = { (davxml.dav_namespace, "href"): (0, 1) }
+    allowed_children = { (dav_namespace, "href"): (0, 1) }
 
 ##
-# Extensions to davxml.ResourceType
+# Extensions to ResourceType
 ##
 
 def _isAddressBook(self): return bool(self.childrenOfType(AddressBook))
-davxml.ResourceType.isAddressBook = _isAddressBook
-davxml.ResourceType.addressbook = davxml.ResourceType(davxml.Collection(), AddressBook())
-davxml.ResourceType.directory = davxml.ResourceType(davxml.Collection(), AddressBook(), Directory())
+ResourceType.isAddressBook = _isAddressBook
+
+ResourceType.addressbook = ResourceType(Collection(), AddressBook())
+ResourceType.directory   = ResourceType(Collection(), AddressBook(), Directory())

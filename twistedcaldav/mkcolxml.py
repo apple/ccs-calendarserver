@@ -26,6 +26,7 @@ See RFC 5689.
 """
 
 from twext.web2.dav import davxml
+from txdav.xml.element import registerElement
 
 ##
 # Extended MKCOL objects
@@ -35,6 +36,8 @@ mkcol_compliance = (
     "extended-mkcol",
 )
 
+
+@registerElement
 class MakeCollection (davxml.WebDAVElement):
     """
     Top-level element for request body in MKCOL.
@@ -46,6 +49,8 @@ class MakeCollection (davxml.WebDAVElement):
 
     child_types = { "WebDAVUnknownElement": (0, None) }
 
+
+@registerElement
 class MakeCollectionResponse (davxml.WebDAVElement):
     """
     Top-level element for response body in MKCOL.

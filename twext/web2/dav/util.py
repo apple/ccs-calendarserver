@@ -50,7 +50,7 @@ from twisted.internet.defer import succeed
 
 from twext.python.log import Logger
 from twext.web2.stream import readStream
-from twext.web2.dav import davxml
+from txdav.xml.parser import WebDAVDocument
 
 log = Logger()
 
@@ -79,7 +79,7 @@ def davXMLFromStream(stream):
 
     def parse(xml):
         try:
-            doc = davxml.WebDAVDocument.fromString(xml)
+            doc = WebDAVDocument.fromString(xml)
             doc.root_element.validate()
             return doc
         except ValueError:
