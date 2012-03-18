@@ -30,6 +30,9 @@ to add members to WebDAV collections.
 See RFC 5995: http://www.ietf.org/rfc/rfc5995.txt
 """
 
+__all__ = []
+
+
 from txdav.xml.base import WebDAVElement, dav_namespace
 from txdav.xml.element import registerElement, registerElementClass
 

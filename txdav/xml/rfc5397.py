@@ -29,6 +29,9 @@ DAV:current-user-principal property.
 See RFC 5397: http://www.ietf.org/rfc/rfc5397.txt
 """
 
+__all__ = []
+
+
 from txdav.xml.base import WebDAVElement, dav_namespace
 from txdav.xml.element import registerElement, registerElementClass
 

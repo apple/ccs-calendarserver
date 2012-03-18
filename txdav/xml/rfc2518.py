@@ -30,6 +30,9 @@ This module provides XML element definitions for use with WebDAV.
 See RFC 2518: http://www.ietf.org/rfc/rfc2518.txt
 """
 
+__all__ = []
+
+
 from twext.web2 import responsecode
 from twext.web2.http_headers import MimeType
 

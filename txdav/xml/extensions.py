@@ -28,6 +28,9 @@
 Implementation of draft-sanchez-webdav-current-principal-02.
 """
 
+__all__ = []
+
+
 from txdav.xml.base import WebDAVTextElement, twisted_dav_namespace
 from txdav.xml.element import registerElement, registerElementClass
 

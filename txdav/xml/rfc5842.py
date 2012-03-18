@@ -20,9 +20,6 @@
 # SOFTWARE.
 ##
 
-from txdav.xml.base import WebDAVTextElement, WebDAVElement
-from txdav.xml.element import dav_namespace, registerElement, registerElementClass
-
 """
 RFC 5842 (Binding Extensions to WebDAV) XML Elements
 
@@ -30,6 +27,13 @@ This module provides XML element definitions for use with WebDAV.
 
 See RFC 5842: http://www.ietf.org/rfc/rfc5842.txt
 """
+
+__all__ = []
+
+
+from txdav.xml.base import WebDAVTextElement, WebDAVElement
+from txdav.xml.element import dav_namespace, registerElement, registerElementClass
+
 
 @registerElement
 @registerElementClass

@@ -32,6 +32,9 @@ See draft-daboo-webdav-sync: http://tools.ietf.org/html/draft-daboo-webdav-sync
 Last draft referenced: -08
 """
 
+__all__ = []
+
+
 from txdav.xml.base import WebDAVElement, WebDAVTextElement, dav_namespace
 from txdav.xml.element import registerElement, registerElementClass
 from txdav.xml.rfc2518 import MultiStatus

@@ -28,8 +28,12 @@ This module provides XML element definitions for use with WebDAV.
 See RFC 4331: http://www.ietf.org/rfc/rfc4331.txt
 """
 
+__all__ = []
+
+
 from txdav.xml.base import WebDAVTextElement
 from txdav.xml.element import registerElement, registerElementClass
+
 
 ##
 # Section 3 & 4 (Quota Properties)

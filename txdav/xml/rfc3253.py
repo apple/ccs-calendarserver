@@ -28,6 +28,9 @@ This module provides XML element definitions for use with WebDAV.
 See RFC 3253: http://www.ietf.org/rfc/rfc3253.txt
 """
 
+__all__ = []
+
+
 from txdav.xml.base import WebDAVElement, WebDAVTextElement, dav_namespace
 from txdav.xml.element import registerElement, registerElementClass
 
