@@ -18,7 +18,7 @@
 This module provides XML definitions for use with Timezone Standard Service.
 """
 
-from twext.web2.dav import davxml
+from txdav.xml import element as davxml
 from txdav.xml.element import registerElement
 
 

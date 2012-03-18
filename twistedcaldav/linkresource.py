@@ -17,7 +17,7 @@
 
 from twext.python.log import LoggingMixIn
 from twext.web2 import responsecode, server, http
-from twext.web2.dav import davxml
+from txdav.xml import element as davxml
 from twext.web2.http import HTTPError, StatusResponse
 from twext.web2.resource import WrapperResource
 

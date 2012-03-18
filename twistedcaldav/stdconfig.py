@@ -21,7 +21,7 @@ import copy
 import os
 import re
 
-from twext.web2.dav import davxml
+from txdav.xml import element as davxml
 from twext.web2.dav.resource import TwistedACLInheritable
 
 from twext.python.plistlib import PlistParser #@UnresolvedImport

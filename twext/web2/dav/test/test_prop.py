@@ -30,7 +30,7 @@ from twext.web2.dav.util import davXMLFromStream
 from twext.web2.test.test_server import SimpleRequest
 from twext.web2.dav.test.util import serialize
 
-from twext.web2.dav import davxml
+from txdav.xml import element as davxml
 from txdav.xml.element import dav_namespace, lookupElement
 
 import twext.web2.dav.test.util

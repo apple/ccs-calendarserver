@@ -51,5 +51,3 @@ __all__ = [
     "util",
     "xattrprops",
 ]
-
-import txdav.xml.element as davxml

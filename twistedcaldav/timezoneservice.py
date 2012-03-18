@@ -25,7 +25,7 @@ __all__ = [
 from twext.web2.dav.http import ErrorResponse
 
 from twext.web2 import responsecode
-from twext.web2.dav import davxml
+from txdav.xml import element as davxml
 from twext.web2.dav.method.propfind import http_PROPFIND
 from twext.web2.dav.noneprops import NonePropertyStore
 from twext.web2.http import HTTPError

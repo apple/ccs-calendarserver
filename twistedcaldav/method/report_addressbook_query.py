@@ -27,7 +27,7 @@ from twisted.internet.defer import inlineCallbacks, returnValue, maybeDeferred
 
 from twext.python.log import Logger
 from twext.web2 import responsecode
-from twext.web2.dav import davxml
+from txdav.xml import element as davxml
 from twext.web2.dav.http import ErrorResponse, MultiStatusResponse
 from twext.web2.dav.method.report import NumberOfMatchesWithinLimits
 from twext.web2.dav.util import joinURL

@@ -17,7 +17,7 @@
 
 from twext.python.log import Logger
 from twext.web2 import responsecode
-from twext.web2.dav import davxml
+from txdav.xml import element as davxml
 from txdav.xml.base import dav_namespace, WebDAVUnknownElement
 from twext.web2.dav.http import ErrorResponse, ResponseQueue, MultiStatusResponse
 from twext.web2.dav.noneprops import NonePropertyStore

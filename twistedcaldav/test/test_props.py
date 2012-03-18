@@ -20,7 +20,7 @@ import os
 
 from twext.web2 import responsecode, http_headers
 from twext.web2.iweb import IResponse
-from twext.web2.dav import davxml
+from txdav.xml import element as davxml
 from twext.web2.dav.util import davXMLFromStream
 from twext.web2.test.test_server import SimpleRequest
 from twistedcaldav import caldavxml

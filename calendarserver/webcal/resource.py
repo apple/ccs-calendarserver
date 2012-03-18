@@ -32,7 +32,7 @@ from twext.web2 import responsecode
 from twext.web2.http import Response
 from twext.web2.http_headers import MimeType
 from twext.web2.stream import MemoryStream
-from twext.web2.dav import davxml
+from txdav.xml import element as davxml
 from twext.web2.dav.resource import TwistedACLInheritable
 
 from twistedcaldav.config import config

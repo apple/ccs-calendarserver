@@ -18,7 +18,7 @@ from twext.internet.ssl import ChainingOpenSSLContextFactory
 from twext.python.log import Logger, LoggingMixIn
 from twext.python.log import LoggingMixIn
 from twext.web2 import responsecode
-from twext.web2.dav import davxml
+from txdav.xml import element as davxml
 from twext.web2.dav.noneprops import NonePropertyStore
 from twext.web2.dav.resource import DAVResource
 from twext.web2.http import Response

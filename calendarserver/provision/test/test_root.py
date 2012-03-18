@@ -24,7 +24,7 @@ from twext.web2 import responsecode
 from twext.web2 import server
 from twext.web2.auth import basic
 from twext.web2.dav import auth
-from twext.web2.dav import davxml
+from txdav.xml import element as davxml
 from twext.web2.http import HTTPError
 from twext.web2.iweb import IResponse
 from twext.web2.test.test_server import SimpleRequest

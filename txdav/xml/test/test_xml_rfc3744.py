@@ -22,7 +22,7 @@
 
 from twisted.trial import unittest
 
-from twext.web2.dav import davxml
+from txdav.xml import element as davxml
 from twext.web2.dav.resource import davPrivilegeSet
 
 

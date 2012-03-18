@@ -29,7 +29,7 @@ from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks, returnValue
 
 from twext.python.log import Logger
-from twext.web2.dav import davxml
+from txdav.xml import element as davxml
 from twext.web2.responsecode import NO_CONTENT
 
 from twistedcaldav import caldavxml

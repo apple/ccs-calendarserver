@@ -27,7 +27,7 @@ from grp import getgrnam
 from twisted.python.util import switchUID
 from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks, returnValue
-from twext.web2.dav import davxml
+from txdav.xml import element as davxml
 
 from twext.python.log import clearLogLevels
 from twext.python.log import StandardIOObserver

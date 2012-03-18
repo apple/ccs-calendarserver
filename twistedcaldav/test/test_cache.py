@@ -20,7 +20,7 @@ import cPickle
 
 from twisted.internet.defer import succeed, maybeDeferred
 
-from twext.web2.dav import davxml
+from txdav.xml import element as davxml
 from twext.web2.dav.util import allDataFromStream
 from twext.web2.stream import MemoryStream
 from twext.web2.http_headers import Headers

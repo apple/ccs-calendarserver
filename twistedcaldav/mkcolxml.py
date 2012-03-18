@@ -25,7 +25,7 @@ change.
 See RFC 5689.
 """
 
-from twext.web2.dav import davxml
+from txdav.xml import element as davxml
 from txdav.xml.element import registerElement
 
 ##

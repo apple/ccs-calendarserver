@@ -34,7 +34,7 @@ from twisted.internet.defer import waitForDeferred, deferredGenerator
 from twext.python.log import Logger
 from twext.web2 import responsecode
 from twext.web2.http import HTTPError
-from twext.web2.dav import davxml
+from txdav.xml import element as davxml
 from twext.web2.dav.method.delete_common import deleteResource
 from twext.web2.dav.util import parentForURL
 

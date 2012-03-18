@@ -22,7 +22,7 @@ __all__ = ["http_GET"]
 
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twext.web2 import responsecode
-from twext.web2.dav import davxml
+from txdav.xml import element as davxml
 from twext.web2.dav.http import ErrorResponse
 from twext.web2.dav.util import parentForURL
 from twext.web2.http import HTTPError

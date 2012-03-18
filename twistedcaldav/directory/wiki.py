@@ -24,7 +24,7 @@ __all__ = [
 ]
 
 from twisted.internet.defer import inlineCallbacks, returnValue
-from twext.web2.dav import davxml
+from txdav.xml import element as davxml
 from twisted.web.xmlrpc import Proxy, Fault
 from twext.web2.http import HTTPError, StatusResponse
 from twext.web2.auth.wrapper import UnauthorizedResponse

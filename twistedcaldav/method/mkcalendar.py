@@ -24,7 +24,7 @@ __all__ = ["http_MKCALENDAR"]
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.python.failure import Failure
 from twext.web2 import responsecode
-from twext.web2.dav import davxml
+from txdav.xml import element as davxml
 from twext.web2.dav.http import MultiStatusResponse, PropertyStatusResponseQueue
 from twext.web2.dav.util import davXMLFromStream
 from twext.web2.dav.util import parentForURL

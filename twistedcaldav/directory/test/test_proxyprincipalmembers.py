@@ -15,7 +15,7 @@
 ##
 
 from twisted.internet.defer import DeferredList, inlineCallbacks, succeed
-from twext.web2.dav import davxml
+from txdav.xml import element as davxml
 
 from twistedcaldav.directory.directory import DirectoryService
 from twistedcaldav.test.util import xmlFile, augmentsFile, proxiesFile

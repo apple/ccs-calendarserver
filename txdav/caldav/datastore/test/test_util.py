@@ -450,7 +450,7 @@ class HomeMigrationTests(CommonCommonTests, BaseTestCase):
         """
         yield self.createConflicted()
         from txdav.base.propertystore.base import PropertyName
-        from twext.web2.dav import davxml
+        from txdav.xml import element as davxml
         class StubConflictingElement(davxml.WebDAVTextElement):
             namespace = "http://example.com/ns/stub-conflict"
             name = "conflict"

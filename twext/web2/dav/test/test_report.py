@@ -28,7 +28,7 @@ from twext.web2 import responsecode
 
 import twext.web2.dav.test.util
 from twext.web2.test.test_server import SimpleRequest
-from twext.web2.dav import davxml
+from txdav.xml import element as davxml
 
 class REPORT(twext.web2.dav.test.util.TestCase):
     """

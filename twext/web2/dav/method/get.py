@@ -31,7 +31,7 @@ __all__ = ["http_OPTIONS", "http_HEAD", "http_GET"]
 
 import twext
 
-from twext.web2.dav import davxml
+from txdav.xml import element as davxml
 from twext.web2.dav.util import parentForURL
 
 def http_OPTIONS(self, request):

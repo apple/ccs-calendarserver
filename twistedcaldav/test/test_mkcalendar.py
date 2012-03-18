@@ -21,7 +21,7 @@ from twisted.internet.defer import inlineCallbacks
 from twext.web2 import responsecode
 from twext.web2.iweb import IResponse
 from twext.web2.stream import MemoryStream
-from twext.web2.dav import davxml
+from txdav.xml import element as davxml
 from twext.web2.dav.fileop import rmdir
 from twext.web2.test.test_server import SimpleRequest
 

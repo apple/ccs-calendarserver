@@ -15,7 +15,7 @@
 ##
 
 from twisted.internet.defer import inlineCallbacks
-from twext.web2.dav import davxml
+from txdav.xml import element as davxml
 
 from twistedcaldav import caldavxml
 

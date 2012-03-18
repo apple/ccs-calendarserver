@@ -40,7 +40,7 @@ from twisted.web.template import XMLFile, Element, renderer, tags
 from twext.web2.auth.digest import DigestedCredentials
 from twext.web2 import responsecode
 from twext.web2.http import HTTPError
-from twext.web2.dav import davxml
+from txdav.xml import element as davxml
 from twext.web2.dav.util import joinURL
 from twext.web2.dav.noneprops import NonePropertyStore
 

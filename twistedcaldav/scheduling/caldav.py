@@ -27,7 +27,7 @@ from twext.web2.dav.http import ErrorResponse
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.python.failure import Failure
 from twext.web2 import responsecode
-from twext.web2.dav import davxml
+from txdav.xml import element as davxml
 from twext.web2.dav.resource import AccessDeniedError
 from twext.web2.dav.util import joinURL
 from twext.web2.http import HTTPError

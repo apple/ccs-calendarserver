@@ -43,7 +43,7 @@ from twext.web2.http_headers import MimeType
 from zope.interface.declarations import implements
 from twext.web2.stream import MemoryStream
 from twext.web2.http import HTTPError
-from twext.web2.dav import davxml
+from txdav.xml import element as davxml
 
 from twisted.web.iweb import ITemplateLoader
 from twisted.web.template import (

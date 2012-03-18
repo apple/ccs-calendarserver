@@ -42,7 +42,7 @@ from twext.web2 import responsecode
 from twext.web2.http import HTTPError, StatusResponse
 from twext.web2.dav.http import ErrorResponse
 from twext.web2.dav.util import davXMLFromStream
-from twext.web2.dav import davxml
+from txdav.xml import element as davxml
 from txdav.xml.element import lookupElement
 
 log = Logger()

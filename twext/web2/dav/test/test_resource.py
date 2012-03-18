@@ -28,7 +28,7 @@ from twext.web2 import responsecode
 from twext.web2.http import HTTPError
 from twext.web2.auth import basic
 from twext.web2.server import Site
-from twext.web2.dav import davxml
+from txdav.xml import element as davxml
 from twext.web2.dav.resource import DAVResource, AccessDeniedError, \
     DAVPrincipalResource, DAVPrincipalCollectionResource, davPrivilegeSet
 from twext.web2.dav.auth import TwistedPasswordProperty, DavRealm, TwistedPropertyChecker, IPrincipal, AuthenticationWrapper

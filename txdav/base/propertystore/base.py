@@ -24,7 +24,7 @@ __all__ = [
 ]
 
 from twext.python.log import LoggingMixIn
-from twext.web2.dav import davxml
+from txdav.xml import element as davxml
 from twext.web2.dav.resource import TwistedGETContentMD5,\
     TwistedQuotaRootProperty
 

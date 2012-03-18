@@ -30,7 +30,7 @@ from twisted.internet.protocol import ProcessProtocol
 from twext.python.memcacheclient import ClientFactory
 from twext.python.filepath import CachingFilePath as FilePath
 import twext.web2.dav.test.util
-from twext.web2.dav import davxml
+from txdav.xml import element as davxml
 from twext.web2.http import HTTPError, StatusResponse
 
 from twistedcaldav import memcacher

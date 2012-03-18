@@ -15,7 +15,7 @@
 ##
 from twistedcaldav.directory.directory import DirectoryService
 
-from twext.web2.dav import davxml
+from txdav.xml import element as davxml
 from twext.web2.dav.resource import AccessDeniedError
 from twext.web2.test.test_server import SimpleRequest
 

@@ -44,7 +44,7 @@ from socket import getfqdn
 from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks, returnValue, deferredGenerator, succeed
 from twext.python.filepath import CachingFilePath as FilePath
-from twext.web2.dav import davxml
+from txdav.xml import element as davxml
 from txdav.xml.base import twisted_dav_namespace, dav_namespace, parse_date, twisted_private_namespace
 from twext.web2.dav.resource import DAVPropertyMixIn
 from twext.web2.dav.util import joinURL

@@ -30,7 +30,7 @@ from zope.interface.verify import verifyObject, BrokenMethodImplementation
 from twisted.internet.defer import inlineCallbacks
 from twisted.trial import unittest
 
-from twext.web2.dav import davxml
+from txdav.xml import element as davxml
 
 from txdav.idav import IPropertyStore
 from txdav.base.propertystore.base import PropertyName

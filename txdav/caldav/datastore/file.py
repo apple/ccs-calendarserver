@@ -37,7 +37,7 @@ from twisted.internet.defer import inlineCallbacks, returnValue, succeed, fail
 from twisted.python.failure import Failure
 
 from twext.python.vcomponent import VComponent
-from twext.web2.dav import davxml
+from txdav.xml import element as davxml
 from txdav.xml.rfc2518 import ResourceType, GETContentType
 from twext.web2.dav.resource import TwistedGETContentMD5
 from twext.web2.http_headers import generateContentType, MimeType

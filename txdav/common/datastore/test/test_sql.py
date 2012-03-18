@@ -19,7 +19,7 @@ Tests for L{txdav.common.datastore.sql}.
 """
 
 from twext.enterprise.dal.syntax import Select
-from twext.web2.dav import davxml
+from txdav.xml import element as davxml
 
 from twisted.internet.defer import inlineCallbacks
 from twisted.internet.task import Clock

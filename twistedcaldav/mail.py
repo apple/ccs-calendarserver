@@ -55,7 +55,7 @@ from twisted.web.microdom import Text as DOMText, Element as DOMElement
 
 from twext.web2 import server, responsecode
 from twext.web2.channel.http import HTTPFactory
-from twext.web2.dav import davxml
+from txdav.xml import element as davxml
 from twext.web2.dav.noneprops import NonePropertyStore
 from twext.web2.http import Response, HTTPError
 from twext.web2.http_headers import MimeType

@@ -26,7 +26,7 @@ __all__ = [
 ]
 
 from twext.web2 import http
-from twext.web2.dav import davxml
+from txdav.xml import element as davxml
 from twext.web2.dav.noneprops import NonePropertyStore
 
 from twisted.internet.defer import succeed

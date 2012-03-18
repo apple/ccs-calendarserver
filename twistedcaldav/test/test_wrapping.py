@@ -24,7 +24,7 @@ from twext.web2.responsecode import UNAUTHORIZED
 from twext.web2.http_headers import Headers
 from twext.enterprise.ienterprise import AlreadyFinishedError
 
-from twext.web2.dav import davxml
+from txdav.xml import element as davxml
 from twistedcaldav.config import config
 
 from twisted.internet.defer import inlineCallbacks, returnValue
