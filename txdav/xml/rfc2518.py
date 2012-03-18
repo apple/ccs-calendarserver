@@ -20,6 +20,8 @@
 # SOFTWARE.
 ##
 
+# FIXME: RFC 2518 is obsoleted by RFC 5689.  Check for changes.
+
 """
 RFC 2518 (WebDAV) XML Elements
 
@@ -711,7 +713,7 @@ class SupportedLock (WebDAVElement):
     allowed_children = { (dav_namespace, "lockentry"): (0, None) }
 
 
-# Pre-conditions codes defined in RFC4918
+# FIXME: Add preconditions codes defined in RFC4918
 
 
 @registerElement

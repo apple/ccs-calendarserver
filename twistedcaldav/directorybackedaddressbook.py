@@ -25,7 +25,6 @@ __all__ = [
 from twext.python.log import Logger
 from twext.web2 import responsecode
 from txdav.xml import element as davxml
-from txdav.xml.extensions import SyncCollection
 from twext.web2.dav.resource import TwistedACLInheritable
 from twext.web2.http import HTTPError, StatusResponse
 
@@ -125,7 +124,7 @@ class DirectoryBackedAddressBookResource (CalDAVResource):
         result = super(DirectoryBackedAddressBookResource, self).supportedReports()
         if config.EnableSyncReport:
             # Not supported on the directory backed address book
-            result.remove(davxml.Report(SyncCollection(),))
+            result.remove(davxml.Report(davxml.SyncCollection(),))
         return result
 
     def resourceType(self):

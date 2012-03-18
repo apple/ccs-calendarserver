@@ -28,7 +28,6 @@ __all__ = [
 
 from twext.web2 import responsecode
 from txdav.xml import element as davxml
-from txdav.xml.extensions import SyncCollection
 from txdav.xml.rfc2518 import HRef
 from twext.web2.dav.http import ErrorResponse, MultiStatusResponse
 from twext.web2.dav.noneprops import NonePropertyStore
@@ -123,7 +122,7 @@ class CalendarSchedulingCollectionResource (CalDAVResource):
         # free-busy report not allowed
         if config.EnableSyncReport:
             # Only allowed on calendar/inbox/addressbook collections
-            result.append(davxml.Report(SyncCollection(),))
+            result.append(davxml.Report(davxml.SyncCollection(),))
         return result
 
 class ScheduleInboxResource (CalendarSchedulingCollectionResource):

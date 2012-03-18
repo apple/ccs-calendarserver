@@ -46,7 +46,9 @@ import txdav.xml.rfc3253
 import txdav.xml.rfc3744
 import txdav.xml.rfc4331
 import txdav.xml.rfc5842
+import txdav.xml.rfc5397
+import txdav.xml.rfc5995
+import txdav.xml.draft_sync
 import txdav.xml.extensions
 
 txdav # Shhh pyflakes
-
