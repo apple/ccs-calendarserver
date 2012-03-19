@@ -243,7 +243,7 @@ class DirectoryExporter(_ExporterBase):
         """
         directory = exportService.directoryService()
         record = directory.recordWithShortName(self.recordType, self.shortName)
-        return record.guid
+        return record.uid
 
 
 
