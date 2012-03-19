@@ -625,6 +625,8 @@ class CalVerifyService(Service, object):
             calendar = yield self.getCalendar(resid)
             if calendar is None:
                 continue
+            if self.options["verbose"] and self.masterComponent(calendar) is None:
+                print "Missing master for organizer: %s, resid: %s, uid: %s" % (organizer, resid, uid,)
             organizerViewOfAttendees = self.buildAttendeeStates(calendar, self.start, self.end)
             try:
                 del organizerViewOfAttendees[organizer]
@@ -892,6 +894,18 @@ class CalVerifyService(Service, object):
             caldata = None
         returnValue(caldata)
 
+
+    def masterComponent(self, calendar):
+        """
+        Return the master iCal component in this calendar.
+        @return: the L{Component} for the master component,
+            or C{None} if there isn't one.
+        """
+        for component in calendar.getComponents(definitions.cICalComponent_VEVENT):
+            if not component.hasProperty("RECURRENCE-ID"):
+                return component
+        
+        return None
 
     def buildAttendeeStates(self, calendar, start, end, attendee_only=None):
         # Expand events into instances in the start/end range
