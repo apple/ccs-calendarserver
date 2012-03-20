@@ -155,8 +155,8 @@ def _migrateCalendar(inCalendar, outCalendar, getComponent, merge=False):
     for calendarObject in (yield inCalendar.calendarObjects()):
         try:
             ctype = yield calendarObject.componentType()
-        except InvalidICalendarDataError, e:
-            log.error("  InvalidICalendarDataError: Failed to migrate calendar object: %s/%s/%s (%s)" % (
+        except Exception, e: # Don't stop for any error
+            log.error("  Failed to migrate calendar object: %s/%s/%s (%s)" % (
                 inCalendar.ownerHome().name(),
                 inCalendar.name(),
                 calendarObject.name(),
@@ -164,6 +164,7 @@ def _migrateCalendar(inCalendar, outCalendar, getComponent, merge=False):
             ))
             bad_count += 1
             continue
+
 
         if ctype not in ("VEVENT", "VTODO"):
             log.error("Migration skipping unsupported (%s) calendar object %r"
