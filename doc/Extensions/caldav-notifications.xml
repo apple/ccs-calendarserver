@@ -318,12 +318,12 @@
                         <t hangText="Namespace:">http://calendarserver.org/ns/</t>
                         <t hangText="Purpose:">Indicates that resources have been created, updated or deleted.</t>
                         <t hangText="Description:">This XML element is used in a CS:notification element to describe a resource change notification. It can describe a change directly to a calendar object resource or to a calendar collection.</t>
-                        <t>When used for a calendar object resource change, it can contain CS:created, CS:updated, CS:deleted elements each of which indicates a created, updated or deleted resource, respectively. The DAV:href element within those three elements, contain the URI of the changed resource, optional information about who changed the resource and when that change was made (the CS:changed-by element), and information specific to the nature of the change. Servers SHOULD coalesce resource change notifications for the same resource into a single notification resource. Servers MAY coalesce resource change notifications to multiple resources into a single notification resource. The CS:updated element optionally contains CS:content and/or DAV:prop elements to indicate a change to the body of the resource or resource WebDAV properties, respectively. The DAV:prop element MAY contain a list of property elements to indicate which properties changed. The CS:updated element can also contain zero or more CS:calendar-changes elements to list details of the changes. If no CS:calendar-changes element is present, the specific details are not provided, and clients will need to assume that some set of changes occurred, but the server is unwilling to disclose the full details. The CS:deleted element can also contain zero or more CS:deleted-details elements to list details of the deleted resource.</t>
+                        <t>When used for a calendar object resource change, it can contain one of the CS:created, or CS:deleted elements, or multiple CS:updated elements, which indicate a created, deleted or updated resource, respectively. The DAV:href element within those elements, contains the URI of the changed resource, optional information about who changed the resource and when that change was made (the CS:changed-by element), and information specific to the nature of the change. Servers SHOULD coalesce resource change notifications for the same resource into a single notification resource where possible. The CS:updated element optionally contains CS:content and/or DAV:prop elements to indicate a change to the body of the resource or resource WebDAV properties, respectively. The DAV:prop element MAY contain a list of property elements to indicate which properties changed. The CS:updated element can also contain zero or more CS:calendar-changes elements to list details of the changes. If no CS:calendar-changes element is present, the specific details are not provided, and clients will need to assume that some set of changes occurred, but the server is unwilling to disclose the full details. The CS:deleted element can also contain zero or more CS:deleted-details elements to list details of the deleted resource.</t>
                         <t>When used for a calendar collection change, it can contain a CS:collection-changes element. The DAV:href element within that element, contains the URI of the changed calendar collection. The DAV:prop element indicates a change to WebDAV properties on the calendar collection resource. The CS:child-created, CS:child-updated, and CS:child-deleted elements each contain a positive integer value indicating how many child resources were added, updated or deleted in the collection, respectively.</t>
                         <t hangText="Definition:">
                           <figure>
                             <artwork><![CDATA[
-<!ELEMENT resource-change ((created*, updated*, deleted*) |
+<!ELEMENT resource-change (created | updated+ | deleted |
                            collection-changes)>
   <!ELEMENT created (DAV:href, changed-by?, ANY)>
   <!ELEMENT updated (DAV:href, changed-by?, content?,
@@ -331,13 +331,15 @@
     <!ELEMENT content EMPTY>
   <!ELEMENT deleted (DAV:href, changed-by?, deleted-details)>
 
-  <!ELEMENT changed-by (first-name, last-name,
+  <!ELEMENT changed-by (common-name | (first-name, last-name),
                         dtstamp?, DAV:href)>
+    <!ELEMENT common-name CDATA>
     <!ELEMENT first-name CDATA>
     <!ELEMENT last-name CDATA>
   <!-- CS:changed-by indicates who made the change that caused the
        notification. CS:first-name and CS:last-name are the first
-       and last names of the corresponding user. CS:dtstamp is the
+       and last names of the corresponding user. or the
+       CS:common-name is the overall display name. CS:dtstamp is the
        time in UTC when the change was made. The DAV:href element
        is the principal URI or email address of the user who made
        the change. -->
@@ -356,7 +358,7 @@
          being reported for the collection. -->]]></artwork>
                           </figure>
                         </t>
-                        <t hangText="Example:">This is an example of the body of a notification resource for changes where one resource has been created, two updated, and one deleted. One of the updated resources elements contains additional information indicating which recurrence instances in the iCalendar data were changed:
+                        <t hangText="Example:">This is an example of the body of a notification resource for changes where one resource has been created:
                           <figure>
                             <artwork><![CDATA[
 <?xml version="1.0" encoding="UTF-8"?>
@@ -367,11 +369,22 @@
     <CS:created>
       <D:href>http://example.com/cyrus/calendar/new.ics</D:href>
       <CS:changed-by>
-        <CS:first-name>Cyrus</CS:first-name>
-        <CS:last-name>Daboo</CS:last-name>
+        <CS:common-name>Cyrus Daboo</CS:common-name>
         <D:href>/principals/cyrusdaboo</D:href>
       </CS:changed-by>
     </CS:created>
+  </CS:resource-change>
+</CS:notification>]]></artwork>
+                          </figure>
+                        </t>
+                        <t hangText="Example:">This is an example of the body of a notification resource for changes where a resource has been updated twice. One of the updated resources elements contains additional information indicating which recurrence instances in the iCalendar data were changed:
+                          <figure>
+                            <artwork><![CDATA[
+<?xml version="1.0" encoding="UTF-8"?>
+<CS:notification xmlns:D="DAV:"
+                 xmlns:CS="http://calendarserver.org/ns/">
+  <CS:dtstamp>2011-12-09T11:51:14-05:00</CS:dtstamp>
+  <CS:resource-change>
     <CS:updated>
       <D:href>http://example.com/cyrus/calendar/event.ics</D:href>
       <CS:changed-by>
@@ -381,13 +394,25 @@
       </CS:changed-by>
     </CS:updated>
     <CS:updated>
-      <D:href>http://example.com/cyrus/calendar/todo.ics</D:href>
+      <D:href>http://example.com/cyrus/calendar/event.ics</D:href>
       <CS:changed-by>
         <CS:first-name>Eleanor</CS:first-name>
         <CS:last-name>Daboo</CS:last-name>
         <D:href>mailto:eleanor@example.com</D:href>
       </CS:changed-by>
     </CS:updated>
+  </CS:resource-change>
+</CS:notification>]]></artwork>
+                          </figure>
+                        </t>
+                        <t hangText="Example:">This is an example of the body of a notification resource for changes where one resource has been deleted:
+                          <figure>
+                            <artwork><![CDATA[
+<?xml version="1.0" encoding="UTF-8"?>
+<CS:notification xmlns:D="DAV:"
+                 xmlns:CS="http://calendarserver.org/ns/">
+  <CS:dtstamp>2011-12-09T11:51:14-05:00</CS:dtstamp>
+  <CS:resource-change>
     <CS:deleted>
       <D:href>http://example.com/cyrus/calendar/old.ics</D:href>
       <CS:changed-by>
@@ -400,7 +425,7 @@
 </CS:notification>]]></artwork>
                           </figure>
                         </t>
-                        <t hangText="Example:">This example is the same as the previous one, except that all the individual resource changes have been coalesced into a single notification about changes to the parent calendar collection:
+                        <t hangText="Example:">This example is the same as the previous three, except that all the individual resource changes have been coalesced into a single notification about changes to the parent calendar collection:
                           <figure>
                             <artwork><![CDATA[
 <?xml version="1.0" encoding="UTF-8"?>
