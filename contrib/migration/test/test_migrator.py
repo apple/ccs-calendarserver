@@ -95,8 +95,6 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
             "SSLCertificate": "/etc/certificates/test.cert.pem",
             "SSLPort": 8443,
             "SSLPrivateKey": "/etc/certificates/test.key.pem",
-            "EnableCalDAV" : False,
-            "EnableCardDAV" : False,
         }
         newCombined = { }
         mergePlist(oldCalDAV, oldCardDAV, newCombined)
@@ -133,8 +131,6 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
             "SSLCertificate": "",
             "SSLPort": 8443,
             "SSLPrivateKey": "",
-            "EnableCalDAV" : False,
-            "EnableCardDAV" : False,
         }
         newCombined = { }
         mergePlist(oldCalDAV, oldCardDAV, newCombined)
@@ -171,8 +167,6 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
             "SSLCertificate": "/etc/certificates/test.cert.pem",
             "SSLPort": 8443,
             "SSLPrivateKey": "/etc/certificates/test.key.pem",
-            "EnableCalDAV" : False,
-            "EnableCardDAV" : False,
         }
         newCombined = { }
         mergePlist(oldCalDAV, oldCardDAV, newCombined)
@@ -209,8 +203,6 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
             "SSLCertificate": "/etc/certificates/test.cert.pem",
             "SSLPort": 8443,
             "SSLPrivateKey": "/etc/certificates/test.key.pem",
-            "EnableCalDAV" : False,
-            "EnableCardDAV" : False,
         }
         newCombined = { }
         mergePlist(oldCalDAV, oldCardDAV, newCombined)
@@ -247,8 +239,6 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
             "SSLCertificate": "/etc/certificates/test.cert.pem",
             "SSLPort": 9999,
             "SSLPrivateKey": "/etc/certificates/test.key.pem",
-            "EnableCalDAV" : False,
-            "EnableCardDAV" : False,
         }
         newCombined = { }
         mergePlist(oldCalDAV, oldCardDAV, newCombined)
@@ -282,8 +272,6 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
             "SSLCertificate": "",
             "SSLPort": 8443,
             "SSLPrivateKey": "",
-            "EnableCalDAV" : False,
-            "EnableCardDAV" : False,
         }
         newCombined = { }
         mergePlist(oldCalDAV, oldCardDAV, newCombined)
@@ -312,8 +300,6 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
             "SSLCertificate": "/etc/certificates/test.cert.pem",
             "SSLPort": 8443,
             "SSLPrivateKey": "/etc/certificates/test.key.pem",
-            "EnableCalDAV" : False,
-            "EnableCardDAV" : False,
         }
         newCombined = { }
         mergePlist(oldCalDAV, oldCardDAV, newCombined)
@@ -333,8 +319,6 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
             "SSLCertificate": "",
             "SSLPort": 8443,
             "SSLPrivateKey": "",
-            "EnableCalDAV" : False,
-            "EnableCardDAV" : False,
         }
         newCombined = { }
         mergePlist(oldCalDAV, oldCardDAV, newCombined)
@@ -380,8 +364,6 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
             "SSLCertificate": "",
             "SSLPort": 8443,
             "SSLPrivateKey": "",
-            "EnableCalDAV" : False,
-            "EnableCardDAV" : False,
         }
         newCombined = { }
         mergePlist(oldCalDAV, oldCardDAV, newCombined)
@@ -419,8 +401,6 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
             "SSLCertificate": "",
             "SSLPort": 8443,
             "SSLPrivateKey": "",
-            "EnableCalDAV" : False,
-            "EnableCardDAV" : False,
         }
         newCombined = { }
         mergePlist(oldCalDAV, oldCardDAV, newCombined)
@@ -458,8 +438,6 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
             "SSLCertificate": "",
             "SSLPort": 8443,
             "SSLPrivateKey": "",
-            "EnableCalDAV" : False,
-            "EnableCardDAV" : False,
         }
         newCombined = { }
         mergePlist(oldCalDAV, oldCardDAV, newCombined)

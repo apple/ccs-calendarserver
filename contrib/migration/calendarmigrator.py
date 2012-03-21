@@ -44,6 +44,12 @@ LOG_DIR = "var/log/caldavd"
 DITTO = "/usr/bin/ditto"
 RESOURCE_MIGRATION_TRIGGER = "trigger_resource_migration"
 
+# For looking up previous run state
+CALDAV_LAUNCHD_KEY = "org.calendarserver.calendarserver"
+CARDDAV_LAUNCHD_KEY = "org.addressbookserver.addressbookserver"
+LAUNCHD_OVERRIDES = "var/db/launchd.db/com.apple.launchd/overrides.plist"
+LAUNCHD_PREFS_DIR = "System/Library/LaunchDaemons"
+SERVER_ADMIN = "%s/usr/sbin/serveradmin" % (SERVER_APP_ROOT,)
 
 # Processed by mergePlist
 specialKeys = """
@@ -109,6 +115,8 @@ def main():
 
         if os.path.exists(options.sourceRoot):
 
+            enableCalDAV, enableCardDAV = examineRunState(options)
+
             # Pull values out of previous plists
             (
                 oldServerRootValue,
@@ -144,6 +152,8 @@ def main():
                 options,
                 newServerRootValue,
                 newDataRootValue,
+                enableCalDAV,
+                enableCardDAV
             )
 
             # Create log directory
@@ -159,14 +169,117 @@ def main():
             # Trigger migration of locations and resources from OD
             triggerResourceMigration(newServerRoot)
 
+            setRunState(options, enableCalDAV, enableCardDAV)
 
     else:
         log("ERROR: --sourceRoot and --sourceVersion must be specified")
         sys.exit(1)
 
 
+def examineRunState(options):
+    """
+    Try to determine whether the CalDAV and CardDAV services were running in
+    previous system.
 
-def migrateConfiguration(options, newServerRootValue, newDataRootValue):
+    @return: a tuple of booleans: whether CalDAV was enabled, and whether
+    CardDAV was enabled
+    """
+
+    enableCalDAV = None
+    enableCardDAV = None
+
+    try:
+        disabled = isServiceDisabled(options.sourceRoot, CALDAV_LAUNCHD_KEY)
+        enableCalDAV = not disabled
+        log("Calendar service '%s' was previously %s" %
+            (CALDAV_LAUNCHD_KEY, "disabled" if disabled else "enabled"))
+    except ServiceStateError, e:
+        log("Couldn't determine previous state of calendar service '%s': %s" %
+            (CALDAV_LAUNCHD_KEY, e))
+
+    try:
+        disabled = isServiceDisabled(options.sourceRoot, CARDDAV_LAUNCHD_KEY)
+        enableCardDAV = not disabled
+        log("Addressbook service '%s' was previously %s" %
+            (CARDDAV_LAUNCHD_KEY, "disabled" if disabled else "enabled"))
+    except ServiceStateError, e:
+        log("Couldn't determine previous state of addressbook service '%s': %s" %
+            (CARDDAV_LAUNCHD_KEY, e))
+
+    if enableCalDAV:
+        # Check previous plist in case previous system was Lion, since there
+        # is now only one launchd key for both services
+        oldCalDAVPlistPath = os.path.join(options.sourceRoot,
+            CALDAVD_CONFIG_DIR, CALDAVD_PLIST)
+        if os.path.exists(oldCalDAVPlistPath):
+            log("Examining previous caldavd.plist for EnableCalDAV and EnableCardDAV: %s" % (oldCalDAVPlistPath,))
+            oldCalDAVDPlist = readPlist(oldCalDAVPlistPath)
+            if "EnableCalDAV" in oldCalDAVDPlist:
+                enableCalDAV = oldCalDAVDPlist["EnableCalDAV"]
+                log("Based on caldavd.plist, setting EnableCalDAV to %s" % (enableCalDAV,))
+            if "EnableCardDAV" in oldCalDAVDPlist:
+                enableCardDAV = oldCalDAVDPlist["EnableCardDAV"]
+                log("Based on caldavd.plist, setting EnableCardDAV to %s" % (enableCardDAV,))
+
+    # A value of None means we weren't able to determine, so default to off
+    if enableCalDAV is None:
+        enableCalDAV = False
+    if enableCardDAV is None:
+        enableCardDAV = False
+
+    return (enableCalDAV, enableCardDAV)
+
+
+def setRunState(options, enableCalDAV, enableCardDAV):
+    """
+    Use serveradmin to launch the service if needed.
+    """
+
+    if enableCalDAV or enableCardDAV:
+        serviceName = "calendar" if enableCalDAV else "addressbook"
+        log("Starting service via serveradmin start %s" % (serviceName,))
+        ret = subprocess.call([SERVER_ADMIN, "start", serviceName])
+        log("serveradmin exited with %d" % (ret,))
+
+
+def isServiceDisabled(source, service):
+    """
+    Returns whether or not a service is disabled
+
+    @param source: System root to examine
+    @param service: launchd key representing service
+    @return: True if service is disabled, False if enabled
+    """
+
+    overridesPath = os.path.join(source, LAUNCHD_OVERRIDES)
+    if os.path.isfile(overridesPath):
+        overrides = readPlist(overridesPath)
+        try:
+            return overrides[service]['Disabled']
+        except KeyError:
+            # Key is not in the overrides.plist, continue on
+            pass
+
+    prefsPath = os.path.join(source, LAUNCHD_PREFS_DIR, "%s.plist" % service)
+    if os.path.isfile(prefsPath):
+        prefs = readPlist(prefsPath)
+        try:
+            return prefs['Disabled']
+        except KeyError:
+            return False
+
+    raise ServiceStateError("Neither %s nor %s exist" %
+        (overridesPath, prefsPath))
+
+
+class ServiceStateError(Exception):
+    """
+    Could not determine service state
+    """
+
+
+
+def migrateConfiguration(options, newServerRootValue, newDataRootValue, enableCalDAV, enableCardDAV):
     """
     Copy files/directories/symlinks from previous system's /etc/caldavd
     and /etc/carddavd
@@ -251,6 +364,10 @@ def migrateConfiguration(options, newServerRootValue, newDataRootValue):
     newCalDAVDPlist["DocumentRoot"] = "Documents"
     newCalDAVDPlist["DataRoot"] = newDataRootValue
 
+    newCalDAVDPlist["EnableCalDAV"] = enableCalDAV
+    newCalDAVDPlist["EnableCardDAV"] = enableCardDAV
+
+
     log("Writing %s" % (newConfigFile,))
     writePlist(newCalDAVDPlist, newConfigFile)
 
@@ -330,11 +447,6 @@ def mergePlist(caldav, carddav, combined):
 
     # If SSL is enabled, redirect HTTP to HTTPS.
     combined["RedirectHTTPToHTTPS"] = enableSSL
-
-    # Default services to disabled
-    combined["EnableCalDAV"] = False
-    combined["EnableCardDAV"] = False
-
 
 
 def log(msg):
