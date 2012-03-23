@@ -174,7 +174,7 @@ if "${build}"; then
     merge_flags="";
   fi;
 
-  sudo buildit "${wc}" CALENDARSERVER_CACHE_DEPS="${CALENDARSERVER_CACHE_DEPS-${wd}/.dependencies}" \
+  sudo buildit "${wc}" \
     $(file /System/Library/Frameworks/Python.framework/Versions/Current/Python | sed -n -e 's|^.*(for architecture \([^)][^)]*\).*$|-arch \1|p' | sed 's|ppc7400|ppc|') \
     ${merge_flags};
 
@@ -190,6 +190,7 @@ if "${build}"; then
 else
   echo "";
   echo "Submitting sources for ${project_version}...";
+  rm -rf "${wc}/.dependencies";
   submitproject "${wc}" ${releases};
 fi;
 
