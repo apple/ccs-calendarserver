@@ -78,6 +78,9 @@ class Folder(File):
 
     @inlineCallbacks
     def locate(self, path):
+        if path[-1] == "":
+            path.pop()
+
         if not path:
             returnValue(RootFolder(self.service))
 
