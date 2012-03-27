@@ -696,7 +696,6 @@ DEFAULT_CONFIG = {
                 "Service" : "calendarserver.push.applepush.ApplePushNotifierService",
                 "Enabled" : False,
                 "SubscriptionURL" : "apns",
-                "AuthMechanisms" : [],
                 "DataHost" : "",
                 "ProviderHost" : "gateway.push.apple.com",
                 "ProviderPort" : 2195,
@@ -892,6 +891,12 @@ DEFAULT_CONFIG = {
         "LockSeconds" : 300,
         "EnableUpdater" : True,
         "UseExternalProxies" : False,
+    },
+
+    "Manhole": {
+        "Enabled": False,
+        "StartingPortNumber": 5000,
+        "PasswordFilePath": "",
     },
 
     "EnableKeepAlive": False,
@@ -1288,17 +1293,6 @@ def _updateNotifications(configDict, reloading=False):
             # The default for apple push DataHost is ServerHostName
             if service["DataHost"] == "":
                 service["DataHost"] = configDict.ServerHostName
-
-            # Advertise Basic and/or Digest on subscription resource
-            if not service["AuthMechanisms"]:
-                authMechanisms = []
-                if configDict.Authentication.Basic.Enabled:
-                    authMechanisms.append("basic")
-                if configDict.Authentication.Digest.Enabled:
-                    authMechanisms.append("digest")
-                if not authMechanisms:
-                    raise ConfigurationError("Must have either 'basic' or 'digest' enabled for Apple Push Notifications.")
-                service["AuthMechanisms"] = authMechanisms
 
             # Retrieve APN topics from certificates if not explicitly set
             for protocol, accountName in (

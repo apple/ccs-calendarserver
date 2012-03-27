@@ -50,6 +50,8 @@ from twisted.application.internet import TCPServer, UNIXServer
 from twisted.application.service import MultiService, IServiceMaker
 from twisted.application.service import Service
 
+from twisted.conch.manhole_tap import makeService as manholeMakeService
+
 import twext
 from twext.web2.server import Site
 from twext.python.log import Logger, LoggingMixIn
@@ -650,6 +652,25 @@ class CalDAVServiceMaker (LoggingMixIn):
         result = self.requestProcessingService(options, store)
         if pool is not None:
             pool.setServiceParent(result)
+
+        # Optionally enable Manhole access
+        if config.Manhole.Enabled:
+            portString = "tcp:%d:interface=127.0.0.1" % (config.Manhole.StartingPortNumber + int(config.LogID) + 1,)
+            manholeService = manholeMakeService({
+                "sshPort" : None,
+                "telnetPort" : portString,
+                "namespace" : {
+                    "config" : config,
+                    "service" : result,
+                    "store" : store,
+                    "directory" : result.rootResource.getDirectory(),
+                    },
+                "passwd" : config.Manhole.PasswordFilePath,
+            })
+            manholeService.setServiceParent(result)
+            # Using print because logging isn't ready at this point
+            print "Manhole access enabled: %s" % (portString,)
+
         return result
 
 
@@ -702,6 +723,7 @@ class CalDAVServiceMaker (LoggingMixIn):
         service = CalDAVService(logObserver)
 
         rootResource = getRootResource(config, store, additional)
+        service.rootResource = rootResource
 
         underlyingSite = Site(rootResource)
         
@@ -1115,6 +1137,22 @@ class CalDAVServiceMaker (LoggingMixIn):
         )
         statsService.setName("stats")
         statsService.setServiceParent(s)
+
+        # Optionally enable Manhole access
+        if config.Manhole.Enabled:
+            portString = "tcp:%d:interface=127.0.0.1" % (config.Manhole.StartingPortNumber,)
+            manholeService = manholeMakeService({
+                "sshPort" : None,
+                "telnetPort" : portString,
+                "namespace" : {
+                    "config" : config,
+                    "service" : s,
+                    },
+                "passwd" : config.Manhole.PasswordFilePath,
+            })
+            manholeService.setServiceParent(s)
+            # Using print because logging isn't ready at this point
+            print "Manhole access enabled: %s" % (portString,)
 
         # Finally, let's get the real show on the road.  Create a service that
         # will spawn all of our worker processes when started, and wrap that

@@ -645,14 +645,10 @@ def getRootResource(config, newStore, resources=None):
     #
     apnConfig = config.Notifications.Services["ApplePushNotifier"]
     if apnConfig.Enabled:
-        log.info("Setting up APNS resource at /%s with auth: %s" %
-            (apnConfig["SubscriptionURL"], apnConfig["AuthMechanisms"]))
-        resources.append((
-            apnConfig["SubscriptionURL"],
-            apnSubscriptionResourceClass,
-            [],
-            apnConfig["AuthMechanisms"]
-        ))
+        log.info("Setting up APNS resource at /%s" %
+            (apnConfig["SubscriptionURL"],))
+        apnResource = apnSubscriptionResourceClass(root, newStore)
+        root.putChild(apnConfig["SubscriptionURL"], apnResource)
 
     #
     # Configure ancillary data
