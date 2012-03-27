@@ -752,8 +752,9 @@ dependencies () {
     "pytz" "pytz" "${tz}" \
     "http://pypi.python.org/packages/source/p/pytz/${tz}.tar.gz";
 
-  local pc="pycrypto-2.5";
-  py_dependency -o -m "783e45d4a1a309e03ab378b00f97b291" \
+  local pv="2.5";
+  local pc="pycrypto-${pv}";
+  py_dependency -o -v "${pv}" -m "783e45d4a1a309e03ab378b00f97b291" \
     "PyCrypto" "pycrypto" "${pc}" \
     "http://ftp.dlitz.net/pub/dlitz/crypto/pycrypto/${pc}.tar.gz";
 
