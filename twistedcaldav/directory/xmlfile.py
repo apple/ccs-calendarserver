@@ -30,6 +30,7 @@ from twisted.cred.credentials import UsernamePassword
 from twext.web2.auth.digest import DigestedCredentials
 from twext.python.filepath import CachingFilePath as FilePath
 from twistedcaldav.config import config
+from twisted.internet.defer import succeed
 
 from twistedcaldav.config import fullServerPath
 from twistedcaldav.directory.directory import DirectoryService, DirectoryRecord, DirectoryError
@@ -338,6 +339,7 @@ class XMLDirectoryService(DirectoryService):
         else:
             recordTypes = (recordType,)
 
+        records = []
         for recordType in recordTypes:
             for xmlPrincipal in self._accounts()[recordType].itervalues():
                 if xmlPrincipalMatches(xmlPrincipal):
@@ -345,7 +347,8 @@ class XMLDirectoryService(DirectoryService):
                     # Load/cache record from its GUID
                     record = self.recordWithGUID(xmlPrincipal.guid)
                     if record:
-                        yield record
+                        records.append(record)
+        return succeed(records)
 
 
     def _addElement(self, parent, principal):
