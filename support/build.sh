@@ -758,6 +758,12 @@ dependencies () {
     "PyCrypto" "pycrypto" "${pc}" \
     "http://ftp.dlitz.net/pub/dlitz/crypto/pycrypto/${pc}.tar.gz";
 
+  local v="0.1.2";
+  local p="pyasn1-${v}";
+  py_dependency -o -v "${v}" -m "a7c67f5880a16a347a4d3ce445862a47" \
+    "pyasn1" "pyasn1" "${p}" \
+    "http://pypi.python.org/packages/source/p/pyasn1/pyasn1-0.1.2.tar.gz";
+
   svn_get "CalDAVTester" "${top}/CalDAVTester" \
       "${svn_uri_base}/CalDAVTester/trunk" HEAD;
 
