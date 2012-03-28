@@ -1188,8 +1188,8 @@ class SharedHomeMixin(LinkFollowerMixIn):
         """
         
         # Change state in sharer invite
-        owner = (yield self.ownerPrincipal(request))
-        owner = owner.principalURL()
+        ownerPrincipal = (yield self.ownerPrincipal(request))
+        owner = ownerPrincipal.principalURL()
         sharedCollection = (yield request.locateResource(hostUrl))
         if sharedCollection is None:
             # Original shared collection is gone - nothing we can do except ignore it
@@ -1202,30 +1202,44 @@ class SharedHomeMixin(LinkFollowerMixIn):
         # Change the record
         yield sharedCollection.changeUserInviteState(request, replytoUID, owner, state, displayname)
 
-        yield self.sendReply(request, owner, sharedCollection, state, hostUrl, replytoUID, displayname)
+        yield self.sendReply(request, ownerPrincipal, sharedCollection, state, hostUrl, replytoUID, displayname)
 
     @inlineCallbacks
-    def sendReply(self, request, sharee, sharedCollection, state, hostUrl, replytoUID, displayname=None):
+    def sendReply(self, request, shareePrincipal, sharedCollection, state, hostUrl, replytoUID, displayname=None):
 
         # Locate notifications collection for sharer
         sharer = (yield sharedCollection.ownerPrincipal(request))
         notifications = (yield request.locateResource(sharer.notificationURL()))
-        
+
         # Generate invite XML
         notificationUID = "%s-reply" % (replytoUID,)
         xmltype = customxml.InviteReply()
+
+        # Prefer mailto:, otherwise use principal URL
+        for cua in shareePrincipal.calendarUserAddresses():
+            if cua.startswith("mailto:"):
+                break
+        else:
+            cua = shareePrincipal.principalURL()
+
+        commonName = shareePrincipal.displayName()
+        record = shareePrincipal.record
+
         xmldata = customxml.Notification(
             customxml.DTStamp.fromString(PyCalendarDateTime.getNowUTC().getText()),
             customxml.InviteReply(
                 *(
                     (
-                        element.HRef.fromString(sharee),
+                        element.HRef.fromString(cua),
                         inviteStatusMapToXML[state](),
                         customxml.HostURL(
                             element.HRef.fromString(hostUrl),
                         ),
                         customxml.InReplyTo.fromString(replytoUID),
                     ) + ((customxml.InviteSummary.fromString(displayname),) if displayname is not None else ())
+                      + ((customxml.CommonName.fromString(commonName),) if commonName is not None else ())
+                      + ((customxml.FirstNameProperty(record.firstName),) if record.firstName is not None else ())
+                      + ((customxml.LastNameProperty(record.lastName),) if record.lastName is not None else ())
                 )
             ),
         ).toxml()

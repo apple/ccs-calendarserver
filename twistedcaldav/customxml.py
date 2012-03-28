@@ -1120,6 +1120,9 @@ class InviteReply (WebDAVElement):
 
     allowed_children = {
         (dav_namespace, "href")                       : (0, 1),
+        (calendarserver_namespace, "common-name")     : (0, 1),
+        (calendarserver_namespace, "first-name")      : (0, 1),
+        (calendarserver_namespace, "last-name")       : (0, 1),
         (calendarserver_namespace, "invite-accepted") : (0, 1),
         (calendarserver_namespace, "invite-declined") : (0, 1),
         (calendarserver_namespace, "hosturl")         : (0, 1),
