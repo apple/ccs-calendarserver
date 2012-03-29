@@ -420,10 +420,5 @@ static PyObject *sendmsg_getsockfam(PyObject *self, PyObject *args,
         PyErr_SetFromErrno(sendmsg_socket_error);
         return NULL;
     }
-    PyObject *rval;
-    if ((rval = Py_BuildValue("i", sa.sa_family)) == NULL) {
-        return NULL;
-    }
-    Py_DECREF(rval);
-    return rval;
+    return Py_BuildValue("i", sa.sa_family);
 }
