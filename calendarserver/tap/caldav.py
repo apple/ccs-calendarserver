@@ -862,11 +862,12 @@ class CalDAVServiceMaker (LoggingMixIn):
     def _allBindAddresses(self):
         """
         An empty array for the config value of BindAddresses should be
-        equivalent a BindAddresses with a single empty string, meaning "bind
-        everything".
+        equivalent to an array containing two BindAddresses; one with a single
+        empty string, and one with "::", meaning "bind everything on both IPv4
+        and IPv6".
         """
         if not config.BindAddresses:
-            config.BindAddresses = [""]
+            config.BindAddresses = ["", "::"]
         return config.BindAddresses
 
 

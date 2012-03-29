@@ -42,12 +42,15 @@ PyObject *sendmsg_socket_error;
 
 static PyObject *sendmsg_sendmsg(PyObject *self, PyObject *args, PyObject *keywds);
 static PyObject *sendmsg_recvmsg(PyObject *self, PyObject *args, PyObject *keywds);
+static PyObject *sendmsg_getsockfam(PyObject *self, PyObject *args, PyObject *keywds);
 
 static PyMethodDef sendmsg_methods[] = {
     {"sendmsg", (PyCFunction) sendmsg_sendmsg, METH_VARARGS | METH_KEYWORDS,
      NULL},
     {"recvmsg", (PyCFunction) sendmsg_recvmsg, METH_VARARGS | METH_KEYWORDS,
      NULL},
+    {"getsockfam", (PyCFunction) sendmsg_getsockfam,
+     METH_VARARGS | METH_KEYWORDS, NULL},
     {NULL, NULL, 0, NULL}
 };
 
@@ -404,3 +407,23 @@ static PyObject *sendmsg_recvmsg(PyObject *self, PyObject *args, PyObject *keywd
     return final_result;
 }
 
+static PyObject *sendmsg_getsockfam(PyObject *self, PyObject *args,
+                                    PyObject *keywds) {
+    int fd;
+    struct sockaddr sa;
+    static char *kwlist[] = {"fd", NULL};
+    if (!PyArg_ParseTupleAndKeywords(args, keywds, "i", kwlist, &fd)) {
+        return NULL;
+    }
+    socklen_t sz = sizeof(sa);
+    if (getsockname(fd, &sa, &sz)) {
+        PyErr_SetFromErrno(sendmsg_socket_error);
+        return NULL;
+    }
+    PyObject *rval;
+    if ((rval = Py_BuildValue("i", sa.sa_family)) == NULL) {
+        return NULL;
+    }
+    Py_DECREF(rval);
+    return rval;
+}

@@ -22,8 +22,8 @@ L{twext.python.sendfd}.
 
 from os import close
 from errno import EAGAIN, ENOBUFS
-from socket import (socketpair, fromfd, error as SocketError,
-                    AF_INET, AF_UNIX, SOCK_STREAM, SOCK_DGRAM)
+from socket import (socketpair, fromfd, error as SocketError, AF_UNIX,
+                    SOCK_STREAM, SOCK_DGRAM)
 
 from twisted.python import log
 
@@ -32,6 +32,7 @@ from twisted.internet.protocol import Protocol, Factory
 
 from twext.python.sendmsg import sendmsg, recvmsg
 from twext.python.sendfd import sendfd, recvfd
+from twext.python.sendmsg import getsockfam
 
 class InheritingProtocol(Protocol, object):
     """
@@ -273,7 +274,7 @@ class InheritedPort(FileDescriptor, object):
                 raise
         else:
             try:
-                skt = fromfd(fd, AF_INET, SOCK_STREAM)
+                skt = fromfd(fd, getsockfam(fd), SOCK_STREAM)
                 # XXX it could be AF_UNIX, I guess?  or even something else?
                 # should this be on the transportFactory's side of things?
 
