@@ -19,7 +19,7 @@
 Tests for twext.web2.metafd.
 """
 
-from socket import error as SocketError
+from socket import error as SocketError, AF_INET
 from errno import ENOTCONN
 
 from twext.web2 import metafd
@@ -116,9 +116,12 @@ class ReportingHTTPServiceTests(TestCase):
             return "not an fd", "not a description"
         def fakeclose(fd):
             ""
+        def fakegetsockfam(fd):
+            return AF_INET
         self.patch(sendfdport, 'recvfd', fakerecvfd)
         self.patch(sendfdport, 'fromfd', fakefromfd)
         self.patch(sendfdport, 'close', fakeclose)
+        self.patch(sendfdport, 'getsockfam', fakegetsockfam)
         self.patch(metafd, 'InheritedPort', InheritedPortForTesting)
         self.patch(metafd, 'Server', ServerTransportForTesting)
         # This last stubbed out just to prevent dirty reactor warnings.

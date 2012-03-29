@@ -551,7 +551,8 @@ class SlaveServiceTest(BaseServiceMakerTests):
                     serviceArgs[0],
                     dict(expectedSubServices)[serviceClass]
                 )
-        self.assertEquals(checked, len(expectedSubServices))
+        # TCP+SSL services for IPv4, TCP+SSL services for IPv6.
+        self.assertEquals(checked, 4)
 
 
     def test_SSLKeyConfiguration(self):
