@@ -445,10 +445,6 @@
       <!-- <string>/principals/__uids__/983C8238-FB6B-4D92-9242-89C0A39E5F81/</string> -->
     </array>
 
-    <!-- Principals that can pose as other principals -->
-    <key>SudoersFile</key>
-    <string>sudoers.plist</string>
-
     <!-- Create "proxy access" principals -->
     <key>EnableProxyPrincipals</key>
     <true/>
