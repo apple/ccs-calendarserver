@@ -82,8 +82,18 @@ def registerElementClass(elementClass):
     """
     Add an XML element class to this module's namespace.
     """
-    globals()[elementClass.__name__] = elementClass
-    __all__.append(elementClass.__name__)
+    env = globals()
+    name = elementClass.__name__
+
+    if name in env:
+        raise AssertionError(
+            "Attempting to register element class %s multiple times: (%r, %r)"
+            % (name, env[name], elementClass)
+        )
+
+    env[name] = elementClass
+    __all__.append(name)
+
     return elementClass
 
 
