@@ -53,7 +53,6 @@ from twistedcaldav.directory.digest import QopDigestCredentialFactory
 from twistedcaldav.directory.directory import GroupMembershipCache
 from twistedcaldav.directory.internal import InternalDirectoryService
 from twistedcaldav.directory.principal import DirectoryPrincipalProvisioningResource
-from twistedcaldav.directory.sudo import SudoDirectoryService
 from twistedcaldav.directory.wiki import WikiDirectoryService
 from twistedcaldav.notify import NotifierFactory, getPubSubConfiguration
 from calendarserver.push.applepush import APNSubscriptionResource
@@ -312,25 +311,6 @@ def directoryFromConfig(config):
         directories.append(resourceDirectory)
 
     #
-    # Add sudoers directory
-    #
-    sudoDirectory = None
-
-    if config.SudoersFile and os.path.exists(config.SudoersFile):
-        log.info("Configuring SudoDirectoryService with file: %s"
-                      % (config.SudoersFile,))
-
-        sudoDirectory = SudoDirectoryService(config.SudoersFile)
-        sudoDirectory.realmName = baseDirectory.realmName
-
-        CalDAVResource.sudoDirectory = sudoDirectory
-        directories.insert(0, sudoDirectory)
-    else:
-        log.info( "Not using SudoDirectoryService; file doesn't exist: %s"
-            % (config.SudoersFile,)
-        )
-
-    #
     # Add wiki directory service
     #
     if config.Authentication.Wiki.Enabled:
@@ -347,10 +327,6 @@ def directoryFromConfig(config):
         directories.append(internalDirectory)
 
     directory = AggregateDirectoryService(directories, groupMembershipCache)
-
-    if sudoDirectory:
-        directory.userRecordTypes.insert(0,
-            SudoDirectoryService.recordType_sudoers)
 
     #
     # Use system-wide realm on OSX

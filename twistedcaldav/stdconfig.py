@@ -384,7 +384,6 @@ DEFAULT_CONFIG = {
     #
     "AdminPrincipals": [],                       # Principals with "DAV:all" access (relative URLs)
     "ReadPrincipals": [],                        # Principals with "DAV:read" access (relative URLs)
-    "SudoersFile": "sudoers.plist",              # Principals that can pose as other principals
     "EnableProxyPrincipals": True,               # Create "proxy access" principals
 
     #

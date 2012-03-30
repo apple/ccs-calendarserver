@@ -948,51 +948,62 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
             if the authentication scheme is unsupported, or the
             credentials provided by the request are not valid.
         """
-        if not (hasattr(request, 'portal') and
-                hasattr(request, 'credentialFactories') and
-                hasattr(request, 'loginInterfaces')):
+        # Bypass normal authentication if its already been done (by SACL check)
+        if (
+            hasattr(request, "authnUser") and
+            hasattr(request, "authzUser") and
+            request.authnUser is not None and
+            request.authzUser is not None
+        ):
+            return succeed((request.authnUser, request.authzUser))
+
+        if not (
+            hasattr(request, "portal") and
+            hasattr(request, "credentialFactories") and
+            hasattr(request, "loginInterfaces")
+        ):
             request.authnUser = element.Principal(element.Unauthenticated())
             request.authzUser = element.Principal(element.Unauthenticated())
             return succeed((request.authnUser, request.authzUser))
 
-        authHeader = request.headers.getHeader('authorization')
+        authHeader = request.headers.getHeader("authorization")
 
         if authHeader is not None:
             if authHeader[0] not in request.credentialFactories:
-                log.err("Client authentication scheme %s is not "
-                        "provided by server %s"
-                        % (authHeader[0], request.credentialFactories.keys()))
+                log.err(
+                    "Client authentication scheme %s is not provided by server %s"
+                    % (authHeader[0], request.credentialFactories.keys())
+                )
                 d = UnauthorizedResponse.makeResponse(
                     request.credentialFactories,
                     request.remoteAddr
                 )
-                def _fail(response):
-                    return Failure(HTTPError(response))
-                return d.addCallback(_fail)
+                return d.addCallback(lambda response: Failure(HTTPError(response)))
             else:
                 factory = request.credentialFactories[authHeader[0]]
 
                 def gotCreds(creds):
-                    return self.principalsForAuthID(
-                        request, creds.username
-                        ).addCallback(gotDetails, creds)
+                    d = self.principalsForAuthID(request, creds.username)
+                    d.addCallback(gotDetails, creds)
+                    return d
 
                 # Try to match principals in each principal collection
                 # on the resource
                 def gotDetails(details, creds):
                     if details == (None, None):
-                        log.msg("Could not find the principal resource for user id: %s" % (creds.username,))
-                        raise HTTPError(responsecode.UNAUTHORIZED)
+                        log.msg(
+                            "Could not find the principal resource for user id: %s"
+                            % (creds.username,)
+                        )
+                        return Failure(HTTPError(responsecode.UNAUTHORIZED))
 
                     authnPrincipal = IDAVPrincipalResource(details[0])
                     authzPrincipal = IDAVPrincipalResource(details[1])
-                    return PrincipalCredentials(
-                        authnPrincipal, authzPrincipal, creds
-                    )
+                    return PrincipalCredentials(authnPrincipal, authzPrincipal, creds)
 
                 def login(pcreds):
-                    return request.portal.login(
-                        pcreds, None, *request.loginInterfaces)
+                    return request.portal.login(pcreds, None, *request.loginInterfaces)
+
                 def gotAuth(result):
                     request.authnUser = result[1]
                     request.authzUser = result[2]
@@ -1004,9 +1015,7 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
                     d = UnauthorizedResponse.makeResponse(
                         request.credentialFactories, request.remoteAddr
                     )
-                    d.addCallback(
-                        lambda response: Failure(HTTPError(response))
-                    )
+                    d.addCallback(lambda response: Failure(HTTPError(response)))
                     return d
 
                 d = factory.decode(authHeader[1], request)
