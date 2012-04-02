@@ -57,7 +57,7 @@ from twistedcaldav.directory.wiki import WikiDirectoryService
 from twistedcaldav.notify import NotifierFactory, getPubSubConfiguration
 from calendarserver.push.applepush import APNSubscriptionResource
 from twistedcaldav.directorybackedaddressbook import DirectoryBackedAddressBookResource
-from twistedcaldav.resource import CalDAVResource, AuthenticationWrapper
+from twistedcaldav.resource import AuthenticationWrapper
 from twistedcaldav.schedule import IScheduleInboxResource
 from twistedcaldav.simpleresource import SimpleResource, SimpleRedirectResource
 from twistedcaldav.timezones import TimezoneCache
