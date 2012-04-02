@@ -547,7 +547,6 @@ c_dependency () {
 
   www_get ${f_hash} "${name}" "${srcdir}" "${uri}";
 
-
   export              PATH="${dstroot}/bin:${PATH}";
   export    C_INCLUDE_PATH="${dstroot}/include:${C_INCLUDE_PATH:-}";
   export   LD_LIBRARY_PATH="${dstroot}/lib:${LD_LIBRARY_PATH:-}";
@@ -555,13 +554,17 @@ c_dependency () {
   export           LDFLAGS="-L${dstroot}/lib ${LDFLAGS:-} ";
   export DYLD_LIBRARY_PATH="${dstroot}/lib:${DYLD_LIBRARY_PATH:-}";
 
-  if "${do_setup}" && (
-      "${force_setup}" || "${do_bundle}" || [ ! -d "${dstroot}" ]); then
-    echo "Building ${name}...";
-    cd "${srcdir}";
-    ./configure --prefix="${dstroot}" "$@";
-    jmake;
-    jmake install;
+  if "${do_setup}"; then
+    if "${force_setup}" || "${do_bundle}" || [ ! -d "${dstroot}" ]; then
+      echo "Building ${name}...";
+      cd "${srcdir}";
+      ./configure --prefix="${dstroot}" "$@";
+      jmake;
+      jmake install;
+    else
+      echo "Using built ${name}.";
+      echo "";
+    fi;
   fi;
 }
 
@@ -614,7 +617,10 @@ dependencies () {
     init_py;
   fi;
 
-  if ! type -P memcached > /dev/null; then
+  if type -P memcached > /dev/null; then
+    echo "Using system memcached.";
+    echo "";
+  else
     local le="libevent-2.0.17-stable";
     local mc="memcached-1.4.13";
     c_dependency -m "dad64aaaaff16b5fbec25160c06fee9a" \
@@ -625,7 +631,10 @@ dependencies () {
       "http://memcached.googlecode.com/files/${mc}.tar.gz";
   fi;
 
-  if ! type -P postgres > /dev/null; then
+  if type -P postgres > /dev/null; then
+    echo "Using system Postgres.";
+    echo "";
+  else
     local pgv="9.1.2";
     local pg="postgresql-${pgv}";
 
@@ -642,7 +651,10 @@ dependencies () {
     :;
   fi;
 
-  if ! find_header ldap.h; then
+  if find_header ldap.h; then
+    echo "Using system OpenLDAP.";
+    echo "";
+  else
     c_dependency -m "ec63f9c2add59f323a0459128846905b" \
       "OpenLDAP" "openldap-2.4.25" \
       "http://www.openldap.org/software/download/OpenLDAP/openldap-release/openldap-2.4.25.tgz" \
