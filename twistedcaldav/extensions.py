@@ -35,13 +35,11 @@ from itertools import cycle
 
 from twisted.internet.defer import succeed, maybeDeferred
 from twisted.internet.defer import inlineCallbacks, returnValue
-from twisted.cred.error import LoginFailed, UnauthorizedLogin
 
 from twisted.web.template import Element, XMLFile, renderer, tags, flattenString
 from twisted.python.modules import getModule
 
 from twext.web2 import responsecode, server
-from twext.web2.auth.wrapper import UnauthorizedResponse
 from twext.web2.http import HTTPError, Response, RedirectResponse
 from twext.web2.http import StatusResponse
 from twext.web2.http_headers import MimeType
@@ -49,209 +47,24 @@ from twext.web2.stream import FileStream
 from twext.web2.static import MetaDataMixin, StaticRenderMixin
 from txdav.xml import element
 from txdav.xml.element import dav_namespace
-from twext.web2.dav.auth import PrincipalCredentials
-from twext.web2.dav.http import MultiStatusResponse
-from twext.web2.dav.idav import IDAVPrincipalResource
 from twext.web2.dav.static import DAVFile as SuperDAVFile
 from twext.web2.dav.resource import DAVResource as SuperDAVResource
 from twext.web2.dav.resource import (
     DAVPrincipalResource as SuperDAVPrincipalResource
 )
 from twisted.internet.defer import gatherResults
-from twext.web2.dav.method import prop_common
 
 from twext.python.log import Logger, LoggingMixIn
 
 from twistedcaldav import customxml
 from twistedcaldav.customxml import calendarserver_namespace
 
-from twistedcaldav.directory.directory import DirectoryService
 from twistedcaldav.method.report import http_REPORT
-
-from twistedcaldav.config import config
 
 
 thisModule = getModule(__name__)
 
 log = Logger()
-
-
-class DirectoryPrincipalPropertySearchMixIn(object):
-
-    @inlineCallbacks
-    def report_DAV__principal_property_search(self, request,
-        principal_property_search):
-        """
-        Generate a principal-property-search REPORT. (RFC 3744, section 9.4)
-        Overrides twisted implementation, targeting only directory-enabled
-        searching.
-        """
-        # Verify root element
-        if not isinstance(principal_property_search, element.PrincipalPropertySearch):
-            msg = "%s expected as root element, not %s." % (element.PrincipalPropertySearch.sname(), principal_property_search.sname())
-            log.warn(msg)
-            raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, msg))
-
-        # Should we AND (the default) or OR (if test="anyof")?
-        testMode = principal_property_search.attributes.get("test", "allof")
-        if testMode not in ("allof", "anyof"):
-            msg = "Bad XML: unknown value for test attribute: %s" % (testMode,)
-            log.warn(msg)
-            raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, msg))
-        operand = "and" if testMode == "allof" else "or"
-
-        # Are we narrowing results down to a single CUTYPE?
-        cuType = principal_property_search.attributes.get("type", None)
-        if cuType not in ("INDIVIDUAL", "GROUP", "RESOURCE", "ROOM", None):
-            msg = "Bad XML: unknown value for type attribute: %s" % (cuType,)
-            log.warn(msg)
-            raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, msg))
-
-        # Only handle Depth: 0
-        depth = request.headers.getHeader("depth", "0")
-        if depth != "0":
-            log.err("Error in principal-property-search REPORT, Depth set to %s" % (depth,))
-            raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, "Depth %s not allowed" % (depth,)))
-
-        # Get any limit value from xml
-        clientLimit = None
-
-        # Get a single DAV:prop element from the REPORT request body
-        propertiesForResource = None
-        propElement = None
-        propertySearches = []
-        applyTo = False
-        for child in principal_property_search.children:
-            if child.qname() == (dav_namespace, "prop"):
-                propertiesForResource = prop_common.propertyListForResource
-                propElement = child
-
-            elif child.qname() == (dav_namespace,
-                "apply-to-principal-collection-set"):
-                applyTo = True
-
-            elif child.qname() == (dav_namespace, "property-search"):
-                props = child.childOfType(element.PropertyContainer)
-                props.removeWhitespaceNodes()
-
-                match = child.childOfType(element.Match)
-                caseless = match.attributes.get("caseless", "yes")
-                if caseless not in ("yes", "no"):
-                    msg = "Bad XML: unknown value for caseless attribute: %s" % (caseless,)
-                    log.warn(msg)
-                    raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, msg))
-                caseless = (caseless == "yes")
-                matchType = match.attributes.get("match-type", u"contains").encode("utf-8")
-                if matchType not in ("starts-with", "contains", "equals"):
-                    msg = "Bad XML: unknown value for match-type attribute: %s" % (matchType,)
-                    log.warn(msg)
-                    raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, msg))
-
-                # Ignore any query strings under three letters
-                matchText = str(match)
-                if len(matchText) >= 3:
-                    propertySearches.append((props.children, matchText, caseless, matchType))
-
-            elif child.qname() == (calendarserver_namespace, "limit"):
-                try:
-                    nresults = child.childOfType(customxml.NResults)
-                    clientLimit = int(str(nresults))
-                except (TypeError, ValueError,):
-                    msg = "Bad XML: unknown value for <limit> element"
-                    log.warn(msg)
-                    raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, msg))
-
-        # Run report
-        resultsWereLimited = None
-        resources = []
-        if applyTo or not hasattr(self, "directory"):
-            for principalCollection in self.principalCollections():
-                uri = principalCollection.principalCollectionURL()
-                resource = (yield request.locateResource(uri))
-                if resource:
-                    resources.append((resource, uri))
-        else:
-            resources.append((self, request.uri))
-
-        # We need to access a directory service
-        principalCollection = resources[0][0]
-        if not hasattr(principalCollection, "directory"):
-            # Use Twisted's implementation instead in this case
-            result = (yield super(DirectoryPrincipalPropertySearchMixIn, self).report_DAV__principal_property_search(request, principal_property_search))
-            returnValue(result)
-
-        dir = principalCollection.directory
-
-        # See if we can take advantage of the directory
-        fields = []
-        nonDirectorySearches = []
-        for props, match, caseless, matchType in propertySearches:
-            nonDirectoryProps = []
-            for prop in props:
-                try:
-                    fieldName, match = principalCollection.propertyToField(
-                        prop, match)
-                except ValueError, e:
-                    raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, str(e)))
-                if fieldName:
-                    fields.append((fieldName, match, caseless, matchType))
-                else:
-                    nonDirectoryProps.append(prop)
-            if nonDirectoryProps:
-                nonDirectorySearches.append((nonDirectoryProps, match,
-                    caseless, matchType))
-
-        matchingResources = []
-        matchcount = 0
-
-        # nonDirectorySearches are ignored
-        if fields:
-
-            records = (yield dir.recordsMatchingFieldsWithCUType(fields,
-                operand=operand, cuType=cuType))
-
-            for record in records:
-                resource = principalCollection.principalForRecord(record)
-                if resource:
-                    matchingResources.append(resource)
-    
-                    # We've determined this is a matching resource
-                    matchcount += 1
-                    if clientLimit is not None and matchcount >= clientLimit:
-                        resultsWereLimited = ("client", matchcount)
-                        break
-                    if matchcount >= config.MaxPrincipalSearchReportResults:
-                        resultsWereLimited = ("server", matchcount)
-                        break
-
-        # Generate the response
-        responses = []
-        for resource in matchingResources:
-            url = resource.url()
-            yield prop_common.responseForHref(
-                request,
-                responses,
-                element.HRef.fromString(url),
-                resource,
-                propertiesForResource,
-                propElement
-            )
-
-        if resultsWereLimited is not None:
-            if resultsWereLimited[0] == "server":
-                log.err("Too many matching resources in "
-                        "principal-property-search report")
-            responses.append(element.StatusResponse(
-                element.HRef.fromString(request.uri),
-                element.Status.fromResponseCode(
-                    responsecode.INSUFFICIENT_STORAGE_SPACE
-                ),
-                element.Error(element.NumberOfMatchesWithinLimits()),
-                element.ResponseDescription("Results limited by %s at %d"
-                                           % resultsWereLimited),
-            ))
-        returnValue(MultiStatusResponse(responses))
-
 
 
 class DirectoryElement(Element):
@@ -469,8 +282,7 @@ def updateCacheTokenOnCallback(f):
 
     return wrapper
 
-class DAVResource (DirectoryPrincipalPropertySearchMixIn,
-                   SuperDAVResource, LoggingMixIn,
+class DAVResource (SuperDAVResource, LoggingMixIn,
                    DirectoryRenderingMixIn, StaticRenderMixin):
     """
     Extended L{twext.web2.dav.resource.DAVResource} implementation.
@@ -597,8 +409,7 @@ class DAVResourceWithoutChildrenMixin (object):
 
 
 
-class DAVPrincipalResource (DirectoryPrincipalPropertySearchMixIn,
-                            SuperDAVPrincipalResource, LoggingMixIn,
+class DAVPrincipalResource (SuperDAVPrincipalResource, LoggingMixIn,
                             DirectoryRenderingMixIn):
     """
     Extended L{twext.web2.dav.static.DAVFile} implementation.

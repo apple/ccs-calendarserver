@@ -37,7 +37,6 @@ from twistedcaldav.cache import MemcacheResponseCache, MemcacheChangeNotifier
 from twistedcaldav.cache import DisabledCache
 from twistedcaldav.config import config
 from twistedcaldav.extensions import DAVFile, CachingPropertyStore
-from twistedcaldav.extensions import DirectoryPrincipalPropertySearchMixIn
 from twistedcaldav.extensions import ReadOnlyResourceMixIn
 from twistedcaldav.resource import CalDAVComplianceMixIn
 from twistedcaldav.resource import CalendarHomeResource, AddressBookHomeResource
@@ -49,7 +48,7 @@ from calendarserver.platform.darwin.wiki import usernameForAuthToken
 log = Logger()
 
 
-class RootResource (ReadOnlyResourceMixIn, DirectoryPrincipalPropertySearchMixIn, CalDAVComplianceMixIn, DAVFile):
+class RootResource (ReadOnlyResourceMixIn, CalDAVComplianceMixIn, DAVFile):
     """
     A special root resource that contains support checking SACLs
     as well as adding responseFilters.
