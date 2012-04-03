@@ -166,39 +166,6 @@ When the night had veil'd the pole:
 In the morning glad I see
 My foe outstretch'd beneath the tree"""
 
-class TestSubstream(unittest.TestCase):
-
-    def setUp(self):
-        self.data = testdata
-        self.s = stream.MemoryStream(self.data)
-
-    def suckTheMarrow(self, s):
-        return ''.join(map(str, list(iter(s.read, None))))
-
-    def testStart(self):
-        s = stream.substream(self.s, 0, 11)
-        self.assertEquals('I was angry', self.suckTheMarrow(s))
-
-    def testNotStart(self):
-        s = stream.substream(self.s, 12, 26)
-        self.assertEquals('with my friend', self.suckTheMarrow(s))
-
-    def testReverseStartEnd(self):
-        self.assertRaises(ValueError, stream.substream, self.s, 26, 12)
-
-    def testEmptySubstream(self):
-        s = stream.substream(self.s, 11, 11)
-        self.assertEquals('', self.suckTheMarrow(s))
-
-    def testEnd(self):
-        size = len(self.data)
-        s = stream.substream(self.s, size-4, size)
-        self.assertEquals('tree', self.suckTheMarrow(s))
-
-    def testPastEnd(self):
-        size = len(self.data)
-        self.assertRaises(ValueError, stream.substream, self.s, size-4, size+8)
-
 
 class TestBufferedStream(unittest.TestCase):
 

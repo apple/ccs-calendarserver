@@ -1160,14 +1160,6 @@ class MD5Stream(SimpleStream):
         return self._md5value
 
 
-def substream(stream, start, end):
-    if start > end:
-        raise ValueError("start position must be less than end position %r"
-                         % ((start, end),))
-    stream = stream.split(start)[1]
-    return stream.split(end - start)[0]
-
-
 
 __all__ = ['IStream', 'IByteStream', 'FileStream', 'MemoryStream', 'CompoundStream',
            'readAndDiscard', 'fallbackSplit', 'ProducerStream', 'StreamProducer',
