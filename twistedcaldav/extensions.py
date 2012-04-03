@@ -35,13 +35,11 @@ from itertools import cycle
 
 from twisted.internet.defer import succeed, maybeDeferred
 from twisted.internet.defer import inlineCallbacks, returnValue
-from twisted.cred.error import LoginFailed, UnauthorizedLogin
 
 from twisted.web.template import Element, XMLFile, renderer, tags, flattenString
 from twisted.python.modules import getModule
 
 from twext.web2 import responsecode, server
-from twext.web2.auth.wrapper import UnauthorizedResponse
 from twext.web2.http import HTTPError, Response, RedirectResponse
 from twext.web2.http import StatusResponse
 from twext.web2.http_headers import MimeType
@@ -49,9 +47,7 @@ from twext.web2.stream import FileStream
 from twext.web2.static import MetaDataMixin, StaticRenderMixin
 from txdav.xml import element
 from txdav.xml.element import dav_namespace
-from twext.web2.dav.auth import PrincipalCredentials
 from twext.web2.dav.http import MultiStatusResponse
-from twext.web2.dav.idav import IDAVPrincipalResource
 from twext.web2.dav.static import DAVFile as SuperDAVFile
 from twext.web2.dav.resource import DAVResource as SuperDAVResource
 from twext.web2.dav.resource import (
@@ -65,7 +61,6 @@ from twext.python.log import Logger, LoggingMixIn
 from twistedcaldav import customxml
 from twistedcaldav.customxml import calendarserver_namespace
 
-from twistedcaldav.directory.directory import DirectoryService
 from twistedcaldav.method.report import http_REPORT
 
 from twistedcaldav.config import config
