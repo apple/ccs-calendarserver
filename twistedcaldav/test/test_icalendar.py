@@ -6086,3 +6086,83 @@ END:VCALENDAR
         self.assertEquals("urn:uuid:buz", prop.value())
         self.assertEquals(prop.parameterValue("CALENDARSERVER-OLD-CUA"),
             "http://example.com/principals/users/buz")
+
+
+    def test_serializationCaching(self):
+
+        data = """BEGIN:VCALENDAR
+VERSION:2.0
+BEGIN:VEVENT
+UID:12345-67890
+END:VEVENT
+END:VCALENDAR
+"""
+
+        component = Component.fromString(data)
+
+        str(component) # to serialize and cache
+        self.assertNotEquals(component._cachedCopy, None)
+        component._markAsDirty()
+        self.assertEquals(component._cachedCopy, None) # cache is invalidated
+
+        str(component) # to serialize and cache
+        self.assertNotEquals(component._cachedCopy, None)
+        prop = Property("PRODID", "FOO")
+        component.addProperty(prop)
+        self.assertEquals(prop._parent, component)
+        self.assertEquals(component._cachedCopy, None) # cache is invalidated
+
+        str(component) # to serialize and cache
+        component.removeProperty(prop)
+        self.assertEquals(prop._parent, None)
+        self.assertEquals(component._cachedCopy, None) # cache is invalidated
+
+        str(component) # to serialize and cache
+        prop2 = Property("PRODID", "BAR")
+        component.replaceProperty(prop2)
+        self.assertEquals(prop2._parent, component)
+        self.assertEquals(component._cachedCopy, None) # cache is invalidated
+
+        str(component) # to serialize and cache
+        prop2.setValue("BAZ")
+        self.assertEquals(component._cachedCopy, None) # cache is invalidated
+
+        str(component) # to serialize and cache
+        prop2.setParameter("XYZZY", "PLUGH")
+        self.assertEquals(component._cachedCopy, None) # cache is invalidated
+
+        str(component) # to serialize and cache
+        prop2.removeParameter("XYZZY")
+        self.assertEquals(component._cachedCopy, None) # cache is invalidated
+
+        str(component) # to serialize and cache
+        prop2.removeAllParameters()
+        self.assertEquals(component._cachedCopy, None) # cache is invalidated
+
+        prop2.setParameter("XYZZY", ["PLUGH", "PLUGH2"])
+        str(component) # to serialize and cache
+        prop2.removeParameterValue("XYZZY", "PLUGH2")
+        self.assertEquals(component._cachedCopy, None) # cache is invalidated
+
+        compData = """BEGIN:VCALENDAR
+VERSION:2.0
+BEGIN:VEVENT
+UID:C31854DA-1ED0-11D9-A5E0-000A958A3252
+DTSTAMP:20041015T171054Z
+DTSTART;VALUE=DATE:20020214
+DTEND;VALUE=DATE:20020215
+RRULE:FREQ=YEARLY;INTERVAL=1;BYMONTH=2
+SUMMARY:Valentine's Day
+END:VEVENT
+END:VCALENDAR
+"""
+        str(component) # to serialize and cache
+        [subComponent] = Component.fromString(compData).subcomponents()
+        component.addComponent(subComponent)
+        self.assertEquals(subComponent._parent, component)
+        self.assertEquals(component._cachedCopy, None) # cache is invalidated
+
+        str(component) # to serialize and cache
+        component.removeComponent(subComponent)
+        self.assertEquals(subComponent._parent, None)
+        self.assertEquals(component._cachedCopy, None) # cache is invalidated

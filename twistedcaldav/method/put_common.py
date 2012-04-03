@@ -208,43 +208,47 @@ class StoreCalendarObjectResource(object):
         self.validIfScheduleMatch()
 
         if self.destinationcal:
-            # Valid resource name check
-            result, message = self.validResourceName()
-            if not result:
-                log.err(message)
-                raise HTTPError(StatusResponse(responsecode.FORBIDDEN, "Resource name not allowed"))
 
-            # Valid collection size check on the destination parent resource
-            result, message = (yield self.validCollectionSize())
-            if not result:
-                log.err(message)
-                raise HTTPError(ErrorResponse(
-                    responsecode.FORBIDDEN,
-                    customxml.MaxResources(),
-                    "Too many resources in collection",
-                ))
+            # Skip validation on internal requests
+            if not self.internal_request:
 
-            # Valid data sizes - do before parsing the data
-            if self.source is not None:
-                # Valid content length check on the source resource
-                result, message = self.validContentLength()
+                # Valid resource name check
+                result, message = self.validResourceName()
+                if not result:
+                    log.err(message)
+                    raise HTTPError(StatusResponse(responsecode.FORBIDDEN, "Resource name not allowed"))
+
+                # Valid collection size check on the destination parent resource
+                result, message = (yield self.validCollectionSize())
                 if not result:
                     log.err(message)
                     raise HTTPError(ErrorResponse(
                         responsecode.FORBIDDEN,
-                        (caldav_namespace, "max-resource-size"),
-                        "Calendar data too large",
+                        customxml.MaxResources(),
+                        "Too many resources in collection",
                     ))
-            else:
-                # Valid calendar data size check
-                result, message = self.validSizeCheck()
-                if not result:
-                    log.err(message)
-                    raise HTTPError(ErrorResponse(
-                        responsecode.FORBIDDEN,
-                        (caldav_namespace, "max-resource-size"),
-                        "Calendar data too large",
-                    ))
+
+                # Valid data sizes - do before parsing the data
+                if self.source is not None:
+                    # Valid content length check on the source resource
+                    result, message = self.validContentLength()
+                    if not result:
+                        log.err(message)
+                        raise HTTPError(ErrorResponse(
+                            responsecode.FORBIDDEN,
+                            (caldav_namespace, "max-resource-size"),
+                            "Calendar data too large",
+                        ))
+                else:
+                    # Valid calendar data size check
+                    result, message = self.validSizeCheck()
+                    if not result:
+                        log.err(message)
+                        raise HTTPError(ErrorResponse(
+                            responsecode.FORBIDDEN,
+                            (caldav_namespace, "max-resource-size"),
+                            "Calendar data too large",
+                        ))
 
             if not self.sourcecal:
                 # Valid content type check on the source resource if its not in a calendar collection
@@ -286,51 +290,54 @@ class StoreCalendarObjectResource(object):
                     if self.calendar.stripKnownTimezones():
                         self.calendardata = None
 
-                # Valid calendar data check
-                result, message = self.validCalendarDataCheck()
-                if not result:
-                    log.err(message)
-                    raise HTTPError(ErrorResponse(
-                        responsecode.FORBIDDEN,
-                        (caldav_namespace, "valid-calendar-data"),
-                        description=message
-                    ))
-                    
-                # Valid calendar data for CalDAV check
-                result, message = self.validCalDAVDataCheck()
-                if not result:
-                    log.err(message)
-                    raise HTTPError(ErrorResponse(
-                        responsecode.FORBIDDEN,
-                        (caldav_namespace, "valid-calendar-object-resource"),
-                        "Invalid calendar data",
-                    ))
+                # Skip validation on internal requests
+                if not self.internal_request:
 
-                # Valid calendar component for check
-                result, message = self.validComponentType()
-                if not result:
-                    log.err(message)
-                    raise HTTPError(ErrorResponse(
-                        responsecode.FORBIDDEN,
-                        (caldav_namespace, "supported-component"),
-                        "Invalid calendar data",
-                    ))
-
-                # Valid attendee list size check
-                result, message = (yield self.validAttendeeListSizeCheck())
-                if not result:
-                    log.err(message)
-                    raise HTTPError(
-                        ErrorResponse(
+                    # Valid calendar data check
+                    result, message = self.validCalendarDataCheck()
+                    if not result:
+                        log.err(message)
+                        raise HTTPError(ErrorResponse(
                             responsecode.FORBIDDEN,
-                            MaxAttendeesPerInstance.fromString(str(config.MaxAttendeesPerInstance)),
-                            "Too many attendees in calendar data",
-                        )
-                    )
+                            (caldav_namespace, "valid-calendar-data"),
+                            description=message
+                        ))
 
-                # Normalize the calendar user addresses once we know we have valid
-                # calendar data
-                self.destination.iCalendarAddressDoNormalization(self.calendar)
+                    # Valid calendar data for CalDAV check
+                    result, message = self.validCalDAVDataCheck()
+                    if not result:
+                        log.err(message)
+                        raise HTTPError(ErrorResponse(
+                            responsecode.FORBIDDEN,
+                            (caldav_namespace, "valid-calendar-object-resource"),
+                            "Invalid calendar data",
+                        ))
+
+                    # Valid calendar component for check
+                    result, message = self.validComponentType()
+                    if not result:
+                        log.err(message)
+                        raise HTTPError(ErrorResponse(
+                            responsecode.FORBIDDEN,
+                            (caldav_namespace, "supported-component"),
+                            "Invalid calendar data",
+                        ))
+
+                    # Valid attendee list size check
+                    result, message = (yield self.validAttendeeListSizeCheck())
+                    if not result:
+                        log.err(message)
+                        raise HTTPError(
+                            ErrorResponse(
+                                responsecode.FORBIDDEN,
+                                MaxAttendeesPerInstance.fromString(str(config.MaxAttendeesPerInstance)),
+                                "Too many attendees in calendar data",
+                            )
+                        )
+
+                    # Normalize the calendar user addresses once we know we have valid
+                    # calendar data
+                    self.destination.iCalendarAddressDoNormalization(self.calendar)
 
                 # Must have a valid UID at this point
                 self.uid = self.calendar.resourceUID()
@@ -555,6 +562,7 @@ class StoreCalendarObjectResource(object):
         result = True
         message = ""
         if config.MaxResourceSize:
+            # FIXME PERF could be done more efficiently?
             calsize = len(str(self.calendar))
             if calsize > config.MaxResourceSize:
                 result = False
@@ -1052,9 +1060,14 @@ class StoreCalendarObjectResource(object):
     def doStorePut(self, data=None):
 
         if data is None:
+            # We'll be passing this component directly to storeComponent( )
+            componentToStore = self.calendar
             if self.calendardata is None:
                 self.calendardata = str(self.calendar)
             data = self.calendardata
+        else:
+            # We'll be passing data as a stream to storeStream( )
+            componentToStore = None
 
         # Update calendar-access property value on the resource. We need to do this before the
         # store as the store will "commit" the new value.
@@ -1116,8 +1129,12 @@ class StoreCalendarObjectResource(object):
             self.destination.scheduleEtags = ()                
 
 
-        stream = MemoryStream(data)
-        response = yield self.destination.storeStream(stream)
+        if componentToStore is None:
+            stream = MemoryStream(data)
+            response = yield self.destination.storeStream(stream)
+        else:
+            # Since we already have a component, we can pass it directly
+            response = yield self.destination.storeComponent(componentToStore)
         response = IResponse(response)
 
         if self.isScheduleResource:

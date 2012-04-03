@@ -1762,6 +1762,23 @@ class _CommonObjectResource(_NewStoreFileMetaDataHelper, CalDAVResource, FancyEq
 
             returnValue(CREATED)
 
+    @inlineCallbacks
+    def storeComponent(self, component):
+
+        if self._newStoreObject:
+            yield self._newStoreObject.setComponent(component)
+            returnValue(NO_CONTENT)
+        else:
+            self._newStoreObject = (yield self._newStoreParent.createObjectResourceWithName(
+                self.name(), component, self._metadata
+            ))
+
+            # Re-initialize to get stuff setup again now we have no object
+            self._initializeWithObject(self._newStoreObject, self._newStoreParent)
+
+            returnValue(CREATED)
+
+
 
     @inlineCallbacks
     def storeRemove(self, request, implicitly, where):

@@ -171,7 +171,7 @@ class Property (object):
             for attrname, attrvalue in params.items():
                 self._pycalendar.addAttribute(PyCalendarAttribute(attrname, attrvalue))
 
-    def __str__ (self): return str(self._pycalendar)
+    def __str__(self): return str(self._pycalendar)
     def __repr__(self): return "<%s: %r: %r>" % (self.__class__.__name__, self.name(), self.value())
 
     def __hash__(self):
@@ -201,15 +201,21 @@ class Property (object):
         @return: the duplicated calendar.
         """
         return Property(None, None, None, pycalendar=self._pycalendar.duplicate())
-        
-    def name  (self): return self._pycalendar.getName()
 
-    def value (self): return self._pycalendar.getValue().getValue()
+    def name(self): return self._pycalendar.getName()
 
-    def strvalue (self): return str(self._pycalendar.getValue())
+    def value(self): return self._pycalendar.getValue().getValue()
+
+    def strvalue(self): return str(self._pycalendar.getValue())
+
+    def _markAsDirty(self):
+        parent = getattr(self, "_parent", None)
+        if parent is not None:
+            parent._markAsDirty()
 
     def setValue(self, value):
         self._pycalendar.setValue(value)
+        self._markAsDirty()
 
     def parameterNames(self):
         """
@@ -236,12 +242,15 @@ class Property (object):
 
     def setParameter(self, paramname, paramvalue):
         self._pycalendar.replaceAttribute(PyCalendarAttribute(paramname, paramvalue))
+        self._markAsDirty()
 
     def removeParameter(self, paramname):
         self._pycalendar.removeAttributes(paramname)
+        self._markAsDirty()
 
     def removeAllParameters(self):
         self._pycalendar.setAttributes({})
+        self._markAsDirty()
 
     def removeParameterValue(self, paramname, paramvalue):
 
@@ -253,6 +262,7 @@ class Property (object):
                         if value == paramvalue:
                             if not attr.removeValue(value):
                                 self._pycalendar.removeAttributes(paramname)
+        self._markAsDirty()
 
     def containsTimeRange(self, start, end, defaulttz=None):
         """
@@ -416,8 +426,6 @@ class Component (object):
             else:
                 raise AssertionError("name may not be None")
 
-            # FIXME: _parent is not use internally, and appears to be used elsewhere,
-            # even though it's names as a private variable.
             if "parent" in kwargs:
                 parent = kwargs["parent"]
                 
@@ -433,11 +441,24 @@ class Component (object):
             self._pycalendar = PyCalendar(add_defaults=False) if name == "VCALENDAR" else PyCalendar.makeComponent(name, None)
             self._parent = None
 
-    def __str__ (self):
+    def __str__(self):
         """
         NB This does not automatically include timezones in VCALENDAR objects.
         """
-        return str(self._pycalendar)
+        cachedCopy = getattr(self, "_cachedCopy", None)
+        if cachedCopy is not None:
+            return cachedCopy
+        self._cachedCopy = str(self._pycalendar)
+        return self._cachedCopy
+
+    def _markAsDirty(self):
+        """
+        Invalidate the cached copy of serialized icalendar data
+        """
+        self._cachedCopy = None
+        parent = getattr(self, "_parent", None)
+        if parent is not None:
+            parent._markAsDirty()
 
     def __repr__(self):
         return "<%s: %r>" % (self.__class__.__name__, str(self._pycalendar))
@@ -590,6 +611,7 @@ class Component (object):
         """
         self._pycalendar.addComponent(component._pycalendar)
         component._parent = self
+        self._markAsDirty()
 
     def removeComponent(self, component):
         """
@@ -597,6 +619,8 @@ class Component (object):
         @param component: the L{Component} to remove.
         """
         self._pycalendar.removeComponent(component._pycalendar)
+        component._parent = None
+        self._markAsDirty()
 
     def hasProperty(self, name):
         """
@@ -807,6 +831,8 @@ class Component (object):
         """
         self._pycalendar.addProperty(property._pycalendar)
         self._pycalendar.finalise()
+        property._parent = self
+        self._markAsDirty()
 
     def removeProperty(self, property):
         """
@@ -815,6 +841,8 @@ class Component (object):
         """
         self._pycalendar.removeProperty(property._pycalendar)
         self._pycalendar.finalise()
+        property._parent = None
+        self._markAsDirty()
 
     def replaceProperty(self, property):
         """
@@ -825,6 +853,7 @@ class Component (object):
         # Remove all existing ones first
         self._pycalendar.removeProperties(property.name())
         self.addProperty(property)
+        self._markAsDirty()
 
     def timezoneIDs(self):
         """
@@ -910,6 +939,8 @@ class Component (object):
                             rrules.changed()
                             changed = True
 
+        if changed:
+            self._markAsDirty()
         return changed
 
     def expand(self, start, end, timezone=None):
