@@ -33,7 +33,7 @@ from txdav.xml.base import dav_namespace
 from twext.web2.dav.fileop import copy, delete, put
 from twext.web2.dav.http import ErrorResponse
 from twext.web2.dav.resource import TwistedGETContentMD5
-from twext.web2.dav.stream import MD5StreamWrapper
+from twext.web2.stream import MD5Stream
 from twext.web2.http import HTTPError
 from twext.web2.http_headers import generateContentType
 from twext.web2.iweb import IResponse
@@ -198,7 +198,7 @@ def storeResource(
             datastream = request.stream
             if data is not None:
                 datastream = MemoryStream(data)
-            md5 = MD5StreamWrapper(datastream)
+            md5 = MD5Stream(datastream)
             response = maybeDeferred(put, md5, destination.fp)
 
         response = waitForDeferred(response)

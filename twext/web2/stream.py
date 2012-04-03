@@ -61,6 +61,7 @@ from twisted.internet.defer import Deferred
 from twisted.internet import interfaces as ti_interfaces, defer, reactor, protocol, error as ti_error
 from twisted.python import components, log
 from twisted.python.failure import Failure
+from twisted.python.hashlib import md5
 
 # Python 2.4.2 (only) has a broken mmap that leaks a fd every time you call it.
 if sys.version_info[0:3] != (2,4,2):
@@ -1090,6 +1091,75 @@ class BufferedStream(object):
         return pre, post
 
         
+#########################
+####    MD5Stream    ####
+#########################
+
+class MD5Stream(SimpleStream):
+    """
+    An wrapper which computes the MD5 hash of the data read from the
+    wrapped stream.
+    """
+
+    def __init__(self, wrap):
+        if wrap is None:
+            raise ValueError("Stream to wrap must be provided")
+        self._stream = wrap
+        self._md5 = md5()
+
+
+    def _update(self, value):
+        """
+        Update the MD5 hash object.
+
+        @param value: L{None} or a L{str} with which to update the MD5 hash
+            object.
+
+        @return: C{value}
+        """
+        if value is not None:
+            self._md5.update(value)
+        return value
+
+
+    def read(self):
+        """
+        Read from the wrapped stream and update the MD5 hash object.
+        """
+        if self._stream is None:
+            raise RuntimeError("Cannot read after stream is closed")
+        b = self._stream.read()
+
+        if isinstance(b, Deferred):
+            b.addCallback(self._update)
+        else:
+            self._update(b)
+        return b
+
+
+    def close(self):
+        """
+        Compute the final hex digest of the contents of the wrapped stream.
+        """
+        SimpleStream.close(self)
+        self._md5value = self._md5.hexdigest()
+        self._stream = None
+        self._md5 = None
+
+
+    def getMD5(self):
+        """
+        Return the hex encoded MD5 digest of the contents of the wrapped
+        stream.  This may only be called after C{close}.
+
+        @rtype: C{str}
+        @raise RuntimeError: If C{close} has not yet been called.
+        """
+        if self._md5 is not None:
+            raise RuntimeError("Cannot get MD5 value until stream is closed")
+        return self._md5value
+
+
 def substream(stream, start, end):
     if start > end:
         raise ValueError("start position must be less than end position %r"
@@ -1101,6 +1171,5 @@ def substream(stream, start, end):
 
 __all__ = ['IStream', 'IByteStream', 'FileStream', 'MemoryStream', 'CompoundStream',
            'readAndDiscard', 'fallbackSplit', 'ProducerStream', 'StreamProducer',
-           'BufferedStream', 'readStream', 'ProcessStreamer', 'readIntoFile',
+           'BufferedStream', 'MD5Stream', 'readStream', 'ProcessStreamer', 'readIntoFile',
            'generatorToStream']
-
