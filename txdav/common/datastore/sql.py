@@ -2694,7 +2694,8 @@ class CommonObjectResource(LoggingMixIn, FancyEqMixin):
         self._created = None
         self._modified = None
         self._objectText = None
-
+        
+        self._overrideTxn = None
 
 
     @classproperty
@@ -2902,10 +2903,24 @@ class CommonObjectResource(LoggingMixIn, FancyEqMixin):
 
     @property
     def _txn(self):
-        return self._parentCollection._txn
+        return self._overrideTxn if self._overrideTxn else self._parentCollection._txn
 
     def transaction(self):
-        return self._parentCollection._txn
+        return self._overrideTxn if self._overrideTxn else self._parentCollection._txn
+
+    def useTxn(self, newTxn):
+        self._overrideTxn = newTxn
+
+    @classmethod
+    def _selectForUpdateQuery(cls, nowait): #@NoSelf
+        """
+        DAL statement to lock a L{CommonObjectResource} by its resource ID.
+        """
+        return Select(From=cls._objectSchema, ForUpdate=True, NoWait=nowait, Where=cls._objectSchema.RESOURCE_ID == Parameter("resourceID"))
+
+    @inlineCallbacks
+    def lock(self, nowait=False):
+        yield self._selectForUpdateQuery(nowait).on(self._txn, NoSuchObjectResourceError, resourceID=self._resourceID)
 
     def setComponent(self, component, inserting=False):
         raise NotImplementedError

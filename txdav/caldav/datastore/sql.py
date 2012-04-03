@@ -39,7 +39,7 @@ from twistedcaldav import caldavxml, customxml
 from twistedcaldav.caldavxml import ScheduleCalendarTransp, Opaque
 from twistedcaldav.config import config
 from twistedcaldav.dateops import normalizeForIndex, datetimeMktime,\
-    parseSQLTimestamp, pyCalendarTodatetime
+    parseSQLTimestamp, pyCalendarTodatetime, parseSQLDateToPyCalendar
 from twistedcaldav.ical import Component, InvalidICalendarDataError
 from twistedcaldav.instance import InvalidOverriddenInstanceError
 from twistedcaldav.memcacher import Memcacher
@@ -1005,6 +1005,30 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
                            (self._resourceID, "\n  ".join(fixed),))
 
         returnValue(component)
+
+
+    @classproperty
+    def _recurrenceMaxByIDQuery(cls): #@NoSelf
+        """
+        DAL query to load RECURRANCE_MAX via an object's resource ID.
+        """
+        co = schema.CALENDAR_OBJECT
+        return Select([co.RECURRANCE_MAX], From=co,
+                      Where=co.RESOURCE_ID == Parameter("resourceID"))
+
+
+    @inlineCallbacks
+    def recurrenceMax(self):
+        """
+        Get the RECURRANCE_MAX value.
+    
+        @return: L{PyCalendarDateTime} result
+        """
+        rMax = (
+            yield self._recurrenceMaxByIDQuery.on(self._txn,
+                                         resourceID=self._resourceID)
+        )[0][0]
+        returnValue(parseSQLDateToPyCalendar(rMax))
 
 
     @inlineCallbacks

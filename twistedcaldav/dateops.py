@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2006-2009 Apple Inc. All rights reserved.
+# Copyright (c) 2006-2012 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -261,6 +261,18 @@ def parseSQLTimestampToPyCalendar(ts):
     
     dt = datetime.datetime.strptime(ts[:19], "%Y-%m-%d %H:%M:%S")
     return PyCalendarDateTime(year=dt.year, month=dt.month, day=dt.day, hours=dt.hour, minutes=dt.minute, seconds=dt.second)
+
+def parseSQLDateToPyCalendar(ts):
+    """
+    Parse an SQL formated date into a PyCalendarDateTime
+    @param ts: the SQL date
+    @type ts: C{str}
+    
+    @return: L{PyCalendarDateTime} result
+    """
+    
+    dt = datetime.datetime.strptime(ts[:10], "%Y-%m-%d")
+    return PyCalendarDateTime(year=dt.year, month=dt.month, day=dt.day)
 
 def datetimeMktime(dt):
 
