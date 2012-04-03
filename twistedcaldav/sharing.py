@@ -313,7 +313,11 @@ class SharedCollectionMixin(object):
         if inviteAccess in ("read-write", "read-write-schedule",):
             userprivs.append(element.Privilege(element.Write()))
         proxyprivs = list(userprivs)
-        proxyprivs.remove(element.Privilege(element.ReadACL()))
+        try:
+            proxyprivs.remove(element.Privilege(element.ReadACL()))
+        except ValueError:
+            # If wiki says no-access then ReadACL won't be in the list
+            pass
 
         aces = (
             # Inheritable specific access for the resource's associated principal.
