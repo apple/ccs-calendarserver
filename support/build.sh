@@ -684,8 +684,8 @@ dependencies () {
     "Zope Interface" "zope.interface" "${zi}" \
     "http://www.zope.org/Products/ZopeInterface/${zv}/${zi}.tar.gz";
 
-  local po="pyOpenSSL-0.13";
-  py_dependency -v 0.13 -m "767bca18a71178ca353dff9e10941929" \
+  local po="pyOpenSSL-0.10";
+  py_dependency -v 0.9 -m "34db8056ec53ce80c7f5fc58bee9f093" \
     "PyOpenSSL" "OpenSSL" "${po}" \
     "http://pypi.python.org/packages/source/p/pyOpenSSL/${po}.tar.gz";
 
