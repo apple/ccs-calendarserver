@@ -124,6 +124,36 @@ def getid(uid, gid):
 
 
 
+def conflictBetweenIPv4AndIPv6():
+    """
+    Is there a conflict between binding an IPv6 and an IPv4 port?  Return True
+    if there is, False if there isn't.
+
+    This is a temporary workaround until maybe Twisted starts setting
+    C{IPPROTO_IPV6 / IPV6_V6ONLY} on IPv6 sockets.
+
+    @return: C{True} if listening on IPv4 conflicts with listening on IPv6.
+    """
+    s4 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s6 = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
+    try:
+        s4.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        s6.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        s4.bind(("", 0))
+        s4.listen(1)
+        usedport = s4.getsockname()[1]
+        try:
+            s6.bind(("::", usedport))
+        except socket.error:
+            return True
+        else:
+            return False
+    finally:
+        s4.close()
+        s6.close()
+
+
+
 def _computeEnvVars(parent):
     """
     Compute environment variables to be propagated to child processes.
@@ -867,7 +897,16 @@ class CalDAVServiceMaker (LoggingMixIn):
         and IPv6".
         """
         if not config.BindAddresses:
-            config.BindAddresses = ["", "::"]
+            if getattr(socket, "has_ipv6", False):
+                if conflictBetweenIPv4AndIPv6():
+                    # If there's a conflict between v4 and v6, then almost by
+                    # definition, v4 is mapped into the v6 space, so we will
+                    # listen "only" on v6.
+                    config.BindAddresses = ["::"]
+                else:
+                    config.BindAddresses = ["", "::"]
+            else:
+                config.BindAddresses = [""]
         return config.BindAddresses
 
 
