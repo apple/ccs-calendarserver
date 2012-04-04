@@ -1161,16 +1161,13 @@ class PostgresLegacyIndexEmulator(LegacyIndexHelper):
         # transaction may have the row locked, so use NOWAIT and if that fails, fakll back to using the original txn. 
         
         newTxn = obj.transaction().store().newTransaction()
-        obj.useTxn(newTxn)
         try:
-            yield obj.lock(nowait=True)
+            yield obj.lock(nowait=True, useTxn=newTxn)
         except NoSuchObjectResourceError:
             yield newTxn.commit()
-            obj.useTxn(None)
             returnValue(None)
         except:
             yield newTxn.abort()
-            obj.useTxn(None)
             newTxn = None
 
         # Now do the re-expand using the appropriate transaction
@@ -1178,16 +1175,18 @@ class PostgresLegacyIndexEmulator(LegacyIndexHelper):
             if newTxn is None:
                 rmax = None
             else:
-                rmax = (yield obj.recurrenceMax())
+                rmax = (yield obj.recurrenceMax(useTxn=newTxn))
 
             if rmax is None or rmax < expand_until:
                 yield obj.updateDatabase(
-                    (yield obj.component()), expand_until=expand_until, reCreate=True
+                    (yield obj.component()),
+                    expand_until=expand_until,
+                    reCreate=True,
+                    useTxn=newTxn,
                 )
         finally:
             if newTxn is not None:
                 yield newTxn.commit()
-                obj.useTxn(None)
 
 
     @inlineCallbacks

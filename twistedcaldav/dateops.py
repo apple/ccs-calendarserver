@@ -259,8 +259,15 @@ def parseSQLTimestampToPyCalendar(ts):
     @return: L{PyCalendarDateTime} result
     """
     
-    dt = datetime.datetime.strptime(ts[:19], "%Y-%m-%d %H:%M:%S")
-    return PyCalendarDateTime(year=dt.year, month=dt.month, day=dt.day, hours=dt.hour, minutes=dt.minute, seconds=dt.second)
+    # Format is "%Y-%m-%d %H:%M:%S"
+    return PyCalendarDateTime(
+        year=int(ts[0:4]),
+        month=int(ts[5:7]),
+        day=int(ts[8:10]),
+        hours=int(ts[11:13]),
+        minutes=int(ts[14:16]),
+        seconds=int(ts[17:19])
+    )
 
 def parseSQLDateToPyCalendar(ts):
     """
@@ -271,8 +278,12 @@ def parseSQLDateToPyCalendar(ts):
     @return: L{PyCalendarDateTime} result
     """
     
-    dt = datetime.datetime.strptime(ts[:10], "%Y-%m-%d")
-    return PyCalendarDateTime(year=dt.year, month=dt.month, day=dt.day)
+    # Format is "%Y-%m-%d", though Oracle may add zero time which we ignore
+    return PyCalendarDateTime(
+        year=int(ts[0:4]),
+        month=int(ts[5:7]),
+        day=int(ts[8:10])
+    )
 
 def datetimeMktime(dt):
 

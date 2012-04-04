@@ -38,6 +38,7 @@ from txdav.common.datastore.sql import ECALENDARTYPE
 from txdav.common.datastore.sql_tables import schema, _BIND_MODE_DIRECT,\
     _BIND_STATUS_ACCEPTED
 from txdav.common.datastore.test.util import buildStore, populateCalendarsFrom
+from txdav.common.icommondatastore import NoSuchObjectResourceError
 
 from twistedcaldav import caldavxml
 from twistedcaldav.caldavxml import CalendarDescription
@@ -1104,3 +1105,67 @@ END:VCALENDAR
             supported_components.add(result)
             
         self.assertEqual(supported_components, set(("VEVENT", "VTODO",)))
+
+    @inlineCallbacks
+    def test_resourceLock(self):
+        """
+        Test CommonObjectResource.lock to make sure it locks, raises on missing resource,
+        and raises when locked and NOWAIT used.
+        """
+        
+        # Valid object
+        resource = yield self.calendarObjectUnderTest()
+        
+        # Valid lock
+        yield resource.lock()
+        self.assertTrue(resource._locked)
+        
+        # Setup a new transaction to verify the lock and also verify NOWAIT behavior
+        newTxn = self._sqlCalendarStore.newTransaction()
+        newResource = yield self.calendarObjectUnderTest(txn=newTxn)
+        try:
+            yield newResource.lock(nowait=True)
+        except:
+            pass # OK
+        else:
+            self.fail("Expected an exception")
+        self.assertFalse(newResource._locked)
+        yield newTxn.abort()
+
+        # Commit existing transaction and verify we can get the lock using
+        yield self.commit()
+        
+        resource = yield self.calendarObjectUnderTest()
+        yield resource.lock()
+        self.assertTrue(resource._locked)
+                
+        # Setup a new transaction to verify the lock but pass in an alternative txn directly
+        newTxn = self._sqlCalendarStore.newTransaction()
+        
+        # FIXME: not sure why, but without this statement here, this portion of the test fails in a funny way.
+        # Basically the query in the try block seems to execute twice, failing each time, one of which is caught,
+        # and the other not - causing the test to fail. Seems like some state on newTxn is not being initialized?
+        _ignore = yield self.calendarObjectUnderTest("2.ics", txn=newTxn)
+        
+        try:
+            yield resource.lock(nowait=True, useTxn=newTxn)
+        except:
+            pass # OK
+        else:
+            self.fail("Expected an exception")
+        self.assertTrue(resource._locked)
+
+        # Test missing resource
+        resource2 = yield self.calendarObjectUnderTest("2.ics")
+        resource2._resourceID = 123456789
+        try:
+            yield resource2.lock()
+        except NoSuchObjectResourceError:
+            pass # OK
+        except:
+            self.fail("Expected a NoSuchObjectResourceError exception")
+        else:
+            self.fail("Expected an exception")
+        self.assertFalse(resource2._locked)
+
+        

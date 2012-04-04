@@ -2695,7 +2695,7 @@ class CommonObjectResource(LoggingMixIn, FancyEqMixin):
         self._modified = None
         self._objectText = None
         
-        self._overrideTxn = None
+        self._locked = False
 
 
     @classproperty
@@ -2903,13 +2903,12 @@ class CommonObjectResource(LoggingMixIn, FancyEqMixin):
 
     @property
     def _txn(self):
-        return self._overrideTxn if self._overrideTxn else self._parentCollection._txn
+        return self._parentCollection._txn
+
 
     def transaction(self):
-        return self._overrideTxn if self._overrideTxn else self._parentCollection._txn
+        return self._parentCollection._txn
 
-    def useTxn(self, newTxn):
-        self._overrideTxn = newTxn
 
     @classmethod
     def _selectForUpdateQuery(cls, nowait): #@NoSelf
@@ -2918,9 +2917,28 @@ class CommonObjectResource(LoggingMixIn, FancyEqMixin):
         """
         return Select(From=cls._objectSchema, ForUpdate=True, NoWait=nowait, Where=cls._objectSchema.RESOURCE_ID == Parameter("resourceID"))
 
+
     @inlineCallbacks
-    def lock(self, nowait=False):
-        yield self._selectForUpdateQuery(nowait).on(self._txn, NoSuchObjectResourceError, resourceID=self._resourceID)
+    def lock(self, nowait=False, useTxn=None):
+        """
+        Attempt to obtain a row lock on the object resource. Lock will remain until
+        transaction is complete, or fail if resource is missing, or it is already locked
+        and NOWAIT is used. Occasionally we need to lock via a separate transaction so we
+        pass that in too.
+
+        @param nowait: whether or not to use NOWAIT option
+        @type nowait: C{bool}
+        @param useTxn: alternatiuve transaction to use
+        @type useTxn: L{CommonStoreTransaction}
+        
+        @raise: L{NoSuchObjectResourceError} if resource does not exist, other L{Exception}
+                if already locked and NOWAIT is used.
+        """
+        
+        txn = useTxn if useTxn is not None else self._txn
+        yield self._selectForUpdateQuery(nowait).on(txn, NoSuchObjectResourceError, resourceID=self._resourceID)
+        self._locked = True
+
 
     def setComponent(self, component, inserting=False):
         raise NotImplementedError

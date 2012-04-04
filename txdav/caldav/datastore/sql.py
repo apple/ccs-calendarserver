@@ -753,14 +753,20 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
 
     @inlineCallbacks
-    def updateDatabase(self, component,
-                       expand_until=None, reCreate=False, inserting=False):
+    def updateDatabase(self, component, expand_until=None, reCreate=False,
+                       inserting=False, useTxn=None):
         """
-        Update the database tables for the new data being written.
+        Update the database tables for the new data being written. Occasionally we might need to do an update to
+        time-range data via a separate transaction, so we allow that to be passed in. Note that in that case
+        access to the parent resources will not occur in this method, so the queries on the new txn won't depend
+        on any parent objects having the same txn set.
 
         @param component: calendar data to store
         @type component: L{Component}
         """
+
+        # Setup appropriate txn
+        txn = useTxn if useTxn is not None else self._txn
 
         # Decide how far to expand based on the component
         doInstanceIndexing = False
@@ -774,7 +780,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         else:
 
             # If migrating or re-creating or config option for delayed indexing is off, always index
-            if reCreate or self._txn._migrating or not config.FreeBusyIndexDelayedExpand:
+            if reCreate or txn._migrating or not config.FreeBusyIndexDelayedExpand:
                 doInstanceIndexing = True
 
             # Duration into the future through which recurrences are expanded in the index
@@ -812,7 +818,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             self.log_error("Invalid instance %s when indexing %s in %s" %
                            (e.rid, self._name, self._calendar,))
 
-            if self._txn._migrating:
+            if txn._migrating:
                 # TODO: fix the data here by re-writing component then re-index
                 instances = component.expandTimeRanges(expand, ignoreInvalidInstances=True)
                 recurrenceLimit = instances.limit
@@ -843,7 +849,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             self._size = len(componentText)
 
             # Special - if migrating we need to preserve the original md5
-            if self._txn._migrating and hasattr(component, "md5"):
+            if txn._migrating and hasattr(component, "md5"):
                 self._md5 = component.md5
 
             # Determine attachment mode (ignore inbox's) - NB we have to do this
@@ -885,7 +891,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
                     yield Insert(
                         values,
                         Return=(co.RESOURCE_ID, co.CREATED, co.MODIFIED)
-                    ).on(self._txn)
+                    ).on(txn)
                 )[0]
             else:
                 values[co.MODIFIED] = utcNowSQL
@@ -893,13 +899,13 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
                     yield Update(
                         values, Return=co.MODIFIED,
                         Where=co.RESOURCE_ID == self._resourceID
-                    ).on(self._txn)
+                    ).on(txn)
                 )[0][0]
                 # Need to wipe the existing time-range for this and rebuild
                 yield Delete(
                     From=tr,
                     Where=tr.CALENDAR_OBJECT_RESOURCE_ID == self._resourceID
-                ).on(self._txn)
+                ).on(txn)
         else:
             values = {
                 co.RECURRANCE_MAX :
@@ -909,13 +915,13 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             yield Update(
                 values,
                 Where=co.RESOURCE_ID == self._resourceID
-            ).on(self._txn)
+            ).on(txn)
 
             # Need to wipe the existing time-range for this and rebuild
             yield Delete(
                 From=tr,
                 Where=tr.CALENDAR_OBJECT_RESOURCE_ID == self._resourceID
-            ).on(self._txn)
+            ).on(txn)
 
         if doInstanceIndexing:
             # TIME_RANGE table update
@@ -938,14 +944,14 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
                             instance.component.getFBType(),
                             icalfbtype_to_indexfbtype["FREE"]),
                     tr.TRANSPARENT                 : transp,
-                }, Return=tr.INSTANCE_ID).on(self._txn))[0][0]
+                }, Return=tr.INSTANCE_ID).on(txn))[0][0]
                 peruserdata = component.perUserTransparency(instance.rid)
                 for useruid, transp in peruserdata:
                     (yield Insert({
                         tpy.TIME_RANGE_INSTANCE_ID : instanceid,
                         tpy.USER_ID                : useruid,
                         tpy.TRANSPARENT            : transp,
-                    }).on(self._txn))
+                    }).on(txn))
 
             # Special - for unbounded recurrence we insert a value for "infinity"
             # that will allow an open-ended time-range to always match it.
@@ -963,14 +969,14 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
                     tr.FBTYPE                      :
                         icalfbtype_to_indexfbtype["UNKNOWN"],
                     tr.TRANSPARENT                 : transp,
-                }, Return=tr.INSTANCE_ID).on(self._txn))[0][0]
+                }, Return=tr.INSTANCE_ID).on(txn))[0][0]
                 peruserdata = component.perUserTransparency(None)
                 for useruid, transp in peruserdata:
                     (yield Insert({
                         tpy.TIME_RANGE_INSTANCE_ID : instanceid,
                         tpy.USER_ID                : useruid,
                         tpy.TRANSPARENT            : transp,
-                    }).on(self._txn))
+                    }).on(txn))
 
 
     @inlineCallbacks
@@ -1018,14 +1024,18 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
 
     @inlineCallbacks
-    def recurrenceMax(self):
+    def recurrenceMax(self, useTxn=None):
         """
-        Get the RECURRANCE_MAX value.
+        Get the RECURRANCE_MAX value. Occasionally we might need to do an update to
+        time-range data via a separate transaction, so we allow that to be passed in.
     
         @return: L{PyCalendarDateTime} result
         """
+        # Setup appropriate txn
+        txn = useTxn if useTxn is not None else self._txn
+
         rMax = (
-            yield self._recurrenceMaxByIDQuery.on(self._txn,
+            yield self._recurrenceMaxByIDQuery.on(txn,
                                          resourceID=self._resourceID)
         )[0][0]
         returnValue(parseSQLDateToPyCalendar(rMax))
