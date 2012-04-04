@@ -6113,6 +6113,11 @@ END:VCALENDAR
         self.assertEquals(component._cachedCopy, None) # cache is invalidated
 
         str(component) # to serialize and cache
+        self.assertNotEquals(component._cachedCopy, None)
+        retrieved = component.getProperty("PRODID")
+        self.assertEquals(retrieved._parent, component)
+
+        str(component) # to serialize and cache
         component.removeProperty(prop)
         self.assertEquals(prop._parent, None)
         self.assertEquals(component._cachedCopy, None) # cache is invalidated

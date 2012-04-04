@@ -148,7 +148,7 @@ class Property (object):
     """
     iCalendar Property
     """
-    def __init__(self, name, value, params={}, **kwargs):
+    def __init__(self, name, value, params={}, parent=None, **kwargs):
         """
         @param name: the property's name
         @param value: the property's value
@@ -170,6 +170,8 @@ class Property (object):
             self._pycalendar = PyCalendarProperty(name, value)
             for attrname, attrvalue in params.items():
                 self._pycalendar.addAttribute(PyCalendarAttribute(attrname, attrvalue))
+
+        self._parent = parent
 
     def __str__(self): return str(self._pycalendar)
     def __repr__(self): return "<%s: %r: %r>" % (self.__class__.__name__, self.name(), self.value())
@@ -200,6 +202,7 @@ class Property (object):
         Duplicate this object and all its contents.
         @return: the duplicated calendar.
         """
+        # FIXME: does the parent need to be set in this case?
         return Property(None, None, None, pycalendar=self._pycalendar.duplicate())
 
     def name(self): return self._pycalendar.getName()
@@ -655,7 +658,7 @@ class Component (object):
             properties = self._pycalendar.getProperties(name)
 
         return (
-            Property(None, None, None, pycalendar=p)
+            Property(None, None, None, parent=self, pycalendar=p)
             for p in properties
         )
 
