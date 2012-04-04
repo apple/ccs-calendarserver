@@ -206,6 +206,7 @@ class RecordFolder(Folder):
         result = set()
 
         # FIXME ...?
+        yield 1
 
         returnValue(result)
 
@@ -257,7 +258,7 @@ class PrincipalHomeFolder(Folder):
     @inlineCallbacks
     def _initChildren(self):
         if not hasattr(self, "_didInitChildren"):
-            txn  = self.service.store.newTransaction()
+            txn = self.service.store.newTransaction()
 
             if (
                 self.record is not None and
@@ -268,7 +269,21 @@ class PrincipalHomeFolder(Folder):
             else:
                 create = False
 
-            home = (yield txn.calendarHomeWithUID(self.uid, create=create))
+            # Try assuming it exists
+            home = (yield txn.calendarHomeWithUID(self.uid, create=False))
+
+            if home is None and create:
+                # Doesn't exist, so create it in a different
+                # transaction, to avoid having to commit the live
+                # transaction.
+                txnTemp = self.service.store.newTransaction()
+                home = (yield txnTemp.calendarHomeWithUID(self.uid, create=True))
+                (yield txnTemp.commit())
+
+                # Fetch the home again. This time we expect it to be there.
+                home = (yield txn.calendarHomeWithUID(self.uid, create=False))
+                assert home
+
             if home:
                 self._children["calendars"] = CalendarHomeFolder(
                     self.service,
@@ -285,7 +300,19 @@ class PrincipalHomeFolder(Folder):
             else:
                 create = False
 
+            # Again, assume it exists
             home = (yield txn.addressbookHomeWithUID(self.uid))
+
+            if not home and create:
+                # Repeat the above dance.
+                txnTemp = self.service.store.newTransaction()
+                home = (yield txnTemp.addressbookHomeWithUID(self.uid, create=True))
+                (yield txnTemp.commit())
+
+                # Fetch the home again. This time we expect it to be there.
+                home = (yield txn.addressbookHomeWithUID(self.uid, create=False))
+                assert home
+
             if home:
                 self._children["addressbooks"] = AddressBookHomeFolder(
                     self.service,
@@ -593,10 +620,16 @@ class CalendarObject(File):
 
         returnValue("Calendar object:\n%s" % tableString(rows))
 
+
 class AddressBookHomeFolder(Folder):
     """
     Address book home folder.
     """
+    def __init__(self, service, path, home):
+        Folder.__init__(self, service, path)
+
+        self.home = home
+
     # FIXME
 
 
