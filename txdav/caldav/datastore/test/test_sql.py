@@ -1145,7 +1145,7 @@ END:VCALENDAR
         # FIXME: not sure why, but without this statement here, this portion of the test fails in a funny way.
         # Basically the query in the try block seems to execute twice, failing each time, one of which is caught,
         # and the other not - causing the test to fail. Seems like some state on newTxn is not being initialized?
-        _ignore = yield self.calendarObjectUnderTest("2.ics", txn=newTxn)
+        yield self.calendarObjectUnderTest("2.ics", txn=newTxn)
         
         try:
             yield resource.lock(nowait=True, useTxn=newTxn)
