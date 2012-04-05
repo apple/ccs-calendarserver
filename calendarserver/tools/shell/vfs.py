@@ -612,11 +612,9 @@ class CalendarObject(File):
         #
         # Attachments
         #
-#       attachments = (yield self.object.attachments())
-#       log.msg("%r" % (attachments,))
-#       for attachment in attachments:
-#           log.msg("%r" % (attachment,))
-#           # FIXME: Not getting any results here
+        attachments = (yield self.object.attachments())
+        for attachment in attachments:
+            rows.append(("Attachment", "%s (%d bytes)" % (attachment.name(), attachment.size())))
 
         returnValue("Calendar object:\n%s" % tableString(rows))
 
