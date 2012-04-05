@@ -31,7 +31,6 @@ from twistedcaldav.ical import InvalidICalendarDataError
 
 from calendarserver.tools.tables import Table
 
-
 class File(object):
     """
     Object in virtual data hierarchy.
@@ -79,7 +78,7 @@ class Folder(File):
 
     @inlineCallbacks
     def locate(self, path):
-        if path[-1] == "":
+        if path and path[-1] == "":
             path.pop()
 
         if not path:
