@@ -340,8 +340,8 @@ class PrincipalHomeFolder(Folder):
 
     @inlineCallbacks
     def describe(self):
-        result = []
-        result.append("Principal home for UID: %s\n" % (self.uid,))
+        description = []
+        description.append("Principal home for UID: %s\n" % (self.uid,))
 
         if self.record is not None:
             #
@@ -378,8 +378,8 @@ class PrincipalHomeFolder(Folder):
             add("Enabled for Contacts", self.record.enabledForAddressBooks)
 
             if rows:
-                result.append("Directory Record:")
-                result.append(tableString(rows))
+                description.append("Directory Record:")
+                description.append(tableString(rows))
 
             #
             # Group memberships
@@ -392,8 +392,8 @@ class PrincipalHomeFolder(Folder):
             if rows:
                 def sortKey(row):
                     return (row[1], row[2])
-                result.append("Group Memberships:")
-                result.append(tableString(
+                description.append("Group Memberships:")
+                description.append(tableString(
                     sorted(rows, key=sortKey),
                     header=("UID", "Short Name", "Full Name")
                 ))
@@ -430,13 +430,13 @@ class PrincipalHomeFolder(Folder):
             if rows:
                 def sortKey(row):
                     return (row[1], row[2], row[4])
-                result.append("Proxy Access:")
-                result.append(tableString(
+                description.append("Proxy Access:")
+                description.append(tableString(
                     sorted(rows, key=sortKey),
                     header=("UID", "Record Type", "Short Name", "Full Name", "Access")
                 ))
 
-        returnValue("\n".join(result))
+        returnValue("\n".join(description))
 
 
 class CalendarHomeFolder(Folder):
@@ -463,7 +463,7 @@ class CalendarHomeFolder(Folder):
 
     @inlineCallbacks
     def describe(self):
-        result = ["Calendar home:\n"]
+        description = ["Calendar home:\n"]
 
         #
         # Attributes
@@ -486,21 +486,21 @@ class CalendarHomeFolder(Folder):
             ))
 
         if len(rows):
-            result.append("Attributes:")
-            result.append(tableString(rows))
+            description.append("Attributes:")
+            description.append(tableString(rows))
 
         #
         # Properties
         #
         properties = (yield self.home.properties())
         if properties:
-            result.append("Properties:")
-            result.append(tableString((
+            description.append("Properties:")
+            description.append(tableString((
                 (name.toString(), truncateAtNewline(properties[name]))
                 for name in sorted(properties)
             )))
 
-        returnValue("\n".join(result))
+        returnValue("\n".join(description))
 
 
 class CalendarFolder(Folder):
@@ -637,8 +637,8 @@ class CalendarObject(File):
         #
         properties = (yield self.object.properties())
         if properties:
-            result.append("Properties:")
-            result.append(tableString((
+            description.append("Properties:")
+            description.append(tableString((
                 (name.toString(), properties[name])
                 for name in sorted(properties)
             )))
