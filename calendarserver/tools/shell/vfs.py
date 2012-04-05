@@ -289,6 +289,7 @@ class PrincipalHomeFolder(Folder):
                     self.service,
                     self.path + ("calendars",),
                     home,
+                    self.record,
                 )
 
             if (
@@ -318,6 +319,7 @@ class PrincipalHomeFolder(Folder):
                     self.service,
                     self.path + ("addressbooks",),
                     home,
+                    self.record,
                 )
 
         self._didInitChildren = True
@@ -442,10 +444,11 @@ class CalendarHomeFolder(Folder):
     """
     Calendar home folder.
     """
-    def __init__(self, service, path, home):
+    def __init__(self, service, path, home, record):
         Folder.__init__(self, service, path)
 
-        self.home = home
+        self.home   = home
+        self.record = record
 
     @inlineCallbacks
     def child(self, name):
@@ -473,8 +476,12 @@ class CalendarHomeFolder(Folder):
         quotaUsed    = (yield self.home.quotaUsedBytes())
         quotaAllowed = (yield self.home.quotaAllowedBytes())
 
+        recordType      = (yield self.record.recordType)
+        recordShortName = (yield self.record.shortNames[0])
+
         rows = []
         rows.append(("UID", uid))
+        rows.append(("Owner", "(%s)%s" % (recordType, recordShortName)))
         rows.append(("Created"      , timeString(created)))
         rows.append(("Last modified", timeString(modified)))
         if quotaUsed is not None:
@@ -649,10 +656,11 @@ class AddressBookHomeFolder(Folder):
     """
     Address book home folder.
     """
-    def __init__(self, service, path, home):
+    def __init__(self, service, path, home, record):
         Folder.__init__(self, service, path)
 
-        self.home = home
+        self.home   = home
+        self.record = record
 
     # FIXME
 
