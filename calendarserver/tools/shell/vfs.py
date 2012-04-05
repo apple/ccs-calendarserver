@@ -495,9 +495,10 @@ class CalendarHomeFolder(Folder):
         properties = (yield self.home.properties())
         if properties:
             result.append("Properties:")
-            result.append(tableString(
-                ((name.toString(), properties[name]) for name in sorted(properties))
-            ))
+            result.append(tableString((
+                (name.toString(), truncateAtNewline(properties[name]))
+                for name in sorted(properties)
+            )))
 
         returnValue("\n".join(result))
 
@@ -637,9 +638,10 @@ class CalendarObject(File):
         properties = (yield self.object.properties())
         if properties:
             result.append("Properties:")
-            result.append(tableString(
-                ((name.toString(), properties[name]) for name in sorted(properties))
-            ))
+            result.append(tableString((
+                (name.toString(), properties[name])
+                for name in sorted(properties)
+            )))
 
         returnValue("\n".join(description))
 
@@ -673,3 +675,13 @@ def timeString(time):
         return "(unknown)"
 
     return strftime("%a, %d %b %Y %H:%M:%S %z(%Z)", localtime(time))
+
+
+def truncateAtNewline(text):
+    text = str(text)
+    try:
+        index = text.index("\n")
+    except ValueError:
+        return text
+
+    return text[:index] + "..."
