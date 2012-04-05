@@ -491,20 +491,15 @@ class CalendarHomeFolder(Folder):
                 % (quotaUsed, quotaAllowed, quotaUsed / quotaAllowed)
             ))
 
-        if len(rows):
-            description.append("Attributes:")
-            description.append(tableString(rows))
+        description.append("Attributes:")
+        description.append(tableString(rows))
 
         #
         # Properties
         #
         properties = (yield self.home.properties())
         if properties:
-            description.append("Properties:")
-            description.append(tableString((
-                (name.toString(), truncateAtNewline(properties[name]))
-                for name in sorted(properties)
-            )))
+            description.append(tableStringForProperties(properties))
 
         returnValue("\n".join(description))
 
@@ -543,6 +538,32 @@ class CalendarFolder(Folder):
             result.append(items[0])
 
         returnValue(result)
+
+    @inlineCallbacks
+    def describe(self):
+        description = ["Calendar:\n"]
+
+        #
+        # Attributes
+        #
+        ownerHome = (yield self.calendar.ownerCalendarHome()) # FIXME: Translate into human
+        syncToken = (yield self.calendar.syncToken())
+
+        rows = []
+        rows.append(("Owner"     , ownerHome))
+        rows.append(("Sync Token", syncToken))
+
+        description.append("Attributes:")
+        description.append(tableString(rows))
+
+        #
+        # Properties
+        #
+        properties = (yield self.calendar.properties())
+        if properties:
+            description.append(tableStringForProperties(properties))
+
+        returnValue("\n".join(description))
 
 
 class CalendarObject(File):
@@ -643,11 +664,7 @@ class CalendarObject(File):
         #
         properties = (yield self.object.properties())
         if properties:
-            description.append("Properties:")
-            description.append(tableString((
-                (name.toString(), properties[name])
-                for name in sorted(properties)
-            )))
+            description.append(tableStringForProperties(properties))
 
         returnValue("\n".join(description))
 
@@ -675,6 +692,12 @@ def tableString(rows, header=None):
     output = StringIO()
     table.printTable(os=output)
     return output.getvalue()
+
+def tableStringForProperties(properties):
+    return "Properties:\n%s" % (tableString((
+        (name.toString(), truncateAtNewline(properties[name]))
+        for name in sorted(properties)
+    )))
 
 
 def timeString(time):
