@@ -19,6 +19,7 @@ Virtual file system for data store objects.
 """
 
 from cStringIO import StringIO
+from time import strftime, localtime
 
 from twisted.python import log
 from twisted.internet.defer import succeed
@@ -378,7 +379,7 @@ class PrincipalHomeFolder(Folder):
 
             if rows:
                 result.append("Directory Record:")
-                result.append(tableString(rows, header=("Name", "Value")))
+                result.append(tableString(rows))
 
             #
             # Group memberships
@@ -462,30 +463,21 @@ class CalendarHomeFolder(Folder):
 
     @inlineCallbacks
     def describe(self):
-        # created() -> int
-        # modified() -> int
-        # properties -> IPropertyStore
+        result = ["Calendar home:\n"]
 
+        #
+        # Attributes
+        #
         uid          = (yield self.home.uid())
         created      = (yield self.home.created())
         modified     = (yield self.home.modified())
         quotaUsed    = (yield self.home.quotaUsedBytes())
         quotaAllowed = (yield self.home.quotaAllowedBytes())
-        properties   = (yield self.home.properties())
 
-        result = []
-        result.append("Calendar home for UID: %s\n" % (uid,))
-
-        #
-        # Attributes
-        #
         rows = []
-        if created is not None:
-            # FIXME: convert to formatted string
-            rows.append(("Created", str(created)))
-        if modified is not None:
-            # FIXME: convert to formatted string
-            rows.append(("Last modified", str(modified)))
+        rows.append(("UID", uid))
+        rows.append(("Created"      , timeString(created)))
+        rows.append(("Last modified", timeString(modified)))
         if quotaUsed is not None:
             rows.append((
                 "Quota",
@@ -495,16 +487,16 @@ class CalendarHomeFolder(Folder):
 
         if len(rows):
             result.append("Attributes:")
-            result.append(tableString(rows, header=("Name", "Value")))
+            result.append(tableString(rows))
 
         #
         # Properties
         #
+        properties = (yield self.home.properties())
         if properties:
             result.append("Properties:")
             result.append(tableString(
-                ((name, properties[name]) for name in sorted(properties)),
-                header=("Name", "Value")
+                ((name.toString(), properties[name]) for name in sorted(properties))
             ))
 
         returnValue("\n".join(result))
@@ -593,6 +585,11 @@ class CalendarObject(File):
     def describe(self):
         (yield self.lookup())
 
+        description = ["Calendar object:\n"]
+
+        #
+        # Calendar object attributes
+        #
         rows = []
 
         rows.append(("UID", self.uid))
@@ -609,14 +606,42 @@ class CalendarObject(File):
 
             rows.append(("Organizer", "%s%s%s" % (organizer.value(), name, email)))
 
+        rows.append(("Created" , timeString(self.object.created())))
+        rows.append(("Modified", timeString(self.object.modified())))
+
+        description.append("Attributes:")
+        description.append(tableString(rows))
+
         #
         # Attachments
         #
         attachments = (yield self.object.attachments())
         for attachment in attachments:
-            rows.append(("Attachment", "%s (%d bytes)" % (attachment.name(), attachment.size())))
+            contentType = attachment.contentType()
+            contentType = "%s/%s" % (contentType.mediaType, contentType.mediaSubtype)
 
-        returnValue("Calendar object:\n%s" % tableString(rows))
+            rows = []
+            rows.append(("Name"        , attachment.name()))
+            rows.append(("Size"        , "%s bytes" % (attachment.size(),)))
+            rows.append(("Content Type", contentType))
+            rows.append(("MD5 Sum"     , attachment.md5()))
+            rows.append(("Created"     , timeString(attachment.created())))
+            rows.append(("Modified"    , timeString(attachment.modified())))
+
+            description.append("Attachment:")
+            description.append(tableString(rows))
+
+        #
+        # Properties
+        #
+        properties = (yield self.object.properties())
+        if properties:
+            result.append("Properties:")
+            result.append(tableString(
+                ((name.toString(), properties[name]) for name in sorted(properties))
+            ))
+
+        returnValue("\n".join(description))
 
 
 class AddressBookHomeFolder(Folder):
@@ -641,3 +666,10 @@ def tableString(rows, header=None):
     output = StringIO()
     table.printTable(os=output)
     return output.getvalue()
+
+
+def timeString(time):
+    if time is None:
+        return "(unknown)"
+
+    return strftime("%a, %d %b %Y %H:%M:%S %z(%Z)", localtime(time))
