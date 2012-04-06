@@ -1158,11 +1158,11 @@ class PostgresLegacyIndexEmulator(LegacyIndexHelper):
         obj = yield self.calendar.calendarObjectWithName(name)
         
         # Use a new transaction to do this update quickly without locking the row for too long. However, the original
-        # transaction may have the row locked, so use NOWAIT and if that fails, fakll back to using the original txn. 
+        # transaction may have the row locked, so use wait=False and if that fails, fall back to using the original txn. 
         
         newTxn = obj.transaction().store().newTransaction()
         try:
-            yield obj.lock(nowait=True, useTxn=newTxn)
+            yield obj.lock(wait=False, txn=newTxn)
         except NoSuchObjectResourceError:
             yield newTxn.commit()
             returnValue(None)
@@ -1175,14 +1175,14 @@ class PostgresLegacyIndexEmulator(LegacyIndexHelper):
             if newTxn is None:
                 rmax = None
             else:
-                rmax = (yield obj.recurrenceMax(useTxn=newTxn))
+                rmax = (yield obj.recurrenceMax(txn=newTxn))
 
             if rmax is None or rmax < expand_until:
                 yield obj.updateDatabase(
                     (yield obj.component()),
                     expand_until=expand_until,
                     reCreate=True,
-                    useTxn=newTxn,
+                    txn=newTxn,
                 )
         finally:
             if newTxn is not None:

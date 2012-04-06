@@ -1110,7 +1110,7 @@ END:VCALENDAR
     def test_resourceLock(self):
         """
         Test CommonObjectResource.lock to make sure it locks, raises on missing resource,
-        and raises when locked and NOWAIT used.
+        and raises when locked and wait=False used.
         """
         
         # Valid object
@@ -1120,11 +1120,11 @@ END:VCALENDAR
         yield resource.lock()
         self.assertTrue(resource._locked)
         
-        # Setup a new transaction to verify the lock and also verify NOWAIT behavior
+        # Setup a new transaction to verify the lock and also verify wait behavior
         newTxn = self._sqlCalendarStore.newTransaction()
         newResource = yield self.calendarObjectUnderTest(txn=newTxn)
         try:
-            yield newResource.lock(nowait=True)
+            yield newResource.lock(wait=False)
         except:
             pass # OK
         else:
@@ -1148,7 +1148,7 @@ END:VCALENDAR
         yield self.calendarObjectUnderTest("2.ics", txn=newTxn)
         
         try:
-            yield resource.lock(nowait=True, useTxn=newTxn)
+            yield resource.lock(wait=False, useTxn=newTxn)
         except:
             pass # OK
         else:

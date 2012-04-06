@@ -2919,24 +2919,25 @@ class CommonObjectResource(LoggingMixIn, FancyEqMixin):
 
 
     @inlineCallbacks
-    def lock(self, nowait=False, useTxn=None):
+    def lock(self, wait=True, txn=None):
         """
-        Attempt to obtain a row lock on the object resource. Lock will remain until
+        Attempt to obtain a row lock on the object resource. 'wait' determines whether the DB call will
+        block on any existing lock held by someone else. Lock will remain until
         transaction is complete, or fail if resource is missing, or it is already locked
-        and NOWAIT is used. Occasionally we need to lock via a separate transaction so we
+        and wait=False is used. Occasionally we need to lock via a separate transaction so we
         pass that in too.
 
-        @param nowait: whether or not to use NOWAIT option
-        @type nowait: C{bool}
-        @param useTxn: alternatiuve transaction to use
-        @type useTxn: L{CommonStoreTransaction}
+        @param wait: whether or not to wait on someone else's lock
+        @type wait: C{bool}
+        @param txn: alternative transaction to use
+        @type txn: L{CommonStoreTransaction}
         
         @raise: L{NoSuchObjectResourceError} if resource does not exist, other L{Exception}
                 if already locked and NOWAIT is used.
         """
         
-        txn = useTxn if useTxn is not None else self._txn
-        yield self._selectForUpdateQuery(nowait).on(txn, NoSuchObjectResourceError, resourceID=self._resourceID)
+        txn = txn if txn is not None else self._txn
+        yield self._selectForUpdateQuery(not wait).on(txn, NoSuchObjectResourceError, resourceID=self._resourceID)
         self._locked = True
 
 

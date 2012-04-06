@@ -754,7 +754,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
     @inlineCallbacks
     def updateDatabase(self, component, expand_until=None, reCreate=False,
-                       inserting=False, useTxn=None):
+                       inserting=False, txn=None):
         """
         Update the database tables for the new data being written. Occasionally we might need to do an update to
         time-range data via a separate transaction, so we allow that to be passed in. Note that in that case
@@ -766,7 +766,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         """
 
         # Setup appropriate txn
-        txn = useTxn if useTxn is not None else self._txn
+        txn = txn if txn is not None else self._txn
 
         # Decide how far to expand based on the component
         doInstanceIndexing = False
@@ -1024,15 +1024,15 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
 
     @inlineCallbacks
-    def recurrenceMax(self, useTxn=None):
+    def recurrenceMax(self, txn=None):
         """
-        Get the RECURRANCE_MAX value. Occasionally we might need to do an update to
-        time-range data via a separate transaction, so we allow that to be passed in.
+        Get the RECURRANCE_MAX value from the database. Occasionally we might need to do an
+        update to time-range data via a separate transaction, so we allow that to be passed in.
     
         @return: L{PyCalendarDateTime} result
         """
         # Setup appropriate txn
-        txn = useTxn if useTxn is not None else self._txn
+        txn = txn if txn is not None else self._txn
 
         rMax = (
             yield self._recurrenceMaxByIDQuery.on(txn,
