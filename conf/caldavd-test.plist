@@ -942,7 +942,7 @@
       	<!-- Optional extra logging for posgres -->
       	<!-- <string>-c log_lock_waits=TRUE</string> -->
       	<!-- <string>-c log_statement=all</string> -->
-      	<!-- <string>-c log_line_prefix='%p.%x '</string> -->
+      	<!-- <string>-c log_line_prefix='%t [%p]: [%l] '</string> -->
       </array>
     </dict>
 
