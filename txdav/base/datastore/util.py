@@ -19,6 +19,8 @@
 Common utility functions for a datastores.
 """
 
+from twistedcaldav.memcacher import Memcacher
+
 _unset = object()
 
 class cached(object):
@@ -45,3 +47,34 @@ class cached(object):
             else:
                 return cached
         return inner
+
+
+class QueryCacher(Memcacher):
+    """
+    A Memcacher for the object-with-name query (more to come)
+    """
+
+    def __init__(self, cachePool="Default", cacheExpireSeconds=3600):
+        super(QueryCacher, self).__init__(cachePool, pickle=True)
+        self.cacheExpireSeconds = cacheExpireSeconds
+
+    def set(self, key, value):
+        super(QueryCacher, self).set(key, value, expireTime=self.cacheExpireSeconds)
+
+    def keyForObjectWithName(self, homeResourceID, name):
+        return "objectWithName:%s:%s" % (homeResourceID, name)
+
+    def getObjectWithName(self, homeResourceID, name):
+        key = self.keyForObjectWithName(homeResourceID, name)
+        return self.get(key)
+
+    def setObjectWithName(self, transaction, homeResourceID, name, value):
+        key = self.keyForObjectWithName(homeResourceID, name)
+        transaction.postCommit(lambda:self.set(key, value))
+
+    def invalidateObjectWithName(self, transaction, homeResourceID, name):
+        key = self.keyForObjectWithName(homeResourceID, name)
+        # Invalidate immediately and post-commit in case a calendar was created and deleted
+        # within the same transaction
+        self.delete(key)
+        transaction.postCommit(lambda:self.delete(key))

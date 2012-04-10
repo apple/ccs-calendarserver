@@ -946,6 +946,17 @@
       </array>
     </dict>
 
+    <!-- SQL Query Caching -->
+    <key>QueryCaching</key>
+    <dict>
+      <key>Enabled</key>
+      <true/>
+      <key>MemcachedPool</key>
+      <string>Default</string>
+      <key>ExpireSeconds</key>
+      <integer>3600</integer>
+    </dict>
+
     <!-- Group Membership Caching -->
     <key>GroupCaching</key>
     <dict>

@@ -882,6 +882,12 @@ DEFAULT_CONFIG = {
         ],
     },
 
+    "QueryCaching" : {
+        "Enabled" : True,
+        "MemcachedPool" : "Default",
+        "ExpireSeconds" : 3600,
+    },
+
     "GroupCaching" : {
         "Enabled": True,
         "MemcachedPool" : "Default",

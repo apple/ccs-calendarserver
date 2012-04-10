@@ -236,6 +236,9 @@ def storeFromConfig(config, txnFactory):
             logSQL=config.LogDatabase.SQLStatements,
             logTransactionWaits=config.LogDatabase.TransactionWaitSeconds,
             timeoutTransactions=config.TransactionTimeoutSeconds,
+            cacheQueries=config.QueryCaching.Enabled,
+            cachePool=config.QueryCaching.MemcachedPool,
+            cacheExpireSeconds=config.QueryCaching.ExpireSeconds
         )
     else:
         return CommonFileDataStore(
