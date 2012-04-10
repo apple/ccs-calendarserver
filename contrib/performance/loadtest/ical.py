@@ -586,7 +586,7 @@ class BaseAppleClient(BaseClient):
 
         result = yield self._propfind(
             calendar.url,
-            self._POLL_CALENDAR_PROPFIND,
+            self._POLL_CALENDAR_PROPFIND_D1,
             depth='1',
             method_label="PROPFIND{calendar}"
         )
@@ -1302,7 +1302,7 @@ class OS_X_10_7(BaseAppleClient):
     CALENDAR_HOME_POLL_INTERVAL = 15 * 60
     
     # The maximum number of resources to retrieve in a single multiget
-    MULTIGET_BATCH_SIZE = 200
+    MULTIGET_BATCH_SIZE = 50
 
     # Override and turn on if client supports Sync REPORT
     _SYNC_REPORT = True

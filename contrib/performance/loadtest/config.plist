@@ -93,19 +93,19 @@
 
 			<dict>
 
-				<!-- Here is a Snow Leopard iCal simulator. -->
+				<!-- Here is a OS X client simulator. -->
 				<key>software</key>
-				<string>contrib.performance.loadtest.ical.OS_X_10_6</string>
+				<string>contrib.performance.loadtest.ical.OS_X_10_7</string>
 
-				<!-- Arguments to use to initialize the OS_X_10_6 instance. -->
+				<!-- Arguments to use to initialize the OS_X_10_7 instance. -->
 				<key>params</key>
 				<dict>
-					<!-- OS_X_10_6 can poll the calendar home at some interval. This is 
+					<!-- OS_X_10_7 can poll the calendar home at some interval. This is 
 						in seconds. -->
 					<key>calendarHomePollInterval</key>
 					<integer>30</integer>
 
-					<!-- If the server advertises xmpp push, OS_X_10_6 can wait for notifications 
+					<!-- If the server advertises xmpp push, OS_X_10_7 can wait for notifications 
 						about calendar home changes instead of polling for them periodically. If 
 						this option is true, then look for the server advertisement for xmpp push 
 						and use it if possible. Still fall back to polling if there is no xmpp push 
