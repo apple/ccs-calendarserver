@@ -42,7 +42,6 @@ from twistedcaldav.stdconfig import DEFAULT_CONFIG_FILE
 from calendarserver.tools.cmdline import utilityMain
 from calendarserver.tools.util import getDirectory
 from calendarserver.tools.shell.cmd import Commands, UsageError as CommandUsageError
-from calendarserver.tools.shell.vfs import Folder, RootFolder
 
 
 def usage(e=None):
