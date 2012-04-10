@@ -205,7 +205,7 @@ class _PubSubClientFactory(PubSubClientFactory):
             if node:
                 url, _ignore_name, _ignore_kind = self.nodes.get(node, (None, None, None))
                 if url is not None:
-                    self._client._checkCalendarsForEvents(url)
+                    self._client._checkCalendarsForEvents(url, push=True)
 
 
 
@@ -730,7 +730,7 @@ class BaseAppleClient(BaseClient):
 
 
     @inlineCallbacks
-    def _checkCalendarsForEvents(self, calendarHomeSet, firstTime=False):
+    def _checkCalendarsForEvents(self, calendarHomeSet, firstTime=False, push=False):
         """
         The actions a client does when polling for changes, or in response to a
         push notification of a change. There are some actions done on the first poll
@@ -738,7 +738,7 @@ class BaseAppleClient(BaseClient):
         """
 
         try:
-            result = yield self._newOperation("poll", self._poll(calendarHomeSet, firstTime))
+            result = yield self._newOperation("push" if push else "poll", self._poll(calendarHomeSet, firstTime))
         finally:
             self._checking.remove(calendarHomeSet)
         returnValue(result)
