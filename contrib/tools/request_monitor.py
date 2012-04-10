@@ -161,7 +161,7 @@ def cpuidle():
             stdout=PIPE, stderr=STDOUT,
         )
         output, _ignore_ = child.communicate()
-        return output.splitlines[-2].split()[2]
+        return output.splitlines()[-2].split()[2]
     elif OS == "Linux":
         child = Popen(
             args=[
@@ -455,6 +455,11 @@ while True:
 
 
         times.sort()
+        if len(times) == 0:
+            print "No data to analyze"
+            time.sleep(10)
+            continue
+            
         startTime = times[0]
         endTime = times[-1]
         deltaTime = endTime - startTime
@@ -579,9 +584,9 @@ while True:
         if lineRange is not None:
             break
 
-        time.sleep(10)
-
     except Exception, e:
         print "Script failure", e
         if debug:
             print traceback.print_exc()
+
+    time.sleep(10)
