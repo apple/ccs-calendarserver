@@ -81,7 +81,6 @@ class TestCommandsBase(twisted.trial.unittest.TestCase):
             ]
         )
 
-
     def test_complete(self):
         items = (
             "foo",
@@ -114,6 +113,23 @@ class TestCommandsBase(twisted.trial.unittest.TestCase):
         self.assertEquals(c("a"), [""])
         self.assertEquals(c("h"), ["idden"])
         self.assertEquals(c("f"), [])
+
+    def test_completeFiles(self):
+        protocol = ShellProtocol(None, commandsClass=SomeCommands)
+        commands = protocol.commands
+
+        def c(word):
+            return sorted(commands.complete_files(word))
+
+        raise NotImplementedError()
+
+    test_completeFiles.todo = "Not implemented."
+
+    def test_listEntryToString(self):
+        raise NotImplementedError()
+        self.assertEquals(CommandsBase.listEntryToString(file, "stuff"), "")
+
+    test_listEntryToString.todo = "Not implemented"
 
 
 class SomeCommands(CommandsBase):
