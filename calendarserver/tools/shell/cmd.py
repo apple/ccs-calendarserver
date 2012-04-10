@@ -27,7 +27,7 @@ from twisted.conch.manhole import ManholeInterpreter
 from txdav.common.icommondatastore import NotFoundError
 
 from calendarserver.tools.tables import Table
-from calendarserver.tools.shell.vfs import Folder
+from calendarserver.tools.shell.vfs import Folder, RootFolder
 
 class UsageError(Exception):
     """
@@ -45,11 +45,10 @@ class UnknownArguments(UsageError):
 
 
 class CommandsBase(object):
-    def __init__(self, protocol, wd):
-        self.service  = protocol.service
+    def __init__(self, protocol):
         self.protocol = protocol
 
-        self.wd = wd
+        self.wd = RootFolder(protocol.service)
 
     @property
     def terminal(self):
@@ -419,7 +418,7 @@ class Commands(CommandsBase):
 
             localVariables = dict(
                 self   = self,
-                store  = self.service.store,
+                store  = self.protocol.service.store,
                 schema = schema,
             )
 
