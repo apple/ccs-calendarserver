@@ -45,8 +45,15 @@ class UnknownArguments(UsageError):
 
 
 class CommandsBase(object):
-    def __init__(self, wd):
+    def __init__(self, protocol, wd):
+        self.service  = protocol.service
+        self.protocol = protocol
+
         self.wd = wd
+
+    @property
+    def terminal(self):
+        return self.protocol.terminal
 
     #
     # Utilities
@@ -131,7 +138,7 @@ class Commands(CommandsBase):
         if tokens:
             raise UnknownArguments(tokens)
 
-        self.exit()
+        self.protocol.exit()
 
 
     def cmd_help(self, tokens):
@@ -215,8 +222,8 @@ class Commands(CommandsBase):
         usage: emulate editor
         """
         if not tokens:
-            if self.emulate:
-                self.terminal.write("Emulating %s.\n" % (self.emulate,))
+            if self.protocol.emulate:
+                self.terminal.write("Emulating %s.\n" % (self.protocol.emulate,))
             else:
                 self.terminal.write("Emulation disabled.\n")
             return
@@ -229,12 +236,12 @@ class Commands(CommandsBase):
         if editor == "none":
             self.terminal.write("Disabling emulation.\n")
             editor = None
-        elif editor in self.emulation_modes:
+        elif editor in self.protocol.emulation_modes:
             self.terminal.write("Emulating %s.\n" % (editor,))
         else:
             raise UsageError("Unknown editor: %s" % (editor,))
 
-        self.emulate = editor
+        self.protocol.emulate = editor
 
         # FIXME: Need to update key registrations
 
@@ -242,9 +249,9 @@ class Commands(CommandsBase):
 
     def complete_emulate(self, tokens):
         if len(tokens) == 0:
-            return self.emulation_modes
+            return self.protocol.emulation_modes
         elif len(tokens) == 1:
-            return self.complete(tokens[0], self.emulation_modes)
+            return self.complete(tokens[0], self.protocol.emulation_modes)
         else:
             return ()
 
@@ -325,7 +332,7 @@ class Commands(CommandsBase):
     def complete_cd(self, tokens):
         returnValue((yield self.complete_files(
             tokens,
-            filter = lambda item: issubclass(item[0], Folder)
+            filter = lambda item: True #issubclass(item[0], Folder)
         )))
 
 
@@ -421,26 +428,26 @@ class Commands(CommandsBase):
                 if not key.startswith("_"):
                     localVariables[key] = value
 
-            self._interpreter = ManholeInterpreter(self, localVariables)
+            self._interpreter = ManholeInterpreter(self.protocol, localVariables)
 
         def evalSomePython(line):
             if line == "exit":
                 # Return to normal command mode.
-                del self.lineReceived
-                del self.ps
-                del self.pn
-                self.drawInputLine()
+                del self.protocol.lineReceived
+                del self.protocol.ps
+                del self.protocol.pn
+                self.protocol.drawInputLine()
                 return
 
             more = self._interpreter.push(line)
-            self.pn = bool(more)
+            self.protocol.pn = bool(more)
             lw = self.terminal.lastWrite
             if not (lw.endswith("\n") or lw.endswith("\x1bE")):
                 self.terminal.write("\n")
-            self.drawInputLine()
+            self.protocol.drawInputLine()
 
-        self.lineReceived = evalSomePython
-        self.ps = (">>> ", "... ")
+        self.protocol.lineReceived = evalSomePython
+        self.protocol.ps = (">>> ", "... ")
 
     cmd_python.hidden = "Still experimental / untested."
 
@@ -454,7 +461,7 @@ class Commands(CommandsBase):
         self.terminal.write(bytes)
         if async:
             self.terminal.write("\n")
-            self.drawInputLine()
+            self.protocol.drawInputLine()
 
 
     #
