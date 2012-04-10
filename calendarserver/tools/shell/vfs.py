@@ -693,6 +693,7 @@ def tableString(rows, header=None):
     table.printTable(os=output)
     return output.getvalue()
 
+
 def tableStringForProperties(properties):
     return "Properties:\n%s" % (tableString((
         (name.toString(), truncateAtNewline(properties[name]))

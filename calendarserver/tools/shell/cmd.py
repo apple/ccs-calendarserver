@@ -18,6 +18,8 @@
 Data store commands.
 """
 
+import operator
+
 #from twisted.python import log
 from twisted.internet.defer import succeed
 from twisted.internet.defer import inlineCallbacks, returnValue
@@ -28,6 +30,7 @@ from txdav.common.icommondatastore import NotFoundError
 
 from calendarserver.tools.tables import Table
 from calendarserver.tools.shell.vfs import Folder, RootFolder
+
 
 class UsageError(Exception):
     """
@@ -439,6 +442,63 @@ class Commands(CommandsBase):
                 self.terminal.write(text)
 
     complete_cat = CommandsBase.complete_files
+
+
+    #
+    # Principal tools
+    #
+    @inlineCallbacks
+    def cmd_find_principal(self, tokens):
+        """
+        Search for a principal
+
+        usage: find_principal term
+        """
+        if not tokens:
+            raise UsageError("No search term")
+
+        term = tokens.pop(0)
+
+        if tokens:
+            raise UnknownArguments(tokens)
+
+        searchFieldNames = ("fullName", "firstName", "lastName", "emailAddresses")
+
+        records = sorted(tuple((yield self.protocol.service.directory.recordsMatchingFields(
+            (fieldName, term, True, "contains")
+            for fieldName in searchFieldNames
+        ))), key=operator.attrgetter("fullName"))
+
+        if records:
+            table = Table()
+
+            table.addHeader((
+                "UID",
+                "Record Type",
+                "Short Names",
+                "Email Addresses",
+                "Full Name",
+            ))
+
+            def first(items):
+                if items:
+                    return items[0]
+                else:
+                    return None
+
+            for record in records:
+                table.addRow((
+                    record.uid,
+                    record.recordType,
+                    first(record.shortNames),
+                    first(record.emailAddresses),
+                    record.fullName,
+                ))
+
+            table.printTable(self.terminal)
+            self.terminal.nextLine()
+
+    cmd_find_principal.hidden = "Not done yet"
 
 
     #
