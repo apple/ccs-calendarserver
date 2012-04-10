@@ -86,7 +86,6 @@ def main():
     localUser, localPassword = args
 
     session = odframework.ODSession.defaultSession()
-    userRecords = []
 
     nodeName = "/Local/Default"
     node, error = odframework.ODNode.nodeWithSession_name_error_(session, nodeName, None)
