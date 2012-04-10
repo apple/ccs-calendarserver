@@ -161,7 +161,7 @@ def cpuidle():
             stdout=PIPE, stderr=STDOUT,
         )
         output, _ignore_ = child.communicate()
-        return output.splitlines()[-2].split()[2]
+        return output.splitlines()[-1].split()[2]
     elif OS == "Linux":
         child = Popen(
             args=[
