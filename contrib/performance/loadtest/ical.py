@@ -740,13 +740,14 @@ class BaseAppleClient(BaseClient):
         try:
             result = yield self._newOperation("push" if push else "poll", self._poll(calendarHomeSet, firstTime))
         finally:
-            self._checking.remove(calendarHomeSet)
+            if result:
+                self._checking.remove(calendarHomeSet)
         returnValue(result)
 
     @inlineCallbacks
     def _poll(self, calendarHomeSet, firstTime):
         if calendarHomeSet in self._checking:
-            returnValue(None)
+            returnValue(False)
         self._checking.add(calendarHomeSet)
 
         calendars, results = yield self._calendarHomePropfind(calendarHomeSet)
@@ -776,6 +777,8 @@ class BaseAppleClient(BaseClient):
         # One time delegate expansion
         if firstTime:
             yield self._pollFirstTime2()
+            
+        returnValue(True)
 
     @inlineCallbacks
     def _pollFirstTime1(self, homeNode, calendars):
