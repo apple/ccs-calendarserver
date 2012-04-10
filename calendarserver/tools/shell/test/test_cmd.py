@@ -22,39 +22,38 @@ from txdav.common.icommondatastore import NotFoundError
 
 from calendarserver.tools.shell.cmd import CommandsBase
 from calendarserver.tools.shell.vfs import RootFolder
+from calendarserver.tools.shell.terminal import ShellProtocol
 
 
 class TestCommandsBase(twisted.trial.unittest.TestCase):
 
+    def setUp(self):
+        self.protocol = ShellProtocol(None, commandsClass=CommandsBase)
+        self.commands = self.protocol.commands
+
     @inlineCallbacks
     def test_getTargetNone(self):
-        cmd = CommandsBase(RootFolder(None))
-        target = (yield cmd.getTarget([]))
-        self.assertEquals(target, cmd.wd)
+        target = (yield self.commands.getTarget([]))
+        self.assertEquals(target, self.commands.wd)
 
     def test_getTargetMissing(self):
-        cmd = CommandsBase(RootFolder(None))
-        self.assertFailure(cmd.getTarget(["/foo"]), NotFoundError)
+        self.assertFailure(self.commands.getTarget(["/foo"]), NotFoundError)
 
     @inlineCallbacks
     def test_getTargetOne(self):
-        cmd = CommandsBase(RootFolder(None))
-        target = (yield cmd.getTarget(["users"]))
-        match = (yield cmd.wd.locate(["users"]))
+        target = (yield self.commands.getTarget(["users"]))
+        match = (yield self.commands.wd.locate(["users"]))
         self.assertEquals(target, match)
 
     @inlineCallbacks
     def test_getTargetSome(self):
-        cmd = CommandsBase(RootFolder(None))
-        target = (yield cmd.getTarget(["users", "blah"]))
-        match = (yield cmd.wd.locate(["users"]))
+        target = (yield self.commands.getTarget(["users", "blah"]))
+        match = (yield self.commands.wd.locate(["users"]))
         self.assertEquals(target, match)
 
     def test_commandsNone(self):
-        cmd = CommandsBase(RootFolder(None))
-        commands = cmd.commands()
-
-        self.assertEquals(sorted(commands), [])
+        allCommands = self.commands.commands()
+        self.assertEquals(sorted(allCommands), [])
 
     def test_commandsSome(self):
         class SomeCommands(CommandsBase):
@@ -66,12 +65,14 @@ class TestCommandsBase(twisted.trial.unittest.TestCase):
                 pass
             cmd_hidden.hidden = "Hidden"
 
-        cmd = SomeCommands(RootFolder(None))
-        commands = cmd.commands()
+        protocol = ShellProtocol(None, commandsClass=SomeCommands)
+        commands = protocol.commands
+
+        allCommands = commands.commands()
 
         self.assertEquals(
-            sorted(commands),
-            [ ("a", cmd.cmd_a), ("b", cmd.cmd_b) ]
+            sorted(allCommands),
+            [ ("a", commands.cmd_a), ("b", commands.cmd_b) ]
         )
 
     def test_complete(self):

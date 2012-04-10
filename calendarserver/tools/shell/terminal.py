@@ -127,11 +127,11 @@ class ShellProtocol(ReceiveLineProtocol):
 
     emulation_modes = ("emacs", "none")
 
-    def __init__(self, service):
+    def __init__(self, service, commandsClass=Commands):
         ReceiveLineProtocol.__init__(self)
         self.service = service
         self.inputLines = []
-        self.commands = Commands(self, RootFolder(service))
+        self.commands = commandsClass(self, RootFolder(service))
         self.activeCommand = None
         self.emulate = "emacs"
 
