@@ -25,7 +25,6 @@ from calendarserver.tools.shell.terminal import ShellProtocol
 
 
 class TestCommandsBase(twisted.trial.unittest.TestCase):
-
     def setUp(self):
         self.protocol = ShellProtocol(None, commandsClass=CommandsBase)
         self.commands = self.protocol.commands
@@ -54,16 +53,10 @@ class TestCommandsBase(twisted.trial.unittest.TestCase):
         allCommands = self.commands.commands()
         self.assertEquals(sorted(allCommands), [])
 
-    def test_commandsSome(self):
-        class SomeCommands(CommandsBase):
-            def cmd_a(self, tokens):
-                pass
-            def cmd_b(self, tokens):
-                pass
-            def cmd_hidden(self, tokens):
-                pass
-            cmd_hidden.hidden = "Hidden"
+        allCommands = self.commands.commands(showHidden=True)
+        self.assertEquals(sorted(allCommands), [])
 
+    def test_commandsSome(self):
         protocol = ShellProtocol(None, commandsClass=SomeCommands)
         commands = protocol.commands
 
@@ -71,8 +64,23 @@ class TestCommandsBase(twisted.trial.unittest.TestCase):
 
         self.assertEquals(
             sorted(allCommands),
-            [ ("a", commands.cmd_a), ("b", commands.cmd_b) ]
+            [
+                ("a", commands.cmd_a),
+                ("b", commands.cmd_b),
+            ]
         )
+
+        allCommands = commands.commands(showHidden=True)
+
+        self.assertEquals(
+            sorted(allCommands),
+            [
+                ("a", commands.cmd_a),
+                ("b", commands.cmd_b),
+                ("hidden", commands.cmd_hidden),
+            ]
+        )
+
 
     def test_complete(self):
         items = (
@@ -86,6 +94,7 @@ class TestCommandsBase(twisted.trial.unittest.TestCase):
         def c(word):
             return sorted(CommandsBase.complete(word, items))
 
+        self.assertEquals(c(""       ), sorted(items))
         self.assertEquals(c("f"      ), ["oo", "oobar"])
         self.assertEquals(c("foo"    ), ["", "bar"])
         self.assertEquals(c("foobar" ), [""])
@@ -93,3 +102,25 @@ class TestCommandsBase(twisted.trial.unittest.TestCase):
         self.assertEquals(c("baz"    ), [""])
         self.assertEquals(c("q"      ), ["uux"])
         self.assertEquals(c("xyzzy"  ), [])
+
+    def test_completeCommands(self):
+        protocol = ShellProtocol(None, commandsClass=SomeCommands)
+        commands = protocol.commands
+
+        def c(word):
+            return sorted(commands.complete_commands(word))
+
+        self.assertEquals(c("" ), ["a", "b"])
+        self.assertEquals(c("a"), [""])
+        self.assertEquals(c("h"), ["idden"])
+        self.assertEquals(c("f"), [])
+
+
+class SomeCommands(CommandsBase):
+    def cmd_a(self, tokens):
+        pass
+    def cmd_b(self, tokens):
+        pass
+    def cmd_hidden(self, tokens):
+        pass
+    cmd_hidden.hidden = "Hidden"

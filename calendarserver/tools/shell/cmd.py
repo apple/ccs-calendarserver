@@ -66,6 +66,10 @@ class CommandsBase(object):
 
     @inlineCallbacks
     def getTargets(self, tokens):
+        """
+        For each given C{token}, locate a File to operate on.
+        @return: iterable of File objects.
+        """
         if tokens:
             result = []
             for token in tokens:
@@ -74,26 +78,61 @@ class CommandsBase(object):
         else:
             returnValue((self.wd,))
 
-    def commands(self):
+    def commands(self, showHidden=False):
+        """
+        @return: an iterable of C{(name, method)} tuples, where
+        C{name} is the name of the command and C{method} is the method
+        that implements it.
+        """
         for attr in dir(self):
             if attr.startswith("cmd_"):
                 m = getattr(self, attr)
-                if not hasattr(m, "hidden"):
+                if showHidden or not hasattr(m, "hidden"):
                     yield (attr[4:], m)
 
     @staticmethod
     def complete(word, items):
+        """
+        List completions for the given C{word} from the given
+        C{items}.
+
+        Completions are the remaining portions of words in C{items}
+        that start with C{word}.
+
+        For example, if C{"foobar"} and C{"foo"} are in C{items}, then
+        C{""} and C{"bar"} are completions when C{word} C{"foo"}.
+
+        @return: an iterable of completions.
+        """
         for item in items:
             if item.startswith(word):
                 yield item[len(word):]
 
     def complete_commands(self, word):
-        return self.complete(word, (name for name, method in self.commands()))
+        """
+        @return: an iterable of command name completions.
+        """
+        def complete(showHidden):
+            return self.complete(
+                word,
+                (name for name, method in self.commands(showHidden=showHidden))
+            )
+
+        completions = tuple(complete(False))
+
+        # If no completions are found, try hidden commands.
+        if not completions:
+            completions = complete(True)
+
+        return completions
 
     @inlineCallbacks
     def complete_files(self, tokens, filter=None):
+        """
+        @return: an iterable of C{File} path completions.
+        """
         if filter is None:
-            filter = lambda items: True
+            filter = lambda item: True
 
         files = (
             self.listEntryToString(item)
@@ -110,6 +149,10 @@ class CommandsBase(object):
 
     @staticmethod
     def listEntryToString(entry):
+        """
+        Converts an entry returned by File.list() into a
+        user-displayable string.
+        """
         klass = entry[0]
         name  = entry[1]
 
