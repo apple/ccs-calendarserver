@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<A:propfind xmlns:A="DAV:">
+  <A:prop>
+    <B:allowed-calendar-component-set xmlns:B="http://calendarserver.org/ns/"/>
+    <C:calendar-home-set xmlns:C="urn:ietf:params:xml:ns:caldav"/>
+    <C:calendar-user-address-set xmlns:C="urn:ietf:params:xml:ns:caldav"/>
+    <A:current-user-principal/>
+    <A:displayname/>
+    <B:dropbox-home-URL xmlns:B="http://calendarserver.org/ns/"/>
+    <B:email-address-set xmlns:B="http://calendarserver.org/ns/"/>
+    <B:notification-URL xmlns:B="http://calendarserver.org/ns/"/>
+    <A:principal-collection-set/>
+    <A:principal-URL/>
+    <A:resource-id/>
+    <C:schedule-inbox-URL xmlns:C="urn:ietf:params:xml:ns:caldav"/>
+    <C:schedule-outbox-URL xmlns:C="urn:ietf:params:xml:ns:caldav"/>
+    <A:supported-report-set/>
+  </A:prop>
+</A:propfind>

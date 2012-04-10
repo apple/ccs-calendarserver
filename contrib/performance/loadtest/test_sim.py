@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2011 Apple Inc. All rights reserved.
+# Copyright (c) 2011-2012 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -27,7 +27,7 @@ from twisted.trial.unittest import TestCase
 from twistedcaldav.directory.directory import DirectoryRecord
 
 from contrib.performance.stats import NormalDistribution
-from contrib.performance.loadtest.ical import SnowLeopard
+from contrib.performance.loadtest.ical import OS_X_10_6
 from contrib.performance.loadtest.profiles import Eventer, Inviter, Accepter
 from contrib.performance.loadtest.population import (
     SmoothRampUp, ClientType, PopulationParameters, Populator, CalendarClientSimulator,
@@ -165,7 +165,7 @@ class CalendarClientSimulatorTests(TestCase):
                 [ProfileType(BrokenProfile, {'runResult': profileRunResult})]))
         sim = CalendarClientSimulator(
             [self._user('alice')], Populator(None), params, None, 'http://example.com:1234/')
-        sim.add(1)
+        sim.add(1, 1)
         sim.stop()
         clientRunResult.errback(RuntimeError("Some fictional client problem"))
         profileRunResult.errback(RuntimeError("Some fictional profile problem"))
@@ -186,7 +186,7 @@ class Reactor(object):
         for thunk in self._whenRunning:
             thunk()
         msg(self.message)
-        for phase, event, thunk in self._triggers:
+        for _ignore_phase, event, thunk in self._triggers:
             if event == 'shutdown':
                 thunk()
 
@@ -448,7 +448,7 @@ class LoadSimulatorTests(TestCase):
         config = FilePath(self.mktemp())
         config.setContent(writePlistToString({
                     "clients": [{
-                            "software": "contrib.performance.loadtest.ical.SnowLeopard",
+                            "software": "contrib.performance.loadtest.ical.OS_X_10_6",
                             "params": {"foo": "bar"},
                             "profiles": [{
                                     "params": {
@@ -466,7 +466,7 @@ class LoadSimulatorTests(TestCase):
         sim = LoadSimulator.fromCommandLine(['--config', config.path])
         expectedParameters = PopulationParameters()
         expectedParameters.addClient(
-            3, ClientType(SnowLeopard, {"foo": "bar"}, [ProfileType(Eventer, {
+            3, ClientType(OS_X_10_6, {"foo": "bar"}, [ProfileType(Eventer, {
                             "interval": 25,
                             "eventStartDistribution": NormalDistribution(123, 456)})]))
         self.assertEquals(sim.parameters, expectedParameters)
@@ -483,7 +483,7 @@ class LoadSimulatorTests(TestCase):
         sim = LoadSimulator.fromCommandLine(['--config', config.path])
         expectedParameters = PopulationParameters()
         expectedParameters.addClient(
-            1, ClientType(SnowLeopard, {}, [Eventer, Inviter, Accepter]))
+            1, ClientType(OS_X_10_6, {}, [Eventer, Inviter, Accepter]))
         self.assertEquals(sim.parameters, expectedParameters)
 
 
@@ -513,7 +513,7 @@ class LoadSimulatorTests(TestCase):
             None, observers, reactor=Reactor())
         io = StringIO()
         sim.run(io)
-        self.assertEquals(io.getvalue(), "PASS\n")
+        self.assertEquals(io.getvalue(), "\n*** PASS\n")
         self.assertTrue(observers[0].reported)
         self.assertEquals(
             observers[0].events[0]['message'], (Reactor.message,))

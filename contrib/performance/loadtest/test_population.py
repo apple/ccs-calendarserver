@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2011 Apple Inc. All rights reserved.
+# Copyright (c) 2011-2012 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -37,8 +37,35 @@ class ReportStatisticsTests(TestCase):
         for user in users:
             logger.observe(dict(
                     type='response', method='GET', success=True,
-                    duration=1.23, user=user))
+                    duration=1.23, user=user, client_type="test", client_id="1234"))
         self.assertEqual(len(users), logger.countUsers())
+
+
+    def test_countClients(self):
+        """
+        L{ReportStatistics.countClients} returns the number of clients observed to
+        have acted in the simulation.
+        """
+        logger = ReportStatistics()
+        clients = ['c01', 'c02', 'c03']
+        for client in clients:
+            logger.observe(dict(
+                    type='response', method='GET', success=True,
+                    duration=1.23, user="user01", client_type="test", client_id=client))
+        self.assertEqual(len(clients), logger.countClients())
+
+
+    def test_clientFailures(self):
+        """
+        L{ReportStatistics.countClients} returns the number of clients observed to
+        have acted in the simulation.
+        """
+        logger = ReportStatistics()
+        clients = ['c01', 'c02', 'c03']
+        for client in clients:
+            logger.observe(dict(
+                    type='client-failure', reason="testing %s" % (client,)))
+        self.assertEqual(len(clients), logger.countClientFailures())
 
 
     def test_noFailures(self):
@@ -50,7 +77,7 @@ class ReportStatisticsTests(TestCase):
         logger = ReportStatistics()
         logger.observe(dict(
                 type='response', method='GET', success=True,
-                duration=2.5, user='user01'))
+                duration=2.5, user='user01', client_type="test", client_id="1234"))
         self.assertEqual([], logger.failures())
 
 
@@ -60,13 +87,13 @@ class ReportStatisticsTests(TestCase):
         list containing a string describing this.
         """
         logger = ReportStatistics()
-        for i in range(98):
+        for _ignore in range(98):
             logger.observe(dict(
                     type='response', method='GET', success=True,
-                    duration=2.5, user='user01'))
+                    duration=2.5, user='user01', client_type="test", client_id="1234"))
         logger.observe(dict(
                 type='response', method='GET', success=False,
-                duration=2.5, user='user01'))
+                duration=2.5, user='user01', client_type="test", client_id="1234"))
         self.assertEqual(
             ["Greater than 1% GET failed"],
             logger.failures())
@@ -79,14 +106,14 @@ class ReportStatisticsTests(TestCase):
         describing that.
         """
         logger = ReportStatistics()
-        for i in range(94):
+        for _ignore in range(94):
             logger.observe(dict(
                     type='response', method='GET', success=True,
-                    duration=2.5, user='user01'))
-        for i in range(5):
+                    duration=2.5, user='user01', client_type="test", client_id="1234"))
+        for _ignore in range(5):
             logger.observe(dict(
                     type='response', method='GET', success=True,
-                    duration=3.5, user='user02'))
+                    duration=3.5, user='user02', client_type="test", client_id="1234"))
         self.assertEqual(
             ["Greater than 5% GET exceeded 3 second response time"],
             logger.failures())
@@ -99,13 +126,13 @@ class ReportStatisticsTests(TestCase):
         describing that.
         """
         logger = ReportStatistics()
-        for i in range(98):
+        for _ignore in range(98):
             logger.observe(dict(
                     type='response', method='GET', success=True,
-                    duration=2.5, user='user01'))
+                    duration=2.5, user='user01', client_type="test", client_id="1234"))
         logger.observe(dict(
                 type='response', method='GET', success=True,
-                duration=5.5, user='user01'))
+                duration=5.5, user='user01', client_type="test", client_id="1234"))
         self.assertEqual(
             ["Greater than 1% GET exceeded 5 second response time"],
             logger.failures())
@@ -116,19 +143,19 @@ class ReportStatisticsTests(TestCase):
         The counts for one method do not affect the results of another method.
         """
         logger = ReportStatistics()
-        for i in range(99):
+        for _ignore in range(99):
             logger.observe(dict(
                     type='response', method='GET', success=True,
-                    duration=2.5, user='user01'))
+                    duration=2.5, user='user01', client_type="test", client_id="1234"))
             logger.observe(dict(
                     type='response', method='POST', success=True,
-                    duration=2.5, user='user01'))
+                    duration=2.5, user='user01', client_type="test", client_id="1234"))
 
         logger.observe(dict(
                 type='response', method='GET', success=False,
-                duration=2.5, user='user01'))
+                duration=2.5, user='user01', client_type="test", client_id="1234"))
         logger.observe(dict(
                 type='response', method='POST', success=False,
-                duration=2.5, user='user01'))
+                duration=2.5, user='user01', client_type="test", client_id="1234"))
 
         self.assertEqual([], logger.failures())

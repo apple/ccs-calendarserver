@@ -1,6 +1,6 @@
 # -*- test-case-name: contrib.performance.loadtest.test_population -*-
 ##
-# Copyright (c) 2010 Apple Inc. All rights reserved.
+# Copyright (c) 2010-2012 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -26,6 +26,7 @@ from __future__ import division
 from tempfile import mkdtemp
 from itertools import izip
 
+from twisted.python.failure import Failure
 from twisted.python.filepath import FilePath
 from twisted.python.util import FancyEqMixin
 from twisted.python.log import msg, err
@@ -35,7 +36,7 @@ from twistedcaldav.timezones import TimezoneCache
 from contrib.performance.stats import mean, median, stddev, mad
 from contrib.performance.loadtest.trafficlogger import loggedReactor
 from contrib.performance.loadtest.logger import SummarizingMixin
-from contrib.performance.loadtest.ical import SnowLeopard, RequestLogger
+from contrib.performance.loadtest.ical import OS_X_10_6, RequestLogger
 from contrib.performance.loadtest.profiles import Eventer, Inviter, Accepter
 
 
@@ -197,29 +198,32 @@ class CalendarClientSimulator(object):
         self._stopped = True
 
 
-    def add(self, numClients):
+    def add(self, numClients, clientsPerUser):
         for _ignore_n in range(numClients):
             number = self._nextUserNumber()
-            clientType = self._pop.next()
-            if (number % self.workerCount) != self.workerIndex:
-                # If we're in a distributed work scenario and we are worker N,
-                # we have to skip all but every Nth request (since every node
-                # runs the same arrival policy).
-                continue
+            
+            for _ignore_peruser in range(clientsPerUser):
+                clientType = self._pop.next()
+                if (number % self.workerCount) != self.workerIndex:
+                    # If we're in a distributed work scenario and we are worker N,
+                    # we have to skip all but every Nth request (since every node
+                    # runs the same arrival policy).
+                    continue
+    
+                _ignore_user, auth = self._createUser(number)
+    
+                reactor = loggedReactor(self.reactor)
+                client = clientType.new(
+                    reactor, self.server, self.getUserRecord(number), auth)
+                d = client.run()
+                d.addErrback(self._clientFailure, reactor)
+    
+                for profileType in clientType.profileTypes:
+                    profile = profileType(reactor, self, client, number)
+                    if profile.enabled:
+                        d = profile.run()
+                        d.addErrback(self._profileFailure, profileType, reactor)
 
-            _ignore_user, auth = self._createUser(number)
-
-            reactor = loggedReactor(self.reactor)
-            client = clientType.new(
-                reactor, self.server, self.getUserRecord(number), auth)
-            d = client.run()
-            d.addErrback(self._clientFailure, reactor)
-
-            for profileType in clientType.profileTypes:
-                profile = profileType(reactor, self, client, number)
-                if profile.enabled:
-                    d = profile.run()
-                    d.addErrback(self._profileFailure, profileType, reactor)
         # XXX this status message is prone to be slightly inaccurate, but isn't
         # really used by much anyway.
         msg(type="status", clientCount=self._user - 1)
@@ -242,6 +246,9 @@ class CalendarClientSimulator(object):
             where = self._dumpLogs(reactor, reason)
             err(reason, "Client stopped with error; recent traffic in %r" % (
                     where.path,))
+            if not isinstance(reason, Failure):
+                reason = Failure(reason)
+            msg(type="client-failure", reason="%s: %s" % (reason.type, reason.value,))
 
 
     def _profileFailure(self, reason, profileType, reactor):
@@ -253,17 +260,18 @@ class CalendarClientSimulator(object):
 
 
 class SmoothRampUp(object):
-    def __init__(self, reactor, groups, groupSize, interval):
+    def __init__(self, reactor, groups, groupSize, interval, clientsPerUser):
         self.reactor = reactor
         self.groups = groups
         self.groupSize = groupSize
         self.interval = interval
+        self.clientsPerUser = clientsPerUser
 
 
     def run(self, simulator):
         for i in range(self.groups):
             self.reactor.callLater(
-                self.interval * i, simulator.add, self.groupSize)
+                self.interval * i, simulator.add, self.groupSize, self.clientsPerUser)
 
 
 
@@ -271,6 +279,8 @@ class StatisticsBase(object):
     def observe(self, event):
         if event.get('type') == 'response':
             self.eventReceived(event)
+        elif event.get('type') == 'client-failure':
+            self.clientFailure(event)
 
 
     def report(self):
@@ -297,6 +307,9 @@ class SimpleStatistics(StatisticsBase):
             del self._times[:100]
 
 
+    def clientFailure(self, event):
+        pass
+
 
 class ReportStatistics(StatisticsBase, SummarizingMixin):
     """
@@ -306,28 +319,61 @@ class ReportStatistics(StatisticsBase, SummarizingMixin):
         reported as the number of users in the simulation.
 
     """
+
+    # the response time thresholds to display together with failing % count threshold
+    _thresholds = (
+        (0.5, 100.0),  
+        (  1, 100.0),  
+        (  3,   5.0),  
+        (  5,   1.0),
+        ( 10,   0.5),
+    )
+    _fail_cut_off = 1.0     # % of total count at which failed requests will cause a failure 
+
     _fields = [
-        ('request', 10, '%10s'),
+        ('request', -20, '%-20s'),
         ('count', 8, '%8s'),
         ('failed', 8, '%8s'),
-        ('>3sec', 8, '%8s'),
+    ]
+    
+    for threshold, _ignore_fail_at in _thresholds:
+        _fields.append(('>%g sec' % (threshold,), 10, '%10s'))
+
+    _fields.extend([
         ('mean', 8, '%8.4f'),
         ('median', 8, '%8.4f'),
-        ]
+        ('stddev', 8, '%8.4f'),
+        ('STATUS', 8, '%8s'),
+    ])
 
     def __init__(self):
         self._perMethodTimes = {}
         self._users = set()
+        self._clients = set()
+        self._failed_clients = []
 
 
     def countUsers(self):
         return len(self._users)
 
 
+    def countClients(self):
+        return len(self._clients)
+
+
+    def countClientFailures(self):
+        return len(self._failed_clients)
+
+
     def eventReceived(self, event):
         dataset = self._perMethodTimes.setdefault(event['method'], [])
         dataset.append((event['success'], event['duration']))
         self._users.add(event['user'])
+        self._clients.add(event['client_id'])
+
+
+    def clientFailure(self, event):
+        self._failed_clients.append(event['reason'])
 
 
     def printMiscellaneous(self, items):
@@ -337,7 +383,22 @@ class ReportStatistics(StatisticsBase, SummarizingMixin):
 
     def report(self):
         print
-        self.printMiscellaneous({'users': self.countUsers()})
+        print "** REPORT **"
+        print
+        self.printMiscellaneous({
+            'users': self.countUsers(),
+            'clients': self.countClients(),
+        })
+        if self.countClientFailures() > 0:
+            self.printMiscellaneous({
+                'Failed clients': self.countClientFailures(),
+            })
+            for ctr, reason in enumerate(self._failed_clients, 1):
+                self.printMiscellaneous({
+                    'Failure #%d' % (ctr,): reason,
+                })
+            
+        print
         self.printHeader([
                 (label, width)
                 for (label, width, _ignore_fmt)
@@ -346,46 +407,40 @@ class ReportStatistics(StatisticsBase, SummarizingMixin):
             [fmt for (label, width, fmt) in self._fields],
             sorted(self._perMethodTimes.items()))
 
-    _FAILED_REASON = "Greater than %(cutoff)0.f%% %(method)s failed"
-    _THREESEC_REASON = "Greater than %(cutoff)0.f%% %(method)s exceeded 3 second response time"
-    _FIVESEC_REASON = "Greater than %(cutoff)0.f%% %(method)s exceeded 5 second response time"
+    _FAILED_REASON = "Greater than %(cutoff)g%% %(method)s failed"
+
+    _REASON_1 = "Greater than %(cutoff)g%% %(method)s exceeded "
+    _REASON_2 = "%g second response time"
 
     def failures(self):
         # TODO
         reasons = []
 
-        # Upper limit on ratio of failed requests to total requests
-        failCutoff = 0.01
-
-        # Upper limit on ratio of >3sec requests to total requests
-        threeSecCutoff = 0.05
-
-        # Upper limit on ratio of >5sec requests to total requests
-        fiveSecCutoff = 0.01
-
         for (method, times) in self._perMethodTimes.iteritems():
             failures = 0
-            threeSec = 0
-            fiveSec = 0
+            overDurations = [0] * len(self._thresholds)
 
             for success, duration in times:
                 if not success:
                     failures += 1
-                if duration > 5:
-                    fiveSec += 1
-                elif duration > 3:
-                    threeSec += 1
+                for ctr, item in enumerate(self._thresholds):
+                    threshold, _ignore_fail_at = item
+                    if duration > threshold:
+                        overDurations[ctr] += 1
 
             checks = [
-                (failures, failCutoff, self._FAILED_REASON),
-                (threeSec, threeSecCutoff, self._THREESEC_REASON),
-                (fiveSec, fiveSecCutoff, self._FIVESEC_REASON),
+                (failures, self._fail_cut_off, self._FAILED_REASON),
                 ]
+            
+            for ctr, item in enumerate(self._thresholds):
+                threshold, fail_at = item
+                checks.append(
+                    (overDurations[ctr], fail_at, self._REASON_1 + self._REASON_2 % (threshold,))
+                )
 
             for count, cutoff, reason in checks:
-                if count / len(times) > cutoff:
-                    reasons.append(reason % dict(
-                            method=method, cutoff=cutoff * 100))
+                if count * 100.0 / len(times) > cutoff:
+                    reasons.append(reason % dict(method=method, cutoff=cutoff))
 
         return reasons
 
@@ -410,7 +465,7 @@ def main():
     populator = Populator(r)
     parameters = PopulationParameters()
     parameters.addClient(
-        1, ClientType(SnowLeopard, [Eventer, Inviter, Accepter]))
+        1, ClientType(OS_X_10_6, [Eventer, Inviter, Accepter]))
     simulator = CalendarClientSimulator(
         populator, parameters, reactor, '127.0.0.1', 8008)
 

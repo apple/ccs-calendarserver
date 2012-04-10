@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<C:calendar-multiget xmlns:C="urn:ietf:params:xml:ns:caldav">
+  <A:prop xmlns:A="DAV:">
+    <A:getetag/>
+    <C:calendar-data/>
+    <C:schedule-tag/>
+  </A:prop>
+%(hrefs)s
+</C:calendar-multiget>

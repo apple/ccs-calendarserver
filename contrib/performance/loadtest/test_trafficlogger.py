@@ -30,7 +30,7 @@ class IProbe(Interface):
     An interface which can be used to verify some interface-related behavior of
     L{loggedReactor}.
     """
-    def probe():
+    def probe(): #@NoSelf
         pass
 
 

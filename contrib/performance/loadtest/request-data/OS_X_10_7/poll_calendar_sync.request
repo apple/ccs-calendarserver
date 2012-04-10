@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<A:sync-collection xmlns:A="DAV:">
+  <A:sync-token>%(sync-token)s</A:sync-token>
+  <A:prop>
+    <A:getetag/>
+    <A:getcontenttype/>
+  </A:prop>
+</A:sync-collection>

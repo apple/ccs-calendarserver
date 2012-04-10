@@ -1,6 +1,6 @@
 # -*- test-case-name: contrib.performance.loadtest.test_sim -*-
 ##
-# Copyright (c) 2011 Apple Inc. All rights reserved.
+# Copyright (c) 2011-2012 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -34,7 +34,7 @@ from twisted.application.service import MultiService
 
 from twisted.internet.protocol import ProcessProtocol
 
-from contrib.performance.loadtest.ical import SnowLeopard
+from contrib.performance.loadtest.ical import OS_X_10_6
 from contrib.performance.loadtest.profiles import Eventer, Inviter, Accepter
 from contrib.performance.loadtest.population import (
     Populator, ProfileType, ClientType, PopulationParameters, SmoothRampUp,
@@ -260,7 +260,7 @@ class LoadSimulator(object):
                              for profile in clientConfig["profiles"]]))
             if not parameters.clients:
                 parameters.addClient(1,
-                                     ClientType(SnowLeopard, {},
+                                     ClientType(OS_X_10_6, {},
                                                 [Eventer, Inviter, Accepter]))
         else:
             # Manager / observer process.
@@ -443,11 +443,11 @@ class ReporterService(SimService):
             obs.report()
             failures.extend(obs.failures())
         if failures:
-            self.output.write('FAIL\n')
+            self.output.write('\n*** FAIL\n')
             self.output.write('\n'.join(failures))
             self.output.write('\n')
         else:
-            self.output.write('PASS\n')
+            self.output.write('\n*** PASS\n')
 
 
 

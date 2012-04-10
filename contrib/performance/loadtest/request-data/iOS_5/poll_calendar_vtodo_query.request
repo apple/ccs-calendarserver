@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<G:calendar-query xmlns:G="urn:ietf:params:xml:ns:caldav">
+  <A:prop xmlns:A="DAV:">
+    <A:getetag/>
+    <A:getcontenttype/>
+  </A:prop>
+  <G:filter>
+    <G:comp-filter name="VCALENDAR">
+      <G:comp-filter name="VTODO"/>
+    </G:comp-filter>
+  </G:filter>
+</G:calendar-query>

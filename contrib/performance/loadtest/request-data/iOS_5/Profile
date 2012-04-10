@@ -1,0 +1,44 @@
+** Initial account setup
+
+PROPFIND well-known unauthorized	- startup_well_known.request
+PROPFIND / unauthorized	            - startup_well_known.request
+PROPFIND /principals/ unauthorized	            - startup_principal_propfind_initial.request
+PROPFIND /principals/ authorized	            - startup_principal_propfind_initial.request
+
+OPTIONS /principals/__uids__/user01/ unauthorized
+OPTIONS /principals/__uids__/user01/ authorized
+
+PROPFIND /principals/users/user01/ unauthorized		- startup_principal_propfind.request
+PROPFIND /principals/users/user01/					- startup_principal_propfind.request
+
+REPORT /principals/ unauthorized					- startup_principals_report.request
+REPORT /principals/									- startup_principals_report.request
+
+PROPFIND /calendars/__uids__/user01/ unauthorized	- poll_calendarhome_propfind.request
+PROPFIND /calendars/__uids__/user01/				- poll_calendarhome_propfind.request
+
+PROPPATCH /calendars/__uids__/user01/tasks/ 		- startup_calendar_color_proppatch.request
+PROPPATCH /calendars/__uids__/user01/tasks/ 		- startup_calendar_order_proppatch.request
+
+PROPPATCH /calendars/__uids__/user01/calendar/ 		- startup_calendar_color_proppatch.request
+PROPPATCH /calendars/__uids__/user01/calendar/ 		- startup_calendar_order_proppatch.request
+
+PROPFIND /calendars/__uids__/user01/tasks/			- poll_calendar_propfind.request
+PROPFIND /calendars/__uids__/user01/tasks/			- poll_calendar_vtodo_query.request
+
+PROPFIND /calendars/__uids__/user01/calendar/		- poll_calendar_propfind.request
+PROPFIND /calendars/__uids__/user01/calendar/		- poll_calendar_vevent_tr_query.request
+
+PROPFIND /calendars/__uids__/user01/inbox/			- poll_calendar_propfind.request
+PROPFIND /calendars/__uids__/user01/inbox/			- poll_calendar_propfind_d1.request
+	
+** Polling - without sync
+PROPFIND /calendars/__uids__/user01/				- poll_calendarhome_propfind.request
+
+PROPFIND /calendars/__uids__/user01/calendar/		- poll_calendar_propfind.request
+REPORT /calendars/__uids__/user01/calendar/			- poll_calendar_propfind_d1.request
+REPORT /calendars/__uids__/user01/calendar/			- poll_calendar_multiget.request
+
+PROPFIND /calendars/__uids__/user01/calendar/		- poll_calendar_propfind.request
+REPORT /calendars/__uids__/user01/tasks/			- poll_calendar_vevent_tr_query.request
+REPORT /calendars/__uids__/user01/tasks/			- poll_calendar_vtodo_query.request

@@ -86,6 +86,11 @@
 				<!-- Number of seconds between the introduction of each group. -->
 				<key>interval</key>
 				<integer>3</integer>
+
+				<!-- Number of clients each user is assigned to. -->
+				<!-- Set weight of clients to 1 if this is > 1. Number of clients must match this value if > 1. -->
+				<key>clientsPerUser</key>
+				<integer>1</integer>
 			</dict>
 
 		</dict>
@@ -102,17 +107,17 @@
 
 				<!-- Here is a Snow Leopard iCal simulator. -->
 				<key>software</key>
-				<string>contrib.performance.loadtest.ical.SnowLeopard</string>
+				<string>contrib.performance.loadtest.ical.OS_X_10_6</string>
 
-				<!-- Arguments to use to initialize the SnowLeopard instance. -->
+				<!-- Arguments to use to initialize the OS_X_10_6 instance. -->
 				<key>params</key>
 				<dict>
-					<!-- SnowLeopard can poll the calendar home at some interval. This is 
+					<!-- OS_X_10_6 can poll the calendar home at some interval. This is 
 						in seconds. -->
 					<key>calendarHomePollInterval</key>
 					<integer>30</integer>
 
-					<!-- If the server advertises xmpp push, SnowLeopard can wait for notifications 
+					<!-- If the server advertises xmpp push, OS_X_10_6 can wait for notifications 
 						about calendar home changes instead of polling for them periodically. If 
 						this option is true, then look for the server advertisement for xmpp push 
 						and use it if possible. Still fall back to polling if there is no xmpp push 

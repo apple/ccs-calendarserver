@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2011 Apple Inc. All rights reserved.
+# Copyright (c) 2011-2012 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,9 +15,10 @@
 #
 ##
 
-from contrib.performance.stats import mean, median
+from contrib.performance.stats import mean, median, stddev
 
 class SummarizingMixin(object):
+
     def printHeader(self, fields):
         """
         Print a header for the summarization data which will be reported.
@@ -32,21 +33,39 @@ class SummarizingMixin(object):
         for (label, width) in fields:
             format.append('%%%ds' % (width,))
             labels.append(label)
-        print ' '.join(format) % tuple(labels)
+        header = ' '.join(format) % tuple(labels)
+        print header
+        print "-" * len(header)
 
 
     def _summarizeData(self, operation, data):
         failed = 0
-        threesec = 0
+        thresholds = [0] * len(self._thresholds)
         durations = []
         for (success, duration) in data:
             if not success:
                 failed += 1
-            if duration > 3:
-                threesec += 1
+            for ctr, item in enumerate(self._thresholds):
+                threshold, _ignore_fail_at = item
+                if duration > threshold:
+                    thresholds[ctr] += 1
             durations.append(duration)
 
-        return operation, len(data), failed, threesec, mean(durations), median(durations)
+        # Determine PASS/FAIL
+        failure = False
+        count = len(data)
+        
+        if failed * 100.0 / count > self._fail_cut_off:
+            failure = True
+
+        for ctr, item in enumerate(self._thresholds):
+            _ignore_threshold, fail_at = item
+            if thresholds[ctr] * 100.0 / count > fail_at:
+                failure = True
+
+        return (operation, count, failed,) + \
+                tuple(thresholds) + \
+                (mean(durations), median(durations), stddev(durations), "FAIL" if failure else "")
 
 
     def _printRow(self, formats, values):

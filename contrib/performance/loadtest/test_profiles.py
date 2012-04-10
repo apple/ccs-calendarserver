@@ -207,6 +207,7 @@ class StubClient(BaseClient):
         self.email = "mailto:user%02d@example.com" % (number,)
         self.uuid = "urn:uuid:user%02d" % (number,)
         self.rescheduled = set()
+        self.started = True
 
 
     def addEvent(self, href, vevent):
