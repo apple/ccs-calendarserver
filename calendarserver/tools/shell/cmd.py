@@ -18,6 +18,13 @@
 Data store commands.
 """
 
+__all__ = [
+    "UsageError",
+    "UnknownArguments",
+    "CommandsBase",
+    "Commands",
+]
+
 import operator
 
 #from twisted.python import log

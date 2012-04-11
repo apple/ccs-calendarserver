@@ -18,6 +18,15 @@
 Interactive shell for terminals.
 """
 
+__all__ = [
+    "usage",
+    "ShellOptions",
+    "ShellService",
+    "ShellProtocol",
+    "main",
+]
+
+
 import string
 import os
 import sys

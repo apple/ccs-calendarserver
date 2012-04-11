@@ -18,6 +18,24 @@
 Virtual file system for data store objects.
 """
 
+__all__ = [
+    "File",
+    "Folder",
+    "RootFolder",
+    "UIDsFolder",
+    "RecordFolder",
+    "UsersFolder",
+    "LocationsFolder",
+    "ResourcesFolder",
+    "GroupsFolder",
+    "PrincipalHomeFolder",
+    "CalendarHomeFolder",
+    "CalendarFolder",
+    "CalendarObject",
+    "AddressBookHomeFolder",
+]
+
+
 from cStringIO import StringIO
 from time import strftime, localtime
 
