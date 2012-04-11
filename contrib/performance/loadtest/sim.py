@@ -192,13 +192,13 @@ class LoadSimulator(object):
         user information about the accounts on the server being put
         under load.
     """
-    def __init__(self, server, webdadminPort, arrival, parameters, observers=None,
+    def __init__(self, server, webadminPort, arrival, parameters, observers=None,
                  records=None, reactor=None, runtime=None, workers=None,
                  configTemplate=None, workerID=None, workerCount=1):
         if reactor is None:
             from twisted.internet import reactor
         self.server = server
-        self.webdadminPort = webdadminPort
+        self.webadminPort = webadminPort
         self.arrival = arrival
         self.parameters = parameters
         self.observers = observers
@@ -240,7 +240,7 @@ class LoadSimulator(object):
             workerCount = config.get("workerCount", 1)
             configTemplate = None
             server = 'http://127.0.0.1:8008/'
-            webdadminPort = None
+            webadminPort = None
 
             if 'server' in config:
                 server = config['server']
@@ -373,8 +373,8 @@ class LoadSimulator(object):
         self.attachServices(output)
         if self.runtime is not None:
             self.reactor.callLater(self.runtime, self.reactor.stop)
-        if self.webdadminPort:
-            self.reactor.listenTCP(self.webdadminPort, server.Site(LoadSimAdminResource(self)))
+        if self.webadminPort:
+            self.reactor.listenTCP(self.webadminPort, server.Site(LoadSimAdminResource(self)))
         self.reactor.run()
 
 
