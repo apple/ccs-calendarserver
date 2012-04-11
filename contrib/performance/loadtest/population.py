@@ -25,6 +25,7 @@ from __future__ import division
 
 from tempfile import mkdtemp
 from itertools import izip
+from datetime import datetime
 
 from twisted.python.failure import Failure
 from twisted.python.filepath import FilePath
@@ -351,6 +352,7 @@ class ReportStatistics(StatisticsBase, SummarizingMixin):
         self._users = set()
         self._clients = set()
         self._failed_clients = []
+        self._startTime = datetime.now()
 
 
     def countUsers(self):
@@ -377,17 +379,24 @@ class ReportStatistics(StatisticsBase, SummarizingMixin):
 
 
     def printMiscellaneous(self, output, items):
-        for k, v in sorted(items.iteritems()):
-            output.write("%s:%s\n" % (k.title(), v,))
+        sortedItems = sorted(items.iterkeys(), key=len, reverse=True)
+        fmt = "%"+str(len(sortedItems[0]))+"s : %-30s\n"
+        for k in sortedItems:
+            output.write(fmt % (k.title(), items[k],))
 
 
     def report(self, output):
         output.write("\n")
         output.write("** REPORT **\n")
         output.write("\n")
+        runtime = datetime.now() - self._startTime
+        hours, remainder = divmod(runtime.seconds, 3600)
+        minutes, seconds = divmod(remainder, 60)
         self.printMiscellaneous(output, {
-            'users': self.countUsers(),
-            'clients': self.countClients(),
+            'Users': self.countUsers(),
+            'Clients': self.countClients(),
+            'Start time': self._startTime.strftime('%m/%d %H:%M:%S'),
+            'Run time': "%02d:%02d:%02d" % (hours,minutes,seconds),
         })
         if self.countClientFailures() > 0:
             self.printMiscellaneous(output, {
