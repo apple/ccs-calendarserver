@@ -48,6 +48,8 @@ from txdav.common.icommondatastore import NotFoundError
 from twistedcaldav.ical import InvalidICalendarDataError
 
 from calendarserver.tools.tables import Table
+from calendarserver.tools.shell.directory import recordInfo
+
 
 class File(object):
     """
@@ -357,105 +359,8 @@ class PrincipalHomeFolder(Folder):
     def list(self):
         return Folder.list(self)
 
-    @inlineCallbacks
     def describe(self):
-        description = []
-        description.append("Principal home for UID: %s\n" % (self.uid,))
-
-        if self.record is not None:
-            #
-            # Basic record info
-            #
-
-            rows = []
-
-            def add(name, value):
-                if value:
-                    rows.append((name, value))
-
-            add("Service"    , self.record.service   )
-            add("Record Type", self.record.recordType)
-
-            for shortName in self.record.shortNames:
-                add("Short Name", shortName)
-
-            add("GUID"      , self.record.guid     )
-            add("Full Name" , self.record.fullName )
-            add("First Name", self.record.firstName)
-            add("Last Name" , self.record.lastName )
-
-            for email in self.record.emailAddresses:
-                add("Email Address", email)
-
-            for cua in self.record.calendarUserAddresses:
-                add("Calendar User Address", cua)
-
-            add("Server ID"           , self.record.serverID              )
-            add("Partition ID"        , self.record.partitionID           )
-            add("Enabled"             , self.record.enabled               )
-            add("Enabled for Calendar", self.record.enabledForCalendaring )
-            add("Enabled for Contacts", self.record.enabledForAddressBooks)
-
-            if rows:
-                description.append("Directory Record:")
-                description.append(tableString(rows))
-
-            #
-            # Group memberships
-            #
-            rows = []
-
-            for group in self.record.groups():
-                rows.append((group.uid, group.shortNames[0], group.fullName))
-
-            if rows:
-                def sortKey(row):
-                    return (row[1], row[2])
-                description.append("Group Memberships:")
-                description.append(tableString(
-                    sorted(rows, key=sortKey),
-                    header=("UID", "Short Name", "Full Name")
-                ))
-
-            #
-            # Proxy for...
-            #
-
-            # FIXME: This logic should be in the DirectoryRecord.
-
-            def meAndMyGroups(record=self.record, groups=set((self.record,))):
-                for group in record.groups():
-                    groups.add(group)
-                    meAndMyGroups(group, groups)
-                return groups
-                
-            # FIXME: This module global is really gross.
-            from twistedcaldav.directory.calendaruserproxy import ProxyDBService
-
-            rows = []
-            proxyInfoSeen = set()
-            for record in meAndMyGroups():
-                proxyUIDs = (yield ProxyDBService.getMemberships(record.uid))
-
-                for proxyUID in proxyUIDs:
-                    # These are of the form: F153A05B-FF27-4B6C-BD6D-D1239D0082B0#calendar-proxy-read
-                    # I don't know how to get DirectoryRecord objects for the proxyUID here, so, let's cheat for now.
-                    proxyUID, proxyType = proxyUID.split("#")
-                    if (proxyUID, proxyType) not in proxyInfoSeen:
-                        proxyRecord = self.service.directory.recordWithUID(proxyUID)
-                        rows.append((proxyUID, proxyRecord.recordType, proxyRecord.shortNames[0], proxyRecord.fullName, proxyType))
-                        proxyInfoSeen.add((proxyUID, proxyType))
-
-            if rows:
-                def sortKey(row):
-                    return (row[1], row[2], row[4])
-                description.append("Proxy Access:")
-                description.append(tableString(
-                    sorted(rows, key=sortKey),
-                    header=("UID", "Record Type", "Short Name", "Full Name", "Access")
-                ))
-
-        returnValue("\n".join(description))
+        return recordInfo(self.service.directory, self.record)
 
 
 class CalendarHomeFolder(Folder):
