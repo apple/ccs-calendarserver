@@ -21,7 +21,7 @@ from cStringIO import StringIO
 from twisted.python.log import msg
 from twisted.python.usage import UsageError
 from twisted.python.filepath import FilePath
-from twisted.internet.defer import Deferred
+from twisted.internet.defer import Deferred, succeed
 from twisted.trial.unittest import TestCase
 
 from twistedcaldav.directory.directory import DirectoryRecord
@@ -151,6 +151,9 @@ class CalendarClientSimulatorTests(TestCase):
 
             def run(self):
                 return self._runResult
+
+            def stop(self):
+                return succeed(None)
                 
         class BrokenProfile(object):
             def __init__(self, reactor, simulator, client, userNumber, runResult):

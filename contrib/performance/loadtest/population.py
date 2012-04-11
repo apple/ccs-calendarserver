@@ -27,6 +27,7 @@ from tempfile import mkdtemp
 from itertools import izip
 from datetime import datetime
 
+from twisted.internet.defer import DeferredList
 from twisted.python.failure import Failure
 from twisted.python.filepath import FilePath
 from twisted.python.util import FancyEqMixin
@@ -163,6 +164,7 @@ class CalendarClientSimulator(object):
         self._stopped = False
         self.workerIndex = workerIndex
         self.workerCount = workerCount
+        self.clients = []
 
         TimezoneCache.create()
 
@@ -196,7 +198,13 @@ class CalendarClientSimulator(object):
         disregarded (as some are expected, as the simulation will always stop
         while some requests are in flight).
         """
+
+        # Give all the clients a chance to stop (including unsubscribe from push)
+        deferreds = []
+        for client in self.clients:
+            deferreds.append(client.stop())
         self._stopped = True
+        return DeferredList(deferreds)
 
 
     def add(self, numClients, clientsPerUser):
@@ -216,6 +224,7 @@ class CalendarClientSimulator(object):
                 reactor = loggedReactor(self.reactor)
                 client = clientType.new(
                     reactor, self.server, self.getUserRecord(number), auth)
+                self.clients.append(client)
                 d = client.run()
                 d.addErrback(self._clientFailure, reactor)
     

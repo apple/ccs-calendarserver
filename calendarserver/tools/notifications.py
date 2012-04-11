@@ -156,7 +156,7 @@ class PubSubClientFactory(xmlstream.XmlStreamFactory):
 
     pubsubNS = 'http://jabber.org/protocol/pubsub'
 
-    def __init__(self, jid, password, service, nodes, verbose):
+    def __init__(self, jid, password, service, nodes, verbose, sigint=True):
         resource = "pushmonitor.%s" % (uuid.uuid4().hex,)
         self.jid = "%s/%s" % (jid, resource)
         self.service = service
@@ -184,15 +184,20 @@ class PubSubClientFactory(xmlstream.XmlStreamFactory):
         self.addBootstrap(IQAuthInitializer.AUTH_FAILED_EVENT,
             self.authFailed)
 
-        signal.signal(signal.SIGINT, self.sigint_handler)
+        if sigint:
+            signal.signal(signal.SIGINT, self.sigint_handler)
 
     @inlineCallbacks
     def sigint_handler(self, num, frame):
         print " Shutting down..."
+        yield self.unsubscribeAll()
+        reactor.stop()
+
+    @inlineCallbacks
+    def unsubscribeAll(self):
         if self.xmlStream is not None:
             for node, (url, name, kind) in self.nodes.iteritems():
                 yield self.unsubscribe(node, name, kind)
-        reactor.stop()
 
     def connected(self, xmlStream):
         self.xmlStream = xmlStream

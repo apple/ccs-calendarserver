@@ -34,6 +34,7 @@ from twisted.application.service import MultiService
 
 from twisted.internet.defer import Deferred
 from twisted.internet.defer import gatherResults
+from twisted.internet.defer import inlineCallbacks
 from twisted.internet.protocol import ProcessProtocol
 
 from contrib.performance.loadtest.ical import OS_X_10_6
@@ -386,7 +387,7 @@ class LoadSimulator(object):
 
     def shutdown(self):
         if self.ms.running:
-            self.ms.stopService()
+            return self.ms.stopService()
 
 
 def attachService(reactor, loadsim, service):
@@ -446,9 +447,10 @@ class SimulatorService(SimService):
         arrivalPolicy.run(self.clientsim)
 
 
+    @inlineCallbacks
     def stopService(self):
-        super(SimulatorService, self).stopService()
-        return self.clientsim.stop()
+        yield super(SimulatorService, self).stopService()
+        yield self.clientsim.stop()
 
 
 

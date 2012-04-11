@@ -72,6 +72,11 @@ class IncorrectResponseCode(Exception):
         self.response = response
 
 
+class MissingCalendarHome(Exception):
+    """
+    Raised when the calendar home for a user is 404
+    """
+
 
 class XMPPPush(object, FancyEqMixin):
     """
@@ -292,6 +297,9 @@ class BaseAppleClient(BaseClient):
         # dictionary has calendar home URLs as keys and XMPPPush instances as
         # values.
         self.xmpp = {}
+
+        # Keep track of push factories so we can unsubscribe at shutdown
+        self._pushFactories = []
 
         # Allow events to go out into the world.
         self.catalog = {
@@ -905,8 +913,16 @@ class BaseAppleClient(BaseClient):
         factory = _PubSubClientFactory(
             self, "%s@%s" % (self.record.uid, host),
             self.record.password, service,
-            {params.pushkey: (home, home, "Calendar home")}, False)
+            {params.pushkey: (home, home, "Calendar home")}, False,
+            sigint=False)
+        self._pushFactories.append(factory)
         self.reactor.connectTCP(host, port, factory)
+
+
+    @inlineCallbacks
+    def _unsubscribePubSub(self):
+        for factory in self._pushFactories:
+            yield factory.unsubscribeAll()
 
 
     @inlineCallbacks
@@ -919,10 +935,12 @@ class BaseAppleClient(BaseClient):
             principal = yield self.startup()
             hrefs = principal.getHrefProperties()
             calendarHome = hrefs[caldavxml.calendar_home_set].toString()
+            if calendarHome is None:
+                raise MissingCalendarHome
             yield self._checkCalendarsForEvents(calendarHome, firstTime=True)
             returnValue(calendarHome)
         calendarHome = yield self._newOperation("startup: %s" % (self._client_type,), startup())
-        
+
         self.started = True
 
         # Start monitoring PubSub notifications, if possible.
@@ -937,6 +955,12 @@ class BaseAppleClient(BaseClient):
             # currently it never will except due to an unexpected error.
             yield self._calendarCheckLoop(calendarHome)
 
+
+    def stop(self):
+        """
+        Called before connections are closed, giving a chance to clean up
+        """
+        return self._unsubscribePubSub()
 
     def _makeSelfAttendee(self):
         attendee = Property(
