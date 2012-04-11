@@ -448,9 +448,9 @@ class Commands(CommandsBase):
     # Principal tools
     #
     @inlineCallbacks
-    def cmd_find_principal(self, tokens):
+    def cmd_find_principals(self, tokens):
         """
-        Search for a principal
+        Search for matching principals
 
         usage: find_principal term
         """
@@ -463,11 +463,13 @@ class Commands(CommandsBase):
             raise UnknownArguments(tokens)
 
         searchFieldNames = ("fullName", "firstName", "lastName", "emailAddresses")
-
-        records = sorted(tuple((yield self.protocol.service.directory.recordsMatchingFields(
+        searchFields = tuple(
             (fieldName, term, True, "contains")
             for fieldName in searchFieldNames
-        ))), key=operator.attrgetter("fullName"))
+        )
+
+        records = (yield self.protocol.service.directory.recordsMatchingFields(searchFields))
+        records = sorted(tuple(records), key=operator.attrgetter("fullName"))
 
         if records:
             table = Table()
@@ -480,9 +482,9 @@ class Commands(CommandsBase):
                 "Full Name",
             ))
 
-            def first(items):
+            def formatItems(items):
                 if items:
-                    return items[0]
+                    return ", ".join(items)
                 else:
                     return None
 
@@ -490,15 +492,13 @@ class Commands(CommandsBase):
                 table.addRow((
                     record.uid,
                     record.recordType,
-                    first(record.shortNames),
-                    first(record.emailAddresses),
+                    formatItems(record.shortNames),
+                    formatItems(record.emailAddresses),
                     record.fullName,
                 ))
 
             table.printTable(self.terminal)
             self.terminal.nextLine()
-
-    cmd_find_principal.hidden = "Not done yet"
 
 
     #
