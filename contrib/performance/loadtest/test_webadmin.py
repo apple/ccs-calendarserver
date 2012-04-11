@@ -43,6 +43,10 @@ class WebAdminTests(TestCase):
         def __init__(self):
             self.reactor = WebAdminTests.FakeReactor()
             self.reporter = WebAdminTests.FakeReporter()
+            self.running = True
+        
+        def stop(self):
+            self.running = False
 
     
     class FakeRequest(object):
@@ -77,8 +81,9 @@ class WebAdminTests(TestCase):
             stop=None,
         ))
         self.assertTrue(response.startswith("<html>"))
-        self.assertTrue(response.find(resource.token) != -1)
-        self.assertFalse(loadsim.reactor.running)
+        self.assertTrue(response.find(resource.token) == -1)
+        self.assertTrue(response.find("FakeReporter") != -1)
+        self.assertFalse(loadsim.running)
         
     def test_resourcePOST_Stop_BadToken(self):
         """
@@ -95,7 +100,8 @@ class WebAdminTests(TestCase):
         ))
         self.assertTrue(response.startswith("<html>"))
         self.assertTrue(response.find(resource.token) != -1)
-        self.assertTrue(loadsim.reactor.running)
+        self.assertTrue(response.find("FakeReporter") == -1)
+        self.assertTrue(loadsim.running)
         
     def test_resourcePOST_Results(self):
         """
@@ -113,7 +119,7 @@ class WebAdminTests(TestCase):
         self.assertTrue(response.startswith("<html>"))
         self.assertTrue(response.find(resource.token) != -1)
         self.assertTrue(response.find("FakeReporter") != -1)
-        self.assertTrue(loadsim.reactor.running)
+        self.assertTrue(loadsim.running)
         
     def test_resourcePOST_Results_BadToken(self):
         """
@@ -131,4 +137,4 @@ class WebAdminTests(TestCase):
         self.assertTrue(response.startswith("<html>"))
         self.assertTrue(response.find(resource.token) != -1)
         self.assertTrue(response.find("FakeReporter") == -1)
-        self.assertTrue(loadsim.reactor.running)
+        self.assertTrue(loadsim.running)

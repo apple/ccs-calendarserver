@@ -61,6 +61,14 @@ class LoadSimAdminResource (resource.Resource):
 </html>
 """
 
+    BODY_RESULTS_STOPPED = """<html>
+<body>
+    <h3>LoadSim Stopped - Final Results</h3>
+    <pre>%s</pre>
+</body>
+</html>
+"""
+
     def __init__(self, loadsim):
         self.loadsim = loadsim
         self.token = str(uuid.uuid4())
@@ -73,9 +81,16 @@ class LoadSimAdminResource (resource.Resource):
             return self.BODY % (self.token,)
 
         if 'stop' in request.args:
-            self.loadsim.reactor.stop()
+            self.loadsim.stop()
+            return self._renderReport(True)
         elif 'results' in request.args:
-            report = StringIO.StringIO()
-            self.loadsim.reporter.generateReport(report)
-            return self.BODY_RESULTS % (self.token, report.getvalue(),)
+            return self._renderReport()
         return self.BODY % (self.token,)
+
+    def _renderReport(self, stopped=False):
+        report = StringIO.StringIO()
+        self.loadsim.reporter.generateReport(report)
+        if stopped:
+            return self.BODY_RESULTS_STOPPED % (report.getvalue(),)
+        else:
+            return self.BODY_RESULTS % (self.token, report.getvalue(),)

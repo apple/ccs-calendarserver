@@ -363,10 +363,10 @@ class LoadSimulator(object):
 
 
     def attachServices(self, output):
-        ms = MultiService()
+        self.ms = MultiService()
         for svcclass in self.serviceClasses():
-            svcclass(self, output).setServiceParent(ms)
-        attachService(self.reactor, ms)
+            svcclass(self, output).setServiceParent(self.ms)
+        attachService(self.reactor, self, self.ms)
 
 
     def run(self, output=stdout):
@@ -378,13 +378,24 @@ class LoadSimulator(object):
         self.reactor.run()
 
 
-def attachService(reactor, service):
+    def stop(self):
+        if self.ms.running:
+            self.ms.stopService()
+            self.reactor.callLater(5, self.reactor.stop)
+
+
+    def shutdown(self):
+        if self.ms.running:
+            self.ms.stopService()
+
+
+def attachService(reactor, loadsim, service):
     """
     Attach a given L{IService} provider to the given L{IReactorCore}; cause it
     to be started when the reactor starts, and stopped when the reactor stops.
     """
     reactor.callWhenRunning(service.startService)
-    reactor.addSystemEventTrigger('before', 'shutdown', service.stopService)
+    reactor.addSystemEventTrigger('before', 'shutdown', loadsim.shutdown)
 
 
 
@@ -416,7 +427,7 @@ class ObserverService(SimService):
 
 
     def stopService(self):
-        super(ObserverService, self).startService()
+        super(ObserverService, self).stopService()
         for obs in self.loadsim.observers:
             removeObserver(obs.observe)
 
