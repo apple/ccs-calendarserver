@@ -157,6 +157,18 @@ class ShellProtocol(ReceiveLineProtocol):
             self.keyHandlers['\x01'] = self.handle_HOME   # Control-A
             self.keyHandlers['\x05'] = self.handle_END    # Control-E
 
+        def observer(event):
+            if not event["isError"]:
+                return
+
+            text = log.textFromEventDict(event)
+            if text is None:
+                return
+
+            self.service.reactor.callFromThread(self.terminal.write, text)
+
+        log.startLoggingWithObserver(observer)
+
     def handle_INT(self):
         """
         Handle ^C as an interrupt keystroke by resetting the current input

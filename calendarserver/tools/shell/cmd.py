@@ -290,7 +290,7 @@ class Commands(CommandsBase):
 
         # FIXME: Need to update key registrations
 
-    cmd_emulate.hidden = "Incomplete"
+    cmd_emulate.hidden = "incomplete"
 
     def complete_emulate(self, tokens):
         if len(tokens) == 0:
@@ -330,7 +330,7 @@ class Commands(CommandsBase):
 
         self._logFile = fileName
 
-    cmd_log.hidden = "Debug tool"
+    cmd_log.hidden = "debug tool"
 
 
     #
@@ -447,6 +447,7 @@ class Commands(CommandsBase):
     #
     # Principal tools
     #
+
     @inlineCallbacks
     def cmd_find_principals(self, tokens):
         """
@@ -563,7 +564,7 @@ class Commands(CommandsBase):
         self.protocol.lineReceived = evalSomePython
         self.protocol.ps = (">>> ", "... ")
 
-    cmd_python.hidden = "Still experimental / untested."
+    cmd_python.hidden = "debug tool"
 
 
     #
@@ -581,4 +582,14 @@ class Commands(CommandsBase):
 
         raise NotImplementedError("")
 
-    cmd_sql.hidden = "Not implemented."
+    cmd_sql.hidden = "not implemented"
+
+
+    #
+    # Test tools
+    #
+
+    def cmd_raise(self, tokens):
+        raise RuntimeError(" ".join(tokens))
+
+    cmd_raise.hidden = "test tool"
