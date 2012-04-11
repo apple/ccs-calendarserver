@@ -737,11 +737,15 @@ class BaseAppleClient(BaseClient):
         we should emulate.
         """
 
+        result = True
         try:
             result = yield self._newOperation("push" if push else "poll", self._poll(calendarHomeSet, firstTime))
         finally:
             if result:
-                self._checking.remove(calendarHomeSet)
+                try:
+                    self._checking.remove(calendarHomeSet)
+                except KeyError:
+                    pass
         returnValue(result)
 
     @inlineCallbacks
@@ -1609,7 +1613,7 @@ class RequestLogger(object):
             print (self.format % formatArgs).encode('utf-8')
 
 
-    def report(self):
+    def report(self, output):
         pass
 
 

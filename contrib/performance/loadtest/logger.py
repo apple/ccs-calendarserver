@@ -19,7 +19,7 @@ from contrib.performance.stats import mean, median, stddev
 
 class SummarizingMixin(object):
 
-    def printHeader(self, fields):
+    def printHeader(self, output, fields):
         """
         Print a header for the summarization data which will be reported.
 
@@ -34,8 +34,8 @@ class SummarizingMixin(object):
             format.append('%%%ds' % (width,))
             labels.append(label)
         header = ' '.join(format) % tuple(labels)
-        print header
-        print "-" * len(header)
+        output.write("%s\n" % header)
+        output.write("%s\n" % ("-" * len(header),))
 
 
     def _summarizeData(self, operation, data):
@@ -68,12 +68,12 @@ class SummarizingMixin(object):
                 (mean(durations), median(durations), stddev(durations), "FAIL" if failure else "")
 
 
-    def _printRow(self, formats, values):
+    def _printRow(self, output, formats, values):
         format = ' '.join(formats)
-        print format % values
+        output.write("%s\n" % format % values)
 
 
-    def printData(self, formats, perOperationTimes):
+    def printData(self, output, formats, perOperationTimes):
         """
         Print one or more rows of data with the given formatting.
 
@@ -85,4 +85,4 @@ class SummarizingMixin(object):
             (C{True} if so, C{False} if not) and how long the operation took.
         """
         for method, data in perOperationTimes:
-            self._printRow(formats, self._summarizeData(method, data))
+            self._printRow(output, formats, self._summarizeData(method, data))

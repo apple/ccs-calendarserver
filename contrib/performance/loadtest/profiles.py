@@ -767,13 +767,13 @@ class OperationLogger(SummarizingMixin):
         return data[:-1] + (avglag,) + data[-1:]
 
 
-    def report(self):
-        print
-        self.printHeader([
+    def report(self, output):
+        output.write("\n")
+        self.printHeader(output, [
                 (label, width)
                 for (label, width, _ignore_fmt)
                 in self._fields])
-        self.printData(
+        self.printData(output,
             [fmt for (label, width, fmt) in self._fields],
             sorted(self._perOperationTimes.items()))
 

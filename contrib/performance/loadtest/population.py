@@ -283,7 +283,7 @@ class StatisticsBase(object):
             self.clientFailure(event)
 
 
-    def report(self):
+    def report(self, output):
         pass
 
 
@@ -376,34 +376,34 @@ class ReportStatistics(StatisticsBase, SummarizingMixin):
         self._failed_clients.append(event['reason'])
 
 
-    def printMiscellaneous(self, items):
+    def printMiscellaneous(self, output, items):
         for k, v in sorted(items.iteritems()):
-            print k.title(), ':', v
+            output.write("%s:%s\n" % (k.title(), v,))
 
 
-    def report(self):
-        print
-        print "** REPORT **"
-        print
-        self.printMiscellaneous({
+    def report(self, output):
+        output.write("\n")
+        output.write("** REPORT **\n")
+        output.write("\n")
+        self.printMiscellaneous(output, {
             'users': self.countUsers(),
             'clients': self.countClients(),
         })
         if self.countClientFailures() > 0:
-            self.printMiscellaneous({
+            self.printMiscellaneous(output, {
                 'Failed clients': self.countClientFailures(),
             })
             for ctr, reason in enumerate(self._failed_clients, 1):
-                self.printMiscellaneous({
+                self.printMiscellaneous(output, {
                     'Failure #%d' % (ctr,): reason,
                 })
             
-        print
-        self.printHeader([
+        output.write("\n")
+        self.printHeader(output, [
                 (label, width)
                 for (label, width, _ignore_fmt)
                 in self._fields])
-        self.printData(
+        self.printData(output,
             [fmt for (label, width, fmt) in self._fields],
             sorted(self._perMethodTimes.items()))
 
