@@ -457,16 +457,12 @@ class Commands(CommandsBase):
         if not tokens:
             raise UsageError("No search term")
 
-        term = tokens.pop(0)
-
-        if tokens:
-            raise UnknownArguments(tokens)
-
-        searchFieldNames = ("fullName", "firstName", "lastName", "emailAddresses")
-        searchFields = tuple(
-            (fieldName, term, True, "contains")
-            for fieldName in searchFieldNames
-        )
+        for token in tokens:
+            searchFieldNames = ("fullName", "firstName", "lastName", "emailAddresses")
+            searchFields = tuple(
+                (fieldName, token, True, "contains")
+                for fieldName in searchFieldNames
+            )
 
         records = (yield self.protocol.service.directory.recordsMatchingFields(searchFields))
         records = sorted(tuple(records), key=operator.attrgetter("fullName"))
@@ -530,19 +526,35 @@ class Commands(CommandsBase):
                 if not key.startswith("_"):
                     localVariables[key] = value
 
-            self._interpreter = ManholeInterpreter(self.protocol, localVariables)
+            class Handler(object):
+                def addOutput(innerSelf, bytes, async=False):
+                    """
+                    This is a delegate method, called by ManholeInterpreter.
+                    """
+                    if async:
+                        self.terminal.write("... interrupted for Deferred ...\n")
+                    self.terminal.write(bytes)
+                    if async:
+                        self.terminal.write("\n")
+                        self.protocol.drawInputLine()
+
+            self._interpreter = ManholeInterpreter(Handler(), localVariables)
 
         def evalSomePython(line):
             if line == "exit":
                 # Return to normal command mode.
                 del self.protocol.lineReceived
                 del self.protocol.ps
-                del self.protocol.pn
+                try:
+                    del self.protocol.pn
+                except AttributeError:
+                    pass
                 self.protocol.drawInputLine()
                 return
 
             more = self._interpreter.push(line)
             self.protocol.pn = bool(more)
+
             lw = self.terminal.lastWrite
             if not (lw.endswith("\n") or lw.endswith("\x1bE")):
                 self.terminal.write("\n")
@@ -552,18 +564,6 @@ class Commands(CommandsBase):
         self.protocol.ps = (">>> ", "... ")
 
     cmd_python.hidden = "Still experimental / untested."
-
-
-    def addOutput(self, bytes, async=False):
-        """
-        This is a delegate method, called by ManholeInterpreter.
-        """
-        if async:
-            self.terminal.write("... interrupted for Deferred ...\n")
-        self.terminal.write(bytes)
-        if async:
-            self.terminal.write("\n")
-            self.protocol.drawInputLine()
 
 
     #
