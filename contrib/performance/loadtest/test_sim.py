@@ -37,6 +37,10 @@ from contrib.performance.loadtest.sim import (
 
 VALID_CONFIG = {
     'server': 'tcp:127.0.0.1:8008',
+    'webadmin': {
+        'enabled': True,
+        'HTTPPort': 8080,
+        },
     'arrival': {
         'factory': 'contrib.performance.loadtest.population.SmoothRampUp',
         'params': {
@@ -209,7 +213,7 @@ class Observer(object):
         self.events.append(event)
 
 
-    def report(self):
+    def report(self, output):
         self.reported = True
 
 
@@ -241,7 +245,7 @@ class LoadSimulatorTests(TestCase):
         exc = self.assertRaises(
             SystemExit, StubSimulator.main, ['--config', config.path])
         self.assertEquals(
-            exc.args, (StubSimulator(None, None, None).run(),))
+            exc.args, (StubSimulator(None, None, None, None).run(),))
 
 
     def test_createSimulator(self):
@@ -252,7 +256,7 @@ class LoadSimulatorTests(TestCase):
         """
         server = 'http://127.0.0.7:1243/'
         reactor = object()
-        sim = LoadSimulator(server, None, None, reactor=reactor)
+        sim = LoadSimulator(server, None, None, None, reactor=reactor)
         calsim = sim.createSimulator()
         self.assertIsInstance(calsim, CalendarClientSimulator)
         self.assertIsInstance(calsim.reactor, LagTrackingReactor)
@@ -432,7 +436,7 @@ class LoadSimulatorTests(TestCase):
 
         reactor = object()
         sim = LoadSimulator(
-            None, Arrival(FakeArrival, {'x': 3, 'y': 2}), None, reactor=reactor)
+            None, None, Arrival(FakeArrival, {'x': 3, 'y': 2}), None, reactor=reactor)
         arrival = sim.createArrivalPolicy()
         self.assertIsInstance(arrival, FakeArrival)
         self.assertIdentical(arrival.reactor, sim.reactor)
@@ -509,6 +513,7 @@ class LoadSimulatorTests(TestCase):
         observers = [Observer()]
         sim = LoadSimulator(
             "http://example.com:123/",
+            None,
             Arrival(lambda reactor: NullArrival(), {}),
             None, observers, reactor=Reactor())
         io = StringIO()
