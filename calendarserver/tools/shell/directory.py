@@ -19,6 +19,7 @@ Directory tools
 """
 
 __all__ = [
+    "findRecords",
     "recordInfo",
     "recordBasicInfo",
     "recordGroupMembershipInfo",
@@ -26,10 +27,26 @@ __all__ = [
 ]
 
 
+import operator
+
 from twisted.internet.defer import succeed
 from twisted.internet.defer import inlineCallbacks, returnValue
 
 from calendarserver.tools.tables import Table
+
+
+@inlineCallbacks
+def findRecords(directory, terms):
+    for term in terms:
+        searchFieldNames = ("fullName", "firstName", "lastName", "emailAddresses")
+        searchFields = tuple(
+            (fieldName, term, True, "contains")
+            for fieldName in searchFieldNames
+        )
+
+    records = (yield directory.recordsMatchingFields(searchFields))
+
+    returnValue(sorted(tuple(records), key=operator.attrgetter("fullName")))
 
 
 @inlineCallbacks
@@ -154,3 +171,35 @@ def recordProxyAccessInfo(directory, record):
         table.addRow(row)
 
     returnValue(table.toString())
+
+
+def summarizeRecords(directory, records):
+    table = Table()
+
+    table.addHeader((
+        "UID",
+        "Record Type",
+        "Short Names",
+        "Email Addresses",
+        "Full Name",
+    ))
+
+    def formatItems(items):
+        if items:
+            return ", ".join(items)
+        else:
+            return None
+
+    for record in records:
+        table.addRow((
+            record.uid,
+            record.recordType,
+            formatItems(record.shortNames),
+            formatItems(record.emailAddresses),
+            record.fullName,
+        ))
+
+    if table.rows:
+        return succeed(table.toString())
+    else:
+        return succeed(None)

@@ -25,8 +25,6 @@ __all__ = [
     "Commands",
 ]
 
-import operator
-
 #from twisted.python import log
 from twisted.internet.defer import succeed
 from twisted.internet.defer import inlineCallbacks, returnValue
@@ -37,6 +35,7 @@ from txdav.common.icommondatastore import NotFoundError
 
 from calendarserver.tools.tables import Table
 from calendarserver.tools.shell.vfs import Folder, RootFolder
+from calendarserver.tools.shell.directory import findRecords, summarizeRecords
 
 
 class UsageError(Exception):
@@ -465,44 +464,14 @@ class Commands(CommandsBase):
         if not tokens:
             raise UsageError("No search term")
 
-        for token in tokens:
-            searchFieldNames = ("fullName", "firstName", "lastName", "emailAddresses")
-            searchFields = tuple(
-                (fieldName, token, True, "contains")
-                for fieldName in searchFieldNames
-            )
-
-        records = (yield self.protocol.service.directory.recordsMatchingFields(searchFields))
-        records = sorted(tuple(records), key=operator.attrgetter("fullName"))
+        records = (yield findRecords(self.protocol.service.directory, tokens))
 
         if records:
-            table = Table()
+            self.terminal.write((yield summarizeRecords(self.protocol.service.directory, records)))
+        else:
+            self.terminal.write("No matching principals found.")
 
-            table.addHeader((
-                "UID",
-                "Record Type",
-                "Short Names",
-                "Email Addresses",
-                "Full Name",
-            ))
-
-            def formatItems(items):
-                if items:
-                    return ", ".join(items)
-                else:
-                    return None
-
-            for record in records:
-                table.addRow((
-                    record.uid,
-                    record.recordType,
-                    formatItems(record.shortNames),
-                    formatItems(record.emailAddresses),
-                    record.fullName,
-                ))
-
-            table.printTable(self.terminal)
-            self.terminal.nextLine()
+        self.terminal.nextLine()
 
 
     #
