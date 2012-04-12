@@ -81,7 +81,7 @@ def usage(e=None):
 description = '\n'.join(
     wordWrap(
         """
-        Usage: calendarserver_calverify [options] [input specifiers]\n
+        Usage: calendarserver_verify_data [options] [input specifiers]\n
         """,
         int(os.environ.get('COLUMNS', '80'))
     )
@@ -89,7 +89,7 @@ description = '\n'.join(
 
 class CalVerifyOptions(Options):
     """
-    Command-line options for 'calendarserver_calverify'
+    Command-line options for 'calendarserver_verify_data'
     """
 
     synopsis = description
