@@ -51,6 +51,43 @@ from calendarserver.tools.tables import Table
 from calendarserver.tools.shell.directory import recordInfo
 
 
+class ListEntry(object):
+    """
+    Information about a C{File} as returned by C{File.list()}.
+    """
+    def __init__(self, Class, Name, **fields):
+        self.fileClass = Class
+        self.fileName  = Name
+        self.fields    = fields
+
+        fields["Name"] = Name
+
+    def __str__(self):
+        return self.toString()
+
+    def toString(self):
+        if issubclass(self.fileClass, Folder):
+            return "%s/" % (self.fileName,)
+        else:
+            return self.fileName
+
+    @property
+    def fieldNames(self):
+        if not hasattr(self, "_fieldNames"):
+            if hasattr(self.fileClass.list, "fieldNames"):
+                if "Name" in self.fileClass.list.fieldNames:
+                    self._fieldNames = tuple(self.fileClass.list.fieldNames)
+                else:
+                    self._fieldNames = ("Name",) + tuple(self.fileClass.list.fieldNames)
+            else:
+                self._fieldNames = ["Name"] + sorted(n for n in self.fields if n != "Name")
+
+        return self._fieldNames
+
+    def toFields(self):
+        return (self.fields[fieldName] for fieldName in self.fieldNames)
+
+
 class File(object):
     """
     Object in virtual data hierarchy.
