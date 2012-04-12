@@ -702,6 +702,8 @@ DEFAULT_CONFIG = {
                 "FeedbackPort" : 2196,
                 "FeedbackUpdateSeconds" : 28800, # 8 hours
                 "Environment" : "PRODUCTION",
+                "EnableStaggering" : False,
+                "StaggerSeconds" : 3,
                 "CalDAV" : {
                     "CertificatePath" : "",
                     "PrivateKeyPath" : "",

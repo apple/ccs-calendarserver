@@ -45,6 +45,8 @@ class ApplePushNotifierServiceTests(CommonCommonTests, TestCase):
             "FeedbackHost" : "feedback.push.apple.com",
             "FeedbackPort" : 2196,
             "FeedbackUpdateSeconds" : 300,
+            "EnableStaggering" : True,
+            "StaggerSeconds" : 3,
             "CalDAV" : {
                 "CertificatePath" : "caldav.cer",
                 "PrivateKeyPath" : "caldav.pem",
@@ -75,11 +77,13 @@ class ApplePushNotifierServiceTests(CommonCommonTests, TestCase):
         except InvalidSubscriptionValues:
             pass
 
-        token = "2d0d55cd7f98bcb81c6e24abcdc35168254c7846a43e2828b1ba5a8f82e219df"
+        token  = "2d0d55cd7f98bcb81c6e24abcdc35168254c7846a43e2828b1ba5a8f82e219df"
+        token2 = "3d0d55cd7f98bcb81c6e24abcdc35168254c7846a43e2828b1ba5a8f82e219df"
         key1 = "/CalDAV/calendars.example.com/user01/calendar/"
         timestamp1 = 1000
         uid = "D2256BCC-48E2-42D1-BD89-CBA1E4CCDFFB"
         yield txn.addAPNSubscription(token, key1, timestamp1, uid)
+        yield txn.addAPNSubscription(token2, key1, timestamp1, uid)
 
         key2 = "/CalDAV/calendars.example.com/user02/calendar/"
         timestamp2 = 3000
@@ -88,6 +92,7 @@ class ApplePushNotifierServiceTests(CommonCommonTests, TestCase):
         subscriptions = (yield txn.apnSubscriptionsBySubscriber(uid))
         self.assertTrue([token, key1, timestamp1] in subscriptions)
         self.assertTrue([token, key2, timestamp2] in subscriptions)
+        self.assertTrue([token2, key1, timestamp1] in subscriptions)
 
         # Verify an update to a subscription with a different uid takes on
         # the new uid
@@ -117,8 +122,9 @@ class ApplePushNotifierServiceTests(CommonCommonTests, TestCase):
         # Notification arrives from calendar server
         yield service.enqueue("update", "CalDAV|user01/calendar")
 
-        # The notification should be in the queue
-        self.assertEquals(service.providers["CalDAV"].queue, [(token, key1)])
+        # The notifications should be in the queue
+        self.assertTrue((token, key1) in service.providers["CalDAV"].queue)
+        self.assertTrue((token2, key1) in service.providers["CalDAV"].queue)
 
         # Start the service, making the connection which should service the
         # queue
@@ -139,9 +145,25 @@ class ApplePushNotifierServiceTests(CommonCommonTests, TestCase):
             rawData[45:])
         self.assertEquals(payload[0], '{"key" : "%s"}' % (key1,))
         # Verify token history is updated
-        self.assertEquals(providerConnector.service.protocol.history.history,
-            [(1, token)]
-        )
+        self.assertTrue(token in [t for (i, t) in providerConnector.service.protocol.history.history])
+        self.assertTrue(token2 in [t for (i, t) in providerConnector.service.protocol.history.history])
+
+
+        #
+        # Verify staggering behavior
+        #
+
+        # Reset sent data
+        providerConnector.transport.data = None
+        # Send notification while service is connected
+        yield service.enqueue("update", "CalDAV|user01/calendar")
+        clock.advance(1) # so that first push is sent
+        self.assertEquals(len(providerConnector.transport.data), 103)
+        # Reset sent data
+        providerConnector.transport.data = None
+        clock.advance(3) # so that second push is sent
+        self.assertEquals(len(providerConnector.transport.data), 103)
+
 
         def errorTestFunction(status, identifier):
             history.append((status, identifier))
@@ -223,12 +245,18 @@ class ApplePushNotifierServiceTests(CommonCommonTests, TestCase):
         )
 
         # Verify processError removes associated subscriptions and history
-        yield providerConnector.service.protocol.processError(8, 1)
+        # First find the id corresponding to token2
+        for (id, t) in providerConnector.service.protocol.history.history:
+            if t == token2:
+                break
+
+        yield providerConnector.service.protocol.processError(8, id)
         # The token for this identifier is gone
-        self.assertEquals(providerConnector.service.protocol.history.history, [])
+        self.assertTrue((id, token2) not in providerConnector.service.protocol.history.history)
+
         # All subscriptions for this token should now be gone
         txn = self.store.newTransaction()
-        subscriptions = (yield txn.apnSubscriptionsByToken(token))
+        subscriptions = (yield txn.apnSubscriptionsByToken(token2))
         yield txn.commit()
         self.assertEquals(subscriptions, [])
 

@@ -34,7 +34,7 @@ import OpenSSL
 import struct
 import time
 from txdav.common.icommondatastore import InvalidSubscriptionValues
-from calendarserver.push.util import validToken, TokenHistory
+from calendarserver.push.util import validToken, TokenHistory, PushScheduler
 
 
 
@@ -103,6 +103,8 @@ class ApplePushNotifierService(service.MultiService, LoggingMixIn):
                     settings[protocol]["PrivateKeyPath"],
                     chainPath=settings[protocol]["AuthorityChainPath"],
                     passphrase=settings[protocol]["Passphrase"],
+                    staggerNotifications=settings["EnableStaggering"],
+                    staggerSeconds=settings["StaggerSeconds"],
                     testConnector=providerTestConnector,
                     reactor=reactor,
                 )
@@ -171,9 +173,12 @@ class ApplePushNotifierService(service.MultiService, LoggingMixIn):
             if numSubscriptions > 0:
                 self.log_debug("Sending %d APNS notifications for %s" %
                     (numSubscriptions, key))
+                tokens = []
                 for token, uid in subscriptions:
                     if token and uid:
-                        provider.sendNotification(token, key)
+                        tokens.append(token)
+                if tokens:
+                    provider.scheduleNotifications(tokens, key)
 
 
 
@@ -395,8 +400,9 @@ class APNConnectionService(service.Service, LoggingMixIn):
 class APNProviderService(APNConnectionService):
 
     def __init__(self, store, host, port, certPath, keyPath, chainPath="",
-        passphrase="", sslMethod="TLSv1_METHOD", testConnector=None,
-        reactor=None):
+        passphrase="", sslMethod="TLSv1_METHOD",
+        staggerNotifications=False, staggerSeconds=3,
+        testConnector=None, reactor=None):
 
         APNConnectionService.__init__(self, host, port, certPath, keyPath,
             chainPath=chainPath, passphrase=passphrase, sslMethod=sslMethod,
@@ -405,6 +411,11 @@ class APNProviderService(APNConnectionService):
         self.store = store
         self.factory = None
         self.queue = []
+        if staggerNotifications:
+            self.scheduler = PushScheduler(self.reactor, self.sendNotification,
+                staggerSeconds=staggerSeconds)
+        else:
+            self.scheduler = None
 
     def startService(self):
         self.log_info("APNProviderService startService")
@@ -415,6 +426,8 @@ class APNProviderService(APNConnectionService):
         self.log_info("APNProviderService stopService")
         if self.factory is not None:
             self.factory.stopTrying()
+        if self.scheduler is not None:
+            self.scheduler.stop()
 
     def clientConnectionMade(self):
         # Service the queue
@@ -427,19 +440,72 @@ class APNProviderService(APNConnectionService):
                 if token and key:
                     self.sendNotification(token, key)
 
+
+    def scheduleNotifications(self, tokens, key):
+        """
+        The starting point for getting notifications to the APNS server.  If there is
+        a connection to the APNS server, these notifications are scheduled (or directly
+        sent if there is no scheduler).  If there is no connection, the notifications
+        are saved for later.
+
+        @param tokens: The device tokens to schedule notifications for
+        @type tokens: List of strings
+        @param key: The key to use for this batch of notifications
+        @type key: String
+        """
+        # Service has reference to factory has reference to protocol instance
+        connection = getattr(self.factory, "connection", None)
+        if connection is not None:
+            if self.scheduler is not None:
+                self.scheduler.schedule(tokens, key)
+            else:
+                for token in tokens:
+                    self.sendNotification(token, key)
+        else:
+            self._saveForWhenConnected(tokens, key)
+
+
+    def _saveForWhenConnected(self, tokens, key):
+        """
+        Called in order to save notifications that can't be sent now because there
+        is no connection to the APNS server.  (token, key) tuples are appended to
+        the queue which is serviced during clientConnectionMade()
+
+        @param tokens: The device tokens to schedule notifications for
+        @type tokens: List of strings
+        @param key: The key to use for this batch of notifications
+        @type key: String
+        """
+        for token in tokens:
+            tokenKeyPair = (token, key)
+            if tokenKeyPair not in self.queue:
+                self.log_debug("APNProviderService has no connection; queuing: %s %s" % (token, key))
+                self.queue.append((token, key))
+            else:
+                self.log_debug("APNProviderService has no connection; skipping duplicate: %s %s" % (token, key))
+
+
+
     def sendNotification(self, token, key):
+        """
+        If there is a connection the notification is sent right away, otherwise
+        the notification is saved for later.
+
+        @param token: The device token to send a notifications to
+        @type token: Strings
+        @param key: The key to use for this notification
+        @type key: String
+        """
         if not (token and key):
             return
 
         # Service has reference to factory has reference to protocol instance
         connection = getattr(self.factory, "connection", None)
         if connection is None:
-            self.log_debug("APNProviderService has no connection; queuing: %s %s" % (token, key))
-            tokenKeyPair = (token, key)
-            if tokenKeyPair not in self.queue:
-                self.queue.append(tokenKeyPair)
+            self._saveForWhenConnected([token], key)
         else:
             connection.sendNotification(token, key)
+
 
 
 class APNFeedbackProtocol(protocol.Protocol, LoggingMixIn):

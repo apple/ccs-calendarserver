@@ -15,6 +15,7 @@
 ##
 
 from OpenSSL import crypto
+from twext.python.log import LoggingMixIn
 
 def getAPNTopicFromCertificate(certPath):
     """
@@ -99,3 +100,66 @@ class TokenHistory(object):
                 del self.history[index]
                 return token
         return None
+
+
+
+class PushScheduler(LoggingMixIn):
+    """
+    Allows staggered scheduling of push notifications
+    """
+
+    def __init__(self, reactor, callback, staggerSeconds=1):
+        """
+        @param callback: The method to call when it's time to send a push
+        @type callback: callable
+        @param staggerSeconds: The number of seconds to stagger between each
+            push
+        @type staggerSeconds: integer
+        """
+        self.outstanding = {}
+        self.reactor = reactor
+        self.callback = callback
+        self.staggerSeconds = staggerSeconds
+
+    def schedule(self, tokens, key):
+        """
+        Schedules a batch of notifications for the given tokens, staggered
+        with self.staggerSeconds between each one.  Duplicates are ignored,
+        so if a token/key pair is already scheduled and not yet sent, a new
+        one will not be scheduled for that pair.
+
+        @param tokens: The device tokens to schedule notifications for
+        @type tokens: List of strings
+        @param key: The key to use for this batch of notifications
+        @type key: String
+        """
+        scheduleTime = 0.0
+        for token in tokens:
+            internalKey = (token, key)
+            if self.outstanding.has_key(internalKey):
+                self.log_debug("PushScheduler already has this scheduled: %s" %
+                    (internalKey,))
+            else:
+                self.outstanding[internalKey] = self.reactor.callLater(
+                    scheduleTime, self.send, token, key)
+                self.log_debug("PushScheduler scheduled: %s in %.0f sec" %
+                    (internalKey, scheduleTime))
+                scheduleTime += self.staggerSeconds
+
+    def send(self, token, key):
+        """
+        This method is what actually gets scheduled.  Its job is to remove
+        its corresponding entry from the outstanding dict and call the
+        callback.
+        """
+        self.log_debug("PushScheduler fired for %s %s" % (token, key))
+        del self.outstanding[(token, key)]
+        self.callback(token, key)
+
+    def stop(self):
+        """
+        Cancel all outstanding delayed calls
+        """
+        for (token, key), delayed in self.outstanding.iteritems():
+            self.log_debug("PushScheduler cancelling %s %s" % (token, key))
+            delayed.cancel()
