@@ -35,7 +35,7 @@ from txdav.common.icommondatastore import NotFoundError
 
 from calendarserver.tools.tables import Table
 from calendarserver.tools.shell.vfs import Folder, RootFolder
-from calendarserver.tools.shell.directory import findRecords, summarizeRecords
+from calendarserver.tools.shell.directory import findRecords, summarizeRecords, recordInfo
 
 
 class UsageError(Exception):
@@ -362,10 +362,10 @@ class Commands(CommandsBase):
 
         usage: cd [folder]
         """
-        if not tokens:
+        if tokens:
+            dirname = tokens.pop(0)
+        else:
             return
-
-        dirname = tokens.pop(0)
 
         if tokens:
             raise UnknownArguments(tokens)
@@ -464,12 +464,41 @@ class Commands(CommandsBase):
         if not tokens:
             raise UsageError("No search term")
 
-        records = (yield findRecords(self.protocol.service.directory, tokens))
+        directory = self.protocol.service.directory
+
+        records = (yield findRecords(directory, tokens))
 
         if records:
-            self.terminal.write((yield summarizeRecords(self.protocol.service.directory, records)))
+            self.terminal.write((yield summarizeRecords(directory, records)))
         else:
             self.terminal.write("No matching principals found.")
+
+        self.terminal.nextLine()
+
+
+    @inlineCallbacks
+    def cmd_print_principal(self, tokens):
+        """
+        Print information about a principal
+
+        usage: print_principal uid
+        """
+        if tokens:
+            uid = tokens.pop(0)
+        else:
+            raise UsageError("UID required")
+
+        if tokens:
+            raise UnknownArguments(tokens)
+
+        directory = self.protocol.service.directory
+
+        record = directory.recordWithUID(uid)
+
+        if record:
+            self.terminal.write((yield recordInfo(directory, record)))
+        else:
+            self.terminal.write("No such principal.")
 
         self.terminal.nextLine()
 
