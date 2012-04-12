@@ -44,6 +44,8 @@ import os
 
 log = Logger()
 
+validationBypass = False
+
 def validateCalendarComponent(calendarObject, calendar, component, inserting, migrating):
     """
     Validate a calendar component for a particular calendar.
@@ -58,6 +60,9 @@ def validateCalendarComponent(calendarObject, calendar, component, inserting, mi
     @param component: The VComponent to be validated.
     @type component: L{VComponent}
     """
+
+    if validationBypass:
+        return
 
     if not isinstance(component, VComponent):
         raise TypeError(type(component))

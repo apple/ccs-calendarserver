@@ -38,9 +38,9 @@ multiple DBs for inconsistency would be good too.
 
 """
 
-from calendarserver.tap.util import directoryFromConfig
 from calendarserver.tools import tables
 from calendarserver.tools.cmdline import utilityMain
+from calendarserver.tools.util import getDirectory
 from pycalendar import definitions
 from pycalendar.calendar import PyCalendar
 from pycalendar.datetime import PyCalendarDateTime
@@ -56,6 +56,7 @@ from twistedcaldav.dateops import pyCalendarTodatetime
 from twistedcaldav.ical import Component, ignoredComponents,\
     InvalidICalendarDataError
 from twistedcaldav.stdconfig import DEFAULT_CONFIG_FILE
+from twistedcaldav.util import normalizationLookup
 from txdav.common.datastore.sql_tables import schema, _BIND_MODE_OWN
 from txdav.common.icommondatastore import InternalDataStoreError
 import collections
@@ -148,6 +149,10 @@ class CalVerifyService(Service, object):
         self.reactor = reactor
         self.config = config
         self._directory = None
+        
+        self.cuaCache = {}
+        
+        self.results = {}
 
 
     def startService(self):
@@ -182,14 +187,14 @@ class CalVerifyService(Service, object):
         """
         Report on home collections for which there are no directory records. 
         """
-        print "\n---- Finding calendar homes with no directory record ----"
+        self.output.write("\n---- Finding calendar homes with no directory record ----\n")
         self.txn = self.store.newTransaction()
 
         if self.options["verbose"]:
             t = time.time()
         uids = yield self.getAllHomeUIDs()
         if self.options["verbose"]:
-            print "getAllHomeUIDs time: %.1fs" % (time.time() - t,)
+            self.output.write("getAllHomeUIDs time: %.1fs\n" % (time.time() - t,))
         missing = []
         wrong_server = []
         uids_len = len(uids)
@@ -197,11 +202,11 @@ class CalVerifyService(Service, object):
 
         for ctr, uid in enumerate(uids):
             if self.options["verbose"] and divmod(ctr, uids_div)[1] == 0:
-                print "%d of %d (%d%%)" % (
+                self.output.write("%d of %d (%d%%)\n" % (
                     ctr+1,
                     uids_len,
                     ((ctr+1) * 100 / uids_len),
-                )
+                ))
 
             record = self.directoryService().recordWithGUID(uid)
             if record is None:
@@ -276,7 +281,7 @@ class CalVerifyService(Service, object):
     @inlineCallbacks
     def doScan(self, ical, mismatch, fix):
         
-        print "\n---- Scanning calendar data ----"
+        self.output.write("\n---- Scanning calendar data ----\n")
 
         self.start = PyCalendarDateTime.getToday()
         self.start.setDateOnly(False)
@@ -308,8 +313,9 @@ class CalVerifyService(Service, object):
         self.txn = None
 
         if self.options["verbose"]:
-            print "%s time: %.1fs" % (descriptor, time.time() - t,)
-        print "Number of events to process: %s" % (len(rows,))
+            self.output.write("%s time: %.1fs\n" % (descriptor, time.time() - t,))
+        self.output.write("Number of events to process: %s\n" % (len(rows,)))
+        self.results["Number of events to process"] = len(rows)
         
         # Split into organizer events and attendee events
         self.organized = []
@@ -325,8 +331,10 @@ class CalVerifyService(Service, object):
                 self.attended.append((owner, resid, uid, md5, organizer, created, modified,))
                 self.attended_byuid[uid].append((owner, resid, uid, md5, organizer, created, modified,))
                 
-        print "Number of organizer events to process: %s" % (len(self.organized),)
-        print "Number of attendee events to process: %s" % (len(self.attended,))
+        self.output.write("Number of organizer events to process: %s\n" % (len(self.organized),))
+        self.output.write("Number of attendee events to process: %s\n" % (len(self.attended,)))
+        self.results["Number of organizer events to process"] = len(self.organized)
+        self.results["Number of attendee events to process"] = len(self.attended)
 
         if ical:
             yield self.calendarDataCheck(rows)
@@ -448,7 +456,7 @@ class CalVerifyService(Service, object):
         Check each calendar resource for valid iCalendar data.
         """
 
-        print "\n---- Verifying each calendar object resource ----"
+        self.output.write("\n---- Verifying each calendar object resource ----\n")
         self.txn = self.store.newTransaction()
 
         if self.options["verbose"]:
@@ -466,9 +474,9 @@ class CalVerifyService(Service, object):
             count += 1
             if self.options["verbose"]:
                 if count == 1:
-                    print "Bad/Current/Total"
+                    self.output.write("Bad/Current/Total\n")
                 if divmod(count, 100)[1] == 0:
-                    print "%s/%s/%s" % (badlen, count, total,)
+                    self.output.write("%s/%s/%s\n" % (badlen, count, total,))
             
             # To avoid holding locks on all the rows scanned, commit every 100 resources
             if divmod(count, 100)[1] == 0:
@@ -494,13 +502,15 @@ class CalVerifyService(Service, object):
         self.output.write("\n")
         self.output.write("Bad iCalendar data (total=%d):\n" % (len(results_bad),))
         table.printTable(os=self.output)
+        
+        self.results["Bad iCalendar data"] = results_bad
          
         if self.options["verbose"]:
             diff_time = time.time() - t
-            print "Time: %.2f s  Average: %.1f ms/resource" % (
+            self.output.write("Time: %.2f s  Average: %.1f ms/resource\n" % (
                 diff_time,
                 (1000.0 * diff_time) / total,
-            )
+            ))
 
     errorPrefix = "Calendar data had unfixable problems:\n  "
 
@@ -541,15 +551,33 @@ class CalVerifyService(Service, object):
 
     def noPrincipalPathCUAddresses(self, component, doFix):
         
+        def lookupFunction(cuaddr, principalFunction, config):
+    
+            # Return cached results, if any.
+            if self.cuaCache.has_key(cuaddr):
+                return self.cuaCache[cuaddr]
+    
+            result = normalizationLookup(cuaddr, principalFunction, config)
+    
+            # Cache the result
+            self.cuaCache[cuaddr] = result
+            return result
+
         for subcomponent in component.subcomponents():
             if subcomponent.name() in ignoredComponents:
                 continue
             organizer = subcomponent.getProperty("ORGANIZER")
             if organizer and organizer.value().startswith("http"):
-                raise InvalidICalendarDataError("iCalendar ORGANIZER starts with 'http(s)'")
+                if doFix:
+                    component.normalizeCalendarUserAddresses(lookupFunction, self.directoryService().principalForCalendarUserAddress)
+                else:
+                    raise InvalidICalendarDataError("iCalendar ORGANIZER starts with 'http(s)'")
             for attendee in subcomponent.properties("ATTENDEE"):
                 if attendee.value().startswith("http"):
-                    raise InvalidICalendarDataError("iCalendar ATTENDEE starts with 'http(s)'")
+                    if doFix:
+                        component.normalizeCalendarUserAddresses(lookupFunction, self.directoryService().principalForCalendarUserAddress)
+                    else:
+                        raise InvalidICalendarDataError("iCalendar ATTENDEE starts with 'http(s)'")
 
     @inlineCallbacks
     def fixCalendarData(self, resid):
@@ -573,6 +601,7 @@ class CalVerifyService(Service, object):
             component.validCalendarData(doFix=True, validateRecurrences=True)
             component.validCalendarForCalDAV(methodAllowed=False)
             component.validOrganizerForScheduling(doFix=True)
+            self.noPrincipalPathCUAddresses(component, doFix=True)
         except ValueError:
             result = False
             message = "Failed fix: "
@@ -594,7 +623,7 @@ class CalVerifyService(Service, object):
         view of attendee status does not match the attendee's view of their own status.
         """
         
-        print "\n---- Verifying Organizer events against Attendee copies ----"
+        self.output.write("\n---- Verifying Organizer events against Attendee copies ----\n")
         self.txn = self.store.newTransaction()
 
         results_missing = []
@@ -607,13 +636,13 @@ class CalVerifyService(Service, object):
         for ctr, organizerEvent in enumerate(self.organized):
             
             if self.options["verbose"] and divmod(ctr, organizer_div)[1] == 0:
-                print "%d of %d (%d%%) Missing: %d  Mismatched: %s" % (
+                self.output.write("%d of %d (%d%%) Missing: %d  Mismatched: %s\n" % (
                     ctr+1,
                     organized_len,
                     ((ctr+1) * 100 / organized_len),
                     len(results_missing),
                     len(results_mismatch),
-                )
+                ))
 
             # To avoid holding locks on all the rows scanned, commit every 100 resources
             if divmod(ctr, 100)[1] == 0:
@@ -626,7 +655,7 @@ class CalVerifyService(Service, object):
             if calendar is None:
                 continue
             if self.options["verbose"] and self.masterComponent(calendar) is None:
-                print "Missing master for organizer: %s, resid: %s, uid: %s" % (organizer, resid, uid,)
+                self.output.write("Missing master for organizer: %s, resid: %s, uid: %s\n" % (organizer, resid, uid,))
             organizerViewOfAttendees = self.buildAttendeeStates(calendar, self.start, self.end)
             try:
                 del organizerViewOfAttendees[organizer]
@@ -667,11 +696,11 @@ class CalVerifyService(Service, object):
                                 results_mismatch.append((uid, resid, organizer, org_created, org_modified, organizerAttendee, att_created, att_modified))
                                 broken = True
                                 if self.options["details"]:
-                                    print "Mismatch: on Organizer's side:"
-                                    print "          UID: %s" % (uid,)
-                                    print "          Organizer: %s" % (organizer,)
-                                    print "          Attendee: %s" % (organizerAttendee,)
-                                    print "          Instance: %s" % (_organizerInstance,)
+                                    self.output.write("Mismatch: on Organizer's side:\n")
+                                    self.output.write("          UID: %s\n" % (uid,))
+                                    self.output.write("          Organizer: %s\n" % (organizer,))
+                                    self.output.write("          Attendee: %s\n" % (organizerAttendee,))
+                                    self.output.write("          Instance: %s\n" % (_organizerInstance,))
                                 break
                         # Check that the difference is only cancelled on the attendees side
                         for _attendeeInstance, partstat in attendeeOwnStatus.difference(organizerViewOfStatus):
@@ -680,10 +709,10 @@ class CalVerifyService(Service, object):
                                     results_mismatch.append((uid, resid, organizer, org_created, org_modified, organizerAttendee, att_created, att_modified))
                                 broken = True
                                 if self.options["details"]:
-                                    print "Mismatch: on Attendee's side:"
-                                    print "          Organizer: %s" % (organizer,)
-                                    print "          Attendee: %s" % (organizerAttendee,)
-                                    print "          Instance: %s" % (_attendeeInstance,)
+                                    self.output.write("Mismatch: on Attendee's side:\n")
+                                    self.output.write("          Organizer: %s\n" % (organizer,))
+                                    self.output.write("          Attendee: %s\n" % (organizerAttendee,))
+                                    self.output.write("          Instance: %s\n" % (_attendeeInstance,))
                                 break
 
                 # Check that the status for this attendee is always declined which means a missing copy of the event is OK
@@ -755,7 +784,7 @@ class CalVerifyService(Service, object):
         Make sure that for each attendee, there is a matching event for the organizer.
         """
 
-        print "\n---- Verifying Attendee events against Organizer copies ----"
+        self.output.write("\n---- Verifying Attendee events against Organizer copies ----\n")
         self.txn = self.store.newTransaction()
 
         # Now try to match up each attendee event
@@ -767,13 +796,13 @@ class CalVerifyService(Service, object):
         for ctr, attendeeEvent in enumerate(self.attended):
             
             if self.options["verbose"] and divmod(ctr, attended_div)[1] == 0:
-                print "%d of %d (%d%%) Missing: %d  Mismatched: %s" % (
+                self.output.write("%d of %d (%d%%) Missing: %d  Mismatched: %s\n" % (
                     ctr+1,
                     attended_len,
                     ((ctr+1) * 100 / attended_len),
                     len(missing),
                     len(mismatched),
-                )
+                ))
 
             # To avoid holding locks on all the rows scanned, commit every 100 resources
             if divmod(ctr, 100)[1] == 0:
@@ -980,7 +1009,7 @@ class CalVerifyService(Service, object):
         configuration, creating one first if necessary.
         """
         if self._directory is None:
-            self._directory = directoryFromConfig(self.config)
+            self._directory = getDirectory(self.config) #directoryFromConfig(self.config)
         return self._directory
 
 
@@ -1011,6 +1040,7 @@ def main(argv=sys.argv, stderr=sys.stderr, reactor=None):
         sys.exit(1)
     def makeService(store):
         from twistedcaldav.config import config
+        config.TransactionTimeoutSeconds = 0
         return CalVerifyService(store, options, output, reactor, config)
     utilityMain(options['config'], makeService, reactor)
 

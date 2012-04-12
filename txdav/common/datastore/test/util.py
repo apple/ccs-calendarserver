@@ -331,7 +331,7 @@ def withSpecialQuota(quotaValue):
 
 
 @inlineCallbacks
-def populateCalendarsFrom(requirements, store):
+def populateCalendarsFrom(requirements, store, migrating=False):
     """
     Populate C{store} from C{requirements}.
 
@@ -341,6 +341,8 @@ def populateCalendarsFrom(requirements, store):
     @param store: the L{IDataStore} to populate with calendar data.
     """
     populateTxn = store.newTransaction()
+    if migrating:
+        populateTxn._migrating = True
     for homeUID in requirements:
         calendars = requirements[homeUID]
         if calendars is not None:
