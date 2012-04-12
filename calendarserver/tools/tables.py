@@ -14,8 +14,19 @@
 # limitations under the License.
 ##
 
+"""
+Tables for fixed-width text display.
+"""
+
+__all__ = [
+    "Table",
+]
+
+
 from sys import stdout
 import types
+from cStringIO import StringIO
+
 
 class Table(object):
     """
@@ -108,6 +119,12 @@ class Table(object):
     def addDivider(self, skipColumns=()):
         
         self.rows.append((None, skipColumns,))
+
+    def toString(self):
+
+        output = StringIO()
+        self.printTable(os=output)
+        return output.getvalue()
 
     def printTable(self, os=stdout):
         
