@@ -26,6 +26,7 @@ from __future__ import division
 from tempfile import mkdtemp
 from itertools import izip
 from datetime import datetime
+import os
 
 from twisted.internet.defer import DeferredList
 from twisted.python.failure import Failure
@@ -388,9 +389,9 @@ class ReportStatistics(StatisticsBase, SummarizingMixin):
 
 
     def printMiscellaneous(self, output, items):
-        sortedItems = sorted(items.iterkeys(), key=len, reverse=True)
-        fmt = "%"+str(len(sortedItems[0]))+"s : %-30s\n"
-        for k in sortedItems:
+        maxColumnWidth = str(len(max(items.iterkeys(), key=len)))
+        fmt = "%"+maxColumnWidth+"s : %-s\n"
+        for k in sorted(items.iterkeys()):
             output.write(fmt % (k.title(), items[k],))
 
 
@@ -399,23 +400,26 @@ class ReportStatistics(StatisticsBase, SummarizingMixin):
         output.write("** REPORT **\n")
         output.write("\n")
         runtime = datetime.now() - self._startTime
-        hours, remainder = divmod(runtime.seconds, 3600)
-        minutes, seconds = divmod(remainder, 60)
-        self.printMiscellaneous(output, {
+        cpu = os.times()
+        cpuUser = cpu[0] + cpu[2]
+        cpuSys = cpu[1] + cpu[3]
+        cpuTotal = cpuUser + cpuSys
+        runHours, remainder = divmod(runtime.seconds, 3600)
+        runMinutes, runSeconds = divmod(remainder, 60)
+        cpuHours, remainder = divmod(cpuTotal, 3600)
+        cpuMinutes, cpuSeconds = divmod(remainder, 60)
+        items = {
             'Users': self.countUsers(),
             'Clients': self.countClients(),
             'Start time': self._startTime.strftime('%m/%d %H:%M:%S'),
-            'Run time': "%02d:%02d:%02d" % (hours,minutes,seconds),
-        })
+            'Run time': "%02d:%02d:%02d" % (runHours,runMinutes,runSeconds),
+            'CPU Time': "user %-5.2f sys %-5.2f total %02d:%02d:%02d" % (cpuUser, cpuSys, cpuHours, cpuMinutes, cpuSeconds,)
+        }
         if self.countClientFailures() > 0:
-            self.printMiscellaneous(output, {
-                'Failed clients': self.countClientFailures(),
-            })
+            items['Failed clients'] = self.countClientFailures()
             for ctr, reason in enumerate(self._failed_clients, 1):
-                self.printMiscellaneous(output, {
-                    'Failure #%d' % (ctr,): reason,
-                })
-            
+                items['Failure #%d' % (ctr,)] = reason
+        self.printMiscellaneous(output, items)
         output.write("\n")
         self.printHeader(output, [
                 (label, width)
