@@ -249,4 +249,13 @@ class AdaptEndpointTests(TestCase):
         self.assertRaises(RuntimeError, self.connector.stopConnecting)
 
 
+    def test_stopConnectingWhileNotConnected(self):
+        """
+        When the L{IConnector} is told to C{stopConnecting} while it is not
+        connected or connecting, it raises L{RuntimeError}.
+        """
+        self.connectionFails(Failure(ZeroDivisionError()))
+        self.assertRaises(RuntimeError, self.connector.stopConnecting)
+
+
 
