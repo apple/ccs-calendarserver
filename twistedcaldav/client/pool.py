@@ -24,14 +24,16 @@ import OpenSSL
 import urlparse
 
 from twext.python.log import LoggingMixIn
+from twext.internet.gaiendpoint import GAIEndpoint
+from twext.internet.adaptendpoint import connect
+
 from twext.internet.ssl import ChainingOpenSSLContextFactory
 
 from twisted.internet.defer import Deferred, inlineCallbacks, returnValue
 from twisted.internet.error import ConnectionLost, ConnectionDone, ConnectError
 from twisted.internet.protocol import ClientFactory
+
 from twext.web2 import responsecode
-from twext.internet.gaiendpoint import GAIEndpoint
-from twext.internet.adaptendpoint import connect
 from twext.web2.client.http import HTTPClientProtocol
 from twext.web2.http import StatusResponse, HTTPError
 from twext.web2.dav.util import allDataFromStream

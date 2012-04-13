@@ -31,12 +31,12 @@ from twext.web2.http_headers import MimeType
 from twext.web2.stream import MemoryStream
 
 from twext.python.log import Logger, logLevels
-from twext.internet.ssl import ChainingOpenSSLContextFactory
 from twext.web2.dav.http import ErrorResponse
+
+from twistedcaldav.client.pool import _configuredClientContextFactory
 
 from twistedcaldav import caldavxml
 from twistedcaldav.caldavxml import caldav_namespace
-from twistedcaldav.config import config
 from twistedcaldav.scheduling.delivery import DeliveryService
 from twistedcaldav.scheduling.ischeduleservers import IScheduleServers
 from twistedcaldav.scheduling.ischeduleservers import IScheduleServerRecord
@@ -44,8 +44,6 @@ from twistedcaldav.scheduling.itip import iTIPRequestStatus
 from twistedcaldav.util import utf8String, normalizationLookup
 from twistedcaldav.scheduling.cuaddress import PartitionedCalendarUser, RemoteCalendarUser,\
     OtherServerCalendarUser
-
-import OpenSSL
 
 """
 Handles the sending of iSchedule scheduling messages. Used for both cross-domain scheduling,
@@ -176,7 +174,7 @@ class IScheduleRequest(object):
         try:
             from twisted.internet import reactor
             if self.server.ssl:
-                context = ChainingOpenSSLContextFactory(config.SSLPrivateKey, config.SSLCertificate, certificateChainFile=config.SSLAuthorityChain, sslmethod=getattr(OpenSSL.SSL, config.SSLMethod))
+                context = _configuredClientContextFactory()
                 proto = (yield ClientCreator(reactor, HTTPClientProtocol).connectSSL(self.server.host, self.server.port, context))
             else:
                 proto = (yield ClientCreator(reactor, HTTPClientProtocol).connectTCP(self.server.host, self.server.port))
