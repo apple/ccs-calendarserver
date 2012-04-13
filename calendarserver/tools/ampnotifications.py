@@ -96,7 +96,7 @@ def main():
     #
     configFileName = None
     hostname = "localhost"
-    port = 62319
+    port = 62311
 
     for opt, arg in optargs:
         if opt in ("-h", "--help"):
