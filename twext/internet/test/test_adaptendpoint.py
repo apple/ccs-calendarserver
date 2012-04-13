@@ -220,6 +220,15 @@ class AdaptEndpointTests(TestCase):
         self.connectionSucceeds()
 
 
+    def test_reConnectTooSoon(self):
+        """
+        If the L{IConnector} is told to C{connect} while another attempt is
+        still in flight, it synchronously raises L{RuntimeError}.
+        """
+        self.assertRaises(RuntimeError, self.connector.connect)
+        self.assertEqual(len(self.factory.starts), 1)
+        self.assertEqual(len(self.endpoint.attempts), 1)
+
 
 
 

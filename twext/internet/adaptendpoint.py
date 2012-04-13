@@ -77,6 +77,8 @@ class LegacyConnector(FancyEqMixin, object):
 
 
     def connect(self):
+        if self.wrapper._outstandingAttempt is not None:
+            raise RuntimeError("connection already in progress")
         self.wrapper.startAttempt()
 
 
