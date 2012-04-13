@@ -144,9 +144,9 @@ class CommandsBase(object):
             filter = lambda item: True
 
         files = (
-            self.listEntryToString(item)
-            for item in (yield self.wd.list())
-            if filter(item)
+            entry.toString()
+            for entry in (yield self.wd.list())
+            if filter(entry)
         )
 
         if len(tokens) == 0:
@@ -155,20 +155,6 @@ class CommandsBase(object):
             returnValue(self.complete(tokens[0], files))
         else:
             returnValue(())
-
-    @staticmethod
-    def listEntryToString(entry):
-        """
-        Converts an entry returned by File.list() into a
-        user-displayable string.
-        """
-        klass = entry[0]
-        name  = entry[1]
-
-        if issubclass(klass, Folder):
-            return "%s/" % (name,)
-        else:
-            return name
 
 
 class Commands(CommandsBase):
@@ -398,14 +384,14 @@ class Commands(CommandsBase):
         multiple = len(targets) > 0
 
         for target in targets:
-            rows = (yield target.list())
+            entries = (yield target.list())
             #
             # FIXME: this can be ugly if, for example, there are zillions
             # of entries to output. Paging would be good.
             #
             table = Table()
-            for row in rows:
-                table.addRow((self.listEntryToString(row),) + tuple(row[2:]))
+            for entry in entries:
+                table.addRow(entry.toFields())
 
             if multiple:
                 self.terminal.write("%s:\n" % (target,))

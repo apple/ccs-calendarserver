@@ -65,8 +65,11 @@ class ListEntry(object):
     def __str__(self):
         return self.toString()
 
+    def isFolder(self):
+        return issubclass(self.fileClass, Folder)
+
     def toString(self):
-        if issubclass(self.fileClass, Folder):
+        if self.isFolder():
             return "%s/" % (self.fileName,)
         else:
             return self.fileName
@@ -85,7 +88,7 @@ class ListEntry(object):
         return self._fieldNames
 
     def toFields(self):
-        return (self.fields[fieldName] for fieldName in self.fieldNames)
+        return tuple(self.fields[fieldName] for fieldName in self.fieldNames)
 
 
 class File(object):
@@ -114,7 +117,9 @@ class File(object):
         return succeed("%s (%s)" % (self, self.__class__.__name__))
 
     def list(self):
-        return succeed((File, str(self)))
+        return succeed((
+            ListEntry(self.__class__, self.path[-1]),
+        ))
 
 
 class Folder(File):
@@ -177,9 +182,9 @@ class Folder(File):
     def list(self):
         result = set()
         for name in self._children:
-            result.add((self._children[name].__class__, name))
+            result.add(ListEntry(self._children[name].__class__, name))
         for name in self._childClasses:
-            result.add((self._childClasses[name], name))
+            result.add(ListEntry(self._childClasses[name], name))
         return succeed(result)
 
 
@@ -233,7 +238,7 @@ class UIDsFolder(Folder):
         # FIXME: Add directory info (eg. name) to listing
 
         for txn, home in (yield self.service.store.eachCalendarHome()):
-            result.add((PrincipalHomeFolder, home.uid()))
+            result.add(ListEntry(PrincipalHomeFolder, home.uid()))
 
         returnValue(result)
 
@@ -421,7 +426,7 @@ class CalendarHomeFolder(Folder):
     @inlineCallbacks
     def list(self):
         calendars = (yield self.home.calendars())
-        returnValue(((CalendarFolder, c.name()) for c in calendars))
+        returnValue((ListEntry(CalendarFolder, c.name()) for c in calendars))
 
     @inlineCallbacks
     def describe(self):
@@ -562,7 +567,12 @@ class CalendarObject(File):
     @inlineCallbacks
     def list(self):
         (yield self.lookup())
-        returnValue(((CalendarObject, self.uid, self.componentType, self.summary.replace("\n", " ")),))
+        returnValue((ListEntry(CalendarObject, self.uid, {
+            "Component Type": self.componentType,
+            "Summary": self.summary.replace("\n", " "),
+        }),))
+
+    list.fieldNames = ("Component Type", "Summary")
 
     @inlineCallbacks
     def text(self):
