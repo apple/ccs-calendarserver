@@ -26,11 +26,12 @@ import urlparse
 from twext.python.log import LoggingMixIn
 from twext.internet.ssl import ChainingOpenSSLContextFactory
 
-from twisted.internet.address import IPv4Address
 from twisted.internet.defer import Deferred, inlineCallbacks, returnValue
 from twisted.internet.error import ConnectionLost, ConnectionDone, ConnectError
 from twisted.internet.protocol import ClientFactory
 from twext.web2 import responsecode
+from twext.internet.gaiendpoint import GAIEndpoint
+from twext.internet.adaptendpoint import connect
 from twext.web2.client.http import HTTPClientProtocol
 from twext.web2.http import StatusResponse, HTTPError
 from twext.web2.dav.util import allDataFromStream
@@ -86,6 +87,8 @@ class PooledHTTPClientFactory(ClientFactory, LoggingMixIn):
         del self.onConnect
         return self.instance
 
+
+
 class HTTPClientPool(LoggingMixIn):
     """
     A connection pool for HTTPClientProtocol instances.
@@ -94,31 +97,39 @@ class HTTPClientPool(LoggingMixIn):
         for each protocol.
 
     @ivar _maxClients: A C{int} indicating the maximum number of clients.
-    @ivar _serverAddress: An L{IAddress} provider indicating the server to
-        connect to.  (Only L{IPv4Address} currently supported.)
+
+    @ivar _endpoint: An L{IStreamClientEndpoint} provider indicating the server
+        to connect to.
+
     @ivar _reactor: The L{IReactorTCP} provider used to initiate new
         connections.
 
     @ivar _busyClients: A C{set} that contains all currently busy clients.
+
     @ivar _freeClients: A C{set} that contains all currently free clients.
+
     @ivar _pendingConnects: A C{int} indicating how many connections are in
         progress.
     """
     clientFactory = PooledHTTPClientFactory
     maxRetries = 2
 
-    def __init__(self, name, scheme, serverAddress, maxClients=5, reactor=None):
+    def __init__(self, name, scheme, endpoint, secureEndpoint,
+                 maxClients=5, reactor=None):
         """
-        @param serverAddress: An L{IPv4Address} indicating the server to
+        @param endpoint: An L{IStreamClientEndpoint} indicating the server to
             connect to.
+
         @param maxClients: A C{int} indicating the maximum number of clients.
-        @param reactor: An L{IReactorTCP{ provider used to initiate new
+
+        @param reactor: An L{IReactorTCP} provider used to initiate new
             connections.
         """
         
         self._name = name
         self._scheme = scheme
-        self._serverAddress = serverAddress
+        self._endpoint = endpoint
+        self._secureEndpoint = secureEndpoint
         self._maxClients = maxClients
 
         if reactor is None:
@@ -156,17 +167,17 @@ class HTTPClientPool(LoggingMixIn):
         """
         self._pendingConnects += 1
 
-        self.log_debug("Initiating new client connection to: %s" % (self._serverAddress,))
+        self.log_debug("Initating new client connection to: %r" % (
+                self._endpoint,))
         self._logClientStats()
 
         factory = self.clientFactory(self._reactor)
         factory.connectionPool = self
 
         if self._scheme == "https":
-            context = ChainingOpenSSLContextFactory(config.SSLPrivateKey, config.SSLCertificate, certificateChainFile=config.SSLAuthorityChain, sslmethod=getattr(OpenSSL.SSL, config.SSLMethod))
-            self._reactor.connectSSL(self._serverAddress.host, self._serverAddress.port, factory, context)
+            connect(self._secureEndpoint, factory)
         elif self._scheme == "http":
-            self._reactor.connectTCP(self._serverAddress.host, self._serverAddress.port, factory)
+            connect(self._endpoint, factory)
         else:
             raise ValueError("URL scheme for client pool not supported")
 
@@ -384,21 +395,29 @@ def installPools(hosts, maxClients=5, reactor=None):
             reactor,
         )
 
+
+
 def installPool(name, url, maxClients=5, reactor=None):
 
+    if reactor is None:
+        from twisted.internet import reactor
     parsedURL = urlparse.urlparse(url)
+    ctxf = ChainingOpenSSLContextFactory(
+        config.SSLPrivateKey, config.SSLCertificate,
+        certificateChainFile=config.SSLAuthorityChain,
+        sslmethod=getattr(OpenSSL.SSL, config.SSLMethod)
+    )
     pool = HTTPClientPool(
         name,
         parsedURL.scheme,
-        IPv4Address(
-            "TCP",
-            parsedURL.hostname,
-            parsedURL.port,
-        ),
+        GAIEndpoint(reactor, parsedURL.hostname, parsedURL.port),
+        GAIEndpoint(reactor, parsedURL.hostname, parsedURL.port, ctxf),
         maxClients,
         reactor,
     )
     _clientPools[name] = pool
+
+
 
 def getHTTPClientPool(name):
     return _clientPools[name]
