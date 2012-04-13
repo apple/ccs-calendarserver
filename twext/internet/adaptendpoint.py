@@ -110,7 +110,10 @@ class LegacyClientFactoryWrapper(Factory):
         def attemptDone(result):
             self._outstandingAttempt = None
             return result
-        d.addErrback(self.callClientConnectionFailed)
+        def rememberProto(proto):
+            self._connectedProtocol = proto
+            return proto
+        d.addCallbacks(rememberProto, self.callClientConnectionFailed)
 
 
     def callStartedConnecting(self):

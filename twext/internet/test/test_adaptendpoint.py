@@ -175,4 +175,26 @@ class AdaptEndpointTests(TestCase):
         self.assertTrue(rcf.fails[0].reason.check(CancelledError))
 
 
+    def test_disconnectWhileConnected(self):
+        """
+        If the L{IConnector} is told to C{disconnect} while an existing
+        connection is established, that connection will be dropped via
+        C{loseConnection}.
+        """
+        rcf = RecordingClientFactory()
+        e = RecordingEndpoint()
+        connect(e, rcf)
+        d = e.attempts[0].deferred
+        lose = []
+        class Transport(object):
+            def loseConnection(self):
+                lose.append(self)
+        proto = e.attempts[0].factory.buildProtocol(object())
+        tpt = Transport()
+        proto.makeConnection(tpt)
+        d.callback(proto)
+        rcf.starts[0].disconnect()
+        self.assertEqual(lose, [tpt])
+
+
 
