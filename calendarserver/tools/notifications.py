@@ -19,7 +19,7 @@ from datetime import datetime
 from getopt import getopt, GetoptError
 from getpass import getpass
 from twisted.application.service import Service
-from twisted.internet import reactor, ssl
+from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.web import client
 from twisted.words.protocols.jabber import xmlstream
@@ -614,8 +614,9 @@ class PushMonitorService(Service):
         caldavFactory.noisy = False
         caldavFactory.protocol = PropfindRequestor
         if self.useSSL:
-            reactor.connectSSL(self.host, self.port, caldavFactory,
-                ssl.ClientContextFactory())
+            connect(GAIEndpoint(reactor, self.host, self.port,
+                                self.ClientContextFactory()),
+                    caldavFactory)
         else:
             connect(GAIEndpoint(reactor, self.host, self.port), caldavFactory)
 
