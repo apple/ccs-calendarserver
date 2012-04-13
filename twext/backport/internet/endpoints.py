@@ -22,7 +22,7 @@ from twisted.plugin import IPlugin, getPlugins
 from twisted.internet.interfaces import IStreamServerEndpointStringParser
 from twisted.internet.interfaces import IStreamClientEndpointStringParser
 from twisted.python.filepath import FilePath
-from twisted.python.systemd import ListenFDs
+#from twisted.python.systemd import ListenFDs
 
 
 __all__ = ["clientFromString", "serverFromString",
@@ -682,7 +682,7 @@ class _SystemdParser(object):
     """
     implements(IPlugin, IStreamServerEndpointStringParser)
 
-    _sddaemon = ListenFDs.fromEnvironment()
+    #_sddaemon = ListenFDs.fromEnvironment()
 
     prefix = "systemd"
 
