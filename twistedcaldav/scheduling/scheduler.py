@@ -905,11 +905,19 @@ class IScheduleScheduler(RemoteScheduler):
         For data coming in from outside we need to normalize the calendar user addresses so that later iTIP
         processing will match calendar users against those in stored calendar data. Only do that for invites
         not freebusy.
+        
+        We also need to apply recurrence truncation here so the incoming iTIP's RRULE matches the truncated
+        version in any attendee calendar. This avoids a problem where the iTIP message appears to represent
+        a significant change as reported in schedule-changes property.
         """
 
         if not self.checkForFreeBusy():
             self.calendar.normalizeCalendarUserAddresses(normalizationLookup,
                 self.resource.principalForCalendarUserAddress)
+
+        # Apply recurrence truncation at this point
+        if config.MaxInstancesForRRULE != 0:
+            self.calendar.truncateRecurrence(config.MaxInstancesForRRULE)        
 
     def checkAuthorization(self):
         # Must have an unauthenticated user
