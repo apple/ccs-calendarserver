@@ -14,10 +14,15 @@
 # limitations under the License.
 ##
 
+
 from twext.python.log import Logger
+from twext.internet.gaiendpoint import GAIEndpoint
+from twext.internet.adaptendpoint import connect
+
 from twisted.web.client import HTTPPageGetter, HTTPClientFactory
 from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks, returnValue
+
 import json
 
 log = Logger()
@@ -83,7 +88,7 @@ def _getPage(url, host, port):
     """
     factory = HTTPClientFactory(url)
     factory.protocol = HTTPPageGetter
-    reactor.connectTCP(host, port, factory)
+    connect(GAIEndpoint(reactor, host, port), factory)
     return factory.deferred
 
 class WebAuthError(RuntimeError):
