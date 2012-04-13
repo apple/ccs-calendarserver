@@ -58,7 +58,7 @@ class _WrappedProtocol(object):
 
 class LegacyConnector(FancyEqMixin, object):
     """
-    Legacy IConnector interface implementation for stuff that uses endpoints.
+    Legacy L{IConnector} interface implementation for stuff that uses endpoints.
     """
     implements(IConnector)
 
