@@ -100,10 +100,41 @@ class RecordingEndpoint(object):
         return d
 
 
+class RecordingTransport(object):
+
+    def __init__(self):
+        self.lose = []
+
+
+    def loseConnection(self):
+        self.lose.append(self)
+
+
+
 class AdaptEndpointTests(TestCase):
     """
     Tests for L{connect} and the objects that it coordinates.
     """
+
+    def setUp(self):
+        self.factory = RecordingClientFactory()
+        self.endpoint = RecordingEndpoint()
+        self.connector = connect(self.endpoint, self.factory)
+
+
+    def connectionSucceeds(self, addr=object()):
+        """
+        The most recent connection attempt succeeds, returning the protocol
+        object produced by its success.
+        """
+        transport = RecordingTransport()
+        attempt = self.endpoint.attempts[-1]
+        proto = attempt.factory.buildProtocol(addr)
+        proto.makeConnection(transport)
+        transport.protocol = proto
+        attempt.deferred.callback(proto)
+        return transport
+
 
     def test_connectStartsConnection(self):
         """
@@ -111,20 +142,14 @@ class AdaptEndpointTests(TestCase):
         aspects of the connection process; C{buildProtocol}, C{connectionMade},
         C{dataReceived}.
         """
-        rcf = RecordingClientFactory()
-        e = RecordingEndpoint()
-        ctr = connect(e, rcf)
-        self.assertIdentical(ctr.getDestination(), e)
-        verifyObject(IConnector, ctr)
-        self.assertEqual(rcf.starts, [ctr])
-        self.assertEqual(len(e.attempts), 1)
-        self.assertEqual(len(rcf.built), 0)
-        proto = e.attempts[0].factory.buildProtocol(object)
-        self.assertEqual(len(rcf.built), 1)
-        made = rcf.built[0].protocol.made
-        transport = object()
-        self.assertEqual(len(made), 0)
-        proto.makeConnection(transport)
+        self.assertIdentical(self.connector.getDestination(), self.endpoint)
+        verifyObject(IConnector, self.connector)
+        self.assertEqual(self.factory.starts, [self.connector])
+        self.assertEqual(len(self.endpoint.attempts), 1)
+        self.assertEqual(len(self.factory.built), 0)
+        transport = self.connectionSucceeds()
+        self.assertEqual(len(self.factory.built), 1)
+        made = transport.protocol.made
         self.assertEqual(len(made), 1)
         self.assertIdentical(made[0], transport)
 
@@ -134,17 +159,14 @@ class AdaptEndpointTests(TestCase):
         When the connection is lost, both the protocol and the factory will be
         notified via C{connectionLost} and C{clientConnectionLost}.
         """
-        rcf = RecordingClientFactory()
-        e = RecordingEndpoint()
-        connect(e, rcf)
         why = Failure(RuntimeError())
-        proto = e.attempts[0].factory.buildProtocol(object)
+        proto = self.endpoint.attempts[0].factory.buildProtocol(object)
         proto.makeConnection(object())
         proto.connectionLost(why)
-        self.assertEquals(len(rcf.built), 1)
-        self.assertEquals(rcf.built[0].protocol.lost, [why])
-        self.assertEquals(len(rcf.lost), 1)
-        self.assertIdentical(rcf.lost[0].reason, why)
+        self.assertEquals(len(self.factory.built), 1)
+        self.assertEquals(self.factory.built[0].protocol.lost, [why])
+        self.assertEquals(len(self.factory.lost), 1)
+        self.assertIdentical(self.factory.lost[0].reason, why)
 
 
     def test_connectionFailed(self):
@@ -152,13 +174,10 @@ class AdaptEndpointTests(TestCase):
         When the L{Deferred} from the endpoint fails, the L{ClientFactory} gets
         notified via C{clientConnectionFailed}.
         """
-        rcf = RecordingClientFactory()
-        e = RecordingEndpoint()
-        connect(e, rcf)
         why = Failure(RuntimeError())
-        e.attempts[0].deferred.errback(why)
-        self.assertEquals(len(rcf.fails), 1)
-        self.assertIdentical(rcf.fails[0].reason, why)
+        self.endpoint.attempts[0].deferred.errback(why)
+        self.assertEquals(len(self.factory.fails), 1)
+        self.assertIdentical(self.factory.fails[0].reason, why)
 
 
     def test_disconnectWhileConnecting(self):
@@ -166,13 +185,10 @@ class AdaptEndpointTests(TestCase):
         If the L{IConnector} is told to C{disconnect} before an in-progress
         L{Deferred} from C{connect} has fired, it will cancel that L{Deferred}.
         """
-        rcf = RecordingClientFactory()
-        e = RecordingEndpoint()
-        connect(e, rcf)
-        ctr = rcf.starts[0]
-        ctr.disconnect()
-        self.assertEqual(len(rcf.fails), 1)
-        self.assertTrue(rcf.fails[0].reason.check(CancelledError))
+        self.connector = self.factory.starts[0]
+        self.connector.disconnect()
+        self.assertEqual(len(self.factory.fails), 1)
+        self.assertTrue(self.factory.fails[0].reason.check(CancelledError))
 
 
     def test_disconnectWhileConnected(self):
@@ -181,20 +197,18 @@ class AdaptEndpointTests(TestCase):
         connection is established, that connection will be dropped via
         C{loseConnection}.
         """
-        rcf = RecordingClientFactory()
-        e = RecordingEndpoint()
-        connect(e, rcf)
-        d = e.attempts[0].deferred
-        lose = []
-        class Transport(object):
-            def loseConnection(self):
-                lose.append(self)
-        proto = e.attempts[0].factory.buildProtocol(object())
-        tpt = Transport()
-        proto.makeConnection(tpt)
-        d.callback(proto)
-        rcf.starts[0].disconnect()
-        self.assertEqual(lose, [tpt])
+        transport = self.connectionSucceeds()
+        self.factory.starts[0].disconnect()
+        self.assertEqual(transport.lose, [transport])
+
+
+    def test_connectAfterFailure(self):
+        """
+        If the L{IConnector} is told to C{connect} after a connection attempt
+        has failed, a new connection attempt is started.
+        """
+        d = self.endpoint.attempts[0].deferred
+
 
 
 
