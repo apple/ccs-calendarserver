@@ -104,7 +104,7 @@ class LegacyClientFactoryWrapper(Factory):
 
 
     def startAttempt(self):
-        if self.wrapper._outstandingAttempt is not None:
+        if self._outstandingAttempt is not None:
             raise RuntimeError("connection already in progress")
         self.callStartedConnecting()
         d = self._outstandingAttempt = self.endpoint.connect(self)
