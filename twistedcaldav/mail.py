@@ -1639,20 +1639,16 @@ class MailHandler(LoggingMixIn):
         """
         Create a dictionary mapping slot names - specifically: summary,
         description, location, dateInfo, timeInfo, durationInfo, recurrenceInfo,
-        url
-        - with localized string values that should be placed into the HTML and
-        plain-text templates.
+        url - with localized string values that should be placed into the HTML
+        and plain-text templates.
 
         @param calendar: a L{Component} upon which to base the language.
-
         @type calendar: L{Component}
 
         @param language: a 2-letter language code.
-
         @type language: C{str}
 
         @return: a mapping from template slot name to localized text.
-
         @rtype: a C{dict} mapping C{bytes} to C{unicode}.
         """
 
