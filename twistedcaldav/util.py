@@ -28,6 +28,7 @@ from twisted.python import failure
 from twext.python.log import LoggingMixIn, Logger
 
 log = Logger()
+from twext.internet.gaiendpoint import GAIEndpoint
 
 ##
 # System Resources (Memory size and processor count)
@@ -402,7 +403,8 @@ class AuthorizedHTTPGetter(client.HTTPPageGetter, LoggingMixIn):
                 reactor.connectSSL(self.factory.host, self.factory.port,
                     self.factory, ssl.ClientContextFactory())
             else:
-                reactor.connectTCP(self.factory.host, self.factory.port,
+                connect(
+                    GAIEndpoint(reactor, self.factory.host, self.factory.port),
                     self.factory)
             # self.log_debug("Retrying with digest after 401")
 
