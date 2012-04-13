@@ -53,6 +53,9 @@ from twisted.web.template import (
 from twisted.web.microdom import parseString
 from twisted.web.microdom import Text as DOMText, Element as DOMElement
 
+from twext.internet.gaiendpoint import GAIEndpoint
+from twext.internet.adaptendpoint import connect
+
 from twext.web2 import server, responsecode
 from twext.web2.channel.http import HTTPFactory
 from txdav.xml import element as davxml
@@ -76,7 +79,6 @@ from twistedcaldav.scheduling.scheduler import IMIPScheduler
 from twistedcaldav.sql import AbstractSQLDatabase
 from twistedcaldav.util import AuthorizedHTTPGetter
 from twistedcaldav.stdconfig import DEFAULT_CONFIG, DEFAULT_CONFIG_FILE
-
 
 from calendarserver.tap.util import getRootResource, directoryFromConfig
 
@@ -615,7 +617,7 @@ def injectMessage(url, organizer, attendee, calendar, msgId, reactor=None):
         reactor.connectSSL(parsed.hostname, parsed.port, factory,
             ssl.ClientContextFactory())
     else:
-        reactor.connectTCP(parsed.hostname, parsed.port, factory)
+        connect(GAIEndpoint(reactor, parsed.hostname, parsed.port), factory)
 
     def _success(result, msgId):
         log.info("Mail gateway successfully injected message %s" % (msgId,))
@@ -1106,7 +1108,8 @@ class MailHandler(LoggingMixIn):
             )
 
             self.log_warn("Mail gateway forwarding reply back to organizer")
-            _reactor.connectTCP(settings["Server"], settings["Port"], factory)
+            connect(GAIEndpoint(_reactor, settings["Server"], settings["Port"]),
+                    factory)
             return deferred
 
         # Process the imip attachment; inject to calendar server
@@ -1371,7 +1374,8 @@ class MailHandler(LoggingMixIn):
                 requireAuthentication=False,
                 requireTransportSecurity=settings["UseSSL"])
 
-            _reactor.connectTCP(settings['Server'], settings['Port'], factory)
+            connect(GAIEndpoint(_reactor, settings["Server"], settings["Port"]),
+                    factory)
             deferred.addCallback(_success, msgId, fromAddr, toAddr)
             deferred.addErrback(_failure, msgId, fromAddr, toAddr)
             return deferred
