@@ -17,7 +17,7 @@
 from StringIO import StringIO
 
 from twisted.internet.defer import inlineCallbacks, DeferredList, succeed
-from twisted.internet.protocol import ClientCreator
+from twisted.internet.protocol import Factory
 
 from twisted.python.failure import Failure
 
@@ -44,6 +44,7 @@ from twistedcaldav.scheduling.itip import iTIPRequestStatus
 from twistedcaldav.util import utf8String, normalizationLookup
 from twistedcaldav.scheduling.cuaddress import PartitionedCalendarUser, RemoteCalendarUser,\
     OtherServerCalendarUser
+from twext.internet.gaiendpoint import GAIEndpoint
 
 """
 Handles the sending of iSchedule scheduling messages. Used for both cross-domain scheduling,
@@ -173,11 +174,14 @@ class IScheduleRequest(object):
         # Generate an HTTP client request
         try:
             from twisted.internet import reactor
+            f = Factory()
+            f.protocol = HTTPClientProtocol
             if self.server.ssl:
-                context = _configuredClientContextFactory()
-                proto = (yield ClientCreator(reactor, HTTPClientProtocol).connectSSL(self.server.host, self.server.port, context))
+                ep = GAIEndpoint(reactor, self.server.host, self.server.port,
+                                 _configuredClientContextFactory())
             else:
-                proto = (yield ClientCreator(reactor, HTTPClientProtocol).connectTCP(self.server.host, self.server.port))
+                ep = GAIEndpoint(reactor, self.server.host, self.server.port)
+            proto = (yield ep.connect(f))
             
             request = ClientRequest("POST", self.server.path, self.headers, self.data)
             yield self.logRequest("debug", "Sending server-to-server POST request:", request)
