@@ -634,6 +634,21 @@
 
       <key>Services</key>
       <dict>
+
+        <key>AMPNotifier</key>
+        <dict>
+          <key>Service</key>
+          <string>calendarserver.push.amppush.AMPPushNotifierService</string>
+          <key>Enabled</key>
+          <true/>
+          <key>Port</key>
+          <integer>62311</integer>
+          <key>EnableStaggering</key>
+          <false/>
+          <key>StaggerSeconds</key>
+          <integer>3</integer>
+        </dict>
+
         <key>SimpleLineNotifier</key>
         <dict>
           <!-- Simple line notification service (for testing) -->

@@ -719,6 +719,13 @@ DEFAULT_CONFIG = {
                     "Topic" : "",
                 },
             },
+            "AMPNotifier" : {
+                "Service" : "calendarserver.push.amppush.AMPPushNotifierService",
+                "Enabled" : True,
+                "Port" : 62311,
+                "EnableStaggering" : False,
+                "StaggerSeconds" : 3,
+            },
             "XMPPNotifier" : {
                 "Service" : "twistedcaldav.notify.XMPPNotifierService",
                 "Enabled" : False,

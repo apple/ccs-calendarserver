@@ -154,7 +154,7 @@ class PushScheduler(LoggingMixIn):
         """
         self.log_debug("PushScheduler fired for %s %s" % (token, key))
         del self.outstanding[(token, key)]
-        self.callback(token, key)
+        return self.callback(token, key)
 
     def stop(self):
         """

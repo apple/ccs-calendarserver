@@ -112,7 +112,7 @@ class ApplePushNotifierServiceTests(CommonCommonTests, TestCase):
         # Set up the service
         clock = Clock()
         service = (yield ApplePushNotifierService.makeService(settings,
-            self.store, testConnectorClass=TestConnector, reactor=clock))
+            self.store, "localhost", testConnectorClass=TestConnector, reactor=clock))
         self.assertEquals(set(service.providers.keys()), set(["CalDAV","CardDAV"]))
         self.assertEquals(set(service.feedbacks.keys()), set(["CalDAV","CardDAV"]))
 

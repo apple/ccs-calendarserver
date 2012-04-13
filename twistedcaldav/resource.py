@@ -2347,6 +2347,7 @@ class CommonHomeResource(PropfindCacheMixin, SharedHomeMixin, CalDAVResource):
 
         elif qname == (customxml.calendarserver_namespace, "pushkey"):
             if (config.Notifications.Services.XMPPNotifier.Enabled or
+                config.Notifications.Services.AMPNotifier.Enabled or
                 config.Notifications.Services.ApplePushNotifier.Enabled):
                 nodeName = (yield self._newStoreHome.nodeName())
                 if nodeName:

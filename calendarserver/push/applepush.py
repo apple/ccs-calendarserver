@@ -58,7 +58,7 @@ class ApplePushNotifierService(service.MultiService, LoggingMixIn):
     """
 
     @classmethod
-    def makeService(cls, settings, store, testConnectorClass=None,
+    def makeService(cls, settings, store, serverHostName, testConnectorClass=None,
         reactor=None):
         """
         Creates the various "subservices" that work together to implement

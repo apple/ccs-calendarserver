@@ -122,6 +122,13 @@
 						advertised. -->
 					<key>supportPush</key>
 					<false />
+
+					<key>supportAmpPush</key>
+					<true/>
+					<key>ampPushHost</key>
+					<string>localhost</string>
+					<key>ampPushPort</key>
+					<integer>62311</integer>
 				</dict>
 
 				<!-- The profiles define certain types of user behavior on top of the 
