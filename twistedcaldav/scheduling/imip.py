@@ -15,6 +15,10 @@
 # limitations under the License.
 ##
 
+"""
+Handles the sending of scheduling messages via iMIP (mail gateway).
+"""
+
 from twisted.python.failure import Failure
 from twisted.internet.defer import inlineCallbacks, returnValue
 
@@ -33,9 +37,6 @@ from twistedcaldav.scheduling.itip import iTIPRequestStatus
 from twext.internet.gaiendpoint import GAIEndpoint
 from twext.internet.adaptendpoint import connect
 
-"""
-Handles the sending of scheduling messages via iMIP (mail gateway).
-"""
 
 __all__ = [
     "ScheduleViaIMip",
