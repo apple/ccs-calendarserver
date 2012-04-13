@@ -614,8 +614,9 @@ def injectMessage(url, organizer, attendee, calendar, msgId, reactor=None):
     factory.protocol = AuthorizedHTTPGetter
 
     if parsed.scheme == "https":
-        reactor.connectSSL(parsed.hostname, parsed.port, factory,
-            ssl.ClientContextFactory())
+        connect(GAIEndpoint(reactor, parsed.hostname, parsed.port,
+                            ssl.ClientContextFactory()),
+                factory)
     else:
         connect(GAIEndpoint(reactor, parsed.hostname, parsed.port), factory)
 
