@@ -17,6 +17,7 @@
 from zope.interface import implements
 
 from twisted.internet.interfaces import IConnector, IReactorTCP
+from twisted.internet.endpoints import TCP4ClientEndpoint
 from twisted.internet.address import IPv4Address
 
 from twistedcaldav.test.util import InMemoryMemcacheProtocol
@@ -203,9 +204,18 @@ class MemCachePoolTests(TestCase):
         """
         TestCase.setUp(self)
         self.reactor = StubReactor()
-        self.pool = MemCachePool(MC_ADDRESS,
-                                 maxClients=5,
-                                 reactor=self.reactor)
+        self.pool = MemCachePool(
+            TCP4ClientEndpoint(self.reactor, MC_ADDRESS.host, MC_ADDRESS.port),
+            maxClients=5, reactor=self.reactor
+        )
+        realClientFactory = self.pool.clientFactory
+        self.clientFactories = []
+        def capturingClientFactory(*a, **k):
+            cf = realClientFactory(*a, **k)
+            self.clientFactories.append(cf)
+            return cf
+        self.pool.clientFactory = capturingClientFactory
+
 
     def test_clientFreeAddsNewClient(self):
         """
@@ -286,25 +296,19 @@ class MemCachePoolTests(TestCase):
         Test that L{MemCachePool.performRequest} on a fresh instance causes
         a new connection to be created.
         """
-        def _checkResult(result):
-            self.assertEquals(result, (0, 'bar'))
-
-
+        results = []
         p = InMemoryMemcacheProtocol()
         p.set('foo', 'bar')
 
         d = self.pool.performRequest('get', 'foo')
-        d.addCallback(_checkResult)
+        d.addCallback(results.append)
 
         args, kwargs = self.reactor.calls.pop()
 
         self.assertEquals(args[:2], (MC_ADDRESS.host, MC_ADDRESS.port))
-        self.failUnless(isinstance(args[2], MemCacheClientFactory))
-        self.assertEquals(kwargs, {})
 
-        args[2].deferred.callback(p)
-
-        return d
+        self.clientFactories[-1].deferred.callback(p)
+        self.assertEquals(results, [(0, 'bar')])
 
 
     def test_performRequestUsesFreeConnection(self):
@@ -323,7 +327,6 @@ class MemCachePoolTests(TestCase):
 
         d = self.pool.performRequest('get', 'foo')
         d.addCallback(_checkResult)
-
         return d
 
 
@@ -374,17 +377,11 @@ class MemCachePoolTests(TestCase):
 
         self.pool.clientBusy(p)
 
-        d = self.pool.performRequest('get', 'foo')
+        self.pool.performRequest('get', 'foo')
 
         args, kwargs = self.reactor.calls.pop()
 
         self.assertEquals(args[:2], (MC_ADDRESS.host, MC_ADDRESS.port))
-        self.failUnless(isinstance(args[2], MemCacheClientFactory))
-        self.assertEquals(kwargs, {})
-
-        args[2].deferred.callback(p1)
-
-        return d
 
 
     def test_pendingConnectionsCountAgainstMaxClients(self):
@@ -395,17 +392,11 @@ class MemCachePoolTests(TestCase):
         """
         self.pool.suggestMaxClients(1)
 
-        d = self.pool.performRequest('get', 'foo')
+        self.pool.performRequest('get', 'foo')
 
         args, kwargs = self.reactor.calls.pop()
 
         self.assertEquals(args[:2], (MC_ADDRESS.host, MC_ADDRESS.port))
-        self.failUnless(isinstance(args[2], MemCacheClientFactory))
-        self.assertEquals(kwargs, {})
 
         self.pool.performRequest('get', 'bar')
         self.assertEquals(self.reactor.calls, [])
-
-        args[2].deferred.callback(InMemoryMemcacheProtocol())
-
-        return d
