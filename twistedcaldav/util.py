@@ -421,7 +421,8 @@ class AuthorizedHTTPGetter(client.HTTPPageGetter, LoggingMixIn):
                 reactor.connectSSL(self.factory.host, self.factory.port,
                     self.factory, ssl.ClientContextFactory())
             else:
-                reactor.connectTCP(self.factory.host, self.factory.port,
+                connect(
+                    GAIEndpoint(reactor, self.factory.host, self.factory.port),
                     self.factory)
             # self.log_debug("Retrying with basic after 401")
 
