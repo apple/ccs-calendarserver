@@ -143,8 +143,21 @@ class LegacyClientFactoryWrapper(Factory):
 
 def connect(endpoint, clientFactory):
     """
-    Connect a L{twisted.internet.protocol.ClientFactory} using the given
-    L{twisted.internet.interfaces.IStreamClientEndpoint}.
+    Connect a L{twisted.internet.protocol.ClientFactory} to a remote host using
+    the given L{twisted.internet.interfaces.IStreamClientEndpoint}.  This relays
+    C{clientConnectionFailed} and C{clientConnectionLost} notifications as
+    legacy code using the L{ClientFactory} interface, such as,
+    L{ReconnectingClientFactory} would expect.
+
+    @param endpoint: The endpoint to connect to.
+    @type endpoint: L{twisted.internet.interfaces.IStreamClientEndpoint}
+
+    @param clientFactory: The client factory doing the connecting.
+    @type clientFactory: L{twisted.internet.protocol.ClientFactory}
+
+    @return: A connector object representing the connection attempt just
+        initiated.
+    @rtype: L{IConnector}
     """
     wrap = LegacyClientFactoryWrapper(clientFactory, endpoint)
     wrap.connect()
