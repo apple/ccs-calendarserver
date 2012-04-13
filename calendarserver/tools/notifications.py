@@ -27,6 +27,10 @@ from twisted.words.protocols.jabber.client import XMPPAuthenticator, IQAuthIniti
 from twisted.words.protocols.jabber.jid import JID
 from twisted.words.protocols.jabber.xmlstream import IQ
 from twisted.words.xish import domish
+
+from twext.internet.gaiendpoint import GAIEndpoint
+from twext.internet.adaptendpoint import connect
+
 from twistedcaldav.config import config, ConfigurationError
 from twistedcaldav.util import AuthorizedHTTPGetter
 from xml.etree import ElementTree
@@ -597,7 +601,7 @@ class PushMonitorService(Service):
 
         pubsubFactory = PubSubClientFactory(jid, self.password, service, nodes,
             self.verbose)
-        reactor.connectTCP(host, port, pubsubFactory)
+        connect(GAIEndpoint(reactor, host, port), pubsubFactory)
 
 
     def makeRequest(self, path, method, headers, body):
@@ -613,7 +617,7 @@ class PushMonitorService(Service):
             reactor.connectSSL(self.host, self.port, caldavFactory,
                 ssl.ClientContextFactory())
         else:
-            reactor.connectTCP(self.host, self.port, caldavFactory)
+            connect(GAIEndpoint(reactor, self.host, self.port), caldavFactory)
 
         return caldavFactory.deferred
 
