@@ -230,3 +230,13 @@ class AdaptEndpointTests(TestCase):
         self.assertEqual(len(self.endpoint.attempts), 1)
 
 
+    def test_stopConnectingWhileConnecting(self):
+        """
+        When the L{IConnector} is told to C{stopConnecting} while another
+        attempt is still in flight, it cancels that connection.
+        """
+        self.connector.stopConnecting()
+        self.assertEqual(len(self.factory.fails), 1)
+        self.assertTrue(self.factory.fails[0].reason.check(CancelledError))
+
+

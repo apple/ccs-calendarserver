@@ -81,7 +81,7 @@ class LegacyConnector(FancyEqMixin, object):
 
 
     def stopConnecting(self):
-        pass
+        self.wrapper.disconnect()
 
 
     def disconnect(self):
