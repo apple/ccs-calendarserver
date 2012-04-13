@@ -418,8 +418,10 @@ class AuthorizedHTTPGetter(client.HTTPPageGetter, LoggingMixIn):
             self.factory.headers['Authorization'] = basicauth
 
             if self.factory.scheme == 'https':
-                reactor.connectSSL(self.factory.host, self.factory.port,
-                    self.factory, ssl.ClientContextFactory())
+                connect(
+                    GAIEndpoint(reactor, self.factory.host, self.factory.port,
+                                ssl.ClientContextFactory()),
+                    self.factory)
             else:
                 connect(
                     GAIEndpoint(reactor, self.factory.host, self.factory.port),
