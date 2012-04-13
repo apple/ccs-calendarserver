@@ -717,6 +717,8 @@ dependencies () {
     "PyGreSQL" "pgdb" "${pg}" \
     "${pypi}/P/PyGreSQL/${pg}.tar.gz";
 
+  # Maintenance note: next time the Twisted dependency gets updated, check out
+  # twext/patches.py.
   py_dependency -v 12 -r HEAD \
     "Twisted" "twisted" "Twisted" \
     "svn://svn.twistedmatrix.com/svn/Twisted/tags/releases/twisted-12.0.0";
