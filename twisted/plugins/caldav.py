@@ -14,6 +14,8 @@
 # limitations under the License.
 ##
 
+__import__("twext") # install patches before doing anything
+
 from zope.interface import implements
 from twisted.plugin import IPlugin
 from twisted.application.service import IServiceMaker
