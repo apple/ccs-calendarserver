@@ -124,8 +124,8 @@ class AdaptEndpointTests(TestCase):
 
     def connectionSucceeds(self, addr=object()):
         """
-        The most recent connection attempt succeeds, returning the protocol
-        object produced by its success.
+        The most recent connection attempt succeeds, returning the L{ITransport}
+        provider produced by its success.
         """
         transport = RecordingTransport()
         attempt = self.endpoint.attempts[-1]
@@ -134,6 +134,13 @@ class AdaptEndpointTests(TestCase):
         transport.protocol = proto
         attempt.deferred.callback(proto)
         return transport
+
+
+    def connectionFails(self, reason):
+        """
+        The most recent in-progress connection fails.
+        """
+        self.endpoint.attempts[-1].deferred.errback(reason)
 
 
     def test_connectStartsConnection(self):
@@ -174,7 +181,7 @@ class AdaptEndpointTests(TestCase):
         notified via C{clientConnectionFailed}.
         """
         why = Failure(RuntimeError())
-        self.endpoint.attempts[0].deferred.errback(why)
+        self.connectionFails(why)
         self.assertEquals(len(self.factory.fails), 1)
         self.assertIdentical(self.factory.fails[0].reason, why)
 
@@ -184,7 +191,6 @@ class AdaptEndpointTests(TestCase):
         If the L{IConnector} is told to C{disconnect} before an in-progress
         L{Deferred} from C{connect} has fired, it will cancel that L{Deferred}.
         """
-        self.connector = self.factory.starts[0]
         self.connector.disconnect()
         self.assertEqual(len(self.factory.fails), 1)
         self.assertTrue(self.factory.fails[0].reason.check(CancelledError))
@@ -206,7 +212,13 @@ class AdaptEndpointTests(TestCase):
         If the L{IConnector} is told to C{connect} after a connection attempt
         has failed, a new connection attempt is started.
         """
-        
+        why = Failure(ZeroDivisionError())
+        self.connectionFails(why)
+        self.connector.connect()
+        self.assertEqual(len(self.factory.starts), 2)
+        self.assertEqual(len(self.endpoint.attempts), 2)
+        self.connectionSucceeds()
+
 
 
 
