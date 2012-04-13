@@ -188,7 +188,7 @@ class AdaptEndpointTests(TestCase):
 
     def test_disconnectWhileConnecting(self):
         """
-        If the L{IConnector} is told to C{disconnect} before an in-progress
+        When the L{IConnector} is told to C{disconnect} before an in-progress
         L{Deferred} from C{connect} has fired, it will cancel that L{Deferred}.
         """
         self.connector.disconnect()
@@ -198,7 +198,7 @@ class AdaptEndpointTests(TestCase):
 
     def test_disconnectWhileConnected(self):
         """
-        If the L{IConnector} is told to C{disconnect} while an existing
+        When the L{IConnector} is told to C{disconnect} while an existing
         connection is established, that connection will be dropped via
         C{loseConnection}.
         """
@@ -209,7 +209,7 @@ class AdaptEndpointTests(TestCase):
 
     def test_connectAfterFailure(self):
         """
-        If the L{IConnector} is told to C{connect} after a connection attempt
+        When the L{IConnector} is told to C{connect} after a connection attempt
         has failed, a new connection attempt is started.
         """
         why = Failure(ZeroDivisionError())
@@ -222,13 +222,11 @@ class AdaptEndpointTests(TestCase):
 
     def test_reConnectTooSoon(self):
         """
-        If the L{IConnector} is told to C{connect} while another attempt is
+        When the L{IConnector} is told to C{connect} while another attempt is
         still in flight, it synchronously raises L{RuntimeError}.
         """
         self.assertRaises(RuntimeError, self.connector.connect)
         self.assertEqual(len(self.factory.starts), 1)
         self.assertEqual(len(self.endpoint.attempts), 1)
-
-
 
 
