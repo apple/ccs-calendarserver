@@ -648,11 +648,11 @@ def serverForOrganizer(directory, organizer):
         log.warn("Can't find server for %s" % (organizer,))
         raise ServerNotFound()
 
-    server = record.server() # None means hosted locally
-    if server is None:
+    srvr = record.server() # None means hosted locally
+    if srvr is None:
         return None
     else:
-        return server.uri
+        return srvr.uri
 
 
 class ServerNotFound(Exception):
