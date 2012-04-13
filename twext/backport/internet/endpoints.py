@@ -113,12 +113,14 @@ class _WrappingFactory(ClientFactory):
     """
     Wrap a factory in order to wrap the protocols it builds.
 
-    @ivar _wrappedFactory:  A provider of I{IProtocolFactory} whose
-        buildProtocol method will be called and whose resulting protocol
-        will be wrapped.
+    @ivar _wrappedFactory: A provider of I{IProtocolFactory} whose buildProtocol
+        method will be called and whose resulting protocol will be wrapped.
 
     @ivar _onConnection: An L{Deferred} that fires when the protocol is
         connected
+
+    @ivar _connector: A L{connector <twisted.internet.interfaces.IConnector>}
+        that is managing the current or previous connection attempt.
     """
     protocol = _WrappingProtocol
 
@@ -133,10 +135,32 @@ class _WrappingFactory(ClientFactory):
 
 
     def startedConnecting(self, connector):
+        """
+        A connection attempt was started.  Remember the connector which started
+        said attempt, for use later.
+        """
         self._connector = connector
 
 
     def _canceller(self, deferred):
+        """
+        The outgoing connection attempt was cancelled.  Fail that L{Deferred}
+        with a L{error.ConnectingCancelledError}.
+
+        @param deferred: The L{Deferred <defer.Deferred>} that was cancelled;
+            should be the same as C{self._onConnection}.
+        @type deferred: L{Deferred <defer.Deferred>}
+
+        @note: This relies on startedConnecting having been called, so it may
+            seem as though there's a race condition where C{_connector} may not
+            have been set.  However, using public APIs, this condition is
+            impossible to catch, because a connection API
+            (C{connectTCP}/C{SSL}/C{UNIX}) is always invoked before a
+            L{_WrappingFactory}'s L{Deferred <defer.Deferred>} is returned to
+            C{connect()}'s caller.
+
+        @return: C{None}
+        """
         deferred.errback(
             error.ConnectingCancelledError(
                 self._connector.getDestination()))
@@ -483,14 +507,9 @@ class UNIXClientEndpoint(object):
         Implement L{IStreamClientEndpoint.connect} to connect via a
         UNIX Socket
         """
-        def _canceller(deferred):
-            connector.stopConnecting()
-            deferred.errback(
-                error.ConnectingCancelledError(connector.getDestination()))
-
         try:
             wf = _WrappingFactory(protocolFactory)
-            connector = self._reactor.connectUNIX(
+            self._reactor.connectUNIX(
                 self._path, wf,
                 timeout=self._timeout,
                 checkPID=self._checkPID)
