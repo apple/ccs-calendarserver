@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+
 """
 Adapter for old-style connectTCP/connectSSL code to use endpoints and be happy;
 specifically, to receive the additional duplicate notifications that it wants to
