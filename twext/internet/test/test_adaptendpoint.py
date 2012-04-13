@@ -21,7 +21,7 @@ Tests for L{twext.internet.adaptendpoint}.
 from zope.interface.verify import verifyObject
 
 from twext.internet.adaptendpoint import connect
-from twisted.internet.defer import Deferred
+from twisted.internet.defer import Deferred, CancelledError
 from twisted.python.failure import Failure
 
 from twisted.internet.protocol import ClientFactory, Protocol
@@ -68,19 +68,24 @@ class RecordingClientFactory(ClientFactory):
         self.fails = []
         self.lost = []
 
+
     def startedConnecting(self, ctr):
         self.starts.append(ctr)
+
 
     def clientConnectionFailed(self, ctr, reason):
         self.fails.append(names(connector=ctr, reason=reason))
 
+
     def clientConnectionLost(self, ctr, reason):
         self.lost.append(names(connector=ctr, reason=reason))
+
 
     def buildProtocol(self, addr):
         b =  RecordingProtocol()
         self.built.append(names(protocol=b, addr=addr))
         return b
+
 
 
 class RecordingEndpoint(object):
@@ -111,6 +116,7 @@ class AdaptEndpointTests(TestCase):
         ctr = connect(e, rcf)
         self.assertIdentical(ctr.getDestination(), e)
         verifyObject(IConnector, ctr)
+        self.assertEqual(rcf.starts, [ctr])
         self.assertEqual(len(e.attempts), 1)
         self.assertEqual(len(rcf.built), 0)
         proto = e.attempts[0].factory.buildProtocol(object)
@@ -126,7 +132,7 @@ class AdaptEndpointTests(TestCase):
     def test_connectionLost(self):
         """
         When the connection is lost, both the protocol and the factory will be
-        notified via connectionLost and clientConnectionLost.
+        notified via C{connectionLost} and C{clientConnectionLost}.
         """
         rcf = RecordingClientFactory()
         e = RecordingEndpoint()
@@ -139,5 +145,34 @@ class AdaptEndpointTests(TestCase):
         self.assertEquals(rcf.built[0].protocol.lost, [why])
         self.assertEquals(len(rcf.lost), 1)
         self.assertIdentical(rcf.lost[0].reason, why)
+
+
+    def test_connectionFailed(self):
+        """
+        When the L{Deferred} from the endpoint fails, the L{ClientFactory} gets
+        notified via C{clientConnectionFailed}.
+        """
+        rcf = RecordingClientFactory()
+        e = RecordingEndpoint()
+        connect(e, rcf)
+        why = Failure(RuntimeError())
+        e.attempts[0].deferred.errback(why)
+        self.assertEquals(len(rcf.fails), 1)
+        self.assertIdentical(rcf.fails[0].reason, why)
+
+
+    def test_disconnectWhileConnecting(self):
+        """
+        If the L{IConnector} is told to C{disconnect} before an in-progress
+        L{Deferred} from C{connect} has fired, it will cancel that L{Deferred}.
+        """
+        rcf = RecordingClientFactory()
+        e = RecordingEndpoint()
+        connect(e, rcf)
+        ctr = rcf.starts[0]
+        ctr.disconnect()
+        self.assertEqual(len(rcf.fails), 1)
+        self.assertTrue(rcf.fails[0].reason.check(CancelledError))
+
 
 

@@ -26,6 +26,7 @@ from twisted.internet.interfaces import IConnector
 
 from twisted.internet.protocol import Factory
 from twisted.python import log
+from twisted.python.util import FancyEqMixin
 
 
 
@@ -55,11 +56,13 @@ class _WrappedProtocol(object):
 
 
 
-class LegacyConnector(object):
+class LegacyConnector(FancyEqMixin, object):
     """
     Legacy IConnector interface implementation for stuff that uses endpoints.
     """
     implements(IConnector)
+
+    compareAttributes = tuple(["wrapper"])
 
 
     def __init__(self, wrapper):
@@ -79,11 +82,10 @@ class LegacyConnector(object):
 
     def stopConnecting(self):
         self.wrapper.stopConnectionAttempt()
-        self.wrapper.endpoint.connect(self.wrapper)
 
 
     def disconnect(self):
-        pass
+        self.wrapper.disconnect()
 
 
 
@@ -94,10 +96,21 @@ class LegacyClientFactoryWrapper(Factory):
         self.legacyFactory = legacyFactory
         self.endpoint = endpoint
         self._connectedProtocol = None
+        self._outstandingAttempt = None
 
 
     def buildProtocol(self, addr):
         return _WrappedProtocol(self.legacyFactory.buildProtocol(addr), self)
+
+
+    def startAttempt(self):
+        self.callStartedConnecting()
+        d = self._outstandingAttempt = self.endpoint.connect(self)
+        @d.addBoth
+        def attemptDone(result):
+            self._outstandingAttempt = None
+            return result
+        d.addErrback(self.callClientConnectionFailed)
 
 
     def callStartedConnecting(self):
@@ -108,17 +121,17 @@ class LegacyClientFactoryWrapper(Factory):
         self.legacyFactory.clientConnectionLost(LegacyConnector(self), reason)
 
 
-    def callClientConnectionFailed(self):
-        self.legacyFactory.clientConnectionFailed()
+    def callClientConnectionFailed(self, reason):
+        self.legacyFactory.clientConnectionFailed(LegacyConnector(self), reason)
 
 
     def disconnect(self):
         if self._connectedProtocol is not None:
-            self._connectedProtocol.transport.abortConnection()
-        else:
-            pass
+            self._connectedProtocol.transport.loseConnection()
+        elif self._outstandingAttempt is not None:
+            self._outstandingAttempt.cancel()
 
-# from twisted.internet.interfaces import IStreamClientEndpoint
+
 
 def connect(endpoint, clientFactory):
     """
@@ -126,6 +139,6 @@ def connect(endpoint, clientFactory):
     L{twisted.internet.interfaces.IStreamClientEndpoint}.
     """
     wrap = LegacyClientFactoryWrapper(clientFactory, endpoint)
-    endpoint.connect(wrap)
+    wrap.startAttempt()
     return LegacyConnector(wrap)
 
