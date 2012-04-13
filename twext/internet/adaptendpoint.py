@@ -26,16 +26,27 @@ from twisted.internet.interfaces import IConnector
 
 from twisted.internet.protocol import Factory
 from twisted.python import log
-from twisted.python.util import FancyEqMixin
+
+__all__ = [
+    "connect"
+]
 
 
 
 class _WrappedProtocol(object):
     """
-    A wrapped protocol.
+    A protocol providing a thin wrapper that relays the connectionLost
+    notification.
     """
 
     def __init__(self, wrapped, wrapper):
+        """
+        @param wrapped: the wrapped L{IProtocol} provider, to which all methods
+            will be relayed.
+
+        @param wrapper: The L{LegacyClientFactoryWrapper} that holds the
+            relevant L{ClientFactory}.
+        """
         self._wrapped = wrapped
         self._wrapper = wrapper
 
@@ -48,50 +59,19 @@ class _WrappedProtocol(object):
 
 
     def connectionLost(self, reason):
+        """
+        When the connection is lost, return the connection.
+        """
         try:
             self._wrapped.connectionLost(reason)
         except:
             log.err()
-        self._wrapper.callClientConnectionLost(reason)
-
-
-
-class LegacyConnector(FancyEqMixin, object):
-    """
-    Legacy L{IConnector} interface implementation for stuff that uses endpoints.
-    """
-    implements(IConnector)
-
-    compareAttributes = tuple(["wrapper"])
-
-
-    def __init__(self, wrapper):
-        self.wrapper = wrapper
-
-
-    def getDestination(self):
-        """
-        I don't know, endpoints don't have a destination.
-        """
-        return self.wrapper.endpoint
-
-
-    def connect(self):
-        self.wrapper.startAttempt()
-
-
-    def stopConnecting(self):
-        if self.wrapper._outstandingAttempt is None:
-            raise RuntimeError("no connection attempt in progress")
-        self.wrapper.disconnect()
-
-
-    def disconnect(self):
-        self.wrapper.disconnect()
+        self._wrapper.legacyFactory.clientConnectionLost(self._wrapper, reason)
 
 
 
 class LegacyClientFactoryWrapper(Factory):
+    implements(IConnector)
 
     def __init__(self, legacyFactory, endpoint):
         self.currentlyConnecting = False
@@ -101,14 +81,32 @@ class LegacyClientFactoryWrapper(Factory):
         self._outstandingAttempt = None
 
 
+    def getDestination(self):
+        """
+        Implement L{IConnector.getDestination}.
+
+        @return: the endpoint being connected to as the destination.
+        """
+        return self.endpoint
+
+
     def buildProtocol(self, addr):
+        """
+        Implement L{Factory.buildProtocol} to return a wrapper protocol that
+        will capture C{connectionLost} notifications.
+
+        @return: a L{Protocol}.
+        """
         return _WrappedProtocol(self.legacyFactory.buildProtocol(addr), self)
 
 
-    def startAttempt(self):
+    def connect(self):
+        """
+        Implement L{IConnector.connect} to connect the endpoint.
+        """
         if self._outstandingAttempt is not None:
             raise RuntimeError("connection already in progress")
-        self.callStartedConnecting()
+        self.legacyFactory.startedConnecting(self)
         d = self._outstandingAttempt = self.endpoint.connect(self)
         @d.addBoth
         def attemptDone(result):
@@ -117,26 +115,28 @@ class LegacyClientFactoryWrapper(Factory):
         def rememberProto(proto):
             self._connectedProtocol = proto
             return proto
-        d.addCallbacks(rememberProto, self.callClientConnectionFailed)
-
-
-    def callStartedConnecting(self):
-        self.legacyFactory.startedConnecting(LegacyConnector(self))
-
-
-    def callClientConnectionLost(self, reason):
-        self.legacyFactory.clientConnectionLost(LegacyConnector(self), reason)
-
-
-    def callClientConnectionFailed(self, reason):
-        self.legacyFactory.clientConnectionFailed(LegacyConnector(self), reason)
+        def callClientConnectionFailed(reason):
+            self.legacyFactory.clientConnectionFailed(self, reason)
+        d.addCallbacks(rememberProto, callClientConnectionFailed)
 
 
     def disconnect(self):
+        """
+        Implement L{IConnector.disconnect}.
+        """
         if self._connectedProtocol is not None:
             self._connectedProtocol.transport.loseConnection()
         elif self._outstandingAttempt is not None:
             self._outstandingAttempt.cancel()
+
+
+    def stopConnecting(self):
+        """
+        Implement L{IConnector.stopConnecting}.
+        """
+        if self._outstandingAttempt is None:
+            raise RuntimeError("no connection attempt in progress")
+        self.disconnect()
 
 
 
@@ -146,6 +146,6 @@ def connect(endpoint, clientFactory):
     L{twisted.internet.interfaces.IStreamClientEndpoint}.
     """
     wrap = LegacyClientFactoryWrapper(clientFactory, endpoint)
-    wrap.startAttempt()
-    return LegacyConnector(wrap)
+    wrap.connect()
+    return wrap
 
