@@ -37,8 +37,6 @@ from twext.web2.http import StatusResponse, HTTPError
 from twext.web2.dav.util import allDataFromStream
 from twext.web2.stream import MemoryStream
 
-from twistedcaldav.config import config
-
 class PooledHTTPClientFactory(ClientFactory, LoggingMixIn):
     """
     A client factory for HTTPClient that notifies a pool of it's state. It the connection
@@ -397,16 +395,25 @@ def installPools(hosts, maxClients=5, reactor=None):
 
 
 
+def _configuredClientContextFactory():
+    """
+    Get a client context factory from the configuration.
+    """
+    from twistedcaldav.config import config
+    return ChainingOpenSSLContextFactory(
+        config.SSLPrivateKey, config.SSLCertificate,
+        certificateChainFile=config.SSLAuthorityChain,
+        sslmethod=getattr(OpenSSL.SSL, config.SSLMethod)
+    )
+
+
+
 def installPool(name, url, maxClients=5, reactor=None):
 
     if reactor is None:
         from twisted.internet import reactor
     parsedURL = urlparse.urlparse(url)
-    ctxf = ChainingOpenSSLContextFactory(
-        config.SSLPrivateKey, config.SSLCertificate,
-        certificateChainFile=config.SSLAuthorityChain,
-        sslmethod=getattr(OpenSSL.SSL, config.SSLMethod)
-    )
+    ctxf = _configuredClientContextFactory()
     pool = HTTPClientPool(
         name,
         parsedURL.scheme,
