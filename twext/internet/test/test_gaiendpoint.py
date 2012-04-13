@@ -28,11 +28,12 @@ from twisted.internet.task import Clock
 
 
 class FakeTCPEndpoint(object):
-    def __init__(self, reactor, host, port):
+    def __init__(self, reactor, host, port, contextFactory):
         self._reactor = reactor
         self._host = host
         self._port = port
         self._attempt = None
+        self._contextFactory = contextFactory
 
 
     def connect(self, factory):
@@ -54,8 +55,8 @@ class GAIEndpointTestCase(TestCase):
         return gaie
 
 
-    def subEndpoint(self, reactor, host, port):
-        ftcpe = FakeTCPEndpoint(reactor, host, port)
+    def subEndpoint(self, reactor, host, port, contextFactory):
+        ftcpe = FakeTCPEndpoint(reactor, host, port, contextFactory)
         self.fakeRealEndpoints.append(ftcpe)
         return ftcpe
 

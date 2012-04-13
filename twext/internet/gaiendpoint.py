@@ -1,3 +1,4 @@
+# -*- test-case-name: twext.internet.test.test_gaiendpoint -*-
 ##
 # Copyright (c) 2012 Apple Inc. All rights reserved.
 #
@@ -19,7 +20,7 @@ L{getaddrinfo}()-based endpoint
 """
 
 from socket import getaddrinfo, AF_UNSPEC, AF_INET, AF_INET6, SOCK_STREAM
-from twisted.internet.endpoints import TCP4ClientEndpoint # misnamed :-(
+from twisted.internet.endpoints import TCP4ClientEndpoint, SSL4ClientEndpoint
 from twisted.internet.defer import Deferred
 from twisted.internet.threads import deferToThread
 from twisted.internet.task import LoopingCall
@@ -48,20 +49,43 @@ class GAIEndpoint(object):
 
     @ivar deferToThread: A function like L{deferToThread}, used to invoke
         getaddrinfo.  (Replaceable mainly for testing purposes.)
-
-    @ivar subEndpoint: A 3-argument callable taking C{(reactor (IReactorTCP),
-        host (str), port (int))} where 'host' is an IP address literal, either
-        IPv6 or IPv6.
     """
 
     deferToThread = staticmethod(deferToThread)
 
-    subEndpoint = TCP4ClientEndpoint
+    def subEndpoint(self, reactor, host, port, contextFactory):
+        """
+        Create an endpoint to connect to based on a single address result from
+        L{getaddrinfo}.
 
-    def __init__(self, reactor, host, port):
+        @param reactor: the reactor to connect to
+        @type reactor: L{IReactorTCP}
+
+        @param host: The IP address of the host to connect to, in presentation
+            format.
+        @type host: L{str}
+
+        @param port: The numeric port number to connect to.
+        @type port: L{int}
+
+        @param contextFactory: If not L{None}, the OpenSSL context factory to
+            use to produce client connections.
+
+        @return: a stream client endpoint that will connect to the given host
+            and port via the given reactor.
+        @rtype: L{IStreamClientEndpoint}
+        """
+        if contextFactory is None:
+            return TCP4ClientEndpoint(reactor, host, port)
+        else:
+            return SSL4ClientEndpoint(reactor, host, port, contextFactory)
+
+
+    def __init__(self, reactor, host, port, contextFactory=None):
         self.reactor = reactor
         self.host = host
         self.port = port
+        self.contextFactory = contextFactory
 
 
     def connect(self, factory):
@@ -72,7 +96,7 @@ class GAIEndpoint(object):
             for family, socktype, proto, canonname, sockaddr in gairesult:
                 if family in [AF_INET6, AF_INET]:
                     yield self.subEndpoint(self.reactor, sockaddr[0],
-                                           sockaddr[1])
+                                           sockaddr[1], self.contextFactory)
 
         @gaiToEndpoints.addCallback
         def connectTheEndpoints(endpoints):
