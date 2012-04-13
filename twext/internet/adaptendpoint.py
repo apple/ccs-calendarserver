@@ -77,11 +77,11 @@ class LegacyConnector(FancyEqMixin, object):
 
 
     def connect(self):
-        self.wrapper.beginConnectionAttempt()
+        pass
 
 
     def stopConnecting(self):
-        self.wrapper.stopConnectionAttempt()
+        pass
 
 
     def disconnect(self):
