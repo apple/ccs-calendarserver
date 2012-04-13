@@ -1566,7 +1566,7 @@ class MailHandler(LoggingMixIn):
 
         @return: a 2-tuple of (should add icon (C{bool}), html text (C{str},
             representing utf-8 encoded bytes)).  The first element indicates
-            whether the MIME generator needs to add a L{cid:} icon image part to
+            whether the MIME generator needs to add a C{cid:} icon image part to
             satisfy the HTML links.
         """
         orgCN, orgEmail = organizer
