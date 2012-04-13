@@ -47,10 +47,14 @@ class AMPPushNotifierServiceTests(TestCase):
         client2 = TestProtocol(service)
         client2.subscribe("token2", "/CalDAV/localhost/user01/")
 
+        client3 = TestProtocol(service)
+        client3.subscribe("token3", "any")
+
         service.addSubscriber(client1)
         service.addSubscriber(client2)
+        service.addSubscriber(client3)
 
-        self.assertEquals(len(service.subscribers), 2)
+        self.assertEquals(len(service.subscribers), 3)
 
         self.assertTrue(client1.subscribedToID("/CalDAV/localhost/user01/"))
         self.assertTrue(client1.subscribedToID("/CalDAV/localhost/user02/"))
@@ -59,13 +63,23 @@ class AMPPushNotifierServiceTests(TestCase):
         self.assertTrue(client2.subscribedToID("/CalDAV/localhost/user01/"))
         self.assertFalse(client2.subscribedToID("/CalDAV/localhost/user02/"))
 
+        self.assertTrue(client3.subscribedToID("/CalDAV/localhost/user01/"))
+        self.assertTrue(client3.subscribedToID("/CalDAV/localhost/user02/"))
+        self.assertTrue(client3.subscribedToID("/CalDAV/localhost/user03/"))
+
         service.enqueue("update", "CalDAV|user01")
         self.assertEquals(len(client1.history), 0)
+        self.assertEquals(len(client2.history), 0)
+        self.assertEquals(len(client3.history), 0)
         clock.advance(1)
         self.assertEquals(client1.history, [(NotificationForID, {'id': '/CalDAV/localhost/user01/'})])
         self.assertEquals(len(client2.history), 0)
+        self.assertEquals(len(client3.history), 0)
         clock.advance(3)
         self.assertEquals(client2.history, [(NotificationForID, {'id': '/CalDAV/localhost/user01/'})])
+        self.assertEquals(len(client3.history), 0)
+        clock.advance(3)
+        self.assertEquals(client3.history, [(NotificationForID, {'id': '/CalDAV/localhost/user01/'})])
 
         client1.reset()
         client2.reset()

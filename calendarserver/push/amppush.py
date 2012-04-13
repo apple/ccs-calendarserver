@@ -138,15 +138,19 @@ class AMPPushNotifierService(StreamServerEndpointService, LoggingMixIn):
                 yield self.sendNotification(token, id)
 
 
-class AMPPushNotifierProtocol(amp.AMP):
+class AMPPushNotifierProtocol(amp.AMP, LoggingMixIn):
 
     def __init__(self, service):
         super(AMPPushNotifierProtocol, self).__init__()
         self.service = service
         self.subscriptions = {}
+        self.any = None
 
     def subscribe(self, token, id):
-        self.subscriptions[id] = token
+        if id == "any":
+            self.any = token
+        else:
+            self.subscriptions[id] = token
         return {"status" : "OK"}
     SubscribeToID.responder(subscribe)
 
@@ -160,9 +164,12 @@ class AMPPushNotifierProtocol(amp.AMP):
 
     def notify(self, token, id):
         if self.subscribedToID(id) == token:
+            self.log_debug("Sending notification for %s to %s" % (id, token))
             return self.callRemote(NotificationForID, id=id)
 
     def subscribedToID(self, id):
+        if self.any is not None:
+            return self.any
         return self.subscriptions.get(id, None)
 
     def connectionLost(self, reason=None):
