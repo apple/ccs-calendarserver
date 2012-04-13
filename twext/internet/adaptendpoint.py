@@ -81,6 +81,8 @@ class LegacyConnector(FancyEqMixin, object):
 
 
     def stopConnecting(self):
+        if self.wrapper._outstandingAttempt is None:
+            raise RuntimeError("no connection attempt in progress")
         self.wrapper.disconnect()
 
 

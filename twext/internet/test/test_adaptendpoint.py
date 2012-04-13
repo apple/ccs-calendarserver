@@ -240,3 +240,13 @@ class AdaptEndpointTests(TestCase):
         self.assertTrue(self.factory.fails[0].reason.check(CancelledError))
 
 
+    def test_stopConnectingWhileConnected(self):
+        """
+        When the L{IConnector} is told to C{stopConnecting} while already
+        connected, it raises a L{RuntimeError}.
+        """
+        self.connectionSucceeds()
+        self.assertRaises(RuntimeError, self.connector.stopConnecting)
+
+
+
