@@ -51,7 +51,6 @@ from twistedcaldav.stdconfig import DEFAULT_CONFIG_FILE
 from calendarserver.tools.cmdline import utilityMain
 from calendarserver.tools.util import getDirectory
 from calendarserver.tools.shell.cmd import Commands, UsageError as CommandUsageError
-from calendarserver.tools.shell.vfs import Folder
 
 
 def usage(e=None):
@@ -261,15 +260,6 @@ class ShellProtocol(ReceiveLineProtocol):
         self.terminal.loseConnection()
         self.service.reactor.stop()
 
-    @staticmethod
-    def _listEntryToString(entry):
-        klass = entry[0]
-        name  = entry[1]
-
-        if issubclass(klass, Folder):
-            return "%s/" % (name,)
-        else:
-            return name
 
     #
     # Command dispatch
