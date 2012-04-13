@@ -20,6 +20,10 @@ from uuid import uuid4
 from urlparse import urlparse, urlunparse
 
 from xml.etree import ElementTree
+
+from twext.internet.gaiendpoint import GAIEndpoint
+from twext.internet.adaptendpoint import connect
+
 from twistedcaldav.ical import Component, Property
 from pycalendar.duration import PyCalendarDuration
 from pycalendar.timezone import PyCalendarTimezone
@@ -916,7 +920,7 @@ class BaseAppleClient(BaseClient):
             {params.pushkey: (home, home, "Calendar home")}, False,
             sigint=False)
         self._pushFactories.append(factory)
-        self.reactor.connectTCP(host, port, factory)
+        connect(GAIEndpoint(self.reactor, host, port), factory)
 
 
     @inlineCallbacks

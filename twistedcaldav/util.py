@@ -28,6 +28,7 @@ from twisted.python import failure
 from twext.python.log import LoggingMixIn, Logger
 
 log = Logger()
+from twext.internet.gaiendpoint import GAIEndpoint
 
 ##
 # System Resources (Memory size and processor count)
@@ -399,10 +400,13 @@ class AuthorizedHTTPGetter(client.HTTPPageGetter, LoggingMixIn):
             self.factory.headers['Authorization'] = response
 
             if self.factory.scheme == 'https':
-                reactor.connectSSL(self.factory.host, self.factory.port,
-                    self.factory, ssl.ClientContextFactory())
+                connect(
+                    GAIEndpoint(reactor, self.factory.host, self.factory.port,
+                                ssl.ClientContextFactory()),
+                    self.factory)
             else:
-                reactor.connectTCP(self.factory.host, self.factory.port,
+                connect(
+                    GAIEndpoint(reactor, self.factory.host, self.factory.port),
                     self.factory)
             # self.log_debug("Retrying with digest after 401")
 
@@ -416,10 +420,13 @@ class AuthorizedHTTPGetter(client.HTTPPageGetter, LoggingMixIn):
             self.factory.headers['Authorization'] = basicauth
 
             if self.factory.scheme == 'https':
-                reactor.connectSSL(self.factory.host, self.factory.port,
-                    self.factory, ssl.ClientContextFactory())
+                connect(
+                    GAIEndpoint(reactor, self.factory.host, self.factory.port,
+                                ssl.ClientContextFactory()),
+                    self.factory)
             else:
-                reactor.connectTCP(self.factory.host, self.factory.port,
+                connect(
+                    GAIEndpoint(reactor, self.factory.host, self.factory.port),
                     self.factory)
             # self.log_debug("Retrying with basic after 401")
 

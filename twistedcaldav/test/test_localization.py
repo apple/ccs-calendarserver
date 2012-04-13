@@ -16,7 +16,7 @@
 
 from __future__ import with_statement
 
-from twistedcaldav.localization import translationTo
+from twistedcaldav.localization import translationTo, _
 from twistedcaldav.ical import Component
 from twistedcaldav.test.util import TestCase
 from pycalendar.datetime import PyCalendarDateTime

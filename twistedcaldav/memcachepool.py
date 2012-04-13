@@ -15,9 +15,12 @@
 ##
 
 from twisted.python.failure import Failure
-from twisted.internet.address import IPv4Address
+
 from twisted.internet.defer import Deferred, fail
 from twisted.internet.protocol import ReconnectingClientFactory
+
+from twext.internet.gaiendpoint import GAIEndpoint
+from twext.internet.adaptendpoint import connect
 
 from twext.python.log import LoggingMixIn
 from twext.protocols.memcache import MemCacheProtocol, NoSuchCommand
@@ -116,13 +119,17 @@ class MemCachePool(LoggingMixIn):
         for each protocol.
 
     @ivar _maxClients: A C{int} indicating the maximum number of clients.
-    @ivar _serverAddress: An L{IAddress} provider indicating the server to
-        connect to.  (Only L{IPv4Address} currently supported.)
+
+    @ivar _endpoint: An L{IStreamClientEndpoint} provider indicating the server
+        to connect to.
+
     @ivar _reactor: The L{IReactorTCP} provider used to initiate new
         connections.
 
     @ivar _busyClients: A C{set} that contains all currently busy clients.
+
     @ivar _freeClients: A C{set} that contains all currently free clients.
+
     @ivar _pendingConnects: A C{int} indicating how many connections are in
         progress.
     """
@@ -130,15 +137,17 @@ class MemCachePool(LoggingMixIn):
 
     REQUEST_LOGGING_SIZE = 1024
 
-    def __init__(self, serverAddress, maxClients=5, reactor=None):
+    def __init__(self, endpoint, maxClients=5, reactor=None):
         """
-        @param serverAddress: An L{IPv4Address} indicating the server to
+        @param endpoint: An L{IStreamClientEndpoint} indicating the server to
             connect to.
+
         @param maxClients: A C{int} indicating the maximum number of clients.
-        @param reactor: An L{IReactorTCP{ provider used to initiate new
+
+        @param reactor: An L{IReactorTCP} provider used to initiate new
             connections.
         """
-        self._serverAddress = serverAddress
+        self._endpoint = endpoint
         self._maxClients = maxClients
 
         if reactor is None:
@@ -175,7 +184,7 @@ class MemCachePool(LoggingMixIn):
         @return: A L{Deferred} that fires with the L{IProtocol} instance.
         """
         self.log_debug("Initating new client connection to: %r" % (
-                self._serverAddress,))
+                self._endpoint,))
         self._logClientStats()
 
         self._pendingConnects += 1
@@ -190,9 +199,7 @@ class MemCachePool(LoggingMixIn):
 
         factory.connectionPool = self
 
-        self._reactor.connectTCP(self._serverAddress.host,
-                                 self._serverAddress.port,
-                                 factory)
+        connect(self._endpoint, factory)
         d = factory.deferred
 
         d.addCallback(_connected)
@@ -404,30 +411,28 @@ _memCachePools = {}         # Maps a name to a pool object
 _memCachePoolHandler = {}   # Maps a handler id to a named pool
 
 def installPools(pools, maxClients=5, reactor=None):
-    
+    if reactor is None:
+        from twisted.internet import reactor
     for name, pool in pools.items():
         if pool["ClientEnabled"]:
             _installPool(
                 name,
                 pool["HandleCacheTypes"],
-                IPv4Address(
-                    "TCP",
-                    pool["BindAddress"],
-                    pool["Port"],
-                ),
+                GAIEndpoint(reactor, pool["BindAddress"], pool["Port"]),
                 maxClients,
                 reactor,
             )
 
-def _installPool(name, handleTypes, serverAddress, maxClients=5, reactor=None):
 
-    pool = MemCachePool(serverAddress,
-                                 maxClients=maxClients,
-                                 reactor=None)
+
+def _installPool(name, handleTypes, serverEndpoint, maxClients=5, reactor=None):
+    pool = MemCachePool(serverEndpoint, maxClients=maxClients, reactor=None)
     _memCachePools[name] = pool
 
     for handle in handleTypes:
         _memCachePoolHandler[handle] = pool
+
+
 
 def defaultCachePool(name):
     if name not in _memCachePoolHandler:

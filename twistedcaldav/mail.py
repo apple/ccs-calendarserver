@@ -53,6 +53,9 @@ from twisted.web.template import (
 from twisted.web.microdom import parseString
 from twisted.web.microdom import Text as DOMText, Element as DOMElement
 
+from twext.internet.gaiendpoint import GAIEndpoint
+from twext.internet.adaptendpoint import connect
+
 from twext.web2 import server, responsecode
 from twext.web2.channel.http import HTTPFactory
 from txdav.xml import element as davxml
@@ -76,7 +79,6 @@ from twistedcaldav.scheduling.scheduler import IMIPScheduler
 from twistedcaldav.sql import AbstractSQLDatabase
 from twistedcaldav.util import AuthorizedHTTPGetter
 from twistedcaldav.stdconfig import DEFAULT_CONFIG, DEFAULT_CONFIG_FILE
-
 
 from calendarserver.tap.util import getRootResource, directoryFromConfig
 
@@ -612,10 +614,11 @@ def injectMessage(url, organizer, attendee, calendar, msgId, reactor=None):
     factory.protocol = AuthorizedHTTPGetter
 
     if parsed.scheme == "https":
-        reactor.connectSSL(parsed.hostname, parsed.port, factory,
-            ssl.ClientContextFactory())
+        connect(GAIEndpoint(reactor, parsed.hostname, parsed.port,
+                            ssl.ClientContextFactory()),
+                factory)
     else:
-        reactor.connectTCP(parsed.hostname, parsed.port, factory)
+        connect(GAIEndpoint(reactor, parsed.hostname, parsed.port), factory)
 
     def _success(result, msgId):
         log.info("Mail gateway successfully injected message %s" % (msgId,))
@@ -645,11 +648,11 @@ def serverForOrganizer(directory, organizer):
         log.warn("Can't find server for %s" % (organizer,))
         raise ServerNotFound()
 
-    server = record.server() # None means hosted locally
-    if server is None:
+    srvr = record.server() # None means hosted locally
+    if srvr is None:
         return None
     else:
-        return server.uri
+        return srvr.uri
 
 
 class ServerNotFound(Exception):
@@ -1106,7 +1109,8 @@ class MailHandler(LoggingMixIn):
             )
 
             self.log_warn("Mail gateway forwarding reply back to organizer")
-            _reactor.connectTCP(settings["Server"], settings["Port"], factory)
+            connect(GAIEndpoint(_reactor, settings["Server"], settings["Port"]),
+                    factory)
             return deferred
 
         # Process the imip attachment; inject to calendar server
@@ -1371,7 +1375,8 @@ class MailHandler(LoggingMixIn):
                 requireAuthentication=False,
                 requireTransportSecurity=settings["UseSSL"])
 
-            _reactor.connectTCP(settings['Server'], settings['Port'], factory)
+            connect(GAIEndpoint(_reactor, settings["Server"], settings["Port"]),
+                    factory)
             deferred.addCallback(_success, msgId, fromAddr, toAddr)
             deferred.addErrback(_failure, msgId, fromAddr, toAddr)
             return deferred
@@ -1561,7 +1566,7 @@ class MailHandler(LoggingMixIn):
 
         @return: a 2-tuple of (should add icon (C{bool}), html text (C{str},
             representing utf-8 encoded bytes)).  The first element indicates
-            whether the MIME generator needs to add a L{cid:} icon image part to
+            whether the MIME generator needs to add a C{cid:} icon image part to
             satisfy the HTML links.
         """
         orgCN, orgEmail = organizer
@@ -1634,20 +1639,16 @@ class MailHandler(LoggingMixIn):
         """
         Create a dictionary mapping slot names - specifically: summary,
         description, location, dateInfo, timeInfo, durationInfo, recurrenceInfo,
-        url
-        - with localized string values that should be placed into the HTML and
-        plain-text templates.
+        url - with localized string values that should be placed into the HTML
+        and plain-text templates.
 
         @param calendar: a L{Component} upon which to base the language.
-
         @type calendar: L{Component}
 
         @param language: a 2-letter language code.
-
         @type language: C{str}
 
         @return: a mapping from template slot name to localized text.
-
         @rtype: a C{dict} mapping C{bytes} to C{unicode}.
         """
 

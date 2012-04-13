@@ -1,3 +1,4 @@
+# -*- test-case-name: twistedcaldav.scheduling.test.test_imip -*-
 ##
 # Copyright (c) 2005-2012 Apple Inc. All rights reserved.
 #
@@ -14,6 +15,10 @@
 # limitations under the License.
 ##
 
+"""
+Handles the sending of scheduling messages via iMIP (mail gateway).
+"""
+
 from twisted.python.failure import Failure
 from twisted.internet.defer import inlineCallbacks, returnValue
 
@@ -29,10 +34,9 @@ from twistedcaldav.config import config
 from twistedcaldav.util import AuthorizedHTTPGetter
 from twistedcaldav.scheduling.delivery import DeliveryService
 from twistedcaldav.scheduling.itip import iTIPRequestStatus
+from twext.internet.gaiendpoint import GAIEndpoint
+from twext.internet.adaptendpoint import connect
 
-"""
-Handles the sending of scheduling messages via iMIP (mail gateway).
-"""
 
 __all__ = [
     "ScheduleViaIMip",
@@ -145,6 +149,7 @@ class ScheduleViaIMip(DeliveryService):
 
         factory.noisy = False
         factory.protocol = AuthorizedHTTPGetter
-        reactor.connectTCP(mailGatewayServer, mailGatewayPort, factory)
+        connect(GAIEndpoint(reactor, mailGatewayServer, mailGatewayPort),
+                factory)
         return factory.deferred
 

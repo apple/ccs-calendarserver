@@ -1,3 +1,4 @@
+# -*- test-case-name: twistedcaldav.test.test_notify -*-
 ##
 # Copyright (c) 2005-2012 Apple Inc. All rights reserved.
 #
@@ -54,6 +55,8 @@ from twistedcaldav.config import config
 from twistedcaldav.memcacher import Memcacher
 from twistedcaldav.stdconfig import DEFAULT_CONFIG, DEFAULT_CONFIG_FILE
 from twistedcaldav import memcachepool
+from twext.internet.gaiendpoint import GAIEndpoint
+from twext.internet.adaptendpoint import connect
 
 log = Logger()
 
@@ -243,7 +246,8 @@ class NotifierFactory(LoggingMixIn):
     def send(self, op, id):
         if self.factory is None:
             self.factory = NotificationClientFactory(self)
-            self.reactor.connectTCP(self.gatewayHost, self.gatewayPort,
+            connect(
+                GAIEndpoint(self.reactor, self.gatewayHost, self.gatewayPort),
                 self.factory)
             self.log_debug("Creating factory")
 

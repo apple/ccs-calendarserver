@@ -15,13 +15,11 @@ fi;
 tmp="$(mktemp "/tmp/pyflakes.XXXXX")";
 
 cd "${wd}" && "${flakes}/bin/pyflakes" "$@" | sed                     \
-  -e "/undefined name '_'/d"                                          \
-  -e "/undefined name 'CalDAVFile'/d"                                 \
   -e "/redefinition of unused/d"                                      \
   -e "/'from .* import \\*' used; unable to detect undefined names/d" \
   -e "/redefinition of function/d"                                    \
-  -e "/i[a-z]*store.py:[0-9][0-9]*: '.*' imported but unused/d"       \
   -e "/xmlext.py:[0-9][0-9]*: /d"                                     \
+  -e "/^twext\\/backport/d"                                           \
   | tee "${tmp}";
 
 if [ -s "${tmp}" ]; then error="true"; else error="false"; fi;

@@ -19,7 +19,7 @@ from datetime import datetime
 from getopt import getopt, GetoptError
 from getpass import getpass
 from twisted.application.service import Service
-from twisted.internet import reactor, ssl
+from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.web import client
 from twisted.words.protocols.jabber import xmlstream
@@ -27,6 +27,10 @@ from twisted.words.protocols.jabber.client import XMPPAuthenticator, IQAuthIniti
 from twisted.words.protocols.jabber.jid import JID
 from twisted.words.protocols.jabber.xmlstream import IQ
 from twisted.words.xish import domish
+
+from twext.internet.gaiendpoint import GAIEndpoint
+from twext.internet.adaptendpoint import connect
+
 from twistedcaldav.config import config, ConfigurationError
 from twistedcaldav.util import AuthorizedHTTPGetter
 from xml.etree import ElementTree
@@ -597,7 +601,7 @@ class PushMonitorService(Service):
 
         pubsubFactory = PubSubClientFactory(jid, self.password, service, nodes,
             self.verbose)
-        reactor.connectTCP(host, port, pubsubFactory)
+        connect(GAIEndpoint(reactor, host, port), pubsubFactory)
 
 
     def makeRequest(self, path, method, headers, body):
@@ -610,10 +614,11 @@ class PushMonitorService(Service):
         caldavFactory.noisy = False
         caldavFactory.protocol = PropfindRequestor
         if self.useSSL:
-            reactor.connectSSL(self.host, self.port, caldavFactory,
-                ssl.ClientContextFactory())
+            connect(GAIEndpoint(reactor, self.host, self.port,
+                                self.ClientContextFactory()),
+                    caldavFactory)
         else:
-            reactor.connectTCP(self.host, self.port, caldavFactory)
+            connect(GAIEndpoint(reactor, self.host, self.port), caldavFactory)
 
         return caldavFactory.deferred
 

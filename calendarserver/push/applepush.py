@@ -1,3 +1,4 @@
+# -*- test-case-name: calendarserver.push.test.test_applepush -*-
 ##
 # Copyright (c) 2011-2012 Apple Inc. All rights reserved.
 #
@@ -16,7 +17,7 @@
 
 from twext.internet.ssl import ChainingOpenSSLContextFactory
 from twext.python.log import Logger, LoggingMixIn
-from twext.python.log import LoggingMixIn
+
 from twext.web2 import responsecode
 from txdav.xml import element as davxml
 from twext.web2.dav.noneprops import NonePropertyStore
@@ -25,20 +26,23 @@ from twext.web2.http import Response
 from twext.web2.http_headers import MimeType
 from twext.web2.server import parsePOSTData
 from twisted.application import service
-from twisted.internet import reactor, protocol
+from twisted.internet import protocol
 from twisted.internet.defer import inlineCallbacks, returnValue, succeed
 from twisted.internet.protocol import ClientFactory, ReconnectingClientFactory
-from twistedcaldav.extensions import DAVResource, DAVResourceWithoutChildrenMixin
+from twistedcaldav.extensions import DAVResourceWithoutChildrenMixin
 from twistedcaldav.resource import ReadOnlyNoCopyResourceMixIn
 import OpenSSL
 import struct
 import time
 from txdav.common.icommondatastore import InvalidSubscriptionValues
+
 from calendarserver.push.util import validToken, TokenHistory, PushScheduler
 
-
+from twext.internet.adaptendpoint import connect
+from twext.internet.gaiendpoint import GAIEndpoint
 
 log = Logger()
+
 
 
 class ApplePushNotifierService(service.MultiService, LoggingMixIn):
@@ -394,7 +398,9 @@ class APNConnectionService(service.Service, LoggingMixIn):
                 passwdCallback=passwdCallback,
                 sslmethod=getattr(OpenSSL.SSL, self.sslMethod)
             )
-            reactor.connectSSL(self.host, self.port, factory, context)
+            connect(GAIEndpoint(self.reactor, self.host, self.port, context),
+                    factory)
+
 
 
 class APNProviderService(APNConnectionService):
