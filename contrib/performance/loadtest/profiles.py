@@ -517,15 +517,16 @@ class Accepter(ProfileBase):
 
     def _handleReply(self, href):
         d = self._client.deleteEvent(href)
-        def finished(passthrough):
-            self._accepting.remove(href)
-            if isinstance(passthrough, Failure):
-                passthrough.trap(IncorrectResponseCode)
-                passthrough = passthrough.response
-            return passthrough
-        d.addBoth(finished)
+        d.addBoth(self._finishRemoveAccepting, href)
         return self._newOperation("reply done", d)
 
+
+    def _finishRemoveAccepting(self, passthrough, href):
+        self._accepting.remove(href)
+        if isinstance(passthrough, Failure):
+            passthrough.trap(IncorrectResponseCode)
+            passthrough = passthrough.value.response
+        return passthrough
 
     def _handleCancel(self, href):
 
@@ -540,13 +541,7 @@ class Accepter(ProfileBase):
                         if uid == event.getUID():
                             return self._client.deleteEvent(event.url)
         d.addCallback(removed)
-        def finished(passthrough):
-            self._accepting.remove(href)
-            if isinstance(passthrough, Failure):
-                passthrough.trap(IncorrectResponseCode)
-                passthrough = passthrough.response
-            return passthrough
-        d.addBoth(finished)
+        d.addBoth(self._finishRemoveAccepting, href)
         return self._newOperation("cancelled", d)
 
 

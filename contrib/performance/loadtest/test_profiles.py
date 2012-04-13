@@ -154,6 +154,19 @@ END:VEVENT
 END:VCALENDAR
 """
 
+INBOX_REPLY =  """\
+BEGIN:VCALENDAR
+METHOD:REPLY
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+ORGANIZER;CN="User 01":mailto:user1@example.com
+ATTENDEE;PARTSTAT=ACCEPTED:mailto:user1@example.com
+END:VEVENT
+END:VCALENDAR
+"""
+
 
 class AnyUser(object):
     def __getitem__(self, index):
@@ -197,10 +210,12 @@ class StubClient(BaseClient):
 
     @ivar rescheduled: A set of event URLs which will not allow
         attendee changes due to a changed schedule tag.
+    @ivar _pendingFailures: dict mapping URLs to failure objects
     """
     def __init__(self, number):
         self._events = {}
         self._calendars = {}
+        self._pendingFailures = {}
         self.record = _DirectoryRecord(
             "user%02d" % (number,), "user%02d" % (number,),
             "User %02d" % (number,), "user%02d@example.org" % (number,))
@@ -208,6 +223,13 @@ class StubClient(BaseClient):
         self.uuid = "urn:uuid:user%02d" % (number,)
         self.rescheduled = set()
         self.started = True
+
+
+    def _failDeleteWithObject(self, href, failureObject):
+        """
+        Accessor for inserting intentional failures for deletes.
+        """
+        self._pendingFailures[href] = failureObject
 
 
     def addEvent(self, href, vevent):
@@ -219,11 +241,15 @@ class StubClient(BaseClient):
         return self.addEvent(href, vevent)
 
 
-    def deleteEvent(self, href):
+    def deleteEvent(self, href,):
         del self._events[href]
         calendar, uid = href.rsplit('/', 1)
         del self._calendars[calendar + '/'].events[uid]
-
+        if href in self._pendingFailures:
+            failureObject = self._pendingFailures.pop(href)
+            return fail(failureObject)
+        else:
+            return succeed(None)
 
     def updateEvent(self, href):
         self.rescheduled.remove(href)
@@ -741,6 +767,58 @@ class AccepterTests(TestCase):
         accepter.eventChanged(event.url)
         accepter.eventChanged(event.url)
         clock.advance(randomDelay)
+
+
+    def test_inboxReply(self):
+        """
+        When an inbox item that contains a reply is seen by the client, it
+        deletes it immediately.
+        """
+        userNumber = 1
+        clock = Clock()
+        inboxURL = '/some/inbox/'
+        vevent = Component.fromString(INBOX_REPLY)
+        inbox = Calendar(
+            caldavxml.schedule_inbox, set(), u'the inbox', inboxURL, None)
+        client = StubClient(userNumber)
+        client._calendars[inboxURL] = inbox
+
+        inboxEvent = Event(inboxURL + u'4321.ics', None, vevent)
+        client._setEvent(inboxEvent.url, inboxEvent)
+        accepter = Accepter(clock, self.sim, client, userNumber) 
+        accepter.eventChanged(inboxEvent.url)
+        clock.advance(3)
+        self.assertNotIn(inboxEvent.url, client._events)
+        self.assertNotIn('4321.ics', inbox.events)
+
+
+    def test_inboxReplyFailedDelete(self):
+        """
+        When an inbox item that contains a reply is seen by the client, it
+        deletes it immediately.  If the delete fails, the appropriate response
+        code is returned.
+        """
+        userNumber = 1
+        clock = Clock()
+        inboxURL = '/some/inbox/'
+        vevent = Component.fromString(INBOX_REPLY)
+        inbox = Calendar(
+            caldavxml.schedule_inbox, set(), u'the inbox', inboxURL, None)
+        client = StubClient(userNumber)
+        client._calendars[inboxURL] = inbox
+
+        inboxEvent = Event(inboxURL + u'4321.ics', None, vevent)
+        client._setEvent(inboxEvent.url, inboxEvent)
+        client._failDeleteWithObject(inboxEvent.url, IncorrectResponseCode(
+                    NO_CONTENT,
+                    Response(
+                        ('HTTP', 1, 1), PRECONDITION_FAILED,
+                        'Precondition Failed', None, None)))
+        accepter = Accepter(clock, self.sim, client, userNumber) 
+        accepter.eventChanged(inboxEvent.url)
+        clock.advance(3)
+        self.assertNotIn(inboxEvent.url, client._events)
+        self.assertNotIn('4321.ics', inbox.events)
 
 
     def test_acceptInvitation(self):
