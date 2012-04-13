@@ -160,8 +160,7 @@ class AdaptEndpointTests(TestCase):
         notified via C{connectionLost} and C{clientConnectionLost}.
         """
         why = Failure(RuntimeError())
-        proto = self.endpoint.attempts[0].factory.buildProtocol(object)
-        proto.makeConnection(object())
+        proto = self.connectionSucceeds().protocol
         proto.connectionLost(why)
         self.assertEquals(len(self.factory.built), 1)
         self.assertEquals(self.factory.built[0].protocol.lost, [why])
@@ -207,7 +206,7 @@ class AdaptEndpointTests(TestCase):
         If the L{IConnector} is told to C{connect} after a connection attempt
         has failed, a new connection attempt is started.
         """
-        d = self.endpoint.attempts[0].deferred
+        
 
 
 
