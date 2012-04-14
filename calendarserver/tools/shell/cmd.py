@@ -33,7 +33,9 @@ from twisted.conch.manhole import ManholeInterpreter
 
 from txdav.common.icommondatastore import NotFoundError
 
+from calendarserver.tap.util import getRootResource
 from calendarserver.tools.tables import Table
+from calendarserver.tools.purge import purgeUID
 from calendarserver.tools.shell.vfs import Folder, RootFolder
 from calendarserver.tools.shell.directory import findRecords, summarizeRecords, recordInfo
 
@@ -488,6 +490,64 @@ class Commands(CommandsBase):
 
         self.terminal.nextLine()
 
+
+    #
+    # Data purge tools
+    #
+
+    @inlineCallbacks
+    def cmd_purge_principals(self, tokens):
+        dryRun     = True
+        completely = False
+        doimplicit = True
+
+        directory = self.protocol.service.directory
+
+        uids = tuple(tokens)
+
+        error = False
+        for uid in uids:
+            record = directory.recordWithUID(uid)
+            if not record:
+                self.terminal.write("Unknown UID: %s\n" % (uid,))
+                error = True
+
+        if error:
+            self.terminal.write("Aborting.\n")
+            return
+
+        rootResource = getRootResource(
+            self.protocol.service.config,
+            self.protocol.service.store,
+        )
+
+        if dryRun:
+            toPurge = "to purge"
+        else:
+            toPurge = "purged"
+
+        total = 0
+        for uid in uids:
+            count, assignments = (yield purgeUID(
+                uid, directory, rootResource,
+                verbose    = False,
+                dryrun     = dryRun,
+                completely = completely,
+                doimplicit = doimplicit,
+            ))
+            total += count
+
+            self.terminal.write(
+                "%d events %s for UID %s.\n"
+                % (count, toPurge, uid)
+            )
+
+        self.terminal.write(
+            "%d total events %s.\n"
+            % (total, toPurge)
+        )
+
+    cmd_purge_principals.hidden = "Incomplete."
 
     #
     # Python prompt, for the win
