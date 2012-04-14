@@ -143,6 +143,15 @@ class ShellProtocol(ReceiveLineProtocol):
         self.activeCommand = None
         self.emulate = "emacs"
 
+    def reloadCommands(self):
+        # FIXME: doesn't work for alternative Commands classes passed
+        # to __init__.
+        self.terminal.write("Reloading commands class...\n")
+
+        import calendarserver.tools.shell.cmd
+        reload(calendarserver.tools.shell.cmd)
+        self.commands = calendarserver.tools.shell.cmd.Commands(self)
+
     #
     # Input handling
     #

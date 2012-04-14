@@ -547,7 +547,7 @@ class Commands(CommandsBase):
             % (total, toPurge)
         )
 
-    cmd_purge_principals.hidden = "Incomplete."
+    cmd_purge_principals.hidden = "incomplete"
 
     #
     # Python prompt, for the win
@@ -641,6 +641,26 @@ class Commands(CommandsBase):
     #
 
     def cmd_raise(self, tokens):
+        """
+        Raises an exception.
+        """
         raise RuntimeError(" ".join(tokens))
 
     cmd_raise.hidden = "test tool"
+
+    def cmd_reload(self, tokens):
+        """
+        Reloads code.
+        """
+        if tokens:
+            raise UnknownArguments(tokens)
+
+        import calendarserver.tools.shell.vfs
+        reload(calendarserver.tools.shell.vfs)
+
+        import calendarserver.tools.shell.directory
+        reload(calendarserver.tools.shell.directory)
+
+        self.protocol.reloadCommands()
+
+    cmd_reload.hidden = "test tool"
