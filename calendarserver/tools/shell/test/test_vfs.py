@@ -24,20 +24,20 @@ from calendarserver.tools.shell.vfs import File, Folder
 
 class TestListEntry(twisted.trial.unittest.TestCase):
     def test_toString(self):
-        self.assertEquals(ListEntry(File  , "thingo"           ).toString(), "thingo" )
-        self.assertEquals(ListEntry(File  , "thingo", Foo="foo").toString(), "thingo" )
-        self.assertEquals(ListEntry(Folder, "thingo"           ).toString(), "thingo/")
-        self.assertEquals(ListEntry(Folder, "thingo", Foo="foo").toString(), "thingo/")
+        self.assertEquals(ListEntry(None, File  , "thingo"           ).toString(), "thingo" )
+        self.assertEquals(ListEntry(None, File  , "thingo", Foo="foo").toString(), "thingo" )
+        self.assertEquals(ListEntry(None, Folder, "thingo"           ).toString(), "thingo/")
+        self.assertEquals(ListEntry(None, Folder, "thingo", Foo="foo").toString(), "thingo/")
 
     def test_fieldNamesImplicit(self):
         # This test assumes File doesn't set list.fieldNames.
         assert not hasattr(File.list, "fieldNames")
 
-        self.assertEquals(set(ListEntry(File, "thingo").fieldNames), set(("Name",)))
+        self.assertEquals(set(ListEntry(File(None, ()), File, "thingo").fieldNames), set(("Name",)))
 
     def test_fieldNamesExplicit(self):
         def fieldNames(fileClass):
-            return ListEntry(fileClass, "thingo", Flavor="Coconut", Style="Hard")
+            return ListEntry(fileClass(None, ()), fileClass, "thingo", Flavor="Coconut", Style="Hard")
 
         # Full list
         class MyFile(File):
@@ -69,13 +69,13 @@ class TestListEntry(twisted.trial.unittest.TestCase):
 
         # Name first, rest sorted by field name
         self.assertEquals(
-            tuple(ListEntry(File, "thingo", Flavor="Coconut", Style="Hard").toFields()),
+            tuple(ListEntry(File(None, ()), File, "thingo", Flavor="Coconut", Style="Hard").toFields()),
             ("thingo", "Coconut", "Hard")
         )
 
     def test_toFieldsExplicit(self):
         def fields(fileClass):
-            return tuple(ListEntry(fileClass, "thingo", Flavor="Coconut", Style="Hard").toFields())
+            return tuple(ListEntry(fileClass(None, ()), fileClass, "thingo", Flavor="Coconut", Style="Hard").toFields())
 
         # Full list
         class MyFile(File):
