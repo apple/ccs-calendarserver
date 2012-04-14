@@ -384,7 +384,7 @@ class Commands(CommandsBase):
         multiple = len(targets) > 0
 
         for target in targets:
-            entries = (yield target.list())
+            entries = sorted((yield target.list()), key=lambda e: e.fileName)
             #
             # FIXME: this can be ugly if, for example, there are zillions
             # of entries to output. Paging would be good.
