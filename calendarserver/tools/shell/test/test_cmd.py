@@ -114,22 +114,60 @@ class TestCommandsBase(twisted.trial.unittest.TestCase):
         self.assertEquals(c("h"), ["idden"])
         self.assertEquals(c("f"), [])
 
-    def test_completeFiles(self):
+    @inlineCallbacks
+    def _test_completeFiles(self, tests):
         protocol = ShellProtocol(None, commandsClass=SomeCommands)
         commands = protocol.commands
 
         def c(word):
-            return sorted(commands.complete_files(word))
+            d = commands.complete_files(word)
+            d.addCallback(lambda c: sorted(c))
+            return d
 
-        raise NotImplementedError()
+        for word, completions in tests:
+            self.assertEquals((yield c(word)), completions, "Completing %r" % (word,))
 
-    test_completeFiles.todo = "Not implemented."
+    def test_completeFilesLevelOne(self):
+        return self._test_completeFiles((
+            (""      , ["groups/", "locations/", "resources/", "uids/", "users/"]),
+            ("u"     , ["ids/", "sers/"]),
+            ("g"     , ["roups/"]),
+            ("gr"    , ["oups/"]),
+            ("groups", ["/"]),
+        ))
+
+    test_completeFilesLevelOne.todo = "Doesn't work yet"
+
+    def test_completeFilesLevelOneSlash(self):
+        return self._test_completeFiles((
+            ("/"      , ["groups/", "locations/", "resources/", "uids/", "users/"]),
+            ("/u"     , ["ids/", "sers/"]),
+            ("/g"     , ["roups/"]),
+            ("/gr"    , ["oups/"]),
+            ("/groups", ["/"]),
+        ))
+
+    test_completeFilesLevelOneSlash.todo = "Doesn't work yet"
+
+    def test_completeFilesDirectory(self):
+        return self._test_completeFiles((
+            ("users/" , ["wsanchez", "admin"]), # FIXME: Look up users
+        ))
+
+    test_completeFilesDirectory.todo = "Doesn't work yet"
+
+    def test_completeFilesLevelTwo(self):
+        return self._test_completeFiles((
+            ("users/w" , ["sanchez"]), # FIXME: Look up users?
+        ))
+
+    test_completeFilesLevelTwo.todo = "Doesn't work yet"
 
     def test_listEntryToString(self):
         raise NotImplementedError()
         self.assertEquals(CommandsBase.listEntryToString(file, "stuff"), "")
 
-    test_listEntryToString.todo = "Not implemented"
+    test_listEntryToString.todo = "Test not implemented"
 
 
 class SomeCommands(CommandsBase):
