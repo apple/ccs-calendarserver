@@ -71,6 +71,11 @@ class CommandsBase(object):
     #
 
     def getTarget(self, tokens):
+        """
+        Pop's the first token from tokens and locates the File
+        indicated by that token.
+        @return: a C{File}.
+        """
         if tokens:
             return self.wd.locate(tokens.pop(0).split("/"))
         else:
@@ -80,7 +85,7 @@ class CommandsBase(object):
     def getTargets(self, tokens):
         """
         For each given C{token}, locate a File to operate on.
-        @return: iterable of File objects.
+        @return: iterable of C{File} objects.
         """
         if tokens:
             result = []
@@ -478,7 +483,7 @@ class Commands(CommandsBase):
     @inlineCallbacks
     def cmd_print_principal(self, tokens):
         """
-        Print information about a principal
+        Print information about a principal.
 
         usage: print_principal uid
         """
@@ -508,6 +513,11 @@ class Commands(CommandsBase):
 
     @inlineCallbacks
     def cmd_purge_principals(self, tokens):
+        """
+        Purge data associated principals.
+
+        usage: purge_principals uid [uid ...]
+        """
         dryRun     = True
         completely = False
         doimplicit = True
@@ -654,6 +664,8 @@ class Commands(CommandsBase):
     def cmd_raise(self, tokens):
         """
         Raises an exception.
+
+        usage: raise
         """
         raise RuntimeError(" ".join(tokens))
 
@@ -662,6 +674,8 @@ class Commands(CommandsBase):
     def cmd_reload(self, tokens):
         """
         Reloads code.
+
+        usage: reload
         """
         if tokens:
             raise UnknownArguments(tokens)
