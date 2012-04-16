@@ -154,10 +154,8 @@ class CommandsBase(object):
 
         if len(tokens) == 0:
             returnValue(files)
-        elif len(tokens) == 1:
-            returnValue(self.complete(tokens[0], files))
         else:
-            returnValue(())
+            returnValue(self.complete(tokens[-1], files))
 
 
 class Commands(CommandsBase):
