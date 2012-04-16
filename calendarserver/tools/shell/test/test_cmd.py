@@ -161,12 +161,6 @@ class TestCommandsBase(twisted.trial.unittest.TestCase):
 
     test_completeFilesLevelTwo.todo = "Doesn't work yet"
 
-    def test_listEntryToString(self):
-        raise NotImplementedError()
-        self.assertEquals(CommandsBase.listEntryToString(file, "stuff"), "")
-
-    test_listEntryToString.todo = "Test not implemented"
-
 
 class SomeCommands(CommandsBase):
     def cmd_a(self, tokens):
