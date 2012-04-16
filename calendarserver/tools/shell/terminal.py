@@ -35,6 +35,7 @@ import termios
 from shlex import shlex
 
 from twisted.python import log
+from twisted.python.failure import Failure
 from twisted.python.text import wordWrap
 from twisted.python.usage import Options, UsageError
 from twisted.internet.defer import Deferred
@@ -187,7 +188,7 @@ class ShellProtocol(ReceiveLineProtocol):
         log.startLoggingWithObserver(observer)
 
     def handle_INT(self):
-        return self.resetLine()
+        return self.resetInputLine()
 
     def handle_EOF(self):
         if self.lineBuffer:
@@ -224,7 +225,7 @@ class ShellProtocol(ReceiveLineProtocol):
         self.terminal.cursorHome()
         self.drawInputLine()
 
-    def resetLine(self):
+    def resetInputLine(self):
         """
         Reset the current input variables to their initial state.
         """
@@ -257,8 +258,11 @@ class ShellProtocol(ReceiveLineProtocol):
             m = getattr(self.commands, "complete_%s" % (cmd,), None)
             if not m:
                 return
-            completions = tuple((yield m(tokens)))
-
+            try:
+                completions = tuple((yield m(tokens)))
+            except Exception, e:
+                self.handleFailure(Failure(e))
+                return
             log.msg("COMPLETIONS: %r" % (completions,))
         else:
             # Completing command name
@@ -284,6 +288,18 @@ class ShellProtocol(ReceiveLineProtocol):
         self.terminal.loseConnection()
         self.service.reactor.stop()
 
+    def handleFailure(self, f):
+        """
+        Handle a failure raises in the interpreter by printing a
+        traceback and resetting the input line.
+        """
+        if self.lineBuffer:
+            self.terminal.nextLine()
+        self.terminal.write("Error: %s !!!" % (f.value,))
+        if not f.check(NotImplementedError, NotFoundError):
+            log.msg(f.getTraceback())
+        self.resetInputLine()
+
     #
     # Command dispatch
     #
@@ -305,16 +321,8 @@ class ShellProtocol(ReceiveLineProtocol):
                     f.trap(CommandUsageError)
                     self.terminal.write("%s\n" % (f.value,))
 
-                def handleException(f):
-                    self.terminal.write("Error: %s\n" % (f.value,))
-                    if not f.check(NotImplementedError, NotFoundError):
-                        log.msg("-"*80 + "\n")
-                        log.msg(f.getTraceback())
-                        log.msg("-"*80 + "\n")
-
                 def next(_):
                     self.activeCommand = None
-                    self.drawInputLine()
                     if self.inputLines:
                         line = self.inputLines.pop(0)
                         self.lineReceived(line)
@@ -327,7 +335,8 @@ class ShellProtocol(ReceiveLineProtocol):
                     # Add time to test callbacks
                     self.service.reactor.callLater(4, d.callback, None)
                 d.addErrback(handleUsageError)
-                d.addErrback(handleException)
+                d.addCallback(lambda _: self.drawInputLine())
+                d.addErrback(self.handleFailure)
                 d.addCallback(next)
             else:
                 self.terminal.write("Unknown command: %s\n" % (cmd,))
