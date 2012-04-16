@@ -151,16 +151,23 @@ class CommandsBase(object):
         if filter is None:
             filter = lambda item: True
 
+        token = tokens[-1]
+
+        if "/" in token:
+            raise NotImplementedError()
+        else:
+            base = self.wd
+
         files = (
             entry.toString()
-            for entry in (yield self.wd.list())
+            for entry in (yield base.list())
             if filter(entry)
         )
 
         if len(tokens) == 0:
             returnValue(files)
         else:
-            returnValue(self.complete(tokens[-1], files))
+            returnValue(self.complete(token, files))
 
 
 class Commands(CommandsBase):

@@ -204,12 +204,13 @@ class Folder(File):
         raise NotFoundError("Folder %r has no child %r" % (str(self), name))
 
     def list(self):
-        result = set()
+        result = {}
         for name in self._children:
-            result.add(ListEntry(self, self._children[name].__class__, name))
+            result[name] = ListEntry(self, self._children[name].__class__, name)
         for name in self._childClasses:
-            result.add(ListEntry(self, self._childClasses[name], name))
-        return succeed(result)
+            if name not in result:
+                result[name] = ListEntry(self, self._childClasses[name], name)
+        return succeed(result.itervalues())
 
 
 class RootFolder(Folder):
