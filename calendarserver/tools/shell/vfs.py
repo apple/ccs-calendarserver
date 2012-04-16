@@ -68,11 +68,19 @@ class ListEntry(object):
         return self.toString()
 
     def __repr__(self):
-        return "<%s: (%s)%s %s>" % (
+        fields = self.fields.copy()
+        del fields["Name"]
+
+        if fields:
+            fields = " %s" % (fields,)
+        else:
+            fields = ""
+
+        return "<%s(%s): %r%s>" % (
             self.__class__.__name__,
             self.fileClass.__name__,
             self.fileName,
-            self.fields,
+            fields,
         )
 
     def isFolder(self):
