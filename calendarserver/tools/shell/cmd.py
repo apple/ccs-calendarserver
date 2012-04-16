@@ -665,7 +665,7 @@ class Commands(CommandsBase):
         """
         Raises an exception.
 
-        usage: raise
+        usage: raise [message ...]
         """
         raise RuntimeError(" ".join(tokens))
 
