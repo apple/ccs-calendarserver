@@ -187,42 +187,58 @@ class ShellProtocol(ReceiveLineProtocol):
         log.startLoggingWithObserver(observer)
 
     def handle_INT(self):
-        """
-        Handle ^C as an interrupt keystroke by resetting the current input
-        variables to their initial state.
-        """
-        self.pn = 0
-        self.lineBuffer = []
-        self.lineBufferIndex = 0
-
-        self.terminal.nextLine()
-        self.terminal.write("KeyboardInterrupt")
-        self.terminal.nextLine()
-        self.exit()
+        return self.resetLine()
 
     def handle_EOF(self):
         if self.lineBuffer:
             if self.emulate == "emacs":
                 self.handle_DELETE()
             else:
-                self.terminal.write('\a')
+                self.terminal.write("\a")
         else:
             self.handle_QUIT()
 
     def handle_FF(self):
         """
-        Handle a 'form feed' byte - generally used to request a screen
+        Handle a "form feed" byte - generally used to request a screen
         refresh/redraw.
+        """
+        # FIXME: Clear screen != redraw screen.
+        return self.clearScreen()
+
+    def handle_QUIT(self):
+        return self.exit()
+
+    def handle_TAB(self):
+        return self.completeLine()
+
+    #
+    # Utilities
+    #
+
+    def clearScreen(self):
+        """
+        Clear the display.
         """
         self.terminal.eraseDisplay()
         self.terminal.cursorHome()
         self.drawInputLine()
 
-    def handle_QUIT(self):
-        self.exit()
+    def resetLine(self):
+        """
+        Reset the current input variables to their initial state.
+        """
+        self.pn = 0
+        self.lineBuffer = []
+        self.lineBufferIndex = 0
+        self.terminal.nextLine()
+        self.drawInputLine()
 
     @inlineCallbacks
-    def handle_TAB(self):
+    def completeLine(self):
+        """
+        Perform auto-completion on the input line.
+        """
         # Tokenize the text before the cursor
         tokens = self.tokenize("".join(self.lineBuffer[:self.lineBufferIndex]))
 
@@ -261,14 +277,12 @@ class ShellProtocol(ReceiveLineProtocol):
                 self.terminal.write("%s%s\n" % (word, completion))
             self.drawInputLine()
 
-    #
-    # Utilities
-    #
-
     def exit(self):
+        """
+        Exit.
+        """
         self.terminal.loseConnection()
         self.service.reactor.stop()
-
 
     #
     # Command dispatch
@@ -323,6 +337,10 @@ class ShellProtocol(ReceiveLineProtocol):
 
     @staticmethod
     def tokenize(line):
+        """
+        Tokenize input line.
+        @return: an iterable of tokens
+        """
         lexer = shlex(line)
         lexer.whitespace_split = True
 
