@@ -145,8 +145,6 @@ class TestCommandsBase(twisted.trial.unittest.TestCase):
             ("/groups", ["/"]),
         ))
 
-    test_completeFilesLevelOneSlash.todo = "Doesn't work yet"
-
     def test_completeFilesDirectory(self):
         return self._test_completeFiles((
             ("users/" , ["wsanchez", "admin"]), # FIXME: Look up users

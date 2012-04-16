@@ -153,10 +153,14 @@ class CommandsBase(object):
 
         token = tokens[-1]
 
-        if "/" in token:
-            raise NotImplementedError("Path completion not fully implemented.")
-        else:
+        i = token.rfind("/")
+        if i == -1:
+            # No "/" in token
             base = self.wd
+            word = token
+        else:
+            base = (yield self.wd.locate(token[:i].split("/")))
+            word = token[i+1:]
 
         files = (
             entry.toString()
@@ -167,7 +171,7 @@ class CommandsBase(object):
         if len(tokens) == 0:
             returnValue(files)
         else:
-            returnValue(self.complete(token, files))
+            returnValue(self.complete(word, files))
 
 
 class Commands(CommandsBase):
