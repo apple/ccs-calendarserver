@@ -273,7 +273,7 @@ class ShellProtocol(ReceiveLineProtocol):
                 break
             for c in completion:
                 self.characterReceived(c, True)
-            self.characterReceived(" ", False)
+            #self.characterReceived(" ", False)
         else:
             self.terminal.nextLine()
             for completion in completions:
