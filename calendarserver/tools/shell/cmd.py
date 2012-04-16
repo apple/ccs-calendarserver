@@ -151,16 +151,21 @@ class CommandsBase(object):
         if filter is None:
             filter = lambda item: True
 
-        token = tokens[-1]
+        if tokens:
+            token = tokens[-1]
 
-        i = token.rfind("/")
-        if i == -1:
-            # No "/" in token
-            base = self.wd
-            word = token
+            i = token.rfind("/")
+            if i == -1:
+                # No "/" in token
+                base = self.wd
+                word = token
+            else:
+                base = (yield self.wd.locate(token[:i].split("/")))
+                word = token[i+1:]
+
         else:
-            base = (yield self.wd.locate(token[:i].split("/")))
-            word = token[i+1:]
+            base = self.wd
+            word = ""
 
         files = (
             entry.toString()
