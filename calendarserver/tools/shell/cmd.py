@@ -33,6 +33,7 @@ from twisted.conch.manhole import ManholeInterpreter
 
 from txdav.common.icommondatastore import NotFoundError
 
+from calendarserver.version import version
 from calendarserver.tap.util import getRootResource
 from calendarserver.tools.tables import Table
 from calendarserver.tools.purge import purgeUID
@@ -325,6 +326,18 @@ class Commands(CommandsBase):
         self._logFile = fileName
 
     cmd_log.hidden = "debug tool"
+
+
+    def cmd_version(self, tokens):
+        """
+        Print version.
+
+        usage: version
+        """
+        if tokens:
+            raise UnknownArguments(tokens)
+
+        self.terminal.write("%s\n" % (version,))
 
 
     #
