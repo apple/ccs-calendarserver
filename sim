@@ -21,6 +21,6 @@ set -u;
 
 wd="$(cd "$(dirname "$0")" && pwd -L)";
 
-export PYTHONPATH="$("${wd}/run" -p)";
+source "${wd}/support/shell.sh";
 
 exec "${wd}/contrib/performance/sim" "$@";

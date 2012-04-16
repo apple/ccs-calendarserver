@@ -25,7 +25,7 @@ if [ -z "${wd}" ]; then
     wd="$(pwd)";
 fi;
 
-. ${wd}/support/build.sh;
+source "${wd}/support/build.sh";
 do_setup=false;
 do_get=false;
 do_run=false;

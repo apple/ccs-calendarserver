@@ -61,7 +61,7 @@ fi;
 # Do The Right Thing
 ##
 
-. "${wd}/support/shell.sh"
+source "${wd}/support/shell.sh";
 
 if [ ! -e "${documentroot}/calendars/__uids__/user09" ]; then
   curl "http://localhost:8008/calendars/__uids__/user09/";
