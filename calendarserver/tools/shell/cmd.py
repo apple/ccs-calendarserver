@@ -652,7 +652,7 @@ class Commands(CommandsBase):
         if tokens:
             raise UnknownArguments(tokens)
 
-        raise NotImplementedError("")
+        raise NotImplementedError("Command not implemented")
 
     cmd_sql.hidden = "not implemented"
 
