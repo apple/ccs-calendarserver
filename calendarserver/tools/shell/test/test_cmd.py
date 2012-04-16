@@ -120,7 +120,7 @@ class TestCommandsBase(twisted.trial.unittest.TestCase):
         commands = protocol.commands
 
         def c(word):
-            d = commands.complete_files(word)
+            d = commands.complete_files((word,))
             d.addCallback(lambda c: sorted(c))
             return d
 
@@ -135,8 +135,6 @@ class TestCommandsBase(twisted.trial.unittest.TestCase):
             ("gr"    , ["oups/"]),
             ("groups", ["/"]),
         ))
-
-    test_completeFilesLevelOne.todo = "Doesn't work yet"
 
     def test_completeFilesLevelOneSlash(self):
         return self._test_completeFiles((
