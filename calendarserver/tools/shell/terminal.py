@@ -269,10 +269,10 @@ class ShellProtocol(ReceiveLineProtocol):
             completions = tuple(self.commands.complete_commands(cmd))
 
         if len(completions) == 1:
-            for completion in completions:
-                break
-            for c in completion:
+            for c in completions.__iter__().next():
                 self.characterReceived(c, True)
+
+            # FIXME: Add a space only if we know we've fully completed the term.
             #self.characterReceived(" ", False)
         else:
             self.terminal.nextLine()
