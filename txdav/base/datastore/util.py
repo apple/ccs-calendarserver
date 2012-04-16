@@ -61,6 +61,8 @@ class QueryCacher(Memcacher):
     def set(self, key, value):
         super(QueryCacher, self).set(key, value, expireTime=self.cacheExpireSeconds)
 
+    # Home child objects by name
+
     def keyForObjectWithName(self, homeResourceID, name):
         return "objectWithName:%s:%s" % (homeResourceID, name)
 
@@ -76,5 +78,24 @@ class QueryCacher(Memcacher):
         key = self.keyForObjectWithName(homeResourceID, name)
         # Invalidate immediately and post-commit in case a calendar was created and deleted
         # within the same transaction
+        self.delete(key)
+        transaction.postCommit(lambda:self.delete(key))
+
+    # Home metadata (Created/Modified)
+
+    def keyForHomeMetaData(self, homeResourceID):
+        return "homeMetaData:%s" % (homeResourceID)
+
+    def getHomeMetaData(self, homeResourceID):
+        key = self.keyForHomeMetaData(homeResourceID)
+        return self.get(key)
+
+    def setHomeMetaData(self, transaction, homeResourceID, value):
+        key = self.keyForHomeMetaData(homeResourceID)
+        transaction.postCommit(lambda:self.set(key, value))
+
+    def invalidateHomeMetaData(self, transaction, homeResourceID):
+        key = self.keyForHomeMetaData(homeResourceID)
+        # Invalidate immediately and post-commit
         self.delete(key)
         transaction.postCommit(lambda:self.delete(key))

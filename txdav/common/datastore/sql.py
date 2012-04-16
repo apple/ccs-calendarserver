@@ -884,8 +884,16 @@ class CommonHome(LoggingMixIn):
 
         if result:
             self._resourceID = result[0][0]
-            self._created, self._modified = (yield self._metaDataQuery.on(
-                self._txn, resourceID=self._resourceID))[0]
+            queryCacher = self._txn.store().queryCacher
+            if queryCacher:
+                data = yield queryCacher.getHomeMetaData(self._resourceID)
+                if data is not None:
+                    self._created, self._modified = data
+                else:
+                    self._created, self._modified = (yield self._metaDataQuery.on(
+                        self._txn, resourceID=self._resourceID))[0]
+                    yield queryCacher.setHomeMetaData(self._txn, self._resourceID,
+                        (self._created, self._modified))
             yield self._loadPropertyStore()
             returnValue(self)
         else:
@@ -1442,6 +1450,10 @@ class CommonHome(LoggingMixIn):
             
         try:
             self._modified = (yield self._txn.subtransaction(_bumpModified, retries=0, failureOK=True))[0][0]
+            queryCacher = self._txn.store().queryCacher
+            if queryCacher is not None:
+                yield queryCacher.invalidateHomeMetaData(self._txn, self._resourceID)
+
         except AllRetriesFailed:
             log.debug("CommonHome.bumpModified failed")
         
