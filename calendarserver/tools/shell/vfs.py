@@ -19,6 +19,7 @@ Virtual file system for data store objects.
 """
 
 __all__ = [
+    "ListEntry",
     "File",
     "Folder",
     "RootFolder",
@@ -65,6 +66,14 @@ class ListEntry(object):
 
     def __str__(self):
         return self.toString()
+
+    def __repr__(self):
+        return "<%s: (%s)%s %s>" % (
+            self.__class__.__name__,
+            self.fileClass.__name__,
+            self.fileName,
+            self.fields,
+        )
 
     def isFolder(self):
         return issubclass(self.fileClass, Folder)
