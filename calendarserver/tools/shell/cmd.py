@@ -154,7 +154,7 @@ class CommandsBase(object):
         token = tokens[-1]
 
         if "/" in token:
-            raise NotImplementedError()
+            raise NotImplementedError("Path completion not fully implemented.")
         else:
             base = self.wd
 
