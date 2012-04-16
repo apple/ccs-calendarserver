@@ -56,6 +56,8 @@ from pycalendar.property import PyCalendarProperty
 from pycalendar.timezone import PyCalendarTimezone
 from pycalendar.utcoffsetvalue import PyCalendarUTCOffsetValue
 
+import base64
+
 log = Logger()
 
 iCalendarProductID = "-//CALENDARSERVER.ORG//NONSGML Version 1//EN"
@@ -2577,7 +2579,7 @@ END:VCALENDAR
                     if config.Scheduling.Options.V1Compatibility:
                         if cuaddr.startswith("http") or cuaddr.startswith("/"):
                             prop.setParameter("CALENDARSERVER-OLD-CUA",
-                                prop.value())
+                                "base64-%s" % (base64.b64encode(prop.value())))
 
                     # Always re-write value to urn:uuid
                     prop.setValue("urn:uuid:%s" % (guid,))
@@ -2588,6 +2590,8 @@ END:VCALENDAR
                     # Restore old CUA
                     oldExternalCUA = prop.parameterValue("CALENDARSERVER-OLD-CUA")
                     if oldExternalCUA:
+                        if oldExternalCUA.startswith("base64-"):
+                            oldExternalCUA = base64.b64decode(oldExternalCUA[7:])
                         newaddr = oldExternalCUA
                         prop.removeParameter("CALENDARSERVER-OLD-CUA")
                     elif oldemail:

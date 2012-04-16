@@ -5993,7 +5993,7 @@ DTSTART:20071114T000000Z
 ATTENDEE:urn:uuid:foo
 ATTENDEE:urn:uuid:bar
 ATTENDEE:urn:uuid:baz
-ATTENDEE;CALENDARSERVER-OLD-CUA="http://example.com/principals/users/buz":urn:uuid:buz
+ATTENDEE;CALENDARSERVER-OLD-CUA="base64-aHR0cDovL2V4YW1wbGUuY29tL3ByaW5jaXBhbHMvdXNlcnMvYnV6":urn:uuid:buz
 DTSTAMP:20071114T000000Z
 END:VEVENT
 END:VCALENDAR
@@ -6075,17 +6075,17 @@ END:VCALENDAR
         self.patch(config.Scheduling.Options, "V1Compatibility", True)
         component.normalizeCalendarUserAddresses(lookupFunction, None, toUUID=True)
 
-        # /principal CUAs are not stored in CALENDARSERVER-OLD-CUA
+        # /principal CUAs are stored in CALENDARSERVER-OLD-CUA
         prop = component.getAttendeeProperty(("urn:uuid:foo",))
         self.assertEquals("urn:uuid:foo", prop.value())
         self.assertEquals(prop.parameterValue("CALENDARSERVER-OLD-CUA"),
-            "/principals/users/foo")
+            "base64-L3ByaW5jaXBhbHMvdXNlcnMvZm9v")
 
         # http CUAs are stored in CALENDARSERVER-OLD-CUA
         prop = component.getAttendeeProperty(("urn:uuid:buz",))
         self.assertEquals("urn:uuid:buz", prop.value())
         self.assertEquals(prop.parameterValue("CALENDARSERVER-OLD-CUA"),
-            "http://example.com/principals/users/buz")
+            "base64-aHR0cDovL2V4YW1wbGUuY29tL3ByaW5jaXBhbHMvdXNlcnMvYnV6")
 
 
     def test_serializationCaching(self):
