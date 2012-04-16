@@ -246,7 +246,7 @@ www_get () {
             exit 1;
           fi;
 
-          if egrep '^${pkg_host} ' "${HOME}/.ssh/known_hosts" > /dev/null 2>&1; then
+          if egrep "^${pkg_host}" "${HOME}/.ssh/known_hosts" > /dev/null 2>&1; then
             echo "Copying cache file up to ${pkg_host}.";
             if ! scp "${tmp}" "${pkg_host}:/www/hosts/${pkg_host}${pkg_path}/${cache_basename}"; then
               echo "Failed to copy cache file up to ${pkg_host}.";
