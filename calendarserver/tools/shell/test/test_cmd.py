@@ -120,15 +120,33 @@ class TestCommandsBase(twisted.trial.unittest.TestCase):
         commands = protocol.commands
 
         def c(word):
+            # One token
             d = commands.complete_files((word,))
             d.addCallback(lambda c: sorted(c))
             return d
 
+        def d(word):
+            # Multiple tokens
+            d = commands.complete_files(("XYZZY", word))
+            d.addCallback(lambda c: sorted(c))
+            return d
+
+        def e(word):
+            # No tokens
+            d = commands.complete_files(())
+            d.addCallback(lambda c: sorted(c))
+            return d
+
         for word, completions in tests:
-            self.assertEquals((yield c(word)), completions, "Completing %r" % (word,))
+            if word is None:
+                self.assertEquals((yield e(word)), completions, "Completing %r" % (word,))
+            else:
+                self.assertEquals((yield c(word)), completions, "Completing %r" % (word,))
+                self.assertEquals((yield d(word)), completions, "Completing %r" % (word,))
 
     def test_completeFilesLevelOne(self):
         return self._test_completeFiles((
+            (None    , ["groups/", "locations/", "resources/", "uids/", "users/"]),
             (""      , ["groups/", "locations/", "resources/", "uids/", "users/"]),
             ("u"     , ["ids/", "sers/"]),
             ("g"     , ["roups/"]),
