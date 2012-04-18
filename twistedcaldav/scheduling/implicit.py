@@ -71,6 +71,14 @@ class ImplicitScheduler(object):
         existing_type = "schedule" if is_scheduling_object else "calendar"
         new_type = "schedule" if (yield self.checkImplicitState()) else "calendar"
 
+        # If the types do not currently match, re-check the stored one. We need this to work around the possibility
+        # that data exists using the older algorithm of determining a scheduling object resource, and that could be
+        # wrong.
+        if existing_type != new_type and resource and resource.exists():
+            resource.isScheduleObject = None
+            is_scheduling_object = (yield self.checkSchedulingObjectResource(resource))
+            existing_type = "schedule" if is_scheduling_object else "calendar"
+            
         if existing_type == "calendar":
             self.action = "create" if new_type == "schedule" else "none"
         else:
@@ -230,13 +238,9 @@ class ImplicitScheduler(object):
                 except ValueError:
                     # We have different ORGANIZERs in the same iCalendar object - this is an error
                     returnValue(False)
-                organizerPrincipal = resource.principalForCalendarUserAddress(organizer) if organizer else None
-                implicit = organizerPrincipal != None
-                log.debug("Implicit - checked scheduling object resource state for UID: '%s', result: %s" % (
-                    calendar.resourceUID(),
-                    implicit,
-                ))
-                returnValue(implicit)
+                    
+                # Any ORGANIZER => a scheduling object resource
+                returnValue(organizer is not None)
 
         returnValue(False)
         

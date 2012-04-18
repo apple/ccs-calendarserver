@@ -17,11 +17,14 @@
 from pycalendar.datetime import PyCalendarDateTime
 from pycalendar.timezone import PyCalendarTimezone
 from twext.web2 import responsecode
+from twext.web2.test.test_server import SimpleRequest
 from twisted.internet.defer import succeed, inlineCallbacks
 from twistedcaldav.ical import Component
 from twistedcaldav.scheduling.implicit import ImplicitScheduler
 from twistedcaldav.scheduling.scheduler import ScheduleResponseQueue
+from twistedcaldav.test.util import HomeTestCase
 import twistedcaldav.test.util
+from twext.web2.http import HTTPError
 
 class FakeScheduler(object):
     """
@@ -837,3 +840,179 @@ END:VCALENDAR
             self.assertEqual(count, result_count)
             self.assertEqual(len(recipients), result_count)
             self.assertEqual(set(recipients), set(result_set))
+
+class ImplicitRequests (HomeTestCase):
+    """
+    Test twistedcaldav.scheduyling.implicit with a Request object. 
+    """
+
+    @inlineCallbacks
+    def test_testImplicitSchedulingPUT_ScheduleState(self):
+        """
+        Test that checkImplicitState() always returns True for any organizer, valid or not.
+        """
+        
+        data = (
+            (
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+END:VEVENT
+END:VCALENDAR
+""",
+                False,
+            ),
+            (
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+ORGANIZER;CN="User 01":mailto:wsanchez@example.com
+ATTENDEE:mailto:wsanchez@example.com
+ATTENDEE:mailto:user2@example.com
+END:VEVENT
+END:VCALENDAR
+""",
+                True,
+            ),
+            (
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+ORGANIZER;CN="User 01":mailto:bogus@bogus.com
+ATTENDEE:mailto:wsanchez@example.com
+ATTENDEE:mailto:bogus@bogus.com
+END:VEVENT
+END:VCALENDAR
+""",
+                True,
+            ),
+        )
+
+        for calendar, result in data:
+            calendar = Component.fromString(calendar)
+
+            request = SimpleRequest(self.site, "PUT", "/calendar/1.ics")
+            calresource = yield request.locateResource("/calendar/1.ics")
+            self.assertEqual(calresource.isScheduleObject, None)
+            
+            scheduler = ImplicitScheduler()
+            doAction, isScheduleObject = (yield scheduler.testImplicitSchedulingPUT(request, calresource, "/calendar/1.ics", calendar, False))
+            self.assertEqual(doAction, result)
+            self.assertEqual(isScheduleObject, result)
+            request._newStoreTransaction.abort()
+
+    @inlineCallbacks
+    def test_testImplicitSchedulingPUT_FixScheduleState(self):
+        """
+        Test that testImplicitSchedulingPUT will fix an old cached schedule object state by
+        re-evaluating the calendar data.
+        """
+        
+        request = SimpleRequest(self.site, "PUT", "/calendar/1.ics")
+        calresource = yield request.locateResource("/calendar/1.ics")
+        self.assertEqual(calresource.isScheduleObject, None)
+        calresource.isScheduleObject = False
+        
+        calendarOld = Component.fromString("""BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+ORGANIZER;CN="User 02":mailto:user2@example.com
+ATTENDEE:mailto:wsanchez@example.com
+ATTENDEE:mailto:user2@example.com
+END:VEVENT
+END:VCALENDAR
+""")
+
+
+        calendarNew = Component.fromString("""BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+ORGANIZER;CN="User 02":mailto:user2@example.com
+ATTENDEE:mailto:wsanchez@example.com
+ATTENDEE:mailto:user2@example.com
+END:VEVENT
+END:VCALENDAR
+""")
+
+        calresource.exists = lambda :True
+        calresource.iCalendarForUser = lambda request:succeed(calendarOld)
+        
+        scheduler = ImplicitScheduler()
+        try:
+            doAction, isScheduleObject = (yield scheduler.testImplicitSchedulingPUT(request, calresource, "/calendars/users/user01/calendar/1.ics", calendarNew, False))
+        except:
+            self.fail("Exception must not be raised")
+        self.assertTrue(doAction)
+        self.assertTrue(isScheduleObject)
+
+    @inlineCallbacks
+    def test_testImplicitSchedulingPUT_NoChangeScheduleState(self):
+        """
+        Test that testImplicitSchedulingPUT will prevent attendees from changing the
+        schedule object state.
+        """
+        
+        request = SimpleRequest(self.site, "PUT", "/calendar/1.ics")
+        calresource = yield request.locateResource("/calendar/1.ics")
+        self.assertEqual(calresource.isScheduleObject, None)
+        calresource.isScheduleObject = False
+        
+        calendarOld = Component.fromString("""BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+END:VEVENT
+END:VCALENDAR
+""")
+
+
+        calendarNew = Component.fromString("""BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890
+DTSTART:20080601T120000Z
+DTEND:20080601T130000Z
+ORGANIZER;CN="User 02":mailto:user2@example.com
+ATTENDEE:mailto:wsanchez@example.com
+ATTENDEE:mailto:user2@example.com
+END:VEVENT
+END:VCALENDAR
+""")
+
+        calresource.exists = lambda :True
+        calresource.iCalendarForUser = lambda request:succeed(calendarOld)
+        
+        scheduler = ImplicitScheduler()
+        try:
+            yield scheduler.testImplicitSchedulingPUT(request, calresource, "/calendars/users/user01/calendar/1.ics", calendarNew, False)
+        except HTTPError:
+            pass
+        except:
+            self.fail("HTTPError exception must be raised")
+        else:
+            self.fail("Exception must be raised")
+        request._newStoreTransaction.abort()
