@@ -29,6 +29,7 @@ from twext.python.clsprop import classproperty
 from twext.python.vcomponent import VComponent
 from txdav.xml.rfc2518 import ResourceType
 from twext.web2.http_headers import MimeType, generateContentType
+from twext.python.filepath import CachingFilePath
 
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.internet.error import ConnectionLost
@@ -82,6 +83,8 @@ from pycalendar.timezone import PyCalendarTimezone
 
 from zope.interface.declarations import implements
 
+import os
+import tempfile
 import uuid
 
 class CalendarHome(CommonHome):
@@ -1165,12 +1168,32 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
 class AttachmentStorageTransport(StorageTransportBase):
 
+    _TEMPORARY_UPLOADS_DIRECTORY = "Temporary"
+
     def __init__(self, attachment, contentType, creating=False):
         super(AttachmentStorageTransport, self).__init__(
             attachment, contentType)
-        self._buf = ''
+
+        fileDescriptor, fileName = self._temporaryFile()
+        # Wrap the file descriptor in a file object we can write to
+        self._file = os.fdopen(fileDescriptor, "w")
+        self._path = CachingFilePath(fileName)
         self._hash = hashlib.md5()
         self._creating = creating
+
+
+    def _temporaryFile(self):
+        """
+        Returns a (file descriptor, absolute path) tuple for a temporary file within
+        the Attachments/Temporary directory (creating the Temporary subdirectory
+        if it doesn't exist).  It is the caller's responsibility to remove the
+        file.
+        """
+        attachmentRoot = self._txn._store.attachmentsPath
+        tempUploadsPath = attachmentRoot.child(self._TEMPORARY_UPLOADS_DIRECTORY)
+        if not tempUploadsPath.exists():
+            tempUploadsPath.createDirectory()
+        return tempfile.mkstemp(dir=tempUploadsPath.path)
 
 
     @property
@@ -1181,7 +1204,7 @@ class AttachmentStorageTransport(StorageTransportBase):
     def write(self, data):
         if isinstance(data, buffer):
             data = str(data)
-        self._buf += data
+        self._file.write(data)
         self._hash.update(data)
 
 
@@ -1200,18 +1223,20 @@ class AttachmentStorageTransport(StorageTransportBase):
                     self._attachment._ownerHomeID))
 
         oldSize = self._attachment.size()
-
+        newSize = self._file.tell()
+        self._file.close()
         allowed = home.quotaAllowedBytes()
         if allowed is not None and allowed < ((yield home.quotaUsedBytes())
-                                              + (len(self._buf) - oldSize)):
+                                              + (newSize - oldSize)):
+            self._path.remove()
             if self._creating:
                 yield self._attachment._internalRemove()
             raise QuotaExceeded()
 
-        self._attachment._path.setContent(self._buf)
+        self._path.moveTo(self._attachment._path)
         self._attachment._contentType = self._contentType
         self._attachment._md5 = self._hash.hexdigest()
-        self._attachment._size = len(self._buf)
+        self._attachment._size = newSize
         att = schema.ATTACHMENT
         self._attachment._created, self._attachment._modified = map(
             sqltime,
