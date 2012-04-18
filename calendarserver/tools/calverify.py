@@ -324,6 +324,13 @@ class CalVerifyService(Service, object):
         self.attended_byuid = collections.defaultdict(list)
         self.matched_attendee_to_organizer = collections.defaultdict(set)
         for owner, resid, uid, md5, organizer, created, modified in rows:
+            
+            # If targeting a specific organizer, skip events belonging to others
+            if self.options["uuid"]:
+                if not organizer.startswith("urn:uuid:") or self.options["uuid"] != organizer[9:]:
+                    continue
+                
+            # Cache organizer/attendee states
             if organizer.startswith("urn:uuid:") and owner == organizer[9:]:
                 self.organized.append((owner, resid, uid, md5, organizer, created, modified,))
                 self.organized_byuid[uid] = (owner, resid, uid, md5, organizer, created, modified,)
@@ -633,6 +640,7 @@ class CalVerifyService(Service, object):
         organizer_div = 1 if organized_len < 100 else organized_len / 100
 
         # Test organized events
+        t = time.time()
         for ctr, organizerEvent in enumerate(self.organized):
             
             if self.options["verbose"] and divmod(ctr, organizer_div)[1] == 0:
@@ -644,10 +652,11 @@ class CalVerifyService(Service, object):
                     len(results_mismatch),
                 ))
 
-            # To avoid holding locks on all the rows scanned, commit every 100 resources
-            if divmod(ctr, 100)[1] == 0:
+            # To avoid holding locks on all the rows scanned, commit every 10 seconds
+            if time.time() - t > 10:
                 yield self.txn.commit()
                 self.txn = self.store.newTransaction()
+                t = time.time()
 
             # Get the organizer's view of attendee states            
             organizer, resid, uid, _ignore_md5, _ignore_organizer, org_created, org_modified = organizerEvent
@@ -793,6 +802,7 @@ class CalVerifyService(Service, object):
         attended_len = len(self.attended)
         attended_div = 1 if attended_len < 100 else attended_len / 100
 
+        t = time.time()
         for ctr, attendeeEvent in enumerate(self.attended):
             
             if self.options["verbose"] and divmod(ctr, attended_div)[1] == 0:
@@ -804,10 +814,11 @@ class CalVerifyService(Service, object):
                     len(mismatched),
                 ))
 
-            # To avoid holding locks on all the rows scanned, commit every 100 resources
-            if divmod(ctr, 100)[1] == 0:
+            # To avoid holding locks on all the rows scanned, commit every 10 seconds
+            if time.time() - t > 10:
                 yield self.txn.commit()
                 self.txn = self.store.newTransaction()
+                t = time.time()
 
             attendee, resid, uid, _ignore_md5, organizer, att_created, att_modified = attendeeEvent
             calendar = yield self.getCalendar(resid)
