@@ -151,6 +151,7 @@ class CalVerifyService(Service, object):
         self._directory = None
         
         self.cuaCache = {}
+        self.validForCalendaringUUIDs = {}
         
         self.results = {}
 
@@ -185,9 +186,10 @@ class CalVerifyService(Service, object):
     @inlineCallbacks
     def doOrphans(self):
         """
-        Report on home collections for which there are no directory records. 
+        Report on home collections for which there are no directory records, or record is for user on
+        a different pod, or a user not enabled for calendaring. 
         """
-        self.output.write("\n---- Finding calendar homes with no directory record ----\n")
+        self.output.write("\n---- Finding calendar homes with missing or disabled directory records ----\n")
         self.txn = self.store.newTransaction()
 
         if self.options["verbose"]:
@@ -197,6 +199,7 @@ class CalVerifyService(Service, object):
             self.output.write("getAllHomeUIDs time: %.1fs\n" % (time.time() - t,))
         missing = []
         wrong_server = []
+        disabled = []
         uids_len = len(uids)
         uids_div = 1 if uids_len < 100 else uids_len / 100
 
@@ -215,6 +218,9 @@ class CalVerifyService(Service, object):
             elif not record.thisServer():
                 contents = yield self.countHomeContents(uid)
                 wrong_server.append((uid, contents,))
+            elif not record.enabledForCalendaring:
+                contents = yield self.countHomeContents(uid)
+                disabled.append((uid, contents,))
             
             # To avoid holding locks on all the rows scanned, commit every 100 resources
             if divmod(ctr, 100)[1] == 0:
@@ -248,6 +254,19 @@ class CalVerifyService(Service, object):
         
         self.output.write("\n")
         self.output.write("Homes not hosted on this server (total=%d):\n" % (len(wrong_server),))
+        table.printTable(os=self.output)
+        
+        # Print table of results
+        table = tables.Table()
+        table.addHeader(("Owner UID", "Calendar Objects"))
+        for uid, count in sorted(disabled, key=lambda x:x[0]):
+            table.addRow((
+                uid,
+                count,
+            ))
+        
+        self.output.write("\n")
+        self.output.write("Homes without an enabled directory record (total=%d):\n" % (len(disabled),))
         table.printTable(os=self.output)
         
 
@@ -323,8 +342,14 @@ class CalVerifyService(Service, object):
         self.attended = []
         self.attended_byuid = collections.defaultdict(list)
         self.matched_attendee_to_organizer = collections.defaultdict(set)
+        skipped = 0
         for owner, resid, uid, md5, organizer, created, modified in rows:
             
+            # Skip owners not enabled for calendaring
+            if not self.testForCalendaringUUID(owner):
+                skipped += 1
+                continue
+
             # If targeting a specific organizer, skip events belonging to others
             if self.options["uuid"]:
                 if not organizer.startswith("urn:uuid:") or self.options["uuid"] != organizer[9:]:
@@ -342,6 +367,7 @@ class CalVerifyService(Service, object):
         self.output.write("Number of attendee events to process: %s\n" % (len(self.attended,)))
         self.results["Number of organizer events to process"] = len(self.organized)
         self.results["Number of attendee events to process"] = len(self.attended)
+        self.results["Number of skipped events"] = skipped
 
         if ical:
             yield self.calendarDataCheck(rows)
@@ -455,6 +481,23 @@ class CalVerifyService(Service, object):
             Where=(co.RESOURCE_ID == Parameter("resid")),
         ).on(self.txn, **kwds))
         returnValue(rows[0])
+
+
+    def testForCalendaringUUID(self, uuid):
+        """
+        Determine if the specified directory UUID is valid for calendaring. Keep a cache of
+        valid and invalid so we can do this quickly.
+
+        @param uuid: the directory UUID to test
+        @type uuid: C{str}
+        
+        @return: C{True} if valid, C{False} if not
+        """
+
+        if uuid not in self.validForCalendaringUUIDs:
+            record = self.directoryService().recordWithGUID(uuid)
+            self.validForCalendaringUUIDs[uuid] = record is not None and record.enabledForCalendaring and record.thisServer()
+        return self.validForCalendaringUUIDs[uuid]
 
 
     @inlineCallbacks
@@ -690,8 +733,8 @@ class CalVerifyService(Service, object):
 
                 self.matched_attendee_to_organizer[uid].add(organizerAttendee)
                 
-                attendeeRecord = self.directoryService().recordWithGUID(organizerAttendee)
-                if attendeeRecord is None or not attendeeRecord.thisServer():
+                # Skip attendees not enabled for calendaring
+                if not self.testForCalendaringUUID(organizerAttendee):
                     continue
 
                 # If an entry for the attendee exists, then check whether attendee status matches
@@ -755,7 +798,7 @@ class CalVerifyService(Service, object):
                 uid,
                 resid,
                 created,
-                modified,
+                "" if modified == created else modified,
             ))
         
         self.output.write("\n")
@@ -776,10 +819,10 @@ class CalVerifyService(Service, object):
                 uid,
                 org_resid,
                 org_created,
-                org_modified,
+                "" if org_modified == org_created else org_modified,
                 attendeeResIDs[(attendee, uid)],
                 att_created,
-                att_modified,
+                "" if att_modified == att_created else att_modified,
             ))
         
         self.output.write("\n")
@@ -833,8 +876,8 @@ class CalVerifyService(Service, object):
                 continue
             organizer = organizer[9:]
 
-            organizerRecord = self.directoryService().recordWithGUID(organizer)
-            if organizerRecord is None or not organizerRecord.thisServer():
+            # Skip organizers not enabled for calendaring
+            if not self.testForCalendaringUUID(organizer):
                 continue
 
             if uid not in self.organized_byuid:
@@ -883,7 +926,7 @@ class CalVerifyService(Service, object):
                 uid,
                 resid,
                 created,
-                modified,
+                "" if modified == created else modified,
             ))
         
         self.output.write("\n")
@@ -909,7 +952,7 @@ class CalVerifyService(Service, object):
                 self.organized_byuid[uid][6],
                 resid,
                 att_created,
-                att_modified,
+                "" if att_modified == att_created else att_modified,
             ))
         
         self.output.write("\n")
