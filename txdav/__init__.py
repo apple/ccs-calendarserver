@@ -1,6 +1,6 @@
 # -*- test-case-name: txdav -*-
 ##
-# Copyright (c) 2010 Apple Inc. All rights reserved.
+# Copyright (c) 2010-2012 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,3 +18,8 @@
 """
 WebDAV support for Twisted.
 """
+
+# Make sure we have twext's required Twisted patches loaded before we do
+# anything at all.
+__import__("twext")
+

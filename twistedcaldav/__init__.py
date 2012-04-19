@@ -1,6 +1,6 @@
 # -*- test-case-name: twistedcaldav -*-
 ##
-# Copyright (c) 2005-2011 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2012 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,6 +20,10 @@ CalDAV support for Twext.Web2.
 
 See RFC 4791.
 """
+
+# Make sure we have twext's required Twisted patches loaded before we do
+# anything at all.
+__import__("twext")
 
 #
 # Load in suitable file extension/content-type map from OS X
