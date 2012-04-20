@@ -207,7 +207,7 @@ class ITransaction(Interface):
         """
 
 
-    def postCommit(operation):
+    def postCommit(operation, immediately=False):
         """
         Registers an operation to be executed after the transaction is
         committed.
@@ -216,6 +216,8 @@ class ITransaction(Interface):
         in the order which they were registered.
 
         @param operation: a callable.
+        @param immediately: a boolean; True means finish this operation *before* the
+            commit( ) call completes, defaults to False.
         """
 
 

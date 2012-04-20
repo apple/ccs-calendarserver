@@ -426,13 +426,14 @@ class Calendar(CommonHomeChild):
         """
         return self._name == "inbox"
 
+
     @inlineCallbacks
     def setSupportedComponents(self, supported_components):
         """
         Update the database column with the supported components. Technically this should only happen once
         on collection creation, but for migration we may need to change after the fact - hence a separate api.
         """
-        
+
         cal = self._homeChildMetaDataSchema
         yield Update(
             {
@@ -441,6 +442,11 @@ class Calendar(CommonHomeChild):
             Where=(cal.RESOURCE_ID == self._resourceID)
         ).on(self._txn)
         self._supportedComponents = supported_components
+
+        queryCacher = self._txn.store().queryCacher
+        if queryCacher is not None:
+            cacheKey = queryCacher.keyForHomeChildMetaData(self._resourceID)
+            yield queryCacher.invalidateAfterCommit(self._txn, cacheKey)
 
     def getSupportedComponents(self):
         return self._supportedComponents
