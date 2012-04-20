@@ -2173,6 +2173,9 @@ END:VCALENDAR
         except IndexError:
             return False
 
+        # Need to add property to indicate this was added by the server
+        valarm.addProperty(Property("X-APPLE-DEFAULT-ALARM", "TRUE"))
+
         # ACTION:NONE not added
         changed = False
         action = valarm.propertyValue("ACTION")
