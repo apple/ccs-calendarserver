@@ -87,6 +87,11 @@ description = '\n'.join(
     )
 )
 
+
+def safePercent(x, y, multiplier=100.0):
+    return ((multiplier * x) / y) if y else 0
+
+
 class CalVerifyOptions(Options):
     """
     Command-line options for 'calendarserver_verify_data'
@@ -154,6 +159,8 @@ class CalVerifyService(Service, object):
         self.validForCalendaringUUIDs = {}
         
         self.results = {}
+        self.summary = []
+        self.total = 0
 
 
     def startService(self):
@@ -175,6 +182,8 @@ class CalVerifyService(Service, object):
                 
             if self.options["mismatch"] or self.options["ical"]:
                 yield self.doScan(self.options["ical"], self.options["mismatch"], self.options["fix"])
+
+            self.printSummary()
 
             self.output.close()
         except:
@@ -202,14 +211,16 @@ class CalVerifyService(Service, object):
         disabled = []
         uids_len = len(uids)
         uids_div = 1 if uids_len < 100 else uids_len / 100
+        self.addToSummary("Total Homes", uids_len)
 
         for ctr, uid in enumerate(uids):
             if self.options["verbose"] and divmod(ctr, uids_div)[1] == 0:
-                self.output.write("%d of %d (%d%%)\n" % (
+                self.output.write(("\r%d of %d (%d%%)" % (
                     ctr+1,
                     uids_len,
                     ((ctr+1) * 100 / uids_len),
-                ))
+                )).ljust(80))
+                self.output.flush()
 
             record = self.directoryService().recordWithGUID(uid)
             if record is None:
@@ -229,7 +240,9 @@ class CalVerifyService(Service, object):
 
         yield self.txn.commit()
         self.txn = None
-        
+        if self.options["verbose"]:
+            self.output.write("\r".ljust(80) + "\n")
+
         # Print table of results
         table = tables.Table()
         table.addHeader(("Owner UID", "Calendar Objects"))
@@ -242,32 +255,37 @@ class CalVerifyService(Service, object):
         self.output.write("\n")
         self.output.write("Homes without a matching directory record (total=%d):\n" % (len(missing),))
         table.printTable(os=self.output)
+        self.addToSummary("Homes without a matching directory record", len(missing), uids_len)
         
         # Print table of results
         table = tables.Table()
         table.addHeader(("Owner UID", "Calendar Objects"))
         for uid, count in sorted(wrong_server, key=lambda x:x[0]):
+            record = self.directoryService().recordWithGUID(uid)
             table.addRow((
-                uid,
+                "%s/%s (%s)" % (record.recordType if record else "-", record.shortNames[0] if record else "-", uid,),
                 count,
             ))
         
         self.output.write("\n")
         self.output.write("Homes not hosted on this server (total=%d):\n" % (len(wrong_server),))
         table.printTable(os=self.output)
+        self.addToSummary("Homes not hosted on this server", len(wrong_server), uids_len)
         
         # Print table of results
         table = tables.Table()
         table.addHeader(("Owner UID", "Calendar Objects"))
         for uid, count in sorted(disabled, key=lambda x:x[0]):
+            record = self.directoryService().recordWithGUID(uid)
             table.addRow((
-                uid,
+                "%s/%s (%s)" % (record.recordType if record else "-", record.shortNames[0] if record else "-", uid,),
                 count,
             ))
         
         self.output.write("\n")
         self.output.write("Homes without an enabled directory record (total=%d):\n" % (len(disabled),))
         table.printTable(os=self.output)
+        self.addToSummary("Homes without an enabled directory record", len(disabled), uids_len)
         
 
     @inlineCallbacks
@@ -333,8 +351,11 @@ class CalVerifyService(Service, object):
 
         if self.options["verbose"]:
             self.output.write("%s time: %.1fs\n" % (descriptor, time.time() - t,))
+        
+        self.total = len(rows)
         self.output.write("Number of events to process: %s\n" % (len(rows,)))
         self.results["Number of events to process"] = len(rows)
+        self.addToSummary("Number of events to process", self.total)
         
         # Split into organizer events and attendee events
         self.organized = []
@@ -368,6 +389,9 @@ class CalVerifyService(Service, object):
         self.results["Number of organizer events to process"] = len(self.organized)
         self.results["Number of attendee events to process"] = len(self.attended)
         self.results["Number of skipped events"] = skipped
+        self.addToSummary("Number of organizer events to process", len(self.organized), self.total)
+        self.addToSummary("Number of attendee events to process", len(self.attended), self.total)
+        self.addToSummary("Number of skipped events", skipped, self.total)
 
         if ical:
             yield self.calendarDataCheck(rows)
@@ -516,6 +540,7 @@ class CalVerifyService(Service, object):
         count = 0
         total = len(rows)
         badlen = 0
+        rjust = 10
         for owner, resid, uid, _ignore_md5, _ignore_organizer, _ignore_created, _ignore_modified in rows:
             result, message = yield self.validCalendarData(resid)
             if not result:
@@ -524,9 +549,16 @@ class CalVerifyService(Service, object):
             count += 1
             if self.options["verbose"]:
                 if count == 1:
-                    self.output.write("Bad/Current/Total\n")
+                    self.output.write("Bad".rjust(rjust) + "Current".rjust(rjust) + "Total".rjust(rjust) + "Complete".rjust(rjust) + "\n")
                 if divmod(count, 100)[1] == 0:
-                    self.output.write("%s/%s/%s\n" % (badlen, count, total,))
+                    self.output.write((
+                        "\r" + 
+                        ("%s" % badlen).rjust(rjust) +
+                        ("%s" % count).rjust(rjust) +
+                        ("%s" % total).rjust(rjust) +
+                        ("%d%%" % safePercent(count, total)).rjust(rjust)
+                    ).ljust(80))
+                    self.output.flush()
             
             # To avoid holding locks on all the rows scanned, commit every 100 resources
             if divmod(count, 100)[1] == 0:
@@ -535,6 +567,14 @@ class CalVerifyService(Service, object):
 
         yield self.txn.commit()
         self.txn = None
+        if self.options["verbose"]:
+                    self.output.write((
+                        "\r" + 
+                        ("%s" % badlen).rjust(rjust) +
+                        ("%s" % count).rjust(rjust) +
+                        ("%s" % total).rjust(rjust) +
+                        ("%d%%" % safePercent(count, total)).rjust(rjust)
+                    ).ljust(80) + "\n")
         
         # Print table of results
         table = tables.Table()
@@ -554,6 +594,7 @@ class CalVerifyService(Service, object):
         table.printTable(os=self.output)
         
         self.results["Bad iCalendar data"] = results_bad
+        self.addToSummary("Bad iCalendar data", len(results_bad), total)
          
         if self.options["verbose"]:
             diff_time = time.time() - t
@@ -687,13 +728,14 @@ class CalVerifyService(Service, object):
         for ctr, organizerEvent in enumerate(self.organized):
             
             if self.options["verbose"] and divmod(ctr, organizer_div)[1] == 0:
-                self.output.write("%d of %d (%d%%) Missing: %d  Mismatched: %s\n" % (
+                self.output.write(("\r%d of %d (%d%%) Missing: %d  Mismatched: %s" % (
                     ctr+1,
                     organized_len,
                     ((ctr+1) * 100 / organized_len),
                     len(results_missing),
                     len(results_mismatch),
-                ))
+                )).ljust(80))
+                self.output.flush()
 
             # To avoid holding locks on all the rows scanned, commit every 10 seconds
             if time.time() - t > 10:
@@ -783,7 +825,9 @@ class CalVerifyService(Service, object):
 
         yield self.txn.commit()
         self.txn = None
-                
+        if self.options["verbose"]:
+            self.output.write("\r".ljust(80) + "\n")
+
         # Print table of results
         table = tables.Table()
         table.addHeader(("Organizer", "Attendee", "Event UID", "Organizer RID", "Created", "Modified",))
@@ -804,7 +848,8 @@ class CalVerifyService(Service, object):
         self.output.write("\n")
         self.output.write("Events missing from Attendee's calendars (total=%d):\n" % (len(results_missing),))
         table.printTable(os=self.output)
-            
+        self.addToSummary("Events missing from Attendee's calendars", len(results_missing), self.total)
+
         # Print table of results
         table = tables.Table()
         table.addHeader(("Organizer", "Attendee", "Event UID", "Organizer RID", "Created", "Modified", "Attendee RID", "Created", "Modified",))
@@ -828,6 +873,7 @@ class CalVerifyService(Service, object):
         self.output.write("\n")
         self.output.write("Events mismatched between Organizer's and Attendee's calendars (total=%d):\n" % (len(results_mismatch),))
         table.printTable(os=self.output)
+        self.addToSummary("Events mismatched between Organizer's and Attendee's calendars", len(results_mismatch), self.total)
 
 
     @inlineCallbacks
@@ -849,13 +895,14 @@ class CalVerifyService(Service, object):
         for ctr, attendeeEvent in enumerate(self.attended):
             
             if self.options["verbose"] and divmod(ctr, attended_div)[1] == 0:
-                self.output.write("%d of %d (%d%%) Missing: %d  Mismatched: %s\n" % (
+                self.output.write(("\r%d of %d (%d%%) Missing: %d  Mismatched: %s" % (
                     ctr+1,
                     attended_len,
                     ((ctr+1) * 100 / attended_len),
                     len(missing),
                     len(mismatched),
-                ))
+                )).ljust(80))
+                self.output.flush()
 
             # To avoid holding locks on all the rows scanned, commit every 10 seconds
             if time.time() - t > 10:
@@ -907,6 +954,8 @@ class CalVerifyService(Service, object):
 
         yield self.txn.commit()
         self.txn = None
+        if self.options["verbose"]:
+            self.output.write("\r".ljust(80) + "\n")
 
         # Print table of results
         table = tables.Table()
@@ -932,6 +981,7 @@ class CalVerifyService(Service, object):
         self.output.write("\n")
         self.output.write("Attendee events missing in Organizer's calendar (total=%d, unique=%d):\n" % (len(missing), len(unique_set),))
         table.printTable(os=self.output)
+        self.addToSummary("Attendee events missing in Organizer's calendar", len(missing), self.total)
 
         # Print table of results
         table = tables.Table()
@@ -957,6 +1007,39 @@ class CalVerifyService(Service, object):
         
         self.output.write("\n")
         self.output.write("Attendee events mismatched in Organizer's calendar (total=%d):\n" % (len(mismatched),))
+        table.printTable(os=self.output)
+        self.addToSummary("Attendee events mismatched in Organizer's calendar", len(mismatched), self.total)
+
+
+    def addToSummary(self, title, count, total=None):
+        if total is not None:
+            percent = safePercent(count, total),
+        else:
+            percent = ""
+        self.summary.append((title, count, percent))
+
+
+    def printSummary(self):
+        # Print summary of results
+        table = tables.Table()
+        table.addHeader(("Item", "Count", "%"))
+        table.setDefaultColumnFormats(
+            (
+                tables.Table.ColumnFormat("%s", tables.Table.ColumnFormat.LEFT_JUSTIFY), 
+                tables.Table.ColumnFormat("%d", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
+                tables.Table.ColumnFormat("%.1f%%", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
+            )
+        )
+        for item in self.summary:
+            title, result, percent = item
+            table.addRow((
+                title,
+                result,
+                percent,
+            ))
+        
+        self.output.write("\n")
+        self.output.write("Overall Summary:\n")
         table.printTable(os=self.output)
 
 
