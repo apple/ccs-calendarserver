@@ -970,7 +970,7 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
 
         if authHeader is not None:
             if authHeader[0] not in request.credentialFactories:
-                log.err(
+                log.debug(
                     "Client authentication scheme %s is not provided by server %s"
                     % (authHeader[0], request.credentialFactories.keys())
                 )
