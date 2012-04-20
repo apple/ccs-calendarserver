@@ -76,7 +76,7 @@ class SharingTests(HomeTestCase):
         CalDAVResource.sendInvite = lambda self, record, request: succeed(True)
         CalDAVResource.removeInvite = lambda self, record, request: succeed(True)
 
-        CalDAVResource.principalForCalendarUserAddress = lambda self, cuaddr: SharingTests.FakePrincipal(cuaddr)
+        self.patch(CalDAVResource, "principalForCalendarUserAddress", lambda self, cuaddr: SharingTests.FakePrincipal(cuaddr))
 
 
     @inlineCallbacks
