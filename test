@@ -83,11 +83,10 @@ find "${wd}" -name \*.pyc -print0 | xargs -0 rm;
 mkdir -p "${wd}/data";
 cd "${wd}" && "${python}" "${trial}" --temp-directory="${wd}/data/trial" --rterrors ${random} ${until_fail} ${no_colour} ${coverage} ${test_modules};
 
-tmp="$(mktemp "/tmp/calendarserver_test.XXXXX")";
-
 if ${flaky}; then
   echo "";
   echo "Running pyflakes...";
+  tmp="$(mktemp "/tmp/calendarserver_test_flakes.XXXXX")";
   cd "${wd}" && ./pyflakes ${test_modules} | tee "${tmp}" 2>&1;
   if [ -s "${tmp}" ]; then
     echo "**** Pyflakes says you have some code to clean up. ****";
@@ -95,3 +94,12 @@ if ${flaky}; then
   fi;
   rm -f "${tmp}";
 fi;
+
+tmp="$(mktemp "/tmp/calendarserver_test_emtpy.XXXXX")";
+find "${wd}" ! '(' -type d '(' -name .svn -o -name data ')' -prune ')' -type f -size 0 > "${tmp}";
+if [ -s "${tmp}" ]; then
+    echo "**** Empty files: ****";
+    cat "${tmp}";
+    exit 1;
+fi;
+rm -f "${tmp}";
