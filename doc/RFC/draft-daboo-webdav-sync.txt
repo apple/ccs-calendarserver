@@ -1083,7 +1083,7 @@ Internet-Draft                 WebDAV Sync                     July 2011
 
    REPORT /home/cyrusdaboo/ HTTP/1.1
    Host: webdav.example.com
-   Depth: 1
+   Depth: infinity
    Content-Type: text/xml; charset="utf-8"
    Content-Length: xxxx
 
