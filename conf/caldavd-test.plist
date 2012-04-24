@@ -32,7 +32,7 @@
 
     <!-- Network host name [empty = system host name] -->
     <key>ServerHostName</key>
-    <string></string> <!-- The hostname clients use when connecting -->
+    <string>localhost</string> <!-- The hostname clients use when connecting -->
 
     <!-- Enable Calendars -->
     <key>EnableCalDAV</key>
