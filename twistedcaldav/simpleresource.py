@@ -32,6 +32,7 @@ from twext.web2.dav.noneprops import NonePropertyStore
 from twisted.internet.defer import succeed
 
 from twistedcaldav.resource import CalDAVResource
+from twistedcaldav.config import config
 
 class SimpleResource (
     CalDAVResource,
@@ -94,4 +95,4 @@ class SimpleRedirectResource(SimpleResource):
         self._kwargs = kwargs
 
     def renderHTTP(self, request):
-        return http.RedirectResponse(request.unparseURL(**self._kwargs))
+        return http.RedirectResponse(request.unparseURL(host=config.ServerHostName, **self._kwargs))
