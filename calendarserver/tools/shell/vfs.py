@@ -566,6 +566,16 @@ class CalendarFolder(Folder):
 
         returnValue("\n".join(description))
 
+    def delete(self, implicit=True):
+        calendar = self.calendarObject.calendar()
+
+        if implicit:
+            # We need data store-level scheduling support to implement
+            # this.
+            raise NotImplementedError("Delete not implemented.")
+        else:
+            calendar.removeCalendarObjectWithUID(self.uid)
+
 
 class CalendarObject(File):
     """

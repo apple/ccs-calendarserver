@@ -25,6 +25,8 @@ __all__ = [
     "Commands",
 ]
 
+from getopt import getopt
+
 #from twisted.python import log
 from twisted.internet.defer import succeed
 from twisted.internet.defer import inlineCallbacks, returnValue
@@ -52,8 +54,16 @@ class UnknownArguments(UsageError):
     Unknown arguments.
     """
     def __init__(self, arguments):
-        Exception.__init__(self, "Unknown arguments: %s" % (arguments,))
+        UsageError.__init__(self, "Unknown arguments: %s" % (arguments,))
         self.arguments = arguments
+
+
+class InsufficientArguments(UsageError):
+    """
+    Insufficient arguments.
+    """
+    def __init__(self):
+        UsageError.__init__(self, "Insufficient arguments.")
 
 
 class CommandsBase(object):
@@ -70,7 +80,7 @@ class CommandsBase(object):
     # Utilities
     #
 
-    def getTarget(self, tokens):
+    def getTarget(self, tokens, wdFallback=False):
         """
         Pop's the first token from tokens and locates the File
         indicated by that token.
@@ -79,10 +89,13 @@ class CommandsBase(object):
         if tokens:
             return self.wd.locate(tokens.pop(0).split("/"))
         else:
-            return succeed(self.wd)
+            if wdFallback:
+                return succeed(self.wd)
+            else:
+                return succeed(None)
 
     @inlineCallbacks
-    def getTargets(self, tokens):
+    def getTargets(self, tokens, wdFallback=False):
         """
         For each given C{token}, locate a File to operate on.
         @return: iterable of C{File} objects.
@@ -93,7 +106,10 @@ class CommandsBase(object):
                 result.append((yield self.wd.locate(token.split("/"))))
             returnValue(result)
         else:
-            returnValue((self.wd,))
+            if wdFallback:
+                returnValue((self.wd,))
+            else:
+                returnValue(())
 
     def commands(self, showHidden=False):
         """
@@ -414,7 +430,7 @@ class Commands(CommandsBase):
 
         usage: ls [folder]
         """
-        targets = (yield self.getTargets(tokens))
+        targets = (yield self.getTargets(tokens, wdFallback=True))
         multiple = len(targets) > 0
 
         for target in targets:
@@ -443,7 +459,7 @@ class Commands(CommandsBase):
 
         usage: info [folder]
         """
-        target = (yield self.getTarget(tokens))
+        target = (yield self.getTarget(tokens, wdFallback=True))
 
         if tokens:
             raise UnknownArguments(tokens)
@@ -462,12 +478,51 @@ class Commands(CommandsBase):
 
         usage: cat target [target ...]
         """
-        for target in (yield self.getTargets(tokens)):
+        targets = (yield self.getTargets(tokens))
+
+        if not targets:
+            raise InsufficientArguments()
+
+        for target in targets:
             if hasattr(target, "text"):
                 text = (yield target.text())
                 self.terminal.write(text)
 
     complete_cat = CommandsBase.complete_files
+
+
+    @inlineCallbacks
+    def cmd_rm(self, tokens):
+        """
+        Remove target.
+
+        usage: rm target [target ...]
+        """
+        options, tokens = getopt(tokens, "", ["no-implicit"])
+
+        implicit = True
+
+        for option, value in options:
+            if option == "--no-implicit":
+                # Not in docstring; this is really dangerous.
+                implicit = False
+            else:
+                raise AssertionError("We should't be here.")
+
+        targets = (yield self.getTargets(tokens))
+
+        if not targets:
+            raise InsufficientArguments()
+
+        for target in targets:
+            if hasattr(target, "delete"):
+                target.delete(implicit=implicit)
+            else:
+                self.terminal.write("Can not delete read-only target: %s\n" % (target,))
+
+    cmd_rm.hidden = "Incomplete"
+
+    complete_rm = CommandsBase.complete_files
 
 
     #
