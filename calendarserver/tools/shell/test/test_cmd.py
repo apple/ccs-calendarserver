@@ -31,8 +31,11 @@ class TestCommandsBase(twisted.trial.unittest.TestCase):
 
     @inlineCallbacks
     def test_getTargetNone(self):
-        target = (yield self.commands.getTarget([]))
+        target = (yield self.commands.getTarget([], wdFallback=True))
         self.assertEquals(target, self.commands.wd)
+
+        target = (yield self.commands.getTarget([]))
+        self.assertEquals(target, None)
 
     def test_getTargetMissing(self):
         self.assertFailure(self.commands.getTarget(["/foo"]), NotFoundError)
