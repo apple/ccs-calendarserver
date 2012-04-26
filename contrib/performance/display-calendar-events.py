@@ -14,15 +14,15 @@
 # limitations under the License.
 ##
 
+import eventkitframework as EventKit
 from Cocoa import NSDate
-from CalendarStore import CalCalendarStore
 
-store = CalCalendarStore.defaultCalendarStore()
-calendars = store.calendars()
+store = EventKit.EKEventStore.alloc().init()
+calendars = store.calendarsForEntityType_(0)
 print calendars
 raise SystemExit
 
-predicate = CalCalendarStore.eventPredicateWithStartDate_endDate_calendars_(
-    NSDate.date(), NSDate.distantFuture(),
-    [calendars[2]])
-print store.eventsWithPredicate_(predicate)
+predicate = store.predicateForEventsWithStartDate_endDate_calendars_(
+     NSDate.date(), NSDate.distantFuture(),
+     [calendars[2]])
+print store.eventsMatchingPredicate_(predicate)
