@@ -29,14 +29,19 @@ def main():
     try:
         # Create calendar ServerRoot
         os.mkdir(CALENDAR_SERVER_ROOT)
+    except OSError:
+        # Already exists
+        pass
 
-        # Copy configuration
-        shutil.copytree(SRC_CONFIG_DIR, DEST_CONFIG_DIR)
+    try:
+        # Create calendar ConfigRoot
+        os.mkdir(DEST_CONFIG_DIR)
     except OSError:
         # Already exists
         pass
 
     plistPath = os.path.join(DEST_CONFIG_DIR, CALDAVD_PLIST)
+
     if os.path.exists(plistPath):
         try:
             plistData = readPlist(plistPath)
@@ -55,6 +60,11 @@ def main():
             writePlist(plistData, plistPath)
         except Exception, e:
             print "Unable to disable services in %s: %s" % (plistPath, e)
+
+    else:
+        # Copy configuration
+        srcPlistPath = os.path.join(SRC_CONFIG_DIR, CALDAVD_PLIST)
+        shutil.copy(srcPlistPath, DEST_CONFIG_DIR)
 
     # Create log directory
     try:
