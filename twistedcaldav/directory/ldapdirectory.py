@@ -105,7 +105,7 @@ class LdapDirectoryService(CachingDirectoryService):
             "authMethod": "LDAP",
             "rdnSchema": {
                 "base": "dc=example,dc=com",
-                "guidAttr": None,
+                "guidAttr": "entryUUID",
                 "users": {
                     "rdn": "ou=People",
                     "attr": "uid", # used only to synthesize email address
