@@ -1047,7 +1047,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             yield self._recurrenceMaxByIDQuery.on(txn,
                                          resourceID=self._resourceID)
         )[0][0]
-        returnValue(parseSQLDateToPyCalendar(rMax))
+        returnValue(parseSQLDateToPyCalendar(rMax) if rMax is not None else None)
 
 
     @inlineCallbacks

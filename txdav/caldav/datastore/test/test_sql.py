@@ -1168,4 +1168,18 @@ END:VCALENDAR
             self.fail("Expected an exception")
         self.assertFalse(resource2._locked)
 
+
+    @inlineCallbacks
+    def test_recurrenceMax(self):
+        """
+        Test CalendarObjectResource.recurrenceMax to make sure it handles a None value.
+        """
+        
+        # Valid object
+        resource = yield self.calendarObjectUnderTest()
+        
+        # Valid lock
+        rMax = yield resource.recurrenceMax()
+        self.assertEqual(rMax, None)
+
         
