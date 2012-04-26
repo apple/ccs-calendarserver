@@ -250,7 +250,7 @@
           <key>base</key>
           <string>dc=example,dc=com</string>
           <key>guidAttr</key>
-          <string>apple-generateduid</string>
+          <string>entryUUID</string>
           <key>users</key>
           <dict>
             <key>rdn</key>
