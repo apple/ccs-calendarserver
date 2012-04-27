@@ -25,6 +25,7 @@ __all__ = [
     "CommonHome",
 ]
 
+from uuid import uuid4
 
 from zope.interface import implements, directlyProvides
 
@@ -1943,10 +1944,30 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
         return cls._allHomeChildrenQuery(False)
 
 
+    @inlineCallbacks
     def shareWithUID(self, homeUID, mode):
         """
         Share this (owned) L{CommonHomeChild} with another home UID.
+
+        @param homeUID: the UID of the home of the sharee.
+        @type homeUID: L{str}
+
+        @param mode: The sharing mode; L{_BIND_MODE_READ} or
+            L{_BIND_MODE_WRITE}.
+        @type mode: L{str}
+
+        @return: the name of the shared calendar in the new calendar home.
         """
+        shareeHome = yield self._txn.calendarHomeWithUID(homeUID)
+        # FIXME: honor current home type
+        newName = str(uuid4())
+        yield self._bindInsertQuery.on(
+            self._txn, homeID=shareeHome._resourceID,
+            resourceID=self._resourceID, name=newName, bindMode=mode,
+            seenByOwner=True, seenBySharee=True,
+            bindStatus=_BIND_STATUS_ACCEPTED,
+        )
+        returnValue(newName)
 
 
     @classmethod
@@ -2145,18 +2166,21 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
 
 
     @classproperty
-    def _initialOwnerBind(cls): #@NoSelf
+    def _bindInsertQuery(cls, **kw):
         """
-        DAL statement to create a bind entry for a particular home value.
+        DAL statement to create a bind entry that connects a collection to its
+        owner's home.
         """
         bind = cls._bindSchema
-        return Insert({bind.HOME_RESOURCE_ID: Parameter("homeID"),
-                       bind.RESOURCE_ID: Parameter("resourceID"),
-                       bind.RESOURCE_NAME: Parameter("name"),
-                       bind.BIND_MODE: _BIND_MODE_OWN,
-                       bind.SEEN_BY_OWNER: True,
-                       bind.SEEN_BY_SHAREE: True,
-                       bind.BIND_STATUS: _BIND_STATUS_ACCEPTED})
+        return Insert({
+            bind.HOME_RESOURCE_ID: Parameter("homeID"),
+            bind.RESOURCE_ID: Parameter("resourceID"),
+            bind.RESOURCE_NAME: Parameter("name"),
+            bind.BIND_MODE: Parameter("bindMode"),
+            bind.BIND_STATUS: Parameter("bindStatus"),
+            bind.SEEN_BY_OWNER: Parameter("seenByOwner"),
+            bind.SEEN_BY_SHAREE: Parameter("seenBySharee"),
+        })
 
 
     @classmethod
@@ -2179,8 +2203,11 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
                                                   resourceID=resourceID))[0]
 
         # Bind table needs entry
-        yield cls._initialOwnerBind.on(home._txn, homeID=home._resourceID,
-                                       resourceID=resourceID, name=name)
+        yield cls._bindInsertQuery.on(
+            home._txn, homeID=home._resourceID, resourceID=resourceID,
+            name=name, bindMode=_BIND_MODE_OWN, seenByOwner=True,
+            seenBySharee=True, bindStatus=_BIND_STATUS_ACCEPTED
+        )
 
         # Initialize other state
         child = cls(home, name, resourceID, True)
