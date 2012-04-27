@@ -994,12 +994,15 @@ class CommonTests(CommonCommonTests):
         newCalName = yield cal.shareWithUID(OTHER_HOME_UID, _BIND_MODE_WRITE)
         yield self.commit()
         normalCal = yield self.calendarUnderTest()
-        otherCal = yield self.calendarUnderTest(name=newCalName,
-                                                home=OTHER_HOME_UID)
+        otherHome = yield self.homeUnderTest(name=OTHER_HOME_UID)
+        otherCal = yield otherHome.sharedChildWithName(newCalName)
         self.assertNotIdentical(otherCal, None)
         self.assertEqual(
-            (yield otherCal.calendarObjectWithName("1.ics")).component(),
-            (yield normalCal.calendarObjectWithName("1.ics")).component())
+            (yield
+             (yield otherCal.calendarObjectWithName("1.ics")).component()),
+            (yield
+             (yield normalCal.calendarObjectWithName("1.ics")).component())
+        )
 
 
     @inlineCallbacks
