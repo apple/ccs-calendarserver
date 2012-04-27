@@ -96,7 +96,7 @@ if ${flaky}; then
 fi;
 
 tmp="$(mktemp "/tmp/calendarserver_test_emtpy.XXXXX")";
-find "${wd}" '!' '(' -type d '(' -path './.*' -o -name data ')' -prune ')' -type f -size 0 > "${tmp}";
+find "${wd}" '!' '(' -type d '(' -path '*/.*' -o -name data ')' -prune ')' -type f -size 0 > "${tmp}";
 if [ -s "${tmp}" ]; then
     echo "**** Empty files: ****";
     cat "${tmp}";
