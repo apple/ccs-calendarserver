@@ -465,12 +465,12 @@ class FileStorageTests(CommonTests, unittest.TestCase):
         return self.calendarStore
 
 
-    def test_shareWithUID(self):
+    def test_shareWith(self):
         """
         Overridden to be skipped.
         """
 
-    test_shareWithUID.skip = "Not implemented for file store yet."
+    test_shareWith.skip = "Not implemented for file store yet."
 
 
     def test_init(self):
