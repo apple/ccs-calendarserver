@@ -83,6 +83,7 @@ from txdav.common.icommondatastore import ConcurrentModification
 from twistedcaldav.customxml import NotificationType
 from twistedcaldav.dateops import datetimeMktime, parseSQLTimestamp,\
     pyCalendarTodatetime
+from txdav.xml.rfc2518 import DisplayName
 
 from cStringIO import StringIO
 from sqlparse import parse
@@ -1972,6 +1973,9 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
         @return: the name of the shared calendar in the new calendar home.
         """
         shareeHome = yield self._txn.calendarHomeWithUID(homeUID)
+        dn = PropertyName.fromElement(DisplayName)
+        dnprop = (self.properties().get(dn) or
+                  DisplayName.fromString(self.name()))
         # FIXME: honor current home type
         newName = str(uuid4())
         yield self._bindInsertQuery.on(
@@ -1981,10 +1985,13 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
             bindStatus=_BIND_STATUS_ACCEPTED,
         )
         yield self._insertInviteQuery.on(
-            self._txn, uid=newName, name=newName,
+            self._txn, uid=newName, name=str(dnprop),
             homeID=shareeHome._resourceID, resourceID=self._resourceID,
             recipient=homeUID
         )
+        shareeProps = yield PropertyStore.load(homeUID, self._txn,
+                                               self._resourceID)
+        shareeProps[dn] = dnprop
         returnValue(newName)
 
 
