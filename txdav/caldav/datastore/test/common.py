@@ -991,7 +991,7 @@ class CommonTests(CommonCommonTests):
         """
         cal = yield self.calendarUnderTest()
         OTHER_HOME_UID = "home_splits"
-        other = yield self.calendarUnderTest(OTHER_HOME_UID)
+        other = yield self.homeUnderTest(name=OTHER_HOME_UID)
         newCalName = yield cal.shareWith(other, _BIND_MODE_WRITE)
         yield self.commit()
         normalCal = yield self.calendarUnderTest()
