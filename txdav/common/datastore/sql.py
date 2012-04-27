@@ -1943,6 +1943,12 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
         return cls._allHomeChildrenQuery(False)
 
 
+    def shareWithUID(self, homeUID, mode):
+        """
+        Share this (owned) L{CommonHomeChild} with another home UID.
+        """
+
+
     @classmethod
     @inlineCallbacks
     def loadAllObjects(cls, home, owned):
