@@ -43,6 +43,7 @@ from txdav.common.icommondatastore import NoSuchObjectResourceError
 from txdav.common.icommondatastore import ObjectResourceNameAlreadyExistsError
 from txdav.common.inotifications import INotificationObject
 from txdav.common.datastore.test.util import CommonCommonTests
+from txdav.common.datastore.sql_tables import _BIND_MODE_WRITE
 
 from txdav.caldav.icalendarstore import (
     ICalendarObject, ICalendarHome,
@@ -990,11 +991,12 @@ class CommonTests(CommonCommonTests):
         """
         cal = yield self.calendarUnderTest()
         OTHER_HOME_UID = "home_splits"
-        newCalName = yield cal.shareWithUID(OTHER_HOME_UID)
-        self.commit()
+        newCalName = yield cal.shareWithUID(OTHER_HOME_UID, _BIND_MODE_WRITE)
+        yield self.commit()
         normalCal = yield self.calendarUnderTest()
         otherCal = yield self.calendarUnderTest(name=newCalName,
                                                 home=OTHER_HOME_UID)
+        self.assertNotIdentical(otherCal, None)
         self.assertEqual(
             (yield otherCal.calendarObjectWithName("1.ics")).component(),
             (yield normalCal.calendarObjectWithName("1.ics")).component())
