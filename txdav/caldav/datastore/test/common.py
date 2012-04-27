@@ -43,6 +43,7 @@ from txdav.common.icommondatastore import NoSuchObjectResourceError
 from txdav.common.icommondatastore import ObjectResourceNameAlreadyExistsError
 from txdav.common.inotifications import INotificationObject
 from txdav.common.datastore.test.util import CommonCommonTests
+from txdav.common.datastore.sql_tables import _BIND_MODE_WRITE
 
 from txdav.caldav.icalendarstore import (
     ICalendarObject, ICalendarHome,
@@ -324,22 +325,22 @@ class CommonTests(CommonCommonTests):
 
 
     @inlineCallbacks
-    def homeUnderTest(self, txn=None):
+    def homeUnderTest(self, txn=None, name="home1"):
         """
         Get the calendar home detailed by C{requirements['home1']}.
         """
         if txn is None:
             txn = self.transactionUnderTest()
-        returnValue((yield txn.calendarHomeWithUID("home1")))
+        returnValue((yield txn.calendarHomeWithUID(name)))
 
 
     @inlineCallbacks
-    def calendarUnderTest(self, txn=None):
+    def calendarUnderTest(self, txn=None, name="calendar_1", home="home1"):
         """
         Get the calendar detailed by C{requirements['home1']['calendar_1']}.
         """
         returnValue((yield
-            (yield self.homeUnderTest(txn)).calendarWithName("calendar_1"))
+            (yield self.homeUnderTest(txn, home)).calendarWithName(name))
         )
 
 
@@ -981,6 +982,35 @@ class CommonTests(CommonCommonTests):
         L{Calendar.name} reflects the name of the calendar.
         """
         self.assertEquals((yield self.calendarUnderTest()).name(), "calendar_1")
+
+
+    @inlineCallbacks
+    def test_shareWith(self):
+        """
+        L{ICalendar.shareWith} will share a calendar with a given home UID.
+        """
+        cal = yield self.calendarUnderTest()
+        OTHER_HOME_UID = "home_splits"
+        other = yield self.homeUnderTest(name=OTHER_HOME_UID)
+        newCalName = yield cal.shareWith(other, _BIND_MODE_WRITE)
+        yield self.commit()
+        normalCal = yield self.calendarUnderTest()
+        otherHome = yield self.homeUnderTest(name=OTHER_HOME_UID)
+        otherCal = yield otherHome.sharedChildWithName(newCalName)
+        self.assertNotIdentical(otherCal, None)
+        self.assertEqual(
+            (yield
+             (yield otherCal.calendarObjectWithName("1.ics")).component()),
+            (yield
+             (yield normalCal.calendarObjectWithName("1.ics")).component())
+        )
+        # Check legacy shares database too, since that's what the protocol layer
+        # is still using to list things.
+        self.assertEqual(
+            [(record.shareuid, record.localname) for record in
+             (yield otherHome.retrieveOldShares().allRecords())],
+            [(newCalName, newCalName)]
+        )
 
 
     @inlineCallbacks

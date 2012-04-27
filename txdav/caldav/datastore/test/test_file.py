@@ -465,6 +465,14 @@ class FileStorageTests(CommonTests, unittest.TestCase):
         return self.calendarStore
 
 
+    def test_shareWith(self):
+        """
+        Overridden to be skipped.
+        """
+
+    test_shareWith.skip = "Not implemented for file store yet."
+
+
     def test_init(self):
         """
         L{CalendarStore} has a C{_path} attribute which refers to its
