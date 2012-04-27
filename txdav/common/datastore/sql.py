@@ -168,22 +168,21 @@ class CommonDataStore(Service, object):
 
     def eachCalendarHome(self):
         """
-        @see L{ICalendarStore.eachCalendarHome}
+        @see: L{ICalendarStore.eachCalendarHome}
         """
         return []
 
 
     def eachAddressbookHome(self):
         """
-        @see L{IAddressbookStore.eachAddressbookHome}
+        @see: L{IAddressbookStore.eachAddressbookHome}
         """
         return []
 
 
-
     def newTransaction(self, label="unlabeled"):
         """
-        @see L{IDataStore.newTransaction}
+        @see: L{IDataStore.newTransaction}
         """
         txn = CommonStoreTransaction(
             self,
@@ -1944,6 +1943,20 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
         return cls._allHomeChildrenQuery(False)
 
 
+    @classproperty
+    def _insertInviteQuery(cls): #@NoSelf
+        inv = schema.INVITE
+        return Insert(
+            {
+                inv.INVITE_UID: Parameter("uid"),
+                inv.NAME: Parameter("name"),
+                inv.HOME_RESOURCE_ID: Parameter("homeID"),
+                inv.RESOURCE_ID: Parameter("resourceID"),
+                inv.RECIPIENT_ADDRESS: Parameter("recipient")
+            }
+        )
+
+
     @inlineCallbacks
     def shareWithUID(self, homeUID, mode):
         """
@@ -1963,9 +1976,14 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
         newName = str(uuid4())
         yield self._bindInsertQuery.on(
             self._txn, homeID=shareeHome._resourceID,
-            resourceID=self._resourceID, name=newName, bindMode=mode,
+            resourceID=self._resourceID, name=newName, mode=mode,
             seenByOwner=True, seenBySharee=True,
             bindStatus=_BIND_STATUS_ACCEPTED,
+        )
+        yield self._insertInviteQuery.on(
+            self._txn, uid=newName, name=newName,
+            homeID=shareeHome._resourceID, resourceID=self._resourceID,
+            recipient=homeUID
         )
         returnValue(newName)
 
@@ -2176,7 +2194,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
             bind.HOME_RESOURCE_ID: Parameter("homeID"),
             bind.RESOURCE_ID: Parameter("resourceID"),
             bind.RESOURCE_NAME: Parameter("name"),
-            bind.BIND_MODE: Parameter("bindMode"),
+            bind.BIND_MODE: Parameter("mode"),
             bind.BIND_STATUS: Parameter("bindStatus"),
             bind.SEEN_BY_OWNER: Parameter("seenByOwner"),
             bind.SEEN_BY_SHAREE: Parameter("seenBySharee"),
@@ -2205,7 +2223,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
         # Bind table needs entry
         yield cls._bindInsertQuery.on(
             home._txn, homeID=home._resourceID, resourceID=resourceID,
-            name=name, bindMode=_BIND_MODE_OWN, seenByOwner=True,
+            name=name, mode=_BIND_MODE_OWN, seenByOwner=True,
             seenBySharee=True, bindStatus=_BIND_STATUS_ACCEPTED
         )
 

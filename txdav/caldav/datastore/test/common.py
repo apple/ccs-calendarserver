@@ -1003,6 +1003,13 @@ class CommonTests(CommonCommonTests):
             (yield
              (yield normalCal.calendarObjectWithName("1.ics")).component())
         )
+        # Check legacy shares database too, since that's what the protocol layer
+        # is still using to list things.
+        self.assertEqual(
+            [(record.shareuid, record.localname) for record in
+             (yield otherHome.retrieveOldShares().allRecords())],
+            [(newCalName, newCalName)]
+        )
 
 
     @inlineCallbacks
