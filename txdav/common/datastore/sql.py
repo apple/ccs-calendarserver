@@ -1959,20 +1959,20 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
 
 
     @inlineCallbacks
-    def shareWithUID(self, homeUID, mode):
+    def shareWith(self, shareeHome, mode):
         """
-        Share this (owned) L{CommonHomeChild} with another home UID.
+        Share this (owned) L{CommonHomeChild} with another home.
 
-        @param homeUID: the UID of the home of the sharee.
-        @type homeUID: L{str}
+        @param shareeHome: The home of the sharee.
+        @type shareeHome: L{CommonHome}
 
         @param mode: The sharing mode; L{_BIND_MODE_READ} or
             L{_BIND_MODE_WRITE}.
         @type mode: L{str}
 
         @return: the name of the shared calendar in the new calendar home.
+        @rtype: L{str}
         """
-        shareeHome = yield self._txn.calendarHomeWithUID(homeUID)
         dn = PropertyName.fromElement(DisplayName)
         dnprop = (self.properties().get(dn) or
                   DisplayName.fromString(self.name()))
@@ -1987,9 +1987,9 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
         yield self._insertInviteQuery.on(
             self._txn, uid=newName, name=str(dnprop),
             homeID=shareeHome._resourceID, resourceID=self._resourceID,
-            recipient=homeUID
+            recipient=shareeHome.uid()
         )
-        shareeProps = yield PropertyStore.load(homeUID, self._txn,
+        shareeProps = yield PropertyStore.load(shareeHome.uid(), self._txn,
                                                self._resourceID)
         shareeProps[dn] = dnprop
         returnValue(newName)

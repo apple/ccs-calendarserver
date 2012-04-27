@@ -985,13 +985,14 @@ class CommonTests(CommonCommonTests):
 
 
     @inlineCallbacks
-    def test_shareWithUID(self):
+    def test_shareWith(self):
         """
-        L{ICalendar.shareWithUID} will share a calendar with a given home UID.
+        L{ICalendar.shareWith} will share a calendar with a given home UID.
         """
         cal = yield self.calendarUnderTest()
         OTHER_HOME_UID = "home_splits"
-        newCalName = yield cal.shareWithUID(OTHER_HOME_UID, _BIND_MODE_WRITE)
+        other = yield self.calendarUnderTest(OTHER_HOME_UID)
+        newCalName = yield cal.shareWith(other, _BIND_MODE_WRITE)
         yield self.commit()
         normalCal = yield self.calendarUnderTest()
         otherHome = yield self.homeUnderTest(name=OTHER_HOME_UID)
