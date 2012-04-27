@@ -59,10 +59,14 @@ from twistedcaldav.stdconfig import DEFAULT_CONFIG_FILE
 from twistedcaldav.util import normalizationLookup
 from txdav.common.datastore.sql_tables import schema, _BIND_MODE_OWN
 from txdav.common.icommondatastore import InternalDataStoreError
+import base64
 import collections
 import os
 import sys
 import time
+import traceback
+
+VERSION = "2"
 
 def usage(e=None):
     if e:
@@ -78,14 +82,15 @@ def usage(e=None):
         sys.exit(0)
 
 
-description = '\n'.join(
+description = ''.join(
     wordWrap(
         """
-        Usage: calendarserver_verify_data [options] [input specifiers]\n
+        Usage: calendarserver_verify_data [options] [input specifiers]
         """,
         int(os.environ.get('COLUMNS', '80'))
     )
 )
+description += "\nVersion: %s" % (VERSION,)
 
 
 def safePercent(x, y, multiplier=100.0):
@@ -101,6 +106,8 @@ class CalVerifyOptions(Options):
 
     optFlags = [
         ['ical', 'i', "Calendar data check."],
+        ['badcua', 'i', "Calendar data check for bad CALENDARSERVER-OLD-CUA only."],
+        ['nobase64', 'n', "Do not apply CALENDARSERVER-OLD-CUA base64 transform when fixing."],
         ['mismatch', 's', "Detect organizer/attendee mismatches."],
         ['missing', 'm', "Show 'orphaned' homes."],
         ['fix', 'x', "Fix problems."],
@@ -161,6 +168,8 @@ class CalVerifyService(Service, object):
         self.results = {}
         self.summary = []
         self.total = 0
+        self.totalErrors = None
+        self.totalExceptions = None
 
 
     def startService(self):
@@ -176,12 +185,14 @@ class CalVerifyService(Service, object):
         """
         Do the export, stopping the reactor when done.
         """
+        self.output.write("\n---- CalVerify version: %s ----\n" % (VERSION,))
+
         try:
             if self.options["missing"]:
                 yield self.doOrphans()
                 
-            if self.options["mismatch"] or self.options["ical"]:
-                yield self.doScan(self.options["ical"], self.options["mismatch"], self.options["fix"])
+            if self.options["mismatch"] or self.options["ical"] or self.options["badcua"]:
+                yield self.doScan(self.options["ical"] or self.options["badcua"], self.options["mismatch"], self.options["fix"])
 
             self.printSummary()
 
@@ -333,10 +344,13 @@ class CalVerifyService(Service, object):
         descriptor = None
         if ical:
             if self.options["uuid"]:
-                rows = yield self.getAllResourceInfoWithUUID(self.options["uuid"])
+                rows = yield self.getAllResourceInfoWithUUID(self.options["uuid"], inbox=True)
                 descriptor = "getAllResourceInfoWithUUID"
+            elif self.options["uid"]:
+                rows = yield self.getAllResourceInfoWithUID(self.options["uid"], inbox=True)
+                descriptor = "getAllResourceInfoWithUID"
             else:
-                rows = yield self.getAllResourceInfo()
+                rows = yield self.getAllResourceInfo(inbox=True)
                 descriptor = "getAllResourceInfo"
         else:
             if self.options["uid"]:
@@ -364,11 +378,17 @@ class CalVerifyService(Service, object):
         self.attended_byuid = collections.defaultdict(list)
         self.matched_attendee_to_organizer = collections.defaultdict(set)
         skipped = 0
-        for owner, resid, uid, md5, organizer, created, modified in rows:
+        inboxes = 0
+        for owner, resid, uid, calname, md5, organizer, created, modified in rows:
             
             # Skip owners not enabled for calendaring
             if not self.testForCalendaringUUID(owner):
                 skipped += 1
+                continue
+
+            # Skip inboxes
+            if calname == "inbox":
+                inboxes += 1
                 continue
 
             # If targeting a specific organizer, skip events belonging to others
@@ -389,13 +409,18 @@ class CalVerifyService(Service, object):
         self.results["Number of organizer events to process"] = len(self.organized)
         self.results["Number of attendee events to process"] = len(self.attended)
         self.results["Number of skipped events"] = skipped
+        self.results["Number of inbox events"] = inboxes
         self.addToSummary("Number of organizer events to process", len(self.organized), self.total)
         self.addToSummary("Number of attendee events to process", len(self.attended), self.total)
         self.addToSummary("Number of skipped events", skipped, self.total)
+        if ical:
+            self.addToSummary("Number of inbox events", inboxes, self.total)
+        self.addSummaryBreak()
 
         if ical:
             yield self.calendarDataCheck(rows)
         elif mismatch:
+            self.totalErrors = 0
             yield self.verifyAllAttendeesForOrganizer()
             yield self.verifyAllOrganizersForAttendee()
         
@@ -403,42 +428,56 @@ class CalVerifyService(Service, object):
 
 
     @inlineCallbacks
-    def getAllResourceInfo(self):
+    def getAllResourceInfo(self, inbox=False):
         co = schema.CALENDAR_OBJECT
         cb = schema.CALENDAR_BIND
         ch = schema.CALENDAR_HOME
+        
+        if inbox:
+            cojoin = (cb.CALENDAR_RESOURCE_ID == co.CALENDAR_RESOURCE_ID).And(
+                    cb.BIND_MODE == _BIND_MODE_OWN)
+        else:
+            cojoin = (cb.CALENDAR_RESOURCE_ID == co.CALENDAR_RESOURCE_ID).And(
+                    cb.BIND_MODE == _BIND_MODE_OWN).And(
+                    cb.CALENDAR_RESOURCE_NAME != "inbox")
+
         kwds = {}
         rows = (yield Select(
-            [ch.OWNER_UID, co.RESOURCE_ID, co.ICALENDAR_UID, co.MD5, co.ORGANIZER, co.CREATED, co.MODIFIED],
+            [ch.OWNER_UID, co.RESOURCE_ID, co.ICALENDAR_UID, cb.CALENDAR_RESOURCE_NAME, co.MD5, co.ORGANIZER, co.CREATED, co.MODIFIED],
             From=ch.join(
                 cb, type="inner", on=(ch.RESOURCE_ID == cb.CALENDAR_HOME_RESOURCE_ID)).join(
-                co, type="inner", on=(cb.CALENDAR_RESOURCE_ID == co.CALENDAR_RESOURCE_ID).And(
-                    cb.BIND_MODE == _BIND_MODE_OWN).And(
-                    cb.CALENDAR_RESOURCE_NAME != "inbox")),
-            GroupBy=(ch.OWNER_UID, co.RESOURCE_ID, co.ICALENDAR_UID, co.MD5, co.ORGANIZER, co.CREATED, co.MODIFIED,),
+                co, type="inner", on=cojoin),
+            GroupBy=(ch.OWNER_UID, co.RESOURCE_ID, co.ICALENDAR_UID, cb.CALENDAR_RESOURCE_NAME, co.MD5, co.ORGANIZER, co.CREATED, co.MODIFIED,),
         ).on(self.txn, **kwds))
         returnValue(tuple(rows))
 
 
     @inlineCallbacks
-    def getAllResourceInfoWithUUID(self, uuid):
+    def getAllResourceInfoWithUUID(self, uuid, inbox=False):
         co = schema.CALENDAR_OBJECT
         cb = schema.CALENDAR_BIND
         ch = schema.CALENDAR_HOME
+
+        if inbox:
+            cojoin = (cb.CALENDAR_RESOURCE_ID == co.CALENDAR_RESOURCE_ID).And(
+                    cb.BIND_MODE == _BIND_MODE_OWN)
+        else:
+            cojoin = (cb.CALENDAR_RESOURCE_ID == co.CALENDAR_RESOURCE_ID).And(
+                    cb.BIND_MODE == _BIND_MODE_OWN).And(
+                    cb.CALENDAR_RESOURCE_NAME != "inbox")
+
         kwds = {"uuid": uuid}
         if len(uuid) != 36:
             where = (ch.OWNER_UID.StartsWith(Parameter("uuid")))
         else:
             where = (ch.OWNER_UID == Parameter("uuid"))
         rows = (yield Select(
-            [ch.OWNER_UID, co.RESOURCE_ID, co.ICALENDAR_UID, co.MD5, co.ORGANIZER, co.CREATED, co.MODIFIED],
+            [ch.OWNER_UID, co.RESOURCE_ID, co.ICALENDAR_UID, cb.CALENDAR_RESOURCE_NAME, co.MD5, co.ORGANIZER, co.CREATED, co.MODIFIED],
             From=ch.join(
                 cb, type="inner", on=(ch.RESOURCE_ID == cb.CALENDAR_HOME_RESOURCE_ID)).join(
-                co, type="inner", on=(cb.CALENDAR_RESOURCE_ID == co.CALENDAR_RESOURCE_ID).And(
-                    cb.BIND_MODE == _BIND_MODE_OWN).And(
-                    cb.CALENDAR_RESOURCE_NAME != "inbox")),
+                co, type="inner", on=cojoin),
             Where=where,
-            GroupBy=(ch.OWNER_UID, co.RESOURCE_ID, co.ICALENDAR_UID, co.MD5, co.ORGANIZER, co.CREATED, co.MODIFIED,),
+            GroupBy=(ch.OWNER_UID, co.RESOURCE_ID, co.ICALENDAR_UID, cb.CALENDAR_RESOURCE_NAME, co.MD5, co.ORGANIZER, co.CREATED, co.MODIFIED,),
         ).on(self.txn, **kwds))
         returnValue(tuple(rows))
 
@@ -454,7 +493,7 @@ class CalVerifyService(Service, object):
             "Max"   : pyCalendarTodatetime(PyCalendarDateTime(1900, 1, 1, 0, 0, 0))
         }
         rows = (yield Select(
-            [ch.OWNER_UID, co.RESOURCE_ID, co.ICALENDAR_UID, co.MD5, co.ORGANIZER, co.CREATED, co.MODIFIED],
+            [ch.OWNER_UID, co.RESOURCE_ID, co.ICALENDAR_UID, cb.CALENDAR_RESOURCE_NAME, co.MD5, co.ORGANIZER, co.CREATED, co.MODIFIED],
             From=ch.join(
                 cb, type="inner", on=(ch.RESOURCE_ID == cb.CALENDAR_HOME_RESOURCE_ID)).join(
                 co, type="inner", on=(cb.CALENDAR_RESOURCE_ID == co.CALENDAR_RESOURCE_ID).And(
@@ -463,28 +502,35 @@ class CalVerifyService(Service, object):
                     co.ORGANIZER != "")).join(
                 tr, type="left", on=(co.RESOURCE_ID == tr.CALENDAR_OBJECT_RESOURCE_ID)),
             Where=(tr.START_DATE >= Parameter("Start")).Or(co.RECURRANCE_MAX == Parameter("Max")),
-            GroupBy=(ch.OWNER_UID, co.RESOURCE_ID, co.ICALENDAR_UID, co.MD5, co.ORGANIZER, co.CREATED, co.MODIFIED,),
+            GroupBy=(ch.OWNER_UID, co.RESOURCE_ID, co.ICALENDAR_UID, cb.CALENDAR_RESOURCE_NAME, co.MD5, co.ORGANIZER, co.CREATED, co.MODIFIED,),
         ).on(self.txn, **kwds))
         returnValue(tuple(rows))
 
 
     @inlineCallbacks
-    def getAllResourceInfoWithUID(self, uid):
+    def getAllResourceInfoWithUID(self, uid, inbox=False):
         co = schema.CALENDAR_OBJECT
         cb = schema.CALENDAR_BIND
         ch = schema.CALENDAR_HOME
+
+        if inbox:
+            cojoin = (cb.CALENDAR_RESOURCE_ID == co.CALENDAR_RESOURCE_ID).And(
+                    cb.BIND_MODE == _BIND_MODE_OWN)
+        else:
+            cojoin = (cb.CALENDAR_RESOURCE_ID == co.CALENDAR_RESOURCE_ID).And(
+                    cb.BIND_MODE == _BIND_MODE_OWN).And(
+                    cb.CALENDAR_RESOURCE_NAME != "inbox")
+
         kwds = {
             "UID" : uid,
         }
         rows = (yield Select(
-            [ch.OWNER_UID, co.RESOURCE_ID, co.ICALENDAR_UID, co.MD5, co.ORGANIZER, co.CREATED, co.MODIFIED],
+            [ch.OWNER_UID, co.RESOURCE_ID, co.ICALENDAR_UID, cb.CALENDAR_RESOURCE_NAME, co.MD5, co.ORGANIZER, co.CREATED, co.MODIFIED],
             From=ch.join(
                 cb, type="inner", on=(ch.RESOURCE_ID == cb.CALENDAR_HOME_RESOURCE_ID)).join(
-                co, type="inner", on=(cb.CALENDAR_RESOURCE_ID == co.CALENDAR_RESOURCE_ID).And(
-                    cb.BIND_MODE == _BIND_MODE_OWN).And(
-                    cb.CALENDAR_RESOURCE_NAME != "inbox")),
+                co, type="inner", on=cojoin),
             Where=(co.ICALENDAR_UID == Parameter("UID")),
-            GroupBy=(ch.OWNER_UID, co.RESOURCE_ID, co.ICALENDAR_UID, co.MD5, co.ORGANIZER, co.CREATED, co.MODIFIED,),
+            GroupBy=(ch.OWNER_UID, co.RESOURCE_ID, co.ICALENDAR_UID, cb.CALENDAR_RESOURCE_NAME, co.MD5, co.ORGANIZER, co.CREATED, co.MODIFIED,),
         ).on(self.txn, **kwds))
         returnValue(tuple(rows))
 
@@ -500,8 +546,7 @@ class CalVerifyService(Service, object):
             From=ch.join(
                 cb, type="inner", on=(ch.RESOURCE_ID == cb.CALENDAR_HOME_RESOURCE_ID)).join(
                 co, type="inner", on=(cb.CALENDAR_RESOURCE_ID == co.CALENDAR_RESOURCE_ID).And(
-                    cb.BIND_MODE == _BIND_MODE_OWN).And(
-                    cb.CALENDAR_RESOURCE_NAME != "inbox")),
+                    cb.BIND_MODE == _BIND_MODE_OWN)),
             Where=(co.RESOURCE_ID == Parameter("resid")),
         ).on(self.txn, **kwds))
         returnValue(rows[0])
@@ -541,8 +586,8 @@ class CalVerifyService(Service, object):
         total = len(rows)
         badlen = 0
         rjust = 10
-        for owner, resid, uid, _ignore_md5, _ignore_organizer, _ignore_created, _ignore_modified in rows:
-            result, message = yield self.validCalendarData(resid)
+        for owner, resid, uid, calname, _ignore_md5, _ignore_organizer, _ignore_created, _ignore_modified in rows:
+            result, message = yield self.validCalendarData(resid, calname == "inbox")
             if not result:
                 results_bad.append((owner, uid, resid, message))
                 badlen += 1
@@ -606,22 +651,23 @@ class CalVerifyService(Service, object):
     errorPrefix = "Calendar data had unfixable problems:\n  "
 
     @inlineCallbacks
-    def validCalendarData(self, resid):
+    def validCalendarData(self, resid, isinbox):
         """
         Check the calendar resource for valid iCalendar data.
         """
 
-        caldata = yield self.getCalendar(resid)
+        caldata = yield self.getCalendar(resid, self.fix)
         if caldata is None:
-            returnValue((False, "Failed to parse"))
+            returnValue((False, self.parseError))
 
         component = Component(None, pycalendar=caldata)
         result = True
         message = ""
         try:
-            component.validCalendarData(doFix=False, validateRecurrences=True)
-            component.validCalendarForCalDAV(methodAllowed=False)
-            component.validOrganizerForScheduling(doFix=False)
+            if self.options["ical"]:
+                component.validCalendarData(doFix=False, validateRecurrences=True)
+                component.validCalendarForCalDAV(methodAllowed=isinbox)
+                component.validOrganizerForScheduling(doFix=False)
             self.noPrincipalPathCUAddresses(component, doFix=False)
         except ValueError, e:
             result = False
@@ -631,7 +677,7 @@ class CalVerifyService(Service, object):
             lines = message.splitlines()
             message = lines[0] + (" ++" if len(lines) > 1 else "")
             if self.fix:
-                fixresult, fixmessage = yield self.fixCalendarData(resid)
+                fixresult, fixmessage = yield self.fixCalendarData(resid, isinbox)
                 if fixresult:
                     message = "Fixed: " + message
                 else:
@@ -649,6 +695,12 @@ class CalVerifyService(Service, object):
                 return self.cuaCache[cuaddr]
     
             result = normalizationLookup(cuaddr, principalFunction, config)
+            _ignore_name, guid, _ignore_cuaddrs = result
+            if guid is None:
+                if cuaddr.find("__uids__") != -1:
+                    guid = cuaddr[cuaddr.find("__uids__/")+9:][:36]
+                    result = "", guid, set()
+                    
     
             # Cache the result
             self.cuaCache[cuaddr] = result
@@ -658,20 +710,36 @@ class CalVerifyService(Service, object):
             if subcomponent.name() in ignoredComponents:
                 continue
             organizer = subcomponent.getProperty("ORGANIZER")
-            if organizer and organizer.value().startswith("http"):
-                if doFix:
-                    component.normalizeCalendarUserAddresses(lookupFunction, self.directoryService().principalForCalendarUserAddress)
-                else:
-                    raise InvalidICalendarDataError("iCalendar ORGANIZER starts with 'http(s)'")
+            if organizer:
+                if organizer.value().startswith("http"):
+                    if doFix:
+                        component.normalizeCalendarUserAddresses(lookupFunction, self.directoryService().principalForCalendarUserAddress)
+                    else:
+                        raise InvalidICalendarDataError("iCalendar ORGANIZER starts with 'http(s)'")
+                elif organizer.hasParameter("CALENDARSERVER-OLD-CUA"):
+                    oldcua = organizer.parameterValue("CALENDARSERVER-OLD-CUA")
+                    if not oldcua.startswith("base64-") and not self.options["nobase64"]:
+                        if doFix:
+                            organizer.setParameter("CALENDARSERVER-OLD-CUA", "base64-%s" % (base64.b64encode(oldcua)))
+                        else:
+                            raise InvalidICalendarDataError("iCalendar ORGANIZER CALENDARSERVER-OLD-CUA not base64")
+
             for attendee in subcomponent.properties("ATTENDEE"):
                 if attendee.value().startswith("http"):
                     if doFix:
                         component.normalizeCalendarUserAddresses(lookupFunction, self.directoryService().principalForCalendarUserAddress)
                     else:
                         raise InvalidICalendarDataError("iCalendar ATTENDEE starts with 'http(s)'")
+                elif attendee.hasParameter("CALENDARSERVER-OLD-CUA"):
+                    oldcua = attendee.parameterValue("CALENDARSERVER-OLD-CUA")
+                    if not oldcua.startswith("base64-") and not self.options["nobase64"]:
+                        if doFix:
+                            attendee.setParameter("CALENDARSERVER-OLD-CUA", "base64-%s" % (base64.b64encode(oldcua)))
+                        else:
+                            raise InvalidICalendarDataError("iCalendar ATTENDEE CALENDARSERVER-OLD-CUA not base64")
 
     @inlineCallbacks
-    def fixCalendarData(self, resid):
+    def fixCalendarData(self, resid, isinbox):
         """
         Fix problems in calendar data using store APIs.
         """
@@ -689,9 +757,10 @@ class CalVerifyService(Service, object):
         result = True
         message = ""
         try:
-            component.validCalendarData(doFix=True, validateRecurrences=True)
-            component.validCalendarForCalDAV(methodAllowed=False)
-            component.validOrganizerForScheduling(doFix=True)
+            if self.options["ical"]:
+                component.validCalendarData(doFix=True, validateRecurrences=True)
+                component.validCalendarForCalDAV(methodAllowed=isinbox)
+                component.validOrganizerForScheduling(doFix=True)
             self.noPrincipalPathCUAddresses(component, doFix=True)
         except ValueError:
             result = False
@@ -699,12 +768,81 @@ class CalVerifyService(Service, object):
         
         if result:
             # Write out fix, commit and get a new transaction
-            component = yield calendarObj.setComponent(component)
-            #yield self.txn.commit()
-            #self.txn = self.store.newTransaction()
+            try:
+                # Use _migrating to ignore possible overridden instance errors - we are either correcting or ignoring those
+                self.txn._migrating = True
+                component = yield calendarObj.setComponent(component)
+            except Exception, e:
+                print e, component
+                print traceback.print_exc()
+                result = False
+                message = "Exception fix: "
+            yield self.txn.commit()
+            self.txn = self.store.newTransaction()
 
         returnValue((result, message,))
 
+
+    @inlineCallbacks
+    def fixBadOldCua(self, resid, caltxt):
+        """
+        Fix bad CALENDARSERVER-OLD-CUA lines and write fixed data to store. Assumes iCalendar data lines unfolded.
+        """
+
+        # Get store objects
+        homeID, calendarID = yield self.getAllResourceInfoForResourceID(resid)
+        home = yield self.txn.calendarHomeWithResourceID(homeID)
+        calendar = yield home.childWithID(calendarID)
+        calendarObj = yield calendar.objectResourceWithID(resid)
+        
+        # Do raw data fix one line at a time
+        caltxt = self.fixBadOldCuaLines(caltxt)
+        
+        # Re-parse
+        try:
+            component = Component.fromString(caltxt)
+        except InvalidICalendarDataError:
+            returnValue(None)
+
+        # Write out fix, commit and get a new transaction
+        # Use _migrating to ignore possible overridden instance errors - we are either correcting or ignoring those
+        self.txn._migrating = True
+        component = yield calendarObj.setComponent(component)
+        yield self.txn.commit()
+        self.txn = self.store.newTransaction()
+
+        returnValue(caltxt)
+
+
+    def fixBadOldCuaLines(self, caltxt):
+        """
+        Fix bad CALENDARSERVER-OLD-CUA lines. Assumes iCalendar data lines unfolded.
+        """
+
+        # Do raw data fix one line at a time
+        lines = caltxt.splitlines()
+        for ctr, line in enumerate(lines):
+            startpos = line.find(";CALENDARSERVER-OLD-CUA=\"//")
+            if startpos != -1:
+                endpos = line.find("urn:uuid:")
+                if endpos != -1:
+                    endpos += len("urn:uuid:XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX\"")
+                    badparam = line[startpos+len(";CALENDARSERVER-OLD-CUA=\""):endpos]
+                    endbadparam = badparam.find(";")
+                    if endbadparam != -1:
+                        badparam = badparam[:endbadparam].replace("\\", "")
+                        if badparam.find("8443") != -1:
+                            badparam = "https:" + badparam
+                        else:
+                            badparam = "http:" + badparam
+                        if self.options["nobase64"]:
+                            badparam = "\"" + badparam + "\""
+                        else:
+                            badparam = "base64-%s" % (base64.b64encode(badparam),)
+                        badparam = ";CALENDARSERVER-OLD-CUA=" + badparam
+                        lines[ctr] = line[:startpos] + badparam + line[endpos:]
+        caltxt = "\r\n".join(lines) + "\r\n"
+        return caltxt
 
     @inlineCallbacks
     def verifyAllAttendeesForOrganizer(self):
@@ -849,6 +987,7 @@ class CalVerifyService(Service, object):
         self.output.write("Events missing from Attendee's calendars (total=%d):\n" % (len(results_missing),))
         table.printTable(os=self.output)
         self.addToSummary("Events missing from Attendee's calendars", len(results_missing), self.total)
+        self.totalErrors += len(results_missing)
 
         # Print table of results
         table = tables.Table()
@@ -874,6 +1013,7 @@ class CalVerifyService(Service, object):
         self.output.write("Events mismatched between Organizer's and Attendee's calendars (total=%d):\n" % (len(results_mismatch),))
         table.printTable(os=self.output)
         self.addToSummary("Events mismatched between Organizer's and Attendee's calendars", len(results_mismatch), self.total)
+        self.totalErrors += len(results_mismatch)
 
 
     @inlineCallbacks
@@ -982,6 +1122,7 @@ class CalVerifyService(Service, object):
         self.output.write("Attendee events missing in Organizer's calendar (total=%d, unique=%d):\n" % (len(missing), len(unique_set),))
         table.printTable(os=self.output)
         self.addToSummary("Attendee events missing in Organizer's calendar", len(missing), self.total)
+        self.totalErrors += len(missing)
 
         # Print table of results
         table = tables.Table()
@@ -1009,6 +1150,7 @@ class CalVerifyService(Service, object):
         self.output.write("Attendee events mismatched in Organizer's calendar (total=%d):\n" % (len(mismatched),))
         table.printTable(os=self.output)
         self.addToSummary("Attendee events mismatched in Organizer's calendar", len(mismatched), self.total)
+        self.totalErrors += len(mismatched)
 
 
     def addToSummary(self, title, count, total=None):
@@ -1017,6 +1159,10 @@ class CalVerifyService(Service, object):
         else:
             percent = ""
         self.summary.append((title, count, percent))
+
+
+    def addSummaryBreak(self):
+        self.summary.append(None)
 
 
     def printSummary(self):
@@ -1031,12 +1177,11 @@ class CalVerifyService(Service, object):
             )
         )
         for item in self.summary:
-            title, result, percent = item
-            table.addRow((
-                title,
-                result,
-                percent,
-            ))
+            table.addRow(item)
+
+        if self.totalErrors is not None:
+            table.addRow(None)
+            table.addRow(("Total Errors", self.totalErrors, safePercent(self.totalErrors, self.total),))
         
         self.output.write("\n")
         self.output.write("Overall Summary:\n")
@@ -1044,7 +1189,7 @@ class CalVerifyService(Service, object):
 
 
     @inlineCallbacks
-    def getCalendar(self, resid):
+    def getCalendar(self, resid, doFix=False):
         co = schema.CALENDAR_OBJECT
         kwds = { "ResourceID" : resid }
         rows = (yield Select(
@@ -1057,7 +1202,24 @@ class CalVerifyService(Service, object):
         try:
             caldata = PyCalendar.parseText(rows[0][0]) if rows else None
         except PyCalendarError:
-            caldata = None
+            caltxt = rows[0][0] if rows else None
+            if caltxt:
+                caltxt = caltxt.replace("\r\n ", "")
+                if caltxt.find("CALENDARSERVER-OLD-CUA=\"//") != -1:
+                    if doFix:
+                        caltxt = (yield self.fixBadOldCua(resid, caltxt))
+                        try:
+                            caldata = PyCalendar.parseText(caltxt) if rows else None
+                        except PyCalendarError:
+                            self.parseError = "No fix bad CALENDARSERVER-OLD-CUA"
+                            returnValue(None)
+                    else:
+                        self.parseError = "Bad CALENDARSERVER-OLD-CUA"
+                        returnValue(None)
+            
+            self.parseError = "Failed to parse"
+            returnValue(None)
+
         returnValue(caldata)
 
 
