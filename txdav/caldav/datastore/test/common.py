@@ -324,22 +324,22 @@ class CommonTests(CommonCommonTests):
 
 
     @inlineCallbacks
-    def homeUnderTest(self, txn=None):
+    def homeUnderTest(self, txn=None, name="home1"):
         """
         Get the calendar home detailed by C{requirements['home1']}.
         """
         if txn is None:
             txn = self.transactionUnderTest()
-        returnValue((yield txn.calendarHomeWithUID("home1")))
+        returnValue((yield txn.calendarHomeWithUID(name)))
 
 
     @inlineCallbacks
-    def calendarUnderTest(self, txn=None):
+    def calendarUnderTest(self, txn=None, name="calendar_1", home="home1"):
         """
         Get the calendar detailed by C{requirements['home1']['calendar_1']}.
         """
         returnValue((yield
-            (yield self.homeUnderTest(txn)).calendarWithName("calendar_1"))
+            (yield self.homeUnderTest(txn, home)).calendarWithName(name))
         )
 
 
@@ -981,6 +981,23 @@ class CommonTests(CommonCommonTests):
         L{Calendar.name} reflects the name of the calendar.
         """
         self.assertEquals((yield self.calendarUnderTest()).name(), "calendar_1")
+
+
+    @inlineCallbacks
+    def test_shareWithUID(self):
+        """
+        L{ICalendar.shareWithUID} will share a calendar with a given home UID.
+        """
+        cal = yield self.calendarUnderTest()
+        OTHER_HOME_UID = "home_splits"
+        newCalName = yield cal.shareWithUID(OTHER_HOME_UID)
+        self.commit()
+        normalCal = yield self.calendarUnderTest()
+        otherCal = yield self.calendarUnderTest(name=newCalName,
+                                                home=OTHER_HOME_UID)
+        self.assertEqual(
+            (yield otherCal.calendarObjectWithName("1.ics")).component(),
+            (yield normalCal.calendarObjectWithName("1.ics")).component())
 
 
     @inlineCallbacks
