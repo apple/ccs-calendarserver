@@ -160,6 +160,7 @@ def connect(endpoint, clientFactory):
     @rtype: L{IConnector}
     """
     wrap = LegacyClientFactoryWrapper(clientFactory, endpoint)
+    wrap.noisy = clientFactory.noisy # relay the noisy attribute to the wrapper
     wrap.connect()
     return wrap
 
