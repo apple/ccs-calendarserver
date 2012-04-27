@@ -21,7 +21,6 @@ from twext.python.log import Logger, LoggingMixIn
 from twext.web2 import responsecode
 from txdav.xml import element as davxml
 from twext.web2.dav.noneprops import NonePropertyStore
-from twext.web2.dav.resource import DAVResource
 from twext.web2.http import Response
 from twext.web2.http_headers import MimeType
 from twext.web2.server import parsePOSTData
@@ -29,7 +28,7 @@ from twisted.application import service
 from twisted.internet import protocol
 from twisted.internet.defer import inlineCallbacks, returnValue, succeed
 from twisted.internet.protocol import ClientFactory, ReconnectingClientFactory
-from twistedcaldav.extensions import DAVResourceWithoutChildrenMixin
+from twistedcaldav.extensions import DAVResource, DAVResourceWithoutChildrenMixin
 from twistedcaldav.resource import ReadOnlyNoCopyResourceMixIn
 import OpenSSL
 import struct
