@@ -96,12 +96,12 @@ def diffSets(results1, results2):
     
     d = s1 - s2
     print "\nIn first, not in second: (%d)" % (len(d),)
-    for i in d:
+    for i in sorted(d):
         print i
     
     d = s2 - s1
     print "\nIn second, not in first: (%d)" % (len(d),)
-    for i in d:
+    for i in sorted(d):
         print i
 
 def usage(error_msg=None):
