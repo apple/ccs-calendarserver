@@ -304,7 +304,11 @@ class InstanceList(object):
         if rrules is not None and rulestart is not None:
             # Do recurrence set expansion
             expanded = []
-            limited = rrules.expand(rulestart, PyCalendarPeriod(start, limit), expanded)
+            # Begin expansion far in the past because there may be RDATEs earlier
+            # than the master DTSTART, and if we exclude those, the associated
+            # overridden instances will cause an InvalidOverriddenInstance.
+            limited = rrules.expand(rulestart,
+                PyCalendarPeriod(PyCalendarDateTime(1900,1,1), limit), expanded)
             for startDate in expanded:
                 startDate = normalizeForIndex(startDate)
                 endDate = startDate + duration

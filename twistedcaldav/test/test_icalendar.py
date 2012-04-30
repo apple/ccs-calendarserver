@@ -433,6 +433,17 @@ DTSTAMP:20111206T203606Z
 SEQUENCE:4
 RECURRENCE-ID;TZID=America/Los_Angeles:20111215T143000
 END:VEVENT
+BEGIN:VEVENT
+CREATED:20111206T203543Z
+UID:5F7FF5FB-2253-4895-8BF1-76E8ED868B4C
+DTEND;TZID=America/Los_Angeles:20001214T163000
+TRANSP:OPAQUE
+SUMMARY:bogus instance
+DTSTART;TZID=America/Los_Angeles:20001214T153000
+DTSTAMP:20111206T203606Z
+SEQUENCE:4
+RECURRENCE-ID;TZID=America/Los_Angeles:20001215T143000
+END:VEVENT
 END:VCALENDAR
 """
         # Ensure it starts off invalid
@@ -451,6 +462,8 @@ END:VCALENDAR
         # Now it should pass without fixing
         calendar.validCalendarData(doFix=False, validateRecurrences=True)
 
+        # Verify expansion works, even for an RDATE prior to master DTSTART:
+        calendar.expandTimeRanges(PyCalendarDateTime(2100, 1, 1))
 
         # Test EXDATEs *prior* to master (as the result of client splitting a
         # a recurring event and copying *all* EXDATEs to new event):
