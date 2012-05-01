@@ -287,7 +287,7 @@ class ImplicitScheduler(object):
         elif self.state == "attendee":
             yield self.doImplicitAttendee()
         elif self.state == "attendee-missing":
-            self.doImplicitMissingAttendee()
+            yield self.doImplicitMissingAttendee()
         else:
             returnValue(None)
 
@@ -1072,6 +1072,7 @@ class ImplicitScheduler(object):
                 log.debug("Implicit - attendee '%s' is updating UID without server scheduling: '%s'" % (self.attendee, self.uid))
                 # Nothing else to do
 
+    @inlineCallbacks
     def doImplicitMissingAttendee(self):
 
         if self.action == "remove":
@@ -1083,6 +1084,19 @@ class ImplicitScheduler(object):
             # with an schedule-status error and schedule-agent none
             log.debug("Missing attendee is allowed to update UID: '%s' with invalid organizer '%s'" % (self.uid, self.organizer))
             
+            # Make sure ORGANIZER is not changed if originally SCHEDULE-AGENT=SERVER
+            if self.resource.exists():
+                self.oldcalendar = (yield self.resource.iCalendarForUser(self.request))
+                oldOrganizer = self.oldcalendar.getOrganizer()
+                newOrganizer = self.calendar.getOrganizer()
+                if oldOrganizer != newOrganizer and self.oldcalendar.getOrganizerScheduleAgent():
+                    log.error("Cannot change ORGANIZER: UID:%s" % (self.uid,))
+                    raise HTTPError(ErrorResponse(
+                        responsecode.FORBIDDEN,
+                        (caldav_namespace, "valid-attendee-change"),
+                        "Cannot change organizer",
+                    ))
+
             # Check SCHEDULE-AGENT and coerce SERVER to NONE
             if self.calendar.getOrganizerScheduleAgent():
                 self.calendar.setParameterToValueForPropertyWithValue("SCHEDULE-AGENT", "NONE", "ORGANIZER", None)
