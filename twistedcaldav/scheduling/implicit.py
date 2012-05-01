@@ -532,6 +532,10 @@ class ImplicitScheduler(object):
             self.oldAttendeesByInstance = self.oldcalendar.getAttendeesByInstance(True, onlyScheduleAgentServer=True)
             self.coerceAttendeesPartstatOnModify()
             
+            # Don't allow any SEQUENCE to decrease
+            if self.oldcalendar:
+                self.calendar.sequenceInSync(self.oldcalendar)
+
             # Significant change
             no_change, self.changed_rids, self.needs_action_rids, reinvites, recurrence_reschedule = self.isOrganizerChangeInsignificant()
             if no_change:

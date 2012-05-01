@@ -2405,6 +2405,28 @@ END:VCALENDAR
         
         self.replacePropertyInAllComponents(Property("DTSTAMP", PyCalendarDateTime.getNowUTC()))
             
+    def sequenceInSync(self, oldcalendar):
+        """
+        Make sure SEQUENCE does not decrease in any components.
+        """
+        
+        
+        def maxSequence(calendar):
+            seqs = calendar.getAllPropertiesInAnyComponent("SEQUENCE", depth=1)
+            return max(seqs, key=lambda x:x.value()).value() if seqs else 0
+
+        def minSequence(calendar):
+            seqs = calendar.getAllPropertiesInAnyComponent("SEQUENCE", depth=1)
+            return min(seqs, key=lambda x:x.value()).value() if seqs else 0
+
+        # Determine value to bump to from old calendar (if exists) or self
+        oldseq = maxSequence(oldcalendar)
+        currentseq = minSequence(self)
+            
+        # Sync all components
+        if oldseq and currentseq < oldseq:
+            self.replacePropertyInAllComponents(Property("SEQUENCE", oldseq))
+            
     def normalizeAll(self):
         
         # Normalize all properties
