@@ -43,7 +43,7 @@ from txdav.common.icommondatastore import NoSuchObjectResourceError
 from txdav.common.icommondatastore import ObjectResourceNameAlreadyExistsError
 from txdav.common.inotifications import INotificationObject
 from txdav.common.datastore.test.util import CommonCommonTests
-from txdav.common.datastore.sql_tables import _BIND_MODE_WRITE
+from txdav.common.datastore.sql_tables import _BIND_MODE_WRITE, _BIND_MODE_READ
 
 from txdav.caldav.icalendarstore import (
     ICalendarObject, ICalendarHome,
@@ -1011,6 +1011,28 @@ class CommonTests(CommonCommonTests):
              (yield otherHome.retrieveOldShares().allRecords())],
             [(newCalName, newCalName)]
         )
+
+
+    @inlineCallbacks
+    def test_shareAgainChangesMode(self):
+        """
+        If a calendar is already shared with a given calendar home,
+        L{ICalendar.shareWith} will change the sharing mode.
+        """
+        yield self.test_shareWith()
+        # yield self.commit() # txn is none? why?
+        OTHER_HOME_UID = "home_splits"
+        cal = yield self.calendarUnderTest()
+        other = yield self.homeUnderTest(name=OTHER_HOME_UID)
+        newName = yield cal.shareWith(other, _BIND_MODE_READ)
+        otherCal = yield other.sharedChildWithName(newName)
+        self.assertNotIdentical(otherCal, None)
+
+        # FIXME: permission information should be visible on the retrieved
+        # calendar object, we shoudln't need to go via the legacy API.
+        invites = yield cal.retrieveOldInvites().allRecords()
+        self.assertEqual(len(invites), 1)
+        self.assertEqual(invites[0].access, "read-only")
 
 
     @inlineCallbacks

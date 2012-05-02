@@ -552,16 +552,22 @@ class CommonStoreTransaction(object):
         object to execute SQL on.
 
         @param thunk: a 1-argument callable which returns a Deferred when it is
-            done.  If this Deferred fails, 
+            done.  If this Deferred fails, the sub-transaction will be rolled
+            back.
+        @type thunk: L{callable}
 
         @param retries: the number of times to re-try C{thunk} before deciding
             that it's legitimately failed.
+        @type retries: L{int}
 
         @param failureOK: it is OK if this subtransaction fails so do not log.
+        @type failureOK: L{bool}
 
         @return: a L{Deferred} which fires or fails according to the logic in
             C{thunk}.  If it succeeds, it will return the value that C{thunk}
-            returned.
+            returned.  If C{thunk} fails or raises an exception more than
+            C{retries} times, then the L{Deferred} resulting from
+            C{subtransaction} will fail with L{AllRetriesFailed}.
         """
         # Right now this code is covered mostly by the automated property store
         # tests.  It should have more direct test coverage.
@@ -1958,6 +1964,18 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
         )
 
 
+    @classproperty
+    def _updateBindQuery(cls): #@NoSelf
+        bind = cls._bindSchema
+        return Update({bind.BIND_MODE: Parameter("mode"),
+                       bind.BIND_STATUS: Parameter("status"),
+                       bind.MESSAGE: Parameter("message")},
+                      Where=
+                      (bind.RESOURCE_ID == Parameter("resourceID"))
+                      .And(bind.HOME_RESOURCE_ID == Parameter("homeID")),
+                      Return=bind.RESOURCE_NAME)
+
+
     @inlineCallbacks
     def shareWith(self, shareeHome, mode):
         """
@@ -1977,22 +1995,37 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
         dnprop = (self.properties().get(dn) or
                   DisplayName.fromString(self.name()))
         # FIXME: honor current home type
-        newName = str(uuid4())
-        yield self._bindInsertQuery.on(
-            self._txn, homeID=shareeHome._resourceID,
-            resourceID=self._resourceID, name=newName, mode=mode,
-            seenByOwner=True, seenBySharee=True,
-            bindStatus=_BIND_STATUS_ACCEPTED,
-        )
-        yield self._insertInviteQuery.on(
-            self._txn, uid=newName, name=str(dnprop),
-            homeID=shareeHome._resourceID, resourceID=self._resourceID,
-            recipient=shareeHome.uid()
-        )
+        @inlineCallbacks
+        def doInsert(subt):
+            newName = str(uuid4())
+            yield self._bindInsertQuery.on(
+                subt, homeID=shareeHome._resourceID,
+                resourceID=self._resourceID, name=newName, mode=mode,
+                seenByOwner=True, seenBySharee=True,
+                bindStatus=_BIND_STATUS_ACCEPTED,
+            )
+            yield self._insertInviteQuery.on(
+                subt, uid=newName, name=str(dnprop),
+                homeID=shareeHome._resourceID, resourceID=self._resourceID,
+                recipient=shareeHome.uid()
+            )
+            returnValue(newName)
+        try:
+            sharedName = yield self._txn.subtransaction(doInsert)
+        except AllRetriesFailed:
+            # FIXME: catch more specific exception
+            sharedName = (yield self._updateBindQuery.on(
+                self._txn,
+                mode=mode, status=_BIND_STATUS_ACCEPTED, message=None,
+                resourceID=self._resourceID, homeID=shareeHome._resourceID
+            ))[0][0]
+            # Invite already exists; no need to update it, since the name will
+            # remain the same.
+
         shareeProps = yield PropertyStore.load(shareeHome.uid(), self._txn,
                                                self._resourceID)
         shareeProps[dn] = dnprop
-        returnValue(newName)
+        returnValue(sharedName)
 
 
     @classmethod
