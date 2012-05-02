@@ -98,6 +98,9 @@ class SQLStoreBuilder(object):
                 "-c log_lock_waits=TRUE",
                 "-c log_statement=all",
                 "-c log_line_prefix='%p.%x '",
+                "-c fsync=FALSE",
+                "-c synchronous_commit=off",
+                "-c full_page_writes=FALSE",
             ],
             testMode=True
         )
