@@ -2049,7 +2049,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
             Return=bind.RESOURCE_NAME,
         ).on(self._txn, resourceID=self._resourceID,
              homeID=shareeHome._resourceID))[0][0]
-        del shareeHome._sharedChildren[resourceName]
+        shareeHome._sharedChildren.pop(resourceName, None)
         returnValue(resourceName)
 
 

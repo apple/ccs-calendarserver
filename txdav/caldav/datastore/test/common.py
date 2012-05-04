@@ -1038,14 +1038,16 @@ class CommonTests(CommonCommonTests):
 
 
     @inlineCallbacks
-    def test_unshareWith(self):
+    def test_unshareWith(self, commit=False):
         """
         L{ICalendar.unshareWith} will remove a previously-shared calendar from
-        anotheruser's calendar home.
+        another user's calendar home.
         """
         # XXX: ideally this would actually be using the shared calendar object
         # from the shareee's home and just calling .unshare() on it.
         yield self.test_shareWith()
+        if commit:
+            yield self.commit()
         cal = yield self.calendarUnderTest()
         other = yield self.homeUnderTest(name=OTHER_HOME_UID)
         newName = yield cal.unshareWith(other)
@@ -1055,6 +1057,16 @@ class CommonTests(CommonCommonTests):
         self.assertEqual(len(invites), 0)
         shares = yield other.retrieveOldShares().allRecords()
         self.assertEqual(len(shares), 0)
+
+
+    @inlineCallbacks
+    def test_unshareWithInDifferentTransaction(self):
+        """
+        L{ICalendar.unshareWith} will remove a previously-shared calendar from
+        another user's calendar home, assuming the sharing was committed in a
+        previous transaction.
+        """
+        yield self.test_unshareWith(True)
 
 
     @inlineCallbacks
