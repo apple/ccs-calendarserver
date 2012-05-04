@@ -504,7 +504,7 @@ class CommonCommonTests(object):
     def transactionUnderTest(self):
         """
         Create a transaction from C{storeUnderTest} and save it as
-        C[lastTransaction}.  Also makes sure to use the same store, saving the
+        C{lastTransaction}.  Also makes sure to use the same store, saving the
         value from C{storeUnderTest}.
         """
         if self.lastTransaction is None:
@@ -545,7 +545,7 @@ class CommonCommonTests(object):
 
     def abort(self):
         """
-        Abort the last transaction created from C[transactionUnderTest}, and
+        Abort the last transaction created from C{transactionUnderTest}, and
         clear it.
         """
         result = self.lastTransaction.abort()
