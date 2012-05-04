@@ -472,6 +472,7 @@ class FileStorageTests(CommonTests, unittest.TestCase):
 
     test_shareWith.skip = "Not implemented for file store yet."
     test_shareAgainChangesMode = test_shareWith
+    test_unshareWith = test_shareWith
 
 
     def test_init(self):

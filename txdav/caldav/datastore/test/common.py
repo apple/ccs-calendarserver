@@ -78,13 +78,13 @@ calendar1_objectNames = [
     "4.ics",
 ]
 
-
 home1_calendarNames = [
     "calendar_1",
     "calendar_2",
     "calendar_empty",
 ]
 
+OTHER_HOME_UID = "home_splits"
 
 test_event_text = (
     "BEGIN:VCALENDAR\r\n"
@@ -990,9 +990,9 @@ class CommonTests(CommonCommonTests):
         L{ICalendar.shareWith} will share a calendar with a given home UID.
         """
         cal = yield self.calendarUnderTest()
-        OTHER_HOME_UID = "home_splits"
         other = yield self.homeUnderTest(name=OTHER_HOME_UID)
         newCalName = yield cal.shareWith(other, _BIND_MODE_WRITE)
+        self.sharedName = newCalName
         yield self.commit()
         normalCal = yield self.calendarUnderTest()
         otherHome = yield self.homeUnderTest(name=OTHER_HOME_UID)
@@ -1021,11 +1021,13 @@ class CommonTests(CommonCommonTests):
         """
         yield self.test_shareWith()
         # yield self.commit() # txn is none? why?
-        OTHER_HOME_UID = "home_splits"
         cal = yield self.calendarUnderTest()
         other = yield self.homeUnderTest(name=OTHER_HOME_UID)
         newName = yield cal.shareWith(other, _BIND_MODE_READ)
-        otherCal = yield other.sharedChildWithName(newName)
+        otherCal = yield other.sharedChildWithName(self.sharedName)
+
+        # Name should not change just because we updated the mode.
+        self.assertEqual(newName, self.sharedName)
         self.assertNotIdentical(otherCal, None)
 
         # FIXME: permission information should be visible on the retrieved
@@ -1033,6 +1035,26 @@ class CommonTests(CommonCommonTests):
         invites = yield cal.retrieveOldInvites().allRecords()
         self.assertEqual(len(invites), 1)
         self.assertEqual(invites[0].access, "read-only")
+
+
+    @inlineCallbacks
+    def test_unshareWith(self):
+        """
+        L{ICalendar.unshareWith} will remove a previously-shared calendar from
+        anotheruser's calendar home.
+        """
+        # XXX: ideally this would actually be using the shared calendar object
+        # from the shareee's home and just calling .unshare() on it.
+        yield self.test_shareWith()
+        cal = yield self.calendarUnderTest()
+        other = yield self.homeUnderTest(name=OTHER_HOME_UID)
+        newName = yield cal.unshareWith(other)
+        otherCal = yield other.sharedChildWithName(newName)
+        self.assertIdentical(otherCal, None)
+        invites = yield cal.retrieveOldInvites().allRecords()
+        self.assertEqual(len(invites), 0)
+        shares = yield other.retrieveOldShares().allRecords()
+        self.assertEqual(len(shares), 0)
 
 
     @inlineCallbacks

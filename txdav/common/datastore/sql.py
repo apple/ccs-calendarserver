@@ -2028,6 +2028,31 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
         returnValue(sharedName)
 
 
+    @inlineCallbacks
+    def unshareWith(self, shareeHome):
+        """
+        Remove the shared version of this (owned) L{CommonHomeChild} from the
+        referenced L{CommonHome}.
+
+        @see: L{CommonHomeChild.shareWith}
+
+        @param shareeHome: The home with which this L{CommonHomeChild} was
+            previously shared.
+
+        @return: a L{Deferred} which will fire with the previously-used name.
+        """
+        bind = self._bindSchema
+        resourceName = (yield Delete(
+            From=bind,
+            Where=(bind.RESOURCE_ID == Parameter("resourceID"))
+                  .And(bind.HOME_RESOURCE_ID == Parameter("homeID")),
+            Return=bind.RESOURCE_NAME,
+        ).on(self._txn, resourceID=self._resourceID,
+             homeID=shareeHome._resourceID))[0][0]
+        del shareeHome._sharedChildren[resourceName]
+        returnValue(resourceName)
+
+
     @classmethod
     @inlineCallbacks
     def loadAllObjects(cls, home, owned):
