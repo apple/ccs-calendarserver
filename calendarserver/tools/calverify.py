@@ -52,11 +52,14 @@ from twisted.internet.defer import inlineCallbacks, returnValue, succeed
 from twisted.python import log
 from twisted.python.text import wordWrap
 from twisted.python.usage import Options
+from twistedcaldav import caldavxml
 from twistedcaldav.dateops import pyCalendarTodatetime
 from twistedcaldav.ical import Component, ignoredComponents,\
-    InvalidICalendarDataError
+    InvalidICalendarDataError, Property
+from twistedcaldav.scheduling.itip import iTipGenerator
 from twistedcaldav.stdconfig import DEFAULT_CONFIG_FILE
 from twistedcaldav.util import normalizationLookup
+from txdav.base.propertystore.base import PropertyName
 from txdav.common.datastore.sql_tables import schema, _BIND_MODE_OWN
 from txdav.common.icommondatastore import InternalDataStoreError
 import base64
@@ -65,8 +68,9 @@ import os
 import sys
 import time
 import traceback
+import uuid
 
-VERSION = "2"
+VERSION = "3"
 
 def usage(e=None):
     if e:
@@ -153,6 +157,22 @@ class CalVerifyService(Service, object):
     Service which runs, exports the appropriate records, then stops the reactor.
     """
 
+    metadata = {
+        "accessMode": "PUBLIC",
+        "isScheduleObject": True,
+        "scheduleTag": "abc",
+        "scheduleEtags": (),
+        "hasPrivateComment": False,
+    }
+
+    metadata_inbox = {
+        "accessMode": "PUBLIC",
+        "isScheduleObject": False,
+        "scheduleTag": "",
+        "scheduleEtags": (),
+        "hasPrivateComment": False,
+    }
+
     def __init__(self, store, options, output, reactor, config):
         super(CalVerifyService, self).__init__()
         self.store   = store
@@ -167,6 +187,11 @@ class CalVerifyService(Service, object):
         
         self.results = {}
         self.summary = []
+        self.fixAttendeesForOrganizerMissing = 0
+        self.fixAttendeesForOrganizerMismatch = 0
+        self.fixOrganizersForAttendeeMissing = 0
+        self.fixOrganizersForAttendeeMismatch = 0
+        self.fixFailed = 0
         self.total = 0
         self.totalErrors = None
         self.totalExceptions = None
@@ -327,11 +352,11 @@ class CalVerifyService(Service, object):
 
 
     @inlineCallbacks
-    def doScan(self, ical, mismatch, fix):
+    def doScan(self, ical, mismatch, fix, start=None):
         
         self.output.write("\n---- Scanning calendar data ----\n")
 
-        self.start = PyCalendarDateTime.getToday()
+        self.start = start if start is not None else PyCalendarDateTime.getToday()
         self.start.setDateOnly(False)
         self.end = self.start.duplicate()
         self.end.offsetYear(1)
@@ -377,32 +402,7 @@ class CalVerifyService(Service, object):
         self.attended = []
         self.attended_byuid = collections.defaultdict(list)
         self.matched_attendee_to_organizer = collections.defaultdict(set)
-        skipped = 0
-        inboxes = 0
-        for owner, resid, uid, calname, md5, organizer, created, modified in rows:
-            
-            # Skip owners not enabled for calendaring
-            if not self.testForCalendaringUUID(owner):
-                skipped += 1
-                continue
-
-            # Skip inboxes
-            if calname == "inbox":
-                inboxes += 1
-                continue
-
-            # If targeting a specific organizer, skip events belonging to others
-            if self.options["uuid"]:
-                if not organizer.startswith("urn:uuid:") or self.options["uuid"] != organizer[9:]:
-                    continue
-                
-            # Cache organizer/attendee states
-            if organizer.startswith("urn:uuid:") and owner == organizer[9:]:
-                self.organized.append((owner, resid, uid, md5, organizer, created, modified,))
-                self.organized_byuid[uid] = (owner, resid, uid, md5, organizer, created, modified,)
-            else:
-                self.attended.append((owner, resid, uid, md5, organizer, created, modified,))
-                self.attended_byuid[uid].append((owner, resid, uid, md5, organizer, created, modified,))
+        skipped, inboxes = self.buildResourceInfo(rows)
                 
         self.output.write("Number of organizer events to process: %s\n" % (len(self.organized),))
         self.output.write("Number of attendee events to process: %s\n" % (len(self.attended,)))
@@ -423,6 +423,20 @@ class CalVerifyService(Service, object):
             self.totalErrors = 0
             yield self.verifyAllAttendeesForOrganizer()
             yield self.verifyAllOrganizersForAttendee()
+            
+            # Need to add fix summary information
+            if fix:
+                self.addSummaryBreak()
+                self.results["Fixed missing attendee events"] = self.fixAttendeesForOrganizerMissing
+                self.results["Fixed mismatched attendee events"] = self.fixAttendeesForOrganizerMismatch
+                self.results["Fixed missing organizer events"] = self.fixOrganizersForAttendeeMissing
+                self.results["Fixed mismatched organizer events"] = self.fixOrganizersForAttendeeMismatch
+                self.results["Fix failures"] = self.fixFailed
+                self.addToSummary("Fixed missing attendee events", self.fixAttendeesForOrganizerMissing)
+                self.addToSummary("Fixed mismatched attendee events", self.fixAttendeesForOrganizerMismatch)
+                self.addToSummary("Fixed missing organizer events", self.fixOrganizersForAttendeeMissing)
+                self.addToSummary("Fixed mismatched organizer events", self.fixOrganizersForAttendeeMismatch)
+                self.addToSummary("Fix failures", self.fixFailed)
         
         yield succeed(None)
 
@@ -551,6 +565,38 @@ class CalVerifyService(Service, object):
         ).on(self.txn, **kwds))
         returnValue(rows[0])
 
+
+    def buildResourceInfo(self, rows, onlyOrganizer=False, onlyAttendee=False):
+        skipped = 0
+        inboxes = 0
+        for owner, resid, uid, calname, md5, organizer, created, modified in rows:
+            
+            # Skip owners not enabled for calendaring
+            if not self.testForCalendaringUUID(owner):
+                skipped += 1
+                continue
+
+            # Skip inboxes
+            if calname == "inbox":
+                inboxes += 1
+                continue
+
+            # If targeting a specific organizer, skip events belonging to others
+            if self.options["uuid"]:
+                if not organizer.startswith("urn:uuid:") or self.options["uuid"] != organizer[9:]:
+                    continue
+                
+            # Cache organizer/attendee states
+            if organizer.startswith("urn:uuid:") and owner == organizer[9:]:
+                if not onlyAttendee:
+                    self.organized.append((owner, resid, uid, md5, organizer, created, modified,))
+                    self.organized_byuid[uid] = (owner, resid, uid, md5, organizer, created, modified,)
+            else:
+                if not onlyOrganizer:
+                    self.attended.append((owner, resid, uid, md5, organizer, created, modified,))
+                    self.attended_byuid[uid].append((owner, resid, uid, md5, organizer, created, modified,))
+        
+        return skipped, inboxes
 
     def testForCalendaringUUID(self, uuid):
         """
@@ -900,12 +946,12 @@ class CalVerifyService(Service, object):
             # Get attendee states for matching UID
             eachAttendeesOwnStatus = {}
             for attendeeEvent in self.attended_byuid.get(uid, ()):
-                owner, attresid, uid, _ignore_md5, _ignore_organizer, att_created, att_modified = attendeeEvent
+                owner, attresid, attuid, _ignore_md5, _ignore_organizer, att_created, att_modified = attendeeEvent
                 calendar = yield self.getCalendar(attresid)
                 if calendar is None:
                     continue
                 eachAttendeesOwnStatus[owner] = self.buildAttendeeStates(calendar, self.start, self.end, attendee_only=owner)
-                attendeeResIDs[(owner, uid)] = attresid
+                attendeeResIDs[(owner, attuid)] = attresid
             
             # Look at each attendee in the organizer's meeting
             for organizerAttendee, organizerViewOfStatus in organizerViewOfAttendees.iteritems():
@@ -917,6 +963,15 @@ class CalVerifyService(Service, object):
                 if not self.testForCalendaringUUID(organizerAttendee):
                     continue
 
+                # Double check the missing attendee situation in case we missed it during the original query
+                if organizerAttendee not in eachAttendeesOwnStatus:
+                    # Try to reload the attendee data
+                    calendar, attresid = yield self.getCalendarForOwnerByUID(organizerAttendee, uid)
+                    if calendar is not None:
+                        eachAttendeesOwnStatus[organizerAttendee] = self.buildAttendeeStates(calendar, self.start, self.end, attendee_only=organizerAttendee)
+                        attendeeResIDs[(organizerAttendee, uid)] = attresid
+                        #print "Reloaded missing attendee data"
+                     
                 # If an entry for the attendee exists, then check whether attendee status matches
                 if organizerAttendee in eachAttendeesOwnStatus:
                     attendeeOwnStatus = eachAttendeesOwnStatus[organizerAttendee].get(organizerAttendee, set())
@@ -926,6 +981,7 @@ class CalVerifyService(Service, object):
                         for _organizerInstance, partstat in organizerViewOfStatus.difference(attendeeOwnStatus):
                             if partstat not in ("DECLINED", "CANCELLED"):
                                 results_mismatch.append((uid, resid, organizer, org_created, org_modified, organizerAttendee, att_created, att_modified))
+                                self.results.setdefault("Mismatch Attendee", set()).add((uid, organizer, organizerAttendee,))
                                 broken = True
                                 if self.options["details"]:
                                     self.output.write("Mismatch: on Organizer's side:\n")
@@ -939,6 +995,7 @@ class CalVerifyService(Service, object):
                             if partstat not in ("CANCELLED",):
                                 if not broken:
                                     results_mismatch.append((uid, resid, organizer, org_created, org_modified, organizerAttendee, att_created, att_modified))
+                                    self.results.setdefault("Mismatch Attendee", set()).add((uid, organizer, organizerAttendee,))
                                 broken = True
                                 if self.options["details"]:
                                     self.output.write("Mismatch: on Attendee's side:\n")
@@ -952,14 +1009,13 @@ class CalVerifyService(Service, object):
                     for _ignore_instance_id, partstat in organizerViewOfStatus:
                         if partstat not in ("DECLINED", "CANCELLED"):
                             results_missing.append((uid, resid, organizer, organizerAttendee, org_created, org_modified))
+                            self.results.setdefault("Missing Attendee", set()).add((uid, organizer, organizerAttendee,))
                             broken = True
                             break
                 
                 # If there was a problem we can fix it
                 if broken and self.fix:
-                    # TODO: This is where we attempt a fix
-                    #self.fixEvent(organizer, organizerAttendee, eventpath, attendeePaths.get(organizerAttendee, None))
-                    pass
+                    yield self.fixByReinvitingAttendee(resid, attendeeResIDs.get((organizerAttendee, uid)), organizerAttendee)
 
         yield self.txn.commit()
         self.txn = None
@@ -1032,7 +1088,7 @@ class CalVerifyService(Service, object):
         attended_div = 1 if attended_len < 100 else attended_len / 100
 
         t = time.time()
-        for ctr, attendeeEvent in enumerate(self.attended):
+        for ctr, attendeeEvent in enumerate(tuple(self.attended)): # self.attended might mutate during the loop
             
             if self.options["verbose"] and divmod(ctr, attended_div)[1] == 0:
                 self.output.write(("\r%d of %d (%d%%) Missing: %d  Mismatched: %s" % (
@@ -1067,6 +1123,15 @@ class CalVerifyService(Service, object):
             if not self.testForCalendaringUUID(organizer):
                 continue
 
+            # Double check the missing attendee situation in case we missed it during the original query
+            if uid not in self.organized_byuid:
+                # Try to reload the organizer info data
+                rows = yield self.getAllResourceInfoWithUID(uid)
+                self.buildResourceInfo(rows, onlyOrganizer=True)
+                
+                #if uid in self.organized_byuid:
+                #    print "Reloaded missing organizer data: %s" % (uid,)
+                 
             if uid not in self.organized_byuid:
 
                 # Check whether attendee has all instances cancelled
@@ -1074,11 +1139,16 @@ class CalVerifyService(Service, object):
                     continue
                 
                 missing.append((uid, attendee, organizer, resid, att_created, att_modified,))
+                self.results.setdefault("Missing Organizer", set()).add((uid, attendee, organizer,))
                 
                 # If there is a miss we fix by removing the attendee data
                 if self.fix:
-                    # TODO: This is where we attempt a fix
-                    pass
+                    # This is where we attempt a fix
+                    fix_result = (yield self.fixByRemovingEvent(resid))
+                    if fix_result:
+                        self.fixOrganizersForAttendeeMissing += 1
+                    else:
+                        self.fixFailed += 1 
 
             elif attendee not in self.matched_attendee_to_organizer[uid]:
                 # Check whether attendee has all instances cancelled
@@ -1086,11 +1156,11 @@ class CalVerifyService(Service, object):
                     continue
 
                 mismatched.append((uid, attendee, organizer, resid, att_created, att_modified,))
+                self.results.setdefault("Mismatch Organizer", set()).add((uid, attendee, organizer,))
                 
                 # If there is a mismatch we fix by re-inviting the attendee
                 if self.fix:
-                    # TODO: This is where we attempt a fix
-                    pass
+                    yield self.fixByReinvitingAttendee(self.organized_byuid[uid][1], resid, attendee)
 
         yield self.txn.commit()
         self.txn = None
@@ -1152,6 +1222,124 @@ class CalVerifyService(Service, object):
         self.addToSummary("Attendee events mismatched in Organizer's calendar", len(mismatched), self.total)
         self.totalErrors += len(mismatched)
 
+
+    @inlineCallbacks
+    def fixByReinvitingAttendee(self, orgresid, attresid, attendee):
+        """
+        Fix a mismatch/missing error by having the organizer send a REQUEST for the entire event to the attendee
+        to trigger implicit scheduling to resync the attendee event.
+        
+        We do not have implicit apis in the store, but really want to use store-only apis here to avoid having to create
+        "fake" HTTP requests and manipulate HTTP resources. So what we will do is emulate implicit behavior by copying the
+        organizer resource to the attendee (filtering it for the attendee's view of the event) and deposit an inbox item
+        for the same event. Right now that will wipe out any per-attendee data - notably alarms.
+        """
+        
+        try:
+            cuaddr = "urn:uuid:%s" % attendee
+    
+            # Get the organizer's calendar data
+            calendar = (yield self.getCalendar(orgresid))
+            calendar = Component(None, pycalendar=calendar)
+            
+            # Generate an iTip message for the entire event filtered for the attendee's view
+            itipmsg = iTipGenerator.generateAttendeeRequest(calendar, (cuaddr,), None)
+            
+            # Handle the case where the attendee is not actually in the organizer event at all by
+            # removing the attendee event instead of re-inviting
+            if itipmsg.resourceUID() is None:
+                yield self.fixByRemovingEvent(attresid)
+                returnValue(True)
+
+            # Convert iTip message into actual calendar data - just remove METHOD
+            attendee_calendar = itipmsg.duplicate()
+            attendee_calendar.removeProperty(attendee_calendar.getProperty("METHOD"))
+            
+            # Adjust TRANSP to match PARTSTAT
+            self.setTransparencyForAttendee(attendee_calendar, cuaddr)
+    
+            # Get attendee home store object
+            home = (yield self.txn.calendarHomeWithUID(attendee))
+            if home is None:
+                raise ValueError("Cannot find home")
+            inbox = (yield home.calendarWithName("inbox"))
+            if inbox is None:
+                raise ValueError("Cannot find inbox")
+    
+            # Replace existing resource data, or create a new one
+            if attresid:
+                # TODO: transfer over per-attendee data - valarms
+                _ignore_homeID, calendarID = yield self.getAllResourceInfoForResourceID(attresid)
+                calendar = yield home.childWithID(calendarID)
+                calendarObj = yield calendar.objectResourceWithID(attresid)
+                calendarObj.scheduleTag = str(uuid.uuid4())
+                yield calendarObj.setComponent(attendee_calendar)
+                self.results.setdefault("Fix change event", set()).add((home.name(), calendar.name(), attendee_calendar.resourceUID(),))
+            else:
+                # Find default calendar for VEVENTs
+                defaultCalendar = (yield self.defaultCalendarForAttendee(home, inbox))
+                if defaultCalendar is None:
+                    raise ValueError("Cannot find suitable default calendar")
+                yield defaultCalendar.createCalendarObjectWithName(str(uuid.uuid4()) + ".ics", attendee_calendar, self.metadata)
+                self.results.setdefault("Fix add event", set()).add((home.name(), defaultCalendar.name(), attendee_calendar.resourceUID(),))
+            
+            # Write new itip message to attendee inbox
+            yield inbox.createCalendarObjectWithName(str(uuid.uuid4()) + ".ics", itipmsg, self.metadata_inbox)
+            self.results.setdefault("Fix add inbox", set()).add((home.name(), itipmsg.resourceUID(),))
+     
+            yield self.txn.commit()
+            self.txn = self.store.newTransaction()
+    
+            returnValue(True)
+
+        except Exception, e:
+            print "Failed to fix resource: %d for attendee: %s\n%s" % (orgresid, attendee, e,)
+            returnValue(False)
+        
+
+    @inlineCallbacks
+    def defaultCalendarForAttendee(self, home, inbox):
+        
+        # Check for property
+        default = inbox.properties().get(PropertyName.fromElement(caldavxml.ScheduleDefaultCalendarURL))
+        if default:
+            defaultName = str(default.children[0]).rstrip("/").split("/")[-1]
+            defaultCalendar = (yield home.calendarWithName(defaultName))
+            returnValue(defaultCalendar)
+        else:
+            # Iterate for the first calendar that supports VEVENTs
+            calendars = (yield home.calendars())
+            for calendar in calendars:
+                if calendar.name() != "inbox" and calendar.isSupportedComponent("VEVENT"):
+                    returnValue(calendar)
+            else:
+                returnValue(None)
+
+
+    @inlineCallbacks
+    def fixByRemovingEvent(self, resid):
+        """
+        Remove the calendar resource specified by resid - this is a force remove - no implicit
+        scheduling is required so we use store apis directly.
+        """
+
+        try:
+            homeID, calendarID = yield self.getAllResourceInfoForResourceID(resid)
+            home = yield self.txn.calendarHomeWithResourceID(homeID)
+            calendar = yield home.childWithID(calendarID)
+            calendarObj = yield calendar.objectResourceWithID(resid)
+            objname = calendarObj.name()
+            yield calendar._removeObjectResource(calendarObj)
+            yield self.txn.commit()
+            self.txn = self.store.newTransaction()
+            
+            self.results.setdefault("Fix remove", set()).add((home.name(), calendar.name(), objname,))
+
+            returnValue(True)
+        except Exception, e:
+            print "Failed to remove resource whilst fixing: %d\n%s" % (resid, e,)
+            returnValue(False)
+        
 
     def addToSummary(self, title, count, total=None):
         if total is not None:
@@ -1221,6 +1409,31 @@ class CalVerifyService(Service, object):
             returnValue(None)
 
         returnValue(caldata)
+
+
+    @inlineCallbacks
+    def getCalendarForOwnerByUID(self, owner, uid):
+        co = schema.CALENDAR_OBJECT
+        cb = schema.CALENDAR_BIND
+        ch = schema.CALENDAR_HOME
+        
+        kwds = { "OWNER" : owner, "UID": uid }
+        rows = (yield Select(
+            [co.ICALENDAR_TEXT, co.RESOURCE_ID,],
+            From=ch.join(
+                cb, type="inner", on=(ch.RESOURCE_ID == cb.CALENDAR_HOME_RESOURCE_ID)).join(
+                co, type="inner", on=(cb.CALENDAR_RESOURCE_ID == co.CALENDAR_RESOURCE_ID).And(
+                    cb.BIND_MODE == _BIND_MODE_OWN).And(
+                    cb.CALENDAR_RESOURCE_NAME != "inbox")),
+            Where=(ch.OWNER_UID == Parameter("OWNER")).And(co.ICALENDAR_UID == Parameter("UID")),
+        ).on(self.txn, **kwds))
+
+        try:
+            caldata = PyCalendar.parseText(rows[0][0]) if rows else None
+        except PyCalendarError:
+            returnValue((None, None,))
+
+        returnValue((caldata, rows[0][1] if rows else None,))
 
 
     def masterComponent(self, calendar):
@@ -1301,6 +1514,21 @@ class CalVerifyService(Service, object):
                 break
         return all_cancelled
        
+
+    def setTransparencyForAttendee(self, calendar, attendee):
+        """
+        Set the TRANSP property based on the PARTSTAT value on matching ATTENDEE properties
+        in each component.
+        """
+        for component in calendar.subcomponents():
+            if component.name() in ignoredComponents:
+                continue
+            prop = component.getAttendeeProperty(attendee)
+            addTransp = False
+            if prop:
+                partstat = prop.parameterValue("PARTSTAT", "NEEDS-ACTION")
+                addTransp = partstat in ("NEEDS-ACTION", "DECLINED",)
+            component.replaceProperty(Property("TRANSP", "TRANSPARENT" if addTransp else "OPAQUE"))
 
     def directoryService(self):
         """
