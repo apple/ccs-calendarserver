@@ -1070,6 +1070,27 @@ class CommonTests(CommonCommonTests):
 
 
     @inlineCallbacks
+    def test_asShared(self):
+        """
+        L{ICalendar.asShared} returns an iterable of all versions of a shared
+        calendar.
+        """
+        cal = yield self.calendarUnderTest()
+        sharedBefore = yield cal.asShared()
+        # It's not shared yet; make sure asShared doesn't include owner version.
+        self.assertEqual(len(sharedBefore), 0)
+        yield self.test_shareWith()
+        # FIXME: don't know why this separate transaction is needed; remove it.
+        yield self.commit()
+        cal = yield self.calendarUnderTest()
+        sharedAfter = yield cal.asShared()
+        self.assertEqual(len(sharedAfter), 1)
+        self.assertEqual(sharedAfter[0].shareMode(), _BIND_MODE_WRITE)
+        self.assertEqual(sharedAfter[0].viewerCalendarHome().uid(),
+                         OTHER_HOME_UID)
+
+
+    @inlineCallbacks
     def test_hasCalendarResourceUIDSomewhereElse(self):
         """
         L{ICalendarHome.hasCalendarResourceUIDSomewhereElse} will determine if

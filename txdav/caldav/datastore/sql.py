@@ -51,7 +51,7 @@ from txdav.caldav.datastore.util import validateCalendarComponent,\
 from txdav.caldav.icalendarstore import ICalendarHome, ICalendar, ICalendarObject,\
     IAttachment
 from txdav.common.datastore.sql import CommonHome, CommonHomeChild,\
-    CommonObjectResource
+    CommonObjectResource, CommonStoreTransaction, ECALENDARTYPE
 from txdav.common.datastore.sql_legacy import \
     PostgresLegacyIndexEmulator, SQLLegacyCalendarInvites,\
     SQLLegacyCalendarShares, PostgresLegacyInboxIndexEmulator
@@ -314,13 +314,19 @@ class CalendarHome(CommonHome):
                         newname = str(uuid.uuid4())
                     newcal = yield self.createCalendarWithName(newname)
                     yield newcal.setSupportedComponents(support_component)
-            
+
             yield _requireCalendarWithType("VEVENT", "calendar")
             yield _requireCalendarWithType("VTODO", "tasks")
-                
+
+
+
+CalendarHome._register(ECALENDARTYPE)
+
+
+
 class Calendar(CommonHomeChild):
     """
-    File-based implementation of L{ICalendar}.
+    SQL-based implementation of L{ICalendar}.
     """
     implements(ICalendar)
 
@@ -340,26 +346,18 @@ class Calendar(CommonHomeChild):
     _revisionsBindTable = CALENDAR_OBJECT_REVISIONS_AND_BIND_TABLE
     _objectTable = CALENDAR_OBJECT_TABLE
 
-    def __init__(self, home, name, resourceID, owned):
+    _supportedComponents = None
+
+    def __init__(self, *args, **kw):
         """
         Initialize a calendar pointing at a record in a database.
-
-        @param name: the name of the calendar resource.
-        @type name: C{str}
-
-        @param home: the home containing this calendar.
-        @type home: L{CalendarHome}
         """
-        super(Calendar, self).__init__(home, name, resourceID, owned)
-
-        if name == 'inbox':
+        super(Calendar, self).__init__(*args, **kw)
+        if self.name() == 'inbox':
             self._index = PostgresLegacyInboxIndexEmulator(self)
         else:
             self._index = PostgresLegacyIndexEmulator(self)
         self._invites = SQLLegacyCalendarInvites(self)
-        self._objectResourceClass = CalendarObject
-        
-        self._supportedComponents = None
 
 
     @classmethod
@@ -405,6 +403,7 @@ class Calendar(CommonHomeChild):
 
 
     ownerCalendarHome = CommonHomeChild.ownerHome
+    viewerCalendarHome = CommonHomeChild.viewerHome
     calendarObjects = CommonHomeChild.objectResources
     listCalendarObjects = CommonHomeChild.listObjectResources
     calendarObjectWithName = CommonHomeChild.objectResourceWithName
@@ -1428,3 +1427,4 @@ class Attachment(object):
         return self._modified
 
 
+Calendar._objectResourceClass = CalendarObject

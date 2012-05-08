@@ -26,6 +26,14 @@ from txdav.idav import IDataStoreObject, IDataStore
 from twisted.internet.interfaces import ITransport
 from txdav.idav import INotifier
 
+# This is pulling in a bit much for an interfaces module, but currently the bind
+# modes are defined in the schema.
+
+from txdav.common.datastore.sql_tables import _BIND_MODE_OWN as BIND_OWN
+from txdav.common.datastore.sql_tables import _BIND_MODE_READ as BIND_READ
+from txdav.common.datastore.sql_tables import _BIND_MODE_WRITE as BIND_WRITE
+from txdav.common.datastore.sql_tables import _BIND_MODE_DIRECT as BIND_DIRECT
+
 
 __all__ = [
     # Interfaces
@@ -36,6 +44,12 @@ __all__ = [
 
     # Exceptions
     "QuotaExceeded",
+
+    # Enumerations
+    "BIND_OWN",
+    "BIND_READ",
+    "BIND_WRITE",
+    "BIND_DIRECT",
 ]
 
 
@@ -226,11 +240,17 @@ class ICalendar(INotifier, IShareableCollection, IDataStoreObject):
         Change the name of this calendar.
         """
 
+
     def ownerCalendarHome():
         """
-        Retrieve the calendar home for the owner of this calendar.
-        Calendars may be shared from one (the owner's) calendar home
-        to other (the sharee's) calendar homes.
+        Retrieve the calendar home for the owner of this calendar.  Calendars
+        may be shared from one (the owner's) calendar home to other (the
+        sharee's) calendar homes.
+
+        FIXME: implementations of this method currently do not behave as
+        documented; a sharee's home, rather than the owner's home, may be
+        returned in some cases.  Current usages should likely be changed to use
+        viewerCalendarHome() instead.
 
         @return: an L{ICalendarHome}.
         """
@@ -335,6 +355,51 @@ class ICalendar(INotifier, IShareableCollection, IDataStoreObject):
         """
         Low-level query to gather names for calendarObjectsSinceToken.
         """
+
+
+    def asShared():
+        """
+        Get a view of this L{ICalendar} as present in everyone's calendar home
+        except for its owner's.
+
+        @return: a L{Deferred} which fires with a list of L{ICalendar}s, each
+            L{ICalendar} as seen by its respective sharee.  This means that its
+            C{shareMode} will be something other than L{BIND_OWN}, and its
+            L{ICalendar.viewerCalendarHome} will return the home of the sharee.
+        """
+
+
+    def shareMode():
+        """
+        The sharing mode of this calendar; one of the C{BIND_*} constants in
+        this module.
+
+        @see: L{ICalendar.viewerCalendarHome}
+        """
+        # TODO: implement this for the file store.
+
+
+    def viewerCalendarHome():
+        """
+        Retrieve the calendar home for the viewer of this calendar.  In other
+        words, the calendar home that this L{ICalendar} was retrieved through.
+
+        For example: if Alice shares her calendar with Bob,
+        C{txn.calendarHomeWithUID("alice") ...
+        .calendarWithName("calendar").viewerCalendarHome()} will return Alice's
+        home, whereas C{txn.calendarHomeWithUID("bob") ...
+        .sharedChildWithName("alice's calendar").viewerCalendarHome()} will
+        return Bob's calendar home.
+
+        @return: (synchronously) the calendar home of the user into which this
+            L{ICalendar} is bound.
+        @rtype: L{ICalendarHome}
+        """
+        # TODO: implement this for the file store.
+
+        # TODO: implement home-child- retrieval APIs to retrieve shared items
+        # from the store; the example in the docstring ought to be
+        # calendarWithName not sharedChildWithName.
 
 
 

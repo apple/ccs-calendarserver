@@ -36,7 +36,7 @@ from twistedcaldav.customxml import NotificationType
 from twistedcaldav.notifications import NotificationRecord
 from twistedcaldav.notifications import NotificationsDatabase as OldNotificationIndex
 from twistedcaldav.sharing import SharedCollectionsDatabase
-from txdav.caldav.icalendarstore import ICalendarStore
+from txdav.caldav.icalendarstore import ICalendarStore, BIND_OWN
 
 from txdav.common.icommondatastore import HomeChildNameNotAllowedError, \
     HomeChildNameAlreadyExistsError, NoSuchHomeChildError, \
@@ -119,7 +119,7 @@ class CommonDataStore(DataStore):
         """
         Create a new transaction.
 
-        @see Transaction
+        @see: L{Transaction}
         """
         return self._transactionClass(
             self,
@@ -693,6 +693,14 @@ class CommonHomeChild(FileMetaDataMixin, LoggingMixIn, FancyEqMixin):
         return self._path.basename()
 
 
+    def shareMode(self):
+        """
+        Stub implementation of L{ICalendar.shareMode}; always returns
+        L{BIND_OWN}.
+        """
+        return BIND_OWN
+
+
     _renamedName = None
 
     @writeOperation
@@ -750,7 +758,12 @@ class CommonHomeChild(FileMetaDataMixin, LoggingMixIn, FancyEqMixin):
 
         self.notifyChanged()
 
+
     def ownerHome(self):
+        return self._home
+
+
+    def viewerHome(self):
         return self._home
 
 

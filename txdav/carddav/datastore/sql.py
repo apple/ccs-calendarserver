@@ -47,9 +47,10 @@ from txdav.carddav.iaddressbookstore import IAddressBookHome, IAddressBook,\
     IAddressBookObject
 
 from txdav.common.datastore.sql import CommonHome, CommonHomeChild,\
-    CommonObjectResource
+    CommonObjectResource, EADDRESSBOOKTYPE
 from twext.enterprise.dal.syntax import Delete
 from twext.enterprise.dal.syntax import Insert
+
 from twext.enterprise.dal.syntax import Update
 from twext.enterprise.dal.syntax import utcNowSQL
 from txdav.common.datastore.sql_tables import ADDRESSBOOK_TABLE,\
@@ -136,9 +137,13 @@ class AddressBookHome(CommonHome):
 
 
 
+AddressBookHome._register(EADDRESSBOOKTYPE)
+
+
+
 class AddressBook(CommonHomeChild):
     """
-    File-based implementation of L{IAddressBook}.
+    SQL-based implementation of L{IAddressBook}.
     """
     implements(IAddressBook)
 
@@ -157,27 +162,10 @@ class AddressBook(CommonHomeChild):
     _revisionsBindTable = ADDRESSBOOK_OBJECT_REVISIONS_AND_BIND_TABLE
     _objectTable = ADDRESSBOOK_OBJECT_TABLE
 
-    def __init__(self, home, name, resourceID, owned):
-        """
-        Initialize an addressbook pointing at a path on disk.
-
-        @param name: the subdirectory of addressbookHome where this addressbook
-            resides.
-        @type name: C{str}
-
-        @param addressbookHome: the home containing this addressbook.
-        @type addressbookHome: L{AddressBookHome}
-
-        @param realName: If this addressbook was just created, the name which it
-        will eventually have on disk.
-        @type realName: C{str}
-        """
-
-        super(AddressBook, self).__init__(home, name, resourceID, owned)
-
+    def __init__(self, *args, **kw):
+        super(AddressBook, self).__init__(*args, **kw)
         self._index = PostgresLegacyABIndexEmulator(self)
         self._invites = SQLLegacyAddressBookInvites(self)
-        self._objectResourceClass = AddressBookObject
 
 
     @property
@@ -340,3 +328,4 @@ class AddressBookObject(CommonObjectResource):
 
 
 
+AddressBook._objectResourceClass = AddressBookObject

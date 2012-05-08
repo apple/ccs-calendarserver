@@ -332,18 +332,29 @@ class CommonStoreTransaction(object):
                 self._primaryHomeType = EADDRESSBOOKTYPE
         directlyProvides(self, *extraInterfaces)
 
-        from txdav.caldav.datastore.sql import CalendarHome
-        from txdav.carddav.datastore.sql import AddressBookHome
-        CommonStoreTransaction._homeClass[ECALENDARTYPE] = CalendarHome
-        CommonStoreTransaction._homeClass[EADDRESSBOOKTYPE] = AddressBookHome
+        self._circularImportHack()
         self._sqlTxn = sqlTxn
         self.paramstyle = sqlTxn.paramstyle
         self.dialect = sqlTxn.dialect
-        
+
         self._stats = TransactionStatsCollector() if self._store.logStats else None
         self.statementCount = 0
         self.iudCount = 0
         self.currentStatement = None
+
+
+    @classmethod
+    def _circularImportHack(cls):
+        """
+        This method is run when the first L{CommonStoreTransaction} is
+        instantiated, to populate class-scope (in other words, global) state
+        that requires importing modules which depend on this one.
+
+        @see: L{CommonHome._register}
+        """
+        if not cls._homeClass:
+            __import__("txdav.caldav.datastore.sql")
+            __import__("txdav.carddav.datastore.sql")
 
 
     def store(self):
@@ -387,23 +398,28 @@ class CommonStoreTransaction(object):
 
         return self._homeClass[storeType].homeWithUID(self, uid, create)
 
+
     @inlineCallbacks
-    def calendarHomeWithResourceID(self, rid):
-        uid = (yield self._homeClass[ECALENDARTYPE].homeUIDWithResourceID(self, rid))
+    def homeWithResourceID(self, storeType, rid, create=False):
+        """
+        Load a calendar or addressbook home by its integer resource ID.
+        """
+        uid = (yield self._homeClass[storeType]
+               .homeUIDWithResourceID(self, rid))
         if uid:
-            result = (yield self.calendarHomeWithUID(uid))
+            result = (yield self.homeWithUID(storeType, uid, create))
         else:
             result = None
         returnValue(result)
 
-    @inlineCallbacks
+
+    def calendarHomeWithResourceID(self, rid):
+        return self.homeWithResourceID(ECALENDARTYPE, rid)
+
+
     def addressbookHomeWithResourceID(self, rid):
-        uid = (yield self._homeClass[EADDRESSBOOKTYPE].homeUIDWithResourceID(self, rid))
-        if uid:
-            result = (yield self.addressbookHomeWithUID(uid))
-        else:
-            result = None
-        returnValue(result)
+        return self.homeWithResourceID(EADDRESSBOOKTYPE, rid)
+
 
     @memoizedKey("uid", "_notificationHomes")
     def notificationsWithUID(self, uid):
@@ -853,6 +869,16 @@ class CommonHome(LoggingMixIn):
             self._revisionBindJoinTable["REV:%s" % (key,)] = value
         for key, value in self._bindTable.iteritems():
             self._revisionBindJoinTable["BIND:%s" % (key,)] = value
+
+
+    @classmethod
+    def _register(cls, homeType):
+        """
+        Register a L{CommonHome} subclass as its respective home type constant
+        with L{CommonStoreTransaction}.
+        """
+        cls._homeType = homeType
+        CommonStoreTransaction._homeClass[cls._homeType] = cls
 
 
     def quotaAllowedBytes(self):
@@ -1827,7 +1853,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
     _objectTable         = None
 
 
-    def __init__(self, home, name, resourceID, owned):
+    def __init__(self, home, name, resourceID, owned, mode):
 
         if home._notifiers:
             childID = "%s/%s" % (home.uid(), name)
@@ -1840,6 +1866,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
         self._name              = name
         self._resourceID        = resourceID
         self._owned             = owned
+        self._bindMode          = mode
         self._created           = None
         self._modified          = None
         self._objects           = {}
@@ -1927,8 +1954,8 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
         else:
             ownedPiece = (bind.BIND_MODE != _BIND_MODE_OWN).And(
                 bind.BIND_STATUS == _BIND_STATUS_ACCEPTED)
-        
-        columns = [child.RESOURCE_ID, bind.RESOURCE_NAME,]
+
+        columns = [child.RESOURCE_ID, bind.RESOURCE_NAME, bind.BIND_MODE]
         columns.extend(cls.metadataColumns())
         return Select(columns,
                      From=child.join(
@@ -2053,14 +2080,62 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
         returnValue(resourceName)
 
 
+    def shareMode(self):
+        """
+        @see: L{ICalendar.shareMode}
+        """
+        return self._bindMode
+
+
+    @classproperty
+    def _bindEntriesFor(cls):
+        bind = cls._bindSchema
+        return Select([bind.BIND_MODE, bind.HOME_RESOURCE_ID,
+                       bind.RESOURCE_NAME],
+                      From=bind,
+                      Where=(bind.RESOURCE_ID == Parameter("resourceID")).And
+                            (bind.BIND_STATUS == _BIND_STATUS_ACCEPTED).And
+                            (bind.BIND_MODE != _BIND_MODE_OWN))
+
+
+    @inlineCallbacks
+    def asShared(self):
+        """
+        Retrieve all the versions of this L{CommonHomeChild} as it is shared to
+        everyone.
+
+        @see: L{ICalendarHome.asShared}
+
+        @return: L{CommonHomeChild} objects that represent this
+            L{CommonHomeChild} as a child of different L{CommonHome}s
+        @rtype: a L{Deferred} which fires with a L{list} of L{ICalendar}s.
+        """
+        rows = yield self._bindEntriesFor.on(self._txn,
+                                             resourceID=self._resourceID)
+        cls = self.__class__ # for ease of grepping...
+        result = []
+        for mode, homeResourceID, sharedResourceName in rows:
+            # TODO: this could all be issued in parallel; no need to serialize
+            # the loop.
+            new = cls(
+                (yield self._txn.homeWithResourceID(self._home._homeType,
+                                                    homeResourceID)),
+                sharedResourceName, self._resourceID, False, mode
+            )
+            yield new.initFromStore()
+            result.append(new)
+        returnValue(result)
+
+
     @classmethod
     @inlineCallbacks
     def loadAllObjects(cls, home, owned):
         """
-        Load all child objects and return a list of them. This must create the
-        child classes and initialize them using "batched" SQL operations to keep
-        this constant wrt the number of children. This is an optimization for
-        Depth:1 operations on the home.
+        Load all L{CommonHomeChild} instances which are children of a given
+        L{CommonHome} and return a L{Deferred} firing a list of them.  This must
+        create the child classes and initialize them using "batched" SQL
+        operations to keep this constant wrt the number of children.  This is an
+        optimization for Depth:1 operations on the home.
         """
         results = []
 
@@ -2097,9 +2172,9 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
 
         # Create the actual objects merging in properties
         for items in dataRows:
-            resourceID, resource_name = items[:2]
-            metadata = items[2:]
-            child = cls(home, resource_name, resourceID, owned)
+            resourceID, resourceName, bindMode = items[:3]
+            metadata = items[3:]
+            child = cls(home, resourceName, resourceID, owned, bindMode)
             for attr, value in zip(cls.metadataAttributes(), metadata):
                 setattr(child, attr, value)
             child._syncTokenRevision = revisions[resourceID]
@@ -2118,7 +2193,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
         """
         bind = cls._bindSchema
         return Select(
-            [bind.RESOURCE_ID],
+            [bind.RESOURCE_ID, bind.BIND_MODE],
             From=bind,
             Where=(bind.RESOURCE_NAME == Parameter('objectName')).And(
                    bind.HOME_RESOURCE_ID == Parameter('homeID')).And(
@@ -2187,8 +2262,8 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
         if not data:
             returnValue(None)
 
-        resourceID = data[0][0]
-        child = cls(home, name, resourceID, owned)
+        resourceID, mode = data[0]
+        child = cls(home, name, resourceID, owned, mode)
         yield child.initFromStore()
         returnValue(child)
 
@@ -2223,7 +2298,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
         if not data:
             returnValue(None)
         name, mode = data[0]
-        child = cls(home, name, resourceID, mode == _BIND_MODE_OWN)
+        child = cls(home, name, resourceID, mode == _BIND_MODE_OWN, mode)
         yield child.initFromStore()
         returnValue(child)
 
@@ -2293,7 +2368,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
         )
 
         # Initialize other state
-        child = cls(home, name, resourceID, True)
+        child = cls(home, name, resourceID, True, _BIND_MODE_OWN)
         child._created = _created
         child._modified = _modified
         yield child._loadPropertyStore()
@@ -2457,6 +2532,17 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
 
 
     def ownerHome(self):
+        """
+        (Don't use this method.  See interface documentation as to why.)
+        """
+        return self._home
+
+
+    def viewerHome(self):
+        """
+        @see: L{ICalendar.viewerCalendarHome}
+        @see: L{IAddressbook.viewerAddressbookHome}
+        """
         return self._home
 
 
@@ -2476,6 +2562,12 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
 
     @inlineCallbacks
     def sharerHomeID(self):
+        """
+        Retrieve the resource ID of the owner of this home.
+
+        @return: a L{Deferred} that fires with the resource ID.
+        @rtype: L{Deferred} firing L{int}
+        """
         if self._owned:
             # If this was loaded by its owner then we can skip the query, since
             # we already know who the owner is.

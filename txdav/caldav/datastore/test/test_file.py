@@ -470,10 +470,13 @@ class FileStorageTests(CommonTests, unittest.TestCase):
         Overridden to be skipped.
         """
 
+
+    # TODO: ideally the file store would support all of this sharing stuff.
     test_shareWith.skip = "Not implemented for file store yet."
     test_shareAgainChangesMode = test_shareWith
     test_unshareWith = test_shareWith
     test_unshareWithInDifferentTransaction = test_shareWith
+    test_asShared = test_shareWith
 
 
     def test_init(self):
