@@ -51,7 +51,7 @@ from txdav.caldav.datastore.util import validateCalendarComponent,\
 from txdav.caldav.icalendarstore import ICalendarHome, ICalendar, ICalendarObject,\
     IAttachment
 from txdav.common.datastore.sql import CommonHome, CommonHomeChild,\
-    CommonObjectResource, CommonStoreTransaction, ECALENDARTYPE
+    CommonObjectResource, ECALENDARTYPE
 from txdav.common.datastore.sql_legacy import \
     PostgresLegacyIndexEmulator, SQLLegacyCalendarInvites,\
     SQLLegacyCalendarShares, PostgresLegacyInboxIndexEmulator
