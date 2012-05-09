@@ -46,6 +46,7 @@ from pycalendar.calendar import PyCalendar
 from pycalendar.datetime import PyCalendarDateTime
 from pycalendar.exceptions import PyCalendarError
 from pycalendar.period import PyCalendarPeriod
+from pycalendar.timezone import PyCalendarTimezone
 from twext.enterprise.dal.syntax import Select, Parameter, Count
 from twisted.application.service import Service
 from twisted.internet.defer import inlineCallbacks, returnValue, succeed
@@ -110,13 +111,14 @@ class CalVerifyOptions(Options):
 
     optFlags = [
         ['ical', 'i', "Calendar data check."],
-        ['badcua', 'i', "Calendar data check for bad CALENDARSERVER-OLD-CUA only."],
+        ['badcua', 'b', "Calendar data check for bad CALENDARSERVER-OLD-CUA only."],
         ['nobase64', 'n', "Do not apply CALENDARSERVER-OLD-CUA base64 transform when fixing."],
         ['mismatch', 's', "Detect organizer/attendee mismatches."],
         ['missing', 'm', "Show 'orphaned' homes."],
         ['fix', 'x', "Fix problems."],
         ['verbose', 'v', "Verbose logging."],
         ['details', 'V', "Detailed logging."],
+        ['tzid', 't', "Timezone to adjust displayed times to."],
     ]
 
     optParameters = [
@@ -192,6 +194,7 @@ class CalVerifyService(Service, object):
         self.fixOrganizersForAttendeeMissing = 0
         self.fixOrganizersForAttendeeMismatch = 0
         self.fixFailed = 0
+        self.fixedAutoAccepts = [] 
         self.total = 0
         self.totalErrors = None
         self.totalExceptions = None
@@ -356,11 +359,14 @@ class CalVerifyService(Service, object):
         
         self.output.write("\n---- Scanning calendar data ----\n")
 
+        self.now = PyCalendarDateTime.getNowUTC()
         self.start = start if start is not None else PyCalendarDateTime.getToday()
         self.start.setDateOnly(False)
         self.end = self.start.duplicate()
         self.end.offsetYear(1)
         self.fix = fix
+        
+        self.tzid = PyCalendarTimezone(tzid=self.options["tzid"] if self.options["tzid"] else "America/Los_Angeles")
 
         self.txn = self.store.newTransaction()
 
@@ -432,11 +438,14 @@ class CalVerifyService(Service, object):
                 self.results["Fixed missing organizer events"] = self.fixOrganizersForAttendeeMissing
                 self.results["Fixed mismatched organizer events"] = self.fixOrganizersForAttendeeMismatch
                 self.results["Fix failures"] = self.fixFailed
+                self.results["Fixed Auto-Accepts"] = self.fixedAutoAccepts
                 self.addToSummary("Fixed missing attendee events", self.fixAttendeesForOrganizerMissing)
                 self.addToSummary("Fixed mismatched attendee events", self.fixAttendeesForOrganizerMismatch)
                 self.addToSummary("Fixed missing organizer events", self.fixOrganizersForAttendeeMissing)
                 self.addToSummary("Fixed mismatched organizer events", self.fixOrganizersForAttendeeMismatch)
                 self.addToSummary("Fix failures", self.fixFailed)
+                
+                self.printAutoAccepts()
         
         yield succeed(None)
 
@@ -1266,6 +1275,7 @@ class CalVerifyService(Service, object):
             if inbox is None:
                 raise ValueError("Cannot find inbox")
     
+            details = {}
             # Replace existing resource data, or create a new one
             if attresid:
                 # TODO: transfer over per-attendee data - valarms
@@ -1275,13 +1285,29 @@ class CalVerifyService(Service, object):
                 calendarObj.scheduleTag = str(uuid.uuid4())
                 yield calendarObj.setComponent(attendee_calendar)
                 self.results.setdefault("Fix change event", set()).add((home.name(), calendar.name(), attendee_calendar.resourceUID(),))
+                
+                details["path"] = "/calendars/__uids__/%s/%s/%s" % (home.name(), calendar.name(), calendarObj.name(),)
+                details["rid"] = attresid
             else:
                 # Find default calendar for VEVENTs
                 defaultCalendar = (yield self.defaultCalendarForAttendee(home, inbox))
                 if defaultCalendar is None:
                     raise ValueError("Cannot find suitable default calendar")
-                yield defaultCalendar.createCalendarObjectWithName(str(uuid.uuid4()) + ".ics", attendee_calendar, self.metadata)
+                new_name = str(uuid.uuid4()) + ".ics"
+                calendarObj = (yield defaultCalendar.createCalendarObjectWithName(new_name, attendee_calendar, self.metadata))
                 self.results.setdefault("Fix add event", set()).add((home.name(), defaultCalendar.name(), attendee_calendar.resourceUID(),))
+
+                details["path"] = "/calendars/__uids__/%s/%s/%s" % (home.name(), defaultCalendar.name(), new_name,)
+                details["rid"] = calendarObj._resourceID
+
+            details["uid"] = attendee_calendar.resourceUID()
+            instances = attendee_calendar.expandTimeRanges(self.end)
+            for key in instances:
+                instance = instances[key]
+                if instance.start > self.now:
+                    break
+            details["start"] = instance.start.adjustTimezone(self.tzid)
+            details["title"] = instance.component.propertyValue("SUMMARY")
             
             # Write new itip message to attendee inbox
             yield inbox.createCalendarObjectWithName(str(uuid.uuid4()) + ".ics", itipmsg, self.metadata_inbox)
@@ -1290,6 +1316,12 @@ class CalVerifyService(Service, object):
             yield self.txn.commit()
             self.txn = self.store.newTransaction()
     
+            # Need to know whether the attendee is a location or resource with auto-accept set
+            record = self.directoryService().recordWithGUID(attendee)
+            if record.autoSchedule:
+                # Log details about the event so we can have a human manually process
+                self.fixedAutoAccepts.append(details)
+
             returnValue(True)
 
         except Exception, e:
@@ -1373,6 +1405,24 @@ class CalVerifyService(Service, object):
         
         self.output.write("\n")
         self.output.write("Overall Summary:\n")
+        table.printTable(os=self.output)
+
+
+    def printAutoAccepts(self):
+        # Print summary of results
+        table = tables.Table()
+        table.addHeader(("Path", "RID", "UID", "Start Time", "Title"))
+        for item in sorted(self.fixedAutoAccepts, key=lambda x:x["path"]):
+            table.addRow((
+                item["path"],
+                item["rid"],
+                item["uid"],
+                item["start"],
+                item["title"],
+            ))
+        
+        self.output.write("\n")
+        self.output.write("Auto-Accept Fixes:\n")
         table.printTable(os=self.output)
 
 
