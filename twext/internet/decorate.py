@@ -37,13 +37,13 @@ def memoizedKey(keyArgument, memoAttribute, deferredResult=True):
 
     @param memoAttribute: The name of the attribute on the instance which
         should be used for memoizing the result of this method; the attribute
-        itself must be a dictionary.
-    @type memoAttribute: C{str}
+        itself must be a dictionary.  Alternately, if the specified argument is
+        callable, it is a callable that takes the arguments passed to the
+        decorated method and returns the memo dictionaries.
+    @type memoAttribute: C{str} or C{callable}
 
     @param deferredResult: Whether the result must be a deferred.
-    @type keyArgument: C{bool}
     """
-
     def getarg(argname, argspec, args, kw):
         """
         Get an argument from some arguments.
@@ -88,7 +88,10 @@ def memoizedKey(keyArgument, memoAttribute, deferredResult=True):
 
         def outer(*a, **kw):
             self = a[0]
-            memo = getattr(self, memoAttribute)
+            if callable(memoAttribute):
+                memo = memoAttribute(*a, **kw)
+            else:
+                memo = getattr(self, memoAttribute)
             key = getarg(keyArgument, spec, a, kw)
             if key in memo:
                 memoed = memo[key]
@@ -106,7 +109,6 @@ def memoizedKey(keyArgument, memoAttribute, deferredResult=True):
                 result.addCallback(memoResult)
             elif result is not None:
                 memo[key] = result
-
             return result
 
         return outer

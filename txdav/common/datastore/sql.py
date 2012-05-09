@@ -380,18 +380,27 @@ class CommonStoreTransaction(object):
         if result and len(result) == 1:
             returnValue(result[0][0])
         raise RuntimeError("Database key %s cannot be determined." % (key,))
-        
 
-    @memoizedKey('uid', '_calendarHomes')
+
     def calendarHomeWithUID(self, uid, create=False):
         return self.homeWithUID(ECALENDARTYPE, uid, create=create)
 
 
-    @memoizedKey("uid", "_addressbookHomes")
     def addressbookHomeWithUID(self, uid, create=False):
         return self.homeWithUID(EADDRESSBOOKTYPE, uid, create=create)
 
 
+    def _determineMemo(self, storeType, uid, create=False):
+        """
+        Determine the memo dictionary to use for homeWithUID.
+        """
+        if storeType == ECALENDARTYPE:
+            return self._calendarHomes
+        else:
+            return self._addressbookHomes
+
+
+    @memoizedKey("uid", _determineMemo)
     def homeWithUID(self, storeType, uid, create=False):
         if storeType not in (ECALENDARTYPE, EADDRESSBOOKTYPE):
             raise RuntimeError("Unknown home type.")
@@ -1083,7 +1092,7 @@ class CommonHome(LoggingMixIn):
         Retrieve the names of the children in this home.
 
         @return: an iterable of C{str}s.
-        """
+        """ 
         if self._childrenLoaded:
             return succeed(self._sharedChildren.keys())
         else:
