@@ -50,7 +50,6 @@ from twext.web2.http import HTTPError
 from twext.web2.responsecode import INSUFFICIENT_STORAGE_SPACE
 from twext.web2.stream import MemoryStream
 from txdav.common.datastore.test.util import deriveQuota
-from twistedcaldav.test.util import patchConfig
 from twistedcaldav.directory.test.test_xmlfile import XMLFileBase
 from txdav.caldav.icalendarstore import ICalendarHome
 from txdav.carddav.iaddressbookstore import IAddressBookHome
@@ -399,7 +398,7 @@ class WrappingTests(TestCase):
         """
         Exceeding quota on an attachment returns an HTTP error code.
         """
-        patchConfig(testCase=self, EnableDropBox=True)
+        self.patch(config, "EnableDropBox", True)
         yield self.populateOneObject("1.ics", test_event_text)
         calendarObject = yield self.getResource(
             "/calendars/users/wsanchez/dropbox/uid-test.dropbox/too-big-attachment",

@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+from twistedcaldav.config import config
 
 """
 Unit tests for L{calendarsever.tools.export}.
@@ -38,7 +39,6 @@ from calendarserver.tools.export import ExportOptions, main
 from calendarserver.tools.export import DirectoryExporter, UIDExporter
 
 from twisted.python.filepath import FilePath
-from twistedcaldav.test.util import patchConfig
 from twisted.internet.defer import Deferred
 
 from txdav.common.datastore.test.util import buildStore
@@ -216,22 +216,23 @@ class IntegrationTests(TestCase):
             raise RuntimeError(
                 "Main called twice during this test; duplicate reactor run.")
 
-        patchConfig(
-            self,
-            DirectoryService=dict(
-                type="twistedcaldav.directory.xmlfile.XMLDirectoryService",
-                params=dict(
-                    xmlFile=self.accountsFile
-                )
-            ),
-            ResourceService=dict(Enabled=False),
-            AugmentService=dict(
-                type="twistedcaldav.directory.augment.AugmentXMLDB",
-                params=dict(
-                    xmlFiles=[self.augmentsFile]
-                )
+        self.patch(config, "DirectoryService", dict(
+            type="twistedcaldav.directory.xmlfile.XMLDirectoryService",
+            params=dict(
+                xmlFile=self.accountsFile
             )
-        )
+        ))
+        self.patch(config, "ResourceService", dict(
+            Enabled=False,
+            type="twistedcaldav.directory.xmlfile.XMLDirectoryService",
+            params=dict()
+        ))
+        self.patch(config, "AugmentService", dict(
+            type="twistedcaldav.directory.augment.AugmentXMLDB",
+            params=dict(
+                xmlFiles=[self.augmentsFile]
+            )
+        ))
 
         self.mainCalled = True
         self.usedConfigFile = configFileName

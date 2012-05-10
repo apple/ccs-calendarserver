@@ -954,8 +954,10 @@ class CalVerifyService(Service, object):
             
             # Get attendee states for matching UID
             eachAttendeesOwnStatus = {}
+            attendeeCreatedModified = {}
             for attendeeEvent in self.attended_byuid.get(uid, ()):
                 owner, attresid, attuid, _ignore_md5, _ignore_organizer, att_created, att_modified = attendeeEvent
+                attendeeCreatedModified[owner] = (att_created, att_modified,)
                 calendar = yield self.getCalendar(attresid)
                 if calendar is None:
                     continue
@@ -975,15 +977,17 @@ class CalVerifyService(Service, object):
                 # Double check the missing attendee situation in case we missed it during the original query
                 if organizerAttendee not in eachAttendeesOwnStatus:
                     # Try to reload the attendee data
-                    calendar, attresid = yield self.getCalendarForOwnerByUID(organizerAttendee, uid)
+                    calendar, attresid, att_created, att_modified = yield self.getCalendarForOwnerByUID(organizerAttendee, uid)
                     if calendar is not None:
                         eachAttendeesOwnStatus[organizerAttendee] = self.buildAttendeeStates(calendar, self.start, self.end, attendee_only=organizerAttendee)
                         attendeeResIDs[(organizerAttendee, uid)] = attresid
+                        attendeeCreatedModified[organizerAttendee] = (att_created, att_modified,)
                         #print "Reloaded missing attendee data"
                      
                 # If an entry for the attendee exists, then check whether attendee status matches
                 if organizerAttendee in eachAttendeesOwnStatus:
                     attendeeOwnStatus = eachAttendeesOwnStatus[organizerAttendee].get(organizerAttendee, set())
+                    att_created, att_modified = attendeeCreatedModified[organizerAttendee]
 
                     if organizerViewOfStatus != attendeeOwnStatus:
                         # Check that the difference is only cancelled or declined on the organizers side
@@ -1469,7 +1473,7 @@ class CalVerifyService(Service, object):
         
         kwds = { "OWNER" : owner, "UID": uid }
         rows = (yield Select(
-            [co.ICALENDAR_TEXT, co.RESOURCE_ID,],
+            [co.ICALENDAR_TEXT, co.RESOURCE_ID, co.CREATED, co.MODIFIED,],
             From=ch.join(
                 cb, type="inner", on=(ch.RESOURCE_ID == cb.CALENDAR_HOME_RESOURCE_ID)).join(
                 co, type="inner", on=(cb.CALENDAR_RESOURCE_ID == co.CALENDAR_RESOURCE_ID).And(
@@ -1481,9 +1485,9 @@ class CalVerifyService(Service, object):
         try:
             caldata = PyCalendar.parseText(rows[0][0]) if rows else None
         except PyCalendarError:
-            returnValue((None, None,))
+            returnValue((None, None, None, None,))
 
-        returnValue((caldata, rows[0][1] if rows else None,))
+        returnValue((caldata, rows[0][1], rows[0][2], rows[0][3],) if rows else (None, None, None, None,))
 
 
     def masterComponent(self, calendar):

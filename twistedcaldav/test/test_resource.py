@@ -26,7 +26,6 @@ from twistedcaldav.resource import CalDAVResource, CommonHomeResource, \
  CalendarHomeResource, AddressBookHomeResource
 from twistedcaldav.test.util import InMemoryPropertyStore
 from twistedcaldav.test.util import TestCase
-from twistedcaldav.test.util import patchConfig
 
 
 class StubProperty(object):
@@ -186,7 +185,7 @@ class OwnershipTests(TestCase):
         L{AdminPrincipals} list.
         """
         theAdmin = "/read-write-admin/"
-        patchConfig(self, AdminPrincipals=[theAdmin])
+        self.patch(config, "AdminPrincipals", [theAdmin])
         site = None
         request = SimpleRequest(site, "GET", "/not/a/real/url/")
         request.authzUser = request.authnUser = Principal(HRef(theAdmin))
@@ -203,7 +202,7 @@ class OwnershipTests(TestCase):
         L{AdminPrincipals} list.
         """
         theAdmin = "/read-only-admin/"
-        patchConfig(self, ReadPrincipals=[theAdmin])
+        self.patch(config, "ReadPrincipals", [theAdmin])
         site = None
         request = SimpleRequest(site, "GET", "/not/a/real/url/")
         request.authzUser = request.authnUser = Principal(HRef(theAdmin))
