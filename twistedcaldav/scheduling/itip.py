@@ -202,8 +202,10 @@ class iTipProcessing(object):
                 # Delete the entire event off the auto-processed calendar
                 return True, True, None
             else:
-                # Cancel every instance in the existing event
+                # Cancel every instance in the existing event and sync over SEQUENCE
                 calendar.replacePropertyInAllComponents(Property("STATUS", "CANCELLED"))
+                newseq = itip_message.masterComponent().propertyValue("SEQUENCE")
+                calendar.replacePropertyInAllComponents(Property("SEQUENCE", newseq))
                 return True, False, None
 
         # iTIP CANCEL can contain multiple components being cancelled in the RECURRENCE-ID case.
@@ -238,6 +240,8 @@ class iTipProcessing(object):
                 else:
                     # Existing component is cancelled.
                     overridden.replaceProperty(Property("STATUS", "CANCELLED"))
+                    newseq = component.propertyValue("SEQUENCE")
+                    overridden.replacePropertyInAllComponents(Property("SEQUENCE", newseq))
 
             elif calendar_master:
                 # We are trying to CANCEL a non-overridden instance.
@@ -251,6 +255,8 @@ class iTipProcessing(object):
                     if overridden:
                         overridden.replaceProperty(Property("STATUS", "CANCELLED"))
                         calendar.addComponent(overridden)
+                        newseq = component.propertyValue("SEQUENCE")
+                        overridden.replacePropertyInAllComponents(Property("SEQUENCE", newseq))
 
         # If we have any EXDATEs lets add them to the existing calendar object.
         if exdates and calendar_master:
