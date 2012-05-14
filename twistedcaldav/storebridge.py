@@ -382,7 +382,7 @@ class _CommonHomeChildCollectionMixin(ResponseCacheMixin):
         """
 
         if not self.exists():
-            log.err("Resource not found: %s" % (self,))
+            log.debug("Resource not found: %s" % (self,))
             raise HTTPError(responsecode.NOT_FOUND)
 
         depth = request.headers.getHeader("depth", "infinity")
@@ -492,7 +492,7 @@ class _CommonHomeChildCollectionMixin(ResponseCacheMixin):
         that collections's name.
         """
         if not self.exists():
-            log.err("Resource not found: %s" % (self,))
+            log.debug("Resource not found: %s" % (self,))
             raise HTTPError(responsecode.NOT_FOUND)
 
         # Can not move outside of home or to existing collection
@@ -1728,7 +1728,7 @@ class _CommonObjectResource(_NewStoreFileMetaDataHelper, CalDAVResource, FancyEq
         Override http_DELETE to validate 'depth' header. 
         """
         if not self.exists():
-            log.err("Resource not found: %s" % (self,))
+            log.debug("Resource not found: %s" % (self,))
             raise HTTPError(responsecode.NOT_FOUND)
 
         return self.storeRemove(request, True, request.uri)
@@ -2354,7 +2354,7 @@ class StoreNotificationObjectFile(_NewStoreFileMetaDataHelper, NotificationResou
     @inlineCallbacks
     def http_GET(self, request):
         if not self.exists():
-            log.err("Resource not found: %s" % (self,))
+            log.debug("Resource not found: %s" % (self,))
             raise HTTPError(responsecode.NOT_FOUND)
 
         returnValue(
@@ -2369,7 +2369,7 @@ class StoreNotificationObjectFile(_NewStoreFileMetaDataHelper, NotificationResou
         Override http_DELETE to validate 'depth' header. 
         """
         if not self.exists():
-            log.err("Resource not found: %s" % (self,))
+            log.debug("Resource not found: %s" % (self,))
             raise HTTPError(responsecode.NOT_FOUND)
 
         return self.storeRemove(request, request.uri)
