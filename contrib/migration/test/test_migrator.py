@@ -97,7 +97,8 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
             "SSLPrivateKey": "/etc/certificates/test.key.pem",
         }
         newCombined = { }
-        mergePlist(oldCalDAV, oldCardDAV, newCombined)
+        adminChanges = mergePlist(oldCalDAV, oldCardDAV, newCombined)
+        self.assertEquals(adminChanges, [])
         self.assertEquals(newCombined, expected)
 
         # SSL off for both services
@@ -133,7 +134,8 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
             "SSLPrivateKey": "",
         }
         newCombined = { }
-        mergePlist(oldCalDAV, oldCardDAV, newCombined)
+        adminChanges = mergePlist(oldCalDAV, oldCardDAV, newCombined)
+        self.assertEquals(adminChanges, [])
         self.assertEquals(newCombined, expected)
 
         # SSL on for only caldav
@@ -169,7 +171,8 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
             "SSLPrivateKey": "/etc/certificates/test.key.pem",
         }
         newCombined = { }
-        mergePlist(oldCalDAV, oldCardDAV, newCombined)
+        adminChanges = mergePlist(oldCalDAV, oldCardDAV, newCombined)
+        self.assertEquals(adminChanges, [])
         self.assertEquals(newCombined, expected)
 
         # SSL on for only carddav
@@ -205,7 +208,8 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
             "SSLPrivateKey": "/etc/certificates/test.key.pem",
         }
         newCombined = { }
-        mergePlist(oldCalDAV, oldCardDAV, newCombined)
+        adminChanges = mergePlist(oldCalDAV, oldCardDAV, newCombined)
+        self.assertEquals(adminChanges, [])
         self.assertEquals(newCombined, expected)
 
         # Non standard ports
@@ -241,7 +245,8 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
             "SSLPrivateKey": "/etc/certificates/test.key.pem",
         }
         newCombined = { }
-        mergePlist(oldCalDAV, oldCardDAV, newCombined)
+        adminChanges = mergePlist(oldCalDAV, oldCardDAV, newCombined)
+        self.assertEquals(adminChanges, [])
         self.assertEquals(newCombined, expected)
 
 
@@ -274,7 +279,8 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
             "SSLPrivateKey": "",
         }
         newCombined = { }
-        mergePlist(oldCalDAV, oldCardDAV, newCombined)
+        adminChanges = mergePlist(oldCalDAV, oldCardDAV, newCombined)
+        self.assertEquals(adminChanges, [])
         self.assertEquals(newCombined, expected)
 
         # Only CalDAV (Lion -> Lion)
@@ -302,7 +308,8 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
             "SSLPrivateKey": "/etc/certificates/test.key.pem",
         }
         newCombined = { }
-        mergePlist(oldCalDAV, oldCardDAV, newCombined)
+        adminChanges = mergePlist(oldCalDAV, oldCardDAV, newCombined)
+        self.assertEquals(adminChanges, [])
         self.assertEquals(newCombined, expected)
 
 
@@ -321,7 +328,8 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
             "SSLPrivateKey": "",
         }
         newCombined = { }
-        mergePlist(oldCalDAV, oldCardDAV, newCombined)
+        adminChanges = mergePlist(oldCalDAV, oldCardDAV, newCombined)
+        self.assertEquals(adminChanges, [])
         self.assertEquals(newCombined, expected)
 
 
@@ -366,7 +374,8 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
             "SSLPrivateKey": "",
         }
         newCombined = { }
-        mergePlist(oldCalDAV, oldCardDAV, newCombined)
+        adminChanges = mergePlist(oldCalDAV, oldCardDAV, newCombined)
+        self.assertEquals(adminChanges, [])
         self.assertEquals(newCombined, expected)
 
 
@@ -403,7 +412,8 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
             "SSLPrivateKey": "",
         }
         newCombined = { }
-        mergePlist(oldCalDAV, oldCardDAV, newCombined)
+        adminChanges = mergePlist(oldCalDAV, oldCardDAV, newCombined)
+        self.assertEquals(adminChanges, [])
         self.assertEquals(newCombined, expected)
 
 
@@ -440,7 +450,8 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
             "SSLPrivateKey": "",
         }
         newCombined = { }
-        mergePlist(oldCalDAV, oldCardDAV, newCombined)
+        adminChanges = mergePlist(oldCalDAV, oldCardDAV, newCombined)
+        self.assertEquals(adminChanges, [("EnableAPNS", "True")])
         self.assertEquals(newCombined, expected)
 
 

@@ -358,7 +358,7 @@ def migrateConfiguration(options, newServerRootValue, newDataRootValue, enableCa
         newCalDAVDPlist = { }
 
     log("Processing %s and %s" % (oldCalDAVPlistPath, oldCardDAVDPlistPath))
-    mergePlist(oldCalDAVDPlist, oldCardDAVDPlist, newCalDAVDPlist)
+    adminChanges = mergePlist(oldCalDAVDPlist, oldCardDAVDPlist, newCalDAVDPlist)
 
     newCalDAVDPlist["ServerRoot"] = newServerRootValue
     newCalDAVDPlist["DocumentRoot"] = "Documents"
@@ -371,8 +371,16 @@ def migrateConfiguration(options, newServerRootValue, newDataRootValue, enableCa
     log("Writing %s" % (newConfigFile,))
     writePlist(newCalDAVDPlist, newConfigFile)
 
+    for key, value in adminChanges:
+        log("Setting %s to %s via serveradmin...")
+        ret = subprocess.call([SERVER_ADMIN, "settings", "calendar:%s=%s" % (key, value)])
+        log("serveradmin exited with %d" % (ret,))
+
+
 
 def mergePlist(caldav, carddav, combined):
+
+    adminChanges = []
 
     # Copy all non-ignored keys
     for key in carddav:
@@ -403,6 +411,7 @@ def mergePlist(caldav, carddav, combined):
     try:
         if caldav["Notifications"]["Services"]["XMPPNotifier"]["Enabled"]:
             caldav["Notifications"]["Services"]["XMPPNotifier"]["Enabled"] = False
+        adminChanges.append(("EnableAPNS", "True"))
     except KeyError:
         pass
 
@@ -447,6 +456,8 @@ def mergePlist(caldav, carddav, combined):
 
     # If SSL is enabled, redirect HTTP to HTTPS.
     combined["RedirectHTTPToHTTPS"] = enableSSL
+
+    return adminChanges
 
 
 def log(msg):
