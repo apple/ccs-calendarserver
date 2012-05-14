@@ -39,7 +39,8 @@ from twext.web2.stream import IStream
 from twext.web2.dav.util import allDataFromStream
 
 from twistedcaldav.config import config
-from twistedcaldav.dateops import timeRangesOverlap, normalizeForIndex, differenceDateTime
+from twistedcaldav.dateops import timeRangesOverlap, normalizeForIndex, differenceDateTime,\
+    normalizeForExpand
 from twistedcaldav.instance import InstanceList
 from twistedcaldav.scheduling.cuaddress import normalizeCUAddr
 from twistedcaldav.timezones import hasTZ, TimezoneException
@@ -953,6 +954,7 @@ class Component (object):
         Expand the components into a set of new components, one for each
         instance in the specified range. Date-times are converted to UTC. A
         new calendar object is returned.
+
         @param start: the L{PyCalendarDateTime} for the start of the range.
         @param end: the L{PyCalendarDateTime} for the end of the range.
         @param timezone: the L{Component} the VTIMEZONE to use for floating/all-day.
@@ -969,12 +971,15 @@ class Component (object):
         for property in self.properties():
             calendar.addProperty(property)
         
-        # Expand the instances and add each one
-        instances = self.expandTimeRanges(end)
+        # Expand the instances and add each one - use the normalizeForExpand date/time normalization method here
+        # so that all-day date/times remain that way. However, when doing the timeRangesOverlap test below, we
+        # Need to convert the all-days to floating (T000000) so that the timezone overlap calculation can be done
+        # properly.
+        instances = self.expandTimeRanges(end, normalizeFunction=normalizeForExpand)
         first = True
         for key in instances:
             instance = instances[key]
-            if timeRangesOverlap(instance.start, instance.end, start, end, pytz):
+            if timeRangesOverlap(normalizeForIndex(instance.start), normalizeForIndex(instance.end), start, end, pytz):
                 calendar.addComponent(self.expandComponent(instance, first))
             first = False
         
@@ -1038,7 +1043,7 @@ class Component (object):
             ignoreInvalidInstances=ignoreInvalidInstances)
         return self.cachedInstances
 
-    def expandTimeRanges(self, limit, ignoreInvalidInstances=False):
+    def expandTimeRanges(self, limit, ignoreInvalidInstances=False, normalizeFunction=normalizeForIndex):
         """
         Expand the set of recurrence instances for the components
         contained within this VCALENDAR component. We will assume
@@ -1050,23 +1055,35 @@ class Component (object):
         """
         
         componentSet = self.subcomponents()
-        return self.expandSetTimeRanges(componentSet, limit, ignoreInvalidInstances)
+        return self.expandSetTimeRanges(componentSet, limit, ignoreInvalidInstances, normalizeFunction=normalizeFunction)
     
-    def expandSetTimeRanges(self, componentSet, limit, ignoreInvalidInstances=False):
+    def expandSetTimeRanges(self, componentSet, limit, ignoreInvalidInstances=False, normalizeFunction=normalizeForIndex):
         """
         Expand the set of recurrence instances up to the specified date limit.
         What we do is first expand the master instance into the set of generate
         instances. Then we merge the overridden instances, taking into account
         THISANDFUTURE and THISANDPRIOR.
-        @param limit: L{PyCalendarDateTime} value representing the end of the expansion.
+
         @param componentSet: the set of components that are to make up the
                 recurrence set. These MUST all be components with the same UID
                 and type, forming a proper recurring set.
-        @return: a set of Instances for each recurrence in the set.
+        @param limit: L{PyCalendarDateTime} value representing the end of the expansion.
+
+        @param componentSet: the set of components that are to make up the recurrence set.
+            These MUST all be components with the same UID and type, forming a proper
+            recurring set.
+        @type componentSet: C{list}
+        @param limit: the end of the expansion
+        @type limit: L{PyCalendarDateTime}
+        @param ignoreInvalidInstances: whether or not invalid recurrences raise an exception
+        @type ignoreInvalidInstances: C{bool}
+        @param normalizeFunction: a function used to normalize date/time values in instances
+        @type normalizeFunction: C{function}
+        @return: L{InstanceList} containing expanded L{Instance} for each recurrence in the set.
         """
         
         # Set of instances to return
-        instances = InstanceList(ignoreInvalidInstances=ignoreInvalidInstances)
+        instances = InstanceList(ignoreInvalidInstances=ignoreInvalidInstances, normalizeFunction=normalizeFunction)
         instances.expandTimeRanges(componentSet, limit)
         return instances
 

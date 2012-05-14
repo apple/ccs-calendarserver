@@ -29,6 +29,7 @@ from pycalendar.datetime import PyCalendarDateTime
 from pycalendar.timezone import PyCalendarTimezone
 from twistedcaldav.ical import iCalendarProductID
 from pycalendar.duration import PyCalendarDuration
+from twistedcaldav.dateops import normalizeForExpand
 
 class iCalendar (twistedcaldav.test.util.TestCase):
     """
@@ -2220,7 +2221,12 @@ END:VEVENT
 END:VCALENDAR
 """,
                 False,
-                (PyCalendarDateTime(2007, 11, 14, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),)
+                (
+                    (
+                        PyCalendarDateTime(2007, 11, 14, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                        PyCalendarDateTime(2007, 11, 14, 1, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                    ),
+                )
             ),
             (
                 "Simple recurring",
@@ -2238,8 +2244,14 @@ END:VCALENDAR
 """,
                 False,
                 (
-                    PyCalendarDateTime(2007, 11, 14, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
-                    PyCalendarDateTime(2007, 11, 15, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                    (
+                        PyCalendarDateTime(2007, 11, 14, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                        PyCalendarDateTime(2007, 11, 14, 1, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                    ),
+                    (
+                        PyCalendarDateTime(2007, 11, 15, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                        PyCalendarDateTime(2007, 11, 15, 1, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                    ),
                 )
             ),
             (
@@ -2259,9 +2271,18 @@ END:VCALENDAR
 """,
                 False,
                 (
-                    PyCalendarDateTime(2007, 11, 14, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
-                    PyCalendarDateTime(2007, 11, 15, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
-                    PyCalendarDateTime(2007, 11, 16, 1, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                    (
+                        PyCalendarDateTime(2007, 11, 14, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                        PyCalendarDateTime(2007, 11, 14, 1, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                    ),
+                    (
+                        PyCalendarDateTime(2007, 11, 15, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                        PyCalendarDateTime(2007, 11, 15, 1, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                    ),
+                    (
+                        PyCalendarDateTime(2007, 11, 16, 1, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                        PyCalendarDateTime(2007, 11, 16, 2, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                    ),
                 )
             ),
             (
@@ -2281,8 +2302,14 @@ END:VCALENDAR
 """,
                 False,
                 (
-                    PyCalendarDateTime(2007, 11, 14, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
-                    PyCalendarDateTime(2007, 11, 16, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                    (
+                        PyCalendarDateTime(2007, 11, 14, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                        PyCalendarDateTime(2007, 11, 14, 1, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                    ),
+                    (
+                        PyCalendarDateTime(2007, 11, 16, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                        PyCalendarDateTime(2007, 11, 16, 1, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                    ),
                 )
             ),
             (
@@ -2302,8 +2329,14 @@ END:VCALENDAR
 """,
                 False,
                 (
-                    PyCalendarDateTime(2007, 11, 15, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
-                    PyCalendarDateTime(2007, 11, 16, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                    (
+                        PyCalendarDateTime(2007, 11, 15, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                        PyCalendarDateTime(2007, 11, 15, 1, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                    ),
+                    (
+                        PyCalendarDateTime(2007, 11, 16, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                        PyCalendarDateTime(2007, 11, 16, 1, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                    ),
                 )
             ),
             (
@@ -2329,8 +2362,14 @@ END:VCALENDAR
 """,
                 False,
                 (
-                    PyCalendarDateTime(2007, 11, 14, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
-                    PyCalendarDateTime(2007, 11, 15, 1, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                    (
+                        PyCalendarDateTime(2007, 11, 14, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                        PyCalendarDateTime(2007, 11, 14, 1, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                    ),
+                    (
+                        PyCalendarDateTime(2007, 11, 15, 1, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                        PyCalendarDateTime(2007, 11, 15, 2, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                    ),
                 )
             ),
             (
@@ -2380,8 +2419,14 @@ END:VCALENDAR
 """,
                 True,
                 (
-                    PyCalendarDateTime(2007, 11, 14, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
-                    PyCalendarDateTime(2007, 11, 15, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                    (
+                        PyCalendarDateTime(2007, 11, 14, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                        PyCalendarDateTime(2007, 11, 14, 1, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                    ),
+                    (
+                        PyCalendarDateTime(2007, 11, 15, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                        PyCalendarDateTime(2007, 11, 15, 1, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                    ),
                 )
             ),
         )
@@ -2393,8 +2438,353 @@ END:VCALENDAR
             else:
                 instances = component.expandTimeRanges(PyCalendarDateTime(2100, 1, 1), ignoreInvalidInstances)
                 self.assertTrue(len(instances.instances) == len(results), "%s: wrong number of instances" % (description,))
-                for instance in instances:
-                    self.assertTrue(instances[instance].start in results, "%s: %s missing" % (description, instance,))
+                periods = tuple([(instance.start, instance.end) for instance in sorted(instances.instances.values(), key=lambda x:x.start)])
+                self.assertEqual(periods, results)
+                for start, end in periods:
+                    self.assertEqual(start.isDateOnly(), results[0][0].isDateOnly(), "%s: %s wrong date/time start state" % (description, start,))
+                    self.assertEqual(end.isDateOnly(), results[0][1].isDateOnly(), "%s: %s wrong date/time end state" % (description, end,))
+       
+    def test_expand_instances_for_expand(self):
+        
+        data = (
+            (
+                "Non recurring utc",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071114T000000Z
+DTSTAMP:20080601T120000Z
+DURATION:PT1H
+END:VEVENT
+END:VCALENDAR
+""",
+                False,
+                (
+                    (
+                        PyCalendarDateTime(2007, 11, 14, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                        PyCalendarDateTime(2007, 11, 14, 1, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                    ),
+                )
+            ),
+            (
+                "Non recurring all-day",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART;VALUE=DATE:20071115
+DTSTAMP:20080601T120000Z
+DURATION:P1D
+END:VEVENT
+END:VCALENDAR
+""",
+                False,
+                (
+                    (
+                        PyCalendarDateTime(2007, 11, 15),
+                        PyCalendarDateTime(2007, 11, 16),
+                    ),
+                )
+            ),
+            (
+                "Simple recurring utc",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071114T000000Z
+DTSTAMP:20080601T120000Z
+DURATION:PT1H
+RRULE:FREQ=DAILY;COUNT=2
+END:VEVENT
+END:VCALENDAR
+""",
+                False,
+                (
+                    (
+                        PyCalendarDateTime(2007, 11, 14, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                        PyCalendarDateTime(2007, 11, 14, 1, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                    ),
+                    (
+                        PyCalendarDateTime(2007, 11, 15, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                        PyCalendarDateTime(2007, 11, 15, 1, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                    ),
+                )
+            ),
+            (
+                "Simple recurring all day",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART;VALUE=DATE:20071115
+DTSTAMP:20080601T120000Z
+DURATION:P1D
+RRULE:FREQ=DAILY;COUNT=2
+END:VEVENT
+END:VCALENDAR
+""",
+                False,
+                (
+                    (
+                        PyCalendarDateTime(2007, 11, 15),
+                        PyCalendarDateTime(2007, 11, 16),
+                    ),
+                    (
+                        PyCalendarDateTime(2007, 11, 16),
+                        PyCalendarDateTime(2007, 11, 17),
+                    ),
+                )
+            ),
+            (
+                "Recurring with RDATE utc",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071114T000000Z
+DTSTAMP:20080601T120000Z
+DURATION:PT1H
+RRULE:FREQ=DAILY;COUNT=2
+RDATE:20071116T010000Z
+END:VEVENT
+END:VCALENDAR
+""",
+                False,
+                (
+                    (
+                        PyCalendarDateTime(2007, 11, 14, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                        PyCalendarDateTime(2007, 11, 14, 1, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                    ),
+                    (
+                        PyCalendarDateTime(2007, 11, 15, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                        PyCalendarDateTime(2007, 11, 15, 1, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                    ),
+                    (
+                        PyCalendarDateTime(2007, 11, 16, 1, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                        PyCalendarDateTime(2007, 11, 16, 2, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                    ),
+                )
+            ),
+            (
+                "Recurring with RDATE all-day",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART;VALUE=DATE:20071115
+DTSTAMP:20080601T120000Z
+DURATION:P1D
+RRULE:FREQ=DAILY;COUNT=2
+RDATE;VALUE=DATE:20071118
+END:VEVENT
+END:VCALENDAR
+""",
+                False,
+                (
+                    (
+                        PyCalendarDateTime(2007, 11, 15),
+                        PyCalendarDateTime(2007, 11, 16),
+                    ),
+                    (
+                        PyCalendarDateTime(2007, 11, 16),
+                        PyCalendarDateTime(2007, 11, 17),
+                    ),
+                    (
+                        PyCalendarDateTime(2007, 11, 18),
+                        PyCalendarDateTime(2007, 11, 19),
+                    ),
+                )
+            ),
+            (
+                "Recurring with EXDATE utc",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071114T000000Z
+DTSTAMP:20080601T120000Z
+DURATION:PT1H
+RRULE:FREQ=DAILY;COUNT=3
+EXDATE:20071115T000000Z
+END:VEVENT
+END:VCALENDAR
+""",
+                False,
+                (
+                    (
+                        PyCalendarDateTime(2007, 11, 14, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                        PyCalendarDateTime(2007, 11, 14, 1, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                    ),
+                    (
+                        PyCalendarDateTime(2007, 11, 16, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                        PyCalendarDateTime(2007, 11, 16, 1, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                    ),
+                )
+            ),
+            (
+                "Recurring with EXDATE all-day",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART;VALUE=DATE:20071115
+DTSTAMP:20080601T120000Z
+DURATION:P1D
+RRULE:FREQ=DAILY;COUNT=3
+EXDATE;VALUE=DATE:20071116
+END:VEVENT
+END:VCALENDAR
+""",
+                False,
+                (
+                    (
+                        PyCalendarDateTime(2007, 11, 15),
+                        PyCalendarDateTime(2007, 11, 16),
+                    ),
+                    (
+                        PyCalendarDateTime(2007, 11, 17),
+                        PyCalendarDateTime(2007, 11, 18),
+                    ),
+                )
+            ),
+            (
+                "Recurring with override utc",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071114T000000Z
+DTSTAMP:20080601T120000Z
+DURATION:PT1H
+RRULE:FREQ=DAILY;COUNT=2
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890-1
+RECURRENCE-ID:20071115T000000Z
+DTSTART:20071115T010000Z
+DTSTAMP:20080601T120000Z
+DURATION:PT1H
+END:VEVENT
+END:VCALENDAR
+""",
+                False,
+                (
+                    (
+                        PyCalendarDateTime(2007, 11, 14, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                        PyCalendarDateTime(2007, 11, 14, 1, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                    ),
+                    (
+                        PyCalendarDateTime(2007, 11, 15, 1, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                        PyCalendarDateTime(2007, 11, 15, 2, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                    ),
+                )
+            ),
+            (
+                "Recurring with override all-day",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART;VALUE=DATE:20071115
+DTSTAMP:20080601T120000Z
+DURATION:P1D
+RRULE:FREQ=DAILY;COUNT=2
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890-1
+RECURRENCE-ID;VALUE=DATE:20071116
+DTSTART;VALUE=DATE:20071116
+DTSTAMP:20080601T120000Z
+DURATION:P2D
+END:VEVENT
+END:VCALENDAR
+""",
+                False,
+                (
+                    (
+                        PyCalendarDateTime(2007, 11, 15),
+                        PyCalendarDateTime(2007, 11, 16),
+                    ),
+                    (
+                        PyCalendarDateTime(2007, 11, 16),
+                        PyCalendarDateTime(2007, 11, 18),
+                    ),
+                )
+            ),
+            (
+                "Recurring with invalid override utc",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071114T000000Z
+DURATION:PT1H
+DTSTAMP:20080601T120000Z
+RRULE:FREQ=DAILY;COUNT=2
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890-1
+RECURRENCE-ID:20071115T010000Z
+DTSTART:20071115T000000Z
+DURATION:PT1H
+DTSTAMP:20080601T120000Z
+END:VEVENT
+END:VCALENDAR
+""",
+                False,
+                None
+            ),
+            (
+                "Recurring with invalid override all-day",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART;VALUE=DATE:20071115
+DURATION:P1D
+DTSTAMP:20080601T120000Z
+RRULE:FREQ=DAILY;COUNT=2
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890-1
+RECURRENCE-ID;VALUE=DATE:20071117
+DTSTART;VALUE=DATE:20071117
+DURATION:P2D
+DTSTAMP:20080601T120000Z
+END:VEVENT
+END:VCALENDAR
+""",
+                False,
+                None
+            ),
+        )
+        
+        for description, original, ignoreInvalidInstances, results in data:
+            component = Component.fromString(original)
+            if results is None:
+                self.assertRaises(InvalidOverriddenInstanceError, component.expandTimeRanges, PyCalendarDateTime(2100, 1, 1), ignoreInvalidInstances)
+            else:
+                instances = component.expandTimeRanges(PyCalendarDateTime(2100, 1, 1), ignoreInvalidInstances, normalizeFunction=normalizeForExpand)
+                self.assertTrue(len(instances.instances) == len(results), "%s: wrong number of instances" % (description,))
+                periods = tuple([(instance.start, instance.end) for instance in sorted(instances.instances.values(), key=lambda x:x.start)])
+                self.assertEqual(periods, results)
+                for start, end in periods:
+                    self.assertEqual(start.isDateOnly(), results[0][0].isDateOnly(), "%s: %s wrong date/time start state" % (description, start,))
+                    self.assertEqual(end.isDateOnly(), results[0][1].isDateOnly(), "%s: %s wrong date/time end state" % (description, end,))
        
     def test_has_property_in_any_component(self):
         

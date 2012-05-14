@@ -85,10 +85,11 @@ class Instance(object):
 
 class InstanceList(object):
     
-    def __init__(self, ignoreInvalidInstances=False):
+    def __init__(self, ignoreInvalidInstances=False, normalizeFunction=normalizeForIndex):
         self.instances = {}
         self.limit = None
         self.ignoreInvalidInstances = ignoreInvalidInstances
+        self.normalizeFunction = normalizeFunction
         
     def __iter__(self):
         # Return keys in sorted order via iterator
@@ -310,7 +311,7 @@ class InstanceList(object):
             limited = rrules.expand(rulestart,
                 PyCalendarPeriod(PyCalendarDateTime(1900,1,1), limit), expanded)
             for startDate in expanded:
-                startDate = normalizeForIndex(startDate)
+                startDate = self.normalizeFunction(startDate)
                 endDate = startDate + duration
                 self.addInstance(Instance(component, startDate, endDate))
             if limited:
@@ -318,8 +319,8 @@ class InstanceList(object):
         else:
             # Always add main instance if included in range.
             if start < limit:
-                start = normalizeForIndex(start)
-                end = normalizeForIndex(end)
+                start = self.normalizeFunction(start)
+                end = self.normalizeFunction(end)
                 self.addInstance(Instance(component, start, end))
             else:
                 self.limit = limit
@@ -331,9 +332,9 @@ class InstanceList(object):
         range = component.getRange()
         
         # Now add this instance, effectively overriding the one with the matching R-ID
-        start = normalizeForIndex(start)
-        end = normalizeForIndex(end)
-        rid = normalizeForIndex(rid)
+        start = self.normalizeFunction(start)
+        end = self.normalizeFunction(end)
+        rid = self.normalizeFunction(rid)
 
         # Make sure start is within the limit
         if start > limit and rid > limit:
@@ -407,8 +408,8 @@ class InstanceList(object):
                 period = period.getValue()
                 if period.getStart() >= limit:
                     continue
-                start = normalizeForIndex(period.getStart())
-                end = normalizeForIndex(period.getEnd())
+                start = self.normalizeFunction(period.getStart())
+                end = self.normalizeFunction(period.getEnd())
                 self.addInstance(Instance(component, start, end))
 
     def _addAvailabilityComponent(self, component, limit):
@@ -428,11 +429,11 @@ class InstanceList(object):
             return
         if start is None:
             start = PyCalendarDateTime(1900, 1, 1, 0, 0, 0, tzid=PyCalendarTimezone(utc=True))
-        start = normalizeForIndex(start)
+        start = self.normalizeFunction(start)
 
         end = component.getEndDateUTC()
         if end is None:
             end = PyCalendarDateTime(2100, 1, 1, 0, 0, 0, tzid=PyCalendarTimezone(utc=True))
-        end = normalizeForIndex(end)
+        end = self.normalizeFunction(end)
 
         self.addInstance(Instance(component, start, end))

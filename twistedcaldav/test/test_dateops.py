@@ -18,20 +18,70 @@ import twistedcaldav.test.util
 from twisted.trial.unittest import SkipTest
 from pycalendar.datetime import PyCalendarDateTime
 from twistedcaldav.dateops import parseSQLTimestampToPyCalendar,\
-    parseSQLDateToPyCalendar, parseSQLTimestamp, pyCalendarTodatetime
+    parseSQLDateToPyCalendar, parseSQLTimestamp, pyCalendarTodatetime,\
+    normalizeForExpand, normalizeForIndex, normalizeToUTC, timeRangesOverlap
 import datetime
 import dateutil
+from pycalendar.timezone import PyCalendarTimezone
+from twistedcaldav.timezones import TimezoneCache
 
 class Dateops(twistedcaldav.test.util.TestCase):
     """
     dateops.py tests
     """
 
+    def setUp(self):
+        super(Dateops, self).setUp()
+        TimezoneCache.create()
+
+
     def test_normalizeForIndex(self):
-        raise SkipTest("test unimplemented")
+        """
+        Test that dateops.normalizeForIndex works correctly on all four types of date/time: date only, floating, UTC and local time.
+        """
+        
+        data = (
+            (PyCalendarDateTime(2012, 1, 1), PyCalendarDateTime(2012, 1, 1, 0, 0, 0)),
+            (PyCalendarDateTime(2012, 1, 1, 10, 0, 0), PyCalendarDateTime(2012, 1, 1, 10, 0, 0)),
+            (PyCalendarDateTime(2012, 1, 1, 11, 0, 0, tzid=PyCalendarTimezone(utc=True)), PyCalendarDateTime(2012, 1, 1, 11, 0, 0, tzid=PyCalendarTimezone(utc=True))),
+            (PyCalendarDateTime(2012, 1, 1, 12, 0, 0, tzid=PyCalendarTimezone(tzid="America/New_York")), PyCalendarDateTime(2012, 1, 1, 17, 0, 0, tzid=PyCalendarTimezone(utc=True))),
+        )
+        
+        for value, result in data:
+            self.assertEqual(normalizeForIndex(value), result)
+
 
     def test_normalizeToUTC(self):
-        raise SkipTest("test unimplemented")
+        """
+        Test that dateops.normalizeToUTC works correctly on all four types of date/time: date only, floating, UTC and local time.
+        """
+        
+        data = (
+            (PyCalendarDateTime(2012, 1, 1), PyCalendarDateTime(2012, 1, 1, 0, 0, 0, tzid=PyCalendarTimezone(utc=True))),
+            (PyCalendarDateTime(2012, 1, 1, 10, 0, 0), PyCalendarDateTime(2012, 1, 1, 10, 0, 0, tzid=PyCalendarTimezone(utc=True))),
+            (PyCalendarDateTime(2012, 1, 1, 11, 0, 0, tzid=PyCalendarTimezone(utc=True)), PyCalendarDateTime(2012, 1, 1, 11, 0, 0, tzid=PyCalendarTimezone(utc=True))),
+            (PyCalendarDateTime(2012, 1, 1, 12, 0, 0, tzid=PyCalendarTimezone(tzid="America/New_York")), PyCalendarDateTime(2012, 1, 1, 17, 0, 0, tzid=PyCalendarTimezone(utc=True))),
+        )
+        
+        for value, result in data:
+            self.assertEqual(normalizeToUTC(value), result)
+
+
+    def test_normalizeForExpand(self):
+        """
+        Test that dateops.normalizeForExpand works correctly on all four types of date/time: date only, floating, UTC and local time.
+        """
+        
+        data = (
+            (PyCalendarDateTime(2012, 1, 1), PyCalendarDateTime(2012, 1, 1)),
+            (PyCalendarDateTime(2012, 1, 1, 10, 0, 0), PyCalendarDateTime(2012, 1, 1, 10, 0, 0)),
+            (PyCalendarDateTime(2012, 1, 1, 11, 0, 0, tzid=PyCalendarTimezone(utc=True)), PyCalendarDateTime(2012, 1, 1, 11, 0, 0, tzid=PyCalendarTimezone(utc=True))),
+            (PyCalendarDateTime(2012, 1, 1, 12, 0, 0, tzid=PyCalendarTimezone(tzid="America/New_York")), PyCalendarDateTime(2012, 1, 1, 17, 0, 0, tzid=PyCalendarTimezone(utc=True))),
+        )
+        
+        for value, result in data:
+            self.assertEqual(normalizeForExpand(value), result)
+
 
     def test_floatoffset(self):
         raise SkipTest("test unimplemented")
@@ -46,7 +96,144 @@ class Dateops(twistedcaldav.test.util.TestCase):
         raise SkipTest("test unimplemented")
 
     def test_timeRangesOverlap(self):
-        raise SkipTest("test unimplemented")
+        
+        data = (
+            # Timed
+            (
+                "Start within, end within - overlap",
+                PyCalendarDateTime(2012, 1, 1, 11, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                PyCalendarDateTime(2012, 1, 1, 12, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                PyCalendarDateTime(2012, 1, 1, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                PyCalendarDateTime(2012, 1, 2, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                True,
+            ),
+            (
+                "Start before, end before - no overlap",
+                PyCalendarDateTime(2012, 1, 1, 11, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                PyCalendarDateTime(2012, 1, 1, 12, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                PyCalendarDateTime(2012, 1, 2, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                PyCalendarDateTime(2012, 1, 3, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                False,
+            ),
+            (
+                "Start before, end right before - no overlap",
+                PyCalendarDateTime(2012, 1, 1, 23, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                PyCalendarDateTime(2012, 1, 2, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                PyCalendarDateTime(2012, 1, 2, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                PyCalendarDateTime(2012, 1, 3, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                False,
+            ),
+            (
+                "Start before, end within - overlap",
+                PyCalendarDateTime(2012, 1, 1, 11, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                PyCalendarDateTime(2012, 1, 2, 11, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                PyCalendarDateTime(2012, 1, 2, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                PyCalendarDateTime(2012, 1, 3, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                True,
+            ),
+            (
+                "Start after, end after - no overlap",
+                PyCalendarDateTime(2012, 1, 2, 11, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                PyCalendarDateTime(2012, 1, 2, 12, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                PyCalendarDateTime(2012, 1, 1, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                PyCalendarDateTime(2012, 1, 2, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                False,
+            ),
+            (
+                "Start right after, end after - no overlap",
+                PyCalendarDateTime(2012, 1, 2, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                PyCalendarDateTime(2012, 1, 2, 1, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                PyCalendarDateTime(2012, 1, 1, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                PyCalendarDateTime(2012, 1, 2, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                False,
+            ),
+            (
+                "Start within, end after - overlap",
+                PyCalendarDateTime(2012, 1, 1, 12, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                PyCalendarDateTime(2012, 1, 2, 12, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                PyCalendarDateTime(2012, 1, 1, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                PyCalendarDateTime(2012, 1, 2, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                True,
+            ),
+            (
+                "Start before, end after - overlap",
+                PyCalendarDateTime(2012, 1, 1, 11, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                PyCalendarDateTime(2012, 1, 3, 11, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                PyCalendarDateTime(2012, 1, 2, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                PyCalendarDateTime(2012, 1, 3, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                True,
+            ),
+            
+            # All day
+            (
+                "All day: Start within, end within - overlap",
+                PyCalendarDateTime(2012, 1, 9),
+                PyCalendarDateTime(2012, 1, 10),
+                PyCalendarDateTime(2012, 1, 8, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                PyCalendarDateTime(2012, 1, 15, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                True,
+            ),
+            (
+                "All day: Start before, end before - no overlap",
+                PyCalendarDateTime(2012, 1, 1),
+                PyCalendarDateTime(2012, 1, 2),
+                PyCalendarDateTime(2012, 1, 8, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                PyCalendarDateTime(2012, 1, 15, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                False,
+            ),
+            (
+                "All day: Start before, end right before - no overlap",
+                PyCalendarDateTime(2012, 1, 7),
+                PyCalendarDateTime(2012, 1, 8),
+                PyCalendarDateTime(2012, 1, 8, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                PyCalendarDateTime(2012, 1, 15, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                False,
+            ),
+            (
+                "All day: Start before, end within - overlap",
+                PyCalendarDateTime(2012, 1, 7),
+                PyCalendarDateTime(2012, 1, 9),
+                PyCalendarDateTime(2012, 1, 8, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                PyCalendarDateTime(2012, 1, 15, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                True,
+            ),
+            (
+                "All day: Start after, end after - no overlap",
+                PyCalendarDateTime(2012, 1, 16),
+                PyCalendarDateTime(2012, 1, 17),
+                PyCalendarDateTime(2012, 1, 8, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                PyCalendarDateTime(2012, 1, 15, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                False,
+            ),
+            (
+                "All day: Start right after, end after - no overlap",
+                PyCalendarDateTime(2012, 1, 15),
+                PyCalendarDateTime(2012, 1, 16),
+                PyCalendarDateTime(2012, 1, 8, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                PyCalendarDateTime(2012, 1, 15, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                False,
+            ),
+            (
+                "All day: Start within, end after - overlap",
+                PyCalendarDateTime(2012, 1, 14),
+                PyCalendarDateTime(2012, 1, 16),
+                PyCalendarDateTime(2012, 1, 8, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                PyCalendarDateTime(2012, 1, 15, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                True,
+            ),
+            (
+                "All day: Start before, end after - overlap",
+                PyCalendarDateTime(2012, 1, 7),
+                PyCalendarDateTime(2012, 1, 16),
+                PyCalendarDateTime(2012, 1, 8, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                PyCalendarDateTime(2012, 1, 15, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                True,
+            ),
+        )
+        
+        for title, start1, end1, start2, end2, result in data:
+            self.assertEqual(timeRangesOverlap(start1, end1, start2, end2), result, msg="Failed: %s" % (title,))
+            
 
     def test_normalizePeriodList(self):
         raise SkipTest("test unimplemented")

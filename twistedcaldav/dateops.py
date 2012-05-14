@@ -77,6 +77,23 @@ def normalizeToUTC(dt):
         dt.adjustToUTC()
         return dt
 
+def normalizeForExpand(dt):
+    """
+    Normalize a L{PyCalendarDateTime} object for use with the CalDAV expand option.
+    Convert to date-time in UTC, leave date only and floating alone.
+    @param dt: a L{PyCalendarDateTime} object to normalize
+    @return: the normalized PyCalendarDateTime
+    """
+    if not isinstance(dt, PyCalendarDateTime):
+        raise TypeError("%r is not a PyCalendarDateTime instance" % (dt,))
+    
+    dt = dt.duplicate()
+    if dt.isDateOnly() or dt.floating():
+        return dt
+    else:
+        dt.adjustToUTC()
+        return dt
+
 def floatoffset(dt, pytz):
     """
     Apply the timezone offset to the supplied time, then force tz to utc. This gives the local
@@ -122,10 +139,10 @@ def differenceDateTime(start, end, defaulttz = None):
 def timeRangesOverlap(start1, end1, start2, end2, defaulttz = None):
     # Can't compare date-time and date only, so normalize
     # to date only if they are mixed.
-    if (start1 is not None) and not start1.isDateOnly() and (start2 is not None) and start2.isDateOnly(): start1 = start1.setDateOnly(True)
-    if (start2 is not None) and not start2.isDateOnly() and (start1 is not None) and start1.isDateOnly(): start2 = start2.setDateOnly(True)
-    if (end1 is not None) and not end1.isDateOnly() and (end2 is not None) and end2.isDateOnly(): end1 = end1.setDateOnly(True)
-    if (end2 is not None) and not end2.isDateOnly() and (end1 is not None) and end1.isDateOnly(): end2 = end2.setDateOnly(True)
+    if (start1 is not None) and not start1.isDateOnly() and (start2 is not None) and start2.isDateOnly(): start1.setDateOnly(True)
+    if (start2 is not None) and not start2.isDateOnly() and (start1 is not None) and start1.isDateOnly(): start2.setDateOnly(True)
+    if (end1 is not None) and not end1.isDateOnly() and (end2 is not None) and end2.isDateOnly(): end1.setDateOnly(True)
+    if (end2 is not None) and not end2.isDateOnly() and (end1 is not None) and end1.isDateOnly(): end2.setDateOnly(True)
 
     # Note that start times are inclusive and end times are not.
     if start1 is not None and start2 is not None:
