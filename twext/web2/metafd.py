@@ -15,17 +15,16 @@
 # limitations under the License.
 ##
 
-from twisted.internet.tcp import Server
-from twext.internet.tcp import MaxAcceptTCPServer
-
-from twisted.internet import reactor
-
-from twisted.application.service import MultiService, Service
-
-from twext.web2.channel.http import HTTPFactory
-
 from twext.internet.sendfdport import (
     InheritedPort, InheritedSocketDispatcher, InheritingProtocolFactory)
+from twext.internet.tcp import MaxAcceptTCPServer
+from twext.python.log import Logger
+from twext.web2.channel.http import HTTPFactory
+from twisted.application.service import MultiService, Service
+from twisted.internet import reactor
+from twisted.internet.tcp import Server
+
+log = Logger()
 
 
 
@@ -198,10 +197,19 @@ class ConnectionLimiter(MultiService, object):
                 # accepting connections again if we paused (see
                 # newConnectionStatus)
                 result = self.intWithNoneAsZero(previousStatus) - 1
+                if result < 0:
+                    log.err("metafd: trying to decrement status below zero")
+                    result = 0
             else:
                 # A new process just started accepting new connections; zero
-                # out its expected load.
-                result = 0
+                # out its expected load, but only if previous status is still None
+                result = 0 if previousStatus is None else previousStatus
+                if previousStatus is None:
+                    result = 0
+                else:
+                    log.err("metafd: trying to zero status that is not None")
+                    result = previousStatus
+
             # If load has indeed decreased (i.e. in any case except 'a new,
             # idle process replaced an old, idle process'), then start
             # listening again.

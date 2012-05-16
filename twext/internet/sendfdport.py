@@ -122,7 +122,7 @@ class _SubprocessSocket(FileDescriptor, object):
         Receive a status / health message and record it.
         """
         try:
-            data, flags, ancillary = recvmsg(self.skt.fileno())
+            data, _ignore_flags, _ignore_ancillary = recvmsg(self.skt.fileno())
         except SocketError, se:
             if se.errno not in (EAGAIN, ENOBUFS):
                 raise
@@ -192,7 +192,11 @@ class InheritedSocketDispatcher(object):
         @param description: some text to identify to the subprocess's
             L{InheritedPort} what type of transport to create for this socket.
         """
-        self._subprocessSockets.sort(key=lambda conn: conn.status)
+        
+        # We want None to sort after 0 and before 1, so coerce to 0.5 - this allows the master
+        # to first schedule all child process that are up but not yet busy ahead of those that
+        # are still starting up.
+        self._subprocessSockets.sort(key=lambda conn: 0.5 if conn.status is None else conn.status)
         selectedSocket = self._subprocessSockets[0]
         selectedSocket.sendSocketToPeer(skt, description)
         # XXX Maybe want to send along 'description' or 'skt' or some

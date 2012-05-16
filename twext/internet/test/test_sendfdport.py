@@ -1,6 +1,6 @@
 # -*- test-case-name: twext.internet.test.test_sendfdport -*-
 ##
-# Copyright (c) 2010 Apple Inc. All rights reserved.
+# Copyright (c) 2010-2012 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,9 +19,11 @@
 Tests for L{twext.internet.sendfdport}.
 """
 
-from twisted.trial.unittest import TestCase
-from twext.internet.sendfdport import InheritedSocketDispatcher
+from twext.internet.sendfdport import InheritedSocketDispatcher,\
+    _SubprocessSocket
+from twext.web2.metafd import ConnectionLimiter
 from twisted.internet.interfaces import IReactorFDSet
+from twisted.trial.unittest import TestCase
 from zope.interface.declarations import implements
 
 
@@ -55,3 +57,54 @@ class InheritedSocketDispatcherTests(TestCase):
         dispatcher.startDispatching()
         dispatcher.addSocket()
         self.assertEquals(reactor.getReaders(), dispatcher._subprocessSockets)
+
+
+    def test_sendFileDescriptorSorting(self):
+        """
+        Make sure InheritedSocketDispatcher.sendFileDescriptor sorts sockets with status None
+        higher than those with int status values.
+        """
+        
+        self.patch(_SubprocessSocket, 'sendSocketToPeer', lambda x, y, z:None)
+        dispatcher = InheritedSocketDispatcher(ConnectionLimiter(2, 20))
+        dispatcher.addSocket()
+        dispatcher.addSocket()
+        dispatcher.addSocket()
+
+        sockets = dispatcher._subprocessSockets[:]
+        
+        # Check that 0 is preferred over None
+        sockets[0].status = 0
+        sockets[1].status = 1
+        sockets[2].status = None
+        
+        dispatcher.sendFileDescriptor(None, "")
+        
+        self.assertEqual(sockets[0].status, 1)
+        self.assertEqual(sockets[1].status, 1)
+        self.assertEqual(sockets[2].status, None)
+        
+        dispatcher.sendFileDescriptor(None, "")
+        
+        self.assertEqual(sockets[0].status, 1)
+        self.assertEqual(sockets[1].status, 1)
+        self.assertEqual(sockets[2].status, 1)
+
+        # Check that after going to 1 and back to 0 that is still preferred over None 
+        sockets[0].status = 0
+        sockets[1].status = 1
+        sockets[2].status = None
+        
+        dispatcher.sendFileDescriptor(None, "")
+        
+        self.assertEqual(sockets[0].status, 1)
+        self.assertEqual(sockets[1].status, 1)
+        self.assertEqual(sockets[2].status, None)
+        
+        sockets[1].status = 0
+
+        dispatcher.sendFileDescriptor(None, "")
+        
+        self.assertEqual(sockets[0].status, 1)
+        self.assertEqual(sockets[1].status, 1)
+        self.assertEqual(sockets[2].status, None)

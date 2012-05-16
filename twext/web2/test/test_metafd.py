@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2011 Apple Inc. All rights reserved.
+# Copyright (c) 2011-2012 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -22,13 +22,11 @@ Tests for twext.web2.metafd.
 from socket import error as SocketError, AF_INET
 from errno import ENOTCONN
 
-from twext.web2 import metafd
-from twext.web2.metafd import ReportingHTTPService
-from twext.web2.channel.http import HTTPChannel
 from twext.internet import sendfdport
+from twext.web2 import metafd
+from twext.web2.channel.http import HTTPChannel
+from twext.web2.metafd import ReportingHTTPService, ConnectionLimiter
 from twisted.internet.tcp import Server
-
-
 from twisted.trial.unittest import TestCase
 
 
@@ -141,4 +139,38 @@ class ReportingHTTPServiceTests(TestCase):
         channels = self.svc.reportingFactory.connectedChannels
         self.assertEqual(len(channels), 1)
         self.assertEqual(list(channels)[0].transport.getPeer().host, "0.0.0.0")
+
+
+
+class ConnectionLimiterTests(TestCase):
+    """
+    Tests for L{ConnectionLimiter}
+    """
+    
+    
+    def test_statusFromMessage(self):
+        """
+        Test ConnectionLimiter.statusFromMessage to make sure count cannot go below zero and that
+        zeroing out does not wipe out an existing count.
+        """
+        
+        cl = ConnectionLimiter(2, 20)
+        
+        # "0" Zeroing out does not overwrite legitimate count
+        self.assertEqual(cl.statusFromMessage(None, "0"), 0)
+        self.assertEqual(cl.statusFromMessage(0, "0"), 0)
+        self.assertEqual(cl.statusFromMessage(1, "0"), 1)
+        self.assertEqual(cl.statusFromMessage(2, "0"), 2)
+        
+        # "-" No negative counts
+        self.assertEqual(cl.statusFromMessage(None, "-"), 0)
+        self.assertEqual(cl.statusFromMessage(0, "-"), 0)
+        self.assertEqual(cl.statusFromMessage(1, "-"), 0)
+        self.assertEqual(cl.statusFromMessage(2, "-"), 1)
+        
+        # "+" No change
+        self.assertEqual(cl.statusFromMessage(None, "+"), 0)
+        self.assertEqual(cl.statusFromMessage(0, "+"), 0)
+        self.assertEqual(cl.statusFromMessage(1, "+"), 1)
+        self.assertEqual(cl.statusFromMessage(2, "+"), 2)
 
