@@ -34,13 +34,13 @@ class SchemaUpgradeTests(TestCase):
 
     def _getSchemaVersion(self, fp, versionKey):
         schema = fp.getContent()
-        found = re.search("insert into CALENDARSERVER values \('%s', '(\d)+'\);" % (versionKey,), schema)
+        found = re.search("insert into CALENDARSERVER (\(NAME, VALUE\) )?values \('%s', '(\d)+'\);" % (versionKey,), schema)
         if found is None:
             if versionKey == "VERSION":
                 self.fail("Could not determine schema version for: %s" % (fp,))
             else:
                 return 1
-        return int(found.group(1))
+        return int(found.group(2))
 
     def test_scanUpgradeFiles(self):
         
@@ -106,7 +106,7 @@ class SchemaUpgradeTests(TestCase):
 
             current_version = self._getSchemaVersion(upgrader.schemaLocation.child("current.sql"), "VERSION")
             
-            for child in upgrader.schemaLocation.child("old").globChildren("*.sql"):
+            for child in upgrader.schemaLocation.child("old").child(dialect).globChildren("*.sql"):
                 old_version = self._getSchemaVersion(child, "VERSION")
                 upgrades = upgrader.determineUpgradeSequence(old_version, current_version, files, dialect)
                 self.assertNotEqual(len(upgrades), 0)
@@ -173,7 +173,7 @@ class SchemaUpgradeTests(TestCase):
 
         test_upgrader = UpgradeDatabaseSchemaService(None, None)
         expected_version = self._getSchemaVersion(test_upgrader.schemaLocation.child("current.sql"), "VERSION")
-        for child in test_upgrader.schemaLocation.child("old").globChildren("*.sql"):
+        for child in test_upgrader.schemaLocation.child("old").child(POSTGRES_DIALECT).globChildren("*.sql"):
             upgrader = UpgradeDatabaseSchemaService(store, None)
             yield _loadOldSchema(child)
             yield upgrader.databaseUpgrade()
@@ -236,7 +236,7 @@ class SchemaUpgradeTests(TestCase):
         test_upgrader = UpgradeDatabaseSchemaService(None, None)
         expected_version = self._getSchemaVersion(test_upgrader.schemaLocation.child("current.sql"), "CALENDAR-DATAVERSION")
         versions = set()
-        for child in test_upgrader.schemaLocation.child("old").globChildren("*.sql"):
+        for child in test_upgrader.schemaLocation.child("old").child(POSTGRES_DIALECT).globChildren("*.sql"):
             versions.add(self._getSchemaVersion(child, "CALENDAR-DATAVERSION"))
 
         for oldVersion in sorted(versions):

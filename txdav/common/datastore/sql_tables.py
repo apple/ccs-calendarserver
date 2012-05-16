@@ -24,7 +24,7 @@ from twext.enterprise.dal.syntax import SchemaSyntax, QueryGenerator
 from twext.enterprise.dal.model import NO_DEFAULT
 from twext.enterprise.dal.model import Sequence, ProcedureCall
 from twext.enterprise.dal.syntax import FixedPlaceholder
-from twext.enterprise.ienterprise import ORACLE_DIALECT
+from twext.enterprise.ienterprise import ORACLE_DIALECT, POSTGRES_DIALECT
 from twext.enterprise.dal.syntax import Insert
 from twext.enterprise.ienterprise import ORACLE_TABLE_NAME_MAX
 from twext.enterprise.dal.parseschema import schemaFromPath
@@ -32,11 +32,15 @@ from twext.enterprise.dal.parseschema import schemaFromPath
 import hashlib
 
 
-def _populateSchema():
+def _populateSchema(version=None):
     """
     Generate the global L{SchemaSyntax}.
     """
-    pathObj = getModule(__name__).filePath.sibling("sql_schema").child("current.sql")
+    
+    if version is None:
+        pathObj = getModule(__name__).filePath.sibling("sql_schema").child("current.sql")
+    else:
+        pathObj = getModule(__name__).filePath.sibling("sql_schema").child("old").child(POSTGRES_DIALECT).child("%s.sql" % (version,))
     return SchemaSyntax(schemaFromPath(pathObj))
 
 
@@ -382,7 +386,12 @@ def _translateSchema(out, schema=schema):
 
 if __name__ == '__main__':
     import sys
-    _translateSchema(sys.stdout)
+    if len(sys.argv) == 2:
+        # Argument is the name of a old/postgres-dialect file (without the .sql suffix), e.g. "v4" 
+        schema = _populateSchema(sys.argv[1])
+    else:
+        schema = _populateSchema()
+    _translateSchema(sys.stdout, schema=schema)
 
 
 

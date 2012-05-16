@@ -871,6 +871,7 @@ class CommonHome(LoggingMixIn):
         self._quotaUsedBytes = None
         self._created = None
         self._modified = None
+        self._syncTokenRevision = None
 
         # Needed for REVISION/BIND table join
         self._revisionBindJoinTable = {}
@@ -1196,9 +1197,15 @@ class CommonHome(LoggingMixIn):
 
     @inlineCallbacks
     def syncToken(self):
-        revision = (yield self._syncTokenQuery.on(
-            self._txn, resourceID=self._resourceID))[0][0]
-        returnValue("%s_%s" % (self._resourceID, revision))
+        """
+        Return the current sync token for the home. This is an aggregate of sync tokens for child
+        collections. We will cache this value to avoid doing the query more than necessary. Care must be
+        taken to invalid the cached value properly.
+        """
+        if self._syncTokenRevision is None:
+            self._syncTokenRevision = (yield self._syncTokenQuery.on(
+                self._txn, resourceID=self._resourceID))[0][0]
+        returnValue("%s_%s" % (self._resourceID, self._syncTokenRevision))
 
 
     @classproperty
@@ -1495,6 +1502,9 @@ class CommonHome(LoggingMixIn):
         ignoring the deadlock error. We use SELECT FOR UPDATE NOWAIT to ensure we do not
         delay the transaction whilst waiting for deadlock detection to kick in.
         """
+
+        # NB if modified is bumped we know that sync token will have changed too, so invalidate the cached value
+        self._syncTokenRevision = None
 
         @inlineCallbacks
         def _bumpModified(subtxn):
