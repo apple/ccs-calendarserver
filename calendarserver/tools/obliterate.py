@@ -15,7 +15,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
-import time
 
 """
 This tool scans wipes out user data without using slow store object apis
@@ -38,7 +37,7 @@ from twistedcaldav.stdconfig import DEFAULT_CONFIG_FILE
 from txdav.common.datastore.sql_tables import schema, _BIND_MODE_OWN
 import os
 import sys
-import uuid
+import time
 
 VERSION = "1"
 
@@ -334,7 +333,7 @@ class ObliterateService(Service, object):
 
         # Remove revisions - do before deleting calendars to remove
         # foreign key constraint
-        yield self.removeRevisionsForResourceID(homeID)
+        yield self.removeRevisionsForHomeResourceID(homeID)
 
         # Look at each calendar and unbind/delete-if-owned
         count = (yield self.deleteCalendars(homeID))
@@ -409,6 +408,9 @@ class ObliterateService(Service, object):
     @inlineCallbacks
     def deleteCalendar(self, resourceID):
 
+        # Need to delete any remaining CALENDAR_OBJECT_REVISIONS entries
+        yield self.removeRevisionsForCalendarResourceID(resourceID)
+
         # Delete the CALENDAR entry (will cascade to CALENDAR_BIND and CALENDAR_OBJECT)
         if not self.options["dry-run"]:
             ca = schema.CALENDAR
@@ -444,7 +446,7 @@ class ObliterateService(Service, object):
 
 
     @inlineCallbacks
-    def removeRevisionsForResourceID(self, resourceID):
+    def removeRevisionsForHomeResourceID(self, resourceID):
         if not self.options["dry-run"]:
             rev = schema.CALENDAR_OBJECT_REVISIONS
             kwds = { "ResourceID" : resourceID }
@@ -452,6 +454,19 @@ class ObliterateService(Service, object):
                 From=rev,
                 Where=(
                     rev.CALENDAR_HOME_RESOURCE_ID == Parameter("ResourceID")
+                ),
+            ).on(self.txn, **kwds)
+
+
+    @inlineCallbacks
+    def removeRevisionsForCalendarResourceID(self, resourceID):
+        if not self.options["dry-run"]:
+            rev = schema.CALENDAR_OBJECT_REVISIONS
+            kwds = { "ResourceID" : resourceID }
+            yield Delete(
+                From=rev,
+                Where=(
+                    rev.CALENDAR_RESOURCE_ID == Parameter("ResourceID")
                 ),
             ).on(self.txn, **kwds)
 
@@ -557,10 +572,6 @@ class ObliterateService(Service, object):
         Stop the service.  Nothing to do; everything should be finished by this
         time.
         """
-        # TODO: stopping this service mid-export should really stop the export
-        # loop, but this is not implemented because nothing will actually do it
-        # except hitting ^C (which also calls reactor.stop(), so that will exit
-        # anyway).
 
 
 
