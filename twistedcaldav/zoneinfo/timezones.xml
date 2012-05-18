@@ -2,7 +2,7 @@
 <!DOCTYPE timezones SYSTEM "timezones.dtd">
 
 <timezones>
-  <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+  <dtstamp>2012-05-18T16:58:42Z</dtstamp>
   <timezone>
     <tzid>Africa/Abidjan</tzid>
     <dtstamp>2011-10-05T11:50:21Z</dtstamp>
@@ -78,13 +78,13 @@
   </timezone>
   <timezone>
     <tzid>Africa/Casablanca</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
-    <md5>d29bdf449d5696876b3d081a7cc9d97a</md5>
+    <dtstamp>2012-05-18T14:15:25Z</dtstamp>
+    <md5>480b715925a7dd6d17a823f478b9d9aa</md5>
   </timezone>
   <timezone>
     <tzid>Africa/Ceuta</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
-    <md5>9ab21c1136add174dd009d88538315cc</md5>
+    <dtstamp>2012-05-18T16:58:42Z</dtstamp>
+    <md5>8269343ee4c53432bc0d327f549f9db7</md5>
   </timezone>
   <timezone>
     <tzid>Africa/Conakry</tzid>
@@ -389,9 +389,9 @@
   </timezone>
   <timezone>
     <tzid>America/Atikokan</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <dtstamp>2012-05-18T14:15:25Z</dtstamp>
     <alias>America/Coral_Harbour</alias>
-    <md5>e2eb597046bbddc0d6d659d20872e4f2</md5>
+    <md5>e4eebf705755f103dec7d5be0f8c07cc</md5>
   </timezone>
   <timezone>
     <tzid>America/Atka</tzid>
@@ -400,8 +400,8 @@
   </timezone>
   <timezone>
     <tzid>America/Bahia</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
-    <md5>9c3e1760594f4ebebb619b7a86101eaf</md5>
+    <dtstamp>2012-05-18T14:15:25Z</dtstamp>
+    <md5>965f8a79c082df05cf6944a8770cc110</md5>
   </timezone>
   <timezone>
     <tzid>America/Bahia_Banderas</tzid>
@@ -425,8 +425,8 @@
   </timezone>
   <timezone>
     <tzid>America/Blanc-Sablon</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
-    <md5>243c5f9deb930e838a0ee345abcb19b2</md5>
+    <dtstamp>2012-05-18T14:15:25Z</dtstamp>
+    <md5>1b4b74fdfdded282f98d5ad0926ccbd1</md5>
   </timezone>
   <timezone>
     <tzid>America/Boa_Vista</tzid>
@@ -496,8 +496,8 @@
   </timezone>
   <timezone>
     <tzid>America/Coral_Harbour</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
-    <md5>d9de6470e1760f70b213b5a1a1e4a9ff</md5>
+    <dtstamp>2012-05-18T14:15:25Z</dtstamp>
+    <md5>714d0ae2697f03fc9920b4900da1d781</md5>
   </timezone>
   <timezone>
     <tzid>America/Cordoba</tzid>
@@ -508,6 +508,11 @@
     <tzid>America/Costa_Rica</tzid>
     <dtstamp>2011-10-05T11:50:21Z</dtstamp>
     <md5>1470dc0c22e8fba3c9ca462c6f617261</md5>
+  </timezone>
+  <timezone>
+    <tzid>America/Creston</tzid>
+    <dtstamp>2012-05-18T14:15:25Z</dtstamp>
+    <md5>9c9826b4bd3a8691ec81fd09fa72c92b</md5>
   </timezone>
   <timezone>
     <tzid>America/Cuiaba</tzid>
@@ -533,8 +538,8 @@
   </timezone>
   <timezone>
     <tzid>America/Dawson_Creek</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
-    <md5>4a29d5a3ff159aca495868f7f5b6157e</md5>
+    <dtstamp>2012-05-18T14:15:25Z</dtstamp>
+    <md5>74079eb0ff40b048bc1fa88491a1d265</md5>
   </timezone>
   <timezone>
     <tzid>America/Denver</tzid>
@@ -557,9 +562,9 @@
   </timezone>
   <timezone>
     <tzid>America/Edmonton</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <dtstamp>2012-05-18T14:15:25Z</dtstamp>
     <alias>Canada/Mountain</alias>
-    <md5>6978cb66f7b47e195a540c934bafa4b5</md5>
+    <md5>a02dac4fc5dad8c248bcbaa63a62b5d6</md5>
   </timezone>
   <timezone>
     <tzid>America/Eirunepe</tzid>
@@ -588,8 +593,8 @@
   </timezone>
   <timezone>
     <tzid>America/Glace_Bay</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
-    <md5>64d3feeac7d8b0ba46d6df7d7c1bf7c8</md5>
+    <dtstamp>2012-05-18T14:15:25Z</dtstamp>
+    <md5>f0d7bfeb8307ae26bd374becdfc8bc41</md5>
   </timezone>
   <timezone>
     <tzid>America/Godthab</tzid>
@@ -598,8 +603,8 @@
   </timezone>
   <timezone>
     <tzid>America/Goose_Bay</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
-    <md5>1050a8cb28c250b1543277d77dbeafc8</md5>
+    <dtstamp>2012-05-18T14:15:25Z</dtstamp>
+    <md5>401fd812f680542f8dbbc78824fb8a70</md5>
   </timezone>
   <timezone>
     <tzid>America/Grand_Turk</tzid>
@@ -635,15 +640,15 @@
   </timezone>
   <timezone>
     <tzid>America/Halifax</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <dtstamp>2012-05-18T14:15:25Z</dtstamp>
     <alias>Canada/Atlantic</alias>
-    <md5>084d4e929fc4b0bca4290c338843d8d5</md5>
+    <md5>2bb95748970884a8c3a7503062c06f79</md5>
   </timezone>
   <timezone>
     <tzid>America/Havana</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <dtstamp>2012-05-18T14:15:25Z</dtstamp>
     <alias>Cuba</alias>
-    <md5>38fea04bb5c2f84db2687d7078eafab6</md5>
+    <md5>08c40cf829ef2c3724b48c2977a9145d</md5>
   </timezone>
   <timezone>
     <tzid>America/Hermosillo</tzid>
@@ -843,8 +848,8 @@
   </timezone>
   <timezone>
     <tzid>America/Moncton</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
-    <md5>0c8a8d8bdcf8783f2df1fbbbe4d75179</md5>
+    <dtstamp>2012-05-18T14:15:25Z</dtstamp>
+    <md5>454d97d9f3c0962bd9d013b5e2cc4388</md5>
   </timezone>
   <timezone>
     <tzid>America/Monterrey</tzid>
@@ -853,13 +858,13 @@
   </timezone>
   <timezone>
     <tzid>America/Montevideo</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
-    <md5>36ddafeab5424d45c4ca20d9d0d7f389</md5>
+    <dtstamp>2012-05-18T16:58:42Z</dtstamp>
+    <md5>c1279037560f5ffebea4f8ae500b751f</md5>
   </timezone>
   <timezone>
     <tzid>America/Montreal</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
-    <md5>24ab7668e9c7285ef01b635ee501cb64</md5>
+    <dtstamp>2012-05-18T14:15:25Z</dtstamp>
+    <md5>b350fac90f410eb6cd4d83b80bae99fb</md5>
   </timezone>
   <timezone>
     <tzid>America/Montserrat</tzid>
@@ -879,8 +884,8 @@
   </timezone>
   <timezone>
     <tzid>America/Nipigon</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
-    <md5>87d538a5fc42bc0f12955ceb9ba171f2</md5>
+    <dtstamp>2012-05-18T14:15:25Z</dtstamp>
+    <md5>3ac6a11d041c21820628582813ca349d</md5>
   </timezone>
   <timezone>
     <tzid>America/Nome</tzid>
@@ -936,8 +941,8 @@
   </timezone>
   <timezone>
     <tzid>America/Port-au-Prince</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
-    <md5>b4c7c8890eb7d0f187a2c4cfaaec1c50</md5>
+    <dtstamp>2012-05-18T14:15:25Z</dtstamp>
+    <md5>07b79b26cd3ad41d7c8862eaa4b43df5</md5>
   </timezone>
   <timezone>
     <tzid>America/Port_of_Spain</tzid>
@@ -961,8 +966,8 @@
   </timezone>
   <timezone>
     <tzid>America/Rainy_River</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
-    <md5>d394635ab6af436e6d8de1c71563d9d6</md5>
+    <dtstamp>2012-05-18T14:15:25Z</dtstamp>
+    <md5>d619aec7cfd1d0a92c0584f7c001ac0f</md5>
   </timezone>
   <timezone>
     <tzid>America/Rankin_Inlet</tzid>
@@ -976,10 +981,10 @@
   </timezone>
   <timezone>
     <tzid>America/Regina</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <dtstamp>2012-05-18T14:15:25Z</dtstamp>
     <alias>Canada/Saskatchewan</alias>
     <alias>Canada/East-Saskatchewan</alias>
-    <md5>0ef05f6edd26a13b19cd25e86942d216</md5>
+    <md5>2a81ea7d4cf13d375b6d23864f4e395e</md5>
   </timezone>
   <timezone>
     <tzid>America/Resolute</tzid>
@@ -1010,9 +1015,9 @@
   </timezone>
   <timezone>
     <tzid>America/Santiago</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <dtstamp>2012-05-18T14:15:25Z</dtstamp>
     <alias>Chile/Continental</alias>
-    <md5>88bd5131c72c87c3ce0bbca13134ca7a</md5>
+    <md5>eb5688e9107f4cf8b07a67df29a4039e</md5>
   </timezone>
   <timezone>
     <tzid>America/Santo_Domingo</tzid>
@@ -1047,9 +1052,9 @@
   </timezone>
   <timezone>
     <tzid>America/St_Johns</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <dtstamp>2012-05-18T14:15:25Z</dtstamp>
     <alias>Canada/Newfoundland</alias>
-    <md5>3337a22eeaa3f1daf6d42619edb791f4</md5>
+    <md5>08674807ec2a8e109a5a989f222ad373</md5>
   </timezone>
   <timezone>
     <tzid>America/St_Kitts</tzid>
@@ -1074,8 +1079,8 @@
   </timezone>
   <timezone>
     <tzid>America/Swift_Current</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
-    <md5>a5f66af8c5cb1a3fb195c31fcb260260</md5>
+    <dtstamp>2012-05-18T14:15:25Z</dtstamp>
+    <md5>6a3d40f3be68d6dcff531c2d753eeb22</md5>
   </timezone>
   <timezone>
     <tzid>America/Tegucigalpa</tzid>
@@ -1101,9 +1106,9 @@
   </timezone>
   <timezone>
     <tzid>America/Toronto</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <dtstamp>2012-05-18T14:15:25Z</dtstamp>
     <alias>Canada/Eastern</alias>
-    <md5>2a791cddb7c810a1f81399e81c24da66</md5>
+    <md5>6f3ca13503c5c7d451b313d2976c8181</md5>
   </timezone>
   <timezone>
     <tzid>America/Tortola</tzid>
@@ -1112,9 +1117,9 @@
   </timezone>
   <timezone>
     <tzid>America/Vancouver</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <dtstamp>2012-05-18T14:15:25Z</dtstamp>
     <alias>Canada/Pacific</alias>
-    <md5>6ab8c443c1bdb96a083bcd94511a43c3</md5>
+    <md5>df3903762045ac7c388bde5c08751600</md5>
   </timezone>
   <timezone>
     <tzid>America/Virgin</tzid>
@@ -1129,9 +1134,9 @@
   </timezone>
   <timezone>
     <tzid>America/Winnipeg</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <dtstamp>2012-05-18T14:15:25Z</dtstamp>
     <alias>Canada/Central</alias>
-    <md5>9bbd9d44ce618dbcdc2ab767fa583f69</md5>
+    <md5>bd1a4e7ccb0d0bd42bfe79d51a07a858</md5>
   </timezone>
   <timezone>
     <tzid>America/Yakutat</tzid>
@@ -1145,13 +1150,13 @@
   </timezone>
   <timezone>
     <tzid>Antarctica/Casey</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
-    <md5>c1060afadf7d755f5176e8a347d0159e</md5>
+    <dtstamp>2012-05-18T14:15:25Z</dtstamp>
+    <md5>58db2f5bace220cddb515364949f90f7</md5>
   </timezone>
   <timezone>
     <tzid>Antarctica/Davis</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
-    <md5>ac9dcdbfd292ce6884147b0395f65756</md5>
+    <dtstamp>2012-05-18T14:15:25Z</dtstamp>
+    <md5>b8a7f83fedb61a8778b4e271395ba6f9</md5>
   </timezone>
   <timezone>
     <tzid>Antarctica/DumontDUrville</tzid>
@@ -1176,8 +1181,8 @@
   </timezone>
   <timezone>
     <tzid>Antarctica/Palmer</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
-    <md5>8d98c1c83d05f3a958b6b50d77f01535</md5>
+    <dtstamp>2012-05-18T14:15:25Z</dtstamp>
+    <md5>378e7c8e6438bafc7411d08f5b5818bf</md5>
   </timezone>
   <timezone>
     <tzid>Antarctica/Rothera</tzid>
@@ -1313,8 +1318,8 @@
   </timezone>
   <timezone>
     <tzid>Asia/Damascus</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
-    <md5>084ea233b8818a65efbe58cfc92a4a6b</md5>
+    <dtstamp>2012-05-18T14:15:25Z</dtstamp>
+    <md5>725cbf5cace73dba24d4b6a0a91859bd</md5>
   </timezone>
   <timezone>
     <tzid>Asia/Dhaka</tzid>
@@ -1339,8 +1344,8 @@
   </timezone>
   <timezone>
     <tzid>Asia/Gaza</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
-    <md5>94f0029ae23c4ae66c10c2c1936452bb</md5>
+    <dtstamp>2012-05-18T14:15:25Z</dtstamp>
+    <md5>f01b3a4c427305bcf807b6ba8725d56f</md5>
   </timezone>
   <timezone>
     <tzid>Asia/Harbin</tzid>
@@ -1349,8 +1354,8 @@
   </timezone>
   <timezone>
     <tzid>Asia/Hebron</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
-    <md5>0c9fc3e296dcb9e61c0e384fa8b8f259</md5>
+    <dtstamp>2012-05-18T14:15:25Z</dtstamp>
+    <md5>5186de18517fcbe6792a5979c33d8371</md5>
   </timezone>
   <timezone>
     <tzid>Asia/Ho_Chi_Minh</tzid>
@@ -1666,13 +1671,13 @@
   </timezone>
   <timezone>
     <tzid>Asia/Yerevan</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
-    <md5>be8ad304fccc142e66de98c75e33a5ab</md5>
+    <dtstamp>2012-05-18T14:15:25Z</dtstamp>
+    <md5>fbf2743ed30170109021b5d447184721</md5>
   </timezone>
   <timezone>
     <tzid>Atlantic/Azores</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
-    <md5>791fd8faf7c5e495ca3f1f5f6569730a</md5>
+    <dtstamp>2012-05-18T16:58:42Z</dtstamp>
+    <md5>353f9c84fde46bd2cf7069a30c4276ce</md5>
   </timezone>
   <timezone>
     <tzid>Atlantic/Bermuda</tzid>
@@ -1707,8 +1712,8 @@
   </timezone>
   <timezone>
     <tzid>Atlantic/Madeira</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
-    <md5>a3bba0ab3f973d6a4e60478c934b7e09</md5>
+    <dtstamp>2012-05-18T16:58:42Z</dtstamp>
+    <md5>b37695ec302086bc534636878c81afd3</md5>
   </timezone>
   <timezone>
     <tzid>Atlantic/Reykjavik</tzid>
@@ -1728,8 +1733,8 @@
   </timezone>
   <timezone>
     <tzid>Atlantic/Stanley</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
-    <md5>0617de8449f0b759c7d09cefc1dddd16</md5>
+    <dtstamp>2012-05-18T14:15:25Z</dtstamp>
+    <md5>75e381c1686ce4edfad2b9e6767121d2</md5>
   </timezone>
   <timezone>
     <tzid>Australia/ACT</tzid>
@@ -1889,43 +1894,43 @@
   </timezone>
   <timezone>
     <tzid>Canada/Atlantic</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
-    <md5>cca2a3b24abaf7b369d38c4ba0e5e964</md5>
+    <dtstamp>2012-05-18T14:15:25Z</dtstamp>
+    <md5>2cbf7a81ab5bae956eedd4b27df8d8b4</md5>
   </timezone>
   <timezone>
     <tzid>Canada/Central</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
-    <md5>759abb1125e957fa0172761810e152ec</md5>
+    <dtstamp>2012-05-18T14:15:25Z</dtstamp>
+    <md5>6d646828acbc55d9e0d09d5358430cbe</md5>
   </timezone>
   <timezone>
     <tzid>Canada/East-Saskatchewan</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
-    <md5>5e73df69273394d0417d0586f5c31fe7</md5>
+    <dtstamp>2012-05-18T14:15:25Z</dtstamp>
+    <md5>20b7d268558739c1d95f37e8116d643e</md5>
   </timezone>
   <timezone>
     <tzid>Canada/Eastern</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
-    <md5>44075f2012d734ef8770ed4549bc56f3</md5>
+    <dtstamp>2012-05-18T14:15:25Z</dtstamp>
+    <md5>18dfd0e4b1f021e5ae566abd9faf52a3</md5>
   </timezone>
   <timezone>
     <tzid>Canada/Mountain</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
-    <md5>2582c4ad9b1e3dd66a269e725ea19e19</md5>
+    <dtstamp>2012-05-18T14:15:25Z</dtstamp>
+    <md5>00d54a5424e2b72c4af5cd977b46340c</md5>
   </timezone>
   <timezone>
     <tzid>Canada/Newfoundland</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
-    <md5>1c3ab8a47cd50747678fe05c41abda49</md5>
+    <dtstamp>2012-05-18T14:15:25Z</dtstamp>
+    <md5>28502a1271ee5fd7c67f2bb914982993</md5>
   </timezone>
   <timezone>
     <tzid>Canada/Pacific</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
-    <md5>d38b48abfb92ce98b5177fc31c6c430b</md5>
+    <dtstamp>2012-05-18T14:15:25Z</dtstamp>
+    <md5>b090adfacf8c9cee83d392cee51c2e3a</md5>
   </timezone>
   <timezone>
     <tzid>Canada/Saskatchewan</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
-    <md5>80e2456cc6032219f674def5bd23c35d</md5>
+    <dtstamp>2012-05-18T14:15:25Z</dtstamp>
+    <md5>264893463e596821a72c730a2eb1a15c</md5>
   </timezone>
   <timezone>
     <tzid>Canada/Yukon</tzid>
@@ -1934,18 +1939,18 @@
   </timezone>
   <timezone>
     <tzid>Chile/Continental</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
-    <md5>033739e6415501a8cf6efb309ffb25ba</md5>
+    <dtstamp>2012-05-18T14:15:25Z</dtstamp>
+    <md5>8a7eb49c67f7fff9b88bb490ffd60989</md5>
   </timezone>
   <timezone>
     <tzid>Chile/EasterIsland</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
-    <md5>99c0caf1092c3c9ca614ceebe0421967</md5>
+    <dtstamp>2012-05-18T16:58:42Z</dtstamp>
+    <md5>a5b2ba3a1d11fc32d2df5cd13b54542d</md5>
   </timezone>
   <timezone>
     <tzid>Cuba</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
-    <md5>94c9e7655a3ce235e58471df582f8115</md5>
+    <dtstamp>2012-05-18T14:15:25Z</dtstamp>
+    <md5>37f5b060654373fa3c1d73cb00f29140</md5>
   </timezone>
   <timezone>
     <tzid>EET</tzid>
@@ -2204,8 +2209,8 @@
   </timezone>
   <timezone>
     <tzid>Europe/Brussels</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
-    <md5>992c1070f650acab5ee1f6fc3fcdbae6</md5>
+    <dtstamp>2012-05-18T16:58:42Z</dtstamp>
+    <md5>947ee56d6d4958756e02f8cdcab53744</md5>
   </timezone>
   <timezone>
     <tzid>Europe/Bucharest</tzid>
@@ -2274,14 +2279,14 @@
   </timezone>
   <timezone>
     <tzid>Europe/Kiev</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
-    <md5>37f1114be2ca8c943d1f7a4530ffa7ff</md5>
+    <dtstamp>2012-05-18T14:15:25Z</dtstamp>
+    <md5>d7301238699900b628cb5142a5a64706</md5>
   </timezone>
   <timezone>
     <tzid>Europe/Lisbon</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <dtstamp>2012-05-18T16:58:42Z</dtstamp>
     <alias>Portugal</alias>
-    <md5>f0c81cd5f6992f5d1e1530ac57a08861</md5>
+    <md5>95bfa453f2000ca7466ed9f46285c2e1</md5>
   </timezone>
   <timezone>
     <tzid>Europe/Ljubljana</tzid>
@@ -2306,8 +2311,8 @@
   </timezone>
   <timezone>
     <tzid>Europe/Madrid</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
-    <md5>829616d918093c1dea4bfb9fbc2fce3d</md5>
+    <dtstamp>2012-05-18T16:58:42Z</dtstamp>
+    <md5>8e6ef7994fdca9e7de99d72397e3003e</md5>
   </timezone>
   <timezone>
     <tzid>Europe/Malta</tzid>
@@ -2326,8 +2331,8 @@
   </timezone>
   <timezone>
     <tzid>Europe/Monaco</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
-    <md5>bcae1d6ca668c9272a4c665abb59d0f1</md5>
+    <dtstamp>2012-05-18T16:58:42Z</dtstamp>
+    <md5>b9c2a904bdfac57732a5c17d3d2b14db</md5>
   </timezone>
   <timezone>
     <tzid>Europe/Moscow</tzid>
@@ -2349,8 +2354,8 @@
   </timezone>
   <timezone>
     <tzid>Europe/Paris</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
-    <md5>9b680a4ecc341188ff6443d32341388b</md5>
+    <dtstamp>2012-05-18T16:58:42Z</dtstamp>
+    <md5>8dcfe790e26460e4850d07f032bee5a6</md5>
   </timezone>
   <timezone>
     <tzid>Europe/Podgorica</tzid>
@@ -2392,8 +2397,8 @@
   </timezone>
   <timezone>
     <tzid>Europe/Simferopol</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
-    <md5>5fe75859a24528324fafe56d6a576ac6</md5>
+    <dtstamp>2012-05-18T14:15:25Z</dtstamp>
+    <md5>8a835bb1dec51205dbbb0076b585a23f</md5>
   </timezone>
   <timezone>
     <tzid>Europe/Skopje</tzid>
@@ -2427,8 +2432,8 @@
   </timezone>
   <timezone>
     <tzid>Europe/Uzhgorod</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
-    <md5>d92867599074cb7acc31b58e91f2aae2</md5>
+    <dtstamp>2012-05-18T14:15:25Z</dtstamp>
+    <md5>63a3843a52d364ccabad2fbd6a856aed</md5>
   </timezone>
   <timezone>
     <tzid>Europe/Vaduz</tzid>
@@ -2468,8 +2473,8 @@
   </timezone>
   <timezone>
     <tzid>Europe/Zaporozhye</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
-    <md5>493d948c98cb82cbbb0a11480a9d9944</md5>
+    <dtstamp>2012-05-18T14:15:25Z</dtstamp>
+    <md5>dddd16fdfb1f7af422d898af6176443d</md5>
   </timezone>
   <timezone>
     <tzid>Europe/Zurich</tzid>
@@ -2692,9 +2697,9 @@
   </timezone>
   <timezone>
     <tzid>Pacific/Easter</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
+    <dtstamp>2012-05-18T16:58:42Z</dtstamp>
     <alias>Chile/EasterIsland</alias>
-    <md5>263c7e02c6aab8ff3976c3667234a804</md5>
+    <md5>bee4087cfa7a4d9791a45126a06fca18</md5>
   </timezone>
   <timezone>
     <tzid>Pacific/Efate</tzid>
@@ -2708,13 +2713,13 @@
   </timezone>
   <timezone>
     <tzid>Pacific/Fakaofo</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
-    <md5>a8fa713b3ee90cef8fc79493481f1911</md5>
+    <dtstamp>2012-05-18T14:15:25Z</dtstamp>
+    <md5>f6e6b383ac59dc830bae9d0f929ebd18</md5>
   </timezone>
   <timezone>
     <tzid>Pacific/Fiji</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
-    <md5>d1f75438bb60b9c64143e10ee39d5c34</md5>
+    <dtstamp>2012-05-18T14:15:25Z</dtstamp>
+    <md5>0c90e7ee8eea3d5f3a6f5d3a2d9ad134</md5>
   </timezone>
   <timezone>
     <tzid>Pacific/Funafuti</tzid>
@@ -2893,8 +2898,8 @@
   </timezone>
   <timezone>
     <tzid>Portugal</tzid>
-    <dtstamp>2011-10-05T11:50:21Z</dtstamp>
-    <md5>84ac9b94013de10f1726ad9dada81743</md5>
+    <dtstamp>2012-05-18T16:58:42Z</dtstamp>
+    <md5>89891362b80df0c77330d02707beba81</md5>
   </timezone>
   <timezone>
     <tzid>ROC</tzid>
