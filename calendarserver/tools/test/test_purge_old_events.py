@@ -531,7 +531,7 @@ class PurgeOldEventsTests(CommonCommonTests, unittest.TestCase):
         (yield txn.commit())
 
         # Purge home1
-        total, ignored = (yield purgeUID("home1", self.directory,
+        total, ignored = (yield purgeUID(self._sqlCalendarStore, "home1", self.directory,
             self.rootResource, verbose=False, proxies=False,
             when=PyCalendarDateTime(2010, 4, 1, 12, 0, 0, 0, PyCalendarTimezone(utc=True))))
 
@@ -568,7 +568,7 @@ class PurgeOldEventsTests(CommonCommonTests, unittest.TestCase):
         (yield txn.commit())
 
         # Purge home1 completely
-        total, ignored = (yield purgeUID("home1", self.directory,
+        total, ignored = (yield purgeUID(self._sqlCalendarStore, "home1", self.directory,
             self.rootResource, verbose=False, proxies=False, completely=True))
 
         # 4 items deleted: 3 events and 1 vcard

@@ -129,12 +129,27 @@ class CalendarHome(CommonHome):
     def remove(self):
         ch = schema.CALENDAR_HOME
         cb = schema.CALENDAR_BIND
-        chm = schema.CALENDAR_HOME_METADATA
         cor = schema.CALENDAR_OBJECT_REVISIONS
+        at = schema.ATTACHMENT
+
+        # delete attachments corresponding to this home, also removing from disk
+        rows = (yield Select(
+            [at.DROPBOX_ID, at.PATH, ],
+            From=at,
+            Where=(
+                at.CALENDAR_HOME_RESOURCE_ID == self._resourceID
+            ),
+        ).on(self._txn))
+        for dropboxID, path in rows:
+            attachment = Attachment._attachmentPathRoot(self._txn, dropboxID).child(path)
+            if attachment.exists():
+                self._txn.postCommit(attachment.remove)
 
         yield Delete(
-            From=chm,
-            Where=chm.RESOURCE_ID == self._resourceID
+            From=at,
+            Where=(
+                at.CALENDAR_HOME_RESOURCE_ID == self._resourceID
+            ),
         ).on(self._txn)
 
         yield Delete(

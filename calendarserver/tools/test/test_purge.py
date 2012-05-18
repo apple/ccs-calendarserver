@@ -15,16 +15,24 @@
 ##
 
 
-from calendarserver.tools.purge import cancelEvent
+from calendarserver.tap.util import getRootResource
+from calendarserver.tools.purge import cancelEvent, purgeUID
 from calendarserver.tools.purge import CANCELEVENT_MODIFIED, CANCELEVENT_SHOULD_DELETE
 
+from twistedcaldav.config import config
 from twistedcaldav.ical import Component
 from twistedcaldav.test.util import TestCase
 
 from pycalendar.datetime import PyCalendarDateTime
 from pycalendar.timezone import PyCalendarTimezone
 
+from twisted.trial import unittest
+from twisted.internet.defer import inlineCallbacks
+from txdav.common.datastore.test.util import buildStore, populateCalendarsFrom, CommonCommonTests
 
+from twext.web2.http_headers import MimeType
+
+import os
 
 
 future = PyCalendarDateTime.getNowUTC()
@@ -727,3 +735,144 @@ CREATED:20111101T205355Z
 END:VEVENT
 END:VCALENDAR
 """.replace("\n", "\r\n")
+
+
+
+
+
+ATTACHMENT_ICS = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Apple Inc.//iCal 4.0.1//EN
+CALSCALE:GREGORIAN
+BEGIN:VTIMEZONE
+TZID:US/Pacific
+BEGIN:DAYLIGHT
+TZOFFSETFROM:-0800
+RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=2SU
+DTSTART:20070311T020000
+TZNAME:PDT
+TZOFFSETTO:-0700
+END:DAYLIGHT
+BEGIN:STANDARD
+TZOFFSETFROM:-0700
+RRULE:FREQ=YEARLY;BYMONTH=11;BYDAY=1SU
+DTSTART:20071104T020000
+TZNAME:PST
+TZOFFSETTO:-0800
+END:STANDARD
+END:VTIMEZONE
+BEGIN:VEVENT
+CREATED:20100303T195159Z
+UID:F2F14D94-B944-43D9-8F6F-97F95B2764CA
+DTEND;TZID=US/Pacific:20100304T141500
+TRANSP:OPAQUE
+SUMMARY:Attachment
+DTSTART;TZID=US/Pacific:20100304T120000
+DTSTAMP:20100303T195203Z
+SEQUENCE:2
+X-APPLE-DROPBOX:/calendars/__uids__/6423F94A-6B76-4A3A-815B-D52CFD77935D/dropbox/F2F14D94-B944-43D9-8F6F-97F95B2764CA.dropbox
+END:VEVENT
+END:VCALENDAR
+""".replace("\n", "\r\n")
+
+
+
+
+class PurgePrincipalTests(CommonCommonTests, unittest.TestCase):
+    """
+    Tests for purging the data belonging to a given principal
+    """
+    uid = "6423F94A-6B76-4A3A-815B-D52CFD77935D"
+
+    metadata = {
+        "accessMode": "PUBLIC",
+        "isScheduleObject": True,
+        "scheduleTag": "abc",
+        "scheduleEtags": (),
+        "hasPrivateComment": False,
+    }
+
+    requirements = {
+        uid : {
+            "calendar1" : {
+                "attachment.ics" : (ATTACHMENT_ICS, metadata,),
+            }
+        },
+    }
+
+    @inlineCallbacks
+    def setUp(self):
+        yield super(PurgePrincipalTests, self).setUp()
+        self._sqlCalendarStore = yield buildStore(self, self.notifierFactory)
+        yield self.populate()
+
+        self.patch(config.DirectoryService.params, "xmlFile",
+            os.path.join(
+                os.path.dirname(__file__), "purge", "accounts.xml"
+            )
+        )
+        self.patch(config.ResourceService.params, "xmlFile",
+            os.path.join(
+                os.path.dirname(__file__), "purge", "resources.xml"
+            )
+        )
+        self.rootResource = getRootResource(config, self._sqlCalendarStore)
+        self.directory = self.rootResource.getDirectory()
+
+        # Add attachment to attachment.ics
+        txn = self._sqlCalendarStore.newTransaction()
+        home = (yield txn.calendarHomeWithUID(self.uid))
+        calendar = (yield home.calendarWithName("calendar1"))
+        event = (yield calendar.calendarObjectWithName("attachment.ics"))
+        attachment = (yield event.createAttachmentWithName("attachment.txt"))
+        t = attachment.store(MimeType("text", "x-fixture"))
+        t.write("attachment")
+        t.write(" text")
+        (yield t.loseConnection())
+        (yield txn.commit())
+
+
+    @inlineCallbacks
+    def populate(self):
+        yield populateCalendarsFrom(self.requirements, self.storeUnderTest())
+        self.notifierFactory.reset()
+
+
+    def storeUnderTest(self):
+        """
+        Create and return a L{CalendarStore} for testing.
+        """
+        return self._sqlCalendarStore
+
+
+    @inlineCallbacks
+    def test_purgeUID(self):
+        """
+        Verify purgeUID removes homes, and doesn't provision homes that don't exist
+        """
+
+        # Now you see it
+        txn = self._sqlCalendarStore.newTransaction()
+        home = (yield txn.calendarHomeWithUID(self.uid))
+        self.assertNotEquals(home, None)
+        (yield txn.commit())
+
+        count, ignored = (yield purgeUID(self.storeUnderTest(), self.uid, self.directory,
+            self.rootResource, verbose=False, proxies=False, completely=True))
+        self.assertEquals(count, 1) # 1 event
+
+        # Now you don't
+        txn = self._sqlCalendarStore.newTransaction()
+        home = (yield txn.calendarHomeWithUID(self.uid))
+        self.assertEquals(home, None)
+        (yield txn.commit())
+
+        count, ignored = (yield purgeUID(self.storeUnderTest(), self.uid, self.directory,
+            self.rootResource, verbose=False, proxies=False, completely=True))
+        self.assertEquals(count, 0)
+
+        # And you still don't (making sure it's not provisioned)
+        txn = self._sqlCalendarStore.newTransaction()
+        home = (yield txn.calendarHomeWithUID(self.uid))
+        self.assertEquals(home, None)
+        (yield txn.commit())

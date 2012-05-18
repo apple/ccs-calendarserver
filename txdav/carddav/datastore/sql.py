@@ -106,13 +106,7 @@ class AddressBookHome(CommonHome):
     def remove(self):
         ah = schema.ADDRESSBOOK_HOME
         ab = schema.ADDRESSBOOK_BIND
-        ahm = schema.ADDRESSBOOK_HOME_METADATA
         aor = schema.ADDRESSBOOK_OBJECT_REVISIONS
-
-        yield Delete(
-            From=ahm,
-            Where=ahm.RESOURCE_ID == self._resourceID
-        ).on(self._txn)
 
         yield Delete(
             From=ab,
