@@ -21,6 +21,8 @@ This tool allows data in the database to be directly inspected using a set
 of simple commands.
 """
 
+from caldavclientlibrary.admin.xmlaccounts.recordtypes import recordType_users,\
+    recordType_locations, recordType_resources, recordType_groups
 from calendarserver.tap.util import directoryFromConfig
 from calendarserver.tools import tables
 from calendarserver.tools.cmdline import utilityMain
@@ -40,6 +42,7 @@ from twistedcaldav.directory import calendaruserproxy
 from twistedcaldav.query import calendarqueryfilter
 from twistedcaldav.stdconfig import DEFAULT_CONFIG_FILE
 from txdav.common.datastore.sql_tables import schema, _BIND_MODE_OWN
+from uuid import UUID
 import os
 import sys
 import traceback
@@ -61,7 +64,7 @@ def usage(e=None):
 description = '\n'.join(
     wordWrap(
         """
-        Usage: calendarserver_calverify [options] [input specifiers]\n
+        Usage: calendarserver_dbinspect [options] [input specifiers]\n
         """,
         int(os.environ.get('COLUMNS', '80'))
     )
@@ -90,6 +93,21 @@ class DBInspectOptions(Options):
 def UserNameFromUID(txn, uid):
     record = txn._directory.recordWithGUID(uid)
     return record.shortNames[0] if record else "(%s)" % (uid,)
+    
+def UIDFromInput(txn, value):
+    try:
+        return str(UUID(value)).upper()
+    except (ValueError, TypeError):
+        pass
+    
+    record = txn._directory.recordWithShortName(recordType_users, value)
+    if record is None:
+        record = txn._directory.recordWithShortName(recordType_locations, value)
+    if record is None:
+        record = txn._directory.recordWithShortName(recordType_resources, value)
+    if record is None:
+        record = txn._directory.recordWithShortName(recordType_groups, value)
+    return record.guid if record else None
     
 class Cmd(object):
     
@@ -283,6 +301,60 @@ class Calendars(Cmd):
         returnValue(tuple(rows))
 
 
+class CalendarsByOwner(Cmd):
+    
+    _name = "List Calendars for Owner UID/Short Name"
+    
+    @inlineCallbacks
+    def doIt(self, txn):
+        
+        uid = raw_input("Owner UID/Name: ")
+        uid = UIDFromInput(txn, uid)
+        uids = yield self.getCalendars(txn, uid)
+        
+        # Print table of results
+        table = tables.Table()
+        table.addHeader(("Owner UID", "Short Name", "Calendars", "ID", "Resources"))
+        totals = [0, 0,]
+        for uid, calname, resid, count in sorted(uids, key=lambda x:x[1]):
+            shortname = UserNameFromUID(txn, uid)
+            table.addRow((
+                uid if totals[0] == 0 else "",
+                shortname if totals[0] == 0 else "",
+                calname,
+                resid,
+                count,
+            ))
+            totals[0] += 1
+            totals[1] += count
+        table.addFooter(("Total", "", totals[0], "", totals[1]))
+        
+        print "\n"
+        print "Calendars with resource count (total=%d):\n" % (len(uids),)
+        table.printTable()
+
+    @inlineCallbacks
+    def getCalendars(self, txn, uid):
+        ch = schema.CALENDAR_HOME
+        cb = schema.CALENDAR_BIND
+        co = schema.CALENDAR_OBJECT
+        rows = (yield Select(
+            [
+                ch.OWNER_UID,
+                cb.CALENDAR_RESOURCE_NAME,
+                co.CALENDAR_RESOURCE_ID,
+                Count(co.RESOURCE_ID),
+            ],
+            From=ch.join(
+                cb, type="inner", on=(ch.RESOURCE_ID == cb.CALENDAR_HOME_RESOURCE_ID).And(
+                    cb.BIND_MODE == _BIND_MODE_OWN)).join(
+                co, type="left", on=(cb.CALENDAR_RESOURCE_ID == co.CALENDAR_RESOURCE_ID)),
+            Where=(ch.OWNER_UID == Parameter("UID")),
+            GroupBy=(ch.OWNER_UID, cb.CALENDAR_RESOURCE_NAME, co.CALENDAR_RESOURCE_ID)
+        ).on(txn, **{"UID":uid}))
+        returnValue(tuple(rows))
+
+
 class Events(Cmd):
     
     _name = "List Events"
@@ -328,6 +400,56 @@ class Events(Cmd):
                     cb.BIND_MODE == _BIND_MODE_OWN)).join(
                 co, type="inner", on=(cb.CALENDAR_RESOURCE_ID == co.CALENDAR_RESOURCE_ID)),
         ).on(txn))
+        returnValue(tuple(rows))
+
+class EventsByCalendar(Cmd):
+    
+    _name = "List Events for a specific calendar"
+    
+    @inlineCallbacks
+    def doIt(self, txn):
+        
+        rid = raw_input("Resource-ID: ")
+        try:
+            int(rid)
+        except ValueError:
+            print 'Resource ID must be an integer'
+            returnValue(None)
+        uids = yield self.getEvents(txn, rid)
+        
+        # Print table of results
+        table = tables.Table()
+        table.addHeader(("Type", "UID", "Resource Name", "Resource ID",))
+        for caltype, caluid, rname, rid in sorted(uids, key=lambda x:x[1]):
+            table.addRow((
+                caltype,
+                caluid,
+                rname,
+                rid,
+            ))
+        
+        print "\n"
+        print "Calendar events (total=%d):\n" % (len(uids),)
+        table.printTable()
+
+    @inlineCallbacks
+    def getEvents(self, txn, rid):
+        ch = schema.CALENDAR_HOME
+        cb = schema.CALENDAR_BIND
+        co = schema.CALENDAR_OBJECT
+        rows = (yield Select(
+            [
+                co.ICALENDAR_TYPE,
+                co.ICALENDAR_UID,
+                co.RESOURCE_NAME,
+                co.RESOURCE_ID,
+            ],
+            From=ch.join(
+                cb, type="inner", on=(ch.RESOURCE_ID == cb.CALENDAR_HOME_RESOURCE_ID).And(
+                    cb.BIND_MODE == _BIND_MODE_OWN)).join(
+                co, type="inner", on=(cb.CALENDAR_RESOURCE_ID == co.CALENDAR_RESOURCE_ID)),
+            Where=(co.CALENDAR_RESOURCE_ID == Parameter("RID")),
+        ).on(txn, **{"RID":rid}))
         returnValue(tuple(rows))
 
 class EventDetails(Cmd):
@@ -441,13 +563,14 @@ class EventsByName(EventDetails):
 
 class EventsByOwner(EventDetails):
     
-    _name = "Get Event Data by Owner UID"
+    _name = "Get Event Data by Owner UID/Short Name"
     
     @inlineCallbacks
     def doIt(self, txn):
         
         
-        uid = raw_input("Owner UID: ")
+        uid = raw_input("Owner UID/Name: ")
+        uid = UIDFromInput(txn, uid)
         rows = yield self.getData(txn, uid)
         if rows:
             for result in rows:
@@ -462,13 +585,14 @@ class EventsByOwner(EventDetails):
 
 class EventsByOwnerCalendar(EventDetails):
     
-    _name = "Get Event Data by Owner UID and calendar name"
+    _name = "Get Event Data by Owner UID/Short Name and calendar name"
     
     @inlineCallbacks
     def doIt(self, txn):
         
         
-        uid = raw_input("Owner UID: ")
+        uid = raw_input("Owner UID/Name: ")
+        uid = UIDFromInput(txn, uid)
         name = raw_input("Calendar resource name: ")
         rows = yield self.getData(txn, uid, name)
         if rows:
@@ -550,7 +674,7 @@ class EventsInTimerange(Cmd):
     def doIt(self, txn):
         
         
-        uid = raw_input("Owner UID: ")
+        uid = raw_input("Owner UID/Name: ")
         start = raw_input("Start Time (UTC YYYYMMDDTHHMMSSZ or YYYYMMDD): ")
         if len(start) == 8:
             start += "T000000Z"
@@ -721,7 +845,9 @@ class DBInspectService(Service, object):
         self.registerCommand(CalendarHomes)
         self.registerCommand(CalendarHomesSummary)
         self.registerCommand(Calendars)
+        self.registerCommand(CalendarsByOwner)
         self.registerCommand(Events)
+        self.registerCommand(EventsByCalendar)
         self.registerCommand(Event)
         self.registerCommand(EventsByUID)
         self.registerCommand(EventsByName)
