@@ -1734,11 +1734,12 @@ class Component (object):
 
         is_server = False
         organizerProp = self.getOrganizerProperty()
-        if organizerProp.hasParameter("SCHEDULE-AGENT"):
-            if organizerProp.parameterValue("SCHEDULE-AGENT") == "SERVER":
+        if organizerProp is not None:
+            if organizerProp.hasParameter("SCHEDULE-AGENT"):
+                if organizerProp.parameterValue("SCHEDULE-AGENT") == "SERVER":
+                    is_server = True
+            else:
                 is_server = True
-        else:
-            is_server = True
 
         return is_server
 
