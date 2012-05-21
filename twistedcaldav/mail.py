@@ -1659,7 +1659,7 @@ class MailHandler(LoggingMixIn):
 
         results = {}
 
-        dtStart = component.propertyValue("DTSTART")
+        dtStart = component.propertyValue('DTSTART')
         results['month'] = dtStart.getMonth()
         results['day'] = dtStart.getDay()
 
@@ -1672,17 +1672,17 @@ class MailHandler(LoggingMixIn):
             results[propertyToResult] = result
 
         with translationTo(language) as trans:
-            results['dateInfo'] = trans.date(component)
-            results['timeInfo'], duration = trans.time(component)
-            results['durationInfo'] = "(%s)" % (duration,) if duration else ""
+            results['dateInfo'] = trans.date(component).decode('utf-8')
+            results['timeInfo'], duration = (x.decode('utf-8') for x in trans.time(component))
+            results['durationInfo'] = u"(%s)" % (duration,) if duration else u""
 
-            for propertyName in ("RRULE", "RDATE", "EXRULE", "EXDATE",
-                                 "RECURRENCE-ID"):
+            for propertyName in ('RRULE', 'RDATE', 'EXRULE', 'EXDATE',
+                                 'RECURRENCE-ID'):
                 if component.hasProperty(propertyName):
-                    results['recurrenceInfo'] = _("(Repeating)")
+                    results['recurrenceInfo'] = _("(Repeating)").decode('utf-8')
                     break
             else:
-                results['recurrenceInfo'] = ""
+                results['recurrenceInfo'] = u""
 
         return results
 

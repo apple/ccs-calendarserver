@@ -636,8 +636,8 @@ DEFAULT_CONFIG = {
                 "Password"      : "",    # For account receiving mail
             },
             "AddressPatterns"   : [],    # Regex patterns to match iMIP-able calendar user addresses
-            "MailTemplatesDirectory": "/usr/share/caldavd/share/email_templates", # Directory containing HTML templates for email invitations (invite.html, cancel.html)
-            "MailIconsDirectory": "/usr/share/caldavd/share/date_icons", # Directory containing language-specific subdirectories containing date-specific icons for email invitations
+            "MailTemplatesDirectory": "/Applications/Server.app/Contents/ServerRoot/usr/share/caldavd/share/email_templates", # Directory containing HTML templates for email invitations (invite.html, cancel.html)
+            "MailIconsDirectory": "/Applications/Server.app/Contents/ServerRoot/usr/share/caldavd/share/date_icons", # Directory containing language-specific subdirectories containing date-specific icons for email invitations
             "InvitationDaysToLive" : 90, # How many days invitations are valid
         },
 
@@ -797,8 +797,8 @@ DEFAULT_CONFIG = {
     # Localization
     #
     "Localization" : {
-        "TranslationsDirectory" : "/usr/share/caldavd/share/translations",
-        "LocalesDirectory" : "/usr/share/caldavd/share/locales",
+        "TranslationsDirectory" : "/Applications/Server.app/Contents/ServerRoot/usr/share/caldavd/share/translations",
+        "LocalesDirectory" : "/Applications/Server.app/Contents/ServerRoot/usr/share/caldavd/share/locales",
         "Language" : "en",
     },
 

@@ -35,6 +35,7 @@ from twistedcaldav.test.util import TestCase
 from twistedcaldav.test.util import xmlFile, augmentsFile
 import datetime
 import email
+import os
 from pycalendar.datetime import PyCalendarDateTime
 
 
@@ -483,6 +484,7 @@ END:VCALENDAR
         """
 
         config.Scheduling.iMIP.Sending.Address = "server@example.com"
+        self.patch(config.Localization, "LocalesDirectory", os.path.join(os.path.dirname(__file__), "locales"))
 
         data = (
             # Initial invite
@@ -578,6 +580,7 @@ END:VCALENDAR
                     inputOriginator,
                     inputRecipient,
                     Component.fromString(inputCalendar.replace("\n", "\r\n")),
+                    language="ja",
                     send=False,
                     onlyAfter=PyCalendarDateTime(2010, 1, 1, 0, 0, 0))
                 )
