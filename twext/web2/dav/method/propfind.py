@@ -112,7 +112,12 @@ def http_PROPFIND(self, request):
     if depth == "infinity":
         raise HTTPError(ErrorResponse(responsecode.FORBIDDEN, davxml.PropfindFiniteDepth()))
 
-    brief = request.headers.getHeader("brief", False)
+    # Look for Prefer header first, then try Brief
+    prefer = request.headers.getHeader("prefer", {})
+    returnMinimal = "return-minimal" in prefer
+    noRoot = "depth-noroot" in prefer
+    if not returnMinimal:
+        returnMinimal = request.headers.getHeader("brief", False)
 
     xml_responses = []
 
@@ -128,7 +133,10 @@ def http_PROPFIND(self, request):
     yield filtered_aces
     filtered_aces = filtered_aces.getResult()
 
-    resources = [(self, my_url)]
+    if depth in ("1", "infinity") and noRoot:
+        resources = []
+    else:
+        resources = [(self, my_url)]
 
     d = self.findChildren(depth, request, lambda x, y: resources.append((x, y)), (davxml.Read(),), inherited_aces=filtered_aces)
     x = waitForDeferred(d)
@@ -136,6 +144,7 @@ def http_PROPFIND(self, request):
     x.getResult()
 
     for resource, uri in resources:
+
         if search_properties is "names":
             try:
                 resource_properties = waitForDeferred(resource.listProperties(request))
@@ -175,14 +184,14 @@ def http_PROPFIND(self, request):
                         status = statusForFailure(f, "getting property: %s" % (property,))
                         if status not in properties_by_status:
                             properties_by_status[status] = []
-                        if not brief or status != responsecode.NOT_FOUND:
+                        if not returnMinimal or status != responsecode.NOT_FOUND:
                             properties_by_status[status].append(propertyName(property))
                     else:
                         if resource_property is not None:
                             properties_by_status[responsecode.OK].append(resource_property)
-                        elif not brief:
+                        elif not returnMinimal:
                             properties_by_status[responsecode.NOT_FOUND].append(propertyName(property))
-                elif not brief:
+                elif not returnMinimal:
                     properties_by_status[responsecode.NOT_FOUND].append(propertyName(property))
 
         propstats = []

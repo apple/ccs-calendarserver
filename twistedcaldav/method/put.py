@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2005-2009 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2012 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -83,6 +83,18 @@ def http_PUT(self, request):
                 calendar = calendardata,
             )
             result = (yield storer.run())
+
+            # Look for Prefer header
+            prefer = request.headers.getHeader("prefer", {})
+            returnRepresentation = "return-representation" in prefer
+
+            if returnRepresentation and result.code / 100 == 2:
+                oldcode = result.code
+                result = (yield self.http_GET(request))
+                if oldcode == responsecode.CREATED:
+                    result.code =  responsecode.CREATED
+                result.headers.setHeader("content-location", request.path)
+
             returnValue(result)
 
         except ValueError, e:
@@ -127,6 +139,18 @@ def http_PUT(self, request):
                 destinationparent = parent,
             )
             result = (yield storer.run())
+
+            # Look for Prefer header
+            prefer = request.headers.getHeader("prefer", {})
+            returnRepresentation = "return-representation" in prefer
+
+            if returnRepresentation and result.code / 100 == 2:
+                oldcode = result.code
+                result = (yield self.http_GET(request))
+                if oldcode == responsecode.CREATED:
+                    result.code =  responsecode.CREATED
+                result.headers.setHeader("content-location", request.path)
+
             returnValue(result)
 
         except ValueError, e:

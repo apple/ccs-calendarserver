@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2005-2007 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2012 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -117,6 +117,16 @@ def POST_handler_add_member(self, request):
             # May need to add a location header
             addLocation(request, request.unparseURL(path=newchildURL, params=""))
 
+            # Look for Prefer header
+            prefer = request.headers.getHeader("prefer", {})
+            returnRepresentation = "return-representation" in prefer
+
+            if returnRepresentation and result.code / 100 == 2:
+                result = (yield newchild.http_GET(request))
+                result.code = responsecode.CREATED
+                result.headers.removeHeader("content-location")
+                result.headers.setHeader("content-location", newchildURL)
+
             returnValue(result)
 
         except ValueError, e:
@@ -174,6 +184,16 @@ def POST_handler_add_member(self, request):
 
             # May need to add a location header
             addLocation(request, request.unparseURL(path=newchildURL, params=""))
+
+            # Look for Prefer header
+            prefer = request.headers.getHeader("prefer", {})
+            returnRepresentation = "return-representation" in prefer
+
+            if returnRepresentation and result.code / 100 == 2:
+                result = (yield newchild.http_GET(request))
+                result.code = responsecode.CREATED
+                result.headers.removeHeader("content-location")
+                result.headers.setHeader("content-location", newchildURL)
 
             returnValue(result)
 

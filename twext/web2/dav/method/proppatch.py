@@ -1,6 +1,6 @@
 # -*- test-case-name: twext.web2.dav.test.test_prop.PROP.test_PROPPATCH -*-
 ##
-# Copyright (c) 2005-2011 Apple Computer, Inc. All rights reserved.
+# Copyright (c) 2005-2012 Apple Computer, Inc. All rights reserved.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -83,6 +83,10 @@ def http_PROPPATCH(self, request):
     responses = PropertyStatusResponseQueue("PROPPATCH", request.uri, responsecode.NO_CONTENT)
     undoActions = []
     gotError = False
+
+    # Look for Prefer header
+    prefer = request.headers.getHeader("prefer", {})
+    returnMinimal = "return-minimal" in prefer
 
     try:
         #
@@ -192,8 +196,11 @@ def http_PROPPATCH(self, request):
         responses.error()
 
     #
-    # Return response
+    # Return response - use 200 if Prefer:return-minimal set and no errors
     #
-    yield MultiStatusResponse([responses.response()])
+    if returnMinimal and not gotError:
+        yield responsecode.OK
+    else:
+        yield MultiStatusResponse([responses.response()])
 
 http_PROPPATCH = deferredGenerator(http_PROPPATCH)

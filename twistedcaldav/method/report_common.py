@@ -333,7 +333,11 @@ def _namedPropertiesForResource(request, props, resource, calendar=None, timezon
         responsecode.NOT_FOUND : [],
     }
     
-    brief = request.headers.getHeader("brief", False)
+    # Look for Prefer header first, then try Brief
+    prefer = request.headers.getHeader("prefer", {})
+    returnMinimal = "return-minimal" in prefer
+    if not returnMinimal:
+        returnMinimal = request.headers.getHeader("brief", False)
 
     for property in props:
         if isinstance(property, caldavxml.CalendarData):
@@ -366,15 +370,15 @@ def _namedPropertiesForResource(request, props, resource, calendar=None, timezon
                 prop = (yield resource.readProperty(qname, request))
                 if prop is not None:
                     properties_by_status[responsecode.OK].append(prop)
-                elif not brief:
+                elif not returnMinimal:
                     properties_by_status[responsecode.NOT_FOUND].append(propertyName(qname))
             except HTTPError:
                 f = Failure()
                 status = statusForFailure(f, "getting property: %s" % (qname,))
                 if status not in properties_by_status: properties_by_status[status] = []
-                if not brief or status != responsecode.NOT_FOUND:
+                if not returnMinimal or status != responsecode.NOT_FOUND:
                     properties_by_status[status].append(propertyName(qname))
-        elif not brief:
+        elif not returnMinimal:
             properties_by_status[responsecode.NOT_FOUND].append(propertyName(qname))
     
     returnValue(properties_by_status)

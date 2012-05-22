@@ -1501,6 +1501,7 @@ parser_request_headers = {
     'If-Range':(parseIfRange,),
     'If-Unmodified-Since':(last,parseDateTime),
     'Max-Forwards':(last,int),
+    'Prefer':(tokenize, listParser(parseExpect), dict),     # Prefer like Expect
 #    'Proxy-Authorization':str, # what is "credentials"
     'Range':(tokenize, parseRange),
     'Referer':(last,str), # TODO: URI object?
@@ -1524,6 +1525,7 @@ generator_request_headers = {
     'If-Range':(generateIfRange, singleHeader),
     'If-Unmodified-Since':(generateDateTime,singleHeader),
     'Max-Forwards':(str, singleHeader),
+    'Prefer':(iteritems, listGenerator(generateExpect), singleHeader),      # Prefer like Expect
 #    'Proxy-Authorization':str, # what is "credentials"
     'Range':(generateRange,singleHeader),
     'Referer':(str,singleHeader),

@@ -2270,9 +2270,9 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
             # we redirect such requests (as above) in the event that
             # this resource was created or modified by the request.
             #
-            if self.isCollection() and request.uri[-1:] != "/":
+            if self.isCollection() and request.path[-1:] != "/" and not response.headers.hasHeader("content-location"):
                 response.headers.setHeader(
-                    "content-location", request.uri + "/"
+                    "content-location", request.path + "/"
                 )
 
             return response
