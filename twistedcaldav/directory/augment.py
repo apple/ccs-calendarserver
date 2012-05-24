@@ -88,7 +88,31 @@ class AugmentDB(object):
     def __init__(self):
         
         self.cachedRecords = {}
-    
+
+
+    @inlineCallbacks
+    def normalizeUUIDs(self):
+        """
+        Normalize (uppercase) all augment UIDs which are parseable as UUIDs.
+
+        @return: a L{Deferred} that fires when all records have been
+            normalized.
+        """
+        from txdav.base.datastore.util import normalizeUUIDOrNot
+        remove = []
+        add = []
+        for uid in (yield self.getAllUIDs()):
+            nuid = normalizeUUIDOrNot(uid)
+            if uid != nuid:
+                old = yield self._lookupAugmentRecord(uid)
+                new = copy.deepcopy(old)
+                new.uid = uid.upper()
+                remove.append(old)
+                add.append(new)
+        yield self.removeAugmentRecords(remove)
+        yield self.addAugmentRecords(add)
+
+
     @inlineCallbacks
     def getAugmentRecord(self, uid, recordType):
         """
@@ -244,15 +268,14 @@ class AugmentXMLDB(AugmentDB):
         self.lastCached = time.time()
 
 
-    @inlineCallbacks
     def getAllUIDs(self):
         """
         Get all AugmentRecord UIDs.
 
         @return: L{Deferred}
         """
-        
         return succeed(self.db.keys())
+
 
     def _lookupAugmentRecord(self, uid):
         """
