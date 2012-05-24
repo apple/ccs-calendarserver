@@ -3964,7 +3964,7 @@ def determineNewest(uid, homeType):
         column which is the maximum value.
     @rtype: L{Select}
     """
-    if type == ENOTIFICATIONTYPE:
+    if homeType == ENOTIFICATIONTYPE:
         return Select(
             [Max(schema.NOTIFICATION.MODIFIED)],
             From=schema.NOTIFICATION_HOME.join(
@@ -4022,17 +4022,21 @@ def mergeHomes(sqlTxn, one, other, homeType):
     from txdav.caldav.datastore.util import migrateHome as migrateCalendarHome
     from txdav.carddav.datastore.util import migrateHome as migrateABHome
     migrateHome = {EADDRESSBOOKTYPE: migrateABHome,
-                   ECALENDARTYPE: migrateCalendarHome}[homeType]
+                   ECALENDARTYPE: migrateCalendarHome,
+                   ENOTIFICATIONTYPE: _dontBotherWithNotifications}[homeType]
     homeTable = {EADDRESSBOOKTYPE: schema.ADDRESSBOOK_HOME,
-                 ECALENDARTYPE: schema.CALENDAR_HOME}[homeType]
+                 ECALENDARTYPE: schema.CALENDAR_HOME,
+                 ENOTIFICATIONTYPE: schema.NOTIFICATION_HOME}[homeType]
     both = []
-    both.append([one, (yield determineNewest(one.uid(), type).on(sqlTxn))])
-    both.append([other, (yield determineNewest(other.uid(), type).on(sqlTxn))])
+    both.append([one,
+                 (yield determineNewest(one.uid(), homeType).on(sqlTxn))])
+    both.append([other,
+                 (yield determineNewest(other.uid(), homeType).on(sqlTxn))])
     both.sort(key=lambda x: x[1])
     # Note: determineNewest may return None sometimes.
     older = both[0][0]
     newer = both[1][0]
-    yield migrateHome(older, newer, True)
+    yield migrateHome(older, newer, merge=True)
     # Rename the old one to 'old.<correct-guid>'
     yield Update({homeTable.OWNER_UID: "old." + older.uid().upper()},
                  Where=homeTable.OWNER_UID == older.uid()).on(sqlTxn)
@@ -4043,6 +4047,14 @@ def mergeHomes(sqlTxn, one, other, homeType):
             Where=homeTable.OWNER_UID == newer.uid()
         ).on(sqlTxn)
     yield returnValue(newer)
+
+
+
+def _dontBotherWithNotifications(older, newer, merge):
+    """
+    Notifications are more transient and can be easily worked around; don't
+    bother to migrate all of them when there is a UUID case mismatch.
+    """
 
 
 
@@ -4067,6 +4079,7 @@ def _normalizeHomeUUIDsIn(t, homeType):
     homeTable = {EADDRESSBOOKTYPE: schema.ADDRESSBOOK_HOME,
                  ECALENDARTYPE: schema.CALENDAR_HOME,
                  ENOTIFICATIONTYPE: schema.NOTIFICATION_HOME}[homeType]
+    homeTypeName = homeTable.model.name.split("_")[0]
 
     allUIDs = yield Select([homeTable.OWNER_UID],
                            From=homeTable,
@@ -4081,12 +4094,16 @@ def _normalizeHomeUUIDsIn(t, homeType):
         else:
             estimate = "unknown"
         log_msg(
-            format="Scanning UID %(uid)s "
+            format="Scanning UID %(uid)s [%(homeType)s] "
             "(%(pct)0.2d%%, %(estimate)s seconds remaining)...",
             uid=UID, pct=(n / float(total)) * 100, estimate=estimate,
+            homeType=homeTypeName
         )
         other = None
-        this = yield t.homeWithUID(UID)
+        if homeType == ENOTIFICATIONTYPE:
+            this = yield t.notificationsWithUID(UID)
+        else:
+            this = yield t.homeWithUID(homeType, UID)
         if homeType == ECALENDARTYPE:
             fixedThisHome = yield fixOneCalendarHome(this)
         else:
@@ -4101,15 +4118,16 @@ def _normalizeHomeUUIDsIn(t, homeType):
         else:
             newname = str(uuidobj).upper()
             if UID != newname:
-                log_msg(format="Detected case variance: %(uid)s %(newuid)s",
-                        uid=UID, newuid=newname)
+                log_msg(format="Detected case variance: %(uid)s %(newuid)s"
+                        "[%(homeType)s]",
+                        uid=UID, newuid=newname, homeType=homeTypeName)
                 other = yield t.homeWithUID(homeType, newname)
                 if other is not None:
                     this = yield mergeHomes(t, this, other, homeType)
                     # NOTE: WE MUST NOT TOUCH EITHER HOME OBJECT AFTER THIS
                     # POINT. THE UIDS HAVE CHANGED AND ALL OPERATIONS WILL
                     # FAIL.
-                # else: case - it's already been updated.
+
         end = time.time()
         elapsed = end - start
         allElapsed.append(elapsed)
