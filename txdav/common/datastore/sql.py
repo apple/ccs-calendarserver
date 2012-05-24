@@ -25,11 +25,12 @@ __all__ = [
     "CommonHome",
 ]
 
-from uuid import uuid4
+from uuid import uuid4, UUID
 
 from zope.interface import implements, directlyProvides
 
 from twext.python.log import Logger, LoggingMixIn
+from twisted.python.log import msg as log_msg, err as log_err
 from txdav.xml.rfc2518 import ResourceType
 from txdav.xml.parser import WebDAVDocument
 from twext.web2.http_headers import MimeType
@@ -66,14 +67,10 @@ from txdav.common.inotifications import INotificationCollection, \
 from twext.python.clsprop import classproperty
 from twext.enterprise.ienterprise import AlreadyFinishedError
 from twext.enterprise.dal.parseschema import significant
-from twext.enterprise.dal.syntax import Delete, utcNowSQL, Union
-from twext.enterprise.dal.syntax import Insert
-from twext.enterprise.dal.syntax import Len
-from twext.enterprise.dal.syntax import Max
-from twext.enterprise.dal.syntax import Parameter
-from twext.enterprise.dal.syntax import SavepointAction
-from twext.enterprise.dal.syntax import Select
-from twext.enterprise.dal.syntax import Update
+
+from twext.enterprise.dal.syntax import \
+    Delete, utcNowSQL, Union, Insert, Len, Max, Parameter, SavepointAction, \
+    Select, Update, ColumnSyntax, TableSyntax, Upper
 
 from txdav.base.propertystore.base import PropertyName
 from txdav.base.propertystore.none import PropertyStore as NonePropertyStore
@@ -84,6 +81,8 @@ from twistedcaldav.customxml import NotificationType
 from twistedcaldav.dateops import datetimeMktime, parseSQLTimestamp,\
     pyCalendarTodatetime
 from txdav.xml.rfc2518 import DisplayName
+
+from txdav.base.datastore.util import normalizeUUIDOrNot
 
 from cStringIO import StringIO
 from sqlparse import parse
@@ -97,6 +96,7 @@ log = Logger()
 
 ECALENDARTYPE = 0
 EADDRESSBOOKTYPE = 1
+ENOTIFICATIONTYPE = 2
 
 # Labels used to identify the class of resource being modified, so that
 # notification systems can target the correct application
@@ -181,7 +181,7 @@ class CommonDataStore(Service, object):
         return []
 
 
-    def newTransaction(self, label="unlabeled"):
+    def newTransaction(self, label="unlabeled", disableCache=False):
         """
         @see: L{IDataStore.newTransaction}
         """
@@ -193,11 +193,13 @@ class CommonDataStore(Service, object):
             self.notifierFactory if self._enableNotifications else None,
             label,
             self._migrating,
+            disableCache
         )
-        
         if self.logTransactionWaits or self.timeoutTransactions:
-            CommonStoreTransactionMonitor(txn, self.logTransactionWaits, self.timeoutTransactions)
+            CommonStoreTransactionMonitor(txn, self.logTransactionWaits,
+                                          self.timeoutTransactions)
         return txn
+
 
     def setMigrating(self, state):
         """
@@ -306,7 +308,7 @@ class CommonStoreTransaction(object):
 
     def __init__(self, store, sqlTxn,
                  enableCalendars, enableAddressBooks,
-                 notifierFactory, label, migrating=False):
+                 notifierFactory, label, migrating=False, disableCache=False):
         self._store = store
         self._calendarHomes = {}
         self._addressbookHomes = {}
@@ -318,6 +320,11 @@ class CommonStoreTransaction(object):
         self._label = label
         self._migrating = migrating
         self._primaryHomeType = None
+        self._disableCache = disableCache
+        if disableCache:
+            self._queryCacher = None
+        else:
+            self._queryCacher = store.queryCacher
 
         CommonStoreTransaction.id += 1
         self._txid = CommonStoreTransaction.id
@@ -840,6 +847,15 @@ class CommonStoreTransaction(object):
         returnValue(count)
 
 
+class _EmptyCacher(object):
+    def set(self, key, value):
+        return succeed(True)
+    def get(self, key, withIdentifier=False):
+        return succeed(None)
+    def delete(self, key):
+        return succeed(True)
+
+
 class CommonHome(LoggingMixIn):
 
     # All these need to be initialized by derived classes for each store type
@@ -871,6 +887,8 @@ class CommonHome(LoggingMixIn):
         self._created = None
         self._modified = None
         self._syncTokenRevision = None
+        if transaction._disableCache:
+            self._cacher = _EmptyCacher()
 
         # Needed for REVISION/BIND table join
         self._revisionBindJoinTable = {}
@@ -931,7 +949,7 @@ class CommonHome(LoggingMixIn):
         if result:
             self._resourceID = result[0][0]
 
-            queryCacher = self._txn.store().queryCacher
+            queryCacher = self._txn._queryCacher
             if queryCacher:
                 # Get cached copy
                 cacheKey = queryCacher.keyForHomeMetaData(self._resourceID)
@@ -1513,7 +1531,7 @@ class CommonHome(LoggingMixIn):
             
         try:
             self._modified = (yield self._txn.subtransaction(_bumpModified, retries=0, failureOK=True))[0][0]
-            queryCacher = self._txn.store().queryCacher
+            queryCacher = self._txn._queryCacher
             if queryCacher is not None:
                 cacheKey = queryCacher.keyForHomeMetaData(self._resourceID)
                 yield queryCacher.invalidateAfterCommit(self._txn, cacheKey)
@@ -2279,7 +2297,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
             exists.
         """
         data = None
-        queryCacher = home._txn.store().queryCacher
+        queryCacher = home._txn._queryCacher
         # Only caching non-shared objects so that we don't need to invalidate
         # in sql_legacy
         if owned and queryCacher:
@@ -2441,7 +2459,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
         resource ID. We read in and cache all the extra metadata from the DB to
         avoid having to do DB queries for those individually later.
         """
-        queryCacher = self._txn.store().queryCacher
+        queryCacher = self._txn._queryCacher
         if queryCacher:
             # Retrieve from cache
             cacheKey = queryCacher.keyForHomeChildMetaData(self._resourceID)
@@ -2515,7 +2533,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
         """
         oldName = self._name
 
-        queryCacher = self._home._txn.store().queryCacher
+        queryCacher = self._home._txn._queryCacher
         if queryCacher:
             cacheKey = queryCacher.keyForObjectWithName(self._home._resourceID, oldName)
             yield queryCacher.invalidateAfterCommit(self._home._txn, cacheKey)
@@ -2548,7 +2566,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
     @inlineCallbacks
     def remove(self):
 
-        queryCacher = self._home._txn.store().queryCacher
+        queryCacher = self._home._txn._queryCacher
         if queryCacher:
             cacheKey = queryCacher.keyForObjectWithName(self._home._resourceID, self._name)
             yield queryCacher.invalidateAfterCommit(self._home._txn, cacheKey)
@@ -2975,7 +2993,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
         try:
             self._modified = (yield self._txn.subtransaction(_bumpModified, retries=0, failureOK=True))[0][0]
 
-            queryCacher = self._txn.store().queryCacher
+            queryCacher = self._txn._queryCacher
             if queryCacher is not None:
                 cacheKey = queryCacher.keyForHomeChildMetaData(self._resourceID)
                 yield queryCacher.invalidateAfterCommit(self._txn, cacheKey)
@@ -3939,6 +3957,295 @@ class NotificationObject(LoggingMixIn, FancyEqMixin):
 
     def modified(self):
         return datetimeMktime(parseSQLTimestamp(self._modified))
+
+
+
+def determineNewest(uid, homeType):
+    """
+    Construct a query to determine the modification time of the newest object
+    in a given home.
+
+    @param uid: the UID of the home to scan.
+    @type uid: C{str}
+
+    @param homeType: The type of home to scan; C{ECALENDARTYPE},
+        C{ENOTIFICATIONTYPE}, or C{EADDRESSBOOKTYPE}.
+    @type homeType: C{int}
+
+    @return: A select query that will return a single row containing a single
+        column which is the maximum value.
+    @rtype: L{Select}
+    """
+    if homeType == ENOTIFICATIONTYPE:
+        return Select(
+            [Max(schema.NOTIFICATION.MODIFIED)],
+            From=schema.NOTIFICATION_HOME.join(
+                schema.NOTIFICATION,
+                on=schema.NOTIFICATION_HOME.RESOURCE_ID ==
+                    schema.NOTIFICATION.NOTIFICATION_HOME_RESOURCE_ID),
+            Where=schema.NOTIFICATION_HOME.OWNER_UID == uid
+        )
+    homeTypeName = {ECALENDARTYPE: "CALENDAR",
+                    EADDRESSBOOKTYPE: "ADDRESSBOOK"}[homeType]
+    home = getattr(schema, homeTypeName + "_HOME")
+    bind = getattr(schema, homeTypeName + "_BIND")
+    child = getattr(schema, homeTypeName)
+    obj = getattr(schema, homeTypeName + "_OBJECT")
+    return Select(
+        [Max(obj.MODIFIED)],
+        From=home.join(bind, on=bind.HOME_RESOURCE_ID == home.RESOURCE_ID)
+           .join(child, on=child.RESOURCE_ID == bind.RESOURCE_ID)
+           .join(obj, on=obj.PARENT_RESOURCE_ID == child.RESOURCE_ID),
+        Where=(bind.BIND_MODE == 0).And(home.OWNER_UID == uid)
+    )
+
+
+
+@inlineCallbacks
+def mergeHomes(sqlTxn, one, other, homeType):
+    """
+    Merge two homes together.  This determines which of C{one} or C{two} is
+    newer - that is, has been modified more recently - and pulls all the data
+    from the older into the newer home.  Then, it changes the UID of the old
+    home to its UID, normalized and prefixed with "old.", and then re-names the
+    new home to its name, normalized.
+
+    Because the UIDs of both homes have changed, B{both one and two will be
+    invalid to all other callers from the start of the invocation of this
+    function}.
+
+    @param sqlTxn: the transaction to use
+    @type sqlTxn: A L{CommonTransaction}
+
+    @param one: A calendar home.
+    @type one: L{ICalendarHome}
+
+    @param two: Another, different calendar home.
+    @type two: L{ICalendarHome}
+
+    @param homeType: The type of home to scan; L{ECALENDARTYPE} or
+        L{EADDRESSBOOKTYPE}.
+    @type homeType: C{int}
+
+    @return: a L{Deferred} which fires with with the newer of C{one} or C{two},
+        into which the data from the other home has been merged, when the merge
+        is complete.
+    """
+    from txdav.caldav.datastore.util import migrateHome as migrateCalendarHome
+    from txdav.carddav.datastore.util import migrateHome as migrateABHome
+    migrateHome = {EADDRESSBOOKTYPE: migrateABHome,
+                   ECALENDARTYPE: migrateCalendarHome,
+                   ENOTIFICATIONTYPE: _dontBotherWithNotifications}[homeType]
+    homeTable = {EADDRESSBOOKTYPE: schema.ADDRESSBOOK_HOME,
+                 ECALENDARTYPE: schema.CALENDAR_HOME,
+                 ENOTIFICATIONTYPE: schema.NOTIFICATION_HOME}[homeType]
+    both = []
+    both.append([one,
+                 (yield determineNewest(one.uid(), homeType).on(sqlTxn))])
+    both.append([other,
+                 (yield determineNewest(other.uid(), homeType).on(sqlTxn))])
+    both.sort(key=lambda x: x[1])
+    # Note: determineNewest may return None sometimes.
+    older = both[0][0]
+    newer = both[1][0]
+    yield migrateHome(older, newer, merge=True)
+    # Rename the old one to 'old.<correct-guid>'
+    newNormalized = normalizeUUIDOrNot(newer.uid())
+    oldNormalized = normalizeUUIDOrNot(older.uid())
+    yield Update({homeTable.OWNER_UID: "old." + oldNormalized},
+                 Where=homeTable.OWNER_UID == older.uid()).on(sqlTxn)
+    # Rename the new one to '<correct-guid>'
+    if newer.uid() != newNormalized:
+        yield Update(
+            {homeTable.OWNER_UID: newNormalized},
+            Where=homeTable.OWNER_UID == newer.uid()
+        ).on(sqlTxn)
+    yield returnValue(newer)
+
+
+
+def _dontBotherWithNotifications(older, newer, merge):
+    """
+    Notifications are more transient and can be easily worked around; don't
+    bother to migrate all of them when there is a UUID case mismatch.
+    """
+
+
+
+@inlineCallbacks
+def _normalizeHomeUUIDsIn(t, homeType):
+    """
+    Normalize the UUIDs in the given L{txdav.common.datastore.CommonStore}.
+
+    This changes the case of the UUIDs in the calendar home.
+
+    @param t: the transaction to normalize all the UUIDs in.
+    @type t: L{CommonStoreTransaction}
+
+    @param homeType: The type of home to scan, L{ECALENDARTYPE},
+        L{EADDRESSBOOKTYPE}, or L{ENOTIFICATIONTYPE}.
+    @type homeType: C{int}
+
+    @return: a L{Deferred} which fires with C{None} when the UUID normalization
+        is complete.
+    """
+    from txdav.caldav.datastore.util import fixOneCalendarHome
+    homeTable = {EADDRESSBOOKTYPE: schema.ADDRESSBOOK_HOME,
+                 ECALENDARTYPE: schema.CALENDAR_HOME,
+                 ENOTIFICATIONTYPE: schema.NOTIFICATION_HOME}[homeType]
+    homeTypeName = homeTable.model.name.split("_")[0]
+
+    allUIDs = yield Select([homeTable.OWNER_UID],
+                           From=homeTable,
+                           OrderBy=homeTable.OWNER_UID).on(t)
+    total = len(allUIDs)
+    allElapsed = []
+    for n, [UID] in enumerate(allUIDs):
+        start = time.time()
+        if allElapsed:
+            estimate = "%0.3d" % ((sum(allElapsed) / len(allElapsed)) *
+                                  total - n)
+        else:
+            estimate = "unknown"
+        log_msg(
+            format="Scanning UID %(uid)s [%(homeType)s] "
+            "(%(pct)0.2d%%, %(estimate)s seconds remaining)...",
+            uid=UID, pct=(n / float(total)) * 100, estimate=estimate,
+            homeType=homeTypeName
+        )
+        other = None
+        if homeType == ENOTIFICATIONTYPE:
+            this = yield t.notificationsWithUID(UID)
+        else:
+            this = yield t.homeWithUID(homeType, UID)
+        if homeType == ECALENDARTYPE:
+            fixedThisHome = yield fixOneCalendarHome(this)
+        else:
+            fixedThisHome = 0
+        fixedOtherHome = 0
+        if this is None:
+            log_msg(format="%(uid)r appears to be missing, already processed",
+                    uid=UID)
+        try:
+            uuidobj = UUID(UID)
+        except ValueError:
+            pass
+        else:
+            newname = str(uuidobj).upper()
+            if UID != newname:
+                log_msg(format="Detected case variance: %(uid)s %(newuid)s"
+                        "[%(homeType)s]",
+                        uid=UID, newuid=newname, homeType=homeTypeName)
+                other = yield t.homeWithUID(homeType, newname)
+                if homeType == ECALENDARTYPE:
+                    fixedOtherHome = yield fixOneCalendarHome(other)
+                if other is not None:
+                    this = yield mergeHomes(t, this, other, homeType)
+                    # NOTE: WE MUST NOT TOUCH EITHER HOME OBJECT AFTER THIS
+                    # POINT. THE UIDS HAVE CHANGED AND ALL OPERATIONS WILL
+                    # FAIL.
+
+        end = time.time()
+        elapsed = end - start
+        allElapsed.append(elapsed)
+        log_msg(format="Scanned UID %(uid)s; %(elapsed)s seconds elapsed,"
+                " %(fixes)s properties fixed (%(duplicate)s fixes in "
+                "duplicate).", uid=UID, elapsed=elapsed, fixes=fixedThisHome,
+                duplicate=fixedOtherHome)
+    returnValue(None)
+
+
+
+@inlineCallbacks
+def _normalizeColumnUUIDs(txn, column):
+    """
+    Upper-case the UUIDs in the given SQL DAL column.
+
+    @param txn: The transaction.
+    @type txn: L{CommonStoreTransaction}
+
+    @param column: the column, which may contain UIDs, to normalize.
+    @type column: L{ColumnSyntax}
+
+    @return: A L{Deferred} that will fire when the UUID normalization of the
+        given column has completed.
+    """
+    tableModel = column.model.table
+    # Get a primary key made of column syntax objects for querying and
+    # comparison later.
+    pkey = [ColumnSyntax(columnModel)
+            for columnModel in tableModel.primaryKey]
+    for row in (yield Select([column] + pkey,
+                             From=TableSyntax(tableModel)).on(txn)):
+        before = row[0]
+        pkeyparts = row[1:]
+        after = normalizeUUIDOrNot(before)
+        if after != before:
+            where = _AndNothing
+            # Build a where clause out of the primary key and the parts of the
+            # primary key that were found.
+            for pkeycol, pkeypart in zip(pkeyparts, pkey):
+                where = where.And(pkeycol == pkeypart)
+            yield Update({column: after}, Where=where).on(txn)
+
+
+
+class _AndNothing(object):
+    """
+    Simple placeholder for iteratively generating a 'Where' clause; the 'And'
+    just returns its argument, so it can be used at the start of the loop.
+    """
+    @staticmethod
+    def And(self):
+        """
+        Return the argument.
+        """
+        return self
+
+
+
+@inlineCallbacks
+def fixUUIDNormalization(store):
+    """
+    Fix all UUIDs in the given SQL store to be in a canonical form;
+    00000000-0000-0000-0000-000000000000 format and upper-case.
+    """
+    t = store.newTransaction(disableCache=True)
+
+    # First, let's see if there are any calendar or addressbook homes that have
+    # a lower-case OWNER_UID.  If there are none, then we can early-out and
+    # avoid the tedious and potentially expensive inspection of oodles of
+    # calendar data.
+    for x in [schema.CALENDAR_HOME, schema.ADDRESSBOOK_HOME]:
+        slct = Select([x.OWNER_UID], From=x,
+                      Where=x.OWNER_UID != Upper(x.OWNER_UID))
+        rows = yield slct.on(t)
+        if rows:
+            break
+    else:
+        log.msg("No potentially denormalized UUIDs detected, "
+                "skipping normalization upgrade.")
+        yield t.abort()
+        returnValue(None)
+    try:
+        yield _normalizeHomeUUIDsIn(t, ECALENDARTYPE)
+        yield _normalizeHomeUUIDsIn(t, EADDRESSBOOKTYPE)
+        yield _normalizeHomeUUIDsIn(t, ENOTIFICATIONTYPE)
+        yield _normalizeColumnUUIDs(t, schema.RESOURCE_PROPERTY.VIEWER_UID)
+        yield _normalizeColumnUUIDs(t, schema.APN_SUBSCRIPTIONS.SUBSCRIBER_GUID)
+    except:
+        log_err()
+        yield t.abort()
+        # There's a lot of possible problems here which are very hard to test
+        # for individually; unexpected data that might cause constraint
+        # violations under one of the manipulations done by
+        # normalizeHomeUUIDsIn. Since this upgrade does not come along with a
+        # schema version bump and may be re- attempted at any time, just raise
+        # the exception and log it so that we can try again later, and the
+        # service will survive for everyone _not_ affected by this somewhat
+        # obscure bug.
+    else:
+        yield t.commit()
 
 
 

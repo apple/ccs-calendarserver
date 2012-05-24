@@ -47,6 +47,7 @@ from twistedcaldav.directory.principal import formatLink
 from twistedcaldav.directory.principal import formatLinks
 from twistedcaldav.directory.principal import formatPrincipals
 
+from twistedcaldav.directory.util import normalizeUUID
 from twistedcaldav.config import config, fullServerPath
 from twistedcaldav.database import AbstractADBAPIDatabase, ADBAPISqliteMixin,\
     ADBAPIPostgreSQLMixin
@@ -415,11 +416,11 @@ class ProxyDB(AbstractADBAPIDatabase, LoggingMixIn):
 
     """
 
-    schema_version = "4"
+    schema_version = "5"
     schema_type    = "CALENDARUSERPROXY"
-    
+
     class ProxyDBMemcacher(Memcacher):
-        
+
         def __init__(self, namespace):
             super(ProxyDB.ProxyDBMemcacher, self).__init__(namespace, key_normalization=config.Memcached.ProxyDBKeyNormalization)
 
@@ -774,6 +775,7 @@ class ProxyDB(AbstractADBAPIDatabase, LoggingMixIn):
             ifnotexists=True,
         )
 
+
     @inlineCallbacks
     def _db_upgrade_data_tables(self, old_version):
         """
@@ -796,6 +798,18 @@ class ProxyDB(AbstractADBAPIDatabase, LoggingMixIn):
                 ("MEMBER",),
                 ifnotexists=True,
             )
+
+        if int(old_version) < 5:
+            for (groupname, member) in (
+                    (yield self._db_all_values_for_sql("select GROUPNAME, MEMBER from GROUPS"))
+                ):
+                grouplist = groupname.split("#")
+                grouplist[0] = normalizeUUID(grouplist[0])
+                yield self._db_execute("""
+                    update GROUPS set GROUPNAME = :1, MEMBER = :2
+                    where GROUPNAME = :1 and MEMBER = :2
+                """, ["#".join(grouplist), normalizeUUID(member)])
+
 
     def _db_empty_data_tables(self):
         """

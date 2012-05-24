@@ -508,7 +508,7 @@ class Calendar(CommonHomeChild):
         ).on(self._txn)
         self._supportedComponents = supported_components
 
-        queryCacher = self._txn.store().queryCacher
+        queryCacher = self._txn._queryCacher
         if queryCacher is not None:
             cacheKey = queryCacher.keyForHomeChildMetaData(self._resourceID)
             yield queryCacher.invalidateAfterCommit(self._txn, cacheKey)

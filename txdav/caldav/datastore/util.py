@@ -14,33 +14,36 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
-from twistedcaldav.config import config
 
 """
 Utility logic common to multiple backend implementations.
 """
 
-from twext.python.log import Logger
-from twext.python.vcomponent import InvalidICalendarDataError
-from twext.python.vcomponent import VComponent
-from twext.web2 import http_headers
+import os
 
+from zope.interface.declarations import implements
+
+from txdav.caldav.icalendarstore import IAttachmentStorageTransport
+
+from twisted.python.failure import Failure
 from twisted.internet.defer import inlineCallbacks, Deferred, returnValue
 from twisted.internet.protocol import Protocol
 
+from twext.python.log import Logger
+
+from twext.web2 import http_headers
+
+from twext.python.vcomponent import InvalidICalendarDataError
+from twext.python.vcomponent import VComponent
+
 from twistedcaldav.datafilters.peruserdata import PerUserDataFilter
 from twistedcaldav.datafilters.privateevents import PrivateEventFilter
-
-from txdav.caldav.icalendarstore import IAttachmentStorageTransport
 
 from txdav.common.icommondatastore import (
     InvalidObjectResourceError, NoSuchObjectResourceError,
     InternalDataStoreError, HomeChildNameAlreadyExistsError
 )
-
-from zope.interface.declarations import implements
-
-import os
+from txdav.base.datastore.util import normalizeUUIDOrNot
 
 log = Logger()
 
@@ -86,6 +89,7 @@ def validateCalendarComponent(calendarObject, calendar, component, inserting, mi
             component.validOrganizerForScheduling(doFix=True)
     except InvalidICalendarDataError, e:
         raise InvalidObjectResourceError(e)
+
 
 
 @inlineCallbacks
@@ -135,6 +139,7 @@ def dropboxIDFromCalendarObject(calendarObject):
     returnValue(uid + ".dropbox")
 
 
+
 @inlineCallbacks
 def _migrateCalendar(inCalendar, outCalendar, getComponent, merge=False):
     """
@@ -169,7 +174,6 @@ def _migrateCalendar(inCalendar, outCalendar, getComponent, merge=False):
             ))
             bad_count += 1
             continue
-
 
         if ctype not in ("VEVENT", "VTODO"):
             log.error("Migration skipping unsupported (%s) calendar object %r"
@@ -241,6 +245,7 @@ def _migrateCalendar(inCalendar, outCalendar, getComponent, merge=False):
     returnValue((ok_count, bad_count,))
 
 
+
 # MIME helpers - mostly copied from twext.web2.static
 
 def loadMimeTypes(mimetype_locations=['/etc/mime.types']):
@@ -280,10 +285,13 @@ def loadMimeTypes(mimetype_locations=['/etc/mime.types']):
 
     return contentTypes
 
+
+
 def getType(filename, types, defaultType="application/octet-stream"):
     _ignore_p, ext = os.path.splitext(filename)
     ext = ext.lower()
     return types.get(ext, defaultType)
+
 
 
 class _AttachmentMigrationProto(Protocol, object):
@@ -329,6 +337,7 @@ def migrateHome(inHome, outHome, getComponent=lambda x: x.component(),
     @return: a L{Deferred} that fires with C{None} when the migration is
         complete.
     """
+    from twistedcaldav.config import config
     if not merge:
         yield outHome.removeCalendarWithName("calendar")
         if config.RestrictCalendarsToOneComponentType:
@@ -434,6 +443,7 @@ class StorageTransportAddress(object):
         return '<Storing Attachment: %r%s>' % (self.attachment.name(), host)
 
 
+
 class StorageTransportBase(object):
     """
     Base logic shared between file- and sql-based L{IAttachmentStorageTransport}
@@ -467,3 +477,57 @@ class StorageTransportBase(object):
 
     def writeSequence(self, seq):
         return self.write(''.join(seq))
+
+
+
+def fixOneCalendarObject(component):
+    """
+    Correct the properties which may contain a user's directory UUID within a
+    single calendar component, by normalizing the directory UUID.
+
+    @param component: any iCalendar component.
+    @type component: L{twistedcaldav.ical.Component}
+
+    @return: a 2-tuple of the number of fixes performed and the new
+        L{Component}
+    """
+    fixes = 0
+    for calprop in component.properties():
+        if calprop.name() in (
+            "ATTENDEE", "ORGANIZER", PerUserDataFilter.PERUSER_UID
+        ):
+            preval = calprop.value()
+            postval = normalizeUUIDOrNot(preval)
+            if preval != postval:
+                fixes += 1
+                calprop.setValue(postval)
+    for subc in component.subcomponents():
+        count, fixsubc = fixOneCalendarObject(subc)
+        fixes += count
+    return fixes, component
+
+
+
+@inlineCallbacks
+def fixOneCalendarHome(home):
+    """
+    Correct the case of UIDs on one L{ICalendarHome}.
+
+    @return: a L{Deferred} that fires with the number of fixes made when the
+        fixes are complete.
+    """
+    fixedThisHome = 0
+    for calendar in (yield home.calendars()):
+        for calObj in (yield calendar.calendarObjects()):
+            try:
+                comp = (yield calObj.component())
+                fixCount, comp = fixOneCalendarObject(comp)
+                fixedThisHome += fixCount
+                if fixCount:
+                    yield calObj.setComponent(comp)
+            except:
+                log.err(Failure(),
+                        'Error while processing calendar/object %r %r' % (
+                            calendar.name(), calObj.name()
+                        ))
+    returnValue(fixedThisHome)

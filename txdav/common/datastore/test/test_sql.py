@@ -31,10 +31,11 @@ from txdav.common.datastore.sql_tables import schema, CALENDAR_BIND_TABLE,\
     CALENDAR_OBJECT_REVISIONS_TABLE
 from txdav.common.datastore.test.util import CommonCommonTests, buildStore
 from txdav.common.icommondatastore import AllRetriesFailed
+from twext.enterprise.dal.syntax import Insert
 
-class SubTransactionTests(CommonCommonTests, TestCase):
+class CommonSQLStoreTests(CommonCommonTests, TestCase):
     """
-    Tests for L{UpgradeToDatabaseService}.
+    Tests for shared functionality in L{txdav.common.datastore.sql}.
     """
 
     @inlineCallbacks
@@ -42,7 +43,7 @@ class SubTransactionTests(CommonCommonTests, TestCase):
         """
         Set up two stores to migrate between.
         """
-        yield super(SubTransactionTests, self).setUp()
+        yield super(CommonSQLStoreTests, self).setUp()
         self._sqlStore = yield buildStore(self, self.notifierFactory)
 
 
@@ -304,4 +305,33 @@ class SubTransactionTests(CommonCommonTests, TestCase):
         changed = yield homeChild.resourceNamesSinceToken(token)
         self.assertEqual(changed, ([], [],))
 
-        txn.abort()
+        yield txn.abort()
+
+
+    @inlineCallbacks
+    def test_normalizeColumnUUIDs(self):
+        """
+        L{_normalizeColumnUUIDs} upper-cases only UUIDs in a given column.
+        """
+        rp = schema.RESOURCE_PROPERTY
+        txn = self.transactionUnderTest()
+        # setup
+        yield Insert({rp.RESOURCE_ID: 1,
+                      rp.NAME: "asdf",
+                      rp.VALUE: "property-value",
+                      rp.VIEWER_UID: "not-a-uuid"}).on(txn)
+        yield Insert({rp.RESOURCE_ID: 2,
+                      rp.NAME: "fdsa",
+                      rp.VALUE: "another-value",
+                      rp.VIEWER_UID: "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"}
+                    ).on(txn)
+        # test
+        from txdav.common.datastore.sql import _normalizeColumnUUIDs
+        yield _normalizeColumnUUIDs(txn, rp.VIEWER_UID)
+        self.assertEqual(
+            (yield Select([rp.RESOURCE_ID, rp.NAME,
+                           rp.VALUE, rp.VIEWER_UID], From=rp).on(txn)),
+            [[1, "asdf", "property-value", "not-a-uuid"],
+             [2, "fdsa", "another-value",
+              "AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA"]]
+        )

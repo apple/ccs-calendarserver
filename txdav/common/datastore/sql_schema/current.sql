@@ -495,5 +495,5 @@ create table CALENDARSERVER (
 );
 
 insert into CALENDARSERVER values ('VERSION', '9');
-insert into CALENDARSERVER values ('CALENDAR-DATAVERSION', '2');
+insert into CALENDARSERVER values ('CALENDAR-DATAVERSION', '3');
 insert into CALENDARSERVER values ('ADDRESSBOOK-DATAVERSION', '1');

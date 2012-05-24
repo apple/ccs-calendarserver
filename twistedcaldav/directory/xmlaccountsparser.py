@@ -176,15 +176,15 @@ class XMLAccountRecord (object):
         def expand(text, ctr):
             """
             Returns a string where ~<number> is replaced by the first <number>
-            characters from the md5 hexdigest of str(ctr), e.g.:
+            characters from the md5 hexdigest of str(ctr), e.g.::
 
                 expand("~9 foo", 1)
 
-            returns:
+            returns::
 
                 "c4ca4238a foo"
 
-            ...since "c4ca4238a" is the first 9 characters of:
+            ...since "c4ca4238a" is the first 9 characters of::
 
                 hashlib.md5(str(1)).hexdigest()
 
@@ -258,7 +258,9 @@ class XMLAccountRecord (object):
                     self.shortNames.append(child.firstChild.data.encode("utf-8"))
             elif child_name == ELEMENT_GUID:
                 if child.firstChild is not None:
-                    self.guid = child.firstChild.data.encode("utf-8")
+                    self.guid = normalizeUUID(
+                        child.firstChild.data.encode("utf-8")
+                    )
                     if len(self.guid) < 4:
                         self.guid += "?" * (4 - len(self.guid))
             elif child_name == ELEMENT_PASSWORD:

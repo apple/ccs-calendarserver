@@ -744,7 +744,12 @@ class MailGatewayTokensDatabase(AbstractSQLDatabase, LoggingMixIn):
         )
         self._db_commit()
 
+
     def lowercase(self):
+        """
+        Lowercase mailto: addresses (and uppercase urn:uuid: addresses!) so
+        they can be located via normalized names.
+        """
         rows = self._db_execute(
             """
             select ORGANIZER, ATTENDEE from TOKENS
@@ -759,12 +764,21 @@ class MailGatewayTokensDatabase(AbstractSQLDatabase, LoggingMixIn):
                     update TOKENS set ORGANIZER = :1 WHERE ORGANIZER = :2
                     """, organizer.lower(), organizer
                 )
+            else:
+                from txdav.base.datastore.util import normalizeUUIDOrNot
+                self._db_execute(
+                    """
+                    update TOKENS set ORGANIZER = :1 WHERE ORGANIZER = :2
+                    """, normalizeUUIDOrNot(organizer), organizer
+                )
+            # ATTENDEEs are always mailto: so unconditionally lower().
             self._db_execute(
                 """
                 update TOKENS set ATTENDEE = :1 WHERE ATTENDEE = :2
                 """, attendee.lower(), attendee
             )
         self._db_commit()
+
 
     def _db_version(self):
         """

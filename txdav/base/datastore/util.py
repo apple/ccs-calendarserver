@@ -19,6 +19,10 @@
 Common utility functions for a datastores.
 """
 
+from uuid import UUID
+
+from twisted.python import log
+
 from twistedcaldav.memcacher import Memcacher
 
 _unset = object()
@@ -89,4 +93,52 @@ class QueryCacher(Memcacher):
 
     def keyForHomeChildMetaData(self, resourceID):
         return "homeChildMetaData:%s" % (resourceID)
+
+
+
+def normalizeUUIDOrNot(somestr):
+    """
+    Take a string which may be:
+
+        - the hex format of a UUID
+
+        - a urn:uuid: URI containing a UUID
+
+        - some other random thing
+
+    and return, respectively:
+
+        - the hex format of a UUID converted to upper case
+
+        - a urn:uuid: URI with an upper-cased UUID (but not an upper-cased
+          scheme and namespace)
+
+        - some other random thing, unmodified
+
+    @type somestr: L{str}
+
+    @return: L{str}
+    """
+    uuu = "urn:uuid:"
+    isURI = somestr.startswith(uuu)
+    if isURI:
+        normstr = somestr[len(uuu):]
+    else:
+        normstr = somestr
+    try:
+        uu = UUID(normstr)
+    except ValueError:
+        if isURI:
+            log.msg(format="normalizing urn:uuid: without UUID: %(uid)r",
+                    uid=somestr)
+        # not a UUID, whatever
+        return somestr
+    else:
+        normalForm = str(uu).upper()
+        if isURI:
+            return uuu + normalForm
+        else:
+            return normalForm
+
+
 

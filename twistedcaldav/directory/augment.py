@@ -31,6 +31,7 @@ from twistedcaldav.directory import xmlaugmentsparser
 from twistedcaldav.directory.xmlaugmentsparser import XMLAugmentsParser
 from twistedcaldav.xmlutil import newElementTreeWithRoot, addSubElement,\
     writeXML, readXML
+from twistedcaldav.directory.util import normalizeUUID
 
 
 log = Logger()
@@ -88,7 +89,34 @@ class AugmentDB(object):
     def __init__(self):
         
         self.cachedRecords = {}
-    
+
+
+    @inlineCallbacks
+    def normalizeUUIDs(self):
+        """
+        Normalize (uppercase) all augment UIDs which are parseable as UUIDs.
+
+        @return: a L{Deferred} that fires when all records have been
+            normalized.
+        """
+        remove = []
+        add = []
+        for uid in (yield self.getAllUIDs()):
+            nuid = normalizeUUID(uid)
+            if uid != nuid:
+                old = yield self._lookupAugmentRecord(uid)
+                new = copy.deepcopy(old)
+                new.uid = uid.upper()
+                remove.append(old)
+                add.append(new)
+        try:
+            yield self.removeAugmentRecords(remove)
+            yield self.addAugmentRecords(add)
+        except IOError:
+            # It's OK if we can't re-write the file.
+            pass
+
+
     @inlineCallbacks
     def getAugmentRecord(self, uid, recordType):
         """
@@ -242,17 +270,17 @@ class AugmentXMLDB(AugmentDB):
             raise
 
         self.lastCached = time.time()
+        self.normalizeUUIDs()
 
 
-    @inlineCallbacks
     def getAllUIDs(self):
         """
         Get all AugmentRecord UIDs.
 
         @return: L{Deferred}
         """
-        
         return succeed(self.db.keys())
+
 
     def _lookupAugmentRecord(self, uid):
         """
