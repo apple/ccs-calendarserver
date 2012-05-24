@@ -25,6 +25,7 @@ if __name__ == '__main__':
     def runmain():
         import traceback
         try:
+            __import__("twext")
             from twisted.python.log import startLogging
             from sys import exit, stderr
 
