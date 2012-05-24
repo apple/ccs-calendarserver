@@ -60,7 +60,7 @@ from txdav.common.datastore.sql_tables import CALENDAR_TABLE,\
     _ATTACHMENTS_MODE_NONE, _ATTACHMENTS_MODE_READ, _ATTACHMENTS_MODE_WRITE,\
     CALENDAR_HOME_TABLE, CALENDAR_HOME_METADATA_TABLE,\
     CALENDAR_AND_CALENDAR_BIND, CALENDAR_OBJECT_REVISIONS_AND_BIND_TABLE,\
-    CALENDAR_OBJECT_AND_BIND_TABLE, schema
+    CALENDAR_OBJECT_AND_BIND_TABLE, _BIND_STATUS_INVITED, schema
 from twext.enterprise.dal.syntax import Select, Count, ColumnSyntax
 from twext.enterprise.dal.syntax import Insert
 from twext.enterprise.dal.syntax import Update
@@ -131,6 +131,7 @@ class CalendarHome(CommonHome):
         cb = schema.CALENDAR_BIND
         cor = schema.CALENDAR_OBJECT_REVISIONS
         at = schema.ATTACHMENT
+        rp = schema.RESOURCE_PROPERTY
 
         # delete attachments corresponding to this home, also removing from disk
         rows = (yield Select(
@@ -165,6 +166,11 @@ class CalendarHome(CommonHome):
         yield Delete(
             From=ch,
             Where=ch.RESOURCE_ID == self._resourceID
+        ).on(self._txn)
+
+        yield Delete(
+            From=rp,
+            Where=rp.RESOURCE_ID == self._resourceID
         ).on(self._txn)
 
         yield self._cacher.delete(str(self._ownerUID))
@@ -334,6 +340,51 @@ class CalendarHome(CommonHome):
             yield _requireCalendarWithType("VTODO", "tasks")
 
 
+    @classproperty
+    def _unacceptedSharesQuery(cls): #@NoSelf
+        cb = schema.CALENDAR_BIND
+        return Select([cb.CALENDAR_RESOURCE_NAME],
+            From=cb,
+            Where=(cb.CALENDAR_HOME_RESOURCE_ID == Parameter("homeResourceID")).And(cb.BIND_STATUS == _BIND_STATUS_INVITED))
+
+
+    @inlineCallbacks
+    def removeUnacceptedShares(self):
+        """
+        Unbinds any collections that have been shared to this home but not yet
+        accepted.  Associated invite entries are also removed.
+        """
+        inv = schema.INVITE
+        cb = schema.CALENDAR_BIND
+        rows = yield self._unacceptedSharesQuery.on(self._txn, homeResourceID=self._resourceID)
+        for (resourceName,) in rows:
+            kwds = { "ResourceName" : resourceName }
+            yield Delete(
+                From=inv,
+                Where=(
+                    inv.INVITE_UID == Parameter("ResourceName")
+                ),
+            ).on(self._txn, **kwds)
+
+            yield Delete(
+                From=cb,
+                Where=(
+                    cb.CALENDAR_RESOURCE_NAME == Parameter("ResourceName")
+                ),
+            ).on(self._txn, **kwds)
+
+
+    @inlineCallbacks
+    def removeInvites(self):
+        """
+        Remove all remaining invite entries for this home.
+        """
+        inv = schema.INVITE
+        kwds = { "HomeResourceID" : self._resourceID }
+        yield Delete(
+            From=inv,
+            Where=(inv.HOME_RESOURCE_ID == Parameter("HomeResourceID"))
+        ).on(self._txn, **kwds)
 
 CalendarHome._register(ECALENDARTYPE)
 
@@ -663,7 +714,14 @@ class Calendar(CommonHomeChild):
             newParentID=newparent._resourceID,
             resourceID=child._resourceID
         )
-        
+
+    def unshare(self):
+        """
+        Unshares a collection, regardless of which "direction" it was shared.
+        """
+        return super(Calendar, self).unshare(ECALENDARTYPE)
+
+
 icalfbtype_to_indexfbtype = {
     "UNKNOWN"         : 0,
     "FREE"            : 1,

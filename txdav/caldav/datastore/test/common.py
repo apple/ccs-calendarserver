@@ -1043,8 +1043,6 @@ class CommonTests(CommonCommonTests):
         L{ICalendar.unshareWith} will remove a previously-shared calendar from
         another user's calendar home.
         """
-        # XXX: ideally this would actually be using the shared calendar object
-        # from the shareee's home and just calling .unshare() on it.
         yield self.test_shareWith()
         if commit:
             yield self.commit()
@@ -1058,6 +1056,47 @@ class CommonTests(CommonCommonTests):
         shares = yield other.retrieveOldShares().allRecords()
         self.assertEqual(len(shares), 0)
 
+    @inlineCallbacks
+    def test_unshareSharerSide(self, commit=False):
+        """
+        Verify the coll.unshare( ) method works when called from the
+        sharer's copy
+        """
+        yield self.test_shareWith()
+        if commit:
+            yield self.commit()
+        cal = yield self.calendarUnderTest()
+        other = yield self.homeUnderTest(name=OTHER_HOME_UID)
+        otherCal = yield other.sharedChildWithName(self.sharedName)
+        self.assertNotEqual(otherCal, None)
+        yield cal.unshare()
+        otherCal = yield other.sharedChildWithName(self.sharedName)
+        self.assertEqual(otherCal, None)
+        invites = yield cal.retrieveOldInvites().allRecords()
+        self.assertEqual(len(invites), 0)
+        shares = yield other.retrieveOldShares().allRecords()
+        self.assertEqual(len(shares), 0)
+
+    @inlineCallbacks
+    def test_unshareShareeSide(self, commit=False):
+        """
+        Verify the coll.unshare( ) method works when called from the
+        sharee's copy
+        """
+        yield self.test_shareWith()
+        if commit:
+            yield self.commit()
+        cal = yield self.calendarUnderTest()
+        other = yield self.homeUnderTest(name=OTHER_HOME_UID)
+        otherCal = yield other.sharedChildWithName(self.sharedName)
+        self.assertNotEqual(otherCal, None)
+        yield otherCal.unshare()
+        otherCal = yield other.sharedChildWithName(self.sharedName)
+        self.assertEqual(otherCal, None)
+        invites = yield cal.retrieveOldInvites().allRecords()
+        self.assertEqual(len(invites), 0)
+        shares = yield other.retrieveOldShares().allRecords()
+        self.assertEqual(len(shares), 0)
 
     @inlineCallbacks
     def test_unshareWithInDifferentTransaction(self):

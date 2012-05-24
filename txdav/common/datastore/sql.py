@@ -437,7 +437,6 @@ class CommonStoreTransaction(object):
         """
         return NotificationCollection.notificationsWithUID(self, uid)
 
-
     @classproperty
     def _insertAPNSubscriptionQuery(cls): #@NoSelf
         apn = schema.APN_SUBSCRIPTIONS
@@ -2106,6 +2105,28 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
         return self._bindMode
 
 
+    @inlineCallbacks
+    def unshare(self, homeType):
+        """
+        Unshares a collection, regardless of which "direction" it was shared.
+
+        @param homeType: a valid store type (ECALENDARTYPE or EADDRESSBOOKTYPE)
+        """
+        mode = self.shareMode()
+        if mode == _BIND_MODE_OWN:
+            # This collection may be shared to others
+            for sharedToHome in [x.viewerHome() for x in (yield self.asShared())]:
+                (yield self.unshareWith(sharedToHome))
+        else:
+            # This collection is shared to me
+            sharerHomeID = (yield self.sharerHomeID())
+            sharerHome = (yield self._txn.homeWithResourceID(homeType,
+                sharerHomeID))
+            sharerCollection = (yield sharerHome.childWithID(self._resourceID))
+            (yield sharerCollection.unshareWith(self._home))
+
+
+
     @classproperty
     def _bindEntriesFor(cls):
         bind = cls._bindSchema
@@ -3640,6 +3661,30 @@ class NotificationCollection(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
         """
         self.notifyChanged()
 
+
+    @inlineCallbacks
+    def remove(self):
+        """
+        Remove DB rows corresponding to this notification home.
+        """
+        # Delete NOTIFICATION rows
+        no = schema.NOTIFICATION
+        kwds = { "ResourceID" : self._resourceID }
+        yield Delete(
+            From=no,
+            Where=(
+                no.NOTIFICATION_HOME_RESOURCE_ID == Parameter("ResourceID")
+            ),
+        ).on(self._txn, **kwds)
+
+        # Delete NOTIFICATION_HOME (will cascade to NOTIFICATION_OBJECT_REVISIONS)
+        nh = schema.NOTIFICATION_HOME
+        yield Delete(
+            From=nh,
+            Where=(
+                nh.RESOURCE_ID == Parameter("ResourceID")
+            ),
+        ).on(self._txn, **kwds)
 
 
 class NotificationObject(LoggingMixIn, FancyEqMixin):

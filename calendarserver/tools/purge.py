@@ -660,7 +660,42 @@ def purgeUID(store, uid, directory, root, verbose=False, dryrun=False, proxies=T
 
     # See if calendar home is provisioned
     txn = store.newTransaction()
-    calHomeProvisioned = ((yield txn.calendarHomeWithUID(uid)) is not None)
+    storeCalHome = (yield txn.calendarHomeWithUID(uid))
+    calHomeProvisioned = storeCalHome is not None
+
+    # If in "completely" mode, unshare collections, remove notifications
+    if calHomeProvisioned and completely:
+
+        # Process shared-to-me calendars
+        names = list((yield storeCalHome.listSharedChildren()))
+        for name in names:
+            if verbose:
+                if dryrun:
+                    print "Would unshare: %s" % (name,)
+                else:
+                    print "Unsharing: %s" % (name,)
+            if not dryrun:
+                child = (yield storeCalHome.sharedChildWithName(name))
+                (yield child.unshare())
+
+        # Process shared calendars
+        children = list((yield storeCalHome.children()))
+        for child in children:
+            if verbose:
+                if dryrun:
+                    print "Would unshare: %s" % (child.name(),)
+                else:
+                    print "Unsharing: %s" % (child.name(),)
+            if not dryrun:
+                (yield child.unshare())
+
+        if not dryrun:
+            (yield storeCalHome.removeUnacceptedShares())
+            (yield storeCalHome.removeInvites())
+            notificationHome = (yield txn.notificationsWithUID(uid))
+            if notificationHome is not None:
+                (yield notificationHome.remove())
+
     (yield txn.commit())
 
     # Anything in the past is left alone
@@ -686,8 +721,8 @@ def purgeUID(store, uid, directory, root, verbose=False, dryrun=False, proxies=T
             calendarHome = yield principal.calendarHome(request)
             for collName in (yield calendarHome.listChildren()):
                 collection = (yield calendarHome.getChild(collName))
-                if collection.isCalendarCollection() or collName == "inbox":
 
+                if collection.isCalendarCollection() or collName == "inbox":
                     childNames = []
 
                     if completely:

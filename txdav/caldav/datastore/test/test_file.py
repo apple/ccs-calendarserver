@@ -477,6 +477,8 @@ class FileStorageTests(CommonTests, unittest.TestCase):
     test_unshareWith = test_shareWith
     test_unshareWithInDifferentTransaction = test_shareWith
     test_asShared = test_shareWith
+    test_unshareSharerSide = test_shareWith
+    test_unshareShareeSide = test_shareWith
 
 
     def test_init(self):

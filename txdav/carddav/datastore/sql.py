@@ -107,6 +107,7 @@ class AddressBookHome(CommonHome):
         ah = schema.ADDRESSBOOK_HOME
         ab = schema.ADDRESSBOOK_BIND
         aor = schema.ADDRESSBOOK_OBJECT_REVISIONS
+        rp = schema.RESOURCE_PROPERTY
 
         yield Delete(
             From=ab,
@@ -121,6 +122,11 @@ class AddressBookHome(CommonHome):
         yield Delete(
             From=ah,
             Where=ah.RESOURCE_ID == self._resourceID
+        ).on(self._txn)
+
+        yield Delete(
+            From=rp,
+            Where=rp.RESOURCE_ID == self._resourceID
         ).on(self._txn)
 
         yield self._cacher.delete(str(self._ownerUID))
@@ -200,6 +206,12 @@ class AddressBook(CommonHomeChild):
         """
         return MimeType.fromString("text/vcard; charset=utf-8")
 
+
+    def unshare(self):
+        """
+        Unshares a collection, regardless of which "direction" it was shared.
+        """
+        return super(AddressBook, self).unshare(EADDRESSBOOKTYPE)
 
 
 class AddressBookObject(CommonObjectResource):
