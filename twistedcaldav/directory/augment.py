@@ -109,8 +109,12 @@ class AugmentDB(object):
                 new.uid = uid.upper()
                 remove.append(old)
                 add.append(new)
-        yield self.removeAugmentRecords(remove)
-        yield self.addAugmentRecords(add)
+        try:
+            yield self.removeAugmentRecords(remove)
+            yield self.addAugmentRecords(add)
+        except IOError:
+            # It's OK if we can't re-write the file.
+            pass
 
 
     @inlineCallbacks
