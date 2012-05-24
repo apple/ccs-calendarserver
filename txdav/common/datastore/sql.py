@@ -25,7 +25,7 @@ __all__ = [
     "CommonHome",
 ]
 
-from uuid import uuid4
+from uuid import uuid4, UUID
 
 from zope.interface import implements, directlyProvides
 
@@ -84,6 +84,8 @@ from twistedcaldav.customxml import NotificationType
 from twistedcaldav.dateops import datetimeMktime, parseSQLTimestamp,\
     pyCalendarTodatetime
 from txdav.xml.rfc2518 import DisplayName
+from twext.enterprise.dal.syntax import Upper
+from twext.enterprise.dal.syntax import Constant
 
 from cStringIO import StringIO
 from sqlparse import parse
@@ -97,6 +99,7 @@ log = Logger()
 
 ECALENDARTYPE = 0
 EADDRESSBOOKTYPE = 1
+ENOTIFICATIONTYPE = 2
 
 # Labels used to identify the class of resource being modified, so that
 # notification systems can target the correct application
@@ -3939,6 +3942,218 @@ class NotificationObject(LoggingMixIn, FancyEqMixin):
 
     def modified(self):
         return datetimeMktime(parseSQLTimestamp(self._modified))
+
+
+
+def determineNewest(uid, homeType):
+    """
+    Construct a query to determine the modification time of the newest object
+    in a given home.
+
+    @param uid: the UID of the home to scan.
+    @type uid: C{str}
+
+    @param homeType: The type of home to scan; C{ECALENDARTYPE},
+        C{ENOTIFICATIONTYPE}, or C{EADDRESSBOOKTYPE}.
+    @type homeType: C{int}
+
+    @return: A select query that will return a single row containing a single
+        column which is the maximum value.
+    @rtype: L{Select}
+    """
+    if type == ENOTIFICATIONTYPE:
+        return Select(
+            [Max(schema.NOTIFICATION.MODIFIED)],
+            From=schema.NOTIFICATION_HOME.join(
+                schema.NOTIFICATION,
+                on=schema.NOTIFICATION_HOME.RESOURCE_ID ==
+                    schema.NOTIFICATION.NOTIFICATION_HOME_RESOURCE_ID),
+            Where=schema.NOTIFICATION_HOME.OWNER_UID == uid
+        )
+    homeTypeName = {ECALENDARTYPE: "CALENDAR",
+                    EADDRESSBOOKTYPE: "ADDRESSBOOK"}[homeType]
+    home = getattr(schema, homeTypeName + "_HOME")
+    bind = getattr(schema, homeTypeName + "_BIND")
+    child = getattr(schema, homeTypeName)
+    obj = getattr(schema, homeTypeName + "_OBJECT")
+    return Select(
+        [Max(obj.MODIFIED)],
+        From=home.join(bind, on=bind.HOME_RESOURCE_ID == home.RESOURCE_ID)
+           .join(child, on=child.RESOURCE_ID == bind.RESOURCE_ID)
+           .join(obj, on=obj.PARENT_RESOURCE_ID == child.RESOURCE_ID),
+        Where=(bind.BIND_MODE == 0).And(home.OWNER_UID == uid)
+    )
+
+
+
+@inlineCallbacks
+def mergeHomes(sqlTxn, one, other, homeType):
+    """
+    Merge two homes together.  This determines which of C{one} or C{two} is
+    newer - that is, has been modified more recently - and pulls all the data
+    from the older into the newer home.  Then, it changes the UID of the old
+    home to its UID, upper-cased and prefixed with "old.", and then re-names
+    the new home to its name, upper-cased.
+
+    Because the UIDs of both homes have changed, B{both one and two will be
+    invalid to all other callers from the start of the invocation of this
+    function}.
+
+    @param sqlTxn: the transaction to use
+    @type sqlTxn: A L{CommonTransaction}
+
+    @param one: A calendar home.
+    @type one: L{ICalendarHome}
+
+    @param two: Another, different calendar home.
+    @type two: L{ICalendarHome}
+
+    @param homeType: The type of home to scan; L{ECALENDARTYPE} or
+        L{EADDRESSBOOKTYPE}.
+    @type homeType: C{int}
+
+    @return: a L{Deferred} which fires with with the newer of C{one} or C{two},
+        into which the data from the other home has been merged, when the merge
+        is complete.
+    """
+    from txdav.caldav.datastore.util import migrateHome as migrateCalendarHome
+    from txdav.carddav.datastore.util import migrateHome as migrateABHome
+    migrateHome = {EADDRESSBOOKTYPE: migrateABHome,
+                   ECALENDARTYPE: migrateCalendarHome}[homeType]
+    homeTable = {EADDRESSBOOKTYPE: schema.ADDRESSBOOK_HOME,
+                 ECALENDARTYPE: schema.CALENDAR_HOME}[homeType]
+    both = []
+    both.append([one, (yield determineNewest(one.uid(), type).on(sqlTxn))])
+    both.append([other, (yield determineNewest(other.uid(), type).on(sqlTxn))])
+    both.sort(key=lambda x: x[1])
+    # Note: determineNewest may return None sometimes.
+    older = both[0][0]
+    newer = both[1][0]
+    yield migrateHome(older, newer, True)
+    # Rename the old one to 'old.<correct-guid>'
+    yield Update({homeTable.OWNER_UID: "old." + older.uid().upper()},
+                 Where=homeTable.OWNER_UID == older.uid()).on(sqlTxn)
+    # Rename the new one to '<correct-guid>'
+    if newer.uid() != newer.uid().upper():
+        yield Update(
+            {homeTable.OWNER_UID: newer.uid().upper()},
+            Where=homeTable.OWNER_UID == newer.uid()
+        ).on(sqlTxn)
+    yield returnValue(newer)
+
+
+
+@inlineCallbacks
+def _normalizeHomeUUIDsIn(t, homeType):
+    """
+    Normalize the UUIDs in the given L{txdav.common.datastore.CommonStore}.
+
+    This changes the case of the UUIDs in the calendar home.
+
+    @param t: the transaction to normalize all the UUIDs in.
+    @type t: L{CommonStoreTransaction}
+
+    @param homeType: The type of home to scan; ECALENDARTYPE or
+        EADDRESSBOOKTYPE.
+    @type homeType: C{int}
+
+    @return: a L{Deferred} which fires with C{None} when the UUID normalization
+        is complete.
+    """
+    from txdav.caldav.datastore.util import fixOneCalendarHome
+    homeTable = {EADDRESSBOOKTYPE: schema.ADDRESSBOOK_HOME,
+                 ECALENDARTYPE: schema.CALENDAR_HOME}[homeType]
+
+    allUIDs = yield Select([homeTable.OWNER_UID],
+                           From=homeTable,
+                           OrderBy=homeTable.OWNER_UID).on(t)
+    total = len(allUIDs)
+    allElapsed = []
+    for n, [UID] in enumerate(allUIDs):
+        start = time.time()
+        if allElapsed:
+            estimate = "%0.3d" % ((sum(allElapsed) / len(allElapsed)) *
+                                  total - n)
+        else:
+            estimate = "unknown"
+        log.msg(
+            format="Scanning UID %(uid)s "
+            "(%(pct)0.2d%%, %(estimate)s seconds remaining)...",
+            uid=UID, pct=(n / float(total)) * 100, estimate=estimate,
+        )
+        other = None
+        this = yield t.homeWithUID(UID)
+        if homeType == ECALENDARTYPE:
+            fixedThisHome = yield fixOneCalendarHome(this)
+        else:
+            fixedThisHome = 0
+        if this is None:
+            log.msg(format="%(uid)r appears to be missing, already processed",
+                    uid=UID)
+        try:
+            uuidobj = UUID(UID)
+        except ValueError:
+            pass
+        else:
+            newname = str(uuidobj).upper()
+            if UID != newname:
+                log.msg(format="Detected case variance: %(uid)s %(newuid)s",
+                        uid=UID, newuid=newname)
+                other = yield t.homeWithUID(homeType, newname)
+                if other is not None:
+                    this = yield mergeHomes(t, this, other, homeType)
+                    # NOTE: WE MUST NOT TOUCH EITHER HOME OBJECT AFTER THIS
+                    # POINT. THE UIDS HAVE CHANGED AND ALL OPERATIONS WILL
+                    # FAIL.
+                # else: case - it's already been updated.
+        end = time.time()
+        elapsed = end - start
+        allElapsed.append(elapsed)
+        log.msg(format="Scanned UID %(uid)s; %(elapsed)s seconds elapsed,"
+                " %(fixes)s properties fixed.", uid=UID, elapsed=elapsed,
+                fixes=fixedThisHome)
+    returnValue(None)
+
+
+
+def _upcaseColumn(column):
+    """
+    Generate query to upper-case a single column.
+
+    @param column: the column to uppercase
+    @type column: L{ColumnSyntax}
+
+    @return: a query that, when executed, will cause the given column to become
+        upper-case according to the database's C{UPPER} function.
+    """
+    return Update({column: Upper(column)}, Where=Constant(True))
+
+
+
+@inlineCallbacks
+def fixCaseNormalization(store):
+    """
+    Fix all case normalization for a given store.
+    """
+    t = store.newTransaction()
+    try:
+        yield _normalizeHomeUUIDsIn(store, ECALENDARTYPE)
+        yield _normalizeHomeUUIDsIn(store, EADDRESSBOOKTYPE)
+        yield _upcaseColumn(schema.RESOURCE_PROPERTY.VIEWER_UID).on(t)
+        yield _upcaseColumn(schema.APN_SUBSCRIPTIONS.SUBSCRIBER_GUID).on(t)
+    except:
+        log.err()
+        yield t.abort()
+        # There's a lot of possible problems here which are very hard to test
+        # for individually; unexpected data that might cause constraint
+        # violations under one of the manipulations done by
+        # normalizeHomeUUIDsIn. Since this upgrade does not come along with a
+        # schema version bump and may be re- attempted at any time, just raise
+        # the exception and log it so that we can try again later, and the
+        # service will survive for everyone _not_ affected by this somewhat
+        # obscure bug.
+    else:
+        yield t.commit()
 
 
 
