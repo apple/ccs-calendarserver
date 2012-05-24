@@ -4056,8 +4056,8 @@ def _normalizeHomeUUIDsIn(t, homeType):
     @param t: the transaction to normalize all the UUIDs in.
     @type t: L{CommonStoreTransaction}
 
-    @param homeType: The type of home to scan; ECALENDARTYPE or
-        EADDRESSBOOKTYPE.
+    @param homeType: The type of home to scan, L{ECALENDARTYPE},
+        L{EADDRESSBOOKTYPE}, or L{ENOTIFICATIONTYPE}.
     @type homeType: C{int}
 
     @return: a L{Deferred} which fires with C{None} when the UUID normalization
@@ -4065,7 +4065,8 @@ def _normalizeHomeUUIDsIn(t, homeType):
     """
     from txdav.caldav.datastore.util import fixOneCalendarHome
     homeTable = {EADDRESSBOOKTYPE: schema.ADDRESSBOOK_HOME,
-                 ECALENDARTYPE: schema.CALENDAR_HOME}[homeType]
+                 ECALENDARTYPE: schema.CALENDAR_HOME,
+                 ENOTIFICATIONTYPE: schema.NOTIFICATION_HOME}[homeType]
 
     allUIDs = yield Select([homeTable.OWNER_UID],
                            From=homeTable,
@@ -4130,10 +4131,12 @@ def _upcaseColumnUUIDs(txn, column):
     @param column: the column to uppercase.  Note
     @type column: L{ColumnSyntax}
 
-    @return: A L{Deferred} that will fire when the upper-casing of the given
-        column has completed.
+    @return: A L{Deferred} that will fire when the UUID normalization of the
+        given column has completed.
     """
     tableModel = column.model.table
+    # Get a primary key made of column syntax objects for querying and
+    # comparison later.
     pkey = [ColumnSyntax(columnModel)
             for columnModel in tableModel.primaryKey]
     for row in (yield Select([column] + pkey,
@@ -4143,6 +4146,8 @@ def _upcaseColumnUUIDs(txn, column):
         after = normalizeUUIDOrNot(before)
         if after != before:
             where = _AndNothing
+            # Build a where clause out of the primary key and the parts of the
+            # primary key that were found.
             for pkeycol, pkeypart in zip(pkeyparts, pkey):
                 where = where.And(pkeycol == pkeypart)
             yield Update({column: after}, Where=where).on(txn)
