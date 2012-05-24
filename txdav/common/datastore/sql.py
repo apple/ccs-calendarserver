@@ -187,7 +187,7 @@ class CommonDataStore(Service, object):
         return []
 
 
-    def newTransaction(self, label="unlabeled"):
+    def newTransaction(self, label="unlabeled", disableCache=False):
         """
         @see: L{IDataStore.newTransaction}
         """
@@ -199,11 +199,13 @@ class CommonDataStore(Service, object):
             self.notifierFactory if self._enableNotifications else None,
             label,
             self._migrating,
+            disableCache
         )
-        
         if self.logTransactionWaits or self.timeoutTransactions:
-            CommonStoreTransactionMonitor(txn, self.logTransactionWaits, self.timeoutTransactions)
+            CommonStoreTransactionMonitor(txn, self.logTransactionWaits,
+                                          self.timeoutTransactions)
         return txn
+
 
     def setMigrating(self, state):
         """
@@ -312,7 +314,7 @@ class CommonStoreTransaction(object):
 
     def __init__(self, store, sqlTxn,
                  enableCalendars, enableAddressBooks,
-                 notifierFactory, label, migrating=False):
+                 notifierFactory, label, migrating=False, disableCache=False):
         self._store = store
         self._calendarHomes = {}
         self._addressbookHomes = {}
@@ -324,6 +326,11 @@ class CommonStoreTransaction(object):
         self._label = label
         self._migrating = migrating
         self._primaryHomeType = None
+        self._disableCache = disableCache
+        if disableCache:
+            self._queryCacher = None
+        else:
+            self._queryCacher = store.queryCacher
 
         CommonStoreTransaction.id += 1
         self._txid = CommonStoreTransaction.id
@@ -846,6 +853,15 @@ class CommonStoreTransaction(object):
         returnValue(count)
 
 
+class _EmptyCacher(object):
+    def set(self, key, value):
+        return succeed(True)
+    def get(self, key, withIdentifier=False):
+        return succeed(None)
+    def delete(self, key):
+        return succeed(True)
+
+
 class CommonHome(LoggingMixIn):
 
     # All these need to be initialized by derived classes for each store type
@@ -877,6 +893,8 @@ class CommonHome(LoggingMixIn):
         self._created = None
         self._modified = None
         self._syncTokenRevision = None
+        if transaction._disableCache:
+            self._cacher = _EmptyCacher()
 
         # Needed for REVISION/BIND table join
         self._revisionBindJoinTable = {}
@@ -937,7 +955,7 @@ class CommonHome(LoggingMixIn):
         if result:
             self._resourceID = result[0][0]
 
-            queryCacher = self._txn.store().queryCacher
+            queryCacher = self._txn._queryCacher
             if queryCacher:
                 # Get cached copy
                 cacheKey = queryCacher.keyForHomeMetaData(self._resourceID)
@@ -1519,7 +1537,7 @@ class CommonHome(LoggingMixIn):
             
         try:
             self._modified = (yield self._txn.subtransaction(_bumpModified, retries=0, failureOK=True))[0][0]
-            queryCacher = self._txn.store().queryCacher
+            queryCacher = self._txn._queryCacher
             if queryCacher is not None:
                 cacheKey = queryCacher.keyForHomeMetaData(self._resourceID)
                 yield queryCacher.invalidateAfterCommit(self._txn, cacheKey)
@@ -2285,7 +2303,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
             exists.
         """
         data = None
-        queryCacher = home._txn.store().queryCacher
+        queryCacher = home._txn._queryCacher
         # Only caching non-shared objects so that we don't need to invalidate
         # in sql_legacy
         if owned and queryCacher:
@@ -2447,7 +2465,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
         resource ID. We read in and cache all the extra metadata from the DB to
         avoid having to do DB queries for those individually later.
         """
-        queryCacher = self._txn.store().queryCacher
+        queryCacher = self._txn._queryCacher
         if queryCacher:
             # Retrieve from cache
             cacheKey = queryCacher.keyForHomeChildMetaData(self._resourceID)
@@ -2521,7 +2539,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
         """
         oldName = self._name
 
-        queryCacher = self._home._txn.store().queryCacher
+        queryCacher = self._home._txn._queryCacher
         if queryCacher:
             cacheKey = queryCacher.keyForObjectWithName(self._home._resourceID, oldName)
             yield queryCacher.invalidateAfterCommit(self._home._txn, cacheKey)
@@ -2554,7 +2572,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
     @inlineCallbacks
     def remove(self):
 
-        queryCacher = self._home._txn.store().queryCacher
+        queryCacher = self._home._txn._queryCacher
         if queryCacher:
             cacheKey = queryCacher.keyForObjectWithName(self._home._resourceID, self._name)
             yield queryCacher.invalidateAfterCommit(self._home._txn, cacheKey)
@@ -2981,7 +2999,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
         try:
             self._modified = (yield self._txn.subtransaction(_bumpModified, retries=0, failureOK=True))[0][0]
 
-            queryCacher = self._txn.store().queryCacher
+            queryCacher = self._txn._queryCacher
             if queryCacher is not None:
                 cacheKey = queryCacher.keyForHomeChildMetaData(self._resourceID)
                 yield queryCacher.invalidateAfterCommit(self._txn, cacheKey)
@@ -4191,7 +4209,7 @@ def fixCaseNormalization(store):
     """
     Fix all case normalization for a given store.
     """
-    t = store.newTransaction()
+    t = store.newTransaction(disableCache=True)
     try:
         yield _normalizeHomeUUIDsIn(t, ECALENDARTYPE)
         yield _normalizeHomeUUIDsIn(t, EADDRESSBOOKTYPE)
