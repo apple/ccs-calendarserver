@@ -20,7 +20,6 @@ Utility logic common to multiple backend implementations.
 """
 
 import os
-from uuid import UUID
 
 from zope.interface.declarations import implements
 
@@ -338,8 +337,8 @@ def migrateHome(inHome, outHome, getComponent=lambda x: x.component(),
     @return: a L{Deferred} that fires with C{None} when the migration is
         complete.
     """
+    from twistedcaldav.config import config
     if not merge:
-        from twistedcaldav.config import config
         yield outHome.removeCalendarWithName("calendar")
         if config.RestrictCalendarsToOneComponentType:
             yield outHome.removeCalendarWithName("tasks")
