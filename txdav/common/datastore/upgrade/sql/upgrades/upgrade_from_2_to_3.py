@@ -30,9 +30,9 @@ UPGRADE_TO_VERSION = 3
 @inlineCallbacks
 def doUpgrade(sqlStore):
     """
-    Do the required upgrade steps.
+    Do the case-normalization upgrade if necessary and then bump the data
+    version to indicate that it's been done.
     """
-
     yield fixCaseNormalization(sqlStore)
 
     # Always bump the DB value
