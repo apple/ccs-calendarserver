@@ -771,6 +771,7 @@ class MailGatewayTokensDatabase(AbstractSQLDatabase, LoggingMixIn):
                     update TOKENS set ORGANIZER = :1 WHERE ORGANIZER = :2
                     """, normalizeUUIDOrNot(organizer), organizer
                 )
+            # ATTENDEEs are always mailto: so unconditionally lower().
             self._db_execute(
                 """
                 update TOKENS set ATTENDEE = :1 WHERE ATTENDEE = :2
