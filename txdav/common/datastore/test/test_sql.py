@@ -309,9 +309,9 @@ class CommonSQLStoreTests(CommonCommonTests, TestCase):
 
 
     @inlineCallbacks
-    def test_upcaseColumnUUIDs(self):
+    def test_normalizeColumnUUIDs(self):
         """
-        L{_upcaseColumnUUIDs} upper-cases only UUIDs in a given column.
+        L{_normalizeColumnUUIDs} upper-cases only UUIDs in a given column.
         """
         rp = schema.RESOURCE_PROPERTY
         txn = self.transactionUnderTest()
@@ -326,8 +326,8 @@ class CommonSQLStoreTests(CommonCommonTests, TestCase):
                       rp.VIEWER_UID: "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"}
                     ).on(txn)
         # test
-        from txdav.common.datastore.sql import _upcaseColumnUUIDs
-        yield _upcaseColumnUUIDs(txn, rp.VIEWER_UID)
+        from txdav.common.datastore.sql import _normalizeColumnUUIDs
+        yield _normalizeColumnUUIDs(txn, rp.VIEWER_UID)
         self.assertEqual(
             (yield Select([rp.RESOURCE_ID, rp.NAME,
                            rp.VALUE, rp.VIEWER_UID], From=rp).on(txn)),
