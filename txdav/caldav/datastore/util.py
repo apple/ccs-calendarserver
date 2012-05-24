@@ -500,7 +500,7 @@ def fixOneCalendarObject(component):
             postval = normalizeUUIDOrNot(preval)
             if preval != postval:
                 fixes += 1
-                calprop.setValue(preval)
+                calprop.setValue(postval)
     for subc in component.subcomponents():
         count, fixsubc = fixOneCalendarObject(subc)
         fixes += count
