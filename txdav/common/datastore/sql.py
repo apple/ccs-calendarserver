@@ -4007,8 +4007,8 @@ def mergeHomes(sqlTxn, one, other, homeType):
     Merge two homes together.  This determines which of C{one} or C{two} is
     newer - that is, has been modified more recently - and pulls all the data
     from the older into the newer home.  Then, it changes the UID of the old
-    home to its UID, upper-cased and prefixed with "old.", and then re-names
-    the new home to its name, upper-cased.
+    home to its UID, normalized and prefixed with "old.", and then re-names the
+    new home to its name, normalized.
 
     Because the UIDs of both homes have changed, B{both one and two will be
     invalid to all other callers from the start of the invocation of this
@@ -4050,12 +4050,14 @@ def mergeHomes(sqlTxn, one, other, homeType):
     newer = both[1][0]
     yield migrateHome(older, newer, merge=True)
     # Rename the old one to 'old.<correct-guid>'
-    yield Update({homeTable.OWNER_UID: "old." + older.uid().upper()},
+    newNormalized = normalizeUUIDOrNot(newer.uid())
+    oldNormalized = normalizeUUIDOrNot(older.uid())
+    yield Update({homeTable.OWNER_UID: "old." + oldNormalized},
                  Where=homeTable.OWNER_UID == older.uid()).on(sqlTxn)
     # Rename the new one to '<correct-guid>'
-    if newer.uid() != newer.uid().upper():
+    if newer.uid() != newNormalized:
         yield Update(
-            {homeTable.OWNER_UID: newer.uid().upper()},
+            {homeTable.OWNER_UID: newNormalized},
             Where=homeTable.OWNER_UID == newer.uid()
         ).on(sqlTxn)
     yield returnValue(newer)
@@ -4151,14 +4153,14 @@ def _normalizeHomeUUIDsIn(t, homeType):
 
 
 @inlineCallbacks
-def _upcaseColumnUUIDs(txn, column):
+def _normalizeColumnUUIDs(txn, column):
     """
     Upper-case the UUIDs in the given SQL DAL column.
 
     @param txn: The transaction.
     @type txn: L{CommonStoreTransaction}
 
-    @param column: the column to uppercase.  Note
+    @param column: the column, which may contain UIDs, to normalize.
     @type column: L{ColumnSyntax}
 
     @return: A L{Deferred} that will fire when the UUID normalization of the
@@ -4224,8 +4226,8 @@ def fixUUIDNormalization(store):
         yield _normalizeHomeUUIDsIn(t, ECALENDARTYPE)
         yield _normalizeHomeUUIDsIn(t, EADDRESSBOOKTYPE)
         yield _normalizeHomeUUIDsIn(t, ENOTIFICATIONTYPE)
-        yield _upcaseColumnUUIDs(t, schema.RESOURCE_PROPERTY.VIEWER_UID)
-        yield _upcaseColumnUUIDs(t, schema.APN_SUBSCRIPTIONS.SUBSCRIBER_GUID)
+        yield _normalizeColumnUUIDs(t, schema.RESOURCE_PROPERTY.VIEWER_UID)
+        yield _normalizeColumnUUIDs(t, schema.APN_SUBSCRIPTIONS.SUBSCRIBER_GUID)
     except:
         log_err()
         yield t.abort()
