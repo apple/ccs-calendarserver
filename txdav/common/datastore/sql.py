@@ -4225,6 +4225,7 @@ def fixUUIDNormalization(store):
     else:
         log.msg("No potentially denormalized UUIDs detected, "
                 "skipping normalization upgrade.")
+        yield t.abort()
         returnValue(None)
     try:
         yield _normalizeHomeUUIDsIn(t, ECALENDARTYPE)
