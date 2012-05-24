@@ -4177,6 +4177,7 @@ def fixCaseNormalization(store):
     try:
         yield _normalizeHomeUUIDsIn(t, ECALENDARTYPE)
         yield _normalizeHomeUUIDsIn(t, EADDRESSBOOKTYPE)
+        yield _normalizeHomeUUIDsIn(t, ENOTIFICATIONTYPE)
         yield _upcaseColumnUUIDs(t, schema.RESOURCE_PROPERTY.VIEWER_UID)
         yield _upcaseColumnUUIDs(t, schema.APN_SUBSCRIPTIONS.SUBSCRIBER_GUID)
     except:
