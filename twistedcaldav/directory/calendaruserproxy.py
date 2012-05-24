@@ -800,15 +800,15 @@ class ProxyDB(AbstractADBAPIDatabase, LoggingMixIn):
             )
 
         if int(old_version) < 5:
-            for groupname, member in (
-                    (yield self.query("select GROUPNAME, MEMBER from GROUPS"))
+            for (groupname, member) in (
+                    (yield self._db_all_values_for_sql("select GROUPNAME, MEMBER from GROUPS"))
                 ):
-                groupPrincipalUID, groupMode = groupname.split("#")
+                grouplist = groupname.split("#")
+                grouplist[0] = normalizeUUID(grouplist[0])
                 yield self._db_execute("""
-                    update GROUPS set (GROUPNAME = :1, MEMBER = :2)
+                    update GROUPS set GROUPNAME = :1, MEMBER = :2
                     where GROUPNAME = :1 and MEMBER = :2
-                """, "#".join([normalizeUUID(groupPrincipalUID), groupMode]),
-                              normalizeUUID(member))
+                """, ["#".join(grouplist), normalizeUUID(member)])
 
 
     def _db_empty_data_tables(self):
