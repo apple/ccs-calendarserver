@@ -67,14 +67,10 @@ from txdav.common.inotifications import INotificationCollection, \
 from twext.python.clsprop import classproperty
 from twext.enterprise.ienterprise import AlreadyFinishedError
 from twext.enterprise.dal.parseschema import significant
-from twext.enterprise.dal.syntax import Delete, utcNowSQL, Union
-from twext.enterprise.dal.syntax import Insert
-from twext.enterprise.dal.syntax import Len
-from twext.enterprise.dal.syntax import Max
-from twext.enterprise.dal.syntax import Parameter
-from twext.enterprise.dal.syntax import SavepointAction
-from twext.enterprise.dal.syntax import Select
-from twext.enterprise.dal.syntax import Update
+
+from twext.enterprise.dal.syntax import \
+    Delete, utcNowSQL, Union, Insert, Len, Max, Parameter, SavepointAction, \
+    Select, Update, ColumnSyntax, TableSyntax, Upper
 
 from txdav.base.propertystore.base import PropertyName
 from txdav.base.propertystore.none import PropertyStore as NonePropertyStore
@@ -87,8 +83,6 @@ from twistedcaldav.dateops import datetimeMktime, parseSQLTimestamp,\
 from txdav.xml.rfc2518 import DisplayName
 
 from txdav.base.datastore.util import normalizeUUIDOrNot
-from twext.enterprise.dal.syntax import ColumnSyntax
-from twext.enterprise.dal.syntax import TableSyntax
 
 from cStringIO import StringIO
 from sqlparse import parse
@@ -4205,11 +4199,27 @@ class _AndNothing(object):
 
 
 @inlineCallbacks
-def fixCaseNormalization(store):
+def fixUUIDNormalization(store):
     """
-    Fix all case normalization for a given store.
+    Fix all UUIDs in the given SQL store to be in a canonical form;
+    00000000-0000-0000-0000-000000000000 format and upper-case.
     """
     t = store.newTransaction(disableCache=True)
+
+    # First, let's see if there are any calendar or addressbook homes that have
+    # a lower-case OWNER_UID.  If there are none, then we can early-out and
+    # avoid the tedious and potentially expensive inspection of oodles of
+    # calendar data.
+    for x in [schema.CALENDAR_HOME, schema.ADDRESSBOOK_HOME]:
+        slct = Select([x.OWNER_UID], From=x,
+                      Where=x.OWNER_UID != Upper(x.OWNER_UID))
+        rows = yield slct.on(t)
+        if rows:
+            break
+    else:
+        log.msg("No potentially denormalized UUIDs detected, "
+                "skipping normalization upgrade.")
+        returnValue(None)
     try:
         yield _normalizeHomeUUIDsIn(t, ECALENDARTYPE)
         yield _normalizeHomeUUIDsIn(t, EADDRESSBOOKTYPE)

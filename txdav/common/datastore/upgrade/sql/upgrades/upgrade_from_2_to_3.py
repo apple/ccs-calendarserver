@@ -21,7 +21,7 @@ CALENDAR_HOME/ADDRESSBOOK_HOME/NOTIFICATION/APN_SUBSCRIPTIONS tables, as well
 as in calendar data and properties.
 """
 
-from txdav.common.datastore.sql import fixCaseNormalization
+from txdav.common.datastore.sql import fixUUIDNormalization
 from twisted.internet.defer import inlineCallbacks
 from txdav.common.datastore.upgrade.sql.upgrades.util import updateDataVersion
 
@@ -30,10 +30,10 @@ UPGRADE_TO_VERSION = 3
 @inlineCallbacks
 def doUpgrade(sqlStore):
     """
-    Do the case-normalization upgrade if necessary and then bump the data
+    Do the UUID-normalization upgrade if necessary and then bump the data
     version to indicate that it's been done.
     """
-    yield fixCaseNormalization(sqlStore)
+    yield fixUUIDNormalization(sqlStore)
 
     # Always bump the DB value
     yield updateDataVersion(
