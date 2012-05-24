@@ -31,6 +31,7 @@ from twistedcaldav.directory import xmlaugmentsparser
 from twistedcaldav.directory.xmlaugmentsparser import XMLAugmentsParser
 from twistedcaldav.xmlutil import newElementTreeWithRoot, addSubElement,\
     writeXML, readXML
+from twistedcaldav.directory.util import normalizeUUID
 
 
 log = Logger()
@@ -98,11 +99,10 @@ class AugmentDB(object):
         @return: a L{Deferred} that fires when all records have been
             normalized.
         """
-        from txdav.base.datastore.util import normalizeUUIDOrNot
         remove = []
         add = []
         for uid in (yield self.getAllUIDs()):
-            nuid = normalizeUUIDOrNot(uid)
+            nuid = normalizeUUID(uid)
             if uid != nuid:
                 old = yield self._lookupAugmentRecord(uid)
                 new = copy.deepcopy(old)
@@ -266,6 +266,7 @@ class AugmentXMLDB(AugmentDB):
             raise
 
         self.lastCached = time.time()
+        self.normalizeUUIDs()
 
 
     def getAllUIDs(self):
