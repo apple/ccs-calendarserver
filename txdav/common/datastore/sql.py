@@ -85,8 +85,10 @@ from twistedcaldav.customxml import NotificationType
 from twistedcaldav.dateops import datetimeMktime, parseSQLTimestamp,\
     pyCalendarTodatetime
 from txdav.xml.rfc2518 import DisplayName
-from twext.enterprise.dal.syntax import Upper
-from twext.enterprise.dal.syntax import Constant
+
+from txdav.base.datastore.util import normalizeUUIDOrNot
+from twext.enterprise.dal.syntax import ColumnSyntax
+from twext.enterprise.dal.syntax import TableSyntax
 
 from cStringIO import StringIO
 from sqlparse import parse
@@ -4117,17 +4119,47 @@ def _normalizeHomeUUIDsIn(t, homeType):
 
 
 
-def _upcaseColumn(column):
+@inlineCallbacks
+def _upcaseColumnUUIDs(txn, column):
     """
-    Generate query to upper-case a single column.
+    Upper-case the UUIDs in the given SQL DAL column.
 
-    @param column: the column to uppercase
+    @param txn: The transaction.
+    @type txn: L{CommonStoreTransaction}
+
+    @param column: the column to uppercase.  Note
     @type column: L{ColumnSyntax}
 
-    @return: a query that, when executed, will cause the given column to become
-        upper-case according to the database's C{UPPER} function.
+    @return: A L{Deferred} that will fire when the upper-casing of the given
+        column has completed.
     """
-    return Update({column: Upper(column)}, Where=Constant(True))
+    tableModel = column.model.table
+    pkey = [ColumnSyntax(columnModel)
+            for columnModel in tableModel.primaryKey]
+    for row in (yield Select([column] + pkey,
+                             From=TableSyntax(tableModel)).on(txn)):
+        before = row[0]
+        pkeyparts = row[1:]
+        after = normalizeUUIDOrNot(before)
+        if after != before:
+            where = _AndNothing
+            for pkeycol, pkeypart in zip(pkeyparts, pkey):
+                where = where.And(pkeycol == pkeypart)
+            yield Update({column: after}, Where=where).on(txn)
+
+
+
+class _AndNothing(object):
+    """
+    Simple placeholder for iteratively generating a 'Where' clause; the 'And'
+    just returns its argument, so it can be used at the start of the loop.
+    """
+    @staticmethod
+    def And(self):
+        """
+        Return the argument.
+        """
+        return self
 
 
 
@@ -4140,8 +4172,8 @@ def fixCaseNormalization(store):
     try:
         yield _normalizeHomeUUIDsIn(t, ECALENDARTYPE)
         yield _normalizeHomeUUIDsIn(t, EADDRESSBOOKTYPE)
-        yield _upcaseColumn(schema.RESOURCE_PROPERTY.VIEWER_UID).on(t)
-        yield _upcaseColumn(schema.APN_SUBSCRIPTIONS.SUBSCRIBER_GUID).on(t)
+        yield _upcaseColumnUUIDs(t, schema.RESOURCE_PROPERTY.VIEWER_UID)
+        yield _upcaseColumnUUIDs(t, schema.APN_SUBSCRIPTIONS.SUBSCRIBER_GUID)
     except:
         log_err()
         yield t.abort()
