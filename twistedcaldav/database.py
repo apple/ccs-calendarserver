@@ -349,13 +349,14 @@ class AbstractADBAPIDatabase(object):
         # cannot be thrown away.
         raise NotImplementedError("Persistent databases MUST support an upgrade method.")
 
+
     @inlineCallbacks
     def _db_upgrade_schema(self):
         """
         Upgrade the stored schema version to the current one.
         """
         yield self._db_execute("insert or replace into CALDAV (KEY, VALUE) values ('SCHEMA_VERSION', :1)", (self._db_version(),))
-        yield self._db_commit()
+
 
     @inlineCallbacks
     def _db_remove(self):
