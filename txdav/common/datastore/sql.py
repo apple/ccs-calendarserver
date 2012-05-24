@@ -4122,6 +4122,7 @@ def _normalizeHomeUUIDsIn(t, homeType):
             fixedThisHome = yield fixOneCalendarHome(this)
         else:
             fixedThisHome = 0
+        fixedOtherHome = 0
         if this is None:
             log_msg(format="%(uid)r appears to be missing, already processed",
                     uid=UID)
@@ -4136,6 +4137,8 @@ def _normalizeHomeUUIDsIn(t, homeType):
                         "[%(homeType)s]",
                         uid=UID, newuid=newname, homeType=homeTypeName)
                 other = yield t.homeWithUID(homeType, newname)
+                if homeType == ECALENDARTYPE:
+                    fixedOtherHome = yield fixOneCalendarHome(other)
                 if other is not None:
                     this = yield mergeHomes(t, this, other, homeType)
                     # NOTE: WE MUST NOT TOUCH EITHER HOME OBJECT AFTER THIS
@@ -4146,8 +4149,9 @@ def _normalizeHomeUUIDsIn(t, homeType):
         elapsed = end - start
         allElapsed.append(elapsed)
         log_msg(format="Scanned UID %(uid)s; %(elapsed)s seconds elapsed,"
-                " %(fixes)s properties fixed.", uid=UID, elapsed=elapsed,
-                fixes=fixedThisHome)
+                " %(fixes)s properties fixed (%(duplicate)s fixes in "
+                "duplicate).", uid=UID, elapsed=elapsed, fixes=fixedThisHome,
+                duplicate=fixedOtherHome)
     returnValue(None)
 
 
