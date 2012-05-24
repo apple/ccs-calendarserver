@@ -30,6 +30,7 @@ from uuid import uuid4, UUID
 from zope.interface import implements, directlyProvides
 
 from twext.python.log import Logger, LoggingMixIn
+from twisted.python.log import msg as log_msg, err as log_err
 from txdav.xml.rfc2518 import ResourceType
 from txdav.xml.parser import WebDAVDocument
 from twext.web2.http_headers import MimeType
@@ -4076,7 +4077,7 @@ def _normalizeHomeUUIDsIn(t, homeType):
                                   total - n)
         else:
             estimate = "unknown"
-        log.msg(
+        log_msg(
             format="Scanning UID %(uid)s "
             "(%(pct)0.2d%%, %(estimate)s seconds remaining)...",
             uid=UID, pct=(n / float(total)) * 100, estimate=estimate,
@@ -4088,7 +4089,7 @@ def _normalizeHomeUUIDsIn(t, homeType):
         else:
             fixedThisHome = 0
         if this is None:
-            log.msg(format="%(uid)r appears to be missing, already processed",
+            log_msg(format="%(uid)r appears to be missing, already processed",
                     uid=UID)
         try:
             uuidobj = UUID(UID)
@@ -4097,7 +4098,7 @@ def _normalizeHomeUUIDsIn(t, homeType):
         else:
             newname = str(uuidobj).upper()
             if UID != newname:
-                log.msg(format="Detected case variance: %(uid)s %(newuid)s",
+                log_msg(format="Detected case variance: %(uid)s %(newuid)s",
                         uid=UID, newuid=newname)
                 other = yield t.homeWithUID(homeType, newname)
                 if other is not None:
@@ -4109,7 +4110,7 @@ def _normalizeHomeUUIDsIn(t, homeType):
         end = time.time()
         elapsed = end - start
         allElapsed.append(elapsed)
-        log.msg(format="Scanned UID %(uid)s; %(elapsed)s seconds elapsed,"
+        log_msg(format="Scanned UID %(uid)s; %(elapsed)s seconds elapsed,"
                 " %(fixes)s properties fixed.", uid=UID, elapsed=elapsed,
                 fixes=fixedThisHome)
     returnValue(None)
@@ -4137,12 +4138,12 @@ def fixCaseNormalization(store):
     """
     t = store.newTransaction()
     try:
-        yield _normalizeHomeUUIDsIn(store, ECALENDARTYPE)
-        yield _normalizeHomeUUIDsIn(store, EADDRESSBOOKTYPE)
+        yield _normalizeHomeUUIDsIn(t, ECALENDARTYPE)
+        yield _normalizeHomeUUIDsIn(t, EADDRESSBOOKTYPE)
         yield _upcaseColumn(schema.RESOURCE_PROPERTY.VIEWER_UID).on(t)
         yield _upcaseColumn(schema.APN_SUBSCRIPTIONS.SUBSCRIBER_GUID).on(t)
     except:
-        log.err()
+        log_err()
         yield t.abort()
         # There's a lot of possible problems here which are very hard to test
         # for individually; unexpected data that might cause constraint
