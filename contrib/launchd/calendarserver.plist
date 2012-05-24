@@ -55,5 +55,8 @@ limitations under the License.
     <integer>12000</integer>
   </dict>
 
+  <key>PreventsSleep</key>
+  <true/>
+
 </dict>
 </plist>
