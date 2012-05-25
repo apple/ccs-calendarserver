@@ -193,12 +193,13 @@ class LoadSimulator(object):
         user information about the accounts on the server being put
         under load.
     """
-    def __init__(self, server, webadminPort, arrival, parameters, observers=None,
+    def __init__(self, server, principalPathTemplate, webadminPort, arrival, parameters, observers=None,
                  records=None, reactor=None, runtime=None, workers=None,
                  configTemplate=None, workerID=None, workerCount=1):
         if reactor is None:
             from twisted.internet import reactor
         self.server = server
+        self.principalPathTemplate = principalPathTemplate
         self.webadminPort = webadminPort
         self.arrival = arrival
         self.parameters = parameters
@@ -241,10 +242,14 @@ class LoadSimulator(object):
             workerCount = config.get("workerCount", 1)
             configTemplate = None
             server = 'http://127.0.0.1:8008/'
+            principalPathTemplate = "/principals/users/%s/"
             webadminPort = None
 
             if 'server' in config:
                 server = config['server']
+
+            if 'principalPathTemplate' in config:
+                principalPathTemplate = config['principalPathTemplate']
 
             if 'webadmin' in config:
                 if config['webadmin']['enabled']:
@@ -277,6 +282,7 @@ class LoadSimulator(object):
         else:
             # Manager / observer process.
             server = ''
+            principalPathTemplate = ''
             webadminPort = None
             arrival = None
             parameters = None
@@ -296,7 +302,7 @@ class LoadSimulator(object):
             records.extend(namedAny(loader)(**params))
             output.write("Loaded {0} accounts.\n".format(len(records)))
 
-        return cls(server, webadminPort, arrival, parameters, observers=observers,
+        return cls(server, principalPathTemplate, webadminPort, arrival, parameters, observers=observers,
                    records=records, runtime=runtime, reactor=reactor,
                    workers=workers, configTemplate=configTemplate,
                    workerID=workerID, workerCount=workerCount)
@@ -337,7 +343,7 @@ class LoadSimulator(object):
         populator = Populator(Random())
         return CalendarClientSimulator(
             self.records, populator, self.parameters, self.reactor, self.server,
-            self.workerID, self.workerCount
+            self.principalPathTemplate, self.workerID, self.workerCount
         )
 
 

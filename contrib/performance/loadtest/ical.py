@@ -17,7 +17,7 @@
 
 import random
 from uuid import uuid4
-from urlparse import urlparse, urlunparse
+from urlparse import urlparse, urlunparse, urlsplit
 
 from xml.etree import ElementTree
 
@@ -268,7 +268,7 @@ class BaseAppleClient(BaseClient):
 
     email = None
 
-    def __init__(self, reactor, root, record, auth, calendarHomePollInterval=None, supportPush=True,
+    def __init__(self, reactor, root, principalPathTemplate, record, auth, calendarHomePollInterval=None, supportPush=True,
         supportAmpPush=True, ampPushHost="localhost", ampPushPort=62311):
         
         self._client_id = str(uuid4())
@@ -276,6 +276,7 @@ class BaseAppleClient(BaseClient):
         self.reactor = reactor
         self.agent = AuthHandlerAgent(Agent(self.reactor), auth)
         self.root = root
+        self.principalPathTemplate = principalPathTemplate
         self.record = record
 
         if calendarHomePollInterval is None:
@@ -414,9 +415,11 @@ class BaseAppleClient(BaseClient):
             StringProducer(body),
             method_label=method_label,
         )
+        
         body = yield readBody(response)
         result = self._parseMultiStatus(body)
-        returnValue(result)
+
+        returnValue((response, result,))
 
 
     @inlineCallbacks
@@ -461,26 +464,31 @@ class BaseAppleClient(BaseClient):
         returnValue(result)
 
 
+    @inlineCallbacks
     def _startupPropfindWellKnown(self):
         """
         Issue a PROPFIND on the /.well-known/caldav/ URL
         """
-        return self._propfind(
-            '/.well-known/caldav/',
+        
+        location = "/.well-known/caldav/"
+        response, result = yield self._propfind(
+            location,
             self._STARTUP_WELL_KNOWN,
             allowedStatus=(MULTI_STATUS, MOVED_PERMANENTLY),
         )
-
-
-    def _startupPropfindRoot(self):
-        """
-        Issue a PROPFIND on the / URL
-        """
-        return self._propfind(
-            '/',
-            self._STARTUP_WELL_KNOWN,
-        )
-
+        
+        # Follow any redirect
+        if response.code == MOVED_PERMANENTLY:
+            location = response.headers.getRawHeaders("location")[0]
+            location = urlsplit(location)[2]
+            response, result = yield self._propfind(
+                location,
+                self._STARTUP_WELL_KNOWN,
+                allowedStatus=(MULTI_STATUS),
+            )
+        
+        returnValue(result[location])
+            
 
     @inlineCallbacks
     def _principalPropfindInitial(self, user):
@@ -488,12 +496,12 @@ class BaseAppleClient(BaseClient):
         Issue a PROPFIND on the /principals/users/<uid> URL to retrieve
         the /principals/__uids__/<guid> principal URL
         """
-        principalURL = '/principals/users/' + user + '/'
-        result = yield self._propfind(
-            '/principals/users/' + user + '/',
+        principalPath = self.principalPathTemplate % (user,)
+        _ignore_response, result = yield self._propfind(
+            principalPath,
             self._STARTUP_PRINCIPAL_PROPFIND_INITIAL,
         )
-        returnValue(result[principalURL])
+        returnValue(result[principalPath])
 
 
     @inlineCallbacks
@@ -503,7 +511,7 @@ class BaseAppleClient(BaseClient):
         user and return a L{Principal} instance constructed from the
         response.
         """
-        result = yield self._propfind(
+        _ignore_response, result = yield self._propfind(
             self.principalURL,
             self._STARTUP_PRINCIPAL_PROPFIND,
         )
@@ -529,7 +537,7 @@ class BaseAppleClient(BaseClient):
         """
         if not calendarHomeSet.endswith('/'):
             calendarHomeSet = calendarHomeSet + '/'
-        result = yield self._propfind(
+        _ignore_response, result = yield self._propfind(
             calendarHomeSet,
             self._POLL_CALENDARHOME_PROPFIND,
             depth='1',
@@ -613,7 +621,7 @@ class BaseAppleClient(BaseClient):
         # the sim can fire a PUT between the PROPFIND and when process the removals.
         old_hrefs = set([calendar.url + child for child in calendar.events.keys()])
 
-        result = yield self._propfind(
+        _ignore_response, result = yield self._propfind(
             calendar.url,
             self._POLL_CALENDAR_PROPFIND_D1,
             depth='1',
@@ -839,7 +847,7 @@ class BaseAppleClient(BaseClient):
 
     @inlineCallbacks
     def _notificationPropfind(self, notificationURL):
-        result = yield self._propfind(
+        _ignore_response, result = yield self._propfind(
             notificationURL,
             self._POLL_NOTIFICATION_PROPFIND,
         )
@@ -848,7 +856,7 @@ class BaseAppleClient(BaseClient):
     
     @inlineCallbacks
     def _notificationChangesPropfind(self, notificationURL):
-        result = yield self._propfind(
+        _ignore_response, result = yield self._propfind(
             notificationURL,
             self._POLL_NOTIFICATION_PROPFIND_D1,
             depth='1',
@@ -1328,7 +1336,7 @@ class OS_X_10_6(BaseAppleClient):
     @inlineCallbacks
     def startup(self):
 
-        # PROPFIND /principals/users/<uid> to retrieve /principals/__uids__/<guid>
+        # PROPFIND principal path to retrieve actual principal-URL
         response = yield self._principalPropfindInitial(self.record.uid)
         hrefs = response.getHrefProperties()
         self.principalURL = hrefs[davxml.principal_URL].toString()
@@ -1429,16 +1437,18 @@ class OS_X_10_7(BaseAppleClient):
     @inlineCallbacks
     def startup(self):
 
-        # PROPFIND well-known - ignore
-        yield self._startupPropfindWellKnown()
-        
-        # PROPFIND / - ignore
-        yield self._startupPropfindRoot()
-        
-        # PROPFIND /principals/users/<uid> to retrieve /principals/__uids__/<guid>
-        response = yield self._principalPropfindInitial(self.record.uid)
+        # PROPFIND well-known with redirect
+        response = yield self._startupPropfindWellKnown()
         hrefs = response.getHrefProperties()
-        self.principalURL = hrefs[davxml.principal_URL].toString()
+        if davxml.current_user_principal in hrefs:
+            self.principalURL = hrefs[davxml.current_user_principal].toString()
+        elif davxml.principal_URL in hrefs:
+            self.principalURL = hrefs[davxml.principal_URL].toString()
+        else:
+            # PROPFIND principal path to retrieve actual principal-URL
+            response = yield self._principalPropfindInitial(self.record.uid)
+            hrefs = response.getHrefProperties()
+            self.principalURL = hrefs[davxml.principal_URL].toString()
 
         # Using the actual principal URL, retrieve principal information
         principal = yield self._principalPropfind()
@@ -1534,7 +1544,7 @@ class iOS_5(BaseAppleClient):
         Issue a PROPFIND on the /principals/ URL to retrieve
         the /principals/__uids__/<guid> principal URL
         """
-        result = yield self._propfind(
+        _ignore_response, result = yield self._propfind(
             '/principals/',
             self._STARTUP_PRINCIPAL_PROPFIND_INITIAL,
         )
@@ -1622,16 +1632,18 @@ class iOS_5(BaseAppleClient):
     @inlineCallbacks
     def startup(self):
 
-        # PROPFIND well-known - ignore
-        yield self._startupPropfindWellKnown()
-        
-        # PROPFIND / - ignore
-        yield self._startupPropfindRoot()
-        
-        # PROPFIND /principals/ to retrieve /principals/__uids__/<guid>
-        response = yield self._principalPropfindInitial()
+        # PROPFIND well-known with redirect
+        response = yield self._startupPropfindWellKnown()
         hrefs = response.getHrefProperties()
-        self.principalURL = hrefs[davxml.current_user_principal].toString()
+        if davxml.current_user_principal in hrefs:
+            self.principalURL = hrefs[davxml.current_user_principal].toString()
+        elif davxml.principal_URL in hrefs:
+            self.principalURL = hrefs[davxml.principal_URL].toString()
+        else:
+            # PROPFIND principal path to retrieve actual principal-URL
+            response = yield self._principalPropfindInitial(self.record.uid)
+            hrefs = response.getHrefProperties()
+            self.principalURL = hrefs[davxml.principal_URL].toString()
 
         # Using the actual principal URL, retrieve principal information
         principal = yield self._principalPropfind()

@@ -1154,7 +1154,9 @@ class OS_X_10_6Mixin:
         TimezoneCache.create()
         self.record = _DirectoryRecord(
             u"user91", u"user91", u"User 91", u"user91@example.org")
-        self.client = OS_X_10_6(None, "http://127.0.0.1/", self.record, None)
+        self.client = OS_X_10_6(
+            None, "http://127.0.0.1/", "/principals/users/%s/", self.record, None
+        )
 
 
     def interceptRequests(self):

@@ -117,7 +117,7 @@ class CalendarClientSimulatorTests(TestCase):
         """
         calsim = CalendarClientSimulator(
             [self._user('alice'), self._user('bob'), self._user('carol')],
-            Populator(None), None, None, 'http://example.org:1234/')
+            Populator(None), None, None, 'http://example.org:1234/', None)
         users = sorted([
                 calsim._createUser(0)[0],
                 calsim._createUser(1)[0],
@@ -133,7 +133,7 @@ class CalendarClientSimulatorTests(TestCase):
         """
         calsim = CalendarClientSimulator(
             [self._user('alice')],
-            Populator(None), None, None, 'http://example.org:1234/')
+            Populator(None), None, None, 'http://example.org:1234/', None)
         user, auth = calsim._createUser(0)
         self.assertEqual(
             auth.passwd.find_user_password('Test Realm', 'http://example.org:1234/')[1],
@@ -146,7 +146,7 @@ class CalendarClientSimulatorTests(TestCase):
         profiles are not logged.
         """
         class BrokenClient(object):
-            def __init__(self, reactor, serverAddress, userInfo, auth, runResult):
+            def __init__(self, reactor, serverAddress, principalPathTemplate, userInfo, auth, runResult):
                 self._runResult = runResult
 
             def run(self):
@@ -171,7 +171,7 @@ class CalendarClientSimulatorTests(TestCase):
                 BrokenClient, {'runResult': clientRunResult},
                 [ProfileType(BrokenProfile, {'runResult': profileRunResult})]))
         sim = CalendarClientSimulator(
-            [self._user('alice')], Populator(None), params, None, 'http://example.com:1234/')
+            [self._user('alice')], Populator(None), params, None, 'http://example.com:1234/', None)
         sim.add(1, 1)
         sim.stop()
         clientRunResult.errback(RuntimeError("Some fictional client problem"))
@@ -248,7 +248,7 @@ class LoadSimulatorTests(TestCase):
         exc = self.assertRaises(
             SystemExit, StubSimulator.main, ['--config', config.path])
         self.assertEquals(
-            exc.args, (StubSimulator(None, None, None, None).run(),))
+            exc.args, (StubSimulator(None, None, None, None, None).run(),))
 
 
     def test_createSimulator(self):
@@ -259,7 +259,7 @@ class LoadSimulatorTests(TestCase):
         """
         server = 'http://127.0.0.7:1243/'
         reactor = object()
-        sim = LoadSimulator(server, None, None, None, reactor=reactor)
+        sim = LoadSimulator(server, None, None, None, None, reactor=reactor)
         calsim = sim.createSimulator()
         self.assertIsInstance(calsim, CalendarClientSimulator)
         self.assertIsInstance(calsim.reactor, LagTrackingReactor)
@@ -439,7 +439,7 @@ class LoadSimulatorTests(TestCase):
 
         reactor = object()
         sim = LoadSimulator(
-            None, None, Arrival(FakeArrival, {'x': 3, 'y': 2}), None, reactor=reactor)
+            None, None, None, Arrival(FakeArrival, {'x': 3, 'y': 2}), None, reactor=reactor)
         arrival = sim.createArrivalPolicy()
         self.assertIsInstance(arrival, FakeArrival)
         self.assertIdentical(arrival.reactor, sim.reactor)
@@ -516,6 +516,7 @@ class LoadSimulatorTests(TestCase):
         observers = [Observer()]
         sim = LoadSimulator(
             "http://example.com:123/",
+            "/principals/users/%s/",
             None,
             Arrival(lambda reactor: NullArrival(), {}),
             None, observers, reactor=Reactor())
