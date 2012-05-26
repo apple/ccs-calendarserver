@@ -76,6 +76,8 @@ install:: build
 	$(_v) for so in $$(find "$(DSTROOT)$(PY_HOME)/lib" -type f -name '*.so'); do $(STRIP) -Sx "$${so}"; done 
 	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)$(SIPP)$(ETCDIR)$(CALDAVDSUBDIR)"
 	$(_v) $(INSTALL_FILE) "$(Sources)/conf/caldavd-apple.plist" "$(DSTROOT)$(SIPP)$(ETCDIR)$(CALDAVDSUBDIR)/caldavd.plist"
+	$(_v) $(INSTALL_FILE) "$(Sources)/contrib/migration/com.apple.webapp.contacts.plist" "$(DSTROOT)$(SIPP)$(ETCDIR)$(CALDAVDSUBDIR)/com.apple.webapp.contacts.plist"
+	$(_v) $(INSTALL_FILE) "$(Sources)/contrib/migration/com.apple.webapp.contactsssl.plist" "$(DSTROOT)$(SIPP)$(ETCDIR)$(CALDAVDSUBDIR)/com.apple.webapp.contactsssl.plist"
 	$(_v) chmod -R ugo+r "$(DSTROOT)$(PY_HOME)"
 	$(_v) for f in $$(find "$(DSTROOT)$(SIPP)$(ETCDIR)" -type f ! -name '*.default'); do cp "$${f}" "$${f}.default"; done
 
@@ -107,6 +109,8 @@ install::
 	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)$(SERVERSETUP)/PromotionExtras"
 	$(_v) $(INSTALL_FILE) "$(Sources)/contrib/migration/calendarpromotion.py" "$(DSTROOT)$(SERVERSETUP)/PromotionExtras/59_calendarpromotion.py"
 	$(_v) chmod ugo+x "$(DSTROOT)$(SERVERSETUP)/PromotionExtras/59_calendarpromotion.py"
+	$(_v) $(INSTALL_FILE) "$(Sources)/contrib/migration/calendarwebapps.py" "$(DSTROOT)$(SERVERSETUP)/PromotionExtras/webPromotionSetup_calendar"
+	$(_v) chmod ugo+x "$(DSTROOT)$(SERVERSETUP)/PromotionExtras/webPromotionSetup_calendar"
 	@echo "Installing database configuration scripts..."
 	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)$(SERVERSETUP)/CommonExtras/PostgreSQLExtras"
 	$(_v) $(INSTALL_FILE) "$(Sources)/contrib/create_caldavd_db.sh" "$(DSTROOT)$(SERVERSETUP)/CommonExtras/PostgreSQLExtras/create_caldavd_db.sh"

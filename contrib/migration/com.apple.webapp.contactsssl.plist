@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+	<dict>
+		<key>name</key>
+		<string>com.apple.webapp.contactsssl</string>
+		<key>includeFiles</key>
+		<array>
+			<string>/Library/Server/Web/Config/apache2/httpd_calendarserver.conf</string>
+		</array>
+		<key>proxies</key>
+		<dict>
+			<key>/.well-known</key>
+			<dict>
+				<key>path</key>
+				<string>/.well-known</string>
+				<key>urls</key>
+				<array>
+					<string>https://localhost:8443/.well-known</string>
+				</array>
+			</dict>
+			<key>/addressbooks</key>
+			<dict>
+				<key>path</key>
+				<string>/addressbooks</string>
+				<key>urls</key>
+				<array>
+					<string>https://localhost:8443/addressbooks</string>
+				</array>
+			</dict>
+			<key>/principals</key>
+			<dict>
+				<key>path</key>
+				<string>/principals</string>
+				<key>urls</key>
+				<array>
+					<string>https://localhost:8443/principals</string>
+				</array>
+			</dict>
+		</dict>
+		<key>requiredModuleNames</key>
+		<array>
+			<string>proxy_module</string>
+			<string>headers_module</string>
+		</array>
+		<key>sslPolicy</key>
+		<integer>1</integer> <!-- XSUseSSLAlways -->
+	</dict>
+</plist>
