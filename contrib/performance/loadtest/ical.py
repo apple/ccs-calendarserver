@@ -15,46 +15,44 @@
 #
 ##
 
-import random
-from uuid import uuid4
-from urlparse import urlparse, urlunparse, urlsplit
+from caldavclientlibrary.protocol.caldav.definitions import caldavxml
+from caldavclientlibrary.protocol.caldav.definitions import csxml
+from caldavclientlibrary.protocol.webdav.definitions import davxml
+from caldavclientlibrary.protocol.webdav.propfindparser import PropFindParser
 
-from xml.etree import ElementTree
+from calendarserver.push.amppush import subscribeToIDs
+from calendarserver.tools.notifications import PubSubClientFactory
 
-from twext.internet.gaiendpoint import GAIEndpoint
-from twext.internet.adaptendpoint import connect
+from contrib.performance.httpauth import AuthHandlerAgent
+from contrib.performance.httpclient import StringProducer, readBody
+from contrib.performance.loadtest.subscribe import Periodical
 
-from twistedcaldav.ical import Component, Property
+from pycalendar.datetime import PyCalendarDateTime
 from pycalendar.duration import PyCalendarDuration
 from pycalendar.timezone import PyCalendarTimezone
-from pycalendar.datetime import PyCalendarDateTime
-from twext.web2.responsecode import MOVED_PERMANENTLY
 
-ElementTree.QName.__repr__ = lambda self: '<QName %r>' % (self.text,)
+from twext.internet.adaptendpoint import connect
+from twext.internet.gaiendpoint import GAIEndpoint
 
-from twisted.python.log import addObserver, err, msg
-from twisted.python.filepath import FilePath
-from twisted.python.util import FancyEqMixin
 from twisted.internet.defer import Deferred, inlineCallbacks, returnValue,\
     succeed
 from twisted.internet.task import LoopingCall
-from twisted.web.http_headers import Headers
-from twisted.web.http import OK, MULTI_STATUS, CREATED, NO_CONTENT, PRECONDITION_FAILED
+from twisted.python.filepath import FilePath
+from twisted.python.log import addObserver, err, msg
+from twisted.python.util import FancyEqMixin
 from twisted.web.client import Agent
+from twisted.web.http import OK, MULTI_STATUS, CREATED, NO_CONTENT, PRECONDITION_FAILED, MOVED_PERMANENTLY
+from twisted.web.http_headers import Headers
 
-from caldavclientlibrary.protocol.webdav.propfindparser import PropFindParser
-from caldavclientlibrary.protocol.webdav.definitions import davxml
-from caldavclientlibrary.protocol.caldav.definitions import caldavxml
-from caldavclientlibrary.protocol.caldav.definitions import csxml
+from twistedcaldav.ical import Component, Property
 
-from calendarserver.tools.notifications import PubSubClientFactory
-from calendarserver.push.amppush import subscribeToIDs
+from urlparse import urlparse, urlunparse, urlsplit
+from uuid import uuid4
+from xml.etree import ElementTree
 
-from contrib.performance.httpclient import StringProducer, readBody
-from contrib.performance.httpauth import AuthHandlerAgent
+import random
 
-from contrib.performance.loadtest.subscribe import Periodical
-
+ElementTree.QName.__repr__ = lambda self: '<QName %r>' % (self.text,)
 
 def loadRequestBody(clientType, label):
     return FilePath(__file__).sibling('request-data').child(clientType).child(label + '.request').getContent()
@@ -417,7 +415,7 @@ class BaseAppleClient(BaseClient):
         )
         
         body = yield readBody(response)
-        result = self._parseMultiStatus(body)
+        result = self._parseMultiStatus(body) if response.code == MULTI_STATUS else None
 
         returnValue((response, result,))
 
