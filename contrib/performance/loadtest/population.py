@@ -26,6 +26,7 @@ from __future__ import division
 from tempfile import mkdtemp
 from itertools import izip
 from datetime import datetime
+import json
 import os
 
 from twisted.internet.defer import DeferredList
@@ -334,37 +335,55 @@ class ReportStatistics(StatisticsBase, SummarizingMixin):
     """
 
     # the response time thresholds to display together with failing % count threshold
-    _thresholds = (
-        (0.5, 100.0),  
-        (  1, 100.0),  
-        (  3,   5.0),  
-        (  5,   1.0),
-        ( 10,   0.5),
-    )
+    _thresholds_default = {
+        "requests":{
+            "limits":     [   0.1,   0.5,   1.0,   3.0,   5.0,  10.0,  30.0],
+            "thresholds":{
+                "default":[ 100.0, 100.0, 100.0,   5.0,   1.0,   0.5,   0.0],
+            }
+        }
+    }
     _fail_cut_off = 1.0     # % of total count at which failed requests will cause a failure 
 
-    _fields = [
-        ('request', -20, '%-20s'),
+    _fields_init = [
+        ('request', -25, '%-25s'),
         ('count', 8, '%8s'),
         ('failed', 8, '%8s'),
     ]
     
-    for threshold, _ignore_fail_at in _thresholds:
-        _fields.append(('>%g sec' % (threshold,), 10, '%10s'))
-
-    _fields.extend([
+    _fields_extend = [
         ('mean', 8, '%8.4f'),
         ('median', 8, '%8.4f'),
         ('stddev', 8, '%8.4f'),
         ('STATUS', 8, '%8s'),
-    ])
+    ]
 
-    def __init__(self):
+    def __init__(self, **params):
         self._perMethodTimes = {}
         self._users = set()
         self._clients = set()
         self._failed_clients = []
         self._startTime = datetime.now()
+
+        # Load parameters from config 
+        if "thresholdsPath" in params:
+            jsondata = json.load(open(params["thresholds"]))
+        if "thresholds" in params:
+            jsondata = params["thresholds"]
+        else:
+            jsondata = self._thresholds_default
+        self._thresholds = [[limit, {}] for limit in jsondata["requests"]["limits"]]
+        for ctr, item in enumerate(self._thresholds):
+            for k, v in jsondata["requests"]["thresholds"].items():
+                item[1][k] = v[ctr]
+            
+        self._fields = self._fields_init[:]
+        for threshold, _ignore_fail_at in self._thresholds:
+            self._fields.append(('>%g sec' % (threshold,), 10, '%10s'))
+        self._fields.extend(self._fields_extend)
+
+        if "failCutoff" in params:
+            self._fail_cut_off = params["failCutoff"]
 
 
     def countUsers(self):
@@ -458,6 +477,7 @@ class ReportStatistics(StatisticsBase, SummarizingMixin):
             
             for ctr, item in enumerate(self._thresholds):
                 threshold, fail_at = item
+                fail_at = fail_at.get(method, fail_at["default"])
                 checks.append(
                     (overDurations[ctr], fail_at, self._REASON_1 + self._REASON_2 % (threshold,))
                 )

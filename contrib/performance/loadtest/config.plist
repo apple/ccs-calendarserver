@@ -466,18 +466,54 @@
 		<!-- Define some log observers to report on the load test. -->
 		<key>observers</key>
 		<array>
-			<!-- ReportStatistics generates an end-of-run summary of the HTTP requests
+			<!-- ReportStatistics generates an end-of-run summary of the HTTP requests 
 				made, their timings, and their results. -->
-			<string>contrib.performance.loadtest.population.ReportStatistics</string>
-
-			<!-- RequestLogger generates a realtime log of all HTTP requests made
+			<dict>
+				<key>type</key>
+				<string>contrib.performance.loadtest.population.ReportStatistics</string>
+				<key>params</key>
+				<dict>
+					<!-- The thresholds for each request type -->
+					<key>thresholdsPath</key>
+					<string>contrib/performance/loadtest/thresholds.json</string>
+					
+					<!-- The % of failures that constitute a failed test -->
+					<key>failCutoff</key>
+					<real>1.0</real>
+				</dict>
+			</dict>
+	
+			<!-- RequestLogger generates a realtime log of all HTTP requests made 
 				during the load test. -->
-			<string>contrib.performance.loadtest.ical.RequestLogger</string>
-
-			<!-- OperationLogger generates an end-of-run summary of the gross operations
-				performed (logical operations which may span more than one HTTP request,
+			<dict>
+				<key>type</key>
+				<string>contrib.performance.loadtest.ical.RequestLogger</string>
+				<key>params</key>
+				<dict>
+				</dict>
+			</dict>
+	
+			<!-- OperationLogger generates an end-of-run summary of the gross operations 
+				performed (logical operations which may span more than one HTTP request, 
 				such as inviting an attendee to an event). -->
-			<string>contrib.performance.loadtest.profiles.OperationLogger</string>
+			<dict>
+				<key>type</key>
+				<string>contrib.performance.loadtest.profiles.OperationLogger</string>
+				<key>params</key>
+				<dict>
+					<!-- The thresholds for each operation type -->
+					<key>thresholdsPath</key>
+					<string>contrib/performance/loadtest/thresholds.json</string>
+					
+					<!-- The % of operations beyond the lag cut-off that constitute a failed test -->
+					<key>lagCutoff</key>
+					<real>1.0</real>
+					
+					<!-- The % of failures that constitute a failed test -->
+					<key>failCutoff</key>
+					<real>1.0</real>
+				</dict>
+			</dict>
 		</array>
 	</dict>
 </plist>

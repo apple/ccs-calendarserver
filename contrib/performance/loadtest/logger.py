@@ -60,6 +60,7 @@ class SummarizingMixin(object):
 
         for ctr, item in enumerate(self._thresholds):
             _ignore_threshold, fail_at = item
+            fail_at = fail_at.get(operation, fail_at["default"])
             if thresholds[ctr] * 100.0 / count > fail_at:
                 failure = True
 

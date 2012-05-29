@@ -421,7 +421,7 @@ class BaseAppleClient(BaseClient):
 
 
     @inlineCallbacks
-    def _proppatch(self, url, body):
+    def _proppatch(self, url, body, method_label=None):
         """
         Issue a PROPPATCH on the chosen URL
         """
@@ -431,7 +431,8 @@ class BaseAppleClient(BaseClient):
             'PROPPATCH',
             self.root + url[1:].encode('utf-8'),
             hdrs,
-            StringProducer(body)
+            StringProducer(body),
+            method_label=method_label,
         )
         if response.code == MULTI_STATUS:
             body = yield readBody(response)
@@ -473,6 +474,7 @@ class BaseAppleClient(BaseClient):
             location,
             self._STARTUP_WELL_KNOWN,
             allowedStatus=(MULTI_STATUS, MOVED_PERMANENTLY),
+            method_label="PROPFIND{well-known}",
         )
         
         # Follow any redirect
@@ -483,6 +485,7 @@ class BaseAppleClient(BaseClient):
                 location,
                 self._STARTUP_WELL_KNOWN,
                 allowedStatus=(MULTI_STATUS),
+                method_label="PROPFIND{well-known}",
             )
         
         returnValue(result[location])
@@ -498,6 +501,7 @@ class BaseAppleClient(BaseClient):
         _ignore_response, result = yield self._propfind(
             principalPath,
             self._STARTUP_PRINCIPAL_PROPFIND_INITIAL,
+            method_label="PROPFIND{find-principal}",
         )
         returnValue(result[principalPath])
 
@@ -512,6 +516,7 @@ class BaseAppleClient(BaseClient):
         _ignore_response, result = yield self._propfind(
             self.principalURL,
             self._STARTUP_PRINCIPAL_PROPFIND,
+            method_label="PROPFIND{principal}",
         )
         returnValue(result[self.principalURL])
 
@@ -647,7 +652,7 @@ class BaseAppleClient(BaseClient):
             self._POLL_CALENDAR_SYNC_REPORT % {'sync-token': calendar.changeToken},
             depth='1',
             otherTokens = True,
-            method_label="REPORT{sync}",
+            method_label="REPORT{sync}" if calendar.changeToken else "REPORT{sync-init}",
         )
 
         changed = []
@@ -756,11 +761,18 @@ class BaseAppleClient(BaseClient):
         # Next do a REPORT on events that might have information
         # we don't know about.
         hrefs = "".join([self._POLL_CALENDAR_MULTIGET_REPORT_HREF % {'href': event} for event in events])
+
+        label_suffix = "small"
+        if len(hrefs) > 5:
+            label_suffix = "medium"
+        if len(hrefs) > 15:
+            label_suffix = "large"
+
         return self._report(
             calendar,
             self._POLL_CALENDAR_MULTIGET_REPORT % {'hrefs': hrefs},
             depth=None,
-            method_label="REPORT{multiget}",
+            method_label="REPORT{multiget-%s}" % (label_suffix,),
         )
 
 
@@ -834,9 +846,21 @@ class BaseAppleClient(BaseClient):
         # Patch calendar properties
         for cal in calendars:
             if cal.name != "inbox":
-                yield self._proppatch(cal.url, self._STARTUP_PROPPATCH_CALENDAR_COLOR)
-                yield self._proppatch(cal.url, self._STARTUP_PROPPATCH_CALENDAR_ORDER)
-                yield self._proppatch(cal.url, self._STARTUP_PROPPATCH_CALENDAR_TIMEZONE)
+                yield self._proppatch(
+                    cal.url,
+                    self._STARTUP_PROPPATCH_CALENDAR_COLOR,
+                    method_label="PROPPATCH{calendar}",
+                )
+                yield self._proppatch(
+                    cal.url,
+                    self._STARTUP_PROPPATCH_CALENDAR_ORDER,
+                    method_label="PROPPATCH{calendar}",
+                )
+                yield self._proppatch(
+                    cal.url,
+                    self._STARTUP_PROPPATCH_CALENDAR_TIMEZONE,
+                    method_label="PROPPATCH{calendar}",
+                )
 
 
     def _pollFirstTime2(self):
@@ -848,6 +872,7 @@ class BaseAppleClient(BaseClient):
         _ignore_response, result = yield self._propfind(
             notificationURL,
             self._POLL_NOTIFICATION_PROPFIND,
+            method_label="PROPFIND{notification}",
         )
         returnValue(result)
 
@@ -858,6 +883,7 @@ class BaseAppleClient(BaseClient):
             notificationURL,
             self._POLL_NOTIFICATION_PROPFIND_D1,
             depth='1',
+            method_label="PROPFIND{notification-items}",
         )
         returnValue(result)
 
@@ -1055,6 +1081,12 @@ class BaseAppleClient(BaseClient):
         attendees.append(attendee)
         vevent.mainComponent().addProperty(attendee)
 
+        label_suffix = "small"
+        if len(attendees) > 5:
+            label_suffix = "medium"
+        if len(attendees) > 15:
+            label_suffix = "large"
+        
         # At last, upload the new event definition
         response = yield self._request(
             (NO_CONTENT, PRECONDITION_FAILED,),
@@ -1064,7 +1096,7 @@ class BaseAppleClient(BaseClient):
                     'content-type': ['text/calendar'],
                     'if-match': [event.etag]}),
             StringProducer(vevent.getTextWithTimezones(includeTimezones=True)),
-            method_label="PUT{organizer}"
+            method_label="PUT{organizer-%s}" % (label_suffix,)
         )
 
         # Finally, re-retrieve the event to update the etag
@@ -1124,12 +1156,19 @@ class BaseAppleClient(BaseClient):
             headers.addRawHeader('if-schedule-tag-match', event.scheduleTag)
             okCodes = (NO_CONTENT, PRECONDITION_FAILED,)
 
+        attendees = list(vevent.mainComponent().properties('ATTENDEE'))
+        label_suffix = "small"
+        if len(attendees) > 5:
+            label_suffix = "medium"
+        if len(attendees) > 15:
+            label_suffix = "large"
+        
         response = yield self._request(
             okCodes,
             'PUT',
             self.root + href[1:].encode('utf-8'),
             headers, StringProducer(vevent.getTextWithTimezones(includeTimezones=True)),
-            method_label="PUT{attendee}",
+            method_label="PUT{attendee-%s}" % (label_suffix,),
         )
         self._updateEvent(response, href)
 
@@ -1144,7 +1183,11 @@ class BaseAppleClient(BaseClient):
         self._removeEvent(href)
 
         response = yield self._request(
-            NO_CONTENT, 'DELETE', self.root + href[1:].encode('utf-8'))
+            NO_CONTENT,
+            'DELETE',
+            self.root + href[1:].encode('utf-8'),
+            method_label="DELETE{event}",
+        )
         returnValue(response)
 
 
@@ -1153,13 +1196,21 @@ class BaseAppleClient(BaseClient):
         headers = Headers({
                 'content-type': ['text/calendar'],
                 })
+
+        attendees = list(vcalendar.mainComponent().properties('ATTENDEE'))
+        label_suffix = "small"
+        if len(attendees) > 5:
+            label_suffix = "medium"
+        if len(attendees) > 15:
+            label_suffix = "large"
+
         response = yield self._request(
             CREATED,
             'PUT',
             self.root + href[1:].encode('utf-8'),
             headers,
             StringProducer(vcalendar.getTextWithTimezones(includeTimezones=True)),
-            method_label="PUT{organizer}" if invite else None,
+            method_label="PUT{organizer-%s}" % (label_suffix,) if invite else "PUT{event}",
         )
         self._localUpdateEvent(response, href, vcalendar)
 
@@ -1198,7 +1249,12 @@ class BaseAppleClient(BaseClient):
 
     @inlineCallbacks
     def _updateEvent(self, ignored, href):
-        response = yield self._request(OK, 'GET', self.root + href[1:].encode('utf-8'))
+        response = yield self._request(
+            OK,
+            'GET',
+            self.root + href[1:].encode('utf-8'),
+            method_label="GET{event}",
+        )
         headers = response.headers
         etag = headers.getRawHeaders('etag')[0]
         scheduleTag = headers.getRawHeaders('schedule-tag', [None])[0]
@@ -1252,6 +1308,12 @@ class BaseAppleClient(BaseClient):
         end = end.getText()
         now = PyCalendarDateTime.getNowUTC().getText()
 
+        label_suffix = "small"
+        if len(users) > 5:
+            label_suffix = "medium"
+        if len(users) > 15:
+            label_suffix = "large"
+
         response = yield self._request(
             OK, 'POST', outbox,
             Headers({
@@ -1267,7 +1329,7 @@ class BaseAppleClient(BaseClient):
                     'start': start,
                     'end': end,
                     'now': now}),
-            method_label="POST{fb}",
+            method_label="POST{fb}-%s" % (label_suffix,),
         )
         body = yield readBody(response)
         returnValue(body)
@@ -1545,6 +1607,7 @@ class iOS_5(BaseAppleClient):
         _ignore_response, result = yield self._propfind(
             '/principals/',
             self._STARTUP_PRINCIPAL_PROPFIND_INITIAL,
+            method_label="PROPFIND{find-principal}",
         )
         returnValue(result['/principals/'])
 
@@ -1554,8 +1617,16 @@ class iOS_5(BaseAppleClient):
         # Patch calendar properties
         for cal in calendars:
             if cal.name != "inbox":
-                yield self._proppatch(cal.url, self._STARTUP_PROPPATCH_CALENDAR_COLOR)
-                yield self._proppatch(cal.url, self._STARTUP_PROPPATCH_CALENDAR_ORDER)
+                yield self._proppatch(
+                    cal.url,
+                    self._STARTUP_PROPPATCH_CALENDAR_COLOR,
+                    method_label="PROPPATCH{calendar}",
+                )
+                yield self._proppatch(
+                    cal.url,
+                    self._STARTUP_PROPPATCH_CALENDAR_ORDER,
+                    method_label="PROPPATCH{calendar}",
+                )
 
 
     def _pollFirstTime2(self):

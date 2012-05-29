@@ -501,7 +501,8 @@ class LoadSimulatorTests(TestCase):
         """
         config = FilePath(self.mktemp())
         config.setContent(writePlistToString({
-                    "observers": ["contrib.performance.loadtest.population.SimpleStatistics"]}))
+            "observers": {"type":"contrib.performance.loadtest.population.SimpleStatistics"}
+        }))
         sim = LoadSimulator.fromCommandLine(['--config', config.path])
         self.assertEquals(len(sim.observers), 1)
         self.assertIsInstance(sim.observers[0], SimpleStatistics)

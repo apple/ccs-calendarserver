@@ -21,6 +21,7 @@ Implementation of specific end-user behaviors.
 
 from __future__ import division
 
+import json
 import sys, random
 from uuid import uuid4
 
@@ -702,40 +703,60 @@ class OperationLogger(SummarizingMixin):
     lagFormat = u'{lag %5.2f ms}'
 
     # the response time thresholds to display together with failing % count threshold
-    _thresholds = (
-        (0.5, 100.0),  
-        (  1, 100.0),  
-        (  3, 100.0),  
-        (  5, 100.0),
-        ( 10, 100.0),
-    )
+    _thresholds_default = {
+        "requests":{
+            "limits":     [   0.1,   0.5,   1.0,   3.0,   5.0,  10.0,  30.0],
+            "thresholds":{
+                "default":[ 100.0, 100.0, 100.0, 100.0, 100.0, 100.0, 100.0],
+            }
+        }
+    }
     _lag_cut_off = 1.0      # Maximum allowed median scheduling latency, seconds 
     _fail_cut_off = 1.0     # % of total count at which failed requests will cause a failure 
 
-    _fields = [
-        ('operation', -20, '%-20s'),
+    _fields_init = [
+        ('operation', -25, '%-25s'),
         ('count', 8, '%8s'),
         ('failed', 8, '%8s'),
     ]
     
-    for threshold, _ignore_fail_at in _thresholds:
-        _fields.append(('>%g sec' % (threshold,), 10, '%10s'))
-
-    _fields.extend([
+    _fields_extend = [
         ('mean', 8, '%8.4f'),
         ('median', 8, '%8.4f'),
         ('stddev', 8, '%8.4f'),
         ('avglag (ms)', 12, '%12.4f'),
         ('STATUS', 8, '%8s'),
-    ])
+    ]
 
-    def __init__(self, outfile=None):
+    def __init__(self, outfile=None, **params):
         self._perOperationTimes = {}
         self._perOperationLags = {}
         if outfile is None:
             outfile = sys.stdout
         self._outfile = outfile
+        
+        # Load parameters from config 
+        if "thresholdsPath" in params:
+            jsondata = json.load(open(params["thresholds"]))
+        if "thresholds" in params:
+            jsondata = params["thresholds"]
+        else:
+            jsondata = self._thresholds_default
+        self._thresholds = [[limit, {}] for limit in jsondata["operations"]["limits"]]
+        for ctr, item in enumerate(self._thresholds):
+            for k, v in jsondata["operations"]["thresholds"].items():
+                item[1][k] = v[ctr]
+            
+        self._fields = self._fields_init[:]
+        for threshold, _ignore_fail_at in self._thresholds:
+            self._fields.append(('>%g sec' % (threshold,), 10, '%10s'))
+        self._fields.extend(self._fields_extend)
 
+        if "lagCutoff" in params:
+            self._lag_cut_off = params["lagCutoff"]
+
+        if "failCutoff" in params:
+            self._fail_cut_off = params["failCutoff"]
 
     def observe(self, event):
         if event.get("type") == "operation":

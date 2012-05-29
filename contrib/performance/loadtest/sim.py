@@ -292,8 +292,10 @@ class LoadSimulator(object):
 
         observers = []
         if 'observers' in config:
-            for observerName in config['observers']:
-                observers.append(namedAny(observerName)())
+            for observer in config['observers']:
+                observerName = observer["type"]
+                observerParams = observer["params"]
+                observers.append(namedAny(observerName)(**observerParams))
 
         records = []
         if 'accounts' in config:
