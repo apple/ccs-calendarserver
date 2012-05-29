@@ -704,7 +704,7 @@ class OperationLogger(SummarizingMixin):
 
     # the response time thresholds to display together with failing % count threshold
     _thresholds_default = {
-        "requests":{
+        "operations":{
             "limits":     [   0.1,   0.5,   1.0,   3.0,   5.0,  10.0,  30.0],
             "thresholds":{
                 "default":[ 100.0, 100.0, 100.0, 100.0, 100.0, 100.0, 100.0],
@@ -737,7 +737,7 @@ class OperationLogger(SummarizingMixin):
         
         # Load parameters from config 
         if "thresholdsPath" in params:
-            jsondata = json.load(open(params["thresholds"]))
+            jsondata = json.load(open(params["thresholdsPath"]))
         if "thresholds" in params:
             jsondata = params["thresholds"]
         else:

@@ -367,7 +367,7 @@ class ReportStatistics(StatisticsBase, SummarizingMixin):
 
         # Load parameters from config 
         if "thresholdsPath" in params:
-            jsondata = json.load(open(params["thresholds"]))
+            jsondata = json.load(open(params["thresholdsPath"]))
         if "thresholds" in params:
             jsondata = params["thresholds"]
         else:
