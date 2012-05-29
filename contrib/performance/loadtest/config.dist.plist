@@ -480,7 +480,7 @@
 				<key>params</key>
 				<dict>
 					<!-- The thresholds for each request type -->
-					<key>thresholds</key>
+					<key>thresholdsPath</key>
 					<string>contrib/performance/loadtest/thresholds.json</string>
 					
 					<!-- The % of failures that constitute a failed test -->
@@ -508,7 +508,7 @@
 				<key>params</key>
 				<dict>
 					<!-- The thresholds for each operation type -->
-					<key>thresholds</key>
+					<key>thresholdsPath</key>
 					<string>contrib/performance/loadtest/thresholds.json</string>
 					
 					<!-- The % of operations beyond the lag cut-off that constitute a failed test -->
