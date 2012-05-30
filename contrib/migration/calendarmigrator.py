@@ -291,11 +291,9 @@ def migrateConfiguration(options, newServerRootValue, newDataRootValue, enableCa
 
     newConfigDir = os.path.join(options.targetRoot, NEW_CONFIG_DIR)
     newConfigFile = os.path.join(newConfigDir, CALDAVD_PLIST)
-    if os.path.exists(newConfigDir):
-        if os.path.exists(newConfigFile):
-            log("Calendar configuration already exists in %s" % (newConfigDir,))
-            return
-    else:
+
+    # Create config directory if it doesn't exist
+    if not os.path.exists(newConfigDir):
         os.mkdir(newConfigDir)
 
     defaultConfig = os.path.join(SERVER_APP_ROOT, CALDAVD_CONFIG_DIR, CALDAVD_PLIST)
