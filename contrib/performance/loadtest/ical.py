@@ -40,7 +40,7 @@ from twisted.internet.task import LoopingCall
 from twisted.python.filepath import FilePath
 from twisted.python.log import addObserver, err, msg
 from twisted.python.util import FancyEqMixin
-from twisted.web.client import Agent
+from twisted.web.client import Agent, ContentDecoderAgent, GzipDecoder
 from twisted.web.http import OK, MULTI_STATUS, CREATED, NO_CONTENT, PRECONDITION_FAILED, MOVED_PERMANENTLY,\
     FORBIDDEN
 from twisted.web.http_headers import Headers
@@ -51,9 +51,9 @@ from urlparse import urlparse, urlunparse, urlsplit, urljoin
 from uuid import uuid4
 from xml.etree import ElementTree
 
-import random
-import os
 import json
+import os
+import random
 
 ElementTree.QName.__repr__ = lambda self: '<QName %r>' % (self.text,)
 
@@ -349,7 +349,12 @@ class BaseAppleClient(BaseClient):
         self._client_id = str(uuid4())
 
         self.reactor = reactor
-        self.agent = AuthHandlerAgent(Agent(self.reactor), auth)
+
+        # The server might use gzip encoding
+        agent = Agent(self.reactor)
+        agent = ContentDecoderAgent(agent, [("gzip", GzipDecoder)])
+        self.agent = AuthHandlerAgent(agent, auth)
+
         self.root = root
         self.principalPathTemplate = principalPathTemplate
         self.record = record
