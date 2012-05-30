@@ -294,7 +294,7 @@ def migrateConfiguration(options, newServerRootValue, newDataRootValue, enableCa
     if os.path.exists(newConfigDir):
         if os.path.exists(newConfigFile):
             log("Calendar configuration already exists in %s" % (newConfigDir,))
-        return
+            return
     else:
         os.mkdir(newConfigDir)
 
