@@ -42,7 +42,7 @@ from twisted.python.log import addObserver, err, msg
 from twisted.python.util import FancyEqMixin
 from twisted.web.client import Agent, ContentDecoderAgent, GzipDecoder
 from twisted.web.http import OK, MULTI_STATUS, CREATED, NO_CONTENT, PRECONDITION_FAILED, MOVED_PERMANENTLY,\
-    FORBIDDEN
+    FORBIDDEN, FOUND
 from twisted.web.http_headers import Headers
 
 from twistedcaldav.ical import Component, Property
@@ -562,12 +562,12 @@ class BaseAppleClient(BaseClient):
         response, result = yield self._propfind(
             location,
             self._STARTUP_WELL_KNOWN,
-            allowedStatus=(MULTI_STATUS, MOVED_PERMANENTLY),
+            allowedStatus=(MULTI_STATUS, MOVED_PERMANENTLY, FOUND, ),
             method_label="PROPFIND{well-known}",
         )
         
         # Follow any redirect
-        if response.code == MOVED_PERMANENTLY:
+        if response.code in (MOVED_PERMANENTLY, FOUND, ):
             location = response.headers.getRawHeaders("location")[0]
             location = urlsplit(location)[2]
             response, result = yield self._propfind(
