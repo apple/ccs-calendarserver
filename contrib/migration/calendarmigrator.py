@@ -372,7 +372,7 @@ def migrateConfiguration(options, newServerRootValue, newDataRootValue, enableCa
     writePlist(newCalDAVDPlist, newConfigFile)
 
     for key, value in adminChanges:
-        log("Setting %s to %s via serveradmin...")
+        log("Setting %s to %s via serveradmin..." % (key, value))
         ret = subprocess.call([SERVER_ADMIN, "settings", "calendar:%s=%s" % (key, value)])
         log("serveradmin exited with %d" % (ret,))
 
