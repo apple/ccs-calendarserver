@@ -104,7 +104,7 @@ class AuthHandlerAgent(object):
         challengeType = {
             'basic': BasicChallenge,
             'digest': DigestChallenge,
-            }.get(scheme)
+            }.get(scheme.lower())
         if challengeType is None:
             return None
         return challengeType(**args)
