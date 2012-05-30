@@ -50,6 +50,15 @@
 			<integer>8080</integer>
 		</dict>
 
+		<!--  Define whether client data should be saved and re-used. -->
+		<key>clientDataSerialization</key>
+		<dict>
+			<key>Enabled</key>
+			<true/>
+			<key>Path</key>
+			<string>/tmp/sim</string>
+		</dict>
+
 		<!-- Define the credentials of the clients which will be used to load test 
 			the server. These credentials must already be valid on the server. -->
 		<key>accounts</key>

@@ -193,7 +193,7 @@ class LoadSimulator(object):
         user information about the accounts on the server being put
         under load.
     """
-    def __init__(self, server, principalPathTemplate, webadminPort, arrival, parameters, observers=None,
+    def __init__(self, server, principalPathTemplate, webadminPort, serializationPath, arrival, parameters, observers=None,
                  records=None, reactor=None, runtime=None, workers=None,
                  configTemplate=None, workerID=None, workerCount=1):
         if reactor is None:
@@ -201,6 +201,7 @@ class LoadSimulator(object):
         self.server = server
         self.principalPathTemplate = principalPathTemplate
         self.webadminPort = webadminPort
+        self.serializationPath = serializationPath
         self.arrival = arrival
         self.parameters = parameters
         self.observers = observers
@@ -244,6 +245,7 @@ class LoadSimulator(object):
             server = 'http://127.0.0.1:8008/'
             principalPathTemplate = "/principals/users/%s/"
             webadminPort = None
+            serializationPath = None
 
             if 'server' in config:
                 server = config['server']
@@ -254,6 +256,10 @@ class LoadSimulator(object):
             if 'webadmin' in config:
                 if config['webadmin']['enabled']:
                     webadminPort = config['webadmin']['HTTPPort']
+
+            if 'clientDataSerialization' in config:
+                if config['clientDataSerialization']['Enabled']:
+                    serializationPath = config['clientDataSerialization']['Path']
 
             if 'arrival' in config:
                 arrival = Arrival(
@@ -284,6 +290,7 @@ class LoadSimulator(object):
             server = ''
             principalPathTemplate = ''
             webadminPort = None
+            serializationPath = None
             arrival = None
             parameters = None
             workerID = 0
@@ -304,7 +311,8 @@ class LoadSimulator(object):
             records.extend(namedAny(loader)(**params))
             output.write("Loaded {0} accounts.\n".format(len(records)))
 
-        return cls(server, principalPathTemplate, webadminPort, arrival, parameters, observers=observers,
+        return cls(server, principalPathTemplate, webadminPort, serializationPath,
+                   arrival, parameters, observers=observers,
                    records=records, runtime=runtime, reactor=reactor,
                    workers=workers, configTemplate=configTemplate,
                    workerID=workerID, workerCount=workerCount)
@@ -344,8 +352,15 @@ class LoadSimulator(object):
     def createSimulator(self):
         populator = Populator(Random())
         return CalendarClientSimulator(
-            self.records, populator, self.parameters, self.reactor, self.server,
-            self.principalPathTemplate, self.workerID, self.workerCount
+            self.records,
+            populator,
+            self.parameters,
+            self.reactor,
+            self.server,
+            self.principalPathTemplate,
+            self.serializationPath,
+            self.workerID,
+            self.workerCount,
         )
 
 

@@ -77,12 +77,12 @@ class ClientType(object, FancyEqMixin):
         self.profileTypes = profileTypes
 
 
-    def new(self, reactor, serverAddress, principalPathTemplate, userRecord, authInfo):
+    def new(self, reactor, serverAddress, principalPathTemplate, serializationPath, userRecord, authInfo):
         """
         Create a new instance of this client type.
         """
         return self.clientType(
-            reactor, serverAddress, principalPathTemplate, userRecord, authInfo, **self.clientParams)
+            reactor, serverAddress, principalPathTemplate, serializationPath, userRecord, authInfo, **self.clientParams)
 
 
 
@@ -156,12 +156,13 @@ class Populator(object):
 
 class CalendarClientSimulator(object):
     def __init__(self, records, populator, parameters, reactor, server,
-                 principalPathTemplate, workerIndex=0, workerCount=1):
+                 principalPathTemplate, serializationPath, workerIndex=0, workerCount=1):
         self._records = records
         self.populator = populator
         self.reactor = reactor
         self.server = server
         self.principalPathTemplate = principalPathTemplate
+        self.serializationPath = serializationPath
         self._pop = self.populator.populate(parameters)
         self._user = 0
         self._stopped = False
@@ -226,7 +227,12 @@ class CalendarClientSimulator(object):
     
                 reactor = loggedReactor(self.reactor)
                 client = clientType.new(
-                    reactor, self.server, self.principalPathTemplate, self.getUserRecord(number), auth
+                    reactor,
+                    self.server,
+                    self.principalPathTemplate,
+                    self.serializationPath,
+                    self.getUserRecord(number),
+                    auth,
                 )
                 self.clients.append(client)
                 d = client.run()

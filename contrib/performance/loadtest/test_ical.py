@@ -15,26 +15,30 @@
 #
 ##
 
-from twisted.python.failure import Failure
-from twisted.internet.defer import Deferred, inlineCallbacks, returnValue
-from twisted.trial.unittest import TestCase
-from twisted.web.http import OK, NO_CONTENT, CREATED, MULTI_STATUS
-from twisted.web.http_headers import Headers
-from twisted.web.client import ResponseDone
-from twisted.internet.protocol import ProtocolToConsumerAdapter
-
-from caldavclientlibrary.protocol.url import URL
-from caldavclientlibrary.protocol.webdav.definitions import davxml
 from caldavclientlibrary.protocol.caldav.definitions import caldavxml
 from caldavclientlibrary.protocol.caldav.definitions import csxml
+from caldavclientlibrary.protocol.url import URL
+from caldavclientlibrary.protocol.webdav.definitions import davxml
 
+from contrib.performance.httpclient import MemoryConsumer, StringProducer
 from contrib.performance.loadtest.ical import XMPPPush, Event, Calendar, OS_X_10_6
 from contrib.performance.loadtest.sim import _DirectoryRecord
-from contrib.performance.httpclient import MemoryConsumer, StringProducer
-from twistedcaldav.ical import Component
+
 from pycalendar.datetime import PyCalendarDateTime
 from pycalendar.timezone import PyCalendarTimezone
+
+from twisted.internet.defer import Deferred, inlineCallbacks, returnValue
+from twisted.internet.protocol import ProtocolToConsumerAdapter
+from twisted.python.failure import Failure
+from twisted.trial.unittest import TestCase
+from twisted.web.client import ResponseDone
+from twisted.web.http import OK, NO_CONTENT, CREATED, MULTI_STATUS
+from twisted.web.http_headers import Headers
+
+from twistedcaldav.ical import Component
 from twistedcaldav.timezones import TimezoneCache
+
+import os
 
 EVENT_UID = 'D94F247D-7433-43AF-B84B-ADD684D023B0'
 
@@ -1155,7 +1159,12 @@ class OS_X_10_6Mixin:
         self.record = _DirectoryRecord(
             u"user91", u"user91", u"User 91", u"user91@example.org")
         self.client = OS_X_10_6(
-            None, "http://127.0.0.1/", "/principals/users/%s/", self.record, None
+            None,
+            "http://127.0.0.1/",
+            "/principals/users/%s/",
+            None,
+            self.record,
+            None,
         )
 
 
@@ -1458,6 +1467,172 @@ class OS_X_10_6Tests(OS_X_10_6Mixin, TestCase):
             StringProducer(""))
         result.callback(response)
         return d
+
+
+    def test_serialization(self):
+        """
+        L{OS_X_10_6.serialize} properly generates a JSON document.
+        """
+        events = (
+            Event(u'/home/calendar/1.ics', u'123.123', "BEGIN:VALENDAR\r\nEND:VCALENDAR\r\n"),
+            Event(u'/home/inbox/i1.ics', u'123.123', "BEGIN:VALENDAR\r\nMETHOD:REQUEST\r\nEND:VCALENDAR\r\n"),
+        )
+        self.client._events.update(dict([[event.url, event] for event in events]))
+
+        calendars = (
+            Calendar(str(caldavxml.calendar), set(('VEVENT',)), u'calendar', u'/home/calendar/', "123"),
+            Calendar(str(caldavxml.calendar), set(('VTODO',)), u'tasks', u'/home/tasks/', "456"),
+            Calendar(str(caldavxml.schedule_inbox), set(('VEVENT', "VTODO",)), u'calendar', u'/home/inbox/', "789"),
+        )
+        self.client._calendars.update(dict([[calendar.url, calendar] for calendar in calendars]))
+        self.client._calendars["/home/calendar/"].events["1.ics"] = events[0]
+        self.client._calendars["/home/inbox/"].events["i1.ics"] = events[1]
+    
+        tmp = self.mktemp()
+        os.mkdir(tmp)
+        self.client.serializePath = tmp
+        tmpPath = os.path.join(tmp, "user91-OS_X_10.6.json")
+        self.assertFalse(os.path.exists(tmpPath))
+
+        self.client.serialize()
+        self.assertTrue(os.path.exists(tmpPath))
+        self.assertEqual(open(tmpPath).read(), """{
+  "calendars": [
+    {
+      "changeToken": "123", 
+      "name": "calendar", 
+      "resourceType": "{urn:ietf:params:xml:ns:caldav}calendar", 
+      "componentTypes": [
+        "VEVENT"
+      ], 
+      "url": "/home/calendar/", 
+      "events": [
+        "1.ics"
+      ]
+    }, 
+    {
+      "changeToken": "789", 
+      "name": "calendar", 
+      "resourceType": "{urn:ietf:params:xml:ns:caldav}schedule-inbox", 
+      "componentTypes": [
+        "VEVENT", 
+        "VTODO"
+      ], 
+      "url": "/home/inbox/", 
+      "events": [
+        "i1.ics"
+      ]
+    }, 
+    {
+      "changeToken": "456", 
+      "name": "tasks", 
+      "resourceType": "{urn:ietf:params:xml:ns:caldav}calendar", 
+      "componentTypes": [
+        "VTODO"
+      ], 
+      "url": "/home/tasks/", 
+      "events": []
+    }
+  ], 
+  "principalURL": null, 
+  "events": [
+    {
+      "url": "/home/calendar/1.ics", 
+      "scheduleTag": null, 
+      "etag": "123.123", 
+      "icalendar": "BEGIN:VALENDAR\\r\\nEND:VCALENDAR\\r\\n"
+    }, 
+    {
+      "url": "/home/inbox/i1.ics", 
+      "scheduleTag": null, 
+      "etag": "123.123", 
+      "icalendar": "BEGIN:VALENDAR\\r\\nMETHOD:REQUEST\\r\\nEND:VCALENDAR\\r\\n"
+    }
+  ]
+}""")
+
+
+    def test_deserialization(self):
+        """
+        L{OS_X_10_6.deserailize} properly parses a JSON document.
+        """
+
+        tmp = self.mktemp()
+        os.mkdir(tmp)
+        self.client.serializePath = tmp
+        tmpPath = os.path.join(tmp, "user91-OS_X_10.6.json")
+        open(tmpPath, "w").write("""{
+  "calendars": [
+    {
+      "changeToken": "321", 
+      "name": "calendar", 
+      "resourceType": "{urn:ietf:params:xml:ns:caldav}calendar", 
+      "componentTypes": [
+        "VEVENT"
+      ], 
+      "url": "/home/calendar/", 
+      "events": [
+        "2.ics"
+      ]
+    }, 
+    {
+      "changeToken": "987", 
+      "name": "calendar", 
+      "resourceType": "{urn:ietf:params:xml:ns:caldav}schedule-inbox", 
+      "componentTypes": [
+        "VEVENT", 
+        "VTODO"
+      ], 
+      "url": "/home/inbox/", 
+      "events": [
+        "i2.ics"
+      ]
+    }, 
+    {
+      "changeToken": "654", 
+      "name": "tasks", 
+      "resourceType": "{urn:ietf:params:xml:ns:caldav}calendar", 
+      "componentTypes": [
+        "VTODO"
+      ], 
+      "url": "/home/tasks/", 
+      "events": []
+    }
+  ], 
+  "principalURL": null, 
+  "events": [
+    {
+      "url": "/home/calendar/2.ics", 
+      "scheduleTag": null, 
+      "etag": "321.321", 
+      "icalendar": "BEGIN:VCALENDAR\\r\\nVERSION:2.0\\r\\nPRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN\\r\\nBEGIN:VEVENT\\r\\nUID:put-1@example.com\\r\\nDTSTART:20110427\\r\\nDURATION:P1DT\\r\\nDTSTAMP:20051222T205953Z\\r\\nSUMMARY:event 1\\r\\nEND:VEVENT\\r\\nEND:VCALENDAR\\r\\n"
+    }, 
+    {
+      "url": "/home/inbox/i2.ics", 
+      "scheduleTag": null, 
+      "etag": "987.987", 
+      "icalendar": "BEGIN:VCALENDAR\\r\\nVERSION:2.0\\r\\nMETHOD:REQUEST\\r\\nPRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN\\r\\nBEGIN:VEVENT\\r\\nUID:put-1@example.com\\r\\nDTSTART:20110427\\r\\nDURATION:P1DT\\r\\nDTSTAMP:20051222T205953Z\\r\\nSUMMARY:event 1\\r\\nEND:VEVENT\\r\\nEND:VCALENDAR\\r\\n"
+    }
+  ]
+}""")
+
+        self.client.deserialize()
+
+        self.assertEqual(len(self.client._calendars), 3)
+        self.assertTrue("/home/calendar/" in self.client._calendars)
+        self.assertEqual(self.client._calendars["/home/calendar/"].changeToken, "321")
+        self.assertEqual(self.client._calendars["/home/calendar/"].name, "calendar")
+        self.assertEqual(self.client._calendars["/home/calendar/"].resourceType, "{urn:ietf:params:xml:ns:caldav}calendar")
+        self.assertEqual(self.client._calendars["/home/calendar/"].componentTypes, set(("VEVENT",)))
+        self.assertTrue("/home/tasks/" in self.client._calendars)
+        self.assertTrue("/home/inbox/" in self.client._calendars)
+        self.assertEqual(self.client._calendars["/home/inbox/"].componentTypes, set(("VEVENT", "VTODO",)))
+        self.assertEqual(len(self.client._events), 2)
+        self.assertTrue("/home/calendar/2.ics" in self.client._events)
+        self.assertEqual(self.client._events["/home/calendar/2.ics"].scheduleTag, None)
+        self.assertEqual(self.client._events["/home/calendar/2.ics"].etag, "321.321")
+        self.assertEqual(self.client._events["/home/calendar/2.ics"].getUID(), "put-1@example.com")
+        self.assertTrue("/home/inbox/i2.ics" in self.client._events)
 
 
 class UpdateCalendarTests(OS_X_10_6Mixin, TestCase):

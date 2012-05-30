@@ -41,16 +41,19 @@ from twisted.python.filepath import FilePath
 from twisted.python.log import addObserver, err, msg
 from twisted.python.util import FancyEqMixin
 from twisted.web.client import Agent
-from twisted.web.http import OK, MULTI_STATUS, CREATED, NO_CONTENT, PRECONDITION_FAILED, MOVED_PERMANENTLY
+from twisted.web.http import OK, MULTI_STATUS, CREATED, NO_CONTENT, PRECONDITION_FAILED, MOVED_PERMANENTLY,\
+    FORBIDDEN
 from twisted.web.http_headers import Headers
 
 from twistedcaldav.ical import Component, Property
 
-from urlparse import urlparse, urlunparse, urlsplit
+from urlparse import urlparse, urlunparse, urlsplit, urljoin
 from uuid import uuid4
 from xml.etree import ElementTree
 
 import random
+import os
+import json
 
 ElementTree.QName.__repr__ = lambda self: '<QName %r>' % (self.text,)
 
@@ -94,7 +97,9 @@ class XMPPPush(object, FancyEqMixin):
         self.pushkey = pushkey
 
 
-
+def u2str(data):
+    return data.encode("utf-8") if type(data) is unicode else data
+    
 class Event(object):
     def __init__(self, url, etag, vevent=None):
         self.url = url
@@ -112,6 +117,30 @@ class Event(object):
         return None
 
 
+    def serialize(self):
+        """
+        Create a dict of the data so we can serialize as JSON.
+        """
+        
+        result = {}
+        for attr in ("url", "etag", "scheduleTag"):
+            result[attr] = getattr(self, attr)
+        result["icalendar"] = str(self.vevent)
+        return result
+
+    @staticmethod
+    def deserialize(data):
+        """
+        Convert dict (deserialized from JSON) into an L{Event}.
+        """
+        
+        event = Event(None, None)
+        for attr in ("url", "etag", "scheduleTag"):
+            setattr(event, attr, u2str(data[attr]))
+        event.vevent = Component.fromString(data["icalendar"])
+        return event
+
+
 
 class Calendar(object):
     def __init__(self, resourceType, componentTypes, name, url, changeToken):
@@ -121,6 +150,40 @@ class Calendar(object):
         self.url = url
         self.changeToken = changeToken
         self.events = {}
+
+
+    def serialize(self):
+        """
+        Create a dict of the data so we can serialize as JSON.
+        """
+        
+        result = {}
+        for attr in ("resourceType", "name", "url", "changeToken"):
+            result[attr] = getattr(self, attr)
+        result["componentTypes"] = list(sorted(self.componentTypes))
+        result["events"] = sorted(self.events.keys())
+        return result
+
+
+    @staticmethod
+    def deserialize(data, events):
+        """
+        Convert dict (deserialized from JSON) into an L{Event}.
+        """
+        
+        calendar = Calendar(None, None, None, None, None)
+        for attr in ("resourceType", "name", "url", "changeToken"):
+            setattr(calendar, attr, u2str(data[attr]))
+        calendar.componentTypes = set(map(u2str, data["componentTypes"]))
+        
+        for event in data["events"]:
+            url = urljoin(calendar.url, event)
+            if url in events:
+                calendar.events[event] = events[url]
+            else:
+                # Ughh - an event is missing - force changeToken to empty to trigger full resync
+                calendar.changeToken = ""
+        return calendar
 
 
 
@@ -222,6 +285,8 @@ class BaseAppleClient(BaseClient):
     Implementation of common OS X/iOS client behavior.
     """
 
+    _client_type = "Generic"
+
     USER_AGENT = None   # Override this for specific clients
 
     # The default interval, used if none is specified in external
@@ -266,8 +331,20 @@ class BaseAppleClient(BaseClient):
 
     email = None
 
-    def __init__(self, reactor, root, principalPathTemplate, record, auth, calendarHomePollInterval=None, supportPush=True,
-        supportAmpPush=True, ampPushHost="localhost", ampPushPort=62311):
+    def __init__(
+        self,
+        reactor,
+        root,
+        principalPathTemplate,
+        serializePath,
+        record,
+        auth,
+        calendarHomePollInterval=None,
+        supportPush=True,
+        supportAmpPush=True,
+        ampPushHost="localhost",
+        ampPushPort=62311,
+    ):
         
         self._client_id = str(uuid4())
 
@@ -287,11 +364,16 @@ class BaseAppleClient(BaseClient):
         self.ampPushHost = ampPushHost
         self.ampPushPort = ampPushPort
 
+        self.serializePath = serializePath
+
         self.supportSync = self._SYNC_REPORT
 
         # Keep track of the calendars on this account, keys are
         # Calendar URIs, values are Calendar instances.
         self._calendars = {}
+
+        # The principalURL found during discovery
+        self.principalURL = None
 
         # Keep track of the events on this account, keys are event
         # URIs (which are unambiguous across different calendars
@@ -458,8 +540,10 @@ class BaseAppleClient(BaseClient):
             StringProducer(body),
             method_label=method_label,
         )
+
         body = yield readBody(response)
-        result = self._parseMultiStatus(body, otherTokens)
+        result = self._parseMultiStatus(body, otherTokens) if response.code == MULTI_STATUS else None
+
         returnValue(result)
 
 
@@ -645,15 +729,36 @@ class BaseAppleClient(BaseClient):
         the existing calendar once sync is done.
         """
 
+        # Grab old hrefs prior to the REPORT so we sync with the old state. We need this because
+        # the sim can fire a PUT between the REPORT and when process the removals.
+        old_hrefs = set([calendar.url + child for child in calendar.events.keys()])
+
         # Get changes from sync REPORT (including the other nodes at the top-level
         # which will have the new sync token.
-        result, others = yield self._report(
+        fullSync = not calendar.changeToken
+        result = yield self._report(
             calendar.url,
             self._POLL_CALENDAR_SYNC_REPORT % {'sync-token': calendar.changeToken},
             depth='1',
+            allowedStatus=(MULTI_STATUS, FORBIDDEN,), 
             otherTokens = True,
             method_label="REPORT{sync}" if calendar.changeToken else "REPORT{sync-init}",
         )
+        if result is None:
+            if not fullSync:
+                fullSync = True
+                result = yield self._report(
+                    calendar.url,
+                    self._POLL_CALENDAR_SYNC_REPORT % {'sync-token': ''},
+                    depth='1',
+                    otherTokens = True,
+                    method_label="REPORT{sync}" if calendar.changeToken else "REPORT{sync-init}",
+                )
+            else:
+                raise IncorrectResponseCode((MULTI_STATUS,), None)
+                
+        result, others = result
+                
 
         changed = []
         for responseHref in result:
@@ -679,6 +784,13 @@ class BaseAppleClient(BaseClient):
 
         yield self._updateChangedEvents(calendar, changed)
 
+        # Handle removals only when doing an initial sync
+        if fullSync:
+            # Detect removed items and purge them
+            remove_hrefs = old_hrefs - set(changed)
+            for href in remove_hrefs:
+                self._removeEvent(href)
+            
         # Now update calendar to the new token taken from the report
         for node in others:
             if node.tag == davxml.sync_token:
@@ -763,9 +875,9 @@ class BaseAppleClient(BaseClient):
         hrefs = "".join([self._POLL_CALENDAR_MULTIGET_REPORT_HREF % {'href': event} for event in events])
 
         label_suffix = "small"
-        if len(hrefs) > 5:
+        if len(events) > 5:
             label_suffix = "medium"
-        if len(hrefs) > 15:
+        if len(events) > 15:
             label_suffix = "large"
 
         return self._report(
@@ -1035,7 +1147,62 @@ class BaseAppleClient(BaseClient):
         """
         Called before connections are closed, giving a chance to clean up
         """
+        
+        self.serialize()
         return self._unsubscribePubSub()
+
+
+    def serialize(self):
+        """
+        Write current state to disk.
+        """
+        
+        if self.serializePath is None or not os.path.isdir(self.serializePath):
+            return
+        
+        key = "%s-%s.json" % (self.record.uid, self._client_type.replace(" ", "_"))
+        path = os.path.join(self.serializePath, key)
+
+        # Create dict for all the data we need to store
+        data = {
+            "principalURL": self.principalURL,
+            "calendars":    [calendar.serialize() for calendar in sorted(self._calendars.values(), key=lambda x:x.name)],
+            "events":       [event.serialize() for event in sorted(self._events.values(), key=lambda x:x.url)],
+        }
+
+        # Write JSON data
+        json.dump(data, open(path, "w"), indent=2)
+        
+
+    def deserialize(self):
+        """
+        Read state from disk.
+        """
+        
+        if self.serializePath is None or not os.path.isdir(self.serializePath):
+            return
+        
+        self._calendars = {}
+        self._events = {}
+
+        # Parse JSON data for calendars
+        key = "%s-%s.json" % (self.record.uid, self._client_type.replace(" ", "_"))
+        path = os.path.join(self.serializePath, key)
+        try:
+            data = json.load(open(path))
+        except IOError:
+            return
+
+        self.principalURL = data["principalURL"]
+
+        # Extract all the events first, then do the calendars (which reference the events)
+        for event in data["events"]:
+            event = Event.deserialize(event)
+            self._events[event.url] = event
+        for calendar in data["calendars"]:
+            calendar = Calendar.deserialize(calendar, self._events)
+            self._calendars[calendar.url] = calendar
+            
 
     def _makeSelfAttendee(self):
         attendee = Property(
@@ -1396,10 +1563,14 @@ class OS_X_10_6(BaseAppleClient):
     @inlineCallbacks
     def startup(self):
 
-        # PROPFIND principal path to retrieve actual principal-URL
-        response = yield self._principalPropfindInitial(self.record.uid)
-        hrefs = response.getHrefProperties()
-        self.principalURL = hrefs[davxml.principal_URL].toString()
+        # Try to read data from disk - if it succeeds self.principalURL will be set
+        self.deserialize()
+        
+        if self.principalURL is None:
+            # PROPFIND principal path to retrieve actual principal-URL
+            response = yield self._principalPropfindInitial(self.record.uid)
+            hrefs = response.getHrefProperties()
+            self.principalURL = hrefs[davxml.principal_URL].toString()
 
         # Using the actual principal URL, retrieve principal information
         principal = yield self._principalPropfind()
@@ -1497,18 +1668,22 @@ class OS_X_10_7(BaseAppleClient):
     @inlineCallbacks
     def startup(self):
 
-        # PROPFIND well-known with redirect
-        response = yield self._startupPropfindWellKnown()
-        hrefs = response.getHrefProperties()
-        if davxml.current_user_principal in hrefs:
-            self.principalURL = hrefs[davxml.current_user_principal].toString()
-        elif davxml.principal_URL in hrefs:
-            self.principalURL = hrefs[davxml.principal_URL].toString()
-        else:
-            # PROPFIND principal path to retrieve actual principal-URL
-            response = yield self._principalPropfindInitial(self.record.uid)
+        # Try to read data from disk - if it succeeds self.principalURL will be set
+        self.deserialize()
+        
+        if self.principalURL is None:
+            # PROPFIND well-known with redirect
+            response = yield self._startupPropfindWellKnown()
             hrefs = response.getHrefProperties()
-            self.principalURL = hrefs[davxml.principal_URL].toString()
+            if davxml.current_user_principal in hrefs:
+                self.principalURL = hrefs[davxml.current_user_principal].toString()
+            elif davxml.principal_URL in hrefs:
+                self.principalURL = hrefs[davxml.principal_URL].toString()
+            else:
+                # PROPFIND principal path to retrieve actual principal-URL
+                response = yield self._principalPropfindInitial(self.record.uid)
+                hrefs = response.getHrefProperties()
+                self.principalURL = hrefs[davxml.principal_URL].toString()
 
         # Using the actual principal URL, retrieve principal information
         principal = yield self._principalPropfind()
@@ -1701,18 +1876,22 @@ class iOS_5(BaseAppleClient):
     @inlineCallbacks
     def startup(self):
 
-        # PROPFIND well-known with redirect
-        response = yield self._startupPropfindWellKnown()
-        hrefs = response.getHrefProperties()
-        if davxml.current_user_principal in hrefs:
-            self.principalURL = hrefs[davxml.current_user_principal].toString()
-        elif davxml.principal_URL in hrefs:
-            self.principalURL = hrefs[davxml.principal_URL].toString()
-        else:
-            # PROPFIND principal path to retrieve actual principal-URL
-            response = yield self._principalPropfindInitial(self.record.uid)
+        # Try to read data from disk - if it succeeds self.principalURL will be set
+        self.deserialize()
+        
+        if self.principalURL is None:
+            # PROPFIND well-known with redirect
+            response = yield self._startupPropfindWellKnown()
             hrefs = response.getHrefProperties()
-            self.principalURL = hrefs[davxml.principal_URL].toString()
+            if davxml.current_user_principal in hrefs:
+                self.principalURL = hrefs[davxml.current_user_principal].toString()
+            elif davxml.principal_URL in hrefs:
+                self.principalURL = hrefs[davxml.principal_URL].toString()
+            else:
+                # PROPFIND principal path to retrieve actual principal-URL
+                response = yield self._principalPropfindInitial(self.record.uid)
+                hrefs = response.getHrefProperties()
+                self.principalURL = hrefs[davxml.principal_URL].toString()
 
         # Using the actual principal URL, retrieve principal information
         principal = yield self._principalPropfind()
