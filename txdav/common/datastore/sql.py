@@ -438,11 +438,11 @@ class CommonStoreTransaction(object):
 
 
     @memoizedKey("uid", "_notificationHomes")
-    def notificationsWithUID(self, uid):
+    def notificationsWithUID(self, uid, create=True):
         """
         Implement notificationsWithUID.
         """
-        return NotificationCollection.notificationsWithUID(self, uid)
+        return NotificationCollection.notificationsWithUID(self, uid, create)
 
     @classproperty
     def _insertAPNSubscriptionQuery(cls): #@NoSelf
@@ -3443,15 +3443,15 @@ class NotificationCollection(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
 
     @classmethod
     @inlineCallbacks
-    def notificationsWithUID(cls, txn, uid):
+    def notificationsWithUID(cls, txn, uid, create):
         rows = yield cls._resourceIDFromUIDQuery.on(txn, uid=uid)
 
         if rows:
             resourceID = rows[0][0]
             created = False
-        else:
-            # Use savepoint so we can do a partial rollback if there is a race condition
-            # where this row has already been inserted
+        elif create:
+            # Use savepoint so we can do a partial rollback if there is a race
+            # condition where this row has already been inserted
             savepoint = SavepointAction("notificationsWithUID")
             yield savepoint.acquire(txn)
 
@@ -3459,9 +3459,11 @@ class NotificationCollection(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
                 resourceID = str((
                     yield cls._provisionNewNotificationsQuery.on(txn, uid=uid)
                 )[0][0])
-            except Exception: # FIXME: Really want to trap the pg.DatabaseError but in a non-DB specific manner
+            except Exception:
+                # FIXME: Really want to trap the pg.DatabaseError but in a non-
+                # DB specific manner
                 yield savepoint.rollback(txn)
-                
+
                 # Retry the query - row may exist now, if not re-raise
                 rows = yield cls._resourceIDFromUIDQuery.on(txn, uid=uid)
                 if rows:
@@ -3472,7 +3474,8 @@ class NotificationCollection(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
             else:
                 created = True
                 yield savepoint.release(txn)
-                
+        else:
+            returnValue(None)
         collection = cls(txn, uid, resourceID)
         yield collection._loadPropertyStore()
         if created:
@@ -4137,10 +4140,7 @@ def _normalizeHomeUUIDsIn(t, homeType):
             homeType=homeTypeName
         )
         other = None
-        if homeType == ENOTIFICATIONTYPE:
-            this = yield t.notificationsWithUID(UID)
-        else:
-            this = yield t.homeWithUID(homeType, UID)
+        this = yield _getHome(t, homeType, UID)
         if homeType == ECALENDARTYPE:
             fixedThisHome = yield fixOneCalendarHome(this)
         else:
@@ -4159,7 +4159,7 @@ def _normalizeHomeUUIDsIn(t, homeType):
                 log_msg(format="Detected case variance: %(uid)s %(newuid)s"
                         "[%(homeType)s]",
                         uid=UID, newuid=newname, homeType=homeTypeName)
-                other = yield t.homeWithUID(homeType, newname)
+                other = yield _getHome(t, homeType, newname)
                 if other is None:
                     # No duplicate: just fix the name.
                     yield _renameHome(t, homeTable, UID, newname)
@@ -4178,6 +4178,30 @@ def _normalizeHomeUUIDsIn(t, homeType):
                 "duplicate).", uid=UID, elapsed=elapsed, fixes=fixedThisHome,
                 duplicate=fixedOtherHome)
     returnValue(None)
+
+
+
+def _getHome(txn, homeType, uid):
+    """
+    Like L{CommonHome.homeWithUID} but also honoring ENOTIFICATIONTYPE which
+    isn't I{really} a type of home.
+
+    @param txn: the transaction to retrieve the home from
+    @type txn: L{CommonStoreTransaction}
+
+    @param homeType: L{ENOTIFICATIONTYPE}, L{ECALENDARTYPE}, or
+        L{EADDRESSBOOKTYPE}.
+
+    @param uid: the UID of the home to retrieve.
+    @type uid: L{str}
+
+    @return: a L{Deferred} that fires with the L{CommonHome} or
+        L{NotificationHome} when it has been retrieved.
+    """
+    if homeType == ENOTIFICATIONTYPE:
+        return txn.notificationsWithUID(uid, create=False)
+    else:
+        return txn.homeWithUID(homeType, uid)
 
 
 
@@ -4241,7 +4265,8 @@ def fixUUIDNormalization(store):
     # a lower-case OWNER_UID.  If there are none, then we can early-out and
     # avoid the tedious and potentially expensive inspection of oodles of
     # calendar data.
-    for x in [schema.CALENDAR_HOME, schema.ADDRESSBOOK_HOME]:
+    for x in [schema.CALENDAR_HOME, schema.ADDRESSBOOK_HOME,
+              schema.NOTIFICATION_HOME]:
         slct = Select([x.OWNER_UID], From=x,
                       Where=x.OWNER_UID != Upper(x.OWNER_UID))
         rows = yield slct.on(t)

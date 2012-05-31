@@ -339,13 +339,12 @@ class CommonSQLStoreTests(CommonCommonTests, TestCase):
 
 
     @inlineCallbacks
-    def allHomeUIDs(self):
+    def allHomeUIDs(self, table=schema.CALENDAR_HOME):
         """
         Get a listing of all UIDs in the current store.
         """
-        results = yield Select(
-            [schema.CALENDAR_HOME.OWNER_UID],
-            From=schema.CALENDAR_HOME).on(self.transactionUnderTest())
+        results = yield (Select([table.OWNER_UID], From=table)
+                         .on(self.transactionUnderTest()))
         yield self.commit()
         returnValue(results)
 
@@ -362,6 +361,37 @@ class CommonSQLStoreTests(CommonCommonTests, TestCase):
         yield self.commit()
         yield fixUUIDNormalization(self.storeUnderTest())
         self.assertEqual((yield self.allHomeUIDs()), [[normalizedUID]])
+
+
+    @inlineCallbacks
+    def test_fixUUIDNormalization_lowerToUpper_notification(self):
+        """
+        L{fixUUIDNormalization} will fix the normalization of UUIDs.  If a home
+        is found with the wrong case but no duplicate, it will simply be
+        upper-cased.
+        """
+        t1 = self.transactionUnderTest()
+        yield t1.notificationsWithUID(denormalizedUID, create=True)
+        yield self.commit()
+        yield fixUUIDNormalization(self.storeUnderTest())
+        self.assertEqual((yield self.allHomeUIDs(schema.NOTIFICATION_HOME)),
+                         [[normalizedUID]])
+
+
+    @inlineCallbacks
+    def test_fixUUIDNormalization_lowerToUpper_addressbook(self):
+        """
+        L{fixUUIDNormalization} will fix the normalization of UUIDs.  If a home
+        is found with the wrong case but no duplicate, it will simply be
+        upper-cased.
+        """
+        t1 = self.transactionUnderTest()
+        yield t1.addressbookHomeWithUID(denormalizedUID, create=True)
+        yield self.commit()
+        yield fixUUIDNormalization(self.storeUnderTest())
+        self.assertEqual((yield self.allHomeUIDs(schema.ADDRESSBOOK_HOME)),
+                         [[normalizedUID]])
+
 
 
 from uuid import UUID
