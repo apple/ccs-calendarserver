@@ -21,7 +21,7 @@ Tests for L{txdav.common.datastore.sql}.
 from twext.enterprise.dal.syntax import Select
 from txdav.xml import element as davxml
 
-from twisted.internet.defer import inlineCallbacks
+from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.internet.task import Clock
 from twisted.trial.unittest import TestCase
 
@@ -32,6 +32,7 @@ from txdav.common.datastore.sql_tables import schema, CALENDAR_BIND_TABLE,\
 from txdav.common.datastore.test.util import CommonCommonTests, buildStore
 from txdav.common.icommondatastore import AllRetriesFailed
 from twext.enterprise.dal.syntax import Insert
+from txdav.common.datastore.sql import fixUUIDNormalization
 
 class CommonSQLStoreTests(CommonCommonTests, TestCase):
     """
@@ -335,3 +336,36 @@ class CommonSQLStoreTests(CommonCommonTests, TestCase):
              [2, "fdsa", "another-value",
               "AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA"]]
         )
+
+
+    @inlineCallbacks
+    def allHomeUIDs(self):
+        """
+        Get a listing of all UIDs in the current store.
+        """
+        results = yield Select(
+            [schema.CALENDAR_HOME.OWNER_UID],
+            From=schema.CALENDAR_HOME).on(self.transactionUnderTest())
+        yield self.commit()
+        returnValue(results)
+
+
+    @inlineCallbacks
+    def test_fixUUIDNormalization_lowerToUpper(self):
+        """
+        L{fixUUIDNormalization} will fix the normalization of UUIDs.  If a home
+        is found with the wrong case but no duplicate, it will simply be
+        upper-cased.
+        """
+        t1 = self.transactionUnderTest()
+        yield t1.calendarHomeWithUID(denormalizedUID, create=True)
+        yield self.commit()
+        yield fixUUIDNormalization(self.storeUnderTest())
+        self.assertEqual((yield self.allHomeUIDs()), [[normalizedUID]])
+
+
+from uuid import UUID
+exampleUID = UUID("a"*32)
+denormalizedUID = str(exampleUID)
+normalizedUID = denormalizedUID.upper()
+

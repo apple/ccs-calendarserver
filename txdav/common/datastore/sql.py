@@ -4045,22 +4045,45 @@ def mergeHomes(sqlTxn, one, other, homeType):
     both.append([other,
                  (yield determineNewest(other.uid(), homeType).on(sqlTxn))])
     both.sort(key=lambda x: x[1])
-    # Note: determineNewest may return None sometimes.
+
     older = both[0][0]
     newer = both[1][0]
     yield migrateHome(older, newer, merge=True)
     # Rename the old one to 'old.<correct-guid>'
     newNormalized = normalizeUUIDOrNot(newer.uid())
     oldNormalized = normalizeUUIDOrNot(older.uid())
-    yield Update({homeTable.OWNER_UID: "old." + oldNormalized},
-                 Where=homeTable.OWNER_UID == older.uid()).on(sqlTxn)
+    yield _renameHome(sqlTxn, homeTable, older.uid(), "old." + oldNormalized)
     # Rename the new one to '<correct-guid>'
     if newer.uid() != newNormalized:
-        yield Update(
-            {homeTable.OWNER_UID: newNormalized},
-            Where=homeTable.OWNER_UID == newer.uid()
-        ).on(sqlTxn)
+        yield _renameHome(sqlTxn, homeTable, newer.uid(), newNormalized)
     yield returnValue(newer)
+
+
+
+def _renameHome(txn, table, oldUID, newUID):
+    """
+    Rename a calendar, addressbook, or notification home.  Note that this
+    function is only safe in transactions that have had caching disabled, and
+    more specifically should only ever be used during upgrades.  Running this
+    in a normal transaction will have unpredictable consequences, especially
+    with respect to memcache.
+
+    @param txn: an SQL transaction to use for this update
+    @type txn: L{twext.enterprise.ienterprise.IAsyncTransaction}
+
+    @param table: the storage table of the desired home type
+    @type table: L{TableSyntax}
+
+    @param oldUID: the old UID, the existing home's UID
+    @type oldUID: L{str}
+
+    @param newUID: the new UID, to change the UID to
+    @type newUID: L{str}
+
+    @return: a L{Deferred} which fires when the home is renamed.
+    """
+    return Update({table.OWNER_UID: newUID},
+                  Where=table.OWNER_UID == oldUID).on(txn)
 
 
 
@@ -4137,13 +4160,15 @@ def _normalizeHomeUUIDsIn(t, homeType):
                         "[%(homeType)s]",
                         uid=UID, newuid=newname, homeType=homeTypeName)
                 other = yield t.homeWithUID(homeType, newname)
-                if homeType == ECALENDARTYPE:
-                    fixedOtherHome = yield fixOneCalendarHome(other)
-                if other is not None:
+                if other is None:
+                    # No duplicate: just fix the name.
+                    yield _renameHome(t, homeTable, UID, newname)
+                else:
+                    if homeType == ECALENDARTYPE:
+                        fixedOtherHome = yield fixOneCalendarHome(other)
                     this = yield mergeHomes(t, this, other, homeType)
-                    # NOTE: WE MUST NOT TOUCH EITHER HOME OBJECT AFTER THIS
-                    # POINT. THE UIDS HAVE CHANGED AND ALL OPERATIONS WILL
-                    # FAIL.
+                # NOTE: WE MUST NOT TOUCH EITHER HOME OBJECT AFTER THIS POINT.
+                # THE UIDS HAVE CHANGED AND ALL OPERATIONS WILL FAIL.
 
         end = time.time()
         elapsed = end - start
