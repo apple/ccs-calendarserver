@@ -1025,7 +1025,9 @@ class Component (object):
     def cacheExpandedTimeRanges(self, limit, ignoreInvalidInstances=False):
         """
         Expand instances up to the specified limit and cache the results in this object
-        so we can return cached results in the future.
+        so we can return cached results in the future. The limit value is the actual value
+        that the requester needs, but we will cache an addition 365-days worth to give us some
+        breathing room to return results for future instances.
  
         @param limit: the max datetime to cache up to.
         @type limit: L{PyCalendarDateTime}
@@ -1039,8 +1041,11 @@ class Component (object):
                 # so return cached instances
                 return self.cachedInstances
         
-        self.cachedInstances = self.expandTimeRanges(limit,
-            ignoreInvalidInstances=ignoreInvalidInstances)
+        lookAheadLimit = limit + PyCalendarDuration(days=365)
+        self.cachedInstances = self.expandTimeRanges(
+            lookAheadLimit,
+            ignoreInvalidInstances=ignoreInvalidInstances
+        )
         return self.cachedInstances
 
     def expandTimeRanges(self, limit, ignoreInvalidInstances=False, normalizeFunction=normalizeForIndex):
@@ -1182,9 +1187,7 @@ class Component (object):
             # Check whether we have a truncated RRULE
             rrules = master.properties("RRULE")
             if len(tuple(rrules)):
-                limit = rid.duplicate()
-                limit += PyCalendarDuration(days=365)
-                instances = self.cacheExpandedTimeRanges(limit)
+                instances = self.cacheExpandedTimeRanges(rid)
                 rids = set([instances[key].rid for key in instances])
                 instance_rid = normalizeForIndex(rid)
                 if instance_rid not in rids:
@@ -1243,6 +1246,7 @@ class Component (object):
         valid = set()
         non_master_rids = [rid for rid in rids if rid is not None]
         if non_master_rids:
+            # Pre-cache instance expansion up to the highest rid
             highest_rid = max(non_master_rids)
             self.cacheExpandedTimeRanges(
                 highest_rid + PyCalendarDuration(days=1),
@@ -1271,7 +1275,7 @@ class Component (object):
 
         # Get expansion
         instances = self.cacheExpandedTimeRanges(
-            rid + PyCalendarDuration(days=1),
+            rid,
             ignoreInvalidInstances=ignoreInvalidInstances
         )
         new_rids = set([instances[key].rid for key in instances])

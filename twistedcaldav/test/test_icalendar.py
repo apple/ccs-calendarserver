@@ -4161,6 +4161,45 @@ END:VEVENT
             derived = str(derived).replace("\r", "") if derived else None
             self.assertEqual(derived, result, "Failed derive instance test: %s" % (title,))
 
+    def test_derive_instance_cache(self):
+        """
+        Test that derivation of instances only triggers an instance cache re-expansion when it
+        goes past the end of the last cache.
+        """
+        
+        event = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20090101T080000Z
+DTEND:20090101T090000Z
+DTSTAMP:20080601T120000Z
+RRULE:FREQ=DAILY
+END:VEVENT
+END:VCALENDAR
+"""        
+
+        ical = Component.fromString(event)
+        self.assertFalse(hasattr(ical, "cachedInstances"))
+        
+        # Derive one day apart - no re-cache
+        ical.deriveInstance(PyCalendarDateTime(2009, 1, 2, 8, 0, 0, tzid=PyCalendarTimezone(utc=True)))
+        self.assertTrue(hasattr(ical, "cachedInstances"))
+        oldLimit = ical.cachedInstances.limit
+        ical.deriveInstance(PyCalendarDateTime(2009, 1, 3, 8, 0, 0, tzid=PyCalendarTimezone(utc=True)))
+        self.assertEqual(ical.cachedInstances.limit, oldLimit)
+        
+        # Derive several years ahead - re-cached
+        ical.deriveInstance(PyCalendarDateTime(2011, 1, 1, 8, 0, 0, tzid=PyCalendarTimezone(utc=True)))
+        self.assertNotEqual(ical.cachedInstances.limit, oldLimit)
+        oldLimit = ical.cachedInstances.limit
+        
+        # Check one day ahead again - no re-cache
+        ical.deriveInstance(PyCalendarDateTime(2011, 1, 2, 8, 0, 0, tzid=PyCalendarTimezone(utc=True)))
+        self.assertEqual(ical.cachedInstances.limit, oldLimit)
+
+
     def test_truncate_recurrence(self):
         
         data = (
