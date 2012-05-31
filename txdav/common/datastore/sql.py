@@ -4254,6 +4254,30 @@ class _AndNothing(object):
 
 
 @inlineCallbacks
+def _needsNormalizationUpgrade(txn):
+    """
+    Determine whether a given store requires a UUID normalization data upgrade.
+
+    @param txn: the transaction to use
+    @type txn: L{CommonStoreTransaction}
+
+    @return: a L{Deferred} that fires with C{True} or C{False} depending on
+        whether we need the normalization upgrade or not.
+    """
+    for x in [schema.CALENDAR_HOME, schema.ADDRESSBOOK_HOME,
+              schema.NOTIFICATION_HOME]:
+        slct = Select([x.OWNER_UID], From=x,
+                      Where=x.OWNER_UID != Upper(x.OWNER_UID))
+        rows = yield slct.on(txn)
+        if rows:
+            for [uid] in rows:
+                if normalizeUUIDOrNot(uid) != uid:
+                    returnValue(True)
+    returnValue(False)
+
+
+
+@inlineCallbacks
 def fixUUIDNormalization(store):
     """
     Fix all UUIDs in the given SQL store to be in a canonical form;
@@ -4261,18 +4285,11 @@ def fixUUIDNormalization(store):
     """
     t = store.newTransaction(disableCache=True)
 
-    # First, let's see if there are any calendar or addressbook homes that have
-    # a lower-case OWNER_UID.  If there are none, then we can early-out and
-    # avoid the tedious and potentially expensive inspection of oodles of
-    # calendar data.
-    for x in [schema.CALENDAR_HOME, schema.ADDRESSBOOK_HOME,
-              schema.NOTIFICATION_HOME]:
-        slct = Select([x.OWNER_UID], From=x,
-                      Where=x.OWNER_UID != Upper(x.OWNER_UID))
-        rows = yield slct.on(t)
-        if rows:
-            break
-    else:
+    # First, let's see if there are any calendar, addressbook, or notification
+    # homes that have a de-normalized OWNER_UID.  If there are none, then we can
+    # early-out and avoid the tedious and potentially expensive inspection of
+    # oodles of calendar data.
+    if not (yield _needsNormalizationUpgrade(t)):
         log.msg("No potentially denormalized UUIDs detected, "
                 "skipping normalization upgrade.")
         yield t.abort()
