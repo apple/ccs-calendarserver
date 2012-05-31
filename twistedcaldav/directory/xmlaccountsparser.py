@@ -127,11 +127,11 @@ class XMLAccountsParser(object):
             if child.hasAttribute(ATTRIBUTE_REPEAT):
                 repeat = int(child.getAttribute(ATTRIBUTE_REPEAT))
             else:
-                repeat = 1
+                repeat = 0
 
             principal = XMLAccountRecord(recordType)
             principal.parseXML(child)
-            if repeat > 1:
+            if repeat > 0:
                 for i in xrange(1, repeat+1):
                     newprincipal = principal.repeat(i)
                     self.items[recordType][newprincipal.shortNames[0]] = newprincipal
