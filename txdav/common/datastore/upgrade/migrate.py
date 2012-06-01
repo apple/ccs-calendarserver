@@ -46,14 +46,37 @@ from txdav.common.datastore.file import CommonDataStore as FileStore, TOPPATHS
 from txdav.base.propertystore.xattr import PropertyStore as XattrPropertyStore
 from txdav.base.propertystore.appledouble_xattr import (PropertyStore
                                                         as AppleDoubleStore)
+from txdav.caldav.datastore.util import fixOneCalendarObject
+from txdav.base.datastore.util import normalizeUUIDOrNot
+
+
+
+@inlineCallbacks
+def _getFixedComponent(cobj):
+    """
+    Retrieve a UUID-normalized component from a calendar object (for migrating
+    from the file store).
+
+    @param cobj: a calendar object from the file store.
+    @type cobj: L{ICalendarObject}
+
+    @return: a L{Deferred} which fires with the appropriate L{Component}.
+    """
+    comp = yield cobj.component()
+    fixes, fixed = fixOneCalendarObject(comp)
+    returnValue(fixed)
+
 
 
 homeTypeLookup = {
-    "calendar": (migrateCalendarHome,
-                 lambda txn: txn.calendarHomeWithUID),
+    "calendar": (
+        lambda inHome, outHome, getComponent=None, merge=False:
+            migrateCalendarHome(inHome, outHome, _getFixedComponent, merge),
+        lambda txn: txn.calendarHomeWithUID),
     "addressbook": (migrateAddressbookHome,
                     lambda txn: txn.addressbookHomeWithUID)
 }
+
 
 
 def swapAMP(oldAMP, newAMP):
@@ -309,7 +332,7 @@ class UpgradeToDatabaseService(Service, LoggingMixIn, object):
         Migrate an individual calendar or addressbook home.
         """
         migrateFunc, destFunc = homeTypeLookup.get(homeType)
-        uid = fileHome.uid()
+        uid = normalizeUUIDOrNot(fileHome.uid())
         self.log_warn("Starting migration transaction %s UID %r" %
                       (homeType, uid))
         sqlTxn = self.sqlStore.newTransaction()
@@ -339,7 +362,6 @@ class UpgradeToDatabaseService(Service, LoggingMixIn, object):
             # this, this would simply be a store-to-store migrator rather than a
             # filesystem-to-database upgrade.)
             fileHome._path.remove()
-
 
 
     @inlineCallbacks

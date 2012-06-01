@@ -191,8 +191,7 @@ def _migrateCalendar(inCalendar, outCalendar, getComponent, merge=False):
                 continue
         try:
             # Must account for metadata
-            component = (yield calendarObject.component())
-            #            ^ FIXME: TESTME: SHOULD CALL 'getComponent' argument
+            component = yield getComponent(calendarObject)
             component.md5 = calendarObject.md5()
             yield outCalendar.createCalendarObjectWithName(
                 calendarObject.name(),
