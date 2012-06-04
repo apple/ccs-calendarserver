@@ -111,6 +111,24 @@ class CommandsBase(object):
             else:
                 returnValue(())
 
+    def directoryRecordWithID(self, id):
+        """
+        Obtains a directory record corresponding to the given C{id}.
+        C{id} is assumed to be a record UID.  For convenience, may
+        also take the form C{type:name}, where C{type} is a record
+        type and C{name} is a record short name.
+        @return: an C{IDirectoryRecord}
+        """
+        directory = self.protocol.service.directory
+
+        record = directory.recordWithUID(id)
+
+        if not record:
+            # Try type:name form
+            pass
+
+        return record
+
     def commands(self, showHidden=False):
         """
         @return: an iterable of C{(name, method)} tuples, where
@@ -556,19 +574,19 @@ class Commands(CommandsBase):
         """
         Print information about a principal.
 
-        usage: print_principal uid
+        usage: print_principal id
         """
         if tokens:
-            uid = tokens.pop(0)
+            id = tokens.pop(0)
         else:
-            raise UsageError("UID required")
+            raise UsageError("Principal ID required")
 
         if tokens:
             raise UnknownArguments(tokens)
 
         directory = self.protocol.service.directory
 
-        record = directory.recordWithUID(uid)
+        record = self.directoryRecordWithID(id)
 
         if record:
             self.terminal.write((yield recordInfo(directory, record)))
@@ -595,16 +613,15 @@ class Commands(CommandsBase):
 
         directory = self.protocol.service.directory
 
-        uids = tuple(tokens)
+        records = []
+        for id in tokens:
+            record = self.directoryRecordWithID(id)
+            if record:
+                records.append(record)
+            else:
+                self.terminal.write("Unknown UID: %s\n" % (id,))
 
-        error = False
-        for uid in uids:
-            record = directory.recordWithUID(uid)
-            if not record:
-                self.terminal.write("Unknown UID: %s\n" % (uid,))
-                error = True
-
-        if error:
+        if None in records:
             self.terminal.write("Aborting.\n")
             return
 
@@ -619,9 +636,9 @@ class Commands(CommandsBase):
             toPurge = "purged"
 
         total = 0
-        for uid in uids:
+        for record in records:
             count, assignments = (yield purgeUID(
-                uid, directory, rootResource,
+                record.uid, directory, rootResource,
                 verbose    = False,
                 dryrun     = dryRun,
                 completely = completely,
@@ -631,7 +648,7 @@ class Commands(CommandsBase):
 
             self.terminal.write(
                 "%d events %s for UID %s.\n"
-                % (count, toPurge, uid)
+                % (count, toPurge, record.uid)
             )
 
         self.terminal.write(
