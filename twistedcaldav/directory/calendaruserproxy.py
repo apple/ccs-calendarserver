@@ -416,7 +416,7 @@ class ProxyDB(AbstractADBAPIDatabase, LoggingMixIn):
 
     """
 
-    schema_version = "5"
+    schema_version = "4"
     schema_type    = "CALENDARUSERPROXY"
 
     class ProxyDBMemcacher(Memcacher):
@@ -777,6 +777,44 @@ class ProxyDB(AbstractADBAPIDatabase, LoggingMixIn):
 
 
     @inlineCallbacks
+    def open(self):
+        """
+        Open the database, normalizing all UUIDs in the process if necessary.
+        """
+        result = yield super(ProxyDB, self).open()
+        yield self._maybeNormalizeUUIDs()
+        returnValue(result)
+
+
+    @inlineCallbacks
+    def _maybeNormalizeUUIDs(self):
+        alreadyDone = yield self._db_value_for_sql(
+            "select VALUE from CALDAV where KEY = 'UUIDS_NORMALIZED'"
+        )
+        if alreadyDone is None:
+            for (groupname, member) in (
+                    (yield self._db_all_values_for_sql(
+                        "select GROUPNAME, MEMBER from GROUPS"))
+                ):
+                grouplist = groupname.split("#")
+                grouplist[0] = normalizeUUID(grouplist[0])
+                newGroupName = "#".join(grouplist)
+                newMemberName = normalizeUUID(member)
+                if newGroupName != groupname or newMemberName != member:
+                    yield self._db_execute("""
+                        update GROUPS set GROUPNAME = :1, MEMBER = :2
+                        where GROUPNAME = :3 and MEMBER = :4
+                    """, [newGroupName, newMemberName,
+                          groupname, member])
+            yield self._db_execute(
+                """
+                insert or ignore into CALDAV (KEY, VALUE)
+                values ('UUIDS_NORMALIZED', 'YES')
+                """
+            )
+
+
+    @inlineCallbacks
     def _db_upgrade_data_tables(self, old_version):
         """
         Upgrade the data from an older version of the DB.
@@ -798,19 +836,6 @@ class ProxyDB(AbstractADBAPIDatabase, LoggingMixIn):
                 ("MEMBER",),
                 ifnotexists=True,
             )
-
-        if int(old_version) < 5:
-            for (groupname, member) in (
-                    (yield self._db_all_values_for_sql(
-                        "select GROUPNAME, MEMBER from GROUPS"))
-                ):
-                grouplist = groupname.split("#")
-                grouplist[0] = normalizeUUID(grouplist[0])
-                yield self._db_execute("""
-                    update GROUPS set GROUPNAME = :1, MEMBER = :2
-                    where GROUPNAME = :3 and MEMBER = :4
-                """, ["#".join(grouplist), normalizeUUID(member),
-                      groupname, member])
 
 
     def _db_empty_data_tables(self):
