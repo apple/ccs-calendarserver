@@ -125,7 +125,12 @@ class CommandsBase(object):
 
         if not record:
             # Try type:name form
-            pass
+            try:
+                recordType, shortName = id.split(":")
+            except ValueError:
+                pass
+            else:
+                record = directory.recordWithShortName(recordType, shortName)
 
         return record
 
@@ -616,9 +621,9 @@ class Commands(CommandsBase):
         records = []
         for id in tokens:
             record = self.directoryRecordWithID(id)
-            if record:
-                records.append(record)
-            else:
+            records.append(record)
+
+            if not record:
                 self.terminal.write("Unknown UID: %s\n" % (id,))
 
         if None in records:
