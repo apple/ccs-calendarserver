@@ -59,12 +59,16 @@ init_build () {
   conditional_set wd "$(pwd)";
   conditional_set config "${wd}/conf/caldavd-dev.plist";
   conditional_set caldav "${wd}";
+  conditional_set CALENDARSERVER_BUILD_DEPS "${caldav}/..";
 
   if [ -z "${CALENDARSERVER_CACHE_DEPS-}" ]; then
     cache_deps="${wd}/.dependencies";
   else
     cache_deps="${CALENDARSERVER_CACHE_DEPS}";
   fi;
+
+  mkdir -p "${CALENDARSERVER_BUILD_DEPS}";
+  top="$(cd "${CALENDARSERVER_BUILD_DEPS}" && pwd -L)";
 
   if [ -z "${caldavd_wrapper_command:-}" ]; then
     if [ "$(uname -s)" == "Darwin" ] && [ "$(uname -r | cut -d . -f 1)" -ge 9 ]; then
@@ -74,7 +78,6 @@ init_build () {
     fi;
   fi;
 
-      top="$(cd "${caldav}/.." && pwd -L)";
   patches="${caldav}/lib-patches";
 
   # Find a command that can hash up a string for us
