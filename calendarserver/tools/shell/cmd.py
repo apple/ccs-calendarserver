@@ -80,6 +80,37 @@ class CommandsBase(object):
     # Utilities
     #
 
+    def documentationForCommand(self, command):
+        """
+        @return: the documentation for the given C{command} as a
+        string.
+        """
+        m = getattr(self, "cmd_%s" % (command,), None)
+        if m:
+            doc = m.__doc__.split("\n")
+
+            # Throw out first and last line if it's empty
+            if doc:
+                if not doc[0].strip():
+                    doc.pop(0)
+                if not doc[-1].strip():
+                    doc.pop()
+
+            if doc:
+                # Get length of indentation
+                i = len(doc[0]) - len(doc[0].lstrip())
+
+                result = []
+                for line in doc:
+                    result.append(line[i:])
+
+                return "\n".join(result)
+            else:
+                self.terminal.write("(No documentation available for %s)\n" % (command,))
+        else:
+            raise NotFoundError("Unknown command: %s" % (command,))
+
+
     def getTarget(self, tokens, wdFallback=False):
         """
         Pop's the first token from tokens and locates the File
@@ -254,29 +285,8 @@ class Commands(CommandsBase):
             raise UnknownArguments(tokens)
 
         if command:
-            m = getattr(self, "cmd_%s" % (command,), None)
-            if m:
-                doc = m.__doc__.split("\n")
-
-                # Throw out first and last line if it's empty
-                if doc:
-                    if not doc[0].strip():
-                        doc.pop(0)
-                    if not doc[-1].strip():
-                        doc.pop()
-
-                if doc:
-                    # Get length of indentation
-                    i = len(doc[0]) - len(doc[0].lstrip())
-
-                    for line in doc:
-                        self.terminal.write(line[i:])
-                        self.terminal.nextLine()
-
-                else:
-                    self.terminal.write("(No documentation available for %s)\n" % (command,))
-            else:
-                raise NotFoundError("Unknown command: %s" % (command,))
+            self.terminal.write(self.documentationForCommand(command))
+            self.terminal.nextLine()
         else:
             self.terminal.write("Available commands:\n")
 
@@ -449,9 +459,9 @@ class Commands(CommandsBase):
     @inlineCallbacks
     def cmd_ls(self, tokens):
         """
-        List folder contents.
+        List target.
 
-        usage: ls [folder]
+        usage: ls [target ...]
         """
         targets = (yield self.getTargets(tokens, wdFallback=True))
         multiple = len(targets) > 0
@@ -478,9 +488,9 @@ class Commands(CommandsBase):
     @inlineCallbacks
     def cmd_info(self, tokens):
         """
-        Print information about a folder.
+        Print information about a target.
 
-        usage: info [folder]
+        usage: info [target]
         """
         target = (yield self.getTarget(tokens, wdFallback=True))
 
@@ -557,7 +567,7 @@ class Commands(CommandsBase):
         """
         Search for matching principals
 
-        usage: find_principal term
+        usage: find_principal search_term
         """
         if not tokens:
             raise UsageError("No search term")
@@ -579,7 +589,7 @@ class Commands(CommandsBase):
         """
         Print information about a principal.
 
-        usage: print_principal id
+        usage: print_principal principal_id
         """
         if tokens:
             id = tokens.pop(0)
@@ -610,7 +620,7 @@ class Commands(CommandsBase):
         """
         Purge data associated principals.
 
-        usage: purge_principals uid [uid ...]
+        usage: purge_principals principal_id [principal_id ...]
         """
         dryRun     = True
         completely = False
@@ -662,6 +672,43 @@ class Commands(CommandsBase):
         )
 
     cmd_purge_principals.hidden = "incomplete"
+
+    #
+    # Sharing
+    #
+
+    def cmd_share(self, tokens):
+        """
+        Share a resource with a principal.
+
+        usage: share mode principal_id target [target ...]
+
+            mode: r (read) or rw (read/write)
+        """
+        if len(tokens) < 3:
+            raise InsufficientArguments()
+
+        mode        = tokens.pop(0)
+        principalID = tokens.pop(0)
+
+        record = self.directoryRecordWithID(principalID)
+
+        if not record:
+            self.terminal.write("Principal not found: %s\n" % (principalID,))
+
+        targets = self.getTargets(tokens)
+
+        if mode == "r":
+            mode = None
+        elif mode == "rw":
+            mode = None
+        else:
+            raise UsageError("Unknown mode: %s" % (mode,))
+
+        for target in targets:
+            raise NotImplementedError()
+
+    cmd_share.hidden = "incomplete"
 
     #
     # Python prompt, for the win

@@ -320,6 +320,11 @@ class ShellProtocol(ReceiveLineProtocol):
                 def handleUsageError(f):
                     f.trap(CommandUsageError)
                     self.terminal.write("%s\n" % (f.value,))
+                    doc = self.commands.documentationForCommand(cmd)
+                    if doc:
+                        self.terminal.nextLine()
+                        self.terminal.write(doc)
+                        self.terminal.nextLine()
 
                 def next(_):
                     self.activeCommand = None
