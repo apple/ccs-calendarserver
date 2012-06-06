@@ -788,6 +788,10 @@ class ProxyDB(AbstractADBAPIDatabase, LoggingMixIn):
 
     @inlineCallbacks
     def _maybeNormalizeUUIDs(self):
+        """
+        Normalize the UUIDs in the proxy database so they correspond to the
+        normalized UUIDs in the main calendar database.
+        """
         alreadyDone = yield self._db_value_for_sql(
             "select VALUE from CALDAV where KEY = 'UUIDS_NORMALIZED'"
         )
@@ -876,7 +880,7 @@ class ProxySqliteDB(ADBAPISqliteMixin, ProxyDB):
     """
 
     def __init__(self, dbpath):
-        
+
         ADBAPISqliteMixin.__init__(self)
         ProxyDB.__init__(self, "Proxies", "sqlite3", (fullServerPath(config.DataRoot, dbpath),))
 
@@ -886,11 +890,22 @@ class ProxyPostgreSQLDB(ADBAPIPostgreSQLMixin, ProxyDB):
     """
 
     def __init__(self, host, database, user=None, password=None, dbtype=None):
-        
+
         ADBAPIPostgreSQLMixin.__init__(self, )
         ProxyDB.__init__(self, "Proxies", "pgdb", (), host=host, database=database, user=user, password=password,)
         if dbtype:
             ProxyDB.schema_type = dbtype
+
+
+    def _maybeNormalizeUUIDs(self):
+        """
+        Don't bother normalizing UUIDs for postgres yet; users of postgres
+        databases for proxy data are even less likely to have UUID
+        case-normalization issues than the general population.
+        """
+        return succeed(None)
+
+
 
 ##
 # Utilities
