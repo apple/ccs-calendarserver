@@ -46,7 +46,7 @@ class ProxyPrincipalDBSqlite (twistedcaldav.test.util.TestCase):
             #
             # GROUPS table
             #
-            return self.execute(
+            return self._db_execute(
                 """
                 create table GROUPS (
                     GROUPNAME   text,
