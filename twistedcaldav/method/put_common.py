@@ -132,6 +132,7 @@ class StoreCalendarObjectResource(object):
         allowImplicitSchedule=True,
         internal_request=False,
         processing_organizer=None,
+        returnData=False,
     ):
         """
         Function that does common PUT/COPY/MOVE behavior.
@@ -153,6 +154,7 @@ class StoreCalendarObjectResource(object):
         @param allowImplicitSchedule: True if implicit scheduling should be attempted, False otherwise.
         @param internal_request:   True if this request originates internally and needs to bypass scheduling authorization checks.
         @param processing_organizer: True if implicit processing for an organizer, False if for an attendee, None if not implicit processing.
+        @param returnData:         True if the caller wants the actual data written to the store returned
         """
         
         # Check that all arguments are valid
@@ -193,6 +195,7 @@ class StoreCalendarObjectResource(object):
         self.allowImplicitSchedule = allowImplicitSchedule
         self.internal_request = internal_request
         self.processing_organizer = processing_organizer
+        self.returnData = returnData
 
         self.access = None
         self.hasPrivateComments = False
@@ -1024,7 +1027,8 @@ class StoreCalendarObjectResource(object):
     def doStore(self, implicit):
 
         # Stash the current calendar data as we may need to return it
-        self.returndata = str(self.calendar) if self.calendardata is None else self.calendardata
+        if self.returnData:
+            self.storeddata = str(self.calendar) if self.calendardata is None else self.calendardata
 
         # Always do the per-user data merge right before we store
         yield self.mergePerUserData()

@@ -583,7 +583,7 @@ class _CommonHomeChildCollectionMixin(ResponseCacheMixin):
                 # Get a resource for the new item
                 newchildURL = joinURL(request.path, name)
                 newchild = (yield request.locateResource(newchildURL))
-                dataChanged = (yield self.storeResourceData(request, newchild, newchildURL, component))
+                dataChanged = (yield self.storeResourceData(request, newchild, newchildURL, component, returnData=return_changed))
 
             except HTTPError, e:
                 # Extract the pre-condition
@@ -1124,7 +1124,7 @@ class CalendarCollectionResource(DefaultAlarmPropertyMixin, _CalendarCollectionB
         return caldavxml.CalendarData
 
     @inlineCallbacks
-    def storeResourceData(self, request, newchild, newchildURL, component, text=None):
+    def storeResourceData(self, request, newchild, newchildURL, component, text=None, returnData=False):
         storer = StoreCalendarObjectResource(
             request = request,
             destination = newchild,
@@ -1133,10 +1133,11 @@ class CalendarCollectionResource(DefaultAlarmPropertyMixin, _CalendarCollectionB
             destinationparent = self,
             calendar = component,
             calendardata = text,
+            returnData = returnData,
         )
         yield storer.run()
         
-        returnValue(storer.returndata if hasattr(storer, "returndata") else None)
+        returnValue(storer.storeddata if hasattr(storer, "storeddata") else None)
             
 
     @inlineCallbacks
@@ -2057,7 +2058,7 @@ class AddressBookCollectionResource(_CommonHomeChildCollectionMixin, CalDAVResou
         return carddavxml.AddressData
 
     @inlineCallbacks
-    def storeResourceData(self, request, newchild, newchildURL, component, text=None):
+    def storeResourceData(self, request, newchild, newchildURL, component, text=None, returnData=False):
         storer = StoreAddressObjectResource(
             request = request,
             sourceadbk = False,
@@ -2067,6 +2068,7 @@ class AddressBookCollectionResource(_CommonHomeChildCollectionMixin, CalDAVResou
             destinationparent = self,
             vcard = component,
             vcarddata = text,
+            returnData = returnData,
         )
         yield storer.run()
         

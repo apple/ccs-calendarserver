@@ -877,7 +877,7 @@ class ImplicitScheduler(object):
         
                 # Do the PUT processing
                 log.info("Implicit CANCEL - organizer: '%s' to attendee: '%s', UID: '%s', RIDs: '%s'" % (self.organizer, attendee, self.uid, rids))
-                response = (yield scheduler.doSchedulingViaPUT(self.originator, (attendee,), itipmsg, self.internal_request))
+                response = (yield scheduler.doSchedulingViaPUT(self.originator, (attendee,), itipmsg, internal_request=True))
                 self.handleSchedulingResponse(response, True)
                 
                 count += 1
@@ -919,7 +919,7 @@ class ImplicitScheduler(object):
         
                 # Do the PUT processing
                 log.info("Implicit REQUEST - organizer: '%s' to attendee: '%s', UID: '%s'" % (self.organizer, attendee, self.uid,))
-                response = (yield scheduler.doSchedulingViaPUT(self.originator, (attendee,), itipmsg, self.internal_request))
+                response = (yield scheduler.doSchedulingViaPUT(self.originator, (attendee,), itipmsg, internal_request=True))
                 self.handleSchedulingResponse(response, True)
                 
                 count += 1
@@ -1186,6 +1186,6 @@ class ImplicitScheduler(object):
             self.handleSchedulingResponse(response, False)
             
         log.info("Implicit %s - attendee: '%s' to organizer: '%s', UID: '%s'" % (action, self.attendee, self.organizer, self.uid,))
-        d = scheduler.doSchedulingViaPUT(self.originator, (self.organizer,), itipmsg, self.internal_request)
+        d = scheduler.doSchedulingViaPUT(self.originator, (self.organizer,), itipmsg, internal_request=True)
         d.addCallback(_gotResponse)
         return d

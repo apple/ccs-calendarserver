@@ -14,12 +14,7 @@
 # limitations under the License.
 ##
 
-import time
-
-try:
-    from hashlib import md5
-except ImportError:
-    from md5 import new as md5
+import uuid
 
 from twext.python.log import Logger
 from twext.web2.dav.http import ErrorResponse
@@ -143,7 +138,7 @@ class ScheduleViaCalDAV(DeliveryService):
     @inlineCallbacks
     def generateResponse(self, recipient, responses):
         # Hash the iCalendar data for use as the last path element of the URI path
-        name = md5(self.scheduler.calendardata + str(time.time()) + recipient.inboxURL).hexdigest() + ".ics"
+        name = str(uuid.uuid4()) + ".ics"
     
         # Get a resource for the new item
         childURL = joinURL(recipient.inboxURL, name)

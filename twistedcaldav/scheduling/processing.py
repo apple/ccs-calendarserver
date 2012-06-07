@@ -14,9 +14,6 @@
 # limitations under the License.
 ##
 
-import time
-from hashlib import md5
-
 from twisted.python.log import err as log_traceback
 from twext.python.log import Logger
 
@@ -39,6 +36,7 @@ from twistedcaldav.memcacher import Memcacher
 from pycalendar.duration import PyCalendarDuration
 from pycalendar.datetime import PyCalendarDateTime
 from pycalendar.timezone import PyCalendarTimezone
+import uuid
 
 """
 CalDAV implicit processing.
@@ -470,7 +468,7 @@ class ImplicitProcessor(object):
 
             log.debug("ImplicitProcessing - originator '%s' to recipient '%s' processing METHOD:REQUEST, UID: '%s' - new processed" % (self.originator.cuaddr, self.recipient.cuaddr, self.uid))
             new_calendar = iTipProcessing.processNewRequest(self.message, self.recipient.cuaddr)
-            name =  md5(str(new_calendar) + str(time.time()) + default.url()).hexdigest() + ".ics"
+            name =  str(uuid.uuid4()) + ".ics"
             
             # Handle auto-reply behavior
             if self.recipient.principal.canAutoSchedule():
@@ -895,7 +893,7 @@ class ImplicitProcessor(object):
         
         # Create a new name if one was not provided
         if name is None:
-            name =  md5(str(calendar) + str(time.time()) + collURL).hexdigest() + ".ics"
+            name =  str(uuid.uuid4()) + ".ics"
     
         # Get a resource for the new item
         newchildURL = joinURL(collURL, name)

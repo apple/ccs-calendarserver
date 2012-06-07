@@ -160,7 +160,7 @@ class Scheduler(object):
         if not hasattr(self.request, "extendedLogItems"):
             self.request.extendedLogItems = {}
         self.request.extendedLogItems["recipients"] = len(self.recipients)
-        self.request.extendedLogItems["cl"] = str(len(self.calendardata))
+        self.request.extendedLogItems["cl"] = str(self.calendar)
     
         # Do some extra authorization checks
         self.checkAuthorization()
@@ -199,7 +199,6 @@ class Scheduler(object):
         self.originator = originator
         self.recipients = recipients
         self.calendar = calendar
-        self.calendardata = str(self.calendar)
         self.internal_request = internal_request
 
         # Do some extra authorization checks
@@ -340,7 +339,6 @@ class Scheduler(object):
             self.calendar = (yield Component.fromIStream(self.request.stream))
             
             self.preProcessCalendarData()
-            self.calendardata = str(self.calendar)
         except:
             # FIXME: Bare except
             log.err("Error while handling %s: %s" % (self.method, Failure(),))
@@ -376,43 +374,48 @@ class Scheduler(object):
         raise NotImplementedError
 
     def checkCalendarData(self):
-        # Must be a valid calendar
-        try:
-            self.calendar.validCalendarData()
-        except ValueError, e:
-            log.err("%s request calendar component is not valid:%s %s" % (self.method, e, self.calendar,))
-            raise HTTPError(ErrorResponse(
-                responsecode.FORBIDDEN,
-                (caldav_namespace, "valid-calendar-data"),
-                description="Calendar component is not valid"
-            ))
-    
-        # Must have a METHOD
-        if not self.calendar.isValidMethod():
-            log.err("%s request must have valid METHOD property in calendar component: %s" % (self.method, self.calendar,))
-            raise HTTPError(ErrorResponse(
-                responsecode.FORBIDDEN,
-                (caldav_namespace, "valid-calendar-data"),
-                description="Must have valid METHOD property"
-            ))
         
-        # Verify iTIP behavior
-        if not self.calendar.isValidITIP():
-            log.err("%s request must have a calendar component that satisfies iTIP requirements: %s" % (self.method, self.calendar,))
-            raise HTTPError(ErrorResponse(
-                responsecode.FORBIDDEN,
-                (caldav_namespace, "valid-calendar-data"),
-                description="Must have a calendar component that satisfies iTIP requirements"
-            ))
-
-        # X-CALENDARSERVER-ACCESS is not allowed in Outbox POSTs
-        if self.calendar.hasProperty(Component.ACCESS_PROPERTY):
-            log.err("X-CALENDARSERVER-ACCESS not allowed in a calendar component %s request: %s" % (self.method, self.calendar,))
-            raise HTTPError(ErrorResponse(
-                responsecode.FORBIDDEN,
-                (calendarserver_namespace, "no-access-restrictions"),
-                "Private events cannot be scheduled",
-            ))
+        # Skip all the valid data checks for an internal request as we are going to assume all the internal
+        # request data has been generated properly.
+    
+        if not self.internal_request:
+            # Must be a valid calendar
+            try:
+                self.calendar.validCalendarData()
+            except ValueError, e:
+                log.err("%s request calendar component is not valid:%s %s" % (self.method, e, self.calendar,))
+                raise HTTPError(ErrorResponse(
+                    responsecode.FORBIDDEN,
+                    (caldav_namespace, "valid-calendar-data"),
+                    description="Calendar component is not valid"
+                ))
+        
+            # Must have a METHOD
+            if not self.calendar.isValidMethod():
+                log.err("%s request must have valid METHOD property in calendar component: %s" % (self.method, self.calendar,))
+                raise HTTPError(ErrorResponse(
+                    responsecode.FORBIDDEN,
+                    (caldav_namespace, "valid-calendar-data"),
+                    description="Must have valid METHOD property"
+                ))
+            
+            # Verify iTIP behavior
+            if not self.calendar.isValidITIP():
+                log.err("%s request must have a calendar component that satisfies iTIP requirements: %s" % (self.method, self.calendar,))
+                raise HTTPError(ErrorResponse(
+                    responsecode.FORBIDDEN,
+                    (caldav_namespace, "valid-calendar-data"),
+                    description="Must have a calendar component that satisfies iTIP requirements"
+                ))
+    
+            # X-CALENDARSERVER-ACCESS is not allowed in Outbox POSTs
+            if self.calendar.hasProperty(Component.ACCESS_PROPERTY):
+                log.err("X-CALENDARSERVER-ACCESS not allowed in a calendar component %s request: %s" % (self.method, self.calendar,))
+                raise HTTPError(ErrorResponse(
+                    responsecode.FORBIDDEN,
+                    (calendarserver_namespace, "no-access-restrictions"),
+                    "Private events cannot be scheduled",
+                ))
     
         # Determine iTIP method mode
         if self.calendar.propertyValue("METHOD") in ("PUBLISH", "REQUEST", "ADD", "CANCEL", "DECLINECOUNTER"):
@@ -426,7 +429,7 @@ class Scheduler(object):
         
             # Must have only one
             if len(attendees) != 1:
-                log.err("Wrong number of ATTENDEEs in calendar data: %s" % (self.calendardata,))
+                log.err("Wrong number of ATTENDEEs in calendar data: %s" % (str(self.calendar),))
                 raise HTTPError(ErrorResponse(
                     responsecode.FORBIDDEN,
                     (caldav_namespace, "attendee-allowed"),
@@ -512,7 +515,7 @@ class Scheduler(object):
                         str("".join(["    %s\n" % (recipient,) for recipient in self.recipients])),
                         str(self.request.serverInstance),
                         str(self.method),
-                        self.calendardata,
+                        str(self.calendar),
                     )
                 )
 

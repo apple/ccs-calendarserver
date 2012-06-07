@@ -91,6 +91,7 @@ class StoreAddressObjectResource(object):
         destination=None, destination_uri=None, destinationparent=None, destinationadbk=True,
         vcard=None, vcarddata=None,
         indexdestination = True,
+        returnData=False,
    ):
         """
         Function that does common PUT/COPY/MOVE behavior.
@@ -108,6 +109,7 @@ class StoreAddressObjectResource(object):
         @param sourceparent:      the L{CalDAVResource} for the source resource's parent collection, or None if source is None.
         @param destinationparent: the L{CalDAVResource} for the destination resource's parent collection.
         @param deletesource:      True if the source resource is to be deleted on successful completion, False otherwise.
+        @param returnData:         True if the caller wants the actual data written to the store returned
         """
         
         # Check that all arguments are valid
@@ -144,6 +146,7 @@ class StoreAddressObjectResource(object):
         self.vcarddata = vcarddata
         self.deletesource = deletesource
         self.indexdestination = indexdestination
+        self.returnData = returnData
         
         self.access = None
 
