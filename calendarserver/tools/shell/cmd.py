@@ -134,7 +134,13 @@ class CommandsBase(object):
         if tokens:
             result = []
             for token in tokens:
-                result.append((yield self.wd.locate(token.split("/"))))
+                try:
+                    target = (yield self.wd.locate(token.split("/")))
+                except NotFoundError:
+                    raise UsageError("No such target: %s" % (token,))
+
+                result.append(target)
+
             returnValue(result)
         else:
             if wdFallback:
