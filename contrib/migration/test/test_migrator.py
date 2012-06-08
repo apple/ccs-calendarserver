@@ -1473,6 +1473,20 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
             self.assertEquals(expected, relativize(*args))
 
 
+    def test_createExistingDirectory(self):
+        import os
+        t = self.mktemp()
+        os.mkdir(t)
+        da = contrib.migration.calendarmigrator.DiskAccessor()
+        self.assertEquals(da.mkdir(t), None)
+
+
+    def test_createDirectory(self):
+        t = self.mktemp()
+        da = contrib.migration.calendarmigrator.DiskAccessor()
+        self.assertEquals(da.mkdir(t), None)
+
+
 class StubDiskAccessor(object):
     """
     A stub which allows testing without actually having real files
