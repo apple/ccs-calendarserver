@@ -849,7 +849,12 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         # Setup appropriate txn
         txn = txn if txn is not None else self._txn
 
-        # Decide how far to expand based on the component
+        # inbox does things slightly differently
+        isInboxItem = self._parentCollection.name() == "inbox"
+
+        # Decide how far to expand based on the component. doInstanceIndexing will indicate whether we
+        # store expanded instance data immediately, or wait until a re-expand is triggered by some later
+        # operation.
         doInstanceIndexing = False
         master = component.masterComponent()
         if ( master is None or not component.isRecurring() ):
@@ -861,7 +866,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         else:
 
             # If migrating or re-creating or config option for delayed indexing is off, always index
-            if reCreate or txn._migrating or not config.FreeBusyIndexDelayedExpand:
+            if reCreate or txn._migrating or (not config.FreeBusyIndexDelayedExpand and not isInboxItem):
                 doInstanceIndexing = True
 
             # Duration into the future through which recurrences are expanded in the index
