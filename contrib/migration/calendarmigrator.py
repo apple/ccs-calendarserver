@@ -768,7 +768,10 @@ class DiskAccessor(object):
         return contents
 
     def mkdir(self, path):
-        return os.mkdir(path)
+        if not self.exists(path):
+            return os.mkdir(path)
+        else:
+            return
 
     def rename(self, before, after):
         log("Renaming: %s to %s" % (before, after))
