@@ -210,6 +210,14 @@ class PerUserDataFilter(CalendarFilter):
             ical.addProperty(property)
 
     def _splitPerUserData(self, ical):
+        """
+        Split the per-user data out of the "normal" iCalendar components into separate per-user
+        components. Along the way keep the iCalendar representation in a "minimal" state by eliminating
+        any components that are the same as the master derived component.
+
+        @param ical: calendar data to process
+        @type ical: L{Component}
+        """
         
         def init_peruser_component():
             peruser = Component(PerUserDataFilter.PERUSER_COMPONENT)
@@ -229,8 +237,6 @@ class PerUserDataFilter(CalendarFilter):
             def init_perinstance_component():
                 peruser = Component(PerUserDataFilter.PERINSTANCE_COMPONENT)
                 rid = component.getRecurrenceIDUTC()
-                if rid:
-                    peruser.addProperty(Property("RECURRENCE-ID", rid))
                 perinstance_components[rid] = peruser
                 return peruser
 
@@ -253,15 +259,13 @@ class PerUserDataFilter(CalendarFilter):
         if self.uid:
             # Add unique per-instance components into the per-user component
             master_perinstance = perinstance_components.get(None)
-            master_perinstance_txt = str(master_perinstance)
             if master_perinstance:
                 peruser_component.addComponent(master_perinstance)
             for rid, perinstance in perinstance_components.iteritems():
                 if rid is None:
                     continue
-                perinstance_txt = str(perinstance)
-                perinstance_txt = "".join([line for line in perinstance_txt.splitlines(True) if not line.startswith("RECURRENCE-ID:")])
-                if master_perinstance is None or perinstance_txt != master_perinstance_txt:
+                if master_perinstance is None or perinstance != master_perinstance:
+                    perinstance.addProperty(Property("RECURRENCE-ID", rid))
                     peruser_component.addComponent(perinstance)
     
             self._compactInstances(ical)
@@ -280,16 +284,17 @@ class PerUserDataFilter(CalendarFilter):
         if master is None:
             return
 
+        masterDerived = ical.masterDerived()
+
         for subcomponent in tuple(ical.subcomponents()):
             if subcomponent.name() == "VTIMEZONE" or subcomponent.name().startswith("X-"):
                 continue
             rid = subcomponent.getRecurrenceIDUTC()
             if rid is None:
                 continue
-            derived = ical.deriveInstance(rid)
-            if derived:
-                if str(derived) == str(subcomponent):
-                    ical.removeComponent(subcomponent)
+            derived = ical.deriveInstance(rid, newcomp=masterDerived)
+            if derived and derived == subcomponent:
+                ical.removeComponent(subcomponent)
 
     def _mergeRepresentations(self, icalnew, icalold):
         

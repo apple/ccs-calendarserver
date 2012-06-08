@@ -1139,7 +1139,7 @@ class Component (object):
                     return True
         return False
         
-    def deriveInstance(self, rid, allowCancelled=False):
+    def deriveInstance(self, rid, allowCancelled=False, newcomp=None):
         """
         Derive an instance from the master component that has the provided RECURRENCE-ID, but
         with all other properties, components etc from the master. If the requested override is
@@ -1154,6 +1154,9 @@ class Component (object):
         @return: L{Component} for newly derived instance, or None if not valid override
         """
         
+        if allowCancelled and newcomp is not None:
+            raise ValueError("Cannot re-use master component with allowCancelled")
+
         # Must have a master component
         master = self.masterComponent()
         if master is None:
@@ -1188,22 +1191,17 @@ class Component (object):
             rrules = master.properties("RRULE")
             if len(tuple(rrules)):
                 instances = self.cacheExpandedTimeRanges(rid)
-                rids = set([instances[key].rid for key in instances])
                 instance_rid = normalizeForIndex(rid)
-                if instance_rid not in rids:
+                if str(instance_rid) not in instances.instances:
                     # No match to a valid RRULE instance
                     return None
             else:
                 # No RRULE and no match to an RDATE => error
                 return None
         
-        # Create the derived instance
-        newcomp = master.duplicate()
-
-        # Strip out unwanted recurrence properties
-        for property in tuple(newcomp.properties()):
-            if property.name() in ("RRULE", "RDATE", "EXRULE", "EXDATE", "RECURRENCE-ID",):
-                newcomp.removeProperty(property)
+        # If we were fed an already derived component, use that, otherwise make a new one
+        if newcomp is None:
+            newcomp = self.masterDerived()
         
         # New DTSTART is the RECURRENCE-ID we are deriving but adjusted to the
         # original DTSTART's localtime
@@ -1223,7 +1221,7 @@ class Component (object):
         if newcomp.hasProperty("DTEND"):
             dtend.setValue(newdtstartValue + oldduration)
 
-        newcomp.addProperty(Property("RECURRENCE-ID", dtstart.value(), params={}))
+        newcomp.replaceProperty(Property("RECURRENCE-ID", dtstart.value(), params={}))
         
         if didCancel:
             newcomp.replaceProperty(Property("STATUS", "CANCELLED"))
@@ -1232,7 +1230,30 @@ class Component (object):
         newcomp._pycalendar.finalise()
 
         return newcomp
+    
+    def masterDerived(self):
+        """
+        Generate a component from the master instance that can be fed repeatedly to
+        deriveInstance in the case where the result of deriveInstance is not going
+        to be inserted into the component. This provides an optimization for avoiding
+        unnecessary .duplicate() calls on the master for each deriveInstance. 
+        """
+
+        # Must have a master component
+        master = self.masterComponent()
+        if master is None:
+            return None
+
+        # Create the derived instance
+        newcomp = master.duplicate()
+
+        # Strip out unwanted recurrence properties
+        for property in tuple(newcomp.properties()):
+            if property.name() in ("RRULE", "RDATE", "EXRULE", "EXDATE", "RECURRENCE-ID",):
+                newcomp.removeProperty(property)
         
+        return newcomp
+
     def validInstances(self, rids, ignoreInvalidInstances=False):
         """
         Test whether the specified recurrence-ids are valid instances in this event.

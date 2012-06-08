@@ -4200,6 +4200,59 @@ END:VCALENDAR
         self.assertEqual(ical.cachedInstances.limit, oldLimit)
 
 
+    def test_derive_instance_with_master_passed_in(self):
+        """
+        Test that derivation of instances only triggers an instance cache re-expansion when it
+        goes past the end of the last cache.
+        """
+        
+        event = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20090101T080000Z
+DTEND:20090101T090000Z
+DTSTAMP:20080601T120000Z
+RRULE:FREQ=DAILY
+END:VEVENT
+END:VCALENDAR
+""".replace("\n", "\r\n")
+
+        derived1 = """BEGIN:VEVENT
+UID:12345-67890-1
+RECURRENCE-ID:20090102T080000Z
+DTSTART:20090102T080000Z
+DTEND:20090102T090000Z
+DTSTAMP:20080601T120000Z
+END:VEVENT
+""".replace("\n", "\r\n")
+
+        derived2 = """BEGIN:VEVENT
+UID:12345-67890-1
+RECURRENCE-ID:20090203T080000Z
+DTSTART:20090203T080000Z
+DTEND:20090203T090000Z
+DTSTAMP:20080601T120000Z
+END:VEVENT
+""".replace("\n", "\r\n")
+
+        ical = Component.fromString(event)
+        masterDerived = ical.masterDerived()
+        
+        # Derive one day apart - no re-cache
+        result = ical.deriveInstance(PyCalendarDateTime(2009, 1, 2, 8, 0, 0, tzid=PyCalendarTimezone(utc=True)), newcomp=masterDerived)
+        self.assertEqual(str(result), derived1)
+
+        result = ical.deriveInstance(PyCalendarDateTime(2009, 2, 3, 8, 0, 0, tzid=PyCalendarTimezone(utc=True)), newcomp=masterDerived)
+        self.assertEqual(str(result), derived2)
+
+        result = ical.deriveInstance(PyCalendarDateTime(2009, 3, 3, 9, 0, 0, tzid=PyCalendarTimezone(utc=True)), newcomp=masterDerived)
+        self.assertEqual(result, None)
+
+        self.assertEqual(str(ical), event)
+
+
     def test_truncate_recurrence(self):
         
         data = (
