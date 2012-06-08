@@ -30,6 +30,7 @@ from twext.python.filepath import CachingFilePath as FilePath
 from twext.python.log import Logger
 
 from twistedcaldav.directory.directory import DirectoryService
+from twistedcaldav.directory.util import normalizeUUID
 
 import re
 import hashlib
@@ -237,7 +238,7 @@ class XMLAccountRecord (object):
         
         result = XMLAccountRecord(self.recordType)
         result.shortNames = shortNames
-        result.guid = guid
+        result.guid = normalizeUUID(guid)
         result.password = password
         result.fullName = fullName
         result.firstName = firstName

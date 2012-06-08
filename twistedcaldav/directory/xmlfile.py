@@ -34,6 +34,7 @@ from twistedcaldav.config import config
 from twistedcaldav.config import fullServerPath
 from twistedcaldav.directory.directory import DirectoryService, DirectoryRecord, DirectoryError
 from twistedcaldav.directory.xmlaccountsparser import XMLAccountsParser, XMLAccountRecord
+from twistedcaldav.directory.util import normalizeUUID
 from twistedcaldav.scheduling.cuaddress import normalizeCUAddr
 from twistedcaldav.xmlutil import addSubElement, createElement, elementToXML
 from uuid import uuid4
@@ -256,6 +257,7 @@ class XMLDirectoryService(DirectoryService):
         return None
 
     def recordWithGUID(self, guid):
+        guid = normalizeUUID(guid)
         for recordType in self.recordTypes():
             record = self._lookupInIndex(recordType, self.INDEX_TYPE_GUID, guid)
             if record is not None:
@@ -431,6 +433,7 @@ class XMLDirectoryService(DirectoryService):
         """
         if guid is None:
             guid = str(uuid4())
+        guid = normalizeUUID(guid)
 
         if not shortNames:
             shortNames = (guid,)
@@ -473,6 +476,8 @@ class XMLDirectoryService(DirectoryService):
         disk.
         """
 
+        guid = normalizeUUID(guid)
+
         # Make sure latest XML records are read in
         accounts = self._forceReload()
 
@@ -496,6 +501,8 @@ class XMLDirectoryService(DirectoryService):
         The account matching the given guid is replaced, then the document
         is serialized to disk.
         """
+
+        guid = normalizeUUID(guid)
 
         # Make sure latest XML records are read in
         accounts = self._forceReload()

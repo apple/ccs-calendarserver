@@ -188,7 +188,7 @@ class PurgeOrphanedAttachmentsService(WorkerService):
 
 class PurgePrincipalService(WorkerService):
 
-    guids = None
+    uids = None
     dryrun = False
     verbose = False
     completely = False
@@ -197,7 +197,7 @@ class PurgePrincipalService(WorkerService):
     def doWork(self):
         rootResource = self.rootResource()
         directory = rootResource.getDirectory()
-        total = (yield purgeGUIDs(directory, rootResource, self.guids,
+        total = (yield purgeUIDs(directory, rootResource, self.uids,
             verbose=self.verbose, dryrun=self.dryrun,
             completely=self.completely))
         if self.verbose:
@@ -389,8 +389,8 @@ def main_purge_principals():
         else:
             raise NotImplementedError(opt)
 
-    # args is a list of guids
-    PurgePrincipalService.guids = args
+    # args is a list of uids
+    PurgePrincipalService.uids = args
     PurgePrincipalService.completely = completely
     PurgePrincipalService.dryrun = dryrun
     PurgePrincipalService.verbose = verbose
@@ -496,14 +496,14 @@ def purgeOrphanedAttachments(store, batchSize, verbose=False, dryrun=False):
 
 
 @inlineCallbacks
-def purgeGUIDs(directory, root, guids, verbose=False, dryrun=False,
+def purgeUIDs(directory, root, uids, verbose=False, dryrun=False,
     completely=False):
     total = 0
 
     allAssignments = { }
 
-    for guid in guids:
-        count, allAssignments[guid] = (yield purgeGUID(guid, directory, root,
+    for uid in uids:
+        count, allAssignments[uid] = (yield purgeUID(uid, directory, root,
             verbose=verbose, dryrun=dryrun, completely=completely))
         total += count
 
@@ -620,27 +620,27 @@ def cancelEvent(event, when, cua):
 
 
 @inlineCallbacks
-def purgeGUID(guid, directory, root, verbose=False, dryrun=False, proxies=True,
+def purgeUID(uid, directory, root, verbose=False, dryrun=False, proxies=True,
     when=None, completely=False):
 
     if when is None:
         when = PyCalendarDateTime.getNowUTC()
 
     # Does the record exist?
-    record = directory.recordWithGUID(guid)
+    record = directory.recordWithUID(uid)
     if record is None:
         # The user has already been removed from the directory service.  We
         # need to fashion a temporary, fake record
 
         # FIXME: probaby want a more elegant way to accomplish this,
         # since it requires the aggregate directory to examine these first:
-        record = DirectoryRecord(directory, "users", guid, shortNames=(guid,),
+        record = DirectoryRecord(directory, "users", uid, shortNames=(uid,),
             enabledForCalendaring=True)
         record.enabled = True
-        directory._tmpRecords["shortNames"][guid] = record
-        directory._tmpRecords["guids"][guid] = record
+        directory._tmpRecords["shortNames"][uid] = record
+        directory._tmpRecords["uids"][uid] = record
 
-    cua = "urn:uuid:%s" % (guid,)
+    cua = "urn:uuid:%s" % (uid,)
 
     principalCollection = directory.principalCollection
     principal = principalCollection.principalForRecord(record)
@@ -648,7 +648,7 @@ def purgeGUID(guid, directory, root, verbose=False, dryrun=False, proxies=True,
     request = FakeRequest(root, None, None)
     request.checkedSACL = True
     request.authnUser = request.authzUser = davxml.Principal(
-        davxml.HRef.fromString("/principals/__uids__/%s/" % (guid,))
+        davxml.HRef.fromString("/principals/__uids__/%s/" % (uid,))
     )
 
     calendarHome = yield principal.calendarHome(request)
@@ -669,7 +669,7 @@ def purgeGUID(guid, directory, root, verbose=False, dryrun=False, proxies=True,
     count = 0
     assignments = []
 
-    perUserFilter = PerUserDataFilter(guid)
+    perUserFilter = PerUserDataFilter(uid)
 
     for collName in (yield calendarHome.listChildren()):
         collection = (yield calendarHome.getChild(collName))
@@ -696,7 +696,7 @@ def purgeGUID(guid, directory, root, verbose=False, dryrun=False, proxies=True,
                     event = perUserFilter.filter(event)
                     action = cancelEvent(event, when, cua)
 
-                uri = "/calendars/__uids__/%s/%s/%s" % (guid, collName, childName)
+                uri = "/calendars/__uids__/%s/%s/%s" % (uid, collName, childName)
                 request.path = uri
                 if action == CANCELEVENT_MODIFIED:
                     count += 1
@@ -728,7 +728,7 @@ def purgeGUID(guid, directory, root, verbose=False, dryrun=False, proxies=True,
                     if not dryrun:
                         result = (yield childResource.storeRemove(request, True, uri))
                         if result != NO_CONTENT:
-                            print "Error deleting %s/%s/%s: %s" % (guid,
+                            print "Error deleting %s/%s/%s: %s" % (uid,
                                 collName, childName, result)
 
 
@@ -736,7 +736,7 @@ def purgeGUID(guid, directory, root, verbose=False, dryrun=False, proxies=True,
 
     # Remove empty calendar collections (and calendar home if no more
     # calendars)
-    calHome = (yield txn.calendarHomeWithUID(guid))
+    calHome = (yield txn.calendarHomeWithUID(uid))
     if calHome is not None:
         calendars = list((yield calHome.calendars()))
         remainingCalendars = len(calendars)
@@ -763,13 +763,13 @@ def purgeGUID(guid, directory, root, verbose=False, dryrun=False, proxies=True,
 
 
     # Remove VCards
-    abHome = (yield txn.addressbookHomeWithUID(guid))
+    abHome = (yield txn.addressbookHomeWithUID(uid))
     if abHome is not None:
         for abColl in list( (yield abHome.addressbooks()) ):
             for card in list( (yield abColl.addressbookObjects()) ):
                 cardName = card.name()
                 if verbose:
-                    uri = "/addressbooks/__uids__/%s/%s/%s" % (guid, abColl.name(), cardName)
+                    uri = "/addressbooks/__uids__/%s/%s/%s" % (uid, abColl.name(), cardName)
                     if dryrun:
                         print "Would delete: %s" % (uri,)
                     else:
@@ -815,13 +815,13 @@ def purgeProxyAssignments(principal):
 
         proxyFor = (yield principal.proxyFor(proxyType == "write"))
         for other in proxyFor:
-            assignments.append((principal.record.guid, proxyType, other.record.guid))
+            assignments.append((principal.record.uid, proxyType, other.record.uid))
             (yield removeProxy(other, principal))
 
         subPrincipal = principal.getChild("calendar-proxy-" + proxyType)
         proxies = (yield subPrincipal.readProperty(davxml.GroupMemberSet, None))
         for other in proxies.children:
-            assignments.append((str(other).split("/")[3], proxyType, principal.record.guid))
+            assignments.append((str(other).split("/")[3], proxyType, principal.record.uid))
 
         (yield subPrincipal.writeProperty(davxml.GroupMemberSet(), None))
 

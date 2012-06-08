@@ -286,9 +286,9 @@ class RootResource (ReadOnlyResourceMixIn, DirectoryPrincipalPropertySearchMixIn
                                     break
 
                         if principal:
-                            log.debug("Wiki-authenticated principal %s being assigned to authnUser and authzUser" % (record.guid,))
+                            log.debug("Wiki-authenticated principal %s being assigned to authnUser and authzUser" % (record.uid,))
                             request.authzUser = request.authnUser = davxml.Principal(
-                                davxml.HRef.fromString("/principals/__uids__/%s/" % (record.guid,))
+                                davxml.HRef.fromString("/principals/__uids__/%s/" % (record.uid,))
                             )
 
         if not hasattr(request, "authzUser") and config.WebCalendarAuthPath:

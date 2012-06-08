@@ -36,6 +36,7 @@ from twext.python.memcacheclient import ClientFactory, MemcacheError
 from twistedcaldav.config import config
 from twistedcaldav.directory.directory import DirectoryService, DirectoryRecord, DirectoryError, UnknownRecordTypeError
 from twistedcaldav.scheduling.cuaddress import normalizeCUAddr
+from twistedcaldav.directory.util import normalizeUUID
 
 
 class RecordTypeCache(object):
@@ -269,6 +270,7 @@ class CachingDirectoryService(DirectoryService):
         return self._lookupRecord(None, CachingDirectoryService.INDEX_TYPE_AUTHID, authID)
 
     def recordWithGUID(self, guid):
+        guid = normalizeUUID(guid)
         return self._lookupRecord(None, CachingDirectoryService.INDEX_TYPE_GUID, guid)
 
     recordWithUID = recordWithGUID

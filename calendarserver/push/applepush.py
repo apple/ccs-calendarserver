@@ -164,8 +164,9 @@ class ApplePushNotifierService(service.MultiService, LoggingMixIn):
             if numSubscriptions > 0:
                 self.log_debug("Sending %d APNS notifications for %s" %
                     (numSubscriptions, key))
-                for token, guid in subscriptions:
-                    provider.sendNotification(token, key)
+                for token, uid in subscriptions:
+                    if token and uid:
+                        provider.sendNotification(token, key)
 
 
 
@@ -398,7 +399,7 @@ class APNFeedbackProtocol(protocol.Protocol, LoggingMixIn):
         txn = self.factory.store.newTransaction()
         subscriptions = (yield txn.apnSubscriptionsByToken(token))
 
-        for key, modified, guid in subscriptions:
+        for key, modified, uid in subscriptions:
             if timestamp > modified:
                 self.log_debug("FeedbackProtocol removing subscription: %s %s" %
                     (token, key))
@@ -546,24 +547,32 @@ class APNSubscriptionResource(ReadOnlyNoCopyResourceMixIn,
         @type request: L{twext.web2.server.Request}
         """
 
-        token = request.args.get("token", None)
-        key = request.args.get("key", None)
-        if key and token:
-            key = key[0]
-            token = token[0].replace(" ", "").lower()
-            principal = self.principalFromRequest(request)
-            guid = principal.record.guid
-            yield self.addSubscription(token, key, guid)
-            code = responsecode.OK
-            msg = None
-        else:
+        token = request.args.get("token", ("",))[0].replace(" ", "").lower()
+        key = request.args.get("key", ("",))[0]
+
+        if not (key and token):
             code = responsecode.BAD_REQUEST
             msg = "Invalid request: both 'token' and 'key' must be provided"
+
+        elif not validToken(token):
+            code = responsecode.BAD_REQUEST
+            msg = "Invalid request: bad 'token' %s" % (token,)
+
+        else:
+            principal = self.principalFromRequest(request)
+            uid = principal.record.uid
+            try:
+                yield self.addSubscription(token, key, uid)
+                code = responsecode.OK
+                msg = None
+            except InvalidSubscriptionValues:
+                code = responsecode.BAD_REQUEST
+                msg = "Invalid subscription values"
 
         returnValue((code, msg))
 
     @inlineCallbacks
-    def addSubscription(self, token, key, guid):
+    def addSubscription(self, token, key, uid):
         """
         Add a subscription (or update its timestamp if already there).
 
@@ -573,12 +582,12 @@ class APNSubscriptionResource(ReadOnlyNoCopyResourceMixIn,
         @param key: The push key
         @type key: C{str}
 
-        @param guid: The GUID of the subscriber principal
-        @type guid: C{str}
+        @param uid: The uid of the subscriber principal
+        @type uid: C{str}
         """
         now = int(time.time()) # epoch seconds
         txn = self.store.newTransaction()
-        yield txn.addAPNSubscription(token, key, now, guid)
+        yield txn.addAPNSubscription(token, key, now, uid)
         yield txn.commit()
 
     def renderResponse(self, code, body=None):

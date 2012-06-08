@@ -61,12 +61,12 @@ class ApplePushNotifierServiceTests(CommonCommonTests, TestCase):
         token = "2d0d55cd7f98bcb81c6e24abcdc35168254c7846a43e2828b1ba5a8f82e219df"
         key1 = "/CalDAV/calendars.example.com/user01/calendar/"
         timestamp1 = 1000
-        guid = "D2256BCC-48E2-42D1-BD89-CBA1E4CCDFFB"
-        yield txn.addAPNSubscription(token, key1, timestamp1, guid)
+        uid = "D2256BCC-48E2-42D1-BD89-CBA1E4CCDFFB"
+        yield txn.addAPNSubscription(token, key1, timestamp1, uid)
 
         key2 = "/CalDAV/calendars.example.com/user02/calendar/"
         timestamp2 = 3000
-        yield txn.addAPNSubscription(token, key2, timestamp2, guid)
+        yield txn.addAPNSubscription(token, key2, timestamp2, uid)
         yield txn.commit()
 
         # Set up the service

@@ -24,5 +24,5 @@ class UUID (twisted.trial.unittest.TestCase):
     def test_uuidFromName(self):
         self.assertEquals(
             uuidFromName(uuid_namespace_dns, "python.org"),
-            "886313e1-3b8a-5372-9b90-0c9aee199e5d",
+            "886313E1-3B8A-5372-9B90-0C9AEE199E5D",
         )

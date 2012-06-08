@@ -20,6 +20,7 @@ Utilities.
 """
 
 __all__ = [
+    "normalizeUUID",
     "uuidFromName",
 ]
 
@@ -38,7 +39,21 @@ def uuidFromName(namespace, name):
     if type(name) is unicode:
         name = name.encode("utf-8")
 
-    return str(uuid5(UUID(namespace), name))
+    return normalizeUUID(str(uuid5(UUID(namespace), name)))
+
+
+def normalizeUUID(value):
+    """
+    Convert strings which the uuid.UUID( ) method can parse into normalized
+    (uppercase with hyphens) form.  Any value which is not parsed by UUID( )
+    is returned as is.
+    @param value: string value to normalize
+    """
+    try:
+        return str(UUID(value)).upper()
+    except (ValueError, TypeError):
+        return value
+
 
 def transactionFromRequest(request, newStore):
     """
