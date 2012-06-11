@@ -180,6 +180,9 @@ class ImplicitProcessor(object):
         result, processed = iTipProcessing.processReply(self.message, self.recipient_calendar)
         if result:
  
+            # Let the store know that no time-range info has changed
+            self.recipient_calendar.noInstanceIndexing = True
+
             # Update the organizer's copy of the event
             log.debug("ImplicitProcessing - originator '%s' to recipient '%s' processing METHOD:REPLY, UID: '%s' - updating event" % (self.originator.cuaddr, self.recipient.cuaddr, self.uid))
             self.organizer_calendar_resource = (yield self.writeCalendarResource(self.recipient_calendar_collection_uri, self.recipient_calendar_collection, self.recipient_calendar_name, self.recipient_calendar))
@@ -513,6 +516,10 @@ class ImplicitProcessor(object):
                     send_reply = False
                     store_inbox = True
 
+                # Let the store know that no time-range info has changed for a refresh
+                if hasattr(self.request, "doing_attendee_refresh"):
+                    new_calendar.noInstanceIndexing = True
+    
                 # Update the attendee's copy of the event
                 log.debug("ImplicitProcessing - originator '%s' to recipient '%s' processing METHOD:REQUEST, UID: '%s' - updating event" % (self.originator.cuaddr, self.recipient.cuaddr, self.uid))
                 new_resource = (yield self.writeCalendarResource(self.recipient_calendar_collection_uri, self.recipient_calendar_collection, self.recipient_calendar_name, new_calendar))

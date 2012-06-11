@@ -597,7 +597,10 @@ class Component (object):
         Duplicate this object and all its contents.
         @return: the duplicated calendar.
         """
-        return Component(None, pycalendar=self._pycalendar.duplicate())
+        result = Component(None, pycalendar=self._pycalendar.duplicate())
+        if hasattr(self, "noInstanceIndexing"):
+            result.noInstanceIndexing = True
+        return result
         
     def subcomponents(self):
         """

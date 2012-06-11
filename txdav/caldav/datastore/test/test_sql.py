@@ -44,6 +44,7 @@ from twistedcaldav import caldavxml
 from twistedcaldav.caldavxml import CalendarDescription
 from twistedcaldav.config import config
 from twistedcaldav.dateops import datetimeMktime
+from twistedcaldav.ical import Component
 from twistedcaldav.query import calendarqueryfilter
 from twistedcaldav.sharing import SharedCollectionRecord
 
@@ -1182,4 +1183,62 @@ END:VCALENDAR
         rMax = yield resource.recurrenceMax()
         self.assertEqual(rMax, None)
 
+    @inlineCallbacks
+    def test_setComponent_no_instance_indexing(self):
+        """
+        L{ICalendarObject.setComponent} raises L{InvalidCalendarComponentError}
+        when given a L{VComponent} whose UID does not match its existing UID.
+        """
+
+        caldata = """BEGIN:VCALENDAR
+VERSION:2.0
+CALSCALE:GREGORIAN
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:instance
+DTSTART:20060102T140000Z
+DURATION:PT1H
+CREATED:20060102T190000Z
+DTSTAMP:20051222T210507Z
+RRULE:FREQ=DAILY
+SUMMARY:instance
+END:VEVENT
+END:VCALENDAR
+""".replace("\n", "\r\n")
+
+        self.patch(config, "FreeBusyIndexDelayedExpand", False)
+
+        # Add event to store
+        calendar = yield self.calendarUnderTest()
+        component = Component.fromString(caldata)
+        calendarObject = yield calendar.createCalendarObjectWithName("indexing.ics", component)
+        rmax = yield calendarObject.recurrenceMax()
+        self.assertNotEqual(rmax.getYear(), 1900)
+        instances = yield calendarObject.instances()
+        self.assertNotEqual(len(instances), 0)
+        yield self.commit()
         
+        # Re-add event with re-indexing
+        calendar = yield self.calendarUnderTest()
+        calendarObject = yield self.calendarObjectUnderTest("indexing.ics")
+        yield calendarObject.setComponent(component)
+        instances2 = yield calendarObject.instances()
+        self.assertNotEqual(
+            sorted(instances, key=lambda x:x[0])[0], 
+            sorted(instances2, key=lambda x:x[0])[0], 
+        )
+        yield self.commit()
+
+        # Re-add event without re-indexing
+        calendar = yield self.calendarUnderTest()
+        calendarObject = yield self.calendarObjectUnderTest("indexing.ics")
+        component.noInstanceIndexing = True
+        yield calendarObject.setComponent(component)
+        instances3 = yield calendarObject.instances()
+        self.assertEqual(
+            sorted(instances2, key=lambda x:x[0])[0], 
+            sorted(instances3, key=lambda x:x[0])[0], 
+        )
+        
+        yield calendar.removeCalendarObjectWithName("indexing.ics")
+        yield self.commit()
