@@ -1,0 +1,35 @@
+Index: src/pycalendar/value.py
+===================================================================
+--- src/pycalendar/value.py	(revision 191)
++++ src/pycalendar/value.py	(working copy)
+@@ -71,7 +71,7 @@
+         if created:
+             return created()
+         else:
+-            return clz._typeMap.get("UNKNOWN")(type)
++            return clz._typeMap.get(PyCalendarValue.VALUETYPE_UNKNOWN)(type)
+     
+     def getType(self):
+         raise NotImplementedError
+Index: src/pycalendar/tests/test_property.py
+===================================================================
+--- src/pycalendar/tests/test_property.py	(revision 191)
++++ src/pycalendar/tests/test_property.py	(working copy)
+@@ -115,3 +115,17 @@
+         for propname, propvalue, result in test_data:
+             prop = PyCalendarProperty(name=propname, value=propvalue)
+             self.assertEqual(str(prop), result)
++
++    def testGEOValueRoundtrip(self):
++        
++        data = "GEO:123.456,789.101"
++        prop = PyCalendarProperty()
++        prop.parse(data)
++        self.assertEqual(str(prop), data + "\r\n")
++
++    def testUnknownValueRoundtrip(self):
++        
++        data = "X-FOO:Text, not escaped"
++        prop = PyCalendarProperty()
++        prop.parse(data)
++        self.assertEqual(str(prop), data + "\r\n")
