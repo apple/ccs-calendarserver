@@ -26,6 +26,8 @@ from __future__ import division
 from tempfile import mkdtemp
 from itertools import izip
 from datetime import datetime
+from urllib2 import HTTPBasicAuthHandler
+from urllib2 import HTTPDigestAuthHandler
 import json
 import os
 
@@ -183,16 +185,21 @@ class CalendarClientSimulator(object):
 
 
     def _createUser(self, number):
-        from urllib2 import HTTPDigestAuthHandler
         record = self._records[number]
         user = record.uid
-        auth = HTTPDigestAuthHandler()
-        auth.add_password(
+        authBasic = HTTPBasicAuthHandler()
+        authBasic.add_password(
             realm="Test Realm",
             uri=self.server,
             user=user.encode('utf-8'),
             passwd=record.password.encode('utf-8'))
-        return user, auth
+        authDigest = HTTPDigestAuthHandler()
+        authDigest.add_password(
+            realm="Test Realm",
+            uri=self.server,
+            user=user.encode('utf-8'),
+            passwd=record.password.encode('utf-8'))
+        return user, {"basic": authBasic, "digest": authDigest,}
 
 
     def stop(self):

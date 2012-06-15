@@ -37,6 +37,8 @@ class BasicChallenge(object):
 
 
     def response(self, uri, method, keyring):
+        if type(keyring) is dict:
+            keyring = keyring['basic']
         username, password = keyring.passwd.find_user_password(self.realm, uri)
         credentials = ('%s:%s' % (username, password)).encode('base64').strip()
         authorization = 'basic ' + credentials
@@ -55,6 +57,8 @@ class DigestChallenge(object):
 
 
     def response(self, uri, method, keyring):
+        if type(keyring) is dict:
+            keyring = keyring['digest']
         username, password = keyring.passwd.find_user_password(self.realm, uri)
         if username is None:
             raise RuntimeError("Credentials for realm=%s uri=%s not found" % (self.realm, uri))
@@ -106,8 +110,8 @@ class AuthHandlerAgent(object):
             'digest': DigestChallenge,
             }.get(scheme.lower())
         if challengeType is None:
-            return None
-        return challengeType(**args)
+            return "", None
+        return scheme.lower(), challengeType(**args)
 
 
     def _respondToChallenge(self, challenge, method, uri, headers, bodyProducer):
@@ -135,12 +139,17 @@ class AuthHandlerAgent(object):
                 raise Exception(
                     "UNAUTHORIZED response with no WWW-Authenticate header")
 
-            for auth in authorization:
-                challenge = self._parse(auth)
-                if challenge is None:
-                    continue
-                self._challenged[self._authKey(method, uri)] = challenge
-                return self._respondToChallenge(challenge, method, uri, headers, bodyProducer)
+            # Always choose digest over basic if both present
+            challenges = dict([self._parse(auth) for auth in authorization])
+            if 'digest' in challenges:
+                key = 'digest'
+            elif 'basic' in challenges:
+                key = 'basic'
+            else:
+                key = None
+            if key:
+                self._challenged[self._authKey(method, uri)] = challenges[key]
+                return self._respondToChallenge(challenges[key], method, uri, headers, bodyProducer)
         return response
 
 

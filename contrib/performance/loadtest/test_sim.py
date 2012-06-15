@@ -136,7 +136,10 @@ class CalendarClientSimulatorTests(TestCase):
             Populator(None), None, None, 'http://example.org:1234/', None, None)
         user, auth = calsim._createUser(0)
         self.assertEqual(
-            auth.passwd.find_user_password('Test Realm', 'http://example.org:1234/')[1],
+            auth['basic'].passwd.find_user_password('Test Realm', 'http://example.org:1234/')[1],
+            'password-' + user)
+        self.assertEqual(
+            auth['digest'].passwd.find_user_password('Test Realm', 'http://example.org:1234/')[1],
             'password-' + user)
 
 
