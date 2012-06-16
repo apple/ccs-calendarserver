@@ -788,7 +788,7 @@ dependencies () {
   local v="1.1.6";
   local n="setproctitle";
   local p="${n}-${v}";
-  py_dependency -o -v "${v}" -m "1e42e43b440214b971f4b33c21eac369" \
+  py_dependency -o -v "1.0" -m "1e42e43b440214b971f4b33c21eac369" \
     "${n}" "${n}" "${p}" \
     "${pypi}/s/${n}/${p}.tar.gz";
 
