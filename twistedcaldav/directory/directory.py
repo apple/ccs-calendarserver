@@ -874,6 +874,12 @@ class GroupMembershipCacherServiceMaker(LoggingMixIn):
     options = GroupMembershipCacherOptions
 
     def makeService(self, options):
+        try:
+            from setproctitle import setproctitle
+        except ImportError:
+            pass
+        else:
+            setproctitle("CalendarServer (group cacher)")
 
         # Setup the directory
         from calendarserver.tap.util import directoryFromConfig

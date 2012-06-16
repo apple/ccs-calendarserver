@@ -855,6 +855,12 @@ class MailGatewayServiceMaker(LoggingMixIn):
     options = MailGatewayOptions
 
     def makeService(self, options):
+        try:
+            from setproctitle import setproctitle
+        except ImportError:
+            pass
+        else:
+            setproctitle("CalendarServer (mail gateway)")
 
         memcachepool.installPools(
             config.Memcached.Pools,

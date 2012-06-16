@@ -1463,6 +1463,12 @@ class NotificationServiceMaker(object):
     options = NotificationOptions
 
     def makeService(self, options):
+        try:
+            from setproctitle import setproctitle
+        except ImportError:
+            pass
+        else:
+            setproctitle("CalendarServer (notifications)")
 
         #
         # Configure Memcached Client Pool

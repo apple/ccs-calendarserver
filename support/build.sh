@@ -753,41 +753,54 @@ dependencies () {
     "SQLParse" "sqlparse" "${sq}" \
     "http://python-sqlparse.googlecode.com/files/${sq}.tar.gz";
 
-  local fv="0.5.0";
-  local fl="pyflakes-${fv}";
-  py_dependency -o -v "${fv}" -m "568dab27c42e5822787aa8a603898672" \
-    "Pyflakes" "pyflakes" "${fl}" \
-    "${pypi}/p/pyflakes/${fl}.tar.gz";
+  local v="0.5.0";
+  local n="pyflakes";
+  local p="${n}-${v}";
+  py_dependency -o -v "${v}" -m "568dab27c42e5822787aa8a603898672" \
+    "Pyflakes" "${n}" "${p}" \
+    "${pypi}/p/${n}/${p}.tar.gz";
  
   py_dependency -o -r HEAD \
     "CalDAVClientLibrary" "caldavclientlibrary" "CalDAVClientLibrary" \
     "${svn_uri_base}/CalDAVClientLibrary/trunk";
 
   # Can't add "-v 2011g" to args because the version check expects numbers.
-  local tz="pytz-2011n";
+  local n="pytz";
+  local p="${n}-2011n";
   py_dependency -o -m "75ffdc113a4bcca8096ab953df746391" \
-    "pytz" "pytz" "${tz}" \
-    "http://pypi.python.org/packages/source/p/pytz/${tz}.tar.gz";
+    "${n}" "${n}" "${p}" \
+    "${pypi}/p/${n}/${p}.tar.gz";
 
-  local pv="2.5";
-  local pc="pycrypto-${pv}";
-  py_dependency -o -v "${pv}" -m "783e45d4a1a309e03ab378b00f97b291" \
-    "PyCrypto" "pycrypto" "${pc}" \
-    "http://ftp.dlitz.net/pub/dlitz/crypto/pycrypto/${pc}.tar.gz";
+  local v="2.5";
+  local n="pycrypto";
+  local p="${n}-${v}";
+  py_dependency -o -v "${v}" -m "783e45d4a1a309e03ab378b00f97b291" \
+    "PyCrypto" "${n}" "${p}" \
+    "http://ftp.dlitz.net/pub/dlitz/crypto/${n}/${p}.tar.gz";
 
   local v="0.1.2";
-  local p="pyasn1-${v}";
+  local n="pyasn1";
+  local p="${n}-${v}";
   py_dependency -o -v "${v}" -m "a7c67f5880a16a347a4d3ce445862a47" \
-    "pyasn1" "pyasn1" "${p}" \
-    "http://pypi.python.org/packages/source/p/pyasn1/pyasn1-0.1.2.tar.gz";
+    "${n}" "${n}" "${p}" \
+    "${pypi}/p/${n}/${p}.tar.gz";
+
+  local v="1.1.6";
+  local n="setproctitle";
+  local p="${n}-${v}";
+  py_dependency -o -v "${v}" -m "1e42e43b440214b971f4b33c21eac369" \
+    "${n}" "${n}" "${p}" \
+    "${pypi}/s/${n}/${p}.tar.gz";
 
   svn_get "CalDAVTester" "${top}/CalDAVTester" \
       "${svn_uri_base}/CalDAVTester/trunk" HEAD;
 
-  local pd="pydoctor-0.3";
+  local v="0.3";
+  local n="pydoctor";
+  local p="${n}-${v}";
   py_dependency -o -m "b000aa1fb458fe25952dadf26049ae68" \
-    "pydoctor" "pydoctor" "${pd}" \
-    "http://launchpadlibrarian.net/42323121/${pd}.tar.gz";
+    "${n}" "${n}" "${p}" \
+    "http://launchpadlibrarian.net/42323121/${p}.tar.gz";
 
   if "${do_setup}"; then
     cd "${caldav}";

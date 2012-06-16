@@ -107,6 +107,7 @@ except ImportError:
         0, getModule(__name__).pathEntry.filePath.child("support").path)
     from version import version as getVersion
     version = "%s (%s*)" % getVersion()
+
 twext.web2.server.VERSION = "CalendarServer/%s %s" % (
     version.replace(" ", ""), twext.web2.server.VERSION,
 )
@@ -583,6 +584,13 @@ class CalDAVServiceMaker (LoggingMixIn):
         """
         self.log_info("%s %s starting %s process..." % (self.description, version, config.ProcessType))
 
+        try:
+            from setproctitle import setproctitle
+        except ImportError:
+            pass
+        else:
+            setproctitle("CalendarServer %s [%s]" % (version, config.ProcessType))
+
         serviceMethod = getattr(self, "makeService_%s" % (config.ProcessType,), None)
 
         if not serviceMethod:
@@ -592,7 +600,6 @@ class CalDAVServiceMaker (LoggingMixIn):
                 % (config.ProcessType,)
             )
         else:
-
             #
             # Configure Memcached Client Pool
             #
@@ -601,8 +608,7 @@ class CalDAVServiceMaker (LoggingMixIn):
                 config.Memcached.MaxClients,
             )
 
-            if config.ProcessType in ('Combined', 'Single'):
-
+            if config.ProcessType in ("Combined", "Single"):
                 # Process localization string files
                 processLocalizationFiles(config.Localization)
 
