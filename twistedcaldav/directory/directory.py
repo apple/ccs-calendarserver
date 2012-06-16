@@ -879,7 +879,7 @@ class GroupMembershipCacherServiceMaker(LoggingMixIn):
         except ImportError:
             pass
         else:
-            setproctitle("CalendarServer (group cacher)")
+            setproctitle("CalendarServer [Group Cacher]")
 
         # Setup the directory
         from calendarserver.tap.util import directoryFromConfig

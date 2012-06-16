@@ -1468,7 +1468,7 @@ class NotificationServiceMaker(object):
         except ImportError:
             pass
         else:
-            setproctitle("CalendarServer (notifications)")
+            setproctitle("CalendarServer [Notification Gateway]")
 
         #
         # Configure Memcached Client Pool

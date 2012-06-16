@@ -860,7 +860,7 @@ class MailGatewayServiceMaker(LoggingMixIn):
         except ImportError:
             pass
         else:
-            setproctitle("CalendarServer (mail gateway)")
+            setproctitle("CalendarServer [Mail gateway]")
 
         memcachepool.installPools(
             config.Memcached.Pools,
