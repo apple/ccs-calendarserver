@@ -21,7 +21,7 @@
 	<dict>
 		<!-- Identify the server to be load tested. -->
 		<key>server</key>
-		<string>https://127.0.0.1:8443/</string>
+		<string>https://127.0.0.1:8443</string>
 
 		<!-- The template URI for doing initial principal lookup on. -->
 		<key>principalPathTemplate</key>

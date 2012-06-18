@@ -242,7 +242,7 @@ class LoadSimulator(object):
             workerID = config.get("workerID", 0)
             workerCount = config.get("workerCount", 1)
             configTemplate = None
-            server = 'http://127.0.0.1:8008/'
+            server = 'http://127.0.0.1:8008'
             principalPathTemplate = "/principals/users/%s/"
             webadminPort = None
             serializationPath = None

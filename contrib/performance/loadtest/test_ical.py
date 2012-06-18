@@ -1160,7 +1160,7 @@ class OS_X_10_6Mixin:
             u"user91", u"user91", u"User 91", u"user91@example.org")
         self.client = OS_X_10_6(
             None,
-            "http://127.0.0.1/",
+            "http://127.0.0.1",
             "/principals/users/%s/",
             None,
             self.record,
@@ -1361,12 +1361,13 @@ class OS_X_10_6Tests(OS_X_10_6Mixin, TestCase):
 
         self.client.uuid = u'urn:uuid:user01'
         self.client.email = u'mailto:user01@example.com'
+        self.client.principalCollection = "/principals/"
         self.client.outbox = "/calendars/__uids__/user01/outbox/"
 
         @inlineCallbacks
         def _testReport(*args, **kwargs):
             expectedResponseCode, method, url, headers, body = args
-            self.assertEqual(expectedResponseCode, MULTI_STATUS)
+            self.assertEqual(expectedResponseCode, (MULTI_STATUS,))
             self.assertEqual(method, 'REPORT')
             self.assertEqual(url, 'http://127.0.0.1/principals/')
             self.assertIsInstance(url, str)
@@ -1377,7 +1378,7 @@ class OS_X_10_6Tests(OS_X_10_6Mixin, TestCase):
             
             response = MemoryResponse(
                 ('HTTP', '1', '1'), MULTI_STATUS, "MultiStatus", Headers({}),
-                StringProducer(""))
+                StringProducer("<?xml version='1.0' encoding='UTF-8'?><multistatus xmlns='DAV:' />"))
             
             returnValue(response)
             

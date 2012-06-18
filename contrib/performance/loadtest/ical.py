@@ -380,6 +380,9 @@ class BaseAppleClient(BaseClient):
         # The principalURL found during discovery
         self.principalURL = None
 
+        # The principal collection found during startup
+        self.principalCollection = None
+
         # Keep track of the events on this account, keys are event
         # URIs (which are unambiguous across different calendars
         # because they start with the uri of the calendar they are
@@ -495,7 +498,7 @@ class BaseAppleClient(BaseClient):
         response = yield self._request(
             allowedStatus,
             'PROPFIND',
-            self.root + url[1:].encode('utf-8'),
+            self.root + url.encode('utf-8'),
             hdrs,
             StringProducer(body),
             method_label=method_label,
@@ -516,7 +519,7 @@ class BaseAppleClient(BaseClient):
         response = yield self._request(
             (OK, MULTI_STATUS,),
             'PROPPATCH',
-            self.root + url[1:].encode('utf-8'),
+            self.root + url.encode('utf-8'),
             hdrs,
             StringProducer(body),
             method_label=method_label,
@@ -540,7 +543,7 @@ class BaseAppleClient(BaseClient):
         response = yield self._request(
             allowedStatus,
             'REPORT',
-            self.root + url[1:].encode('utf-8'),
+            self.root + url.encode('utf-8'),
             hdrs,
             StringProducer(body),
             method_label=method_label,
@@ -637,6 +640,36 @@ class BaseAppleClient(BaseClient):
         )
         calendars = self._extractCalendars(result, calendarHomeSet)
         returnValue((calendars, result,))
+
+
+    @inlineCallbacks
+    def _extractPrincipalDetails(self):
+        # Using the actual principal URL, retrieve principal information
+        principal = yield self._principalPropfind()
+
+        hrefs = principal.getHrefProperties()
+
+        # Remember our outbox and ignore notifications
+        self.outbox = hrefs[caldavxml.schedule_outbox_URL].toString()
+        self.notificationURL = None
+
+        # Remember our own email-like principal address
+        cuaddrs = hrefs[caldavxml.calendar_user_address_set]
+        if isinstance(cuaddrs, basestring):
+            cuaddrs = (cuaddrs,)
+        for cuaddr in cuaddrs:
+            if cuaddr.toString().startswith(u"mailto:"):
+                self.email = cuaddr.toString()
+            elif cuaddr.toString().startswith(u"urn:"):
+                self.uuid = cuaddr.toString()
+        if self.email is None:
+            raise ValueError("Cannot operate without a mail-style principal URL")
+
+        # Do another kind of thing I guess
+        self.principalCollection = hrefs[davxml.principal_collection_set].toString()
+        yield self._principalSearchPropertySetReport(self.principalCollection)
+
+        returnValue(principal)
 
 
     def _extractCalendars(self, results, calendarHome=None):
@@ -1212,7 +1245,7 @@ class BaseAppleClient(BaseClient):
     def _makeSelfAttendee(self):
         attendee = Property(
             name=u'ATTENDEE',
-            value=self.uuid,
+            value=self.email,
             params={
                 'CN': self.record.commonName,
                 'CUTYPE': 'INDIVIDUAL',
@@ -1225,7 +1258,7 @@ class BaseAppleClient(BaseClient):
     def _makeSelfOrganizer(self):
         organizer = Property(
             name=u'ORGANIZER',
-            value=self.uuid,
+            value=self.email,
             params={
                 'CN': self.record.commonName,
             },
@@ -1263,7 +1296,7 @@ class BaseAppleClient(BaseClient):
         response = yield self._request(
             (NO_CONTENT, PRECONDITION_FAILED,),
             'PUT',
-            self.root + href[1:].encode('utf-8'),
+            self.root + href.encode('utf-8'),
             Headers({
                     'content-type': ['text/calendar'],
                     'if-match': [event.etag]}),
@@ -1286,30 +1319,34 @@ class BaseAppleClient(BaseClient):
             # prefix = name[:4].lower()
             prefix = random.choice(["chris", "cyru", "dre", "eric", "morg",
                 "well", "wilfr", "witz"])
-    
-            email = attendee.parameterValue('EMAIL').encode("utf-8")
+
+            email = attendee.value()
+            if email.startswith("mailto:"):
+                email = email[7:]
+            elif attendee.hasParameter('EMAIL'):
+                email = attendee.parameterValue('EMAIL').encode("utf-8")
     
             # First try to discover some names to supply to the
             # auto-completion
-            response = yield self._request(
-                MULTI_STATUS, 'REPORT', self.root + 'principals/',
-                Headers({'content-type': ['text/xml']}),
-                StringProducer(self._USER_LIST_PRINCIPAL_PROPERTY_SEARCH % {
-                        'displayname': prefix,
-                        'email': prefix,
-                        'firstname': prefix,
-                        'lastname': prefix,
-                        }),
+            yield self._report(
+                self.principalCollection,
+                self._USER_LIST_PRINCIPAL_PROPERTY_SEARCH % {
+                'displayname': prefix,
+                'email': prefix,
+                'firstname': prefix,
+                'lastname': prefix,
+                },
+                depth=None,
                 method_label="REPORT{psearch}",
-            )
-            yield readBody(response)
+           )
     
             # Now learn about the attendee's availability
             yield self.requestAvailability(
                 vevent.mainComponent().getStartDateUTC(),
                 vevent.mainComponent().getEndDateUTC(),
                 [self.email, u'mailto:' + email],
-                [vevent.resourceUID()])
+                [vevent.resourceUID()]
+            )
 
 
     @inlineCallbacks
@@ -1338,7 +1375,7 @@ class BaseAppleClient(BaseClient):
         response = yield self._request(
             okCodes,
             'PUT',
-            self.root + href[1:].encode('utf-8'),
+            self.root + href.encode('utf-8'),
             headers, StringProducer(vevent.getTextWithTimezones(includeTimezones=True)),
             method_label="PUT{attendee-%s}" % (label_suffix,),
         )
@@ -1357,7 +1394,7 @@ class BaseAppleClient(BaseClient):
         response = yield self._request(
             NO_CONTENT,
             'DELETE',
-            self.root + href[1:].encode('utf-8'),
+            self.root + href.encode('utf-8'),
             method_label="DELETE{event}",
         )
         returnValue(response)
@@ -1379,7 +1416,7 @@ class BaseAppleClient(BaseClient):
         response = yield self._request(
             CREATED,
             'PUT',
-            self.root + href[1:].encode('utf-8'),
+            self.root + href.encode('utf-8'),
             headers,
             StringProducer(vcalendar.getTextWithTimezones(includeTimezones=True)),
             method_label="PUT{organizer-%s}" % (label_suffix,) if invite else "PUT{event}",
@@ -1397,7 +1434,7 @@ class BaseAppleClient(BaseClient):
         # Do lookup and free busy of each attendee (not self)
         attendees = list(vevent.mainComponent().properties('ATTENDEE'))
         for attendee in attendees:
-            if attendee.value() == self.uuid:
+            if attendee.value() in (self.uuid, self.email):
                 continue
             yield self._attendeeAutoComplete(vevent, attendee)
         
@@ -1424,7 +1461,7 @@ class BaseAppleClient(BaseClient):
         response = yield self._request(
             OK,
             'GET',
-            self.root + href[1:].encode('utf-8'),
+            self.root + href.encode('utf-8'),
             method_label="GET{event}",
         )
         headers = response.headers
@@ -1455,7 +1492,7 @@ class BaseAppleClient(BaseClient):
         @return: A C{Deferred} which fires with a C{dict}.  Keys in the dict
             are user UUIDs (those requested) and values are something else.
         """
-        outbox = self.root + self.outbox[1:]
+        outbox = self.root + self.outbox
 
         if mask:
             maskStr = u'\r\n'.join(['X-CALENDARSERVER-MASK-UID:' + uid
@@ -1578,30 +1615,7 @@ class OS_X_10_6(BaseAppleClient):
             self.principalURL = hrefs[davxml.principal_URL].toString()
 
         # Using the actual principal URL, retrieve principal information
-        principal = yield self._principalPropfind()
-
-        hrefs = principal.getHrefProperties()
-
-        # Remember our outbox and notifications
-        self.outbox = hrefs[caldavxml.schedule_outbox_URL].toString()
-        try:
-            self.notificationURL = hrefs[csxml.notification_URL].toString()
-        except KeyError:
-            self.notificationURL = None
-
-        # Remember our own email-like principal address
-        for principalURL in hrefs[caldavxml.calendar_user_address_set]:
-            if principalURL.toString().startswith(u"mailto:"):
-                self.email = principalURL.toString()
-            elif principalURL.toString().startswith(u"urn:"):
-                self.uuid = principalURL.toString()
-        if self.email is None:
-            raise ValueError("Cannot operate without a mail-style principal URL")
-
-        # Do another kind of thing I guess
-        principalCollection = hrefs[davxml.principal_collection_set].toString()
-        (yield self._principalSearchPropertySetReport(principalCollection))
-
+        principal = (yield self._extractPrincipalDetails())
         returnValue(principal)
 
 
@@ -1691,30 +1705,7 @@ class OS_X_10_7(BaseAppleClient):
                 self.principalURL = hrefs[davxml.principal_URL].toString()
 
         # Using the actual principal URL, retrieve principal information
-        principal = yield self._principalPropfind()
-
-        hrefs = principal.getHrefProperties()
-
-        # Remember our outbox and notifications
-        self.outbox = hrefs[caldavxml.schedule_outbox_URL].toString()
-        try:
-            self.notificationURL = hrefs[csxml.notification_URL].toString()
-        except KeyError:
-            self.notificationURL = None
-
-        # Remember our own email-like principal address
-        for principalURL in hrefs[caldavxml.calendar_user_address_set]:
-            if principalURL.toString().startswith(u"mailto:"):
-                self.email = principalURL.toString()
-            elif principalURL.toString().startswith(u"urn:"):
-                self.uuid = principalURL.toString()
-        if self.email is None:
-            raise ValueError("Cannot operate without a mail-style principal URL")
-
-        # Do another kind of thing I guess
-        principalCollection = hrefs[davxml.principal_collection_set].toString()
-        yield self._principalSearchPropertySetReport(principalCollection)
-
+        principal = yield self._extractPrincipalDetails()
         returnValue(principal)
 
 
@@ -1776,20 +1767,6 @@ class iOS_5(BaseAppleClient):
         headers.setRawHeaders('Accept-Language', ['en-us'])
         headers.setRawHeaders('Accept-Encoding', ['gzip,deflate'])
         headers.setRawHeaders('Connection', ['keep-alive'])
-
-
-    @inlineCallbacks
-    def _principalPropfindInitial(self):
-        """
-        Issue a PROPFIND on the /principals/ URL to retrieve
-        the /principals/__uids__/<guid> principal URL
-        """
-        _ignore_response, result = yield self._propfind(
-            '/principals/',
-            self._STARTUP_PRINCIPAL_PROPFIND_INITIAL,
-            method_label="PROPFIND{find-principal}",
-        )
-        returnValue(result['/principals/'])
 
 
     @inlineCallbacks
@@ -1899,27 +1876,7 @@ class iOS_5(BaseAppleClient):
                 self.principalURL = hrefs[davxml.principal_URL].toString()
 
         # Using the actual principal URL, retrieve principal information
-        principal = yield self._principalPropfind()
-
-        hrefs = principal.getHrefProperties()
-
-        # Remember our outbox and ignore notifications
-        self.outbox = hrefs[caldavxml.schedule_outbox_URL].toString()
-        self.notificationURL = None
-
-        # Remember our own email-like principal address
-        for principalURL in hrefs[caldavxml.calendar_user_address_set]:
-            if principalURL.toString().startswith(u"mailto:"):
-                self.email = principalURL.toString()
-            elif principalURL.toString().startswith(u"urn:"):
-                self.uuid = principalURL.toString()
-        if self.email is None:
-            raise ValueError("Cannot operate without a mail-style principal URL")
-
-        # Do another kind of thing I guess
-        principalCollection = hrefs[davxml.principal_collection_set].toString()
-        yield self._principalSearchPropertySetReport(principalCollection)
-
+        principal = yield self._extractPrincipalDetails()
         returnValue(principal)
 
 

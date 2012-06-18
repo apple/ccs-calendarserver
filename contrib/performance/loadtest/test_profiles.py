@@ -278,7 +278,7 @@ class StubClient(BaseClient):
     def _makeSelfAttendee(self):
         attendee = Property(
             name=u'ATTENDEE',
-            value=self.uuid,
+            value=self.email,
             params={
                 'CN': self.record.commonName,
                 'CUTYPE': 'INDIVIDUAL',
@@ -291,7 +291,7 @@ class StubClient(BaseClient):
     def _makeSelfOrganizer(self):
         organizer = Property(
             name=u'ORGANIZER',
-            value=self.uuid,
+            value=self.email,
             params={
                 'CN': self.record.commonName,
             },
@@ -401,7 +401,6 @@ class InviterTests(TestCase):
         for paramname, paramvalue in {
             'CN': 'User %d' % (userNumber + 1,),
             'CUTYPE': 'INDIVIDUAL',
-            'EMAIL': 'user%d@example.com' % (userNumber + 1,),
             'PARTSTAT': 'NEEDS-ACTION',
             'ROLE': 'REQ-PARTICIPANT',
             'RSVP': 'TRUE'
@@ -431,7 +430,6 @@ class InviterTests(TestCase):
         for paramname, paramvalue in {
             'CN': 'User %d' % (otherNumber,),
             'CUTYPE': 'INDIVIDUAL',
-            'EMAIL': 'user%d@example.com' % (otherNumber,),
             'PARTSTAT': 'NEEDS-ACTION',
             'ROLE': 'REQ-PARTICIPANT',
             'RSVP': 'TRUE'
@@ -463,7 +461,6 @@ class InviterTests(TestCase):
         for paramname, paramvalue in {
             'CN': 'User %02d' % (anotherNumber,),
             'CUTYPE': 'INDIVIDUAL',
-            'EMAIL': 'user%02d@example.com' % (anotherNumber,),
             'PARTSTAT': 'NEEDS-ACTION',
             'ROLE': 'REQ-PARTICIPANT',
             'RSVP': 'TRUE'
@@ -589,7 +586,7 @@ class RealisticInviterTests(TestCase):
         inviter._invite()
         self.assertEquals(len(client._events), 1)
         attendees = tuple(client._events.values()[0].vevent.mainComponent().properties('ATTENDEE'))
-        expected = set(("urn:uuid:user%02d" %  (userNumber,), "urn:uuid:user%02d" %  (userNumber + 1,),))
+        expected = set(("mailto:user%02d@example.com" %  (userNumber,), "mailto:user%02d@example.com" %  (userNumber + 1,),))
         for attendee in attendees:
             expected.remove(attendee.value())
         self.assertEqual(len(expected), 0)
@@ -618,7 +615,7 @@ class RealisticInviterTests(TestCase):
         inviter._invite()
         self.assertEquals(len(client._events), 1)
         attendees = tuple(client._events.values()[0].vevent.mainComponent().properties('ATTENDEE'))
-        expected = set(("urn:uuid:user%02d" %  (selfNumber,), "urn:uuid:user%02d" %  (otherNumber,),))
+        expected = set(("mailto:user%02d@example.com" %  (selfNumber,), "mailto:user%02d@example.com" %  (otherNumber,),))
         for attendee in attendees:
             expected.remove(attendee.value())
         self.assertEqual(len(expected), 0)
@@ -649,9 +646,9 @@ class RealisticInviterTests(TestCase):
         self.assertEquals(len(client._events), 1)
         attendees = tuple(client._events.values()[0].vevent.mainComponent().properties('ATTENDEE'))
         expected = set((
-            "urn:uuid:user%02d" %  (selfNumber,),
-            "urn:uuid:user%02d" %  (inviteeNumber,),
-            "urn:uuid:user%02d" %  (anotherNumber,),
+            "mailto:user%02d@example.com" %  (selfNumber,),
+            "mailto:user%02d@example.com" %  (inviteeNumber,),
+            "mailto:user%02d@example.com" %  (anotherNumber,),
         ))
         for attendee in attendees:
             expected.remove(attendee.value())

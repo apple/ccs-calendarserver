@@ -174,7 +174,7 @@ class Inviter(ProfileBase):
         given event.
         """
         selfRecord = self._sim.getUserRecord(self._number)
-        invitees = set([u'urn:uuid:%s' % (selfRecord.uid,)])
+        invitees = set([u'mailto:%s' % (selfRecord.email,)])
         for att in attendees:
             invitees.add(att.value())
 
@@ -185,23 +185,22 @@ class Inviter(ProfileBase):
                 record = self._sim.getUserRecord(invitee)
             except IndexError:
                 continue
+            cuaddr = u'mailto:%s' % (record.email,)
             uuid = u'urn:uuid:%s' % (record.uid,)
-            if uuid not in invitees:
+            if cuaddr not in invitees and uuid not in invitees:
                 break
         else:
             return fail(CannotAddAttendee("Can't find uninvited user to invite."))
 
         attendee = Property(
             name=u'ATTENDEE',
-            value=uuid.encode("utf-8"),
+            value=cuaddr.encode("utf-8"),
             params={
             'CN': record.commonName,
             'CUTYPE': 'INDIVIDUAL',
-            'EMAIL': record.email,
             'PARTSTAT': 'NEEDS-ACTION',
             'ROLE': 'REQ-PARTICIPANT',
             'RSVP': 'TRUE',
-            #'SCHEDULE-STATUS': '1.2',
             },
         )
 
@@ -320,7 +319,7 @@ END:VCALENDAR
         given event.
         """
         selfRecord = self._sim.getUserRecord(self._number)
-        invitees = set([u'urn:uuid:%s' % (selfRecord.uid,)])
+        invitees = set([u'mailto:%s' % (selfRecord.email,)])
         for att in attendees:
             invitees.add(att.value())
 
@@ -331,23 +330,21 @@ END:VCALENDAR
                 record = self._sim.getUserRecord(invitee)
             except IndexError:
                 continue
-            uuid = u'urn:uuid:%s' % (record.uid,)
-            if uuid not in invitees:
+            cuaddr = u'mailto:%s' % (record.email,)
+            if cuaddr not in invitees:
                 break
         else:
             raise CannotAddAttendee("Can't find uninvited user to invite.")
 
         attendee = Property(
             name=u'ATTENDEE',
-            value=uuid.encode("utf-8"),
+            value=cuaddr.encode("utf-8"),
             params={
             'CN': record.commonName,
             'CUTYPE': 'INDIVIDUAL',
-            'EMAIL': record.email,
             'PARTSTAT': 'NEEDS-ACTION',
             'ROLE': 'REQ-PARTICIPANT',
             'RSVP': 'TRUE',
-            #'SCHEDULE-STATUS': '1.2',
             },
         )
 
