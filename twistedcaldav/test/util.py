@@ -24,7 +24,6 @@ from calendarserver.provision.root import RootResource
 from twisted.python.failure import Failure
 from twisted.internet.base import DelayedCall
 from twisted.internet.defer import succeed, fail, inlineCallbacks, returnValue
-from twisted.internet.error import ProcessDone
 from twisted.internet.protocol import ProcessProtocol
 
 from twext.python.memcacheclient import ClientFactory
@@ -670,8 +669,7 @@ class CapturingProcessProtocol(ProcessProtocol):
         """
         The process is over, fire the Deferred with the output.
         """
-        if why.check(ProcessDone) and not self.error:
+        if why.value.exitCode == 0 and not self.error:
             self.deferred.callback(''.join(self.output))
         else:
-            self.deferred.errback(ErrorOutput(''.join(self.error)))
-
+            self.deferred.errback(ErrorOutput(repr(''.join(self.error))))

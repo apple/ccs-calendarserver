@@ -28,11 +28,13 @@ from twisted.internet.reactor import callFromThread
 from twisted.python.usage import Options, UsageError
 from twisted.python.reflect import namedAny
 from twisted.python import log
+from twisted.python.procutils import which
 
 from twisted.internet.interfaces import IProcessTransport, IReactorProcess
 from twisted.internet.protocol import ServerFactory
-from twisted.internet.defer import Deferred
+from twisted.internet.defer import Deferred, inlineCallbacks
 from twisted.internet.task import Clock
+from twisted.internet import reactor
 
 from twisted.application.service import IService, IServiceCollection
 from twisted.application import internet
@@ -51,7 +53,7 @@ from twistedcaldav.directory.aggregate import AggregateDirectoryService
 from twistedcaldav.directory.calendar import DirectoryCalendarHomeProvisioningResource
 from twistedcaldav.directory.principal import DirectoryPrincipalProvisioningResource
 
-from twistedcaldav.test.util import TestCase
+from twistedcaldav.test.util import TestCase, CapturingProcessProtocol
 
 from calendarserver.tap.caldav import (
     CalDAVOptions, CalDAVServiceMaker, CalDAVService, GroupOwnedUNIXServer,
@@ -1158,4 +1160,32 @@ class TwistdSlaveProcessTests(TestCase):
         option = 'PIDFile=something-instance-7.pid'
         self.assertIn(option, commandLine)
         self.assertEquals(commandLine[commandLine.index(option) - 1], '-o')
+
+
+
+
+
+
+class ReExecServiceTests(TestCase):
+
+    @inlineCallbacks
+    def test_reExecService(self):
+        """
+        Verify that sending a HUP to the test reexec.tac causes startService
+        and stopService to be called again by counting the number of times
+        START and STOP appear in the process output.
+        """
+        tacFilePath = os.path.join(os.path.dirname(__file__), "reexec.tac")
+        twistd = which("twistd")[0]
+        deferred = Deferred()
+        proc = reactor.spawnProcess(
+            CapturingProcessProtocol(deferred, None), twistd,
+                [twistd, '-n', '-y', tacFilePath],
+                env=os.environ
+        )
+        reactor.callLater(3, proc.signalProcess, "HUP")
+        reactor.callLater(6, proc.signalProcess, "TERM")
+        output = yield deferred
+        self.assertEquals(output.count("START"), 2)
+        self.assertEquals(output.count("STOP"), 2)
 

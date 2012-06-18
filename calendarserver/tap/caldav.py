@@ -22,6 +22,7 @@ __all__ = [
 ]
 
 import os
+import signal
 import socket
 import stat
 import sys
@@ -562,6 +563,49 @@ class SlaveSpawnerService(Service):
                                env=PARENT_ENVIRONMENT)
 
 
+class ReExecService(MultiService, LoggingMixIn):
+    """
+    A MultiService which catches SIGHUP and re-exec's the process.
+    """
+
+    def __init__(self, pidfilePath, reactor=None):
+        """
+        @param pidFilePath: Absolute path to the pidfile which will need to be
+            removed
+        @type pidFilePath: C{str}
+        """
+        self.pidfilePath = pidfilePath
+        if reactor is None:
+            from twisted.internet import reactor
+        self.reactor = reactor
+        MultiService.__init__(self)
+
+    def reExec(self):
+        """
+        Removes pidfile, registers an exec to happen after shutdown, then
+        stops the reactor.
+        """
+        try:
+            self.log_info("Removing pidfile: %s" % (self.pidfilePath,))
+            os.remove(self.pidfilePath)
+        except OSError:
+            pass
+        self.reactor.addSystemEventTrigger("after", "shutdown", os.execv,
+            sys.executable, [sys.executable] + sys.argv)
+        self.reactor.stop()
+
+    def sighupHandler(self, num, frame):
+        self.log_info("SIGHUP received - restarting")
+        self.reactor.callFromThread(self.reExec)
+
+    def startService(self):
+        self.previousHandler = signal.signal(signal.SIGHUP, self.sighupHandler)
+        MultiService.startService(self)
+
+    def stopService(self):
+        signal.signal(signal.SIGHUP, self.previousHandler)
+        MultiService.stopService(self)
+
 
 class CalDAVServiceMaker (LoggingMixIn):
     implements(IPlugin, IServiceMaker)
@@ -637,29 +681,6 @@ class CalDAVServiceMaker (LoggingMixIn):
                 else:
                     return "%s: %s" % (frame.f_code.co_name, frame.f_lineno)
 
-            import signal
-            def sighup_handler(num, frame):
-                self.log_info("SIGHUP received at %s" % (location(frame),))
-
-                # Reload the config file
-                try:
-                    config.reload()
-                except ConfigurationError, e:
-                    self.log_error("Invalid configuration: {0}".format(e))
-
-                # If combined service send signal to all caldavd children
-                if hasattr(service, "processMonitor"):
-                    service.processMonitor.signalAll(signal.SIGHUP, "caldav")
-
-                # FIXME: There is no memcachepool.getCachePool
-                #   Also, better option is probably to add a hook to
-                #   the config object instead of doing things here.
-                #self.log_info("Suggesting new max clients for memcache.")
-                #memcachepool.getCachePool().suggestMaxClients(
-                #    config.Memcached.MaxClients
-                #)
-
-            signal.signal(signal.SIGHUP, sighup_handler)
 
             return service
 
@@ -1062,6 +1083,9 @@ class CalDAVServiceMaker (LoggingMixIn):
         spawning subprocesses that use L{makeService_Slave} to perform work.
         """
         s = ErrorLoggingMultiService()
+
+        # Add a service to re-exec the master when it receives SIGHUP
+        ReExecService(config.PIDFile).setServiceParent(s)
 
         # Make sure no old socket files are lying around.
         self.deleteStaleSocketFiles()
