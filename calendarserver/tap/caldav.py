@@ -589,7 +589,11 @@ class CalDAVServiceMaker (LoggingMixIn):
         except ImportError:
             pass
         else:
-            setproctitle("CalendarServer %s [%s]" % (version, config.ProcessType))
+            if config.LogID:
+                logID = " #%s" % (config.LogID,)
+            else:
+                logID = ""
+            setproctitle("CalendarServer %s [%s%s]" % (version, config.ProcessType, logID))
 
         serviceMethod = getattr(self, "makeService_%s" % (config.ProcessType,), None)
 
