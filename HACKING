@@ -1,18 +1,18 @@
 Developer's Guide to Hacking the Calendar Server
 ================================================
 
-If you are interested in contributing to Darwin Calendar Server
-project, please read this document.
+If you are interested in contributing to the Calendar and Contacts
+Server project, please read this document.
 
 
 Participating in the Community
 ==============================
 
-Although the Calendar Server is sponsored and hosted by Apple
-Inc. (http://www.apple.com/), it's a true open-source project under an
-Apache license.  Contributions from other developers are welcome, and,
-as with all open development projects, may lead to "commit access" and
-a voice in the future of the project.
+Although the Calendar and Contacts Server is sponsored and hosted by
+Apple Inc. (http://www.apple.com/), it's a true open-source project
+under an Apache license.  Contributions from other developers are
+welcome, and, as with all open development projects, may lead to
+"commit access" and a voice in the future of the project.
 
 The community exists mainly through mailing lists and a Subversion
 repository. To participate, go to:
@@ -49,8 +49,8 @@ filing a duplicate.
 Obtaining the Code
 ==================
 
-The source code to Calendar Server is available via Subversion at this
-repository URL:
+The source code to the Calendar and Contacts Server is available via
+Subversion at this repository URL:
 
   http://svn.macosforge.org/repository/calendarserver/CalendarServer/trunk/
 
@@ -82,25 +82,28 @@ A rough guide to the source tree:
 
  * ``conf/`` - Configuration files.
 
- * ``calendarserver/`` - Source code for the Calendar Server
+ * ``calendarserver/`` - Source code for the Calendar and Contacts
+   Server
 
  * ``twistedcaldav/`` - Source code for CalDAV library
 
  * ``twistedcaldav/`` - Source code for extensions to Twisted
 
  * ``lib-patches/`` - Patch files which modify 3rd-party software
-   required by the Calendar Server.  In an ideal world, this would be
-   empty.
+   required by the Calendar and Contacts Server.  In an ideal world,
+   this would be empty.
 
- * ``twisted/`` - Files required to set up the Calendar Server as a
-   Twisted service.  Twisted (http://twistedmatrix.com/) is a
-   networking framework upon which the Calendar Server is built.
+ * ``twisted/`` - Files required to set up the Calendar and Contacts
+   Server as a Twisted service.  Twisted (http://twistedmatrix.com/)
+   is a networking framework upon which the Calendar and Contacts
+   Server is built.
 
  * ``locales/`` - Localization files.
 
- * ``contrib/`` - Extra stuff that works with the Calendar Server, or
-   that helps integrate with other software (including operating
-   systems), but that the Calendar Server does not depend on.
+ * ``contrib/`` - Extra stuff that works with the Calendar and
+   Contacts Server, or that helps integrate with other software
+   (including operating systems), but that the Calendar and Contacts
+   Server does not depend on.
 
  * ``support/`` - Support files of possible use to developers.
 
@@ -108,9 +111,10 @@ A rough guide to the source tree:
 Coding Standards
 ================
 
-The vast majority of the Calendar Server is written in the Python
-programming language.  When writing Python code for the Calendar
-Server, please observe the following conventions.
+The vast majority of the Calendar and Contacts Server is written in
+the Python programming language.  When writing Python code for the
+Calendar and Contacts Server, please observe the following
+conventions.
 
 Please note that all of our code at present does not follow these
 standards, but that does not mean that one shouldn't bother to do so.
@@ -407,10 +411,10 @@ a possible time sink for other developers, and is not looked upon
 favorably.
 
 Units tests can be run rather easily by executing the ``test`` script
-at the top of the Calendar Server source tree.  By default, it will
-run all of the Calendar Server tests followed by all of the Twisted
-tests.  You can run specific tests by specifying them as arguments
-like this:
+at the top of the Calendar and Contacts Server source tree.  By
+default, it will run all of the Calendar and Contacts Server tests
+followed by all of the Twisted tests.  You can run specific tests by
+specifying them as arguments like this:
 
    ::
 
@@ -428,12 +432,12 @@ writing tests here:
 
   http://twistedmatrix.com/trac/browser/trunk/doc/development/policy/test-standard.xhtml?format=raw
 
-We also use CalDAVTester (which is a companion to Calendar Server in
-the same Mac OS Forge project), which performs more "black box"-type
-testing against the server to ensure compliance with the CalDAV
-protocol.  That requires running the server with a test configuration
-and then running CalDAVTester against it.  For information about
-CalDAVTester is available here:
+We also use CalDAVTester (which is a companion to the Calendar and
+Contacts Server in the same Mac OS Forge project), which performs more
+"black box"-type testing against the server to ensure compliance with
+the CalDAV protocol.  That requires running the server with a test
+configuration and then running CalDAVTester against it.  For
+information about CalDAVTester is available here:
 
   http://trac.calendarserver.org/projects/calendarserver/wiki/CalDAVTester
 

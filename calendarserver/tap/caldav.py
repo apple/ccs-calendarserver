@@ -567,7 +567,7 @@ class CalDAVServiceMaker (LoggingMixIn):
     implements(IPlugin, IServiceMaker)
 
     tapname = "caldav"
-    description = "Darwin Calendar Server"
+    description = "Calendar and Contacts Server"
     options = CalDAVOptions
 
     #

@@ -1,8 +1,8 @@
 Getting Started
 ===============
 
-This is the core code base for Darwin Calendar Server, which is a
-CalDAV, CardDAV, WebDAV, and HTTP server.
+This is the core code base for the Calendar and Contacts Server, which
+is a CalDAV, CardDAV, WebDAV, and HTTP server.
 
 For general information about the server, see:
 
@@ -32,24 +32,25 @@ the ``run`` script in system startup files (eg. ``/etc/init.d``); it
 does things (like download software) that you don't want to happen in
 that context.
 
-Begin by creating a directory to contain Calendar Server and all its dependencies:
+Begin by creating a directory to contain Calendar and Contacts Server
+and all its dependencies:
 
   ::
 
     mkdir ~/CalendarServer
     cd CalendarServer
 
-Next, check out the source code from the SVN repository. To check out the latest trunk code:
+Next, check out the source code from the SVN repository. To check out
+the latest trunk code:
 
   ::
 
     svn co http://svn.macosforge.org/repository/calendarserver/CalendarServer/trunk/ CalendarServer
 
-The server requires a number of
-libraries in order to operate, which will need to be placed as peers
-of the source directory.  The ``run`` script in the sources will
-automatically download or check out the appropriate libraries and
-build them for you:
+The server requires a number of libraries in order to operate, which
+will need to be placed as peers of the source directory.  The ``run``
+script in the sources will automatically download or check out the
+appropriate libraries and build them for you:
 
   ::
 
@@ -78,9 +79,9 @@ use to start with, called ``caldavd-test.plist``. Copy this to
 
 You will need to choose a "directory service" to use to populate your
 server's principals (users, groups and resources).  A directory
-service provides the calendar server with information about these
-principals.  Some of the directory services which are supported by the
-calendar server include:
+service provides the Calendar and Contacts Server with information
+about these principals.  Some of the directory services which are
+supported by the Calendar and Contacts Server include:
 
  * ``XMLDirectoryService``: this service is configurable via an XML
    file that contains principal information.  The file
