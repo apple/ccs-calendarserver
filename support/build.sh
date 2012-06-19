@@ -18,6 +18,18 @@
 
 . "${wd}/support/py.sh";
 
+echo_header () {
+  if ! "${print_path}"; then
+    echo "$@";
+    echo "";
+  fi;
+}
+
+using_system () {
+  local name="$1"; shift;
+  echo_header "Using system version of ${name}.";
+}
+
 # Provide a default value: if the variable named by the first argument is
 # empty, set it to the default in the second argument.
 conditional_set () {
@@ -36,23 +48,24 @@ find_header () {
 
 # Initialize all the global state required to use this library.
 init_build () {
-        verbose="";
-         do_get="true";
-       do_setup="true";
-         do_run="true";
-      do_bundle="false";
-    force_setup="false";
-  disable_setup="false";
-     print_path="false";
-        install="";
-      daemonize="-X -L";
-           kill="false";
-        restart="false";
-    plugin_name="caldav";
-   service_type="Combined";
-       read_key="";
-        profile="";
-        reactor="";
+            verbose="";
+             do_get="true";
+           do_setup="true";
+             do_run="true";
+          do_bundle="false";
+        force_setup="false";
+      disable_setup="false";
+         print_path="false";
+  print_environment="false";
+            install="";
+          daemonize="-X -L";
+               kill="false";
+            restart="false";
+        plugin_name="caldav";
+       service_type="Combined";
+           read_key="";
+            profile="";
+            reactor="";
 
   # These variables are defaults for things which might be configured by
   # environment; only set them if they're un-set.
@@ -375,7 +388,7 @@ py_build () {
   local optional="$1"; shift;
 
   if "${do_setup}"; then
-    echo "Building ${name}...";
+    echo_header "Building ${name}...";
     cd "${path}";
     if ! "${python}" ./setup.py -q build \
         --build-lib "build/${py_platform_libdir}" "$@"; then
@@ -459,16 +472,13 @@ py_dependency () {
 
   local srcdir="${top}/${distribution}"
 
-  if ! "${print_path}"; then
-    echo "";
-  fi;
   if "${override}" || ! py_have_module ${version} "${module}"; then
     "${get_type}_get" ${f_hash} "${name}" "${srcdir}" "${get_uri}" "${revision}"
     if [ -n "${inplace}" ]; then
       if "${do_setup}" && "${override}" && ! "${skip_egg}"; then
         echo;
         if py_have_module setuptools; then
-          echo "Building ${name}... [overrides system, building egg-info only]";
+          echo_header "Building ${name}... [overrides system, building egg-info only]";
           cd "${srcdir}";
           "${python}" ./setup.py -q egg_info 2>&1 | (
             grep -i -v 'Unrecognized .svn/entries' || true);
@@ -496,9 +506,7 @@ py_dependency () {
       export PATH="${add_path}:${PATH}";
     fi;
   else
-    if ! "${print_path}"; then
-      echo "Using system version of ${name}.";
-    fi;
+    using_system "${name}";
   fi;
 }
 
@@ -621,8 +629,7 @@ dependencies () {
   fi;
 
   if type -P memcached > /dev/null; then
-    echo "Using system memcached.";
-    echo "";
+    using_system "memcached";
   else
     local le="libevent-2.0.17-stable";
     local mc="memcached-1.4.13";
@@ -635,8 +642,7 @@ dependencies () {
   fi;
 
   if type -P postgres > /dev/null; then
-    echo "Using system Postgres.";
-    echo "";
+    using_system "Postgres";
   else
     local pgv="9.1.2";
     local pg="postgresql-${pgv}";
@@ -655,8 +661,7 @@ dependencies () {
   fi;
 
   if find_header ldap.h; then
-    echo "Using system OpenLDAP.";
-    echo "";
+    using_system "OpenLDAP";
   else
     c_dependency -m "ec63f9c2add59f323a0459128846905b" \
       "OpenLDAP" "openldap-2.4.25" \

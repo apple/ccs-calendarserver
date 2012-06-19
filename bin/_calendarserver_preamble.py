@@ -22,6 +22,8 @@ of the code.
 """
 
 import sys
+import os
+
 from os.path import dirname, abspath, join, split, exists
 from subprocess import Popen, PIPE
 
@@ -39,11 +41,16 @@ def bootstrapFromRun():
         # attempt to run the run script.
         return
 
-    child = Popen((run, "-p"), stdout=PIPE)
-    path, stderr = child.communicate()
+    child = Popen((run, "-e"), stdout=PIPE)
+    stdout, stderr = child.communicate()
+    stdout = stdout.rstrip("\n")
 
-    path = path.rstrip("\n")
+    evars = dict(line.split("=", 1) for line in stdout.split("\n"))
+    os.environ.update(evars)
 
+    # PYTHONPATH needs special treatment, because Python has already processed
+    # its environment variables by now.
+    path = evars['PYTHONPATH']
     if child.wait() == 0:
         sys.path[0:0] = path.split(":")
 

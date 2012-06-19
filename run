@@ -53,6 +53,7 @@ usage () {
   echo "	-f  Force setup to run";
   echo "	-n  Do not run setup";
   echo "	-p  Print PYTHONPATH value for server and exit";
+  echo "	-e  Print =-separated environment variables required to run and exit";
   echo "	-d  Run caldavd as a daemon";
   echo "	-k  Stop caldavd";
   echo "	-r  Restart caldavd";
@@ -75,7 +76,7 @@ usage () {
 # functions in build.sh.
 parse_options () {
   OPTIND=1;
-  while getopts "ahvgsfnpdkrK:i:I:b:t:S:P:R:" option; do
+  while getopts "ahvgsfnpedkrK:i:I:b:t:S:P:R:" option; do
     case "${option}" in
       '?') usage; ;;
       'h') usage -; exit 0; ;;
@@ -93,6 +94,10 @@ parse_options () {
       's') do_get="true" ; do_setup="true" ; do_run="false"; ;;
       'p')
         do_get="false"; do_setup="false"; do_run="false"; print_path="true";
+        ;;
+      'e')
+        do_get="false"; do_setup="false"; do_run="false"; print_path="true";
+        print_environment="true";
         ;;
       'i')
         do_get="true";
@@ -131,7 +136,6 @@ parse_options () {
 # Actually run the server.  (Or, exit, if things aren't sufficiently set up in
 # order to do that.)
 run () {
-  echo "";
   echo "Using ${python} as Python";
 
   if "${do_run}"; then
@@ -223,7 +227,11 @@ run_main () {
   # Now that all the dependencies are set up, let's see if we're just being
   # asked to print the path.
   if "${print_path}"; then
-    echo "${PYTHONPATH}";
+    if "${print_environment}"; then
+      env;
+    else
+      echo "${PYTHONPATH}";
+    fi;
     exit 0;
   fi;
 
