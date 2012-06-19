@@ -133,7 +133,7 @@ class UpgradeDatabaseCoreService(Service, LoggingMixIn, object):
 
         # Retrieve the version number from the schema file
         current_schema = self.schemaLocation.child("current.sql").getContent()
-        found = re.search("insert into CALENDARSERVER values \('%s', '(\d)+'\);" % (self.versionKey,), current_schema)
+        found = re.search("insert into CALENDARSERVER values \('%s', '(\d+)'\);" % (self.versionKey,), current_schema)
         if found is None:
             msg = "Schema is missing required database key %s insert statement: %s" % (self.versionKey, current_schema,)
             self.log_error(msg)
@@ -199,7 +199,7 @@ class UpgradeDatabaseCoreService(Service, LoggingMixIn, object):
         
         fp = self.getPathToUpgrades(dialect)
         upgrades = []
-        regex = re.compile("upgrade_from_(\d)+_to_(\d)+%s" % (self.upgradeFileSuffix,))
+        regex = re.compile("upgrade_from_(\d+)_to_(\d+)%s" % (self.upgradeFileSuffix,))
         for child in fp.globChildren("upgrade_*%s" % (self.upgradeFileSuffix,)):
             matched = regex.match(child.basename())
             if matched is not None:

@@ -34,7 +34,7 @@ class SchemaUpgradeTests(TestCase):
 
     def _getSchemaVersion(self, fp, versionKey):
         schema = fp.getContent()
-        found = re.search("insert into CALENDARSERVER (\(NAME, VALUE\) )?values \('%s', '(\d)+'\);" % (versionKey,), schema)
+        found = re.search("insert into CALENDARSERVER (\(NAME, VALUE\) )?values \('%s', '(\d+)'\);" % (versionKey,), schema)
         if found is None:
             if versionKey == "VERSION":
                 self.fail("Could not determine schema version for: %s" % (fp,))
