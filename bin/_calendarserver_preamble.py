@@ -45,7 +45,7 @@ def bootstrapFromRun():
     stdout, stderr = child.communicate()
     stdout = stdout.rstrip("\n")
 
-    evars = dict(line.split("=", 1) for line in stdout.split("\n"))
+    evars = eval(stdout)
     os.environ.update(evars)
 
     # PYTHONPATH needs special treatment, because Python has already processed
