@@ -71,7 +71,7 @@ import time
 import traceback
 import uuid
 
-VERSION = "3"
+VERSION = "4"
 
 def usage(e=None):
     if e:
@@ -713,9 +713,14 @@ class CalVerifyService(Service, object):
 
         caldata = yield self.getCalendar(resid, self.fix)
         if caldata is None:
-            returnValue((False, self.parseError))
+            if self.parseError:
+                returnValue((False, self.parseError))
+            else:
+                returnValue((True, "Nothing to scan"))
 
         component = Component(None, pycalendar=caldata)
+        if self.config.MaxInstancesForRRULE:
+            component.truncateRecurrence(self.config.MaxInstancesForRRULE)
         result = True
         message = ""
         try:
@@ -766,12 +771,29 @@ class CalVerifyService(Service, object):
                 continue
             organizer = subcomponent.getProperty("ORGANIZER")
             if organizer:
-                if organizer.value().startswith("http"):
+                cuaddr = organizer.value()
+                
+                # http(s) principals need to be converted to urn:uuid
+                if cuaddr.startswith("http"):
                     if doFix:
                         component.normalizeCalendarUserAddresses(lookupFunction, self.directoryService().principalForCalendarUserAddress)
                     else:
                         raise InvalidICalendarDataError("iCalendar ORGANIZER starts with 'http(s)'")
-                elif organizer.hasParameter("CALENDARSERVER-OLD-CUA"):
+                else:
+                    if ("@" in cuaddr) and (":" not in cuaddr) and ("/" not in cuaddr):
+                        if doFix:
+                            # Add back in mailto: then re-normalize to urn:uuid if possible
+                            organizer.setValue("mailto:%s" % (cuaddr,))
+                            component.normalizeCalendarUserAddresses(lookupFunction, self.directoryService().principalForCalendarUserAddress)
+                            
+                            # Remove any SCHEDULE-AGENT=NONE
+                            if organizer.parameterValue("SCHEDULE-AGENT", "SERVER") == "NONE":
+                                organizer.removeParameter("SCHEDULE-AGENT")
+                        else:
+                            raise InvalidICalendarDataError("iCalendar ORGANIZER missing mailto:")
+
+                # CALENDARSERVER-OLD-CUA needs to be base64 encoded
+                if organizer.hasParameter("CALENDARSERVER-OLD-CUA"):
                     oldcua = organizer.parameterValue("CALENDARSERVER-OLD-CUA")
                     if not oldcua.startswith("base64-") and not self.options["nobase64"]:
                         if doFix:
@@ -780,18 +802,32 @@ class CalVerifyService(Service, object):
                             raise InvalidICalendarDataError("iCalendar ORGANIZER CALENDARSERVER-OLD-CUA not base64")
 
             for attendee in subcomponent.properties("ATTENDEE"):
-                if attendee.value().startswith("http"):
+                cuaddr = attendee.value()
+
+                # http(s) principals need to be converted to urn:uuid
+                if cuaddr.startswith("http"):
                     if doFix:
                         component.normalizeCalendarUserAddresses(lookupFunction, self.directoryService().principalForCalendarUserAddress)
                     else:
                         raise InvalidICalendarDataError("iCalendar ATTENDEE starts with 'http(s)'")
-                elif attendee.hasParameter("CALENDARSERVER-OLD-CUA"):
+                else:
+                    if ("@" in cuaddr) and (":" not in cuaddr) and ("/" not in cuaddr):
+                        if doFix:
+                            # Add back in mailto: then re-normalize to urn:uuid if possible
+                            attendee.setValue("mailto:%s" % (cuaddr,))
+                            component.normalizeCalendarUserAddresses(lookupFunction, self.directoryService().principalForCalendarUserAddress)
+                        else:
+                            raise InvalidICalendarDataError("iCalendar ATTENDEE missing mailto:")
+
+                # CALENDARSERVER-OLD-CUA needs to be base64 encoded
+                if attendee.hasParameter("CALENDARSERVER-OLD-CUA"):
                     oldcua = attendee.parameterValue("CALENDARSERVER-OLD-CUA")
                     if not oldcua.startswith("base64-") and not self.options["nobase64"]:
                         if doFix:
                             attendee.setParameter("CALENDARSERVER-OLD-CUA", "base64-%s" % (base64.b64encode(oldcua)))
                         else:
                             raise InvalidICalendarDataError("iCalendar ATTENDEE CALENDARSERVER-OLD-CUA not base64")
+
 
     @inlineCallbacks
     def fixCalendarData(self, resid, isinbox):
@@ -1462,6 +1498,7 @@ class CalVerifyService(Service, object):
             self.parseError = "Failed to parse"
             returnValue(None)
 
+        self.parseError = None
         returnValue(caldata)
 
 

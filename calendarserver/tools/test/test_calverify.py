@@ -336,6 +336,30 @@ END:VEVENT
 END:VCALENDAR
 """.replace("\n", "\r\n")
 
+# Non-mailto: Organizer
+BAD10_ICS = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Apple Inc.//iCal 4.0.1//EN
+CALSCALE:GREGORIAN
+BEGIN:VEVENT
+CREATED:20100303T181216Z
+UID:BAD10
+DTEND:20100307T151500Z
+TRANSP:OPAQUE
+SUMMARY:Ancient event
+DTSTART:20100307T111500Z
+DTSTAMP:20100303T181220Z
+ORGANIZER;CN=Example User1;SCHEDULE-AGENT=NONE:example1@example.com
+ATTENDEE;CN=Example User1:example1@example.com
+ATTENDEE;CN=Example User2:example2@example.com
+ATTENDEE;CN=Example User3:/principals/users/example3
+ATTENDEE;CN=Example User4:http://demo.com:8008/principals/users/example4
+SEQUENCE:2
+END:VEVENT
+END:VCALENDAR
+""".replace("\n", "\r\n")
+
+
 
 class CalVerifyDataTests(CommonCommonTests, unittest.TestCase):
     """
@@ -363,6 +387,7 @@ class CalVerifyDataTests(CommonCommonTests, unittest.TestCase):
                 "bad7.ics" : (BAD7_ICS, metadata,),
                 "ok8.ics"  : (OK8_ICS, metadata,),
                 "bad9.ics" : (BAD9_ICS, metadata,),
+                "bad10.ics" : (BAD10_ICS, metadata,),
             }
         },
     }
@@ -383,6 +408,7 @@ class CalVerifyDataTests(CommonCommonTests, unittest.TestCase):
                 os.path.dirname(__file__), "calverify", "resources.xml"
             )
         )
+
         self.rootResource = getRootResource(config, self._sqlCalendarStore)
         self.directory = self.rootResource.getDirectory()
 
@@ -424,6 +450,16 @@ class CalVerifyDataTests(CommonCommonTests, unittest.TestCase):
         )
 
 
+    @inlineCallbacks
+    def calendarObjectUnderTest(self, name, txn=None):
+        """
+        Get the calendar object detailed by C{requirements[home_name][calendar_name][name]}.
+        """
+        returnValue((yield
+            (yield self.calendarUnderTest(txn)).calendarObjectWithName(name))
+        )
+
+
     def verifyResultsByUID(self, results, expected):
         reported = set([(home, uid) for home, uid, _ignore_resid, _ignore_reason in results])
         self.assertEqual(reported, expected)
@@ -449,9 +485,10 @@ class CalVerifyDataTests(CommonCommonTests, unittest.TestCase):
         }
         output = StringIO()
         calverify = CalVerifyService(self._sqlCalendarStore, options, output, reactor, config)
+        calverify.emailDomain = "example.com"
         yield calverify.doScan(True, False, False)
 
-        self.assertEqual(calverify.results["Number of events to process"], 10)
+        self.assertEqual(calverify.results["Number of events to process"], 11)
         self.verifyResultsByUID(calverify.results["Bad iCalendar data"], set((
             ("home1", "BAD1",),
             ("home1", "BAD2",),
@@ -461,6 +498,7 @@ class CalVerifyDataTests(CommonCommonTests, unittest.TestCase):
             ("home1", "BAD6",),
             ("home1", "BAD7",),
             ("home1", "BAD9",),
+            ("home1", "BAD10",),
         )))
 
         sync_token_new = (yield (yield self.calendarUnderTest()).syncToken())
@@ -491,9 +529,10 @@ class CalVerifyDataTests(CommonCommonTests, unittest.TestCase):
         self.patch(config.Scheduling.Options, "PrincipalHostAliases", "demo.com")
         self.patch(config, "HTTPPort", 8008)
         calverify = CalVerifyService(self._sqlCalendarStore, options, output, reactor, config)
+        calverify.emailDomain = "example.com"
         yield calverify.doScan(True, False, True)
 
-        self.assertEqual(calverify.results["Number of events to process"], 10)
+        self.assertEqual(calverify.results["Number of events to process"], 11)
         self.verifyResultsByUID(calverify.results["Bad iCalendar data"], set((
             ("home1", "BAD1",),
             ("home1", "BAD2",),
@@ -503,19 +542,34 @@ class CalVerifyDataTests(CommonCommonTests, unittest.TestCase):
             ("home1", "BAD6",),
             ("home1", "BAD7",),
             ("home1", "BAD9",),
+            ("home1", "BAD10",),
         )))
 
         # Do scan
         calverify = CalVerifyService(self._sqlCalendarStore, options, output, reactor, config)
+        calverify.emailDomain = "example.com"
         yield calverify.doScan(True, False, False)
 
-        self.assertEqual(calverify.results["Number of events to process"], 10)
+        self.assertEqual(calverify.results["Number of events to process"], 11)
         self.verifyResultsByUID(calverify.results["Bad iCalendar data"], set((
             ("home1", "BAD1",),
         )))
 
         sync_token_new = (yield (yield self.calendarUnderTest()).syncToken())
         self.assertNotEqual(sync_token_old, sync_token_new)
+        
+        # Make sure mailto: fix results in urn:uuid value without SCHEDULE-AGENT
+        obj = yield self.calendarObjectUnderTest("bad10.ics")
+        ical = yield obj.component()
+        org = ical.getOrganizerProperty()
+        self.assertEqual(org.value(), "urn:uuid:D46F3D71-04B7-43C2-A7B6-6F92F92E61D0")
+        self.assertFalse(org.hasParameter("SCHEDULE-AGENT"))
+        for attendee in ical.getAllAttendeeProperties():
+            self.assertTrue(
+                attendee.value().startswith("urn:uuid:") or
+                attendee.value().startswith("/principals")
+            )
+            
 
     @inlineCallbacks
     def test_scanBadCuaOnly(self):
@@ -538,15 +592,17 @@ class CalVerifyDataTests(CommonCommonTests, unittest.TestCase):
         }
         output = StringIO()
         calverify = CalVerifyService(self._sqlCalendarStore, options, output, reactor, config)
+        calverify.emailDomain = "example.com"
         yield calverify.doScan(True, False, False)
 
-        self.assertEqual(calverify.results["Number of events to process"], 10)
+        self.assertEqual(calverify.results["Number of events to process"], 11)
         self.verifyResultsByUID(calverify.results["Bad iCalendar data"], set((
             ("home1", "BAD4",),
             ("home1", "BAD5",),
             ("home1", "BAD6",),
             ("home1", "BAD7",),
             ("home1", "BAD9",),
+            ("home1", "BAD10",),
         )))
 
         sync_token_new = (yield (yield self.calendarUnderTest()).syncToken())
@@ -577,22 +633,25 @@ class CalVerifyDataTests(CommonCommonTests, unittest.TestCase):
         self.patch(config.Scheduling.Options, "PrincipalHostAliases", "demo.com")
         self.patch(config, "HTTPPort", 8008)
         calverify = CalVerifyService(self._sqlCalendarStore, options, output, reactor, config)
+        calverify.emailDomain = "example.com"
         yield calverify.doScan(True, False, True)
 
-        self.assertEqual(calverify.results["Number of events to process"], 10)
+        self.assertEqual(calverify.results["Number of events to process"], 11)
         self.verifyResultsByUID(calverify.results["Bad iCalendar data"], set((
             ("home1", "BAD4",),
             ("home1", "BAD5",),
             ("home1", "BAD6",),
             ("home1", "BAD7",),
             ("home1", "BAD9",),
+            ("home1", "BAD10",),
         )))
 
         # Do scan
         calverify = CalVerifyService(self._sqlCalendarStore, options, output, reactor, config)
+        calverify.emailDomain = "example.com"
         yield calverify.doScan(True, False, False)
 
-        self.assertEqual(calverify.results["Number of events to process"], 10)
+        self.assertEqual(calverify.results["Number of events to process"], 11)
         self.verifyResultsByUID(calverify.results["Bad iCalendar data"], set((
         )))
 
@@ -788,6 +847,7 @@ END:VCALENDAR
             "tzid":"",
         }
         calverifyNo64 = CalVerifyService(self._sqlCalendarStore, optionsNo64, StringIO(), reactor, config)
+        calverifyNo64.emailDomain = "example.com"
 
         options64 = {
             "ical":True,
@@ -798,6 +858,7 @@ END:VCALENDAR
             "tzid":"",
         }
         calverify64 = CalVerifyService(self._sqlCalendarStore, options64, StringIO(), reactor, config)
+        calverify64.emailDomain = "example.com"
 
         for bad, oknobase64, okbase64 in data:
             bad = bad.replace("\r\n ", "")
