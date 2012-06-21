@@ -28,6 +28,15 @@
 					<string>https://localhost:8443/addressbooks</string>
 				</array>
 			</dict>
+			<key>/directory</key>
+			<dict>
+				<key>path</key>
+				<string>/directory</string>
+				<key>urls</key>
+				<array>
+					<string>https://localhost:8443/directory</string>
+				</array>
+			</dict>
 			<key>/principals</key>
 			<dict>
 				<key>path</key>
