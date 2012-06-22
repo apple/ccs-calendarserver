@@ -14,6 +14,7 @@ import os
 import shutil
 from pwd import getpwnam
 from grp import getgrnam
+from plistlib import readPlist, writePlist
 
 SRC_CONFIG_DIR = "/Applications/Server.app/Contents/ServerRoot/private/etc/caldavd"
 CALENDAR_SERVER_ROOT = "/Library/Server/Calendar and Contacts"
@@ -41,7 +42,22 @@ def main():
 
     plistPath = os.path.join(DEST_CONFIG_DIR, CALDAVD_PLIST)
 
-    if not os.path.exists(plistPath):
+    if os.path.exists(plistPath):
+        try:
+            plistData = readPlist(plistPath)
+
+            # Disable XMPPNotifier now that we're directly talking to APNS
+            try:
+                if plistData["Notifications"]["Services"]["XMPPNotifier"]["Enabled"]:
+                    plistData["Notifications"]["Services"]["XMPPNotifier"]["Enabled"] = False
+                writePlist(plistData, plistPath)
+            except KeyError:
+                pass
+
+        except Exception, e:
+            print "Unable to disable XMPP in %s: %s" % (plistPath, e)
+
+    else:
         # Copy configuration
         srcPlistPath = os.path.join(SRC_CONFIG_DIR, CALDAVD_PLIST)
         shutil.copy(srcPlistPath, DEST_CONFIG_DIR)
