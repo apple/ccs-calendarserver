@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2005-2010 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2012 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -35,6 +35,8 @@ from twistedcaldav.config import config
 from twistedcaldav.test.util import HomeTestCase
 from twisted.internet.defer import inlineCallbacks, returnValue
 from txdav.common.datastore.test.util import buildStore, StubNotifierFactory
+
+from pycalendar.datetime import PyCalendarDateTime
 
 
 @inlineCallbacks
@@ -109,8 +111,8 @@ class CalendarQuery (HomeTestCase):
         )
 
         query_timerange = caldavxml.TimeRange(
-            start="20021001T000000Z",
-            end="20021101T000000Z",
+            start="%04d1001T000000Z" % (PyCalendarDateTime.getToday().getYear(),),
+            end="%04d1101T000000Z" % (PyCalendarDateTime.getToday().getYear(),),
         )
 
         query = caldavxml.CalendarQuery(

@@ -36,6 +36,7 @@ from pycalendar.timezone import PyCalendarTimezone
 import os
 
 
+now = PyCalendarDateTime.getToday().getYear()
 
 OLD_ICS = """BEGIN:VCALENDAR
 VERSION:2.0
@@ -75,15 +76,15 @@ END:VTIMEZONE
 BEGIN:VEVENT
 CREATED:20100303T181216Z
 UID:685BC3A1-195A-49B3-926D-388DDACA78A6
-DTEND;TZID=US/Pacific:20000307T151500
+DTEND;TZID=US/Pacific:%(year)s0307T151500
 TRANSP:OPAQUE
 SUMMARY:Ancient event
-DTSTART;TZID=US/Pacific:20000307T111500
+DTSTART;TZID=US/Pacific:%(year)s0307T111500
 DTSTAMP:20100303T181220Z
 SEQUENCE:2
 END:VEVENT
 END:VCALENDAR
-""".replace("\n", "\r\n")
+""".replace("\n", "\r\n") % {"year":now-5}
 
 OLD_ATTACHMENT_ICS = """BEGIN:VCALENDAR
 VERSION:2.0
@@ -125,15 +126,15 @@ CREATED:20100303T181216Z
 UID:57A5D1F6-9A57-4F74-9520-25C617F54B88
 TRANSP:OPAQUE
 SUMMARY:Ancient event with attachment
-DTSTART;TZID=US/Pacific:20000308T111500
-DTEND;TZID=US/Pacific:20000308T151500
+DTSTART;TZID=US/Pacific:%(year)s0308T111500
+DTEND;TZID=US/Pacific:%(year)s0308T151500
 DTSTAMP:20100303T181220Z
 X-APPLE-DROPBOX:/calendars/__uids__/user01/dropbox/57A5D1F6-9A57-4F74-95
  20-25C617F54B88.dropbox
 SEQUENCE:2
 END:VEVENT
 END:VCALENDAR
-""".replace("\n", "\r\n")
+""".replace("\n", "\r\n") % {"year":now-5}
 
 ENDLESS_ICS = """BEGIN:VCALENDAR
 VERSION:2.0
@@ -173,16 +174,16 @@ END:VTIMEZONE
 BEGIN:VEVENT
 CREATED:20100303T194654Z
 UID:9FDE0E4C-1495-4CAF-863B-F7F0FB15FE8C
-DTEND;TZID=US/Pacific:20000308T151500
+DTEND;TZID=US/Pacific:%(year)s0308T151500
 RRULE:FREQ=YEARLY;INTERVAL=1
 TRANSP:OPAQUE
 SUMMARY:Ancient Repeating Endless
-DTSTART;TZID=US/Pacific:20000308T111500
+DTSTART;TZID=US/Pacific:%(year)s0308T111500
 DTSTAMP:20100303T194710Z
 SEQUENCE:4
 END:VEVENT
 END:VCALENDAR
-""".replace("\n", "\r\n")
+""".replace("\n", "\r\n") % {"year":now-5}
 
 REPEATING_AWHILE_ICS = """BEGIN:VCALENDAR
 VERSION:2.0
@@ -222,16 +223,16 @@ END:VTIMEZONE
 BEGIN:VEVENT
 CREATED:20100303T194716Z
 UID:76236B32-2BC4-4D78-956B-8D42D4086200
-DTEND;TZID=US/Pacific:20000309T151500
+DTEND;TZID=US/Pacific:%(year)s0309T151500
 RRULE:FREQ=YEARLY;INTERVAL=1;COUNT=3
 TRANSP:OPAQUE
 SUMMARY:Ancient Repeat Awhile
-DTSTART;TZID=US/Pacific:20000309T111500
+DTSTART;TZID=US/Pacific:%(year)s0309T111500
 DTSTAMP:20100303T194747Z
 SEQUENCE:6
 END:VEVENT
 END:VCALENDAR
-""".replace("\n", "\r\n")
+""".replace("\n", "\r\n") % {"year":now-5}
 
 STRADDLING_ICS = """BEGIN:VCALENDAR
 VERSION:2.0
@@ -257,16 +258,16 @@ END:VTIMEZONE
 BEGIN:VEVENT
 CREATED:20100303T213643Z
 UID:1C219DAD-D374-4822-8C98-ADBA85E253AB
-DTEND;TZID=US/Pacific:20090508T121500
-RRULE:FREQ=MONTHLY;INTERVAL=1;UNTIL=20100509T065959Z
+DTEND;TZID=US/Pacific:%(year)s0508T121500
+RRULE:FREQ=MONTHLY;INTERVAL=1;UNTIL=%(until)s0509T065959Z
 TRANSP:OPAQUE
 SUMMARY:Straddling cut-off
-DTSTART;TZID=US/Pacific:20090508T111500
+DTSTART;TZID=US/Pacific:%(year)s0508T111500
 DTSTAMP:20100303T213704Z
 SEQUENCE:5
 END:VEVENT
 END:VCALENDAR
-""".replace("\n", "\r\n")
+""".replace("\n", "\r\n") % {"year":now-2, "until":now+1}
 
 RECENT_ICS = """BEGIN:VCALENDAR
 VERSION:2.0
@@ -292,15 +293,15 @@ END:VTIMEZONE
 BEGIN:VEVENT
 CREATED:20100303T195159Z
 UID:F2F14D94-B944-43D9-8F6F-97F95B2764CA
-DTEND;TZID=US/Pacific:20100304T141500
+DTEND;TZID=US/Pacific:%(year)s0304T141500
 TRANSP:OPAQUE
 SUMMARY:Recent
-DTSTART;TZID=US/Pacific:20100304T120000
+DTSTART;TZID=US/Pacific:%(year)s0304T120000
 DTSTAMP:20100303T195203Z
 SEQUENCE:2
 END:VEVENT
 END:VCALENDAR
-""".replace("\n", "\r\n")
+""".replace("\n", "\r\n") % {"year":now}
 
 
 VCARD_1 = """BEGIN:VCARD
@@ -347,6 +348,9 @@ class PurgeOldEventsTests(CommonCommonTests, unittest.TestCase):
 
     @inlineCallbacks
     def setUp(self):
+        # Turn off delayed indexing option so we can have some useful tests
+        self.patch(config, "FreeBusyIndexDelayedExpand", False)
+
         yield super(PurgeOldEventsTests, self).setUp()
         self._sqlCalendarStore = yield buildStore(self, self.notifierFactory)
         yield self.populate()
@@ -380,45 +384,44 @@ class PurgeOldEventsTests(CommonCommonTests, unittest.TestCase):
 
     @inlineCallbacks
     def test_eventsOlderThan(self):
-        cutoff = PyCalendarDateTime(2010, 4, 1, 0, 0, 0)
+        cutoff = PyCalendarDateTime(now, 4, 1, 0, 0, 0)
         txn = self._sqlCalendarStore.newTransaction()
 
         # Query for all old events
         results = (yield txn.eventsOlderThan(cutoff))
-        self.assertEquals(results,
-            [
-                ['home1', 'calendar1', 'old.ics', '2000-03-07 23:15:00'],
-                ['home1', 'calendar1', 'oldattachment.ics', '2000-03-08 23:15:00'],
-                ['home2', 'calendar3', 'repeating_awhile.ics', '2002-03-09 23:15:00'],
-                ['home2', 'calendar2', 'recent.ics', '2010-03-04 22:15:00'],
-            ]
+        self.assertEquals(sorted(results),
+            sorted([
+                ['home1', 'calendar1', 'old.ics', '1901-01-01 01:00:00'],
+                ['home1', 'calendar1', 'oldattachment.ics', '1901-01-01 01:00:00'],
+                ['home2', 'calendar3', 'repeating_awhile.ics', '1901-01-01 01:00:00'],
+                ['home2', 'calendar2', 'recent.ics', '%s-03-04 22:15:00' % (now,)],
+            ])
         )
 
         # Query for oldest event
         results = (yield txn.eventsOlderThan(cutoff, batchSize=1))
         self.assertEquals(results,
             [
-                ['home1', 'calendar1', 'old.ics', '2000-03-07 23:15:00'],
+                ['home1', 'calendar1', 'old.ics', '1901-01-01 01:00:00'],
             ]
         )
-    
-    test_eventsOlderThan.todo = "New lazy indexing broke this"
+
 
     @inlineCallbacks
     def test_removeOldEvents(self):
-        cutoff = PyCalendarDateTime(2010, 4, 1, 0, 0, 0)
+        cutoff = PyCalendarDateTime(now, 4, 1, 0, 0, 0)
         txn = self._sqlCalendarStore.newTransaction()
 
         # Remove oldest event
         count = (yield txn.removeOldEvents(cutoff, batchSize=1))
         self.assertEquals(count, 1)
         results = (yield txn.eventsOlderThan(cutoff))
-        self.assertEquals(results,
-            [
-                ['home1', 'calendar1', 'oldattachment.ics', '2000-03-08 23:15:00'],
-                ['home2', 'calendar3', 'repeating_awhile.ics', '2002-03-09 23:15:00'],
-                ['home2', 'calendar2', 'recent.ics', '2010-03-04 22:15:00'],
-            ]
+        self.assertEquals(sorted(results),
+            sorted([
+                ['home1', 'calendar1', 'oldattachment.ics', '1901-01-01 01:00:00'],
+                ['home2', 'calendar3', 'repeating_awhile.ics', '1901-01-01 01:00:00'],
+                ['home2', 'calendar2', 'recent.ics', '%s-03-04 22:15:00' % (now,)],
+            ])
         )
 
         # Remove remaining oldest events
@@ -430,8 +433,6 @@ class PurgeOldEventsTests(CommonCommonTests, unittest.TestCase):
         # Remove oldest events (none left)
         count = (yield txn.removeOldEvents(cutoff))
         self.assertEquals(count, 0)
-    
-    test_removeOldEvents.todo = "New lazy indexing broke this"
 
 
     @inlineCallbacks
@@ -452,6 +453,7 @@ class PurgeOldEventsTests(CommonCommonTests, unittest.TestCase):
 
         returnValue(attachment)
 
+
     @inlineCallbacks
     def test_removeOrphanedAttachments(self):
         attachment = (yield self._addAttachment())
@@ -469,7 +471,7 @@ class PurgeOldEventsTests(CommonCommonTests, unittest.TestCase):
         self.assertTrue(os.path.exists(attachmentPath))
 
         # Delete all old events (including the event containing the attachment)
-        cutoff = PyCalendarDateTime(2010, 4, 1, 0, 0, 0)
+        cutoff = PyCalendarDateTime(now, 4, 1, 0, 0, 0)
         count = (yield txn.removeOldEvents(cutoff))
 
         # Just look for orphaned attachments but don't delete
@@ -490,26 +492,26 @@ class PurgeOldEventsTests(CommonCommonTests, unittest.TestCase):
         # Verify the file itself is gone
         self.assertFalse(os.path.exists(attachmentPath))
 
+
     @inlineCallbacks
     def test_purgeOldEvents(self):
 
         # Dry run
         total = (yield purgeOldEvents(self._sqlCalendarStore, self.directory,
-            self.rootResource, PyCalendarDateTime(2010, 4, 1, 0, 0, 0), 2, dryrun=True,
+            self.rootResource, PyCalendarDateTime(now, 4, 1, 0, 0, 0), 2, dryrun=True,
             verbose=False))
         self.assertEquals(total, 4)
 
         # Actually remove
         total = (yield purgeOldEvents(self._sqlCalendarStore, self.directory,
-            self.rootResource, PyCalendarDateTime(2010, 4, 1, 0, 0, 0), 2, verbose=False))
+            self.rootResource, PyCalendarDateTime(now, 4, 1, 0, 0, 0), 2, verbose=False))
         self.assertEquals(total, 4)
 
         # There should be no more left
         total = (yield purgeOldEvents(self._sqlCalendarStore, self.directory,
-            self.rootResource, PyCalendarDateTime(2010, 4, 1, 0, 0, 0), 2, verbose=False))
+            self.rootResource, PyCalendarDateTime(now, 4, 1, 0, 0, 0), 2, verbose=False))
         self.assertEquals(total, 0)
 
-    test_purgeOldEvents.todo = "New lazy indexing broke this"
 
     @inlineCallbacks
     def test_purgeUID(self):
@@ -533,7 +535,7 @@ class PurgeOldEventsTests(CommonCommonTests, unittest.TestCase):
         # Purge home1
         total, ignored = (yield purgeUID(self._sqlCalendarStore, "home1", self.directory,
             self.rootResource, verbose=False, proxies=False,
-            when=PyCalendarDateTime(2010, 4, 1, 12, 0, 0, 0, PyCalendarTimezone(utc=True))))
+            when=PyCalendarDateTime(now, 4, 1, 12, 0, 0, 0, PyCalendarTimezone(utc=True))))
 
         # 2 items deleted: 1 event and 1 vcard
         self.assertEquals(total, 2)
@@ -589,7 +591,7 @@ class PurgeOldEventsTests(CommonCommonTests, unittest.TestCase):
 
         # Remove old events first
         total = (yield purgeOldEvents(self._sqlCalendarStore, self.directory,
-            self.rootResource, PyCalendarDateTime(2010, 4, 1, 0, 0, 0), 2, verbose=False))
+            self.rootResource, PyCalendarDateTime(now, 4, 1, 0, 0, 0), 2, verbose=False))
         self.assertEquals(total, 4)
 
         # Dry run
@@ -607,4 +609,3 @@ class PurgeOldEventsTests(CommonCommonTests, unittest.TestCase):
             dryrun=False, verbose=False))
         self.assertEquals(total, 0)
 
-    test_purgeOrphanedAttachments.todo = "New lazy indexing broke this"

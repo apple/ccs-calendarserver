@@ -22,39 +22,36 @@ PostgreSQL data store.
 
 import StringIO
 
-from twistedcaldav.sharing import SharedCollectionRecord
 
 from twisted.python import hashlib
 from twisted.internet.defer import succeed, inlineCallbacks, returnValue
-
-from twext.python.clsprop import classproperty
-from twext.python.log import Logger, LoggingMixIn
 
 from twistedcaldav.config import config
 from twistedcaldav.dateops import normalizeForIndex, pyCalendarTodatetime
 from twistedcaldav.memcachepool import CachePoolUserMixIn
 from twistedcaldav.notifications import NotificationRecord
-from twistedcaldav.query import (
-    calendarqueryfilter, calendarquery, addressbookquery, expression,
-    addressbookqueryfilter)
+from twistedcaldav.query import \
+    calendarqueryfilter, calendarquery, addressbookquery, expression, \
+    addressbookqueryfilter
 from twistedcaldav.query.sqlgenerator import sqlgenerator
 from twistedcaldav.sharing import Invite
+from twistedcaldav.sharing import SharedCollectionRecord
 
-from txdav.common.icommondatastore import (
-    IndexedSearchException, ReservationError, NoSuchObjectResourceError)
+from txdav.caldav.icalendarstore import TimeRangeLowerLimit, TimeRangeUpperLimit
+from txdav.common.icommondatastore import IndexedSearchException, \
+    ReservationError, NoSuchObjectResourceError
 
-from twext.enterprise.dal.syntax import Update, SavepointAction
-from twext.enterprise.dal.syntax import Insert
-from twext.enterprise.dal.syntax import Select
-from twext.enterprise.dal.syntax import Delete
-from twext.enterprise.dal.syntax import Parameter
 from txdav.common.datastore.sql_tables import (
     _BIND_MODE_OWN, _BIND_MODE_READ, _BIND_MODE_WRITE, _BIND_MODE_DIRECT,
     _BIND_STATUS_INVITED, _BIND_STATUS_ACCEPTED, _BIND_STATUS_DECLINED,
     _BIND_STATUS_INVALID, CALENDAR_BIND_TABLE, CALENDAR_HOME_TABLE,
     ADDRESSBOOK_HOME_TABLE, ADDRESSBOOK_BIND_TABLE, schema)
+from twext.enterprise.dal.syntax import Delete, Insert, Parameter, \
+    SavepointAction, Select, Update 
+from twext.python.clsprop import classproperty
+from twext.python.log import Logger, LoggingMixIn
 
-
+from pycalendar.datetime import PyCalendarDateTime
 from pycalendar.duration import PyCalendarDuration
 
 log = Logger()
@@ -1126,31 +1123,37 @@ class PostgresLegacyIndexEmulator(LegacyIndexHelper):
 
 
     @classproperty
-    def _notExpandedBeyondQuery(cls): #@NoSelf
+    def _notExpandedWithinQuery(cls): #@NoSelf
         """
         DAL query to satisfy L{PostgresLegacyIndexEmulator.notExpandedBeyond}.
         """
         co = schema.CALENDAR_OBJECT
-        return Select([co.RESOURCE_NAME], From=co,
-                      Where=(co.RECURRANCE_MAX < Parameter("minDate"))
-                      .And(co.CALENDAR_RESOURCE_ID == Parameter("resourceID")))
+        return Select(
+            [co.RESOURCE_NAME],
+            From=co,
+            Where=((co.RECURRANCE_MIN < Parameter("minDate"))
+                .Or(co.RECURRANCE_MAX < Parameter("maxDate")))
+                .And(co.CALENDAR_RESOURCE_ID == Parameter("resourceID"))
+        )
 
 
     @inlineCallbacks
-    def notExpandedBeyond(self, minDate):
+    def notExpandedWithin(self, minDate, maxDate):
         """
         Gives all resources which have not been expanded beyond a given date
         in the database.  (Unused; see above L{postgresqlgenerator}.
         """
         returnValue([row[0] for row in (
-            yield self._notExpandedBeyondQuery.on(
-                self._txn, minDate=pyCalendarTodatetime(normalizeForIndex(minDate)),
+            yield self._notExpandedWithinQuery.on(
+                self._txn,
+                minDate=pyCalendarTodatetime(normalizeForIndex(minDate)) if minDate is not None else None,
+                maxDate=pyCalendarTodatetime(normalizeForIndex(maxDate)),
                 resourceID=self.calendar._resourceID))]
         )
 
 
     @inlineCallbacks
-    def reExpandResource(self, name, expand_until):
+    def reExpandResource(self, name, expand_start, expand_end):
         """
         Given a resource name, remove it from the database and re-add it
         with a longer expansion.
@@ -1172,15 +1175,25 @@ class PostgresLegacyIndexEmulator(LegacyIndexHelper):
 
         # Now do the re-expand using the appropriate transaction
         try:
+            doExpand = False
             if newTxn is None:
-                rmax = None
+                doExpand = True
             else:
-                rmax = (yield obj.recurrenceMax(txn=newTxn))
+                # We repeat this check because the resource may have been re-expanded by someone else
+                rmin, rmax = (yield obj.recurrenceMinMax(txn=newTxn))
+                
+                # If the resource is not fully expanded, see if within the required range or not.
+                # Note that expand_start could be None if no lower limit is applied, but expand_end will
+                # never be None
+                if rmax is not None and rmax < expand_end:
+                    doExpand = True
+                if rmin is not None and expand_start is not None and rmin > expand_start:
+                    doExpand = True
 
-            if rmax is None or rmax < expand_until:
+            if doExpand:
                 yield obj.updateDatabase(
                     (yield obj.component()),
-                    expand_until=expand_until,
+                    expand_until=expand_end,
                     reCreate=True,
                     txn=newTxn,
                 )
@@ -1190,15 +1203,15 @@ class PostgresLegacyIndexEmulator(LegacyIndexHelper):
 
 
     @inlineCallbacks
-    def testAndUpdateIndex(self, minDate):
+    def testAndUpdateIndex(self, minDate, maxDate):
         # Find out if the index is expanded far enough
-        names = yield self.notExpandedBeyond(minDate)
+        names = yield self.notExpandedWithin(minDate, maxDate)
 
         # Actually expand recurrence max
         for name in names:
-            self.log_info("Search falls outside range of index for %s %s" %
-                          (name, minDate))
-            yield self.reExpandResource(name, minDate)
+            self.log_info("Search falls outside range of index for %s %s to %s" %
+                          (name, minDate, maxDate))
+            yield self.reExpandResource(name, minDate, maxDate)
 
 
     @inlineCallbacks
@@ -1230,6 +1243,9 @@ class PostgresLegacyIndexEmulator(LegacyIndexHelper):
                 generator=generator
             )
             if qualifiers is not None:
+
+                today = PyCalendarDateTime.getToday()
+
                 # Determine how far we need to extend the current expansion of
                 # events. If we have an open-ended time-range we will expand
                 # one year past the start. That should catch bounded
@@ -1239,11 +1255,29 @@ class PostgresLegacyIndexEmulator(LegacyIndexHelper):
                 if maxDate:
                     maxDate = maxDate.duplicate()
                     maxDate.setDateOnly(True)
+                    upperLimit = today + PyCalendarDuration(days=config.FreeBusyIndexExpandMaxDays)
+                    if maxDate > upperLimit:
+                        raise TimeRangeUpperLimit(upperLimit)
                     if isStartDate:
                         maxDate += PyCalendarDuration(days=365)
-                    yield self.testAndUpdateIndex(maxDate)
+
+                # Determine if the start date is too early for the restricted range we 
+                # are applying. If it is today or later we don't need to worry about truncation
+                # in the past.
+                minDate, _ignore_isEndDate = filter.getmintimerange()
+                if minDate >= today:
+                    minDate = None
+                if minDate is not None and config.FreeBusyIndexLowerLimitDays:
+                    truncateLowerLimit = today - PyCalendarDuration(days=config.FreeBusyIndexLowerLimitDays)
+                    if minDate < truncateLowerLimit:
+                        raise TimeRangeLowerLimit(truncateLowerLimit)
+
+                        
+                if maxDate is not None or minDate is not None:
+                    yield self.testAndUpdateIndex(minDate, maxDate)
+
             else:
-                # We cannot handler this filter in an indexed search
+                # We cannot handle this filter in an indexed search
                 raise IndexedSearchException()
         else:
             qualifiers = None

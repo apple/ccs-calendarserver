@@ -650,24 +650,6 @@ class StoreCalendarObjectResource(object):
         return succeed(None)
 
 
-    def truncateRecurrence(self):
-        
-        if config.MaxInstancesForRRULE != 0:
-            try:
-                result = self.calendar.truncateRecurrence(config.MaxInstancesForRRULE)
-            except (ValueError, TypeError), ex:
-                log.err("Cannot truncate calendar resource: %s" % (ex,))
-                raise HTTPError(ErrorResponse(
-                    responsecode.FORBIDDEN,
-                    (caldav_namespace, "valid-calendar-data"),
-                   "Cannot truncate recurrences",
-                ))
-            if result:
-                self.calendardata = None
-            return result
-        else:
-            return False
-
     @inlineCallbacks
     def preservePrivateComments(self):
         # Check for private comments on the old resource and the new resource and re-insert
@@ -1198,9 +1180,6 @@ class StoreCalendarObjectResource(object):
                         ))
 
 
-            # Handle RRULE truncation
-            rruleChanged = self.truncateRecurrence()
-
             # Preserve private comments
             yield self.preservePrivateComments()
     
@@ -1255,7 +1234,7 @@ class StoreCalendarObjectResource(object):
             response = (yield self.doStore(data_changed))
 
             # Must not set ETag in response if data changed
-            if did_implicit_action or rruleChanged or dropboxChanged or alarmChanged:
+            if did_implicit_action or dropboxChanged or alarmChanged:
                 def _removeEtag(request, response):
                     response.headers.removeHeader('etag')
                     return response

@@ -49,6 +49,7 @@ from twistedcaldav.query import calendarqueryfilter
 from twistedcaldav.sharing import SharedCollectionRecord
 
 import datetime
+from pycalendar.datetime import PyCalendarDateTime
 
 class CalendarSQLStorageTests(CalendarCommonTests, unittest.TestCase):
     """
@@ -61,6 +62,7 @@ class CalendarSQLStorageTests(CalendarCommonTests, unittest.TestCase):
         self._sqlCalendarStore = yield buildStore(self, self.notifierFactory)
         yield self.populate()
 
+        self.nowYear = {"now":PyCalendarDateTime.getToday().getYear()}
 
     @inlineCallbacks
     def populate(self):
@@ -226,30 +228,30 @@ END:STANDARD
 END:VTIMEZONE
 BEGIN:VEVENT
 UID:uid2
-DTSTART;TZID=US/Eastern:20060102T140000
+DTSTART;TZID=US/Eastern:%(now)s0102T140000
 DURATION:PT1H
 CREATED:20060102T190000Z
 DTSTAMP:20051222T210507Z
-RDATE;TZID=US/Eastern:20060104T160000
+RDATE;TZID=US/Eastern:%(now)s0104T160000
 RRULE:FREQ=DAILY;COUNT=5
-SUMMARY:event 6-%ctr
+SUMMARY:event 6-ctr
 END:VEVENT
 BEGIN:VEVENT
 UID:uid2
-RECURRENCE-ID;TZID=US/Eastern:20060104T160000
-DTSTART;TZID=US/Eastern:20060104T160000
+RECURRENCE-ID;TZID=US/Eastern:%(now)s0104T160000
+DTSTART;TZID=US/Eastern:%(now)s0104T160000
 DURATION:PT1H
 CREATED:20060102T190000Z
 DESCRIPTION:Some notes
 DTSTAMP:20051222T210507Z
-SUMMARY:event 6-%ctr changed again
+SUMMARY:event 6-ctr changed again
 BEGIN:VALARM
 ACTION:AUDIO
 TRIGGER;RELATED=START:-PT10M
 END:VALARM
 END:VEVENT
 END:VCALENDAR
-""".replace("\n", "\r\n"))
+""".replace("\n", "\r\n") % self.nowYear)
 
         toResource = yield toCalendar.calendarObjectWithName("2.ics")
         caldata = yield toResource.component()
@@ -277,32 +279,32 @@ END:STANDARD
 END:VTIMEZONE
 BEGIN:VEVENT
 UID:uid3
-DTSTART;TZID=US/Eastern:20060102T140000
+DTSTART;TZID=US/Eastern:%(now)s0102T140000
 DURATION:PT1H
 ATTENDEE:urn:uuid:home_bad
 CREATED:20060102T190000Z
 DTSTAMP:20051222T210507Z
 ORGANIZER:urn:uuid:home_bad
 RRULE:FREQ=DAILY;COUNT=5
-SUMMARY:event 6-%ctr
+SUMMARY:event 6-ctr
 END:VEVENT
 BEGIN:VEVENT
 UID:uid3
-RECURRENCE-ID;TZID=US/Eastern:20060104T140000
-DTSTART;TZID=US/Eastern:20060104T160000
+RECURRENCE-ID;TZID=US/Eastern:%(now)s0104T140000
+DTSTART;TZID=US/Eastern:%(now)s0104T160000
 DURATION:PT1H
 CREATED:20060102T190000Z
 DESCRIPTION:Some notes
 DTSTAMP:20051222T210507Z
 ORGANIZER:urn:uuid:home_bad
-SUMMARY:event 6-%ctr changed again
+SUMMARY:event 6-ctr changed again
 BEGIN:VALARM
 ACTION:AUDIO
 TRIGGER;RELATED=START:-PT10M
 END:VALARM
 END:VEVENT
 END:VCALENDAR
-""".replace("\n", "\r\n"))
+""".replace("\n", "\r\n") % self.nowYear)
         
         toResource = yield toCalendar.calendarObjectWithName("3.ics")
         caldata = yield toResource.component()
@@ -330,26 +332,26 @@ END:STANDARD
 END:VTIMEZONE
 BEGIN:VEVENT
 UID:uid4
-DTSTART;TZID=US/Eastern:20060104T160000
+DTSTART;TZID=US/Eastern:%(now)s0104T160000
 DURATION:PT1H
 CREATED:20060102T190000Z
 DESCRIPTION:Some notes
 DTSTAMP:20051222T210507Z
-RDATE;TZID=US/Eastern:20060104T160000
-SUMMARY:event 6-%ctr changed again
+RDATE;TZID=US/Eastern:%(now)s0104T160000
+SUMMARY:event 6-ctr changed again
 END:VEVENT
 BEGIN:VEVENT
 UID:uid4
-RECURRENCE-ID;TZID=US/Eastern:20060104T160000
-DTSTART;TZID=US/Eastern:20060104T160000
+RECURRENCE-ID;TZID=US/Eastern:%(now)s0104T160000
+DTSTART;TZID=US/Eastern:%(now)s0104T160000
 DURATION:PT1H
 CREATED:20060102T190000Z
 DESCRIPTION:Some notes
 DTSTAMP:20051222T210507Z
-SUMMARY:event 6-%ctr changed again
+SUMMARY:event 6-ctr changed again
 END:VEVENT
 END:VCALENDAR
-""".replace("\n", "\r\n"))
+""".replace("\n", "\r\n") % self.nowYear)
         
     @inlineCallbacks
     def test_migrateDuplicateAttachmentsCalendarFromFile(self):
@@ -385,7 +387,7 @@ END:VCALENDAR
         filter =  caldavxml.Filter(
                       caldavxml.ComponentFilter(
                           caldavxml.ComponentFilter(
-                              caldavxml.TimeRange(start="20060201T000000Z", end="20060202T000000Z"),
+                              caldavxml.TimeRange(start="%(now)s0201T000000Z"  % self.nowYear, end="%(now)s0202T000000Z" % self.nowYear),
                               name=("VEVENT", "VFREEBUSY", "VAVAILABILITY"),
                           ),
                           name="VCALENDAR",
@@ -613,44 +615,45 @@ END:VCALENDAR
         @inlineCallbacks
         def _defer1():
             yield cal1.createObjectResourceWithName("1.ics", VComponent.fromString(
-    "BEGIN:VCALENDAR\r\n"
-      "VERSION:2.0\r\n"
-      "PRODID:-//Apple Inc.//iCal 4.0.1//EN\r\n"
-      "CALSCALE:GREGORIAN\r\n"
-      "BEGIN:VTIMEZONE\r\n"
-        "TZID:US/Pacific\r\n"
-        "BEGIN:DAYLIGHT\r\n"
-          "TZOFFSETFROM:-0800\r\n"
-          "RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=2SU\r\n"
-          "DTSTART:20070311T020000\r\n"
-          "TZNAME:PDT\r\n"
-          "TZOFFSETTO:-0700\r\n"
-        "END:DAYLIGHT\r\n"
-        "BEGIN:STANDARD\r\n"
-          "TZOFFSETFROM:-0700\r\n"
-          "RRULE:FREQ=YEARLY;BYMONTH=11;BYDAY=1SU\r\n"
-          "DTSTART:20071104T020000\r\n"
-          "TZNAME:PST\r\n"
-          "TZOFFSETTO:-0800\r\n"
-        "END:STANDARD\r\n"
-      "END:VTIMEZONE\r\n"
-      "BEGIN:VEVENT\r\n"
-        "CREATED:20100203T013849Z\r\n"
-        "UID:uid1\r\n"
-        "DTEND;TZID=US/Pacific:20100207T173000\r\n"
-        "TRANSP:OPAQUE\r\n"
-        "SUMMARY:New Event\r\n"
-        "DTSTART;TZID=US/Pacific:20100207T170000\r\n"
-        "DTSTAMP:20100203T013909Z\r\n"
-        "SEQUENCE:3\r\n"
-        "BEGIN:VALARM\r\n"
-          "X-WR-ALARMUID:1377CCC7-F85C-4610-8583-9513D4B364E1\r\n"
-          "TRIGGER:-PT20M\r\n"
-          "ATTACH;VALUE=URI:Basso\r\n"
-          "ACTION:AUDIO\r\n"
-        "END:VALARM\r\n"
-      "END:VEVENT\r\n"
-    "END:VCALENDAR\r\n"
+"""BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Apple Inc.//iCal 4.0.1//EN
+CALSCALE:GREGORIAN
+BEGIN:VTIMEZONE
+TZID:US/Pacific
+BEGIN:DAYLIGHT
+TZOFFSETFROM:-0800
+RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=2SU
+DTSTART:20070311T020000
+TZNAME:PDT
+TZOFFSETTO:-0700
+END:DAYLIGHT
+BEGIN:STANDARD
+TZOFFSETFROM:-0700
+RRULE:FREQ=YEARLY;BYMONTH=11;BYDAY=1SU
+DTSTART:20071104T020000
+TZNAME:PST
+TZOFFSETTO:-0800
+END:STANDARD
+END:VTIMEZONE
+BEGIN:VEVENT
+CREATED:20100203T013849Z
+UID:uid1
+DTEND;TZID=US/Pacific:%(now)s0207T173000
+TRANSP:OPAQUE
+SUMMARY:New Event
+DTSTART;TZID=US/Pacific:%(now)s0207T170000
+DTSTAMP:20100203T013909Z
+SEQUENCE:3
+BEGIN:VALARM
+X-WR-ALARMUID:1377CCC7-F85C-4610-8583-9513D4B364E1
+TRIGGER:-PT20M
+ATTACH;VALUE=URI:Basso
+ACTION:AUDIO
+END:VALARM
+END:VEVENT
+END:VCALENDAR
+""".replace("\n", "\r\n") % self.nowYear
             ))
             yield txn1.commit()
         d1 = _defer1()
@@ -658,44 +661,45 @@ END:VCALENDAR
         @inlineCallbacks
         def _defer2():
             yield cal2.createObjectResourceWithName("2.ics", VComponent.fromString(
-    "BEGIN:VCALENDAR\r\n"
-      "VERSION:2.0\r\n"
-      "PRODID:-//Apple Inc.//iCal 4.0.1//EN\r\n"
-      "CALSCALE:GREGORIAN\r\n"
-      "BEGIN:VTIMEZONE\r\n"
-        "TZID:US/Pacific\r\n"
-        "BEGIN:DAYLIGHT\r\n"
-          "TZOFFSETFROM:-0800\r\n"
-          "RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=2SU\r\n"
-          "DTSTART:20070311T020000\r\n"
-          "TZNAME:PDT\r\n"
-          "TZOFFSETTO:-0700\r\n"
-        "END:DAYLIGHT\r\n"
-        "BEGIN:STANDARD\r\n"
-          "TZOFFSETFROM:-0700\r\n"
-          "RRULE:FREQ=YEARLY;BYMONTH=11;BYDAY=1SU\r\n"
-          "DTSTART:20071104T020000\r\n"
-          "TZNAME:PST\r\n"
-          "TZOFFSETTO:-0800\r\n"
-        "END:STANDARD\r\n"
-      "END:VTIMEZONE\r\n"
-      "BEGIN:VEVENT\r\n"
-        "CREATED:20100203T013849Z\r\n"
-        "UID:uid2\r\n"
-        "DTEND;TZID=US/Pacific:20100207T173000\r\n"
-        "TRANSP:OPAQUE\r\n"
-        "SUMMARY:New Event\r\n"
-        "DTSTART;TZID=US/Pacific:20100207T170000\r\n"
-        "DTSTAMP:20100203T013909Z\r\n"
-        "SEQUENCE:3\r\n"
-        "BEGIN:VALARM\r\n"
-          "X-WR-ALARMUID:1377CCC7-F85C-4610-8583-9513D4B364E1\r\n"
-          "TRIGGER:-PT20M\r\n"
-          "ATTACH;VALUE=URI:Basso\r\n"
-          "ACTION:AUDIO\r\n"
-        "END:VALARM\r\n"
-      "END:VEVENT\r\n"
-    "END:VCALENDAR\r\n"
+"""BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Apple Inc.//iCal 4.0.1//EN
+CALSCALE:GREGORIAN
+BEGIN:VTIMEZONE
+TZID:US/Pacific
+BEGIN:DAYLIGHT
+TZOFFSETFROM:-0800
+RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=2SU
+DTSTART:20070311T020000
+TZNAME:PDT
+TZOFFSETTO:-0700
+END:DAYLIGHT
+BEGIN:STANDARD
+TZOFFSETFROM:-0700
+RRULE:FREQ=YEARLY;BYMONTH=11;BYDAY=1SU
+DTSTART:20071104T020000
+TZNAME:PST
+TZOFFSETTO:-0800
+END:STANDARD
+END:VTIMEZONE
+BEGIN:VEVENT
+CREATED:20100203T013849Z
+UID:uid2
+DTEND;TZID=US/Pacific:%(now)s0207T173000
+TRANSP:OPAQUE
+SUMMARY:New Event
+DTSTART;TZID=US/Pacific:%(now)s0207T170000
+DTSTAMP:20100203T013909Z
+SEQUENCE:3
+BEGIN:VALARM
+X-WR-ALARMUID:1377CCC7-F85C-4610-8583-9513D4B364E1
+TRIGGER:-PT20M
+ATTACH;VALUE=URI:Basso
+ACTION:AUDIO
+END:VALARM
+END:VEVENT
+END:VCALENDAR
+""".replace("\n", "\r\n") % self.nowYear
             ))
             yield txn2.commit()
         d2 = _defer2()
@@ -1171,16 +1175,17 @@ END:VCALENDAR
 
 
     @inlineCallbacks
-    def test_recurrenceMax(self):
+    def test_recurrenceMinMax(self):
         """
-        Test CalendarObjectResource.recurrenceMax to make sure it handles a None value.
+        Test CalendarObjectResource.recurrenceMinMax to make sure it handles a None value.
         """
         
         # Valid object
         resource = yield self.calendarObjectUnderTest()
         
         # Valid lock
-        rMax = yield resource.recurrenceMax()
+        rMin, rMax = yield resource.recurrenceMinMax()
+        self.assertEqual(rMin, None)
         self.assertEqual(rMax, None)
 
     @inlineCallbacks
@@ -1196,7 +1201,7 @@ CALSCALE:GREGORIAN
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
 BEGIN:VEVENT
 UID:instance
-DTSTART:20060102T140000Z
+DTSTART:%(now)s0102T140000Z
 DURATION:PT1H
 CREATED:20060102T190000Z
 DTSTAMP:20051222T210507Z
@@ -1204,7 +1209,7 @@ RRULE:FREQ=DAILY
 SUMMARY:instance
 END:VEVENT
 END:VCALENDAR
-""".replace("\n", "\r\n")
+""".replace("\n", "\r\n") % self.nowYear
 
         self.patch(config, "FreeBusyIndexDelayedExpand", False)
 
@@ -1212,7 +1217,8 @@ END:VCALENDAR
         calendar = yield self.calendarUnderTest()
         component = Component.fromString(caldata)
         calendarObject = yield calendar.createCalendarObjectWithName("indexing.ics", component)
-        rmax = yield calendarObject.recurrenceMax()
+        rmin, rmax = yield calendarObject.recurrenceMinMax()
+        self.assertEqual(rmin, None)
         self.assertNotEqual(rmax.getYear(), 1900)
         instances = yield calendarObject.instances()
         self.assertNotEqual(len(instances), 0)

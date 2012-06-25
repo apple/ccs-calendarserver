@@ -665,7 +665,7 @@ def processEventFreeBusy(calendar, fbinfo, timerange, tzinfo):
     """
     
     # Expand out the set of instances for the event with in the required range
-    instances = calendar.expandTimeRanges(timerange.end, ignoreInvalidInstances=True)
+    instances = calendar.expandTimeRanges(timerange.end, lowerLimit=timerange.start, ignoreInvalidInstances=True)
     
     # Can only do timed events
     for key in instances:

@@ -328,7 +328,6 @@ DEFAULT_CONFIG = {
     "MaxResourceSize"           : 1048576, # Maximum resource size (in bytes)
     "MaxAttendeesPerInstance"   :     100, # Maximum number of unique attendees
     "MaxAllowedInstances"       :    3000, # Maximum number of instances the server will index
-    "MaxInstancesForRRULE"      :     400, # Maximum number of instances for an RRULE
 
     # Set to URL path of wiki authentication service, e.g. "/auth", in order
     # to use javascript authentication dialog.  Empty string indicates standard
@@ -922,6 +921,7 @@ DEFAULT_CONFIG = {
     "FreeBusyCacheDaysBack":        7,
     "FreeBusyCacheDaysForward":     12 * 7,
 
+    "FreeBusyIndexLowerLimitDays":  365,
     "FreeBusyIndexExpandAheadDays": 365,
     "FreeBusyIndexExpandMaxDays":   5 * 365,
     "FreeBusyIndexDelayedExpand":   True,

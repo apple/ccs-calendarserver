@@ -174,7 +174,6 @@ create table CALENDAR_OBJECT (
   DROPBOX_ID           varchar(255),
   ORGANIZER            varchar(255),
   ORGANIZER_OBJECT     integer      references CALENDAR_OBJECT,
-  RECURRANCE_MIN       date,        -- minimum date that recurrences have been expanded to.
   RECURRANCE_MAX       date,        -- maximum date that recurrences have been expanded to.
   ACCESS               integer      default 0 not null,
   SCHEDULE_OBJECT      boolean      default false,
@@ -495,6 +494,6 @@ create table CALENDARSERVER (
   VALUE                         varchar(255)
 );
 
-insert into CALENDARSERVER values ('VERSION', '10');
+insert into CALENDARSERVER values ('VERSION', '9');
 insert into CALENDARSERVER values ('CALENDAR-DATAVERSION', '3');
 insert into CALENDARSERVER values ('ADDRESSBOOK-DATAVERSION', '1');

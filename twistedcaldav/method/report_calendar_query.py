@@ -20,18 +20,18 @@ CalDAV calendar-query report
 
 __all__ = ["report_urn_ietf_params_xml_ns_caldav_calendar_query"]
 
-from twext.python.log import Logger
-from twext.web2.dav.http import ErrorResponse
-
 from twisted.internet.defer import inlineCallbacks, returnValue,\
     maybeDeferred
+
+from twext.python.log import Logger
 from twext.web2 import responsecode
-from txdav.xml import element as davxml
 from twext.web2.dav.http import MultiStatusResponse
+from twext.web2.dav.http import ErrorResponse
 from twext.web2.dav.method.report import NumberOfMatchesWithinLimits
 from twext.web2.dav.util import joinURL
 from twext.web2.http import HTTPError, StatusResponse
 
+from twistedcaldav import caldavxml
 from twistedcaldav.caldavxml import caldav_namespace, MaxInstances
 from twistedcaldav.config import config
 from txdav.common.icommondatastore import IndexedSearchException,\
@@ -39,6 +39,9 @@ from txdav.common.icommondatastore import IndexedSearchException,\
 from twistedcaldav.instance import TooManyInstancesError
 from twistedcaldav.method import report_common
 from twistedcaldav.query import calendarqueryfilter
+
+from txdav.caldav.icalendarstore import TimeRangeLowerLimit, TimeRangeUpperLimit
+from txdav.xml import element as davxml
 
 log = Logger()
 
@@ -259,6 +262,18 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_query(self, request, calendar_
             responsecode.FORBIDDEN,
             davxml.NumberOfMatchesWithinLimits(),
             "Too many components",
+        ))
+    except TimeRangeLowerLimit, e:
+        raise HTTPError(ErrorResponse(
+            responsecode.FORBIDDEN,
+            caldavxml.MinDateTime(),
+            "Time-range value too far in the past. Must be on or after %s." % (str(e.limit),)
+        ))
+    except TimeRangeUpperLimit, e:
+        raise HTTPError(ErrorResponse(
+            responsecode.FORBIDDEN,
+            caldavxml.MaxDateTime(),
+            "Time-range value too far in the future. Must be on or before %s." % (str(e.limit),)
         ))
     
     if not hasattr(request, "extendedLogItems"):

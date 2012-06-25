@@ -155,7 +155,7 @@ class ValidService(Service, object):
         truncated = False
         try:
             component = Component.fromString(self.input.read())
-            if config.MaxInstancesForRRULE != 0:
+            if getattr(self.config, "MaxInstancesForRRULE", 0) != 0:
                 truncated = component.truncateRecurrence(config.MaxInstancesForRRULE)
             component.validCalendarData(doFix=False, validateRecurrences=True)
             component.validCalendarForCalDAV(methodAllowed=True)

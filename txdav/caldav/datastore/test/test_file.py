@@ -42,6 +42,8 @@ from txdav.common.datastore.test.util import deriveQuota
 from txdav.caldav.datastore.test.common import (
     CommonTests, test_event_text, event1modified_text)
 
+from pycalendar.datetime import PyCalendarDateTime
+
 storePath = FilePath(__file__).parent().child("calendar_store")
 
 def _todo(f, why):
@@ -64,6 +66,16 @@ def setUpCalendarStore(test):
     calendarPath = storeRootPath.child("calendars").child("__uids__")
     calendarPath.parent().makedirs()
     storePath.copyTo(calendarPath)
+
+    # Set year values to current year    
+    nowYear = PyCalendarDateTime.getToday().getYear()
+    for home in calendarPath.child("ho").child("me").children():
+        if not home.basename().startswith("."):
+            for calendar in home.children():
+                if not calendar.basename().startswith("."):
+                    for resource in calendar.children():
+                        if resource.basename().endswith(".ics"):
+                            resource.setContent(resource.getContent() % {"now":nowYear})
 
     testID = test.id()
     test.calendarStore = CalendarStore(storeRootPath, test.notifierFactory,

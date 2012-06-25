@@ -92,7 +92,6 @@ create table CALENDAR_OBJECT (
     "DROPBOX_ID" nvarchar2(255),
     "ORGANIZER" nvarchar2(255),
     "ORGANIZER_OBJECT" integer references CALENDAR_OBJECT,
-    "RECURRANCE_MIN" date,
     "RECURRANCE_MAX" date,
     "ACCESS" integer default 0 not null,
     "SCHEDULE_OBJECT" integer default 0,
@@ -258,7 +257,7 @@ create table CALENDARSERVER (
     "VALUE" nvarchar2(255)
 );
 
-insert into CALENDARSERVER (NAME, VALUE) values ('VERSION', '10');
+insert into CALENDARSERVER (NAME, VALUE) values ('VERSION', '9');
 insert into CALENDARSERVER (NAME, VALUE) values ('CALENDAR-DATAVERSION', '2');
 insert into CALENDARSERVER (NAME, VALUE) values ('ADDRESSBOOK-DATAVERSION', '1');
 create index INVITE_INVITE_UID_9b0902ff on INVITE (

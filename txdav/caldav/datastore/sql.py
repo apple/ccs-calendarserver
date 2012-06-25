@@ -858,6 +858,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         instanceIndexingRequired = not hasattr(component, "noInstanceIndexing") or inserting or reCreate
         
         if instanceIndexingRequired:
+
             # Decide how far to expand based on the component. doInstanceIndexing will indicate whether we
             # store expanded instance data immediately, or wait until a re-expand is triggered by some later
             # operation.
@@ -901,25 +902,34 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
                              PyCalendarDuration(days=config.FreeBusyIndexExpandMaxDays)):
                     raise IndexedSearchException
     
+            if config.FreeBusyIndexLowerLimitDays:
+                truncateLowerLimit = PyCalendarDateTime.getToday()
+                truncateLowerLimit.offsetDay(-config.FreeBusyIndexLowerLimitDays)
+            else:
+                truncateLowerLimit = None
+
             # Always do recurrence expansion even if we do not intend to index - we need this to double-check the
             # validity of the iCalendar recurrence data.
             try:
-                instances = component.expandTimeRanges(expand, ignoreInvalidInstances=reCreate)
+                instances = component.expandTimeRanges(expand, lowerLimit=truncateLowerLimit, ignoreInvalidInstances=reCreate)
                 recurrenceLimit = instances.limit
+                recurrenceLowerLimit = instances.lowerLimit
             except InvalidOverriddenInstanceError, e:
                 self.log_error("Invalid instance %s when indexing %s in %s" %
                                (e.rid, self._name, self._calendar,))
     
                 if txn._migrating:
                     # TODO: fix the data here by re-writing component then re-index
-                    instances = component.expandTimeRanges(expand, ignoreInvalidInstances=True)
+                    instances = component.expandTimeRanges(expand, lowerLimit=truncateLowerLimit, ignoreInvalidInstances=True)
                     recurrenceLimit = instances.limit
+                    recurrenceLowerLimit = instances.lowerLimit
                 else:
                     raise
     
             # Now coerce indexing to off if needed
             if not doInstanceIndexing:
                 instances = None
+                recurrenceLowerLimit = None
                 recurrenceLimit = PyCalendarDateTime(1900, 1, 1, 0, 0, 0, tzid=PyCalendarTimezone(utc=True))
 
         co = schema.CALENDAR_OBJECT
@@ -977,6 +987,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
             # Only needed if indexing being changed
             if instanceIndexingRequired:
+                values[co.RECURRANCE_MIN] = pyCalendarTodatetime(normalizeForIndex(recurrenceLowerLimit)) if recurrenceLowerLimit else None
                 values[co.RECURRANCE_MAX] = pyCalendarTodatetime(normalizeForIndex(recurrenceLimit)) if recurrenceLimit else None
 
             if inserting:
@@ -1003,8 +1014,8 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
                     ).on(txn)
         else:
             values = {
-                co.RECURRANCE_MAX :
-                    pyCalendarTodatetime(normalizeForIndex(recurrenceLimit)) if recurrenceLimit else None,
+                co.RECURRANCE_MIN : pyCalendarTodatetime(normalizeForIndex(recurrenceLowerLimit)) if recurrenceLowerLimit else None,
+                co.RECURRANCE_MAX : pyCalendarTodatetime(normalizeForIndex(recurrenceLimit)) if recurrenceLimit else None,
             }
 
             yield Update(
@@ -1019,11 +1030,11 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             ).on(txn)
 
         if instanceIndexingRequired and doInstanceIndexing:
-            yield self._addInstances(component, instances, txn)
+            yield self._addInstances(component, instances, truncateLowerLimit, txn)
     
     
     @inlineCallbacks
-    def _addInstances(self, component, instances, txn):
+    def _addInstances(self, component, instances, truncateLowerLimit, txn):
         """
         Add the set of supplied instances to the store.
 
@@ -1031,66 +1042,70 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         @type component: L{Component}
         @param instances: the set of instances to add
         @type instances: L{InstanceList}
+        @param truncateLowerLimit: the lower limit for instances
+        @type truncateLowerLimit: L{PyCalendarDateTime}
         @param txn: transaction to use
         @type txn: L{Transaction}
         """
 
-        tr = schema.TIME_RANGE
-        tpy = schema.TRANSPARENCY
-
         # TIME_RANGE table update
+        lowerLimitApplied = False
         for key in instances:
             instance = instances[key]
             start = instance.start
             end = instance.end
             float = instance.start.floating()
+            transp = instance.component.propertyValue("TRANSP") == "TRANSPARENT"
+            fbtype = instance.component.getFBType()
             start.setTimezoneUTC(True)
             end.setTimezoneUTC(True)
-            transp = instance.component.propertyValue("TRANSP") == "TRANSPARENT"
-            instanceid = (yield Insert({
-                tr.CALENDAR_RESOURCE_ID        : self._calendar._resourceID,
-                tr.CALENDAR_OBJECT_RESOURCE_ID : self._resourceID,
-                tr.FLOATING                    : float,
-                tr.START_DATE                  : pyCalendarTodatetime(start),
-                tr.END_DATE                    : pyCalendarTodatetime(end),
-                tr.FBTYPE                      :
-                    icalfbtype_to_indexfbtype.get(
-                        instance.component.getFBType(),
-                        icalfbtype_to_indexfbtype["FREE"]),
-                tr.TRANSPARENT                 : transp,
-            }, Return=tr.INSTANCE_ID).on(txn))[0][0]
-            peruserdata = component.perUserTransparency(instance.rid)
-            for useruid, transp in peruserdata:
-                (yield Insert({
-                    tpy.TIME_RANGE_INSTANCE_ID : instanceid,
-                    tpy.USER_ID                : useruid,
-                    tpy.TRANSPARENT            : transp,
-                }).on(txn))
+
+            # Ignore if below the lower limit            
+            if truncateLowerLimit and end < truncateLowerLimit:
+                lowerLimitApplied = True
+                continue
+
+            yield self._addInstanceDetails(component, instance.rid, start, end, float, transp, fbtype, txn)
+
+        # For truncated items we insert a tomb stone lower bound so that a time-range
+        # query with just an end bound will match
+        if lowerLimitApplied or instances.lowerLimit and len(instances.instances) == 0:
+            start = PyCalendarDateTime(1901, 1, 1, 0, 0, 0, tzid=PyCalendarTimezone(utc=True))
+            end = PyCalendarDateTime(1901, 1, 1, 1, 0, 0, tzid=PyCalendarTimezone(utc=True))
+            yield self._addInstanceDetails(component, None, start, end, False, True, "UNKNOWN", txn)
 
         # Special - for unbounded recurrence we insert a value for "infinity"
         # that will allow an open-ended time-range to always match it.
-        if component.isRecurringUnbounded():
+        # We also need to add the "infinity" value if the event was bounded but
+        # starts after the future expansion cut-off limit. 
+        if component.isRecurringUnbounded() or instances.limit and len(instances.instances) == 0:
             start = PyCalendarDateTime(2100, 1, 1, 0, 0, 0, tzid=PyCalendarTimezone(utc=True))
             end = PyCalendarDateTime(2100, 1, 1, 1, 0, 0, tzid=PyCalendarTimezone(utc=True))
-            float = False
-            transp = True
-            instanceid = (yield Insert({
-                tr.CALENDAR_RESOURCE_ID        : self._calendar._resourceID,
-                tr.CALENDAR_OBJECT_RESOURCE_ID : self._resourceID,
-                tr.FLOATING                    : float,
-                tr.START_DATE                  : pyCalendarTodatetime(start),
-                tr.END_DATE                    : pyCalendarTodatetime(end),
-                tr.FBTYPE                      :
-                    icalfbtype_to_indexfbtype["UNKNOWN"],
-                tr.TRANSPARENT                 : transp,
-            }, Return=tr.INSTANCE_ID).on(txn))[0][0]
-            peruserdata = component.perUserTransparency(None)
-            for useruid, transp in peruserdata:
-                (yield Insert({
-                    tpy.TIME_RANGE_INSTANCE_ID : instanceid,
-                    tpy.USER_ID                : useruid,
-                    tpy.TRANSPARENT            : transp,
-                }).on(txn))
+            yield self._addInstanceDetails(component, None, start, end, False, True, "UNKNOWN", txn)
+
+
+    @inlineCallbacks
+    def _addInstanceDetails(self, component, rid, start, end, float, transp, fbtype, txn):
+
+        tr = schema.TIME_RANGE
+        tpy = schema.TRANSPARENCY
+
+        instanceid = (yield Insert({
+            tr.CALENDAR_RESOURCE_ID        : self._calendar._resourceID,
+            tr.CALENDAR_OBJECT_RESOURCE_ID : self._resourceID,
+            tr.FLOATING                    : float,
+            tr.START_DATE                  : pyCalendarTodatetime(start),
+            tr.END_DATE                    : pyCalendarTodatetime(end),
+            tr.FBTYPE                      : icalfbtype_to_indexfbtype.get(fbtype, icalfbtype_to_indexfbtype["FREE"]),
+            tr.TRANSPARENT                 : transp,
+        }, Return=tr.INSTANCE_ID).on(txn))[0][0]
+        peruserdata = component.perUserTransparency(rid)
+        for useruid, transp in peruserdata:
+            (yield Insert({
+                tpy.TIME_RANGE_INSTANCE_ID : instanceid,
+                tpy.USER_ID                : useruid,
+                tpy.TRANSPARENT            : transp,
+            }).on(txn))
 
 
     @inlineCallbacks
@@ -1128,19 +1143,22 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
 
     @classproperty
-    def _recurrenceMaxByIDQuery(cls): #@NoSelf
+    def _recurrenceMinMaxByIDQuery(cls): #@NoSelf
         """
-        DAL query to load RECURRANCE_MAX via an object's resource ID.
+        DAL query to load RECURRANCE_MIN, RECURRANCE_MAX via an object's resource ID.
         """
         co = schema.CALENDAR_OBJECT
-        return Select([co.RECURRANCE_MAX], From=co,
-                      Where=co.RESOURCE_ID == Parameter("resourceID"))
+        return Select(
+            [co.RECURRANCE_MIN, co.RECURRANCE_MAX,],
+            From=co,
+            Where=co.RESOURCE_ID == Parameter("resourceID"),
+        )
 
 
     @inlineCallbacks
-    def recurrenceMax(self, txn=None):
+    def recurrenceMinMax(self, txn=None):
         """
-        Get the RECURRANCE_MAX value from the database. Occasionally we might need to do an
+        Get the RECURRANCE_MIN, RECURRANCE_MAX value from the database. Occasionally we might need to do an
         update to time-range data via a separate transaction, so we allow that to be passed in.
     
         @return: L{PyCalendarDateTime} result
@@ -1148,11 +1166,14 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         # Setup appropriate txn
         txn = txn if txn is not None else self._txn
 
-        rMax = (
-            yield self._recurrenceMaxByIDQuery.on(txn,
+        rMin, rMax = (
+            yield self._recurrenceMinMaxByIDQuery.on(txn,
                                          resourceID=self._resourceID)
-        )[0][0]
-        returnValue(parseSQLDateToPyCalendar(rMax) if rMax is not None else None)
+        )[0]
+        returnValue((
+            parseSQLDateToPyCalendar(rMin) if rMin is not None else None,
+            parseSQLDateToPyCalendar(rMax) if rMax is not None else None,
+        ))
 
 
     @classproperty

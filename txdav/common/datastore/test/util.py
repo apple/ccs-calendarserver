@@ -49,6 +49,8 @@ from twistedcaldav.notify import Notifier, NodeCreationException
 from twext.enterprise.ienterprise import AlreadyFinishedError
 from twistedcaldav.vcard import Component as ABComponent
 
+from pycalendar.datetime import PyCalendarDateTime
+
 md5key = PropertyName.fromElement(TwistedGETContentMD5)
 
 def allInstancesOf(cls):
@@ -373,12 +375,19 @@ def populateCalendarsFrom(requirements, store, migrating=False):
                         objData, metadata = calendarObjNames[objectName]
                         yield calendar.createCalendarObjectWithName(
                             objectName,
-                            VComponent.fromString(objData),
+                            VComponent.fromString(updateToCurrentYear(objData)),
                             metadata = metadata,
                         )
     yield populateTxn.commit()
 
 
+def updateToCurrentYear(data):
+    """
+    Update the supplied iCalendar data so that all dates are updated to the current year.
+    """
+    
+    nowYear = PyCalendarDateTime.getToday().getYear()
+    return data % {"now":nowYear}
 
 @inlineCallbacks
 def resetCalendarMD5s(md5s, store):

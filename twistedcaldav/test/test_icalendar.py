@@ -2434,9 +2434,9 @@ END:VCALENDAR
         for description, original, ignoreInvalidInstances, results in data:
             component = Component.fromString(original)
             if results is None:
-                self.assertRaises(InvalidOverriddenInstanceError, component.expandTimeRanges, PyCalendarDateTime(2100, 1, 1), ignoreInvalidInstances)
+                self.assertRaises(InvalidOverriddenInstanceError, component.expandTimeRanges, PyCalendarDateTime(2100, 1, 1), ignoreInvalidInstances=ignoreInvalidInstances)
             else:
-                instances = component.expandTimeRanges(PyCalendarDateTime(2100, 1, 1), ignoreInvalidInstances)
+                instances = component.expandTimeRanges(PyCalendarDateTime(2100, 1, 1), ignoreInvalidInstances=ignoreInvalidInstances)
                 self.assertTrue(len(instances.instances) == len(results), "%s: wrong number of instances" % (description,))
                 periods = tuple([(instance.start, instance.end) for instance in sorted(instances.instances.values(), key=lambda x:x.start)])
                 self.assertEqual(periods, results)
@@ -2776,15 +2776,370 @@ END:VCALENDAR
         for description, original, ignoreInvalidInstances, results in data:
             component = Component.fromString(original)
             if results is None:
-                self.assertRaises(InvalidOverriddenInstanceError, component.expandTimeRanges, PyCalendarDateTime(2100, 1, 1), ignoreInvalidInstances)
+                self.assertRaises(InvalidOverriddenInstanceError, component.expandTimeRanges, PyCalendarDateTime(2100, 1, 1), ignoreInvalidInstances=ignoreInvalidInstances)
             else:
-                instances = component.expandTimeRanges(PyCalendarDateTime(2100, 1, 1), ignoreInvalidInstances, normalizeFunction=normalizeForExpand)
+                instances = component.expandTimeRanges(PyCalendarDateTime(2100, 1, 1), ignoreInvalidInstances=ignoreInvalidInstances, normalizeFunction=normalizeForExpand)
                 self.assertTrue(len(instances.instances) == len(results), "%s: wrong number of instances" % (description,))
                 periods = tuple([(instance.start, instance.end) for instance in sorted(instances.instances.values(), key=lambda x:x.start)])
                 self.assertEqual(periods, results)
                 for start, end in periods:
                     self.assertEqual(start.isDateOnly(), results[0][0].isDateOnly(), "%s: %s wrong date/time start state" % (description, start,))
                     self.assertEqual(end.isDateOnly(), results[0][1].isDateOnly(), "%s: %s wrong date/time end state" % (description, end,))
+       
+    def test_expand_instances_lowerlimit(self):
+        
+        data = (
+            (
+                "Non recurring - no limit",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071114T000000Z
+DTSTAMP:20080601T120000Z
+DURATION:PT1H
+END:VEVENT
+END:VCALENDAR
+""",
+                None,
+                (
+                    (
+                        PyCalendarDateTime(2007, 11, 14, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                        PyCalendarDateTime(2007, 11, 14, 1, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                    ),
+                ),
+                None,
+            ),
+            (
+                "Non recurring - limit not effective",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071114T000000Z
+DTSTAMP:20080601T120000Z
+DURATION:PT1H
+END:VEVENT
+END:VCALENDAR
+""",
+                PyCalendarDateTime(2007, 1, 1),
+                (
+                    (
+                        PyCalendarDateTime(2007, 11, 14, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                        PyCalendarDateTime(2007, 11, 14, 1, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                    ),
+                ),
+                None,
+            ),
+            (
+                "Non recurring - limit effective",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071114T000000Z
+DTSTAMP:20080601T120000Z
+DURATION:PT1H
+END:VEVENT
+END:VCALENDAR
+""",
+                PyCalendarDateTime(2010, 1, 1),
+                (),
+                PyCalendarDateTime(2010, 1, 1),
+            ),
+            (
+                "Simple recurring - no limit",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071114T000000Z
+DTSTAMP:20080601T120000Z
+DURATION:PT1H
+RRULE:FREQ=YEARLY;COUNT=4
+END:VEVENT
+END:VCALENDAR
+""",
+                None,
+                (
+                    (
+                        PyCalendarDateTime(2007, 11, 14, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                        PyCalendarDateTime(2007, 11, 14, 1, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                    ),
+                    (
+                        PyCalendarDateTime(2008, 11, 14, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                        PyCalendarDateTime(2008, 11, 14, 1, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                    ),
+                    (
+                        PyCalendarDateTime(2009, 11, 14, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                        PyCalendarDateTime(2009, 11, 14, 1, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                    ),
+                    (
+                        PyCalendarDateTime(2010, 11, 14, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                        PyCalendarDateTime(2010, 11, 14, 1, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                    ),
+                ),
+                None,
+            ),
+            (
+                "Simple recurring - limit not effective",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071114T000000Z
+DTSTAMP:20080601T120000Z
+DURATION:PT1H
+RRULE:FREQ=YEARLY;COUNT=4
+END:VEVENT
+END:VCALENDAR
+""",
+                PyCalendarDateTime(2007, 1, 1),
+                (
+                    (
+                        PyCalendarDateTime(2007, 11, 14, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                        PyCalendarDateTime(2007, 11, 14, 1, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                    ),
+                    (
+                        PyCalendarDateTime(2008, 11, 14, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                        PyCalendarDateTime(2008, 11, 14, 1, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                    ),
+                    (
+                        PyCalendarDateTime(2009, 11, 14, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                        PyCalendarDateTime(2009, 11, 14, 1, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                    ),
+                    (
+                        PyCalendarDateTime(2010, 11, 14, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                        PyCalendarDateTime(2010, 11, 14, 1, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                    ),
+                ),
+                None,
+            ),
+            (
+                "Simple recurring - limit effective partial",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071114T000000Z
+DTSTAMP:20080601T120000Z
+DURATION:PT1H
+RRULE:FREQ=YEARLY;COUNT=4
+END:VEVENT
+END:VCALENDAR
+""",
+                PyCalendarDateTime(2010, 1, 1),
+                (
+                    (
+                        PyCalendarDateTime(2010, 11, 14, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                        PyCalendarDateTime(2010, 11, 14, 1, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                    ),
+                ),
+                PyCalendarDateTime(2010, 1, 1),
+            ),
+            (
+                "Simple recurring - limit effective full",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071114T000000Z
+DTSTAMP:20080601T120000Z
+DURATION:PT1H
+RRULE:FREQ=YEARLY;COUNT=4
+END:VEVENT
+END:VCALENDAR
+""",
+                PyCalendarDateTime(2012, 1, 1),
+                (),
+                PyCalendarDateTime(2012, 1, 1),
+            ),
+            (
+                "Complex recurring - no limit",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071114T000000Z
+DTSTAMP:20080601T120000Z
+DURATION:PT1H
+RRULE:FREQ=YEARLY;COUNT=4
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890-1
+RECURRENCE-ID:20081114T000000Z
+DTSTART:20081115T000000Z
+DTSTAMP:20080601T120000Z
+DURATION:PT1H
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890-1
+RECURRENCE-ID:20101114T000000Z
+DTSTART:20101115T000000Z
+DTSTAMP:20080601T120000Z
+DURATION:PT1H
+END:VEVENT
+END:VCALENDAR
+""",
+                None,
+                (
+                    (
+                        PyCalendarDateTime(2007, 11, 14, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                        PyCalendarDateTime(2007, 11, 14, 1, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                    ),
+                    (
+                        PyCalendarDateTime(2008, 11, 15, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                        PyCalendarDateTime(2008, 11, 15, 1, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                    ),
+                    (
+                        PyCalendarDateTime(2009, 11, 14, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                        PyCalendarDateTime(2009, 11, 14, 1, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                    ),
+                    (
+                        PyCalendarDateTime(2010, 11, 15, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                        PyCalendarDateTime(2010, 11, 15, 1, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                    ),
+                ),
+                None,
+            ),
+            (
+                "Complex recurring - limit not effective",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071114T000000Z
+DTSTAMP:20080601T120000Z
+DURATION:PT1H
+RRULE:FREQ=YEARLY;COUNT=4
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890-1
+RECURRENCE-ID:20081114T000000Z
+DTSTART:20081115T000000Z
+DTSTAMP:20080601T120000Z
+DURATION:PT1H
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890-1
+RECURRENCE-ID:20101114T000000Z
+DTSTART:20101115T000000Z
+DTSTAMP:20080601T120000Z
+DURATION:PT1H
+END:VEVENT
+END:VCALENDAR
+""",
+                PyCalendarDateTime(2007, 1, 1),
+                (
+                    (
+                        PyCalendarDateTime(2007, 11, 14, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                        PyCalendarDateTime(2007, 11, 14, 1, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                    ),
+                    (
+                        PyCalendarDateTime(2008, 11, 15, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                        PyCalendarDateTime(2008, 11, 15, 1, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                    ),
+                    (
+                        PyCalendarDateTime(2009, 11, 14, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                        PyCalendarDateTime(2009, 11, 14, 1, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                    ),
+                    (
+                        PyCalendarDateTime(2010, 11, 15, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                        PyCalendarDateTime(2010, 11, 15, 1, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                    ),
+                ),
+                None,
+            ),
+            (
+                "Complex recurring - limit effective partial",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071114T000000Z
+DTSTAMP:20080601T120000Z
+DURATION:PT1H
+RRULE:FREQ=YEARLY;COUNT=4
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890-1
+RECURRENCE-ID:20081114T000000Z
+DTSTART:20081115T000000Z
+DTSTAMP:20080601T120000Z
+DURATION:PT1H
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890-1
+RECURRENCE-ID:20101114T000000Z
+DTSTART:20101115T000000Z
+DTSTAMP:20080601T120000Z
+DURATION:PT1H
+END:VEVENT
+END:VCALENDAR
+""",
+                PyCalendarDateTime(2010, 1, 1),
+                (
+                    (
+                        PyCalendarDateTime(2010, 11, 15, 0, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                        PyCalendarDateTime(2010, 11, 15, 1, 0, 0, tzid=PyCalendarTimezone(utc=True)),
+                    ),
+                ),
+                PyCalendarDateTime(2010, 1, 1),
+            ),
+            (
+                "Complex recurring - limit effective full",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071114T000000Z
+DTSTAMP:20080601T120000Z
+DURATION:PT1H
+RRULE:FREQ=YEARLY;COUNT=4
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890-1
+RECURRENCE-ID:20081114T000000Z
+DTSTART:20081115T000000Z
+DTSTAMP:20080601T120000Z
+DURATION:PT1H
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890-1
+RECURRENCE-ID:20101114T000000Z
+DTSTART:20101115T000000Z
+DTSTAMP:20080601T120000Z
+DURATION:PT1H
+END:VEVENT
+END:VCALENDAR
+""",
+                PyCalendarDateTime(2012, 1, 1),
+                (),
+                PyCalendarDateTime(2012, 1, 1),
+            ),
+        )
+        
+        for description, original, lowerLimit, results, limited in data:
+            component = Component.fromString(original)
+            instances = component.expandTimeRanges(PyCalendarDateTime(2100, 1, 1), lowerLimit=lowerLimit)
+            self.assertTrue(len(instances.instances) == len(results), "%s: wrong number of instances" % (description,))
+            periods = tuple([(instance.start, instance.end) for instance in sorted(instances.instances.values(), key=lambda x:x.start)])
+            self.assertEqual(periods, results)
+            for start, end in periods:
+                self.assertEqual(start.isDateOnly(), results[0][0].isDateOnly(), "%s: %s wrong date/time start state" % (description, start,))
+                self.assertEqual(end.isDateOnly(), results[0][1].isDateOnly(), "%s: %s wrong date/time end state" % (description, end,))
+            self.assertEqual(instances.lowerLimit, limited)
        
     def test_has_property_in_any_component(self):
         

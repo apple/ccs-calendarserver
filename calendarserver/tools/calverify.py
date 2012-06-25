@@ -719,7 +719,7 @@ class CalVerifyService(Service, object):
                 returnValue((True, "Nothing to scan"))
 
         component = Component(None, pycalendar=caldata)
-        if self.config.MaxInstancesForRRULE:
+        if getattr(self.config, "MaxInstancesForRRULE", 0):
             component.truncateRecurrence(self.config.MaxInstancesForRRULE)
         result = True
         message = ""

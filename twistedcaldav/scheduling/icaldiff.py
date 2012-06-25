@@ -16,7 +16,6 @@
 
 from twext.python.log import Logger
 
-from twistedcaldav.config import config
 from twistedcaldav.ical import Component, Property
 from twistedcaldav.scheduling.cuaddress import normalizeCUAddr
 from twistedcaldav.scheduling.itip import iTipGenerator
@@ -247,12 +246,6 @@ class iCalDiff(object):
         """
         
         self.attendee = normalizeCUAddr(attendee)
-
-        if config.MaxInstancesForRRULE != 0:
-            try:
-                self.oldcalendar.truncateRecurrence(config.MaxInstancesForRRULE)
-            except (ValueError, TypeError), ex:
-                log.err("Cannot truncate calendar resource: %s" % (ex,))
 
         returnCalendar = self.oldcalendar.duplicate()
         returnMaster = returnCalendar.masterComponent()

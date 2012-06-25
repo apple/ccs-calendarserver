@@ -20,12 +20,11 @@ CalDAV freebusy report
 
 __all__ = ["report_urn_ietf_params_xml_ns_caldav_free_busy_query"]
 
-from twext.python.log import Logger
-from twext.web2.dav.http import ErrorResponse
-
 from twisted.internet.defer import inlineCallbacks, returnValue
+
+from twext.python.log import Logger
 from twext.web2 import responsecode
-from txdav.xml import element as davxml
+from twext.web2.dav.http import ErrorResponse
 from twext.web2.dav.method.report import NumberOfMatchesWithinLimits
 from twext.web2.http import HTTPError, Response, StatusResponse
 from twext.web2.http_headers import MimeType
@@ -33,6 +32,9 @@ from twext.web2.stream import MemoryStream
 
 from twistedcaldav import caldavxml
 from twistedcaldav.method import report_common
+
+from txdav.caldav.icalendarstore import TimeRangeLowerLimit, TimeRangeUpperLimit
+from txdav.xml import element as davxml
 
 log = Logger()
 
@@ -84,6 +86,18 @@ def report_urn_ietf_params_xml_ns_caldav_free_busy_query(self, request, freebusy
             responsecode.FORBIDDEN,
             davxml.NumberOfMatchesWithinLimits(),
             "Too many components"
+        ))
+    except TimeRangeLowerLimit, e:
+        raise HTTPError(ErrorResponse(
+            responsecode.FORBIDDEN,
+            caldavxml.MinDateTime(),
+            "Time-range value too far in the past. Must be on or after %s." % (str(e.limit),)
+        ))
+    except TimeRangeUpperLimit, e:
+        raise HTTPError(ErrorResponse(
+            responsecode.FORBIDDEN,
+            caldavxml.MaxDateTime(),
+            "Time-range value too far in the future. Must be on or before %s." % (str(e.limit),)
         ))
     
     # Now build a new calendar object with the free busy info we have

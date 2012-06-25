@@ -72,6 +72,8 @@ from twext.enterprise.dal.syntax import \
     Delete, utcNowSQL, Union, Insert, Len, Max, Parameter, SavepointAction, \
     Select, Update, ColumnSyntax, TableSyntax, Upper
 
+from twistedcaldav.config import config
+
 from txdav.base.propertystore.base import PropertyName
 from txdav.base.propertystore.none import PropertyStore as NonePropertyStore
 from txdav.base.propertystore.sql import PropertyStore
@@ -83,6 +85,8 @@ from twistedcaldav.dateops import datetimeMktime, parseSQLTimestamp,\
 from txdav.xml.rfc2518 import DisplayName
 
 from txdav.base.datastore.util import normalizeUUIDOrNot
+
+from pycalendar.datetime import PyCalendarDateTime
 
 from cStringIO import StringIO
 from sqlparse import parse
@@ -770,6 +774,14 @@ class CommonStoreTransaction(object):
         Returns a deferred to a list of (uid, calendarName, eventName, maxDate)
         tuples.
         """
+
+        # Make sure cut off is after any lower limit truncation in the DB
+        if config.FreeBusyIndexLowerLimitDays:
+            truncateLowerLimit = PyCalendarDateTime.getToday()
+            truncateLowerLimit.offsetDay(-config.FreeBusyIndexLowerLimitDays)
+            if cutoff < truncateLowerLimit:
+                raise ValueError("Cannot query events older than %s" % (truncateLowerLimit.getText(),))
+
         kwds = { "CutOff" : pyCalendarTodatetime(cutoff) }
         if batchSize is not None:
             kwds["batchSize"] = batchSize
@@ -785,6 +797,13 @@ class CommonStoreTransaction(object):
         Remove up to batchSize events older than "cutoff" and return how
         many were removed.
         """
+
+        # Make sure cut off is after any lower limit truncation in the DB
+        if config.FreeBusyIndexLowerLimitDays:
+            truncateLowerLimit = PyCalendarDateTime.getToday()
+            truncateLowerLimit.offsetDay(-config.FreeBusyIndexLowerLimitDays)
+            if cutoff < truncateLowerLimit:
+                raise ValueError("Cannot query events older than %s" % (truncateLowerLimit.getText(),))
 
         results = (yield self.eventsOlderThan(cutoff, batchSize=batchSize))
         count = 0

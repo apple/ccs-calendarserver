@@ -978,7 +978,7 @@ class Component (object):
         # so that all-day date/times remain that way. However, when doing the timeRangesOverlap test below, we
         # Need to convert the all-days to floating (T000000) so that the timezone overlap calculation can be done
         # properly.
-        instances = self.expandTimeRanges(end, normalizeFunction=normalizeForExpand)
+        instances = self.expandTimeRanges(end, lowerLimit=start, normalizeFunction=normalizeForExpand)
         first = True
         for key in instances:
             instance = instances[key]
@@ -1051,7 +1051,7 @@ class Component (object):
         )
         return self.cachedInstances
 
-    def expandTimeRanges(self, limit, ignoreInvalidInstances=False, normalizeFunction=normalizeForIndex):
+    def expandTimeRanges(self, limit, lowerLimit=None, ignoreInvalidInstances=False, normalizeFunction=normalizeForIndex):
         """
         Expand the set of recurrence instances for the components
         contained within this VCALENDAR component. We will assume
@@ -1063,9 +1063,9 @@ class Component (object):
         """
         
         componentSet = self.subcomponents()
-        return self.expandSetTimeRanges(componentSet, limit, ignoreInvalidInstances, normalizeFunction=normalizeFunction)
+        return self.expandSetTimeRanges(componentSet, limit, lowerLimit=lowerLimit, ignoreInvalidInstances=ignoreInvalidInstances, normalizeFunction=normalizeFunction)
     
-    def expandSetTimeRanges(self, componentSet, limit, ignoreInvalidInstances=False, normalizeFunction=normalizeForIndex):
+    def expandSetTimeRanges(self, componentSet, limit, lowerLimit=None, ignoreInvalidInstances=False, normalizeFunction=normalizeForIndex):
         """
         Expand the set of recurrence instances up to the specified date limit.
         What we do is first expand the master instance into the set of generate
@@ -1092,7 +1092,7 @@ class Component (object):
         
         # Set of instances to return
         instances = InstanceList(ignoreInvalidInstances=ignoreInvalidInstances, normalizeFunction=normalizeFunction)
-        instances.expandTimeRanges(componentSet, limit)
+        instances.expandTimeRanges(componentSet, limit, lowerLimit=lowerLimit)
         return instances
 
     def getComponentInstances(self):

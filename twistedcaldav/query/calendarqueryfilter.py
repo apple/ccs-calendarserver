@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2009-2011 Apple Inc. All rights reserved.
+# Copyright (c) 2009-2012 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -33,6 +33,7 @@ from pycalendar.timezone import PyCalendarTimezone
 
 log = Logger()
 
+
 class FilterBase(object):
     """
     Determines which matching components are returned.
@@ -47,6 +48,7 @@ class FilterBase(object):
     def valid(self, level=0):
         raise NotImplementedError
 
+
 class Filter(FilterBase):
     """
     Determines which matching components are returned.
@@ -59,7 +61,7 @@ class Filter(FilterBase):
         # One comp-filter element must be present
         if len(xml_element.children) != 1 or xml_element.children[0].qname() != (caldav_namespace, "comp-filter"):
             raise ValueError("Invalid CALDAV:filter element: %s" % (xml_element,))
-        
+
         self.child = ComponentFilter(xml_element.children[0])
 
     def match(self, component, access=None):
@@ -67,7 +69,7 @@ class Filter(FilterBase):
         Returns True if the given calendar component matches this filter, False
         otherwise.
         """
-        
+
         # We only care about certain access restrictions.
         if access not in (Component.ACCESS_CONFIDENTIAL, Component.ACCESS_RESTRICTED):
             access = None
@@ -97,10 +99,10 @@ class Filter(FilterBase):
         """
         Indicate whether this filter element's structure is valid wrt iCalendar
         data object model.
-        
+
         @return: True if valid, False otherwise
         """
-        
+
         # Must have one child element for VCALENDAR
         return self.child.valid(0)
         
@@ -132,8 +134,17 @@ class Filter(FilterBase):
         """
         Get the date farthest into the future in any time-range elements
         """
-        
+
         return self.child.getmaxtimerange(None, False)
+
+    def getmintimerange(self):
+        """
+        Get the date farthest into the past in any time-range elements. That is either
+        the start date, or if start is not present, the end date.
+        """
+
+        return self.child.getmintimerange(None, False)
+
 
 class FilterChildBase(FilterBase):
     """
@@ -149,7 +160,7 @@ class FilterChildBase(FilterBase):
 
         for child in xml_element.children:
             qname = child.qname()
-            
+
             if qname in (
                 (caldav_namespace, "is-not-defined"),
                 (caldav_namespace, "time-range"),
@@ -157,7 +168,7 @@ class FilterChildBase(FilterBase):
             ):
                 if qualifier is not None:
                     raise ValueError("Only one of CalDAV:time-range, CalDAV:text-match allowed")
-                
+
                 if qname == (caldav_namespace, "is-not-defined"):
                     qualifier = IsNotDefined(child)
                 elif qname == (caldav_namespace, "time-range"):
@@ -176,7 +187,7 @@ class FilterChildBase(FilterBase):
 
         if qualifier and isinstance(qualifier, IsNotDefined) and (len(filters) != 0):
             raise ValueError("No other tests allowed when CalDAV:is-not-defined is present")
-            
+
         self.qualifier = qualifier
         self.filters = filters
         self.filter_name = xml_element.attributes["name"]
@@ -194,7 +205,7 @@ class FilterChildBase(FilterBase):
         Returns True if the given calendar item (either a component, property or parameter value)
         matches this filter, False otherwise.
         """
-        
+
         # Always return True for the is-not-defined case as the result of this will
         # be negated by the caller
         if not self.defined: return True
@@ -209,6 +220,7 @@ class FilterChildBase(FilterBase):
             return allof
         else:
             return True
+
 
 class ComponentFilter (FilterChildBase):
     """
@@ -245,7 +257,7 @@ class ComponentFilter (FilterChildBase):
             # In particular do not match VALARM.
             if access and subcomponent.name() not in ("VEVENT", "VTODO", "VJOURNAL", "VFREEBUSY", "VTIMEZONE",):
                 continue
-            
+
             # Try to match the component name
             if isinstance(self.filter_name, str):
                 if subcomponent.name() != self.filter_name: continue
@@ -255,7 +267,7 @@ class ComponentFilter (FilterChildBase):
         else:
             return not self.defined
         return self.defined
-        
+
     def setInstances(self, instances):
         """
         Give the list of instances to each comp-filter element.
@@ -264,7 +276,7 @@ class ComponentFilter (FilterChildBase):
         self.instances = instances
         for compfilter in [x for x in self.filters if isinstance(x, ComponentFilter)]:
             compfilter.setInstances(instances)
-        
+
     def valid(self, level):
         """
         Indicate whether this filter element's structure is valid wrt iCalendar
@@ -273,7 +285,7 @@ class ComponentFilter (FilterChildBase):
         @param level: the nesting level of this filter element, 0 being the top comp-filter.
         @return:      True if valid, False otherwise
         """
-        
+
         # Check for time-range
         timerange = self.qualifier and isinstance(self.qualifier, TimeRange)
 
@@ -287,7 +299,7 @@ class ComponentFilter (FilterChildBase):
             if self.filter_name in ("VCALENDAR", "VALARM", "STANDARD", "DAYLIGHT", "AVAILABLE"):
                 log.msg("comp-filter wrong component type: %s" % (self.filter_name,))
                 return False
-            
+
             # time-range only on VEVENT, VTODO, VJOURNAL, VFREEBUSY, VAVAILABILITY
             if timerange and self.filter_name not in ("VEVENT", "VTODO", "VJOURNAL", "VFREEBUSY", "VAVAILABILITY"):
                 log.msg("time-range cannot be used with component %s" % (self.filter_name,))
@@ -297,7 +309,7 @@ class ComponentFilter (FilterChildBase):
             if (self.filter_name in ("VCALENDAR", "VTIMEZONE", "VEVENT", "VTODO", "VJOURNAL", "VFREEBUSY", "VAVAILABILITY")):
                 log.msg("comp-filter wrong sub-component type: %s" % (self.filter_name,))
                 return False
-            
+
             # time-range only on VALARM, AVAILABLE
             if timerange and self.filter_name not in ("VALARM", "AVAILABLE",):
                 log.msg("time-range cannot be used with sub-component %s" % (self.filter_name,))
@@ -307,7 +319,7 @@ class ComponentFilter (FilterChildBase):
             if (self.filter_name in ("VCALENDAR", "VTIMEZONE", "VEVENT", "VTODO", "VJOURNAL", "VFREEBUSY", "VALARM", "STANDARD", "DAYLIGHT", "AVAILABLE")) or timerange:
                 log.msg("comp-filter wrong standard component type: %s" % (self.filter_name,))
                 return False
-        
+
         # Test each property
         for propfilter in [x for x in self.filters if isinstance(x, PropertyFilter)]:
             if not propfilter.valid():
@@ -330,11 +342,11 @@ class ComponentFilter (FilterChildBase):
         Set the default timezone to use with this query.
         @param tzinfo: a L{PyCalendarTimezone} to use.
         """
-        
+
         # Give tzinfo to any TimeRange we have
         if isinstance(self.qualifier, TimeRange):
             self.qualifier.settzinfo(tzinfo)
-        
+
         # Pass down to sub components/properties
         for x in self.filters:
             x.settzinfo(tzinfo)
@@ -346,7 +358,7 @@ class ComponentFilter (FilterChildBase):
         @param currentMaximum: current future value to compare with
         @type currentMaximum: L{PyCalendarDateTime}
         """
-        
+
         # Give tzinfo to any TimeRange we have
         isStartTime = False
         if isinstance(self.qualifier, TimeRange):
@@ -355,12 +367,34 @@ class ComponentFilter (FilterChildBase):
             if currentMaximum is None or currentMaximum < compareWith:
                 currentMaximum = compareWith
                 currentIsStartTime = isStartTime
-        
+
         # Pass down to sub components/properties
         for x in self.filters:
             currentMaximum, currentIsStartTime = x.getmaxtimerange(currentMaximum, currentIsStartTime)
 
         return currentMaximum, currentIsStartTime
+
+    def getmintimerange(self, currentMinimum, currentIsEndTime):
+        """
+        Get the date farthest into the past in any time-range elements. That is either
+        the start date, or if start is not present, the end date.
+        """
+
+        # Give tzinfo to any TimeRange we have
+        isEndTime = False
+        if isinstance(self.qualifier, TimeRange):
+            isEndTime = self.qualifier.start is None
+            compareWith = self.qualifier.end if isEndTime else self.qualifier.start
+            if currentMinimum is None or currentMinimum > compareWith:
+                currentMinimum = compareWith
+                currentIsEndTime = isEndTime
+
+        # Pass down to sub components/properties
+        for x in self.filters:
+            currentMinimum, currentIsEndTime = x.getmintimerange(currentMinimum, currentIsEndTime)
+
+        return currentMinimum, currentIsEndTime
+
 
 class PropertyFilter (FilterChildBase):
     """
@@ -394,10 +428,10 @@ class PropertyFilter (FilterChildBase):
         
         @return:      True if valid, False otherwise
         """
-        
+
         # Check for time-range
         timerange = self.qualifier and isinstance(self.qualifier, TimeRange)
-        
+
         # time-range only on COMPLETED, CREATED, DTSTAMP, LAST-MODIFIED
         if timerange and self.filter_name.upper() not in ("COMPLETED", "CREATED", "DTSTAMP", "LAST-MODIFIED"):
             log.msg("time-range cannot be used with property %s" % (self.filter_name,))
@@ -416,7 +450,7 @@ class PropertyFilter (FilterChildBase):
         Set the default timezone to use with this query.
         @param tzinfo: a L{PyCalendarTimezone} to use.
         """
-        
+
         # Give tzinfo to any TimeRange we have
         if isinstance(self.qualifier, TimeRange):
             self.qualifier.settzinfo(tzinfo)
@@ -428,7 +462,7 @@ class PropertyFilter (FilterChildBase):
         @param currentMaximum: current future value to compare with
         @type currentMaximum: L{PyCalendarDateTime}
         """
-        
+
         # Give tzinfo to any TimeRange we have
         isStartTime = False
         if isinstance(self.qualifier, TimeRange):
@@ -439,6 +473,24 @@ class PropertyFilter (FilterChildBase):
                 currentIsStartTime = isStartTime
 
         return currentMaximum, currentIsStartTime
+
+    def getmintimerange(self, currentMinimum, currentIsEndTime):
+        """
+        Get the date farthest into the past in any time-range elements. That is either
+        the start date, or if start is not present, the end date.
+        """
+
+        # Give tzinfo to any TimeRange we have
+        isEndTime = False
+        if isinstance(self.qualifier, TimeRange):
+            isEndTime = self.qualifier.start is None
+            compareWith = self.qualifier.end if isEndTime else self.qualifier.start
+            if currentMinimum is None or currentMinimum > compareWith:
+                currentMinimum = compareWith
+                currentIsEndTime = isEndTime
+
+        return currentMinimum, currentIsEndTime
+
 
 class ParameterFilter (FilterChildBase):
     """
@@ -456,6 +508,7 @@ class ParameterFilter (FilterChildBase):
 
         return result
 
+
 class IsNotDefined (FilterBase):
     """
     Specifies that the named iCalendar item does not exist.
@@ -467,6 +520,7 @@ class IsNotDefined (FilterBase):
         # Actually this method should never be called as we special case the
         # is-not-defined option.
         return True
+
 
 class TextMatch (FilterBase):
     """
@@ -532,7 +586,7 @@ class TextMatch (FilterBase):
             if self.match_type == "equals":
                 return s == test
             elif self.match_type == "contains":
-                return s.find(test) != -1 
+                return s.find(test) != -1
             elif self.match_type == "starts-with":
                 return s.startswith(test)
             elif self.match_type == "ends-with":
@@ -550,8 +604,9 @@ class TextMatch (FilterBase):
             else:
                 if _textCompare(unicode(value, "utf-8")):
                     return not self.negate
-        
+
         return self.negate
+
 
 class TimeRange (FilterBase):
     """
@@ -565,7 +620,7 @@ class TimeRange (FilterBase):
         # One of start or end must be present
         if "start" not in xml_element.attributes and "end" not in xml_element.attributes:
             raise ValueError("One of 'start' or 'end' must be present in CALDAV:time-range")
-        
+
         self.start = PyCalendarDateTime.parseText(xml_element.attributes["start"]) if "start" in xml_element.attributes else None
         self.end = PyCalendarDateTime.parseText(xml_element.attributes["end"]) if "end" in xml_element.attributes else None
         self.tzinfo = None
@@ -575,7 +630,7 @@ class TimeRange (FilterBase):
         Set the default timezone to use with this query.
         @param tzinfo: a L{PyCalendarTimezone} to use.
         """
-        
+
         # Give tzinfo to any TimeRange we have
         self.tzinfo = tzinfo
 
@@ -585,7 +640,7 @@ class TimeRange (FilterBase):
         
         @return:      True if valid, False otherwise
         """
-        
+
         if self.start is not None and self.start.isDateOnly():
             log.msg("start attribute in <time-range> is not a date-time: %s" % (self.start,))
             return False
@@ -621,9 +676,9 @@ class TimeRange (FilterBase):
         """
         if component is None:
             return False
-        
+
         assert instances is not None or self.end is None, "Failure to expand instance for time-range filter: %r" % (self,)
-        
+
         # Special case open-ended unbounded
         if instances is None:
             if component.getRecurrenceIDUTC() is None:
@@ -642,10 +697,10 @@ class TimeRange (FilterBase):
             testcomponent = component._parent
         else:
             testcomponent = component
-            
+
         for key in instances:
             instance = instances[key]
-            
+
             # First make sure components match
             if not testcomponent.same(instance.component):
                 continue

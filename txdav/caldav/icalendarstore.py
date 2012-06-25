@@ -44,6 +44,8 @@ __all__ = [
 
     # Exceptions
     "QuotaExceeded",
+    "TimeRangeLowerLimit",
+    "TimeRangeUpperLimit",
 
     # Enumerations
     "BIND_OWN",
@@ -59,6 +61,24 @@ class QuotaExceeded(Exception):
     The quota for a particular user has been exceeded.
     """
 
+
+
+class TimeRangeLowerLimit(Exception):
+    """
+    A request for time-range information too far in the past cannot be satisfied.
+    """
+
+    def __init__(self, lowerLimit):
+        self.limit = lowerLimit
+
+
+class TimeRangeUpperLimit(Exception):
+    """
+    A request for time-range information too far in the future cannot be satisfied.
+    """
+
+    def __init__(self, upperLimit):
+        self.limit = upperLimit
 
 
 class ICalendarTransaction(ICommonTransaction):
