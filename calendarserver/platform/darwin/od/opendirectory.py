@@ -347,7 +347,7 @@ def queryRecordsWithAttributes_list(directory, compound, casei, recordType, attr
             recordType,
             None,
             0x210B, # adjustMatchType(matchType, casei),
-            compound,
+            compound.decode("utf-8"),
             attributeNames,
             count,
             None)

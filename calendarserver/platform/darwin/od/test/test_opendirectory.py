@@ -704,6 +704,35 @@ if runTests:
             # Master user:
             self.assertTrue("odtestamanda" in recordNames)
 
+        def test_queryRecordsWithAttributes_list_nonascii(self):
+
+            directory = opendirectory.odInit("/Search")
+
+            expressions = [
+                dsquery.match(dsattributes.kDS1AttrFirstName, "\xe4\xbd\x90", "contains"),
+                dsquery.match(dsattributes.kDS1AttrLastName, "Test", "contains"),
+            ]
+
+            compound = dsquery.expression(dsquery.expression.AND, expressions).generate()
+
+            results = opendirectory.queryRecordsWithAttributes_list(
+                directory,
+                compound,
+                True,
+                [
+                    dsattributes.kDSStdRecordTypeUsers,
+                    dsattributes.kDSStdRecordTypeGroups,
+                    dsattributes.kDSStdRecordTypeResources,
+                    dsattributes.kDSStdRecordTypePlaces,
+                ],
+                USER_ATTRIBUTES,
+                count=0
+            )
+            recordNames = [x[0] for x in results]
+            # Master user:
+            self.assertTrue("odtestsatou" in recordNames)
+
+
         def test_queryRecordsWithAttributes_list_local(self):
 
             directory = opendirectory.odInit("/Search")
