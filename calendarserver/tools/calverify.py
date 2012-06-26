@@ -71,7 +71,7 @@ import time
 import traceback
 import uuid
 
-VERSION = "4"
+VERSION = "5"
 
 def usage(e=None):
     if e:
@@ -642,7 +642,11 @@ class CalVerifyService(Service, object):
         badlen = 0
         rjust = 10
         for owner, resid, uid, calname, _ignore_md5, _ignore_organizer, _ignore_created, _ignore_modified in rows:
-            result, message = yield self.validCalendarData(resid, calname == "inbox")
+            try:
+                result, message = yield self.validCalendarData(resid, calname == "inbox")
+            except Exception:
+                result = False
+                message = "Exception for validCalendarData"
             if not result:
                 results_bad.append((owner, uid, resid, message))
                 badlen += 1
