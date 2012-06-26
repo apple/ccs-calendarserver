@@ -19,7 +19,7 @@ from twisted.internet.task import Clock
 from twisted.python.filepath import FilePath
 
 from twistedcaldav.test.util import TestCase
-from twistedcaldav.test.util import xmlFile, augmentsFile, proxiesFile
+from twistedcaldav.test.util import xmlFile, augmentsFile, proxiesFile, dirTest
 from twistedcaldav.config import config
 from twistedcaldav.directory.directory import DirectoryService, DirectoryRecord, GroupMembershipCacherService, GroupMembershipCache, GroupMembershipCacheUpdater
 from twistedcaldav.directory.xmlfile import XMLDirectoryService
@@ -354,6 +354,20 @@ class GroupMembershipTests (TestCase):
                 set(uids),
                 groups,
             )
+
+        # Verify that principals who were previously members of delegated-to groups but
+        # are no longer members have their proxyFor info cleaned out of the cache:
+        # Remove wsanchez from all groups in the directory, run the updater, then check
+        # that wsanchez is only a proxy for gemini (since that assignment does not involve groups)
+        self.directoryService.xmlFile = dirTest.child("accounts-modified.xml")
+        self.directoryService._alwaysStat = True
+        self.assertEquals((False, 7), (yield updater.updateCache()))
+        delegate = self._getPrincipalByShortName(DirectoryService.recordType_users, "wsanchez")
+        proxyFor = (yield delegate.proxyFor(True))
+        self.assertEquals(
+          set([p.record.guid for p in proxyFor]),
+          set(['gemini'])
+        )
 
 
     @inlineCallbacks

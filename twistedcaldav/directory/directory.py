@@ -467,6 +467,10 @@ class GroupMembershipCache(Memcacher, LoggingMixIn):
         d.addCallback(_value)
         return d
 
+    def deleteGroupsFor(self, guid):
+        self.log_debug("delete groups-for %s" % (guid,))
+        return self.delete("groups-for:%s" % (str(guid),))
+
     def setPopulatedMarker(self):
         self.log_debug("set group-cacher-populated")
         return self.set("group-cacher-populated", str(datetime.datetime.now()))
@@ -617,9 +621,11 @@ class GroupMembershipCacheUpdater(LoggingMixIn):
         if not snapshotFile.exists():
             self.log_info("Group membership snapshot file does not yet exist")
             fast = False
+            previousMembers = {}
         else:
             self.log_info("Group membership snapshot file exists: %s" %
                 (snapshotFile.path,))
+            previousMembers = pickle.loads(snapshotFile.getContent())
 
         if useLock:
             self.log_info("Attempting to acquire group membership cache lock")
@@ -688,6 +694,13 @@ class GroupMembershipCacheUpdater(LoggingMixIn):
                 for member in groupMembers:
                     memberships = members.setdefault(member, set())
                     memberships.add(groupGUID)
+                    if member in previousMembers:
+                        # Remove from previousMembers; anything still left in
+                        # previousMembers when this loop is done will be
+                        # deleted from cache (since only members that were
+                        # previously in delegated-to groups but are no longer
+                        # would still be in previousMembers)
+                        del previousMembers[member]
 
             self.log_info("There are %d users delegated-to via groups" %
                 (len(members),))
@@ -710,6 +723,11 @@ class GroupMembershipCacheUpdater(LoggingMixIn):
         for member, groups in members.iteritems():
             # self.log_debug("%s is in %s" % (member, groups))
             yield self.cache.setGroupsFor(member, groups)
+
+        # Remove entries for principals that no longer are in delegated-to
+        # groups
+        for member, groups in previousMembers.iteritems():
+            yield self.cache.deleteGroupsFor(member)
 
         yield self.cache.setPopulatedMarker()
 
