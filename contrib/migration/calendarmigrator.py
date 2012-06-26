@@ -659,11 +659,12 @@ def relocateData(sourceRoot, targetRoot, sourceVersion, oldServerRootValue,
                 if not diskAccessor.exists(newDataRoot):
                     diskAccessor.mkdir(newDataRoot)
                 newDocumentRoot = os.path.join(newDataRootValue, "Documents")
-                if diskAccessor.exists(os.path.join(oldServerRootValue, "Documents")):
-                    diskAccessor.rename(os.path.join(oldServerRootValue, "Documents"),
-                        newDocumentRoot)
-                else:
-                    diskAccessor.mkdir(newDocumentRoot)
+                if not diskAccessor.exists(newDocumentRoot):
+                    if diskAccessor.exists(os.path.join(oldServerRootValue, "Documents")):
+                        diskAccessor.rename(os.path.join(oldServerRootValue, "Documents"),
+                            newDocumentRoot)
+                    else:
+                        diskAccessor.mkdir(newDocumentRoot)
             elif diskAccessor.exists(absolutePathWithRoot(sourceRoot, oldServerRootValue)):
                 log("Copying calendar server root: %s" % (newServerRoot,))
                 diskAccessor.ditto(
@@ -674,19 +675,25 @@ def relocateData(sourceRoot, targetRoot, sourceVersion, oldServerRootValue,
                 if not diskAccessor.exists(newDataRoot):
                     diskAccessor.mkdir(newDataRoot)
                 newDocumentRoot = os.path.join(newDataRoot, "Documents")
-                if diskAccessor.exists(os.path.join(newServerRoot, "Documents")):
-                    log("Moving Documents into Data root: %s" % (newDataRoot,))
-                    diskAccessor.rename(os.path.join(newServerRoot, "Documents"),
-                        newDocumentRoot)
-                else:
-                    diskAccessor.mkdir(newDocumentRoot)
+                if not diskAccessor.exists(newDocumentRoot):
+                    if diskAccessor.exists(os.path.join(newServerRoot, "Documents")):
+                        log("Moving Documents into Data root: %s" % (newDataRoot,))
+                        diskAccessor.rename(os.path.join(newServerRoot, "Documents"),
+                            newDocumentRoot)
+                    else:
+                        diskAccessor.mkdir(newDocumentRoot)
             else:
-                log("Creating new calendar server root: %s" % (newServerRoot,))
-                diskAccessor.mkdir(newServerRoot)
+                if not diskAccessor.exists(newServerRoot):
+                    log("Creating new calendar server root: %s" % (newServerRoot,))
+                    diskAccessor.mkdir(newServerRoot)
                 newDataRoot = os.path.join(newServerRoot, "Data")
-                diskAccessor.mkdir(newDataRoot)
+                if not diskAccessor.exists(newDataRoot):
+                    log("Creating new data root: %s" % (newDataRoot,))
+                    diskAccessor.mkdir(newDataRoot)
                 newDocumentRoot = os.path.join(newDataRoot, "Documents")
-                diskAccessor.mkdir(newDocumentRoot)
+                if not diskAccessor.exists(newDocumentRoot):
+                    log("Creating new document root: %s" % (newDocumentRoot,))
+                    diskAccessor.mkdir(newDocumentRoot)
 
 
     else: # 10.8 -> 10.8
