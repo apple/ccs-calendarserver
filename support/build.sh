@@ -743,7 +743,7 @@ dependencies () {
     "${pypi}/p/python-ldap/${ld}.tar.gz";
 
   # XXX actually PyCalendar should be imported in-place.
-  py_dependency -fe -i "src" -r 202 \
+  py_dependency -fe -i "src" -r 204 \
     "pycalendar" "pycalendar" "pycalendar" \
     "http://svn.mulberrymail.com/repos/PyCalendar/branches/server";
 

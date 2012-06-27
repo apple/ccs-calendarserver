@@ -57,5 +57,13 @@ DefaultHTTPHandler.updateGenerators({
     "Schedule-Tag": (str, singleHeader),
 })
 
+# Do some PyCalendar init
 from pycalendar.calendar import PyCalendar
+from pycalendar.property import PyCalendarProperty
+from pycalendar.value import PyCalendarValue
+
 PyCalendar.setPRODID("-//CALENDARSERVER.ORG//NONSGML Version 1//EN")
+
+# These are properties we use directly and we want the default value type set for TEXT
+PyCalendarProperty.regsiterDefaultValue("X-CALENDARSERVER-PRIVATE-COMMENT", PyCalendarValue.VALUETYPE_TEXT)
+PyCalendarProperty.regsiterDefaultValue("X-CALENDARSERVER-ATTENDEE-COMMENT", PyCalendarValue.VALUETYPE_TEXT)
