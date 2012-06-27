@@ -46,20 +46,16 @@ def main():
         try:
             plistData = readPlist(plistPath)
 
-            # Turn off services in case this is a re-promotion
-            plistData["EnableCalDAV"] = False
-            plistData["EnableCardDAV"] = False
-
             # Disable XMPPNotifier now that we're directly talking to APNS
             try:
                 if plistData["Notifications"]["Services"]["XMPPNotifier"]["Enabled"]:
                     plistData["Notifications"]["Services"]["XMPPNotifier"]["Enabled"] = False
+                writePlist(plistData, plistPath)
             except KeyError:
                 pass
 
-            writePlist(plistData, plistPath)
         except Exception, e:
-            print "Unable to disable services in %s: %s" % (plistPath, e)
+            print "Unable to disable XMPP in %s: %s" % (plistPath, e)
 
     else:
         # Copy configuration

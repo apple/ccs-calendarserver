@@ -242,7 +242,8 @@ def setRunState(options, enableCalDAV, enableCardDAV):
         log("serveradmin exited with %d" % (ret,))
 
 
-def isServiceDisabled(source, service):
+def isServiceDisabled(source, service, launchdOverrides=LAUNCHD_OVERRIDES,
+    launchdPrefsDir=LAUNCHD_PREFS_DIR):
     """
     Returns whether or not a service is disabled
 
@@ -251,18 +252,27 @@ def isServiceDisabled(source, service):
     @return: True if service is disabled, False if enabled
     """
 
-    overridesPath = os.path.join(source, LAUNCHD_OVERRIDES)
+    overridesPath = os.path.join(source, launchdOverrides)
     if os.path.isfile(overridesPath):
-        overrides = readPlist(overridesPath)
+        try:
+            overrides = readPlist(overridesPath)
+        except Exception, e:
+            raise ServiceStateError("Could not parse %s : %s" %
+                (overridesPath, str(e)))
+
         try:
             return overrides[service]['Disabled']
         except KeyError:
             # Key is not in the overrides.plist, continue on
             pass
 
-    prefsPath = os.path.join(source, LAUNCHD_PREFS_DIR, "%s.plist" % service)
+    prefsPath = os.path.join(source, launchdPrefsDir, "%s.plist" % service)
     if os.path.isfile(prefsPath):
-        prefs = readPlist(prefsPath)
+        try:
+            prefs = readPlist(prefsPath)
+        except Exception, e:
+            raise ServiceStateError("Could not parse %s : %s" %
+                (prefsPath, str(e)))
         try:
             return prefs['Disabled']
         except KeyError:
@@ -684,6 +694,7 @@ def relocateData(sourceRoot, targetRoot, sourceVersion, oldServerRootValue,
                 if not diskAccessor.exists(newDocumentRoot):
                     log("Creating new document root: %s" % (newDocumentRoot,))
                     diskAccessor.mkdir(newDocumentRoot)
+
 
     else: # 10.8 -> 10.8
 

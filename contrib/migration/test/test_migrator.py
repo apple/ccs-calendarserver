@@ -16,7 +16,8 @@
 
 import twistedcaldav.test.util
 from contrib.migration.calendarmigrator import (
-    mergePlist, examinePreviousSystem, relocateData, relativize
+    mergePlist, examinePreviousSystem, relocateData, relativize, isServiceDisabled,
+    ServiceStateError
 )
 import contrib.migration.calendarmigrator
 
@@ -1346,6 +1347,7 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
             ]
         ),
 
+
         (
             "Lion -> Mountain Lion Migration, external ServerRoot",
             {
@@ -1408,7 +1410,8 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
             ('chown-recursive', '/Volumes/new/Library/Server/Calendar and Contacts', FakeUser.pw_uid, FakeGroup.gr_gid),
             ]
         ),
-(
+
+        (
             "Mountain Lion -> Mountain Lion Migration, all in default locations",
             {
                 "/Library/Server/Previous/private/etc/caldavd/caldavd.plist" : """
@@ -1549,6 +1552,58 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
         t = self.mktemp()
         da = contrib.migration.calendarmigrator.DiskAccessor()
         self.assertEquals(da.mkdir(t), None)
+
+
+    def test_isServiceDisabledTrue(self):
+        CONTENTS = """<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+        <key>foo</key>
+        <dict>
+                <key>Disabled</key>
+                <true/>
+        </dict>
+</dict>
+</plist>
+"""
+        t = self.mktemp()
+        f = open(t, "w")
+        f.write(CONTENTS)
+        f.close()
+        self.assertTrue(isServiceDisabled("", "foo", t))
+
+    def test_isServiceDisabledFalse(self):
+        CONTENTS = """<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+        <key>foo</key>
+        <dict>
+                <key>Disabled</key>
+                <false/>
+        </dict>
+</dict>
+</plist>
+"""
+        t = self.mktemp()
+        f = open(t, "w")
+        f.write(CONTENTS)
+        f.close()
+        self.assertFalse(isServiceDisabled("", "foo", t))
+
+    def test_isServiceDisabledError(self):
+        CONTENTS = """This is not a plist """
+        t = self.mktemp()
+        f = open(t, "w")
+        f.write(CONTENTS)
+        f.close()
+        try:
+            isServiceDisabled("", "foo", t)
+        except ServiceStateError:
+            pass
+        else:
+            self.fail(msg="Didn't raise ServiceStateError")
 
 
 class StubDiskAccessor(object):
