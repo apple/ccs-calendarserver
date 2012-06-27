@@ -131,7 +131,10 @@ class ScheduleViaCalDAV(DeliveryService):
 
             # Different behavior for free-busy vs regular invite
             if self.freebusy:
-                yield self.generateFreeBusyResponse(recipient, self.responses, organizerProp, organizerPrincipal, uid)
+                # Look for special delegate extended free-busy request
+                event_details = [] if self.scheduler.calendar.getExtendedFreeBusy() else None
+
+                yield self.generateFreeBusyResponse(recipient, self.responses, organizerProp, organizerPrincipal, uid, event_details)
             else:
                 yield self.generateResponse(recipient, self.responses)
 
@@ -206,7 +209,7 @@ class ScheduleViaCalDAV(DeliveryService):
         returnValue(True)
 
     @inlineCallbacks
-    def generateFreeBusyResponse(self, recipient, responses, organizerProp, organizerPrincipal, uid):
+    def generateFreeBusyResponse(self, recipient, responses, organizerProp, organizerPrincipal, uid, event_details):
 
         # Extract the ATTENDEE property matching current recipient from the calendar data
         cuas = recipient.principal.calendarUserAddresses()
@@ -222,6 +225,7 @@ class ScheduleViaCalDAV(DeliveryService):
                 uid,
                 attendeeProp,
                 remote,
+                event_details,
             ))
         except:
             log.err("Could not determine free busy information: %s" % (recipient.cuaddr,))
@@ -246,7 +250,7 @@ class ScheduleViaCalDAV(DeliveryService):
             returnValue(True)
     
     @inlineCallbacks
-    def generateAttendeeFreeBusyResponse(self, recipient, organizerProp, organizerPrincipal, uid, attendeeProp, remote):
+    def generateAttendeeFreeBusyResponse(self, recipient, organizerProp, organizerPrincipal, uid, attendeeProp, remote, event_details=None):
 
         # Find the current recipients calendar-free-busy-set
         fbset = (yield recipient.principal.calendarFreeBusyURIs(self.scheduler.request))
@@ -290,6 +294,7 @@ class ScheduleViaCalDAV(DeliveryService):
                 organizerPrincipal = organizerPrincipal,
                 same_calendar_user = same_calendar_user,
                 servertoserver=remote,
+                event_details=event_details,
             ))
     
         # Build VFREEBUSY iTIP reply for this recipient
@@ -299,7 +304,8 @@ class ScheduleViaCalDAV(DeliveryService):
             organizer = organizerProp,
             attendee = attendeeProp,
             uid = uid,
-            method = "REPLY"
+            method = "REPLY",
+            event_details=event_details,
         )
 
         returnValue(fbresult)

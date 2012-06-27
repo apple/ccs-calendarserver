@@ -431,10 +431,19 @@ class FBCacheEntry(object):
         yield fbcacher.set(key, entry)
 
 @inlineCallbacks
-def generateFreeBusyInfo(request, calresource, fbinfo, timerange, matchtotal,
-                         excludeuid=None, organizer=None,
-                         organizerPrincipal=None, same_calendar_user=False,
-                         servertoserver=False):
+def generateFreeBusyInfo(
+    request,
+    calresource,
+    fbinfo,
+    timerange,
+    matchtotal,
+    excludeuid=None,
+    organizer=None,
+    organizerPrincipal=None,
+    same_calendar_user=False,
+    servertoserver=False,
+    event_details=None,
+):
     """
     Run a free busy report on the specified calendar collection
     accumulating the free busy info for later processing.
@@ -453,6 +462,7 @@ def generateFreeBusyInfo(request, calresource, fbinfo, timerange, matchtotal,
         being targeted.
     @param servertoserver: a C{bool} indicating whether we are doing a local or
         remote lookup request.
+    @param event_details: a C{list} into which to store extended VEVENT details if not C{None}
     """
 
     # First check the privilege on this collection
@@ -473,13 +483,20 @@ def generateFreeBusyInfo(request, calresource, fbinfo, timerange, matchtotal,
         useruid = userPrincipal.principalUID()
     else:
         useruid = ""
-            
+
     # Get the timezone property from the collection.
     has_prop = (yield calresource.hasProperty((caldav_namespace, "calendar-timezone"), request))
     if has_prop:
         tz = (yield calresource.readProperty((caldav_namespace, "calendar-timezone"), request))
     else:
         tz = None
+
+    # Look for possible extended free busy information
+    do_event_details = False
+    if event_details is not None and organizer_principal is not None and userPrincipal is not None:
+         
+        # Check of organizer is a delegate of attendee
+        do_event_details = (yield organizer_principal.isProxyFor(userPrincipal))
 
     # Try cache
     resources = (yield FBCacheEntry.getCacheEntry(calresource, useruid, timerange)) if config.EnableFreeBusyCache else None
@@ -537,18 +554,7 @@ def generateFreeBusyInfo(request, calresource, fbinfo, timerange, matchtotal,
         request.extendedLogItems["fb-cached"] = request.extendedLogItems.get("fb-cached", 0) + 1
 
         # Determine appropriate timezone (UTC is the default)
-        tzinfo = None
-        if tz is not None:
-            calendar = tz.calendar()
-            if calendar is not None:
-                for subcomponent in calendar.subcomponents():
-                    if subcomponent.name() == "VTIMEZONE":
-                        # <filter> contains exactly one <comp-filter>
-                        tzinfo = subcomponent.gettimezone()
-                        break
-
-        if tzinfo is None:
-            tzinfo = PyCalendarTimezone(utc=True)
+        tzinfo = tz.gettimezone() if tz is not None else PyCalendarTimezone(utc=True)
 
     # We care about separate instances for VEVENTs only
     aggregated_resources = {}
@@ -612,6 +618,12 @@ def generateFreeBusyInfo(request, calresource, fbinfo, timerange, matchtotal,
                 if matchtotal > max_number_of_matches:
                     raise NumberOfMatchesWithinLimits(max_number_of_matches)
                 
+                # Add extended details
+                if do_event_details:
+                    child = (yield request.locateChildResource(calresource, name))
+                    calendar = (yield child.iCalendarForUser(request))
+                    _addEventDetails(calendar, event_details, timerange, tzinfo)
+
         else:
             child = (yield request.locateChildResource(calresource, name))
             calendar = (yield child.iCalendarForUser(request))
@@ -652,8 +664,52 @@ def generateFreeBusyInfo(request, calresource, fbinfo, timerange, matchtotal,
                     processAvailabilityFreeBusy(calendar, fbinfo, timerange)
                 else:
                     assert "Free-busy query returned unwanted component: %s in %r", (name, calresource,)
+
+                # Add extended details
+                if calendar.mainType() == "VEVENT" and do_event_details:
+                    child = (yield request.locateChildResource(calresource, name))
+                    calendar = (yield child.iCalendarForUser(request))
+                    _addEventDetails(calendar, event_details, timerange, tzinfo)
     
     returnValue(matchtotal)
+
+def _addEventDetails(calendar, event_details, timerange, tzinfo):
+    """
+    Expand events within the specified time range and limit the set of properties to those allowed for
+    delegate extended free busy.
+    
+    @param calendar: the calendar object to expand
+    @type calendar: L{Component}
+    @param event_details: list to append VEVENT components to
+    @type event_details: C{list}
+    @param timerange: the time-range in which to expand
+    @type timerange: L{TimeRange}
+    @param tzinfo: timezone for floating time calculations
+    @type tzinfo: L{PyCalendarTimezone}
+    """
+
+    # First expand the component
+    expanded = calendar.expand(timerange.start, timerange.end, timezone=tzinfo)
+
+    # Remove all but essential properties
+    expanded.filterProperties(keep=(
+        "UID",
+        "RECURRENCE-ID",
+        "DTSTAMP",
+        "DTSTART",
+        "DTEND",
+        "DURATION",
+        "SUMMARY",
+    ))
+
+    # Need to remove all child components of VEVENT
+    for subcomponent in expanded.subcomponents():
+        if subcomponent.name() == "VEVENT":
+            for sub in tuple(subcomponent.subcomponents()):
+                subcomponent.removeComponent(sub)
+
+    event_details.extend([subcomponent for subcomponent in expanded.subcomponents() if subcomponent.name() == "VEVENT"])
+
 
 def processEventFreeBusy(calendar, fbinfo, timerange, tzinfo):
     """
@@ -838,17 +894,19 @@ def processAvailablePeriods(calendar, timerange):
     normalizePeriodList(periods)
     return periods
 
-def buildFreeBusyResult(fbinfo, timerange, organizer=None, attendee=None, uid=None, method=None):
+def buildFreeBusyResult(fbinfo, timerange, organizer=None, attendee=None, uid=None, method=None, event_details=None):
     """
     Generate a VCALENDAR object containing a single VFREEBUSY that is the
     aggregate of the free busy info passed in.
-    @param fbinfo:    the array of busy periods to use.
-    @param timerange: the L{TimeRange} for the query.
-    @param organizer: the L{Property} for the Organizer of the free busy request, or None.
-    @param attendee:  the L{Property} for the Attendee responding to the free busy request, or None.
-    @param uid:       the UID value from the free busy request.
-    @param method:    the METHOD property value to insert.
-    @return:          the L{Component} containing the calendar data.
+
+    @param fbinfo:        the array of busy periods to use.
+    @param timerange:     the L{TimeRange} for the query.
+    @param organizer:     the L{Property} for the Organizer of the free busy request, or None.
+    @param attendee:      the L{Property} for the Attendee responding to the free busy request, or None.
+    @param uid:           the UID value from the free busy request.
+    @param method:        the METHOD property value to insert.
+    @param event_details: VEVENT components to add.
+    @return:              the L{Component} containing the calendar data.
     """
     
     # Merge overlapping time ranges in each fb info section
@@ -882,5 +940,9 @@ def buildFreeBusyResult(fbinfo, timerange, organizer=None, attendee=None, uid=No
     else:
         uid = md5(str(fbcalendar) + str(time.time())).hexdigest()
         fb.addProperty(Property("UID", uid))
+
+    if event_details:
+        for vevent in event_details:
+            fbcalendar.addComponent(vevent)
 
     return fbcalendar

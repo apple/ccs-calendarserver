@@ -960,11 +960,14 @@ class Component (object):
 
         @param start: the L{PyCalendarDateTime} for the start of the range.
         @param end: the L{PyCalendarDateTime} for the end of the range.
-        @param timezone: the L{Component} the VTIMEZONE to use for floating/all-day.
+        @param timezone: the L{Component} or L{PyCalendarTimezone} of the VTIMEZONE to use for floating/all-day.
         @return: the L{Component} for the new calendar with expanded instances.
         """
         
-        pytz = PyCalendarTimezone(tzid=timezone.propertyValue("TZID")) if timezone else None
+        if timezone is not None and isinstance(timezone, Component):
+            pytz = PyCalendarTimezone(tzid=timezone.propertyValue("TZID"))
+        else:
+            pytz = timezone
 
         # Create new calendar object with same properties as the original, but
         # none of the originals sub-components
@@ -1922,6 +1925,27 @@ class Component (object):
 
         return None
 
+    def getExtendedFreeBusy(self):
+        """
+        Get the X-CALENDARSEREVR-EXTENDED-FREEBUSY value. Works on either a VCALENDAR or on a component.
+        
+        @return: the string value of the X-CALENDARSEREVR-EXTENDED-FREEBUSY property, or None
+        """
+        
+        # Extract appropriate sub-component if this is a VCALENDAR
+        if self.name() == "VCALENDAR":
+            for component in self.subcomponents():
+                if component.name() not in ignoredComponents:
+                    return component.getExtendedFreeBusy()
+        else:
+            try:
+                # Find the primary subcomponent
+                return self.propertyValue("X-CALENDARSEREVR-EXTENDED-FREEBUSY")
+            except InvalidICalendarDataError:
+                pass
+
+        return None
+
     def setParameterToValueForPropertyWithValue(self, paramname, paramvalue, propname, propvalue):
         """
         Add or change the parameter to the specified value on the property having the specified value.
@@ -2269,7 +2293,7 @@ END:VCALENDAR
                 
     def removeXComponents(self, keep_components=()):
         """
-        Remove all X- properties except the specified ones
+        Remove all X- components except the specified ones
         """
 
         for component in tuple(self.subcomponents()):

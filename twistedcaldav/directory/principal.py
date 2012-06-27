@@ -724,6 +724,9 @@ class DirectoryPrincipalResource (
     def __ne__(self, other):
         return not self.__eq__(other)
 
+    def __hash__(self):
+        return hash(self.principalUID())
+
     @inlineCallbacks
     def readProperty(self, property, request):
         if type(property) is tuple:
@@ -814,6 +817,23 @@ class DirectoryPrincipalResource (
 
     def url(self):
         return self.principalURL()
+
+    @inlineCallbacks
+    def isProxyFor(self, principal):
+        """
+        Determine whether this principal is a read-only or read-write proxy for the
+        specified principal. 
+        """
+        
+        read_uids = (yield self.proxyFor(False))
+        if principal in read_uids:
+            returnValue(True)
+
+        write_uids = (yield self.proxyFor(True))
+        if principal in write_uids:
+            returnValue(True)
+        
+        returnValue(False)
 
     @inlineCallbacks
     def proxyFor(self, read_write, resolve_memberships=True):

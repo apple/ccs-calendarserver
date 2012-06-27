@@ -26,6 +26,7 @@ See draft spec: http://ietf.webdav.org/caldav/draft-dusseault-caldav.txt
 """
 
 from pycalendar.datetime import PyCalendarDateTime
+from pycalendar.timezone import PyCalendarTimezone
 
 from txdav.xml.element import registerElement, dav_namespace
 from txdav.xml.element import WebDAVElement, PCDATAElement
@@ -139,6 +140,21 @@ class CalDAVTimeZoneElement (CalDAVTextElement):
         exactly one VTIMEZONE component.
         """
         return iComponent.fromString(str(self))
+
+    def gettimezone(self):
+        """
+        Get the timezone to use. If none, return UTC timezone.
+
+        @return: the L{PyCalendarTimezone} derived from the VTIMEZONE or utc.
+        """
+        calendar = self.calendar()
+        if calendar is not None:
+            tz = calendar.gettimezone()
+            if tz is not None:
+                return tz
+
+        # Default to using utc tzinfo
+        return PyCalendarTimezone(utc=True)
 
     def valid(self):
         """

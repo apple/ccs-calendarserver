@@ -115,20 +115,9 @@ class Filter(FilterBase):
         """
         assert tzelement is None or isinstance(tzelement, CalDAVTimeZoneElement)
 
-        if tzelement is not None:
-            calendar = tzelement.calendar()
-            if calendar is not None:
-                for subcomponent in calendar.subcomponents():
-                    if subcomponent.name() == "VTIMEZONE":
-                        # <filter> contains exactly one <comp-filter>
-                        tz = subcomponent.gettimezone()
-                        self.child.settzinfo(tz)
-                        return tz
-
-        # Default to using utc tzinfo
-        utc = PyCalendarTimezone(utc=True)
-        self.child.settzinfo(utc)
-        return utc
+        tz = tzelement.gettimezone() if tzelement is not None else PyCalendarTimezone(utc=True)
+        self.child.settzinfo(tz)
+        return tz
 
     def getmaxtimerange(self):
         """
