@@ -475,7 +475,6 @@ class CalDAVResource (
         if qname in self.liveProperties():
             if qname in (
                 element.DisplayName.qname(),
-                customxml.Invite.qname(),
             ):
                 return False
             else:

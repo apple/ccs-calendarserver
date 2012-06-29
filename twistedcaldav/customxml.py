@@ -983,7 +983,7 @@ class InviteUser (WebDAVElement):
     name = "user"
 
     allowed_children = {
-        (calendarserver_namespace, "uid")               : (1, 1),
+        (calendarserver_namespace, "uid")               : (0, 1),
         (dav_namespace, "href")                         : (1, 1),
         (calendarserver_namespace, "common-name")       : (0, 1),
         (calendarserver_namespace, "invite-noresponse") : (0, 1),
@@ -1014,7 +1014,8 @@ class Invite (WebDAVElement):
     name = "invite"
 
     allowed_children = {
-        (calendarserver_namespace, "user") : (0, None),
+        (calendarserver_namespace, "organizer") : (0, 1),
+        (calendarserver_namespace, "user")      : (0, None),
     }
 
 

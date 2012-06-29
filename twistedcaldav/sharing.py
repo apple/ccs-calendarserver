@@ -61,15 +61,36 @@ class SharedCollectionMixin(object):
         Calculate the customxml.Invite property (for readProperty) from the
         invites database.
         """
-        isShared = yield self.isShared(request)
-        if config.Sharing.Enabled and isShared:
-            yield self.validateInvites()
-            records = yield self.invitesDB().allRecords()
-            returnValue(customxml.Invite(
-                *[record.makePropertyElement() for record in records]
-            ))
-        else:
-            returnValue(None)
+        if config.Sharing.Enabled:
+            
+            # See if this property is on the shared calendar
+            isShared = yield self.isShared(request)
+            if isShared:
+                yield self.validateInvites()
+                records = yield self.invitesDB().allRecords()
+                returnValue(customxml.Invite(
+                    *[record.makePropertyElement() for record in records]
+                ))
+                
+            # See if it is on the sharee calendar
+            if self.isVirtualShare():
+                original = (yield request.locateResource(self._share.hosturl))
+                yield original.validateInvites()
+                records = yield original.invitesDB().allRecords()
+
+                ownerPrincipal = (yield original.ownerPrincipal(request))
+                owner = ownerPrincipal.principalURL()
+                ownerCN = ownerPrincipal.displayName()
+
+                returnValue(customxml.Invite(
+                    customxml.Organizer(
+                        element.HRef.fromString(owner),
+                        customxml.CommonName.fromString(ownerCN),
+                    ),
+                    *[record.makePropertyElement(includeUID=False) for record in records]
+                ))
+
+        returnValue(None)
 
 
     def upgradeToShare(self):
@@ -889,10 +910,10 @@ class Invite(object):
         self.state = state
         self.summary = summary
         
-    def makePropertyElement(self):
+    def makePropertyElement(self, includeUID=True):
         
         return customxml.InviteUser(
-            customxml.UID.fromString(self.inviteuid),
+            customxml.UID.fromString(self.inviteuid) if includeUID else None,
             element.HRef.fromString(self.userid),
             customxml.CommonName.fromString(self.name),
             customxml.InviteAccess(inviteAccessMapToXML[self.access]()),
