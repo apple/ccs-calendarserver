@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2008-2011 Apple Inc. All rights reserved.
+# Copyright (c) 2008-2012 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -239,6 +239,15 @@ class MemcacheResponseCache(BaseResponseCache, CachePoolUserMixIn):
             return self.getCachePool().get('cacheToken:%s' % (uri,))
 
     @inlineCallbacks
+    def _tokenForRecord(self, uri, request):
+        """
+        Get the current token for a particular principal URI's directory record.
+        """
+
+        record = (yield self._getRecordForURI(uri, request))
+        returnValue(record.cacheToken())
+
+    @inlineCallbacks
     def _tokensForChildren(self, rURI, request):
         """
         Create a dict of child resource tokens for any "recorded" during this request in the childCacheURIs attribute.
@@ -259,7 +268,7 @@ class MemcacheResponseCache(BaseResponseCache, CachePoolUserMixIn):
         tokens = []
         pURI, rURI = (yield self._getURIs(request))
         tokens.append((yield self._tokenForURI(pURI, "PrincipalToken")))
-        tokens.append(hash((yield self._getRecordForURI(pURI, request))))
+        tokens.append((yield self._tokenForRecord(pURI, request)))
         tokens.append((yield self._tokenForURI(rURI)))
         tokens.append((yield self._tokensForChildren(rURI, request)))
         returnValue(tokens)

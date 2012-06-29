@@ -29,6 +29,7 @@ from twistedcaldav.directory.util import normalizeUUID
 from twistedcaldav.directory.principal import DirectoryPrincipalProvisioningResource
 
 import cPickle as pickle
+import uuid
 
 def StubCheckSACL(cls, username, service):
     services = {
@@ -619,3 +620,31 @@ class GUIDTests(TestCase):
             record = DirectoryRecord(self.service, "users", original,
                 shortNames=("testing",))
             self.assertEquals(expected, record.guid)
+
+class DirectoryRecordTests(TestCase):
+    """
+    Test L{DirectoryRecord} apis.
+    """
+
+    def setUp(self):
+        self.service = DirectoryService()
+        self.service.setRealm("test")
+        self.service.baseGUID = "0E8E6EC2-8E52-4FF3-8F62-6F398B08A498"
+
+    def test_cacheToken(self):
+        """
+        Test that DirectoryRecord.cacheToken is different for different records, and its value changes
+        as attributes on the record change.
+        """
+
+        record1 = DirectoryRecord(self.service, "users", str(uuid.uuid4()), shortNames=("testing1",))
+        record2 = DirectoryRecord(self.service, "users", str(uuid.uuid4()), shortNames=("testing2",))
+        self.assertNotEquals(record1.cacheToken(), record2.cacheToken())
+
+        cache1 = record1.cacheToken()
+        record1.enabled = True
+        self.assertNotEquals(cache1, record1.cacheToken())
+
+        cache1 = record1.cacheToken()
+        record1.enabledForCalendaring = True
+        self.assertNotEquals(cache1, record1.cacheToken())

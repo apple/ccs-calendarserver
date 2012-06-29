@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2008-2010 Apple Inc. All rights reserved.
+# Copyright (c) 2008-2012 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -44,6 +44,16 @@ class StubDirectoryRecord(object):
     
     def __init__(self, uid):
         self.uid = uid
+
+    def cacheToken(self):
+        """
+        Generate a token that can be uniquely used to identify the state of this record for use
+        in a cache.
+        """
+        return hash((
+            self.__class__.__name__,
+            self.uid,
+        ))
 
 class StubDirectory(object):
     
@@ -153,11 +163,11 @@ class BaseCacheTestMixin(object):
             '/calendars/users/cdaboo/': StubURLResource(
                 '/calendars/__uids__/cdaboo/'),
             '/principals/__uids__/cdaboo/': StubURLResource(
-                '/principals/__uids__/cdaboo/', record='directoryToken0'),
+                '/principals/__uids__/cdaboo/', record=StubDirectoryRecord('cdaboo')),
             '/calendars/__uids__/dreid/': StubURLResource(
                 '/calendars/__uids__/dreid/'),
             '/principals/__uids__/dreid/': StubURLResource(
-                '/principals/__uids__/dreid/', record='directoryToken0')}
+                '/principals/__uids__/dreid/', record=StubDirectoryRecord('dreid'))}
 
 
     def tearDown(self):
@@ -345,7 +355,7 @@ class BaseCacheTestMixin(object):
 
     def test_recordHashChangeInvalidatesCache(self):
         StubRequest.resources[
-            '/principals/__uids__/cdaboo/'].record = 'directoryToken1'
+            '/principals/__uids__/cdaboo/'].record = StubDirectoryRecord('cdaboo-changed')
 
         d = self.rc.getResponseForRequest(
             StubRequest(
@@ -391,7 +401,7 @@ class MemcacheResponseCacheTests(BaseCacheTestMixin, TestCase):
             0, #flags
             cPickle.dumps((
             'principalToken0',
-            hash('directoryToken0'),
+            StubDirectoryRecord('cdaboo').cacheToken(),
             'uriToken0',
             {'/calendars/__uids__/cdaboo/calendars/':'childToken0'},
             (self.expected_response[0],
@@ -421,7 +431,7 @@ class MemcacheResponseCacheTests(BaseCacheTestMixin, TestCase):
             0, #flags
             cPickle.dumps((
                     'principalToken0',
-                    hash('directoryToken0'),
+                    StubDirectoryRecord('cdaboo').cacheToken(),
                     'uriToken0',
                     {'/calendars/__uids__/cdaboo/calendars/':'childToken0'},
                     (expected_response[0],

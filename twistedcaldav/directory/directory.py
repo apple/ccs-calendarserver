@@ -1034,6 +1034,21 @@ class DirectoryRecord(LoggingMixIn):
 
         return h
 
+    def cacheToken(self):
+        """
+        Generate a token that can be uniquely used to identify the state of this record for use
+        in a cache.
+        """
+        return hash((
+            self.__class__.__name__,
+            self.service.realmName,
+            self.recordType,
+            self.shortNames,
+            self.guid,
+            self.enabled,
+            self.enabledForCalendaring,
+        ))
+
     def addAugmentInformation(self, augment):
         
         if augment:
