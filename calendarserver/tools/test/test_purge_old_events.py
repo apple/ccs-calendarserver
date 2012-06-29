@@ -398,13 +398,11 @@ class PurgeOldEventsTests(CommonCommonTests, unittest.TestCase):
             ])
         )
 
-        # Query for oldest event
+        # Query for oldest event - actually with limited time caching, the oldest event
+        # cannot be precisely know, all we get back is the first one in the sorted list
+        # where each has the 1901 "dummy" time stamp to indicate a partial cache
         results = (yield txn.eventsOlderThan(cutoff, batchSize=1))
-        self.assertEquals(results,
-            [
-                ['home1', 'calendar1', 'old.ics', '1901-01-01 01:00:00'],
-            ]
-        )
+        self.assertEquals(len(results), 1)
 
 
     @inlineCallbacks
@@ -412,17 +410,12 @@ class PurgeOldEventsTests(CommonCommonTests, unittest.TestCase):
         cutoff = PyCalendarDateTime(now, 4, 1, 0, 0, 0)
         txn = self._sqlCalendarStore.newTransaction()
 
-        # Remove oldest event
+        # Remove oldest event - except we don't know what that is because of the dummy timestamps
+        # used with a partial index. So all we can check is that one event was removed.
         count = (yield txn.removeOldEvents(cutoff, batchSize=1))
         self.assertEquals(count, 1)
         results = (yield txn.eventsOlderThan(cutoff))
-        self.assertEquals(sorted(results),
-            sorted([
-                ['home1', 'calendar1', 'oldattachment.ics', '1901-01-01 01:00:00'],
-                ['home2', 'calendar3', 'repeating_awhile.ics', '1901-01-01 01:00:00'],
-                ['home2', 'calendar2', 'recent.ics', '%s-03-04 22:15:00' % (now,)],
-            ])
-        )
+        self.assertEquals(len(results), 3)
 
         # Remove remaining oldest events
         count = (yield txn.removeOldEvents(cutoff))
