@@ -23,6 +23,8 @@ import os
 import sys
 import time
 import traceback
+import collections
+import tables
 
 # Detect which OS this is being run on
 child = Popen(
@@ -106,7 +108,7 @@ def idleHistory():
 
 
 def tail(filenames, n):
-    results = []
+    results = collections.defaultdict(list)
     for filename in filenames:
         child = Popen(
             args=[
@@ -115,16 +117,16 @@ def tail(filenames, n):
             stdout=PIPE, stderr=STDOUT,
         )
         output, _ignore_error = child.communicate()
-        results.extend(output.splitlines())
+        results[filename].extend(output.splitlines())
     return results
 
 def range(filenames, start, end):
-    results = []
+    results = collections.defaultdict(list)
     for filename in filenames:
         with open(filename) as f:
             for count, line in enumerate(f):
                 if count >= start:
-                    results.append(line)
+                    results[filename].append(line)
                 if count > end:
                     break
     return results
@@ -316,7 +318,8 @@ for option, value in options:
         numTop = int(value)
 
 if len(args):
-    filenames = [os.path.expanduser(arg) for arg in args]
+    filenames = sorted([os.path.expanduser(arg) for arg in args])
+    prefix = len(os.path.commonprefix(filenames))
 
 for filename in filenames:
     if not os.path.isfile(filename):
@@ -341,14 +344,16 @@ while True:
     currentSec = None
     currentCount = 0
     times = []
+    perfile_times = collections.defaultdict(list)
     ids = {}
     rawCounts = {}
     timesSpent = {}
-    numRequests = 0
-    numServerToServer = 0
-    numProxied = 0
-    totalRespTime = 0.0
-    maxRespTime = 0.0
+    numRequests = collections.defaultdict(int)
+    numServerToServer = collections.defaultdict(int)
+    numProxied = collections.defaultdict(int)
+    slotCount = collections.defaultdict(int)
+    totalRespTime = collections.defaultdict(float)
+    maxRespTime = collections.defaultdict(float)
     under10ms = 0
     over10ms = 0
     over100ms = 0
@@ -365,93 +370,96 @@ while True:
 
     try:
         lines = tail(filenames, numLines) if lineRange is None else range(filenames, *lineRange)
-        for line in lines:
-            if not line or line.startswith("Log"):
-                continue
-
-            numRequests += 1
-
-            try:
-                userId, logTime, method, uri, status, bytes, _ignore_referer, client, extended = parseLine(line)
-            except Exception, e:
-                parseErrors += 1
-                
-                if debug:
-                    print "Access log line parse failure", e
-                    print traceback.print_exc()
-                    print "---"
-                    print line
-                    print "---"
+        for filename in lines.keys():
+            for line in lines[filename]:
+                if not line or line.startswith("Log"):
+                    continue
+    
+                numRequests[filename] += 1
+    
+                try:
+                    userId, logTime, method, uri, status, bytes, _ignore_referer, client, extended = parseLine(line)
+                except Exception, e:
+                    parseErrors += 1
                     
-                continue
-
-            logTime = dateparse(logTime, fuzzy=True)
-            times.append(logTime)
-
-            if status >= 500:
-                errorCount += 1
-
-            if uri == "/ischedule":
-                numServerToServer += 1
-            elif uri.startswith("/calendars"):
-                numProxied += 1
-
-            outstanding = int(extended['or'])
-            logId = int(extended['i'])
-            raw = rawCounts.get(logId, 0) + 1
-            rawCounts[logId] = raw
-            prevMax = ids.get(logId, 0)
-            if outstanding > prevMax:
-                ids[logId] = outstanding
-
-            respTime = float(extended['t'])
-            timeSpent = timesSpent.get(logId, 0.0) + respTime
-            timesSpent[logId] = timeSpent
-            totalRespTime += respTime
-            if respTime > maxRespTime:
-                maxRespTime = respTime
-
-            if respTime >= 60000.0:
-                over60s += 1
-            elif respTime >= 30000.0:
-                over30s +=1
-            elif respTime >= 10000.0:
-                over10s +=1
-            elif respTime >= 1000.0:
-                over1s +=1
-            elif respTime >= 100.0:
-                over100ms +=1
-            elif respTime >= 10.0:
-                over10ms +=1
-            else:
-                under10ms +=1
-
-
-            ext = []
-            for key, value in extended.iteritems():
-                if key not in ('i', 't'):
-                    if key == "cl":
-                        value = float(value)/1024
-                        value = "%.1fKB" % (value,)
-                        key = "req"
-                    ext.append("%s:%s" % (key, value))
-            ext = ", ".join(ext)
-
-            try:
-                client = client.split(";")[2]
-                client = client.strip()
-            except:
-                pass
-
-            if userId != "-":
-                userStat = users.get(userId, { 'count' : 0, 'clients' : {} })
-                userStat['count'] += 1
-                clientCount = userStat['clients'].get(client, 0)
-                userStat['clients'][client] = clientCount + 1
-                users[userId] = userStat
-
-            reqStartTime = logTime - datetime.timedelta(milliseconds=respTime)
-            requests.append((respTime, userId, method, bytes/1024.0, ext, client, logId, logTime, reqStartTime))
+                    if debug:
+                        print "Access log line parse failure", e
+                        print traceback.print_exc()
+                        print "---"
+                        print line
+                        print "---"
+                        
+                    continue
+    
+                logTime = dateparse(logTime, fuzzy=True)
+                times.append(logTime)
+                perfile_times[filename].append(logTime)
+    
+                if status >= 500:
+                    errorCount += 1
+    
+                if uri == "/ischedule":
+                    numServerToServer[filename] += 1
+                elif uri.startswith("/calendars"):
+                    numProxied[filename] += 1
+    
+                outstanding = int(extended['or'])
+                logId = int(extended['i'] if extended['i'] else 0)
+                raw = rawCounts.get(logId, 0) + 1
+                rawCounts[logId] = raw
+                prevMax = ids.get(logId, 0)
+                if outstanding > prevMax:
+                    ids[logId] = outstanding
+                slotCount[filename] += outstanding
+    
+                respTime = float(extended['t'])
+                timeSpent = timesSpent.get(logId, 0.0) + respTime
+                timesSpent[logId] = timeSpent
+                totalRespTime[filename] += respTime
+                if respTime > maxRespTime[filename]:
+                    maxRespTime[filename] = respTime
+    
+                if respTime >= 60000.0:
+                    over60s += 1
+                elif respTime >= 30000.0:
+                    over30s +=1
+                elif respTime >= 10000.0:
+                    over10s +=1
+                elif respTime >= 1000.0:
+                    over1s +=1
+                elif respTime >= 100.0:
+                    over100ms +=1
+                elif respTime >= 10.0:
+                    over10ms +=1
+                else:
+                    under10ms +=1
+    
+    
+                ext = []
+                for key, value in extended.iteritems():
+                    if key not in ('i', 't'):
+                        if key == "cl":
+                            value = float(value)/1024
+                            value = "%.1fKB" % (value,)
+                            key = "req"
+                        ext.append("%s:%s" % (key, value))
+                ext = ", ".join(ext)
+    
+                try:
+                    client = client.split(";")[2]
+                    client = client.strip()
+                except:
+                    pass
+    
+                if userId != "-":
+                    userStat = users.get(userId, { 'count' : 0, 'clients' : {} })
+                    userStat['count'] += 1
+                    clientCount = userStat['clients'].get(client, 0)
+                    userStat['clients'][client] = clientCount + 1
+                    users[userId] = userStat
+    
+                reqStartTime = logTime - datetime.timedelta(milliseconds=respTime)
+                requests.append((respTime, userId, method, bytes/1024.0, ext, client, logId, logTime, reqStartTime))
 
 
         times.sort()
@@ -459,12 +467,8 @@ while True:
             print "No data to analyze"
             time.sleep(10)
             continue
-            
-        startTime = times[0]
-        endTime = times[-1]
-        deltaTime = endTime - startTime
-        avgRequests = float(len(times)) / deltaTime.seconds
-        avg = "%.1f average requests per second" % (avgRequests,)
+        
+        totalRequests = sum(numRequests.values())
 
         print "- " * 40
         print datetime.datetime.now().strftime("%Y/%m/%d %H:%M:%S"), 
@@ -477,20 +481,83 @@ while True:
         if enableFreeMem:
             print "Memory free:", freemem()
         print "CPU Per Daemon:", cpuPerDaemon()
-
-        if avg:
-            print avg, "|",
-        print "%d requests between %s and %s" % (numRequests, startTime.strftime("%H:%M:%S"), endTime.strftime("%H:%M:%S")),
-        if router and numProxied:
-            print "| %d (%d %%) proxied" % (numProxied, safePercent(numProxied, numRequests),),
-        if worker and numServerToServer:
-            print "| %d (%d %%) server-to-server" % (numServerToServer, safePercent(numServerToServer, numRequests),),
         print
-        
-        print "Response time: average %.1f ms, max %.1f ms" % (
-            totalRespTime / numRequests,
-            maxRespTime,
+
+        table = tables.Table()
+        table.addHeader(
+            ("Instance", "Requests", "Av. Requests", "Av. Response", "Max. Response",     "Slot", "Start",  "End", "File Name"),
         )
+        table.addHeader(
+            (        "",         "",   "per second",         "(ms)",          "(ms)",  "Average", "Time", "Time",          ""),
+        )
+        table.setDefaultColumnFormats(
+           (
+                tables.Table.ColumnFormat("%s", tables.Table.ColumnFormat.CENTER_JUSTIFY), 
+                tables.Table.ColumnFormat("%d", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
+                tables.Table.ColumnFormat("%.1f", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
+                tables.Table.ColumnFormat("%.1f", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
+                tables.Table.ColumnFormat("%.1f", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
+                tables.Table.ColumnFormat("%.2f", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
+                tables.Table.ColumnFormat("%s", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
+                tables.Table.ColumnFormat("%s", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
+                tables.Table.ColumnFormat("%s", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
+            )
+        )
+        
+        totalAverage = 0.0
+        totalResponseTime = 0.0
+        maxResponseTime = 0.0
+        totalSlots = 0
+        minStartTime = None
+        maxEndTime = None
+        for ctr, filename in enumerate(sorted(perfile_times.keys())):
+            
+            times = sorted(perfile_times[filename])
+            startTime = times[0]
+            minStartTime = startTime if minStartTime is None else min(minStartTime, startTime)
+
+            endTime = times[-1]
+            maxEndTime = endTime if maxEndTime is None else min(maxEndTime, endTime)
+            
+            deltaTime = endTime - startTime
+
+            avgRequests = float(len(times)) / deltaTime.seconds
+            totalAverage += avgRequests
+
+            avgResponse = totalRespTime[filename] / len(times)
+            totalResponseTime += totalRespTime[filename]
+            
+            maxResponseTime = max(maxResponseTime, maxRespTime[filename])
+            
+            totalSlots += slotCount[filename]
+
+            table.addRow((
+                "#%s" % (ctr+1,),
+                len(times),
+                avgRequests,
+                avgResponse,
+                maxRespTime[filename],
+                float(slotCount[filename]) / len(times),
+                startTime,
+                endTime,
+                filename[prefix:],
+            ))
+            
+        if len(perfile_times) > 1:
+            table.addFooter((
+                "Total:",
+                totalRequests,
+                totalAverage,
+                totalResponseTime / totalRequests,
+                maxResponseTime,
+                float(totalSlots) / totalRequests,
+                minStartTime,
+                maxEndTime,
+                "",
+            ))
+        table.printTable()
+        print
+
         if enableListenQueue:
             lqlatency = (lqssl / avgRequests, lqnon / avgRequests,) if avgRequests else (0.0, 0.0,)
             print " listenq latency (ssl+non): %.1f s %.1f s" % (
@@ -534,7 +601,7 @@ while True:
             print
 
         print
-        print "Top %d longest (in most recent %d requests):" % (numTop, numRequests,)
+        print "Top %d longest (in most recent %d requests):" % (numTop, sum(numRequests.values()),)
         requests.sort()
         requests.reverse()
         for i in xrange(numTop):
@@ -556,7 +623,7 @@ while True:
             
 
         print
-        print "Top 5 busiest users (in most recent %d requests):" % (numRequests,)
+        print "Top 5 busiest users (in most recent %d requests):" % (totalRequests,)
         userlist = []
         for user, userStat in users.iteritems():
             userlist.append((userStat['count'], user, userStat))
