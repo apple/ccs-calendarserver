@@ -651,8 +651,8 @@ def relocateData(sourceRoot, targetRoot, sourceVersion, oldServerRootValue,
         # Before 10.8, DocumentRoot and DataRoot were relative to ServerRoot
 
         if oldServerRootValue:
-            if diskAccessor.exists(oldServerRootValue): # external volume
-                log("Using external calendar server root: %s" % (newServerRoot,))
+            if oldServerRootValue.rstrip("/") != NEW_SERVER_ROOT: # external volume
+                log("Using external calendar server root: %s" % (oldServerRootValue,))
                 # ServerRoot needs to be /Library/Server/Calendar and Contacts
                 # Since DocumentRoot is now relative to DataRoot, move DocumentRoot into DataRoot
                 newDataRoot = newDataRootValue = os.path.join(oldServerRootValue, "Data")
@@ -699,7 +699,7 @@ def relocateData(sourceRoot, targetRoot, sourceVersion, oldServerRootValue,
     else: # 10.8 -> 10.8
 
         if oldServerRootValue:
-            if diskAccessor.exists(oldServerRootValue): # external volume
+            if oldServerRootValue.rstrip("/") != NEW_SERVER_ROOT: # external volume
                 log("Using external calendar server root: %s" % (oldServerRootValue,))
             elif diskAccessor.exists(absolutePathWithRoot(sourceRoot, oldServerRootValue)):
                 log("Copying calendar server root: %s" % (newServerRoot,))
