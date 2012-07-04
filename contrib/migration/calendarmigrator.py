@@ -419,7 +419,6 @@ def mergePlist(caldav, carddav, combined):
     try:
         if caldav["Notifications"]["Services"]["XMPPNotifier"]["Enabled"]:
             caldav["Notifications"]["Services"]["XMPPNotifier"]["Enabled"] = False
-        adminChanges.append(("EnableAPNS", "True"))
     except KeyError:
         pass
 
