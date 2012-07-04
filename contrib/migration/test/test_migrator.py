@@ -452,7 +452,7 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
         }
         newCombined = { }
         adminChanges = mergePlist(oldCalDAV, oldCardDAV, newCombined)
-        self.assertEquals(adminChanges, [("EnableAPNS", "True")])
+        self.assertEquals(adminChanges, [])
         self.assertEquals(newCombined, expected)
 
 
