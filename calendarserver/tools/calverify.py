@@ -50,8 +50,7 @@ from pycalendar.timezone import PyCalendarTimezone
 from twext.enterprise.dal.syntax import Select, Parameter, Count
 from twisted.application.service import Service
 from twisted.internet.defer import inlineCallbacks, returnValue, succeed
-from twisted.python import log
-from twisted.python.text import wordWrap
+from twisted.python import log, usage
 from twisted.python.usage import Options
 from twistedcaldav import caldavxml
 from twistedcaldav.dateops import pyCalendarTodatetime
@@ -65,15 +64,111 @@ from txdav.common.datastore.sql_tables import schema, _BIND_MODE_OWN
 from txdav.common.icommondatastore import InternalDataStoreError
 import base64
 import collections
-import os
 import sys
 import time
 import traceback
 import uuid
 
-VERSION = "5"
+# Monkey patch
+def new_validRecurrenceIDs(self, doFix=True):
 
-def usage(e=None):
+    fixed = []
+    unfixed = []
+
+    # Detect invalid occurrences and fix by adding RDATEs for them
+    master = self.masterComponent()
+    if master is not None:
+        # Get the set of all recurrence IDs
+        all_rids = set(self.getComponentInstances())
+        if None in all_rids:
+            all_rids.remove(None)
+
+        # If the master has no recurrence properties treat any other components as invalid
+        if master.isRecurring():
+            
+            # Remove all EXDATEs with a matching RECURRENCE-ID. Do this before we start
+            # processing of valid instances just in case the matching R-ID is also not valid and
+            # thus will need RDATE added. 
+            exdates = {}
+            for property in list(master.properties("EXDATE")):
+                for exdate in property.value():
+                    exdates[exdate.getValue()] = property
+            for rid in all_rids:
+                if rid in exdates:
+                    if doFix:
+                        property = exdates[rid]
+                        for value in property.value():
+                            if value.getValue() == rid:
+                                property.value().remove(value)
+                                break
+                        master.removeProperty(property)
+                        if len(property.value()) > 0:
+                            master.addProperty(property)
+                        del exdates[rid]
+                        fixed.append("Removed EXDATE for valid override: %s" % (rid,))
+                    else:
+                        unfixed.append("EXDATE for valid override: %s" % (rid,))
+            
+            # Get the set of all valid recurrence IDs
+            valid_rids = self.validInstances(all_rids, ignoreInvalidInstances=True)
+
+            # Get the set of all RDATEs and add those to the valid set
+            rdates = []
+            for property in master.properties("RDATE"):
+                rdates.extend([_rdate.getValue() for _rdate in property.value()])
+            valid_rids.update(set(rdates))
+
+
+            # Remove EXDATEs predating master
+            dtstart = master.propertyValue("DTSTART")
+            if dtstart is not None:
+                for property in list(master.properties("EXDATE")):
+                    newValues = []
+                    changed = False
+                    for exdate in property.value():
+                        exdateValue = exdate.getValue()
+                        if exdateValue < dtstart:
+                            if doFix:
+                                fixed.append("Removed earlier EXDATE: %s" % (exdateValue,))
+                            else:
+                                unfixed.append("EXDATE earlier than master: %s" % (exdateValue,))
+                            changed = True
+                        else:
+                            newValues.append(exdateValue)
+
+                    if changed and doFix:
+                        # Remove the property...
+                        master.removeProperty(property)
+                        if newValues:
+                            # ...and add it back only if it still has values
+                            property.setValue(newValues)
+                            master.addProperty(property)
+
+
+        else:
+            valid_rids = set()
+
+        # Determine the invalid recurrence IDs by set subtraction
+        invalid_rids = all_rids - valid_rids
+
+        # Add RDATEs for the invalid ones, or remove any EXDATE.
+        for invalid_rid in invalid_rids:
+            brokenComponent = self.overriddenComponent(invalid_rid)
+            brokenRID = brokenComponent.propertyValue("RECURRENCE-ID")
+            if doFix:
+                master.addProperty(Property("RDATE", [brokenRID,]))
+                fixed.append("Added RDATE for invalid occurrence: %s" %
+                    (brokenRID,))
+            else:
+                unfixed.append("Invalid occurrence: %s" % (brokenRID,))
+
+    return fixed, unfixed
+
+Component.validRecurrenceIDs = new_validRecurrenceIDs
+
+VERSION = "6"
+
+def printusage(e=None):
     if e:
         print e
         print ""
@@ -87,15 +182,49 @@ def usage(e=None):
         sys.exit(0)
 
 
-description = ''.join(
-    wordWrap(
-        """
-        Usage: calendarserver_verify_data [options] [input specifiers]
-        """,
-        int(os.environ.get('COLUMNS', '80'))
-    )
-)
-description += "\nVersion: %s" % (VERSION,)
+description = """
+Usage: calendarserver_verify_data [options]
+Version: %s
+
+This tool scans the calendar store to look for and correct any
+problems.
+
+OPTIONS:
+
+Modes of operation:
+
+-h                  : print help and exit.
+--ical              : verify iCalendar data.
+--mismatch          : verify scheduling state.
+--missing           : display orphaned calendar homes - can be used.
+                      with either --ical or --mismatch.
+
+--nuke PATH|RID     : remove specific calendar resources - can
+                      only be used by itself. PATH is the full
+                      /calendars/__uids__/XXX/YYY/ZZZ.ics object
+                      resource path, RID is the SQL DB resource-id.
+
+Options for all modes:
+
+--fix      : changes are only made when this is present.        
+--config   : caldavd.plist file for the server.
+-v         : verbose logging
+
+Options for --ical:
+
+--badcua   : only look for with bad CALENDARSERVER-OLD-CUA.
+--nobase64 : do not apply base64 encoding to CALENDARSERVER-OLD-CUA.
+--uuid     : only scan specified calendar homes. Can be a partial GUID
+             to scan all GUIDs with that as a prefix.
+--uid      : scan only calendar data with the specific iCalendar UID.
+
+Options for --mismatch:
+
+--uid      : look for mismatches with the specified iCalendar UID only.
+--details  : log extended details on each mismatch.
+--tzid     : timezone to adjust details to.
+
+""" % (VERSION,)
 
 
 def safePercent(x, y, multiplier=100.0):
@@ -123,9 +252,9 @@ class CalVerifyOptions(Options):
 
     optParameters = [
         ['config', 'f', DEFAULT_CONFIG_FILE, "Specify caldavd.plist configuration path."],
-        ['data', 'd', "./calverify-data", "Path where ancillary data is stored."],
         ['uuid', 'u', "", "Only check this user."],
         ['uid', 'U', "", "Only this event UID."],
+        ['nuke', 'e', "", "Remove event given its path"]
     ]
 
 
@@ -133,6 +262,8 @@ class CalVerifyOptions(Options):
         super(CalVerifyOptions, self).__init__()
         self.outputName = '-'
 
+    def getUsage(self, width=None):
+        return ""
 
     def opt_output(self, filename):
         """
@@ -151,7 +282,6 @@ class CalVerifyOptions(Options):
             return sys.stdout
         else:
             return open(self.outputName, 'wb')
-
 
 
 class CalVerifyService(Service, object):
@@ -216,13 +346,16 @@ class CalVerifyService(Service, object):
         self.output.write("\n---- CalVerify version: %s ----\n" % (VERSION,))
 
         try:
-            if self.options["missing"]:
-                yield self.doOrphans()
-                
-            if self.options["mismatch"] or self.options["ical"] or self.options["badcua"]:
-                yield self.doScan(self.options["ical"] or self.options["badcua"], self.options["mismatch"], self.options["fix"])
-
-            self.printSummary()
+            if self.options["nuke"]:
+                yield self.doNuke()
+            else:
+                if self.options["missing"]:
+                    yield self.doOrphans()
+                    
+                if self.options["mismatch"] or self.options["ical"] or self.options["badcua"]:
+                    yield self.doScan(self.options["ical"] or self.options["badcua"], self.options["mismatch"], self.options["fix"])
+    
+                self.printSummary()
 
             self.output.close()
         except:
@@ -231,6 +364,51 @@ class CalVerifyService(Service, object):
         self.reactor.stop()
 
 
+    @inlineCallbacks
+    def doNuke(self):
+        """
+        Remove a resource using either its path or resource id. When doing this do not
+        read the iCalendar data which may be corrupt.
+        """
+
+        self.output.write("\n---- Removing calendar resource ----\n")
+        self.txn = self.store.newTransaction()
+
+        nuke = self.options["nuke"]
+        if nuke.startswith("/calendars/__uids__/"):
+            pathbits = nuke.split("/")
+            if len(pathbits) != 6:
+                printusage("Not a valid calendar object resource path: %s" % (nuke,))
+            homeName = pathbits[3]
+            calendarName = pathbits[4]
+            resourceName = pathbits[5]
+            
+            rid = yield self.getResourceID(homeName, calendarName, resourceName)
+            if rid is None:
+                yield self.txn.commit()
+                self.txn = None
+                self.output.write("\n")
+                self.output.write("Path does not exist. Nothing nuked.\n")
+                returnValue(None)
+            rid = int(rid)
+        else:
+            try:
+                rid = int(nuke)
+            except ValueError:
+                printusage("nuke argument must be a calendar object path or an SQL resource-id")
+        
+        if self.options["fix"]:
+            result = yield self.fixByRemovingEvent(rid)
+            if result:
+                self.output.write("\n")
+                self.output.write("Removed resource: %s.\n" % (rid,))
+        else:
+            self.output.write("\n")
+            self.output.write("Resource: %s.\n" % (rid,))
+        yield self.txn.commit()
+        self.txn = None
+            
+        
     @inlineCallbacks
     def doOrphans(self):
         """
@@ -575,6 +753,30 @@ class CalVerifyService(Service, object):
         returnValue(rows[0])
 
 
+    @inlineCallbacks
+    def getResourceID(self, home, calendar, resource):
+        co = schema.CALENDAR_OBJECT
+        cb = schema.CALENDAR_BIND
+        ch = schema.CALENDAR_HOME
+        
+        kwds = {
+            "home":home,
+            "calendar":calendar,
+            "resource":resource,
+        }
+        rows = (yield Select(
+            [co.RESOURCE_ID],
+            From=ch.join(
+                cb, type="inner", on=(ch.RESOURCE_ID == cb.CALENDAR_HOME_RESOURCE_ID)).join(
+                co, type="inner", on=(cb.CALENDAR_RESOURCE_ID == co.CALENDAR_RESOURCE_ID)),
+            Where=(ch.OWNER_UID == Parameter("home")).And(
+                cb.CALENDAR_RESOURCE_NAME == Parameter("calendar")).And(
+                co.RESOURCE_NAME == Parameter("resource")
+            ),
+        ).on(self.txn, **kwds))
+        returnValue(rows[0][0] if rows else None)
+
+    
     def buildResourceInfo(self, rows, onlyOrganizer=False, onlyAttendee=False):
         skipped = 0
         inboxes = 0
@@ -672,18 +874,18 @@ class CalVerifyService(Service, object):
         yield self.txn.commit()
         self.txn = None
         if self.options["verbose"]:
-                    self.output.write((
-                        "\r" + 
-                        ("%s" % badlen).rjust(rjust) +
-                        ("%s" % count).rjust(rjust) +
-                        ("%s" % total).rjust(rjust) +
-                        ("%d%%" % safePercent(count, total)).rjust(rjust)
-                    ).ljust(80) + "\n")
+            self.output.write((
+                "\r" + 
+                ("%s" % badlen).rjust(rjust) +
+                ("%s" % count).rjust(rjust) +
+                ("%s" % total).rjust(rjust) +
+                ("%d%%" % safePercent(count, total)).rjust(rjust)
+            ).ljust(80) + "\n")
         
         # Print table of results
         table = tables.Table()
         table.addHeader(("Owner", "Event UID", "RID", "Problem",))
-        for item in results_bad:
+        for item in sorted(results_bad, key=lambda x:(x[0],x[1])):
             owner, uid, resid, message = item
             owner_record = self.directoryService().recordWithGUID(owner)
             table.addRow((
@@ -704,7 +906,7 @@ class CalVerifyService(Service, object):
             diff_time = time.time() - t
             self.output.write("Time: %.2f s  Average: %.1f ms/resource\n" % (
                 diff_time,
-                (1000.0 * diff_time) / total,
+                safePercent(diff_time, total, 1000.0),
             ))
 
     errorPrefix = "Calendar data had unfixable problems:\n  "
@@ -1654,16 +1856,22 @@ def main(argv=sys.argv, stderr=sys.stderr, reactor=None):
     if reactor is None:
         from twisted.internet import reactor
     options = CalVerifyOptions()
-    options.parseOptions(argv[1:])
+    try:
+        options.parseOptions(argv[1:])
+    except usage.UsageError, e:
+        printusage(e)
+
     try:
         output = options.openOutput()
     except IOError, e:
         stderr.write("Unable to open output file for writing: %s\n" % (e))
         sys.exit(1)
+
     def makeService(store):
         from twistedcaldav.config import config
         config.TransactionTimeoutSeconds = 0
         return CalVerifyService(store, options, output, reactor, config)
+
     utilityMain(options['config'], makeService, reactor)
 
 if __name__ == '__main__':
