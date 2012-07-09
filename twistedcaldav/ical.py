@@ -1419,6 +1419,30 @@ class Component (object):
 
             # If the master has no recurrence properties treat any other components as invalid
             if master.isRecurring():
+
+                # Remove all EXDATEs with a matching RECURRENCE-ID. Do this before we start
+                # processing of valid instances just in case the matching R-ID is also not valid and
+                # thus will need RDATE added. 
+                exdates = {}
+                for property in list(master.properties("EXDATE")):
+                    for exdate in property.value():
+                        exdates[exdate.getValue()] = property
+                for rid in all_rids:
+                    if rid in exdates:
+                        if doFix:
+                            property = exdates[rid]
+                            for value in property.value():
+                                if value.getValue() == rid:
+                                    property.value().remove(value)
+                                    break
+                            master.removeProperty(property)
+                            if len(property.value()) > 0:
+                                master.addProperty(property)
+                            del exdates[rid]
+                            fixed.append("Removed EXDATE for valid override: %s" % (rid,))
+                        else:
+                            unfixed.append("EXDATE for valid override: %s" % (rid,))
+                
                 # Get the set of all valid recurrence IDs
                 valid_rids = self.validInstances(all_rids, ignoreInvalidInstances=True)
     
@@ -1428,11 +1452,13 @@ class Component (object):
                     rdates.extend([_rdate.getValue() for _rdate in property.value()])
                 valid_rids.update(set(rdates))
 
+
                 # Remove EXDATEs predating master
                 dtstart = master.propertyValue("DTSTART")
                 if dtstart is not None:
                     for property in list(master.properties("EXDATE")):
                         newValues = []
+                        changed = False
                         for exdate in property.value():
                             exdateValue = exdate.getValue()
                             if exdateValue < dtstart:
@@ -1440,10 +1466,11 @@ class Component (object):
                                     fixed.append("Removed earlier EXDATE: %s" % (exdateValue,))
                                 else:
                                     unfixed.append("EXDATE earlier than master: %s" % (exdateValue,))
+                                changed = True
                             else:
                                 newValues.append(exdateValue)
 
-                        if doFix:
+                        if changed and doFix:
                             # Remove the property...
                             master.removeProperty(property)
                             if newValues:
@@ -1458,7 +1485,7 @@ class Component (object):
             # Determine the invalid recurrence IDs by set subtraction
             invalid_rids = all_rids - valid_rids
 
-            # Add RDATEs for the invalid ones.
+            # Add RDATEs for the invalid ones, or remove any EXDATE.
             for invalid_rid in invalid_rids:
                 brokenComponent = self.overriddenComponent(invalid_rid)
                 brokenRID = brokenComponent.propertyValue("RECURRENCE-ID")
