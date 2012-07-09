@@ -160,7 +160,7 @@ class Scheduler(object):
         if not hasattr(self.request, "extendedLogItems"):
             self.request.extendedLogItems = {}
         self.request.extendedLogItems["recipients"] = len(self.recipients)
-        self.request.extendedLogItems["cl"] = str(self.calendar)
+        self.request.extendedLogItems["cl"] = str(len(str(self.calendar)))
     
         # Do some extra authorization checks
         self.checkAuthorization()
