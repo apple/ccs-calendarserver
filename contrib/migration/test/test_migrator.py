@@ -17,7 +17,7 @@
 import twistedcaldav.test.util
 from contrib.migration.calendarmigrator import (
     mergePlist, examinePreviousSystem, relocateData, relativize, isServiceDisabled,
-    ServiceStateError
+    ServiceStateError, nextAvailable
 )
 import contrib.migration.calendarmigrator
 
@@ -1039,6 +1039,9 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
 
                 "/Volumes/External/CalendarServer/Documents/calendars/" : True,
                 "/Volumes/External/CalendarServer/Calendar and Contacts Data/" : True,
+                "/Volumes/External/CalendarServer/Calendar and Contacts Data.bak/" : True,
+                "/Volumes/External/CalendarServer/Calendar and Contacts Data.bak.1/" : True,
+                "/Volumes/External/CalendarServer/Calendar and Contacts Data.bak.2/" : True,
                 "/Library/Server/Previous/Library/CalendarServer/Data/" : True,
                 "/Volumes/External/AddressBookServer/Documents/addressbooks/" : True,
                 "/Library/Server/Previous/Library/AddressBookServer/Data/" : True,
@@ -1061,7 +1064,7 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
             [   # expected DiskAccessor history
                 ('rename',
                  '/Volumes/External/CalendarServer/Calendar and Contacts Data',
-                 '/Volumes/External/CalendarServer/Calendar and Contacts Data.bak'),
+                 '/Volumes/External/CalendarServer/Calendar and Contacts Data.bak.3'),
                 ('ditto', '/Library/Server/Previous/Library/CalendarServer/Data', '/Volumes/External/CalendarServer/Calendar and Contacts Data'),
                 ('rename', '/Volumes/External/CalendarServer/Documents', '/Volumes/External/CalendarServer/Calendar and Contacts Data/Documents'),
                 ('chown-recursive', '/Volumes/External/CalendarServer/Calendar and Contacts Data', FakeUser.pw_uid, FakeGroup.gr_gid),
@@ -1503,6 +1506,18 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
             actual = relocateData(*args, diskAccessor=accessor)
             self.assertEquals(expected, actual)
             self.assertEquals(history, accessor.history)
+
+
+    def test_nextAvailable(self):
+        data = [
+            ( { }, "a.bak" ),
+            ( { "a.bak": True }, "a.bak.1" ),
+            ( { "a.bak": True, "a.bak.1" : True }, "a.bak.2" ),
+        ]
+        for paths, expected in data:
+            accessor = StubDiskAccessor(paths)
+            actual = nextAvailable("a.bak", diskAccessor=accessor)
+            self.assertEquals(actual, expected)
 
 
     def test_stubDiskAccessor(self):

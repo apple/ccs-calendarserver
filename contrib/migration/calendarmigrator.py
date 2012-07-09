@@ -596,7 +596,8 @@ def relocateData(sourceRoot, targetRoot, sourceVersion, oldServerRootValue,
                 newDocumentRoot = os.path.join(newDataRoot, newDocumentRootValue)
                 # Move aside whatever is there
                 if diskAccessor.exists(newDataRoot):
-                    diskAccessor.rename(newDataRoot, newDataRoot + ".bak")
+                    renameTo = nextAvailable(newDataRoot + ".bak", diskAccessor=diskAccessor)
+                    diskAccessor.rename(newDataRoot, renameTo)
 
                 if diskAccessor.exists(absolutePathWithRoot(sourceRoot, oldCalDataRootValueProcessed)):
                     diskAccessor.ditto(
@@ -768,6 +769,31 @@ def absolutePathWithRoot(root, path):
         return os.path.join(root, path)
 
 
+def nextAvailable(path, diskAccessor=None):
+    """
+    If path doesn't exist, return path.  Otherwise return the first path name
+    following the path.NNN pattern that doesn't exist, where NNN starts at 1
+    and increments until a non-existent path name is determined.
+
+    @param path: path to examine
+    @type path: C{str}
+    @returns: non-existent path name C{str}
+    """
+
+    if diskAccessor is None:
+        diskAccessor = DiskAccessor()
+
+    if not diskAccessor.exists(path):
+        return path
+
+    i = 1
+    while(True):
+        newPath = "%s.%d" % (path, i)
+        if not diskAccessor.exists(newPath):
+            return newPath
+        i += 1
+
+
 class DiskAccessor(object):
     """
     A wrapper around various disk access methods so that unit tests can easily
@@ -795,7 +821,7 @@ class DiskAccessor(object):
             return os.rename(before, after)
         except OSError:
             # Can't rename because it's cross-volume; must copy/delete
-            shutil.copy2(before, after)
+            self.ditto(before, after)
             return os.remove(before)
 
     def isfile(self, path):
