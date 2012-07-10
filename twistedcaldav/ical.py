@@ -1954,9 +1954,9 @@ class Component (object):
 
     def getExtendedFreeBusy(self):
         """
-        Get the X-CALENDARSEREVR-EXTENDED-FREEBUSY value. Works on either a VCALENDAR or on a component.
+        Get the X-CALENDARSERVER-EXTENDED-FREEBUSY value. Works on either a VCALENDAR or on a component.
         
-        @return: the string value of the X-CALENDARSEREVR-EXTENDED-FREEBUSY property, or None
+        @return: the string value of the X-CALENDARSERVER-EXTENDED-FREEBUSY property, or None
         """
         
         # Extract appropriate sub-component if this is a VCALENDAR
@@ -1967,7 +1967,7 @@ class Component (object):
         else:
             try:
                 # Find the primary subcomponent
-                return self.propertyValue("X-CALENDARSEREVR-EXTENDED-FREEBUSY")
+                return self.propertyValue("X-CALENDARSERVER-EXTENDED-FREEBUSY")
             except InvalidICalendarDataError:
                 pass
 
