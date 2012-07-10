@@ -16,7 +16,6 @@
 ##
 
 from gzip import GzipFile
-import math
 import collections
 import datetime
 import getopt
@@ -203,8 +202,9 @@ class CalendarServerLogAnalyzer(object):
 
     class LogLine(object):
         
-        def __init__(self, userid, logDateTime, logTime, method, uri, status, reqbytes, referer, client, extended):
+        def __init__(self, ipaddr, userid, logDateTime, logTime, method, uri, status, reqbytes, referer, client, extended):
 
+            self.ipaddr = ipaddr
             self.userid = userid
             self.logDateTime = logDateTime
             self.logTime = logTime
@@ -247,7 +247,7 @@ class CalendarServerLogAnalyzer(object):
 
         self.hourlyTotals = [[0, 0, 0, collections.defaultdict(int), 0.0,] for _ignore in xrange(self.timeBucketCount)]
         
-        self.clientTotals = collections.defaultdict(lambda:[0, set()])
+        self.clientTotals = collections.defaultdict(lambda:[0, set(), set()])
         self.clientIDMap = {}
         self.clientByMethodCount = collections.defaultdict(lambda:collections.defaultdict(int))
         self.clientIDByMethodCount = {}
@@ -285,9 +285,9 @@ class CalendarServerLogAnalyzer(object):
         self.otherUserCalendarRequests = {}
 
         self.currentLine = None
-        self.linesRead = 0
+        self.linesRead = collections.defaultdict(int)
         
-    def analyzeLogFile(self, logFilePath, lineCtr):
+    def analyzeLogFile(self, logFilePath):
         fpath = os.path.expanduser(logFilePath)
         if fpath.endswith(".gz"):
             f = GzipFile(fpath)
@@ -296,11 +296,12 @@ class CalendarServerLogAnalyzer(object):
             
         self.maxIndex = (self.endHour - self.startHour + 1) * 60 / self.resolutionMinutes
         try:
+            lineCtr = 0
             for line in f:
                 lineCtr += 1
-                if lineCtr <= self.linesRead:
+                if lineCtr <= self.linesRead[logFilePath]:
                     continue
-                self.linesRead += 1
+                self.linesRead[logFilePath] += 1
                 if line.startswith("Log"):
                     continue
         
@@ -367,8 +368,10 @@ class CalendarServerLogAnalyzer(object):
                 if not is503:
                     self.clientTotals[" TOTAL"][0] += 1
                     self.clientTotals[" TOTAL"][1].add(self.currentLine.userid)
+                    self.clientTotals[" TOTAL"][2].add(self.currentLine.ipaddr)
                     self.clientTotals[adjustedClient][0] += 1
                     self.clientTotals[adjustedClient][1].add(self.currentLine.userid)
+                    self.clientTotals[adjustedClient][2].add(self.currentLine.ipaddr)
                     
                     self.clientByMethodCount[" TOTAL"][" TOTAL"] += 1
                     self.clientByMethodCount[" TOTAL"][adjustedMethod] += 1
@@ -509,12 +512,12 @@ class CalendarServerLogAnalyzer(object):
         for client, data in self.clientByMethodCount.iteritems():
             self.clientIDByMethodCount[self.clientIDMap[client]] = data
 
-        return lineCtr
-
     def parseLine(self, line):
     
         startPos = line.find("- ")
         endPos = line.find(" [")
+        
+        ipaddr = line[0:startPos-2]
         userid = line[startPos+2:endPos]
         
         startPos = endPos + 1
@@ -574,7 +577,7 @@ class CalendarServerLogAnalyzer(object):
             items = line[startPos:].split()
             extended = dict([item.split('=') for item in items])
     
-        self.currentLine = CalendarServerLogAnalyzer.LogLine(userid, logDateTime, logTime, method, uri, status, reqbytes, referrer, client, extended)
+        self.currentLine = CalendarServerLogAnalyzer.LogLine(ipaddr, userid, logDateTime, logTime, method, uri, status, reqbytes, referrer, client, extended)
     
     def getClientAdjustedName(self):
     
@@ -838,47 +841,49 @@ class CalendarServerLogAnalyzer(object):
         return key
 
     # Determine method weight 1 - 10
-    weighting = {
-        "ACL": lambda x: 3,
-        "DELETE" : lambda x: 5,
-        "GET" : lambda x:  3 * (1 + x.bytes / (1024 * 1024)),
-        METHOD_GET_DROPBOX : lambda x: 3 * (1 + x.bytes / (1024 * 1024)),
-        "HEAD" : lambda x: 1,
-        "MKCALENDAR" : lambda x: 2,
-        "MKCOL" : lambda x: 2,
-        "MOVE" : lambda x: 3,
-        "OPTIONS" : lambda x: 1,
-        METHOD_POST_FREEBUSY : lambda x: 5 * int(x.extended.get("recipients", 1)),
-        METHOD_PUT_ORGANIZER : lambda x: 5 * int(x.extended.get("recipients", 1)),
-        METHOD_PUT_ATTENDEE : lambda x: 5 * int(x.extended.get("recipients", 1)),
-        "PROPFIND" : lambda x: 3 * int(x.extended.get("responses", 1)),
-        METHOD_PROPFIND_CALENDAR : lambda x: 5 * (int(math.log10(float(x.extended.get("responses", 1)))) + 1),
-        METHOD_PROPFIND_CALENDAR_HOME : lambda x: 5 * (int(math.log10(float(x.extended.get("responses", 1)))) + 1),
-        "PROPFIND inbox" : lambda x: 5 * (int(math.log10(float(x.extended.get("responses", 1)))) + 1),
-        METHOD_PROPFIND_PRINCIPALS : lambda x: 5 * (int(math.log10(float(x.extended.get("responses", 1)))) + 1),
-        METHOD_PROPFIND_CACHED_CALENDAR_HOME : lambda x: 2,
-        METHOD_PROPFIND_CACHED_PRINCIPALS : lambda x: 2,
-        "PROPPATCH" : lambda x: 4,
-        METHOD_PROPPATCH_CALENDAR : lambda x:8,
-        METHOD_PUT_ICS : lambda x: 4,
-        METHOD_PUT_ORGANIZER : lambda x: 8,
-        METHOD_PUT_ATTENDEE : lambda x: 6,
-        METHOD_PUT_DROPBOX : lambda x: 10,
-        "REPORT" : lambda x: 5,
-        METHOD_REPORT_CALENDAR_MULTIGET : lambda x: 5 * int(x.extended.get("rcount", 1)),
-        METHOD_REPORT_CALENDAR_QUERY : lambda x: 4 * int(x.extended.get("responses", 1)),
-        METHOD_REPORT_EXPAND_P : lambda x: 5,
-        "REPORT principal-match" : lambda x: 5,
-    }
+#    weighting = {
+#        "ACL": lambda x: 3,
+#        "DELETE" : lambda x: 5,
+#        "GET" : lambda x:  3 * (1 + x.bytes / (1024 * 1024)),
+#        METHOD_GET_DROPBOX : lambda x: 3 * (1 + x.bytes / (1024 * 1024)),
+#        "HEAD" : lambda x: 1,
+#        "MKCALENDAR" : lambda x: 2,
+#        "MKCOL" : lambda x: 2,
+#        "MOVE" : lambda x: 3,
+#        "OPTIONS" : lambda x: 1,
+#        METHOD_POST_FREEBUSY : lambda x: 5 * int(x.extended.get("recipients", 1)),
+#        METHOD_PUT_ORGANIZER : lambda x: 5 * int(x.extended.get("recipients", 1)),
+#        METHOD_PUT_ATTENDEE : lambda x: 5 * int(x.extended.get("recipients", 1)),
+#        "PROPFIND" : lambda x: 3 * int(x.extended.get("responses", 1)),
+#        METHOD_PROPFIND_CALENDAR : lambda x: 5 * (int(math.log10(float(x.extended.get("responses", 1)))) + 1),
+#        METHOD_PROPFIND_CALENDAR_HOME : lambda x: 5 * (int(math.log10(float(x.extended.get("responses", 1)))) + 1),
+#        "PROPFIND inbox" : lambda x: 5 * (int(math.log10(float(x.extended.get("responses", 1)))) + 1),
+#        METHOD_PROPFIND_PRINCIPALS : lambda x: 5 * (int(math.log10(float(x.extended.get("responses", 1)))) + 1),
+#        METHOD_PROPFIND_CACHED_CALENDAR_HOME : lambda x: 2,
+#        METHOD_PROPFIND_CACHED_PRINCIPALS : lambda x: 2,
+#        "PROPPATCH" : lambda x: 4,
+#        METHOD_PROPPATCH_CALENDAR : lambda x:8,
+#        METHOD_PUT_ICS : lambda x: 4,
+#        METHOD_PUT_ORGANIZER : lambda x: 8,
+#        METHOD_PUT_ATTENDEE : lambda x: 6,
+#        METHOD_PUT_DROPBOX : lambda x: 10,
+#        "REPORT" : lambda x: 5,
+#        METHOD_REPORT_CALENDAR_MULTIGET : lambda x: 5 * int(x.extended.get("rcount", 1)),
+#        METHOD_REPORT_CALENDAR_QUERY : lambda x: 4 * int(x.extended.get("responses", 1)),
+#        METHOD_REPORT_EXPAND_P : lambda x: 5,
+#        "REPORT principal-match" : lambda x: 5,
+#    }
+    weighting = {}
 
     def userAnalysis(self, adjustedMethod):
         
         if self.currentLine.userid == "-":
             return
-        try:
-            self.userWeights[self.currentLine.userid] += self.weighting[adjustedMethod](self.currentLine)
-        except KeyError:
-            self.userWeights[self.currentLine.userid] += 5
+#        try:
+#            self.userWeights[self.currentLine.userid] += self.weighting[adjustedMethod](self.currentLine)
+#        except KeyError:
+#            self.userWeights[self.currentLine.userid] += 5
+        self.userWeights[self.currentLine.userid] += 1
         
         
         responseTime = float(self.currentLine.extended.get("t", 0.0))
@@ -974,8 +979,8 @@ class CalendarServerLogAnalyzer(object):
             #print "User Interaction Counts"
             #self.printUserInteractionCounts(doTabs)
     
-            #print "User Weights (top 100)"
-            #self.printUserWeights(doTabs)
+            print "User Weights (top 100)"
+            self.printUserWeights(doTabs)
     
             #print "User Response times"
             #self.printUserResponseTimes(doTabs)
@@ -991,7 +996,7 @@ class CalendarServerLogAnalyzer(object):
             table.addRow(("Filtered to user:", self.filterByUser,))
         if self.filterByClient:
             table.addRow(("Filtered to client:", self.filterByClient,))
-        table.addRow(("Lines Analyzed:", self.linesRead,))
+        table.addRow(("Lines Analyzed:", sum(self.linesRead.values()),))
     
         table.printTabDelimitedData() if doTabs else table.printTable()
         print ""
@@ -1013,11 +1018,11 @@ class CalendarServerLogAnalyzer(object):
         
         table = tables.Table()
         table.addHeader(
-            ("Local (UTC)", "Total",    "Av. Requests", "Av. Response",) if summary else
+            ("Local (UTC)", "Total",    "Av. Requests", "Av. Response", "Av. Queue",) if summary else
             ("Local (UTC)", "Total",    "Av. Requests", "Av. Queue", "Max. Queue", "Av. Response",)
         )
         table.addHeader(
-            ("",            "Requests", "Per Second",   "Time(ms)",) if summary else
+            ("",            "Requests", "Per Second",   "Time(ms)",     "Depth") if summary else
             ("",            "Requests", "Per Second",   "Depth",     "Depth (# queues)",      "Time(ms)",)
         )
         table.setDefaultColumnFormats(
@@ -1026,6 +1031,7 @@ class CalendarServerLogAnalyzer(object):
                 tables.Table.ColumnFormat("%d", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
                 tables.Table.ColumnFormat("%.1f", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
                 tables.Table.ColumnFormat("%.1f", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
+                tables.Table.ColumnFormat("%.2f", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
             ) if summary else
             (
                 tables.Table.ColumnFormat("%s", tables.Table.ColumnFormat.CENTER_JUSTIFY), 
@@ -1055,6 +1061,7 @@ class CalendarServerLogAnalyzer(object):
                     countRequests,
                     (1.0 * countRequests) / self.resolutionMinutes / 60,
                     safePercent(countTime, countRequests, 1.0),
+                    safePercent(float(countDepth), countRequests, 1),
                 ) if summary else
                 (
                     hour,
@@ -1076,6 +1083,7 @@ class CalendarServerLogAnalyzer(object):
                 totalRequests,
                 (1.0 * totalRequests) / self.timeBucketCount / self.resolutionMinutes / 60,
                 safePercent(totalTime, totalRequests, 1.0),
+                safePercent(float(totalDepth), totalRequests, 1),
             ) if summary else
             (
                 "Total:",
@@ -1091,6 +1099,7 @@ class CalendarServerLogAnalyzer(object):
                 tables.Table.ColumnFormat("%d", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
                 tables.Table.ColumnFormat("%.1f", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
                 tables.Table.ColumnFormat("%.1f", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
+                tables.Table.ColumnFormat("%.2f", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
             ) if summary else
             (
                 tables.Table.ColumnFormat("%s"), 
@@ -1116,7 +1125,8 @@ class CalendarServerLogAnalyzer(object):
             tables.Table.ColumnFormat("%s", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
         ))
     
-        table.addHeader(("Client", "Total", "Unique", "Total/Unique"))
+        table.addHeader(("Client", "Total", "Unique", "Unique"))
+        table.addHeader((      "",      "", "Users",  "IP addrs"))
         for title, clientData in sorted(self.clientTotals.iteritems(), key=lambda x:x[0].lower()):
             if title == " TOTAL":
                 continue
@@ -1124,14 +1134,14 @@ class CalendarServerLogAnalyzer(object):
                 title,
                 "%d (%2d%%)" % (clientData[0], safePercent(clientData[0], self.clientTotals[" TOTAL"][0]),),
                 "%d (%2d%%)" % (len(clientData[1]), safePercent(len(clientData[1]), len(self.clientTotals[" TOTAL"][1])),),
-                "%d" % (safePercent(clientData[0], len(clientData[1]), 1),),
+                "%d (%2d%%)" % (len(clientData[2]), safePercent(len(clientData[2]), len(self.clientTotals[" TOTAL"][2])),),
             ))
     
         table.addFooter((
             "All",
             "%d      " % (self.clientTotals[" TOTAL"][0],),
             "%d      " % (len(self.clientTotals[" TOTAL"][1]),),
-            "",
+            "%d      " % (len(self.clientTotals[" TOTAL"][2]),),
         ))
     
         table.printTabDelimitedData() if doTabs else table.printTable()
@@ -1575,27 +1585,29 @@ class Differ(TablePrinter):
         
         self.analyzers = analyzers
     
-    def printAll(self, doTabs):
+    def printAll(self, doTabs, summary):
         
         self.printInfo(doTabs)
 
         print "Load Analysis Differences"
-        self.printLoadAnalysisDetails(doTabs)
+        #self.printLoadAnalysisDetails(doTabs)
+        self.printHourlyTotals(doTabs)
 
-        print "Client Differences"
-        self.printClientTotals(doTabs)
-
-        print "Protocol Count Differences"
-        self.printMethodCountDetails(doTabs)
-
-        print "Average Response Time Differences"
-        self.printMethodTimingDetails("clientByMethodAveragedTime", doTabs)
-
-        print "Total Response Time Differences"
-        self.printMethodTimingDetails("clientByMethodTotalTime", doTabs)
-        
-        print "Average Response Count Differences"
-        self.printResponseCountDetails(doTabs)
+        if not summary:
+            print "Client Differences"
+            self.printClientTotals(doTabs)
+    
+            print "Protocol Count Differences"
+            self.printMethodCountDetails(doTabs)
+    
+            print "Average Response Time Differences"
+            self.printMethodTimingDetails("clientByMethodAveragedTime", doTabs)
+    
+            print "Total Response Time Differences"
+            self.printMethodTimingDetails("clientByMethodTotalTime", doTabs)
+            
+            print "Average Response Count Differences"
+            self.printResponseCountDetails(doTabs)
 
     def printInfo(self, doTabs):
         
@@ -1620,34 +1632,151 @@ class Differ(TablePrinter):
             title = "#%d %s" % (ctr+1, analyzer.startLog[0:11],)
 
             totalRequests = 0
-            total503 = 0
-            totalDepth = 0
             totalTime = 0.0
-            for ctr2 in xrange(self.timeBucketCount):
+            for ctr2 in xrange(analyzer.timeBucketCount):
+                hour = analyzer.getHourFromIndex(ctr2)
+                if hour is None:
+                    continue
                 value = analyzer.hourlyTotals[ctr2]
-                countRequests, count503, countDepth, _ignore_maxDepth, countTime = value
+                countRequests, _ignore503, _ignore_countDepth, _ignore_maxDepth, countTime = value
                 totalRequests += countRequests
-                total503 += count503
-                totalDepth += countDepth
                 totalTime += countTime
 
             byCategory[title]["#1 Total Requests"] = "%d" % (totalRequests,)
-            byCategory[title]["#2 503 Count"] = "%d (%2d%%)" % (total503, safePercent(total503, totalRequests),)
-            byCategory[title]["#3 Av. Queue Depth"] = "%d" % (safePercent(totalDepth, totalRequests, 1),)
-            byCategory[title]["#4 Av. Response Time (ms)"] = "%.1f" % (safePercent(totalTime, totalRequests, 1.0),)
+            byCategory[title]["#2 Av. Response Time (ms)"] = "%.1f" % (safePercent(totalTime, totalRequests, 1.0),)
             
             if ctr == 0:
-                firstData = (totalRequests, total503, safePercent(totalDepth, totalRequests, 1.0), safePercent(totalTime, totalRequests, 1.0),)
-            lastData = (totalRequests, total503, safePercent(totalDepth, totalRequests, 1.0), safePercent(totalTime, totalRequests, 1.0),)
+                firstData = (totalRequests, safePercent(totalTime, totalRequests, 1.0),)
+            lastData = (totalRequests, safePercent(totalTime, totalRequests, 1.0),)
 
         title = "Difference"
         byCategory[title]["#1 Total Requests"] = "%+d (%+.1f%%)" % (lastData[0] - firstData[0], safePercent(lastData[0] - firstData[0], firstData[0], 100.0),)
-        byCategory[title]["#2 503 Count"] = "%+d (%+.1f%%)" % (lastData[1] - firstData[1], safePercent((1.0 * lastData[1]) / lastData[0] - (1.0 * firstData[1]) / firstData[0], (1.0 * firstData[1]) / firstData[0], 100.0),)
-        byCategory[title]["#3 Av. Queue Depth"] = "%+d (%+.1f%%)" % (lastData[2] - firstData[2], safePercent(lastData[2] - firstData[2], firstData[2], 100.0),)
-        byCategory[title]["#4 Av. Response Time (ms)"] = "%+.1f (%+.1f%%)" % (lastData[3] - firstData[3], safePercent(lastData[3] - firstData[3], firstData[3], 100.0),)
+        byCategory[title]["#2 Av. Response Time (ms)"] = "%+.1f (%+.1f%%)" % (lastData[1] - firstData[1], safePercent(lastData[1] - firstData[1], firstData[1], 100.0),)
 
         self.printDictDictTable(byCategory, doTabs)
 
+    def printHourlyTotals(self, doTabs):
+        
+        table = tables.Table()
+        hdr1 = [""]
+        hdr2 = ["Local (UTC)"]
+        hdr3 = [""]
+        fmt1 = [tables.Table.ColumnFormat("%s", tables.Table.ColumnFormat.CENTER_JUSTIFY)]
+        fmt23 = [tables.Table.ColumnFormat("%s", tables.Table.ColumnFormat.CENTER_JUSTIFY)]
+        for ctr, analyzer in enumerate(self.analyzers):
+            title = "#%d %s" % (ctr+1, analyzer.startLog[0:11],)
+            hdr1.extend([title, "", ""])
+            hdr2.extend(["Total",    "Av. Requests", "Av. Response"])
+            hdr3.extend(["Requests", "Per Second",   "Time(ms)"])
+            fmt1.extend([
+                tables.Table.ColumnFormat("%s", tables.Table.ColumnFormat.CENTER_JUSTIFY, span=3),
+                None,
+                None,
+            ])
+            fmt23.extend([
+                tables.Table.ColumnFormat(),
+                tables.Table.ColumnFormat(),
+                tables.Table.ColumnFormat(),
+            ])
+        title = "Difference"
+        hdr1.extend([title, "", ""])
+        hdr2.extend(["Total",    "Av. Requests", "Av. Response"])
+        hdr3.extend(["Requests", "Per Second",   "Time(ms)"])
+        fmt1.extend([
+            tables.Table.ColumnFormat("%s", tables.Table.ColumnFormat.CENTER_JUSTIFY, span=3),
+            None,
+            None,
+        ])
+        fmt23.extend([
+            tables.Table.ColumnFormat(),
+            tables.Table.ColumnFormat(),
+            tables.Table.ColumnFormat(),
+        ])
+        table.addHeader(hdr1, columnFormats=fmt1)
+        table.addHeaderDivider()
+        table.addHeader(hdr2, columnFormats=fmt23)
+        table.addHeader(hdr3, columnFormats=fmt23)
+
+        fmt = [tables.Table.ColumnFormat("%s", tables.Table.ColumnFormat.CENTER_JUSTIFY)]
+        for ctr in range(len(self.analyzers) + 1):
+            fmt.extend([
+                tables.Table.ColumnFormat("%d", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
+                tables.Table.ColumnFormat("%.1f", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
+                tables.Table.ColumnFormat("%.1f", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
+            ])
+        table.setDefaultColumnFormats(fmt)
+    
+        totalRequests = [0] * len(self.analyzers)
+        totalTime = [0.0] * len(self.analyzers)
+        for ctr in xrange(self.analyzers[0].timeBucketCount):
+            hour = self.analyzers[0].getHourFromIndex(ctr)
+            if hour is None:
+                continue
+            
+            diffRequests = None
+            diffRequestRate = None
+            diffTime = None
+            row = [hour]
+            for ctr2, analyzer in enumerate(self.analyzers):
+                value = analyzer.hourlyTotals[ctr]
+                countRequests, _ignore503, _ignore_countDepth, _ignore_maxDepth, countTime = value
+                
+                requestRate = (1.0 * countRequests) / analyzer.resolutionMinutes / 60
+                averageTime = safePercent(countTime, countRequests, 1.0)
+                row.extend([
+                    countRequests,
+                    requestRate,
+                    averageTime,
+                ])
+                totalRequests[ctr2] += countRequests
+                totalTime[ctr2] += countTime
+                
+                diffRequests = countRequests if diffRequests is None else countRequests - diffRequests
+                diffRequestRate = requestRate if diffRequestRate is None else requestRate - diffRequestRate
+                diffTime = averageTime if diffTime is None else averageTime - diffTime
+
+            row.extend([
+                diffRequests,
+                diffRequestRate,
+                diffTime,
+            ])
+            table.addRow(row)
+    
+        ftr = ["Total:"]
+        diffRequests = None
+        diffRequestRate = None
+        diffTime = None
+        for ctr, analyzer in enumerate(self.analyzers):
+            requestRate = (1.0 * totalRequests[ctr]) / analyzer.resolutionMinutes / 60
+            averageTime = safePercent(totalTime[ctr], totalRequests[ctr], 1.0)
+            ftr.extend([
+                totalRequests[ctr],
+                requestRate,
+                averageTime,
+            ])
+            
+            diffRequests = totalRequests[ctr] if diffRequests is None else totalRequests[ctr] - diffRequests
+            diffRequestRate = requestRate if diffRequestRate is None else requestRate - diffRequestRate
+            diffTime = averageTime if diffTime is None else averageTime - diffTime
+
+        ftr.extend([
+            diffRequests,
+            diffRequestRate,
+            diffTime,
+        ])
+
+        fmt = [tables.Table.ColumnFormat("%s")]
+        for ctr in range(len(self.analyzers) + 1):
+            fmt.extend([
+                tables.Table.ColumnFormat("%d", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
+                tables.Table.ColumnFormat("%.1f", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
+                tables.Table.ColumnFormat("%.1f", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
+            ])
+        table.addFooter(ftr, columnFormats=fmt)
+    
+        table.printTabDelimitedData() if doTabs else table.printTable()
+        print ""
+    
     def printClientTotals(self, doTabs):
         
         table = tables.Table()
@@ -1904,13 +2033,10 @@ if __name__ == "__main__":
         # Process arguments
         if len(args) == 0:
             args = ("/var/log/caldavd/access.log",)
-        if repeat and len(args) > 1:
-            usage("Must have one argument with --repeat")
 
         pwd = os.getcwd()
 
         analyzers = []
-        ctr = []
         for arg in args:
             arg = os.path.expanduser(arg)
             if not arg.startswith("/"):
@@ -1923,14 +2049,13 @@ if __name__ == "__main__":
            
             if diffMode or not analyzers:
                 analyzers.append(CalendarServerLogAnalyzer(startHour, endHour, utcoffset, resolution, filterByUser, filterByClient))
-                ctr.append(0)
             print "Analyzing: %s" % (arg,)
-            ctr[-1] = analyzers[-1].analyzeLogFile(arg, ctr[-1])
+            analyzers[-1].analyzeLogFile(arg)
 
         if diffMode and len(analyzers) > 1:
             Differ(analyzers).printAll(doTabDelimited, summary)
         else:
-            analyzers[-1].printAll(doTabDelimited, summary)
+            analyzers[0].printAll(doTabDelimited, summary)
             
             if repeat:
                 while True:
@@ -1938,7 +2063,9 @@ if __name__ == "__main__":
                     if again.lower()[0] == "n":
                         break
                     print "\n\n\n"
-                    analyzers[0].analyzeLogFile(arg, ctr[0])
+                    for arg in args:
+                        print "Analyzing: %s" % (arg,)
+                        analyzers[0].analyzeLogFile(arg)
                     analyzers[0].printAll(doTabDelimited, summary)
                 
     except Exception, e:
