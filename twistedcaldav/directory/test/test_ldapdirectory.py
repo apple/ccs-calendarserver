@@ -611,6 +611,30 @@ else:
                      ])
             )
 
+            # Group with illegal DN value in members
+
+            dn = "cn=odtestgrouptop,cn=groups,dc=example,dc=com"
+            guid = '6C6CD280-E6E3-11DF-9492-0800200C9A66'
+            attrs = {
+                'apple-generateduid': [guid],
+                'uniqueMember':
+                    [
+                        'uid=odtestamanda,cn=users,dc=example,dc=com',
+                        'uid=odtestbetty ,cn=users,dc=example,dc=com',
+                        'cn=odtestgroupb+foo,cn=groups,dc=example,dc=com',
+                    ],
+                'cn': ['odtestgrouptop']
+            }
+            record = self.service._ldapResultToRecord(dn, attrs,
+                self.service.recordType_groups)
+            self.assertEquals(record.guid, guid)
+            self.assertEquals(record.memberGUIDs(),
+                set([
+                     'uid=odtestamanda,cn=users,dc=example,dc=com',
+                     'uid=odtestbetty,cn=users,dc=example,dc=com',
+                     ])
+            )
+
             # Resource with delegates and autoSchedule = True
 
             dn = "cn=odtestresource,cn=resources,dc=example,dc=com"

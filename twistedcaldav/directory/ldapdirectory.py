@@ -734,8 +734,15 @@ class LdapDirectoryService(CachingDirectoryService):
 
             # Normalize members if they're in DN form
             if not self.groupSchema["memberIdAttr"]: # empty = dn
-                memberGUIDs = [normalizeDNstr(dnStr) for dnStr in list(memberGUIDs)]
-
+                guids = list(memberGUIDs)
+                memberGUIDs = []
+                for dnStr in guids:
+                    try:
+                        dnStr = normalizeDNstr(dnStr)
+                        memberGUIDs.append(dnStr)
+                    except Exception, e:
+                        # LDAP returned an illegal DN value, log and ignore it
+                        self.log_warn("Bad LDAP DN: %s" % (dnStr,))
 
         elif recordType in (self.recordType_resources,
             self.recordType_locations):
