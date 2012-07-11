@@ -230,7 +230,7 @@ class CalendarServerLogAnalyzer(object):
         self.startHour = startHour
         self.endHour = endHour
         self.utcoffset = utcoffset
-        self.logStart = None
+        self.adjustHour = None
         self.filterByUser = filterByUser
         self.filterByClient = filterByClient
         self.ignoreNonHTTPMethods = ignoreNonHTTPMethods
@@ -319,9 +319,9 @@ class CalendarServerLogAnalyzer(object):
                 logHour = int(self.currentLine.logTime[0:2])
                 logMinute = int(self.currentLine.logTime[3:5])
                 
-                if self.logStart is None:
-                    self.logStart = logHour
-                hourFromStart = logHour - self.logStart - self.startHour
+                if self.adjustHour is None:
+                    self.adjustHour = self.startHour if self.startHour is not None else logHour
+                hourFromStart = logHour - self.adjustHour
                 if hourFromStart < 0:
                     hourFromStart += 24
                 if logHour < self.startHour:
@@ -1008,7 +1008,7 @@ class CalendarServerLogAnalyzer(object):
         totalminutes = index * self.resolutionMinutes
         
         offsethour, minute = divmod(totalminutes, 60)
-        localhour = divmod(offsethour + self.logStart + self.startHour + self.utcoffset, 24)[1]
+        localhour = divmod(offsethour + self.adjustHour + self.utcoffset, 24)[1]
         utchour = divmod(localhour - self.loggedUTCOffset - self.utcoffset, 24)[1]
         
         # Clip to select hour range
@@ -1018,12 +1018,10 @@ class CalendarServerLogAnalyzer(object):
         
         table = tables.Table()
         table.addHeader(
-            ("Local (UTC)", "Total",    "Av. Requests", "Av. Response", "Av. Queue",) if summary else
-            ("Local (UTC)", "Total",    "Av. Requests", "Av. Queue", "Max. Queue", "Av. Response",)
+            ("Local (UTC)", "Total",    "Av. Requests", "Av. Response", "Av. Queue",)
         )
         table.addHeader(
-            ("",            "Requests", "Per Second",   "Time(ms)",     "Depth") if summary else
-            ("",            "Requests", "Per Second",   "Depth",     "Depth (# queues)",      "Time(ms)",)
+            ("",            "Requests", "Per Second",   "Time(ms)",     "Depth")
         )
         table.setDefaultColumnFormats(
             (
@@ -1032,29 +1030,18 @@ class CalendarServerLogAnalyzer(object):
                 tables.Table.ColumnFormat("%.1f", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
                 tables.Table.ColumnFormat("%.1f", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
                 tables.Table.ColumnFormat("%.2f", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
-            ) if summary else
-            (
-                tables.Table.ColumnFormat("%s", tables.Table.ColumnFormat.CENTER_JUSTIFY), 
-                tables.Table.ColumnFormat("%d", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
-                tables.Table.ColumnFormat("%.1f", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
-                tables.Table.ColumnFormat("%d", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
-                tables.Table.ColumnFormat("%d (%2d)", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
-                tables.Table.ColumnFormat("%.1f", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
             )
         )
     
         totalRequests = 0
         totalDepth = 0
-        totalMaxDepth = 0
         totalTime = 0.0
         for ctr in xrange(self.timeBucketCount):
             hour = self.getHourFromIndex(ctr)
             if hour is None:
                 continue
             value = self.hourlyTotals[ctr]
-            countRequests, _ignore503, countDepth, maxDepth, countTime = value
-            maxDepthAll = max(maxDepth.values()) if maxDepth.values() else 0
-            maxDepthCount = list(maxDepth.values()).count(maxDepthAll)
+            countRequests, _ignore503, countDepth, _igniore_maxDepth, countTime = value
             table.addRow(
                 (
                     hour,
@@ -1062,19 +1049,10 @@ class CalendarServerLogAnalyzer(object):
                     (1.0 * countRequests) / self.resolutionMinutes / 60,
                     safePercent(countTime, countRequests, 1.0),
                     safePercent(float(countDepth), countRequests, 1),
-                ) if summary else
-                (
-                    hour,
-                    countRequests,
-                    (1.0 * countRequests) / self.resolutionMinutes / 60,
-                    safePercent(countDepth, countRequests, 1),
-                    (maxDepthAll, maxDepthCount,),
-                    safePercent(countTime, countRequests, 1.0),
                 )
             )
             totalRequests += countRequests
             totalDepth += countDepth
-            totalMaxDepth = max(totalMaxDepth, maxDepthAll)
             totalTime += countTime
     
         table.addFooter(
@@ -1084,14 +1062,6 @@ class CalendarServerLogAnalyzer(object):
                 (1.0 * totalRequests) / self.timeBucketCount / self.resolutionMinutes / 60,
                 safePercent(totalTime, totalRequests, 1.0),
                 safePercent(float(totalDepth), totalRequests, 1),
-            ) if summary else
-            (
-                "Total:",
-                totalRequests,
-                (1.0 * totalRequests) / self.timeBucketCount / self.resolutionMinutes / 60,
-                safePercent(totalDepth, totalRequests, 1),
-                totalMaxDepth,
-                safePercent(totalTime, totalRequests, 1.0),
             ),
             columnFormats=
             (
@@ -1100,14 +1070,6 @@ class CalendarServerLogAnalyzer(object):
                 tables.Table.ColumnFormat("%.1f", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
                 tables.Table.ColumnFormat("%.1f", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
                 tables.Table.ColumnFormat("%.2f", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
-            ) if summary else
-            (
-                tables.Table.ColumnFormat("%s"), 
-                tables.Table.ColumnFormat("%d", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
-                tables.Table.ColumnFormat("%.1f", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
-                tables.Table.ColumnFormat("%d", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
-                tables.Table.ColumnFormat("%d     ", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
-                tables.Table.ColumnFormat("%.1f", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
             )
         )
     
@@ -1985,8 +1947,8 @@ if __name__ == "__main__":
         repeat = False
         summary = False
         resolution = 60
-        startHour = 0
-        endHour = startHour + 23
+        startHour = None
+        endHour = None
         utcoffset = 0
         filterByUser = None
         filterByClient = None
