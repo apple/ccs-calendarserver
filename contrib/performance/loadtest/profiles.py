@@ -37,7 +37,7 @@ from twisted.web.http import PRECONDITION_FAILED
 from twistedcaldav.ical import Property, Component
 
 from contrib.performance.stats import NearFutureDistribution, NormalDistribution, UniformDiscreteDistribution, mean, median
-from contrib.performance.stats import LogNormalDistribution
+from contrib.performance.stats import LogNormalDistribution, RecurrenceDistribution
 from contrib.performance.loadtest.logger import SummarizingMixin
 from contrib.performance.loadtest.ical import IncorrectResponseCode
 
@@ -298,7 +298,8 @@ END:VCALENDAR
             15 * 60, 30 * 60,
             45 * 60, 60 * 60,
             120 * 60
-        ])
+        ]),
+        recurrenceDistribution=RecurrenceDistribution(False),
     ):
         self.enabled = enabled
         self._sendInvitationDistribution = sendInvitationDistribution
@@ -306,6 +307,7 @@ END:VCALENDAR
         self._inviteeCountDistribution = inviteeCountDistribution
         self._eventStartDistribution = eventStartDistribution
         self._eventDurationDistribution = eventDurationDistribution
+        self._recurrenceDistribution = recurrenceDistribution
 
 
     def run(self):
@@ -386,6 +388,10 @@ END:VCALENDAR
             vevent.replaceProperty(Property("DTSTART", dtstart))
             vevent.replaceProperty(Property("DTEND", dtend))
             vevent.replaceProperty(Property("UID", uid))
+            
+            rrule = self._recurrenceDistribution.sample()
+            if rrule is not None:
+                vevent.addProperty(Property(None, None, None, pycalendar=rrule))
 
             vevent.addProperty(self._client._makeSelfOrganizer())
             vevent.addProperty(self._client._makeSelfAttendee())
@@ -582,12 +588,14 @@ END:VCALENDAR
             15 * 60, 30 * 60,
             45 * 60, 60 * 60,
             120 * 60
-        ])
+        ]),
+        recurrenceDistribution=RecurrenceDistribution(False),
     ):
         self.enabled = enabled
         self._interval = interval
         self._eventStartDistribution = eventStartDistribution
         self._eventDurationDistribution = eventDurationDistribution
+        self._recurrenceDistribution = recurrenceDistribution
 
 
     def run(self):
@@ -618,6 +626,10 @@ END:VCALENDAR
             vevent.replaceProperty(Property("DTSTART", dtstart))
             vevent.replaceProperty(Property("DTEND", dtend))
             vevent.replaceProperty(Property("UID", uid))
+            
+            rrule = self._recurrenceDistribution.sample()
+            if rrule is not None:
+                vevent.addProperty(Property(None, None, None, pycalendar=rrule))
 
             href = '%s%s.ics' % (calendar.url, uid)
             d = self._client.addEvent(href, vcalendar)

@@ -342,7 +342,7 @@ class BaseAppleClient(BaseClient):
         calendarHomePollInterval=None,
         supportPush=True,
         supportAmpPush=True,
-        ampPushHost="localhost",
+        ampPushHost=None,
         ampPushPort=62311,
     ):
         
@@ -366,6 +366,8 @@ class BaseAppleClient(BaseClient):
         self.supportPush = supportPush
 
         self.supportAmpPush = supportAmpPush
+        if ampPushHost is None:
+            ampPushHost = urlparse(self.root)[1].split(":")[0]
         self.ampPushHost = ampPushHost
         self.ampPushPort = ampPushPort
 
@@ -886,7 +888,11 @@ class BaseAppleClient(BaseClient):
     
             multistatus = yield self._eventReport(calendar.url, batchedHrefs)
             for responseHref in batchedHrefs:
-                res = multistatus[responseHref]
+                try:
+                    res = multistatus[responseHref]
+                except KeyError:
+                    # Resource might have been deleted
+                    continue
                 if res.getStatus() == 200:
                     text = res.getTextProperties()
                     etag = text[davxml.getetag]

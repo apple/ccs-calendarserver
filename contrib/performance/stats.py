@@ -24,6 +24,7 @@ import sqlparse
 from pycalendar.datetime import PyCalendarDateTime
 from pycalendar.duration import PyCalendarDuration
 from pycalendar.timezone import PyCalendarTimezone
+from pycalendar.property import PyCalendarProperty
 
 NANO = 1000000000.0
 
@@ -222,7 +223,7 @@ def quantize(data):
 
 
 class IPopulation(Interface):
-    def sample():
+    def sample(): #@NoSelf
         pass
 
 
@@ -234,14 +235,16 @@ class UniformDiscreteDistribution(object, FancyEqMixin):
 
     compareAttributes = ['_values']
 
-    def __init__(self, values):
+    def __init__(self, values, randomize=True):
         self._values = values
+        self._randomize = randomize
         self._refill()
 
 
     def _refill(self):
         self._remaining = self._values[:]
-        random.shuffle(self._remaining)
+        if self._randomize:
+            random.shuffle(self._remaining)
 
 
     def sample(self):
@@ -377,6 +380,42 @@ class WorkDistribution(object, FancyEqMixin):
                 return result
             offset.setDuration(offset.getTotalSeconds() - (end - start).getTotalSeconds())
             beginning = end
+
+class RecurrenceDistribution(object, FancyEqMixin):
+    compareAttributes = ["_allowRecurrence", "_weights"]
+
+    _model_rrules = {
+        "none":        None,
+        "daily":       "RRULE:FREQ=DAILY",
+        "weekly":      "RRULE:FREQ=WEEKLY",
+        "monthly":     "RRULE:FREQ=MONTHLY",
+        "yearly":      "RRULE:FREQ=YEARLY",
+        "dailylimit":  "RRULE:FREQ=DAILY;COUNT=14",
+        "weeklylimit": "RRULE:FREQ=WEEKLY;COUNT=4",
+        "workdays":    "RRULE:FREQ=DAILY;BYDAY=MO,TU,WE,TH,FR"
+    } 
+
+    def __init__(self, allowRecurrence, weights={}):
+        self._allowRecurrence = allowRecurrence
+        self._rrules = []
+        if self._allowRecurrence:
+            for rrule, count in sorted(weights.items(), key=lambda x:x[0]):
+                for _ignore in range(count):
+                    self._rrules.append(self._model_rrules[rrule])
+        self._helperDistribution = UniformIntegerDistribution(0, len(self._rrules)-1)
+
+
+    def sample(self):
+        
+        if self._allowRecurrence:
+            index = self._helperDistribution.sample()
+            rrule = self._rrules[index]
+            if rrule:
+                prop = PyCalendarProperty()
+                prop.parse(rrule)
+                return prop
+        
+        return None
 
 if __name__ == '__main__':
     

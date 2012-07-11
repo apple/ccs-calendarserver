@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2010 Apple Inc. All rights reserved.
+# Copyright (c) 2010-2012 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,7 +18,8 @@ from twisted.trial.unittest import TestCase
 
 from stats import (
     SQLDuration, LogNormalDistribution, UniformDiscreteDistribution,
-    UniformIntegerDistribution, WorkDistribution, quantize)
+    UniformIntegerDistribution, WorkDistribution, quantize,
+    RecurrenceDistribution)
 from pycalendar.datetime import PyCalendarDateTime
 from pycalendar.timezone import PyCalendarTimezone
 
@@ -90,6 +91,25 @@ class DistributionTests(TestCase):
     # b = datetime.datetime(2011, 6, 4, 19, 30, tzinfo=<DstTzInfo 'US/Eastern' EDT-1 day, 20:00:00 DST>)
     #test_workdistribution.todo = "Somehow timezones mess this up"
 
+
+    def test_recurrencedistribution(self):
+        dist = RecurrenceDistribution(False)
+        for _ignore in range(100):
+            value = dist.sample()
+            self.assertTrue(value is None)
+
+        dist = RecurrenceDistribution(True, {"daily":1, "none":2, "weekly":1})
+        dist._helperDistribution = UniformDiscreteDistribution([0, 3, 2, 1, 0], randomize=False)
+        value = dist.sample()
+        self.assertTrue(value is not None)
+        value = dist.sample()
+        self.assertTrue(value is None)
+        value = dist.sample()
+        self.assertTrue(value is None)
+        value = dist.sample()
+        self.assertTrue(value is not None)
+        value = dist.sample()
+        self.assertTrue(value is not None)
 
     def test_uniform(self):
         dist = UniformIntegerDistribution(-5, 10)
