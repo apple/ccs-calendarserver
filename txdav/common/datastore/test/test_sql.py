@@ -331,7 +331,9 @@ class CommonSQLStoreTests(CommonCommonTests, TestCase):
         yield _normalizeColumnUUIDs(txn, rp.VIEWER_UID)
         self.assertEqual(
             (yield Select([rp.RESOURCE_ID, rp.NAME,
-                           rp.VALUE, rp.VIEWER_UID], From=rp).on(txn)),
+                           rp.VALUE, rp.VIEWER_UID], From=rp,
+                           OrderBy=rp.RESOURCE_ID, Ascending=True,
+                           ).on(txn)),
             [[1, "asdf", "property-value", "not-a-uuid"],
              [2, "fdsa", "another-value",
               "AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA"]]
