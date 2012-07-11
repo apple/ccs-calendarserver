@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2006-2009 Apple Inc. All rights reserved.
+# Copyright (c) 2006-2012 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -124,8 +124,24 @@ class CommonAccessLoggingObserverExtensions(BaseCommonAccessLoggingObserver):
                 formats = [
                     format,
                     # Performance monitoring extensions
-                    'i=%(serverInstance)s t=%(timeSpent).1f or=%(outstandingRequests)s',
+                    'i=%(serverInstance)s or=%(outstandingRequests)s',
                 ]
+
+                # Tags for time stamps collected along the way - the first one in the list is the initial
+                # time for request creation - we use that to track the entire request/response time
+                nowtime = time.time()
+                if config.EnableExtendedTimingAccessLog:
+                    basetime = request.timeStamps[0][1]
+                    request.timeStamps[0] = ("t", time.time(),)
+                    for tag, timestamp in request.timeStamps:
+                        formats.append("%s=%.1f" % (tag, (timestamp - basetime) * 1000))
+                        if tag != "t":
+                            basetime = timestamp
+                    if len(request.timeStamps) > 1:
+                        formats.append("%s=%.1f" % ("t-log", (nowtime - basetime) * 1000))
+                else:
+                    formats.append("%s=%.1f" % ("t", (nowtime - request.timeStamps[0][1]) * 1000))
+
                 if hasattr(request, "extendedLogItems"):
                     for k, v in request.extendedLogItems.iteritems():
                         k = str(k).replace('"', "%22")
@@ -158,7 +174,6 @@ class CommonAccessLoggingObserverExtensions(BaseCommonAccessLoggingObserver):
                 "referer"             : request.headers.getHeader("referer", "-"),
                 "userAgent"           : request.headers.getHeader("user-agent", "-"),
                 "serverInstance"      : config.LogID,
-                "timeSpent"           : (time.time() - request.initTime) * 1000,
                 "outstandingRequests" : request.chanRequest.channel.factory.outstandingRequests,
                 "fwd"                 : forwardedFor,
             }
@@ -199,7 +214,7 @@ class RotatingFileAccessLoggingObserver(CommonAccessLoggingObserverExtensions):
         self.logpath = logpath
         self.globalHitCount = 0 
         self.globalHitHistory = [] 
-        for i in range(0, config.GlobalStatsLoggingFrequency + 1): 
+        for _ignore in range(0, config.GlobalStatsLoggingFrequency + 1): 
             self.globalHitHistory.append({"time":int(time.time()), "hits":0})
 
     def logMessage(self, message, allowrotate=True):

@@ -435,6 +435,7 @@ DEFAULT_CONFIG = {
     "PIDFile"        : "caldavd.pid",
     "RotateAccessLog"   : False,
     "EnableExtendedAccessLog": True,
+    "EnableExtendedTimingAccessLog": False,
     "DefaultLogLevel"   : "",
     "LogLevels"         : {},
     "LogID"             : "",

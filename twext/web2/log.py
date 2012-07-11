@@ -1,7 +1,7 @@
 # -*- test-case-name: twext.web2.test.test_log -*-
 ##
 # Copyright (c) 2001-2004 Twisted Matrix Laboratories.
-# Copyright (c) 2010 Apple Computer, Inc. All rights reserved.
+# Copyright (c) 2010-2012 Apple Computer, Inc. All rights reserved.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -90,12 +90,15 @@ def logFilter(request, response, startTime=None):
         loginfo.bytesSent=length
         loginfo.responseCompleted=success
         loginfo.secondsTaken=time.time()-startTime
-        
+
+        if length:        
+            request.timeStamp("t-resp-wr")
         log.msg(interface=iweb.IRequest, request=request, response=response,
                  loginfo=loginfo)
         # Or just...
         # ILogger(ctx).log(...) ?
 
+    request.timeStamp("t-resp-gen")
     if response.stream:
         response.stream=_LogByteCounter(response.stream, _log)
     else:

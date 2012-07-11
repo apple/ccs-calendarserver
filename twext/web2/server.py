@@ -1,7 +1,7 @@
 # -*- test-case-name: twext.web2.test.test_server -*-
 ##
 # Copyright (c) 2001-2008 Twisted Matrix Laboratories.
-# Copyright (c) 2010-2011 Apple Computer, Inc. All rights reserved.
+# Copyright (c) 2010-2012 Apple Computer, Inc. All rights reserved.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -192,7 +192,7 @@ class Request(http.Request):
 
     def __init__(self, *args, **kw):
         
-        self.initTime = time.time()
+        self.timeStamps = [("t", time.time(),)]
 
         if kw.has_key('site'):
             self.site = kw['site']
@@ -213,6 +213,9 @@ class Request(http.Request):
             self.serverInstance = self.chanRequest.channel.transport.server.port
         except AttributeError:
             self.serverInstance = "Unknown"
+
+    def timeStamp(self, tag):
+        self.timeStamps.append((tag, time.time(),))
 
     def addResponseFilter(self, filter, atEnd=False, onlyOnce=False):
         """
@@ -369,11 +372,16 @@ class Request(http.Request):
         d = defer.Deferred()
         d.addCallback(self._getChild, self.site.resource, self.postpath)
         d.addCallback(self._rememberResource, "/" + "/".join(quote(s) for s in self.postpath))
+        d.addCallback(self._processTimeStamp)
         d.addCallback(lambda res, req: res.renderHTTP(req), self)
         d.addCallback(self._cbFinishRender)
         d.addErrback(self._processingFailed)
         d.callback(None)
         return d
+
+    def _processTimeStamp(self, res):
+        self.timeStamp("t-req-proc")
+        return res
 
     def preprocessRequest(self):
         """Do any request processing that doesn't follow the normal
