@@ -25,6 +25,7 @@ import time
 import traceback
 import collections
 import tables
+from cStringIO import StringIO
 
 # Detect which OS this is being run on
 child = Popen(
@@ -555,8 +556,10 @@ while True:
                 maxEndTime,
                 "",
             ))
-        table.printTable()
-        print
+            
+        os = StringIO()
+        table.printTable(os=os)
+        print os.getvalue()
 
         if enableListenQueue:
             lqlatency = (lqssl / avgRequests, lqnon / avgRequests,) if avgRequests else (0.0, 0.0,)
