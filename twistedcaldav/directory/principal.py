@@ -631,7 +631,7 @@ class DirectoryCalendarPrincipalDetailElement(DirectoryPrincipalDetailElement):
         if record.enabledForCalendaring:
             return tag.fillSlots(
                 calendarUserAddresses=formatLinks(
-                    resource.calendarUserAddresses()
+                    sorted(resource.calendarUserAddresses())
                 ),
                 calendarHomes=formatLinks(resource.calendarHomeURLs())
             )
@@ -755,7 +755,7 @@ class DirectoryPrincipalResource (
 
             elif name == "email-address-set":
                 returnValue(customxml.EmailAddressSet(
-                    *[customxml.EmailAddressProperty(addr) for addr in self.record.emailAddresses]
+                    *[customxml.EmailAddressProperty(addr) for addr in sorted(self.record.emailAddresses)]
                 ))
 
         result = (yield super(DirectoryPrincipalResource, self).readProperty(property, request))

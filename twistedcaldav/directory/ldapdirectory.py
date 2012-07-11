@@ -118,7 +118,7 @@ class LdapDirectoryService(CachingDirectoryService):
                     "mapping" : { # maps internal record names to LDAP
                         "recordName": "uid",
                         "fullName" : "cn",
-                        "emailAddresses" : "mail",
+                        "emailAddresses" : ["mail"], # multiple LDAP fields supported
                         "firstName" : "givenName",
                         "lastName" : "sn",
                     },
@@ -131,7 +131,7 @@ class LdapDirectoryService(CachingDirectoryService):
                     "mapping" : { # maps internal record names to LDAP
                         "recordName": "cn",
                         "fullName" : "cn",
-                        "emailAddresses" : "mail",
+                        "emailAddresses" : ["mail"], # multiple LDAP fields supported
                         "firstName" : "givenName",
                         "lastName" : "sn",
                     },
@@ -146,7 +146,7 @@ class LdapDirectoryService(CachingDirectoryService):
                     "mapping" : { # maps internal record names to LDAP
                         "recordName": "cn",
                         "fullName" : "cn",
-                        "emailAddresses" : "mail",
+                        "emailAddresses" : ["mail"], # multiple LDAP fields supported
                         "firstName" : "givenName",
                         "lastName" : "sn",
                     },
@@ -161,7 +161,7 @@ class LdapDirectoryService(CachingDirectoryService):
                     "mapping" : { # maps internal record names to LDAP
                         "recordName": "cn",
                         "fullName" : "cn",
-                        "emailAddresses" : "mail",
+                        "emailAddresses" : ["mail"], # multiple LDAP fields supported
                         "firstName" : "givenName",
                         "lastName" : "sn",
                     },
@@ -235,9 +235,14 @@ class LdapDirectoryService(CachingDirectoryService):
                 attrSet.add(self.rdnSchema[recordType]["attr"])
             if self.rdnSchema[recordType].get("calendarEnabledAttr", False):
                 attrSet.add(self.rdnSchema[recordType]["calendarEnabledAttr"])
-            for attr in self.rdnSchema[recordType]["mapping"].values():
-                if attr:
-                    attrSet.add(attr)
+            for attrList in self.rdnSchema[recordType]["mapping"].values():
+                if attrList:
+                    # Since emailAddresses can map to multiple LDAP fields,
+                    # support either string or list
+                    if isinstance(attrList, str):
+                        attrList = [attrList]
+                    for attr in attrList:
+                        attrSet.add(attr)
             # Also put the guidAttr attribute into the mappings for each type
             # so recordsMatchingFields can query on guid
             self.rdnSchema[recordType]["mapping"]["guid"] = self.rdnSchema["guidAttr"]
@@ -646,9 +651,10 @@ class LdapDirectoryService(CachingDirectoryService):
         """
         results = []
         for key in keys:
-            values = attrs.get(key)
-            if values is not None:
-                results += values
+            if key:
+                values = attrs.get(key)
+                if values is not None:
+                    results += values
         return results
 
 
@@ -686,7 +692,13 @@ class LdapDirectoryService(CachingDirectoryService):
                 raise MissingGuidException()
 
         # Find or build email
-        emailAddresses = set(self._getMultipleLdapAttributes(attrs, self.rdnSchema[recordType]["mapping"]["emailAddresses"]))
+        # (The emailAddresses mapping is a list of ldap fields)
+        emailAddressesMappedTo = self.rdnSchema[recordType]["mapping"]["emailAddresses"]
+        # Supporting either string or list for emailAddresses:
+        if isinstance(emailAddressesMappedTo, str):
+            emailAddresses = set(self._getMultipleLdapAttributes(attrs, self.rdnSchema[recordType]["mapping"]["emailAddresses"]))
+        else:
+            emailAddresses = set(self._getMultipleLdapAttributes(attrs, *self.rdnSchema[recordType]["mapping"]["emailAddresses"]))
         emailSuffix = self.rdnSchema[recordType]["emailSuffix"]
 
         if len(emailAddresses) == 0 and emailSuffix:
@@ -885,7 +897,16 @@ class LdapDirectoryService(CachingDirectoryService):
                         ldapEsc(email)
                     )
                 else:
-                    filterstr = "(&%s(mail=%s))" % (filterstr, ldapEsc(email))
+                    # emailAddresses can map to multiple LDAP fields
+                    ldapFields = self.rdnSchema[recordType]["mapping"]["emailAddresses"]
+                    if isinstance(ldapFields, str):
+                        subfilter = "(%s=%s)" % (ldapFields, ldapEsc(email))
+                    else:
+                        subfilter = []
+                        for ldapField in ldapFields:
+                            subfilter.append("(%s=%s)" % (ldapField, ldapEsc(email)))
+                        subfilter = "(|%s)" % ("".join(subfilter))
+                    filterstr = "(&%s%s)" % (filterstr, subfilter)
 
             elif indexType == self.INDEX_TYPE_AUTHID:
                 return
@@ -1157,7 +1178,13 @@ def buildFilter(recordType, mapping, fields, operand="or", optimizeMultiName=Fal
         if ldapField:
             combined.setdefault(field, []).append((value, caseless, matchType))
             value = _convertValue(value, matchType)
-            converted.append("(%s=%s)" % (ldapField, value))
+            if isinstance(ldapField, str):
+                converted.append("(%s=%s)" % (ldapField, value))
+            else:
+                subConverted = []
+                for lf in ldapField:
+                    subConverted.append("(%s=%s)" % (lf, value))
+                converted.append("(|%s)" % "".join(subConverted))
 
     if len(converted) == 0:
         return None

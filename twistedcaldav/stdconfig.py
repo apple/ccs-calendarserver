@@ -97,7 +97,7 @@ DEFAULT_SERVICE_PARAMS = {
                 "mapping" : { # maps internal record names to LDAP
                     "recordName": "uid",
                     "fullName" : "cn",
-                    "emailAddresses" : "mail",
+                    "emailAddresses" : ["mail"],
                     "firstName" : "givenName",
                     "lastName" : "sn",
                 },
@@ -110,7 +110,7 @@ DEFAULT_SERVICE_PARAMS = {
                 "mapping" : { # maps internal record names to LDAP
                     "recordName": "cn",
                     "fullName" : "cn",
-                    "emailAddresses" : "mail",
+                    "emailAddresses" : ["mail"],
                     "firstName" : "givenName",
                     "lastName" : "sn",
                 },
@@ -125,7 +125,7 @@ DEFAULT_SERVICE_PARAMS = {
                 "mapping" : { # maps internal record names to LDAP
                     "recordName": "cn",
                     "fullName" : "cn",
-                    "emailAddresses" : "mail",
+                    "emailAddresses" : ["mail"],
                     "firstName" : "givenName",
                     "lastName" : "sn",
                 },
@@ -140,7 +140,7 @@ DEFAULT_SERVICE_PARAMS = {
                 "mapping" : { # maps internal record names to LDAP
                     "recordName": "cn",
                     "fullName" : "cn",
-                    "emailAddresses" : "mail",
+                    "emailAddresses" : ["mail"],
                     "firstName" : "givenName",
                     "lastName" : "sn",
                 },

@@ -1908,7 +1908,7 @@ class CalendarPrincipalResource (CalDAVComplianceMixIn, DAVResourceWithChildrenM
 
             elif name == "calendar-user-address-set":
                 returnValue(caldavxml.CalendarUserAddressSet(
-                    *[element.HRef(uri) for uri in self.calendarUserAddresses()]
+                    *[element.HRef(uri) for uri in sorted(self.calendarUserAddresses())]
                 ))
 
             elif name == "schedule-inbox-URL":

@@ -267,7 +267,9 @@
               <key>fullName</key>
               <string>cn</string>
               <key>emailAddresses</key>
-              <string>mail</string>
+              <array>
+                  <string>mail</string>
+              </array>
               <key>firstName</key>
               <string>givenName</string>
               <key>lastName</key>
@@ -291,7 +293,9 @@
               <key>fullName</key>
               <string>cn</string>
               <key>emailAddresses</key>
-              <string>mail</string>
+              <array>
+                  <string>mail</string>
+              </array>
               <key>firstName</key>
               <string>givenName</string>
               <key>lastName</key>

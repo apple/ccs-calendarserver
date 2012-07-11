@@ -410,7 +410,7 @@ else:
                         "mapping": { # maps internal record names to LDAP
                             "recordName": "uid",
                             "fullName" : "cn",
-                            "emailAddresses" : "mail",
+                            "emailAddresses" : ["mail", "emailAliases"],
                             "firstName" : "givenName",
                             "lastName" : "sn",
                         },
@@ -423,7 +423,7 @@ else:
                         "mapping": { # maps internal record names to LDAP
                             "recordName": "cn",
                             "fullName" : "cn",
-                            "emailAddresses" : "mail",
+                            "emailAddresses" : ["mail", "emailAliases"],
                             "firstName" : "givenName",
                             "lastName" : "sn",
                         },
@@ -438,7 +438,7 @@ else:
                         "mapping": { # maps internal record names to LDAP
                             "recordName": "cn",
                             "fullName" : "cn",
-                            "emailAddresses" : "mail",
+                            "emailAddresses" : ["mail", "emailAliases"],
                             "firstName" : "givenName",
                             "lastName" : "sn",
                         },
@@ -453,7 +453,7 @@ else:
                         "mapping": { # maps internal record names to LDAP
                             "recordName": "cn",
                             "fullName" : "cn",
-                            "emailAddresses" : "mail",
+                            "emailAddresses" : ["mail", "emailAliases"],
                             "firstName" : "givenName",
                             "lastName" : "sn",
                         },
