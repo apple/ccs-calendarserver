@@ -495,8 +495,11 @@ def generateFreeBusyInfo(
     do_event_details = False
     if event_details is not None and organizer_principal is not None and userPrincipal is not None:
          
-        # Check of organizer is a delegate of attendee
-        do_event_details = (yield organizer_principal.isProxyFor(userPrincipal))
+        # Check of organizer is a delegate of attendee, or organizer is attendee
+        if organizer_principal == userPrincipal:
+            do_event_details = True
+        else:
+            do_event_details = (yield organizer_principal.isProxyFor(userPrincipal))
 
     # Try cache
     resources = (yield FBCacheEntry.getCacheEntry(calresource, useruid, timerange)) if config.EnableFreeBusyCache else None
