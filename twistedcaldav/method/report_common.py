@@ -492,14 +492,30 @@ def generateFreeBusyInfo(
         tz = None
 
     # Look for possible extended free busy information
+    rich_options = {
+        "organizer": False,
+        "delegate": False,
+        "resource": False,
+    }
     do_event_details = False
     if event_details is not None and organizer_principal is not None and userPrincipal is not None:
          
-        # Check of organizer is a delegate of attendee, or organizer is attendee
+        # Check if organizer is attendee
         if organizer_principal == userPrincipal:
             do_event_details = True
-        else:
-            do_event_details = (yield organizer_principal.isProxyFor(userPrincipal))
+            rich_options["organizer"] = True
+
+        # Check if organizer is a delegate of attendee
+        proxy = (yield organizer_principal.isProxyFor(userPrincipal))
+        if config.Scheduling.Options.DelegeteRichFreeBusy and proxy:
+            do_event_details = True
+            rich_options["delegate"] = True
+
+        # Check if attendee is room or resource
+        if config.Scheduling.Options.RoomResourceRichFreeBusy and userPrincipal.getCUType() in ("RESOURCE", "ROOM",):
+            do_event_details = True
+            rich_options["resource"] = True
+
 
     # Try cache
     resources = (yield FBCacheEntry.getCacheEntry(calresource, useruid, timerange)) if config.EnableFreeBusyCache else None
@@ -625,7 +641,7 @@ def generateFreeBusyInfo(
                 if do_event_details:
                     child = (yield request.locateChildResource(calresource, name))
                     calendar = (yield child.iCalendarForUser(request))
-                    _addEventDetails(calendar, event_details, timerange, tzinfo)
+                    _addEventDetails(calendar, event_details, rich_options, timerange, tzinfo)
 
         else:
             child = (yield request.locateChildResource(calresource, name))
@@ -672,11 +688,11 @@ def generateFreeBusyInfo(
                 if calendar.mainType() == "VEVENT" and do_event_details:
                     child = (yield request.locateChildResource(calresource, name))
                     calendar = (yield child.iCalendarForUser(request))
-                    _addEventDetails(calendar, event_details, timerange, tzinfo)
+                    _addEventDetails(calendar, event_details, rich_options, timerange, tzinfo)
     
     returnValue(matchtotal)
 
-def _addEventDetails(calendar, event_details, timerange, tzinfo):
+def _addEventDetails(calendar, event_details, rich_options, timerange, tzinfo):
     """
     Expand events within the specified time range and limit the set of properties to those allowed for
     delegate extended free busy.
@@ -694,16 +710,23 @@ def _addEventDetails(calendar, event_details, timerange, tzinfo):
     # First expand the component
     expanded = calendar.expand(timerange.start, timerange.end, timezone=tzinfo)
 
-    # Remove all but essential properties
-    expanded.filterProperties(keep=(
+    keep_props = (
         "UID",
         "RECURRENCE-ID",
         "DTSTAMP",
         "DTSTART",
         "DTEND",
         "DURATION",
-        "SUMMARY",
-    ))
+    )
+
+    if rich_options["organizer"] or rich_options["delegate"]:
+        keep_props += ("SUMMARY",)
+
+    if rich_options["organizer"] or rich_options["resource"]:
+        keep_props += ("ORGANIZER",)
+
+    # Remove all but essential properties
+    expanded.filterProperties(keep=keep_props)
 
     # Need to remove all child components of VEVENT
     for subcomponent in expanded.subcomponents():

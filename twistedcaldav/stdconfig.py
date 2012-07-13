@@ -654,6 +654,9 @@ DEFAULT_CONFIG = {
             "V1Compatibility"                     : False,  # Allow /path-based CUAs in scheduling replies
             "PrincipalHostAliases"                : [],     # Hostnames matched in http(s) CUAs
             
+            "DelegeteRichFreeBusy"                : True,   # Delegates can get extra info in a freebusy request
+            "RoomResourceRichFreeBusy"            : True,   # Any user can get extra info for rooms/resources in a freebusy request 
+
             "AutoSchedule" : {
                 "Enabled"                         : True,   # Auto-scheduling will never occur if set to False
                 "Always"                          : False,  # Override augments setting and always auto-schedule
