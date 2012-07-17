@@ -717,8 +717,7 @@ class CommonTests(CommonCommonTests):
         yield self.commit()
 
         # Make sure notification fired after commit
-        self.assertEquals(self.notifierFactory.history,
-            [("update", "CalDAV|home1")])
+        self.assertTrue(("update", "CalDAV|home1") in self.notifierFactory.history)
 
         # Make sure it's available in a new transaction; i.e. test the commit.
         home = yield self.homeUnderTest()

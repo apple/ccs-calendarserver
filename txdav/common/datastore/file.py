@@ -208,6 +208,7 @@ class CommonStoreTransaction(DataStoreTransaction):
         self._notificationHomes = {}
         self._notifierFactory = notifierFactory
         self._notifiedAlready = set()
+        self._bumpedAlready = set()
         self._migrating = migrating
 
         extraInterfaces = []
@@ -267,9 +268,26 @@ class CommonStoreTransaction(DataStoreTransaction):
 
     def isNotifiedAlready(self, obj):
         return obj in self._notifiedAlready
-    
+
     def notificationAddedForObject(self, obj):
         self._notifiedAlready.add(obj)
+
+    def isBumpedAlready(self, obj):
+        """
+        Indicates whether or not bumpAddedForObject has already been
+        called for the given object, in order to facilitate calling
+        bumpModified only once per object.
+        """
+        return obj in self._bumpedAlready
+
+    def bumpAddedForObject(self, obj):
+        """
+        Records the fact that a bumpModified( ) call has already been
+        done, in order to facilitate calling bumpModified only once per
+        object.
+        """
+        self._bumpedAlready.add(obj)
+
 
 
 class StubResource(object):

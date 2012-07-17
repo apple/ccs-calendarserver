@@ -321,6 +321,7 @@ class CommonStoreTransaction(object):
         self._postAbortOperations = []
         self._notifierFactory = notifierFactory
         self._notifiedAlready = set()
+        self._bumpedAlready = set()
         self._label = label
         self._migrating = migrating
         self._primaryHomeType = None
@@ -565,9 +566,25 @@ class CommonStoreTransaction(object):
 
     def isNotifiedAlready(self, obj):
         return obj in self._notifiedAlready
-    
+
     def notificationAddedForObject(self, obj):
         self._notifiedAlready.add(obj)
+
+    def isBumpedAlready(self, obj):
+        """
+        Indicates whether or not bumpAddedForObject has already been
+        called for the given object, in order to facilitate calling
+        bumpModified only once per object.
+        """
+        return obj in self._bumpedAlready
+
+    def bumpAddedForObject(self, obj):
+        """
+        Records the fact that a bumpModified( ) call has already been
+        done, in order to facilitate calling bumpModified only once per
+        object.
+        """
+        self._bumpedAlready.add(obj)
 
     _savepointCounter = 0
 
@@ -1338,7 +1355,8 @@ class CommonHome(LoggingMixIn):
         props = yield PropertyStore.load(
             self.uid(),
             self._txn,
-            self._resourceID
+            self._resourceID,
+            notifyCallback=self.notifyChanged
         )
         self._propertyStore = props
 
@@ -1539,6 +1557,10 @@ class CommonHome(LoggingMixIn):
         delay the transaction whilst waiting for deadlock detection to kick in.
         """
 
+        if self._txn.isBumpedAlready(self):
+            returnValue(None)
+        self._txn.bumpAddedForObject(self)
+
         # NB if modified is bumped we know that sync token will have changed too, so invalidate the cached value
         self._syncTokenRevision = None
 
@@ -1557,13 +1579,13 @@ class CommonHome(LoggingMixIn):
 
         except AllRetriesFailed:
             log.debug("CommonHome.bumpModified failed")
-        
+
     @inlineCallbacks
     def notifyChanged(self):
         """
         Trigger a notification of a change
         """
-        
+
         # Update modified if object still exists
         if self._resourceID:
             yield self.bumpModified()
@@ -2914,7 +2936,8 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
             props = yield PropertyStore.load(
                 self.ownerHome().uid(),
                 self._txn,
-                self._resourceID
+                self._resourceID,
+                notifyCallback=self.notifyChanged
             )
         self.initPropertyStore(props)
         self._properties = props
@@ -3003,12 +3026,16 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
         delay the transaction whilst waiting for deadlock detection to kick in.
         """
 
+        if self._txn.isBumpedAlready(self):
+            returnValue(None)
+        self._txn.bumpAddedForObject(self)
+
         @inlineCallbacks
         def _bumpModified(subtxn):
             yield self._lockLastModifiedQuery.on(subtxn, resourceID=self._resourceID)
             result = (yield self._changeLastModifiedQuery.on(subtxn, resourceID=self._resourceID))
             returnValue(result)
-            
+
         try:
             self._modified = (yield self._txn.subtransaction(_bumpModified, retries=0, failureOK=True))[0][0]
 
@@ -3018,13 +3045,13 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
                 yield queryCacher.invalidateAfterCommit(self._txn, cacheKey)
         except AllRetriesFailed:
             log.debug("CommonHomeChild.bumpModified failed")
-        
+
     @inlineCallbacks
     def notifyChanged(self):
         """
         Trigger a notification of a change
         """
-        
+
         # Update modified if object still exists
         if self._resourceID:
             yield self.bumpModified()
@@ -3034,7 +3061,6 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
             for notifier in self._notifiers:
                 self._txn.postCommit(notifier.notify)
             self._txn.notificationAddedForObject(self)
-
 
 
 class CommonObjectResource(LoggingMixIn, FancyEqMixin):
@@ -3507,7 +3533,8 @@ class NotificationCollection(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
         self._propertyStore = yield PropertyStore.load(
             self._uid,
             self._txn,
-            self._resourceID
+            self._resourceID,
+            notifyCallback=self.notifyChanged
         )
 
 

@@ -73,7 +73,11 @@ class PropertyStore(AbstractPropertyStore):
 
     @classmethod
     @inlineCallbacks
-    def load(cls, defaultuser, txn, resourceID, created=False):
+    def load(cls, defaultuser, txn, resourceID, created=False, notifyCallback=None):
+        """
+        @param notifyCallback: a callable used to trigger notifications when the
+            property store changes.
+        """
         self = cls.__new__(cls)
         super(PropertyStore, self).__init__(defaultuser)
         self._txn = txn
@@ -81,6 +85,7 @@ class PropertyStore(AbstractPropertyStore):
         self._cached = {}
         if not created:
             yield self._refresh(txn)
+        self._notifyCallback = notifyCallback
         returnValue(self)
 
 
@@ -196,6 +201,11 @@ class PropertyStore(AbstractPropertyStore):
                     txn, resourceID=self._resourceID, value=value_str,
                     name=key_str, uid=uid)
             self._cacher.delete(str(self._resourceID))
+
+        # Call the registered notification callback
+        if hasattr(self, "_notifyCallback") and self._notifyCallback is not None:
+            self._notifyCallback()
+
         self._txn.subtransaction(trySetItem)
 
 
