@@ -174,10 +174,10 @@ class IScheduleRequest(object):
         # Generate an HTTP client request
         try:
             if not hasattr(self.scheduler.request, "extendedLogItems"):
-                self.request.extendedLogItems = {}
-            if "itip.ischedule" not in self.request.extendedLogItems:
-                self.request.extendedLogItems["itip.ischedule"] = 0
-            self.request.extendedLogItems["itip.ischedule"] += 1
+                self.scheduler.request.extendedLogItems = {}
+            if "itip.ischedule" not in self.scheduler.request.extendedLogItems:
+                self.scheduler.request.extendedLogItems["itip.ischedule"] = 0
+            self.scheduler.request.extendedLogItems["itip.ischedule"] += 1
 
             from twisted.internet import reactor
             f = Factory()
