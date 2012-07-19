@@ -596,7 +596,8 @@ def relocateData(sourceRoot, targetRoot, sourceVersion, oldServerRootValue,
                 newDocumentRoot = os.path.join(newDataRoot, newDocumentRootValue)
                 # Move aside whatever is there
                 if diskAccessor.exists(newDataRoot):
-                    diskAccessor.rename(newDataRoot, newDataRoot + ".bak")
+                    renameTo = nextAvailable(newDataRoot, "bak", diskAccessor=diskAccessor)
+                    diskAccessor.rename(newDataRoot, renameTo)
 
                 if diskAccessor.exists(absolutePathWithRoot(sourceRoot, oldCalDataRootValueProcessed)):
                     diskAccessor.ditto(
@@ -768,6 +769,35 @@ def absolutePathWithRoot(root, path):
         return os.path.join(root, path)
 
 
+def nextAvailable(path, ext, diskAccessor=None):
+    """
+    If path.ext doesn't exist, return path.ext.  Otherwise return the first path name
+    following the path.N.ext pattern that doesn't exist, where N starts at 1
+    and increments until a non-existent path name is determined.
+
+    @param path: path to examine
+    @type path: C{str}
+    @param ext: filename extension to append (don't include ".")
+    @type ext: C{str}
+    @returns: non-existent path name
+    @rtype: C{str}
+    """
+
+    if diskAccessor is None:
+        diskAccessor = DiskAccessor()
+
+    newPath = "%s.%s" % (path, ext)
+    if not diskAccessor.exists(newPath):
+        return newPath
+
+    i = 1
+    while(True):
+        newPath = "%s.%d.%s" % (path, i, ext)
+        if not diskAccessor.exists(newPath):
+            return newPath
+        i += 1
+
+
 class DiskAccessor(object):
     """
     A wrapper around various disk access methods so that unit tests can easily
@@ -795,7 +825,7 @@ class DiskAccessor(object):
             return os.rename(before, after)
         except OSError:
             # Can't rename because it's cross-volume; must copy/delete
-            shutil.copy2(before, after)
+            self.ditto(before, after)
             return os.remove(before)
 
     def isfile(self, path):
