@@ -596,7 +596,7 @@ def relocateData(sourceRoot, targetRoot, sourceVersion, oldServerRootValue,
                 newDocumentRoot = os.path.join(newDataRoot, newDocumentRootValue)
                 # Move aside whatever is there
                 if diskAccessor.exists(newDataRoot):
-                    renameTo = nextAvailable(newDataRoot + ".bak", diskAccessor=diskAccessor)
+                    renameTo = nextAvailable(newDataRoot, "bak", diskAccessor=diskAccessor)
                     diskAccessor.rename(newDataRoot, renameTo)
 
                 if diskAccessor.exists(absolutePathWithRoot(sourceRoot, oldCalDataRootValueProcessed)):
@@ -769,26 +769,30 @@ def absolutePathWithRoot(root, path):
         return os.path.join(root, path)
 
 
-def nextAvailable(path, diskAccessor=None):
+def nextAvailable(path, ext, diskAccessor=None):
     """
-    If path doesn't exist, return path.  Otherwise return the first path name
-    following the path.NNN pattern that doesn't exist, where NNN starts at 1
+    If path.ext doesn't exist, return path.ext.  Otherwise return the first path name
+    following the path.N.ext pattern that doesn't exist, where N starts at 1
     and increments until a non-existent path name is determined.
 
     @param path: path to examine
     @type path: C{str}
-    @returns: non-existent path name C{str}
+    @param ext: filename extension to append (don't include ".")
+    @type ext: C{str}
+    @returns: non-existent path name
+    @rtype: C{str}
     """
 
     if diskAccessor is None:
         diskAccessor = DiskAccessor()
 
-    if not diskAccessor.exists(path):
-        return path
+    newPath = "%s.%s" % (path, ext)
+    if not diskAccessor.exists(newPath):
+        return newPath
 
     i = 1
     while(True):
-        newPath = "%s.%d" % (path, i)
+        newPath = "%s.%d.%s" % (path, i, ext)
         if not diskAccessor.exists(newPath):
             return newPath
         i += 1
