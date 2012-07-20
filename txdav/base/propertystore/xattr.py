@@ -34,6 +34,7 @@ from xattr import xattr
 
 from twisted.python.reflect import namedAny
 
+from txdav.xml.base import encodeXMLName
 from txdav.xml.parser import WebDAVDocument
 from txdav.base.propertystore.base import AbstractPropertyStore, PropertyName,\
         validKey
@@ -116,7 +117,7 @@ class PropertyStore(AbstractPropertyStore):
                                                     qname.namespace)
         else:
             namespace = qname.namespace
-        result = urllib.quote("{%s}%s" % (namespace, qname.name), safe="{}:")
+        result = urllib.quote(encodeXMLName(namespace, qname.name), safe="{}:")
         if uid and uid != self._defaultUser:
             result = uid + result
         r = self.deadPropertyXattrPrefix + result

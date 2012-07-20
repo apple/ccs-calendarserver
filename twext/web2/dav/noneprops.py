@@ -33,6 +33,8 @@ __all__ = ["NonePropertyStore"]
 
 from twext.web2 import responsecode
 from twext.web2.http import HTTPError, StatusResponse
+from txdav.xml.base import encodeXMLName
+
 
 class NonePropertyStore (object):
     """
@@ -50,10 +52,16 @@ class NonePropertyStore (object):
         pass
 
     def get(self, qname, uid=None):
-        raise HTTPError(StatusResponse(responsecode.NOT_FOUND, "No such property: {%s}%s" % qname))
+        raise HTTPError(StatusResponse(
+            responsecode.NOT_FOUND,
+            "No such property: %s" % (encodeXMLName(*qname),)
+        ))
 
     def set(self, property, uid=None):
-        raise HTTPError(StatusResponse(responsecode.FORBIDDEN, "Permission denied for setting property: %s" % (property,)))
+        raise HTTPError(StatusResponse(
+            responsecode.FORBIDDEN,
+            "Permission denied for setting property: %s" % (property,)
+        ))
 
     def delete(self, qname, uid=None):
         # RFC 2518 Section 12.13.1 says that removal of

@@ -132,7 +132,7 @@ class ExtendedAttributesPropertyStoreTests(TestCase):
         attribute = (
             self.propertyStore.deadPropertyXattrPrefix +
             (uid if uid is not None else "") +
-            "{%s}%s" % element.qname())
+            element.sname())
         self.attrs[attribute] = value
 
 
@@ -141,7 +141,7 @@ class ExtendedAttributesPropertyStoreTests(TestCase):
         attribute = (
             self.propertyStore.deadPropertyXattrPrefix +
             (uid if uid is not None else "") +
-            "{%s}%s" % element.qname())
+            element.sname())
         return self.attrs[attribute]
 
 

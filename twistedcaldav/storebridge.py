@@ -15,27 +15,38 @@
 # limitations under the License.
 ##
 
+import time
+import hashlib
+from urlparse import urlsplit
+
+from twisted.python.hashlib import md5
+from twisted.python.log import err as logDefaultException
+from twisted.python.util import FancyEqMixin
+from twisted.internet.defer import succeed, inlineCallbacks, returnValue, maybeDeferred
+from twisted.internet.protocol import Protocol
+
 from twext.python.log import Logger
-from twext.web2 import responsecode
+
 from txdav.xml import element as davxml
-from txdav.xml.base import dav_namespace, WebDAVUnknownElement
+from txdav.xml.base import dav_namespace, WebDAVUnknownElement, encodeXMLName
+from txdav.base.propertystore.base import PropertyName
+from txdav.caldav.icalendarstore import QuotaExceeded
+from txdav.common.icommondatastore import NoSuchObjectResourceError
+from txdav.idav import PropertyChangeNotAllowedError
+
+from twext.web2 import responsecode
+from twext.web2.stream import ProducerStream, readStream, MemoryStream
+from twext.web2.http import HTTPError, StatusResponse, Response
+from twext.web2.http_headers import ETag, MimeType
 from twext.web2.dav.http import ErrorResponse, ResponseQueue, MultiStatusResponse
 from twext.web2.dav.noneprops import NonePropertyStore
 from twext.web2.dav.resource import TwistedACLInheritable, AccessDeniedError
 from twext.web2.dav.util import parentForURL, allDataFromStream, joinURL, davXMLFromStream
-from twext.web2.http import HTTPError, StatusResponse, Response
-from twext.web2.http_headers import ETag, MimeType
 from twext.web2.responsecode import (
     FORBIDDEN, NO_CONTENT, NOT_FOUND, CREATED, CONFLICT, PRECONDITION_FAILED,
     BAD_REQUEST, OK, INSUFFICIENT_STORAGE_SPACE
 )
 
-from twext.web2.stream import ProducerStream, readStream, MemoryStream
-from twisted.internet.defer import succeed, inlineCallbacks, returnValue, maybeDeferred
-from twisted.internet.protocol import Protocol
-from twisted.python.hashlib import md5
-from twisted.python.log import err as logDefaultException
-from twisted.python.util import FancyEqMixin
 from twistedcaldav import customxml, carddavxml, caldavxml
 from twistedcaldav.cache import CacheStoreNotifier, ResponseCacheMixin,\
     DisabledCacheNotifier
@@ -55,15 +66,6 @@ from twistedcaldav.resource import CalDAVResource, GlobalAddressBookResource,\
 from twistedcaldav.schedule import ScheduleInboxResource
 from twistedcaldav.scheduling.implicit import ImplicitScheduler
 from twistedcaldav.vcard import Component as VCard, InvalidVCardDataError
-
-from txdav.base.propertystore.base import PropertyName
-from txdav.caldav.icalendarstore import QuotaExceeded
-from txdav.common.icommondatastore import NoSuchObjectResourceError
-from txdav.idav import PropertyChangeNotAllowedError
-
-import time
-import hashlib
-from urlparse import urlsplit
 
 """
 Wrappers to translate between the APIs in L{txdav.caldav.icalendarstore} and
@@ -101,7 +103,7 @@ class _NewStorePropertiesWrapper(object):
         except KeyError:
             raise HTTPError(StatusResponse(
                 NOT_FOUND,
-                "No such property: {%s}%s" % qname
+                "No such property: %s" % (encodeXMLName(*qname),)
             ))
 
 
@@ -111,7 +113,7 @@ class _NewStorePropertiesWrapper(object):
         except PropertyChangeNotAllowedError:
             raise HTTPError(StatusResponse(
                 FORBIDDEN,
-                "Property cannot be changed: {%s}%s" % property.qname(),
+                "Property cannot be changed: %s" % (property.sname(),)
             ))
             
 

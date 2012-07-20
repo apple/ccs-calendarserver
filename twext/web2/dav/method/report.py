@@ -44,6 +44,7 @@ from twext.web2.dav.http import ErrorResponse
 from twext.web2.dav.util import davXMLFromStream
 from txdav.xml import element as davxml
 from txdav.xml.element import lookupElement
+from txdav.xml.base import encodeXMLName
 
 log = Logger()
 
@@ -115,7 +116,7 @@ def http_REPORT(self, request):
         if namespace == davxml.dav_namespace:
             request.submethod = "DAV:" + name
         else:
-            request.submethod = "{%s}%s" % (namespace, name)
+            request.submethod = encodeXMLName(namespace, name)
     else:
         method_name = to_method(name)
 
@@ -136,8 +137,8 @@ def http_REPORT(self, request):
         #
         # Requested report is not supported.
         #
-        log.err("Unsupported REPORT {%s}%s for resource %s (no method %s)"
-                % (namespace, name, self, method_name))
+        log.err("Unsupported REPORT %s for resource %s (no method %s)"
+                % (encodeXMLName(namespace, name), self, method_name))
 
         raise HTTPError(ErrorResponse(
             responsecode.FORBIDDEN,

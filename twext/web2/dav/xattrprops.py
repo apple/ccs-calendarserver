@@ -50,10 +50,11 @@ if getattr(xattr, 'xattr', None) is None:
 from twisted.python.util import untilConcludes
 from twisted.python.failure import Failure
 from twisted.python.log import err
+from txdav.xml.base import encodeXMLName
+from txdav.xml.parser import WebDAVDocument
 from twext.web2 import responsecode
 from twext.web2.http import HTTPError, StatusResponse
 from twext.web2.dav.http import statusForFailure
-from txdav.xml.parser import WebDAVDocument
 
 # RFC 2518 Section 12.13.1 says that removal of non-existing property
 # is not an error.  python-xattr on Linux fails with ENODATA in this
@@ -86,7 +87,7 @@ class xattrPropertyStore (object):
         deadPropertyXattrPrefix = "user."
 
     def _encode(clazz, name, uid=None):
-        result = urllib.quote("{%s}%s" % name, safe='{}:')
+        result = urllib.quote(encodeXMLName(*name), safe='{}:')
         if uid:
             result = uid + result
         r = clazz.deadPropertyXattrPrefix + result
@@ -138,17 +139,20 @@ class xattrPropertyStore (object):
             data = self.attrs.get(self._encode(qname, uid))
         except KeyError:
             raise HTTPError(StatusResponse(
-                    responsecode.NOT_FOUND,
-                    "No such property: {%s}%s" % qname))
+                responsecode.NOT_FOUND,
+                "No such property: %s" % (encodeXMLName(*qname),)
+            ))
         except IOError, e:
             if e.errno in _ATTR_MISSING or e.errno == errno.ENOENT:
                 raise HTTPError(StatusResponse(
-                        responsecode.NOT_FOUND,
-                        "No such property: {%s}%s" % qname))
+                    responsecode.NOT_FOUND,
+                    "No such property: %s" % (encodeXMLName(*qname),)
+                ))
             else:
                 raise HTTPError(StatusResponse(
-                        statusForFailure(Failure()),
-                        "Unable to read property: {%s}%s" % qname))
+                    statusForFailure(Failure()),
+                    "Unable to read property: %s" % (encodeXMLName(*qname),)
+                ))
 
         #
         # Unserialize XML data from an xattr.  The storage format has changed
@@ -175,8 +179,8 @@ class xattrPropertyStore (object):
             try:
                 doc = unpickle(data)
             except UnpicklingError:
-                format = "Invalid property value stored on server: {%s}%s %s"
-                msg = format % (qname[0], qname[1], data)
+                format = "Invalid property value stored on server: %s %s"
+                msg = format % (encodeXMLName(*qname), data)
                 err(None, msg)
                 raise HTTPError(
                     StatusResponse(responsecode.INTERNAL_SERVER_ERROR, msg))
@@ -225,10 +229,10 @@ class xattrPropertyStore (object):
                 if e.errno not in _ATTR_MISSING:
                     raise
         except:
-            raise HTTPError(
-                StatusResponse(
-                    statusForFailure(Failure()),
-                    "Unable to delete property: " + key))
+            raise HTTPError(StatusResponse(
+                statusForFailure(Failure()),
+                "Unable to delete property: %s", (key,)
+            ))
 
 
     def contains(self, qname, uid=None):
@@ -252,10 +256,10 @@ class xattrPropertyStore (object):
         except IOError, e:
             if e.errno in _ATTR_MISSING or e.errno == errno.ENOENT:
                 return False
-            raise HTTPError(
-                StatusResponse(
-                    statusForFailure(Failure()),
-                    "Unable to read property: " + key))
+            raise HTTPError(StatusResponse(
+                statusForFailure(Failure()),
+                "Unable to read property: %s" % (key,)
+            ))
         else:
             return True
 
@@ -277,10 +281,10 @@ class xattrPropertyStore (object):
         except IOError, e:
             if e.errno == errno.ENOENT:
                 return []
-            raise HTTPError(
-                StatusResponse(
-                    statusForFailure(Failure()),
-                    "Unable to list properties: " + self.resource.fp.path))
+            raise HTTPError(StatusResponse(
+                statusForFailure(Failure()),
+                "Unable to list properties: %s", (self.resource.fp.path,)
+            ))
         else:
             results = [
                 self._decode(name)

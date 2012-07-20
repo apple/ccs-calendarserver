@@ -118,10 +118,7 @@ END:VCALENDAR
             element = XML(err.response.stream.mem)[0]
             self.assertEquals(
                 element.tag,
-                "{%s}%s" % (
-                    MaxAttendeesPerInstance.namespace,
-                    MaxAttendeesPerInstance.name
-                )
+                MaxAttendeesPerInstance.sname()
             )
             self.assertEquals(int(element.text), config.MaxAttendeesPerInstance)
         else:
@@ -165,10 +162,7 @@ END:VCALENDAR
             element = XML(err.response.stream.mem)[0]
             self.assertEquals(
                 element.tag,
-                "{%s}%s" % (
-                    MaxAttendeesPerInstance.namespace,
-                    MaxAttendeesPerInstance.name
-                )
+                MaxAttendeesPerInstance.sname()
             )
             self.assertEquals(int(element.text), config.MaxAttendeesPerInstance)
         else:

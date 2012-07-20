@@ -33,6 +33,7 @@ from twext.web2 import responsecode
 from twext.web2.http import HTTPError, StatusResponse
 from twext.web2.dav.util import davXMLFromStream
 from txdav.xml import element as davxml
+from txdav.xml.base import encodeXMLName
 from txdav.xml.element import lookupElement
 
 from twext.python.log import Logger
@@ -78,7 +79,7 @@ def http_REPORT(self, request):
         elif namespace == caldavxml.caldav_namespace:
             request.submethod = "CalDAV:" + name
         else:
-            request.submethod = "{%s}%s" % (namespace, name)
+            request.submethod = encodeXMLName(namespace, name)
     else:
         request.submethod = name
 
@@ -114,8 +115,8 @@ def http_REPORT(self, request):
         #
         # Requested report is not supported.
         #
-        log.err("Unsupported REPORT {%s}%s for resource %s (no method %s)"
-                % (namespace, name, self, method_name))
+        log.err("Unsupported REPORT %s for resource %s (no method %s)"
+                % (encodeXMLName(namespace, name), self, method_name))
 
         raise HTTPError(ErrorResponse(
             responsecode.FORBIDDEN,

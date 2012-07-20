@@ -25,6 +25,7 @@ __all__ = [
 
 from twext.python.log import LoggingMixIn
 from txdav.xml import element as davxml
+from txdav.xml.base import encodeXMLName
 from twext.web2.dav.resource import TwistedGETContentMD5,\
     TwistedQuotaRootProperty
 
@@ -89,7 +90,7 @@ class PropertyName(LoggingMixIn):
         )
 
     def toString(self):
-        return "{%s}%s" % (self.namespace, self.name)
+        return encodeXMLName(self.namespace, self.name)
 
 
 class AbstractPropertyStore(LoggingMixIn, DictMixin):

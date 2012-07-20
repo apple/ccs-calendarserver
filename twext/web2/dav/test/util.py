@@ -38,6 +38,7 @@ from twext.web2.dav.resource import TwistedACLInheritable
 from twext.web2.dav.static import DAVFile
 from twext.web2.dav.util import joinURL
 from txdav.xml import element
+from txdav.xml.base import encodeXMLName
 
 log = Logger()
 
@@ -57,7 +58,7 @@ class InMemoryPropertyStore (object):
         except KeyError:
             raise HTTPError(StatusResponse(
                 responsecode.NOT_FOUND,
-                "No such property: {%s}%s" % qname
+                "No such property: %s" % (encodeXMLName(*qname),)
             ))
 
         doc = element.WebDAVDocument.fromString(property)

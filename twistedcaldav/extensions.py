@@ -46,6 +46,7 @@ from twext.web2.http_headers import MimeType
 from twext.web2.stream import FileStream
 from twext.web2.static import MetaDataMixin, StaticRenderMixin
 from txdav.xml import element
+from txdav.xml.base import encodeXMLName
 from txdav.xml.element import dav_namespace
 from twext.web2.dav.http import MultiStatusResponse
 from twext.web2.dav.static import DAVFile as SuperDAVFile
@@ -339,8 +340,8 @@ class DirectoryElement(Element):
             whenAllProperties = gatherResults([
                 maybeDeferred(self.resource.readProperty, qn, request)
                 .addCallback(lambda p, iqn=qn: (p.sname(), p.toxml())
-                             if p is not None else ("{%s}%s" % iqn, None) )
-                .addErrback(gotError, "{%s}%s" % qn)
+                             if p is not None else (encodeXMLName(*iqn), None) )
+                .addErrback(gotError, encodeXMLName(*qn))
                 for qn in sorted(qnames)
             ])
 
@@ -771,7 +772,7 @@ class PropertyNotFoundError (HTTPError):
         HTTPError.__init__(self,
             StatusResponse(
                 responsecode.NOT_FOUND,
-                "No such property: {%s}%s" % qname
+                "No such property: %s" % encodeXMLName(*qname)
             )
         )
 

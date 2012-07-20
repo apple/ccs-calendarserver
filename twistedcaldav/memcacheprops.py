@@ -36,6 +36,7 @@ from twext.python.log import LoggingMixIn, Logger
 from twext.python.memcacheclient import ClientFactory
 from twext.python.memcacheclient import MemcacheError, TokenMismatchError
 from twext.python.filepath import CachingFilePath as FilePath
+from txdav.xml.base import encodeXMLName
 from twext.web2 import responsecode
 from twext.web2.http import HTTPError, StatusResponse
 
@@ -293,11 +294,10 @@ class MemcachePropertyCollection (LoggingMixIn):
             else:
                 log.error("memcacheprops setProperty had too many failures")
                 delattr(self, "_propertyCache")
-                raise MemcacheError("Unable to %s property %s{%s}%s on %s" % (
+                raise MemcacheError("Unable to %s property %s%s on %s" % (
                     "delete" if delete else "set",
                     uid if uid else "",
-                    qname[0],
-                    qname[1],
+                    encodeXMLName(*qname),
                     child
                 ))
 
@@ -345,7 +345,7 @@ class MemcachePropertyCollection (LoggingMixIn):
                 else:
                     raise HTTPError(StatusResponse(
                         responsecode.NOT_FOUND,
-                        "No such property: %s{%s}%s" % (uid if uid else "", qname[0], qname[1],)
+                        "No such property: %s%s" % (uid if uid else "", encodeXMLName(*qname))
                     ))
 
             self.log_debug("Read for %s%s on %s" % (
