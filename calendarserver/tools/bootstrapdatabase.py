@@ -239,7 +239,7 @@ def main():
     except IOError:
         print "Unable to open the schema file: %s" % (SCHEMAFILE,)
     else:
-        found = re.search("insert into CALENDARSERVER values \('VERSION', '(\d)+'\);", data)
+        found = re.search("insert into CALENDARSERVER values \('VERSION', '(\d+)'\);", data)
         if found is None:
             print "Schema is missing required schema VERSION insert statement: %s" % (SCHEMAFILE,)
         else:
