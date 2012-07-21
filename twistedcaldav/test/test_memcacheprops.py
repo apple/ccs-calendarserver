@@ -26,8 +26,9 @@ Test memcacheprops.
 
 import os
 
-from twext.xml.base import encodeXMLName
 from twext.web2.http import HTTPError
+
+from txdav.xml.base import encodeXMLName
 
 from twistedcaldav.memcacheprops import MemcachePropertyCollection
 from twistedcaldav.test.util import InMemoryPropertyStore
