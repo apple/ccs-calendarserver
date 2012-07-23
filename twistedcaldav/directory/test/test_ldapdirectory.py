@@ -438,7 +438,7 @@ else:
                         "mapping": { # maps internal record names to LDAP
                             "recordName": "cn",
                             "fullName" : "cn",
-                            "emailAddresses" : ["mail", "emailAliases"],
+                            "emailAddresses" : "", # old style, single string
                             "firstName" : "givenName",
                             "lastName" : "sn",
                         },
@@ -453,7 +453,7 @@ else:
                         "mapping": { # maps internal record names to LDAP
                             "recordName": "cn",
                             "fullName" : "cn",
-                            "emailAddresses" : ["mail", "emailAliases"],
+                            "emailAddresses" : [], # new style, array
                             "firstName" : "givenName",
                             "lastName" : "sn",
                         },
@@ -823,3 +823,32 @@ else:
                  "uid=foo,cn=us ers,dc=exa mple,dc=com"),
             ):
                 self.assertEquals(expected, normalizeDNstr(input))
+
+        def test_queryDirectory(self):
+            """
+            Verify queryDirectory skips LDAP queries where there has been no
+            LDAP attribute mapping provided for the given index type.
+            """
+
+            self.history = []
+
+            def stubSearchMethod(base, scope, filterstr="(objectClass=*)",
+                attrlist=None, timeoutSeconds=-1, resultLimit=0):
+                self.history.append((base, scope, filterstr))
+
+            recordTypes = [
+                self.service.recordType_users,
+                self.service.recordType_groups,
+                self.service.recordType_locations,
+                self.service.recordType_resources,
+            ]
+            self.service.queryDirectory(
+                recordTypes,
+                self.service.INDEX_TYPE_CUA,
+                "mailto:test@example.com",
+                queryMethod=stubSearchMethod
+            )
+            self.assertEquals(
+                self.history,
+                [('cn=users,dc=example,dc=com', 2, '(&(!(objectClass=organizationalUnit))(|(mail=test@example.com)(emailAliases=test@example.com)))'), ('cn=groups,dc=example,dc=com', 2, '(&(!(objectClass=organizationalUnit))(|(mail=test@example.com)(emailAliases=test@example.com)))')]
+            )

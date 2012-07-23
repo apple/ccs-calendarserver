@@ -851,7 +851,7 @@ class LdapDirectoryService(CachingDirectoryService):
         return record
 
 
-    def queryDirectory(self, recordTypes, indexType, indexKey):
+    def queryDirectory(self, recordTypes, indexType, indexKey, queryMethod=None):
         """
         Queries the LDAP directory for the record which has an attribute value
         matching the indexType and indexKey parameters.
@@ -864,6 +864,10 @@ class LdapDirectoryService(CachingDirectoryService):
         Nothing is returned -- the resulting record (if any) is placed in
         the cache.
         """
+
+        if queryMethod is None:
+            queryMethod = self.timedSearch
+
         self.log_debug("LDAP query for types %s, indexType %s and indexKey %s"
             % (recordTypes, indexType, indexKey))
 
@@ -907,11 +911,19 @@ class LdapDirectoryService(CachingDirectoryService):
                     # emailAddresses can map to multiple LDAP fields
                     ldapFields = self.rdnSchema[recordType]["mapping"]["emailAddresses"]
                     if isinstance(ldapFields, str):
-                        subfilter = "(%s=%s)" % (ldapFields, ldapEsc(email))
+                        if ldapFields:
+                            subfilter = "(%s=%s)" % (ldapFields, ldapEsc(email))
+                        else:
+                            continue # No LDAP attribute assigned for emailAddresses
+
                     else:
                         subfilter = []
                         for ldapField in ldapFields:
-                            subfilter.append("(%s=%s)" % (ldapField, ldapEsc(email)))
+                            if ldapField:
+                                subfilter.append("(%s=%s)" % (ldapField, ldapEsc(email)))
+                        if not subfilter:
+                            continue # No LDAP attribute assigned for emailAddresses
+
                         subfilter = "(|%s)" % ("".join(subfilter))
                     filterstr = "(&%s%s)" % (filterstr, subfilter)
 
@@ -921,7 +933,7 @@ class LdapDirectoryService(CachingDirectoryService):
             # Query the LDAP server
             self.log_debug("Retrieving ldap record with base %s and filter %s." %
                 (ldap.dn.dn2str(base), filterstr))
-            result = self.timedSearch(ldap.dn.dn2str(base),
+            result = queryMethod(ldap.dn.dn2str(base),
                 ldap.SCOPE_SUBTREE, filterstr=filterstr, attrlist=self.attrlist)
 
             if result:
