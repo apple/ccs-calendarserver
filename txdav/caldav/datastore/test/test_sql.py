@@ -35,6 +35,7 @@ from txdav.caldav.datastore.test.common import CommonTests as CalendarCommonTest
 from txdav.caldav.datastore.test.test_file import setUpCalendarStore
 from txdav.caldav.datastore.util import _migrateCalendar, migrateHome
 from txdav.common.datastore.sql import ECALENDARTYPE
+from txdav.common.datastore.sql_legacy import PostgresLegacyIndexEmulator
 from txdav.common.datastore.sql_tables import schema, _BIND_MODE_DIRECT,\
     _BIND_STATUS_ACCEPTED
 from txdav.common.datastore.test.util import buildStore, populateCalendarsFrom
@@ -50,6 +51,7 @@ from twistedcaldav.sharing import SharedCollectionRecord
 
 import datetime
 from pycalendar.datetime import PyCalendarDateTime
+from pycalendar.timezone import PyCalendarTimezone
 
 class CalendarSQLStorageTests(CalendarCommonTests, unittest.TestCase):
     """
@@ -1187,6 +1189,80 @@ END:VCALENDAR
         rMin, rMax = yield resource.recurrenceMinMax()
         self.assertEqual(rMin, None)
         self.assertEqual(rMax, None)
+
+    @inlineCallbacks
+    def test_notExpandedWithin(self):
+        """
+        Test PostgresLegacyIndexEmulator.notExpandedWithin to make sure it returns the correct
+        result based on the ranges passed in.
+        """
+        
+        self.patch(config, "FreeBusyIndexDelayedExpand", False)
+
+        # Create the index on a new calendar
+        home = yield self.homeUnderTest()
+        newcalendar = yield home.createCalendarWithName("index_testing")
+        index = PostgresLegacyIndexEmulator(newcalendar)
+        
+        # Create the calendar object to use for testing
+        nowYear = self.nowYear["now"]
+        caldata = """BEGIN:VCALENDAR
+VERSION:2.0
+CALSCALE:GREGORIAN
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:instance
+DTSTART:%04d0102T140000Z
+DURATION:PT1H
+CREATED:20060102T190000Z
+DTSTAMP:20051222T210507Z
+RRULE:FREQ=WEEKLY
+SUMMARY:instance
+END:VEVENT
+END:VCALENDAR
+""".replace("\n", "\r\n") % (nowYear - 3,)
+        component = Component.fromString(caldata)
+        calendarObject = yield newcalendar.createCalendarObjectWithName("indexing.ics", component)
+        rmin, rmax = yield calendarObject.recurrenceMinMax()
+        self.assertEqual(rmin.getYear(), nowYear - 1)
+        self.assertEqual(rmax.getYear(), nowYear + 1)
+
+        # Fully within range
+        testMin = PyCalendarDateTime(nowYear, 1, 1, 0, 0, 0, tzid=PyCalendarTimezone(utc=True))
+        testMax = PyCalendarDateTime(nowYear + 1, 1, 1, 0, 0, 0, tzid=PyCalendarTimezone(utc=True))
+        result = yield index.notExpandedWithin(testMin, testMax)
+        self.assertEqual(result, [])
+
+        # Upper bound exceeded
+        testMin = PyCalendarDateTime(nowYear, 1, 1, 0, 0, 0, tzid=PyCalendarTimezone(utc=True))
+        testMax = PyCalendarDateTime(nowYear + 5, 1, 1, 0, 0, 0, tzid=PyCalendarTimezone(utc=True))
+        result = yield index.notExpandedWithin(testMin, testMax)
+        self.assertEqual(result, ["indexing.ics"])
+
+        # Lower bound exceeded
+        testMin = PyCalendarDateTime(nowYear - 5, 1, 1, 0, 0, 0, tzid=PyCalendarTimezone(utc=True))
+        testMax = PyCalendarDateTime(nowYear + 1, 1, 1, 0, 0, 0, tzid=PyCalendarTimezone(utc=True))
+        result = yield index.notExpandedWithin(testMin, testMax)
+        self.assertEqual(result, ["indexing.ics"])
+
+        # Lower and upper bounds exceeded
+        testMin = PyCalendarDateTime(nowYear - 5, 1, 1, 0, 0, 0, tzid=PyCalendarTimezone(utc=True))
+        testMax = PyCalendarDateTime(nowYear + 5, 1, 1, 0, 0, 0, tzid=PyCalendarTimezone(utc=True))
+        result = yield index.notExpandedWithin(testMin, testMax)
+        self.assertEqual(result, ["indexing.ics"])
+
+        # Lower none within range
+        testMin = None
+        testMax = PyCalendarDateTime(nowYear + 1, 1, 1, 0, 0, 0, tzid=PyCalendarTimezone(utc=True))
+        result = yield index.notExpandedWithin(testMin, testMax)
+        self.assertEqual(result, [])
+
+        # Lower none and upper bounds exceeded
+        testMin = None
+        testMax = PyCalendarDateTime(nowYear + 5, 1, 1, 0, 0, 0, tzid=PyCalendarTimezone(utc=True))
+        result = yield index.notExpandedWithin(testMin, testMax)
+        self.assertEqual(result, ["indexing.ics"])
+
 
     @inlineCallbacks
     def test_setComponent_no_instance_indexing(self):
