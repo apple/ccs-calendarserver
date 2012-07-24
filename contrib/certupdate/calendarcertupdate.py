@@ -27,6 +27,7 @@ LOG = "/var/log/caldavd/certupdate.log"
 SERVICE_NAME = "calendar"
 CALDAVD_PLIST = "/Library/Server/Calendar and Contacts/Config/caldavd.plist"
 SERVER_ADMIN = "/Applications/Server.app/Contents/ServerRoot/usr/sbin/serveradmin"
+CERT_ADMIN = "/Applications/Server.app/Contents/ServerRoot/usr/sbin/certadmin"
 
 def main():
 
@@ -36,7 +37,14 @@ def main():
         if sys.argv[1] != "remove":
             die("Bad command line; 'remove' expected", 2)
         if isThisMyCert(CALDAVD_PLIST, sys.argv[2]):
-            die("%s is in use by calendar" % (sys.argv[2],), 1)
+            defaultCert = getDefaultCert()
+            if defaultCert:
+                replaceCert(CALDAVD_PLIST, defaultCert)
+                restartService(CALDAVD_PLIST)
+                die("Replaced calendar cert with default: %s" % (defaultCert,), 0)
+            else:
+                removeCert(CALDAVD_PLIST)
+                die("No default, so removing calendar cert", 0)
         else:
             die("%s is not in use by calendar" % (sys.argv[2],), 0)
 
@@ -73,6 +81,49 @@ def isThisMyCert(plistPath, otherCert):
     """
     myCert = getMyCert(plistPath)
     return otherCert == myCert
+
+
+def getDefaultCert():
+    """
+    Ask certadmin for default cert
+    @returns: path to default certificate, or empty string if no default
+    @rtype: C{str}
+    """
+    child = subprocess.Popen(
+        args=[CERT_ADMIN, "--default-certificate-path"],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    output, error = child.communicate()
+    if child.returncode:
+        log("Error looking up default certificate (%d): %s" % (child.returncode, error))
+        return ""
+    else:
+        certPath = output.strip()
+        log("Default certificate is: %s" % (certPath,))
+        return certPath
+
+
+def removeCert(plistPath):
+    """
+    Remove SSL settings in plist at plistPath
+    """
+    log("Reading plist %s" % (plistPath,))
+    plist = readPlist(plistPath)
+    log("Read in plist %s" % (plistPath,))
+
+    log("Clearing SSLCertificate")
+    plist["SSLCertificate"] = ""
+    log("Clearing SSLAuthorityChain")
+    plist["SSLAuthorityChain"] = ""
+    log("Clearing SSLPrivateKey")
+    plist["SSLPrivateKey"] = ""
+
+    log("Disabling SSL")
+    plist["EnableSSL"] = False
+
+    log("Writing plist %s" % (plistPath,))
+    writePlist(plist, plistPath)
 
 
 def replaceCert(plistPath, otherCert):

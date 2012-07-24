@@ -19,7 +19,7 @@ import os
 import twistedcaldav.test.util
 from plistlib import readPlist
 from contrib.certupdate.calendarcertupdate import (
-    getMyCert, isThisMyCert, replaceCert
+    getMyCert, isThisMyCert, replaceCert, removeCert
 )
 
 samplePlist = """<?xml version="1.0" encoding="UTF-8"?>
@@ -32,6 +32,8 @@ samplePlist = """<?xml version="1.0" encoding="UTF-8"?>
     <string>/etc/certificates/original.cert.pem</string>
     <key>SSLPrivateKey</key>
     <string>/etc/certificates/original.key.pem</string>
+    <key>EnableSSL</key>
+    <true/>
 </dict>
 </plist>
 """
@@ -63,3 +65,10 @@ class CertUpdateTests(twistedcaldav.test.util.TestCase):
         self.assertEquals(plist["SSLAuthorityChain"], "/etc/certificates/new.chain.pem")
         self.assertEquals(plist["SSLCertificate"], "/etc/certificates/new.cert.pem")
         self.assertEquals(plist["SSLPrivateKey"], "/etc/certificates/new.key.pem")
+
+    def test_removeCert(self):
+        removeCert(self.path)
+        plist = readPlist(self.path)
+        self.assertEquals(plist["SSLAuthorityChain"], "")
+        self.assertEquals(plist["SSLCertificate"], "")
+        self.assertEquals(plist["SSLPrivateKey"], "")
