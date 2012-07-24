@@ -65,5 +65,5 @@ from pycalendar.value import PyCalendarValue
 PyCalendar.setPRODID("-//CALENDARSERVER.ORG//NONSGML Version 1//EN")
 
 # These are properties we use directly and we want the default value type set for TEXT
-PyCalendarProperty.regsiterDefaultValue("X-CALENDARSERVER-PRIVATE-COMMENT", PyCalendarValue.VALUETYPE_TEXT)
-PyCalendarProperty.regsiterDefaultValue("X-CALENDARSERVER-ATTENDEE-COMMENT", PyCalendarValue.VALUETYPE_TEXT)
+PyCalendarProperty.registerDefaultValue("X-CALENDARSERVER-PRIVATE-COMMENT", PyCalendarValue.VALUETYPE_TEXT)
+PyCalendarProperty.registerDefaultValue("X-CALENDARSERVER-ATTENDEE-COMMENT", PyCalendarValue.VALUETYPE_TEXT)
