@@ -79,3 +79,32 @@ being logged):
 ::
 
   17.108.160.37 - scastillo [15/Sep/2009:20:10:23 +0000] "REPORT(CalDAV:calendar-multiget) /calendars/__uids__/B8CE9430-965B-11DE-B626-EC2E9DB52B69/calendar/ HTTP/1.1" 207 149285 "-" "DAVKit/4.0 (729); CalendarStore/4.0 (965); iCal/4.0 (1362); Mac OS X/10.6.1 (10B504)" i=8459 t=183.0 or=1 rcount=32
+
+
+
+**Fine-grained request time logging**
+
+If the configuration key EnableExtendedTimingAccessLog is set to true, additional key-value pairs will be logged with each request. The overall request time "t" is broken into four phases, and the elapsed time for each phase is logged. The new keys representing the four request phases are:
+
+  ``t-req-proc``
+
+    time elapsed from when a request object is created up until renderHTTP is about to be called.
+    This is the overhead of parsing the request headers and locating the target resource.
+
+  ``t-resp-gen``
+
+    time elapsed from t-req-proc up until the response is ready to write
+
+  ``t-resp-wr``
+
+    time elapsed from t-resp-gen up until response is written
+
+  ``t-log``
+
+    time from t-resp-wr up until log entry is ready to write to master
+
+A sample log line with EnableExtendedTimingAccessLog enabled is shown below:
+
+::
+
+  17.209.103.42 - wsanchez [24/Jul/2012:17:51:29 +0000] "REPORT(CalDAV:calendar-multiget) /calendars/__uids__/F114CA1D-295F-42A5-A5BD-D1A1B19FC049/60E68E32-4C87-4E63-9BF2-12A25E8F2623/ HTTP/1.1" 207 114349 "-" "CalendarStore/5.0.2 (1166); iCal/5.0.2 (1571); Mac OS X/10.7.3 (11D50d)" i=7 or=1 t=764.7 t-req-proc=4.8 t-resp-gen=754.5 t-resp-wr=5.1 t-log=0.2 rcount=2
