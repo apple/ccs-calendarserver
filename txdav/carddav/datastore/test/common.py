@@ -288,7 +288,7 @@ class CommonTests(CommonCommonTests):
         yield self.commit()
         home = yield self.homeUnderTest()
         addressbook = yield home.addressbookWithName("some_other_name")
-        positiveAssertions()
+        yield positiveAssertions()
         # FIXME: revert
         # FIXME: test for multiple renames
         # FIXME: test for conflicting renames (a->b, c->a in the same txn)
@@ -316,6 +316,7 @@ class CommonTests(CommonCommonTests):
         self.assertIdentical((yield home.addressbookWithName(name)), None)
         yield home.createAddressBookWithName(name)
         self.assertNotIdentical((yield home.addressbookWithName(name)), None)
+        @inlineCallbacks
         def checkProperties():
             addressbookProperties = (yield home.addressbookWithName(name)).properties()
             addressbookType = ResourceType.addressbook #@UndefinedVariable
@@ -325,7 +326,7 @@ class CommonTests(CommonCommonTests):
                 ],
                 addressbookType
             )
-        checkProperties()
+        yield checkProperties()
         yield self.commit()
 
         # Make sure notification fired after commit
@@ -341,7 +342,7 @@ class CommonTests(CommonCommonTests):
 
         # Sanity check: are the properties actually persisted?
         # FIXME: no independent testing of this right now
-        checkProperties()
+        yield checkProperties()
 
 
     @inlineCallbacks
