@@ -1415,6 +1415,53 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
         ),
 
         (
+            "Lion -> Mountain Lion Migration, ServerRoot is non-standard but also not on an external volume, e.g. /Library/CalendarServer/Documents",
+            {
+                "/Library/Server/Previous/private/etc/caldavd/caldavd.plist" : """
+                    <plist version="1.0">
+                    <dict>
+                        <key>ServerRoot</key>
+                        <string>/Library/CalendarServer/Documents</string>
+                        <key>DocumentRoot</key>
+                        <string>Documents</string>
+                        <key>DataRoot</key>
+                        <string>Data</string>
+                        <key>UserName</key>
+                        <string>calendar</string>
+                        <key>GroupName</key>
+                        <string>calendar</string>
+                    </dict>
+                    </plist>
+                """,
+
+                "/Library/Server/Previous/Library/CalendarServer/Documents/" : True,
+                "/Library/Server/Previous/Library/CalendarServer/Documents/Documents/" : True,
+                "/Library/Server/Previous/Library/CalendarServer/Documents/Data/" : True,
+            },
+            (   # args
+                "/Library/Server/Previous", # sourceRoot
+                "/Volumes/new", # targetRoot
+                "10.7.4", # sourceVersion
+                "/Library/CalendarServer/Documents", # oldServerRootValue
+                "Documents", # oldCalDocumentRootValue
+                "Data", # oldCalDataRootValue
+                None, # oldABDocumentRootValue
+                FakeUser.pw_uid, FakeGroup.gr_gid, # user id, group id
+            ),
+            (   # expected return values
+                "/Volumes/new/Library/Server/Calendar and Contacts",
+                "/Library/Server/Calendar and Contacts",
+                "Data",
+            ),
+            [
+                ('ditto', '/Library/Server/Previous/Library/CalendarServer/Documents', '/Volumes/new/Library/Server/Calendar and Contacts'),
+                ('mkdir', '/Volumes/new/Library/Server/Calendar and Contacts/Data'),
+                ('mkdir', '/Volumes/new/Library/Server/Calendar and Contacts/Data/Documents'),
+                ('chown-recursive', '/Volumes/new/Library/Server/Calendar and Contacts', FakeUser.pw_uid, FakeGroup.gr_gid),
+            ]
+        ),
+
+        (
             "Mountain Lion -> Mountain Lion Migration, all in default locations",
             {
                 "/Library/Server/Previous/private/etc/caldavd/caldavd.plist" : """
