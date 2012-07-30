@@ -144,6 +144,14 @@ class GroupMembershipTests (TestCase):
 
         service.stopService()
 
+        service.updateInProgress = True
+        self.assertTrue((yield service.update()))
+        self.assertTrue(service.updateAwaiting)
+
+        service.updateInProgress = False
+        self.assertFalse((yield service.update()))
+        self.assertFalse(service.updateAwaiting)
+
 
 
     def test_expandedMembers(self):
