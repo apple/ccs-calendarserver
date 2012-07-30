@@ -30,6 +30,7 @@ __all__ = [
 
 import datetime
 import os
+import signal
 import sys
 import types
 import pwd, grp
@@ -851,35 +852,72 @@ class GroupMembershipCacherService(service.Service, LoggingMixIn):
         if reactor is None:
             from twisted.internet import reactor
         self.reactor = reactor
+
         self.updateSeconds = updateSeconds
         self.nextUpdate = None
+        self.updateInProgress = False
+        self.updateAwaiting = False
+
         if updateMethod:
             self.updateMethod = updateMethod
         else:
             self.updateMethod = self.updater.updateCache
 
     def startService(self):
+        self.previousHandler = signal.signal(signal.SIGHUP, self.sighupHandler)
         self.log_warn("Starting group membership cacher service")
         service.Service.startService(self)
         return self.update()
 
-    @inlineCallbacks
-    def update(self):
-        self.nextUpdate = None
-        try:
-            yield self.updateMethod()
-        finally:
-            self.log_info("Scheduling next group membership update")
-            self.nextUpdate = self.reactor.callLater(self.updateSeconds,
-                self.update)
+    def sighupHandler(self, num, frame):
+        self.reactor.callFromThread(self.update)
 
     def stopService(self):
+        signal.signal(signal.SIGHUP, self.previousHandler)
         self.log_warn("Stopping group membership cacher service")
         service.Service.stopService(self)
         if self.nextUpdate is not None:
             self.nextUpdate.cancel()
+            self.nextUpdate = None
 
+    @inlineCallbacks
+    def update(self):
+        """
+        A wrapper around updateCache, this method manages the scheduling of the
+        subsequent update, as well as prevents multiple updates from running
+        simultaneously, which could otherwise happen because SIGHUP now triggers
+        an update on demand.  If update is called while an update is in progress,
+        as soon as the first update is finished a new one is started.  Otherwise,
+        when an update finishes and there is not another one waiting, the next
+        update is scheduled for updateSeconds in the future.
 
+        @return: True if an update was already in progress, False otherwise
+        @rtype: C{bool}
+        """
+
+        self.log_debug("Group membership update called")
+
+        # A call to update while an update is in progress sets the updateAwaiting flag
+        # so that an update happens again right after the current one is complete.
+        if self.updateInProgress:
+            self.updateAwaiting = True
+            returnValue(True)
+
+        self.nextUpdate = None
+        self.updateInProgress = True
+        self.updateAwaiting = False
+        try:
+            yield self.updateMethod()
+        finally:
+            self.updateInProgress = False
+            if self.updateAwaiting:
+                self.log_info("Performing group membership update")
+                yield self.update()
+            else:
+                self.log_info("Scheduling next group membership update")
+                self.nextUpdate = self.reactor.callLater(self.updateSeconds,
+                    self.update)
+        returnValue(False)
 
 class GroupMembershipCacherServiceMaker(LoggingMixIn):
     """
