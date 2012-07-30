@@ -828,7 +828,7 @@ class GroupMembershipCacherOptions(Options):
     def postOptions(self):
         config.load(self['config'])
         config.updateDefaults(self.overrides)
-        self.parent['pidfile'] = None
+        self.parent['pidfile'] = config.PIDFile
 
 
 

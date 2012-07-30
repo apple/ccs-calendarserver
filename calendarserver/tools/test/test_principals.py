@@ -15,6 +15,7 @@
 ##
 
 import os
+import signal
 import sys
 
 from twext.python.filepath import CachingFilePath as FilePath
@@ -29,7 +30,9 @@ from twistedcaldav.test.util import TestCase, CapturingProcessProtocol,\
     ErrorOutput
 
 from calendarserver.tap.util import directoryFromConfig
-from calendarserver.tools.principals import parseCreationArgs, matchStrings, updateRecord, principalForPrincipalID, getProxies, setProxies
+from calendarserver.tools.principals import (parseCreationArgs, matchStrings,
+    updateRecord, principalForPrincipalID, getProxies, setProxies,
+    triggerGroupCacherUpdate)
 
 
 class ManagePrincipalsTestCase(TestCase):
@@ -347,3 +350,25 @@ class ManagePrincipalsTestCase(TestCase):
         self.assertEquals(readProxies, []) # now empty
         self.assertEquals(set(writeProxies), set(["user05"])) # unchanged
 
+
+    def test_triggerGroupCacherUpdate(self):
+        """
+        Verify triggerGroupCacherUpdate can read a pidfile and send a SIGHUP
+        """
+
+        self.calledArgs = None
+        def killMethod(pid, sig):
+            self.calledArgs = (pid, sig)
+
+        class StubConfig(object):
+            def __init__(self, runRootPath):
+                self.RunRoot = runRootPath
+
+        runRootDir = FilePath(self.mktemp())
+        runRootDir.createDirectory()
+        pidFile = runRootDir.child("groupcacher.pid")
+        pidFile.setContent("1234")
+        testConfig = StubConfig(runRootDir.path)
+        triggerGroupCacherUpdate(testConfig, killMethod=killMethod)
+        self.assertEquals(self.calledArgs, (1234, signal.SIGHUP))
+        runRootDir.remove()

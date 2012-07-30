@@ -19,6 +19,7 @@
 import sys
 import os
 import operator
+import signal
 from getopt import getopt, GetoptError
 from uuid import UUID
 from pwd import getpwnam
@@ -593,6 +594,8 @@ def addProxy(principal, proxyType, proxyPrincipal):
 
     (yield action_removeProxyPrincipal(principal, proxyPrincipal, proxyTypes=proxyTypes))
 
+    triggerGroupCacherUpdate(config)
+
 
 @inlineCallbacks
 def setProxies(principal, readProxyPrincipals, writeProxyPrincipals, directory=None):
@@ -621,6 +624,7 @@ def setProxies(principal, readProxyPrincipals, writeProxyPrincipals, directory=N
             memberURLs.append(davxml.HRef(proxyURL))
         membersProperty = davxml.GroupMemberSet(*memberURLs)
         (yield subPrincipal.writeProperty(membersProperty, None))
+        triggerGroupCacherUpdate(config)
 
 
 @inlineCallbacks
@@ -697,7 +701,9 @@ def removeProxy(principal, proxyPrincipal, **kwargs):
         membersProperty = davxml.GroupMemberSet(*memberURLs)
         (yield subPrincipal.writeProperty(membersProperty, None))
 
-        returnValue(removed)
+    if removed:
+        triggerGroupCacherUpdate(config)
+    returnValue(removed)
 
 
 @inlineCallbacks
@@ -897,6 +903,27 @@ def updateRecord(create, directory, recordType, **kwargs):
 
     returnValue(record)
 
+
+def triggerGroupCacherUpdate(config, killMethod=None):
+    """
+    Look up the pid of the group cacher sidecar and HUP it to trigger an update
+    """
+    if killMethod is None:
+        killMethod = os.kill
+
+    pidFilename = os.path.join(config.RunRoot, "groupcacher.pid")
+    if os.path.exists(pidFilename):
+        pidFile = open(pidFilename, "r")
+        pid = pidFile.read().strip()
+        pidFile.close()
+        try:
+            pid = int(pid)
+        except ValueError:
+            return
+        try:
+            killMethod(pid, signal.SIGHUP)
+        except OSError:
+            pass
 
 
 

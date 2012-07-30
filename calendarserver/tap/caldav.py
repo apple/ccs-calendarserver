@@ -557,6 +557,7 @@ class SlaveSpawnerService(Service):
                 "--reactor=%s" % (config.Twisted.reactor,),
                 "-n", self.maker.groupMembershipCacherTapName,
                 "-f", self.configPath,
+                "-o", "PIDFile=groupcacher.pid",
             ))
 
             self.monitor.addProcess("groupcacher", groupMembershipCacherArgv,
