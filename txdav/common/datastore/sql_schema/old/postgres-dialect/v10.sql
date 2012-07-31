@@ -478,8 +478,6 @@ create table APN_SUBSCRIPTIONS (
   RESOURCE_KEY                  varchar(255) not null,
   MODIFIED                      integer not null,
   SUBSCRIBER_GUID               varchar(255) not null,
-  USER_AGENT                    varchar(255) default null,
-  IP_ADDR                       varchar(255) default null,
 
   primary key(TOKEN, RESOURCE_KEY) -- implicit index
 );
@@ -497,6 +495,6 @@ create table CALENDARSERVER (
   VALUE                         varchar(255)
 );
 
-insert into CALENDARSERVER values ('VERSION', '11');
+insert into CALENDARSERVER values ('VERSION', '10');
 insert into CALENDARSERVER values ('CALENDAR-DATAVERSION', '3');
 insert into CALENDARSERVER values ('ADDRESSBOOK-DATAVERSION', '1');

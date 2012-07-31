@@ -250,8 +250,6 @@ create table APN_SUBSCRIPTIONS (
     "RESOURCE_KEY" nvarchar2(255),
     "MODIFIED" integer not null,
     "SUBSCRIBER_GUID" nvarchar2(255), 
-    "USER_AGENT" nvarchar2(255) default null,
-    "IP_ADDR" nvarchar2(255) default null,
     primary key("TOKEN", "RESOURCE_KEY")
 );
 

@@ -251,7 +251,7 @@ class CommonStoreTransaction(DataStoreTransaction):
 
 
     # File-based storage of APN subscriptions not implementated.
-    def addAPNSubscription(self, token, key, timestamp, subscriber):
+    def addAPNSubscription(self, token, key, timestamp, subscriber, userAgent, ipAddr):
         return NotImplementedError
 
     def removeAPNSubscription(self, token, key):

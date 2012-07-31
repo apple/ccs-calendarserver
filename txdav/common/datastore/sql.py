@@ -455,14 +455,18 @@ class CommonStoreTransaction(object):
         return Insert({apn.TOKEN: Parameter("token"),
                        apn.RESOURCE_KEY: Parameter("resourceKey"),
                        apn.MODIFIED: Parameter("modified"),
-                       apn.SUBSCRIBER_GUID: Parameter("subscriber")})
+                       apn.SUBSCRIBER_GUID: Parameter("subscriber"),
+                       apn.USER_AGENT : Parameter("userAgent"),
+                       apn.IP_ADDR : Parameter("ipAddr")})
 
 
     @classproperty
     def _updateAPNSubscriptionQuery(cls): #@NoSelf
         apn = schema.APN_SUBSCRIPTIONS
         return Update({apn.MODIFIED: Parameter("modified"),
-                       apn.SUBSCRIBER_GUID: Parameter("subscriber")},
+                       apn.SUBSCRIBER_GUID: Parameter("subscriber"),
+                       apn.USER_AGENT: Parameter("userAgent"),
+                       apn.IP_ADDR : Parameter("ipAddr")},
                       Where=(apn.TOKEN == Parameter("token")).And(
                              apn.RESOURCE_KEY == Parameter("resourceKey")))
 
@@ -479,9 +483,14 @@ class CommonStoreTransaction(object):
 
 
     @inlineCallbacks
-    def addAPNSubscription(self, token, key, timestamp, subscriber):
+    def addAPNSubscription(self, token, key, timestamp, subscriber,
+        userAgent, ipAddr):
         if not (token and key and timestamp and subscriber):
             raise InvalidSubscriptionValues()
+
+        # Cap these values at 255 characters
+        userAgent = userAgent[:255]
+        ipAddr = ipAddr[:255]
 
         row = yield self._selectAPNSubscriptionQuery.on(self,
             token=token, resourceKey=key)
@@ -489,7 +498,8 @@ class CommonStoreTransaction(object):
             try:
                 yield self._insertAPNSubscriptionQuery.on(self,
                     token=token, resourceKey=key, modified=timestamp,
-                    subscriber=subscriber)
+                    subscriber=subscriber, userAgent=userAgent,
+                    ipAddr=ipAddr)
             except Exception:
                 # Subscription may have been added by someone else, which is fine
                 pass
@@ -498,7 +508,8 @@ class CommonStoreTransaction(object):
             try:
                 yield self._updateAPNSubscriptionQuery.on(self,
                     token=token, resourceKey=key, modified=timestamp,
-                    subscriber=subscriber)
+                    subscriber=subscriber, userAgent=userAgent,
+                    ipAddr=ipAddr)
             except Exception:
                 # Subscription may have been added by someone else, which is fine
                 pass

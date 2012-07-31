@@ -770,6 +770,9 @@ class APNSubscriptionResource(ReadOnlyNoCopyResourceMixIn,
         token = request.args.get("token", ("",))[0].replace(" ", "").lower()
         key = request.args.get("key", ("",))[0]
 
+        userAgent = request.headers.getHeader("user-agent", "-")
+        host = request.remoteAddr.host
+
         if not (key and token):
             code = responsecode.BAD_REQUEST
             msg = "Invalid request: both 'token' and 'key' must be provided"
@@ -782,7 +785,7 @@ class APNSubscriptionResource(ReadOnlyNoCopyResourceMixIn,
             principal = self.principalFromRequest(request)
             uid = principal.record.uid
             try:
-                yield self.addSubscription(token, key, uid)
+                yield self.addSubscription(token, key, uid, userAgent, host)
                 code = responsecode.OK
                 msg = None
             except InvalidSubscriptionValues:
@@ -792,7 +795,7 @@ class APNSubscriptionResource(ReadOnlyNoCopyResourceMixIn,
         returnValue((code, msg))
 
     @inlineCallbacks
-    def addSubscription(self, token, key, uid):
+    def addSubscription(self, token, key, uid, userAgent, host):
         """
         Add a subscription (or update its timestamp if already there).
 
@@ -804,10 +807,16 @@ class APNSubscriptionResource(ReadOnlyNoCopyResourceMixIn,
 
         @param uid: The uid of the subscriber principal
         @type uid: C{str}
+
+        @param userAgent: The user-agent requesting the subscription
+        @type key: C{str}
+
+        @param host: The host requesting the subscription
+        @type key: C{str}
         """
         now = int(time.time()) # epoch seconds
         txn = self.store.newTransaction()
-        yield txn.addAPNSubscription(token, key, now, uid)
+        yield txn.addAPNSubscription(token, key, now, uid, userAgent, host)
         yield txn.commit()
 
     def renderResponse(self, code, body=None):

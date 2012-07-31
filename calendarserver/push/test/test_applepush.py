@@ -72,11 +72,11 @@ class ApplePushNotifierServiceTests(CommonCommonTests, TestCase):
 
         # Ensure empty values don't get through
         try:
-            yield txn.addAPNSubscription("", "", "", "")
+            yield txn.addAPNSubscription("", "", "", "", "", "")
         except InvalidSubscriptionValues:
             pass
         try:
-            yield txn.addAPNSubscription("", "1", "2", "3")
+            yield txn.addAPNSubscription("", "1", "2", "3", "", "")
         except InvalidSubscriptionValues:
             pass
 
@@ -85,12 +85,14 @@ class ApplePushNotifierServiceTests(CommonCommonTests, TestCase):
         key1 = "/CalDAV/calendars.example.com/user01/calendar/"
         timestamp1 = 1000
         uid = "D2256BCC-48E2-42D1-BD89-CBA1E4CCDFFB"
-        yield txn.addAPNSubscription(token, key1, timestamp1, uid)
-        yield txn.addAPNSubscription(token2, key1, timestamp1, uid)
+        userAgent = "test agent"
+        ipAddr = "127.0.0.1"
+        yield txn.addAPNSubscription(token, key1, timestamp1, uid, userAgent, ipAddr)
+        yield txn.addAPNSubscription(token2, key1, timestamp1, uid, userAgent, ipAddr)
 
         key2 = "/CalDAV/calendars.example.com/user02/calendar/"
         timestamp2 = 3000
-        yield txn.addAPNSubscription(token, key2, timestamp2, uid)
+        yield txn.addAPNSubscription(token, key2, timestamp2, uid, userAgent, ipAddr)
 
         subscriptions = (yield txn.apnSubscriptionsBySubscriber(uid))
         self.assertTrue([token, key1, timestamp1] in subscriptions)
@@ -101,14 +103,14 @@ class ApplePushNotifierServiceTests(CommonCommonTests, TestCase):
         # the new uid
         timestamp3 = 5000
         uid2 = "D8FFB335-9D36-4CE8-A3B9-D1859E38C0DA"
-        yield txn.addAPNSubscription(token, key2, timestamp3, uid2)
+        yield txn.addAPNSubscription(token, key2, timestamp3, uid2, userAgent, ipAddr)
         subscriptions = (yield txn.apnSubscriptionsBySubscriber(uid))
         self.assertTrue([token, key1, timestamp1] in subscriptions)
         self.assertFalse([token, key2, timestamp3] in subscriptions)
         subscriptions = (yield txn.apnSubscriptionsBySubscriber(uid2))
         self.assertTrue([token, key2, timestamp3] in subscriptions)
         # Change it back
-        yield txn.addAPNSubscription(token, key2, timestamp2, uid)
+        yield txn.addAPNSubscription(token, key2, timestamp2, uid, userAgent, ipAddr)
 
         yield txn.commit()
 
@@ -270,8 +272,8 @@ class ApplePushNotifierServiceTests(CommonCommonTests, TestCase):
         # Create two subscriptions, one old and one new
         txn = self.store.newTransaction()
         now = int(time.time())
-        yield txn.addAPNSubscription(token2, key1, now - 2 * 24 * 60 * 60, uid) # old
-        yield txn.addAPNSubscription(token2, key2, now, uid) # recent
+        yield txn.addAPNSubscription(token2, key1, now - 2 * 24 * 60 * 60, uid, userAgent, ipAddr) # old
+        yield txn.addAPNSubscription(token2, key2, now, uid, userAgent, ipAddr) # recent
         yield txn.commit()
 
         # Purge old subscriptions
