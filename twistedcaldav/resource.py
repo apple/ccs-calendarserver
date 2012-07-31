@@ -2295,7 +2295,7 @@ class CommonHomeResource(PropfindCacheMixin, SharedHomeMixin, CalDAVResource):
 
         if qname == customxml.MaxCollections.qname() and config.MaxCollectionsPerHome:
             returnValue(customxml.MaxCollections.fromString(config.MaxCollectionsPerHome))
-            
+
         elif qname == (customxml.calendarserver_namespace, "push-transports"):
 
             if (config.Notifications.Services.XMPPNotifier.Enabled or
@@ -2321,6 +2321,9 @@ class CommonHomeResource(PropfindCacheMixin, SharedHomeMixin, CalDAVResource):
                                     ),
                                     customxml.PubSubAPSEnvironmentProperty(
                                         apsConfiguration["APSEnvironment"]
+                                    ),
+                                    customxml.PubSubAPSRefreshIntervalProperty(
+                                        str(apsConfiguration["SubscriptionRefreshIntervalSeconds"])
                                     ),
                                     type="APSD",
                                 )

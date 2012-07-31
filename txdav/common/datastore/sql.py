@@ -518,6 +518,18 @@ class CommonStoreTransaction(object):
 
 
     @classproperty
+    def _purgeOldAPNSubscriptionQuery(cls): #@NoSelf
+        apn = schema.APN_SUBSCRIPTIONS
+        return Delete(From=apn,
+                      Where=(apn.MODIFIED < Parameter("olderThan")))
+
+
+    def purgeOldAPNSubscriptions(self, olderThan):
+        return self._purgeOldAPNSubscriptionQuery.on(self,
+            olderThan=olderThan)
+
+
+    @classproperty
     def _apnSubscriptionsByTokenQuery(cls): #@NoSelf
         apn = schema.APN_SUBSCRIPTIONS
         return Select([apn.RESOURCE_KEY, apn.MODIFIED, apn.SUBSCRIBER_GUID],

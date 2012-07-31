@@ -28,6 +28,7 @@ from twisted.application import service
 from twisted.internet import protocol
 from twisted.internet.defer import inlineCallbacks, returnValue, succeed
 from twisted.internet.protocol import ClientFactory, ReconnectingClientFactory
+from twisted.internet.task import LoopingCall
 from twistedcaldav.extensions import DAVResource, DAVResourceWithoutChildrenMixin
 from twistedcaldav.resource import ReadOnlyNoCopyResourceMixIn
 import OpenSSL
@@ -87,6 +88,9 @@ class ApplePushNotifierService(service.MultiService, LoggingMixIn):
         service.providers = {}
         service.feedbacks = {}
         service.dataHost = settings["DataHost"]
+        service.purgeCall = None
+        service.purgeIntervalSeconds = settings["SubscriptionPurgeIntervalSeconds"]
+        service.purgeSeconds = settings["SubscriptionPurgeSeconds"]
 
         for protocol in ("CalDAV", "CardDAV"):
 
@@ -132,6 +136,43 @@ class ApplePushNotifierService(service.MultiService, LoggingMixIn):
                 service.feedbacks[protocol] = feedback
 
         return service
+
+
+    def startService(self):
+        """
+        In addition to starting the provider and feedback sub-services, start a
+        LoopingCall whose job it is to purge old subscriptions
+        """
+        service.MultiService.startService(self)
+        self.log_debug("ApplePushNotifierService startService")
+        self.purgeCall = LoopingCall(self.purgeOldSubscriptions, self.purgeSeconds)
+        self.purgeCall.start(self.purgeIntervalSeconds, now=False)
+
+
+    def stopService(self):
+        """
+        In addition to stopping the provider and feedback sub-services, stop the
+        LoopingCall
+        """
+        service.MultiService.stopService(self)
+        self.log_debug("ApplePushNotifierService stopService")
+        if self.purgeCall is not None:
+            self.purgeCall.stop()
+            self.purgeCall = None
+
+
+    @inlineCallbacks
+    def purgeOldSubscriptions(self, purgeSeconds):
+        """
+        Remove any subscriptions that registered more than purgeSeconds ago
+
+        @param purgeSeconds: The cutoff given in seconds
+        @type purgeSeconds: C{int}
+        """
+        self.log_debug("ApplePushNotifierService purgeOldSubscriptions")
+        txn = self.store.newTransaction()
+        yield txn.purgeOldAPNSubscriptions(int(time.time()) - purgeSeconds)
+        yield txn.commit()
 
 
     @inlineCallbacks
@@ -340,6 +381,7 @@ class APNProviderFactory(ReconnectingClientFactory, LoggingMixIn):
         self.store = store
         self.noisy = True
         self.maxDelay = 30 # max seconds between connection attempts
+        self.shuttingDown = False
 
     def clientConnectionMade(self):
         self.log_warn("Connection to APN server made")
@@ -347,7 +389,8 @@ class APNProviderFactory(ReconnectingClientFactory, LoggingMixIn):
         self.delay = 1.0
 
     def clientConnectionLost(self, connector, reason):
-        self.log_warn("Connection to APN server lost: %s" % (reason,))
+        if not self.shuttingDown:
+            self.log_warn("Connection to APN server lost: %s" % (reason,))
         ReconnectingClientFactory.clientConnectionLost(self, connector, reason)
 
     def clientConnectionFailed(self, connector, reason):
@@ -359,6 +402,10 @@ class APNProviderFactory(ReconnectingClientFactory, LoggingMixIn):
     def retry(self, connector=None):
         self.log_warn("Reconnecting to APN server")
         ReconnectingClientFactory.retry(self, connector)
+
+    def stopTrying(self):
+        self.shuttingDown = True
+        ReconnectingClientFactory.stopTrying(self)
 
 
 
@@ -578,6 +625,7 @@ class APNFeedbackProtocol(protocol.Protocol, LoggingMixIn):
         yield txn.commit()
 
 
+
 class APNFeedbackFactory(ClientFactory, LoggingMixIn):
 
     protocol = APNFeedbackProtocol
@@ -594,8 +642,8 @@ class APNFeedbackFactory(ClientFactory, LoggingMixIn):
 
 class APNFeedbackService(APNConnectionService):
 
-    def __init__(self, store, updateSeconds, host, port, certPath, keyPath,
-        chainPath="", passphrase="", sslMethod="TLSv1_METHOD",
+    def __init__(self, store, updateSeconds, host, port,
+        certPath, keyPath, chainPath="", passphrase="", sslMethod="TLSv1_METHOD",
         testConnector=None, reactor=None):
 
         APNConnectionService.__init__(self, host, port, certPath, keyPath,
@@ -621,6 +669,7 @@ class APNFeedbackService(APNConnectionService):
         self.connect(self.factory)
         self.nextCheck = self.reactor.callLater(self.updateSeconds,
             self.checkForFeedback)
+
 
 
 class APNSubscriptionResource(ReadOnlyNoCopyResourceMixIn,

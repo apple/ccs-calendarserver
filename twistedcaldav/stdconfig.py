@@ -698,6 +698,9 @@ DEFAULT_CONFIG = {
                 "Service" : "calendarserver.push.applepush.ApplePushNotifierService",
                 "Enabled" : False,
                 "SubscriptionURL" : "apns",
+                "SubscriptionRefreshIntervalSeconds" : 2 * 24 * 60 * 60, # How often the client should re-register (2 days)
+                "SubscriptionPurgeIntervalSeconds" : 12 * 60 * 60, # How often a purge is done (12 hours)
+                "SubscriptionPurgeSeconds" : 14 * 24 * 60 * 60, # How old a subscription must be before it's purged (14 days)
                 "DataHost" : "",
                 "ProviderHost" : "gateway.push.apple.com",
                 "ProviderPort" : 2195,

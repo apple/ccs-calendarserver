@@ -415,6 +415,14 @@ class PubSubAPSEnvironmentProperty (WebDAVTextElement):
 
 
 @registerElement
+class PubSubAPSRefreshIntervalProperty (WebDAVTextElement):
+    namespace = calendarserver_namespace
+    name = "refresh-interval"
+    protected = True
+    hidden = True
+
+
+@registerElement
 class PubSubXMPPPushKeyProperty (WebDAVTextElement):
     namespace = calendarserver_namespace
     name = "pushkey"

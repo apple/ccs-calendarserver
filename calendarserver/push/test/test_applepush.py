@@ -14,6 +14,8 @@
 # limitations under the License.
 ##
 
+import struct
+import time
 from calendarserver.push.applepush import (
     ApplePushNotifierService, APNProviderProtocol
 )
@@ -21,7 +23,6 @@ from calendarserver.push.util import validToken, TokenHistory
 from twistedcaldav.test.util import TestCase
 from twisted.internet.defer import inlineCallbacks, succeed
 from twisted.internet.task import Clock
-import struct
 from txdav.common.datastore.test.util import buildStore, CommonCommonTests
 from txdav.common.icommondatastore import InvalidSubscriptionValues
 
@@ -39,6 +40,8 @@ class ApplePushNotifierServiceTests(CommonCommonTests, TestCase):
             "Service" : "calendarserver.push.applepush.ApplePushNotifierService",
             "Enabled" : True,
             "SubscriptionURL" : "apn",
+            "SubscriptionPurgeSeconds" : 24 * 60 * 60,
+            "SubscriptionPurgeIntervalSeconds" : 24 * 60 * 60,
             "DataHost" : "calendars.example.com",
             "ProviderHost" : "gateway.push.apple.com",
             "ProviderPort" : 2195,
@@ -260,6 +263,30 @@ class ApplePushNotifierServiceTests(CommonCommonTests, TestCase):
         yield txn.commit()
         self.assertEquals(subscriptions, [])
 
+        #
+        # Verify purgeOldAPNSubscriptions
+        #
+
+        # Create two subscriptions, one old and one new
+        txn = self.store.newTransaction()
+        now = int(time.time())
+        yield txn.addAPNSubscription(token2, key1, now - 2 * 24 * 60 * 60, uid) # old
+        yield txn.addAPNSubscription(token2, key2, now, uid) # recent
+        yield txn.commit()
+
+        # Purge old subscriptions
+        txn = self.store.newTransaction()
+        yield txn.purgeOldAPNSubscriptions(now - 60 * 60)
+        yield txn.commit()
+
+        # Check that only the recent subscription remains
+        txn = self.store.newTransaction()
+        subscriptions = (yield txn.apnSubscriptionsByToken(token2))
+        yield txn.commit()
+        self.assertEquals(len(subscriptions), 1)
+        self.assertEquals(subscriptions[0][0], key2)
+
+        service.stopService()
 
     def test_validToken(self):
         self.assertTrue(validToken("2d0d55cd7f98bcb81c6e24abcdc35168254c7846a43e2828b1ba5a8f82e219df"))

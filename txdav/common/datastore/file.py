@@ -257,6 +257,9 @@ class CommonStoreTransaction(DataStoreTransaction):
     def removeAPNSubscription(self, token, key):
         return NotImplementedError
 
+    def purgeOldAPNSubscriptions(self, purgeSeconds):
+        return NotImplementedError
+
     def apnSubscriptionsByToken(self, token):
         return NotImplementedError
 

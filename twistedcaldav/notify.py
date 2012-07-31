@@ -1310,6 +1310,7 @@ def getPubSubAPSConfiguration(id, config):
             url = "http://%s:%s/%s" % (config.ServerHostName, config.HTTPPort,
                 applePushSettings.SubscriptionURL)
         settings["SubscriptionURL"] = url
+        settings["SubscriptionRefreshIntervalSeconds"] = applePushSettings.SubscriptionRefreshIntervalSeconds
         settings["APSEnvironment"] = applePushSettings.Environment
         return settings
 

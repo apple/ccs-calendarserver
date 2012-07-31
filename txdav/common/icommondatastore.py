@@ -195,6 +195,15 @@ class ICommonTransaction(ITransaction):
         @type key: C{str}
         """
 
+    def purgeOldAPNSubscriptions(olderThan):
+        """
+        Remove all subscription entries whose modified timestamp
+        is older than the provided timestamp.
+
+        @param olderThan: The cutoff timestamp in seconds
+        @type token: C{int}
+        """
+
     def apnSubscriptionsByToken(token):
         """
         Retrieve all subscription entries for the token.
