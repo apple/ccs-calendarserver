@@ -354,14 +354,17 @@ while True:
     numProxied = collections.defaultdict(int)
     slotCount = collections.defaultdict(int)
     totalRespTime = collections.defaultdict(float)
+    totalRespWithoutWRTime = collections.defaultdict(float)
     maxRespTime = collections.defaultdict(float)
-    under10ms = 0
-    over10ms = 0
-    over100ms = 0
-    over1s = 0
-    over10s = 0
-    over30s = 0
-    over60s = 0
+    under10ms = [0, 0]
+    over10ms = [0, 0]
+    over100ms = [0, 0]
+    over1s = [0, 0]
+    over10s = [0, 0]
+    over30s = [0, 0]
+    over60s = [0, 0]
+    totalOver1s = [0, 0]
+    totalOver10s = [0, 0]
     requests = []
     users = { }
     startTime = None
@@ -414,26 +417,33 @@ while True:
                 slotCount[filename] += outstanding
     
                 respTime = float(extended['t'])
+                wrTime = float(extended.get('t-resp-wr', 0.0))
                 timeSpent = timesSpent.get(logId, 0.0) + respTime
                 timesSpent[logId] = timeSpent
                 totalRespTime[filename] += respTime
+                totalRespWithoutWRTime[filename] += respTime - wrTime
                 if respTime > maxRespTime[filename]:
                     maxRespTime[filename] = respTime
     
-                if respTime >= 60000.0:
-                    over60s += 1
-                elif respTime >= 30000.0:
-                    over30s +=1
-                elif respTime >= 10000.0:
-                    over10s +=1
-                elif respTime >= 1000.0:
-                    over1s +=1
-                elif respTime >= 100.0:
-                    over100ms +=1
-                elif respTime >= 10.0:
-                    over10ms +=1
-                else:
-                    under10ms +=1
+                for index, testTime in enumerate((respTime, respTime - wrTime,)):
+                    if testTime >= 60000.0:
+                        over60s[index] += 1
+                    elif testTime >= 30000.0:
+                        over30s[index] +=1
+                    elif testTime >= 10000.0:
+                        over10s[index] +=1
+                    elif testTime >= 1000.0:
+                        over1s[index] +=1
+                    elif testTime >= 100.0:
+                        over100ms[index] +=1
+                    elif testTime >= 10.0:
+                        over10ms[index] +=1
+                    else:
+                        under10ms[index] +=1
+                    if testTime >= 1000.0:
+                        totalOver1s[index] +=1
+                    if testTime >= 10000.0:
+                        totalOver10s[index] +=1
     
     
                 ext = []
@@ -486,15 +496,16 @@ while True:
 
         table = tables.Table()
         table.addHeader(
-            ("Instance", "Requests", "Av. Requests", "Av. Response", "Max. Response",     "Slot", "Start",  "End", "File Name"),
+            ("Instance", "Requests", "Av. Requests", "Av. Response", "Av. Response", "Max. Response",     "Slot", "Start",  "End", "File Name"),
         )
         table.addHeader(
-            (        "",         "",   "per second",         "(ms)",          "(ms)",  "Average", "Time", "Time",          ""),
+            (        "",         "",   "per second",         "(ms)", "no write(ms)",          "(ms)",  "Average", "Time", "Time",          ""),
         )
         table.setDefaultColumnFormats(
            (
                 tables.Table.ColumnFormat("%s", tables.Table.ColumnFormat.CENTER_JUSTIFY), 
                 tables.Table.ColumnFormat("%d", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
+                tables.Table.ColumnFormat("%.1f", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
                 tables.Table.ColumnFormat("%.1f", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
                 tables.Table.ColumnFormat("%.1f", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
                 tables.Table.ColumnFormat("%.1f", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
@@ -507,6 +518,7 @@ while True:
         
         totalAverage = 0.0
         totalResponseTime = 0.0
+        totalResponseWithoutWRTime = 0.0
         maxResponseTime = 0.0
         totalSlots = 0
         minStartTime = None
@@ -528,6 +540,9 @@ while True:
             avgResponse = totalRespTime[filename] / len(times)
             totalResponseTime += totalRespTime[filename]
             
+            avgResponseWithWR = totalRespWithoutWRTime[filename] / len(times)
+            totalResponseWithoutWRTime += totalRespWithoutWRTime[filename]
+            
             maxResponseTime = max(maxResponseTime, maxRespTime[filename])
             
             totalSlots += slotCount[filename]
@@ -537,6 +552,7 @@ while True:
                 len(times),
                 avgRequests,
                 avgResponse,
+                avgResponseWithWR,
                 maxRespTime[filename],
                 float(slotCount[filename]) / len(times),
                 startTime,
@@ -550,6 +566,7 @@ while True:
                 totalRequests,
                 totalAverage,
                 totalResponseTime / totalRequests,
+                totalResponseWithoutWRTime / totalRequests,
                 maxResponseTime,
                 float(totalSlots) / totalRequests,
                 minStartTime,
@@ -567,7 +584,41 @@ while True:
                 lqlatency[0],
                 lqlatency[1],
             )
-        print "<10ms: %d  >10ms: %d  >100ms: %d  >1s: %d  >10s: %d  >30s: %d  >60s: %d" % (under10ms, over10ms, over100ms, over1s, over10s, over30s, over60s)
+        
+        table = tables.Table()
+        table.addHeader(
+            ("", "<10ms", "10ms<->100ms", "100ms<->1s", "1s<->10s", "10s<->30s", "30s<->60s", ">60s",  "Over 1s", "Over 10s"),
+        )
+        table.setDefaultColumnFormats(
+           (
+                tables.Table.ColumnFormat("%s", tables.Table.ColumnFormat.CENTER_JUSTIFY), 
+                tables.Table.ColumnFormat("%d (%.1f%%)", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
+                tables.Table.ColumnFormat("%d (%.1f%%)", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
+                tables.Table.ColumnFormat("%d (%.1f%%)", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
+                tables.Table.ColumnFormat("%d (%.1f%%)", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
+                tables.Table.ColumnFormat("%d (%.1f%%)", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
+                tables.Table.ColumnFormat("%d (%.1f%%)", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
+                tables.Table.ColumnFormat("%d (%.1f%%)", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
+                tables.Table.ColumnFormat("%.1f%%", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
+                tables.Table.ColumnFormat("%.1f%%", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
+            )
+        )
+        for i in xrange(2):
+            table.addRow((
+                "Overall Response" if i == 0 else "Response without Write",
+                (under10ms[i], safePercent(under10ms[i], totalRequests)),
+                (over10ms[i], safePercent(over10ms[i], totalRequests)),
+                (over100ms[i], safePercent(over100ms[i], totalRequests)),
+                (over1s[i], safePercent(over1s[i], totalRequests)),
+                (over10s[i], safePercent(over10s[i], totalRequests)),
+                (over30s[i], safePercent(over30s[i], totalRequests)),
+                (over60s[i], safePercent(over60s[i], totalRequests)),
+                safePercent(totalOver1s[i], totalRequests),
+                safePercent(totalOver10s[i], totalRequests),
+            ))
+        os = StringIO()
+        table.printTable(os=os)
+        print os.getvalue()
         print
         if errorCount:
             print "Number of 500 errors: %d" % (errorCount,)
