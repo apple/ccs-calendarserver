@@ -325,13 +325,20 @@ class ExpressionSyntax(Syntax):
 
 
     def In(self, other):
-        # Can't be Select.__contains__ because __contains__ gets __nonzero__
-        # called on its result by the 'in' syntax.
+        """
+        We support two forms of the SQL "IN" syntax: one where a list of values is supplied, the other where
+        a sub-select is used to provide a set of values.
+
+        @param other: a constant parameter or sub-select
+        @type other: L{Parameter} or L{Select}
+        """
         if isinstance(other, Parameter):
-            if not other.isSet():
-                raise DALError("Parameter in an In(...) expression must be a set of values.")
+            if other.count is None:
+                raise DALError("IN expression needs an explicit count of parameters")
             return CompoundComparison(self, 'in', Constant(other))
         else:
+            # Can't be Select.__contains__ because __contains__ gets __nonzero__
+            # called on its result by the 'in' syntax.
             return CompoundComparison(self, 'in', other)
 
 
@@ -373,6 +380,10 @@ class FunctionInvocation(ExpressionSyntax):
 
 
 class Constant(ExpressionSyntax):
+    """
+    Generates an expression for a place holder where a value will be bound to the query. If the constant is a Parameter
+    with count > 1 then a parenthesized, comma-separated list of place holders will be generated.
+    """
     def __init__(self, value):
         self.value = value
 
@@ -382,9 +393,9 @@ class Constant(ExpressionSyntax):
 
 
     def subSQL(self, queryGenerator, allTables):
-        if isinstance(self.value, Parameter) and self.value.isSet():
+        if isinstance(self.value, Parameter) and self.value.count is not None:
             return _inParens(_CommaList(
-                [SQLFragment(queryGenerator.placeholder.placeholder(), [self.value] if ctr == 0 else []) for ctr in range(self.value.len)]
+                [SQLFragment(queryGenerator.placeholder.placeholder(), [self.value] if ctr == 0 else []) for ctr in range(self.value.count)]
             ).subSQL(queryGenerator, allTables))
         else:
             return SQLFragment(queryGenerator.placeholder.placeholder(), [self.value])
@@ -1602,7 +1613,9 @@ class SQLFragment(object):
         params = []
         for parameter in self.parameters:
             if isinstance(parameter, Parameter):
-                if parameter.isSet():
+                if parameter.count is not None:
+                    if parameter.count != len(kw[parameter.name]):
+                        raise DALError("Number of place holders does not match number of items to bind")
                     for item in kw[parameter.name]:
                         params.append(item)
                 else:
@@ -1640,18 +1653,23 @@ class SQLFragment(object):
 
 
 class Parameter(object):
+    """
+    Used to represent a place holder for a value to be bound to the query
+    at a later date. If count > 1, then a "set" of parenthesized,
+    comma separate place holders will be generated.
+    """
 
-    def __init__(self, name, values=None):
+    def __init__(self, name, count=None):
         self.name = name
-        self.values = values
-        if self.values is not None:
-            self.len = len(values)
+        self.count = count
+        if self.count is not None and self.count < 1:
+            raise DALError("Must have Parameter.count > 0")
 
 
     def __eq__(self, param):
         if not isinstance(param, Parameter):
             return NotImplemented
-        return self.name == param.name
+        return self.name == param.name and self.count == param.count
 
 
     def __ne__(self, param):
@@ -1662,10 +1680,6 @@ class Parameter(object):
 
     def __repr__(self):
         return 'Parameter(%r)' % (self.name,)
-
-
-    def isSet(self):
-        return hasattr(self, "len")
 
 
 
