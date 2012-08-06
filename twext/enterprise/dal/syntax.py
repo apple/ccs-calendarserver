@@ -324,13 +324,15 @@ class ExpressionSyntax(Syntax):
             "SQL expressions should not be tested for truth value in Python.")
 
 
-    def In(self, subselect):
+    def In(self, other):
         # Can't be Select.__contains__ because __contains__ gets __nonzero__
         # called on its result by the 'in' syntax.
-        if isinstance(subselect, ParameterSet):
-            return CompoundComparison(self, 'in', ConstantSet(subselect))
+        if isinstance(other, Parameter):
+            if not other.isSet():
+                raise DALError("Parameter in an In(...) expression must be a set of values.")
+            return CompoundComparison(self, 'in', Constant(other))
         else:
-            return CompoundComparison(self, 'in', subselect)
+            return CompoundComparison(self, 'in', other)
 
 
     def StartsWith(self, other):
@@ -380,24 +382,12 @@ class Constant(ExpressionSyntax):
 
 
     def subSQL(self, queryGenerator, allTables):
-        return SQLFragment(queryGenerator.placeholder.placeholder(), [self.value])
-
-
-
-class ConstantSet(ExpressionSyntax):
-    def __init__(self, value):
-        self.value = value
-
-
-    def allColumns(self):
-        return []
-
-
-    def subSQL(self, queryGenerator, allTables):
-        
-        return _inParens(_CommaList(
-            [SQLFragment(queryGenerator.placeholder.placeholder(), [self.value] if ctr == 0 else []) for ctr in range(self.value.len)]
-        ).subSQL(queryGenerator, allTables))
+        if isinstance(self.value, Parameter) and self.value.isSet():
+            return _inParens(_CommaList(
+                [SQLFragment(queryGenerator.placeholder.placeholder(), [self.value] if ctr == 0 else []) for ctr in range(self.value.len)]
+            ).subSQL(queryGenerator, allTables))
+        else:
+            return SQLFragment(queryGenerator.placeholder.placeholder(), [self.value])
 
 
 
@@ -1612,10 +1602,11 @@ class SQLFragment(object):
         params = []
         for parameter in self.parameters:
             if isinstance(parameter, Parameter):
-                params.append(kw[parameter.name])
-            elif isinstance(parameter, ParameterSet):
-                for item in kw[parameter.name]:
-                    params.append(item)
+                if parameter.isSet():
+                    for item in kw[parameter.name]:
+                        params.append(item)
+                else:
+                    params.append(kw[parameter.name])
             else:
                 params.append(parameter)
         return SQLFragment(self.text, params)
@@ -1650,8 +1641,11 @@ class SQLFragment(object):
 
 class Parameter(object):
 
-    def __init__(self, name):
+    def __init__(self, name, values=None):
         self.name = name
+        self.values = values
+        if self.values is not None:
+            self.len = len(values)
 
 
     def __eq__(self, param):
@@ -1670,28 +1664,8 @@ class Parameter(object):
         return 'Parameter(%r)' % (self.name,)
 
 
-
-class ParameterSet(object):
-
-    def __init__(self, name, items):
-        self.name = name
-        self.len = len(items)
-
-
-    def __eq__(self, param):
-        if not isinstance(param, ParameterSet):
-            return NotImplemented
-        return self.name == param.name
-
-
-    def __ne__(self, param):
-        if not isinstance(param, ParameterSet):
-            return NotImplemented
-        return not self.__eq__(param)
-
-
-    def __repr__(self):
-        return 'ParameterSet(%r)' % (self.name,)
+    def isSet(self):
+        return hasattr(self, "len")
 
 
 
