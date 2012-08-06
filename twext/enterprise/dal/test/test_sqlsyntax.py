@@ -25,7 +25,7 @@ from twext.enterprise.dal.syntax import (
     TableMismatch, Parameter, Max, Len, NotEnoughValues,
     Savepoint, RollbackToSavepoint, ReleaseSavepoint, SavepointAction,
     Union, Intersect, Except, SetExpression, DALError,
-    ResultAliasSyntax, Count, QueryGenerator)
+    ResultAliasSyntax, Count, QueryGenerator, ParameterSet)
 from twext.enterprise.dal.syntax import FixedPlaceholder, NumericPlaceholder
 from twext.enterprise.dal.syntax import Function
 from twext.enterprise.dal.syntax import SchemaSyntax
@@ -683,7 +683,8 @@ class GenerationTests(ExampleSchemaHelper, TestCase):
 
     def test_inSubSelect(self):
         """
-        L{ColumnSyntax.In} returns a sub-expression using the SQL 'in' syntax.
+        L{ColumnSyntax.In} returns a sub-expression using the SQL 'in' syntax with
+        a sub-select.
         """
         wherein = (self.schema.FOO.BAR.In(
                     Select([self.schema.BOZ.QUX], From=self.schema.BOZ)))
@@ -691,6 +692,53 @@ class GenerationTests(ExampleSchemaHelper, TestCase):
             Select(From=self.schema.FOO, Where=wherein).toSQL(),
             SQLFragment(
                 "select * from FOO where BAR in (select QUX from BOZ)"))
+
+
+    def test_inParameterSet(self):
+        """
+        L{ColumnSyntax.In} returns a sub-expression using the SQL 'in' syntax with
+        parameter list.
+        """
+        
+        items = set(('A', 'B'))
+        self.assertEquals(
+            Select(From=self.schema.FOO, Where=self.schema.FOO.BAR.In(ParameterSet("names", items))).toSQL().bind(names=items),
+            SQLFragment(
+                "select * from FOO where BAR in (?, ?)", ['A', 'B']))
+
+        self.assertEquals(
+            Select(
+                From=self.schema.FOO,
+                Where=(self.schema.FOO.BAZ == Parameter('P1')).And(
+                    self.schema.FOO.BAR.In(ParameterSet("names", items)
+                ))
+            ).toSQL().bind(P1="P1", names=items),
+            SQLFragment(
+                "select * from FOO where BAZ = ? and BAR in (?, ?)", ['P1', 'A', 'B']),
+        )
+
+        self.assertEquals(
+            Select(
+                From=self.schema.FOO,
+                Where=(self.schema.FOO.BAR.In(ParameterSet("names", items)).And(
+                    self.schema.FOO.BAZ == Parameter('P2')
+                ))
+            ).toSQL().bind(P2="P2", names=items),
+            SQLFragment(
+                "select * from FOO where BAR in (?, ?) and BAZ = ?", ['A', 'B', 'P2']),
+        )
+
+        self.assertEquals(
+            Select(
+                From=self.schema.FOO,
+                Where=(self.schema.FOO.BAZ == Parameter('P1')).Or(
+                    self.schema.FOO.BAR.In(ParameterSet("names", items)).And(
+                        self.schema.FOO.BAZ == Parameter('P2')
+                ))
+            ).toSQL().bind(P1="P1", P2="P2", names=items),
+            SQLFragment(
+                "select * from FOO where BAZ = ? or BAR in (?, ?) and BAZ = ?", ['P1', 'A', 'B', 'P2']),
+        )
 
 
     def test_max(self):

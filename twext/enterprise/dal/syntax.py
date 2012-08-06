@@ -327,7 +327,10 @@ class ExpressionSyntax(Syntax):
     def In(self, subselect):
         # Can't be Select.__contains__ because __contains__ gets __nonzero__
         # called on its result by the 'in' syntax.
-        return CompoundComparison(self, 'in', subselect)
+        if isinstance(subselect, ParameterSet):
+            return CompoundComparison(self, 'in', ConstantSet(subselect))
+        else:
+            return CompoundComparison(self, 'in', subselect)
 
 
     def StartsWith(self, other):
@@ -378,6 +381,23 @@ class Constant(ExpressionSyntax):
 
     def subSQL(self, queryGenerator, allTables):
         return SQLFragment(queryGenerator.placeholder.placeholder(), [self.value])
+
+
+
+class ConstantSet(ExpressionSyntax):
+    def __init__(self, value):
+        self.value = value
+
+
+    def allColumns(self):
+        return []
+
+
+    def subSQL(self, queryGenerator, allTables):
+        
+        return _inParens(_CommaList(
+            [SQLFragment(queryGenerator.placeholder.placeholder(), [self.value] if ctr == 0 else []) for ctr in range(self.value.len)]
+        ).subSQL(queryGenerator, allTables))
 
 
 
@@ -1593,6 +1613,9 @@ class SQLFragment(object):
         for parameter in self.parameters:
             if isinstance(parameter, Parameter):
                 params.append(kw[parameter.name])
+            elif isinstance(parameter, ParameterSet):
+                for item in kw[parameter.name]:
+                    params.append(item)
             else:
                 params.append(parameter)
         return SQLFragment(self.text, params)
@@ -1645,6 +1668,31 @@ class Parameter(object):
 
     def __repr__(self):
         return 'Parameter(%r)' % (self.name,)
+
+
+
+class ParameterSet(object):
+
+    def __init__(self, name, items):
+        self.name = name
+        self.len = len(items)
+
+
+    def __eq__(self, param):
+        if not isinstance(param, ParameterSet):
+            return NotImplemented
+        return self.name == param.name
+
+
+    def __ne__(self, param):
+        if not isinstance(param, ParameterSet):
+            return NotImplemented
+        return not self.__eq__(param)
+
+
+    def __repr__(self):
+        return 'ParameterSet(%r)' % (self.name,)
+
 
 
 # Common helpers:
