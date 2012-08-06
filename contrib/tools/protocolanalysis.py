@@ -24,6 +24,7 @@ import socket
 import sys
 import tables
 import traceback
+import glob
 
 def safePercent(x, y, multiplier=100):
     return ((multiplier * x) / y) if y else 0
@@ -118,6 +119,7 @@ httpMethods = set((
 METHOD_PROPFIND_CALENDAR_HOME = "PROPFIND Calendar Home"
 METHOD_PROPFIND_CACHED_CALENDAR_HOME = "PROPFIND cached Calendar Home"
 METHOD_PROPFIND_CALENDAR = "PROPFIND Calendar"
+METHOD_PROPFIND_INBOX = "PROPFIND Inbox"
 METHOD_PROPFIND_ADDRESSBOOK_HOME = "PROPFIND Adbk Home"
 METHOD_PROPFIND_CACHED_ADDRESSBOOK_HOME = "PROPFIND cached Adbk Home"
 METHOD_PROPFIND_ADDRESSBOOK = "PROPFIND Adbk"
@@ -184,6 +186,9 @@ METHOD_DELETE_ADDRESSBOOK_HOME = "DELETE Adbk Home"
 METHOD_DELETE_ADDRESSBOOK = "DELETE Adbk"
 METHOD_DELETE_VCF = "DELETE vcf"
 
+# 401s
+METHOD_401 = "Z 401s"
+
 class CalendarServerLogAnalyzer(object):
     
     """
@@ -225,6 +230,7 @@ class CalendarServerLogAnalyzer(object):
         filterByUser=None,
         filterByClient=None,
         ignoreNonHTTPMethods=True,
+        separate401s=True,
     ):
 
         self.startHour = startHour
@@ -234,6 +240,7 @@ class CalendarServerLogAnalyzer(object):
         self.filterByUser = filterByUser
         self.filterByClient = filterByClient
         self.ignoreNonHTTPMethods = ignoreNonHTTPMethods
+        self.separate401s = separate401s
         
         self.startTime = datetime.datetime.now().replace(microsecond=0)
         
@@ -258,7 +265,9 @@ class CalendarServerLogAnalyzer(object):
         self.hourlyByMethodCount = collections.defaultdict(lambda:[0,] * self.timeBucketCount)
         self.hourlyByOKMethodCount = collections.defaultdict(lambda:[0,] * self.timeBucketCount)
         self.hourlyByMethodTime = collections.defaultdict(lambda:[0.0,] * self.timeBucketCount)
+        self.hourlyByOKMethodTime = collections.defaultdict(lambda:[0.0,] * self.timeBucketCount)
         self.averagedHourlyByMethodTime = collections.defaultdict(lambda:[0.0,] * self.timeBucketCount)
+        self.averagedHourlyByOKMethodTime = collections.defaultdict(lambda:[0.0,] * self.timeBucketCount)
         self.hourlyPropfindByResponseCount = collections.defaultdict(lambda:[0,] * self.timeBucketCount)
         
         self.hourlyByStatus = collections.defaultdict(lambda:[0,] * self.timeBucketCount)
@@ -293,8 +302,10 @@ class CalendarServerLogAnalyzer(object):
             f = GzipFile(fpath)
         else:
             f = open(fpath)
-            
-        self.maxIndex = (self.endHour - self.startHour + 1) * 60 / self.resolutionMinutes
+        
+        effectiveStart = self.startHour if self.startHour is not None else 0
+        effectiveEnd = self.endHour if self.endHour is not None else 23
+        self.maxIndex = (effectiveEnd - effectiveStart + 1) * 60 / self.resolutionMinutes
         try:
             lineCtr = 0
             for line in f:
@@ -314,7 +325,7 @@ class CalendarServerLogAnalyzer(object):
                 # Filter method
                 if self.ignoreNonHTTPMethods and not self.currentLine.method.startswith("REPORT(") and self.currentLine.method not in httpMethods:
                     self.currentLine.method = "???"
-
+                    
                 # Do hour ranges
                 logHour = int(self.currentLine.logTime[0:2])
                 logMinute = int(self.currentLine.logTime[3:5])
@@ -324,9 +335,9 @@ class CalendarServerLogAnalyzer(object):
                 hourFromStart = logHour - self.adjustHour
                 if hourFromStart < 0:
                     hourFromStart += 24
-                if logHour < self.startHour:
+                if self.startHour is not None and logHour < self.startHour:
                     continue
-                elif logHour > self.endHour:
+                elif self.endHour is not None and logHour > self.endHour:
                     continue
                 
                 timeBucketIndex = (hourFromStart * 60 + logMinute) / self.resolutionMinutes
@@ -391,12 +402,13 @@ class CalendarServerLogAnalyzer(object):
                 # Method counts, timing and status
                 self.hourlyByMethodCount[" TOTAL"][timeBucketIndex] += 1
                 self.hourlyByMethodCount[adjustedMethod][timeBucketIndex] += 1
-                if isOK:
-                    self.hourlyByOKMethodCount[" TOTAL"][timeBucketIndex] += 1
-                    self.hourlyByOKMethodCount[adjustedMethod][timeBucketIndex] += 1
+                self.hourlyByOKMethodCount[" TOTAL"][timeBucketIndex] += 1
+                self.hourlyByOKMethodCount[adjustedMethod if isOK else METHOD_401][timeBucketIndex] += 1
                 
                 self.hourlyByMethodTime[" TOTAL"][timeBucketIndex] += responseTime
                 self.hourlyByMethodTime[adjustedMethod][timeBucketIndex] += responseTime
+                self.hourlyByOKMethodTime[" TOTAL"][timeBucketIndex] += responseTime
+                self.hourlyByOKMethodTime[adjustedMethod if isOK else METHOD_401][timeBucketIndex] += responseTime
         
                 self.hourlyByStatus[" TOTAL"][timeBucketIndex] += 1
                 self.hourlyByStatus[self.currentLine.status][timeBucketIndex] += 1
@@ -481,6 +493,15 @@ class CalendarServerLogAnalyzer(object):
                 else:
                     newValue = hours[hour]
                 self.averagedHourlyByMethodTime[method][hour] = newValue
+        self.averagedHourlyByOKMethodTime.clear()
+        for method, hours in self.hourlyByOKMethodTime.iteritems():
+            counts = self.hourlyByOKMethodCount[method]
+            for hour in xrange(self.timeBucketCount):
+                if counts[hour]:
+                    newValue = hours[hour] / counts[hour]
+                else:
+                    newValue = hours[hour]
+                self.averagedHourlyByOKMethodTime[method][hour] = newValue
         
         self.averagedResponseTimeVsQueueDepth.clear()
         for k, v in self.responseTimeVsQueueDepth.iteritems():
@@ -648,7 +669,10 @@ class CalendarServerLogAnalyzer(object):
                     if uribits[3] in calendar_specials:
                         return "PROPFIND %s" % (uribits[3],)
                     elif len(uribits) == 4:
-                        return METHOD_PROPFIND_CALENDAR
+                        if uribits[3] == "inbox":
+                            return METHOD_PROPFIND_INBOX
+                        else:
+                            return METHOD_PROPFIND_CALENDAR
     
             elif uribits[0] == "addressbooks":
                 
@@ -926,10 +950,24 @@ class CalendarServerLogAnalyzer(object):
             self.printClientTotals(doTabs)
             
             print "Protocol Analysis Count"
-            self.printHourlyByXXXDetails(self.hourlyByMethodCount, doTabs)
+            self.printHourlyByXXXDetails(
+                self.hourlyByOKMethodCount if self.separate401s else self.hourlyByMethodCount,
+                doTabs,
+            )
             
             print "Protocol Analysis Average Response Time (ms)"
-            self.printHourlyByXXXDetails(self.averagedHourlyByMethodTime, doTabs, showAverages=True)
+            self.printHourlyByXXXDetails(
+                self.averagedHourlyByOKMethodTime if self.separate401s else self.averagedHourlyByMethodTime,
+                doTabs,
+                showAverages=True,
+            )
+            
+            print "Protocol Analysis Total Response Time (ms)"
+            self.printHourlyByXXXDetails(
+                self.hourlyByOKMethodTime if self.separate401s else self.hourlyByMethodTime,
+                doTabs,
+                showFloatPercent=True,
+            )
             
             print "Status Code Analysis"
             self.printHourlyByXXXDetails(self.hourlyByStatus, doTabs)
@@ -1109,7 +1147,7 @@ class CalendarServerLogAnalyzer(object):
         table.printTabDelimitedData() if doTabs else table.printTable()
         print ""
     
-    def printHourlyByXXXDetails(self, hourlyByXXX, doTabs, showTotals=True, showAverages=False):
+    def printHourlyByXXXDetails(self, hourlyByXXX, doTabs, showTotals=True, showAverages=False, showFloatPercent=False):
     
         totals = [(0, 0,)] * len(hourlyByXXX)
         table = tables.Table()
@@ -1173,7 +1211,10 @@ class CalendarServerLogAnalyzer(object):
                     if data:
                         totals[colctr] = (totals[colctr][0] + data, totals[colctr][1] + 1,)
                 elif type(data) is float:
-                    row[colctr + 1] = "%.1f" % (data,)
+                    if total is not None and showFloatPercent:
+                        row[colctr + 1] = "%.1f (%2d%%)" % (data, safePercent(data, total),)
+                    else:
+                        row[colctr + 1] = "%.1f" % (data,)
                     if data:
                         totals[colctr] = (totals[colctr][0] + data, totals[colctr][1] + 1,)
             table.addRow(row)
@@ -1187,7 +1228,10 @@ class CalendarServerLogAnalyzer(object):
                     row[colctr + 1] = "%d (%2d%%)" % (data, safePercent(data, totals[0][0]),)
                 elif type(data) is float:
                     data = ((data / count) if count else 0.0) if showAverages else data
-                    row[colctr + 1] = "%.1f" % (data,)
+                    if showFloatPercent:
+                        row[colctr + 1] = "%.1f (%2d%%)" % (data, safePercent(data, totals[0][0]),)
+                    else:
+                        row[colctr + 1] = "%.1f" % (data,)
             table.addFooter(row)
     
         table.printTabDelimitedData() if doTabs else table.printTable()
@@ -1998,21 +2042,27 @@ if __name__ == "__main__":
 
         pwd = os.getcwd()
 
-        analyzers = []
+        logs = []
         for arg in args:
             arg = os.path.expanduser(arg)
             if not arg.startswith("/"):
                 arg = os.path.join(pwd, arg)
             if arg.endswith("/"):
                 arg = arg[:-1]
-            if not os.path.exists(arg):
-                print "Path does not exist: '%s'. Ignoring." % (arg,)
-                continue
+            if "*" in arg:
+                logs.extend(glob.iglob(arg))
+            else:
+                if not os.path.exists(arg):
+                    print "Path does not exist: '%s'. Ignoring." % (arg,)
+                    continue
+                logs.append(arg)
            
+        analyzers = []
+        for log in logs:
             if diffMode or not analyzers:
                 analyzers.append(CalendarServerLogAnalyzer(startHour, endHour, utcoffset, resolution, filterByUser, filterByClient))
-            print "Analyzing: %s" % (arg,)
-            analyzers[-1].analyzeLogFile(arg)
+            print "Analyzing: %s" % (log,)
+            analyzers[-1].analyzeLogFile(log)
 
         if diffMode and len(analyzers) > 1:
             Differ(analyzers).printAll(doTabDelimited, summary)
