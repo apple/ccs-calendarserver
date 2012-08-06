@@ -453,6 +453,7 @@ DEFAULT_CONFIG = {
     "LogDatabase" : {
         "LabelsInSQL"            : False,
         "Statistics"             : False,
+        "StatisticsLogFile"      : "sqlstats.log",
         "SQLStatements"          : False,
         "TransactionWaitSeconds" : 0, 
     },
@@ -1024,6 +1025,7 @@ RELATIVE_PATHS = [
     ("LogRoot", "AccessLogFile"),
     ("LogRoot", "ErrorLogFile"),
     ("LogRoot", ("Postgres", "LogFile",)),
+    ("LogRoot", ("LogDatabase", "StatisticsLogFile",)),
     ("LogRoot", "AccountingLogRoot"),
     ("RunRoot", "PIDFile"),
     ("RunRoot", "GlobalStatsSocket"),

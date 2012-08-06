@@ -800,6 +800,18 @@ class CommonHomeChild(FileMetaDataMixin, LoggingMixIn, FancyEqMixin):
                 for name in self.listObjectResources()]
 
 
+    def objectResourcesWithNames(self, names):
+        """
+        Return a list of the specified object resource objects.
+        """
+        results = []
+        for name in names:
+            obj = self.objectResourceWithName(name)
+            if obj is not None:
+                results.append(obj)
+        return results
+
+
     def listObjectResources(self):
         """
         Return a list of object resource names.

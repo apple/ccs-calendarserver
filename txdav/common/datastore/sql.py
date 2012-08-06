@@ -91,7 +91,6 @@ from pycalendar.datetime import PyCalendarDateTime
 from cStringIO import StringIO
 from sqlparse import parse
 import collections
-import sys
 import time
 
 current_sql_schema = getModule(__name__).filePath.sibling("sql_schema").child("current.sql").getContent()
@@ -143,7 +142,7 @@ class CommonDataStore(Service, object):
     def __init__(self, sqlTxnFactory, notifierFactory, attachmentsPath,
                  enableCalendars=True, enableAddressBooks=True,
                  label="unlabeled", quota=(2 ** 20),
-                 logLabels=False, logStats=False, logSQL=False,
+                 logLabels=False, logStats=False, logStatsLogFile=None, logSQL=False,
                  logTransactionWaits=0, timeoutTransactions=0,
                  cacheQueries=True, cachePool="Default",
                  cacheExpireSeconds=3600):
@@ -158,6 +157,7 @@ class CommonDataStore(Service, object):
         self.quota = quota
         self.logLabels = logLabels
         self.logStats = logStats
+        self.logStatsLogFile = logStatsLogFile
         self.logSQL = logSQL
         self.logTransactionWaits = logTransactionWaits
         self.timeoutTransactions = timeoutTransactions
@@ -220,35 +220,69 @@ class CommonDataStore(Service, object):
 
 
 class TransactionStatsCollector(object):
+    """
+    Used to log each SQL query and statistics about that query during the course of a single transaction.
+    Results can be printed out where ever needed at the end of the transaction.
+    """
     
-    def __init__(self):
-        self.count = collections.defaultdict(int)
-        self.times = collections.defaultdict(float)
+    def __init__(self, label, logFileName=None):
+        self.label = label
+        self.logFileName = logFileName
+        self.statements = []
     
-    def startStatement(self, sql):
-        self.count[sql] += 1
-        return sql, time.time()
+    def startStatement(self, sql, args):
+        """
+        Called prior to an SQL query being run.
 
-    def endStatement(self, context):
-        sql, tstamp = context
-        self.times[sql] += time.time() - tstamp
+        @param sql: the SQL statement to execute
+        @type sql: C{str}
+        @param args: the arguments (binds) to the SQL statement
+        @type args: C{list}
         
-    def printReport(self, toFile=sys.stdout):
+        @return: C{tuple} containing the index in the statement list for this statement, and the start time
+        """
+        args = ["%s" % (arg,) for arg in args]
+        args = [((arg[:10] + "...") if len(arg) > 40 else arg) for arg in args]
+        self.statements.append(["%s %s" % (sql, args,), 0, 0])
+        return len(self.statements) - 1, time.time()
+
+    def endStatement(self, context, rows):
+        """
+        Called after an SQL query has executed.
+
+        @param context: the tuple returned from startStatement
+        @type context: C{tuple}
+        @param rows: number of rows returned from the query
+        @type rows: C{int}
+        """
+        index, tstamp = context
+        self.statements[index][1] = len(rows) if rows else 0
+        self.statements[index][2] = time.time() - tstamp
         
+    def printReport(self):
+        """
+        Print a report of all the SQL statements executed to date.
+        """
+        
+        toFile = StringIO()
         toFile.write("*** SQL Stats ***\n")
         toFile.write("\n")
-        toFile.write("Unique statements: %d\n" % (len(self.count,),))
-        toFile.write("Total statements: %d\n" % (sum(self.count.values()),))
-        toFile.write("Total time (ms): %.3f\n" % (sum(self.times.values()) * 1000.0,))
-        toFile.write("\n")
-        for k, v in self.count.items():
-            toFile.write("%s\n" % (k,))
-            toFile.write("Count: %s\n" % (v,))
-            toFile.write("Total Time (ms): %.3f\n" % (self.times[k] * 1000.0,))
-            if v > 1:
-                toFile.write("Average Time (ms): %.3f\n" % (self.times[k] * 1000.0 / v,))
+        toFile.write("Label: %s\n" % (self.label,))
+        toFile.write("Unique statements: %d\n" % (len(set([statement[0] for statement in self.statements]),),))
+        toFile.write("Total statements: %d\n" % (len(self.statements),))
+        toFile.write("Total rows: %d\n" % (sum([statement[1] for statement in self.statements]),))
+        toFile.write("Total time (ms): %.3f\n" % (sum([statement[2] for statement in self.statements]) * 1000.0,))
+        for sql, rows, t in self.statements:
             toFile.write("\n")
-        toFile.write("***\n")
+            toFile.write("SQL: %s\n" % (sql,))
+            toFile.write("Rows: %s\n" % (rows,))
+            toFile.write("Time (ms): %.3f\n" % (t,))
+        toFile.write("***\n\n")
+        
+        if self.logFileName:
+            open(self.logFileName, "a").write(toFile.getvalue())
+        else:
+            log.error(toFile.getvalue())
 
 class CommonStoreTransactionMonitor(object):
     """
@@ -349,7 +383,7 @@ class CommonStoreTransaction(object):
         self.paramstyle = sqlTxn.paramstyle
         self.dialect = sqlTxn.dialect
 
-        self._stats = TransactionStatsCollector() if self._store.logStats else None
+        self._stats = TransactionStatsCollector(self._label, self._store.logStatsLogFile) if self._store.logStats else None
         self.statementCount = 0
         self.iudCount = 0
         self.currentStatement = None
@@ -702,7 +736,7 @@ class CommonStoreTransaction(object):
         Execute some SQL (delegate to L{IAsyncTransaction}).
         """
         if self._stats:        
-            statsContext = self._stats.startStatement(a[0])
+            statsContext = self._stats.startStatement(a[0], a[1])
         self.currentStatement = a[0]
         if self._store.logTransactionWaits and a[0].split(" ", 1)[0].lower() in ("insert", "update", "delete",):
             self.iudCount += 1
@@ -716,7 +750,7 @@ class CommonStoreTransaction(object):
         finally:
             self.currentStatement = None
             if self._stats:        
-                self._stats.endStatement(statsContext)
+                self._stats.endStatement(statsContext, results)
         returnValue(results)
 
     @inlineCallbacks
@@ -751,9 +785,7 @@ class CommonStoreTransaction(object):
             returnValue(ignored)
 
         if self._stats:
-            s = StringIO()
-            self._stats.printReport(s)
-            log.error(s.getvalue())
+            self._stats.printReport()
 
         return self._sqlTxn.commit().addCallback(postCommit)
 
@@ -2717,6 +2749,19 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
         returnValue(results)
 
 
+    @inlineCallbacks
+    def objectResourcesWithNames(self, names):
+        """
+        Load and cache all named children - set of names optimization
+        """
+        results = (yield self._objectResourceClass.loadAllObjectsWithNames(self, names))
+        for result in results:
+            self._objects[result.name()] = result
+            self._objects[result.uid()] = result
+        self._objectNames = sorted([result.name() for result in results])
+        returnValue(results)
+
+
     @classproperty
     def _objectResourceNamesQuery(cls): #@NoSelf
         """
@@ -3100,6 +3145,8 @@ class CommonObjectResource(LoggingMixIn, FancyEqMixin):
 
     _objectSchema = None
 
+    BATCH_LOAD_SIZE = 50
+
     def __init__(self, parent, name, uid, resourceID=None, metadata=None):
         self._parentCollection = parent
         self._resourceID = resourceID
@@ -3146,6 +3193,72 @@ class CommonObjectResource(LoggingMixIn, FancyEqMixin):
                     cls._objectSchema.RESOURCE_ID,
                     cls._objectSchema.PARENT_RESOURCE_ID,
                     parent._resourceID
+                ))
+            else:
+                propertyStores = {}
+
+        # Create the actual objects merging in properties
+        for row in dataRows:
+            child = cls(parent, "", None)
+            child._initFromRow(tuple(row))
+            yield child._loadPropertyStore(
+                props=propertyStores.get(child._resourceID, None)
+            )
+            results.append(child)
+
+        returnValue(results)
+
+    @classmethod
+    def _allColumnsWithParentAndNames(cls, names): #@NoSelf
+        obj = cls._objectSchema
+        return Select(cls._allColumns, From=obj,
+                      Where=(obj.PARENT_RESOURCE_ID == Parameter("parentID")).And(
+                          obj.RESOURCE_NAME.In(Parameter("names", len(names)))))
+
+
+    @classmethod
+    @inlineCallbacks
+    def loadAllObjectsWithNames(cls, parent, names):
+        """
+        Load all child objects with the specified names, doing so in batches.
+        """
+        names = tuple(names)
+        results = []
+        while(len(names)):
+            result_batch = (yield cls._loadAllObjectsWithNames(parent, names[:cls.BATCH_LOAD_SIZE]))
+            results.extend(result_batch)
+            names = names[cls.BATCH_LOAD_SIZE:]
+        
+        returnValue(results)
+            
+    @classmethod
+    @inlineCallbacks
+    def _loadAllObjectsWithNames(cls, parent, names):
+        """
+        Load all child objects with the specified names. This must create the
+        child classes and initialize them using "batched" SQL operations to keep
+        this constant wrt the number of children. This is an optimization for
+        Depth:1 operations on the collection.
+        """
+
+        # Optimize case of single name to load
+        if len(names) == 1:
+            obj = yield cls.objectWithName(parent, names[0], None)
+            returnValue([obj] if obj else [])
+
+        results = []
+
+        # Load from the main table first
+        dataRows = yield cls._allColumnsWithParentAndNames(names).on(
+            parent._txn, parentID=parent._resourceID, names=names)
+
+        if dataRows:
+            # Get property stores for all these child resources
+            if parent.objectResourcesHaveProperties():
+                propertyStores =(yield PropertyStore.forMultipleResourcesWithResourceIDs(
+                    parent._home.uid(),
+                    parent._txn,
+                    tuple([row[0] for row in dataRows]),
                 ))
             else:
                 propertyStores = {}

@@ -34,7 +34,7 @@ from txdav.caldav.datastore.test.common import CommonTests as CalendarCommonTest
     test_event_text
 from txdav.caldav.datastore.test.test_file import setUpCalendarStore
 from txdav.caldav.datastore.util import _migrateCalendar, migrateHome
-from txdav.common.datastore.sql import ECALENDARTYPE
+from txdav.common.datastore.sql import ECALENDARTYPE, CommonObjectResource
 from txdav.common.datastore.sql_legacy import PostgresLegacyIndexEmulator
 from txdav.common.datastore.sql_tables import schema, _BIND_MODE_DIRECT,\
     _BIND_STATUS_ACCEPTED
@@ -1324,3 +1324,93 @@ END:VCALENDAR
         
         yield calendar.removeCalendarObjectWithName("indexing.ics")
         yield self.commit()
+
+    @inlineCallbacks
+    def test_loadObjectResourcesWithName(self):
+        """
+        L{CommonHomeChild.objectResourcesWithNames} returns the correct set of object resources
+        properly configured with a loaded property store. make sure batching works.
+        """
+
+        @inlineCallbacks
+        def _tests(cal):
+            resources = yield cal.objectResourcesWithNames(("1.ics",))
+            self.assertEqual(set([resource.name() for resource in resources]), set(("1.ics",)))
+    
+            resources = yield cal.objectResourcesWithNames(("1.ics", "2.ics",))
+            self.assertEqual(set([resource.name() for resource in resources]), set(("1.ics", "2.ics",)))
+    
+            resources = yield cal.objectResourcesWithNames(("1.ics", "2.ics", "3.ics",))
+            self.assertEqual(set([resource.name() for resource in resources]), set(("1.ics", "2.ics", "3.ics",)))
+    
+            resources = yield cal.objectResourcesWithNames(("1.ics", "2.ics", "3.ics", "4.ics",))
+            self.assertEqual(set([resource.name() for resource in resources]), set(("1.ics", "2.ics", "3.ics", "4.ics",)))
+    
+            resources = yield cal.objectResourcesWithNames(("bogus1.ics",))
+            self.assertEqual(set([resource.name() for resource in resources]), set())
+    
+            resources = yield cal.objectResourcesWithNames(("bogus1.ics", "2.ics",))
+            self.assertEqual(set([resource.name() for resource in resources]), set(("2.ics",)))
+
+        # Basic load tests
+        cal = yield self.calendarUnderTest()
+        yield _tests(cal)
+
+        # Adjust batch size and try again
+        self.patch(CommonObjectResource, "BATCH_LOAD_SIZE", 2)
+        yield _tests(cal)
+        
+        yield self.commit()
+
+        # Tests on inbox - resources with properties
+        txn = self.transactionUnderTest()
+        yield txn.homeWithUID(ECALENDARTYPE, "byNameTest", create=True)
+        inbox = yield self.calendarUnderTest(txn=txn, name="inbox", home="byNameTest")
+        caldata = """BEGIN:VCALENDAR
+VERSION:2.0
+CALSCALE:GREGORIAN
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+METHOD:REQUEST
+BEGIN:VEVENT
+UID:instance
+DTSTART:%(now)s0102T140000Z
+DURATION:PT1H
+CREATED:20060102T190000Z
+DTSTAMP:20051222T210507Z
+RRULE:FREQ=DAILY
+SUMMARY:instance
+END:VEVENT
+END:VCALENDAR
+""".replace("\n", "\r\n") % self.nowYear
+        component = Component.fromString(caldata)
+
+        @inlineCallbacks
+        def _createInboxItem(rname, pvalue):
+            obj = yield inbox.createCalendarObjectWithName(rname, component)
+            prop = caldavxml.CalendarDescription.fromString(pvalue)
+            obj.properties()[PropertyName.fromElement(prop)] = prop
+
+        yield _createInboxItem("1.ics", "p1")
+        yield _createInboxItem("2.ics", "p2")
+        yield _createInboxItem("3.ics", "p3")
+        yield _createInboxItem("4.ics", "p4")
+        yield self.commit()
+
+        inbox = yield self.calendarUnderTest(name="inbox", home="byNameTest")
+        yield _tests(inbox)
+
+        resources = yield inbox.objectResourcesWithNames(("1.ics",))
+        prop = caldavxml.CalendarDescription.fromString("p1")
+        self.assertEqual(resources[0].properties()[PropertyName.fromElement(prop)], prop)
+
+        resources = yield inbox.objectResourcesWithNames(("1.ics", "2.ics",))
+        resources.sort(key=lambda x:x._name)
+        prop = caldavxml.CalendarDescription.fromString("p1")
+        self.assertEqual(resources[0].properties()[PropertyName.fromElement(prop)], prop)
+        prop = caldavxml.CalendarDescription.fromString("p2")
+        self.assertEqual(resources[1].properties()[PropertyName.fromElement(prop)], prop)
+
+        resources = yield inbox.objectResourcesWithNames(("bogus1.ics", "2.ics",))
+        resources.sort(key=lambda x:x._name)
+        prop = caldavxml.CalendarDescription.fromString("p2")
+        self.assertEqual(resources[0].properties()[PropertyName.fromElement(prop)], prop)

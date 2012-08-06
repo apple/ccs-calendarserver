@@ -28,10 +28,9 @@ from txdav.xml import element as davxml
 from txdav.xml.base import dav_namespace
 from twext.web2.dav.http import ErrorResponse, MultiStatusResponse
 from twext.web2.dav.resource import AccessDeniedError
-from twext.web2.dav.util import joinURL
 from twext.web2.http import HTTPError, StatusResponse
 
-from twisted.internet.defer import inlineCallbacks, returnValue, maybeDeferred
+from twisted.internet.defer import inlineCallbacks, returnValue
 
 from twistedcaldav import carddavxml
 from twistedcaldav.caldavxml import caldav_namespace
@@ -180,37 +179,24 @@ def multiget_common(self, request, multiget, collection_type):
             for href in resources:
                 resource_uri = str(href)
                 name = unquote(resource_uri[resource_uri.rfind("/") + 1:])
-                child = (yield maybeDeferred(self.getChild, name))
-                if not self._isChildURI(request, resource_uri) or child is None or not child.exists():
-                    responses.append(davxml.StatusResponse(href, davxml.Status.fromResponseCode(responsecode.NOT_FOUND)))
+                if not self._isChildURI(request, resource_uri):
+                    responses.append(davxml.StatusResponse(href, davxml.Status.fromResponseCode(responsecode.BAD_REQUEST)))
                 else:
                     valid_names.append(name)
             if not valid_names:
                 returnValue(None)
         
-            # Verify that valid requested resources are calendar objects
-            exists_names = tuple(
-                (yield self.index().resourcesExist(valid_names))
-            )
-            checked_names = []
-            for name in valid_names:
-                if name not in exists_names:
-                    href = davxml.HRef.fromString(joinURL(request.uri, name))
-                    responses.append(davxml.StatusResponse(href, davxml.Status.fromResponseCode(responsecode.FORBIDDEN)))
-                else:
-                    checked_names.append(name)
-            if not checked_names:
-                returnValue(None)
-            
             # Now determine which valid resources are readable and which are not
             ok_resources = []
             bad_resources = []
+            missing_resources = []
             yield self.findChildrenFaster(
                 "1",
                 request,
                 lambda x, y: ok_resources.append((x, y)),
                 lambda x, y: bad_resources.append((x, y)),
-                checked_names,
+                lambda x: missing_resources.append(x),
+                valid_names,
                 (davxml.Read(),),
                 inherited_aces=filteredaces
             )
@@ -244,6 +230,10 @@ def multiget_common(self, request, multiget, collection_type):
             # Indicate error for all valid non-readable resources
             for ignore_resource, href in bad_resources:
                 responses.append(davxml.StatusResponse(davxml.HRef.fromString(href), davxml.Status.fromResponseCode(responsecode.FORBIDDEN)))
+
+            # Indicate error for all missing resources
+            for href in missing_resources:
+                responses.append(davxml.StatusResponse(davxml.HRef.fromString(href), davxml.Status.fromResponseCode(responsecode.NOT_FOUND)))
     
         @inlineCallbacks
         def doDirectoryAddressBookResponse():

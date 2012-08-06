@@ -233,6 +233,7 @@ def storeFromConfig(config, txnFactory):
             quota=quota,
             logLabels=config.LogDatabase.LabelsInSQL,
             logStats=config.LogDatabase.Statistics,
+            logStatsLogFile=config.LogDatabase.StatisticsLogFile,
             logSQL=config.LogDatabase.SQLStatements,
             logTransactionWaits=config.LogDatabase.TransactionWaitSeconds,
             timeoutTransactions=config.TransactionTimeoutSeconds,

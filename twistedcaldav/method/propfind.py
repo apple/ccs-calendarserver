@@ -138,6 +138,7 @@ def http_PROPFIND(self, request):
         lambda x, y: resources.append((True, x, y)),
         lambda x, y: resources.append((False, x, y)),
         None,
+        None,
         (davxml.Read(),),
         inherited_aces=filtered_aces,
     )

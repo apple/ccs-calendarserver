@@ -681,7 +681,7 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
 
     @inlineCallbacks
     def findChildrenFaster(
-        self, depth, request, okcallback, badcallback,
+        self, depth, request, okcallback, badcallback, missingcallback,
         names, privileges, inherited_aces
     ):
         """
@@ -699,6 +699,8 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
             that pass the privilege check, or C{None}
         @param badcallback: a callback function used on all resources
             that fail the privilege check, or C{None}
+        @param missingcallback: a callback function used on all resources
+            that are missing, or C{None}
         @param names: a C{list} of C{str}'s containing the names of
             the child resources to lookup. If empty or C{None} all
             children will be examined, otherwise only the ones in the
@@ -738,6 +740,10 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
                     children.append((child, childpath + "/"))
                 else:
                     children.append((child, childpath))
+
+        if missingcallback:
+            for name in set(names1) - set(childnames):
+                missingcallback(joinURL(basepath, urllib.quote(name)))
 
         # Generate (acl,supported_privs) map
         aclmap = {}
@@ -780,7 +786,7 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
                         yield collection.inheritedACEsforChildren(request)
                     )
                     yield collection.findChildrenFaster(
-                        depth, request, okcallback, badcallback,
+                        depth, request, okcallback, badcallback, missingcallback,
                         child_collections[collection_name] if names else None, privileges,
                         inherited_aces=collection_inherited_aces
                     )

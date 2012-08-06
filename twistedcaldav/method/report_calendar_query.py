@@ -207,6 +207,7 @@ def report_urn_ietf_params_xml_ns_caldav_calendar_query(self, request, calendar_
                     request,
                     lambda x, y: ok_resources.append((x, y)),
                     None,
+                    None,
                     names,
                     (davxml.Read(),),
                     inherited_aces=filteredaces

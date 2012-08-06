@@ -129,9 +129,58 @@ class PropertyStore(AbstractPropertyStore):
             Where=parentColumn == parentID
         )
         rows = yield query.on(txn)
+        stores = cls._createMultipleStores(defaultUser, txn, rows)
+        returnValue(stores)
+
+
+    @classmethod
+    @inlineCallbacks
+    def forMultipleResourcesWithResourceIDs(cls, defaultUser, txn, resourceIDs):
+        """
+        Load all property stores for all specified resources.  This is used
+        to optimize Depth:1 operations on that collection, by loading all
+        relevant properties in a single query. Note that the caller of this
+        method must make sure that the number of items being queried for is
+        within a reasonable batch size. If the caller is itself batching
+        related queries, that will take care of itself.
+
+        @param defaultUser: the UID of the user who owns / is requesting the
+            property stores; the ones whose per-user properties will be exposed.
+
+        @type defaultUser: C{str}
+
+        @param txn: the transaction within which to fetch the rows.
+
+        @type txn: L{IAsyncTransaction}
+
+        @param resourceIDs: The set of resource ID's to query.
+
+        @return: a L{Deferred} that fires with a C{dict} mapping resource ID (a
+            value taken from C{childColumn}) to a L{PropertyStore} for that ID.
+        """
+        query = Select([
+            prop.RESOURCE_ID, prop.NAME, prop.VIEWER_UID, prop.VALUE],
+            From=prop,
+            Where=prop.RESOURCE_ID.In(Parameter("resourceIDs", len(resourceIDs)))
+        )
+        rows = yield query.on(txn, resourceIDs=resourceIDs)
+        stores = cls._createMultipleStores(defaultUser, txn, rows)
+        returnValue(stores)
+
+
+    @classmethod
+    def _createMultipleStores(cls, defaultUser, txn, rows):
+        """
+        Create a set of stores for the set of rows passed in.
+        """
 
         createdStores = {}
-        for object_resource_id, resource_id, name, view_uid, value in rows:
+        for row in rows:
+            if len(row) == 5:
+                object_resource_id, resource_id, name, view_uid, value = row
+            else:
+                object_resource_id = None
+                resource_id, name, view_uid, value = row
             if resource_id:
                 if resource_id not in createdStores:
                     store = cls.__new__(cls)
@@ -141,7 +190,7 @@ class PropertyStore(AbstractPropertyStore):
                     store._cached = {}
                     createdStores[resource_id] = store
                 createdStores[resource_id]._cached[(name, view_uid)] = value
-            else:
+            elif object_resource_id:
                 store = cls.__new__(cls)
                 super(PropertyStore, store).__init__(defaultUser)
                 store._txn = txn
@@ -149,7 +198,7 @@ class PropertyStore(AbstractPropertyStore):
                 store._cached = {}
                 createdStores[object_resource_id] = store
 
-        returnValue(createdStores)
+        return createdStores
 
 
     def _getitem_uid(self, key, uid):

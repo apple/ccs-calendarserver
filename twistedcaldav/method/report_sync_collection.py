@@ -128,6 +128,7 @@ def report_DAV__sync_collection(self, request, sync_collection):
             request,
             lambda x, y: ok_resources.append((x, y)),
             lambda x, y: forbidden_resources.append((x, y)),
+            None,
             changed,
             (element.Read(),),
             inherited_aces=filteredaces
