@@ -90,7 +90,6 @@ from pycalendar.datetime import PyCalendarDateTime
 
 from cStringIO import StringIO
 from sqlparse import parse
-import collections
 import time
 
 current_sql_schema = getModule(__name__).filePath.sibling("sql_schema").child("current.sql").getContent()
