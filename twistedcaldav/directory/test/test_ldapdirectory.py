@@ -153,7 +153,7 @@ else:
                     "operand" : "or",
                     "recordType" : "groups",
                     "expected" : None,
-                    "optimize" : "(&(uid=*)(generateduid=*)(|(cn=mor*)(cn=sag*)(mail=mor*)(mail=sag*)(givenName=mor*)(givenName=sag*)(sn=mor*)(sn=sag*)))",
+                    "optimize" : True,
                 },
                 {
                     "fields" : [
