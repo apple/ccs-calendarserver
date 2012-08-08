@@ -404,6 +404,7 @@ class ImplicitScheduler(object):
         
         # Get the ATTENDEEs
         self.attendeesByInstance = self.calendar.getAttendeesByInstance(True, onlyScheduleAgentServer=True)
+        self.instances = set(self.calendar.getComponentInstances())
         self.attendees = set()
         for attendee, _ignore in self.attendeesByInstance:
             self.attendees.add(attendee)
@@ -530,6 +531,7 @@ class ImplicitScheduler(object):
             # Read in existing data
             self.oldcalendar = (yield self.resource.iCalendarForUser(self.request))
             self.oldAttendeesByInstance = self.oldcalendar.getAttendeesByInstance(True, onlyScheduleAgentServer=True)
+            self.oldInstances = set(self.oldcalendar.getComponentInstances())
             self.coerceAttendeesPartstatOnModify()
             
             # Don't allow any SEQUENCE to decrease
@@ -705,10 +707,8 @@ class ImplicitScheduler(object):
         mappedNew = set(self.attendeesByInstance)
         
         # Get missing instances
-        oldInstances = set(self.oldcalendar.getComponentInstances())
-        newInstances = set(self.calendar.getComponentInstances())
-        removedInstances = oldInstances - newInstances
-        addedInstances = newInstances - oldInstances
+        removedInstances = self.oldInstances - self.instances
+        addedInstances = self.instances - self.oldInstances
 
         # Also look for new EXDATEs
         oldexdates = set()
