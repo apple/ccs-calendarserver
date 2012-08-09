@@ -74,14 +74,14 @@ if ! "${build}"; then
   if "${install}"; then usage "-i flag requires -b"; fi;
   if "${package}"; then usage "-p flag requires -b"; fi;
 
-  if [ $# == 0 ]; then usage "No releases specified"; fi;
-  releases="$@"; shift $#;
-
   if ! "${submission_enabled}"; then
     echo "Submissions from this branch are not enabled.";
     exit 1;
   fi;
 fi;
+
+if [ $# == 0 ]; then usage "No releases specified"; fi;
+releases="$@"; shift $#;
 
 if [ $# != 0 ]; then usage "Unrecognized arguments:" "$@"; fi;
 
@@ -174,9 +174,14 @@ if "${build}"; then
     merge_flags="";
   fi;
 
+  release_flags="";
+  for release in "${releases}"; do
+      release_flags="${release_flags} -release ${release}";
+  done;
+
   sudo buildit "${wc}" \
     $(file /System/Library/Frameworks/Python.framework/Versions/Current/Python | sed -n -e 's|^.*(for architecture \([^)][^)]*\).*$|-arch \1|p' | sed 's|ppc7400|ppc|') \
-    ${merge_flags};
+    ${merge_flags}${release_flags};
 
   if "${package}"; then
     package_file="${project_version}.tgz";
