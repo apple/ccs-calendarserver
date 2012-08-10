@@ -188,7 +188,7 @@ def doSetup():
                     if line == "#PYTHONPATH":
                         script.append('PYTHONPATH="%s:$PYTHONPATH"' % (install_lib,))
                     elif line == "#PATH":
-                        script.append('PATH="%s:$PATH"' % (os.path.join(base, "bin"),))
+                        script.append('PATH="%s:$PATH"' % (os.path.join(base, "usr", "bin"),))
                     else:
                         script.append(line)
 
@@ -196,7 +196,7 @@ def doSetup():
                     if line == "#PYTHONPATH":
                         script.append('PYTHONPATH="%s"' % (install_lib,))
                     elif line == "#PATH":
-                        script.append('PATH="%s"' % (os.path.join(base, "bin"),))
+                        script.append('PATH="%s"' % (os.path.join(base, "usr", "bin"),))
                     else:
                         script.append(line)
 
