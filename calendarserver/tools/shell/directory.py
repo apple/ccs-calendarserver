@@ -37,16 +37,8 @@ from calendarserver.tools.tables import Table
 
 @inlineCallbacks
 def findRecords(directory, terms):
-    for term in terms:
-        searchFieldNames = ("fullName", "firstName", "lastName", "emailAddresses")
-        searchFields = tuple(
-            (fieldName, term, True, "contains")
-            for fieldName in searchFieldNames
-        )
-
-    records = (yield directory.recordsMatchingFields(searchFields))
-
-    returnValue(sorted(tuple(records), key=operator.attrgetter("fullName")))
+    records = tuple((yield directory.recordsMatchingTokens(terms)))
+    returnValue(sorted(records, key=operator.attrgetter("fullName")))
 
 
 @inlineCallbacks
