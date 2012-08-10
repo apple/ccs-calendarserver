@@ -16,7 +16,7 @@
 
 try:
     from twistedcaldav.directory.ldapdirectory import (
-        buildFilter, LdapDirectoryService,
+        buildFilter, buildFilterFromTokens, LdapDirectoryService,
         MissingGuidException, MissingRecordNameException,
         normalizeDNstr, dnContainedIn
     )
@@ -190,6 +190,79 @@ else:
                 self.assertEquals(
                     buildFilter(entry["recordType"], mapping, entry["fields"],
                         operand=entry["operand"], optimizeMultiName=entry["optimize"]),
+                    entry["expected"]
+                )
+
+
+    class BuildFilterFromTokensTestCase(TestCase):
+
+        def test_buildFilterFromTokens(self):
+
+            entries = [
+                {
+                    "tokens" : ["foo"],
+                    "mapping" : {
+                        "fullName" : "cn",
+                        "emailAddresses" : "mail",
+                    },
+                    "expected" : "(|(cn=*foo*)(mail=*foo*))",
+                },
+                {
+                    "tokens" : ["foo"],
+                    "mapping" : {
+                        "fullName" : "cn",
+                        "emailAddresses" : ["mail", "mailAliases"],
+                    },
+                    "expected" : "(|(cn=*foo*)(mail=*foo*)(mailAliases=*foo*))",
+                },
+                {
+                    "tokens" : [],
+                    "mapping" : {
+                        "fullName" : "cn",
+                        "emailAddresses" : "mail",
+                    },
+                    "expected" : None,
+                },
+                {
+                    "tokens" : ["foo", "bar"],
+                    "mapping" : { },
+                    "expected" : None,
+                },
+                {
+                    "tokens" : ["foo", "bar"],
+                    "mapping" : {
+                        "emailAddresses" : "mail",
+                    },
+                    "expected" : "(&(mail=*foo*)(mail=*bar*))",
+                },
+                {
+                    "tokens" : ["foo", "bar"],
+                    "mapping" : {
+                        "fullName" : "cn",
+                        "emailAddresses" : "mail",
+                    },
+                    "expected" : "(&(|(cn=*foo*)(mail=*foo*))(|(cn=*bar*)(mail=*bar*)))",
+                },
+                {
+                    "tokens" : ["foo", "bar"],
+                    "mapping" : {
+                        "fullName" : "cn",
+                        "emailAddresses" : ["mail", "mailAliases"],
+                    },
+                    "expected" : "(&(|(cn=*foo*)(mail=*foo*)(mailAliases=*foo*))(|(cn=*bar*)(mail=*bar*)(mailAliases=*bar*)))",
+                },
+                {
+                    "tokens" : ["foo", "bar", "baz("],
+                    "mapping" : {
+                        "fullName" : "cn",
+                        "emailAddresses" : "mail",
+                    },
+                    "expected" : "(&(|(cn=*foo*)(mail=*foo*))(|(cn=*bar*)(mail=*bar*))(|(cn=*baz\\28*)(mail=*baz\\28*)))",
+                },
+            ]
+            for entry in entries:
+                self.assertEquals(
+                    buildFilterFromTokens(entry["mapping"], entry["tokens"]),
                     entry["expected"]
                 )
 

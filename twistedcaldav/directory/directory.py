@@ -77,6 +77,9 @@ class DirectoryService(LoggingMixIn):
     recordType_groups = "groups"
     recordType_locations = "locations"
     recordType_resources = "resources"
+
+    searchContext_location = "location"
+    searchContext_attendee = "attendee"
     
     def _generatedGUID(self):
         if not hasattr(self, "_guid"):
@@ -224,6 +227,95 @@ class DirectoryService(LoggingMixIn):
 
         return self.recordsMatchingFields(fields, operand=operand,
             recordType=recordType)
+
+    def recordTypesForSearchContext(self, context):
+        """
+        Map calendar-user-search REPORT context value to applicable record types
+
+        @param context: The context value to map (either "location" or "attendee")
+        @type context: C{str}
+        @returns: The list of record types the context maps to
+        @rtype: C{list} of C{str}
+        """
+        if context == self.searchContext_location:
+            recordTypes = [self.recordType_locations]
+        elif context == self.searchContext_attendee:
+            recordTypes = [self.recordType_users, self.recordType_groups,
+                self.recordType_resources]
+        else:
+            recordTypes = list(self.recordTypes())
+        return recordTypes
+
+
+    def recordsMatchingTokens(self, tokens, context=None):
+        """
+        @param tokens: The tokens to search on
+        @type tokens: C{list} of C{str} (utf-8 bytes)
+        @param context: An indication of what the end user is searching
+            for, e.g. "attendee", "location"
+        @type context: C{str}
+        @return: a deferred sequence of L{IDirectoryRecord}s which
+            match the given tokens and optional context.
+
+        Each token is searched for within each record's full name and
+        email address; if each token is found within a record that
+        record is returned in the results.
+
+        If context is None, all record types are considered.  If
+        context is "location", only locations are considered.  If
+        context is "attendee", only users, groups, and resources
+        are considered.
+        """
+
+        # Default, bruteforce method; override with one optimized for each
+        # service
+
+        def fieldMatches(fieldValue, value):
+            if fieldValue is None:
+                return False
+            elif type(fieldValue) in types.StringTypes:
+                fieldValue = (fieldValue,)
+
+            for testValue in fieldValue:
+                testValue = testValue.lower()
+                value = value.lower()
+
+                try:
+                    testValue.index(value)
+                    return True
+                except ValueError:
+                    pass
+
+            return False
+
+        def recordMatches(record):
+            for token in tokens:
+                for fieldName in ["fullName", "emailAddresses"]:
+                    try:
+                        fieldValue = getattr(record, fieldName)
+                        if fieldMatches(fieldValue, token):
+                            break
+                    except AttributeError:
+                        # No value
+                        pass
+                else:
+                    return False
+            return True
+
+
+        def yieldMatches(recordTypes):
+            try:
+                for recordType in [r for r in recordTypes if r in self.recordTypes()]:
+                    for record in self.listRecords(recordType):
+                        if recordMatches(record):
+                            yield record
+
+            except UnknownRecordTypeError:
+                # Skip this service since it doesn't understand this record type
+                pass
+
+        recordTypes = self.recordTypesForSearchContext(context)
+        return succeed(yieldMatches(recordTypes))
 
 
     def recordsMatchingFields(self, fields, operand="or", recordType=None):

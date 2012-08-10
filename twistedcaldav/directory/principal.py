@@ -56,7 +56,7 @@ from twisted.python.modules import getModule
 from twistedcaldav import caldavxml, customxml
 from twistedcaldav.cache import DisabledCacheNotifier, PropfindCacheMixin
 from twistedcaldav.config import config
-from twistedcaldav.customxml import calendarserver_namespace
+from twistedcaldav.customxml import calendarserver_namespace, CalendarUserSearch
 from twistedcaldav.directory.augment import allowedAutoScheduleModes
 from twistedcaldav.directory.common import uidsResourceName
 from twistedcaldav.directory.directory import DirectoryService, DirectoryRecord
@@ -362,6 +362,15 @@ class DirectoryPrincipalProvisioningResource (DirectoryProvisioningResource):
 
     def principalCollections(self):
         return (self,)
+
+
+    def supportedReports(self):
+        """
+        Adds the CalendarUserSearch REPORT
+        """
+        result = super(DirectoryPrincipalProvisioningResource, self).supportedReports()
+        result.append(davxml.Report(CalendarUserSearch(),))
+        return result
 
 
 class DirectoryPrincipalTypeProvisioningResource (DirectoryProvisioningResource):

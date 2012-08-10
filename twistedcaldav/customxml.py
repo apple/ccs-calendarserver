@@ -1349,6 +1349,32 @@ class CalendarColor(WebDAVTextElement):
     namespace = "http://apple.com/ns/ical/"
     name = "calendar-color"
 
+#
+# Calendar-user-search REPORT
+#
+
+@registerElement
+class CalendarUserSearchToken (WebDAVTextElement):
+    """
+    Contains a search token.
+    """
+    namespace = calendarserver_namespace
+    name = "search-token"
+
+@registerElement
+class CalendarUserSearch (WebDAVElement):
+
+    namespace = calendarserver_namespace
+    name = "calendar-user-search"
+
+    allowed_children = {
+        (calendarserver_namespace, "search-token"          ): (1, None),
+        (calendarserver_namespace, "limit"                 ): (0, 1),
+        (dav_namespace, "prop"                             ): (1, 1),
+        (dav_namespace, "apply-to-principal-collection-set"): (0, 1),
+    }
+    allowed_attributes = { "context" : False }
+
 ##
 # Extensions to ResourceType
 ##

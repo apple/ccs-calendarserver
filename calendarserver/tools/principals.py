@@ -390,7 +390,7 @@ def runSearch(searchTerm):
         for fieldName in ("fullName", "firstName", "lastName", "emailAddresses"):
             fields.append((fieldName, searchTerm, True, "contains"))
 
-        records = list((yield config.directory.recordsMatchingFields(fields)))
+        records = list((yield config.directory.recordsMatchingTokens(searchTerm.strip().split())))
         if records:
             records.sort(key=operator.attrgetter('fullName'))
             print "%d matches found:" % (len(records),)

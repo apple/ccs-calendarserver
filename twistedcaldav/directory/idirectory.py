@@ -87,6 +87,27 @@ class IDirectoryService(Interface):
             match the given fields.
         """
 
+    def recordsMatchingTokens(tokens, context=None):
+        """
+        @param tokens: The tokens to search on
+        @type tokens: C{list} of C{str} (utf-8 bytes)
+        @param context: An indication of what the end user is searching
+            for, e.g. "attendee", "location"
+        @type context: C{str}
+        @return: a deferred sequence of L{IDirectoryRecord}s which
+            match the given tokens and optional context.
+
+        Each token is searched for within each record's full name and
+        email address; if each token is found within a record that
+        record is returned in the results.
+
+        If context is None, all record types are considered.  If
+        context is "location", only locations are considered.  If
+        context is "attendee", only users, groups, and resources
+        are considered.
+        """
+
+
     def setRealm(realmName):
         """
         Set a new realm name for this (and nested services if any)

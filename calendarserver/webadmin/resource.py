@@ -691,4 +691,5 @@ class WebAdminResource (ReadOnlyResourceMixIn, DAVFile):
             fields.append((fieldName, searchStr, True, "contains"))
 
         records = list((yield self.directory.recordsMatchingFields(fields)))
+        # records = list((yield self.directory.recordsMatchingTokens(searchStr.strip().split())))
         returnValue(records)

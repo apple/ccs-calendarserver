@@ -583,7 +583,62 @@ class GroupMembershipTests (TestCase):
             }
         )
 
+class RecordsMatchingTokensTests(TestCase):
 
+    @inlineCallbacks
+    def setUp(self):
+        super(RecordsMatchingTokensTests, self).setUp()
+
+        self.directoryService = XMLDirectoryService(
+            {
+                'xmlFile' : xmlFile,
+                'augmentService' :
+                    augment.AugmentXMLDB(xmlFiles=(augmentsFile.path,)),
+            }
+        )
+        calendaruserproxy.ProxyDBService = calendaruserproxy.ProxySqliteDB("proxies.sqlite")
+
+        # Set up a principals hierarchy for each service we're testing with
+        self.principalRootResources = {}
+        name = self.directoryService.__class__.__name__
+        url = "/" + name + "/"
+
+        provisioningResource = DirectoryPrincipalProvisioningResource(url, self.directoryService)
+
+        self.site.resource.putChild(name, provisioningResource)
+
+        self.principalRootResources[self.directoryService.__class__.__name__] = provisioningResource
+
+        yield XMLCalendarUserProxyLoader(proxiesFile.path).updateProxyDB()
+
+    def tearDown(self):
+        """ Empty the proxy db between tests """
+        return calendaruserproxy.ProxyDBService.clean()
+
+    @inlineCallbacks
+    def test_recordsMatchingTokens(self):
+        """
+        Exercise the default recordsMatchingTokens implementation
+        """
+        records = list((yield self.directoryService.recordsMatchingTokens(["Use", "01"])))
+        self.assertEquals(len(records), 1)
+        self.assertEquals(records[0].shortNames[0], "user01")
+
+        records = list((yield self.directoryService.recordsMatchingTokens(['"quotey"'],
+            context=self.directoryService.searchContext_attendee)))
+        self.assertEquals(len(records), 1)
+        self.assertEquals(records[0].shortNames[0], "doublequotes")
+
+        records = list((yield self.directoryService.recordsMatchingTokens(["coast"])))
+        self.assertEquals(len(records), 5)
+
+        records = list((yield self.directoryService.recordsMatchingTokens(["poll"],
+            context=self.directoryService.searchContext_location)))
+        self.assertEquals(len(records), 1)
+        self.assertEquals(records[0].shortNames[0], "apollo")
+
+
+ 
 class GUIDTests(TestCase):
 
     def setUp(self):

@@ -15,7 +15,7 @@
 ##
 
 from twistedcaldav.test.util import TestCase
-from twistedcaldav.directory.appleopendirectory import buildQueries, OpenDirectoryService
+from twistedcaldav.directory.appleopendirectory import buildQueries, buildQueriesFromTokens, OpenDirectoryService
 from calendarserver.platform.darwin.od import dsattributes
 
 class BuildQueryTests(TestCase):
@@ -102,4 +102,24 @@ class BuildQueryTests(TestCase):
             ),
             {
             }
+        )
+
+    def test_buildQueryFromTokens(self):
+        results = buildQueriesFromTokens([], OpenDirectoryService._ODFields)
+        self.assertEquals(results, None)
+
+        results = buildQueriesFromTokens(["foo"], OpenDirectoryService._ODFields)
+        self.assertEquals(
+            results[0].generate(),
+            "(|(dsAttrTypeStandard:RealName=*foo*)(dsAttrTypeStandard:EMailAddress=*foo*))"
+        )
+
+        results = buildQueriesFromTokens(["foo", "bar"], OpenDirectoryService._ODFields)
+        self.assertEquals(
+            results[0].generate(),
+            "(|(dsAttrTypeStandard:RealName=*foo*)(dsAttrTypeStandard:EMailAddress=*foo*))"
+        )
+        self.assertEquals(
+            results[1].generate(),
+            "(|(dsAttrTypeStandard:RealName=*bar*)(dsAttrTypeStandard:EMailAddress=*bar*))"
         )

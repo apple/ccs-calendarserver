@@ -249,6 +249,94 @@ class DirectoryPrincipalPropertySearchMixIn(object):
         returnValue(MultiStatusResponse(responses))
 
 
+    @inlineCallbacks
+    def report_http___calendarserver_org_ns__calendar_user_search(self, request,
+        calendar_user_search):
+        """
+        Generate a calendar-user-search REPORT.
+
+        @param request: Request object
+        @param calendar_user_search: CalendarUserSearch object
+        """
+
+        # Verify root element
+        if not isinstance(calendar_user_search, customxml.CalendarUserSearch):
+            msg = "%s expected as root element, not %s." % (customxml.CalendarUserSearch.sname(), calendar_user_search.sname())
+            log.warn(msg)
+            raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, msg))
+
+        # Only handle Depth: 0
+        depth = request.headers.getHeader("depth", "0")
+        if depth != "0":
+            log.err("Error in calendar-user-search REPORT, Depth set to %s" % (depth,))
+            raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, "Depth %s not allowed" % (depth,)))
+
+        tokens, context, applyTo, clientLimit, propElement = extractCalendarUserSearchData(calendar_user_search)
+
+        # Run report
+        resultsWereLimited = None
+        resources = []
+        if applyTo or not hasattr(self, "directory"):
+            for principalCollection in self.principalCollections():
+                uri = principalCollection.principalCollectionURL()
+                resource = (yield request.locateResource(uri))
+                if resource:
+                    resources.append((resource, uri))
+        else:
+            resources.append((self, request.uri))
+
+        # We need to access a directory service
+        principalCollection = resources[0][0]
+        dir = principalCollection.directory
+
+        matchingResources = []
+        matchcount = 0
+
+        records = (yield dir.recordsMatchingTokens(tokens, context=context))
+
+        for record in records:
+            resource = principalCollection.principalForRecord(record)
+            if resource:
+                matchingResources.append(resource)
+
+                # We've determined this is a matching resource
+                matchcount += 1
+                if clientLimit is not None and matchcount >= clientLimit:
+                    resultsWereLimited = ("client", matchcount)
+                    break
+                if matchcount >= config.MaxPrincipalSearchReportResults:
+                    resultsWereLimited = ("server", matchcount)
+                    break
+
+        # Generate the response
+        responses = []
+        for resource in matchingResources:
+            url = resource.url()
+            yield prop_common.responseForHref(
+                request,
+                responses,
+                element.HRef.fromString(url),
+                resource,
+                prop_common.propertyListForResource,
+                propElement
+            )
+
+        if resultsWereLimited is not None:
+            if resultsWereLimited[0] == "server":
+                log.err("Too many matching resources in "
+                        "calendar-user-search report")
+            responses.append(element.StatusResponse(
+                element.HRef.fromString(request.uri),
+                element.Status.fromResponseCode(
+                    responsecode.INSUFFICIENT_STORAGE_SPACE
+                ),
+                element.Error(element.NumberOfMatchesWithinLimits()),
+                element.ResponseDescription("Results limited by %s at %d"
+                                           % resultsWereLimited),
+            ))
+        returnValue(MultiStatusResponse(responses))
+
+
 
 class DirectoryElement(Element):
     """
@@ -867,4 +955,42 @@ class CachingPropertyStore (LoggingMixIn):
                 for name in self.propertyStore.list(filterByUID=False)
             )
         return self._data
+
+def extractCalendarUserSearchData(doc):
+    """
+    Extract relevant info from a CalendarUserSearch document
+
+    @param doc: CalendarUserSearch object to extract info from
+    @return: A tuple containing:
+        the list of tokens
+        the context string
+        the applyTo boolean
+        the clientLimit integer
+        the propElement containing the properties to return
+    """
+    context = doc.attributes.get("context", None)
+    applyTo = False
+    tokens = []
+    clientLimit = None
+    for child in doc.children:
+        if child.qname() == (dav_namespace, "prop"):
+            propElement = child
+
+        elif child.qname() == (dav_namespace,
+            "apply-to-principal-collection-set"):
+            applyTo = True
+
+        elif child.qname() == (calendarserver_namespace, "search-token"):
+            tokens.append(str(child))
+
+        elif child.qname() == (calendarserver_namespace, "limit"):
+            try:
+                nresults = child.childOfType(customxml.NResults)
+                clientLimit = int(str(nresults))
+            except (TypeError, ValueError,):
+                msg = "Bad XML: unknown value for <limit> element"
+                log.warn(msg)
+                raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, msg))
+
+    return tokens, context, applyTo, clientLimit, propElement
 

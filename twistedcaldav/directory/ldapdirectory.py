@@ -974,6 +974,89 @@ class LdapDirectoryService(CachingDirectoryService):
                         % (recordTypes, indexType, indexKey))
 
 
+    def recordsMatchingTokens(self, tokens, context=None):
+        """
+        @param tokens: The tokens to search on
+        @type tokens: C{list} of C{str} (utf-8 bytes)
+        @param context: An indication of what the end user is searching
+            for, e.g. "attendee", "location"
+        @type context: C{str}
+        @return: a deferred sequence of L{IDirectoryRecord}s which
+            match the given tokens and optional context.
+
+        Each token is searched for within each record's full name and
+        email address; if each token is found within a record that
+        record is returned in the results.
+
+        If context is None, all record types are considered.  If
+        context is "location", only locations are considered.  If
+        context is "attendee", only users, groups, and resources
+        are considered.
+        """
+        self.log_debug("Peforming calendar user search for %s (%s)" % (tokens, context))
+
+        records = []
+        recordTypes = self.recordTypesForSearchContext(context)
+        recordTypes = [r for r in recordTypes if r in self.recordTypes()]
+        guidAttr = self.rdnSchema["guidAttr"]
+
+        for recordType in recordTypes:
+            base = self.typeDNs[recordType]
+            scope = ldap.SCOPE_SUBTREE
+            filterstr = buildFilterFromTokens(self.rdnSchema[recordType]["mapping"],
+                tokens)
+
+            if filterstr is not None:
+                # Query the LDAP server
+                self.log_debug("LDAP search %s %s %s" %
+                    (ldap.dn.dn2str(base), scope, filterstr))
+                results = self.timedSearch(ldap.dn.dn2str(base), scope,
+                    filterstr=filterstr, attrlist=self.attrlist,
+                    timeoutSeconds=self.requestTimeoutSeconds,
+                    resultLimit=self.requestResultsLimit)
+                self.log_debug("LDAP search returned %d results" % (len(results),))
+                numMissingGuids = 0
+                numMissingRecordNames = 0
+                for dn, attrs in results:
+                    dn = normalizeDNstr(dn)
+                    # Skip if group restriction is in place and guid is not
+                    # a member
+                    if (recordType != self.recordType_groups and
+                        self.restrictedGUIDs is not None):
+                        if guidAttr:
+                            guid = self._getUniqueLdapAttribute(attrs, guidAttr)
+                            if guid not in self.restrictedGUIDs:
+                                continue
+
+                    try:
+                        record = self._ldapResultToRecord(dn, attrs, recordType)
+
+                        # For non-group records, if not enabled for calendaring do
+                        # not include in principal property search results
+                        if (recordType != self.recordType_groups):
+                            if not record.enabledForCalendaring:
+                                continue
+
+                        records.append(record)
+
+                    except MissingGuidException:
+                        numMissingGuids += 1
+
+                    except MissingRecordNameException:
+                        numMissingRecordNames += 1
+
+                if numMissingGuids:
+                    self.log_warn("%d %s records are missing %s" %
+                        (numMissingGuids, recordType, guidAttr))
+
+                if numMissingRecordNames:
+                    self.log_warn("%d %s records are missing record name" %
+                        (numMissingRecordNames, recordType))
+
+        self.log_debug("Calendar user search matched %d records" % (len(records),))
+        return succeed(records)
+
+
     def recordsMatchingFields(self, fields, operand="or", recordType=None):
         """
         Carries out the work of a principal-property-search against LDAP
@@ -1246,6 +1329,58 @@ def buildFilter(recordType, mapping, fields, operand="or", optimizeMultiName=Fal
             filterstr = "(&%s%s)" % ("".join(additional), filterstr)
 
     return filterstr
+
+
+def buildFilterFromTokens(mapping, tokens):
+    """
+    Create an LDAP filter string from a list of query tokens.  Each token is
+    searched for in each LDAP attribute corresponding to "fullName" and
+    "emailAddresses" (could be multiple LDAP fields for either).
+
+    @param mapping: A dict mapping internal directory attribute names to ldap names.
+    @type mapping: C{dict}
+    @param tokens: The list of tokens to search for
+    @type tokens: C{list}
+    @return: An LDAP filterstr
+    @rtype: C{str}
+    """
+
+    filterStr = None
+    tokens = [ldapEsc(t) for t in tokens if len(t) > 2]
+    if len(tokens) == 0:
+        return None
+
+    attributes = ["fullName", "emailAddresses"]
+
+    ldapFields = []
+    for attribute in attributes:
+        ldapField = mapping.get(attribute, None)
+        if ldapField:
+            if isinstance(ldapField, str):
+                ldapFields.append(ldapField)
+            else:
+                ldapFields.extend(ldapField)
+
+    if len(ldapFields) == 0:
+        return None
+
+    tokenFragments = []
+    for token in tokens:
+        fragments = []
+        for ldapField in ldapFields:
+            fragments.append("(%s=*%s*)" % (ldapField, token))
+        if len(fragments) == 1:
+            tokenFragment = fragments[0]
+        else:
+            tokenFragment = "(|%s)" % ("".join(fragments),)
+        tokenFragments.append(tokenFragment)
+
+    if len(tokenFragments) == 1:
+        filterStr = tokenFragments[0]
+    else:
+        filterStr = "(&%s)" % ("".join(tokenFragments),)
+
+    return filterStr
 
 
 class LdapDirectoryRecord(CachingDirectoryRecord):
