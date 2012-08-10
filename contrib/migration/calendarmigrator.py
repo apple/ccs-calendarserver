@@ -104,9 +104,9 @@ def main():
         help='path to the root of the new system',
         default='/')
 
-    optionParser.add_option('--language', choices=('en', 'fr', 'de', 'ja'),
-        metavar='[en|fr|de|ja]',
-        help='language identifier (IGNORED)')
+    optionParser.add_option('--language',
+        help='language identifier (IGNORED)',
+        default="en")
 
     (options, args) = optionParser.parse_args()
     log("Options: %s" % (options,))
@@ -590,7 +590,7 @@ def relocateData(sourceRoot, targetRoot, sourceVersion, oldServerRootValue,
         # /Library/Server/Calendar and Contacts will be new ServerRoot no matter what.
 
         if oldCalDocumentRootValueProcessed:
-            if diskAccessor.exists(oldCalDocumentRootValueProcessed): # external volume
+            if oldCalDocumentRootValueProcessed.startswith("/Volumes/"): # external volume
                 # The old external calendar DocumentRoot becomes the new DataRoot
                 newDataRoot = newDataRootValue = os.path.join(os.path.dirname(oldCalDocumentRootValue.rstrip("/")), "Calendar and Contacts Data")
                 newDocumentRoot = os.path.join(newDataRoot, newDocumentRootValue)
@@ -629,8 +629,7 @@ def relocateData(sourceRoot, targetRoot, sourceVersion, oldServerRootValue,
         # Old AddressBook DocumentRoot
         if oldABDocumentRootValue:
             newAddressBooks = os.path.join(newDocumentRoot, "addressbooks")
-            if diskAccessor.exists(oldABDocumentRootValue):
-                # Must be on an external volume if we see it existing at the point
+            if oldABDocumentRootValue.startswith("/Volumes/"): # external volume
                 diskAccessor.ditto(
                     os.path.join(oldABDocumentRootValue, "addressbooks"),
                     newAddressBooks
@@ -651,7 +650,7 @@ def relocateData(sourceRoot, targetRoot, sourceVersion, oldServerRootValue,
         # Before 10.8, DocumentRoot and DataRoot were relative to ServerRoot
 
         if oldServerRootValue:
-            if oldServerRootValue.rstrip("/") != NEW_SERVER_ROOT: # external volume
+            if oldServerRootValue.rstrip("/").startswith("/Volumes/"): # external volume
                 log("Using external calendar server root: %s" % (oldServerRootValue,))
                 # ServerRoot needs to be /Library/Server/Calendar and Contacts
                 # Since DocumentRoot is now relative to DataRoot, move DocumentRoot into DataRoot
@@ -699,7 +698,7 @@ def relocateData(sourceRoot, targetRoot, sourceVersion, oldServerRootValue,
     else: # 10.8 -> 10.8
 
         if oldServerRootValue:
-            if oldServerRootValue.rstrip("/") != NEW_SERVER_ROOT: # external volume
+            if oldServerRootValue.rstrip("/").startswith("/Volumes/"): # external volume
                 log("Using external calendar server root: %s" % (oldServerRootValue,))
             elif diskAccessor.exists(absolutePathWithRoot(sourceRoot, oldServerRootValue)):
                 log("Copying calendar server root: %s" % (newServerRoot,))
