@@ -252,7 +252,7 @@ class DirectoryService(LoggingMixIn):
         @param tokens: The tokens to search on
         @type tokens: C{list} of C{str} (utf-8 bytes)
         @param context: An indication of what the end user is searching
-            for, e.g. "attendee", "location"
+            for; "attendee", "location", or None
         @type context: C{str}
         @return: a deferred sequence of L{IDirectoryRecord}s which
             match the given tokens and optional context.
