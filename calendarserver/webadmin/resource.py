@@ -685,11 +685,5 @@ class WebAdminResource (ReadOnlyResourceMixIn, DAVFile):
 
     @inlineCallbacks
     def search(self, searchStr):
-        fields = []
-        for fieldName in ("fullName", "firstName", "lastName",
-                          "emailAddresses"):
-            fields.append((fieldName, searchStr, True, "contains"))
-
-        records = list((yield self.directory.recordsMatchingFields(fields)))
-        # records = list((yield self.directory.recordsMatchingTokens(searchStr.strip().split())))
+        records = list((yield self.directory.recordsMatchingTokens(searchStr.strip().split())))
         returnValue(records)

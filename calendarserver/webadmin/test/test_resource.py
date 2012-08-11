@@ -31,6 +31,7 @@ from twisted.web.domhelpers import gatherTextNodes
 from calendarserver.tap.util import FakeRequest
 from twisted.internet.defer import inlineCallbacks
 from twisted.internet.defer import returnValue
+from twisted.internet.defer import succeed
 from calendarserver.webadmin.resource import WebAdminResource
 
 from txdav.xml.rfc3744 import GroupMemberSet
@@ -53,20 +54,14 @@ class RenderingTests(TestCase):
         Expect that a search will be issued via with the given fields, and will
         yield the given result.
         """
-        fields = []
-        for field in 'fullName', 'firstName', 'lastName', 'emailAddresses':
-            fields.append((field, searchString, True, "contains"))
-        self.expectedSearches[tuple(fields)] = result
+        self.expectedSearches[(searchString,)] = result
 
 
-    def recordsMatchingFields(self, fields):
+    def recordsMatchingTokens(self, tokens):
         """
         Pretend to be a directory object for the purposes of testing.
         """
-        # 'fields' will be a list of 4-tuples of (fieldName, searchStr, True,
-        # "contains"; implement this for tests which will want to call
-        # 'search()')
-        return self.expectedSearches.pop(tuple(fields))
+        return succeed(self.expectedSearches.pop(tuple(tokens)))
 
 
     def setUp(self):
