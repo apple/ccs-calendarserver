@@ -370,6 +370,7 @@ class ConnectionFromWorker(SchemaAMP):
     def __init__(self, schema, workerPool, boxReceiver=None, locator=None):
         self.workerPool = workerPool
         super(ConnectionFromWorker, self).__init__(schema, boxReceiver, locator)
+        self._load = 0
 
 
     @property
@@ -377,8 +378,7 @@ class ConnectionFromWorker(SchemaAMP):
         """
         What is the current load of this worker?
         """
-        # TODO: this needs to be hooked up to something.
-        return 0
+        return self._load
 
 
     def startReceivingBoxes(self, sender):
@@ -407,8 +407,13 @@ class ConnectionFromWorker(SchemaAMP):
         @see: The responder for this should always be
             L{ConnectionFromController.actuallyReallyExecuteWorkHere}.
         """
-        return self.callRemote(PerformWork,
-                               table=table.model.name, workID=workID)
+        d = self.callRemote(PerformWork, table=table.model.name, workID=workID)
+        self._load += 1
+        @d.addBoth
+        def f(result):
+            self._load -= 1
+            return result
+        return d
 
 
 
