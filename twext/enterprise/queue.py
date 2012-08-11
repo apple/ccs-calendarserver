@@ -15,6 +15,7 @@ from socket import getfqdn
 from functools import wraps
 
 from datetime import datetime
+from twisted.internet.defer import returnValue
 from os import getpid
 
 
@@ -131,7 +132,7 @@ class LocalConnection(object):
 
 class ConnectionFromMaster(AMP):
     """
-    This is in the child process.  It processes requests from its own master to
+    This is in a worker process.  It processes requests from its own master to
     do work.
     """
 
@@ -159,6 +160,7 @@ class ConnectionFromMaster(AMP):
         workItem = yield workItemClass.load(workID)
         # TODO: verify that workID is the primary key someplace.
         yield workItem.doWork()
+        returnValue({})
 
 
 
