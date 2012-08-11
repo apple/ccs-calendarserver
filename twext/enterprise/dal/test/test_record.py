@@ -57,7 +57,7 @@ class TestCRUD(TestCase):
 
     def setUp(self):
         sqlitename = self.mktemp()
-        def connectionFactory(label="test"):
+        def connectionFactory(label=self.id()):
             return sqlite3.connect(sqlitename)
         con = connectionFactory()
         con.execute(schemaString)
