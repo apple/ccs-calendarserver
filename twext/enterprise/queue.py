@@ -881,6 +881,16 @@ class PeerConnectionPool(Service, object):
         self.peers.append(peer)
 
 
+    def workerListenerFactory(self):
+        """
+        Factory that listens for connections from workers.
+        """
+        f = Factory()
+        f.buildProtocol = lambda addr: ConnectionFromWorker(self.schema,
+                                                            self.workerPool)
+        return f
+
+
     def removePeerConnection(self, peer):
         """
         Remove a L{ConnectionFromPeerNode} to the active list of peers.

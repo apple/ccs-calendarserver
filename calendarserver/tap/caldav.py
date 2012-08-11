@@ -61,6 +61,7 @@ from twext.internet.tcp import MaxAcceptTCPServer, MaxAcceptSSLServer
 from twext.web2.channel.http import LimitingHTTPFactory, SSLRedirectRequest
 from twext.web2.metafd import ConnectionLimiter, ReportingHTTPService
 
+from txdav.common.datastore.sql_tables import schema
 from txdav.common.datastore.upgrade.sql.upgrade import (
     UpgradeDatabaseSchemaService, UpgradeDatabaseDataService,
 )
@@ -94,6 +95,7 @@ from twisted.internet.endpoints import UNIXClientEndpoint, TCP4ClientEndpoint
 from calendarserver.controlsocket import ControlSocketConnectingService
 from twisted.protocols.amp import AMP
 from twext.enterprise.queue import WorkerFactory as QueueWorkerFactory
+from twext.enterprise.queue import PeerConnectionPool
 from calendarserver.accesslog import AMPCommonAccessLoggingObserver
 from calendarserver.accesslog import AMPLoggingFactory
 from calendarserver.accesslog import RotatingFileAccessLoggingObserver
@@ -801,7 +803,6 @@ class CalDAVServiceMaker (LoggingMixIn):
             controlSocketClient.addFactory(_LOG_ROUTE, f)
             from txdav.common.datastore.sql import CommonDataStore as SQLStore
             if isinstance(store, SQLStore):
-                from txdav.common.datastore.sql_tables import schema
                 def queueMasterAvailable(connectionFromMaster):
                     store.queuer = connectionFromMaster
                 queueFactory = QueueWorkerFactory(store.newTransaction, schema,
@@ -1287,12 +1288,22 @@ class CalDAVServiceMaker (LoggingMixIn):
         # filesystem to the database (if that's necessary, and there is
         # filesystem data in need of upgrading).
         def spawnerSvcCreator(pool, store):
+            from twisted.internet import reactor
+            pool = PeerConnectionPool(reactor, store.newTransaction,
+                                      7654, schema)
+            controlSocket.addFactory(_QUEUE_ROUTE,
+                                     pool.workerListenerFactory())
+            # TODO: now that we have the shared control socket, we should get
+            # rid of the connection dispenser and make a shared / async
+            # connection pool implementation that can dispense transactions
+            # synchronously as the interface requires.
             if pool is not None and config.SharedConnectionPool:
                 self.log_warn("Using Shared Connection Pool")
                 dispenser = ConnectionDispenser(pool)
             else:
                 dispenser = None
             multi = MultiService()
+            pool.setServiceParent(multi)
             spawner = SlaveSpawnerService(
                 self, monitor, dispenser, dispatcher, options["config"],
                 inheritFDs=inheritFDs, inheritSSLFDs=inheritSSLFDs
