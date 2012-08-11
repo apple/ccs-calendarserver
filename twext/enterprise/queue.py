@@ -21,6 +21,7 @@ from twext.enterprise.dal.model import ProcedureCall
 from twext.enterprise.dal.syntax import NamedValue
 from twext.enterprise.dal.record import fromTable
 from twisted.internet.defer import Deferred
+from twisted.internet.defer import passthru
 from twext.enterprise.dal.model import Table, Schema, SQLType, Constraint
 
 
@@ -427,7 +428,7 @@ class PeerConnectionPool(Service, object):
         """
 
 
-    def enqueueWork(self, workItem):
+    def enqueueWork(self, txn, workItemType, **kw):
         """
         There is some work to do.  Do it, someplace else, ideally in parallel.
         Later, let the caller know that the work has been completed by firing a
@@ -445,22 +446,32 @@ class PeerConnectionPool(Service, object):
             completed in sequence; those should all be completed within the
             transaction of the L{WorkItem.doWork} that gets executed.
 
-        @param workItem: An item of work to be done in another process.
-        @type workItem: A L{WorkItem}
+        @param workItemType: The type of work item to be enqueued.
+        @type workItemType: A subtype of L{WorkItem}
 
-        @return: a L{Deferred} that fires when the work has been completed.
-        @rtype: L{Deferred} firing L{None}
+        @param kw: The parameters to construct a work item.
+        @type kw: keyword parameters to C{workItemType.create}, i.e.
+            C{workItemType.__init__}
+
+        @return: a L{Deferred} that fires when the work has been completed, or
+            fails if the work does not take place due to an error later in the
+            transaction.
+        @rtype: L{Deferred} firing L{None} or failing L{TransactionFailed}
         """
-        d = Deferred()
-        @workItem.__txn__.postCommit
-        @inlineCallbacks
-        def whenDone():
-            peer = yield self.choosePeer()
-            peer.performWork(workItem.__tbl__, workItem.workID)
-        @workItem.__txn__.postAbort
-        def whenFailed():
-            d.errback(TransactionFailed)
-        return d
+        @passthru(workItemType.create(txn, **kw).addCallback)
+        def created(result):
+            d = Deferred()
+            @txn.postCommit
+            @inlineCallbacks
+            def whenDone():
+                peer = yield self.choosePeer()
+                peer.performWork(workItemType.__tbl__)
+                d.callback(None)
+            @txn.postAbort
+            def whenFailed():
+                d.errback(TransactionFailed)
+            return d
+        return created
 
 
     def startService(self):
