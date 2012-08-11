@@ -49,7 +49,11 @@ class _RecordBase(object):
         """
         Create a row.
         """
-        return None
+        # tbl = cls.__tbl__
+        self = cls()
+        for attr in k:
+            setattr(self, attr, k[attr])
+        return self
 
 
 
