@@ -40,6 +40,16 @@ class ReadOnly(AttributeError):
 
 
 class _RecordBase(object):
+    """
+    Superclass for all database-backed record classes.  (i.e.  an object mapped
+    from a database record).
+
+    @cvar __colmap__: map of L{ColumnSyntax} objects to attribute names.
+    @type __colmap__: L{dict}
+
+    @cvar __attrmap__: map of attribute names to L{ColumnSyntax} objects.
+    @type __attrmap__: L{dict}
+    """
     @classmethod
     @inlineCallbacks
     def load(cls, txn, *primaryKey):
@@ -52,8 +62,7 @@ class _RecordBase(object):
         row = rows[0]
         self = cls()
         for (column, value) in zip(allColumns, row):
-            attrname = column.model.name.lower()
-            setattr(self, attrname, value)
+            setattr(self, cls.__colmap__[column], value)
         returnValue(self)
 
 
@@ -63,19 +72,23 @@ class _RecordBase(object):
         """
         Create a row.
         """
-        tbl = cls.__tbl__
         self = cls()
         colmap = {}
-        allColumns = list(tbl)
-        attrtocol = {}
-        for column in allColumns:
-            attrtocol[column.model.name.lower()] = column
+        attrtocol = cls.__attrmap__
         for attr in k:
             setattr(self, attr, k[attr])
             # FIXME: better error reporting
             colmap[attrtocol[attr]] = k[attr]
         yield Insert(colmap).on(txn)
         returnValue(self)
+
+
+    def update(self, **kw):
+        """
+        Update the given attributes in the database.
+
+        @return: a L{Deferred} that fires when the updates have been completed.
+        """
 
 
 
@@ -89,8 +102,15 @@ def fromTable(table):
     @param table: The table.
     @type table: L{twext.enterprise.dal.syntax.TableSyntax}
     """
+    attrmap = {}
+    colmap = {}
+    allColumns = list(table)
+    for column in allColumns:
+        attrname = column.model.name.lower()
+        attrmap[attrname] = column
+        colmap[column] = attrname
     return type(table.model.name, tuple([_RecordBase]),
-                dict(__tbl__=table))
+                dict(__tbl__=table, __attrmap__=attrmap, __colmap__=colmap))
 
 
 __all__ = [
