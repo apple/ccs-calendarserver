@@ -149,14 +149,17 @@ class _RecordBase(object):
 
     @classmethod
     @inlineCallbacks
-    def query(cls, txn, expr, order=None):
+    def query(cls, txn, expr, order=None, ascending=True):
         """
         Query the table that corresponds to C{cls}, and return instances of
         C{cls} corresponding to the rows that are returned from that table.
         """
         tbl = cls.__tbl__
         allColumns = list(tbl)
-        slct = Select(allColumns, From=tbl, Where=expr)
+        kw = {}
+        if order is not None:
+            kw.update(OrderBy=order, Ascending=ascending)
+        slct = Select(allColumns, From=tbl, Where=expr, **kw)
         rows = yield slct.on(txn)
         selves = []
         for row in rows:

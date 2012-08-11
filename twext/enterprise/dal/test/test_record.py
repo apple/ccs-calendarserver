@@ -175,5 +175,24 @@ class TestCRUD(TestCase):
         self.assertEqual(records[1].beta, 356)
 
 
+    @inlineCallbacks
+    def test_orderedQuery(self):
+        """
+        L{Record.query} takes an 'order' argument which will allow the objects
+        returned to be ordered.
+        """
+        txn = self.pool.connection()
+        for beta, gamma in [(123, u"one"), (234, u"two"), (345, u"three"),
+                            (356, u"three"), (456, u"four")]:
+            yield txn.execSQL("insert into ALPHA values (:1, :2)",
+                              [beta, gamma])
+
+        records = yield TestRecord.query(txn, TestRecord.gamma == u"three",
+                                         TestRecord.beta)
+        self.assertEqual([record.beta for record in records], [345, 356])
+        records = yield TestRecord.query(txn, TestRecord.gamma == u"three",
+                                         TestRecord.beta, ascending=False)
+        self.assertEqual([record.beta for record in records], [356, 345])
+
 
 
