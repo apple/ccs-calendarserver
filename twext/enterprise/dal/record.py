@@ -279,6 +279,19 @@ class Record(object):
 
 
     @classmethod
+    def all(cls, transaction):
+        """
+        Load all rows from the table that corresponds to C{cls} and return
+        instances of C{cls} corresponding to all.
+        """
+        return cls._rowsFromQuery(transaction,
+                                  Select(list(cls.table),
+                                         From=cls.table,
+                                         OrderBy=cls._primaryKeyExpression()),
+                                  None)
+
+
+    @classmethod
     @inlineCallbacks
     def _rowsFromQuery(cls, transaction, qry, rozrc):
         """
