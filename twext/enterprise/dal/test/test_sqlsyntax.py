@@ -1044,7 +1044,7 @@ class GenerationTests(ExampleSchemaHelper, TestCase, AssertResultHelper):
         )
         self.assertEqual(
             csql.execed[1],
-            ["update FOO set BAR = :1 WHERE BAZ = :2", [4321, 1234]]
+            ["update FOO set BAR = :1 where BAZ = :2", [4321, 1234]]
         )
         self.assertEqual(csql.execed[2],
             ["select BAR from FOO where rowid = :1", ["sample row id"]]
