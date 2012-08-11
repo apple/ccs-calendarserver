@@ -66,14 +66,31 @@ class CatchSQL(object):
 
     def __init__(self, dialect=SQLITE_DIALECT, paramstyle='numeric'):
         self.execed = []
+        self.pendingResults = []
         self.dialect = SQLITE_DIALECT
         self.paramstyle = 'numeric'
 
 
+    def nextResult(self, result):
+        """
+        Make it so that the next result from L{execSQL} will be the argument.
+        """
+        self.pendingResults.append(result)
+
+
     def execSQL(self, sql, args, rozrc):
+        """
+        Implement L{IAsyncTransaction} by recording C{sql} and C{args} in
+        C{self.execed}, and return a L{Deferred} firing either an integer or a
+        value pre-supplied by L{CatchSQL.nextResult}.
+        """
         self.execed.append([sql, args])
         self.counter += 1
-        return succeed(self.counter)
+        if self.pendingResults:
+            result = self.pendingResults.pop(0)
+        else:
+            result = self.counter
+        return succeed(result)
 
 
 
