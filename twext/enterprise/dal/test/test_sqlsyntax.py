@@ -1033,7 +1033,11 @@ class GenerationTests(ExampleSchemaHelper, TestCase, AssertResultHelper):
                       Return=self.schema.FOO.BAR)
         csql.nextResult([["sample row id"]])
         result = resultOf(stmt.on(csql))
-        self.assertResultList(
+        # Three statements were executed; make sure that the result returned was
+        # the result of executing the last one.
+        self.assertResultList(result, 2)
+        # Check that they were the right statements.
+        self.assertEqual(
             csql.execed,
             [
                 ["select rowid from FOO where BAR = :1", [4321]],
@@ -1041,9 +1045,6 @@ class GenerationTests(ExampleSchemaHelper, TestCase, AssertResultHelper):
                 ["select BAR from FOO where rowid = :1", ["sample row id"]],
             ],
         )
-        # Three statements were executed; make sure that the result returned was
-        # the result of executing the last one.
-        self.assertEquals(result, [2])
 
 
     def test_insertMismatch(self):
