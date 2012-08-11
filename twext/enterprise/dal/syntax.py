@@ -1417,8 +1417,9 @@ class Insert(_DMLStatement):
 
     def on(self, txn, *a, **kw):
         """
-        Override to provide potentially extra logic for insert/update/delete
-        that return values on databases that don't necessarily provide it.
+        Override to provide extra logic for L{Insert}s that return values on
+        databases that don't provide return values as part of their C{INSERT}
+        behavior.
         """
         result = super(_DMLStatement, self).on(txn, *a, **kw)
         if self.Return is not None and txn.dialect == SQLITE_DIALECT:
