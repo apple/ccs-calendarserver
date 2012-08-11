@@ -750,16 +750,39 @@ class CommandBlock(object):
 
 
 class _ConnectingPseudoTxn(object):
+    """
+    This is a pseudo-Transaction for bookkeeping purposes.
+
+    When a connection has asked to connect, but has not yet completed
+    connecting, the L{ConnectionPool} still needs a way to shut it down.  This
+    object provides that tracking handle, and will be present in the pool's
+    C{busy} list while it is populating the list.
+    """
 
     _retry = None
 
     def __init__(self, pool, holder):
+        """
+        Initialize the L{_ConnectingPseudoTxn}; get ready to connect.
+
+        @param pool: The pool that this connection attempt is participating in.
+        @type pool: L{ConnectionPool}
+
+        @param holder: the L{ThreadHolder} allocated to this connection attempt
+            and subsequent SQL executions for this connection.
+        @type holder: L{ThreadHolder}
+        """
         self._pool    = pool
         self._holder  = holder
         self._aborted = False
 
 
     def abort(self):
+        """
+        Ignore the result of attempting to connect to this database, and
+        instead simply close the connection and free the L{ThreadHolder}
+        allocated for it.
+        """
         if self._retry is not None:
             self._retry.cancel()
         d = self._holder.stop()
