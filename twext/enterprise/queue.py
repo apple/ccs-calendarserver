@@ -181,6 +181,8 @@ class PeerConnectionPool(Service):
 
     def __init__(self, connectionFactory, ampPort):
         """
+        Initialize a L{PeerConnectionPool}.
+
         @param ampPort: The AMP port to listen on for inter-host communication.
             This must be an integer because we need to communicate it to the
             other peers in the cluster.
