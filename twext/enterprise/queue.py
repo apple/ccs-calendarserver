@@ -1,6 +1,78 @@
+# -*- test-case-name: twext.enterprise.test.test_adbapi2 -*-
+##
+# Copyright (c) 2012 Apple Inc. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+##
 
 """
-This is the logic associated with queueing.
+L{twext.enterprise.queue} is a task-queueing system for use by applications
+with multiple front-end servers talking to a single database instance, that
+want to defer and parallelize work that involves storing the results of
+computation.
+
+To pick a hypothetical example, let's say that you have a store which wants to
+issue a promotional coupon based on a customer loyalty program, in response to
+an administrator clicking on a button.  Determining the list of customers to
+send the coupon to is quick: a simple query will get you all their names.
+However, analyzing each user's historical purchase data is (A) time consuming
+and (B) relatively isolated, so it would be good to do that in parallel, and it
+would also be acceptable to have that happen at a later time, outside the
+critical path.
+
+Such an application might be implemented with this queueing system like so::
+
+    from twext.enterprise.queue import WorkItem, queueFromTransaction
+    from twext.enterprise.dal.parseschema import addSQLToSchema
+    from twext.enterprise.dal.syntax import SchemaSyntax
+
+    schemaModel = Schema()
+    addSQLToSchema('''
+        create table CUSTOMER (NAME varchar(255), ID integer primary key);
+        create table PRODUCT (NAME varchar(255), ID integer primary key);
+        create table PURCHASE (NAME varchar(255), WHEN timestamp,
+                               CUSTOMER_ID integer references CUSTOMER,
+                               PRODUCT_ID integer references PRODUCT;
+        create table COUPON_WORK (WORK_ID integer primary key,
+                                  CUSTOMER_ID integer references CUSTOMER);
+        create table COUPON (ID integer primary key,
+                            CUSTOMER_ID integer references customer,
+                            AMOUNT integer);
+    ''')
+    schema = SchemaSyntax(schemaModel)
+
+    class Coupon(Record, fromTable(schema.COUPON_WORK)):
+        pass
+
+    class CouponWork(WorkItem, fromTable(schema.COUPON_WORK)):
+        @inlineCallbacks
+        def doWork(self):
+            purchases = yield Select(schema.PURCHASE,
+                                     Where=schema.PURCHASE.CUSTOMER_ID
+                                     == self.customerID).on(self.__txn__)
+            couponAmount = yield doSomeMathThatTakesAWhile(purchases)
+            yield Coupon.create(customerID=self.customerID,
+                                amount=couponAmount)
+
+    @inlineCallbacks
+    def makeSomeCoupons(txn):
+        # Note, txn was started before, will be committed later...
+        q = queueFromTransaction(txn)
+        for customerID in (yield Select([schema.CUSTOMER.CUSTOMER_ID],
+                                        From=schema.CUSTOMER).on(txn)):
+            q.enqueueWork(CouponWork, customerID=customerID)
+
+
 """
 
 from socket import getfqdn
@@ -909,30 +981,3 @@ class PeerConnectionPool(Service, object):
 
     def createPeerConnection(self, addr):
         return ConnectionFromPeerNode(self)
-
-
-
-def sketch():
-    """
-    Example demonstrating how an application would normally talk to the queue.
-    """
-    # XXX in real life, MyWorkItem would also need to inherit from
-    # fromTable(...), would need to be declared at the top level...
-    class MyWorkItem(WorkItem):
-        @inlineCallbacks
-        def doWork(self):
-            txn = self.__txn__
-            yield self.doSomethingDeferred(txn)
-            returnValue(None)
-
-
-    @inlineCallbacks
-    def sampleFunction(txn):
-        for x in range(10):
-            # Note: no yield here.  Yielding for this to be completed would
-            # generate unnecessary lock contention, potentially a deadlock (we
-            # just created the item in this transaction, the next transaction is
-            # going to want to delete it).
-            txn.enqueueWork(MyWorkItem, someInt=x, someUnicode=u'4321')
-        yield txn.commit()
-
