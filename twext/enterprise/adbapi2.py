@@ -783,6 +783,7 @@ class _ConnectingPseudoTxn(object):
         instead simply close the connection and free the L{ThreadHolder}
         allocated for it.
         """
+        self._aborted = True
         if self._retry is not None:
             self._retry.cancel()
         d = self._holder.stop()
