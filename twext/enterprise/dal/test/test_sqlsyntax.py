@@ -39,6 +39,7 @@ from twisted.internet.defer import succeed
 from twisted.trial.unittest import TestCase
 
 
+
 class _FakeTransaction(object):
     """
     An L{IAsyncTransaction} that provides the relevant metadata for SQL
@@ -55,6 +56,24 @@ class FakeCXOracleModule(object):
     STRING = 'a string type (for varchars)'
     NCLOB = 'the NCLOB type. (for text)'
     TIMESTAMP = 'for timestamps!'
+
+
+class CatchSQL(object):
+    """
+    L{IAsyncTransaction} emulator that records the SQL executed on it.
+    """
+    counter = 0
+
+    def __init__(self, dialect=SQLITE_DIALECT, paramstyle='numeric'):
+        self.execed = []
+        self.dialect = SQLITE_DIALECT
+        self.paramstyle = 'numeric'
+
+
+    def execSQL(self, sql, args, rozrc):
+        self.execed.append([sql, args])
+        self.counter += 1
+        return succeed(self.counter)
 
 
 
@@ -961,23 +980,30 @@ class GenerationTests(ExampleSchemaHelper, TestCase):
             SQLFragment("insert into FOO (BAR, BAZ) values (:1, :2)",
                         [39, 82])
         )
-        execed = []
-        counter = [0]
-        class CatchSQL(object):
-            dialect = SQLITE_DIALECT
-            paramstyle = 'numeric'
-            def execSQL(self, sql, args, rozrc):
-                execed.append([sql, args])
-                counter[0] += 1
-                return succeed(counter[0])
         result = []
-        insertStatement.on(CatchSQL()).addCallback(result.append)
+        csql = CatchSQL()
+        insertStatement.on(csql).addCallback(result.append)
+        self.assertEqual(result, [2])
         self.assertEqual(
-            execed,
+            csql.execed,
             [["insert into FOO (BAR, BAZ) values (:1, :2)", [39, 82]],
              ["select BAR, BAZ from FOO where rowid = last_insert_rowid()", []]]
         )
-        self.assertEqual(result, [2])
+
+
+    def test_insertNoReturnSQLite(self):
+        """
+        Insert a row I{without} a C{Return=} parameter should also work as
+        normal in sqlite.
+        """
+        statement = Insert({self.schema.FOO.BAR: 12,
+                            self.schema.FOO.BAZ: 48})
+        csql = CatchSQL()
+        statement.on(csql)
+        self.assertEqual(
+            csql.execed,
+            [["insert into FOO (BAR, BAZ) values (:1, :2)", [12, 48]]]
+        )
 
 
     def test_insertMismatch(self):
