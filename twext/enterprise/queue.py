@@ -100,6 +100,7 @@ from twisted.python.failure import Failure
 from twisted.internet.defer import passthru
 from twext.enterprise.dal.model import Table, Schema, SQLType, Constraint
 from twisted.internet.endpoints import TCP4ServerEndpoint
+from twext.enterprise.dal.syntax import Lock
 
 def makeNodeSchema(inSchema):
     """
@@ -826,12 +827,12 @@ class PeerConnectionPool(Service, object):
     Each node has a L{PeerConnectionPool} connecting it to all the other nodes
     currently active on the same database.
 
-    @ivar hostName: The hostname where this node process is running, as
+    @ivar hostname: The hostname where this node process is running, as
         reported by the local host's configuration.  Possibly this should be
         obtained via C{config.ServerHostName} instead of C{socket.getfqdn()};
         although hosts within a cluster may be configured with the same
         C{ServerHostName}; TODO need to confirm.
-    @type hostName: L{bytes}
+    @type hostname: L{bytes}
 
     @ivar thisProcess: a L{NodeInfo} representing this process, which is
         initialized when this L{PeerConnectionPool} service is started via
@@ -885,7 +886,7 @@ class PeerConnectionPool(Service, object):
         """
         self.reactor = reactor
         self.transactionFactory = transactionFactory
-        self.hostName = self.getfqdn()
+        self.hostname = self.getfqdn()
         self.pid = self.getpid()
         self.ampPort = ampPort
         self.thisProcess = None
@@ -1068,12 +1069,21 @@ class PeerConnectionPool(Service, object):
             # If this fails, the failure mode is going to be ugly, just like all
             # conflicted-port failures.  But, at least it won't proceed.
             yield endpoint.listen(f)
-            # with (yield NodeInfo.lock()):
-            self.thisProcess = yield NodeInfo.create(
-                txn, hostname=self.hostName, pid=self.pid, port=self.ampPort,
-                time=datetime.now()
-            )
-            for node in (yield self.activeNodes(txn)):
+            yield Lock(NodeInfo).on(txn)
+            nodes = yield self.activeNodes()
+            selves = [node for node in nodes
+                      if ((node.hostname == self.hostname) and
+                          (node.port == self.port))]
+            if selves:
+                self.thisProcess = selves[0]
+                yield self.thisProcess.update(pid=self.pid,
+                                              time=datetime.now())
+            else:
+                self.thisProcess = yield NodeInfo.create(
+                    txn, hostname=self.hostname, port=self.ampPort,
+                    pid=self.pid, time=datetime.now()
+                )
+            for node in nodes:
                 self._startConnectingTo(node)
         self._startingUp = inTransaction(self.transactionFactory, startup)
         @self._startingUp.addBoth
