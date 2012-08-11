@@ -88,6 +88,11 @@ except ImportError:
 
 from calendarserver.tap.util import ConnectionDispenser
 
+from calendarserver.controlsocket import ControlSocket
+from twisted.internet.endpoints import UNIXClientEndpoint, TCP4ClientEndpoint
+
+from calendarserver.controlsocket import ControlSocketConnectingService
+from twisted.protocols.amp import AMP
 from calendarserver.accesslog import AMPCommonAccessLoggingObserver
 from calendarserver.accesslog import AMPLoggingFactory
 from calendarserver.accesslog import RotatingFileAccessLoggingObserver
@@ -116,6 +121,13 @@ twext.web2.server.VERSION = "CalendarServer/%s %s" % (
 log = Logger()
 
 from twisted.python.util import uidFromString, gidFromString
+
+
+# Control socket message-routing constants.
+_LOG_ROUTE = "log"
+
+_CONTROL_SERVICE_NAME = "control"
+
 
 def getid(uid, gid):
     if uid is not None:
@@ -762,22 +774,36 @@ class CalDAVServiceMaker (LoggingMixIn):
         #
         self.log_info("Setting up service")
 
+        bonusServices = []
+
         if config.ProcessType == "Slave":
+            logObserver = AMPCommonAccessLoggingObserver()
+
             if config.ControlSocket:
-                mode = "AF_UNIX"
                 id = config.ControlSocket
-                self.log_info("Logging via AF_UNIX: %s" % (id,))
+                self.log_info("Control via AF_UNIX: %s" % (id,))
+                endpointFactory = lambda reactor: UNIXClientEndpoint(
+                    reactor, id)
             else:
-                mode = "AF_INET"
                 id = int(config.ControlPort)
-                self.log_info("Logging via AF_INET: %d" % (id,))
-
-            logObserver = AMPCommonAccessLoggingObserver(mode, id)
-
+                self.log_info("Control via AF_INET: %d" % (id,))
+                endpointFactory = lambda reactor: TCP4ClientEndpoint(
+                    reactor, "127.0.0.1", id)
+            controlSocketClient = ControlSocket()
+            class LogClient(AMP):
+                def connectionMade(self):
+                    super(LogClient, self).connectionMade(self)
+                    logObserver.addClient(self)
+            f = Factory()
+            f.protocol = LogClient
+            controlSocketClient.addFactory(_LOG_ROUTE, f)
+            controlClient = ControlSocketConnectingService(
+                endpointFactory, controlSocketClient
+            )
+            bonusServices.append(controlClient)
         elif config.ProcessType == "Single":
             # Make sure no old socket files are lying around.
             self.deleteStaleSocketFiles()
-
             logObserver = RotatingFileAccessLoggingObserver(
                 config.AccessLogFile,
             )
@@ -785,18 +811,20 @@ class CalDAVServiceMaker (LoggingMixIn):
         self.log_info("Configuring access log observer: %s" % (logObserver,))
 
         service = CalDAVService(logObserver)
+        for bonus in bonusServices:
+            bonus.setServiceParent(service)
 
         rootResource = getRootResource(config, store, additional)
         service.rootResource = rootResource
 
         underlyingSite = Site(rootResource)
-        
-        # Need to cache SSL port info here so we can access it in a Request to deal with the
-        # possibility of being behind an SSL decoder
+
+        # Need to cache SSL port info here so we can access it in a Request to
+        # deal with the possibility of being behind an SSL decoder
         underlyingSite.EnableSSL = config.EnableSSL
         underlyingSite.SSLPort = config.SSLPort
         underlyingSite.BindSSLPorts = config.BindSSLPorts
-        
+
         requestFactory = underlyingSite
 
         if config.RedirectHTTPToHTTPS:
@@ -1102,7 +1130,8 @@ class CalDAVServiceMaker (LoggingMixIn):
             try:
                 gid = getgrnam(config.GroupName).gr_gid
             except KeyError:
-                raise ConfigurationError("Invalid group name: %s" % (config.GroupName,))
+                raise ConfigurationError("Invalid group name: %s" %
+                                         (config.GroupName,))
         else:
             gid = os.getgid()
 
@@ -1110,20 +1139,24 @@ class CalDAVServiceMaker (LoggingMixIn):
             try:
                 uid = getpwnam(config.UserName).pw_uid
             except KeyError:
-                raise ConfigurationError("Invalid user name: %s" % (config.UserName,))
+                raise ConfigurationError("Invalid user name: %s" %
+                                         (config.UserName,))
         else:
             uid = os.getuid()
 
+
+        controlSocket = ControlSocket()
+        controlSocket.addFactory(_LOG_ROUTE, logger)
         if config.ControlSocket:
-            loggingService = GroupOwnedUNIXServer(
-                gid, config.ControlSocket, logger, mode=0660
+            controlSocketService = GroupOwnedUNIXServer(
+                gid, config.ControlSocket, controlSocket, mode=0660
             )
         else:
-            loggingService = ControlPortTCPServer(
-                config.ControlPort, logger, interface="127.0.0.1"
+            controlSocketService = ControlPortTCPServer(
+                config.ControlPort, controlSocket, interface="127.0.0.1"
             )
-        loggingService.setName("logging")
-        loggingService.setServiceParent(s)
+        controlSocketService.setName(_CONTROL_SERVICE_NAME)
+        controlSocketService.setServiceParent(s)
 
         monitor = DelayedStartupProcessMonitor()
         s.processMonitor = monitor

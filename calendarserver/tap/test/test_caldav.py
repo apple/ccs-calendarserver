@@ -57,7 +57,8 @@ from twistedcaldav.test.util import TestCase, CapturingProcessProtocol
 
 from calendarserver.tap.caldav import (
     CalDAVOptions, CalDAVServiceMaker, CalDAVService, GroupOwnedUNIXServer,
-    DelayedStartupProcessMonitor, DelayedStartupLineLogger, TwistdSlaveProcess
+    DelayedStartupProcessMonitor, DelayedStartupLineLogger, TwistdSlaveProcess,
+    _CONTROL_SERVICE_NAME
 )
 from calendarserver.provision.root import RootResource
 from StringIO import StringIO
@@ -460,7 +461,7 @@ class CalDAVServiceMakerTests(BaseServiceMakerTests):
         self.config["ProcessType"] = "Combined"
         self.writeConfig()
         svc = self.makeService()
-        for serviceName in ["logging"]:
+        for serviceName in [_CONTROL_SERVICE_NAME]:
             socketService = svc.getServiceNamed(serviceName)
             self.assertIsInstance(socketService, GroupOwnedUNIXServer)
             m = socketService.kwargs.get("mode", 0666)
