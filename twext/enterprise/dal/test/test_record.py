@@ -94,10 +94,10 @@ class TestCRUD(TestCase):
         be created in the database.
         """
         txn = self.pool.connection()
-        rec = yield TestRecord.create(txn, beta=3, gamma='epsilon')
+        rec = yield TestRecord.create(txn, beta=3, gamma=u'epsilon')
         self.assertEquals(rec.beta, 3)
-        self.assertEqual(rec.gamma, 'epsilon')
+        self.assertEqual(rec.gamma, u'epsilon')
         rows = yield txn.execSQL("select BETA, GAMMA from ALPHA")
-        self.assertEqual(rows, [[3, 'epsilon']])
+        self.assertEqual(rows, [tuple([3, u'epsilon'])])
 
 
