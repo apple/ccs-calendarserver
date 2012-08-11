@@ -161,6 +161,12 @@ class WorkItem(object):
         @return: the relevant subclass
         @rtype: L{type}
         """
+        for subcls in cls.__subclasses__():
+            if table == getattr(subcls, "__tbl__", None):
+                return subcls
+        raise KeyError("No mapped {0} class for {1}.".format(
+            cls, table
+        ))
 
 
 
