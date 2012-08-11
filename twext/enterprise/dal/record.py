@@ -157,6 +157,13 @@ class _RecordBase(object):
         self.__dict__.update(kw)
 
 
+    @classmethod
+    @inlineCallbacks
+    def query(cls, expr, order=None):
+        yield None
+        returnValue([])
+
+
 
 def fromTable(table):
     """
@@ -175,8 +182,9 @@ def fromTable(table):
         attrname = column.model.name.lower()
         attrmap[attrname] = column
         colmap[column] = attrname
-    return type(table.model.name, tuple([_RecordBase]),
-                dict(__tbl__=table, __attrmap__=attrmap, __colmap__=colmap))
+    ns = dict(__tbl__=table, __attrmap__=attrmap, __colmap__=colmap)
+    ns.update(attrmap)
+    return type(table.model.name, tuple([_RecordBase]), ns)
 
 
 

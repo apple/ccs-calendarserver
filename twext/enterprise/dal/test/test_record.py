@@ -157,4 +157,23 @@ class TestCRUD(TestCase):
         self.assertEqual(rec.gamma, u'otherwise')
 
 
+    @inlineCallbacks
+    def test_simpleQuery(self):
+        """
+        L{Record.query} will allow you to query for a record by its class
+        attributes as columns.
+        """
+        txn = self.pool.connection()
+        for beta, gamma in [(123, u"one"), (234, u"two"), (345, u"three"),
+                            (356, u"three"), (456, u"four")]:
+            yield txn.execSQL("insert into ALPHA values (:1, :2)",
+                              [beta, gamma])
+        records = yield TestRecord.query(TestRecord.gamma == u"three",
+                                         TestRecord.beta)
+        self.assertEqual(len(records), 2)
+        self.assertEqual(records[0].beta, 345)
+        self.assertEqual(records[1].beta, 356)
+
+
+
 
