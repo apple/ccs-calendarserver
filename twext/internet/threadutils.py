@@ -90,6 +90,8 @@ class ThreadHolder(object):
 
         @return: L{Deferred} that fires with the result of L{work}
         """
+        if self._state != _STATE_RUNNING:
+            raise RuntimeError("not running")
         d = Deferred()
         self._q.put((d, work))
         return d
