@@ -1069,11 +1069,11 @@ class PeerConnectionPool(Service, object):
             # If this fails, the failure mode is going to be ugly, just like all
             # conflicted-port failures.  But, at least it won't proceed.
             yield endpoint.listen(f)
-            yield Lock(NodeInfo).on(txn)
-            nodes = yield self.activeNodes()
+            yield Lock.exclusive(NodeInfo.table).on(txn)
+            nodes = yield self.activeNodes(txn)
             selves = [node for node in nodes
                       if ((node.hostname == self.hostname) and
-                          (node.port == self.port))]
+                          (node.port == self.ampPort))]
             if selves:
                 self.thisProcess = selves[0]
                 yield self.thisProcess.update(pid=self.pid,
