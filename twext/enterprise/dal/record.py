@@ -26,6 +26,17 @@ from twisted.internet.defer import inlineCallbacks, returnValue
 from twext.enterprise.dal.syntax import Select, Tuple, Constant, ColumnSyntax
 from twext.enterprise.dal.syntax import Insert
 
+class ReadOnly(AttributeError):
+    """
+    A caller attempted to set an attribute on a database-backed record, rather
+    than updating it through L{_RecordBase.update}.
+    """
+
+    def __init__(self, className, attributeName):
+        self.className = className
+        self.attributeName = attributeName
+        super(ReadOnly, self).__init__()
+
 
 
 class _RecordBase(object):
@@ -81,3 +92,8 @@ def fromTable(table):
     return type(table.model.name, tuple([_RecordBase]),
                 dict(__tbl__=table))
 
+
+__all__ = [
+    "ReadOnly",
+    "fromTable",
+]

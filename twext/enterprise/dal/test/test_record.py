@@ -24,7 +24,7 @@ from twisted.internet.defer import inlineCallbacks
 
 from twisted.trial.unittest import TestCase
 
-from twext.enterprise.dal.record import fromTable
+from twext.enterprise.dal.record import fromTable, ReadOnly
 from twext.enterprise.dal.syntax import SQLITE_DIALECT
 
 from twext.enterprise.dal.test.test_parseschema import SchemaTestHelper
@@ -100,5 +100,43 @@ class TestCRUD(TestCase):
         self.assertEqual(rec.gamma, u'epsilon')
         rows = yield txn.execSQL("select BETA, GAMMA from ALPHA")
         self.assertEqual(rows, [tuple([3, u'epsilon'])])
+
+
+    @inlineCallbacks
+    def test_attributesArentMutableYet(self):
+        """
+        Changing attributes on a database object is not supported yet, because
+        it's not entirely clear when to flush the SQL to the database.
+        Instead, for the time being, use C{.update}.  When you attempt to set
+        an attribute, an error will be raised informing you of this fact, so
+        that the error is clear.
+        """
+        txn = self.pool.connection()
+        rec = yield TestRecord.create(txn, beta=7, gamma=u'what')
+        def setit():
+            rec.beta = 12
+        ro = self.assertRaises(ReadOnly, setit)
+        self.assertEqual(rec.beta, 7)
+        self.assertContains(repr(ro),
+                            "SQL-backed attribute 'TestRecord.beta' is "
+                            "read-only. use '.update(...)' to modify "
+                            "attributes.")
+
+
+    @inlineCallbacks
+    def test_simpleUpdate(self):
+        """
+        L{Record.update} will change the values on the record and in te
+        database.
+        """
+        txn = self.pool.connection()
+        rec = yield TestRecord.create(txn, beta=3, gamme=u'epsilon')
+        yield rec.update(gamma=u'otherwise')
+        self.assertEqual(rec.beta, u'otherwise')
+        yield txn.commit()
+        # Make sure that it persists.
+        txn = self.pool.connection()
+        rec = yield TestRecord.load(txn, 3)
+        self.assertEqual(rec.gamma, u'otherwise')
 
 
