@@ -17,6 +17,9 @@ from twisted.protocols.amp import AMP, Command, Integer, Argument
 from twisted.python.reflect import qual
 
 from twext.enterprise.dal.syntax import TableSyntax, SchemaSyntax
+from twext.enterprise.dal.model import ProcedureCall
+from twext.enterprise.dal.syntax import NamedValue
+from twext.enterprise.dal.record import fromTable
 from twext.enterprise.dal.model import Table, Schema, SQLType, Constraint
 
 
@@ -33,7 +36,11 @@ def makeMasterSchema(inSchema):
     masterTable.addColumn("HOSTNAME", SQLType("varchar", 255))
     masterTable.addColumn("PID", SQLType("integer", None))
     masterTable.addColumn("PORT", SQLType("integer", None))
-    masterTable.addColumn("TIME", SQLType("timestamp", None))
+    masterTable.addColumn("TIME", SQLType("timestamp", None)).setDefaultValue(
+        # Note: in the real data structure, this is actually a not-cleaned-up
+        # sqlparse internal data structure, but it *should* look closer to this.
+        ProcedureCall("timezone", ["UTC", NamedValue('CURRENT_TIMESTAMP')])
+    )
     for column in masterTable.columns:
         masterTable.tableConstraint(Constraint.NOT_NULL, [column.name])
     return inSchema
@@ -75,7 +82,7 @@ class TableSyntaxByName(Argument):
 
 
 
-class MasterInfo(object):
+class MasterInfo(fromTable(masterInfoSchema.MASTER_INFO)):
     """
     A L{MasterInfo} is information about a currently-active master process.
     """
@@ -88,7 +95,11 @@ class MasterInfo(object):
         @return: an endpoint that will connect to this host.
         @rtype: L{IStreamServerEndpoint}
         """
-        return TCP4ClientEndpoint(self.host, self.ampPort)
+        return TCP4ClientEndpoint(self.hostname, self.port)
+
+
+    def updateCurrent(self):
+        return self.update(timestamp=datetime.datetime.now())
 
 
 
@@ -444,9 +455,7 @@ class PeerConnectionPool(Service, object):
         Register ourselves with the database and establish all outgoing
         connections to other servers in the cluster.
         """
-
         self._doStart()
-        # Is there any need for a callback?
 
 
     @inlineCallbacks
@@ -495,15 +504,4 @@ class PeerConnectionPool(Service, object):
         f = Factory()
         master.endpoint().connect(f)
 
-"""
-Notes:
-
-The master process is going to talk to a slave process by signaling via the
-logging (e.g.  "control") socket.  But it also needs to have a reference over
-to the meta-fd-dispatcher socket so it knows which one to talk to.
-
-Right now all the slave->master connections are established by the slaves
-coming in, so we need to work with whatever connections are availble and/or
-buffer until the first one comes in.
-"""
 
