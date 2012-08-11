@@ -37,7 +37,7 @@ class ReadOnly(AttributeError):
     def __init__(self, className, attributeName):
         self.className = className
         self.attributeName = attributeName
-        super(ReadOnly, self).__init__("SQL-backed attribute '{}.{}' is "
+        super(ReadOnly, self).__init__("SQL-backed attribute '{0}.{1}' is "
                                        "read-only. Use '.update(...)' to "
                                        "modify attributes."
                                        .format(className, attributeName))
