@@ -67,10 +67,21 @@ class _RecordBase(object):
 
 
     @classmethod
+    def _primaryKeyExpression(cls):
+        return Tuple([ColumnSyntax(c) for c in cls.__tbl__.model.primaryKey])
+
+
+    def _primaryKeyValue(self):
+        val = []
+        for col in self._primaryKeyExpression().columns:
+            val.append(getattr(self, self.__class__.__colmap__[col]))
+
+
+    @classmethod
     @inlineCallbacks
     def load(cls, txn, *primaryKey):
         tbl = cls.__tbl__
-        pkey = Tuple([ColumnSyntax(c) for c in tbl.model.primaryKey])
+        pkey = cls._primaryKeyExpression()
         allColumns = list(tbl)
         slct = Select(allColumns, From=tbl,
                       Where=pkey == Tuple(map(Constant, primaryKey)))
@@ -117,7 +128,10 @@ class _RecordBase(object):
         colmap = {}
         for k, v in kw.iteritems():
             colmap[self.__attrmap__[k]] = v
-        yield (Update(colmap, Where=Constant(True)).on(self.__txn__))
+        yield (Update(colmap,
+               Where=self._primaryKeyExpression() == self._primaryKeyValue()
+               ).on(self.__txn__))
+        self.__dict__.update(kw)
 
 
 
