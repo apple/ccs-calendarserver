@@ -1082,6 +1082,7 @@ class PeerConnectionPool(Service, object):
                           (node.port == self.ampPort))]
             if selves:
                 self.thisProcess = selves[0]
+                nodes.remove(self.thisProcess)
                 yield self.thisProcess.update(pid=self.pid,
                                               time=datetime.now())
             else:
