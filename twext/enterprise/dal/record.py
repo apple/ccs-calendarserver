@@ -155,8 +155,7 @@ class _RecordBase(object):
 
 
     @classmethod
-    @inlineCallbacks
-    def pop(cls, primaryKey):
+    def pop(cls, txn, *primaryKey):
         """
         Atomically retrieve and remove a row from this L{_RecordBase}'s table
         with a primary key value of C{primaryKey}.
@@ -165,27 +164,35 @@ class _RecordBase(object):
             with L{NoSuchRecord} if there were no records in the database.
         @rtype: L{Deferred}
         """
-        yield None
+        return cls._rowsFromQuery(
+            txn, Delete(Where=cls._primaryKeyComparison(primaryKey),
+                        From=cls.__tbl__, Return=list(cls.__tbl__)),
+            lambda : NoSuchRecord()
+        ).addCallback(lambda x: x[0])
 
 
     @classmethod
-    @inlineCallbacks
     def query(cls, txn, expr, order=None, ascending=True):
         """
         Query the table that corresponds to C{cls}, and return instances of
         C{cls} corresponding to the rows that are returned from that table.
         """
-        tbl = cls.__tbl__
-        allColumns = list(tbl)
         kw = {}
         if order is not None:
             kw.update(OrderBy=order, Ascending=ascending)
-        slct = Select(allColumns, From=tbl, Where=expr, **kw)
-        rows = yield slct.on(txn)
+        return cls._rowsFromQuery(txn, Select(list(cls.__tbl__),
+                                              From=cls.__tbl__,
+                                              Where=expr, **kw), None)
+
+
+    @classmethod
+    @inlineCallbacks
+    def _rowsFromQuery(cls, txn, qry, rozrc):
+        rows = yield qry.on(txn, raiseOnZeroRowCount=rozrc)
         selves = []
         for row in rows:
             self = cls()
-            for (column, value) in zip(allColumns, row):
+            for (column, value) in zip(list(cls.__tbl__), row):
                 name = cls.__colmap__[column]
                 setattr(self, name, value)
             self.__txn__ = txn
