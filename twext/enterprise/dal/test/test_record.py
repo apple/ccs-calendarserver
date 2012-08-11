@@ -178,6 +178,24 @@ class TestCRUD(TestCase):
 
 
     @inlineCallbacks
+    def test_all(self):
+        """
+        L{Record.all} will return all instances of the record, sorted by
+        primary key.
+        """
+        txn = self.pool.connection()
+        data = [(123, u"one"), (456, u"four"), (345, u"three"),
+                (234, u"two"), (356, u"three")]
+        for beta, gamma in data:
+            yield txn.execSQL("insert into ALPHA values (:1, :2)",
+                              [beta, gamma])
+        self.assertEqual(
+            [(x.beta, x.gamma) for x in (yield TestRecord.all(txn))],
+            sorted(data)
+        )
+
+
+    @inlineCallbacks
     def test_orderedQuery(self):
         """
         L{Record.query} takes an 'order' argument which will allow the objects
