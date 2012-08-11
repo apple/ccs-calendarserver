@@ -205,7 +205,7 @@ class TestCRUD(TestCase):
                             (356, u"three"), (456, u"four")]:
             yield txn.execSQL("insert into ALPHA values (:1, :2)",
                               [beta, gamma])
-        rec = yield TestRecord.pop(234)
+        rec = yield TestRecord.pop(txn, 234)
         self.assertEqual(rec.gamma, u'two')
         self.assertEqual((yield txn.execSQL("select count(*) from ALPHA "
                                             "where BETA = :1", [234])),
