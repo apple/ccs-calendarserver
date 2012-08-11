@@ -350,8 +350,6 @@ class CommonStoreTransaction(object):
         self._calendarHomes = {}
         self._addressbookHomes = {}
         self._notificationHomes = {}
-        self._postCommitOperations = []
-        self._postAbortOperations = []
         self._notifierFactory = notifierFactory
         self._notifiedAlready = set()
         self._bumpedAlready = set()
@@ -606,18 +604,18 @@ class CommonStoreTransaction(object):
         return self._apnSubscriptionsBySubscriberQuery.on(self, subscriberGUID=guid)
 
 
-    def postCommit(self, operation, immediately=False):
+    def postCommit(self, operation):
         """
         Run things after C{commit}.
         """
-        self._postCommitOperations.append((operation, immediately))
+        return self._sqlTxn.postCommit(operation)
 
 
     def postAbort(self, operation):
         """
         Run things after C{abort}.
         """
-        self._postAbortOperations.append(operation)
+        return self._sqlTxn.postAbort(operation)
 
 
     def isNotifiedAlready(self, obj):
@@ -774,30 +772,16 @@ class CommonStoreTransaction(object):
         """
         Commit the transaction and execute any post-commit hooks.
         """
-        @inlineCallbacks
-        def postCommit(ignored):
-            for operation, immediately in self._postCommitOperations:
-                if immediately:
-                    yield operation()
-                else:
-                    operation()
-            returnValue(ignored)
-
         if self._stats:
             self._stats.printReport()
-
-        return self._sqlTxn.commit().addCallback(postCommit)
+        return self._sqlTxn.commit()
 
 
     def abort(self):
         """
         Abort the transaction.
         """
-        def postAbort(ignored):
-            for operation in self._postAbortOperations:
-                operation()
-            return ignored
-        return self._sqlTxn.abort().addCallback(postAbort)
+        return self._sqlTxn.abort()
 
 
     def _oldEventsBase(limited): #@NoSelf

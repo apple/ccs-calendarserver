@@ -484,7 +484,53 @@ class _WaitingTxn(object):
 
 
 
-class _SingleTxn(proxyForInterface(iface=IAsyncTransaction,
+class _HookableOperation(object):
+
+    def __init__(self):
+        self._hooks = []
+
+
+    @inlineCallbacks
+    def runHooks(self, ignored):
+        """
+        Callback for C{commit} and C{abort} Deferreds.
+        """
+        for operation in self._hooks:
+            yield operation()
+        returnValue(ignored)
+
+
+    def addHook(self, operation):
+        """
+        Implement L{IAsyncTransaction.postCommit}.
+        """
+        self._hooks.append(operation)
+
+
+
+class _CommitAndAbortHooks(object):
+    """
+    Shared implementation of post-commit and post-abort hooks.
+    """
+    # FIXME: this functionality needs direct tests, although it's pretty well-
+    # covered by txdav's test suite.
+
+    def __init__(self):
+        self._commit = _HookableOperation()
+        self._abort = _HookableOperation()
+
+
+    def postCommit(self, operation):
+        return self._commit.addHook(operation)
+
+
+    def postAbort(self, operation):
+        return self._abort.addHook(operation)
+
+
+
+class _SingleTxn(_CommitAndAbortHooks,
+                 proxyForInterface(iface=IAsyncTransaction,
                                    originalAttribute='_baseTxn')):
     """
     A L{_SingleTxn} is a single-use wrapper for the longer-lived
@@ -505,6 +551,7 @@ class _SingleTxn(proxyForInterface(iface=IAsyncTransaction,
     """
 
     def __init__(self, pool, baseTxn):
+        super(_SingleTxn, self).__init__()
         self._pool           = pool
         self._baseTxn        = baseTxn
         self._completed      = False
@@ -601,9 +648,9 @@ class _SingleTxn(proxyForInterface(iface=IAsyncTransaction,
             # We're in the process of executing a block of commands.  Wait until
             # they're done.  (Commit will be repeated in _checkNextBlock.)
             return self._blockedQueue.commit()
-
         self._markComplete()
-        return super(_SingleTxn, self).commit()
+        return (super(_SingleTxn, self).commit()
+                .addCallback(self._commit.runHooks))
 
 
     def abort(self):
@@ -611,6 +658,7 @@ class _SingleTxn(proxyForInterface(iface=IAsyncTransaction,
         result = super(_SingleTxn, self).abort()
         if self in self._pool._waiting:
             self._stopWaiting()
+        result.addCallback(self._abort.runHooks)
         return result
 
 
@@ -1432,7 +1480,7 @@ class _Query(object):
 
 
 
-class _NetTransaction(object):
+class _NetTransaction(_CommitAndAbortHooks):
     """
     A L{_NetTransaction} is an L{AMP}-protocol-based provider of the
     L{IAsyncTransaction} interface.  It sends SQL statements, query results, and
@@ -1446,6 +1494,7 @@ class _NetTransaction(object):
         Initialize a transaction with a L{ConnectionPoolClient} and a unique
         transaction identifier.
         """
+        super(_NetTransaction, self).__init__()
         self._client        = client
         self._transactionID = transactionID
         self._completed     = False
@@ -1503,11 +1552,12 @@ class _NetTransaction(object):
         def done(whatever):
             self._committed = True
             return whatever
-        return self._complete(Commit).addBoth(done)
+        return (self._complete(Commit).addBoth(done)
+                .addCallback(self._commit.runHooks))
 
 
     def abort(self):
-        return self._complete(Abort)
+        return self._complete(Abort).addCallback(self._abort.runHooks)
 
 
     def commandBlock(self):

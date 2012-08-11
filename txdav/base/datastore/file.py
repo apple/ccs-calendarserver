@@ -187,14 +187,18 @@ class DataStoreTransaction(LoggingMixIn):
                         self.log_error("Cannot undo DataStoreTransaction")
                 raise
 
-        for (operation, ignored) in self._postCommitOperations:
+        for operation in self._postCommitOperations:
             operation()
 
-    def postCommit(self, operation, immediately=False):
-        self._postCommitOperations.append((operation, immediately))
+
+    def postCommit(self, operation):
+        self._postCommitOperations.append(operation)
+
 
     def postAbort(self, operation):
         self._postAbortOperations.append(operation)
+
+
 
 class FileMetaDataMixin(object):
     
