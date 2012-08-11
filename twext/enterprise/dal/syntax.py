@@ -1516,7 +1516,7 @@ class Update(_DMLStatement):
                             ).on(txn, *a, **kw))
             returnValue(result)
         else:
-            returnValue(upcall())
+            returnValue((yield upcall()))
 
 
     def _toSQL(self, queryGenerator):
