@@ -651,7 +651,7 @@ class ConnectionPoolTests(ConnectionPoolHelper, TestCase):
         self.assertEquals(len(errors), 1)
         stopd = []
         self.pool.stopService().addBoth(stopd.append)
-        self.assertEquals([None], stopd)
+        self.assertResultList(stopd, None)
         self.assertEquals(self.clock.calls, [])
         [holder] = self.holders
         self.assertEquals(holder.started, True)
@@ -701,7 +701,7 @@ class ConnectionPoolTests(ConnectionPoolHelper, TestCase):
         self.flushHolders()
         errors = self.flushLoggedErrors(FakeConnectionError)
         self.assertEquals(len(errors), 1)
-        self.assertEquals(stopd, [None])
+        self.assertResultList(stopd, None)
         [holder] = self.holders
         self.assertEquals(holder.started, True)
         self.assertEquals(holder.stopped, True)
