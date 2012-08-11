@@ -219,7 +219,7 @@ class ConnectionFromPeerNode(SchemaAMP):
 
     def startReceivingBoxes(self, sender):
         """
-        Connection is up and running.
+        Connection is up and running; add this to the list of active peers.
         """
         r = super(ConnectionFromPeerNode, self).startReceivingBoxes(sender)
         self.peerPool.addPeerConnection(self)
@@ -228,7 +228,8 @@ class ConnectionFromPeerNode(SchemaAMP):
 
     def stopReceivingBoxes(self, reason):
         """
-        Stop receiving boxes.
+        The connection has shut down; remove this from the list of active
+        peers.
         """
         self.peerPool.removePeerConnection(self)
         r = super(ConnectionFromPeerNode, self).stopReceivingBoxes(reason)
