@@ -26,6 +26,7 @@ from twisted.internet.defer import inlineCallbacks, returnValue
 from twext.enterprise.dal.syntax import Select, Tuple, Constant, ColumnSyntax
 from twext.enterprise.dal.syntax import Insert
 from twext.enterprise.dal.syntax import Update
+from twext.enterprise.dal.syntax import Delete
 
 class ReadOnly(AttributeError):
     """
@@ -101,7 +102,7 @@ class _RecordBase(object):
         for (column, value) in zip(allColumns, row):
             name = cls.__colmap__[column]
             setattr(self, name, value)
-        # FIXME: self.__txn__ = txn
+        self.__txn__ = txn
         returnValue(self)
 
 
@@ -125,6 +126,18 @@ class _RecordBase(object):
         yield Insert(colmap).on(txn)
         self.__txn__ = txn
         returnValue(self)
+
+
+    def delete(self):
+        """
+        Delete this row from the database.
+
+        @return: a L{Deferred} which fires when the underlying row has been
+            deleted.
+        """
+        return Delete(From=self.__tbl__,
+                      Where=self._primaryKeyComparison(self._primaryKeyValue())
+                      ).on(self.__txn__)
 
 
     @inlineCallbacks
