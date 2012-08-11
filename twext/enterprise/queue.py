@@ -179,6 +179,18 @@ class PerformWork(Command):
 
 
 
+class ReportLoad(Command):
+    """
+    Notify another node of the total, current load for this whole node (all of
+    its workers).
+    """
+    arguments = [
+        ("load", Integer())
+    ]
+    response = []
+
+
+
 class SchemaAMP(AMP):
     """
     An AMP instance which also has a L{Schema} attached to it.
@@ -213,8 +225,27 @@ class ConnectionFromPeerNode(SchemaAMP):
         """
         self.peerPool = peerPool
         self.localWorkerPool = peerPool.workerPool
+        self._bonusLoad = 0
+        self._reportedLoad = 0
         super(ConnectionFromPeerNode, self).__init__(peerPool.schema,
                                                      boxReceiver, locator)
+
+
+    def reportCurrentLoad(self):
+        """
+        Report the current load for the local worker pool to this peer.
+        """
+        return self.callRemote(ReportLoad,
+                               load=self.localWorkerPool.totalLoad())
+
+
+    @ReportLoad.responder
+    def repotedLoad(self, load):
+        """
+        The peer reports its load.
+        """
+        self._reportedLoad = (load - self._bonusLoad)
+        return {}
 
 
     def startReceivingBoxes(self, sender):
@@ -245,7 +276,7 @@ class ConnectionFromPeerNode(SchemaAMP):
             load, such as currently-being-processed client requests).
         @rtype: L{int}
         """
-        return 0
+        return self._reportedLoad + self._bonusLoad
 
 
     def performWork(self, table, workID):
@@ -264,8 +295,13 @@ class ConnectionFromPeerNode(SchemaAMP):
             complete.
         @rtype: L{Deferred} firing L{dict}
         """
-        return self.callRemote(PerformWork,
-                               table=table.model.name, workID=workID)
+        d = self.callRemote(PerformWork, table=table.model.name, workID=workID)
+        self._bonusLoad += 1
+        @d.addBoth
+        def performed(result):
+            self._bonusLoad -= 1
+            return result
+        return d
 
 
     @PerformWork.responder
@@ -291,8 +327,8 @@ class WorkerConnectionPool(object):
     A pool of L{ConnectionFromWorker}s.
 
     L{WorkerConnectionPool} also implements the same implicit protocol as a
-    L{ConnectionFromPeerNode}, but one that dispenses work to the local
-    worker processes rather than to a remote connection pool.
+    L{ConnectionFromPeerNode}, but one that dispenses work to the local worker
+    processes rather than to a remote connection pool.
     """
 
     def __init__(self, maximumLoadPerWorker=0):
@@ -327,7 +363,14 @@ class WorkerConnectionPool(object):
         return False
 
 
-    def _selectLowestLoadLocalConnection(self):
+    def totalLoad(self):
+        """
+        The total load of all currently connected workers.
+        """
+        return sum(worker.currentLoad() for worker in self.workers)
+
+
+    def _selectLowestLoadWorker(self):
         """
         Select the local connection with the lowest current load, or C{None} if
         all workers are too busy.
@@ -353,7 +396,7 @@ class WorkerConnectionPool(object):
             complete.
         @rtype: L{Deferred} firing L{dict}
         """
-        return self._selectLowestLoadLocalConnection().performWork(table, workID)
+        return self._selectLowestLoadWorker().performWork(table, workID)
 
 
 
@@ -419,9 +462,10 @@ class ConnectionFromWorker(SchemaAMP):
 
 class ConnectionFromController(SchemaAMP):
     """
-    A L{ConnectionFromController} is the connection to a node-controller process,
-    in a worker process.  It processes requests from its own master to do work.
-    It is the opposite end of the connection from L{ConnectionFromWorker}.
+    A L{ConnectionFromController} is the connection to a node-controller
+    process, in a worker process.  It processes requests from its own master to
+    do work.  It is the opposite end of the connection from
+    L{ConnectionFromWorker}.
     """
 
     def __init__(self, transactionFactory, schema,
@@ -858,7 +902,6 @@ class PeerConnectionPool(Service, object):
 
 
     def createPeerConnection(self, addr):
-        # TODO: add to peer list, remove from peer list
         return ConnectionFromPeerNode(self)
 
 
