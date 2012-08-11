@@ -11,7 +11,8 @@ from datetime import datetime
 from twisted.internet.task import LoopingCall
 from twisted.application.service import Service
 from twisted.internet.protocol import Factory
-from twisted.internet.defer import inlineCallbacks, returnValue
+from twisted.internet.defer import inlineCallbacks, returnValue, Deferred
+from twisted.internet.task import deferLater
 from twisted.internet.endpoints import TCP4ClientEndpoint
 from twisted.protocols.amp import AMP, Command, Integer, Argument
 from twisted.python.reflect import qual
@@ -20,9 +21,6 @@ from twext.enterprise.dal.syntax import TableSyntax, SchemaSyntax
 from twext.enterprise.dal.model import ProcedureCall
 from twext.enterprise.dal.syntax import NamedValue
 from twext.enterprise.dal.record import fromTable
-from twisted.internet.defer import Deferred
-from twisted.internet.defer import passthru
-from twisted.internet.task import deferLater
 from twext.enterprise.dal.model import Table, Schema, SQLType, Constraint
 
 
@@ -376,6 +374,19 @@ class TransactionFailed(Exception):
     """
 
 
+def _cloneDeferred(d):
+    """
+    Make a new Deferred, adding callbacks to C{d}.
+
+    @return: another L{Deferred} that fires with C{d's} result when C{d} fires.
+    @rtype: L{Deferred}
+    """
+    d2 = Deferred()
+    d.chainDeferred(d2)
+    return d2
+
+
+
 class WorkProposal(object):
     """
     A L{WorkProposal} is a proposal for work that will be executed, perhaps on
@@ -456,7 +467,7 @@ class WorkProposal(object):
         @return: a L{Deferred} that fires with C{None} when the work has been
             completed remotely.
         """
-        # TODO: implement
+        return _cloneDeferred(self._whenExecuted)
 
 
     def whenProposed(self):
@@ -468,8 +479,7 @@ class WorkProposal(object):
             commands have been sent to the database to create the L{WorkItem},
             and fails if those commands do not succeed for some reason.
         """
-        # TODO: implement
-        # XXX should this actually fire the WorkItem rather than None?
+        return _cloneDeferred(self._whenProposed)
 
 
     def whenCommitted(self):
@@ -482,7 +492,7 @@ class WorkProposal(object):
             transaction has been committed, or fails if the transaction is not
             committed for any reason.
         """
-        # TODO: implement
+        return _cloneDeferred(self._whenCommitted)
 
 
 
@@ -496,11 +506,13 @@ class PeerConnectionPool(Service, object):
         obtained via C{config.ServerHostName} instead of C{socket.getfqdn()};
         although hosts within a cluster may be configured with the same
         C{ServerHostName}; TODO need to confirm.
+    @type hostName: L{bytes}
 
     @ivar thisProcess: a L{NodeInfo} representing this process, which is
         initialized when this L{PeerConnectionPool} service is started via
         C{startService}.  May be C{None} if this service is not fully started
         up or if it is shutting down.
+    @type thisProcess: L{NodeInfo}
 
     @ivar queueProcessTimeout: The maximum amount of time allowed for a queue
         item to be processed.  By default, 10 minutes.
@@ -717,6 +729,8 @@ class PeerConnectionPool(Service, object):
         """
         f = Factory()
         master.endpoint().connect(f)
+
+
 
 def sketch():
     """
