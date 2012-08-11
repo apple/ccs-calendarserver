@@ -35,7 +35,8 @@ class _RecordBase(object):
         tbl = cls.__tbl__
         pkey = Tuple([ColumnSyntax(c) for c in tbl.model.primaryKey])
         allColumns = list(tbl)
-        slct = Select(allColumns, From=tbl, Where=pkey == Tuple(map(Constant, primaryKey)))
+        slct = Select(allColumns, From=tbl,
+                      Where=pkey == Tuple(map(Constant, primaryKey)))
         rows = yield slct.on(txn)
         row = rows[0]
         self = cls()
