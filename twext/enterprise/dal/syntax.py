@@ -27,7 +27,7 @@ from zope.interface import implements
 
 from twisted.internet.defer import succeed
 
-from twext.enterprise.dal.model import Schema, Table, Column, Sequence
+from twext.enterprise.dal.model import Schema, Table, Column, Sequence, SQLType
 from twext.enterprise.ienterprise import (
     POSTGRES_DIALECT, ORACLE_DIALECT, SQLITE_DIALECT, IDerivedParameter
 )
@@ -200,7 +200,6 @@ class _Statement(object):
             located somewhere in C{self}
 
         @return: results from the database.
-
         @rtype: a L{Deferred} firing a C{list} of records (C{tuple}s or
             C{list}s)
         """
@@ -446,6 +445,7 @@ Max = Function("max")
 Len = Function("character_length", "length")
 Upper = Function("upper")
 Lower = Function("lower")
+_sqliteLastInsertRowID = Function("last_insert_rowid")
 
 # Use a specific value here for "the convention for case-insensitive values in
 # the database" so we don't need to keep remembering whether it's upper or
@@ -1334,6 +1334,25 @@ class _DMLStatement(_Statement):
 
     def _resultColumns(self):
         return self._returnAsList()
+
+
+    def on(self, txn, *a, **kw):
+        """
+        Override to provide potentially extra logic for insert/update/delete
+        that return values on databases that don't necessarily provide it.
+        """
+        result = super(_DMLStatement, self).on(txn, *a, **kw)
+        if txn.dialect == SQLITE_DIALECT:
+            table = self._returnAsList()[0].model.table
+            return Select(self._returnAsList(),
+                   # TODO: error reporting when 'return' includes columns
+                   # foreign to the primary table.
+                   From=TableSyntax(table),
+                   Where=ColumnSyntax(Column(table, "rowid",
+                                             SQLType("integer", None))) ==
+                         _sqliteLastInsertRowID()
+                   ).on(txn, *a, **kw)
+        return result
 
 
 
