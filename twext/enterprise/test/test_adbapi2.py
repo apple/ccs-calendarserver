@@ -66,6 +66,22 @@ def resultOf(deferred, propagate=False):
 
 
 
+class AssertResultHelper(object):
+    """
+    Mixin for asserting about synchronous Deferred results.
+    """
+
+    def assertResultList(self, resultList, expected):
+        if not resultList:
+            self.fail("No result; Deferred didn't fire yet.")
+        else:
+            if isinstance(resultList[0], Failure):
+                resultList[0].raiseException()
+            else:
+                self.assertEqual(resultList, [expected])
+
+
+
 class Child(object):
     """
     An object with a L{Parent}, in its list of C{children}.
@@ -542,7 +558,7 @@ class ConnectionPoolHelper(object):
 
 
 
-class ConnectionPoolTests(ConnectionPoolHelper, TestCase):
+class ConnectionPoolTests(ConnectionPoolHelper, TestCase, AssertResultHelper):
     """
     Tests for L{ConnectionPool}.
     """
@@ -674,16 +690,6 @@ class ConnectionPoolTests(ConnectionPoolHelper, TestCase):
         [holder] = self.holders
         self.assertEquals(holder.started, True)
         self.assertEquals(holder.stopped, True)
-
-
-    def assertResultList(self, resultList, expected):
-        if not resultList:
-            self.fail("No result; Deferred didn't fire yet.")
-        else:
-            if isinstance(resultList[0], Failure):
-                resultList[0].raiseException()
-            else:
-                self.assertEqual(resultList, [expected])
 
 
     def test_shutdownDuringAttemptFailed(self):

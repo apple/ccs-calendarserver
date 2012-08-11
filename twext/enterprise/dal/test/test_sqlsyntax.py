@@ -34,7 +34,7 @@ from twext.enterprise.ienterprise import (POSTGRES_DIALECT, ORACLE_DIALECT,
                                           SQLITE_DIALECT)
 from twext.enterprise.test.test_adbapi2 import ConnectionPoolHelper
 from twext.enterprise.test.test_adbapi2 import NetworkedPoolHelper
-from twext.enterprise.test.test_adbapi2 import resultOf
+from twext.enterprise.test.test_adbapi2 import resultOf, AssertResultHelper
 from twisted.internet.defer import succeed
 from twisted.trial.unittest import TestCase
 
@@ -129,7 +129,7 @@ class ExampleSchemaHelper(SchemaTestHelper):
 
 
 
-class GenerationTests(ExampleSchemaHelper, TestCase):
+class GenerationTests(ExampleSchemaHelper, TestCase, AssertResultHelper):
     """
     Tests for syntactic helpers to generate SQL queries.
     """
@@ -1033,7 +1033,7 @@ class GenerationTests(ExampleSchemaHelper, TestCase):
                       Return=self.schema.FOO.BAR)
         csql.nextResult([["sample row id"]])
         result = resultOf(stmt.on(csql))
-        self.assertEquals(
+        self.assertResultList(
             csql.execed,
             [
                 ["select rowid from FOO where BAR = :1", [4321]],
