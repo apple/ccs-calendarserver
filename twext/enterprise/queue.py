@@ -634,7 +634,8 @@ class PeerConnectionPool(Service, object):
                             txn, itemType.created > self.queueProcessTimeout
                     )):
                     peer = yield self.choosePeer()
-                    yield peer.performWork(overdueItem.__tbl__, overdueItem.workID)
+                    yield peer.performWork(overdueItem.__tbl__,
+                                           overdueItem.workID)
         finally:
             yield txn.commit()
 
