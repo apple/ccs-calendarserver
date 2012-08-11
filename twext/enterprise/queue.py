@@ -73,14 +73,17 @@ Such an application might be implemented with this queueing system like so::
         # Note, txn was started before, will be committed later...
         for customerID in (yield Select([schema.CUSTOMER.CUSTOMER_ID],
                                         From=schema.CUSTOMER).on(txn)):
-            # peerPool is a PeerConnectionPool
-            peerPool.enqueueWork(txn, CouponWork, customerID=customerID)
+            # queuer is a provider of IQueuer, of which there are several
+            # implementations in this module.
+            queuer.enqueueWork(txn, CouponWork, customerID=customerID)
 """
 
 from socket import getfqdn
 from functools import wraps
 from os import getpid
 from datetime import datetime
+
+from zope.interface import implements
 
 from twisted.application.service import Service
 from twisted.internet.protocol import Factory
@@ -101,6 +104,7 @@ from twisted.internet.defer import passthru
 from twext.enterprise.dal.model import Table, Schema, SQLType, Constraint
 from twisted.internet.endpoints import TCP4ServerEndpoint
 from twext.enterprise.dal.syntax import Lock
+from twext.enterprise.ienterprise import IQueuer
 
 def makeNodeSchema(inSchema):
     """
@@ -594,6 +598,7 @@ class ConnectionFromController(SchemaAMP):
     controller to do work.  It is the opposite end of the connection from
     L{ConnectionFromWorker}.
     """
+    implements(IQueuer)
 
     def __init__(self, transactionFactory, schema, whenConnected,
                  boxReceiver=None, locator=None):
@@ -859,6 +864,7 @@ class PeerConnectionPool(Service, object):
     @ivar peers: The list of currently connected peers.
     @type peers: L{list} of L{PeerConnectionPool}
     """
+    implements(IQueuer)
 
     getfqdn = staticmethod(getfqdn)
     getpid = staticmethod(getpid)
@@ -1180,6 +1186,7 @@ class NullQueuer(object):
     within the same transaction.  While this is technically correct, it is not
     very efficient.
     """
+    implements(IQueuer)
 
     def enqueueWork(self, txn, workItemType, **kw):
         """
