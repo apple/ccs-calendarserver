@@ -25,11 +25,11 @@ from twisted.internet.defer import inlineCallbacks
 from twisted.trial.unittest import TestCase
 
 from twext.enterprise.dal.record import fromTable
+from twext.enterprise.dal.syntax import SQLITE_DIALECT
 
 from twext.enterprise.dal.test.test_parseschema import SchemaTestHelper
 from twext.enterprise.adbapi2 import ConnectionPool
 from twext.enterprise.dal.syntax import SchemaSyntax
-
 
 # from twext.enterprise.dal.syntax import
 
@@ -62,7 +62,8 @@ class TestCRUD(TestCase):
         con = connectionFactory()
         con.execute(schemaString)
         con.commit()
-        self.pool = ConnectionPool(connectionFactory, paramstyle='numeric')
+        self.pool = ConnectionPool(connectionFactory, paramstyle='numeric',
+                                   dialect=SQLITE_DIALECT)
         self.pool.startService()
         self.addCleanup(self.pool.stopService)
 
