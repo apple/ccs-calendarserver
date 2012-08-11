@@ -23,10 +23,10 @@ L{twext.enterprise.dal.syntax}.
 """
 
 from twisted.internet.defer import inlineCallbacks, returnValue
-from twext.enterprise.dal.syntax import Select, Tuple, Constant, ColumnSyntax
-from twext.enterprise.dal.syntax import Insert
-from twext.enterprise.dal.syntax import Update
-from twext.enterprise.dal.syntax import Delete
+from twext.enterprise.dal.syntax import (
+    Select, Tuple, Constant, ColumnSyntax, Insert, Update, Delete
+)
+# from twext.enterprise.dal.syntax import ExpressionSyntax
 
 class ReadOnly(AttributeError):
     """
@@ -176,6 +176,17 @@ class _RecordBase(object):
         """
         Query the table that corresponds to C{cls}, and return instances of
         C{cls} corresponding to the rows that are returned from that table.
+
+        @param expr: An L{ExpressionSyntax} that constraints the results of the
+            query.  This is most easily produced by accessing attributes on the
+            class; for example, C{MyRecordType.query((MyRecordType.col1 >
+            MyRecordType.col2).And(MyRecordType.col3 == 7))}
+
+        @param order: A L{ColumnSyntax} to order the resulting record objects
+            by.
+
+        @param ascending: A boolean; if C{order} is not C{None}, whether to
+            sort in ascending or descending order.
         """
         kw = {}
         if order is not None:
@@ -188,6 +199,20 @@ class _RecordBase(object):
     @classmethod
     @inlineCallbacks
     def _rowsFromQuery(cls, txn, qry, rozrc):
+        """
+        Execute the given query, and transform its results into rows.
+
+        @param txn: an L{IAsyncTransaction} to execute the query on.
+
+        @param qry: a L{_DMLStatement} (XXX: maybe _DMLStatement or some
+            interface that defines 'on' should be public?) whose results are
+            the list of columns in C{self.__tbl__}.
+
+        @param rozrc: The C{raiseOnZeroRowCount} argument.
+
+        @return: a L{Deferred} that succeeds with a C{list} or fails with an
+            exception produced by C{rozrc}.
+        """
         rows = yield qry.on(txn, raiseOnZeroRowCount=rozrc)
         selves = []
         for row in rows:
@@ -227,4 +252,5 @@ def fromTable(table):
 __all__ = [
     "ReadOnly",
     "fromTable",
+    "NoSuchRecord",
 ]
