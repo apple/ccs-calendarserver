@@ -44,6 +44,13 @@ class ReadOnly(AttributeError):
 
 
 
+class NoSuchRecord(Exception):
+    """
+    No matching record could be found.
+    """
+
+
+
 class _RecordBase(object):
     """
     Superclass for all database-backed record classes.  (i.e.  an object mapped
@@ -145,6 +152,20 @@ class _RecordBase(object):
                       Where=self._primaryKeyComparison(self._primaryKeyValue()))
                 .on(self.__txn__))
         self.__dict__.update(kw)
+
+
+    @classmethod
+    @inlineCallbacks
+    def pop(cls, primaryKey):
+        """
+        Atomically retrieve and remove a row from this L{_RecordBase}'s table
+        with a primary key value of C{primaryKey}.
+
+        @return: a L{Deferred} that fires with an instance of C{cls}, or fails
+            with L{NoSuchRecord} if there were no records in the database.
+        @rtype: L{Deferred}
+        """
+        yield None
 
 
     @classmethod
