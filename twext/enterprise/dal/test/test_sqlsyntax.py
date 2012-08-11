@@ -1041,7 +1041,7 @@ class GenerationTests(ExampleSchemaHelper, TestCase, AssertResultHelper):
             csql.execed,
             [
                 ["select rowid from FOO where BAZ = :1", [1234]],
-                ["update FOO set BAZ = :1 WHERE BAR = :2", [4321, 1234]],
+                ["update FOO set BAR = :1 WHERE BAZ = :2", [4321, 1234]],
                 ["select BAR from FOO where rowid = :1", ["sample row id"]],
             ],
         )
