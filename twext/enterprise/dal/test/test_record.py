@@ -215,5 +215,15 @@ class TestCRUD(TestCase):
         yield self.failUnlessFailure(TestRecord.pop(txn, 234), NoSuchRecord)
 
 
+    def test_columnNamingConvention(self):
+        """
+        The naming convention maps columns C{LIKE_THIS} to be attributes
+        C{likeThis}.
+        """
+        self.assertEqual(Record.namingConvention(u"like_this"), "likeThis")
+        self.assertEqual(Record.namingConvention(u"LIKE_THIS"), "likeThis")
+        self.assertEqual(Record.namingConvention(u"LIKE_THIS_ID"), "likeThisID")
+
+
 
 

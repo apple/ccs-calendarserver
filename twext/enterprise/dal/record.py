@@ -146,7 +146,13 @@ class Record(object):
         (typically, upper-case database names map to lower-case attribute
         names).
         """
-        return columnName.lower()
+        words = columnName.lower().split("_")
+        def cap(word):
+            if word.lower() == 'id':
+                return word.upper()
+            else:
+                return word.capitalize()
+        return words[0] + "".join(map(cap, words[1:]))
 
 
     @classmethod
