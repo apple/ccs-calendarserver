@@ -1034,8 +1034,8 @@ class GenerationTests(ExampleSchemaHelper, TestCase, AssertResultHelper):
         csql.nextResult([["sample row id"]])
         result = resultOf(stmt.on(csql))
         # Three statements were executed; make sure that the result returned was
-        # the result of executing the last one.
-        self.assertResultList(result, 2)
+        # the result of executing the 3rd (and final) one.
+        self.assertResultList(result, 3)
         # Check that they were the right statements.
         self.assertEqual(
             csql.execed,
