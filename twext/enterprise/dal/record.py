@@ -115,9 +115,13 @@ class Record(object):
     Superclass for all database-backed record classes.  (i.e.  an object mapped
     from a database record).
 
-    @cvar table: the table that represents this L{Record} in the
-        database.
+    @cvar table: the table that represents this L{Record} in the database.
     @type table: L{TableSyntax}
+
+    @ivar transaction: The L{IAsyncTransaction} where this record is being
+        loaded.  This may be C{None} if this L{Record} is not participating in
+        a transaction, which may be true if it was instantiated but never
+        saved.
 
     @cvar __colmap__: map of L{ColumnSyntax} objects to attribute names.
     @type __colmap__: L{dict}
@@ -270,8 +274,8 @@ class Record(object):
         if order is not None:
             kw.update(OrderBy=order, Ascending=ascending)
         return cls._rowsFromQuery(transaction, Select(list(cls.table),
-                                              From=cls.table,
-                                              Where=expr, **kw), None)
+                                                      From=cls.table,
+                                                      Where=expr, **kw), None)
 
 
     @classmethod
