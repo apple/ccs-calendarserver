@@ -175,20 +175,21 @@ class Record(object):
 
     @classmethod
     @inlineCallbacks
-    def load(cls, txn, *primaryKey):
-        self = (yield cls.query(txn, cls._primaryKeyComparison(primaryKey)))[0]
+    def load(cls, transaction, *primaryKey):
+        self = (yield cls.query(transaction,
+                                cls._primaryKeyComparison(primaryKey)))[0]
         returnValue(self)
 
 
     @classmethod
     @inlineCallbacks
-    def create(cls, txn, *a, **k):
+    def create(cls, transaction, **k):
         """
         Create a row.
 
         Used like this::
 
-            MyRecord.create(column1=1, column2=u'two')
+            MyRecord.create(transaction, column1=1, column2=u'two')
         """
         self = cls()
         colmap = {}
@@ -197,8 +198,8 @@ class Record(object):
             setattr(self, attr, k[attr])
             # FIXME: better error reporting
             colmap[attrtocol[attr]] = k[attr]
-        yield Insert(colmap).on(txn)
-        self.transaction = txn
+        yield Insert(colmap).on(transaction)
+        self.transaction = transaction
         returnValue(self)
 
 
@@ -232,7 +233,7 @@ class Record(object):
 
 
     @classmethod
-    def pop(cls, txn, *primaryKey):
+    def pop(cls, transaction, *primaryKey):
         """
         Atomically retrieve and remove a row from this L{Record}'s table
         with a primary key value of C{primaryKey}.
@@ -242,14 +243,14 @@ class Record(object):
         @rtype: L{Deferred}
         """
         return cls._rowsFromQuery(
-            txn, Delete(Where=cls._primaryKeyComparison(primaryKey),
+            transaction, Delete(Where=cls._primaryKeyComparison(primaryKey),
                         From=cls.table, Return=list(cls.table)),
             lambda : NoSuchRecord()
         ).addCallback(lambda x: x[0])
 
 
     @classmethod
-    def query(cls, txn, expr, order=None, ascending=True):
+    def query(cls, transaction, expr, order=None, ascending=True):
         """
         Query the table that corresponds to C{cls}, and return instances of
         C{cls} corresponding to the rows that are returned from that table.
@@ -268,18 +269,18 @@ class Record(object):
         kw = {}
         if order is not None:
             kw.update(OrderBy=order, Ascending=ascending)
-        return cls._rowsFromQuery(txn, Select(list(cls.table),
+        return cls._rowsFromQuery(transaction, Select(list(cls.table),
                                               From=cls.table,
                                               Where=expr, **kw), None)
 
 
     @classmethod
     @inlineCallbacks
-    def _rowsFromQuery(cls, txn, qry, rozrc):
+    def _rowsFromQuery(cls, transaction, qry, rozrc):
         """
         Execute the given query, and transform its results into rows.
 
-        @param txn: an L{IAsyncTransaction} to execute the query on.
+        @param transaction: an L{IAsyncTransaction} to execute the query on.
 
         @param qry: a L{_DMLStatement} (XXX: maybe _DMLStatement or some
             interface that defines 'on' should be public?) whose results are
@@ -290,14 +291,14 @@ class Record(object):
         @return: a L{Deferred} that succeeds with a C{list} or fails with an
             exception produced by C{rozrc}.
         """
-        rows = yield qry.on(txn, raiseOnZeroRowCount=rozrc)
+        rows = yield qry.on(transaction, raiseOnZeroRowCount=rozrc)
         selves = []
         for row in rows:
             self = cls()
             for (column, value) in zip(list(cls.table), row):
                 name = cls.__colmap__[column]
                 setattr(self, name, value)
-            self.transaction = txn
+            self.transaction = transaction
             selves.append(self)
         returnValue(selves)
 
