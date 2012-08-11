@@ -1573,6 +1573,15 @@ class Delete(_DMLStatement):
         return self._returningClause(queryGenerator, result, allTables)
 
 
+    @inlineCallbacks
+    def on(self, txn, *a, **kw):
+        if txn.dialect == SQLITE_DIALECT and self.Return is not None:
+            result = yield Select(self._returnAsList(), From=self.From,
+                                  Where=self.Where).on(txn, *a, **kw)
+        yield super(Delete, self).on(txn, *a, **kw)
+        returnValue(result)
+
+
 
 class _LockingStatement(_Statement):
     """
