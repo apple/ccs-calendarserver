@@ -337,6 +337,7 @@ class FakeThreadHolder(ThreadHolder):
         self.test = test
         self.started = False
         self.stopped = False
+        self._workerIsRunning = False
 
 
     def start(self):
@@ -376,7 +377,11 @@ class FakeThreadHolder(ThreadHolder):
 
 
     def callInThread(self, f, *a, **k):
-        pass
+        """
+        This should be called only once, to start the worker function that
+        dedicates a thread to this L{ThreadHolder}.
+        """
+        self._workerIsRunning = True
 
 
     def flush(self):
@@ -386,6 +391,8 @@ class FakeThreadHolder(ThreadHolder):
         try:
             while self._qpull():
                 pass
+            else:
+                self._workerIsRunning = False
         except Empty:
             pass
 
