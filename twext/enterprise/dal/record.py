@@ -75,16 +75,22 @@ class _RecordBase(object):
         val = []
         for col in self._primaryKeyExpression().columns:
             val.append(getattr(self, self.__class__.__colmap__[col]))
+        return val
+
+
+    @classmethod
+    def _primaryKeyComparison(cls, primaryKey):
+        return (cls._primaryKeyExpression() ==
+                Tuple(map(Constant, primaryKey)))
 
 
     @classmethod
     @inlineCallbacks
     def load(cls, txn, *primaryKey):
         tbl = cls.__tbl__
-        pkey = cls._primaryKeyExpression()
         allColumns = list(tbl)
         slct = Select(allColumns, From=tbl,
-                      Where=pkey == Tuple(map(Constant, primaryKey)))
+                      Where=cls._primaryKeyComparison(primaryKey))
         rows = yield slct.on(txn)
         row = rows[0]
         self = cls()
@@ -129,8 +135,8 @@ class _RecordBase(object):
         for k, v in kw.iteritems():
             colmap[self.__attrmap__[k]] = v
         yield (Update(colmap,
-               Where=self._primaryKeyExpression() == self._primaryKeyValue()
-               ).on(self.__txn__))
+                      Where=self._primaryKeyComparison(self._primaryKeyValue()))
+                .on(self.__txn__))
         self.__dict__.update(kw)
 
 
