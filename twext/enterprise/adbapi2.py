@@ -1,4 +1,4 @@
-# -*- test-case-name: twext.enterprise.test.test_adbapi2.ConnectionPoolTests.test_shutdownDuringAttemptSuccess -*-
+# -*- test-case-name: twext.enterprise.test.test_adbapi2 -*-
 ##
 # Copyright (c) 2010-2012 Apple Inc. All rights reserved.
 #
