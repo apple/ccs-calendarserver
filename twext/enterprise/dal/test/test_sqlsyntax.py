@@ -1006,6 +1006,29 @@ class GenerationTests(ExampleSchemaHelper, TestCase):
         )
 
 
+    def test_updateReturningSQLite(self):
+        """
+        SQLite updates all its rows.
+        """
+        csql = CatchSQL()
+        stmt = Update({self.schema.FOO.BAR: 4321},
+                      Where=self.schema.FOO.BAZ == 1234,
+                      Return=self.schema.FOO.BAR)
+        csql.nextResult([["sample row id"]])
+        result = resultOf(stmt.on(csql))
+        self.assertEquals(
+            csql.execed,
+            [
+                ["select rowid from FOO where BAR = :1", [4321]],
+                ["update FOO set BAZ = :1 WHERE BAR = :2", [4321, 1234]],
+                ["select BAR from FOO where rowid = :1", ["sample row id"]],
+            ],
+        )
+        # Three statements were executed; make sure that the result returned was
+        # the result of executing the last one.
+        self.assertEquals(result, [2])
+
+
     def test_insertMismatch(self):
         """
         L{Insert} raises L{TableMismatch} if the columns specified aren't all
