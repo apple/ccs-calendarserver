@@ -195,8 +195,8 @@ class _Statement(object):
 
         @param txn: the L{IAsyncTransaction} to execute this on.
 
-        @param raiseOnZeroRowCount: the exception to raise if no data was
-            affected or returned by this query.
+        @param raiseOnZeroRowCount: a 0-argument callable which returns an
+            exception to raise if the executed SQL does not affect any rows.
 
         @param kw: keyword arguments, mapping names of L{Parameter} objects
             located somewhere in C{self}
