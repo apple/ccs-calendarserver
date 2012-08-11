@@ -128,13 +128,13 @@ class Record(object):
 
     __metaclass__ = _RecordMeta
 
-    __txn__ = None
+    transaction = None
     def __setattr__(self, name, value):
         """
         Once the transaction is initialized, this object is immutable.  If you
         want to change it, use L{Record.update}.
         """
-        if self.__txn__ is not None:
+        if self.transaction is not None:
             raise ReadOnly(self.__class__.__name__, name)
         return super(Record, self).__setattr__(name, value)
 
@@ -198,7 +198,7 @@ class Record(object):
             # FIXME: better error reporting
             colmap[attrtocol[attr]] = k[attr]
         yield Insert(colmap).on(txn)
-        self.__txn__ = txn
+        self.transaction = txn
         returnValue(self)
 
 
@@ -211,7 +211,7 @@ class Record(object):
         """
         return Delete(From=self.table,
                       Where=self._primaryKeyComparison(self._primaryKeyValue())
-                      ).on(self.__txn__)
+                      ).on(self.transaction)
 
 
     @inlineCallbacks
@@ -227,7 +227,7 @@ class Record(object):
             colmap[self.__attrmap__[k]] = v
         yield (Update(colmap,
                       Where=self._primaryKeyComparison(self._primaryKeyValue()))
-                .on(self.__txn__))
+                .on(self.transaction))
         self.__dict__.update(kw)
 
 
@@ -297,7 +297,7 @@ class Record(object):
             for (column, value) in zip(list(cls.table), row):
                 name = cls.__colmap__[column]
                 setattr(self, name, value)
-            self.__txn__ = txn
+            self.transaction = txn
             selves.append(self)
         returnValue(selves)
 

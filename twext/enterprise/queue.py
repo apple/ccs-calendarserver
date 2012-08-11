@@ -63,7 +63,7 @@ Such an application might be implemented with this queueing system like so::
         def doWork(self):
             purchases = yield Select(schema.PURCHASE,
                                      Where=schema.PURCHASE.CUSTOMER_ID
-                                     == self.customerID).on(self.__txn__)
+                                     == self.customerID).on(self.transaction)
             couponAmount = yield doSomeMathThatTakesAWhile(purchases)
             yield Coupon.create(customerID=self.customerID,
                                 amount=couponAmount)
