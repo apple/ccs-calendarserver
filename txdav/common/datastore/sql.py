@@ -85,6 +85,7 @@ from twistedcaldav.dateops import datetimeMktime, parseSQLTimestamp,\
 from txdav.xml.rfc2518 import DisplayName
 
 from txdav.base.datastore.util import normalizeUUIDOrNot
+from twext.enterprise.queue import NullQueuer
 
 from pycalendar.datetime import PyCalendarDateTime
 
@@ -132,8 +133,13 @@ class CommonDataStore(Service, object):
 
     @ivar quota: the amount of space granted to each calendar home (in bytes)
         for storing attachments, or C{None} if quota should not be enforced.
-
     @type quota: C{int} or C{NoneType}
+
+    @ivar queuer: An object with an C{enqueueWork} method, from
+        L{twext.enterprise.queue}.  Initially, this is a L{NullQueuer}, so it
+        is always usable, but in a properly configured environment it will be
+        upgraded to a more capable object that can distribute work throughout a
+        cluster.
     """
 
     implements(ICalendarStore)
@@ -160,6 +166,7 @@ class CommonDataStore(Service, object):
         self.logSQL = logSQL
         self.logTransactionWaits = logTransactionWaits
         self.timeoutTransactions = timeoutTransactions
+        self.queuer = NullQueuer()
         self._migrating = False
         self._enableNotifications = True
 
@@ -335,6 +342,8 @@ class CommonStoreTransactionMonitor(object):
         if self.timeoutSeconds:
             self.delayedTimeout = self.callLater(self.timeoutSeconds, _forceAbort)
 
+
+
 class CommonStoreTransaction(object):
     """
     Transaction implementation for SQL database.
@@ -350,8 +359,6 @@ class CommonStoreTransaction(object):
         self._calendarHomes = {}
         self._addressbookHomes = {}
         self._notificationHomes = {}
-        self._postCommitOperations = []
-        self._postAbortOperations = []
         self._notifierFactory = notifierFactory
         self._notifiedAlready = set()
         self._bumpedAlready = set()
@@ -382,7 +389,10 @@ class CommonStoreTransaction(object):
         self.paramstyle = sqlTxn.paramstyle
         self.dialect = sqlTxn.dialect
 
-        self._stats = TransactionStatsCollector(self._label, self._store.logStatsLogFile) if self._store.logStats else None
+        self._stats = (
+            TransactionStatsCollector(self._label, self._store.logStatsLogFile)
+            if self._store.logStats else None
+        )
         self.statementCount = 0
         self.iudCount = 0
         self.currentStatement = None
@@ -400,6 +410,22 @@ class CommonStoreTransaction(object):
         if not cls._homeClass:
             __import__("txdav.caldav.datastore.sql")
             __import__("txdav.carddav.datastore.sql")
+
+
+    def enqueue(self, workItem, **kw):
+        """
+        Enqueue a L{twext.enterprise.queue.WorkItem} for later execution.
+
+        For example::
+
+            yield (txn.enqueue(MyWorkItem, workDescription="some work to do")
+                   .whenProposed())
+
+        @return: a work proposal describing various events in the work's
+            life-cycle.
+        @rtype: L{twext.enterprise.queue.WorkProposal}
+        """
+        return self._store.queuer.enqueueWork(self, workItem, **kw)
 
 
     def store(self):
@@ -606,18 +632,18 @@ class CommonStoreTransaction(object):
         return self._apnSubscriptionsBySubscriberQuery.on(self, subscriberGUID=guid)
 
 
-    def postCommit(self, operation, immediately=False):
+    def postCommit(self, operation):
         """
         Run things after C{commit}.
         """
-        self._postCommitOperations.append((operation, immediately))
+        return self._sqlTxn.postCommit(operation)
 
 
     def postAbort(self, operation):
         """
         Run things after C{abort}.
         """
-        self._postAbortOperations.append(operation)
+        return self._sqlTxn.postAbort(operation)
 
 
     def isNotifiedAlready(self, obj):
@@ -774,30 +800,16 @@ class CommonStoreTransaction(object):
         """
         Commit the transaction and execute any post-commit hooks.
         """
-        @inlineCallbacks
-        def postCommit(ignored):
-            for operation, immediately in self._postCommitOperations:
-                if immediately:
-                    yield operation()
-                else:
-                    operation()
-            returnValue(ignored)
-
         if self._stats:
             self._stats.printReport()
-
-        return self._sqlTxn.commit().addCallback(postCommit)
+        return self._sqlTxn.commit()
 
 
     def abort(self):
         """
         Abort the transaction.
         """
-        def postAbort(ignored):
-            for operation in self._postAbortOperations:
-                operation()
-            return ignored
-        return self._sqlTxn.abort().addCallback(postAbort)
+        return self._sqlTxn.abort()
 
 
     def _oldEventsBase(limited): #@NoSelf

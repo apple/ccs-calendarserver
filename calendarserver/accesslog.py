@@ -378,32 +378,23 @@ class LogGlobalHit(amp.Command):
     arguments = [] 
 
 class AMPCommonAccessLoggingObserver(CommonAccessLoggingObserverExtensions):
-    def __init__(self, mode, id):
-        self.mode = mode
-        self.id = id
+    def __init__(self):
         self.protocol = None
         self._buffer = []
+
 
     def flushBuffer(self):
         if self._buffer:
             for msg in self._buffer:
                 self.logMessage(msg)
 
-    def start(self):
-        super(AMPCommonAccessLoggingObserver, self).start()
 
-        from twisted.internet import reactor
-
-        def _gotProtocol(proto):
-            self.protocol = proto
-            self.flushBuffer()
-
-        self.client = protocol.ClientCreator(reactor, amp.AMP)
-        if self.mode == "AF_UNIX":
-            d = self.client.connectUNIX(self.id)
-        else:
-            d = self.client.connectTCP("localhost", self.id)
-        d.addCallback(_gotProtocol)
+    def addClient(self, connectedClient):
+        """
+        An AMP client connected; hook it up to this observer.
+        """
+        self.protocol = connectedClient
+        self.flushBuffer()
 
 
     def logMessage(self, message):
@@ -420,6 +411,7 @@ class AMPCommonAccessLoggingObserver(CommonAccessLoggingObserverExtensions):
         else:
             self._buffer.append(message)
 
+
     def logGlobalHit(self): 
         """ 
         Log a server hit via the remote AMP Protocol 
@@ -429,7 +421,9 @@ class AMPCommonAccessLoggingObserver(CommonAccessLoggingObserverExtensions):
             d = self.protocol.callRemote(LogGlobalHit) 
             d.addErrback(log.err) 
         else: 
-            log.msg("logGlobalHit() only works with an AMP Protocol") 
+            log.msg("logGlobalHit() only works with an AMP Protocol")
+
+
 
 class AMPLoggingProtocol(amp.AMP):
     """
@@ -453,15 +447,23 @@ class AMPLoggingProtocol(amp.AMP):
 
     LogGlobalHit.responder(logGlobalHit)
 
+
+
 class AMPLoggingFactory(protocol.ServerFactory):
     def __init__(self, observer):
         self.observer = observer
 
+
     def doStart(self):
         self.observer.start()
+
 
     def doStop(self):
         self.observer.stop()
 
+
     def buildProtocol(self, addr):
         return AMPLoggingProtocol(self.observer)
+
+
+

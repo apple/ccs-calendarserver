@@ -30,12 +30,14 @@ from twext.enterprise.dal.syntax import FixedPlaceholder, NumericPlaceholder
 from twext.enterprise.dal.syntax import Function
 from twext.enterprise.dal.syntax import SchemaSyntax
 from twext.enterprise.dal.test.test_parseschema import SchemaTestHelper
-from twext.enterprise.ienterprise import POSTGRES_DIALECT, ORACLE_DIALECT
+from twext.enterprise.ienterprise import (POSTGRES_DIALECT, ORACLE_DIALECT,
+                                          SQLITE_DIALECT)
 from twext.enterprise.test.test_adbapi2 import ConnectionPoolHelper
 from twext.enterprise.test.test_adbapi2 import NetworkedPoolHelper
-from twext.enterprise.test.test_adbapi2 import resultOf
+from twext.enterprise.test.test_adbapi2 import resultOf, AssertResultHelper
 from twisted.internet.defer import succeed
 from twisted.trial.unittest import TestCase
+
 
 
 class _FakeTransaction(object):
@@ -54,6 +56,41 @@ class FakeCXOracleModule(object):
     STRING = 'a string type (for varchars)'
     NCLOB = 'the NCLOB type. (for text)'
     TIMESTAMP = 'for timestamps!'
+
+
+class CatchSQL(object):
+    """
+    L{IAsyncTransaction} emulator that records the SQL executed on it.
+    """
+    counter = 0
+
+    def __init__(self, dialect=SQLITE_DIALECT, paramstyle='numeric'):
+        self.execed = []
+        self.pendingResults = []
+        self.dialect = SQLITE_DIALECT
+        self.paramstyle = 'numeric'
+
+
+    def nextResult(self, result):
+        """
+        Make it so that the next result from L{execSQL} will be the argument.
+        """
+        self.pendingResults.append(result)
+
+
+    def execSQL(self, sql, args, rozrc):
+        """
+        Implement L{IAsyncTransaction} by recording C{sql} and C{args} in
+        C{self.execed}, and return a L{Deferred} firing either an integer or a
+        value pre-supplied by L{CatchSQL.nextResult}.
+        """
+        self.execed.append([sql, args])
+        self.counter += 1
+        if self.pendingResults:
+            result = self.pendingResults.pop(0)
+        else:
+            result = self.counter
+        return succeed(result)
 
 
 
@@ -92,7 +129,7 @@ class ExampleSchemaHelper(SchemaTestHelper):
 
 
 
-class GenerationTests(ExampleSchemaHelper, TestCase):
+class GenerationTests(ExampleSchemaHelper, TestCase, AssertResultHelper):
     """
     Tests for syntactic helpers to generate SQL queries.
     """
@@ -623,7 +660,6 @@ class GenerationTests(ExampleSchemaHelper, TestCase):
         """
         L{SetExpression} in a From sub-select.
         """
-        
         # Simple UNION
         self.assertEquals(
             Select(
@@ -940,6 +976,137 @@ class GenerationTests(ExampleSchemaHelper, TestCase):
                 " into :3, :4",
                 [40, 50, Parameter("oracle_out_0"), Parameter("oracle_out_1")]
             )
+        )
+
+
+    def test_insertMultiReturnSQLite(self):
+        """
+        In SQLite's SQL dialect, there is no 'returning' clause, but given that
+        SQLite serializes all SQL transactions, you can rely upon 'select'
+        after a write operation to reliably give you exactly what was just
+        modified.  Therefore, although 'toSQL' won't include any indication of
+        the return value, the 'on' method will execute a 'select' statement
+        following the insert to retrieve the value.
+        """
+        insertStatement = Insert({self.schema.FOO.BAR: 39,
+                    self.schema.FOO.BAZ: 82},
+                   Return=(self.schema.FOO.BAR, self.schema.FOO.BAZ)
+        )
+        qg = lambda : QueryGenerator(SQLITE_DIALECT, NumericPlaceholder())
+        self.assertEquals(insertStatement.toSQL(qg()),
+            SQLFragment("insert into FOO (BAR, BAZ) values (:1, :2)",
+                        [39, 82])
+        )
+        result = []
+        csql = CatchSQL()
+        insertStatement.on(csql).addCallback(result.append)
+        self.assertEqual(result, [2])
+        self.assertEqual(
+            csql.execed,
+            [["insert into FOO (BAR, BAZ) values (:1, :2)", [39, 82]],
+             ["select BAR, BAZ from FOO where rowid = last_insert_rowid()", []]]
+        )
+
+
+    def test_insertNoReturnSQLite(self):
+        """
+        Insert a row I{without} a C{Return=} parameter should also work as
+        normal in sqlite.
+        """
+        statement = Insert({self.schema.FOO.BAR: 12,
+                            self.schema.FOO.BAZ: 48})
+        csql = CatchSQL()
+        statement.on(csql)
+        self.assertEqual(
+            csql.execed,
+            [["insert into FOO (BAR, BAZ) values (:1, :2)", [12, 48]]]
+        )
+
+
+    def test_updateReturningSQLite(self):
+        """
+        Since SQLite does not support the SQL 'returning' syntax extension, in
+        order to preserve the rows that will be modified during an UPDATE
+        statement, we must first find the rows that will be affected, then
+        update them, then return the rows that were affected.  Since we might
+        be changing even part of the primary key, we use the internal 'rowid'
+        column to uniquely and reliably identify rows in the sqlite database
+        that have been modified.
+        """
+        csql = CatchSQL()
+        stmt = Update({self.schema.FOO.BAR: 4321},
+                      Where=self.schema.FOO.BAZ == 1234,
+                      Return=self.schema.FOO.BAR)
+        csql.nextResult([["sample row id"]])
+        result = resultOf(stmt.on(csql))
+        # Three statements were executed; make sure that the result returned was
+        # the result of executing the 3rd (and final) one.
+        self.assertResultList(result, 3)
+        # Check that they were the right statements.
+        self.assertEqual(len(csql.execed), 3)
+        self.assertEqual(
+            csql.execed[0],
+            ["select rowid from FOO where BAZ = :1", [1234]]
+        )
+        self.assertEqual(
+            csql.execed[1],
+            ["update FOO set BAR = :1 where BAZ = :2", [4321, 1234]]
+        )
+        self.assertEqual(
+            csql.execed[2],
+            ["select BAR from FOO where rowid = :1", ["sample row id"]]
+        )
+
+
+    def test_updateReturningMultipleValuesSQLite(self):
+        """
+        When SQLite updates multiple values, it must embed the row ID of each
+        subsequent value into its second 'where' clause, as there is no way to
+        pass a list of values to a single statement..
+        """
+        csql = CatchSQL()
+        stmt = Update({self.schema.FOO.BAR: 4321},
+                      Where=self.schema.FOO.BAZ == 1234,
+                      Return=self.schema.FOO.BAR)
+        csql.nextResult([["one row id"], ["and another"], ["and one more"]])
+        result = resultOf(stmt.on(csql))
+        # Three statements were executed; make sure that the result returned was
+        # the result of executing the 3rd (and final) one.
+        self.assertResultList(result, 3)
+        # Check that they were the right statements.
+        self.assertEqual(len(csql.execed), 3)
+        self.assertEqual(
+            csql.execed[0],
+            ["select rowid from FOO where BAZ = :1", [1234]]
+        )
+        self.assertEqual(
+            csql.execed[1],
+            ["update FOO set BAR = :1 where BAZ = :2", [4321, 1234]]
+        )
+        self.assertEqual(
+            csql.execed[2],
+            ["select BAR from FOO where rowid = :1 or rowid = :2 or rowid = :3",
+             ["one row id", "and another", "and one more"]]
+        )
+
+
+    def test_deleteReturningSQLite(self):
+        """
+        When SQLite deletes a value, ...
+        """
+        csql = CatchSQL()
+        stmt = Delete(From=self.schema.FOO, Where=self.schema.FOO.BAZ == 1234,
+                      Return=self.schema.FOO.BAR)
+        result = resultOf(stmt.on(csql))
+        self.assertResultList(result, 1)
+        self.assertEqual(len(csql.execed), 2)
+        self.assertEqual(
+            csql.execed[0],
+            ["select BAR from FOO where BAZ = :1", [1234]]
+        )
+        self.assertEqual(
+            csql.execed[1],
+            ["delete from FOO where BAZ = :1", [1234]]
         )
 
 

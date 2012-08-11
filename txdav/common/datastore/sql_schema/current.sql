@@ -22,6 +22,22 @@
 
 create sequence RESOURCE_ID_SEQ;
 
+-------------------------
+-- Cluster Bookkeeping --
+-------------------------
+
+-- Information about a process connected to this database.
+
+-- Note that this must match the node info schema in twext.enterprise.queue.
+create table NODE_INFO (
+  HOSTNAME  varchar(255) not null,
+  PID       integer not null,
+  PORT      integer not null,
+  TIME      timestamp not null default timezone('UTC', CURRENT_TIMESTAMP),
+
+  primary key(HOSTNAME, PORT)
+);
+
 
 -------------------
 -- Calendar Home --
@@ -497,6 +513,6 @@ create table CALENDARSERVER (
   VALUE                         varchar(255)
 );
 
-insert into CALENDARSERVER values ('VERSION', '11');
+insert into CALENDARSERVER values ('VERSION', '12');
 insert into CALENDARSERVER values ('CALENDAR-DATAVERSION', '3');
 insert into CALENDARSERVER values ('ADDRESSBOOK-DATAVERSION', '1');

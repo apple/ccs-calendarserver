@@ -19,19 +19,19 @@ Tests for L{twext.enterprise.adbapi2}.
 """
 
 from itertools import count
+from Queue import Empty
 
 from zope.interface.verify import verifyClass, verifyObject
 from zope.interface.declarations import implements
 
 from twisted.python.threadpool import ThreadPool
+from twisted.python.failure import Failure
 
 from twisted.trial.unittest import TestCase
 
-from twisted.internet.defer import execute
 from twisted.internet.task import Clock
 
 from twisted.internet.interfaces import IReactorThreads
-from twisted.internet.defer import Deferred
 
 from twisted.test.proto_helpers import StringTransport
 
@@ -45,6 +45,7 @@ from twext.enterprise.ienterprise import ICommandBlock
 from twext.enterprise.adbapi2 import FailsafeException
 from twext.enterprise.adbapi2 import DEFAULT_PARAM_STYLE
 from twext.enterprise.adbapi2 import ConnectionPool
+from twext.internet.threadutils import ThreadHolder
 
 
 def resultOf(deferred, propagate=False):
@@ -62,6 +63,22 @@ def resultOf(deferred, propagate=False):
         cb = results.append
     deferred.addBoth(cb)
     return results
+
+
+
+class AssertResultHelper(object):
+    """
+    Mixin for asserting about synchronous Deferred results.
+    """
+
+    def assertResultList(self, resultList, expected):
+        if not resultList:
+            self.fail("No result; Deferred didn't fire yet.")
+        else:
+            if isinstance(resultList[0], Failure):
+                resultList[0].raiseException()
+            else:
+                self.assertEqual(resultList, [expected])
 
 
 
@@ -326,59 +343,75 @@ class FakeConnectionError(Exception):
 
 
 
-class FakeThreadHolder(object):
+class FakeThreadHolder(ThreadHolder):
     """
-    Run things submitted to this ThreadHolder on the main thread, so that
+    Run things to submitted this ThreadHolder on the main thread, so that
     execution is easier to control.
     """
 
     def __init__(self, test):
+        super(FakeThreadHolder, self).__init__(self)
+        self.test = test
         self.started = False
         self.stopped = False
-        self.test = test
-        self.queue = []
+        self._workerIsRunning = False
 
 
     def start(self):
-        """
-        Mark this L{FakeThreadHolder} as not started.
-        """
         self.started = True
+        return super(FakeThreadHolder, self).start()
 
 
     def stop(self):
-        """
-        Mark this L{FakeThreadHolder} as stopped.
-        """
-        def stopped(nothing):
-            self.stopped = True
-        return self.submit(lambda : None).addCallback(stopped)
+        result = super(FakeThreadHolder, self).stop()
+        self.stopped = True
+        return result
 
 
-    def submit(self, work):
+    @property
+    def _q(self):
+        return self._q_
+
+
+    @_q.setter
+    def _q(self, newq):
+        if newq is not None:
+            oget = newq.get
+            newq.get = lambda: oget(timeout=0)
+            oput = newq.put
+            def putit(x):
+                p = oput(x)
+                if not self.test.paused:
+                    self.flush()
+                return p
+            newq.put = putit
+        self._q_ = newq
+
+
+    def callFromThread(self, f, *a, **k):
+        result = f(*a, **k)
+        return result
+
+
+    def callInThread(self, f, *a, **k):
         """
-        Call the function (or queue it)
+        This should be called only once, to start the worker function that
+        dedicates a thread to this L{ThreadHolder}.
         """
-        if self.test.paused:
-            d = Deferred()
-            self.queue.append((d, work))
-            return d
-        else:
-            return execute(work)
+        self._workerIsRunning = True
 
 
     def flush(self):
         """
         Fire all deferreds previously returned from submit.
         """
-        self.queue, queue = [], self.queue
-        for (d, work) in queue:
-            try:
-                result = work()
-            except:
-                d.errback()
+        try:
+            while self._workerIsRunning and self._qpull():
+                pass
             else:
-                d.callback(result)
+                self._workerIsRunning = False
+        except Empty:
+            pass
 
 
 
@@ -525,7 +558,7 @@ class ConnectionPoolHelper(object):
 
 
 
-class ConnectionPoolTests(ConnectionPoolHelper, TestCase):
+class ConnectionPoolTests(ConnectionPoolHelper, TestCase, AssertResultHelper):
     """
     Tests for L{ConnectionPool}.
     """
@@ -634,7 +667,7 @@ class ConnectionPoolTests(ConnectionPoolHelper, TestCase):
         self.assertEquals(len(errors), 1)
         stopd = []
         self.pool.stopService().addBoth(stopd.append)
-        self.assertEquals([None], stopd)
+        self.assertResultList(stopd, None)
         self.assertEquals(self.clock.calls, [])
         [holder] = self.holders
         self.assertEquals(holder.started, True)
@@ -643,8 +676,8 @@ class ConnectionPoolTests(ConnectionPoolHelper, TestCase):
 
     def test_shutdownDuringAttemptSuccess(self):
         """
-        If L{ConnectionPool.stopService} is called while a connection attempt is
-        outstanding, the resulting L{Deferred} won't be fired until the
+        If L{ConnectionPool.stopService} is called while a connection attempt
+        is outstanding, the resulting L{Deferred} won't be fired until the
         connection attempt has finished; in this case, succeeded.
         """
         self.pauseHolders()
@@ -653,7 +686,7 @@ class ConnectionPoolTests(ConnectionPoolHelper, TestCase):
         self.pool.stopService().addBoth(stopd.append)
         self.assertEquals(stopd, [])
         self.flushHolders()
-        self.assertEquals(stopd, [None])
+        self.assertResultList(stopd, None)
         [holder] = self.holders
         self.assertEquals(holder.started, True)
         self.assertEquals(holder.stopped, True)
@@ -661,8 +694,8 @@ class ConnectionPoolTests(ConnectionPoolHelper, TestCase):
 
     def test_shutdownDuringAttemptFailed(self):
         """
-        If L{ConnectionPool.stopService} is called while a connection attempt is
-        outstanding, the resulting L{Deferred} won't be fired until the
+        If L{ConnectionPool.stopService} is called while a connection attempt
+        is outstanding, the resulting L{Deferred} won't be fired until the
         connection attempt has finished; in this case, failed.
         """
         self.factory.defaultFail()
@@ -674,7 +707,7 @@ class ConnectionPoolTests(ConnectionPoolHelper, TestCase):
         self.flushHolders()
         errors = self.flushLoggedErrors(FakeConnectionError)
         self.assertEquals(len(errors), 1)
-        self.assertEquals(stopd, [None])
+        self.assertResultList(stopd, None)
         [holder] = self.holders
         self.assertEquals(holder.started, True)
         self.assertEquals(holder.stopped, True)
@@ -699,7 +732,7 @@ class ConnectionPoolTests(ConnectionPoolHelper, TestCase):
         self.assertEquals(stopResult, [])
         self.flushHolders()
         #self.assertEquals(abortResult, [None])
-        self.assertEquals(stopResult, [None])
+        self.assertResultList(stopResult, None)
 
 
     def test_stopServiceWithSpooled(self):
@@ -845,10 +878,10 @@ class ConnectionPoolTests(ConnectionPoolHelper, TestCase):
         abortResult = self.resultOf(it.abort())
 
         # steal it from the queue so we can do it out of order
-        d, work = self.holders[0].queue.pop()
+        d, work = self.holders[0]._q.get()
         # that should be the only work unit so don't continue if something else
         # got in there
-        self.assertEquals(self.holders[0].queue, [])
+        self.assertEquals(list(self.holders[0]._q.queue), [])
         self.assertEquals(len(self.holders), 1)
         self.flushHolders()
         stopResult = self.resultOf(self.pool.stopService())

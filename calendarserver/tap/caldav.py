@@ -61,6 +61,7 @@ from twext.internet.tcp import MaxAcceptTCPServer, MaxAcceptSSLServer
 from twext.web2.channel.http import LimitingHTTPFactory, SSLRedirectRequest
 from twext.web2.metafd import ConnectionLimiter, ReportingHTTPService
 
+from txdav.common.datastore.sql_tables import schema
 from txdav.common.datastore.upgrade.sql.upgrade import (
     UpgradeDatabaseSchemaService, UpgradeDatabaseDataService,
 )
@@ -88,6 +89,13 @@ except ImportError:
 
 from calendarserver.tap.util import ConnectionDispenser
 
+from calendarserver.controlsocket import ControlSocket
+from twisted.internet.endpoints import UNIXClientEndpoint, TCP4ClientEndpoint
+
+from calendarserver.controlsocket import ControlSocketConnectingService
+from twisted.protocols.amp import AMP
+from twext.enterprise.queue import WorkerFactory as QueueWorkerFactory
+from twext.enterprise.queue import PeerConnectionPool
 from calendarserver.accesslog import AMPCommonAccessLoggingObserver
 from calendarserver.accesslog import AMPLoggingFactory
 from calendarserver.accesslog import RotatingFileAccessLoggingObserver
@@ -116,6 +124,14 @@ twext.web2.server.VERSION = "CalendarServer/%s %s" % (
 log = Logger()
 
 from twisted.python.util import uidFromString, gidFromString
+
+
+# Control socket message-routing constants.
+_LOG_ROUTE = "log"
+_QUEUE_ROUTE = "queue"
+
+_CONTROL_SERVICE_NAME = "control"
+
 
 def getid(uid, gid):
     if uid is not None:
@@ -762,22 +778,43 @@ class CalDAVServiceMaker (LoggingMixIn):
         #
         self.log_info("Setting up service")
 
+        bonusServices = []
+
         if config.ProcessType == "Slave":
+            logObserver = AMPCommonAccessLoggingObserver()
+
             if config.ControlSocket:
-                mode = "AF_UNIX"
                 id = config.ControlSocket
-                self.log_info("Logging via AF_UNIX: %s" % (id,))
+                self.log_info("Control via AF_UNIX: %s" % (id,))
+                endpointFactory = lambda reactor: UNIXClientEndpoint(
+                    reactor, id)
             else:
-                mode = "AF_INET"
                 id = int(config.ControlPort)
-                self.log_info("Logging via AF_INET: %d" % (id,))
-
-            logObserver = AMPCommonAccessLoggingObserver(mode, id)
-
+                self.log_info("Control via AF_INET: %d" % (id,))
+                endpointFactory = lambda reactor: TCP4ClientEndpoint(
+                    reactor, "127.0.0.1", id)
+            controlSocketClient = ControlSocket()
+            class LogClient(AMP):
+                def startReceivingBoxes(self, sender):
+                    super(LogClient, self).startReceivingBoxes(sender)
+                    logObserver.addClient(self)
+            f = Factory()
+            f.protocol = LogClient
+            controlSocketClient.addFactory(_LOG_ROUTE, f)
+            from txdav.common.datastore.sql import CommonDataStore as SQLStore
+            if isinstance(store, SQLStore):
+                def queueMasterAvailable(connectionFromMaster):
+                    store.queuer = connectionFromMaster
+                queueFactory = QueueWorkerFactory(store.newTransaction, schema,
+                                                  queueMasterAvailable)
+                controlSocketClient.addFactory(_QUEUE_ROUTE, queueFactory)
+            controlClient = ControlSocketConnectingService(
+                endpointFactory, controlSocketClient
+            )
+            bonusServices.append(controlClient)
         elif config.ProcessType == "Single":
             # Make sure no old socket files are lying around.
             self.deleteStaleSocketFiles()
-
             logObserver = RotatingFileAccessLoggingObserver(
                 config.AccessLogFile,
             )
@@ -785,18 +822,20 @@ class CalDAVServiceMaker (LoggingMixIn):
         self.log_info("Configuring access log observer: %s" % (logObserver,))
 
         service = CalDAVService(logObserver)
+        for bonus in bonusServices:
+            bonus.setServiceParent(service)
 
         rootResource = getRootResource(config, store, additional)
         service.rootResource = rootResource
 
         underlyingSite = Site(rootResource)
-        
-        # Need to cache SSL port info here so we can access it in a Request to deal with the
-        # possibility of being behind an SSL decoder
+
+        # Need to cache SSL port info here so we can access it in a Request to
+        # deal with the possibility of being behind an SSL decoder
         underlyingSite.EnableSSL = config.EnableSSL
         underlyingSite.SSLPort = config.SSLPort
         underlyingSite.BindSSLPorts = config.BindSSLPorts
-        
+
         requestFactory = underlyingSite
 
         if config.RedirectHTTPToHTTPS:
@@ -1102,7 +1141,8 @@ class CalDAVServiceMaker (LoggingMixIn):
             try:
                 gid = getgrnam(config.GroupName).gr_gid
             except KeyError:
-                raise ConfigurationError("Invalid group name: %s" % (config.GroupName,))
+                raise ConfigurationError("Invalid group name: %s" %
+                                         (config.GroupName,))
         else:
             gid = os.getgid()
 
@@ -1110,20 +1150,24 @@ class CalDAVServiceMaker (LoggingMixIn):
             try:
                 uid = getpwnam(config.UserName).pw_uid
             except KeyError:
-                raise ConfigurationError("Invalid user name: %s" % (config.UserName,))
+                raise ConfigurationError("Invalid user name: %s" %
+                                         (config.UserName,))
         else:
             uid = os.getuid()
 
+
+        controlSocket = ControlSocket()
+        controlSocket.addFactory(_LOG_ROUTE, logger)
         if config.ControlSocket:
-            loggingService = GroupOwnedUNIXServer(
-                gid, config.ControlSocket, logger, mode=0660
+            controlSocketService = GroupOwnedUNIXServer(
+                gid, config.ControlSocket, controlSocket, mode=0660
             )
         else:
-            loggingService = ControlPortTCPServer(
-                config.ControlPort, logger, interface="127.0.0.1"
+            controlSocketService = ControlPortTCPServer(
+                config.ControlPort, controlSocket, interface="127.0.0.1"
             )
-        loggingService.setName("logging")
-        loggingService.setServiceParent(s)
+        controlSocketService.setName(_CONTROL_SERVICE_NAME)
+        controlSocketService.setServiceParent(s)
 
         monitor = DelayedStartupProcessMonitor()
         s.processMonitor = monitor
@@ -1244,12 +1288,22 @@ class CalDAVServiceMaker (LoggingMixIn):
         # filesystem to the database (if that's necessary, and there is
         # filesystem data in need of upgrading).
         def spawnerSvcCreator(pool, store):
+            from twisted.internet import reactor
+            pool = PeerConnectionPool(reactor, store.newTransaction,
+                                      7654, schema)
+            controlSocket.addFactory(_QUEUE_ROUTE,
+                                     pool.workerListenerFactory())
+            # TODO: now that we have the shared control socket, we should get
+            # rid of the connection dispenser and make a shared / async
+            # connection pool implementation that can dispense transactions
+            # synchronously as the interface requires.
             if pool is not None and config.SharedConnectionPool:
                 self.log_warn("Using Shared Connection Pool")
                 dispenser = ConnectionDispenser(pool)
             else:
                 dispenser = None
             multi = MultiService()
+            pool.setServiceParent(multi)
             spawner = SlaveSpawnerService(
                 self, monitor, dispenser, dispatcher, options["config"],
                 inheritFDs=inheritFDs, inheritSSLFDs=inheritSSLFDs

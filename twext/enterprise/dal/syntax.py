@@ -27,10 +27,13 @@ from zope.interface import implements
 
 from twisted.internet.defer import succeed
 
-from twext.enterprise.dal.model import Schema, Table, Column, Sequence
-from twext.enterprise.ienterprise import POSTGRES_DIALECT, ORACLE_DIALECT
-from twext.enterprise.ienterprise import IDerivedParameter
+from twext.enterprise.dal.model import Schema, Table, Column, Sequence, SQLType
+from twext.enterprise.ienterprise import (
+    POSTGRES_DIALECT, ORACLE_DIALECT, SQLITE_DIALECT, IDerivedParameter
+)
 from twext.enterprise.util import mapOracleOutputType
+
+from twisted.internet.defer import inlineCallbacks, returnValue
 
 try:
     import cx_Oracle
@@ -192,14 +195,13 @@ class _Statement(object):
 
         @param txn: the L{IAsyncTransaction} to execute this on.
 
-        @param raiseOnZeroRowCount: the exception to raise if no data was
-            affected or returned by this query.
+        @param raiseOnZeroRowCount: a 0-argument callable which returns an
+            exception to raise if the executed SQL does not affect any rows.
 
         @param kw: keyword arguments, mapping names of L{Parameter} objects
             located somewhere in C{self}
 
         @return: results from the database.
-
         @rtype: a L{Deferred} firing a C{list} of records (C{tuple}s or
             C{list}s)
         """
@@ -445,6 +447,7 @@ Max = Function("max")
 Len = Function("character_length", "length")
 Upper = Function("upper")
 Lower = Function("lower")
+_sqliteLastInsertRowID = Function("last_insert_rowid")
 
 # Use a specific value here for "the convention for case-insensitive values in
 # the database" so we don't need to keep remembering whether it's upper or
@@ -602,7 +605,7 @@ class TableSyntax(Syntax):
     def __contains__(self, columnSyntax):
         if isinstance(columnSyntax, FunctionInvocation):
             columnSyntax = columnSyntax.arg
-        return (columnSyntax.model in self.model.columns)
+        return (columnSyntax.model.table is self.model)
 
 
 
@@ -945,18 +948,38 @@ class _SomeColumns(object):
 
 
 
-def _columnsMatchTables(columns, tables):
+def _checkColumnsMatchTables(columns, tables):
+    """
+    Verify that the given C{columns} match the given C{tables}; that is, that
+    every L{TableSyntax} referenced by every L{ColumnSyntax} referenced by
+    every L{ExpressionSyntax} in the given C{columns} list is present in the
+    given C{tables} list.
+
+    @param columns: a L{list} of L{ExpressionSyntax}, each of which references
+        some set of L{ColumnSyntax}es via its C{allColumns} method.
+
+    @param tables: a L{list} of L{TableSyntax}
+
+    @return: L{None}
+    @rtype: L{NoneType}
+
+    @raise TableMismatch: if any table referenced by a column is I{not} found
+        in C{tables}
+    """
     for expression in columns:
         for column in expression.allColumns():
             for table in tables:
                 if column in table:
                     break
             else:
-                return False
-    return True
+                raise TableMismatch("{} not found in {}".format(
+                    column, tables
+                ))
+    return None
 
 
-class Tuple(object):
+
+class Tuple(ExpressionSyntax):
 
     def __init__(self, columns):
         self.columns = columns
@@ -1064,8 +1087,7 @@ class Select(_Statement):
         if columns is None:
             columns = ALL_COLUMNS
         else:
-            if not _columnsMatchTables(columns, From.tables()):
-                raise TableMismatch()
+            _checkColumnsMatchTables(columns, From.tables())
             columns = _SomeColumns(columns)
         self.columns = columns
         
@@ -1263,12 +1285,11 @@ class _DMLStatement(_Statement):
 
     def _returningClause(self, queryGenerator, stmt, allTables):
         """
-        Add a dialect-appropriate 'returning' clause to the end of the given SQL
-        statement.
+        Add a dialect-appropriate 'returning' clause to the end of the given
+        SQL statement.
 
-        @param queryGenerator: describes the database we are generating the statement
-            for.
-
+        @param queryGenerator: describes the database we are generating the
+            statement for.
         @type queryGenerator: L{QueryGenerator}
 
         @param stmt: the SQL fragment generated without the 'returning' clause
@@ -1280,9 +1301,14 @@ class _DMLStatement(_Statement):
         @return: the C{stmt} parameter.
         """
         retclause = self.Return
+        if retclause is None:
+            return stmt
         if isinstance(retclause, (tuple, list)):
             retclause = _CommaList(retclause)
-        if retclause is not None:
+        if queryGenerator.dialect == SQLITE_DIALECT:
+            # sqlite does this another way.
+            return stmt
+        elif retclause is not None:
             stmt.text += ' returning '
             stmt.append(retclause.subSQL(queryGenerator, allTables))
             if queryGenerator.dialect == ORACLE_DIALECT:
@@ -1410,6 +1436,26 @@ class Insert(_DMLStatement):
         return self._returningClause(queryGenerator, stmt, allTables)
 
 
+    def on(self, txn, *a, **kw):
+        """
+        Override to provide extra logic for L{Insert}s that return values on
+        databases that don't provide return values as part of their C{INSERT}
+        behavior.
+        """
+        result = super(_DMLStatement, self).on(txn, *a, **kw)
+        if self.Return is not None and txn.dialect == SQLITE_DIALECT:
+            table = self._returnAsList()[0].model.table
+            return Select(self._returnAsList(),
+                   # TODO: error reporting when 'return' includes columns
+                   # foreign to the primary table.
+                   From=TableSyntax(table),
+                   Where=ColumnSyntax(Column(table, "rowid",
+                                             SQLType("integer", None))) ==
+                         _sqliteLastInsertRowID()
+                   ).on(txn, *a, **kw)
+        return result
+
+
 
 def _convert(x):
     """
@@ -1426,6 +1472,12 @@ def _convert(x):
 class Update(_DMLStatement):
     """
     'update' statement
+
+    @ivar columnMap: A L{dict} mapping L{ColumnSyntax} objects to values to
+        change; values may be simple database values (such as L{str},
+        L{unicode}, L{datetime.datetime}, L{float}, L{int} etc) or L{Parameter}
+        instances.
+    @type columnMap: L{dict}
     """
 
     def __init__(self, columnMap, Where, Return=None):
@@ -1434,6 +1486,37 @@ class Update(_DMLStatement):
         self.columnMap = columnMap
         self.Where = Where
         self.Return = Return
+
+
+    @inlineCallbacks
+    def on(self, txn, *a, **kw):
+        """
+        Override to provide extra logic for L{Update}s that return values on
+        databases that don't provide return values as part of their C{UPDATE}
+        behavior.
+        """
+        doExtra = self.Return is not None and txn.dialect == SQLITE_DIALECT
+        upcall = lambda: super(_DMLStatement, self).on(txn, *a, **kw)
+
+        if doExtra:
+            table = self._returnAsList()[0].model.table
+            rowidcol = ColumnSyntax(Column(table, "rowid",
+                                           SQLType("integer", None)))
+            prequery = Select([rowidcol], From=TableSyntax(table),
+                              Where=self.Where)
+            preresult = prequery.on(txn, *a, **kw)
+            before = yield preresult
+            yield upcall()
+            result = (yield Select(self._returnAsList(),
+                            # TODO: error reporting when 'return' includes
+                            # columns foreign to the primary table.
+                            From=TableSyntax(table),
+                            Where=reduce(lambda left, right: left.Or(right),
+                                         ((rowidcol == x) for [x] in before))
+                            ).on(txn, *a, **kw))
+            returnValue(result)
+        else:
+            returnValue((yield upcall()))
 
 
     def _toSQL(self, queryGenerator):
@@ -1459,7 +1542,7 @@ class Update(_DMLStatement):
                     for (c, v) in sortedColumns]
             )
         )
-        result.append(SQLFragment( ' where '))
+        result.append(SQLFragment(' where '))
         result.append(self.Where.subSQL(queryGenerator, allTables))
         return self._returningClause(queryGenerator, result, allTables)
 
@@ -1488,6 +1571,18 @@ class Delete(_DMLStatement):
             result.text += ' where '
             result.append(self.Where.subSQL(queryGenerator, allTables))
         return self._returningClause(queryGenerator, result, allTables)
+
+
+    @inlineCallbacks
+    def on(self, txn, *a, **kw):
+        upcall = lambda: super(Delete, self).on(txn, *a, **kw)
+        if txn.dialect == SQLITE_DIALECT and self.Return is not None:
+            result = yield Select(self._returnAsList(), From=self.From,
+                                  Where=self.Where).on(txn, *a, **kw)
+            yield upcall()
+        else:
+            result = yield upcall()
+        returnValue(result)
 
 
 

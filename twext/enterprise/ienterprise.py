@@ -20,6 +20,16 @@ Interfaces, mostly related to L{twext.enterprise.adbapi2}.
 
 __all__ = [
     "IAsyncTransaction",
+    "ISQLExecutor",
+    "ICommandBlock",
+    "IQueuer",
+    "IDerivedParameter",
+    "AlreadyFinishedError",
+    "ConnectionError",
+    "POSTGRES_DIALECT",
+    "SQLITE_DIALECT",
+    "ORACLE_DIALECT",
+    "ORACLE_TABLE_NAME_MAX",
 ]
 
 from zope.interface import Interface, Attribute
@@ -42,6 +52,7 @@ class ConnectionError(Exception):
 
 POSTGRES_DIALECT = 'postgres-dialect'
 ORACLE_DIALECT = 'oracle-dialect'
+SQLITE_DIALECT = 'sqlite-dialect'
 ORACLE_TABLE_NAME_MAX = 30
 
 
@@ -102,12 +113,35 @@ class IAsyncTransaction(ISQLExecutor):
         """
 
 
+    def postCommit(operation):
+        """
+        Perform the given operation only after this L{IAsyncTransaction}
+        commits.  These will be invoked before the L{Deferred} returned by
+        L{IAsyncTransaction.commit} fires.
+
+        @param operation: a 0-argument callable that may return a L{Deferred}.
+            If it does, then the subsequent operations added by L{postCommit}
+            will not fire until that L{Deferred} fires.
+        """
+
+
     def abort():
         """
         Roll back changes caused by this transaction.
 
         @return: L{Deferred} which fires with C{None} upon successful
             rollback of this transaction.
+        """
+
+
+    def postAbort(operation):
+        """
+        Invoke a callback after abort.
+
+        @see: L{IAsyncTransaction.postCommit}
+
+        @param operation: 0-argument callable, potentially returning a
+            L{Deferred}.
         """
 
 
@@ -218,3 +252,32 @@ class IDerivedParameter(Interface):
 
         @return: C{None}
         """
+
+
+
+class IQueuer(Interface):
+    """
+    An L{IQueuer} can enqueue work for later execution.
+    """
+
+    def enqueueWork(self, transaction, workItemType, **kw):
+        """
+        Perform some work, eventually.
+
+        @param transaction: an L{IAsyncTransaction} within which to I{commit}
+            to doing the work.  Note that this work will likely be done later
+            (but depending on various factors, may actually be done within this
+            transaction as well).
+
+        @param workItemType: the type of work item to create.
+        @type workItemType: L{type}, specifically, a subtype of L{WorkItem
+            <twext.enterprise.queue.WorkItem>}
+
+        @param kw: The keyword parameters are relayed to C{workItemType.create}
+            to create an appropriately initialized item.
+
+        @return: a work proposal that allows tracking of the various phases of
+            completion of the work item.
+        @rtype: L{twext.enterprise.queue.WorkItem}
+        """
+

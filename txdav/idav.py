@@ -207,29 +207,15 @@ class ITransaction(Interface):
         """
 
 
-    def postCommit(operation, immediately=False):
+    def postCommit(operation):
         """
-        Registers an operation to be executed after the transaction is
-        committed.
-
-        postCommit can be called multiple times, and operations are executed
-        in the order which they were registered.
-
-        @param operation: a callable.
-        @param immediately: a boolean; True means finish this operation *before* the
-            commit( ) call completes, defaults to False.
+        @see: L{IAsyncTransaction.postCommit}
         """
 
 
     def postAbort(operation):
         """
-        Registers an operation to be executed after the transaction is
-        aborted.
-
-        postAbort can be called multiple times, and operations are executed
-        in the order which they were registered.
-
-        @param operation: a callable.
+        @see: L{IAsyncTransaction.postAbort}
         """
 
 
