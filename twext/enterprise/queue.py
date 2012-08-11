@@ -25,14 +25,14 @@ class MasterInfo(object):
     """
 
     def endpoint(self):
+        """
+        Create an L{IStreamServerEndpoint} that will talk to the master process
+        that is described by this L{MasterInfo}.
+
+        @return: an endpoint that will connect to this host.
+        @rtype: L{IStreamServerEndpoint}
+        """
         return TCP4ClientEndpoint(self.host, self.ampPort)
-
-
-    def representLocalProcess(self):
-        """
-        Set the flag that says that this L{MasterInfo} is representative of the
-        current, local process.
-        """
 
 
 
