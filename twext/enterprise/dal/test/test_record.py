@@ -130,13 +130,14 @@ class TestCRUD(TestCase):
         database.
         """
         txn = self.pool.connection()
-        rec = yield TestRecord.create(txn, beta=3, gamme=u'epsilon')
+        rec = yield TestRecord.create(txn, beta=3, gamma=u'epsilon')
         yield rec.update(gamma=u'otherwise')
-        self.assertEqual(rec.beta, u'otherwise')
+        self.assertEqual(rec.gamma, u'otherwise')
         yield txn.commit()
         # Make sure that it persists.
         txn = self.pool.connection()
         rec = yield TestRecord.load(txn, 3)
         self.assertEqual(rec.gamma, u'otherwise')
+
 
 
