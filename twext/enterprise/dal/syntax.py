@@ -33,6 +33,8 @@ from twext.enterprise.ienterprise import (
 )
 from twext.enterprise.util import mapOracleOutputType
 
+from twisted.internet.defer import inlineCallbacks, returnValue
+
 try:
     import cx_Oracle
     cx_Oracle
@@ -1484,6 +1486,35 @@ class Update(_DMLStatement):
         self.columnMap = columnMap
         self.Where = Where
         self.Return = Return
+
+
+    @inlineCallbacks
+    def on(self, txn, *a, **kw):
+        """
+        Override to provide extra logic for L{Update}s that return values on
+        databases that don't provide return values as part of their C{UPDATE}
+        behavior.
+        """
+        doExtra = self.Return is not None and txn.dialect == SQLITE_DIALECT
+        upcall = lambda: super(_DMLStatement, self).on(txn, *a, **kw)
+
+        if doExtra:
+            table = self._returnAsList()[0].model.table
+            rowidcol = ColumnSyntax(Column(table, "rowid",
+                                           SQLType("integer", None)))
+            prequery = Select([rowidcol], From=TableSyntax(table))
+            preresult = prequery.on(txn, *a, **kw)
+            before = yield preresult
+            yield upcall()
+            result = yield (Select(self._returnAsList(),
+                            # TODO: error reporting when 'return' includes
+                            # columns foreign to the primary table.
+                            From=TableSyntax(table),
+                            Where=rowidcol == before[0][0]
+                            ).on(txn, *a, **kw))
+            returnValue(result)
+        else:
+            returnValue(upcall())
 
 
     def _toSQL(self, queryGenerator):
