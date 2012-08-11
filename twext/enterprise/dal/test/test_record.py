@@ -18,3 +18,68 @@
 Test cases for L{twext.enterprise.dal.record}.
 """
 
+import sqlite3
+
+from twisted.internet.defer import inlineCallbacks
+
+from twisted.trial.unittest import TestCase
+
+from twext.enterprise.dal.record import fromTable
+
+from twext.enterprise.dal.test.test_parseschema import SchemaTestHelper
+from twext.enterprise.adbapi2 import ConnectionPool
+from twext.enterprise.dal.syntax import SchemaSyntax
+
+
+# from twext.enterprise.dal.syntax import
+
+
+sth = SchemaTestHelper()
+sth.id = lambda : __name__
+schemaString = """
+create table ALPHA (BETA integer primary key, GAMMA text);
+"""
+testSchema = SchemaSyntax(sth.schemaFromString(schemaString))
+
+
+
+class TestRecord(fromTable(testSchema.ALPHA)):
+    """
+    A sample test record.
+    """
+
+
+
+class TestCRUD(TestCase):
+    """
+    Tests for creation, mutation, and deletion operations.
+    """
+
+    def setUp(self):
+        sqlitename = self.mktemp()
+        def connectionFactory(label="test"):
+            return sqlite3.connect(sqlitename)
+        con = connectionFactory()
+        con.execute(schemaString)
+        con.commit()
+        self.pool = ConnectionPool(connectionFactory)
+        self.pool.startService()
+        self.addCleanup(self.pool.stopService)
+
+
+    @inlineCallbacks
+    def test_simpleCreate(self):
+        txn = self.pool.connection()
+        yield txn.execSQL("insert into ALPHA values (:1, :2)", [234, "one"])
+        yield txn.execSQL("insert into ALPHA values (:1, :2)", [456, "two"])
+        rec = yield TestRecord.load(txn, 456)
+        self.assertIsInstance(rec, TestRecord)
+        self.assertEquals(rec.beta, 456)
+        self.assertEquals(rec.gamma, "two")
+
+
+
+class TestQuery(object):
+    """
+    Tests for loading row objects from the database.
+    """

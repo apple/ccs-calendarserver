@@ -1187,8 +1187,8 @@ class ConnectionPoolConnection(AMP):
         Initialize a mapping of transaction IDs to transaction objects.
         """
         super(ConnectionPoolConnection, self).__init__()
-        self.pool  = pool
-        self._txns = {}
+        self.pool    = pool
+        self._txns   = {}
         self._blocks = {}
 
 

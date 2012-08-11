@@ -22,3 +22,20 @@ This is an asynchronous object-relational mapper based on
 L{twext.enterprise.dal.syntax}.
 """
 
+class _RecordBase(object):
+    @classmethod
+    def load(cls, txn, primaryKey):
+        return cls()
+
+
+
+def fromTable(table):
+    """
+    Create a L{type} that maps the columns from a particular table.
+
+    A L{type} created in this manner will have instances with attributes that are mapp.
+
+    @param table: The table.
+    """
+    return type(table.model.name, tuple([_RecordBase]), {})
+
