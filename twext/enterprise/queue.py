@@ -627,7 +627,11 @@ class PeerConnectionPool(Service, object):
     def choosePeer(self):
         """
         Choose a peer to distribute work to based on the current known slot
-        occupancy of the other masters.
+        occupancy of the other masters.  Note that this will prefer
+        distributing work to local workers until the current node is full,
+        because that should be lower-latency.  Also, if no peers are available,
+        work will be submitted locally even if the worker pool is already
+        over-subscribed.
 
         @return: a L{Deferred <twisted.internet.defer.Deferred>} which fires
             with the chosen 'peer', i.e. object with a C{performWork} method,
