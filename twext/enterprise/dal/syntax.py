@@ -1575,10 +1575,13 @@ class Delete(_DMLStatement):
 
     @inlineCallbacks
     def on(self, txn, *a, **kw):
+        upcall = lambda: super(Delete, self).on(txn, *a, **kw)
         if txn.dialect == SQLITE_DIALECT and self.Return is not None:
             result = yield Select(self._returnAsList(), From=self.From,
                                   Where=self.Where).on(txn, *a, **kw)
-        yield super(Delete, self).on(txn, *a, **kw)
+            yield upcall()
+        else:
+            result = yield upcall()
         returnValue(result)
 
 
