@@ -162,7 +162,6 @@ def inTransaction(transactionCreator, operation):
 
 
 
-
 class TableSyntaxByName(Argument):
     """
     Serialize and deserialize L{TableSyntax} objects for an AMP protocol with
@@ -1023,6 +1022,13 @@ class PeerConnectionPool(Service, object):
         """
         @inlineCallbacks
         def workCheck(txn):
+
+            nodes = [(node.hostname, node.port) for node in
+                     (yield self.activeNodes(txn))]
+            nodes.sort()
+            self._lastSeenTotalNodes = len(nodes)
+            self._lastSeenNodeIndex = nodes.index((self.thisProcess.hostname,
+                                                   self.thisProcess.port))
             for itemType in self.allWorkItemTypes():
                 for overdueItem in (
                         yield itemType.query(
@@ -1052,6 +1058,7 @@ class PeerConnectionPool(Service, object):
                 return
             index = self.nodeIndex()
             now = self.reactor.seconds()
+
             interval = self.queueDelayedProcessInterval
             count = self.totalNumberOfNodes()
             when = (now - (now % interval)) + (interval * (count + index))
@@ -1090,8 +1097,10 @@ class PeerConnectionPool(Service, object):
                     txn, hostname=self.hostname, port=self.ampPort,
                     pid=self.pid, time=datetime.now()
                 )
+                nodes.append(self.thisProcess)
             for node in nodes:
                 self._startConnectingTo(node)
+
         self._startingUp = inTransaction(self.transactionFactory, startup)
         @self._startingUp.addBoth
         def done(result):
