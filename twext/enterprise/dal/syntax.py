@@ -1502,7 +1502,8 @@ class Update(_DMLStatement):
             table = self._returnAsList()[0].model.table
             rowidcol = ColumnSyntax(Column(table, "rowid",
                                            SQLType("integer", None)))
-            prequery = Select([rowidcol], From=TableSyntax(table))
+            prequery = Select([rowidcol], From=TableSyntax(table),
+                              Where=self.Where)
             preresult = prequery.on(txn, *a, **kw)
             before = yield preresult
             yield upcall()
