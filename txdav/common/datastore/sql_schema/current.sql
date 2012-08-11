@@ -22,6 +22,22 @@
 
 create sequence RESOURCE_ID_SEQ;
 
+-------------------------
+-- Cluster Bookkeeping --
+-------------------------
+
+-- Information about a process connected to this database.
+
+-- Note that this must match the master info schema in twext.enterprise.queue.
+create table MASTER_INFO (
+  HOSTNAME  varchar(255) not null,
+  PID       integer not null,
+  PORT      integer not null,
+  TIME      timestamp not null default timezone('UTC', CURRENT_TIMESTAMP),
+
+  primary key(HOSTNAME, PORT)
+);
+
 
 -------------------
 -- Calendar Home --
