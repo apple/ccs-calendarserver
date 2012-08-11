@@ -30,7 +30,8 @@ from twext.enterprise.dal.syntax import FixedPlaceholder, NumericPlaceholder
 from twext.enterprise.dal.syntax import Function
 from twext.enterprise.dal.syntax import SchemaSyntax
 from twext.enterprise.dal.test.test_parseschema import SchemaTestHelper
-from twext.enterprise.ienterprise import POSTGRES_DIALECT, ORACLE_DIALECT
+from twext.enterprise.ienterprise import (POSTGRES_DIALECT, ORACLE_DIALECT,
+                                          SQLITE_DIALECT)
 from twext.enterprise.test.test_adbapi2 import ConnectionPoolHelper
 from twext.enterprise.test.test_adbapi2 import NetworkedPoolHelper
 from twext.enterprise.test.test_adbapi2 import resultOf
@@ -941,6 +942,43 @@ class GenerationTests(ExampleSchemaHelper, TestCase):
                 [40, 50, Parameter("oracle_out_0"), Parameter("oracle_out_1")]
             )
         )
+
+
+    def test_insertMultiReturnSQLite(self):
+        """
+        In SQLite's SQL dialect, there is no 'returning' clause, but given that
+        SQLite serializes all SQL transactions, you can rely upon 'select'
+        after a write operation to reliably give you exactly what was just
+        modified.  Therefore, although 'toSQL' won't include any indication of
+        the return value, the 'on' method will execute a 'select' statement
+        following the insert to retrieve the value.
+        """
+        insertStatement = Insert({self.schema.FOO.BAR: 39,
+                    self.schema.FOO.BAZ: 82},
+                   Return=(self.schema.FOO.BAR, self.schema.FOO.BAZ)
+        )
+        qg = lambda : QueryGenerator(SQLITE_DIALECT, NumericPlaceholder())
+        self.assertEquals(insertStatement.toSQL(qg()),
+            SQLFragment("insert into FOO (BAR, BAZ) values (:1, :2)",
+                        [39, 82])
+        )
+        execed = []
+        counter = [0]
+        class CatchSQL(object):
+            dialect = SQLITE_DIALECT
+            paramstyle = 'numeric'
+            def execSQL(self, sql, args, rozrc):
+                execed.append([sql, args])
+                counter[0] += 1
+                return succeed(counter[0])
+        result = []
+        insertStatement.on(CatchSQL()).addCallback(result.append)
+        self.assertEqual(
+            execed,
+            [["insert into FOO (BAR, BAZ) values (:1, :2)", [39, 82]],
+             ["select BAR, BAZ from FOO where rowid = last_insert_rowid()"]]
+        )
+        self.assertEqual(result, [2])
 
 
     def test_insertMismatch(self):

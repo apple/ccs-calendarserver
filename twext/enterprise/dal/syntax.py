@@ -28,8 +28,9 @@ from zope.interface import implements
 from twisted.internet.defer import succeed
 
 from twext.enterprise.dal.model import Schema, Table, Column, Sequence
-from twext.enterprise.ienterprise import POSTGRES_DIALECT, ORACLE_DIALECT
-from twext.enterprise.ienterprise import IDerivedParameter
+from twext.enterprise.ienterprise import (
+    POSTGRES_DIALECT, ORACLE_DIALECT, SQLITE_DIALECT, IDerivedParameter
+)
 from twext.enterprise.util import mapOracleOutputType
 
 try:
@@ -1280,9 +1281,14 @@ class _DMLStatement(_Statement):
         @return: the C{stmt} parameter.
         """
         retclause = self.Return
+        if retclause is None:
+            return stmt
         if isinstance(retclause, (tuple, list)):
             retclause = _CommaList(retclause)
-        if retclause is not None:
+        if queryGenerator.dialect == SQLITE_DIALECT:
+            # sqlite does this another way.
+            return stmt
+        elif retclause is not None:
             stmt.text += ' returning '
             stmt.append(retclause.subSQL(queryGenerator, allTables))
             if queryGenerator.dialect == ORACLE_DIALECT:
