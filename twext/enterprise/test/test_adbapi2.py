@@ -27,11 +27,9 @@ from twisted.python.threadpool import ThreadPool
 
 from twisted.trial.unittest import TestCase
 
-from twisted.internet.defer import execute
 from twisted.internet.task import Clock
 
 from twisted.internet.interfaces import IReactorThreads
-from twisted.internet.defer import Deferred
 
 from twisted.test.proto_helpers import StringTransport
 
@@ -45,6 +43,7 @@ from twext.enterprise.ienterprise import ICommandBlock
 from twext.enterprise.adbapi2 import FailsafeException
 from twext.enterprise.adbapi2 import DEFAULT_PARAM_STYLE
 from twext.enterprise.adbapi2 import ConnectionPool
+from twext.internet.threadutils import ThreadHolder
 
 
 def resultOf(deferred, propagate=False):
@@ -326,59 +325,64 @@ class FakeConnectionError(Exception):
 
 
 
-class FakeThreadHolder(object):
+class FakeThreadHolder(ThreadHolder):
     """
-    Run things submitted to this ThreadHolder on the main thread, so that
+    Run things to submitted this ThreadHolder on the main thread, so that
     execution is easier to control.
     """
 
     def __init__(self, test):
+        super(FakeThreadHolder, self).__init__(self)
+        self.test = test
         self.started = False
         self.stopped = False
-        self.test = test
-        self.queue = []
 
 
     def start(self):
-        """
-        Mark this L{FakeThreadHolder} as not started.
-        """
         self.started = True
+        return super(FakeThreadHolder, self).start()
 
 
     def stop(self):
-        """
-        Mark this L{FakeThreadHolder} as stopped.
-        """
-        def stopped(nothing):
-            self.stopped = True
-        return self.submit(lambda : None).addCallback(stopped)
+        self.stopped = True
+        return super(FakeThreadHolder, self).stop()
 
 
-    def submit(self, work):
-        """
-        Call the function (or queue it)
-        """
-        if self.test.paused:
-            d = Deferred()
-            self.queue.append((d, work))
-            return d
-        else:
-            return execute(work)
+    @property
+    def _q(self):
+        return self._q_
+
+
+    @_q.setter
+    def _q(self, newq):
+        if newq is not None:
+            oget = newq.get
+            newq.get = lambda: oget(timeout=0)
+            oput = newq.put
+            def putit(x):
+                p = oput(x)
+                if not self.test.paused:
+                    self.flush()
+                return p
+            newq.put = putit
+        self._q_ = newq
+
+
+    def callFromThread(self, f, *a, **k):
+        result = f(*a, **k)
+        return result
+
+
+    def callInThread(self, f, *a, **k):
+        pass
 
 
     def flush(self):
         """
         Fire all deferreds previously returned from submit.
         """
-        self.queue, queue = [], self.queue
-        for (d, work) in queue:
-            try:
-                result = work()
-            except:
-                d.errback()
-            else:
-                d.callback(result)
+        while not self.stopped and self._q.queue and self._qpull():
+            pass
 
 
 
@@ -845,10 +849,10 @@ class ConnectionPoolTests(ConnectionPoolHelper, TestCase):
         abortResult = self.resultOf(it.abort())
 
         # steal it from the queue so we can do it out of order
-        d, work = self.holders[0].queue.pop()
+        d, work = self.holders[0]._q.get()
         # that should be the only work unit so don't continue if something else
         # got in there
-        self.assertEquals(self.holders[0].queue, [])
+        self.assertEquals(list(self.holders[0]._q.queue), [])
         self.assertEquals(len(self.holders), 1)
         self.flushHolders()
         stopResult = self.resultOf(self.pool.stopService())

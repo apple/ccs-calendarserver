@@ -45,18 +45,28 @@ class ThreadHolder(object):
         """
         Worker function which runs in a non-reactor thread.
         """
-        while True:
-            work = self._q.get()
-            if work is _DONE:
-                def finishStopping():
-                    self._state = _STATE_STOPPED
-                    self._q = None
-                    s = self._stopper
-                    self._stopper = None
-                    s.callback(None)
-                self._reactor.callFromThread(finishStopping)
-                return
-            self._oneWorkUnit(*work)
+        while self._qpull():
+            pass
+
+
+    def _qpull(self):
+        """
+        Pull one item off the queue and react appropriately.
+
+        Return whether or not to keep going.
+        """
+        work = self._q.get()
+        if work is _DONE:
+            def finishStopping():
+                self._state = _STATE_STOPPED
+                self._q = None
+                s = self._stopper
+                self._stopper = None
+                s.callback(None)
+            self._reactor.callFromThread(finishStopping)
+            return False
+        self._oneWorkUnit(*work)
+        return True
 
 
     def _oneWorkUnit(self, deferred, instruction):

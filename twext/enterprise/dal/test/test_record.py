@@ -101,8 +101,3 @@ class TestCRUD(TestCase):
         self.assertEqual(rows, [[3, 'epsilon']])
 
 
-
-class TestQuery(object):
-    """
-    Tests for loading row objects from the database.
-    """

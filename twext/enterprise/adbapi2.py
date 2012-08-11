@@ -754,8 +754,9 @@ class _ConnectingPseudoTxn(object):
     _retry = None
 
     def __init__(self, pool, holder):
-        self._pool   = pool
-        self._holder = holder
+        self._pool    = pool
+        self._holder  = holder
+        self._aborted = False
 
 
     def abort(self):
@@ -951,6 +952,8 @@ class ConnectionPool(Service, object):
             cursor     = connection.cursor()
             return (connection, cursor)
         def finishInit((connection, cursor)):
+            if txn._aborted:
+                return
             baseTxn = _ConnectedTxn(
                 pool=self,
                 threadHolder=holder,

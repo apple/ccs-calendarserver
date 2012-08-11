@@ -44,6 +44,14 @@ class _RecordBase(object):
         returnValue(self)
 
 
+    @classmethod
+    def create(cls, *a, **k):
+        """
+        Create a row.
+        """
+        return None
+
+
 
 def fromTable(table):
     """
