@@ -1066,7 +1066,7 @@ class PeerConnectionPool(Service, object):
         """
         Load information about all other nodes.
         """
-        return NodeInfo.query(txn)
+        return NodeInfo.all(txn)
 
 
     @inlineCallbacks
