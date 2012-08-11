@@ -726,7 +726,7 @@ class ConnectionPoolTests(ConnectionPoolHelper, TestCase):
         self.assertEquals(stopResult, [])
         self.flushHolders()
         #self.assertEquals(abortResult, [None])
-        self.assertEquals(stopResult, [None])
+        self.assertResultList(stopResult, None)
 
 
     def test_stopServiceWithSpooled(self):
