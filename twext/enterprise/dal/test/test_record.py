@@ -209,8 +209,8 @@ class TestCRUD(TestCase):
         self.assertEqual(rec.gamma, u'two')
         self.assertEqual((yield txn.execSQL("select count(*) from ALPHA "
                                             "where BETA = :1", [234])),
-                         [[0]])
-        yield self.failUnlessFailure(TestRecord.pop(234), NoSuchRecord)
+                         [tuple([0])])
+        yield self.failUnlessFailure(TestRecord.pop(txn, 234), NoSuchRecord)
 
 
 
