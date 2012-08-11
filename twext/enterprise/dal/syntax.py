@@ -1507,11 +1507,12 @@ class Update(_DMLStatement):
             preresult = prequery.on(txn, *a, **kw)
             before = yield preresult
             yield upcall()
-            result = yield (Select(self._returnAsList(),
+            result = (yield Select(self._returnAsList(),
                             # TODO: error reporting when 'return' includes
                             # columns foreign to the primary table.
                             From=TableSyntax(table),
-                            Where=rowidcol == before[0][0]
+                            Where=reduce(lambda left, right: left.Or(right),
+                                         ((rowidcol == x) for [x] in before))
                             ).on(txn, *a, **kw))
             returnValue(result)
         else:
