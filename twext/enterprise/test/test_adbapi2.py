@@ -25,6 +25,7 @@ from zope.interface.verify import verifyClass, verifyObject
 from zope.interface.declarations import implements
 
 from twisted.python.threadpool import ThreadPool
+from twisted.python.failure import Failure
 
 from twisted.trial.unittest import TestCase
 
@@ -669,10 +670,20 @@ class ConnectionPoolTests(ConnectionPoolHelper, TestCase):
         self.pool.stopService().addBoth(stopd.append)
         self.assertEquals(stopd, [])
         self.flushHolders()
-        self.assertEquals(stopd, [None])
+        self.assertResultList(stopd, None)
         [holder] = self.holders
         self.assertEquals(holder.started, True)
         self.assertEquals(holder.stopped, True)
+
+
+    def assertResultList(self, resultList, expected):
+        if not resultList:
+            self.fail("No result; Deferred didn't fire yet.")
+        else:
+            if isinstance(resultList[0], Failure):
+                resultList[0].raiseException()
+            else:
+                self.assertEqual(resultList, [expected])
 
 
     def test_shutdownDuringAttemptFailed(self):
