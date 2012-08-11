@@ -1264,12 +1264,11 @@ class _DMLStatement(_Statement):
 
     def _returningClause(self, queryGenerator, stmt, allTables):
         """
-        Add a dialect-appropriate 'returning' clause to the end of the given SQL
-        statement.
+        Add a dialect-appropriate 'returning' clause to the end of the given
+        SQL statement.
 
-        @param queryGenerator: describes the database we are generating the statement
-            for.
-
+        @param queryGenerator: describes the database we are generating the
+            statement for.
         @type queryGenerator: L{QueryGenerator}
 
         @param stmt: the SQL fragment generated without the 'returning' clause
@@ -1334,25 +1333,6 @@ class _DMLStatement(_Statement):
 
     def _resultColumns(self):
         return self._returnAsList()
-
-
-    def on(self, txn, *a, **kw):
-        """
-        Override to provide potentially extra logic for insert/update/delete
-        that return values on databases that don't necessarily provide it.
-        """
-        result = super(_DMLStatement, self).on(txn, *a, **kw)
-        if txn.dialect == SQLITE_DIALECT:
-            table = self._returnAsList()[0].model.table
-            return Select(self._returnAsList(),
-                   # TODO: error reporting when 'return' includes columns
-                   # foreign to the primary table.
-                   From=TableSyntax(table),
-                   Where=ColumnSyntax(Column(table, "rowid",
-                                             SQLType("integer", None))) ==
-                         _sqliteLastInsertRowID()
-                   ).on(txn, *a, **kw)
-        return result
 
 
 
@@ -1433,6 +1413,25 @@ class Insert(_DMLStatement):
             [_convert(v).subSQL(queryGenerator, allTables)
              for (c, v) in sortedColumns])))
         return self._returningClause(queryGenerator, stmt, allTables)
+
+
+    def on(self, txn, *a, **kw):
+        """
+        Override to provide potentially extra logic for insert/update/delete
+        that return values on databases that don't necessarily provide it.
+        """
+        result = super(_DMLStatement, self).on(txn, *a, **kw)
+        if self.Return is not None and txn.dialect == SQLITE_DIALECT:
+            table = self._returnAsList()[0].model.table
+            return Select(self._returnAsList(),
+                   # TODO: error reporting when 'return' includes columns
+                   # foreign to the primary table.
+                   From=TableSyntax(table),
+                   Where=ColumnSyntax(Column(table, "rowid",
+                                             SQLType("integer", None))) ==
+                         _sqliteLastInsertRowID()
+                   ).on(txn, *a, **kw)
+        return result
 
 
 
