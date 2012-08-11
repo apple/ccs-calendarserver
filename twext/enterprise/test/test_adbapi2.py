@@ -19,6 +19,7 @@ Tests for L{twext.enterprise.adbapi2}.
 """
 
 from itertools import count
+from Queue import Empty
 
 from zope.interface.verify import verifyClass, verifyObject
 from zope.interface.declarations import implements
@@ -382,7 +383,10 @@ class FakeThreadHolder(ThreadHolder):
         """
         Fire all deferreds previously returned from submit.
         """
-        while not self.stopped and self._q.queue and self._qpull():
+        try:
+            while self._qpull():
+                pass
+        except Empty:
             pass
 
 
@@ -648,8 +652,8 @@ class ConnectionPoolTests(ConnectionPoolHelper, TestCase):
 
     def test_shutdownDuringAttemptSuccess(self):
         """
-        If L{ConnectionPool.stopService} is called while a connection attempt is
-        outstanding, the resulting L{Deferred} won't be fired until the
+        If L{ConnectionPool.stopService} is called while a connection attempt
+        is outstanding, the resulting L{Deferred} won't be fired until the
         connection attempt has finished; in this case, succeeded.
         """
         self.pauseHolders()
@@ -666,8 +670,8 @@ class ConnectionPoolTests(ConnectionPoolHelper, TestCase):
 
     def test_shutdownDuringAttemptFailed(self):
         """
-        If L{ConnectionPool.stopService} is called while a connection attempt is
-        outstanding, the resulting L{Deferred} won't be fired until the
+        If L{ConnectionPool.stopService} is called while a connection attempt
+        is outstanding, the resulting L{Deferred} won't be fired until the
         connection attempt has finished; in this case, failed.
         """
         self.factory.defaultFail()
