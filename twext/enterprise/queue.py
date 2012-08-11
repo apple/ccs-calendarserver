@@ -1,4 +1,4 @@
-# -*- test-case-name: twext.enterprise.test.test_adbapi2 -*-
+# -*- test-case-name: twext.enterprise.test.test_queue -*-
 ##
 # Copyright (c) 2012 Apple Inc. All rights reserved.
 #
@@ -20,6 +20,10 @@ L{twext.enterprise.queue} is a task-queueing system for use by applications
 with multiple front-end servers talking to a single database instance, that
 want to defer and parallelize work that involves storing the results of
 computation.
+
+By enqueuing with L{twisted.enterprise.queue}, you may guarantee that the work
+will I{eventually} be done, and reliably commit to doing it in the future, but
+defer it if it does not need to be done I{now}.
 
 To pick a hypothetical example, let's say that you have a store which wants to
 issue a promotional coupon based on a customer loyalty program, in response to
@@ -71,8 +75,6 @@ Such an application might be implemented with this queueing system like so::
                                         From=schema.CUSTOMER).on(txn)):
             # peerPool is a PeerConnectionPool
             peerPool.enqueueWork(txn, CouponWork, customerID=customerID)
-
-
 """
 
 from socket import getfqdn
@@ -234,7 +236,7 @@ class WorkItem(Record):
         @rtype: L{type}
         """
         for subcls in cls.__subclasses__():
-            if table == getattr(subcls, "__tbl__", None):
+            if table == getattr(subcls, "table", None):
                 return subcls
         raise KeyError("No mapped {0} class for {1}.".format(
             cls, table
@@ -643,7 +645,7 @@ class WorkProposal(object):
                 self._whenCommitted.callback(None)
                 @passthru(self.pool.choosePeer().addCallback)
                 def peerChosen(peer):
-                    @passthru(peer.performWork(workItem.__tbl__,
+                    @passthru(peer.performWork(workItem.table,
                                                workItem.workID))
                     def performed(result):
                         self._whenExecuted.callback(None)
@@ -778,6 +780,8 @@ class PeerConnectionPool(Service, object):
         self.workerPool = WorkerConnectionPool()
         self.peers = []
         self.schema = schema
+        self._lastSeenTotalNodes = 1
+        self._lastSeenNodeIndex = 1
 
 
     def addPeerConnection(self, peer):
@@ -862,7 +866,7 @@ class PeerConnectionPool(Service, object):
         @rtype: L{int}
         """
         # TODO
-        return 20
+        return self._lastSeenTotalNodes
 
 
     def nodeIndex(self):
@@ -877,7 +881,7 @@ class PeerConnectionPool(Service, object):
         @rtype: L{int}
         """
         # TODO
-        return 6
+        return self._lastSeenNodeIndex
 
 
     @inlineCallbacks
@@ -895,7 +899,7 @@ class PeerConnectionPool(Service, object):
                             txn, itemType.created > self.queueProcessTimeout
                     )):
                     peer = yield self.choosePeer()
-                    yield peer.performWork(overdueItem.__tbl__,
+                    yield peer.performWork(overdueItem.table,
                                            overdueItem.workID)
         finally:
             yield txn.commit()

@@ -70,7 +70,7 @@ class _RecordMeta(type):
                         "Can't define a class from two or more tables at once."
                     )
                 table = base.table
-            elif getattr(base, "__tbl__", None) is not None:
+            elif getattr(base, "table", None) is not None:
                 raise RuntimeError(
                     "Can't define a record class by inheriting one already "
                     "mapped to a table."
@@ -89,7 +89,7 @@ class _RecordMeta(type):
                 attrname = namer.namingConvention(column.model.name)
                 attrmap[attrname] = column
                 colmap[column] = attrname
-            ns.update(__tbl__=table, __attrmap__=attrmap, __colmap__=colmap)
+            ns.update(table=table, __attrmap__=attrmap, __colmap__=colmap)
             ns.update(attrmap)
         return super(_RecordMeta, cls).__new__(cls, name, tuple(newbases), ns)
 
@@ -115,9 +115,9 @@ class Record(object):
     Superclass for all database-backed record classes.  (i.e.  an object mapped
     from a database record).
 
-    @cvar __tbl__: the table that represents this L{Record} in the
+    @cvar table: the table that represents this L{Record} in the
         database.
-    @type __tbl__: L{TableSyntax}
+    @type table: L{TableSyntax}
 
     @cvar __colmap__: map of L{ColumnSyntax} objects to attribute names.
     @type __colmap__: L{dict}
@@ -157,7 +157,7 @@ class Record(object):
 
     @classmethod
     def _primaryKeyExpression(cls):
-        return Tuple([ColumnSyntax(c) for c in cls.__tbl__.model.primaryKey])
+        return Tuple([ColumnSyntax(c) for c in cls.table.model.primaryKey])
 
 
     def _primaryKeyValue(self):
@@ -209,7 +209,7 @@ class Record(object):
         @return: a L{Deferred} which fires when the underlying row has been
             deleted.
         """
-        return Delete(From=self.__tbl__,
+        return Delete(From=self.table,
                       Where=self._primaryKeyComparison(self._primaryKeyValue())
                       ).on(self.__txn__)
 
@@ -243,7 +243,7 @@ class Record(object):
         """
         return cls._rowsFromQuery(
             txn, Delete(Where=cls._primaryKeyComparison(primaryKey),
-                        From=cls.__tbl__, Return=list(cls.__tbl__)),
+                        From=cls.table, Return=list(cls.table)),
             lambda : NoSuchRecord()
         ).addCallback(lambda x: x[0])
 
@@ -268,8 +268,8 @@ class Record(object):
         kw = {}
         if order is not None:
             kw.update(OrderBy=order, Ascending=ascending)
-        return cls._rowsFromQuery(txn, Select(list(cls.__tbl__),
-                                              From=cls.__tbl__,
+        return cls._rowsFromQuery(txn, Select(list(cls.table),
+                                              From=cls.table,
                                               Where=expr, **kw), None)
 
 
@@ -283,7 +283,7 @@ class Record(object):
 
         @param qry: a L{_DMLStatement} (XXX: maybe _DMLStatement or some
             interface that defines 'on' should be public?) whose results are
-            the list of columns in C{self.__tbl__}.
+            the list of columns in C{self.table}.
 
         @param rozrc: The C{raiseOnZeroRowCount} argument.
 
@@ -294,7 +294,7 @@ class Record(object):
         selves = []
         for row in rows:
             self = cls()
-            for (column, value) in zip(list(cls.__tbl__), row):
+            for (column, value) in zip(list(cls.table), row):
                 name = cls.__colmap__[column]
                 setattr(self, name, value)
             self.__txn__ = txn
