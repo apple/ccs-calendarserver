@@ -25,6 +25,7 @@ L{twext.enterprise.dal.syntax}.
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twext.enterprise.dal.syntax import Select, Tuple, Constant, ColumnSyntax
 from twext.enterprise.dal.syntax import Insert
+from twext.enterprise.dal.syntax import Update
 
 class ReadOnly(AttributeError):
     """
@@ -35,7 +36,10 @@ class ReadOnly(AttributeError):
     def __init__(self, className, attributeName):
         self.className = className
         self.attributeName = attributeName
-        super(ReadOnly, self).__init__()
+        super(ReadOnly, self).__init__("SQL-backed attribute '{}.{}' is "
+                                       "read-only. Use '.update(...)' to "
+                                       "modify attributes."
+                                       .format(className, attributeName))
 
 
 
@@ -50,6 +54,18 @@ class _RecordBase(object):
     @cvar __attrmap__: map of attribute names to L{ColumnSyntax} objects.
     @type __attrmap__: L{dict}
     """
+
+    __txn__ = None
+    def __setattr__(self, name, value):
+        """
+        Once the transaction is initialized, this object is immutable.  If you
+        want to change it, use L{_RecordBase.update}.
+        """
+        if self.__txn__ is not None:
+            raise ReadOnly(self.__class__.__name__, name)
+        return super(_RecordBase, self).__setattr__(name, value)
+
+
     @classmethod
     @inlineCallbacks
     def load(cls, txn, *primaryKey):
@@ -62,7 +78,9 @@ class _RecordBase(object):
         row = rows[0]
         self = cls()
         for (column, value) in zip(allColumns, row):
-            setattr(self, cls.__colmap__[column], value)
+            name = cls.__colmap__[column]
+            setattr(self, name, value)
+        # FIXME: self.__txn__ = txn
         returnValue(self)
 
 
@@ -71,6 +89,10 @@ class _RecordBase(object):
     def create(cls, txn, *a, **k):
         """
         Create a row.
+
+        Used like this::
+
+            MyRecord.create(column1=1, column2=u'two')
         """
         self = cls()
         colmap = {}
@@ -80,15 +102,22 @@ class _RecordBase(object):
             # FIXME: better error reporting
             colmap[attrtocol[attr]] = k[attr]
         yield Insert(colmap).on(txn)
+        self.__txn__ = txn
         returnValue(self)
 
 
+    @inlineCallbacks
     def update(self, **kw):
         """
-        Update the given attributes in the database.
+        Modify the given attributes in the database.
 
-        @return: a L{Deferred} that fires when the updates have been completed.
+        @return: a L{Deferred} that fires when the updates have been sent to
+            the database.
         """
+        colmap = {}
+        for k, v in kw.iteritems():
+            colmap[self.__attrmap__[k]] = v
+        yield (Update(colmap, Where=Constant(True)).on(self.__txn__))
 
 
 
@@ -111,6 +140,7 @@ def fromTable(table):
         colmap[column] = attrname
     return type(table.model.name, tuple([_RecordBase]),
                 dict(__tbl__=table, __attrmap__=attrmap, __colmap__=colmap))
+
 
 
 __all__ = [
