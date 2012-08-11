@@ -24,6 +24,7 @@ L{twext.enterprise.dal.syntax}.
 
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twext.enterprise.dal.syntax import Select, Tuple, Constant, ColumnSyntax
+from twext.enterprise.dal.syntax import Insert
 
 
 
@@ -45,15 +46,24 @@ class _RecordBase(object):
 
 
     @classmethod
-    def create(cls, *a, **k):
+    @inlineCallbacks
+    def create(cls, txn, *a, **k):
         """
         Create a row.
         """
-        # tbl = cls.__tbl__
+        tbl = cls.__tbl__
         self = cls()
+        colmap = {}
+        allColumns = list(tbl)
+        attrtocol = {}
+        for column in allColumns:
+            attrtocol[column.model.name.lower()] = column
         for attr in k:
             setattr(self, attr, k[attr])
-        return self
+            # FIXME: better error reporting
+            colmap[attrtocol[attr]] = k[attr]
+        yield Insert(colmap).on(txn)
+        returnValue(self)
 
 
 
