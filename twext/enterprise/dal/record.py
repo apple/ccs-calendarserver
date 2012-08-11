@@ -92,17 +92,7 @@ class _RecordBase(object):
     @classmethod
     @inlineCallbacks
     def load(cls, txn, *primaryKey):
-        tbl = cls.__tbl__
-        allColumns = list(tbl)
-        slct = Select(allColumns, From=tbl,
-                      Where=cls._primaryKeyComparison(primaryKey))
-        rows = yield slct.on(txn)
-        row = rows[0]
-        self = cls()
-        for (column, value) in zip(allColumns, row):
-            name = cls.__colmap__[column]
-            setattr(self, name, value)
-        self.__txn__ = txn
+        self = (yield cls.query(txn, cls._primaryKeyComparison(primaryKey)))[0]
         returnValue(self)
 
 
@@ -160,8 +150,23 @@ class _RecordBase(object):
     @classmethod
     @inlineCallbacks
     def query(cls, txn, expr, order=None):
-        yield None
-        returnValue([])
+        """
+        Query the table that corresponds to C{cls}, and return instances of
+        C{cls} corresponding to the rows that are returned from that table.
+        """
+        tbl = cls.__tbl__
+        allColumns = list(tbl)
+        slct = Select(allColumns, From=tbl, Where=expr)
+        rows = yield slct.on(txn)
+        selves = []
+        for row in rows:
+            self = cls()
+            for (column, value) in zip(allColumns, row):
+                name = cls.__colmap__[column]
+                setattr(self, name, value)
+            self.__txn__ = txn
+            selves.append(self)
+        returnValue(selves)
 
 
 
