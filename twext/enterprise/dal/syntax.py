@@ -603,7 +603,7 @@ class TableSyntax(Syntax):
     def __contains__(self, columnSyntax):
         if isinstance(columnSyntax, FunctionInvocation):
             columnSyntax = columnSyntax.arg
-        return (columnSyntax.model in self.model.columns)
+        return (columnSyntax.model.table is self.model)
 
 
 
@@ -946,15 +946,35 @@ class _SomeColumns(object):
 
 
 
-def _columnsMatchTables(columns, tables):
+def _checkColumnsMatchTables(columns, tables):
+    """
+    Verify that the given C{columns} match the given C{tables}; that is, that
+    every L{TableSyntax} referenced by every L{ColumnSyntax} referenced by
+    every L{ExpressionSyntax} in the given C{columns} list is present in the
+    given C{tables} list.
+
+    @param columns: a L{list} of L{ExpressionSyntax}, each of which references
+        some set of L{ColumnSyntax}es via its C{allColumns} method.
+
+    @param tables: a L{list} of L{TableSyntax}
+
+    @return: L{None}
+    @rtype: L{NoneType}
+
+    @raise TableMismatch: if any table referenced by a column is I{not} found
+        in C{tables}
+    """
     for expression in columns:
         for column in expression.allColumns():
             for table in tables:
                 if column in table:
                     break
             else:
-                return False
-    return True
+                raise TableMismatch("{} not found in {}".format(
+                    column, tables
+                ))
+    return None
+
 
 
 class Tuple(ExpressionSyntax):
@@ -1065,8 +1085,7 @@ class Select(_Statement):
         if columns is None:
             columns = ALL_COLUMNS
         else:
-            if not _columnsMatchTables(columns, From.tables()):
-                raise TableMismatch()
+            _checkColumnsMatchTables(columns, From.tables())
             columns = _SomeColumns(columns)
         self.columns = columns
         
@@ -1451,6 +1470,12 @@ def _convert(x):
 class Update(_DMLStatement):
     """
     'update' statement
+
+    @ivar columnMap: A L{dict} mapping L{ColumnSyntax} objects to values to
+        change; values may be simple database values (such as L{str},
+        L{unicode}, L{datetime.datetime}, L{float}, L{int} etc) or L{Parameter}
+        instances.
+    @type columnMap: L{dict}
     """
 
     def __init__(self, columnMap, Where, Return=None):
