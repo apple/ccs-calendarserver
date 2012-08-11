@@ -1037,13 +1037,17 @@ class GenerationTests(ExampleSchemaHelper, TestCase, AssertResultHelper):
         # the result of executing the 3rd (and final) one.
         self.assertResultList(result, 3)
         # Check that they were the right statements.
+        self.assertEqual(len(csql.execed), 3)
         self.assertEqual(
-            csql.execed,
-            [
-                ["select rowid from FOO where BAZ = :1", [1234]],
-                ["update FOO set BAR = :1 WHERE BAZ = :2", [4321, 1234]],
-                ["select BAR from FOO where rowid = :1", ["sample row id"]],
-            ],
+            csql.execed[0],
+            ["select rowid from FOO where BAZ = :1", [1234]]
+        )
+        self.assertEqual(
+            csql.execed[1],
+            ["update FOO set BAR = :1 WHERE BAZ = :2", [4321, 1234]]
+        )
+        self.assertEqual(csql.execed[2],
+            ["select BAR from FOO where rowid = :1", ["sample row id"]]
         )
 
 
