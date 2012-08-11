@@ -1057,6 +1057,37 @@ class GenerationTests(ExampleSchemaHelper, TestCase, AssertResultHelper):
         )
 
 
+    def test_updateReturningMultipleValuesSQLite(self):
+        """
+        When SQLite updates multiple values, it must embed the row ID of each
+        subsequent value into its second 'where' clause, as there is no way to
+        pass a list of values to a single statement..
+        """
+        csql = CatchSQL()
+        stmt = Update({self.schema.FOO.BAR: 4321},
+                      Where=self.schema.FOO.BAZ == 1234,
+                      Return=self.schema.FOO.BAR)
+        csql.nextResult([["one row id"], ["and another"], ["and one more"]])
+        result = resultOf(stmt.on(csql))
+        # Three statements were executed; make sure that the result returned was
+        # the result of executing the 3rd (and final) one.
+        self.assertResultList(result, 3)
+        # Check that they were the right statements.
+        self.assertEqual(len(csql.execed), 3)
+        self.assertEqual(
+            csql.execed[0],
+            ["select rowid from FOO where BAZ = :1", [1234]]
+        )
+        self.assertEqual(
+            csql.execed[1],
+            ["update FOO set BAR = :1 where BAZ = :2", [4321, 1234]]
+        )
+        self.assertEqual(csql.execed[2],
+            ["select BAR from FOO where rowid = :1 or rowid = :2 or rowid = :3",
+             ["one row id", "and another", "and one more"]]
+        )
+
+
     def test_insertMismatch(self):
         """
         L{Insert} raises L{TableMismatch} if the columns specified aren't all
