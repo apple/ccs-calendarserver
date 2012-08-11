@@ -87,6 +87,20 @@ class TestCRUD(TestCase):
         self.assertEqual(rec2.gamma, "one")
 
 
+    @inlineCallbacks
+    def test_simpleCreate(self):
+        """
+        When a record object is created, a row with matching column values will
+        be created in the database.
+        """
+        txn = self.pool.connection()
+        rec = yield TestRecord.create(txn, beta=3, gamma='epsilon')
+        self.assertEquals(rec.beta, 3)
+        self.assertEqual(rec.gamma, 'epsilon')
+        rows = yield txn.execSQL("select BETA, GAMMA from ALPHA")
+        self.assertEqual(rows, [[3, 'epsilon']])
+
+
 
 class TestQuery(object):
     """
