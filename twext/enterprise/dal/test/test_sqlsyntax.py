@@ -1025,7 +1025,13 @@ class GenerationTests(ExampleSchemaHelper, TestCase, AssertResultHelper):
 
     def test_updateReturningSQLite(self):
         """
-        SQLite updates all its rows.
+        Since SQLite does not support the SQL 'returning' syntax extension, in
+        order to preserve the rows that will be modified during an UPDATE
+        statement, we must first find the rows that will be affected, then
+        update them, then return the rows that were affected.  Since we might
+        be changing even part of the primary key, we use the internal 'rowid'
+        column to uniquely and reliably identify rows in the sqlite database
+        that have been modified.
         """
         csql = CatchSQL()
         stmt = Update({self.schema.FOO.BAR: 4321},
