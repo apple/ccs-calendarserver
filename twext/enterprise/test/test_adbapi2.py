@@ -344,8 +344,9 @@ class FakeThreadHolder(ThreadHolder):
 
 
     def stop(self):
+        result = super(FakeThreadHolder, self).stop()
         self.stopped = True
-        return super(FakeThreadHolder, self).stop()
+        return result
 
 
     @property
