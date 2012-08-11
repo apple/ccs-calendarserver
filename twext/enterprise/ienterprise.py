@@ -42,6 +42,7 @@ class ConnectionError(Exception):
 
 POSTGRES_DIALECT = 'postgres-dialect'
 ORACLE_DIALECT = 'oracle-dialect'
+SQLITE_DIALECT = 'sqlite-dialect'
 ORACLE_TABLE_NAME_MAX = 30
 
 
