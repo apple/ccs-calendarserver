@@ -117,10 +117,8 @@ class TestCRUD(TestCase):
             rec.beta = 12
         ro = self.assertRaises(ReadOnly, setit)
         self.assertEqual(rec.beta, 7)
-        self.assertContains(repr(ro),
-                            "SQL-backed attribute 'TestRecord.beta' is "
-                            "read-only. use '.update(...)' to modify "
-                            "attributes.")
+        self.assertIn("SQL-backed attribute 'TestRecord.beta' is read-only. "
+                      "Use '.update(...)' to modify attributes.", str(ro))
 
 
     @inlineCallbacks
