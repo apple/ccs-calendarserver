@@ -1550,7 +1550,6 @@ class _NetCommandBlock(object):
         return self._transaction.dialect
 
 
-
     def execSQL(self, sql, args=None, raiseOnZeroRowCount=None):
         """
         Execute some SQL on this command block.
