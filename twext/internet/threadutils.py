@@ -60,7 +60,7 @@ class ThreadHolder(object):
 
 
     def _oneWorkUnit(self, deferred, instruction):
-        try: 
+        try:
             result = instruction()
         except:
             etype, evalue, etb = sys.exc_info()
