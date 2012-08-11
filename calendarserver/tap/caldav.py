@@ -791,8 +791,8 @@ class CalDAVServiceMaker (LoggingMixIn):
                     reactor, "127.0.0.1", id)
             controlSocketClient = ControlSocket()
             class LogClient(AMP):
-                def connectionMade(self):
-                    super(LogClient, self).connectionMade(self)
+                def startReceivingBoxes(self, sender):
+                    super(LogClient, self).startReceivingBoxes(sender)
                     logObserver.addClient(self)
             f = Factory()
             f.protocol = LogClient

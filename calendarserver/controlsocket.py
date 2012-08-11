@@ -25,7 +25,8 @@ from twisted.internet.protocol import Factory
 from twisted.protocols.amp import BinaryBoxProtocol, IBoxReceiver, IBoxSender
 from twisted.application.service import Service
 
-class DispatchingSender(IBoxSender):
+class DispatchingSender(object):
+    implements(IBoxSender)
 
     def __init__(self, sender, route):
         self.sender = sender
@@ -51,7 +52,7 @@ class DispatchingBoxReceiver(object):
 
     def startReceivingBoxes(self, boxSender):
         for key, receiver in self.receiverMap.items():
-            receiver.startReceivingBoxes(DispatchingSender(self, key))
+            receiver.startReceivingBoxes(DispatchingSender(boxSender, key))
 
 
     def ampBoxReceived(self, box):
@@ -123,5 +124,5 @@ class ControlSocketConnectingService(Service, object):
     def privilegedStartService(self):
         from twisted.internet import reactor
         endpoint = self.endpointFactory(reactor)
-        endpoint.connect(self.controlSocket).addCallback(self.clientConnected)
+        endpoint.connect(self.controlSocket)
 
