@@ -389,7 +389,7 @@ class FakeThreadHolder(ThreadHolder):
         Fire all deferreds previously returned from submit.
         """
         try:
-            while self._qpull():
+            while self._workerIsRunning and self._qpull():
                 pass
             else:
                 self._workerIsRunning = False
