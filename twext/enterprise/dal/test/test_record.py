@@ -113,12 +113,12 @@ class TestCRUD(TestCase):
         def mkrow(beta, gamma):
             return txn.execSQL("insert into ALPHA values (:1, :2)",
                                [beta, gamma])
-        yield gatherResults([mkrow(123, "one"), mkrow(234, "two"),
-                             mkrow(345, "three")])
+        yield gatherResults([mkrow(123, u"one"), mkrow(234, u"two"),
+                             mkrow(345, u"three")])
         tr = yield TestRecord.load(txn, 234)
         yield tr.delete()
         rows = yield txn.execSQL("select BETA, GAMMA from ALPHA order by BETA")
-        self.assertEqual(rows, [[123, "one"], [345, "three"]])
+        self.assertEqual(rows, [(123, u"one"), (345, u"three")])
 
 
     @inlineCallbacks
