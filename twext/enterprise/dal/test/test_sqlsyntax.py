@@ -976,7 +976,7 @@ class GenerationTests(ExampleSchemaHelper, TestCase):
         self.assertEqual(
             execed,
             [["insert into FOO (BAR, BAZ) values (:1, :2)", [39, 82]],
-             ["select BAR, BAZ from FOO where rowid = last_insert_rowid()"]]
+             ["select BAR, BAZ from FOO where rowid = last_insert_rowid()", []]]
         )
         self.assertEqual(result, [2])
 
