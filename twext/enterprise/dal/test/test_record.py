@@ -168,7 +168,8 @@ class TestCRUD(TestCase):
                             (356, u"three"), (456, u"four")]:
             yield txn.execSQL("insert into ALPHA values (:1, :2)",
                               [beta, gamma])
-        records = yield TestRecord.query(TestRecord.gamma == u"three",
+        records = yield TestRecord.query(txn,
+                                         TestRecord.gamma == u"three",
                                          TestRecord.beta)
         self.assertEqual(len(records), 2)
         self.assertEqual(records[0].beta, 345)

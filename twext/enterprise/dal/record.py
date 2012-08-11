@@ -159,7 +159,7 @@ class _RecordBase(object):
 
     @classmethod
     @inlineCallbacks
-    def query(cls, expr, order=None):
+    def query(cls, txn, expr, order=None):
         yield None
         returnValue([])
 
