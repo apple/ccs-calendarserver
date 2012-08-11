@@ -24,7 +24,9 @@ from twisted.internet.defer import inlineCallbacks
 
 from twisted.trial.unittest import TestCase
 
-from twext.enterprise.dal.record import fromTable, ReadOnly, NoSuchRecord
+from twext.enterprise.dal.record import (
+    Record, fromTable, ReadOnly, NoSuchRecord
+)
 from twext.enterprise.dal.syntax import SQLITE_DIALECT
 
 from twext.enterprise.dal.test.test_parseschema import SchemaTestHelper
@@ -44,7 +46,7 @@ testSchema = SchemaSyntax(sth.schemaFromString(schemaString))
 
 
 
-class TestRecord(fromTable(testSchema.ALPHA)):
+class TestRecord(Record, fromTable(testSchema.ALPHA)):
     """
     A sample test record.
     """

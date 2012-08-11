@@ -31,7 +31,7 @@ from twext.enterprise.dal.syntax import (
 class ReadOnly(AttributeError):
     """
     A caller attempted to set an attribute on a database-backed record, rather
-    than updating it through L{_RecordBase.update}.
+    than updating it through L{Record.update}.
     """
 
     def __init__(self, className, attributeName):
@@ -50,13 +50,72 @@ class NoSuchRecord(Exception):
     """
 
 
+class _RecordMeta(type):
+    """
+    Metaclass for associating a L{fromTable} with a L{Record} at inheritance
+    time.
+    """
 
-class _RecordBase(object):
+    def __new__(cls, name, bases, ns):
+        """
+        Create a new instance of this meta-type.
+        """
+        newbases = []
+        table = None
+        namer = None
+        for base in bases:
+            if isinstance(base, fromTable):
+                if table is not None:
+                    raise RuntimeError(
+                        "Can't define a class from two or more tables at once."
+                    )
+                table = base.table
+            elif getattr(base, "__tbl__", None) is not None:
+                raise RuntimeError(
+                    "Can't define a record class by inheriting one already "
+                    "mapped to a table."
+                    # TODO: more info
+                )
+            else:
+                if namer is None:
+                    if isinstance(base, _RecordMeta):
+                        namer = base
+                newbases.append(base)
+        if table is not None:
+            attrmap = {}
+            colmap = {}
+            allColumns = list(table)
+            for column in allColumns:
+                attrname = namer.namingConvention(column.model.name)
+                attrmap[attrname] = column
+                colmap[column] = attrname
+            ns.update(__tbl__=table, __attrmap__=attrmap, __colmap__=colmap)
+            ns.update(attrmap)
+        return super(_RecordMeta, cls).__new__(cls, name, tuple(newbases), ns)
+
+
+
+class fromTable(object):
+    """
+    Inherit from this after L{Record} to specify which table your L{Record}
+    subclass is mapped to.
+    """
+
+    def __init__(self, aTable):
+        """
+        @param table: The table to map to.
+        @type table: L{twext.enterprise.dal.syntax.TableSyntax}
+        """
+        self.table = aTable
+
+
+
+class Record(object):
     """
     Superclass for all database-backed record classes.  (i.e.  an object mapped
     from a database record).
 
-    @cvar __tbl__: the table that represents this L{_RecordBase} in the
+    @cvar __tbl__: the table that represents this L{Record} in the
         database.
     @type __tbl__: L{TableSyntax}
 
@@ -67,15 +126,27 @@ class _RecordBase(object):
     @type __attrmap__: L{dict}
     """
 
+    __metaclass__ = _RecordMeta
+
     __txn__ = None
     def __setattr__(self, name, value):
         """
         Once the transaction is initialized, this object is immutable.  If you
-        want to change it, use L{_RecordBase.update}.
+        want to change it, use L{Record.update}.
         """
         if self.__txn__ is not None:
             raise ReadOnly(self.__class__.__name__, name)
-        return super(_RecordBase, self).__setattr__(name, value)
+        return super(Record, self).__setattr__(name, value)
+
+
+    @staticmethod
+    def namingConvention(columnName):
+        """
+        Implement the convention for naming-conversion between column names
+        (typically, upper-case database names map to lower-case attribute
+        names).
+        """
+        return columnName.lower()
 
 
     @classmethod
@@ -157,7 +228,7 @@ class _RecordBase(object):
     @classmethod
     def pop(cls, txn, *primaryKey):
         """
-        Atomically retrieve and remove a row from this L{_RecordBase}'s table
+        Atomically retrieve and remove a row from this L{Record}'s table
         with a primary key value of C{primaryKey}.
 
         @return: a L{Deferred} that fires with an instance of C{cls}, or fails
@@ -223,29 +294,6 @@ class _RecordBase(object):
             self.__txn__ = txn
             selves.append(self)
         returnValue(selves)
-
-
-
-def fromTable(table):
-    """
-    Create a L{type} that maps the columns from a particular table.
-
-    A L{type} created in this manner will have instances with attributes that
-    are mapped according to a naming convention like 'FOO_BAR' => 'fooBar'.
-
-    @param table: The table.
-    @type table: L{twext.enterprise.dal.syntax.TableSyntax}
-    """
-    attrmap = {}
-    colmap = {}
-    allColumns = list(table)
-    for column in allColumns:
-        attrname = column.model.name.lower()
-        attrmap[attrname] = column
-        colmap[column] = attrname
-    ns = dict(__tbl__=table, __attrmap__=attrmap, __colmap__=colmap)
-    ns.update(attrmap)
-    return type(table.model.name, tuple([_RecordBase]), ns)
 
 
 
