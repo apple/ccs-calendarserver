@@ -956,7 +956,7 @@ def _columnsMatchTables(columns, tables):
     return True
 
 
-class Tuple(object):
+class Tuple(ExpressionSyntax):
 
     def __init__(self, columns):
         self.columns = columns

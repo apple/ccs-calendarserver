@@ -62,13 +62,18 @@ class TestCRUD(TestCase):
         con = connectionFactory()
         con.execute(schemaString)
         con.commit()
-        self.pool = ConnectionPool(connectionFactory)
+        self.pool = ConnectionPool(connectionFactory, paramstyle='numeric')
         self.pool.startService()
         self.addCleanup(self.pool.stopService)
 
 
     @inlineCallbacks
-    def test_simpleCreate(self):
+    def test_simpleLoad(self):
+        """
+        Loading an existing row from the database by its primary key will
+        populate its attributes from columns of the corresponding row in the
+        database.
+        """
         txn = self.pool.connection()
         yield txn.execSQL("insert into ALPHA values (:1, :2)", [234, "one"])
         yield txn.execSQL("insert into ALPHA values (:1, :2)", [456, "two"])
@@ -76,6 +81,10 @@ class TestCRUD(TestCase):
         self.assertIsInstance(rec, TestRecord)
         self.assertEquals(rec.beta, 456)
         self.assertEquals(rec.gamma, "two")
+        rec2 = yield TestRecord.load(txn, 234)
+        self.assertIsInstance(rec2, TestRecord)
+        self.assertEqual(rec2.beta, 234)
+        self.assertEqual(rec2.gamma, "one")
 
 
 
