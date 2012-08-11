@@ -88,7 +88,7 @@ from twisted.internet.defer import (
     inlineCallbacks, returnValue, Deferred, succeed
 )
 from twisted.internet.endpoints import TCP4ClientEndpoint
-from twisted.protocols.amp import AMP, Command, Integer, Argument
+from twisted.protocols.amp import AMP, Command, Integer, Argument, String
 from twisted.python.reflect import qual
 from twisted.python import log
 
@@ -266,6 +266,21 @@ class ReportLoad(Command):
     response = []
 
 
+class IdentifyNode(Command):
+    """
+    Identify this node to its peer.  The connector knows which hostname it's
+    looking for, and which hostname it considers itself to be, only the
+    initiator (not the listener) issues this command.  This command is
+    necessary because if reverse DNS isn't set up perfectly, the listener may
+    not be able to identify its peer.
+    """
+
+    arguments = [
+        ("host", String()),
+        ("port", Integer()),
+    ]
+
+
 
 class SchemaAMP(AMP):
     """
@@ -394,6 +409,11 @@ class ConnectionFromPeerNode(SchemaAMP):
         @return: a L{Deferred} that fires when the work has been completed.
         """
         return self.localWorkerPool.performWork(table, workID)
+
+
+    @IdentifyNode.responder
+    def identifyPeer(self, host, port):
+        self.peerPool.mapPeer(host, port, self)
 
 
 
@@ -775,6 +795,7 @@ class PeerConnectionPool(Service, object):
         self.thisProcess = None
         self.workerPool = WorkerConnectionPool()
         self.peers = []
+        self.mappedPeers = {}
         self.schema = schema
         self._startingUp = None
         self._listeningPortObject = None
@@ -990,6 +1011,18 @@ class PeerConnectionPool(Service, object):
             self._startConnectingTo(node)
 
 
+    def mapPeer(self, host, port, peer):
+        """
+        A peer has been identified as belonging to the given host/port
+        combination.  Disconnect any other peer that claims to be connected for
+        the same peer.
+        """
+        # if (host, port) in self.mappedPeers:
+            # TODO: think about this for race conditions
+            # self.mappedPeers.pop((host, port)).transport.loseConnection()
+        self.mappedPeers[(host, port)] = peer
+
+
     def _startConnectingTo(self, node):
         """
         Start an outgoing connection to another master process.
@@ -999,11 +1032,34 @@ class PeerConnectionPool(Service, object):
         """
         f = Factory()
         f.buildProtocol = self.createPeerConnection
-        node.endpoint().connect(f)
+        @passthru(node.endpoint().connect(f).addCallback)
+        def connected(proto):
+            self.mapPeer(node, proto)
+            proto.callRemote(IdentifyNode, self.thisProcess)
 
 
     def createPeerConnection(self, addr):
         return ConnectionFromPeerNode(self)
+
+
+
+class NullQueuer(object):
+    """
+    When work is enqueued with this queuer, it is just executed immediately,
+    within the same transaction.  While this is technically correct, it is not
+    very efficient.
+    """
+
+    @inlineCallbacks
+    def enqueueWork(self, txn, workItemType, **kw):
+        """
+        Do this work immediately.
+
+        @see: L{PeerConnectionPool.enqueueWork}
+        """
+        item = yield self.workItemType.create(self.txn, **self.kw)
+        yield item.delete()
+        yield item.doWork()
 
 
 
