@@ -1052,7 +1052,8 @@ class GenerationTests(ExampleSchemaHelper, TestCase, AssertResultHelper):
             csql.execed[1],
             ["update FOO set BAR = :1 where BAZ = :2", [4321, 1234]]
         )
-        self.assertEqual(csql.execed[2],
+        self.assertEqual(
+            csql.execed[2],
             ["select BAR from FOO where rowid = :1", ["sample row id"]]
         )
 
@@ -1082,9 +1083,30 @@ class GenerationTests(ExampleSchemaHelper, TestCase, AssertResultHelper):
             csql.execed[1],
             ["update FOO set BAR = :1 where BAZ = :2", [4321, 1234]]
         )
-        self.assertEqual(csql.execed[2],
+        self.assertEqual(
+            csql.execed[2],
             ["select BAR from FOO where rowid = :1 or rowid = :2 or rowid = :3",
              ["one row id", "and another", "and one more"]]
+        )
+
+
+    def test_deleteReturningSQLite(self):
+        """
+        When SQLite deletes a value, ...
+        """
+        csql = CatchSQL()
+        stmt = Delete(From=self.schema.FOO, Where=self.schema.FOO.BAZ == 1234,
+                      Return=self.schema.FOO.BAR)
+        result = resultOf(stmt.on(csql))
+        self.assertResultList(result, 1)
+        self.assertEqual(len(csql.execed), 2)
+        self.assertEqual(
+            csql.execed[0],
+            ["select BAR from FOO where BAZ = :1", [1234]]
+        )
+        self.assertEqual(
+            csql.execed[1],
+            ["delete from FOO where BAZ = :1", [1234]]
         )
 
 
