@@ -624,7 +624,6 @@ class GenerationTests(ExampleSchemaHelper, TestCase):
         """
         L{SetExpression} in a From sub-select.
         """
-        
         # Simple UNION
         self.assertEquals(
             Select(
