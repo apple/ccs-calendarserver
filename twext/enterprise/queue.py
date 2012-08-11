@@ -1097,7 +1097,6 @@ class PeerConnectionPool(Service, object):
                     txn, hostname=self.hostname, port=self.ampPort,
                     pid=self.pid, time=datetime.now()
                 )
-                nodes.append(self.thisProcess)
             for node in nodes:
                 self._startConnectingTo(node)
 
