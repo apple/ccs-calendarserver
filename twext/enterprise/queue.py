@@ -20,6 +20,7 @@ from twext.enterprise.dal.syntax import TableSyntax, SchemaSyntax
 from twext.enterprise.dal.model import ProcedureCall
 from twext.enterprise.dal.syntax import NamedValue
 from twext.enterprise.dal.record import fromTable
+from twisted.internet.defer import Deferred
 from twext.enterprise.dal.model import Table, Schema, SQLType, Constraint
 
 
@@ -365,6 +366,13 @@ class ConnectionFromMaster(AMP):
 
 
 
+class TransactionFailed(Exception):
+    """
+    A transaction failed.
+    """
+
+
+
 class PeerConnectionPool(Service, object):
     """
     Each master has a L{PeerConnectionPool} connecting it to all the other
@@ -443,11 +451,16 @@ class PeerConnectionPool(Service, object):
         @return: a L{Deferred} that fires when the work has been completed.
         @rtype: L{Deferred} firing L{None}
         """
+        d = Deferred()
         @workItem.__txn__.postCommit
         @inlineCallbacks
         def whenDone():
             peer = yield self.choosePeer()
             peer.performWork(workItem.__tbl__, workItem.workID)
+        @workItem.__txn__.postAbort
+        def whenFailed():
+            d.errback(TransactionFailed)
+        return d
 
 
     def startService(self):
