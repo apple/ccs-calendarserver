@@ -598,6 +598,25 @@ class ConnectionFromController(SchemaAMP):
 
 
 
+class WorkerFactory(Factory, object):
+    """
+    Factory, to be used as the client to connect from the worker to the
+    controller.
+    """
+
+    def __init__(self, transactionFactory, schema):
+        """
+        Create a L{WorkerFactory} with a transaction factory and a schema.
+        """
+        self.transactionFactory = transactionFactory
+        self.schema = schema
+
+
+    def buildProtocol(self, addr):
+        return ConnectionFromController(self.transactionFactory, self.schema)
+
+
+
 class TransactionFailed(Exception):
     """
     A transaction failed.
@@ -1043,6 +1062,31 @@ class PeerConnectionPool(Service, object):
 
 
 
+class ImmediateWorkProposal(object):
+    """
+    Like L{WorkProposal}, but for items that must be executed immediately
+    because no real queue is set up yet.
+
+    @see: L{WorkProposal}, L{NullQueuer.enqueueWork}
+    """
+    def __init__(self, proposed, done):
+        self.proposed = proposed
+        self.done = done
+
+
+    def whenExecuted(self):
+        return _cloneDeferred(self.done)
+
+
+    def whenProposed(self):
+        return _cloneDeferred(self.proposed)
+
+
+    def whenCommitted(self):
+        return _cloneDeferred(self.done)
+
+
+
 class NullQueuer(object):
     """
     When work is enqueued with this queuer, it is just executed immediately,
@@ -1050,16 +1094,34 @@ class NullQueuer(object):
     very efficient.
     """
 
-    @inlineCallbacks
     def enqueueWork(self, txn, workItemType, **kw):
         """
         Do this work immediately.
 
         @see: L{PeerConnectionPool.enqueueWork}
+
+        @return: a pseudo work proposal, since everything completes at the same
+            time.
+        @rtype: L{ImmediateWorkProposal}
         """
-        item = yield self.workItemType.create(self.txn, **self.kw)
-        yield item.delete()
-        yield item.doWork()
+        proposed = Deferred()
+        done = Deferred()
+        @inlineCallbacks
+        def doit():
+            item = yield self.workItemType.create(self.txn, **self.kw)
+            proposed.callback(True)
+            yield item.delete()
+            yield item.doWork()
+        @txn.postCommit
+        def committed():
+            done.callback(True)
+        @txn.postAbort
+        def aborted():
+            tf = TransactionFailed()
+            done.errback(tf)
+            if not proposed.called:
+                proposed.errback(tf)
+        return ImmediateWorkProposal(proposed, done)
 
 
 
