@@ -24,7 +24,7 @@ from twisted.internet.defer import inlineCallbacks
 
 from twisted.trial.unittest import TestCase
 
-from twext.enterprise.dal.record import fromTable, ReadOnly
+from twext.enterprise.dal.record import fromTable, ReadOnly, NoSuchRecord
 from twext.enterprise.dal.syntax import SQLITE_DIALECT
 
 from twext.enterprise.dal.test.test_parseschema import SchemaTestHelper
@@ -193,6 +193,25 @@ class TestCRUD(TestCase):
         records = yield TestRecord.query(txn, TestRecord.gamma == u"three",
                                          TestRecord.beta, ascending=False)
         self.assertEqual([record.beta for record in records], [356, 345])
+
+
+    @inlineCallbacks
+    def test_pop(self):
+        """
+        A L{Record} may be loaded and deleted atomically, with L{Record.pop}.
+        """
+        txn = self.pool.connection()
+        for beta, gamma in [(123, u"one"), (234, u"two"), (345, u"three"),
+                            (356, u"three"), (456, u"four")]:
+            yield txn.execSQL("insert into ALPHA values (:1, :2)",
+                              [beta, gamma])
+        rec = yield TestRecord.pop(234)
+        self.assertEqual(rec.gamma, u'two')
+        self.assertEqual((yield txn.execSQL("select count(*) from ALPHA "
+                                            "where BETA = :1", [234])),
+                         [[0]])
+        yield self.failUnlessFailure(TestRecord.pop(234), NoSuchRecord)
+
 
 
 
