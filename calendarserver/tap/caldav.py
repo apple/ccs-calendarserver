@@ -93,6 +93,7 @@ from twisted.internet.endpoints import UNIXClientEndpoint, TCP4ClientEndpoint
 
 from calendarserver.controlsocket import ControlSocketConnectingService
 from twisted.protocols.amp import AMP
+from twext.enterprise.queue import WorkerFactory as QueueWorkerFactory
 from calendarserver.accesslog import AMPCommonAccessLoggingObserver
 from calendarserver.accesslog import AMPLoggingFactory
 from calendarserver.accesslog import RotatingFileAccessLoggingObserver
@@ -125,6 +126,7 @@ from twisted.python.util import uidFromString, gidFromString
 
 # Control socket message-routing constants.
 _LOG_ROUTE = "log"
+_QUEUE_ROUTE = "queue"
 
 _CONTROL_SERVICE_NAME = "control"
 
@@ -797,6 +799,14 @@ class CalDAVServiceMaker (LoggingMixIn):
             f = Factory()
             f.protocol = LogClient
             controlSocketClient.addFactory(_LOG_ROUTE, f)
+            from txdav.common.datastore.sql import CommonDataStore as SQLStore
+            if isinstance(store, SQLStore):
+                from txdav.common.datastore.sql_tables import schema
+                def queueMasterAvailable(connectionFromMaster):
+                    store.queuer = connectionFromMaster
+                queueFactory = QueueWorkerFactory(store.newTransaction, schema,
+                                                  queueMasterAvailable)
+                controlSocketClient.addFactory(_QUEUE_ROUTE, queueFactory)
             controlClient = ControlSocketConnectingService(
                 endpointFactory, controlSocketClient
             )
