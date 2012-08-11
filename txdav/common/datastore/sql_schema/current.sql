@@ -28,8 +28,8 @@ create sequence RESOURCE_ID_SEQ;
 
 -- Information about a process connected to this database.
 
--- Note that this must match the master info schema in twext.enterprise.queue.
-create table MASTER_INFO (
+-- Note that this must match the node info schema in twext.enterprise.queue.
+create table NODE_INFO (
   HOSTNAME  varchar(255) not null,
   PID       integer not null,
   PORT      integer not null,
