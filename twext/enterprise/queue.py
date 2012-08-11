@@ -1086,7 +1086,7 @@ class PeerConnectionPool(Service, object):
         # with (yield NodeInfo.lock()):
         self.thisProcess = yield NodeInfo.create(
             txn, hostname=self.hostName, pid=self.pid, port=self.ampPort,
-            time=datetime.datetime.now()
+            time=datetime.now()
         )
         for node in (yield self.activeNodes(txn)):
             self._startConnectingTo(node)
