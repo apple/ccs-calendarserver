@@ -48,6 +48,10 @@ class _RecordBase(object):
     Superclass for all database-backed record classes.  (i.e.  an object mapped
     from a database record).
 
+    @cvar __tbl__: the table that represents this L{_RecordBase} in the
+        database.
+    @type __tbl__: L{TableSyntax}
+
     @cvar __colmap__: map of L{ColumnSyntax} objects to attribute names.
     @type __colmap__: L{dict}
 
