@@ -30,6 +30,7 @@ from twext.enterprise.dal.syntax import SQLITE_DIALECT
 from twext.enterprise.dal.test.test_parseschema import SchemaTestHelper
 from twext.enterprise.adbapi2 import ConnectionPool
 from twext.enterprise.dal.syntax import SchemaSyntax
+from twisted.internet.defer import gatherResults
 
 # from twext.enterprise.dal.syntax import
 
@@ -100,6 +101,24 @@ class TestCRUD(TestCase):
         self.assertEqual(rec.gamma, u'epsilon')
         rows = yield txn.execSQL("select BETA, GAMMA from ALPHA")
         self.assertEqual(rows, [tuple([3, u'epsilon'])])
+
+
+    @inlineCallbacks
+    def test_simpleDelete(self):
+        """
+        When a record object is deleted, a row with a matching primary key will
+        be created in the database.
+        """
+        txn = self.pool.connection()
+        def mkrow(beta, gamma):
+            return txn.execSQL("insert into ALPHA values (:1, :2)",
+                               [beta, gamma])
+        yield gatherResults([mkrow(123, "one"), mkrow(234, "two"),
+                             mkrow(345, "three")])
+        tr = yield TestRecord.load(txn, 234)
+        yield tr.delete()
+        rows = yield txn.execSQL("select BETA, GAMMA from ALPHA order by BETA")
+        self.assertEqual(rows, [[123, "one"], [345, "three"]])
 
 
     @inlineCallbacks
