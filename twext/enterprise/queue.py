@@ -67,10 +67,10 @@ Such an application might be implemented with this queueing system like so::
     @inlineCallbacks
     def makeSomeCoupons(txn):
         # Note, txn was started before, will be committed later...
-        q = queueFromTransaction(txn)
         for customerID in (yield Select([schema.CUSTOMER.CUSTOMER_ID],
                                         From=schema.CUSTOMER).on(txn)):
-            q.enqueueWork(CouponWork, customerID=customerID)
+            # peerPool is a PeerConnectionPool
+            peerPool.enqueueWork(txn, CouponWork, customerID=customerID)
 
 
 """
@@ -93,7 +93,7 @@ from twisted.python.reflect import qual
 from twext.enterprise.dal.syntax import TableSyntax, SchemaSyntax
 from twext.enterprise.dal.model import ProcedureCall
 from twext.enterprise.dal.syntax import NamedValue
-from twext.enterprise.dal.record import fromTable
+from twext.enterprise.dal.record import Record, fromTable
 from twisted.python.failure import Failure
 from twisted.internet.defer import passthru
 from twext.enterprise.dal.model import Table, Schema, SQLType, Constraint
@@ -194,7 +194,7 @@ def abstract(thunk):
 
 
 
-class WorkItem(object):
+class WorkItem(Record):
     """
     An item of work.
 
@@ -616,7 +616,7 @@ class WorkProposal(object):
     @ivar workItemType: The type of work to be enqueued by this L{WorkProposal}
     @type workItemType: L{WorkItem} subclass
 
-    @ivar kw: The keyword arguments to pass to C{self.workItemType} to
+    @ivar kw: The keyword arguments to pass to C{self.workItemType.create} to
         construct it.
     @type kw: L{dict}
     """
