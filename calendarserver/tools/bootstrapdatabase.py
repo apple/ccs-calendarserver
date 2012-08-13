@@ -23,6 +23,7 @@ import sys
 CONNECTNAME   = "_postgres"
 USERNAME      = "caldav"
 DATABASENAME  = "caldav"
+PGSOCKETDIR   = "/Library/Server/PostgreSQL For Server Services/Socket"
 SCHEMAFILE    = "/Applications/Server.app/Contents/ServerRoot/usr/share/caldavd/lib/python/txdav/common/datastore/sql_schema/current.sql"
 
 # Executables:
@@ -56,6 +57,7 @@ def createUser(verbose=False):
 
     cmdArgs = [
         CREATEUSER,
+        "-h", PGSOCKETDIR,
         "--username=%s" % (CONNECTNAME,),
         USERNAME,
         "--no-superuser",
@@ -90,6 +92,7 @@ def createDatabase(verbose=False):
 
     cmdArgs = [
         CREATEDB,
+        "-h", PGSOCKETDIR,
         "--username=%s" % (USERNAME,),
         DATABASENAME,
     ]
@@ -120,6 +123,7 @@ def getSchemaVersion(verbose=False):
 
     cmdArgs = [
         PSQL,
+        "-h", PGSOCKETDIR,
         "-d", DATABASENAME,
         "-U", USERNAME,
         "-t",
@@ -157,6 +161,7 @@ def installSchema(verbose=False):
 
     cmdArgs = [
         PSQL,
+        "-h", PGSOCKETDIR,
         "-U", USERNAME,
         "-f", SCHEMAFILE,
     ]

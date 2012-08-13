@@ -36,6 +36,7 @@ DUMPFILENAME  = "db_backup"
 
 PSQL          = "%s/usr/bin/psql" % (SIPP,)
 PGDUMP        = "%s/usr/bin/pg_dump" % (SIPP,)
+PGSOCKETDIR   = "/Library/Server/PostgreSQL For Server Services/Socket"
 
 def usage(e=None):
     name = os.path.basename(sys.argv[0])
@@ -67,6 +68,7 @@ def dumpData(dumpFile, verbose=False):
 
     cmdArgs = [
         PGDUMP,
+        "-h", PGSOCKETDIR,
         "--username=%s" % (USERNAME,),
         "--clean",
         "--no-privileges",
@@ -96,6 +98,7 @@ def loadData(dumpFile, verbose=False):
 
     cmdArgs = [
         PSQL,
+        "-h", PGSOCKETDIR,
         "--username=%s" % (USERNAME,),
         "--file=%s" % (dumpFile,)
     ]

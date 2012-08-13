@@ -98,7 +98,7 @@
     <key>DBType</key>
     <string>postgres</string>
     <key>DSN</key>
-    <string>:caldav:caldav:::</string>
+    <string>/Library/Server/PostgreSQL For Server Services/Socket:caldav:caldav:::</string>
 
     <!-- Data root -->
     <key>DataRoot</key>
