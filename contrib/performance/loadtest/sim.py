@@ -244,7 +244,6 @@ class LoadSimulator(object):
             configTemplate = None
             server = 'http://127.0.0.1:8008'
             principalPathTemplate = "/principals/users/%s/"
-            webadminPort = None
             serializationPath = None
 
             if 'server' in config:
@@ -253,9 +252,6 @@ class LoadSimulator(object):
             if 'principalPathTemplate' in config:
                 principalPathTemplate = config['principalPathTemplate']
 
-            if 'webadmin' in config:
-                if config['webadmin']['enabled']:
-                    webadminPort = config['webadmin']['HTTPPort']
 
             if 'clientDataSerialization' in config:
                 if config['clientDataSerialization']['Enabled']:
@@ -289,13 +285,17 @@ class LoadSimulator(object):
             # Manager / observer process.
             server = ''
             principalPathTemplate = ''
-            webadminPort = None
             serializationPath = None
             arrival = None
             parameters = None
             workerID = 0
             configTemplate = config
             workerCount = 1
+
+        webadminPort = None
+        if 'webadmin' in config:
+            if config['webadmin']['enabled']:
+                webadminPort = config['webadmin']['HTTPPort']
 
         observers = []
         if 'observers' in config:
