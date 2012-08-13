@@ -464,6 +464,9 @@ def mergePlist(caldav, carddav, combined):
     # If SSL is enabled, redirect HTTP to HTTPS.
     combined["RedirectHTTPToHTTPS"] = enableSSL
 
+    # New DSN value for server-specific Postgres
+    combined["DSN"] = "/Library/Server/PostgreSQL For Server Services/Socket:caldav:caldav:::"
+
     return adminChanges
 
 
