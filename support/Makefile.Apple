@@ -55,25 +55,27 @@ PyKerberos::            $(BuildDirectory)/PyKerberos
 pycalendar::            $(BuildDirectory)/pycalendar
 PyGreSQL-4.0::          $(BuildDirectory)/PyGreSQL-4.0
 sqlparse-0.1.2::        $(BuildDirectory)/sqlparse-0.1.2
+setproctitle-1.1.6::	$(BuildDirectory)/setproctitle-1.1.6
 $(Project)::            $(BuildDirectory)/$(Project)
 
-build:: PyKerberos pycalendar PyGreSQL-4.0 sqlparse-0.1.2 $(Project)
+build:: PyKerberos pycalendar PyGreSQL-4.0 sqlparse-0.1.2 setproctitle-1.1.6 $(Project)
 
 setup:
 	$(_v) ./run -g
 
-prep:: setup CalDAVTester.tgz PyKerberos.tgz pycalendar.tgz PyGreSQL-4.0.tgz sqlparse-0.1.2.tgz
+prep:: setup CalDAVTester.tgz PyKerberos.tgz pycalendar.tgz PyGreSQL-4.0.tgz sqlparse-0.1.2.tgz setproctitle-1.1.6.tgz
 
-PyKerberos pycalendar PyGreSQL-4.0 sqlparse-0.1.2 $(Project)::
+PyKerberos pycalendar PyGreSQL-4.0 sqlparse-0.1.2 setproctitle-1.1.6 $(Project)::
 	@echo "Building $@..."
 	$(_v) cd $(BuildDirectory)/$@ && $(Environment) $(PYTHON) setup.py build
 
 install:: build
-	$(_v) cd $(BuildDirectory)/$(Project)       && $(Environment) $(PYTHON) setup.py build_ext $(CS_BUILD_EXT_FLAGS) install $(PY_INSTALL_FLAGS) $(CS_INSTALL_FLAGS)
-	$(_v) cd $(BuildDirectory)/PyKerberos       && $(Environment) $(PYTHON) setup.py install $(PY_INSTALL_FLAGS)
-	$(_v) cd $(BuildDirectory)/pycalendar       && $(Environment) $(PYTHON) setup.py install $(PY_INSTALL_FLAGS)
-	$(_v) cd $(BuildDirectory)/PyGreSQL-4.0     && $(Environment) $(PYTHON) setup.py install $(PY_INSTALL_FLAGS)
-	$(_v) cd $(BuildDirectory)/sqlparse-0.1.2   && $(Environment) $(PYTHON) setup.py install $(PY_INSTALL_FLAGS)
+	$(_v) cd $(BuildDirectory)/$(Project)         && $(Environment) $(PYTHON) setup.py build_ext $(CS_BUILD_EXT_FLAGS) install $(PY_INSTALL_FLAGS) $(CS_INSTALL_FLAGS)
+	$(_v) cd $(BuildDirectory)/PyKerberos         && $(Environment) $(PYTHON) setup.py install $(PY_INSTALL_FLAGS)
+	$(_v) cd $(BuildDirectory)/pycalendar         && $(Environment) $(PYTHON) setup.py install $(PY_INSTALL_FLAGS)
+	$(_v) cd $(BuildDirectory)/PyGreSQL-4.0       && $(Environment) $(PYTHON) setup.py install $(PY_INSTALL_FLAGS)
+	$(_v) cd $(BuildDirectory)/sqlparse-0.1.2     && $(Environment) $(PYTHON) setup.py install $(PY_INSTALL_FLAGS)
+	$(_v) cd $(BuildDirectory)/setproctitle-1.1.6 && $(Environment) $(PYTHON) setup.py install $(PY_INSTALL_FLAGS)
 	$(_v) for so in $$(find "$(DSTROOT)$(PY_HOME)/lib" -type f -name '*.so'); do $(STRIP) -Sx "$${so}"; done 
 	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)$(SIPP)$(ETCDIR)$(CALDAVDSUBDIR)"
 	$(_v) $(INSTALL_FILE) "$(Sources)/conf/caldavd-apple.plist" "$(DSTROOT)$(SIPP)$(ETCDIR)$(CALDAVDSUBDIR)/caldavd.plist"
