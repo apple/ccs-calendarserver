@@ -1544,7 +1544,7 @@ class BaseAppleClient(BaseClient):
                     'start': start,
                     'end': end,
                     'now': now}),
-            method_label="POST{fb}-%s" % (label_suffix,),
+            method_label="POST{fb-%s}" % (label_suffix,),
         )
         body = yield readBody(response)
         returnValue(body)
