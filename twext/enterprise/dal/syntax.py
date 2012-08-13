@@ -43,16 +43,18 @@ except ImportError:
 
 class DALError(Exception):
     """
-    Base class for exceptions raised by this module. This can be raised directly for
-    API violations. This exception represents a serious programming error and should
-    normally never be caught or ignored.
+    Base class for exceptions raised by this module.  This can be raised
+    directly for API violations.  This exception represents a serious
+    programming error and should normally never be caught or ignored.
     """
+
+
 
 class QueryPlaceholder(object):
     """
     Representation of the placeholders required to generate some SQL, for a
-    single statement.  Contains information necessary
-    to generate place holder strings based on the database dialect.
+    single statement.  Contains information necessary to generate place holder
+    strings based on the database dialect.
     """
 
     def placeholder(self):
@@ -562,7 +564,14 @@ class TableSyntax(Syntax):
         integer, baz integer)', 'schemaSyntax.foo.bar' and
         'schemaSyntax.foo.baz'
         """
-        return ColumnSyntax(self.model.columnNamed(attr))
+        try:
+            column = self.model.columnNamed(attr)
+        except KeyError:
+            raise AttributeError("table {0} has no column {1}".format(
+                self.model.name, attr
+            ))
+        else:
+            return ColumnSyntax(column)
 
 
     def __iter__(self):

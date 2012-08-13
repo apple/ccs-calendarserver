@@ -433,6 +433,24 @@ class GenerationTests(ExampleSchemaHelper, TestCase, AssertResultHelper):
         )
 
 
+    def test_tableIteration(self):
+        """
+        Iterating a L{TableSyntax} iterates its columns, in the order that they
+        are defined.
+        """
+        self.assertEquals(list(self.schema.FOO),
+                          [self.schema.FOO.BAR, self.schema.FOO.BAZ])
+
+
+    def test_noColumn(self):
+        """
+        Accessing an attribute that is not a defined column on a L{TableSyntax}
+        raises an L{AttributeError}.
+        """
+        self.assertRaises(AttributeError,
+                          lambda : self.schema.FOO.NOT_A_COLUMN)
+
+
     def test_columnAliases(self):
         """
         When attributes are set on a L{TableSyntax}, they will be remembered as
@@ -719,8 +737,8 @@ class GenerationTests(ExampleSchemaHelper, TestCase, AssertResultHelper):
 
     def test_inSubSelect(self):
         """
-        L{ColumnSyntax.In} returns a sub-expression using the SQL 'in' syntax with
-        a sub-select.
+        L{ColumnSyntax.In} returns a sub-expression using the SQL 'in' syntax
+        with a sub-select.
         """
         wherein = (self.schema.FOO.BAR.In(
                     Select([self.schema.BOZ.QUX], From=self.schema.BOZ)))
@@ -732,10 +750,9 @@ class GenerationTests(ExampleSchemaHelper, TestCase, AssertResultHelper):
 
     def test_inParameter(self):
         """
-        L{ColumnSyntax.In} returns a sub-expression using the SQL 'in' syntax with
-        parameter list.
+        L{ColumnSyntax.In} returns a sub-expression using the SQL 'in' syntax
+        with parameter list.
         """
-        
         # One item with IN only
         items = set(('A',))
         self.assertEquals(
