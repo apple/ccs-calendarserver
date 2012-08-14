@@ -163,7 +163,7 @@ class ReportStatisticsTests(TestCase):
 
     def test_bucketRequest(self):
         """
-        PUT(xxx-large/medium/small} have different thresholds. Test that requests straddling
+        PUT(xxx-huge/large/medium/small} have different thresholds. Test that requests straddling
         each of those are correctly determined to be failures or not.
         """
         
@@ -175,6 +175,7 @@ class ReportStatisticsTests(TestCase):
                     "PUT{organizer-small}": [ 100.0,  50.0,  25.0,   5.0,   1.0,   0.5,   0.0],
                     "PUT{organizer-medium}":[ 100.0, 100.0,  50.0,  25.0,   5.0,   1.0,   0.5],
                     "PUT{organizer-large}": [ 100.0, 100.0, 100.0,  50.0,  25.0,   5.0,   1.0],
+                    "PUT{organizer-huge}":  [ 100.0, 100.0, 100.0, 100.0, 100.0,  50.0,  25.0],
                 }
             }
         }
@@ -290,3 +291,40 @@ class ReportStatisticsTests(TestCase):
             logger.failures()
         )
 
+        # -huge below 10.0 threshold
+        logger = ReportStatistics(thresholds=_thresholds)
+        logger.observe(dict(
+                type='response', method='PUT{organizer-huge}', success=True,
+                duration=12.0, user='user01', client_type="test", client_id="1234"))
+        logger.observe(dict(
+                type='response', method='PUT{organizer-huge}', success=True,
+                duration=8, user='user01', client_type="test", client_id="1234"))
+        logger.observe(dict(
+                type='response', method='PUT{organizer-huge}', success=True,
+                duration=11.0, user='user01', client_type="test", client_id="1234"))
+        logger.observe(dict(
+                type='response', method='PUT{organizer-huge}', success=True,
+                duration=9.0, user='user01', client_type="test", client_id="1234"))
+        self.assertEqual(
+            [],
+            logger.failures()
+        )
+        
+        # -huge above 10.0 threshold
+        logger = ReportStatistics(thresholds=_thresholds)
+        logger.observe(dict(
+                type='response', method='PUT{organizer-huge}', success=True,
+                duration=12.0, user='user01', client_type="test", client_id="1234"))
+        logger.observe(dict(
+                type='response', method='PUT{organizer-huge}', success=True,
+                duration=9.0, user='user01', client_type="test", client_id="1234"))
+        logger.observe(dict(
+                type='response', method='PUT{organizer-huge}', success=True,
+                duration=12.0, user='user01', client_type="test", client_id="1234"))
+        logger.observe(dict(
+                type='response', method='PUT{organizer-huge}', success=True,
+                duration=42.42, user='user01', client_type="test", client_id="1234"))
+        self.assertEqual(
+            ["Greater than 50% PUT{organizer-huge} exceeded 10 second response time"],
+            logger.failures()
+        )

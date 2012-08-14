@@ -279,6 +279,20 @@ class LogNormalDistribution(object, FancyEqMixin):
         return result
 
 
+class FixedDistribution(object, FancyEqMixin):
+    """
+    """
+    implements(IPopulation)
+
+    compareAttributes = ['_value']
+
+    def __init__(self, value):
+        self._value = value
+
+
+    def sample(self):
+        return self._value
+
 
 class NearFutureDistribution(object, FancyEqMixin):
     compareAttributes = ['_offset']

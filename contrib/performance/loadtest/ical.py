@@ -921,8 +921,10 @@ class BaseAppleClient(BaseClient):
         label_suffix = "small"
         if len(events) > 5:
             label_suffix = "medium"
-        if len(events) > 15:
+        if len(events) > 20:
             label_suffix = "large"
+        if len(events) > 75:
+            label_suffix = "huge"
 
         return self._report(
             calendar,
@@ -1295,8 +1297,10 @@ class BaseAppleClient(BaseClient):
         label_suffix = "small"
         if len(attendees) > 5:
             label_suffix = "medium"
-        if len(attendees) > 15:
+        if len(attendees) > 20:
             label_suffix = "large"
+        if len(attendees) > 75:
+            label_suffix = "huge"
         
         # At last, upload the new event definition
         response = yield self._request(
@@ -1375,8 +1379,10 @@ class BaseAppleClient(BaseClient):
         label_suffix = "small"
         if len(attendees) > 5:
             label_suffix = "medium"
-        if len(attendees) > 15:
+        if len(attendees) > 20:
             label_suffix = "large"
+        if len(attendees) > 75:
+            label_suffix = "huge"
         
         response = yield self._request(
             okCodes,
@@ -1416,8 +1422,10 @@ class BaseAppleClient(BaseClient):
         label_suffix = "small"
         if len(attendees) > 5:
             label_suffix = "medium"
-        if len(attendees) > 15:
+        if len(attendees) > 20:
             label_suffix = "large"
+        if len(attendees) > 75:
+            label_suffix = "huge"
 
         response = yield self._request(
             CREATED,
@@ -1526,8 +1534,10 @@ class BaseAppleClient(BaseClient):
         label_suffix = "small"
         if len(users) > 5:
             label_suffix = "medium"
-        if len(users) > 15:
+        if len(users) > 20:
             label_suffix = "large"
+        if len(users) > 75:
+            label_suffix = "huge"
 
         response = yield self._request(
             OK, 'POST', outbox,
