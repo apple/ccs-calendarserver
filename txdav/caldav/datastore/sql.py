@@ -144,7 +144,7 @@ class CalendarHome(CommonHome):
         for dropboxID, path in rows:
             attachment = Attachment._attachmentPathRoot(self._txn, dropboxID).child(path)
             if attachment.exists():
-                self._txn.postCommit(attachment.remove)
+                yield attachment.remove()
 
         yield Delete(
             From=at,

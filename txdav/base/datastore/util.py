@@ -70,19 +70,13 @@ class QueryCacher(Memcacher):
 
 
     def setAfterCommit(self, transaction, key, value):
-        def setit():
-            # Don't return Deferred; let the postCommit chain continue.
-            self.set(key, value)
-        transaction.postCommit(setit)
+        transaction.postCommit(lambda: self.set(key, value))
 
     def invalidateAfterCommit(self, transaction, key):
         # Invalidate now (so that operations within this transaction see it)
         # and *also* post-commit (because there could be a scheduled setAfterCommit
         # for this key)
-        def delit():
-            # Don't return Deferred; let the postCommit chain continue.
-            self.delete(key)
-        transaction.postCommit(delit)
+        transaction.postCommit(lambda: self.delete(key))
         return self.delete(key)
 
     # Home child objects by name
