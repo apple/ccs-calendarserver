@@ -1100,12 +1100,13 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             tr.TRANSPARENT                 : transp,
         }, Return=tr.INSTANCE_ID).on(txn))[0][0]
         peruserdata = component.perUserTransparency(rid)
-        for useruid, transp in peruserdata:
-            (yield Insert({
-                tpy.TIME_RANGE_INSTANCE_ID : instanceid,
-                tpy.USER_ID                : useruid,
-                tpy.TRANSPARENT            : transp,
-            }).on(txn))
+        for useruid, usertransp in peruserdata:
+            if usertransp != transp:
+                (yield Insert({
+                    tpy.TIME_RANGE_INSTANCE_ID : instanceid,
+                    tpy.USER_ID                : useruid,
+                    tpy.TRANSPARENT            : usertransp,
+                }).on(txn))
 
 
     @inlineCallbacks

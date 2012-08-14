@@ -223,7 +223,6 @@ class PerUserDataFilter(CalendarFilter):
             peruser = Component(PerUserDataFilter.PERUSER_COMPONENT)
             peruser.addProperty(Property("UID", ical.resourceUID()))
             peruser.addProperty(Property(PerUserDataFilter.PERUSER_UID, self.uid))
-            ical.addComponent(peruser)
             return peruser
         
         components = tuple(ical.subcomponents())
@@ -233,21 +232,18 @@ class PerUserDataFilter(CalendarFilter):
         for component in components:
             if component.name() == "VTIMEZONE":
                 continue
+            rid = component.getRecurrenceIDUTC()
 
-            def init_perinstance_component():
-                peruser = Component(PerUserDataFilter.PERINSTANCE_COMPONENT)
-                rid = component.getRecurrenceIDUTC()
-                perinstance_components[rid] = peruser
-                return peruser
+            perinstance_component = Component(PerUserDataFilter.PERINSTANCE_COMPONENT) if self.uid else None
+            perinstance_id_different = False
 
-            perinstance_component = init_perinstance_component() if self.uid else None
-            
             # Transfer per-user properties from main component to per-instance component
             for property in tuple(component.properties()):
                 if property.name() in PerUserDataFilter.PERUSER_PROPERTIES or property.name().startswith("X-"):
                     if self.uid:
                         perinstance_component.addProperty(property)
                     component.removeProperty(property)
+                    perinstance_id_different = True
             
             # Transfer per-user components from main component to per-instance component
             for subcomponent in tuple(component.subcomponents()):
@@ -255,19 +251,29 @@ class PerUserDataFilter(CalendarFilter):
                     if self.uid:
                         perinstance_component.addComponent(subcomponent)
                     component.removeComponent(subcomponent)
+                    perinstance_id_different = True
+            
+            if perinstance_id_different and perinstance_component:
+                perinstance_components[rid] = perinstance_component
             
         if self.uid:
             # Add unique per-instance components into the per-user component
+            peruser_component_different = False
             master_perinstance = perinstance_components.get(None)
             if master_perinstance:
                 peruser_component.addComponent(master_perinstance)
+                peruser_component_different = True
             for rid, perinstance in perinstance_components.iteritems():
                 if rid is None:
                     continue
                 if master_perinstance is None or perinstance != master_perinstance:
                     perinstance.addProperty(Property("RECURRENCE-ID", rid))
                     peruser_component.addComponent(perinstance)
-    
+                    peruser_component_different = True
+            
+            if peruser_component_different:
+                ical.addComponent(peruser_component)
+
             self._compactInstances(ical)
 
     def _compactInstances(self, ical):
