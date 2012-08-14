@@ -460,6 +460,51 @@ class SharingTests(HomeTestCase):
             ),
         ))
 
+    @inlineCallbacks
+    def test_POSTremoveNonInvitee(self):
+        """
+        Ensure that removing a sharee that is not currently invited
+        doesn't return an error.  The server will just pretend it
+        removed the sharee.
+        """
+
+        self.resource.upgradeToShare()
+
+        yield self._doPOST("""<?xml version="1.0" encoding="utf-8" ?>
+<CS:share xmlns:D="DAV:" xmlns:CS="http://calendarserver.org/ns/">
+    <CS:set>
+        <D:href>mailto:user02@example.com</D:href>
+        <CS:summary>My Shared Calendar</CS:summary>
+        <CS:read-write/>
+    </CS:set>
+    <CS:set>
+        <D:href>mailto:user03@example.com</D:href>
+        <CS:summary>My Shared Calendar</CS:summary>
+        <CS:read-write/>
+    </CS:set>
+</CS:share>
+""")
+        yield self._doPOST("""<?xml version="1.0" encoding="utf-8" ?>
+<CS:share xmlns:D="DAV:" xmlns:CS="http://calendarserver.org/ns/">
+    <CS:remove>
+        <D:href>mailto:user03@example.com</D:href>
+    </CS:remove>
+</CS:share>
+""")
+        yield self._doPOST("""<?xml version="1.0" encoding="utf-8" ?>
+<CS:share xmlns:D="DAV:" xmlns:CS="http://calendarserver.org/ns/">
+    <CS:remove>
+        <D:href>mailto:user02@example.com</D:href>
+    </CS:remove>
+    <CS:remove>
+        <D:href>mailto:user03@example.com</D:href>
+    </CS:remove>
+</CS:share>
+""")
+
+        propInvite = (yield self.resource.readProperty(customxml.Invite, None))
+        self.assertEquals(self._clearUIDElementValue(propInvite), customxml.Invite())
+
 
     @inlineCallbacks
     def test_POSTaddInvalidInvitee(self):

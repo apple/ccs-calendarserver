@@ -789,7 +789,9 @@ class SharedCollectionMixin(object):
                     del setDict[u]
                 for userid, access in removeDict.iteritems():
                     result = (yield self.uninviteUserToShare(userid, access, request))
-                    (okusers if result else badusers).add(userid)
+                    # If result is False that means the user being removed was not
+                    # actually invited, but let's not return an error in this case.
+                    okusers.add(userid)
                 for userid, (cn, access, summary) in setDict.iteritems():
                     result = (yield self.inviteUserToShare(userid, cn, access, summary, request))
                     (okusers if result else badusers).add(userid)
