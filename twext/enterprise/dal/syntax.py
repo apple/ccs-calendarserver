@@ -929,10 +929,13 @@ class ColumnComparison(CompoundComparison):
 
 
 
-class _AllColumns(object):
+class _AllColumns(NamedValue):
 
-    def subSQL(self, queryGenerator, allTables):
-        return SQLFragment('*')
+    def __init__(self):
+        self.name = "*"
+
+    def allColumns(self):
+        return []
 
 ALL_COLUMNS = _AllColumns()
 

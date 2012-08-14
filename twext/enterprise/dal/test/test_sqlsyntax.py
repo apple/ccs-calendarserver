@@ -25,7 +25,7 @@ from twext.enterprise.dal.syntax import (
     TableMismatch, Parameter, Max, Len, NotEnoughValues,
     Savepoint, RollbackToSavepoint, ReleaseSavepoint, SavepointAction,
     Union, Intersect, Except, SetExpression, DALError,
-    ResultAliasSyntax, Count, QueryGenerator)
+    ResultAliasSyntax, Count, QueryGenerator, ALL_COLUMNS)
 from twext.enterprise.dal.syntax import FixedPlaceholder, NumericPlaceholder
 from twext.enterprise.dal.syntax import Function
 from twext.enterprise.dal.syntax import SchemaSyntax
@@ -829,6 +829,17 @@ class GenerationTests(ExampleSchemaHelper, TestCase, AssertResultHelper):
             Select([Max(self.schema.BOZ.QUX)], From=self.schema.BOZ).toSQL(),
             SQLFragment(
                 "select max(QUX) from BOZ"))
+
+
+    def test_countAllCoumns(self):
+        """
+        L{Count}C{(ALL_COLUMNS)} produces an object in the 'columns' clause that
+        renders the 'count' in SQL.
+        """
+        self.assertEquals(
+            Select([Count(ALL_COLUMNS)], From=self.schema.BOZ).toSQL(),
+            SQLFragment(
+                "select count(*) from BOZ"))
 
 
     def test_aggregateComparison(self):
