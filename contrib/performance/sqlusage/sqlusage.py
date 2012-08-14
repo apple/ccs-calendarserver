@@ -19,13 +19,16 @@ from caldavclientlibrary.client.clientsession import CalDAVSession
 from caldavclientlibrary.protocol.url import URL
 from caldavclientlibrary.protocol.webdav.definitions import davxml
 from calendarserver.tools import tables
+from contrib.performance.sqlusage.requests.invite import InviteTest
 from contrib.performance.sqlusage.requests.multiget import MultigetTest
 from contrib.performance.sqlusage.requests.propfind import PropfindTest
+from contrib.performance.sqlusage.requests.put import PutTest
 from contrib.performance.sqlusage.requests.query import QueryTest
 from contrib.performance.sqlusage.requests.sync import SyncTest
 from pycalendar.datetime import PyCalendarDateTime
 from twext.web2.dav.util import joinURL
 import getopt
+import itertools
 import sys
 
 """
@@ -37,7 +40,7 @@ will be repeated against a varying calendar size so the variation in SQL use
 with calendar size can be plotted. 
 """
 
-EVENT_COUNTS = (0, 1, 5, 10, 25, 50, 75, 100, 200, 300, 400, 500, 1000, 2000, 3000, 4000, 5000)
+EVENT_COUNTS = (0, 1, 5, 10, 50, 100, 500, 1000, 5000)
 
 ICAL = """BEGIN:VCALENDAR
 CALSCALE:GREGORIAN
@@ -72,48 +75,63 @@ END:VEVENT
 END:VCALENDAR
 """.replace("\n", "\r\n")
 
+class SQLUsageSession(CalDAVSession):
+    
+    def __init__(self, server, port=None, ssl=False, user="", pswd="", principal=None, root=None, logging=False):
+
+        super(SQLUsageSession, self).__init__(server, port, ssl, user, pswd, principal, root, logging)
+        self.homeHref = "/calendars/users/%s/" % (self.user,)
+        self.calendarHref = "/calendars/users/%s/calendar/" % (self.user,)
+        self.inboxHref = "/calendars/users/%s/inbox/" % (self.user,)
+        
+
 class SQLUsage(object):
     
-    def __init__(self, server, port, user, pswd, logFilePath):
+    def __init__(self, server, port, users, pswds, logFilePath):
         self.server = server
         self.port = port
-        self.user = user
-        self.pswd = pswd
+        self.users = users
+        self.pswds = pswds
         self.logFilePath = logFilePath
         self.requestLabels = []
         self.results = {}
         self.currentCount = 0
-        
-        self.userhref = "/calendars/users/%s/" % (self.user,)
 
-    def runLoop(self):
+    def runLoop(self, counts):
         
-        # Make the session
-        session = CalDAVSession(self.server, self.port, user=self.user, pswd=self.pswd, root="/")
+        # Make the sessions
+        sessions = [
+            SQLUsageSession(self.server, self.port, user=user, pswd=pswd, root="/")
+            for user, pswd in itertools.izip(self.users, self.pswds)
+        ]
 
         # Set of requests to execute
         requests = [
-            MultigetTest("multiget-1", session, joinURL(self.userhref, "calendar/"), self.logFilePath, 1),
-            MultigetTest("multiget-50", session, joinURL(self.userhref, "calendar/"), self.logFilePath, 50),
-            PropfindTest("propfind-cal", session, joinURL(self.userhref, "calendar/"), self.logFilePath, 1),
-            SyncTest("sync-full", session, joinURL(self.userhref, "calendar/"), self.logFilePath, True, 0),
-            SyncTest("sync-1", session, joinURL(self.userhref, "calendar/"), self.logFilePath, False, 1),
-            QueryTest("query-1", session, joinURL(self.userhref, "calendar/"), self.logFilePath, 1),
-            QueryTest("query-10", session, joinURL(self.userhref, "calendar/"), self.logFilePath, 10),
+            MultigetTest("multiget-1", sessions, self.logFilePath, 1),
+            MultigetTest("multiget-50", sessions, self.logFilePath, 50),
+            PropfindTest("propfind-cal", sessions, self.logFilePath, 1),
+            SyncTest("sync-full", sessions, self.logFilePath, True, 0),
+            SyncTest("sync-1", sessions, self.logFilePath, False, 1),
+            QueryTest("query-1", sessions, self.logFilePath, 1),
+            QueryTest("query-10", sessions, self.logFilePath, 10),
+            PutTest("put", sessions, self.logFilePath),
+            InviteTest("invite", sessions, self.logFilePath),
         ]
         self.requestLabels = [request.label for request in requests]
 
         # Warm-up server by doing calendar home and calendar propfinds
         props = (davxml.resourcetype,)
-        session.getPropertiesOnHierarchy(URL(path=self.userhref), props)
-        session.getPropertiesOnHierarchy(URL(path=joinURL(self.userhref, "calendar/")), props)
+        for session in sessions:
+            session.getPropertiesOnHierarchy(URL(path=session.homeHref), props)
+            session.getPropertiesOnHierarchy(URL(path=session.calendarHref), props)
         
         # Now loop over sets of events
-        for count in EVENT_COUNTS:
+        for count in counts:
             print "Testing count = %d" % (count,)
-            self.ensureEvents(session, count)
+            self.ensureEvents(sessions[0], sessions[0].calendarHref, count)
             result = {}
             for request in requests:
+                print "  Test = %s" % (request.label,)
                 result[request.label] = request.execute()
             self.results[count] = result
     
@@ -121,26 +139,26 @@ class SQLUsage(object):
         
         self._printReport("SQL Statement Count", "count", "%d")
         self._printReport("SQL Rows Returned", "rows", "%d")
-        self._printReport("SQL Time", "timing", "%.3f")
+        self._printReport("SQL Time", "timing", "%.1f")
             
     def _printReport(self, title, attr, colFormat):
         table = tables.Table()
         
         print title
-        headers = ["Events"] + sorted([label for label in self.requestLabels])
+        headers = ["Events"] + self.requestLabels
         table.addHeader(headers)
         formats = [tables.Table.ColumnFormat("%d", tables.Table.ColumnFormat.RIGHT_JUSTIFY)] + \
             [tables.Table.ColumnFormat(colFormat, tables.Table.ColumnFormat.RIGHT_JUSTIFY)] * len(self.requestLabels)
         table.setDefaultColumnFormats(formats)
         for k in sorted(self.results.keys()):
-            row = [k] + [getattr(self.results[k][item], attr) for item in sorted(self.results[k].keys())]
+            row = [k] + [getattr(self.results[k][item], attr) for item in self.requestLabels]
             table.addRow(row)
         os = StringIO()
         table.printTable(os=os)
         print os.getvalue()
         print
             
-    def ensureEvents(self, session, n):
+    def ensureEvents(self, session, calendarhref, n):
         """
         Make sure the required number of events are present in the calendar.
     
@@ -150,7 +168,7 @@ class SQLUsage(object):
         now = PyCalendarDateTime.getNowUTC()
         for i in range(n - self.currentCount):
             index = self.currentCount + i + 1
-            href = joinURL(self.userhref, "calendar", "%d.ics" % (index,))
+            href = joinURL(calendarhref, "%d.ics" % (index,))
             session.writeData(URL(path=href), ICAL % (now.getYear() + 1, index,), "text/calendar")
             
         self.currentCount = n
@@ -166,6 +184,7 @@ Options:
     --port         Server port
     --user         User name
     --pswd         Password
+    --counts       Comma-separated list of event counts to test
 
 Arguments:
     FILE           File name for sqlstats.log to analyze.
@@ -183,11 +202,12 @@ if __name__ == '__main__':
     
     server = "localhost"
     port = 8008
-    user = "user01"
-    pswd = "user01"
+    users = ("user01", "user02",)
+    pswds = ("user01", "user02",)
     file = "sqlstats.logs"
+    counts = EVENT_COUNTS
 
-    options, args = getopt.getopt(sys.argv[1:], "h", ["server", "port", "user", "pswd",])
+    options, args = getopt.getopt(sys.argv[1:], "h", ["server=", "port=", "user=", "pswd=", "counts=",])
 
     for option, value in options:
         if option == "-h":
@@ -197,9 +217,11 @@ if __name__ == '__main__':
         elif option == "--port":
             port = int(value)
         elif option == "--user":
-            user = value
+            users = value.split(",")
         elif option == "--pswd":
-            pswd = value
+            pswds = value.split(",")
+        elif option == "--counts":
+            counts = [int(i) for i in value.split(",")]
         else:
             usage("Unrecognized option: %s" % (option,))
 
@@ -209,6 +231,6 @@ if __name__ == '__main__':
     elif len(args) != 0:
         usage("Must zero or one file arguments")
 
-    sql = SQLUsage(server, port, user, pswd, file)
-    sql.runLoop()
+    sql = SQLUsage(server, port, users, pswds, file)
+    sql.runLoop(counts)
     sql.report()

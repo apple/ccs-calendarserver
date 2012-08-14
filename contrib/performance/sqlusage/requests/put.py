@@ -15,10 +15,9 @@
 ##
 
 from caldavclientlibrary.protocol.url import URL
-from caldavclientlibrary.protocol.webdav.definitions import davxml
 from contrib.performance.sqlusage.requests.httpTests import HTTPTestBase
-from twext.web2.dav.util import joinURL
 from pycalendar.datetime import PyCalendarDateTime
+from twext.web2.dav.util import joinURL
 
 ICAL = """BEGIN:VCALENDAR
 CALSCALE:GREGORIAN
@@ -48,55 +47,29 @@ CREATED:20060101T150000Z
 DTSTART;TZID=US/Eastern:%d0101T100000
 DURATION:PT1H
 SUMMARY:event 1
-UID:sync-collection-%d-ics
+UID:put-ics
 END:VEVENT
 END:VCALENDAR
 """.replace("\n", "\r\n")
 
-class SyncTest(HTTPTestBase):
+class PutTest(HTTPTestBase):
     """
-    A sync operation
+    A PUT operation (non-invite)
     """
-
-    def __init__(self, label, sessions, logFilePath, full, count):
-        super(SyncTest, self).__init__(label, sessions, logFilePath)
-        self.full = full
-        self.count = count
-        self.synctoken = ""
-    
-    def prepare(self):
-        """
-        Do some setup prior to the real request.
-        """
-        if not self.full:
-            # Get current sync token
-            results, _ignore_bad = self.sessions[0].getProperties(URL(path=self.sessions[0].calendarHref), (davxml.sync_token,))
-            self.synctoken = results[davxml.sync_token]
-            
-            # Add resources to create required number of changes
-            now = PyCalendarDateTime.getNowUTC()
-            for i in range(self.count):
-                href = joinURL(self.sessions[0].calendarHref, "sync-collection-%d.ics" % (i+1,))
-                self.sessions[0].writeData(URL(path=href), ICAL % (now.getYear() + 1, i+1,), "text/calendar")
 
     def doRequest(self):
         """
         Execute the actual HTTP request.
         """
-        props = (
-            davxml.getetag,
-            davxml.getcontenttype,
-        )
 
-        # Run sync collection
-        self.sessions[0].syncCollection(URL(path=self.sessions[0].calendarHref), self.synctoken, props)
+        now = PyCalendarDateTime.getNowUTC()
+        href = joinURL(self.sessions[0].calendarHref, "put.ics")
+        self.sessions[0].writeData(URL(path=href), ICAL % (now.getYear() + 1,), "text/calendar")
 
     def cleanup(self):
         """
         Do some cleanup after the real request.
         """
-        if not self.full:
-            # Remove created resources
-            for i in range(self.count):
-                href = joinURL(self.sessions[0].calendarHref, "sync-collection-%d.ics" % (i+1,))
-                self.sessions[0].deleteResource(URL(path=href))
+        # Remove created resources
+        href = joinURL(self.sessions[0].calendarHref, "put.ics")
+        self.sessions[0].deleteResource(URL(path=href))

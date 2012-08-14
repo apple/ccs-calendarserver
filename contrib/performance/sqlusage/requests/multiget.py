@@ -26,15 +26,15 @@ class MultigetTest(HTTPTestBase):
     A multiget operation
     """
 
-    def __init__(self, label, session, href, logFilePath, count):
-        super(MultigetTest, self).__init__(label, session, href, logFilePath)
+    def __init__(self, label, sessions, logFilePath, count):
+        super(MultigetTest, self).__init__(label, sessions, logFilePath)
         self.count = count
     
     def doRequest(self):
         """
         Execute the actual HTTP request.
         """
-        hrefs = [joinURL(self.baseHref, "%d.ics" % (i+1,)) for i in range(self.count)]
+        hrefs = [joinURL(self.sessions[0].calendarHref, "%d.ics" % (i+1,)) for i in range(self.count)]
         props = (
             davxml.getetag,
             caldavxml.calendar_data,
@@ -42,12 +42,12 @@ class MultigetTest(HTTPTestBase):
         )
 
         # Create CalDAV multiget
-        request = Multiget(self.session, self.baseHref, hrefs, props)
+        request = Multiget(self.sessions[0], self.sessions[0].calendarHref, hrefs, props)
         result = ResponseDataString()
         request.setOutput(result)
     
         # Process it
-        self.session.runSession(request)
+        self.sessions[0].runSession(request)
     
         # If its a 207 we want to parse the XML
         if request.getStatusCode() == statuscodes.MultiStatus:

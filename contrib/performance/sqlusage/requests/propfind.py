@@ -25,8 +25,8 @@ class PropfindTest(HTTPTestBase):
     A propfind operation
     """
 
-    def __init__(self, label, session, href, logFilePath, depth=1):
-        super(PropfindTest, self).__init__(label, session, href, logFilePath)
+    def __init__(self, label, sessions, logFilePath, depth=1):
+        super(PropfindTest, self).__init__(label, sessions, logFilePath)
         self.depth = headers.Depth1 if depth == 1 else headers.Depth0
     
     def doRequest(self):
@@ -39,12 +39,12 @@ class PropfindTest(HTTPTestBase):
         )
 
         # Create WebDAV propfind
-        request = PropFind(self.session, self.baseHref, self.depth, props)
+        request = PropFind(self.sessions[0], self.sessions[0].calendarHref, self.depth, props)
         result = ResponseDataString()
         request.setOutput(result)
     
         # Process it
-        self.session.runSession(request)
+        self.sessions[0].runSession(request)
     
         # If its a 207 we want to parse the XML
         if request.getStatusCode() == statuscodes.MultiStatus:

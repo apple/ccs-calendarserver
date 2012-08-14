@@ -30,14 +30,13 @@ class HTTPTestBase(object):
             self.rows = rows
             self.timing = timing
         
-    def __init__(self, label, session, href, logFilePath):
+    def __init__(self, label, sessions, logFilePath):
         """
         @param label: label used to identify the test
         @type label: C{str}
         """
         self.label = label
-        self.session = session
-        self.baseHref = href
+        self.sessions = sessions
         self.logFilePath = logFilePath
         self.result = None
 

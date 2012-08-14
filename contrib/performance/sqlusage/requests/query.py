@@ -60,8 +60,8 @@ class QueryTest(HTTPTestBase):
     A sync operation
     """
 
-    def __init__(self, label, session, href, logFilePath, count):
-        super(QueryTest, self).__init__(label, session, href, logFilePath)
+    def __init__(self, label, sessions, logFilePath, count):
+        super(QueryTest, self).__init__(label, sessions, logFilePath)
         self.count = count
     
     def prepare(self):
@@ -74,8 +74,8 @@ class QueryTest(HTTPTestBase):
         self.end = self.start.duplicate()
         self.end.offsetHours(1)
         for i in range(self.count):
-            href = joinURL(self.baseHref, "tr-query-%d.ics" % (i+1,))
-            self.session.writeData(URL(path=href), ICAL % (self.start.getText(), i+1,), "text/calendar")
+            href = joinURL(self.sessions[0].calendarHref, "tr-query-%d.ics" % (i+1,))
+            self.sessions[0].writeData(URL(path=href), ICAL % (self.start.getText(), i+1,), "text/calendar")
 
     def doRequest(self):
         """
@@ -87,12 +87,12 @@ class QueryTest(HTTPTestBase):
         )
 
         # Create CalDAV query
-        request = QueryVEVENTTimeRange(self.session, self.baseHref, self.start.getText(), self.end.getText(), props)
+        request = QueryVEVENTTimeRange(self.sessions[0], self.sessions[0].calendarHref, self.start.getText(), self.end.getText(), props)
         result = ResponseDataString()
         request.setOutput(result)
     
         # Process it
-        self.session.runSession(request)
+        self.sessions[0].runSession(request)
     
         # If its a 207 we want to parse the XML
         if request.getStatusCode() == statuscodes.MultiStatus:
@@ -106,5 +106,5 @@ class QueryTest(HTTPTestBase):
         """
         # Remove created resources
         for i in range(self.count):
-            href = joinURL(self.baseHref, "tr-query-%d.ics" % (i+1,))
-            self.session.deleteResource(URL(path=href))
+            href = joinURL(self.sessions[0].calendarHref, "tr-query-%d.ics" % (i+1,))
+            self.sessions[0].deleteResource(URL(path=href))
