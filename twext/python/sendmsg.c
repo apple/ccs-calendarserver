@@ -220,7 +220,8 @@ static PyObject *sendmsg_sendmsg(PyObject *self, PyObject *args, PyObject *keywd
         /* Unpack the tuples into the control message. */
         struct cmsghdr *control_message = CMSG_FIRSTHDR(&message_header);
         while ( (item = PyIter_Next(iterator)) ) {
-            int data_len, type, level;
+            int type, level;
+            Py_ssize_t data_len;
             size_t data_size;
             unsigned char *data, *cmsg_data;
 
@@ -250,7 +251,7 @@ static PyObject *sendmsg_sendmsg(PyObject *self, PyObject *args, PyObject *keywd
                 free(message_header.msg_control);
 
                 PyErr_Format(PyExc_OverflowError,
-                             "CMSG_LEN(%d) > SOCKLEN_MAX", data_len);
+                             "CMSG_LEN(%zd) > SOCKLEN_MAX", data_len);
 
                 return NULL;
             }
