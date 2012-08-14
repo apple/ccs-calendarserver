@@ -150,6 +150,10 @@ class CommonAccessLoggingObserverExtensions(BaseCommonAccessLoggingObserver):
                             v = '"%s"' % (v,)
                         formats.append("%s=%s" % (k, v))
 
+                # Add the name of the XML error element for debugging purposes
+                if hasattr(response, "error"):
+                    formats.append("err=%s" % (response.error.qname()[1],))
+
                 fwdHeaders = request.headers.getRawHeaders("x-forwarded-for", "")
                 if fwdHeaders:
                     # Limit each x-forwarded-header to 50 in case someone is
