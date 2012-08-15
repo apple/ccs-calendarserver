@@ -97,25 +97,38 @@ class XMPPPush(object, FancyEqMixin):
         self.pushkey = pushkey
 
 
+
 def u2str(data):
     return data.encode("utf-8") if type(data) is unicode else data
-    
+
+
+
 class Event(object):
-    def __init__(self, url, etag, vevent=None):
+    def __init__(self, serializeBasePath, url, etag, component=None):
+        self.serializeBasePath = serializeBasePath
         self.url = url
         self.etag = etag
         self.scheduleTag = None
-        self.vevent = vevent
+        if component is not None:
+            self.component = component
+        self.uid = component.resourceUID() if component is not None else None
 
 
     def getUID(self):
         """
-        Return the UID from the vevent, if there is one.
+        Return the UID of the calendar resource.
         """
-        if self.vevent is not None:
-            return self.vevent.resourceUID()
-        return None
+        return self.uid
 
+
+    def serializePath(self):
+        if self.serializeBasePath:
+            calendar = os.path.join(self.serializeBasePath, self.url.split("/")[-2])
+            if not os.path.exists(calendar):
+                os.makedirs(calendar)
+            return os.path.join(calendar, self.url.split("/")[-1])
+        else:
+            return None
 
     def serialize(self):
         """
@@ -123,23 +136,53 @@ class Event(object):
         """
         
         result = {}
-        for attr in ("url", "etag", "scheduleTag"):
+        for attr in ("url", "etag", "scheduleTag", "uid",):
             result[attr] = getattr(self, attr)
-        result["icalendar"] = str(self.vevent)
         return result
 
+
     @staticmethod
-    def deserialize(data):
+    def deserialize(serializeLocation, data):
         """
         Convert dict (deserialized from JSON) into an L{Event}.
         """
         
-        event = Event(None, None)
-        for attr in ("url", "etag", "scheduleTag"):
+        event = Event(serializeLocation, None, None)
+        for attr in ("url", "etag", "scheduleTag", "uid",):
             setattr(event, attr, u2str(data[attr]))
-        event.vevent = Component.fromString(data["icalendar"])
         return event
 
+
+    @property
+    def component(self):
+        """
+        Data always read from disk - never cached in the object.
+        """
+        path = self.serializePath()
+        return Component.fromString(open(path).read()) if path and os.path.exists(path) else None
+
+
+    @component.setter
+    def component(self, component):
+        """
+        Data always written to disk - never cached on the object.
+        """
+        path = self.serializePath()
+        if path:
+            if component is None:
+                os.remove(path)
+            else:
+                open(path, "w").write(str(component))
+        self.uid = component.resourceUID() if component is not None else None
+
+
+    def removed(self):
+        """
+        Resource no longer exists on the server - remove associated data.
+        """
+        path = self.serializePath()
+        if path and os.path.exists(path):
+            os.remove(path)
 
 
 class Calendar(object):
@@ -168,7 +211,7 @@ class Calendar(object):
     @staticmethod
     def deserialize(data, events):
         """
-        Convert dict (deserialized from JSON) into an L{Event}.
+        Convert dict (deserialized from JSON) into an L{Calendar}.
         """
         
         calendar = Calendar(None, None, None, None, None)
@@ -205,27 +248,28 @@ class BaseClient(object):
         Cache the provided event
         """
         self._events[href] = event
-        calendar, uid = href.rsplit('/', 1)
-        self._calendars[calendar + '/'].events[uid] = event
+        calendar, basePath = href.rsplit('/', 1)
+        self._calendars[calendar + '/'].events[basePath] = event
 
 
     def _removeEvent(self, href):
         """
         Remove event from local cache.
         """
+        self._events[href].removed()
         del self._events[href]
-        calendar, uid = href.rsplit('/', 1)
-        del self._calendars[calendar + '/'].events[uid]
+        calendar, basePath = href.rsplit('/', 1)
+        del self._calendars[calendar + '/'].events[basePath]
 
 
-    def addEvent(self, href, vcalendar):
+    def addEvent(self, href, calendar):
         """
         Called when a profile needs to add an event (no scheduling).
         """
         raise NotImplementedError("%r does not implement addEvent" % (self.__class__,))
 
 
-    def addInvite(self, href, vcalendar):
+    def addInvite(self, href, calendar):
         """
         Called when a profile needs to add a new invite. The iCalendar data will already
         contain ATTENDEEs.
@@ -339,6 +383,7 @@ class BaseAppleClient(BaseClient):
         serializePath,
         record,
         auth,
+        title=None,
         calendarHomePollInterval=None,
         supportPush=True,
         supportAmpPush=True,
@@ -358,6 +403,8 @@ class BaseAppleClient(BaseClient):
         self.root = root
         self.principalPathTemplate = principalPathTemplate
         self.record = record
+
+        self.title = title if title else self._client_type
 
         if calendarHomePollInterval is None:
             calendarHomePollInterval = self.CALENDAR_HOME_POLL_INTERVAL
@@ -417,7 +464,8 @@ class BaseAppleClient(BaseClient):
         client specific things, Accept etc.
         """
         headers.setRawHeaders('User-Agent', [self.USER_AGENT])
-        
+
+
     @inlineCallbacks
     def _request(self, expectedResponseCodes, method, url, headers=None, body=None, method_label=None):
         """
@@ -433,7 +481,7 @@ class BaseAppleClient(BaseClient):
             method=method_label if method_label else method,
             url=url,
             user=self.record.uid,
-            client_type=self._client_type,
+            client_type=self.title,
             client_id=self._client_id,
         )
 
@@ -455,7 +503,7 @@ class BaseAppleClient(BaseClient):
             body=body,
             code=response.code,
             user=self.record.uid,
-            client_type=self._client_type,
+            client_type=self.title,
             client_id=self._client_id,
             duration=(after - before),
             url=url,
@@ -814,7 +862,7 @@ class BaseAppleClient(BaseClient):
             # Differentiate a remove vs new/update result
             if result[responseHref].getStatus() / 100 == 2:
                 if responseHref not in self._events:
-                    self._setEvent(responseHref, Event(responseHref, None))
+                    self._setEvent(responseHref, Event(self.serializeLocation(), responseHref, None))
                     
                 event = self._events[responseHref]
                 if event.etag != etag:
@@ -860,7 +908,7 @@ class BaseAppleClient(BaseClient):
                 continue
 
             if responseHref not in self._events:
-                self._setEvent(responseHref, Event(responseHref, None))
+                self._setEvent(responseHref, Event(self.serializeLocation(), responseHref, None))
                 
             event = self._events[responseHref]
             if event.etag != etag:
@@ -909,7 +957,7 @@ class BaseAppleClient(BaseClient):
         event.etag = etag
         if scheduleTag is not None:
             event.scheduleTag = scheduleTag
-        event.vevent = Component.fromString(body)
+        event.component = Component.fromString(body)
         self.catalog["eventChanged"].issue(href)
 
                 
@@ -1077,7 +1125,7 @@ class BaseAppleClient(BaseClient):
             type="operation",
             phase="start",
             user=self.record.uid, 
-            client_type=self._client_type,
+            client_type=self.title,
             client_id=self._client_id,
             label=label,
         )
@@ -1100,7 +1148,7 @@ class BaseAppleClient(BaseClient):
             phase="end",
             duration=after - before,
             user=self.record.uid,
-            client_type=self._client_type,
+            client_type=self.title,
             client_id=self._client_id,
             label=label,
             success=success,
@@ -1167,7 +1215,7 @@ class BaseAppleClient(BaseClient):
                 raise MissingCalendarHome
             yield self._checkCalendarsForEvents(calendarHome, firstTime=True)
             returnValue(calendarHome)
-        calendarHome = yield self._newOperation("startup: %s" % (self._client_type,), startup())
+        calendarHome = yield self._newOperation("startup: %s" % (self.title,), startup())
 
         self.started = True
 
@@ -1198,16 +1246,30 @@ class BaseAppleClient(BaseClient):
         return self._unsubscribePubSub()
 
 
+    def serializeLocation(self):
+        """
+        Return the path to the directory where data for this user is serialized.
+        """
+        if self.serializePath is None or not os.path.isdir(self.serializePath):
+            return None
+        
+        key = "%s-%s" % (self.record.uid, self.title.replace(" ", "_"))
+        path = os.path.join(self.serializePath, key)
+        if not os.path.exists(path):
+            os.mkdir(path)
+        elif not os.path.isdir(path):
+            return None
+        
+        return path
+        
     def serialize(self):
         """
         Write current state to disk.
         """
         
-        if self.serializePath is None or not os.path.isdir(self.serializePath):
+        path = self.serializeLocation()
+        if path is None:
             return
-        
-        key = "%s-%s.json" % (self.record.uid, self._client_type.replace(" ", "_"))
-        path = os.path.join(self.serializePath, key)
 
         # Create dict for all the data we need to store
         data = {
@@ -1217,7 +1279,7 @@ class BaseAppleClient(BaseClient):
         }
 
         # Write JSON data
-        json.dump(data, open(path, "w"), indent=2)
+        json.dump(data, open(os.path.join(path, "index.json"), "w"), indent=2)
         
 
     def deserialize(self):
@@ -1225,17 +1287,16 @@ class BaseAppleClient(BaseClient):
         Read state from disk.
         """
         
-        if self.serializePath is None or not os.path.isdir(self.serializePath):
-            return
-        
         self._calendars = {}
         self._events = {}
 
+        path = self.serializeLocation()
+        if path is None:
+            return
+        
         # Parse JSON data for calendars
-        key = "%s-%s.json" % (self.record.uid, self._client_type.replace(" ", "_"))
-        path = os.path.join(self.serializePath, key)
         try:
-            data = json.load(open(path))
+            data = json.load(open(os.path.join(path, "index.json")))
         except IOError:
             return
 
@@ -1243,7 +1304,7 @@ class BaseAppleClient(BaseClient):
 
         # Extract all the events first, then do the calendars (which reference the events)
         for event in data["events"]:
-            event = Event.deserialize(event)
+            event = Event.deserialize(self.serializeLocation(), event)
             self._events[event.url] = event
         for calendar in data["calendars"]:
             calendar = Calendar.deserialize(calendar, self._events)
@@ -1278,21 +1339,21 @@ class BaseAppleClient(BaseClient):
     def addEventAttendee(self, href, attendee):
 
         event = self._events[href]
-        vevent = event.vevent
+        component = event.component
 
         # Trigger auto-complete behavior
-        yield self._attendeeAutoComplete(vevent, attendee)
+        yield self._attendeeAutoComplete(component, attendee)
 
         # If the event has no attendees, add ourselves as an attendee.
-        attendees = list(vevent.mainComponent().properties('ATTENDEE'))
+        attendees = list(component.mainComponent().properties('ATTENDEE'))
         if len(attendees) == 0:
             # First add ourselves as a participant and as the
             # organizer.  In the future for this event we should
             # already have those roles.
-            vevent.mainComponent().addProperty(self._makeSelfOrganizer())
-            vevent.mainComponent().addProperty(self._makeSelfAttendee())
+            component.mainComponent().addProperty(self._makeSelfOrganizer())
+            component.mainComponent().addProperty(self._makeSelfAttendee())
         attendees.append(attendee)
-        vevent.mainComponent().addProperty(attendee)
+        component.mainComponent().addProperty(attendee)
 
         label_suffix = "small"
         if len(attendees) > 5:
@@ -1310,7 +1371,7 @@ class BaseAppleClient(BaseClient):
             Headers({
                     'content-type': ['text/calendar'],
                     'if-match': [event.etag]}),
-            StringProducer(vevent.getTextWithTimezones(includeTimezones=True)),
+            StringProducer(component.getTextWithTimezones(includeTimezones=True)),
             method_label="PUT{organizer-%s}" % (label_suffix,)
         )
 
@@ -1319,7 +1380,7 @@ class BaseAppleClient(BaseClient):
 
 
     @inlineCallbacks
-    def _attendeeAutoComplete(self, vevent, attendee):
+    def _attendeeAutoComplete(self, component, attendee):
 
         if self._ATTENDEE_LOOKUPS:
             # Temporarily use some non-test names (some which will return
@@ -1352,21 +1413,21 @@ class BaseAppleClient(BaseClient):
     
             # Now learn about the attendee's availability
             yield self.requestAvailability(
-                vevent.mainComponent().getStartDateUTC(),
-                vevent.mainComponent().getEndDateUTC(),
+                component.mainComponent().getStartDateUTC(),
+                component.mainComponent().getEndDateUTC(),
                 [self.email, u'mailto:' + email],
-                [vevent.resourceUID()]
+                [component.resourceUID()]
             )
 
 
     @inlineCallbacks
     def changeEventAttendee(self, href, oldAttendee, newAttendee):
         event = self._events[href]
-        vevent = event.vevent
+        component = event.component
 
         # Change the event to have the new attendee instead of the old attendee
-        vevent.mainComponent().removeProperty(oldAttendee)
-        vevent.mainComponent().addProperty(newAttendee)
+        component.mainComponent().removeProperty(oldAttendee)
+        component.mainComponent().addProperty(newAttendee)
         okCodes = NO_CONTENT
         headers = Headers({
                 'content-type': ['text/calendar'],
@@ -1375,7 +1436,7 @@ class BaseAppleClient(BaseClient):
             headers.addRawHeader('if-schedule-tag-match', event.scheduleTag)
             okCodes = (NO_CONTENT, PRECONDITION_FAILED,)
 
-        attendees = list(vevent.mainComponent().properties('ATTENDEE'))
+        attendees = list(component.mainComponent().properties('ATTENDEE'))
         label_suffix = "small"
         if len(attendees) > 5:
             label_suffix = "medium"
@@ -1388,9 +1449,11 @@ class BaseAppleClient(BaseClient):
             okCodes,
             'PUT',
             self.root + href.encode('utf-8'),
-            headers, StringProducer(vevent.getTextWithTimezones(includeTimezones=True)),
+            headers, StringProducer(component.getTextWithTimezones(includeTimezones=True)),
             method_label="PUT{attendee-%s}" % (label_suffix,),
         )
+
+        # Finally, re-retrieve the event to update the etag
         self._updateEvent(response, href)
 
 
@@ -1413,12 +1476,12 @@ class BaseAppleClient(BaseClient):
 
 
     @inlineCallbacks
-    def addEvent(self, href, vcalendar, invite=False):
+    def addEvent(self, href, component, invite=False):
         headers = Headers({
                 'content-type': ['text/calendar'],
                 })
 
-        attendees = list(vcalendar.mainComponent().properties('ATTENDEE'))
+        attendees = list(component.mainComponent().properties('ATTENDEE'))
         label_suffix = "small"
         if len(attendees) > 5:
             label_suffix = "medium"
@@ -1432,36 +1495,36 @@ class BaseAppleClient(BaseClient):
             'PUT',
             self.root + href.encode('utf-8'),
             headers,
-            StringProducer(vcalendar.getTextWithTimezones(includeTimezones=True)),
+            StringProducer(component.getTextWithTimezones(includeTimezones=True)),
             method_label="PUT{organizer-%s}" % (label_suffix,) if invite else "PUT{event}",
         )
-        self._localUpdateEvent(response, href, vcalendar)
+        self._localUpdateEvent(response, href, component)
 
 
     @inlineCallbacks
-    def addInvite(self, href, vevent):
+    def addInvite(self, href, component):
         """
         Add an event that is an invite - i.e., has attendees. We will do attendee lookups and freebusy
         checks on each attendee to simulate what happens when an organizer creates a new invite.
         """
         
         # Do lookup and free busy of each attendee (not self)
-        attendees = list(vevent.mainComponent().properties('ATTENDEE'))
+        attendees = list(component.mainComponent().properties('ATTENDEE'))
         for attendee in attendees:
             if attendee.value() in (self.uuid, self.email):
                 continue
-            yield self._attendeeAutoComplete(vevent, attendee)
+            yield self._attendeeAutoComplete(component, attendee)
         
         # Now do a normal PUT
-        yield self.addEvent(href, vevent, invite=True)
+        yield self.addEvent(href, component, invite=True)
 
 
-    def _localUpdateEvent(self, response, href, vcalendar):
+    def _localUpdateEvent(self, response, href, component):
         headers = response.headers
         etag = headers.getRawHeaders("etag", [None])[0]
         scheduleTag = headers.getRawHeaders("schedule-tag", [None])[0]
 
-        event = Event(href, etag, vcalendar)
+        event = Event(self.serializeLocation(), href, etag, component)
         event.scheduleTag = scheduleTag
         self._setEvent(href, event)
 

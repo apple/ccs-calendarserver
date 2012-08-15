@@ -95,7 +95,7 @@ class ProfileBase(object):
             type="operation",
             phase="start",
             user=self._client.record.uid,
-            client_type=self._client._client_type,
+            client_type=self._client.title,
             client_id=self._client._client_id,
             label=label,
             lag=lag,
@@ -112,7 +112,7 @@ class ProfileBase(object):
                 phase="end",
                 duration=after - before,
                 user=self._client.record.uid,
-                client_type=self._client._client_type,
+                client_type=self._client.title,
                 client_id=self._client._client_id,
                 label=label,
                 success=success,
@@ -236,12 +236,12 @@ class Inviter(ProfileBase):
             while events:
                 uuid = self.random.choice(events)
                 events.remove(uuid)
-                event = calendar.events[uuid].vevent
+                event = calendar.events[uuid].component
                 if event is None:
                     continue
 
-                vevent = event.mainComponent()
-                organizer = vevent.getOrganizerProperty()
+                component = event.mainComponent()
+                organizer = component.getOrganizerProperty()
                 if organizer is not None and not self._isSelfAttendee(organizer):
                     # This event was organized by someone else, don't try to invite someone to it.
                     continue
@@ -249,7 +249,7 @@ class Inviter(ProfileBase):
                 href = calendar.url + uuid
 
                 # Find out who might attend
-                attendees = tuple(vevent.properties('ATTENDEE'))
+                attendees = tuple(component.properties('ATTENDEE'))
 
                 d = self._addAttendee(event, attendees)
                 d.addCallbacks(
@@ -448,10 +448,10 @@ class Accepter(ProfileBase):
         if href in self._accepting:
             return
 
-        vevent = self._client._events[href].vevent
+        component = self._client._events[href].component
         # Check to see if this user is in the attendee list in the
         # NEEDS-ACTION PARTSTAT.
-        attendees = tuple(vevent.mainComponent().properties('ATTENDEE'))
+        attendees = tuple(component.mainComponent().properties('ATTENDEE'))
         for attendee in attendees:
             if self._isSelfAttendee(attendee):
                 if attendee.parameterValue('PARTSTAT') == 'NEEDS-ACTION':
@@ -465,8 +465,8 @@ class Accepter(ProfileBase):
         if href in self._accepting:
             return
 
-        vevent = self._client._events[href].vevent
-        method = vevent.propertyValue('METHOD')
+        component = self._client._events[href].component
+        method = component.propertyValue('METHOD')
         if method == "REPLY":
             # Replies are immediately deleted
             self._accepting.add(href)

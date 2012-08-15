@@ -136,6 +136,10 @@
 				<!-- Arguments to use to initialize the OS_X_10_7 instance. -->
 				<key>params</key>
 				<dict>
+					<!-- Name that appears in logs. -->
+					<key>title</key>
+					<string>10.7</string>
+
 					<!-- OS_X_10_7 can poll the calendar home at some interval. This is 
 						in seconds. -->
 					<key>calendarHomePollInterval</key>

@@ -412,7 +412,7 @@ class EventTests(TestCase):
         When the C{vevent} attribute of an L{Event} instance is set,
         L{Event.getUID} returns the UID value from it.
         """
-        event = Event(u'/foo/bar', u'etag', Component.fromString(EVENT))
+        event = Event(None, u'/foo/bar', u'etag', Component.fromString(EVENT))
         self.assertEquals(event.getUID(), EVENT_UID)
 
 
@@ -421,7 +421,7 @@ class EventTests(TestCase):
         When an L{Event} has a C{vevent} attribute set to C{None},
         L{Event.getUID} returns C{None}.
         """
-        event = Event(u'/bar/baz', u'etag')
+        event = Event(None, u'/bar/baz', u'etag')
         self.assertIdentical(event.getUID(), None)
 
 
@@ -1158,11 +1158,13 @@ class OS_X_10_6Mixin:
         TimezoneCache.create()
         self.record = _DirectoryRecord(
             u"user91", u"user91", u"User 91", u"user91@example.org")
+        serializePath = self.mktemp()
+        os.mkdir(serializePath)
         self.client = OS_X_10_6(
             None,
             "http://127.0.0.1",
             "/principals/users/%s/",
-            None,
+            serializePath,
             self.record,
             None,
         )
@@ -1282,7 +1284,7 @@ class OS_X_10_6Tests(OS_X_10_6Mixin, TestCase):
         old = attendees[0]
         new = old.duplicate()
         new.setParameter('CN', 'Some Other Guy')
-        event = Event(u'/some/calendar/1234.ics', None, vevent)
+        event = Event(None, u'/some/calendar/1234.ics', None, vevent)
         self.client._events[event.url] = event
         self.client.changeEventAttendee(event.url, old, new)
 
@@ -1445,7 +1447,7 @@ class OS_X_10_6Tests(OS_X_10_6Mixin, TestCase):
         requests = self.interceptRequests()
 
         calendar = Calendar(caldavxml.calendar, set(('VEVENT',)), u'calendar', u'/foo/', None)
-        event = Event(calendar.url + u'bar.ics', None)
+        event = Event(None, calendar.url + u'bar.ics', None)
         self.client._calendars[calendar.url] = calendar
         self.client._setEvent(event.url, event)
 
@@ -1474,9 +1476,43 @@ class OS_X_10_6Tests(OS_X_10_6Mixin, TestCase):
         """
         L{OS_X_10_6.serialize} properly generates a JSON document.
         """
+        clientPath = os.path.join(self.client.serializePath, "user91-OS_X_10.6")
+        self.assertFalse(os.path.exists(clientPath))
+        indexPath = os.path.join(clientPath, "index.json")
+        self.assertFalse(os.path.exists(indexPath))
+
+        cal1 = """BEGIN:VCALENDAR
+VERSION:2.0
+CALSCALE:GREGORIAN
+PRODID:-//Apple Inc.//iCal 4.0.3//EN
+BEGIN:VEVENT
+UID:004f8e41-b071-4b30-bb3b-6aada4adcc10
+DTSTART:20120817T113000
+DTEND:20120817T114500
+DTSTAMP:20120815T154420Z
+SEQUENCE:2
+SUMMARY:Simple event
+END:VEVENT
+END:VCALENDAR
+""".replace("\n", "\r\n")
+        cal2 = """BEGIN:VCALENDAR
+VERSION:2.0
+CALSCALE:GREGORIAN
+METHOD:REQUEST
+PRODID:-//Apple Inc.//iCal 4.0.3//EN
+BEGIN:VEVENT
+UID:00a79cad-857b-418e-a54a-340b5686d747
+DTSTART:20120817T113000
+DTEND:20120817T114500
+DTSTAMP:20120815T154420Z
+SEQUENCE:2
+SUMMARY:Simple event
+END:VEVENT
+END:VCALENDAR
+""".replace("\n", "\r\n")
         events = (
-            Event(u'/home/calendar/1.ics', u'123.123', "BEGIN:VALENDAR\r\nEND:VCALENDAR\r\n"),
-            Event(u'/home/inbox/i1.ics', u'123.123', "BEGIN:VALENDAR\r\nMETHOD:REQUEST\r\nEND:VCALENDAR\r\n"),
+            Event(self.client.serializeLocation(), u'/home/calendar/1.ics', u'123.123', Component.fromString(cal1)),
+            Event(self.client.serializeLocation(), u'/home/inbox/i1.ics', u'123.123', Component.fromString(cal2)),
         )
         self.client._events.update(dict([[event.url, event] for event in events]))
 
@@ -1488,16 +1524,11 @@ class OS_X_10_6Tests(OS_X_10_6Mixin, TestCase):
         self.client._calendars.update(dict([[calendar.url, calendar] for calendar in calendars]))
         self.client._calendars["/home/calendar/"].events["1.ics"] = events[0]
         self.client._calendars["/home/inbox/"].events["i1.ics"] = events[1]
-    
-        tmp = self.mktemp()
-        os.mkdir(tmp)
-        self.client.serializePath = tmp
-        tmpPath = os.path.join(tmp, "user91-OS_X_10.6.json")
-        self.assertFalse(os.path.exists(tmpPath))
 
         self.client.serialize()
-        self.assertTrue(os.path.exists(tmpPath))
-        self.assertEqual(open(tmpPath).read(), """{
+        self.assertTrue(os.path.exists(clientPath))
+        self.assertTrue(os.path.exists(indexPath))
+        self.assertEqual(open(indexPath).read(), """{
   "calendars": [
     {
       "changeToken": "123", 
@@ -1541,16 +1572,24 @@ class OS_X_10_6Tests(OS_X_10_6Mixin, TestCase):
       "url": "/home/calendar/1.ics", 
       "scheduleTag": null, 
       "etag": "123.123", 
-      "icalendar": "BEGIN:VALENDAR\\r\\nEND:VCALENDAR\\r\\n"
+      "uid": "004f8e41-b071-4b30-bb3b-6aada4adcc10"
     }, 
     {
       "url": "/home/inbox/i1.ics", 
       "scheduleTag": null, 
       "etag": "123.123", 
-      "icalendar": "BEGIN:VALENDAR\\r\\nMETHOD:REQUEST\\r\\nEND:VCALENDAR\\r\\n"
+      "uid": "00a79cad-857b-418e-a54a-340b5686d747"
     }
   ]
 }""")
+
+        event1Path = os.path.join(clientPath, "calendar", "1.ics")
+        self.assertTrue(os.path.exists(event1Path))
+        self.assertEqual(open(event1Path).read(), cal1)
+
+        event2Path = os.path.join(clientPath, "inbox", "i1.ics")
+        self.assertTrue(os.path.exists(event2Path))
+        self.assertEqual(open(event2Path).read(), cal2)
 
 
     def test_deserialization(self):
@@ -1558,11 +1597,40 @@ class OS_X_10_6Tests(OS_X_10_6Mixin, TestCase):
         L{OS_X_10_6.deserailize} properly parses a JSON document.
         """
 
-        tmp = self.mktemp()
-        os.mkdir(tmp)
-        self.client.serializePath = tmp
-        tmpPath = os.path.join(tmp, "user91-OS_X_10.6.json")
-        open(tmpPath, "w").write("""{
+        cal1 = """BEGIN:VCALENDAR
+VERSION:2.0
+CALSCALE:GREGORIAN
+PRODID:-//Apple Inc.//iCal 4.0.3//EN
+BEGIN:VEVENT
+UID:004f8e41-b071-4b30-bb3b-6aada4adcc10
+DTSTART:20120817T113000
+DTEND:20120817T114500
+DTSTAMP:20120815T154420Z
+SEQUENCE:2
+SUMMARY:Simple event
+END:VEVENT
+END:VCALENDAR
+""".replace("\n", "\r\n")
+        cal2 = """BEGIN:VCALENDAR
+VERSION:2.0
+CALSCALE:GREGORIAN
+METHOD:REQUEST
+PRODID:-//Apple Inc.//iCal 4.0.3//EN
+BEGIN:VEVENT
+UID:00a79cad-857b-418e-a54a-340b5686d747
+DTSTART:20120817T113000
+DTEND:20120817T114500
+DTSTAMP:20120815T154420Z
+SEQUENCE:2
+SUMMARY:Simple event
+END:VEVENT
+END:VCALENDAR
+""".replace("\n", "\r\n")
+
+        clientPath = os.path.join(self.client.serializePath, "user91-OS_X_10.6")
+        os.mkdir(clientPath)
+        indexPath = os.path.join(clientPath, "index.json")
+        open(indexPath, "w").write("""{
   "calendars": [
     {
       "changeToken": "321", 
@@ -1606,16 +1674,23 @@ class OS_X_10_6Tests(OS_X_10_6Mixin, TestCase):
       "url": "/home/calendar/2.ics", 
       "scheduleTag": null, 
       "etag": "321.321", 
-      "icalendar": "BEGIN:VCALENDAR\\r\\nVERSION:2.0\\r\\nPRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN\\r\\nBEGIN:VEVENT\\r\\nUID:put-1@example.com\\r\\nDTSTART:20110427\\r\\nDURATION:P1DT\\r\\nDTSTAMP:20051222T205953Z\\r\\nSUMMARY:event 1\\r\\nEND:VEVENT\\r\\nEND:VCALENDAR\\r\\n"
+      "uid": "004f8e41-b071-4b30-bb3b-6aada4adcc10"
     }, 
     {
       "url": "/home/inbox/i2.ics", 
       "scheduleTag": null, 
       "etag": "987.987", 
-      "icalendar": "BEGIN:VCALENDAR\\r\\nVERSION:2.0\\r\\nMETHOD:REQUEST\\r\\nPRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN\\r\\nBEGIN:VEVENT\\r\\nUID:put-1@example.com\\r\\nDTSTART:20110427\\r\\nDURATION:P1DT\\r\\nDTSTAMP:20051222T205953Z\\r\\nSUMMARY:event 1\\r\\nEND:VEVENT\\r\\nEND:VCALENDAR\\r\\n"
+      "uid": "00a79cad-857b-418e-a54a-340b5686d747"
     }
   ]
 }""")
+
+        os.mkdir(os.path.join(clientPath, "calendar"))
+        event1Path = os.path.join(clientPath, "calendar", "2.ics")
+        open(event1Path, "w").write(cal1)
+        os.mkdir(os.path.join(clientPath, "inbox"))
+        event1Path = os.path.join(clientPath, "inbox", "i2.ics")
+        open(event1Path, "w").write(cal2)
 
         self.client.deserialize()
 
@@ -1632,8 +1707,13 @@ class OS_X_10_6Tests(OS_X_10_6Mixin, TestCase):
         self.assertTrue("/home/calendar/2.ics" in self.client._events)
         self.assertEqual(self.client._events["/home/calendar/2.ics"].scheduleTag, None)
         self.assertEqual(self.client._events["/home/calendar/2.ics"].etag, "321.321")
-        self.assertEqual(self.client._events["/home/calendar/2.ics"].getUID(), "put-1@example.com")
+        self.assertEqual(self.client._events["/home/calendar/2.ics"].getUID(), "004f8e41-b071-4b30-bb3b-6aada4adcc10")
+        self.assertEqual(str(self.client._events["/home/calendar/2.ics"].component), cal1)
         self.assertTrue("/home/inbox/i2.ics" in self.client._events)
+        self.assertEqual(self.client._events["/home/inbox/i2.ics"].scheduleTag, None)
+        self.assertEqual(self.client._events["/home/inbox/i2.ics"].etag, "987.987")
+        self.assertEqual(self.client._events["/home/inbox/i2.ics"].getUID(), "00a79cad-857b-418e-a54a-340b5686d747")
+        self.assertEqual(str(self.client._events["/home/inbox/i2.ics"].component), cal2)
 
 
 class UpdateCalendarTests(OS_X_10_6Mixin, TestCase):
