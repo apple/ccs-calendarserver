@@ -319,6 +319,12 @@ class _CommonHomeChildCollectionMixin(ResponseCacheMixin):
         children.update((yield self._newStoreObject.listObjectResources()))
         returnValue(sorted(children))
 
+    def countChildren(self):
+        """
+        @return: L{Deferred} with the count of all known children of this resource.
+        """
+        return self._newStoreObject.countObjectResources()
+
     def name(self):
         return self._name
 

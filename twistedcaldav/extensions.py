@@ -650,6 +650,13 @@ class DAVResourceWithChildrenMixin (object):
         return self.putChildren.keys()
 
 
+    def countChildren(self):
+        """
+        @return: the number of all known children of this resource.
+        """
+        return len(self.putChildren.keys())
+
+
     def locateChild(self, req, segments):
         """
         See L{IResource.locateChild}.

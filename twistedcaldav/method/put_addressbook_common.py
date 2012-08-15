@@ -288,7 +288,7 @@ class StoreAddressObjectResource(object):
         message = ""
         if not self.destination.exists() and \
             config.MaxResourcesPerCollection and \
-            len((yield self.destinationparent.listChildren())) >= config.MaxResourcesPerCollection:
+            (yield self.destinationparent.countChildren()) >= config.MaxResourcesPerCollection:
                 result = False
                 message = "Too many resources in collection %s" % (self.destinationparent,)
 

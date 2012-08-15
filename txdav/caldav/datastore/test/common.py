@@ -232,7 +232,7 @@ class CommonTests(CommonCommonTests):
     )
 
     @classproperty(cache=False)
-    def requirements(cls):
+    def requirements(cls): #@NoSelf
         metadata1 = cls.metadata1.copy()
         metadata2 = cls.metadata2.copy()
         metadata3 = cls.metadata3.copy()

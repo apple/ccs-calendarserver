@@ -70,7 +70,7 @@ from twext.enterprise.dal.parseschema import significant
 
 from twext.enterprise.dal.syntax import \
     Delete, utcNowSQL, Union, Insert, Len, Max, Parameter, SavepointAction, \
-    Select, Update, ColumnSyntax, TableSyntax, Upper
+    Select, Update, ColumnSyntax, TableSyntax, Upper, Count, ALL_COLUMNS
 
 from twistedcaldav.config import config
 
@@ -2253,7 +2253,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
 
 
     @classproperty
-    def _bindEntriesFor(cls):
+    def _bindEntriesFor(cls): #@NoSelf
         bind = cls._bindSchema
         return Select([bind.BIND_MODE, bind.HOME_RESOURCE_ID,
                        bind.RESOURCE_NAME],
@@ -2489,7 +2489,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
 
 
     @classproperty
-    def _bindInsertQuery(cls, **kw):
+    def _bindInsertQuery(cls, **kw): #@NoSelf
         """
         DAL statement to create a bind entry that connects a collection to its
         owner's home.
@@ -2790,6 +2790,25 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
                 self._txn, resourceID=self._resourceID)
             self._objectNames = sorted([row[0] for row in rows])
         returnValue(self._objectNames)
+
+
+    @classproperty
+    def _objectCountQuery(cls): #@NoSelf
+        """
+        DAL query to count all object resources for a home child.
+        """
+        obj = cls._objectSchema
+        return Select([Count(ALL_COLUMNS)], From=obj,
+                      Where=obj.PARENT_RESOURCE_ID == Parameter('resourceID'))
+
+
+    @inlineCallbacks
+    def countObjectResources(self):
+        if self._objectNames is None:
+            rows = yield self._objectCountQuery.on(
+                self._txn, resourceID=self._resourceID)
+            returnValue(rows[0][0])
+        returnValue(len(self._objectNames))
 
 
     def objectResourceWithName(self, name):
