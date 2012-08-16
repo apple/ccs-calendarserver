@@ -389,6 +389,10 @@ class _ColumnParser(object):
                     self.table.checkConstraint(self.readExpression(self.next()))
                 elif val.match(Keyword, 'DEFAULT'):
                     theDefault = self.next()
+                    if isinstance(theDefault, Parenthesis):
+                        iDefault = iterSignificant(theDefault)
+                        expect(iDefault, ttype=Punctuation, value="(")
+                        theDefault = iDefault.next()
                     if isinstance(theDefault, Function):
                         thingo = theDefault.tokens[0].get_name()
                         parens = expectSingle(

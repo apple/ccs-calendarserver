@@ -129,6 +129,25 @@ class ParsingExampleTests(TestCase, SchemaTestHelper):
                           False)
 
 
+    def test_sequenceDefaultWithParens(self):
+        """
+        SQLite requires 'default' expression to be in parentheses, and that
+        should be equivalent on other databases; we should be able to parse
+        that too.
+        """
+        s = self.schemaFromString(
+            """
+            create sequence alpha;
+            create table foo (
+                bar integer default (nextval('alpha')) not null,
+                qux integer not null
+            );
+            """
+        )
+        self.assertEquals(s.tableNamed("foo").columnNamed("bar").needsValue(),
+                          False)
+
+
     def test_defaultConstantColumns(self):
         """
         Parsing a 'default' column with an appropriate type in it will return
