@@ -18,8 +18,6 @@
 Test cases for L{twext.enterprise.dal.record}.
 """
 
-import sqlite3
-
 from twisted.internet.defer import inlineCallbacks
 
 from twisted.trial.unittest import TestCase
@@ -27,12 +25,10 @@ from twisted.trial.unittest import TestCase
 from twext.enterprise.dal.record import (
     Record, fromTable, ReadOnly, NoSuchRecord
 )
-from twext.enterprise.dal.syntax import SQLITE_DIALECT
-
 from twext.enterprise.dal.test.test_parseschema import SchemaTestHelper
-from twext.enterprise.adbapi2 import ConnectionPool
 from twext.enterprise.dal.syntax import SchemaSyntax
 from twisted.internet.defer import gatherResults
+from twext.enterprise.fixtures import buildConnectionPool
 
 # from twext.enterprise.dal.syntax import
 
@@ -75,22 +71,7 @@ class TestCRUD(TestCase):
     """
 
     def setUp(self):
-        sqlitename = self.mktemp()
-        seqs = {}
-        def connectionFactory(label=self.id()):
-            conn = sqlite3.connect(sqlitename)
-            def nextval(seq):
-                result = seqs[seq] = seqs.get(seq, 0) + 1
-                return result
-            conn.create_function("nextval", 1, nextval)
-            return conn
-        con = connectionFactory()
-        con.executescript(schemaString)
-        con.commit()
-        self.pool = ConnectionPool(connectionFactory, paramstyle='numeric',
-                                   dialect=SQLITE_DIALECT)
-        self.pool.startService()
-        self.addCleanup(self.pool.stopService)
+        self.pool = buildConnectionPool(self, schemaString)
 
 
     @inlineCallbacks
