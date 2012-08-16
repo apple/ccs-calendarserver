@@ -925,6 +925,7 @@ class ConnectionPool(Service, object):
         L{IReactorThreads} users, the connection work units are very long-lived
         and block until this service has been stopped.
         """
+        super(ConnectionPool, self).startService()
         tp = self.reactor.getThreadPool()
         self.reactor.suggestThreadPoolSize(tp.max + self.maxConnections)
 

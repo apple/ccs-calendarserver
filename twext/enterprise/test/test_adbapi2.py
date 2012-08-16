@@ -489,6 +489,18 @@ class ConnectionPoolBootTests(TestCase):
         self.assertEquals(threadpool.max, defaultMax)
 
 
+    def test_isRunning(self):
+        """
+        L{ConnectionPool.startService} should set its C{running} attribute to
+        true.
+        """
+        pool = ConnectionPool(None)
+        pool.reactor = ClockWithThreads()
+        self.assertEquals(pool.running, False)
+        pool.startService()
+        self.assertEquals(pool.running, True)
+
+
 
 class ConnectionPoolHelper(object):
     """
