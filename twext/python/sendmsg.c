@@ -113,7 +113,7 @@ static PyObject *sendmsg_sendmsg(PyObject *self, PyObject *args, PyObject *keywd
 
     int fd;
     int flags = 0;
-    Py_ssize_t sendmsg_result;
+    Py_ssize_t sendmsg_result, iovec_length;
     struct msghdr message_header;
     struct iovec iov[1];
     PyObject *ancillary = NULL;
@@ -123,11 +123,13 @@ static PyObject *sendmsg_sendmsg(PyObject *self, PyObject *args, PyObject *keywd
             args, keywds, "it#|iO:sendmsg", kwlist,
             &fd,
             &iov[0].iov_base,
-            &iov[0].iov_len,
+            &iovec_length,
             &flags,
             &ancillary)) {
         return NULL;
     }
+
+    iov[0].iov_len = iovec_length;
 
     message_header.msg_name = NULL;
     message_header.msg_namelen = 0;
