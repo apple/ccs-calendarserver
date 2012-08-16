@@ -28,6 +28,7 @@ from itertools import izip
 from datetime import datetime
 from urllib2 import HTTPBasicAuthHandler
 from urllib2 import HTTPDigestAuthHandler
+import collections
 import json
 import os
 
@@ -285,6 +286,11 @@ class CalendarClientSimulator(object):
                     where.path,))
 
 
+    def _simFailure(self, reason, reactor):
+        if not self._stopped:
+            msg(type="sim-failure", reason=reason)
+
+
 
 class SmoothRampUp(object):
     def __init__(self, reactor, groups, groupSize, interval, clientsPerUser):
@@ -308,6 +314,8 @@ class StatisticsBase(object):
             self.eventReceived(event)
         elif event.get('type') == 'client-failure':
             self.clientFailure(event)
+        elif event.get('type') == 'sim-failure':
+            self.simFailure(event)
 
 
     def report(self, output):
@@ -322,7 +330,8 @@ class StatisticsBase(object):
 class SimpleStatistics(StatisticsBase):
     def __init__(self):
         self._times = []
-
+        self._failures = collections.defaultdict(int)
+        self._simFailures = collections.defaultdict(int)
 
     def eventReceived(self, event):
         self._times.append(event['duration'])
@@ -335,7 +344,11 @@ class SimpleStatistics(StatisticsBase):
 
 
     def clientFailure(self, event):
-        pass
+        self._failures[event] += 1
+
+
+    def simFailure(self, event):
+        self._simFailures[event] += 1
 
 
 class ReportStatistics(StatisticsBase, SummarizingMixin):
@@ -376,6 +389,7 @@ class ReportStatistics(StatisticsBase, SummarizingMixin):
         self._users = set()
         self._clients = set()
         self._failed_clients = []
+        self._failed_sim = collections.defaultdict(int)
         self._startTime = datetime.now()
 
         # Load parameters from config 
@@ -411,6 +425,10 @@ class ReportStatistics(StatisticsBase, SummarizingMixin):
         return len(self._failed_clients)
 
 
+    def countSimFailures(self):
+        return len(self._failed_sim)
+
+
     def eventReceived(self, event):
         dataset = self._perMethodTimes.setdefault(event['method'], [])
         dataset.append((event['success'], event['duration']))
@@ -420,6 +438,10 @@ class ReportStatistics(StatisticsBase, SummarizingMixin):
 
     def clientFailure(self, event):
         self._failed_clients.append(event['reason'])
+
+
+    def simFailure(self, event):
+        self._failed_sim[event['reason']] += 1
 
 
     def printMiscellaneous(self, output, items):
@@ -453,6 +475,9 @@ class ReportStatistics(StatisticsBase, SummarizingMixin):
             items['Failed clients'] = self.countClientFailures()
             for ctr, reason in enumerate(self._failed_clients, 1):
                 items['Failure #%d' % (ctr,)] = reason
+        if self.countSimFailures() > 0:
+            for reason, count in self._failed_sim.items():
+                items['Failed operation'] = "%s : %d times" % (reason, count,)
         self.printMiscellaneous(output, items)
         output.write("\n")
         self.printHeader(output, [

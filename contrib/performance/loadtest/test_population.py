@@ -57,8 +57,8 @@ class ReportStatisticsTests(TestCase):
 
     def test_clientFailures(self):
         """
-        L{ReportStatistics.countClients} returns the number of clients observed to
-        have acted in the simulation.
+        L{ReportStatistics.countClientFailures} returns the number of clients observed to
+        have failed in the simulation.
         """
         logger = ReportStatistics()
         clients = ['c01', 'c02', 'c03']
@@ -66,6 +66,19 @@ class ReportStatisticsTests(TestCase):
             logger.observe(dict(
                     type='client-failure', reason="testing %s" % (client,)))
         self.assertEqual(len(clients), logger.countClientFailures())
+
+
+    def test_simFailures(self):
+        """
+        L{ReportStatistics.countSimFailures} returns the number of clients observed to
+        have caused an error in the simulation.
+        """
+        logger = ReportStatistics()
+        clients = ['c01', 'c02', 'c03']
+        for client in clients:
+            logger.observe(dict(
+                    type='sim-failure', reason="testing %s" % (client,)))
+        self.assertEqual(len(clients), logger.countSimFailures())
 
 
     def test_noFailures(self):

@@ -217,6 +217,7 @@ class StubClient(BaseClient):
     def __init__(self, number, serializePath):
         self.serializePath = serializePath
         os.mkdir(self.serializePath)
+        self.title = "StubClient"
         self._events = {}
         self._calendars = {}
         self._pendingFailures = {}
@@ -421,7 +422,7 @@ class InviterTests(TestCase):
         _ignore_vevent, event, _ignore_calendar, client = self._simpleAccount(
             userNumber, SIMPLE_EVENT)
         inviter = Inviter(Clock(), self.sim, client, userNumber)
-        inviter.setParameters(inviteeDistanceDistribution=Deterministic(1))
+        inviter.setParameters(inviteeDistribution=Deterministic(1))
         inviter._invite()
         attendees = tuple(event.component.mainComponent().properties('ATTENDEE'))
         self.assertEquals(len(attendees), 1)
@@ -450,7 +451,7 @@ class InviterTests(TestCase):
         values = [selfNumber - selfNumber, otherNumber - selfNumber]
 
         inviter = Inviter(Clock(), self.sim, client, selfNumber)
-        inviter.setParameters(inviteeDistanceDistribution=SequentialDistribution(values))
+        inviter.setParameters(inviteeDistribution=SequentialDistribution(values))
         inviter._invite()
         attendees = tuple(event.component.mainComponent().properties('ATTENDEE'))
         self.assertEquals(len(attendees), 1)
@@ -481,7 +482,7 @@ class InviterTests(TestCase):
         values = [inviteeNumber - selfNumber, anotherNumber - selfNumber]
 
         inviter = Inviter(Clock(), self.sim, client, selfNumber)
-        inviter.setParameters(inviteeDistanceDistribution=SequentialDistribution(values))
+        inviter.setParameters(inviteeDistribution=SequentialDistribution(values))
         inviter._invite()
         attendees = tuple(event.component.mainComponent().properties('ATTENDEE'))
         self.assertEquals(len(attendees), 3)
@@ -507,7 +508,7 @@ class InviterTests(TestCase):
             selfNumber, INVITED_EVENT)
         inviter = Inviter(Clock(), self.sim, client, selfNumber)
         # Always return a user number which has already been invited.
-        inviter.setParameters(inviteeDistanceDistribution=Deterministic(2 - selfNumber))
+        inviter.setParameters(inviteeDistribution=Deterministic(2 - selfNumber))
         inviter._invite()
         attendees = tuple(vevent.mainComponent().properties('ATTENDEE'))
         self.assertEquals(len(attendees), 2)
@@ -609,7 +610,7 @@ class RealisticInviterTests(TestCase):
         client._calendars.update({calendar.url: calendar})
         inviter = RealisticInviter(Clock(), self.sim, client, userNumber)
         inviter.setParameters(
-            inviteeDistanceDistribution=Deterministic(1),
+            inviteeDistribution=Deterministic(1),
             inviteeCountDistribution=Deterministic(1)
         )
         inviter._invite()
@@ -638,7 +639,7 @@ class RealisticInviterTests(TestCase):
 
         inviter = RealisticInviter(Clock(), self.sim, client, selfNumber)
         inviter.setParameters(
-            inviteeDistanceDistribution=SequentialDistribution(values),
+            inviteeDistribution=SequentialDistribution(values),
             inviteeCountDistribution=Deterministic(1)
         )
         inviter._invite()
@@ -668,7 +669,7 @@ class RealisticInviterTests(TestCase):
 
         inviter = RealisticInviter(Clock(), self.sim, client, selfNumber)
         inviter.setParameters(
-            inviteeDistanceDistribution=SequentialDistribution(values),
+            inviteeDistribution=SequentialDistribution(values),
             inviteeCountDistribution=Deterministic(2)
         )
         inviter._invite()
@@ -697,7 +698,7 @@ class RealisticInviterTests(TestCase):
         client._calendars.update({calendar.url: calendar})
         inviter = RealisticInviter(Clock(), self.sim, client, userNumber)
         inviter.setParameters(
-            inviteeDistanceDistribution=Deterministic(1),
+            inviteeDistribution=Deterministic(1),
             inviteeCountDistribution=Deterministic(2)
         )
         inviter._invite()

@@ -333,11 +333,18 @@
 								</dict>
 							</dict>
 
-							<!-- Define the distribution of who will be invited to an event. Each
-								set of credentials loaded by the load tester has an index; samples from this
-								distribution will be added to that index to arrive at the index of some other
-								credentials, which will be the target of the invitation. -->
-							<key>inviteeDistanceDistribution</key>
+							<!-- Define the distribution of who will be invited to an event.
+							
+								When inviteeClumping is turned on each invitee is based on a sample of
+								users "close to" the organizer based on account index. If the clumping
+								is too "tight" for the requested number of attendees, then invites for
+								those larger numbers will simply fail (the sim will report that situation).
+								
+								When inviteeClumping is off invitees will be sampled across an entire
+								range of account indexes. In this case the distribution ought to be a
+								UniformIntegerDistribution with min=0 and max set to the number of accounts.
+							-->
+							<key>inviteeDistribution</key>
 							<dict>
 								<key>type</key>
 								<string>contrib.performance.stats.UniformIntegerDistribution</string>
@@ -351,6 +358,9 @@
 									<integer>101</integer>
 								</dict>
 							</dict>
+
+							<key>inviteeClumping</key>
+							<true/>
 
 							<!-- Define the distribution of how many attendees will be invited to an event.
 							
