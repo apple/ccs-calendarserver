@@ -632,6 +632,7 @@ class ConnectionPoolTests(ConnectionPoolHelper, TestCase, AssertResultHelper):
         self.assertEquals(holder.started, True)
         self.assertEquals(holder.stopped, False)
         self.pool.stopService()
+        self.assertEquals(self.pool.running, False)
         self.assertEquals(len(self.holders), 1)
         self.assertEquals(holder.started, True)
         self.assertEquals(holder.stopped, True)

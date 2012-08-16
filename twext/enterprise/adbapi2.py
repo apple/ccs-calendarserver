@@ -936,6 +936,7 @@ class ConnectionPool(Service, object):
         Forcibly abort any outstanding transactions, and release all resources
         (notably, threads).
         """
+        super(ConnectionPool, self).stopService()
         self._stopping = True
 
         # Phase 1: Cancel any transactions that are waiting so they won't try to
