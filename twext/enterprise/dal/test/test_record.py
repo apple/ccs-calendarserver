@@ -41,14 +41,30 @@ sth = SchemaTestHelper()
 sth.id = lambda : __name__
 schemaString = """
 create table ALPHA (BETA integer primary key, GAMMA text);
+create table DELTA (PHI integer primary key default (nextval('myseq')),
+                    EPSILON text not null);
 """
-testSchema = SchemaSyntax(sth.schemaFromString(schemaString))
+
+# sqlite can be made to support nextval() as a function, but 'create sequence'
+# is syntax and can't.
+parseableSchemaString = """
+create sequence myseq;
+""" + schemaString
+
+testSchema = SchemaSyntax(sth.schemaFromString(parseableSchemaString))
 
 
 
 class TestRecord(Record, fromTable(testSchema.ALPHA)):
     """
     A sample test record.
+    """
+
+
+
+class TestAutoRecord(Record, fromTable(testSchema.DELTA)):
+    """
+    A sample test record with default values specified.
     """
 
 
@@ -60,10 +76,16 @@ class TestCRUD(TestCase):
 
     def setUp(self):
         sqlitename = self.mktemp()
+        seqs = {}
         def connectionFactory(label=self.id()):
-            return sqlite3.connect(sqlitename)
+            conn = sqlite3.connect(sqlitename)
+            def nextval(seq):
+                result = seqs[seq] = seqs.get(seq, 0) + 1
+                return result
+            conn.create_function("nextval", 1, nextval)
+            return conn
         con = connectionFactory()
-        con.execute(schemaString)
+        con.executescript(schemaString)
         con.commit()
         self.pool = ConnectionPool(connectionFactory, paramstyle='numeric',
                                    dialect=SQLITE_DIALECT)
@@ -121,6 +143,47 @@ class TestCRUD(TestCase):
         yield tr.delete()
         rows = yield txn.execSQL("select BETA, GAMMA from ALPHA order by BETA")
         self.assertEqual(rows, [(123, u"one"), (345, u"three")])
+
+
+    @inlineCallbacks
+    def test_cantCreateWithoutRequiredValues(self):
+        """
+        When a L{Record} object is created without required values, it raises a
+        L{TypeError}.
+        """
+        txn = self.pool.connection()
+        te = yield self.failUnlessFailure(TestAutoRecord.create(txn),
+                                          TypeError)
+        self.assertIn("required attribute 'epsilon' not passed", str(te))
+
+
+    @inlineCallbacks
+    def test_tooManyAttributes(self):
+        """
+        When a L{Record} object is created with unknown attributes (those which
+        don't map to any column), it raises a L{TypeError}.
+        """
+        txn = self.pool.connection()
+        te = yield self.failUnlessFailure(TestRecord.create(
+                                        txn, beta=3, gamma=u'three',
+                                        extraBonusAttribute=u'nope',
+                                        otherBonusAttribute=4321,
+                                    ), TypeError)
+        self.assertIn("extraBonusAttribute, otherBonusAttribute", str(te))
+
+
+    @inlineCallbacks
+    def test_createFillsInPKey(self):
+        """
+        If L{Record.create} is called without an auto-generated primary key
+        value for its row, that value will be generated and set on the returned
+        object.
+        """
+        txn = self.pool.connection()
+        tr = yield TestAutoRecord.create(txn, epsilon=u'specified')
+        tr2 = yield TestAutoRecord.create(txn, epsilon=u'also specified')
+        self.assertEquals(tr.phi, 1)
+        self.assertEquals(tr2.phi, 2)
 
 
     @inlineCallbacks

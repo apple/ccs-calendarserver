@@ -198,11 +198,30 @@ class Record(object):
         self = cls()
         colmap = {}
         attrtocol = cls.__attrmap__
-        for attr in k:
-            setattr(self, attr, k[attr])
-            # FIXME: better error reporting
-            colmap[attrtocol[attr]] = k[attr]
-        yield Insert(colmap).on(transaction)
+        needsCols = []
+        needsAttrs = []
+
+        for attr in attrtocol:
+            col = attrtocol[attr]
+            if attr in k:
+                setattr(self, attr, k[attr])
+                colmap[col] = k.pop(attr)
+            else:
+                if col.model.needsValue():
+                    raise TypeError("required attribute " + repr(attr) +
+                                    " not passed")
+                else:
+                    needsCols.append(col)
+                    needsAttrs.append(attr)
+        if k:
+            raise TypeError("received unknown attribute{0}: {1}".format(
+                "s" if len(k) > 1 else "", ", ".join(sorted(k))
+            ))
+        result = yield (Insert(colmap, Return=needsCols if needsCols else None)
+                        .on(transaction))
+        if needsCols:
+            for neededAttr, neededValue in zip(needsAttrs, result[0]):
+                setattr(self, neededAttr, neededValue)
         self.transaction = transaction
         returnValue(self)
 
