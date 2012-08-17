@@ -25,6 +25,7 @@ from pycalendar.datetime import PyCalendarDateTime
 from pycalendar.duration import PyCalendarDuration
 from pycalendar.timezone import PyCalendarTimezone
 from pycalendar.property import PyCalendarProperty
+from math import log, sqrt
 
 NANO = 1000000000.0
 
@@ -261,17 +262,40 @@ class LogNormalDistribution(object, FancyEqMixin):
 
     compareAttributes = ['_mu', '_sigma', '_maximum']
 
-    def __init__(self, mu, sigma, maximum=None):
+    def __init__(self, mu=None, sigma=None, mean=None, mode=None, median=None, maximum=None):
+        
+        if mu is not None and sigma is not None:
+            scale = 1.0
+        elif not (mu is None and sigma is None):
+            raise ValueError("mu and sigma must both be defined or both not defined")
+        elif mode is None:
+            raise ValueError("When mu and sigma are not defined, mode must be defined")
+        elif median is not None:
+            scale = mode
+            median /= mode
+            mode = 1.0
+            mu = log(median)
+            sigma = sqrt(log(median) - log(mode))
+        elif mean is not None:
+            scale = mode
+            mean /= mode
+            mode = 1.0
+            mu = log(mean) + log(mode) / 2.0
+            sigma = sqrt(log(mean) - log(mode) / 2.0)
+        else:
+            raise ValueError("When using mode one of median or mean must be defined")
+               
         self._mu = mu
         self._sigma = sigma
+        self._scale = scale
         self._maximum = maximum
 
 
     def sample(self):
-        result = random.lognormvariate(self._mu, self._sigma)
+        result = self._scale * random.lognormvariate(self._mu, self._sigma)
         if self._maximum is not None and result > self._maximum:
             for _ignore in range(10):
-                result = random.lognormvariate(self._mu, self._sigma)
+                result = self._scale * random.lognormvariate(self._mu, self._sigma)
                 if result <= self._maximum:
                     break
             else:

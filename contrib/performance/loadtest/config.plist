@@ -365,30 +365,11 @@
 							<!-- Define the distribution of how many attendees will be invited to an event.
 							
 								LogNormal is the best fit to observed data.
-							    
-							    Here is a formula for calculating mu and sigma based on average number
-							    of attendees A, with the peak at 1:
-							    
-							    mu = 2/3 * ln(A)
-							    sigma = sqrt(mu)
-							    
-							    Some useful values:
-							    
-							    Attendees		mu		sigma
-							    
-							     1.5			0.25	0.50
-							     2.0			0.46	0.68
-								 3.0			0.73	0.86
-							     4.0			0.92	0.96
-							     5.0			1.07	1.04
-							     6.0			1.19	1.09
-							     7.0			1.30	1.14
-							     8.0			1.39	1.18
-							     9.0			1.46	1.21
-							    10.0			1.54	1.24
-							    15.0			1.81	1.34
-							    20.0			2.00	1.41
 
+
+								For LogNormal "mode" is the peak, "mean" is the mean value.	For invites,
+								mode should typically be 1, and mean whatever matches the user behavior.
+								Our typical mean is 6. 							
 							     -->
 							<key>inviteeCountDistribution</key>
 							<dict>
@@ -396,12 +377,12 @@
 								<string>contrib.performance.stats.LogNormalDistribution</string>
 								<key>params</key>
 								<dict>
-									<!-- mean -->
-									<key>mu</key>
-									<real>1.19</real>
-									<!-- standard deviation -->
-									<key>sigma</key>
-									<real>1.09</real>
+									<!-- mode - peak-->
+									<key>mode</key>
+									<integer>1</integer>
+									<!-- mean - average-->
+									<key>median</key>
+									<integer>6</integer>
 									<!-- maximum -->
 									<key>maximum</key>
 									<real>100</real>
@@ -508,19 +489,23 @@
 							<true/>
 
 							<!-- Define how long to wait after seeing a new invitation before
-								accepting it. -->
+								accepting it.
+
+								For LogNormal "mode" is the peak, "median" is the 50% cummulative value
+								(i.e., half of the user have accepted by that time).								
+							-->
 							<key>acceptDelayDistribution</key>
 							<dict>
 								<key>type</key>
-								<string>contrib.performance.stats.NormalDistribution</string>
+								<string>contrib.performance.stats.LogNormalDistribution</string>
 								<key>params</key>
 								<dict>
-									<!-- mean -->
-									<key>mu</key>
-									<integer>60</integer>
-									<!-- standard deviation -->
-									<key>sigma</key>
-									<integer>60</integer>
+									<!-- mode - peak-->
+									<key>mode</key>
+									<integer>300</integer>
+									<!-- median - 50% done-->
+									<key>median</key>
+									<integer>1800</integer>
 								</dict>
 							</dict>
 						</dict>

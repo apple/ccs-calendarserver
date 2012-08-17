@@ -159,7 +159,13 @@ class Event(object):
         Data always read from disk - never cached in the object.
         """
         path = self.serializePath()
-        return Component.fromString(open(path).read()) if path and os.path.exists(path) else None
+        if path and os.path.exists(path):
+            f = open(path)
+            comp = Component.fromString(f.read())
+            f.close()
+            return comp
+        else:
+            return None
 
 
     @component.setter
@@ -172,7 +178,9 @@ class Event(object):
             if component is None:
                 os.remove(path)
             else:
-                open(path, "w").write(str(component))
+                f = open(path, "w")
+                f.write(str(component))
+                f.close()
         self.uid = component.resourceUID() if component is not None else None
 
 

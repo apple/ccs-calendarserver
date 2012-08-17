@@ -49,14 +49,33 @@ class SQLDurationTests(TestCase):
 
 class DistributionTests(TestCase):
     def test_lognormal(self):
-        dist = LogNormalDistribution(1, 1)
+        dist = LogNormalDistribution(mu=1, sigma=1)
         for _ignore_i in range(100):
             value = dist.sample()
             self.assertIsInstance(value, float)
             self.assertTrue(value >= 0.0, "negative value %r" % (value,))
             self.assertTrue(value <= 1000, "implausibly high value %r" % (value,))
 
+        dist = LogNormalDistribution(mode=1, median=2)
+        for _ignore_i in range(100):
+            value = dist.sample()
+            self.assertIsInstance(value, float)
+            self.assertTrue(value >= 0.0, "negative value %r" % (value,))
+            self.assertTrue(value <= 1000, "implausibly high value %r" % (value,))
 
+        dist = LogNormalDistribution(mode=1, mean=2)
+        for _ignore_i in range(100):
+            value = dist.sample()
+            self.assertIsInstance(value, float)
+            self.assertTrue(value >= 0.0, "negative value %r" % (value,))
+            self.assertTrue(value <= 1000, "implausibly high value %r" % (value,))
+
+        self.assertRaises(ValueError, LogNormalDistribution, mu=1)
+        self.assertRaises(ValueError, LogNormalDistribution, sigma=1)
+        self.assertRaises(ValueError, LogNormalDistribution, mode=1)
+        self.assertRaises(ValueError, LogNormalDistribution, mean=1)
+        self.assertRaises(ValueError, LogNormalDistribution, median=1)
+        
     def test_uniformdiscrete(self):
         population = [1, 5, 6, 9]
         counts = dict.fromkeys(population, 0)
