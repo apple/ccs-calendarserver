@@ -81,6 +81,17 @@ class IDirectoryService(Interface):
             directory service may not be aware of these addresses.
         """
 
+    def recordWithCachedGroupsAlias(recordType, alias):
+        """
+        @param recordType: the type of the record to look up.
+        @param alias: the cached-groups alias of the record to look up.
+        @type alias: C{str}
+
+        @return: a deferred L{IDirectoryRecord} with the given cached-groups
+            alias, or C{None} if no such record is found.
+        """
+
+
     def recordsMatchingFields(fields):
         """
         @return: a deferred sequence of L{IDirectoryRecord}s which

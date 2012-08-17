@@ -246,6 +246,9 @@ class LdapDirectoryService(CachingDirectoryService):
             # Also put the guidAttr attribute into the mappings for each type
             # so recordsMatchingFields can query on guid
             self.rdnSchema[recordType]["mapping"]["guid"] = self.rdnSchema["guidAttr"]
+            # Also put the memberIdAttr attribute into the mappings for each type
+            # so recordsMatchingFields can query on memberIdAttr
+            self.rdnSchema[recordType]["mapping"]["memberIdAttr"] = self.groupSchema["memberIdAttr"]
         if self.groupSchema["membersAttr"]:
             attrSet.add(self.groupSchema["membersAttr"])
         if self.groupSchema["nestedGroupsAttr"]:
@@ -345,6 +348,26 @@ class LdapDirectoryService(CachingDirectoryService):
                 (numMissingGuids, recordType, guidAttr))
 
         return records
+
+    @inlineCallbacks
+    def recordWithCachedGroupsAlias(self, recordType, alias):
+        """
+        @param recordType: the type of the record to look up.
+        @param alias: the cached-groups alias of the record to look up.
+        @type alias: C{str}
+
+        @return: a deferred L{IDirectoryRecord} with the given cached-groups
+            alias, or C{None} if no such record is found.
+        """
+        memberIdAttr = self.groupSchema["memberIdAttr"]
+        attributeToSearch = "memberIdAttr" if memberIdAttr else "dn"
+
+        fields = [[attributeToSearch, alias, False, "equals"]]
+        results = (yield self.recordsMatchingFields(fields, recordType=recordType))
+        if results:
+            returnValue(results[0])
+        else:
+            returnValue(None)
 
     def getExternalProxyAssignments(self):
         """
@@ -1170,7 +1193,6 @@ class LdapDirectoryService(CachingDirectoryService):
         attributeToSearch = "guid"
         valuesToFetch = guids
 
-
         while valuesToFetch:
             results = []
 
@@ -1216,7 +1238,7 @@ class LdapDirectoryService(CachingDirectoryService):
             # Switch to the LDAP attribute used for identifying members
             # for subsequent iterations.  If memberIdAttr is not specified
             # in the config, we'll search using dn.
-            attributeToSearch = memberIdAttr if memberIdAttr else "dn"
+            attributeToSearch = "memberIdAttr" if memberIdAttr else "dn"
 
         returnValue(recordsByAlias.values())
 

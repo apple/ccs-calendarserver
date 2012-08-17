@@ -148,6 +148,18 @@ class AggregateDirectoryService(DirectoryService):
     def recordWithCalendarUserAddress(self, address):
         return self._queryAll("recordWithCalendarUserAddress", address)
 
+    def recordWithCachedGroupsAlias(self, recordType, alias):
+        """
+        @param recordType: the type of the record to look up.
+        @param alias: the cached-groups alias of the record to look up.
+        @type alias: C{str}
+
+        @return: a deferred L{IDirectoryRecord} with the given cached-groups
+            alias, or C{None} if no such record is found.
+        """
+        service = self.serviceForRecordType(recordType)
+        return service.recordWithCachedGroupsAlias(recordType, alias)
+
     @inlineCallbacks
     def recordsMatchingFields(self, fields, operand="or", recordType=None):
 

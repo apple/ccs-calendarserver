@@ -43,6 +43,7 @@ else:
                 "firstName" : "givenName",
                 "lastName" : "sn",
                 "guid" : "generateduid",
+                "memberIDAttr" : "generateduid",
             }
 
             entries = [

@@ -957,6 +957,14 @@ class DirectoryPrincipalResource (
     def expandedGroupMemberships(self):
         return self.groupMemberships(infinity=True)
 
+    def groupsChanged(self):
+        """
+        A callback indicating the directory group membership for this principal
+        has changed.  Update the cache token for this principal so the PROPFIND
+        response cache is invalidated.
+        """
+        return self.cacheNotifier.changed()
+
     def principalCollections(self):
         return self.parent.principalCollections()
 

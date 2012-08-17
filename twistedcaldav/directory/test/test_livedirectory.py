@@ -186,5 +186,8 @@ if runLDAPTests or runODTests:
         class LiveODDirectoryServiceCase(LiveDirectoryTests, TestCase):
 
             def setUp(self):
-                params = {}
+                params = {
+                    "augmentService":
+                        augment.AugmentXMLDB(xmlFiles=(augmentsFile.path,)),
+                }
                 self.svc = OpenDirectoryService(params)

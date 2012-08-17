@@ -381,7 +381,7 @@ class OpenDirectoryService(CachingDirectoryService):
 
         guids = set()
 
-        self.log_info("Looking up which groups %s is a member of" % (guid,))
+        self.log_debug("Looking up which groups %s is a member of" % (guid,))
         try:
             self.log_debug("opendirectory.queryRecordsWithAttribute_list(%r,%r,%r,%r,%r,%r,%r)" % (
                 self.directory,
@@ -442,7 +442,7 @@ class OpenDirectoryService(CachingDirectoryService):
             if recordGUID:
                 guids.add(recordGUID)
 
-        self.log_info("%s is a member of %d groups" % (guid, len(guids)))
+        self.log_debug("%s is a member of %d groups" % (guid, len(guids)))
 
         return guids
 
@@ -1235,7 +1235,7 @@ class OpenDirectoryService(CachingDirectoryService):
 
         loop = 1
         while valuesToFetch:
-            self.log_info("getGroups loop %d" % (loop,))
+            self.log_debug("getGroups loop %d" % (loop,))
 
             results = []
 
@@ -1243,12 +1243,12 @@ class OpenDirectoryService(CachingDirectoryService):
                 fields = []
                 for value in batch:
                     fields.append(["guid", value, False, "equals"])
-                self.log_info("getGroups fetching batch of %d" %
+                self.log_debug("getGroups fetching batch of %d" %
                     (len(fields),))
                 result = list((yield self.recordsMatchingFields(fields,
                     recordType=self.recordType_groups)))
                 results.extend(result)
-                self.log_info("getGroups got back batch of %d for subtotal of %d" %
+                self.log_debug("getGroups got back batch of %d for subtotal of %d" %
                     (len(result), len(results)))
 
             # Reset values for next iteration
@@ -1262,7 +1262,7 @@ class OpenDirectoryService(CachingDirectoryService):
                 # record.nestedGUIDs() contains the sub groups of this group
                 for memberGUID in record.nestedGUIDs():
                     if memberGUID not in recordsByGUID:
-                        self.log_info("getGroups group %s contains group %s" %
+                        self.log_debug("getGroups group %s contains group %s" %
                             (record.guid, memberGUID))
                         valuesToFetch.add(memberGUID)
 

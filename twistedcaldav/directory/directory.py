@@ -213,6 +213,18 @@ class DirectoryService(LoggingMixIn):
 
         return record if record and record.enabledForCalendaring else None
 
+    def recordWithCachedGroupsAlias(self, recordType, alias):
+        """
+        @param recordType: the type of the record to look up.
+        @param alias: the cached-groups alias of the record to look up.
+        @type alias: C{str}
+
+        @return: a deferred L{IDirectoryRecord} with the given cached-groups
+            alias, or C{None} if no such record is found.
+        """
+        # The default implementation uses guid
+        return succeed(self.recordWithGUID(alias))
+
     def allRecords(self):
         for recordType in self.recordTypes():
             for record in self.listRecords(recordType):
@@ -787,13 +799,6 @@ class GroupMembershipCacheUpdater(LoggingMixIn):
                 for member in groupMembers:
                     memberships = members.setdefault(member, set())
                     memberships.add(groupGUID)
-                    if member in previousMembers:
-                        # Remove from previousMembers; anything still left in
-                        # previousMembers when this loop is done will be
-                        # deleted from cache (since only members that were
-                        # previously in delegated-to groups but are no longer
-                        # would still be in previousMembers)
-                        del previousMembers[member]
 
             self.log_info("There are %d users delegated-to via groups" %
                 (len(members),))
@@ -813,14 +818,42 @@ class GroupMembershipCacheUpdater(LoggingMixIn):
 
         self.log_info("Storing %d group memberships in memcached" %
                        (len(members),))
+        changedMembers = set()
         for member, groups in members.iteritems():
             # self.log_debug("%s is in %s" % (member, groups))
             yield self.cache.setGroupsFor(member, groups)
+            if groups != previousMembers.get(member, None):
+                # This principal has had a change in group membership
+                # so invalidate the PROPFIND response cache
+                changedMembers.add(member)
+            try:
+                # Remove from previousMembers; anything still left in
+                # previousMembers when this loop is done will be
+                # deleted from cache (since only members that were
+                # previously in delegated-to groups but are no longer
+                # would still be in previousMembers)
+                del previousMembers[member]
+            except KeyError:
+                pass
 
         # Remove entries for principals that no longer are in delegated-to
         # groups
         for member, groups in previousMembers.iteritems():
             yield self.cache.deleteGroupsFor(member)
+            changedMembers.add(member)
+
+        # For principals whose group membership has changed, call groupsChanged()
+        if not fast and hasattr(self.directory, "principalCollection"):
+            for member in changedMembers:
+                record = yield self.directory.recordWithCachedGroupsAlias(
+                    self.directory.recordType_users, member)
+                if record is not None:
+                    principal = self.directory.principalCollection.principalForRecord(record)
+                    if principal is not None:
+                        self.log_debug("Group membership changed for %s (%s)" %
+                            (record.shortNames[0], record.guid,))
+                        if hasattr(principal, "groupsChanged"):
+                            yield principal.groupsChanged()
 
         yield self.cache.setPopulatedMarker()
 
@@ -1032,6 +1065,14 @@ class GroupMembershipCacherServiceMaker(LoggingMixIn):
         # Setup the directory
         from calendarserver.tap.util import directoryFromConfig
         directory = directoryFromConfig(config)
+
+        # We have to set cacheNotifierFactory otherwise group cacher can't
+        # invalidate the cache tokens for principals whose membership has
+        # changed
+        if config.EnableResponseCache and config.Memcached.Pools.Default.ClientEnabled:
+            from twistedcaldav.directory.principal import DirectoryPrincipalResource
+            from twistedcaldav.cache import MemcacheChangeNotifier
+            DirectoryPrincipalResource.cacheNotifierFactory = MemcacheChangeNotifier
 
         # Setup the ProxyDB Service
         proxydbClass = namedClass(config.ProxyDBService.type)
