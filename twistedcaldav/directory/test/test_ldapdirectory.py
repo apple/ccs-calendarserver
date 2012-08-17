@@ -834,7 +834,7 @@ else:
             updater = GroupMembershipCacheUpdater(calendaruserproxy.ProxyDBService,
                 self.service, 30, 15, cache=cache, useExternalProxies=False)
 
-            self.assertEquals((False, 8), (yield updater.updateCache()))
+            self.assertEquals((False, 8, 8), (yield updater.updateCache()))
 
             users = self.service.recordType_users
 
