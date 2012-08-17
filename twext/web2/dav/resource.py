@@ -76,6 +76,7 @@ from twext.web2.dav.http import NeedPrivilegesResponse
 from twext.web2.dav.noneprops import NonePropertyStore
 from twext.web2.dav.util import unimplemented, parentForURL, joinURL
 from twext.web2.dav.auth import PrincipalCredentials
+from twistedcaldav import customxml
 
 
 log = Logger()
@@ -887,6 +888,7 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
         result.append(element.Report(element.PrincipalMatch(),))
         result.append(element.Report(element.PrincipalPropertySearch(),))
         result.append(element.Report(element.ExpandProperty(),))
+        result.append(element.Report(customxml.CalendarServerPrincipalSearch(),))
         return result
 
     ##

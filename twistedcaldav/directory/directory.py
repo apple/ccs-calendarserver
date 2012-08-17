@@ -242,7 +242,7 @@ class DirectoryService(LoggingMixIn):
 
     def recordTypesForSearchContext(self, context):
         """
-        Map calendar-user-search REPORT context value to applicable record types
+        Map calendarserver-principal-search REPORT context value to applicable record types
 
         @param context: The context value to map (either "location" or "attendee")
         @type context: C{str}

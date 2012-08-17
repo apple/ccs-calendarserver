@@ -1470,6 +1470,7 @@ def _updateCompliance(configDict, reloading=False):
 
     # Principal property search is always enabled
     compliance += customxml.calendarserver_principal_property_search_compliance
+    compliance += customxml.calendarserver_principal_search_compliance
 
     configDict.CalDAVComplianceClasses = compliance
 

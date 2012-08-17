@@ -250,28 +250,28 @@ class DirectoryPrincipalPropertySearchMixIn(object):
 
 
     @inlineCallbacks
-    def report_http___calendarserver_org_ns__calendar_user_search(self, request,
-        calendar_user_search):
+    def report_http___calendarserver_org_ns__calendarserver_principal_search(self, request,
+        calendarserver_principal_search):
         """
-        Generate a calendar-user-search REPORT.
+        Generate a calendarserver-principal-search REPORT.
 
         @param request: Request object
-        @param calendar_user_search: CalendarUserSearch object
+        @param calendarserver_principal_search: CalendarServerPrincipalSearch object
         """
 
         # Verify root element
-        if not isinstance(calendar_user_search, customxml.CalendarUserSearch):
-            msg = "%s expected as root element, not %s." % (customxml.CalendarUserSearch.sname(), calendar_user_search.sname())
+        if not isinstance(calendarserver_principal_search, customxml.CalendarServerPrincipalSearch):
+            msg = "%s expected as root element, not %s." % (customxml.CalendarServerPrincipalSearch.sname(), calendarserver_principal_search.sname())
             log.warn(msg)
             raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, msg))
 
         # Only handle Depth: 0
         depth = request.headers.getHeader("depth", "0")
         if depth != "0":
-            log.err("Error in calendar-user-search REPORT, Depth set to %s" % (depth,))
+            log.err("Error in calendarserver-principal-search REPORT, Depth set to %s" % (depth,))
             raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, "Depth %s not allowed" % (depth,)))
 
-        tokens, context, applyTo, clientLimit, propElement = extractCalendarUserSearchData(calendar_user_search)
+        tokens, context, applyTo, clientLimit, propElement = extractCalendarServerPrincipalSearchData(calendarserver_principal_search)
 
         # Run report
         resultsWereLimited = None
@@ -324,7 +324,7 @@ class DirectoryPrincipalPropertySearchMixIn(object):
         if resultsWereLimited is not None:
             if resultsWereLimited[0] == "server":
                 log.err("Too many matching resources in "
-                        "calendar-user-search report")
+                        "calendarserver-principal-search report")
             responses.append(element.StatusResponse(
                 element.HRef.fromString(request.uri),
                 element.Status.fromResponseCode(
@@ -963,11 +963,11 @@ class CachingPropertyStore (LoggingMixIn):
             )
         return self._data
 
-def extractCalendarUserSearchData(doc):
+def extractCalendarServerPrincipalSearchData(doc):
     """
-    Extract relevant info from a CalendarUserSearch document
+    Extract relevant info from a CalendarServerPrincipalSearch document
 
-    @param doc: CalendarUserSearch object to extract info from
+    @param doc: CalendarServerPrincipalSearch object to extract info from
     @return: A tuple containing:
         the list of tokens
         the context string

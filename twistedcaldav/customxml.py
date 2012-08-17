@@ -54,6 +54,11 @@ calendarserver_principal_property_search_compliance = (
     "calendarserver-principal-property-search",
 )
 
+calendarserver_principal_search_compliance = (
+    "calendarserver-principal-search",
+)
+
+
 calendarserver_sharing_compliance = (
     "calendarserver-sharing",
 )
@@ -1350,11 +1355,11 @@ class CalendarColor(WebDAVTextElement):
     name = "calendar-color"
 
 #
-# Calendar-user-search REPORT
+# calendarserver-principal-search REPORT
 #
 
 @registerElement
-class CalendarUserSearchToken (WebDAVTextElement):
+class CalendarServerPrincipalSearchToken (WebDAVTextElement):
     """
     Contains a search token.
     """
@@ -1362,15 +1367,15 @@ class CalendarUserSearchToken (WebDAVTextElement):
     name = "search-token"
 
 @registerElement
-class CalendarUserSearch (WebDAVElement):
+class CalendarServerPrincipalSearch (WebDAVElement):
 
     namespace = calendarserver_namespace
-    name = "calendar-user-search"
+    name = "calendarserver-principal-search"
 
     allowed_children = {
-        (calendarserver_namespace, "search-token"          ): (1, None),
+        (calendarserver_namespace, "search-token"          ): (0, None),
         (calendarserver_namespace, "limit"                 ): (0, 1),
-        (dav_namespace, "prop"                             ): (1, 1),
+        (dav_namespace, "prop"                             ): (0, 1),
         (dav_namespace, "apply-to-principal-collection-set"): (0, 1),
     }
     allowed_attributes = { "context" : False }
