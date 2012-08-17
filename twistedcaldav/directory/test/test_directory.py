@@ -281,7 +281,7 @@ class GroupMembershipTests (TestCase):
 
         # Allow an update by unlocking the cache
         yield cache.releaseLock()
-        self.assertEquals((False, 8), (yield updater.updateCache()))
+        self.assertEquals((False, 8, 8), (yield updater.updateCache()))
 
         # Verify cache is populated:
         self.assertTrue((yield cache.isPopulated()))
@@ -370,7 +370,7 @@ class GroupMembershipTests (TestCase):
         # that wsanchez is only a proxy for gemini (since that assignment does not involve groups)
         self.directoryService.xmlFile = dirTest.child("accounts-modified.xml")
         self.directoryService._alwaysStat = True
-        self.assertEquals((False, 7), (yield updater.updateCache()))
+        self.assertEquals((False, 7, 1), (yield updater.updateCache()))
         delegate = self._getPrincipalByShortName(DirectoryService.recordType_users, "wsanchez")
         proxyFor = (yield delegate.proxyFor(True))
         self.assertEquals(
@@ -510,9 +510,10 @@ class GroupMembershipTests (TestCase):
         yield cache.acquireLock()
 
         self.assertFalse((yield cache.isPopulated()))
-        fast, numMembers = (yield updater.updateCache(fast=True))
+        fast, numMembers, numChanged = (yield updater.updateCache(fast=True))
         self.assertEquals(fast, False)
         self.assertEquals(numMembers, 8)
+        self.assertEquals(numChanged, 8)
         self.assertTrue(snapshotFile.exists())
         self.assertTrue((yield cache.isPopulated()))
 
@@ -528,9 +529,10 @@ class GroupMembershipTests (TestCase):
         self.assertEquals(numMembers, 0)
 
         # Try an update which faults in from the directory (fast=False)
-        fast, numMembers = (yield updater.updateCache(fast=False))
+        fast, numMembers, numChanged = (yield updater.updateCache(fast=False))
         self.assertEquals(fast, False)
         self.assertEquals(numMembers, 8)
+        self.assertEquals(numChanged, 0)
 
         # Verify the snapshot contains the pickled dictionary we expect
         members = pickle.loads(snapshotFile.getContent())

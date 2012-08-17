@@ -727,10 +727,12 @@ class GroupMembershipCacheUpdater(LoggingMixIn):
             self.log_info("Group membership snapshot file does not yet exist")
             fast = False
             previousMembers = {}
+            callGroupsChanged = False
         else:
             self.log_info("Group membership snapshot file exists: %s" %
                 (snapshotFile.path,))
             previousMembers = pickle.loads(snapshotFile.getContent())
+            callGroupsChanged = True
 
         if useLock:
             self.log_info("Attempting to acquire group membership cache lock")
@@ -843,7 +845,7 @@ class GroupMembershipCacheUpdater(LoggingMixIn):
             changedMembers.add(member)
 
         # For principals whose group membership has changed, call groupsChanged()
-        if not fast and hasattr(self.directory, "principalCollection"):
+        if callGroupsChanged and not fast and hasattr(self.directory, "principalCollection"):
             for member in changedMembers:
                 record = yield self.directory.recordWithCachedGroupsAlias(
                     self.directory.recordType_users, member)
@@ -863,7 +865,7 @@ class GroupMembershipCacheUpdater(LoggingMixIn):
 
         self.log_info("Group memberships cache updated")
 
-        returnValue((fast, len(members)))
+        returnValue((fast, len(members), len(changedMembers)))
 
 
 
