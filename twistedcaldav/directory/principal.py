@@ -56,7 +56,7 @@ from twisted.python.modules import getModule
 from twistedcaldav import caldavxml, customxml
 from twistedcaldav.cache import DisabledCacheNotifier, PropfindCacheMixin
 from twistedcaldav.config import config
-from twistedcaldav.customxml import calendarserver_namespace, CalendarServerPrincipalSearch
+from twistedcaldav.customxml import calendarserver_namespace
 from twistedcaldav.directory.augment import allowedAutoScheduleModes
 from twistedcaldav.directory.common import uidsResourceName
 from twistedcaldav.directory.directory import DirectoryService, DirectoryRecord
