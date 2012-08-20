@@ -266,8 +266,9 @@ def parseLine(line):
         endPos = line.find(' ', startPos)
         extended["or"] = int(line[startPos:endPos])
     else:
+        
         items = line[startPos:].split()
-        extended = dict([item.split('=') for item in items])
+        extended = dict([item.split('=') for item in items if item.find("=") != -1])
 
     return userId, logTime, method, uri, status, bytes, referer, client, extended
 
