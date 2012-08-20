@@ -596,7 +596,7 @@ class CalendarServerLogAnalyzer(object):
             extended["or"] = line[startPos:endPos]
         else:
             items = line[startPos:].split()
-            extended = dict([item.split('=') for item in items])
+            extended = dict([item.split('=') for item in items if item.find("=") != -1])
     
         self.currentLine = CalendarServerLogAnalyzer.LogLine(ipaddr, userid, logDateTime, logTime, method, uri, status, reqbytes, referrer, client, extended)
     
