@@ -107,31 +107,37 @@ class AbstractADBAPIDatabase(object):
             #
             # Create CALDAV table if needed
 
-            test = (yield self._test_schema_table())
-            if test:
-                version = (yield self._db_value_for_sql("select VALUE from CALDAV where KEY = 'SCHEMA_VERSION'"))
-                dbtype = (yield self._db_value_for_sql("select VALUE from CALDAV where KEY = 'TYPE'"))
+            try:
+                test = (yield self._test_schema_table())
+                if test:
+                    version = (yield self._db_value_for_sql("select VALUE from CALDAV where KEY = 'SCHEMA_VERSION'"))
+                    dbtype = (yield self._db_value_for_sql("select VALUE from CALDAV where KEY = 'TYPE'"))
 
-                if (version != self._db_version()) or (dbtype != self._db_type()):
+                    if (version != self._db_version()) or (dbtype != self._db_type()):
 
-                    if dbtype != self._db_type():
-                        log.err("Database %s has different type (%s vs. %s)"
-                                % (self.dbID, dbtype, self._db_type()))
+                        if dbtype != self._db_type():
+                            log.err("Database %s has different type (%s vs. %s)"
+                                    % (self.dbID, dbtype, self._db_type()))
 
-                        # Delete this index and start over
-                        yield self._db_remove()
-                        yield self._db_init()
+                            # Delete this index and start over
+                            yield self._db_remove()
+                            yield self._db_init()
 
-                    elif version != self._db_version():
-                        log.err("Database %s has different schema (v.%s vs. v.%s)"
-                                % (self.dbID, version, self._db_version()))
-                        
-                        # Upgrade the DB
-                        yield self._db_upgrade(version)
+                        elif version != self._db_version():
+                            log.err("Database %s has different schema (v.%s vs. v.%s)"
+                                    % (self.dbID, version, self._db_version()))
+                            
+                            # Upgrade the DB
+                            yield self._db_upgrade(version)
 
-            else:
-                yield self._db_init()
-            self.initialized = True
+                else:
+                    yield self._db_init()
+                self.initialized = True
+            except:
+                # Clean up upon error so we don't end up leaking threads
+                self.pool.close()
+                self.pool = None
+                raise
 
     def close(self):
         
