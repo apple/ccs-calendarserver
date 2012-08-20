@@ -121,6 +121,22 @@ class Database (twistedcaldav.test.util.TestCase):
         self.assertTrue(db.initialized)
 
     @inlineCallbacks
+    def test_connectFailure(self):
+        """
+        Failure to connect cleans up the pool
+        """
+        db = Database.TestDB(self.mktemp())
+        # Make _db_init fail
+        db._db_init = lambda : 1/0
+        self.assertFalse(db.initialized)
+        try:
+            yield db.open()
+        except:
+            pass
+        self.assertFalse(db.initialized)
+        self.assertEquals(db.pool, None)
+
+    @inlineCallbacks
     def test_readwrite(self):
         """
         Add a record, search for it
