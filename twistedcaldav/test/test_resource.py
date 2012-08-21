@@ -26,6 +26,7 @@ from twistedcaldav.resource import CalDAVResource, CommonHomeResource, \
  CalendarHomeResource, AddressBookHomeResource
 from twistedcaldav.test.util import InMemoryPropertyStore
 from twistedcaldav.test.util import TestCase
+from twistedcaldav.notifications import NotificationCollectionResource
 
 
 class StubProperty(object):
@@ -84,6 +85,10 @@ class CommonHomeResourceTests(TestCase):
         self.assertTrue(('http://calendarserver.org/ns/', 'xmpp-uri') not in resource.liveProperties())
         self.assertTrue(('http://calendarserver.org/ns/', 'xmpp-heartbeat-uri') not in resource.liveProperties())
         self.assertTrue(('http://calendarserver.org/ns/', 'xmpp-server') not in resource.liveProperties())
+
+    def test_notificationCollectionLiveProperties(self):
+        resource = NotificationCollectionResource()
+        self.assertTrue(('http://calendarserver.org/ns/', 'getctag') in resource.liveProperties())
 
 
     @inlineCallbacks

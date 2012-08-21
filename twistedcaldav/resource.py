@@ -430,6 +430,11 @@ class CalDAVResource (
                     carddavxml.MaxResourceSize.qname(),
                 )
 
+        if self.isNotificationCollection():
+            baseProperties += (
+                customxml.GETCTag.qname(),
+            )
+
         if hasattr(self, "scheduleTag") and self.scheduleTag:
             baseProperties += (
                 caldavxml.ScheduleTag.qname(),
@@ -608,7 +613,9 @@ class CalDAVResource (
             returnValue(element.ResourceID(element.HRef.fromString(self.resourceID())))
 
         elif qname == customxml.GETCTag.qname() and (
-            self.isPseudoCalendarCollection() or self.isAddressBookCollection()
+            self.isPseudoCalendarCollection() or
+            self.isAddressBookCollection() or
+            self.isNotificationCollection()
         ):
             returnValue(customxml.GETCTag.fromString((yield self.getInternalSyncToken())))
 
