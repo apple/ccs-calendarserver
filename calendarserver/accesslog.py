@@ -25,11 +25,17 @@ __all__ = [
     "AMPLoggingFactory",
 ]
 
+import collections
 import datetime
+import json
 import os
+try:
+    import psutil
+except ImportError:
+    psutil = None
 import time
 
-from twisted.internet import protocol
+from twisted.internet import protocol, task
 from twisted.protocols import amp
 from twext.web2 import iweb
 from txdav.xml import element as davxml
@@ -60,11 +66,10 @@ class CommonAccessLoggingObserverExtensions(BaseCommonAccessLoggingObserver):
 
     def emit(self, eventDict):
 
+        format = None
+        formatArgs = None
         if eventDict.get("interface") is iweb.IRequest:
             
-            if config.GlobalStatsLoggingFrequency is not 0: 
-                self.logGlobalHit()
-
             request = eventDict["request"]
             response = eventDict["response"]
             loginfo = eventDict["loginfo"]
@@ -120,52 +125,6 @@ class CommonAccessLoggingObserverExtensions(BaseCommonAccessLoggingObserver):
                 ' "%(referer)s" "%(userAgent)s"'
             )
 
-            if config.EnableExtendedAccessLog:
-                formats = [
-                    format,
-                    # Performance monitoring extensions
-                    'i=%(serverInstance)s or=%(outstandingRequests)s',
-                ]
-
-                # Tags for time stamps collected along the way - the first one in the list is the initial
-                # time for request creation - we use that to track the entire request/response time
-                nowtime = time.time()
-                if config.EnableExtendedTimingAccessLog:
-                    basetime = request.timeStamps[0][1]
-                    request.timeStamps[0] = ("t", time.time(),)
-                    for tag, timestamp in request.timeStamps:
-                        formats.append("%s=%.1f" % (tag, (timestamp - basetime) * 1000))
-                        if tag != "t":
-                            basetime = timestamp
-                    if len(request.timeStamps) > 1:
-                        formats.append("%s=%.1f" % ("t-log", (nowtime - basetime) * 1000))
-                else:
-                    formats.append("%s=%.1f" % ("t", (nowtime - request.timeStamps[0][1]) * 1000))
-
-                if hasattr(request, "extendedLogItems"):
-                    for k, v in request.extendedLogItems.iteritems():
-                        k = str(k).replace('"', "%22")
-                        v = str(v).replace('"', "%22")
-                        if " " in v:
-                            v = '"%s"' % (v,)
-                        formats.append("%s=%s" % (k, v))
-
-                # Add the name of the XML error element for debugging purposes
-                if hasattr(response, "error"):
-                    formats.append("err=%s" % (response.error.qname()[1],))
-
-                fwdHeaders = request.headers.getRawHeaders("x-forwarded-for", "")
-                if fwdHeaders:
-                    # Limit each x-forwarded-header to 50 in case someone is
-                    # trying to overwhelm the logs
-                    forwardedFor = ",".join([hdr[:50] for hdr in fwdHeaders])
-                    forwardedFor = forwardedFor.replace(" ", "")
-                    formats.append("fwd=%(fwd)s")
-                else:
-                    forwardedFor = ""
-
-                format = " ".join(formats)
-
             formatArgs = {
                 "host"                : request.remoteAddr.host,
                 "uid"                 : uid,
@@ -177,11 +136,90 @@ class CommonAccessLoggingObserverExtensions(BaseCommonAccessLoggingObserver):
                 "bytesSent"           : loginfo.bytesSent,
                 "referer"             : request.headers.getHeader("referer", "-"),
                 "userAgent"           : request.headers.getHeader("user-agent", "-"),
-                "serverInstance"      : config.LogID,
-                "outstandingRequests" : request.chanRequest.channel.factory.outstandingRequests,
-                "fwd"                 : forwardedFor,
             }
 
+            # Add extended items to format and formatArgs
+            if config.EnableExtendedAccessLog:
+                format += ' i=%(serverInstance)s'
+                formatArgs["serverInstance"] = config.LogID if config.LogID else "0"
+                
+                format += ' or=%(outstandingRequests)s'
+                formatArgs["outstandingRequests"] = request.chanRequest.channel.factory.outstandingRequests
+                
+                # Tags for time stamps collected along the way - the first one in the list is the initial
+                # time for request creation - we use that to track the entire request/response time
+                nowtime = time.time()
+                if config.EnableExtendedTimingAccessLog:
+                    basetime = request.timeStamps[0][1]
+                    request.timeStamps[0] = ("t", time.time(),)
+                    for tag, timestamp in request.timeStamps:
+                        format += " %s=%%(%s).1f" % (tag, tag,)
+                        formatArgs[tag] = (timestamp - basetime) * 1000
+                        if tag != "t":
+                            basetime = timestamp
+                    if len(request.timeStamps) > 1:
+                        format += " t-log=%(t-log).1f"
+                        formatArgs["t-log"] = (timestamp - basetime) * 1000
+                else:
+                    format += " t=%(t).1f"
+                    formatArgs["t"] = (nowtime - request.timeStamps[0][1]) * 1000
+
+                if hasattr(request, "extendedLogItems"):
+                    for k, v in request.extendedLogItems.iteritems():
+                        k = str(k).replace('"', "%22")
+                        v = str(v).replace('"', "%22")
+                        if " " in v:
+                            v = '"%s"' % (v,)
+                        format += " %s=%%(%s)s" % (k, k,)
+                        formatArgs[k] = v
+
+                # Add the name of the XML error element for debugging purposes
+                if hasattr(response, "error"):
+                    format += " err=%(err)s"
+                    formatArgs["err"] = response.error.qname()[1]
+
+                fwdHeaders = request.headers.getRawHeaders("x-forwarded-for", "")
+                if fwdHeaders:
+                    # Limit each x-forwarded-header to 50 in case someone is
+                    # trying to overwhelm the logs
+                    forwardedFor = ",".join([hdr[:50] for hdr in fwdHeaders])
+                    forwardedFor = forwardedFor.replace(" ", "")
+                    format += " fwd=%(fwd)s"
+                    formatArgs["fwd"] = forwardedFor
+
+        elif "overloaded" in eventDict:
+            overloaded = eventDict.get("overloaded")
+
+            format = (
+                '%(host)s - %(uid)s [%(date)s]'
+                ' "%(method)s"'
+                ' %(statusCode)s %(bytesSent)d'
+                ' "%(referer)s" "%(userAgent)s"'
+            )
+
+            formatArgs = {
+                "host"                : overloaded.transport.hostname,
+                "uid"                 : "-",
+                "date"                : self.logDateString(time.time()),
+                "method"              : "???",
+                "uri"                 : "",
+                "protocolVersion"     : "",
+                "statusCode"          : 503,
+                "bytesSent"           : 0,
+                "referer"             : "-",
+                "userAgent"           : "-",
+            }
+
+            if config.EnableExtendedAccessLog:
+                format += ' p=%(serverPort)s'
+                formatArgs["serverPort"] = overloaded.transport.server.port
+                
+                format += ' or=%(outstandingRequests)s'
+                formatArgs["outstandingRequests"] = overloaded.outstandingRequests
+
+
+        # Write anything we got to the log and stats
+        if format is not None:
             # sanitize output to mitigate log injection
             for k,v in formatArgs.items():
                 if not isinstance(v, basestring):
@@ -190,38 +228,26 @@ class CommonAccessLoggingObserverExtensions(BaseCommonAccessLoggingObserver):
                 v = v.replace("\n", "\\n")
                 v = v.replace("\"", "\\\"")
                 formatArgs[k] = v
-
-            self.logMessage(format % formatArgs)
-
-        elif "overloaded" in eventDict:
-            overloaded = eventDict.get("overloaded")
-            format_str = '%s - - [%s] "???" 503 0 "-" "-" [0.0 ms]'
-            format_data = (
-                overloaded.transport.hostname,
-                self.logDateString(time.time()),
-            )
-            if config.EnableExtendedAccessLog:
-                format_str += " [%s %s]"
-                format_data += (
-                    overloaded.transport.server.port,
-                    overloaded.outstandingRequests,
-                )
-            self.logMessage(format_str % format_data)
+    
+            formatArgs["type"] = "access-log"
+            formatArgs["log-format"] = format
+            self.logStats(formatArgs)
 
 class RotatingFileAccessLoggingObserver(CommonAccessLoggingObserverExtensions):
     """
     Class to do "apache" style access logging to a rotating log file. The log
     file is rotated after midnight each day.
+    
+    This class also currently handles the collection of system and log statistics.
     """
 
     def __init__(self, logpath):
-        self.logpath = logpath
-        self.globalHitCount = 0 
-        self.globalHitHistory = [] 
-        for _ignore in range(0, config.GlobalStatsLoggingFrequency + 1): 
-            self.globalHitHistory.append({"time":int(time.time()), "hits":0})
+        self.logpath = logpath        
 
-    def logMessage(self, message, allowrotate=True):
+        self.systemStats = None
+        self.statsByMinute = []
+
+    def accessLog(self, message, allowrotate=True):
         """
         Log a message to the file and possibly rotate if date has changed.
 
@@ -235,21 +261,6 @@ class RotatingFileAccessLoggingObserver(CommonAccessLoggingObserverExtensions):
             self.rotate()
         self.f.write(message + "\n")
 
-    def rotateGlobalHitHistoryStats(self): 
-        """ 
-        Roll the global hit history array: push the current stats as 
-        the last element; pop the first (oldest) element and reschedule the task. 
-        """ 
-
-        self.globalHitHistory.append({"time":int(time.time()), "hits":self.globalHitCount}) 
-        del self.globalHitHistory[0] 
-        log.debug("rotateGlobalHitHistoryStats: %s" % (self.globalHitHistory,))
-        if config.GlobalStatsLoggingFrequency is not 0: 
-            self.reactor.callLater(
-                config.GlobalStatsLoggingPeriod * 60 / config.GlobalStatsLoggingFrequency, 
-                self.rotateGlobalHitHistoryStats
-            ) 
-
     def start(self):
         """
         Start logging. Open the log file and log an "open" message.
@@ -257,21 +268,19 @@ class RotatingFileAccessLoggingObserver(CommonAccessLoggingObserverExtensions):
 
         super(RotatingFileAccessLoggingObserver, self).start()
         self._open()
-        self.logMessage("Log opened - server start: [%s]." % (datetime.datetime.now().ctime(),))
- 
-        # Need a reactor for the callLater() support for rotateGlobalHitHistoryStats() 
-        from twisted.internet import reactor 
-        self.reactor = reactor 
-        self.rotateGlobalHitHistoryStats() 
+        self.accessLog("Log opened - server start: [%s]." % (datetime.datetime.now().ctime(),))
 
     def stop(self):
         """
         Stop logging. Close the log file and log an "open" message.
         """
 
-        self.logMessage("Log closed - server stop: [%s]." % (datetime.datetime.now().ctime(),), False)
+        self.accessLog("Log closed - server stop: [%s]." % (datetime.datetime.now().ctime(),), False)
         super(RotatingFileAccessLoggingObserver, self).stop()
         self._close()
+        
+        if self.systemStats is not None:
+            self.systemStats.stop()
 
     def _open(self):
         """
@@ -340,46 +349,256 @@ class RotatingFileAccessLoggingObserver(CommonAccessLoggingObserverExtensions):
         if os.path.exists(newpath):
             log.msg("Cannot rotate log file to %s because it already exists." % (newpath,))
             return
-        self.logMessage("Log closed - rotating: [%s]." % (datetime.datetime.now().ctime(),), False)
+        self.accessLog("Log closed - rotating: [%s]." % (datetime.datetime.now().ctime(),), False)
         log.msg("Rotating log file to: %s" % (newpath,), system="Logging")
         self.f.close()
         os.rename(self.logpath, newpath)
         self._open()
-        self.logMessage("Log opened - rotated: [%s]." % (datetime.datetime.now().ctime(),), False)
+        self.accessLog("Log opened - rotated: [%s]." % (datetime.datetime.now().ctime(),), False)
 
-    def logGlobalHit(self): 
+    def logStats(self, stats): 
         """ 
-        Increment the service-global hit counter 
-        """ 
-
-        self.globalHitCount += 1 
-
-    def getGlobalHits(self): 
-        """ 
-        Return the global hit stats 
+        Update stats
         """ 
 
-        stats = '<?xml version="1.0" encoding="UTF-8"?><plist version="1.0">' 
-        stats += "<dict><key>totalHits</key><integer>%d</integer>" 
-        stats += "<key>recentHits</key><dict>" 
-        stats += "<key>count</key><integer>%d</integer>" 
-        stats += "<key>since</key><integer>%d</integer>" 
-        stats += "<key>period</key><integer>%d</integer>" 
-        stats += "<key>frequency</key><integer>%d</integer>" 
-        stats += "</dict></dict></plist>" 
-        return stats % (
-            self.globalHitCount,
-            self.globalHitCount - self.globalHitHistory[0]["hits"], 
-            self.globalHitHistory[0]["time"],
-            config.GlobalStatsLoggingPeriod,
-            config.GlobalStatsLoggingFrequency
-        ) 
+        if self.systemStats is None:
+            self.systemStats = SystemMonitor()
 
-class LogMessage(amp.Command):
+        # Currently only storing stats for access log type
+        if "type" not in stats or stats["type"] != "access-log":
+            return
+    
+        currentStats = self.ensureSequentialStats()
+        self.updateStats(currentStats, stats)
+        
+        if stats["type"] == "access-log":
+            self.accessLog(stats["log-format"] % stats)
+
+    def getStats(self): 
+        """ 
+        Return the stats 
+        """
+        
+        if self.systemStats is None:
+            self.systemStats = SystemMonitor()
+
+        # The current stats
+        currentStats = self.ensureSequentialStats()
+
+        # Get previous minute details
+        index = min(2, len(self.statsByMinute))
+        if index > 0:
+            previousMinute = self.statsByMinute[-index][1]
+        else:
+            previousMinute = self.initStats()
+
+        # Do five minute aggregate
+        fiveMinutes = self.initStats()
+        index = min(6, len(self.statsByMinute))
+        for i in range(-index, -1):
+            stat = self.statsByMinute[i][1]
+            self.mergeStats(fiveMinutes, stat)
+
+        # Do one hour aggregate
+        oneHour = self.initStats()
+        index = min(61, len(self.statsByMinute))
+        for i in range(-index, -1):
+            stat = self.statsByMinute[i][1]
+            self.mergeStats(oneHour, stat)
+
+        printStats = {
+            "System":self.systemStats.items,
+            "Current":currentStats,
+            "1 Minute":previousMinute,
+            "5 Minutes":fiveMinutes,
+            "1 Hour":oneHour,
+        }
+        return json.dumps(printStats)
+
+    def ensureSequentialStats(self):
+        """
+        Make sure the list of timed stats is contiguous wrt time. 
+        """
+        dtindex = int(time.time() / 60.0) * 60
+
+        if len(self.statsByMinute) > 0:
+            if self.statsByMinute[-1][0] != dtindex:
+                oldindex = self.statsByMinute[-1][0]
+                while oldindex != dtindex:
+                    oldindex += 60
+                    self.statsByMinute.append((oldindex, self.initStats(),))
+        else:
+            self.statsByMinute.append((dtindex, self.initStats(),))
+        return self.statsByMinute[-1][1]
+
+    def initStats(self):
+        
+        def initTimeHistogram():
+            return {
+                "<10ms": 0,
+                "10ms<->100ms" : 0,
+                "100ms<->1s"   : 0,
+                "1s<->10s"     : 0,
+                "10s<->30s"    : 0,
+                "30s<->60s"    : 0,
+                ">60s"         : 0,
+                "Over 1s"      : 0,
+                "Over 10s"     : 0,
+            }
+
+        return {
+            "requests" : 0,
+            "method"   : collections.defaultdict(int),
+            "uid"      : collections.defaultdict(int),
+            "500"      : 0,
+            "t"        : 0.0,
+            "t-resp-wr": 0.0,
+            "slots"    : 0,
+            "T"        : initTimeHistogram(),
+            "T-RESP-WR": initTimeHistogram(),
+            "T-MAX"    : 0.0,
+            "cpu"      : self.systemStats.items["cpu use"],
+        }
+
+    def updateStats(self, current, stats):
+        # Gather specific information and aggregate into our persistent stats
+        if current["requests"] == 0:
+            current["cpu"] = 0.0
+        current["requests"] += 1
+        current["method"][stats["method"]] += 1
+        current["uid"][stats["uid"]] += 1
+        if stats["statusCode"] >= 500:
+            current["500"] += 1
+        current["t"] += stats.get("t", 0.0)
+        current["t-resp-wr"] += stats.get("t-resp-wr", 0.0)
+        current["slots"] += stats.get("outstandingRequests", 0)
+        current["cpu"] += self.systemStats.items["cpu use"]
+        
+        def histogramUpdate(t, key):
+            if t >= 60000.0:
+                current[key][">60s"] += 1
+            elif t >= 30000.0:
+                current[key]["30s<->60s"] += 1
+            elif t >= 10000.0:
+                current[key]["10s<->30s"] += 1
+            elif t >= 1000.0:
+                current[key]["1s<->10s"] += 1
+            elif t >= 100.0:
+                current[key]["100ms<->1s"] += 1
+            elif t >= 10.0:
+                current[key]["10ms<->100ms"] += 1
+            else:
+                current[key]["<10ms"] += 1
+            if t >= 1000.0:
+                current[key]["Over 1s"] += 1
+            elif t >= 10000.0:
+                current[key]["Over 10s"] += 1
+            
+        t = stats.get("t", None)
+        if t is not None:
+            histogramUpdate(t, "T")
+        current["T-MAX"] = max(current["T-MAX"], t)
+        t = stats.get("t-resp-wr", None)
+        if t is not None:
+            histogramUpdate(t, "T-RESP-WR")
+
+    def mergeStats(self, current, stats):
+        # Gather specific information and aggregate into our persistent stats
+        if current["requests"] == 0:
+            current["cpu"] = 0.0
+        current["requests"] += stats["requests"]
+        for method in stats["method"].keys():
+            current["method"][method] += stats["method"][method]
+        for uid in stats["uid"].keys():
+            current["uid"][uid] += stats["uid"][uid]
+        current["500"] += stats["500"]
+        current["t"] += stats["t"]
+        current["t-resp-wr"] += stats["t-resp-wr"]
+        current["slots"] += stats["slots"]
+        current["cpu"] += stats["cpu"]
+        
+        def histogramUpdate(t, key):
+            if t >= 60000.0:
+                current[key][">60s"] += 1
+            elif t >= 30000.0:
+                current[key]["30s<->60s"] += 1
+            elif t >= 10000.0:
+                current[key]["10s<->30s"] += 1
+            elif t >= 1000.0:
+                current[key]["1s<->10s"] += 1
+            elif t >= 100.0:
+                current[key]["100ms<->1s"] += 1
+            elif t >= 10.0:
+                current[key]["10ms<->100ms"] += 1
+            else:
+                current[key]["<10ms"] += 1
+            if t >= 1000.0:
+                current[key]["Over 1s"] += 1
+            elif t >= 10000.0:
+                current[key]["Over 10s"] += 1
+        
+        for bin in stats["T"].keys():
+            current["T"][bin] += stats["T"][bin]
+        current["T-MAX"] = max(current["T-MAX"], stats["T-MAX"])
+        for bin in stats["T-RESP-WR"].keys():
+            current["T-RESP-WR"][bin] += stats["T-RESP-WR"][bin]
+
+
+
+class SystemMonitor(object):
+    """
+    Keeps track of system usage information. This installs a reacxtor task to
+    run about once per second and track system use.
+    """
+    
+    CPUStats = collections.namedtuple("CPUStats", ("total", "idle",))
+
+    def __init__(self):
+        self.items = {
+            "cpu count"     : psutil.NUM_CPUS if psutil is not None else -1,
+            "cpu use"       : 0.0,
+            "memory used"   : 0,
+            "memory percent": 0.0,
+            "start time"    : time.time(),
+        }
+        
+        if psutil is not None:
+            times = psutil.cpu_times()
+            self.previous_cpu = SystemMonitor.CPUStats(sum(times), times.idle,)
+        else:
+            self.previous_cpu = SystemMonitor.CPUStats(0, 0)
+        
+        self.task = task.LoopingCall(self.update)
+        self.task.start(1.0)
+    
+    def stop(self):
+        """
+        Just stop the task
+        """
+        self.task.stop()
+
+    def update(self):
+        
+        # CPU usage based on diff'ing CPU times
+        if psutil is not None:
+            times = psutil.cpu_times()
+            cpu_now = SystemMonitor.CPUStats(sum(times), times.idle,)
+            try:
+                self.items["cpu use"] = 100.0 * (1.0 - (cpu_now.idle - self.previous_cpu.idle) / (cpu_now.total - self.previous_cpu.total))
+            except ZeroDivisionError:
+                self.items["cpu use"] = 0.0
+            self.previous_cpu = cpu_now
+        
+        # Memory usage
+        if psutil is not None:
+            mem = psutil.virtual_memory()
+            self.items["memory used"] = mem.used
+            self.items["memory percent"] = mem.percent
+
+    
+class LogStats(amp.Command):
     arguments = [("message", amp.String())]
 
-class LogGlobalHit(amp.Command): 
-    arguments = [] 
 
 class AMPCommonAccessLoggingObserver(CommonAccessLoggingObserverExtensions):
     def __init__(self):
@@ -390,7 +609,7 @@ class AMPCommonAccessLoggingObserver(CommonAccessLoggingObserverExtensions):
     def flushBuffer(self):
         if self._buffer:
             for msg in self._buffer:
-                self.logMessage(msg)
+                self.logStats(msg)
 
 
     def addClient(self, connectedClient):
@@ -401,31 +620,19 @@ class AMPCommonAccessLoggingObserver(CommonAccessLoggingObserverExtensions):
         self.flushBuffer()
 
 
-    def logMessage(self, message):
-        """
-        Log a message to the remote AMP Protocol
-        """
+    def logStats(self, message): 
+        """ 
+        Log server stats via the remote AMP Protocol 
+        """ 
+
         if self.protocol is not None:
-            # XXX: Yeah we're not waiting for anything to happen here.
-            #      but we will log an error.
+            message=json.dumps(message)
             if isinstance(message, unicode):
                 message = message.encode("utf-8")
-            d = self.protocol.callRemote(LogMessage, message=message)
-            d.addErrback(log.err)
-        else:
-            self._buffer.append(message)
-
-
-    def logGlobalHit(self): 
-        """ 
-        Log a server hit via the remote AMP Protocol 
-        """ 
-
-        if self.protocol is not None: 
-            d = self.protocol.callRemote(LogGlobalHit) 
+            d = self.protocol.callRemote(LogStats, message=message) 
             d.addErrback(log.err) 
         else: 
-            log.msg("logGlobalHit() only works with an AMP Protocol")
+            self._buffer.append(message)
 
 
 
@@ -439,17 +646,12 @@ class AMPLoggingProtocol(amp.AMP):
 
         super(AMPLoggingProtocol, self).__init__()
 
-    def logMessage(self, message):
-        self.observer.logMessage(message)
-        return {}
-
-    LogMessage.responder(logMessage)
-
-    def logGlobalHit(self): 
-        self.observer.logGlobalHit() 
+    def logStats(self, message): 
+        stats = json.loads(message)
+        self.observer.logStats(stats) 
         return {} 
 
-    LogGlobalHit.responder(logGlobalHit)
+    LogStats.responder(logStats)
 
 
 

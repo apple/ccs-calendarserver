@@ -447,8 +447,6 @@ DEFAULT_CONFIG = {
     "AccountingLogRoot"   : "accounting",
 
     "GlobalStatsSocket"           : "caldavd-stats.sock", 
-    "GlobalStatsLoggingPeriod"    : 60, 
-    "GlobalStatsLoggingFrequency" : 12,
     
     "LogDatabase" : {
         "LabelsInSQL"            : False,

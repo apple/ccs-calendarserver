@@ -203,7 +203,7 @@ PARENT_ENVIRONMENT = _computeEnvVars(os.environ)
 class CalDAVStatisticsProtocol (Protocol):
 
     def connectionMade(self):
-        stats = self.factory.logger.observer.getGlobalHits()
+        stats = self.factory.logger.observer.getStats()
         self.transport.write("%s\r\n" % (stats,))
         self.transport.loseConnection()
 
@@ -1254,7 +1254,7 @@ class CalDAVServiceMaker (LoggingMixIn):
         # the current stats on the server.
         stats = CalDAVStatisticsServer(logger)
         statsService = GroupOwnedUNIXServer(
-            gid, config.GlobalStatsSocket, stats, mode=0440
+            gid, config.GlobalStatsSocket, stats, mode=0660
         )
         statsService.setName("stats")
         statsService.setServiceParent(s)

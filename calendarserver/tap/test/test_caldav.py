@@ -473,9 +473,9 @@ class CalDAVServiceMakerTests(BaseServiceMakerTests):
         for serviceName in ["stats"]:
             socketService = svc.getServiceNamed(serviceName)
             self.assertIsInstance(socketService, GroupOwnedUNIXServer)
-            m = socketService.kwargs.get("mode", 0444)
+            m = socketService.kwargs.get("mode", 0666)
             self.assertEquals(
-                m, int("440", 8),
+                m, int("660", 8),
                 "Wrong mode on %s: %s" % (serviceName, oct(m))
             )
             self.assertEquals(socketService.gid, alternateGroup)
