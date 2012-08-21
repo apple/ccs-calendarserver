@@ -364,6 +364,13 @@ class GroupMembershipTests (TestCase):
                 groups,
             )
 
+        # Verify CalendarUserProxyPrincipalResource.containsPrincipal( ) works
+        delegator = self._getPrincipalByShortName(DirectoryService.recordType_locations, "mercury")
+        proxyPrincipal = delegator.getChild("calendar-proxy-write")
+        for expected, name in [(True, "wsanchez"), (False, "cdaboo")]:
+            delegate = self._getPrincipalByShortName(DirectoryService.recordType_users, name)
+            self.assertEquals(expected, (yield proxyPrincipal.containsPrincipal(delegate)))
+
         # Verify that principals who were previously members of delegated-to groups but
         # are no longer members have their proxyFor info cleaned out of the cache:
         # Remove wsanchez from all groups in the directory, run the updater, then check

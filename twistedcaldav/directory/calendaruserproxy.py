@@ -404,6 +404,24 @@ class CalendarUserProxyPrincipalResource (
         ])
         return d
 
+    @inlineCallbacks
+    def containsPrincipal(self, principal):
+        """
+        Uses proxyFor information to turn the "contains principal" question around;
+        rather than expanding this principal's groups to see if the other principal
+        is a member, ask the other principal if they are a proxy for this principal's
+        parent resource, since this principal is a proxy principal.
+
+        @param principal: The principal to check
+        @type principal: L{DirectoryCalendarPrincipalResource}
+        @return: True if principal is a proxy (of the correct type) of our parent
+        @rtype: C{boolean}
+        """
+        readWrite = self.isProxyType(True) # is read-write
+        if principal and self.parent in (yield principal.proxyFor(readWrite)):
+            returnValue(True)
+        returnValue(False)
+
 class ProxyDB(AbstractADBAPIDatabase, LoggingMixIn):
     """
     A database to maintain calendar user proxy group memberships.

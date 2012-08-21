@@ -1738,10 +1738,11 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
         d.addCallback(cache)
         return d
 
+    @inlineCallbacks
     def principalIsGroupMember(self, principal1, principal2, request):
         """
         Check whether one principal is a group member of another.
-        
+
         @param principal1: C{str} principalURL for principal to test.
         @param principal2: C{str} principalURL for possible group
             principal to test against.
@@ -1749,24 +1750,14 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
         @return: L{Deferred} with result C{True} if principal1 is a
             member of principal2, C{False} otherwise
         """
-        def gotGroup(group):
-            # Get principal resource for principal2
-            if group and isinstance(group, DAVPrincipalResource):
-                def gotMembers(members):
-                    for member in members:
-                        if member.principalURL() == principal1:
-                            return True
-                    return False
+        resource1 = yield request.locateResource(principal1)
+        resource2 = yield request.locateResource(principal2)
 
-                d = group.expandedGroupMembers()
-                d.addCallback(gotMembers)
-                return d
+        if resource2 and isinstance(resource2, DAVPrincipalResource):
+            isContained = yield resource2.containsPrincipal(resource1)
+            returnValue(isContained)
+        returnValue(False)
 
-            return False
-        
-        d = request.locateResource(principal2)
-        d.addCallback(gotGroup)
-        return d
         
     def validPrincipal(self, ace_principal, request):
         """
@@ -2461,6 +2452,19 @@ class DAVPrincipalResource (DAVResource):
                     uri in [member.principalURL() for member in members]
             )
             return d
+
+    @inlineCallbacks
+    def containsPrincipal(self, principal):
+        """
+        Is the given principal contained within our expanded group membership?
+
+        @param principal: The principal to check
+        @type principal: L{DirectoryCalendarPrincipalResource}
+        @return: True if principal is a member, False otherwise
+        @rtype: C{boolean}
+        """
+        members = yield self.expandedGroupMembers()
+        returnValue(principal in members)
 
 
 class DAVPrincipalCollectionResource (DAVResource):
