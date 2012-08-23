@@ -679,7 +679,7 @@ class LdapDirectoryService(CachingDirectoryService):
             self.log_debug("Retrieving ldap record with base %s and filter %s." %
                 (ldap.dn.dn2str(base), filterstr))
             result = self.timedSearch(ldap.dn.dn2str(base),
-                ldap.SCOPE_SUBTREE, filterstr=filterstr, attrlist=self.attrlist)
+                scope, filterstr=filterstr, attrlist=self.attrlist)
 
             if len(result) == 0:
                 continue
