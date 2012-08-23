@@ -417,10 +417,26 @@ def mergePlist(caldav, carddav, combined):
 
     # Disable XMPPNotifier now that we're directly talking to APNS
     try:
-        if caldav["Notifications"]["Services"]["XMPPNotifier"]["Enabled"]:
-            caldav["Notifications"]["Services"]["XMPPNotifier"]["Enabled"] = False
+        XMPPNotifier = caldav["Notifications"]["Services"]["XMPPNotifier"]
+        if XMPPNotifier["Enabled"]:
+            XMPPNotifier["Enabled"] = False
     except KeyError:
         pass
+
+    # If XMPP was also previously being routed to APNS, enable APNS
+    EnableAPNS = False
+    try:
+        if caldav["Notifications"]["Services"]["XMPPNotifier"]["CalDAV"]["APSBundleID"]:
+            EnableAPNS = True
+    except KeyError:
+        pass
+    try:
+        if caldav["Notifications"]["Services"]["XMPPNotifier"]["CardDAV"]["APSBundleID"]:
+            EnableAPNS = True
+    except KeyError:
+        pass
+    if EnableAPNS:
+        adminChanges.append(["EnableAPNS", "yes"])
 
     # Merge ports
     if not caldav.get("HTTPPort", 0):
