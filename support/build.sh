@@ -779,7 +779,7 @@ dependencies () {
     "http://pypi.python.org/packages/source/p/pyasn1/pyasn1-0.1.2.tar.gz";
 
   svn_get "CalDAVTester" "${top}/CalDAVTester" \
-      "${svn_uri_base}/CalDAVTester/trunk" HEAD;
+      "${svn_uri_base}/CalDAVTester/trunk" 9324;
 
   local pd="pydoctor-0.3";
   py_dependency -o -m "b000aa1fb458fe25952dadf26049ae68" \
