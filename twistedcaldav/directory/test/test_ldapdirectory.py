@@ -296,22 +296,57 @@ else:
         """
 
 
-        def __init__(self, actual):
+        def __init__(self, actual, records):
             self.actual = actual
             self.async = StubAsync()
 
             # Test data returned from search_s.
             # Note that some DNs have various extra whitespace added and mixed
             # up case since LDAP is pretty loose about these.
-            self.records = (
+            self.records = records
+
+
+        def search_s(self, base, scope, filterstr="(objectClass=*)",
+            attrlist=None):
+            """ A simple implementation of LDAP search filter processing """
+
+            base = normalizeDNstr(base)
+            results = []
+            for dn, attrs in self.records:
+                dn = normalizeDNstr(dn)
+                if dn == base:
+                    results.append(("ignored", (dn, attrs)))
+                elif dnContainedIn(ldap.dn.str2dn(dn), ldap.dn.str2dn(base)):
+                    if filterstr in ("(objectClass=*)", "(!(objectClass=organizationalUnit))"):
+                        results.append(("ignored", (dn, attrs)))
+                    else:
+                        trans = maketrans("&(|)", "   |")
+                        fragments = filterstr.encode("utf-8").translate(trans).split("|")
+                        for fragment in fragments:
+                            if not fragment:
+                                continue
+                            fragment = fragment.strip()
+                            key, value = fragment.split("=")
+                            if value in attrs.get(key, []):
+                                results.append(("ignored", (dn, attrs)))
+
+            return results
+
+
+    class LdapDirectoryServiceTestCase(TestCase):
+
+        nestedUsingDifferentAttributeUsingDN = (
+            (
                 (
                     "cn=Recursive1_coasts, cn=gROUps,dc=example, dc=com",
                     {
                         'cn': ['recursive1_coasts'],
                         'apple-generateduid': ['recursive1_coasts'],
                         'uniqueMember': [
-                            'cn=recursive2_coasts,cn=groups,dc=example,dc=com',
                             'uid=wsanchez ,cn=users, dc=eXAMple,dc=com',
+                        ],
+                        'nestedGroups': [
+                            'cn=recursive2_coasts,cn=groups,dc=example,dc=com',
                         ],
                     }
                 ),
@@ -321,8 +356,225 @@ else:
                         'cn': ['recursive2_coasts'],
                         'apple-generateduid': ['recursive2_coasts'],
                         'uniqueMember': [
-                            'cn=recursive1_coasts,cn=groups,dc=example,dc=com',
                             'uid=cdaboo,cn=users,dc=example,dc=com',
+                        ],
+                        'nestedGroups': [
+                            'cn=recursive1_coasts,cn=groups,dc=example,dc=com',
+                        ],
+                    }
+                ),
+                (
+                    'cn=both_coasts,cn=groups,dc=example,dc=com',
+                    {
+                        'cn': ['both_coasts'],
+                        'apple-generateduid': ['both_coasts'],
+                        'nestedGroups': [
+                            'cn=right_coast,cn=groups,dc=example,dc=com',
+                            'cn=left_coast,cn=groups,dc=example,dc=com',
+                        ],
+                    }
+                ),
+                (
+                    'cn=right_coast,cn=groups,dc=example,dc=com',
+                    {
+                        'cn': ['right_coast'],
+                        'apple-generateduid': ['right_coast'],
+                        'uniqueMember': [
+                            'uid=cdaboo,cn=users,dc=example,dc=com',
+                        ],
+                    }
+                ),
+                (
+                    'cn=left_coast,cn=groups,dc=example,dc=com',
+                    {
+                        'cn': ['left_coast'],
+                        'apple-generateduid': ['left_coast'],
+                        'uniqueMember': [
+                            'uid=wsanchez, cn=users,dc=example,dc=com',
+                            'uid=lecroy,cn=users,dc=example,dc=com',
+                            'uid=dreid,cn=users,dc=example,dc=com',
+                        ],
+                    }
+                ),
+                (
+                    "uid=odtestamanda,cn=users,dc=example,dc=com",
+                    {
+                        'uid': ['odtestamanda'],
+                        'apple-generateduid': ['9DC04A70-E6DD-11DF-9492-0800200C9A66'],
+                        'sn': ['Test'],
+                        'mail': ['odtestamanda@example.com', 'alternate@example.com'],
+                        'givenName': ['Amanda'],
+                        'cn': ['Amanda Test']
+                    }
+                ),
+                (
+                    "uid=odtestbetty,cn=users,dc=example,dc=com",
+                    {
+                        'uid': ['odtestbetty'],
+                        'apple-generateduid': ['93A8F5C5-49D8-4641-840F-CD1903B0394C'],
+                        'sn': ['Test'],
+                        'mail': ['odtestbetty@example.com'],
+                        'givenName': ['Betty'],
+                        'cn': ['Betty Test']
+                    }
+                ),
+                (
+                    "uid=odtestcarlene,cn=users,dc=example,dc=com",
+                    {
+                        'uid': ['odtestcarlene'],
+                        # Note: no guid here, to test this record is skipped
+                        'sn': ['Test'],
+                        'mail': ['odtestcarlene@example.com'],
+                        'givenName': ['Carlene'],
+                        'cn': ['Carlene Test']
+                    }
+                ),
+                (
+                    "uid=cdaboo,cn=users,dc=example,dc=com",
+                    {
+                        'uid': ['cdaboo'],
+                        'apple-generateduid': ['5A985493-EE2C-4665-94CF-4DFEA3A89500'],
+                        'sn': ['Daboo'],
+                        'mail': ['daboo@example.com'],
+                        'givenName': ['Cyrus'],
+                        'cn': ['Cyrus Daboo']
+                    }
+                ),
+                (
+                    "uid=wsanchez  ,  cn=users  , dc=example,dc=com",
+                    {
+                        'uid': ['wsanchez'],
+                        'apple-generateduid': ['6423F94A-6B76-4A3A-815B-D52CFD77935D'],
+                        'sn': ['Sanchez'],
+                        'mail': ['wsanchez@example.com'],
+                        'givenName': ['Wilfredo'],
+                        'cn': ['Wilfredo Sanchez']
+                    }
+                ),
+            ),
+            {
+                "augmentService" : None,
+                "groupMembershipCache" : None,
+                "cacheTimeout": 1, # Minutes
+                "negativeCaching": False,
+                "warningThresholdSeconds": 3,
+                "batchSize": 500,
+                "queryLocationsImplicitly": True,
+                "restrictEnabledRecords": True,
+                "restrictToGroup": "both_coasts",
+                "recordTypes": ("users", "groups", "locations", "resources"),
+                "uri": "ldap://localhost/",
+                "tls": False,
+                "tlsCACertFile": None,
+                "tlsCACertDir": None,
+                "tlsRequireCert": None, # never, allow, try, demand, hard
+                "credentials": {
+                    "dn": None,
+                    "password": None,
+                },
+                "authMethod": "LDAP",
+                "rdnSchema": {
+                    "base": "dc=example,dc=com",
+                    "guidAttr": "apple-generateduid",
+                    "users": {
+                        "rdn": "cn=Users",
+                        "attr": "uid", # used only to synthesize email address
+                        "emailSuffix": None, # used only to synthesize email address
+                        "filter": "", # additional filter for this type
+                        "loginEnabledAttr" : "", # attribute controlling login
+                        "loginEnabledValue" : "yes", # "True" value of above attribute
+                        "calendarEnabledAttr" : "enable-calendar", # attribute controlling calendaring
+                        "calendarEnabledValue" : "yes", # "True" value of above attribute
+                        "mapping": { # maps internal record names to LDAP
+                            "recordName": "uid",
+                            "fullName" : "cn",
+                            "emailAddresses" : ["mail", "emailAliases"],
+                            "firstName" : "givenName",
+                            "lastName" : "sn",
+                        },
+                    },
+                    "groups": {
+                        "rdn": "cn=Groups",
+                        "attr": "cn", # used only to synthesize email address
+                        "emailSuffix": None, # used only to synthesize email address
+                        "filter": "", # additional filter for this type
+                        "mapping": { # maps internal record names to LDAP
+                            "recordName": "cn",
+                            "fullName" : "cn",
+                            "emailAddresses" : ["mail", "emailAliases"],
+                            "firstName" : "givenName",
+                            "lastName" : "sn",
+                        },
+                    },
+                    "locations": {
+                        "rdn": "cn=Places",
+                        "attr": "cn", # used only to synthesize email address
+                        "emailSuffix": None, # used only to synthesize email address
+                        "filter": "(objectClass=apple-resource)", # additional filter for this type
+                        "calendarEnabledAttr" : "", # attribute controlling calendaring
+                        "calendarEnabledValue" : "yes", # "True" value of above attribute
+                        "mapping": { # maps internal record names to LDAP
+                            "recordName": "cn",
+                            "fullName" : "cn",
+                            "emailAddresses" : "", # old style, single string
+                            "firstName" : "givenName",
+                            "lastName" : "sn",
+                        },
+                    },
+                    "resources": {
+                        "rdn": "cn=Resources",
+                        "attr": "cn", # used only to synthesize email address
+                        "emailSuffix": None, # used only to synthesize email address
+                        "filter": "(objectClass=apple-resource)", # additional filter for this type
+                        "calendarEnabledAttr" : "", # attribute controlling calendaring
+                        "calendarEnabledValue" : "yes", # "True" value of above attribute
+                        "mapping": { # maps internal record names to LDAP
+                            "recordName": "cn",
+                            "fullName" : "cn",
+                            "emailAddresses" : [], # new style, array
+                            "firstName" : "givenName",
+                            "lastName" : "sn",
+                        },
+                    },
+                },
+                "groupSchema": {
+                    "membersAttr": "uniqueMember", # how members are specified
+                    "nestedGroupsAttr": "nestedGroups", # how nested groups are specified
+                    "memberIdAttr": "", # which attribute the above refer to
+                },
+                "resourceSchema": {
+                    "resourceInfoAttr": "apple-resource-info", # contains location/resource info
+                    "autoScheduleAttr": None,
+                    "proxyAttr": None,
+                    "readOnlyProxyAttr": None,
+                },
+                "partitionSchema": {
+                    "serverIdAttr": "server-id", # maps to augments server-id
+                    "partitionIdAttr": "partition-id", # maps to augments partition-id
+                },
+            }
+        )
+        nestedUsingSameAttributeUsingDN = (
+            (
+                (
+                    "cn=Recursive1_coasts, cn=gROUps,dc=example, dc=com",
+                    {
+                        'cn': ['recursive1_coasts'],
+                        'apple-generateduid': ['recursive1_coasts'],
+                        'uniqueMember': [
+                            'uid=wsanchez ,cn=users, dc=eXAMple,dc=com',
+                            'cn=recursive2_coasts,cn=groups,dc=example,dc=com',
+                        ],
+                    }
+                ),
+                (
+                    "cn=recursive2_coasts,cn=groups,dc=example,dc=com",
+                    {
+                        'cn': ['recursive2_coasts'],
+                        'apple-generateduid': ['recursive2_coasts'],
+                        'uniqueMember': [
+                            'uid=cdaboo,cn=users,dc=example,dc=com',
+                            'cn=recursive1_coasts,cn=groups,dc=example,dc=com',
                         ],
                     }
                 ),
@@ -414,41 +666,8 @@ else:
                         'cn': ['Wilfredo Sanchez']
                     }
                 ),
-            )
-
-        def search_s(self, base, scope, filterstr="(objectClass=*)",
-            attrlist=None):
-            """ A simple implementation of LDAP search filter processing """
-
-            base = normalizeDNstr(base)
-            results = []
-            for dn, attrs in self.records:
-                dn = normalizeDNstr(dn)
-                if dn == base:
-                    results.append(("ignored", (dn, attrs)))
-                elif dnContainedIn(ldap.dn.str2dn(dn), ldap.dn.str2dn(base)):
-                    if filterstr in ("(objectClass=*)", "(!(objectClass=organizationalUnit))"):
-                        results.append(("ignored", (dn, attrs)))
-                    else:
-                        trans = maketrans("&(|)", "   |")
-                        fragments = filterstr.encode("utf-8").translate(trans).split("|")
-                        for fragment in fragments:
-                            if not fragment:
-                                continue
-                            fragment = fragment.strip()
-                            key, value = fragment.split("=")
-                            if value in attrs.get(key, []):
-                                results.append(("ignored", (dn, attrs)))
-
-            return results
-
-
-    class LdapDirectoryServiceTestCase(TestCase):
-
-        def setUp(self):
-            super(LdapDirectoryServiceTestCase, self).setUp()
-
-            params = {
+            ),
+            {
                 "augmentService" : None,
                 "groupMembershipCache" : None,
                 "cacheTimeout": 1, # Minutes
@@ -456,8 +675,8 @@ else:
                 "warningThresholdSeconds": 3,
                 "batchSize": 500,
                 "queryLocationsImplicitly": True,
-                "restrictEnabledRecords": False,
-                "restrictToGroup": "",
+                "restrictEnabledRecords": True,
+                "restrictToGroup": "both_coasts",
                 "recordTypes": ("users", "groups", "locations", "resources"),
                 "uri": "ldap://localhost/",
                 "tls": False,
@@ -549,9 +768,441 @@ else:
                     "partitionIdAttr": "partition-id", # maps to augments partition-id
                 },
             }
+        )
+        nestedUsingDifferentAttributeUsingGUID = (
+            (
+                (
+                    "cn=Recursive1_coasts, cn=gROUps,dc=example, dc=com",
+                    {
+                        'cn': ['recursive1_coasts'],
+                        'apple-generateduid': ['recursive1_coasts'],
+                        'uniqueMember': [
+                            '6423F94A-6B76-4A3A-815B-D52CFD77935D',
+                        ],
+                        'nestedGroups': [
+                            'recursive2_coasts',
+                        ],
+                    }
+                ),
+                (
+                    "cn=recursive2_coasts,cn=groups,dc=example,dc=com",
+                    {
+                        'cn': ['recursive2_coasts'],
+                        'apple-generateduid': ['recursive2_coasts'],
+                        'uniqueMember': [
+                            '5A985493-EE2C-4665-94CF-4DFEA3A89500',
+                        ],
+                        'nestedGroups': [
+                            'recursive1_coasts',
+                        ],
+                    }
+                ),
+                (
+                    'cn=both_coasts,cn=groups,dc=example,dc=com',
+                    {
+                        'cn': ['both_coasts'],
+                        'apple-generateduid': ['both_coasts'],
+                        'nestedGroups': [
+                            'right_coast',
+                            'left_coast',
+                        ],
+                    }
+                ),
+                (
+                    'cn=right_coast,cn=groups,dc=example,dc=com',
+                    {
+                        'cn': ['right_coast'],
+                        'apple-generateduid': ['right_coast'],
+                        'uniqueMember': [
+                            '5A985493-EE2C-4665-94CF-4DFEA3A89500',
+                        ],
+                    }
+                ),
+                (
+                    'cn=left_coast,cn=groups,dc=example,dc=com',
+                    {
+                        'cn': ['left_coast'],
+                        'apple-generateduid': ['left_coast'],
+                        'uniqueMember': [
+                            '6423F94A-6B76-4A3A-815B-D52CFD77935D',
+                        ],
+                    }
+                ),
+                (
+                    "uid=odtestamanda,cn=users,dc=example,dc=com",
+                    {
+                        'uid': ['odtestamanda'],
+                        'apple-generateduid': ['9DC04A70-E6DD-11DF-9492-0800200C9A66'],
+                        'sn': ['Test'],
+                        'mail': ['odtestamanda@example.com', 'alternate@example.com'],
+                        'givenName': ['Amanda'],
+                        'cn': ['Amanda Test']
+                    }
+                ),
+                (
+                    "uid=odtestbetty,cn=users,dc=example,dc=com",
+                    {
+                        'uid': ['odtestbetty'],
+                        'apple-generateduid': ['93A8F5C5-49D8-4641-840F-CD1903B0394C'],
+                        'sn': ['Test'],
+                        'mail': ['odtestbetty@example.com'],
+                        'givenName': ['Betty'],
+                        'cn': ['Betty Test']
+                    }
+                ),
+                (
+                    "uid=odtestcarlene,cn=users,dc=example,dc=com",
+                    {
+                        'uid': ['odtestcarlene'],
+                        # Note: no guid here, to test this record is skipped
+                        'sn': ['Test'],
+                        'mail': ['odtestcarlene@example.com'],
+                        'givenName': ['Carlene'],
+                        'cn': ['Carlene Test']
+                    }
+                ),
+                (
+                    "uid=cdaboo,cn=users,dc=example,dc=com",
+                    {
+                        'uid': ['cdaboo'],
+                        'apple-generateduid': ['5A985493-EE2C-4665-94CF-4DFEA3A89500'],
+                        'sn': ['Daboo'],
+                        'mail': ['daboo@example.com'],
+                        'givenName': ['Cyrus'],
+                        'cn': ['Cyrus Daboo']
+                    }
+                ),
+                (
+                    "uid=wsanchez  ,  cn=users  , dc=example,dc=com",
+                    {
+                        'uid': ['wsanchez'],
+                        'apple-generateduid': ['6423F94A-6B76-4A3A-815B-D52CFD77935D'],
+                        'sn': ['Sanchez'],
+                        'mail': ['wsanchez@example.com'],
+                        'givenName': ['Wilfredo'],
+                        'cn': ['Wilfredo Sanchez']
+                    }
+                ),
+            ),
+            {
+                "augmentService" : None,
+                "groupMembershipCache" : None,
+                "cacheTimeout": 1, # Minutes
+                "negativeCaching": False,
+                "warningThresholdSeconds": 3,
+                "batchSize": 500,
+                "queryLocationsImplicitly": True,
+                "restrictEnabledRecords": True,
+                "restrictToGroup": "both_coasts",
+                "recordTypes": ("users", "groups", "locations", "resources"),
+                "uri": "ldap://localhost/",
+                "tls": False,
+                "tlsCACertFile": None,
+                "tlsCACertDir": None,
+                "tlsRequireCert": None, # never, allow, try, demand, hard
+                "credentials": {
+                    "dn": None,
+                    "password": None,
+                },
+                "authMethod": "LDAP",
+                "rdnSchema": {
+                    "base": "dc=example,dc=com",
+                    "guidAttr": "apple-generateduid",
+                    "users": {
+                        "rdn": "cn=Users",
+                        "attr": "uid", # used only to synthesize email address
+                        "emailSuffix": None, # used only to synthesize email address
+                        "filter": "", # additional filter for this type
+                        "loginEnabledAttr" : "", # attribute controlling login
+                        "loginEnabledValue" : "yes", # "True" value of above attribute
+                        "calendarEnabledAttr" : "enable-calendar", # attribute controlling calendaring
+                        "calendarEnabledValue" : "yes", # "True" value of above attribute
+                        "mapping": { # maps internal record names to LDAP
+                            "recordName": "uid",
+                            "fullName" : "cn",
+                            "emailAddresses" : ["mail", "emailAliases"],
+                            "firstName" : "givenName",
+                            "lastName" : "sn",
+                        },
+                    },
+                    "groups": {
+                        "rdn": "cn=Groups",
+                        "attr": "cn", # used only to synthesize email address
+                        "emailSuffix": None, # used only to synthesize email address
+                        "filter": "", # additional filter for this type
+                        "mapping": { # maps internal record names to LDAP
+                            "recordName": "cn",
+                            "fullName" : "cn",
+                            "emailAddresses" : ["mail", "emailAliases"],
+                            "firstName" : "givenName",
+                            "lastName" : "sn",
+                        },
+                    },
+                    "locations": {
+                        "rdn": "cn=Places",
+                        "attr": "cn", # used only to synthesize email address
+                        "emailSuffix": None, # used only to synthesize email address
+                        "filter": "(objectClass=apple-resource)", # additional filter for this type
+                        "calendarEnabledAttr" : "", # attribute controlling calendaring
+                        "calendarEnabledValue" : "yes", # "True" value of above attribute
+                        "mapping": { # maps internal record names to LDAP
+                            "recordName": "cn",
+                            "fullName" : "cn",
+                            "emailAddresses" : "", # old style, single string
+                            "firstName" : "givenName",
+                            "lastName" : "sn",
+                        },
+                    },
+                    "resources": {
+                        "rdn": "cn=Resources",
+                        "attr": "cn", # used only to synthesize email address
+                        "emailSuffix": None, # used only to synthesize email address
+                        "filter": "(objectClass=apple-resource)", # additional filter for this type
+                        "calendarEnabledAttr" : "", # attribute controlling calendaring
+                        "calendarEnabledValue" : "yes", # "True" value of above attribute
+                        "mapping": { # maps internal record names to LDAP
+                            "recordName": "cn",
+                            "fullName" : "cn",
+                            "emailAddresses" : [], # new style, array
+                            "firstName" : "givenName",
+                            "lastName" : "sn",
+                        },
+                    },
+                },
+                "groupSchema": {
+                    "membersAttr": "uniqueMember", # how members are specified
+                    "nestedGroupsAttr": "nestedGroups", # how nested groups are specified
+                    "memberIdAttr": "apple-generateduid", # which attribute the above refer to
+                },
+                "resourceSchema": {
+                    "resourceInfoAttr": "apple-resource-info", # contains location/resource info
+                    "autoScheduleAttr": None,
+                    "proxyAttr": None,
+                    "readOnlyProxyAttr": None,
+                },
+                "partitionSchema": {
+                    "serverIdAttr": "server-id", # maps to augments server-id
+                    "partitionIdAttr": "partition-id", # maps to augments partition-id
+                },
+            }
+        )
+        nestedUsingSameAttributeUsingGUID = (
+            (
+                (
+                    "cn=Recursive1_coasts, cn=gROUps,dc=example, dc=com",
+                    {
+                        'cn': ['recursive1_coasts'],
+                        'apple-generateduid': ['recursive1_coasts'],
+                        'uniqueMember': [
+                            '6423F94A-6B76-4A3A-815B-D52CFD77935D',
+                            'recursive2_coasts',
+                        ],
+                    }
+                ),
+                (
+                    "cn=recursive2_coasts,cn=groups,dc=example,dc=com",
+                    {
+                        'cn': ['recursive2_coasts'],
+                        'apple-generateduid': ['recursive2_coasts'],
+                        'uniqueMember': [
+                            '5A985493-EE2C-4665-94CF-4DFEA3A89500',
+                            'recursive1_coasts',
+                        ],
+                    }
+                ),
+                (
+                    'cn=both_coasts,cn=groups,dc=example,dc=com',
+                    {
+                        'cn': ['both_coasts'],
+                        'apple-generateduid': ['both_coasts'],
+                        'uniqueMember': [
+                            'right_coast',
+                            'left_coast',
+                        ],
+                    }
+                ),
+                (
+                    'cn=right_coast,cn=groups,dc=example,dc=com',
+                    {
+                        'cn': ['right_coast'],
+                        'apple-generateduid': ['right_coast'],
+                        'uniqueMember': [
+                            '5A985493-EE2C-4665-94CF-4DFEA3A89500',
+                        ],
+                    }
+                ),
+                (
+                    'cn=left_coast,cn=groups,dc=example,dc=com',
+                    {
+                        'cn': ['left_coast'],
+                        'apple-generateduid': ['left_coast'],
+                        'uniqueMember': [
+                            '6423F94A-6B76-4A3A-815B-D52CFD77935D',
+                        ],
+                    }
+                ),
+                (
+                    "uid=odtestamanda,cn=users,dc=example,dc=com",
+                    {
+                        'uid': ['odtestamanda'],
+                        'apple-generateduid': ['9DC04A70-E6DD-11DF-9492-0800200C9A66'],
+                        'sn': ['Test'],
+                        'mail': ['odtestamanda@example.com', 'alternate@example.com'],
+                        'givenName': ['Amanda'],
+                        'cn': ['Amanda Test']
+                    }
+                ),
+                (
+                    "uid=odtestbetty,cn=users,dc=example,dc=com",
+                    {
+                        'uid': ['odtestbetty'],
+                        'apple-generateduid': ['93A8F5C5-49D8-4641-840F-CD1903B0394C'],
+                        'sn': ['Test'],
+                        'mail': ['odtestbetty@example.com'],
+                        'givenName': ['Betty'],
+                        'cn': ['Betty Test']
+                    }
+                ),
+                (
+                    "uid=odtestcarlene,cn=users,dc=example,dc=com",
+                    {
+                        'uid': ['odtestcarlene'],
+                        # Note: no guid here, to test this record is skipped
+                        'sn': ['Test'],
+                        'mail': ['odtestcarlene@example.com'],
+                        'givenName': ['Carlene'],
+                        'cn': ['Carlene Test']
+                    }
+                ),
+                (
+                    "uid=cdaboo,cn=users,dc=example,dc=com",
+                    {
+                        'uid': ['cdaboo'],
+                        'apple-generateduid': ['5A985493-EE2C-4665-94CF-4DFEA3A89500'],
+                        'sn': ['Daboo'],
+                        'mail': ['daboo@example.com'],
+                        'givenName': ['Cyrus'],
+                        'cn': ['Cyrus Daboo']
+                    }
+                ),
+                (
+                    "uid=wsanchez  ,  cn=users  , dc=example,dc=com",
+                    {
+                        'uid': ['wsanchez'],
+                        'apple-generateduid': ['6423F94A-6B76-4A3A-815B-D52CFD77935D'],
+                        'sn': ['Sanchez'],
+                        'mail': ['wsanchez@example.com'],
+                        'givenName': ['Wilfredo'],
+                        'cn': ['Wilfredo Sanchez']
+                    }
+                ),
+            ),
+            {
+                "augmentService" : None,
+                "groupMembershipCache" : None,
+                "cacheTimeout": 1, # Minutes
+                "negativeCaching": False,
+                "warningThresholdSeconds": 3,
+                "batchSize": 500,
+                "queryLocationsImplicitly": True,
+                "restrictEnabledRecords": True,
+                "restrictToGroup": "both_coasts",
+                "recordTypes": ("users", "groups", "locations", "resources"),
+                "uri": "ldap://localhost/",
+                "tls": False,
+                "tlsCACertFile": None,
+                "tlsCACertDir": None,
+                "tlsRequireCert": None, # never, allow, try, demand, hard
+                "credentials": {
+                    "dn": None,
+                    "password": None,
+                },
+                "authMethod": "LDAP",
+                "rdnSchema": {
+                    "base": "dc=example,dc=com",
+                    "guidAttr": "apple-generateduid",
+                    "users": {
+                        "rdn": "cn=Users",
+                        "attr": "uid", # used only to synthesize email address
+                        "emailSuffix": None, # used only to synthesize email address
+                        "filter": "", # additional filter for this type
+                        "loginEnabledAttr" : "", # attribute controlling login
+                        "loginEnabledValue" : "yes", # "True" value of above attribute
+                        "calendarEnabledAttr" : "enable-calendar", # attribute controlling calendaring
+                        "calendarEnabledValue" : "yes", # "True" value of above attribute
+                        "mapping": { # maps internal record names to LDAP
+                            "recordName": "uid",
+                            "fullName" : "cn",
+                            "emailAddresses" : ["mail", "emailAliases"],
+                            "firstName" : "givenName",
+                            "lastName" : "sn",
+                        },
+                    },
+                    "groups": {
+                        "rdn": "cn=Groups",
+                        "attr": "cn", # used only to synthesize email address
+                        "emailSuffix": None, # used only to synthesize email address
+                        "filter": "", # additional filter for this type
+                        "mapping": { # maps internal record names to LDAP
+                            "recordName": "cn",
+                            "fullName" : "cn",
+                            "emailAddresses" : ["mail", "emailAliases"],
+                            "firstName" : "givenName",
+                            "lastName" : "sn",
+                        },
+                    },
+                    "locations": {
+                        "rdn": "cn=Places",
+                        "attr": "cn", # used only to synthesize email address
+                        "emailSuffix": None, # used only to synthesize email address
+                        "filter": "(objectClass=apple-resource)", # additional filter for this type
+                        "calendarEnabledAttr" : "", # attribute controlling calendaring
+                        "calendarEnabledValue" : "yes", # "True" value of above attribute
+                        "mapping": { # maps internal record names to LDAP
+                            "recordName": "cn",
+                            "fullName" : "cn",
+                            "emailAddresses" : "", # old style, single string
+                            "firstName" : "givenName",
+                            "lastName" : "sn",
+                        },
+                    },
+                    "resources": {
+                        "rdn": "cn=Resources",
+                        "attr": "cn", # used only to synthesize email address
+                        "emailSuffix": None, # used only to synthesize email address
+                        "filter": "(objectClass=apple-resource)", # additional filter for this type
+                        "calendarEnabledAttr" : "", # attribute controlling calendaring
+                        "calendarEnabledValue" : "yes", # "True" value of above attribute
+                        "mapping": { # maps internal record names to LDAP
+                            "recordName": "cn",
+                            "fullName" : "cn",
+                            "emailAddresses" : [], # new style, array
+                            "firstName" : "givenName",
+                            "lastName" : "sn",
+                        },
+                    },
+                },
+                "groupSchema": {
+                    "membersAttr": "uniqueMember", # how members are specified
+                    "nestedGroupsAttr": "", # how nested groups are specified
+                    "memberIdAttr": "apple-generateduid", # which attribute the above refer to
+                },
+                "resourceSchema": {
+                    "resourceInfoAttr": "apple-resource-info", # contains location/resource info
+                    "autoScheduleAttr": None,
+                    "proxyAttr": None,
+                    "readOnlyProxyAttr": None,
+                },
+                "partitionSchema": {
+                    "serverIdAttr": "server-id", # maps to augments server-id
+                    "partitionIdAttr": "partition-id", # maps to augments partition-id
+                },
+            }
+        )
 
-            self.service = LdapDirectoryService(params)
-            self.service.ldap = LdapDirectoryTestWrapper(self.service.ldap)
+        def setupService(self, scenario):
+            self.service = LdapDirectoryService(scenario[1])
+            self.service.ldap = LdapDirectoryTestWrapper(self.service.ldap, scenario[0])
             self.patch(ldap, "async", StubAsync())
 
 
@@ -559,6 +1210,8 @@ else:
             """
             Exercise the fake search_s implementation
             """
+            self.setupService(self.nestedUsingDifferentAttributeUsingDN)
+
             # Get all groups
             self.assertEquals(
                 len(self.service.ldap.search_s("cn=groups,dc=example,dc=com", 0, "(objectClass=*)", [])), 5)
@@ -574,6 +1227,7 @@ else:
             Exercise _ldapResultToRecord(), which converts a dictionary
             of LDAP attributes into an LdapDirectoryRecord
             """
+            self.setupService(self.nestedUsingDifferentAttributeUsingDN)
 
             # User without enabled-for-calendaring specified
 
@@ -805,6 +1459,7 @@ else:
             listRecords makes an LDAP query (with fake results in this test)
             and turns the results into records
             """
+            self.setupService(self.nestedUsingDifferentAttributeUsingDN)
 
             records = self.service.listRecords(self.service.recordType_users)
             self.assertEquals(len(records), 4)
@@ -812,6 +1467,97 @@ else:
                 set([r.firstName for r in records]),
                 set(["Amanda", "Betty", "Cyrus", "Wilfredo"]) # Carlene is skipped because no guid in LDAP
             )
+
+        def test_restrictedPrincipalsUsingDN(self):
+            """
+            If restrictToGroup is in place, restrictedPrincipals should return only the principals
+            within that group.  In this case we're testing scenarios in which membership
+            is specified by DN
+            """
+            for scenario in (
+                self.nestedUsingSameAttributeUsingDN,
+                self.nestedUsingDifferentAttributeUsingDN,
+                ):
+                self.setupService(scenario)
+
+                self.assertEquals(
+                    set([
+                        "cn=left_coast,cn=groups,dc=example,dc=com",
+                        "cn=right_coast,cn=groups,dc=example,dc=com",
+                        "uid=cdaboo,cn=users,dc=example,dc=com",
+                        "uid=dreid,cn=users,dc=example,dc=com",
+                        "uid=lecroy,cn=users,dc=example,dc=com",
+                        "uid=wsanchez,cn=users,dc=example,dc=com",
+                    ]),
+                    self.service.restrictedPrincipals)
+
+                dn = "uid=cdaboo,cn=users,dc=example,dc=com"
+                attrs = {
+                    'uid': ['cdaboo'],
+                    'apple-generateduid': ['5A985493-EE2C-4665-94CF-4DFEA3A89500'],
+                    'sn': ['Daboo'],
+                    'mail': ['daboo@example.com'],
+                    'givenName': ['Cyrus'],
+                    'cn': ['Cyrus Daboo']
+                }
+                self.assertTrue(self.service.isAllowedByRestrictToGroup(dn, attrs))
+
+                dn = "uid=unknown,cn=users,dc=example,dc=com"
+                attrs = {
+                    'uid': ['unknown'],
+                    'apple-generateduid': ['5A985493-EE2C-4665-94CF-4DFEA3A89500'],
+                    'sn': ['unknown'],
+                    'mail': ['unknown@example.com'],
+                    'givenName': ['unknown'],
+                    'cn': ['unknown']
+                }
+                self.assertFalse(self.service.isAllowedByRestrictToGroup(dn, attrs))
+
+
+        def test_restrictedPrincipalsUsingGUID(self):
+            """
+            If restrictToGroup is in place, restrictedPrincipals should return only the principals
+            within that group.  In this case we're testing scenarios in which membership
+            is specified by an attribute, not DN
+            """
+            for scenario in (
+                self.nestedUsingDifferentAttributeUsingGUID,
+                self.nestedUsingSameAttributeUsingGUID,
+                ):
+                self.setupService(scenario)
+
+                self.assertEquals(
+                    set([
+                        "left_coast",
+                        "right_coast",
+                        "5A985493-EE2C-4665-94CF-4DFEA3A89500",
+                        "6423F94A-6B76-4A3A-815B-D52CFD77935D",
+                    ]),
+                    self.service.restrictedPrincipals)
+
+                dn = "uid=cdaboo,cn=users,dc=example,dc=com"
+                attrs = {
+                    'uid': ['cdaboo'],
+                    'apple-generateduid': ['5A985493-EE2C-4665-94CF-4DFEA3A89500'],
+                    'sn': ['Daboo'],
+                    'mail': ['daboo@example.com'],
+                    'givenName': ['Cyrus'],
+                    'cn': ['Cyrus Daboo']
+                }
+                self.assertTrue(self.service.isAllowedByRestrictToGroup(dn, attrs))
+
+                dn = "uid=unknown,cn=users,dc=example,dc=com"
+                attrs = {
+                    'uid': ['unknown'],
+                    'apple-generateduid': ['unknown'],
+                    'sn': ['unknown'],
+                    'mail': ['unknown@example.com'],
+                    'givenName': ['unknown'],
+                    'cn': ['unknown']
+                }
+                self.assertFalse(self.service.isAllowedByRestrictToGroup(dn, attrs))
+
+
 
         @inlineCallbacks
         def test_groupMembershipAliases(self):
@@ -823,6 +1569,7 @@ else:
             guids, updateCache( ) is smart enough to map between guids and this
             attribute which is referred to in the code as record.cachedGroupsAlias().
             """
+            self.setupService(self.nestedUsingDifferentAttributeUsingDN)
 
             # Set up proxydb and preload it from xml
             calendaruserproxy.ProxyDBService = calendaruserproxy.ProxySqliteDB("proxies.sqlite")
@@ -848,6 +1595,7 @@ else:
 
 
         def test_splitIntoBatches(self):
+            self.setupService(self.nestedUsingDifferentAttributeUsingDN)
             # Data is perfect multiple of size
             results = list(splitIntoBatches(set(range(12)), 4))
             self.assertEquals(results,
@@ -865,6 +1613,7 @@ else:
         def test_recordTypeForDN(self):
             # Ensure dn comparison is case insensitive and ignores extra
             # whitespace
+            self.setupService(self.nestedUsingDifferentAttributeUsingDN)
 
             # Base DNs for each recordtype should already be lowercase
             for dn in self.service.typeDNs.itervalues():
@@ -903,6 +1652,7 @@ else:
             Verify queryDirectory skips LDAP queries where there has been no
             LDAP attribute mapping provided for the given index type.
             """
+            self.setupService(self.nestedUsingDifferentAttributeUsingDN)
 
             self.history = []
 

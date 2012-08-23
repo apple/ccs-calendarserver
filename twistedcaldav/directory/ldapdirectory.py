@@ -322,12 +322,7 @@ class LdapDirectoryService(CachingDirectoryService):
         for dn, attrs in results:
             dn = normalizeDNstr(dn)
 
-            unrestricted = True
-            if self.restrictedGUIDs is not None:
-                if guidAttr:
-                    guid = self._getUniqueLdapAttribute(attrs, guidAttr)
-                    if guid not in self.restrictedGUIDs:
-                        unrestricted = False
+            unrestricted = self.isAllowedByRestrictToGroup(dn, attrs)
 
             try:
                 record = self._ldapResultToRecord(dn, attrs, recordType)
@@ -337,7 +332,7 @@ class LdapDirectoryService(CachingDirectoryService):
                 continue
 
             if not unrestricted:
-                self.log_debug("%s is not enabled because it's not a member of group: %s" % (guid, self.restrictToGroup))
+                self.log_debug("%s is not enabled because it's not a member of group: %s" % (dn, self.restrictToGroup))
                 record.enabledForCalendaring = False
                 record.enabledForAddressBooks = False
 
@@ -554,56 +549,106 @@ class LdapDirectoryService(CachingDirectoryService):
         raise HTTPError(StatusResponse(responsecode.SERVICE_UNAVAILABLE, "LDAP server unavailable"))
 
 
+    def isAllowedByRestrictToGroup(self, dn, attrs):
+        """
+        Check to see if the principal with the given DN and LDAP attributes is
+        a member of the restrictToGroup.
+
+        @param dn: an LDAP dn
+        @type dn: C{str}
+        @param attrs: LDAP attributes
+        @type attrs: C{dict}
+        @return: True if principal is in the group (or restrictEnabledRecords if turned off).
+        @rtype: C{boolean}
+        """
+        if not self.restrictEnabledRecords:
+            return True
+        if self.groupSchema["memberIdAttr"]:
+            value = self._getUniqueLdapAttribute(attrs, self.groupSchema["memberIdAttr"])
+        else: # No memberIdAttr implies DN
+            value = dn
+        return value in self.restrictedPrincipals
+
+
     @property
-    def restrictedGUIDs(self):
+    def restrictedPrincipals(self):
         """
         Look up (and cache) the set of guids that are members of the
         restrictToGroup.  If restrictToGroup is not set, return None to
         indicate there are no group restrictions.
-
-        guidAttr must also be specified in config for restrictToGroups to work.
         """
-        if self.restrictEnabledRecords and self.rdnSchema["guidAttr"]:
+        if self.restrictEnabledRecords:
 
             if time.time() - self.restrictedTimestamp > self.cacheTimeout:
                 # fault in the members of group of name self.restrictToGroup
-
                 recordType = self.recordType_groups
                 base = self.typeDNs[recordType]
+                # TODO: This shouldn't be hardcoded to cn
                 filterstr = "(cn=%s)" % (self.restrictToGroup,)
                 self.log_debug("Retrieving ldap record with base %s and filter %s." %
                     (ldap.dn.dn2str(base), filterstr))
                 result = self.timedSearch(ldap.dn.dn2str(base),
                     ldap.SCOPE_SUBTREE, filterstr=filterstr, attrlist=self.attrlist)
 
+                members = []
+                nestedGroups = []
+
                 if len(result) == 1:
                     dn, attrs = result[0]
                     dn = normalizeDNstr(dn)
                     if self.groupSchema["membersAttr"]:
-                        members = set(self._getMultipleLdapAttributes(attrs,
-                            self.groupSchema["membersAttr"]))
+                        members = self._getMultipleLdapAttributes(attrs,
+                            self.groupSchema["membersAttr"])
+                        if not self.groupSchema["memberIdAttr"]: # these are DNs
+                            members = [normalizeDNstr(m) for m in members]
+                        members = set(members)
+
                     if self.groupSchema["nestedGroupsAttr"]:
-                        nestedGroups = set(self._getMultipleLdapAttributes(attrs,
-                            self.groupSchema["nestedGroupsAttr"]))
+                        nestedGroups = self._getMultipleLdapAttributes(attrs,
+                            self.groupSchema["nestedGroupsAttr"])
+                        if not self.groupSchema["memberIdAttr"]: # these are DNs
+                            nestedGroups = [normalizeDNstr(g) for g in nestedGroups]
+                        nestedGroups = set(nestedGroups)
+                    else:
+                        # Since all members are lumped into the same attribute,
+                        # treat them all as nestedGroups instead
+                        nestedGroups = members
+                        members = set()
 
-                else:
-                    members = []
-                    nestedGroups = []
-
-                self._cachedRestrictedGUIDs = set(self._expandGroupMembership(members, nestedGroups, returnGroups=True))
-                self.log_info("Got %d restricted group members" % (len(self._cachedRestrictedGUIDs),))
+                self._cachedRestrictedPrincipals = set(self._expandGroupMembership(members,
+                    nestedGroups))
+                self.log_info("Got %d restricted group members" % (
+                    len(self._cachedRestrictedPrincipals),))
                 self.restrictedTimestamp = time.time()
-            return self._cachedRestrictedGUIDs
+            return self._cachedRestrictedPrincipals
         else:
             # No restrictions
             return None
 
 
-    def _expandGroupMembership(self, members, nestedGroups,
-        processedGUIDs=None, returnGroups=False):
+    def _expandGroupMembership(self, members, nestedGroups, processedItems=None):
+        """
+        A generator which recursively yields principals which are included within nestedGroups
 
-        if processedGUIDs is None:
-            processedGUIDs = set()
+        @param members:  If the LDAP service is configured to use different attributes to
+            indicate member users and member nested groups, members will include the non-groups.
+            Otherwise, members will be empty and only nestedGroups will be used.
+        @type members: C{set}
+        @param nestedGroups:  If the LDAP service is configured to use different attributes to
+            indicate member users and member nested groups, nestedGroups will include only
+            the groups; otherwise nestedGroups will include all members
+        @type members: C{set}
+        @param processedItems: The set of members that have already been looked up in LDAP
+            so the code doesn't have to look up the same member twice or get stuck in a
+            membership loop.
+        @type processedItems: C{set}
+        @return: All members of the group, the values will correspond to memberIdAttr
+            if memberIdAttr is set in the group schema, or DNs otherwise.
+        @rtype: generator of C{str}
+        """
+
+        if processedItems is None:
+            processedItems = set()
 
         if isinstance(members, str):
             members = [members]
@@ -611,18 +656,25 @@ class LdapDirectoryService(CachingDirectoryService):
         if isinstance(nestedGroups, str):
             nestedGroups = [nestedGroups]
 
-        for memberGUID in members:
-            if memberGUID not in processedGUIDs:
-                processedGUIDs.add(memberGUID)
-                yield memberGUID
+        for member in members:
+            if member not in processedItems:
+                processedItems.add(member)
+                yield member
 
-        for groupGUID in nestedGroups:
-            if groupGUID in processedGUIDs:
+        for group in nestedGroups:
+            if group in processedItems:
                 continue
 
             recordType = self.recordType_groups
             base = self.typeDNs[recordType]
-            filterstr = "(%s=%s)" % (self.rdnSchema["guidAttr"], groupGUID)
+            if self.groupSchema["memberIdAttr"]:
+                scope = ldap.SCOPE_SUBTREE
+                base = self.typeDNs[recordType]
+                filterstr = "(%s=%s)" % (self.groupSchema["memberIdAttr"], group)
+            else: # Use DN
+                scope = ldap.SCOPE_BASE
+                base = ldap.dn.str2dn(group)
+                filterstr = "(objectClass=*)"
 
             self.log_debug("Retrieving ldap record with base %s and filter %s." %
                 (ldap.dn.dn2str(base), filterstr))
@@ -632,28 +684,31 @@ class LdapDirectoryService(CachingDirectoryService):
             if len(result) == 0:
                 continue
 
+            subMembers = set()
+            subNestedGroups = set()
             if len(result) == 1:
                 dn, attrs = result[0]
                 dn = normalizeDNstr(dn)
                 if self.groupSchema["membersAttr"]:
-                    subMembers = set(self._getMultipleLdapAttributes(attrs,
-                        self.groupSchema["membersAttr"]))
-                else:
-                    subMembers = []
+                    subMembers = self._getMultipleLdapAttributes(attrs,
+                        self.groupSchema["membersAttr"])
+                    if not self.groupSchema["memberIdAttr"]: # these are DNs
+                        subMembers = [normalizeDNstr(m) for m in subMembers]
+                    subMembers = set(subMembers)
 
                 if self.groupSchema["nestedGroupsAttr"]:
-                    subNestedGroups = set(self._getMultipleLdapAttributes(attrs,
-                        self.groupSchema["nestedGroupsAttr"]))
-                else:
-                    subNestedGroups = []
+                    subNestedGroups = self._getMultipleLdapAttributes(attrs,
+                        self.groupSchema["nestedGroupsAttr"])
+                    if not self.groupSchema["memberIdAttr"]: # these are DNs
+                        subNestedGroups = [normalizeDNstr(g) for g in subNestedGroups]
+                    subNestedGroups = set(subNestedGroups)
 
-            processedGUIDs.add(groupGUID)
-            if returnGroups:
-                yield groupGUID
+            processedItems.add(group)
+            yield group
 
-            for GUID in self._expandGroupMembership(subMembers,
-                subNestedGroups, processedGUIDs, returnGroups):
-                yield GUID
+            for item in self._expandGroupMembership(subMembers, subNestedGroups,
+                processedItems):
+                yield item
 
 
     def _getUniqueLdapAttribute(self, attrs, *keys):
@@ -963,19 +1018,14 @@ class LdapDirectoryService(CachingDirectoryService):
                 dn, attrs = result.pop()
                 dn = normalizeDNstr(dn)
 
-                unrestricted = True
-                if self.restrictedGUIDs is not None:
-                    if guidAttr:
-                        guid = self._getUniqueLdapAttribute(attrs, guidAttr)
-                        if guid not in self.restrictedGUIDs:
-                            unrestricted = False
+                unrestricted = self.isAllowedByRestrictToGroup(dn, attrs)
 
                 try:
                     record = self._ldapResultToRecord(dn, attrs, recordType)
                     self.log_debug("Got LDAP record %s" % (record,))
 
                     if not unrestricted:
-                        self.log_debug("%s is not enabled because it's not a member of group: %s" % (guid, self.restrictToGroup))
+                        self.log_debug("%s is not enabled because it's not a member of group: %s" % (dn, self.restrictToGroup))
                         record.enabledForCalendaring = False
                         record.enabledForAddressBooks = False
 
@@ -1045,11 +1095,8 @@ class LdapDirectoryService(CachingDirectoryService):
                     # Skip if group restriction is in place and guid is not
                     # a member
                     if (recordType != self.recordType_groups and
-                        self.restrictedGUIDs is not None):
-                        if guidAttr:
-                            guid = self._getUniqueLdapAttribute(attrs, guidAttr)
-                            if guid not in self.restrictedGUIDs:
-                                continue
+                        not self.isAllowedByRestrictToGroup(dn, attrs)):
+                        continue
 
                     try:
                         record = self._ldapResultToRecord(dn, attrs, recordType)
@@ -1138,11 +1185,8 @@ class LdapDirectoryService(CachingDirectoryService):
                     # Skip if group restriction is in place and guid is not
                     # a member
                     if (recordType != self.recordType_groups and
-                        self.restrictedGUIDs is not None):
-                        if guidAttr:
-                            guid = self._getUniqueLdapAttribute(attrs, guidAttr)
-                            if guid not in self.restrictedGUIDs:
-                                continue
+                        not self.isAllowedByRestrictToGroup(dn, attrs)):
+                        continue
 
                     try:
                         record = self._ldapResultToRecord(dn, attrs, recordType)
