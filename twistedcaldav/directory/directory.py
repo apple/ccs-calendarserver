@@ -750,7 +750,13 @@ class GroupMembershipCacheUpdater(LoggingMixIn):
             # populate proxy DB from external resource info
             self.log_info("Applying proxy assignment changes")
             assignmentCount = 0
+            totalNumAssignments = len(assignments)
+            currentAssignmentNum = 0
             for principalUID, members in assignments:
+                currentAssignmentNum += 1
+                if currentAssignmentNum % 1000 == 0:
+                    self.log_info("...proxy assignment %d of %d" % (currentAssignmentNum,
+                        totalNumAssignments))
                 try:
                     current = (yield self.proxyDB.getMembers(principalUID))
                     if members != current:
@@ -821,7 +827,13 @@ class GroupMembershipCacheUpdater(LoggingMixIn):
         self.log_info("Storing %d group memberships in memcached" %
                        (len(members),))
         changedMembers = set()
+        totalNumMembers = len(members)
+        currentMemberNum = 0
         for member, groups in members.iteritems():
+            currentMemberNum += 1
+            if currentMemberNum % 1000 == 0:
+                self.log_info("...membership %d of %d" % (currentMemberNum,
+                    totalNumMembers))
             # self.log_debug("%s is in %s" % (member, groups))
             yield self.cache.setGroupsFor(member, groups)
             if groups != previousMembers.get(member, None):
