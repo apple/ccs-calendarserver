@@ -17,7 +17,6 @@
 
 from cStringIO import StringIO
 from twisted.internet.defer import inlineCallbacks
-from twisted.python.filepath import FilePath
 from twisted.python.modules import getModule
 from twisted.web.template import Element, renderer, flattenString
 from twistedcaldav.config import config, ConfigDict
@@ -182,21 +181,6 @@ class MailHandlerTests(TestCase):
         retrieved = self.handler.db.getToken(organizer,
             attendee.lower(), icaluid)
         self.assertEquals(retrieved, token)
-
-
-
-    def test_iconPath(self):
-        iconPath = self.handler.getIconPath({'day':'1', 'month':'1'}, False,
-                                            language='en')
-        iconDir = FilePath("/usr/share/caldavd/share/date_icons")
-
-        if iconDir.exists():
-            if iconDir.child("JAN").child("01.png"):
-                monthName = "JAN"
-            else:
-                monthName = "01"
-            monthPath = iconDir.child(monthName)
-            self.assertEquals(iconPath, monthPath.child("01.png").path)
 
 
     def test_checkDSNFailure(self):

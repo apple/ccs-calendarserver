@@ -29,7 +29,6 @@ import uuid
 
 from cStringIO import StringIO
 
-from email.mime.image import MIMEImage
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
@@ -1405,32 +1404,6 @@ class MailHandler(LoggingMixIn):
                 formattedFrom, recipient, addressWithToken))
 
 
-    def getIconPath(self, details, canceled, language='en'):
-        iconDir = config.Scheduling.iMIP.MailIconsDirectory.rstrip("/")
-
-        if canceled:
-            iconName = "canceled.png"
-            iconPath = os.path.join(iconDir, iconName)
-            if os.path.exists(iconPath):
-                return iconPath
-            else:
-                return None
-
-        else:
-            month = int(details['month'])
-            day = int(details['day'])
-            with translationTo(language) as trans:
-                monthName = trans.monthAbbreviation(month)
-            iconName = "%02d.png" % (day,)
-            iconPath = os.path.join(iconDir, monthName.encode("utf-8"), iconName)
-            if not os.path.exists(iconPath):
-                # Try the generic (numeric) version
-                iconPath = os.path.join(iconDir, "%02d" % (month,), iconName)
-                if not os.path.exists(iconPath):
-                    return None
-            return iconPath
-
-
     def generateEmail(self, inviteState, calendar, orgEmail, orgCN,
                       attendees, fromAddress, replyToAddress, toAddress,
                       language='en'):
@@ -1483,18 +1456,16 @@ class MailHandler(LoggingMixIn):
 
         details = self.getEventDetails(calendar, language=language)
         canceled = (calendar.propertyValue("METHOD") == "CANCEL")
-        iconPath = self.getIconPath(details, canceled, language=language)
 
         subjectFormat, labels = localizedLabels(language, canceled, inviteState)
         details.update(labels)
 
         details['subject'] = subjectFormat % {'summary' : details['summary']}
-        details['iconName'] = iconName = "calicon.png"
 
         plainText = self.renderPlainText(details, (orgCN, orgEmail),
                                          attendees, canceled)
 
-        [addIcon, htmlText] = self.renderHTML(details, (orgCN, orgEmail),
+        htmlText = self.renderHTML(details, (orgCN, orgEmail),
                                               attendees, canceled)
 
         msg = MIMEMultipart()
@@ -1519,19 +1490,6 @@ class MailHandler(LoggingMixIn):
 
         msgHtml = MIMEText(htmlText, "html", "UTF-8")
         msgHtmlRelated.attach(msgHtml)
-
-        # an image for html version
-        if addIcon and iconPath != None and os.path.exists(iconPath):
-
-            with open(iconPath) as iconFile:
-                msgIcon = MIMEImage(iconFile.read(),
-                    _subtype='png;x-apple-mail-type=stationery;name="%s"' %
-                    (iconName,))
-
-            msgIcon.add_header("Content-ID", "<%s>" % (iconName,))
-            msgIcon.add_header("Content-Disposition", "inline;filename=%s" %
-                (iconName,))
-            msgHtmlRelated.attach(msgIcon)
 
         calendarText = str(calendar)
         # the icalendar attachment
@@ -1584,10 +1542,7 @@ class MailHandler(LoggingMixIn):
         Render HTML message part based on invitation details and a flag
         indicating whether the message is a cancellation.
 
-        @return: a 2-tuple of (should add icon (C{bool}), html text (C{str},
-            representing utf-8 encoded bytes)).  The first element indicates
-            whether the MIME generator needs to add a C{cid:} icon image part to
-            satisfy the HTML links.
+        @return: html text (C{str}, representing utf-8 encoded bytes)).
         """
         orgCN, orgEmail = organizer
 
@@ -1649,10 +1604,7 @@ class MailHandler(LoggingMixIn):
         flattenString(None, EmailElement()).addCallback(textCollector.append)
         htmlText = textCollector[0]
 
-        # If the template refers to an icon in a cid: link, it needs to be added
-        # in the MIME.
-        addIcon = (htmlTemplate.find("cid:%(iconName)s") != -1)
-        return (addIcon, htmlText)
+        return htmlText
 
 
     def getEventDetails(self, calendar, language='en'):
