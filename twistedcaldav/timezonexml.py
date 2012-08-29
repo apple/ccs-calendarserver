@@ -18,8 +18,8 @@
 This module provides XML definitions for use with Timezone Standard Service.
 """
 
-from txdav.xml import element as davxml
 from txdav.xml.element import registerElement
+from txdav.xml.element import WebDAVElement, WebDAVEmptyElement, WebDAVTextElement
 
 
 ##
@@ -30,7 +30,7 @@ timezone_namespace = "urn:ietf:params:xml:ns:timezone-service"
 
 
 @registerElement
-class Capabilities (davxml.WebDAVElement):
+class Capabilities (WebDAVElement):
     namespace = timezone_namespace
     name = "capabilities"
     allowed_children = {
@@ -39,7 +39,7 @@ class Capabilities (davxml.WebDAVElement):
 
 
 @registerElement
-class Operation (davxml.WebDAVElement):
+class Operation (WebDAVElement):
     namespace = timezone_namespace
     name = "operation"
     allowed_children = {
@@ -50,19 +50,19 @@ class Operation (davxml.WebDAVElement):
 
 
 @registerElement
-class Action (davxml.WebDAVTextElement):
+class Action (WebDAVTextElement):
     namespace = timezone_namespace
     name = "action"
 
 
 @registerElement
-class Description (davxml.WebDAVTextElement):
+class Description (WebDAVTextElement):
     namespace = timezone_namespace
     name = "description"
 
 
 @registerElement
-class AcceptParameter (davxml.WebDAVElement):
+class AcceptParameter (WebDAVElement):
     namespace = timezone_namespace
     name = "accept-parameter"
     allowed_children = {
@@ -75,31 +75,31 @@ class AcceptParameter (davxml.WebDAVElement):
 
 
 @registerElement
-class Name (davxml.WebDAVTextElement):
+class Name (WebDAVTextElement):
     namespace = timezone_namespace
     name = "name"
 
 
 @registerElement
-class Required (davxml.WebDAVTextElement):
+class Required (WebDAVTextElement):
     namespace = timezone_namespace
     name = "required"
 
 
 @registerElement
-class Multi (davxml.WebDAVTextElement):
+class Multi (WebDAVTextElement):
     namespace = timezone_namespace
     name = "multi"
 
 
 @registerElement
-class Value (davxml.WebDAVTextElement):
+class Value (WebDAVTextElement):
     namespace = timezone_namespace
     name = "value"
 
 
 @registerElement
-class TimezoneList (davxml.WebDAVElement):
+class TimezoneList (WebDAVElement):
     namespace = timezone_namespace
     name = "timezone-list"
     allowed_children = {
@@ -109,13 +109,13 @@ class TimezoneList (davxml.WebDAVElement):
 
 
 @registerElement
-class Dtstamp (davxml.WebDAVTextElement):
+class Dtstamp (WebDAVTextElement):
     namespace = timezone_namespace
     name = "dtstamp"
 
 
 @registerElement
-class Summary (davxml.WebDAVElement):
+class Summary (WebDAVElement):
     namespace = timezone_namespace
     name = "summary"
     allowed_children = {
@@ -128,37 +128,37 @@ class Summary (davxml.WebDAVElement):
 
 
 @registerElement
-class Tzid (davxml.WebDAVTextElement):
+class Tzid (WebDAVTextElement):
     namespace = timezone_namespace
     name = "tzid"
 
 
 @registerElement
-class LastModified (davxml.WebDAVTextElement):
+class LastModified (WebDAVTextElement):
     namespace = timezone_namespace
     name = "last-modified"
 
 
 @registerElement
-class LocalName (davxml.WebDAVTextElement):
+class LocalName (WebDAVTextElement):
     namespace = timezone_namespace
     name = "local-name"
 
 
 @registerElement
-class Alias (davxml.WebDAVTextElement):
+class Alias (WebDAVTextElement):
     namespace = timezone_namespace
     name = "alias"
 
 
 @registerElement
-class Inactive (davxml.WebDAVEmptyElement):
+class Inactive (WebDAVEmptyElement):
     namespace = timezone_namespace
     name = "inactive"
 
 
 @registerElement
-class Timezones (davxml.WebDAVElement):
+class Timezones (WebDAVElement):
     namespace = timezone_namespace
     name = "timezones"
     allowed_children = {
@@ -168,7 +168,7 @@ class Timezones (davxml.WebDAVElement):
 
 
 @registerElement
-class Tzdata (davxml.WebDAVElement):
+class Tzdata (WebDAVElement):
     namespace = timezone_namespace
     name = "tzdata"
     allowed_children = {
@@ -179,13 +179,13 @@ class Tzdata (davxml.WebDAVElement):
 
 
 @registerElement
-class Calscale (davxml.WebDAVTextElement):
+class Calscale (WebDAVTextElement):
     namespace = timezone_namespace
     name = "calscale"
 
 
 @registerElement
-class Observance (davxml.WebDAVElement):
+class Observance (WebDAVElement):
     namespace = timezone_namespace
     name = "observance"
     allowed_children = {
@@ -198,18 +198,18 @@ class Observance (davxml.WebDAVElement):
 
 
 @registerElement
-class Onset (davxml.WebDAVTextElement):
+class Onset (WebDAVTextElement):
     namespace = timezone_namespace
     name = "onset"
 
 
 @registerElement
-class UTCOffsetFrom (davxml.WebDAVTextElement):
+class UTCOffsetFrom (WebDAVTextElement):
     namespace = timezone_namespace
     name = "utc-offset-from"
 
 
 @registerElement
-class UTCOffsetTo (davxml.WebDAVTextElement):
+class UTCOffsetTo (WebDAVTextElement):
     namespace = timezone_namespace
     name = "utc-offset-to"

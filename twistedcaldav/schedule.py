@@ -30,12 +30,9 @@ from twext.web2 import responsecode
 from txdav.xml import element as davxml
 from txdav.xml.rfc2518 import HRef
 from twext.web2.dav.http import ErrorResponse, MultiStatusResponse
-from twext.web2.dav.noneprops import NonePropertyStore
 from twext.web2.dav.resource import davPrivilegeSet
 from twext.web2.dav.util import joinURL, normalizeURL
 from twext.web2.http import HTTPError
-from twext.web2.http import Response
-from twext.web2.http_headers import MimeType
 
 from twisted.internet.defer import inlineCallbacks, returnValue, succeed
 
@@ -45,10 +42,9 @@ from twistedcaldav.caldavxml import caldav_namespace, Opaque,\
 from twistedcaldav.config import config
 from twistedcaldav.customxml import calendarserver_namespace
 from twistedcaldav.ical import allowedComponents
-from twistedcaldav.extensions import DAVResource
-from twistedcaldav.resource import CalDAVResource, ReadOnlyNoCopyResourceMixIn
+from twistedcaldav.resource import CalDAVResource
 from twistedcaldav.resource import isCalendarCollectionResource
-from twistedcaldav.scheduling.scheduler import CalDAVScheduler, IScheduleScheduler
+from twistedcaldav.scheduling.scheduler import CalDAVScheduler
 
 from txdav.base.propertystore.base import PropertyName
 
@@ -488,117 +484,3 @@ class ScheduleOutboxResource (CalendarSchedulingCollectionResource):
         responses = [davxml.StatusResponse(href, davxml.Status.fromResponseCode(responsecode.NOT_FOUND)) for href in multiget.resources]
         return succeed(MultiStatusResponse((responses)))
 
-class IScheduleInboxResource (ReadOnlyNoCopyResourceMixIn, DAVResource):
-    """
-    iSchedule Inbox resource.
-
-    Extends L{DAVResource} to provide iSchedule inbox functionality.
-    """
-
-    def __init__(self, parent, store):
-        """
-        @param parent: the parent resource of this one.
-        """
-        assert parent is not None
-
-        DAVResource.__init__(self, principalCollections=parent.principalCollections())
-
-        self.parent = parent
-        self._newStore = store
-
-    def deadProperties(self):
-        if not hasattr(self, "_dead_properties"):
-            self._dead_properties = NonePropertyStore(self)
-        return self._dead_properties
-
-    def etag(self):
-        return succeed(None)
-
-    def checkPreconditions(self, request):
-        return None
-
-    def resourceType(self):
-        return davxml.ResourceType.ischeduleinbox
-
-    def contentType(self):
-        return MimeType.fromString("text/html; charset=utf-8");
-
-    def isCollection(self):
-        return False
-
-    def isCalendarCollection(self):
-        return False
-
-    def isPseudoCalendarCollection(self):
-        return False
-
-    def principalForCalendarUserAddress(self, address):
-        for principalCollection in self.principalCollections():
-            principal = principalCollection.principalForCalendarUserAddress(address)
-            if principal is not None:
-                return principal
-        return None
-
-    def render(self, request):
-        output = """<html>
-<head>
-<title>Server To Server Inbox Resource</title>
-</head>
-<body>
-<h1>Server To Server Inbox Resource.</h1>
-</body
-</html>"""
-
-        response = Response(200, {}, output)
-        response.headers.setHeader("content-type", MimeType("text", "html"))
-        return response
-
-    @inlineCallbacks
-    def http_POST(self, request):
-        """
-        The server-to-server POST method.
-        """
-
-        # Check authentication and access controls
-        yield self.authorize(request, (caldavxml.ScheduleDeliver(),))
-
-        # This is a server-to-server scheduling operation.
-        scheduler = IScheduleScheduler(request, self)
-
-        # Need a transaction to work with
-        txn = self._newStore.newTransaction("new transaction for Server To Server Inbox Resource")
-        request._newStoreTransaction = txn
-         
-        # Do the POST processing treating this as a non-local schedule
-        try:
-            result = (yield scheduler.doSchedulingViaPOST(txn, use_request_headers=True))
-        except Exception, e:
-            yield txn.abort()
-            raise e
-        else:
-            yield txn.commit()
-        returnValue(result.response())
-
-    ##
-    # ACL
-    ##
-
-    def supportedPrivileges(self, request):
-        return succeed(deliverSchedulePrivilegeSet)
-
-    def defaultAccessControlList(self):
-        privs = (
-            davxml.Privilege(davxml.Read()),
-            davxml.Privilege(caldavxml.ScheduleDeliver()),
-        )
-        if config.Scheduling.CalDAV.OldDraftCompatibility:
-            privs += (davxml.Privilege(caldavxml.Schedule()),)
-
-        return davxml.ACL(
-            # DAV:Read, CalDAV:schedule-deliver for all principals (includes anonymous)
-            davxml.ACE(
-                davxml.Principal(davxml.All()),
-                davxml.Grant(*privs),
-                davxml.Protected(),
-            ),
-        )

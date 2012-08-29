@@ -606,6 +606,17 @@ DEFAULT_CONFIG = {
             "Enabled"          : False, # iSchedule protocol
             "AddressPatterns"  : [],    # Reg-ex patterns to match iSchedule-able calendar user addresses
             "Servers"          : "servertoserver.xml",    # iSchedule server configurations
+            "DKIM"             : {      # DKIM options
+                "Enabled"               : True,             # DKIM signing/verification enabled
+                "Domain"                : "",               # Domain for DKIM (defaults to ServerHostName)
+                "SignatureAlgorithm"    : "rsa-sha256",     # Signature algorithm (one of rsa-sha1 or rsa-sha256)
+                "UseDNSKey"             : True,             # Public key stored in DNS
+                "UseHTTPKey"            : True,             # Public key stored in HTTP /.well-known
+                "KeySelector"           : "ischedule",      # Selector for public key
+                "ExpireSeconds"         : 3600,             # Expiration time for signature verification
+                "PrivateKeyFile"        : "",               # File where private key is stored
+                "PublicKeyFile"         : "",               # File where public key is stored
+            },
         },
 
         "iMIP": {

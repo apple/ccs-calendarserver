@@ -38,8 +38,8 @@ from twistedcaldav.client.pool import _configuredClientContextFactory
 from twistedcaldav import caldavxml
 from twistedcaldav.caldavxml import caldav_namespace
 from twistedcaldav.scheduling.delivery import DeliveryService
-from twistedcaldav.scheduling.ischeduleservers import IScheduleServers
-from twistedcaldav.scheduling.ischeduleservers import IScheduleServerRecord
+from twistedcaldav.scheduling.ischedule.servers import IScheduleServers
+from twistedcaldav.scheduling.ischedule.servers import IScheduleServerRecord
 from twistedcaldav.scheduling.itip import iTIPRequestStatus
 from twistedcaldav.util import utf8String, normalizationLookup
 from twistedcaldav.scheduling.cuaddress import PartitionedCalendarUser, RemoteCalendarUser,\
@@ -341,3 +341,4 @@ class IScheduleRequest(object):
                 raise HTTPError(responsecode.BAD_REQUEST)
         for response in schedule_response.children:
             self.responses.clone(response)
+

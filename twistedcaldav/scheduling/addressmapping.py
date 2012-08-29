@@ -23,7 +23,7 @@ from twistedcaldav.memcacher import Memcacher
 from twistedcaldav.scheduling.caldav import ScheduleViaCalDAV
 from twistedcaldav.scheduling.delivery import DeliveryService
 from twistedcaldav.scheduling.imip import ScheduleViaIMip
-from twistedcaldav.scheduling.ischedule import ScheduleViaISchedule
+from twistedcaldav.scheduling.ischedule.delivery import ScheduleViaISchedule
 from twistedcaldav.scheduling.cuaddress import RemoteCalendarUser, EmailCalendarUser, InvalidCalendarUser,\
     calendarUserFromPrincipal
 

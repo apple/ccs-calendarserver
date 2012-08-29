@@ -58,7 +58,7 @@ from twistedcaldav.notify import NotifierFactory, getPubSubConfiguration
 from calendarserver.push.applepush import APNSubscriptionResource
 from twistedcaldav.directorybackedaddressbook import DirectoryBackedAddressBookResource
 from twistedcaldav.resource import AuthenticationWrapper
-from twistedcaldav.schedule import IScheduleInboxResource
+from twistedcaldav.scheduling.ischedule.resource import IScheduleInboxResource
 from twistedcaldav.simpleresource import SimpleResource, SimpleRedirectResource
 from twistedcaldav.timezones import TimezoneCache
 from twistedcaldav.timezoneservice import TimezoneServiceResource
@@ -533,6 +533,7 @@ def getRootResource(config, newStore, resources=None):
             (config.EnableCalDAV, "caldav", "/",),
             (config.EnableCardDAV, "carddav", "/",),
             (config.TimezoneService.Enabled, "timezone", "/stdtimezones",),
+            (config.Scheduling.iSchedule.Enabled, "ischedule", "/ischedule"),
         ):
             if enabled:
                 if config.EnableSSL:

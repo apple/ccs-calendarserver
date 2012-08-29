@@ -47,8 +47,8 @@ from twistedcaldav.scheduling.cuaddress import RemoteCalendarUser
 from twistedcaldav.scheduling.cuaddress import EmailCalendarUser
 from twistedcaldav.scheduling.cuaddress import PartitionedCalendarUser
 from twistedcaldav.scheduling.imip import ScheduleViaIMip
-from twistedcaldav.scheduling.ischedule import ScheduleViaISchedule
-from twistedcaldav.scheduling.ischeduleservers import IScheduleServers
+from twistedcaldav.scheduling.ischedule.delivery import ScheduleViaISchedule
+from twistedcaldav.scheduling.ischedule.servers import IScheduleServers
 from twistedcaldav.scheduling.itip import iTIPRequestStatus
 from twistedcaldav.servers import Servers
 from twistedcaldav.util import normalizationLookup
