@@ -138,39 +138,36 @@ class IScheduleInboxResource (ReadOnlyNoCopyResourceMixIn, DAVResource):
 
         result = ischedulexml.QueryResult(
             
-            ischedulexml.CapabilitySet(
-                ischedulexml.SupportedVersionSet(
+            ischedulexml.Capabilities(
+                ischedulexml.Versions(
                     ischedulexml.Version.fromString("1.0"),
                 ),
-                ischedulexml.SupportedSchedulingMessageSet(
-                    ischedulexml.Comp(
+                ischedulexml.SchedulingMessages(
+                    ischedulexml.Component(
                         ischedulexml.Method(name="REQUEST"),
                         ischedulexml.Method(name="CANCEL"),
                         ischedulexml.Method(name="REPLY"),
                         name="VEVENT"
                     ),
-                    ischedulexml.Comp(
+                    ischedulexml.Component(
                         ischedulexml.Method(name="REQUEST"),
                         ischedulexml.Method(name="CANCEL"),
                         ischedulexml.Method(name="REPLY"),
                         name="VTODO"
                     ),
-                    ischedulexml.Comp(
+                    ischedulexml.Component(
                         ischedulexml.Method(name="REQUEST"),
                         name="VFREEBUSY"
                     ),
                 ),
-                ischedulexml.SupportedCalendarDataType(
+                ischedulexml.CalendarDataTypes(
                     ischedulexml.CalendarDataType(**{
                             "content-type":"text/calendar",
                             "version":"2.0",
                     }),
                 ),
-                ischedulexml.SupportedAttachmentValues(
-                    ischedulexml.ExternalAttachment(),
-                ),
-                ischedulexml.SupportedRecipientURISchemeSet(
-                    ischedulexml.Scheme.fromString("mailto")
+                ischedulexml.Attachments(
+                    ischedulexml.External(),
                 ),
                 ischedulexml.MaxContentLength.fromString(config.MaxResourceSize),
                 ischedulexml.MinDateTime.fromString(minDateTime.getText()),
