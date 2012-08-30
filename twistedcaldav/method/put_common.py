@@ -127,7 +127,7 @@ class StoreCalendarObjectResource(object):
         request,
         source=None, source_uri=None, sourceparent=None, sourcecal=False, deletesource=False,
         destination=None, destination_uri=None, destinationparent=None, destinationcal=True,
-        calendar=None, calendardata=None,
+        calendar=None,
         isiTIP=False,
         allowImplicitSchedule=True,
         internal_request=False,
@@ -144,7 +144,6 @@ class StoreCalendarObjectResource(object):
         @param destination:       the L{CalDAVResource} for the destination resource to copy into.
         @param destination_uri:   the URI for the destination resource.
         @param calendar:          the C{str} or L{Component} calendar data if there is no source, None otherwise.
-        @param calendardata:      the C{str} calendar data if there is no source, None otherwise. Optional
         @param sourcecal:         True if the source resource is in a calendar collection, False otherwise.
         @param destinationcal:    True if the destination resource is in a calendar collection, False otherwise
         @param sourceparent:      the L{CalDAVResource} for the source resource's parent collection, or None if source is None.
@@ -189,7 +188,6 @@ class StoreCalendarObjectResource(object):
         self.destination_uri = destination_uri
         self.destinationparent = destinationparent
         self.calendar = calendar
-        self.calendardata = calendardata
         self.deletesource = deletesource
         self.isiTIP = isiTIP
         self.allowImplicitSchedule = allowImplicitSchedule
@@ -278,7 +276,6 @@ class StoreCalendarObjectResource(object):
                 else:
                     try:
                         if type(self.calendar) in (types.StringType, types.UnicodeType,):
-                            self.calendardata = self.calendar
                             self.calendar = Component.fromString(self.calendar)
                     except ValueError, e:
                         log.err(str(e))
@@ -290,8 +287,7 @@ class StoreCalendarObjectResource(object):
 
                 # Possible timezone stripping
                 if config.EnableTimezonesByReference:
-                    if self.calendar.stripKnownTimezones():
-                        self.calendardata = None
+                    self.calendar.stripKnownTimezones()
 
                 # Skip validation on internal requests
                 if not self.internal_request:
@@ -645,7 +641,6 @@ class StoreCalendarObjectResource(object):
             if not self.source and self.destination.exists() and self.destination.accessMode:
                 old_access = self.destination.accessMode
                 self.calendar.addProperty(Property(name=Component.ACCESS_PROPERTY, value=old_access))
-                self.calendardata = None
                 
         return succeed(None)
 
@@ -673,7 +668,6 @@ class StoreCalendarObjectResource(object):
                     "X-CALENDARSERVER-PRIVATE-COMMENT",
                     "X-CALENDARSERVER-ATTENDEE-COMMENT",
                 ))
-                self.calendardata = None
 
 
     @inlineCallbacks
@@ -724,8 +718,6 @@ class StoreCalendarObjectResource(object):
                             anAttendee.setParameter("PARTSTAT", "COMPLETED")
                         component.addProperty(anAttendee)                   
 
-                self.calendardata = None
-
             elif new_completed ^ old_completed and not self.internal_request:
                 # COMPLETED changed - sync up attendee state
                 # We need this because many VTODO clients are not aware of scheduling,
@@ -740,7 +732,6 @@ class StoreCalendarObjectResource(object):
                 originatorPrincipal = (yield self.destination.ownerPrincipal(self.request))
                 originatorAddresses = originatorPrincipal.calendarUserAddresses()
                 
-                changed = False
                 for component in self.calendar.subcomponents():
                     if component.name() != "VTODO":
                         continue
@@ -752,10 +743,6 @@ class StoreCalendarObjectResource(object):
                             newpartstat = "COMPLETED" if component.hasProperty("COMPLETED") else "IN-PROCESS"
                             if newpartstat != oldpartstat:
                                 anAttendee.setParameter("PARTSTAT", newpartstat)
-                                changed = True
-
-                if changed:
-                    self.calendardata = None
                 
 
     @inlineCallbacks
@@ -815,9 +802,6 @@ class StoreCalendarObjectResource(object):
                     if uri:
                         attachment.setValue(uri)
                         changed = True
-
-                if changed:
-                    self.calendardata = None
         
         returnValue(changed)
 
@@ -859,8 +843,6 @@ class StoreCalendarObjectResource(object):
         alarm = self.destinationparent.getDefaultAlarm(vevent, timed)
         if alarm:
             changed = self.calendar.addAlarms(alarm)
-            if changed:
-                self.calendardata = None
         return changed
 
     @inlineCallbacks
@@ -970,7 +952,6 @@ class StoreCalendarObjectResource(object):
                         returnValue(new_calendar)
                     else:
                         self.calendar = new_calendar
-                        self.calendardata = None
                         data_changed = True
                 did_implicit_action = True
         else:
@@ -1002,7 +983,6 @@ class StoreCalendarObjectResource(object):
                     (caldav_namespace, "valid-calendar-data"),
                     "Cannot merge per-user data",
                 ))
-            self.calendardata = None
 
 
     @inlineCallbacks
@@ -1010,7 +990,7 @@ class StoreCalendarObjectResource(object):
 
         # Stash the current calendar data as we may need to return it
         if self.returnData:
-            self.storeddata = str(self.calendar) if self.calendardata is None else self.calendardata
+            self.storeddata = str(self.calendar)
 
         # Always do the per-user data merge right before we store
         yield self.mergePerUserData()
@@ -1048,9 +1028,7 @@ class StoreCalendarObjectResource(object):
         if data is None:
             # We'll be passing this component directly to storeComponent( )
             componentToStore = self.calendar
-            if self.calendardata is None:
-                self.calendardata = str(self.calendar)
-            data = self.calendardata
+            data = str(self.calendar)
         else:
             # We'll be passing data as a stream to storeStream( )
             componentToStore = None

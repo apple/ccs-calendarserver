@@ -1135,7 +1135,7 @@ class CalendarCollectionResource(DefaultAlarmPropertyMixin, _CalendarCollectionB
         return caldavxml.CalendarData
 
     @inlineCallbacks
-    def storeResourceData(self, request, newchild, newchildURL, component, text=None, returnData=False):
+    def storeResourceData(self, request, newchild, newchildURL, component, returnData=False):
         storer = StoreCalendarObjectResource(
             request = request,
             destination = newchild,
@@ -1143,7 +1143,6 @@ class CalendarCollectionResource(DefaultAlarmPropertyMixin, _CalendarCollectionB
             destinationcal = True,
             destinationparent = self,
             calendar = component,
-            calendardata = text,
             returnData = returnData,
         )
         yield storer.run()
@@ -2069,7 +2068,7 @@ class AddressBookCollectionResource(_CommonHomeChildCollectionMixin, CalDAVResou
         return carddavxml.AddressData
 
     @inlineCallbacks
-    def storeResourceData(self, request, newchild, newchildURL, component, text=None, returnData=False):
+    def storeResourceData(self, request, newchild, newchildURL, component, returnData=False):
         storer = StoreAddressObjectResource(
             request = request,
             sourceadbk = False,
@@ -2078,7 +2077,6 @@ class AddressBookCollectionResource(_CommonHomeChildCollectionMixin, CalDAVResou
             destinationadbk = True,
             destinationparent = self,
             vcard = component,
-            vcarddata = text,
             returnData = returnData,
         )
         yield storer.run()
