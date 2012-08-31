@@ -14,18 +14,15 @@
 # limitations under the License.
 ##
 
-import uuid
-
 from twext.python.log import Logger
-from twext.web2.dav.http import ErrorResponse
-
-from twisted.internet.defer import inlineCallbacks, returnValue
-from twisted.python.failure import Failure
 from twext.web2 import responsecode
-from txdav.xml import element as davxml
+from twext.web2.dav.http import ErrorResponse
 from twext.web2.dav.resource import AccessDeniedError
 from twext.web2.dav.util import joinURL
 from twext.web2.http import HTTPError
+
+from twisted.internet.defer import inlineCallbacks, returnValue
+from twisted.python.failure import Failure
 
 from twistedcaldav import caldavxml
 from twistedcaldav.caldavxml import caldav_namespace
@@ -38,6 +35,11 @@ from twistedcaldav.scheduling.cuaddress import LocalCalendarUser, RemoteCalendar
 from twistedcaldav.scheduling.delivery import DeliveryService
 from twistedcaldav.scheduling.itip import iTIPRequestStatus
 from twistedcaldav.scheduling.processing import ImplicitProcessor, ImplicitProcessorException
+
+from txdav.xml import element as davxml
+
+import hashlib
+import uuid
 
 """
 Handles the sending of scheduling messages to the server itself. This will cause
@@ -141,7 +143,7 @@ class ScheduleViaCalDAV(DeliveryService):
     @inlineCallbacks
     def generateResponse(self, recipient, responses):
         # Hash the iCalendar data for use as the last path element of the URI path
-        name = str(uuid.uuid4()) + ".ics"
+        name =  "%s-%s.ics" % (hashlib.md5(self.scheduler.calendar.resourceUID()).hexdigest(), str(uuid.uuid4())[:8],)
     
         # Get a resource for the new item
         childURL = joinURL(recipient.inboxURL, name)

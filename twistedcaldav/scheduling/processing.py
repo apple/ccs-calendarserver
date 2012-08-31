@@ -37,6 +37,7 @@ from pycalendar.duration import PyCalendarDuration
 from pycalendar.datetime import PyCalendarDateTime
 from pycalendar.timezone import PyCalendarTimezone
 import uuid
+import hashlib
 
 """
 CalDAV implicit processing.
@@ -471,7 +472,6 @@ class ImplicitProcessor(object):
 
             log.debug("ImplicitProcessing - originator '%s' to recipient '%s' processing METHOD:REQUEST, UID: '%s' - new processed" % (self.originator.cuaddr, self.recipient.cuaddr, self.uid))
             new_calendar = iTipProcessing.processNewRequest(self.message, self.recipient.cuaddr)
-            name =  str(uuid.uuid4()) + ".ics"
             
             # Handle auto-reply behavior
             if self.recipient.principal.canAutoSchedule():
@@ -483,7 +483,7 @@ class ImplicitProcessor(object):
                 send_reply = False
                 store_inbox = True
 
-            new_resource = (yield self.writeCalendarResource(default.url(), default, name, new_calendar))
+            new_resource = (yield self.writeCalendarResource(default.url(), default, None, new_calendar))
             
             if send_reply:
                 # Track outstanding auto-reply processing
@@ -900,7 +900,7 @@ class ImplicitProcessor(object):
         
         # Create a new name if one was not provided
         if name is None:
-            name =  str(uuid.uuid4()) + ".ics"
+            name =  "%s-%s.ics" % (hashlib.md5(calendar.resourceUID()).hexdigest(), str(uuid.uuid4())[:8],)
     
         # Get a resource for the new item
         newchildURL = joinURL(collURL, name)
