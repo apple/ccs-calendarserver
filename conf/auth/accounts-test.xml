@@ -106,6 +106,7 @@ limitations under the License.
     <name>Public %02d</name>
     <first-name>Public</first-name>
     <last-name>%02d</last-name>
+     <email-address>public%02d@example.com</email-address>
   </user>
   <group>
     <uid>group01</uid>

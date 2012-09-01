@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2006-2010 Apple Inc. All rights reserved.
+# Copyright (c) 2006-2012 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -170,7 +170,7 @@ def multiget_common(self, request, multiget, collection_type):
             
             # Special for addressbooks
             if collection_type == COLLECTION_TYPE_ADDRESSBOOK:
-                if self.isDirectoryBackedAddressBookCollection() and self.directory.liveQuery:
+                if self.isDirectoryBackedAddressBookCollection():
                     result = (yield doDirectoryAddressBookResponse())
                     returnValue(result)
 
@@ -249,11 +249,13 @@ def multiget_common(self, request, multiget, collection_type):
                     resource_name = unquote(resource_uri[resource_uri.rfind("/") + 1:])
                     if self._isChildURI(request, resource_uri) and resource_name.endswith(".vcf") and len(resource_name) > 4:
                         valid_hrefs.append(href)
+                        textMatchElement = carddavxml.TextMatch.fromString(resource_name[:-4])
+                        textMatchElement.attributes["match-type"] = "equals" # do equals compare. Default is "contains"
                         vCardFilters.append(carddavxml.PropertyFilter(
-                                                carddavxml.TextMatch.fromString(resource_name[:-4]), 
+                                                textMatchElement, 
                                                 name="UID", # attributes
                                             ))
-                    elif not self.directory.cacheQuery:
+                    else:
                         responses.append(davxml.StatusResponse(href, davxml.Status.fromResponseCode(responsecode.NOT_FOUND)))
                        
                 # exit if not valid           
@@ -262,40 +264,29 @@ def multiget_common(self, request, multiget, collection_type):
                      
                 addressBookFilter = carddavxml.Filter( *vCardFilters )
                 addressBookFilter = addressbookqueryfilter.Filter(addressBookFilter)
-                if self.directory.cacheQuery:
-                    # add vcards to directory address book and run "normal case" below
-                    limit = config.DirectoryAddressBook.MaxQueryResults
-                    directoryAddressBookLock, limited = (yield  self.directory.cacheVCardsForAddressBookQuery(addressBookFilter, propertyreq, limit) )
-                    if limited:
-                        log.err("Too many results in multiget report: %d" % len(resources))
-                        raise HTTPError(ErrorResponse(
-                            responsecode.FORBIDDEN,
-                            (dav_namespace, "number-of-matches-within-limits"),
-                            "Too many results",
-                        ))
-                else:
-                    #get vCards and filter
-                    limit = config.DirectoryAddressBook.MaxQueryResults
-                    vCardRecords, limited = (yield self.directory.vCardRecordsForAddressBookQuery( addressBookFilter, propertyreq, limit ))
-                    if limited:
-                        log.err("Too many results in multiget report: %d" % len(resources))
-                        raise HTTPError(ErrorResponse(
-                            responsecode.FORBIDDEN,
-                            (dav_namespace, "number-of-matches-within-limits"),
-                            "Too many results",
-                        ))
-                   
-                    for href in valid_hrefs:
-                        matchingRecord = None
-                        for vCardRecord in vCardRecords:
-                            if href == vCardRecord.hRef(): # might need to compare urls instead - also case sens ok?
-                                matchingRecord = vCardRecord
-                                break;
+                
+                #get vCards and filter
+                limit = config.DirectoryAddressBook.MaxQueryResults
+                results, limited = (yield self.directory.doAddressBookQuery( addressBookFilter, propertyreq, limit ))
+                if limited:
+                    log.err("Too many results in multiget report: %d" % len(resources))
+                    raise HTTPError(ErrorResponse(
+                        responsecode.FORBIDDEN,
+                        (dav_namespace, "number-of-matches-within-limits"),
+                        "Too many results",
+                    ))
+               
+                for href in valid_hrefs:
+                    matchingResource = None
+                    for vCardResource in results:
+                        if href == vCardResource.hRef(): # might need to compare urls instead - also case sens ok?
+                            matchingResource = vCardResource
+                            break;
 
-                        if matchingRecord:
-                            yield report_common.responseForHref(request, responses, href, matchingRecord, propertiesForResource, propertyreq, vcard=matchingRecord.vCard())
-                        else:
-                            responses.append(davxml.StatusResponse(href, davxml.Status.fromResponseCode(responsecode.NOT_FOUND)))
+                    if matchingResource:
+                        yield report_common.responseForHref(request, responses, href, matchingResource, propertiesForResource, propertyreq, vcard=matchingResource.vCard())
+                    else:
+                        responses.append(davxml.StatusResponse(href, davxml.Status.fromResponseCode(responsecode.NOT_FOUND)))
             finally:
                 if directoryAddressBookLock:
                     yield directoryAddressBookLock.release()

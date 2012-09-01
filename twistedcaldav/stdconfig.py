@@ -207,27 +207,63 @@ DEFAULT_PROXYDB_PARAMS = {
 
 
 directoryAddressBookBackingServiceDefaultParams = {
-    "twistedcaldav.directory.xmlfile.XMLDirectoryService": {
-        "xmlFile": "/etc/carddavd/accounts.xml",
+    "twistedcaldav.directory.xmldirectorybacker.XMLDirectoryBackingService": {
+        "xmlFile": "accounts.xml",
+        "recordTypes": ("users", "groups"),
+        "statSeconds" : 15,
     },
     "twistedcaldav.directory.opendirectorybacker.OpenDirectoryBackingService": {
         "queryPeopleRecords": True,
         "peopleNode": "/Search/Contacts",
         "queryUserRecords": True,
-        "userNode": "/Search/Contacts",
+        "userNode": "/Search",
+        "queryGroupRecords": True,
+        "groupNode": "/Search",
         "maxDSQueryRecords":0,
         "queryDSLocal": False,
         "ignoreSystemRecords": True,
         "dsLocalCacheTimeout":30,
-        "liveQuery": True,
         "fakeETag": True,
-        "cacheQuery": False,
-        "cacheTimeout": 30,
-        "standardizeSyntheticUIDs": False,
         "addDSAttrXProperties": False,
         "appleInternalServer": False,
-        "additionalAttributes" : [],
-        "allowedAttributes" : [],
+        "additionalAttributes" : None,
+        "allowedAttributes" : None,
+        "searchAttributes" : None,
+    },
+    "twistedcaldav.directory.ldapdirectorybacker.LdapDirectoryBackingService": {
+        "appleInternalServer": False,
+        "warningThresholdSeconds": 3,
+        "uri": "ldap://localhost/",
+        "tls": False,
+        "tlsCACertFile": None,
+        "tlsCACertDir": None,
+        "tlsRequireCert": None, # never, allow, try, demand, hard
+        "credentials": {
+            "dn": None,
+            "password": None,
+        },
+        "authMethod": "LDAP",
+        "rdnSchema": {
+            "base": "dc=example,dc=com",
+            "queryTypes": ("people", ),
+            "people": {
+                "rdn": "ou=People",
+                "attr": "uid", # used only to synthesize email address
+                "filter": None, # additional filter for this type
+                "vcardPropToLdapAttrMap" : { # maps address book query vCard properties to ldap attributes
+                    "givenName" : "FirstName",
+                    "sn" : "LastName",
+                    "cn" : "RealName",
+                    "uid" : "GeneratedUID",
+                    "mail" : "EMailAddress",
+                },
+                "ldapAttrToDSAttrMap" : { # maps ldap attributes to ds record attributes
+                    "FN" : "cn",
+                    "EMAIL" : "mail",
+                    "UID" : "uid",
+                },
+            },
+        },
     },
 }
 

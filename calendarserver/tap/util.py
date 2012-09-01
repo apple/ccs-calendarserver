@@ -34,6 +34,7 @@ from twext.python.filepath import CachingFilePath as FilePath
 from twext.python.log import Logger
 from twext.web2.auth.basic import BasicCredentialFactory
 from twext.web2.dav import auth
+from twext.web2.dav.util import joinURL
 from twext.web2.http_headers import Headers
 from twext.web2.static import File as FileResource
 
@@ -483,12 +484,12 @@ def getRootResource(config, newStore, resources=None):
             newStore,
         )
 
-        directoryPath = os.path.join(config.DocumentRoot, config.DirectoryAddressBook.name)
         if config.DirectoryAddressBook.Enabled and config.EnableSearchAddressBook:
             log.info("Setting up directory address book: %r" % (directoryBackedAddressBookResourceClass,))
 
             directoryBackedAddressBookCollection = directoryBackedAddressBookResourceClass(
-                principalCollections=(principalCollection,)
+                principalCollections=(principalCollection,),
+                uri=joinURL("/", config.DirectoryAddressBook.name, "/")
             )
             if _reactor._started:
                 directoryBackedAddressBookCollection.provisionDirectory()
@@ -496,6 +497,7 @@ def getRootResource(config, newStore, resources=None):
                 addSystemEventTrigger("after", "startup", directoryBackedAddressBookCollection.provisionDirectory)
         else:
             # remove /directory from previous runs that may have created it
+            directoryPath = os.path.join(config.DocumentRoot, config.DirectoryAddressBook.name)
             try:
                 FilePath(directoryPath).remove()
                 log.info("Deleted: %s" %    directoryPath)

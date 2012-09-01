@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2008-2009 Apple Inc. All rights reserved.
+# Copyright (c) 2008-2012 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -45,10 +45,11 @@ class DirectoryBackedAddressBookResource (CalDAVResource):
     Directory-backed address book
     """
 
-    def __init__(self, principalCollections):
+    def __init__(self, principalCollections, uri):
 
         CalDAVResource.__init__(self, principalCollections=principalCollections)
-
+        
+        self.uri = uri
         self.directory = None       # creates directory attribute
 
         # create with permissions, similar to CardDAVOptions in tap.py
@@ -93,14 +94,11 @@ class DirectoryBackedAddressBookResource (CalDAVResource):
                 return succeed(None)
 
             return self.directory.createCache()
-            
-            #print ("DirectoryBackedAddressBookResource.provisionDirectory: provisioned")
-        
+                    
         return succeed(None)
 
 
     def defaultAccessControlList(self):
-        #print( "DirectoryBackedAddressBookResource.defaultAccessControlList" )
         if config.AnonymousDirectoryAddressBookAccess:
             # DAV:Read for all principals (includes anonymous)
             accessPrincipal = davxml.All()
@@ -141,7 +139,6 @@ class DirectoryBackedAddressBookResource (CalDAVResource):
         return True
 
     def isAddressBookCollection(self):
-        #print( "DirectoryBackedAddressBookResource.isAddressBookCollection: return True" )
         return True
 
     def isCollection(self):
@@ -155,22 +152,6 @@ class DirectoryBackedAddressBookResource (CalDAVResource):
     def renderHTTP(self, request):
         if not self.directory:
             raise HTTPError(StatusResponse(responsecode.SERVICE_UNAVAILABLE,"Service is starting up" ))
-        elif self.directory.liveQuery:
-            response = (yield maybeDeferred(super(DirectoryBackedAddressBookResource, self).renderHTTP, request))
-            returnValue(response)
-        else:
-            available = (yield maybeDeferred(self.directory.available, ))
-        
-            if not available:
-                raise HTTPError(StatusResponse(responsecode.SERVICE_UNAVAILABLE,"Service is starting up" ))
-            else:
-                updateLock = self.directory.updateLock()
-                yield updateLock.acquire()
-                try:
-                    response = (yield maybeDeferred(super(DirectoryBackedAddressBookResource, self).renderHTTP, request))
-    
-                finally:
-                    yield updateLock.release()
-                
-                returnValue(response)
 
+        response = (yield maybeDeferred(super(DirectoryBackedAddressBookResource, self).renderHTTP, request))
+        returnValue(response)

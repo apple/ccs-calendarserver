@@ -228,7 +228,7 @@ class LdapDirectoryService(CachingDirectoryService):
         # config.
         attrSet = set()
 
-        if self.rdnSchema["guidAttr"]:
+        if self.rdnSchema.get("guidAttr"):
             attrSet.add(self.rdnSchema["guidAttr"])
         for recordType in self.recordTypes():
             if self.rdnSchema[recordType]["attr"]:
@@ -255,7 +255,7 @@ class LdapDirectoryService(CachingDirectoryService):
             attrSet.add(self.groupSchema["nestedGroupsAttr"])
         if self.groupSchema["memberIdAttr"]:
             attrSet.add(self.groupSchema["memberIdAttr"])
-        if self.rdnSchema["users"]["loginEnabledAttr"]:
+        if self.rdnSchema.get("users") and self.rdnSchema["users"]["loginEnabledAttr"]:
             attrSet.add(self.rdnSchema["users"]["loginEnabledAttr"])
         if self.resourceSchema["resourceInfoAttr"]:
             attrSet.add(self.resourceSchema["resourceInfoAttr"])
