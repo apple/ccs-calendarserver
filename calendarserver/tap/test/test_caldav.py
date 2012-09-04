@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2007-2010 Apple Inc. All rights reserved.
+# Copyright (c) 2007-2012 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -459,6 +459,7 @@ class CalDAVServiceMakerTests(BaseServiceMakerTests):
         self.config.GroupName = grp.getgrgid(alternateGroup).gr_name
 
         self.config["ProcessType"] = "Combined"
+        self.config.Stats.EnableUnixStatsSocket = True
         self.writeConfig()
         svc = self.makeService()
         for serviceName in [_CONTROL_SERVICE_NAME]:
@@ -470,7 +471,7 @@ class CalDAVServiceMakerTests(BaseServiceMakerTests):
                 "Wrong mode on %s: %s" % (serviceName, oct(m))
             )
             self.assertEquals(socketService.gid, alternateGroup)
-        for serviceName in ["stats"]:
+        for serviceName in ["unix-stats"]:
             socketService = svc.getServiceNamed(serviceName)
             self.assertIsInstance(socketService, GroupOwnedUNIXServer)
             m = socketService.kwargs.get("mode", 0666)
