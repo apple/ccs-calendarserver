@@ -14,6 +14,13 @@
 # limitations under the License.
 ##
 
+
 """
 iSchedule scheduling.
 """
+
+from twext.web2 import http_headers
+
+# These new HTTP headers should appear with case-preserved
+hdrs = ("iSchedule-Version", "iSchedule-Message-ID", "DKIM-Signature",)
+http_headers.casemappingify(dict([(i, i) for i in hdrs]))

@@ -20,11 +20,13 @@ from twext.web2.dav.util import allDataFromStream
 from twext.web2.stream import MemoryStream
 from twisted.internet.defer import inlineCallbacks, returnValue
 import base64
+import binascii
 import collections
 import hashlib
 import rsa
 import textwrap
 import time
+import uuid
 
 """
 DKIM HTTP message generation and validation,
@@ -32,6 +34,19 @@ DKIM HTTP message generation and validation,
 
 log = Logger()
 
+# DKIM/iSchedule Constants
+RSA1   = "rsa-sha1"
+RSA256 = "rsa-sha256"
+Q_DNS  = "dns/txt"
+Q_HTTP = "http/well-known"
+
+KEY_SERVICE_TYPE = "ischedule"
+
+# Headers
+DKIM_SIGNATURE = "DKIM-Signature"
+ISCHEDULE_VERSION = "iSchedule-Version"
+ISCHEDULE_VERSION_VALUE = "1.0"
+ISCHEDULE_MESSAGE_ID = "iSchedule-Message-ID"
 
 class DKIMUtils(object):
     """
@@ -44,8 +59,8 @@ class DKIMUtils(object):
         Return hashlib function for DKIM algorithm.
         """
         return {
-            "rsa-sha1"  : hashlib.sha1,
-            "rsa-sha256": hashlib.sha256,
+            RSA1  : hashlib.sha1,
+            RSA256: hashlib.sha256,
         }[algorithm]
     
     @staticmethod
@@ -54,8 +69,8 @@ class DKIMUtils(object):
         Return RSA hash name for DKIM algorithm.
         """
         return {
-            "rsa-sha1"  : "SHA-1",
-            "rsa-sha256": "SHA-256"
+            RSA1  : "SHA-1",
+            RSA256: "SHA-256"
         }[algorithm]
 
 
@@ -95,7 +110,7 @@ class DKIMUtils(object):
         value = " ".join(value.split())
 
         # Special case DKIM-Signature: remove the b= value for signature
-        if remove_b is not None and name == "dkim-signature":
+        if remove_b is not None and name == DKIM_SIGNATURE.lower():
             pos = value.find(remove_b)
             value = value[:pos] + value[pos + len(remove_b):]
             value = " ".join(value.split())
@@ -126,6 +141,34 @@ class DKIMRequest(ClientRequest):
         useHTTPKey,
         expire,
     ):
+        """
+        Create a DKIM request, which is a regular client request with the additional information needed to sign the message.
+        
+        @param method: HTTP method to use
+        @type method: C{str}
+        @param uri: request-URI
+        @type uri: C{str}
+        @param headers: request headers 
+        @type headers: L{http_headers}
+        @param stream: body data
+        @type stream: L{Stream}
+        @param domain: the signing domain
+        @type domain: C{str}
+        @param selector: the signing key selector
+        @type selector: C{str}
+        @param key_file: path to a private key file
+        @type key_file: C{str}
+        @param algorithm: the signing algorithm to use
+        @type algorithm: C{str}
+        @param sign_headers: list of header names to sign - to "over sign" a header append a "+" to the name
+        @type sign_headers: C{tuple}
+        @param useDNSKey: whether or not to add DNS TXT lookup as a key lookup option
+        @type useDNSKey: C{bool}
+        @param useHTTPKey: whether or not to add HTTP .well-known as a key lookup option
+        @type useHTTPKey: C{bool}
+        @param expire: number of seconds to expiration of signature 
+        @type expire: C{int}
+        """
         super(DKIMRequest, self).__init__(method, uri, headers, stream)
         self.domain = domain
         self.selector = selector
@@ -137,15 +180,17 @@ class DKIMRequest(ClientRequest):
         
         assert self.domain
         assert self.selector
-        assert self.algorithm in ("rsa-sha1", "rsa-sha256",)
+        assert self.algorithm in (RSA1, RSA256,)
         assert useDNSKey or useHTTPKey
 
         self.hash_method = DKIMUtils.hashlib_method(self.algorithm)
         self.hash_name = DKIMUtils.hash_name(self.algorithm)
         
         self.keyMethods = []
-        if useDNSKey: self.keyMethods.append("dns/txt")
-        if useHTTPKey: self.keyMethods.append("http-well-known")
+        if useDNSKey: self.keyMethods.append(Q_DNS)
+        if useHTTPKey: self.keyMethods.append(Q_HTTP)
+        
+        self.message_id = str(uuid.uuid4())
 
 
     @inlineCallbacks
@@ -164,7 +209,7 @@ class DKIMRequest(ClientRequest):
         # Complete the header
         dkim_tags[-1] = ("b", signature,)
         dkim_header = "; ".join(["%s=%s" % item for item in dkim_tags])
-        self.headers.addRawHeader("DKIM-Signature", dkim_header)
+        self.headers.addRawHeader(DKIM_SIGNATURE, dkim_header)
         
         log.debug("DKIM: Generated header: DKIM-Signature:%s" % (dkim_header,))
         log.debug("DKIM: Signed headers:\n%s" % (headers,))
@@ -194,13 +239,22 @@ class DKIMRequest(ClientRequest):
         Generate the headers that are going to be signed as well as the DKIM-Signature tags.
         """
         
+        # Make sure we have the required iSchedule headers
+        self.headers.addRawHeader(ISCHEDULE_VERSION, ISCHEDULE_VERSION_VALUE)
+        self.headers.addRawHeader(ISCHEDULE_MESSAGE_ID, self.message_id)
+        self.sign_headers += (ISCHEDULE_VERSION, ISCHEDULE_MESSAGE_ID,)
+
         # Figure out all the existing headers to sign
         headers = []
         sign_headers = []
-        raw = dict([(name, values) for name, values in self.headers.getAllRawHeaders()])
+        raw = dict([(name.lower(), values) for name, values in self.headers.getAllRawHeaders()])
         for name in self.sign_headers:
-            for value in raw[name]:
+            oversign = name[-1] == "+"
+            name = name.rstrip("+")
+            for value in raw.get(name.lower(), ()):
                 headers.append(DKIMUtils.canonicalizeHeader(name, value))
+                sign_headers.append(name)
+            if oversign:
                 sign_headers.append(name)
 
         # Generate the DKIM header tags we care about
@@ -212,13 +266,14 @@ class DKIMRequest(ClientRequest):
         dkim_tags.append(("x", self.expire,))
         dkim_tags.append(("a", self.algorithm,))
         dkim_tags.append(("q", ":".join(self.keyMethods),))
+        dkim_tags.append(("http", base64.encodestring("%s:%s" % (self.method, self.uri,)).strip()))
         dkim_tags.append(("c", "relaxed/simple",))
         dkim_tags.append(("h", ":".join(sign_headers),))
         dkim_tags.append(("bh", (yield self.bodyHash()),))
         dkim_tags.append(("b", "",))
         dkim_header = "; ".join(["%s=%s" % item for item in dkim_tags])
 
-        headers.append(DKIMUtils.canonicalizeHeader("DKIM-Signature", dkim_header))
+        headers.append(DKIMUtils.canonicalizeHeader(DKIM_SIGNATURE, dkim_header))
         headers = "".join(headers)
 
         returnValue((headers, dkim_tags,))
@@ -282,8 +337,9 @@ class DKIMVerifier(object):
         try:
             rsa.verify(headers, base64.b64decode(self.dkim_tags["b"]), pubkey)
         except rsa.VerificationError:
-            log.debug("DKIM: Could not verify signature: DKIM-Signature:%s" % (self.request.headers.getRawHeaders("DKIM-Signature"),))
-            raise DKIMVerificationError("Could not verify the DKIM signature")
+            msg = "Could not verify signature"
+            log.debug("DKIM: %s: DKIM-Signature:%s" % (msg, self.request.headers.getRawHeaders(DKIM_SIGNATURE),))
+            raise DKIMVerificationError(msg)
 
         # Do body validation
         data = (yield allDataFromStream(self.request.stream))
@@ -291,8 +347,9 @@ class DKIMVerifier(object):
         self.request.stream.doStartReading = None
         bh = base64.b64encode(self.hash_method(data).digest())
         if bh != self.dkim_tags["bh"]:
-            log.debug("DKIM: Could not verify body hash: DKIM-Signature:%s" % (self.request.headers.getRawHeaders("DKIM-Signature"),))
-            raise DKIMVerificationError("Could not verify the DKIM body hash")
+            msg = "Could not verify the DKIM body hash"
+            log.debug("DKIM: %s: DKIM-Signature:%s" % (msg, self.request.headers.getRawHeaders(DKIM_SIGNATURE),))
+            raise DKIMVerificationError(msg)
 
         
     def processDKIMHeader(self):
@@ -303,15 +360,17 @@ class DKIMVerifier(object):
         """
         
         # Check presence of header
-        dkim = self.request.headers.getRawHeaders("DKIM-Signature")
+        dkim = self.request.headers.getRawHeaders(DKIM_SIGNATURE)
         if dkim is None:
-            log.debug("DKIM: No DKIM-Signature header present in the request")
-            raise DKIMVerificationError("No DKIM-Signature header present in the request")
+            msg = "No DKIM-Signature header present in the request"
+            log.debug("DKIM: " + msg)
+            raise DKIMVerificationError(msg)
         if len(dkim) != 1:
             # TODO: This might need to be changed if we ever support forwarding of iSchedule messages - the forwarder
             # might also sign the message and add its own header
-            log.debug("DKIM: Only one DKIM-Signature allowed in the request")
-            raise DKIMVerificationError("Only one DKIM-Signature allowed in the request")
+            msg = "Only one DKIM-Signature allowed in the request"
+            log.debug("DKIM: " + msg)
+            raise DKIMVerificationError(msg)
         dkim = dkim[0]
         log.debug("DKIM: Found header: DKIM-Signature:%s" % (dkim,))
 
@@ -319,17 +378,18 @@ class DKIMVerifier(object):
         self.dkim_tags = DKIMUtils.extractTags(dkim)
         
         # Verify validity of tags
-        required_tags = ("v", "a", "b", "bh", "c", "d", "h", "s",)
+        required_tags = ("v", "a", "b", "bh", "c", "d", "h", "s", "http",)
         for tag in required_tags:
             if tag not in self.dkim_tags:
-                log.debug("DKIM: Missing DKIM-Signature tag: %s" % (tag,))
-                raise DKIMVerificationError("Missing DKIM-Signature tag: %s" % (tag,))
+                msg = "Missing DKIM-Signature tag: %s" % (tag,)
+                log.debug("DKIM: " + msg)
+                raise DKIMVerificationError(msg)
 
         check_values = {
             "v": ("1",),
-            "a": ("rsa-sha1", "rsa-sha256",),
+            "a": (RSA1, RSA256,),
             "c": ("relaxed", "relaxed/simple",),
-            "q": ("dns/txt", "http-well-known",),
+            "q": (Q_DNS, Q_HTTP,),
         }
         for tag, values in check_values.items():
             if tag not in required_tags and tag not in self.dkim_tags:
@@ -342,15 +402,40 @@ class DKIMVerifier(object):
                 test = (self.dkim_tags[tag],)
             for item in test:
                 if item not in values:
-                    log.debug("DKIM: Tag: %s has incorrect value: %s" % (tag, self.dkim_tags[tag],))
-                    raise DKIMVerificationError("DKIM-Signature tag: %s has incorrect value: %s" % (tag, self.dkim_tags[tag],))
+                    msg = "Tag: %s has incorrect value: %s" % (tag, self.dkim_tags[tag],)
+                    log.debug("DKIM: " + msg)
+                    raise DKIMVerificationError(msg)
 
         # Check expiration
         if "x" in self.dkim_tags:
             diff_time = int(time.time()) - int(self.dkim_tags["x"])
             if diff_time > 0:
-                log.debug("DKIM: Signature expired: %d seconds" % (diff_time,))
-                raise DKIMVerificationError("DKIM-Signature expired: %d seconds" % (diff_time,))
+                msg = "Signature expired: %d seconds" % (diff_time,)
+                log.debug("DKIM: " + msg)
+                raise DKIMVerificationError(msg)
+
+        # Check HTTP method/request-uri
+        try:
+            http_tag = base64.decodestring(self.dkim_tags["http"])
+        except binascii.Error:
+            msg = "Tag: http is not valid base64"
+            log.debug("DKIM: " + msg)
+            raise DKIMVerificationError(msg)
+        try:
+            method, uri = http_tag.split(":", 1)
+        except ValueError:
+            msg = "Tag: base64-decoded http is not valid: %s" % (http_tag,)
+            log.debug("DKIM: " + msg)
+            raise DKIMVerificationError(msg)
+        if method != self.request.method:
+            msg = "Tag: http method does not match: %s" % (method,)
+            log.debug("DKIM: " + msg)
+            raise DKIMVerificationError(msg)
+        if uri != self.request.uri:
+            msg = "Tag: http request-URI does not match: %s" % (uri,)
+            log.debug("DKIM: " + msg)
+            raise DKIMVerificationError(msg)
+            
 
         # Some useful bits
         self.hash_method = DKIMUtils.hashlib_method(self.dkim_tags["a"])
@@ -371,14 +456,15 @@ class DKIMVerifier(object):
         headers = []
         for header in header_list:
             actual_headers = self.request.headers.getRawHeaders(header)
-            try:
-                headers.append((header, actual_headers[header_counter[header]],))
-            except IndexError:
-                pass
+            if actual_headers:
+                try:
+                    headers.append((header, actual_headers[header_counter[header]],))
+                except IndexError:
+                    pass
             header_counter[header] += 1
 
         # DKIM-Signature is always included at the end
-        headers.append(("DKIM-Signature", self.request.headers.getRawHeaders("DKIM-Signature")[0],))
+        headers.append((DKIM_SIGNATURE, self.request.headers.getRawHeaders(DKIM_SIGNATURE)[0],))
 
         # Now canonicalize the values
         return "".join([DKIMUtils.canonicalizeHeader(name, value, remove_b=self.dkim_tags["b"]) for name, value in headers])
@@ -391,7 +477,7 @@ class DKIMVerifier(object):
         """
         
         for lookup in self.key_lookup_methods:
-            if lookup.method in self.key_methods:
+            if lookup.method in self.key_methods or lookup.method == "*":
                 pubkey = (yield lookup(self.dkim_tags).getPublicKey())
                 if pubkey is not None:
                     returnValue(pubkey)
@@ -401,7 +487,10 @@ class DKIMVerifier(object):
 
 class PublicKeyLookup(object):
     """
-    Abstract base class for public key lookup methods
+    Abstract base class for public key lookup methods.
+    
+    The L{method} attribute indicated the DKIM q= lookup method that the class will support, or if set to "*",
+    the class will handle any q= value.
     """
     
     keyCache = {}
@@ -419,15 +508,15 @@ class PublicKeyLookup(object):
         @param useCache: whether or not to use the cache
         @type useCache: C{bool}
         """
-        key = self.getSelectorKey()
+        key = self._getSelectorKey()
         if key not in PublicKeyLookup.keyCache or not useCache:
-            pubkeys = (yield self.lookupKeys())
+            pubkeys = (yield self._lookupKeys())
             PublicKeyLookup.keyCache[key] = pubkeys
         
-        returnValue(self.selectKey())
+        returnValue(self._selectKey())
     
     
-    def getSelectorKey(self):
+    def _getSelectorKey(self):
         """
         Get a token used to uniquely identify the key being looked up. Token format will
         depend on the lookup method.
@@ -435,7 +524,7 @@ class PublicKeyLookup(object):
         raise NotImplementedError
         
     
-    def lookupKeys(self):
+    def _lookupKeys(self):
         """
         Do the key lookup using the actual lookup method. Return a C{list} of C{dict}
         that contains the key tag-list. Return a L{Deferred}.
@@ -443,12 +532,12 @@ class PublicKeyLookup(object):
         raise NotImplementedError
     
     
-    def selectKey(self):
+    def _selectKey(self):
         """
         Select a specific key from the list that best matches the DKIM-Signature tags
         """
         
-        pubkeys = PublicKeyLookup.keyCache.get(self.getSelectorKey(), [])
+        pubkeys = PublicKeyLookup.keyCache.get(self._getSelectorKey(), [])
         for pkey in pubkeys:
             # Check validity
             if pkey.get("v", "DKIM1") != "DKIM1":
@@ -464,20 +553,20 @@ class PublicKeyLookup(object):
                 continue
             
             # Service type
-            if pkey.get("s", "ischedule") not in ("*", "ischedule",):
+            if pkey.get("s", KEY_SERVICE_TYPE) not in ("*", KEY_SERVICE_TYPE,):
                 continue
     
             # Non-revoked key
             if len(pkey.get("p", "")) == 0:
                 continue
             
-            return self.makeKey(pkey)
+            return self._makeKey(pkey)
         
-        log.debug("DKIM: No valid public key: %s %s" % (self.getSelectorKey(), pubkeys,))
+        log.debug("DKIM: No valid public key: %s %s" % (self._getSelectorKey(), pubkeys,))
         return None
     
     
-    def makeKey(self, pkey):
+    def _makeKey(self, pkey):
         """
         Turn the key tag list into an actual RSA public key object
 
@@ -504,10 +593,10 @@ class PublicKeyLookup(object):
 class PublicKeyLookup_DNSTXT(PublicKeyLookup):
     
     
-    method = "dns/txt"
+    method = Q_DNS
 
 
-    def getSelectorKey(self):
+    def _getSelectorKey(self):
         """
         Get a token used to uniquely identify the key being looked up. Token format will
         depend on the lookup method.
@@ -515,7 +604,7 @@ class PublicKeyLookup_DNSTXT(PublicKeyLookup):
         return "%s._domainkey.%s" % (self.dkim_tags["s"], self.dkim_tags["d"],)
         
     
-    def lookupKeys(self):
+    def _lookupKeys(self):
         """
         Do the key lookup using the actual lookup method.
         """
@@ -526,10 +615,10 @@ class PublicKeyLookup_DNSTXT(PublicKeyLookup):
 class PublicKeyLookup_HTTP_WellKnown(PublicKeyLookup):
     
     
-    method = "http-well-known"
+    method = Q_HTTP
 
 
-    def getSelectorKey(self):
+    def _getSelectorKey(self):
         """
         Get a token used to uniquely identify the key being looked up. Token format will
         depend on the lookup method.
@@ -537,7 +626,7 @@ class PublicKeyLookup_HTTP_WellKnown(PublicKeyLookup):
         return "https://%s/.well-known/domainkey/%s" % (self.dkim_tags["d"], self.dkim_tags["s"],)
         
     
-    def lookupKeys(self):
+    def _lookupKeys(self):
         """
         Do the key lookup using the actual lookup method.
         """
