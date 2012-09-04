@@ -167,6 +167,11 @@
     <key>MaxAllowedInstances</key>
     <integer>3000</integer>
 
+    <!-- Maximum number of instances allowed for a single RRULE -->
+    <!-- 0 for no limit -->
+    <key>MaxInstancesForRRULE</key>
+    <integer>400</integer>
+
     <!--
         Directory service
 
@@ -267,9 +272,7 @@
               <key>fullName</key>
               <string>cn</string>
               <key>emailAddresses</key>
-              <array>
-                  <string>mail</string>
-              </array>
+              <string>mail</string>
               <key>firstName</key>
               <string>givenName</string>
               <key>lastName</key>
@@ -293,9 +296,7 @@
               <key>fullName</key>
               <string>cn</string>
               <key>emailAddresses</key>
-              <array>
-                  <string>mail</string>
-              </array>
+              <string>mail</string>
               <key>firstName</key>
               <string>givenName</string>
               <key>lastName</key>
@@ -542,7 +543,7 @@
 
     <!-- Log levels -->
     <key>DefaultLogLevel</key>
-    <string>info</string> <!-- debug, info, warn, error -->
+    <string>debug</string> <!-- debug, info, warn, error -->
 
     <!-- Log level overrides for specific functionality -->
     <key>LogLevels</key>
@@ -1025,20 +1026,131 @@
       <false/>
     -->
     
-    <!-- XML-backed Directory Address Book -->
+    <!-- Open Directory-backed Directory Address Book -->
     <key>EnableSearchAddressBook</key>
     <true/>
     <key>DirectoryAddressBook</key>
     <dict>
         <key>Enabled</key>
         <true/>
-      <key>type</key>
-      <string>twistedcaldav.directory.xmldirectorybacker.XMLDirectoryBackingService</string>
-      <key>params</key>
-      <dict>
-        <key>xmlFile</key>
-        <string>./conf/auth/accounts-test.xml</string>
-      </dict>
+ 		<key>type</key>
+		<string>twistedcaldav.directory.ldapdirectorybacker.LdapDirectoryBackingService</string>
+		<key>params</key>
+		<dict>
+			<key>warningThresholdSeconds</key>
+			<integer>1</integer>
+			<key>appleInternalServer</key>
+			<true/>
+            <!-- fake uri, fill in.  -->
+			<key>uri</key>
+			<string>ldap://example.com/</string>
+            <!-- fill in auth info, if needed.  -->
+			<key>tls</key>
+			<false/>
+			<key>tlsCACertFile</key>
+			<string></string>
+			<key>tlsCACertDir</key>
+			<string></string>
+			<key>tlsRequireCert</key>
+			<string>never</string>
+			<key>credentials</key>
+			<dict/>
+			<key>authMethod</key>
+			<string>LDAP</string>
+			<key>rdnSchema</key>
+			<dict>
+				<key>base</key>
+				<string>o=apple</string>
+                <key>queries</key>
+                <array>
+                    <!-- user vCards  -->
+    				<dict>
+                        <key>rdn</key>
+                        <string>ou=people</string>
+                        <key>filter</key>
+                        <string></string>
+                        <!-- map from ab query to indexed ldap attribute.  If unindexed, too slow.  -->
+                        <key>vcardPropToLdapAttrMap</key>
+                        <dict>
+                            <key>FN</key>       <string>cn</string>
+                            <key>EMAIL</key>    <string>mail</string>
+                            <key>TEL</key>      <string>telephoneNumber</string>
+                            <key>ADR</key>
+                            <array>
+                                <string>buildingName</string>
+                                <string>destinationIndicator</string>
+                                <string>street</string>
+                                <string>l</string>
+                                <string>st</string>
+                            </array>
+                            <key>ORG</key>  <string>ou</string>
+                            <key>UID</key>  <string>appleDSID</string>
+                        </dict>
+                        <!-- map ldap attributes to ds attribute types.  -->
+    					<key>ldapAttrToDSAttrMap</key>
+    					<dict>
+    						<key>givenName</key>    <string>FirstName</string>
+    						<key>sn</key>           <string>LastName</string>
+    						<key>cn</key>           <string>RealName</string>
+                            <!-- PHOTO  -->
+    						<key>applePhotoPreferred-jpeg</key>    <string>JPEGPhoto</string>
+                            <!-- ADR  -->
+    						<key>buildingName</key>         <string>Building</string>
+    						<key>destinationIndicator</key> <string>Building</string>
+    						<key>street</key>               <string>Street</string>
+    						<key>l</key>                    <string>City</string>
+    						<key>st</key>                   <string>State</string>
+    						<key>postalCode</key>           <string>PostalCode</string>
+    						<key>co</key>                   <string>Country</string>
+                            <!-- TEL  -->
+   						    <key>telephoneNumber</key>          <string>PhoneNumber</string>
+    						<key>appleSecondaryPhone</key>      <string>PhoneNumber</string>
+    						<key>facsimileTelephoneNumber</key> <string>FaxNumber</string>
+    						<key>pager</key>                    <string>PagerNumber</string>
+    						<key>mobile</key>                   <string>MobileNumber</string>
+                            <!-- EMAIL  -->
+    						<key>mail</key>                     <string>EMailAddress</string>
+    						<key>applePreferredEmail</key>      <string>EMailAddress</string>
+    						<key>appleNotificationEmail</key>   <string>EMailAddress</string>
+                            <!-- UID  -->
+    						<key>appleDSID</key>    <string>GeneratedUID</string>
+                            <!-- ORG  -->
+    						<key>o</key>            <string>OrganizationName</string>
+    						<key>ou</key>           <string>Department</string>
+                            <!-- IMPP  -->
+    						<key>appleAIMPreferred</key>    <string>IMHandle</string>
+    						<key>appleAIMOfficial</key>     <string>IMHandle</string>
+    						<key>appleManager</key>         <string>dsAttrTypeNative:appleManager</string>
+    					</dict>
+    				</dict>
+                    <!-- mailing list vCards.  Should mark as company-->
+    				<dict>
+    					<key>rdn</key>                  <string>ou=groups</string>
+    					<key>kind</key>                  <string>org</string>
+    					<key>filter</key>               <string>(objectClass=appleGroup)</string>
+    					<key>getAllAttributes</key>     <false/>
+    					<key>vcardPropToLdapAttrMap</key>
+    					<dict>
+    						<key>EMAIL</key>    <string>appleGroupEmail</string>
+    						<key>FN</key>       <string>description</string>
+    						<key>UID</key>      <string>appleDSID</string>
+    					</dict>
+    					<key>ldapAttrToDSAttrMap</key>
+    					<dict>
+    						<key>cn</key>    <string>RecordName</string>
+    						<key>description</key>
+    						<array>
+    							<string>RealName</string>
+    							<string>OrganizationName</string>
+    						</array>
+    						<key>appleDSID</key>            <string>GeneratedUID</string>
+    						<key>appleGroupContact</key>    <string>dsAttrTypeNative:appleManager</string>
+    						<key>appleGroupEmail</key>      <string>EMailAddress</string>
+    					</dict>
+                    </dict>
+                </array>
+			</dict>
+		</dict>
    </dict>
   </dict>
 </plist>
