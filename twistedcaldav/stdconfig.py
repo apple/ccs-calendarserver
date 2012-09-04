@@ -446,7 +446,12 @@ DEFAULT_CONFIG = {
     "AccountingPrincipals": [],
     "AccountingLogRoot"   : "accounting",
 
-    "GlobalStatsSocket"           : "caldavd-stats.sock", 
+    "Stats" : {
+        "EnableUnixStatsSocket"  : False,
+        "UnixStatsSocket"        : "caldavd-stats.sock",
+        "EnableTCPStatsSocket"   : False,
+        "TCPStatsPort"           : 8100,
+    },
     
     "LogDatabase" : {
         "LabelsInSQL"            : False,
@@ -1027,7 +1032,7 @@ RELATIVE_PATHS = [
     ("LogRoot", ("LogDatabase", "StatisticsLogFile",)),
     ("LogRoot", "AccountingLogRoot"),
     ("RunRoot", "PIDFile"),
-    ("RunRoot", "GlobalStatsSocket"),
+    ("RunRoot", ("Stats", "UnixStatsSocket",)),
     ("RunRoot", "ControlSocket"),
 ]
 
