@@ -805,41 +805,45 @@ class StoreCalendarObjectResource(object):
         
         returnValue(changed)
 
-    def addDefaultAlarm(self):
+    def processAlarms(self):
         """
-        Add a default alarm if required.
+        Remove duplicate alarms. Add a default alarm if required.
         
         @return: indicate whether a change was made
         @rtype: C{bool}
         """
 
+        # Remove duplicate alarms
+        changed = False
+        if config.RemoveDuplicateAlarms:
+            changed = self.calendar.hasDuplicateAlarms(doFix=True)
+
         # Only if feature enabled
         if not config.EnableDefaultAlarms:
-            return False
+            return changed
 
         # Check that we are creating and this is not the inbox
         if not self.destinationcal or self.destination.exists() or self.isiTIP:
-            return False
+            return changed
         
         # Never add default alarms to calendar data in shared calendars
         if self.destinationparent.isVirtualShare():
-            return False
+            return changed
 
         # Add default alarm for VEVENT and VTODO only
         mtype = self.calendar.mainType().upper()
         if self.calendar.mainType().upper() not in ("VEVENT", "VTODO"):
-            return False
+            return changed
         vevent = mtype == "VEVENT"
         
         # Check timed or all-day
         start, _ignore_end = self.calendar.mainComponent(allow_multiple=True).getEffectiveStartEnd()
         if start is None:
             # Yes VTODOs might have no DTSTART or DUE - in this case we do not add a default
-            return False
+            return changed
         timed = not start.isDateOnly()
         
         # See if default exists and add using appropriate logic
-        changed = False
         alarm = self.destinationparent.getDefaultAlarm(vevent, timed)
         if alarm:
             changed = self.calendar.addAlarms(alarm)
@@ -1167,8 +1171,8 @@ class StoreCalendarObjectResource(object):
             # Handle sharing dropbox normalization
             dropboxChanged = (yield self.dropboxPathNormalization())
 
-            # Default alarms
-            alarmChanged = self.addDefaultAlarm()
+            # Default/duplicate alarms
+            alarmChanged = self.processAlarms()
 
             # Do scheduling
             implicit_result = (yield self.doImplicitScheduling())

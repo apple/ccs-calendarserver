@@ -2301,7 +2301,30 @@ END:VCALENDAR
             for component in tuple(self.subcomponents()):
                 if component.name() == "VALARM":
                     self.removeComponent(component)
-                
+
+    def hasDuplicateAlarms(self, doFix=False):
+        """
+        Test and optionally remove alarms that have the same ACTION and TRIGGER values in the same component.
+        """
+        changed = False
+        if self.name() in ("VCALENDAR", "X-CALENDARSERVER-PERUSER",):
+            for component in self.subcomponents():
+                if component.name() in ("VTIMEZONE",):
+                    continue
+                changed = component.hasDuplicateAlarms(doFix) or changed
+        else:
+            action_trigger = set()
+            for component in tuple(self.subcomponents()):
+                if component.name() == "VALARM":
+                    item = (component.propertyValue("ACTION"), component.propertyValue("TRIGGER"),)
+                    if item in action_trigger:
+                        if doFix:
+                            self.removeComponent(component)
+                        changed = True
+                    else:
+                        action_trigger.add(item)
+        return changed
+
     def filterProperties(self, remove=None, keep=None, do_subcomponents=True):
         """
         Remove all properties that do not match the provided set.

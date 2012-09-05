@@ -1,7 +1,7 @@
 # -*- sh-basic-offset: 2 -*-
 
 ##
-# Copyright (c) 2005-2011 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2012 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -743,7 +743,7 @@ dependencies () {
     "${pypi}/p/python-ldap/${ld}.tar.gz";
 
   # XXX actually PyCalendar should be imported in-place.
-  py_dependency -fe -i "src" -r 211 \
+  py_dependency -fe -i "src" -r 212 \
     "pycalendar" "pycalendar" "pycalendar" \
     "http://svn.mulberrymail.com/repos/PyCalendar/branches/server";
 
