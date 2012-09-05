@@ -1678,7 +1678,7 @@ class ABDirectoryQueryResult(DAVPropertyMixIn, LoggingMixIn):
                     source = "https://%s%s" % (config.ServerHostName, uri)
                 else:
                     source = "https://%s:%s%s" % (config.ServerHostName, config.SSLPort, uri)
-            elif config.HTTPPort:
+            else:
                 if config.HTTPPort == 80:
                     source = "http://%s%s" % (config.ServerHostName, uri) 
                 else:

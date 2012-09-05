@@ -73,7 +73,7 @@ class Filter(FilterBase):
                     return not allof
             return allof
         else:
-            return not allof
+            return False
 
     def valid(self):
         """
