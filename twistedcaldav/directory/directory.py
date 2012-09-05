@@ -862,6 +862,8 @@ class GroupMembershipCacheUpdater(LoggingMixIn):
             if config.GroupName:
                 gid = grp.getgrnam(config.GroupName).gr_gid
             os.chown(membershipsCacheFile.path, uid, gid)
+            if extProxyCacheFile.exists():
+                os.chown(extProxyCacheFile.path, uid, gid)
 
         self.log_info("Storing %d group memberships in memcached" %
                        (len(members),))
