@@ -115,7 +115,7 @@ class OpenDirectoryBackingService(DirectoryService):
         def addNodesToNodeRecordTypeMap(nodeList, recordType):
             for node in nodeList if isinstance(nodeList, list) else (nodeList,):
                 if not node in nodeRecordTypeMap:
-                     nodeRecordTypeMap[node] = []
+                    nodeRecordTypeMap[node] = []
                 nodeRecordTypeMap[node] += [recordType,]
             self.recordTypes += [recordType,]
 
@@ -124,7 +124,7 @@ class OpenDirectoryBackingService(DirectoryService):
         if queryPeopleRecords:
             addNodesToNodeRecordTypeMap(peopleNode, dsattributes.kDSStdRecordTypePeople,)
         if queryUserRecords:
-             addNodesToNodeRecordTypeMap(userNode, dsattributes.kDSStdRecordTypeUsers,)
+            addNodesToNodeRecordTypeMap(userNode, dsattributes.kDSStdRecordTypeUsers,)
         if queryGroupRecords:
             addNodesToNodeRecordTypeMap(groupNode, dsattributes.kDSStdRecordTypeGroups,)
         
@@ -490,7 +490,7 @@ class OpenDirectoryBackingService(DirectoryService):
                 kind = dsRecordTypeToKindMap.get(recordType, "individual")
                 constantProperties["KIND"] = kind
            
-                filterPropertyNames, dsFilter  = dsFilterFromAddressBookFilter( addressBookFilter, 
+                filterPropertyNames, dsFilter  = dsFilterFromAddressBookFilter( addressBookFilter,  #@UnusedVariable
                                                                                          self.vcardPropToSearchableDSAttrMap,
                                                                                          constantProperties=constantProperties );
                 if not dsFilter is False:

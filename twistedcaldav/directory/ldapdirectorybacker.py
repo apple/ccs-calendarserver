@@ -130,7 +130,7 @@ class LdapDirectoryBackingService(LdapDirectoryService):
         
  
     def createCache(self):
-         succeed(None)
+        succeed(None)
                         
 
     @inlineCallbacks
@@ -247,7 +247,6 @@ class LdapDirectoryBackingService(LdapDirectoryService):
         """
     
         results = {} if self.removeDuplicateUIDs else []
-        limited = False
         
         #one ldap query for each rnd in queries
         for queryMap in self.rdnSchema["queries"]:
