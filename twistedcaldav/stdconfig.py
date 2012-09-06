@@ -608,8 +608,8 @@ DEFAULT_CONFIG = {
     # CardDAV Features
     "DirectoryAddressBook": {
         "Enabled": True,
-        "type":    "twistedcaldav.directory.opendirectorybacker.OpenDirectoryBackingService",
-        "params":  directoryAddressBookBackingServiceDefaultParams["twistedcaldav.directory.opendirectorybacker.OpenDirectoryBackingService"],
+        "type":    "twistedcaldav.directory.xmldirectorybacker.XMLDirectoryBackingService",
+        "params":  directoryAddressBookBackingServiceDefaultParams["twistedcaldav.directory.xmldirectorybacker.XMLDirectoryBackingService"],
         "name":    "directory",
         "MaxQueryResults": 1000,
     },
