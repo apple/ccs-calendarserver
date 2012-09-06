@@ -657,6 +657,7 @@ class HTTPChannelRequest(HTTPParser):
         self.write(text)
         self.write("\n")
         self.finish()
+        log.warn("Aborted request (%d) %s" % (errorcode, text))
         raise AbortedException
     
     def _cleanup(self):
