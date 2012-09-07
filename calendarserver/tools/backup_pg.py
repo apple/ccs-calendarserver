@@ -21,8 +21,6 @@ import os
 import subprocess
 import sys
 import tarfile
-from tempfile import mkstemp
-from shutil import rmtree
 
 from twistedcaldav.config import config
 from calendarserver.tools.util import loadConfig
@@ -162,36 +160,29 @@ def main():
 
     serverRoot = config.ServerRoot
     dataRoot = config.DataRoot
-    docRoot = config.DocumentRoot
-    configRoot = config.ConfigRoot
+    dumpPath = os.path.join(serverRoot, DUMPFILENAME)
 
     if command == "backup":
 
-        fd, tmpPath = mkstemp(suffix=".dbdump")
-
         try:
-            dumpData(tmpPath, verbose=verbose)
+            dumpData(dumpPath, verbose=verbose)
 
             if verbose:
                 print "Creating %s" % (filename,)
             tar = tarfile.open(filename, "w:gz")
-            if verbose:
-                print "Adding %s" % (dataRoot,)
-            tar.add(dataRoot, "Data")
-            if verbose:
-                print "Adding %s" % (docRoot,)
-            tar.add(docRoot, "Documents")
-            if verbose:
-                print "Adding %s" % (configRoot,)
-            tar.add(configRoot, "Config")
-            if verbose:
-                print "Adding %s" % (tmpPath,)
-            tar.add(tmpPath, DUMPFILENAME)
-            tar.close()
 
             if verbose:
-                print "Removing %s" % (tmpPath,)
-            os.remove(tmpPath)
+                print "Adding %s" % (serverRoot,)
+            tar.add(serverRoot)
+
+            if not dataRoot.startswith(serverRoot):
+                # DataRoot is not contained within ServerRoot (i.e, it's on
+                # another volume)
+                if verbose:
+                    print "Adding %s" % (dataRoot,)
+                tar.add(dataRoot)
+
+            tar.close()
 
             if verbose:
                 print "Done"
@@ -202,32 +193,16 @@ def main():
 
         try:
             tar = tarfile.open(filename, "r:gz")
-            os.chdir(serverRoot)
-
-            if os.path.exists(dataRoot):
-                if verbose:
-                    print "Removing old DataRoot: %s" % (dataRoot,)
-                rmtree(dataRoot)
-
-            if os.path.exists(docRoot):
-                if verbose:
-                    print "Removing old DocumentRoot: %s" % (docRoot,)
-                rmtree(docRoot)
-
-            if os.path.exists(configRoot):
-                if verbose:
-                    print "Removing old ConfigRoot: %s" % (configRoot,)
-                rmtree(configRoot)
 
             if verbose:
                 print "Extracting from backup file: %s" % (filename,)
-            tar.extractall()
+            tar.extractall(path="/")
 
-            loadData(DUMPFILENAME, verbose=verbose)
+            loadData(dumpPath, verbose=verbose)
 
             if verbose:
-                print "Cleaning up database dump file: %s" % (DUMPFILENAME,)
-            os.remove(DUMPFILENAME)
+                print "Cleaning up database dump file: %s" % (dumpPath,)
+            os.remove(dumpPath)
 
         except BackupError, e:
             error("Failed to dump database; error: %s" % (e,))
