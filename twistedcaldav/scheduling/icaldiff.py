@@ -323,9 +323,17 @@ class iCalDiff(object):
                 # Attendee may decline by EXDATE'ing an instance - we need to handle that
                 if exdatesnew is None or rid in exdatesnew:
                     # Mark Attendee as DECLINED in the server instance
-                    if self._attendeeDecline(returnCalendar.overriddenComponent(rid)):
+                    overridden = returnCalendar.overriddenComponent(rid)
+                    if self._attendeeDecline(overridden):
                         changeCausesReply = True
                         changedRids.append(rid.getText() if rid else "")
+                        
+                    # When a master component is present we keep the missing override in place but mark it as hidden.
+                    # When no master is present we remove the override,
+                    if exdatesnew is not None:
+                        overridden.replaceProperty(Property(Component.HIDDEN_INSTANCE_PROPERTY, "T"))
+                    else:
+                        returnCalendar.removeComponent(overridden)
                 else:
                     # We used to generate a 403 here - but instead we now ignore this error and let the server data
                     # override the client
@@ -411,10 +419,15 @@ class iCalDiff(object):
             if not overridden:
                 overridden = returnCalendar.deriveInstance(decline)
                 if overridden:
-                    returnCalendar.addComponent(overridden)
                     if self._attendeeDecline(overridden):
                         changeCausesReply = True
                         changedRids.append(decline.getText() if decline else "")
+                        
+                    # When a master component is present we keep the missing override in place but mark it as hidden.
+                    # When no master is present we remove the override,
+                    if exdatesnew is not None:
+                        overridden.replaceProperty(Property(Component.HIDDEN_INSTANCE_PROPERTY, "T"))
+                        returnCalendar.addComponent(overridden)
                 else:
                     self._logDiffError("attendeeMerge: Unable to override an instance to mark as DECLINED: %s" % (decline,))
                     return False, False, (), None

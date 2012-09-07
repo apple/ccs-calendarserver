@@ -325,6 +325,9 @@ class Component (object):
     }
     extraRestrictedProperties = ("SUMMARY", "LOCATION",)
 
+    # Hidden instance.
+    HIDDEN_INSTANCE_PROPERTY = "X-CALENDARSERVER-HIDDEN-INSTANCE"
+
     @classmethod
     def allFromString(clazz, string):
         """
@@ -762,7 +765,17 @@ class Component (object):
                 return (range == "THISANDFUTURE")
 
         return False
-            
+    
+    def getExdates(self):
+        """
+        Get the set of all EXDATEs in this (master) component.
+        """
+        exdates = set()
+        for property in self.properties("EXDATE"):
+            for exdate in property.value():
+                exdates.add(exdate.getValue())
+        return exdates
+
     def getTriggerDetails(self):
         """
         Return the trigger information for the specified alarm component.

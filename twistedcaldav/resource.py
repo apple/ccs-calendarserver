@@ -65,6 +65,7 @@ from twistedcaldav.caldavxml import caldav_namespace
 from twistedcaldav.carddavxml import carddav_namespace
 from twistedcaldav.config import config
 from twistedcaldav.customxml import calendarserver_namespace
+from twistedcaldav.datafilters.hiddeninstance import HiddenInstanceFilter
 from twistedcaldav.datafilters.peruserdata import PerUserDataFilter
 from twistedcaldav.datafilters.privateevents import PrivateEventFilter
 from twistedcaldav.directory.internal import InternalDirectoryRecord
@@ -1575,11 +1576,11 @@ class CalDAVResource (
     def iCalendarFiltered(self, isowner, accessUID=None):
 
         # Now "filter" the resource calendar data
-        caldata = PrivateEventFilter(self.accessMode, isowner).filter(
-            (yield self.iCalendar())
-        )
+        caldata = (yield self.iCalendar())
         if accessUID:
             caldata = PerUserDataFilter(accessUID).filter(caldata)
+        caldata = HiddenInstanceFilter().filter(caldata)
+        caldata = PrivateEventFilter(self.accessMode, isowner).filter(caldata)
         returnValue(caldata)
 
 

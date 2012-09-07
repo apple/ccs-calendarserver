@@ -65,6 +65,7 @@ class PerUserDataFilter(CalendarFilter):
 
     PERUSER_PROPERTIES    = ("TRANSP",)
     PERUSER_SUBCOMPONENTS = ("VALARM",)
+    IGNORE_X_PROPERTIES   = ("X-CALENDARSERVER-HIDDEN-INSTANCE",)
 
     def __init__(self, uid):
         """
@@ -239,7 +240,7 @@ class PerUserDataFilter(CalendarFilter):
 
             # Transfer per-user properties from main component to per-instance component
             for property in tuple(component.properties()):
-                if property.name() in PerUserDataFilter.PERUSER_PROPERTIES or property.name().startswith("X-"):
+                if property.name() in PerUserDataFilter.PERUSER_PROPERTIES or property.name().startswith("X-") and property.name() not in PerUserDataFilter.IGNORE_X_PROPERTIES:
                     if self.uid:
                         perinstance_component.addProperty(property)
                     component.removeProperty(property)
