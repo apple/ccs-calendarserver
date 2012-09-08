@@ -21,15 +21,12 @@
 ##
 
 """
-draft-daboo-webdav-sync (Collection Synchronization for WebDAV) XML
-Elements
+RFC 6578 (Collection Synchronization for WebDAV) XML Elements
 
 This module provides XML element definitions for use with WebDAV
 Synchronization.
 
-See draft-daboo-webdav-sync: http://tools.ietf.org/html/draft-daboo-webdav-sync
-
-Last draft referenced: -08
+See RFC 6578: http://www.ietf.org/rfc/rfc6578.txt
 """
 
 __all__ = []
