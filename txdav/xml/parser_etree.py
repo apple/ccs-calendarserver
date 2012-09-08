@@ -28,11 +28,16 @@ __all__ = [
     "WebDAVDocument",
 ]
 
-from xml.etree.ElementTree import TreeBuilder, XMLParser, ParseError,\
+from xml.etree.ElementTree import TreeBuilder, XMLParser,\
     _namespace_map
 from txdav.xml.base import WebDAVUnknownElement, PCDATAElement
 from txdav.xml.base import _elements_by_qname
 from txdav.xml.parser_base import AbstractWebDAVDocument
+
+try:
+    from xml.etree.ElementTree import ParseError as XMLParseError
+except ImportError:
+    from xml.parsers.expat import ExpatError as XMLParseError
 
 def QNameSplit(qname):
     return tuple(qname[1:].split("}", 1)) if "}" in qname else ("", qname,)
@@ -147,7 +152,7 @@ class WebDAVDocument(AbstractWebDAVDocument):
                 if not data:
                     break
                 parser.feed(data)
-        except ParseError, e:
+        except XMLParseError, e:
             raise ValueError(e)
         return parser.close()
         
