@@ -45,7 +45,7 @@ def QNameSplit(qname):
 class WebDAVContentHandler (TreeBuilder):
 
     def __init__(self):
-        super(WebDAVContentHandler, self).__init__()
+        TreeBuilder.__init__(self)
         self._characterBuffer = None
         
         self.startDocument()
