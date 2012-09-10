@@ -44,6 +44,7 @@ __all__ = [
 
 log = Logger()
 
+
 class ScheduleViaIMip(DeliveryService):
     
     @classmethod
@@ -52,12 +53,23 @@ class ScheduleViaIMip(DeliveryService):
 
     @inlineCallbacks
     def generateSchedulingResponses(self):
+        def failForRecipient(recipient):
+            err = HTTPError(ErrorResponse(
+                responsecode.FORBIDDEN,
+                (caldav_namespace, "recipient-failed"),
+                "iMIP request failed",
+            ))
+            self.responses.add(
+                recipient.cuaddr,
+                Failure(exc_value=err),
+                reqstatus=iTIPRequestStatus.SERVICE_UNAVAILABLE
+            )
         
         # Generate an HTTP client request
         try:
             # We do not do freebusy requests via iMIP
             if self.freebusy:
-                raise ValueError("iMIP VFREEBUSY REQUESTs not supported.")
+                raise ValueError("iMIP VFREEBUSY requests not supported.")
 
             method = self.scheduler.calendar.propertyValue("METHOD") 
             if method not in (
@@ -97,17 +109,8 @@ class ScheduleViaIMip(DeliveryService):
         
                 except Exception, e:
                     # Generated failed response for this recipient
-                    log.err("Could not do server-to-imip request : %s %s" % (self, e))
-                    err = HTTPError(ErrorResponse(
-                        responsecode.FORBIDDEN,
-                        (caldav_namespace, "recipient-failed"),
-                        "iMIP request failed",
-                    ))
-                    self.responses.add(
-                        recipient.cuaddr,
-                        Failure(exc_value=err),
-                        reqstatus=iTIPRequestStatus.SERVICE_UNAVAILABLE
-                    )
+                    log.debug("iMIP request %s failed for recipient %s: %s" % (self, recipient, e))
+                    failForRecipient(recipient)
                 
                 else:
                     self.responses.add(
@@ -118,18 +121,9 @@ class ScheduleViaIMip(DeliveryService):
 
         except Exception, e:
             # Generated failed responses for each recipient
-            log.err("Could not do server-to-imip request : %s %s" % (self, e))
+            log.debug("iMIP request %s failed: %s" % (self, e))
             for recipient in self.recipients:
-                err = HTTPError(ErrorResponse(
-                    responsecode.FORBIDDEN,
-                    (caldav_namespace, "recipient-failed"),
-                    "iMIP request failed",
-                ))
-                self.responses.add(
-                    recipient.cuaddr,
-                    Failure(exc_value=err),
-                    reqstatus=iTIPRequestStatus.SERVICE_UNAVAILABLE
-                )
+                failForRecipient(recipient)
 
     def postToGateway(self, fromAddr, toAddr, caldata, reactor=None):
         if reactor is None:
