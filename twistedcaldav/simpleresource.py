@@ -23,16 +23,19 @@ __all__ = [
     "SimpleResource",
     "SimpleCalDAVResource",
     "SimpleRedirectResource",
+    "SimpleDataResource",
 ]
 
 from twext.web2 import http
-from txdav.xml import element as davxml
 from twext.web2.dav.noneprops import NonePropertyStore
+from twext.web2.http import Response
 
 from twisted.internet.defer import succeed
 
-from twistedcaldav.resource import CalDAVResource
 from twistedcaldav.config import config
+from twistedcaldav.resource import CalDAVResource
+
+from txdav.xml import element as davxml
 
 class SimpleResource (
     CalDAVResource,
@@ -79,6 +82,8 @@ class SimpleResource (
 
 SimpleCalDAVResource = SimpleResource
 
+
+
 class SimpleRedirectResource(SimpleResource):
     """
     A L{SimpleResource} which always performs a redirect.
@@ -96,3 +101,29 @@ class SimpleRedirectResource(SimpleResource):
 
     def renderHTTP(self, request):
         return http.RedirectResponse(request.unparseURL(host=config.ServerHostName, **self._kwargs))
+
+
+
+class SimpleDataResource(SimpleResource):
+    """
+    A L{SimpleResource} which returns fixed content.
+    """
+
+    def __init__(self, principalCollections, content_type, data, defaultACL=SimpleResource.authReadACL):
+        """
+        @param content_type: the mime content-type of the data
+        @type content_type: L{MimeType}
+        @param data: the data
+        @type data: C{str}
+        """
+        SimpleResource.__init__(self, principalCollections=principalCollections, isdir=False, defaultACL=defaultACL)
+        self.content_type = content_type
+        self.data = data
+
+    def contentType(self):
+        return self.content_type
+
+    def render(self, request):
+        response = Response(200, {}, self.data)
+        response.headers.setHeader("content-type", self.content_type)
+        return response

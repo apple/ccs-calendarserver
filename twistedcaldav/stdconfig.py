@@ -609,13 +609,15 @@ DEFAULT_CONFIG = {
             "DKIM"             : {      # DKIM options
                 "Enabled"               : True,             # DKIM signing/verification enabled
                 "Domain"                : "",               # Domain for DKIM (defaults to ServerHostName)
-                "SignatureAlgorithm"    : "rsa-sha256",     # Signature algorithm (one of rsa-sha1 or rsa-sha256)
-                "UseDNSKey"             : True,             # Public key stored in DNS
-                "UseHTTPKey"            : True,             # Public key stored in HTTP /.well-known
                 "KeySelector"           : "ischedule",      # Selector for public key
+                "SignatureAlgorithm"    : "rsa-sha256",     # Signature algorithm (one of rsa-sha1 or rsa-sha256)
+                "UseDNSKey"             : True,             # This server's public key stored in DNS
+                "UseHTTPKey"            : True,             # This server's public key stored in HTTP /.well-known
+                "UsePrivateExchangeKey" : True,             # This server's public key manually exchanged with others
                 "ExpireSeconds"         : 3600,             # Expiration time for signature verification
                 "PrivateKeyFile"        : "",               # File where private key is stored
                 "PublicKeyFile"         : "",               # File where public key is stored
+                "PrivateExchanges"      : "",               # Directory where private exchange public keys are stored
             },
         },
 
@@ -1031,6 +1033,9 @@ RELATIVE_PATHS = [
     ("DataRoot", "AttachmentsRoot"),
     ("DataRoot", ("TimezoneService", "BasePath",)),
     ("ConfigRoot", "SudoersFile"),
+    ("ConfigRoot", ("Scheduling", "iSchedule", "DKIM", "PrivateKeyFile",)),
+    ("ConfigRoot", ("Scheduling", "iSchedule", "DKIM", "PublicKeyFile",)),
+    ("ConfigRoot", ("Scheduling", "iSchedule", "DKIM", "PrivateExchanges",)),
     ("LogRoot", "AccessLogFile"),
     ("LogRoot", "ErrorLogFile"),
     ("LogRoot", ("Postgres", "LogFile",)),

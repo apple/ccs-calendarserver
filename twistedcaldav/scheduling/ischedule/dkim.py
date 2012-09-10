@@ -16,13 +16,21 @@
 
 from twext.python.log import Logger
 from twext.web2.client.http import ClientRequest
-from twext.web2.dav.util import allDataFromStream
+from twext.web2.dav.util import allDataFromStream, joinURL
+from twext.web2.http import Response
+from twext.web2.http_headers import MimeType
 from twext.web2.stream import MemoryStream
-from twisted.internet.defer import inlineCallbacks, returnValue
+
+from twisted.internet.defer import inlineCallbacks, returnValue, succeed
+from twistedcaldav.client.geturl import getURL
+from twistedcaldav.config import ConfigurationError
+from twistedcaldav.simpleresource import SimpleResource, SimpleDataResource
+
 import base64
 import binascii
 import collections
 import hashlib
+import os
 import rsa
 import textwrap
 import time
@@ -39,6 +47,7 @@ RSA1   = "rsa-sha1"
 RSA256 = "rsa-sha256"
 Q_DNS  = "dns/txt"
 Q_HTTP = "http/well-known"
+Q_PRIVATE = "private-exchange"
 
 KEY_SERVICE_TYPE = "ischedule"
 
@@ -53,6 +62,70 @@ class DKIMUtils(object):
     Some useful functions.
     """
     
+    @staticmethod
+    def validConfiguration(config):
+        if config.Scheduling.iSchedule.DKIM.Enabled:
+
+            if not config.Scheduling.iSchedule.DKIM.Domain and not config.ServerHostName:
+                msg = "DKIM: No domain specified"
+                log.error(msg)
+                raise ConfigurationError(msg)
+
+            if not config.Scheduling.iSchedule.DKIM.KeySelector:
+                msg = "DKIM: No selector specified"
+                log.error(msg)
+                raise ConfigurationError(msg)
+            
+            if config.Scheduling.iSchedule.DKIM.SignatureAlgorithm not in (RSA1, RSA256):
+                msg = "DKIM: Invalid algorithm: %s" % (config.Scheduling.iSchedule.SignatureAlgorithm,)
+                log.error(msg)
+                raise ConfigurationError(msg)
+            
+            try:
+                with open(config.Scheduling.iSchedule.DKIM.PrivateKeyFile) as f:
+                    key_data = f.read()
+            except IOError, e:
+                msg = "DKIM: Cannot read private key file: %s %s" % (config.Scheduling.iSchedule.DKIM.PrivateKeyFile, e,)
+                log.error(msg)
+                raise ConfigurationError(msg)
+            try:
+                rsa.PrivateKey.load_pkcs1(key_data)
+            except:
+                msg = "DKIM: Invalid private key file: %s" % (config.Scheduling.iSchedule.DKIM.PrivateKeyFile,)
+                log.error(msg)
+                raise ConfigurationError(msg)
+            
+            try:
+                with open(config.Scheduling.iSchedule.DKIM.PublicKeyFile) as f:
+                    key_data = f.read()
+            except IOError, e:
+                msg = "DKIM: Cannot read public key file: %s %s" % (config.Scheduling.iSchedule.DKIM.PublicKeyFile, e,)
+                log.error(msg)
+                raise ConfigurationError(msg)
+            try:
+                rsa.PublicKey.load_pkcs1(key_data)
+            except:
+                msg = "DKIM: Invalid public key file: %s" % (config.Scheduling.iSchedule.DKIM.PublicKeyFile,)
+                log.error(msg)
+                raise ConfigurationError(msg)
+                
+            if config.Scheduling.iSchedule.DKIM.PrivateExchanges:
+                if not os.path.exists(config.Scheduling.iSchedule.DKIM.PrivateExchanges):
+                    try:
+                        os.makedirs(config.Scheduling.iSchedule.DKIM.PrivateExchanges)
+                    except IOError, e:
+                        msg = "DKIM: Cannot create public key private exchange directory: %s" % (config.Scheduling.iSchedule.DKIM.PrivateExchanges,)
+                        log.error(msg)
+                        raise ConfigurationError(msg)
+                if not os.path.isdir(config.Scheduling.iSchedule.DKIM.PrivateExchanges):
+                    msg = "DKIM: Invalid public key private exchange directory: %s" % (config.Scheduling.iSchedule.DKIM.PrivateExchanges,)
+                    log.error(msg)
+                    raise ConfigurationError(msg)
+
+            log.info("DKIM: Enabled")
+        else:
+            log.info("DKIM: Disabled")
+        
     @staticmethod
     def hashlib_method(algorithm):
         """
@@ -83,8 +156,11 @@ class DKIMUtils(object):
         splits = [item.strip() for item in data.split(";")]
         dkim_tags = {}
         for item in splits:
-            name, value = item.split("=", 1)
-            dkim_tags[name.strip()] = value.strip()
+            try:
+                name, value = item.split("=", 1)
+                dkim_tags[name.strip()] = value.strip()
+            except ValueError:
+                pass
         return dkim_tags
 
     @staticmethod
@@ -139,6 +215,7 @@ class DKIMRequest(ClientRequest):
         sign_headers,
         useDNSKey,
         useHTTPKey,
+        usePrivateExchangeKey,
         expire,
     ):
         """
@@ -166,6 +243,8 @@ class DKIMRequest(ClientRequest):
         @type useDNSKey: C{bool}
         @param useHTTPKey: whether or not to add HTTP .well-known as a key lookup option
         @type useHTTPKey: C{bool}
+        @param usePrivateExchangeKey: whether or not to add private-exchange as a key lookup option
+        @type usePrivateExchangeKey: C{bool}
         @param expire: number of seconds to expiration of signature 
         @type expire: C{int}
         """
@@ -181,7 +260,7 @@ class DKIMRequest(ClientRequest):
         assert self.domain
         assert self.selector
         assert self.algorithm in (RSA1, RSA256,)
-        assert useDNSKey or useHTTPKey
+        assert useDNSKey or useHTTPKey or usePrivateExchangeKey
 
         self.hash_method = DKIMUtils.hashlib_method(self.algorithm)
         self.hash_name = DKIMUtils.hash_name(self.algorithm)
@@ -189,6 +268,7 @@ class DKIMRequest(ClientRequest):
         self.keyMethods = []
         if useDNSKey: self.keyMethods.append(Q_DNS)
         if useHTTPKey: self.keyMethods.append(Q_HTTP)
+        if usePrivateExchangeKey: self.keyMethods.append(Q_PRIVATE)
         
         self.message_id = str(uuid.uuid4())
 
@@ -243,6 +323,10 @@ class DKIMRequest(ClientRequest):
         self.headers.addRawHeader(ISCHEDULE_VERSION, ISCHEDULE_VERSION_VALUE)
         self.headers.addRawHeader(ISCHEDULE_MESSAGE_ID, self.message_id)
         self.sign_headers += (ISCHEDULE_VERSION, ISCHEDULE_MESSAGE_ID,)
+
+        # Need Cache-Control
+        self.headers.setRawHeaders("Cache-Control", ("no-cache", "no-transform",))
+        self.sign_headers += ("Cache-Control",)
 
         # Figure out all the existing headers to sign
         headers = []
@@ -389,7 +473,7 @@ class DKIMVerifier(object):
             "v": ("1",),
             "a": (RSA1, RSA256,),
             "c": ("relaxed", "relaxed/simple",),
-            "q": (Q_DNS, Q_HTTP,),
+            "q": (Q_DNS, Q_HTTP, Q_PRIVATE,),
         }
         for tag, values in check_values.items():
             if tag not in required_tags and tag not in self.dkim_tags:
@@ -484,6 +568,7 @@ class DKIMVerifier(object):
         else:
             returnValue(None)
     
+
 
 class PublicKeyLookup(object):
     """
@@ -623,12 +708,139 @@ class PublicKeyLookup_HTTP_WellKnown(PublicKeyLookup):
         Get a token used to uniquely identify the key being looked up. Token format will
         depend on the lookup method.
         """
-        return "https://%s/.well-known/domainkey/%s" % (self.dkim_tags["d"], self.dkim_tags["s"],)
+        
+        host = ".".join(self.dkim_tags["d"].split(".")[-2:])
+        return "https://%s/.well-known/domainkey/%s/%s" % (host, self.dkim_tags["d"], self.dkim_tags["s"],)
         
     
+    @inlineCallbacks
     def _lookupKeys(self):
         """
         Do the key lookup using the actual lookup method.
         """
-        raise NotImplementedError
+        
+        response = (yield getURL(self._getSelectorKey()))
+        if response is None or response.code / 100 != 2:
+            log.debug("DKIM: Failed http/well-known lookup: %s %s" % (self._getSelectorKey(), response,))
+            returnValue(())
+        
+        ct = response.headers.getRawHeaders("content-type", ("bogus/type",))[0]
+        ct = ct.split(";", 1)
+        ct = ct[0].strip()
+        if ct not in ("text/plain",):
+            log.debug("DKIM: Failed http/well-known lookup: wrong content-type returned %s %s" % (self._getSelectorKey(), ct,))
+            returnValue(())
+        
+        returnValue(tuple([DKIMUtils.extractTags(line) for line in response.data.splitlines()]))
 
+
+
+class PublicKeyLookup_PrivateExchange(PublicKeyLookup):
+    
+    
+    method = Q_PRIVATE
+    directory = None
+
+
+    def _getSelectorKey(self):
+        """
+        Get a token used to uniquely identify the key being looked up. Token format will
+        depend on the lookup method.
+        """
+        return "%s#%s" % (self.dkim_tags["d"], self.dkim_tags["s"],)
+        
+    
+    def _lookupKeys(self):
+        """
+        Key information is stored in a file, one record per line.
+        """
+        
+        # Check validity of paths
+        if PublicKeyLookup_PrivateExchange.directory is None:
+            log.debug("DKIM: Failed private-exchange lookup: no directory configured")
+            return succeed(())
+        keyfile = os.path.join(PublicKeyLookup_PrivateExchange.directory, self._getSelectorKey())
+        if not os.path.exists(keyfile):
+            log.debug("DKIM: Failed private-exchange lookup: no path %s" % (keyfile,))
+            return succeed(())
+
+        # Now read the data
+        try:
+            with open(keyfile) as f:
+                keys = f.read()
+        except IOError, e:
+            log.debug("DKIM: Failed private-exchange lookup: could not read %s %s" % (keyfile, e,))
+            return succeed(())
+            
+        return succeed(tuple([DKIMUtils.extractTags(line) for line in keys.splitlines()]))
+
+
+
+class DomainKeyResource (SimpleResource):
+    """
+    Domainkey well-known resource.
+    """
+
+    def __init__(self, domain, selector, pubkeyfile):
+        """
+        """
+        assert domain
+        assert selector
+
+        SimpleResource.__init__(self, principalCollections=None, isdir=True, defaultACL=SimpleResource.allReadACL)
+        self.makeKeyData(domain, selector, pubkeyfile)
+        self.domain = domain
+        self.selector = selector
+
+
+    def makeKeyData(self, domain, selector, pubkeyfile):
+        """
+        Check that a valid key exists, create the TXT record format data and make the needed child resources.
+        """
+        
+        # Get data from file
+        try:
+            with open(pubkeyfile) as f:
+                key_data = f.read()
+        except IOError, e:
+            log.error("DKIM: Unable to open the public key file: %s because of %s" % (pubkeyfile, e, ))
+            raise
+        
+        # Make sure we can parse a valid public key
+        try:
+            rsa.PublicKey.load_pkcs1(key_data)
+        except:
+            log.error("DKIM: Invalid public key file: %s" % (pubkeyfile,))
+            raise
+        
+        # Make the TXT record
+        key_data = "".join(key_data.strip().splitlines()[1:-1])
+        txt_data = "v=DKIM1; s=ischedule; p=%s" % (key_data,)
+
+        # Setup resource hierarchy
+        domainResource = SimpleResource(principalCollections=None, isdir=True, defaultACL=SimpleResource.allReadACL)
+        self.putChild(domain, domainResource)
+        
+        selectorResource = SimpleDataResource(principalCollections=None, content_type=MimeType.fromString("text/plain"), data=txt_data, defaultACL=SimpleResource.allReadACL)
+        domainResource.putChild(selector, selectorResource)
+
+
+    def contentType(self):
+        return MimeType.fromString("text/html; charset=utf-8")
+
+
+    def render(self, request):
+        output = """<html>
+<head>
+<title>DomainKey Resource</title>
+</head>
+<body>
+<h1>DomainKey Resource.</h1>
+<a href="%s">Domain: %s<br>
+Selector: %s</a>
+</body
+</html>""" % (joinURL(request.uri, self.domain, self.selector), self.domain, self.selector,)
+
+        response = Response(200, {}, output)
+        response.headers.setHeader("content-type", MimeType("text", "html"))
+        return response

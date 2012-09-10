@@ -58,6 +58,7 @@ from twistedcaldav.notify import NotifierFactory, getPubSubConfiguration
 from calendarserver.push.applepush import APNSubscriptionResource
 from twistedcaldav.directorybackedaddressbook import DirectoryBackedAddressBookResource
 from twistedcaldav.resource import AuthenticationWrapper
+from twistedcaldav.scheduling.ischedule.dkim import DKIMUtils, DomainKeyResource
 from twistedcaldav.scheduling.ischedule.resource import IScheduleInboxResource
 from twistedcaldav.simpleresource import SimpleResource, SimpleRedirectResource
 from twistedcaldav.timezones import TimezoneCache
@@ -585,7 +586,9 @@ def getRootResource(config, newStore, resources=None):
         else:
             addSystemEventTrigger("after", "startup", timezoneStdService.onStartup)
 
-    # iSchedule service is optional
+    #
+    # iSchedule service
+    #
     if config.Scheduling.iSchedule.Enabled:
         log.info("Setting up iSchedule inbox resource: %r"
                       % (iScheduleResourceClass,))
@@ -595,6 +598,17 @@ def getRootResource(config, newStore, resources=None):
             newStore,
         )
         root.putChild("ischedule", ischedule)
+        
+        # Do DomainKey resources
+        DKIMUtils.validConfiguration(config)
+        if config.Scheduling.iSchedule.DKIM.Enabled:
+            domain = config.Scheduling.iSchedule.DKIM.Domain if config.Scheduling.iSchedule.DKIM.Domain else config.ServerHostName
+            dk = DomainKeyResource(
+                domain,
+                config.Scheduling.iSchedule.DKIM.KeySelector,
+                config.Scheduling.iSchedule.DKIM.PublicKeyFile,
+            )
+            wellKnownResource.putChild("domainkey", dk)
 
     #
     # WebCal
