@@ -36,6 +36,7 @@ from twisted.python.failure import Failure
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.internet.defer import succeed
 from twisted.web.template import XMLFile, Element, renderer, tags
+from twistedcaldav.directory.util import NotFoundResource
 
 from twext.web2.auth.digest import DigestedCredentials
 from twext.web2 import responsecode
@@ -45,6 +46,7 @@ from twext.web2.dav.util import joinURL
 from twext.web2.dav.noneprops import NonePropertyStore
 
 from twext.python.log import Logger
+
 
 try:
     from twistedcaldav.authkerb import NegotiateCredentials
@@ -130,6 +132,7 @@ def cuAddressConverter(origCUAddr):
             (origCUAddr,))
 
 
+
 class DirectoryProvisioningResource (
     PermissionsMixIn,
     CalendarPrincipalCollectionResource,
@@ -153,7 +156,7 @@ class DirectoryProvisioningResource (
         child = self.getChild(segments[0])
         if child is not None:
             return (child, segments[1:])
-        return (None, ())
+        return (NotFoundResource(principalCollections=self.principalCollections()),())
 
     def deadProperties(self):
         if not hasattr(self, "_dead_properties"):

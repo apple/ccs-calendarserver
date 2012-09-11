@@ -19,7 +19,7 @@ from twisted.internet.defer import inlineCallbacks, returnValue
 from twext.web2.http import HTTPError
 from twext.web2 import responsecode
 from twext.web2.dav.util import joinURL
-from twistedcaldav.directory.util import transactionFromRequest
+from twistedcaldav.directory.util import transactionFromRequest, NotFoundResource
 from twistedcaldav.directory.resource import DirectoryReverseProxyResource
 
 from twext.python.log import Logger
@@ -147,7 +147,9 @@ class CommonHomeTypeProvisioningResource(object):
 
         record = self.directory.recordWithShortName(self.recordType, name)
         if record is None:
-            returnValue((None, []))
+            returnValue(
+                (NotFoundResource(principalCollections=self._parent.principalCollections()), [])
+            )
 
         child = yield self._parent.homeForDirectoryRecord(record, request)
         returnValue((child, segments[1:]))

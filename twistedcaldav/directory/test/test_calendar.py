@@ -21,7 +21,7 @@ from twistedcaldav import caldavxml
 
 from twistedcaldav.test.util import TestCase
 from twext.web2.test.test_server import SimpleRequest
-from twistedcaldav.directory.util import transactionFromRequest
+from twistedcaldav.directory.util import transactionFromRequest, NotFoundResource
 
 class ProvisionedCalendars (TestCase):
     """
@@ -55,10 +55,14 @@ class ProvisionedCalendars (TestCase):
 
 
     def test_NonExistentCalendarHome(self):
+        """
+        Requests for missing homes and principals should return
+        NotFoundResources so that we have the opportunity to
+        turn 404s into 401s to protect against user-existence attacks.
+        """
 
         def _response(resource):
-            if resource is not None:
-                self.fail("Incorrect response to GET on non-existent calendar home.")
+            self.assertTrue(isinstance(resource, NotFoundResource))
 
         request = self.oneRequest("/calendars/users/12345/")
         d = request.locateResource(request.uri)
