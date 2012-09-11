@@ -460,9 +460,19 @@ class ImplicitProcessor(object):
 
     @inlineCallbacks
     def doImplicitAttendeeRequest(self):
+        """
+        @return: C{tuple} of (processed, auto-processed, store inbox item, changes)
+        """
 
         # If there is no existing copy, then look for default calendar and copy it here
         if self.new_resource:
+            
+            # Check if the incoming data has the recipient declined in all instances. In that case we will not create
+            # a new resource as chances are the recipient previously deleted the resource and we want to keep it deleted.
+            attendees = self.message.getAttendeeProperties((self.recipient.cuaddr,))
+            if all([attendee.parameterValue("PARTSTAT", "NEEDS-ACTION") == "DECLINED" for attendee in attendees]):
+                log.debug("ImplicitProcessing - originator '%s' to recipient '%s' processing METHOD:REQUEST, UID: '%s' - ignoring all declined" % (self.originator.cuaddr, self.recipient.cuaddr, self.uid))
+                returnValue((True, False, False, None,))
             
             # Check for default calendar
             default = (yield self.recipient.inbox.defaultCalendar(self.request, self.message.mainType()))
@@ -471,7 +481,7 @@ class ImplicitProcessor(object):
                 raise ImplicitProcessorException(iTIPRequestStatus.NO_USER_SUPPORT)
 
             log.debug("ImplicitProcessing - originator '%s' to recipient '%s' processing METHOD:REQUEST, UID: '%s' - new processed" % (self.originator.cuaddr, self.recipient.cuaddr, self.uid))
-            new_calendar = iTipProcessing.processNewRequest(self.message, self.recipient.cuaddr)
+            new_calendar = iTipProcessing.processNewRequest(self.message, self.recipient.cuaddr, creating=True)
             
             # Handle auto-reply behavior
             if self.recipient.principal.canAutoSchedule():

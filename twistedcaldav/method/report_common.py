@@ -56,6 +56,7 @@ from twistedcaldav.caldavxml import caldav_namespace, CalendarData, TimeRange
 from twistedcaldav.carddavxml import AddressData
 from twistedcaldav.config import config
 from twistedcaldav.datafilters.calendardata import CalendarDataFilter
+from twistedcaldav.datafilters.hiddeninstance import HiddenInstanceFilter
 from twistedcaldav.datafilters.privateevents import PrivateEventFilter
 from twistedcaldav.datafilters.addressdata import AddressDataFilter
 from twistedcaldav.dateops import clipPeriod, normalizePeriodList, timeRangesOverlap,\
@@ -344,7 +345,8 @@ def _namedPropertiesForResource(request, props, resource, calendar=None, timezon
             # Handle private events access restrictions
             if calendar is None:
                 calendar = (yield resource.iCalendarForUser(request))
-            filtered = PrivateEventFilter(resource.accessMode, isowner).filter(calendar)
+            filtered = HiddenInstanceFilter().filter(calendar)
+            filtered = PrivateEventFilter(resource.accessMode, isowner).filter(filtered)
             filtered = CalendarDataFilter(property, timezone).filter(filtered)
             propvalue = CalendarData().fromCalendar(filtered)
             properties_by_status[responsecode.OK].append(propvalue)

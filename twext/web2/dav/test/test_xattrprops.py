@@ -201,7 +201,7 @@ class ExtendedAttributesPropertyStoreTests(TestCase):
         self._setValue(document, originalValue)
         self._checkValue(document)
         self.assertEquals(
-            decompress(self._getValue(document)), originalValue)
+            decompress(self._getValue(document)), document.root_element.toxml(pretty=False))
 
 
     def test_getUpgradeCompressedPickle(self):
@@ -214,7 +214,7 @@ class ExtendedAttributesPropertyStoreTests(TestCase):
         self._setValue(document, compress(dumps(document)))
         self._checkValue(document)
         self.assertEquals(
-            decompress(self._getValue(document)), document.toxml())
+            decompress(self._getValue(document)), document.root_element.toxml(pretty=False))
 
 
     def test_getInvalid(self):
@@ -243,7 +243,7 @@ class ExtendedAttributesPropertyStoreTests(TestCase):
         document = self._makeValue()
         self.propertyStore.set(document.root_element)
         self.assertEquals(
-            decompress(self._getValue(document)), document.toxml())
+            decompress(self._getValue(document)), document.root_element.toxml(pretty=False))
 
 
     def test_delete(self):
@@ -396,7 +396,7 @@ class ExtendedAttributesPropertyStoreTests(TestCase):
             document = self._makeValue(uid)
             self.propertyStore.set(document.root_element, uid=uid)
             self.assertEquals(
-                decompress(self._getValue(document, uid)), document.toxml())
+                decompress(self._getValue(document, uid)), document.root_element.toxml(pretty=False))
 
     def test_delete_uids(self):
         """
@@ -415,7 +415,7 @@ class ExtendedAttributesPropertyStoreTests(TestCase):
                     continue
                 document = self._makeValue(uid)
                 self.assertEquals(
-                    decompress(self._getValue(document, uid)), document.toxml())
+                    decompress(self._getValue(document, uid)), document.root_element.toxml(pretty=False))
         
     def test_contains_uids(self):
         """

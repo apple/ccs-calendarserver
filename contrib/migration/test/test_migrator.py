@@ -89,6 +89,7 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
         expected = {
             "BindHTTPPorts": [8008, 8800],
             "BindSSLPorts": [8443, 8843],
+            "ConfigRoot" : "Config",
             "DSN" : "/Library/Server/PostgreSQL For Server Services/Socket:caldav:caldav:::",
             "EnableSSL" : True,
             "HTTPPort": 8008,
@@ -127,6 +128,7 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
         expected = {
             "BindHTTPPorts": [8008, 8800],
             "BindSSLPorts": [8443, 8843],
+            "ConfigRoot" : "Config",
             "DSN" : "/Library/Server/PostgreSQL For Server Services/Socket:caldav:caldav:::",
             "EnableSSL" : False,
             "HTTPPort": 8008,
@@ -165,6 +167,7 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
         expected = {
             "BindHTTPPorts": [8008, 8800],
             "BindSSLPorts": [8443, 8843],
+            "ConfigRoot" : "Config",
             "DSN" : "/Library/Server/PostgreSQL For Server Services/Socket:caldav:caldav:::",
             "EnableSSL" : True,
             "HTTPPort": 8008,
@@ -203,6 +206,7 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
         expected = {
             "BindHTTPPorts": [8008, 8800],
             "BindSSLPorts": [8443, 8843],
+            "ConfigRoot" : "Config",
             "DSN" : "/Library/Server/PostgreSQL For Server Services/Socket:caldav:caldav:::",
             "EnableSSL" : True,
             "HTTPPort": 8008,
@@ -241,6 +245,7 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
         expected = {
             "BindHTTPPorts": [1111, 2222, 4444, 5555, 7777, 8888],
             "BindSSLPorts": [3333, 6666, 9999, 11111],
+            "ConfigRoot" : "Config",
             "DSN" : "/Library/Server/PostgreSQL For Server Services/Socket:caldav:caldav:::",
             "EnableSSL" : True,
             "HTTPPort": 8888,
@@ -276,6 +281,7 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
         expected = {
             "BindHTTPPorts": [8008, 8800],
             "BindSSLPorts": [8443, 8843],
+            "ConfigRoot" : "Config",
             "DSN" : "/Library/Server/PostgreSQL For Server Services/Socket:caldav:caldav:::",
             "EnableSSL" : False,
             "HTTPPort": 8008,
@@ -306,6 +312,7 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
         expected = {
             "BindHTTPPorts": [8008, 8800],
             "BindSSLPorts": [8443, 8843],
+            "ConfigRoot" : "Config",
             "DSN" : "/Library/Server/PostgreSQL For Server Services/Socket:caldav:caldav:::",
             "EnableSSL" : True,
             "HTTPPort": 8008,
@@ -327,6 +334,7 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
         expected = {
             "BindHTTPPorts": [8008, 8800],
             "BindSSLPorts": [8443, 8843],
+            "ConfigRoot" : "Config",
             "DSN" : "/Library/Server/PostgreSQL For Server Services/Socket:caldav:caldav:::",
             "EnableSSL" : False,
             "HTTPPort": 8008,
@@ -374,6 +382,7 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
             },
             "BindHTTPPorts": [8008, 8800],
             "BindSSLPorts": [8443, 8843],
+            "ConfigRoot" : "Config",
             "DSN" : "/Library/Server/PostgreSQL For Server Services/Socket:caldav:caldav:::",
             "EnableSSL" : False,
             "HTTPPort": 8008,
@@ -413,6 +422,7 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
             },
             "BindHTTPPorts": [8008, 8800],
             "BindSSLPorts": [8443, 8843],
+            "ConfigRoot" : "Config",
             "DSN" : "/Library/Server/PostgreSQL For Server Services/Socket:caldav:caldav:::",
             "EnableSSL" : False,
             "HTTPPort": 8008,
@@ -465,6 +475,7 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
             },
             "BindHTTPPorts": [8008, 8800],
             "BindSSLPorts": [8443, 8843],
+            "ConfigRoot" : "Config",
             "DSN" : "/Library/Server/PostgreSQL For Server Services/Socket:caldav:caldav:::",
             "EnableSSL" : False,
             "HTTPPort": 8008,
@@ -506,6 +517,7 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
             },
             "BindHTTPPorts": [8008, 8800],
             "BindSSLPorts": [8443, 8843],
+            "ConfigRoot" : "Config",
             "DSN" : "/Library/Server/PostgreSQL For Server Services/Socket:caldav:caldav:::",
             "EnableSSL" : False,
             "HTTPPort": 8008,
@@ -547,6 +559,7 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
             },
             "BindHTTPPorts": [8008, 8800],
             "BindSSLPorts": [8443, 8843],
+            "ConfigRoot" : "Config",
             "DSN" : "/Library/Server/PostgreSQL For Server Services/Socket:caldav:caldav:::",
             "EnableSSL" : False,
             "HTTPPort": 8008,
@@ -582,6 +595,7 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
             },
             "BindHTTPPorts": [8008, 8800],
             "BindSSLPorts": [8443, 8843],
+            "ConfigRoot" : "Config",
             "DSN" : "/Library/Server/PostgreSQL For Server Services/Socket:caldav:caldav:::",
             "EnableSSL" : False,
             "HTTPPort": 8008,

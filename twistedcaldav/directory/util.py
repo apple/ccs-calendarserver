@@ -22,11 +22,20 @@ Utilities.
 __all__ = [
     "normalizeUUID",
     "uuidFromName",
+    "NotFoundResource",
 ]
 
 from twext.enterprise.ienterprise import AlreadyFinishedError
-
+from twext.python.log import Logger
+from twext.web2 import responsecode
+from twext.web2.auth.wrapper import UnauthorizedResponse
+from twext.web2.dav.resource import DAVResource
+from twext.web2.http import StatusResponse
+from twisted.internet.defer import inlineCallbacks, returnValue
+from txdav.xml import element as davxml
 from uuid import UUID, uuid5
+
+log = Logger()
 
 def uuidFromName(namespace, name):
     """
@@ -107,4 +116,32 @@ def splitIntoBatches(data, size):
     while data:
         yield set(data[:size])
         del data[:size]
+
+
+class NotFoundResource(DAVResource):
+    """
+    In order to prevent unauthenticated discovery of existing users via 401/404
+    response codes, this resource can be returned from locateChild, and it will
+    perform an authentication; if the user is unauthenticated, 404 responses are
+    turned into 401s.
+    """
+
+    @inlineCallbacks
+    def renderHTTP(self, request):
+
+        try:
+            authnUser, authzUser = yield self.authenticate(request)
+        except Exception:
+            authzUser = davxml.Principal(davxml.Unauthenticated())
+
+        # Turn 404 into 401
+        if authzUser == davxml.Principal(davxml.Unauthenticated()):
+            response = (yield UnauthorizedResponse.makeResponse(
+                request.credentialFactories,
+                request.remoteAddr
+            ))
+            returnValue(response)
+        else:
+            response = StatusResponse(responsecode.NOT_FOUND, "Resource not found")
+            returnValue(response)
 

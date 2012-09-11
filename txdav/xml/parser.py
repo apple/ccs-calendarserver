@@ -32,4 +32,4 @@ __all__ = [
     "WebDAVDocument",
 ]
 
-from txdav.xml.parser_sax import WebDAVDocument
+from txdav.xml.parser_etree import WebDAVDocument

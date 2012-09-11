@@ -36,6 +36,7 @@ from twext.web2 import http_headers
 from twext.python.vcomponent import InvalidICalendarDataError
 from twext.python.vcomponent import VComponent
 
+from twistedcaldav.datafilters.hiddeninstance import HiddenInstanceFilter
 from twistedcaldav.datafilters.peruserdata import PerUserDataFilter
 from twistedcaldav.datafilters.privateevents import PrivateEventFilter
 
@@ -406,8 +407,11 @@ class CalendarObjectBase(object):
         calendar = self.calendar()
         isOwner = asAdmin or (calendar._owned and
                               calendar.ownerCalendarHome().uid() == accessUID)
-        for data_filter in [PrivateEventFilter(self.accessMode, isOwner),
-                       PerUserDataFilter(accessUID)]:
+        for data_filter in [
+            PerUserDataFilter(accessUID),
+            HiddenInstanceFilter(),
+            PrivateEventFilter(self.accessMode, isOwner),
+        ]:
             component = data_filter.filter(component)
         returnValue(component)
 
@@ -501,7 +505,7 @@ def fixOneCalendarObject(component):
                 fixes += 1
                 calprop.setValue(postval)
     for subc in component.subcomponents():
-        count, fixsubc = fixOneCalendarObject(subc)
+        count, _ignore_fixsubc = fixOneCalendarObject(subc)
         fixes += count
     return fixes, component
 

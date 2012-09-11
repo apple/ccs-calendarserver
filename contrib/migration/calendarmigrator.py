@@ -375,7 +375,6 @@ def migrateConfiguration(options, newServerRootValue, newDataRootValue, enableCa
     newCalDAVDPlist["EnableCalDAV"] = enableCalDAV
     newCalDAVDPlist["EnableCardDAV"] = enableCardDAV
 
-
     log("Writing %s" % (newConfigFile,))
     writePlist(newCalDAVDPlist, newConfigFile)
 
@@ -482,6 +481,9 @@ def mergePlist(caldav, carddav, combined):
 
     # New DSN value for server-specific Postgres
     combined["DSN"] = "/Library/Server/PostgreSQL For Server Services/Socket:caldav:caldav:::"
+
+    # ConfigRoot is now always "Config"
+    combined["ConfigRoot"] = "Config"
 
     return adminChanges
 

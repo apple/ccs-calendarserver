@@ -958,8 +958,14 @@ class ImplicitScheduler(object):
                 log.debug("Implicit - attendee '%s' is removing cancelled UID: '%s'" % (self.attendee, self.uid))
                 # Nothing else to do
             elif doScheduling:
-                log.debug("Implicit - attendee '%s' is cancelling UID: '%s'" % (self.attendee, self.uid))
-                yield self.scheduleCancelWithOrganizer()
+                # If attendee is already marked as declined in all components - nothing to do
+                attendees = self.calendar.getAttendeeProperties((self.attendee,))
+                if all([attendee.parameterValue("PARTSTAT", "NEEDS-ACTION") == "DECLINED" for attendee in attendees]):
+                    log.debug("Implicit - attendee '%s' is removing fully declined UID: '%s'" % (self.attendee, self.uid))
+                    # Nothing else to do
+                else:
+                    log.debug("Implicit - attendee '%s' is cancelling UID: '%s'" % (self.attendee, self.uid))
+                    yield self.scheduleCancelWithOrganizer()
             else:
                 log.debug("Implicit - attendee '%s' is removing UID without server scheduling: '%s'" % (self.attendee, self.uid))
                 # Nothing else to do

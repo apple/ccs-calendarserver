@@ -20,8 +20,7 @@ from twext.python.log import Logger
 
 from twistedcaldav.config import config, fullServerPath
 from twistedcaldav.scheduling.delivery import DeliveryService
-
-import xml.dom.minidom
+from twistedcaldav.xmlutil import readXML
 
 """
 XML based iSchedule configuration file handling.
@@ -100,15 +99,11 @@ class IScheduleServersParser(object):
         self.servers = []
         
         # Read in XML
-        fd = open(xmlFile.path, "r")
-        doc = xml.dom.minidom.parse(fd)
-        fd.close()
+        try:
+            _ignore_tree, servers_node = readXML(xmlFile.path, ELEMENT_SERVERS)
+        except ValueError:
+            log.error("Ignoring file %r because it is not a server-to-server config file" % (xmlFile,))
 
-        # Verify that top-level element is correct
-        servers_node = doc._get_documentElement()
-        if servers_node._get_localName() != ELEMENT_SERVERS:
-            log.error("Ignoring file %r because it is not a server-to-server config file" % (self.xmlFile,))
-            return
         self._parseXML(servers_node)
         
     def _parseXML(self, node):
@@ -116,12 +111,8 @@ class IScheduleServersParser(object):
         Parse the XML root node from the server-to-server configuration document.
         @param node: the L{Node} to parse.
         """
-
-        for child in node._get_childNodes():
-            child_name = child._get_localName()
-            if child_name is None:
-                continue
-            elif child_name == ELEMENT_SERVER:
+        for child in node.getchildren():
+            if child.tag == ELEMENT_SERVER:
                 self.servers.append(IScheduleServerRecord())
                 self.servers[-1].parseXML(child)
                 
@@ -147,49 +138,39 @@ class IScheduleServerRecord (object):
             self._parseDetails()
 
     def parseXML(self, node):
-        for child in node._get_childNodes():
-            child_name = child._get_localName()
-            if child_name is None:
-                continue
-            elif child_name == ELEMENT_URI:
-                if child.firstChild is not None:
-                    self.uri = child.firstChild.data.encode("utf-8")
-            elif child_name == ELEMENT_AUTHENTICATION:
+        for child in node.getchildren():
+            if child.tag == ELEMENT_URI:
+                self.uri = child.text
+            elif child.tag == ELEMENT_AUTHENTICATION:
                 self._parseAuthentication(child)
-            elif child_name == ELEMENT_ALLOW_REQUESTS_FROM:
+            elif child.tag == ELEMENT_ALLOW_REQUESTS_FROM:
                 self.allow_from = True
-            elif child_name == ELEMENT_ALLOW_REQUESTS_TO:
+            elif child.tag == ELEMENT_ALLOW_REQUESTS_TO:
                 self.allow_to = True
-            elif child_name == ELEMENT_DOMAINS:
+            elif child.tag == ELEMENT_DOMAINS:
                 self._parseList(child, ELEMENT_DOMAIN, self.domains)
-            elif child_name == ELEMENT_CLIENT_HOSTS:
+            elif child.tag == ELEMENT_CLIENT_HOSTS:
                 self._parseList(child, ELEMENT_HOST, self.client_hosts)
             else:
-                raise RuntimeError("[%s] Unknown attribute: %s" % (self.__class__, child_name,))
+                raise RuntimeError("[%s] Unknown attribute: %s" % (self.__class__, child.tag,))
         
         self._parseDetails()
 
     def _parseList(self, node, element_name, appendto):
-        for child in node._get_childNodes():
-            if child._get_localName() == element_name:
-                if child.firstChild is not None:
-                    appendto.append(child.firstChild.data.encode("utf-8"))
+        for child in node.getchildren():
+            if child.tag == element_name:
+                appendto.append(child.text)
 
     def _parseAuthentication(self, node):
-        if node.hasAttribute(ATTRIBUTE_TYPE):
-            atype = node.getAttribute(ATTRIBUTE_TYPE).encode("utf-8")
-            if atype != ATTRIBUTE_BASICAUTH:
-                return
-        else:
+        atype = node.getAttribute(ATTRIBUTE_TYPE, "")
+        if atype != ATTRIBUTE_BASICAUTH:
             return
 
-        for child in node._get_childNodes():
-            if child._get_localName() == ELEMENT_USER:
-                if child.firstChild is not None:
-                    user = child.firstChild.data.encode("utf-8")
-            elif child._get_localName() == ELEMENT_PASSWORD:
-                if child.firstChild is not None:
-                    password = child.firstChild.data.encode("utf-8")
+        for child in node.getchildren():
+            if child.tag == ELEMENT_USER:
+                user = child.text
+            elif child.tag == ELEMENT_PASSWORD:
+                password = child.text
         
         self.authentication = ("basic", user, password,)
 
