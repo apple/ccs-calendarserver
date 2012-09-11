@@ -32,16 +32,19 @@ __all__ = [
 
 log = Logger()
 
+
+
 class IScheduleServers(object):
-    
+
     _fileInfo = None
     _xmlFile = None
     _servers = None
     _domainMap = None
-    
+
     def __init__(self):
-        
+
         self._loadConfig()
+
 
     def _loadConfig(self):
         if IScheduleServers._servers is None:
@@ -58,13 +61,15 @@ class IScheduleServers(object):
             IScheduleServers._servers = parser.servers
             self._mapDomains()
             IScheduleServers._fileInfo = fileInfo
-        
+
+
     def _mapDomains(self):
         IScheduleServers._domainMap = {}
         for server in IScheduleServers._servers:
             for domain in server.domains:
                 IScheduleServers._domainMap[domain] = server
-    
+
+
     def mapDomain(self, domain):
         """
         Map a calendar user address domain to a suitable server that can
@@ -72,20 +77,22 @@ class IScheduleServers(object):
         """
         return IScheduleServers._domainMap.get(domain)
 
-ELEMENT_SERVERS                 = "servers"
-ELEMENT_SERVER                  = "server"
-ELEMENT_URI                     = "uri"
-ELEMENT_AUTHENTICATION          = "authentication"
-ATTRIBUTE_TYPE                  = "type"
-ATTRIBUTE_BASICAUTH             = "basic"
-ELEMENT_USER                    = "user"
-ELEMENT_PASSWORD                = "password"
-ELEMENT_ALLOW_REQUESTS_FROM     = "allow-requests-from"
-ELEMENT_ALLOW_REQUESTS_TO       = "allow-requests-to"
-ELEMENT_DOMAINS                 = "domains"
-ELEMENT_DOMAIN                  = "domain"
-ELEMENT_CLIENT_HOSTS            = "hosts"
-ELEMENT_HOST                    = "host"
+ELEMENT_SERVERS = "servers"
+ELEMENT_SERVER = "server"
+ELEMENT_URI = "uri"
+ELEMENT_AUTHENTICATION = "authentication"
+ATTRIBUTE_TYPE = "type"
+ATTRIBUTE_BASICAUTH = "basic"
+ELEMENT_USER = "user"
+ELEMENT_PASSWORD = "password"
+ELEMENT_ALLOW_REQUESTS_FROM = "allow-requests-from"
+ELEMENT_ALLOW_REQUESTS_TO = "allow-requests-to"
+ELEMENT_DOMAINS = "domains"
+ELEMENT_DOMAIN = "domain"
+ELEMENT_CLIENT_HOSTS = "hosts"
+ELEMENT_HOST = "host"
+
+
 
 class IScheduleServersParser(object):
     """
@@ -94,14 +101,16 @@ class IScheduleServersParser(object):
     def __repr__(self):
         return "<%s %r>" % (self.__class__.__name__, self.xmlFile)
 
+
     def __init__(self, xmlFile):
 
         self.servers = []
-        
+
         # Read in XML
         _ignore_etree, servers_node = xmlutil.readXML(xmlFile.path, ELEMENT_SERVERS)
         self._parseXML(servers_node)
-        
+
+
     def _parseXML(self, node):
         """
         Parse the XML root node from the server-to-server configuration document.
@@ -112,7 +121,9 @@ class IScheduleServersParser(object):
             if child.tag == ELEMENT_SERVER:
                 self.servers.append(IScheduleServerRecord())
                 self.servers[-1].parseXML(child)
-                
+
+
+
 class IScheduleServerRecord (object):
     """
     Contains server-to-server details.
@@ -129,10 +140,11 @@ class IScheduleServerRecord (object):
         self.client_hosts = []
         self.unNormalizeAddresses = True
         self.moreHeaders = []
-        
+
         if uri:
             self.uri = uri
             self._parseDetails()
+
 
     def parseXML(self, node):
         for child in node.getchildren():
@@ -150,13 +162,15 @@ class IScheduleServerRecord (object):
                 self._parseList(child, ELEMENT_HOST, self.client_hosts)
             else:
                 raise RuntimeError("[%s] Unknown attribute: %s" % (self.__class__, child.tag,))
-        
+
         self._parseDetails()
+
 
     def _parseList(self, node, element_name, appendto):
         for child in node.getchildren():
             if child.tag == element_name:
                 appendto.append(child.text)
+
 
     def _parseAuthentication(self, node):
         if node.get(ATTRIBUTE_TYPE) != ATTRIBUTE_BASICAUTH:
@@ -167,8 +181,9 @@ class IScheduleServerRecord (object):
                 user = child.text
             elif child.tag == ELEMENT_PASSWORD:
                 password = child.text
-        
+
         self.authentication = ("basic", user, password,)
+
 
     def _parseDetails(self):
         # Extract scheme, host, port and path
@@ -178,14 +193,14 @@ class IScheduleServerRecord (object):
         elif self.uri.startswith("https://"):
             self.ssl = True
             rest = self.uri[8:]
-        
+
         splits = rest.split("/", 1)
         hostport = splits[0].split(":")
         self.host = hostport[0]
         if len(hostport) > 1:
             self.port = int(hostport[1])
         else:
-            self.port = {False:80, True:443}[self.ssl]
+            self.port = {False: 80, True: 443}[self.ssl]
         self.path = "/"
         if len(splits) > 1:
             self.path += splits[1]

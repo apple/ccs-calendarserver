@@ -48,31 +48,40 @@ class IScheduleInboxResource (ReadOnlyNoCopyResourceMixIn, DAVResource):
         self.parent = parent
         self._newStore = store
 
+
     def deadProperties(self):
         if not hasattr(self, "_dead_properties"):
             self._dead_properties = NonePropertyStore(self)
         return self._dead_properties
 
+
     def etag(self):
         return succeed(None)
+
 
     def checkPreconditions(self, request):
         return None
 
+
     def resourceType(self):
         return davxml.ResourceType.ischeduleinbox
 
+
     def contentType(self):
-        return MimeType.fromString("text/html; charset=utf-8");
+        return MimeType.fromString("text/html; charset=utf-8")
+
 
     def isCollection(self):
         return False
 
+
     def isCalendarCollection(self):
         return False
 
+
     def isPseudoCalendarCollection(self):
         return False
+
 
     def principalForCalendarUserAddress(self, address):
         for principalCollection in self.principalCollections():
@@ -80,6 +89,7 @@ class IScheduleInboxResource (ReadOnlyNoCopyResourceMixIn, DAVResource):
             if principal is not None:
                 return principal
         return None
+
 
     def render(self, request):
         output = """<html>
@@ -94,6 +104,7 @@ class IScheduleInboxResource (ReadOnlyNoCopyResourceMixIn, DAVResource):
         response = Response(200, {}, output)
         response.headers.setHeader("content-type", MimeType("text", "html"))
         return response
+
 
     def http_GET(self, request):
         """
@@ -111,11 +122,11 @@ class IScheduleInboxResource (ReadOnlyNoCopyResourceMixIn, DAVResource):
                 "Invalid query parameter",
             ))
         query = query[0]
-            
+
         query = {
             "capabilities"  : self.doCapabilities,
         }.get(query, None)
-        
+
         if query is None:
             raise HTTPError(StatusResponse(
                 responsecode.BAD_REQUEST,
@@ -124,12 +135,13 @@ class IScheduleInboxResource (ReadOnlyNoCopyResourceMixIn, DAVResource):
 
         return query(request)
 
+
     def doCapabilities(self, request):
         """
         Return a list of all timezones known to the server.
         """
 
-        # Determine min/max date-time for iSchedule        
+        # Determine min/max date-time for iSchedule
         now = PyCalendarDateTime.getNowUTC()
         minDateTime = PyCalendarDateTime(now.getYear(), 1, 1, 0, 0, 0, PyCalendarTimezone(utc=True))
         minDateTime.offsetYear(-1)
@@ -137,7 +149,7 @@ class IScheduleInboxResource (ReadOnlyNoCopyResourceMixIn, DAVResource):
         maxDateTime.offsetYear(10)
 
         result = ischedulexml.QueryResult(
-            
+
             ischedulexml.Capabilities(
                 ischedulexml.Versions(
                     ischedulexml.Version.fromString("1.0"),
@@ -162,8 +174,8 @@ class IScheduleInboxResource (ReadOnlyNoCopyResourceMixIn, DAVResource):
                 ),
                 ischedulexml.CalendarDataTypes(
                     ischedulexml.CalendarDataType(**{
-                            "content-type":"text/calendar",
-                            "version":"2.0",
+                            "content-type": "text/calendar",
+                            "version": "2.0",
                     }),
                 ),
                 ischedulexml.Attachments(
@@ -179,6 +191,7 @@ class IScheduleInboxResource (ReadOnlyNoCopyResourceMixIn, DAVResource):
         )
         return XMLResponse(responsecode.OK, result)
 
+
     @inlineCallbacks
     def http_POST(self, request):
         """
@@ -191,7 +204,7 @@ class IScheduleInboxResource (ReadOnlyNoCopyResourceMixIn, DAVResource):
         # Need a transaction to work with
         txn = self._newStore.newTransaction("new transaction for Server To Server Inbox Resource")
         request._newStoreTransaction = txn
-         
+
         # Do the POST processing treating this as a non-local schedule
         try:
             result = (yield scheduler.doSchedulingViaPOST(txn, use_request_headers=True))
@@ -206,8 +219,10 @@ class IScheduleInboxResource (ReadOnlyNoCopyResourceMixIn, DAVResource):
     # ACL
     ##
 
+
     def supportedPrivileges(self, request):
         return succeed(deliverSchedulePrivilegeSet)
+
 
     def defaultAccessControlList(self):
         privs = (

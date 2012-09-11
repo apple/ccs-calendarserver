@@ -17,8 +17,8 @@
 from twext.web2.http_headers import Headers, MimeType
 from twext.web2.stream import MemoryStream
 from twisted.internet.defer import inlineCallbacks, succeed
-from twistedcaldav.scheduling.ischedule.dkim import DKIMRequest, DKIMVerifier,\
-    DKIMVerificationError, DKIMUtils, PublicKeyLookup_DNSTXT,\
+from twistedcaldav.scheduling.ischedule.dkim import DKIMRequest, DKIMVerifier, \
+    DKIMVerificationError, DKIMUtils, PublicKeyLookup_DNSTXT, \
     PublicKeyLookup_HTTP_WellKnown, PublicKeyLookup_PrivateExchange
 import base64
 import hashlib
@@ -33,16 +33,16 @@ class TestDKIMBase (twistedcaldav.test.util.TestCase):
     """
 
     class PublicKeyLookup_Testing(PublicKeyLookup_HTTP_WellKnown):
-        
+
         keys = []
-    
+
         def _lookupKeys(self):
             """
             Do the key lookup using the actual lookup method.
             """
             return succeed(self.keys)
 
-    
+
     def setUp(self):
         super(TestDKIMBase, self).setUp()
 
@@ -94,6 +94,8 @@ jQIDAQAB
         f.close()
         self.public_key_data = pkey_data.replace("\n", "")
 
+
+
 class TestDKIMRequest (TestDKIMBase):
     """
     L{DKIMRequest} support tests.
@@ -111,13 +113,13 @@ class TestDKIMRequest (TestDKIMBase):
             headers = Headers()
             headers.addRawHeader("Originator", "mailto:user01@example.com")
             headers.addRawHeader("Recipient", "mailto:user02@example.com")
-            headers.setHeader("Content-Type", MimeType("text", "calendar", **{"component":"VEVENT", "charset":"utf-8"}))
+            headers.setHeader("Content-Type", MimeType("text", "calendar", **{"component": "VEVENT", "charset": "utf-8"}))
             request = DKIMRequest("POST", "/", headers, stream, "example.com", "dkim", "/tmp/key", algorithm, ("Originator", "Recipient", "Content-Type",), True, True, True, 3600)
             hash = base64.b64encode(hash_method(data).digest())
             result = (yield request.bodyHash())
             self.assertEqual(result, hash)
 
-        
+
     def test_generateSignature(self):
 
         data = "Hello World!"
@@ -130,7 +132,7 @@ class TestDKIMRequest (TestDKIMBase):
             headers = Headers()
             headers.addRawHeader("Originator", "mailto:user01@example.com")
             headers.addRawHeader("Recipient", "mailto:user02@example.com")
-            headers.setHeader("Content-Type", MimeType("text", "calendar", **{"component":"VEVENT", "charset":"utf-8"}))
+            headers.setHeader("Content-Type", MimeType("text", "calendar", **{"component": "VEVENT", "charset": "utf-8"}))
             request = DKIMRequest("POST", "/", headers, stream, "example.com", "dkim", self.private_keyfile, algorithm, ("Originator", "Recipient", "Content-Type",), True, True, True, 3600)
 
             # Manually create what should be the correct thing to sign
@@ -141,12 +143,12 @@ content-type:%s
 ischedule-version:1.0
 dkim-signature:v=1; d=example.com; s=dkim; t=%s; x=%s; a=%s; q=dns/txt:http/well-known; http=UE9TVDov; c=relaxed/simple; h=Originator:Recipient; bh=%s; b=
 """.replace("\n", "\r\n") % (headers.getRawHeaders("Content-Type")[0], str(int(time.time())), str(int(time.time() + 3600)), algorithm, bodyhash)
-    
+
             result = request.generateSignature(sign_this)
-    
+
             key = rsa.PrivateKey.load_pkcs1(open(self.private_keyfile).read())
             signature = base64.b64encode(rsa.sign(sign_this, key, hash_name))
-    
+
             self.assertEqual(result, signature)
 
 
@@ -163,10 +165,10 @@ dkim-signature:v=1; d=example.com; s=dkim; t=%s; x=%s; a=%s; q=dns/txt:http/well
             headers = Headers()
             headers.addRawHeader("Originator", "mailto:user01@example.com")
             headers.addRawHeader("Recipient", "mailto:user02@example.com")
-            headers.setHeader("Content-Type", MimeType("text", "calendar", **{"component":"VEVENT", "charset":"utf-8"}))
+            headers.setHeader("Content-Type", MimeType("text", "calendar", **{"component": "VEVENT", "charset": "utf-8"}))
             request = DKIMRequest("POST", "/", headers, stream, "example.com", "dkim", self.private_keyfile, algorithm, ("Originator", "Recipient", "Content-Type",), True, True, True, 3600)
             result, _ignore_tags = (yield request.signatureHeaders())
-            
+
             # Manually create what should be the correct thing to sign
             bodyhash = base64.b64encode(hash_method(data).digest())
             sign_this = """originator:mailto:user01@example.com
@@ -178,10 +180,10 @@ cache-control:no-cache
 cache-control:no-transform
 dkim-signature:v=1; d=example.com; s=dkim; t=%s; x=%s; a=%s; q=dns/txt:http/well-known:private-exchange; http=UE9TVDov; c=relaxed/simple; h=Originator:Recipient:Content-Type:iSchedule-Version:iSchedule-Message-ID:Cache-Control:Cache-Control; bh=%s; b=
 """.replace("\n", "\r\n") % (headers.getRawHeaders("Content-Type")[0], request.message_id, request.time, request.expire, algorithm, bodyhash)
-    
+
             self.assertEqual(result, sign_this)
 
-        
+
     @inlineCallbacks
     def test_sign(self):
 
@@ -194,10 +196,10 @@ dkim-signature:v=1; d=example.com; s=dkim; t=%s; x=%s; a=%s; q=dns/txt:http/well
             headers = Headers()
             headers.addRawHeader("Originator", "mailto:user01@example.com")
             headers.addRawHeader("Recipient", "mailto:user02@example.com")
-            headers.setHeader("Content-Type", MimeType("text", "calendar", **{"component":"VEVENT", "charset":"utf-8"}))
+            headers.setHeader("Content-Type", MimeType("text", "calendar", **{"component": "VEVENT", "charset": "utf-8"}))
             request = DKIMRequest("POST", "/", headers, stream, "example.com", "dkim", self.private_keyfile, algorithm, ("Originator", "Recipient", "Content-Type",), True, True, True, 3600)
             result = (yield request.sign())
-            
+
             # Manually create what should be the correct thing to sign and make sure signatures match
             bodyhash = base64.b64encode(hash_method(data).digest())
             sign_this = """originator:mailto:user01@example.com
@@ -211,16 +213,17 @@ dkim-signature:v=1; d=example.com; s=dkim; t=%s; x=%s; a=%s; q=dns/txt:http/well
 """.replace("\n", "\r\n") % (headers.getRawHeaders("Content-Type")[0], request.message_id, request.time, request.expire, algorithm, bodyhash)
             key = rsa.PrivateKey.load_pkcs1(open(self.private_keyfile).read())
             signature = base64.b64encode(rsa.sign(sign_this, key, hash_name))
-    
+
             self.assertEqual(result, signature)
-            
+
             # Make sure header is updated in the request
             updated_header = "v=1; d=example.com; s=dkim; t=%s; x=%s; a=%s; q=dns/txt:http/well-known:private-exchange; http=UE9TVDov; c=relaxed/simple; h=Originator:Recipient:Content-Type:iSchedule-Version:iSchedule-Message-ID:Cache-Control:Cache-Control; bh=%s; b=%s" % (request.time, request.expire, algorithm, bodyhash, signature,)
-            self.assertEqual(request.headers.getRawHeaders("DKIM-Signature")[0], updated_header) 
+            self.assertEqual(request.headers.getRawHeaders("DKIM-Signature")[0], updated_header)
 
             # Try to verify result using public key
             pubkey = rsa.PublicKey.load_pkcs1(open(self.public_keyfile).read())
             self.assertEqual(rsa.verify(sign_this, base64.b64decode(result), pubkey), None)
+
 
 
 class TestDKIMVerifier (TestDKIMBase):
@@ -229,7 +232,7 @@ class TestDKIMVerifier (TestDKIMBase):
     """
 
     class StubRequest(object):
-        
+
         def __init__(self, method, uri, headers, body):
             self.method = method
             self.uri = uri
@@ -243,11 +246,11 @@ class TestDKIMVerifier (TestDKIMBase):
         """
         L{DKIMVerifier.processDKIMHeader} correctly validates DKIM-Signature headers.
         """
-        
+
         data = (
             # Bogus
             ((("DKIM-Signature", "v=1"),), False,),
-            
+
             # More than one
             ((
                 ("DKIM-Signature", "v=1; d=example.com; s=dkim; t=1234; a=rsa-sha1; q=dns/txt:http/well-known; http=UE9TVDov; c=relaxed/simple; h=Originator:Recipient; bh=abc; b=def"),
@@ -269,7 +272,7 @@ class TestDKIMVerifier (TestDKIMBase):
             ((("DKIM-Signature", "v=1; d=example.com; s=dkim; t=1234; x=%d; a=rsa-sha256; q=dns/txt; http=UE9TVDovaXNjaGVkdWxl; c=relaxed; h=Originator:Recipient; bh=abc; b=def" % (int(time.time() - 30),)),), False,),
             ((("DKIM-Signature", "v=1; d=example.com; s=dkim; t=1234; x=%d; a=rsa-sha256; q=dns/txt; http=POST:/; c=relaxed; h=Originator:Recipient; bh=abc; b=def" % (int(time.time() - 30),)),), False,),
         )
-        
+
         for headers, result in data:
             request = self.StubRequest("POST", "/", headers, "")
             verifier = DKIMVerifier(request)
@@ -283,7 +286,7 @@ class TestDKIMVerifier (TestDKIMBase):
         """
         L{DKIMVerifier.canonicalizeHeader} correctly canonicalizes headers.
         """
-        
+
         data = (
             ("Content-Type", " text/calendar  ; charset =  \"utf-8\"  ", "content-type:text/calendar ; charset = \"utf-8\"\r\n"),
             ("Originator", "  mailto:user01@example.com  ", "originator:mailto:user01@example.com\r\n"),
@@ -300,7 +303,7 @@ class TestDKIMVerifier (TestDKIMBase):
                 "dkim-signature:v=1; d=example.com; s = dkim; t = 1234; a=rsa-sha1; q=dns/txt:http/well-known ; b= ; http= UE9TVDov ; c=relaxed/simple; h=Originator:Recipient:iSchedule-Version:iSchedule-Message-ID; bh=abc\r\n",
             ),
         )
-        
+
         for name, value, result in data:
             request = self.StubRequest("POST", "/", ((name, value,),), "")
             verifier = DKIMVerifier(request)
@@ -314,13 +317,13 @@ class TestDKIMVerifier (TestDKIMBase):
         """
         L{DKIMVerifier.extractSignedHeaders} correctly extracts canonicalizes headers.
         """
-        
+
         data = (
             # Over count on Recipient
             ("""Host:example.com
-Content-Type: text/calendar  ; charset =  "utf-8"  
-Originator:  mailto:user01@example.com  
-Recipient:  mailto:user02@example.com  ,\t mailto:user03@example.com\t\t  
+Content-Type: text/calendar  ; charset =  "utf-8"
+Originator:  mailto:user01@example.com
+Recipient:  mailto:user02@example.com  ,\t mailto:user03@example.com\t\t
 iSchedule-Version: 1.0
 DKIM-Signature:  v=1;\t\t d=example.com; s = dkim; t\t=\t1234; a=rsa-sha1; \t\tq=dns/txt:http/well-known\t\t; http=UE9TVDov; c=relaxed/simple; h=Content-Type:Originator:Recipient:Recipient:iSchedule-Version:iSchedule-Message-ID; bh=abc; b=def
 Cache-Control:no-cache
@@ -335,10 +338,10 @@ dkim-signature:v=1; d=example.com; s = dkim; t = 1234; a=rsa-sha1; q=dns/txt:htt
             ),
             # Exact count on Recipient
             ("""Host:example.com
-Content-Type: text/calendar  ; charset =  "utf-8"  
-Originator:  mailto:user01@example.com  
-Recipient:  mailto:user02@example.com  ,\t mailto:user03@example.com\t\t  
-Recipient:\t\t  mailto:user04@example.com  
+Content-Type: text/calendar  ; charset =  "utf-8"
+Originator:  mailto:user01@example.com
+Recipient:  mailto:user02@example.com  ,\t mailto:user03@example.com\t\t
+Recipient:\t\t  mailto:user04@example.com
 iSchedule-Version: 1.0
 DKIM-Signature:  v=1;\t\t d=example.com; s = dkim; t\t=\t1234; a=rsa-sha1; \t\tq=dns/txt:http/well-known\t\t; http=UE9TVDov; c=relaxed/simple; h=Content-Type:Originator:Recipient:Recipient:iSchedule-Version:iSchedule-Message-ID; bh=abc; b=def
 Cache-Control:no-cache
@@ -354,12 +357,12 @@ dkim-signature:v=1; d=example.com; s = dkim; t = 1234; a=rsa-sha1; q=dns/txt:htt
             ),
             # Under count on Recipient
             ("""Host:example.com
-Content-Type: text/calendar  ; charset =  "utf-8"  
+Content-Type: text/calendar  ; charset =  "utf-8"
 iSchedule-Version: 1.0
-Originator:  mailto:user01@example.com  
-Recipient:  mailto:user02@example.com  ,\t mailto:user03@example.com\t\t  
-Recipient:\t\t  mailto:user04@example.com  
-Recipient:\t\t  mailto:user05@example.com  
+Originator:  mailto:user01@example.com
+Recipient:  mailto:user02@example.com  ,\t mailto:user03@example.com\t\t
+Recipient:\t\t  mailto:user04@example.com
+Recipient:\t\t  mailto:user05@example.com
 DKIM-Signature:  v=1;\t\t d=example.com; s = dkim; t\t=\t1234; a=rsa-sha1; \t\tq=dns/txt:http/well-known\t\t; http=UE9TVDov; c=relaxed/simple; h=Content-Type:Originator:Recipient:Recipient:iSchedule-Version:iSchedule-Message-ID; bh=abc; b=def
 Cache-Control:no-cache
 Connection:close
@@ -375,10 +378,10 @@ dkim-signature:v=1; d=example.com; s = dkim; t = 1234; a=rsa-sha1; q=dns/txt:htt
             # Re-ordered Content-Type
             ("""Host:example.com
 iSchedule-Version: 1.0
-Originator:  mailto:user01@example.com  
-Recipient:  mailto:user02@example.com  ,\t mailto:user03@example.com\t\t  
+Originator:  mailto:user01@example.com
+Recipient:  mailto:user02@example.com  ,\t mailto:user03@example.com\t\t
 DKIM-Signature:  v=1;\t\t d=example.com; s = dkim; t\t=\t1234; a=rsa-sha1; \t\tq=dns/txt:http/well-known\t\t; http=UE9TVDov; c=relaxed/simple; h=Content-Type:Originator:Recipient:Recipient:iSchedule-Version:iSchedule-Message-ID; bh=abc; b=def
-Content-Type: text/calendar  ; charset =  "utf-8"  
+Content-Type: text/calendar  ; charset =  "utf-8"
 Cache-Control:no-cache
 Connection:close
 """,
@@ -390,7 +393,7 @@ dkim-signature:v=1; d=example.com; s = dkim; t = 1234; a=rsa-sha1; q=dns/txt:htt
 """
             ),
         )
-        
+
         for hdrs, result in data:
             headers = [hdr.split(":", 1) for hdr in hdrs.splitlines()]
             request = self.StubRequest("POST", "/", headers, "")
@@ -404,13 +407,13 @@ dkim-signature:v=1; d=example.com; s = dkim; t = 1234; a=rsa-sha1; q=dns/txt:htt
         """
         L{DKIMVerifier.locatePublicKey} correctly finds key matching headers.
         """
-        
+
         data = (
             # Valid
             ("""Host:example.com
-Content-Type: text/calendar  ; charset =  "utf-8"  
-Originator:  mailto:user01@example.com  
-Recipient:  mailto:user02@example.com  ,\t mailto:user03@example.com\t\t  
+Content-Type: text/calendar  ; charset =  "utf-8"
+Originator:  mailto:user01@example.com
+Recipient:  mailto:user02@example.com  ,\t mailto:user03@example.com\t\t
 DKIM-Signature:  v=1;\t\t d=example.com; s = dkim; t\t=\t1234; a=rsa-sha1; \t\tq=dns/txt:http/well-known\t\t; http=UE9TVDov; c=relaxed/simple; h=Content-Type:Originator:Recipient:Recipient:iSchedule-Version:iSchedule-Message-ID; bh=abc; b=def
 Cache-Control:no-cache
 Connection:close
@@ -420,9 +423,9 @@ Connection:close
             ),
             # Invalid - no method
             ("""Host:example.com
-Content-Type: text/calendar  ; charset =  "utf-8"  
-Originator:  mailto:user01@example.com  
-Recipient:  mailto:user02@example.com  ,\t mailto:user03@example.com\t\t  
+Content-Type: text/calendar  ; charset =  "utf-8"
+Originator:  mailto:user01@example.com
+Recipient:  mailto:user02@example.com  ,\t mailto:user03@example.com\t\t
 DKIM-Signature:  v=1;\t\t d=example.com; s = dkim; t\t=\t1234; a=rsa-sha1; \t\tq=dns/txt\t\t; http=UE9TVDov; c=relaxed/simple; h=Content-Type:Originator:Recipient:Recipient:iSchedule-Version:iSchedule-Message-ID; bh=abc; b=def
 Cache-Control:no-cache
 Connection:close
@@ -432,9 +435,9 @@ Connection:close
             ),
             # Invalid - wrong algorithm
             ("""Host:example.com
-Content-Type: text/calendar  ; charset =  "utf-8"  
-Originator:  mailto:user01@example.com  
-Recipient:  mailto:user02@example.com  ,\t mailto:user03@example.com\t\t  
+Content-Type: text/calendar  ; charset =  "utf-8"
+Originator:  mailto:user01@example.com
+Recipient:  mailto:user02@example.com  ,\t mailto:user03@example.com\t\t
 DKIM-Signature:  v=1;\t\t d=example.com; s = dkim; t\t=\t1234; a=rsa-sha1; \t\tq=dns/txt:http/well-known\t\t; http=UE9TVDov; c=relaxed/simple; h=Content-Type:Originator:Recipient:Recipient:iSchedule-Version:iSchedule-Message-ID; bh=abc; b=def
 Cache-Control:no-cache
 Connection:close
@@ -443,7 +446,7 @@ Connection:close
             False,
             ),
         )
-        
+
         for hdrs, keys, result in data:
             headers = [hdr.split(":", 1) for hdr in hdrs.splitlines()]
             request = self.StubRequest("POST", "/", headers, "")
@@ -462,7 +465,7 @@ Connection:close
         """
         L{DKIMVerifier.verify} correctly finds key matching headers.
         """
-        
+
         @inlineCallbacks
         def _verify(hdrs, body, keys, result, sign_headers=("Originator", "Recipient", "Content-Type",), manipulate_request=None):
             for algorithm in ("rsa-sha1", "rsa-sha256",):
@@ -473,11 +476,11 @@ Connection:close
                     headers.addRawHeader(name, value)
                 request = DKIMRequest("POST", "/", headers, stream, "example.com", "dkim", self.private_keyfile, algorithm, sign_headers, True, True, True, 3600)
                 yield request.sign()
-    
+
                 # Possibly munge the request after the signature is done
                 if manipulate_request is not None:
                     manipulate_request(request)
-                
+
                 # Verify signature
                 TestPublicKeyLookup.PublicKeyLookup_Testing.keys = keys
                 verifier = DKIMVerifier(request, key_lookup=(TestPublicKeyLookup.PublicKeyLookup_Testing,))
@@ -494,9 +497,9 @@ Connection:close
         # Valid
         yield _verify(
             """Host:example.com
-Content-Type: text/calendar  ; charset =  "utf-8"  
-Originator:  mailto:user01@example.com  
-Recipient:  mailto:user02@example.com  ,\t mailto:user03@example.com\t\t  
+Content-Type: text/calendar  ; charset =  "utf-8"
+Originator:  mailto:user01@example.com
+Recipient:  mailto:user02@example.com  ,\t mailto:user03@example.com\t\t
 Cache-Control:no-cache
 Connection:close
 """,
@@ -510,9 +513,9 @@ END:DATA
         # Invalid - key revoked
         yield _verify(
             """Host:example.com
-Content-Type: text/calendar  ; charset =  "utf-8"  
-Originator:  mailto:user01@example.com  
-Recipient:  mailto:user02@example.com  ,\t mailto:user03@example.com\t\t  
+Content-Type: text/calendar  ; charset =  "utf-8"
+Originator:  mailto:user01@example.com
+Recipient:  mailto:user02@example.com  ,\t mailto:user03@example.com\t\t
 Cache-Control:no-cache
 Connection:close
 """,
@@ -526,9 +529,9 @@ END:DATA
         # Invalid - missing header
         yield _verify(
             """Host:example.com
-Content-Type: text/calendar  ; charset =  "utf-8"  
-Originator:  mailto:user01@example.com  
-Recipient:  mailto:user02@example.com  ,\t mailto:user03@example.com\t\t  
+Content-Type: text/calendar  ; charset =  "utf-8"
+Originator:  mailto:user01@example.com
+Recipient:  mailto:user02@example.com  ,\t mailto:user03@example.com\t\t
 Cache-Control:no-cache
 Connection:close
 """,
@@ -537,15 +540,15 @@ END:DATA
 """,
             [DKIMUtils.extractTags("v=DKIM1; p=%s" % (self.public_key_data,))],
             False,
-            manipulate_request=lambda request:request.headers.removeHeader("Originator")
+            manipulate_request=lambda request: request.headers.removeHeader("Originator")
         )
 
         # Invalid - changed header
         yield _verify(
             """Host:example.com
-Content-Type: text/calendar  ; charset =  "utf-8"  
-Originator:  mailto:user01@example.com  
-Recipient:  mailto:user02@example.com  ,\t mailto:user03@example.com\t\t  
+Content-Type: text/calendar  ; charset =  "utf-8"
+Originator:  mailto:user01@example.com
+Recipient:  mailto:user02@example.com  ,\t mailto:user03@example.com\t\t
 Cache-Control:no-cache
 Connection:close
 """,
@@ -554,15 +557,15 @@ END:DATA
 """,
             [DKIMUtils.extractTags("v=DKIM1; p=%s" % (self.public_key_data,))],
             False,
-            manipulate_request=lambda request:request.headers.setRawHeaders("Originator", ("mailto:user04@example.com",))
+            manipulate_request=lambda request: request.headers.setRawHeaders("Originator", ("mailto:user04@example.com",))
         )
 
         # Invalid - changed body
         yield _verify(
             """Host:example.com
-Content-Type: text/calendar  ; charset =  "utf-8"  
-Originator:  mailto:user01@example.com  
-Recipient:  mailto:user02@example.com  ,\t mailto:user03@example.com\t\t  
+Content-Type: text/calendar  ; charset =  "utf-8"
+Originator:  mailto:user01@example.com
+Recipient:  mailto:user02@example.com  ,\t mailto:user03@example.com\t\t
 Cache-Control:no-cache
 Connection:close
 """,
@@ -571,15 +574,15 @@ END:DATA
 """,
             [DKIMUtils.extractTags("v=DKIM1; p=%s" % (self.public_key_data,))],
             False,
-            manipulate_request=lambda request:setattr(request, "stream", MemoryStream("BEGIN:DATA\n")),
+            manipulate_request=lambda request: setattr(request, "stream", MemoryStream("BEGIN:DATA\n")),
         )
 
         # Valid - extra header no over sign
         yield _verify(
             """Host:example.com
-Content-Type: text/calendar  ; charset =  "utf-8"  
-Originator:  mailto:user01@example.com  
-Recipient:  mailto:user02@example.com  ,\t mailto:user03@example.com\t\t  
+Content-Type: text/calendar  ; charset =  "utf-8"
+Originator:  mailto:user01@example.com
+Recipient:  mailto:user02@example.com  ,\t mailto:user03@example.com\t\t
 Cache-Control:no-cache
 Connection:close
 """,
@@ -588,15 +591,15 @@ END:DATA
 """,
             [DKIMUtils.extractTags("v=DKIM1; p=%s" % (self.public_key_data,))],
             True,
-            manipulate_request=lambda request:request.headers.addRawHeader("Recipient", ("mailto:user04@example.com",))
+            manipulate_request=lambda request: request.headers.addRawHeader("Recipient", ("mailto:user04@example.com",))
         )
 
         # Valid - over sign header
         yield _verify(
             """Host:example.com
-Content-Type: text/calendar  ; charset =  "utf-8"  
-Originator:  mailto:user01@example.com  
-Recipient:  mailto:user02@example.com  ,\t mailto:user03@example.com\t\t  
+Content-Type: text/calendar  ; charset =  "utf-8"
+Originator:  mailto:user01@example.com
+Recipient:  mailto:user02@example.com  ,\t mailto:user03@example.com\t\t
 Cache-Control:no-cache
 Connection:close
 """,
@@ -611,9 +614,9 @@ END:DATA
         # Invalid - over sign header extra header
         yield _verify(
             """Host:example.com
-Content-Type: text/calendar  ; charset =  "utf-8"  
-Originator:  mailto:user01@example.com  
-Recipient:  mailto:user02@example.com  ,\t mailto:user03@example.com\t\t  
+Content-Type: text/calendar  ; charset =  "utf-8"
+Originator:  mailto:user01@example.com
+Recipient:  mailto:user02@example.com  ,\t mailto:user03@example.com\t\t
 Cache-Control:no-cache
 Connection:close
 """,
@@ -623,7 +626,7 @@ END:DATA
             [DKIMUtils.extractTags("v=DKIM1; p=%s" % (self.public_key_data,))],
             False,
             sign_headers=("Originator", "Recipient", "Recipient", "Content-Type",),
-            manipulate_request=lambda request:request.headers.addRawHeader("Recipient", ("mailto:user04@example.com",))
+            manipulate_request=lambda request: request.headers.addRawHeader("Recipient", ("mailto:user04@example.com",))
         )
 
 
@@ -634,7 +637,7 @@ class TestPublicKeyLookup (TestDKIMBase):
     """
 
     def test_selector_key(self):
-        
+
         for lookup, d, result in (
             (PublicKeyLookup_DNSTXT, "example.com", "dkim._domainkey.example.com"),
             (PublicKeyLookup_DNSTXT, "calendar.example.com", "dkim._domainkey.calendar.example.com"),
@@ -646,11 +649,11 @@ class TestPublicKeyLookup (TestDKIMBase):
             dkim = "v=1; d=%s; s = dkim; t = 1234; a=rsa-sha1; q=dns/txt:http/well-known:private-exchange ; http=UE9TVDov; c=relaxed/simple; h=Content-Type:Originator:Recipient:Recipient:iSchedule-Version:iSchedule-Message-ID; bh=abc; b=" % (d,)
             tester = lookup(DKIMUtils.extractTags(dkim))
             self.assertEqual(tester._getSelectorKey(), result)
-            
-    
+
+
     @inlineCallbacks
     def test_get_key(self):
-        
+
         # Valid
         dkim = "v=1; d=example.com; s = dkim; t = 1234; a=rsa-sha1; q=dns/txt:http/well-known:private-exchange ; http=UE9TVDov; c=relaxed/simple; h=Content-Type:Originator:Recipient:Recipient:iSchedule-Version:iSchedule-Message-ID; bh=abc; b="
         lookup = TestPublicKeyLookup.PublicKeyLookup_Testing(DKIMUtils.extractTags(dkim))
@@ -658,7 +661,7 @@ class TestPublicKeyLookup (TestDKIMBase):
         lookup.keys = [DKIMUtils.extractTags("v=DKIM1; p=%s" % (self.public_key_data,))]
         pubkey = (yield lookup.getPublicKey())
         self.assertNotEqual(pubkey, None)
-        
+
         # Valid with more tags
         dkim = "v=1; d=example.com; s = dkim; t = 1234; a=rsa-sha1; q=dns/txt:http/well-known:private-exchange ; http=UE9TVDov; c=relaxed/simple; h=Content-Type:Originator:Recipient:Recipient:iSchedule-Version:iSchedule-Message-ID; bh=abc; b="
         lookup = TestPublicKeyLookup.PublicKeyLookup_Testing(DKIMUtils.extractTags(dkim))
@@ -666,7 +669,7 @@ class TestPublicKeyLookup (TestDKIMBase):
         lookup.keys = [DKIMUtils.extractTags("v=DKIM1; k = rsa ; h=  sha1 : sha256  ; s=ischedule ; p=%s" % (self.public_key_data,))]
         pubkey = (yield lookup.getPublicKey())
         self.assertNotEqual(pubkey, None)
-        
+
         # Invalid - key type
         dkim = "v=1; d=example.com; s = dkim; t = 1234; a=rsa-sha1; q=dns/txt:http/well-known:private-exchange ; http=UE9TVDov; c=relaxed/simple; h=Content-Type:Originator:Recipient:Recipient:iSchedule-Version:iSchedule-Message-ID; bh=abc; b="
         lookup = TestPublicKeyLookup.PublicKeyLookup_Testing(DKIMUtils.extractTags(dkim))
@@ -674,7 +677,7 @@ class TestPublicKeyLookup (TestDKIMBase):
         lookup.keys = [DKIMUtils.extractTags("v=DKIM1; k=dsa ; p=%s" % (self.public_key_data,))]
         pubkey = (yield lookup.getPublicKey())
         self.assertEqual(pubkey, None)
-        
+
         # Invalid - hash
         dkim = "v=1; d=example.com; s = dkim; t = 1234; a=rsa-sha1; q=dns/txt:http/well-known:private-exchange ; http=UE9TVDov; c=relaxed/simple; h=Content-Type:Originator:Recipient:Recipient:iSchedule-Version:iSchedule-Message-ID; bh=abc; b="
         lookup = TestPublicKeyLookup.PublicKeyLookup_Testing(DKIMUtils.extractTags(dkim))
@@ -682,7 +685,7 @@ class TestPublicKeyLookup (TestDKIMBase):
         lookup.keys = [DKIMUtils.extractTags("v=DKIM1; k=rsa ; h=sha512 ; p=%s" % (self.public_key_data,))]
         pubkey = (yield lookup.getPublicKey())
         self.assertEqual(pubkey, None)
-        
+
         # Invalid - service
         dkim = "v=1; d=example.com; s = dkim; t = 1234; a=rsa-sha1; q=dns/txt:http/well-known:private-exchange ; http=UE9TVDov; c=relaxed/simple; h=Content-Type:Originator:Recipient:Recipient:iSchedule-Version:iSchedule-Message-ID; bh=abc; b="
         lookup = TestPublicKeyLookup.PublicKeyLookup_Testing(DKIMUtils.extractTags(dkim))
@@ -690,7 +693,7 @@ class TestPublicKeyLookup (TestDKIMBase):
         lookup.keys = [DKIMUtils.extractTags("v=DKIM1; k=rsa ; s=email ; p=%s" % (self.public_key_data,))]
         pubkey = (yield lookup.getPublicKey())
         self.assertEqual(pubkey, None)
-        
+
         # Invalid - revoked
         dkim = "v=1; d=example.com; s = dkim; t = 1234; a=rsa-sha1; q=dns/txt:http/well-known:private-exchange ; http=UE9TVDov; c=relaxed/simple; h=Content-Type:Originator:Recipient:Recipient:iSchedule-Version:iSchedule-Message-ID; bh=abc; b="
         lookup = TestPublicKeyLookup.PublicKeyLookup_Testing(DKIMUtils.extractTags(dkim))
@@ -698,7 +701,7 @@ class TestPublicKeyLookup (TestDKIMBase):
         lookup.keys = [DKIMUtils.extractTags("v=DKIM1; k=rsa ; s=email ; p=")]
         pubkey = (yield lookup.getPublicKey())
         self.assertEqual(pubkey, None)
-        
+
         # Multiple valid
         dkim = "v=1; d=example.com; s = dkim; t = 1234; a=rsa-sha1; q=dns/txt:http/well-known:private-exchange ; http=UE9TVDov; c=relaxed/simple; h=Content-Type:Originator:Recipient:Recipient:iSchedule-Version:iSchedule-Message-ID; bh=abc; b="
         lookup = TestPublicKeyLookup.PublicKeyLookup_Testing(DKIMUtils.extractTags(dkim))
@@ -710,7 +713,7 @@ class TestPublicKeyLookup (TestDKIMBase):
         ]
         pubkey = (yield lookup.getPublicKey())
         self.assertNotEqual(pubkey, None)
-        
+
         # Multiple - some valid, some invalid
         dkim = "v=1; d=example.com; s = dkim; t = 1234; a=rsa-sha1; q=dns/txt:http/well-known:private-exchange ; http=UE9TVDov; c=relaxed/simple; h=Content-Type:Originator:Recipient:Recipient:iSchedule-Version:iSchedule-Message-ID; bh=abc; b="
         lookup = TestPublicKeyLookup.PublicKeyLookup_Testing(DKIMUtils.extractTags(dkim))
@@ -723,7 +726,7 @@ class TestPublicKeyLookup (TestDKIMBase):
         ]
         pubkey = (yield lookup.getPublicKey())
         self.assertNotEqual(pubkey, None)
-        
+
         # Multiple - invalid
         dkim = "v=1; d=example.com; s = dkim; t = 1234; a=rsa-sha1; q=dns/txt:http/well-known:private-exchange ; http=UE9TVDov; c=relaxed/simple; h=Content-Type:Originator:Recipient:Recipient:iSchedule-Version:iSchedule-Message-ID; bh=abc; b="
         lookup = TestPublicKeyLookup.PublicKeyLookup_Testing(DKIMUtils.extractTags(dkim))
@@ -734,11 +737,11 @@ class TestPublicKeyLookup (TestDKIMBase):
         ]
         pubkey = (yield lookup.getPublicKey())
         self.assertEqual(pubkey, None)
-            
-    
+
+
     @inlineCallbacks
     def test_cached_key(self):
-        
+
         # Create cache entry
         dkim = "v=1; d=example.com; s = dkim; t = 1234; a=rsa-sha1; q=dns/txt:http/well-known:private-exchange ; http=UE9TVDov; c=relaxed/simple; h=Content-Type:Originator:Recipient:Recipient:iSchedule-Version:iSchedule-Message-ID; bh=abc; b="
         lookup = TestPublicKeyLookup.PublicKeyLookup_Testing(DKIMUtils.extractTags(dkim))
@@ -746,14 +749,14 @@ class TestPublicKeyLookup (TestDKIMBase):
         lookup.keys = [DKIMUtils.extractTags("v=DKIM1; p=%s" % (self.public_key_data,))]
         pubkey = (yield lookup.getPublicKey())
         self.assertNotEqual(pubkey, None)
-        
+
         # Cache valid
         dkim = "v=1; d=example.com; s = dkim; t = 1234; a=rsa-sha1; q=dns/txt:http/well-known:private-exchange ; http=UE9TVDov; c=relaxed/simple; h=Content-Type:Originator:Recipient:Recipient:iSchedule-Version:iSchedule-Message-ID; bh=abc; b="
         lookup = TestPublicKeyLookup.PublicKeyLookup_Testing(DKIMUtils.extractTags(dkim))
         lookup.keys = []
         pubkey = (yield lookup.getPublicKey())
         self.assertNotEqual(pubkey, None)
-        
+
         # Cache invalid
         dkim = "v=1; d=example.com; s = dkim; t = 1234; a=rsa-sha1; q=dns/txt:http/well-known:private-exchange ; http=UE9TVDov; c=relaxed/simple; h=Content-Type:Originator:Recipient:Recipient:iSchedule-Version:iSchedule-Message-ID; bh=abc; b="
         lookup = TestPublicKeyLookup.PublicKeyLookup_Testing(DKIMUtils.extractTags(dkim))
@@ -761,10 +764,11 @@ class TestPublicKeyLookup (TestDKIMBase):
         lookup.keys = []
         pubkey = (yield lookup.getPublicKey())
         self.assertEqual(pubkey, None)
-    
+
+
     @inlineCallbacks
     def test_private_exchange(self):
-        
+
         keydir = self.mktemp()
         PublicKeyLookup_PrivateExchange.directory = keydir
         os.mkdir(keydir)
@@ -772,12 +776,12 @@ class TestPublicKeyLookup (TestDKIMBase):
         with open(keyfile, "w") as f:
             f.write("""v=DKIM1; p=%s
 """ % (self.public_key_data,))
-        
+
         dkim = "v=1; d=example.com; s = dkim; t = 1234; a=rsa-sha1; q=dns/txt:http/well-known:private-exchange ; http=UE9TVDov; c=relaxed/simple; h=Content-Type:Originator:Recipient:Recipient:iSchedule-Version:iSchedule-Message-ID; bh=abc; b="
         lookup = PublicKeyLookup_PrivateExchange(DKIMUtils.extractTags(dkim))
         pubkey = (yield lookup.getPublicKey())
         self.assertNotEqual(pubkey, None)
-        
+
         dkim = "v=1; d=example.com; s = dkim2; t = 1234; a=rsa-sha1; q=dns/txt:http/well-known:private-exchange ; http=UE9TVDov; c=relaxed/simple; h=Content-Type:Originator:Recipient:Recipient:iSchedule-Version:iSchedule-Message-ID; bh=abc; b="
         lookup = PublicKeyLookup_PrivateExchange(DKIMUtils.extractTags(dkim))
         lookup.flushCache()
@@ -787,7 +791,7 @@ class TestPublicKeyLookup (TestDKIMBase):
         with open(keyfile, "w") as f:
             f.write("""v=DKIM1; s=email; p=%s
 """ % (self.public_key_data,))
-        
+
         dkim = "v=1; d=example.com; s = dkim; t = 1234; a=rsa-sha1; q=dns/txt:http/well-known:private-exchange ; http=UE9TVDov; c=relaxed/simple; h=Content-Type:Originator:Recipient:Recipient:iSchedule-Version:iSchedule-Message-ID; bh=abc; b="
         lookup = PublicKeyLookup_PrivateExchange(DKIMUtils.extractTags(dkim))
         lookup.flushCache()
@@ -798,7 +802,7 @@ class TestPublicKeyLookup (TestDKIMBase):
             f.write("""v=DKIM1; s=email; p=%s
 v=DKIM1; s=ischedule; p=%s
 """ % (self.public_key_data, self.public_key_data,))
-        
+
         dkim = "v=1; d=example.com; s = dkim; t = 1234; a=rsa-sha1; q=dns/txt:http/well-known:private-exchange ; http=UE9TVDov; c=relaxed/simple; h=Content-Type:Originator:Recipient:Recipient:iSchedule-Version:iSchedule-Message-ID; bh=abc; b="
         lookup = PublicKeyLookup_PrivateExchange(DKIMUtils.extractTags(dkim))
         lookup.flushCache()

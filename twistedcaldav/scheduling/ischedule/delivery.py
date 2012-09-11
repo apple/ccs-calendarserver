@@ -42,7 +42,7 @@ from twistedcaldav.scheduling.ischedule.servers import IScheduleServers
 from twistedcaldav.scheduling.ischedule.servers import IScheduleServerRecord
 from twistedcaldav.scheduling.itip import iTIPRequestStatus
 from twistedcaldav.util import utf8String, normalizationLookup
-from twistedcaldav.scheduling.cuaddress import PartitionedCalendarUser, RemoteCalendarUser,\
+from twistedcaldav.scheduling.cuaddress import PartitionedCalendarUser, RemoteCalendarUser, \
     OtherServerCalendarUser
 from twext.internet.gaiendpoint import GAIEndpoint
 
@@ -57,25 +57,29 @@ __all__ = [
 
 log = Logger()
 
+
+
 class ScheduleViaISchedule(DeliveryService):
-    
+
     @classmethod
     def serviceType(cls):
         return DeliveryService.serviceType_ischedule
+
 
     @classmethod
     def matchCalendarUserAddress(cls, cuaddr):
 
         # TODO: here is where we would attempt service discovery based on the cuaddr.
-        
+
         # Do default match
         return super(ScheduleViaISchedule, cls).matchCalendarUserAddress(cuaddr)
+
 
     def generateSchedulingResponses(self, refreshOnly=False):
         """
         Generate scheduling responses for remote recipients.
         """
-        
+
         # Group recipients by server so that we can do a single request with multiple recipients
         # to each different server.
         groups = {}
@@ -98,10 +102,10 @@ class ScheduleViaISchedule(DeliveryService):
                     "No server for recipient",
                 ))
                 self.responses.add(recipient.cuaddr, Failure(exc_value=err), reqstatus=iTIPRequestStatus.NO_USER_SUPPORT)
-            
+
                 # Process next recipient
                 continue
-            
+
             if not server.allow_to:
                 # Cannot do server-to-server outgoing requests for this server.
                 err = HTTPError(ErrorResponse(
@@ -110,10 +114,10 @@ class ScheduleViaISchedule(DeliveryService):
                     "Cannot send to recipient's server",
                 ))
                 self.responses.add(recipient.cuaddr, Failure(exc_value=err), reqstatus=iTIPRequestStatus.SERVICE_UNAVAILABLE)
-            
+
                 # Process next recipient
                 continue
-            
+
             groups.setdefault(server, []).append(recipient)
 
         if len(groups) == 0:
@@ -129,34 +133,38 @@ class ScheduleViaISchedule(DeliveryService):
 
         return DeferredList(deferreds)
 
+
     def _getServerForPartitionedUser(self, recipient):
-        
+
         if not hasattr(self, "partitionedServers"):
             self.partitionedServers = {}
-            
+
         partition = recipient.principal.partitionURI()
         if partition not in self.partitionedServers:
             self.partitionedServers[partition] = IScheduleServerRecord(uri=joinURL(partition, "/ischedule"))
             self.partitionedServers[partition].unNormalizeAddresses = False
             self.partitionedServers[partition].moreHeaders.append(recipient.principal.server().secretHeader())
-        
+
         return self.partitionedServers[partition]
 
+
     def _getServerForOtherServerUser(self, recipient):
-        
+
         if not hasattr(self, "otherServers"):
             self.otherServers = {}
-            
+
         serverURI = recipient.principal.serverURI()
         if serverURI not in self.otherServers:
             self.otherServers[serverURI] = IScheduleServerRecord(uri=joinURL(serverURI, "/ischedule"))
             self.otherServers[serverURI].unNormalizeAddresses = not recipient.principal.server().isImplicit
             self.otherServers[serverURI].moreHeaders.append(recipient.principal.server().secretHeader())
-        
+
         return self.otherServers[serverURI]
 
+
+
 class IScheduleRequest(object):
-    
+
     def __init__(self, scheduler, server, recipients, responses, refreshOnly=False):
 
         self.scheduler = scheduler
@@ -164,13 +172,14 @@ class IScheduleRequest(object):
         self.recipients = recipients
         self.responses = responses
         self.refreshOnly = refreshOnly
-        
+
         self._generateHeaders()
         self._prepareData()
-        
+
+
     @inlineCallbacks
     def doRequest(self):
-        
+
         # Generate an HTTP client request
         try:
             if not hasattr(self.scheduler.request, "extendedLogItems"):
@@ -188,14 +197,14 @@ class IScheduleRequest(object):
             else:
                 ep = GAIEndpoint(reactor, self.server.host, self.server.port)
             proto = (yield ep.connect(f))
-            
+
             request = ClientRequest("POST", self.server.path, self.headers, self.data)
             yield self.logRequest("debug", "Sending server-to-server POST request:", request)
             response = (yield proto.submitRequest(request))
-    
+
             yield self.logResponse("debug", "Received server-to-server POST response:", response)
             xml = (yield davXMLFromStream(response.stream))
-    
+
             self._parseResponse(xml)
 
         except Exception, e:
@@ -208,6 +217,7 @@ class IScheduleRequest(object):
                     "Server-to-server request failed",
                 ))
                 self.responses.add(recipient.cuaddr, Failure(exc_value=err), reqstatus=iTIPRequestStatus.SERVICE_UNAVAILABLE)
+
 
     def logRequest(self, level, message, request, **kwargs):
         """
@@ -232,25 +242,26 @@ class IScheduleRequest(object):
                     else:
                         iostr.write("%s: xxxxxxxxx\n" % (name,))
             iostr.write("\n")
-            
+
             # We need to play a trick with the request stream as we can only read it once. So we
             # read it, store the value in a MemoryStream, and replace the request's stream with that,
             # so the data can be read again.
             def _gotData(data):
                 iostr.write(data)
-                
+
                 request.stream = MemoryStream(data if data is not None else "")
                 request.stream.doStartReading = None
-            
+
                 log.emit(level, iostr.getvalue(), **kwargs)
 
             d = allDataFromStream(request.stream)
             d.addCallback(_gotData)
             return d
-        
+
         else:
             return succeed(None)
-    
+
+
     def logResponse(self, level, message, response, **kwargs):
         """
         Log an HTTP request.
@@ -270,39 +281,41 @@ class IScheduleRequest(object):
                     else:
                         iostr.write("%s: xxxxxxxxx\n" % (name,))
             iostr.write("\n")
-            
+
             # We need to play a trick with the response stream to ensure we don't mess it up. So we
             # read it, store the value in a MemoryStream, and replace the response's stream with that,
             # so the data can be read again.
             def _gotData(data):
                 iostr.write(data)
-                
+
                 response.stream = MemoryStream(data if data is not None else "")
                 response.stream.doStartReading = None
-            
+
                 log.emit(level, iostr.getvalue(), **kwargs)
-                
+
             d = allDataFromStream(response.stream)
             d.addCallback(_gotData)
             return d
 
+
     def _generateHeaders(self):
         self.headers = Headers()
         self.headers.setHeader('Host', utf8String(self.server.host + ":%s" % (self.server.port,)))
-        
+
         # The Originator must be the ORGANIZER (for a request) or ATTENDEE (for a reply)
         self.headers.addRawHeader('Originator', utf8String(self.scheduler.organizer.cuaddr if self.scheduler.isiTIPRequest else self.scheduler.attendee))
         self._doAuthentication()
         for recipient in self.recipients:
             self.headers.addRawHeader('Recipient', utf8String(recipient.cuaddr))
-        self.headers.setHeader('Content-Type', MimeType("text", "calendar", params={"charset":"utf-8"}))
+        self.headers.setHeader('Content-Type', MimeType("text", "calendar", params={"charset": "utf-8"}))
 
         # Add any additional headers
         for name, value in self.server.moreHeaders:
             self.headers.addRawHeader(name, value)
-            
+
         if self.refreshOnly:
             self.headers.addRawHeader("X-CALENDARSERVER-ITIP-REFRESHONLY", "T")
+
 
     def _doAuthentication(self):
         if self.server.authentication and self.server.authentication[0] == "basic":
@@ -311,8 +324,9 @@ class IScheduleRequest(object):
                 ('Basic', ("%s:%s" % (self.server.authentication[1], self.server.authentication[2],)).encode('base64')[:-1])
             )
 
+
     def _prepareData(self):
-        if self.server.unNormalizeAddresses and self.scheduler.method == "PUT": 
+        if self.server.unNormalizeAddresses and self.scheduler.method == "PUT":
             normalizedCalendar = self.scheduler.calendar.duplicate()
             normalizedCalendar.normalizeCalendarUserAddresses(
                 normalizationLookup,
@@ -322,13 +336,14 @@ class IScheduleRequest(object):
             normalizedCalendar = self.scheduler.calendar
         self.data = str(normalizedCalendar)
 
+
     def _parseResponse(self, xml):
 
         # Check for correct root element
         schedule_response = xml.root_element
         if not isinstance(schedule_response, caldavxml.ScheduleResponse) or not schedule_response.children:
             raise HTTPError(responsecode.BAD_REQUEST)
-        
+
         # Parse each response - do this twice: once looking for errors that will
         # result in all recipients shown as failures; the second loop adds all the
         # valid responses to the actual result.
@@ -341,4 +356,3 @@ class IScheduleRequest(object):
                 raise HTTPError(responsecode.BAD_REQUEST)
         for response in schedule_response.children:
             self.responses.clone(response)
-
