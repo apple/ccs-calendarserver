@@ -62,7 +62,8 @@ class ScheduleViaIMip(DeliveryService):
             self.responses.add(
                 recipient.cuaddr,
                 Failure(exc_value=err),
-                reqstatus=iTIPRequestStatus.SERVICE_UNAVAILABLE
+                reqstatus=iTIPRequestStatus.SERVICE_UNAVAILABLE,
+                suppressErrorLog=True
             )
         
         # Generate an HTTP client request
