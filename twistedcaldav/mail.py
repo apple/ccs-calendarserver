@@ -98,8 +98,10 @@ log = Logger()
 #
 class IMAPLogger(Logger):
     def emit(self, level, message, *args, **kwargs):
-        if not message.startswith("Unhandled unsolicited response: "):
-            super(Logger, self).emit(level, message, *args, **kwargs)
+        if message.startswith("Unhandled unsolicited response:"):
+            return
+
+        Logger.emit(self, level, message, *args, **kwargs)
 
 imap4.log = IMAPLogger()
 
