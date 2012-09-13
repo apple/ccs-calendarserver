@@ -123,10 +123,32 @@ class DKIMUtils(object):
                     msg = "DKIM: Invalid public key private exchange directory: %s" % (config.Scheduling.iSchedule.DKIM.PrivateExchanges,)
                     log.error(msg)
                     raise ConfigurationError(msg)
+                PublicKeyLookup_PrivateExchange.directory = config.Scheduling.iSchedule.DKIM.PrivateExchanges
 
             log.info("DKIM: Enabled")
         else:
             log.info("DKIM: Disabled")
+
+
+    @staticmethod
+    def getConfiguration(config):
+        """
+        Return a tuple of the parameters derived from the config that are used to initialize the DKIMRequest.
+
+        @param config: configuration to look at
+        @type config: L{Config}
+        """
+
+        domain = config.Scheduling.iSchedule.DKIM.Domain if config.Scheduling.iSchedule.DKIM.Domain else config.ServerHostName
+        selector = config.Scheduling.iSchedule.DKIM.KeySelector
+        key_file = config.Scheduling.iSchedule.DKIM.PrivateKeyFile
+        algorithm = config.Scheduling.iSchedule.DKIM.SignatureAlgorithm
+        useDNSKey = config.Scheduling.iSchedule.DKIM.UseDNSKey
+        useHTTPKey = config.Scheduling.iSchedule.DKIM.UseHTTPKey
+        usePrivateExchangeKey = config.Scheduling.iSchedule.DKIM.UsePrivateExchangeKey
+        expire = config.Scheduling.iSchedule.DKIM.ExpireSeconds
+
+        return domain, selector, key_file, algorithm, useDNSKey, useHTTPKey, usePrivateExchangeKey, expire
 
 
     @staticmethod
@@ -197,6 +219,13 @@ class DKIMUtils(object):
             value = " ".join(value.split())
 
         return "%s:%s\r\n" % (name, value,)
+
+
+    @staticmethod
+    def canonicalizeBody(data):
+        if not data.endswith("\r\n"):
+            data += "\r\n"
+        return data
 
 
 
@@ -318,7 +347,7 @@ class DKIMRequest(ClientRequest):
         self.stream = MemoryStream(data if data is not None else "")
         self.stream.doStartReading = None
 
-        returnValue(base64.b64encode(self.hash_method(data).digest()))
+        returnValue(base64.b64encode(self.hash_method(DKIMUtils.canonicalizeBody(data)).digest()))
 
 
     @inlineCallbacks
@@ -392,16 +421,18 @@ class DKIMVerifier(object):
     Class used to verify an DKIM-signed HTTP request.
     """
 
-    def __init__(self, request, key_lookup=None):
+    def __init__(self, request, key_lookup=None, protocol_debug=False):
         """
         @param request: The HTTP request to process
         @type request: L{twext.server.Request}
         """
         self.request = request
+        self._debug = protocol_debug
         self.dkim_tags = {}
 
-        # Prefer HTTP over DNS when both are present
+        # Prefer private exchange over HTTP over DNS when multiple are present
         self.key_lookup_methods = (
+            PublicKeyLookup_PrivateExchange,
             PublicKeyLookup_HTTP_WellKnown,
             PublicKeyLookup_DNSTXT,
         ) if key_lookup is None else key_lookup
@@ -430,17 +461,39 @@ class DKIMVerifier(object):
             rsa.verify(headers, base64.b64decode(self.dkim_tags["b"]), pubkey)
         except rsa.VerificationError:
             msg = "Could not verify signature"
-            log.debug("DKIM: %s: DKIM-Signature:%s" % (msg, self.request.headers.getRawHeaders(DKIM_SIGNATURE),))
+            _debug_msg = """
+DKIM-Signature:%s
+
+Headers to evaluate:
+%s
+
+Public key used:
+%s
+""" % (self.request.headers.getRawHeaders(DKIM_SIGNATURE)[0], headers, pubkey._original_data,)
+            log.debug("DKIM: %s:%s" % (msg, _debug_msg,))
+            if self._debug:
+                msg = "%s:%s" % (msg, _debug_msg,)
             raise DKIMVerificationError(msg)
 
         # Do body validation
         data = (yield allDataFromStream(self.request.stream))
         self.request.stream = MemoryStream(data if data is not None else "")
         self.request.stream.doStartReading = None
-        bh = base64.b64encode(self.hash_method(data).digest())
+        body = DKIMUtils.canonicalizeBody(data)
+        bh = base64.b64encode(self.hash_method(body).digest())
         if bh != self.dkim_tags["bh"]:
             msg = "Could not verify the DKIM body hash"
-            log.debug("DKIM: %s: DKIM-Signature:%s" % (msg, self.request.headers.getRawHeaders(DKIM_SIGNATURE),))
+            _debug_msg = """
+DKIM-Signature:%s
+
+Hash Method: %s
+
+Base64 encoded body:
+%s
+""" % (self.request.headers.getRawHeaders(DKIM_SIGNATURE), self.hash_method.__name__, base64.b64encode(body),)
+            log.debug("DKIM: %s:%s" % (msg, _debug_msg,))
+            if self._debug:
+                msg = "%s:%s" % (msg, _debug_msg,)
             raise DKIMVerificationError(msg)
 
 
@@ -668,10 +721,12 @@ class PublicKeyLookup(object):
         key_data = """-----BEGIN PUBLIC KEY-----
 %s
 -----END PUBLIC KEY-----
-""" % (textwrap.wrap(pkey["p"], 64),)
+""" % ("\n".join(textwrap.wrap(pkey["p"], 64)),)
 
         try:
-            return rsa.PublicKey.load_pkcs1(key_data)
+            key = rsa.PublicKey.load_pkcs1(key_data)
+            key._original_data = key_data
+            return key
         except:
             log.debug("DKIM: Unable to make public key:\n%s" % (key_data,))
             return None
@@ -685,7 +740,6 @@ class PublicKeyLookup(object):
 class PublicKeyLookup_DNSTXT(PublicKeyLookup):
 
     method = Q_DNS
-
 
     def _getSelectorKey(self):
         """
@@ -706,7 +760,6 @@ class PublicKeyLookup_DNSTXT(PublicKeyLookup):
 class PublicKeyLookup_HTTP_WellKnown(PublicKeyLookup):
 
     method = Q_HTTP
-
 
     def _getSelectorKey(self):
         """
@@ -744,7 +797,6 @@ class PublicKeyLookup_PrivateExchange(PublicKeyLookup):
 
     method = Q_PRIVATE
     directory = None
-
 
     def _getSelectorKey(self):
         """

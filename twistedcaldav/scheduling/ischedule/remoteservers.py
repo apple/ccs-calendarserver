@@ -23,7 +23,8 @@ from twistedcaldav.scheduling.delivery import DeliveryService
 from twistedcaldav import xmlutil
 
 """
-XML based iSchedule configuration file handling.
+XML based iSchedule configuration file handling. This is for handling of remote servers. The localservers.py module
+handles servers that are local (partitioned or podded).
 """
 
 __all__ = [
@@ -51,7 +52,7 @@ class IScheduleServers(object):
             IScheduleServers._xmlFile = FilePath(
                 fullServerPath(
                     config.ConfigRoot,
-                    config.Scheduling[DeliveryService.serviceType_ischedule]["Servers"]
+                    config.Scheduling.iSchedule.RemoteServers,
                 )
             )
         IScheduleServers._xmlFile.restat()

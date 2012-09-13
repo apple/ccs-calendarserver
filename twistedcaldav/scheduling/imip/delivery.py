@@ -45,21 +45,22 @@ __all__ = [
 log = Logger()
 
 class ScheduleViaIMip(DeliveryService):
-    
+
     @classmethod
     def serviceType(cls):
         return DeliveryService.serviceType_imip
 
+
     @inlineCallbacks
     def generateSchedulingResponses(self):
-        
+
         # Generate an HTTP client request
         try:
             # We do not do freebusy requests via iMIP
             if self.freebusy:
                 raise ValueError("iMIP VFREEBUSY REQUESTs not supported.")
 
-            method = self.scheduler.calendar.propertyValue("METHOD") 
+            method = self.scheduler.calendar.propertyValue("METHOD")
             if method not in (
                 "PUBLISH",
                 "REQUEST",
@@ -94,7 +95,7 @@ class ScheduleViaIMip(DeliveryService):
 
                     log.debug("POSTing iMIP message to gateway...  To: '%s', From :'%s'\n%s" % (toAddr, fromAddr, caldata,))
                     yield self.postToGateway(fromAddr, toAddr, caldata)
-        
+
                 except Exception, e:
                     # Generated failed response for this recipient
                     log.err("Could not do server-to-imip request : %s %s" % (self, e))
@@ -108,7 +109,7 @@ class ScheduleViaIMip(DeliveryService):
                         Failure(exc_value=err),
                         reqstatus=iTIPRequestStatus.SERVICE_UNAVAILABLE
                     )
-                
+
                 else:
                     self.responses.add(
                         recipient.cuaddr,
@@ -131,6 +132,7 @@ class ScheduleViaIMip(DeliveryService):
                     reqstatus=iTIPRequestStatus.SERVICE_UNAVAILABLE
                 )
 
+
     def postToGateway(self, fromAddr, toAddr, caldata, reactor=None):
         if reactor is None:
             from twisted.internet import reactor
@@ -152,4 +154,3 @@ class ScheduleViaIMip(DeliveryService):
         connect(GAIEndpoint(reactor, mailGatewayServer, mailGatewayPort),
                 factory)
         return factory.deferred
-

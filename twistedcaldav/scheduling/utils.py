@@ -43,7 +43,7 @@ def getCalendarObjectForPrincipals(request, principal, uid, allow_shared=False):
 
         # Get matching newstore objects
         objectResources = (yield calendar_home.getCalendarResourcesForUID(uid, allow_shared))
-        
+
         # We really want only one or zero of these
         if len(objectResources) == 1:
             result["calendar_collection_uri"] = joinURL(calendar_home.url(), objectResources[0]._parentCollection.name())
@@ -54,4 +54,3 @@ def getCalendarObjectForPrincipals(request, principal, uid, allow_shared=False):
             log.debug("Should only have zero or one scheduling object resource with UID '%s' in calendar home: %s" % (uid, calendar_home,))
 
     returnValue((result["resource"], result["resource_name"], result["calendar_collection"], result["calendar_collection_uri"],))
-

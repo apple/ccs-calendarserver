@@ -17,7 +17,17 @@
 
 from __future__ import with_statement
 
-import xattr, os, zlib, hashlib, datetime, pwd, grp, shutil, errno, operator, time
+import xattr
+import os
+import zlib
+import hashlib
+import datetime
+import pwd
+import grp
+import shutil
+import errno
+import operator
+import time
 from zlib import compress
 from cPickle import loads as unpickle, UnpicklingError
 
@@ -34,8 +44,8 @@ from twistedcaldav.directory.principal import DirectoryCalendarPrincipalResource
 from twistedcaldav.directory.resourceinfo import ResourceInfoDatabase
 from twistedcaldav.directory.xmlfile import XMLDirectoryService
 from twistedcaldav.ical import Component
-from twistedcaldav.mail import MailGatewayTokensDatabase
 from twistedcaldav.scheduling.cuaddress import LocalCalendarUser
+from twistedcaldav.scheduling.imip.mailgateway import MailGatewayTokensDatabase
 from twistedcaldav.scheduling.scheduler import DirectScheduler
 from twistedcaldav.util import normalizationLookup
 
@@ -69,6 +79,8 @@ log = Logger()
 def xattrname(n):
     return deadPropertyXattrPrefix + n
 
+
+
 def getCalendarServerIDs(config):
 
     # Determine uid/gid for ownership of directories we create here
@@ -87,6 +99,7 @@ def getCalendarServerIDs(config):
             log.error("Group not found: %s" % (config.GroupName,))
 
     return uid, gid
+
 
 
 def fixBadQuotes(data):
@@ -181,7 +194,6 @@ def upgradeCalendarCollection(calPath, directory, cuaCache):
                 raise
 
             collectionUpdated = True
-
 
     if collectionUpdated:
         ctagValue = "<?xml version='1.0' encoding='UTF-8'?>\r\n<getctag xmlns='http://calendarserver.org/ns/'>%s</getctag>\r\n" % (str(datetime.datetime.now()),)
@@ -295,6 +307,7 @@ def upgrade_to_1(config, spawner, parallel, directory):
             log.err(f)
         errorOccurred.append(True)
 
+
     def doProxyDatabaseMoveUpgrade(config, uid=-1, gid=-1):
         # See if the new one is already present
         oldFilename = ".db.calendaruserproxy"
@@ -403,8 +416,6 @@ def upgrade_to_1(config, spawner, parallel, directory):
         if os.path.exists(journalPath):
             os.chown(journalPath, uid, gid)
 
-
-
     cuaCache = {}
 
     docRoot = config.DocumentRoot
@@ -480,7 +491,6 @@ def upgrade_to_1(config, spawner, parallel, directory):
 
                     os.rmdir(dirPath)
 
-
             # Count how many calendar homes we'll be processing, and build
             # list of pending inbox items
             total = 0
@@ -522,7 +532,7 @@ def upgrade_to_1(config, spawner, parallel, directory):
                     spawner.startService()
                     parallelizer = Parallelizer((yield gatherResults(
                         [spawner.spawnWithConfig(config, To1Driver(), To1Home)
-                         for x in xrange(parallel)]
+                         for _ignore_x in xrange(parallel)]
                     )))
                 log.warn("Processing %d calendar homes in %s" % (total, uidHomes))
 
@@ -576,6 +586,7 @@ def upgrade_to_1(config, spawner, parallel, directory):
         log.warn("Data upgrade encountered errors but will proceed; see error.log for details")
 
 
+
 def normalizeCUAddrs(data, directory, cuaCache):
     """
     Normalize calendar user addresses to urn:uuid: form.
@@ -598,7 +609,7 @@ def normalizeCUAddrs(data, directory, cuaCache):
     def lookupFunction(cuaddr, principalFunction, config):
 
         # Return cached results, if any.
-        if cuaCache.has_key(cuaddr):
+        if cuaddr in cuaCache:
             return cuaCache[cuaddr]
 
         result = normalizationLookup(cuaddr, principalFunction, config)
@@ -617,8 +628,6 @@ def normalizeCUAddrs(data, directory, cuaCache):
 
 @inlineCallbacks
 def upgrade_to_2(config, spawner, parallel, directory):
-    
-    errorOccurred = False
 
     def renameProxyDB():
         #
@@ -626,11 +635,12 @@ def upgrade_to_2(config, spawner, parallel, directory):
         #
         oldFilename = "calendaruserproxy.sqlite"
         newFilename = "proxies.sqlite"
-    
+
         oldDbPath = os.path.join(config.DataRoot, oldFilename)
         newDbPath = os.path.join(config.DataRoot, newFilename)
         if os.path.exists(oldDbPath) and not os.path.exists(newDbPath):
             os.rename(oldDbPath, newDbPath)
+
 
     def flattenHome(calHome):
 
@@ -643,19 +653,19 @@ def upgrade_to_2(config, spawner, parallel, directory):
                     # Skip non-directories; these might have been uploaded by a
                     # random DAV client, they can't be calendar collections.
                     continue
-                
+
                 if cal in ("dropbox",):
                     continue
                 if os.path.exists(os.path.join(calPath, db_basename)):
                     continue
-                
+
                 # Commented this out because it is only needed if there are calendars nested inside of regular collections.
                 # Whilst this is technically possible in early versions of the servers the main clients did not support it.
                 # Also, the v1 upgrade does not look at nested calendars for cu-address normalization.
                 # However, we do still need to "ignore" regular collections in the calendar home so what we do is rename them
                 # with a ".collection." prefix.
 #                def scanCollection(collection):
-#                    
+#
 #                    for child in os.listdir(collection):
 #                        childCollection = os.path.join(collection, child)
 #                        if os.path.isdir(childCollection):
@@ -677,15 +687,16 @@ def upgrade_to_2(config, spawner, parallel, directory):
         except Exception, e:
             log.error("Failed to upgrade calendar home %s: %s" % (calHome, e))
             return succeed(False)
-        
+
         return succeed(True)
+
 
     def flattenHomes():
         """
         Make sure calendars inside regular collections are all moved to the top level.
         """
         errorOccurred = False
-    
+
         log.debug("Flattening calendar homes")
 
         docRoot = config.DocumentRoot
@@ -693,7 +704,7 @@ def upgrade_to_2(config, spawner, parallel, directory):
             calRoot = os.path.join(docRoot, "calendars")
             if os.path.exists(calRoot) and os.path.isdir(calRoot):
                 uidHomes = os.path.join(calRoot, "__uids__")
-                if os.path.isdir(uidHomes): 
+                if os.path.isdir(uidHomes):
                     for path1 in os.listdir(uidHomes):
                         uidLevel1 = os.path.join(uidHomes, path1)
                         if not os.path.isdir(uidLevel1):
@@ -716,9 +727,7 @@ def upgrade_to_2(config, spawner, parallel, directory):
     # Move auto-schedule from resourceinfo sqlite to augments:
     yield migrateAutoSchedule(config, directory)
 
-    errorOccurred = flattenHomes()
-
-    if errorOccurred:
+    if flattenHomes():
         raise UpgradeError("Data upgrade failed, see error.log for details")
 
 
@@ -776,11 +785,14 @@ def upgradeData(config, spawner=None, parallel=0):
     if os.path.exists(triggerPath):
         os.remove(triggerPath)
 
+
+
 class UpgradeError(RuntimeError):
     """
     Generic upgrade error.
     """
     pass
+
 
 
 #
@@ -803,6 +815,7 @@ def updateFreeBusyHref(href, directory):
     uid = record.uid
     newHref = "/calendars/__uids__/%s/%s/" % (uid, pieces[4])
     return newHref
+
 
 
 def updateFreeBusySet(value, directory):
@@ -845,6 +858,7 @@ def updateFreeBusySet(value, directory):
     return None # no update required
 
 
+
 def makeDirsUserGroup(path, uid=-1, gid=-1):
     parts = path.split("/")
     if parts[0] == "": # absolute path
@@ -858,6 +872,7 @@ def makeDirsUserGroup(path, uid=-1, gid=-1):
         if not os.path.exists(path):
             os.mkdir(path)
             os.chown(path, uid, gid)
+
 
 
 def archive(config, srcPath, uid, gid):
@@ -889,6 +904,7 @@ def archive(config, srcPath, uid, gid):
         os.remove(srcPath)
 
 
+
 DELETECHARS = ''.join(chr(i) for i in xrange(32) if i not in (9, 10, 13))
 def removeIllegalCharacters(data):
     """
@@ -898,12 +914,13 @@ def removeIllegalCharacters(data):
     the data changed.
     """
     beforeLen = len(data)
-    data =  data.translate(None, DELETECHARS)
+    data = data.translate(None, DELETECHARS)
     afterLen = len(data)
     if afterLen != beforeLen:
         return data, True
     else:
         return data, False
+
 
 
 # Deferred
@@ -925,6 +942,7 @@ def migrateFromOD(config, directory):
     # Create internal copies of resources and locations based on what is
     # found in OD
     return migrateResources(userService, resourceService)
+
 
 
 @inlineCallbacks
@@ -951,6 +969,7 @@ def migrateAutoSchedule(config, directory):
             if augmentRecords:
                 yield augmentService.addAugmentRecords(augmentRecords)
             log.warn("Migrated %d auto-schedule settings" % (len(augmentRecords),))
+
 
 
 class UpgradeFileSystemFormatService(Service, object):
@@ -1017,6 +1036,7 @@ class PostDBImportService(Service, object):
         self.wrappedService = service
         self.store = store
         self.config = config
+
 
     @inlineCallbacks
     def startService(self):
@@ -1087,7 +1107,7 @@ class PostDBImportService(Service, object):
                 totalItems = len(itemsToProcess)
                 ignoreUUIDs = set()
                 for ctr, inboxItem in enumerate(itemsToProcess):
-                    log.info("Processing %d/%d inbox item: %s" % (ctr+1, totalItems, inboxItem,))
+                    log.info("Processing %d/%d inbox item: %s" % (ctr + 1, totalItems, inboxItem,))
                     ignore, uuid, ignore, fileName = inboxItem.rsplit("/", 3)
 
                     if uuid in ignoreUUIDs:
@@ -1155,7 +1175,6 @@ class PostDBImportService(Service, object):
                                 log.debug("Ignored inbox item - no resource: %s" % (inboxItem,))
                         else:
                             log.debug("Ignored inbox item - no inbox: %s" % (inboxItem,))
-
 
                         inboxItems.remove(inboxItem)
 

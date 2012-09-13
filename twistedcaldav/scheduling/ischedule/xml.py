@@ -190,3 +190,19 @@ class MaxRecipients (WebDAVTextElement):
 class Administrator (WebDAVTextElement):
     namespace = ischedule_namespace
     name = "administrator"
+
+
+
+@registerElement
+class Error (WebDAVElement):
+    namespace = ischedule_namespace
+    name = "error"
+
+    allowed_children = {WebDAVElement: (0, None)}
+
+
+
+@registerElement
+class ResponseDescription (WebDAVTextElement):
+    namespace = ischedule_namespace
+    name = "response-description"

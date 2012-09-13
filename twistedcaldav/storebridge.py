@@ -63,7 +63,7 @@ from twistedcaldav.notifications import (
 )
 from twistedcaldav.resource import CalDAVResource, GlobalAddressBookResource,\
     DefaultAlarmPropertyMixin
-from twistedcaldav.schedule import ScheduleInboxResource
+from twistedcaldav.scheduling.caldav.resource import ScheduleInboxResource
 from twistedcaldav.scheduling.implicit import ImplicitScheduler
 from twistedcaldav.vcard import Component as VCard, InvalidVCardDataError
 

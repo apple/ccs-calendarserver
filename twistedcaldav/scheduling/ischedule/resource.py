@@ -25,10 +25,14 @@ from twistedcaldav import caldavxml
 from twistedcaldav.config import config
 from twistedcaldav.extensions import DAVResource
 from twistedcaldav.resource import ReadOnlyNoCopyResourceMixIn
-from twistedcaldav.schedule import deliverSchedulePrivilegeSet
-from twistedcaldav.scheduling.scheduler import IScheduleScheduler
+from twistedcaldav.scheduling.caldav.resource import deliverSchedulePrivilegeSet
+from twistedcaldav.scheduling.ischedule.scheduler import IScheduleScheduler
 from txdav.xml import element as davxml
 import twistedcaldav.scheduling.ischedule.xml  as ischedulexml
+
+__all__ = [
+    "IScheduleInboxResource",
+]
 
 class IScheduleInboxResource (ReadOnlyNoCopyResourceMixIn, DAVResource):
     """

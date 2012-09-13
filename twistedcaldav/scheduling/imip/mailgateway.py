@@ -21,13 +21,9 @@ Mail Gateway for Calendar Server
 
 from __future__ import with_statement
 
-import datetime
-import email.utils
-import os
-import urlparse
-import uuid
-
 from cStringIO import StringIO
+
+from calendarserver.tap.util import getRootResource, directoryFromConfig
 
 from email.mime.image import MIMEImage
 from email.mime.multipart import MIMEMultipart
@@ -36,55 +32,45 @@ from email.mime.text import MIMEText
 from pycalendar.datetime import PyCalendarDateTime
 from pycalendar.duration import PyCalendarDuration
 
-from zope.interface import implements
+from twext.internet.adaptendpoint import connect
+from twext.internet.gaiendpoint import GAIEndpoint
+from twext.python.log import Logger, LoggingMixIn
+from twext.web2 import server
+from twext.web2.channel.http import HTTPFactory
 
 from twisted.application import internet, service
 from twisted.internet import protocol, defer, ssl, reactor as _reactor
-from twisted.internet.defer import inlineCallbacks, returnValue, succeed
+from twisted.internet.defer import succeed
 from twisted.mail import pop3client, imap4
 from twisted.mail.smtp import messageid, rfc822date, ESMTPSenderFactory
 from twisted.plugin import IPlugin
 from twisted.python.usage import Options, UsageError
-
 from twisted.web import client
-from twisted.web.template import (
-    XMLString, TEMPLATE_NAMESPACE, Element, renderer, flattenString, tags
-)
-from twisted.web.microdom import parseString
 from twisted.web.microdom import Text as DOMText, Element as DOMElement
+from twisted.web.microdom import parseString
+from twisted.web.template import XMLString, TEMPLATE_NAMESPACE, Element, renderer, flattenString, tags
 
-from twext.internet.gaiendpoint import GAIEndpoint
-from twext.internet.adaptendpoint import connect
-
-from twext.web2 import server, responsecode
-from twext.web2.channel.http import HTTPFactory
-from txdav.xml import element as davxml
-from twext.web2.dav.noneprops import NonePropertyStore
-from twext.web2.http import Response, HTTPError
-from twext.web2.http_headers import MimeType
-
-from twext.python.log import Logger, LoggingMixIn
-
-from twistedcaldav import ical, caldavxml
 from twistedcaldav import memcachepool
 from twistedcaldav.config import config
-from twistedcaldav.directory.util import transactionFromRequest
-from twistedcaldav.ical import Property
+from twistedcaldav.ical import Property, Component
 from twistedcaldav.localization import translationTo, _
-from twistedcaldav.resource import CalDAVResource
-from twistedcaldav.schedule import deliverSchedulePrivilegeSet
 from twistedcaldav.scheduling.cuaddress import normalizeCUAddr
+from twistedcaldav.scheduling.imip.resource import IMIPInvitationInboxResource
 from twistedcaldav.scheduling.itip import iTIPRequestStatus
-from twistedcaldav.scheduling.scheduler import IMIPScheduler
 from twistedcaldav.sql import AbstractSQLDatabase
-from twistedcaldav.util import AuthorizedHTTPGetter
 from twistedcaldav.stdconfig import DEFAULT_CONFIG, DEFAULT_CONFIG_FILE
+from twistedcaldav.util import AuthorizedHTTPGetter
 
-from calendarserver.tap.util import getRootResource, directoryFromConfig
+from zope.interface import implements
+
+import datetime
+import email.utils
+import os
+import urlparse
+import uuid
 
 
 __all__ = [
-    "IMIPInboxResource",
     "MailGatewayServiceMaker",
     "MailGatewayTokensDatabase",
     "MailHandler",
@@ -188,7 +174,7 @@ def _visit(document, node):
             textNode.parentNode = node.parentNode
             replacements.append(slotElement)
             replacements.append(textNode)
-        node.parentNode.childNodes[idx:idx+1] = replacements
+        node.parentNode.childNodes[idx:idx + 1] = replacements
 
     elif isinstance(node, DOMElement):
         for attrName, attrVal in node.attributes.items():
@@ -201,10 +187,12 @@ def _visit(document, node):
                 node.appendChild(elem)
 
 
+
 def _walk(document, n):
     _visit(document, n)
     for subn in n.childNodes:
         _walk(document, subn)
+
 
 
 def _fixup(data, rendererName):
@@ -282,16 +270,16 @@ def localizedLabels(language, canceled, inviteState):
                 inviteLabel = _("Event Reply")
 
         labels = dict(
-            dateLabel = _("Date"),
-            timeLabel = _("Time"),
-            durationLabel = _("Duration"),
-            recurrenceLabel = _("Occurs"),
-            descLabel = _("Description"),
-            urlLabel = _("URL"),
-            orgLabel = _("Organizer"),
-            attLabel = _("Attendees"),
-            locLabel = _("Location"),
-            inviteLabel = inviteLabel,
+            dateLabel=_("Date"),
+            timeLabel=_("Time"),
+            durationLabel=_("Duration"),
+            recurrenceLabel=_("Occurs"),
+            descLabel=_("Description"),
+            urlLabel=_("URL"),
+            orgLabel=_("Organizer"),
+            attLabel=_("Attendees"),
+            locLabel=_("Location"),
+            inviteLabel=inviteLabel,
         )
 
         # The translations we get back from gettext are utf-8 encoded
@@ -302,11 +290,12 @@ def localizedLabels(language, canceled, inviteState):
 
     return subjectFormatString.decode("utf-8"), labels
 
-#
-# Mail gateway service config
-#
+
 
 class MailGatewayOptions(Options):
+    """
+    Mail gateway service config
+    """
     optParameters = [[
         "config", "f", DEFAULT_CONFIG_FILE, "Path to configuration file."
     ]]
@@ -315,6 +304,7 @@ class MailGatewayOptions(Options):
         super(MailGatewayOptions, self).__init__(*args, **kwargs)
 
         self.overrides = {}
+
 
     def _coerceOption(self, configDict, key, value):
         """
@@ -339,6 +329,7 @@ class MailGatewayOptions(Options):
                 value = None
 
         return value
+
 
     def _setOverride(self, configDict, path, value, overrideDict):
         """
@@ -368,7 +359,7 @@ class MailGatewayOptions(Options):
     def opt_option(self, option):
         """
         Set an option to override a value in the config file. True, False, int,
-        and float options are supported, as well as comma seperated lists. Only
+        and float options are supported, as well as comma separated lists. Only
         one option may be given for each --option flag, however multiple
         --option flags may be specified.
         """
@@ -391,175 +382,6 @@ class MailGatewayOptions(Options):
         config.updateDefaults(self.overrides)
         self.parent['pidfile'] = None
 
-
-
-class IMIPInboxResource(CalDAVResource):
-    """
-    IMIP-delivery Inbox resource.
-
-    Extends L{DAVResource} to provide IMIP delivery functionality.
-    """
-
-    def __init__(self, parent, store):
-        """
-        @param parent: the parent resource of this one.
-        @param store: the store to use for transactions.
-        """
-        assert parent is not None
-
-        CalDAVResource.__init__(
-            self, principalCollections=parent.principalCollections()
-        )
-
-        self.parent = parent
-        self._newStore = store
-
-
-    def accessControlList(self, request, inheritance=True,
-        expanding=False, inherited_aces=None):
-
-        if not hasattr(self, "iMIPACL"):
-            guid = config.Scheduling.iMIP.GUID
-            self.iMIPACL = davxml.ACL(
-                davxml.ACE(
-                    davxml.Principal(
-                        davxml.HRef.fromString("/principals/__uids__/%s/"
-                                               % (guid,))
-                    ),
-                    davxml.Grant(
-                        davxml.Privilege(caldavxml.ScheduleDeliver()),
-                    ),
-                ),
-            )
-
-        return succeed(self.iMIPACL)
-
-    def resourceType(self):
-        return davxml.ResourceType.ischeduleinbox
-
-    def contentType(self):
-        return MimeType.fromString("text/html; charset=utf-8");
-
-    def isCollection(self):
-        return False
-
-    def isCalendarCollection(self):
-        return False
-
-    def isPseudoCalendarCollection(self):
-        return False
-
-    def deadProperties(self):
-        if not hasattr(self, "_dead_properties"):
-            self._dead_properties = NonePropertyStore(self)
-        return self._dead_properties
-
-    def etag(self):
-        return succeed(None)
-
-    def checkPreconditions(self, request):
-        return None
-
-    def render(self, request):
-        output = """<html>
-<head>
-<title>IMIP Delivery Resource</title>
-</head>
-<body>
-<h1>IMIP Delivery Resource.</h1>
-</body
-</html>"""
-
-        response = Response(200, {}, output)
-        response.headers.setHeader("content-type", MimeType("text", "html"))
-        return response
-
-    ##
-    # File
-    ##
-
-    def createSimilarFile(self, path):
-        log.err("Attempt to create clone %r of resource %r" % (path, self))
-        raise HTTPError(responsecode.NOT_FOUND)
-
-    ##
-    # ACL
-    ##
-
-    def defaultAccessControlList(self):
-        privs = (
-            davxml.Privilege(davxml.Read()),
-            davxml.Privilege(caldavxml.ScheduleDeliver()),
-        )
-        if config.Scheduling.CalDAV.OldDraftCompatibility:
-            privs += (davxml.Privilege(caldavxml.Schedule()),)
-        return davxml.ACL(
-            # DAV:Read, CalDAV:schedule-deliver for all principals (includes
-            # anonymous)
-            davxml.ACE(
-                davxml.Principal(davxml.All()),
-                davxml.Grant(*privs),
-                davxml.Protected(),
-            ),
-        )
-
-    def supportedPrivileges(self, request):
-        return succeed(deliverSchedulePrivilegeSet)
-
-
-class IMIPReplyInboxResource(IMIPInboxResource):
-
-    def renderHTTP(self, request):
-        """
-        Set up a transaction which will be used and committed by implicit
-        scheduling.
-        """
-        self.transaction = transactionFromRequest(request, self._newStore)
-        return super(IMIPReplyInboxResource, self).renderHTTP(request, self.transaction)
-
-    @inlineCallbacks
-    def http_POST(self, request):
-        """
-        The IMIP reply POST method (inbound)
-        """
-
-        # Check authentication and access controls
-        yield self.authorize(request, (caldavxml.ScheduleDeliver(),))
-
-        # Inject using the IMIPScheduler.
-        scheduler = IMIPScheduler(request, self)
-
-        # Do the POST processing treating this as a non-local schedule
-        result = (yield scheduler.doSchedulingViaPOST(self.transaction, use_request_headers=True))
-        returnValue(result.response())
-
-
-class IMIPInvitationInboxResource(IMIPInboxResource):
-
-    def __init__(self, parent, store, mailer):
-        super(IMIPInvitationInboxResource, self).__init__(parent, store)
-        self.mailer = mailer
-
-    @inlineCallbacks
-    def http_POST(self, request):
-        """
-        The IMIP invitation POST method (outbound)
-        """
-
-        # Check authentication and access controls
-        yield self.authorize(request, (caldavxml.ScheduleDeliver(),))
-
-        # Compute token, add to db, generate email and send it
-        calendar = (yield ical.Component.fromIStream(request.stream))
-        originator = request.headers.getRawHeaders("originator")[0]
-        recipient = request.headers.getRawHeaders("recipient")[0]
-        language = config.Localization.Language
-
-        if not (yield self.mailer.outbound(originator,
-            recipient, calendar, language=language)):
-            returnValue(Response(code=responsecode.BAD_REQUEST))
-
-        returnValue(Response(code=responsecode.OK))
 
 
 def injectionSettingsFromURL(url, config):
@@ -620,8 +442,10 @@ def injectMessage(url, organizer, attendee, calendar, msgId, reactor=None):
     else:
         connect(GAIEndpoint(reactor, parsed.hostname, parsed.port), factory)
 
+
     def _success(result, msgId):
         log.info("Mail gateway successfully injected message %s" % (msgId,))
+
 
     def _failure(failure, msgId):
         log.err("Mail gateway failed to inject message %s (Reason: %s)" %
@@ -630,6 +454,7 @@ def injectMessage(url, organizer, attendee, calendar, msgId, reactor=None):
 
     factory.deferred.addCallback(_success, msgId).addErrback(_failure, msgId)
     return factory.deferred
+
 
 
 def serverForOrganizer(directory, organizer):
@@ -648,17 +473,19 @@ def serverForOrganizer(directory, organizer):
         log.warn("Can't find server for %s" % (organizer,))
         raise ServerNotFound()
 
-    srvr = record.server() # None means hosted locally
+    srvr = record.server()  # None means hosted locally
     if srvr is None:
         return None
     else:
         return srvr.uri
 
 
+
 class ServerNotFound(Exception):
     """
     Can't determine which server is hosting a given user
     """
+
 
 
 class MailGatewayTokensDatabase(AbstractSQLDatabase, LoggingMixIn):
@@ -683,6 +510,7 @@ class MailGatewayTokensDatabase(AbstractSQLDatabase, LoggingMixIn):
             path = os.path.join(path, MailGatewayTokensDatabase.dbFilename)
         super(MailGatewayTokensDatabase, self).__init__(path, True)
 
+
     def createToken(self, organizer, attendee, icaluid, token=None):
         if token is None:
             token = str(uuid.uuid4())
@@ -694,6 +522,7 @@ class MailGatewayTokensDatabase(AbstractSQLDatabase, LoggingMixIn):
         )
         self._db_commit()
         return token
+
 
     def lookupByToken(self, token):
         results = list(
@@ -709,6 +538,7 @@ class MailGatewayTokensDatabase(AbstractSQLDatabase, LoggingMixIn):
             return None
 
         return results[0]
+
 
     def getToken(self, organizer, attendee, icaluid):
         token = self._db_value_for_sql(
@@ -728,6 +558,7 @@ class MailGatewayTokensDatabase(AbstractSQLDatabase, LoggingMixIn):
         else:
             return None
 
+
     def deleteToken(self, token):
         self._db_execute(
             """
@@ -735,6 +566,7 @@ class MailGatewayTokensDatabase(AbstractSQLDatabase, LoggingMixIn):
             """, token
         )
         self._db_commit()
+
 
     def purgeOldTokens(self, before):
         self._db_execute(
@@ -786,11 +618,13 @@ class MailGatewayTokensDatabase(AbstractSQLDatabase, LoggingMixIn):
         """
         return MailGatewayTokensDatabase.dbFormatVersion
 
+
     def _db_type(self):
         """
         @return: the collection type assigned to this index.
         """
         return MailGatewayTokensDatabase.dbType
+
 
     def _db_init_data_tables(self, q):
         """
@@ -817,6 +651,7 @@ class MailGatewayTokensDatabase(AbstractSQLDatabase, LoggingMixIn):
             create index TOKENSINDEX on TOKENS (TOKEN)
             """
         )
+
 
     def _db_upgrade_data_tables(self, q, old_version):
         """
@@ -845,6 +680,7 @@ class MailGatewayService(service.MultiService):
         if mailer is not None:
             mailer.purge()
             mailer.lowercase()
+
 
 
 class MailGatewayServiceMaker(LoggingMixIn):
@@ -901,6 +737,7 @@ class MailGatewayServiceMaker(LoggingMixIn):
         return mailGatewayService
 
 
+
 class IScheduleService(service.MultiService, LoggingMixIn):
     """
     ISchedule Inbox
@@ -918,7 +755,7 @@ class IScheduleService(service.MultiService, LoggingMixIn):
         rootResource = getRootResource(
             config,
             "IGNORED", # no need for a store - no /calendars nor /addressbooks
-            resources = [
+            resources=[
                 ("inbox", IMIPInvitationInboxResource, (mailer,), ("digest",)),
             ]
         )
@@ -948,6 +785,7 @@ class MailHandler(LoggingMixIn):
         """
         self.db.purgeOldTokens(datetime.date.today() -
             datetime.timedelta(days=self.days))
+
 
     def lowercase(self):
         """
@@ -998,7 +836,7 @@ class MailHandler(LoggingMixIn):
 
     def _extractToken(self, text):
         try:
-            pre, post = text.split('@')
+            pre, _ignore_post = text.split('@')
             pre, token = pre.split('+')
             return token
         except ValueError:
@@ -1006,7 +844,7 @@ class MailHandler(LoggingMixIn):
 
 
     def processDSN(self, calBody, msgId, fn):
-        calendar = ical.Component.fromString(calBody)
+        calendar = Component.fromString(calBody)
         # Extract the token (from organizer property)
         organizer = calendar.getOrganizer()
         token = self._extractToken(organizer)
@@ -1048,9 +886,10 @@ class MailHandler(LoggingMixIn):
         self.log_warn("Mail gateway processing DSN %s to server %s" % (msgId, hostname))
         return fn(hostname, organizer, attendee, calendar, msgId)
 
+
     def processReply(self, msg, injectFunction, testMode=False):
         # extract the token from the To header
-        name, addr = email.utils.parseaddr(msg['To'])
+        _ignore_name, addr = email.utils.parseaddr(msg['To'])
         if addr:
             # addr looks like: server_address+token@example.com
             token = self._extractToken(addr)
@@ -1121,7 +960,7 @@ class MailHandler(LoggingMixIn):
                 settings["Username"], settings["Password"],
                 fromAddr, toAddr,
                 # per http://trac.calendarserver.org/ticket/416 ...
-                StringIO(msg.as_string().replace("\r\n","\n")),
+                StringIO(msg.as_string().replace("\r\n", "\n")),
                 deferred,
                 contextFactory=contextFactory,
                 requireAuthentication=False,
@@ -1136,7 +975,7 @@ class MailHandler(LoggingMixIn):
         # Process the imip attachment; inject to calendar server
 
         self.log_debug(calBody)
-        calendar = ical.Component.fromString(calBody)
+        calendar = Component.fromString(calBody)
         event = calendar.mainComponent()
 
         calendar.removeAllButOneAttendee(attendee)
@@ -1154,7 +993,7 @@ class MailHandler(LoggingMixIn):
             # with a SCHEDULE-STATUS of SERVICE_UNAVAILABLE.
             # The organizer will then see that the reply was not successful.
             attendeeProp = Property("ATTENDEE", attendee,
-                params = {
+                params={
                     "SCHEDULE-STATUS": iTIPRequestStatus.SERVICE_UNAVAILABLE,
                 }
             )
@@ -1240,8 +1079,7 @@ class MailHandler(LoggingMixIn):
                         mailto = None
 
                 if cn or mailto:
-                    attendees.append( (cn, mailto) )
-
+                    attendees.append((cn, mailto))
 
         toAddr = recipient
         if not recipient.lower().startswith("mailto:"):
@@ -1278,7 +1116,7 @@ class MailHandler(LoggingMixIn):
                 inviteState = "update"
 
             fullServerAddress = settings['Address']
-            name, serverAddress = email.utils.parseaddr(fullServerAddress)
+            _ignore_name, serverAddress = email.utils.parseaddr(fullServerAddress)
             pre, post = serverAddress.split('@')
             addressWithToken = "%s+%s@%s" % (pre, token, post)
 
@@ -1361,7 +1199,6 @@ class MailHandler(LoggingMixIn):
                     emailAddress = attendeeProp.parameterValue("EMAIL", None)
                     if emailAddress:
                         attendeeProp.setValue("mailto:%s" % (emailAddress,))
-
 
         msgId, message = self.generateEmail(inviteState, calendar, orgEmail,
             orgCN, attendees, formattedFrom, addressWithToken, recipient,
@@ -1727,11 +1564,14 @@ class POP3Service(service.Service, LoggingMixIn):
 
         self.mailer = mailer
 
+
     def startService(self):
         self.client.startService()
 
+
     def stopService(self):
         self.client.stopService()
+
 
 
 class POP3DownloadProtocol(pop3client.POP3Client, LoggingMixIn):
@@ -1745,14 +1585,17 @@ class POP3DownloadProtocol(pop3client.POP3Client, LoggingMixIn):
         login.addCallback(self.cbLoggedIn)
         login.addErrback(self.cbLoginFailed)
 
+
     def cbLoginFailed(self, reason):
         self.log_error("POP3 login failed for %s" %
             (self.factory.settings["Username"],))
         return self.quit()
 
+
     def cbLoggedIn(self, result):
         self.log_debug("POP loggedin")
         return self.listSize().addCallback(self.cbGotMessageSizes)
+
 
     def cbGotMessageSizes(self, sizes):
         self.log_debug("POP gotmessagesizes")
@@ -1761,15 +1604,18 @@ class POP3DownloadProtocol(pop3client.POP3Client, LoggingMixIn):
             downloads.append(self.retrieve(i).addCallback(self.cbDownloaded, i))
         return defer.DeferredList(downloads).addCallback(self.cbFinished)
 
+
     def cbDownloaded(self, lines, id):
         self.log_debug("POP downloaded message %d" % (id,))
         self.factory.handleMessage("\r\n".join(lines))
         self.log_debug("POP deleting message %d" % (id,))
         self.delete(id)
 
+
     def cbFinished(self, results):
         self.log_debug("POP finished")
         return self.quit()
+
 
 
 class POP3DownloadFactory(protocol.ClientFactory, LoggingMixIn):
@@ -1783,6 +1629,7 @@ class POP3DownloadFactory(protocol.ClientFactory, LoggingMixIn):
         self.reactor = reactor
         self.nextPoll = None
         self.noisy = False
+
 
     def retry(self, connector=None):
         # TODO: if connector is None:
@@ -1802,6 +1649,7 @@ class POP3DownloadFactory(protocol.ClientFactory, LoggingMixIn):
         self.nextPoll = self.reactor.callLater(self.settings["PollingSeconds"],
             reconnector)
 
+
     def clientConnectionLost(self, connector, reason):
         self.connector = connector
         self.log_debug("POP factory connection lost")
@@ -1813,12 +1661,12 @@ class POP3DownloadFactory(protocol.ClientFactory, LoggingMixIn):
         self.log_info("POP factory connection failed")
         self.retry(connector)
 
+
     def handleMessage(self, message):
         self.log_debug("POP factory handle message")
         self.log_debug(message)
 
         return self.mailer.inbound(message)
-
 
 
 
@@ -1842,11 +1690,14 @@ class IMAP4Service(service.Service):
 
         self.mailer = mailer
 
+
     def startService(self):
         self.client.startService()
 
+
     def stopService(self):
         self.client.stopService()
+
 
 
 class IMAP4DownloadProtocol(imap4.IMAP4Client, LoggingMixIn):
@@ -1857,8 +1708,10 @@ class IMAP4DownloadProtocol(imap4.IMAP4Client, LoggingMixIn):
             ).addCallback(self.cbLoggedIn
             ).addErrback(self.ebAuthenticateFailed)
 
+
     def ebLogError(self, error):
         self.log_error("IMAP Error: %s" % (error,))
+
 
     def ebAuthenticateFailed(self, reason):
         self.log_debug("IMAP authenticate failed for %s, trying login" %
@@ -1868,19 +1721,23 @@ class IMAP4DownloadProtocol(imap4.IMAP4Client, LoggingMixIn):
             ).addCallback(self.cbLoggedIn
             ).addErrback(self.ebLoginFailed)
 
+
     def ebLoginFailed(self, reason):
         self.log_error("IMAP login failed for %s" %
             (self.factory.settings["Username"],))
         self.transport.loseConnection()
 
+
     def cbLoggedIn(self, result):
         self.log_debug("IMAP logged in [%s]" % (self.state,))
         self.select("Inbox").addCallback(self.cbInboxSelected)
+
 
     def cbInboxSelected(self, result):
         self.log_debug("IMAP Inbox selected [%s]" % (self.state,))
         allMessages = imap4.MessageSet(1, None)
         self.fetchUID(allMessages, True).addCallback(self.cbGotUIDs)
+
 
     def cbGotUIDs(self, results):
         self.log_debug("IMAP got uids [%s]" % (self.state,))
@@ -1892,6 +1749,7 @@ class IMAP4DownloadProtocol(imap4.IMAP4Client, LoggingMixIn):
         else:
             # No messages; close it out
             self.close().addCallback(self.cbClosed)
+
 
     def fetchNextMessage(self):
         self.log_debug("IMAP in fetchnextmessage [%s]" % (self.state,))
@@ -1908,6 +1766,7 @@ class IMAP4DownloadProtocol(imap4.IMAP4Client, LoggingMixIn):
             self.log_debug("Seeing if anything new has arrived")
             # Go back and see if any more messages have come in
             self.expunge().addCallback(self.cbInboxSelected)
+
 
     def cbGotMessage(self, results, messageList):
         self.log_debug("IMAP in cbGotMessage [%s]" % (self.state,))
@@ -1927,14 +1786,17 @@ class IMAP4DownloadProtocol(imap4.IMAP4Client, LoggingMixIn):
             # No deferred returned, so no need for addCallback( )
             self.cbFlagDeleted(None, messageList)
 
+
     def cbFlagDeleted(self, results, messageList):
         self.addFlags(messageList, ("\\Deleted",),
             uid=True).addCallback(self.cbMessageDeleted, messageList)
+
 
     def cbMessageDeleted(self, results, messageList):
         self.log_debug("IMAP in cbMessageDeleted [%s]" % (self.state,))
         self.log_debug("Deleted message")
         self.fetchNextMessage()
+
 
     def cbClosed(self, results):
         self.log_debug("IMAP in cbClosed [%s]" % (self.state,))
@@ -1942,17 +1804,21 @@ class IMAP4DownloadProtocol(imap4.IMAP4Client, LoggingMixIn):
         self.logout().addCallback(
             lambda _: self.transport.loseConnection())
 
+
     def rawDataReceived(self, data):
         self.log_debug("RAW RECEIVED: %s" % (data,))
         imap4.IMAP4Client.rawDataReceived(self, data)
+
 
     def lineReceived(self, line):
         self.log_debug("RECEIVED: %s" % (line,))
         imap4.IMAP4Client.lineReceived(self, line)
 
+
     def sendLine(self, line):
         self.log_debug("SENDING: %s" % (line,))
         imap4.IMAP4Client.sendLine(self, line)
+
 
 
 class IMAP4DownloadFactory(protocol.ClientFactory, LoggingMixIn):
@@ -1968,6 +1834,7 @@ class IMAP4DownloadFactory(protocol.ClientFactory, LoggingMixIn):
         self.reactor = reactor
         self.noisy = False
 
+
     def buildProtocol(self, addr):
         p = protocol.ClientFactory.buildProtocol(self, addr)
         username = self.settings["Username"]
@@ -1975,6 +1842,7 @@ class IMAP4DownloadFactory(protocol.ClientFactory, LoggingMixIn):
         p.registerAuthenticator(imap4.LOGINAuthenticator(username))
         p.registerAuthenticator(imap4.PLAINAuthenticator(username))
         return p
+
 
     def handleMessage(self, message):
         self.log_debug("IMAP factory handle message")
@@ -2001,10 +1869,12 @@ class IMAP4DownloadFactory(protocol.ClientFactory, LoggingMixIn):
         self.nextPoll = self.reactor.callLater(self.settings["PollingSeconds"],
             reconnector)
 
+
     def clientConnectionLost(self, connector, reason):
         self.connector = connector
         self.log_debug("IMAP factory connection lost")
         self.retry(connector)
+
 
     def clientConnectionFailed(self, connector, reason):
         self.connector = connector

@@ -196,19 +196,26 @@ class PostgresService(MultiService):
         # Options from config
         self.databaseName = databaseName
         self.logFile = logFile
-        if socketDir:
-            # Unix socket length path limit
-            self.socketDir = CachingFilePath("%s/ccs_postgres_%s/" %
-                (socketDir, md5(dataStoreDirectory.path).hexdigest()))
-            if len(self.socketDir.path) > 64:
-                socketDir = "/tmp"
-                self.socketDir = CachingFilePath("/tmp/ccs_postgres_%s/" %
-                    (md5(dataStoreDirectory.path).hexdigest()))
-            self.host = self.socketDir.path
-        else:
+        if listenAddresses:
             self.socketDir = None
-            self.host = "localhost"
-        self.listenAddresses = listenAddresses
+            self.host, self.port = listenAddresses[0].split(":") if ":" in listenAddresses[0] else (listenAddresses[0], None,)
+            self.listenAddresses = [addr.split(":")[0] for addr in listenAddresses]
+        else:
+            if socketDir:
+                # Unix socket length path limit
+                self.socketDir = CachingFilePath("%s/ccs_postgres_%s/" %
+                    (socketDir, md5(dataStoreDirectory.path).hexdigest()))
+                if len(self.socketDir.path) > 64:
+                    socketDir = "/tmp"
+                    self.socketDir = CachingFilePath("/tmp/ccs_postgres_%s/" %
+                        (md5(dataStoreDirectory.path).hexdigest()))
+                self.host = self.socketDir.path
+                self.port = None
+            else:
+                self.socketDir = None
+                self.host = "localhost"
+                self.port = None
+            self.listenAddresses = []
         self.sharedBuffers = sharedBuffers if not testMode else 16
         self.maxConnections = maxConnections if not testMode else 4
         self.options = options
@@ -251,7 +258,12 @@ class PostgresService(MultiService):
                 pwd.getpwuid(self.uid).pw_name)
         else:
             dsn = "%s:dbname=%s" % (self.host, databaseName)
-        return DBAPIConnector(pgdb, postgresPreflight, dsn)
+
+        kwargs = {}
+        if self.port:
+            kwargs["host"] = "%s:%s" % (self.host, self.port,)
+
+        return DBAPIConnector(pgdb, postgresPreflight, dsn, **kwargs)
 
 
     def produceConnection(self, label="<unlabeled>", databaseName=None):
@@ -341,6 +353,8 @@ class PostgresService(MultiService):
         )
         if self.socketDir:
             options.append("-k '%s'" % (self.socketDir.path,))
+        if self.port:
+            options.append("-c port=%s" % (self.port,))
         options.append("-c shared_buffers=%d" % (self.sharedBuffers,))
         options.append("-c max_connections=%d" % (self.maxConnections,))
         options.append("-c standard_conforming_strings=on")

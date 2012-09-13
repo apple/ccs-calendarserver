@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2011 Apple Inc. All rights reserved.
+# Copyright (c) 2011-2012 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -21,6 +21,7 @@ from twistedcaldav.config import config, fullServerPath
 from twistedcaldav.xmlutil import readXML
 import socket
 import urlparse
+from twistedcaldav.scheduling.ischedule.utils import getIPsFromHost
 
 """
 XML based server configuration file handling.
@@ -32,6 +33,15 @@ existence. A common scenario would be a production server and a development/test
 Each server is identified by an id and url. The id is used when assigning principals to a specific server. Each
 server can also support multiple partitions, and each of those is identified by an id and url, with the id also
 being used to assign principals to a specific partition.
+
+These servers support the concept of "partitioning" and "podding".
+
+A "partitioned" service is one that spreads its
+users out across multiple stores and does reverse proxying of incoming requests to the appropriate partitioned host.
+All servers within the same partition have to be running the same version of the software etc.
+
+A "podded" service is one where different groups of users are hosted on different servers, which may be of
+different versions etc. A "pod" may itself be "partitioned", but the partitioning is "invisible" to the outside world.
 """
 
 __all__ = [
@@ -46,12 +56,13 @@ class ServersDB(object):
     """
     Represents the set of servers within the same domain.
     """
-    
+
     def __init__(self):
-        
+
         self._servers = {}
         self._xmlFile = None
         self._thisServer = None
+
 
     def load(self, xmlFile=None, ignoreIPLookupFailures=False):
         if self._xmlFile is None or xmlFile is not None:
@@ -70,31 +81,37 @@ class ServersDB(object):
                 break
         else:
             raise ValueError("No server in %s matches this server." % (self._xmlFile,))
-    
+
+
     def clear(self):
         self._servers = {}
         self._xmlFile = None
         self._thisServer = None
 
+
     def getServerById(self, id):
         return self._servers.get(id)
-        
+
+
     def getServerURIById(self, id):
         try:
             return self._servers[id].uri
         except KeyError:
             return None
-    
+
+
     def getThisServer(self):
         return self._thisServer
 
 Servers = ServersDB()   # Global server DB
 
+
+
 class Server(object):
     """
     Represents a server which may itself be partitioned.
     """
-    
+
     def __init__(self):
         self.id = None
         self.uri = None
@@ -105,7 +122,8 @@ class Server(object):
         self.partitions = {}
         self.partitions_ips = set()
         self.isImplicit = True
-    
+
+
     def check(self, ignoreIPLookupFailures=False):
         # Check whether this matches the current server
         parsed_uri = urlparse.urlparse(self.uri)
@@ -116,10 +134,10 @@ class Server(object):
             elif parsed_uri.scheme == "https":
                 if config.SSLPort:
                     self.thisServer = parsed_uri.port in (config.SSLPort,) + tuple(config.BindSSLPorts)
-        
+
         # Need to cache IP addresses
         try:
-            _ignore_host, _ignore_aliases, ips = socket.gethostbyname_ex(parsed_uri.hostname)
+            ips = getIPsFromHost(parsed_uri.hostname)
         except socket.gaierror, e:
             msg = "Unable to lookup ip-addr for server '%s': %s" % (parsed_uri.hostname, str(e))
             log.error(msg)
@@ -133,7 +151,7 @@ class Server(object):
         for item in self.allowed_from_ips:
             if not isIPAddress(item):
                 try:
-                    _ignore_host, _ignore_aliases, ips = socket.gethostbyname_ex(item)
+                    ips = getIPsFromHost(item)
                 except socket.gaierror, e:
                     msg = "Unable to lookup ip-addr for allowed-from '%s': %s" % (item, str(e))
                     log.error(msg)
@@ -144,11 +162,11 @@ class Server(object):
             else:
                 actual_ips.add(item)
         self.allowed_from_ips = actual_ips
-            
+
         for uri in self.partitions.values():
             parsed_uri = urlparse.urlparse(uri)
             try:
-                _ignore_host, _ignore_aliases, ips = socket.gethostbyname_ex(parsed_uri.hostname)
+                ips = getIPsFromHost(parsed_uri.hostname)
             except socket.gaierror, e:
                 msg = "Unable to lookup ip-addr for partition '%s': %s" % (parsed_uri.hostname, str(e))
                 log.error(msg)
@@ -157,24 +175,28 @@ class Server(object):
                 else:
                     raise ValueError(msg)
             self.partitions_ips.update(ips)
-    
+
+
     def checkThisIP(self, ip):
         """
         Check that the passed in IP address corresponds to this server or one of its partitions.
         """
         return (ip in self.ips) or (ip in self.partitions_ips)
 
+
     def hasAllowedFromIP(self):
         return len(self.allowed_from_ips) > 0
+
 
     def checkAllowedFromIP(self, ip):
         return ip in self.allowed_from_ips
 
+
     def checkSharedSecret(self, request):
-        
+
         # Get header from the request
         request_secret = request.headers.getRawHeaders(SERVER_SECRET_HEADER)
-        
+
         if request_secret is not None and self.shared_secret is None:
             log.error("iSchedule request included unexpected %s header" % (SERVER_SECRET_HEADER,))
             return False
@@ -187,23 +209,28 @@ class Server(object):
         else:
             return True
 
+
     def secretHeader(self):
         """
         Return a tuple of header name, header value
         """
         return (SERVER_SECRET_HEADER, self.shared_secret,)
 
+
     def addPartition(self, id, uri):
         self.partitions[id] = uri
-    
+
+
     def getPartitionURIForId(self, id):
         return self.partitions.get(id)
-    
+
+
     def isPartitioned(self):
         return len(self.partitions) != 0
 
+
     def installReverseProxies(self, ownUID, maxClients):
-        
+
         for partition, url in self.partitions.iteritems():
             if partition != ownUID:
                 installPool(
@@ -211,20 +238,20 @@ class Server(object):
                     url,
                     maxClients,
                 )
-    
-        
-        
-ELEMENT_SERVERS                 = "servers"
-ELEMENT_SERVER                  = "server"
-ELEMENT_ID                      = "id"
-ELEMENT_URI                     = "uri"
-ELEMENT_ALLOWED_FROM            = "allowed-from"
-ELEMENT_SHARED_SECRET           = "shared-secret"
-ELEMENT_PARTITIONS              = "partitions"
-ELEMENT_PARTITION               = "partition"
-ATTR_IMPLICIT                   = "implicit"
-ATTR_VALUE_YES                  = "yes"
-ATTR_VALUE_NO                   = "no"
+
+
+
+ELEMENT_SERVERS = "servers"
+ELEMENT_SERVER = "server"
+ELEMENT_ID = "id"
+ELEMENT_URI = "uri"
+ELEMENT_ALLOWED_FROM = "allowed-from"
+ELEMENT_SHARED_SECRET = "shared-secret"
+ELEMENT_PARTITIONS = "partitions"
+ELEMENT_PARTITION = "partition"
+ATTR_IMPLICIT = "implicit"
+ATTR_VALUE_YES = "yes"
+ATTR_VALUE_NO = "no"
 
 class ServersParser(object):
     """
@@ -242,7 +269,7 @@ class ServersParser(object):
             log.error("XML parse error for '%s' because: %s" % (xmlFile, e,), raiseException=RuntimeError)
 
         for child in servers_node.getchildren():
-            
+
             if child.tag != ELEMENT_SERVER:
                 log.error("Unknown server type: '%s' in servers file: '%s'" % (child.tag, xmlFile,), raiseException=RuntimeError)
 
@@ -271,11 +298,12 @@ class ServersParser(object):
 
         return results
 
+
     @staticmethod
     def _parsePartition(xmlFile, partitions, server):
 
         for child in partitions.getchildren():
-            
+
             if child.tag != ELEMENT_PARTITION:
                 log.error("Unknown partition type: '%s' in servers file: '%s'" % (child.tag, xmlFile,), raiseException=RuntimeError)
 
@@ -288,8 +316,8 @@ class ServersParser(object):
                     uri = node.text
                 else:
                     log.error("Invalid element '%s' in augment file: '%s'" % (node.tag, xmlFile,), raiseException=RuntimeError)
-        
+
             if id is None or uri is None:
                 log.error("Invalid partition '%s' in servers file: '%s'" % (child.tag, xmlFile,), raiseException=RuntimeError)
-            
+
             server.addPartition(id, uri)

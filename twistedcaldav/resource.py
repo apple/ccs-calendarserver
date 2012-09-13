@@ -2568,7 +2568,7 @@ class CalendarHomeResource(DefaultAlarmPropertyMixin, CommonHomeResource):
         from twistedcaldav.storebridge import StoreScheduleInboxResource
         self._provisionedChildren["inbox"] = StoreScheduleInboxResource.maybeCreateInbox
 
-        from twistedcaldav.schedule import ScheduleOutboxResource
+        from twistedcaldav.scheduling.caldav.resource import ScheduleOutboxResource
         self._provisionedChildren["outbox"] = ScheduleOutboxResource
 
         if config.EnableDropBox:

@@ -30,12 +30,12 @@ class DeliveryService(object):
     """
     Abstract base class that defines a delivery method for a scheduling message.
     """
-    
+
     # Known types
-    
-    serviceType_caldav    = 'CalDAV'
+
+    serviceType_caldav = 'CalDAV'
     serviceType_ischedule = 'iSchedule'
-    serviceType_imip      = 'iMIP'
+    serviceType_imip = 'iMIP'
 
     def __init__(self, scheduler, recipients, responses, freebusy):
 
@@ -44,9 +44,11 @@ class DeliveryService(object):
         self.responses = responses
         self.freebusy = freebusy
 
+
     @classmethod
     def serviceType(cls):
         raise NotImplementedError
+
 
     @classmethod
     def matchCalendarUserAddress(cls, cuaddr):
@@ -61,6 +63,7 @@ class DeliveryService(object):
                 log.error("Invalid regular expression for Scheduling configuration '%s/LocalAddresses': %s" % (cls.serviceType(), pattern,))
 
         return False
+
 
     def generateSchedulingResponses(self):
         raise NotImplementedError

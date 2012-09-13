@@ -22,7 +22,7 @@ from twext.web2.stream import MemoryStream
 from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks
 from twisted.python.usage import Options
-from twistedcaldav.scheduling.ischedule.dkim import RSA256, DKIMRequest,\
+from twistedcaldav.scheduling.ischedule.dkim import RSA256, DKIMRequest, \
     PublicKeyLookup, DKIMVerifier, DKIMVerificationError
 import subprocess
 import sys
@@ -32,7 +32,7 @@ import rsa
 
 def _doKeyGeneration(options):
     child = subprocess.Popen(
-        args=["openssl", "genrsa", str(options["key-size"]),],
+        args=["openssl", "genrsa", str(options["key-size"]), ],
         stdout=PIPE,
     )
     output, status = child.communicate()
@@ -44,9 +44,9 @@ def _doKeyGeneration(options):
         open(options["key"], "w").write(output)
     else:
         print output
-    
+
     child = subprocess.Popen(
-        args=["openssl", "rsa", "-pubout",],
+        args=["openssl", "rsa", "-pubout", ],
         stdout=PIPE,
         stdin=PIPE,
     )
@@ -59,15 +59,17 @@ def _doKeyGeneration(options):
         open(options["pub-key"], "w").write(output)
     else:
         print output
-    
+
     if options["txt"]:
         output = "".join(output.splitlines()[1:-1])
         txt = "v=DKIM1; p=%s" % (output,)
         print txt
 
+
+
 @inlineCallbacks
 def _doRequest(options):
-    
+
     # Parse the HTTP file
     request = open(options["request"]).read()
     method, uri, headers, stream = _parseRequest(request)
@@ -81,7 +83,7 @@ def _doRequest(options):
                 sign_headers.append(hdr)
     else:
         sign_headers = sign_headers.split(":")
-    
+
     dkim = DKIMRequest(
         method,
         uri,
@@ -103,23 +105,24 @@ def _doRequest(options):
     print s.getvalue()
 
 
+
 @inlineCallbacks
 def _doVerify(options):
     # Parse the HTTP file
     verify = open(options["verify"]).read()
     method, uri, headers, stream = _parseRequest(verify)
-    
+
     request = ClientRequest(method, uri, headers, stream)
-    
+
     # Check for local public key
     if options["pub-key"]:
         PublicKeyLookup_File.pubkeyfile = options["pub-key"]
         lookup = (PublicKeyLookup_File,)
     else:
         lookup = None
-    
+
     dkim = DKIMVerifier(request, lookup)
-    
+
     try:
         yield dkim.verify()
     except DKIMVerificationError, e:
@@ -128,36 +131,38 @@ def _doVerify(options):
         print "Verification Succeeded"
 
 
+
 def _parseRequest(request):
-    
-    lines = request.replace("\r\n", "\n").splitlines()
-    
+
+    lines = request.splitlines(True)
+
     method, uri, _ignore_version = lines.pop(0).split()
-    
+
     hdrs = []
     body = None
     for line in lines:
         if body is not None:
             body.append(line)
-        elif line == "":
+        elif line.strip() == "":
             body = []
         elif line[0] in (" ", "\t"):
             hdrs[-1] += line
         else:
             hdrs.append(line)
-    
+
     headers = Headers()
     for hdr in hdrs:
         name, value = hdr.split(':', 1)
-        headers.addRawHeader(name, value.lstrip())
-    
-    stream = MemoryStream("\r\n".join(body))
+        headers.addRawHeader(name, value.strip())
 
-    return method, uri, headers, stream 
-        
+    stream = MemoryStream("".join(body))
+
+    return method, uri, headers, stream
+
+
 
 def _writeRequest(request, f):
-    
+
     f.write("%s %s HTTP/1.1\r\n" % (request.method, request.uri,))
     for name, valuelist in request.headers.getAllRawHeaders():
         for value in valuelist:
@@ -166,16 +171,18 @@ def _writeRequest(request, f):
     f.write(request.stream.read())
 
 
+
 class PublicKeyLookup_File(PublicKeyLookup):
-    
+
     method = "*"
-    pubkeyfile = None    
-        
+    pubkeyfile = None
+
     def getPublicKey(self):
         """
         Do the key lookup using the actual lookup method.
         """
         return rsa.PublicKey.load_pkcs1(open(self.pubkeyfile).read())
+
 
 
 def usage(e=None):
@@ -202,7 +209,7 @@ Options:
     --pub-key FILE     Public key file to create [stdout]
     --key-size SIZE    Key size [1024]
     --txt              Also generate the public key TXT record
-    
+
     # Request
     --request FILE      An HTTP request to sign
     --algorithm ALGO    Signature algorithm [rsa-sha256]
@@ -233,20 +240,20 @@ class DKIMToolOptions(Options):
     optFlags = [
         ['verbose', 'v', "Verbose logging."],
         ['key-gen', 'g', "Generate private/public key files"],
-        ['txt',     't', "Also generate the public key TXT record"],
+        ['txt', 't', "Also generate the public key TXT record"],
     ]
 
     optParameters = [
-        ['key',       'k', None, "Private key file to create [default: stdout]"],
-        ['pub-key',   'p', None, 'Public key file to create [default: stdout]'],
-        ['key-size',  'x', 1024, 'Key size'],
-        ['request',   'r', None, 'An HTTP request to sign'],
+        ['key', 'k', None, "Private key file to create [default: stdout]"],
+        ['pub-key', 'p', None, 'Public key file to create [default: stdout]'],
+        ['key-size', 'x', 1024, 'Key size'],
+        ['request', 'r', None, 'An HTTP request to sign'],
         ['algorithm', 'a', RSA256, 'Signature algorithm'],
-        ['domain',    'd', 'example.com', 'Signature domain'],
-        ['selector',  's', 'dkim', 'Signature selector'],
-        ['signing',   'h', None, 'List of headers to sign [automatic]'],
-        ['expire',    'e', 3600, 'When to expire signature'],
-        ['verify',    'w', None, 'An HTTP request to verify'],
+        ['domain', 'd', 'example.com', 'Signature domain'],
+        ['selector', 's', 'dkim', 'Signature selector'],
+        ['signing', 'h', None, 'List of headers to sign [automatic]'],
+        ['expire', 'e', 3600, 'When to expire signature'],
+        ['verify', 'w', None, 'An HTTP request to verify'],
     ]
 
     def __init__(self):
@@ -254,15 +261,17 @@ class DKIMToolOptions(Options):
         self.outputName = '-'
 
 
+
 @inlineCallbacks
 def _runInReactor(fn, options):
-    
+
     try:
         yield fn(options)
     except Exception, e:
         print e
     finally:
         reactor.stop()
+
 
 
 def main(argv=sys.argv, stderr=sys.stderr):

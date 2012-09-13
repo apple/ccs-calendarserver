@@ -15,7 +15,7 @@
 ##
 
 import twistedcaldav.test.util
-from twistedcaldav.scheduling.caldav import ScheduleViaCalDAV
+from twistedcaldav.scheduling.caldav.delivery import ScheduleViaCalDAV
 from twistedcaldav.config import config
 
 class CalDAV (twistedcaldav.test.util.TestCase):

@@ -38,13 +38,15 @@ from twistedcaldav.client.pool import _configuredClientContextFactory
 from twistedcaldav import caldavxml
 from twistedcaldav.caldavxml import caldav_namespace
 from twistedcaldav.scheduling.delivery import DeliveryService
-from twistedcaldav.scheduling.ischedule.servers import IScheduleServers
-from twistedcaldav.scheduling.ischedule.servers import IScheduleServerRecord
+from twistedcaldav.scheduling.ischedule.remoteservers import IScheduleServers
+from twistedcaldav.scheduling.ischedule.remoteservers import IScheduleServerRecord
 from twistedcaldav.scheduling.itip import iTIPRequestStatus
 from twistedcaldav.util import utf8String, normalizationLookup
 from twistedcaldav.scheduling.cuaddress import PartitionedCalendarUser, RemoteCalendarUser, \
     OtherServerCalendarUser
 from twext.internet.gaiendpoint import GAIEndpoint
+from twistedcaldav.scheduling.ischedule.dkim import DKIMRequest, DKIMUtils
+from twistedcaldav.config import config
 
 """
 Handles the sending of iSchedule scheduling messages. Used for both cross-domain scheduling,
@@ -173,6 +175,7 @@ class IScheduleRequest(object):
         self.responses = responses
         self.refreshOnly = refreshOnly
 
+        self.sign_headers = []
         self._generateHeaders()
         self._prepareData()
 
@@ -198,7 +201,27 @@ class IScheduleRequest(object):
                 ep = GAIEndpoint(reactor, self.server.host, self.server.port)
             proto = (yield ep.connect(f))
 
-            request = ClientRequest("POST", self.server.path, self.headers, self.data)
+            if config.Scheduling.iSchedule.DKIM.Enabled:
+                domain, selector, key_file, algorithm, useDNSKey, useHTTPKey, usePrivateExchangeKey, expire = DKIMUtils.getConfiguration(config)
+                request = DKIMRequest(
+                    "POST",
+                    self.server.path,
+                    self.headers,
+                    self.data,
+                    domain,
+                    selector,
+                    key_file,
+                    algorithm,
+                    self.sign_headers,
+                    useDNSKey,
+                    useHTTPKey,
+                    usePrivateExchangeKey,
+                    expire,
+                )
+                yield request.sign()
+            else:
+                request = ClientRequest("POST", self.server.path, self.headers, self.data)
+
             yield self.logRequest("debug", "Sending server-to-server POST request:", request)
             response = (yield proto.submitRequest(request))
 
@@ -300,14 +323,23 @@ class IScheduleRequest(object):
 
     def _generateHeaders(self):
         self.headers = Headers()
-        self.headers.setHeader('Host', utf8String(self.server.host + ":%s" % (self.server.port,)))
+        self.headers.setHeader("Host", utf8String(self.server.host + ":%s" % (self.server.port,)))
+        self.sign_headers.append("Host")
 
         # The Originator must be the ORGANIZER (for a request) or ATTENDEE (for a reply)
-        self.headers.addRawHeader('Originator', utf8String(self.scheduler.organizer.cuaddr if self.scheduler.isiTIPRequest else self.scheduler.attendee))
-        self._doAuthentication()
+        self.headers.addRawHeader("Originator", utf8String(self.scheduler.organizer.cuaddr if self.scheduler.isiTIPRequest else self.scheduler.attendee))
+        self.sign_headers.append("Originator")
+
         for recipient in self.recipients:
-            self.headers.addRawHeader('Recipient', utf8String(recipient.cuaddr))
-        self.headers.setHeader('Content-Type', MimeType("text", "calendar", params={"charset": "utf-8"}))
+            self.headers.addRawHeader("Recipient", utf8String(recipient.cuaddr))
+
+        # Remember to "over sign" the Recipient header
+        self.sign_headers.append("Recipient+")
+
+        self._doAuthentication()
+
+        self.headers.setHeader("Content-Type", MimeType("text", "calendar", params={"charset": "utf-8"}))
+        self.sign_headers.append("Content-Type")
 
         # Add any additional headers
         for name, value in self.server.moreHeaders:
@@ -320,9 +352,10 @@ class IScheduleRequest(object):
     def _doAuthentication(self):
         if self.server.authentication and self.server.authentication[0] == "basic":
             self.headers.setHeader(
-                'Authorization',
+                "Authorization",
                 ('Basic', ("%s:%s" % (self.server.authentication[1], self.server.authentication[2],)).encode('base64')[:-1])
             )
+            self.sign_headers.append("Authorization")
 
 
     def _prepareData(self):

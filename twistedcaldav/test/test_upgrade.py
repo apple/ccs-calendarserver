@@ -15,7 +15,9 @@
 ##
 
 import hashlib
-import os, zlib, cPickle
+import os
+import zlib
+import cPickle
 
 from twisted.python.reflect import namedClass
 from twisted.internet.defer import inlineCallbacks
@@ -26,7 +28,7 @@ from txdav.caldav.datastore.index_file import db_basename
 from twistedcaldav.config import config
 from twistedcaldav.directory.xmlfile import XMLDirectoryService
 from twistedcaldav.directory.resourceinfo import ResourceInfoDatabase
-from twistedcaldav.mail import MailGatewayTokensDatabase
+from twistedcaldav.scheduling.imip.mailgateway import MailGatewayTokensDatabase
 from twistedcaldav.upgrade import (
     xattrname, upgradeData, updateFreeBusySet,
     removeIllegalCharacters, normalizeCUAddrs
@@ -51,7 +53,7 @@ NEWPROXYFILE = "proxies.sqlite"
 
 class UpgradeTests(TestCase):
 
-    
+
     def setUpXMLDirectory(self):
         xmlFile = os.path.join(os.path.dirname(os.path.dirname(__file__)),
             "directory", "test", "accounts.xml")
@@ -80,13 +82,13 @@ class UpgradeTests(TestCase):
         self.setUpOldDocRoot()
         self.setUpOldDocRootWithoutDB()
         self.setUpNewDocRoot()
-        
+
         self.setUpNewDataRoot()
         self.setUpDataRootWithProxyDB()
 
 
     def setUpOldDocRoot(self):
-        
+
         # Set up doc root
         self.olddocroot = os.path.abspath(self.mktemp())
         os.mkdir(self.olddocroot)
@@ -104,7 +106,7 @@ class UpgradeTests(TestCase):
 
 
     def setUpOldDocRootWithoutDB(self):
-        
+
         # Set up doc root
         self.olddocrootnodb = os.path.abspath(self.mktemp())
         os.mkdir(self.olddocrootnodb)
@@ -119,22 +121,25 @@ class UpgradeTests(TestCase):
         os.mkdir(os.path.join(principals, "sudoers"))
         os.mkdir(os.path.join(self.olddocrootnodb, "calendars"))
 
+
     def setUpNewDocRoot(self):
-        
+
         # Set up doc root
         self.newdocroot = os.path.abspath(self.mktemp())
         os.mkdir(self.newdocroot)
 
         os.mkdir(os.path.join(self.newdocroot, "calendars"))
 
+
     def setUpNewDataRoot(self):
-        
+
         # Set up data root
         self.newdataroot = os.path.abspath(self.mktemp())
         os.mkdir(self.newdataroot)
 
+
     def setUpDataRootWithProxyDB(self):
-        
+
         # Set up data root
         self.existingdataroot = os.path.abspath(self.mktemp())
         os.mkdir(self.existingdataroot)
@@ -156,7 +161,6 @@ class UpgradeTests(TestCase):
         config.DocumentRoot = self.olddocroot
         config.DataRoot = self.newdataroot
 
-        
         # Check pre-conditions
         self.assertTrue(os.path.exists(os.path.join(config.DocumentRoot, "principals")))
         self.assertTrue(os.path.isdir(os.path.join(config.DocumentRoot, "principals")))
@@ -164,7 +168,7 @@ class UpgradeTests(TestCase):
         self.assertFalse(os.path.exists(os.path.join(config.DataRoot, NEWPROXYFILE)))
 
         (yield self.doUpgrade(config))
-        
+
         # Check post-conditions
         self.assertFalse(os.path.exists(os.path.join(config.DocumentRoot, "principals",)))
         self.assertTrue(os.path.exists(os.path.join(config.DataRoot, NEWPROXYFILE)))
@@ -180,13 +184,13 @@ class UpgradeTests(TestCase):
 
         config.DocumentRoot = self.newdocroot
         config.DataRoot = self.existingdataroot
-        
+
         # Check pre-conditions
         self.assertFalse(os.path.exists(os.path.join(config.DocumentRoot, "principals")))
         self.assertTrue(os.path.exists(os.path.join(config.DataRoot, NEWPROXYFILE)))
 
         (yield self.doUpgrade(config))
-        
+
         # Check post-conditions
         self.assertFalse(os.path.exists(os.path.join(config.DocumentRoot, "principals",)))
         self.assertTrue(os.path.exists(os.path.join(config.DataRoot, NEWPROXYFILE)))
@@ -219,11 +223,9 @@ class UpgradeTests(TestCase):
         value = cPickle.dumps(doc.root_element)
         self.assertEquals(updateFreeBusySet(value, directory), None)
 
-
         #
         # Verify these values do require updating:
         #
-
         expected = "<?xml version='1.0' encoding='UTF-8'?>\n<calendar-free-busy-set xmlns='urn:ietf:params:xml:ns:caldav'>\r\n  <href xmlns='DAV:'>/calendars/__uids__/6423F94A-6B76-4A3A-815B-D52CFD77935D/calendar/</href>\r\n</calendar-free-busy-set>"
 
         # Uncompressed XML
@@ -247,11 +249,9 @@ class UpgradeTests(TestCase):
         newValue = zlib.decompress(newValue)
         self.assertEquals(newValue, expected)
 
-
         #
         # Shortname not in directory, return empty string
         #
-
         expected = "<?xml version='1.0' encoding='UTF-8'?>\n<calendar-free-busy-set xmlns='urn:ietf:params:xml:ns:caldav'/>"
         value = "<?xml version='1.0' encoding='UTF-8'?>\r\n<calendar-free-busy-set xmlns='urn:ietf:params:xml:ns:caldav'>\r\n  <href xmlns='DAV:'>/calendars/users/nonexistent/calendar</href>\r\n</calendar-free-busy-set>\r\n"
         newValue = updateFreeBusySet(value, directory)
@@ -309,7 +309,7 @@ class UpgradeTests(TestCase):
                          },
                         "notifications": {
                             "sample-notification.xml": {
-                                "@contents":  "<?xml version='1.0'>\n<should-be-ignored />"
+                                "@contents": "<?xml version='1.0'>\n<should-be-ignored />"
                             }
                         }
                     }
@@ -699,7 +699,7 @@ class UpgradeTests(TestCase):
                 {
                     "@contents" : "",
                 },
-                "__uids__" :ignoredUIDContents,
+                "__uids__" : ignoredUIDContents,
             },
             "principals" :
             {
@@ -810,7 +810,7 @@ class UpgradeTests(TestCase):
                 {
                     "@contents" : "",
                 },
-                "__uids__" :beforeUIDContents,
+                "__uids__" : beforeUIDContents,
             },
             "principals" :
             {
@@ -1098,6 +1098,7 @@ class UpgradeTests(TestCase):
 
         (yield self.verifyDirectoryComparison(before, after, reverify=True))
 
+
     @inlineCallbacks
     def test_calendarsUpgradeWithNoChange(self):
         """
@@ -1224,7 +1225,6 @@ class UpgradeTests(TestCase):
         }
 
         (yield self.verifyDirectoryComparison(before, after))
-
 
 
     @inlineCallbacks
@@ -1375,7 +1375,6 @@ class UpgradeTests(TestCase):
             }
         }
 
-
         after = {
             ".calendarserver_version" :
             {
@@ -1425,7 +1424,6 @@ class UpgradeTests(TestCase):
             },
         }
 
-
         root = self.createHierarchy(before)
 
         config.DocumentRoot = root
@@ -1434,6 +1432,7 @@ class UpgradeTests(TestCase):
         (yield self.doUpgrade(config))
 
         self.assertTrue(self.verifyHierarchy(root, after))
+
 
     @inlineCallbacks
     def test_migrateResourceInfo(self):
@@ -1449,7 +1448,7 @@ class UpgradeTests(TestCase):
         def _getResourceInfo(ignored):
             results = []
             for guid, info in assignments.iteritems():
-                results.append( (guid, info[0], info[1], info[2]) )
+                results.append((guid, info[0], info[1], info[2]))
             return results
 
         self.setUpInitialStates()
@@ -1520,7 +1519,6 @@ class UpgradeTests(TestCase):
             autoSchedule = resourceInfoDatabase._db_value_for_sql("select AUTOSCHEDULE from RESOURCEINFO where GUID = :1", guid)
             autoSchedule = autoSchedule == 1
             self.assertEquals(info[0], autoSchedule)
-
 
 
     def test_removeIllegalCharacters(self):
@@ -1712,6 +1710,7 @@ def isValidCTag(value):
         return False
 
 
+
 class ParallelUpgradeTests(UpgradeTests):
     """
     Tests for upgradeData in parallel.
@@ -1721,4 +1720,3 @@ class ParallelUpgradeTests(UpgradeTests):
         from txdav.common.datastore.upgrade.test.test_migrate import StubSpawner
         spawner = StubSpawner(config)
         return upgradeData(config, spawner, 2)
-

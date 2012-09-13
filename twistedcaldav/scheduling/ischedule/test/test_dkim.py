@@ -109,13 +109,13 @@ class TestDKIMRequest (TestDKIMBase):
             ("rsa-sha1", hashlib.sha1,),
             ("rsa-sha256", hashlib.sha256,),
         ):
-            stream = MemoryStream(data)
+            stream = str(data)
             headers = Headers()
             headers.addRawHeader("Originator", "mailto:user01@example.com")
             headers.addRawHeader("Recipient", "mailto:user02@example.com")
             headers.setHeader("Content-Type", MimeType("text", "calendar", **{"component": "VEVENT", "charset": "utf-8"}))
             request = DKIMRequest("POST", "/", headers, stream, "example.com", "dkim", "/tmp/key", algorithm, ("Originator", "Recipient", "Content-Type",), True, True, True, 3600)
-            hash = base64.b64encode(hash_method(data).digest())
+            hash = base64.b64encode(hash_method(DKIMUtils.canonicalizeBody(data)).digest())
             result = (yield request.bodyHash())
             self.assertEqual(result, hash)
 
@@ -170,7 +170,7 @@ dkim-signature:v=1; d=example.com; s=dkim; t=%s; x=%s; a=%s; q=dns/txt:http/well
             result, _ignore_tags = (yield request.signatureHeaders())
 
             # Manually create what should be the correct thing to sign
-            bodyhash = base64.b64encode(hash_method(data).digest())
+            bodyhash = base64.b64encode(hash_method(DKIMUtils.canonicalizeBody(data)).digest())
             sign_this = """originator:mailto:user01@example.com
 recipient:mailto:user02@example.com
 content-type:%s
@@ -201,7 +201,7 @@ dkim-signature:v=1; d=example.com; s=dkim; t=%s; x=%s; a=%s; q=dns/txt:http/well
             result = (yield request.sign())
 
             # Manually create what should be the correct thing to sign and make sure signatures match
-            bodyhash = base64.b64encode(hash_method(data).digest())
+            bodyhash = base64.b64encode(hash_method(DKIMUtils.canonicalizeBody(data)).digest())
             sign_this = """originator:mailto:user01@example.com
 recipient:mailto:user02@example.com
 content-type:%s

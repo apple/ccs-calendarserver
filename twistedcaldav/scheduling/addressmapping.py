@@ -20,11 +20,11 @@ from twext.python.log import Logger
 
 from twistedcaldav.config import config
 from twistedcaldav.memcacher import Memcacher
-from twistedcaldav.scheduling.caldav import ScheduleViaCalDAV
+from twistedcaldav.scheduling.caldav.delivery import ScheduleViaCalDAV
 from twistedcaldav.scheduling.delivery import DeliveryService
-from twistedcaldav.scheduling.imip import ScheduleViaIMip
+from twistedcaldav.scheduling.imip.delivery import ScheduleViaIMip
 from twistedcaldav.scheduling.ischedule.delivery import ScheduleViaISchedule
-from twistedcaldav.scheduling.cuaddress import RemoteCalendarUser, EmailCalendarUser, InvalidCalendarUser,\
+from twistedcaldav.scheduling.cuaddress import RemoteCalendarUser, EmailCalendarUser, InvalidCalendarUser, \
     calendarUserFromPrincipal
 
 __all__ = [
@@ -42,15 +42,16 @@ class ScheduleAddressMapper(object):
     """
     Class that maps a calendar user address into a delivery service type.
     """
-    
+
     def __init__(self):
-        
+
         # We are going to cache mappings whilst running
         self.cache = Memcacher("ScheduleAddressMapper", no_invalidation=True)
 
+
     @inlineCallbacks
     def getCalendarUser(self, cuaddr, principal):
-        
+
         # If we have a principal always treat the user as local or partitioned
         if principal:
             returnValue(calendarUserFromPrincipal(cuaddr, principal))
@@ -66,13 +67,14 @@ class ScheduleAddressMapper(object):
         else:
             returnValue(InvalidCalendarUser(cuaddr))
 
+
     @inlineCallbacks
     def getCalendarUserServiceType(self, cuaddr):
 
         # Try cache first
         cuaddr_type = (yield self.cache.get(str(cuaddr)))
         if cuaddr_type is None:
-            
+
             serviceTypes = (ScheduleViaCalDAV,)
             if config.Scheduling[DeliveryService.serviceType_ischedule]["Enabled"]:
                 serviceTypes += (ScheduleViaISchedule,)
@@ -85,12 +87,13 @@ class ScheduleAddressMapper(object):
 
         returnValue(cuaddr_type)
 
+
     def isCalendarUserInMyDomain(self, cuaddr):
 
         # Check whether it is a possible local address
         def _gotResult(serviceType):
             return serviceType == DeliveryService.serviceType_caldav
-            
+
         d = self.getCalendarUserServiceType(cuaddr)
         d.addCallback(_gotResult)
         return d

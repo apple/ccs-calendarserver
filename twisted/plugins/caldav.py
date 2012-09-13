@@ -33,6 +33,7 @@ def serviceMakerProperty(propname):
     return property(getProperty)
 
 
+
 class TAP(object):
     implements(IPlugin, IServiceMaker)
 
@@ -40,8 +41,8 @@ class TAP(object):
         self.serviceMakerClass = serviceMakerClass
         self._serviceMaker = None
 
-    options     = serviceMakerProperty("options")
-    tapname     = serviceMakerProperty("tapname")
+    options = serviceMakerProperty("options")
+    tapname = serviceMakerProperty("tapname")
     description = serviceMakerProperty("description")
 
     def makeService(self, options):
@@ -51,7 +52,7 @@ class TAP(object):
         return self._serviceMaker.makeService(options)
 
 
-TwistedCalDAV     = TAP("calendarserver.tap.caldav.CalDAVServiceMaker")
-CalDAVNotifier    = TAP("twistedcaldav.notify.NotificationServiceMaker")
-CalDAVMailGateway = TAP("twistedcaldav.mail.MailGatewayServiceMaker")
+TwistedCalDAV = TAP("calendarserver.tap.caldav.CalDAVServiceMaker")
+CalDAVNotifier = TAP("twistedcaldav.notify.NotificationServiceMaker")
+CalDAVMailGateway = TAP("twistedcaldav.scheduling.imip.mailgateway.MailGatewayServiceMaker")
 CalDAVGroupCacher = TAP("twistedcaldav.directory.directory.GroupMembershipCacherServiceMaker")
