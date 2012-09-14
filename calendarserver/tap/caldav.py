@@ -405,7 +405,7 @@ class CalDAVOptions (Options, LoggingMixIn):
                 access=os.W_OK,
                 create=(0750, config.UserName, config.GroupName),
             )
-        if config.DocumentRoot.startswith(config.ServerRoot + os.sep):
+        if config.DocumentRoot.startswith(config.DataRoot + os.sep):
             self.checkDirectory(
                 config.DocumentRoot,
                 "Document root",
