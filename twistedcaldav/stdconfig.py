@@ -810,7 +810,7 @@ DEFAULT_CONFIG = {
     "Localization" : {
         "TranslationsDirectory" : "/Applications/Server.app/Contents/ServerRoot/usr/share/caldavd/share/translations",
         "LocalesDirectory" : "/Applications/Server.app/Contents/ServerRoot/usr/share/caldavd/share/locales",
-        "Language" : "en",
+        "Language" : "",
     },
 
 

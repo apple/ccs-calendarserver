@@ -16,9 +16,10 @@
 
 from __future__ import with_statement
 
-from twistedcaldav.localization import translationTo, _
+from twistedcaldav.localization import translationTo, getLanguage, _
 from twistedcaldav.ical import Component
 from twistedcaldav.test.util import TestCase
+from twistedcaldav.config import ConfigDict
 from pycalendar.datetime import PyCalendarDateTime
 
 import os
@@ -140,3 +141,10 @@ class LocalizationTests(TestCase):
                 (u'11:05 (PDT) otay 18:15 (EDT)', u'4 ourshay 10 inutesmay'))
 
             self.assertEquals(t.monthAbbreviation(1), "ANJAY")
+
+    def test_getLanguage(self):
+        """
+        Test that getLanguage( ) examines config.
+        """
+
+        self.assertEquals(getLanguage(ConfigDict({"Localization" : {"Language" : "xyzzy"}})), "xyzzy")
