@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2005-2009 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2012 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,17 +17,22 @@
 import twistedcaldav.test.util
 from twistedcaldav.scheduling.caldav.delivery import ScheduleViaCalDAV
 from twistedcaldav.config import config
+from twisted.internet.defer import inlineCallbacks
 
 class CalDAV (twistedcaldav.test.util.TestCase):
     """
     twistedcaldav.scheduling.caldav tests
     """
 
+    @inlineCallbacks
     def test_matchCalendarUserAddress(self):
         """
         Make sure we do an exact comparison on EmailDomain
         """
-        config.Scheduling[ScheduleViaCalDAV.serviceType()]["EmailDomain"] = "example.com"
-        self.assertTrue(ScheduleViaCalDAV.matchCalendarUserAddress("mailto:user@example.com"))
-        self.assertFalse(ScheduleViaCalDAV.matchCalendarUserAddress("mailto:user@foo.example.com"))
-        self.assertFalse(ScheduleViaCalDAV.matchCalendarUserAddress("mailto:user@xyzexample.com"))
+        self.patch(config.Scheduling[ScheduleViaCalDAV.serviceType()], "EmailDomain", "example.com")
+        result = yield ScheduleViaCalDAV.matchCalendarUserAddress("mailto:user@example.com")
+        self.assertTrue(result)
+        result = yield ScheduleViaCalDAV.matchCalendarUserAddress("mailto:user@foo.example.com")
+        self.assertFalse(result)
+        result = yield ScheduleViaCalDAV.matchCalendarUserAddress("mailto:user@xyzexample.com")
+        self.assertFalse(result)

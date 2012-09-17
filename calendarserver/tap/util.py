@@ -286,7 +286,7 @@ def directoryFromConfig(config):
     directories = []
 
     directoryClass = namedClass(config.DirectoryService.type)
-    principalResourceClass       = DirectoryPrincipalProvisioningResource
+    principalResourceClass = DirectoryPrincipalProvisioningResource
 
     log.info("Configuring directory service of type: %s"
         % (config.DirectoryService.type,))
@@ -348,6 +348,7 @@ def directoryFromConfig(config):
     return directory
 
 
+
 def getRootResource(config, newStore, resources=None):
     """
     Set up directory service and resource hierarchy based on config.
@@ -373,16 +374,16 @@ def getRootResource(config, newStore, resources=None):
     #
     # Default resource classes
     #
-    rootResourceClass               = RootResource
-    calendarResourceClass           = DirectoryCalendarHomeProvisioningResource
-    iScheduleResourceClass          = IScheduleInboxResource
-    timezoneServiceResourceClass    = TimezoneServiceResource
+    rootResourceClass = RootResource
+    calendarResourceClass = DirectoryCalendarHomeProvisioningResource
+    iScheduleResourceClass = IScheduleInboxResource
+    timezoneServiceResourceClass = TimezoneServiceResource
     timezoneStdServiceResourceClass = TimezoneStdServiceResource
-    webCalendarResourceClass        = WebCalendarResource
-    webAdminResourceClass           = WebAdminResource
-    addressBookResourceClass        = DirectoryAddressBookHomeProvisioningResource
+    webCalendarResourceClass = WebCalendarResource
+    webAdminResourceClass = WebAdminResource
+    addressBookResourceClass = DirectoryAddressBookHomeProvisioningResource
     directoryBackedAddressBookResourceClass = DirectoryBackedAddressBookResource
-    apnSubscriptionResourceClass    = APNSubscriptionResource
+    apnSubscriptionResourceClass = APNSubscriptionResource
 
     directory = directoryFromConfig(config)
 
@@ -459,12 +460,10 @@ def getRootResource(config, newStore, resources=None):
         if credFactory:
             credentialFactories.append(credFactory)
 
-
     #
     # Setup Resource hierarchy
     #
-    log.info("Setting up document root at: %s"
-                  % (config.DocumentRoot,))
+    log.info("Setting up document root at: %s" % (config.DocumentRoot,))
 
     principalCollection = directory.principalCollection
 
@@ -499,10 +498,10 @@ def getRootResource(config, newStore, resources=None):
             # remove /directory from previous runs that may have created it
             try:
                 FilePath(directoryPath).remove()
-                log.info("Deleted: %s" %    directoryPath)
+                log.info("Deleted: %s" % directoryPath)
             except (OSError, IOError), e:
                 if e.errno != errno.ENOENT:
-                    log.error("Could not delete: %s : %r" %  (directoryPath, e,))
+                    log.error("Could not delete: %s : %r" % (directoryPath, e,))
 
     log.info("Setting up root resource: %r" % (rootResourceClass,))
 
@@ -510,7 +509,6 @@ def getRootResource(config, newStore, resources=None):
         config.DocumentRoot,
         principalCollections=(principalCollection,),
     )
-
 
     root.putChild("principals", principalCollection)
     if config.EnableCalDAV:
@@ -579,7 +577,7 @@ def getRootResource(config, newStore, resources=None):
             root,
         )
         root.putChild("stdtimezones", timezoneStdService)
-        
+
         # TODO: we only want the master to do this
         if _reactor._started:
             _reactor.callLater(0, timezoneStdService.onStartup)
@@ -598,10 +596,11 @@ def getRootResource(config, newStore, resources=None):
             newStore,
         )
         root.putChild("ischedule", ischedule)
-        
+
         # Do DomainKey resources
         DKIMUtils.validConfiguration(config)
         if config.Scheduling.iSchedule.DKIM.Enabled:
+            log.info("Setting up domainkey resource: %r" % (DomainKeyResource,))
             domain = config.Scheduling.iSchedule.DKIM.Domain if config.Scheduling.iSchedule.DKIM.Domain else config.ServerHostName
             dk = DomainKeyResource(
                 domain,
@@ -651,10 +650,9 @@ def getRootResource(config, newStore, resources=None):
     log.info("Setting up Timezone Cache")
     TimezoneCache.create()
 
-
     log.info("Configuring authentication wrapper")
 
-    overrides = { }
+    overrides = {}
     if resources:
         for path, cls, args, schemes in resources:
 
@@ -692,6 +690,7 @@ def getRootResource(config, newStore, resources=None):
     )
 
     return logWrapper
+
 
 
 def getDBPool(config):
@@ -770,8 +769,6 @@ def computeProcessCount(minimum, perCPU, perGB, cpuCount=None, memSize=None):
 
 
 
-
-
 class FakeRequest(object):
 
     def __init__(self, rootResource, method, path, uri='/'):
@@ -783,6 +780,7 @@ class FakeRequest(object):
         self._urlsByResource = {}
         self.headers = Headers()
 
+
     @inlineCallbacks
     def _getChild(self, resource, segments):
         if not segments:
@@ -790,6 +788,7 @@ class FakeRequest(object):
 
         child, remaining = (yield resource.locateChild(self, segments))
         returnValue((yield self._getChild(child, remaining)))
+
 
     @inlineCallbacks
     def locateResource(self, url):
@@ -799,6 +798,7 @@ class FakeRequest(object):
         if resource:
             self._rememberResource(resource, url)
         returnValue(resource)
+
 
     @inlineCallbacks
     def locateChildResource(self, parent, childName):
@@ -814,16 +814,19 @@ class FakeRequest(object):
             self._rememberResource(resource, url)
         returnValue(resource)
 
+
     def _rememberResource(self, resource, url):
         self._resourcesByURL[url] = resource
         self._urlsByResource[resource] = url
         return resource
 
+
     def _forgetResource(self, resource, url):
-        if self._resourcesByURL.has_key(url):
+        if url in self._resourcesByURL:
             del self._resourcesByURL[url]
-        if self._urlsByResource.has_key(resource):
+        if resource in self._urlsByResource:
             del self._urlsByResource[resource]
+
 
     def urlForResource(self, resource):
         url = self._urlsByResource.get(resource, None)
@@ -833,6 +836,6 @@ class FakeRequest(object):
             raise NoURLForResourceError(resource)
         return url
 
-    def addResponseFilter(*args, **kwds):
-        pass
 
+    def addResponseFilter(self, *args, **kwds):
+        pass

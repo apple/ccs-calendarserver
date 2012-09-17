@@ -25,6 +25,7 @@ from twisted.internet.defer import inlineCallbacks, returnValue, succeed
 from twistedcaldav.client.geturl import getURL
 from twistedcaldav.config import ConfigurationError
 from twistedcaldav.simpleresource import SimpleResource, SimpleDataResource
+from twistedcaldav.scheduling.ischedule.utils import lookupDataViaTXT
 
 import base64
 import binascii
@@ -408,6 +409,15 @@ class DKIMRequest(ClientRequest):
 
 
 
+class DKIMMissingError(Exception):
+    """
+    Used to indicate that the DKIM-Signature header is not present when
+    attempting verification.
+    """
+    pass
+
+
+
 class DKIMVerificationError(Exception):
     """
     Used to indicate a DKIM verification error.
@@ -509,7 +519,7 @@ Base64 encoded body:
         if dkim is None:
             msg = "No DKIM-Signature header present in the request"
             log.debug("DKIM: " + msg)
-            raise DKIMVerificationError(msg)
+            raise DKIMMissingError(msg)
         if len(dkim) != 1:
             # TODO: This might need to be changed if we ever support forwarding of iSchedule messages - the forwarder
             # might also sign the message and add its own header
@@ -749,11 +759,15 @@ class PublicKeyLookup_DNSTXT(PublicKeyLookup):
         return "%s._domainkey.%s" % (self.dkim_tags["s"], self.dkim_tags["d"],)
 
 
+    @inlineCallbacks
     def _lookupKeys(self):
         """
         Do the key lookup using the actual lookup method.
         """
-        raise NotImplementedError
+        log.debug("DKIM: TXT lookup: %s" % (self._getSelectorKey(),))
+        data = (yield lookupDataViaTXT(self._getSelectorKey()))
+        log.debug("DKIM: TXT lookup results: %s\n%s" % (self._getSelectorKey(), "\n".join(data),))
+        returnValue(tuple([DKIMUtils.extractTags(line) for line in data]))
 
 
 
@@ -777,6 +791,7 @@ class PublicKeyLookup_HTTP_WellKnown(PublicKeyLookup):
         Do the key lookup using the actual lookup method.
         """
 
+        log.debug("DKIM: HTTP/.well-known lookup: %s" % (self._getSelectorKey(),))
         response = (yield getURL(self._getSelectorKey()))
         if response is None or response.code / 100 != 2:
             log.debug("DKIM: Failed http/well-known lookup: %s %s" % (self._getSelectorKey(), response,))
@@ -789,6 +804,7 @@ class PublicKeyLookup_HTTP_WellKnown(PublicKeyLookup):
             log.debug("DKIM: Failed http/well-known lookup: wrong content-type returned %s %s" % (self._getSelectorKey(), ct,))
             returnValue(())
 
+        log.debug("DKIM: HTTP/.well-known lookup results: %s\n%s" % (self._getSelectorKey(), response.data,))
         returnValue(tuple([DKIMUtils.extractTags(line) for line in response.data.splitlines()]))
 
 
@@ -821,6 +837,7 @@ class PublicKeyLookup_PrivateExchange(PublicKeyLookup):
             return succeed(())
 
         # Now read the data
+        log.debug("DKIM: Private exchange lookup: %s" % (keyfile,))
         try:
             with open(keyfile) as f:
                 keys = f.read()
@@ -828,6 +845,7 @@ class PublicKeyLookup_PrivateExchange(PublicKeyLookup):
             log.debug("DKIM: Failed private-exchange lookup: could not read %s %s" % (keyfile, e,))
             return succeed(())
 
+        log.debug("DKIM: Private exchange lookup results: %s\n%s" % (keyfile, keys))
         return succeed(tuple([DKIMUtils.extractTags(line) for line in keys.splitlines()]))
 
 
@@ -871,7 +889,7 @@ class DomainKeyResource (SimpleResource):
 
         # Make the TXT record
         key_data = "".join(key_data.strip().splitlines()[1:-1])
-        txt_data = "v=DKIM1; s=ischedule; p=%s" % (key_data,)
+        txt_data = "v=DKIM1; s=ischedule; p=%s\n" % (key_data,)
 
         # Setup resource hierarchy
         domainResource = SimpleResource(principalCollections=None, isdir=True, defaultACL=SimpleResource.allReadACL)

@@ -34,7 +34,7 @@ import socket
 import urlparse
 from twistedcaldav.config import config
 from twistedcaldav.scheduling.ischedule.dkim import DKIMVerifier, \
-    DKIMVerificationError
+    DKIMVerificationError, DKIMMissingError
 from twext.web2.http_headers import MimeType
 from twistedcaldav.scheduling.ischedule.xml import ischedule_namespace
 from txdav.xml.base import WebDAVUnknownElement
@@ -118,11 +118,21 @@ class IScheduleScheduler(RemoteScheduler):
         """
         Carry out iSchedule specific processing.
         """
+
+        self.verified = False
         if config.Scheduling.iSchedule.DKIM.Enabled:
             verifier = DKIMVerifier(self.request, protocol_debug=config.Scheduling.iSchedule.DKIM.ProtocolDebug)
             try:
                 yield verifier.verify()
+                self.verified = True
+
+            except DKIMMissingError:
+                # Carry on processing, but we will do extra checks on the originator as we would
+                # when DKIM is not enabled, so that any local policy via remoteservers.xml can be used.
+                pass
+
             except DKIMVerificationError, e:
+                # If DKIM is enabled and there was a DKIM header present, then fail
                 msg = "Failed to verify DKIM signature"
                 _debug_msg = str(e)
                 log.debug("%s:%s" % (msg, _debug_msg,))
@@ -200,6 +210,10 @@ class IScheduleScheduler(RemoteScheduler):
         """
         Check the validity of the iSchedule host.
         """
+
+        # Check for DKIM verification first and treat as valid
+        if self.verified:
+            return
 
         # We will only accept originator in known domains.
         servermgr = IScheduleServers()

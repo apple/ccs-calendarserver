@@ -19,7 +19,7 @@ import uuid
 from twext.python.log import Logger
 from twext.web2.dav.http import ErrorResponse
 
-from twisted.internet.defer import inlineCallbacks, returnValue
+from twisted.internet.defer import inlineCallbacks, returnValue, succeed
 from twisted.python.failure import Failure
 from twext.web2 import responsecode
 from txdav.xml import element as davxml
@@ -75,17 +75,17 @@ class ScheduleViaCalDAV(DeliveryService):
             domain = config.Scheduling[cls.serviceType()]["EmailDomain"]
             _ignore_account, addrDomain = addr.split("@")
             if addrDomain == domain:
-                return True
+                return succeed(True)
 
         elif (cuaddr.startswith("http://") or cuaddr.startswith("https://")) and config.Scheduling[cls.serviceType()]["HTTPDomain"]:
             splits = cuaddr.split(":")[0][2:].split("?")
             domain = config.Scheduling[cls.serviceType()]["HTTPDomain"]
             if splits[0].endswith(domain):
-                return True
+                return succeed(True)
 
         elif cuaddr.startswith("/"):
             # Assume relative HTTP URL - i.e. on this server
-            return True
+            return succeed(True)
 
         # Do default match
         return super(ScheduleViaCalDAV, cls).matchCalendarUserAddress(cuaddr)

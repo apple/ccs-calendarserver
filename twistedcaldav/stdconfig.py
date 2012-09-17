@@ -606,6 +606,7 @@ DEFAULT_CONFIG = {
             "Enabled"          : False, # iSchedule protocol
             "AddressPatterns"  : [], # Reg-ex patterns to match iSchedule-able calendar user addresses
             "RemoteServers"    : "remoteservers.xml", # iSchedule server configurations
+            "DNSDebug"         : "", # File where a fake Bind zone exists for creating fake DNS results
             "DKIM"             : {      # DKIM options
                 "Enabled"               : True, # DKIM signing/verification enabled
                 "Domain"                : "", # Domain for DKIM (defaults to ServerHostName)
@@ -1036,6 +1037,7 @@ RELATIVE_PATHS = [
     ("DataRoot", "AttachmentsRoot"),
     ("DataRoot", ("TimezoneService", "BasePath",)),
     ("ConfigRoot", "SudoersFile"),
+    ("ConfigRoot", ("Scheduling", "iSchedule", "DNSDebug",)),
     ("ConfigRoot", ("Scheduling", "iSchedule", "DKIM", "PrivateKeyFile",)),
     ("ConfigRoot", ("Scheduling", "iSchedule", "DKIM", "PublicKeyFile",)),
     ("ConfigRoot", ("Scheduling", "iSchedule", "DKIM", "PrivateExchanges",)),

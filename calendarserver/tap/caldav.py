@@ -1758,7 +1758,7 @@ class DelayedStartupProcessMonitor(Service, object):
         the inherited implementation of startService because ProcessMonitor
         doesn't allow customization of subprocess environment).
         """
-        if name in self.protocols.has_key:
+        if name in self.protocols:
             return
         p = self.protocols[name] = DelayedStartupLoggingProtocol()
         p.service = self

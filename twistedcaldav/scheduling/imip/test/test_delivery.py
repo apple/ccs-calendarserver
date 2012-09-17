@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2005-2007 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2012 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -64,8 +64,11 @@ END:VCALENDAR
         self.assertEqual(str(responses.responses[0].children[1]), iTIPRequestStatus.SERVICE_UNAVAILABLE)
 
 
+    @inlineCallbacks
     def test_matchCalendarUserAddress(self):
         # iMIP not sensitive to case:
         self.patch(config.Scheduling[ScheduleViaIMip.serviceType()], "AddressPatterns", ["mailto:.*"])
-        self.assertTrue(ScheduleViaIMip.matchCalendarUserAddress("mailto:user@xyzexample.com"))
-        self.assertTrue(ScheduleViaIMip.matchCalendarUserAddress("MAILTO:user@xyzexample.com"))
+        result = yield ScheduleViaIMip.matchCalendarUserAddress("mailto:user@xyzexample.com")
+        self.assertTrue(result)
+        result = ScheduleViaIMip.matchCalendarUserAddress("MAILTO:user@xyzexample.com")
+        self.assertTrue(result)

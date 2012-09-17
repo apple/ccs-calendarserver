@@ -26,6 +26,10 @@ import rsa
 import time
 import twistedcaldav.test.util
 import os
+from twisted.names import client
+from twistedcaldav.scheduling.ischedule import utils
+from twisted.python.modules import getModule
+from twistedcaldav.config import config
 
 class TestDKIMBase (twistedcaldav.test.util.TestCase):
     """
@@ -636,6 +640,15 @@ class TestPublicKeyLookup (TestDKIMBase):
     L{PublicKeyLookup} support tests.
     """
 
+    def tearDown(self):
+        """
+        By setting the resolver to None, it will be recreated next time a name
+        lookup is done.
+        """
+        client.theResolver = None
+        utils.DebugResolver = None
+
+
     def test_selector_key(self):
 
         for lookup, d, result in (
@@ -764,6 +777,30 @@ class TestPublicKeyLookup (TestDKIMBase):
         lookup.keys = []
         pubkey = (yield lookup.getPublicKey())
         self.assertEqual(pubkey, None)
+
+
+    @inlineCallbacks
+    def test_TXT_key(self):
+
+        # Need to setup a fake resolver
+        module = getModule(__name__)
+        dataPath = module.filePath.sibling("data")
+        bindPath = dataPath.child("db.example.com")
+        self.patch(config.Scheduling.iSchedule, "DNSDebug", bindPath.path)
+        utils.DebugResolver = None
+        utils._initResolver()
+
+        for d, s, result in (
+            ("example.com", "_ischedule", True),
+            ("example.com", "_revoked", False),
+            ("example.com", "dkim", False),
+            ("calendar.example.com", "_ischedule", False),
+            ("example.org", "_ischedule", False),
+        ):
+            dkim = "v=1; d=%s; s = %s; t = 1234; a=rsa-sha1; q=dns/txt ; http=UE9TVDov; c=relaxed/simple; h=Content-Type:Originator:Recipient:Recipient:iSchedule-Version:iSchedule-Message-ID; bh=abc; b=" % (d, s,)
+            tester = PublicKeyLookup_DNSTXT(DKIMUtils.extractTags(dkim))
+            pkey = yield tester.getPublicKey(False)
+            self.assertEqual(pkey is not None, result)
 
 
     @inlineCallbacks

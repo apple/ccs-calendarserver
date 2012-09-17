@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2005-2010 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2012 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -81,7 +81,8 @@ class ScheduleAddressMapper(object):
             if config.Scheduling[DeliveryService.serviceType_imip]["Enabled"]:
                 serviceTypes += (ScheduleViaIMip,)
             for service in serviceTypes:
-                if service.matchCalendarUserAddress(cuaddr):
+                matched = (yield service.matchCalendarUserAddress(cuaddr))
+                if matched:
                     yield self.cache.set(str(cuaddr), service.serviceType())
                     returnValue(service.serviceType())
 

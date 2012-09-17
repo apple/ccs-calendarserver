@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2006-2010 Apple Inc. All rights reserved.
+# Copyright (c) 2006-2012 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,7 +19,6 @@ from twext.python.filepath import CachingFilePath as FilePath
 from twext.python.log import Logger
 
 from twistedcaldav.config import config, fullServerPath
-from twistedcaldav.scheduling.delivery import DeliveryService
 from twistedcaldav import xmlutil
 
 """
@@ -48,20 +47,24 @@ class IScheduleServers(object):
 
 
     def _loadConfig(self):
-        if IScheduleServers._servers is None:
-            IScheduleServers._xmlFile = FilePath(
-                fullServerPath(
-                    config.ConfigRoot,
-                    config.Scheduling.iSchedule.RemoteServers,
+        if config.Scheduling.iSchedule.RemoteServers:
+            if IScheduleServers._servers is None:
+                IScheduleServers._xmlFile = FilePath(
+                    fullServerPath(
+                        config.ConfigRoot,
+                        config.Scheduling.iSchedule.RemoteServers,
+                    )
                 )
-            )
-        IScheduleServers._xmlFile.restat()
-        fileInfo = (IScheduleServers._xmlFile.getmtime(), IScheduleServers._xmlFile.getsize())
-        if fileInfo != IScheduleServers._fileInfo:
-            parser = IScheduleServersParser(IScheduleServers._xmlFile)
-            IScheduleServers._servers = parser.servers
-            self._mapDomains()
-            IScheduleServers._fileInfo = fileInfo
+            IScheduleServers._xmlFile.restat()
+            fileInfo = (IScheduleServers._xmlFile.getmtime(), IScheduleServers._xmlFile.getsize())
+            if fileInfo != IScheduleServers._fileInfo:
+                parser = IScheduleServersParser(IScheduleServers._xmlFile)
+                IScheduleServers._servers = parser.servers
+                self._mapDomains()
+                IScheduleServers._fileInfo = fileInfo
+        else:
+            IScheduleServers._servers = ()
+            IScheduleServers._domainMap = {}
 
 
     def _mapDomains(self):
@@ -145,6 +148,18 @@ class IScheduleServerRecord (object):
         if uri:
             self.uri = uri
             self._parseDetails()
+
+
+    def details(self):
+        return (self.ssl, self.host, self.port, self.path,)
+
+
+    def redirect(self, location):
+        """
+        Permanent redirect for the lifetime of this record.
+        """
+        self.uri = location
+        self._parseDetails()
 
 
     def parseXML(self, node):
