@@ -235,7 +235,7 @@ www_get () {
         # Try getting a copy from calendarserver.org.
         #
         local tmp="$(mktemp "/tmp/${cache_basename}.XXXXX")";
-        curl -L "http://${pkg_host}${pkg_path}/${cache_basename}" -o "${tmp}";
+        curl -L "http://${pkg_host}${pkg_path}/${cache_basename}" -o "${tmp}" || true;
         echo "";
         if [ ! -s "${tmp}" ] || grep '<title>404 Not Found</title>' "${tmp}" > /dev/null; then
           rm -f "${tmp}";
