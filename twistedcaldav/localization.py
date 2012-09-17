@@ -27,7 +27,7 @@ from pycalendar.duration import PyCalendarDuration
 
 try:
     from Foundation import (
-        NSPropertyListImmutable, NSPropertyListSerialization, NSData, NSUserDefaults
+        NSPropertyListImmutable, NSPropertyListSerialization, NSData, NSLocale
     )
     foundationImported = True
 except ImportError:
@@ -479,7 +479,7 @@ def convertStringsFile(src, dest):
 def getLanguage(config):
     """
     If the language has been specified explicitly in the config, return it.  Otherwise
-    look it up via NSUserDefaults on OS X.  Failing that, return "en"
+    look it up via NSLocale on OS X.  Failing that, return "en"
 
     @param config: The configuration object to examine
     @type config: ConfigDict
@@ -491,7 +491,7 @@ def getLanguage(config):
         return config.Localization.Language
 
     try:
-        language = NSUserDefaults.standardUserDefaults().objectForKey_(u"AppleLanguages")[0]
+        language = NSLocale.preferredLanguages()[0]
     except:
         language = "en"
 
