@@ -72,7 +72,7 @@ class SharingTests(HomeTestCase):
         self.patch(config.Sharing.Calendars, "Enabled", True)
 
         CalDAVResource.validUserIDForShare = self._fakeValidUserID
-        CalDAVResource.validUserIDWithCommonNameForShare = self._fakeValidUserID
+        CalDAVResource.validUserIDWithCommonNameForShare = self._fakeValidUserID_CN
         CalDAVResource.sendInvite = lambda self, record, request: succeed(True)
         CalDAVResource.removeInvite = lambda self, record, request: succeed(True)
 
@@ -90,7 +90,7 @@ class SharingTests(HomeTestCase):
         returnValue(result)
 
 
-    def _fakeValidUserID(self, userid, *args):
+    def _fakeValidUserID_Base(self, userid, request, *args):
         if userid.startswith("/principals/"):
             return userid
         if userid.endswith("@example.com"):
@@ -99,8 +99,26 @@ class SharingTests(HomeTestCase):
         else:
             return None if len(args) == 0 else (None, None, None,)
 
-    def _fakeInvalidUserID(self, userid, *args):
+
+    def _fakeValidUserID(self, userid, request, *args):
+        return succeed(self._fakeValidUserID_Base(userid, request, *args))
+
+
+    def _fakeValidUserID_CN(self, userid, *args):
+        return self._fakeValidUserID_Base(userid, None, *args)
+
+
+    def _fakeInvalidUserID_Base(self, userid, request, *args):
         return None if len(args) == 0 else (None, None, None,)
+
+
+    def _fakeInvalidUserID(self, userid, request, *args):
+        return succeed(self._fakeInvalidUserID_Base(userid, request, *args))
+
+
+    def _fakeInvalidUserID_CN(self, userid, *args):
+        return self._fakeInvalidUserID_Base(userid, None, *args)
+
 
     @inlineCallbacks
     def _doPOST(self, body, resultcode = responsecode.OK):
@@ -565,7 +583,7 @@ class SharingTests(HomeTestCase):
         ))
 
         self.resource.validUserIDForShare = self._fakeInvalidUserID
-        self.resource.validUserIDWithCommonNameForShare = self._fakeInvalidUserID
+        self.resource.validUserIDWithCommonNameForShare = self._fakeInvalidUserID_CN
         self.resource.principalForCalendarUserAddress = lambda cuaddr: None
 
         propInvite = (yield self.resource.readProperty(customxml.Invite, None))
