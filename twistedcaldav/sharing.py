@@ -461,6 +461,8 @@ class SharedCollectionMixin(object):
                 record.state = "INVALID"
                 yield self.invitesDB().addOrUpdateRecord(record)
 
+        returnValue(len(records))
+
 
     def inviteUserToShare(self, userid, cn, ace, summary, request):
         """ Send out in invite first, and then add this user to the share list
@@ -715,6 +717,7 @@ class SharedCollectionMixin(object):
         returnValue(result)
 
 
+    @inlineCallbacks
     def _handleInvite(self, request, invitedoc):
         def _handleInviteSet(inviteset):
             userid = None
@@ -772,83 +775,82 @@ class SharedCollectionMixin(object):
                 access = set(access)
             return (userid, access)
 
-        def _autoShare(isShared, request):
-            if not isShared:
-                self.upgradeToShare()
+        setDict, removeDict, updateinviteDict = {}, {}, {}
+        okusers = set()
+        badusers = set()
+        for item in invitedoc.children:
+            if isinstance(item, customxml.InviteSet):
+                userid, cn, access, summary = _handleInviteSet(item)
+                setDict[userid] = (cn, access, summary)
 
-        @inlineCallbacks
-        def _processInviteDoc(_, request):
-            setDict, removeDict, updateinviteDict = {}, {}, {}
+                # Validate each userid on add only
+                uid = (yield self.validUserIDForShare(userid, request))
+                (okusers if uid is not None else badusers).add(userid)
+            elif isinstance(item, customxml.InviteRemove):
+                userid, access = _handleInviteRemove(item)
+                removeDict[userid] = access
+
+                # Treat removed userids as valid as we will fail invalid ones silently
+                okusers.add(userid)
+
+        # Only make changes if all OK
+        if len(badusers) == 0:
             okusers = set()
             badusers = set()
-            for item in invitedoc.children:
-                if isinstance(item, customxml.InviteSet):
-                    userid, cn, access, summary = _handleInviteSet(item)
-                    setDict[userid] = (cn, access, summary)
+            # Special case removing and adding the same user and treat that as an add
+            sameUseridInRemoveAndSet = [u for u in removeDict.keys() if u in setDict]
+            for u in sameUseridInRemoveAndSet:
+                removeACL = removeDict[u]
+                cn, newACL, summary = setDict[u]
+                updateinviteDict[u] = (cn, removeACL, newACL, summary)
+                del removeDict[u]
+                del setDict[u]
+            for userid, access in removeDict.iteritems():
+                result = (yield self.uninviteUserToShare(userid, access, request))
+                # If result is False that means the user being removed was not
+                # actually invited, but let's not return an error in this case.
+                okusers.add(userid)
+            for userid, (cn, access, summary) in setDict.iteritems():
+                result = (yield self.inviteUserToShare(userid, cn, access, summary, request))
+                (okusers if result else badusers).add(userid)
+            for userid, (cn, removeACL, newACL, summary) in updateinviteDict.iteritems():
+                result = (yield self.inviteUserUpdateToShare(userid, cn, removeACL, newACL, summary, request))
+                (okusers if result else badusers).add(userid)
 
-                    # Validate each userid on add only
-                    uid = (yield self.validUserIDForShare(userid, request))
-                    (okusers if uid is not None else badusers).add(userid)
-                elif isinstance(item, customxml.InviteRemove):
-                    userid, access = _handleInviteRemove(item)
-                    removeDict[userid] = access
+            # In this case bad items do not prevent ok items from being processed
+            ok_code = responsecode.OK
+        else:
+            # In this case a bad item causes all ok items not to be processed so failed dependency is returned
+            ok_code = responsecode.FAILED_DEPENDENCY
 
-                    # Treat removed userids as valid as we will fail invalid ones silently
-                    okusers.add(userid)
+        # Do a final validation of the entire set of invites
+        numRecords = (yield self.validateInvites(request))
 
-            # Only make changes if all OK
-            if len(badusers) == 0:
-                okusers = set()
-                badusers = set()
-                # Special case removing and adding the same user and treat that as an add
-                sameUseridInRemoveAndSet = [u for u in removeDict.keys() if u in setDict]
-                for u in sameUseridInRemoveAndSet:
-                    removeACL = removeDict[u]
-                    cn, newACL, summary = setDict[u]
-                    updateinviteDict[u] = (cn, removeACL, newACL, summary)
-                    del removeDict[u]
-                    del setDict[u]
-                for userid, access in removeDict.iteritems():
-                    result = (yield self.uninviteUserToShare(userid, access, request))
-                    # If result is False that means the user being removed was not
-                    # actually invited, but let's not return an error in this case.
-                    okusers.add(userid)
-                for userid, (cn, access, summary) in setDict.iteritems():
-                    result = (yield self.inviteUserToShare(userid, cn, access, summary, request))
-                    (okusers if result else badusers).add(userid)
-                for userid, (cn, removeACL, newACL, summary) in updateinviteDict.iteritems():
-                    result = (yield self.inviteUserUpdateToShare(userid, cn, removeACL, newACL, summary, request))
-                    (okusers if result else badusers).add(userid)
+        # Set the sharing state on the collection
+        shared = (yield self.isShared(request))
+        if shared and numRecords == 0:
+            yield self.downgradeFromShare(request)
+        elif not shared and numRecords != 0:
+            self.upgradeToShare()
 
-                # In this case bad items do not prevent ok items from being processed
-                ok_code = responsecode.OK
-            else:
-                # In this case a bad item causes all ok items not to be processed so failed dependency is returned
-                ok_code = responsecode.FAILED_DEPENDENCY
+        # Create the multistatus response - only needed if some are bad
+        if badusers:
+            xml_responses = []
+            xml_responses.extend([
+                element.StatusResponse(element.HRef(userid), element.Status.fromResponseCode(ok_code))
+                for userid in sorted(okusers)
+            ])
+            xml_responses.extend([
+                element.StatusResponse(element.HRef(userid), element.Status.fromResponseCode(responsecode.FORBIDDEN))
+                for userid in sorted(badusers)
+            ])
 
-            # Do a final validation of the entire set of invites
-            yield self.validateInvites(request)
-
-            # Create the multistatus response - only needed if some are bad
-            if badusers:
-                xml_responses = []
-                xml_responses.extend([
-                    element.StatusResponse(element.HRef(userid), element.Status.fromResponseCode(ok_code))
-                    for userid in sorted(okusers)
-                ])
-                xml_responses.extend([
-                    element.StatusResponse(element.HRef(userid), element.Status.fromResponseCode(responsecode.FORBIDDEN))
-                    for userid in sorted(badusers)
-                ])
-
-                #
-                # Return response
-                #
-                returnValue(MultiStatusResponse(xml_responses))
-            else:
-                returnValue(responsecode.OK)
-
-        return self.isShared(request).addCallback(_autoShare, request).addCallback(_processInviteDoc, request)
+            #
+            # Return response
+            #
+            returnValue(MultiStatusResponse(xml_responses))
+        else:
+            returnValue(responsecode.OK)
 
 
     @inlineCallbacks

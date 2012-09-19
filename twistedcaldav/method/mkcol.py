@@ -36,7 +36,7 @@ from twext.web2.http import StatusResponse
 
 from twistedcaldav import caldavxml, carddavxml, mkcolxml
 from twistedcaldav.config import config
-from twistedcaldav.resource import isAddressBookCollectionResource,\
+from twistedcaldav.resource import isAddressBookCollectionResource, \
     CalDAVResource
 from twistedcaldav.resource import isPseudoCalendarCollectionResource
 
@@ -77,7 +77,7 @@ def http_MKCOL(self, request):
 
     if config.EnableCalDAV:
         parent = (yield self._checkParents(request, isPseudoCalendarCollectionResource))
-    
+
         if parent is not None:
             raise HTTPError(StatusResponse(
                 responsecode.FORBIDDEN,
@@ -86,7 +86,7 @@ def http_MKCOL(self, request):
 
     if config.EnableCardDAV:
         parent = (yield self._checkParents(request, isAddressBookCollectionResource))
-    
+
         if parent is not None:
             raise HTTPError(StatusResponse(
                 responsecode.FORBIDDEN,
@@ -123,7 +123,7 @@ def http_MKCOL(self, request):
 
         errors = PropertyStatusResponseQueue("PROPPATCH", request.uri, responsecode.NO_CONTENT)
         got_an_error = False
-    
+
         set_supported_component_set = False
         if mkcol.children:
             # mkcol -> set -> prop -> property*
@@ -143,6 +143,7 @@ def http_MKCOL(self, request):
                                 rtype = "calendar"
                             elif property.childrenOfType(carddavxml.AddressBook):
                                 rtype = "addressbook"
+
             if not rtype:
                 error = "No {DAV:}resourcetype property in MKCOL request body: %s" % (mkcol,)
                 log.err(error)
@@ -151,14 +152,14 @@ def http_MKCOL(self, request):
                 error = "{DAV:}resourcetype property in MKCOL request body not supported: %s" % (mkcol,)
                 log.err(error)
                 raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, error))
-                
+
             # Make sure feature is enabled
             if (rtype == "calendar" and not config.EnableCalDAV or
                 rtype == "addressbook" and not config.EnableCardDAV):
                 error = "{DAV:}resourcetype property in MKCOL request body not supported: %s" % (mkcol,)
                 log.err(error)
                 raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, error))
-            
+
             # Now create the special collection
             if rtype == "calendar":
                 yield self.createCalendar(request)
@@ -166,19 +167,19 @@ def http_MKCOL(self, request):
                 yield self.createAddressBook(request)
 
             # Now handle other properties
-            for property in mkcol.children[0].children[0].children:
+            for property in properties:
                 try:
                     if rtype == "calendar" and property.qname() == (caldavxml.caldav_namespace, "supported-calendar-component-set"):
                         yield self.setSupportedComponentSet(property)
                         set_supported_component_set = True
-                    else:
+                    elif not isinstance(property, davxml.ResourceType):
                         yield self.writeProperty(property, request)
                 except HTTPError:
                     errors.add(Failure(), property)
                     got_an_error = True
                 else:
                     errors.add(responsecode.OK, property)
-    
+
         if got_an_error:
             # Clean up
             self.transactionError()
@@ -187,15 +188,14 @@ def http_MKCOL(self, request):
                     code=responsecode.FORBIDDEN,
                     stream=mkcolxml.MakeCollectionResponse(errors.response()).toxml()
             ))
-        
+
         # When calendar collections are single component only, default MKCALENDAR is VEVENT only
         if rtype == "calendar" and not set_supported_component_set and config.RestrictCalendarsToOneComponentType:
             yield self.setSupportedComponents(("VEVENT",))
 
         yield returnValue(responsecode.CREATED)
-    
+
     else:
         # No request body so it is a standard MKCOL
         result = yield super(CalDAVResource, self).http_MKCOL(request)
         returnValue(result)
-
