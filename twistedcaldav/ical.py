@@ -1148,7 +1148,7 @@ class Component (object):
         # Checked for cached values first
         if hasattr(self, "cachedInstances"):
             cachedLimit = self.cachedInstances.limit
-            if cachedLimit is None or cachedLimit >= limit:
+            if cachedLimit is None or cachedLimit > limit:
                 # We have already fully expanded, or cached up to the requested time,
                 # so return cached instances
                 return self.cachedInstances
