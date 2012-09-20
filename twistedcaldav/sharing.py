@@ -625,7 +625,7 @@ class SharedCollectionMixin(object):
                 shareeHome = yield sharee.calendarHome(request)
             elif self.isAddressBookCollection():
                 shareeHome = yield sharee.addressBookHome(request)
-            yield shareeHome.removeShareByUID(request, record.inviteuid)
+            displayname = (yield shareeHome.removeShareByUID(request, record.inviteuid))
 
             # If current user state is accepted then we send an invite with the new state, otherwise
             # we cancel any existing invites for the user
@@ -633,7 +633,7 @@ class SharedCollectionMixin(object):
                 yield self.removeInvite(record, request)
             elif record:
                 record.state = "DELETED"
-                yield self.sendInvite(record, request)
+                yield self.sendInvite(record, request, displayname=displayname)
 
         # Remove from database
         yield self.invitesDB().removeRecordForInviteUID(record.inviteuid)
@@ -648,7 +648,7 @@ class SharedCollectionMixin(object):
 
 
     @inlineCallbacks
-    def sendInvite(self, record, request):
+    def sendInvite(self, record, request, displayname=None):
 
         ownerPrincipal = (yield self.ownerPrincipal(request))
         owner = ownerPrincipal.principalURL()
@@ -687,7 +687,7 @@ class SharedCollectionMixin(object):
                     element.HRef.fromString(owner),
                     customxml.CommonName.fromString(ownerCN),
                 ),
-                customxml.InviteSummary.fromString(record.summary),
+                customxml.InviteSummary.fromString(record.summary if displayname is None else displayname),
                 self.getSupportedComponentSet() if self.isCalendarCollection() else None,
                 **typeAttr
             ),
@@ -1205,32 +1205,46 @@ class SharedHomeMixin(LinkFollowerMixIn):
         ))
 
 
+    @inlineCallbacks
     def removeShare(self, request, share):
-        """ Remove a shared collection named in resourceName """
+        """
+        Remove a shared collection named in resourceName
+        """
 
         # Send a decline when an invite share is removed only
         if share.sharetype == SHARETYPE_INVITE:
-            return self.declineShare(request, share.hosturl, share.shareuid)
+            result = (yield self.declineShare(request, share.hosturl, share.shareuid))
+            returnValue(result)
         else:
-            return self.removeDirectShare(request, share)
+            yield self.removeDirectShare(request, share)
+            returnValue(None)
 
 
     @inlineCallbacks
     def removeShareByUID(self, request, shareUID):
-        """ Remove a shared collection but do not send a decline back """
+        """
+        Remove a shared collection but do not send a decline back. Return the
+        current display name of the shared collection.
+        """
 
+        displayname = None
         share = yield self.sharesDB().recordForShareUID(shareUID)
         if share:
-            yield self.removeDirectShare(request, share)
+            displayname = yield self.removeDirectShare(request, share)
 
-        returnValue(True)
+        returnValue(displayname)
 
 
     @inlineCallbacks
     def removeDirectShare(self, request, share):
-        """ Remove a shared collection but do not send a decline back """
+        """
+        Remove a shared collection but do not send a decline back. Return the
+        current display name of the shared collection.
+        """
 
         shareURL = joinURL(self.url(), share.localname)
+        shared = (yield request.locateResource(shareURL))
+        displayname = shared.displayName()
 
         if self.isCalendarCollection():
             # For backwards compatibility we need to sync this up with the calendar-free-busy-set on the inbox
@@ -1244,6 +1258,8 @@ class SharedHomeMixin(LinkFollowerMixIn):
 
         # Notify client of changes
         yield self.notifyChanged()
+
+        returnValue(displayname)
 
 
     @inlineCallbacks
