@@ -27,12 +27,15 @@ from twistedcaldav.config import ConfigurationError
 from twistedcaldav.simpleresource import SimpleResource, SimpleDataResource
 from twistedcaldav.scheduling.ischedule.utils import lookupDataViaTXT
 
+from Crypto.Hash import SHA, SHA256
+from Crypto.PublicKey import RSA
+from Crypto.Signature import PKCS1_v1_5
+
 import base64
 import binascii
 import collections
 import hashlib
 import os
-import rsa
 import textwrap
 import time
 import uuid
@@ -92,7 +95,7 @@ class DKIMUtils(object):
                 log.error(msg)
                 raise ConfigurationError(msg)
             try:
-                rsa.PrivateKey.load_pkcs1(key_data)
+                RSA.importKey(key_data)
             except:
                 msg = "DKIM: Invalid private key file: %s" % (config.Scheduling.iSchedule.DKIM.PrivateKeyFile,)
                 log.error(msg)
@@ -106,7 +109,7 @@ class DKIMUtils(object):
                 log.error(msg)
                 raise ConfigurationError(msg)
             try:
-                rsa.PublicKey.load_pkcs1(key_data)
+                RSA.importKey(key_data)
             except:
                 msg = "DKIM: Invalid public key file: %s" % (config.Scheduling.iSchedule.DKIM.PublicKeyFile,)
                 log.error(msg)
@@ -170,7 +173,18 @@ class DKIMUtils(object):
         """
         return {
             RSA1  : "SHA-1",
-            RSA256: "SHA-256"
+            RSA256: "SHA-256",
+        }[algorithm]
+
+
+    @staticmethod
+    def hash_func(algorithm):
+        """
+        Return RSA hash name for DKIM algorithm.
+        """
+        return {
+            RSA1  : SHA,
+            RSA256: SHA256,
         }[algorithm]
 
 
@@ -299,6 +313,7 @@ class DKIMRequest(ClientRequest):
 
         self.hash_method = DKIMUtils.hashlib_method(self.algorithm)
         self.hash_name = DKIMUtils.hash_name(self.algorithm)
+        self.hash_func = DKIMUtils.hash_func(self.algorithm)
 
         self.keyMethods = []
         if useDNSKey:
@@ -404,8 +419,10 @@ class DKIMRequest(ClientRequest):
     def generateSignature(self, headers):
         # Sign the hash
         if self.key_file not in self.keys:
-            self.keys[self.key_file] = rsa.PrivateKey.load_pkcs1(open(self.key_file).read())
-        return base64.b64encode(rsa.sign(headers, self.keys[self.key_file], self.hash_name))
+            self.keys[self.key_file] = RSA.importKey(open(self.key_file).read())
+        h = self.hash_func.new(headers)
+        signer = PKCS1_v1_5.new(self.keys[self.key_file])
+        return base64.b64encode(signer.sign(h))
 
 
 
@@ -447,6 +464,8 @@ class DKIMVerifier(object):
             PublicKeyLookup_DNSTXT,
         ) if key_lookup is None else key_lookup
 
+        self.time = int(time.time())
+
 
     @inlineCallbacks
     def verify(self):
@@ -468,8 +487,11 @@ class DKIMVerifier(object):
 
         # Do header verification
         try:
-            rsa.verify(headers, base64.b64decode(self.dkim_tags["b"]), pubkey)
-        except rsa.VerificationError:
+            h = self.hash_func.new(headers)
+            verifier = PKCS1_v1_5.new(pubkey)
+            if not verifier.verify(h, base64.b64decode(self.dkim_tags["b"])):
+                raise ValueError()
+        except ValueError:
             msg = "Could not verify signature"
             _debug_msg = """
 DKIM-Signature:%s
@@ -563,7 +585,7 @@ Base64 encoded body:
 
         # Check expiration
         if "x" in self.dkim_tags:
-            diff_time = int(time.time()) - int(self.dkim_tags["x"])
+            diff_time = self.time - int(self.dkim_tags["x"])
             if diff_time > 0:
                 msg = "Signature expired: %d seconds" % (diff_time,)
                 log.debug("DKIM: " + msg)
@@ -593,6 +615,7 @@ Base64 encoded body:
 
         # Some useful bits
         self.hash_method = DKIMUtils.hashlib_method(self.dkim_tags["a"])
+        self.hash_func = DKIMUtils.hash_func(self.dkim_tags["a"])
         self.key_methods = self.dkim_tags["q"].split(":")
 
 
@@ -734,7 +757,7 @@ class PublicKeyLookup(object):
 """ % ("\n".join(textwrap.wrap(pkey["p"], 64)),)
 
         try:
-            key = rsa.PublicKey.load_pkcs1(key_data)
+            key = RSA.importKey(key_data)
             key._original_data = key_data
             return key
         except:
@@ -882,7 +905,7 @@ class DomainKeyResource (SimpleResource):
 
         # Make sure we can parse a valid public key
         try:
-            rsa.PublicKey.load_pkcs1(key_data)
+            RSA.importKey(key_data)
         except:
             log.error("DKIM: Invalid public key file: %s" % (pubkeyfile,))
             raise

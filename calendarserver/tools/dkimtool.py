@@ -15,8 +15,9 @@
 # limitations under the License.
 ##
 
+from Crypto.PublicKey import RSA
 from StringIO import StringIO
-from subprocess import PIPE
+from twext.web2.client.http import ClientRequest
 from twext.web2.http_headers import Headers
 from twext.web2.stream import MemoryStream
 from twisted.internet import reactor
@@ -24,45 +25,34 @@ from twisted.internet.defer import inlineCallbacks
 from twisted.python.usage import Options
 from twistedcaldav.scheduling.ischedule.dkim import RSA256, DKIMRequest, \
     PublicKeyLookup, DKIMVerifier, DKIMVerificationError
-import subprocess
 import sys
-from twext.web2.client.http import ClientRequest
-import rsa
 
 
 def _doKeyGeneration(options):
-    child = subprocess.Popen(
-        args=["openssl", "genrsa", str(options["key-size"]), ],
-        stdout=PIPE,
-    )
-    output, status = child.communicate()
-    if status:
-        print "Failed to generate private key"
-        sys.exit(1)
-    output = output.strip()
+
+    key = RSA.generate(options["key-size"])
+    output = key.exportKey()
+    lineBreak = False
     if options["key"]:
         open(options["key"], "w").write(output)
     else:
         print output
+        lineBreak = True
 
-    child = subprocess.Popen(
-        args=["openssl", "rsa", "-pubout", ],
-        stdout=PIPE,
-        stdin=PIPE,
-    )
-    output, status = child.communicate(output)
-    if status:
-        print "Failed to generate public key"
-        sys.exit(1)
-    output = output.strip()
+    output = key.publickey().exportKey()
     if options["pub-key"]:
         open(options["pub-key"], "w").write(output)
     else:
+        if lineBreak:
+            print
         print output
+        lineBreak = True
 
     if options["txt"]:
         output = "".join(output.splitlines()[1:-1])
         txt = "v=DKIM1; p=%s" % (output,)
+        if lineBreak:
+            print
         print txt
 
 
@@ -96,8 +86,13 @@ def _doRequest(options):
         sign_headers,
         True,
         True,
+        False,
         int(options["expire"]),
     )
+    if options["fake-time"]:
+        dkim.time = "100"
+        dkim.expire = "200"
+        dkim.message_id = "1"
     yield dkim.sign()
 
     s = StringIO()
@@ -122,6 +117,8 @@ def _doVerify(options):
         lookup = None
 
     dkim = DKIMVerifier(request, lookup)
+    if options["fake-time"]:
+        dkim.time = 100
 
     try:
         yield dkim.verify()
@@ -181,7 +178,7 @@ class PublicKeyLookup_File(PublicKeyLookup):
         """
         Do the key lookup using the actual lookup method.
         """
-        return rsa.PublicKey.load_pkcs1(open(self.pubkeyfile).read())
+        return RSA.importKey(open(self.pubkeyfile).read())
 
 
 
@@ -209,6 +206,8 @@ Options:
     --pub-key FILE     Public key file to create [stdout]
     --key-size SIZE    Key size [1024]
     --txt              Also generate the public key TXT record
+    --fake-time        Use fake t=, x= values when signing and also
+                       ignore expiration on verification
 
     # Request
     --request FILE      An HTTP request to sign
@@ -225,7 +224,13 @@ Options:
                         q= lookup
 
 Description:
-    This utility is for testing DKIM signed HTTP request.
+    This utility is for testing DKIM signed HTTP requests. Key operations are:
+
+    --key-gen: generate a private/public RSA key.
+
+    --request: sign an HTTP request.
+
+    --verify:  verify a signed HTTP request.
 
 """
 
@@ -241,6 +246,7 @@ class DKIMToolOptions(Options):
         ['verbose', 'v', "Verbose logging."],
         ['key-gen', 'g', "Generate private/public key files"],
         ['txt', 't', "Also generate the public key TXT record"],
+        ['fake-time', 'f', "Fake time values for signing/verification"],
     ]
 
     optParameters = [
