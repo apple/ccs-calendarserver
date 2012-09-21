@@ -417,7 +417,7 @@ class CalDAVOptions (Options, LoggingMixIn):
                 access=os.W_OK,
                 create=(0750, config.UserName, config.GroupName),
             )
-        if config.DocumentRoot.startswith(config.ServerRoot + os.sep):
+        if config.DocumentRoot.startswith(config.DataRoot + os.sep):
             self.checkDirectory(
                 config.DocumentRoot,
                 "Document root",
@@ -1265,12 +1265,20 @@ class CalDAVServiceMaker (LoggingMixIn):
 
         # Start listening on the stats socket, for administrators to inspect
         # the current stats on the server.
-        stats = CalDAVStatisticsServer(logger)
-        statsService = GroupOwnedUNIXServer(
-            gid, config.GlobalStatsSocket, stats, mode=0660
-        )
-        statsService.setName("stats")
-        statsService.setServiceParent(s)
+        if config.Stats.EnableUnixStatsSocket:
+            stats = CalDAVStatisticsServer(logger)
+            statsService = GroupOwnedUNIXServer(
+                gid, config.Stats.UnixStatsSocket, stats, mode=0660
+            )
+            statsService.setName("unix-stats")
+            statsService.setServiceParent(s)
+        if config.Stats.EnableTCPStatsSocket:
+            stats = CalDAVStatisticsServer(logger)
+            statsService = TCPServer(
+                config.Stats.TCPStatsPort, stats, interface=""
+            )
+            statsService.setName("tcp-stats")
+            statsService.setServiceParent(s)
 
         # Optionally enable Manhole access
         if config.Manhole.Enabled:
@@ -1333,7 +1341,7 @@ class CalDAVServiceMaker (LoggingMixIn):
     def deleteStaleSocketFiles(self):
 
         # Check all socket files we use.
-        for checkSocket in [config.ControlSocket, config.GlobalStatsSocket] :
+        for checkSocket in [config.ControlSocket, config.Stats.UnixStatsSocket] :
 
             # See if the file exists.
             if (os.path.exists(checkSocket)):

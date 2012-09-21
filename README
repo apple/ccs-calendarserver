@@ -45,7 +45,7 @@ the latest trunk code:
 
   ::
 
-    svn co http://svn.macosforge.org/repository/calendarserver/CalendarServer/trunk/ CalendarServer
+    svn co http://svn.calendarserver.org/repository/calendarserver/CalendarServer/trunk/ CalendarServer
 
 The server requires a number of libraries in order to operate, which
 will need to be placed as peers of the source directory.  The ``run``

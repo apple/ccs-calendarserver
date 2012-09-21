@@ -33,6 +33,7 @@ See RFC 3253: http://www.ietf.org/rfc/rfc3253.txt (WebDAV + Versioning)
 See RFC 3744: http://www.ietf.org/rfc/rfc3744.txt (WebDAV ACLs)
 See RFC 4331: http://www.ietf.org/rfc/rfc4331.txt (WebDAV Quota)
 See RFC 5842: http://www.ietf.org/rfc/rfc5842.txt (WebDAV Bind)
+See RFC 6578: http://www.ietf.org/rfc/rfc6578.txt (WebDAV Sync)
 """
 
 __all__ = [
@@ -45,10 +46,10 @@ import txdav.xml.rfc2518
 import txdav.xml.rfc3253
 import txdav.xml.rfc3744
 import txdav.xml.rfc4331
-import txdav.xml.rfc5842
 import txdav.xml.rfc5397
+import txdav.xml.rfc5842
 import txdav.xml.rfc5995
-import txdav.xml.draft_sync
+import txdav.xml.rfc6578
 import txdav.xml.extensions
 
 txdav # Shhh pyflakes

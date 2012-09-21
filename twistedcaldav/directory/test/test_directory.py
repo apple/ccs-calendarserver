@@ -21,7 +21,7 @@ from twisted.python.filepath import FilePath
 from twistedcaldav.test.util import TestCase
 from twistedcaldav.test.util import xmlFile, augmentsFile, proxiesFile, dirTest
 from twistedcaldav.config import config
-from twistedcaldav.directory.directory import DirectoryService, DirectoryRecord, GroupMembershipCacherService, GroupMembershipCache, GroupMembershipCacheUpdater
+from twistedcaldav.directory.directory import DirectoryService, DirectoryRecord, GroupMembershipCacherService, GroupMembershipCache, GroupMembershipCacheUpdater, diffAssignments
 from twistedcaldav.directory.xmlfile import XMLDirectoryService
 from twistedcaldav.directory.calendaruserproxyloader import XMLCalendarUserProxyLoader
 from twistedcaldav.directory import augment, calendaruserproxy
@@ -484,6 +484,171 @@ class GroupMembershipTests (TestCase):
                 set(uids),
                 groups,
             )
+
+        #
+        # Now remove two external assignments, and those should take effect.
+        #
+        def fakeExternalProxiesRemoved():
+            return [
+                (
+                    "transporter#calendar-proxy-write",
+                    set(["8B4288F6-CC82-491D-8EF9-642EF4F3E7D0"])
+                ),
+            ]
+
+        updater = GroupMembershipCacheUpdater(
+            calendaruserproxy.ProxyDBService, self.directoryService, 30, 30,
+            cache=cache, useExternalProxies=True,
+            externalProxiesSource=fakeExternalProxiesRemoved)
+
+        yield updater.updateCache()
+
+        delegates = (
+
+            # record name
+            # read-write delegators
+            # read-only delegators
+            # groups delegate is in (restricted to only those groups
+            #   participating in delegation)
+
+            # Note: "transporter" is now gone for wsanchez and cdaboo
+
+            ("wsanchez",
+             set(["mercury", "apollo", "orion", "gemini"]),
+             set(["non_calendar_proxy"]),
+             set(['left_coast',
+                  'both_coasts',
+                  'recursive1_coasts',
+                  'recursive2_coasts',
+                  'gemini#calendar-proxy-write',
+                ]),
+            ),
+            ("cdaboo",
+             set(["apollo", "orion", "non_calendar_proxy"]),
+             set(["non_calendar_proxy"]),
+             set(['both_coasts',
+                  'non_calendar_group',
+                  'recursive1_coasts',
+                  'recursive2_coasts',
+                ]),
+            ),
+            ("lecroy",
+             set(["apollo", "mercury", "non_calendar_proxy", "transporter"]),
+             set(),
+             set(['both_coasts',
+                  'left_coast',
+                  'non_calendar_group',
+                  'transporter#calendar-proxy-write',
+                ]),
+            ),
+        )
+
+        for name, write, read, groups in delegates:
+            delegate = self._getPrincipalByShortName(DirectoryService.recordType_users, name)
+
+            proxyFor = (yield delegate.proxyFor(True))
+            self.assertEquals(
+                set([p.record.guid for p in proxyFor]),
+                write,
+            )
+            proxyFor = (yield delegate.proxyFor(False))
+            self.assertEquals(
+                set([p.record.guid for p in proxyFor]),
+                read,
+            )
+            groupsIn = (yield delegate.groupMemberships())
+            uids = set()
+            for group in groupsIn:
+                try:
+                    uid = group.uid # a sub-principal
+                except AttributeError:
+                    uid = group.record.guid # a regular group
+                uids.add(uid)
+            self.assertEquals(
+                set(uids),
+                groups,
+            )
+
+    def test_diffAssignments(self):
+        """
+        Ensure external proxy assignment diffing works
+        """
+
+        self.assertEquals(
+            (
+                # changed
+                [ ],
+                # removed
+                [ ],
+            ),
+            diffAssignments(
+                # old
+                [ ],
+                # new
+                [ ],
+            )
+        )
+
+        self.assertEquals(
+            (
+                # changed
+                [ ],
+                # removed
+                [ ],
+            ),
+            diffAssignments(
+                # old
+                [ ("B", set(["3"])), ("A", set(["1", "2"])), ],
+                # new
+                [ ("A", set(["1", "2"])), ("B", set(["3"])), ],
+            )
+        )
+
+        self.assertEquals(
+            (
+                # changed
+                [ ("A", set(["1", "2"])), ("B", set(["3"])), ],
+                # removed
+                [ ],
+            ),
+            diffAssignments(
+                # old
+                [ ],
+                # new
+                [ ("A", set(["1", "2"])), ("B", set(["3"])), ],
+            )
+        )
+
+        self.assertEquals(
+            (
+                # changed
+                [ ],
+                # removed
+                [ "A", "B" ],
+            ),
+            diffAssignments(
+                # old
+                [ ("A", set(["1", "2"])), ("B", set(["3"])), ],
+                # new
+                [ ],
+            )
+        )
+
+        self.assertEquals(
+            (
+                # changed
+                [ ("A", set(["2"])), ("C", set(["4", "5"])), ("D", set(["6"])), ],
+                # removed
+                [ "B" ],
+            ),
+            diffAssignments(
+                # old
+                [ ("A", set(["1", "2"])), ("B", set(["3"])), ("C", set(["4"])), ],
+                # new
+                [ ("D", set(["6"])), ("C", set(["4", "5"])), ("A", set(["2"])), ],
+            )
+        )
+
 
 
     @inlineCallbacks

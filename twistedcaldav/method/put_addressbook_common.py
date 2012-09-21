@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2005-2011 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2012 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -89,7 +89,7 @@ class StoreAddressObjectResource(object):
         request,
         source=None, source_uri=None, sourceparent=None, sourceadbk=False, deletesource=False,
         destination=None, destination_uri=None, destinationparent=None, destinationadbk=True,
-        vcard=None, vcarddata=None,
+        vcard=None,
         indexdestination = True,
         returnData=False,
    ):
@@ -103,7 +103,6 @@ class StoreAddressObjectResource(object):
         @param destination:       the L{CalDAVResource} for the destination resource to copy into.
         @param destination_uri:   the URI for the destination resource.
         @param vcard:             the C{str} or L{Component} vcard data if there is no source, None otherwise.
-        @param vcarddata:         the C{str} vcard data if there is no source, None otherwise. Optional.
         @param sourceadbk:        True if the source resource is in a vcard collection, False otherwise.
         @param destinationadbk:   True if the destination resource is in a vcard collection, False otherwise
         @param sourceparent:      the L{CalDAVResource} for the source resource's parent collection, or None if source is None.
@@ -143,7 +142,7 @@ class StoreAddressObjectResource(object):
         self.destination_uri = destination_uri
         self.destinationparent = destinationparent
         self.vcard = vcard
-        self.vcarddata = vcarddata
+        self.vcarddata = None
         self.deletesource = deletesource
         self.indexdestination = indexdestination
         self.returnData = returnData
@@ -191,7 +190,6 @@ class StoreAddressObjectResource(object):
                 else:
                     try:
                         if type(self.vcard) in (types.StringType, types.UnicodeType,):
-                            self.vcarddata = self.vcard
                             self.vcard = Component.fromString(self.vcard)
                     except ValueError, e:
                         log.err(str(e))
@@ -416,11 +414,8 @@ class StoreAddressObjectResource(object):
     @inlineCallbacks
     def doStorePut(self):
 
-        if self.vcarddata is None:
-            self.vcarddata = str(self.vcard)
-        stream = MemoryStream(self.vcarddata)
+        stream = MemoryStream(str(self.vcard))
         response = (yield self.destination.storeStream(stream))
-
         returnValue(response)
 
     @inlineCallbacks

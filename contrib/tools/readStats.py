@@ -30,23 +30,42 @@ This tool reads data from the server's statistics socket and prints a summary.
 def safeDivision(value, total, factor=1):
     return value * factor / total if total else 0
 
-def readSock(sockname):
-    s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-    s.connect(sockname)
-    data = ""
-    while True:
-        d = s.recv(1024)
-        if d:
-            data += d
-        else:
-            break
-    s.close()
+def readSock(sockname, useTCP):
+    try:
+        s = socket.socket(socket.AF_INET if useTCP else socket.AF_UNIX, socket.SOCK_STREAM)
+        s.connect(sockname)
+        data = ""
+        while True:
+            d = s.recv(1024)
+            if d:
+                data += d
+            else:
+                break
+        s.close()
+        data = json.loads(data)
+    except socket.error:
+        data = {"Failed": "Unable to read statistics from server: %s" % (sockname,)}
+    data["Server"] = sockname
     return data
 
-def printStats(data):
+def printStats(stats):
+    if len(stats) == 1 and False:
+        if "Failed" in stats[0]:
+            printFailedStats(stats[0]["Failed"]) 
+        else:
+            try:
+                printStat(stats[0])
+            except KeyError, e:
+                printFailedStats("Unable to find key '%s' in statistics from server socket" % (e,))
+                sys.exit(1)
+            
+    else:
+        printMultipleStats(stats)
+        
+def printStat(stats):
     
-    stats = json.loads(data)
     print "- " * 40
+    print "Server: %s" % (stats["Server"],)
     print datetime.datetime.now().strftime("%Y/%m/%d %H:%M:%S")
     print "Service Uptime: %s" % (datetime.timedelta(seconds=(int(time.time() - stats["System"]["start time"]))),)
     if stats["System"]["cpu count"] > 0:
@@ -65,6 +84,42 @@ def printStats(data):
     print
     printRequestSummary(stats)
     printHistogramSummary(stats["5 Minutes"])
+
+def printMultipleStats(stats):
+
+    labels = serverLabels(stats)
+ 
+    print "- " * 40
+    print "Servers: %s" % (", ".join(labels),)
+
+    print datetime.datetime.now().strftime("%Y/%m/%d %H:%M:%S")
+
+    times = []
+    for stat in stats:
+        try:
+            t = str(datetime.timedelta(seconds=int(time.time() - stat["System"]["start time"])))
+        except KeyError:
+            t = "-"
+        times.append(t)
+    print "Service Uptime: %s" % (", ".join(times),)
+
+    cpus = []
+    memories = []
+    for stat in stats:
+        if stat["System"]["cpu count"] > 0:
+            cpus.append("%.1f%%" % (stat["System"]["cpu use"],))
+            memories.append("%.1f%%" % (stat["System"]["memory percent"],))
+        else:
+            cpus.append("-")
+            memories("-")
+    print "Current CPU: %s" % (", ".join(cpus),)
+    print "Current Memory Used: %s" % (", ".join(memories),)
+    print
+    printMultiRequestSummary(stats, labels, ("5 Minutes", 5*60,))
+    printMultiHistogramSummary(stats, "5 Minutes")
+
+def serverLabels(stats):
+    return [str(stat["Server"]) for stat in stats]
 
 def printFailedStats(message):
     
@@ -114,6 +169,57 @@ def printRequestSummary(stats):
     table.printTable(os=os)
     print os.getvalue()
 
+def printMultiRequestSummary(stats, labels, index):
+    table = tables.Table()
+    table.addHeader(
+        ("Server", "Requests", "Av. Requests", "Av. Response", "Av. Response", "Max. Response",    "Slot",     "CPU", "500's"),
+    )
+    table.addHeader(
+        (      "",         "",   "per second",         "(ms)", "no write(ms)",          "(ms)", "Average", "Average",      ""),
+    )
+    table.setDefaultColumnFormats(
+       (
+            tables.Table.ColumnFormat("%s", tables.Table.ColumnFormat.LEFT_JUSTIFY), 
+            tables.Table.ColumnFormat("%d", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
+            tables.Table.ColumnFormat("%.1f", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
+            tables.Table.ColumnFormat("%.1f", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
+            tables.Table.ColumnFormat("%.1f", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
+            tables.Table.ColumnFormat("%.1f", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
+            tables.Table.ColumnFormat("%.2f", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
+            tables.Table.ColumnFormat("%.1f%%", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
+            tables.Table.ColumnFormat("%d", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
+        )
+    )
+    
+    key, seconds = index
+    totals = ["Overall:", 0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0]
+    for ctr, stat in enumerate(stats):
+
+        stat = stat[key]
+        
+        col = []
+        col.append(labels[ctr])
+        col.append(stat["requests"])
+        col.append(safeDivision(float(stat["requests"]), seconds))
+        col.append(safeDivision(stat["t"], stat["requests"]))
+        col.append(safeDivision(stat["t"] - stat["t-resp-wr"], stat["requests"]))
+        col.append(stat["T-MAX"])
+        col.append(safeDivision(float(stat["slots"]), stat["requests"]))
+        col.append(safeDivision(stat["cpu"], stat["requests"]))
+        col.append(stat["500"])
+        table.addRow(col)
+        for item in xrange(1, len(col)):
+            totals[item] += col[item]
+    
+    for item in (2, 3, 4, 6, 7):
+        totals[item] /= len(stats)
+    
+    table.addFooter(totals)
+
+    os = StringIO()
+    table.printTable(os=os)
+    print os.getvalue()
+
 def printHistogramSummary(stat):
     
     print "5 minute average response histogram"
@@ -152,6 +258,57 @@ def printHistogramSummary(stat):
     table.printTable(os=os)
     print os.getvalue()
     
+def printMultiHistogramSummary(stats, index):
+    
+    # Totals first
+    keys = ("requests", "<10ms", "10ms<->100ms", "100ms<->1s", "1s<->10s", "10s<->30s", "30s<->60s", ">60s", "Over 1s", "Over 10s",)
+    totals = {
+        "T"        : dict([(k, 0) for k in keys]),
+        "T-RESP-WR": dict([(k, 0) for k in keys]),
+    }
+    
+    for stat in stats:
+        for i in ("T", "T-RESP-WR",):
+            totals[i][keys[0]] += stat[index][keys[0]]
+            for k in keys[1:]:
+                totals[i][k] += stat[index][i][k]
+
+    print "5 minute average response histogram"
+    table = tables.Table()
+    table.addHeader(
+        ("", "<10ms", "10ms<->100ms", "100ms<->1s", "1s<->10s", "10s<->30s", "30s<->60s", ">60s",  "Over 1s", "Over 10s"),
+    )
+    table.setDefaultColumnFormats(
+       (
+            tables.Table.ColumnFormat("%s", tables.Table.ColumnFormat.CENTER_JUSTIFY), 
+            tables.Table.ColumnFormat("%d (%.1f%%)", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
+            tables.Table.ColumnFormat("%d (%.1f%%)", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
+            tables.Table.ColumnFormat("%d (%.1f%%)", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
+            tables.Table.ColumnFormat("%d (%.1f%%)", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
+            tables.Table.ColumnFormat("%d (%.1f%%)", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
+            tables.Table.ColumnFormat("%d (%.1f%%)", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
+            tables.Table.ColumnFormat("%d (%.1f%%)", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
+            tables.Table.ColumnFormat("%.1f%%", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
+            tables.Table.ColumnFormat("%.1f%%", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
+        )
+    )
+    for i in ("T", "T-RESP-WR",):
+        table.addRow((
+            "Overall Response" if i == "T" else "Response without Write",
+            (totals[i]["<10ms"], safeDivision(totals[i]["<10ms"], totals[i]["requests"], 100.0)),
+            (totals[i]["10ms<->100ms"], safeDivision(totals[i]["10ms<->100ms"], totals[i]["requests"], 100.0)),
+            (totals[i]["100ms<->1s"], safeDivision(totals[i]["100ms<->1s"], totals[i]["requests"], 100.0)),
+            (totals[i]["1s<->10s"], safeDivision(totals[i]["1s<->10s"], totals[i]["requests"], 100.0)),
+            (totals[i]["10s<->30s"], safeDivision(totals[i]["10s<->30s"], totals[i]["requests"], 100.0)),
+            (totals[i]["30s<->60s"], safeDivision(totals[i]["30s<->60s"], totals[i]["requests"], 100.0)),
+            (totals[i][">60s"], safeDivision(totals[i][">60s"], totals[i]["requests"], 100.0)),
+            safeDivision(totals[i]["Over 1s"], totals[i]["requests"], 100.0),
+            safeDivision(totals[i]["Over 10s"], totals[i]["requests"], 100.0),
+        ))
+    os = StringIO()
+    table.printTable(os=os)
+    print os.getvalue()
+    
     
 def usage(error_msg=None):
     if error_msg:
@@ -162,6 +319,7 @@ Options:
     -h            Print this help and exit
     -s            Name of local socket to read from
     -t            Delay in seconds between each sample [10 seconds]
+    --tcp host:port Use TCP connection with host:port
 
 Description:
     This utility will print a summary of statistics read from a
@@ -177,25 +335,22 @@ Description:
 if __name__ == '__main__':
     
     delay = 10
-    sockname = "data/Logs/state/caldavd-stats.sock"
+    servers = ("data/Logs/state/caldavd-stats.sock",)
+    useTCP = False
 
-    options, args = getopt.getopt(sys.argv[1:], "hs:t:", [])
+    options, args = getopt.getopt(sys.argv[1:], "hs:t:", ["tcp=",])
 
     for option, value in options:
         if option == "-h":
             usage()
         elif option == "-s":
-            sockname = value
+            servers = value.split(",")
         elif option == "-t":
             delay = int(value)
+        elif option == "--tcp":
+            servers = [(host, int(port),) for host, port in [server.split(":") for server in value.split(",")]]
+            useTCP = True
 
     while True:
-        try:
-            printStats(readSock(sockname))
-        except socket.error:
-            printFailedStats("Unable to read statistics from server socket: %s" % (sockname,))
-        except KeyError, e:
-            printFailedStats("Unable to find key '%s' in statistics from server socket" % (e,))
-            sys.exit(1)
-
+        printStats([readSock(server, useTCP) for server in servers])
         time.sleep(delay)

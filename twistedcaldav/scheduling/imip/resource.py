@@ -24,6 +24,7 @@ from twistedcaldav import caldavxml
 from twistedcaldav.config import config
 from twistedcaldav.directory.util import transactionFromRequest
 from twistedcaldav.ical import Component
+from twistedcaldav.localization import getLanguage
 from twistedcaldav.resource import CalDAVResource
 from twistedcaldav.scheduling.caldav.resource import deliverSchedulePrivilegeSet
 from twistedcaldav.scheduling.imip.scheduler import IMIPScheduler
@@ -213,7 +214,7 @@ class IMIPInvitationInboxResource(IMIPInboxResource):
         calendar = (yield Component.fromIStream(request.stream))
         originator = request.headers.getRawHeaders("originator")[0]
         recipient = request.headers.getRawHeaders("recipient")[0]
-        language = config.Localization.Language
+        language = getLanguage(config)
 
         if not (yield self.mailer.outbound(originator,
             recipient, calendar, language=language)):

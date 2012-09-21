@@ -14,8 +14,6 @@
 # limitations under the License.
 ##
 
-import uuid
-
 from twext.python.log import Logger
 from twext.web2.dav.http import ErrorResponse
 
@@ -38,6 +36,10 @@ from twistedcaldav.scheduling.cuaddress import LocalCalendarUser, RemoteCalendar
 from twistedcaldav.scheduling.delivery import DeliveryService
 from twistedcaldav.scheduling.itip import iTIPRequestStatus
 from twistedcaldav.scheduling.processing import ImplicitProcessor, ImplicitProcessorException
+
+import hashlib
+import uuid
+
 
 """
 Handles the sending of scheduling messages to the server itself. This will cause
@@ -145,7 +147,7 @@ class ScheduleViaCalDAV(DeliveryService):
     @inlineCallbacks
     def generateResponse(self, recipient, responses):
         # Hash the iCalendar data for use as the last path element of the URI path
-        name = str(uuid.uuid4()) + ".ics"
+        name = "%s-%s.ics" % (hashlib.md5(self.scheduler.calendar.resourceUID()).hexdigest(), str(uuid.uuid4())[:8],)
 
         # Get a resource for the new item
         childURL = joinURL(recipient.inboxURL, name)

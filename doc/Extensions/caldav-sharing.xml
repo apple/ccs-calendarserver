@@ -5,8 +5,7 @@
 <!ENTITY rfc3744 PUBLIC '' 'bibxml/reference.RFC.3744.xml'>
 <!ENTITY rfc4791 PUBLIC '' 'bibxml/reference.RFC.4791.xml'>
 <!ENTITY rfc4918 PUBLIC '' 'bibxml/reference.RFC.4918.xml'>
-<!ENTITY rfc5689 PUBLIC '' 'bibxml/reference.RFC.5689.xml'>
-<!ENTITY I-D.desruisseaux-caldav-sched PUBLIC '' 'bibxml3/reference.I-D.desruisseaux-caldav-sched.xml'>
+<!ENTITY rfc6638 PUBLIC '' 'bibxml/reference.RFC.6638.xml'>
 ]> 
 <?rfc toc="yes"?>
 <?rfc tocdepth="4"?>
@@ -18,7 +17,7 @@
 <?rfc compact="yes"?>
 <?rfc subcompact="no"?>
 <?rfc private="Calendar Server Extension"?>
-<rfc ipr="none" docName='caldav-sharing-02'>
+<rfc ipr="none" docName='caldav-sharing-03'>
     <front>
         <title abbrev="CalDAV Sharing and Publishing">Shared and Published Calendars in CalDAV</title> 
         <author initials="C." surname="Daboo" fullname="Cyrus Daboo">
@@ -116,7 +115,7 @@
                 At any time, the sharer can inspect properties on the calendar collection being shared, and determine the accept/decline status of each sharee. Additional sharees can be added and existing ones removed. The access privileges for existing sharees can also be changed.
             </t>
             <t>
-            	Once a sharee has a shared calendar set to appear in their calendar home collection, they can remove it and decline the sharing invite by simply having their client issue an HTTP DELETE request on the shared calendar collection. That does not delete any calendar data, but rather simply removes the "link" to the sharer's calendar collection and sets the sharee's inviate status to declined.
+                Once a sharee has a shared calendar set to appear in their calendar home collection, they can remove it and decline the sharing invite by simply having their client issue an HTTP DELETE request on the shared calendar collection. That does not delete any calendar data, but rather simply removes the "link" to the sharer's calendar collection and sets the sharee's inviate status to declined.
             </t>
         </section>
         
@@ -219,11 +218,11 @@
                       <t hangText="PROPFIND behavior:">This property SHOULD NOT be returned by a PROPFIND allprop request (as defined in Section 14.2 of <xref target="RFC4918"/>).</t>
                       <t hangText="COPY/MOVE behavior:">This property value MUST be preserved in COPY and MOVE operations.</t>
         
-                      <t hangText="Description:">This WebDAV property is present on a calendar collection resource that has been shared by the owner. It MUST NOT appear on the calendar collection resources of the sharees of the calendar. It provides a list of users to whom the calendar has been shared, along with the "status" of the sharing invites sent to each user.</t>
+                      <t hangText="Description:">This WebDAV property is present on a calendar collection resource that has been shared by the owner, or on the calendar collection resources of the sharees of the calendar. It provides a list of users to whom the calendar has been shared, along with the "status" of the sharing invites sent to each user. In addition, servers SHOULD include a CS:organizer XML element on calendar collection resources of the sharees to provide clients with a fast way to determine who the sharer is. A server's local privacy policy may prevent sharees from knowing about other sharees on a shared calendar. If that is so server will not include CS:user XML elements for other sharees.</t>
                       <t hangText="Definition:">
                         <figure>
                           <artwork><![CDATA[
-<!ELEMENT invite (user*)>]]></artwork>
+<!ELEMENT invite (organizer?, user*)>]]></artwork>
                         </figure>
                       </t>
                     </list>
@@ -272,156 +271,29 @@
                 </section>
             </section>
             <section title="Sharer Actions on Shared Calendars">
-                <section title="Creating a Shared Calendar">
+                <section title="Sharing or Unsharing a Calendar">
                     <t>
-                        To create a shared calendar, clients use the <xref target="RFC4791">MKCALENDAR</xref> or <xref target="RFC5689">extended MKCOL</xref> requests, and include a DAV:resourcetype property to be set upon creation. That property MUST contain DAV:collection, CALDAV:calendar and CS:shared-owner child elements to enable sharing.
+                        To update an existing calendar to be shared, the sharer simply adds one or more sharees to the calendar collection as per <xref target="sharee"/>. The server MUST update the DAV:resourcetype property on the calendar collection to ensure it contains a CS:shared-owner XML element to indicate the calendar collection is now shared.
                     </t>
-                    <section title="Example: Successful MKCALENDAR Request">
-            
-                        <t>
-                          This example shows how the MKCALENDAR request is used to create a shared calendar collection. The response body is empty as the request completed successfully.
-                        </t>
-    
-                        <figure>
-                          <preamble>&gt;&gt; Request &lt;&lt;</preamble>
-                          <artwork><![CDATA[
-MKCALENDAR /calendars/users/cyrus/shared/ HTTP/1.1
-Host: calendar.example.com
-Content-Type: application/xml; charset="utf-8"
-Content-Length: xxxx
-
-<?xml version="1.0" encoding="utf-8" ?>
-<C:mkcalendar xmlns:D="DAV:"
-              xmlns:C="urn:ietf:params:xml:ns:caldav"
-              xmlns:CS="http://calendarserver.org/ns/">
-  <D:set>
-    <D:prop>
-      <D:resourcetype>
-        <D:collection/>
-        <C:calendar/>
-        <CS:shared-owner/>
-      </D:resourcetype>
-    </D:prop>
-  </D:set>
-</C:mkcalendar>]]></artwork>
-                        </figure>
-                        <figure>
-                          <preamble>&gt;&gt; Response &lt;&lt;</preamble>
-                          <artwork><![CDATA[
-HTTP/1.1 201 Created
-Cache-Control: no-cache
-Date: Sat, 11 Nov 2006 09:32:12 GMT]]></artwork>
-                        </figure>
-                    </section>
-                    <section title="Example: Successful Extended MKCOL Request">
-            
-                        <t>
-                          This example shows how the extended MKCOL request is used to create a shared calendar collection. The response body is empty as the request completed successfully.
-                        </t>
-    
-                        <figure>
-                          <preamble>&gt;&gt; Request &lt;&lt;</preamble>
-                          <artwork><![CDATA[
-MKCOL /calendars/users/cyrus/shared/ HTTP/1.1
-Host: calendar.example.com
-Content-Type: application/xml; charset="utf-8"
-Content-Length: xxxx
-
-<?xml version="1.0" encoding="utf-8" ?>
-<D:mkcol xmlns:D="DAV:"
-              xmlns:C="urn:ietf:params:xml:ns:caldav"
-              xmlns:CS="http://calendarserver.org/ns/">
-  <D:set>
-    <D:prop>
-      <D:resourcetype>
-        <D:collection/>
-        <C:calendar/>
-        <CS:shared-owner/>
-      </D:resourcetype>
-    </D:prop>
-  </D:set>
-</D:mkcol>]]></artwork>
-                        </figure>
-                        <figure>
-                          <preamble>&gt;&gt; Response &lt;&lt;</preamble>
-                          <artwork><![CDATA[
-HTTP/1.1 201 Created
-Cache-Control: no-cache
-Date: Sat, 11 Nov 2006 09:32:12 GMT]]></artwork>
-                        </figure>
-                    </section>
-                </section>
-                <section title="Sharing an Existing Calendar">
                     <t>
-                        Sharing an existing calendar can be accomplished in two ways. One option is to use a PROPPATCH request to set the DAV:resourcetype property to include CS:shared-owner as a child element. Another option is to add sharee's directly to the calendar collection (as described in <xref target="sharee"/>) - that action MUST upgrade a non-shared calendar to a shared calendar when it completes successfully, assuming that such an upgrade is allowed as per <xref target="allowed"/>.
+                        To unshare a calendar, the sharer simply removes all sharees to the CS:invite property of the calendar collection as per <xref target="sharee"/>. The server MUST update the DAV:resourcetype property on the calendar collection to ensure it does not contain a CS:shared-owner XML element to indicate the calendar collection is not shared.
                     </t>
-                    <section title="Example: Successful PROPPATCH Request">
-            
-                        <t>
-                          This example shows how the PROPPATCH request is used to upgrade to a shared calendar collection.
-                        </t>
-    
-                        <figure>
-                          <preamble>&gt;&gt; Request &lt;&lt;</preamble>
-                          <artwork><![CDATA[
-PROPPATCH /calendars/users/cyrus/shared/ HTTP/1.1
-Host: calendar.example.com
-Content-Type: application/xml; charset="utf-8"
-Content-Length: xxxx
-
-<?xml version="1.0" encoding="utf-8" ?>
-<D:propertyupdate xmlns:D="DAV:"
-              xmlns:C="urn:ietf:params:xml:ns:caldav"
-              xmlns:CS="http://calendarserver.org/ns/">
-  <D:set>
-    <D:prop>
-      <D:resourcetype>
-        <D:collection/>
-        <C:calendar/>
-        <CS:shared-owner/>
-      </D:resourcetype>
-    </D:prop>
-  </D:set>
-</D:propertyupdate>]]></artwork>
-                        </figure>
-                        <figure>
-                          <preamble>&gt;&gt; Response &lt;&lt;</preamble>
-                          <artwork><![CDATA[
-HTTP/1.1 207 Multi-Status
-Date: Sat, 11 Nov 2006 09:32:12 GMT
-Content-Type: application/xml; charset="utf-8"
-Content-Length: xxxx
-
-<?xml version="1.0" encoding="utf-8" ?>
-<D:multistatus xmlns:D="DAV:">
-  <D:response>
-    <D:href>/calendars/users/cyrus/shared/</D:href>
-    <D:propstat>
-      <D:prop>
-        <D:resourcetype/>
-      </D:prop>
-      <D:status>HTTP/1.1 200 OK</D:status>
-    </D:propstat>
-  </D:response>
-</D:multistatus>]]></artwork>
-                        </figure>
-                    </section>
                 </section>
                 <section title="Manipulating Sharees of a Shared Calendar" anchor="sharee">
                     <t>
-                        The sharer of a shared calendar is able to manipulate the sharee list by issuing a POST request targeted at the shared calendar collection resource. The POST request MUST contain an XML document as its body with the root element being <xref target="CS:share">CS:share</xref>.
+                        The sharer of a shared calendar is able to manipulate the sharee list by issuing a POST request targeted at the calendar collection resource. The POST request MUST contain an XML document as its body with the root element being <xref target="CS:share">CS:share</xref>.
                     </t>
                     <t>
-                    	The <xref target="CS:share">CS:share</xref> element in the POST requests MUST contain one or more <xref target="CS:set">CS:set</xref> or <xref target="CS:remove">CS:remove</xref> elements. For each <xref target="CS:set">CS:set</xref> element, the server MUST add the specified sharee access to the shared calendar. For each <xref target="CS:remove">CS:remove</xref> element the server MUST remove the specified sharee access from the shared calendar. In each case the server MUST send a notification message to any sharees whose status is changed (added, modified or removed), indicating to them a change in status for the shared calendar. The server SHOULD NOT send notification messages to sharees whose status is unchanged.
+                        The <xref target="CS:share">CS:share</xref> element in the POST requests MUST contain one or more <xref target="CS:set">CS:set</xref> or <xref target="CS:remove">CS:remove</xref> elements. For each <xref target="CS:set">CS:set</xref> element, the server MUST add the specified sharee access to the calendar. For each <xref target="CS:remove">CS:remove</xref> element the server MUST remove the specified sharee access from the shared calendar. In each case the server MUST send a notification message to any sharees whose status is changed (added, modified or removed), indicating to them a change in status for the shared calendar. The server SHOULD NOT send notification messages to sharees whose status is unchanged.
                     </t>
                     <t>
-                    	Sharee's are identified via a DAV:href element whose value is either a principal-URL for a sharee hosted on the same server, a calendar user address or email address. In the case of the later two, the sharee might not be a user on the same server - though in that case how invitations are sent or access enabled is out of scope for this specification. A server MAY change the sharee's "address" to any suitable alternative that it might prefer when returning the list of sharees via the <xref target="CS:invite">CS:invite property</xref>.
+                        Sharee's are identified via a DAV:href element whose value is either a principal-URL for a sharee hosted on the same server, a calendar user address or email address. In the case of the later two, the sharee might not be a user on the same server - though in that case how invitations are sent or access enabled is out of scope for this specification. A server MAY change the sharee's "address" to any suitable alternative that it might prefer when returning the list of sharees via the <xref target="CS:invite">CS:invite property</xref>.
                     </t>
                     <t>
-                    	The client MAY include a <xref target="CS:common-name">CS:common-name</xref> element in the <xref target="CS:set">CS:set</xref> element. When provided, the value represents the common name for the sharee, and is returned in the list of sharees via the <xref target="CS:invite">CS:invite property</xref>. The server MAY change this to a suitable alternative when it is able to match the sharee to a known user. If absent from the client request, the server SHOULD add a CS:common-name when it is able to match the sharee with a known user, and a common name for that user can be determined.
+                        The client MAY include a <xref target="CS:common-name">CS:common-name</xref> element in the <xref target="CS:set">CS:set</xref> element. When provided, the value represents the common name for the sharee, and is returned in the list of sharees via the <xref target="CS:invite">CS:invite property</xref>. The server MAY change this to a suitable alternative when it is able to match the sharee to a known user. If absent from the client request, the server SHOULD add a CS:common-name when it is able to match the sharee with a known user, and a common name for that user can be determined.
                     </t>
                     <t>
-                    	When the sharee list on a shared calendar is changed, the server MUST send notifications to each sharee to update them on their current sharing status. This is accomplished by sending a <xref target="CS:invite-notification">CS:invite-notification</xref> notification to each sharee.
+                        When the sharee list on a shared calendar is changed, the server MUST send notifications to each sharee to update them on their current sharing status. This is accomplished by sending a <xref target="CS:invite-notification">CS:invite-notification</xref> notification to each sharee.
                     </t>
                     <section title="Example: Successful Sharee Add Request">
             
@@ -495,118 +367,118 @@ Date: Sat, 11 Nov 2006 09:32:12 GMT]]></artwork>
             </section>
             <section title="Sharee Actions on Shared Calendars">
                 <section title="Replying to a Sharing Invite">
-                	<t>
-                		When a sharee is invited to a shared calendar they can accept or decline the invite by issuing a POST request to the sharee's calendar home collection resource. The POST request MUST contain an XML document as its body with the root element being <xref target="CS:invite-reply">CS:invite-reply</xref>.
-                	</t>
-                	<t>
-                		The <xref target="CS:invite-reply">CS:invite-reply</xref> element in the POST request specifies the sharee who is replying in the DAV:href element, the accept or decline action via the CS:invite-accepted or CS:invite-declined elements, the URL of the shared calendar in the CS:hosturl element, the unique identifier of the invite to which it is a reply in the CS:in-reply-to element, and an optional CS:summary element.
-                	</t>
-                	<t>
-                		The response to a POST request that accepts a shared calendar invite MUST be an XML document containing <xref target="CS:shared-as">CS:shared-as</xref> as its root element. That root element contains a single DAV:href element whose content is the URI of the shared calendar in the sharee's calendar home created by the invite acceptance.
-                	</t>
-                	<t>
+                    <t>
+                        When a sharee is invited to a shared calendar they can accept or decline the invite by issuing a POST request to the sharee's calendar home collection resource. The POST request MUST contain an XML document as its body with the root element being <xref target="CS:invite-reply">CS:invite-reply</xref>.
+                    </t>
+                    <t>
+                        The <xref target="CS:invite-reply">CS:invite-reply</xref> element in the POST request specifies the sharee who is replying in the DAV:href element, the accept or decline action via the CS:invite-accepted or CS:invite-declined elements, the URL of the shared calendar in the CS:hosturl element, the unique identifier of the invite to which it is a reply in the CS:in-reply-to element, and an optional CS:summary element.
+                    </t>
+                    <t>
+                        The response to a POST request that accepts a shared calendar invite MUST be an XML document containing <xref target="CS:shared-as">CS:shared-as</xref> as its root element. That root element contains a single DAV:href element whose content is the URI of the shared calendar in the sharee's calendar home created by the invite acceptance.
+                    </t>
+                    <t>
                         When the sharee replies to an invite, the server SHOULD send a notification to the sharer to update them on the change in the sharee state.  This is accomplished by sending a <xref target="CS:invite-reply">CS:invite-reply</xref> notification to the sharer.
-                	</t>
+                    </t>
                 </section>
                 <section title="Removing a Shared Calendar">
-                	<t>
-                		To remove a shared calendar from a sharee's calendar home collection a DELETE request is targeted at the shared calendar URI. When such a request is received the server MUST remove the shared calendar from the sharee's calendar home and automatically update the sharee's status in the sharer's calendar's CS:invite property.
-                	</t>
+                    <t>
+                        To remove a shared calendar from a sharee's calendar home collection a DELETE request is targeted at the shared calendar URI. When such a request is received the server MUST remove the shared calendar from the sharee's calendar home and automatically update the sharee's status in the sharer's calendar's CS:invite property.
+                    </t>
                 </section>
             </section>
             <section title="General Considerations">
                 <section title="Access Levels">
-                	<t>
-                		Two levels of access ca be granted by a sharer to any sharee. These are governed by the CS:access element used in the CS:invite/CS:user element that specifies a shared user invite. CS:access contains a single empty element that defines the type of access granted:
-                		<list style="hanging">
-                		<t hangText="CS:read">
-                		    When present this indicates that sharees can read calendar data but cannot change it.
-                		</t>
-                		<t hangText="CS:read-write">
-                		    When present this indicates that sharees can read and write calendar data.
-                		</t>
-                		</list>
-                	</t>
+                    <t>
+                        Two levels of access ca be granted by a sharer to any sharee. These are governed by the CS:access element used in the CS:invite/CS:user element that specifies a shared user invite. CS:access contains a single empty element that defines the type of access granted:
+                        <list style="hanging">
+                        <t hangText="CS:read">
+                            When present this indicates that sharees can read calendar data but cannot change it.
+                        </t>
+                        <t hangText="CS:read-write">
+                            When present this indicates that sharees can read and write calendar data.
+                        </t>
+                        </list>
+                    </t>
                 </section>
                 <section title="Allowing or Disallowing Sharing" anchor="allowed">
-                	<t>
-                		Servers MAY support calendar sharing on a per-calendar basis - e.g., they could treat some calendars as always private (cannot be shared) or always public (always shared). As a result clients need a way to determine which calendar could be shared so they can enable or disable sharing options on a per-calendar basis.
-                	</t>
-                	<t>
-                		This specification adds a <xref target="CS:allowed-sharing-modes">CS:allowed-sharing-modes</xref> WebDAV property which servers can return on calendar collection resources. This property contains XML elements that describe which sharing or publishing capabilities can be supported by the corresponding calendar collection:
-                		<list>
-							<t><xref target="CS:can-be-shared">CS:can-be-shared</xref>: when present indicates that the calendar collection can be shared. When not present, the calendar collection cannot be shared.</t>
-							<t><xref target="CS:can-be-published">CS:can-be-published</xref>: when present indicates that the calendar collection can be published. When not present, the calendar collection cannot be published.</t>
-						</list>                		
-                	</t>
-                	<t>
-                		When not present on a calendar collection, sharing or publishing of that calendar is not allowed. Clients SHOULD NOT attempt to use requests to enable sharing or publishing targeted at those calendar collections.
-                	</t>
+                    <t>
+                        Servers MAY support calendar sharing on a per-calendar basis - e.g., they could treat some calendars as always private (cannot be shared) or always public (always shared). As a result clients need a way to determine which calendar could be shared so they can enable or disable sharing options on a per-calendar basis.
+                    </t>
+                    <t>
+                        This specification adds a <xref target="CS:allowed-sharing-modes">CS:allowed-sharing-modes</xref> WebDAV property which servers can return on calendar collection resources. This property contains XML elements that describe which sharing or publishing capabilities can be supported by the corresponding calendar collection:
+                        <list>
+                            <t><xref target="CS:can-be-shared">CS:can-be-shared</xref>: when present indicates that the calendar collection can be shared. When not present, the calendar collection cannot be shared.</t>
+                            <t><xref target="CS:can-be-published">CS:can-be-published</xref>: when present indicates that the calendar collection can be published. When not present, the calendar collection cannot be published.</t>
+                        </list>                     
+                    </t>
+                    <t>
+                        When not present on a calendar collection, sharing or publishing of that calendar is not allowed. Clients SHOULD NOT attempt to use requests to enable sharing or publishing targeted at those calendar collections.
+                    </t>
                 </section>
                 <section title="Per-user WebDAV Properties">
-                	<t>
-                		Servers MUST support "per-user" WebDAV properties on shared calendar collections and MAY support them on calendar object resources within shared calendar collections. A "per-user" WebDAV property is one whose value can be set and retrieved independently by each user with appropriate access rights. e.g., user "A" changes the DAV:displayname property on a shared calendar in their calendar home to "My calendar", and user "B" changes the same property to "Shared" on the same shared calendar in their calendar home. When each user retrieves the property value they will see their own last stored value and not the value of the other user.
-                	</t>
-                	<t>
-                		For shared calendars, the server MUST allow all users to write "per-user" WebDAV properties on the shared calendar collection and MAY allow property writes on calendar object resources within the shared calendar collection. This is required even in the case where the sharee has been granted read access only (i.e., the ability to change calendar data is disallowed). This requirement ensures that sharees can always change "personal" properties such as calendar colors and display names.
-                	</t>
-                	<t>
-                		Servers MUST treat the following properties as "per-user":
-                		<list>
-                			<t>DAV:displayname</t>
-                			<t>CALDAV:calendar-description</t>
-                			<t>CALDAV:schedule-calendar-transp</t>
-                			<t>ICAL:calendar-color</t>
-                		</list>
-                	</t>
-                	<t>
-                		Servers MAY treat any dead property as per-user.
-                	</t>
-                	<t>
-                		Servers MUST NOT treat live properties as per-user.
-                	</t>
+                    <t>
+                        Servers MUST support "per-user" WebDAV properties on shared calendar collections and MAY support them on calendar object resources within shared calendar collections. A "per-user" WebDAV property is one whose value can be set and retrieved independently by each user with appropriate access rights. e.g., user "A" changes the DAV:displayname property on a shared calendar in their calendar home to "My calendar", and user "B" changes the same property to "Shared" on the same shared calendar in their calendar home. When each user retrieves the property value they will see their own last stored value and not the value of the other user.
+                    </t>
+                    <t>
+                        For shared calendars, the server MUST allow all users to write "per-user" WebDAV properties on the shared calendar collection and MAY allow property writes on calendar object resources within the shared calendar collection. This is required even in the case where the sharee has been granted read access only (i.e., the ability to change calendar data is disallowed). This requirement ensures that sharees can always change "personal" properties such as calendar colors and display names.
+                    </t>
+                    <t>
+                        Servers MUST treat the following properties as "per-user":
+                        <list>
+                            <t>DAV:displayname</t>
+                            <t>CALDAV:calendar-description</t>
+                            <t>CALDAV:schedule-calendar-transp</t>
+                            <t>ICAL:calendar-color</t>
+                        </list>
+                    </t>
+                    <t>
+                        Servers MAY treat any dead property as per-user.
+                    </t>
+                    <t>
+                        Servers MUST NOT treat live properties as per-user.
+                    </t>
                 </section>
                 <section title="Per-user Calendar Data" anchor="per-user-data">
-                	<t>
-                		Servers MUST support "per-user" calendar data in calendar object resources stored in shared calendars. This allows each sharee and the sharer to store their own alarms and free busy transparency status without "interfering" with other users who also have access to the same calendar object resources.
-                	</t>
-                	<t>
-                		For calendaring object resources in shared calendar collections, the server MUST treat the following iCalendar data objects as per-user:
-                		<list>
-                			<t>TRANSP property</t>
-                			<t>VALARM component</t>
-                		</list>
-                	</t>
-                	<t>
-                		Servers MAY treat any non-standard X- iCalendar properties as per-user.
-                	</t>
-                	<t>
-                		When handling per-user data in recurring components, servers SHOULD eliminate overridden instances when returning iCalendar data to clients in the case where there are no differences between the overridden component and the instance that could be derived from the "master" recurrence component. For example, consider a daily recurring event, Monday through Friday, initially defined without any overridden instances, that is in a shared calendar. If user "A" overrides the Tuesday instance and adds their own "VALARM" component only, then when user "A" later retrieves the data again they would see that overridden instance, but when user "B" does so, they would not. This ensures that each user sees the most "compact" representation of the calendar data.
-                	</t>
+                    <t>
+                        Servers MUST support "per-user" calendar data in calendar object resources stored in shared calendars. This allows each sharee and the sharer to store their own alarms and free busy transparency status without "interfering" with other users who also have access to the same calendar object resources.
+                    </t>
+                    <t>
+                        For calendaring object resources in shared calendar collections, the server MUST treat the following iCalendar data objects as per-user:
+                        <list>
+                            <t>TRANSP property</t>
+                            <t>VALARM component</t>
+                        </list>
+                    </t>
+                    <t>
+                        Servers MAY treat any non-standard X- iCalendar properties as per-user.
+                    </t>
+                    <t>
+                        When handling per-user data in recurring components, servers SHOULD eliminate overridden instances when returning iCalendar data to clients in the case where there are no differences between the overridden component and the instance that could be derived from the "master" recurrence component. For example, consider a daily recurring event, Monday through Friday, initially defined without any overridden instances, that is in a shared calendar. If user "A" overrides the Tuesday instance and adds their own "VALARM" component only, then when user "A" later retrieves the data again they would see that overridden instance, but when user "B" does so, they would not. This ensures that each user sees the most "compact" representation of the calendar data.
+                    </t>
                 </section>
                 <section title="Scheduling">
-                	<t>
-                		<xref target="I-D.desruisseaux-caldav-sched">CalDAV Scheduling</xref> defines how a CalDAV server carries out scheduling operations when calendar object resources are created, modified or deleted and include "ORGANIZER" and "ATTENDEE" iCalendar properties.
-                	</t>
-                	<t>
-                		When calendar object resources are created, modified or deleted in shared calendars by sharees, the following restrictions apply:
-                		<list style="numbers">
-                			<t>The "ORGANIZER" iCalendar property value in the iCalendar data MUST match a calendar user address of the sharer (owner) of the shared calendar. The DAV:owner WebDAV property MUST be present on a shared calendar and MUST provide a reference to a principal-URL of the sharer (owner) of the shared calendar. Clients can use this value to determine what the allowed "ORGANIZER" iCalendar property values are. The server MUST reject any attempt by a sharee to create an iCalendar component with an "ORGANIZER" property value other than the sharer (owner) of the shared calendar.</t>
-                			<t>The server MUST reject any attempt by a sharee to MOVE a calendar object resource in a shared calendar to some other collection.</t>
-                			<t>When a sharee is listed as an Attendee in a calendar object resource in a shared calendar, and write access is granted, the sharee is allowed to change not only iCalendar data related to the Organizer, but also data related to the Attendee. i.e., a sharee can change their own participation status on the "ATTENDEE" iCalendar property referring to them. Additionally, if the sharee is not listed as an Attendee, and write access is granted, the sharee can add themselves as an Attendee.</t>
-                			<t>The default calendar collection defined in Section 6.3 of <xref target="I-D.desruisseaux-caldav-sched"/> MUST NOT be a calendar shared to the corresponding calendar user.</t>
-                		</list>
-                	</t>
-                	<t>
-                		Following are additional considerations for scheduling with shared calendars:
-                		<list style="numbers">
-                			<t>A scheduled iCalendar component could appear in more than one calendar collection within a sharee's calendar home if the sharee is an Attendee and the Organizer or other Attendees have shared a calendar with the sharee that includes their copies of the iCalendar component. It is important to note that the scheduled component in the shared calendar could have different access rights than the one in the sharee's owned calendar.</t>
-                			<t>A scheduled iCalendar component appearing in a sharee's shared calendar could include the sharee as an Attendee. For recurring events, it is possible for the sharee to only be listed as an Attendee in some instances, as opposed to all. Clients will need to be aware of this when allowing sharee's to set their own participation status.</t>
-                		</list>
-                	</t>
-                	<t>
-                		In addition, when a shared calendar is first accepted by a sharee, the server SHOULD set the CALDAV:schedule-calendar-transp property to the value CALDAV:transparent to ensure newly accepted shared calendars do not contribute to the sharee's freebusy time until the sharee explicitly requests it.
-                	</t>
+                    <t>
+                        <xref target="RFC6638">CalDAV Scheduling</xref> defines how a CalDAV server carries out scheduling operations when calendar object resources are created, modified or deleted and include "ORGANIZER" and "ATTENDEE" iCalendar properties.
+                    </t>
+                    <t>
+                        When calendar object resources are created, modified or deleted in shared calendars by sharees, the following restrictions apply:
+                        <list style="numbers">
+                            <t>The "ORGANIZER" iCalendar property value in the iCalendar data MUST match a calendar user address of the sharer (owner) of the shared calendar. The DAV:owner WebDAV property MUST be present on a shared calendar and MUST provide a reference to a principal-URL of the sharer (owner) of the shared calendar. Clients can use this value to determine what the allowed "ORGANIZER" iCalendar property values are. The server MUST reject any attempt by a sharee to create an iCalendar component with an "ORGANIZER" property value other than the sharer (owner) of the shared calendar.</t>
+                            <t>The server MUST reject any attempt by a sharee to MOVE a calendar object resource in a shared calendar to some other collection.</t>
+                            <t>When a sharee is listed as an Attendee in a calendar object resource in a shared calendar, and write access is granted, the sharee is allowed to change not only iCalendar data related to the Organizer, but also data related to the Attendee. i.e., a sharee can change their own participation status on the "ATTENDEE" iCalendar property referring to them. Additionally, if the sharee is not listed as an Attendee, and write access is granted, the sharee can add themselves as an Attendee.</t>
+                            <t>The default calendar collection defined in Section 6.3 of <xref target="RFC6638"/> MUST NOT be a calendar shared to the corresponding calendar user.</t>
+                        </list>
+                    </t>
+                    <t>
+                        Following are additional considerations for scheduling with shared calendars:
+                        <list style="numbers">
+                            <t>A scheduled iCalendar component could appear in more than one calendar collection within a sharee's calendar home if the sharee is an Attendee and the Organizer or other Attendees have shared a calendar with the sharee that includes their copies of the iCalendar component. It is important to note that the scheduled component in the shared calendar could have different access rights than the one in the sharee's owned calendar.</t>
+                            <t>A scheduled iCalendar component appearing in a sharee's shared calendar could include the sharee as an Attendee. For recurring events, it is possible for the sharee to only be listed as an Attendee in some instances, as opposed to all. Clients will need to be aware of this when allowing sharee's to set their own participation status.</t>
+                        </list>
+                    </t>
+                    <t>
+                        In addition, when a shared calendar is first accepted by a sharee, the server SHOULD set the CALDAV:schedule-calendar-transp property to the value CALDAV:transparent to ensure newly accepted shared calendars do not contribute to the sharee's freebusy time until the sharee explicitly requests it.
+                    </t>
                 </section>
             </section>
         </section>
@@ -784,7 +656,7 @@ Date: Sat, 11 Nov 2006 09:32:12 GMT]]></artwork>
                     <t hangText="Definition:">
                       <figure>
                         <artwork><![CDATA[
-<!ELEMENT invite-invalid (read | read-write)>]]></artwork>
+<!ELEMENT access (read | read-write)>]]></artwork>
                       </figure>
                     </t>
                   </list>
@@ -844,14 +716,17 @@ Date: Sat, 11 Nov 2006 09:32:12 GMT]]></artwork>
                     <t hangText="Name:">invite-notification</t>
                     <t hangText="Namespace:">http://calendarserver.org/ns/</t>
                     <t hangText="Purpose:">A notification used as a shared calendar invite.</t>
-                    <t hangText="Description:">Defines a notification message sent automatically by the server when a sharer adds, changes or removes a sharee from a shared calendar. The DAV:href element specifies the calendar user address of the sharee to whom the message was sent.</t>
+                    <t hangText="Description:">Defines a notification message sent automatically by the server when a sharer adds, changes or removes a sharee from a shared calendar. The DAV:href element specifies the calendar user address of the sharee to whom the message was sent. The CALDAV:supported-calendar-component-set is a copy of the matching WebDAV property on the sharers calendar collection, to allow clients to know what restrictions might apply to the shared calendar before accepting it.</t>
                     <t hangText="Definition:">
                       <figure>
                         <artwork><![CDATA[
-<!ELEMENT invite-notification (uid, DAV:href,
-                               (invite-noresponse | invite-deleted |
-                                invite-accepted | invite-declined),
-                               access, hosturl, organizer, summary?>]]></artwork>
+<!ELEMENT invite-notification (
+            uid, DAV:href,
+            (invite-noresponse | invite-deleted |
+            invite-accepted | invite-declined),
+            access, hosturl, organizer,
+            summary?,
+            CALDAV:supported-calendar-component-set?>]]></artwork>
                       </figure>
                     </t>
                   </list>
@@ -895,11 +770,13 @@ Date: Sat, 11 Nov 2006 09:32:12 GMT]]></artwork>
                     <t hangText="Name:">organizer</t>
                     <t hangText="Namespace:">http://calendarserver.org/ns/</t>
                     <t hangText="Purpose:">Identifies the sharer of a shared calendar.</t>
-                    <t hangText="Description:">Contains a single DAV:href element that identifies the calendar user address of the sharer of a shared calendar, and an optional CS:common-name element that matches that user.</t>
+                    <t hangText="Description:">Contains a single DAV:href element that identifies the calendar user address of the sharer of a shared calendar, and an optional CS:common-name element that matches that user, and an option CS:first-name, CS:last-name pair of elements that match that user. In some cases servers might have directory information that includes only the common name, or only the first or last name, and it is better to expose those directly to the client as-is rather than to try and split or combine the attributes to synthesize one set or the other.</t>
                     <t hangText="Definition:">
                       <figure>
                         <artwork><![CDATA[
-<!ELEMENT organizer (DAV:href, CS:common-name?)>]]></artwork>
+<!ELEMENT organizer (DAV:href,
+                     CS:common-name?,
+                     (CS:first-name, CS:last-name)?)>]]></artwork>
                       </figure>
                     </t>
                   </list>
@@ -916,6 +793,38 @@ Date: Sat, 11 Nov 2006 09:32:12 GMT]]></artwork>
                       <figure>
                         <artwork><![CDATA[
 <!ELEMENT common-name (#PCDATA)>]]></artwork>
+                      </figure>
+                    </t>
+                  </list>
+                </t>
+            </section>
+            <section title="CS:first-name" anchor="CS:first-name">
+                <t>
+                  <list style="hanging">
+                    <t hangText="Name:">first-name</t>
+                    <t hangText="Namespace:">http://calendarserver.org/ns/</t>
+                    <t hangText="Purpose:">The first name of a sharer or sharee.</t>
+                    <t hangText="Description:">The first name is optionally included by the server when returning results for sharers or sharees and in notifications.</t>
+                    <t hangText="Definition:">
+                      <figure>
+                        <artwork><![CDATA[
+<!ELEMENT first-name (#PCDATA)>]]></artwork>
+                      </figure>
+                    </t>
+                  </list>
+                </t>
+            </section>
+            <section title="CS:last-name" anchor="CS:last-name">
+                <t>
+                  <list style="hanging">
+                    <t hangText="Name:">last-name</t>
+                    <t hangText="Namespace:">http://calendarserver.org/ns/</t>
+                    <t hangText="Purpose:">The last name of a sharer or sharee.</t>
+                    <t hangText="Description:">The last name is optionally included by the server when returning results for sharers or sharees and in notifications.</t>
+                    <t hangText="Definition:">
+                      <figure>
+                        <artwork><![CDATA[
+<!ELEMENT last-name (#PCDATA)>]]></artwork>
                       </figure>
                     </t>
                   </list>
@@ -1065,7 +974,7 @@ Date: Sat, 11 Nov 2006 09:32:12 GMT]]></artwork>
                 Alarms set by the sharer SHOULD NOT be propagated to sharees by default. Clients SHOULD NOT automatically enable triggering of alarms on shared calendars that have just been accepted without confirmation by the user.
             </t>
             <t>
-            	TBD
+                TBD
             </t>
         </section>
         <section title='IANA Considerations'>
@@ -1085,21 +994,26 @@ Date: Sat, 11 Nov 2006 09:32:12 GMT]]></artwork>
             &rfc3744;
             &rfc4791;
             &rfc4918;
-            &rfc5689;
-            &I-D.desruisseaux-caldav-sched; 
+            &rfc6638; 
         </references>
 <!--
 <references title='Informative References'>
 </references>
 -->
         <section title='Change History'>
+            <t>Changes in -03:
+                <list style='numbers'>
+                    <t>Fixed access element DTD.</t>
+                    <t>Remove MKxxx and PROPPATCH mechanism for upgrading/downgrading shared state on a calendar collection. Instead the server implicitly sets the state based on whether there are any sharees or not..</t>
+                    <t>Added CS:first-name and CS:last-name optional element to CS:organizer.</t>
+                    <t>Added CALDAV:supported-calendar-component-set optional element to CS:invite-notification.</t>
+                </list>
+            </t>
             <t>Changes in -02:
                 <list style='numbers'>
                     <t>Removed read-write-shared access mode - now a server that does not support shared scheduling should advertise that via a DAV header</t>
                 </list>
             </t>
-        </section>
-        <section title='Change History'>
             <t>Changes in -01:
                 <list style='numbers'>
                     <t>Added CS:shared-url property</t>

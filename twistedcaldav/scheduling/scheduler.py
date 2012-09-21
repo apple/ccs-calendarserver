@@ -793,13 +793,16 @@ class ScheduleResponseQueue (LoggingMixIn):
         self.location = location
 
 
-    def add(self, recipient, what, reqstatus=None, calendar=None):
+    def add(self, recipient, what, reqstatus=None, calendar=None, suppressErrorLog=False):
         """
         Add a response.
         @param recipient: the recipient for this response.
         @param what: a status code or a L{Failure} for the given recipient.
         @param status: the iTIP request-status for the given recipient.
         @param calendar: the calendar data for the given recipient response.
+        @param suppressErrorLog: whether to suppress a log message for errors; primarily
+            this is used when trying to process a VFREEBUSY over iMIP, which isn't
+            supported.
         """
         if type(what) is int:
             code = what
@@ -812,7 +815,7 @@ class ScheduleResponseQueue (LoggingMixIn):
         else:
             raise AssertionError("Unknown data type: %r" % (what,))
 
-        if code > 400: # Error codes only
+        if not suppressErrorLog and code > 400: # Error codes only
             self.log_error("Error during %s for %s: %s" % (self.method, recipient, message))
 
         children = []

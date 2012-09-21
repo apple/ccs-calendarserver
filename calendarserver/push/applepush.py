@@ -317,16 +317,16 @@ class APNProviderProtocol(protocol.Protocol, LoggingMixIn):
         @type status: C{int}
         """
         msg = self.STATUS_CODES.get(status, "Unknown status code")
-        self.log_warn("Received APN error %d on identifier %d: %s" % (status, identifier, msg))
+        self.log_info("Received APN error %d on identifier %d: %s" % (status, identifier, msg))
         if status in self.TOKEN_REMOVAL_CODES:
             token = self.history.extractIdentifier(identifier)
             if token is not None:
-                self.log_warn("Removing subscriptions for bad token: %s" %
+                self.log_debug("Removing subscriptions for bad token: %s" %
                     (token,))
                 txn = self.factory.store.newTransaction()
                 subscriptions = (yield txn.apnSubscriptionsByToken(token))
                 for key, modified, uid in subscriptions:
-                    self.log_warn("Removing subscription: %s %s" %
+                    self.log_debug("Removing subscription: %s %s" %
                         (token, key))
                     yield txn.removeAPNSubscription(token, key)
                 yield txn.commit()
@@ -384,13 +384,13 @@ class APNProviderFactory(ReconnectingClientFactory, LoggingMixIn):
         self.shuttingDown = False
 
     def clientConnectionMade(self):
-        self.log_warn("Connection to APN server made")
+        self.log_info("Connection to APN server made")
         self.service.clientConnectionMade()
         self.delay = 1.0
 
     def clientConnectionLost(self, connector, reason):
         if not self.shuttingDown:
-            self.log_warn("Connection to APN server lost: %s" % (reason,))
+            self.log_info("Connection to APN server lost: %s" % (reason,))
         ReconnectingClientFactory.clientConnectionLost(self, connector, reason)
 
     def clientConnectionFailed(self, connector, reason):
@@ -400,7 +400,7 @@ class APNProviderFactory(ReconnectingClientFactory, LoggingMixIn):
             reason)
 
     def retry(self, connector=None):
-        self.log_warn("Reconnecting to APN server")
+        self.log_info("Reconnecting to APN server")
         ReconnectingClientFactory.retry(self, connector)
 
     def stopTrying(self):
@@ -470,12 +470,12 @@ class APNProviderService(APNConnectionService):
             self.scheduler = None
 
     def startService(self):
-        self.log_info("APNProviderService startService")
+        self.log_debug("APNProviderService startService")
         self.factory = APNProviderFactory(self, self.store)
         self.connect(self.factory)
 
     def stopService(self):
-        self.log_info("APNProviderService stopService")
+        self.log_debug("APNProviderService stopService")
         if self.factory is not None:
             self.factory.stopTrying()
         if self.scheduler is not None:

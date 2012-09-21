@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2005-2011 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2012 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -32,6 +32,7 @@ from twext.web2.stream import MemoryStream
 
 from twistedcaldav.config import config
 from twistedcaldav.customxml import calendarserver_namespace
+from twistedcaldav.datafilters.hiddeninstance import HiddenInstanceFilter
 from twistedcaldav.datafilters.privateevents import PrivateEventFilter
 from twistedcaldav.resource import isPseudoCalendarCollectionResource,\
     CalDAVResource
@@ -79,6 +80,9 @@ def http_GET(self, request):
     
                 caldata = (yield self.iCalendarForUser(request))
     
+                # Filter any attendee hidden instances        
+                caldata = HiddenInstanceFilter().filter(caldata)
+
                 if self.accessMode:
             
                     # Non DAV:owner's have limited access to the data
@@ -86,7 +90,7 @@ def http_GET(self, request):
                     
                     # Now "filter" the resource calendar data
                     caldata = PrivateEventFilter(self.accessMode, isowner).filter(caldata)
-        
+
                 response = Response()
                 response.stream = MemoryStream(caldata.getTextWithTimezones(includeTimezones=not config.EnableTimezonesByReference))
                 response.headers.setHeader("content-type", MimeType.fromString("text/calendar; charset=utf-8"))

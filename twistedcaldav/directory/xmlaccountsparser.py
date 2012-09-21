@@ -23,14 +23,13 @@ __all__ = [
     "XMLAccountsParser",
 ]
 
-import xml.dom.minidom
-
 from twext.python.filepath import CachingFilePath as FilePath
 
 from twext.python.log import Logger
 
 from twistedcaldav.directory.directory import DirectoryService
 from twistedcaldav.directory.util import normalizeUUID
+from twistedcaldav.xmlutil import readXML
 
 import re
 import hashlib
@@ -88,15 +87,10 @@ class XMLAccountsParser(object):
             self.items[recordType] = {}
 
         # Read in XML
-        fd = open(self.xmlFile.path, "r")
-        doc = xml.dom.minidom.parse(fd)
-        fd.close()
-
-        # Verify that top-level element is correct
-        accounts_node = doc._get_documentElement()
-        if accounts_node._get_localName() != ELEMENT_ACCOUNTS:
-            log.error("Ignoring file %r because it is not a repository builder file" % (self.xmlFile,))
-            return
+        try:
+            _ignore_tree, accounts_node = readXML(self.xmlFile.path, ELEMENT_ACCOUNTS)
+        except ValueError, e:
+            log.error("XML parse error for '%s' because: %s" % (self.xmlFile, e,), raiseException=RuntimeError)
         self._parseXML(accounts_node)
 
     def _parseXML(self, node):
@@ -104,8 +98,7 @@ class XMLAccountsParser(object):
         Parse the XML root node from the accounts configuration document.
         @param node: the L{Node} to parse.
         """
-        if node.hasAttribute(ATTRIBUTE_REALM):
-            self.realm = node.getAttribute(ATTRIBUTE_REALM).encode("utf-8")
+        self.realm = node.get(ATTRIBUTE_REALM, "").encode("utf-8")
 
         def updateMembership(group):
             # Update group membership
@@ -114,20 +107,13 @@ class XMLAccountsParser(object):
                 if item is not None:
                     item.groups.add(group.shortNames[0])
 
-        for child in node._get_childNodes():
-            child_name = child._get_localName()
-            if child_name is None:
-                continue
-
+        for child in node.getchildren():
             try:
-                recordType = RECORD_TYPES[child_name]
+                recordType = RECORD_TYPES[child.tag]
             except KeyError:
-                raise RuntimeError("Unknown account type: %s" % (child_name,))
+                raise RuntimeError("Unknown account type: %s" % (child.tag,))
 
-            if child.hasAttribute(ATTRIBUTE_REPEAT):
-                repeat = int(child.getAttribute(ATTRIBUTE_REPEAT))
-            else:
-                repeat = 0
+            repeat = int(child.get(ATTRIBUTE_REPEAT, 0))
 
             principal = XMLAccountRecord(recordType)
             principal.parseXML(child)
@@ -249,58 +235,39 @@ class XMLAccountRecord (object):
         return result
 
     def parseXML(self, node):
-        for child in node._get_childNodes():
-            child_name = child._get_localName()
-            if child_name is None:
-                continue
-            elif child_name == ELEMENT_SHORTNAME:
-                if child.firstChild is not None:
-                    self.shortNames.append(child.firstChild.data.encode("utf-8"))
-            elif child_name == ELEMENT_GUID:
-                if child.firstChild is not None:
-                    self.guid = normalizeUUID(
-                        child.firstChild.data.encode("utf-8")
-                    )
-                    if len(self.guid) < 4:
-                        self.guid += "?" * (4 - len(self.guid))
-            elif child_name == ELEMENT_PASSWORD:
-                if child.firstChild is not None:
-                    self.password = child.firstChild.data.encode("utf-8")
-            elif child_name == ELEMENT_NAME:
-                if child.firstChild is not None:
-                    self.fullName = child.firstChild.data.encode("utf-8")
-            elif child_name == ELEMENT_FIRST_NAME:
-                if child.firstChild is not None:
-                    self.firstName = child.firstChild.data.encode("utf-8")
-            elif child_name == ELEMENT_LAST_NAME:
-                if child.firstChild is not None:
-                    self.lastName = child.firstChild.data.encode("utf-8")
-            elif child_name == ELEMENT_EMAIL_ADDRESS:
-                if child.firstChild is not None:
-                    self.emailAddresses.add(child.firstChild.data.encode("utf-8").lower())
-            elif child_name == ELEMENT_MEMBERS:
+        for child in node.getchildren():
+            if child.tag == ELEMENT_SHORTNAME:
+                self.shortNames.append(child.text.encode("utf-8"))
+            elif child.tag == ELEMENT_GUID:
+                self.guid = normalizeUUID(child.text.encode("utf-8"))
+                if len(self.guid) < 4:
+                    self.guid += "?" * (4 - len(self.guid))
+            elif child.tag == ELEMENT_PASSWORD:
+                self.password = child.text.encode("utf-8")
+            elif child.tag == ELEMENT_NAME:
+                self.fullName = child.text.encode("utf-8")
+            elif child.tag == ELEMENT_FIRST_NAME:
+                self.firstName = child.text.encode("utf-8")
+            elif child.tag == ELEMENT_LAST_NAME:
+                self.lastName = child.text.encode("utf-8")
+            elif child.tag == ELEMENT_EMAIL_ADDRESS:
+                self.emailAddresses.add(child.text.encode("utf-8").lower())
+            elif child.tag == ELEMENT_MEMBERS:
                 self._parseMembers(child, self.members)
-            elif child_name == ELEMENT_EXTRAS:
+            elif child.tag == ELEMENT_EXTRAS:
                 self._parseExtras(child, self.extras)
             else:
-                raise RuntimeError("Unknown account attribute: %s" % (child_name,))
+                raise RuntimeError("Unknown account attribute: %s" % (child.tag,))
 
         if not self.shortNames:
             self.shortNames.append(self.guid)
 
     def _parseMembers(self, node, addto):
-        for child in node._get_childNodes():
-            if child._get_localName() == ELEMENT_MEMBER:
-                if child.hasAttribute(ATTRIBUTE_RECORDTYPE):
-                    recordType = child.getAttribute(ATTRIBUTE_RECORDTYPE).encode("utf-8")
-                else:
-                    recordType = DirectoryService.recordType_users
-                if child.firstChild is not None:
-                    addto.add((recordType, child.firstChild.data.encode("utf-8")))
+        for child in node.getchildren():
+            if child.tag == ELEMENT_MEMBER:
+                recordType = child.get(ATTRIBUTE_RECORDTYPE, DirectoryService.recordType_users)
+                addto.add((recordType, child.text.encode("utf-8")))
 
     def _parseExtras(self, node, addto):
-        for child in node._get_childNodes():
-            key = child._get_localName()
-            if key:
-                value = child.firstChild.data.encode("utf-8")
-                addto[key.encode("utf-8")] = value
+        for child in node.getchildren():
+            addto[child.tag] = child.text.encode("utf-8")

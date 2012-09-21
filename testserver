@@ -25,15 +25,13 @@ cdt="${wd}/../CalDAVTester";
 
 verbose="";
 serverinfo="${cdt}/scripts/server/serverinfo.xml";
-documentroot="${wd}/data/Documents";
 
 usage ()
 {
   program="$(basename "$0")";
-  echo "Usage: ${program} [-v] [-d docroot] [-s serverinfo]";
+  echo "Usage: ${program} [-v] [-s serverinfo]";
   echo "Options:";
   echo "        -h  Print this help and exit";
-  echo "        -d  Set the document root";
   echo "        -s  Set the serverinfo.xml";
   echo "        -v  Verbose.";
 
@@ -41,11 +39,10 @@ usage ()
   exit 64;
 }
 
-while getopts 'hvd:s:' option; do
+while getopts 'hvs:' option; do
   case "$option" in 
     '?') usage; ;;
     'h') usage -; exit 0; ;;
-    'd') documentroot="${OPTARG}"; ;;
     's')   serverinfo="${OPTARG}"; ;;
     'v')      verbose="v"; ;;
   esac;
@@ -62,12 +59,6 @@ fi;
 ##
 
 source "${wd}/support/shell.sh";
-
-if [ ! -e "${documentroot}/calendars/__uids__/user09" ]; then
-  curl "http://localhost:8008/calendars/__uids__/user09/";
-fi;
-
-"${python}" twistedcaldav/test/data/makelargecalendars.py -o 9 -d "${documentroot}";
 
 cd "${cdt}" && "${python}" testcaldav.py --print-details-onfail -s "${serverinfo}" "$@";
 

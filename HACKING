@@ -52,7 +52,7 @@ Obtaining the Code
 The source code to the Calendar and Contacts Server is available via
 Subversion at this repository URL:
 
-  http://svn.macosforge.org/repository/calendarserver/CalendarServer/trunk/
+  http://svn.calendarserver.org/repository/calendarserver/CalendarServer/trunk/
 
 You can also browse the repository directly using your web browser, or
 use WebDAV clients to browse the repository, such as Mac OS X's Finder

@@ -750,17 +750,18 @@ class GroupMembershipCacheUpdater(LoggingMixIn):
         self.log_info("Updating group membership cache")
 
         dataRoot = FilePath(config.DataRoot)
-        snapshotFile = dataRoot.child("memberships_cache")
+        membershipsCacheFile = dataRoot.child("memberships_cache")
+        extProxyCacheFile = dataRoot.child("external_proxy_cache")
 
-        if not snapshotFile.exists():
+        if not membershipsCacheFile.exists():
             self.log_info("Group membership snapshot file does not yet exist")
             fast = False
             previousMembers = {}
             callGroupsChanged = False
         else:
             self.log_info("Group membership snapshot file exists: %s" %
-                (snapshotFile.path,))
-            previousMembers = pickle.loads(snapshotFile.getContent())
+                (membershipsCacheFile.path,))
+            previousMembers = pickle.loads(membershipsCacheFile.getContent())
             callGroupsChanged = True
 
         if useLock:
@@ -772,29 +773,67 @@ class GroupMembershipCacheUpdater(LoggingMixIn):
             self.log_info("Acquired lock")
 
         if not fast and self.useExternalProxies:
+
+            # Load in cached copy of external proxies so we can diff against them
+            previousAssignments = []
+            if extProxyCacheFile.exists():
+                self.log_info("External proxies snapshot file exists: %s" %
+                    (extProxyCacheFile.path,))
+                previousAssignments = pickle.loads(extProxyCacheFile.getContent())
+
             self.log_info("Retrieving proxy assignments from directory")
             assignments = self.externalProxiesSource()
             self.log_info("%d proxy assignments retrieved from directory" %
                 (len(assignments),))
+
+            changed, removed = diffAssignments(previousAssignments, assignments)
+            # changed is the list of proxy assignments (either new or updates).
+            # removed is the list of principals who used to have an external
+            #   delegate but don't anymore.
+
             # populate proxy DB from external resource info
-            self.log_info("Applying proxy assignment changes")
-            assignmentCount = 0
-            totalNumAssignments = len(assignments)
-            currentAssignmentNum = 0
-            for principalUID, members in assignments:
-                currentAssignmentNum += 1
-                if currentAssignmentNum % 1000 == 0:
-                    self.log_info("...proxy assignment %d of %d" % (currentAssignmentNum,
-                        totalNumAssignments))
-                try:
-                    current = (yield self.proxyDB.getMembers(principalUID))
-                    if members != current:
+            if changed:
+                self.log_info("Updating proxy assignments")
+                assignmentCount = 0
+                totalNumAssignments = len(changed)
+                currentAssignmentNum = 0
+                for principalUID, members in changed:
+                    currentAssignmentNum += 1
+                    if currentAssignmentNum % 1000 == 0:
+                        self.log_info("...proxy assignment %d of %d" % (currentAssignmentNum,
+                            totalNumAssignments))
+                    try:
+                        current = (yield self.proxyDB.getMembers(principalUID))
+                        if members != current:
+                            assignmentCount += 1
+                            yield self.proxyDB.setGroupMembers(principalUID, members)
+                    except Exception, e:
+                        self.log_error("Unable to update proxy assignment: principal=%s, members=%s, error=%s" % (principalUID, members, e))
+                self.log_info("Updated %d assignment%s in proxy database" %
+                    (assignmentCount, "" if assignmentCount == 1 else "s"))
+
+            if removed:
+                self.log_info("Deleting proxy assignments")
+                assignmentCount = 0
+                totalNumAssignments = len(removed)
+                currentAssignmentNum = 0
+                for principalUID in removed:
+                    currentAssignmentNum += 1
+                    if currentAssignmentNum % 1000 == 0:
+                        self.log_info("...proxy assignment %d of %d" % (currentAssignmentNum,
+                            totalNumAssignments))
+                    try:
                         assignmentCount += 1
-                        yield self.proxyDB.setGroupMembers(principalUID, members)
-                except Exception, e:
-                    self.log_error("Unable to apply proxy assignment: principal=%s, members=%s, error=%s" % (principalUID, members, e))
-            self.log_info("Applied %d assignment%s to proxy database" %
-                (assignmentCount, "" if assignmentCount == 1 else "s"))
+                        yield self.proxyDB.setGroupMembers(principalUID, [])
+                    except Exception, e:
+                        self.log_error("Unable to remove proxy assignment: principal=%s, members=%s, error=%s" % (principalUID, members, e))
+                self.log_info("Removed %d assignment%s from proxy database" %
+                    (assignmentCount, "" if assignmentCount == 1 else "s"))
+
+            # Store external proxy snapshot
+            self.log_info("Taking snapshot of external proxies to %s" %
+                (extProxyCacheFile.path,))
+            extProxyCacheFile.setContent(pickle.dumps(assignments))
 
         if fast:
             # If there is an on-disk snapshot of the membership information,
@@ -802,7 +841,7 @@ class GroupMembershipCacheUpdater(LoggingMixIn):
             # any records, so that the server can start up quickly.
 
             self.log_info("Loading group memberships from snapshot")
-            members = pickle.loads(snapshotFile.getContent())
+            members = pickle.loads(membershipsCacheFile.getContent())
 
         else:
             # Fetch the group hierarchy from the directory, fetch the list
@@ -842,8 +881,8 @@ class GroupMembershipCacheUpdater(LoggingMixIn):
 
             # Store snapshot
             self.log_info("Taking snapshot of group memberships to %s" %
-                (snapshotFile.path,))
-            snapshotFile.setContent(pickle.dumps(members))
+                (membershipsCacheFile.path,))
+            membershipsCacheFile.setContent(pickle.dumps(members))
 
             # Update ownership
             uid = gid = -1
@@ -851,7 +890,9 @@ class GroupMembershipCacheUpdater(LoggingMixIn):
                 uid = pwd.getpwnam(config.UserName).pw_uid
             if config.GroupName:
                 gid = grp.getgrnam(config.GroupName).gr_gid
-            os.chown(snapshotFile.path, uid, gid)
+            os.chown(membershipsCacheFile.path, uid, gid)
+            if extProxyCacheFile.exists():
+                os.chown(extProxyCacheFile.path, uid, gid)
 
         self.log_info("Storing %d group memberships in memcached" %
                        (len(members),))
@@ -1148,6 +1189,34 @@ class GroupMembershipCacherServiceMaker(LoggingMixIn):
             )
 
         return cacherService
+
+def diffAssignments(old, new):
+    """
+    Compare two proxy assignment lists and return their differences in the form of
+    two lists -- one for added/updated assignments, and one for removed assignments.
+    @param old: list of (group, set(members)) tuples
+    @type old: C{list}
+    @param new: list of (group, set(members)) tuples
+    @type new: C{list}
+    @return: Tuple of two lists; the first list contains tuples of (proxy-principal,
+        set(members)), and represents all the new or updated assignments.  The
+        second list contains all the proxy-principals which used to have a delegate
+        but don't anymore.
+    """
+    old = dict(old)
+    new = dict(new)
+    changed = []
+    removed = []
+    for key in old.iterkeys():
+        if key not in new:
+            removed.append(key)
+        else:
+            if old[key] != new[key]:
+                changed.append((key, new[key]))
+    for key in new.iterkeys():
+        if key not in old:
+            changed.append((key, new[key]))
+    return changed, removed
 
 
 

@@ -45,7 +45,7 @@ __all__ = [
 class iTipProcessing(object):
 
     @staticmethod
-    def processNewRequest(itip_message, recipient=None):
+    def processNewRequest(itip_message, recipient=None, creating=False):
         """
         Process a METHOD=REQUEST for a brand new calendar object.
 
@@ -63,6 +63,20 @@ class iTipProcessing(object):
 
         if recipient:
             iTipProcessing.addTranspForNeedsAction(calendar.subcomponents(), recipient)
+
+            # Check for incoming DECLINED
+            if creating:
+                master = calendar.masterComponent()
+                for component in tuple(calendar.subcomponents()):
+                    if component in ignoredComponents or component is master:
+                        continue
+                    attendee = component.getAttendeeProperty((recipient,))
+                    if attendee and attendee.parameterValue("PARTSTAT", "NEEDS-ACTION") == "DECLINED":
+                        # Mark as hidden if we have a master, otherwise remove
+                        if master is not None:
+                            component.addProperty(Property(Component.HIDDEN_INSTANCE_PROPERTY, "T"))
+                        else:
+                            calendar.removeComponent(component)
 
         return calendar
 
@@ -130,12 +144,12 @@ class iTipProcessing(object):
                 if organizer:
                     organizer.setParameter("SCHEDULE-STATUS", organizer_schedule_status)
 
-            # Now try to match recurrences
-            for component in new_calendar.subcomponents():
+            # Now try to match recurrences in the new calendar
+            for component in tuple(new_calendar.subcomponents()):
                 if component.name() != "VTIMEZONE" and component.getRecurrenceIDUTC() is not None:
-                    iTipProcessing.transferItems(calendar, master_valarms, private_comments, transps, completeds, organizer_schedule_status, component)
+                    iTipProcessing.transferItems(calendar, master_valarms, private_comments, transps, completeds, organizer_schedule_status, component, recipient)
 
-            # Now try to match recurrences
+            # Now try to match recurrences from the old calendar
             for component in calendar.subcomponents():
                 if component.name() != "VTIMEZONE" and component.getRecurrenceIDUTC() is not None:
                     rid = component.getRecurrenceIDUTC()
@@ -144,7 +158,7 @@ class iTipProcessing(object):
                         new_component = new_calendar.deriveInstance(rid, allowCancelled=allowCancelled)
                         if new_component:
                             new_calendar.addComponent(new_component)
-                            iTipProcessing.transferItems(calendar, master_valarms, private_comments, transps, completeds, organizer_schedule_status, new_component)
+                            iTipProcessing.transferItems(calendar, master_valarms, private_comments, transps, completeds, organizer_schedule_status, new_component, recipient)
 
             # Replace the entire object
             return new_calendar, rids
@@ -161,10 +175,11 @@ class iTipProcessing(object):
                         calendar.addComponent(component)
                 else:
                     component = component.duplicate()
-                    iTipProcessing.transferItems(calendar, master_valarms, private_comments, transps, completeds, organizer_schedule_status, component, remove_matched=True)
-                    calendar.addComponent(component)
-                    if recipient:
-                        iTipProcessing.addTranspForNeedsAction((component,), recipient)
+                    missingDeclined = iTipProcessing.transferItems(calendar, master_valarms, private_comments, transps, completeds, organizer_schedule_status, component, recipient, remove_matched=True)
+                    if not missingDeclined:
+                        calendar.addComponent(component)
+                        if recipient:
+                            iTipProcessing.addTranspForNeedsAction((component,), recipient)
 
             # Write back the modified object
             return calendar, rids
@@ -471,11 +486,13 @@ class iTipProcessing(object):
 
 
     @staticmethod
-    def transferItems(from_calendar, master_valarms, private_comments, transps, completeds, organizer_schedule_status, to_component, remove_matched=False):
+    def transferItems(from_calendar, master_valarms, private_comments, transps, completeds, organizer_schedule_status, to_component, recipient, remove_matched=False):
         """
         Transfer properties from a calendar to a component by first trying to match the component in the original calendar and
         use the properties from that, or use the values provided as arguments (which have been derived from the original calendar's
         master component).
+
+        @return: C{True} if an EXDATE match occurred requiring the incoming component to be removed.
         """
 
         rid = to_component.getRecurrenceIDUTC()
@@ -500,7 +517,19 @@ class iTipProcessing(object):
             if remove_matched:
                 from_calendar.removeComponent(matched)
 
+            # Check for incoming DECLINED
+            attendee = to_component.getAttendeeProperty((recipient,))
+            if attendee and attendee.parameterValue("PARTSTAT", "NEEDS-ACTION") == "DECLINED":
+                # If existing item has HIDDEN property copy that over
+                if matched.hasProperty(Component.HIDDEN_INSTANCE_PROPERTY):
+                    to_component.addProperty(Property(Component.HIDDEN_INSTANCE_PROPERTY, "T"))
+
         else:
+            # Check for incoming DECLINED
+            attendee = to_component.getAttendeeProperty((recipient,))
+            if attendee and attendee.parameterValue("PARTSTAT", "NEEDS-ACTION") == "DECLINED":
+                return True
+
             # It is a new override - copy any valarms on the existing master component
             # into the new one.
             [to_component.addComponent(alarm) for alarm in master_valarms]
@@ -511,6 +540,8 @@ class iTipProcessing(object):
                 organizer = to_component.getProperty("ORGANIZER")
                 if organizer:
                     organizer.setParameter("SCHEDULE-STATUS", organizer_schedule_status)
+
+        return False
 
 
     @staticmethod

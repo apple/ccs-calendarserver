@@ -164,9 +164,34 @@ def new_validRecurrenceIDs(self, doFix=True):
 
     return fixed, unfixed
 
-Component.validRecurrenceIDs = new_validRecurrenceIDs
+def new_hasDuplicateAlarms(self, doFix=False):
+    """
+    test and optionally remove alarms that have the same ACTION and TRIGGER values in the same component.
+    """
+    changed = False
+    if self.name() in ("VCALENDAR", "X-CALENDARSERVER-PERUSER",):
+        for component in self.subcomponents():
+            if component.name() in ("VTIMEZONE",):
+                continue
+            changed = component.hasDuplicateAlarms(doFix) or changed
+    else:
+        action_trigger = set()
+        for component in tuple(self.subcomponents()):
+            if component.name() == "VALARM":
+                item = (component.propertyValue("ACTION"), component.propertyValue("TRIGGER"),)
+                if item in action_trigger:
+                    if doFix:
+                        self.removeComponent(component)
+                    changed = True
+                else:
+                    action_trigger.add(item)
+    return changed
 
-VERSION = "6"
+Component.validRecurrenceIDs = new_validRecurrenceIDs
+if not hasattr(Component, "maxAlarmCounts"):
+    Component.hasDuplicateAlarms = new_hasDuplicateAlarms
+
+VERSION = "7"
 
 def printusage(e=None):
     if e:
@@ -934,6 +959,8 @@ class CalVerifyService(Service, object):
                 component.validCalendarData(doFix=False, validateRecurrences=True)
                 component.validCalendarForCalDAV(methodAllowed=isinbox)
                 component.validOrganizerForScheduling(doFix=False)
+                if component.hasDuplicateAlarms(doFix=False):
+                    raise InvalidICalendarDataError("Duplicate VALARMS")
             self.noPrincipalPathCUAddresses(component, doFix=False)
         except ValueError, e:
             result = False
@@ -1058,6 +1085,7 @@ class CalVerifyService(Service, object):
                 component.validCalendarData(doFix=True, validateRecurrences=True)
                 component.validCalendarForCalDAV(methodAllowed=isinbox)
                 component.validOrganizerForScheduling(doFix=True)
+                component.hasDuplicateAlarms(doFix=True)
             self.noPrincipalPathCUAddresses(component, doFix=True)
         except ValueError:
             result = False

@@ -37,6 +37,7 @@ from pycalendar.duration import PyCalendarDuration
 from pycalendar.datetime import PyCalendarDateTime
 from pycalendar.timezone import PyCalendarTimezone
 import uuid
+import hashlib
 
 """
 CalDAV implicit processing.
@@ -475,9 +476,19 @@ class ImplicitProcessor(object):
 
     @inlineCallbacks
     def doImplicitAttendeeRequest(self):
+        """
+        @return: C{tuple} of (processed, auto-processed, store inbox item, changes)
+        """
 
         # If there is no existing copy, then look for default calendar and copy it here
         if self.new_resource:
+
+            # Check if the incoming data has the recipient declined in all instances. In that case we will not create
+            # a new resource as chances are the recipient previously deleted the resource and we want to keep it deleted.
+            attendees = self.message.getAttendeeProperties((self.recipient.cuaddr,))
+            if all([attendee.parameterValue("PARTSTAT", "NEEDS-ACTION") == "DECLINED" for attendee in attendees]):
+                log.debug("ImplicitProcessing - originator '%s' to recipient '%s' processing METHOD:REQUEST, UID: '%s' - ignoring all declined" % (self.originator.cuaddr, self.recipient.cuaddr, self.uid))
+                returnValue((True, False, False, None,))
 
             # Check for default calendar
             default = (yield self.recipient.inbox.defaultCalendar(self.request, self.message.mainType()))
@@ -486,8 +497,7 @@ class ImplicitProcessor(object):
                 raise ImplicitProcessorException(iTIPRequestStatus.NO_USER_SUPPORT)
 
             log.debug("ImplicitProcessing - originator '%s' to recipient '%s' processing METHOD:REQUEST, UID: '%s' - new processed" % (self.originator.cuaddr, self.recipient.cuaddr, self.uid))
-            new_calendar = iTipProcessing.processNewRequest(self.message, self.recipient.cuaddr)
-            name = str(uuid.uuid4()) + ".ics"
+            new_calendar = iTipProcessing.processNewRequest(self.message, self.recipient.cuaddr, creating=True)
 
             # Handle auto-reply behavior
             if self.recipient.principal.canAutoSchedule():
@@ -499,7 +509,7 @@ class ImplicitProcessor(object):
                 send_reply = False
                 store_inbox = True
 
-            new_resource = (yield self.writeCalendarResource(default.url(), default, name, new_calendar))
+            new_resource = (yield self.writeCalendarResource(default.url(), default, None, new_calendar))
 
             if send_reply:
                 # Track outstanding auto-reply processing
@@ -920,7 +930,7 @@ class ImplicitProcessor(object):
 
         # Create a new name if one was not provided
         if name is None:
-            name = str(uuid.uuid4()) + ".ics"
+            name = "%s-%s.ics" % (hashlib.md5(calendar.resourceUID()).hexdigest(), str(uuid.uuid4())[:8],)
 
         # Get a resource for the new item
         newchildURL = joinURL(collURL, name)
