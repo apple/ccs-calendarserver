@@ -1026,6 +1026,11 @@ class CalendarCollectionResource(DefaultAlarmPropertyMixin, _CalendarCollectionB
         calendar.addProperty(VProperty("VERSION", "2.0"))
         calendar.addProperty(VProperty("PRODID", iCalendarProductID))
 
+        # Add a display name if available
+        displayName = self.displayName()
+        if displayName is not None:
+            calendar.addProperty(VProperty("X-WR-CALNAME", displayName))
+
         # Do some optimisation of access control calculation by determining any
         # inherited ACLs outside of the child resource loop and supply those to
         # the checkPrivileges on each child.
