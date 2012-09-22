@@ -19,6 +19,9 @@
 Tests for L{twext.internet.sendfdport}.
 """
 
+import os
+import fcntl
+
 from twext.internet.sendfdport import InheritedSocketDispatcher,\
     _SubprocessSocket
 from twext.web2.metafd import ConnectionLimiter
@@ -41,10 +44,42 @@ class ReaderAdder(object):
 
 
 
+def isNonBlocking(skt):
+    """
+    Determine if the given socket is blocking or not.
+
+    @param skt: a socket.
+    @type skt: L{socket.socket}
+
+    @return: L{True} if the socket is non-blocking, L{False} if the socket is
+        blocking.
+    @rtype: L{bool}
+    """
+    return bool(fcntl.fcntl(skt.fileno(), fcntl.F_GETFL) & os.O_NONBLOCK)
+
+
+
 class InheritedSocketDispatcherTests(TestCase):
     """
     Inherited socket dispatcher tests.
     """
+
+    def test_nonBlocking(self):
+        """
+        Creating a L{_SubprocessSocket} via
+        L{InheritedSocketDispatcher.addSocket} results in a non-blocking
+        L{socket.socket} object being assigned to its C{skt} attribute, as well
+        as a non-blocking L{socket.socket} object being returned.
+        """
+        dispatcher = InheritedSocketDispatcher(None)
+        dispatcher.startDispatching()
+        reactor = ReaderAdder()
+        dispatcher.reactor = reactor
+        inputSocket = dispatcher.addSocket()
+        outputSocket = reactor.readers[-1]
+        self.assertTrue(isNonBlocking(inputSocket), "Input is blocking.")
+        self.assertTrue(isNonBlocking(outputSocket), "Output is blocking.")
+
 
     def test_addAfterStart(self):
         """
@@ -64,7 +99,7 @@ class InheritedSocketDispatcherTests(TestCase):
         Make sure InheritedSocketDispatcher.sendFileDescriptor sorts sockets with status None
         higher than those with int status values.
         """
-        
+
         self.patch(_SubprocessSocket, 'sendSocketToPeer', lambda x, y, z:None)
         dispatcher = InheritedSocketDispatcher(ConnectionLimiter(2, 20))
         dispatcher.addSocket()
@@ -72,39 +107,39 @@ class InheritedSocketDispatcherTests(TestCase):
         dispatcher.addSocket()
 
         sockets = dispatcher._subprocessSockets[:]
-        
+
         # Check that 0 is preferred over None
         sockets[0].status = 0
         sockets[1].status = 1
         sockets[2].status = None
-        
+
         dispatcher.sendFileDescriptor(None, "")
-        
+
         self.assertEqual(sockets[0].status, 1)
         self.assertEqual(sockets[1].status, 1)
         self.assertEqual(sockets[2].status, None)
-        
+
         dispatcher.sendFileDescriptor(None, "")
-        
+
         self.assertEqual(sockets[0].status, 1)
         self.assertEqual(sockets[1].status, 1)
         self.assertEqual(sockets[2].status, 1)
 
-        # Check that after going to 1 and back to 0 that is still preferred over None 
+        # Check that after going to 1 and back to 0 that is still preferred over None
         sockets[0].status = 0
         sockets[1].status = 1
         sockets[2].status = None
-        
+
         dispatcher.sendFileDescriptor(None, "")
-        
+
         self.assertEqual(sockets[0].status, 1)
         self.assertEqual(sockets[1].status, 1)
         self.assertEqual(sockets[2].status, None)
-        
+
         sockets[1].status = 0
 
         dispatcher.sendFileDescriptor(None, "")
-        
+
         self.assertEqual(sockets[0].status, 1)
         self.assertEqual(sockets[1].status, 1)
         self.assertEqual(sockets[2].status, None)

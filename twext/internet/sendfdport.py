@@ -192,11 +192,15 @@ class InheritedSocketDispatcher(object):
         @param description: some text to identify to the subprocess's
             L{InheritedPort} what type of transport to create for this socket.
         """
-        
-        # We want None to sort after 0 and before 1, so coerce to 0.5 - this allows the master
-        # to first schedule all child process that are up but not yet busy ahead of those that
-        # are still starting up.
-        self._subprocessSockets.sort(key=lambda conn: 0.5 if conn.status is None else conn.status)
+        # We want None to sort after 0 and before 1, so coerce to 0.5 - this
+        # allows the master to first schedule all child process that are up but
+        # not yet busy ahead of those that are still starting up.
+        def sortKey(conn):
+            if conn.status is None:
+                return 0.5
+            else:
+                return conn.status
+        self._subprocessSockets.sort(key=sortKey)
         selectedSocket = self._subprocessSockets[0]
         selectedSocket.sendSocketToPeer(skt, description)
         # XXX Maybe want to send along 'description' or 'skt' or some
@@ -223,6 +227,8 @@ class InheritedSocketDispatcher(object):
             C{spawnProcess()}, then close it.
         """
         i, o = socketpair(AF_UNIX, SOCK_DGRAM)
+        i.setblocking(False)
+        o.setblocking(False)
         a = _SubprocessSocket(self, o)
         self._subprocessSockets.append(a)
         if self._isDispatching:
@@ -279,9 +285,6 @@ class InheritedPort(FileDescriptor, object):
         else:
             try:
                 skt = fromfd(fd, getsockfam(fd), SOCK_STREAM)
-                # XXX it could be AF_UNIX, I guess?  or even something else?
-                # should this be on the transportFactory's side of things?
-
                 close(fd)       # fromfd() calls dup()
                 try:
                     peeraddr = skt.getpeername()
