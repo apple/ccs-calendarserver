@@ -230,11 +230,16 @@ class CalDAVOptionsTest (TestCase):
         argv = [
             "-f", myConfigFile,
             "-o", "PIDFile=/dev/null",
+            "-o", "umask=63",
+            # integers in plists & calendarserver command line are always
+            # decimal; umask is traditionally in octal.
         ]
 
         self.config.parseOptions(argv)
 
         self.assertEquals(self.config.parent["pidfile"], "/dev/null")
+        self.assertEquals(self.config.parent["umask"], 0077)
+
 
     def test_specifyConfigFile(self):
         """
