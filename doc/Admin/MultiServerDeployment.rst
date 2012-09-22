@@ -1,0 +1,191 @@
+==========================
+Multi-server Deployment
+==========================
+
+Calendar Server version 3 and later uses a database as the primary data store, instead of the filesystem store used by previous versions. This allows for a familiar profile of scalability to multiple servers by offloading the DB to a dedicated server or cluster, and then adding front-end Calendar Server hosts as needed. This document highlights the key elements of a multi-server Calendar Server deployment. 
+
+* `Database Connectivity`_: By default, Calendar Server assumes the DB is hosted locally on a unix domain socket, so you must add configuration to connect to an external DB service over the network.
+
+* `Database Setup and Schema Management`_: When connecting to an external DB, the administrator is responsible for applying our database schema to initialize the database for use by Calendar Server, using the calendarserver_bootstrap_database tool.
+
+* `Memcached`_: All Calendar Server hosts need to share access to memcached
+
+* `Proxy Database`_: Normally the Proxy (delegation) database is kept in a local sqlite database, which is not sharable. Create an additional database on the DB server to hold the Proxy DB, then configure all the servers to use it.
+
+* `Directory Services`_: All servers should have access to the same directory services data that defines users, groups, resources, and locations. Calendar Server provides a highly flexible LDAP client to leverage existing directory servers, or you can use local XML files.
+
+* `Client Connectivity`_: Use either a load balancer or round robin dns, and configure all servers to use the same ServerHostName in caldavd.plist
+
+* `Shared Storage for Attachments`_: AttachmentsRoot should point to storage shared across all servers, e.g. an NFS mount. Used for file attachments to calendar events.
+
+* `General Advise`_: *No one wants advice - only corroboration.*  --John Steinbeck
+
+---------------------
+Database Connectivity
+---------------------
+
+First, make sure your Postgres service is connectable over the network ; by default it may use only unix domain sockets. Accepting connections over TCP typically involves changes to `listen_address <http://www.postgresql.org/docs/current/static/runtime-config-connection.html#GUC-LISTEN-ADDRESSES>`_ in the main server config file to bind the network socket, and also edits to `pg_hga.conf <http://www.postgresql.org/docs/current/static/auth-pg-hba-conf.html>`_ to allow connections by IP or netmask. Additional discussion of database server setup and tuning is beyond the scope of this document.
+
+There are a few configuration parameters in caldavd.plist that control Calendar Server's behavior with respect to database use. The relevant caldavd.plist entries and their default values are shown and described below (as defined in `stdconfig.py <https://trac.calendarserver.org/browser/CalendarServer/trunk/twistedcaldav/stdconfig.py>`_)
+
+::
+
+   "UseDatabase"  : True, # True: database; False: files
+
+   "DBType"       : "",   # 2 possible values: empty, meaning 'spawn postgres
+                          # yourself', or 'postgres', meaning 'connect to a
+                          # postgres database as specified by the 'DSN'
+                          # configuration key.  Will support more values in
+                          # the future.
+
+   "DSN"          : "",   # Data Source Name.  Used to connect to an external
+                          # database if DBType is non-empty.  Format varies
+                          # depending on database type. 
+
+All of the above are top-level keys in caldavd.plist.
+
+The DSN is a colon separated string defined in PyGreSQL-4.0/pgdb.py and has the following structure:
+
+::
+
+ dbhost = params[0]
+ dbbase = params[1]
+ dbuser = params[2]
+ dbpasswd = params[3]
+ dbopt = params[4]
+ dbtty = params[5]
+
+When no hostname is specified, Calendar Server assumes the use of a local unix domain socket (found in the directory defined by the RunRoot config key)
+
+Example of a 'remote postgres via TCP' configuration:
+
+::
+
+ <key>DBType</key>
+ <string>postgres</string>
+ <key>DSN</key>
+ <string>hostname:dbname:dbuser:dbpass::</string>
+
+
+------------------------------------
+Database Setup and Schema Management
+------------------------------------
+
+Whenever DBType is set, Calendar Server is not responsible for the lifecycle of the database, nor is it responsible for the setup and schema population - these tasks are now the responsibility of the administrator. Once caldavd.plist is configured for your database, use the `calendarserver_bootstrap_database <https://trac.calendarserver.org/browser/CalendarServer/trunk/bin/calendarserver_bootstrap_database>`_ `tool <https://trac.calendarserver.org/browser/CalendarServer/trunk/calendarserver/tools/bootstrapdatabase.py>`_ to populate calendar server `schema <https://trac.calendarserver.org/browser/CalendarServer/trunk/txdav/common/datastore/sql_schema>`_ in your database. Starting and stopping the database should be accomplished using native tools (e.g. pg_ctl). The database should be started before Calendar Server, and stopped after Calendar Server.
+
+It is critically important that your database server keeps updated statistics about your database, which allows the database query planner to select appropriate performance optimizations. Refer to your database server documentation for details.
+
+--------------
+Memcached
+--------------
+
+The default memcached settings are found in `stdconfig.py <https://trac.calendarserver.org/browser/CalendarServer/trunk/twistedcaldav/stdconfig.py>`_. By default there is one memcached 'pool' that is automatically managed by Calendar Server, and memcache is started and stopped along with Calendar Server. For a multi-server deployment, you should manage the memcached lifecycle externally, to make it independent of your Calendar Server hosts. Also, all Calendar Server hosts must be configured to share this memcached instance. A sample configuration is shown below, which instructs Calendar Server to connect to the 'Default' pool at example.com port 11211.
+
+::
+
+    <!-- Memcache Settings -->
+    <key>Memcached</key>
+    <dict>
+      <key>MaxClients</key>
+      <integer>5</integer>
+      <key>Options</key>
+      <array>
+        <string>-U</string>
+        <string>0</string>
+        <string>-m</string>
+        <string>6000</string>
+      </array>
+      <key>Pools</key>
+      <dict>
+        <key>Default</key>
+        <dict>
+          <key>ClientEnabled</key>
+          <true/>
+          <key>ServerEnabled</key>
+          <false/>
+          <key>BindAddress</key>
+          <string>EXAMPLE.COM</string>
+          <key>Port</key>
+          <integer>11211</integer>
+          <key>HandleCacheTypes</key>
+          <array>
+            <string>Default</string>
+          </array>
+        </dict>
+      </dict>
+      <key>memcached</key>
+      <string>memcached</string>
+    </dict>
+
+In this configuration, the administrator is expected to ensure that there is a memcached instance running on host EXAMPLE.COM listening on port 11211 (Default). All calendar servers need to have the same memcache configuration. Memcache should start first and stop last, relative to calendar server and postgres. Note also that memcached should be as close to the Calendar Server hosts as possible to minimize network latency.
+
+----------------
+Proxy Database
+----------------
+
+The Proxy DB (for delegation) is typically stored on disk in an sqlite DB, which does not allow for concurrent access across multiple hosts. To address this, create an additional DB in the postgres server, then edit caldavd.plist to add something like the following, and disable any other ProxyDB configuration.
+
+::
+
+    <!-- PostgreSQL ProxyDB Service -->
+    <key>ProxyDBService</key>
+    <dict>
+      <key>type</key>
+      <string>twistedcaldav.directory.calendaruserproxy.ProxyPostgreSQLDB</string>
+      <key>params</key>
+      <dict>
+        <key>dbtype</key>
+        <string>ProxyDB</string>
+        <key>host</key>
+        <string>PARADISE-FALLS</string>
+        <key>database</key>
+        <string>FOSSILS</string>
+        <key>user</key>
+        <string>MUNTZ</string>
+      </dict>
+    </dict>
+
+As with the memcache config, all calendar servers should have the same ProxyDBService config. In the shown example, the server will expect to access a database called FOSSILS as user MUNTZ on the postgres server PARADISE-FALLS. Unlike with the primary calendar data store, calendar server is prepared to initialize the schema of this database at runtime if it does not exist - so nothing is required beyond creating the empty db, creating the db user with appropriate access, and applying some caldavd.plist configuration.
+
+-------------------
+Directory Services
+-------------------
+
+It is critical that all servers use the same directory services data that defines users (and their passwords), groups, resources, and locations used by Calendar Server. By default, this data is stored in local XML files, which is not ideally suited for a multi-server deployment, although would still work fine if the administrator is willing to manage the workflow around updating and distributing those files to all servers.
+
+In addition, Calendar Server provides a very configurable LDAP client interface for accessing external directory services data. Administrators familiar with LDAP should need little more than to look at `twistedcaldav/stdconfig.py <https://trac.calendarserver.org/browser/CalendarServer/trunk/twistedcaldav/stdconfig.py>`_ for the available options to get started. Calendar Server will perform standard LDAP bind authentication to authenticate clients.
+
+Open Directory is also available when running on Mac OS X or Mac OS X Server.
+
+-------------------
+Client Connectivity
+-------------------
+
+Use either a load balancer or round robin dns, and configure all servers to use the same ServerHostName in caldavd.plist. A load balancer provides the most optimal distribution of work across available servers, and greater resiliency incase of individual server failure. Round robin DNS is simpler, and should work fine - however be aware that DNS caches may result in a given client 'sticking' to a server for a while. Using the same ServerHostName everywhere allows for all servers to have the exact same caldavd.plist, which is strongly recommended for simplicity.
+
+-------------------------------
+Shared Storage for Attachments
+-------------------------------
+
+Set the caldavd.plist key AttachmentsRoot to a filesystem directory that is shared and writable by all Calendar Server machines, for example an NFS export. This will be used to store file attachements that users may attach to calendar events.
+
+-------------------
+General Advise
+-------------------
+
+* Ensure caldavd.plist is identical on all Calendar Server hosts. This is not strictly required, but recommended to keep things as predictable as possible. Since you already have shared storage for AttachmentsRoot, use that to host the 'conf' directory for all servers as well; this way you don't need to push config changes out to the servers.
+
+* Use the various `tools and utilities <https://trac.calendarserver.org/browser/CalendarServer/trunk/contrib/tools>`_ to monitor activity in real time, and also for post-processing access logs.
+
+* Be sure you are getting the most from an individual server before you decide you need additional hosts (other than for redundancy). To optimize the single-server configuration, play with the caldavd.plist keys MultiProcessCount (# of daemons spawned), and MaxRequests (# of requests a daemon will process concurrently). If your Calendar Server isn't above 80% CPU use for sustained periods, you most likely don't need more Calendar Server hosts.
+
+* Ensure that your database's table statistics are updated at a reasonable interval. "Reasonable" depends entirely on how quickly your data changes in shape and size. In particular, be sure to update stats after any bulk changes.
+
+* Tune the database for performance, using the methodologies appropriate for the database you are using. The DB server will need to accept up to MultiProcessCount * MaxRequests connections from each Calendar Server, unless MaxDBConnectionsPerPool is set, in which case the number is MultiProcessCount * MaxDBConnectionsPerPool per server, plus a handful more for other things like the notification sidecar or command line tools.
+
+* Test Scenario: With a well tuned multi-server deployment of identically configured caldav servers behind a load balancer, and a separate Postgres server with a fast RAID 0, in a low-latency lab environment using simulated iCal client load, it takes 5 or 6 caldav servers to saturate the postgres server (which becomes i/o bound at a load of about 55,000 simulated users in this test).
+
+* To eliminate all single points of failure, implement high-availability for memcache, the database, the directory service, the shared storage for AttachmentsRoot, and the network load balancer(s).
+
+* When using an external directory service such as LDAP or Open Directory, overall Calendar Server performance is highly dependent on the responsiveness of the directory service.
+
