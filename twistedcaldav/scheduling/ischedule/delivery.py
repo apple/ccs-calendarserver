@@ -16,8 +16,7 @@
 
 from StringIO import StringIO
 
-from twisted.internet.defer import inlineCallbacks, DeferredList, succeed, \
-    returnValue
+from twisted.internet.defer import inlineCallbacks, DeferredList, returnValue
 from twisted.internet.protocol import Factory
 
 from twisted.python.failure import Failure
@@ -31,7 +30,7 @@ from twext.web2.http_headers import Headers
 from twext.web2.http_headers import MimeType
 from twext.web2.stream import MemoryStream
 
-from twext.python.log import Logger, logLevels
+from twext.python.log import Logger
 from twext.web2.dav.http import ErrorResponse
 
 from twistedcaldav.client.pool import _configuredClientContextFactory
@@ -50,6 +49,7 @@ from twistedcaldav.scheduling.ischedule.dkim import DKIMRequest, DKIMUtils
 from twistedcaldav.config import config
 from twistedcaldav.scheduling.ischedule.utils import lookupServerViaSRV
 from urlparse import urlsplit
+from twistedcaldav.accounting import accountingEnabledForCategory, emitAccounting
 
 """
 Handles the sending of iSchedule scheduling messages. Used for both cross-domain scheduling,
@@ -247,10 +247,15 @@ class IScheduleRequest(object):
             else:
                 raise ValueError("Too many redirects")
 
-            yield self.logResponse("debug", "Received server-to-server POST response:", response)
-            xml = (yield davXMLFromStream(response.stream))
+            if accountingEnabledForCategory("iSchedule"):
+                self.loggedResponse = yield self.logResponse(response)
+                emitAccounting("iSchedule", "", self.loggedRequest + "\n" + self.loggedResponse, "POST")
 
-            self._parseResponse(xml)
+            if response.code in (responsecode.OK,):
+                xml = (yield davXMLFromStream(response.stream))
+                self._parseResponse(xml)
+            else:
+                raise ValueError("Incorrect server response status code: %s" % (response.code,))
 
         except Exception, e:
             # Generated failed responses for each recipient
@@ -264,83 +269,68 @@ class IScheduleRequest(object):
                 self.responses.add(recipient.cuaddr, Failure(exc_value=err), reqstatus=iTIPRequestStatus.SERVICE_UNAVAILABLE)
 
 
-    def logRequest(self, level, message, request, **kwargs):
+    @inlineCallbacks
+    def logRequest(self, request):
         """
         Log an HTTP request.
         """
 
-        assert level in logLevels
-
-        if log.willLogAtLevel(level):
-            iostr = StringIO()
-            iostr.write("%s\n" % (message,))
-            if hasattr(request, "clientproto"):
-                protocol = "HTTP/%d.%d" % (request.clientproto[0], request.clientproto[1],)
-            else:
-                protocol = "HTTP/1.1"
-            iostr.write("%s %s %s\n" % (request.method, request.uri, protocol,))
-            for name, valuelist in request.headers.getAllRawHeaders():
-                for value in valuelist:
-                    # Do not log authorization details
-                    if name not in ("Authorization",):
-                        iostr.write("%s: %s\n" % (name, value))
-                    else:
-                        iostr.write("%s: xxxxxxxxx\n" % (name,))
-            iostr.write("\n")
-
-            # We need to play a trick with the request stream as we can only read it once. So we
-            # read it, store the value in a MemoryStream, and replace the request's stream with that,
-            # so the data can be read again.
-            def _gotData(data):
-                iostr.write(data)
-
-                request.stream = MemoryStream(data if data is not None else "")
-                request.stream.doStartReading = None
-
-                log.emit(level, iostr.getvalue(), **kwargs)
-
-            d = allDataFromStream(request.stream)
-            d.addCallback(_gotData)
-            return d
-
+        iostr = StringIO()
+        iostr.write(">>>> Request start\n\n")
+        if hasattr(request, "clientproto"):
+            protocol = "HTTP/%d.%d" % (request.clientproto[0], request.clientproto[1],)
         else:
-            return succeed(None)
+            protocol = "HTTP/1.1"
+        iostr.write("%s %s %s\n" % (request.method, request.uri, protocol,))
+        for name, valuelist in request.headers.getAllRawHeaders():
+            for value in valuelist:
+                # Do not log authorization details
+                if name not in ("Authorization",):
+                    iostr.write("%s: %s\n" % (name, value))
+                else:
+                    iostr.write("%s: xxxxxxxxx\n" % (name,))
+        iostr.write("\n")
+
+        # We need to play a trick with the request stream as we can only read it once. So we
+        # read it, store the value in a MemoryStream, and replace the request's stream with that,
+        # so the data can be read again.
+        data = (yield allDataFromStream(request.stream))
+        iostr.write(data)
+        request.stream = MemoryStream(data if data is not None else "")
+        request.stream.doStartReading = None
+
+        iostr.write("\n\n>>>> Request end\n")
+        returnValue(iostr.getvalue())
 
 
-    def logResponse(self, level, message, response, **kwargs):
+    @inlineCallbacks
+    def logResponse(self, response):
         """
         Log an HTTP request.
         """
-        assert level in logLevels
+        iostr = StringIO()
+        iostr.write(">>>> Response start\n\n")
+        code_message = responsecode.RESPONSES.get(response.code, "Unknown Status")
+        iostr.write("HTTP/1.1 %s %s\n" % (response.code, code_message,))
+        for name, valuelist in response.headers.getAllRawHeaders():
+            for value in valuelist:
+                # Do not log authorization details
+                if name not in ("WWW-Authenticate",):
+                    iostr.write("%s: %s\n" % (name, value))
+                else:
+                    iostr.write("%s: xxxxxxxxx\n" % (name,))
+        iostr.write("\n")
 
-        if log.willLogAtLevel(level):
-            iostr = StringIO()
-            iostr.write("%s\n" % (message,))
-            code_message = responsecode.RESPONSES.get(response.code, "Unknown Status")
-            iostr.write("HTTP/1.1 %s %s\n" % (response.code, code_message,))
-            for name, valuelist in response.headers.getAllRawHeaders():
-                for value in valuelist:
-                    # Do not log authorization details
-                    if name not in ("WWW-Authenticate",):
-                        iostr.write("%s: %s\n" % (name, value))
-                    else:
-                        iostr.write("%s: xxxxxxxxx\n" % (name,))
-            iostr.write("\n")
+        # We need to play a trick with the response stream to ensure we don't mess it up. So we
+        # read it, store the value in a MemoryStream, and replace the response's stream with that,
+        # so the data can be read again.
+        data = (yield allDataFromStream(response.stream))
+        iostr.write(data)
+        response.stream = MemoryStream(data if data is not None else "")
+        response.stream.doStartReading = None
 
-            # We need to play a trick with the response stream to ensure we don't mess it up. So we
-            # read it, store the value in a MemoryStream, and replace the response's stream with that,
-            # so the data can be read again.
-            def _gotData(data):
-                iostr.write(data)
-
-                response.stream = MemoryStream(data if data is not None else "")
-                response.stream.doStartReading = None
-
-                log.emit(level, iostr.getvalue(), **kwargs)
-
-            d = allDataFromStream(response.stream)
-            d.addCallback(_gotData)
-            return d
+        iostr.write("\n\n>>>> Response end\n")
+        returnValue(iostr.getvalue())
 
 
     def _prepareRequest(self, host, port):
@@ -447,7 +437,9 @@ class IScheduleRequest(object):
         else:
             request = ClientRequest("POST", path, self.headers, self.data)
 
-        yield self.logRequest("debug", "Sending server-to-server POST request:", request)
+        if accountingEnabledForCategory("iSchedule"):
+            self.loggedRequest = yield self.logRequest(request)
+
         response = (yield proto.submitRequest(request))
 
         returnValue(response)
