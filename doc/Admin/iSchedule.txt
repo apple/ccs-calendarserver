@@ -1,0 +1,55 @@
+iSchedule
+==================
+
+The iSchedule protocol is a server-to-server calendar protocol that allows servers to exchange
+iTIP (iCalendar-based) scheduling messages in real time over the HTTP protocol.
+
+About iSchedule
+----------------
+
+The basic protocol is this:
+
+1) Server detects a calendar user trying to schedule with another calendar user not hosted on that server.
+2) Server extracts "domain" portion of the non-hosted calendar user address and does a DNS SRV query for
+the _ischedules service.
+3) If no result is found, the server has to fall back to other options (e.g., iMIP - email invites).
+4) If the DNS record is found the server extracts a hostname and port and makes an HTTPS request on
+/.well-known/ischedule querying for capabilities of any iSchedule server there.
+5) Once legitimate service is discovered, the server constructs an iTIP message for the invite and
+sends that in an HTTP request to the iSchedule server, supplying Originator and Recipient headers in
+the HTTP request.
+6) The iSchedule server receiving the iTIP message immediately processes it and sends the status back
+in the HTTP response.
+
+Domain-level Security
+---------------------
+
+iSchedule uses DKIM (Domain-Keys Identified Mail) adapted for use with HTTP as a security protocol to
+allow iSchedule servers to verify that an iSchedule client (sender) is authorized to send iSchedule
+messages on behalf of the domain the client is operating in.
+
+To implement DKIM, the iSchedule client creates an HTTP request and adds a DKIM-Signature header containing
+various bits of information that include: a cryptographic hash of the request body, a cryptographic signature
+of select HTTP headers (including the DKIM-Signature header itself). The signature uses a private/public key
+pair. The public key is made available via a DNS TXT record (or through HTTP or a private exchange).
+
+Upon receipt of a DKIM signed iSchedule message, the iSchedule server will verify that the body hash value in
+the DKIM-Signature header matches the actual request body, and that the signature of the selected headers is
+also a match (it retrieves the specified public key for the client domain).
+
+Configuration of Calendar Server
+--------------------------------
+
+Configuring the server for iSchedule is done as follows:
+
+1) Create an RSA private/public key file stored with your server configuration:
+	a) bin/calendarserver_dkimtool -g -k <private path> -p <public path> -t
+	b) Add the TXT record output to your domain's DNS server
+
+2) Edit caldavd.plist and make the following changes:
+	a) Set Schedule.iSchedule to <true/>
+	b) Set Schedule.iSchedule.DKIM.PrivateKeyFile to the RSA private key
+	c) Set Schedule.iSchedule.DKIM.PublicKeyFile to the RSA public key
+	d) Set Schedule.iSchedule.DKIM.Domain to the domain portion of your users'
+	   calendar user addresses if that is different from the ServerHostName value
+	   in caldavd.plist.
