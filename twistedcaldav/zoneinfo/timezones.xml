@@ -2,7 +2,7 @@
 <!DOCTYPE timezones SYSTEM "timezones.dtd">
 
 <timezones>
-  <dtstamp>2012-05-18T16:58:42Z</dtstamp>
+  <dtstamp>2012-09-24T15:50:25Z</dtstamp>
   <timezone>
     <tzid>Africa/Abidjan</tzid>
     <dtstamp>2011-10-05T11:50:21Z</dtstamp>
@@ -78,8 +78,8 @@
   </timezone>
   <timezone>
     <tzid>Africa/Casablanca</tzid>
-    <dtstamp>2012-05-18T14:15:25Z</dtstamp>
-    <md5>480b715925a7dd6d17a823f478b9d9aa</md5>
+    <dtstamp>2012-09-24T15:50:25Z</dtstamp>
+    <md5>04541abda65cbc239be83e6ea03f1b5f</md5>
   </timezone>
   <timezone>
     <tzid>Africa/Ceuta</tzid>
@@ -2713,13 +2713,13 @@
   </timezone>
   <timezone>
     <tzid>Pacific/Fakaofo</tzid>
-    <dtstamp>2012-05-18T14:15:25Z</dtstamp>
-    <md5>f6e6b383ac59dc830bae9d0f929ebd18</md5>
+    <dtstamp>2012-09-24T15:50:25Z</dtstamp>
+    <md5>4c2841faa2abf5987add7cf4a51e9d9c</md5>
   </timezone>
   <timezone>
     <tzid>Pacific/Fiji</tzid>
-    <dtstamp>2012-05-18T14:15:25Z</dtstamp>
-    <md5>0c90e7ee8eea3d5f3a6f5d3a2d9ad134</md5>
+    <dtstamp>2012-09-24T15:50:25Z</dtstamp>
+    <md5>dbfb317bfaed28159b6db4a6236d9bd6</md5>
   </timezone>
   <timezone>
     <tzid>Pacific/Funafuti</tzid>
