@@ -773,7 +773,7 @@ class ColumnSyntax(ExpressionSyntax):
 
 
 class ResultAliasSyntax(ExpressionSyntax):
-    
+
     def __init__(self, expression, alias=None):
         self.expression = expression
         self.alias = alias
@@ -797,7 +797,7 @@ class ResultAliasSyntax(ExpressionSyntax):
 
 
 class AliasReferenceSyntax(ExpressionSyntax):
-    
+
     def __init__(self, resultAlias):
         self.resultAlias = resultAlias
 
@@ -997,6 +997,10 @@ class Tuple(ExpressionSyntax):
         self.columns = columns
 
 
+    def __iter__(self):
+        return iter(self.columns)
+
+
     def subSQL(self, queryGenerator, allTables):
         return _inParens(_commaJoined(c.subSQL(queryGenerator, allTables)
                                       for c in self.columns))
@@ -1010,24 +1014,24 @@ class SetExpression(object):
     """
     A UNION, INTERSECT, or EXCEPT construct used inside a SELECT.
     """
-    
+
     OPTYPE_ALL = "all"
     OPTYPE_DISTINCT = "distinct"
 
     def __init__(self, selects, optype=None):
         """
-        
+
         @param selects: a single Select or a list of Selects
         @type selects: C{list} or L{Select}
         @param optype: whether to use the ALL, DISTINCT constructs: C{None} use neither, OPTYPE_ALL, or OPTYPE_DISTINCT
         @type optype: C{str}
         """
-        
+
         if isinstance(selects, Select):
             selects = (selects,)
         self.selects = selects
         self.optype = optype
-        
+
         for select in self.selects:
             if not isinstance(select, Select):
                 raise DALError("Must have SELECT statements in a set expression")
@@ -1086,7 +1090,7 @@ class Select(_Statement):
         self.From = From
         self.Where = Where
         self.Distinct = Distinct
-        if not isinstance(OrderBy, (list, tuple, type(None))):
+        if not isinstance(OrderBy, (Tuple, list, tuple, type(None))):
             OrderBy = [OrderBy]
         self.OrderBy = OrderBy
         if not isinstance(GroupBy, (list, tuple, type(None))):
@@ -1102,7 +1106,7 @@ class Select(_Statement):
             _checkColumnsMatchTables(columns, From.tables())
             columns = _SomeColumns(columns)
         self.columns = columns
-        
+
         self.ForUpdate = ForUpdate
         self.NoWait = NoWait
         self.Ascending = Ascending
@@ -1235,7 +1239,7 @@ class Select(_Statement):
             for table in self.From.tables():
                 tables.add(table.model)
             return [TableSyntax(table) for table in tables]
-        
+
 
 def _commaJoined(stmts):
     first = True
