@@ -243,6 +243,21 @@ class DKIMUtils(object):
         return data
 
 
+    @staticmethod
+    def sign(data, privkey, hashfunc):
+        h = hashfunc.new(data)
+        signer = PKCS1_v1_5.new(privkey)
+        return base64.b64encode(signer.sign(h))
+
+
+    @staticmethod
+    def verify(data, signature, pubkey, hashfunc):
+        h = hashfunc.new(data)
+        verifier = PKCS1_v1_5.new(pubkey)
+        if not verifier.verify(h, base64.b64decode(signature)):
+            raise ValueError()
+
+
 
 class DKIMRequest(ClientRequest):
     """
@@ -420,9 +435,7 @@ class DKIMRequest(ClientRequest):
         # Sign the hash
         if self.key_file not in self.keys:
             self.keys[self.key_file] = RSA.importKey(open(self.key_file).read())
-        h = self.hash_func.new(headers)
-        signer = PKCS1_v1_5.new(self.keys[self.key_file])
-        return base64.b64encode(signer.sign(h))
+        return DKIMUtils.sign(headers, self.keys[self.key_file], self.hash_func)
 
 
 
@@ -487,10 +500,7 @@ class DKIMVerifier(object):
 
         # Do header verification
         try:
-            h = self.hash_func.new(headers)
-            verifier = PKCS1_v1_5.new(pubkey)
-            if not verifier.verify(h, base64.b64decode(self.dkim_tags["b"])):
-                raise ValueError()
+            DKIMUtils.verify(headers, self.dkim_tags["b"], pubkey, self.hash_func)
         except ValueError:
             msg = "Could not verify signature"
             _debug_msg = """
