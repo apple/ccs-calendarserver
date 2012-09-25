@@ -461,6 +461,7 @@ class CalDAVOptions (Options, LoggingMixIn):
         if oldmask != config.umask:
             self.log_info("WARNING: changing umask from: 0%03o to 0%03o"
                           % (oldmask, config.umask))
+        self.parent['umask'] = config.umask
 
 
 

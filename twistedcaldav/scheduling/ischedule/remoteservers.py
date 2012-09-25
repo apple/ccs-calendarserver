@@ -55,13 +55,18 @@ class IScheduleServers(object):
                         config.Scheduling.iSchedule.RemoteServers,
                     )
                 )
-            IScheduleServers._xmlFile.restat()
-            fileInfo = (IScheduleServers._xmlFile.getmtime(), IScheduleServers._xmlFile.getsize())
-            if fileInfo != IScheduleServers._fileInfo:
-                parser = IScheduleServersParser(IScheduleServers._xmlFile)
-                IScheduleServers._servers = parser.servers
-                self._mapDomains()
-                IScheduleServers._fileInfo = fileInfo
+            if IScheduleServers._xmlFile.exists():
+                IScheduleServers._xmlFile.restat()
+                fileInfo = (IScheduleServers._xmlFile.getmtime(), IScheduleServers._xmlFile.getsize())
+                if fileInfo != IScheduleServers._fileInfo:
+                    parser = IScheduleServersParser(IScheduleServers._xmlFile)
+                    IScheduleServers._servers = parser.servers
+                    self._mapDomains()
+                    IScheduleServers._fileInfo = fileInfo
+            else:
+                IScheduleServers._servers = ()
+                IScheduleServers._domainMap = {}
+
         else:
             IScheduleServers._servers = ()
             IScheduleServers._domainMap = {}

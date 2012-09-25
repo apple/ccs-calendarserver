@@ -111,7 +111,7 @@ def printMultipleStats(stats):
             memories.append("%.1f%%" % (stat["System"]["memory percent"],))
         else:
             cpus.append("-")
-            memories("-")
+            memories.append("-")
     print "Current CPU: %s" % (", ".join(cpus),)
     print "Current Memory Used: %s" % (", ".join(memories),)
     print

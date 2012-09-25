@@ -727,14 +727,19 @@ dependencies () {
 
   # Maintenance note: next time the Twisted dependency gets updated, check out
   # twext/patches.py.
-  py_dependency -v 12 -r HEAD \
-    "Twisted" "twisted" "Twisted" \
-    "svn://svn.twistedmatrix.com/svn/Twisted/tags/releases/twisted-12.0.0";
+  py_dependency -v 12 -m "cf49a8676c21c50faf1b42b528049471" \
+    "Twisted" "twisted" "Twisted-12.0.0" \
+    "${pypi}/T/Twisted/Twisted-12.0.0.tar.bz2";
 
   local du="python-dateutil-1.5";
   py_dependency -m "35f3732db3f2cc4afdc68a8533b60a52" \
     "dateutil" "dateutil" "${du}" \
     "http://www.labix.org/download/python-dateutil/${du}.tar.gz";
+
+  local ps="psutil-0.6.1";
+  py_dependency -m "3cfcbfb8525f6e4c70110e44a85e907e" \
+    "psutil" "psutil" "${ps}" \
+    "http://psutil.googlecode.com/files/${ps}.tar.gz";
 
   local lv="2.3.13";
   local ld="python-ldap-${lv}";
@@ -743,7 +748,7 @@ dependencies () {
     "${pypi}/p/python-ldap/${ld}.tar.gz";
 
   # XXX actually PyCalendar should be imported in-place.
-  py_dependency -fe -i "src" -r 212 \
+  py_dependency -fe -i "src" -r 214 \
     "pycalendar" "pycalendar" "pycalendar" \
     "http://svn.mulberrymail.com/repos/PyCalendar/branches/server";
 

@@ -22,7 +22,6 @@ from twistedcaldav.scheduling.ischedule.dkim import DKIMRequest, DKIMVerifier, \
     PublicKeyLookup_HTTP_WellKnown, PublicKeyLookup_PrivateExchange
 import base64
 import hashlib
-import rsa
 import time
 import twistedcaldav.test.util
 import os
