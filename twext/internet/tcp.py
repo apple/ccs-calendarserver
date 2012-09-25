@@ -114,7 +114,8 @@ class MaxAcceptTCPServer(internet.TCPServer):
 
     def __init__(self, *args, **kwargs):
         internet.TCPServer.__init__(self, *args, **kwargs)
-        self.args[1].myServer = self
+        self.httpFactory = self.args[1]
+        self.httpFactory.myServer = self
         self.inherit = self.kwargs.get("inherit", False)
         self.backlog = self.kwargs.get("backlog", None)
         self.interface = self.kwargs.get("interface", None)
@@ -131,6 +132,15 @@ class MaxAcceptTCPServer(internet.TCPServer):
         self.myPort = port
         return port
 
+    def stopService(self):
+        """
+        Wait for outstanding requests to finish
+        @return: a Deferred which fires when all outstanding requests are complete
+        """
+        internet.TCPServer.stopService(self)
+        return self.httpFactory.waitForCompletion()
+
+
 class MaxAcceptSSLServer(internet.SSLServer):
     """
     SSL server which will uses MaxAcceptSSLPorts (and optionally,
@@ -139,7 +149,8 @@ class MaxAcceptSSLServer(internet.SSLServer):
 
     def __init__(self, *args, **kwargs):
         internet.SSLServer.__init__(self, *args, **kwargs)
-        self.args[1].myServer = self
+        self.httpFactory = self.args[1]
+        self.httpFactory.myServer = self
         self.inherit = self.kwargs.get("inherit", False)
         self.backlog = self.kwargs.get("backlog", None)
         self.interface = self.kwargs.get("interface", None)
@@ -155,4 +166,13 @@ class MaxAcceptSSLServer(internet.SSLServer):
         port.startListening()
         self.myPort = port
         return port
+
+    def stopService(self):
+        """
+        Wait for outstanding requests to finish
+        @return: a Deferred which fires when all outstanding requests are complete
+        """
+        internet.SSLServer.stopService(self)
+        return self.httpFactory.waitForCompletion()
+
 

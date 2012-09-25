@@ -542,7 +542,8 @@ class SlaveServiceTest(BaseServiceMakerTests):
         Test that the Slave service has sub services with the
         default TCP and SSL configuration
         """
-        service = self.makeService()
+        # Note: the listeners are bundled within a MultiService named "ConnectionService"
+        service = self.makeService().getServiceNamed("ConnectionService")
 
         expectedSubServices = dict((
             (MaxAcceptTCPServer, self.config["HTTPPort"]),
@@ -568,7 +569,7 @@ class SlaveServiceTest(BaseServiceMakerTests):
         Test that the configuration of the SSLServer reflect the config file's
         SSL Private Key and SSL Certificate
         """
-        service = self.makeService()
+        service = self.makeService().getServiceNamed("ConnectionService")
 
         sslService = None
         for s in service.services:
@@ -597,7 +598,7 @@ class SlaveServiceTest(BaseServiceMakerTests):
         del self.config["SSLPort"]
         self.writeConfig()
 
-        service = self.makeService()
+        service = self.makeService().getServiceNamed("ConnectionService")
 
         self.assertNotIn(
             internet.SSLServer,
@@ -612,7 +613,7 @@ class SlaveServiceTest(BaseServiceMakerTests):
         del self.config["HTTPPort"]
         self.writeConfig()
 
-        service = self.makeService()
+        service = self.makeService().getServiceNamed("ConnectionService")
 
         self.assertNotIn(
             internet.TCPServer,
@@ -626,7 +627,7 @@ class SlaveServiceTest(BaseServiceMakerTests):
         self.config.BindAddresses = ["127.0.0.1"]
         self.writeConfig()
 
-        service = self.makeService()
+        service = self.makeService().getServiceNamed("ConnectionService")
 
         for s in service.services:
             if isinstance(s, (internet.TCPServer, internet.SSLServer)):
@@ -644,7 +645,7 @@ class SlaveServiceTest(BaseServiceMakerTests):
         ]
 
         self.writeConfig()
-        service = self.makeService()
+        service = self.makeService().getServiceNamed("ConnectionService")
 
         tcpServers = []
         sslServers = []
@@ -676,7 +677,7 @@ class SlaveServiceTest(BaseServiceMakerTests):
         """
         self.config.ListenBacklog = 1024
         self.writeConfig()
-        service = self.makeService()
+        service = self.makeService().getServiceNamed("ConnectionService")
 
         for s in service.services:
             if isinstance(s, (internet.TCPServer, internet.SSLServer)):

@@ -41,7 +41,7 @@ from twisted.python.log import FileLogObserver, ILogObserver
 from twisted.python.logfile import LogFile
 from twisted.python.usage import Options, UsageError
 
-from twisted.internet.defer import gatherResults, Deferred
+from twisted.internet.defer import gatherResults, Deferred, inlineCallbacks
 
 from twisted.internet.process import ProcessExitedAlready
 from twisted.internet.protocol import Protocol, Factory
@@ -244,10 +244,18 @@ class CalDAVService (ErrorLoggingMultiService):
         MultiService.privilegedStartService(self)
         self.logObserver.start()
 
+    @inlineCallbacks
     def stopService(self):
-        d = MultiService.stopService(self)
+        """
+        Wait for outstanding requests to finish
+        @return: a Deferred which fires when all outstanding requests are complete
+        """
+        connectionService = self.getServiceNamed("ConnectionService")
+        # Note: removeService() also calls stopService()
+        yield self.removeService(connectionService)
+        # At this point, all outstanding requests have been responded to
+        yield MultiService.stopService(self)
         self.logObserver.stop()
-        return d
 
 
 class CalDAVOptions (Options, LoggingMixIn):
@@ -858,6 +866,12 @@ class CalDAVServiceMaker (LoggingMixIn):
 
         config.addPostUpdateHooks((updateFactory,))
 
+        # Bundle the various connection services within a single MultiService
+        # that can be stopped before the others for graceful shutdown.
+        connectionService = MultiService()
+        connectionService.setName("ConnectionService")
+        connectionService.setServiceParent(service)
+
         if config.InheritFDs or config.InheritSSLFDs:
             # Inherit sockets to call accept() on them individually.
 
@@ -873,13 +887,13 @@ class CalDAVServiceMaker (LoggingMixIn):
                             contextFactory,
                             backlog=config.ListenBacklog,
                             inherit=True
-                        ).setServiceParent(service)
+                        ).setServiceParent(connectionService)
             for fdAsStr in config.InheritFDs:
                 MaxAcceptTCPServer(
                     int(fdAsStr), httpFactory,
                     backlog=config.ListenBacklog,
                     inherit=True
-                ).setServiceParent(service)
+                ).setServiceParent(connectionService)
 
         elif config.MetaFD:
             # Inherit a single socket to receive accept()ed connections via
@@ -896,7 +910,7 @@ class CalDAVServiceMaker (LoggingMixIn):
 
             ReportingHTTPService(
                 requestFactory, int(config.MetaFD), contextFactory
-            ).setServiceParent(service)
+            ).setServiceParent(connectionService)
 
         else: # Not inheriting, therefore we open our own:
             for bindAddress in self._allBindAddresses():
@@ -919,7 +933,7 @@ class CalDAVServiceMaker (LoggingMixIn):
                                 backlog=config.ListenBacklog,
                                 inherit=False
                             )
-                            httpsService.setServiceParent(service)
+                            httpsService.setServiceParent(connectionService)
 
                 for port in config.BindHTTPPorts:
                     MaxAcceptTCPServer(
@@ -927,7 +941,7 @@ class CalDAVServiceMaker (LoggingMixIn):
                         interface=bindAddress,
                         backlog=config.ListenBacklog,
                         inherit=False
-                    ).setServiceParent(service)
+                    ).setServiceParent(connectionService)
 
 
         # Change log level back to what it was before
