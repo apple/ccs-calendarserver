@@ -187,6 +187,7 @@ def _computeEnvVars(parent):
     optionalVars = [
         "KRB5_KTNAME",
         "ORACLE_HOME",
+        "VERSIONER_PYTHON_PREFER_32_BIT",
     ]
 
     for varname in requiredVars:
