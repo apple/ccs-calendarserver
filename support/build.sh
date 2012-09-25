@@ -736,6 +736,11 @@ dependencies () {
     "dateutil" "dateutil" "${du}" \
     "http://www.labix.org/download/python-dateutil/${du}.tar.gz";
 
+  local ps="psutil-0.6.1";
+  py_dependency -m "3cfcbfb8525f6e4c70110e44a85e907e" \
+    "psutil" "psutil" "${ps}" \
+    "http://psutil.googlecode.com/files/${ps}.tar.gz";
+
   local lv="2.3.13";
   local ld="python-ldap-${lv}";
   py_dependency -v "${lv}" -m "895223d32fa10bbc29aa349bfad59175" \
