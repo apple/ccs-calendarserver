@@ -344,22 +344,21 @@ class CalDAVOptions (Options, LoggingMixIn):
     opt_o = opt_option
 
     def postOptions(self):
-        self.loadConfiguration()
-        self.checkConfiguration()
-
-    def loadConfiguration(self):
-        if not os.path.exists(self["config"]):
-            print "Config file %s not found. Exiting." % (self["config"],)
-            sys.exit(1)
-
-        print "Reading configuration from file: %s" % (self["config"],)
-
         try:
-            config.load(self["config"])
+            self.loadConfiguration()
+            self.checkConfiguration()
         except ConfigurationError, e:
             print "Invalid configuration: %s" % (e,)
             sys.exit(1)
 
+    def loadConfiguration(self):
+        if not os.path.exists(self["config"]):
+            raise ConfigurationError("Config file %s not found. Exiting."
+                                     % (self["config"],))
+
+        print "Reading configuration from file: %s" % (self["config"],)
+
+        config.load(self["config"])
         config.updateDefaults(self.overrides)
 
     def checkDirectory(self, dirpath, description, access=None, create=None, wait=False):
