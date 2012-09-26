@@ -313,10 +313,18 @@ def comparison(comparator):
 class ExpressionSyntax(Syntax):
     __eq__ = comparison('=')
     __ne__ = comparison('!=')
+
+    # NB: these operators "cannot be used with lists" (see ORA-01796)
     __gt__ = comparison('>')
     __ge__ = comparison('>=')
     __lt__ = comparison('<')
     __le__ = comparison('<=')
+
+    # TODO: operators aren't really comparisons; these should behave slightly
+    # differently.  (For example; in Oracle, 'select 3 = 4 from dual' doesn't
+    # work, but 'select 3 + 4 from dual' does; similarly, you can't do 'select *
+    # from foo where 3 + 4', but you can do 'select * from foo where 3 + 4 >
+    # 0'.)
     __add__ = comparison("+")
     __sub__ = comparison("-")
     __div__= comparison("/")
@@ -906,6 +914,12 @@ class CompoundComparison(Comparison):
         result = self._subexpression(self.b, queryGenerator, allTables)
         if (isinstance(self.b, CompoundComparison)
             and self.b.op == 'or' and self.op == 'and'):
+            result = _inParens(result)
+        if isinstance(self.b, Tuple):
+            # If the right-hand side of the comparison is a Tuple, it needs to
+            # be double-parenthesized in Oracle, as per
+            # http://docs.oracle.com/cd/B28359_01/server.111/b28286/expressions015.htm#i1033664
+            # because it is an expression list.
             result = _inParens(result)
         stmt.append(result)
         return stmt

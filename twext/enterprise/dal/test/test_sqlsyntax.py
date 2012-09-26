@@ -38,6 +38,7 @@ from twext.enterprise.test.test_adbapi2 import resultOf, AssertResultHelper
 from twisted.internet.defer import succeed
 from twisted.trial.unittest import TestCase
 from twext.enterprise.dal.syntax import Tuple
+from twext.enterprise.dal.syntax import Constant
 
 
 
@@ -1591,6 +1592,23 @@ class GenerationTests(ExampleSchemaHelper, TestCase, AssertResultHelper):
                 # error.
                 "update BOZ set QUX = ? where (QUX, QUUX) = ("
                 "select BAR, BAZ from FOO where BAZ = ?)", [1, 2]
+            )
+        )
+
+
+    def test_tupleOfConstantsComparison(self):
+        """
+        For some reason Oracle requires multiple parentheses for comparisons.
+        """
+        self.assertEquals(
+            Select(
+                [self.schema.FOO.BAR],
+                From=self.schema.FOO,
+                Where=(Tuple([self.schema.FOO.BAR, self.schema.FOO.BAZ]) ==
+                       Tuple([Constant(7), Constant(9)]))
+            ).toSQL(),
+            SQLFragment(
+                "select BAR from FOO where (BAR, BAZ) = ((?, ?))", [7, 9]
             )
         )
 
