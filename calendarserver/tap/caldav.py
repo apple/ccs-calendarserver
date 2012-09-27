@@ -216,7 +216,7 @@ class CalDAVStatisticsServer (Factory):
         self.logger = logObserver
 
 
-class ErrorLoggingMultiService(MultiService):
+class ErrorLoggingMultiService(MultiService, object):
     """ Registers a rotating file logger for error logging, if
         config.ErrorLogEnabled is True. """
 
@@ -237,6 +237,12 @@ class ErrorLoggingMultiService(MultiService):
 
 
 class CalDAVService (ErrorLoggingMultiService):
+
+    # The ConnectionService is a MultiService which bundles all the connection
+    # services together for the purposes of being able to stop them and wait
+    # for all of their connections to close before shutting down.
+    connectionServiceName = "ConnectionService"
+
     def __init__(self, logObserver):
         self.logObserver = logObserver # accesslog observer
         MultiService.__init__(self)
@@ -251,11 +257,11 @@ class CalDAVService (ErrorLoggingMultiService):
         Wait for outstanding requests to finish
         @return: a Deferred which fires when all outstanding requests are complete
         """
-        connectionService = self.getServiceNamed("ConnectionService")
+        connectionService = self.getServiceNamed(self.connectionServiceName)
         # Note: removeService() also calls stopService()
         yield self.removeService(connectionService)
         # At this point, all outstanding requests have been responded to
-        yield MultiService.stopService(self)
+        yield super(CalDAVService, self).stopService()
         self.logObserver.stop()
 
 
@@ -869,7 +875,7 @@ class CalDAVServiceMaker (LoggingMixIn):
         # Bundle the various connection services within a single MultiService
         # that can be stopped before the others for graceful shutdown.
         connectionService = MultiService()
-        connectionService.setName("ConnectionService")
+        connectionService.setName(CalDAVService.connectionServiceName)
         connectionService.setServiceParent(service)
 
         if config.InheritFDs or config.InheritSSLFDs:

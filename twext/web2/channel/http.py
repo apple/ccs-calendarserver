@@ -1020,7 +1020,7 @@ class HTTPFactory(protocol.ServerFactory):
         self.protocolArgs = kwargs
         self.protocolArgs['requestFactory'] = requestFactory
         self.connectedChannels = set()
-        self.deferred = None
+        self.allConnectionsClosedDeferred = None
 
 
     def buildProtocol(self, addr):
@@ -1046,30 +1046,30 @@ class HTTPFactory(protocol.ServerFactory):
         """
         Remove a connected channel from the set of currently connected channels
         and decrease the outstanding request count.
-        If someone is waiting for all the requests to be completed, self.deferred
-        will be non-None; fire that callback when the number of outstanding requests
-        hits zero.
+        If someone is waiting for all the requests to be completed,
+        self.allConnectionsClosedDeferred will be non-None; fire that callback
+        when the number of outstanding requests hits zero.
         """
         self.connectedChannels.remove(channel)
 
-        if self.deferred is not None:
+        if self.allConnectionsClosedDeferred is not None:
             if self.outstandingRequests == 0:
-                self.deferred.callback(None)
+                self.allConnectionsClosedDeferred.callback(None)
 
     @property
     def outstandingRequests(self):
         return len(self.connectedChannels)
 
 
-    def waitForCompletion(self):
+    def allConnectionsClosed(self):
         """
         Return a Deferred that will fire when all outstanding requests have completed.
         @return: A Deferred with a result of None
         """
         if self.outstandingRequests == 0:
             return succeed(None)
-        self.deferred = Deferred()
-        return self.deferred
+        self.allConnectionsClosedDeferred = Deferred()
+        return self.allConnectionsClosedDeferred
 
 
 

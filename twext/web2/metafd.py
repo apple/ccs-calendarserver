@@ -23,7 +23,6 @@ from twext.web2.channel.http import HTTPFactory
 from twisted.application.service import MultiService, Service
 from twisted.internet import reactor
 from twisted.internet.tcp import Server
-from twisted.internet.defer import succeed
 
 log = Logger()
 
@@ -90,7 +89,7 @@ class ReportingHTTPService(Service, object):
         self.reportingFactory.inheritedPort.stopReading()
 
         # Let any outstanding requests finish
-        return self.reportingFactory.waitForCompletion()
+        return self.reportingFactory.allConnectionsClosed()
 
 
     def createTransport(self, skt, peer, data, protocol):
@@ -289,11 +288,3 @@ class LimitingInheritingProtocolFactory(InheritingProtocolFactory):
     @property
     def outstandingRequests(self):
         return self.limiter.outstandingRequests
-
-    def waitForCompletion(self):
-        """
-        Return a Deferred that will fire when all outstanding requests have completed.
-        @return: A Deferred with a result of None
-        """
-        # TODO: Make this actually wait for outstandingRequests to drop to zero
-        return succeed(None)
