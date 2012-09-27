@@ -543,7 +543,7 @@ class SlaveServiceTest(BaseServiceMakerTests):
         default TCP and SSL configuration
         """
         # Note: the listeners are bundled within a MultiService named "ConnectionService"
-        service = self.makeService().getServiceNamed("ConnectionService")
+        service = self.makeService().getServiceNamed(CalDAVService.connectionServiceName)
 
         expectedSubServices = dict((
             (MaxAcceptTCPServer, self.config["HTTPPort"]),
@@ -569,7 +569,7 @@ class SlaveServiceTest(BaseServiceMakerTests):
         Test that the configuration of the SSLServer reflect the config file's
         SSL Private Key and SSL Certificate
         """
-        service = self.makeService().getServiceNamed("ConnectionService")
+        service = self.makeService().getServiceNamed(CalDAVService.connectionServiceName)
 
         sslService = None
         for s in service.services:
@@ -598,7 +598,7 @@ class SlaveServiceTest(BaseServiceMakerTests):
         del self.config["SSLPort"]
         self.writeConfig()
 
-        service = self.makeService().getServiceNamed("ConnectionService")
+        service = self.makeService().getServiceNamed(CalDAVService.connectionServiceName)
 
         self.assertNotIn(
             internet.SSLServer,
@@ -613,7 +613,7 @@ class SlaveServiceTest(BaseServiceMakerTests):
         del self.config["HTTPPort"]
         self.writeConfig()
 
-        service = self.makeService().getServiceNamed("ConnectionService")
+        service = self.makeService().getServiceNamed(CalDAVService.connectionServiceName)
 
         self.assertNotIn(
             internet.TCPServer,
@@ -627,7 +627,7 @@ class SlaveServiceTest(BaseServiceMakerTests):
         self.config.BindAddresses = ["127.0.0.1"]
         self.writeConfig()
 
-        service = self.makeService().getServiceNamed("ConnectionService")
+        service = self.makeService().getServiceNamed(CalDAVService.connectionServiceName)
 
         for s in service.services:
             if isinstance(s, (internet.TCPServer, internet.SSLServer)):
@@ -645,7 +645,7 @@ class SlaveServiceTest(BaseServiceMakerTests):
         ]
 
         self.writeConfig()
-        service = self.makeService().getServiceNamed("ConnectionService")
+        service = self.makeService().getServiceNamed(CalDAVService.connectionServiceName)
 
         tcpServers = []
         sslServers = []
@@ -677,7 +677,7 @@ class SlaveServiceTest(BaseServiceMakerTests):
         """
         self.config.ListenBacklog = 1024
         self.writeConfig()
-        service = self.makeService().getServiceNamed("ConnectionService")
+        service = self.makeService().getServiceNamed(CalDAVService.connectionServiceName)
 
         for s in service.services:
             if isinstance(s, (internet.TCPServer, internet.SSLServer)):

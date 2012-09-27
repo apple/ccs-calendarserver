@@ -28,6 +28,7 @@ from OpenSSL import SSL
 
 from twisted.application import internet
 from twisted.internet import tcp, ssl
+from twisted.internet.defer import succeed
 
 from twext.python.log import Logger
 
@@ -103,6 +104,24 @@ class InheritedSSLPort(InheritedTCPPort):
         transport._startTLS()
         return tcp.Port._preMakeConnection(self, transport)
 
+
+def _allConnectionsClosed(protocolFactory):
+    """
+    Check to see if protocolFactory implements allConnectionsClosed( ) and
+    if so, call it.  Otherwise, return immediately.
+    This allows graceful shutdown by waiting for all requests to be completed.
+
+    @param protocolFactory: (usually) an HTTPFactory implementing allConnectionsClosed
+        which returns a Deferred which fires when all connections are closed.
+    @return: A Deferred firing None when all connections are closed, or immediately
+        if the given factory does not track its connections (e.g.
+        InheritingProtocolFactory)
+    """
+    if hasattr(protocolFactory, "allConnectionsClosed"):
+        return protocolFactory.allConnectionsClosed()
+    return succeed(None)
+
+
 class MaxAcceptTCPServer(internet.TCPServer):
     """
     TCP server which will uses MaxAcceptTCPPorts (and optionally,
@@ -114,8 +133,8 @@ class MaxAcceptTCPServer(internet.TCPServer):
 
     def __init__(self, *args, **kwargs):
         internet.TCPServer.__init__(self, *args, **kwargs)
-        self.httpFactory = self.args[1]
-        self.httpFactory.myServer = self
+        self.protocolFactory = self.args[1]
+        self.protocolFactory.myServer = self
         self.inherit = self.kwargs.get("inherit", False)
         self.backlog = self.kwargs.get("backlog", None)
         self.interface = self.kwargs.get("interface", None)
@@ -138,7 +157,7 @@ class MaxAcceptTCPServer(internet.TCPServer):
         @return: a Deferred which fires when all outstanding requests are complete
         """
         internet.TCPServer.stopService(self)
-        return self.httpFactory.waitForCompletion()
+        return _allConnectionsClosed(self.protocolFactory)
 
 
 class MaxAcceptSSLServer(internet.SSLServer):
@@ -149,8 +168,8 @@ class MaxAcceptSSLServer(internet.SSLServer):
 
     def __init__(self, *args, **kwargs):
         internet.SSLServer.__init__(self, *args, **kwargs)
-        self.httpFactory = self.args[1]
-        self.httpFactory.myServer = self
+        self.protocolFactory = self.args[1]
+        self.protocolFactory.myServer = self
         self.inherit = self.kwargs.get("inherit", False)
         self.backlog = self.kwargs.get("backlog", None)
         self.interface = self.kwargs.get("interface", None)
@@ -173,6 +192,7 @@ class MaxAcceptSSLServer(internet.SSLServer):
         @return: a Deferred which fires when all outstanding requests are complete
         """
         internet.SSLServer.stopService(self)
-        return self.httpFactory.waitForCompletion()
+        # TODO: check for an ICompletionWaiter interface
+        return _allConnectionsClosed(self.protocolFactory)
 
 

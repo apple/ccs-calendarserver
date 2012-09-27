@@ -454,19 +454,19 @@ class GracefulShutdownTestCase(HTTPTests):
     def _callback(self, result):
         self.callbackFired = True
 
-    def testWaitForCompletionWithoutConnectedChannels(self):
+    def testAllConnectionsClosedWithoutConnectedChannels(self):
         """
-        waitForCompletion( ) should fire right away if no connected channels
+        allConnectionsClosed( ) should fire right away if no connected channels
         """
         self.callbackFired = False
 
         factory = HTTPFactory(None)
-        factory.waitForCompletion().addCallback(self._callback)
+        factory.allConnectionsClosed().addCallback(self._callback)
         self.assertTrue(self.callbackFired)  # now!
 
-    def testWaitForCompletionWithConnectedChannels(self):
+    def testallConnectionsClosedWithConnectedChannels(self):
         """
-        waitForCompletion( ) should only fire after all connected channels
+        allConnectionsClosed( ) should only fire after all connected channels
         have been removed
         """
         self.callbackFired = False
@@ -476,7 +476,7 @@ class GracefulShutdownTestCase(HTTPTests):
         factory.addConnectedChannel("B")
         factory.addConnectedChannel("C")
 
-        factory.waitForCompletion().addCallback(self._callback)
+        factory.allConnectionsClosed().addCallback(self._callback)
 
         factory.removeConnectedChannel("A")
         self.assertFalse(self.callbackFired) # wait for it...
