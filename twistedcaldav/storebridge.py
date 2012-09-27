@@ -44,7 +44,7 @@ from twext.web2.dav.resource import TwistedACLInheritable, AccessDeniedError
 from twext.web2.dav.util import parentForURL, allDataFromStream, joinURL, davXMLFromStream
 from twext.web2.responsecode import (
     FORBIDDEN, NO_CONTENT, NOT_FOUND, CREATED, CONFLICT, PRECONDITION_FAILED,
-    BAD_REQUEST, OK, INSUFFICIENT_STORAGE_SPACE
+    BAD_REQUEST, OK, INSUFFICIENT_STORAGE_SPACE, SERVICE_UNAVAILABLE
 )
 
 from twistedcaldav import customxml, carddavxml, caldavxml
@@ -1613,13 +1613,20 @@ class CalendarAttachment(_NewStoreFileMetaDataHelper, _GetChildHelper):
         if content_type is None:
             content_type = MimeType("application", "octet-stream")
 
-        creating = (self._newStoreAttachment is None)
-        if creating:
-            self._newStoreAttachment = self._newStoreObject = (
-                yield self._newStoreCalendarObject.createAttachmentWithName(
-                    self.attachmentName))
-        t = self._newStoreAttachment.store(content_type)
-        yield readStream(request.stream, t.write)
+        try:
+            creating = (self._newStoreAttachment is None)
+            if creating:
+                self._newStoreAttachment = self._newStoreObject = (
+                    yield self._newStoreCalendarObject.createAttachmentWithName(
+                        self.attachmentName))
+            t = self._newStoreAttachment.store(content_type)
+            yield readStream(request.stream, t.write)
+        except Exception, e:
+            log.error("Unable to store attachment: %s" % (e,))
+            # Signal to abort in twistedcaldav.resource.CalDAVResource.RenderHTTP
+            self.transactionError()
+            raise HTTPError(SERVICE_UNAVAILABLE)
+
         try:
             yield t.loseConnection()
         except QuotaExceeded:
