@@ -408,7 +408,7 @@ class ICalendar(INotifier, IShareableCollection, IDataStoreObject):
         C{txn.calendarHomeWithUID("alice") ...
         .calendarWithName("calendar").viewerCalendarHome()} will return Alice's
         home, whereas C{txn.calendarHomeWithUID("bob") ...
-        .sharedChildWithName("alice's calendar").viewerCalendarHome()} will
+        .childWithName("alice's calendar").viewerCalendarHome()} will
         return Bob's calendar home.
 
         @return: (synchronously) the calendar home of the user into which this
@@ -416,12 +416,6 @@ class ICalendar(INotifier, IShareableCollection, IDataStoreObject):
         @rtype: L{ICalendarHome}
         """
         # TODO: implement this for the file store.
-
-        # TODO: implement home-child- retrieval APIs to retrieve shared items
-        # from the store; the example in the docstring ought to be
-        # calendarWithName not sharedChildWithName.
-
-
 
 class ICalendarObject(IDataStoreObject):
     """

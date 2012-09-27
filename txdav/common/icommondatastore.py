@@ -246,20 +246,3 @@ class IShareableCollection(Interface):
     A collection resource which may be shared.
     """
 
-    def setSharingUID(shareeUID):
-        """
-        This is a temporary shim method due to the way L{twistedcaldav.sharing}
-        works, which is that it expects to look in the 'sharesDB' object to
-        find what calendars are shared by whom, separately looks up the owner's
-        calendar home based on that information, then sets the sharee's UID on
-        that calendar, the main effect of which is to change the per-user uid
-        of the properties for that calendar object.
-
-        What I{should} be happening is that the calendars just show up in the
-        sharee's calendar home, and have a separate methods to determine the
-        sharee's and the owner's calendar homes, so the front end can tell it's
-        shared.
-
-        @param shareeUID: the UID of the sharee.
-        @type shareeUID: C{str}
-        """

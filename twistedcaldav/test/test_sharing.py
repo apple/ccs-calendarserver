@@ -25,7 +25,7 @@ from twisted.internet.defer import inlineCallbacks, returnValue, succeed
 from twistedcaldav import customxml
 from twistedcaldav.config import config
 from twistedcaldav.test.util import HomeTestCase, norequest
-from twistedcaldav.sharing import SharedCollectionMixin, SHARETYPE_DIRECT, WikiDirectoryService
+from twistedcaldav.sharing import SharedCollectionMixin, WikiDirectoryService
 
 from twistedcaldav.resource import CalDAVResource
 from txdav.common.datastore.test.util import buildStore, StubNotifierFactory
@@ -47,10 +47,18 @@ class SharingTests(HomeTestCase):
                 self.calendarUserAddresses = set((cuaddr,))
 
         def __init__(self, cuaddr):
-            self.path = "/principals/__uids__/%s" % (cuaddr[7:].split('@')[0],)
-            self.homepath = "/calendars/__uids__/%s" % (cuaddr[7:].split('@')[0],)
-            self.displayname = cuaddr[7:].split('@')[0].upper()
-            self.record = self.FakeRecord(cuaddr[7:].split('@')[0], cuaddr)
+            if cuaddr.startswith("mailto:"):
+                name = cuaddr[7:].split('@')[0]
+            elif cuaddr.startswith("urn:uuid:"):
+                name = cuaddr[9:]
+            else:
+                name = cuaddr
+
+            self.path = "/principals/__uids__/%s" % (name,)
+            self.homepath = "/calendars/__uids__/%s" % (name,)
+            self.displayname = name.upper()
+            self.record = self.FakeRecord(name, cuaddr)
+
 
         def calendarHome(self, request):
             class FakeHome(object):
@@ -61,24 +69,31 @@ class SharingTests(HomeTestCase):
         def principalURL(self):
             return self.path
 
+        def principalUID(self):
+            return self.record.guid
+
         def displayName(self):
             return self.displayname
 
 
     @inlineCallbacks
     def setUp(self):
+        self.calendarStore = yield buildStore(self, StubNotifierFactory())
+
         yield super(SharingTests, self).setUp()
 
         self.patch(config.Sharing, "Enabled", True)
         self.patch(config.Sharing.Calendars, "Enabled", True)
 
-        CalDAVResource.validUserIDForShare = self._fakeValidUserID
-        CalDAVResource.validUserIDWithCommonNameForShare = self._fakeValidUserID_CN
-        CalDAVResource.sendInvite = lambda self, record, request: succeed(True)
-        CalDAVResource.removeInvite = lambda self, record, request: succeed(True)
+        CalDAVResource.sendInviteNotification = lambda self, record, request: succeed(True)
+        CalDAVResource.removeInviteNotification = lambda self, record, request: succeed(True)
 
-        self.patch(CalDAVResource, "principalForCalendarUserAddress", lambda self, cuaddr: SharingTests.FakePrincipal(cuaddr))
+        self.patch(CalDAVResource, "validUserIDForShare", lambda self, userid, request: None if "bogus" in userid else SharingTests.FakePrincipal(userid).principalURL())
+        self.patch(CalDAVResource, "principalForCalendarUserAddress", lambda self, cuaddr: None if "bogus" in cuaddr else SharingTests.FakePrincipal(cuaddr))
+        self.patch(CalDAVResource, "principalForUID", lambda self, principalUID: SharingTests.FakePrincipal("urn:uuid:" + principalUID))
 
+    def createDataStore(self):
+        return self.calendarStore
 
     @inlineCallbacks
     def _refreshRoot(self, request=None):
@@ -89,36 +104,6 @@ class SharingTests(HomeTestCase):
             yield self.site.resource.locateChild(request, ["calendar"])
         )[0]
         returnValue(result)
-
-
-    def _fakeValidUserID_Base(self, userid, request, *args):
-        if userid.startswith("/principals/"):
-            return userid
-        if userid.endswith("@example.com"):
-            principal = SharingTests.FakePrincipal(userid)
-            return principal.path if len(args) == 0 else (userid, principal.path, principal.displayname,)
-        else:
-            return None if len(args) == 0 else (None, None, None,)
-
-
-    def _fakeValidUserID(self, userid, request, *args):
-        return succeed(self._fakeValidUserID_Base(userid, request, *args))
-
-
-    def _fakeValidUserID_CN(self, userid, *args):
-        return self._fakeValidUserID_Base(userid, None, *args)
-
-
-    def _fakeInvalidUserID_Base(self, userid, request, *args):
-        return None if len(args) == 0 else (None, None, None,)
-
-
-    def _fakeInvalidUserID(self, userid, request, *args):
-        return succeed(self._fakeInvalidUserID_Base(userid, request, *args))
-
-
-    def _fakeInvalidUserID_CN(self, userid, *args):
-        return self._fakeInvalidUserID_Base(userid, None, *args)
 
 
     @inlineCallbacks
@@ -148,8 +133,8 @@ class SharingTests(HomeTestCase):
         self.assertEquals(rtype, regularCalendarType)
         isShared = (yield self.resource.isShared(None))
         self.assertFalse(isShared)
-        isVShared = self.resource.isVirtualShare()
-        self.assertFalse(isVShared)
+        isShareeCollection = self.resource.isShareeCollection()
+        self.assertFalse(isShareeCollection)
 
         self.resource.upgradeToShare()
 
@@ -157,8 +142,8 @@ class SharingTests(HomeTestCase):
         self.assertEquals(rtype, sharedOwnerType)
         isShared = (yield self.resource.isShared(None))
         self.assertTrue(isShared)
-        isVShared = self.resource.isVirtualShare()
-        self.assertFalse(isVShared)
+        isShareeCollection = self.resource.isShareeCollection()
+        self.assertFalse(isShareeCollection)
 
 
     @inlineCallbacks
@@ -170,8 +155,8 @@ class SharingTests(HomeTestCase):
         self.assertEquals(rtype, sharedOwnerType)
         isShared = (yield self.resource.isShared(None))
         self.assertTrue(isShared)
-        isVShared = self.resource.isVirtualShare()
-        self.assertFalse(isVShared)
+        isShareeCollection = self.resource.isShareeCollection()
+        self.assertFalse(isShareeCollection)
 
         yield self.resource.downgradeFromShare(None)
 
@@ -179,8 +164,8 @@ class SharingTests(HomeTestCase):
         self.assertEquals(rtype, regularCalendarType)
         isShared = (yield self.resource.isShared(None))
         self.assertFalse(isShared)
-        isVShared = self.resource.isVirtualShare()
-        self.assertFalse(isVShared)
+        isShareeCollection = self.resource.isShareeCollection()
+        self.assertFalse(isShareeCollection)
 
 
     @inlineCallbacks
@@ -202,7 +187,7 @@ class SharingTests(HomeTestCase):
         self.assertEquals(self._clearUIDElementValue(propInvite), customxml.Invite(
             customxml.InviteUser(
                 customxml.UID.fromString(""),
-                davxml.HRef.fromString("mailto:user02@example.com"),
+                davxml.HRef.fromString("urn:uuid:user02"),
                 customxml.CommonName.fromString("USER02"),
                 customxml.InviteAccess(customxml.ReadWriteAccess()),
                 customxml.InviteStatusNoResponse(),
@@ -211,8 +196,8 @@ class SharingTests(HomeTestCase):
 
         isShared = (yield self.resource.isShared(None))
         self.assertTrue(isShared)
-        isVShared = self.resource.isVirtualShare()
-        self.assertFalse(isVShared)
+        isShareeCollection = self.resource.isShareeCollection()
+        self.assertFalse(isShareeCollection)
 
 
     @inlineCallbacks
@@ -233,7 +218,7 @@ class SharingTests(HomeTestCase):
         self.assertEquals(self._clearUIDElementValue(propInvite), customxml.Invite(
             customxml.InviteUser(
                 customxml.UID.fromString(""),
-                davxml.HRef.fromString("mailto:user02@example.com"),
+                davxml.HRef.fromString("urn:uuid:user02"),
                 customxml.CommonName.fromString("USER02"),
                 customxml.InviteAccess(customxml.ReadWriteAccess()),
                 customxml.InviteStatusNoResponse(),
@@ -242,8 +227,8 @@ class SharingTests(HomeTestCase):
 
         isShared = (yield self.resource.isShared(None))
         self.assertTrue(isShared)
-        isVShared = (yield self.resource.isVirtualShare())
-        self.assertFalse(isVShared)
+        isShareeCollection = (yield self.resource.isShareeCollection())
+        self.assertFalse(isShareeCollection)
 
 
     @inlineCallbacks
@@ -282,7 +267,7 @@ class SharingTests(HomeTestCase):
         self.assertEquals(self._clearUIDElementValue(propInvite), customxml.Invite(
             customxml.InviteUser(
                 customxml.UID.fromString(""),
-                davxml.HRef.fromString("mailto:user02@example.com"),
+                davxml.HRef.fromString("urn:uuid:user02"),
                 customxml.CommonName.fromString("USER02"),
                 customxml.InviteAccess(customxml.ReadAccess()),
                 customxml.InviteStatusNoResponse(),
@@ -357,21 +342,21 @@ class SharingTests(HomeTestCase):
         self.assertEquals(self._clearUIDElementValue(propInvite), customxml.Invite(
             customxml.InviteUser(
                 customxml.UID.fromString(""),
-                davxml.HRef.fromString("mailto:user02@example.com"),
+                davxml.HRef.fromString("urn:uuid:user02"),
                 customxml.CommonName.fromString("USER02"),
                 customxml.InviteAccess(customxml.ReadWriteAccess()),
                 customxml.InviteStatusNoResponse(),
             ),
             customxml.InviteUser(
                 customxml.UID.fromString(""),
-                davxml.HRef.fromString("mailto:user03@example.com"),
+                davxml.HRef.fromString("urn:uuid:user03"),
                 customxml.CommonName.fromString("USER03"),
                 customxml.InviteAccess(customxml.ReadWriteAccess()),
                 customxml.InviteStatusNoResponse(),
             ),
             customxml.InviteUser(
                 customxml.UID.fromString(""),
-                davxml.HRef.fromString("mailto:user04@example.com"),
+                davxml.HRef.fromString("urn:uuid:user04"),
                 customxml.CommonName.fromString("USER04"),
                 customxml.InviteAccess(customxml.ReadWriteAccess()),
                 customxml.InviteStatusNoResponse(),
@@ -415,20 +400,19 @@ class SharingTests(HomeTestCase):
         self.assertEquals(self._clearUIDElementValue(propInvite), customxml.Invite(
             customxml.InviteUser(
                 customxml.UID.fromString(""),
-                davxml.HRef.fromString("mailto:user02@example.com"),
+                davxml.HRef.fromString("urn:uuid:user02"),
                 customxml.CommonName.fromString("USER02"),
                 customxml.InviteAccess(customxml.ReadWriteAccess()),
                 customxml.InviteStatusNoResponse(),
             ),
             customxml.InviteUser(
                 customxml.UID.fromString(""),
-                davxml.HRef.fromString("mailto:user04@example.com"),
+                davxml.HRef.fromString("urn:uuid:user04"),
                 customxml.CommonName.fromString("USER04"),
                 customxml.InviteAccess(customxml.ReadWriteAccess()),
                 customxml.InviteStatusNoResponse(),
             ),
         ))
-
 
     @inlineCallbacks
     def test_POSTaddRemoveSameInvitee(self):
@@ -466,14 +450,14 @@ class SharingTests(HomeTestCase):
         self.assertEquals(self._clearUIDElementValue(propInvite), customxml.Invite(
             customxml.InviteUser(
                 customxml.UID.fromString(""),
-                davxml.HRef.fromString("mailto:user02@example.com"),
+                davxml.HRef.fromString("urn:uuid:user02"),
                 customxml.CommonName.fromString("USER02"),
                 customxml.InviteAccess(customxml.ReadWriteAccess()),
                 customxml.InviteStatusNoResponse(),
             ),
             customxml.InviteUser(
                 customxml.UID.fromString(""),
-                davxml.HRef.fromString("mailto:user03@example.com"),
+                davxml.HRef.fromString("urn:uuid:user03"),
                 customxml.CommonName.fromString("USER03"),
                 customxml.InviteAccess(customxml.ReadAccess()),
                 customxml.InviteStatusNoResponse(),
@@ -576,23 +560,23 @@ class SharingTests(HomeTestCase):
         self.assertEquals(self._clearUIDElementValue(propInvite), customxml.Invite(
             customxml.InviteUser(
                 customxml.UID.fromString(""),
-                davxml.HRef.fromString("mailto:user01@example.com"),
+                davxml.HRef.fromString("urn:uuid:user01"),
                 customxml.CommonName.fromString("USER01"),
                 customxml.InviteAccess(customxml.ReadWriteAccess()),
                 customxml.InviteStatusNoResponse(),
             )
         ))
 
-        self.resource.validUserIDForShare = self._fakeInvalidUserID
-        self.resource.validUserIDWithCommonNameForShare = self._fakeInvalidUserID_CN
+        self.resource.validUserIDForShare = lambda userid, request: None
         self.resource.principalForCalendarUserAddress = lambda cuaddr: None
+        self.resource.principalForUID = lambda principalUID: None
 
         propInvite = (yield self.resource.readProperty(customxml.Invite, None))
         self.assertEquals(self._clearUIDElementValue(propInvite), customxml.Invite(
             customxml.InviteUser(
                 customxml.UID.fromString(""),
-                davxml.HRef.fromString("mailto:user01@example.com"),
-                customxml.CommonName.fromString("USER01"),
+                davxml.HRef.fromString("urn:uuid:user01"),
+                customxml.CommonName.fromString("user01"),
                 customxml.InviteAccess(customxml.ReadWriteAccess()),
                 customxml.InviteStatusInvalid(),
             )
@@ -625,18 +609,28 @@ class SharingTests(HomeTestCase):
 
         class StubCollection(object):
             def __init__(self):
-                self._isVirtualShare = True
+                self._isShareeCollection = True
                 self._shareePrincipal = StubUserPrincipal()
             def isCalendarCollection(self):
                 return True
 
         class StubShare(object):
-            def __init__(self):
-                self.sharetype = SHARETYPE_DIRECT
-                self.hosturl = "/wikifoo"
+            def direct(self):
+                return True
+
+            def url(self):
+                return "/wikifoo"
+
+            def uid(self):
+                return "012345"
+
+            def shareeUID(self):
+                return StubUserPrincipal().record.guid
 
         class TestCollection(SharedCollectionMixin, StubCollection):
-            pass
+            def principalForUID(self, uid):
+                principal = StubUserPrincipal()
+                return principal if principal.record.guid == uid else None
 
         class StubRecord(object):
             def __init__(self, recordType, name, guid):
@@ -693,7 +687,7 @@ class SharingTests(HomeTestCase):
         self.assertTrue("<write/>" in acl.toxml())
 
 
-
+'''
 class DatabaseSharingTests(SharingTests):
 
     @inlineCallbacks
@@ -704,3 +698,5 @@ class DatabaseSharingTests(SharingTests):
 
     def createDataStore(self):
         return self.calendarStore
+
+'''

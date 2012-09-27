@@ -847,10 +847,10 @@ class PurgePrincipalTests(CommonCommonTests, unittest.TestCase):
 
         txn = self._sqlCalendarStore.newTransaction()
         home = (yield txn.calendarHomeWithUID(self.uid))
-        calendar2 = (yield home.sharedChildWithName(self.sharedName))
+        calendar2 = (yield home.childWithName(self.sharedName))
         self.assertNotEquals(calendar2, None)
         home2 = (yield txn.calendarHomeWithUID(self.uid2))
-        calendar1 = (yield home2.sharedChildWithName(self.sharedName2))
+        calendar1 = (yield home2.childWithName(self.sharedName2))
         self.assertNotEquals(calendar1, None)
         (yield txn.commit())
 
@@ -890,7 +890,7 @@ class PurgePrincipalTests(CommonCommonTests, unittest.TestCase):
         self.assertEquals(home, None)
         # Verify calendar1 was unshared to uid2
         home2 = (yield txn.calendarHomeWithUID(self.uid2))
-        self.assertEquals((yield home2.sharedChildWithName(self.sharedName)), None)
+        self.assertEquals((yield home2.childWithName(self.sharedName)), None)
         (yield txn.commit())
 
         count, ignored = (yield purgeUID(self.storeUnderTest(), self.uid, self.directory,

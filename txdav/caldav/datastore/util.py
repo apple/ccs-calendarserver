@@ -405,7 +405,7 @@ class CalendarObjectBase(object):
         """
         component = yield self.component()
         calendar = self.calendar()
-        isOwner = asAdmin or (calendar._owned and
+        isOwner = asAdmin or (calendar.owned() and
                               calendar.ownerCalendarHome().uid() == accessUID)
         for data_filter in [
             PerUserDataFilter(accessUID),

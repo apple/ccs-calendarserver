@@ -32,6 +32,7 @@ from txdav.xml.base import dav_namespace, WebDAVUnknownElement, encodeXMLName
 from txdav.base.propertystore.base import PropertyName
 from txdav.caldav.icalendarstore import QuotaExceeded
 from txdav.common.icommondatastore import NoSuchObjectResourceError
+from txdav.common.datastore.sql_tables import _BIND_MODE_READ, _BIND_MODE_WRITE
 from txdav.idav import PropertyChangeNotAllowedError
 
 from twext.web2 import responsecode
@@ -96,8 +97,7 @@ class _NewStorePropertiesWrapper(object):
         return PropertyName(namespace, name)
 
 
-    # FIXME 'uid' here should be verifying something.
-    def get(self, qname, uid=None):
+    def get(self, qname):
         try:
             return self._newPropertyStore[self._convertKey(qname)]
         except KeyError:
@@ -107,7 +107,7 @@ class _NewStorePropertiesWrapper(object):
             ))
 
 
-    def set(self, property, uid=None):
+    def set(self, property):
         try:
             self._newPropertyStore[self._convertKey(property.qname())] = property
         except PropertyChangeNotAllowedError:
@@ -118,7 +118,7 @@ class _NewStorePropertiesWrapper(object):
             
 
 
-    def delete(self, qname, uid=None):
+    def delete(self, qname):
         try:
             del self._newPropertyStore[self._convertKey(qname)]
         except KeyError:
@@ -127,11 +127,11 @@ class _NewStorePropertiesWrapper(object):
             pass
 
 
-    def contains(self, qname, uid=None, cache=True):
+    def contains(self, qname):
         return (self._convertKey(qname) in self._newPropertyStore)
 
 
-    def list(self, uid=None, filterByUID=True, cache=True):
+    def list(self):
         return [(pname.namespace, pname.name) for pname in
                 self._newPropertyStore.keys()]
 
@@ -264,15 +264,6 @@ class _CommonHomeChildCollectionMixin(ResponseCacheMixin):
         Retrieve the new-style index wrapper.
         """
         return self._newStoreObject.retrieveOldIndex()
-
-
-    def invitesDB(self):
-        """
-        Retrieve the new-style invites DB wrapper.
-        """
-        if not hasattr(self, "_invitesDB"):
-            self._invitesDB = self._newStoreObject.retrieveOldInvites()
-        return self._invitesDB
 
 
     def exists(self):
@@ -435,11 +426,11 @@ class _CommonHomeChildCollectionMixin(ResponseCacheMixin):
         @rtype: something adaptable to L{twext.web2.iweb.IResponse}
         """
 
-        # Check virtual share first
-        isVirtual = self.isVirtualShare()
-        if isVirtual:
+        # Check sharee collection first
+        isShareeCollection = self.isShareeCollection()
+        if isShareeCollection:
             log.debug("Removing shared collection %s" % (self,))
-            yield self.removeVirtualShare(request)
+            yield self.removeShareeCollection(request)
             returnValue(NO_CONTENT)
 
         log.debug("Deleting collection %s" % (self,))
@@ -1535,26 +1526,23 @@ class CalendarObjectDropbox(_GetChildHelper):
     def sharedDropboxACEs(self):
 
         aces = ()
-        records = yield self._newStoreCalendarObject._parentCollection.retrieveOldInvites().allRecords()
-        for record in records:
-            # Invite shares use access mode from the invite
-            if record.state != "ACCEPTED":
-                continue
-            
+        calendars = yield self._newStoreCalendarObject._parentCollection.asShared()
+        for calendar in calendars:
+
             userprivs = [
             ]
-            if record.access in ("read-only", "read-write", "read-write-schedule",):
+            if calendar.shareMode() in (_BIND_MODE_READ, _BIND_MODE_WRITE,):
                 userprivs.append(davxml.Privilege(davxml.Read()))
                 userprivs.append(davxml.Privilege(davxml.ReadACL()))
                 userprivs.append(davxml.Privilege(davxml.ReadCurrentUserPrivilegeSet()))
-            if record.access in ("read-only",):
+            if calendar.shareMode() in (_BIND_MODE_READ,):
                 userprivs.append(davxml.Privilege(davxml.WriteProperties()))
-            if record.access in ("read-write", "read-write-schedule",):
+            if calendar.shareMode() in (_BIND_MODE_WRITE,):
                 userprivs.append(davxml.Privilege(davxml.Write()))
             proxyprivs = list(userprivs)
             proxyprivs.remove(davxml.Privilege(davxml.ReadACL()))
 
-            principal = self.principalForUID(record.principalUID)
+            principal = self.principalForUID(calendar._home.uid())
             aces += (
                 # Inheritable specific access for the resource's associated principal.
                 davxml.ACE(
@@ -2205,13 +2193,6 @@ class _NotificationChildHelper(object):
         if segments[0] == '':
             return self, segments[1:]
         return self.getChild(segments[0]), segments[1:]
-
-
-    def notificationsDB(self):
-        """
-        Retrieve the new-style index wrapper.
-        """
-        return self._newStoreNotifications.retrieveOldIndex()
 
 
     def exists(self):

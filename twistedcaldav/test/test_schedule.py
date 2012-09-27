@@ -372,8 +372,8 @@ class DefaultCalendar (TestCase):
         else:
             self.assertEqual(str(default.children[0]), "/calendars/__uids__/6423F94A-6B76-4A3A-815B-D52CFD77935D/newcalendar")
         
-        # Force the new calendar to think it is a virtual share
-        newcalendar._isVirtualShare = True
+        # Force the new calendar to think it is a sharee collection
+        newcalendar._isShareeCollection = True
         
         try:
             default = yield inbox.readProperty(caldavxml.ScheduleDefaultCalendarURL, request)

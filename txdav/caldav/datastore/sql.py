@@ -52,9 +52,8 @@ from txdav.caldav.icalendarstore import ICalendarHome, ICalendar, ICalendarObjec
     IAttachment
 from txdav.common.datastore.sql import CommonHome, CommonHomeChild,\
     CommonObjectResource, ECALENDARTYPE
-from txdav.common.datastore.sql_legacy import \
-    PostgresLegacyIndexEmulator, SQLLegacyCalendarInvites,\
-    SQLLegacyCalendarShares, PostgresLegacyInboxIndexEmulator
+from txdav.common.datastore.sql_legacy import PostgresLegacyIndexEmulator,\
+    PostgresLegacyInboxIndexEmulator
 from txdav.common.datastore.sql_tables import CALENDAR_TABLE,\
     CALENDAR_BIND_TABLE, CALENDAR_OBJECT_REVISIONS_TABLE, CALENDAR_OBJECT_TABLE,\
     _ATTACHMENTS_MODE_NONE, _ATTACHMENTS_MODE_READ, _ATTACHMENTS_MODE_WRITE,\
@@ -115,7 +114,6 @@ class CalendarHome(CommonHome):
 
         self._childClass = Calendar
         super(CalendarHome, self).__init__(transaction, ownerUID, notifiers)
-        self._shares = SQLLegacyCalendarShares(self)
 
 
     createCalendarWithName = CommonHome.createChildWithName
@@ -226,7 +224,7 @@ class CalendarHome(CommonHome):
         results = []
         objectResources = (yield self.objectResourcesWithUID(uid, ["inbox"]))
         for objectResource in objectResources:
-            if allow_shared or objectResource._parentCollection._owned:
+            if allow_shared or objectResource._parentCollection.owned():
                 results.append(objectResource)
 
         returnValue(results)
@@ -397,6 +395,7 @@ class Calendar(CommonHomeChild):
     implements(ICalendar)
 
     # structured tables.  (new, preferred)
+    _homeSchema = schema.CALENDAR_HOME
     _bindSchema = schema.CALENDAR_BIND
     _homeChildSchema = schema.CALENDAR
     _homeChildMetaDataSchema = schema.CALENDAR_METADATA
@@ -423,7 +422,6 @@ class Calendar(CommonHomeChild):
             self._index = PostgresLegacyInboxIndexEmulator(self)
         else:
             self._index = PostgresLegacyIndexEmulator(self)
-        self._invites = SQLLegacyCalendarInvites(self)
 
 
     @classmethod

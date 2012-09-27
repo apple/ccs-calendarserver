@@ -148,7 +148,7 @@ class CalendarHome(CommonHome):
         results = []
         objectResources = (yield self.objectResourcesWithUID(uid, ("inbox",)))
         for objectResource in objectResources:
-            if allow_shared or objectResource._parentCollection._owned:
+            if allow_shared or objectResource._parentCollection.owned():
                 results.append(objectResource)
             
         returnValue(results)
