@@ -29,6 +29,8 @@ ToolType    = Applications
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/Common.make
 -include /AppleInternal/ServerTools/ServerBuildVariables.xcconfig
 
+Cruft += .dependencies
+
 SIPP = $(SERVER_INSTALL_PATH_PREFIX)
 SERVERSETUP = $(SIPP)$(NSSYSTEMDIR)$(NSLIBRARYSUBDIR)/ServerSetup
 
