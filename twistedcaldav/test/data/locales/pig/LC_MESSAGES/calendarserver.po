@@ -38,12 +38,12 @@ msgstr "%(hour24Number)02d:%(minuteNumber)02d"
 
 #: twistedcaldav/localization.py:266
 msgid "1 day"
-msgstr ""
+msgstr "1 ayday"
 
 #: twistedcaldav/localization.py:268
 #, python-format
 msgid "%(dayCount)d days"
-msgstr ""
+msgstr "%(dayCount)d aysday"
 
 #: twistedcaldav/localization.py:276
 msgid "1 hour"

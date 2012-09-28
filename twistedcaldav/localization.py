@@ -244,7 +244,7 @@ class translationTo(object):
                 'hour24Number' : val.getHours(), # 0-23
                 'hour12Number' : hour12, # 1-12
                 'minuteNumber' : val.getMinutes(), # 0-59
-                'ampm'         : _(ampm),
+                'ampm'         : ampm,
             }
         )
 
@@ -265,8 +265,8 @@ class translationTo(object):
         if days == 1:
             parts.append(_("1 day"))
         elif days > 1:
-            parts.append(_("%(dayCount)d days" %
-                { 'dayCount' : days }))
+            parts.append(_("%(dayCount)d days") %
+                { 'dayCount' : days })
 
         hours = divmod(total / 3600, 24)[1]
         minutes = divmod(total / 60, 60)[1]
