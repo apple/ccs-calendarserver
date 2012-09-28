@@ -27,12 +27,13 @@ ToolType    = Applications
 
 # Include common makefile targets for B&I
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/Common.make
--include /AppleInternal/ServerTools/ServerBuildVariables.xcconfig
-
-Cruft += .dependencies
+include /AppleInternal/ServerTools/ServerBuildVariables.xcconfig
 
 SIPP = $(SERVER_INSTALL_PATH_PREFIX)
 SERVERSETUP = $(SIPP)$(NSSYSTEMDIR)$(NSLIBRARYSUBDIR)/ServerSetup
+
+Cruft += .dependencies
+Extra_Environment += PATH="$(SIPP)/usr/bin:$$PATH"
 
 CALDAVDSUBDIR = /caldavd
 WEBAPPSSUBDIR = /apache2/webapps
