@@ -27,7 +27,7 @@ ToolType    = Applications
 
 # Include common makefile targets for B&I
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/Common.make
-include /AppleInternal/ServerTools/ServerBuildVariables.xcconfig
+-include /AppleInternal/ServerTools/ServerBuildVariables.xcconfig
 
 SIPP = $(SERVER_INSTALL_PATH_PREFIX)
 SERVERSETUP = $(SIPP)$(NSSYSTEMDIR)$(NSLIBRARYSUBDIR)/ServerSetup
