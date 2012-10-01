@@ -313,10 +313,18 @@ def comparison(comparator):
 class ExpressionSyntax(Syntax):
     __eq__ = comparison('=')
     __ne__ = comparison('!=')
+
+    # NB: these operators "cannot be used with lists" (see ORA-01796)
     __gt__ = comparison('>')
     __ge__ = comparison('>=')
     __lt__ = comparison('<')
     __le__ = comparison('<=')
+
+    # TODO: operators aren't really comparisons; these should behave slightly
+    # differently.  (For example; in Oracle, 'select 3 = 4 from dual' doesn't
+    # work, but 'select 3 + 4 from dual' does; similarly, you can't do 'select *
+    # from foo where 3 + 4', but you can do 'select * from foo where 3 + 4 >
+    # 0'.)
     __add__ = comparison("+")
     __sub__ = comparison("-")
     __div__= comparison("/")
@@ -773,7 +781,7 @@ class ColumnSyntax(ExpressionSyntax):
 
 
 class ResultAliasSyntax(ExpressionSyntax):
-    
+
     def __init__(self, expression, alias=None):
         self.expression = expression
         self.alias = alias
@@ -797,7 +805,7 @@ class ResultAliasSyntax(ExpressionSyntax):
 
 
 class AliasReferenceSyntax(ExpressionSyntax):
-    
+
     def __init__(self, resultAlias):
         self.resultAlias = resultAlias
 
@@ -907,6 +915,12 @@ class CompoundComparison(Comparison):
         if (isinstance(self.b, CompoundComparison)
             and self.b.op == 'or' and self.op == 'and'):
             result = _inParens(result)
+        if isinstance(self.b, Tuple):
+            # If the right-hand side of the comparison is a Tuple, it needs to
+            # be double-parenthesized in Oracle, as per
+            # http://docs.oracle.com/cd/B28359_01/server.111/b28286/expressions015.htm#i1033664
+            # because it is an expression list.
+            result = _inParens(result)
         stmt.append(result)
         return stmt
 
@@ -997,6 +1011,10 @@ class Tuple(ExpressionSyntax):
         self.columns = columns
 
 
+    def __iter__(self):
+        return iter(self.columns)
+
+
     def subSQL(self, queryGenerator, allTables):
         return _inParens(_commaJoined(c.subSQL(queryGenerator, allTables)
                                       for c in self.columns))
@@ -1010,24 +1028,24 @@ class SetExpression(object):
     """
     A UNION, INTERSECT, or EXCEPT construct used inside a SELECT.
     """
-    
+
     OPTYPE_ALL = "all"
     OPTYPE_DISTINCT = "distinct"
 
     def __init__(self, selects, optype=None):
         """
-        
+
         @param selects: a single Select or a list of Selects
         @type selects: C{list} or L{Select}
         @param optype: whether to use the ALL, DISTINCT constructs: C{None} use neither, OPTYPE_ALL, or OPTYPE_DISTINCT
         @type optype: C{str}
         """
-        
+
         if isinstance(selects, Select):
             selects = (selects,)
         self.selects = selects
         self.optype = optype
-        
+
         for select in self.selects:
             if not isinstance(select, Select):
                 raise DALError("Must have SELECT statements in a set expression")
@@ -1086,7 +1104,7 @@ class Select(_Statement):
         self.From = From
         self.Where = Where
         self.Distinct = Distinct
-        if not isinstance(OrderBy, (list, tuple, type(None))):
+        if not isinstance(OrderBy, (Tuple, list, tuple, type(None))):
             OrderBy = [OrderBy]
         self.OrderBy = OrderBy
         if not isinstance(GroupBy, (list, tuple, type(None))):
@@ -1102,7 +1120,7 @@ class Select(_Statement):
             _checkColumnsMatchTables(columns, From.tables())
             columns = _SomeColumns(columns)
         self.columns = columns
-        
+
         self.ForUpdate = ForUpdate
         self.NoWait = NoWait
         self.Ascending = Ascending
@@ -1235,7 +1253,7 @@ class Select(_Statement):
             for table in self.From.tables():
                 tables.add(table.model)
             return [TableSyntax(table) for table in tables]
-        
+
 
 def _commaJoined(stmts):
     first = True

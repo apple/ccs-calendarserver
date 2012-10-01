@@ -30,26 +30,25 @@ from twext.web2.http_headers import Headers
 from twext.web2.http_headers import MimeType
 from twext.web2.stream import MemoryStream
 
+from twext.internet.gaiendpoint import GAIEndpoint
 from twext.python.log import Logger
 from twext.web2.dav.http import ErrorResponse
 
+from twistedcaldav.accounting import accountingEnabledForCategory, emitAccounting
 from twistedcaldav.client.pool import _configuredClientContextFactory
-
-from twistedcaldav import caldavxml
-from twistedcaldav.caldavxml import caldav_namespace
-from twistedcaldav.scheduling.delivery import DeliveryService
-from twistedcaldav.scheduling.ischedule.remoteservers import IScheduleServers
-from twistedcaldav.scheduling.ischedule.remoteservers import IScheduleServerRecord
-from twistedcaldav.scheduling.itip import iTIPRequestStatus
-from twistedcaldav.util import utf8String, normalizationLookup
+from twistedcaldav.config import config
 from twistedcaldav.scheduling.cuaddress import PartitionedCalendarUser, RemoteCalendarUser, \
     OtherServerCalendarUser
-from twext.internet.gaiendpoint import GAIEndpoint
+from twistedcaldav.scheduling.delivery import DeliveryService
 from twistedcaldav.scheduling.ischedule.dkim import DKIMRequest, DKIMUtils
-from twistedcaldav.config import config
+from twistedcaldav.scheduling.ischedule.remoteservers import IScheduleServerRecord
+from twistedcaldav.scheduling.ischedule.remoteservers import IScheduleServers
 from twistedcaldav.scheduling.ischedule.utils import lookupServerViaSRV
+from twistedcaldav.scheduling.ischedule.xml import ScheduleResponse, Response, \
+    RequestStatus, Recipient, ischedule_namespace
+from twistedcaldav.scheduling.itip import iTIPRequestStatus
+from twistedcaldav.util import utf8String, normalizationLookup
 from urlparse import urlsplit
-from twistedcaldav.accounting import accountingEnabledForCategory, emitAccounting
 
 """
 Handles the sending of iSchedule scheduling messages. Used for both cross-domain scheduling,
@@ -104,7 +103,13 @@ class ScheduleViaISchedule(DeliveryService):
                 # Lookup domain
                 result = (yield lookupServerViaSRV(domain))
                 if result is None:
-                    cls.domainServerMap[domain] = None
+                    # Lookup domain
+                    result = (yield lookupServerViaSRV(domain, service="_ischedule"))
+                    if result is None:
+                        cls.domainServerMap[domain] = None
+                    else:
+                        # Create the iSchedule server record for this server
+                        cls.domainServerMap[domain] = IScheduleServerRecord(uri="http://%s:%s/.well-known/ischedule" % result)
                 else:
                     # Create the iSchedule server record for this server
                     cls.domainServerMap[domain] = IScheduleServerRecord(uri="https://%s:%s/.well-known/ischedule" % result)
@@ -135,7 +140,7 @@ class ScheduleViaISchedule(DeliveryService):
                 # Cannot do server-to-server for this recipient.
                 err = HTTPError(ErrorResponse(
                     responsecode.NOT_FOUND,
-                    (caldav_namespace, "recipient-allowed"),
+                    (ischedule_namespace, "recipient-allowed"),
                     "No server for recipient",
                 ))
                 self.responses.add(recipient.cuaddr, Failure(exc_value=err), reqstatus=iTIPRequestStatus.NO_USER_SUPPORT)
@@ -147,7 +152,7 @@ class ScheduleViaISchedule(DeliveryService):
                 # Cannot do server-to-server outgoing requests for this server.
                 err = HTTPError(ErrorResponse(
                     responsecode.NOT_FOUND,
-                    (caldav_namespace, "recipient-allowed"),
+                    (ischedule_namespace, "recipient-allowed"),
                     "Cannot send to recipient's server",
                 ))
                 self.responses.add(recipient.cuaddr, Failure(exc_value=err), reqstatus=iTIPRequestStatus.SERVICE_UNAVAILABLE)
@@ -263,7 +268,7 @@ class IScheduleRequest(object):
             for recipient in self.recipients:
                 err = HTTPError(ErrorResponse(
                     responsecode.FORBIDDEN,
-                    (caldav_namespace, "recipient-failed"),
+                    (ischedule_namespace, "recipient-failed"),
                     "Server-to-server request failed",
                 ))
                 self.responses.add(recipient.cuaddr, Failure(exc_value=err), reqstatus=iTIPRequestStatus.SERVICE_UNAVAILABLE)
@@ -449,17 +454,17 @@ class IScheduleRequest(object):
 
         # Check for correct root element
         schedule_response = xml.root_element
-        if not isinstance(schedule_response, caldavxml.ScheduleResponse) or not schedule_response.children:
+        if not isinstance(schedule_response, ScheduleResponse) or not schedule_response.children:
             raise HTTPError(responsecode.BAD_REQUEST)
 
         # Parse each response - do this twice: once looking for errors that will
         # result in all recipients shown as failures; the second loop adds all the
         # valid responses to the actual result.
         for response in schedule_response.children:
-            if not isinstance(response, caldavxml.Response) or not response.children:
+            if not isinstance(response, Response) or not response.children:
                 raise HTTPError(responsecode.BAD_REQUEST)
-            recipient = response.childOfType(caldavxml.Recipient)
-            request_status = response.childOfType(caldavxml.RequestStatus)
+            recipient = response.childOfType(Recipient)
+            request_status = response.childOfType(RequestStatus)
             if not recipient or not request_status:
                 raise HTTPError(responsecode.BAD_REQUEST)
         for response in schedule_response.children:

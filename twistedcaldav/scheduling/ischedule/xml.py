@@ -33,6 +33,7 @@ ischedule_namespace = "urn:ietf:params:xml:ns:ischedule"
 class QueryResult (WebDAVElement):
     namespace = ischedule_namespace
     name = "query-result"
+
     allowed_children = {
         (ischedule_namespace, "capability-set"): (0, None),
     }
@@ -43,6 +44,7 @@ class QueryResult (WebDAVElement):
 class Capabilities (WebDAVElement):
     namespace = ischedule_namespace
     name = "capabilities"
+
     allowed_children = {
         (ischedule_namespace, "versions"): (1, 1),
         (ischedule_namespace, "scheduling-messages"): (1, 1),
@@ -63,6 +65,7 @@ class Capabilities (WebDAVElement):
 class Versions (WebDAVElement):
     namespace = ischedule_namespace
     name = "versions"
+
     allowed_children = {
         (ischedule_namespace, "version"): (1, None),
     }
@@ -80,6 +83,7 @@ class Version (WebDAVTextElement):
 class SchedulingMessages (WebDAVElement):
     namespace = ischedule_namespace
     name = "scheduling-messages"
+
     allowed_children = {
         (ischedule_namespace, "component"): (1, None),
     }
@@ -90,6 +94,7 @@ class SchedulingMessages (WebDAVElement):
 class Component (WebDAVElement):
     namespace = ischedule_namespace
     name = "component"
+
     allowed_children = {
         (ischedule_namespace, "method"): (0, None),
     }
@@ -101,6 +106,7 @@ class Component (WebDAVElement):
 class Method (WebDAVEmptyElement):
     namespace = ischedule_namespace
     name = "method"
+
     allowed_attributes = {"name": True}
 
 
@@ -109,6 +115,7 @@ class Method (WebDAVEmptyElement):
 class CalendarDataTypes (WebDAVElement):
     namespace = ischedule_namespace
     name = "calendar-data-types"
+
     allowed_children = {
         (ischedule_namespace, "calendar-data-type"): (1, None),
     }
@@ -119,6 +126,7 @@ class CalendarDataTypes (WebDAVElement):
 class CalendarDataType (WebDAVTextElement):
     namespace = ischedule_namespace
     name = "calendar-data-type"
+
     allowed_attributes = {
         "content-type": True,
         "version": True,
@@ -130,6 +138,7 @@ class CalendarDataType (WebDAVTextElement):
 class Attachments (WebDAVElement):
     namespace = ischedule_namespace
     name = "attachments"
+
     allowed_children = {
         (ischedule_namespace, "inline"): (0, 1),
         (ischedule_namespace, "external"): (0, 1),
@@ -190,6 +199,53 @@ class MaxRecipients (WebDAVTextElement):
 class Administrator (WebDAVTextElement):
     namespace = ischedule_namespace
     name = "administrator"
+
+
+
+@registerElement
+class ScheduleResponse (WebDAVTextElement):
+    namespace = ischedule_namespace
+    name = "schedule-response"
+
+    allowed_children = {
+        (ischedule_namespace, "response"): (0, None),
+    }
+
+
+
+@registerElement
+class Response (WebDAVElement):
+    namespace = ischedule_namespace
+    name = "response"
+
+    allowed_children = {
+        (ischedule_namespace, "recipient"): (1, 1),
+        (ischedule_namespace, "request-status"): (1, 1),
+        (ischedule_namespace, "calendar-data"): (0, 1),
+        (ischedule_namespace, "error"): (0, 1),
+        (ischedule_namespace, "response-description"): (0, 1),
+    }
+
+
+
+@registerElement
+class Recipient (WebDAVTextElement):
+    namespace = ischedule_namespace
+    name = "recipient"
+
+
+
+@registerElement
+class RequestStatus (WebDAVTextElement):
+    namespace = ischedule_namespace
+    name = "request-status"
+
+
+
+@registerElement
+class CalendarData (WebDAVTextElement):
+    namespace = ischedule_namespace
+    name = "calendar-data"
 
 
 

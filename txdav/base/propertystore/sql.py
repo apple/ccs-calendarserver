@@ -73,13 +73,13 @@ class PropertyStore(AbstractPropertyStore):
 
     @classmethod
     @inlineCallbacks
-    def load(cls, defaultuser, txn, resourceID, created=False, notifyCallback=None):
+    def load(cls, defaultuser, shareUser, txn, resourceID, created=False, notifyCallback=None):
         """
         @param notifyCallback: a callable used to trigger notifications when the
             property store changes.
         """
         self = cls.__new__(cls)
-        super(PropertyStore, self).__init__(defaultuser)
+        super(PropertyStore, self).__init__(defaultuser, shareUser)
         self._txn = txn
         self._resourceID = resourceID
         self._cached = {}

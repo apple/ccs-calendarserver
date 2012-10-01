@@ -751,9 +751,9 @@ class StoreCalendarObjectResource(object):
         Make sure sharees only use dropbox paths of the sharer.
         """
         
-        # Only relevant if calendar is virtual share
+        # Only relevant if calendar is sharee collection
         changed = False
-        if self.destinationparent.isVirtualShare():
+        if self.destinationparent.isShareeCollection():
             
             # Get all X-APPLE-DROPBOX's and ATTACH's that are http URIs
             xdropboxes = self.calendar.getAllPropertiesInAnyComponent(
@@ -827,7 +827,7 @@ class StoreCalendarObjectResource(object):
             return changed
         
         # Never add default alarms to calendar data in shared calendars
-        if self.destinationparent.isVirtualShare():
+        if self.destinationparent.isShareeCollection():
             return changed
 
         # Add default alarm for VEVENT and VTODO only
@@ -942,8 +942,8 @@ class StoreCalendarObjectResource(object):
             if do_implicit_action and self.allowImplicitSchedule:
 
                 # Cannot do implicit in sharee's shared calendar
-                isvirt = self.destinationparent.isVirtualShare()
-                if isvirt:
+                isShareeCollection = self.destinationparent.isShareeCollection()
+                if isShareeCollection:
                     raise HTTPError(ErrorResponse(
                         responsecode.FORBIDDEN,
                         (calendarserver_namespace, "sharee-privilege-needed",),

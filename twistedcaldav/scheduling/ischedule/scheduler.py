@@ -23,7 +23,8 @@ from twistedcaldav.scheduling import addressmapping
 from twistedcaldav.scheduling.cuaddress import RemoteCalendarUser
 from twistedcaldav.scheduling.cuaddress import calendarUserFromPrincipal
 from twistedcaldav.scheduling.ischedule.remoteservers import IScheduleServers
-from twistedcaldav.scheduling.scheduler import RemoteScheduler
+from twistedcaldav.scheduling.scheduler import RemoteScheduler, \
+    ScheduleResponseQueue
 import twistedcaldav.scheduling.ischedule.xml as ixml
 from twistedcaldav.scheduling.ischedule.localservers import Servers
 from twistedcaldav.util import normalizationLookup
@@ -39,6 +40,7 @@ from twext.web2.http_headers import MimeType
 from twistedcaldav.scheduling.ischedule.xml import ischedule_namespace
 from txdav.xml.base import WebDAVUnknownElement
 from twistedcaldav.scheduling.ischedule.utils import getIPsFromHost
+from twistedcaldav.scheduling.ischedule import xml
 
 """
 L{IScheduleScheduler} - handles deliveries for scheduling messages being POSTed to the iSchedule inbox.
@@ -95,7 +97,26 @@ class ErrorResponse(Response):
 
 
 
+class IScheduleResponseQueue (ScheduleResponseQueue):
+    """
+    Stores a list of (typically error) responses for use in a
+    L{ScheduleResponse}.
+    """
+
+    schedule_response_element = xml.ScheduleResponse
+    response_element = xml.Response
+    recipient_element = xml.Recipient
+    recipient_uses_href = False
+    request_status_element = xml.RequestStatus
+    error_element = xml.Error
+    response_description_element = xml.ResponseDescription
+    calendar_data_element = xml.CalendarData
+
+
+
 class IScheduleScheduler(RemoteScheduler):
+
+    scheduleResponse = IScheduleResponseQueue
 
     errorResponse = ErrorResponse
 

@@ -26,7 +26,7 @@ from twistedcaldav.config import config
 from twistedcaldav.scheduling import addressmapping
 from twistedcaldav.scheduling.cuaddress import LocalCalendarUser, \
     InvalidCalendarUser, calendarUserFromPrincipal, RemoteCalendarUser
-from twistedcaldav.scheduling.scheduler import Scheduler
+from twistedcaldav.scheduling.scheduler import Scheduler, ScheduleResponseQueue
 
 from txdav.xml import element as davxml
 
@@ -43,6 +43,8 @@ __all__ = [
 log = Logger()
 
 class CalDAVScheduler(Scheduler):
+
+    scheduleResponse = ScheduleResponseQueue
 
     errorResponse = ErrorResponse
 

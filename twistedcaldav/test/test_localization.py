@@ -44,6 +44,9 @@ data = (
 
     ('cross-timezone', getComp('BEGIN:VCALENDAR\r\nVERSION:2.0\r\nCALSCALE:GREGORIAN\r\nMETHOD:REQUEST\r\nPRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN\r\nBEGIN:VTIMEZONE\r\nTZID:US/Pacific\r\nBEGIN:STANDARD\r\nDTSTART:20071104T020000\r\nRRULE:FREQ=YEARLY;BYMONTH=11;BYDAY=1SU\r\nTZNAME:PST\r\nTZOFFSETFROM:-0700\r\nTZOFFSETTO:-0800\r\nEND:STANDARD\r\nBEGIN:DAYLIGHT\r\nDTSTART:20070311T020000\r\nRRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=2SU\r\nTZNAME:PDT\r\nTZOFFSETFROM:-0800\r\nTZOFFSETTO:-0700\r\nEND:DAYLIGHT\r\nEND:VTIMEZONE\r\nBEGIN:VTIMEZONE\r\nTZID:US/Eastern\r\nBEGIN:STANDARD\r\nDTSTART:20071104T020000\r\nRRULE:FREQ=YEARLY;BYMONTH=11;BYDAY=1SU\r\nTZNAME:EST\r\nTZOFFSETFROM:-0400\r\nTZOFFSETTO:-0500\r\nEND:STANDARD\r\nBEGIN:DAYLIGHT\r\nDTSTART:20070311T020000\r\nRRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=2SU\r\nTZNAME:EDT\r\nTZOFFSETFROM:-0500\r\nTZOFFSETTO:-0400\r\nEND:DAYLIGHT\r\nEND:VTIMEZONE\r\nBEGIN:VEVENT\r\nUID:C7C037CC-1485-461B-8866-777C662C5930\r\nDTSTART;TZID=US/Pacific:20081025T110500\r\nDTEND;TZID=US/Eastern:20081025T181500\r\nATTENDEE;CN=test@systemcall.com;CUTYPE=INDIVIDUAL;ROLE=REQ-PARTICIPANT;RSV\r\n P=TRUE:mailto:test@systemcall.com\r\nATTENDEE;CN=Test User;CUTYPE=INDIVIDUAL;PARTSTAT=ACCEPTED:mailto:testuser@\r\n example.com\r\nCREATED:20081024T181749Z\r\nDTSTAMP:20081024T183142Z\r\nORGANIZER;CN=Test User:mailto:testuser@example.com\r\nSEQUENCE:5\r\nSUMMARY:testing\r\nTRANSP:OPAQUE\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n')),
 
+    ('30-hour-long', getComp('BEGIN:VCALENDAR\r\nVERSION:2.0\r\nCALSCALE:GREGORIAN\r\nMETHOD:REQUEST\r\nPRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN\r\nBEGIN:VTIMEZONE\r\nTZID:US/Pacific\r\nBEGIN:STANDARD\r\nDTSTART:20071104T020000\r\nRRULE:FREQ=YEARLY;BYMONTH=11;BYDAY=1SU\r\nTZNAME:PST\r\nTZOFFSETFROM:-0700\r\nTZOFFSETTO:-0800\r\nEND:STANDARD\r\nBEGIN:DAYLIGHT\r\nDTSTART:20070311T020000\r\nRRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=2SU\r\nTZNAME:PDT\r\nTZOFFSETFROM:-0800\r\nTZOFFSETTO:-0700\r\nEND:DAYLIGHT\r\nEND:VTIMEZONE\r\nBEGIN:VEVENT\r\nUID:C7C037CC-1485-461B-8866-777C662C5930\r\nDTSTART;TZID=US/Pacific:20081025T110500\r\nDTEND;TZID=US/Pacific:20081026T171500\r\nATTENDEE;CN=test@systemcall.com;CUTYPE=INDIVIDUAL;ROLE=REQ-PARTICIPANT;RSV\r\n P=TRUE:mailto:test@systemcall.com\r\nATTENDEE;CN=Test User;CUTYPE=INDIVIDUAL;PARTSTAT=ACCEPTED:mailto:testuser@\r\n example.com\r\nCREATED:20081024T181749Z\r\nDTSTAMP:20081024T183142Z\r\nORGANIZER;CN=Test User:mailto:testuser@example.com\r\nSEQUENCE:5\r\nSUMMARY:testing\r\nTRANSP:OPAQUE\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n')),
+
+    ('49-hour-long', getComp('BEGIN:VCALENDAR\r\nVERSION:2.0\r\nCALSCALE:GREGORIAN\r\nMETHOD:REQUEST\r\nPRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN\r\nBEGIN:VTIMEZONE\r\nTZID:US/Pacific\r\nBEGIN:STANDARD\r\nDTSTART:20071104T020000\r\nRRULE:FREQ=YEARLY;BYMONTH=11;BYDAY=1SU\r\nTZNAME:PST\r\nTZOFFSETFROM:-0700\r\nTZOFFSETTO:-0800\r\nEND:STANDARD\r\nBEGIN:DAYLIGHT\r\nDTSTART:20070311T020000\r\nRRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=2SU\r\nTZNAME:PDT\r\nTZOFFSETFROM:-0800\r\nTZOFFSETTO:-0700\r\nEND:DAYLIGHT\r\nEND:VTIMEZONE\r\nBEGIN:VEVENT\r\nUID:C7C037CC-1485-461B-8866-777C662C5930\r\nDTSTART;TZID=US/Pacific:20081025T110500\r\nDTEND;TZID=US/Pacific:20081027T121500\r\nATTENDEE;CN=test@systemcall.com;CUTYPE=INDIVIDUAL;ROLE=REQ-PARTICIPANT;RSV\r\n P=TRUE:mailto:test@systemcall.com\r\nATTENDEE;CN=Test User;CUTYPE=INDIVIDUAL;PARTSTAT=ACCEPTED:mailto:testuser@\r\n example.com\r\nCREATED:20081024T181749Z\r\nDTSTAMP:20081024T183142Z\r\nORGANIZER;CN=Test User:mailto:testuser@example.com\r\nSEQUENCE:5\r\nSUMMARY:testing\r\nTRANSP:OPAQUE\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n')),
 
 )
 
@@ -64,7 +67,7 @@ class LocalizationTests(TestCase):
 
     def test_TimeFormattingAMPM(self):
 
-        with translationTo('English', localeDir=localeDir) as t:
+        with translationTo('en', localeDir=localeDir) as t:
 
             self.assertEquals(t.dtTime(PyCalendarDateTime(2000, 1, 1,  0,  0, 0)), "12:00 AM")
             self.assertEquals(t.dtTime(PyCalendarDateTime(2000, 1, 1, 12,  0, 0)), "12:00 PM")
@@ -84,7 +87,7 @@ class LocalizationTests(TestCase):
 
     def test_CalendarFormatting(self):
 
-        with translationTo('English', localeDir=localeDir) as t:
+        with translationTo('en', localeDir=localeDir) as t:
 
             comp = data[0][1]
             self.assertEquals(t.date(comp), "Saturday, October 25, 2008")
@@ -110,6 +113,14 @@ class LocalizationTests(TestCase):
             comp = data[5][1]
             self.assertEquals(t.time(comp),
                 (u'11:05 AM (PDT) to 6:15 PM (EDT)', u'4 hours 10 minutes'))
+
+            comp = data[6][1]
+            self.assertEquals(t.time(comp),
+                (u'11:05 AM to 5:15 PM (PDT)', u'1 day 6 hours 10 minutes'))
+
+            comp = data[7][1]
+            self.assertEquals(t.time(comp),
+                (u'11:05 AM to 12:15 PM (PDT)', u'2 days 1 hour 10 minutes'))
 
             self.assertEquals(t.monthAbbreviation(1), "JAN")
 
@@ -139,6 +150,15 @@ class LocalizationTests(TestCase):
             comp = data[5][1]
             self.assertEquals(t.time(comp),
                 (u'11:05 (PDT) otay 18:15 (EDT)', u'4 ourshay 10 inutesmay'))
+
+            comp = data[6][1]
+            self.assertEquals(t.time(comp),
+                (u'11:05 otay 17:15 (PDT)', u'1 ayday 6 ourshay 10 inutesmay'))
+
+            comp = data[7][1]
+            self.assertEquals(t.time(comp),
+                (u'11:05 otay 12:15 (PDT)', u'2 aysday 1 ourhay 10 inutesmay'))
+
 
             self.assertEquals(t.monthAbbreviation(1), "ANJAY")
 

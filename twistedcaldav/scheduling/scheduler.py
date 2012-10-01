@@ -22,7 +22,7 @@ from twext.web2 import responsecode
 from twext.web2.http import HTTPError, Response, StatusResponse
 from twext.web2.http_headers import MimeType
 from txdav.xml import element as davxml
-from twext.web2.dav.http import errorForFailure, messageForFailure, statusForFailure, \
+from twext.web2.dav.http import messageForFailure, statusForFailure, \
     ErrorResponse
 
 from twistedcaldav import caldavxml
@@ -113,6 +113,8 @@ __all__ = [
 log = Logger()
 
 class Scheduler(object):
+
+    scheduleResponse = None
 
     errorResponse = None # The class used for generating an HTTP XML error response
 
@@ -561,7 +563,7 @@ class Scheduler(object):
         freebusy = self.checkForFreeBusy()
 
         # Prepare for multiple responses
-        responses = ScheduleResponseQueue(self.method, responsecode.OK)
+        responses = self.scheduleResponse(self.method, responsecode.OK)
 
         # Loop over each recipient and aggregate into lists by service types.
         caldav_recipients = []
@@ -751,7 +753,7 @@ class ScheduleResponseResponse (Response):
     ScheduleResponse L{Response} object.
     Renders itself as a CalDAV:schedule-response XML document.
     """
-    def __init__(self, xml_responses, location=None):
+    def __init__(self, schedule_response_element, xml_responses, location=None):
         """
         @param xml_responses: an iterable of davxml.Response objects.
         @param location:      the value of the location header to return in the response,
@@ -759,7 +761,7 @@ class ScheduleResponseResponse (Response):
         """
 
         Response.__init__(self, code=responsecode.OK,
-                          stream=caldavxml.ScheduleResponse(*xml_responses).toxml())
+                          stream=schedule_response_element(*xml_responses).toxml())
 
         self.headers.setHeader("content-type", MimeType("text", "xml"))
 
@@ -773,6 +775,16 @@ class ScheduleResponseQueue (LoggingMixIn):
     Stores a list of (typically error) responses for use in a
     L{ScheduleResponse}.
     """
+
+    schedule_response_element = caldavxml.ScheduleResponse
+    response_element = caldavxml.Response
+    recipient_element = caldavxml.Recipient
+    recipient_uses_href = True
+    request_status_element = caldavxml.RequestStatus
+    error_element = davxml.Error
+    response_description_element = davxml.ResponseDescription
+    calendar_data_element = caldavxml.CalendarData
+
     def __init__(self, method, success_response):
         """
         @param method: the name of the method generating the queue.
@@ -810,7 +822,7 @@ class ScheduleResponseQueue (LoggingMixIn):
             message = responsecode.RESPONSES[code]
         elif isinstance(what, Failure):
             code = statusForFailure(what)
-            error = errorForFailure(what)
+            error = self.errorForFailure(what)
             message = messageForFailure(what)
         else:
             raise AssertionError("Unknown data type: %r" % (what,))
@@ -819,15 +831,22 @@ class ScheduleResponseQueue (LoggingMixIn):
             self.log_error("Error during %s for %s: %s" % (self.method, recipient, message))
 
         children = []
-        children.append(caldavxml.Recipient(davxml.HRef.fromString(recipient)))
-        children.append(caldavxml.RequestStatus(reqstatus))
+        children.append(self.recipient_element(davxml.HRef.fromString(recipient)) if self.recipient_uses_href else self.recipient_element.fromString(recipient))
+        children.append(self.request_status_element(reqstatus))
         if calendar is not None:
-            children.append(caldavxml.CalendarData.fromCalendar(calendar))
+            children.append(self.calendar_data_element.fromCalendar(calendar))
         if error is not None:
             children.append(error)
         if message is not None:
-            children.append(davxml.ResponseDescription(message))
-        self.responses.append(caldavxml.Response(*children))
+            children.append(self.response_description_element(message))
+        self.responses.append(self.response_element(*children))
+
+
+    def errorForFailure(self, failure):
+        if failure.check(HTTPError) and isinstance(failure.value.response, ErrorResponse):
+            return self.error_element.Error(failure.value.response.error)
+        else:
+            return None
 
 
     def clone(self, clone):
@@ -838,11 +857,11 @@ class ScheduleResponseQueue (LoggingMixIn):
         if not isinstance(clone, caldavxml.Response):
             raise AssertionError("Incorrect element type: %r" % (clone,))
 
-        recipient = clone.childOfType(caldavxml.Recipient)
-        request_status = clone.childOfType(caldavxml.RequestStatus)
-        calendar_data = clone.childOfType(caldavxml.CalendarData)
-        error = clone.childOfType(davxml.Error)
-        desc = clone.childOfType(davxml.ResponseDescription)
+        recipient = clone.childOfType(self.recipient_element)
+        request_status = clone.childOfType(self.request_status_element)
+        calendar_data = clone.childOfType(self.calendar_data_element)
+        error = clone.childOfType(self.error_element)
+        desc = clone.childOfType(self.response_description_element)
 
         children = []
         children.append(recipient)
@@ -853,7 +872,7 @@ class ScheduleResponseQueue (LoggingMixIn):
             children.append(error)
         if desc is not None:
             children.append(desc)
-        self.responses.append(caldavxml.Response(*children))
+        self.responses.append(self.response_element(*children))
 
 
     def response(self):
@@ -864,6 +883,6 @@ class ScheduleResponseQueue (LoggingMixIn):
         @return: the response.
         """
         if self.responses:
-            return ScheduleResponseResponse(self.responses, self.location)
+            return ScheduleResponseResponse(self.schedule_response_element, self.responses, self.location)
         else:
             return self.success_response

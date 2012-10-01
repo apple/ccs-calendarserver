@@ -252,7 +252,7 @@ class ScheduleInboxResource (CalendarSchedulingCollectionResource):
         if defaultCalendarProperty and len(defaultCalendarProperty.children) == 1:
             defaultCalendar = str(defaultCalendarProperty.children[0])
             cal = (yield request.locateResource(str(defaultCalendar)))
-            if cal is not None and isCalendarCollectionResource(cal) and cal.exists() and not cal.isVirtualShare():
+            if cal is not None and isCalendarCollectionResource(cal) and cal.exists() and not cal.isShareeCollection():
                 returnValue(defaultCalendarProperty)
 
         # Default is not valid - we have to try to pick one
@@ -280,7 +280,7 @@ class ScheduleInboxResource (CalendarSchedulingCollectionResource):
 
         # TODO: check that owner of the new calendar is the same as owner of this inbox
         if cal is None or not cal.exists() or not isCalendarCollectionResource(cal) or \
-            cal.isVirtualShare() or not cal.isSupportedComponent(componentType):
+            cal.isShareeCollection() or not cal.isSupportedComponent(componentType):
             # Validate that href's point to a valid calendar.
             raise HTTPError(ErrorResponse(
                 responsecode.CONFLICT,
@@ -318,6 +318,8 @@ class ScheduleInboxResource (CalendarSchedulingCollectionResource):
                     if calendarName == "inbox":
                         continue
                     calendar = (yield self.parent._newStoreHome.calendarWithName(calendarName))
+                    if not calendar.owned():
+                        continue
                     if not calendar.isSupportedComponent(componentType):
                         continue
                     break

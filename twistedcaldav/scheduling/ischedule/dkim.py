@@ -233,7 +233,8 @@ class DKIMUtils(object):
             value = value[:pos] + value[pos + len(remove_b):]
             value = " ".join(value.split())
 
-        return "%s:%s\r\n" % (name, value,)
+        crlf = "" if name == DKIM_SIGNATURE.lower() else "\r\n"
+        return "%s:%s%s" % (name, value, crlf)
 
 
     @staticmethod
@@ -331,12 +332,12 @@ class DKIMRequest(ClientRequest):
         self.hash_func = DKIMUtils.hash_func(self.algorithm)
 
         self.keyMethods = []
-        if useDNSKey:
-            self.keyMethods.append(Q_DNS)
-        if useHTTPKey:
-            self.keyMethods.append(Q_HTTP)
         if usePrivateExchangeKey:
             self.keyMethods.append(Q_PRIVATE)
+        if useHTTPKey:
+            self.keyMethods.append(Q_HTTP)
+        if useDNSKey:
+            self.keyMethods.append(Q_DNS)
 
         self.message_id = str(uuid.uuid4())
 
@@ -403,7 +404,7 @@ class DKIMRequest(ClientRequest):
         for name in self.sign_headers:
             oversign = name[-1] == "+"
             name = name.rstrip("+")
-            for value in raw.get(name.lower(), ()):
+            for value in reversed(raw.get(name.lower(), ())):
                 headers.append(DKIMUtils.canonicalizeHeader(name, value))
                 sign_headers.append(name)
             if oversign:
@@ -645,7 +646,7 @@ Base64 encoded body:
             actual_headers = self.request.headers.getRawHeaders(header)
             if actual_headers:
                 try:
-                    headers.append((header, actual_headers[header_counter[header]],))
+                    headers.append((header, actual_headers[-1 - header_counter[header]],))
                 except IndexError:
                     pass
             header_counter[header] += 1

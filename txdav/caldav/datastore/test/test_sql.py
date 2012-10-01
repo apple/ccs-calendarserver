@@ -47,7 +47,6 @@ from twistedcaldav.config import config
 from twistedcaldav.dateops import datetimeMktime
 from twistedcaldav.ical import Component
 from twistedcaldav.query import calendarqueryfilter
-from twistedcaldav.sharing import SharedCollectionRecord
 
 import datetime
 from pycalendar.datetime import PyCalendarDateTime
@@ -916,38 +915,40 @@ END:VCALENDAR
 
         # Provision the home and calendar now
         txn = calendarStore.newTransaction()
-        home = yield txn.homeWithUID(ECALENDARTYPE, "uid1", create=True)
-        self.assertNotEqual(home, None)
-        cal = yield home.calendarWithName("calendar")
+        sharerHome = yield txn.homeWithUID(ECALENDARTYPE, "uid1", create=True)
+        self.assertNotEqual(sharerHome, None)
+        cal = yield sharerHome.calendarWithName("calendar")
         self.assertNotEqual(cal, None)
+        shareeHome = yield txn.homeWithUID(ECALENDARTYPE, "uid2", create=True)
+        self.assertNotEqual(shareeHome, None)
         yield txn.commit()
 
         txn1 = calendarStore.newTransaction()
         txn2 = calendarStore.newTransaction()
 
-        home1 = yield txn1.homeWithUID(ECALENDARTYPE, "uid1", create=True)
-        home2 = yield txn2.homeWithUID(ECALENDARTYPE, "uid1", create=True)
+        sharerHome1 = yield txn1.homeWithUID(ECALENDARTYPE, "uid1", create=True)
+        self.assertNotEqual(sharerHome1, None)
+        cal1 = yield sharerHome1.calendarWithName("calendar")
+        self.assertNotEqual(cal1, None)
+        shareeHome1 = yield txn1.homeWithUID(ECALENDARTYPE, "uid2", create=True)
+        self.assertNotEqual(shareeHome1, None)
 
-        shares1 = yield home1.retrieveOldShares()
-        shares2 = yield home2.retrieveOldShares()
-
-        record = SharedCollectionRecord(
-            "abcd",
-            "D",
-            "/calendars/__uids__/uid2/calendar/",
-            "XYZ",
-            "Shared Wiki Calendar",
-        )
+        sharerHome2 = yield txn2.homeWithUID(ECALENDARTYPE, "uid1", create=True)
+        self.assertNotEqual(sharerHome2, None)
+        cal2 = yield sharerHome2.calendarWithName("calendar")
+        self.assertNotEqual(cal2, None)
+        shareeHome2 = yield txn1.homeWithUID(ECALENDARTYPE, "uid2", create=True)
+        self.assertNotEqual(shareeHome2, None)
 
         @inlineCallbacks
         def _defer1():
-            yield shares1.addOrUpdateRecord(record)
+            yield cal1.shareWith(shareeHome=sharerHome1, mode=_BIND_MODE_DIRECT, status=_BIND_STATUS_ACCEPTED, message="Shared Wiki Calendar")
             yield txn1.commit()
         d1 = _defer1()
 
         @inlineCallbacks
         def _defer2():
-            yield shares2.addOrUpdateRecord(record)
+            yield cal2.shareWith(shareeHome=sharerHome2, mode=_BIND_MODE_DIRECT, status=_BIND_STATUS_ACCEPTED, message="Shared Wiki Calendar")
             yield txn2.commit()
         d2 = _defer2()
 
@@ -978,9 +979,9 @@ END:VCALENDAR
             bind.SEEN_BY_SHAREE: True,
         })
         yield _bindCreate.on(self.transactionUnderTest())
-        sharedCalendar = yield shareeHome.sharedChildWithName("shared_1")
+        sharedCalendar = yield shareeHome.childWithName("shared_1")
         self.assertTrue(sharedCalendar is not None)
-        sharedCalendar = yield shareeHome.sharedChildWithName("shared_1_vtodo")
+        sharedCalendar = yield shareeHome.childWithName("shared_1_vtodo")
         self.assertTrue(sharedCalendar is None)
 
         # Now do the transfer and see if a new binding exists
@@ -988,11 +989,11 @@ END:VCALENDAR
             "home_splits")).createCalendarWithName("calendar_new")
         yield calendar._transferSharingDetails(newcalendar, "VTODO")
 
-        sharedCalendar = yield shareeHome.sharedChildWithName("shared_1")
+        sharedCalendar = yield shareeHome.childWithName("shared_1")
         self.assertTrue(sharedCalendar is not None)
         self.assertEqual(sharedCalendar._resourceID, calendar._resourceID)
 
-        sharedCalendar = yield shareeHome.sharedChildWithName("shared_1-vtodo")
+        sharedCalendar = yield shareeHome.childWithName("shared_1-vtodo")
         self.assertTrue(sharedCalendar is not None)
         self.assertEqual(sharedCalendar._resourceID, newcalendar._resourceID)
 

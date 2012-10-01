@@ -14,7 +14,7 @@ from twisted.internet import defer
 from twisted.internet.defer import waitForDeferred, deferredGenerator
 from twisted.protocols import loopback
 from twisted.python import util, runtime
-from twext.web2.channel.http import SSLRedirectRequest
+from twext.web2.channel.http import SSLRedirectRequest, HTTPFactory
 from twisted.internet.task import deferLater
 
 class PreconditionTestCase(unittest.TestCase):
@@ -447,6 +447,45 @@ class HTTPTests(unittest.TestCase):
     def assertDone(self, cxn, done=True):
         self.iterate(cxn)
         self.assertEquals(cxn.client.done, done)
+
+
+class GracefulShutdownTestCase(HTTPTests):
+
+    def _callback(self, result):
+        self.callbackFired = True
+
+    def testAllConnectionsClosedWithoutConnectedChannels(self):
+        """
+        allConnectionsClosed( ) should fire right away if no connected channels
+        """
+        self.callbackFired = False
+
+        factory = HTTPFactory(None)
+        factory.allConnectionsClosed().addCallback(self._callback)
+        self.assertTrue(self.callbackFired)  # now!
+
+    def testallConnectionsClosedWithConnectedChannels(self):
+        """
+        allConnectionsClosed( ) should only fire after all connected channels
+        have been removed
+        """
+        self.callbackFired = False
+
+        factory = HTTPFactory(None)
+        factory.addConnectedChannel("A")
+        factory.addConnectedChannel("B")
+        factory.addConnectedChannel("C")
+
+        factory.allConnectionsClosed().addCallback(self._callback)
+
+        factory.removeConnectedChannel("A")
+        self.assertFalse(self.callbackFired) # wait for it...
+
+        factory.removeConnectedChannel("B")
+        self.assertFalse(self.callbackFired) # wait for it...
+
+        factory.removeConnectedChannel("C")
+        self.assertTrue(self.callbackFired)  # now!
 
 
 class CoreHTTPTestCase(HTTPTests):

@@ -37,6 +37,8 @@ from twext.enterprise.test.test_adbapi2 import NetworkedPoolHelper
 from twext.enterprise.test.test_adbapi2 import resultOf, AssertResultHelper
 from twisted.internet.defer import succeed
 from twisted.trial.unittest import TestCase
+from twext.enterprise.dal.syntax import Tuple
+from twext.enterprise.dal.syntax import Constant
 
 
 
@@ -285,6 +287,21 @@ class GenerationTests(ExampleSchemaHelper, TestCase, AssertResultHelper):
                    OrderBy=[self.schema.FOO.BAR, self.schema.FOO.BAZ],
                    Ascending=True).toSQL(),
             SQLFragment("select * from FOO order by BAR, BAZ asc")
+        )
+
+
+    def test_orderByParens(self):
+        """
+        L{Select}'s L{OrderBy} paraneter, if specified as a L{Tuple}, generates
+        an SQL expression I{without} parentheses, since the standard format
+        does not allow an arbitrary sort expression but rather a list of
+        columns.
+        """
+        self.assertEquals(
+            Select(From=self.schema.FOO,
+                   OrderBy=Tuple([self.schema.FOO.BAR,
+                                  self.schema.FOO.BAZ])).toSQL(),
+            SQLFragment("select * from FOO order by BAR, BAZ")
         )
 
 
@@ -805,13 +822,13 @@ class GenerationTests(ExampleSchemaHelper, TestCase, AssertResultHelper):
         )
 
         # Check various error situations
-        
+
         # No count not allowed
         self.assertRaises(DALError, self.schema.FOO.BAR.In, Parameter("names"))
-        
+
         # count=0 not allowed
         self.assertRaises(DALError, Parameter,"names", 0)
-        
+
         # Mismatched count and len(items)
         self.assertRaises(
             DALError,
@@ -1575,6 +1592,23 @@ class GenerationTests(ExampleSchemaHelper, TestCase, AssertResultHelper):
                 # error.
                 "update BOZ set QUX = ? where (QUX, QUUX) = ("
                 "select BAR, BAZ from FOO where BAZ = ?)", [1, 2]
+            )
+        )
+
+
+    def test_tupleOfConstantsComparison(self):
+        """
+        For some reason Oracle requires multiple parentheses for comparisons.
+        """
+        self.assertEquals(
+            Select(
+                [self.schema.FOO.BAR],
+                From=self.schema.FOO,
+                Where=(Tuple([self.schema.FOO.BAR, self.schema.FOO.BAZ]) ==
+                       Tuple([Constant(7), Constant(9)]))
+            ).toSQL(),
+            SQLFragment(
+                "select BAR from FOO where (BAR, BAZ) = ((?, ?))", [7, 9]
             )
         )
 

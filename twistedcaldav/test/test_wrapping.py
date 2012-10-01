@@ -53,6 +53,7 @@ from txdav.common.datastore.test.util import deriveQuota
 from twistedcaldav.directory.test.test_xmlfile import XMLFileBase
 from txdav.caldav.icalendarstore import ICalendarHome
 from txdav.carddav.iaddressbookstore import IAddressBookHome
+from txdav.caldav.datastore.file import Calendar
 
 
 
@@ -399,6 +400,8 @@ class WrappingTests(TestCase):
         Exceeding quota on an attachment returns an HTTP error code.
         """
         self.patch(config, "EnableDropBox", True)
+        self.patch(Calendar, "asShared", lambda self: [])
+
         yield self.populateOneObject("1.ics", test_event_text)
         calendarObject = yield self.getResource(
             "/calendars/users/wsanchez/dropbox/uid-test.dropbox/too-big-attachment",

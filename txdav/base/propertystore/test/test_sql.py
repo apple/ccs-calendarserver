@@ -48,10 +48,9 @@ class PropertyStoreTest(PropertyStoreTest):
         self.addCleanup(self.maybeCommitLast)
         self._txn = self.store.newTransaction()
         self.propertyStore = self.propertyStore1 = yield PropertyStore.load(
-            "user01", self._txn, 1
+            "user01", None, self._txn, 1
         )
-        self.propertyStore2 = yield PropertyStore.load("user01", self._txn, 1)
-        self.propertyStore2._setPerUserUID("user02")
+        self.propertyStore2 = yield PropertyStore.load("user01", "user02", self._txn, 1)
 
 
     @inlineCallbacks
@@ -74,14 +73,13 @@ class PropertyStoreTest(PropertyStoreTest):
 
         store = self.propertyStore1
         self.propertyStore = self.propertyStore1 = yield PropertyStore.load(
-            "user01", self._txn, 1
+            "user01", None, self._txn, 1
         )
         self.propertyStore1._shadowableKeys = store._shadowableKeys
         self.propertyStore1._globalKeys = store._globalKeys
 
         store = self.propertyStore2
-        self.propertyStore2 = yield PropertyStore.load("user01", self._txn, 1)
-        self.propertyStore2._setPerUserUID("user02")
+        self.propertyStore2 = yield PropertyStore.load("user01", "user02", self._txn, 1)
         self.propertyStore2._shadowableKeys = store._shadowableKeys
         self.propertyStore2._globalKeys = store._globalKeys
 
@@ -96,14 +94,13 @@ class PropertyStoreTest(PropertyStoreTest):
 
         store = self.propertyStore1
         self.propertyStore = self.propertyStore1 = yield PropertyStore.load(
-            "user01", self._txn, 1
+            "user01", None, self._txn, 1
         )
         self.propertyStore1._shadowableKeys = store._shadowableKeys
         self.propertyStore1._globalKeys = store._globalKeys
 
         store = self.propertyStore2
-        self.propertyStore2 = yield PropertyStore.load("user01", self._txn, 1)
-        self.propertyStore2._setPerUserUID("user02")
+        self.propertyStore2 = yield PropertyStore.load("user01", "user02", self._txn, 1)
         self.propertyStore2._shadowableKeys = store._shadowableKeys
         self.propertyStore2._globalKeys = store._globalKeys
 
@@ -127,7 +124,7 @@ class PropertyStoreTest(PropertyStoreTest):
                 pass
         self.addCleanup(maybeAbortIt)
         concurrentPropertyStore = yield PropertyStore.load(
-            "user01", concurrentTxn, 1
+            "user01", None, concurrentTxn, 1
         )
         concurrentPropertyStore[pname] = pval1
         race = []
@@ -155,9 +152,8 @@ class PropertyStoreTest(PropertyStoreTest):
     def test_copy(self):
 
         # Existing store
-        store1_user1 = yield PropertyStore.load("user01", self._txn, 2)
-        store1_user2 = yield PropertyStore.load("user01", self._txn, 2)
-        store1_user2._setPerUserUID("user02")
+        store1_user1 = yield PropertyStore.load("user01", None, self._txn, 2)
+        store1_user2 = yield PropertyStore.load("user01", "user02", self._txn, 2)
 
         # Populate current store with data
         props_user1 = (
@@ -179,20 +175,18 @@ class PropertyStoreTest(PropertyStoreTest):
         self._txn = self.store.newTransaction()
 
         # Existing store
-        store1_user1 = yield PropertyStore.load("user01", self._txn, 2)
+        store1_user1 = yield PropertyStore.load("user01", None, self._txn, 2)
 
         # New store
-        store2_user1 = yield PropertyStore.load("user01", self._txn, 3)
+        store2_user1 = yield PropertyStore.load("user01", None, self._txn, 3)
 
         # Do copy and check results
         yield store2_user1.copyAllProperties(store1_user1)
         
         self.assertEqual(store1_user1.keys(), store2_user1.keys())
 
-        store1_user2 = yield PropertyStore.load("user01", self._txn, 2)
-        store1_user2._setPerUserUID("user02")
-        store2_user2 = yield PropertyStore.load("user01", self._txn, 3)
-        store2_user2._setPerUserUID("user02")
+        store1_user2 = yield PropertyStore.load("user01", "user02", self._txn, 2)
+        store2_user2 = yield PropertyStore.load("user01", "user02", self._txn, 3)
         self.assertEqual(store1_user2.keys(), store2_user2.keys())
 
 

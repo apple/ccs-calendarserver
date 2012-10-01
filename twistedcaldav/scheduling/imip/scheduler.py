@@ -23,7 +23,8 @@ from twistedcaldav.caldavxml import caldav_namespace
 from twistedcaldav.config import config
 from twistedcaldav.scheduling import addressmapping
 from twistedcaldav.scheduling.cuaddress import RemoteCalendarUser
-from twistedcaldav.scheduling.scheduler import RemoteScheduler
+from twistedcaldav.scheduling.scheduler import RemoteScheduler, \
+    ScheduleResponseQueue
 import itertools
 import socket
 
@@ -39,6 +40,8 @@ __all__ = [
 log = Logger()
 
 class IMIPScheduler(RemoteScheduler):
+
+    scheduleResponse = ScheduleResponseQueue
 
     errorResponse = ErrorResponse
 

@@ -666,19 +666,7 @@ def purgeUID(store, uid, directory, root, verbose=False, dryrun=False, proxies=T
     # If in "completely" mode, unshare collections, remove notifications
     if calHomeProvisioned and completely:
 
-        # Process shared-to-me calendars
-        names = list((yield storeCalHome.listSharedChildren()))
-        for name in names:
-            if verbose:
-                if dryrun:
-                    print "Would unshare: %s" % (name,)
-                else:
-                    print "Unsharing: %s" % (name,)
-            if not dryrun:
-                child = (yield storeCalHome.sharedChildWithName(name))
-                (yield child.unshare())
-
-        # Process shared calendars
+        # Process shared and shared-to-me calendars
         children = list((yield storeCalHome.children()))
         for child in children:
             if verbose:

@@ -1012,7 +1012,7 @@
       <key>LocalesDirectory</key>
       <string>locales</string>
       <key>Language</key>
-      <string>English</string>
+      <string>en</string>
     </dict>
 
 

@@ -55,10 +55,8 @@ How to use:
 Before you can actually get translated text, you need to:
 
     1) Choose a "domain" for your code, such as 'calendarserver'
-    2) Run pygettext.py on your source to generate a <domain>.pot file.
-       pygettext.py scans the source for _( ) and copies those strings to the
-       .pot.
-    3) For each language, copy the .pot file to .po and give it to the person
+    2) Run xgettext on your source to generate a <domain>.po file.
+    3) For each language, give the .po file to the person
        who is doing the translation for editing
     4) Run msgfmt.py on the translated .po to generate a binary .mo
     5) Put the .mo into locales/<lang>/LC_MESSAGES/<domain>.mo
@@ -244,7 +242,7 @@ class translationTo(object):
                 'hour24Number' : val.getHours(), # 0-23
                 'hour12Number' : hour12, # 1-12
                 'minuteNumber' : val.getMinutes(), # 0-59
-                'ampm'         : _(ampm),
+                'ampm'         : ampm,
             }
         )
 
@@ -265,8 +263,8 @@ class translationTo(object):
         if days == 1:
             parts.append(_("1 day"))
         elif days > 1:
-            parts.append(_("%(dayCount)d days" %
-                { 'dayCount' : days }))
+            parts.append(_("%(dayCount)d days") %
+                { 'dayCount' : days })
 
         hours = divmod(total / 3600, 24)[1]
         minutes = divmod(total / 60, 60)[1]

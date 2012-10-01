@@ -721,6 +721,8 @@ class CommonHomeChild(FileMetaDataMixin, LoggingMixIn, FancyEqMixin):
         """
         return BIND_OWN
 
+    def owned(self):
+        return self._owned
 
     _renamedName = None
 
