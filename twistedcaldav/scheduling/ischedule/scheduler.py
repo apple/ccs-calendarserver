@@ -41,6 +41,7 @@ from twistedcaldav.scheduling.ischedule.xml import ischedule_namespace
 from txdav.xml.base import WebDAVUnknownElement
 from twistedcaldav.scheduling.ischedule.utils import getIPsFromHost
 from twistedcaldav.scheduling.ischedule import xml
+from twistedcaldav.ical import normalizeCUAddress
 
 """
 L{IScheduleScheduler} - handles deliveries for scheduling messages being POSTed to the iSchedule inbox.
@@ -187,8 +188,18 @@ class IScheduleScheduler(RemoteScheduler):
         """
 
         if not self.checkForFreeBusy():
-            self.calendar.normalizeCalendarUserAddresses(normalizationLookup,
-                self.resource.principalForCalendarUserAddress)
+            # Need to normalize the calendar data and recipient values to keep those in sync,
+            # as we might later try to match them
+            self.calendar.normalizeCalendarUserAddresses(normalizationLookup, self.resource.principalForCalendarUserAddress)
+
+
+    def loadRecipientsFromRequestHeaders(self):
+        """
+        Need to normalize the calendar data and recipient values to keep those in sync,
+        as we might later try to match them
+        """
+        super(IScheduleScheduler, self).loadRecipientsFromRequestHeaders()
+        self.recipients = [normalizeCUAddress(recipient, normalizationLookup, self.resource.principalForCalendarUserAddress) for recipient in self.recipients]
 
 
     def checkAuthorization(self):

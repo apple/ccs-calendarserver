@@ -844,34 +844,26 @@ class ScheduleResponseQueue (LoggingMixIn):
 
     def errorForFailure(self, failure):
         if failure.check(HTTPError) and isinstance(failure.value.response, ErrorResponse):
-            return self.error_element.Error(failure.value.response.error)
+            return self.error_element(failure.value.response.error)
         else:
             return None
 
 
-    def clone(self, clone):
+    def clone(self, recipient, request_status, calendar_data, error, desc):
         """
-        Add a response cloned from an existing caldavxml.Response element.
+        Add a response cloned from existing data.
         @param clone: the response to clone.
         """
-        if not isinstance(clone, caldavxml.Response):
-            raise AssertionError("Incorrect element type: %r" % (clone,))
-
-        recipient = clone.childOfType(self.recipient_element)
-        request_status = clone.childOfType(self.request_status_element)
-        calendar_data = clone.childOfType(self.calendar_data_element)
-        error = clone.childOfType(self.error_element)
-        desc = clone.childOfType(self.response_description_element)
 
         children = []
-        children.append(recipient)
-        children.append(request_status)
+        children.append(self.recipient_element(davxml.HRef.fromString(recipient)) if self.recipient_uses_href else self.recipient_element.fromString(recipient))
+        children.append(self.request_status_element.fromString(request_status))
         if calendar_data is not None:
-            children.append(calendar_data)
+            children.append(self.calendar_data_element.fromCalendar(calendar_data))
         if error is not None:
-            children.append(error)
+            children.append(self.error_element(*error))
         if desc is not None:
-            children.append(desc)
+            children.append(self.response_description_element.fromString(desc))
         self.responses.append(self.response_element(*children))
 
 

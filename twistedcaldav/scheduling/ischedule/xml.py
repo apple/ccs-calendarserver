@@ -18,8 +18,10 @@
 This module provides XML definitions for use with Timezone Standard Service.
 """
 
+from twistedcaldav.config import config
+from twistedcaldav.ical import Component as iComponent
+from txdav.xml.element import PCDATAElement, WebDAVElement, WebDAVEmptyElement, WebDAVTextElement
 from txdav.xml.element import registerElement
-from txdav.xml.element import WebDAVElement, WebDAVEmptyElement, WebDAVTextElement
 
 
 ##
@@ -246,6 +248,21 @@ class RequestStatus (WebDAVTextElement):
 class CalendarData (WebDAVTextElement):
     namespace = ischedule_namespace
     name = "calendar-data"
+
+
+    @classmethod
+    def fromCalendar(clazz, calendar):
+        if isinstance(calendar, str):
+            if not calendar:
+                raise ValueError("Missing calendar data")
+            return clazz(PCDATAElement(calendar))
+        elif isinstance(calendar, iComponent):
+            assert calendar.name() == "VCALENDAR", "Not a calendar: %r" % (calendar,)
+            return clazz(PCDATAElement(calendar.getTextWithTimezones(includeTimezones=not config.EnableTimezonesByReference)))
+        else:
+            raise ValueError("Not a calendar: %s" % (calendar,))
+
+    fromTextData = fromCalendar
 
 
 

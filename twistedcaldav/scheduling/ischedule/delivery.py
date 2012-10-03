@@ -45,10 +45,12 @@ from twistedcaldav.scheduling.ischedule.remoteservers import IScheduleServerReco
 from twistedcaldav.scheduling.ischedule.remoteservers import IScheduleServers
 from twistedcaldav.scheduling.ischedule.utils import lookupServerViaSRV
 from twistedcaldav.scheduling.ischedule.xml import ScheduleResponse, Response, \
-    RequestStatus, Recipient, ischedule_namespace
+    RequestStatus, Recipient, ischedule_namespace, CalendarData, \
+    ResponseDescription, Error
 from twistedcaldav.scheduling.itip import iTIPRequestStatus
 from twistedcaldav.util import utf8String, normalizationLookup
 from urlparse import urlsplit
+from twistedcaldav.ical import normalizeCUAddress
 
 """
 Handles the sending of iSchedule scheduling messages. Used for both cross-domain scheduling,
@@ -360,7 +362,9 @@ class IScheduleRequest(object):
         self.sign_headers.append("Host")
 
         # The Originator must be the ORGANIZER (for a request) or ATTENDEE (for a reply)
-        self.headers.addRawHeader("Originator", utf8String(self.scheduler.organizer.cuaddr if self.scheduler.isiTIPRequest else self.scheduler.attendee))
+        originator = self.scheduler.organizer.cuaddr if self.scheduler.isiTIPRequest else self.scheduler.attendee
+        originator = normalizeCUAddress(originator, normalizationLookup, self.scheduler.resource.principalForCalendarUserAddress, toUUID=False)
+        self.headers.addRawHeader("Originator", utf8String(originator))
         self.sign_headers.append("Originator")
 
         for recipient in self.recipients:
@@ -398,6 +402,7 @@ class IScheduleRequest(object):
         """
 
         if self.data is None:
+            # Need to remap cuaddrs from urn:uuid
             if self.server.unNormalizeAddresses and self.scheduler.method == "PUT":
                 normalizedCalendar = self.scheduler.calendar.duplicate()
                 normalizedCalendar.normalizeCalendarUserAddresses(
@@ -406,6 +411,11 @@ class IScheduleRequest(object):
                     toUUID=False)
             else:
                 normalizedCalendar = self.scheduler.calendar
+
+            # For VFREEBUSY we need to strip out ATTENDEEs that do not match the recipient list
+            if self.scheduler.isfreebusy:
+                normalizedCalendar.removeAllButTheseAttendees([recipient.cuaddr for recipient in self.recipients])
+
             self.data = str(normalizedCalendar)
 
 
@@ -468,4 +478,21 @@ class IScheduleRequest(object):
             if not recipient or not request_status:
                 raise HTTPError(responsecode.BAD_REQUEST)
         for response in schedule_response.children:
-            self.responses.clone(response)
+            recipient = str(response.childOfType(Recipient))
+            request_status = str(response.childOfType(RequestStatus))
+            calendar_data = response.childOfType(CalendarData)
+            if calendar_data:
+                calendar_data = str(calendar_data)
+            error = response.childOfType(Error)
+            if error:
+                error = error.children
+            desc = response.childOfType(ResponseDescription)
+            if desc:
+                desc = str(desc)
+            self.responses.clone(
+                recipient,
+                request_status,
+                calendar_data,
+                error,
+                desc,
+            )
