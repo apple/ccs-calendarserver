@@ -1143,7 +1143,7 @@ class ImplicitScheduler(object):
         if config.Scheduling.iMIP.Enabled and self.organizerAddress.cuaddr.lower().startswith("mailto:"):
             return is_server
 
-        if not local_organizer and is_server:
+        if not config.Scheduling.iSchedule.Enabled and not local_organizer and is_server:
             # Coerce ORGANIZER to SCHEDULE-AGENT=NONE
             log.debug("Attendee '%s' is not allowed to use SCHEDULE-AGENT=SERVER on organizer: UID:%s" % (self.attendeePrincipal, self.uid,))
             self.calendar.setParameterToValueForPropertyWithValue("SCHEDULE-AGENT", "NONE", "ORGANIZER", None)
