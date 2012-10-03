@@ -803,7 +803,7 @@ dependencies () {
     "${pypi}/s/${n}/${p}.tar.gz";
 
   svn_get "CalDAVTester" "${top}/CalDAVTester" \
-      "${svn_uri_base}/CalDAVTester/trunk" HEAD;
+      "${svn_uri_base}/CalDAVTester/trunk" 9841;
 
   local v="0.3";
   local n="pydoctor";
