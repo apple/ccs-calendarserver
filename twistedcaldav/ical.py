@@ -2364,6 +2364,21 @@ class Component (object):
             [component.removeProperty(p) for p in tuple(component.properties("ATTENDEE")) if p.value().lower() != attendee.lower()]
 
 
+    def removeAllButTheseAttendees(self, attendees):
+        """
+        Remove all ATTENDEE properties except for the ones specified.
+        """
+
+        assert self.name() == "VCALENDAR", "Not a calendar: %r" % (self,)
+
+        attendees = set([attendee.lower() for attendee in attendees])
+
+        for component in self.subcomponents():
+            if component.name() in ignoredComponents:
+                continue
+            [component.removeProperty(p) for p in tuple(component.properties("ATTENDEE")) if p.value().lower() not in attendees]
+
+
     def hasAlarm(self):
         """
         Test whether the component has a VALARM as an immediate sub-component.
@@ -3148,6 +3163,59 @@ def tzexpandlocal(tzdata, start, end):
 ##
 # Utilities
 ##
+
+def normalizeCUAddress(cuaddr, lookupFunction, principalFunction, toUUID=True):
+    # Check that we can lookup this calendar user address - if not
+    # we cannot do anything with it
+    _ignore_name, guid, cuaddrs = lookupFunction(normalizeCUAddr(cuaddr), principalFunction, config)
+
+    if toUUID:
+        # Always re-write value to urn:uuid
+        if guid:
+            return "urn:uuid:%s" % (guid,)
+
+    # If it is already a non-UUID address leave it be
+    elif cuaddr.startswith("urn:uuid:"):
+
+        # Pick the first mailto,
+        # or failing that the first path one,
+        # or failing that the first http one,
+        # or failing that the first one
+        first_mailto = None
+        first_path = None
+        first_http = None
+        first = None
+        for addr in cuaddrs:
+            if addr.startswith("mailto:"):
+                first_mailto = addr
+                break
+            elif addr.startswith("/"):
+                if not first_path:
+                    first_path = addr
+            elif addr.startswith("http:"):
+                if not first_http:
+                    first_http = addr
+            elif not first:
+                first = addr
+
+        if first_mailto:
+            newaddr = first_mailto
+        elif first_path:
+            newaddr = first_path
+        elif first_http:
+            newaddr = first_http
+        elif first:
+            newaddr = first
+        else:
+            newaddr = None
+
+        # Make the change
+        if newaddr:
+            return newaddr
+
+    return cuaddr
+
+
 
 #
 # This function is from "Python Cookbook, 2d Ed., by Alex Martelli, Anna
