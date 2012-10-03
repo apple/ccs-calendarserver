@@ -149,8 +149,7 @@ class TestDKIMRequest (TestDKIMBase):
 recipient:mailto:user02@example.com
 content-type:%s
 ischedule-version:1.0
-dkim-signature:v=1; d=example.com; s=dkim; t=%s; x=%s; a=%s; q=dns/txt:http/well-known; http=UE9TVDov; c=relaxed/simple; h=Originator:Recipient; bh=%s; b=
-""".replace("\n", "\r\n") % (headers.getRawHeaders("Content-Type")[0], str(int(time.time())), str(int(time.time() + 3600)), algorithm, bodyhash)
+dkim-signature:v=1; d=example.com; s=dkim; t=%s; x=%s; a=%s; q=dns/txt:http/well-known; http=UE9TVDov; c=relaxed/simple; h=Originator:Recipient; bh=%s; b=""".replace("\n", "\r\n") % (headers.getRawHeaders("Content-Type")[0], str(int(time.time())), str(int(time.time() + 3600)), algorithm, bodyhash)
 
             result = request.generateSignature(sign_this)
 
@@ -184,10 +183,7 @@ recipient:mailto:user02@example.com
 content-type:%s
 ischedule-version:1.0
 ischedule-message-id:%s
-cache-control:no-cache
-cache-control:no-transform
-dkim-signature:v=1; d=example.com; s=dkim; t=%s; x=%s; a=%s; q=dns/txt:http/well-known:private-exchange; http=UE9TVDov; c=relaxed/simple; h=Originator:Recipient:Content-Type:iSchedule-Version:iSchedule-Message-ID:Cache-Control:Cache-Control; bh=%s; b=
-""".replace("\n", "\r\n") % (headers.getRawHeaders("Content-Type")[0], request.message_id, request.time, request.expire, algorithm, bodyhash)
+dkim-signature:v=1; d=example.com; s=dkim; t=%s; x=%s; a=%s; q=private-exchange:http/well-known:dns/txt; http=UE9TVDov; c=relaxed/simple; h=Originator:Recipient:Content-Type:iSchedule-Version:iSchedule-Message-ID; bh=%s; b=""".replace("\n", "\r\n") % (headers.getRawHeaders("Content-Type")[0], request.message_id, request.time, request.expire, algorithm, bodyhash)
 
             self.assertEqual(result, sign_this)
 
@@ -215,17 +211,14 @@ recipient:mailto:user02@example.com
 content-type:%s
 ischedule-version:1.0
 ischedule-message-id:%s
-cache-control:no-cache
-cache-control:no-transform
-dkim-signature:v=1; d=example.com; s=dkim; t=%s; x=%s; a=%s; q=dns/txt:http/well-known:private-exchange; http=UE9TVDov; c=relaxed/simple; h=Originator:Recipient:Content-Type:iSchedule-Version:iSchedule-Message-ID:Cache-Control:Cache-Control; bh=%s; b=
-""".replace("\n", "\r\n") % (headers.getRawHeaders("Content-Type")[0], request.message_id, request.time, request.expire, algorithm, bodyhash)
+dkim-signature:v=1; d=example.com; s=dkim; t=%s; x=%s; a=%s; q=private-exchange:http/well-known:dns/txt; http=UE9TVDov; c=relaxed/simple; h=Originator:Recipient:Content-Type:iSchedule-Version:iSchedule-Message-ID; bh=%s; b=""".replace("\n", "\r\n") % (headers.getRawHeaders("Content-Type")[0], request.message_id, request.time, request.expire, algorithm, bodyhash)
             key = RSA.importKey(open(self.private_keyfile).read())
             signature = DKIMUtils.sign(sign_this, key, DKIMUtils.hash_func(algorithm))
 
             self.assertEqual(result, signature)
 
             # Make sure header is updated in the request
-            updated_header = "v=1; d=example.com; s=dkim; t=%s; x=%s; a=%s; q=dns/txt:http/well-known:private-exchange; http=UE9TVDov; c=relaxed/simple; h=Originator:Recipient:Content-Type:iSchedule-Version:iSchedule-Message-ID:Cache-Control:Cache-Control; bh=%s; b=%s" % (request.time, request.expire, algorithm, bodyhash, signature,)
+            updated_header = "v=1; d=example.com; s=dkim; t=%s; x=%s; a=%s; q=private-exchange:http/well-known:dns/txt; http=UE9TVDov; c=relaxed/simple; h=Originator:Recipient:Content-Type:iSchedule-Version:iSchedule-Message-ID; bh=%s; b=%s" % (request.time, request.expire, algorithm, bodyhash, signature,)
             self.assertEqual(request.headers.getRawHeaders("DKIM-Signature")[0], updated_header)
 
             # Try to verify result using public key
@@ -303,12 +296,12 @@ class TestDKIMVerifier (TestDKIMBase):
             (
                 "DKIM-Signature",
                 "  v=1;\t\t d=example.com; s = dkim; t\t=\t1234; a=rsa-sha1; \t\tq=dns/txt:http/well-known\t\t; http=UE9TVDov; c=relaxed/simple; h=Originator:Recipient:iSchedule-Version:iSchedule-Message-ID; bh=abc; b=def",
-                "dkim-signature:v=1; d=example.com; s = dkim; t = 1234; a=rsa-sha1; q=dns/txt:http/well-known ; http=UE9TVDov; c=relaxed/simple; h=Originator:Recipient:iSchedule-Version:iSchedule-Message-ID; bh=abc; b=\r\n",
+                "dkim-signature:v=1; d=example.com; s = dkim; t = 1234; a=rsa-sha1; q=dns/txt:http/well-known ; http=UE9TVDov; c=relaxed/simple; h=Originator:Recipient:iSchedule-Version:iSchedule-Message-ID; bh=abc; b=",
             ),
             (
                 "DKIM-Signature",
                 "  v=1;\t\t d=example.com; s = dkim; t\t=\t1234; a=rsa-sha1; \t\tq=dns/txt:http/well-known\t\t; b= def ; http=\tUE9TVDov   ; c=relaxed/simple; h=Originator:Recipient:iSchedule-Version:iSchedule-Message-ID; bh=abc",
-                "dkim-signature:v=1; d=example.com; s = dkim; t = 1234; a=rsa-sha1; q=dns/txt:http/well-known ; b= ; http= UE9TVDov ; c=relaxed/simple; h=Originator:Recipient:iSchedule-Version:iSchedule-Message-ID; bh=abc\r\n",
+                "dkim-signature:v=1; d=example.com; s = dkim; t = 1234; a=rsa-sha1; q=dns/txt:http/well-known ; b= ; http= UE9TVDov ; c=relaxed/simple; h=Originator:Recipient:iSchedule-Version:iSchedule-Message-ID; bh=abc",
             ),
         )
 
@@ -341,8 +334,7 @@ Connection:close
 originator:mailto:user01@example.com
 recipient:mailto:user02@example.com , mailto:user03@example.com
 ischedule-version:1.0
-dkim-signature:v=1; d=example.com; s = dkim; t = 1234; a=rsa-sha1; q=dns/txt:http/well-known ; http=UE9TVDov; c=relaxed/simple; h=Content-Type:Originator:Recipient:Recipient:iSchedule-Version:iSchedule-Message-ID; bh=abc; b=
-"""
+dkim-signature:v=1; d=example.com; s = dkim; t = 1234; a=rsa-sha1; q=dns/txt:http/well-known ; http=UE9TVDov; c=relaxed/simple; h=Content-Type:Originator:Recipient:Recipient:iSchedule-Version:iSchedule-Message-ID; bh=abc; b="""
             ),
             # Exact count on Recipient
             ("""Host:example.com
@@ -357,11 +349,10 @@ Connection:close
 """,
             """content-type:text/calendar ; charset = "utf-8"
 originator:mailto:user01@example.com
-recipient:mailto:user02@example.com , mailto:user03@example.com
 recipient:mailto:user04@example.com
+recipient:mailto:user02@example.com , mailto:user03@example.com
 ischedule-version:1.0
-dkim-signature:v=1; d=example.com; s = dkim; t = 1234; a=rsa-sha1; q=dns/txt:http/well-known ; http=UE9TVDov; c=relaxed/simple; h=Content-Type:Originator:Recipient:Recipient:iSchedule-Version:iSchedule-Message-ID; bh=abc; b=
-"""
+dkim-signature:v=1; d=example.com; s = dkim; t = 1234; a=rsa-sha1; q=dns/txt:http/well-known ; http=UE9TVDov; c=relaxed/simple; h=Content-Type:Originator:Recipient:Recipient:iSchedule-Version:iSchedule-Message-ID; bh=abc; b="""
             ),
             # Under count on Recipient
             ("""Host:example.com
@@ -377,11 +368,10 @@ Connection:close
 """,
             """content-type:text/calendar ; charset = "utf-8"
 originator:mailto:user01@example.com
-recipient:mailto:user02@example.com , mailto:user03@example.com
+recipient:mailto:user05@example.com
 recipient:mailto:user04@example.com
 ischedule-version:1.0
-dkim-signature:v=1; d=example.com; s = dkim; t = 1234; a=rsa-sha1; q=dns/txt:http/well-known ; http=UE9TVDov; c=relaxed/simple; h=Content-Type:Originator:Recipient:Recipient:iSchedule-Version:iSchedule-Message-ID; bh=abc; b=
-"""
+dkim-signature:v=1; d=example.com; s = dkim; t = 1234; a=rsa-sha1; q=dns/txt:http/well-known ; http=UE9TVDov; c=relaxed/simple; h=Content-Type:Originator:Recipient:Recipient:iSchedule-Version:iSchedule-Message-ID; bh=abc; b="""
             ),
             # Re-ordered Content-Type
             ("""Host:example.com
@@ -397,8 +387,7 @@ Connection:close
 originator:mailto:user01@example.com
 recipient:mailto:user02@example.com , mailto:user03@example.com
 ischedule-version:1.0
-dkim-signature:v=1; d=example.com; s = dkim; t = 1234; a=rsa-sha1; q=dns/txt:http/well-known ; http=UE9TVDov; c=relaxed/simple; h=Content-Type:Originator:Recipient:Recipient:iSchedule-Version:iSchedule-Message-ID; bh=abc; b=
-"""
+dkim-signature:v=1; d=example.com; s = dkim; t = 1234; a=rsa-sha1; q=dns/txt:http/well-known ; http=UE9TVDov; c=relaxed/simple; h=Content-Type:Originator:Recipient:Recipient:iSchedule-Version:iSchedule-Message-ID; bh=abc; b="""
             ),
         )
 
@@ -599,7 +588,7 @@ END:DATA
 """,
             [DKIMUtils.extractTags("v=DKIM1; p=%s" % (self.public_key_data,))],
             True,
-            manipulate_request=lambda request: request.headers.addRawHeader("Recipient", ("mailto:user04@example.com",))
+            manipulate_request=lambda request: request.headers.getRawHeaders("Recipient").insert(0, "mailto:user04@example.com"),
         )
 
         # Valid - over sign header
@@ -805,6 +794,28 @@ class TestPublicKeyLookup (TestDKIMBase):
             tester = PublicKeyLookup_DNSTXT(DKIMUtils.extractTags(dkim))
             pkey = yield tester.getPublicKey(False)
             self.assertEqual(pkey is not None, result)
+
+
+    @inlineCallbacks
+    def test_HTTP_URI_key(self):
+
+        # Need to setup a fake resolver
+        module = getModule(__name__)
+        dataPath = module.filePath.sibling("data")
+        bindPath = dataPath.child("db.example.com")
+        self.patch(config.Scheduling.iSchedule, "DNSDebug", bindPath.path)
+        utils.DebugResolver = None
+        utils._initResolver()
+
+        for d, s, result in (
+            ("example.com", "_ischedule", "https://key.example.com:8443/.well-known/domainkey/example.com/_ischedule"),
+            ("www.example.com", "_ischedule", "http://key.example.com/.well-known/domainkey/www.example.com/_ischedule"),
+            ("example.org", "_ischedule", "https://example.org/.well-known/domainkey/example.org/_ischedule"),
+        ):
+            dkim = "v=1; d=%s; s = %s; t = 1234; a=rsa-sha1; q=http/well-known ; http=UE9TVDov; c=relaxed/simple; h=Content-Type:Originator:Recipient:Recipient:iSchedule-Version:iSchedule-Message-ID; bh=abc; b=" % (d, s,)
+            tester = PublicKeyLookup_HTTP_WellKnown(DKIMUtils.extractTags(dkim))
+            uri = (yield tester._getURI())
+            self.assertEqual(uri, result)
 
 
     @inlineCallbacks

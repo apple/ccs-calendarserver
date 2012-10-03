@@ -25,7 +25,8 @@ from twisted.internet.defer import inlineCallbacks, returnValue, succeed
 from twistedcaldav.client.geturl import getURL
 from twistedcaldav.config import ConfigurationError
 from twistedcaldav.simpleresource import SimpleResource, SimpleDataResource
-from twistedcaldav.scheduling.ischedule.utils import lookupDataViaTXT
+from twistedcaldav.scheduling.ischedule.utils import lookupDataViaTXT, \
+    lookupServerViaSRV
 
 from Crypto.Hash import SHA, SHA256
 from Crypto.PublicKey import RSA
@@ -395,7 +396,6 @@ class DKIMRequest(ClientRequest):
 
         # Need Cache-Control
         self.headers.setRawHeaders("Cache-Control", ("no-cache", "no-transform",))
-        self.sign_headers += ("Cache-Control",)
 
         # Figure out all the existing headers to sign
         headers = []
@@ -820,25 +820,52 @@ class PublicKeyLookup_HTTP_WellKnown(PublicKeyLookup):
 
 
     @inlineCallbacks
+    def _getURI(self):
+        """
+        Determine the well-known URI for the public key service.
+        """
+
+        # First we do an SRV lookup for _domainkey to get the public key server host/port
+        result = (yield lookupServerViaSRV(self.dkim_tags["d"], service="_domainkey"))
+        if result is None:
+            log.debug("DKIM: SRV _domainkey failed on: %s trying domain directly" % (self.dkim_tags["d"],))
+            host = self.dkim_tags["d"]
+            port = ""
+            scheme = "https"
+        else:
+            host, port = result
+            scheme = "http" if port in (80, 8008, 8080,) else "https"
+            if port == 80 and scheme == "http" or port == 443 and scheme == "https":
+                port = ""
+            else:
+                port = ":%s" % (port,)
+
+        returnValue("%s://%s%s/.well-known/domainkey/%s/%s" % (scheme, host, port, self.dkim_tags["d"], self.dkim_tags["s"],))
+
+
+    @inlineCallbacks
     def _lookupKeys(self):
         """
         Do the key lookup using the actual lookup method.
         """
 
-        log.debug("DKIM: HTTP/.well-known lookup: %s" % (self._getSelectorKey(),))
-        response = (yield getURL(self._getSelectorKey()))
+        # First we do an SRV lookup for _domainkey to get the public key server URI
+        uri = (yield self._getURI())
+
+        log.debug("DKIM: HTTP/.well-known lookup: %s" % (uri,))
+        response = (yield getURL(uri))
         if response is None or response.code / 100 != 2:
-            log.debug("DKIM: Failed http/well-known lookup: %s %s" % (self._getSelectorKey(), response,))
+            log.debug("DKIM: Failed http/well-known lookup: %s %s" % (uri, response,))
             returnValue(())
 
         ct = response.headers.getRawHeaders("content-type", ("bogus/type",))[0]
         ct = ct.split(";", 1)
         ct = ct[0].strip()
         if ct not in ("text/plain",):
-            log.debug("DKIM: Failed http/well-known lookup: wrong content-type returned %s %s" % (self._getSelectorKey(), ct,))
+            log.debug("DKIM: Failed http/well-known lookup: wrong content-type returned %s %s" % (uri, ct,))
             returnValue(())
 
-        log.debug("DKIM: HTTP/.well-known lookup results: %s\n%s" % (self._getSelectorKey(), response.data,))
+        log.debug("DKIM: HTTP/.well-known lookup results: %s\n%s" % (uri, response.data,))
         returnValue(tuple([DKIMUtils.extractTags(line) for line in response.data.splitlines()]))
 
 
