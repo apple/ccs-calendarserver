@@ -23,7 +23,8 @@ from twext.web2.http_headers import MimeType
 from twisted.internet.defer import succeed, returnValue, inlineCallbacks
 from twistedcaldav import caldavxml
 from twistedcaldav.config import config
-from twistedcaldav.extensions import DAVResource
+from twistedcaldav.extensions import DAVResource, \
+    DAVResourceWithoutChildrenMixin
 from twistedcaldav.resource import ReadOnlyNoCopyResourceMixIn
 from twistedcaldav.scheduling.caldav.resource import deliverSchedulePrivilegeSet
 from twistedcaldav.scheduling.ischedule.scheduler import IScheduleScheduler
@@ -34,7 +35,7 @@ __all__ = [
     "IScheduleInboxResource",
 ]
 
-class IScheduleInboxResource (ReadOnlyNoCopyResourceMixIn, DAVResource):
+class IScheduleInboxResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithoutChildrenMixin, DAVResource):
     """
     iSchedule Inbox resource.
 
@@ -119,25 +120,25 @@ class IScheduleInboxResource (ReadOnlyNoCopyResourceMixIn, DAVResource):
             # Do normal GET behavior
             return self.render(request)
 
-        query = request.args.get("query", ("",))
-        if len(query) != 1:
+        action = request.args.get("action", ("",))
+        if len(action) != 1:
             raise HTTPError(StatusResponse(
                 responsecode.BAD_REQUEST,
-                "Invalid query parameter",
+                "Invalid action parameter",
             ))
-        query = query[0]
+        action = action[0]
 
-        query = {
+        action = {
             "capabilities"  : self.doCapabilities,
-        }.get(query, None)
+        }.get(action, None)
 
-        if query is None:
+        if action is None:
             raise HTTPError(StatusResponse(
                 responsecode.BAD_REQUEST,
-                "Unknown query query parameter",
+                "Unknown action action parameter",
             ))
 
-        return query(request)
+        return action(request)
 
 
     def doCapabilities(self, request):
