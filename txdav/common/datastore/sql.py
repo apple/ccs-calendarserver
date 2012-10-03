@@ -80,7 +80,7 @@ from txdav.base.propertystore.sql import PropertyStore
 
 from txdav.common.icommondatastore import ConcurrentModification
 from twistedcaldav.customxml import NotificationType
-from twistedcaldav.dateops import datetimeMktime, parseSQLTimestamp,\
+from twistedcaldav.dateops import datetimeMktime, parseSQLTimestamp, \
     pyCalendarTodatetime
 
 from txdav.base.datastore.util import normalizeUUIDOrNot
@@ -229,12 +229,12 @@ class TransactionStatsCollector(object):
     Used to log each SQL query and statistics about that query during the course of a single transaction.
     Results can be printed out where ever needed at the end of the transaction.
     """
-    
+
     def __init__(self, label, logFileName=None):
         self.label = label
         self.logFileName = logFileName
         self.statements = []
-    
+
     def startStatement(self, sql, args):
         """
         Called prior to an SQL query being run.
@@ -263,12 +263,12 @@ class TransactionStatsCollector(object):
         index, tstamp = context
         self.statements[index][1] = len(rows) if rows else 0
         self.statements[index][2] = time.time() - tstamp
-        
+
     def printReport(self):
         """
         Print a report of all the SQL statements executed to date.
         """
-        
+
         toFile = StringIO()
         toFile.write("*** SQL Stats ***\n")
         toFile.write("\n")
@@ -283,7 +283,7 @@ class TransactionStatsCollector(object):
             toFile.write("Rows: %s\n" % (rows,))
             toFile.write("Time (ms): %.3f\n" % (t,))
         toFile.write("***\n\n")
-        
+
         if self.logFileName:
             open(self.logFileName, "a").write(toFile.getvalue())
         else:
@@ -294,7 +294,7 @@ class CommonStoreTransactionMonitor(object):
     Object that monitors the state of a transaction over time and logs or times out
     the transaction.
     """
-    
+
     callLater = reactor.callLater
 
     def __init__(self, txn, logTimerSeconds, timeoutSeconds):
@@ -303,13 +303,13 @@ class CommonStoreTransactionMonitor(object):
         self.delayedTimeout = None
         self.logTimerSeconds = logTimerSeconds
         self.timeoutSeconds = timeoutSeconds
-        
+
         self.txn.postCommit(self._cleanTxn)
         self.txn.postAbort(self._cleanTxn)
-        
+
         self._installLogTimer()
         self._installTimeout()
-    
+
     def _cleanTxn(self):
         self.txn = None
         if self.delayedLog:
@@ -327,7 +327,7 @@ class CommonStoreTransactionMonitor(object):
 
         if self.logTimerSeconds:
             self.delayedLog = self.callLater(self.logTimerSeconds, _logTransactionWait)
-    
+
     def _installTimeout(self):
         def _forceAbort():
             if self.txn is not None:
@@ -439,7 +439,7 @@ class CommonStoreTransaction(object):
     def _calendarserver(cls): #@NoSelf
         cs = schema.CALENDARSERVER
         return Select(
-            [cs.VALUE,],
+            [cs.VALUE, ],
             From=cs,
             Where=cs.NAME == Parameter('name'),
         )
@@ -759,7 +759,7 @@ class CommonStoreTransaction(object):
         """
         Execute some SQL (delegate to L{IAsyncTransaction}).
         """
-        if self._stats:        
+        if self._stats:
             statsContext = self._stats.startStatement(a[0], a[1])
         self.currentStatement = a[0]
         if self._store.logTransactionWaits and a[0].split(" ", 1)[0].lower() in ("insert", "update", "delete",):
@@ -773,7 +773,7 @@ class CommonStoreTransaction(object):
             results = (yield self._sqlTxn.execSQL(*a, **kw))
         finally:
             self.currentStatement = None
-            if self._stats:        
+            if self._stats:
                 self._stats.endStatement(statsContext, results)
         returnValue(results)
 
@@ -828,9 +828,9 @@ class CommonStoreTransaction(object):
             ],
             From=ch.join(co).join(cb).join(tr),
             Where=(
-                ch.RESOURCE_ID == cb.CALENDAR_HOME_RESOURCE_ID     ).And(
-                tr.CALENDAR_OBJECT_RESOURCE_ID == co.RESOURCE_ID   ).And(
-                cb.CALENDAR_RESOURCE_ID == tr.CALENDAR_RESOURCE_ID ).And(
+                ch.RESOURCE_ID == cb.CALENDAR_HOME_RESOURCE_ID).And(
+                tr.CALENDAR_OBJECT_RESOURCE_ID == co.RESOURCE_ID).And(
+                cb.CALENDAR_RESOURCE_ID == tr.CALENDAR_RESOURCE_ID).And(
                 cb.BIND_MODE == _BIND_MODE_OWN
             ),
             GroupBy=(
@@ -943,7 +943,7 @@ class CommonStoreTransaction(object):
         count = 0
         for dropboxID, path in results:
             attachment = Attachment(self, dropboxID, path)
-            (yield attachment.remove( ))
+            (yield attachment.remove())
             count += 1
         returnValue(count)
 
@@ -969,10 +969,10 @@ class CommonHome(LoggingMixIn):
     _notifierPrefix = None
     _revisionsTable = None
     _notificationRevisionsTable = NOTIFICATION_OBJECT_REVISIONS_TABLE
-    
+
     _dataVersionKey = None
     _dataVersionValue = None
-    
+
     _cacher = None  # Initialize in derived classes
 
     def __init__(self, transaction, ownerUID, notifiers):
@@ -1189,7 +1189,7 @@ class CommonHome(LoggingMixIn):
 
         @return: an iterable of C{str}s.
         """
-        
+
         if self._childrenLoaded:
             return succeed(self._children.keys())
         else:
@@ -1201,7 +1201,7 @@ class CommonHome(LoggingMixIn):
         Retrieve the names of the invited children in this home.
 
         @return: an iterable of C{str}s.
-        """ 
+        """
         return self._childClass.listInvitedObjects(self)
 
 
@@ -1380,12 +1380,12 @@ class CommonHome(LoggingMixIn):
                                     rev.RESOURCE_ID == shareID)).on(self._txn))
                     if name
                 ]
-    
+
                 for path, name, wasdeleted in results:
                     if wasdeleted:
                         if sharetoken:
                             deleted.append("%s/%s" % (path, name,))
-    
+
                 for path, name, wasdeleted in results:
                     changed.append("%s/%s" % (path, name,))
 
@@ -1551,7 +1551,7 @@ class CommonHome(LoggingMixIn):
                                            resourceID=self._resourceID)
             self._quotaUsedBytes = 0
 
-    
+
     def addNotifier(self, notifier):
         if self._notifiers is None:
             self._notifiers = ()
@@ -1614,7 +1614,7 @@ class CommonHome(LoggingMixIn):
             yield self._lockLastModifiedQuery.on(subtxn, resourceID=self._resourceID)
             result = (yield self._changeLastModifiedQuery.on(subtxn, resourceID=self._resourceID))
             returnValue(result)
-            
+
         try:
             self._modified = (yield self._txn.subtransaction(_bumpModified, retries=0, failureOK=True))[0][0]
             queryCacher = self._txn._queryCacher
@@ -1641,6 +1641,19 @@ class CommonHome(LoggingMixIn):
                 self._txn.postCommit(notifier.notify)
             self._txn.notificationAddedForObject(self)
 
+
+    @inlineCallbacks
+    def removeUnacceptedShares(self):
+        """
+        Unbinds any collections that have been shared to this home but not yet
+        accepted.  Associated invite entries are also removed.
+        """
+        bind = self._bindSchema
+        kwds = {"homeResourceID" : self._resourceID}
+        yield Delete(
+            From=bind,
+            Where=(bind.HOME_RESOURCE_ID == Parameter("homeResourceID")).And(bind.BIND_STATUS != _BIND_STATUS_ACCEPTED)
+        ).on(self._txn, **kwds)
 
 
 class _SharedSyncLogic(object):
@@ -1690,7 +1703,7 @@ class _SharedSyncLogic(object):
 
     @inlineCallbacks
     def resourceNamesSinceToken(self, token):
-        
+
         if token is None:
             token = 0
         elif isinstance(token, str):
@@ -1913,16 +1926,16 @@ class _SharedSyncLogic(object):
                 self._syncTokenRevision = rows[0][0]
             else:
                 action = "insert"
-        
+
         if action == "insert":
             # Note that an "insert" may happen for a resource that previously
             # existed and then was deleted. In that case an entry in the
             # REVISIONS table still exists so we have to detect that and do db
             # INSERT or UPDATE as appropriate
 
-            found = bool( (
+            found = bool((
                 yield self._insertFindPreviouslyNamedQuery.on(
-                    self._txn, resourceID=self._resourceID, name=name)) )
+                    self._txn, resourceID=self._resourceID, name=name)))
             if found:
                 self._syncTokenRevision = (
                     yield self._updatePreviouslyNamedQuery.on(
@@ -1957,19 +1970,19 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
 
     _objectResourceClass = None
 
-    _bindSchema              = None
-    _homeSchema              = None
-    _homeChildSchema          = None
+    _bindSchema = None
+    _homeSchema = None
+    _homeChildSchema = None
     _homeChildMetaDataSchema = None
-    _revisionsSchema          = None
-    _objectSchema              = None
+    _revisionsSchema = None
+    _objectSchema = None
 
-    _bindTable           = None
-    _homeChildTable      = None
-    _homeChildBindTable  = None
-    _revisionsTable      = None
-    _revisionsBindTable  = None
-    _objectTable         = None
+    _bindTable = None
+    _homeChildTable = None
+    _homeChildBindTable = None
+    _revisionsTable = None
+    _revisionsBindTable = None
+    _objectTable = None
 
 
     def __init__(self, home, name, resourceID, mode, status, message=None, ownerHome=None):
@@ -1981,20 +1994,20 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
         else:
             notifiers = None
 
-        self._home              = home
-        self._name              = name
-        self._resourceID        = resourceID
-        self._bindMode          = mode
-        self._bindStatus         = status
-        self._bindMessage         = message
-        self._ownerHome         = home if ownerHome is None else ownerHome
-        self._created           = None
-        self._modified          = None
-        self._objects           = {}
-        self._objectNames       = None
+        self._home = home
+        self._name = name
+        self._resourceID = resourceID
+        self._bindMode = mode
+        self._bindStatus = status
+        self._bindMessage = message
+        self._ownerHome = home if ownerHome is None else ownerHome
+        self._created = None
+        self._modified = None
+        self._objects = {}
+        self._objectNames = None
         self._syncTokenRevision = None
-        self._notifiers         = notifiers
-        self._index             = None  # Derived classes need to set this
+        self._notifiers = notifiers
+        self._index = None  # Derived classes need to set this
 
 
     @classproperty
@@ -2013,14 +2026,14 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
         different child classes to have their own type specific data, but still make use of the
         common base logic.
         """
-        
+
         # Common behavior is to have created and modified
-        
+
         return (
             cls._homeChildMetaDataSchema.CREATED,
             cls._homeChildMetaDataSchema.MODIFIED,
         )
-        
+
     @classmethod
     def metadataAttributes(cls):
         """
@@ -2028,14 +2041,14 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
         different child classes to have their own type specific data, but still make use of the
         common base logic.
         """
-        
+
         # Common behavior is to have created and modified
-        
+
         return (
             "_created",
             "_modified",
         )
-        
+
     @classmethod
     @inlineCallbacks
     def listObjects(cls, home):
@@ -2137,10 +2150,10 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
         @return: the name of the shared calendar in the new calendar home.
         @rtype: L{str}
         """
-        
+
         if status is None:
             status = _BIND_STATUS_ACCEPTED
-        
+
         @inlineCallbacks
         def doInsert(subt):
             newName = str(uuid4())
@@ -2160,7 +2173,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
                 mode=mode, status=status, message=message,
                 resourceID=self._resourceID, homeID=shareeHome._resourceID
             ))[0][0]
-                
+
         # Must send notification to ensure cache invalidation occurs
         yield self.notifyChanged()
 
@@ -2200,24 +2213,24 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
 
         #remove None parameters, and substitute None for empty string
         bind = self._bindSchema
-        columnMap = dict([(k, v if v else None) 
-                          for k,v in {bind.BIND_MODE:mode,
+        columnMap = dict([(k, v if v else None)
+                          for k, v in {bind.BIND_MODE:mode,
                             bind.BIND_STATUS:status,
                             bind.MESSAGE:message,
                             bind.RESOURCE_NAME:name}.iteritems() if v is not None])
-                                
+
         if len(columnMap):
-            
+
             #TODO:  with bit of parameter wrangling, call shareWith() here instead.
             sharedname = yield self._updateBindColumnsQuery(columnMap).on(
                             self._txn,
                             resourceID=self._resourceID, homeID=shareeView._home._resourceID
                         )
-            
+
             #update affected attributes
             if mode:
                 shareeView._bindMode = columnMap[bind.BIND_MODE]
-                
+
             if status:
                 shareeView._bindStatus = columnMap[bind.BIND_STATUS]
                 if shareeView._bindStatus == _BIND_STATUS_ACCEPTED:
@@ -2227,19 +2240,19 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
 
             if message:
                 shareeView._bindMessage = columnMap[bind.MESSAGE]
-            
+
             queryCacher = self._txn._queryCacher
             if queryCacher:
                 cacheKey = queryCacher.keyForObjectWithName(shareeView._home._resourceID, shareeView._name)
                 queryCacher.invalidateAfterCommit(self._txn, cacheKey)
-            
+
             shareeView._name = sharedname[0][0]
 
             # Must send notification to ensure cache invalidation occurs
             yield self.notifyChanged()
-                    
+
         returnValue(shareeView._name)
-        
+
 
 
     @inlineCallbacks
@@ -2255,14 +2268,14 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
 
         @return: a L{Deferred} which will fire with the previously-used name.
         """
-        
-        
+
+
         #remove sync tokens
         shareeChildren = yield shareeHome.children()
         for shareeChild in shareeChildren:
             if not shareeChild.owned() and shareeChild._resourceID == self._resourceID:
                 shareeChild._deletedSyncToken(sharedRemoval=True);
- 
+
                 queryCacher = self._txn._queryCacher
                 if queryCacher:
                     cacheKey = queryCacher.keyForObjectWithName(shareeHome._resourceID, shareeChild._name)
@@ -2278,15 +2291,15 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
             Return=bind.RESOURCE_NAME,
         ).on(self._txn, resourceID=self._resourceID,
              homeID=shareeHome._resourceID)
-        
+
         resourceName = None
         if rows:
             resourceName = rows[0][0]
             shareeHome._children.pop(resourceName, None)
-        
+
         # Must send notification to ensure cache invalidation occurs
         yield self.notifyChanged()
-       
+
         returnValue(resourceName)
 
 
@@ -2361,7 +2374,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
                             .And(bind.BIND_STATUS == _BIND_STATUS_ACCEPTED)
                             .And(bind.BIND_MODE != _BIND_MODE_OWN)
                             )
-    
+
 
 
     @inlineCallbacks
@@ -2422,7 +2435,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
         """
         if not self.owned():
             returnValue([])
-        
+
         rows = yield self._invitedBindForResourceID.on(
             self._txn, resourceID=self._resourceID, homeID=self._home._resourceID,
         )
@@ -2459,7 +2472,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
         dataRows = (yield cls._childrenAndMetadataForHomeID.on(home._txn, homeID=home._resourceID))
 
         if dataRows:
-            
+
             # Get property stores for all these child resources (if any found)
             propertyStores = (yield PropertyStore.forMultipleResources(
                 home.uid(), home._txn,
@@ -2481,8 +2494,8 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
         # Create the actual objects merging in properties
         for items in dataRows:
             bindMode, homeID, resourceID, resourceName, bindStatus, bindMessage = items[:6] #@UnusedVariable
-            metadata=items[7:]
-            
+            metadata = items[7:]
+
             if bindStatus == _BIND_MODE_OWN:
                 ownerHome = home
             else:
@@ -2537,7 +2550,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
             returnValue(None)
 
         bindMode, homeID, resourceID, resourceName, bindStatus, bindMessage = rows[0] #@UnusedVariable
-        
+
         #TODO:  combine with _invitedBindForNameAndHomeID and sort results
         ownerHomeID = (yield cls._ownerHomeWithResourceID.on(
                         home._txn, resourceID=resourceID))[0][0]
@@ -2578,16 +2591,16 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
         """
         rows = None
         queryCacher = home._txn._queryCacher
-        
+
         if queryCacher:
             # Retrieve data from cache
             cacheKey = queryCacher.keyForObjectWithName(home._resourceID, name)
             rows = yield queryCacher.get(cacheKey)
-            
+
         if rows is None:
             # No cached copy
             rows = yield cls._childForNameAndHomeID.on(home._txn, name=name, homeID=home._resourceID)
-                    
+
             if rows:
                 bindMode, homeID, resourceID, resourceName, bindStatus, bindMessage = rows[0] #@UnusedVariable
                 # get ownerHomeID                
@@ -2597,21 +2610,21 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
                     ownerHomeID = (yield cls._ownerHomeWithResourceID.on(
                                     home._txn, resourceID=resourceID))[0][0]
                 rows[0].append(ownerHomeID)
-            
+
             if rows and queryCacher:
                 # Cache the result
                 queryCacher.setAfterCommit(home._txn, cacheKey, rows)
-        
+
         if not rows:
             returnValue(None)
-        
+
         bindMode, homeID, resourceID, resourceName, bindStatus, bindMessage, ownerHomeID = rows[0] #@UnusedVariable
-        
+
         if bindMode == _BIND_MODE_OWN:
             ownerHome = home
         else:
             ownerHome = yield home._txn.homeWithResourceID(home._homeType, ownerHomeID)
-            
+
         child = cls(
             home=home,
             name=name, resourceID=resourceID,
@@ -2632,8 +2645,8 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
         return cls._bindFor((bind.RESOURCE_ID == Parameter("resourceID"))
                                .And(bind.HOME_RESOURCE_ID == Parameter("homeID"))
                                )
-                               
-                               
+
+
     @classmethod
     @inlineCallbacks
     def objectWithID(cls, home, resourceID):
@@ -2650,9 +2663,9 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
             home._txn, resourceID=resourceID, homeID=home._resourceID)
         if not rows:
             returnValue(None)
-                
+
         bindMode, homeID, resourceID, resourceName, bindStatus, bindMessage = rows[0] #@UnusedVariable
-        
+
         if bindMode == _BIND_MODE_OWN:
             ownerHome = home
         else:
@@ -2663,7 +2676,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
             home=home,
             name=resourceName, resourceID=resourceID,
             mode=bindMode, status=bindStatus,
-            message=bindMessage,  ownerHome=ownerHome,
+            message=bindMessage, ownerHome=ownerHome,
         )
         yield child.initFromStore()
         returnValue(child)
@@ -2887,9 +2900,9 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
 
         # Set to non-existent state
         self._resourceID = None
-        self._created    = None
-        self._modified   = None
-        self._objects    = {}
+        self._created = None
+        self._modified = None
+        self._objects = {}
 
         yield self.notifyChanged()
 
@@ -3140,7 +3153,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
 
     @inlineCallbacks
     def removeObjectResourceWithName(self, name):
-        
+
         child = (yield self.objectResourceWithName(name))
         if child is None:
             raise NoSuchObjectResourceError
@@ -3149,7 +3162,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
 
     @inlineCallbacks
     def removeObjectResourceWithUID(self, uid):
-        
+
         child = (yield self.objectResourceWithUID(uid))
         if child is None:
             raise NoSuchObjectResourceError
@@ -3161,7 +3174,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
         uid = child.uid()
         try:
             yield child.remove()
-        finally:        
+        finally:
             self._objects.pop(name, None)
             self._objects.pop(uid, None)
             yield self._deleteRevision(name)
@@ -3209,7 +3222,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
         self._objects.pop(child._resourceID, None)
         yield self._deleteRevision(name)
         yield self.notifyChanged()
-        
+
         # Adjust the child to be a child of the new parent and update ancillary tables
         yield self._moveParentUpdateQuery.on(
             self._txn,
@@ -3279,7 +3292,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
         if self._notifiers is None:
             self._notifiers = ()
         self._notifiers += (notifier,)
- 
+
     def notifierID(self, label="default"):
         if self._notifiers:
             return self._notifiers[0].getID(label)
@@ -3387,7 +3400,7 @@ class CommonObjectResource(LoggingMixIn, FancyEqMixin):
         self._created = None
         self._modified = None
         self._objectText = None
-        
+
         self._locked = False
 
 
@@ -3458,9 +3471,9 @@ class CommonObjectResource(LoggingMixIn, FancyEqMixin):
             result_batch = (yield cls._loadAllObjectsWithNames(parent, names[:cls.BATCH_LOAD_SIZE]))
             results.extend(result_batch)
             names = names[cls.BATCH_LOAD_SIZE:]
-        
+
         returnValue(results)
-            
+
     @classmethod
     @inlineCallbacks
     def _loadAllObjectsWithNames(cls, parent, names):
@@ -3525,14 +3538,14 @@ class CommonObjectResource(LoggingMixIn, FancyEqMixin):
 
         if name.startswith("."):
             raise ObjectResourceNameNotAllowedError(name)
-        
+
         objectResource = cls(parent, name, None, None, metadata=metadata)
         yield objectResource.setComponent(component, inserting=True)
         yield objectResource._loadPropertyStore(created=True)
 
         # Note: setComponent triggers a notification, so we don't need to
         # call notify( ) here like we do for object removal.
-        
+
         returnValue(objectResource)
 
 
@@ -3644,7 +3657,7 @@ class CommonObjectResource(LoggingMixIn, FancyEqMixin):
         self.initPropertyStore(props)
         self._propertyStore = props
 
-    
+
     def properties(self):
         return self._propertyStore
 
@@ -3695,7 +3708,7 @@ class CommonObjectResource(LoggingMixIn, FancyEqMixin):
         @raise: L{NoSuchObjectResourceError} if resource does not exist, other L{Exception}
                 if already locked and NOWAIT is used.
         """
-        
+
         txn = txn if txn is not None else self._txn
         yield self._selectForUpdateQuery(not wait).on(txn, NoSuchObjectResourceError, resourceID=self._resourceID)
         self._locked = True
@@ -3920,7 +3933,7 @@ class NotificationCollection(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
 
     def uid(self):
         return self._uid
-    
+
 
     def owned(self):
         return True
@@ -3928,7 +3941,7 @@ class NotificationCollection(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
 
     def ownerHome(self):
         return self._home
-    
+
 
     def viewerHome(self):
         return self._home
@@ -4056,7 +4069,7 @@ class NotificationCollection(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
         if self._notifiers is None:
             self._notifiers = ()
         self._notifiers += (notifier,)
- 
+
     def notifierID(self, label="default"):
         if self._notifiers:
             return self._notifiers[0].getID(label)

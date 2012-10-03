@@ -22,7 +22,7 @@ import gc
 from hashlib import md5
 from random import Random
 from zope.interface.verify import verifyObject
-from zope.interface.exceptions import BrokenMethodImplementation,\
+from zope.interface.exceptions import BrokenMethodImplementation, \
     DoesNotImplement
 
 from twext.python.filepath import CachingFilePath
@@ -96,7 +96,7 @@ class SQLStoreBuilder(object):
         return PostgresService(
             dbRoot, serviceFactory, current_sql_schema, resetSchema=True,
             databaseName="caldav",
-            options = [
+            options=[
                 "-c log_lock_waits=TRUE",
                 "-c log_statement=all",
                 "-c log_line_prefix='%p.%x '",
@@ -206,8 +206,7 @@ class SQLStoreBuilder(object):
         )
         # TODO: should be getting these tables from a declaration of the schema
         # somewhere.
-        tables = ['INVITE',
-                  'RESOURCE_PROPERTY',
+        tables = ['RESOURCE_PROPERTY',
                   'ATTACHMENT',
                   'NOTIFICATION_OBJECT_REVISIONS',
                   'ADDRESSBOOK_OBJECT_REVISIONS',
@@ -224,7 +223,7 @@ class SQLStoreBuilder(object):
                   'NOTIFICATION_HOME']
         for table in tables:
             try:
-                yield cleanupTxn.execSQL("delete from "+table, [])
+                yield cleanupTxn.execSQL("delete from " + table, [])
             except:
                 log.err()
         yield cleanupTxn.commit()
@@ -376,7 +375,7 @@ def populateCalendarsFrom(requirements, store, migrating=False):
                         yield calendar.createCalendarObjectWithName(
                             objectName,
                             VComponent.fromString(updateToCurrentYear(objData)),
-                            metadata = metadata,
+                            metadata=metadata,
                         )
     yield populateTxn.commit()
 
@@ -385,7 +384,7 @@ def updateToCurrentYear(data):
     """
     Update the supplied iCalendar data so that all dates are updated to the current year.
     """
-    
+
     nowYear = PyCalendarDateTime.getToday().getYear()
     return data % {"now":nowYear}
 

@@ -81,23 +81,6 @@ create table CALENDAR_METADATA (
 );
 
 
-------------------------
--- Sharing Invitation --
-------------------------
-
-create table INVITE (
-    INVITE_UID         varchar(255) not null,
-    NAME               varchar(255) not null,
-    RECIPIENT_ADDRESS  varchar(255) not null,
-    HOME_RESOURCE_ID   integer      not null,
-    RESOURCE_ID        integer      not null
-
-    -- Need primary key on (INVITE_UID, NAME, RECIPIENT_ADDRESS)?
-);
-
-create index INVITE_INVITE_UID on INVITE(INVITE_UID);
-create index INVITE_RESOURCE_ID on INVITE(RESOURCE_ID);
-create index INVITE_HOME_RESOURCE_ID on INVITE(HOME_RESOURCE_ID);
 
 ---------------------------
 -- Sharing Notifications --

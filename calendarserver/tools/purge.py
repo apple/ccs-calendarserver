@@ -679,7 +679,6 @@ def purgeUID(store, uid, directory, root, verbose=False, dryrun=False, proxies=T
 
         if not dryrun:
             (yield storeCalHome.removeUnacceptedShares())
-            (yield storeCalHome.removeInvites())
             notificationHome = (yield txn.notificationsWithUID(uid))
             if notificationHome is not None:
                 (yield notificationHome.remove())
@@ -688,7 +687,7 @@ def purgeUID(store, uid, directory, root, verbose=False, dryrun=False, proxies=T
 
     # Anything in the past is left alone
     whenString = when.getText()
-    filter =  caldavxml.Filter(
+    filter = caldavxml.Filter(
           caldavxml.ComponentFilter(
               caldavxml.ComponentFilter(
                   TimeRange(start=whenString,),
@@ -842,8 +841,8 @@ def purgeUID(store, uid, directory, root, verbose=False, dryrun=False, proxies=T
         # Remove VCards
         storeAbHome = (yield txn.addressbookHomeWithUID(uid))
         if storeAbHome is not None:
-            for abColl in list( (yield storeAbHome.addressbooks()) ):
-                for card in list( (yield abColl.addressbookObjects()) ):
+            for abColl in list((yield storeAbHome.addressbooks())):
+                for card in list((yield abColl.addressbookObjects())):
                     cardName = card.name()
                     if verbose:
                         uri = "/addressbooks/__uids__/%s/%s/%s" % (uid, abColl.name(), cardName)
