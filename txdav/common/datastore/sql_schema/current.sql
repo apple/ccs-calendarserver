@@ -340,6 +340,7 @@ create table ADDRESSBOOK_HOME_METADATA (
   MODIFIED         timestamp    default timezone('UTC', CURRENT_TIMESTAMP)
 );
 
+-- #### TO BE DELETED ####
 -----------------
 -- AddressBook --
 -----------------
@@ -349,6 +350,7 @@ create table ADDRESSBOOK (
 );
 
 
+-- #### TO BE DELETED ####
 --------------------------
 -- AddressBook Metadata --
 --------------------------
@@ -360,15 +362,70 @@ create table ADDRESSBOOK_METADATA (
 );
 
 
+-----------------------------
+-- Addressbook Object --
+-----------------------------
+
+  create table ADDRESSBOOK_OBJECT (
+  RESOURCE_ID             integer      primary key default nextval('RESOURCE_ID_SEQ'),    -- implicit index
+  ADDRESSBOOK_RESOURCE_ID integer      not null references ADDRESSBOOK on delete cascade,
+  RESOURCE_NAME           varchar(255) not null,
+  VCARD_TEXT              text         not null,
+  VCARD_UID               varchar(255) not null,
+  MD5                     char(32)     not null,
+  CREATED                 timestamp    default timezone('UTC', CURRENT_TIMESTAMP),
+  MODIFIED                timestamp    default timezone('UTC', CURRENT_TIMESTAMP),
+  KIND 			  		  integer      not null, -- enum OBJECT_KIND
+
+  unique(ADDRESSBOOK_RESOURCE_ID, RESOURCE_NAME), -- implicit index
+  unique(ADDRESSBOOK_RESOURCE_ID, VCARD_UID)      -- implicit index
+);
+
+-----------------------------
+-- Addressbook Object kind --
+-----------------------------
+
+create table OBJECT_KIND (
+  ID          integer     primary key,
+  DESCRIPTION varchar(16) not null unique
+);
+
+insert into OBJECT_KIND values (0, 'person');
+insert into OBJECT_KIND values (1, 'group' );
+insert into OBJECT_KIND values (2, 'resource');
+insert into OBJECT_KIND values (3, 'location');
+
+-----------------------------
+-- Members --
+-----------------------------
+
+create table MEMBERS (
+    GROUP_ID              integer      references ADDRESSBOOK_OBJECT, 
+    MEMBER_ID             integer      references ADDRESSBOOK_OBJECT,
+    primary key(GROUP_ID, MEMBER_ID) -- implicit index
+);
+
+--------------------------
+-- Foreign Members  --
+--------------------------
+
+create table FOREIGN_MEMBERS (
+    GROUP_ID              integer      references ADDRESSBOOK_OBJECT, 
+    MEMBER_ADDRESS  	  varchar(255) not null,
+    primary key(GROUP_ID, MEMBER_ADDRESS) -- implicit index
+);
+
+
 ----------------------
 -- AddressBook Bind --
 ----------------------
 
 -- Joins ADDRESSBOOK_HOME and ADDRESSBOOK
 
-create table ADDRESSBOOK_BIND (
-  ADDRESSBOOK_HOME_RESOURCE_ID integer      not null references ADDRESSBOOK_HOME,
-  ADDRESSBOOK_RESOURCE_ID      integer      not null references ADDRESSBOOK on delete cascade,
+create table ADDRESSBOOK_BIND (	
+  ADDRESSBOOK_HOME_RESOURCE_ID 		integer      not null references ADDRESSBOOK_HOME,
+  ADDRESSBOOK_RESOURCE_ID     		integer      references ADDRESSBOOK on delete cascade, -- ### TO BE DELTETED
+  ADDRESSBOOK_OBJECT_RESOURCE_ID   	integer      references ADDRESSBOOK_OBJECT on delete cascade, -- # ADD not null
 
   -- An invitation which hasn't been accepted yet will not yet have a resource
   -- name, so this field may be null.
@@ -386,20 +443,6 @@ create table ADDRESSBOOK_BIND (
 
 create index ADDRESSBOOK_BIND_RESOURCE_ID on
   ADDRESSBOOK_BIND(ADDRESSBOOK_RESOURCE_ID);
-
-create table ADDRESSBOOK_OBJECT (
-  RESOURCE_ID             integer      primary key default nextval('RESOURCE_ID_SEQ'),    -- implicit index
-  ADDRESSBOOK_RESOURCE_ID integer      not null references ADDRESSBOOK on delete cascade,
-  RESOURCE_NAME           varchar(255) not null,
-  VCARD_TEXT              text         not null,
-  VCARD_UID               varchar(255) not null,
-  MD5                     char(32)     not null,
-  CREATED                 timestamp    default timezone('UTC', CURRENT_TIMESTAMP),
-  MODIFIED                timestamp    default timezone('UTC', CURRENT_TIMESTAMP),
-
-  unique(ADDRESSBOOK_RESOURCE_ID, RESOURCE_NAME), -- implicit index
-  unique(ADDRESSBOOK_RESOURCE_ID, VCARD_UID)      -- implicit index
-);
 
 ---------------
 -- Revisions --
