@@ -340,7 +340,7 @@ create table ADDRESSBOOK_HOME_METADATA (
   MODIFIED         timestamp    default timezone('UTC', CURRENT_TIMESTAMP)
 );
 
--- #### TO BE DELETED ####
+-- #### TODO: DELETE ####
 -----------------
 -- AddressBook --
 -----------------
@@ -350,7 +350,7 @@ create table ADDRESSBOOK (
 );
 
 
--- #### TO BE DELETED ####
+-- #### TODO: DELETE ####
 --------------------------
 -- AddressBook Metadata --
 --------------------------
@@ -363,7 +363,7 @@ create table ADDRESSBOOK_METADATA (
 
 
 -----------------------------
--- Addressbook Object --
+-- AddressBook Object --
 -----------------------------
 
   create table ADDRESSBOOK_OBJECT (
@@ -375,14 +375,15 @@ create table ADDRESSBOOK_METADATA (
   MD5                     char(32)     not null,
   CREATED                 timestamp    default timezone('UTC', CURRENT_TIMESTAMP),
   MODIFIED                timestamp    default timezone('UTC', CURRENT_TIMESTAMP),
-  KIND 			  		  integer      not null, -- enum OBJECT_KIND
+  -- ### TODO: ADD ROW ###
+  --KIND 			  		  integer      not null, -- enum OBJECT_KIND
 
   unique(ADDRESSBOOK_RESOURCE_ID, RESOURCE_NAME), -- implicit index
   unique(ADDRESSBOOK_RESOURCE_ID, VCARD_UID)      -- implicit index
 );
 
 -----------------------------
--- Addressbook Object kind --
+-- AddressBook Object kind --
 -----------------------------
 
 create table OBJECT_KIND (
@@ -395,23 +396,23 @@ insert into OBJECT_KIND values (1, 'group' );
 insert into OBJECT_KIND values (2, 'resource');
 insert into OBJECT_KIND values (3, 'location');
 
------------------------------
+-------------
 -- Members --
------------------------------
+-------------
 
 create table MEMBERS (
-    GROUP_ID              integer      references ADDRESSBOOK_OBJECT, 
-    MEMBER_ID             integer      references ADDRESSBOOK_OBJECT,
+    GROUP_ID              integer      references ADDRESSBOOK_OBJECT,	-- AddressBook Object's (kind=='group') RESOURCE_ID
+    MEMBER_ID             integer      references ADDRESSBOOK_OBJECT,	-- member AddressBook Object's RESOURCE_ID
     primary key(GROUP_ID, MEMBER_ID) -- implicit index
 );
 
---------------------------
+----------------------
 -- Foreign Members  --
---------------------------
+----------------------
 
 create table FOREIGN_MEMBERS (
-    GROUP_ID              integer      references ADDRESSBOOK_OBJECT, 
-    MEMBER_ADDRESS  	  varchar(255) not null,
+    GROUP_ID              integer      references ADDRESSBOOK_OBJECT,	-- AddressBook Object's (kind=='group') RESOURCE_ID
+    MEMBER_ADDRESS  	  varchar(255) not null, 						-- member AddressBook Object's calendar address
     primary key(GROUP_ID, MEMBER_ADDRESS) -- implicit index
 );
 
@@ -424,18 +425,14 @@ create table FOREIGN_MEMBERS (
 
 create table ADDRESSBOOK_BIND (	
   ADDRESSBOOK_HOME_RESOURCE_ID 		integer      not null references ADDRESSBOOK_HOME,
-  ADDRESSBOOK_RESOURCE_ID     		integer      references ADDRESSBOOK on delete cascade, -- ### TO BE DELTETED
-  ADDRESSBOOK_OBJECT_RESOURCE_ID   	integer      references ADDRESSBOOK_OBJECT on delete cascade, -- # ADD not null
-
-  -- An invitation which hasn't been accepted yet will not yet have a resource
-  -- name, so this field may be null.
-
-  ADDRESSBOOK_RESOURCE_NAME    varchar(255),
-  BIND_MODE                    integer      not null, -- enum CALENDAR_BIND_MODE
-  BIND_STATUS                  integer      not null, -- enum CALENDAR_BIND_STATUS
-  SEEN_BY_OWNER                boolean      not null,
-  SEEN_BY_SHAREE               boolean      not null,
-  MESSAGE                      text,                  -- FIXME: xml?
+  ADDRESSBOOK_RESOURCE_ID     		integer      references ADDRESSBOOK on delete cascade, 			-- ### TODO: DELETE ROW ###
+  ADDRESSBOOK_OBJECT_RESOURCE_ID   	integer      references ADDRESSBOOK_OBJECT on delete cascade,	-- ### TODO: add 'not null' constraint ###
+  ADDRESSBOOK_RESOURCE_NAME    		varchar(255) not null,
+  BIND_MODE                    		integer      not null, 	-- enum CALENDAR_BIND_MODE
+  BIND_STATUS                  		integer      not null, 	-- enum CALENDAR_BIND_STATUS
+  SEEN_BY_OWNER                		boolean      not null,	-- ### TODO: DELETE ROW ###
+  SEEN_BY_SHAREE               		boolean      not null,  -- ### TODO: DELETE ROW ###
+  MESSAGE                      		text,        			-- FIXME: xml?
 
   primary key(ADDRESSBOOK_HOME_RESOURCE_ID, ADDRESSBOOK_RESOURCE_ID), -- implicit index
   unique(ADDRESSBOOK_HOME_RESOURCE_ID, ADDRESSBOOK_RESOURCE_NAME)     -- implicit index
@@ -449,11 +446,6 @@ create index ADDRESSBOOK_BIND_RESOURCE_ID on
 ---------------
 
 create sequence REVISION_SEQ;
-
-
----------------
--- Revisions --
----------------
 
 create table CALENDAR_OBJECT_REVISIONS (
   CALENDAR_HOME_RESOURCE_ID integer      not null references CALENDAR_HOME,
@@ -473,9 +465,9 @@ create index CALENDAR_OBJECT_REVISIONS_RESOURCE_ID_RESOURCE_NAME
 create index CALENDAR_OBJECT_REVISIONS_RESOURCE_ID_REVISION
   on CALENDAR_OBJECT_REVISIONS(CALENDAR_RESOURCE_ID, REVISION);
 
--------------------------------
+----------------------------------
 -- AddressBook Object Revisions --
--------------------------------
+----------------------------------
 
 create table ADDRESSBOOK_OBJECT_REVISIONS (
   ADDRESSBOOK_HOME_RESOURCE_ID integer      not null references ADDRESSBOOK_HOME,
