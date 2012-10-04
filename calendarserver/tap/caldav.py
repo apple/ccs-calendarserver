@@ -75,7 +75,7 @@ from twistedcaldav import memcachepool
 from twistedcaldav.stdconfig import DEFAULT_CONFIG, DEFAULT_CONFIG_FILE
 from twistedcaldav.upgrade import UpgradeFileSystemFormatService, PostDBImportService
 
-from calendarserver.tap.util import pgServiceFromConfig, getDBPool
+from calendarserver.tap.util import pgServiceFromConfig, getDBPool, MemoryLimitService
 
 from twext.enterprise.ienterprise import POSTGRES_DIALECT
 from twext.enterprise.ienterprise import ORACLE_DIALECT
@@ -1194,6 +1194,11 @@ class CalDAVServiceMaker (LoggingMixIn):
         s.processMonitor = monitor
         monitor.setServiceParent(s)
 
+        if config.MemoryLimiter.Enabled:
+            memoryLimiter = MemoryLimitService(monitor, config.MemoryLimiter.Seconds,
+                config.MemoryLimiter.Bytes, config.MemoryLimiter.ResidentOnly)
+            memoryLimiter.setServiceParent(s)
+
         for name, pool in config.Memcached.Pools.items():
             if pool.ServerEnabled:
                 self.log_info(
@@ -1634,7 +1639,6 @@ class DelayedStartupProcessMonitor(Service, object):
         super(DelayedStartupProcessMonitor, self).startService()
         for name in self.processes:
             self.startProcess(name)
-
 
     def stopService(self):
         """
