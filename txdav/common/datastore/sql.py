@@ -2159,9 +2159,8 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
             newName = str(uuid4())
             yield self._bindInsertQuery.on(
                 subt, homeID=shareeHome._resourceID,
-                resourceID=self._resourceID, name=newName, mode=mode,
-                seenByOwner=True, seenBySharee=True,
-                bindStatus=status, message=message
+                resourceID=self._resourceID, name=newName,
+                mode=mode, bindStatus=status, message=message
             )
             returnValue(newName)
         try:
@@ -2716,8 +2715,6 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
             bind.BIND_MODE: Parameter("mode"),
             bind.BIND_STATUS: Parameter("bindStatus"),
             bind.MESSAGE: Parameter("message"),
-            bind.SEEN_BY_OWNER: Parameter("seenByOwner"),
-            bind.SEEN_BY_SHAREE: Parameter("seenBySharee"),
         })
 
 
@@ -2746,8 +2743,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
         # Bind table needs entry
         yield cls._bindInsertQuery.on(
             home._txn, homeID=home._resourceID, resourceID=resourceID,
-            name=name, mode=_BIND_MODE_OWN, seenByOwner=True,
-            seenBySharee=True, bindStatus=_BIND_STATUS_ACCEPTED,
+            name=name, mode=_BIND_MODE_OWN, bindStatus=_BIND_STATUS_ACCEPTED,
             message=None,
         )
 

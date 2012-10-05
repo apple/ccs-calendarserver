@@ -30,13 +30,13 @@ from twext.python.vcomponent import VComponent
 from txdav.xml.rfc2518 import GETContentLanguage, ResourceType
 
 from txdav.base.propertystore.base import PropertyName
-from txdav.caldav.datastore.test.common import CommonTests as CalendarCommonTests,\
+from txdav.caldav.datastore.test.common import CommonTests as CalendarCommonTests, \
     test_event_text
 from txdav.caldav.datastore.test.test_file import setUpCalendarStore
 from txdav.caldav.datastore.util import _migrateCalendar, migrateHome
 from txdav.common.datastore.sql import ECALENDARTYPE, CommonObjectResource
 from txdav.common.datastore.sql_legacy import PostgresLegacyIndexEmulator
-from txdav.common.datastore.sql_tables import schema, _BIND_MODE_DIRECT,\
+from txdav.common.datastore.sql_tables import schema, _BIND_MODE_DIRECT, \
     _BIND_STATUS_ACCEPTED
 from txdav.common.datastore.test.util import buildStore, populateCalendarsFrom
 from txdav.common.icommondatastore import NoSuchObjectResourceError
@@ -185,7 +185,7 @@ class CalendarSQLStorageTests(CalendarCommonTests, unittest.TestCase):
         backed calendar. We need to test what happens when there is "bad" calendar data
         present in the file-backed calendar with a broken recurrence-id that we can fix.
         """
-        
+
         self.storeUnderTest().setMigrating(True)
         fromCalendar = yield (yield self.fileTransaction().calendarHomeWithUID(
             "home_bad")).calendarWithName("calendar_fix_recurrence")
@@ -306,7 +306,7 @@ END:VALARM
 END:VEVENT
 END:VCALENDAR
 """.replace("\n", "\r\n") % self.nowYear)
-        
+
         toResource = yield toCalendar.calendarObjectWithName("3.ics")
         caldata = yield toResource.component()
         self.assertEqual(str(caldata), """BEGIN:VCALENDAR
@@ -353,7 +353,7 @@ SUMMARY:event 6-ctr changed again
 END:VEVENT
 END:VCALENDAR
 """.replace("\n", "\r\n") % self.nowYear)
-        
+
     @inlineCallbacks
     def test_migrateDuplicateAttachmentsCalendarFromFile(self):
         """
@@ -385,10 +385,10 @@ END:VCALENDAR
         yield _migrateCalendar(fromCalendar, toCalendar,
                                lambda x: x.component())
 
-        filter =  caldavxml.Filter(
+        filter = caldavxml.Filter(
                       caldavxml.ComponentFilter(
                           caldavxml.ComponentFilter(
-                              caldavxml.TimeRange(start="%(now)s0201T000000Z"  % self.nowYear, end="%(now)s0202T000000Z" % self.nowYear),
+                              caldavxml.TimeRange(start="%(now)s0201T000000Z" % self.nowYear, end="%(now)s0202T000000Z" % self.nowYear),
                               name=("VEVENT", "VFREEBUSY", "VAVAILABILITY"),
                           ),
                           name="VCALENDAR",
@@ -410,7 +410,7 @@ END:VCALENDAR
         backend to another; in this specific case, from the file-based backend
         to the SQL-based backend.
         """
-        
+
         # Need to turn of split calendar behavior just for this test
         self.patch(config, "RestrictCalendarsToOneComponentType", False)
 
@@ -467,7 +467,7 @@ END:VCALENDAR
                 continue
             result = yield calendar.getSupportedComponents()
             supported_components.add(result)
-            
+
         self.assertEqual(supported_components, set(("VEVENT", "VTODO",)))
 
     @inlineCallbacks
@@ -494,7 +494,7 @@ END:VCALENDAR
                 continue
             result = yield calendar.getSupportedComponents()
             supported_components.add(result)
-            
+
         self.assertEqual(supported_components, set(("VEVENT", "VTODO",)))
 
     def test_calendarHomeVersion(self):
@@ -502,22 +502,22 @@ END:VCALENDAR
         The DATAVERSION column for new calendar homes must match the
         CALENDAR-DATAVERSION value.
         """
-        
+
         home = yield self.transactionUnderTest().calendarHomeWithUID("home_version")
         self.assertTrue(home is not None)
         yield self.transactionUnderTest().commit
-        
+
         txn = yield self.transactionUnderTest()
         version = yield txn.calendarserverValue("CALENDAR-DATAVERSION")[0][0]
         ch = schema.CALENDAR_HOME
         homeVersion = yield Select(
-            [ch.DATAVERSION,],
+            [ch.DATAVERSION, ],
             From=ch,
             Where=ch.OWNER_UID == "home_version",
         ).on(txn)[0][0]
         self.assertEqual(int(homeVersion, version))
-        
-        
+
+
 
     def test_eachCalendarHome(self):
         """
@@ -779,7 +779,7 @@ END:VCALENDAR
         calendar = yield home.createCalendarWithName(name)
         resourceID = calendar._resourceID
         calendarProperties = calendar.properties()
-        
+
         prop = caldavxml.CalendarDescription.fromString("Calendar to be removed")
         calendarProperties[PropertyName.fromElement(prop)] = prop
         yield self.commit()
@@ -862,7 +862,7 @@ END:VCALENDAR
         # Create calendar object and add a property
         home = yield self.homeUnderTest()
         inbox = yield home.createCalendarWithName("inbox")
-        
+
         name = "test.ics"
         component = VComponent.fromString(test_event_text)
         metadata = {
@@ -960,23 +960,21 @@ END:VCALENDAR
         """
         Test Calendar._transferSharingDetails to make sure sharing details are transferred.
         """
-        
+
         shareeHome = yield self.transactionUnderTest().calendarHomeWithUID("home_splits_shared")
 
         calendar = yield (yield self.transactionUnderTest().calendarHomeWithUID(
             "home_splits")).calendarWithName("calendar_1")
-        
+
         # Fake a shared binding on the original calendar
         bind = calendar._bindSchema
         _bindCreate = Insert({
             bind.HOME_RESOURCE_ID: shareeHome._resourceID,
-            bind.RESOURCE_ID: calendar._resourceID, 
+            bind.RESOURCE_ID: calendar._resourceID,
             bind.RESOURCE_NAME: "shared_1",
             bind.MESSAGE: "Shared to you",
             bind.BIND_MODE: _BIND_MODE_DIRECT,
             bind.BIND_STATUS: _BIND_STATUS_ACCEPTED,
-            bind.SEEN_BY_OWNER: True,
-            bind.SEEN_BY_SHAREE: True,
         })
         yield _bindCreate.on(self.transactionUnderTest())
         sharedCalendar = yield shareeHome.childWithName("shared_1")
@@ -1002,19 +1000,19 @@ END:VCALENDAR
         """
         Test Calendar._transferSharingDetails to make sure sharing details are transferred.
         """
-        
+
         calendar1 = yield (yield self.transactionUnderTest().calendarHomeWithUID(
             "home_splits")).calendarWithName("calendar_1")
         calendar2 = yield (yield self.transactionUnderTest().calendarHomeWithUID(
             "home_splits")).calendarWithName("calendar_2")
-        
+
         child = yield calendar2.calendarObjectWithName("5.ics")
-        
+
         yield calendar2.moveObjectResource(child, calendar1)
-        
+
         child = yield calendar2.calendarObjectWithName("5.ics")
         self.assertTrue(child is None)
-        
+
         child = yield calendar1.calendarObjectWithName("5.ics")
         self.assertTrue(child is not None)
 
@@ -1024,7 +1022,7 @@ END:VCALENDAR
         Test Calendar.splitCollectionByComponentTypes to make sure components are split out,
         sync information is updated.
         """
-        
+
         # calendar_2 add a dead property to make sure it gets copied over
         home = yield self.transactionUnderTest().calendarHomeWithUID("home_splits")
         calendar2 = yield home.calendarWithName("calendar_2")
@@ -1044,7 +1042,7 @@ END:VCALENDAR
         child = yield home.calendarWithName("calendar_1-vtodo")
         self.assertTrue(child is None)
 
-        calendar1 = yield home.calendarWithName("calendar_1")        
+        calendar1 = yield home.calendarWithName("calendar_1")
         children = yield calendar1.listCalendarObjects()
         self.assertEqual(len(children), 3)
         new_sync_token1 = yield calendar1.syncToken()
@@ -1056,7 +1054,7 @@ END:VCALENDAR
 
         # calendar_2 does split
         home = yield self.transactionUnderTest().calendarHomeWithUID("home_splits")
-        calendar2 = yield home.calendarWithName("calendar_2")        
+        calendar2 = yield home.calendarWithName("calendar_2")
         original_sync_token2 = yield calendar2.syncToken()
         yield calendar2.splitCollectionByComponentTypes()
         yield self.commit()
@@ -1075,7 +1073,7 @@ END:VCALENDAR
         self.assertTrue(pkey in calendar2_vtodo.properties())
         self.assertEqual(str(calendar2_vtodo.properties()[pkey]), "A birthday calendar")
 
-        calendar2 = yield home.calendarWithName("calendar_2")        
+        calendar2 = yield home.calendarWithName("calendar_2")
         children = yield calendar2.listCalendarObjects()
         self.assertEqual(len(children), 3)
         new_sync_token2 = yield calendar2.syncToken()
@@ -1094,7 +1092,7 @@ END:VCALENDAR
         Test CalendarHome.splitCalendars to make sure we end up with at least two collections
         with different supported components.
         """
-        
+
         # Do split
         home = yield self.transactionUnderTest().calendarHomeWithUID("home_no_splits")
         calendars = yield home.calendars()
@@ -1111,7 +1109,7 @@ END:VCALENDAR
                 continue
             result = yield calendar.getSupportedComponents()
             supported_components.add(result)
-            
+
         self.assertEqual(supported_components, set(("VEVENT", "VTODO",)))
 
     @inlineCallbacks
@@ -1120,14 +1118,14 @@ END:VCALENDAR
         Test CommonObjectResource.lock to make sure it locks, raises on missing resource,
         and raises when locked and wait=False used.
         """
-        
+
         # Valid object
         resource = yield self.calendarObjectUnderTest()
-        
+
         # Valid lock
         yield resource.lock()
         self.assertTrue(resource._locked)
-        
+
         # Setup a new transaction to verify the lock and also verify wait behavior
         newTxn = self._sqlCalendarStore.newTransaction()
         newResource = yield self.calendarObjectUnderTest(txn=newTxn)
@@ -1142,19 +1140,19 @@ END:VCALENDAR
 
         # Commit existing transaction and verify we can get the lock using
         yield self.commit()
-        
+
         resource = yield self.calendarObjectUnderTest()
         yield resource.lock()
         self.assertTrue(resource._locked)
-                
+
         # Setup a new transaction to verify the lock but pass in an alternative txn directly
         newTxn = self._sqlCalendarStore.newTransaction()
-        
+
         # FIXME: not sure why, but without this statement here, this portion of the test fails in a funny way.
         # Basically the query in the try block seems to execute twice, failing each time, one of which is caught,
         # and the other not - causing the test to fail. Seems like some state on newTxn is not being initialized?
         yield self.calendarObjectUnderTest("2.ics", txn=newTxn)
-        
+
         try:
             yield resource.lock(wait=False, useTxn=newTxn)
         except:
@@ -1182,10 +1180,10 @@ END:VCALENDAR
         """
         Test CalendarObjectResource.recurrenceMinMax to make sure it handles a None value.
         """
-        
+
         # Valid object
         resource = yield self.calendarObjectUnderTest()
-        
+
         # Valid lock
         rMin, rMax = yield resource.recurrenceMinMax()
         self.assertEqual(rMin, None)
@@ -1197,14 +1195,14 @@ END:VCALENDAR
         Test PostgresLegacyIndexEmulator.notExpandedWithin to make sure it returns the correct
         result based on the ranges passed in.
         """
-        
+
         self.patch(config, "FreeBusyIndexDelayedExpand", False)
 
         # Create the index on a new calendar
         home = yield self.homeUnderTest()
         newcalendar = yield home.createCalendarWithName("index_testing")
         index = PostgresLegacyIndexEmulator(newcalendar)
-        
+
         # Create the calendar object to use for testing
         nowYear = self.nowYear["now"]
         caldata = """BEGIN:VCALENDAR
@@ -1300,15 +1298,15 @@ END:VCALENDAR
         instances = yield calendarObject.instances()
         self.assertNotEqual(len(instances), 0)
         yield self.commit()
-        
+
         # Re-add event with re-indexing
         calendar = yield self.calendarUnderTest()
         calendarObject = yield self.calendarObjectUnderTest("indexing.ics")
         yield calendarObject.setComponent(component)
         instances2 = yield calendarObject.instances()
         self.assertNotEqual(
-            sorted(instances, key=lambda x:x[0])[0], 
-            sorted(instances2, key=lambda x:x[0])[0], 
+            sorted(instances, key=lambda x:x[0])[0],
+            sorted(instances2, key=lambda x:x[0])[0],
         )
         yield self.commit()
 
@@ -1319,10 +1317,10 @@ END:VCALENDAR
         yield calendarObject.setComponent(component)
         instances3 = yield calendarObject.instances()
         self.assertEqual(
-            sorted(instances2, key=lambda x:x[0])[0], 
-            sorted(instances3, key=lambda x:x[0])[0], 
+            sorted(instances2, key=lambda x:x[0])[0],
+            sorted(instances3, key=lambda x:x[0])[0],
         )
-        
+
         yield calendar.removeCalendarObjectWithName("indexing.ics")
         yield self.commit()
 
@@ -1337,19 +1335,19 @@ END:VCALENDAR
         def _tests(cal):
             resources = yield cal.objectResourcesWithNames(("1.ics",))
             self.assertEqual(set([resource.name() for resource in resources]), set(("1.ics",)))
-    
+
             resources = yield cal.objectResourcesWithNames(("1.ics", "2.ics",))
             self.assertEqual(set([resource.name() for resource in resources]), set(("1.ics", "2.ics",)))
-    
+
             resources = yield cal.objectResourcesWithNames(("1.ics", "2.ics", "3.ics",))
             self.assertEqual(set([resource.name() for resource in resources]), set(("1.ics", "2.ics", "3.ics",)))
-    
+
             resources = yield cal.objectResourcesWithNames(("1.ics", "2.ics", "3.ics", "4.ics",))
             self.assertEqual(set([resource.name() for resource in resources]), set(("1.ics", "2.ics", "3.ics", "4.ics",)))
-    
+
             resources = yield cal.objectResourcesWithNames(("bogus1.ics",))
             self.assertEqual(set([resource.name() for resource in resources]), set())
-    
+
             resources = yield cal.objectResourcesWithNames(("bogus1.ics", "2.ics",))
             self.assertEqual(set([resource.name() for resource in resources]), set(("2.ics",)))
 
@@ -1360,7 +1358,7 @@ END:VCALENDAR
         # Adjust batch size and try again
         self.patch(CommonObjectResource, "BATCH_LOAD_SIZE", 2)
         yield _tests(cal)
-        
+
         yield self.commit()
 
         # Tests on inbox - resources with properties
