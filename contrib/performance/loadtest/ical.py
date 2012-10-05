@@ -771,7 +771,10 @@ class BaseAppleClient(BaseClient):
                         if caldavxml.supported_calendar_component_set in nodes:
                             for comp in nodes[caldavxml.supported_calendar_component_set].getchildren():
                                 componentTypes.add(comp.get("name").upper())
-                    
+
+                    if textProps.get(davxml.displayname, None) == "tasks":
+                        # Until we can fix caldavxml.supported_calendar_component_set
+                        break                    
                     changeTag = davxml.sync_token if self.supportSync else csxml.getctag
                     calendars.append(Calendar(
                             nodeType.tag,
