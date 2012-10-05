@@ -32,9 +32,7 @@ from twext.web2.http_headers import MimeType, generateContentType
 from twext.python.filepath import CachingFilePath
 
 from twisted.internet.defer import inlineCallbacks, returnValue
-from twisted.internet.error import ConnectionLost
 from twisted.python import hashlib
-from twisted.python.failure import Failure
 
 from twistedcaldav import caldavxml, customxml
 from twistedcaldav.caldavxml import ScheduleCalendarTransp, Opaque
@@ -80,6 +78,8 @@ from txdav.common.icommondatastore import IndexedSearchException,\
 from pycalendar.datetime import PyCalendarDateTime
 from pycalendar.duration import PyCalendarDuration
 from pycalendar.timezone import PyCalendarTimezone
+
+from txdav.caldav.datastore.util import AttachmentRetrievalTransport
 
 from zope.interface.declarations import implements
 
@@ -1533,8 +1533,7 @@ class Attachment(object):
 
 
     def retrieve(self, protocol):
-        protocol.dataReceived(self._path.getContent())
-        protocol.connectionLost(Failure(ConnectionLost()))
+        return AttachmentRetrievalTransport(self._path).start(protocol)
 
 
     _removeStatement = Delete(

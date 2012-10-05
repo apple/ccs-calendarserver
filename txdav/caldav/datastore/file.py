@@ -34,8 +34,6 @@ from errno import ENOENT
 
 from twisted.internet.defer import inlineCallbacks, returnValue, succeed, fail
 
-from twisted.python.failure import Failure
-
 from twext.python.vcomponent import VComponent
 from txdav.xml import element as davxml
 from txdav.xml.rfc2518 import ResourceType, GETContentType
@@ -56,7 +54,7 @@ from txdav.caldav.datastore.index_file import Index as OldIndex,\
     IndexSchedule as OldInboxIndex
 from txdav.caldav.datastore.util import (
     validateCalendarComponent, dropboxIDFromCalendarObject, CalendarObjectBase,
-    StorageTransportBase
+    StorageTransportBase, AttachmentRetrievalTransport
 )
 
 from txdav.common.datastore.file import (
@@ -737,6 +735,7 @@ class AttachmentStorageTransport(StorageTransportBase):
     def write(self, data):
         # FIXME: multiple chunks
         self._file.write(data)
+        return super(AttachmentStorageTransport, self).write(data)
 
 
     def loseConnection(self):
@@ -801,12 +800,7 @@ class Attachment(FileMetaDataMixin):
 
 
     def retrieve(self, protocol):
-        # FIXME: makeConnection
-        # FIXME: actually stream
-        # FIMXE: connectionLost
-        protocol.dataReceived(self._path.getContent())
-        # FIXME: ConnectionDone, not NotImplementedError
-        protocol.connectionLost(Failure(NotImplementedError()))
+        return AttachmentRetrievalTransport(self._path).start(protocol)
 
 
     @property

@@ -1646,6 +1646,8 @@ class CalendarAttachment(_NewStoreFileMetaDataHelper, _GetChildHelper):
 
         stream = ProducerStream()
         class StreamProtocol(Protocol):
+            def connectionMade(self):
+                stream.registerProducer(self.transport, False)
             def dataReceived(self, data):
                 stream.write(data)
             def connectionLost(self, reason):
@@ -1655,7 +1657,6 @@ class CalendarAttachment(_NewStoreFileMetaDataHelper, _GetChildHelper):
         except IOError, e:
             log.error("Unable to read attachment: %s, due to: %s" % (self, e,))
             raise HTTPError(responsecode.NOT_FOUND)
-            
         return Response(OK, {"content-type":self.contentType()}, stream)
 
 

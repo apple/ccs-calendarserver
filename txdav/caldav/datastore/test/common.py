@@ -2090,24 +2090,21 @@ END:VCALENDAR
         t.write(sampleData)
         yield t.loseConnection()
         yield self.exceedQuotaTest(get)
+        @inlineCallbacks
         def checkOriginal():
-            catch = StringIO()
-            catch.dataReceived = catch.write
-            lost = []
-            catch.connectionLost = lost.append
-            attachment.retrieve(catch)
+            actual = yield self.attachmentToString(attachment)
             expected = sampleData
             # note: 60 is less than len(expected); trimming is just to make
             # the error message look sane when the test fails.
-            actual = catch.getvalue()[:60]
+            actual = actual[:60]
             self.assertEquals(actual, expected)
-        checkOriginal()
+        yield checkOriginal()
         yield self.commit()
         # Make sure that things go back to normal after a commit of that
         # transaction.
         obj = yield self.calendarObjectUnderTest()
         attachment = yield get()
-        checkOriginal()
+        yield checkOriginal()
 
 
     def test_removeAttachmentWithName(self, refresh=lambda x:x):
