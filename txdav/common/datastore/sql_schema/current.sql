@@ -369,8 +369,7 @@ create table ADDRESSBOOK_METADATA (
   MD5                     char(32)     not null,
   CREATED                 timestamp    default timezone('UTC', CURRENT_TIMESTAMP),
   MODIFIED                timestamp    default timezone('UTC', CURRENT_TIMESTAMP),
-  -- ### TODO: ADD ROW ###
-  --KIND 			  		  integer      not null, -- enum OBJECT_KIND
+  KIND 			  		  integer      not null, -- enum OBJECT_KIND
 
   unique(ADDRESSBOOK_RESOURCE_ID, RESOURCE_NAME), -- implicit index
   unique(ADDRESSBOOK_RESOURCE_ID, VCARD_UID)      -- implicit index
@@ -380,15 +379,15 @@ create table ADDRESSBOOK_METADATA (
 -- AddressBook Object kind --
 -----------------------------
 
-create table OBJECT_KIND (
+create table ADDRESS_BOOK_OBJECT_KIND (
   ID          integer     primary key,
   DESCRIPTION varchar(16) not null unique
 );
 
-insert into OBJECT_KIND values (0, 'person');
-insert into OBJECT_KIND values (1, 'group' );
-insert into OBJECT_KIND values (2, 'resource');
-insert into OBJECT_KIND values (3, 'location');
+insert into ADDRESS_BOOK_OBJECT_KIND values (0, 'person');
+insert into ADDRESS_BOOK_OBJECT_KIND values (1, 'group' );
+insert into ADDRESS_BOOK_OBJECT_KIND values (2, 'resource');
+insert into ADDRESS_BOOK_OBJECT_KIND values (3, 'location');
 
 -------------
 -- Members --

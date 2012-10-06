@@ -41,22 +41,23 @@ from twistedcaldav.vcard import Component as VCard, InvalidVCardDataError
 from txdav.common.datastore.sql_legacy import PostgresLegacyABIndexEmulator
 
 from txdav.carddav.datastore.util import validateAddressBookComponent
-from txdav.carddav.iaddressbookstore import IAddressBookHome, IAddressBook,\
+from txdav.carddav.iaddressbookstore import IAddressBookHome, IAddressBook, \
     IAddressBookObject
 
-from txdav.common.datastore.sql import CommonHome, CommonHomeChild,\
+from txdav.common.datastore.sql import CommonHome, CommonHomeChild, \
     CommonObjectResource, EADDRESSBOOKTYPE
 from twext.enterprise.dal.syntax import Delete
 from twext.enterprise.dal.syntax import Insert
 
 from twext.enterprise.dal.syntax import Update
 from twext.enterprise.dal.syntax import utcNowSQL
-from txdav.common.datastore.sql_tables import ADDRESSBOOK_TABLE,\
-    ADDRESSBOOK_BIND_TABLE, ADDRESSBOOK_OBJECT_REVISIONS_TABLE,\
-    ADDRESSBOOK_OBJECT_TABLE, ADDRESSBOOK_HOME_TABLE,\
-    ADDRESSBOOK_HOME_METADATA_TABLE, ADDRESSBOOK_AND_ADDRESSBOOK_BIND,\
+from txdav.common.datastore.sql_tables import ADDRESSBOOK_TABLE, \
+    ADDRESSBOOK_BIND_TABLE, ADDRESSBOOK_OBJECT_REVISIONS_TABLE, \
+    ADDRESSBOOK_OBJECT_TABLE, ADDRESSBOOK_HOME_TABLE, \
+    ADDRESSBOOK_HOME_METADATA_TABLE, ADDRESSBOOK_AND_ADDRESSBOOK_BIND, \
     ADDRESSBOOK_OBJECT_AND_BIND_TABLE, \
-    ADDRESSBOOK_OBJECT_REVISIONS_AND_BIND_TABLE, schema
+    ADDRESSBOOK_OBJECT_REVISIONS_AND_BIND_TABLE, \
+    _ABO_KIND_PERSON, _ABO_KIND_GROUP, _ABO_KIND_RESOURCE, _ABO_KIND_LOCATION, schema
 from txdav.base.propertystore.base import PropertyName
 
 
@@ -163,7 +164,7 @@ class AddressBook(CommonHomeChild):
     def __init__(self, *args, **kw):
         super(AddressBook, self).__init__(*args, **kw)
         self._index = PostgresLegacyABIndexEmulator(self)
-        
+
 
     @property
     def _addressbookHome(self):
@@ -256,7 +257,7 @@ class AddressBookObject(CommonObjectResource):
         @type component: L{Component}
         """
 
-        ao = schema.ADDRESSBOOK_OBJECT
+        abo = schema.ADDRESSBOOK_OBJECT
 
         componentText = str(component)
         self._objectText = componentText
@@ -269,26 +270,33 @@ class AddressBookObject(CommonObjectResource):
         if self._txn._migrating and hasattr(component, "md5"):
             self._md5 = component.md5
 
+        # map vCard kind to AddressBook object kind; default is _ABO_KIND_PERSON
+        aoKind = {"group": _ABO_KIND_GROUP,
+                  "resource": _ABO_KIND_RESOURCE,
+                  "location": _ABO_KIND_LOCATION, }.get(component.resourceKind(), _ABO_KIND_PERSON)
+
         if inserting:
             self._resourceID, self._created, self._modified = (
                 yield Insert(
-                    {ao.ADDRESSBOOK_RESOURCE_ID: self._addressbook._resourceID,
-                     ao.RESOURCE_NAME: self._name,
-                     ao.VCARD_TEXT: componentText,
-                     ao.VCARD_UID: component.resourceUID(),
-                     ao.MD5: self._md5},
-                    Return=(ao.RESOURCE_ID,
-                            ao.CREATED,
-                            ao.MODIFIED)
+                    {abo.ADDRESSBOOK_RESOURCE_ID: self._addressbook._resourceID,
+                     abo.RESOURCE_NAME: self._name,
+                     abo.VCARD_TEXT: componentText,
+                     abo.VCARD_UID: component.resourceUID(),
+                     abo.KIND: aoKind,
+                     abo.MD5: self._md5},
+                    Return=(abo.RESOURCE_ID,
+                            abo.CREATED,
+                            abo.MODIFIED)
                 ).on(self._txn))[0]
         else:
             self._modified = (yield Update(
-                {ao.VCARD_TEXT: componentText,
-                 ao.VCARD_UID: component.resourceUID(),
-                 ao.MD5: self._md5,
-                 ao.MODIFIED: utcNowSQL},
-                Where=ao.RESOURCE_ID == self._resourceID,
-                Return=ao.MODIFIED).on(self._txn))[0][0]
+                {abo.VCARD_TEXT: componentText,
+                 abo.VCARD_UID: component.resourceUID(),
+                 abo.KIND: aoKind,
+                 abo.MD5: self._md5,
+                 abo.MODIFIED: utcNowSQL},
+                Where=abo.RESOURCE_ID == self._resourceID,
+                Return=abo.MODIFIED).on(self._txn))[0][0]
 
 
     @inlineCallbacks
@@ -315,7 +323,7 @@ class AddressBookObject(CommonObjectResource):
 
         if unfixed:
             self.log_error("Address data id=%s had unfixable problems:\n  %s" % (self._resourceID, "\n  ".join(unfixed),))
-        
+
         if fixed:
             self.log_error("Address data id=%s had fixable problems:\n  %s" % (self._resourceID, "\n  ".join(fixed),))
 

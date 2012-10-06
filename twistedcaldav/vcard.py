@@ -104,7 +104,7 @@ class Property (object):
         @return: the duplicated vcard.
         """
         return Property(None, None, params=None, pycard=self._pycard.duplicate())
-        
+
     def name  (self): return self._pycard.getName()
 
     def value (self): return self._pycard.getValue().getValue()
@@ -144,7 +144,7 @@ class Property (object):
             attrs = self._pycard.getAttributes()[name.upper()]
         except KeyError:
             return []
-        
+
         for attr in attrs:
             results.extend(attr.getValues())
         return results
@@ -162,7 +162,7 @@ class Property (object):
         self._pycard.setAttributes({})
 
     def removeParameterValue(self, paramname, paramvalue):
-        
+
         paramname = paramname.upper()
         for attrName in self.parameterNames():
             if attrName.upper() == paramname:
@@ -188,7 +188,7 @@ class Component (object):
         else:
             # Valid utf-8 please
             string.decode("utf-8")
-        
+
         # No BOMs please
         if string[:3] == codecs.BOM_UTF8:
             string = string[3:]
@@ -222,7 +222,7 @@ class Component (object):
         else:
             # Valid utf-8 please
             string.decode("utf-8")
-        
+
         # No BOMs please
         if string[:3] == codecs.BOM_UTF8:
             string = string[3:]
@@ -288,11 +288,11 @@ class Component (object):
             # even though it's names as a private variable.
             if "parent" in kwargs:
                 parent = kwargs["parent"]
-                
+
                 if parent is not None:
                     if not isinstance(parent, Component):
                         raise TypeError("Not a Component: %r" % (parent,))
-                    
+
                 self._parent = parent
             else:
                 self._parent = None
@@ -317,7 +317,7 @@ class Component (object):
     # FIXME: Should this not be in __eq__?
     def same(self, other):
         return self._pycard == other._pycard
-    
+
     def name(self):
         """
         @return: the name of the iCalendar type of this component.
@@ -330,7 +330,7 @@ class Component (object):
         @return: the duplicated vcard.
         """
         return Component(None, pycard=self._pycard.duplicate())
-        
+
     def hasProperty(self, name):
         """
         @param name: the name of the property whose existence is being tested.
@@ -349,7 +349,7 @@ class Component (object):
         if len(properties) == 1: return properties[0]
         if len(properties) > 1: raise InvalidVCardDataError("More than one %s property in component %r" % (name, self))
         return None
-        
+
     def properties(self, name=None):
         """
         @param name: if given and not C{None}, restricts the returned properties
@@ -398,7 +398,7 @@ class Component (object):
         Add or replace a property in this component.
         @param property: the L{Property} to add or replace in this component.
         """
-        
+
         # Remove all existing ones first
         self._pycard.removeProperties(property.name())
         self.addProperty(property)
@@ -413,6 +413,28 @@ class Component (object):
             self._resource_uid = self.propertyValue("UID")
 
         return self._resource_uid
+
+    def resourceKind(self):
+        """
+        @return: the kind of the subcomponents in this component.
+        """
+        assert self.name() == "VCARD", "Not a vcard: %r" % (self,)
+
+        if not hasattr(self, "_resource_kind"):
+            self._resource_kind = self.propertyValue("X-ADDRESSBOOKSERVER-KIND")
+
+        return self._resource_kind
+
+    def resourceMembers(self):
+        """
+        @return: an iterable of L{Property} objects, one for each member of this
+        """
+        assert self.name() == "VCARD", "Not a vcard: %r" % (self,)
+
+        if not hasattr(self, "_resource_members"):
+            self._resource_members = self.properties("X-ADDRESSBOOKSERVER-MEMBERS")
+
+        return self._resource_members
 
     def validVCardData(self, doFix=True, doRaise=True):
         """
@@ -431,7 +453,7 @@ class Component (object):
                 raise InvalidVCardDataError("Calendar data had unfixable problems:\n  %s" % ("\n  ".join(unfixed),))
         if fixed:
             log.debug("vCard data had fixable problems:\n  %s" % ("\n  ".join(fixed),))
-        
+
         return fixed, unfixed
 
     def validForCardDAV(self):
@@ -447,7 +469,7 @@ class Component (object):
         uid = self.propertyValue("UID")
         if uid is None:
             raise InvalidVCardDataError("All vCards must have UIDs")
-        
+
         # Control character check - only HTAB, CR, LF allowed for characters in the range 0x00-0x1F
         s = str(self)
         if len(s.translate(None, "\x00\x01\x02\x03\x04\x05\x06\x07\x08\x0B\x0C\x0E\x0F\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1A\x1B\x1C\x1D\x1E\x1F")) != len(s):

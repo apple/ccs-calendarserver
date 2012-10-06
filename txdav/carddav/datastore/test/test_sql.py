@@ -31,7 +31,7 @@ from twistedcaldav.vcard import Component as VCard
 from twistedcaldav.vcard import Component as VComponent
 
 from txdav.base.propertystore.base import PropertyName
-from txdav.carddav.datastore.test.common import CommonTests as AddressBookCommonTests,\
+from txdav.carddav.datastore.test.common import CommonTests as AddressBookCommonTests, \
     vcard4_text
 from txdav.carddav.datastore.test.test_file import setUpAddressBookStore
 from txdav.carddav.datastore.util import _migrateAddressbook, migrateHome
@@ -39,6 +39,11 @@ from txdav.common.datastore.sql import EADDRESSBOOKTYPE
 from txdav.common.datastore.sql_tables import schema
 from txdav.common.datastore.test.util import buildStore
 
+def _todo(f, why):
+    f.todo = why
+    return f
+
+testUnimplemented = lambda f: _todo(f, "Test unimplemented")
 
 class AddressBookSQLStorageTests(AddressBookCommonTests, unittest.TestCase):
     """
@@ -206,22 +211,22 @@ class AddressBookSQLStorageTests(AddressBookCommonTests, unittest.TestCase):
         The DATAVERSION column for new calendar homes must match the
         ADDRESSBOOK-DATAVERSION value.
         """
-        
+
         home = yield self.transactionUnderTest().addressbookHomeWithUID("home_version")
         self.assertTrue(home is not None)
         yield self.transactionUnderTest().commit
-        
+
         txn = yield self.transactionUnderTest()
         version = yield txn.calendarserverValue("ADDRESSBOOK-DATAVERSION")[0][0]
         ch = schema.ADDRESSBOOK_HOME
         homeVersion = yield Select(
-            [ch.DATAVERSION,],
+            [ch.DATAVERSION, ],
             From=ch,
             Where=ch.OWNER_UID == "home_version",
         ).on(txn)[0][0]
         self.assertEqual(int(homeVersion, version))
-        
-        
+
+
 
     def test_eachAddressbookHome(self):
         """
@@ -301,6 +306,13 @@ END:VCARD
         yield d1
         yield d2
 
+    @testUnimplemented
+    def test_addressbookObjectKind(self):
+        """
+        Test that kind property vCard is stored correctly in database
+        """
+        raise NotImplementedError()
+
     @inlineCallbacks
     def test_removeAddressBookPropertiesOnDelete(self):
         """
@@ -314,7 +326,7 @@ END:VCARD
         addressbook = yield home.createAddressBookWithName(name)
         resourceID = addressbook._resourceID
         addressbookProperties = addressbook.properties()
-        
+
         prop = carddavxml.AddressBookDescription.fromString("Address Book to be removed")
         addressbookProperties[PropertyName.fromElement(prop)] = prop
         yield self.commit()
