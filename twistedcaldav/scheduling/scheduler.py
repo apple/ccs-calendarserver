@@ -36,7 +36,7 @@ from twistedcaldav.caldavxml import caldav_namespace
 from twistedcaldav.customxml import calendarserver_namespace
 from twistedcaldav.accounting import accountingEnabled, emitAccounting
 from twistedcaldav.config import config
-from twistedcaldav.ical import Component
+from twistedcaldav.ical import Component, normalizeCUAddress
 from twistedcaldav.memcachelock import MemcacheLock, MemcacheLockTimeoutError
 from twistedcaldav.scheduling import addressmapping
 from twistedcaldav.scheduling.caldav import ScheduleViaCalDAV
@@ -913,6 +913,15 @@ class IScheduleScheduler(RemoteScheduler):
         if not self.checkForFreeBusy():
             self.calendar.normalizeCalendarUserAddresses(normalizationLookup,
                 self.resource.principalForCalendarUserAddress)
+
+    def loadRecipientsFromRequestHeaders(self):
+        """
+        Need to normalize the calendar data and recipient values to keep those in sync,
+        as we might later try to match them
+        """
+        super(IScheduleScheduler, self).loadRecipientsFromRequestHeaders()
+        self.recipients = [normalizeCUAddress(recipient, normalizationLookup, self.resource.principalForCalendarUserAddress) for recipient in self.recipients]
+
 
     def checkAuthorization(self):
         # Must have an unauthenticated user

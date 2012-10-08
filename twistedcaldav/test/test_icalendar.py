@@ -21,7 +21,8 @@ import itertools
 from twisted.trial.unittest import SkipTest
 
 from twistedcaldav.config import config
-from twistedcaldav.ical import Component, Property, InvalidICalendarDataError
+from twistedcaldav.ical import Component, Property, InvalidICalendarDataError, \
+    normalizeCUAddress
 from twistedcaldav.instance import InvalidOverriddenInstanceError
 import twistedcaldav.test.util
 
@@ -42,7 +43,8 @@ class iCalendar (twistedcaldav.test.util.TestCase):
         Properties in components
         """
         calendar = Component.fromStream(file(os.path.join(self.data_dir, "Holidays.ics")))
-        if calendar.name() != "VCALENDAR": self.fail("Calendar is not a VCALENDAR")
+        if calendar.name() != "VCALENDAR":
+            self.fail("Calendar is not a VCALENDAR")
 
         for subcomponent in calendar.subcomponents():
             if subcomponent.name() == "VEVENT":
@@ -78,7 +80,7 @@ class iCalendar (twistedcaldav.test.util.TestCase):
 #            calendar2 = Component.fromString(data)
 #
 #            self.assertEqual(calendar1, calendar2)
-            
+
         data1 = (
             (
                 "1.1 Switch property order",
@@ -243,7 +245,7 @@ END:VCALENDAR
                 True,
             ),
         )
-        
+
         for description, item1, item2, result in data1:
             if "1.3" not in description:
                 continue
@@ -252,6 +254,7 @@ END:VCALENDAR
             (self.assertEqual if result else self.assertNotEqual)(
                 calendar1, calendar2, "%s" % (description,)
             )
+
 
     def test_component_validate(self):
         """
@@ -268,7 +271,8 @@ END:VCALENDAR
 
         resource_dir = os.path.join(self.data_dir, "Holidays")
         for filename in resource_dir:
-            if os.path.splitext(filename)[1] != ".ics": continue
+            if os.path.splitext(filename)[1] != ".ics":
+                continue
             filename = os.path.join(resource_dir, filename)
 
             calendar = Component.fromStream(file(filename))
@@ -277,6 +281,7 @@ END:VCALENDAR
                 calendar.validCalendarForCalDAV(methodAllowed=False)
             except ValueError:
                 self.fail("Resource iCalendar %s didn't validate for CalDAV" % (filename,))
+
 
     def test_component_validate_and_fix(self):
         """
@@ -570,7 +575,8 @@ END:VCALENDAR
             end = instance.end
             self.assertEqual(start, PyCalendarDateTime(year, 7, 4))
             self.assertEqual(end  , PyCalendarDateTime(year, 7, 5))
-            if year == 2050: break
+            if year == 2050:
+                break
             year += 1
 
         self.assertEqual(year, 2050)
@@ -596,7 +602,8 @@ END:VCALENDAR
             if year in results:
                 self.assertEqual(start, PyCalendarDateTime(year, results[year][0], results[year][1]))
                 self.assertEqual(end  , PyCalendarDateTime(year, results[year][0], results[year][2]))
-            if year == 2050: break
+            if year == 2050:
+                break
             year += 1
 
         self.assertEqual(year, 2050)
@@ -622,10 +629,12 @@ END:VCALENDAR
             if year in results:
                 self.assertEqual(start, PyCalendarDateTime(year, results[year][0], results[year][1]))
                 self.assertEqual(end  , PyCalendarDateTime(year, results[year][0], results[year][2]))
-            if year == 2050: break
+            if year == 2050:
+                break
             year += 1
 
         self.assertEqual(year, 2050)
+
 
     def test_component_timerange(self):
         """
@@ -640,15 +649,17 @@ END:VCALENDAR
             end = instance.end
             self.assertEqual(start, PyCalendarDateTime(2004, 11, 25))
             self.assertEqual(end, PyCalendarDateTime(2004, 11, 27))
-            break;
+            break
 
     #test_component_timerange.todo = "recurrence expansion should give us no end date here"
+
 
     def test_parse_date(self):
         """
         parse_date()
         """
         self.assertEqual(PyCalendarDateTime.parseText("19970714"), PyCalendarDateTime(1997, 7, 14))
+
 
     def test_parse_datetime(self):
         """
@@ -660,6 +671,7 @@ END:VCALENDAR
 
         dt = PyCalendarDateTime.parseText("19980119T070000Z")
         self.assertEqual(dt, PyCalendarDateTime(1998, 1, 19, 7, 0, 0, tzid=PyCalendarTimezone(utc=True)))
+
 
     def test_parse_date_or_datetime(self):
         """
@@ -674,18 +686,20 @@ END:VCALENDAR
         dt = PyCalendarDateTime.parseText("19980119T070000Z")
         self.assertEqual(dt, PyCalendarDateTime(1998, 1, 19, 7, 0, 0, tzid=PyCalendarTimezone(utc=True)))
 
+
     def test_parse_duration(self):
         """
         parse_duration()
         """
-        self.assertEqual(PyCalendarDuration.parseText( "P15DT5H0M20S"), PyCalendarDuration(days= 15, hours= 5, minutes=0, seconds= 20))
-        self.assertEqual(PyCalendarDuration.parseText("+P15DT5H0M20S"), PyCalendarDuration(days= 15, hours= 5, minutes=0, seconds= 20))
+        self.assertEqual(PyCalendarDuration.parseText("P15DT5H0M20S"), PyCalendarDuration(days=15, hours=5, minutes=0, seconds=20))
+        self.assertEqual(PyCalendarDuration.parseText("+P15DT5H0M20S"), PyCalendarDuration(days=15, hours=5, minutes=0, seconds=20))
         self.assertEqual(PyCalendarDuration.parseText("-P15DT5H0M20S"), PyCalendarDuration(days=-15, hours=-5, minutes=0, seconds=-20))
 
         self.assertEqual(PyCalendarDuration.parseText("P7W"), PyCalendarDuration(weeks=7))
 
+
     def test_correct_attendee_properties(self):
-        
+
         data = """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//Apple Computer\, Inc//iCal 2.0//EN
@@ -700,10 +714,11 @@ END:VCALENDAR
 """
 
         component = Component.fromString(data)
-        self.assertEqual([p.value() for p in component.getAttendeeProperties(("mailto:user2@example.com",))], ["mailto:user2@example.com",])
+        self.assertEqual([p.value() for p in component.getAttendeeProperties(("mailto:user2@example.com",))], ["mailto:user2@example.com", ])
+
 
     def test_empty_attendee_properties(self):
-        
+
         data = """BEGIN:VCALENDAR
 VERSION:2.0
 DTSTART:20071114T000000Z
@@ -720,8 +735,9 @@ END:VCALENDAR
         component = Component.fromString(data)
         self.assertEqual(component.getAttendeeProperties(("user3@example.com",)), [])
 
+
     def test_organizers_by_instance(self):
-        
+
         data = (
             (
                 """BEGIN:VCALENDAR
@@ -847,13 +863,14 @@ END:VCALENDAR
                 )
             ),
         )
-        
+
         for caldata, result in data:
             component = Component.fromString(caldata)
             self.assertEqual(component.getOrganizersByInstance(), result)
 
+
     def test_attendees_by_instance(self):
-        
+
         data = (
             (
                 """BEGIN:VCALENDAR
@@ -979,10 +996,11 @@ END:VCALENDAR
                 )
             ),
         )
-        
+
         for caldata, checkScheduleAgent, result in data:
             component = Component.fromString(caldata)
             self.assertEqual(component.getAttendeesByInstance(onlyScheduleAgentServer=checkScheduleAgent), result)
+
 
     def test_set_parameter_value(self):
         data = (
@@ -1131,7 +1149,8 @@ END:VCALENDAR
         for original, result, args in data:
             component = Component.fromString(original)
             component.setParameterToValueForPropertyWithValue(*args)
-            self.assertEqual(result, str(component).replace("\r", ""))        
+            self.assertEqual(result, str(component).replace("\r", ""))
+
 
     def test_add_property(self):
         data = (
@@ -1203,10 +1222,11 @@ END:VCALENDAR
         for original, result in data:
             component = Component.fromString(original)
             component.addPropertyToAllComponents(Property("REQUEST-STATUS", ["2.0", "Success"]))
-            self.assertEqual(result, str(component).replace("\r", ""))        
+            self.assertEqual(result, str(component).replace("\r", ""))
+
 
     def test_attendees_views(self):
-        
+
         data = (
             (
                 "1.1 Simple component, no Attendees - no filtering",
@@ -1386,7 +1406,7 @@ PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
 END:VCALENDAR
 """,
                 ("mailto:user3@example.com",)
-            ),        
+            ),
 
             (
                 "2.3 Recurring component with one instance, master with one attendee, instance without attendee - filtering match",
@@ -1683,14 +1703,15 @@ END:VCALENDAR
             ),
 
         )
-        
+
         for description, original, checkScheduleAgent, filtered, attendees in data:
             component = Component.fromString(original)
             component.attendeesView(attendees, onlyScheduleAgentServer=checkScheduleAgent)
             self.assertEqual(filtered, str(component).replace("\r", ""), "Failed: %s" % (description,))
 
+
     def test_all_but_one_attendee(self):
-        
+
         data = (
             # One component, no attendees
             (
@@ -1834,14 +1855,15 @@ END:VCALENDAR
             ),
 
         )
-        
+
         for original, result, attendee in data:
             component = Component.fromString(original)
             component.removeAllButOneAttendee(attendee)
             self.assertEqual(result, str(component).replace("\r", ""))
 
+
     def test_filter_properties_keep(self):
-        
+
         data = (
             # One component
             (
@@ -1931,14 +1953,15 @@ END:VCALENDAR
             ),
 
         )
-        
+
         for original, result, keep_properties in data:
             component = Component.fromString(original)
             component.filterProperties(keep=keep_properties)
             self.assertEqual(result, str(component).replace("\r", ""))
 
+
     def test_filter_properties_remove(self):
-        
+
         data = (
             # One component
             (
@@ -2029,14 +2052,15 @@ END:VCALENDAR
             ),
 
         )
-        
+
         for original, result, remove_properties in data:
             component = Component.fromString(original)
             component.filterProperties(remove=remove_properties)
             self.assertEqual(result, str(component).replace("\r", ""))
 
+
     def test_remove_alarms(self):
-        
+
         data = (
             # One component, no alarms
             (
@@ -2198,14 +2222,15 @@ END:VCALENDAR
 """,
             ),
         )
-        
+
         for original, result in data:
             component = Component.fromString(original)
             component.removeAlarms()
             self.assertEqual(result, str(component).replace("\r", ""))
 
+
     def test_expand_instances(self):
-        
+
         data = (
             (
                 "Non recurring",
@@ -2430,7 +2455,7 @@ END:VCALENDAR
                 )
             ),
         )
-        
+
         for description, original, ignoreInvalidInstances, results in data:
             component = Component.fromString(original)
             if results is None:
@@ -2443,9 +2468,10 @@ END:VCALENDAR
                 for start, end in periods:
                     self.assertEqual(start.isDateOnly(), results[0][0].isDateOnly(), "%s: %s wrong date/time start state" % (description, start,))
                     self.assertEqual(end.isDateOnly(), results[0][1].isDateOnly(), "%s: %s wrong date/time end state" % (description, end,))
-       
+
+
     def test_expand_instances_for_expand(self):
-        
+
         data = (
             (
                 "Non recurring utc",
@@ -2772,7 +2798,7 @@ END:VCALENDAR
                 None
             ),
         )
-        
+
         for description, original, ignoreInvalidInstances, results in data:
             component = Component.fromString(original)
             if results is None:
@@ -2785,9 +2811,10 @@ END:VCALENDAR
                 for start, end in periods:
                     self.assertEqual(start.isDateOnly(), results[0][0].isDateOnly(), "%s: %s wrong date/time start state" % (description, start,))
                     self.assertEqual(end.isDateOnly(), results[0][1].isDateOnly(), "%s: %s wrong date/time end state" % (description, end,))
-       
+
+
     def test_expand_instances_lowerlimit(self):
-        
+
         data = (
             (
                 "Non recurring - no limit",
@@ -3129,7 +3156,7 @@ END:VCALENDAR
                 PyCalendarDateTime(2012, 1, 1),
             ),
         )
-        
+
         for description, original, lowerLimit, results, limited in data:
             component = Component.fromString(original)
             instances = component.expandTimeRanges(PyCalendarDateTime(2100, 1, 1), lowerLimit=lowerLimit)
@@ -3140,9 +3167,10 @@ END:VCALENDAR
                 self.assertEqual(start.isDateOnly(), results[0][0].isDateOnly(), "%s: %s wrong date/time start state" % (description, start,))
                 self.assertEqual(end.isDateOnly(), results[0][1].isDateOnly(), "%s: %s wrong date/time end state" % (description, end,))
             self.assertEqual(instances.lowerLimit, limited)
-       
+
+
     def test_has_property_in_any_component(self):
-        
+
         data = (
             (
                 "Single component - True",
@@ -3321,13 +3349,14 @@ END:VCALENDAR
                 False,
             ),
         )
-        
+
         for description, caldata, propnames, result in data:
             component = Component.fromString(caldata)
             self.assertTrue(component.hasPropertyInAnyComponent(propnames) == result, "Property name match incorrect: %s" % (description,))
-       
+
+
     def test_transfer_properties(self):
-        
+
         data = (
             (
                 "Non recurring - one property",
@@ -3411,7 +3440,7 @@ X-ITEM3:True
 END:VEVENT
 END:VCALENDAR
 """,
-            ("X-ITEM2","X-ITEM3",),
+            ("X-ITEM2", "X-ITEM3",),
             ),
             (
                 "Non recurring - two properties - one overlap",
@@ -3454,7 +3483,7 @@ X-ITEM1:False
 END:VEVENT
 END:VCALENDAR
 """,
-            ("X-ITEM2","X-ITEM1",),
+            ("X-ITEM2", "X-ITEM1",),
             ),
             (
                 "Non recurring - one property",
@@ -3587,7 +3616,7 @@ END:VCALENDAR
             ("X-ITEM2",),
             ),
         )
-        
+
         for description, transfer_to, transfer_from, result, propnames in data:
             component_to = Component.fromString(transfer_to)
             component_from = Component.fromString(transfer_from)
@@ -3595,8 +3624,9 @@ END:VCALENDAR
             component_to.transferProperties(component_from, propnames)
             self.assertEqual(str(component_to), str(component_result), "%s: mismatch" % (description,))
 
+
     def test_normalize_all(self):
-        
+
         data = (
             (
                 "1.1",
@@ -3763,7 +3793,7 @@ END:VCALENDAR
 """,
             ),
         )
-        
+
         for title, original, result in data:
             ical1 = Component.fromString(original)
             ical1.normalizeAll()
@@ -3773,8 +3803,9 @@ END:VCALENDAR
             diff = "\n".join(unified_diff(ical1.split("\n"), ical2.split("\n")))
             self.assertEqual(str(ical1), str(ical2), "Failed comparison: %s\n%s" % (title, diff,))
 
+
     def test_normalize_attachments(self):
-        
+
         data = (
             (
                 "1.1 - no attach",
@@ -3878,7 +3909,7 @@ END:VCALENDAR
 """,
             ),
         )
-        
+
         for title, original, result in data:
             ical1 = Component.fromString(original)
             ical1.normalizeAttachments()
@@ -3888,8 +3919,9 @@ END:VCALENDAR
             diff = "\n".join(unified_diff(ical1.split("\n"), ical2.split("\n")))
             self.assertEqual(str(ical1), str(ical2), "Failed comparison: %s\n%s" % (title, diff,))
 
+
     def test_recurring_unbounded(self):
-        
+
         data = (
             (
                 "1.1 - non-recurring",
@@ -3955,14 +3987,15 @@ END:VCALENDAR
                 True
             ),
         )
-        
+
         for title, calendar, expected in data:
             ical = Component.fromString(calendar)
             result = ical.isRecurringUnbounded()
             self.assertEqual(result, expected, "Failed recurring unbounded test: %s" % (title,))
 
+
     def test_derive_instance(self):
-        
+
         data = (
             (
                 "1.1 - simple",
@@ -4223,15 +4256,16 @@ END:VCALENDAR
                 None,
             ),
         )
-        
+
         for title, calendar, rid, result in data:
             ical = Component.fromString(calendar)
             derived = ical.deriveInstance(rid)
             derived = str(derived).replace("\r", "") if derived else None
             self.assertEqual(derived, result, "Failed derive instance test: %s" % (title,))
 
+
     def test_derive_instance_multiple(self):
-        
+
         data = (
             (
                 "1.1 - simple",
@@ -4441,7 +4475,7 @@ END:VEVENT
                 ),
             ),
         )
-        
+
         for title, calendar, rids, results in data:
             ical = Component.fromString(calendar)
             for rid, result in itertools.izip(rids, results):
@@ -4449,11 +4483,12 @@ END:VEVENT
                 derived = str(derived).replace("\r", "") if derived else None
                 self.assertEqual(derived, result, "Failed derive instance test: %s" % (title,))
 
+
     def test_derive_instance_with_cancel(self):
         """
         Test that derivation of cancelled instances works and only results in one STATUS property present.
         """
-        
+
         data = (
             (
                 "1.1 - simple no existing STATUS",
@@ -4509,19 +4544,20 @@ END:VEVENT
 """,
             ),
         )
-        
+
         for title, calendar, rid, result in data:
             ical = Component.fromString(calendar)
             derived = ical.deriveInstance(rid, allowCancelled=True)
             derived = str(derived).replace("\r", "") if derived else None
             self.assertEqual(derived, result, "Failed derive instance test: %s" % (title,))
 
+
     def test_derive_instance_cache(self):
         """
         Test that derivation of instances only triggers an instance cache re-expansion when it
         goes past the end of the last cache.
         """
-        
+
         event = """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
@@ -4533,23 +4569,23 @@ DTSTAMP:20080601T120000Z
 RRULE:FREQ=DAILY
 END:VEVENT
 END:VCALENDAR
-"""        
+"""
 
         ical = Component.fromString(event)
         self.assertFalse(hasattr(ical, "cachedInstances"))
-        
+
         # Derive one day apart - no re-cache
         ical.deriveInstance(PyCalendarDateTime(2009, 1, 2, 8, 0, 0, tzid=PyCalendarTimezone(utc=True)))
         self.assertTrue(hasattr(ical, "cachedInstances"))
         oldLimit = ical.cachedInstances.limit
         ical.deriveInstance(PyCalendarDateTime(2009, 1, 3, 8, 0, 0, tzid=PyCalendarTimezone(utc=True)))
         self.assertEqual(ical.cachedInstances.limit, oldLimit)
-        
+
         # Derive several years ahead - re-cached
         ical.deriveInstance(PyCalendarDateTime(2011, 1, 1, 8, 0, 0, tzid=PyCalendarTimezone(utc=True)))
         self.assertNotEqual(ical.cachedInstances.limit, oldLimit)
         oldLimit = ical.cachedInstances.limit
-        
+
         # Check one day ahead again - no re-cache
         ical.deriveInstance(PyCalendarDateTime(2011, 1, 2, 8, 0, 0, tzid=PyCalendarTimezone(utc=True)))
         self.assertEqual(ical.cachedInstances.limit, oldLimit)
@@ -4560,7 +4596,7 @@ END:VCALENDAR
         Test that derivation of instances only triggers an instance cache re-expansion when it
         goes past the end of the last cache.
         """
-        
+
         event = """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
@@ -4594,7 +4630,7 @@ END:VEVENT
 
         ical = Component.fromString(event)
         masterDerived = ical.masterDerived()
-        
+
         # Derive one day apart - no re-cache
         result = ical.deriveInstance(PyCalendarDateTime(2009, 1, 2, 8, 0, 0, tzid=PyCalendarTimezone(utc=True)), newcomp=masterDerived)
         self.assertEqual(str(result), derived1)
@@ -4609,7 +4645,7 @@ END:VEVENT
 
 
     def test_truncate_recurrence(self):
-        
+
         data = (
             (
                 "1.1 - no recurrence",
@@ -4746,7 +4782,7 @@ END:VCALENDAR
 """,
             ),
         )
-        
+
         for title, original, result in data:
             ical1 = Component.fromString(original)
             changed = ical1.truncateRecurrence(400)
@@ -4758,14 +4794,15 @@ END:VCALENDAR
                 else:
                     ical2 = Component.fromString(result)
                     ical2 = str(ical2)
-    
+
                     diff = "\n".join(unified_diff(ical1.split("\n"), ical2.split("\n")))
                     self.assertEqual(str(ical1), str(ical2), "Failed comparison: %s\n%s" % (title, diff,))
             elif changed:
                 self.fail("Truncation happened when not expected: %s" % (title,))
 
+
     def test_valid_recurrence(self):
-        
+
         data = (
             (
                 "1.1 - no recurrence",
@@ -5022,23 +5059,24 @@ END:VCALENDAR
                 )
             ),
         )
-        
+
         for clear_cache in (True, False):
             for title, calendar, tests in data:
                 ical = Component.fromString(calendar)
                 for ctr, item in enumerate(tests):
                     rid, result = item
-                    self.assertEqual(ical.validInstance(rid, clear_cache=clear_cache), result, "Failed comparison: %s #%d" % (title, ctr+1,))
+                    self.assertEqual(ical.validInstance(rid, clear_cache=clear_cache), result, "Failed comparison: %s #%d" % (title, ctr + 1,))
 
         for title, calendar, tests in data:
             ical = Component.fromString(calendar)
             rids = set([rid for rid, result in tests])
-            expected_results = set([rid for rid, result in tests if result==True])
+            expected_results = set([rid for rid, result in tests if result == True])
             actual_results = ical.validInstances(rids)
             self.assertEqual(actual_results, expected_results, "Failed comparison: %s %s" % (title, actual_results,))
 
+
     def test_valid_recurrence_ids(self):
-        
+
         data = (
             (
                 "1.1 - fake master",
@@ -5241,13 +5279,14 @@ END:VCALENDAR
             1, 0,
             ),
         )
-        
+
         for title, calendar, result_calendar, result_fixed, result_unfixed in data:
             ical = Component.fromString(calendar)
             fixed, unfixed = ical.validRecurrenceIDs(doFix=True)
             self.assertEqual(str(ical), result_calendar.replace("\n", "\r\n"), "Failed comparison: %s %s" % (title, str(ical),))
             self.assertEqual(len(fixed), result_fixed, "Failed fixed comparison: %s %s" % (title, fixed,))
             self.assertEqual(len(unfixed), result_unfixed, "Failed unfixed: %s %s" % (title, unfixed,))
+
 
     def test_mismatched_until(self):
         invalid = (
@@ -5335,7 +5374,6 @@ END:VCALENDAR
 """,
         )
 
-
         for text in invalid:
             calendar = Component.fromString(text)
             self.assertRaises(InvalidICalendarDataError, calendar.validCalendarData, doFix=False)
@@ -5346,6 +5384,7 @@ END:VCALENDAR
                 calendar.validCalendarForCalDAV(methodAllowed=False)
             except:
                 self.fail("Valid calendar should validate")
+
 
     def test_allperuseruids(self):
         data = """BEGIN:VCALENDAR
@@ -5387,6 +5426,7 @@ END:VCALENDAR
             "user01",
             "user02",
         )))
+
 
     def test_perUserTransparency(self):
         data = (
@@ -5876,6 +5916,7 @@ END:VCALENDAR
             for rid, result in results:
                 self.assertEqual(calendar.perUserTransparency(rid), result, "Failed comparison: %s %s" % (title, rid,))
 
+
     def test_needsiTIPSequenceChange(self):
 
         data = (
@@ -6152,6 +6193,7 @@ END:VCALENDAR
             ical_old = Component.fromString(old_txt)
             ical_new = Component.fromString(new_txt)
             self.assertEqual(ical_new.needsiTIPSequenceChange(ical_old), result, "Failed: %s" % (title,))
+
 
     def test_bumpiTIPInfo(self):
 
@@ -6592,16 +6634,16 @@ END:VCALENDAR
                 True,
             ),
         )
-        
+
         for title, old_txt, ical_txt, result_txt, doSequence in data:
             old = Component.fromString(old_txt) if old_txt else None
             ical = Component.fromString(ical_txt)
             result = Component.fromString(result_txt)
             ical.bumpiTIPInfo(oldcalendar=old, doSequence=doSequence)
-            
+
             ical1 = str(ical).split("\n")
             ical2 = str(result).split("\n")
-            
+
             # Check without DTSTAMPs which we expect to be different
             ical1_withoutDTSTAMP = [item for item in ical1 if not item.startswith("DTSTAMP:")]
             ical2_withoutDTSTAMP = [item for item in ical2 if not item.startswith("DTSTAMP:")]
@@ -6609,10 +6651,10 @@ END:VCALENDAR
             diff = "\n".join(unified_diff(ical1_withoutDTSTAMP, ical2_withoutDTSTAMP))
             self.assertEqual("\n".join(ical1_withoutDTSTAMP), "\n".join(ical2_withoutDTSTAMP), "Failed comparison: %s\n%s" % (title, diff,))
 
-            # Check that all DTSTAMPs changed    
+            # Check that all DTSTAMPs changed
             dtstamps1 = set([item for item in ical1 if item.startswith("DTSTAMP:")])
             dtstamps2 = set([item for item in ical2 if item.startswith("DTSTAMP:")])
-            
+
             diff = "\n".join(unified_diff(ical1, ical2))
             self.assertEqual(len(dtstamps1 & dtstamps2), 0, "Failed comparison: %s\n%s" % (title, diff,))
 
@@ -6860,16 +6902,16 @@ END:VCALENDAR
 """,
             ),
         )
-        
+
         for title, old_txt, ical_txt, result_txt in data:
             old = Component.fromString(old_txt)
             ical = Component.fromString(ical_txt)
             result = Component.fromString(result_txt)
             ical.sequenceInSync(old)
-            
+
             ical1 = str(ical).split("\n")
             ical2 = str(result).split("\n")
-            
+
             diff = "\n".join(unified_diff(ical1, ical2))
             self.assertEqual("\n".join(ical1), "\n".join(ical2), "Failed comparison: %s\n%s" % (title, diff,))
 
@@ -7271,6 +7313,7 @@ END:VCALENDAR
 
         component = Component.fromString(data)
 
+
         def lookupFunction(cuaddr, ignored1, ignored2):
             return {
                 "urn:uuid:foo" : (
@@ -7328,17 +7371,18 @@ END:VCALENDAR
 
         component = Component.fromString(data)
 
+
         def lookupFunction(cuaddr, ignored1, ignored2):
             return {
                 "/principals/users/foo" : (
                     "Foo",
                     "foo",
-                    ("urn:uuid:foo", )
+                    ("urn:uuid:foo",)
                 ),
                 "http://example.com/principals/users/buz" : (
                     "Buz",
                     "buz",
-                    ("urn:uuid:buz", )
+                    ("urn:uuid:buz",)
                 ),
             }[cuaddr]
 
@@ -7442,6 +7486,7 @@ END:VCALENDAR
         self.assertEquals(subComponent._parent, None)
         self.assertEquals(component._cachedCopy, None) # cache is invalidated
 
+
     def test_hasDuplicateAlarms(self):
         """
         Test that L{Component.hasDuplicateAlarms} correctly detects, but does not fix, duplicate alarms.
@@ -7465,7 +7510,7 @@ END:VCALENDAR
 """,
                 False,
             ),
-            
+
             # One alarm
             (
                 """BEGIN:VCALENDAR
@@ -7488,7 +7533,7 @@ END:VCALENDAR
 """,
                 False,
             ),
-            
+
             # Two different alarms
             (
                 """BEGIN:VCALENDAR
@@ -7516,7 +7561,7 @@ END:VCALENDAR
 """,
                 False,
             ),
-            
+
             # Two duplicates, one different
             (
                 """BEGIN:VCALENDAR
@@ -7562,7 +7607,7 @@ END:VCALENDAR
 """,
                 True,
             ),
-            
+
             # Two duplicates in one component, three different in another
             (
                 """BEGIN:VCALENDAR
@@ -7618,7 +7663,7 @@ END:VCALENDAR
 """,
                 True,
             ),
-            
+
             # Four duplicates in X-CALENDARSERVER-PERINSTANCE
             (
                 """BEGIN:VCALENDAR
@@ -7664,10 +7709,11 @@ END:VCALENDAR
             ),
         )
 
-        for txt, result in data: 
+        for txt, result in data:
             component = Component.fromString(txt)
             self.assertEqual(component.hasDuplicateAlarms(doFix=False), result)
             self.assertEqual(str(component), txt.replace("\n", "\r\n"))
+
 
     def test_hasDuplicateAlarms_withFix(self):
         """
@@ -7705,7 +7751,7 @@ END:VCALENDAR
 """,
                 False,
             ),
-            
+
             # One alarm
             (
                 """BEGIN:VCALENDAR
@@ -7746,7 +7792,7 @@ END:VCALENDAR
 """,
                 False,
             ),
-            
+
             # Two different alarms
             (
                 """BEGIN:VCALENDAR
@@ -7797,7 +7843,7 @@ END:VCALENDAR
 """,
                 False,
             ),
-            
+
             # Two duplicates, one different
             (
                 """BEGIN:VCALENDAR
@@ -7879,7 +7925,7 @@ END:VCALENDAR
 """,
                 True,
             ),
-            
+
             # Two duplicates in one component, three different in another
             (
                 """BEGIN:VCALENDAR
@@ -7976,7 +8022,7 @@ END:VCALENDAR
 """,
                 True,
             ),
-            
+
             # Four duplicates in X-CALENDARSERVER-PERINSTANCE
             (
                 """BEGIN:VCALENDAR
@@ -8046,8 +8092,81 @@ END:VCALENDAR
             ),
         )
 
-        for txt, result, result_changed in data: 
+        for txt, result, result_changed in data:
             component = Component.fromString(txt)
             changed = component.hasDuplicateAlarms(doFix=True)
             self.assertEqual(str(component), result.replace("\n", "\r\n"))
             self.assertEqual(changed, result_changed)
+
+
+    def test_normalizeCUAddressFromUUID(self):
+        """
+        Ensure mailto is preferred, followed by path form, then http form.
+        If CALENDARSERVER-OLD-CUA parameter is present, restore that value.
+        """
+
+        data = (
+            ("urn:uuid:foo", "/foo"),
+            ("urn:uuid:bar", "mailto:bar@example.com",),
+            ("urn:uuid:baz", "http://example.com/baz",),
+            ("urn:uuid:buz", "urn:uuid:buz",),
+        )
+
+        def lookupFunction(cuaddr, ignored1, ignored2):
+            return {
+                "urn:uuid:foo" : (
+                    "Foo",
+                    "foo",
+                    ("urn:uuid:foo", "http://example.com/foo", "/foo")
+                ),
+                "urn:uuid:bar" : (
+                    "Bar",
+                    "bar",
+                    ("urn:uuid:bar", "mailto:bar@example.com", "http://example.com/bar", "/bar")
+                ),
+                "urn:uuid:baz" : (
+                    "Baz",
+                    "baz",
+                    ("urn:uuid:baz", "http://example.com/baz")
+                ),
+                "urn:uuid:buz" : (
+                    "Buz",
+                    "buz",
+                    ("urn:uuid:buz",)
+                ),
+            }[cuaddr]
+
+        for cuaddr, result in data:
+            new_cuaddr = normalizeCUAddress(cuaddr, lookupFunction, None, toUUID=False)
+            self.assertEquals(new_cuaddr, result)
+
+
+    def test_normalizeCUAddressToUUID(self):
+        """
+        Ensure http(s) and /path CUA values are tucked away into the property
+        using CALENDARSERVER-OLD-CUA parameter.
+        """
+
+        data = (
+            ("/principals/users/foo", "urn:uuid:foo",),
+            ("http://example.com/principals/users/buz", "urn:uuid:buz",),
+        )
+
+
+        def lookupFunction(cuaddr, ignored1, ignored2):
+            return {
+                "/principals/users/foo" : (
+                    "Foo",
+                    "foo",
+                    ("urn:uuid:foo",)
+                ),
+                "http://example.com/principals/users/buz" : (
+                    "Buz",
+                    "buz",
+                    ("urn:uuid:buz",)
+                ),
+            }[cuaddr]
+
+        for cuaddr, result in data:
+            new_cuaddr = normalizeCUAddress(cuaddr, lookupFunction, None, toUUID=True)
+            self.assertEquals(new_cuaddr, result)
