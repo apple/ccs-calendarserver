@@ -305,13 +305,13 @@ class AddressBookObject(CommonObjectResource):
             self._md5 = component.md5
 
         componentResourceKindToAddressBookObjectKindMap = {
-            None: _ABO_KIND_PERSON,
             "person": _ABO_KIND_PERSON,
             "group": _ABO_KIND_GROUP,
             "resource": _ABO_KIND_RESOURCE,
             "location": _ABO_KIND_LOCATION,
         }
-        self._kind = componentResourceKindToAddressBookObjectKindMap[component.resourceKind()]
+        lcResourceKind = component.resourceKind().lower() if component.resourceKind() else component.resourceKind();
+        self._kind = componentResourceKindToAddressBookObjectKindMap.get(lcResourceKind, _ABO_KIND_PERSON)
 
         if inserting:
             self._resourceID, self._created, self._modified = (

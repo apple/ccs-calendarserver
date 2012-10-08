@@ -355,6 +355,24 @@ END:VCARD
         abObject = self.assertEqual(group.resourceKind(), "group")
         abObject = yield adbk.createObjectResourceWithName("g.vcf", group)
         self.assertEqual(abObject.kind(), _ABO_KIND_GROUP)
+
+        badgroup = VCard.fromString(
+            """BEGIN:VCARD
+VERSION:3.0
+PRODID:-//Apple Inc.//AddressBook 6.1//EN
+UID:uid3
+FN:Bad Group
+N:Bad Group;;;;
+REV:20120503T194243Z
+X-ADDRESSBOOKSERVER-KIND:badgroup
+X-ADDRESSBOOKSERVER-MEMBER:urn:uuid:uid1
+END:VCARD
+""".replace("\n", "\r\n")
+            )
+        abObject = self.assertEqual(badgroup.resourceKind(), "badgroup")
+        abObject = yield adbk.createObjectResourceWithName("bg.vcf", badgroup)
+        self.assertEqual(abObject.kind(), _ABO_KIND_PERSON)
+
         yield txn.commit()
 
         txn = addressbookStore.newTransaction()
@@ -366,10 +384,16 @@ END:VCARD
         self.assertEqual(person.resourceKind(), None)
         self.assertEqual(abObject.kind(), _ABO_KIND_PERSON)
 
-        abObject = yield AddressBookObject.objectWithName(adbk, "g.vcf", "uid1")
+        abObject = yield AddressBookObject.objectWithName(adbk, "g.vcf", "uid2")
         group = yield abObject.component()
         self.assertEqual(group.resourceKind(), "group")
         self.assertEqual(abObject.kind(), _ABO_KIND_GROUP)
+
+        abObject = yield AddressBookObject.objectWithName(adbk, "bg.vcf", "uid3")
+        badgroup = yield abObject.component()
+        self.assertEqual(badgroup.resourceKind(), "badgroup")
+        self.assertEqual(abObject.kind(), _ABO_KIND_PERSON)
+
         yield txn.commit()
 
 
