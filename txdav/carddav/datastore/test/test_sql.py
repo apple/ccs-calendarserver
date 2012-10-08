@@ -304,13 +304,59 @@ END:VCARD
         yield d2
 
     @inlineCallbacks
+    def test_addressbookObjectUID(self):
+        """
+        Test that kind property UID is stored correctly in database
+        """
+        addressbookStore = yield buildStore(self, self.notifierFactory)
+
+        # Provision the home and addressbook, one user and one group
+        txn = addressbookStore.newTransaction()
+        home = yield txn.homeWithUID(EADDRESSBOOKTYPE, "uid1", create=True)
+        self.assertNotEqual(home, None)
+        adbk = yield home.addressbookWithName("addressbook")
+        self.assertNotEqual(adbk, None)
+
+        person = VCard.fromString(
+            """BEGIN:VCARD
+VERSION:3.0
+N:Thompson;Default;;;
+FN:Default Thompson
+EMAIL;type=INTERNET;type=WORK;type=pref:lthompson@example.com
+TEL;type=WORK;type=pref:1-555-555-5555
+TEL;type=CELL:1-444-444-4444
+item1.ADR;type=WORK;type=pref:;;1245 Test;Sesame Street;California;11111;USA
+item1.X-ABADR:us
+UID:uid1
+END:VCARD
+""".replace("\n", "\r\n")
+            )
+        self.assertEqual(person.resourceUID(), "uid1")
+        abObject = yield adbk.createObjectResourceWithName("1.vcf", person)
+        self.assertEqual(abObject.uid(), "uid1")
+        yield txn.commit()
+
+        txn = addressbookStore.newTransaction()
+        home = yield txn.homeWithUID(EADDRESSBOOKTYPE, "uid1", create=True)
+        adbk = yield home.addressbookWithName("addressbook")
+
+        abObject = yield AddressBookObject.objectWithName(adbk, "1.vcf", "badUID")
+        self.assertEqual(abObject, None)
+
+        abObject = yield AddressBookObject.objectWithName(adbk, "1.vcf", "uid1")
+        person = yield abObject.component()
+        self.assertEqual(person.resourceUID(), "uid1")
+
+        abObject = yield AddressBookObject.objectWithName(adbk, "1.vcf", "badUID")
+        self.assertEqual(abObject, None)
+
+        yield txn.commit()
+
+
+    @inlineCallbacks
     def test_addressbookObjectKind(self):
         """
         Test that kind property vCard is stored correctly in database
-        """
-        """
-        Test that two concurrent attempts to PUT different address book object resources to the
-        same address book home does not cause a deadlock.
         """
         addressbookStore = yield buildStore(self, self.notifierFactory)
 

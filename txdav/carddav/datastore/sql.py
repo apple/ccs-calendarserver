@@ -297,6 +297,7 @@ class AddressBookObject(CommonObjectResource):
         self._objectText = componentText
 
         # ADDRESSBOOK_OBJECT table update
+        self._uid = component.resourceUID()
         self._md5 = hashlib.md5(componentText).hexdigest()
         self._size = len(componentText)
 
