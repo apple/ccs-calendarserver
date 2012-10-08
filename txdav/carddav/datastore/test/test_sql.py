@@ -20,30 +20,27 @@ L{txdav.carddav.datastore.test.common}.
 """
 
 from twext.enterprise.dal.syntax import Select, Parameter
-from txdav.xml.rfc2518 import GETContentLanguage, ResourceType
 
 from twisted.internet.defer import inlineCallbacks, returnValue
+
 from twisted.trial import unittest
 
 from twistedcaldav import carddavxml
-
 from twistedcaldav.vcard import Component as VCard
 from twistedcaldav.vcard import Component as VComponent
 
 from txdav.base.propertystore.base import PropertyName
+from txdav.carddav.datastore.sql import AddressBookObject
 from txdav.carddav.datastore.test.common import CommonTests as AddressBookCommonTests, \
     vcard4_text
 from txdav.carddav.datastore.test.test_file import setUpAddressBookStore
 from txdav.carddav.datastore.util import _migrateAddressbook, migrateHome
 from txdav.common.datastore.sql import EADDRESSBOOKTYPE
-from txdav.common.datastore.sql_tables import schema
+from txdav.common.datastore.sql_tables import  \
+    _ABO_KIND_PERSON, _ABO_KIND_GROUP, schema
 from txdav.common.datastore.test.util import buildStore
+from txdav.xml.rfc2518 import GETContentLanguage, ResourceType
 
-def _todo(f, why):
-    f.todo = why
-    return f
-
-testUnimplemented = lambda f: _todo(f, "Test unimplemented")
 
 class AddressBookSQLStorageTests(AddressBookCommonTests, unittest.TestCase):
     """
@@ -306,12 +303,76 @@ END:VCARD
         yield d1
         yield d2
 
-    @testUnimplemented
+    @inlineCallbacks
     def test_addressbookObjectKind(self):
         """
         Test that kind property vCard is stored correctly in database
         """
-        raise NotImplementedError()
+        """
+        Test that two concurrent attempts to PUT different address book object resources to the
+        same address book home does not cause a deadlock.
+        """
+        addressbookStore = yield buildStore(self, self.notifierFactory)
+
+        # Provision the home and addressbook, one user and one group
+        txn = addressbookStore.newTransaction()
+        home = yield txn.homeWithUID(EADDRESSBOOKTYPE, "uid1", create=True)
+        self.assertNotEqual(home, None)
+        adbk = yield home.addressbookWithName("addressbook")
+        self.assertNotEqual(adbk, None)
+
+        person = VCard.fromString(
+            """BEGIN:VCARD
+VERSION:3.0
+N:Thompson;Default;;;
+FN:Default Thompson
+EMAIL;type=INTERNET;type=WORK;type=pref:lthompson@example.com
+TEL;type=WORK;type=pref:1-555-555-5555
+TEL;type=CELL:1-444-444-4444
+item1.ADR;type=WORK;type=pref:;;1245 Test;Sesame Street;California;11111;USA
+item1.X-ABADR:us
+UID:uid1
+END:VCARD
+""".replace("\n", "\r\n")
+            )
+        self.assertEqual(person.resourceKind(), None)
+        abObject = yield adbk.createObjectResourceWithName("p.vcf", person)
+        self.assertEqual(abObject.kind(), _ABO_KIND_PERSON)
+
+        group = VCard.fromString(
+            """BEGIN:VCARD
+VERSION:3.0
+PRODID:-//Apple Inc.//AddressBook 6.1//EN
+UID:uid2
+FN:Top Group
+N:Top Group;;;;
+REV:20120503T194243Z
+X-ADDRESSBOOKSERVER-KIND:group
+X-ADDRESSBOOKSERVER-MEMBER:urn:uuid:uid1
+END:VCARD
+""".replace("\n", "\r\n")
+            )
+        abObject = self.assertEqual(group.resourceKind(), "group")
+        abObject = yield adbk.createObjectResourceWithName("g.vcf", group)
+        self.assertEqual(abObject.kind(), _ABO_KIND_GROUP)
+        yield txn.commit()
+
+        txn = addressbookStore.newTransaction()
+        home = yield txn.homeWithUID(EADDRESSBOOKTYPE, "uid1", create=True)
+        adbk = yield home.addressbookWithName("addressbook")
+
+        abObject = yield AddressBookObject.objectWithName(adbk, "p.vcf", "uid1")
+        person = yield abObject.component()
+        self.assertEqual(person.resourceKind(), None)
+        self.assertEqual(abObject.kind(), _ABO_KIND_PERSON)
+
+        abObject = yield AddressBookObject.objectWithName(adbk, "g.vcf", "uid1")
+        group = yield abObject.component()
+        self.assertEqual(group.resourceKind(), "group")
+        self.assertEqual(abObject.kind(), _ABO_KIND_GROUP)
+        yield txn.commit()
+
+
 
     @inlineCallbacks
     def test_removeAddressBookPropertiesOnDelete(self):

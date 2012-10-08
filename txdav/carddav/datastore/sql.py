@@ -26,31 +26,25 @@ __all__ = [
     "AddressBookObject",
 ]
 
-from zope.interface.declarations import implements
+from twext.enterprise.dal.syntax import \
+    Delete, Insert, Len, Update, utcNowSQL
+
+from twext.python.clsprop import classproperty
+from twext.web2.http_headers import MimeType
 
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.python import hashlib
-
-from txdav.xml.rfc2518 import ResourceType
-from twext.web2.http_headers import MimeType
-
 from twistedcaldav import carddavxml, customxml
 from twistedcaldav.memcacher import Memcacher
 from twistedcaldav.vcard import Component as VCard, InvalidVCardDataError
 
-from txdav.common.datastore.sql_legacy import PostgresLegacyABIndexEmulator
-
+from txdav.base.propertystore.base import PropertyName
 from txdav.carddav.datastore.util import validateAddressBookComponent
 from txdav.carddav.iaddressbookstore import IAddressBookHome, IAddressBook, \
     IAddressBookObject
-
 from txdav.common.datastore.sql import CommonHome, CommonHomeChild, \
     CommonObjectResource, EADDRESSBOOKTYPE
-from twext.enterprise.dal.syntax import Delete
-from twext.enterprise.dal.syntax import Insert
-
-from twext.enterprise.dal.syntax import Update
-from twext.enterprise.dal.syntax import utcNowSQL
+from txdav.common.datastore.sql_legacy import PostgresLegacyABIndexEmulator
 from txdav.common.datastore.sql_tables import ADDRESSBOOK_TABLE, \
     ADDRESSBOOK_BIND_TABLE, ADDRESSBOOK_OBJECT_REVISIONS_TABLE, \
     ADDRESSBOOK_OBJECT_TABLE, ADDRESSBOOK_HOME_TABLE, \
@@ -58,7 +52,9 @@ from txdav.common.datastore.sql_tables import ADDRESSBOOK_TABLE, \
     ADDRESSBOOK_OBJECT_AND_BIND_TABLE, \
     ADDRESSBOOK_OBJECT_REVISIONS_AND_BIND_TABLE, \
     _ABO_KIND_PERSON, _ABO_KIND_GROUP, _ABO_KIND_RESOURCE, _ABO_KIND_LOCATION, schema
-from txdav.base.propertystore.base import PropertyName
+from txdav.xml.rfc2518 import ResourceType
+
+from zope.interface.declarations import implements
 
 
 
@@ -212,6 +208,8 @@ class AddressBook(CommonHomeChild):
         return super(AddressBook, self).unshare(EADDRESSBOOKTYPE)
 
 
+
+
 class AddressBookObject(CommonObjectResource):
 
     implements(IAddressBookObject)
@@ -221,6 +219,7 @@ class AddressBookObject(CommonObjectResource):
 
     def __init__(self, addressbook, name, uid, resourceID=None, metadata=None):
 
+        self._kind = None
         super(AddressBookObject, self).__init__(addressbook, name, uid, resourceID)
 
 
@@ -232,6 +231,41 @@ class AddressBookObject(CommonObjectResource):
     def addressbook(self):
         return self._addressbook
 
+    def kind(self):
+        return self._kind
+
+    @classproperty
+    def _allColumns(cls): #@NoSelf
+        """
+        Full set of columns in the object table that need to be loaded to
+        initialize the object resource state.
+        """
+        obj = cls._objectSchema
+        return [
+            obj.RESOURCE_ID,
+            obj.RESOURCE_NAME,
+            obj.UID,
+            obj.KIND,
+            obj.MD5,
+            Len(obj.TEXT),
+            obj.CREATED,
+            obj.MODIFIED
+        ]
+
+
+    def _initFromRow(self, row):
+        """
+        Given a select result using the columns from L{_allColumns}, initialize
+        the object resource state.
+        """
+        (self._resourceID,
+         self._name,
+         self._uid,
+         self._kind,
+         self._md5,
+         self._size,
+         self._created,
+         self._modified,) = tuple(row)
 
     @inlineCallbacks
     def setComponent(self, component, inserting=False):
@@ -270,10 +304,14 @@ class AddressBookObject(CommonObjectResource):
         if self._txn._migrating and hasattr(component, "md5"):
             self._md5 = component.md5
 
-        # map vCard kind to AddressBook object kind; default is _ABO_KIND_PERSON
-        aoKind = {"group": _ABO_KIND_GROUP,
-                  "resource": _ABO_KIND_RESOURCE,
-                  "location": _ABO_KIND_LOCATION, }.get(component.resourceKind(), _ABO_KIND_PERSON)
+        componentResourceKindToAddressBookObjectKindMap = {
+            None: _ABO_KIND_PERSON,
+            "person": _ABO_KIND_PERSON,
+            "group": _ABO_KIND_GROUP,
+            "resource": _ABO_KIND_RESOURCE,
+            "location": _ABO_KIND_LOCATION,
+        }
+        self._kind = componentResourceKindToAddressBookObjectKindMap[component.resourceKind()]
 
         if inserting:
             self._resourceID, self._created, self._modified = (
@@ -282,7 +320,7 @@ class AddressBookObject(CommonObjectResource):
                      abo.RESOURCE_NAME: self._name,
                      abo.VCARD_TEXT: componentText,
                      abo.VCARD_UID: component.resourceUID(),
-                     abo.KIND: aoKind,
+                     abo.KIND: self._kind,
                      abo.MD5: self._md5},
                     Return=(abo.RESOURCE_ID,
                             abo.CREATED,
@@ -292,7 +330,7 @@ class AddressBookObject(CommonObjectResource):
             self._modified = (yield Update(
                 {abo.VCARD_TEXT: componentText,
                  abo.VCARD_UID: component.resourceUID(),
-                 abo.KIND: aoKind,
+                 abo.KIND: self._kind,
                  abo.MD5: self._md5,
                  abo.MODIFIED: utcNowSQL},
                 Where=abo.RESOURCE_ID == self._resourceID,
