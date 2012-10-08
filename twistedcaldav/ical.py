@@ -3149,6 +3149,59 @@ def tzexpandlocal(tzdata, start, end):
 # Utilities
 ##
 
+def normalizeCUAddress(cuaddr, lookupFunction, principalFunction, toUUID=True):
+    # Check that we can lookup this calendar user address - if not
+    # we cannot do anything with it
+    _ignore_name, guid, cuaddrs = lookupFunction(normalizeCUAddr(cuaddr), principalFunction, config)
+
+    if toUUID:
+        # Always re-write value to urn:uuid
+        if guid:
+            return "urn:uuid:%s" % (guid,)
+
+    # If it is already a non-UUID address leave it be
+    elif cuaddr.startswith("urn:uuid:"):
+
+        # Pick the first mailto,
+        # or failing that the first path one,
+        # or failing that the first http one,
+        # or failing that the first one
+        first_mailto = None
+        first_path = None
+        first_http = None
+        first = None
+        for addr in cuaddrs:
+            if addr.startswith("mailto:"):
+                first_mailto = addr
+                break
+            elif addr.startswith("/"):
+                if not first_path:
+                    first_path = addr
+            elif addr.startswith("http:"):
+                if not first_http:
+                    first_http = addr
+            elif not first:
+                first = addr
+
+        if first_mailto:
+            newaddr = first_mailto
+        elif first_path:
+            newaddr = first_path
+        elif first_http:
+            newaddr = first_http
+        elif first:
+            newaddr = first
+        else:
+            newaddr = None
+
+        # Make the change
+        if newaddr:
+            return newaddr
+
+    return cuaddr
+
+
+
 #
 # This function is from "Python Cookbook, 2d Ed., by Alex Martelli, Anna
 # Martelli Ravenscroft, and David Ascher (O'Reilly Media, 2005) 0-596-00797-3."
