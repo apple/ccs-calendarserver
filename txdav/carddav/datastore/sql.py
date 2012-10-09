@@ -27,7 +27,7 @@ __all__ = [
 ]
 
 from twext.enterprise.dal.syntax import \
-    Delete, Insert, Len, Update, utcNowSQL
+    Delete, Insert, Len, Update, Select, utcNowSQL
 
 from twext.python.clsprop import classproperty
 from twext.web2.http_headers import MimeType
@@ -234,6 +234,45 @@ class AddressBookObject(CommonObjectResource):
     def kind(self):
         return self._kind
 
+    @inlineCallbacks
+    def remove(self):
+
+        uid = self._uid
+        resourceID = self._resourceID
+        yield super(AddressBookObject, self).remove()
+
+        fmTable = schema.FOREIGN_MEMBERS
+        mTable = schema.MEMBERS
+
+        # delete members
+        yield Delete(
+            mTable,
+            Where=mTable.GROUP_ID == resourceID,
+        ).on(self._txn)
+
+        # delete foreign members
+        yield Delete(
+            fmTable,
+            Where=fmTable.GROUP_ID == resourceID,
+        ).on(self._txn)
+
+        # delete members table row for this object
+        groupIDs = yield Delete(
+            mTable,
+            Where=mTable.MEMBER_ID == resourceID,
+            Return=mTable.GROUP_ID
+        ).on(self._txn)
+
+        # add to foreign member table row by UID
+        for groupID in groupIDs:
+            yield Insert(
+                {fmTable.GROUP_ID: groupID,
+                  fmTable.MEMBER_ADDRESS: "urn:uuid" + uid, }
+            ).on(self._txn)
+
+        # Set to non-existent state
+        self._kind = None
+
     @classproperty
     def _allColumns(cls): #@NoSelf
         """
@@ -297,6 +336,8 @@ class AddressBookObject(CommonObjectResource):
         self._objectText = componentText
 
         # ADDRESSBOOK_OBJECT table update
+        uid = component.resourceUID()
+        assert inserting or self._uid == uid # can't change UID. Should be checked in upper layers
         self._uid = component.resourceUID()
         self._md5 = hashlib.md5(componentText).hexdigest()
         self._size = len(componentText)
@@ -312,7 +353,12 @@ class AddressBookObject(CommonObjectResource):
             "location": _ABO_KIND_LOCATION,
         }
         lcResourceKind = component.resourceKind().lower() if component.resourceKind() else component.resourceKind();
-        self._kind = componentResourceKindToAddressBookObjectKindMap.get(lcResourceKind, _ABO_KIND_PERSON)
+        kind = componentResourceKindToAddressBookObjectKindMap.get(lcResourceKind, _ABO_KIND_PERSON)
+        assert inserting or self._kind == kind  # can't change kind. Should be checked in upper layers
+        self._kind = kind
+
+        fmTable = schema.FOREIGN_MEMBERS
+        mTable = schema.MEMBERS
 
         if inserting:
             self._resourceID, self._created, self._modified = (
@@ -320,22 +366,95 @@ class AddressBookObject(CommonObjectResource):
                     {abo.ADDRESSBOOK_RESOURCE_ID: self._addressbook._resourceID,
                      abo.RESOURCE_NAME: self._name,
                      abo.VCARD_TEXT: componentText,
-                     abo.VCARD_UID: component.resourceUID(),
+                     abo.VCARD_UID: self._uid,
                      abo.KIND: self._kind,
                      abo.MD5: self._md5},
                     Return=(abo.RESOURCE_ID,
                             abo.CREATED,
                             abo.MODIFIED)
                 ).on(self._txn))[0]
+
+            # update existing group member tables for this new object
+
+            # delete foreign members table row for this object
+            groupIDs = yield Delete(
+                fmTable,
+                Where=fmTable.MEMBER_ADDRESS == "urn:uuid" + self._uid,
+                Return=fmTable.GROUP_ID
+            ).on(self._txn)
+
+            # add to member table row by resourceID
+            for groupID in groupIDs:
+                yield Insert(
+                    {mTable.GROUP_ID: groupID,
+                     mTable.MEMBER_ID: self._resourceID, }
+                ).on(self._txn)
+
         else:
             self._modified = (yield Update(
                 {abo.VCARD_TEXT: componentText,
-                 abo.VCARD_UID: component.resourceUID(),
-                 abo.KIND: self._kind,
                  abo.MD5: self._md5,
                  abo.MODIFIED: utcNowSQL},
                 Where=abo.RESOURCE_ID == self._resourceID,
                 Return=abo.MODIFIED).on(self._txn))[0][0]
+
+        # if group, update members
+
+        if self.kind == _ABO_KIND_GROUP:
+
+            # get member resource ID for each member string, or keep as string
+            memberIDs = []
+            foreignMemberAddrs = []
+            for memberAddr in set(component.resourceMembers()):
+                if len(memberAddr) > len("urn:uuid:") and memberAddr.startswith("urn:uuid:"):
+                    memberUID = memberAddr[len("urn:uuid:"):]
+                    memberID = (yield Select([abo.RESOURCE_ID],
+                                     From=abo,
+                                     Where=((abo.ADDRESSBOOK_RESOURCE_ID == self._addressbook._resourceID)
+                                            ).And(abo.VCARD_UID == memberUID)).on(self._txn))[0][0]
+                if memberID:
+                    memberIDs.append(memberID)
+                else:
+                    foreignMemberAddrs.append(memberAddr)
+
+            #get current members
+            [currentMemberIDs] = yield Select([mTable.MEMBER_ID],
+                                 From=mTable,
+                                 Where=(mTable.GROUP_ID == self._resourceID)).on(self._txn)
+
+            memberIDsToDelete = set(currentMemberIDs) - set(memberIDs)
+            for memberIDToDelete in memberIDsToDelete:
+                yield Delete(
+                    fmTable,
+                    Where=((mTable.GROUP_ID == self._resourceID).And(mTable.MEMBER_ID == memberIDToDelete))
+                ).on(self._txn)
+
+            memberIDsToAdd = set(memberIDs) - set(currentMemberIDs)
+            for memberIDToAdd in memberIDsToAdd:
+                yield Insert(
+                    {mTable.GROUP_ID: self._resourceID,
+                     mTable.MEMBER_ID: memberIDToAdd, }
+                ).on(self._txn)
+
+            #get current foreign members 
+            [currentForeignMemberAddrs] = yield Select([fmTable.MEMBER_ADDRESS],
+                                                 From=fmTable,
+                                                 Where=(fmTable.GROUP_ID == self._resourceID)).on(self._txn)
+
+            foreignMemberAddrsToDelete = set(currentForeignMemberAddrs) - set(foreignMemberAddrs)
+            for foreignMemberAddrToDelete in foreignMemberAddrsToDelete:
+                yield Delete(
+                    fmTable,
+                    Where=((mTable.GROUP_ID == self._resourceID).And(mTable.MEMBER_ADDRESS == foreignMemberAddrToDelete))
+                ).on(self._txn)
+
+            foreignMemberAddrsToAdd = set(foreignMemberAddrs) - set(currentForeignMemberAddrs)
+            for foreignMemberAddrToAdd in foreignMemberAddrsToAdd:
+                yield Insert(
+                    {mTable.GROUP_ID: self._resourceID,
+                     mTable.MEMBER_ADDRESS: foreignMemberAddrToAdd, }
+                ).on(self._txn)
+
 
 
     @inlineCallbacks
