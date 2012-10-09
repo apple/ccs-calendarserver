@@ -641,15 +641,20 @@ class Calendar(CommonHomeChild):
         """
 
         cb = self._bindSchema
-        columns = [ColumnSyntax(item) for item in self._bindSchema.model.columns]
-        _bindQuery = Select(
+        inv = schema.INVITE
+        bindcolumns = [ColumnSyntax(item) for item in cb.model.columns]
+        invitecolumns = [ColumnSyntax(item) for item in inv.model.columns]
+        columns = bindcolumns + invitecolumns
+        _bindInviteQuery = Select(
             columns,
-            From=cb,
+            From=cb.join(inv),
             Where=(cb.CALENDAR_RESOURCE_ID == Parameter('calID')).And(
-                cb.CALENDAR_HOME_RESOURCE_ID != Parameter('homeID'))
+                cb.CALENDAR_HOME_RESOURCE_ID != Parameter('homeID')).And(
+                cb.CALENDAR_RESOURCE_ID == inv.RESOURCE_ID).And(
+                cb.CALENDAR_HOME_RESOURCE_ID == inv.HOME_RESOURCE_ID)
         )
         
-        rows = yield _bindQuery.on(
+        rows = yield _bindInviteQuery.on(
             self._txn,
             calID=self._resourceID,
             homeID=self._home._resourceID,
@@ -659,10 +664,15 @@ class Calendar(CommonHomeChild):
             returnValue(None)
         
         for row in rows:
-            columnMap = dict(zip(columns, row))
+            columnMap = dict(zip(bindcolumns, row[:len(bindcolumns)]))
             columnMap[cb.CALENDAR_RESOURCE_ID] = newcalendar._resourceID
             columnMap[cb.CALENDAR_RESOURCE_NAME] = "%s-%s" % (columnMap[cb.CALENDAR_RESOURCE_NAME], component.lower(),)
             yield Insert(columnMap).on(self._txn)   
+
+            columnMap = dict(zip(invitecolumns, row[len(bindcolumns):]))
+            columnMap[inv.INVITE_UID] = "%s-%s" % (columnMap[inv.INVITE_UID], component.lower(),)
+            columnMap[inv.RESOURCE_ID] = newcalendar._resourceID
+            yield Insert(columnMap).on(self._txn)
 
     @inlineCallbacks
     def _transferCalendarObjects(self, newcalendar, component):
