@@ -30,7 +30,6 @@ from twistedcaldav.vcard import Component as VCard
 from twistedcaldav.vcard import Component as VComponent
 
 from txdav.base.propertystore.base import PropertyName
-from txdav.carddav.datastore.sql import AddressBookObject
 from txdav.carddav.datastore.test.common import CommonTests as AddressBookCommonTests, \
     vcard4_text
 from txdav.carddav.datastore.test.test_file import setUpAddressBookStore
@@ -340,15 +339,9 @@ END:VCARD
         home = yield txn.homeWithUID(EADDRESSBOOKTYPE, "uid1", create=True)
         adbk = yield home.addressbookWithName("addressbook")
 
-        abObject = yield AddressBookObject.objectWithName(adbk, "1.vcf", "badUID")
-        self.assertEqual(abObject, None)
-
-        abObject = yield AddressBookObject.objectWithName(adbk, "1.vcf", "uid1")
+        abObject = yield adbk.objectResourceWithName("1.vcf")
         person = yield abObject.component()
         self.assertEqual(person.resourceUID(), "uid1")
-
-        abObject = yield AddressBookObject.objectWithName(adbk, "1.vcf", "badUID")
-        self.assertEqual(abObject, None)
 
         yield txn.commit()
 
@@ -425,17 +418,17 @@ END:VCARD
         home = yield txn.homeWithUID(EADDRESSBOOKTYPE, "uid1", create=True)
         adbk = yield home.addressbookWithName("addressbook")
 
-        abObject = yield AddressBookObject.objectWithName(adbk, "p.vcf", "uid1")
+        abObject = yield adbk.objectResourceWithName("p.vcf")
         person = yield abObject.component()
         self.assertEqual(person.resourceKind(), None)
         self.assertEqual(abObject.kind(), _ABO_KIND_PERSON)
 
-        abObject = yield AddressBookObject.objectWithName(adbk, "g.vcf", "uid2")
+        abObject = yield adbk.objectResourceWithName("g.vcf")
         group = yield abObject.component()
         self.assertEqual(group.resourceKind(), "group")
         self.assertEqual(abObject.kind(), _ABO_KIND_GROUP)
 
-        abObject = yield AddressBookObject.objectWithName(adbk, "bg.vcf", "uid3")
+        abObject = yield adbk.objectResourceWithName("bg.vcf")
         badgroup = yield abObject.component()
         self.assertEqual(badgroup.resourceKind(), "badgroup")
         self.assertEqual(abObject.kind(), _ABO_KIND_PERSON)
