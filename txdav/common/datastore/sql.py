@@ -2526,7 +2526,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
         # Create the actual objects merging in properties
         for items in dataRows:
             bindMode, homeID, resourceID, resourceName, bindStatus, bindMessage = items[:6] #@UnusedVariable
-            metadata = items[7:]
+            metadata = items[6:]
 
             if bindStatus == _BIND_MODE_OWN:
                 ownerHome = home
