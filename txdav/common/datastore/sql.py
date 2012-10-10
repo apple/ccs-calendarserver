@@ -2538,7 +2538,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
         # Create the actual objects merging in properties
         for items in dataRows:
             bindMode, homeID, resourceID, resourceName, bindStatus, bindMessage = items[:6] #@UnusedVariable
-            metadata = items[7:]
+            metadata = items[6:]
 
             if bindStatus == _BIND_MODE_OWN:
                 ownerHome = home
@@ -2558,6 +2558,11 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
                 setattr(child, attr, value)
             child._syncTokenRevision = revisions[resourceID]
             propstore = propertyStores.get(resourceID, None)
+
+            # We have to re-adjust the property store object to account for possible shared
+            # collections as previously we loaded them all as if they were owned
+            if bindStatus != _BIND_MODE_OWN:
+                propstore._setDefaultUserUID(ownerHome.uid())
             yield child._loadPropertyStore(propstore)
             results.append(child)
         returnValue(results)
