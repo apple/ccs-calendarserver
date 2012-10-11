@@ -36,26 +36,27 @@ __all__ = [
 log = Logger()
 
 class iCalDiff(object):
-    
+
     def __init__(self, oldcalendar, newcalendar, smart_merge):
         """
-        
+
         @param oldcalendar:
         @type oldcalendar:
         @param newcalendar:
         @type newcalendar:
         """
-        
+
         self.oldcalendar = oldcalendar
         self.newcalendar = newcalendar
         self.smart_merge = smart_merge
-    
+
+
     def organizerDiff(self):
         """
         Diff the two calendars looking for changes that should trigger implicit scheduling if
         changed by an organizer. Basically any change except for anything related to a VALARM.
         """
-        
+
         # If smart merge is needed we have to do this before trying the diff
         if self.smart_merge:
             log.debug("organizerDiff: doing smart Organizer diff/merge")
@@ -76,13 +77,14 @@ class iCalDiff(object):
             calendar.removePropertyParameters("ATTENDEE", ("RSVP", "SCHEDULE-STATUS", "SCHEDULE-FORCE-SEND",))
             calendar.normalizeAll()
             return calendar
-        
+
         # Normalize components for comparison
         oldcalendar_norm = duplicateAndNormalize(self.oldcalendar)
         newcalendar_norm = duplicateAndNormalize(self.newcalendar)
 
         result = oldcalendar_norm == newcalendar_norm
         return result
+
 
     def _organizerMerge(self):
         """
@@ -91,20 +93,21 @@ class iCalDiff(object):
         organizer = normalizeCUAddr(self.newcalendar.masterComponent().propertyValue("ORGANIZER"))
         self._doSmartMerge(organizer, True)
 
+
     def _doSmartMerge(self, ignore_attendee, is_organizer):
         """
         Merge changes to ATTENDEE properties in oldcalendar into newcalendar.
         """
-        
+
         old_master = self.oldcalendar.masterComponent()
         new_master = self.newcalendar.masterComponent()
-        
+
         # Do master merge first
         self._tryComponentMerge(old_master, new_master, ignore_attendee, is_organizer)
 
         # New check the matching components
         for old_component in self.oldcalendar.subcomponents():
-            
+
             # Make sure we have an appropriate component
             if old_component.name() == "VTIMEZONE":
                 continue
@@ -118,7 +121,7 @@ class iCalDiff(object):
                 # If the old component was cancelled ignore when an attendee
                 if not is_organizer and old_component.propertyValue("STATUS") == "CANCELLED":
                     continue
-                
+
                 # Determine whether the instance is still valid in the new calendar
                 new_component = self.newcalendar.deriveInstance(rid)
                 if new_component:
@@ -133,7 +136,7 @@ class iCalDiff(object):
 
         # Check the new instances not in the old calendar
         for new_component in self.newcalendar.subcomponents():
-            
+
             # Make sure we have an appropriate component
             if new_component.name() == "VTIMEZONE":
                 continue
@@ -147,7 +150,7 @@ class iCalDiff(object):
                 # If the new component is cancelled ignore when an attendee
                 if not is_organizer and new_component.propertyValue("STATUS") == "CANCELLED":
                     continue
-                
+
                 # Try to derive a new instance in the client and transfer attendee status
                 old_component = self.oldcalendar.deriveInstance(rid)
                 if old_component:
@@ -156,10 +159,12 @@ class iCalDiff(object):
                 else:
                     # Ignore as we have no state for the new instance
                     pass
-    
+
+
     def _tryComponentMerge(self, old_comp, new_comp, ignore_attendee_value, is_organizer):
         if not is_organizer or not self._organizerChangePreventsMerge(old_comp, new_comp):
             self._transferAttendees(old_comp, new_comp, ignore_attendee_value)
+
 
     def _organizerChangePreventsMerge(self, old_comp, new_comp):
         """
@@ -175,7 +180,7 @@ class iCalDiff(object):
         """
 
         props_to_test = ("DTSTART", "DTEND", "DURATION", "RRULE", "RDATE", "EXDATE", "RECURRENCE-ID",)
-        
+
         for prop in props_to_test:
             # Change => no merge
             old_props = set(old_comp.properties(prop))
@@ -184,7 +189,8 @@ class iCalDiff(object):
                 return True
 
         return False
-    
+
+
     def _transferAttendees(self, old_comp, new_comp, ignore_attendee_value):
         """
         Transfer Attendee PARTSTAT from old component to new component.
@@ -206,7 +212,7 @@ class iCalDiff(object):
             old_attendees[value] = attendee
 
         for new_attendee in new_comp.properties("ATTENDEE"):
-            
+
             # Whenever SCHEDULE-FORCE-SEND is explicitly set by the Organizer we assume the Organizer
             # is deliberately overwriting PARTSTAT
             if new_attendee.parameterValue("SCHEDULE-FORCE-SEND", "") == "REQUEST":
@@ -219,7 +225,8 @@ class iCalDiff(object):
                 self._transferParameter(old_attendee, new_attendee, "PARTSTAT")
                 self._transferParameter(old_attendee, new_attendee, "RSVP")
                 self._transferParameter(old_attendee, new_attendee, "SCHEDULE-STATUS")
-    
+
+
     def _transferParameter(self, old_property, new_property, parameter):
         paramvalue = old_property.parameterValue(parameter)
         if paramvalue is None:
@@ -230,21 +237,22 @@ class iCalDiff(object):
         else:
             new_property.setParameter(parameter, paramvalue)
 
+
     def attendeeMerge(self, attendee):
         """
         Merge the ATTENDEE specific changes with the organizer's view of the attendee's event.
         This will remove any attempt by the attendee to change things like the time or location.
-       
+
         @param attendee: the value of the ATTENDEE property corresponding to the attendee making the change
         @type attendee: C{str}
-        
+
         @return: C{tuple} of:
             C{bool} - change is allowed
             C{bool} - iTIP reply needs to be sent
             C{list} - list of RECURRENCE-IDs changed
             L{Component} - new calendar object to store
         """
-        
+
         self.attendee = normalizeCUAddr(attendee)
 
         returnCalendar = self.oldcalendar.duplicate()
@@ -252,7 +260,7 @@ class iCalDiff(object):
 
         changeCausesReply = False
         changedRids = []
-        
+
         # First get uid/rid map of components
         def mapComponents(calendar):
             map = {}
@@ -269,7 +277,7 @@ class iCalDiff(object):
                     cancelledRids.add(rid)
                 if rid is None:
                     master = component
-            
+
             # Normalize each master by adding any STATUS:CANCELLED components as EXDATEs
             exdates = None
             if master:
@@ -277,9 +285,9 @@ class iCalDiff(object):
                 exdates = set()
                 for exdate in master.properties("EXDATE"):
                     exdates.update([value.getValue().duplicate().adjustToUTC() for value in exdate.value()])
-               
+
             return exdates, map, master
-        
+
         exdatesold, mapold, masterold = mapComponents(self.oldcalendar)
         setold = set(mapold.keys())
         exdatesnew, mapnew, masternew = mapComponents(self.newcalendar)
@@ -303,18 +311,18 @@ class iCalDiff(object):
                     return False, False, (), None
             else:
                 componentold = self.oldcalendar.overriddenComponent(masternewStart)
-            
+
             # Take the recurrence ID from component1 and fix map2/set2
             keynew = (masternew.name(), masternew.propertyValue("UID"), None)
             componentnew = mapnew[keynew]
             del mapnew[keynew]
-            
+
             ridold = componentold.getRecurrenceIDUTC()
             newkeynew = (masternew.name(), masternew.propertyValue("UID"), ridold)
             mapnew[newkeynew] = componentnew
             setnew.remove(keynew)
             setnew.add(newkeynew)
-    
+
         # All the components in oldcalendar must be in newcalendar unless they are CANCELLED
         for key in setold - setnew:
             _ignore_name, _ignore_uid, rid = key
@@ -327,7 +335,7 @@ class iCalDiff(object):
                     if self._attendeeDecline(overridden):
                         changeCausesReply = True
                         changedRids.append(rid.getText() if rid else "")
-                        
+
                     # When a master component is present we keep the missing override in place but mark it as hidden.
                     # When no master is present we remove the override,
                     if exdatesnew is not None:
@@ -338,7 +346,7 @@ class iCalDiff(object):
                     # We used to generate a 403 here - but instead we now ignore this error and let the server data
                     # override the client
                     self._logDiffError("attendeeMerge: Missing uncancelled component from first calendar: %s" % (key,))
-            else: 
+            else:
                 if exdatesnew is not None and rid not in exdatesnew:
                     # We used to generate a 403 here - but instead we now ignore this error and let the server data
                     # override the client
@@ -350,11 +358,11 @@ class iCalDiff(object):
                     if returnMaster:
                         # Use the original R-ID value so we preserve the timezone
                         original_rid = component.propertyValue("RECURRENCE-ID")
-                        returnMaster.addProperty(Property("EXDATE", [original_rid,]))
-        
+                        returnMaster.addProperty(Property("EXDATE", [original_rid, ]))
+
         # Derive a new component in the new calendar for each new one in setnew
         for key in setnew - setold:
-            
+
             # First check if the attendee's copy is cancelled and properly EXDATE'd
             # and skip it if so.
             _ignore_name, _ignore_uid, rid = key
@@ -387,7 +395,7 @@ class iCalDiff(object):
                     returnCalendar.addComponent(newOverride)
 
         # So now returnCalendar has all the same components as set2. Check changes and do transfers.
-        
+
         # Make sure the same VCALENDAR properties match
         if not self._checkVCALENDARProperties(returnCalendar, self.newcalendar):
             # We used to generate a 403 here - but instead we now ignore this error and let the server data
@@ -402,7 +410,7 @@ class iCalDiff(object):
             _ignore_name, _ignore_uid, rid = key
             serverData = returnCalendar.overriddenComponent(rid)
             clientData = mapnew[key]
-            
+
             allowed, reply = self._transferAttendeeData(serverData, clientData, declines)
             if not allowed:
                 # We used to generate a 403 here - but instead we now ignore this error and let the server data
@@ -422,7 +430,7 @@ class iCalDiff(object):
                     if self._attendeeDecline(overridden):
                         changeCausesReply = True
                         changedRids.append(decline.getText() if decline else "")
-                        
+
                     # When a master component is present we keep the missing override in place but mark it as hidden.
                     # When no master is present we remove the override,
                     if exdatesnew is not None:
@@ -434,43 +442,45 @@ class iCalDiff(object):
 
         return True, changeCausesReply, changedRids, returnCalendar
 
+
     def _checkVCALENDARProperties(self, serverData, clientData):
 
         self._transferProperty("X-CALENDARSERVER-ACCESS", serverData, clientData)
 
         # Get property differences in the VCALENDAR objects
         propdiff = set(serverData.properties()) ^ set(clientData.properties())
-        
+
         # Ignore certain properties
         ignored = ("PRODID", "CALSCALE",)
         propdiff = set([prop for prop in propdiff if prop.name() not in ignored])
-        
+
         result = len(propdiff) == 0
         if not result:
             log.debug("VCALENDAR properties differ: %s" % (propdiff,))
         return result
 
+
     def _transferAttendeeData(self, serverComponent, clientComponent, declines):
-        
+
         # We are skipping this check now - instead we let the server data override the broken client data
         # First check validity of date-time related properties and get removed components which are declines
         self._checkInvalidChanges(serverComponent, clientComponent, declines)
-        
+
         # Now look for items to transfer from one to the other.
         # We care about the ATTENDEE's PARTSTAT, TRANSP, VALARMS, X-APPLE-NEEDS-REPLY,
         # DTSTAMP, LAST-MODIFIED, COMPLETED, and ATTACH's referring to a dropbox
-        
+
         replyNeeded = False
 
         # ATTENDEE/PARTSTAT/RSVP
         serverAttendee = serverComponent.getAttendeeProperty((self.attendee,))
         clientAttendee = clientComponent.getAttendeeProperty((self.attendee,))
-        
+
         # Possible case where one ATTENDEE prop is missing - this happens with a "fake" master sometimes
         if serverAttendee is None or clientAttendee is None:
             log.err("ATTENDEE for user making an attendee change is missing: %s" % (self.attendee,))
             return False, False
-    
+
         if serverAttendee.parameterValue("PARTSTAT", "NEEDS-ACTION") != clientAttendee.parameterValue("PARTSTAT", "NEEDS-ACTION"):
             serverAttendee.setParameter("PARTSTAT", clientAttendee.parameterValue("PARTSTAT", "NEEDS-ACTION"))
             replyNeeded = True
@@ -490,7 +500,7 @@ class iCalDiff(object):
         self._transferProperty("LAST-MODIFIED", serverComponent, clientComponent)
         self._transferProperty("X-APPLE-NEEDS-REPLY", serverComponent, clientComponent)
         self._transferProperty("COMPLETED", serverComponent, clientComponent)
-        
+
         # Dropbox - this now never returns false
         self._transferDropBoxData(serverComponent, clientComponent)
 
@@ -499,14 +509,15 @@ class iCalDiff(object):
         for comp in clientComponent.subcomponents():
             if comp.name() == "VALARM":
                 serverComponent.addComponent(comp)
-        
+
         return True, replyNeeded
-    
+
+
     def _transferDropBoxData(self, serverComponent, clientComponent):
-        
+
         serverDropbox = serverComponent.propertyValue("X-APPLE-DROPBOX")
         clientDropbox = clientComponent.propertyValue("X-APPLE-DROPBOX")
-        
+
         # Handle four cases
         if not clientDropbox:
             return True
@@ -527,7 +538,7 @@ class iCalDiff(object):
                     dataValue = attachment.value()
                     if dataValue.find(serverDropbox) != -1:
                         serverComponent.removeProperty(attachment)
-        
+
             # Copy new ATTACH's to server
             for attachment in tuple(clientComponent.properties("ATTACH")):
                 valueType = attachment.parameterValue("VALUE")
@@ -535,16 +546,17 @@ class iCalDiff(object):
                     dataValue = attachment.value()
                     if dataValue.find(serverDropbox) != -1:
                         serverComponent.addProperty(attachment)
-                        
+
             return True
-        
+
+
     def _checkInvalidChanges(self, serverComponent, clientComponent, declines):
-        
+
         # Properties we care about: DTSTART, DTEND, DURATION, RRULE, RDATE, EXDATE
-        
+
         serverProps = self._getNormalizedDateTimeProperties(serverComponent)
         clientProps = self._getNormalizedDateTimeProperties(clientComponent)
-        
+
         # Need to special case EXDATEs as an Attendee can effectively DECLINE by adding an EXDATE
         if serverProps[:-1] != clientProps[:-1]:
             invalidChanges = []
@@ -562,30 +574,31 @@ class iCalDiff(object):
             return True
         else:
             return True
-        
+
+
     def _getNormalizedDateTimeProperties(self, component):
-        
+
         # Basic time properties
         if component.name() in ("VEVENT", "VJOURNAL",):
             dtstart = component.getProperty("DTSTART")
             dtend = component.getProperty("DTEND")
             duration = component.getProperty("DURATION")
-            
+
             timeRange = PyCalendarPeriod(
-                start    = dtstart.value()  if dtstart  is not None else None,
-                end      = dtend.value()    if dtend    is not None else None,
-                duration = duration.value() if duration is not None else None,
+                start=dtstart.value()  if dtstart  is not None else None,
+                end=dtend.value()    if dtend    is not None else None,
+                duration=duration.value() if duration is not None else None,
             )
             newdue = None
-            
+
         elif component.name() == "VTODO":
             dtstart = component.getProperty("DTSTART")
             duration = component.getProperty("DURATION")
-            
+
             if dtstart or duration:
                 timeRange = PyCalendarPeriod(
-                    start    = dtstart.value()  if dtstart  is not None else None,
-                    duration = duration.value() if duration is not None else None,
+                    start=dtstart.value()  if dtstart  is not None else None,
+                    duration=duration.value() if duration is not None else None,
                 )
             else:
                 timeRange = PyCalendarPeriod()
@@ -593,7 +606,7 @@ class iCalDiff(object):
             newdue = component.getProperty("DUE")
             if newdue is not None:
                 newdue = newdue.value().duplicate().adjustToUTC()
-            
+
         # Recurrence rules - we need to normalize the order of the value parts
         newrrules = set()
         rrules = component.properties("RRULE")
@@ -602,7 +615,7 @@ class iCalDiff(object):
             indexedTokens.update([valuePart.split("=") for valuePart in rrule.value().getText().split(";")])
             sortedValue = ";".join(["%s=%s" % (key, value,) for key, value in sorted(indexedTokens.iteritems(), key=lambda x:x[0])])
             newrrules.add(sortedValue)
-        
+
         # RDATEs
         newrdates = set()
         rdates = component.properties("RDATE")
@@ -611,7 +624,7 @@ class iCalDiff(object):
                 if isinstance(value, PyCalendarDateTime):
                     value = value.duplicate().adjustToUTC()
                 newrdates.add(value)
-        
+
         # EXDATEs
         newexdates = set()
         exdates = component.properties("EXDATE")
@@ -619,6 +632,7 @@ class iCalDiff(object):
             newexdates.update([value.getValue().duplicate().adjustToUTC() for value in exdate.value()])
 
         return timeRange.getStart(), timeRange.getEnd(), newdue, newrrules, newrdates, newexdates
+
 
     def _transferProperty(self, propName, serverComponent, clientComponent):
 
@@ -640,7 +654,7 @@ class iCalDiff(object):
 
         @param component:
         @type component:
-        
+
         @return: C{bool} indicating whether the PARTSTAT value was in fact changed
         """
         attendee = component.getAttendeeProperty((self.attendee,))
@@ -649,13 +663,14 @@ class iCalDiff(object):
         if attendee is None:
             log.err("ATTENDEE for user making an attendee change is missing: %s" % (self.attendee,))
             return False
-    
+
         partstatChanged = attendee.parameterValue("PARTSTAT", "NEEDS-ACTION") != "DECLINED"
         attendee.setParameter("PARTSTAT", "DECLINED")
         prop = component.getProperty("X-APPLE-NEEDS-REPLY")
         if prop:
             component.removeProperty(prop)
         return partstatChanged
+
 
     def whatIsDifferent(self):
         """
@@ -674,7 +689,7 @@ class iCalDiff(object):
                 rid = component.getRecurrenceIDUTC()
                 map[(name, uid, rid,)] = component
             return map
-        
+
         rids = {}
 
         oldmap = mapComponents(self.oldcalendar)
@@ -687,7 +702,7 @@ class iCalDiff(object):
             component1 = oldmap[key]
             component2 = newmap[key]
             self._diffComponents(component1, component2, rids)
-        
+
         # Now verify that each additional component in oldset matches a derived component in newset
         for key in oldset - newset:
             oldcomponent = oldmap[key]
@@ -695,7 +710,7 @@ class iCalDiff(object):
             if newcomponent is None:
                 continue
             self._diffComponents(oldcomponent, newcomponent, rids)
-        
+
         # Now verify that each additional component in oldset matches a derived component in newset
         for key in newset - oldset:
             oldcomponent = self.oldcalendar.deriveInstance(key[2])
@@ -703,8 +718,9 @@ class iCalDiff(object):
                 continue
             newcomponent = newmap[key]
             self._diffComponents(oldcomponent, newcomponent, rids)
-        
+
         return rids
+
 
     def _componentDuplicateAndNormalize(self, comp):
         comp = comp.duplicate()
@@ -717,14 +733,15 @@ class iCalDiff(object):
         iTipGenerator.prepareSchedulingMessage(comp, reply=True)
         return comp
 
+
     def _diffComponents(self, comp1, comp2, rids):
-        
+
         assert isinstance(comp1, Component) and isinstance(comp2, Component)
-        
+
         if comp1.name() != comp2.name():
             log.debug("Component names are different: '%s' and '%s'" % (comp1.name(), comp2.name()))
             return
-        
+
         # Duplicate then normalize for comparison
         comp1 = self._componentDuplicateAndNormalize(comp1)
         comp2 = self._componentDuplicateAndNormalize(comp2)
@@ -732,7 +749,7 @@ class iCalDiff(object):
         # Diff all the properties
         propdiff = set(comp1.properties()) ^ set(comp2.properties())
         addedChanges = False
-        
+
         propsChanged = {}
         for prop in propdiff:
             if prop.name() in (
@@ -755,10 +772,11 @@ class iCalDiff(object):
             if "_TZID" in propsChanged[prop.name()]:
                 propsChanged[prop.name()].remove("_TZID")
                 propsChanged[prop.name()].add("TZID")
-        
+
         if addedChanges:
             rid = comp1.getRecurrenceIDUTC()
             rids[rid.getText() if rid is not None else ""] = propsChanged
+
 
     def _logDiffError(self, title):
 
@@ -770,7 +788,7 @@ class iCalDiff(object):
             fromfile='Existing Calendar Object',
             tofile='New Calendar Object',
         ))
-        
+
         logstr = """%s
 
 ------ Existing Calendar Data ------
