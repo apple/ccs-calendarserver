@@ -3220,13 +3220,11 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
     def _removeObjectResource(self, child):
         name = child.name()
         uid = child.uid()
-        try:
-            yield child.remove()
-        finally:
-            self._objects.pop(name, None)
-            self._objects.pop(uid, None)
-            yield self._deleteRevision(name)
-            yield self.notifyChanged()
+        yield child.remove()
+        self._objects.pop(name, None)
+        self._objects.pop(uid, None)
+        yield self._deleteRevision(name)
+        yield self.notifyChanged()
 
 
     @classproperty
