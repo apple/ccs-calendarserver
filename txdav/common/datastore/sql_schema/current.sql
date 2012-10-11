@@ -389,21 +389,21 @@ insert into ADDRESS_BOOK_OBJECT_KIND values (1, 'group' );
 insert into ADDRESS_BOOK_OBJECT_KIND values (2, 'resource');
 insert into ADDRESS_BOOK_OBJECT_KIND values (3, 'location');
 
--------------
--- Members --
--------------
+---------------------------------
+-- Address Book Object Members --
+---------------------------------
 
-create table MEMBERS (
+create table ABO_MEMBERS (
     GROUP_ID              integer      references ADDRESSBOOK_OBJECT,			-- AddressBook Object's (kind=='group') RESOURCE_ID
     MEMBER_ID             integer      not null references ADDRESSBOOK_OBJECT,	-- member AddressBook Object's RESOURCE_ID
     primary key(GROUP_ID, MEMBER_ID) -- implicit index
 );
 
-----------------------
--- Foreign Members  --
-----------------------
+------------------------------------------
+-- Address Book Object Foreign Members  --
+------------------------------------------
 
-create table FOREIGN_MEMBERS (
+create table ABO_FOREIGN_MEMBERS (
     GROUP_ID              integer      references ADDRESSBOOK_OBJECT,	-- AddressBook Object's (kind=='group') RESOURCE_ID
     MEMBER_ADDRESS  	  varchar(255) not null, 						-- member AddressBook Object's address
     primary key(GROUP_ID, MEMBER_ADDRESS) -- implicit index

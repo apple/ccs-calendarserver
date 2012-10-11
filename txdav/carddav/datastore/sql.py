@@ -237,40 +237,38 @@ class AddressBookObject(CommonObjectResource):
     @inlineCallbacks
     def remove(self):
 
-        uid = self._uid
-        resourceID = self._resourceID
-        yield super(AddressBookObject, self).remove()
-
-        fmTable = schema.FOREIGN_MEMBERS
-        mTable = schema.MEMBERS
-
-        # delete members
-        yield Delete(
-            mTable,
-            Where=mTable.GROUP_ID == resourceID,
-        ).on(self._txn)
-
-        # delete foreign members
-        yield Delete(
-            fmTable,
-            Where=fmTable.GROUP_ID == resourceID,
-        ).on(self._txn)
+        aboForeignMembers = schema.ABO_FOREIGN_MEMBERS
+        aboMembers = schema.ABO_MEMBERS
 
         # delete members table row for this object
         groupIDs = yield Delete(
-            mTable,
-            Where=mTable.MEMBER_ID == resourceID,
-            Return=mTable.GROUP_ID
+            aboMembers,
+            Where=aboMembers.MEMBER_ID == self._resourceID,
+            Return=aboMembers.GROUP_ID
         ).on(self._txn)
 
         # add to foreign member table row by UID
         for groupID in groupIDs:
             yield Insert(
-                {fmTable.GROUP_ID: groupID,
-                  fmTable.MEMBER_ADDRESS: "urn:uuid" + uid, }
+                {aboForeignMembers.GROUP_ID: groupID,
+                  aboForeignMembers.MEMBER_ADDRESS: "urn:uuid:" + self._uid, }
             ).on(self._txn)
 
-        # Set to non-existent state
+        if self._kind == _ABO_KIND_GROUP:
+
+            # delete this group's members
+            yield Delete(
+                aboMembers,
+                Where=aboMembers.GROUP_ID == self._resourceID,
+            ).on(self._txn)
+
+            # delete this group's foreign members
+            yield Delete(
+                aboForeignMembers,
+                Where=aboForeignMembers.GROUP_ID == self._resourceID,
+            ).on(self._txn)
+
+        yield super(AddressBookObject, self).remove()
         self._kind = None
 
     @classproperty
@@ -331,6 +329,8 @@ class AddressBookObject(CommonObjectResource):
         """
 
         abo = schema.ADDRESSBOOK_OBJECT
+        aboForeignMembers = schema.ABO_FOREIGN_MEMBERS
+        aboMembers = schema.ABO_MEMBERS
 
         componentText = str(component)
         self._objectText = componentText
@@ -357,9 +357,6 @@ class AddressBookObject(CommonObjectResource):
         assert inserting or self._kind == kind  # can't change kind. Should be checked in upper layers
         self._kind = kind
 
-        fmTable = schema.FOREIGN_MEMBERS
-        mTable = schema.MEMBERS
-
         if inserting:
             self._resourceID, self._created, self._modified = (
                 yield Insert(
@@ -375,19 +372,18 @@ class AddressBookObject(CommonObjectResource):
                 ).on(self._txn))[0]
 
             # update existing group member tables for this new object
-
             # delete foreign members table row for this object
             groupIDs = yield Delete(
-                fmTable,
-                Where=fmTable.MEMBER_ADDRESS == "urn:uuid" + self._uid,
-                Return=fmTable.GROUP_ID
+                aboForeignMembers,
+                Where=aboForeignMembers.MEMBER_ADDRESS == "urn:uuid:" + self._uid,
+                Return=aboForeignMembers.GROUP_ID
             ).on(self._txn)
 
             # add to member table row by resourceID
             for groupID in groupIDs:
                 yield Insert(
-                    {mTable.GROUP_ID: groupID,
-                     mTable.MEMBER_ID: self._resourceID, }
+                    {aboMembers.GROUP_ID: groupID,
+                     aboMembers.MEMBER_ID: self._resourceID, }
                 ).on(self._txn)
 
         else:
@@ -398,63 +394,63 @@ class AddressBookObject(CommonObjectResource):
                 Where=abo.RESOURCE_ID == self._resourceID,
                 Return=abo.MODIFIED).on(self._txn))[0][0]
 
-        # if group, update members
-
-        if self.kind == _ABO_KIND_GROUP:
+        if self._kind == _ABO_KIND_GROUP:
 
             # get member resource ID for each member string, or keep as string
             memberIDs = []
             foreignMemberAddrs = []
-            for memberAddr in set(component.resourceMembers()):
+            for memberAddr in component.resourceMembers():
+                memberRow = []
                 if len(memberAddr) > len("urn:uuid:") and memberAddr.startswith("urn:uuid:"):
                     memberUID = memberAddr[len("urn:uuid:"):]
-                    memberID = (yield Select([abo.RESOURCE_ID],
+                    memberRow = yield Select([abo.RESOURCE_ID],
                                      From=abo,
                                      Where=((abo.ADDRESSBOOK_RESOURCE_ID == self._addressbook._resourceID)
-                                            ).And(abo.VCARD_UID == memberUID)).on(self._txn))[0][0]
-                if memberID:
-                    memberIDs.append(memberID)
+                                            ).And(abo.VCARD_UID == memberUID)).on(self._txn)
+                if memberRow:
+                    memberIDs.append(memberRow[0][0])
                 else:
                     foreignMemberAddrs.append(memberAddr)
 
             #get current members
-            [currentMemberIDs] = yield Select([mTable.MEMBER_ID],
-                                 From=mTable,
-                                 Where=(mTable.GROUP_ID == self._resourceID)).on(self._txn)
+            currentMemberIDs = yield Select([aboMembers.MEMBER_ID],
+                                 From=aboMembers,
+                                 Where=(aboMembers.GROUP_ID == self._resourceID)).on(self._txn)
 
             memberIDsToDelete = set(currentMemberIDs) - set(memberIDs)
+            memberIDsToAdd = set(memberIDs) - set(currentMemberIDs)
+
             for memberIDToDelete in memberIDsToDelete:
                 yield Delete(
-                    fmTable,
-                    Where=((mTable.GROUP_ID == self._resourceID).And(mTable.MEMBER_ID == memberIDToDelete))
+                    aboMembers,
+                    Where=((aboMembers.GROUP_ID == self._resourceID).And(aboMembers.MEMBER_ID == memberIDToDelete))
                 ).on(self._txn)
 
-            memberIDsToAdd = set(memberIDs) - set(currentMemberIDs)
             for memberIDToAdd in memberIDsToAdd:
                 yield Insert(
-                    {mTable.GROUP_ID: self._resourceID,
-                     mTable.MEMBER_ID: memberIDToAdd, }
+                    {aboMembers.GROUP_ID: self._resourceID,
+                     aboMembers.MEMBER_ID: memberIDToAdd, }
                 ).on(self._txn)
 
             #get current foreign members 
-            [currentForeignMemberAddrs] = yield Select([fmTable.MEMBER_ADDRESS],
-                                                 From=fmTable,
-                                                 Where=(fmTable.GROUP_ID == self._resourceID)).on(self._txn)
+            currentForeignMemberAddrs = yield Select([aboForeignMembers.MEMBER_ADDRESS],
+                                                 From=aboForeignMembers,
+                                                 Where=(aboForeignMembers.GROUP_ID == self._resourceID)).on(self._txn)
 
             foreignMemberAddrsToDelete = set(currentForeignMemberAddrs) - set(foreignMemberAddrs)
+            foreignMemberAddrsToAdd = set(foreignMemberAddrs) - set(currentForeignMemberAddrs)
+
             for foreignMemberAddrToDelete in foreignMemberAddrsToDelete:
                 yield Delete(
-                    fmTable,
-                    Where=((mTable.GROUP_ID == self._resourceID).And(mTable.MEMBER_ADDRESS == foreignMemberAddrToDelete))
+                    aboForeignMembers,
+                    Where=((aboMembers.GROUP_ID == self._resourceID).And(aboForeignMembers.MEMBER_ADDRESS == foreignMemberAddrToDelete))
                 ).on(self._txn)
 
-            foreignMemberAddrsToAdd = set(foreignMemberAddrs) - set(currentForeignMemberAddrs)
             for foreignMemberAddrToAdd in foreignMemberAddrsToAdd:
                 yield Insert(
-                    {mTable.GROUP_ID: self._resourceID,
-                     mTable.MEMBER_ADDRESS: foreignMemberAddrToAdd, }
+                    {aboForeignMembers.GROUP_ID: self._resourceID,
+                     aboForeignMembers.MEMBER_ADDRESS: foreignMemberAddrToAdd, }
                 ).on(self._txn)
-
 
 
     @inlineCallbacks

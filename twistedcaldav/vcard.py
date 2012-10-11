@@ -427,12 +427,12 @@ class Component (object):
 
     def resourceMembers(self):
         """
-        @return: an iterable of L{Property} objects, one for each member of this
+        @return: an iterable of X-ADDRESSBOOKSERVER-MEMBER property values
         """
         assert self.name() == "VCARD", "Not a vcard: %r" % (self,)
 
         if not hasattr(self, "_resource_members"):
-            self._resource_members = self.properties("X-ADDRESSBOOKSERVER-MEMBERS")
+            self._resource_members = [prop.value() for prop in list(self.properties("X-ADDRESSBOOKSERVER-MEMBER"))]
 
         return self._resource_members
 

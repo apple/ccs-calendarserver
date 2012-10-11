@@ -263,7 +263,7 @@ class AddressBookSQLStorageTests(AddressBookCommonTests, unittest.TestCase):
 
         @inlineCallbacks
         def _defer1():
-            yield adbk1.createObjectResourceWithName("1.vcf", VCard.fromString(
+            yield adbk1.createAddressBookObjectWithName("1.vcf", VCard.fromString(
                 """BEGIN:VCARD
 VERSION:3.0
 N:Thompson;Default1;;;
@@ -282,7 +282,7 @@ END:VCARD
 
         @inlineCallbacks
         def _defer2():
-            yield adbk2.createObjectResourceWithName("2.vcf", VCard.fromString(
+            yield adbk2.createAddressBookObjectWithName("2.vcf", VCard.fromString(
                 """BEGIN:VCARD
 VERSION:3.0
 N:Thompson;Default2;;;
@@ -331,7 +331,7 @@ END:VCARD
 """.replace("\n", "\r\n")
             )
         self.assertEqual(person.resourceUID(), "uid1")
-        abObject = yield adbk.createObjectResourceWithName("1.vcf", person)
+        abObject = yield adbk.createAddressBookObjectWithName("1.vcf", person)
         self.assertEqual(abObject.uid(), "uid1")
         yield txn.commit()
 
@@ -375,7 +375,7 @@ END:VCARD
 """.replace("\n", "\r\n")
             )
         self.assertEqual(person.resourceKind(), None)
-        abObject = yield adbk.createObjectResourceWithName("p.vcf", person)
+        abObject = yield adbk.createAddressBookObjectWithName("p.vcf", person)
         self.assertEqual(abObject.kind(), _ABO_KIND_PERSON)
 
         group = VCard.fromString(
@@ -392,7 +392,7 @@ END:VCARD
 """.replace("\n", "\r\n")
             )
         abObject = self.assertEqual(group.resourceKind(), "group")
-        abObject = yield adbk.createObjectResourceWithName("g.vcf", group)
+        abObject = yield adbk.createAddressBookObjectWithName("g.vcf", group)
         self.assertEqual(abObject.kind(), _ABO_KIND_GROUP)
 
         badgroup = VCard.fromString(
@@ -409,7 +409,7 @@ END:VCARD
 """.replace("\n", "\r\n")
             )
         abObject = self.assertEqual(badgroup.resourceKind(), "badgroup")
-        abObject = yield adbk.createObjectResourceWithName("bg.vcf", badgroup)
+        abObject = yield adbk.createAddressBookObjectWithName("bg.vcf", badgroup)
         self.assertEqual(abObject.kind(), _ABO_KIND_PERSON)
 
         yield txn.commit()
@@ -432,6 +432,92 @@ END:VCARD
         badgroup = yield abObject.component()
         self.assertEqual(badgroup.resourceKind(), "badgroup")
         self.assertEqual(abObject.kind(), _ABO_KIND_PERSON)
+
+        yield txn.commit()
+
+
+    @inlineCallbacks
+    def test_addressbookObjectMembers(self):
+        """
+        Test that kind property vCard is stored correctly in database
+        """
+        addressbookStore = yield buildStore(self, self.notifierFactory)
+
+        # Provision the home and addressbook, one user and one group
+        txn = addressbookStore.newTransaction()
+        home = yield txn.homeWithUID(EADDRESSBOOKTYPE, "uid1", create=True)
+        self.assertNotEqual(home, None)
+        adbk = yield home.addressbookWithName("addressbook")
+        self.assertNotEqual(adbk, None)
+
+        person = VCard.fromString(
+            """BEGIN:VCARD
+VERSION:3.0
+N:Thompson;Default;;;
+FN:Default Thompson
+EMAIL;type=INTERNET;type=WORK;type=pref:lthompson@example.com
+TEL;type=WORK;type=pref:1-555-555-5555
+TEL;type=CELL:1-444-444-4444
+item1.ADR;type=WORK;type=pref:;;1245 Test;Sesame Street;California;11111;USA
+item1.X-ABADR:us
+UID:uid1
+END:VCARD
+""".replace("\n", "\r\n")
+            )
+        self.assertEqual(person.resourceKind(), None)
+        personObject = yield adbk.createAddressBookObjectWithName("p.vcf", person)
+
+        group = VCard.fromString(
+            """BEGIN:VCARD
+VERSION:3.0
+PRODID:-//Apple Inc.//AddressBook 6.1//EN
+UID:uid2
+FN:Top Group
+N:Top Group;;;;
+REV:20120503T194243Z
+X-ADDRESSBOOKSERVER-KIND:group
+X-ADDRESSBOOKSERVER-MEMBER:urn:uuid:uid3
+END:VCARD
+""".replace("\n", "\r\n")
+            )
+        groupObject = yield adbk.createAddressBookObjectWithName("g.vcf", group)
+
+        aboForeignMembers = schema.ABO_FOREIGN_MEMBERS
+        aboMembers = schema.ABO_MEMBERS
+        memberRows = yield Select([aboMembers.GROUP_ID, aboMembers.MEMBER_ID], From=aboMembers,).on(txn)
+        self.assertEqual(memberRows, [])
+
+        foreignMemberRows = yield Select([aboForeignMembers.GROUP_ID, aboForeignMembers.MEMBER_ADDRESS], From=aboForeignMembers).on(txn)
+        self.assertEqual(foreignMemberRows, [[groupObject._resourceID, "urn:uuid:uid3"]])
+
+        subgroup = VCard.fromString(
+            """BEGIN:VCARD
+VERSION:3.0
+PRODID:-//Apple Inc.//AddressBook 6.1//EN
+UID:uid3
+FN:Sub Group
+N:Sub Group;;;;
+REV:20120503T194243Z
+X-ADDRESSBOOKSERVER-KIND:group
+X-ADDRESSBOOKSERVER-MEMBER:urn:uuid:uid1
+END:VCARD
+""".replace("\n", "\r\n")
+            )
+        subgroupObject = yield adbk.createAddressBookObjectWithName("sg.vcf", subgroup)
+
+        memberRows = yield Select([aboMembers.GROUP_ID, aboMembers.MEMBER_ID], From=aboMembers,).on(txn)
+        self.assertEqual(memberRows.sort(), [[groupObject._resourceID, subgroupObject._resourceID], [subgroupObject._resourceID, personObject._resourceID]].sort())
+
+        foreignMemberRows = yield Select([aboForeignMembers.GROUP_ID, aboForeignMembers.MEMBER_ADDRESS], From=aboForeignMembers).on(txn)
+        self.assertEqual(foreignMemberRows, [])
+
+
+        yield adbk.removeAddressBookObjectWithName("sg.vcf")
+        memberRows = yield Select([aboMembers.GROUP_ID, aboMembers.MEMBER_ID], From=aboMembers,).on(txn)
+        self.assertEqual(memberRows, [])
+
+        foreignMemberRows = yield Select([aboForeignMembers.GROUP_ID, aboForeignMembers.MEMBER_ADDRESS], From=aboForeignMembers).on(txn)
+        self.assertEqual(foreignMemberRows, [[groupObject._resourceID, "urn:uuid:uid3"]])
 
         yield txn.commit()
 
