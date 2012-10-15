@@ -1962,5 +1962,5 @@ class IMAP4DownloadFactory(protocol.ClientFactory, LoggingMixIn):
 
     def clientConnectionFailed(self, connector, reason):
         self.connector = connector
-        self.log_error("IMAP factory connection failed")
+        self.log_warn("IMAP factory connection failed")
         self.retry(connector)
