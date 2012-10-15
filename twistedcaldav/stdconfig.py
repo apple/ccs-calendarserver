@@ -491,6 +491,15 @@ DEFAULT_CONFIG = {
         },
     },
 
+    # How large a spawned process is allowed to get before it's stopped
+    "MemoryLimiter" : {
+        "Enabled" : True,
+        "Seconds" : 60, # How often to check memory sizes (in seconds)
+        "Bytes"   : 2 * 1024 * 1024 * 1024, # Memory limit (RSS in bytes)
+        "ResidentOnly" : True,  # True: only take into account resident memory;
+                                # False: include virtual memory
+    },
+
     #
     # Service ACLs
     #

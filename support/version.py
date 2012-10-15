@@ -44,7 +44,7 @@ def version():
             continue
 
         if branch == "trunk":
-            base_version = "trunk"
+            base_version += "-trunk"
         elif branch.endswith("-dev"):
             base_version += "-dev"
 

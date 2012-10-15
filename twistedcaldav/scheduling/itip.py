@@ -256,7 +256,7 @@ class iTipProcessing(object):
                     # Existing component is cancelled.
                     overridden.replaceProperty(Property("STATUS", "CANCELLED"))
                     newseq = component.propertyValue("SEQUENCE")
-                    overridden.replacePropertyInAllComponents(Property("SEQUENCE", newseq))
+                    overridden.replaceProperty(Property("SEQUENCE", newseq))
 
             elif calendar_master:
                 # We are trying to CANCEL a non-overridden instance.

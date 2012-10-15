@@ -2095,7 +2095,11 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
             returnValue(None)
         while (url != "/"):
             url = parentForURL(url)
+            if url is None:
+                break
             parent = (yield request.locateResource(url))
+            if parent is None:
+                break
             if parent.hasQuotaRoot(request):
                 returnValue(parent)
 

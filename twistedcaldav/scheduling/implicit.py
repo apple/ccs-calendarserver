@@ -1033,7 +1033,7 @@ class ImplicitScheduler(object):
                 if not changeAllowed:
                     if self.calendar.hasPropertyValueInAllComponents(Property("STATUS", "CANCELLED")):
                         log.debug("Attendee '%s' is creating CANCELLED event for mismatched UID: '%s' - removing entire event" % (self.attendee, self.uid,))
-                        self.return_status = ImplicitScheduler.STATUS_ORPHANED_CANCELLED_EVENT
+                        self.return_status = ImplicitScheduler.STATUS_ORPHANED_EVENT
                         returnValue(None)
                     else:
                         log.error("Attendee '%s' is not allowed to make an unauthorized change to an organized event: UID:%s" % (self.attendeePrincipal, self.uid,))
@@ -1042,6 +1042,13 @@ class ImplicitScheduler(object):
                             (caldav_namespace, "valid-attendee-change"),
                             "Attendee changes are not allowed",
                         ))
+
+                # Check that the return calendar actually has any components left - this can happen if a cancelled
+                # component is removed and replaced by another cancelled or invalid one
+                if self.calendar.mainType() is None:
+                    log.debug("Attendee '%s' is replacing CANCELLED event: '%s' - removing entire event" % (self.attendee, self.uid,))
+                    self.return_status = ImplicitScheduler.STATUS_ORPHANED_EVENT
+                    returnValue(None)
 
                 if not doITipReply:
                     log.debug("Implicit - attendee '%s' is updating UID: '%s' but change is not significant" % (self.attendee, self.uid))

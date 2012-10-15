@@ -335,7 +335,7 @@ class iCalDiff(object):
                     if self._attendeeDecline(overridden):
                         changeCausesReply = True
                         changedRids.append(rid.getText() if rid else "")
-                        
+
                     # When a master component is present we keep the missing override in place but mark it as hidden.
                     # When no master is present we remove the override,
                     if exdatesnew is not None:
@@ -430,7 +430,7 @@ class iCalDiff(object):
                     if self._attendeeDecline(overridden):
                         changeCausesReply = True
                         changedRids.append(decline.getText() if decline else "")
-                        
+
                     # When a master component is present we keep the missing override in place but mark it as hidden.
                     # When no master is present we remove the override,
                     if exdatesnew is not None:

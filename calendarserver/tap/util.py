@@ -23,12 +23,14 @@ __all__ = [
     "getRootResource",
     "getDBPool",
     "FakeRequest",
+    "MemoryLimitService",
 ]
 
 import errno
 import os
 from time import sleep
 from socket import fromfd, AF_UNIX, SOCK_STREAM, socketpair
+import psutil
 
 from twext.python.filepath import CachingFilePath as FilePath
 from twext.python.log import Logger
@@ -37,6 +39,7 @@ from twext.web2.dav import auth
 from twext.web2.http_headers import Headers
 from twext.web2.static import File as FileResource
 
+from twisted.application.service import Service
 from twisted.cred.portal import Portal
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.internet import reactor as _reactor
@@ -68,6 +71,7 @@ from twistedcaldav.util import getMemorySize, getNCPU
 from twext.enterprise.ienterprise import POSTGRES_DIALECT
 from twext.enterprise.ienterprise import ORACLE_DIALECT
 from twext.enterprise.adbapi2 import ConnectionPool, ConnectionPoolConnection
+
 
 try:
     from twistedcaldav.authkerb import NegotiateCredentialFactory
@@ -839,3 +843,96 @@ class FakeRequest(object):
 
     def addResponseFilter(self, *args, **kwds):
         pass
+
+
+
+def memoryForPID(pid, residentOnly=True):
+    """
+    Return the amount of memory in use for the given process.  If residentOnly is True,
+        then RSS is returned; if False, then virtual memory is returned.
+    @param pid: process id
+    @type pid: C{int}
+    @param residentOnly: Whether only resident memory should be included
+    @type residentOnly: C{boolean}
+    @return: Memory used by process in bytes
+    @rtype: C{int}
+    """
+    memoryInfo = psutil.Process(pid).get_memory_info()
+    return memoryInfo.rss if residentOnly else memoryInfo.vms
+
+
+
+class MemoryLimitService(Service, object):
+    """
+    A service which when paired with a DelayedStartupProcessMonitor will periodically
+    examine the memory usage of the monitored processes and stop any which exceed
+    a configured limit.  Memcached processes are ignored.
+    """
+
+    def __init__(self, processMonitor, intervalSeconds, limitBytes, residentOnly, reactor=None):
+        """
+        @param processMonitor: the DelayedStartupProcessMonitor
+        @param intervalSeconds: how often to check
+        @type intervalSeconds: C{int}
+        @param limitBytes: any monitored process over this limit is stopped
+        @type limitBytes: C{int}
+        @param residentOnly: whether only resident memory should be included
+        @type residentOnly: C{boolean}
+        @param reactor: for testing
+        """
+        self._processMonitor = processMonitor
+        self._seconds = intervalSeconds
+        self._bytes = limitBytes
+        self._residentOnly = residentOnly
+        self._delayedCall = None
+        if reactor is None:
+            from twisted.internet import reactor
+        self._reactor = reactor
+
+        # Unit tests can swap out _memoryForPID
+        self._memoryForPID = memoryForPID
+
+
+    def startService(self):
+        """
+        Start scheduling the memory checks
+        """
+        super(MemoryLimitService, self).startService()
+        self._delayedCall = self._reactor.callLater(self._seconds, self.checkMemory)
+
+
+    def stopService(self):
+        """
+        Stop checking memory
+        """
+        super(MemoryLimitService, self).stopService()
+        if self._delayedCall is not None and self._delayedCall.active():
+            self._delayedCall.cancel()
+            self._delayedCall = None
+
+
+    def checkMemory(self):
+        """
+        Stop any processes monitored by our paired processMonitor whose resident
+        memory exceeds our configured limitBytes.  Reschedule intervalSeconds in
+        the future.
+        """
+        try:
+            for name in self._processMonitor.processes:
+                if name.startswith("memcached"):
+                    continue
+                proto = self._processMonitor.protocols.get(name, None)
+                if proto is not None:
+                    proc = proto.transport
+                    pid = proc.pid
+                    try:
+                        memory = self._memoryForPID(pid, self._residentOnly)
+                    except Exception, e:
+                        log.error("Unable to determine memory usage of PID: %d (%s)" % (pid, e))
+                        continue
+                    if memory > self._bytes:
+                        log.warn("Killing large process: %s PID:%d %s:%d" %
+                            (name, pid, "Resident" if self._residentOnly else "Virtual", memory))
+                        self._processMonitor.stopProcess(name)
+        finally:
+            self._delayedCall = self._reactor.callLater(self._seconds, self.checkMemory)
