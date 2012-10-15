@@ -260,6 +260,19 @@ class ICalendar(INotifier, IShareableCollection, IDataStoreObject):
         Change the name of this calendar.
         """
 
+    def displayName():
+        """
+        Get the display name of this calendar.
+
+        @return: a unicode string.
+        """
+
+    def setDisplayName(name):
+        """
+        Set the display name of this calendar.
+
+        @param name: a C{unicode}.
+        """
 
     def ownerCalendarHome():
         """

@@ -31,7 +31,8 @@ from zope.interface import implements, directlyProvides
 
 from twext.python.log import Logger, LoggingMixIn
 from twisted.python.log import msg as log_msg, err as log_err
-from txdav.xml.rfc2518 import ResourceType
+
+from txdav.xml.element import ResourceType
 from txdav.xml.parser import WebDAVDocument
 from twext.web2.http_headers import MimeType
 
@@ -53,6 +54,7 @@ from txdav.caldav.icalendarstore import ICalendarTransaction, ICalendarStore
 
 from txdav.carddav.iaddressbookstore import IAddressBookTransaction
 
+from txdav.common.datastore.common import HomeChildBase
 from txdav.common.datastore.sql_tables import schema
 from txdav.common.datastore.sql_tables import _BIND_MODE_OWN, \
     _BIND_STATUS_ACCEPTED, _BIND_STATUS_DECLINED, \
@@ -1982,7 +1984,7 @@ class _SharedSyncLogic(object):
 
 
 
-class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
+class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic, HomeChildBase):
     """
     Common ancestor class of AddressBooks and Calendars.
     """

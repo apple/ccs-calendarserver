@@ -574,11 +574,13 @@ class CommonTests(CommonCommonTests):
         self.assertEquals(calendar.notifierID(), "CalDAV|home1")
         self.assertEquals(calendar.notifierID(label="collection"), "CalDAV|home1/calendar_1")
 
+
     @inlineCallbacks
     def test_nodeNameSuccess(self):
         home = yield self.homeUnderTest()
         name = yield home.nodeName()
         self.assertEquals(name, "/CalDAV/example.com/home1/")
+
 
     @inlineCallbacks
     def test_nodeNameFailure(self):
@@ -588,6 +590,48 @@ class CommonTests(CommonCommonTests):
             create=True)
         name = yield home.nodeName()
         self.assertEquals(name, None)
+
+
+    @inlineCallbacks
+    def test_displayNameNone(self):
+        """
+        L{ICalendarHome.calendarWithName} returns C{None} for calendars which
+        do not exist.
+        """
+        home = (yield self.homeUnderTest())
+        calendar = (yield home.calendarWithName("calendar_1"))
+        name = (yield calendar.displayName())
+        self.assertEquals(name, None)
+
+
+    @inlineCallbacks
+    def test_setDisplayName(self):
+        """
+        L{ICalendarHome.calendarWithName} returns C{None} for calendars which
+        do not exist.
+        """
+        home = (yield self.homeUnderTest())
+        calendar = (yield home.calendarWithName("calendar_1"))
+
+        calendar.setDisplayName(u"quux")
+        name = calendar.displayName()
+        self.assertEquals(name, u"quux")
+
+        calendar.setDisplayName(None)
+        name = calendar.displayName()
+        self.assertEquals(name, None)
+
+
+    @inlineCallbacks
+    def test_setDisplayNameBytes(self):
+        """
+        L{ICalendarHome.calendarWithName} returns C{None} for calendars which
+        do not exist.
+        """
+        home = (yield self.homeUnderTest())
+        calendar = (yield home.calendarWithName("calendar_1"))
+        self.assertRaises(ValueError, calendar.setDisplayName, "quux")
+
 
     @inlineCallbacks
     def test_calendarHomeWithUID_exists(self):

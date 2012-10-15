@@ -38,6 +38,7 @@ from twistedcaldav.notifications import NotificationsDatabase as OldNotification
 from twistedcaldav.sharing import SharedCollectionsDatabase
 from txdav.caldav.icalendarstore import ICalendarStore, BIND_OWN
 
+from txdav.common.datastore.common import HomeChildBase
 from txdav.common.icommondatastore import HomeChildNameNotAllowedError, \
     HomeChildNameAlreadyExistsError, NoSuchHomeChildError, \
     InternalDataStoreError, ObjectResourceNameNotAllowedError, \
@@ -632,7 +633,7 @@ class CommonHome(FileMetaDataMixin, LoggingMixIn):
             self._transaction.notificationAddedForObject(self)
 
 
-class CommonHomeChild(FileMetaDataMixin, LoggingMixIn, FancyEqMixin):
+class CommonHomeChild(FileMetaDataMixin, LoggingMixIn, FancyEqMixin, HomeChildBase):
     """
     Common ancestor class of AddressBooks and Calendars.
     """
