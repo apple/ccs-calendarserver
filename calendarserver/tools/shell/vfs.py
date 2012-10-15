@@ -462,7 +462,18 @@ class CalendarHomeFolder(Folder):
     @inlineCallbacks
     def list(self):
         calendars = (yield self.home.calendars())
-        returnValue((ListEntry(self, CalendarFolder, c.name()) for c in calendars))
+        result = []
+        for calendar in calendars:
+            displayName = calendar.displayName()
+            if displayName is None:
+                displayName = "(unset)"
+
+            info = {
+                "Display Name": displayName,
+                "Sync Token"  : (yield calendar.syncToken()),
+            }
+            result.append(ListEntry(self, CalendarFolder, calendar.name(), **info))
+        returnValue(result)
 
     @inlineCallbacks
     def describe(self):
