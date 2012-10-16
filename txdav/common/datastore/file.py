@@ -24,7 +24,7 @@ from twext.python.log import LoggingMixIn
 from txdav.xml.rfc2518 import ResourceType, GETContentType, HRef
 from txdav.xml.rfc5842 import ResourceID
 from twext.web2.http_headers import generateContentType, MimeType
-from twext.web2.dav.resource import TwistedGETContentMD5,\
+from twext.web2.dav.resource import TwistedGETContentMD5, \
     TwistedQuotaUsedProperty
 
 from twisted.internet.defer import succeed, inlineCallbacks, returnValue
@@ -139,6 +139,7 @@ class CommonDataStore(DataStore):
         self._migrating = state
         self._enableNotifications = not state
 
+
     def setUpgrading(self, state):
         """
         Set the "upgrading" state
@@ -177,6 +178,7 @@ class CommonDataStore(DataStore):
 
     def eachAddressbookHome(self):
         return self._homesOfType(EADDRESSBOOKTYPE)
+
 
 
 class CommonStoreTransaction(DataStoreTransaction):
@@ -226,14 +228,45 @@ class CommonStoreTransaction(DataStoreTransaction):
         CommonStoreTransaction._homeClass[EADDRESSBOOKTYPE] = AddressBookHome
 
 
-    @memoizedKey('uid', '_calendarHomes')
+    def calendarHomes(self):
+        return self.homes(ECALENDARTYPE)
+
+
     def calendarHomeWithUID(self, uid, create=False):
         return self.homeWithUID(ECALENDARTYPE, uid, create=create)
 
-    @memoizedKey("uid", "_addressbookHomes")
+
+    def addressbookHomes(self):
+        return self.homes(EADDRESSBOOKTYPE)
+
+
     def addressbookHomeWithUID(self, uid, create=False):
         return self.homeWithUID(EADDRESSBOOKTYPE, uid, create=create)
 
+
+    def _determineMemo(self, storeType, uid, create=False):
+        """
+        Determine the memo dictionary to use for homeWithUID.
+        """
+        if storeType == ECALENDARTYPE:
+            return self._calendarHomes
+        else:
+            return self._addressbookHomes
+
+
+    def homes(self, storeType):
+        """
+        Load all calendar or addressbook homes.
+        """
+        uids = self._homeClass[storeType].listHomes(self)
+        for uid in uids:
+            self.homeWithUID(storeType, uid, create=False)
+
+        # Return the memoized list directly
+        returnValue([kv[1] for kv in sorted(self._determineMemo(storeType, None).items(), key=lambda x: x[0])])
+
+
+    @memoizedKey("uid", _determineMemo)
     def homeWithUID(self, storeType, uid, create=False):
         if uid.startswith("."):
             return None
@@ -242,6 +275,7 @@ class CommonStoreTransaction(DataStoreTransaction):
             raise RuntimeError("Unknown home type.")
 
         return self._homeClass[storeType].homeWithUID(self, uid, create, storeType == ECALENDARTYPE)
+
 
     @memoizedKey("uid", "_notificationHomes")
     def notificationsWithUID(self, uid, home=None):
@@ -255,26 +289,34 @@ class CommonStoreTransaction(DataStoreTransaction):
     def addAPNSubscription(self, token, key, timestamp, subscriber, userAgent, ipAddr):
         return NotImplementedError
 
+
     def removeAPNSubscription(self, token, key):
         return NotImplementedError
+
 
     def purgeOldAPNSubscriptions(self, purgeSeconds):
         return NotImplementedError
 
+
     def apnSubscriptionsByToken(self, token):
         return NotImplementedError
+
 
     def apnSubscriptionsByKey(self, key):
         return NotImplementedError
 
+
     def apnSubscriptionsBySubscriber(self, guid):
         return NotImplementedError
+
 
     def isNotifiedAlready(self, obj):
         return obj in self._notifiedAlready
 
+
     def notificationAddedForObject(self, obj):
         self._notifiedAlready.add(obj)
+
 
     def isBumpedAlready(self, obj):
         """
@@ -283,6 +325,7 @@ class CommonStoreTransaction(DataStoreTransaction):
         bumpModified only once per object.
         """
         return obj in self._bumpedAlready
+
 
     def bumpAddedForObject(self, obj):
         """
@@ -329,6 +372,31 @@ class CommonHome(FileMetaDataMixin, LoggingMixIn):
 
     def quotaAllowedBytes(self):
         return self._transaction.store().quota
+
+
+    @classmethod
+    def listHomes(cls, txn):
+        """
+        Retrieve the owner UIDs of all existing homes.
+
+        @return: an iterable of C{str}s.
+        """
+        results = []
+        top = txn._dataStore._path.child(cls._topPath)
+        if top.exists() and top.isdir() and top.child(UIDPATH).exists():
+            for firstPrefix in top.child(UIDPATH).children():
+                if not isValidName(firstPrefix.basename()):
+                    continue
+                for secondPrefix in firstPrefix.children():
+                    if not isValidName(secondPrefix.basename()):
+                        continue
+                    for actualHome in secondPrefix.children():
+                        uid = actualHome.basename()
+                        if not isValidName(uid):
+                            continue
+                        results.append(uid)
+
+        return results
 
 
     @classmethod
@@ -391,6 +459,7 @@ class CommonHome(FileMetaDataMixin, LoggingMixIn):
 
         return home
 
+
     def __repr__(self):
         return "<%s: %s>" % (self.__class__.__name__, self._path)
 
@@ -401,6 +470,7 @@ class CommonHome(FileMetaDataMixin, LoggingMixIn):
 
     def transaction(self):
         return self._transaction
+
 
     def retrieveOldShares(self):
         """
@@ -434,7 +504,7 @@ class CommonHome(FileMetaDataMixin, LoggingMixIn):
         ) | set(
             name
             for name in self._path.listdir()
-            if not name.startswith(".") and 
+            if not name.startswith(".") and
                 self._path.child(name).isdir() and
                 name not in self._removedChildren
         ))
@@ -516,6 +586,7 @@ class CommonHome(FileMetaDataMixin, LoggingMixIn):
         self.notifyChanged()
         return c
 
+
     @writeOperation
     def removeChildWithName(self, name):
         if name.startswith(".") or name in self._removedChildren:
@@ -533,13 +604,14 @@ class CommonHome(FileMetaDataMixin, LoggingMixIn):
             else:
                 self._removedChildren.add(name)
 
+
     @inlineCallbacks
     def syncToken(self):
-        
+
         maxrev = 0
         for child in self.children():
             maxrev = max(int((yield child.syncToken()).split("_")[1]), maxrev)
-            
+
         try:
             urnuuid = str(self.properties()[PropertyName.fromElement(ResourceID)].children[0])
         except KeyError:
@@ -565,6 +637,7 @@ class CommonHome(FileMetaDataMixin, LoggingMixIn):
         self._transaction.addOperation(props.flush, "flush home properties")
         return props
 
+
     def objectResourcesWithUID(self, uid, ignore_children=()):
         """
         Return all child object resources with the specified UID, ignoring any in the
@@ -579,6 +652,7 @@ class CommonHome(FileMetaDataMixin, LoggingMixIn):
                 results.append(object)
         return results
 
+
     def quotaUsedBytes(self):
 
         try:
@@ -586,30 +660,33 @@ class CommonHome(FileMetaDataMixin, LoggingMixIn):
         except KeyError:
             return 0
 
+
     def adjustQuotaUsedBytes(self, delta):
         """
         Adjust quota used. We need to get a lock on the row first so that the adjustment
         is done atomically.
         """
-        
+
         old_used = self.quotaUsedBytes()
         new_used = old_used + delta
         if new_used < 0:
             self.log_error("Fixing quota adjusted below zero to %s by change amount %s" % (new_used, delta,))
             new_used = 0
         self.properties()[PropertyName.fromElement(TwistedQuotaUsedProperty)] = TwistedQuotaUsedProperty(str(new_used))
-            
+
 
     def addNotifier(self, notifier):
         if self._notifiers is None:
             self._notifiers = ()
         self._notifiers += (notifier,)
- 
+
+
     def notifierID(self, label="default"):
         if self._notifiers:
             return self._notifiers[0].getID(label)
         else:
             return None
+
 
     @inlineCallbacks
     def nodeName(self, label="default"):
@@ -621,6 +698,7 @@ class CommonHome(FileMetaDataMixin, LoggingMixIn):
         else:
             returnValue(None)
 
+
     def notifyChanged(self):
         """
         Trigger a notification of a change
@@ -631,6 +709,7 @@ class CommonHome(FileMetaDataMixin, LoggingMixIn):
             for notifier in self._notifiers:
                 self._transaction.postCommit(notifier.notify)
             self._transaction.notificationAddedForObject(self)
+
 
 
 class CommonHomeChild(FileMetaDataMixin, LoggingMixIn, FancyEqMixin, HomeChildBase):
@@ -684,6 +763,7 @@ class CommonHomeChild(FileMetaDataMixin, LoggingMixIn, FancyEqMixin, HomeChildBa
     def objectWithName(cls, home, name, owned):
         return cls(name, home, owned) if home._path.child(name).isdir() else None
 
+
     @property
     def _path(self):
         return self._home._path.child(self._name)
@@ -692,11 +772,13 @@ class CommonHomeChild(FileMetaDataMixin, LoggingMixIn, FancyEqMixin, HomeChildBa
     def resourceType(self):
         return NotImplementedError
 
+
     def retrieveOldIndex(self):
         """
         Retrieve the old Index object.
         """
         return self._index._oldIndex
+
 
     def retrieveOldInvites(self):
         """
@@ -722,6 +804,7 @@ class CommonHomeChild(FileMetaDataMixin, LoggingMixIn, FancyEqMixin, HomeChildBa
         """
         return BIND_OWN
 
+
     def owned(self):
         return self._owned
 
@@ -742,6 +825,7 @@ class CommonHomeChild(FileMetaDataMixin, LoggingMixIn, FancyEqMixin, HomeChildBa
         self.retrieveOldIndex().bumpRevision()
 
         self.notifyChanged()
+
 
     @writeOperation
     def remove(self):
@@ -856,7 +940,7 @@ class CommonHomeChild(FileMetaDataMixin, LoggingMixIn, FancyEqMixin, HomeChildBa
         rname = self.retrieveOldIndex().resourceNameForUID(uid)
         if rname and rname not in self._removedObjectResources:
             return self.objectResourceWithName(rname)
-        
+
         return None
 
 
@@ -864,7 +948,7 @@ class CommonHomeChild(FileMetaDataMixin, LoggingMixIn, FancyEqMixin, HomeChildBa
     def createObjectResourceWithName(self, name, component, metadata=None):
         """
         Create a new resource with component data and optional metadata. We create the
-        python object using the metadata then create the actual store object with setComponent. 
+        python object using the metadata then create the actual store object with setComponent.
         """
         if name.startswith("."):
             raise ObjectResourceNameNotAllowedError(name)
@@ -935,6 +1019,7 @@ class CommonHomeChild(FileMetaDataMixin, LoggingMixIn, FancyEqMixin, HomeChildBa
         """
         return True
 
+
     # FIXME: property writes should be a write operation
     @cached
     def properties(self):
@@ -958,16 +1043,19 @@ class CommonHomeChild(FileMetaDataMixin, LoggingMixIn, FancyEqMixin, HomeChildBa
         """
         pass
 
+
     def addNotifier(self, notifier):
         if self._notifiers is None:
             self._notifiers = ()
         self._notifiers += (notifier,)
- 
+
+
     def notifierID(self, label="default"):
         if self._notifiers:
             return self._notifiers[0].getID(label)
         else:
             return None
+
 
     @inlineCallbacks
     def nodeName(self, label="default"):
@@ -979,6 +1067,7 @@ class CommonHomeChild(FileMetaDataMixin, LoggingMixIn, FancyEqMixin, HomeChildBa
         else:
             returnValue(None)
 
+
     def notifyChanged(self):
         """
         Trigger a notification of a change
@@ -989,6 +1078,7 @@ class CommonHomeChild(FileMetaDataMixin, LoggingMixIn, FancyEqMixin, HomeChildBa
             for notifier in self._notifiers:
                 self._transaction.postCommit(notifier.notify)
             self._transaction.notificationAddedForObject(self)
+
 
 
 class CommonObjectResource(FileMetaDataMixin, LoggingMixIn, FancyEqMixin):
@@ -1018,8 +1108,10 @@ class CommonObjectResource(FileMetaDataMixin, LoggingMixIn, FancyEqMixin):
     def __repr__(self):
         return "<%s: %s>" % (self.__class__.__name__, self._path.path)
 
+
     def transaction(self):
         return self._transaction
+
 
     @writeOperation
     def setComponent(self, component, inserting=False):
@@ -1037,6 +1129,7 @@ class CommonObjectResource(FileMetaDataMixin, LoggingMixIn, FancyEqMixin):
     def uid(self):
         raise NotImplementedError
 
+
     @cached
     def properties(self):
         home = self._parentCollection._home
@@ -1050,6 +1143,7 @@ class CommonObjectResource(FileMetaDataMixin, LoggingMixIn, FancyEqMixin):
         self._transaction.addOperation(props.flush, "object properties flush")
         return props
 
+
     def initPropertyStore(self, props):
         """
         A hook for subclasses to override in order to set up their property
@@ -1059,6 +1153,8 @@ class CommonObjectResource(FileMetaDataMixin, LoggingMixIn, FancyEqMixin):
         """
         pass
 
+
+
 class CommonStubResource(object):
     """
     Just enough resource to keep the collection sql DB classes going.
@@ -1066,6 +1162,7 @@ class CommonStubResource(object):
     def __init__(self, resource):
         self.resource = resource
         self.fp = self.resource._path
+
 
     def bumpSyncToken(self, reset=False):
         # FIXME: needs direct tests
@@ -1075,6 +1172,7 @@ class CommonStubResource(object):
     def initSyncToken(self):
         # FIXME: needs direct tests
         self.bumpSyncToken(True)
+
 
 
 class NotificationCollection(CommonHomeChild):
@@ -1100,6 +1198,7 @@ class NotificationCollection(CommonHomeChild):
         self._index = NotificationIndex(self)
         self._invites = None
         self._objectResourceClass = NotificationObject
+
 
     @classmethod
     def notificationsFromHome(cls, txn, home):
@@ -1144,6 +1243,7 @@ class NotificationCollection(CommonHomeChild):
         props[PropertyName(*ResourceType.qname())] = c.resourceType()
         return c
 
+
     def resourceType(self):
         return ResourceType.notification #@UndefinedVariable
 
@@ -1156,6 +1256,7 @@ class NotificationCollection(CommonHomeChild):
         name = uid + ".xml"
         return self.notificationObjectWithName(name)
 
+
     def writeNotificationObject(self, uid, xmltype, xmldata):
         name = uid + ".xml"
         if name.startswith("."):
@@ -1167,8 +1268,9 @@ class NotificationCollection(CommonHomeChild):
 
         # Update database
         self.retrieveOldIndex().addOrUpdateRecord(NotificationRecord(uid, name, xmltype.name))
-        
+
         self.notifyChanged()
+
 
     @writeOperation
     def removeNotificationObjectWithName(self, name):
@@ -1186,15 +1288,17 @@ class NotificationCollection(CommonHomeChild):
                 return lambda: None
             self._transaction.addOperation(do, "remove object resource object %r" %
                                            (name,))
-        
+
             self.notifyChanged()
         else:
             raise NoSuchObjectResourceError(name)
+
 
     @writeOperation
     def removeNotificationObjectWithUID(self, uid):
         name = uid + ".xml"
         self.removeNotificationObjectWithName(name)
+
 
 
 class NotificationObject(CommonObjectResource):
@@ -1206,6 +1310,7 @@ class NotificationObject(CommonObjectResource):
         super(NotificationObject, self).__init__(name, notifications)
         self._uid = name[:-4]
 
+
     def notificationCollection(self):
         return self._parentCollection
 
@@ -1215,6 +1320,7 @@ class NotificationObject(CommonObjectResource):
             from twisted.internet import reactor
             return int(reactor.seconds())
         return super(NotificationObject, self).created()
+
 
     def modified(self):
         if not self._path.exists():
@@ -1261,10 +1367,9 @@ class NotificationObject(CommonObjectResource):
         self.properties().update(self.properties())
 
         props = self.properties()
-        props[PropertyName(*GETContentType.qname())] = GETContentType.fromString(generateContentType(MimeType("text", "xml", params={"charset":"utf-8"})))
+        props[PropertyName(*GETContentType.qname())] = GETContentType.fromString(generateContentType(MimeType("text", "xml", params={"charset": "utf-8"})))
         props[PropertyName.fromElement(NotificationType)] = NotificationType(xmltype)
         props[PropertyName.fromElement(TwistedGETContentMD5)] = TwistedGETContentMD5.fromString(md5)
-
 
         # FIXME: the property store's flush() method may already have been
         # added to the transaction, but we need to add it again to make sure it
@@ -1272,7 +1377,6 @@ class NotificationObject(CommonObjectResource):
         # the work multiple times, and external callers to property-
         # manipulation methods won't work.
         self._transaction.addOperation(self.properties().flush, "post-update property flush")
-
 
     _xmldata = None
 
@@ -1298,9 +1402,11 @@ class NotificationObject(CommonObjectResource):
     def uid(self):
         return self._uid
 
+
     def xmlType(self):
         # NB This is the NotificationType property element
         return self.properties()[PropertyName.fromElement(NotificationType)]
+
 
     def initPropertyStore(self, props):
         # Setup peruser special properties
@@ -1313,6 +1419,7 @@ class NotificationObject(CommonObjectResource):
         )
 
 
+
 class NotificationIndex(object):
     #
     # OK, here's where we get ugly.
@@ -1322,4 +1429,3 @@ class NotificationIndex(object):
         self.notificationCollection = notificationCollection
         stubResource = CommonStubResource(notificationCollection)
         self._oldIndex = OldNotificationIndex(stubResource)
-

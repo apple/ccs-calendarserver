@@ -434,7 +434,7 @@ class AddressBookObjectTest(unittest.TestCase):
         L{AddressBookObject} has instance attributes, C{_path} and C{_addressbook},
         which refer to its position in the filesystem and the addressbook in which
         it is contained, respectively.
-        """ 
+        """
         self.failUnless(
             isinstance(self.object1._path, FilePath),
             self.object1._path
@@ -443,6 +443,7 @@ class AddressBookObjectTest(unittest.TestCase):
             isinstance(self.object1._addressbook, AddressBook),
             self.object1._addressbook
         )
+
 
 
 class FileStorageTests(CommonTests, unittest.TestCase):
@@ -471,6 +472,21 @@ class FileStorageTests(CommonTests, unittest.TestCase):
 
 
     @inlineCallbacks
+    def test_addressbookHomes(self):
+        """
+        Finding all existing addressbook homes.
+        """
+        addressbookHomes = (yield self.transactionUnderTest().addressbookHomes())
+        self.assertEquals(
+            [home.name() for home in addressbookHomes],
+            [
+                "home1",
+                "home_bad",
+            ]
+        )
+
+
+    @inlineCallbacks
     def test_addressbookObjectsWithDotFile(self):
         """
         Adding a dotfile to the addressbook home should not create a new
@@ -489,5 +505,3 @@ class FileStorageTests(CommonTests, unittest.TestCase):
         ((yield self.addressbookUnderTest())._path.child("not-a-vcard")
          .createDirectory())
         yield self.test_addressbookObjects()
-
-

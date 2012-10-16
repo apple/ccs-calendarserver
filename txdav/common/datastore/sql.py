@@ -465,8 +465,16 @@ class CommonStoreTransaction(object):
         raise RuntimeError("Database key %s cannot be determined." % (key,))
 
 
+    def calendarHomes(self):
+        return self.homes(ECALENDARTYPE)
+
+
     def calendarHomeWithUID(self, uid, create=False):
         return self.homeWithUID(ECALENDARTYPE, uid, create=create)
+
+
+    def addressbookHomes(self):
+        return self.homes(EADDRESSBOOKTYPE)
 
 
     def addressbookHomeWithUID(self, uid, create=False):
@@ -481,6 +489,21 @@ class CommonStoreTransaction(object):
             return self._calendarHomes
         else:
             return self._addressbookHomes
+
+
+    @inlineCallbacks
+    def homes(self, storeType):
+        """
+        Load all calendar or addressbook homes.
+        """
+
+        # Get all UIDs and load them - this will memoize all existing ones
+        uids = (yield self._homeClass[storeType].listHomes(self))
+        for uid in uids:
+            yield self.homeWithUID(storeType, uid, create=False)
+
+        # Return the memoized list directly
+        returnValue([kv[1] for kv in sorted(self._determineMemo(storeType, None).items(), key=lambda x: x[0])])
 
 
     @memoizedKey("uid", _determineMemo)
@@ -1099,6 +1122,22 @@ class CommonHome(LoggingMixIn):
             returnValue(self)
         else:
             returnValue(None)
+
+
+    @classmethod
+    @inlineCallbacks
+    def listHomes(cls, txn):
+        """
+        Retrieve the owner UIDs of all existing homes.
+
+        @return: an iterable of C{str}s.
+        """
+        rows = yield Select(
+            [cls._homeSchema.OWNER_UID],
+            From=cls._homeSchema,
+        ).on(txn)
+        rids = [row[0] for row in rows]
+        returnValue(rids)
 
 
     @classmethod

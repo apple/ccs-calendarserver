@@ -72,6 +72,7 @@ class TimeRangeLowerLimit(Exception):
         self.limit = lowerLimit
 
 
+
 class TimeRangeUpperLimit(Exception):
     """
     A request for time-range information too far in the future cannot be satisfied.
@@ -81,10 +82,19 @@ class TimeRangeUpperLimit(Exception):
         self.limit = upperLimit
 
 
+
 class ICalendarTransaction(ICommonTransaction):
     """
     Transaction functionality required to be implemented by calendar stores.
     """
+
+    def calendarHomes():
+        """
+        Retrieve each calendar home in the store.
+
+        @return: a L{Deferred} which fires with a list of L{ICalendarHome}.
+        """
+
 
     def calendarHomeWithUID(uid, create=False):
         """
@@ -115,6 +125,7 @@ class ICalendarStore(IDataStore):
         """
 
 
+
 #
 # Interfaces
 #
@@ -134,6 +145,7 @@ class ICalendarHome(INotifier, IDataStoreObject):
         @return: a string.
         """
 
+
     def calendars():
         """
         Retrieve calendars contained in this calendar home.
@@ -141,12 +153,14 @@ class ICalendarHome(INotifier, IDataStoreObject):
         @return: an iterable of L{ICalendar}s.
         """
 
+
     def loadCalendars():
         """
         Pre-load all calendars Depth:1.
 
         @return: an iterable of L{ICalendar}s.
         """
+
 
     def calendarWithName(name):
         """
@@ -184,6 +198,7 @@ class ICalendarHome(INotifier, IDataStoreObject):
         @raise CalendarAlreadyExistsError: if a calendar with the
             given C{name} already exists.
         """
+
 
     def removeCalendarWithName(name):
         """
@@ -288,12 +303,14 @@ class ICalendar(INotifier, IShareableCollection, IDataStoreObject):
         @return: an L{ICalendarHome}.
         """
 
+
     def calendarObjects():
         """
         Retrieve the calendar objects contained in this calendar.
 
         @return: an iterable of L{ICalendarObject}s.
         """
+
 
     def calendarObjectWithName(name):
         """
@@ -305,6 +322,7 @@ class ICalendar(INotifier, IShareableCollection, IDataStoreObject):
             object exists.
         """
 
+
     def calendarObjectWithUID(uid):
         """
         Retrieve the calendar object with the given C{uid} contained
@@ -315,6 +333,7 @@ class ICalendar(INotifier, IShareableCollection, IDataStoreObject):
         @return: a L{Deferred} firing an L{ICalendarObject} or C{None} if no
             such calendar object exists.
         """
+
 
     def createCalendarObjectWithName(name, component):
         """
@@ -333,6 +352,7 @@ class ICalendar(INotifier, IShareableCollection, IDataStoreObject):
             a calendar object.
         """
 
+
     def removeCalendarObjectWithName(name):
         """
         Remove the calendar object with the given C{name} from this
@@ -342,6 +362,7 @@ class ICalendar(INotifier, IShareableCollection, IDataStoreObject):
         @raise NoSuchCalendarObjectError: if no such calendar object
             exists.
         """
+
 
     def removeCalendarObjectWithUID(uid):
         """
@@ -353,12 +374,14 @@ class ICalendar(INotifier, IShareableCollection, IDataStoreObject):
             not exist.
         """
 
+
     def syncToken():
         """
         Retrieve the current sync token for this calendar.
 
         @return: a string containing a sync token.
         """
+
 
     def calendarObjectsInTimeRange(start, end, timeZone):
         """
@@ -371,6 +394,7 @@ class ICalendar(INotifier, IShareableCollection, IDataStoreObject):
         @param timeZone: a L{PyCalendarTimezone}.
         @return: an iterable of L{ICalendarObject}s.
         """
+
 
     def calendarObjectsSinceToken(token):
         """
@@ -430,6 +454,8 @@ class ICalendar(INotifier, IShareableCollection, IDataStoreObject):
         """
         # TODO: implement this for the file store.
 
+
+
 class ICalendarObject(IDataStoreObject):
     """
     Calendar object
@@ -444,6 +470,7 @@ class ICalendarObject(IDataStoreObject):
         @rtype: L{ICalendar}
         """
 
+
     def setComponent(component):
         """
         Rewrite this calendar object to match the given C{component}.
@@ -456,6 +483,7 @@ class ICalendarObject(IDataStoreObject):
             a calendar object.
         """
 
+
     def component():
         """
         Retrieve the calendar component for this calendar object.
@@ -467,12 +495,14 @@ class ICalendarObject(IDataStoreObject):
         @return: a C{VCALENDAR} L{VComponent}.
         """
 
+
     def uid():
         """
         Retrieve the UID for this calendar object.
 
         @return: a string containing a UID.
         """
+
 
     def componentType():
         """
@@ -496,6 +526,7 @@ class ICalendarObject(IDataStoreObject):
 
         @return: a URI string.
         """
+
 
     def dropboxID():
         """
@@ -629,5 +660,3 @@ class IAttachment(IDataStoreObject):
             that the stream is complete to its C{connectionLost} method.
         @type protocol: L{IProtocol}
         """
-
-
