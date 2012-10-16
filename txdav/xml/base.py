@@ -589,10 +589,8 @@ class WebDAVTextElement (WebDAVElement):
     def fromString(clazz, string):
         if string is None:
             return clazz()
-        elif isinstance(string, unicode):
+        elif isinstance(string, (unicode, str)):
             return clazz(PCDATAElement(string))
-        elif isinstance(string, str):
-            return clazz(PCDATAElement(string.decode("utf-8")))
         else:
             return clazz(PCDATAElement(str(string)))
 
@@ -602,13 +600,13 @@ class WebDAVTextElement (WebDAVElement):
         """
         @return: a unicode string containing the text in this element.
         """
-        return u"".join([c.data for c in self.children])
+        return self.__str__().decode("utf-8")
 
     def __str__(self):
         """
         @return: a byte string containing the text in this element.
         """
-        return self.toString().encode("utf-8")
+        return b"".join([c.data for c in self.children])
 
     def __repr__(self):
         content = str(self)
