@@ -289,6 +289,8 @@ class UIDsFolder(Folder):
 
         returnValue(results.itervalues())
 
+        list.fieldNames = ("Record Name", "Short Name", "Full Name")
+
 
 
 class RecordFolder(Folder):
