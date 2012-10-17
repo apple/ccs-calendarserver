@@ -285,7 +285,7 @@ class UIDsFolder(Folder):
             for home in (yield txn.addressbookHomes()):
                 addResult(home.uid())
         finally:
-            txn.abort()
+            (yield txn.abort())
 
         returnValue(results.itervalues())
 
@@ -406,7 +406,7 @@ class PrincipalHomeFolder(Folder):
                         home = (yield txn.calendarHomeWithUID(self.uid, create=False))
                         assert home
                     finally:
-                        txn.abort()
+                        (yield txn.abort())
 
                 if home:
                     self._children["calendars"] = CalendarHomeFolder(
@@ -439,7 +439,7 @@ class PrincipalHomeFolder(Folder):
                         home = (yield txn.addressbookHomeWithUID(self.uid, create=False))
                         assert home
                     finally:
-                        txn.abort()
+                        (yield txn.abort())
 
                 if home:
                     self._children["addressbooks"] = AddressBookHomeFolder(
@@ -449,7 +449,7 @@ class PrincipalHomeFolder(Folder):
                         self.record,
                     )
             finally:
-                txn.abort()
+                (yield txn.abort())
 
         self._didInitChildren = True
 
