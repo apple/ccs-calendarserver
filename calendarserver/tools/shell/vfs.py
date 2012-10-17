@@ -256,16 +256,38 @@ class UIDsFolder(Folder):
 
     @inlineCallbacks
     def list(self):
-        result = set()
+        results = {}
 
         # FIXME: This should be the merged total of calendar homes and address book homes.
         # FIXME: Merge in directory UIDs also?
-        # FIXME: Add directory info (eg. name) to listing
+        # FIXME: Add directory info (eg. name) to list entry
 
-        for txn, home in (yield self.service.store.eachCalendarHome()):
-            result.add(ListEntry(self, PrincipalHomeFolder, home.uid()))
+        def addResult(uid):
+            if uid in results:
+                return
 
-        returnValue(result)
+            record = self.service.directory.recordWithUID(uid)
+            if record:
+                info = {
+                    "Record Type": record.recordType,
+                    "Short Name" : record.shortNames[0],
+                    "Full Name"  : record.fullName,
+                }
+            else:
+                info = {}
+
+            results[uid] = ListEntry(self, PrincipalHomeFolder, uid, **info)
+
+        txn = self.service.store.newTransaction()
+        try:
+            for home in (yield txn.calendarHomes()):
+                addResult(home.uid())
+            for home in (yield txn.addressbookHomes()):
+                addResult(home.uid())
+        finally:
+            txn.abort()
+
+        returnValue(results.itervalues())
 
 
 
@@ -358,67 +380,76 @@ class PrincipalHomeFolder(Folder):
         if not hasattr(self, "_didInitChildren"):
             txn = self.service.store.newTransaction()
 
-            if (
-                self.record is not None and
-                self.service.config.EnableCalDAV and 
-                self.record.enabledForCalendaring
-            ):
-                create = True
-            else:
-                create = False
+            try:
+                if (
+                    self.record is not None and
+                    self.service.config.EnableCalDAV and 
+                    self.record.enabledForCalendaring
+                ):
+                    create = True
+                else:
+                    create = False
 
-            # Try assuming it exists
-            home = (yield txn.calendarHomeWithUID(self.uid, create=False))
-
-            if home is None and create:
-                # Doesn't exist, so create it in a different
-                # transaction, to avoid having to commit the live
-                # transaction.
-                txnTemp = self.service.store.newTransaction()
-                home = (yield txnTemp.calendarHomeWithUID(self.uid, create=True))
-                (yield txnTemp.commit())
-
-                # Fetch the home again. This time we expect it to be there.
+                # Try assuming it exists
                 home = (yield txn.calendarHomeWithUID(self.uid, create=False))
-                assert home
 
-            if home:
-                self._children["calendars"] = CalendarHomeFolder(
-                    self.service,
-                    self.path + ("calendars",),
-                    home,
-                    self.record,
-                )
+                if home is None and create:
+                    # Doesn't exist, so create it in a different
+                    # transaction, to avoid having to commit the live
+                    # transaction.
+                    txnTemp = self.service.store.newTransaction()
+                    try:
+                        home = (yield txnTemp.calendarHomeWithUID(self.uid, create=True))
+                        (yield txnTemp.commit())
 
-            if (
-                self.record is not None and
-                self.service.config.EnableCardDAV and 
-                self.record.enabledForAddressBooks
-            ):
-                create = True
-            else:
-                create = False
+                        # Fetch the home again. This time we expect it to be there.
+                        home = (yield txn.calendarHomeWithUID(self.uid, create=False))
+                        assert home
+                    finally:
+                        txn.abort()
 
-            # Again, assume it exists
-            home = (yield txn.addressbookHomeWithUID(self.uid))
+                if home:
+                    self._children["calendars"] = CalendarHomeFolder(
+                        self.service,
+                        self.path + ("calendars",),
+                        home,
+                        self.record,
+                    )
 
-            if not home and create:
-                # Repeat the above dance.
-                txnTemp = self.service.store.newTransaction()
-                home = (yield txnTemp.addressbookHomeWithUID(self.uid, create=True))
-                (yield txnTemp.commit())
+                if (
+                    self.record is not None and
+                    self.service.config.EnableCardDAV and 
+                    self.record.enabledForAddressBooks
+                ):
+                    create = True
+                else:
+                    create = False
 
-                # Fetch the home again. This time we expect it to be there.
-                home = (yield txn.addressbookHomeWithUID(self.uid, create=False))
-                assert home
+                # Again, assume it exists
+                home = (yield txn.addressbookHomeWithUID(self.uid))
 
-            if home:
-                self._children["addressbooks"] = AddressBookHomeFolder(
-                    self.service,
-                    self.path + ("addressbooks",),
-                    home,
-                    self.record,
-                )
+                if not home and create:
+                    # Repeat the above dance.
+                    txnTemp = self.service.store.newTransaction()
+                    try:
+                        home = (yield txnTemp.addressbookHomeWithUID(self.uid, create=True))
+                        (yield txnTemp.commit())
+
+                        # Fetch the home again. This time we expect it to be there.
+                        home = (yield txn.addressbookHomeWithUID(self.uid, create=False))
+                        assert home
+                    finally:
+                        txn.abort()
+
+                if home:
+                    self._children["addressbooks"] = AddressBookHomeFolder(
+                        self.service,
+                        self.path + ("addressbooks",),
+                        home,
+                        self.record,
+                    )
+            finally:
+                txn.abort()
 
         self._didInitChildren = True
 
