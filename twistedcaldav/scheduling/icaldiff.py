@@ -669,6 +669,7 @@ class iCalDiff(object):
         prop = component.getProperty("X-APPLE-NEEDS-REPLY")
         if prop:
             component.removeProperty(prop)
+        component.replaceProperty(Property("TRANSP", "TRANSPARENT"))
         return partstatChanged
 
 
