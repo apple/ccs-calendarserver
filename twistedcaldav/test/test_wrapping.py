@@ -53,6 +53,7 @@ from txdav.common.datastore.test.util import deriveQuota
 from twistedcaldav.directory.test.test_xmlfile import XMLFileBase
 from txdav.caldav.icalendarstore import ICalendarHome
 from txdav.carddav.iaddressbookstore import IAddressBookHome
+from twext.web2.responsecode import CREATED
 from txdav.caldav.datastore.file import Calendar
 
 
@@ -108,6 +109,7 @@ class WrappingTests(TestCase):
 
         @param objectName: The name of a calendar object.
         @type objectName: str
+
         @param objectText: Some iCalendar text to populate it with.
         @type objectText: str
         """
@@ -167,7 +169,6 @@ class WrappingTests(TestCase):
 
         @param path: the path from the root of the site (not starting with a
             slash)
-
         @type path: C{str}
 
         @param method: the HTTP method to initialize the request with.
@@ -518,6 +519,25 @@ class WrappingTests(TestCase):
                           frozenset([self.principalsResource]))
 
 
+    @inlineCallbacks
+    def assertCalendarEmpty(self, user, calendarName="calendar"):
+        """
+        Assert that a user's calendar is empty (their default calendar by default).
+        """
+        print 'txn'
+        txn = self.calendarStore.newTransaction()
+        self.addCleanup(txn.commit)
+        print 'looking at:'
+        home = yield txn.calendarHomeWithUID(user, create=True)
+        print home, [cal.name() for cal in (yield home.calendars())]
+        cal = yield home.calendarWithName(calendarName)
+        print 'cal'
+        print cal
+        objects = yield cal.calendarObjects()
+        print 'objects?', objects
+        self.assertEquals(len(objects), 0)
+
+
 
 class DatabaseWrappingTests(WrappingTests):
 
@@ -530,5 +550,89 @@ class DatabaseWrappingTests(WrappingTests):
     def createDataStore(self):
         return self.calendarStore
 
+
+    @inlineCallbacks
+    def test_invalidCalendarPUT(self):
+        """
+        Exceeding quota on an attachment returns an HTTP error code.
+        """
+        # yield self.populateOneObject("1.ics", test_event_text)
+        @inlineCallbacks
+        def putEvt(txt):
+            calendarObject = yield self.getResource(
+                "/calendars/users/wsanchez/calendar/1.ics",
+                "PUT", "wsanchez"
+            )
+            self.requestUnderTest.stream = MemoryStream(txt)
+            returnValue(
+                ((yield calendarObject.renderHTTP(self.requestUnderTest)),
+                 self.requestUnderTest)
+            )
+        # see twistedcaldav/directory/test/accounts.xml
+        wsanchez = '6423F94A-6B76-4A3A-815B-D52CFD77935D'
+        cdaboo = '5A985493-EE2C-4665-94CF-4DFEA3A89500'
+        eventTemplate="""\
+BEGIN:VCALENDAR
+CALSCALE:GREGORIAN
+PRODID:-//Example Inc.//Example Calendar//EN
+VERSION:2.0
+BEGIN:VEVENT
+UID:20060110T231240Z-4011c71-187-6f73
+ORGANIZER:urn:uuid:{wsanchez}
+ATTENDEE:urn:uuid:{wsanchez}
+DTSTART:20110101T050000Z
+DTSTAMP:20110309T185105Z
+DURATION:PT1H
+SUMMARY:Test
+RRULE:FREQ=DAILY;COUNT=2
+END:VEVENT
+BEGIN:VEVENT
+UID:20060110T231240Z-4011c71-187-6f73
+RECURRENCE-ID:20110102T050000Z
+ORGANIZER:urn:uuid:{wsanchez}
+ATTENDEE:urn:uuid:{wsanchez}
+ATTENDEE:urn:uuid:{cdaboo}
+DTSTART:20110102T050000Z
+DTSTAMP:20110309T185105Z
+DURATION:PT1H
+SUMMARY:Test
+END:VEVENT{0}
+END:VCALENDAR
+"""
+        CR = "\n"
+        CRLF = "\r\n"
+        #validEvent = eventTemplate.format("", wsanchez=wsanchez, cdaboo=cdaboo).replace(CR, CRLF)
+        invalidInstance = """
+BEGIN:VEVENT
+UID:20060110T231240Z-4011c71-187-6f73
+RECURRENCE-ID:20110110T050000Z
+ORGANIZER:urn:uuid:{wsanchez}
+ATTENDEE:urn:uuid:{wsanchez}
+DTSTART:20110110T050000Z
+DTSTAMP:20110309T185105Z
+DURATION:PT1H
+SUMMARY:Test
+END:VEVENT""".format(wsanchez=wsanchez, cdaboo=cdaboo)
+        invalidEvent = eventTemplate.format(invalidInstance, wsanchez=wsanchez, cdaboo=cdaboo).replace(CR, CRLF)
+        # resp1, rsrc1 = yield putEvt(validEvent)
+        # self.assertEquals(resp1.code, CREATED)
+        # self.requestUnderTest = None
+        resp2, rsrc2 = yield putEvt(invalidEvent)
+        # self.addCleanup(self.commit)
+        print 'Request?', self.requestUnderTest.authzUser, self.requestUnderTest.authnUser
+        txn = self.requestUnderTest._newStoreTransaction
+        #print calendarObject._associatedTransaction
+        #calendarObject._associatedTransaction._whoCompletesMe = True
+        #txn = calendarObject._associatedTransaction
+        print txn, txn._sqlTxn._completed
+        self.requestUnderTest = None
+        # result = yield calendarObject.http_PUT(self.requestUnderTest)
+        #print result
+        print '---CHECKING---'
+        yield self.assertCalendarEmpty(wsanchez)
+        yield self.assertCalendarEmpty(cdaboo)
+        # self.assertDoesntExist("/calendars/users/wsanchez")
+        #finally:
+            #yield self.commit()
 
 
