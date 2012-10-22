@@ -24,6 +24,7 @@ from txdav.xml import element as davxml
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.internet.task import Clock
 from twisted.trial.unittest import TestCase
+from twisted.internet.defer import Deferred
 
 from txdav.common.datastore.sql import log, CommonStoreTransactionMonitor,\
     CommonHome, CommonHomeChild, ECALENDARTYPE
@@ -227,7 +228,8 @@ class CommonSQLStoreTests(CommonCommonTests, TestCase):
     @inlineCallbacks
     def test_subtransactionFailSomeRetries(self):
         """
-        txn.subtransaction runs loop three times when all fail and two retries requested.
+        txn.subtransaction runs loop three times when all fail and two retries
+        requested.
         """
         
         txn = self.transactionUnderTest()
@@ -250,6 +252,34 @@ class CommonSQLStoreTests(CommonCommonTests, TestCase):
         else:
             self.fail("AllRetriesFailed not raised")
         self.assertEqual(ctr[0], 3)
+
+
+    @inlineCallbacks
+    def test_subtransactionAbortOuterTransaction(self):
+        """
+        If an outer transaction that is holding a subtransaction open is
+        aborted, then the L{Deferred} returned by L{subtransaction} raises
+        L{AllRetriesFailed}.
+        """
+        txn = self.transactionUnderTest()
+        cs = schema.CALENDARSERVER
+        waitAMoment = Deferred()
+        @inlineCallbacks
+        def later(subtxn):
+            yield waitAMoment
+            value = yield Select([cs.VALUE], From=cs).on(subtxn)
+            returnValue(value)
+        started = txn.subtransaction(later)
+        txn.abort()
+        waitAMoment.callback(True)
+        try:
+            result = yield started
+        except AllRetriesFailed:
+            pass
+        else:
+            self.fail("AllRetriesFailed not raised, %r returned instead" %
+                      (result,))
+
 
     @inlineCallbacks
     def test_changeRevision(self):
