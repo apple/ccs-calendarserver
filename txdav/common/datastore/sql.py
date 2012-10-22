@@ -757,24 +757,18 @@ class CommonStoreTransaction(object):
                 # TODO: direct tests, to make sure error logging
                 # happens correctly in all cases.
                 log.err(f)
-            print("AllRetriesFailed")
             raise AllRetriesFailed()
         triesLeft = retries
         try:
             while True:
-                print("Acquiring...")
                 yield sp.acquire(block)
-                print 'Acquisition!'
                 try:
-                    print 'thunk...'
                     result = yield thunk(block)
                 except:
                     f = Failure()
                     if not failureOK:
                         failuresToMaybeLog.append(f)
-                    print("rolling back..." + repr(f))
                     yield sp.rollback(block)
-                    print("rolled back.")
                     if triesLeft:
                         triesLeft -= 1
                         # Important to get the new block before the old one has
@@ -783,7 +777,6 @@ class CommonStoreTransaction(object):
                         # they actually get done, even if they didn't actually
                         # block or yield to wait for them!  (c.f. property
                         # store writes.)
-                        print("retrying.")
                         newBlock = self._sqlTxn.commandBlock()
                         block.end()
                         block = newBlock
@@ -791,9 +784,7 @@ class CommonStoreTransaction(object):
                     else:
                         end()
                 else:
-                    print 'thunk OK', repr(result)
                     yield sp.release(block)
-                    print 'released'
                     block.end()
                     returnValue(result)
         except AlreadyFinishedError:
@@ -1701,7 +1692,6 @@ class CommonHome(LoggingMixIn):
 
         @inlineCallbacks
         def _bumpModified(subtxn):
-            print("inner bumpModified")
             yield self._lockLastModifiedQuery.on(subtxn, resourceID=self._resourceID)
             result = (yield self._changeLastModifiedQuery.on(subtxn, resourceID=self._resourceID))
             returnValue(result)
@@ -3446,11 +3436,8 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic, HomeChildBas
 
         @inlineCallbacks
         def _bumpModified(subtxn):
-            print("1! bumpModified... " + repr(self.name()))
             yield self._lockLastModifiedQuery.on(subtxn, resourceID=self._resourceID)
-            print("2! locked")
             result = (yield self._changeLastModifiedQuery.on(subtxn, resourceID=self._resourceID))
-            print("3! OK changed: %r" % (result,))
             returnValue(result)
 
         try:
