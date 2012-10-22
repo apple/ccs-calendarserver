@@ -524,17 +524,11 @@ class WrappingTests(TestCase):
         """
         Assert that a user's calendar is empty (their default calendar by default).
         """
-        print 'txn'
         txn = self.calendarStore.newTransaction()
         self.addCleanup(txn.commit)
-        print 'looking at:'
         home = yield txn.calendarHomeWithUID(user, create=True)
-        print home, [cal.name() for cal in (yield home.calendars())]
         cal = yield home.calendarWithName(calendarName)
-        print 'cal'
-        print cal
         objects = yield cal.calendarObjects()
-        print 'objects?', objects
         self.assertEquals(len(objects), 0)
 
 
@@ -563,6 +557,7 @@ class DatabaseWrappingTests(WrappingTests):
                 "/calendars/users/wsanchez/calendar/1.ics",
                 "PUT", "wsanchez"
             )
+            print 'obj?', calendarObject, type(calendarObject)
             self.requestUnderTest.stream = MemoryStream(txt)
             returnValue(
                 ((yield calendarObject.renderHTTP(self.requestUnderTest)),
@@ -613,26 +608,11 @@ DTSTAMP:20110309T185105Z
 DURATION:PT1H
 SUMMARY:Test
 END:VEVENT""".format(wsanchez=wsanchez, cdaboo=cdaboo)
+        #txn = self.requestUnderTest._newStoreTransaction
         invalidEvent = eventTemplate.format(invalidInstance, wsanchez=wsanchez, cdaboo=cdaboo).replace(CR, CRLF)
-        # resp1, rsrc1 = yield putEvt(validEvent)
-        # self.assertEquals(resp1.code, CREATED)
-        # self.requestUnderTest = None
         resp2, rsrc2 = yield putEvt(invalidEvent)
-        # self.addCleanup(self.commit)
-        print 'Request?', self.requestUnderTest.authzUser, self.requestUnderTest.authnUser
-        txn = self.requestUnderTest._newStoreTransaction
-        #print calendarObject._associatedTransaction
-        #calendarObject._associatedTransaction._whoCompletesMe = True
-        #txn = calendarObject._associatedTransaction
-        print txn, txn._sqlTxn._completed
         self.requestUnderTest = None
-        # result = yield calendarObject.http_PUT(self.requestUnderTest)
-        #print result
-        print '---CHECKING---'
         yield self.assertCalendarEmpty(wsanchez)
         yield self.assertCalendarEmpty(cdaboo)
-        # self.assertDoesntExist("/calendars/users/wsanchez")
-        #finally:
-            #yield self.commit()
 
 
