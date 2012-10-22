@@ -712,6 +712,13 @@ class CommonStoreTransaction(object):
         block = self._sqlTxn.commandBlock()
         sp = self._savepoint()
         failuresToMaybeLog = []
+        def end():
+            block.end()
+            for f in failuresToMaybeLog:
+                # TODO: direct tests, to make sure error logging
+                # happens correctly in all cases.
+                log.err(f)
+            raise AllRetriesFailed()
         triesLeft = retries
         try:
             while True:
@@ -719,8 +726,9 @@ class CommonStoreTransaction(object):
                 try:
                     result = yield thunk(block)
                 except:
+                    f = Failure()
                     if not failureOK:
-                        failuresToMaybeLog.append(Failure())
+                        failuresToMaybeLog.append(f)
                     yield sp.rollback(block)
                     if triesLeft:
                         triesLeft -= 1
@@ -735,12 +743,7 @@ class CommonStoreTransaction(object):
                         block = newBlock
                         sp = self._savepoint()
                     else:
-                        block.end()
-                        for f in failuresToMaybeLog:
-                            # TODO: direct tests, to make sure error logging
-                            # happens correctly in all cases.
-                            log.err(f)
-                        raise AllRetriesFailed()
+                        end()
                 else:
                     yield sp.release(block)
                     block.end()
@@ -751,9 +754,10 @@ class CommonStoreTransaction(object):
             # and only that case - acquire() or release() or commandBlock() may
             # raise an AlreadyFinishedError (either synchronously, or in the
             # case of the first two, possibly asynchronously as well).  We can
-            # safely ignore this, because it can't have any real effect; our
-            # caller shouldn't be paying attention anyway.
-            block.end()
+            # safely ignore this error, because it can't have any effect on what
+            # gets written; our caller will just get told that it failed in a
+            # way they have to be prepared for anyway.
+            end()
 
     @inlineCallbacks
     def execSQL(self, *a, **kw):

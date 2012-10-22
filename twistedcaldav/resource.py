@@ -318,8 +318,14 @@ class CalDAVResource (
         otherResource.associateWithTransaction(self._associatedTransaction)
 
 
-    def transactionError(self):
+    def methodRaisedException(self, failure):
+        """
+        An C{http_METHOD} method raised an exception.  Any type of exception,
+        including those that result in perfectly valid HTTP responses, should
+        abort the transaction.
+        """
         self._transactionError = True
+        return super(CalDAVResource, self).methodRaisedException(failure)
 
 
     @inlineCallbacks
