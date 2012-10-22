@@ -53,7 +53,7 @@ from txdav.common.datastore.test.util import deriveQuota
 from twistedcaldav.directory.test.test_xmlfile import XMLFileBase
 from txdav.caldav.icalendarstore import ICalendarHome
 from txdav.carddav.iaddressbookstore import IAddressBookHome
-from twext.web2.responsecode import CREATED
+
 from txdav.caldav.datastore.file import Calendar
 
 
