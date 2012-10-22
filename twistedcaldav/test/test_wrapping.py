@@ -259,12 +259,9 @@ class WrappingTests(TestCase):
         and addressbook resources results in an L{UNAUTHORIZED} response code.
         """
         for pathType in self.pathTypes:
-            print 'trying pathType', pathType
             req = self.requestForPath('/%ss/users/wsanchez/%s/'
                                       % (pathType, pathType))
-            print 'RFP done'
             yield req.process()
-            print 'process done'
             self.assertEquals(req.chanRequest.code, UNAUTHORIZED)
 
 
@@ -560,7 +557,6 @@ class DatabaseWrappingTests(WrappingTests):
                 "/calendars/users/wsanchez/calendar/1.ics",
                 "PUT", "wsanchez"
             )
-            print 'obj?', calendarObject, type(calendarObject)
             self.requestUnderTest.stream = MemoryStream(txt)
             returnValue(
                 ((yield calendarObject.renderHTTP(self.requestUnderTest)),
