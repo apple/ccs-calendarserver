@@ -259,16 +259,19 @@ class WrappingTests(TestCase):
         and addressbook resources results in an L{UNAUTHORIZED} response code.
         """
         for pathType in self.pathTypes:
+            print 'trying pathType', pathType
             req = self.requestForPath('/%ss/users/wsanchez/%s/'
                                       % (pathType, pathType))
+            print 'RFP done'
             yield req.process()
+            print 'process done'
             self.assertEquals(req.chanRequest.code, UNAUTHORIZED)
 
 
     def test_createStore(self):
         """
-        Creating a DirectoryCalendarHomeProvisioningResource will create a paired
-        CalendarStore.
+        Creating a DirectoryCalendarHomeProvisioningResource will create a
+        paired CalendarStore.
         """
         assertProvides(self, IDataStore, self.calendarCollection._newStore)
 
