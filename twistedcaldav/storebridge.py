@@ -1611,8 +1611,6 @@ class CalendarAttachment(_NewStoreFileMetaDataHelper, _GetChildHelper):
             yield readStream(request.stream, t.write)
         except Exception, e:
             log.error("Unable to store attachment: %s" % (e,))
-            # Signal to abort in twistedcaldav.resource.CalDAVResource.RenderHTTP
-            self.transactionError()
             raise HTTPError(SERVICE_UNAVAILABLE)
 
         try:
