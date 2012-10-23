@@ -21,7 +21,7 @@ These keys are always emitted:
 
   ``i``
 
-    the port number of the server instance emitting the log
+    the index number of the server instance emitting the log; corresponds to the slave number shown in process title.
 
   ``t``
 
@@ -71,15 +71,25 @@ response include:
 
     the value of the X-Forwarded-For header, if present
 
-In the following example, we see a ``CalDAV:calendar-multiget``
-``REPORT`` for 32 resources in a user's calendar, which was handled by
-instance ``8459`` in 183.0ms, with one outstanding request (the one
-being logged):
+  ``fb-cached``
+
+    When doing free-busy queries, this is the number of calendars queried for which free-busy info was already cached
+
+  ``fb-uncached``
+
+    When doing free-busy queries, this is the number of calendars queried for which free-busy info was NOT already cached
+
+  ``cl``
+
+    Content length, in bytes
+
+In the following example, we see a free-busy ``POST``
+requesting availability for two users, which was handled by
+instance ``1`` in 782.6i ms. This instance was only processing one request at the time this was logged (or=1). Of the two calendars targeted by the free-busy query, one already had free-busy info cached, while the other was not cached. (fb-cached=1, fb-uncached=1)
 
 ::
 
-  17.108.160.37 - scastillo [15/Sep/2009:20:10:23 +0000] "REPORT(CalDAV:calendar-multiget) /calendars/__uids__/B8CE9430-965B-11DE-B626-EC2E9DB52B69/calendar/ HTTP/1.1" 207 149285 "-" "DAVKit/4.0 (729); CalendarStore/4.0 (965); iCal/4.0 (1362); Mac OS X/10.6.1 (10B504)" i=8459 t=183.0 or=1 rcount=32
-
+  10.1.5.43 - user5 [23/Oct/2012:13:42:56 -0700] "POST /calendars/__uids__/B2302CB9-D28F-4CB4-B3D9-0AF0FEDB8110/outbox/ HTTP/1.1" 200 1490 "-" "CalendarStore/5.0.2 (1166); iCal/5.0.2 (1571); Mac OS X/10.7.3 (11D50)" i=1 or=1 t=782.6 fb-uncached=1 fb-cached=1 recipients=2 cl=577
 
 
 **Fine-grained request time logging**
