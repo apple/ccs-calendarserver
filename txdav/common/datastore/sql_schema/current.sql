@@ -334,42 +334,22 @@ create table ADDRESSBOOK_HOME_METADATA (
   MODIFIED         timestamp    default timezone('UTC', CURRENT_TIMESTAMP)
 );
 
--- #### TODO: DELETE ####
------------------
--- AddressBook --
------------------
-
-create table ADDRESSBOOK (
-  RESOURCE_ID integer   primary key default nextval('RESOURCE_ID_SEQ') -- implicit index
-);
-
-
--- #### TODO: DELETE ####
---------------------------
--- AddressBook Metadata --
---------------------------
-
-create table ADDRESSBOOK_METADATA (
-  RESOURCE_ID integer   primary key references ADDRESSBOOK on delete cascade, -- implicit index
-  CREATED     timestamp default timezone('UTC', CURRENT_TIMESTAMP),
-  MODIFIED    timestamp default timezone('UTC', CURRENT_TIMESTAMP)
-);
-
-
 -----------------------------
 -- AddressBook Object --
 -----------------------------
 
+-- #### Want non-null constraints when using as address book object, but not when using as address book ####
+
   create table ADDRESSBOOK_OBJECT (
   RESOURCE_ID             integer      primary key default nextval('RESOURCE_ID_SEQ'),    -- implicit index
-  ADDRESSBOOK_RESOURCE_ID integer      not null references ADDRESSBOOK on delete cascade, -- #### TODO: change to references ADDRESSBOOK_OBJECT ####
-  RESOURCE_NAME           varchar(255) not null,
-  VCARD_TEXT              text         not null,
-  VCARD_UID               varchar(255) not null,
-  MD5                     char(32)     not null,
+  ADDRESSBOOK_RESOURCE_ID integer      default null references ADDRESSBOOK_OBJECT on delete cascade,
+  RESOURCE_NAME           varchar(255) default null,
+  VCARD_TEXT              text         default null,
+  VCARD_UID               varchar(255) default null,
+  MD5                     char(32)     default null,
   CREATED                 timestamp    default timezone('UTC', CURRENT_TIMESTAMP),
   MODIFIED                timestamp    default timezone('UTC', CURRENT_TIMESTAMP),
-  KIND 			  		  integer      not null, -- enum OBJECT_KIND
+  KIND 			  		  integer      default 1 not null, -- enum OBJECT_KIND -- ### default 1=group for address book code compatibility.
 
   unique(ADDRESSBOOK_RESOURCE_ID, RESOURCE_NAME), -- implicit index
   unique(ADDRESSBOOK_RESOURCE_ID, VCARD_UID)      -- implicit index
@@ -394,8 +374,8 @@ insert into ADDRESS_BOOK_OBJECT_KIND values (3, 'location');
 ---------------------------------
 
 create table ABO_MEMBERS (
-    GROUP_ID              integer      references ADDRESSBOOK_OBJECT,						-- AddressBook Object's (kind=='group') RESOURCE_ID
- 	ADDRESSBOOK_ID		  integer      not null references ADDRESSBOOK on delete cascade, 	-- #### TODO: change to references ADDRESSBOOK_OBJECT ####
+    GROUP_ID              integer      not null references ADDRESSBOOK_OBJECT,				-- AddressBook Object's (kind=='group') RESOURCE_ID
+ 	ADDRESSBOOK_ID		  integer      not null references ADDRESSBOOK_OBJECT on delete cascade, 	-- #### TODO: change to references ADDRESSBOOK_OBJECT ####
     MEMBER_ID             integer      not null references ADDRESSBOOK_OBJECT,				-- member AddressBook Object's RESOURCE_ID
     primary key(GROUP_ID, MEMBER_ID) -- implicit index
 );
@@ -405,10 +385,21 @@ create table ABO_MEMBERS (
 ------------------------------------------
 
 create table ABO_FOREIGN_MEMBERS (
-    GROUP_ID              integer      references ADDRESSBOOK_OBJECT,						-- AddressBook Object's (kind=='group') RESOURCE_ID
- 	ADDRESSBOOK_ID		  integer      not null references ADDRESSBOOK on delete cascade, 	-- #### TODO: change to references ADDRESSBOOK_OBJECT ####
+    GROUP_ID              integer      not null references ADDRESSBOOK_OBJECT,				-- AddressBook Object's (kind=='group') RESOURCE_ID
+ 	ADDRESSBOOK_ID		  integer      not null references ADDRESSBOOK_OBJECT on delete cascade, 	-- #### TODO: change to references ADDRESSBOOK_OBJECT ####
     MEMBER_ADDRESS  	  varchar(255) not null, 											-- member AddressBook Object's address
     primary key(GROUP_ID, MEMBER_ADDRESS) -- implicit index
+);
+
+-- #### TODO: DELETE, USE CREATED and MODIFIED in ADDRESSS_BOOK_OBJECT instead ####
+--------------------------
+-- AddressBook Metadata --
+--------------------------
+
+create table ADDRESSBOOK_METADATA (
+  RESOURCE_ID integer   primary key references ADDRESSBOOK_OBJECT on delete cascade, -- implicit index
+  CREATED     timestamp default timezone('UTC', CURRENT_TIMESTAMP),
+  MODIFIED    timestamp default timezone('UTC', CURRENT_TIMESTAMP)
 );
 
 
@@ -416,12 +407,11 @@ create table ABO_FOREIGN_MEMBERS (
 -- AddressBook Bind --
 ----------------------
 
--- Joins ADDRESSBOOK_HOME and ADDRESSBOOK
+-- Joins ADDRESSBOOK_HOME and ADDRESSBOOK_OBJECT (acting as Address Book)
 
 create table ADDRESSBOOK_BIND (	
   ADDRESSBOOK_HOME_RESOURCE_ID 		integer      not null references ADDRESSBOOK_HOME,
-  ADDRESSBOOK_RESOURCE_ID     		integer      references ADDRESSBOOK on delete cascade, 			-- ### TODO: DELETE ROW ###
-  ADDRESSBOOK_OBJECT_RESOURCE_ID   	integer      references ADDRESSBOOK_OBJECT on delete cascade,	-- ### TODO: add 'not null' constraint ###
+  ADDRESSBOOK_RESOURCE_ID     		integer      not null references ADDRESSBOOK_OBJECT on delete cascade,
   ADDRESSBOOK_RESOURCE_NAME    		varchar(255) not null,
   BIND_MODE                    		integer      not null, 	-- enum CALENDAR_BIND_MODE
   BIND_STATUS                  		integer      not null, 	-- enum CALENDAR_BIND_STATUS
@@ -464,7 +454,7 @@ create index CALENDAR_OBJECT_REVISIONS_RESOURCE_ID_REVISION
 
 create table ADDRESSBOOK_OBJECT_REVISIONS (
   ADDRESSBOOK_HOME_RESOURCE_ID integer      not null references ADDRESSBOOK_HOME,
-  ADDRESSBOOK_RESOURCE_ID      integer      references ADDRESSBOOK,
+  ADDRESSBOOK_RESOURCE_ID      integer      references ADDRESSBOOK_OBJECT,
   ADDRESSBOOK_NAME             varchar(255) default null,
   RESOURCE_NAME                varchar(255),
   REVISION                     integer      default nextval('REVISION_SEQ') not null,

@@ -216,7 +216,6 @@ class SQLStoreBuilder(object):
                   'CALENDAR_BIND',
                   'ADDRESSBOOK_BIND',
                   'CALENDAR',
-                  'ADDRESSBOOK',
                   'CALENDAR_HOME',
                   'ADDRESSBOOK_HOME',
                   'NOTIFICATION',
