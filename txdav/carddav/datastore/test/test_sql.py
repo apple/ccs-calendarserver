@@ -343,6 +343,8 @@ END:VCARD
         person = yield abObject.component()
         self.assertEqual(person.resourceUID(), "uid1")
 
+        yield home.removeAddressBookWithName("addressbook")
+
         yield txn.commit()
 
 
@@ -433,6 +435,7 @@ END:VCARD
         self.assertEqual(badgroup.resourceKind(), "badgroup")
         self.assertEqual(abObject.kind(), _ABO_KIND_PERSON)
 
+        yield home.removeAddressBookWithName("addressbook")
         yield txn.commit()
 
 
@@ -519,6 +522,7 @@ END:VCARD
         foreignMemberRows = yield Select([aboForeignMembers.GROUP_ID, aboForeignMembers.MEMBER_ADDRESS], From=aboForeignMembers).on(txn)
         self.assertEqual(foreignMemberRows, [[groupObject._resourceID, "urn:uuid:uid3"]])
 
+        yield home.removeAddressBookWithName("addressbook")
         yield txn.commit()
 
 

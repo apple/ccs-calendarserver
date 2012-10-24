@@ -251,7 +251,8 @@ class AddressBookObject(CommonObjectResource):
         for groupID in groupIDs:
             yield Insert(
                 {aboForeignMembers.GROUP_ID: groupID,
-                  aboForeignMembers.MEMBER_ADDRESS: "urn:uuid:" + self._uid, }
+                 aboForeignMembers.ADDRESSBOOK_ID: self._addressbook._resourceID,
+                 aboForeignMembers.MEMBER_ADDRESS: "urn:uuid:" + self._uid, }
             ).on(self._txn)
 
         if self._kind == _ABO_KIND_GROUP:
@@ -383,6 +384,7 @@ class AddressBookObject(CommonObjectResource):
             for groupID in groupIDs:
                 yield Insert(
                     {aboMembers.GROUP_ID: groupID,
+                     aboMembers.ADDRESSBOOK_ID: self._addressbook._resourceID,
                      aboMembers.MEMBER_ID: self._resourceID, }
                 ).on(self._txn)
 
@@ -429,6 +431,7 @@ class AddressBookObject(CommonObjectResource):
             for memberIDToAdd in memberIDsToAdd:
                 yield Insert(
                     {aboMembers.GROUP_ID: self._resourceID,
+                     aboMembers.ADDRESSBOOK_ID: self._addressbook._resourceID,
                      aboMembers.MEMBER_ID: memberIDToAdd, }
                 ).on(self._txn)
 
@@ -449,6 +452,7 @@ class AddressBookObject(CommonObjectResource):
             for foreignMemberAddrToAdd in foreignMemberAddrsToAdd:
                 yield Insert(
                     {aboForeignMembers.GROUP_ID: self._resourceID,
+                     aboForeignMembers.ADDRESSBOOK_ID: self._addressbook._resourceID,
                      aboForeignMembers.MEMBER_ADDRESS: foreignMemberAddrToAdd, }
                 ).on(self._txn)
 

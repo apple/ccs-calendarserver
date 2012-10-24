@@ -1285,10 +1285,8 @@ class CommonHome(LoggingMixIn):
         if child is None:
             raise NoSuchHomeChildError()
 
-        try:
-            yield child.remove()
-        finally:
-            self._children.pop(name, None)
+        yield child.remove()
+        self._children.pop(name, None)
 
 
     @classproperty
