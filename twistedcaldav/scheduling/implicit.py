@@ -812,16 +812,18 @@ class ImplicitScheduler(object):
 
         # Test/fix ones removed
         for rid in valid_old_rids:
-            # Compare the old one to the new master
-            # Note it is hard to recover from this state so raise instead
-            self.compareAttendeePartstats(
+            # Compare the old one to a derived instance, and if there is a change
+            # add the derived instance to the new data
+            newcomp = self.calendar.deriveInstance(rid)
+            changed = self.compareAttendeePartstats(
                 self.oldcalendar.overriddenComponent(rid),
-                self.calendar.overriddenComponent(None),
-                raiseOnMisMatch=True
+                newcomp,
             )
+            if changed:
+                self.calendar.addComponent(newcomp)
 
 
-    def compareAttendeePartstats(self, old_component, new_component, raiseOnMisMatch=False):
+    def compareAttendeePartstats(self, old_component, new_component):
         """
         Compare two components, old and new, and make sure the Organizer has not changed the PARTSTATs
         in the new one to anything other than NEEDS-ACTION. If there is a change, undo it.
@@ -830,6 +832,7 @@ class ImplicitScheduler(object):
         old_attendees = dict([(normalizeCUAddr(attendee.value()), attendee) for attendee in old_component.getAllAttendeeProperties()])
         new_attendees = dict([(normalizeCUAddr(attendee.value()), attendee) for attendee in new_component.getAllAttendeeProperties()])
 
+        changed = False
         for cuaddr, newattendee in new_attendees.items():
             # Don't adjust ORGANIZER's ATTENDEE
             if newattendee.value() in self.organizerPrincipal.calendarUserAddresses():
@@ -839,14 +842,10 @@ class ImplicitScheduler(object):
                 old_attendee = old_attendees.get(cuaddr)
                 old_partstat = old_attendee.parameterValue("PARTSTAT", "NEEDS-ACTION").upper() if old_attendee else "NEEDS-ACTION"
                 if old_attendee is None or old_partstat != new_partstat:
-                    if raiseOnMisMatch:
-                        raise HTTPError(ErrorResponse(
-                            responsecode.FORBIDDEN,
-                            (caldav_namespace, "valid-organizer-change"),
-                            "Organizer cannot change Attendee PARTSTAT",
-                        ))
-                    else:
-                        newattendee.setParameter("PARTSTAT", old_partstat)
+                    newattendee.setParameter("PARTSTAT", old_partstat)
+                    changed = True
+
+        return changed
 
 
     @inlineCallbacks

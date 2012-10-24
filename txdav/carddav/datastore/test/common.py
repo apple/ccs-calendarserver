@@ -234,6 +234,20 @@ class CommonTests(CommonCommonTests):
 
 
     @inlineCallbacks
+    def test_addressbookHomes(self):
+        """
+        Finding all existing addressbook homes.
+        """
+        addressbookHomes = (yield self.transactionUnderTest().addressbookHomes())
+        self.assertEquals(
+            [home.name() for home in addressbookHomes],
+            [
+                "home1",
+            ]
+        )
+
+
+    @inlineCallbacks
     def test_addressbookHomeWithUID_exists(self):
         """
         Finding an existing addressbook home by UID results in an object that
@@ -664,7 +678,7 @@ class CommonTests(CommonCommonTests):
             set(c.name() for c in addressbooks),
             set(home1_addressbookNames)
         )
-        
+
         for c in addressbooks:
             self.assertTrue(c.properties() is not None)
 
@@ -910,7 +924,7 @@ class CommonTests(CommonCommonTests):
             self.assertNotEquals(vcard1_text, vcard1_text_withDifferentNote)
             newComponent = VComponent.fromString(vcard1_text_withDifferentNote)
             yield obj.setComponent(newComponent)
-    
+
             # Putting everything into a separate transaction to account for any
             # caching that may take place.
             yield self.commit()
@@ -979,6 +993,3 @@ class CommonTests(CommonCommonTests):
         additionalUIDs.add("home_bad")
         expectedUIDs = additionalUIDs.union(requiredUIDs)
         self.assertEquals(foundUIDs, expectedUIDs)
-
-
-

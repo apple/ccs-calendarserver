@@ -31,7 +31,8 @@ from zope.interface import implements, directlyProvides
 
 from twext.python.log import Logger, LoggingMixIn
 from twisted.python.log import msg as log_msg, err as log_err
-from txdav.xml.rfc2518 import ResourceType
+
+from txdav.xml.element import ResourceType
 from txdav.xml.parser import WebDAVDocument
 from twext.web2.http_headers import MimeType
 
@@ -53,6 +54,7 @@ from txdav.caldav.icalendarstore import ICalendarTransaction, ICalendarStore
 
 from txdav.carddav.iaddressbookstore import IAddressBookTransaction
 
+from txdav.common.datastore.common import HomeChildBase
 from txdav.common.datastore.sql_tables import schema
 from txdav.common.datastore.sql_tables import _BIND_MODE_OWN, \
     _BIND_STATUS_ACCEPTED, _BIND_STATUS_DECLINED, \
@@ -463,8 +465,16 @@ class CommonStoreTransaction(object):
         raise RuntimeError("Database key %s cannot be determined." % (key,))
 
 
+    def calendarHomes(self):
+        return self.homes(ECALENDARTYPE)
+
+
     def calendarHomeWithUID(self, uid, create=False):
         return self.homeWithUID(ECALENDARTYPE, uid, create=create)
+
+
+    def addressbookHomes(self):
+        return self.homes(EADDRESSBOOKTYPE)
 
 
     def addressbookHomeWithUID(self, uid, create=False):
@@ -479,6 +489,21 @@ class CommonStoreTransaction(object):
             return self._calendarHomes
         else:
             return self._addressbookHomes
+
+
+    @inlineCallbacks
+    def homes(self, storeType):
+        """
+        Load all calendar or addressbook homes.
+        """
+
+        # Get all UIDs and load them - this will memoize all existing ones
+        uids = (yield self._homeClass[storeType].listHomes(self))
+        for uid in uids:
+            yield self.homeWithUID(storeType, uid, create=False)
+
+        # Return the memoized list directly
+        returnValue([kv[1] for kv in sorted(self._determineMemo(storeType, None).items(), key=lambda x: x[0])])
 
 
     @memoizedKey("uid", _determineMemo)
@@ -726,6 +751,13 @@ class CommonStoreTransaction(object):
         block = self._sqlTxn.commandBlock()
         sp = self._savepoint()
         failuresToMaybeLog = []
+        def end():
+            block.end()
+            for f in failuresToMaybeLog:
+                # TODO: direct tests, to make sure error logging
+                # happens correctly in all cases.
+                log.err(f)
+            raise AllRetriesFailed()
         triesLeft = retries
         try:
             while True:
@@ -733,8 +765,9 @@ class CommonStoreTransaction(object):
                 try:
                     result = yield thunk(block)
                 except:
+                    f = Failure()
                     if not failureOK:
-                        failuresToMaybeLog.append(Failure())
+                        failuresToMaybeLog.append(f)
                     yield sp.rollback(block)
                     if triesLeft:
                         triesLeft -= 1
@@ -749,12 +782,7 @@ class CommonStoreTransaction(object):
                         block = newBlock
                         sp = self._savepoint()
                     else:
-                        block.end()
-                        for f in failuresToMaybeLog:
-                            # TODO: direct tests, to make sure error logging
-                            # happens correctly in all cases.
-                            log.err(f)
-                        raise AllRetriesFailed()
+                        end()
                 else:
                     yield sp.release(block)
                     block.end()
@@ -765,9 +793,10 @@ class CommonStoreTransaction(object):
             # and only that case - acquire() or release() or commandBlock() may
             # raise an AlreadyFinishedError (either synchronously, or in the
             # case of the first two, possibly asynchronously as well).  We can
-            # safely ignore this, because it can't have any real effect; our
-            # caller shouldn't be paying attention anyway.
-            block.end()
+            # safely ignore this error, because it can't have any effect on what
+            # gets written; our caller will just get told that it failed in a
+            # way they have to be prepared for anyway.
+            end()
 
 
     @inlineCallbacks
@@ -1097,6 +1126,22 @@ class CommonHome(LoggingMixIn):
             returnValue(self)
         else:
             returnValue(None)
+
+
+    @classmethod
+    @inlineCallbacks
+    def listHomes(cls, txn):
+        """
+        Retrieve the owner UIDs of all existing homes.
+
+        @return: an iterable of C{str}s.
+        """
+        rows = yield Select(
+            [cls._homeSchema.OWNER_UID],
+            From=cls._homeSchema,
+        ).on(txn)
+        rids = [row[0] for row in rows]
+        returnValue(rids)
 
 
     @classmethod
@@ -1982,7 +2027,7 @@ class _SharedSyncLogic(object):
 
 
 
-class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
+class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic, HomeChildBase):
     """
     Common ancestor class of AddressBooks and Calendars.
     """

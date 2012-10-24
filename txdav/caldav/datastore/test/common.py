@@ -21,7 +21,7 @@ Tests for common calendar store API functions.
 
 from StringIO import StringIO
 
-from twisted.internet.defer import Deferred, inlineCallbacks, returnValue,\
+from twisted.internet.defer import Deferred, inlineCallbacks, returnValue, \
     maybeDeferred
 from twisted.internet.protocol import Protocol
 from twisted.python import hashlib
@@ -427,7 +427,7 @@ class CommonTests(CommonCommonTests):
     def test_notificationSyncToken(self):
         """
         L{ICalendar.resourceNamesSinceToken} will return the names of calendar
-        objects changed or deleted since 
+        objects changed or deleted since
         """
         txn = self.transactionUnderTest()
         coll = yield txn.notificationsWithUID("home1")
@@ -574,11 +574,13 @@ class CommonTests(CommonCommonTests):
         self.assertEquals(calendar.notifierID(), "CalDAV|home1")
         self.assertEquals(calendar.notifierID(label="collection"), "CalDAV|home1/calendar_1")
 
+
     @inlineCallbacks
     def test_nodeNameSuccess(self):
         home = yield self.homeUnderTest()
         name = yield home.nodeName()
         self.assertEquals(name, "/CalDAV/example.com/home1/")
+
 
     @inlineCallbacks
     def test_nodeNameFailure(self):
@@ -588,6 +590,65 @@ class CommonTests(CommonCommonTests):
             create=True)
         name = yield home.nodeName()
         self.assertEquals(name, None)
+
+
+    @inlineCallbacks
+    def test_calendarHomes(self):
+        """
+        Finding all existing calendar homes.
+        """
+        calendarHomes = (yield self.transactionUnderTest().calendarHomes())
+        self.assertEquals(
+            [home.name() for home in calendarHomes],
+            [
+                "home1",
+                "home_no_splits",
+                "home_splits",
+                "home_splits_shared",
+            ]
+        )
+
+
+    @inlineCallbacks
+    def test_displayNameNone(self):
+        """
+        L{ICalendarHome.calendarWithName} returns C{None} for calendars which
+        do not exist.
+        """
+        home = (yield self.homeUnderTest())
+        calendar = (yield home.calendarWithName("calendar_1"))
+        name = (yield calendar.displayName())
+        self.assertEquals(name, None)
+
+
+    @inlineCallbacks
+    def test_setDisplayName(self):
+        """
+        L{ICalendarHome.calendarWithName} returns C{None} for calendars which
+        do not exist.
+        """
+        home = (yield self.homeUnderTest())
+        calendar = (yield home.calendarWithName("calendar_1"))
+
+        calendar.setDisplayName(u"quux")
+        name = calendar.displayName()
+        self.assertEquals(name, u"quux")
+
+        calendar.setDisplayName(None)
+        name = calendar.displayName()
+        self.assertEquals(name, None)
+
+
+    @inlineCallbacks
+    def test_setDisplayNameBytes(self):
+        """
+        L{ICalendarHome.calendarWithName} returns C{None} for calendars which
+        do not exist.
+        """
+        home = (yield self.homeUnderTest())
+        calendar = (yield home.calendarWithName("calendar_1"))
+        self.assertRaises(ValueError, calendar.setDisplayName, "quux")
+
 
     @inlineCallbacks
     def test_calendarHomeWithUID_exists(self):
@@ -639,6 +700,7 @@ class CommonTests(CommonCommonTests):
                 self.fail("calendar %r didn't exist" % (name,))
             self.assertProvides(ICalendar, calendar)
             self.assertEquals(calendar.name(), name)
+
 
     @inlineCallbacks
     def test_calendarWithName_exists(self):
@@ -736,7 +798,7 @@ class CommonTests(CommonCommonTests):
         """
         L{ICalendarHome.createCalendarWithName} raises
         L{CalendarAlreadyExistsError} when the name conflicts with an already-
-        existing 
+        existing
         """
         home = yield self.homeUnderTest()
         for name in home1_calendarNames:
@@ -806,22 +868,24 @@ class CommonTests(CommonCommonTests):
         result = yield maybeDeferred(calendar.getSupportedComponents)
         self.assertEquals(result, None)
 
+
     @inlineCallbacks
     def test_countComponentTypes(self):
         """
         Test Calendar._countComponentTypes to make sure correct counts are returned.
         """
-        
+
         tests = (
             ("calendar_1", (("VEVENT", 3),)),
             ("calendar_2", (("VEVENT", 3), ("VTODO", 2))),
         )
-        
+
         for calname, results in tests:
             testalendar = yield (yield self.transactionUnderTest().calendarHomeWithUID(
                 "home_splits")).calendarWithName(calname)
             result = yield maybeDeferred(testalendar._countComponentTypes)
             self.assertEquals(result, results)
+
 
     @inlineCallbacks
     def test_calendarObjects(self):
@@ -947,6 +1011,7 @@ class CommonTests(CommonCommonTests):
             ]
         )
 
+
     @inlineCallbacks
     def test_removeCalendarObjectWithName_exists(self):
         """
@@ -1044,6 +1109,7 @@ class CommonTests(CommonCommonTests):
         invitedCals = yield cal.asShared()
         self.assertEqual(len(invitedCals), 0)
 
+
     @inlineCallbacks
     def test_unshareSharerSide(self, commit=False):
         """
@@ -1063,6 +1129,7 @@ class CommonTests(CommonCommonTests):
         invitedCals = yield cal.asShared()
         self.assertEqual(len(invitedCals), 0)
 
+
     @inlineCallbacks
     def test_unshareShareeSide(self, commit=False):
         """
@@ -1081,6 +1148,7 @@ class CommonTests(CommonCommonTests):
         self.assertEqual(otherCal, None)
         invitedCals = yield cal.asShared()
         self.assertEqual(len(invitedCals), 0)
+
 
     @inlineCallbacks
     def test_unshareWithInDifferentTransaction(self):
@@ -1130,7 +1198,7 @@ class CommonTests(CommonCommonTests):
 
         result = (yield home.hasCalendarResourceUIDSomewhereElse("uid2", object, "schedule"))
         self.assertTrue(result)
-        
+
         # FIXME:  do this without legacy calls
         '''
         from twistedcaldav.sharing import SharedCollectionRecord
@@ -1247,7 +1315,6 @@ class CommonTests(CommonCommonTests):
         self.assertEquals(component.mainType(), "VEVENT")
         self.assertEquals(component.resourceUID(), "uid1")
 
-
     perUserComponent = lambda self: VComponent.fromString("""BEGIN:VCALENDAR
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
 VERSION:2.0
@@ -1282,7 +1349,6 @@ END:X-CALENDARSERVER-PERUSER
 END:VCALENDAR
 """.replace("\n", "\r\n"))
 
-
     asSeenByOwner = lambda self: VComponent.fromString("""BEGIN:VCALENDAR
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
 VERSION:2.0
@@ -1301,7 +1367,6 @@ END:VALARM
 END:VEVENT
 END:VCALENDAR
 """.replace("\n", "\r\n"))
-
 
     asSeenByOther = lambda self: VComponent.fromString("""BEGIN:VCALENDAR
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
@@ -1420,6 +1485,7 @@ END:VCALENDAR
             set(home1_calendarNames)
         )
 
+
     @inlineCallbacks
     def test_loadAllCalendars(self):
         """
@@ -1441,7 +1507,7 @@ END:VCALENDAR
             set(c.name() for c in calendars),
             set(home1_calendarNames)
         )
-        
+
         for c in calendars:
             self.assertTrue(c.properties() is not None)
 
@@ -1525,6 +1591,7 @@ END:VCALENDAR
             "new", VComponent.fromString(test_event_notCalDAV_text)),
             InvalidObjectResourceError,
         )
+
 
     @inlineCallbacks
     def test_setComponent_invalid(self):
@@ -1695,7 +1762,7 @@ END:VCALENDAR
             self.assertNotEquals(event1_text, event1_text_withDifferentSubject)
             newComponent = VComponent.fromString(event1_text_withDifferentSubject)
             yield obj.setComponent(newComponent)
-    
+
             # Putting everything into a separate transaction to account for any
             # caching that may take place.
             yield self.commit()
@@ -1703,7 +1770,6 @@ END:VCALENDAR
                 (yield self.calendarObjectUnderTest()).properties()[propertyName],
                 propertyContent
             )
-
 
     eventWithDropbox = "\r\n".join("""
 BEGIN:VCALENDAR
@@ -1813,7 +1879,7 @@ END:VCALENDAR
     def test_collectionSyncToken(self):
         """
         L{ICalendar.resourceNamesSinceToken} will return the names of calendar
-        objects changed or deleted since 
+        objects changed or deleted since
         """
         cal = yield self.calendarUnderTest()
         st = yield cal.syncToken()
@@ -2037,7 +2103,7 @@ END:VCALENDAR
         that fails with L{QuotaExceeded}.
         """
         home = yield self.homeUnderTest()
-        attachment = yield getit() 
+        attachment = yield getit()
         t = attachment.store(MimeType("text", "x-fixture"))
         sample = "all work and no play makes jack a dull boy"
         chunk = (sample * (home.quotaAllowedBytes() / len(sample)))
@@ -2097,7 +2163,7 @@ END:VCALENDAR
         yield checkOriginal()
 
 
-    def test_removeAttachmentWithName(self, refresh=lambda x:x):
+    def test_removeAttachmentWithName(self, refresh=lambda x: x):
         """
         L{ICalendarObject.removeAttachmentWithName} will remove the calendar
         object with the given name.
@@ -2152,7 +2218,7 @@ END:VCALENDAR
 
     @inlineCallbacks
     def test_finishedOnCommit(self):
-        """ 
+        """
         Calling L{ITransaction.abort} or L{ITransaction.commit} after
         L{ITransaction.commit} has already been called raises an
         L{AlreadyFinishedError}.
@@ -2234,4 +2300,3 @@ END:VCALENDAR
         additionalUIDs.add("home_attachments")
         expectedUIDs = additionalUIDs.union(requiredUIDs)
         self.assertEquals(foundUIDs, expectedUIDs)
-

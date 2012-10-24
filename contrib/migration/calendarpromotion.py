@@ -24,6 +24,23 @@ USER_NAME = "calendar"
 GROUP_NAME = "calendar"
 LOG_DIR = "/var/log/caldavd"
 
+
+def updatePlist(plistData):
+    """
+    Update the passed-in plist data with new values for disabling the XMPPNotifier, and
+    to set the DSN to use the server-specific Postgres.
+
+    @param plistData: the plist data to update in place
+    @type plistData: C{dict}
+    """
+    try:
+        if plistData["Notifications"]["Services"]["XMPPNotifier"]["Enabled"]:
+            plistData["Notifications"]["Services"]["XMPPNotifier"]["Enabled"] = False
+    except KeyError:
+        pass
+    plistData["DSN"] = "/Library/Server/PostgreSQL For Server Services/Socket:caldav:caldav:::"
+
+
 def main():
 
     try:
@@ -45,17 +62,11 @@ def main():
     if os.path.exists(plistPath):
         try:
             plistData = readPlist(plistPath)
-
-            # Disable XMPPNotifier now that we're directly talking to APNS
-            try:
-                if plistData["Notifications"]["Services"]["XMPPNotifier"]["Enabled"]:
-                    plistData["Notifications"]["Services"]["XMPPNotifier"]["Enabled"] = False
-                writePlist(plistData, plistPath)
-            except KeyError:
-                pass
+            updatePlist(plistData)
+            writePlist(plistData, plistPath)
 
         except Exception, e:
-            print "Unable to disable XMPP in %s: %s" % (plistPath, e)
+            print "Unable to disable update values in %s: %s" % (plistPath, e)
 
     else:
         # Copy configuration

@@ -52,4 +52,6 @@ import txdav.xml.rfc5995
 import txdav.xml.rfc6578
 import txdav.xml.extensions
 
+# FIXME: add symbols to __all__
+
 txdav # Shhh pyflakes
