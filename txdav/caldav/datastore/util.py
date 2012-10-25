@@ -224,7 +224,7 @@ def _migrateCalendar(inCalendar, outCalendar, getComponent, merge=False):
                 if exists is None:
                     newattachment = yield outObject.createAttachmentWithName(name)
                     transport = newattachment.store(ctype)
-                    proto =_AttachmentMigrationProto(transport)
+                    proto = _AttachmentMigrationProto(transport)
                     attachment.retrieve(proto)
                     yield proto.done
 
@@ -267,18 +267,18 @@ def loadMimeTypes(mimetype_locations=['/etc/mime.types']):
     # usual suspects.
     contentTypes.update(
         {
-            '.conf':  'text/plain',
-            '.diff':  'text/plain',
-            '.exe':   'application/x-executable',
-            '.flac':  'audio/x-flac',
-            '.java':  'text/plain',
-            '.ogg':   'application/ogg',
-            '.oz':    'text/x-oz',
-            '.swf':   'application/x-shockwave-flash',
-            '.tgz':   'application/x-gtar',
-            '.wml':   'text/vnd.wap.wml',
-            '.xul':   'application/vnd.mozilla.xul+xml',
-            '.py':    'text/plain',
+            '.conf': 'text/plain',
+            '.diff': 'text/plain',
+            '.exe': 'application/x-executable',
+            '.flac': 'audio/x-flac',
+            '.java': 'text/plain',
+            '.ogg': 'application/ogg',
+            '.oz': 'text/x-oz',
+            '.swf': 'application/x-shockwave-flash',
+            '.tgz': 'application/x-gtar',
+            '.wml': 'text/vnd.wap.wml',
+            '.xul': 'application/vnd.mozilla.xul+xml',
+            '.py': 'text/plain',
             '.patch': 'text/plain',
         }
     )
@@ -304,11 +304,14 @@ class _AttachmentMigrationProto(Protocol, object):
         self.storeTransport = storeTransport
         self.done = Deferred()
 
+
     def connectionMade(self):
         self.storeTransport.registerProducer(self.transport, False)
 
+
     def dataReceived(self, data):
         self.storeTransport.write(data)
+
 
     @inlineCallbacks
     def connectionLost(self, reason):
@@ -566,13 +569,11 @@ class AttachmentRetrievalTransport(FileSender, object):
     def getHost(self):
         return self
 
-
     _everResumedProducing = False
 
     def resumeProducing(self):
         self._everResumedProducing = True
         super(AttachmentRetrievalTransport, self).resumeProducing()
-
 
     _deliveryLoop = None
 

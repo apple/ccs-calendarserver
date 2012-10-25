@@ -15,14 +15,15 @@
 ##
 
 from twext.python.log import Logger
-from twext.web2 import responsecode
 from twext.web2.dav.http import ErrorResponse
+
+from twisted.internet.defer import inlineCallbacks, returnValue, succeed
+from twisted.python.failure import Failure
+from twext.web2 import responsecode
+from txdav.xml import element as davxml
 from twext.web2.dav.resource import AccessDeniedError
 from twext.web2.dav.util import joinURL
 from twext.web2.http import HTTPError
-
-from twisted.internet.defer import inlineCallbacks, returnValue
-from twisted.python.failure import Failure
 
 from twistedcaldav import caldavxml
 from twistedcaldav.caldavxml import caldav_namespace
@@ -30,16 +31,15 @@ from twistedcaldav.config import config
 from twistedcaldav.customxml import calendarserver_namespace
 from twistedcaldav.method import report_common
 from twistedcaldav.resource import isCalendarCollectionResource
-from twistedcaldav.scheduling.cuaddress import LocalCalendarUser, RemoteCalendarUser,\
+from twistedcaldav.scheduling.cuaddress import LocalCalendarUser, RemoteCalendarUser, \
     PartitionedCalendarUser, OtherServerCalendarUser
 from twistedcaldav.scheduling.delivery import DeliveryService
 from twistedcaldav.scheduling.itip import iTIPRequestStatus
 from twistedcaldav.scheduling.processing import ImplicitProcessor, ImplicitProcessorException
 
-from txdav.xml import element as davxml
-
 import hashlib
 import uuid
+
 
 """
 Handles the sending of scheduling messages to the server itself. This will cause
@@ -54,7 +54,7 @@ __all__ = [
 log = Logger()
 
 class ScheduleViaCalDAV(DeliveryService):
-    
+
     def __init__(self, scheduler, recipients, responses, freebusy):
 
         self.scheduler = scheduler
@@ -62,9 +62,11 @@ class ScheduleViaCalDAV(DeliveryService):
         self.responses = responses
         self.freebusy = freebusy
 
+
     @classmethod
     def serviceType(cls):
         return DeliveryService.serviceType_caldav
+
 
     @classmethod
     def matchCalendarUserAddress(cls, cuaddr):
@@ -75,24 +77,25 @@ class ScheduleViaCalDAV(DeliveryService):
             domain = config.Scheduling[cls.serviceType()]["EmailDomain"]
             _ignore_account, addrDomain = addr.split("@")
             if addrDomain == domain:
-                return True
+                return succeed(True)
 
         elif (cuaddr.startswith("http://") or cuaddr.startswith("https://")) and config.Scheduling[cls.serviceType()]["HTTPDomain"]:
             splits = cuaddr.split(":")[0][2:].split("?")
             domain = config.Scheduling[cls.serviceType()]["HTTPDomain"]
             if splits[0].endswith(domain):
-                return True
+                return succeed(True)
 
         elif cuaddr.startswith("/"):
             # Assume relative HTTP URL - i.e. on this server
-            return True
-        
+            return succeed(True)
+
         # Do default match
         return super(ScheduleViaCalDAV, cls).matchCalendarUserAddress(cuaddr)
 
+
     @inlineCallbacks
     def generateSchedulingResponses(self):
-        
+
         # Extract the ORGANIZER property and UID value from the calendar data for use later
         organizerProp = self.scheduler.calendar.getOrganizerProperty()
         uid = self.scheduler.calendar.resourceUID()
@@ -121,14 +124,14 @@ class ScheduleViaCalDAV(DeliveryService):
                         Failure(exc_value=err),
                         reqstatus=iTIPRequestStatus.NO_AUTHORITY
                     )
-                
+
                     # Process next recipient
                     continue
             else:
                 # TODO: need to figure out how best to do server-to-server authorization.
                 # First thing would be to check for DAV:unauthenticated privilege.
                 # Next would be to allow the calendar user address of the organizer/originator to be used
-                # as a principal. 
+                # as a principal.
                 pass
 
             # Different behavior for free-busy vs regular invite
@@ -140,11 +143,12 @@ class ScheduleViaCalDAV(DeliveryService):
             else:
                 yield self.generateResponse(recipient, self.responses)
 
+
     @inlineCallbacks
     def generateResponse(self, recipient, responses):
         # Hash the iCalendar data for use as the last path element of the URI path
-        name =  "%s-%s.ics" % (hashlib.md5(self.scheduler.calendar.resourceUID()).hexdigest(), str(uuid.uuid4())[:8],)
-    
+        name = "%s-%s.ics" % (hashlib.md5(self.scheduler.calendar.resourceUID()).hexdigest(), str(uuid.uuid4())[:8],)
+
         # Get a resource for the new item
         childURL = joinURL(recipient.inboxURL, name)
         child = (yield self.scheduler.request.locateResource(childURL))
@@ -169,18 +173,18 @@ class ScheduleViaCalDAV(DeliveryService):
             returnValue(False)
 
         if store_inbox:
-            # Copy calendar to inbox 
+            # Copy calendar to inbox
             try:
                 from twistedcaldav.method.put_common import StoreCalendarObjectResource
                 yield StoreCalendarObjectResource(
                              request=self.scheduler.request,
-                             destination = child,
-                             destination_uri = childURL,
-                             destinationparent = recipient.inbox,
-                             destinationcal = True,
-                             calendar = self.scheduler.calendar,
-                             isiTIP = True,
-                             internal_request = True,
+                             destination=child,
+                             destination_uri=childURL,
+                             destinationparent=recipient.inbox,
+                             destinationcal=True,
+                             calendar=self.scheduler.calendar,
+                             isiTIP=True,
+                             internal_request=True,
                          ).run()
             except:
                 # FIXME: Bare except
@@ -195,10 +199,10 @@ class ScheduleViaCalDAV(DeliveryService):
             else:
                 # Store CALDAV:originator property
                 child.writeDeadProperty(caldavxml.Originator(davxml.HRef(self.scheduler.originator.cuaddr)))
-            
+
                 # Store CALDAV:recipient property
                 child.writeDeadProperty(caldavxml.Recipient(davxml.HRef(recipient.cuaddr)))
-            
+
                 # Store CS:schedule-changes property if present
                 if changes:
                     child.writeDeadProperty(changes)
@@ -209,6 +213,7 @@ class ScheduleViaCalDAV(DeliveryService):
                 self.scheduler.request.extendedLogItems = {}
             self.scheduler.request.extendedLogItems["itip.auto"] = self.scheduler.request.extendedLogItems.get("itip.auto", 0) + 1
         returnValue(True)
+
 
     @inlineCallbacks
     def generateFreeBusyResponse(self, recipient, responses, organizerProp, organizerPrincipal, uid, event_details):
@@ -250,7 +255,8 @@ class ScheduleViaCalDAV(DeliveryService):
                 calendar=fbresult
             )
             returnValue(True)
-    
+
+
     @inlineCallbacks
     def generateAttendeeFreeBusyResponse(self, recipient, organizerProp, organizerPrincipal, uid, attendeeProp, remote, event_details=None):
 
@@ -259,7 +265,7 @@ class ScheduleViaCalDAV(DeliveryService):
 
         # First list is BUSY, second BUSY-TENTATIVE, third BUSY-UNAVAILABLE
         fbinfo = ([], [], [])
-    
+
         # Process the availability property from the Inbox.
         has_prop = (yield recipient.inbox.hasProperty((calendarserver_namespace, "calendar-availability"), self.scheduler.request))
         if has_prop:
@@ -284,29 +290,29 @@ class ScheduleViaCalDAV(DeliveryService):
                 # We will ignore missing calendars. If the recipient has failed to
                 # properly manage the free busy set that should not prevent us from working.
                 continue
-         
+
             matchtotal = (yield report_common.generateFreeBusyInfo(
                 self.scheduler.request,
                 calendarResource,
                 fbinfo,
                 self.scheduler.timeRange,
                 matchtotal,
-                excludeuid = self.scheduler.excludeUID,
-                organizer = self.scheduler.organizer.cuaddr,
-                organizerPrincipal = organizerPrincipal,
-                same_calendar_user = same_calendar_user,
+                excludeuid=self.scheduler.excludeUID,
+                organizer=self.scheduler.organizer.cuaddr,
+                organizerPrincipal=organizerPrincipal,
+                same_calendar_user=same_calendar_user,
                 servertoserver=remote,
                 event_details=event_details,
             ))
-    
+
         # Build VFREEBUSY iTIP reply for this recipient
         fbresult = report_common.buildFreeBusyResult(
             fbinfo,
             self.scheduler.timeRange,
-            organizer = organizerProp,
-            attendee = attendeeProp,
-            uid = uid,
-            method = "REPLY",
+            organizer=organizerProp,
+            attendee=attendeeProp,
+            uid=uid,
+            method="REPLY",
             event_details=event_details,
         )
 

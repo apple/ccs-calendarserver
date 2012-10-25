@@ -760,8 +760,8 @@
         <key>AddressPatterns</key>
         <array>
         </array>
-        <key>Servers</key>
-        <string>servertoserver-test.xml</string>
+        <key>RemoteServers</key>
+        <string>remoteservers-test.xml</string>
       </dict>
 
       <!-- iMIP protocol options -->

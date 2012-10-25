@@ -18,7 +18,7 @@ from twisted.internet.defer import inlineCallbacks
 from twext.web2 import responsecode
 from twistedcaldav.ical import Component
 from twistedcaldav.scheduling.cuaddress import RemoteCalendarUser
-from twistedcaldav.scheduling.imip import ScheduleViaIMip
+from twistedcaldav.scheduling.imip.delivery import ScheduleViaIMip
 from twistedcaldav.scheduling.itip import iTIPRequestStatus
 from twistedcaldav.scheduling.scheduler import ScheduleResponseQueue
 import twistedcaldav.test.util
@@ -30,13 +30,14 @@ class iMIPProcessing (twistedcaldav.test.util.TestCase):
     """
 
     class FakeSchedule(object):
-        
+
         def __init__(self, calendar):
             self.calendar = calendar
 
+
     @inlineCallbacks
     def test_no_freebusy(self):
-        
+
         data = """BEGIN:VCALENDAR
 VERSION:2.0
 METHOD:REQUEST
@@ -58,13 +59,16 @@ END:VCALENDAR
 
         delivery = ScheduleViaIMip(scheduler, recipients, responses, True)
         yield delivery.generateSchedulingResponses()
-        
+
         self.assertEqual(len(responses.responses), 1)
         self.assertEqual(str(responses.responses[0].children[1]), iTIPRequestStatus.SERVICE_UNAVAILABLE)
 
 
+    @inlineCallbacks
     def test_matchCalendarUserAddress(self):
         # iMIP not sensitive to case:
         self.patch(config.Scheduling[ScheduleViaIMip.serviceType()], "AddressPatterns", ["mailto:.*"])
-        self.assertTrue(ScheduleViaIMip.matchCalendarUserAddress("mailto:user@xyzexample.com"))
-        self.assertTrue(ScheduleViaIMip.matchCalendarUserAddress("MAILTO:user@xyzexample.com"))
+        result = yield ScheduleViaIMip.matchCalendarUserAddress("mailto:user@xyzexample.com")
+        self.assertTrue(result)
+        result = ScheduleViaIMip.matchCalendarUserAddress("MAILTO:user@xyzexample.com")
+        self.assertTrue(result)

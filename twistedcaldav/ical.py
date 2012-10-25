@@ -2364,6 +2364,21 @@ class Component (object):
             [component.removeProperty(p) for p in tuple(component.properties("ATTENDEE")) if p.value().lower() != attendee.lower()]
 
 
+    def removeAllButTheseAttendees(self, attendees):
+        """
+        Remove all ATTENDEE properties except for the ones specified.
+        """
+
+        assert self.name() == "VCALENDAR", "Not a calendar: %r" % (self,)
+
+        attendees = set([attendee.lower() for attendee in attendees])
+
+        for component in self.subcomponents():
+            if component.name() in ignoredComponents:
+                continue
+            [component.removeProperty(p) for p in tuple(component.properties("ATTENDEE")) if p.value().lower() not in attendees]
+
+
     def hasAlarm(self):
         """
         Test whether the component has a VALARM as an immediate sub-component.

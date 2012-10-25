@@ -44,12 +44,12 @@ __all__ = [
 
 log = Logger()
 
-
 class ScheduleViaIMip(DeliveryService):
-    
+
     @classmethod
     def serviceType(cls):
         return DeliveryService.serviceType_imip
+
 
     @inlineCallbacks
     def generateSchedulingResponses(self):
@@ -65,14 +65,14 @@ class ScheduleViaIMip(DeliveryService):
                 reqstatus=iTIPRequestStatus.SERVICE_UNAVAILABLE,
                 suppressErrorLog=True
             )
-        
+
         # Generate an HTTP client request
         try:
             # We do not do freebusy requests via iMIP
             if self.freebusy:
                 raise ValueError("iMIP VFREEBUSY requests not supported.")
 
-            method = self.scheduler.calendar.propertyValue("METHOD") 
+            method = self.scheduler.calendar.propertyValue("METHOD")
             if method not in (
                 "PUBLISH",
                 "REQUEST",
@@ -107,12 +107,12 @@ class ScheduleViaIMip(DeliveryService):
 
                     log.debug("POSTing iMIP message to gateway...  To: '%s', From :'%s'\n%s" % (toAddr, fromAddr, caldata,))
                     yield self.postToGateway(fromAddr, toAddr, caldata)
-        
+
                 except Exception, e:
                     # Generated failed response for this recipient
                     log.debug("iMIP request %s failed for recipient %s: %s" % (self, recipient, e))
                     failForRecipient(recipient)
-                
+
                 else:
                     self.responses.add(
                         recipient.cuaddr,
@@ -125,6 +125,7 @@ class ScheduleViaIMip(DeliveryService):
             log.debug("iMIP request %s failed: %s" % (self, e))
             for recipient in self.recipients:
                 failForRecipient(recipient)
+
 
     def postToGateway(self, fromAddr, toAddr, caldata, reactor=None):
         if reactor is None:
@@ -147,4 +148,3 @@ class ScheduleViaIMip(DeliveryService):
         connect(GAIEndpoint(reactor, mailGatewayServer, mailGatewayPort),
                 factory)
         return factory.deferred
-

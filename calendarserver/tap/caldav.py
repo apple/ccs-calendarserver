@@ -70,7 +70,7 @@ from txdav.common.datastore.upgrade.migrate import UpgradeToDatabaseService
 from twistedcaldav.config import ConfigurationError
 from twistedcaldav.config import config
 from twistedcaldav.localization import processLocalizationFiles
-from twistedcaldav.mail import IMIPReplyInboxResource
+from twistedcaldav.scheduling.imip.resource import IMIPReplyInboxResource
 from twistedcaldav import memcachepool
 from twistedcaldav.stdconfig import DEFAULT_CONFIG, DEFAULT_CONFIG_FILE
 from twistedcaldav.upgrade import UpgradeFileSystemFormatService, PostDBImportService
@@ -208,12 +208,15 @@ class CalDAVStatisticsProtocol (Protocol):
         self.transport.write("%s\r\n" % (stats,))
         self.transport.loseConnection()
 
+
+
 class CalDAVStatisticsServer (Factory):
 
     protocol = CalDAVStatisticsProtocol
 
     def __init__(self, logObserver):
         self.logger = logObserver
+
 
 
 class ErrorLoggingMultiService(MultiService, object):
@@ -236,6 +239,7 @@ class ErrorLoggingMultiService(MultiService, object):
             app.setComponent(ILogObserver, errorLogObserver)
 
 
+
 class CalDAVService (ErrorLoggingMultiService):
 
     # The ConnectionService is a MultiService which bundles all the connection
@@ -247,9 +251,11 @@ class CalDAVService (ErrorLoggingMultiService):
         self.logObserver = logObserver # accesslog observer
         MultiService.__init__(self)
 
+
     def privilegedStartService(self):
         MultiService.privilegedStartService(self)
         self.logObserver.start()
+
 
     @inlineCallbacks
     def stopService(self):
@@ -263,6 +269,7 @@ class CalDAVService (ErrorLoggingMultiService):
         # At this point, all outstanding requests have been responded to
         yield super(CalDAVService, self).stopService()
         self.logObserver.stop()
+
 
 
 class CalDAVOptions (Options, LoggingMixIn):
@@ -329,6 +336,7 @@ class CalDAVOptions (Options, LoggingMixIn):
                 value, overrideDict[key]
             )
 
+
     def opt_option(self, option):
         """
         Set an option to override a value in the config file. True, False, int,
@@ -349,6 +357,7 @@ class CalDAVOptions (Options, LoggingMixIn):
 
     opt_o = opt_option
 
+
     def postOptions(self):
         try:
             self.loadConfiguration()
@@ -356,6 +365,7 @@ class CalDAVOptions (Options, LoggingMixIn):
         except ConfigurationError, e:
             print "Invalid configuration: %s" % (e,)
             sys.exit(1)
+
 
     def loadConfiguration(self):
         if not os.path.exists(self["config"]):
@@ -367,8 +377,10 @@ class CalDAVOptions (Options, LoggingMixIn):
         config.load(self["config"])
         config.updateDefaults(self.overrides)
 
+
     def checkDirectory(self, dirpath, description, access=None, create=None, wait=False):
         checkDirectory(dirpath, description, access=access, create=create, wait=wait)
+
 
     def checkConfiguration(self):
 
@@ -396,7 +408,6 @@ class CalDAVOptions (Options, LoggingMixIn):
             gottaBeRoot()
 
         self.parent["pidfile"] = config.PIDFile
-
 
         #
         # Verify that server root actually exists
@@ -527,7 +538,6 @@ class SlaveSpawnerService(Service):
             )
             self.monitor.addProcessObject(process, PARENT_ENVIRONMENT)
 
-
         if (
             config.Notifications.Enabled and
             config.Notifications.InternalNotificationHost == "localhost"
@@ -595,6 +605,7 @@ class SlaveSpawnerService(Service):
                                env=PARENT_ENVIRONMENT)
 
 
+
 class ReExecService(MultiService, LoggingMixIn):
     """
     A MultiService which catches SIGHUP and re-exec's the process.
@@ -612,6 +623,7 @@ class ReExecService(MultiService, LoggingMixIn):
         self.reactor = reactor
         MultiService.__init__(self)
 
+
     def reExec(self):
         """
         Removes pidfile, registers an exec to happen after shutdown, then
@@ -627,16 +639,20 @@ class ReExecService(MultiService, LoggingMixIn):
             sys.executable, [sys.executable] + sys.argv)
         self.reactor.stop()
 
+
     def sighupHandler(self, num, frame):
         self.reactor.callFromThread(self.reExec)
+
 
     def startService(self):
         self.previousHandler = signal.signal(signal.SIGHUP, self.sighupHandler)
         MultiService.startService(self)
 
+
     def stopService(self):
         signal.signal(signal.SIGHUP, self.previousHandler)
         MultiService.stopService(self)
+
 
 
 class CalDAVServiceMaker (LoggingMixIn):
@@ -712,7 +728,6 @@ class CalDAVServiceMaker (LoggingMixIn):
                     return "Unknown"
                 else:
                     return "%s: %s" % (frame.f_code.co_name, frame.f_lineno)
-
 
             return service
 
@@ -949,7 +964,6 @@ class CalDAVServiceMaker (LoggingMixIn):
                         inherit=False
                     ).setServiceParent(connectionService)
 
-
         # Change log level back to what it was before
         setLogLevelForNamespace(None, oldLogLevel)
         return service
@@ -1176,7 +1190,6 @@ class CalDAVServiceMaker (LoggingMixIn):
         else:
             uid = os.getuid()
 
-
         controlSocket = ControlSocket()
         controlSocket.addFactory(_LOG_ROUTE, logger)
         if config.ControlSocket:
@@ -1232,7 +1245,6 @@ class CalDAVServiceMaker (LoggingMixIn):
             )
             config.MultiProcess.ProcessCount = processCount
             self.log_info("Configuring %d processes." % (processCount,))
-
 
         # Open the socket(s) to be inherited by the slaves
         inheritFDs = []
@@ -1372,7 +1384,7 @@ class CalDAVServiceMaker (LoggingMixIn):
                             tmpSocket.connect(("127.0.0.1", testPort))
                             tmpSocket.shutdown(2)
                         except:
-                            numConnectFailures = numConnectFailures+1
+                            numConnectFailures = numConnectFailures + 1
                     # If the file didn't connect on any expected ports,
                     # consider it stale and remove it.
                     if numConnectFailures == len(testPorts):
@@ -1640,6 +1652,7 @@ class DelayedStartupProcessMonitor(Service, object):
         for name in self.processes:
             self.startProcess(name)
 
+
     def stopService(self):
         """
         Return a deferred that fires when all child processes have ended.
@@ -1763,7 +1776,7 @@ class DelayedStartupProcessMonitor(Service, object):
         @param name: the name of the process to signal.
         @type signal: C{str}
         """
-        if not self.protocols.has_key(name):
+        if not name in self.protocols:
             return
         proc = self.protocols[name].transport
         try:
@@ -1778,15 +1791,15 @@ class DelayedStartupProcessMonitor(Service, object):
         the inherited implementation of startService because ProcessMonitor
         doesn't allow customization of subprocess environment).
         """
-        if self.protocols.has_key(name):
+        if name in self.protocols:
             return
         p = self.protocols[name] = DelayedStartupLoggingProtocol()
         p.service = self
         p.name = name
-        procObj, env, uid, gid= self.processes[name]
+        procObj, env, uid, gid = self.processes[name]
         self.timeStarted[name] = time()
 
-        childFDs = { 0 : "w", 1 : "r", 2 : "r" }
+        childFDs = {0 : "w", 1 : "r", 2 : "r"}
 
         childFDs.update(procObj.getFileDescriptors())
 
@@ -1796,7 +1809,6 @@ class DelayedStartupProcessMonitor(Service, object):
             p, args[0], args, uid=uid, gid=gid, env=env,
             childFDs=childFDs
         )
-
 
     _pendingStarts = 0
 
@@ -1828,12 +1840,12 @@ class DelayedStartupProcessMonitor(Service, object):
 
     def __repr__(self):
         l = []
-        for name, (procObj, uid, gid, env) in self.processes.items():
+        for name, (procObj, uid, gid, _ignore_env) in self.processes.items():
             uidgid = ''
             if uid is not None:
                 uidgid = str(uid)
             if gid is not None:
-                uidgid += ':'+str(gid)
+                uidgid += ':' + str(gid)
 
             if uidgid:
                 uidgid = '(' + uidgid + ')'
@@ -1859,6 +1871,7 @@ class DelayedStartupLineLogger(object):
         """
         Ignore this IProtocol method, since I don't need a transport.
         """
+        pass
 
 
     def dataReceived(self, data):
@@ -1894,7 +1907,7 @@ class DelayedStartupLineLogger(object):
         segments = self._breakLineIntoSegments(line)
         for segment in segments:
             self.lineReceived(segment)
-            
+
 
     def _breakLineIntoSegments(self, line):
         """
@@ -1906,14 +1919,15 @@ class DelayedStartupLineLogger(object):
         @return: array of C{str}
         """
         length = len(line)
-        numSegments = length/self.MAX_LENGTH + (1 if length%self.MAX_LENGTH else 0)
+        numSegments = length / self.MAX_LENGTH + (1 if length % self.MAX_LENGTH else 0)
         segments = []
         for i in range(numSegments):
-            msg = line[i*self.MAX_LENGTH:(i+1)*self.MAX_LENGTH]
+            msg = line[i * self.MAX_LENGTH:(i + 1) * self.MAX_LENGTH]
             if i < numSegments - 1: # not the last segment
                 msg += self.CONTINUED_TEXT
             segments.append(msg)
         return segments
+
 
 
 class DelayedStartupLoggingProtocol(ProcessProtocol):

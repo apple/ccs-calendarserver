@@ -534,6 +534,7 @@ class CalDAVResource (
         res = (yield self._hasGlobalProperty(property, request))
         returnValue(res)
 
+
     def _hasSharedProperty(self, qname, request):
 
         # Always have default alarms on shared calendars
@@ -547,6 +548,7 @@ class CalDAVResource (
 
         p = self.deadProperties().contains(qname)
         return p
+
 
     def _hasGlobalProperty(self, property, request):
         """
@@ -601,6 +603,7 @@ class CalDAVResource (
         # Default behavior - read per-user dead property
         p = self.deadProperties().get(qname)
         return p
+
 
     @inlineCallbacks
     def _readGlobalProperty(self, qname, property, request):
@@ -1017,7 +1020,8 @@ class CalDAVResource (
         """
         See L{ICalDAVResource.isSpecialCollection}.
         """
-        if not self.isCollection(): return False
+        if not self.isCollection():
+            return False
 
         try:
             resourcetype = self.resourceType()
@@ -2135,6 +2139,7 @@ class CommonHomeResource(PropfindCacheMixin, SharedHomeMixin, CalDAVResource):
 
         return props
 
+
     def url(self):
         return joinURL(self.parent.url(), self.name, "/")
 
@@ -2584,7 +2589,7 @@ class CalendarHomeResource(DefaultAlarmPropertyMixin, CommonHomeResource):
         from twistedcaldav.storebridge import StoreScheduleInboxResource
         self._provisionedChildren["inbox"] = StoreScheduleInboxResource.maybeCreateInbox
 
-        from twistedcaldav.schedule import ScheduleOutboxResource
+        from twistedcaldav.scheduling.caldav.resource import ScheduleOutboxResource
         self._provisionedChildren["outbox"] = ScheduleOutboxResource
 
         if config.EnableDropBox:
@@ -2900,7 +2905,7 @@ class AddressBookHomeResource (CommonHomeResource):
         if defaultAddressBook is None or not defaultAddressBook.exists():
             addressbooks = yield self._newStoreHome.addressbooks()
             ownedAddressBooks = [addressbook for addressbook in addressbooks if addressbook.owned()]
-            ownedAddressBooks.sort(key=lambda ab:ab.name())
+            ownedAddressBooks.sort(key=lambda ab: ab.name())
 
             # These are only unshared children
             # FIXME: the back-end should re-provision a default addressbook here.

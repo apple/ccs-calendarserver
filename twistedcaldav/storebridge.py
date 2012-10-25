@@ -1,5 +1,5 @@
 # -*- test-case-name: twistedcaldav.test.test_wrapping -*-
-##
+# #
 # Copyright (c) 2005-2012 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -13,7 +13,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-##
+# #
 
 import time
 import hashlib
@@ -49,12 +49,12 @@ from twext.web2.responsecode import (
 )
 
 from twistedcaldav import customxml, carddavxml, caldavxml
-from twistedcaldav.cache import CacheStoreNotifier, ResponseCacheMixin,\
+from twistedcaldav.cache import CacheStoreNotifier, ResponseCacheMixin, \
     DisabledCacheNotifier
 from twistedcaldav.caldavxml import caldav_namespace
 from twistedcaldav.carddavxml import carddav_namespace
 from twistedcaldav.config import config
-from twistedcaldav.ical import Component as VCalendar, Property as VProperty,\
+from twistedcaldav.ical import Component as VCalendar, Property as VProperty, \
     InvalidICalendarDataError, iCalendarProductID, allowedComponents
 from twistedcaldav.memcachelock import MemcacheLock, MemcacheLockTimeoutError
 from twistedcaldav.method.put_addressbook_common import StoreAddressObjectResource
@@ -62,9 +62,9 @@ from twistedcaldav.method.put_common import StoreCalendarObjectResource
 from twistedcaldav.notifications import (
     NotificationCollectionResource, NotificationResource
 )
-from twistedcaldav.resource import CalDAVResource, GlobalAddressBookResource,\
+from twistedcaldav.resource import CalDAVResource, GlobalAddressBookResource, \
     DefaultAlarmPropertyMixin
-from twistedcaldav.schedule import ScheduleInboxResource
+from twistedcaldav.scheduling.caldav.resource import ScheduleInboxResource
 from twistedcaldav.scheduling.implicit import ImplicitScheduler
 from twistedcaldav.vcard import Component as VCard, InvalidVCardDataError
 
@@ -91,6 +91,7 @@ class _NewStorePropertiesWrapper(object):
         """
         self._newPropertyStore = newPropertyStore
 
+
     @classmethod
     def _convertKey(cls, qname):
         namespace, name = qname
@@ -115,7 +116,6 @@ class _NewStorePropertiesWrapper(object):
                 FORBIDDEN,
                 "Property cannot be changed: %s" % (property.sname(),)
             ))
-            
 
 
     def delete(self, qname):
@@ -170,6 +170,7 @@ class _NewStoreFileMetaDataHelper(object):
 
     def exists(self):
         return self._newStoreObject is not None
+
 
     def name(self):
         return self._newStoreObject.name() if self._newStoreObject is not None else self._name
@@ -232,7 +233,7 @@ class _CommonHomeChildCollectionMixin(ResponseCacheMixin):
     def liveProperties(self):
 
         props = super(_CommonHomeChildCollectionMixin, self).liveProperties()
-        
+
         if config.MaxResourcesPerCollection:
             props += (customxml.MaxResources.qname(),)
 
@@ -240,6 +241,7 @@ class _CommonHomeChildCollectionMixin(ResponseCacheMixin):
             props += (customxml.BulkRequests.qname(),)
 
         return props
+
 
     @inlineCallbacks
     def readProperty(self, property, request):
@@ -253,11 +255,14 @@ class _CommonHomeChildCollectionMixin(ResponseCacheMixin):
 
         returnValue((yield super(_CommonHomeChildCollectionMixin, self).readProperty(property, request)))
 
+
     def url(self):
         return joinURL(self._parentResource.url(), self._name, "/")
 
+
     def parentResource(self):
         return self._parentResource
+
 
     def index(self):
         """
@@ -288,18 +293,19 @@ class _CommonHomeChildCollectionMixin(ResponseCacheMixin):
 
         if self._newStoreObject:
             newStoreObject = yield self._newStoreObject.objectResourceWithName(name)
-    
+
             similar = self._childClass(
                 newStoreObject,
                 self._newStoreObject,
                 name,
                 principalCollections=self._principalCollections
             )
-    
+
             self.propagateTransaction(similar)
             returnValue(similar)
         else:
             returnValue(NoParent())
+
 
     @inlineCallbacks
     def listChildren(self):
@@ -310,11 +316,13 @@ class _CommonHomeChildCollectionMixin(ResponseCacheMixin):
         children.update((yield self._newStoreObject.listObjectResources()))
         returnValue(sorted(children))
 
+
     def countChildren(self):
         """
         @return: L{Deferred} with the count of all known children of this resource.
         """
         return self._newStoreObject.countObjectResources()
+
 
     def name(self):
         return self._name
@@ -343,6 +351,7 @@ class _CommonHomeChildCollectionMixin(ResponseCacheMixin):
     def getInternalSyncToken(self):
         return self._newStoreObject.syncToken() if self._newStoreObject else None
 
+
     @inlineCallbacks
     def findChildrenFaster(
         self, depth, request, okcallback, badcallback, missingcallback,
@@ -351,36 +360,38 @@ class _CommonHomeChildCollectionMixin(ResponseCacheMixin):
         """
         Override to pre-load children in certain collection types for better performance.
         """
-        
+
         if depth == "1":
             if names:
                 yield self._newStoreObject.objectResourcesWithNames(names)
             else:
                 yield self._newStoreObject.objectResources()
-        
+
         result = (yield super(_CommonHomeChildCollectionMixin, self).findChildrenFaster(
             depth, request, okcallback, badcallback, missingcallback, names, privileges, inherited_aces
         ))
-        
+
         returnValue(result)
-    
+
+
     @inlineCallbacks
     def createCollection(self):
         """
         Override C{createCollection} to actually do the work.
         """
         self._newStoreObject = (yield self._newStoreParentHome.createChildWithName(self._name))
-        
+
         # Re-initialize to get stuff setup again now we have a "real" object
         self._initializeWithHomeChild(self._newStoreObject, self._parentResource)
 
         returnValue(CREATED)
 
+
     @requiresPermissions(fromParent=[davxml.Unbind()])
     @inlineCallbacks
     def http_DELETE(self, request):
         """
-        Override http_DELETE to validate 'depth' header. 
+        Override http_DELETE to validate 'depth' header.
         """
 
         if not self.exists():
@@ -396,6 +407,7 @@ class _CommonHomeChildCollectionMixin(ResponseCacheMixin):
             raise HTTPError(StatusResponse(BAD_REQUEST, msg))
         response = (yield self.storeRemove(request, True, request.uri))
         returnValue(response)
+
 
     @inlineCallbacks
     def storeRemove(self, request, viaRequest, where):
@@ -464,7 +476,7 @@ class _CommonHomeChildCollectionMixin(ResponseCacheMixin):
 
         # Actually delete it.
         yield self._newStoreObject.remove()
-        
+
         # Re-initialize to get stuff setup again now we have no object
         self._initializeWithHomeChild(None, self._parentResource)
 
@@ -477,6 +489,7 @@ class _CommonHomeChildCollectionMixin(ResponseCacheMixin):
         response = errors.response()
 
         returnValue(response)
+
 
     def http_COPY(self, request):
         """
@@ -506,7 +519,7 @@ class _CommonHomeChildCollectionMixin(ResponseCacheMixin):
         destination = yield request.locateResource(destinationURI)
         if destination.exists():
             returnValue(FORBIDDEN)
-            
+
         # Forget the destination now as after the move we will need to re-init it with its
         # new store object
         request._forgetResource(destination, destinationURI)
@@ -515,6 +528,7 @@ class _CommonHomeChildCollectionMixin(ResponseCacheMixin):
         basename = destinationURI.rstrip("/").split("/")[-1]
         yield self._newStoreObject.rename(basename)
         returnValue(NO_CONTENT)
+
 
     @inlineCallbacks
     def _readGlobalProperty(self, qname, property, request):
@@ -534,6 +548,7 @@ class _CommonHomeChildCollectionMixin(ResponseCacheMixin):
             result = (yield super(_CommonHomeChildCollectionMixin, self)._readGlobalProperty(qname, property, request))
             returnValue(result)
 
+
     @inlineCallbacks
     def checkCTagPrecondition(self, request):
         if request.headers.hasHeader("If"):
@@ -547,6 +562,7 @@ class _CommonHomeChildCollectionMixin(ResponseCacheMixin):
                 if testctag != ctag:
                     raise HTTPError(StatusResponse(responsecode.PRECONDITION_FAILED, "CTag pre-condition failure"))
 
+
     def checkReturnChanged(self, request):
         if request.headers.hasHeader("X-MobileMe-DAV-Options"):
             return_changed = request.headers.getRawHeaders("X-MobileMe-DAV-Options")[0]
@@ -554,34 +570,35 @@ class _CommonHomeChildCollectionMixin(ResponseCacheMixin):
         else:
             return False
 
+
     @requiresPermissions(davxml.Bind())
     @inlineCallbacks
     def simpleBatchPOST(self, request):
-        
+
         # If CTag precondition
         yield self.checkCTagPrecondition(request)
-        
+
         # Look for return changed data option
         return_changed = self.checkReturnChanged(request)
 
         # Read in all data
         data = (yield allDataFromStream(request.stream))
-        
+
         components = self.componentsFromData(data)
         if components is None:
             raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, "Could not parse valid data from request body"))
-        
+
         # Build response
         xmlresponses = []
         for ctr, component in enumerate(components):
-            
+
             code = None
             error = None
             dataChanged = None
             try:
                 # Create a new name if one was not provided
-                name =  md5(str(ctr) + component.resourceUID() + str(time.time()) + request.path).hexdigest() + self.resourceSuffix()
-            
+                name = md5(str(ctr) + component.resourceUID() + str(time.time()) + request.path).hexdigest() + self.resourceSuffix()
+
                 # Get a resource for the new item
                 newchildURL = joinURL(request.path, name)
                 newchild = (yield request.locateResource(newchildURL))
@@ -595,9 +612,9 @@ class _CommonHomeChildCollectionMixin(ResponseCacheMixin):
                     error = (error.namespace, error.name,)
             except Exception:
                 code = responsecode.BAD_REQUEST
-            
+
             if code is None:
-                
+
                 etag = (yield newchild.etag())
                 if not return_changed or dataChanged is None:
                     xmlresponses.append(
@@ -625,7 +642,7 @@ class _CommonHomeChildCollectionMixin(ResponseCacheMixin):
                             )
                         )
                     )
-                
+
             else:
                 xmlresponses.append(
                     davxml.StatusResponse(
@@ -637,9 +654,9 @@ class _CommonHomeChildCollectionMixin(ResponseCacheMixin):
                     ) if error else None,
                     )
                 )
-        
+
         result = MultiStatusResponse(xmlresponses)
-        
+
         newctag = (yield self.getInternalSyncToken())
         result.headers.setRawHeaders("CTag", (newctag,))
 
@@ -650,16 +667,17 @@ class _CommonHomeChildCollectionMixin(ResponseCacheMixin):
         request.extendedLogItems["rcount"] = len(xmlresponses)
 
         returnValue(result)
-        
+
+
     @inlineCallbacks
     def crudBatchPOST(self, request, xmlroot):
-        
+
         # Need to force some kind of overall authentication on the request
         yield self.authorize(request, (davxml.Read(), davxml.Write(),))
 
         # If CTag precondition
         yield self.checkCTagPrecondition(request)
-        
+
         # Look for return changed data option
         return_changed = self.checkReturnChanged(request)
 
@@ -671,7 +689,7 @@ class _CommonHomeChildCollectionMixin(ResponseCacheMixin):
         updateCount = 0
         deleteCount = 0
         for xmlchild in xmlroot.children:
-            
+
             # Determine the multiput operation: create, update, delete
             href = xmlchild.childOfType(davxml.HRef.qname())
             set = xmlchild.childOfType(davxml.Set.qname())
@@ -679,11 +697,11 @@ class _CommonHomeChildCollectionMixin(ResponseCacheMixin):
             xmldata_root = prop if prop else set
             xmldata = xmldata_root.childOfType(self.xmlDataElementType().qname()) if xmldata_root is not None else None
             if href is None:
-                
+
                 if xmldata is None:
                     raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, "Could not parse valid data from request body without a DAV:Href present"))
-                
-                # Do privilege check on collection once 
+
+                # Do privilege check on collection once
                 if checkedBindPrivelege is None:
                     try:
                         yield self.authorize(request, (davxml.Bind(),))
@@ -707,7 +725,7 @@ class _CommonHomeChildCollectionMixin(ResponseCacheMixin):
                     yield self.crudUpdate(request, str(href), xmldata, ifmatch, return_changed, xmlresponses)
                     updateCount += 1
                 else:
-                    # Do privilege check on collection once 
+                    # Do privilege check on collection once
                     if checkedUnbindPrivelege is None:
                         try:
                             yield self.authorize(request, (davxml.Unbind(),))
@@ -715,11 +733,11 @@ class _CommonHomeChildCollectionMixin(ResponseCacheMixin):
                         except HTTPError, e:
                             checkedUnbindPrivelege = e
 
-                    yield self.crudDelete(request, str(href), ifmatch, xmlresponses, checkedUnbindPrivelege);
+                    yield self.crudDelete(request, str(href), ifmatch, xmlresponses, checkedUnbindPrivelege)
                     deleteCount += 1
-        
+
         result = MultiStatusResponse(xmlresponses)
-        
+
         newctag = (yield self.getInternalSyncToken())
         result.headers.setRawHeaders("CTag", (newctag,))
 
@@ -737,9 +755,10 @@ class _CommonHomeChildCollectionMixin(ResponseCacheMixin):
 
         returnValue(result)
 
+
     @inlineCallbacks
     def crudCreate(self, request, xmldata, xmlresponses, return_changed, hasPrivilege):
-        
+
         code = None
         error = None
         try:
@@ -750,8 +769,8 @@ class _CommonHomeChildCollectionMixin(ResponseCacheMixin):
             component = xmldata.generateComponent()
 
             # Create a new name if one was not provided
-            name =  md5(str(componentdata) + str(time.time()) + request.path).hexdigest() + self.resourceSuffix()
-        
+            name = md5(str(componentdata) + str(time.time()) + request.path).hexdigest() + self.resourceSuffix()
+
             # Get a resource for the new item
             newchildURL = joinURL(request.path, name)
             newchild = (yield request.locateResource(newchildURL))
@@ -768,7 +787,7 @@ class _CommonHomeChildCollectionMixin(ResponseCacheMixin):
 
         except Exception:
             code = responsecode.BAD_REQUEST
-        
+
         if code is None:
             etag = (yield newchild.etag())
             xmlresponses.append(
@@ -795,6 +814,7 @@ class _CommonHomeChildCollectionMixin(ResponseCacheMixin):
                 )
             )
 
+
     @inlineCallbacks
     def crudUpdate(self, request, href, xmldata, ifmatch, return_changed, xmlresponses):
         code = None
@@ -814,7 +834,7 @@ class _CommonHomeChildCollectionMixin(ResponseCacheMixin):
             etag = (yield updateResource.etag())
             if ifmatch and ifmatch != etag.generate():
                 raise HTTPError(responsecode.PRECONDITION_FAILED)
-            
+
             yield self.storeResourceData(request, updateResource, href, component, componentdata)
 
             # FIXME: figure out return_changed behavior
@@ -828,7 +848,7 @@ class _CommonHomeChildCollectionMixin(ResponseCacheMixin):
 
         except Exception:
             code = responsecode.BAD_REQUEST
-        
+
         if code is None:
             xmlresponses.append(
                 davxml.PropertyStatusResponse(
@@ -852,6 +872,7 @@ class _CommonHomeChildCollectionMixin(ResponseCacheMixin):
                 )
             )
 
+
     @inlineCallbacks
     def crudDelete(self, request, href, ifmatch, xmlresponses, hasPrivilege):
         code = None
@@ -870,7 +891,7 @@ class _CommonHomeChildCollectionMixin(ResponseCacheMixin):
                 raise HTTPError(responsecode.PRECONDITION_FAILED)
 
             yield deleteResource.storeRemove(
-                request, 
+                request,
                 True,
                 href,
             )
@@ -884,7 +905,7 @@ class _CommonHomeChildCollectionMixin(ResponseCacheMixin):
 
         except Exception:
             code = responsecode.BAD_REQUEST
-        
+
         if code is None:
             xmlresponses.append(
                 davxml.StatusResponse(
@@ -907,14 +928,17 @@ class _CommonHomeChildCollectionMixin(ResponseCacheMixin):
     def notifierID(self, label="default"):
         self._newStoreObject.notifierID(label)
 
+
     def notifyChanged(self):
         return self._newStoreObject.notifyChanged()
+
+
 
 class _CalendarCollectionBehaviorMixin():
     """
     Functions common to calendar and inbox collections
     """
-    
+
     # Support component set behaviors
     def setSupportedComponentSet(self, support_components_property):
         """
@@ -922,7 +946,8 @@ class _CalendarCollectionBehaviorMixin():
         """
         support_components = tuple([comp.attributes["name"].upper() for comp in support_components_property.children])
         return self.setSupportedComponents(support_components)
-    
+
+
     def getSupportedComponentSet(self):
         comps = self._newStoreObject.getSupportedComponents()
         if comps:
@@ -933,6 +958,7 @@ class _CalendarCollectionBehaviorMixin():
             *[caldavxml.CalendarComponent(name=item) for item in comps]
         )
 
+
     def setSupportedComponents(self, components):
         """
         Set the allowed component set for this calendar.
@@ -940,14 +966,15 @@ class _CalendarCollectionBehaviorMixin():
         @param components: list of names of components to support
         @type components: C{list}
         """
-        
+
         # Validate them first - raise on failure
         if not self.validSupportedComponents(components):
             raise HTTPError(StatusResponse(responsecode.FORBIDDEN, "Invalid CALDAV:supported-calendar-component-set"))
 
         support_components = ",".join(sorted([comp.upper() for comp in components]))
         return maybeDeferred(self._newStoreObject.setSupportedComponents, support_components)
-    
+
+
     def getSupportedComponents(self):
         comps = self._newStoreObject.getSupportedComponents()
         if comps:
@@ -956,8 +983,10 @@ class _CalendarCollectionBehaviorMixin():
             comps = allowedComponents
         return comps
 
+
     def isSupportedComponent(self, componentType):
         return self._newStoreObject.isSupportedComponent(componentType)
+
 
     def validSupportedComponents(self, components):
         """
@@ -968,13 +997,13 @@ class _CalendarCollectionBehaviorMixin():
             return components in (("VEVENT",), ("VTODO",),)
         return True
 
-    
+
+
 class CalendarCollectionResource(DefaultAlarmPropertyMixin, _CalendarCollectionBehaviorMixin, _CommonHomeChildCollectionMixin, CalDAVResource):
     """
     Wrapper around a L{txdav.caldav.icalendar.ICalendar}.
     """
 
- 
     def __init__(self, calendar, home, name=None, *args, **kw):
         """
         Create a CalendarCollectionResource from a L{txdav.caldav.icalendar.ICalendar}
@@ -989,6 +1018,7 @@ class CalendarCollectionResource(DefaultAlarmPropertyMixin, _CalendarCollectionB
         if config.EnableBatchUpload:
             self._postHandlers[("text", "calendar")] = _CommonHomeChildCollectionMixin.simpleBatchPOST
             self.xmlDocHandlers[customxml.Multiput] = _CommonHomeChildCollectionMixin.crudBatchPOST
+
 
     def __repr__(self):
         return "<Calendar Collection Resource %r:%r %s>" % (
@@ -1007,6 +1037,7 @@ class CalendarCollectionResource(DefaultAlarmPropertyMixin, _CalendarCollectionB
         Yes, it is a calendar collection.
         """
         return True
+
 
     @inlineCallbacks
     def iCalendarRolledup(self, request):
@@ -1031,7 +1062,7 @@ class CalendarCollectionResource(DefaultAlarmPropertyMixin, _CalendarCollectionB
         isowner = (yield self.isOwner(request))
         accessPrincipal = (yield self.resourceOwnerPrincipal(request))
 
-        for name, uid, type in (yield maybeDeferred(self.index().bruteForceSearch)): #@UnusedVariable
+        for name, uid, type in (yield maybeDeferred(self.index().bruteForceSearch)):  # @UnusedVariable
             try:
                 child = yield request.locateChildResource(self, name)
             except TypeError:
@@ -1052,7 +1083,7 @@ class CalendarCollectionResource(DefaultAlarmPropertyMixin, _CalendarCollectionB
                 assert subcalendar.name() == "VCALENDAR"
 
                 for component in subcalendar.subcomponents():
-                    
+
                     # Only insert VTIMEZONEs once
                     if component.name() == "VTIMEZONE":
                         tzid = component.propertyValue("TZID")
@@ -1068,8 +1099,8 @@ class CalendarCollectionResource(DefaultAlarmPropertyMixin, _CalendarCollectionB
 
         returnValue(calendar)
 
-
     createCalendarCollection = _CommonHomeChildCollectionMixin.createCollection
+
 
     @classmethod
     def componentsFromData(cls, data):
@@ -1077,12 +1108,12 @@ class CalendarCollectionResource(DefaultAlarmPropertyMixin, _CalendarCollectionB
         Need to split a single VCALENDAR into separate ones based on UID with the
         appropriate VTIEMZONES included.
         """
-        
+
         results = []
 
         # Split into components by UID and TZID
         try:
-            vcal =  VCalendar.fromString(data)
+            vcal = VCalendar.fromString(data)
         except InvalidICalendarDataError:
             return None
 
@@ -1093,14 +1124,14 @@ class CalendarCollectionResource(DefaultAlarmPropertyMixin, _CalendarCollectionB
                 by_tzid[subcomponent.propertyValue("TZID")] = subcomponent
             else:
                 by_uid.setdefault(subcomponent.propertyValue("UID"), []).append(subcomponent)
-        
+
         # Re-constitute as separate VCALENDAR objects
         for components in by_uid.values():
-            
+
             newvcal = VCalendar("VCALENDAR")
             newvcal.addProperty(VProperty("VERSION", "2.0"))
             newvcal.addProperty(VProperty("PRODID", vcal.propertyValue("PRODID")))
-            
+
             # Get the set of TZIDs and include them
             tzids = set()
             for component in components:
@@ -1113,38 +1144,41 @@ class CalendarCollectionResource(DefaultAlarmPropertyMixin, _CalendarCollectionB
                     # We ignore the error and generate invalid ics which someone will
                     # complain about at some point
                     pass
-            
+
             # Now add each component
             for component in components:
                 newvcal.addComponent(component.duplicate())
- 
+
             results.append(newvcal)
-        
+
         return results
+
 
     @classmethod
     def resourceSuffix(cls):
         return ".ics"
 
+
     @classmethod
     def xmlDataElementType(cls):
         return caldavxml.CalendarData
 
+
     @inlineCallbacks
     def storeResourceData(self, request, newchild, newchildURL, component, returnData=False):
         storer = StoreCalendarObjectResource(
-            request = request,
-            destination = newchild,
-            destination_uri = newchildURL,
-            destinationcal = True,
-            destinationparent = self,
-            calendar = component,
-            returnData = returnData,
+            request=request,
+            destination=newchild,
+            destination_uri=newchildURL,
+            destinationcal=True,
+            destinationparent=self,
+            calendar=component,
+            returnData=returnData,
         )
         yield storer.run()
-        
+
         returnValue(storer.storeddata if hasattr(storer, "storeddata") else None)
-            
+
 
     @inlineCallbacks
     def storeRemove(self, request, implicitly, where):
@@ -1206,7 +1240,7 @@ class CalendarCollectionResource(DefaultAlarmPropertyMixin, _CalendarCollectionB
         that calendar's name.
         """
         defaultCalendarType = (yield self.isDefaultCalendar(request))
-        
+
         result = (yield super(CalendarCollectionResource, self).http_MOVE(request))
         if result == NO_CONTENT:
             destinationURI = urlsplit(request.headers.getHeader("destination"))[2]
@@ -1214,6 +1248,7 @@ class CalendarCollectionResource(DefaultAlarmPropertyMixin, _CalendarCollectionB
             yield self.movedCalendar(request, defaultCalendarType,
                                destination, destinationURI)
         returnValue(result)
+
 
 
 class StoreScheduleInboxResource(_CalendarCollectionBehaviorMixin, _CommonHomeChildCollectionMixin, ScheduleInboxResource):
@@ -1249,17 +1284,22 @@ class StoreScheduleInboxResource(_CalendarCollectionBehaviorMixin, _CommonHomeCh
     def provisionFile(self):
         pass
 
+
     def provision(self):
         pass
+
 
     def http_DELETE(self, request):
         return FORBIDDEN
 
+
     def http_COPY(self, request):
         return FORBIDDEN
 
+
     def http_MOVE(self, request):
         return FORBIDDEN
+
 
 
 class _GetChildHelper(CalDAVResource):
@@ -1330,7 +1370,7 @@ class DropboxCollection(_GetChildHelper):
 
 
     def resourceType(self,):
-        return davxml.ResourceType.dropboxhome #@UndefinedVariable
+        return davxml.ResourceType.dropboxhome  # @UndefinedVariable
 
 
     def listChildren(self):
@@ -1378,7 +1418,7 @@ class CalendarObjectDropbox(_GetChildHelper):
 
 
     def resourceType(self):
-        return davxml.ResourceType.dropbox #@UndefinedVariable
+        return davxml.ResourceType.dropbox  # @UndefinedVariable
 
 
     @inlineCallbacks
@@ -1522,6 +1562,7 @@ class CalendarObjectDropbox(_GetChildHelper):
 
         returnValue(davxml.ACL(*tuple(originalACEs + newACEs)))
 
+
     @inlineCallbacks
     def sharedDropboxACEs(self):
 
@@ -1575,6 +1616,7 @@ class CalendarObjectDropbox(_GetChildHelper):
                 )
 
         returnValue(aces)
+
 
 
 class CalendarAttachment(_NewStoreFileMetaDataHelper, _GetChildHelper):
@@ -1643,7 +1685,7 @@ class CalendarAttachment(_NewStoreFileMetaDataHelper, _GetChildHelper):
         except IOError, e:
             log.error("Unable to read attachment: %s, due to: %s" % (self, e,))
             raise HTTPError(responsecode.NOT_FOUND)
-        return Response(OK, {"content-type":self.contentType()}, stream)
+        return Response(OK, {"content-type": self.contentType()}, stream)
 
 
     @requiresPermissions(fromParent=[davxml.Unbind()])
@@ -1659,29 +1701,36 @@ class CalendarAttachment(_NewStoreFileMetaDataHelper, _GetChildHelper):
         self._newStoreAttachment = self._newStoreCalendarObject = None
         returnValue(NO_CONTENT)
 
-
     http_MKCOL = None
     http_MKCALENDAR = None
 
+
     def http_PROPPATCH(self, request):
         """
-        No dead properties allowed on attachments. 
+        No dead properties allowed on attachments.
         """
         return FORBIDDEN
+
 
     def isCollection(self):
         return False
 
 
+
 class NoParent(CalDAVResource):
+
     def http_MKCALENDAR(self, request):
         return CONFLICT
+
 
     def http_PUT(self, request):
         return CONFLICT
 
+
     def isCollection(self):
         return False
+
+
 
 class _CommonObjectResource(_NewStoreFileMetaDataHelper, CalDAVResource, FancyEqMixin):
 
@@ -1719,6 +1768,7 @@ class _CommonObjectResource(_NewStoreFileMetaDataHelper, CalDAVResource, FancyEq
     def component(self):
         return self._newStoreObject.component()
 
+
     @inlineCallbacks
     def render(self, request):
         if not self.exists():
@@ -1735,7 +1785,7 @@ class _CommonObjectResource(_NewStoreFileMetaDataHelper, CalDAVResource, FancyEq
     @requiresPermissions(fromParent=[davxml.Unbind()])
     def http_DELETE(self, request):
         """
-        Override http_DELETE to validate 'depth' header. 
+        Override http_DELETE to validate 'depth' header.
         """
         if not self.exists():
             log.debug("Resource not found: %s" % (self,))
@@ -1743,14 +1793,16 @@ class _CommonObjectResource(_NewStoreFileMetaDataHelper, CalDAVResource, FancyEq
 
         return self.storeRemove(request, True, request.uri)
 
+
     def http_PROPPATCH(self, request):
         """
-        No dead properties allowed on object resources. 
+        No dead properties allowed on object resources.
         """
         if self._newStoreParent.objectResourcesHaveProperties():
             return super(_CommonObjectResource, self).http_PROPPATCH(request)
         else:
             return FORBIDDEN
+
 
     @inlineCallbacks
     def storeStream(self, stream):
@@ -1772,6 +1824,7 @@ class _CommonObjectResource(_NewStoreFileMetaDataHelper, CalDAVResource, FancyEq
 
             returnValue(CREATED)
 
+
     @inlineCallbacks
     def storeComponent(self, component):
 
@@ -1787,7 +1840,6 @@ class _CommonObjectResource(_NewStoreFileMetaDataHelper, CalDAVResource, FancyEq
             self._initializeWithObject(self._newStoreObject, self._newStoreParent)
 
             returnValue(CREATED)
-
 
 
     @inlineCallbacks
@@ -1849,13 +1901,13 @@ class _MetadataProperty(object):
 
 class _CalendarObjectMetaDataMixin(object):
     """
-    Dynamically create the required meta-data for an object resource 
+    Dynamically create the required meta-data for an object resource
     """
 
-    accessMode        = _MetadataProperty("accessMode")
-    isScheduleObject  = _MetadataProperty("isScheduleObject")
-    scheduleTag       = _MetadataProperty("scheduleTag")
-    scheduleEtags     = _MetadataProperty("scheduleEtags")
+    accessMode = _MetadataProperty("accessMode")
+    isScheduleObject = _MetadataProperty("isScheduleObject")
+    scheduleTag = _MetadataProperty("scheduleTag")
+    scheduleEtags = _MetadataProperty("scheduleEtags")
     hasPrivateComment = _MetadataProperty("hasPrivateComment")
 
 
@@ -2010,6 +2062,7 @@ class CalendarObjectResource(_CalendarObjectMetaDataMixin, _CommonObjectResource
         returnValue(NO_CONTENT)
 
 
+
 class AddressBookCollectionResource(_CommonHomeChildCollectionMixin, CalDAVResource):
     """
     Wrapper around a L{txdav.carddav.iaddressbook.IAddressBook}.
@@ -2030,6 +2083,7 @@ class AddressBookCollectionResource(_CommonHomeChildCollectionMixin, CalDAVResou
             self._postHandlers[("text", "vcard")] = _CommonHomeChildCollectionMixin.simpleBatchPOST
             self.xmlDocHandlers[customxml.Multiput] = _CommonHomeChildCollectionMixin.crudBatchPOST
 
+
     def __repr__(self):
         return "<AddressBook Collection Resource %r:%r %s>" % (
             self._newStoreParentHome.uid(),
@@ -2048,8 +2102,8 @@ class AddressBookCollectionResource(_CommonHomeChildCollectionMixin, CalDAVResou
         """
         return True
 
-
     createAddressBookCollection = _CommonHomeChildCollectionMixin.createCollection
+
 
     @classmethod
     def componentsFromData(cls, data):
@@ -2058,29 +2112,33 @@ class AddressBookCollectionResource(_CommonHomeChildCollectionMixin, CalDAVResou
         except InvalidVCardDataError:
             return None
 
+
     @classmethod
     def resourceSuffix(cls):
         return ".vcf"
+
 
     @classmethod
     def xmlDataElementType(cls):
         return carddavxml.AddressData
 
+
     @inlineCallbacks
     def storeResourceData(self, request, newchild, newchildURL, component, returnData=False):
         storer = StoreAddressObjectResource(
-            request = request,
-            sourceadbk = False,
-            destination = newchild,
-            destination_uri = newchildURL,
-            destinationadbk = True,
-            destinationparent = self,
-            vcard = component,
-            returnData = returnData,
+            request=request,
+            sourceadbk=False,
+            destination=newchild,
+            destination_uri=newchildURL,
+            destinationadbk=True,
+            destinationparent=self,
+            vcard=component,
+            returnData=returnData,
         )
         yield storer.run()
-        
+
         returnValue(storer.returndata if hasattr(storer, "returndata") else None)
+
 
     @inlineCallbacks
     def storeRemove(self, request, viaRequest, where):
@@ -2129,6 +2187,7 @@ class AddressBookCollectionResource(_CommonHomeChildCollectionMixin, CalDAVResou
 
         returnValue(response)
 
+
     # FIXME: access control
     @inlineCallbacks
     def http_MOVE(self, request):
@@ -2137,7 +2196,7 @@ class AddressBookCollectionResource(_CommonHomeChildCollectionMixin, CalDAVResou
         that address book's name.
         """
         defaultAddressBook = (yield self.isDefaultAddressBook(request))
-        
+
         result = (yield super(AddressBookCollectionResource, self).http_MOVE(request))
         if result == NO_CONTENT:
             destinationURI = urlsplit(request.headers.getHeader("destination"))[2]
@@ -2146,11 +2205,15 @@ class AddressBookCollectionResource(_CommonHomeChildCollectionMixin, CalDAVResou
                                destination, destinationURI)
         returnValue(result)
 
+
+
 class GlobalAddressBookCollectionResource(GlobalAddressBookResource, AddressBookCollectionResource):
     """
     Wrapper around a L{txdav.carddav.iaddressbook.IAddressBook}.
     """
     pass
+
+
 
 class AddressBookObjectResource(_CommonObjectResource):
     """
@@ -2169,6 +2232,7 @@ class AddressBookObjectResource(_CommonObjectResource):
         returnValue(str(data))
 
     vCard = _CommonObjectResource.component
+
 
 
 class _NotificationChildHelper(object):
@@ -2260,8 +2324,10 @@ class StoreNotificationCollectionResource(_NotificationChildHelper,
     def name(self):
         return "notification"
 
+
     def url(self):
         return joinURL(self._parentResource.url(), self.name(), "/")
+
 
     @inlineCallbacks
     def listChildren(self):
@@ -2269,6 +2335,7 @@ class StoreNotificationCollectionResource(_NotificationChildHelper,
         for notification in (yield self._newStoreNotifications.notificationObjects()):
             l.append(notification.name())
         returnValue(l)
+
 
     def isCollection(self):
         return True
@@ -2301,6 +2368,7 @@ class StoreNotificationCollectionResource(_NotificationChildHelper,
         )
 
 
+
 class StoreNotificationObjectFile(_NewStoreFileMetaDataHelper, NotificationResource):
     """
     A resource wrapping a calendar object.
@@ -2328,6 +2396,7 @@ class StoreNotificationObjectFile(_NewStoreFileMetaDataHelper, NotificationResou
         props += (customxml.NotificationType.qname(),)
         return props
 
+
     @inlineCallbacks
     def readProperty(self, property, request):
         if type(property) is tuple:
@@ -2339,6 +2408,7 @@ class StoreNotificationObjectFile(_NewStoreFileMetaDataHelper, NotificationResou
             returnValue(self._newStoreObject.xmlType())
 
         returnValue((yield super(StoreNotificationObjectFile, self).readProperty(property, request)))
+
 
     def isCollection(self):
         return False
@@ -2361,7 +2431,7 @@ class StoreNotificationObjectFile(_NewStoreFileMetaDataHelper, NotificationResou
             raise HTTPError(responsecode.NOT_FOUND)
 
         returnValue(
-            Response(OK, {"content-type":self.contentType()},
+            Response(OK, {"content-type": self.contentType()},
                      MemoryStream((yield self.text())))
         )
 
@@ -2369,7 +2439,7 @@ class StoreNotificationObjectFile(_NewStoreFileMetaDataHelper, NotificationResou
     @requiresPermissions(fromParent=[davxml.Unbind()])
     def http_DELETE(self, request):
         """
-        Override http_DELETE to validate 'depth' header. 
+        Override http_DELETE to validate 'depth' header.
         """
         if not self.exists():
             log.debug("Resource not found: %s" % (self,))
@@ -2377,11 +2447,13 @@ class StoreNotificationObjectFile(_NewStoreFileMetaDataHelper, NotificationResou
 
         return self.storeRemove(request, request.uri)
 
+
     def http_PROPPATCH(self, request):
         """
-        No dead properties allowed on notification objects. 
+        No dead properties allowed on notification objects.
         """
         return FORBIDDEN
+
 
     @inlineCallbacks
     def storeRemove(self, request, where):

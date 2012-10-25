@@ -408,8 +408,8 @@
         <key>AddressPatterns</key>
         <array>
         </array>
-        <key>Servers</key>
-        <string>servertoserver.xml</string>
+        <key>RemoteServers</key>
+        <string>remoteservers.xml</string>
       </dict>
 
       <!-- iMIP protocol options -->

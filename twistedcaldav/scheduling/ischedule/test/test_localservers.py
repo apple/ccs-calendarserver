@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2009-2012 Apple Inc. All rights reserved.
+# Copyright (c) 2009-2010 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,7 +16,7 @@
 
 from twext.web2.test.test_server import SimpleRequest
 from twistedcaldav.config import config
-from twistedcaldav.servers import Servers, SERVER_SECRET_HEADER
+from twistedcaldav.scheduling.ischedule.localservers import Servers, SERVER_SECRET_HEADER
 from twistedcaldav.test.util import TestCase
 import StringIO as StringIO
 
@@ -82,8 +82,9 @@ class ServerTests(TestCase):
 
         return servers
 
+
     def test_read_ok(self):
-        
+
         servers = self._setupServers()
 
         self.assertTrue(servers.getServerById("00001") is not None)
@@ -104,17 +105,18 @@ class ServerTests(TestCase):
         self.assertEqual(servers.getServerById("00002").getPartitionURIForId("A"), "https://machine1.example.com:8443")
         self.assertEqual(servers.getServerById("00002").getPartitionURIForId("B"), "https://machine2.example.com:8443")
 
+
     def test_this_server(self):
-        
+
         servers = self._setupServers()
 
         self.assertTrue(servers.getServerById("00001").thisServer)
         self.assertFalse(servers.getServerById("00002").thisServer)
-        
+
         self.patch(config, "ServerHostName", "caldav2.example.com")
         self.patch(config, "SSLPort", 8443)
         self.patch(config, "BindSSLPorts", [8843])
-        
+
         xmlFile = StringIO.StringIO(ServerTests.data1)
         servers = Servers
         servers.load(xmlFile, ignoreIPLookupFailures=True)
@@ -122,21 +124,24 @@ class ServerTests(TestCase):
         self.assertFalse(servers.getServerById("00001").thisServer)
         self.assertTrue(servers.getServerById("00002").thisServer)
 
+
     def test_check_is_partitioned(self):
 
         servers = self._setupServers()
-        
+
         self.assertFalse(servers.getServerById("00001").isPartitioned())
         self.assertTrue(servers.getServerById("00002").isPartitioned())
+
 
     def test_check_this_ip(self):
 
         servers = self._setupServers()
         servers.getServerById("00001").ips = set(("127.0.0.2",))
         servers.getServerById("00002").ips = set(("127.0.0.3",))
-        
+
         self.assertTrue(servers.getServerById("00001").checkThisIP("127.0.0.2"))
         self.assertFalse(servers.getServerById("00001").checkThisIP("127.0.0.3"))
+
 
     def test_check_allowed_from(self):
 
@@ -151,29 +156,29 @@ class ServerTests(TestCase):
             self.assertFalse(servers.getServerById("00002").checkAllowedFromIP("127.0.0.2"))
             self.assertFalse(servers.getServerById("00002").checkAllowedFromIP("127.0.0.3"))
 
+
     def test_check_shared_secret(self):
 
         servers = self._setupServers()
-        
+
         request = SimpleRequest(None, "POST", "/ischedule")
         request.headers.addRawHeader(SERVER_SECRET_HEADER, "foobar")
         self.assertTrue(servers.getServerById("00001").checkSharedSecret(request))
-        
+
         request = SimpleRequest(None, "POST", "/ischedule")
         request.headers.addRawHeader(SERVER_SECRET_HEADER, "foobar1")
         self.assertFalse(servers.getServerById("00001").checkSharedSecret(request))
-        
+
         request = SimpleRequest(None, "POST", "/ischedule")
         self.assertFalse(servers.getServerById("00001").checkSharedSecret(request))
-        
+
         request = SimpleRequest(None, "POST", "/ischedule")
         request.headers.addRawHeader(SERVER_SECRET_HEADER, "foobar")
         self.assertFalse(servers.getServerById("00002").checkSharedSecret(request))
-        
+
         request = SimpleRequest(None, "POST", "/ischedule")
         request.headers.addRawHeader(SERVER_SECRET_HEADER, "foobar1")
         self.assertFalse(servers.getServerById("00002").checkSharedSecret(request))
-        
+
         request = SimpleRequest(None, "POST", "/ischedule")
         self.assertTrue(servers.getServerById("00002").checkSharedSecret(request))
-        

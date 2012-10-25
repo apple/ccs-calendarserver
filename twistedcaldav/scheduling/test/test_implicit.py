@@ -30,21 +30,27 @@ class FakeScheduler(object):
     """
     A fake CalDAVScheduler that does nothing except track who messages were sent to.
     """
-    
+
     def __init__(self, recipients):
         self.recipients = recipients
+
 
     def doSchedulingViaPUT(self, originator, recipients, calendar, internal_request=False):
         self.recipients.extend(recipients)
         return succeed(ScheduleResponseQueue("FAKE", responsecode.OK))
 
+
+
 class FakePrincipal(object):
-    
+
     def __init__(self, cuaddr):
         self.cuaddr = cuaddr
-        
+
+
     def calendarUserAddresses(self):
         return (self.cuaddr,)
+
+
 
 class Implicit (twistedcaldav.test.util.TestCase):
     """
@@ -52,7 +58,7 @@ class Implicit (twistedcaldav.test.util.TestCase):
     """
 
     def test_removed_attendees(self):
-        
+
         data = (
             (
                 "#1.1 Simple component, no change",
@@ -785,7 +791,7 @@ END:VCALENDAR
             self.assertEqual(scheduler.cancelledAttendees, set(result), msg=description)
 
 
-    @inlineCallbacks   
+    @inlineCallbacks
     def test_process_request_excludes_includes(self):
         """
         Test that processRequests correctly excludes or includes the specified attendees.
@@ -826,25 +832,27 @@ END:VCALENDAR
             scheduler.only_refresh_attendees = includes
             scheduler.changed_rids = None
             scheduler.reinvites = None
-    
+
             # Get some useful information from the calendar
             yield scheduler.extractCalendarData()
             scheduler.organizerPrincipal = FakePrincipal(scheduler.organizer)
-    
+
             recipients = []
-            
+
             def makeFakeScheduler():
                 return FakeScheduler(recipients)
             scheduler.makeScheduler = makeFakeScheduler
-            
+
             count = (yield scheduler.processRequests())
             self.assertEqual(count, result_count)
             self.assertEqual(len(recipients), result_count)
             self.assertEqual(set(recipients), set(result_set))
 
+
+
 class ImplicitRequests (HomeTestCase):
     """
-    Test twistedcaldav.scheduyling.implicit with a Request object. 
+    Test twistedcaldav.scheduyling.implicit with a Request object.
     """
 
     @inlineCallbacks
@@ -852,7 +860,7 @@ class ImplicitRequests (HomeTestCase):
         """
         Test that checkImplicitState() always returns True for any organizer, valid or not.
         """
-        
+
         data = (
             (
                 """BEGIN:VCALENDAR
@@ -907,12 +915,13 @@ END:VCALENDAR
             request = SimpleRequest(self.site, "PUT", "/calendar/1.ics")
             calresource = yield request.locateResource("/calendar/1.ics")
             self.assertEqual(calresource.isScheduleObject, None)
-            
+
             scheduler = ImplicitScheduler()
             doAction, isScheduleObject = (yield scheduler.testImplicitSchedulingPUT(request, calresource, "/calendar/1.ics", calendar, False))
             self.assertEqual(doAction, result)
             self.assertEqual(isScheduleObject, result)
             request._newStoreTransaction.abort()
+
 
     @inlineCallbacks
     def test_testImplicitSchedulingPUT_FixScheduleState(self):
@@ -920,12 +929,12 @@ END:VCALENDAR
         Test that testImplicitSchedulingPUT will fix an old cached schedule object state by
         re-evaluating the calendar data.
         """
-        
+
         request = SimpleRequest(self.site, "PUT", "/calendar/1.ics")
         calresource = yield request.locateResource("/calendar/1.ics")
         self.assertEqual(calresource.isScheduleObject, None)
         calresource.isScheduleObject = False
-        
+
         calendarOld = Component.fromString("""BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
@@ -939,7 +948,6 @@ ATTENDEE:mailto:user2@example.com
 END:VEVENT
 END:VCALENDAR
 """)
-
 
         calendarNew = Component.fromString("""BEGIN:VCALENDAR
 VERSION:2.0
@@ -955,9 +963,9 @@ END:VEVENT
 END:VCALENDAR
 """)
 
-        calresource.exists = lambda :True
-        calresource.iCalendarForUser = lambda request:succeed(calendarOld)
-        
+        calresource.exists = lambda : True
+        calresource.iCalendarForUser = lambda request: succeed(calendarOld)
+
         scheduler = ImplicitScheduler()
         try:
             doAction, isScheduleObject = (yield scheduler.testImplicitSchedulingPUT(request, calresource, "/calendars/users/user01/calendar/1.ics", calendarNew, False))
@@ -966,18 +974,19 @@ END:VCALENDAR
         self.assertTrue(doAction)
         self.assertTrue(isScheduleObject)
 
+
     @inlineCallbacks
     def test_testImplicitSchedulingPUT_NoChangeScheduleState(self):
         """
         Test that testImplicitSchedulingPUT will prevent attendees from changing the
         schedule object state.
         """
-        
+
         request = SimpleRequest(self.site, "PUT", "/calendar/1.ics")
         calresource = yield request.locateResource("/calendar/1.ics")
         self.assertEqual(calresource.isScheduleObject, None)
         calresource.isScheduleObject = False
-        
+
         calendarOld = Component.fromString("""BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
@@ -988,7 +997,6 @@ DTEND:20080601T130000Z
 END:VEVENT
 END:VCALENDAR
 """)
-
 
         calendarNew = Component.fromString("""BEGIN:VCALENDAR
 VERSION:2.0
@@ -1004,9 +1012,9 @@ END:VEVENT
 END:VCALENDAR
 """)
 
-        calresource.exists = lambda :True
-        calresource.iCalendarForUser = lambda request:succeed(calendarOld)
-        
+        calresource.exists = lambda : True
+        calresource.iCalendarForUser = lambda request: succeed(calendarOld)
+
         scheduler = ImplicitScheduler()
         try:
             yield scheduler.testImplicitSchedulingPUT(request, calresource, "/calendars/users/user01/calendar/1.ics", calendarNew, False)

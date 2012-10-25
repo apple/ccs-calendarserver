@@ -16,26 +16,30 @@
 
 
 from cStringIO import StringIO
+
+from pycalendar.datetime import PyCalendarDateTime
+
 from twisted.internet.defer import inlineCallbacks
 from twisted.python.modules import getModule
 from twisted.web.template import Element, renderer, flattenString
+
 from twistedcaldav.config import config, ConfigDict
 from twistedcaldav.directory import augment
 from twistedcaldav.directory.xmlfile import XMLDirectoryService
 from twistedcaldav.ical import Component
-from twistedcaldav.mail import injectionSettingsFromURL
-from twistedcaldav.mail import MailGatewayTokensDatabase
-from twistedcaldav.mail import MailHandler
-from twistedcaldav.mail import StringFormatTemplateLoader
-from twistedcaldav.mail import serverForOrganizer
+from twistedcaldav.scheduling.imip.mailgateway import MailGatewayTokensDatabase
+from twistedcaldav.scheduling.imip.mailgateway import MailHandler
+from twistedcaldav.scheduling.imip.mailgateway import StringFormatTemplateLoader
+from twistedcaldav.scheduling.imip.mailgateway import injectionSettingsFromURL
+from twistedcaldav.scheduling.imip.mailgateway import serverForOrganizer
+from twistedcaldav.scheduling.ischedule.localservers import Servers
 from twistedcaldav.scheduling.itip import iTIPRequestStatus
-from twistedcaldav.servers import Servers
 from twistedcaldav.test.util import TestCase
 from twistedcaldav.test.util import xmlFile, augmentsFile
+
 import datetime
 import email
 import os
-from pycalendar.datetime import PyCalendarDateTime
 
 
 def echo(*args):
@@ -79,7 +83,7 @@ class MailHandlerTests(TestCase):
         )
         self.handler = MailHandler(dataRoot=":memory:", directory=self.directory)
         module = getModule(__name__)
-        self.dataPath = module.filePath.sibling("data").child("mail")
+        self.dataPath = module.filePath.sibling("data")
 
 
     def _setupServers(self, data):
@@ -99,6 +103,7 @@ class MailHandlerTests(TestCase):
         """
         return self.dataPath.child(name).getContent()
 
+
     def test_serverDetection(self):
         wsanchez = self.directory.recordWithShortName("users",
             "wsanchez")
@@ -116,6 +121,7 @@ class MailHandlerTests(TestCase):
             "mailto:cdaboo@example.com")
         self.assertEquals(url, "https://caldav2.example.com:8843")
 
+
     def test_purge_and_lowercase(self):
         """
         Ensure that purge( ) cleans out old tokens, and that lowercase( )
@@ -128,7 +134,7 @@ class MailHandlerTests(TestCase):
         organizer = "urn:uuid:19BFE23D-0269-46CA-877C-D4B521A7A9A5"
         attendee = "mailto:you@example.com"
         icaluid = "123"
-        pastDate = datetime.date(2009,1,1)
+        pastDate = datetime.date(2009, 1, 1)
         self.handler.db._db_execute(
             """
             insert into TOKENS (TOKEN, ORGANIZER, ATTENDEE, ICALUID, DATESTAMP)
@@ -142,13 +148,12 @@ class MailHandlerTests(TestCase):
         retrieved = self.handler.db.getToken(organizer, attendee, icaluid)
         self.assertEquals(retrieved, None)
 
-
         # Insert a token with (old-format) mailto:
         token = "test_token_2"
         organizer = "MailTo:Organizer@Example.com"
         attendee = "MAILTO:YouTwo@Example.com"
         icaluid = "456"
-        futureDate = datetime.date(2100,1,1)
+        futureDate = datetime.date(2100, 1, 1)
         self.handler.db._db_execute(
             """
             insert into TOKENS (TOKEN, ORGANIZER, ATTENDEE, ICALUID, DATESTAMP)
@@ -168,7 +173,7 @@ class MailHandlerTests(TestCase):
         organizer = "urn:uuid:E0CF4031-676B-4668-A9D3-8F33A0212F70"
         attendee = "MAILTO:YouTwo@Example.com"
         icaluid = "789"
-        futureDate = datetime.date(2100,1,1)
+        futureDate = datetime.date(2100, 1, 1)
         self.handler.db._db_execute(
             """
             insert into TOKENS (TOKEN, ORGANIZER, ATTENDEE, ICALUID, DATESTAMP)
@@ -288,7 +293,7 @@ END:VCALENDAR
             "urn:uuid:5A985493-EE2C-4665-94CF-4DFEA3A89500",
             "mailto:user02@example.com", "1E71F9C8-AEDA-48EB-98D0-76E898F6BB5C")
         calBody = template % token
-        url, organizer, attendee, calendar, msgId = self.handler.processDSN(calBody,
+        _ignore_url, organizer, attendee, calendar, msgId = self.handler.processDSN(calBody,
             "xyzzy", echo)
         self.assertEquals(organizer, 'urn:uuid:5A985493-EE2C-4665-94CF-4DFEA3A89500')
         self.assertEquals(attendee, 'mailto:user02@example.com')
@@ -345,13 +350,14 @@ END:VCALENDAR
             icaluid="1E71F9C8-AEDA-48EB-98D0-76E898F6BB5C",
             token="d7cdf68d-8b73-4df1-ad3b-f08002fb285f"
         )
-        url, organizer, attendee, calendar, msgId = self.handler.processReply(msg, echo)
+        url, organizer, attendee, _ignore_calendar, msgId = self.handler.processReply(msg, echo)
         self.assertEquals(url, "https://caldav2.example.com:8843")
         self.assertEquals(organizer,
                           'urn:uuid:5A985493-EE2C-4665-94CF-4DFEA3A89500')
         self.assertEquals(attendee, 'mailto:xyzzy@example.com')
         self.assertEquals(msgId,
                           '<1983F777-BE86-4B98-881E-06D938E60920@example.com>')
+
 
     def test_injectionSettingsFromURL(self):
         testData = (
@@ -403,6 +409,7 @@ END:VCALENDAR
                 injectionSettingsFromURL(url, ConfigDict(mapping=configData))
             )
 
+
     def test_processReplyMissingOrganizer(self):
         msg = email.message_from_string(self.dataFile('reply_missing_organizer'))
         # stick the token in the database first
@@ -413,7 +420,7 @@ END:VCALENDAR
             token="d7cdf68d-8b73-4df1-ad3b-f08002fb285f"
         )
 
-        url, organizer, attendee, calendar, msgId = self.handler.processReply(
+        _ignore_url, organizer, _ignore_attendee, calendar, _ignore_msgId = self.handler.processReply(
             msg, echo)
         organizerProp = calendar.mainComponent().getOrganizerProperty()
         self.assertTrue(organizerProp is not None)
@@ -432,7 +439,7 @@ END:VCALENDAR
             token="d7cdf68d-8b73-4df1-ad3b-f08002fb285f"
         )
 
-        url, organizer, attendee, calendar, msgId = self.handler.processReply(
+        _ignore_url, _ignore_organizer, attendee, calendar, _ignore_msgId = self.handler.processReply(
             msg, echo)
 
         # Since the expected attendee was missing, the reply processor should
@@ -441,6 +448,7 @@ END:VCALENDAR
         attendeeProp = calendar.mainComponent().getAttendeeProperty([attendee])
         self.assertEquals(attendeeProp.parameterValue("SCHEDULE-STATUS"),
                           iTIPRequestStatus.SERVICE_UNAVAILABLE)
+
 
     def test_processReplyMissingAttachment(self):
 
@@ -593,12 +601,9 @@ END:VCALENDAR
                     actualCalendar.getAttendeeProperty([orgValue]).value()
                 )
 
-
-            else: # Reply only -- the attendee is local, and server is sending
-                  # reply to remote organizer
+            else: # Reply only -- the attendee is local, and server is sending reply to remote organizer
 
                 self.assertEquals(actualReplyTo, actualFrom)
-
 
             # Check that we don't send any messages for events completely in
             # the past.
@@ -633,9 +638,9 @@ END:VCALENDAR
         inputOriginator = "urn:uuid:C3B38B00-4166-11DD-B22C-A07C87E02F6A"
         inputRecipient = "mailto:attendee@example.com"
 
-        (actualInviteState, actualCalendar, actualOrganizerEmail,
-            actualOrganizerName, actualAttendeeList, actualFrom,
-            actualRecipient, actualReplyTo) = (yield self.handler.outbound(
+        (_ignore_actualInviteState, _ignore_actualCalendar, _ignore_actualOrganizerEmail,
+            _ignore_actualOrganizerName, _ignore_actualAttendeeList, _ignore_actualFrom,
+            _ignore_actualRecipient, _ignore_actualReplyTo) = (yield self.handler.outbound(
                 inputOriginator,
                 inputRecipient,
                 Component.fromString(inputCalendar.replace("\n", "\r\n")),
@@ -694,7 +699,7 @@ END:VCALENDAR
         L{MailHandler.generateEmail} will preserve any non-ASCII characters
         present in the fields that it formats in the message body.
         """
-        msgID, message = self.generateSampleEmail()
+        _ignore_msgID, message = self.generateSampleEmail()
         textPart = partByType(message, "text/plain")
         htmlPart = partByType(message, "text/html")
 
@@ -720,7 +725,7 @@ END:VCALENDAR
         L{MailHandler.generateEmail} will HTML-quote all relevant fields in the
         HTML part, but not the text/plain part.
         """
-        msgID, message = self.generateSampleEmail()
+        _ignore_msgID, message = self.generateSampleEmail()
         htmlPart = partByType(message, "text/html").get_payload(decode=True)
         plainPart = partByType(message, "text/plain").get_payload(decode=True)
         expectedPlain = 'awesome description with "<" and "&"'
@@ -808,6 +813,7 @@ END:VCALENDAR
                            'inner</alpha>world</test>'])
 
 
+
 def partByType(message, contentType):
     """
     Retrieve a MIME part from an L{email.message.Message} based on a content
@@ -863,5 +869,3 @@ serverData = """<?xml version="1.0" encoding="utf-8"?>
   </server>
 </servers>
 """
-
-

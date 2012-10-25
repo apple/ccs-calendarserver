@@ -51,6 +51,8 @@ class ProcessCountTestCase(TestCase):
                 computeProcessCount(min, perCPU, perGB, cpuCount=cpu, memSize=mem)
             )
 
+
+
 class UtilTestCase(TestCase):
 
     def test_directoryFromConfig(self):
@@ -72,9 +74,13 @@ class StubProtocol(object):
     def __init__(self, transport):
         self.transport = transport
 
+
+
 class StubProcess(object):
     def __init__(self, pid):
         self.pid = pid
+
+
 
 class StubProcessMonitor(object):
     def __init__(self, processes, protocols):
@@ -82,8 +88,10 @@ class StubProcessMonitor(object):
         self.protocols = protocols
         self.history = []
 
+
     def stopProcess(self, name):
         self.history.append(name)
+
 
 
 class MemoryLimitServiceTestCase(TestCase):
@@ -104,7 +112,7 @@ class MemoryLimitServiceTestCase(TestCase):
 
         processes = []
         protocols = {}
-        for pid, (name, resident, virtual) in data.iteritems():
+        for pid, (name, _ignore_resident, _ignore_virtual) in data.iteritems():
             protocols[name] = StubProtocol(StubProcess(pid))
             processes.append(name)
         processMonitor = StubProcessMonitor(processes, protocols)

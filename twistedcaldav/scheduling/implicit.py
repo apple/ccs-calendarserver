@@ -31,7 +31,7 @@ from twistedcaldav.scheduling.cuaddress import InvalidCalendarUser, \
     normalizeCUAddr
 from twistedcaldav.scheduling.icaldiff import iCalDiff
 from twistedcaldav.scheduling.itip import iTipGenerator, iTIPRequestStatus
-from twistedcaldav.scheduling.scheduler import CalDAVScheduler
+from twistedcaldav.scheduling.caldav.scheduler import CalDAVScheduler
 from twistedcaldav.scheduling.utils import getCalendarObjectForPrincipals
 from twistedcaldav.config import config
 
@@ -1149,7 +1149,7 @@ class ImplicitScheduler(object):
         if config.Scheduling.iMIP.Enabled and self.organizerAddress.cuaddr.lower().startswith("mailto:"):
             return is_server
 
-        if not local_organizer and is_server:
+        if not config.Scheduling.iSchedule.Enabled and not local_organizer and is_server:
             # Coerce ORGANIZER to SCHEDULE-AGENT=NONE
             log.debug("Attendee '%s' is not allowed to use SCHEDULE-AGENT=SERVER on organizer: UID:%s" % (self.attendeePrincipal, self.uid,))
             self.calendar.setParameterToValueForPropertyWithValue("SCHEDULE-AGENT", "NONE", "ORGANIZER", None)

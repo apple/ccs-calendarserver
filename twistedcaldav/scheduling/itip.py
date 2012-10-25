@@ -37,8 +37,6 @@ from pycalendar.datetime import PyCalendarDateTime
 
 log = Logger()
 
-__version__ = "0.0"
-
 __all__ = [
     "iTipProcessing",
     "iTipGenerator",

@@ -15,7 +15,7 @@
 ##
 
 from twisted.python.filepath import FilePath
-from twistedcaldav.scheduling.ischeduleservers import IScheduleServersParser
+from twistedcaldav.scheduling.ischedule.remoteservers import IScheduleServersParser
 import twistedcaldav.test.util
 
 class Test_IScheduleServersParser(twistedcaldav.test.util.TestCase):
@@ -44,6 +44,6 @@ class Test_IScheduleServersParser(twistedcaldav.test.util.TestCase):
 </servers>
 """
 )
-        
+
         parser = IScheduleServersParser(fp)
         self.assertEqual(len(parser.servers), 1)
