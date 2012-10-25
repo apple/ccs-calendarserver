@@ -338,7 +338,7 @@ create table ADDRESSBOOK_HOME_METADATA (
 -- AddressBook Object --
 -----------------------------
 
--- #### Want non-null constraints when using as address book object, but not when using as address book ####
+-- #### TO DO: Add back the non null constraints (removed for quick removal of ADDRESS_BOOK table ####
 
   create table ADDRESSBOOK_OBJECT (
   RESOURCE_ID             integer      primary key default nextval('RESOURCE_ID_SEQ'),    -- implicit index
@@ -349,7 +349,7 @@ create table ADDRESSBOOK_HOME_METADATA (
   MD5                     char(32)     default null,
   CREATED                 timestamp    default timezone('UTC', CURRENT_TIMESTAMP),
   MODIFIED                timestamp    default timezone('UTC', CURRENT_TIMESTAMP),
-  KIND 			  		  integer      default 1 not null, -- enum OBJECT_KIND -- ### default 1=group for address book code compatibility.
+  KIND 			  		  integer      default 1 not null, -- enum OBJECT_KIND -- ### TO DO: remove default 1=group for address book code compatibility.
 
   unique(ADDRESSBOOK_RESOURCE_ID, RESOURCE_NAME), -- implicit index
   unique(ADDRESSBOOK_RESOURCE_ID, VCARD_UID)      -- implicit index
@@ -374,9 +374,9 @@ insert into ADDRESS_BOOK_OBJECT_KIND values (3, 'location');
 ---------------------------------
 
 create table ABO_MEMBERS (
-    GROUP_ID              integer      not null references ADDRESSBOOK_OBJECT,				-- AddressBook Object's (kind=='group') RESOURCE_ID
- 	ADDRESSBOOK_ID		  integer      not null references ADDRESSBOOK_OBJECT on delete cascade, 	-- #### TODO: change to references ADDRESSBOOK_OBJECT ####
-    MEMBER_ID             integer      not null references ADDRESSBOOK_OBJECT,				-- member AddressBook Object's RESOURCE_ID
+    GROUP_ID              integer      not null references ADDRESSBOOK_OBJECT,						-- AddressBook Object's (kind=='group') RESOURCE_ID
+ 	ADDRESSBOOK_ID		  integer      not null references ADDRESSBOOK_OBJECT on delete cascade,	-- only used on insert and whole address book delete
+    MEMBER_ID             integer      not null references ADDRESSBOOK_OBJECT,						-- member AddressBook Object's RESOURCE_ID
     primary key(GROUP_ID, MEMBER_ID) -- implicit index
 );
 
@@ -385,9 +385,9 @@ create table ABO_MEMBERS (
 ------------------------------------------
 
 create table ABO_FOREIGN_MEMBERS (
-    GROUP_ID              integer      not null references ADDRESSBOOK_OBJECT,				-- AddressBook Object's (kind=='group') RESOURCE_ID
- 	ADDRESSBOOK_ID		  integer      not null references ADDRESSBOOK_OBJECT on delete cascade, 	-- #### TODO: change to references ADDRESSBOOK_OBJECT ####
-    MEMBER_ADDRESS  	  varchar(255) not null, 											-- member AddressBook Object's address
+    GROUP_ID              integer      not null references ADDRESSBOOK_OBJECT,						-- AddressBook Object's (kind=='group') RESOURCE_ID
+ 	ADDRESSBOOK_ID		  integer      not null references ADDRESSBOOK_OBJECT on delete cascade,	-- only used on insert and whole address book delete
+    MEMBER_ADDRESS  	  varchar(255) not null, 													-- member AddressBook Object's 'calendar' address
     primary key(GROUP_ID, MEMBER_ADDRESS) -- implicit index
 );
 
