@@ -32,6 +32,7 @@ from pwd import getpwuid, getpwnam
 from grp import getgrnam
 import OpenSSL
 from OpenSSL.SSL import Error as SSLError
+from os import getuid, getgid
 
 from zope.interface import implements
 
@@ -1023,7 +1024,9 @@ class CalDAVServiceMaker (LoggingMixIn):
         """
         def slaveSvcCreator(pool, store):
             return self.requestProcessingService(options, store)
-        return self.storageService(slaveSvcCreator)
+
+        uid, gid = getSystemIDs(config.UserName, config.GroupName)
+        return self.storageService(slaveSvcCreator, uid=uid, gid=gid)
 
 
     def makeService_Utility(self, options):
@@ -1037,7 +1040,8 @@ class CalDAVServiceMaker (LoggingMixIn):
         def toolServiceCreator(pool, store):
             return config.UtilityServiceClass(store)
 
-        return self.storageService(toolServiceCreator)
+        uid, gid = getSystemIDs(config.UserName, config.GroupName)
+        return self.storageService(toolServiceCreator, uid=uid, gid=gid)
 
 
     def storageService(self, createMainService, uid=None, gid=None):
@@ -2026,3 +2030,35 @@ def getSSLPassphrase(*ignored):
                 return output.strip()
 
     return None
+
+def getSystemIDs(userName, groupName):
+    """
+    Return the system ID numbers corresponding to either:
+    A) the userName and groupName if non-empty, or
+    B) the real user ID and group ID of the process
+    @param userName: The name of the user to look up the ID of.  An empty
+        value indicates the real user ID of the process should be returned
+        instead.
+    @type userName: C{str}
+    @param groupName: The name of the group to look up the ID of.  An empty
+        value indicates the real group ID of the process should be returned
+        instead.
+    @type groupName: C{str}
+    """
+    if userName:
+        try:
+            uid = getpwnam(userName).pw_uid
+        except KeyError:
+           raise ConfigurationError("Invalid user name: %s" % (userName,))
+    else:
+        uid = getuid()
+
+    if groupName:
+        try:
+            gid = getgrnam(groupName).gr_gid
+        except KeyError:
+            raise ConfigurationError("Invalid group name: %s" % (groupName,))
+    else:
+        gid = getgid()
+
+    return uid, gid

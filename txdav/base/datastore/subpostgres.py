@@ -164,7 +164,8 @@ class PostgresService(MultiService):
                  listenAddresses=[], sharedBuffers=30,
                  maxConnections=20, options=[],
                  testMode=False,
-                 uid=None, gid=None):
+                 uid=None, gid=None,
+                 spawnedDBUser="caldav"):
         """
         Initialize a L{PostgresService} pointed at a data store directory.
 
@@ -223,6 +224,7 @@ class PostgresService(MultiService):
 
         self.uid = uid
         self.gid = gid
+        self.spawnedDBUser = spawnedDBUser
         self.schema = schema
         self.monitor = None
         self.openConnections = []
@@ -254,7 +256,9 @@ class PostgresService(MultiService):
         if databaseName is None:
             databaseName = self.databaseName
 
-        if self.uid is not None:
+        if self.spawnedDBUser:
+            dsn = "%s:dbname=%s:%s" % (self.host, databaseName, self.spawnedDBUser)
+        elif self.uid is not None:
             dsn = "%s:dbname=%s:%s" % (self.host, databaseName,
                 pwd.getpwuid(self.uid).pw_name)
         else:
@@ -398,7 +402,8 @@ class PostgresService(MultiService):
         workingDir = self.dataStoreDirectory.child("working")
         env = self.env = os.environ.copy()
         env.update(PGDATA=clusterDir.path,
-                   PGHOST=self.host)
+                   PGHOST=self.host,
+                   PGUSER=self.spawnedDBUser)
         initdb = which("initdb")[0]
         if self.socketDir:
             if not self.socketDir.isdir():
@@ -418,7 +423,7 @@ class PostgresService(MultiService):
             dbInited = Deferred()
             reactor.spawnProcess(
                 CapturingProcessProtocol(dbInited, None),
-                initdb, [initdb, "-E", "UTF8"], env, workingDir.path,
+                initdb, [initdb, "-E", "UTF8", "-U", self.spawnedDBUser], env, workingDir.path,
                 uid=self.uid, gid=self.gid,
             )
             def doCreate(result):

@@ -283,6 +283,8 @@ DEFAULT_CONFIG = {
                            # configuration key.  Will support more values in
                            # the future.
 
+    "SpawnedDBUser" : "caldav", # The username to use when DBType is empty
+
     "DSN"          : "", # Data Source Name.  Used to connect to an external
                            # database if DBType is non-empty.  Format varies
                            # depending on database type.

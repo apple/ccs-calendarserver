@@ -130,7 +130,8 @@ def pgServiceFromConfig(config, subServiceFactory, uid=None, gid=None):
         sharedBuffers=config.Postgres.SharedBuffers,
         maxConnections=config.Postgres.MaxConnections,
         options=config.Postgres.Options,
-        uid=uid, gid=gid
+        uid=uid, gid=gid,
+        spawnedDBUser=config.SpawnedDBUser
     )
 
 
