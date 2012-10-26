@@ -67,7 +67,7 @@ def setUpCalendarStore(test):
     calendarPath.parent().makedirs()
     storePath.copyTo(calendarPath)
 
-    # Set year values to current year    
+    # Set year values to current year
     nowYear = PyCalendarDateTime.getToday().getYear()
     for home in calendarPath.child("ho").child("me").children():
         if not home.basename().startswith("."):
@@ -75,7 +75,7 @@ def setUpCalendarStore(test):
                 if not calendar.basename().startswith("."):
                     for resource in calendar.children():
                         if resource.basename().endswith(".ics"):
-                            resource.setContent(resource.getContent() % {"now":nowYear})
+                            resource.setContent(resource.getContent() % {"now": nowYear})
 
     testID = test.id()
     test.calendarStore = CalendarStore(storeRootPath, test.notifierFactory,
@@ -314,8 +314,8 @@ class CalendarTest(unittest.TestCase):
             self.calendar1.removeCalendarObjectWithName, name
         )
 
-
     counter = 0
+
     @inlineCallbacks
     def _refresh(self):
         """
@@ -442,7 +442,7 @@ class CalendarObjectTest(unittest.TestCase):
         L{CalendarObject} has instance attributes, C{_path} and C{_calendar},
         which refer to its position in the filesystem and the calendar in which
         it is contained, respectively.
-        """ 
+        """
         self.failUnless(
             isinstance(self.object1._path, FilePath),
             self.object1._path
@@ -482,7 +482,6 @@ class FileStorageTests(CommonTests, unittest.TestCase):
         Overridden to be skipped.
         """
 
-
     # TODO: ideally the file store would support all of this sharing stuff.
     test_shareWith.skip = "Not implemented for file store yet."
     test_shareAgainChangesMode = test_shareWith
@@ -500,6 +499,25 @@ class FileStorageTests(CommonTests, unittest.TestCase):
         """
         self.assertEquals(self.storeUnderTest()._path,
                           self.storeRootPath)
+
+
+    @inlineCallbacks
+    def test_calendarHomes(self):
+        """
+        Finding all existing calendar homes.
+        """
+        calendarHomes = (yield self.transactionUnderTest().calendarHomes())
+        self.assertEquals(
+            [home.name() for home in calendarHomes],
+            [
+                "home1",
+                "home_attachments",
+                "home_bad",
+                "home_no_splits",
+                "home_splits",
+                "home_splits_shared",
+            ]
+        )
 
 
     @inlineCallbacks

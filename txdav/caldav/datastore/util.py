@@ -45,6 +45,11 @@ from txdav.common.icommondatastore import (
     InternalDataStoreError, HomeChildNameAlreadyExistsError
 )
 from txdav.base.datastore.util import normalizeUUIDOrNot
+from twisted.protocols.basic import FileSender
+from twisted.internet.interfaces import ITransport
+from twisted.internet.interfaces import IConsumer
+from twisted.internet.error import ConnectionLost
+from twisted.internet.task import LoopingCall
 
 log = Logger()
 
@@ -219,7 +224,7 @@ def _migrateCalendar(inCalendar, outCalendar, getComponent, merge=False):
                 if exists is None:
                     newattachment = yield outObject.createAttachmentWithName(name)
                     transport = newattachment.store(ctype)
-                    proto =_AttachmentMigrationProto(transport)
+                    proto = _AttachmentMigrationProto(transport)
                     attachment.retrieve(proto)
                     yield proto.done
 
@@ -262,18 +267,18 @@ def loadMimeTypes(mimetype_locations=['/etc/mime.types']):
     # usual suspects.
     contentTypes.update(
         {
-            '.conf':  'text/plain',
-            '.diff':  'text/plain',
-            '.exe':   'application/x-executable',
-            '.flac':  'audio/x-flac',
-            '.java':  'text/plain',
-            '.ogg':   'application/ogg',
-            '.oz':    'text/x-oz',
-            '.swf':   'application/x-shockwave-flash',
-            '.tgz':   'application/x-gtar',
-            '.wml':   'text/vnd.wap.wml',
-            '.xul':   'application/vnd.mozilla.xul+xml',
-            '.py':    'text/plain',
+            '.conf': 'text/plain',
+            '.diff': 'text/plain',
+            '.exe': 'application/x-executable',
+            '.flac': 'audio/x-flac',
+            '.java': 'text/plain',
+            '.ogg': 'application/ogg',
+            '.oz': 'text/x-oz',
+            '.swf': 'application/x-shockwave-flash',
+            '.tgz': 'application/x-gtar',
+            '.wml': 'text/vnd.wap.wml',
+            '.xul': 'application/vnd.mozilla.xul+xml',
+            '.py': 'text/plain',
             '.patch': 'text/plain',
         }
     )
@@ -299,8 +304,14 @@ class _AttachmentMigrationProto(Protocol, object):
         self.storeTransport = storeTransport
         self.done = Deferred()
 
+
+    def connectionMade(self):
+        self.storeTransport.registerProducer(self.transport, False)
+
+
     def dataReceived(self, data):
         self.storeTransport.write(data)
+
 
     @inlineCallbacks
     def connectionLost(self, reason):
@@ -462,12 +473,32 @@ class StorageTransportBase(object):
         Create a storage transport with a reference to an L{IAttachment} and a
         L{twext.web2.http_headers.MimeType}.
         """
+        from twisted.internet import reactor
+        self._clock = reactor
         self._attachment = attachment
         self._contentType = contentType
+        self._producer = None
 
         # Make sure we have some kind of contrent-type
         if self._contentType is None:
             self._contentType = http_headers.MimeType.fromString(getType(self._attachment.name(), self.contentTypes))
+
+
+    def write(self, data):
+        """
+        Children must override this to actually write the data, but should
+        upcall this implementation to interact properly with producers.
+        """
+        if self._producer and self._streamingProducer:
+            # XXX this needs to be in a callLater because otherwise
+            # resumeProducing will call write which will call resumeProducing
+            # (etc) forever.
+            self._clock.callLater(0, self._producer.resumeProducing)
+
+
+    def registerProducer(self, producer, streaming):
+        self._producer = producer
+        self._streamingProducer = streaming
 
 
     def getPeer(self):
@@ -480,6 +511,83 @@ class StorageTransportBase(object):
 
     def writeSequence(self, seq):
         return self.write(''.join(seq))
+
+
+    def stopProducing(self):
+        return self.loseConnection()
+
+
+
+class AttachmentRetrievalTransport(FileSender, object):
+    """
+    The transport for a protocol that does L{IAttachment.retrieve}.
+    """
+    implements(ITransport)
+
+    def __init__(self, filePath):
+        from twisted.internet import reactor
+        self.filePath = filePath
+        self.clock = reactor
+
+
+    def start(self, protocol):
+        this = self
+        class Consumer(object):
+            implements(IConsumer)
+            def registerProducer(self, producer, streaming):
+                protocol.makeConnection(producer)
+                this._maybeLoopDelivery()
+            def write(self, data):
+                protocol.dataReceived(data)
+            def unregisterProducer(self):
+                this._done(protocol)
+        self.beginFileTransfer(self.filePath.open(), Consumer())
+
+
+    def _done(self, protocol):
+        if self._deliveryLoop:
+            self._deliveryLoop.stop()
+        protocol.connectionLost(Failure(ConnectionLost()))
+
+
+    def write(self, data):
+        raise NotImplemented("This is a read-only transport.")
+
+
+    def writeSequence(self, datas):
+        self.write("".join(datas))
+
+
+    def loseConnection(self):
+        pass
+
+
+    def getPeer(self):
+        return self
+
+
+    def getHost(self):
+        return self
+
+    _everResumedProducing = False
+
+    def resumeProducing(self):
+        self._everResumedProducing = True
+        super(AttachmentRetrievalTransport, self).resumeProducing()
+
+    _deliveryLoop = None
+
+    def _maybeLoopDelivery(self):
+        """
+        If no consumer was registered (as inferred by the fact that
+        resumeProducing() wasn't called)
+        """
+        if not self._everResumedProducing:
+            # Not registered as a streaming producer.
+            def deliverNextChunk():
+                super(AttachmentRetrievalTransport, self).resumeProducing()
+            self._deliveryLoop = LoopingCall(deliverNextChunk)
+            self._deliveryLoop.start(0.01, True)
 
 
 

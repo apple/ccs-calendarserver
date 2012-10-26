@@ -46,7 +46,7 @@ def report_DAV__sync_collection(self, request, sync_collection):
     """
     Generate a sync-collection REPORT.
     """
-    
+
     # These resource support the report
     if not config.EnableSyncReport or element.Report(element.SyncCollection(),) not in self.supportedReports():
         log.err("sync-collection report is only allowed on calendar/inbox/addressbook/notification collection resources %s" % (self,))
@@ -55,7 +55,7 @@ def report_DAV__sync_collection(self, request, sync_collection):
             element.SupportedReport(),
             "Report not supported on this resource",
         ))
-   
+
     responses = []
 
     # Process Depth and sync-level for backwards compatibility
@@ -66,13 +66,13 @@ def report_DAV__sync_collection(self, request, sync_collection):
     else:
         depth = request.headers.getHeader("depth", None)
         descriptor = "Depth header without DAV:sync-level"
-    
+
     if depth not in ("1", "infinity"):
         log.err("sync-collection report with invalid depth header: %s" % (depth,))
         raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, "Invalid %s value" % (descriptor,)))
-        
-    propertyreq = sync_collection.property.children if sync_collection.property else None 
-    
+
+    propertyreq = sync_collection.property.children if sync_collection.property else None
+
     @inlineCallbacks
     def _namedPropertiesForResource(request, props, resource, forbidden=False):
         """
@@ -87,7 +87,7 @@ def report_DAV__sync_collection(self, request, sync_collection):
             responsecode.FORBIDDEN : [],
             responsecode.NOT_FOUND : [],
         }
-        
+
         for property in props:
             if isinstance(property, element.WebDAVElement):
                 qname = property.qname()
@@ -110,9 +110,9 @@ def report_DAV__sync_collection(self, request, sync_collection):
                         properties_by_status[status].append(propertyName(qname))
                 else:
                     properties_by_status[responsecode.NOT_FOUND].append(propertyName(qname))
-        
+
         returnValue(properties_by_status)
-    
+
     # Do some optimization of access control calculation by determining any inherited ACLs outside of
     # the child resource loop and supply those to the checkPrivileges on each child.
     filteredaces = (yield self.inheritedACEsforChildren(request))
@@ -173,11 +173,11 @@ def report_DAV__sync_collection(self, request, sync_collection):
     for name in removed:
         href = element.HRef.fromString(joinURL(request.uri, name))
         responses.append(element.StatusResponse(element.HRef.fromString(href), element.Status.fromResponseCode(responsecode.NOT_FOUND)))
-    
+
     for name in notallowed:
         href = element.HRef.fromString(joinURL(request.uri, name))
         responses.append(element.StatusResponse(element.HRef.fromString(href), element.Status.fromResponseCode(responsecode.NOT_ALLOWED)))
-    
+
     if not hasattr(request, "extendedLogItems"):
         request.extendedLogItems = {}
     request.extendedLogItems["responses"] = len(responses)

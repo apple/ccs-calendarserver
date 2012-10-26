@@ -763,7 +763,8 @@ class StreamProducer(object):
             return
         
         if isinstance(data, Deferred):
-            self.deferred = data.addCallbacks(self._doWrite, self.stopProducing)
+            self.deferred = data
+            self.deferred.addCallbacks(self._doWrite, self.stopProducing)
         else:
             self._doWrite(data)
 

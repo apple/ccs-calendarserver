@@ -15,19 +15,24 @@
 ##
 
 import twistedcaldav.test.util
-from twistedcaldav.scheduling.caldav import ScheduleViaCalDAV
+from twistedcaldav.scheduling.caldav.delivery import ScheduleViaCalDAV
 from twistedcaldav.config import config
+from twisted.internet.defer import inlineCallbacks
 
 class CalDAV (twistedcaldav.test.util.TestCase):
     """
     twistedcaldav.scheduling.caldav tests
     """
 
+    @inlineCallbacks
     def test_matchCalendarUserAddress(self):
         """
         Make sure we do an exact comparison on EmailDomain
         """
-        config.Scheduling[ScheduleViaCalDAV.serviceType()]["EmailDomain"] = "example.com"
-        self.assertTrue(ScheduleViaCalDAV.matchCalendarUserAddress("mailto:user@example.com"))
-        self.assertFalse(ScheduleViaCalDAV.matchCalendarUserAddress("mailto:user@foo.example.com"))
-        self.assertFalse(ScheduleViaCalDAV.matchCalendarUserAddress("mailto:user@xyzexample.com"))
+        self.patch(config.Scheduling[ScheduleViaCalDAV.serviceType()], "EmailDomain", "example.com")
+        result = yield ScheduleViaCalDAV.matchCalendarUserAddress("mailto:user@example.com")
+        self.assertTrue(result)
+        result = yield ScheduleViaCalDAV.matchCalendarUserAddress("mailto:user@foo.example.com")
+        self.assertFalse(result)
+        result = yield ScheduleViaCalDAV.matchCalendarUserAddress("mailto:user@xyzexample.com")
+        self.assertFalse(result)

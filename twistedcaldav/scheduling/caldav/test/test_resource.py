@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2005-2012 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2009 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,20 +15,15 @@
 ##
 
 from twext.web2 import responsecode, http_headers
-from txdav.xml import element as davxml
 from twext.web2.dav.util import davXMLFromStream
 from twext.web2.http import HTTPError
 from twext.web2.iweb import IResponse
 from twext.web2.stream import MemoryStream
 from twext.web2.test.test_server import SimpleRequest
-
 from twisted.internet.defer import inlineCallbacks
-
 from twistedcaldav import caldavxml, customxml
-from twistedcaldav.config import config
-from twistedcaldav.memcachelock import MemcacheLock
-from twistedcaldav.schedule import IScheduleInboxResource
 from twistedcaldav.test.util import HomeTestCase, TestCase
+from txdav.xml import element as davxml
 
 class Properties (HomeTestCase):
     """
@@ -39,7 +34,7 @@ class Properties (HomeTestCase):
         Test for PROPFIND on Inbox with missing calendar-free-busy-set property.
         """
 
-        inbox_uri  = "/inbox/"
+        inbox_uri = "/inbox/"
 
         def propfind_cb(response):
             response = IResponse(response)
@@ -86,10 +81,11 @@ class Properties (HomeTestCase):
             self.site,
             "PROPFIND",
             inbox_uri,
-            headers=http_headers.Headers({"Depth":"0"}),
+            headers=http_headers.Headers({"Depth": "0"}),
         )
         request.stream = MemoryStream(query.toxml())
         return self.send(request, propfind_cb)
+
 
     @inlineCallbacks
     def test_free_busy_set_remove_broken(self):
@@ -111,11 +107,12 @@ class Properties (HomeTestCase):
         inbox.writeDeadProperty(newset)
         changedset = inbox.readDeadProperty(caldavxml.CalendarFreeBusySet)
         self.assertEqual(tuple(changedset.children), tuple(newset.children))
-        
+
         yield inbox.writeProperty(newset, request)
 
         changedset = inbox.readDeadProperty(caldavxml.CalendarFreeBusySet)
         self.assertEqual(tuple(changedset.children), tuple(oldset.children))
+
 
     @inlineCallbacks
     def test_free_busy_set_strip_slash(self):
@@ -130,7 +127,7 @@ class Properties (HomeTestCase):
         oldfbset = set(("/calendar/",))
         oldset = caldavxml.CalendarFreeBusySet(*[davxml.HRef(url) for url in oldfbset])
         inbox.writeDeadProperty(oldset)
-        
+
         writefbset = set(("/calendar/",))
         writeset = caldavxml.CalendarFreeBusySet(*[davxml.HRef(url) for url in writefbset])
         yield inbox.writeProperty(writeset, request)
@@ -139,6 +136,7 @@ class Properties (HomeTestCase):
         correctset = caldavxml.CalendarFreeBusySet(*[davxml.HRef(url) for url in correctfbset])
         changedset = inbox.readDeadProperty(caldavxml.CalendarFreeBusySet)
         self.assertEqual(tuple(changedset.children), tuple(correctset.children))
+
 
     @inlineCallbacks
     def test_free_busy_set_strip_slash_remove(self):
@@ -153,7 +151,7 @@ class Properties (HomeTestCase):
         oldfbset = set(("/calendar/", "/broken/"))
         oldset = caldavxml.CalendarFreeBusySet(*[davxml.HRef(url) for url in oldfbset])
         inbox.writeDeadProperty(oldset)
-        
+
         writefbset = set(("/calendar/", "/broken/"))
         writeset = caldavxml.CalendarFreeBusySet(*[davxml.HRef(url) for url in writefbset])
         yield inbox.writeProperty(writeset, request)
@@ -163,6 +161,8 @@ class Properties (HomeTestCase):
         changedset = inbox.readDeadProperty(caldavxml.CalendarFreeBusySet)
         self.assertEqual(tuple(changedset.children), tuple(correctset.children))
 
+
+
 class DefaultCalendar (TestCase):
 
     def setUp(self):
@@ -170,12 +170,13 @@ class DefaultCalendar (TestCase):
         self.createStockDirectoryService()
         self.setupCalendars()
 
+
     @inlineCallbacks
     def test_pick_default_vevent_calendar(self):
         """
         Test that pickNewDefaultCalendar will choose the correct calendar.
         """
-        
+
         request = SimpleRequest(self.site, "GET", "/calendars/users/wsanchez/")
         inbox = yield request.locateResource("/calendars/users/wsanchez/inbox")
 
@@ -198,13 +199,13 @@ class DefaultCalendar (TestCase):
 
         request._newStoreTransaction.abort()
 
+
     @inlineCallbacks
     def test_pick_default_vtodo_calendar(self):
         """
         Test that pickNewDefaultCalendar will choose the correct tasks calendar.
         """
-        
-        
+
         request = SimpleRequest(self.site, "GET", "/calendars/users/wsanchez/")
         inbox = yield request.locateResource("/calendars/users/wsanchez/inbox")
 
@@ -227,13 +228,13 @@ class DefaultCalendar (TestCase):
 
         request._newStoreTransaction.abort()
 
+
     @inlineCallbacks
     def test_missing_default_vevent_calendar(self):
         """
         Test that pickNewDefaultCalendar will create a missing default calendar.
         """
-        
-        
+
         request = SimpleRequest(self.site, "GET", "/calendars/users/wsanchez/")
         home = yield request.locateResource("/calendars/users/wsanchez/")
         inbox = yield request.locateResource("/calendars/users/wsanchez/inbox")
@@ -262,12 +263,13 @@ class DefaultCalendar (TestCase):
 
         request._newStoreTransaction.abort()
 
+
     @inlineCallbacks
     def test_missing_default_vtodo_calendar(self):
         """
         Test that pickNewDefaultCalendar will create a missing default tasks calendar.
         """
-        
+
         request = SimpleRequest(self.site, "GET", "/calendars/users/wsanchez/")
         home = yield request.locateResource("/calendars/users/wsanchez/")
         inbox = yield request.locateResource("/calendars/users/wsanchez/inbox")
@@ -296,12 +298,12 @@ class DefaultCalendar (TestCase):
 
         request._newStoreTransaction.abort()
 
+
     @inlineCallbacks
     def test_pick_default_other(self):
         """
         Make calendar
         """
-        
 
         request = SimpleRequest(self.site, "GET", "/calendars/users/wsanchez/")
         inbox = yield request.locateResource("/calendars/users/wsanchez/inbox")
@@ -320,13 +322,13 @@ class DefaultCalendar (TestCase):
         inbox.writeDeadProperty(caldavxml.ScheduleDefaultCalendarURL(
             davxml.HRef("/calendars/__uids__/6423F94A-6B76-4A3A-815B-D52CFD77935D/newcalendar")
         ))
-        
+
         # Delete the normal calendar
         calendar = yield request.locateResource("/calendars/users/wsanchez/calendar")
         yield calendar.storeRemove(request, False, "/calendars/users/wsanchez/calendar")
 
         inbox.removeDeadProperty(caldavxml.ScheduleDefaultCalendarURL)
-        
+
         # default property not present
         try:
             inbox.readDeadProperty(caldavxml.ScheduleDefaultCalendarURL)
@@ -349,12 +351,12 @@ class DefaultCalendar (TestCase):
 
         request._newStoreTransaction.abort()
 
+
     @inlineCallbacks
     def test_fix_shared_default(self):
         """
         Make calendar
         """
-        
 
         request = SimpleRequest(self.site, "GET", "/calendars/users/wsanchez/")
         inbox = yield request.locateResource("/calendars/users/wsanchez/inbox")
@@ -371,10 +373,10 @@ class DefaultCalendar (TestCase):
             self.fail("caldavxml.ScheduleDefaultCalendarURL is not present")
         else:
             self.assertEqual(str(default.children[0]), "/calendars/__uids__/6423F94A-6B76-4A3A-815B-D52CFD77935D/newcalendar")
-        
-        # Force the new calendar to think it is a sharee collection
+
+        # Force the new calendar to think it is a virtual share
         newcalendar._isShareeCollection = True
-        
+
         try:
             default = yield inbox.readProperty(caldavxml.ScheduleDefaultCalendarURL, request)
         except HTTPError:
@@ -383,6 +385,7 @@ class DefaultCalendar (TestCase):
             self.assertEqual(str(default.children[0]), "/calendars/__uids__/6423F94A-6B76-4A3A-815B-D52CFD77935D/calendar")
 
         request._newStoreTransaction.abort()
+
 
     @inlineCallbacks
     def test_set_default_vevent_other(self):
@@ -406,7 +409,7 @@ class DefaultCalendar (TestCase):
         yield newcalendar.createCalendarCollection()
         yield newcalendar.setSupportedComponents(("VEVENT",))
         request._newStoreTransaction.commit()
-        
+
         request = SimpleRequest(self.site, "GET", "/calendars/users/wsanchez/")
         inbox = yield request.locateResource("/calendars/users/wsanchez/inbox")
         yield inbox.writeProperty(caldavxml.ScheduleDefaultCalendarURL(davxml.HRef("/calendars/__uids__/6423F94A-6B76-4A3A-815B-D52CFD77935D/newcalendar")), request)
@@ -420,12 +423,13 @@ class DefaultCalendar (TestCase):
 
         request._newStoreTransaction.commit()
 
+
     @inlineCallbacks
     def test_is_default_calendar(self):
         """
         Test .isDefaultCalendar() returns the proper class or None.
         """
-        
+
         # Create a new non-default calendar
         request = SimpleRequest(self.site, "GET", "/calendars/users/wsanchez/")
         newcalendar = yield request.locateResource("/calendars/users/wsanchez/newcalendar")
@@ -434,7 +438,7 @@ class DefaultCalendar (TestCase):
         inbox = yield request.locateResource("/calendars/users/wsanchez/inbox")
         yield inbox.pickNewDefaultCalendar(request)
         request._newStoreTransaction.commit()
-        
+
         request = SimpleRequest(self.site, "GET", "/calendars/users/wsanchez/")
         inbox = yield request.locateResource("/calendars/users/wsanchez/inbox")
         calendar = yield request.locateResource("/calendars/users/wsanchez/calendar")
@@ -443,60 +447,11 @@ class DefaultCalendar (TestCase):
 
         result = yield inbox.isDefaultCalendar(request, calendar)
         self.assertEqual(result, caldavxml.ScheduleDefaultCalendarURL)
-        
+
         result = yield inbox.isDefaultCalendar(request, newcalendar)
         self.assertEqual(result, None)
-        
+
         result = yield inbox.isDefaultCalendar(request, tasks)
         self.assertEqual(result, customxml.ScheduleDefaultTasksURL)
 
         request._newStoreTransaction.commit()
-
-class iSchedulePOST (TestCase):
-
-    def setUp(self):
-        super(iSchedulePOST, self).setUp()
-        self.createStockDirectoryService()
-        self.setupCalendars()
-        self.site.resource.putChild("ischedule", IScheduleInboxResource(self.site.resource, self._newStore))
-
-    @inlineCallbacks
-    def test_deadlock(self):
-        """
-        Make calendar
-        """
-        
-        request = SimpleRequest(
-            self.site,
-            "POST",
-            "/ischedule",
-            headers=http_headers.Headers(rawHeaders={
-                "Originator": ("mailto:wsanchez@example.com",),
-                "Recipient": ("mailto:cdaboo@example.com",),
-            }),
-            content="""BEGIN:VCALENDAR
-CALSCALE:GREGORIAN
-PRODID:-//Example Inc.//Example Calendar//EN
-VERSION:2.0
-BEGIN:VEVENT
-DTSTAMP:20051222T205953Z
-CREATED:20060101T150000Z
-DTSTART:20060101T100000Z
-DURATION:PT1H
-SUMMARY:event 1
-UID:deadlocked
-ORGANIZER:mailto:wsanchez@example.com
-ATTENDEE;PARTSTAT=ACCEPTED:mailto:wsanchez@example.com
-ATTENDEE;RSVP=TRUE;PARTSTAT=NEEDS-ACTION:mailto:cdaboo@example.com
-END:VEVENT
-END:VCALENDAR
-""".replace("\n", "\r\n")
-        )
-
-        # Lock the UID here to force a deadlock - but adjust the timeout so the test does not wait too long
-        self.patch(config.Scheduling.Options, "UIDLockTimeoutSeconds", 1)
-        lock = MemcacheLock("ImplicitUIDLock", "deadlocked", timeout=60, expire_time=60)
-        yield lock.acquire()
-        
-        response = (yield self.send(request))
-        self.assertEqual(response.code, responsecode.CONFLICT)

@@ -182,7 +182,6 @@ def http_MKCOL(self, request):
 
         if got_an_error:
             # Clean up
-            self.transactionError()
             errors.error()
             raise HTTPError(Response(
                     code=responsecode.FORBIDDEN,

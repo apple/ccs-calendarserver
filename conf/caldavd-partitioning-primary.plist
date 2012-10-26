@@ -26,7 +26,7 @@
 	    <key>Enabled</key>
 	    <true/>
 	    <key>ConfigFile</key>
-	    <string>servers.xml</string>
+	    <string>localservers.xml</string>
 	    <key>MaxClients</key>
 	    <integer>5</integer>
 	</dict>

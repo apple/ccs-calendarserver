@@ -1,5 +1,5 @@
 # -*- test-case-name: txdav.base.datastore.test.test_subpostgres -*-
-##
+# #
 # Copyright (c) 2010-2012 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -13,7 +13,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-##
+# #
 
 """
 Run and manage PostgreSQL as a subprocess.
@@ -69,8 +69,9 @@ class _PostgresMonitor(ProcessProtocol):
             if _MAGIC_READY_COOKIE in line:
                 self.svc.ready()
 
-
     disconnecting = False
+
+
     def connectionMade(self):
         self.lineReceiver.makeConnection(self)
 
@@ -163,7 +164,8 @@ class PostgresService(MultiService):
                  listenAddresses=[], sharedBuffers=30,
                  maxConnections=20, options=[],
                  testMode=False,
-                 uid=None, gid=None):
+                 uid=None, gid=None,
+                 spawnedDBUser="caldav"):
         """
         Initialize a L{PostgresService} pointed at a data store directory.
 
@@ -190,31 +192,39 @@ class PostgresService(MultiService):
         # completed, our stopService( ) examines the delayedShutdown flag.
         # If True, we wait on the shutdownDeferred to fire before proceeding.
         # The deferred gets fired once database init is complete.
-        self.delayedShutdown = False # set to True when in critical code
-        self.shutdownDeferred = None # the actual deferred
+        self.delayedShutdown = False  # set to True when in critical code
+        self.shutdownDeferred = None  # the actual deferred
 
         # Options from config
         self.databaseName = databaseName
         self.logFile = logFile
-        if socketDir:
-            # Unix socket length path limit
-            self.socketDir = CachingFilePath("%s/ccs_postgres_%s/" %
-                (socketDir, md5(dataStoreDirectory.path).hexdigest()))
-            if len(self.socketDir.path) > 64:
-                socketDir = "/tmp"
-                self.socketDir = CachingFilePath("/tmp/ccs_postgres_%s/" %
-                    (md5(dataStoreDirectory.path).hexdigest()))
-            self.host = self.socketDir.path
-        else:
+        if listenAddresses:
             self.socketDir = None
-            self.host = "localhost"
-        self.listenAddresses = listenAddresses
+            self.host, self.port = listenAddresses[0].split(":") if ":" in listenAddresses[0] else (listenAddresses[0], None,)
+            self.listenAddresses = [addr.split(":")[0] for addr in listenAddresses]
+        else:
+            if socketDir:
+                # Unix socket length path limit
+                self.socketDir = CachingFilePath("%s/ccs_postgres_%s/" %
+                    (socketDir, md5(dataStoreDirectory.path).hexdigest()))
+                if len(self.socketDir.path) > 64:
+                    socketDir = "/tmp"
+                    self.socketDir = CachingFilePath("/tmp/ccs_postgres_%s/" %
+                        (md5(dataStoreDirectory.path).hexdigest()))
+                self.host = self.socketDir.path
+                self.port = None
+            else:
+                self.socketDir = None
+                self.host = "localhost"
+                self.port = None
+            self.listenAddresses = []
         self.sharedBuffers = sharedBuffers if not testMode else 16
         self.maxConnections = maxConnections if not testMode else 4
         self.options = options
 
         self.uid = uid
         self.gid = gid
+        self.spawnedDBUser = spawnedDBUser
         self.schema = schema
         self.monitor = None
         self.openConnections = []
@@ -246,12 +256,19 @@ class PostgresService(MultiService):
         if databaseName is None:
             databaseName = self.databaseName
 
-        if self.uid is not None:
+        if self.spawnedDBUser:
+            dsn = "%s:dbname=%s:%s" % (self.host, databaseName, self.spawnedDBUser)
+        elif self.uid is not None:
             dsn = "%s:dbname=%s:%s" % (self.host, databaseName,
                 pwd.getpwuid(self.uid).pw_name)
         else:
             dsn = "%s:dbname=%s" % (self.host, databaseName)
-        return DBAPIConnector(pgdb, postgresPreflight, dsn)
+
+        kwargs = {}
+        if self.port:
+            kwargs["host"] = "%s:%s" % (self.host, self.port,)
+
+        return DBAPIConnector(pgdb, postgresPreflight, dsn, **kwargs)
 
 
     def produceConnection(self, label="<unlabeled>", databaseName=None):
@@ -314,17 +331,19 @@ class PostgresService(MultiService):
 #        for pipe in self.monitor.transport.pipes.values():
 #            pipe.stopReading()
 #            pipe.stopWriting()
+        pass
 
 
     def unpauseMonitor(self):
         """
         Unpause monitoring.
 
-        @see: L{pauseMonitor} 
+        @see: L{pauseMonitor}
         """
 #        for pipe in self.monitor.transport.pipes.values():
 #            pipe.startReading()
 #            pipe.startWriting()
+        pass
 
 
     def startDatabase(self):
@@ -341,6 +360,8 @@ class PostgresService(MultiService):
         )
         if self.socketDir:
             options.append("-k '%s'" % (self.socketDir.path,))
+        if self.port:
+            options.append("-c port=%s" % (self.port,))
         options.append("-c shared_buffers=%d" % (self.sharedBuffers,))
         options.append("-c max_connections=%d" % (self.maxConnections,))
         options.append("-c standard_conforming_strings=on")
@@ -381,7 +402,8 @@ class PostgresService(MultiService):
         workingDir = self.dataStoreDirectory.child("working")
         env = self.env = os.environ.copy()
         env.update(PGDATA=clusterDir.path,
-                   PGHOST=self.host)
+                   PGHOST=self.host,
+                   PGUSER=self.spawnedDBUser)
         initdb = which("initdb")[0]
         if self.socketDir:
             if not self.socketDir.isdir():
@@ -401,7 +423,7 @@ class PostgresService(MultiService):
             dbInited = Deferred()
             reactor.spawnProcess(
                 CapturingProcessProtocol(dbInited, None),
-                initdb, [initdb, "-E", "UTF8"], env, workingDir.path,
+                initdb, [initdb, "-E", "UTF8", "-U", self.spawnedDBUser], env, workingDir.path,
                 uid=self.uid, gid=self.gid,
             )
             def doCreate(result):
