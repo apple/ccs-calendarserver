@@ -1,14 +1,6 @@
 create sequence RESOURCE_ID_SEQ;
 create sequence INSTANCE_ID_SEQ;
 create sequence REVISION_SEQ;
-create table NODE_INFO (
-    "HOSTNAME" nvarchar2(255),
-    "PID" integer not null,
-    "PORT" integer not null,
-    "TIME" timestamp default CURRENT_TIMESTAMP at time zone 'UTC' not null, 
-    primary key("HOSTNAME", "PORT")
-);
-
 create table CALENDAR_HOME (
     "RESOURCE_ID" integer primary key,
     "OWNER_UID" nvarchar2(255) unique,
@@ -268,7 +260,7 @@ create table CALENDARSERVER (
     "VALUE" nvarchar2(255)
 );
 
-insert into CALENDARSERVER (NAME, VALUE) values ('VERSION', '12');
+insert into CALENDARSERVER (NAME, VALUE) values ('VERSION', '11');
 insert into CALENDARSERVER (NAME, VALUE) values ('CALENDAR-DATAVERSION', '3');
 insert into CALENDARSERVER (NAME, VALUE) values ('ADDRESSBOOK-DATAVERSION', '1');
 create index INVITE_INVITE_UID_9b0902ff on INVITE (

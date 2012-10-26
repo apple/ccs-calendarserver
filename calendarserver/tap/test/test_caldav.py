@@ -20,6 +20,7 @@ import stat
 import grp
 
 from os.path import dirname, abspath
+from collections import namedtuple
 
 from zope.interface import implements
 
@@ -46,7 +47,7 @@ from twext.python.filepath import CachingFilePath as FilePath
 from twext.python.plistlib import writePlist #@UnresolvedImport
 from twext.internet.tcp import MaxAcceptTCPServer, MaxAcceptSSLServer
 
-from twistedcaldav.config import config, ConfigDict
+from twistedcaldav.config import config, ConfigDict, ConfigurationError
 from twistedcaldav.stdconfig import DEFAULT_CONFIG
 
 from twistedcaldav.directory.aggregate import AggregateDirectoryService
@@ -58,7 +59,7 @@ from twistedcaldav.test.util import TestCase, CapturingProcessProtocol
 from calendarserver.tap.caldav import (
     CalDAVOptions, CalDAVServiceMaker, CalDAVService, GroupOwnedUNIXServer,
     DelayedStartupProcessMonitor, DelayedStartupLineLogger, TwistdSlaveProcess,
-    _CONTROL_SERVICE_NAME
+    _CONTROL_SERVICE_NAME, getSystemIDs
 )
 from calendarserver.provision.root import RootResource
 from StringIO import StringIO
@@ -1197,3 +1198,73 @@ class ReExecServiceTests(TestCase):
         self.assertEquals(output.count("START"), 2)
         self.assertEquals(output.count("STOP"), 2)
 
+
+class SystemIDsTests(TestCase):
+    """
+    Verifies the behavior of calendarserver.tap.caldav.getSystemIDs
+    """
+
+    def _wrappedFunction(self):
+        """
+        Return a copy of the getSystemIDs function with test implementations
+        of the ID lookup functions swapped into the namespace.
+        """
+
+        def _getpwnam(name):
+            if name == "exists":
+                Getpwnam = namedtuple("Getpwnam", ("pw_uid"))
+                return Getpwnam(42)
+            else:
+                raise KeyError(name)
+
+        def _getgrnam(name):
+            if name == "exists":
+                Getgrnam = namedtuple("Getgrnam", ("gr_gid"))
+                return Getgrnam(43)
+            else:
+                raise KeyError(name)
+
+        def _getuid():
+            return 44
+
+        def _getgid():
+            return 45
+
+        return type(getSystemIDs)(getSystemIDs.func_code,
+            {
+                "getpwnam" : _getpwnam,
+                "getgrnam" : _getgrnam,
+                "getuid" : _getuid,
+                "getgid" : _getgid,
+                "KeyError" : KeyError,
+                "ConfigurationError" : ConfigurationError,
+            }
+        )
+
+    def test_getSystemIDs_UserNameNotFound(self):
+        """
+        If userName is passed in but is not found on the system, raise a
+        ConfigurationError
+        """
+        self.assertRaises(ConfigurationError, self._wrappedFunction(),
+            "nonexistent", "exists")
+
+    def test_getSystemIDs_GroupNameNotFound(self):
+        """
+        If groupName is passed in but is not found on the system, raise a
+        ConfigurationError
+        """
+        self.assertRaises(ConfigurationError, self._wrappedFunction(),
+            "exists", "nonexistent")
+
+    def test_getSystemIDs_NamesNotSpecified(self):
+        """
+        If names are not provided, use the IDs of the process
+        """
+        self.assertEquals(self._wrappedFunction()("", ""), (44, 45))
+
+    def test_getSystemIDs_NamesSpecified(self):
+        """
+        If names are provided, use the IDs corresponding to those names
+        """
+        self.assertEquals(self._wrappedFunction()("exists", "exists"), (42, 43))
