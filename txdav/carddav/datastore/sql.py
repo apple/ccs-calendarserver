@@ -27,7 +27,7 @@ __all__ = [
 ]
 
 from twext.enterprise.dal.syntax import \
-    Delete, Insert, Len, Update, Select, utcNowSQL
+    Delete, Insert, Len, Parameter, Update, Select, utcNowSQL
 
 from twext.python.clsprop import classproperty
 from twext.web2.http_headers import MimeType
@@ -53,6 +53,8 @@ from txdav.common.datastore.sql_tables import ADDRESSBOOK_TABLE, \
     ADDRESSBOOK_OBJECT_REVISIONS_AND_BIND_TABLE, \
     _ABO_KIND_PERSON, _ABO_KIND_GROUP, _ABO_KIND_RESOURCE, _ABO_KIND_LOCATION, schema
 from txdav.xml.rfc2518 import ResourceType
+
+from uuid import uuid4
 
 from zope.interface.declarations import implements
 
@@ -207,6 +209,64 @@ class AddressBook(CommonHomeChild):
         """
         return super(AddressBook, self).unshare(EADDRESSBOOKTYPE)
 
+    @classproperty
+    def _insertHomeChild(cls): #@NoSelf
+        """
+        DAL statement to create a home child with all default values.
+        """
+        child = cls._homeChildSchema
+        return Insert({child.RESOURCE_ID: schema.RESOURCE_ID_SEQ,
+                       child.RESOURCE_NAME: Parameter("name"),
+                       child.VCARD_TEXT: Parameter("text"),
+                       child.VCARD_UID: Parameter("uid"),
+                       child.KIND: _ABO_KIND_GROUP,
+                       child.MD5: Parameter("md5"),
+                       },
+                      Return=(child.RESOURCE_ID))
+
+    @classproperty
+    def _insertHomeChildMetaData(cls): #@NoSelf
+        """
+        DAL statement to create a home child with all default values.
+        """
+        child = cls._homeChildMetaDataSchema
+        return Insert({child.RESOURCE_ID: Parameter("resourceID")},
+                      Return=(child.CREATED, child.MODIFIED))
+
+
+    @classmethod
+    @inlineCallbacks
+    def _createChild(cls, home, name):
+        # Create this object
+        component = VCard.fromString(
+            """BEGIN:VCARD
+VERSION:3.0
+PRODID:-//Apple Inc.//AddressBook 6.1//EN
+UID:%s
+FN:%s
+N:%s;;;;
+X-ADDRESSBOOKSERVER-KIND:group
+END:VCARD
+""".replace("\n", "\r\n") % (uuid4(), name, name)
+            )
+
+        componentText = str(component)
+        md5 = hashlib.md5(componentText).hexdigest()
+
+        resourceID = (
+            yield cls._insertHomeChild.on(home._txn,
+                                          name=name,
+                                          text=componentText,
+                                          uid=component.resourceUID(),
+                                          md5=md5,
+                                          ))[0][0]
+
+        created, modified = (
+            yield cls._insertHomeChildMetaData.on(home._txn,
+                                                  resourceID=resourceID))[0]
+
+        returnValue((resourceID, created, modified))
+
 
 
 
@@ -339,7 +399,7 @@ class AddressBookObject(CommonObjectResource):
         # ADDRESSBOOK_OBJECT table update
         uid = component.resourceUID()
         assert inserting or self._uid == uid # can't change UID. Should be checked in upper layers
-        self._uid = component.resourceUID()
+        self._uid = uid
         self._md5 = hashlib.md5(componentText).hexdigest()
         self._size = len(componentText)
 

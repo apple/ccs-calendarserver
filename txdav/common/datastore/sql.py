@@ -2776,26 +2776,6 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic, HomeChildBas
 
 
     @classproperty
-    def _insertHomeChild(cls): #@NoSelf
-        """
-        DAL statement to create a home child with all default values.
-        """
-        child = cls._homeChildSchema
-        return Insert({child.RESOURCE_ID: schema.RESOURCE_ID_SEQ},
-                      Return=(child.RESOURCE_ID))
-
-
-    @classproperty
-    def _insertHomeChildMetaData(cls): #@NoSelf
-        """
-        DAL statement to create a home child with all default values.
-        """
-        child = cls._homeChildMetaDataSchema
-        return Insert({child.RESOURCE_ID: Parameter("resourceID")},
-                      Return=(child.CREATED, child.MODIFIED))
-
-
-    @classproperty
     def _bindInsertQuery(cls, **kw): #@NoSelf
         """
         DAL statement to create a bind entry that connects a collection to its
@@ -2811,7 +2791,6 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic, HomeChildBas
             bind.MESSAGE: Parameter("message"),
         })
 
-
     @classmethod
     @inlineCallbacks
     def create(cls, home, name):
@@ -2825,14 +2804,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic, HomeChildBas
         if name.startswith("."):
             raise HomeChildNameNotAllowedError(name)
 
-        # Create this object
-        resourceID = (
-            yield cls._insertHomeChild.on(home._txn))[0][0]
-
-        # Initialize this object
-        _created, _modified = (
-            yield cls._insertHomeChildMetaData.on(home._txn,
-                                                  resourceID=resourceID))[0]
+        resourceID, created, modified = yield cls._createChild(home, name)
 
         # Bind table needs entry
         yield cls._bindInsertQuery.on(
@@ -2843,8 +2815,8 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic, HomeChildBas
 
         # Initialize other state
         child = cls(home, name, resourceID, _BIND_MODE_OWN, _BIND_STATUS_ACCEPTED)
-        child._created = _created
-        child._modified = _modified
+        child._created = created
+        child._modified = modified
         yield child._loadPropertyStore()
 
         child.properties()[

@@ -177,8 +177,8 @@ _BIND_MODE_DIRECT = _bindMode('direct')
 
 
 _addressBookObjectKind = _schemaConstants(
-    schema.ADDRESS_BOOK_OBJECT_KIND.DESCRIPTION,
-    schema.ADDRESS_BOOK_OBJECT_KIND.ID
+    schema.ADDRESSBOOK_OBJECT_KIND.DESCRIPTION,
+    schema.ADDRESSBOOK_OBJECT_KIND.ID
 )
 
 _ABO_KIND_PERSON = _addressBookObjectKind('person')

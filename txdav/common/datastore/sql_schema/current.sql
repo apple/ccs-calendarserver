@@ -338,19 +338,18 @@ create table ADDRESSBOOK_HOME_METADATA (
 -- AddressBook Object --
 -----------------------------
 
--- #### TO DO: Add back the non null constraints (removed for quick removal of ADDRESS_BOOK table ####
 
   create table ADDRESSBOOK_OBJECT (
-  RESOURCE_ID             integer      primary key default nextval('RESOURCE_ID_SEQ'),    -- implicit index
-  ADDRESSBOOK_RESOURCE_ID integer      default null references ADDRESSBOOK_OBJECT on delete cascade,
-  RESOURCE_NAME           varchar(255) default null,
-  VCARD_TEXT              text         default null,
-  VCARD_UID               varchar(255) default null,
-  MD5                     char(32)     default null,
+  RESOURCE_ID             integer      primary key default nextval('RESOURCE_ID_SEQ'),	-- implicit index
+  ADDRESSBOOK_RESOURCE_ID integer      references ADDRESSBOOK_OBJECT on delete cascade,	-- ### could add non-null, but ab woul reference itself
+  RESOURCE_NAME           varchar(255) not null,
+  VCARD_TEXT              text         not null,
+  VCARD_UID               varchar(255) not null,
+  MD5                     char(32)     not null,
   CREATED                 timestamp    default timezone('UTC', CURRENT_TIMESTAMP),
   MODIFIED                timestamp    default timezone('UTC', CURRENT_TIMESTAMP),
-  KIND 			  		  integer      default 1 not null, -- enum OBJECT_KIND -- ### TO DO: remove default 1=group for address book code compatibility.
-
+  KIND 			  		  integer      not null, -- enum OBJECT_KIND 
+  
   unique(ADDRESSBOOK_RESOURCE_ID, RESOURCE_NAME), -- implicit index
   unique(ADDRESSBOOK_RESOURCE_ID, VCARD_UID)      -- implicit index
 );
@@ -359,15 +358,15 @@ create table ADDRESSBOOK_HOME_METADATA (
 -- AddressBook Object kind --
 -----------------------------
 
-create table ADDRESS_BOOK_OBJECT_KIND (
+create table ADDRESSBOOK_OBJECT_KIND (
   ID          integer     primary key,
   DESCRIPTION varchar(16) not null unique
 );
 
-insert into ADDRESS_BOOK_OBJECT_KIND values (0, 'person');
-insert into ADDRESS_BOOK_OBJECT_KIND values (1, 'group' );
-insert into ADDRESS_BOOK_OBJECT_KIND values (2, 'resource');
-insert into ADDRESS_BOOK_OBJECT_KIND values (3, 'location');
+insert into ADDRESSBOOK_OBJECT_KIND values (0, 'person');
+insert into ADDRESSBOOK_OBJECT_KIND values (1, 'group' );
+insert into ADDRESSBOOK_OBJECT_KIND values (2, 'resource');
+insert into ADDRESSBOOK_OBJECT_KIND values (3, 'location');
 
 ---------------------------------
 -- Address Book Object Members --

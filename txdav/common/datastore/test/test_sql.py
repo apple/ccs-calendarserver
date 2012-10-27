@@ -18,22 +18,22 @@
 Tests for L{txdav.common.datastore.sql}.
 """
 
-from twext.enterprise.dal.syntax import Select
-from txdav.xml import element as davxml
+from twext.enterprise.dal.syntax import Insert, Select
 
-from twisted.internet.defer import inlineCallbacks, returnValue
+from twisted.internet.defer import Deferred, inlineCallbacks, returnValue
 from twisted.internet.task import Clock
-from twisted.trial.unittest import TestCase
-from twisted.internet.defer import Deferred
 
-from txdav.common.datastore.sql import log, CommonStoreTransactionMonitor,\
-    CommonHome, CommonHomeChild, ECALENDARTYPE
-from txdav.common.datastore.sql_tables import schema, CALENDAR_BIND_TABLE,\
-    CALENDAR_OBJECT_REVISIONS_TABLE
+from twisted.trial.unittest import TestCase
+
+from txdav.caldav.datastore.sql import Calendar
+from txdav.carddav.datastore.sql import AddressBook
+from txdav.common.datastore.sql import fixUUIDNormalization, log, \
+    CommonStoreTransactionMonitor, ECALENDARTYPE, EADDRESSBOOKTYPE
+from txdav.common.datastore.sql_tables import schema
+
 from txdav.common.datastore.test.util import CommonCommonTests, buildStore
+
 from txdav.common.icommondatastore import AllRetriesFailed
-from twext.enterprise.dal.syntax import Insert
-from txdav.common.datastore.sql import fixUUIDNormalization
 
 class CommonSQLStoreTests(CommonCommonTests, TestCase):
     """
@@ -61,7 +61,7 @@ class CommonSQLStoreTests(CommonCommonTests, TestCase):
         """
         txn.execSQL works with all logging options on.
         """
-        
+
         # Patch config to turn on logging then rebuild the store
         self.patch(self._sqlStore, "logLabels", True)
         self.patch(self._sqlStore, "logStats", True)
@@ -70,7 +70,7 @@ class CommonSQLStoreTests(CommonCommonTests, TestCase):
         txn = self.transactionUnderTest()
         cs = schema.CALENDARSERVER
         version = (yield Select(
-                [cs.VALUE,],
+                [cs.VALUE, ],
                 From=cs,
                 Where=cs.NAME == 'VERSION',
             ).on(txn))
@@ -82,20 +82,20 @@ class CommonSQLStoreTests(CommonCommonTests, TestCase):
         """
         CommonStoreTransactionMonitor logs waiting transactions.
         """
-        
+
         c = Clock()
         self.patch(CommonStoreTransactionMonitor, "callLater", c.callLater)
 
         # Patch config to turn on log waits then rebuild the store
         self.patch(self._sqlStore, "logTransactionWaits", 1)
-        
+
         ctr = [0]
         def counter(_ignore):
             ctr[0] += 1
         self.patch(log, "error", counter)
 
-        txn = self.transactionUnderTest()        
- 
+        txn = self.transactionUnderTest()
+
         c.advance(2)
         self.assertNotEqual(ctr[0], 0)
         txn.abort()
@@ -105,13 +105,13 @@ class CommonSQLStoreTests(CommonCommonTests, TestCase):
         """
         CommonStoreTransactionMonitor terminates long transactions.
         """
-        
+
         c = Clock()
         self.patch(CommonStoreTransactionMonitor, "callLater", c.callLater)
 
         # Patch config to turn on transaction timeouts then rebuild the store
         self.patch(self._sqlStore, "timeoutTransactions", 1)
-        
+
         ctr = [0]
         def counter(_ignore):
             ctr[0] += 1
@@ -128,14 +128,14 @@ class CommonSQLStoreTests(CommonCommonTests, TestCase):
         """
         CommonStoreTransactionMonitor logs waiting transactions and terminates long transactions.
         """
-        
+
         c = Clock()
         self.patch(CommonStoreTransactionMonitor, "callLater", c.callLater)
 
         # Patch config to turn on log waits then rebuild the store
         self.patch(self._sqlStore, "logTransactionWaits", 1)
         self.patch(self._sqlStore, "timeoutTransactions", 2)
-        
+
         ctr = [0, 0]
         def counter(logStr):
             if "wait" in logStr:
@@ -145,7 +145,7 @@ class CommonSQLStoreTests(CommonCommonTests, TestCase):
         self.patch(log, "error", counter)
 
         txn = self.transactionUnderTest()
-        
+
         c.advance(2)
         self.assertNotEqual(ctr[0], 0)
         self.assertNotEqual(ctr[1], 0)
@@ -156,7 +156,7 @@ class CommonSQLStoreTests(CommonCommonTests, TestCase):
         """
         txn.subtransaction runs loop once.
         """
-        
+
         txn = self.transactionUnderTest()
         ctr = [0]
 
@@ -164,11 +164,11 @@ class CommonSQLStoreTests(CommonCommonTests, TestCase):
             ctr[0] += 1
             cs = schema.CALENDARSERVER
             return Select(
-                [cs.VALUE,],
+                [cs.VALUE, ],
                 From=cs,
                 Where=cs.NAME == 'VERSION',
             ).on(subtxn)
-            
+
         (yield txn.subtransaction(_test, retries=0))[0][0]
         self.assertEqual(ctr[0], 1)
 
@@ -178,7 +178,7 @@ class CommonSQLStoreTests(CommonCommonTests, TestCase):
         """
         txn.subtransaction runs loop twice when one failure.
         """
-        
+
         txn = self.transactionUnderTest()
         ctr = [0]
 
@@ -188,11 +188,11 @@ class CommonSQLStoreTests(CommonCommonTests, TestCase):
                 raise ValueError
             cs = schema.CALENDARSERVER
             return Select(
-                [cs.VALUE,],
+                [cs.VALUE, ],
                 From=cs,
                 Where=cs.NAME == 'VERSION',
             ).on(subtxn)
-            
+
         (yield txn.subtransaction(_test, retries=1))[0][0]
         self.assertEqual(ctr[0], 2)
 
@@ -202,7 +202,7 @@ class CommonSQLStoreTests(CommonCommonTests, TestCase):
         """
         txn.subtransaction runs loop once when one failure and no retries.
         """
-        
+
         txn = self.transactionUnderTest()
         ctr = [0]
 
@@ -211,11 +211,11 @@ class CommonSQLStoreTests(CommonCommonTests, TestCase):
             raise ValueError
             cs = schema.CALENDARSERVER
             return Select(
-                [cs.VALUE,],
+                [cs.VALUE, ],
                 From=cs,
                 Where=cs.NAME == 'VERSION',
             ).on(subtxn)
-        
+
         try:
             (yield txn.subtransaction(_test, retries=0))[0][0]
         except AllRetriesFailed:
@@ -231,7 +231,7 @@ class CommonSQLStoreTests(CommonCommonTests, TestCase):
         txn.subtransaction runs loop three times when all fail and two retries
         requested.
         """
-        
+
         txn = self.transactionUnderTest()
         ctr = [0]
 
@@ -240,11 +240,11 @@ class CommonSQLStoreTests(CommonCommonTests, TestCase):
             raise ValueError
             cs = schema.CALENDARSERVER
             return Select(
-                [cs.VALUE,],
+                [cs.VALUE, ],
                 From=cs,
                 Where=cs.NAME == 'VERSION',
             ).on(subtxn)
-        
+
         try:
             (yield txn.subtransaction(_test, retries=2))[0][0]
         except AllRetriesFailed:
@@ -282,30 +282,58 @@ class CommonSQLStoreTests(CommonCommonTests, TestCase):
 
 
     @inlineCallbacks
-    def test_changeRevision(self):
+    def test_calendarChangeRevision(self):
         """
-        CommonHomeChild._changeRevision actions.
+        Calendar._changeRevision actions.
         """
-        
-        class TestCommonHome(CommonHome):
-            _bindTable = CALENDAR_BIND_TABLE
-            _revisionsTable = CALENDAR_OBJECT_REVISIONS_TABLE
-    
-        class TestCommonHomeChild(CommonHomeChild):
-            _homeChildSchema = schema.CALENDAR
-            _homeChildMetaDataSchema = schema.CALENDAR_METADATA
-            _bindSchema = schema.CALENDAR_BIND
-            _revisionsSchema = schema.CALENDAR_OBJECT_REVISIONS
-            _bindTable = CALENDAR_BIND_TABLE
-            _revisionsTable = CALENDAR_OBJECT_REVISIONS_TABLE
-            
-            def resourceType(self):
-                return davxml.ResourceType.calendar
-    
+
         txn = self.transactionUnderTest()
         home = yield txn.homeWithUID(ECALENDARTYPE, "uid", create=True)
-        homeChild = yield TestCommonHomeChild.create(home, "B")
-        
+        homeChild = yield Calendar.create(home, "B")
+
+        # insert test
+        token = yield homeChild.syncToken()
+        yield homeChild._changeRevision("insert", "C")
+        changed = yield homeChild.resourceNamesSinceToken(token)
+        self.assertEqual(changed, (["C"], [],))
+
+        # update test
+        token = yield homeChild.syncToken()
+        yield homeChild._changeRevision("update", "C")
+        changed = yield homeChild.resourceNamesSinceToken(token)
+        self.assertEqual(changed, (["C"], [],))
+
+        # delete test
+        token = yield homeChild.syncToken()
+        yield homeChild._changeRevision("delete", "C")
+        changed = yield homeChild.resourceNamesSinceToken(token)
+        self.assertEqual(changed, ([], ["C"],))
+
+        # missing update test
+        token = yield homeChild.syncToken()
+        yield homeChild._changeRevision("update", "D")
+        changed = yield homeChild.resourceNamesSinceToken(token)
+        self.assertEqual(changed, (["D"], [],))
+
+        # missing delete test
+        token = yield homeChild.syncToken()
+        yield homeChild._changeRevision("delete", "E")
+        changed = yield homeChild.resourceNamesSinceToken(token)
+        self.assertEqual(changed, ([], [],))
+
+        yield txn.abort()
+
+
+    @inlineCallbacks
+    def test_addressbookChangeRevision(self):
+        """
+        AddressBook._changeRevision actions.
+        """
+
+        txn = self.transactionUnderTest()
+        home = yield txn.homeWithUID(EADDRESSBOOKTYPE, "uid", create=True)
+        homeChild = yield AddressBook.create(home, "B")
+
         # insert test
         token = yield homeChild.syncToken()
         yield homeChild._changeRevision("insert", "C")
