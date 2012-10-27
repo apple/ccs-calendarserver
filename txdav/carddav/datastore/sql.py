@@ -36,7 +36,8 @@ from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.python import hashlib
 from twistedcaldav import carddavxml, customxml
 from twistedcaldav.memcacher import Memcacher
-from twistedcaldav.vcard import Component as VCard, InvalidVCardDataError
+from twistedcaldav.vcard import Component as VCard, InvalidVCardDataError, \
+    vCardProductID
 
 from txdav.base.propertystore.base import PropertyName
 from txdav.carddav.datastore.util import validateAddressBookComponent
@@ -51,7 +52,8 @@ from txdav.common.datastore.sql_tables import ADDRESSBOOK_TABLE, \
     ADDRESSBOOK_HOME_METADATA_TABLE, ADDRESSBOOK_AND_ADDRESSBOOK_BIND, \
     ADDRESSBOOK_OBJECT_AND_BIND_TABLE, \
     ADDRESSBOOK_OBJECT_REVISIONS_AND_BIND_TABLE, \
-    _ABO_KIND_PERSON, _ABO_KIND_GROUP, _ABO_KIND_RESOURCE, _ABO_KIND_LOCATION, schema
+    _ABO_KIND_PERSON, _ABO_KIND_GROUP, _ABO_KIND_RESOURCE, _ABO_KIND_LOCATION, \
+    schema
 from txdav.xml.rfc2518 import ResourceType
 
 from uuid import uuid4
@@ -135,9 +137,30 @@ class AddressBookHome(CommonHome):
 
 AddressBookHome._register(EADDRESSBOOKTYPE)
 
+class _AddressBookObjectCommon(object):
+
+    @classproperty
+    def _insertABObject(cls): #@NoSelf
+        """
+        DAL statement to create an addressbook object with all default values.
+        """
+        abo = schema.ADDRESSBOOK_OBJECT
+        assert schema.ADDRESSBOOK_OBJECT == schema.ADDRESSBOOK
+        return Insert(
+            {abo.RESOURCE_ID: schema.RESOURCE_ID_SEQ,
+             abo.ADDRESSBOOK_RESOURCE_ID: Parameter("addressbookResourceID"),
+             abo.RESOURCE_NAME: Parameter("name"),
+             abo.VCARD_TEXT: Parameter("text"),
+             abo.VCARD_UID: Parameter("uid"),
+             abo.KIND: Parameter("kind"),
+             abo.MD5: Parameter("md5"),
+             },
+            Return=(abo.RESOURCE_ID,
+                    abo.CREATED,
+                    abo.MODIFIED))
 
 
-class AddressBook(CommonHomeChild):
+class AddressBook(CommonHomeChild, _AddressBookObjectCommon):
     """
     SQL-based implementation of L{IAddressBook}.
     """
@@ -209,20 +232,6 @@ class AddressBook(CommonHomeChild):
         """
         return super(AddressBook, self).unshare(EADDRESSBOOKTYPE)
 
-    @classproperty
-    def _insertHomeChild(cls): #@NoSelf
-        """
-        DAL statement to create a home child with all default values.
-        """
-        child = cls._homeChildSchema
-        return Insert({child.RESOURCE_ID: schema.RESOURCE_ID_SEQ,
-                       child.RESOURCE_NAME: Parameter("name"),
-                       child.VCARD_TEXT: Parameter("text"),
-                       child.VCARD_UID: Parameter("uid"),
-                       child.KIND: _ABO_KIND_GROUP,
-                       child.MD5: Parameter("md5"),
-                       },
-                      Return=(child.RESOURCE_ID))
 
     @classproperty
     def _insertHomeChildMetaData(cls): #@NoSelf
@@ -238,39 +247,49 @@ class AddressBook(CommonHomeChild):
     @inlineCallbacks
     def _createChild(cls, home, name):
         # Create this object
+
+        # TODO:  N, FN, set to resource name for now,
+        #        but "may" have to change when shared
+        #        and perhaps will need to reflect a per-user property
         component = VCard.fromString(
             """BEGIN:VCARD
 VERSION:3.0
-PRODID:-//Apple Inc.//AddressBook 6.1//EN
+PRODID:%s
 UID:%s
 FN:%s
 N:%s;;;;
 X-ADDRESSBOOKSERVER-KIND:group
 END:VCARD
-""".replace("\n", "\r\n") % (uuid4(), name, name)
+""".replace("\n", "\r\n") % (vCardProductID, uuid4(), name, name)
             )
 
         componentText = str(component)
         md5 = hashlib.md5(componentText).hexdigest()
 
-        resourceID = (
-            yield cls._insertHomeChild.on(home._txn,
-                                          name=name,
-                                          text=componentText,
-                                          uid=component.resourceUID(),
-                                          md5=md5,
-                                          ))[0][0]
+        resourceID, created, modified = (
+            yield cls._insertABObject.on(
+                home._txn,
+                addressbookResourceID=None,
+                name=name,
+                text=componentText,
+                uid=component.resourceUID(),
+                md5=md5,
+                kind=_ABO_KIND_GROUP,
+                ))[0]
 
+        # TODO: remove metadata table
         created, modified = (
-            yield cls._insertHomeChildMetaData.on(home._txn,
-                                                  resourceID=resourceID))[0]
+            yield cls._insertHomeChildMetaData.on(
+                home._txn,
+                resourceID=resourceID,
+                ))[0]
 
         returnValue((resourceID, created, modified))
 
 
 
 
-class AddressBookObject(CommonObjectResource):
+class AddressBookObject(CommonObjectResource, _AddressBookObjectCommon):
 
     implements(IAddressBookObject)
 
@@ -420,17 +439,15 @@ class AddressBookObject(CommonObjectResource):
 
         if inserting:
             self._resourceID, self._created, self._modified = (
-                yield Insert(
-                    {abo.ADDRESSBOOK_RESOURCE_ID: self._addressbook._resourceID,
-                     abo.RESOURCE_NAME: self._name,
-                     abo.VCARD_TEXT: componentText,
-                     abo.VCARD_UID: self._uid,
-                     abo.KIND: self._kind,
-                     abo.MD5: self._md5},
-                    Return=(abo.RESOURCE_ID,
-                            abo.CREATED,
-                            abo.MODIFIED)
-                ).on(self._txn))[0]
+                yield self._insertABObject.on(
+                    self._txn,
+                    addressbookResourceID=self._addressbook._resourceID,
+                    name=self._name,
+                    text=componentText,
+                    uid=self._uid,
+                    md5=self._md5,
+                    kind=self._kind,
+                    ))[0]
 
             # update existing group member tables for this new object
             # delete foreign members table row for this object
