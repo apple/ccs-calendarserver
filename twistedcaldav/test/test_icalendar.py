@@ -31,6 +31,7 @@ from pycalendar.timezone import PyCalendarTimezone
 from twistedcaldav.ical import iCalendarProductID
 from pycalendar.duration import PyCalendarDuration
 from twistedcaldav.dateops import normalizeForExpand
+from pycalendar.value import PyCalendarValue
 
 class iCalendar (twistedcaldav.test.util.TestCase):
     """
@@ -1150,6 +1151,35 @@ END:VCALENDAR
             component = Component.fromString(original)
             component.setParameterToValueForPropertyWithValue(*args)
             self.assertEqual(result, str(component).replace("\r", ""))
+
+
+    def test_add_property_with_valuetype(self):
+        data = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071114T000000Z
+DTSTAMP:20080601T120000Z
+END:VEVENT
+END:VCALENDAR
+"""
+        result = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071114T000000Z
+ATTACH;VALUE=BINARY:foobar
+DTSTAMP:20080601T120000Z
+END:VEVENT
+END:VCALENDAR
+""".replace("\n", "\r\n")
+
+        component = Component.fromString(data)
+        vevent = component.mainComponent()
+        vevent.addProperty(Property("ATTACH", "foobar", valuetype=PyCalendarValue.VALUETYPE_BINARY))
+        self.assertEqual(str(component), result)
 
 
     def test_add_property(self):
