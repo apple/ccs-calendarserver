@@ -30,7 +30,7 @@ from twext.python.log import Logger
 from txdav.xml import element as davxml
 from txdav.xml.base import dav_namespace, WebDAVUnknownElement, encodeXMLName
 from txdav.base.propertystore.base import PropertyName
-from txdav.caldav.icalendarstore import QuotaExceeded
+from txdav.caldav.icalendarstore import QuotaExceeded, AttachmentStoreFailed
 from txdav.common.icommondatastore import NoSuchObjectResourceError
 from txdav.common.datastore.sql_tables import _BIND_MODE_READ, _BIND_MODE_WRITE
 from txdav.idav import PropertyChangeNotAllowedError
@@ -38,7 +38,7 @@ from txdav.idav import PropertyChangeNotAllowedError
 from twext.web2 import responsecode
 from twext.web2.stream import ProducerStream, readStream, MemoryStream
 from twext.web2.http import HTTPError, StatusResponse, Response
-from twext.web2.http_headers import ETag, MimeType
+from twext.web2.http_headers import ETag, MimeType, MimeDisposition
 from twext.web2.dav.http import ErrorResponse, ResponseQueue, MultiStatusResponse
 from twext.web2.dav.noneprops import NonePropertyStore
 from twext.web2.dav.resource import TwistedACLInheritable, AccessDeniedError
@@ -67,6 +67,8 @@ from twistedcaldav.resource import CalDAVResource, GlobalAddressBookResource, \
 from twistedcaldav.scheduling.caldav.resource import ScheduleInboxResource
 from twistedcaldav.scheduling.implicit import ImplicitScheduler
 from twistedcaldav.vcard import Component as VCard, InvalidVCardDataError
+from pycalendar.datetime import PyCalendarDateTime
+import uuid
 
 """
 Wrappers to translate between the APIs in L{txdav.caldav.icalendarstore} and
@@ -108,13 +110,13 @@ class _NewStorePropertiesWrapper(object):
             ))
 
 
-    def set(self, property):
+    def set(self, prop):
         try:
-            self._newPropertyStore[self._convertKey(property.qname())] = property
+            self._newPropertyStore[self._convertKey(prop.qname())] = prop
         except PropertyChangeNotAllowedError:
             raise HTTPError(StatusResponse(
                 FORBIDDEN,
-                "Property cannot be changed: %s" % (property.sname(),)
+                "Property cannot be changed: %s" % (prop.sname(),)
             ))
 
 
@@ -244,16 +246,16 @@ class _CommonHomeChildCollectionMixin(ResponseCacheMixin):
 
 
     @inlineCallbacks
-    def readProperty(self, property, request):
-        if type(property) is tuple:
-            qname = property
+    def readProperty(self, prop, request):
+        if type(prop) is tuple:
+            qname = prop
         else:
-            qname = property.qname()
+            qname = prop.qname()
 
         if qname == customxml.MaxResources.qname() and config.MaxResourcesPerCollection:
             returnValue(customxml.MaxResources.fromString(config.MaxResourcesPerCollection))
 
-        returnValue((yield super(_CommonHomeChildCollectionMixin, self).readProperty(property, request)))
+        returnValue((yield super(_CommonHomeChildCollectionMixin, self).readProperty(prop, request)))
 
 
     def url(self):
@@ -531,7 +533,7 @@ class _CommonHomeChildCollectionMixin(ResponseCacheMixin):
 
 
     @inlineCallbacks
-    def _readGlobalProperty(self, qname, property, request):
+    def _readGlobalProperty(self, qname, prop, request):
 
         if config.EnableBatchUpload and qname == customxml.BulkRequests.qname():
             returnValue(customxml.BulkRequests(
@@ -545,7 +547,7 @@ class _CommonHomeChildCollectionMixin(ResponseCacheMixin):
                 ),
             ))
         else:
-            result = (yield super(_CommonHomeChildCollectionMixin, self)._readGlobalProperty(qname, property, request))
+            result = (yield super(_CommonHomeChildCollectionMixin, self)._readGlobalProperty(qname, prop, request))
             returnValue(result)
 
 
@@ -692,9 +694,9 @@ class _CommonHomeChildCollectionMixin(ResponseCacheMixin):
 
             # Determine the multiput operation: create, update, delete
             href = xmlchild.childOfType(davxml.HRef.qname())
-            set = xmlchild.childOfType(davxml.Set.qname())
-            prop = set.childOfType(davxml.PropertyContainer.qname()) if set is not None else None
-            xmldata_root = prop if prop else set
+            set_items = xmlchild.childOfType(davxml.Set.qname())
+            prop = set_items.childOfType(davxml.PropertyContainer.qname()) if set_items is not None else None
+            xmldata_root = prop if prop else set_items
             xmldata = xmldata_root.childOfType(self.xmlDataElementType().qname()) if xmldata_root is not None else None
             if href is None:
 
@@ -718,10 +720,10 @@ class _CommonHomeChildCollectionMixin(ResponseCacheMixin):
                 if ifmatch:
                     ifmatch = str(ifmatch.children[0]) if len(ifmatch.children) == 1 else None
                 if delete is None:
-                    if set is None:
-                        raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, "Could not parse valid data from request body - no set of delete operation"))
+                    if set_items is None:
+                        raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, "Could not parse valid data from request body - no set_items of delete operation"))
                     if xmldata is None:
-                        raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, "Could not parse valid data from request body for set operation"))
+                        raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, "Could not parse valid data from request body for set_items operation"))
                     yield self.crudUpdate(request, str(href), xmldata, ifmatch, return_changed, xmlresponses)
                     updateCount += 1
                 else:
@@ -1062,7 +1064,7 @@ class CalendarCollectionResource(DefaultAlarmPropertyMixin, _CalendarCollectionB
         isowner = (yield self.isOwner(request))
         accessPrincipal = (yield self.resourceOwnerPrincipal(request))
 
-        for name, uid, type in (yield maybeDeferred(self.index().bruteForceSearch)):  # @UnusedVariable
+        for name, _ignore_uid, _ignore_type in (yield maybeDeferred(self.index().bruteForceSearch)):
             try:
                 child = yield request.locateChildResource(self, name)
             except TypeError:
@@ -1314,15 +1316,15 @@ class _GetChildHelper(CalDAVResource):
         return None
 
 
-    def readProperty(self, property, request):
-        if type(property) is tuple:
-            qname = property
+    def readProperty(self, prop, request):
+        if type(prop) is tuple:
+            qname = prop
         else:
-            qname = property.qname()
+            qname = prop.qname()
 
         if qname == (dav_namespace, "resourcetype"):
             return succeed(self.resourceType())
-        return super(_GetChildHelper, self).readProperty(property, request)
+        return super(_GetChildHelper, self).readProperty(prop, request)
 
 
     def davComplianceClasses(self):
@@ -1370,7 +1372,7 @@ class DropboxCollection(_GetChildHelper):
 
 
     def resourceType(self,):
-        return davxml.ResourceType.dropboxhome  # @UndefinedVariable
+        return davxml.ResourceType.dropboxhome # @UndefinedVariable
 
 
     def listChildren(self):
@@ -1418,7 +1420,7 @@ class CalendarObjectDropbox(_GetChildHelper):
 
 
     def resourceType(self):
-        return davxml.ResourceType.dropbox  # @UndefinedVariable
+        return davxml.ResourceType.dropbox # @UndefinedVariable
 
 
     @inlineCallbacks
@@ -1619,11 +1621,54 @@ class CalendarObjectDropbox(_GetChildHelper):
 
 
 
+class AttachmentsCollection(_GetChildHelper):
+    """
+    A collection of all managed attachments, presented as a
+    resource under the user's calendar home.
+    """
+    # FIXME: no direct tests for this class at all.
+
+    def __init__(self, parent, *a, **kw):
+        kw.update(principalCollections=parent.principalCollections())
+        super(AttachmentsCollection, self).__init__(*a, **kw)
+        self._newStoreHome = parent._newStoreHome
+        parent.propagateTransaction(self)
+
+
+    def isCollection(self):
+        """
+        It is a collection.
+        """
+        return True
+
+
+    @inlineCallbacks
+    def getChild(self, name):
+        attachmentObject = yield self._newStoreHome.attachmentObjectWithName(name)
+        result = CalendarAttachment(
+            None,
+            attachmentObject,
+            name,
+            principalCollections=self.principalCollections()
+        )
+        self.propagateTransaction(result)
+        returnValue(result)
+
+
+    def resourceType(self,):
+        return davxml.ResourceType.collection # @UndefinedVariable
+
+
+    def listChildren(self):
+        return self._newStoreHome.getAllAttachmentNames()
+
+
+
 class CalendarAttachment(_NewStoreFileMetaDataHelper, _GetChildHelper):
 
     def __init__(self, calendarObject, attachment, attachmentName, **kw):
         super(CalendarAttachment, self).__init__(**kw)
-        self._newStoreCalendarObject = calendarObject
+        self._newStoreCalendarObject = calendarObject # This can be None for a managed attachment
         self._newStoreAttachment = self._newStoreObject = attachment
         self._dead_properties = NonePropertyStore(self)
         self.attachmentName = attachmentName
@@ -1633,11 +1678,23 @@ class CalendarAttachment(_NewStoreFileMetaDataHelper, _GetChildHelper):
         return None
 
 
+    def displayName(self):
+        if self._newStoreObject is not None:
+            dispositionName = self._newStoreObject.dispositionName()
+            return dispositionName if dispositionName else self.name()
+        else:
+            return self._name
+
+
     @requiresPermissions(davxml.WriteContent())
     @inlineCallbacks
     def http_PUT(self, request):
         # FIXME: direct test
         # FIXME: CDT test to make sure that permissions are enforced.
+
+        # Cannot PUT to a managed attachment
+        if self._newStoreAttachment.isManaged():
+            raise HTTPError(FORBIDDEN)
 
         content_type = request.headers.getHeader("content-type")
         if content_type is None:
@@ -1685,12 +1742,19 @@ class CalendarAttachment(_NewStoreFileMetaDataHelper, _GetChildHelper):
         except IOError, e:
             log.error("Unable to read attachment: %s, due to: %s" % (self, e,))
             raise HTTPError(responsecode.NOT_FOUND)
-        return Response(OK, {"content-type": self.contentType()}, stream)
+
+        headers = {"content-type": self.contentType()}
+        headers["content-disposition"] = MimeDisposition("attachment", params={"filename": self.displayName()})
+        return Response(OK, headers, stream)
 
 
     @requiresPermissions(fromParent=[davxml.Unbind()])
     @inlineCallbacks
     def http_DELETE(self, request):
+        # Cannot DELETE a managed attachment
+        if self._newStoreAttachment.isManaged():
+            raise HTTPError(FORBIDDEN)
+
         if not self.exists():
             log.debug("Resource not found: %s" % (self,))
             raise HTTPError(responsecode.NOT_FOUND)
@@ -1777,7 +1841,7 @@ class _CommonObjectResource(_NewStoreFileMetaDataHelper, CalDAVResource, FancyEq
 
         output = yield self.component()
 
-        response = Response(200, {}, str(output))
+        response = Response(responsecode.OK, {}, str(output))
         response.headers.setHeader("content-type", self.contentType())
         returnValue(response)
 
@@ -1884,7 +1948,7 @@ class _MetadataProperty(object):
         self.name = name
 
 
-    def __get__(self, oself, type=None):
+    def __get__(self, oself, ptype=None):
         if oself._newStoreObject:
             return getattr(oself._newStoreObject, self.name)
         else:
@@ -2060,6 +2124,93 @@ class CalendarObjectResource(_CalendarObjectMetaDataMixin, _CommonObjectResource
                 transaction.postAbort(lock.clean)
 
         returnValue(NO_CONTENT)
+
+
+    @inlineCallbacks
+    def POST_handler_attachment(self, request, action):
+        """
+        Handle a managed attachments request on the calendar object resource.
+
+        @param request: HTTP request object
+        @type request: L{Request}
+        @param action: The request-URI 'action' argument
+        @type action: C{str}
+
+        @return: an HTTP response
+        """
+
+        # Resource must exist to allow attachment operations
+        if not self.exists():
+            raise HTTPError(responsecode.NOT_FOUND)
+
+        def _getRIDs():
+            rids = request.args.get("rid")
+            if rids is not None:
+                rids = rids.split(",")
+                try:
+                    rids = [PyCalendarDateTime.parseText(rid) if rid != "M" else None for rid in rids]
+                except ValueError:
+                    raise HTTPError(ErrorResponse(
+                        FORBIDDEN,
+                        (caldav_namespace, "valid-rid-parameter",),
+                        "The rid parameter in the request-URI contains an invalid value",
+                    ))
+            return rids
+
+        def _getContentInfo():
+            content_type = request.headers.getHeader("content-type")
+            if content_type is None:
+                content_type = MimeType("application", "octet-stream")
+            content_disposition = request.headers.getHeader("content-disposition")
+            if content_disposition is None or "filename" not in content_disposition.params:
+                filename = str(uuid.uuid4())
+            else:
+                filename = content_disposition.params["filename"]
+            return content_type, filename
+
+        # Dispatch to store object
+        if action == "attachment-add":
+            rids = _getRIDs()
+            content_type, filename = _getContentInfo()
+            uri = "https://caldav.corp.apple.com:8443/calendars/__uids__/%s/attachments/%s"
+            try:
+                attachment, location = (yield self._newStoreObject.addAttachment(uri, rids, content_type, filename, request.stream))
+            except AttachmentStoreFailed:
+                raise HTTPError(ErrorResponse(
+                    FORBIDDEN,
+                    (caldav_namespace, "valid-attachment-add",),
+                    "Could not store the supplied attachment",
+                ))
+            except QuotaExceeded:
+                raise HTTPError(ErrorResponse(
+                    INSUFFICIENT_STORAGE_SPACE,
+                    (dav_namespace, "quota-not-exceeded"),
+                    "Could not store the supplied attachment because user quota would be exceeded",
+                ))
+
+            # Look for Prefer header
+            if "return-representation" in request.headers.getHeader("prefer", {}):
+                result = (yield self.render(request))
+                result.code = responsecode.OK
+                result.headers.setHeader("content-location", request.path)
+            else:
+                result = Response(CREATED)
+                result.headers.setHeader("location", location)
+            result.headers.addRawHeader("Cal-Managed-ID", attachment.dropboxID())
+            returnValue(result)
+
+        elif action == "attachment-update":
+            pass
+
+        elif action == "attachment-remove":
+            pass
+
+        else:
+            raise HTTPError(ErrorResponse(
+                FORBIDDEN,
+                (caldav_namespace, "valid-action-parameter",),
+                "The action parameter in the request-URI is not valid",
+            ))
 
 
 
@@ -2398,16 +2549,16 @@ class StoreNotificationObjectFile(_NewStoreFileMetaDataHelper, NotificationResou
 
 
     @inlineCallbacks
-    def readProperty(self, property, request):
-        if type(property) is tuple:
-            qname = property
+    def readProperty(self, prop, request):
+        if type(prop) is tuple:
+            qname = prop
         else:
-            qname = property.qname()
+            qname = prop.qname()
 
         if qname == customxml.NotificationType.qname():
             returnValue(self._newStoreObject.xmlType())
 
-        returnValue((yield super(StoreNotificationObjectFile, self).readProperty(property, request)))
+        returnValue((yield super(StoreNotificationObjectFile, self).readProperty(prop, request)))
 
 
     def isCollection(self):

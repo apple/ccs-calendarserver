@@ -172,7 +172,8 @@ class Property (object):
             self._pycalendar = pyobj
         else:
             # Convert params dictionary to list of lists format used by pycalendar
-            self._pycalendar = PyCalendarProperty(name, value)
+            valuetype = kwargs.get("valuetype")
+            self._pycalendar = PyCalendarProperty(name, value, valuetype=valuetype)
             for attrname, attrvalue in params.items():
                 self._pycalendar.addAttribute(PyCalendarAttribute(attrname, attrvalue))
 

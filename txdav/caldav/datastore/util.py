@@ -468,7 +468,7 @@ class StorageTransportBase(object):
 
     contentTypes = loadMimeTypes()
 
-    def __init__(self, attachment, contentType):
+    def __init__(self, attachment, contentType, dispositionName):
         """
         Create a storage transport with a reference to an L{IAttachment} and a
         L{twext.web2.http_headers.MimeType}.
@@ -477,9 +477,10 @@ class StorageTransportBase(object):
         self._clock = reactor
         self._attachment = attachment
         self._contentType = contentType
+        self._dispositionName = dispositionName
         self._producer = None
 
-        # Make sure we have some kind of contrent-type
+        # Make sure we have some kind of content-type
         if self._contentType is None:
             self._contentType = http_headers.MimeType.fromString(getType(self._attachment.name(), self.contentTypes))
 

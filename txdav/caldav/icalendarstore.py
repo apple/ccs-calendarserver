@@ -1,5 +1,5 @@
 # -*- test-case-name: txdav.caldav.datastore -*-
-##
+# #
 # Copyright (c) 2010-2012 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -13,7 +13,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-##
+# #
 
 """
 Calendar store interfaces
@@ -53,6 +53,13 @@ __all__ = [
     "BIND_WRITE",
     "BIND_DIRECT",
 ]
+
+
+
+class AttachmentStoreFailed(Exception):
+    """
+    Unable to store an attachment.
+    """
 
 
 
@@ -528,6 +535,63 @@ class ICalendarObject(IDataStoreObject):
         """
 
 
+    #
+    # New managed attachment APIs that supersede dropbox
+    #
+
+    def addAttachment(rids, content_type, filename, stream):
+        """
+        Add a managed attachment to the calendar data.
+
+        @param rids: set of RECURRENCE-ID values (not adjusted for UTC or TZID offset) to add the
+            new attachment to. The server must create necessary overrides if none already exist.
+        @type rids: C{iterable}
+        @param content_type: content-type information for the attachment data.
+        @type content_type: L{MimeType}
+        @param filename: display file name to use for the attachment.
+        @type filename: C{str}
+        @param stream: stream from which attachment data can be retrieved.
+        @type stream: L{IStream}
+
+        @raise: if anything goes wrong...
+        """
+
+
+    def updateAttachment(managed_id, content_type, filename, stream):
+        """
+        Update an existing managed attachment in the calendar data.
+
+        @param managed_id: the identifier of the attachment to update.
+        @type managed_id: C{str}
+        @param content_type: content-type information for the attachment data.
+        @type content_type: L{MimeType}
+        @param filename: display file name to use for the attachment.
+        @type filename: C{str}
+        @param stream: stream from which attachment data can be retrieved.
+        @type stream: L{IStream}
+
+        @raise: if anything goes wrong...
+        """
+
+
+    def removeAttachment(rids, managed_id):
+        """
+        Remove an existing managed attachment from the calendar data.
+
+        @param rids: set of RECURRENCE-ID values (not adjusted for UTC or TZID offset) to remove the
+            attachment from. The server must create necessary overrides if none already exist.
+        @type rids: C{iterable}
+        @param managed_id: the identifier of the attachment to remove.
+        @type managed_id: C{str}
+
+        @raise: if anything goes wrong...
+        """
+
+    #
+    # The following APIs are for the older Dropbox protocol, which is now deprecated in favor of
+    # managed attachments
+    #
+
     def dropboxID():
         """
         An identifier, unique to the calendar home, that specifies a location
@@ -659,4 +723,12 @@ class IAttachment(IDataStoreObject):
             attachment to its C{dataReceived} method, and then a notification
             that the stream is complete to its C{connectionLost} method.
         @type protocol: L{IProtocol}
+        """
+
+    def dispositionName():
+        """
+        The content-disposition filename for the attachment. Note that this is not necessarily the same as
+        the path name used to store the attachment.
+
+        @rtype: C{str}
         """

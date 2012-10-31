@@ -1,4 +1,4 @@
-##
+# #
 # Copyright (c) 2005-2012 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -12,7 +12,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-##
+# #
 
 from hashlib import md5
 
@@ -44,7 +44,7 @@ from twistedcaldav.config import config
 def http_POST(self, request):
 
     # POST can support many different APIs
-    
+
     # First look at query params
     if request.params:
         if request.params == "add-member":
@@ -52,22 +52,33 @@ def http_POST(self, request):
                 result = (yield POST_handler_add_member(self, request))
                 returnValue(result)
 
-    else:
-        # Content-type handlers
-        contentType = request.headers.getHeader("content-type")
-        if contentType:
-            if hasattr(self, "POST_handler_content_type"):
-                result = (yield self.POST_handler_content_type(request, (contentType.mediaType, contentType.mediaSubtype)))
+    # Look for query arguments
+    if request.args:
+        action = request.args.get("action", ("",))
+        if len(action) == 1:
+            action = action[0]
+            if action in ("attachment-add", "attachment-update", "attachment-remove") and \
+                hasattr(self, "POST_handler_attachment"):
+                result = (yield self.POST_handler_attachment(request, action))
                 returnValue(result)
 
+    # Content-type handlers
+    contentType = request.headers.getHeader("content-type")
+    if contentType:
+        if hasattr(self, "POST_handler_content_type"):
+            result = (yield self.POST_handler_content_type(request, (contentType.mediaType, contentType.mediaSubtype)))
+            returnValue(result)
+
     returnValue(responsecode.FORBIDDEN)
+
+
 
 @inlineCallbacks
 def POST_handler_add_member(self, request):
 
     # Handle ;add-member
     if self.isCalendarCollection():
-        
+
         parentURL = request.path
         parent = self
 
@@ -80,7 +91,7 @@ def POST_handler_add_member(self, request):
                 (caldav_namespace, "supported-calendar-data"),
                 "Wrong MIME type for calendar collection",
             ))
-            
+
         # Read the calendar component from the stream
         try:
             calendardata = (yield allDataFromStream(request.stream))
@@ -98,19 +109,19 @@ def POST_handler_add_member(self, request):
                 ))
 
             # Create a new name if one was not provided
-            name =  md5(str(calendardata) + str(time.time()) + request.path).hexdigest() + ".ics"
-        
+            name = md5(str(calendardata) + str(time.time()) + request.path).hexdigest() + ".ics"
+
             # Get a resource for the new item
             newchildURL = joinURL(parentURL, name)
             newchild = (yield request.locateResource(newchildURL))
 
             storer = StoreCalendarObjectResource(
-                request = request,
-                destination = newchild,
-                destination_uri = newchildURL,
-                destinationcal = True,
-                destinationparent = parent,
-                calendar = calendardata,
+                request=request,
+                destination=newchild,
+                destination_uri=newchildURL,
+                destinationcal=True,
+                destinationparent=parent,
+                calendar=calendardata,
             )
             result = (yield storer.run())
 
@@ -134,7 +145,7 @@ def POST_handler_add_member(self, request):
             raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, str(e)))
 
     elif self.isAddressBookCollection():
-        
+
         parentURL = request.path
         parent = self
 
@@ -147,7 +158,7 @@ def POST_handler_add_member(self, request):
                 (carddav_namespace, "supported-address-data"),
                 "Wrong MIME type for address book collection",
             ))
-            
+
         # Read the calendar component from the stream
         try:
             vcarddata = (yield allDataFromStream(request.stream))
@@ -165,20 +176,20 @@ def POST_handler_add_member(self, request):
                 ))
 
             # Create a new name if one was not provided
-            name =  md5(str(vcarddata) + str(time.time()) + request.path).hexdigest() + ".vcf"
-        
+            name = md5(str(vcarddata) + str(time.time()) + request.path).hexdigest() + ".vcf"
+
             # Get a resource for the new item
             newchildURL = joinURL(parentURL, name)
             newchild = (yield request.locateResource(newchildURL))
 
             storer = StoreAddressObjectResource(
-                request = request,
-                sourceadbk = False,
-                destination = newchild,
-                destination_uri = newchildURL,
-                destinationadbk = True,
-                destinationparent = parent,
-                vcard = vcarddata,
+                request=request,
+                sourceadbk=False,
+                destination=newchild,
+                destination_uri=newchildURL,
+                destinationadbk=True,
+                destinationparent=parent,
+                vcard=vcarddata,
             )
             result = (yield storer.run())
 
@@ -203,4 +214,3 @@ def POST_handler_add_member(self, request):
 
     # Default behavior
     returnValue(responsecode.FORBIDDEN)
-

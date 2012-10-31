@@ -283,6 +283,8 @@ DEFAULT_CONFIG = {
                            # configuration key.  Will support more values in
                            # the future.
 
+    "SpawnedDBUser" : "caldav", # The username to use when DBType is empty
+
     "DSN"          : "", # Data Source Name.  Used to connect to an external
                            # database if DBType is non-empty.  Format varies
                            # depending on database type.
@@ -515,6 +517,8 @@ DEFAULT_CONFIG = {
     "EnableSyncReportHome"        : True, # REPORT collection-sync on home collections
     "EnableWellKnown"             : True, # /.well-known resource
     "EnableCalendarQueryExtended" : True, # Extended calendar-query REPORT
+
+    "EnableManagedAttachments"    : True, # Support Managed Attachments
 
     #
     # Non-standard CalDAV extensions
@@ -1516,6 +1520,8 @@ def _updateCompliance(configDict, reloading=False):
             compliance += caldavxml.caldav_query_extended_compliance
         if configDict.EnableDefaultAlarms:
             compliance += caldavxml.caldav_default_alarms_compliance
+        if configDict.EnableManagedAttachments:
+            compliance += caldavxml.caldav_managed_attachments_compliance
     else:
         compliance = ()
 
