@@ -1,5 +1,5 @@
 # -*- test-case-name: txdav.caldav.datastore -*-
-# #
+##
 # Copyright (c) 2010-2012 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -13,7 +13,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-# #
+##
 
 """
 Calendar store interfaces
@@ -59,6 +59,20 @@ __all__ = [
 class AttachmentStoreFailed(Exception):
     """
     Unable to store an attachment.
+    """
+
+
+
+class AttachmentStoreValidManagedID(Exception):
+    """
+    Specified attachment managed-id is not valid.
+    """
+
+
+
+class AttachmentRemoveFailed(Exception):
+    """
+    Unable to remove an attachment.
     """
 
 

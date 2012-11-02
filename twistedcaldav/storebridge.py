@@ -1,5 +1,5 @@
 # -*- test-case-name: twistedcaldav.test.test_wrapping -*-
-# #
+##
 # Copyright (c) 2005-2012 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -13,7 +13,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-# #
+##
 
 import time
 import hashlib
@@ -30,12 +30,12 @@ from twext.python.log import Logger
 from txdav.xml import element as davxml
 from txdav.xml.base import dav_namespace, WebDAVUnknownElement, encodeXMLName
 from txdav.base.propertystore.base import PropertyName
-from txdav.caldav.icalendarstore import QuotaExceeded, AttachmentStoreFailed
+from txdav.caldav.icalendarstore import QuotaExceeded, AttachmentStoreFailed, \
+    AttachmentStoreValidManagedID, AttachmentRemoveFailed
 from txdav.common.icommondatastore import NoSuchObjectResourceError
 from txdav.common.datastore.sql_tables import _BIND_MODE_READ, _BIND_MODE_WRITE
 from txdav.idav import PropertyChangeNotAllowedError
 
-from twext.web2 import responsecode
 from twext.web2.stream import ProducerStream, readStream, MemoryStream
 from twext.web2.http import HTTPError, StatusResponse, Response
 from twext.web2.http_headers import ETag, MimeType, MimeDisposition
@@ -398,7 +398,7 @@ class _CommonHomeChildCollectionMixin(ResponseCacheMixin):
 
         if not self.exists():
             log.debug("Resource not found: %s" % (self,))
-            raise HTTPError(responsecode.NOT_FOUND)
+            raise HTTPError(NOT_FOUND)
 
         depth = request.headers.getHeader("depth", "infinity")
         if depth != "infinity":
@@ -510,7 +510,7 @@ class _CommonHomeChildCollectionMixin(ResponseCacheMixin):
         """
         if not self.exists():
             log.debug("Resource not found: %s" % (self,))
-            raise HTTPError(responsecode.NOT_FOUND)
+            raise HTTPError(NOT_FOUND)
 
         # Can not move outside of home or to existing collection
         sourceURI = request.uri
@@ -562,7 +562,7 @@ class _CommonHomeChildCollectionMixin(ResponseCacheMixin):
                 testctag = testctag.split(">", 1)[0]
                 ctag = (yield self.getInternalSyncToken())
                 if testctag != ctag:
-                    raise HTTPError(StatusResponse(responsecode.PRECONDITION_FAILED, "CTag pre-condition failure"))
+                    raise HTTPError(StatusResponse(PRECONDITION_FAILED, "CTag pre-condition failure"))
 
 
     def checkReturnChanged(self, request):
@@ -588,7 +588,7 @@ class _CommonHomeChildCollectionMixin(ResponseCacheMixin):
 
         components = self.componentsFromData(data)
         if components is None:
-            raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, "Could not parse valid data from request body"))
+            raise HTTPError(StatusResponse(BAD_REQUEST, "Could not parse valid data from request body"))
 
         # Build response
         xmlresponses = []
@@ -613,7 +613,7 @@ class _CommonHomeChildCollectionMixin(ResponseCacheMixin):
                     error = e.response.error
                     error = (error.namespace, error.name,)
             except Exception:
-                code = responsecode.BAD_REQUEST
+                code = BAD_REQUEST
 
             if code is None:
 
@@ -627,7 +627,7 @@ class _CommonHomeChildCollectionMixin(ResponseCacheMixin):
                                     davxml.GETETag.fromString(etag.generate()),
                                     customxml.UID.fromString(component.resourceUID()),
                                 ),
-                                davxml.Status.fromResponseCode(responsecode.OK),
+                                davxml.Status.fromResponseCode(OK),
                             )
                         )
                     )
@@ -640,7 +640,7 @@ class _CommonHomeChildCollectionMixin(ResponseCacheMixin):
                                     davxml.GETETag.fromString(etag.generate()),
                                     self.xmlDataElementType().fromTextData(dataChanged),
                                 ),
-                                davxml.Status.fromResponseCode(responsecode.OK),
+                                davxml.Status.fromResponseCode(OK),
                             )
                         )
                     )
@@ -701,7 +701,7 @@ class _CommonHomeChildCollectionMixin(ResponseCacheMixin):
             if href is None:
 
                 if xmldata is None:
-                    raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, "Could not parse valid data from request body without a DAV:Href present"))
+                    raise HTTPError(StatusResponse(BAD_REQUEST, "Could not parse valid data from request body without a DAV:Href present"))
 
                 # Do privilege check on collection once
                 if checkedBindPrivelege is None:
@@ -721,9 +721,9 @@ class _CommonHomeChildCollectionMixin(ResponseCacheMixin):
                     ifmatch = str(ifmatch.children[0]) if len(ifmatch.children) == 1 else None
                 if delete is None:
                     if set_items is None:
-                        raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, "Could not parse valid data from request body - no set_items of delete operation"))
+                        raise HTTPError(StatusResponse(BAD_REQUEST, "Could not parse valid data from request body - no set_items of delete operation"))
                     if xmldata is None:
-                        raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, "Could not parse valid data from request body for set_items operation"))
+                        raise HTTPError(StatusResponse(BAD_REQUEST, "Could not parse valid data from request body for set_items operation"))
                     yield self.crudUpdate(request, str(href), xmldata, ifmatch, return_changed, xmlresponses)
                     updateCount += 1
                 else:
@@ -788,7 +788,7 @@ class _CommonHomeChildCollectionMixin(ResponseCacheMixin):
                 error = (error.namespace, error.name,)
 
         except Exception:
-            code = responsecode.BAD_REQUEST
+            code = BAD_REQUEST
 
         if code is None:
             etag = (yield newchild.etag())
@@ -800,7 +800,7 @@ class _CommonHomeChildCollectionMixin(ResponseCacheMixin):
                             davxml.GETETag.fromString(etag.generate()),
                             customxml.UID.fromString(component.resourceUID()),
                         ),
-                        davxml.Status.fromResponseCode(responsecode.OK),
+                        davxml.Status.fromResponseCode(OK),
                     )
                 )
             )
@@ -827,7 +827,7 @@ class _CommonHomeChildCollectionMixin(ResponseCacheMixin):
 
             updateResource = (yield request.locateResource(href))
             if not updateResource.exists():
-                raise HTTPError(responsecode.NOT_FOUND)
+                raise HTTPError(NOT_FOUND)
 
             # Check privilege
             yield updateResource.authorize(request, (davxml.Write(),))
@@ -835,7 +835,7 @@ class _CommonHomeChildCollectionMixin(ResponseCacheMixin):
             # Check if match
             etag = (yield updateResource.etag())
             if ifmatch and ifmatch != etag.generate():
-                raise HTTPError(responsecode.PRECONDITION_FAILED)
+                raise HTTPError(PRECONDITION_FAILED)
 
             yield self.storeResourceData(request, updateResource, href, component, componentdata)
 
@@ -849,7 +849,7 @@ class _CommonHomeChildCollectionMixin(ResponseCacheMixin):
                 error = (error.namespace, error.name,)
 
         except Exception:
-            code = responsecode.BAD_REQUEST
+            code = BAD_REQUEST
 
         if code is None:
             xmlresponses.append(
@@ -859,7 +859,7 @@ class _CommonHomeChildCollectionMixin(ResponseCacheMixin):
                         davxml.PropertyContainer(
                             davxml.GETETag.fromString(etag.generate()),
                         ),
-                        davxml.Status.fromResponseCode(responsecode.OK),
+                        davxml.Status.fromResponseCode(OK),
                     )
                 )
             )
@@ -885,12 +885,12 @@ class _CommonHomeChildCollectionMixin(ResponseCacheMixin):
 
             deleteResource = (yield request.locateResource(href))
             if not deleteResource.exists():
-                raise HTTPError(responsecode.NOT_FOUND)
+                raise HTTPError(NOT_FOUND)
 
             # Check if match
             etag = (yield deleteResource.etag())
             if ifmatch and ifmatch != etag.generate():
-                raise HTTPError(responsecode.PRECONDITION_FAILED)
+                raise HTTPError(PRECONDITION_FAILED)
 
             yield deleteResource.storeRemove(
                 request,
@@ -906,13 +906,13 @@ class _CommonHomeChildCollectionMixin(ResponseCacheMixin):
                 error = (error.namespace, error.name,)
 
         except Exception:
-            code = responsecode.BAD_REQUEST
+            code = BAD_REQUEST
 
         if code is None:
             xmlresponses.append(
                 davxml.StatusResponse(
                     davxml.HRef.fromString(href),
-                    davxml.Status.fromResponseCode(responsecode.OK),
+                    davxml.Status.fromResponseCode(OK),
                 )
             )
         else:
@@ -971,7 +971,7 @@ class _CalendarCollectionBehaviorMixin():
 
         # Validate them first - raise on failure
         if not self.validSupportedComponents(components):
-            raise HTTPError(StatusResponse(responsecode.FORBIDDEN, "Invalid CALDAV:supported-calendar-component-set"))
+            raise HTTPError(StatusResponse(FORBIDDEN, "Invalid CALDAV:supported-calendar-component-set"))
 
         support_components = ",".join(sorted([comp.upper() for comp in components]))
         return maybeDeferred(self._newStoreObject.setSupportedComponents, support_components)
@@ -1727,7 +1727,7 @@ class CalendarAttachment(_NewStoreFileMetaDataHelper, _GetChildHelper):
 
         if not self.exists():
             log.debug("Resource not found: %s" % (self,))
-            raise HTTPError(responsecode.NOT_FOUND)
+            raise HTTPError(NOT_FOUND)
 
         stream = ProducerStream()
         class StreamProtocol(Protocol):
@@ -1741,7 +1741,7 @@ class CalendarAttachment(_NewStoreFileMetaDataHelper, _GetChildHelper):
             self._newStoreAttachment.retrieve(StreamProtocol())
         except IOError, e:
             log.error("Unable to read attachment: %s, due to: %s" % (self, e,))
-            raise HTTPError(responsecode.NOT_FOUND)
+            raise HTTPError(NOT_FOUND)
 
         headers = {"content-type": self.contentType()}
         headers["content-disposition"] = MimeDisposition("attachment", params={"filename": self.displayName()})
@@ -1757,7 +1757,7 @@ class CalendarAttachment(_NewStoreFileMetaDataHelper, _GetChildHelper):
 
         if not self.exists():
             log.debug("Resource not found: %s" % (self,))
-            raise HTTPError(responsecode.NOT_FOUND)
+            raise HTTPError(NOT_FOUND)
 
         yield self._newStoreCalendarObject.removeAttachmentWithName(
             self._newStoreAttachment.name()
@@ -1837,11 +1837,11 @@ class _CommonObjectResource(_NewStoreFileMetaDataHelper, CalDAVResource, FancyEq
     def render(self, request):
         if not self.exists():
             log.debug("Resource not found: %s" % (self,))
-            raise HTTPError(responsecode.NOT_FOUND)
+            raise HTTPError(NOT_FOUND)
 
         output = yield self.component()
 
-        response = Response(responsecode.OK, {}, str(output))
+        response = Response(OK, {}, str(output))
         response.headers.setHeader("content-type", self.contentType())
         returnValue(response)
 
@@ -1853,7 +1853,7 @@ class _CommonObjectResource(_NewStoreFileMetaDataHelper, CalDAVResource, FancyEq
         """
         if not self.exists():
             log.debug("Resource not found: %s" % (self,))
-            raise HTTPError(responsecode.NOT_FOUND)
+            raise HTTPError(NOT_FOUND)
 
         return self.storeRemove(request, True, request.uri)
 
@@ -1929,7 +1929,7 @@ class _CommonObjectResource(_NewStoreFileMetaDataHelper, CalDAVResource, FancyEq
                 self._newStoreObject.name()
             )
         except NoSuchObjectResourceError:
-            raise HTTPError(responsecode.NOT_FOUND)
+            raise HTTPError(NOT_FOUND)
 
         # Re-initialize to get stuff setup again now we have no object
         self._initializeWithObject(None, self._newStoreParent)
@@ -2141,12 +2141,12 @@ class CalendarObjectResource(_CalendarObjectMetaDataMixin, _CommonObjectResource
 
         # Resource must exist to allow attachment operations
         if not self.exists():
-            raise HTTPError(responsecode.NOT_FOUND)
+            raise HTTPError(NOT_FOUND)
 
         def _getRIDs():
             rids = request.args.get("rid")
             if rids is not None:
-                rids = rids.split(",")
+                rids = rids[0].split(",")
                 try:
                     rids = [PyCalendarDateTime.parseText(rid) if rid != "M" else None for rid in rids]
                 except ValueError:
@@ -2156,6 +2156,16 @@ class CalendarObjectResource(_CalendarObjectMetaDataMixin, _CommonObjectResource
                         "The rid parameter in the request-URI contains an invalid value",
                     ))
             return rids
+
+        def _getMID():
+            mid = request.args.get("managed-id")
+            if mid is None:
+                raise HTTPError(ErrorResponse(
+                    FORBIDDEN,
+                    (caldav_namespace, "valid-managed-id-parameter",),
+                    "The managed-id parameter is missing from the request-URI",
+                ))
+            return mid[0]
 
         def _getContentInfo():
             content_type = request.headers.getHeader("content-type")
@@ -2191,8 +2201,9 @@ class CalendarObjectResource(_CalendarObjectMetaDataMixin, _CommonObjectResource
             # Look for Prefer header
             if "return-representation" in request.headers.getHeader("prefer", {}):
                 result = (yield self.render(request))
-                result.code = responsecode.OK
+                result.code = OK
                 result.headers.setHeader("content-location", request.path)
+                result.headers.setHeader("location", location)
             else:
                 result = Response(CREATED)
                 result.headers.setHeader("location", location)
@@ -2200,10 +2211,67 @@ class CalendarObjectResource(_CalendarObjectMetaDataMixin, _CommonObjectResource
             returnValue(result)
 
         elif action == "attachment-update":
-            pass
+            mid = _getMID()
+            content_type, filename = _getContentInfo()
+            uri = "https://caldav.corp.apple.com:8443/calendars/__uids__/%s/attachments/%s"
+            try:
+                attachment, location = (yield self._newStoreObject.updateAttachment(uri, mid, content_type, filename, request.stream))
+            except AttachmentStoreValidManagedID:
+                raise HTTPError(ErrorResponse(
+                    FORBIDDEN,
+                    (caldav_namespace, "valid-managed-id-parameter",),
+                    "The managed-id parameter does not refer to an attachment in this calendar object resource",
+                ))
+            except AttachmentStoreFailed:
+                raise HTTPError(ErrorResponse(
+                    FORBIDDEN,
+                    (caldav_namespace, "valid-attachment-update",),
+                    "Could not store the supplied attachment",
+                ))
+            except QuotaExceeded:
+                raise HTTPError(ErrorResponse(
+                    INSUFFICIENT_STORAGE_SPACE,
+                    (dav_namespace, "quota-not-exceeded"),
+                    "Could not store the supplied attachment because user quota would be exceeded",
+                ))
+
+            # Look for Prefer header
+            if "return-representation" in request.headers.getHeader("prefer", {}):
+                result = (yield self.render(request))
+                result.code = OK
+                result.headers.setHeader("content-location", request.path)
+            else:
+                result = Response(NO_CONTENT)
+                result.headers.setHeader("location", location)
+            result.headers.addRawHeader("Cal-Managed-ID", attachment.dropboxID())
+            returnValue(result)
 
         elif action == "attachment-remove":
-            pass
+            rids = _getRIDs()
+            mid = _getMID()
+            try:
+                yield self._newStoreObject.removeAttachment(rids, mid)
+            except AttachmentStoreValidManagedID:
+                raise HTTPError(ErrorResponse(
+                    FORBIDDEN,
+                    (caldav_namespace, "valid-managed-id-parameter",),
+                    "The managed-id parameter does not refer to an attachment in this calendar object resource",
+                ))
+            except AttachmentRemoveFailed:
+                raise HTTPError(ErrorResponse(
+                    FORBIDDEN,
+                    (caldav_namespace, "valid-attachment-remove",),
+                    "Could not remove the specified attachment",
+                ))
+
+            # Look for Prefer header
+            if "return-representation" in request.headers.getHeader("prefer", {}):
+                result = (yield self.render(request))
+                result.code = OK
+                result.headers.setHeader("content-location", request.path)
+            else:
+                result = Response(NO_CONTENT)
+            returnValue(result)
 
         else:
             raise HTTPError(ErrorResponse(
@@ -2579,7 +2647,7 @@ class StoreNotificationObjectFile(_NewStoreFileMetaDataHelper, NotificationResou
     def http_GET(self, request):
         if not self.exists():
             log.debug("Resource not found: %s" % (self,))
-            raise HTTPError(responsecode.NOT_FOUND)
+            raise HTTPError(NOT_FOUND)
 
         returnValue(
             Response(OK, {"content-type": self.contentType()},
@@ -2594,7 +2662,7 @@ class StoreNotificationObjectFile(_NewStoreFileMetaDataHelper, NotificationResou
         """
         if not self.exists():
             log.debug("Resource not found: %s" % (self,))
-            raise HTTPError(responsecode.NOT_FOUND)
+            raise HTTPError(NOT_FOUND)
 
         return self.storeRemove(request, request.uri)
 
@@ -2627,6 +2695,6 @@ class StoreNotificationObjectFile(_NewStoreFileMetaDataHelper, NotificationResou
         except MemcacheLockTimeoutError:
             raise HTTPError(StatusResponse(CONFLICT, "Resource: %s currently in use on the server." % (where,)))
         except NoSuchObjectResourceError:
-            raise HTTPError(responsecode.NOT_FOUND)
+            raise HTTPError(NOT_FOUND)
 
         returnValue(NO_CONTENT)

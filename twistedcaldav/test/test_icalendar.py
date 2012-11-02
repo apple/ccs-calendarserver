@@ -652,7 +652,7 @@ END:VCALENDAR
             self.assertEqual(end, PyCalendarDateTime(2004, 11, 27))
             break
 
-    #test_component_timerange.todo = "recurrence expansion should give us no end date here"
+    # test_component_timerange.todo = "recurrence expansion should give us no end date here"
 
 
     def test_parse_date(self):
@@ -694,7 +694,7 @@ END:VCALENDAR
         """
         self.assertEqual(PyCalendarDuration.parseText("P15DT5H0M20S"), PyCalendarDuration(days=15, hours=5, minutes=0, seconds=20))
         self.assertEqual(PyCalendarDuration.parseText("+P15DT5H0M20S"), PyCalendarDuration(days=15, hours=5, minutes=0, seconds=20))
-        self.assertEqual(PyCalendarDuration.parseText("-P15DT5H0M20S"), PyCalendarDuration(days=-15, hours=-5, minutes=0, seconds=-20))
+        self.assertEqual(PyCalendarDuration.parseText("-P15DT5H0M20S"), PyCalendarDuration(days=15 * -1, hours=5 * -1, minutes=0, seconds=20 * -1))
 
         self.assertEqual(PyCalendarDuration.parseText("P7W"), PyCalendarDuration(weeks=7))
 
@@ -8200,3 +8200,838 @@ END:VCALENDAR
         for cuaddr, result in data:
             new_cuaddr = normalizeCUAddress(cuaddr, lookupFunction, None, toUUID=True)
             self.assertEquals(new_cuaddr, result)
+
+
+    def test_hasPropertyWithParameterMatch(self):
+
+        data = (
+            (
+                "1.1 - nothing to match, with param value",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20090101T080000Z
+DTEND:20090101T090000Z
+DTSTAMP:20080601T120000Z
+RRULE:FREQ=DAILY
+END:VEVENT
+END:VCALENDAR
+""",
+                "ATTACH", "MANAGED-ID", "1", False,
+                False,
+            ),
+            (
+                "1.2 - nothing to match, without param value",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20090101T080000Z
+DTEND:20090101T090000Z
+DTSTAMP:20080601T120000Z
+RRULE:FREQ=DAILY
+END:VEVENT
+END:VCALENDAR
+""",
+                "ATTACH", "MANAGED-ID", None, False,
+                False,
+            ),
+            (
+                "1.3 - match with param value",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20090101T080000Z
+DTEND:20090101T090000Z
+ATTACH;MANAGED-ID=1;MTAG=1:http://example.com/attachment
+ATTACH;MANAGED-ID=2;MTAG=1:http://example.com/attachment
+DTSTAMP:20080601T120000Z
+RRULE:FREQ=DAILY
+END:VEVENT
+END:VCALENDAR
+""",
+                "ATTACH", "MANAGED-ID", "1", False,
+                True,
+            ),
+            (
+                "1.4 - match without param value",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20090101T080000Z
+DTEND:20090101T090000Z
+ATTACH;MANAGED-ID=1;MTAG=1:http://example.com/attachment
+ATTACH;MANAGED-ID=2;MTAG=1:http://example.com/attachment
+DTSTAMP:20080601T120000Z
+RRULE:FREQ=DAILY
+END:VEVENT
+END:VCALENDAR
+""",
+                "ATTACH", "MANAGED-ID", None, False,
+                True,
+            ),
+            (
+                "1.5 - simple not match with param value",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20090101T080000Z
+DTEND:20090101T090000Z
+ATTACH;MANAGED-ID=3;MTAG=1:http://example.com/attachment
+ATTACH;MANAGED-ID=2;MTAG=1:http://example.com/attachment
+DTSTAMP:20080601T120000Z
+RRULE:FREQ=DAILY
+END:VEVENT
+END:VCALENDAR
+""",
+                "ATTACH", "MANAGED-ID", "1", False,
+                False,
+            ),
+            (
+                "1.6 - simple match with default param value",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20090101T080000Z
+DTEND:20090101T090000Z
+ATTACH;MTAG=1:http://example.com/attachment
+ATTACH;MANAGED-ID=2;MTAG=1:http://example.com/attachment
+DTSTAMP:20080601T120000Z
+RRULE:FREQ=DAILY
+END:VEVENT
+END:VCALENDAR
+""",
+                "ATTACH", "MANAGED-ID", "1", True,
+                True,
+            ),
+            (
+                "2.1 - overrides no match with param value",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20090101T080000Z
+DTEND:20090101T090000Z
+DTSTAMP:20080601T120000Z
+RRULE:FREQ=DAILY
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890-1
+RECURRENCE-ID:20090102T080000Z
+DTSTART:20090102T080000Z
+DTEND:20090102T090000Z
+DTSTAMP:20080601T120000Z
+END:VEVENT
+END:VCALENDAR
+""",
+                "ATTACH", "MANAGED-ID", "1", False,
+                False,
+            ),
+            (
+                "2.2 - overrides no match without param value",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20090101T080000Z
+DTEND:20090101T090000Z
+DTSTAMP:20080601T120000Z
+RRULE:FREQ=DAILY
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890-1
+RECURRENCE-ID:20090102T080000Z
+DTSTART:20090102T080000Z
+DTEND:20090102T090000Z
+DTSTAMP:20080601T120000Z
+END:VEVENT
+END:VCALENDAR
+""",
+                "ATTACH", "MANAGED-ID", None, False,
+                False,
+            ),
+            (
+                "2.3 - overrides match in all with param value",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20090101T080000Z
+DTEND:20090101T090000Z
+ATTACH;MANAGED-ID=1;MTAG=1:http://example.com/attachment
+ATTACH;MANAGED-ID=2;MTAG=1:http://example.com/attachment
+DTSTAMP:20080601T120000Z
+RRULE:FREQ=DAILY
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890-1
+RECURRENCE-ID:20090102T080000Z
+DTSTART:20090102T080000Z
+DTEND:20090102T090000Z
+ATTACH;MANAGED-ID=1;MTAG=1:http://example.com/attachment
+ATTACH;MANAGED-ID=2;MTAG=1:http://example.com/attachment
+DTSTAMP:20080601T120000Z
+END:VEVENT
+END:VCALENDAR
+""",
+                "ATTACH", "MANAGED-ID", "1", False,
+                True,
+            ),
+            (
+                "2.4 - overrides match in all without param value",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20090101T080000Z
+DTEND:20090101T090000Z
+ATTACH;MANAGED-ID=1;MTAG=1:http://example.com/attachment
+ATTACH;MANAGED-ID=2;MTAG=1:http://example.com/attachment
+DTSTAMP:20080601T120000Z
+RRULE:FREQ=DAILY
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890-1
+RECURRENCE-ID:20090102T080000Z
+DTSTART:20090102T080000Z
+DTEND:20090102T090000Z
+ATTACH;MANAGED-ID=1;MTAG=1:http://example.com/attachment
+ATTACH;MANAGED-ID=2;MTAG=1:http://example.com/attachment
+DTSTAMP:20080601T120000Z
+END:VEVENT
+END:VCALENDAR
+""",
+                "ATTACH", "MANAGED-ID", None, False,
+                True,
+            ),
+            (
+                "2.5 - match in one override with param value",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20090101T080000Z
+DTEND:20090101T090000Z
+ATTACH;MANAGED-ID=3;MTAG=1:http://example.com/attachment
+ATTACH;MANAGED-ID=2;MTAG=1:http://example.com/attachment
+DTSTAMP:20080601T120000Z
+RRULE:FREQ=DAILY
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890-1
+RECURRENCE-ID:20090102T080000Z
+DTSTART:20090102T080000Z
+DTEND:20090102T090000Z
+ATTACH;MANAGED-ID=1;MTAG=1:http://example.com/attachment
+ATTACH;MANAGED-ID=2;MTAG=1:http://example.com/attachment
+DTSTAMP:20080601T120000Z
+END:VEVENT
+END:VCALENDAR
+""",
+                "ATTACH", "MANAGED-ID", "1", False,
+                True,
+            ),
+            (
+                "2.6 - match in one override without param value",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20090101T080000Z
+DTEND:20090101T090000Z
+DTSTAMP:20080601T120000Z
+RRULE:FREQ=DAILY
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890-1
+RECURRENCE-ID:20090102T080000Z
+DTSTART:20090102T080000Z
+DTEND:20090102T090000Z
+ATTACH;MANAGED-ID=1;MTAG=1:http://example.com/attachment
+ATTACH;MANAGED-ID=2;MTAG=1:http://example.com/attachment
+DTSTAMP:20080601T120000Z
+END:VEVENT
+END:VCALENDAR
+""",
+                "ATTACH", "MANAGED-ID", None, False,
+                True,
+            ),
+        )
+
+        for title, calendar, property, param_name, param_value, param_default, result in data:
+            ical = Component.fromString(calendar)
+            has_property = ical.hasPropertyWithParameterMatch(property, param_name, param_value, param_default)
+            self.assertEqual(has_property, result, "Failed has property: %s" % (title,))
+
+
+    def test_replaceAllPropertiesWithParameterMatch(self):
+
+        data = (
+            (
+                "1.1 - nothing to change",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20090101T080000Z
+DTEND:20090101T090000Z
+DTSTAMP:20080601T120000Z
+RRULE:FREQ=DAILY
+END:VEVENT
+END:VCALENDAR
+""",
+                Property("ATTACH", "http://example.com/attachment", {"MANAGED-ID": "1", "MTAG": "2"}),
+                "MANAGED-ID", "1", False,
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20090101T080000Z
+DTEND:20090101T090000Z
+DTSTAMP:20080601T120000Z
+RRULE:FREQ=DAILY
+END:VEVENT
+END:VCALENDAR
+""",
+            ),
+            (
+                "1.2 - simple change",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20090101T080000Z
+DTEND:20090101T090000Z
+ATTACH;MANAGED-ID=1;MTAG=1:http://example.com/attachment
+ATTACH;MANAGED-ID=2;MTAG=1:http://example.com/attachment
+DTSTAMP:20080601T120000Z
+RRULE:FREQ=DAILY
+END:VEVENT
+END:VCALENDAR
+""",
+                Property("ATTACH", "http://example.com/attachment", {"MANAGED-ID": "1", "MTAG": "2"}),
+                "MANAGED-ID", "1", False,
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20090101T080000Z
+DTEND:20090101T090000Z
+ATTACH;MANAGED-ID=2;MTAG=1:http://example.com/attachment
+ATTACH;MANAGED-ID=1;MTAG=2:http://example.com/attachment
+DTSTAMP:20080601T120000Z
+RRULE:FREQ=DAILY
+END:VEVENT
+END:VCALENDAR
+""",
+            ),
+            (
+                "1.3 - simple no change",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20090101T080000Z
+DTEND:20090101T090000Z
+ATTACH;MANAGED-ID=3;MTAG=1:http://example.com/attachment
+ATTACH;MANAGED-ID=2;MTAG=1:http://example.com/attachment
+DTSTAMP:20080601T120000Z
+RRULE:FREQ=DAILY
+END:VEVENT
+END:VCALENDAR
+""",
+                Property("ATTACH", "http://example.com/attachment", {"MANAGED-ID": "1", "MTAG": "2"}),
+                "MANAGED-ID", "1", False,
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20090101T080000Z
+DTEND:20090101T090000Z
+ATTACH;MANAGED-ID=3;MTAG=1:http://example.com/attachment
+ATTACH;MANAGED-ID=2;MTAG=1:http://example.com/attachment
+DTSTAMP:20080601T120000Z
+RRULE:FREQ=DAILY
+END:VEVENT
+END:VCALENDAR
+""",
+            ),
+            (
+                "1.4 - simple change default",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20090101T080000Z
+DTEND:20090101T090000Z
+ATTACH;MTAG=1:http://example.com/attachment
+ATTACH;MANAGED-ID=2;MTAG=1:http://example.com/attachment
+DTSTAMP:20080601T120000Z
+RRULE:FREQ=DAILY
+END:VEVENT
+END:VCALENDAR
+""",
+                Property("ATTACH", "http://example.com/attachment", {"MTAG": "2"}),
+                "MANAGED-ID", "1", True,
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20090101T080000Z
+DTEND:20090101T090000Z
+ATTACH;MANAGED-ID=2;MTAG=1:http://example.com/attachment
+ATTACH;MTAG=2:http://example.com/attachment
+DTSTAMP:20080601T120000Z
+RRULE:FREQ=DAILY
+END:VEVENT
+END:VCALENDAR
+""",
+            ),
+            (
+                "2.1 - overrides nothing to change",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20090101T080000Z
+DTEND:20090101T090000Z
+DTSTAMP:20080601T120000Z
+RRULE:FREQ=DAILY
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890-1
+RECURRENCE-ID:20090102T080000Z
+DTSTART:20090102T080000Z
+DTEND:20090102T090000Z
+DTSTAMP:20080601T120000Z
+END:VEVENT
+END:VCALENDAR
+""",
+                Property("ATTACH", "http://example.com/attachment", {"MANAGED-ID": "1", "MTAG": "2"}),
+                "MANAGED-ID", "1", False,
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20090101T080000Z
+DTEND:20090101T090000Z
+DTSTAMP:20080601T120000Z
+RRULE:FREQ=DAILY
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890-1
+RECURRENCE-ID:20090102T080000Z
+DTSTART:20090102T080000Z
+DTEND:20090102T090000Z
+DTSTAMP:20080601T120000Z
+END:VEVENT
+END:VCALENDAR
+""",
+            ),
+            (
+                "2.2 - overrides change in all",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20090101T080000Z
+DTEND:20090101T090000Z
+ATTACH;MANAGED-ID=1;MTAG=1:http://example.com/attachment
+ATTACH;MANAGED-ID=2;MTAG=1:http://example.com/attachment
+DTSTAMP:20080601T120000Z
+RRULE:FREQ=DAILY
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890-1
+RECURRENCE-ID:20090102T080000Z
+DTSTART:20090102T080000Z
+DTEND:20090102T090000Z
+ATTACH;MANAGED-ID=1;MTAG=1:http://example.com/attachment
+ATTACH;MANAGED-ID=2;MTAG=1:http://example.com/attachment
+DTSTAMP:20080601T120000Z
+END:VEVENT
+END:VCALENDAR
+""",
+                Property("ATTACH", "http://example.com/attachment", {"MANAGED-ID": "1", "MTAG": "2"}),
+                "MANAGED-ID", "1", False,
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20090101T080000Z
+DTEND:20090101T090000Z
+ATTACH;MANAGED-ID=2;MTAG=1:http://example.com/attachment
+ATTACH;MANAGED-ID=1;MTAG=2:http://example.com/attachment
+DTSTAMP:20080601T120000Z
+RRULE:FREQ=DAILY
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890-1
+RECURRENCE-ID:20090102T080000Z
+DTSTART:20090102T080000Z
+DTEND:20090102T090000Z
+ATTACH;MANAGED-ID=2;MTAG=1:http://example.com/attachment
+ATTACH;MANAGED-ID=1;MTAG=2:http://example.com/attachment
+DTSTAMP:20080601T120000Z
+END:VEVENT
+END:VCALENDAR
+""",
+            ),
+            (
+                "2.3 - overrides change one",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20090101T080000Z
+DTEND:20090101T090000Z
+ATTACH;MANAGED-ID=3;MTAG=1:http://example.com/attachment
+ATTACH;MANAGED-ID=2;MTAG=1:http://example.com/attachment
+DTSTAMP:20080601T120000Z
+RRULE:FREQ=DAILY
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890-1
+RECURRENCE-ID:20090102T080000Z
+DTSTART:20090102T080000Z
+DTEND:20090102T090000Z
+ATTACH;MANAGED-ID=1;MTAG=1:http://example.com/attachment
+ATTACH;MANAGED-ID=2;MTAG=1:http://example.com/attachment
+DTSTAMP:20080601T120000Z
+END:VEVENT
+END:VCALENDAR
+""",
+                Property("ATTACH", "http://example.com/attachment", {"MANAGED-ID": "1", "MTAG": "2"}),
+                "MANAGED-ID", "1", False,
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20090101T080000Z
+DTEND:20090101T090000Z
+ATTACH;MANAGED-ID=3;MTAG=1:http://example.com/attachment
+ATTACH;MANAGED-ID=2;MTAG=1:http://example.com/attachment
+DTSTAMP:20080601T120000Z
+RRULE:FREQ=DAILY
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890-1
+RECURRENCE-ID:20090102T080000Z
+DTSTART:20090102T080000Z
+DTEND:20090102T090000Z
+ATTACH;MANAGED-ID=2;MTAG=1:http://example.com/attachment
+ATTACH;MANAGED-ID=1;MTAG=2:http://example.com/attachment
+DTSTAMP:20080601T120000Z
+END:VEVENT
+END:VCALENDAR
+""",
+            ),
+        )
+
+        for title, calendar, property, param_name, param_value, param_default, result in data:
+            ical = Component.fromString(calendar)
+            ical.replaceAllPropertiesWithParameterMatch(property, param_name, param_value, param_default)
+            self.assertEqual(str(ical), result.replace("\n", "\r\n"), "Failed replace property: %s" % (title,))
+
+
+    def test_removeAllPropertiesWithParameterMatch(self):
+
+        data = (
+            (
+                "1.1 - nothing to change",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20090101T080000Z
+DTEND:20090101T090000Z
+DTSTAMP:20080601T120000Z
+RRULE:FREQ=DAILY
+END:VEVENT
+END:VCALENDAR
+""",
+                "ATTACH", "MANAGED-ID", "1", False,
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20090101T080000Z
+DTEND:20090101T090000Z
+DTSTAMP:20080601T120000Z
+RRULE:FREQ=DAILY
+END:VEVENT
+END:VCALENDAR
+""",
+            ),
+            (
+                "1.2 - simple change",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20090101T080000Z
+DTEND:20090101T090000Z
+ATTACH;MANAGED-ID=1;MTAG=1:http://example.com/attachment
+ATTACH;MANAGED-ID=2;MTAG=1:http://example.com/attachment
+DTSTAMP:20080601T120000Z
+RRULE:FREQ=DAILY
+END:VEVENT
+END:VCALENDAR
+""",
+                "ATTACH", "MANAGED-ID", "1", False,
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20090101T080000Z
+DTEND:20090101T090000Z
+ATTACH;MANAGED-ID=2;MTAG=1:http://example.com/attachment
+DTSTAMP:20080601T120000Z
+RRULE:FREQ=DAILY
+END:VEVENT
+END:VCALENDAR
+""",
+            ),
+            (
+                "1.3 - simple no change",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20090101T080000Z
+DTEND:20090101T090000Z
+ATTACH;MANAGED-ID=3;MTAG=1:http://example.com/attachment
+ATTACH;MANAGED-ID=2;MTAG=1:http://example.com/attachment
+DTSTAMP:20080601T120000Z
+RRULE:FREQ=DAILY
+END:VEVENT
+END:VCALENDAR
+""",
+                "ATTACH", "MANAGED-ID", "1", False,
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20090101T080000Z
+DTEND:20090101T090000Z
+ATTACH;MANAGED-ID=3;MTAG=1:http://example.com/attachment
+ATTACH;MANAGED-ID=2;MTAG=1:http://example.com/attachment
+DTSTAMP:20080601T120000Z
+RRULE:FREQ=DAILY
+END:VEVENT
+END:VCALENDAR
+""",
+            ),
+            (
+                "1.4 - simple change default",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20090101T080000Z
+DTEND:20090101T090000Z
+ATTACH;MTAG=1:http://example.com/attachment
+ATTACH;MANAGED-ID=2;MTAG=1:http://example.com/attachment
+DTSTAMP:20080601T120000Z
+RRULE:FREQ=DAILY
+END:VEVENT
+END:VCALENDAR
+""",
+                "ATTACH", "MANAGED-ID", "1", True,
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20090101T080000Z
+DTEND:20090101T090000Z
+ATTACH;MANAGED-ID=2;MTAG=1:http://example.com/attachment
+DTSTAMP:20080601T120000Z
+RRULE:FREQ=DAILY
+END:VEVENT
+END:VCALENDAR
+""",
+            ),
+            (
+                "2.1 - overrides nothing to change",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20090101T080000Z
+DTEND:20090101T090000Z
+DTSTAMP:20080601T120000Z
+RRULE:FREQ=DAILY
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890-1
+RECURRENCE-ID:20090102T080000Z
+DTSTART:20090102T080000Z
+DTEND:20090102T090000Z
+DTSTAMP:20080601T120000Z
+END:VEVENT
+END:VCALENDAR
+""",
+                "ATTACH", "MANAGED-ID", "1", False,
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20090101T080000Z
+DTEND:20090101T090000Z
+DTSTAMP:20080601T120000Z
+RRULE:FREQ=DAILY
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890-1
+RECURRENCE-ID:20090102T080000Z
+DTSTART:20090102T080000Z
+DTEND:20090102T090000Z
+DTSTAMP:20080601T120000Z
+END:VEVENT
+END:VCALENDAR
+""",
+            ),
+            (
+                "2.2 - overrides change in all",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20090101T080000Z
+DTEND:20090101T090000Z
+ATTACH;MANAGED-ID=1;MTAG=1:http://example.com/attachment
+ATTACH;MANAGED-ID=2;MTAG=1:http://example.com/attachment
+DTSTAMP:20080601T120000Z
+RRULE:FREQ=DAILY
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890-1
+RECURRENCE-ID:20090102T080000Z
+DTSTART:20090102T080000Z
+DTEND:20090102T090000Z
+ATTACH;MANAGED-ID=1;MTAG=1:http://example.com/attachment
+ATTACH;MANAGED-ID=2;MTAG=1:http://example.com/attachment
+DTSTAMP:20080601T120000Z
+END:VEVENT
+END:VCALENDAR
+""",
+                "ATTACH", "MANAGED-ID", "1", False,
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20090101T080000Z
+DTEND:20090101T090000Z
+ATTACH;MANAGED-ID=2;MTAG=1:http://example.com/attachment
+DTSTAMP:20080601T120000Z
+RRULE:FREQ=DAILY
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890-1
+RECURRENCE-ID:20090102T080000Z
+DTSTART:20090102T080000Z
+DTEND:20090102T090000Z
+ATTACH;MANAGED-ID=2;MTAG=1:http://example.com/attachment
+DTSTAMP:20080601T120000Z
+END:VEVENT
+END:VCALENDAR
+""",
+            ),
+            (
+                "2.3 - overrides change one",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20090101T080000Z
+DTEND:20090101T090000Z
+ATTACH;MANAGED-ID=3;MTAG=1:http://example.com/attachment
+ATTACH;MANAGED-ID=2;MTAG=1:http://example.com/attachment
+DTSTAMP:20080601T120000Z
+RRULE:FREQ=DAILY
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890-1
+RECURRENCE-ID:20090102T080000Z
+DTSTART:20090102T080000Z
+DTEND:20090102T090000Z
+ATTACH;MANAGED-ID=1;MTAG=1:http://example.com/attachment
+ATTACH;MANAGED-ID=2;MTAG=1:http://example.com/attachment
+DTSTAMP:20080601T120000Z
+END:VEVENT
+END:VCALENDAR
+""",
+                "ATTACH", "MANAGED-ID", "1", False,
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20090101T080000Z
+DTEND:20090101T090000Z
+ATTACH;MANAGED-ID=3;MTAG=1:http://example.com/attachment
+ATTACH;MANAGED-ID=2;MTAG=1:http://example.com/attachment
+DTSTAMP:20080601T120000Z
+RRULE:FREQ=DAILY
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890-1
+RECURRENCE-ID:20090102T080000Z
+DTSTART:20090102T080000Z
+DTEND:20090102T090000Z
+ATTACH;MANAGED-ID=2;MTAG=1:http://example.com/attachment
+DTSTAMP:20080601T120000Z
+END:VEVENT
+END:VCALENDAR
+""",
+            ),
+        )
+
+        for title, calendar, property, param_name, param_value, param_default, result in data:
+            ical = Component.fromString(calendar)
+            ical.removeAllPropertiesWithParameterMatch(property, param_name, param_value, param_default)
+            self.assertEqual(str(ical), result.replace("\n", "\r\n"), "Failed remove property: %s" % (title,))

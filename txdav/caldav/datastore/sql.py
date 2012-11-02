@@ -1,5 +1,5 @@
 # -*- test-case-name: txdav.caldav.datastore.test.test_sql -*-
-# #
+##
 # Copyright (c) 2010-2012 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -13,7 +13,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-# #
+##
 from twext.web2.stream import readStream
 from pycalendar.value import PyCalendarValue
 
@@ -49,7 +49,8 @@ from txdav.base.propertystore.base import PropertyName
 from txdav.caldav.datastore.util import validateCalendarComponent, \
     dropboxIDFromCalendarObject
 from txdav.caldav.icalendarstore import ICalendarHome, ICalendar, ICalendarObject, \
-    IAttachment, AttachmentStoreFailed
+    IAttachment, AttachmentStoreFailed, AttachmentStoreValidManagedID, \
+    AttachmentRemoveFailed
 from txdav.common.datastore.sql import CommonHome, CommonHomeChild, \
     CommonObjectResource, ECALENDARTYPE
 from txdav.common.datastore.sql_legacy import PostgresLegacyIndexEmulator, \
@@ -285,7 +286,7 @@ class CalendarHome(CommonHome):
 
     @inlineCallbacks
     def attachmentObjectWithName(self, name):
-        attach = (yield Attachment.loadWithName(self._txn, name))
+        attach = (yield Attachment.load(self._txn, dropboxID=name))
         returnValue(attach)
 
 
@@ -1175,6 +1176,13 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         returnValue(component)
 
 
+    @inlineCallbacks
+    def remove(self):
+        # Need to also remove attachments
+        yield Attachment.removeAllReferencesTo(self._txn, self._resourceID)
+        yield super(CalendarObject, self).remove()
+
+
     @classproperty
     def _recurrenceMinMaxByIDQuery(cls): # @NoSelf
         """
@@ -1326,7 +1334,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         attach = Property("ATTACH", location, params={
             "MANAGED-ID": attachment.dropboxID(),
             "MTAG": attachment.md5(),
-            "FMT-TYPE": "%s/%s" % (attachment.contentType().mediaType, attachment.contentType().mediaSubtype),
+            "FMTTYPE": "%s/%s" % (attachment.contentType().mediaType, attachment.contentType().mediaSubtype),
             "FILENAME": attachment.dispositionName(),
             "SIZE": str(attachment.size()),
         }, valuetype=PyCalendarValue.VALUETYPE_URI)
@@ -1339,12 +1347,67 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         returnValue((attachment, location,))
 
 
-    def updateAttachment(self, managed_id, content_type, filename, stream):
-        pass
+    @inlineCallbacks
+    def updateAttachment(self, pathpattern, managed_id, content_type, filename, stream):
+
+        # First check the supplied managed-id is associated with this resource
+        cobjs = (yield Attachment.referencesTo(self._txn, managed_id))
+        if self._resourceID not in cobjs:
+            raise AttachmentStoreValidManagedID
+
+        # Next write the data stream to existing attachment
+
+        # We need to know the resource_ID of the home collection of the owner
+        # (not sharee) of this event
+        try:
+            attachment = (yield self.attachmentWithManagedID(managed_id))
+            if attachment is None:
+                self.log_error("Missing managed attachment even though ATTACHMENT_CALENDAR_OBJECT indicates it is present: %s" % (managed_id,))
+                raise AttachmentStoreFailed
+            t = attachment.store(content_type, filename)
+            yield readStream(stream, t.write)
+        except Exception, e:
+            self.log_error("Unable to store attachment: %s" % (e,))
+            raise AttachmentStoreFailed
+        yield t.loseConnection()
+
+        # Now try and adjust the actual calendar data
+        calendar = (yield self.component())
+
+        location = pathpattern % (self._parentCollection.ownerHome().name(), attachment.dropboxID(),)
+        attach = Property("ATTACH", location, params={
+            "MANAGED-ID": attachment.dropboxID(),
+            "MTAG": attachment.md5(),
+            "FMTTYPE": "%s/%s" % (attachment.contentType().mediaType, attachment.contentType().mediaSubtype),
+            "FILENAME": attachment.dispositionName(),
+            "SIZE": str(attachment.size()),
+        }, valuetype=PyCalendarValue.VALUETYPE_URI)
+        calendar.replaceAllPropertiesWithParameterMatch(attach, "MANAGED-ID", managed_id)
+
+        # Store the data
+        yield self.setComponent(calendar)
+
+        returnValue((attachment, location,))
 
 
+    @inlineCallbacks
     def removeAttachment(self, rids, managed_id):
-        pass
+
+        # First check the supplied managed-id is associated with this resource
+        cobjs = (yield Attachment.referencesTo(self._txn, managed_id))
+        if self._resourceID not in cobjs:
+            raise AttachmentStoreValidManagedID
+
+        # Now try and adjust the actual calendar data
+        calendar = (yield self.component())
+        calendar.removeAllPropertiesWithParameterMatch("ATTACH", "MANAGED-ID", managed_id)
+
+        # Store the data
+        yield self.setComponent(calendar)
+
+        # Remove it - this will take care of actually removing it from the store if there are
+        # no more references to the attachment
+        yield self.removeManagedAttachmentWithName(managed_id)
 
 
     @inlineCallbacks
@@ -1359,6 +1422,16 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
                 self._txn, _ATTACHMENT_STATUS_MANAGED, managedID, "data", sharerHomeID, self._resourceID,
             )
         ))
+
+
+    def attachmentWithManagedID(self, managed_id):
+        return Attachment.load(self._txn, dropboxID=managed_id)
+
+
+    @inlineCallbacks
+    def removeManagedAttachmentWithName(self, managed_id):
+        attachment = (yield self.attachmentWithManagedID(managed_id))
+        yield attachment.removeFromResource(self._resourceID)
 
 
     @inlineCallbacks
@@ -1382,7 +1455,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
 
     def attachmentWithName(self, name):
-        return Attachment.loadWithName(self._txn, self._dropboxID, name)
+        return Attachment.load(self._txn, dropboxID=self._dropboxID, name=name)
 
 
     def attendeesCanManageAttachments(self):
@@ -1543,12 +1616,15 @@ class Attachment(object):
         self._txn = txn
         self._attachmentID = a_id
         self._attachmentStatus = status
-        self._dropboxID = dropboxID
-        self._name = name
         self._ownerHomeID = ownerHomeID
+        self._dropboxID = dropboxID
+        self._contentType = None
         self._size = 0
+        self._md5 = None
         self._created = None
         self._modified = None
+        self._name = name
+        self._dispositionName = None
         self._justCreated = justCreated
 
 
@@ -1622,10 +1698,47 @@ class Attachment(object):
 
     @classmethod
     @inlineCallbacks
-    def loadWithName(cls, txn, dropboxID, name="data"):
-        attachment = cls(txn, None, None, dropboxID, name)
+    def load(cls, txn, dropboxID=None, name="data", attachmentID=None):
+        attachment = cls(txn, attachmentID, None, dropboxID, name)
         attachment = (yield attachment.initFromStore())
         returnValue(attachment)
+
+
+    @classmethod
+    @inlineCallbacks
+    def referencesTo(cls, txn, managedID):
+        """
+        Find all the calendar object resourceIds referenced by this supplied managed-id.
+        """
+        att = schema.ATTACHMENT
+        attco = schema.ATTACHMENT_CALENDAR_OBJECT
+        rows = (yield Select(
+            [attco.CALENDAR_OBJECT_RESOURCE_ID, ],
+            From=att.join(attco, att.ATTACHMENT_ID == attco.ATTACHMENT_ID, "inner"),
+            Where=(att.DROPBOX_ID == managedID),
+        ).on(txn))
+        cobjs = set([row[0] for row in rows]) if rows is not None else set()
+        returnValue(cobjs)
+
+
+    @classmethod
+    @inlineCallbacks
+    def removeAllReferencesTo(cls, txn, resourceID):
+        """
+        Remove all attachments referencing the specified resource.
+        """
+
+        # Find all reference attachment-ids and dereference
+        attco = schema.ATTACHMENT_CALENDAR_OBJECT
+        rows = (yield Select(
+            [attco.ATTACHMENT_ID, ],
+            From=attco,
+            Where=(attco.CALENDAR_OBJECT_RESOURCE_ID == resourceID),
+        ).on(txn))
+        aids = set([row[0] for row in rows]) if rows is not None else set()
+        for aid in aids:
+            attachment = (yield Attachment.load(txn, attachmentID=aid))
+            (yield attachment.removeFromResource(resourceID))
 
 
     @inlineCallbacks
@@ -1636,21 +1749,27 @@ class Attachment(object):
         @return: C{True} if this attachment exists, C{False} otherwise.
         """
         att = schema.ATTACHMENT
+        if self._dropboxID is not None:
+            where = (att.DROPBOX_ID == self._dropboxID).And(
+                   att.PATH == self._name)
+        else:
+            where = (att.ATTACHMENT_ID == self._attachmentID)
         rows = (yield Select(
             [
                 att.ATTACHMENT_ID,
                 att.STATUS,
+                att.DROPBOX_ID,
                 att.CALENDAR_HOME_RESOURCE_ID,
                 att.CONTENT_TYPE,
                 att.SIZE,
                 att.MD5,
                 att.CREATED,
                 att.MODIFIED,
+                att.PATH,
                 att.DISPLAYNAME,
             ],
             From=att,
-            Where=(att.DROPBOX_ID == self._dropboxID).And(
-                   att.PATH == self._name)
+            Where=where
         ).on(self._txn))
 
         if not rows:
@@ -1659,13 +1778,16 @@ class Attachment(object):
         row_iter = iter(rows[0])
         self._attachmentID = row_iter.next()
         self._attachmentStatus = row_iter.next()
+        self._dropboxID = row_iter.next()
         self._ownerHomeID = row_iter.next()
         self._contentType = MimeType.fromString(row_iter.next())
         self._size = row_iter.next()
         self._md5 = row_iter.next()
         self._created = sqltime(row_iter.next())
         self._modified = sqltime(row_iter.next())
+        self._name = row_iter.next()
         self._dispositionName = row_iter.next()
+
         returnValue(self)
 
 
@@ -1708,7 +1830,7 @@ class Attachment(object):
     @inlineCallbacks
     def remove(self):
         oldSize = self._size
-        self._txn.postCommit(self._path.remove)
+        self._txn.postCommit(self.removePaths)
         yield self._internalRemove()
         # Adjust quota
         home = (yield self._txn.calendarHomeWithResourceID(self._ownerHomeID))
@@ -1717,6 +1839,45 @@ class Attachment(object):
 
             # Send change notification to home
             yield home.notifyChanged()
+
+
+    def removePaths(self):
+        """
+        Remove the actual file and up to three parent directories if empty.
+        """
+        self._path.remove()
+        parent = self._path.parent()
+        for _ignore in range(3):
+            if len(parent.listdir()) == 0:
+                parent.remove()
+                parent = parent.parent()
+            else:
+                break
+
+
+    @inlineCallbacks
+    def removeFromResource(self, resourceID):
+
+        # This must only be called for a managed attachment
+        if self._attachmentStatus != _ATTACHMENT_STATUS_MANAGED:
+            raise AttachmentRemoveFailed
+
+        # Delete the reference
+        attco = schema.ATTACHMENT_CALENDAR_OBJECT
+        yield Delete(
+            From=attco,
+            Where=(attco.ATTACHMENT_ID == self._attachmentID).And(
+                   attco.CALENDAR_OBJECT_RESOURCE_ID == resourceID),
+        ).on(self._txn)
+
+        # References still exist - if not remove actual attachment
+        rows = (yield Select(
+            [attco.CALENDAR_OBJECT_RESOURCE_ID, ],
+            From=attco,
+            Where=(attco.ATTACHMENT_ID == self._attachmentID),
+        ).on(self._txn))
+        if len(rows) == 0:
+            yield self.remove()
 
 
     def _internalRemove(self):
