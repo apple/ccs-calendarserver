@@ -488,7 +488,7 @@ END:VCARD
         aboForeignMembers = schema.ABO_FOREIGN_MEMBERS
         aboMembers = schema.ABO_MEMBERS
         memberRows = yield Select([aboMembers.GROUP_ID, aboMembers.MEMBER_ID], From=aboMembers,).on(txn)
-        self.assertEqual(memberRows, [])
+        self.assertEqual(sorted(memberRows), sorted([[adbk._resourceID, personObject._resourceID], [adbk._resourceID, groupObject._resourceID]]))
 
         foreignMemberRows = yield Select([aboForeignMembers.GROUP_ID, aboForeignMembers.MEMBER_ADDRESS], From=aboForeignMembers).on(txn)
         self.assertEqual(foreignMemberRows, [[groupObject._resourceID, "urn:uuid:uid3"]])
@@ -509,7 +509,13 @@ END:VCARD
         subgroupObject = yield adbk.createAddressBookObjectWithName("sg.vcf", subgroup)
 
         memberRows = yield Select([aboMembers.GROUP_ID, aboMembers.MEMBER_ID], From=aboMembers,).on(txn)
-        self.assertEqual(memberRows.sort(), [[groupObject._resourceID, subgroupObject._resourceID], [subgroupObject._resourceID, personObject._resourceID]].sort())
+        self.assertEqual(sorted(memberRows), sorted([
+                                                     [groupObject._resourceID, subgroupObject._resourceID],
+                                                     [subgroupObject._resourceID, personObject._resourceID],
+                                                     [adbk._resourceID, personObject._resourceID],
+                                                     [adbk._resourceID, subgroupObject._resourceID],
+                                                     [adbk._resourceID, groupObject._resourceID],
+                                                    ]))
 
         foreignMemberRows = yield Select([aboForeignMembers.GROUP_ID, aboForeignMembers.MEMBER_ADDRESS], From=aboForeignMembers).on(txn)
         self.assertEqual(foreignMemberRows, [])
@@ -517,9 +523,11 @@ END:VCARD
 
         yield adbk.removeAddressBookObjectWithName("sg.vcf")
         memberRows = yield Select([aboMembers.GROUP_ID, aboMembers.MEMBER_ID], From=aboMembers,).on(txn)
-        self.assertEqual(memberRows, [])
+        self.assertEqual(sorted(memberRows), sorted([[adbk._resourceID, personObject._resourceID], [adbk._resourceID, groupObject._resourceID]]))
 
-        foreignMemberRows = yield Select([aboForeignMembers.GROUP_ID, aboForeignMembers.MEMBER_ADDRESS], From=aboForeignMembers).on(txn)
+        foreignMemberRows = yield Select([aboForeignMembers.GROUP_ID, aboForeignMembers.MEMBER_ADDRESS], From=aboForeignMembers,
+                                                 #Where=(aboForeignMembers.GROUP_ID == groupObject._resourceID),
+                                                 ).on(txn)
         self.assertEqual(foreignMemberRows, [[groupObject._resourceID, "urn:uuid:uid3"]])
 
         yield home.removeAddressBookWithName("addressbook")

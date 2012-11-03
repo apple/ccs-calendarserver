@@ -341,7 +341,7 @@ create table ADDRESSBOOK_HOME_METADATA (
 
   create table ADDRESSBOOK_OBJECT (
   RESOURCE_ID             integer      primary key default nextval('RESOURCE_ID_SEQ'),	-- implicit index
-  ADDRESSBOOK_RESOURCE_ID integer      references ADDRESSBOOK_OBJECT on delete cascade,	-- ### could add non-null, but ab woul reference itself
+  ADDRESSBOOK_RESOURCE_ID integer      references ADDRESSBOOK_OBJECT on delete cascade,	-- ### could add non-null, but ab would reference itself
   RESOURCE_NAME           varchar(255) not null,
   VCARD_TEXT              text         not null,
   VCARD_UID               varchar(255) not null,
@@ -373,7 +373,7 @@ insert into ADDRESSBOOK_OBJECT_KIND values (3, 'location');
 ---------------------------------
 
 create table ABO_MEMBERS (
-    GROUP_ID              integer      not null references ADDRESSBOOK_OBJECT,						-- AddressBook Object's (kind=='group') RESOURCE_ID
+    GROUP_ID              integer      not null references ADDRESSBOOK_OBJECT on delete cascade,	-- AddressBook Object's (kind=='group') RESOURCE_ID
  	ADDRESSBOOK_ID		  integer      not null references ADDRESSBOOK_OBJECT on delete cascade,	-- only used on insert and whole address book delete
     MEMBER_ID             integer      not null references ADDRESSBOOK_OBJECT,						-- member AddressBook Object's RESOURCE_ID
     primary key(GROUP_ID, MEMBER_ID) -- implicit index
@@ -384,7 +384,7 @@ create table ABO_MEMBERS (
 ------------------------------------------
 
 create table ABO_FOREIGN_MEMBERS (
-    GROUP_ID              integer      not null references ADDRESSBOOK_OBJECT,						-- AddressBook Object's (kind=='group') RESOURCE_ID
+    GROUP_ID              integer      not null references ADDRESSBOOK_OBJECT on delete cascade,	-- AddressBook Object's (kind=='group') RESOURCE_ID
  	ADDRESSBOOK_ID		  integer      not null references ADDRESSBOOK_OBJECT on delete cascade,	-- only used on insert and whole address book delete
     MEMBER_ADDRESS  	  varchar(255) not null, 													-- member AddressBook Object's 'calendar' address
     primary key(GROUP_ID, MEMBER_ADDRESS) -- implicit index

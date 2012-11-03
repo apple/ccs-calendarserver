@@ -261,14 +261,6 @@ class Calendar(CommonHomeChild):
         return ResourceType.calendar #@UndefinedVariable
 
 
-    def asShared(self):
-        """
-        Stub for interface-compliance tests.
-        """
-        # TODO: implement me.
-        raise NotImplementedError()
-
-
     ownerCalendarHome = CommonHomeChild.ownerHome
     viewerCalendarHome = CommonHomeChild.viewerHome
     calendarObjects = CommonHomeChild.objectResources

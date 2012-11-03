@@ -1079,6 +1079,21 @@ class CommonHomeChild(FileMetaDataMixin, LoggingMixIn, FancyEqMixin, HomeChildBa
                 self._transaction.postCommit(notifier.notify)
             self._transaction.notificationAddedForObject(self)
 
+    @inlineCallbacks
+    def asInvited(self):
+        """
+        Stub for interface-compliance tests.
+        """
+        yield None
+        returnValue([])
+
+    @inlineCallbacks
+    def asShared(self):
+        """
+        Stub for interface-compliance tests.
+        """
+        yield None
+        returnValue([])
 
 
 class CommonObjectResource(FileMetaDataMixin, LoggingMixIn, FancyEqMixin):

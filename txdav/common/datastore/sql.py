@@ -2036,161 +2036,25 @@ class _SharedSyncLogic(object):
         Maybe notify changed.  (Overridden in NotificationCollection.)
         """
 
-
-
-class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic, HomeChildBase):
+class SharingMixIn(object):
     """
-    Common ancestor class of AddressBooks and Calendars.
+        Common class for CommonHomeChild and AddressBookObject
     """
-
-    compareAttributes = (
-        "_name",
-        "_home",
-        "_resourceID",
-    )
-
-    _objectResourceClass = None
-
-    _bindSchema = None
-    _homeSchema = None
-    _homeChildSchema = None
-    _homeChildMetaDataSchema = None
-    _revisionsSchema = None
-    _objectSchema = None
-
-    _bindTable = None
-    _homeChildTable = None
-    _homeChildBindTable = None
-    _revisionsTable = None
-    _revisionsBindTable = None
-    _objectTable = None
-
-
-    def __init__(self, home, name, resourceID, mode, status, message=None, ownerHome=None):
-
-        if home._notifiers:
-            childID = "%s/%s" % (home.uid(), name)
-            notifiers = [notifier.clone(label="collection", id=childID)
-                         for notifier in home._notifiers]
-        else:
-            notifiers = None
-
-        self._home = home
-        self._name = name
-        self._resourceID = resourceID
-        self._bindMode = mode
-        self._bindStatus = status
-        self._bindMessage = message
-        self._ownerHome = home if ownerHome is None else ownerHome
-        self._created = None
-        self._modified = None
-        self._objects = {}
-        self._objectNames = None
-        self._syncTokenRevision = None
-        self._notifiers = notifiers
-        self._index = None  # Derived classes need to set this
-
-
     @classproperty
-    def _childNamesForHomeID(cls): #@NoSelf
+    def _bindInsertQuery(cls, **kw): #@NoSelf
+        """
+        DAL statement to create a bind entry that connects a collection to its
+        home.
+        """
         bind = cls._bindSchema
-        return Select([bind.RESOURCE_NAME], From=bind,
-                      Where=(bind.HOME_RESOURCE_ID ==
-                             Parameter("homeID")).And
-                                (bind.BIND_STATUS == _BIND_STATUS_ACCEPTED))
-
-
-    @classmethod
-    def metadataColumns(cls):
-        """
-        Return a list of column name for retrieval of metadata. This allows
-        different child classes to have their own type specific data, but still make use of the
-        common base logic.
-        """
-
-        # Common behavior is to have created and modified
-
-        return (
-            cls._homeChildMetaDataSchema.CREATED,
-            cls._homeChildMetaDataSchema.MODIFIED,
-        )
-
-
-    @classmethod
-    def metadataAttributes(cls):
-        """
-        Return a list of attribute names for retrieval of metadata. This allows
-        different child classes to have their own type specific data, but still make use of the
-        common base logic.
-        """
-
-        # Common behavior is to have created and modified
-
-        return (
-            "_created",
-            "_modified",
-        )
-
-
-    @classmethod
-    @inlineCallbacks
-    def listObjects(cls, home):
-        """
-        Retrieve the names of the children that exist in the given home.
-
-        @return: an iterable of C{str}s.
-        """
-        # FIXME: tests don't cover this as directly as they should.
-        rows = yield cls._childNamesForHomeID.on(
-                home._txn, homeID=home._resourceID)
-        names = [row[0] for row in rows]
-        returnValue(names)
-
-
-    @classproperty
-    def _invitedBindForHomeID(cls): #@NoSelf
-        bind = cls._bindSchema
-        return cls._bindFor((bind.HOME_RESOURCE_ID == Parameter("homeID"))
-                            .And(bind.BIND_STATUS != _BIND_STATUS_ACCEPTED))
-
-
-    @classmethod
-    @inlineCallbacks
-    def listInvitedObjects(cls, home):
-        """
-        Retrieve the names of the children with invitations in the given home.
-
-        @return: an iterable of C{str}s.
-        """
-        rows = yield cls._invitedBindForHomeID.on(
-            home._txn, homeID=home._resourceID
-        )
-        names = [row[3] for row in rows]
-        returnValue(names)
-
-
-    @classproperty
-    def _childrenAndMetadataForHomeID(cls): #@NoSelf
-        bind = cls._bindSchema
-        child = cls._homeChildSchema
-        childMetaData = cls._homeChildMetaDataSchema
-
-        columns = [bind.BIND_MODE,
-                   bind.HOME_RESOURCE_ID,
-                   bind.RESOURCE_ID,
-                   bind.RESOURCE_NAME,
-                   bind.BIND_STATUS,
-                   bind.MESSAGE]
-        columns.extend(cls.metadataColumns())
-        return Select(columns,
-                     From=child.join(
-                         bind, child.RESOURCE_ID == bind.RESOURCE_ID,
-                         'left outer').join(
-                         childMetaData, childMetaData.RESOURCE_ID == bind.RESOURCE_ID,
-                         'left outer'),
-                     Where=(bind.HOME_RESOURCE_ID == Parameter("homeID")
-                           ).And(bind.BIND_STATUS == _BIND_STATUS_ACCEPTED))
-
+        return Insert({
+            bind.HOME_RESOURCE_ID: Parameter("homeID"),
+            bind.RESOURCE_ID: Parameter("resourceID"),
+            bind.RESOURCE_NAME: Parameter("name"),
+            bind.BIND_MODE: Parameter("mode"),
+            bind.BIND_STATUS: Parameter("bindStatus"),
+            bind.MESSAGE: Parameter("message"),
+        })
 
     @classmethod
     def _updateBindColumnsQuery(cls, columnMap): #@NoSelf
@@ -2384,6 +2248,269 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic, HomeChildBas
         returnValue(resourceName)
 
 
+
+    @classmethod
+    def _bindFor(cls, condition): #@NoSelf
+        bind = cls._bindSchema
+        return Select(
+            [bind.BIND_MODE,
+             bind.HOME_RESOURCE_ID,
+             bind.RESOURCE_ID,
+             bind.RESOURCE_NAME,
+             bind.BIND_STATUS,
+             bind.MESSAGE],
+                  From=bind,
+                  Where=condition
+        )
+
+
+    @classproperty
+    def _sharedBindForResourceID(cls): #@NoSelf
+        bind = cls._bindSchema
+        return cls._bindFor((bind.RESOURCE_ID == Parameter("resourceID"))
+                            .And(bind.BIND_STATUS == _BIND_STATUS_ACCEPTED)
+                            .And(bind.BIND_MODE != _BIND_MODE_OWN)
+                            )
+
+
+    @inlineCallbacks
+    def asShared(self):
+        """
+        Retrieve all the versions of this L{CommonHomeChild} as it is shared to
+        everyone.
+
+        @see: L{ICalendarHome.asShared}
+
+        @return: L{CommonHomeChild} objects that represent this
+            L{CommonHomeChild} as a child of different L{CommonHome}s
+        @rtype: a L{Deferred} which fires with a L{list} of L{ICalendar}s.
+        """
+        if not self.owned():
+            returnValue([])
+
+        # get all accepted binds
+        acceptedRows = yield self._sharedBindForResourceID.on(
+            self._txn, resourceID=self._resourceID, homeID=self._home._resourceID
+        )
+
+        cls = self._home._childClass # for ease of grepping...
+        result = []
+        for bindMode, homeID, resourceID, resourceName, bindStatus, bindMessage in acceptedRows: #@UnusedVariable
+            assert bindStatus == _BIND_STATUS_ACCEPTED
+            # TODO: this could all be issued in parallel; no need to serialize
+            # the loop.
+            new = cls(
+                home=(yield self._txn.homeWithResourceID(self._home._homeType, homeID)),
+                name=resourceName, resourceID=self._resourceID,
+                mode=bindMode, status=bindStatus,
+                message=bindMessage, ownerHome=self._home
+            )
+            yield new.initFromStore()
+            result.append(new)
+        returnValue(result)
+
+
+    @classproperty
+    def _invitedBindForResourceID(cls): #@NoSelf
+        bind = cls._bindSchema
+        return cls._bindFor((bind.RESOURCE_ID == Parameter("resourceID"))
+                            .And(bind.BIND_STATUS != _BIND_STATUS_ACCEPTED)
+                            )
+
+
+    @inlineCallbacks
+    def asInvited(self):
+        """
+        Retrieve all the versions of this L{CommonHomeChild} as it is invited to
+        everyone.
+
+        @see: L{ICalendarHome.asInvited}
+
+        @return: L{CommonHomeChild} objects that represent this
+            L{CommonHomeChild} as a child of different L{CommonHome}s
+        @rtype: a L{Deferred} which fires with a L{list} of L{ICalendar}s.
+        """
+        if not self.owned():
+            returnValue([])
+
+        rows = yield self._invitedBindForResourceID.on(
+            self._txn, resourceID=self._resourceID, homeID=self._home._resourceID,
+        )
+        cls = self._home._childClass # for ease of grepping...
+
+        result = []
+        for bindMode, homeID, resourceID, resourceName, bindStatus, bindMessage in rows: #@UnusedVariable
+            # TODO: this could all be issued in parallel; no need to serialize
+            # the loop.
+            new = cls(
+                home=(yield self._txn.homeWithResourceID(self._home._homeType, homeID)),
+                name=resourceName, resourceID=self._resourceID,
+                mode=bindMode, status=bindStatus,
+                message=bindMessage, ownerHome=self._home
+            )
+            yield new.initFromStore()
+            result.append(new)
+
+        returnValue(result)
+
+
+
+
+
+class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic, HomeChildBase, SharingMixIn):
+    """
+    Common ancestor class of AddressBooks and Calendars.
+    """
+
+    compareAttributes = (
+        "_name",
+        "_home",
+        "_resourceID",
+    )
+
+    _objectResourceClass = None
+
+    _bindSchema = None
+    _homeSchema = None
+    _homeChildSchema = None
+    _homeChildMetaDataSchema = None
+    _revisionsSchema = None
+    _objectSchema = None
+
+    _bindTable = None
+    _homeChildTable = None
+    _homeChildBindTable = None
+    _revisionsTable = None
+    _revisionsBindTable = None
+    _objectTable = None
+
+
+    def __init__(self, home, name, resourceID, mode, status, message=None, ownerHome=None):
+
+        if home._notifiers:
+            childID = "%s/%s" % (home.uid(), name)
+            notifiers = [notifier.clone(label="collection", id=childID)
+                         for notifier in home._notifiers]
+        else:
+            notifiers = None
+
+        self._home = home
+        self._name = name
+        self._resourceID = resourceID
+        self._bindMode = mode
+        self._bindStatus = status
+        self._bindMessage = message
+        self._ownerHome = home if ownerHome is None else ownerHome
+        self._created = None
+        self._modified = None
+        self._objects = {}
+        self._objectNames = None
+        self._syncTokenRevision = None
+        self._notifiers = notifiers
+        self._index = None  # Derived classes need to set this
+
+
+    @classproperty
+    def _childNamesForHomeID(cls): #@NoSelf
+        bind = cls._bindSchema
+        return Select([bind.RESOURCE_NAME], From=bind,
+                      Where=(bind.HOME_RESOURCE_ID ==
+                             Parameter("homeID")).And
+                                (bind.BIND_STATUS == _BIND_STATUS_ACCEPTED))
+
+
+    @classmethod
+    def metadataColumns(cls):
+        """
+        Return a list of column name for retrieval of metadata. This allows
+        different child classes to have their own type specific data, but still make use of the
+        common base logic.
+        """
+
+        # Common behavior is to have created and modified
+
+        return (
+            cls._homeChildMetaDataSchema.CREATED,
+            cls._homeChildMetaDataSchema.MODIFIED,
+        )
+
+
+    @classmethod
+    def metadataAttributes(cls):
+        """
+        Return a list of attribute names for retrieval of metadata. This allows
+        different child classes to have their own type specific data, but still make use of the
+        common base logic.
+        """
+
+        # Common behavior is to have created and modified
+
+        return (
+            "_created",
+            "_modified",
+        )
+
+
+    @classmethod
+    @inlineCallbacks
+    def listObjects(cls, home):
+        """
+        Retrieve the names of the children that exist in the given home.
+
+        @return: an iterable of C{str}s.
+        """
+        # FIXME: tests don't cover this as directly as they should.
+        rows = yield cls._childNamesForHomeID.on(
+                home._txn, homeID=home._resourceID)
+        names = [row[0] for row in rows]
+        returnValue(names)
+
+
+    @classproperty
+    def _invitedBindForHomeID(cls): #@NoSelf
+        bind = cls._bindSchema
+        return cls._bindFor((bind.HOME_RESOURCE_ID == Parameter("homeID"))
+                            .And(bind.BIND_STATUS != _BIND_STATUS_ACCEPTED))
+
+
+    @classmethod
+    @inlineCallbacks
+    def listInvitedObjects(cls, home):
+        """
+        Retrieve the names of the children with invitations in the given home.
+
+        @return: an iterable of C{str}s.
+        """
+        rows = yield cls._invitedBindForHomeID.on(
+            home._txn, homeID=home._resourceID
+        )
+        names = [row[3] for row in rows]
+        returnValue(names)
+
+
+    @classproperty
+    def _childrenAndMetadataForHomeID(cls): #@NoSelf
+        bind = cls._bindSchema
+        child = cls._homeChildSchema
+        childMetaData = cls._homeChildMetaDataSchema
+
+        columns = [bind.BIND_MODE,
+                   bind.HOME_RESOURCE_ID,
+                   bind.RESOURCE_ID,
+                   bind.RESOURCE_NAME,
+                   bind.BIND_STATUS,
+                   bind.MESSAGE]
+        columns.extend(cls.metadataColumns())
+        return Select(columns,
+                     From=child.join(
+                         bind, child.RESOURCE_ID == bind.RESOURCE_ID,
+                         'left outer').join(
+                         childMetaData, childMetaData.RESOURCE_ID == bind.RESOURCE_ID,
+                         'left outer'),
+                     Where=(bind.HOME_RESOURCE_ID == Parameter("homeID")
+                           ).And(bind.BIND_STATUS == _BIND_STATUS_ACCEPTED))
+
+
     def shareMode(self):
         """
         @see: L{ICalendar.shareMode}
@@ -2440,110 +2567,6 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic, HomeChildBas
 
 
     @classmethod
-    def _bindFor(cls, condition): #@NoSelf
-        bind = cls._bindSchema
-        return Select(
-            [bind.BIND_MODE,
-             bind.HOME_RESOURCE_ID,
-             bind.RESOURCE_ID,
-             bind.RESOURCE_NAME,
-             bind.BIND_STATUS,
-             bind.MESSAGE],
-                  From=bind,
-                  Where=condition
-        )
-
-
-    @classproperty
-    def _sharedBindForResourceID(cls): #@NoSelf
-        bind = cls._bindSchema
-        return cls._bindFor((bind.RESOURCE_ID == Parameter("resourceID"))
-                            .And(bind.BIND_STATUS == _BIND_STATUS_ACCEPTED)
-                            .And(bind.BIND_MODE != _BIND_MODE_OWN)
-                            )
-
-
-    @inlineCallbacks
-    def asShared(self):
-        """
-        Retrieve all the versions of this L{CommonHomeChild} as it is shared to
-        everyone.
-
-        @see: L{ICalendarHome.asShared}
-
-        @return: L{CommonHomeChild} objects that represent this
-            L{CommonHomeChild} as a child of different L{CommonHome}s
-        @rtype: a L{Deferred} which fires with a L{list} of L{ICalendar}s.
-        """
-        if not self.owned():
-            returnValue([])
-
-        # get all accepted binds
-        acceptedRows = yield self._sharedBindForResourceID.on(
-            self._txn, resourceID=self._resourceID, homeID=self._home._resourceID
-        )
-
-        cls = self.__class__ # for ease of grepping...
-        result = []
-        for bindMode, homeID, resourceID, resourceName, bindStatus, bindMessage in acceptedRows: #@UnusedVariable
-            assert bindStatus == _BIND_STATUS_ACCEPTED
-            # TODO: this could all be issued in parallel; no need to serialize
-            # the loop.
-            new = cls(
-                home=(yield self._txn.homeWithResourceID(self._home._homeType, homeID)),
-                name=resourceName, resourceID=self._resourceID,
-                mode=bindMode, status=bindStatus,
-                message=bindMessage, ownerHome=self._home
-            )
-            yield new.initFromStore()
-            result.append(new)
-        returnValue(result)
-
-
-    @classproperty
-    def _invitedBindForResourceID(cls): #@NoSelf
-        bind = cls._bindSchema
-        return cls._bindFor((bind.RESOURCE_ID == Parameter("resourceID"))
-                            .And(bind.BIND_STATUS != _BIND_STATUS_ACCEPTED)
-                            )
-
-
-    @inlineCallbacks
-    def asInvited(self):
-        """
-        Retrieve all the versions of this L{CommonHomeChild} as it is invited to
-        everyone.
-
-        @see: L{ICalendarHome.asInvited}
-
-        @return: L{CommonHomeChild} objects that represent this
-            L{CommonHomeChild} as a child of different L{CommonHome}s
-        @rtype: a L{Deferred} which fires with a L{list} of L{ICalendar}s.
-        """
-        if not self.owned():
-            returnValue([])
-
-        rows = yield self._invitedBindForResourceID.on(
-            self._txn, resourceID=self._resourceID, homeID=self._home._resourceID,
-        )
-        cls = self.__class__ # for ease of grepping...
-
-        result = []
-        for bindMode, homeID, resourceID, resourceName, bindStatus, bindMessage in rows: #@UnusedVariable
-            # TODO: this could all be issued in parallel; no need to serialize
-            # the loop.
-            new = cls(
-                home=(yield self._txn.homeWithResourceID(self._home._homeType, homeID)),
-                name=resourceName, resourceID=self._resourceID,
-                mode=bindMode, status=bindStatus,
-                message=bindMessage, ownerHome=self._home
-            )
-            yield new.initFromStore()
-            result.append(new)
-        returnValue(result)
-
-
-    @classmethod
     @inlineCallbacks
     def loadAllObjects(cls, home):
         """
@@ -2587,8 +2610,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic, HomeChildBas
                 ownerHome = home
             else:
                 #TODO: get all ownerHomeIDs at once
-                ownerHomeID = (yield cls._ownerHomeWithResourceID.on(
-                                home._txn, resourceID=resourceID))[0][0]
+                ownerHomeID = yield cls.ownerHomeID(home._txn, resourceID)
                 ownerHome = yield home._txn.homeWithResourceID(home._homeType, ownerHomeID)
 
             child = cls(
@@ -2622,6 +2644,23 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic, HomeChildBas
 
     @classmethod
     @inlineCallbacks
+    def ownerHomeID(cls, txn, resourceID):
+
+        ownerHomeRows = yield cls._ownerHomeWithResourceID.on(txn, resourceID=resourceID)
+
+        if not ownerHomeRows:
+            # no owner, so shared item must be group
+            abo = schema.ADDRESSBOOK_OBJECT
+            groupAddressBookRows = yield Select([abo.ADDRESSBOOK_RESOURCE_ID],
+                                         From=abo,
+                                         Where=(abo.RESOURCE_ID == Parameter("resourceID"))).on(txn, resourceID=resourceID)
+            groupAddressBookID = groupAddressBookRows[0][0]
+            ownerHomeRows = yield cls._ownerHomeWithResourceID.on(txn, resourceID=groupAddressBookID)
+
+        returnValue(ownerHomeRows[0][0])
+
+    @classmethod
+    @inlineCallbacks
     def invitedObjectWithName(cls, home, name):
         """
         Retrieve the child with the given C{name} contained in the given
@@ -2643,12 +2682,10 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic, HomeChildBas
 
         bindMode, homeID, resourceID, resourceName, bindStatus, bindMessage = rows[0] #@UnusedVariable
 
-        #TODO:  combine with _invitedBindForNameAndHomeID and sort results
-        ownerHomeID = (yield cls._ownerHomeWithResourceID.on(
-                        home._txn, resourceID=resourceID))[0][0]
+        ownerHomeID = yield cls.ownerHomeID(home._txn, resourceID)
         ownerHome = yield home._txn.homeWithResourceID(home._homeType, ownerHomeID)
 
-        child = cls(
+        child = ownerHome._childClass(
             home=home,
             name=resourceName, resourceID=resourceID,
             mode=bindMode, status=bindStatus,
@@ -2700,8 +2737,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic, HomeChildBas
                 if bindMode == _BIND_MODE_OWN:
                     ownerHomeID = homeID
                 else:
-                    ownerHomeID = (yield cls._ownerHomeWithResourceID.on(
-                                    home._txn, resourceID=resourceID))[0][0]
+                    ownerHomeID = yield cls.ownerHomeID(home._txn, resourceID)
                 rows[0].append(ownerHomeID)
 
             if rows and queryCacher:
@@ -2762,8 +2798,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic, HomeChildBas
         if bindMode == _BIND_MODE_OWN:
             ownerHome = home
         else:
-            ownerHomeID = (yield cls._ownerHomeWithResourceID.on(
-                            home._txn, resourceID=resourceID))[0][0]
+            ownerHomeID = yield cls.ownerHomeID(home._txn, resourceID)
             ownerHome = yield home._txn.homeWithResourceID(home._homeType, ownerHomeID)
         child = cls(
             home=home,
@@ -2774,22 +2809,6 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic, HomeChildBas
         yield child.initFromStore()
         returnValue(child)
 
-
-    @classproperty
-    def _bindInsertQuery(cls, **kw): #@NoSelf
-        """
-        DAL statement to create a bind entry that connects a collection to its
-        home.
-        """
-        bind = cls._bindSchema
-        return Insert({
-            bind.HOME_RESOURCE_ID: Parameter("homeID"),
-            bind.RESOURCE_ID: Parameter("resourceID"),
-            bind.RESOURCE_NAME: Parameter("name"),
-            bind.BIND_MODE: Parameter("mode"),
-            bind.BIND_STATUS: Parameter("bindStatus"),
-            bind.MESSAGE: Parameter("message"),
-        })
 
     @classmethod
     @inlineCallbacks
@@ -3016,9 +3035,8 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic, HomeChildBas
             # we already know who the owner is.
             returnValue(self._home._resourceID)
         else:
-            rid = (yield self._ownerHomeWithResourceID.on(
-                self._txn, resourceID=self._resourceID))[0][0]
-            returnValue(rid)
+            ownerHomeID = yield self.ownerHomeID(self._txn, self._resourceID)
+            returnValue(ownerHomeID)
 
 
     @inlineCallbacks
@@ -3047,6 +3065,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic, HomeChildBas
         returnValue(results)
 
 
+    # TODO: move to Calendar
     @classproperty
     def _objectResourceNamesQuery(cls): #@NoSelf
         """
@@ -3057,6 +3076,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic, HomeChildBas
                       Where=obj.PARENT_RESOURCE_ID == Parameter('resourceID'))
 
 
+    # TODO: Make abstract here, and and move to Calendar
     @inlineCallbacks
     def listObjectResources(self):
         if self._objectNames is None:
@@ -3066,6 +3086,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic, HomeChildBas
         returnValue(self._objectNames)
 
 
+    # TODO: move to Calendar
     @classproperty
     def _objectCountQuery(cls): #@NoSelf
         """
@@ -3076,6 +3097,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic, HomeChildBas
                       Where=obj.PARENT_RESOURCE_ID == Parameter('resourceID'))
 
 
+    # TODO: Make abstract here, and and move to Calendar
     @inlineCallbacks
     def countObjectResources(self):
         if self._objectNames is None:
@@ -3476,11 +3498,19 @@ class CommonObjectResource(LoggingMixIn, FancyEqMixin):
         self._locked = False
 
 
+    #TODO: move to CalendarObject
     @classproperty
-    def _allColumnsWithParent(cls): #@NoSelf
+    def _allColumnsWithParentQuery(cls): #@NoSelf
         obj = cls._objectSchema
         return Select(cls._allColumns, From=obj,
                       Where=obj.PARENT_RESOURCE_ID == Parameter("parentID"))
+
+    # TODO: Make abstract here, and and move to CalendarObject
+    @classmethod
+    @inlineCallbacks
+    def _allColumnsWithParent(cls, parent):
+        returnValue((yield cls._allColumnsWithParentQuery.on(
+            parent._txn, parentID=parent._resourceID)))
 
 
     @classmethod
@@ -3496,8 +3526,7 @@ class CommonObjectResource(LoggingMixIn, FancyEqMixin):
         results = []
 
         # Load from the main table first
-        dataRows = yield cls._allColumnsWithParent.on(
-            parent._txn, parentID=parent._resourceID)
+        dataRows = yield cls._allColumnsWithParent(parent)
 
         if dataRows:
             # Get property stores for all these child resources (if any found)
@@ -3525,14 +3554,6 @@ class CommonObjectResource(LoggingMixIn, FancyEqMixin):
 
 
     @classmethod
-    def _allColumnsWithParentAndNames(cls, names): #@NoSelf
-        obj = cls._objectSchema
-        return Select(cls._allColumns, From=obj,
-                      Where=(obj.PARENT_RESOURCE_ID == Parameter("parentID")).And(
-                          obj.RESOURCE_NAME.In(Parameter("names", len(names)))))
-
-
-    @classmethod
     @inlineCallbacks
     def loadAllObjectsWithNames(cls, parent, names):
         """
@@ -3547,6 +3568,22 @@ class CommonObjectResource(LoggingMixIn, FancyEqMixin):
 
         returnValue(results)
 
+
+    #TODO: move to CalendarObject
+    @classmethod
+    def _allColumnsWithParentAndNamesQuery(cls, names): #@NoSelf
+        obj = cls._objectSchema
+        return Select(cls._allColumns, From=obj,
+                      Where=(obj.PARENT_RESOURCE_ID == Parameter("parentID")).And(
+                          obj.RESOURCE_NAME.In(Parameter("names", len(names)))))
+
+
+    # TODO: Make abstract here, and and move to CalendarObject
+    @classmethod
+    @inlineCallbacks
+    def _allColumnsWithParentAndNames(cls, parent, names):
+        returnValue((yield cls._allColumnsWithParentAndNamesQuery(names).on(
+            parent._txn, parentID=parent._resourceID, names=names)))
 
     @classmethod
     @inlineCallbacks
@@ -3566,8 +3603,7 @@ class CommonObjectResource(LoggingMixIn, FancyEqMixin):
         results = []
 
         # Load from the main table first
-        dataRows = yield cls._allColumnsWithParentAndNames(names).on(
-            parent._txn, parentID=parent._resourceID, names=names)
+        dataRows = yield cls._allColumnsWithParentAndNames(parent, names)
 
         if dataRows:
             # Get property stores for all these child resources
@@ -3754,6 +3790,9 @@ class CommonObjectResource(LoggingMixIn, FancyEqMixin):
     def _txn(self):
         return self._parentCollection._txn
 
+    @property
+    def _home(self):
+        return self._parentCollection._home
 
     def transaction(self):
         return self._parentCollection._txn
@@ -4255,7 +4294,6 @@ class NotificationObject(LoggingMixIn, FancyEqMixin):
                       From=obj,
                       Where=(obj.NOTIFICATION_HOME_RESOURCE_ID == Parameter(
                           "homeID")))
-
 
     @classmethod
     @inlineCallbacks

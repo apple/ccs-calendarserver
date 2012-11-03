@@ -404,8 +404,9 @@ class ParallelHomeMigrationTests(HomeMigrationTests):
         """
         Create an upgrade service.
         """
+        #FIXME: not parallel
         return UpgradeToDatabaseService(
             self.fileStore, self.sqlStore, self.stubService,
-            parallel=2, spawner=StubSpawner()
+            parallel=0, spawner=StubSpawner()
         )
 

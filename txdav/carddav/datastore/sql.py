@@ -44,7 +44,7 @@ from txdav.carddav.datastore.util import validateAddressBookComponent
 from txdav.carddav.iaddressbookstore import IAddressBookHome, IAddressBook, \
     IAddressBookObject
 from txdav.common.datastore.sql import CommonHome, CommonHomeChild, \
-    CommonObjectResource, EADDRESSBOOKTYPE
+    CommonObjectResource, EADDRESSBOOKTYPE, SharingMixIn
 from txdav.common.datastore.sql_legacy import PostgresLegacyABIndexEmulator
 from txdav.common.datastore.sql_tables import ADDRESSBOOK_TABLE, \
     ADDRESSBOOK_BIND_TABLE, ADDRESSBOOK_OBJECT_REVISIONS_TABLE, \
@@ -137,7 +137,7 @@ class AddressBookHome(CommonHome):
 
 AddressBookHome._register(EADDRESSBOOKTYPE)
 
-class _AddressBookObjectCommon(object):
+class AddressBookSharingMixIn(SharingMixIn):
 
     @classproperty
     def _insertABObject(cls): #@NoSelf
@@ -160,7 +160,7 @@ class _AddressBookObjectCommon(object):
                     abo.MODIFIED))
 
 
-class AddressBook(CommonHomeChild, _AddressBookObjectCommon):
+class AddressBook(CommonHomeChild, AddressBookSharingMixIn):
     """
     SQL-based implementation of L{IAddressBook}.
     """
@@ -245,12 +245,13 @@ class AddressBook(CommonHomeChild, _AddressBookObjectCommon):
 
     @classmethod
     @inlineCallbacks
-    def _createChild(cls, home, name):
+    def _createChild(cls, home, name):  #@NoSelf
         # Create this object
 
         # TODO:  N, FN, set to resource name for now,
         #        but "may" have to change when shared
         #        and perhaps will need to reflect a per-user property
+        uid = str(uuid4())
         component = VCard.fromString(
             """BEGIN:VCARD
 VERSION:3.0
@@ -260,13 +261,13 @@ FN:%s
 N:%s;;;;
 X-ADDRESSBOOKSERVER-KIND:group
 END:VCARD
-""".replace("\n", "\r\n") % (vCardProductID, uuid4(), name, name)
+""".replace("\n", "\r\n") % (vCardProductID, uid, name, name)
             )
 
         componentText = str(component)
         md5 = hashlib.md5(componentText).hexdigest()
 
-        resourceID, created, modified = (
+        resourceID, created, modified = (#@UnusedVariable
             yield cls._insertABObject.on(
                 home._txn,
                 addressbookResourceID=None,
@@ -289,16 +290,78 @@ END:VCARD
 
 
 
-class AddressBookObject(CommonObjectResource, _AddressBookObjectCommon):
+    @classmethod
+    def _memberIDsWithGroupIDsQuery(cls, groupIDs): #@NoSelf
+        """
+        DAL query to load all object resource names for a home child.
+        """
+        aboMembers = schema.ABO_MEMBERS
+        return Select([aboMembers.MEMBER_ID], From=aboMembers,
+                      Where=aboMembers.GROUP_ID.In(Parameter("groupIDs", len(groupIDs)))
+                      )
+
+    @inlineCallbacks
+    def _addressBookObjectIDs(self):
+        """
+        Get all addressbookobject resource IDs in this address book
+        
+        TODO: optimize
+        """
+        # TODO: if shared, self is a member
+        # allMemberIDs = set() if self.owned() else set([self._resourceID])
+        allMemberIDs = set()
+        examinedIDs = set()
+        remainingIDs = set([self._resourceID])
+        while remainingIDs:
+            memberRows = yield self._memberIDsWithGroupIDsQuery(remainingIDs).on(self._txn, groupIDs=remainingIDs)
+            allMemberIDs |= set([memberRow[0] for memberRow in memberRows])
+            examinedIDs |= remainingIDs
+            remainingIDs = allMemberIDs - examinedIDs
+            print("_addressBookObjectIDs:self=%s, examinedIDs=%s, remainingIDs=%s, allMemberIDs=%s" % (self, examinedIDs, remainingIDs, allMemberIDs,))
+
+        returnValue(tuple(allMemberIDs))
+
+
+    @classmethod
+    def _objectResourceNamesWithResourceIDsQuery(cls, resourceIDs): #@NoSelf
+        """
+        DAL query to load all object resource names for a home child.
+        """
+        abo = schema.ADDRESSBOOK_OBJECT
+        return Select([abo.RESOURCE_NAME], From=abo,
+                      Where=abo.RESOURCE_ID.In(Parameter("resourceIDs", len(resourceIDs)))
+                      )
+
+
+    @inlineCallbacks
+    def listObjectResources(self):
+        if self._objectNames is None:
+            memberIDs = yield self._addressBookObjectIDs()
+            rows = (yield self._objectResourceNamesWithResourceIDsQuery(memberIDs).on(
+                self._txn, resourceIDs=memberIDs)) if memberIDs else []
+            self._objectNames = sorted([row[0] for row in rows])
+
+        returnValue(self._objectNames)
+
+
+    @inlineCallbacks
+    def countObjectResources(self):
+        returnValue(len((yield self._addressBookObjectIDs())))
+
+
+class AddressBookObject(CommonObjectResource, AddressBookSharingMixIn):
 
     implements(IAddressBookObject)
 
     _objectTable = ADDRESSBOOK_OBJECT_TABLE
     _objectSchema = schema.ADDRESSBOOK_OBJECT
+    _bindSchema = schema.ADDRESSBOOK_BIND
+
 
     def __init__(self, addressbook, name, uid, resourceID=None, metadata=None):
 
         self._kind = None
+        self._ownerAddressBookResourceID = None
         super(AddressBookObject, self).__init__(addressbook, name, uid, resourceID)
 
 
@@ -319,6 +382,11 @@ class AddressBookObject(CommonObjectResource, _AddressBookObjectCommon):
         aboForeignMembers = schema.ABO_FOREIGN_MEMBERS
         aboMembers = schema.ABO_MEMBERS
 
+        if not self._addressbook.owned():
+            ownerGroup, ownerAddressBook = yield self._ownerGroupAndAddressBook()  #@UnusedVariable 
+            if ownerGroup:
+                assert False, "updateDatabase() remove of vcard in shared group: need to modify shared group vCard text"
+
         # delete members table row for this object
         groupIDs = yield Delete(
             aboMembers,
@@ -327,29 +395,19 @@ class AddressBookObject(CommonObjectResource, _AddressBookObjectCommon):
         ).on(self._txn)
 
         # add to foreign member table row by UID
+        assert self._ownerAddressBookResourceID
         for groupID in groupIDs:
-            yield Insert(
-                {aboForeignMembers.GROUP_ID: groupID,
-                 aboForeignMembers.ADDRESSBOOK_ID: self._addressbook._resourceID,
-                 aboForeignMembers.MEMBER_ADDRESS: "urn:uuid:" + self._uid, }
-            ).on(self._txn)
-
-        if self._kind == _ABO_KIND_GROUP:
-
-            # delete this group's members
-            yield Delete(
-                aboMembers,
-                Where=aboMembers.GROUP_ID == self._resourceID,
-            ).on(self._txn)
-
-            # delete this group's foreign members
-            yield Delete(
-                aboForeignMembers,
-                Where=aboForeignMembers.GROUP_ID == self._resourceID,
-            ).on(self._txn)
+            if groupID[0] != self._ownerAddressBookResourceID:
+                # remove on address book, add aboForeignMembers row to local groups only
+                yield Insert(
+                        {aboForeignMembers.GROUP_ID: groupID,
+                         aboForeignMembers.ADDRESSBOOK_ID: self._ownerAddressBookResourceID,
+                         aboForeignMembers.MEMBER_ADDRESS: "urn:uuid:" + self._uid, }
+                    ).on(self._txn)
 
         yield super(AddressBookObject, self).remove()
         self._kind = None
+        self._ownerAddressBookResourceID = None
 
     @classproperty
     def _allColumns(cls): #@NoSelf
@@ -359,6 +417,7 @@ class AddressBookObject(CommonObjectResource, _AddressBookObjectCommon):
         """
         obj = cls._objectSchema
         return [
+            obj.ADDRESSBOOK_RESOURCE_ID,
             obj.RESOURCE_ID,
             obj.RESOURCE_NAME,
             obj.UID,
@@ -375,7 +434,8 @@ class AddressBookObject(CommonObjectResource, _AddressBookObjectCommon):
         Given a select result using the columns from L{_allColumns}, initialize
         the object resource state.
         """
-        (self._resourceID,
+        (self._ownerAddressBookResourceID,
+         self._resourceID,
          self._name,
          self._uid,
          self._kind,
@@ -383,6 +443,47 @@ class AddressBookObject(CommonObjectResource, _AddressBookObjectCommon):
          self._size,
          self._created,
          self._modified,) = tuple(row)
+
+        print("_initFromRow:self=%s, row=%s, self._ownerAddressBookResourceID=%s, self._addressbook=%s" % (self, row, self._ownerAddressBookResourceID, self._addressbook))
+
+    @classmethod
+    def _allColumnsWithResourceIDsQuery(cls, resourceIDs): #@NoSelf
+        obj = cls._objectSchema
+        return Select(cls._allColumns, From=obj,
+                      Where=obj.RESOURCE_ID.In(Parameter("resourceIDs", len(resourceIDs))))
+
+    @classmethod
+    @inlineCallbacks
+    def _allColumnsWithParent(cls, parent): #@NoSelf
+
+        memberIDs = yield parent._addressBookObjectIDs()
+        print("_allColumnsWithParent:cls=%s, parent=%s, memberIDs=%s" % (cls, parent, memberIDs,))
+
+        rows = (yield cls._allColumnsWithResourceIDsQuery(memberIDs).on(
+            parent._txn, resourceIDs=memberIDs)) if memberIDs else []
+
+        print("_allColumnsWithParent:cls=%s, parent=%s, rows=%s" % (cls, parent, rows,))
+        returnValue(rows)
+
+
+    @classmethod
+    def _allColumnsWithResourceIDsAndNamesQuery(cls, resourceIDs, names): #@NoSelf
+        obj = cls._objectSchema
+        return Select(cls._allColumns, From=obj,
+                      Where=(obj.RESOURCE_ID.In(Parameter("resourceIDs", len(resourceIDs))).And(
+                          obj.RESOURCE_NAME.In(Parameter("names", len(names))))))
+
+
+    @classmethod
+    @inlineCallbacks
+    def _allColumnsWithParentAndNames(cls, parent, names): #@NoSelf
+        memberIDs = yield parent._addressBookObjectIDs()
+
+        rows = (yield cls._allColumnsWithResourceIDsAndNamesQuery(memberIDs, names).on(
+            parent._txn, resourceIDs=memberIDs, names=names)) if memberIDs else []
+
+        returnValue(rows)
+
 
     @inlineCallbacks
     def setComponent(self, component, inserting=False):
@@ -397,6 +498,24 @@ class AddressBookObject(CommonObjectResource, _AddressBookObjectCommon):
 
         yield self._addressbook.notifyChanged()
 
+
+    @inlineCallbacks
+    def _ownerGroupAndAddressBook(self):
+        # find the owning address book
+        ownerGroup = None
+        ownerAddressBook = None
+        if self._addressbook.owned():
+            ownerAddressBook = self._addressbook
+        else:
+            ownerAddressBook = yield self._addressbook.ownerHome().childWithID(self._addressbook._resourceID)
+            if not ownerAddressBook:
+                for addressbook in (yield self._addressbook.ownerHome().children()):
+                    for addressBookObject in (yield addressbook.objectResources()):
+                        if addressBookObject._resourceID == self._addressbook._resourceID:
+                            ownerGroup = addressBookObject
+                            ownerAddressBook = addressbook
+                            break
+        returnValue((ownerGroup, ownerAddressBook))
 
     @inlineCallbacks
     def updateDatabase(self, component, expand_until=None, reCreate=False,
@@ -437,17 +556,36 @@ class AddressBookObject(CommonObjectResource, _AddressBookObjectCommon):
         assert inserting or self._kind == kind  # can't change kind. Should be checked in upper layers
         self._kind = kind
 
+        print("updateDatabase:self=%s self._addressbook.=%s self._ownerAddressBookResourceID=%s" % (self, self._addressbook, self._ownerAddressBookResourceID,))
+        print("updateDatabase:self=%s insert=%s, component=%s" % (self, inserting, component))
         if inserting:
+
+            ownerGroup, ownerAddressBook = yield self._ownerGroupAndAddressBook()
+            assert ownerAddressBook
+            self._ownerAddressBookResourceID = ownerAddressBook._resourceID
+
             self._resourceID, self._created, self._modified = (
                 yield self._insertABObject.on(
                     self._txn,
-                    addressbookResourceID=self._addressbook._resourceID,
+                    addressbookResourceID=self._ownerAddressBookResourceID,
                     name=self._name,
                     text=componentText,
                     uid=self._uid,
                     md5=self._md5,
                     kind=self._kind,
                     ))[0]
+
+            if ownerGroup:
+                assert False, "updateDatabase() insert for shared group: need to modify shared group vCard text"
+            else:
+                # add row on this address book group table
+                print("updateDatabase1:self=%s Insert(aboMembers.GROUP_ID:%s,  aboMembers.ADDRESSBOOK_ID:%s, aboMembers.MEMBER_ID:%s" % (
+                    self, self._ownerAddressBookResourceID, self._ownerAddressBookResourceID, self._resourceID))
+                yield Insert(
+                    {aboMembers.GROUP_ID: self._ownerAddressBookResourceID,
+                     aboMembers.ADDRESSBOOK_ID: self._ownerAddressBookResourceID,
+                     aboMembers.MEMBER_ID: self._resourceID, }
+                ).on(self._txn)
 
             # update existing group member tables for this new object
             # delete foreign members table row for this object
@@ -459,9 +597,11 @@ class AddressBookObject(CommonObjectResource, _AddressBookObjectCommon):
 
             # add to member table row by resourceID
             for groupID in groupIDs:
+                print("updateDatabase2:self=%s Insert(aboMembers.GROUP_ID:%s,  aboMembers.ADDRESSBOOK_ID:%s, aboMembers.MEMBER_ID:%s" % (
+                    self, groupID[0], self._ownerAddressBookResourceID, self._resourceID))
                 yield Insert(
-                    {aboMembers.GROUP_ID: groupID,
-                     aboMembers.ADDRESSBOOK_ID: self._addressbook._resourceID,
+                    {aboMembers.GROUP_ID: groupID[0],
+                     aboMembers.ADDRESSBOOK_ID: self._ownerAddressBookResourceID,
                      aboMembers.MEMBER_ID: self._resourceID, }
                 ).on(self._txn)
 
@@ -475,6 +615,7 @@ class AddressBookObject(CommonObjectResource, _AddressBookObjectCommon):
 
         if self._kind == _ABO_KIND_GROUP:
 
+            assert self._ownerAddressBookResourceID
             # get member resource ID for each member string, or keep as string
             memberIDs = []
             foreignMemberAddrs = []
@@ -484,7 +625,7 @@ class AddressBookObject(CommonObjectResource, _AddressBookObjectCommon):
                     memberUID = memberAddr[len("urn:uuid:"):]
                     memberRow = yield Select([abo.RESOURCE_ID],
                                      From=abo,
-                                     Where=((abo.ADDRESSBOOK_RESOURCE_ID == self._addressbook._resourceID)
+                                     Where=((abo.ADDRESSBOOK_RESOURCE_ID == self._ownerAddressBookResourceID)
                                             ).And(abo.VCARD_UID == memberUID)).on(self._txn)
                 if memberRow:
                     memberIDs.append(memberRow[0][0])
@@ -492,9 +633,10 @@ class AddressBookObject(CommonObjectResource, _AddressBookObjectCommon):
                     foreignMemberAddrs.append(memberAddr)
 
             #get current members
-            currentMemberIDs = yield Select([aboMembers.MEMBER_ID],
+            currentMemberRows = yield Select([aboMembers.MEMBER_ID],
                                  From=aboMembers,
                                  Where=(aboMembers.GROUP_ID == self._resourceID)).on(self._txn)
+            currentMemberIDs = [currentMemberRow[0] for currentMemberRow in currentMemberRows]
 
             memberIDsToDelete = set(currentMemberIDs) - set(memberIDs)
             memberIDsToAdd = set(memberIDs) - set(currentMemberIDs)
@@ -506,9 +648,11 @@ class AddressBookObject(CommonObjectResource, _AddressBookObjectCommon):
                 ).on(self._txn)
 
             for memberIDToAdd in memberIDsToAdd:
+                print("updateDatabase3:self=%s Insert(aboMembers.GROUP_ID:%s,  aboMembers.ADDRESSBOOK_ID:%s, aboMembers.MEMBER_ID:%s" % (
+                    self, self._resourceID, self._ownerAddressBookResourceID, memberIDToAdd))
                 yield Insert(
                     {aboMembers.GROUP_ID: self._resourceID,
-                     aboMembers.ADDRESSBOOK_ID: self._addressbook._resourceID,
+                     aboMembers.ADDRESSBOOK_ID: self._ownerAddressBookResourceID,
                      aboMembers.MEMBER_ID: memberIDToAdd, }
                 ).on(self._txn)
 
@@ -527,9 +671,11 @@ class AddressBookObject(CommonObjectResource, _AddressBookObjectCommon):
                 ).on(self._txn)
 
             for foreignMemberAddrToAdd in foreignMemberAddrsToAdd:
+                print("updateDatabase4:self=%s Insert(foreignMemberAddrToAdd.GROUP_ID:%s,  foreignMemberAddrToAdd.ADDRESSBOOK_ID:%s, foreignMemberAddrToAdd.MEMBER_ID:%s" % (
+                    self, self._resourceID, self._ownerAddressBookResourceID, foreignMemberAddrToAdd))
                 yield Insert(
                     {aboForeignMembers.GROUP_ID: self._resourceID,
-                     aboForeignMembers.ADDRESSBOOK_ID: self._addressbook._resourceID,
+                     aboForeignMembers.ADDRESSBOOK_ID: self._ownerAddressBookResourceID,
                      aboForeignMembers.MEMBER_ADDRESS: foreignMemberAddrToAdd, }
                 ).on(self._txn)
 
@@ -572,6 +718,15 @@ class AddressBookObject(CommonObjectResource, _AddressBookObjectCommon):
         """
         return MimeType.fromString("text/vcard; charset=utf-8")
 
+
+    def owned(self):
+        return True
+
+    def ownerHome(self):
+        return self._addressbook.ownerHome()
+
+    def notifyChanged(self):
+        self._addressbook.notifyChanged()
 
 
 AddressBook._objectResourceClass = AddressBookObject
