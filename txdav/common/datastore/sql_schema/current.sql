@@ -390,18 +390,6 @@ create table ABO_FOREIGN_MEMBERS (
     primary key(GROUP_ID, MEMBER_ADDRESS) -- implicit index
 );
 
--- #### TODO: DELETE, USE CREATED and MODIFIED in ADDRESSS_BOOK_OBJECT instead ####
---------------------------
--- AddressBook Metadata --
---------------------------
-
-create table ADDRESSBOOK_METADATA (
-  RESOURCE_ID integer   primary key references ADDRESSBOOK_OBJECT on delete cascade, -- implicit index
-  CREATED     timestamp default timezone('UTC', CURRENT_TIMESTAMP),
-  MODIFIED    timestamp default timezone('UTC', CURRENT_TIMESTAMP)
-);
-
-
 ----------------------
 -- AddressBook Bind --
 ----------------------

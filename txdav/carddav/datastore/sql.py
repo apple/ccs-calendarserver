@@ -145,7 +145,6 @@ class AddressBookSharingMixIn(SharingMixIn):
         DAL statement to create an addressbook object with all default values.
         """
         abo = schema.ADDRESSBOOK_OBJECT
-        assert schema.ADDRESSBOOK_OBJECT == schema.ADDRESSBOOK
         return Insert(
             {abo.RESOURCE_ID: schema.RESOURCE_ID_SEQ,
              abo.ADDRESSBOOK_RESOURCE_ID: Parameter("addressbookResourceID"),
@@ -169,8 +168,8 @@ class AddressBook(CommonHomeChild, AddressBookSharingMixIn):
     # structured tables.  (new, preferred)
     _homeSchema = schema.ADDRESSBOOK_HOME
     _bindSchema = schema.ADDRESSBOOK_BIND
-    _homeChildSchema = schema.ADDRESSBOOK
-    _homeChildMetaDataSchema = schema.ADDRESSBOOK_METADATA
+    _homeChildSchema = schema.ADDRESSBOOK_OBJECT
+    _homeChildMetaDataSchema = schema.ADDRESSBOOK_OBJECT
     _revisionsSchema = schema.ADDRESSBOOK_OBJECT_REVISIONS
     _objectSchema = schema.ADDRESSBOOK_OBJECT
 
@@ -233,16 +232,6 @@ class AddressBook(CommonHomeChild, AddressBookSharingMixIn):
         return super(AddressBook, self).unshare(EADDRESSBOOKTYPE)
 
 
-    @classproperty
-    def _insertHomeChildMetaData(cls): #@NoSelf
-        """
-        DAL statement to create a home child with all default values.
-        """
-        child = cls._homeChildMetaDataSchema
-        return Insert({child.RESOURCE_ID: Parameter("resourceID")},
-                      Return=(child.CREATED, child.MODIFIED))
-
-
     @classmethod
     @inlineCallbacks
     def _createChild(cls, home, name):  #@NoSelf
@@ -276,13 +265,6 @@ END:VCARD
                 uid=component.resourceUID(),
                 md5=md5,
                 kind=_ABO_KIND_GROUP,
-                ))[0]
-
-        # TODO: remove metadata table
-        created, modified = (
-            yield cls._insertHomeChildMetaData.on(
-                home._txn,
-                resourceID=resourceID,
                 ))[0]
 
         returnValue((resourceID, created, modified))
@@ -394,13 +376,15 @@ class AddressBookObject(CommonObjectResource, AddressBookSharingMixIn):
             Return=aboMembers.GROUP_ID
         ).on(self._txn)
 
+        print("remove:self=%s, deleted from groupIDs=%s" % (self, groupIDs,))
+
         # add to foreign member table row by UID
         assert self._ownerAddressBookResourceID
         for groupID in groupIDs:
             if groupID[0] != self._ownerAddressBookResourceID:
                 # remove on address book, add aboForeignMembers row to local groups only
                 yield Insert(
-                        {aboForeignMembers.GROUP_ID: groupID,
+                        {aboForeignMembers.GROUP_ID: groupID[0],
                          aboForeignMembers.ADDRESSBOOK_ID: self._ownerAddressBookResourceID,
                          aboForeignMembers.MEMBER_ADDRESS: "urn:uuid:" + self._uid, }
                     ).on(self._txn)

@@ -2501,14 +2501,23 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic, HomeChildBas
                    bind.BIND_STATUS,
                    bind.MESSAGE]
         columns.extend(cls.metadataColumns())
-        return Select(columns,
-                     From=child.join(
-                         bind, child.RESOURCE_ID == bind.RESOURCE_ID,
-                         'left outer').join(
-                         childMetaData, childMetaData.RESOURCE_ID == bind.RESOURCE_ID,
-                         'left outer'),
-                     Where=(bind.HOME_RESOURCE_ID == Parameter("homeID")
-                           ).And(bind.BIND_STATUS == _BIND_STATUS_ACCEPTED))
+
+        if child == childMetaData:
+            return Select(columns,
+                         From=child.join(
+                             bind, child.RESOURCE_ID == bind.RESOURCE_ID,
+                             'left outer'),
+                         Where=(bind.HOME_RESOURCE_ID == Parameter("homeID")
+                               ).And(bind.BIND_STATUS == _BIND_STATUS_ACCEPTED))
+        else:
+            return Select(columns,
+                         From=child.join(
+                             bind, child.RESOURCE_ID == bind.RESOURCE_ID,
+                             'left outer').join(
+                             childMetaData, childMetaData.RESOURCE_ID == bind.RESOURCE_ID,
+                             'left outer'),
+                         Where=(bind.HOME_RESOURCE_ID == Parameter("homeID")
+                               ).And(bind.BIND_STATUS == _BIND_STATUS_ACCEPTED))
 
 
     def shareMode(self):

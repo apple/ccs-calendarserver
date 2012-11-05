@@ -211,6 +211,7 @@ class SQLStoreBuilder(object):
                   'NOTIFICATION_OBJECT_REVISIONS',
                   'ADDRESSBOOK_OBJECT_REVISIONS',
                   'CALENDAR_OBJECT_REVISIONS',
+                  'ABO_MEMBERS',
                   'ADDRESSBOOK_OBJECT',
                   'CALENDAR_OBJECT',
                   'CALENDAR_BIND',
