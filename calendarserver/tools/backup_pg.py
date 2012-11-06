@@ -112,7 +112,7 @@ def loadData(dumpFile, verbose=False):
             print e.output
         raise BackupError(
             "%s failed:\n%s (exit code = %d)" %
-            (PGDUMP, e.output, e.returncode)
+            (PSQL, e.output, e.returncode)
         )
 
 

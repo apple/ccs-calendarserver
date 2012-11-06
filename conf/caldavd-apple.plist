@@ -96,9 +96,11 @@
 
     <!-- Database connection -->
     <key>DBType</key>
-    <string>postgres</string>
+    <string></string>
     <key>DSN</key>
-    <string>/Library/Server/PostgreSQL For Server Services/Socket:caldav:caldav:::</string>
+    <string></string>
+    <key>DBImportFile</key>
+    <string>/Library/Server/Calendar and Contacts/DataDump.sql</string>
 
     <!-- Data root -->
     <key>DataRoot</key>
