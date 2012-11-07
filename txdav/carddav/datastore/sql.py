@@ -37,7 +37,7 @@ from twisted.python import hashlib
 from twistedcaldav import carddavxml, customxml
 from twistedcaldav.memcacher import Memcacher
 from twistedcaldav.vcard import Component as VCard, InvalidVCardDataError, \
-    vCardProductID
+    vCardProductID, Property
 
 from txdav.base.propertystore.base import PropertyName
 from txdav.carddav.datastore.util import validateAddressBookComponent
@@ -364,10 +364,24 @@ class AddressBookObject(CommonObjectResource, AddressBookSharingMixIn):
         aboForeignMembers = schema.ABO_FOREIGN_MEMBERS
         aboMembers = schema.ABO_MEMBERS
 
+        print("remove:%s, name=%s" % (self, self._name))
+
         if not self._addressbook.owned():
             ownerGroup, ownerAddressBook = yield self._ownerGroupAndAddressBook()  #@UnusedVariable 
             if ownerGroup:
-                assert False, "updateDatabase() remove of vcard in shared group: need to modify shared group vCard text"
+                ownerGroupComponent = yield ownerGroup.component()
+                member = "urn:uuid:" + self._uid
+                if member in ownerGroupComponent.resourceMembers():
+                    ownerGroupComponent.removeProperty(Property("X-ADDRESSBOOKSERVER-MEMBER", member))
+                    ownerGroup.updateDatabase(ownerGroupComponent)
+
+        elif self._kind == _ABO_KIND_GROUP:
+            # need to invalidate queryCacher
+            queryCacher = self._txn._queryCacher
+            if queryCacher:
+                for shareeAddressBook in (yield self.asShared()):
+                    cacheKey = queryCacher.keyForObjectWithName(shareeAddressBook._home._resourceID, shareeAddressBook._name)
+                    yield queryCacher.invalidateAfterCommit(self._txn, cacheKey)
 
         # delete members table row for this object
         groupIDs = yield Delete(
@@ -392,6 +406,71 @@ class AddressBookObject(CommonObjectResource, AddressBookSharingMixIn):
         yield super(AddressBookObject, self).remove()
         self._kind = None
         self._ownerAddressBookResourceID = None
+
+    @classmethod
+    def _allWithResourceIDAnd(cls, resourceIDs, column, paramName):
+        """
+        DAL query for all columns where PARENT_RESOURCE_ID matches a parentID
+        parameter and a given instance column matches a given parameter name.
+        """
+        obj = cls._objectSchema
+        return Select(
+            cls._allColumns, From=obj,
+            Where=(column == Parameter(paramName)).And(
+                obj.RESOURCE_ID.In(Parameter("resourceIDs", len(resourceIDs))))
+        )
+
+
+    @classmethod
+    def _allWithResourceIDAndName(cls, resourceIDs): #@NoSelf
+        return cls._allWithResourceIDAnd(resourceIDs, cls._objectSchema.RESOURCE_NAME, "name")
+
+
+    @classmethod
+    def _allWithResourceIDAndUID(cls, resourceIDs): #@NoSelf
+        return cls._allWithResourceIDAnd(resourceIDs, cls._objectSchema.UID, "uid")
+
+
+    @classproperty
+    def _allWithResourceID(cls): #@NoSelf
+        obj = cls._objectSchema
+        return Select(
+            cls._allColumns, From=obj,
+            Where=(obj.RESOURCE_ID == Parameter("resourceID")))
+
+
+    @inlineCallbacks
+    def initFromStore(self):
+        """
+        Initialise this object from the store. We read in and cache all the
+        extra metadata from the DB to avoid having to do DB queries for those
+        individually later. Either the name or uid is present, so we have to
+        tweak the query accordingly.
+
+        @return: L{self} if object exists in the DB, else C{None}
+        """
+        memberIDs = yield self._addressbook._addressBookObjectIDs()
+        if self._name:
+            rows = (yield self._allWithResourceIDAndName(memberIDs).on(
+                self._txn, name=self._name,
+                resourceIDs=memberIDs,)) if memberIDs else []
+        elif self._uid:
+            rows = (yield self._allWithResourceIDAndUID(memberIDs).on(
+                self._txn, uid=self._uid,
+                resourceIDs=memberIDs,)) if memberIDs else []
+        elif self._resourceID:
+            rows = (yield self._allWithResourceID(memberIDs).on(
+                self._txn, resourceID=self._resourceID,)) if self._resourceID in memberIDs else []
+        print("initFromStore:self=%s, self._name=%s, self._uid=%s, self._resourceID=%s, self._parentCollection._resourceID=%s rows=%s" %
+              (self, self._name, self._uid, self._resourceID, self._parentCollection._resourceID, rows))
+
+        if rows:
+            self._initFromRow(tuple(rows[0]))
+            yield self._loadPropertyStore()
+            returnValue(self)
+        else:
+            returnValue(None)
+
 
     @classproperty
     def _allColumns(cls): #@NoSelf
@@ -540,6 +619,12 @@ class AddressBookObject(CommonObjectResource, AddressBookSharingMixIn):
         assert inserting or self._kind == kind  # can't change kind. Should be checked in upper layers
         self._kind = kind
 
+        ''' FIXME: 
+            SECURITY HOLE on for shared groups:  Non owner may NOT add group members not currently in group!
+            (Or it would be possible to troll for unshared vCard UIDs and make them shared.)
+            Fixes: just prevent it, but may make some clients fail when sharee adds groups + members to shared group.
+        '''
+
         print("updateDatabase:self=%s self._addressbook.=%s self._ownerAddressBookResourceID=%s" % (self, self._addressbook, self._ownerAddressBookResourceID,))
         print("updateDatabase:self=%s insert=%s, component=%s" % (self, inserting, component))
         if inserting:
@@ -560,16 +645,20 @@ class AddressBookObject(CommonObjectResource, AddressBookSharingMixIn):
                     ))[0]
 
             if ownerGroup:
-                assert False, "updateDatabase() insert for shared group: need to modify shared group vCard text"
-            else:
-                # add row on this address book group table
-                print("updateDatabase1:self=%s Insert(aboMembers.GROUP_ID:%s,  aboMembers.ADDRESSBOOK_ID:%s, aboMembers.MEMBER_ID:%s" % (
-                    self, self._ownerAddressBookResourceID, self._ownerAddressBookResourceID, self._resourceID))
-                yield Insert(
-                    {aboMembers.GROUP_ID: self._ownerAddressBookResourceID,
-                     aboMembers.ADDRESSBOOK_ID: self._ownerAddressBookResourceID,
-                     aboMembers.MEMBER_ID: self._resourceID, }
-                ).on(self._txn)
+                ownerGroupComponent = yield ownerGroup.component()
+                member = "urn:uuid:" + self._uid
+                if not member in ownerGroupComponent.resourceMembers():
+                    ownerGroupComponent.addProperty(Property("X-ADDRESSBOOKSERVER-MEMBER", member))
+                    ownerGroup.updateDatabase(ownerGroupComponent)
+
+            # add row on this address book group table
+            print("updateDatabase1:self=%s Insert(aboMembers.GROUP_ID:%s,  aboMembers.ADDRESSBOOK_ID:%s, aboMembers.MEMBER_ID:%s" % (
+                self, self._ownerAddressBookResourceID, self._ownerAddressBookResourceID, self._resourceID))
+            yield Insert(
+                {aboMembers.GROUP_ID: self._ownerAddressBookResourceID,
+                 aboMembers.ADDRESSBOOK_ID: self._ownerAddressBookResourceID,
+                 aboMembers.MEMBER_ID: self._resourceID, }
+            ).on(self._txn)
 
             # update existing group member tables for this new object
             # delete foreign members table row for this object
@@ -624,6 +713,7 @@ class AddressBookObject(CommonObjectResource, AddressBookSharingMixIn):
 
             memberIDsToDelete = set(currentMemberIDs) - set(memberIDs)
             memberIDsToAdd = set(memberIDs) - set(currentMemberIDs)
+            print("updateDatabase3:self=%s component.resourceMembers()=%s, currentMemberIDs:%s,  memberIDsToAdd:%s, memberIDsToDelete:%s" % (self, component.resourceMembers(), currentMemberIDs, memberIDsToAdd, memberIDsToDelete,))
 
             for memberIDToDelete in memberIDsToDelete:
                 yield Delete(
@@ -632,7 +722,7 @@ class AddressBookObject(CommonObjectResource, AddressBookSharingMixIn):
                 ).on(self._txn)
 
             for memberIDToAdd in memberIDsToAdd:
-                print("updateDatabase3:self=%s Insert(aboMembers.GROUP_ID:%s,  aboMembers.ADDRESSBOOK_ID:%s, aboMembers.MEMBER_ID:%s" % (
+                print("updateDatabase3.1:self=%s Insert(aboMembers.GROUP_ID:%s,  aboMembers.ADDRESSBOOK_ID:%s, aboMembers.MEMBER_ID:%s" % (
                     self, self._resourceID, self._ownerAddressBookResourceID, memberIDToAdd))
                 yield Insert(
                     {aboMembers.GROUP_ID: self._resourceID,

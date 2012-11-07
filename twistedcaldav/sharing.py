@@ -906,16 +906,9 @@ class SharedCollectionMixin(object):
 
     def isGroup(self):
         try:
-            kind = self._newStoreObject._kind
+            return self._newStoreObject._kind == _ABO_KIND_GROUP
         except AttributeError:
-            pass
-        else:
-            if kind == _ABO_KIND_GROUP:
-                self.log_info("isGroup():self=%s returning True" % (self,))
-                return True
-
-        self.log_info("isGroup():self=%s returning False" % (self,))
-        return False
+            return False
 
 
     def POST_handler_content_type(self, request, contentType):
@@ -924,9 +917,9 @@ class SharedCollectionMixin(object):
                 if contentType in self._postHandlers:
                     return self._postHandlers[contentType](self, request)
                 else:
-                    self.log_info("Get a POST of an unsupported content type on a collection type: %s" % (contentType,))
+                    self.log_info("Got a POST on collection or group with an unsupported content type: %s" % (contentType,))
             else:
-                self.log_info("Get a POST with no content type on a collection")
+                self.log_info("Got a POST on collection or group with no content type")
         return succeed(responsecode.FORBIDDEN)
 
     _postHandlers = {

@@ -431,10 +431,7 @@ class Component (object):
         """
         assert self.name() == "VCARD", "Not a vcard: %r" % (self,)
 
-        if not hasattr(self, "_resource_members"):
-            self._resource_members = [prop.value() for prop in list(self.properties("X-ADDRESSBOOKSERVER-MEMBER"))]
-
-        return self._resource_members
+        return [prop.value() for prop in list(self.properties("X-ADDRESSBOOKSERVER-MEMBER"))]
 
     def validVCardData(self, doFix=True, doRaise=True):
         """
