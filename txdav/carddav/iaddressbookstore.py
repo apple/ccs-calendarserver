@@ -20,17 +20,23 @@ Address book store interfaces
 """
 
 from txdav.common.icommondatastore import ICommonTransaction, \
-    IShareableCollection
+    IShareableCollection, CommonStoreError
 from txdav.idav import INotifier
 from txdav.idav import IDataStoreObject
 
 __all__ = [
     # Classes
+    "GroupWithUnsharedAddressNotAllowedError",
     "IAddressBookTransaction",
     "IAddressBookHome",
     "IAddressBook",
     "IAddressBookObject",
 ]
+
+class GroupWithUnsharedAddressNotAllowedError(CommonStoreError):
+    """
+    Sharee cannot add group with unshared group addresses (that could expand the scope of sharing).
+    """
 
 class IAddressBookTransaction(ICommonTransaction):
     """

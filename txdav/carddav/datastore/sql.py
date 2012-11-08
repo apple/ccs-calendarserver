@@ -31,8 +31,6 @@ from twext.enterprise.dal.syntax import \
 
 from twext.python.clsprop import classproperty
 from twext.web2.http_headers import MimeType
-from twext.web2 import responsecode
-from twext.web2.http import HTTPError
 
 
 from twisted.internet.defer import inlineCallbacks, returnValue
@@ -45,7 +43,7 @@ from twistedcaldav.vcard import Component as VCard, InvalidVCardDataError, \
 from txdav.base.propertystore.base import PropertyName
 from txdav.carddav.datastore.util import validateAddressBookComponent
 from txdav.carddav.iaddressbookstore import IAddressBookHome, IAddressBook, \
-    IAddressBookObject
+    IAddressBookObject, GroupWithUnsharedAddressNotAllowedError
 from txdav.common.datastore.sql import CommonHome, CommonHomeChild, \
     CommonObjectResource, EADDRESSBOOKTYPE, SharingMixIn
 from txdav.common.datastore.sql_legacy import PostgresLegacyABIndexEmulator
@@ -57,7 +55,6 @@ from txdav.common.datastore.sql_tables import ADDRESSBOOK_TABLE, \
     ADDRESSBOOK_OBJECT_REVISIONS_AND_BIND_TABLE, \
     _ABO_KIND_PERSON, _ABO_KIND_GROUP, _ABO_KIND_RESOURCE, _ABO_KIND_LOCATION, \
     schema
-from txdav.common.icommondatastore import NoSuchObjectResourceError
 from txdav.xml.rfc2518 import ResourceType
 
 from uuid import uuid4
@@ -383,7 +380,7 @@ class AddressBookObject(CommonObjectResource, AddressBookSharingMixIn):
             ownerGroup, ownerAddressBook = yield self._ownerGroupAndAddressBook()  #@UnusedVariable 
             print("remove:%s, ownerGroup=%s, ownerAddressBook=%s" % (self, ownerGroup, ownerAddressBook,))
             if ownerGroup:
-                # convert a delete inside of a shared group to a remove of in shared group and subgroups
+                # convert a delete of a shared group member to a remove of that member in shared group and subgroups
 
                 groupIDRows = yield Select(
                     [aboMembers.GROUP_ID],
@@ -394,17 +391,13 @@ class AddressBookObject(CommonObjectResource, AddressBookSharingMixIn):
                 groupIDs = [groupID[0] for groupID in groupIDRows]
                 print("remove:self=%s, groupIDs=%s" % (self, groupIDs,))
 
-                objectResources = yield ownerAddressBook.objectResources()
-                groupObjects = [groupObject for groupObject in objectResources
-                                    if groupObject._resourceID in groupIDs]
-
-                print("remove:self=%s, groupIDs=%s, objectResources=%s, groupObjects=%s" % (self, groupIDs, objectResources, groupObjects,))
                 member = "urn:uuid:" + self._uid
-                for groupObject in groupObjects:
-                    groupObjectComponent = yield groupObject.component()
-                    if member in groupObjectComponent.resourceMembers():
-                        groupObjectComponent.removeProperty(Property("X-ADDRESSBOOKSERVER-MEMBER", member))
-                        groupObject.updateDatabase(groupObjectComponent)
+                for groupID in groupIDs:
+                    groupObject = yield ownerAddressBook.objectResourceWithID(groupID)
+                    groupComponent = yield groupObject.component()
+                    if member in groupComponent.resourceMembers():
+                        groupComponent.removeProperty(Property("X-ADDRESSBOOKSERVER-MEMBER", member))
+                        groupObject.updateDatabase(groupComponent)
 
                 return
 
@@ -484,7 +477,7 @@ class AddressBookObject(CommonObjectResource, AddressBookSharingMixIn):
                 self._txn, uid=self._uid,
                 resourceIDs=memberIDs,)) if memberIDs else []
         elif self._resourceID:
-            rows = (yield self._allWithResourceID(memberIDs).on(
+            rows = (yield self._allWithResourceID.on(
                 self._txn, resourceID=self._resourceID,)) if self._resourceID in memberIDs else []
         print("initFromStore:self=%s, self._name=%s, self._uid=%s, self._resourceID=%s, self._parentCollection._resourceID=%s rows=%s" %
               (self, self._name, self._uid, self._resourceID, self._parentCollection._resourceID, rows))
@@ -595,14 +588,14 @@ class AddressBookObject(CommonObjectResource, AddressBookSharingMixIn):
         if self._addressbook.owned():
             ownerAddressBook = self._addressbook
         else:
-            ownerAddressBook = yield self._addressbook.ownerHome().childWithID(self._addressbook._resourceID)
+            ownerAddressBook = yield self._addressbook.ownerAddressBookHome().childWithID(self._addressbook._resourceID)
             if not ownerAddressBook:
-                for addressbook in (yield self._addressbook.ownerHome().children()):
-                    for addressBookObject in (yield addressbook.objectResources()):
-                        if addressBookObject._resourceID == self._addressbook._resourceID:
-                            ownerGroup = addressBookObject
-                            ownerAddressBook = addressbook
-                            break
+                for addressbook in (yield self._addressbook.ownerAddressBookHome().addressbooks()):
+                    ownerGroup = yield addressbook.objectResourceWithID(self._addressbook._resourceID)
+                    if ownerGroup:
+                        ownerAddressBook = addressbook
+                        break
+
         returnValue((ownerGroup, ownerAddressBook))
 
     @inlineCallbacks
@@ -682,13 +675,9 @@ class AddressBookObject(CommonObjectResource, AddressBookSharingMixIn):
 
             #in shared group, all members must be inside the shared group
             if ownerGroup:
-                if len(resourceMembers) != len(memberIDs):
-                    raise NoSuchObjectResourceError
-                    raise HTTPError(responsecode.NOT_FOUND)
-                elif set(memberIDs) - set((yield self._addressbook._addressBookObjectIDs())):
-                    print("e2")
-                    raise NoSuchObjectResourceError
-                    raise HTTPError(responsecode.NOT_FOUND)
+                if len(resourceMembers) != len(memberIDs) or \
+                    set(memberIDs) - set((yield self._addressbook._addressBookObjectIDs())):
+                    raise GroupWithUnsharedAddressNotAllowedError
 
         if inserting:
 

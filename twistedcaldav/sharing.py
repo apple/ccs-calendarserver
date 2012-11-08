@@ -126,11 +126,12 @@ class SharedCollectionMixin(object):
     @inlineCallbacks
     def downgradeFromShare(self, request):
 
-        # Change resource type (note this might be called after deleting a resource
-        # so we have to cope with that)
-        rtype = self.resourceType()
-        rtype = element.ResourceType(*([child for child in rtype.children if child != customxml.SharedOwner()]))
-        self.writeDeadProperty(rtype)
+        if self.isCollection():
+            # Change resource type (note this might be called after deleting a resource
+            # so we have to cope with that)
+            rtype = self.resourceType()
+            rtype = element.ResourceType(*([child for child in rtype.children if child != customxml.SharedOwner()]))
+            self.writeDeadProperty(rtype)
 
         # Remove all invitees
         for invitation in (yield self._allInvitations()):
@@ -234,7 +235,7 @@ class SharedCollectionMixin(object):
     @inlineCallbacks
     def isShared(self, request):
         """ Return True if this is an owner shared calendar collection """
-        returnValue((yield self.isSpecialCollection(customxml.SharedOwner)) or (yield self._allInvitations()))
+        returnValue((yield self.isSpecialCollection(customxml.SharedOwner)) or bool((yield self._allInvitations())))
 
 
     def setShare(self, share):
@@ -1018,11 +1019,10 @@ class SharedHomeMixin(LinkFollowerMixIn):
             url = joinURL(sharerHomeCollection.url(), itemShared.name())
         else:
             for sharerHomeChild in (yield child.ownerHome().children()):
-                for objectResource in (yield sharerHomeChild.objectResources()):
-                    if objectResource._resourceID == child._resourceID:
-                        itemShared = objectResource
-                        url = joinURL(sharerHomeCollection.url(), itemShared._parentCollection.name(), itemShared.name())
-                        break
+                itemShared = yield sharerHomeChild.objectResourceWithID(child._resourceID)
+                if itemShared:
+                    url = joinURL(sharerHomeCollection.url(), itemShared._parentCollection.name(), itemShared.name())
+                    break
 
         share = Share(shareeHomeChild=child, sharerHomeChild=itemShared, url=url)
 

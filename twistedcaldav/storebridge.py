@@ -67,6 +67,7 @@ from twistedcaldav.resource import CalDAVResource, GlobalAddressBookResource, \
 from twistedcaldav.scheduling.caldav.resource import ScheduleInboxResource
 from twistedcaldav.scheduling.implicit import ImplicitScheduler
 from twistedcaldav.vcard import Component as VCard, InvalidVCardDataError
+from txdav.carddav.iaddressbookstore import  GroupWithUnsharedAddressNotAllowedError
 
 """
 Wrappers to translate between the APIs in L{txdav.caldav.icalendarstore} and
@@ -2233,6 +2234,29 @@ class AddressBookObjectResource(_CommonObjectResource):
 
     vCard = _CommonObjectResource.component
 
+
+    @inlineCallbacks
+    def storeRemove(self, request, viaRequest, where):
+
+        # Handle sharing
+        wasShared = (yield self.isShared(request))
+        if wasShared:
+            yield self.downgradeFromShare(request)
+
+        returnValue((yield super(AddressBookObjectResource, self).storeRemove(request, viaRequest, where)))
+
+
+    @inlineCallbacks
+    def http_PUT(self, request):
+
+        try:
+            returnValue((yield super(AddressBookObjectResource, self).http_PUT(request)))
+
+        except GroupWithUnsharedAddressNotAllowedError:
+            raise HTTPError(StatusResponse(
+                FORBIDDEN,
+                "Group vcard cannot contain addresses of unshared vcards.",)
+            )
 
 
 class _NotificationChildHelper(object):
