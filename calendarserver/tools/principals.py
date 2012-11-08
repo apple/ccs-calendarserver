@@ -88,6 +88,8 @@ def usage(e=None):
     print "  --get-auto-schedule: read auto-schedule state"
     print "  --set-auto-schedule-mode={default|none|accept-always|decline-always|accept-if-free|decline-if-busy|automatic}: set auto-schedule mode"
     print "  --get-auto-schedule-mode: read auto-schedule mode"
+    print "  --set-auto-accept-group=principal: set auto-accept-group"
+    print "  --get-auto-accept-group: read auto-accept-group"
     print "  --add {locations|resources} 'full name' [record name] [GUID]: add a principal"
     print "  --remove: remove a principal"
 
@@ -118,6 +120,8 @@ def main():
                 "get-auto-schedule",
                 "set-auto-schedule-mode=",
                 "get-auto-schedule-mode",
+                "set-auto-accept-group=",
+                "get-auto-accept-group",
                 "verbose",
             ],
         )
@@ -222,6 +226,18 @@ def main():
 
         elif opt in ("", "--get-auto-schedule-mode"):
             principalActions.append((action_getAutoScheduleMode,))
+
+        elif opt in ("", "--set-auto-accept-group"):
+            try:
+                principalForPrincipalID(arg, checkOnly=True)
+            except ValueError, e:
+                abort(e)
+
+            principalActions.append((action_setAutoAcceptGroup, arg))
+
+        elif opt in ("", "--get-auto-accept-group"):
+            principalActions.append((action_getAutoAcceptGroup,))
+
 
         else:
             raise NotImplementedError(opt)
@@ -768,6 +784,49 @@ def action_getAutoScheduleMode(principal):
         autoScheduleMode,
     )
 
+@inlineCallbacks
+def action_setAutoAcceptGroup(principal, autoAcceptGroup):
+    if principal.record.recordType == "groups":
+        print "Setting auto-accept-group for %s is not allowed." % (principal,)
+
+    elif principal.record.recordType == "users" and not config.Scheduling.Options.AutoSchedule.AllowUsers:
+        print "Setting auto-accept-group for %s is not allowed." % (principal,)
+
+    else:
+        groupPrincipal = principalForPrincipalID(autoAcceptGroup)
+        if groupPrincipal is None or groupPrincipal.record.recordType != "groups":
+            print "Invalid principal ID: %s" % (autoAcceptGroup,)
+        else:
+            print "Setting auto-accept-group to %s for %s" % (
+                prettyPrincipal(groupPrincipal),
+                prettyPrincipal(principal),
+            )
+
+            (yield updateRecord(False, config.directory,
+                principal.record.recordType,
+                guid=principal.record.guid,
+                shortNames=principal.record.shortNames,
+                fullName=principal.record.fullName,
+                autoAcceptGroup=groupPrincipal.record.guid,
+                **principal.record.extras
+            ))
+
+def action_getAutoAcceptGroup(principal):
+    autoAcceptGroup = principal.getAutoAcceptGroup()
+    if autoAcceptGroup:
+        record = config.directory.recordWithGUID(autoAcceptGroup)
+        if record is not None:
+            groupPrincipal = config.directory.principalCollection.principalForUID(record.uid)
+            if groupPrincipal is not None:
+                print "Auto-accept-group for %s is %s" % (
+                    prettyPrincipal(principal),
+                    prettyPrincipal(groupPrincipal),
+                )
+                return
+        print "Invalid auto-accept-group assigned: %s" % (autoAcceptGroup,)
+    else:
+        print "No auto-accept-group assigned to %s" % (prettyPrincipal(principal),)
+
 
 def abort(msg, status=1):
     sys.stdout.write("%s\n" % (msg,))
@@ -856,17 +915,32 @@ def updateRecord(create, directory, recordType, **kwargs):
     matching the guid in kwargs.
     """
 
+    assignAutoSchedule = False
     if kwargs.has_key("autoSchedule"):
+        assignAutoSchedule = True
         autoSchedule = kwargs["autoSchedule"]
         del kwargs["autoSchedule"]
-    else:
+    elif create:
+        assignAutoSchedule = True
         autoSchedule = recordType in ("locations", "resources")
 
+    assignAutoScheduleMode = False
     if kwargs.has_key("autoScheduleMode"):
+        assignAutoScheduleMode = True
         autoScheduleMode = kwargs["autoScheduleMode"]
         del kwargs["autoScheduleMode"]
-    else:
+    elif create:
+        assignAutoScheduleMode = True
         autoScheduleMode = None
+
+    assignAutoAcceptGroup = False
+    if kwargs.has_key("autoAcceptGroup"):
+        assignAutoAcceptGroup = True
+        autoAcceptGroup = kwargs["autoAcceptGroup"]
+        del kwargs["autoAcceptGroup"]
+    elif create:
+        assignAutoAcceptGroup = True
+        autoAcceptGroup = None
 
     for key, value in kwargs.items():
         if isinstance(value, unicode):
@@ -890,8 +964,13 @@ def updateRecord(create, directory, recordType, **kwargs):
 
     augmentService = directory.serviceForRecordType(recordType).augmentService
     augmentRecord = (yield augmentService.getAugmentRecord(kwargs['guid'], recordType))
-    augmentRecord.autoSchedule = autoSchedule
-    augmentRecord.autoScheduleMode = autoScheduleMode
+
+    if assignAutoSchedule:
+        augmentRecord.autoSchedule = autoSchedule
+    if assignAutoScheduleMode:
+        augmentRecord.autoScheduleMode = autoScheduleMode
+    if assignAutoAcceptGroup:
+        augmentRecord.autoAcceptGroup = autoAcceptGroup
     (yield augmentService.addAugmentRecords([augmentRecord]))
     try:
         directory.updateRecord(recordType, **kwargs)

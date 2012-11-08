@@ -67,6 +67,8 @@ class AggregateDirectoryService(DirectoryService):
                     )
                 recordTypes[recordType] = service
 
+            service.aggregateService = self
+
         self.realmName = realmName
         self._recordTypes = recordTypes
 

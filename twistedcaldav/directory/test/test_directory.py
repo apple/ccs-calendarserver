@@ -757,6 +757,30 @@ class GroupMembershipTests (TestCase):
             }
         )
 
+    def test_autoAcceptMembers(self):
+        """
+        autoAcceptMembers( ) returns an empty list if no autoAcceptGroup is
+        assigned, or the expanded membership if assigned.
+        """
+
+        # No auto-accept-group for "orion" in augments.xml
+        orion = self.directoryService.recordWithGUID("orion")
+        self.assertEquals( orion.autoAcceptMembers(), [])
+
+        # "both_coasts" group assigned to "apollo" in augments.xml
+        apollo = self.directoryService.recordWithGUID("apollo")
+        self.assertEquals(
+            set(apollo.autoAcceptMembers()),
+            set([
+                "8B4288F6-CC82-491D-8EF9-642EF4F3E7D0",
+                 "5FF60DAD-0BDE-4508-8C77-15F0CA5C8DD1",
+                 "5A985493-EE2C-4665-94CF-4DFEA3A89500",
+                 "6423F94A-6B76-4A3A-815B-D52CFD77935D",
+                 "right_coast",
+                 "left_coast",
+            ])
+        )
+
 class RecordsMatchingTokensTests(TestCase):
 
     @inlineCallbacks

@@ -171,6 +171,7 @@ attrMap = {
     'Country' : { 'extras' : True, 'attr' : 'country', },
     'Phone' : { 'extras' : True, 'attr' : 'phone', },
     'AutoSchedule' : { 'attr' : 'autoSchedule', },
+    'AutoAcceptGroup' : { 'attr' : 'autoAcceptGroup', },
 }
 
 class Runner(object):
@@ -249,6 +250,7 @@ class Runner(object):
             respondWithError("Principal not found: %s" % (guid,))
             return
         recordDict['AutoSchedule'] = principal.getAutoSchedule()
+        recordDict['AutoAcceptGroup'] = principal.getAutoAcceptGroup()
         recordDict['ReadProxies'], recordDict['WriteProxies'] = (yield getProxies(principal))
         respond(command, recordDict)
 
@@ -262,6 +264,7 @@ class Runner(object):
         principal = principalForPrincipalID(command['GeneratedUID'],
             directory=self.dir)
         (yield principal.setAutoSchedule(command.get('AutoSchedule', False)))
+        (yield principal.setAutoAcceptGroup(command.get('AutoAcceptGroup', "")))
 
         kwargs = {}
         for key, info in attrMap.iteritems():
@@ -325,6 +328,7 @@ class Runner(object):
         principal = principalForPrincipalID(command['GeneratedUID'],
             directory=self.dir)
         (yield principal.setAutoSchedule(command.get('AutoSchedule', False)))
+        (yield principal.setAutoAcceptGroup(command.get('AutoAcceptGroup', "")))
 
         kwargs = {}
         for key, info in attrMap.iteritems():

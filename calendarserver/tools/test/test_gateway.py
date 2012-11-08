@@ -121,6 +121,7 @@ class GatewayTestCase(TestCase):
         self.assertEquals(results["result"]["RealName"], "Created Location 01 %s" % unichr(208))
         self.assertEquals(results["result"]["Comment"], "Test Comment")
         self.assertEquals(results["result"]["AutoSchedule"], True)
+        self.assertEquals(results["result"]["AutoAcceptGroup"], "E5A6142C-4189-4E9E-90B0-9CD0268B314B")
         self.assertEquals(set(results["result"]["ReadProxies"]), set(['user03', 'user04']))
         self.assertEquals(set(results["result"]["WriteProxies"]), set(['user05', 'user06']))
 
@@ -202,9 +203,11 @@ class GatewayTestCase(TestCase):
         self.assertEquals(record.extras["country"], "Updated USA")
         self.assertEquals(record.extras["phone"], "(408) 555-1213")
         self.assertEquals(record.autoSchedule, True)
+        self.assertEquals(record.autoAcceptGroup, "F5A6142C-4189-4E9E-90B0-9CD0268B314B")
 
         results = yield self.runCommand(command_getLocationAttributes)
         self.assertEquals(results["result"]["AutoSchedule"], True)
+        self.assertEquals(results["result"]["AutoAcceptGroup"], "F5A6142C-4189-4E9E-90B0-9CD0268B314B")
         self.assertEquals(set(results["result"]["ReadProxies"]), set(['user03']))
         self.assertEquals(set(results["result"]["WriteProxies"]), set(['user05', 'user06', 'user07']))
 
@@ -312,6 +315,8 @@ command_createLocation = """<?xml version="1.0" encoding="UTF-8"?>
         <string>createLocation</string>
         <key>AutoSchedule</key>
         <true/>
+        <key>AutoAcceptGroup</key>
+        <string>E5A6142C-4189-4E9E-90B0-9CD0268B314B</string>
         <key>GeneratedUID</key>
         <string>836B1B66-2E9A-4F46-8B1C-3DD6772C20B2</string>
         <key>RealName</key>
@@ -495,6 +500,8 @@ command_setLocationAttributes = """<?xml version="1.0" encoding="UTF-8"?>
         <string>setLocationAttributes</string>
         <key>AutoSchedule</key>
         <true/>
+        <key>AutoAcceptGroup</key>
+        <string>F5A6142C-4189-4E9E-90B0-9CD0268B314B</string>
         <key>GeneratedUID</key>
         <string>836B1B66-2E9A-4F46-8B1C-3DD6772C20B2</string>
         <key>RealName</key>

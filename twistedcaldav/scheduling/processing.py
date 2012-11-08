@@ -500,8 +500,12 @@ class ImplicitProcessor(object):
             new_calendar = iTipProcessing.processNewRequest(self.message, self.recipient.cuaddr, creating=True)
 
             # Handle auto-reply behavior
-            if self.recipient.principal.canAutoSchedule():
-                send_reply, store_inbox, partstat = (yield self.checkAttendeeAutoReply(new_calendar, self.recipient.principal.getAutoScheduleMode()))
+            organizer = normalizeCUAddr(self.message.getOrganizer())
+            if self.recipient.principal.canAutoSchedule(organizer=organizer):
+                # auto schedule mode can depend on who the organizer is
+                mode = self.recipient.principal.getAutoScheduleMode(organizer=organizer)
+                send_reply, store_inbox, partstat = (yield self.checkAttendeeAutoReply(new_calendar,
+                    mode))
 
                 # Only store inbox item when reply is not sent or always for users
                 store_inbox = store_inbox or self.recipient.principal.getCUType() == "INDIVIDUAL"
@@ -533,8 +537,13 @@ class ImplicitProcessor(object):
             if new_calendar:
 
                 # Handle auto-reply behavior
-                if self.recipient.principal.canAutoSchedule():
-                    send_reply, store_inbox, partstat = (yield self.checkAttendeeAutoReply(new_calendar, self.recipient.principal.getAutoScheduleMode()))
+                x = self.recipient.principal.canAutoSchedule()
+                organizer = normalizeCUAddr(self.message.getOrganizer())
+                if self.recipient.principal.canAutoSchedule(organizer=organizer):
+                    # auto schedule mode can depend on who the organizer is
+                    mode = self.recipient.principal.getAutoScheduleMode(organizer=organizer)
+                    send_reply, store_inbox, partstat = (yield self.checkAttendeeAutoReply(new_calendar,
+                        mode))
 
                     # Only store inbox item when reply is not sent or always for users
                     store_inbox = store_inbox or self.recipient.principal.getCUType() == "INDIVIDUAL"
