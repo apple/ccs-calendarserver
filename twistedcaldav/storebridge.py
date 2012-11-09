@@ -2237,7 +2237,9 @@ class AddressBookObjectResource(_CommonObjectResource):
 
     @inlineCallbacks
     def storeRemove(self, request, viaRequest, where):
-
+        """
+        Remove this address book object
+        """
         # Handle sharing
         wasShared = (yield self.isShared(request))
         if wasShared:
