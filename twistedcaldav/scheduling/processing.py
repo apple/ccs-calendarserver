@@ -537,7 +537,6 @@ class ImplicitProcessor(object):
             if new_calendar:
 
                 # Handle auto-reply behavior
-                x = self.recipient.principal.canAutoSchedule()
                 organizer = normalizeCUAddr(self.message.getOrganizer())
                 if self.recipient.principal.canAutoSchedule(organizer=organizer):
                     # auto schedule mode can depend on who the organizer is
