@@ -235,7 +235,8 @@ class SharedCollectionMixin(object):
     @inlineCallbacks
     def isShared(self, request):
         """ Return True if this is an owner shared calendar collection """
-        returnValue((yield self.isSpecialCollection(customxml.SharedOwner)) or bool((yield self._allInvitations())))
+        returnValue((yield self.isSpecialCollection(customxml.SharedOwner)) or
+                    bool((yield self._allInvitations()))) # same as, len(SharedAs() + InvitedAs())
 
 
     def setShare(self, share):
@@ -538,6 +539,9 @@ class SharedCollectionMixin(object):
         For legacy reasons, all invitations are all invited + shared (accepted, not direct).
         Combine these two into a single sorted list so code is similar to that for legacy invite db
         """
+        if not self.exists():
+            returnValue([])
+
         invitedHomeChildren = yield self._newStoreObject.asInvited()
         if includeAccepted:
             acceptedHomeChildren = yield self._newStoreObject.asShared()

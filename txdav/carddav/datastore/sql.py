@@ -399,7 +399,7 @@ class AddressBookObject(CommonObjectResource, AddressBookSharingMixIn):
                         groupComponent.removeProperty(Property("X-ADDRESSBOOKSERVER-MEMBER", member))
                         groupObject.updateDatabase(groupComponent)
 
-                return
+                returnValue(None)
 
         # delete members table row for this object
         groupIDs = yield Delete(
