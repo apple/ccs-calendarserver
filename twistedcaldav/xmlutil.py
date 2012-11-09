@@ -56,7 +56,7 @@ def readXML(xmlfile, expectedRootTag=None):
     return etree, etree.getroot()
 
 def elementToXML(element):
-    return XML.tostring(element)
+    return XML.tostring(element, "utf-8")
 
 def writeXML(xmlfile, root):
     
