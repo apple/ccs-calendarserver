@@ -778,8 +778,8 @@ class Purge(Cmd):
             schema.ATTACHMENT,
 
             schema.ADDRESSBOOK_OBJECT_REVISIONS,
-            
-            schema.ABO_MEMBERS
+
+            schema.ABO_MEMBERS,
             schema.ADDRESSBOOK_OBJECT,
             #schema.ADDRESSBOOK_BIND, - cascades
             #schema.ABO_FOREIGN_MEMBERS, - cascades
