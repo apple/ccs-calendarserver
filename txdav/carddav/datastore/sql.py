@@ -300,7 +300,6 @@ END:VCARD
             examinedIDs |= remainingIDs
             remainingIDs = allMemberIDs - examinedIDs
 
-        print("_allAddressBookObjectIDs:self=%s returning %s" % (self, tuple(allMemberIDs),))
         returnValue(tuple(allMemberIDs))
 
 
@@ -363,10 +362,6 @@ class AddressBookObject(CommonObjectResource, AddressBookSharingMixIn):
     @inlineCallbacks
     def remove(self):
 
-        print("remove:self=%s, self._addressbook.owned()=%s" % (self, self._addressbook.owned(),))
-        ownerGroup, ownerAddressBook = yield self._ownerGroupAndAddressBook()
-        print("remove:self=%s, ownerGroup=%s" % (self, ownerGroup,))
-
         if self._addressbook.owned():
             if self._kind == _ABO_KIND_GROUP:
                 # need to invalidate queryCacher of sharee's home
@@ -378,8 +373,9 @@ class AddressBookObject(CommonObjectResource, AddressBookSharingMixIn):
         else:
             # sharee cannot delete group representing shared address book
             if self._resourceID == self._addressbook._resourceID:
-                print("remove:self=%s, DeleteOfShadowGroupNotAllowedError" % (self,))
                 raise DeleteOfShadowGroupNotAllowedError
+
+        ownerGroup, ownerAddressBook = yield self._ownerGroupAndAddressBook()
 
         # delete members table row for this object
         aboMembers = schema.ABO_MEMBERS
@@ -398,6 +394,7 @@ class AddressBookObject(CommonObjectResource, AddressBookSharingMixIn):
                 groupComponent = yield groupObject.component()
                 if memberAddress in groupComponent.resourceMemberAddresses():
                     groupComponent.removeProperty(Property("X-ADDRESSBOOKSERVER-MEMBER", memberAddress))
+                    groupComponent.replaceProperty(Property("PRODID", vCardProductID))
                     yield groupObject.updateDatabase(groupComponent)
 
         if ownerGroup:
@@ -469,22 +466,6 @@ class AddressBookObject(CommonObjectResource, AddressBookSharingMixIn):
                 memberIDs = yield self._addressbook._allAddressBookObjectIDs()
             rows = (yield self._allWithResourceID.on(
                 self._txn, resourceID=self._resourceID,)) if (self._resourceID in memberIDs) else []
-            print("initFromStore:self=%s, self._name=%s, self._uid=%s, self._resourceID=%s, self._parentCollection._resourceID=%s rows=%s" %
-                  (self, self._name, self._uid, self._resourceID, self._parentCollection._resourceID, rows))
-        '''
-        memberIDs = yield self._addressbook._allAddressBookObjectIDs()
-        if self._name:
-            rows = (yield self._allWithResourceIDAndName(memberIDs).on(
-                self._txn, name=self._name,
-                resourceIDs=memberIDs,)) if memberIDs else []
-        elif self._uid:
-            rows = (yield self._allWithResourceIDAndUID(memberIDs).on(
-                self._txn, uid=self._uid,
-                resourceIDs=memberIDs,)) if memberIDs else []
-        elif self._resourceID:
-            rows = (yield self._allWithResourceID.on(
-                self._txn, resourceID=self._resourceID,)) if (self._resourceID in memberIDs) else []
-        '''
 
         if rows:
             self._initFromRow(tuple(rows[0]))
@@ -674,8 +655,6 @@ class AddressBookObject(CommonObjectResource, AddressBookSharingMixIn):
         assert inserting or self._kind == kind  # can't change kind. Should be checked in upper layers
         self._kind = kind
 
-        print("updateDatabase:self=%s self._addressbook.=%s self._ownerAddressBookResourceID=%s" % (self, self._addressbook, self._ownerAddressBookResourceID,))
-        print("updateDatabase1:self=%s insert=%s, component=%s" % (self, inserting, component))
         # For shared groups:  Non owner may NOT add group members not currently in group!
         # (Or it would be possible to troll for unshared vCard UIDs and make them shared.)
 
@@ -730,11 +709,9 @@ class AddressBookObject(CommonObjectResource, AddressBookSharingMixIn):
             memberAddress = "urn:uuid:" + self._uid
             for group in groups:
                 groupComponent = yield group.component()
-                print("updateDatabase2:self=%s, group=%s, groupComponent=%s" % (self, group, groupComponent,))
                 if not memberAddress in groupComponent.resourceMemberAddresses():
                     groupComponent.addProperty(Property("X-ADDRESSBOOKSERVER-MEMBER", memberAddress))
                     groupComponent.replaceProperty(Property("PRODID", vCardProductID))
-                    print("updateDatabase2:self=%s, group=%s, groupComponent=%s" % (self, group, groupComponent,))
                     yield group.updateDatabase(groupComponent)
 
             # delete foreign members table row for this object
@@ -772,11 +749,8 @@ class AddressBookObject(CommonObjectResource, AddressBookSharingMixIn):
 
             memberIDsToDelete = set(currentMemberIDs) - set(memberIDs)
             memberIDsToAdd = set(memberIDs) - set(currentMemberIDs)
-            print("updateDatabase3:self=%s component.resourceMemberAddresses()=%s, currentMemberIDs:%s,  memberIDsToAdd:%s, memberIDsToDelete:%s" % (self, component.resourceMemberAddresses(), currentMemberIDs, memberIDsToAdd, memberIDsToDelete,))
 
             for memberIDToDelete in memberIDsToDelete:
-                print("updateDatabase3.1:Delete((aboMembers.GROUP_ID == self._resourceID=%s).And( \
-                            aboMembers.MEMBER_ID == memberIDToDelete=%s)" % (self._resourceID, memberIDToDelete,))
                 yield Delete(
                     aboMembers,
                     Where=((aboMembers.GROUP_ID == self._resourceID).And(
@@ -784,8 +758,6 @@ class AddressBookObject(CommonObjectResource, AddressBookSharingMixIn):
                 ).on(self._txn)
 
             for memberIDToAdd in memberIDsToAdd:
-                print("updateDatabase3.2:self=%s Insert(aboMembers.GROUP_ID:%s,  aboMembers.ADDRESSBOOK_ID:%s, aboMembers.MEMBER_ID:%s" % (
-                    self, self._resourceID, self._ownerAddressBookResourceID, memberIDToAdd))
                 yield Insert(
                     {aboMembers.GROUP_ID: self._resourceID,
                      aboMembers.ADDRESSBOOK_ID: self._ownerAddressBookResourceID,
@@ -800,12 +772,8 @@ class AddressBookObject(CommonObjectResource, AddressBookSharingMixIn):
 
             foreignMemberAddrsToDelete = set(currentForeignMemberAddrs) - set(foreignMemberAddrs)
             foreignMemberAddrsToAdd = set(foreignMemberAddrs) - set(currentForeignMemberAddrs)
-            print("updateDatabase4:self=%s component.resourceMemberAddresses()=%s, currentForeignMemberAddrs:%s,  foreignMemberAddrsToAdd:%s, foreignMemberAddrsToDelete:%s" %
-                  (self, component.resourceMemberAddresses(), currentForeignMemberAddrs, foreignMemberAddrsToAdd, foreignMemberAddrsToDelete,))
 
             for foreignMemberAddrToDelete in foreignMemberAddrsToDelete:
-                print("updateDatabase3.1:Delete((aboForeignMembers.GROUP_ID == self._resourceID=%s).And( \
-                            aboForeignMembers.MEMBER_ADDRESS == memberIDToDelete=%s)" % (self._resourceID, foreignMemberAddrToDelete,))
                 yield Delete(
                     aboForeignMembers,
                     Where=((aboForeignMembers.GROUP_ID == self._resourceID).And(
@@ -813,8 +781,6 @@ class AddressBookObject(CommonObjectResource, AddressBookSharingMixIn):
                 ).on(self._txn)
 
             for foreignMemberAddrToAdd in foreignMemberAddrsToAdd:
-                print("updateDatabase4.2:self=%s Insert(foreignMemberAddrToAdd.GROUP_ID:%s,  foreignMemberAddrToAdd.ADDRESSBOOK_ID:%s, foreignMemberAddrToAdd.MEMBER_ID:%s" % (
-                    self, self._resourceID, self._ownerAddressBookResourceID, foreignMemberAddrToAdd))
                 yield Insert(
                     {aboForeignMembers.GROUP_ID: self._resourceID,
                      aboForeignMembers.ADDRESSBOOK_ID: self._ownerAddressBookResourceID,
