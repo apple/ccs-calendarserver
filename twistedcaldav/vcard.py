@@ -425,7 +425,7 @@ class Component (object):
 
         return self._resource_kind
 
-    def resourceMembers(self):
+    def resourceMemberAddresses(self):
         """
         @return: an iterable of X-ADDRESSBOOKSERVER-MEMBER property values
         """

@@ -27,6 +27,7 @@ from txdav.idav import IDataStoreObject
 __all__ = [
     # Classes
     "GroupWithUnsharedAddressNotAllowedError",
+    "DeleteOfShadowGroupNotAllowedError",
     "IAddressBookTransaction",
     "IAddressBookHome",
     "IAddressBook",
@@ -35,7 +36,11 @@ __all__ = [
 
 class GroupWithUnsharedAddressNotAllowedError(CommonStoreError):
     """
-    Sharee cannot add group with unshared group addresses (that could expand the scope of sharing).
+    Sharee cannot add or modify group vcard such that result contains addresses of unshared vcards.
+    """
+class DeleteOfShadowGroupNotAllowedError(CommonStoreError):
+    """
+    Sharee cannot delete group vcard shadowing shared address book
     """
 
 class IAddressBookTransaction(ICommonTransaction):

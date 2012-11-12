@@ -67,7 +67,8 @@ from twistedcaldav.resource import CalDAVResource, GlobalAddressBookResource, \
 from twistedcaldav.scheduling.caldav.resource import ScheduleInboxResource
 from twistedcaldav.scheduling.implicit import ImplicitScheduler
 from twistedcaldav.vcard import Component as VCard, InvalidVCardDataError
-from txdav.carddav.iaddressbookstore import  GroupWithUnsharedAddressNotAllowedError
+from txdav.carddav.iaddressbookstore import GroupWithUnsharedAddressNotAllowedError, \
+    DeleteOfShadowGroupNotAllowedError
 
 """
 Wrappers to translate between the APIs in L{txdav.caldav.icalendarstore} and
@@ -2257,7 +2258,19 @@ class AddressBookObjectResource(_CommonObjectResource):
         except GroupWithUnsharedAddressNotAllowedError:
             raise HTTPError(StatusResponse(
                 FORBIDDEN,
-                "Group vcard cannot contain addresses of unshared vcards.",)
+                "Sharee cannot add or modify group vcard such that result contains addresses of unshared vcards.",)
+            )
+
+    @inlineCallbacks
+    def http_DELETE(self, request):
+
+        try:
+            returnValue((yield super(AddressBookObjectResource, self).http_DELETE(request)))
+
+        except DeleteOfShadowGroupNotAllowedError:
+            raise HTTPError(StatusResponse(
+                FORBIDDEN,
+                "Sharee cannot delete group vcard shadowing shared address book",)
             )
 
 
