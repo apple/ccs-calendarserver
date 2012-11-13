@@ -375,21 +375,21 @@ class AddressBookObject(CommonObjectResource, AddressBookSharingMixIn):
             if self._resourceID == self._addressbook._resourceID:
                 raise DeleteOfShadowGroupNotAllowedError
 
-        ownerGroup, ownerAddressBook = yield self._ownerGroupAndAddressBook()
-
-        # delete members table row for this object
+        aboForeignMembers = schema.ABO_FOREIGN_MEMBERS
         aboMembers = schema.ABO_MEMBERS
-        groupIDRows = yield Select(
-            [aboMembers.GROUP_ID],
-             From=aboMembers,
-             Where=aboMembers.MEMBER_ID == self._resourceID,
-        ).on(self._txn)
 
+        ownerGroup, ownerAddressBook = yield self._ownerGroupAndAddressBook()
         memberAddress = "urn:uuid:" + self._uid
-        for groupID in [groupIDRow[0] for groupIDRow in groupIDRows]:
-            if ownerGroup and groupID == ownerAddressBook._resourceID:
-                pass  # convert delete in shared group to remove of membership only part 1
-            else:
+        if ownerGroup:
+            # convert a delete of a shared group member to a remove of that member in shared group and subgroups
+            groupIDRows = yield Select(
+                [aboMembers.GROUP_ID],
+                From=aboMembers,
+                Where=(aboMembers.MEMBER_ID == self._resourceID).And(
+                        aboMembers.GROUP_ID != ownerAddressBook._resourceID),
+            ).on(self._txn)
+
+            for groupID in [groupIDRow[0] for groupIDRow in groupIDRows]:
                 groupObject = yield ownerAddressBook.objectResourceWithID(groupID)
                 groupComponent = yield groupObject.component()
                 if memberAddress in groupComponent.resourceMemberAddresses():
@@ -397,9 +397,24 @@ class AddressBookObject(CommonObjectResource, AddressBookSharingMixIn):
                     groupComponent.replaceProperty(Property("PRODID", vCardProductID))
                     yield groupObject.updateDatabase(groupComponent)
 
-        if ownerGroup:
-            pass  # convert delete in shared group to remove of member only part 2
         else:
+            # delete members table rows for this object,...
+            groupIDRows = yield Delete(
+                aboMembers,
+                Where=aboMembers.MEMBER_ID == self._resourceID,
+                Return=aboMembers.GROUP_ID
+            ).on(self._txn)
+
+            # add to foreign member table row by UID
+            for groupID in [groupIDRow[0] for groupIDRow in groupIDRows]:
+                if groupID != self._ownerAddressBookResourceID:
+                    # add aboForeignMembers row to local groups only
+                    yield Insert(
+                            {aboForeignMembers.GROUP_ID: groupID,
+                             aboForeignMembers.ADDRESSBOOK_ID: self._ownerAddressBookResourceID,
+                             aboForeignMembers.MEMBER_ADDRESS: memberAddress, }
+                        ).on(self._txn)
+
             yield super(AddressBookObject, self).remove()
             self._kind = None
             self._ownerAddressBookResourceID = None
