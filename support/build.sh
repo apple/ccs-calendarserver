@@ -703,12 +703,6 @@ dependencies () {
       "${svn_uri_base}/PyKerberos/trunk";
   fi;
 
-  if [ "$(uname -s)" == "Darwin" ]; then
-    py_dependency -r 6656 \
-      "PyOpenDirectory" "opendirectory" "PyOpenDirectory" \
-      "${svn_uri_base}/PyOpenDirectory/trunk";
-  fi;
-
   py_dependency -v 0.5 -r 1038 \
     "xattr" "xattr" "xattr" \
     "http://svn.red-bean.com/bob/xattr/releases/xattr-0.6.1/";
