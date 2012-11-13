@@ -18,7 +18,7 @@ Calendar Server version 3 and later uses a database as the primary data store, i
 
 * `Shared Storage for Attachments`_: AttachmentsRoot should point to storage shared across all servers, e.g. an NFS mount. Used for file attachments to calendar events.
 
-* `General Advise`_: *No one wants advice - only corroboration.*  --John Steinbeck
+* `General Advice`_: *No one wants advice - only corroboration.*  --John Steinbeck
 
 ---------------------
 Database Connectivity
@@ -170,7 +170,7 @@ Shared Storage for Attachments
 Set the caldavd.plist key AttachmentsRoot to a filesystem directory that is shared and writable by all Calendar Server machines, for example an NFS export. This will be used to store file attachements that users may attach to calendar events.
 
 -------------------
-General Advise
+General Advice
 -------------------
 
 * Ensure caldavd.plist is identical on all Calendar Server hosts. This is not strictly required, but recommended to keep things as predictable as possible. Since you already have shared storage for AttachmentsRoot, use that to host the 'conf' directory for all servers as well; this way you don't need to push config changes out to the servers.
