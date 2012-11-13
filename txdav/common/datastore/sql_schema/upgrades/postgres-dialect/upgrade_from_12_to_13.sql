@@ -32,8 +32,9 @@ alter table ATTACHMENT
  add unique(DROPBOX_ID, PATH);
 
 create table ATTACHMENT_CALENDAR_OBJECT (
-  ATTACHMENT_ID                  integer not null references ATTACHMENT on delete cascade,
-  CALENDAR_OBJECT_RESOURCE_ID    integer not null references CALENDAR_OBJECT on delete cascade,
+  ATTACHMENT_ID                  integer      not null references ATTACHMENT on delete cascade,
+  MANAGED_ID                     varchar(255) not null,
+  CALENDAR_OBJECT_RESOURCE_ID    integer      not null references CALENDAR_OBJECT on delete cascade,
 
   primary key(ATTACHMENT_ID, CALENDAR_OBJECT_RESOURCE_ID) -- implicit index
 );

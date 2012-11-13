@@ -1430,6 +1430,7 @@ class CalendarObjectDropbox(_GetChildHelper):
             self._newStoreCalendarObject,
             attachment,
             name,
+            False,
             principalCollections=self.principalCollections()
         )
         self.propagateTransaction(result)
@@ -1644,11 +1645,12 @@ class AttachmentsCollection(_GetChildHelper):
 
     @inlineCallbacks
     def getChild(self, name):
-        attachmentObject = yield self._newStoreHome.attachmentObjectWithName(name)
+        attachmentObject = yield self._newStoreHome.attachmentObjectWithID(name)
         result = CalendarAttachment(
             None,
             attachmentObject,
             name,
+            True,
             principalCollections=self.principalCollections()
         )
         self.propagateTransaction(result)
@@ -1666,10 +1668,11 @@ class AttachmentsCollection(_GetChildHelper):
 
 class CalendarAttachment(_NewStoreFileMetaDataHelper, _GetChildHelper):
 
-    def __init__(self, calendarObject, attachment, attachmentName, **kw):
+    def __init__(self, calendarObject, attachment, attachmentName, managed, **kw):
         super(CalendarAttachment, self).__init__(**kw)
         self._newStoreCalendarObject = calendarObject # This can be None for a managed attachment
         self._newStoreAttachment = self._newStoreObject = attachment
+        self._managed = managed
         self._dead_properties = NonePropertyStore(self)
         self.attachmentName = attachmentName
 
@@ -1693,7 +1696,7 @@ class CalendarAttachment(_NewStoreFileMetaDataHelper, _GetChildHelper):
         # FIXME: CDT test to make sure that permissions are enforced.
 
         # Cannot PUT to a managed attachment
-        if self._newStoreAttachment.isManaged():
+        if self._managed:
             raise HTTPError(FORBIDDEN)
 
         content_type = request.headers.getHeader("content-type")
@@ -1752,7 +1755,7 @@ class CalendarAttachment(_NewStoreFileMetaDataHelper, _GetChildHelper):
     @inlineCallbacks
     def http_DELETE(self, request):
         # Cannot DELETE a managed attachment
-        if self._newStoreAttachment.isManaged():
+        if self._managed:
             raise HTTPError(FORBIDDEN)
 
         if not self.exists():
