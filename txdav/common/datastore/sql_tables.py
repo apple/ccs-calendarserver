@@ -1,5 +1,5 @@
 # -*- test-case-name: txdav.common.datastore.test.test_sql_tables -*-
-# #
+##
 # Copyright (c) 2010-2012 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -13,7 +13,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-# #
+##
 
 """
 SQL Table definitions.
@@ -172,16 +172,6 @@ _BIND_MODE_OWN = _bindMode('own')
 _BIND_MODE_READ = _bindMode('read')
 _BIND_MODE_WRITE = _bindMode('write')
 _BIND_MODE_DIRECT = _bindMode('direct')
-
-
-_attachmentStatus = _schemaConstants(
-    schema.ATTACHMENT_STATUS.DESCRIPTION,
-    schema.ATTACHMENT_STATUS.ID
-)
-
-
-_ATTACHMENT_STATUS_DROPBOX = _attachmentStatus('dropbox')
-_ATTACHMENT_STATUS_MANAGED = _attachmentStatus('managed')
 
 
 # Compatibility tables for string formatting:

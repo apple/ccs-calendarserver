@@ -302,6 +302,7 @@ create table TRANSPARENCY (
 create index TRANSPARENCY_TIME_RANGE_INSTANCE_ID on
   TRANSPARENCY(TIME_RANGE_INSTANCE_ID);
 
+
 ----------------
 -- Attachment --
 ----------------
@@ -310,18 +311,14 @@ create sequence ATTACHMENT_ID_SEQ;
 
 create table ATTACHMENT (
   ATTACHMENT_ID               integer           primary key default nextval('ATTACHMENT_ID_SEQ'), -- implicit index
-  STATUS                      integer default 0 not null,
   CALENDAR_HOME_RESOURCE_ID   integer           not null references CALENDAR_HOME,
-  DROPBOX_ID                  varchar(255)      not null,
+  DROPBOX_ID                  varchar(255),
   CONTENT_TYPE                varchar(255)      not null,
   SIZE                        integer           not null,
   MD5                         char(32)          not null,
   CREATED                     timestamp default timezone('UTC', CURRENT_TIMESTAMP),
   MODIFIED                    timestamp default timezone('UTC', CURRENT_TIMESTAMP),
-  PATH                        varchar(1024)     not null,
-  DISPLAYNAME                 varchar(255),
-
-  unique(DROPBOX_ID, PATH) --implicit index
+  PATH                        varchar(1024)     not null
 );
 
 create index ATTACHMENT_CALENDAR_HOME_RESOURCE_ID on
@@ -336,16 +333,6 @@ create table ATTACHMENT_CALENDAR_OBJECT (
   primary key(ATTACHMENT_ID, CALENDAR_OBJECT_RESOURCE_ID), -- implicit index
   unique(MANAGED_ID, CALENDAR_OBJECT_RESOURCE_ID) --implicit index
 );
-
--- Enumeration of attachment status
-
-create table ATTACHMENT_STATUS (
-  ID          integer     primary key,
-  DESCRIPTION varchar(16) not null unique
-);
-
-insert into ATTACHMENT_STATUS values (0, 'dropbox');
-insert into ATTACHMENT_STATUS values (1, 'managed');
 
 
 -----------------------

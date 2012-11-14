@@ -14,8 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
-from twext.web2.stream import readStream
-from pycalendar.value import PyCalendarValue
 
 """
 SQL backend for CalDAV storage.
@@ -27,11 +25,18 @@ __all__ = [
     "CalendarObject",
 ]
 
+from twext.enterprise.dal.syntax import Delete
+from twext.enterprise.dal.syntax import Insert
+from twext.enterprise.dal.syntax import Len
+from twext.enterprise.dal.syntax import Parameter
+from twext.enterprise.dal.syntax import Select, Count, ColumnSyntax
+from twext.enterprise.dal.syntax import Update
+from twext.enterprise.dal.syntax import utcNowSQL
 from twext.python.clsprop import classproperty
-from twext.python.vcomponent import VComponent
-from txdav.xml.rfc2518 import ResourceType
-from twext.web2.http_headers import MimeType, generateContentType
 from twext.python.filepath import CachingFilePath
+from twext.python.vcomponent import VComponent
+from twext.web2.http_headers import MimeType, generateContentType
+from twext.web2.stream import readStream
 
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.python import hashlib
@@ -46,10 +51,14 @@ from twistedcaldav.instance import InvalidOverriddenInstanceError
 from twistedcaldav.memcacher import Memcacher
 
 from txdav.base.propertystore.base import PropertyName
+from txdav.caldav.datastore.util import AttachmentRetrievalTransport
+from txdav.caldav.datastore.util import CalendarObjectBase
+from txdav.caldav.datastore.util import StorageTransportBase
 from txdav.caldav.datastore.util import validateCalendarComponent, \
     dropboxIDFromCalendarObject
 from txdav.caldav.icalendarstore import ICalendarHome, ICalendar, ICalendarObject, \
     IAttachment, AttachmentStoreFailed, AttachmentStoreValidManagedID
+from txdav.caldav.icalendarstore import QuotaExceeded
 from txdav.common.datastore.sql import CommonHome, CommonHomeChild, \
     CommonObjectResource, ECALENDARTYPE
 from txdav.common.datastore.sql_legacy import PostgresLegacyIndexEmulator, \
@@ -59,29 +68,16 @@ from txdav.common.datastore.sql_tables import CALENDAR_TABLE, \
     _ATTACHMENTS_MODE_NONE, _ATTACHMENTS_MODE_READ, _ATTACHMENTS_MODE_WRITE, \
     CALENDAR_HOME_TABLE, CALENDAR_HOME_METADATA_TABLE, \
     CALENDAR_AND_CALENDAR_BIND, CALENDAR_OBJECT_REVISIONS_AND_BIND_TABLE, \
-    CALENDAR_OBJECT_AND_BIND_TABLE, _BIND_STATUS_INVITED, schema, \
-    _ATTACHMENT_STATUS_DROPBOX, _ATTACHMENT_STATUS_MANAGED
-from twext.enterprise.dal.syntax import Select, Count, ColumnSyntax
-from twext.enterprise.dal.syntax import Insert
-from twext.enterprise.dal.syntax import Update
-from twext.enterprise.dal.syntax import Delete
-from twext.enterprise.dal.syntax import Parameter
-from twext.enterprise.dal.syntax import utcNowSQL
-from twext.enterprise.dal.syntax import Len
-
-from txdav.caldav.datastore.util import CalendarObjectBase
-from txdav.caldav.icalendarstore import QuotaExceeded
-
-from txdav.caldav.datastore.util import StorageTransportBase
+    CALENDAR_OBJECT_AND_BIND_TABLE, _BIND_STATUS_INVITED, schema
 from txdav.common.icommondatastore import IndexedSearchException, \
     InternalDataStoreError, HomeChildNameAlreadyExistsError, \
     HomeChildNameNotAllowedError
+from txdav.xml.rfc2518 import ResourceType
 
 from pycalendar.datetime import PyCalendarDateTime
 from pycalendar.duration import PyCalendarDuration
 from pycalendar.timezone import PyCalendarTimezone
-
-from txdav.caldav.datastore.util import AttachmentRetrievalTransport
+from pycalendar.value import PyCalendarValue
 
 from zope.interface.declarations import implements
 
@@ -130,28 +126,10 @@ class CalendarHome(CommonHome):
         ch = schema.CALENDAR_HOME
         cb = schema.CALENDAR_BIND
         cor = schema.CALENDAR_OBJECT_REVISIONS
-        at = schema.ATTACHMENT
         rp = schema.RESOURCE_PROPERTY
 
         # delete attachments corresponding to this home, also removing from disk
-        rows = (yield Select(
-            [at.STATUS, at.DROPBOX_ID, at.PATH, ],
-            From=at,
-            Where=(
-                at.CALENDAR_HOME_RESOURCE_ID == self._resourceID
-            ),
-        ).on(self._txn))
-        for status, dropboxID, path in rows:
-            attachment = Attachment._attachmentPathRoot(self._txn, status, dropboxID).child(path)
-            if attachment.exists():
-                yield attachment.remove()
-
-        yield Delete(
-            From=at,
-            Where=(
-                at.CALENDAR_HOME_RESOURCE_ID == self._resourceID
-            ),
-        ).on(self._txn)
+        yield Attachment.removedHome(self._txn, self._resourceID)
 
         yield Delete(
             From=cb,
@@ -1334,7 +1312,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             "MANAGED-ID": attachment.managedID(),
             "MTAG": attachment.md5(),
             "FMTTYPE": "%s/%s" % (attachment.contentType().mediaType, attachment.contentType().mediaSubtype),
-            "FILENAME": attachment.dispositionName(),
+            "FILENAME": attachment.name(),
             "SIZE": str(attachment.size()),
         }, valuetype=PyCalendarValue.VALUETYPE_URI)
         if rids is None:
@@ -1370,7 +1348,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
             # We actually create a brand new attachment object for the update, but with the same managed-id. That way, other resources
             # referencing the old attachment data will still see that.
-            attachment = (yield self.createManagedAttachment(managed_id))
+            attachment = (yield self.updateManagedAttachment(managed_id, oldattachment))
             t = attachment.store(content_type, filename)
             yield readStream(stream, t.write)
         except Exception, e:
@@ -1386,7 +1364,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             "MANAGED-ID": attachment.managedID(),
             "MTAG": attachment.md5(),
             "FMTTYPE": "%s/%s" % (attachment.contentType().mediaType, attachment.contentType().mediaSubtype),
-            "FILENAME": attachment.dispositionName(),
+            "FILENAME": attachment.name(),
             "SIZE": str(attachment.size()),
         }, valuetype=PyCalendarValue.VALUETYPE_URI)
         calendar.replaceAllPropertiesWithParameterMatch(attach, "MANAGED-ID", managed_id)
@@ -1425,15 +1403,28 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
 
     @inlineCallbacks
-    def createManagedAttachment(self, managedID=None):
+    def createManagedAttachment(self):
 
         # We need to know the resource_ID of the home collection of the owner
         # (not sharee) of this event
         sharerHomeID = (yield self._parentCollection.sharerHomeID())
-        managedID = str(uuid.uuid4()) if managedID is None else managedID
+        managedID = str(uuid.uuid4())
         returnValue((
             yield ManagedAttachment.create(
                 self._txn, managedID, sharerHomeID, self._resourceID,
+            )
+        ))
+
+
+    @inlineCallbacks
+    def updateManagedAttachment(self, managedID, oldattachment):
+
+        # We need to know the resource_ID of the home collection of the owner
+        # (not sharee) of this event
+        sharerHomeID = (yield self._parentCollection.sharerHomeID())
+        returnValue((
+            yield ManagedAttachment.update(
+                self._txn, managedID, sharerHomeID, self._resourceID, oldattachment._attachmentID,
             )
         ))
 
@@ -1587,25 +1578,12 @@ class AttachmentStorageTransport(StorageTransportBase):
             raise QuotaExceeded()
 
         self._path.moveTo(self._attachment._path)
-        self._attachment._contentType = self._contentType
-        self._attachment._dispositionName = self._dispositionName
-        self._attachment._md5 = self._hash.hexdigest()
-        self._attachment._size = newSize
-        att = schema.ATTACHMENT
-        self._attachment._created, self._attachment._modified = map(
-            sqltime,
-            (yield Update(
-                {
-                    att.CONTENT_TYPE    : generateContentType(self._contentType),
-                    att.SIZE            : self._attachment._size,
-                    att.MD5             : self._attachment._md5,
-                    att.MODIFIED        : utcNowSQL,
-                    att.DISPLAYNAME     : self._dispositionName,
-                },
-                Where=(att.PATH == self._attachment.name()).And(
-                    att.DROPBOX_ID == self._attachment._dropboxID
-                ),
-                Return=(att.CREATED, att.MODIFIED)).on(self._txn))[0]
+
+        yield self._attachment.changed(
+            self._contentType,
+            self._dispositionName,
+            self._hash.hexdigest(),
+            newSize
         )
 
         if home:
@@ -1626,10 +1604,9 @@ class Attachment(object):
 
     implements(IAttachment)
 
-    def __init__(self, txn, a_id, status, dropboxID, name, ownerHomeID=None, justCreated=False):
+    def __init__(self, txn, a_id, dropboxID, name, ownerHomeID=None, justCreated=False):
         self._txn = txn
         self._attachmentID = a_id
-        self._attachmentStatus = status
         self._ownerHomeID = ownerHomeID
         self._dropboxID = dropboxID
         self._contentType = None
@@ -1638,18 +1615,11 @@ class Attachment(object):
         self._created = None
         self._modified = None
         self._name = name
-        self._dispositionName = None
         self._justCreated = justCreated
 
 
-    @classmethod
-    def _attachmentPathRoot(cls, txn, status, dropboxID):
-        attachmentRoot = txn._store.attachmentsPath
-
-        # Use directory hashing scheme based on MD5 of dropboxID if using dropbox, else
-        # just use dropboxID as-is if managed (since we know it is a uuid in that case)
-        hasheduid = hashlib.md5(dropboxID).hexdigest() if status == _ATTACHMENT_STATUS_DROPBOX else dropboxID
-        return attachmentRoot.child(hasheduid[0:2]).child(hasheduid[2:4]).child(hasheduid)
+    def _attachmentPathRoot(self):
+        return self._txn._store.attachmentsPath
 
 
     @inlineCallbacks
@@ -1668,7 +1638,6 @@ class Attachment(object):
         rows = (yield Select(
             [
                 att.ATTACHMENT_ID,
-                att.STATUS,
                 att.DROPBOX_ID,
                 att.CALENDAR_HOME_RESOURCE_ID,
                 att.CONTENT_TYPE,
@@ -1677,7 +1646,6 @@ class Attachment(object):
                 att.CREATED,
                 att.MODIFIED,
                 att.PATH,
-                att.DISPLAYNAME,
             ],
             From=att,
             Where=where
@@ -1688,7 +1656,6 @@ class Attachment(object):
 
         row_iter = iter(rows[0])
         self._attachmentID = row_iter.next()
-        self._attachmentStatus = row_iter.next()
         self._dropboxID = row_iter.next()
         self._ownerHomeID = row_iter.next()
         self._contentType = MimeType.fromString(row_iter.next())
@@ -1697,7 +1664,6 @@ class Attachment(object):
         self._created = sqltime(row_iter.next())
         self._modified = sqltime(row_iter.next())
         self._name = row_iter.next()
-        self._dispositionName = row_iter.next()
 
         returnValue(self)
 
@@ -1707,17 +1673,11 @@ class Attachment(object):
 
 
     def isManaged(self):
-        return self._attachmentStatus == _ATTACHMENT_STATUS_MANAGED
+        return not self._dropboxID
 
 
     def name(self):
         return self._name
-
-
-    @property
-    def _path(self):
-        attachmentRoot = self._attachmentPathRoot(self._txn, self._attachmentStatus, self._dropboxID)
-        return attachmentRoot.child(self.name())
 
 
     def properties(self):
@@ -1731,11 +1691,14 @@ class Attachment(object):
     def retrieve(self, protocol):
         return AttachmentRetrievalTransport(self._path).start(protocol)
 
+
+    def changed(self, contentType, dispositionName, md5, size):
+        raise NotImplementedError
+
     _removeStatement = Delete(
         From=schema.ATTACHMENT,
-        Where=(schema.ATTACHMENT.DROPBOX_ID == Parameter("dropboxID")).And(
-            schema.ATTACHMENT.PATH == Parameter("path")
-        ))
+        Where=(schema.ATTACHMENT.ATTACHMENT_ID == Parameter("attachmentID"))
+    )
 
 
     @inlineCallbacks
@@ -1754,11 +1717,12 @@ class Attachment(object):
 
     def removePaths(self):
         """
-        Remove the actual file and up to three parent directories if empty.
+        Remove the actual file and up to attachment parent directory if empty.
         """
         self._path.remove()
         parent = self._path.parent()
-        for _ignore in range(3):
+        toppath = self._attachmentPathRoot().path
+        while parent.path != toppath:
             if len(parent.listdir()) == 0:
                 parent.remove()
                 parent = parent.parent()
@@ -1772,8 +1736,57 @@ class Attachment(object):
         for attachments that have failed to be created due to errors during
         storage.)
         """
-        return self._removeStatement.on(self._txn, dropboxID=self._dropboxID,
-                                        path=self._name)
+        return self._removeStatement.on(self._txn, attachmentID=self._attachmentID)
+
+
+    @classmethod
+    @inlineCallbacks
+    def removedHome(cls, txn, homeID):
+        """
+        A calendar home is being removed so all of its attachments must go too. When removing,
+        we don't care about quota adjustment as there will be no quota once the home is removed.
+
+        TODO: this needs to be transactional wrt the actual file deletes.
+        """
+        att = schema.ATTACHMENT
+        attco = schema.ATTACHMENT_CALENDAR_OBJECT
+
+        rows = (yield Select(
+            [att.ATTACHMENT_ID, att.DROPBOX_ID, ],
+            From=att,
+            Where=(
+                att.CALENDAR_HOME_RESOURCE_ID == homeID
+            ),
+        ).on(txn))
+
+        for attachmentID, dropboxID in rows:
+            if dropboxID:
+                attachment = DropBoxAttachment(txn, attachmentID, None, None)
+            else:
+                attachment = ManagedAttachment(txn, attachmentID, None, None)
+            attachment = (yield attachment.initFromStore())
+            if attachment._path.exists():
+                attachment.removePaths()
+
+        yield Delete(
+            From=attco,
+            Where=(
+                attco.ATTACHMENT_ID.In(Select(
+                    [att.ATTACHMENT_ID, ],
+                    From=att,
+                    Where=(
+                        att.CALENDAR_HOME_RESOURCE_ID == homeID
+                    ),
+                ))
+            ),
+        ).on(txn)
+
+        yield Delete(
+            From=att,
+            Where=(
+                att.CALENDAR_HOME_RESOURCE_ID == homeID
+            ),
+        ).on(txn)
 
 
     # IDataStoreObject
@@ -1797,11 +1810,6 @@ class Attachment(object):
         return self._modified
 
 
-    # IAttachment
-    def dispositionName(self):
-        return self._dispositionName
-
-
 
 class DropBoxAttachment(Attachment):
 
@@ -1821,23 +1829,15 @@ class DropBoxAttachment(Attachment):
         @type ownerHomeID: C{int}
         """
 
-        # File system paths need to exist
-        try:
-            cls._attachmentPathRoot(txn, _ATTACHMENT_STATUS_DROPBOX, dropboxID).makedirs()
-        except:
-            pass
-
         # Now create the DB entry
         att = schema.ATTACHMENT
         rows = (yield Insert({
             att.CALENDAR_HOME_RESOURCE_ID : ownerHomeID,
-            att.STATUS                    : _ATTACHMENT_STATUS_DROPBOX,
             att.DROPBOX_ID                : dropboxID,
             att.CONTENT_TYPE              : "",
             att.SIZE                      : 0,
             att.MD5                       : "",
             att.PATH                      : name,
-            att.DISPLAYNAME               : None,
         }, Return=(att.ATTACHMENT_ID, att.CREATED, att.MODIFIED)).on(txn))
 
         row_iter = iter(rows[0])
@@ -1845,24 +1845,106 @@ class DropBoxAttachment(Attachment):
         created = sqltime(row_iter.next())
         modified = sqltime(row_iter.next())
 
-        attachment = cls(txn, a_id, _ATTACHMENT_STATUS_DROPBOX, dropboxID, name, ownerHomeID, True)
+        attachment = cls(txn, a_id, dropboxID, name, ownerHomeID, True)
         attachment._created = created
         attachment._modified = modified
+
+        # File system paths need to exist
+        try:
+            attachment._path.parent().makedirs()
+        except:
+            pass
+
         returnValue(attachment)
 
 
     @classmethod
     @inlineCallbacks
     def load(cls, txn, dropboxID, name):
-        attachment = cls(txn, None, _ATTACHMENT_STATUS_DROPBOX, dropboxID, name)
+        attachment = cls(txn, None, dropboxID, name)
         attachment = (yield attachment.initFromStore())
         returnValue(attachment)
+
+
+    @property
+    def _path(self):
+        # Use directory hashing scheme based on MD5 of dropboxID
+        hasheduid = hashlib.md5(self._dropboxID).hexdigest()
+        attachmentRoot = self._attachmentPathRoot().child(hasheduid[0:2]).child(hasheduid[2:4]).child(hasheduid)
+        return attachmentRoot.child(self.name())
+
+
+    @inlineCallbacks
+    def changed(self, contentType, dispositionName, md5, size):
+        """
+        Dropbox attachments never change their path - ignore dispositionName.
+        """
+
+        self._contentType = contentType
+        self._md5 = md5
+        self._size = size
+
+        att = schema.ATTACHMENT
+        self._created, self._modified = map(
+            sqltime,
+            (yield Update(
+                {
+                    att.CONTENT_TYPE    : generateContentType(self._contentType),
+                    att.SIZE            : self._size,
+                    att.MD5             : self._md5,
+                    att.MODIFIED        : utcNowSQL,
+                },
+                Where=(att.ATTACHMENT_ID == self._attachmentID),
+                Return=(att.CREATED, att.MODIFIED)).on(self._txn))[0]
+        )
 
 
 
 class ManagedAttachment(Attachment):
 
-    _PATH_NAME = "data"
+    @classmethod
+    @inlineCallbacks
+    def _create(cls, txn, managedID, ownerHomeID):
+        """
+        Create a new Attachment object.
+
+        @param txn: The transaction to use
+        @type txn: L{CommonStoreTransaction}
+        @param managedID: the identifier for the attachment
+        @type managedID: C{str}
+        @param ownerHomeID: the resource-id of the home collection of the attachment owner
+        @type ownerHomeID: C{int}
+        """
+
+        # Now create the DB entry
+        att = schema.ATTACHMENT
+        rows = (yield Insert({
+            att.CALENDAR_HOME_RESOURCE_ID : ownerHomeID,
+            att.DROPBOX_ID                : None,
+            att.CONTENT_TYPE              : "",
+            att.SIZE                      : 0,
+            att.MD5                       : "",
+            att.PATH                      : "",
+        }, Return=(att.ATTACHMENT_ID, att.CREATED, att.MODIFIED)).on(txn))
+
+        row_iter = iter(rows[0])
+        a_id = row_iter.next()
+        created = sqltime(row_iter.next())
+        modified = sqltime(row_iter.next())
+
+        attachment = cls(txn, a_id, managedID, None, ownerHomeID, True)
+        attachment._managedID = managedID
+        attachment._created = created
+        attachment._modified = modified
+
+        # File system paths need to exist
+        try:
+            attachment._path.parent().makedirs()
+        except:
+            pass
+
+        returnValue(attachment)
+
 
     @classmethod
     @inlineCallbacks
@@ -1880,48 +1962,70 @@ class ManagedAttachment(Attachment):
         @type referencedBy: C{int}
         """
 
-        # File system paths need to exist
-        try:
-            cls._attachmentPathRoot(txn, _ATTACHMENT_STATUS_MANAGED, managedID).makedirs()
-        except:
-            pass
-
         # Now create the DB entry
-        att = schema.ATTACHMENT
-        rows = (yield Insert({
-            att.CALENDAR_HOME_RESOURCE_ID : ownerHomeID,
-            att.STATUS                    : _ATTACHMENT_STATUS_MANAGED,
-            att.DROPBOX_ID                : managedID,
-            att.CONTENT_TYPE              : "",
-            att.SIZE                      : 0,
-            att.MD5                       : "",
-            att.PATH                      : cls._PATH_NAME,
-            att.DISPLAYNAME               : None,
-        }, Return=(att.ATTACHMENT_ID, att.CREATED, att.MODIFIED)).on(txn))
-
-        row_iter = iter(rows[0])
-        a_id = row_iter.next()
-        created = sqltime(row_iter.next())
-        modified = sqltime(row_iter.next())
+        attachment = (yield cls._create(txn, managedID, ownerHomeID))
 
         # Create the attachment<->calendar object relationship for managed attachments
         attco = schema.ATTACHMENT_CALENDAR_OBJECT
-        rows = (yield Insert({
-            attco.ATTACHMENT_ID               : a_id,
+        yield Insert({
+            attco.ATTACHMENT_ID               : attachment._attachmentID,
             attco.MANAGED_ID                  : managedID,
             attco.CALENDAR_OBJECT_RESOURCE_ID : referencedBy,
-        }).on(txn))
+        }).on(txn)
 
-        attachment = cls(txn, a_id, _ATTACHMENT_STATUS_MANAGED, managedID, cls._PATH_NAME, ownerHomeID, True)
-        attachment._managedID = managedID
-        attachment._created = created
-        attachment._modified = modified
         returnValue(attachment)
 
 
     @classmethod
     @inlineCallbacks
-    def load(cls, txn, managedID=None):
+    def update(cls, txn, managedID, ownerHomeID, referencedBy, oldAttachmentID):
+        """
+        Create a new Attachment object.
+
+        @param txn: The transaction to use
+        @type txn: L{CommonStoreTransaction}
+        @param managedID: the identifier for the attachment
+        @type managedID: C{str}
+        @param ownerHomeID: the resource-id of the home collection of the attachment owner
+        @type ownerHomeID: C{int}
+        @param referencedBy: the resource-id of the calendar object referencing the attachment
+        @type referencedBy: C{int}
+        @param oldAttachmentID: the attachment-id of the existing attachment being updated
+        @type oldAttachmentID: C{int}
+        """
+
+        # Now create the DB entry
+        attachment = (yield cls._create(txn, managedID, ownerHomeID))
+
+        # Update the attachment<->calendar object relationship for managed attachments
+        attco = schema.ATTACHMENT_CALENDAR_OBJECT
+        yield Update(
+            {
+                attco.ATTACHMENT_ID    : attachment._attachmentID,
+            },
+            Where=(attco.MANAGED_ID == managedID).And(
+                attco.CALENDAR_OBJECT_RESOURCE_ID == referencedBy
+            ),
+        ).on(txn)
+
+        # Now check whether old attachmentID is still referenced - if not delete it
+        rows = (yield Select(
+            [attco.ATTACHMENT_ID, ],
+            From=attco,
+            Where=(attco.ATTACHMENT_ID == oldAttachmentID),
+        ).on(txn))
+        aids = [row[0] for row in rows] if rows is not None else ()
+        if len(aids) == 0:
+            oldattachment = ManagedAttachment(txn, oldAttachmentID, None, None)
+            oldattachment = (yield oldattachment.initFromStore())
+            yield oldattachment.remove()
+
+        returnValue(attachment)
+
+
+    @classmethod
+    @inlineCallbacks
+    def load(cls, txn, managedID):
         attco = schema.ATTACHMENT_CALENDAR_OBJECT
         rows = (yield Select(
             [attco.ATTACHMENT_ID, ],
@@ -1934,7 +2038,7 @@ class ManagedAttachment(Attachment):
         elif len(aids) != 1:
             raise AttachmentStoreValidManagedID
 
-        attachment = cls(txn, aids[0], _ATTACHMENT_STATUS_MANAGED, None, cls._PATH_NAME)
+        attachment = cls(txn, aids[0], None, None)
         attachment = (yield attachment.initFromStore())
         attachment._managedID = managedID
         returnValue(attachment)
@@ -1978,6 +2082,39 @@ class ManagedAttachment(Attachment):
 
     def managedID(self):
         return self._managedID
+
+
+    @property
+    def _path(self):
+        # Use directory hashing scheme based on MD5 of attachmentID
+        hasheduid = hashlib.md5(str(self._attachmentID)).hexdigest()
+        return self._attachmentPathRoot().child(hasheduid[0:2]).child(hasheduid[2:4]).child(hasheduid)
+
+
+    @inlineCallbacks
+    def changed(self, contentType, dispositionName, md5, size):
+        """
+        Always update name to current disposition name.
+        """
+
+        self._contentType = contentType
+        self._name = dispositionName
+        self._md5 = md5
+        self._size = size
+        att = schema.ATTACHMENT
+        self._created, self._modified = map(
+            sqltime,
+            (yield Update(
+                {
+                    att.CONTENT_TYPE    : generateContentType(self._contentType),
+                    att.SIZE            : self._size,
+                    att.MD5             : self._md5,
+                    att.MODIFIED        : utcNowSQL,
+                    att.PATH            : self._name,
+                },
+                Where=(att.ATTACHMENT_ID == self._attachmentID),
+                Return=(att.CREATED, att.MODIFIED)).on(self._txn))[0]
+        )
 
 
     @inlineCallbacks

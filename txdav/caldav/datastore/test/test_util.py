@@ -110,7 +110,7 @@ END:VEVENT
 END:VCALENDAR
 """)
 
-        self.assertEquals( (yield dropboxIDFromCalendarObject(resource)), "12345-67890.dropbox")
+        self.assertEquals((yield dropboxIDFromCalendarObject(resource)), "12345-67890.dropbox")
 
 
     @inlineCallbacks
@@ -305,10 +305,12 @@ class StorageTransportTests(TestCase):
                 return self._name
 
         for filename, result in test_files:
-            item = StorageTransportBase(FakeAttachment(filename), None)
+            item = StorageTransportBase(FakeAttachment(filename), None, None)
             self.assertEquals(item._contentType, result)
-            item = StorageTransportBase(FakeAttachment(filename), result)
+            self.assertEquals(item._dispositionName, None)
+            item = StorageTransportBase(FakeAttachment(filename), result, filename)
             self.assertEquals(item._contentType, result)
+            self.assertEquals(item._dispositionName, filename)
 
 
 

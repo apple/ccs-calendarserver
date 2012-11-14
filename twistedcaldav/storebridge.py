@@ -1682,11 +1682,7 @@ class CalendarAttachment(_NewStoreFileMetaDataHelper, _GetChildHelper):
 
 
     def displayName(self):
-        if self._newStoreObject is not None:
-            dispositionName = self._newStoreObject.dispositionName()
-            return dispositionName if dispositionName else self.name()
-        else:
-            return self._name
+        return self.name()
 
 
     @requiresPermissions(davxml.WriteContent())

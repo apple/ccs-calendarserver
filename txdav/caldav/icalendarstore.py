@@ -553,10 +553,12 @@ class ICalendarObject(IDataStoreObject):
     # New managed attachment APIs that supersede dropbox
     #
 
-    def addAttachment(rids, content_type, filename, stream):
+    def addAttachment(pathpattern, rids, content_type, filename, stream):
         """
         Add a managed attachment to the calendar data.
 
+        @param pathpattern: URI template for the attachment property value.
+        @type pathpattern: C{str}
         @param rids: set of RECURRENCE-ID values (not adjusted for UTC or TZID offset) to add the
             new attachment to. The server must create necessary overrides if none already exist.
         @type rids: C{iterable}
@@ -571,10 +573,12 @@ class ICalendarObject(IDataStoreObject):
         """
 
 
-    def updateAttachment(managed_id, content_type, filename, stream):
+    def updateAttachment(pathpattern, managed_id, content_type, filename, stream):
         """
         Update an existing managed attachment in the calendar data.
 
+        @param pathpattern: URI template for the attachment property value.
+        @type pathpattern: C{str}
         @param managed_id: the identifier of the attachment to update.
         @type managed_id: C{str}
         @param content_type: content-type information for the attachment data.
@@ -737,12 +741,4 @@ class IAttachment(IDataStoreObject):
             attachment to its C{dataReceived} method, and then a notification
             that the stream is complete to its C{connectionLost} method.
         @type protocol: L{IProtocol}
-        """
-
-    def dispositionName():
-        """
-        The content-disposition filename for the attachment. Note that this is not necessarily the same as
-        the path name used to store the attachment.
-
-        @rtype: C{str}
         """

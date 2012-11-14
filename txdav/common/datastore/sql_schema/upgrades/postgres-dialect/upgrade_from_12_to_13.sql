@@ -26,26 +26,17 @@ create sequence ATTACHMENT_ID_SEQ;
 
 alter table ATTACHMENT
  drop constraint ATTACHMENT_PKEY,
- add column ATTACHMENT_ID integer primary key default nextval('ATTACHMENT_ID_SEQ'),
- add column DISPLAYNAME varchar(255),
- add column STATUS integer default 0 not null,
- add unique(DROPBOX_ID, PATH);
+ alter column DROPBOX_ID drop not null,
+ add column ATTACHMENT_ID integer primary key default nextval('ATTACHMENT_ID_SEQ');
 
 create table ATTACHMENT_CALENDAR_OBJECT (
   ATTACHMENT_ID                  integer      not null references ATTACHMENT on delete cascade,
   MANAGED_ID                     varchar(255) not null,
   CALENDAR_OBJECT_RESOURCE_ID    integer      not null references CALENDAR_OBJECT on delete cascade,
 
-  primary key(ATTACHMENT_ID, CALENDAR_OBJECT_RESOURCE_ID) -- implicit index
+  primary key(ATTACHMENT_ID, CALENDAR_OBJECT_RESOURCE_ID), -- implicit index
+  unique(MANAGED_ID, CALENDAR_OBJECT_RESOURCE_ID) --implicit index
 );
-
-create table ATTACHMENT_STATUS (
-  ID          integer     primary key,
-  DESCRIPTION varchar(16) not null unique
-);
-
-insert into ATTACHMENT_STATUS values (0, 'dropbox');
-insert into ATTACHMENT_STATUS values (1, 'managed');
 
 
 -- Now update the version

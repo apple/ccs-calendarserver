@@ -814,6 +814,7 @@ class CommonStoreTransaction(object):
             a = ("-- Label: %s\n" % (self._label.replace("%", "%%"),) + a[0],) + a[1:]
         if self._store.logSQL:
             log.error("SQL: %r %r" % (a, kw,))
+        results = None
         try:
             results = (yield self._sqlTxn.execSQL(*a, **kw))
         finally:
