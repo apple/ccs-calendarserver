@@ -277,6 +277,13 @@ class GatewayTestCase(TestCase):
         results = yield self.runCommand(command_removeWriteProxy)
         self.assertEquals(len(results["result"]["Proxies"]), 0)
 
+    @inlineCallbacks
+    def test_purgeOldEvents(self):
+        results = yield self.runCommand(command_purgeOldEvents)
+        self.assertEquals(results["result"]["EventsRemoved"], 0)
+        self.assertEquals(results["result"]["RetainDays"], 42)
+        results = yield self.runCommand(command_purgeOldEventsNoDays)
+        self.assertEquals(results["result"]["RetainDays"], 365)
 
 
 command_addReadProxy = """<?xml version="1.0" encoding="UTF-8"?>
@@ -586,6 +593,28 @@ command_getResourceAttributes = """<?xml version="1.0" encoding="UTF-8"?>
         <string>getResourceAttributes</string>
         <key>GeneratedUID</key>
         <string>AF575A61-CFA6-49E1-A0F6-B5662C9D9801</string>
+</dict>
+</plist>
+"""
+
+command_purgeOldEvents = """<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+        <key>command</key>
+        <string>purgeOldEvents</string>
+        <key>RetainDays</key>
+        <integer>42</integer>
+</dict>
+</plist>
+"""
+
+command_purgeOldEventsNoDays = """<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+        <key>command</key>
+        <string>purgeOldEvents</string>
 </dict>
 </plist>
 """
