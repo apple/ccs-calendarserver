@@ -2181,6 +2181,9 @@ class SharingMixIn(object):
             if status:
                 shareeView._bindStatus = columnMap[bind.BIND_STATUS]
                 if shareeView._bindStatus == _BIND_STATUS_ACCEPTED:
+                    shareeView.properties()[
+                        PropertyName.fromElement(ResourceType)
+                    ] = shareeView.resourceType()
                     yield shareeView._initSyncToken()
                 elif shareeView._bindStatus == _BIND_STATUS_DECLINED:
                     shareeView._deletedSyncToken(sharedRemoval=True)
