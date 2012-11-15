@@ -747,6 +747,10 @@ def upgradeData(config, spawner=None, parallel=0):
 
     docRoot = config.DocumentRoot
 
+    if not os.path.exists(docRoot):
+        log.info("DocumentRoot (%s) doesn't exist; skipping migration" % (docRoot,))
+        return
+
     versionFilePath = os.path.join(docRoot, ".calendarserver_version")
 
     onDiskVersion = 0
