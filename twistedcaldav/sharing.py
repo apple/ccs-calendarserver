@@ -39,7 +39,7 @@ from txdav.xml import element
 from twisted.internet.defer import succeed, inlineCallbacks, DeferredList, \
     returnValue
 
-from twistedcaldav import customxml, caldavxml
+from twistedcaldav import customxml, caldavxml, carddavxml
 from twistedcaldav.config import config
 from twistedcaldav.customxml import calendarserver_namespace
 from twistedcaldav.directory.wiki import WikiDirectoryService, getWikiAccess
@@ -116,22 +116,19 @@ class SharedCollectionMixin(object):
     def upgradeToShare(self):
         """ Upgrade this collection to a shared state """
 
-        if self.isCollection():
-            # Change resourcetype
-            rtype = self.resourceType()
-            rtype = element.ResourceType(*(rtype.children + (customxml.SharedOwner(),)))
-            self.writeDeadProperty(rtype)
-        # TODO: set group resource type?
+        # Change resourcetype
+        rtype = self.resourceType()
+        rtype = element.ResourceType(*(rtype.children + (customxml.SharedOwner(),)))
+        self.writeDeadProperty(rtype)
 
     @inlineCallbacks
     def downgradeFromShare(self, request):
 
-        if self.isCollection():
-            # Change resource type (note this might be called after deleting a resource
-            # so we have to cope with that)
-            rtype = self.resourceType()
-            rtype = element.ResourceType(*([child for child in rtype.children if child != customxml.SharedOwner()]))
-            self.writeDeadProperty(rtype)
+        # Change resource type (note this might be called after deleting a resource
+        # so we have to cope with that)
+        rtype = self.resourceType()
+        rtype = element.ResourceType(*([child for child in rtype.children if child != customxml.SharedOwner()]))
+        self.writeDeadProperty(rtype)
 
         # Remove all invitees
         for invitation in (yield self._allInvitations()):
@@ -1112,6 +1109,11 @@ class SharedHomeMixin(LinkFollowerMixIn):
         shareeURL = joinURL(shareeHomeResource.url(), share.name())
         shareeCollection = yield request.locateResource(shareeURL)
         shareeCollection.setShare(share)
+
+        #FIXME: addcresourceType to dead properties for share groups -
+        #        it's already there for shared address book and calendars
+        if isNewShare and sharedCollection.isGroup():
+                shareeCollection.writeDeadProperty(carddavxml.ResourceType.addressbook)
 
         # Set per-user displayname or color to whatever was given
         if displayname:
