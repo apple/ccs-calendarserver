@@ -10,21 +10,16 @@
 # part of.  You may not port this file to another platform without
 # Apple's written consent.
 
-
-# NOTES:
-# - Start the "postgres for server" instance
-# - See if there is calendar/contacts data
-# - pgdump to a file within DataRoot
-# - Drop the database within "postgres for server" instance
-# - Start our service (if needed)
-
 import datetime
 import subprocess
+from plistlib import readPlist, writePlist
 
 LOG = "/Library/Logs/Migration/calendarmigrator.log"
 SERVER_APP_ROOT = "/Applications/Server.app/Contents/ServerRoot"
 CALENDAR_SERVER_ROOT = "/Library/Server/Calendar and Contacts"
+CALDAVD_PLIST = "%s/Config/caldavd.plist" % (CALENDAR_SERVER_ROOT,)
 SERVER_ADMIN = "%s/usr/sbin/serveradmin" % (SERVER_APP_ROOT,)
+CERT_ADMIN = "/Applications/Server.app/Contents/ServerRoot/usr/sbin/certadmin"
 PGDUMP = "%s/usr/bin/pg_dump" % (SERVER_APP_ROOT,)
 DROPDB = "%s/usr/bin/dropdb" % (SERVER_APP_ROOT,)
 POSTGRES_SERVICE_NAME = "postgres_server"
@@ -111,11 +106,80 @@ def dropOldDatabase():
         return False
 
 
+def getDefaultCert():
+    """
+    Ask certadmin for default cert
+    @returns: path to default certificate, or empty string if no default
+    @rtype: C{str}
+    """
+    child = subprocess.Popen(
+        args=[CERT_ADMIN, "--default-certificate-path"],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    output, error = child.communicate()
+    if child.returncode:
+        log("Error looking up default certificate (%d): %s" % (child.returncode, error))
+        return ""
+    else:
+        certPath = output.strip()
+        log("Default certificate is: %s" % (certPath,))
+        return certPath
+
+def updateSettings(settings, otherCert):
+    """
+    Replace SSL settings based on otherCert path
+    """
+    basePath = otherCert[:-len("cert.pem")]
+    log("Base path is %s" % (basePath,))
+
+    log("Setting SSLCertificate to %s" % (otherCert,))
+    settings["SSLCertificate"] = otherCert
+
+    otherChain = basePath + "chain.pem"
+    log("Setting SSLAuthorityChain to %s" % (otherChain,))
+    settings["SSLAuthorityChain"] = otherChain
+
+    otherKey = basePath + "key.pem"
+    log("Setting SSLPrivateKey to %s" % (otherKey,))
+    settings["SSLPrivateKey"] = otherKey
+
+    settings["EnableSSL"] = True
+    settings["RedirectHTTPToHTTPS"] = True
+    settings.setdefault("Authentication", {}).setdefault("Basic", {})["Enabled"] = True
+
+def setCert(plistPath, otherCert):
+    """
+    Replace SSL settings in plist at plistPath based on otherCert path
+    """
+    log("Reading plist %s" % (plistPath,))
+    plist = readPlist(plistPath)
+    log("Read in plist %s" % (plistPath,))
+
+    updateSettings(plist, otherCert)
+
+    log("Writing plist %s" % (plistPath,))
+    writePlist(plist, plistPath)
+
+def isSSLEnabled(plistPath):
+    """
+    Examine plist for EnableSSL
+    """
+    log("Reading plist %s" % (plistPath,))
+    plist = readPlist(plistPath)
+    return plist.get("EnableSSL", False)
+
 def main():
     startPostgres()
     if dumpOldDatabase(DATADUMPFILENAME):
         dropOldDatabase()
     stopPostgres()
+
+    if not isSSLEnabled(CALDAVD_PLIST):
+        defaultCertPath = getDefaultCert()
+        log("Default cert path: %s" % (defaultCertPath,))
+        if defaultCertPath:
+            setCert(CALDAVD_PLIST, defaultCertPath)
 
 
 if __name__ == "__main__":
