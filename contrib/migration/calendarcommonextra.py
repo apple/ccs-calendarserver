@@ -146,7 +146,6 @@ def updateSettings(settings, otherCert):
 
     settings["EnableSSL"] = True
     settings["RedirectHTTPToHTTPS"] = True
-    settings.setdefault("Authentication", {}).setdefault("Basic", {})["Enabled"] = True
 
 def setCert(plistPath, otherCert):
     """
