@@ -35,7 +35,7 @@ create table NODE_INFO (
   PORT      integer not null,
   TIME      timestamp not null default timezone('UTC', CURRENT_TIMESTAMP),
 
-  primary key(HOSTNAME, PORT)
+  primary key (HOSTNAME, PORT)
 );
 
 
@@ -201,7 +201,7 @@ create table CALENDAR_OBJECT (
   CREATED              timestamp    default timezone('UTC', CURRENT_TIMESTAMP),
   MODIFIED             timestamp    default timezone('UTC', CURRENT_TIMESTAMP),
 
-  unique(CALENDAR_RESOURCE_ID, RESOURCE_NAME) -- implicit index
+  unique (CALENDAR_RESOURCE_ID, RESOURCE_NAME) -- implicit index
 
   -- since the 'inbox' is a 'calendar resource' for the purpose of storing
   -- calendar objects, this constraint has to be selectively enforced by the
@@ -316,7 +316,7 @@ create table ATTACHMENT (
   MODIFIED                    timestamp default timezone('UTC', CURRENT_TIMESTAMP),
   PATH                        varchar(1024) not null,
 
-  primary key(DROPBOX_ID, PATH) --implicit index
+  primary key (DROPBOX_ID, PATH) --implicit index
 );
 
 create index ATTACHMENT_CALENDAR_HOME_RESOURCE_ID on
@@ -332,7 +332,7 @@ create table RESOURCE_PROPERTY (
   VALUE       text         not null, -- FIXME: xml?
   VIEWER_UID  varchar(255),
 
-  primary key(RESOURCE_ID, NAME, VIEWER_UID) -- implicit index
+  primary key (RESOURCE_ID, NAME, VIEWER_UID) -- implicit index
 );
 
 
@@ -397,8 +397,8 @@ create table ADDRESSBOOK_BIND (
   SEEN_BY_SHAREE               boolean      not null,
   MESSAGE                      text,                  -- FIXME: xml?
 
-  primary key(ADDRESSBOOK_HOME_RESOURCE_ID, ADDRESSBOOK_RESOURCE_ID), -- implicit index
-  unique(ADDRESSBOOK_HOME_RESOURCE_ID, ADDRESSBOOK_RESOURCE_NAME)     -- implicit index
+  primary key (ADDRESSBOOK_HOME_RESOURCE_ID, ADDRESSBOOK_RESOURCE_ID), -- implicit index
+  unique (ADDRESSBOOK_HOME_RESOURCE_ID, ADDRESSBOOK_RESOURCE_NAME)     -- implicit index
 );
 
 create index ADDRESSBOOK_BIND_RESOURCE_ID on
@@ -414,8 +414,8 @@ create table ADDRESSBOOK_OBJECT (
   CREATED                 timestamp    default timezone('UTC', CURRENT_TIMESTAMP),
   MODIFIED                timestamp    default timezone('UTC', CURRENT_TIMESTAMP),
 
-  unique(ADDRESSBOOK_RESOURCE_ID, RESOURCE_NAME), -- implicit index
-  unique(ADDRESSBOOK_RESOURCE_ID, VCARD_UID)      -- implicit index
+  unique (ADDRESSBOOK_RESOURCE_ID, RESOURCE_NAME), -- implicit index
+  unique (ADDRESSBOOK_RESOURCE_ID, VCARD_UID)      -- implicit index
 );
 
 ---------------
@@ -497,7 +497,7 @@ create table APN_SUBSCRIPTIONS (
   USER_AGENT                    varchar(255) default null,
   IP_ADDR                       varchar(255) default null,
 
-  primary key(TOKEN, RESOURCE_KEY) -- implicit index
+  primary key (TOKEN, RESOURCE_KEY) -- implicit index
 );
 
 create index APN_SUBSCRIPTIONS_RESOURCE_KEY
