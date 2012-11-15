@@ -32,6 +32,7 @@ usage ()
   echo "Usage: ${program} [-v] [-s serverinfo]";
   echo "Options:";
   echo "        -h  Print this help and exit";
+  echo "        -d  Set the CalDAVTester directory";
   echo "        -s  Set the serverinfo.xml";
   echo "        -v  Verbose.";
 
@@ -39,10 +40,11 @@ usage ()
   exit 64;
 }
 
-while getopts 'hvs:' option; do
+while getopts 'hvd:s:' option; do
   case "$option" in 
     '?') usage; ;;
     'h') usage -; exit 0; ;;
+    'd')   cdt="${OPTARG}"; ;;
     's')   serverinfo="${OPTARG}"; ;;
     'v')      verbose="v"; ;;
   esac;
