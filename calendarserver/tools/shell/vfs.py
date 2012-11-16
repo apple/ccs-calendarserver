@@ -1,3 +1,4 @@
+# -*- test-case-name: calendarserver.tools.shell.test.test_vfs -*-
 ##
 # Copyright (c) 2011-2012 Apple Inc. All rights reserved.
 #
@@ -272,9 +273,8 @@ class UIDsFolder(Folder):
         # FIXME: Merge in directory UIDs also?
         # FIXME: Add directory info (eg. name) to list entry
 
-        def addResult(uid):
-            if uid in results:
-                return
+        def addResult(ignoredTxn, home):
+            uid = home.uid()
 
             record = self.service.directory.recordWithUID(uid)
             if record:
@@ -287,16 +287,8 @@ class UIDsFolder(Folder):
                 info = {}
 
             results[uid] = ListEntry(self, PrincipalHomeFolder, uid, **info)
-
-        txn = self.service.store.newTransaction()
-        try:
-            for home in (yield txn.calendarHomes()):
-                addResult(home.uid())
-            for home in (yield txn.addressbookHomes()):
-                addResult(home.uid())
-        finally:
-            (yield txn.abort())
-
+        yield self.service.store.withEachCalendarHomeDo(addResult)
+        yield self.service.store.withEachAddressbookHomeDo(addResult)
         returnValue(results.itervalues())
 
 
