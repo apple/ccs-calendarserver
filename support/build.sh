@@ -241,7 +241,7 @@ www_get () {
           echo "MD5 sum for ${name} is ${sum}";
         fi;
 
-        local sum="$(md5 "${file}" | perl -pe 's|^.*([0-9a-f]{32}).*$|\1|')";
+        local sum="$(sha1 "${file}" | perl -pe 's|^.*([0-9a-f]{40}).*$|\1|')";
         if [ -n "${sha1}" ]; then
           echo "Checking SHA1 sum for ${name}...";
           if [ "${sha1}" != "${sum}" ]; then
@@ -469,10 +469,10 @@ py_dependency () {
   local revision="0";     # Revision (if svn)
   local get_type="www";   # Protocol to use
   local  version="";      # Minimum version required
-  local   f_hash="";      # Checksum
+  local   f_hash="";      # Checksum flag
 
   OPTIND=1;
-  while getopts "ofi:er:v:m:" option; do
+  while getopts "ofi:er:v:m:s:" option; do
     case "${option}" in
       'o') optional="true"; ;;
       'f') override="true"; ;;
@@ -480,6 +480,7 @@ py_dependency () {
       'r') get_type="svn"; revision="${OPTARG}"; ;;
       'v')  version="-v ${OPTARG}"; ;;
       'm')   f_hash="-m ${OPTARG}"; ;;
+      's')   f_hash="-s ${OPTARG}"; ;;
       'i')
         if [ -z "${OPTARG}" ]; then
           inplace=".";
@@ -563,9 +564,10 @@ c_dependency () {
   local f_hash="";
 
   OPTIND=1;
-  while getopts "m:" option; do
+  while getopts "m:s:" option; do
     case "${option}" in
       'm') f_hash="-m ${OPTARG}"; ;;
+      's') f_hash="-s ${OPTARG}"; ;;
     esac;
   done;
   shift $((${OPTIND} - 1));
@@ -779,9 +781,9 @@ dependencies () {
   # they are useful to developers.
   #
 
-  local sv="0.1.2";
+  local sv="0.1.5";
   local sq="sqlparse-${sv}";
-  py_dependency -o -v "${sv}" -m "aa9852ad81822723adcd9f96838de14e" \
+  py_dependency -o -v "${sv}" -s "852fb9fb955992cc025d75d0cbfc93c57967bab7" \
     "SQLParse" "sqlparse" "${sq}" \
     "http://python-sqlparse.googlecode.com/files/${sq}.tar.gz";
 
