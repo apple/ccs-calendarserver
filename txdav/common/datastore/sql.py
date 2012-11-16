@@ -192,10 +192,17 @@ class CommonDataStore(Service, object):
         return []
 
 
+    @inlineCallbacks
     def withEachCalendarHomeDo(self, action, batchSize=None):
         """
         Implementation of L{ICalendarStore.withEachCalendarHomeDo}.
         """
+        txn = yield self.newTransaction()
+        allUIDs = yield Select([schema.CALENDAR_HOME.OWNER_UID],
+                               From=schema.CALENDAR_HOME).on(txn)
+        for [uid] in allUIDs:
+            yield action(txn, (yield txn.calendarHomeWithUID(uid)))
+        yield txn.commit()
 
 
     def newTransaction(self, label="unlabeled", disableCache=False):
