@@ -2272,37 +2272,6 @@ END:VCALENDAR
 
 
     @inlineCallbacks
-    def test_eachCalendarHome(self):
-        """
-        L{ICalendarTransaction.eachCalendarHome} returns an iterator that
-        yields 2-tuples of (transaction, home).
-        """
-        # create some additional calendar homes
-        additionalUIDs = set('alpha-uid home2 home3 beta-uid'.split())
-        txn = self.transactionUnderTest()
-        for name in additionalUIDs:
-            # maybe it's not actually necessary to yield (i.e. wait) for each
-            # one?  commit() should wait for all of them.
-            yield txn.calendarHomeWithUID(name, create=True)
-        yield self.commit()
-        foundUIDs = set([])
-        lastTxn = None
-        for txn, home in (yield self.storeUnderTest().eachCalendarHome()):
-            self.addCleanup(txn.commit)
-            foundUIDs.add(home.uid())
-            self.assertNotIdentical(lastTxn, txn)
-            lastTxn = txn
-        requiredUIDs = set([
-            uid for uid in self.requirements
-            if self.requirements[uid] is not None
-        ])
-        additionalUIDs.add("home_bad")
-        additionalUIDs.add("home_attachments")
-        expectedUIDs = additionalUIDs.union(requiredUIDs)
-        self.assertEquals(foundUIDs, expectedUIDs)
-
-
-    @inlineCallbacks
     def test_withEachCalendarHomeDo(self):
         """
         L{ICalendarStore.withEachCalendarHomeDo} executes its C{action}

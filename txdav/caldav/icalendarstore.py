@@ -114,17 +114,6 @@ class ICalendarStore(IDataStore):
     API root for calendar data storage.
     """
 
-    def eachCalendarHome():
-        """
-        Enumerate all calendar homes in this store, with each one in an
-        accompanying transaction.
-
-        @return: an iterator of 2-tuples of C{(transaction, calendar home)}
-            where C{transaction} is an L{ITransaction} provider and C{calendar
-            home} is an L{ICalendarHome} provider.
-        """
-
-
     def withEachCalendarHomeDo(action, batchSize=None):
         """
         Execute a given action with each calendar home present in this store,

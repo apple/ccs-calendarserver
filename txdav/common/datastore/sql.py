@@ -180,20 +180,6 @@ class CommonDataStore(Service, object):
             self.queryCacher = None
 
 
-    def eachCalendarHome(self):
-        """
-        @see: L{ICalendarStore.eachCalendarHome}
-        """
-        return []
-
-
-    def eachAddressbookHome(self):
-        """
-        @see: L{IAddressbookStore.eachAddressbookHome}
-        """
-        return []
-
-
     @inlineCallbacks
     def _withEachHomeDo(self, homeTable, homeFromTxn, action, batchSize):
         """

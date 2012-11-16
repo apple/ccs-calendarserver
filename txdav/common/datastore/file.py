@@ -29,6 +29,7 @@ from twext.web2.dav.resource import TwistedGETContentMD5, \
 
 from twisted.internet.defer import succeed, inlineCallbacks, returnValue
 from twisted.python.util import FancyEqMixin
+from twisted.python import log
 from twisted.python import hashlib
 
 from twistedcaldav import customxml
@@ -133,13 +134,34 @@ class CommonDataStore(DataStore):
 
 
     @inlineCallbacks
+    def _withEachHomeDo(self, enumerator, action, batchSize):
+        """
+        Implementation of L{ICalendarStore.withEachCalendarHomeDo} and
+        L{IAddressBookStore.withEachAddressbookHomeDo}.
+        """
+        for txn, home in enumerator():
+            try:
+                yield action(txn, home)
+            except:
+                log.err()
+                yield txn.abort()
+            else:
+                yield txn.commit()
+
+
     def withEachCalendarHomeDo(self, action, batchSize=None):
         """
         Implementation of L{ICalendarStore.withEachCalendarHomeDo}.
         """
-        for txn, home in self.eachCalendarHome():
-            yield action(txn, home)
-            yield txn.commit()
+        return self._withEachHomeDo(self._eachCalendarHome, action, batchSize)
+
+
+    def withEachAddressbookHomeDo(self, action, batchSize=None):
+        """
+        Implementation of L{ICalendarStore.withEachCalendarHomeDo}.
+        """
+        return self._withEachHomeDo(self._eachAddressbookHome, action,
+                                    batchSize)
 
 
     def setMigrating(self, state):
@@ -159,9 +181,9 @@ class CommonDataStore(DataStore):
 
     def _homesOfType(self, storeType):
         """
-        Common implementation of L{ICalendarStore.eachCalendarHome} and
-        L{IAddressBookStore.eachAddressbookHome}; see those for a description
-        of the return type.
+        Common implementation of L{_eachCalendarHome} and
+        L{_eachAddressbookHome}; see those for a description of the return
+        type.
 
         @param storeType: one of L{EADDRESSBOOKTYPE} or L{ECALENDARTYPE}.
         """
@@ -182,11 +204,11 @@ class CommonDataStore(DataStore):
                         yield (txn, home)
 
 
-    def eachCalendarHome(self):
+    def _eachCalendarHome(self):
         return self._homesOfType(ECALENDARTYPE)
 
 
-    def eachAddressbookHome(self):
+    def _eachAddressbookHome(self):
         return self._homesOfType(EADDRESSBOOKTYPE)
 
 
