@@ -211,6 +211,17 @@ class CommonDataStore(Service, object):
         )
 
 
+    def withEachAddressbookHomeDo(self, action, batchSize=None):
+        """
+        Implementation of L{IAddressbookStore.withEachAddressbookHomeDo}.
+        """
+        return self._withEachHomeDo(
+            schema.ADDRESSBOOK_HOME,
+            lambda txn, uid: txn.addressbookHomeWithUID(uid),
+            action, batchSize
+        )
+
+
     def newTransaction(self, label="unlabeled", disableCache=False):
         """
         @see: L{IDataStore.newTransaction}
@@ -484,16 +495,8 @@ class CommonStoreTransaction(object):
         raise RuntimeError("Database key %s cannot be determined." % (key,))
 
 
-    def calendarHomes(self):
-        return self.homes(ECALENDARTYPE)
-
-
     def calendarHomeWithUID(self, uid, create=False):
         return self.homeWithUID(ECALENDARTYPE, uid, create=create)
-
-
-    def addressbookHomes(self):
-        return self.homes(EADDRESSBOOKTYPE)
 
 
     def addressbookHomeWithUID(self, uid, create=False):
