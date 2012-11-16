@@ -193,7 +193,16 @@ class SQLStoreBuilder(object):
         store.label = currentTestID
         cp.startService()
         def stopIt():
-            return cp.stopService()
+            # active transactions should have been shut down.
+            wasBusy = len(cp._busy)
+            busyText = repr(cp._busy)
+            stop = cp.stopService()
+            def checkWasBusy(ignored):
+                if wasBusy:
+                    testCase.fail("Outstanding Transactions: " + busyText)
+                return ignored
+            stop.addBoth(checkWasBusy)
+            return stop
         testCase.addCleanup(stopIt)
         yield self.cleanStore(testCase, store)
         returnValue(store)
