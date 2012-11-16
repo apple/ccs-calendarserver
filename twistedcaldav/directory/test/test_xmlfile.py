@@ -25,6 +25,11 @@ from twistedcaldav.test.util import TestCase, xmlFile, augmentsFile
 # FIXME: Add tests for GUID hooey, once we figure out what that means here
 
 class XMLFileBase(object):
+    """
+    L{XMLFileBase} is a base/mix-in object for testing L{XMLDirectoryService}
+    (or things that depend on L{IDirectoryService} and need a simple
+    implementation to use).
+    """
     recordTypes = set((
         DirectoryService.recordType_users,
         DirectoryService.recordType_groups,
@@ -44,30 +49,30 @@ class XMLFileBase(object):
     }
 
     groups = {
-        "admin"      : { "password": "admin",       "guid": None, "addresses": (), "members": ((DirectoryService.recordType_groups, "managers"),)                                      },
-        "managers"   : { "password": "managers",    "guid": None, "addresses": (), "members": ((DirectoryService.recordType_users , "lecroy"),)                                         },
+        "admin"      : { "password": "admin",       "guid": None, "addresses": (), "members": ((DirectoryService.recordType_groups, "managers"),)},
+        "managers"   : { "password": "managers",    "guid": None, "addresses": (), "members": ((DirectoryService.recordType_users , "lecroy"),)},
         "grunts"     : { "password": "grunts",      "guid": None, "addresses": (), "members": ((DirectoryService.recordType_users , "wsanchez"),
                                                                                                (DirectoryService.recordType_users , "cdaboo"),
-                                                                                               (DirectoryService.recordType_users , "dreid")) },
-        "right_coast": { "password": "right_coast", "guid": None, "addresses": (), "members": ((DirectoryService.recordType_users , "cdaboo"),)                                         },
+                                                                                               (DirectoryService.recordType_users , "dreid"))},
+        "right_coast": { "password": "right_coast", "guid": None, "addresses": (), "members": ((DirectoryService.recordType_users , "cdaboo"),)},
         "left_coast" : { "password": "left_coast",  "guid": None, "addresses": (), "members": ((DirectoryService.recordType_users , "wsanchez"),
                                                                                                (DirectoryService.recordType_users , "dreid"),
-                                                                                               (DirectoryService.recordType_users , "lecroy")) },
+                                                                                               (DirectoryService.recordType_users , "lecroy"))},
         "both_coasts": { "password": "both_coasts", "guid": None, "addresses": (), "members": ((DirectoryService.recordType_groups, "right_coast"),
-                                                                                               (DirectoryService.recordType_groups, "left_coast"))           },
+                                                                                               (DirectoryService.recordType_groups, "left_coast"))},
         "recursive1_coasts":  { "password": "recursive1_coasts",  "guid": None, "addresses": (), "members": ((DirectoryService.recordType_groups, "recursive2_coasts"),
-                                                                                               (DirectoryService.recordType_users, "wsanchez"))           },
+                                                                                               (DirectoryService.recordType_users, "wsanchez"))},
         "recursive2_coasts":  { "password": "recursive2_coasts",  "guid": None, "addresses": (), "members": ((DirectoryService.recordType_groups, "recursive1_coasts"),
-                                                                                               (DirectoryService.recordType_users, "cdaboo"))           },
+                                                                                               (DirectoryService.recordType_users, "cdaboo"))},
         "non_calendar_group": { "password": "non_calendar_group", "guid": None, "addresses": (), "members": ((DirectoryService.recordType_users , "cdaboo"),
-                                                                                               (DirectoryService.recordType_users , "lecroy"))           },
+                                                                                               (DirectoryService.recordType_users , "lecroy"))},
     }
 
     locations = {
         "mercury": { "password": "mercury", "guid": None, "addresses": ("mailto:mercury@example.com",) },
         "gemini" : { "password": "gemini",  "guid": None, "addresses": ("mailto:gemini@example.com",)  },
         "apollo" : { "password": "apollo",  "guid": None, "addresses": ("mailto:apollo@example.com",)  },
-        "orion"  : { "password": "orion",   "guid": None, "addresses": ("mailto:orion@example.com",)  },
+        "orion"  : { "password": "orion",   "guid": None, "addresses": ("mailto:orion@example.com",)   },
     }
 
     resources = {
@@ -77,6 +82,14 @@ class XMLFileBase(object):
     }
 
     def xmlFile(self):
+        """
+        Create a L{FilePath} that points to a temporary file containing a copy
+        of C{twistedcaldav/directory/test/accounts.xml}.
+
+        @see: L{xmlFile}
+
+        @rtype: L{FilePath}
+        """
         if not hasattr(self, "_xmlFile"):
             self._xmlFile = FilePath(self.mktemp())
             xmlFile.copyTo(self._xmlFile)
@@ -84,6 +97,14 @@ class XMLFileBase(object):
 
 
     def augmentsFile(self):
+        """
+        Create a L{FilePath} that points to a temporary file containing a copy
+        of C{twistedcaldav/directory/test/augments.xml}.
+
+        @see: L{augmentsFile}
+
+        @rtype: L{FilePath}
+        """
         if not hasattr(self, "_augmentsFile"):
             self._augmentsFile = FilePath(self.mktemp())
             augmentsFile.copyTo(self._augmentsFile)
@@ -91,15 +112,20 @@ class XMLFileBase(object):
 
 
     def service(self):
-        directory = XMLDirectoryService(
+        """
+        Create an L{XMLDirectoryService} based on the contents of the paths
+        returned by L{XMLFileBase.augmentsFile} and L{XMLFileBase.xmlFile}.
+
+        @rtype: L{XMLDirectoryService}
+        """
+        return XMLDirectoryService(
             {
-                'xmlFile' : self.xmlFile(),
-                'augmentService' :
-                   augment.AugmentXMLDB(xmlFiles=(self.augmentsFile().path,)),
+                'xmlFile': self.xmlFile(),
+                'augmentService':
+                    augment.AugmentXMLDB(xmlFiles=(self.augmentsFile().path,)),
             },
             alwaysStat=True
         )
-        return directory
 
 
 
