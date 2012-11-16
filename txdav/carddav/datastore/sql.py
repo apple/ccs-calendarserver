@@ -196,6 +196,9 @@ class AddressBook(CommonHomeChild, AddressBookSharingMixIn):
     def resourceType(self):
         return ResourceType.addressbook #@UndefinedVariable
 
+    #FIXME: Only used for resouretype in SharedCollectionMixin.upgradeToShare() and SharedCollectionMixin.downgradeFromShare()
+    def objectResourcesHaveProperties(self):
+        return True
 
     ownerAddressBookHome = CommonHomeChild.ownerHome
     addressbookObjects = CommonHomeChild.objectResources
