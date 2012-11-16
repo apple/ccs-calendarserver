@@ -2300,3 +2300,28 @@ END:VCALENDAR
         additionalUIDs.add("home_attachments")
         expectedUIDs = additionalUIDs.union(requiredUIDs)
         self.assertEquals(foundUIDs, expectedUIDs)
+
+
+    @inlineCallbacks
+    def test_withEachCalendarHomeDo(self):
+        """
+        L{ICalendarStore.withEachCalendarHomeDo} executes its C{action}
+        argument repeatedly with all homes that have been craeted.
+        """
+        additionalUIDs = set('alpha-uid home2 home3 beta-uid'.split())
+        txn = self.transactionUnderTest()
+        for name in additionalUIDs:
+            yield txn.calendarHomeWithUID(name, create=True)
+        yield self.commit()
+        store = yield self.storeUnderTest()
+        def toEachCalendarHome(txn, eachHome):
+            return eachHome.createCalendarWithName("a-new-calendar")
+        result = yield store.withEachCalendarHomeDo(toEachCalendarHome)
+        self.assertEquals(result, None)
+        txn2 = self.transactionUnderTest()
+        for uid in additionalUIDs:
+            home = yield txn2.calendarHomeWithUID(uid)
+            self.assertNotIdentical(
+                None, (yield home.calendarWithName("a-new-calendar"))
+            )
+
