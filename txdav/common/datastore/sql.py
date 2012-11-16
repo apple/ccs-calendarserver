@@ -192,6 +192,12 @@ class CommonDataStore(Service, object):
         return []
 
 
+    def withEachCalendarHomeDo(self, action, batchSize=None):
+        """
+        Implementation of L{ICalendarStore.withEachCalendarHomeDo}.
+        """
+
+
     def newTransaction(self, label="unlabeled", disableCache=False):
         """
         @see: L{IDataStore.newTransaction}

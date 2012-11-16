@@ -132,6 +132,12 @@ class CommonDataStore(DataStore):
         )
 
 
+    def withEachCalendarHomeDo(self, action, batchSize=None):
+        """
+        Implementation of L{ICalendarStore.withEachCalendarHomeDo}.
+        """
+
+
     def setMigrating(self, state):
         """
         Set the "migrating" state
