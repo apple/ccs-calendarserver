@@ -190,12 +190,14 @@ apply_patches () {
 www_get () {
   if ! "${do_get}"; then return 0; fi;
 
-  local md5="";
+  local  md5="";
+  local sha1="";
 
   OPTIND=1;
-  while getopts "m:" option; do
+  while getopts "m:s:" option; do
     case "${option}" in
-      'm') md5="${OPTARG}"; ;;
+      'm')  md5="${OPTARG}"; ;;
+      's') sha1="${OPTARG}"; ;;
     esac;
   done;
   shift $((${OPTIND} - 1));
@@ -228,17 +230,26 @@ www_get () {
       check_hash () {
         local file="$1"; shift;
 
-        if [ "${hash}" == "md5" ]; then
-          local sum="$(hash "${file}" | perl -pe 's|^.*([0-9a-f]{32}).*$|\1|')";
-          if [ -n "${md5}" ]; then
-            echo "Checking MD5 sum for ${name}...";
-            if [ "${md5}" != "${sum}" ]; then
-              echo "ERROR: MD5 sum for downloaded file is wrong: ${sum} != ${md5}";
-              return 1;
-            fi;
-          else
-            echo "MD5 sum for ${name} is ${sum}";
+        local sum="$(md5 "${file}" | perl -pe 's|^.*([0-9a-f]{32}).*$|\1|')";
+        if [ -n "${md5}" ]; then
+          echo "Checking MD5 sum for ${name}...";
+          if [ "${md5}" != "${sum}" ]; then
+            echo "ERROR: MD5 sum for downloaded file is wrong: ${sum} != ${md5}";
+            return 1;
           fi;
+        else
+          echo "MD5 sum for ${name} is ${sum}";
+        fi;
+
+        local sum="$(md5 "${file}" | perl -pe 's|^.*([0-9a-f]{32}).*$|\1|')";
+        if [ -n "${sha1}" ]; then
+          echo "Checking SHA1 sum for ${name}...";
+          if [ "${sha1}" != "${sum}" ]; then
+            echo "ERROR: SHA1 sum for downloaded file is wrong: ${sum} != ${sha1}";
+            return 1;
+          fi;
+        else
+          echo "SHA1 sum for ${name} is ${sum}";
         fi;
       }
 
