@@ -82,20 +82,14 @@ class XMLFileBase(object):
             xmlFile.copyTo(self._xmlFile)
         return self._xmlFile
 
+
     def augmentsFile(self):
         if not hasattr(self, "_augmentsFile"):
             self._augmentsFile = FilePath(self.mktemp())
             augmentsFile.copyTo(self._augmentsFile)
         return self._augmentsFile
 
-class XMLFile (
-    XMLFileBase,
-    twistedcaldav.directory.test.util.BasicTestCase,
-    twistedcaldav.directory.test.util.DigestTestCase
-):
-    """
-    Test XML file based directory implementation.
-    """
+
     def service(self):
         directory = XMLDirectoryService(
             {
@@ -106,6 +100,17 @@ class XMLFile (
             alwaysStat=True
         )
         return directory
+
+
+
+class XMLFile (
+    XMLFileBase,
+    twistedcaldav.directory.test.util.BasicTestCase,
+    twistedcaldav.directory.test.util.DigestTestCase
+):
+    """
+    Test XML file based directory implementation.
+    """
 
     def test_changedXML(self):
         service = self.service()
