@@ -593,23 +593,6 @@ class CommonTests(CommonCommonTests):
 
 
     @inlineCallbacks
-    def test_calendarHomes(self):
-        """
-        Finding all existing calendar homes.
-        """
-        calendarHomes = (yield self.transactionUnderTest().calendarHomes())
-        self.assertEquals(
-            [home.name() for home in calendarHomes],
-            [
-                "home1",
-                "home_no_splits",
-                "home_splits",
-                "home_splits_shared",
-            ]
-        )
-
-
-    @inlineCallbacks
     def test_displayNameNone(self):
         """
         L{ICalendarHome.calendarWithName} returns C{None} for calendars which

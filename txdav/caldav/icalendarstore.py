@@ -88,14 +88,6 @@ class ICalendarTransaction(ICommonTransaction):
     Transaction functionality required to be implemented by calendar stores.
     """
 
-    def calendarHomes():
-        """
-        Retrieve each calendar home in the store.
-
-        @return: a L{Deferred} which fires with a list of L{ICalendarHome}.
-        """
-
-
     def calendarHomeWithUID(uid, create=False):
         """
         Retrieve the calendar home for the principal with the given C{uid}.

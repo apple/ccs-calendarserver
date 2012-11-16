@@ -234,20 +234,6 @@ class CommonTests(CommonCommonTests):
 
 
     @inlineCallbacks
-    def test_addressbookHomes(self):
-        """
-        Finding all existing addressbook homes.
-        """
-        addressbookHomes = (yield self.transactionUnderTest().addressbookHomes())
-        self.assertEquals(
-            [home.name() for home in addressbookHomes],
-            [
-                "home1",
-            ]
-        )
-
-
-    @inlineCallbacks
     def test_addressbookHomeWithUID_exists(self):
         """
         Finding an existing addressbook home by UID results in an object that
