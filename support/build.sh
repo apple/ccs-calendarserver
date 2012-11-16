@@ -781,9 +781,9 @@ dependencies () {
   # they are useful to developers.
   #
 
-  local sv="0.1.5";
+  local sv="0.1.2";
   local sq="sqlparse-${sv}";
-  py_dependency -o -v "${sv}" -s "852fb9fb955992cc025d75d0cbfc93c57967bab7" \
+  py_dependency -o -v "${sv}" -s "978874e5ebbd78e6d419e8182ce4fb3c30379642" \
     "SQLParse" "sqlparse" "${sq}" \
     "http://python-sqlparse.googlecode.com/files/${sq}.tar.gz";
 
