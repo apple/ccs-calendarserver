@@ -25,6 +25,8 @@ __all__ = [
     "CommonHome",
 ]
 
+import sys
+
 from uuid import uuid4, UUID
 
 from zope.interface import implements, directlyProvides
@@ -200,9 +202,15 @@ class CommonDataStore(Service, object):
         txn = yield self.newTransaction()
         allUIDs = yield Select([schema.CALENDAR_HOME.OWNER_UID],
                                From=schema.CALENDAR_HOME).on(txn)
-        for [uid] in allUIDs:
-            yield action(txn, (yield txn.calendarHomeWithUID(uid)))
-        yield txn.commit()
+        try:
+            for [uid] in allUIDs:
+                yield action(txn, (yield txn.calendarHomeWithUID(uid)))
+        except:
+            a, b, c = sys.exc_info()
+            yield txn.abort()
+            raise a, b, c
+        else:
+            yield txn.commit()
 
 
     def newTransaction(self, label="unlabeled", disableCache=False):
