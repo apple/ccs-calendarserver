@@ -2325,3 +2325,41 @@ END:VCALENDAR
                 None, (yield home.calendarWithName("a-new-calendar"))
             )
 
+
+    @inlineCallbacks
+    def test_withEachCalendarHomeDont(self):
+        """
+        When the function passed to L{ICalendarStore.withEachCalendarHomeDo}
+        raises an exception, processing is halted and the transaction is
+        aborted.  The exception is re-raised.
+        """
+        # create some calendar homes.
+        additionalUIDs = set('home2 home3'.split())
+        txn = self.transactionUnderTest()
+        for uid in additionalUIDs:
+            yield txn.calendarHomeWithUID(uid, create=True)
+        yield self.commit()
+        # try to create a calendar in all of them, then fail.
+        class AnException(Exception): pass
+        caught = []
+        @inlineCallbacks
+        def toEachCalendarHome(txn, eachHome):
+            caught.append(eachHome.uid())
+            yield eachHome.createCalendarWithName("wont-be-created")
+            raise AnException()
+        store = self.storeUnderTest()
+        yield self.failUnlessFailure(
+            store.withEachCalendarHomeDo(toEachCalendarHome), AnException
+        )
+        self.assertEquals(len(caught), 1)
+        @inlineCallbacks
+        def noNewCalendar(x):
+            home = yield txn.calendarHomeWithUID(uid, create=False)
+            self.assertIdentical(
+                (yield home.calendarWithName("wont-be-created")), None
+            )
+        txn = self.transactionUnderTest()
+        yield noNewCalendar(caught[0])
+        yield noNewCalendar('home2')
+        yield noNewCalendar('home3')
+
