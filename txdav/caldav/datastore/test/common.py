@@ -2306,7 +2306,7 @@ END:VCALENDAR
     def test_withEachCalendarHomeDo(self):
         """
         L{ICalendarStore.withEachCalendarHomeDo} executes its C{action}
-        argument repeatedly with all homes that have been craeted.
+        argument repeatedly with all homes that have been created.
         """
         additionalUIDs = set('alpha-uid home2 home3 beta-uid'.split())
         txn = self.transactionUnderTest()
