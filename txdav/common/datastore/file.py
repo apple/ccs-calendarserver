@@ -19,6 +19,7 @@
 Common utility functions for a file based datastore.
 """
 
+import sys
 from twext.internet.decorate import memoizedKey
 from twext.python.log import LoggingMixIn
 from txdav.xml.rfc2518 import ResourceType, GETContentType, HRef
@@ -29,7 +30,6 @@ from twext.web2.dav.resource import TwistedGETContentMD5, \
 
 from twisted.internet.defer import succeed, inlineCallbacks, returnValue
 from twisted.python.util import FancyEqMixin
-from twisted.python import log
 from twisted.python import hashlib
 
 from twistedcaldav import customxml
@@ -143,8 +143,9 @@ class CommonDataStore(DataStore):
             try:
                 yield action(txn, home)
             except:
-                log.err()
+                a, b, c = sys.exc_info()
                 yield txn.abort()
+                raise a, b, c
             else:
                 yield txn.commit()
 
