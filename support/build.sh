@@ -93,16 +93,34 @@ init_build () {
 
   patches="${caldav}/lib-patches";
 
-  # Find a command that can hash up a string for us
-  if type -t openssl > /dev/null; then
-    hash="md5";
-    hash () { openssl dgst -md5 "$@"; }
-  elif type -t md5 > /dev/null; then
-    hash="md5";
+  # Find some hashing commands
+  # sha1() = sha1 hash, if available
+  # md5()  = md5 hash, if available
+  # hash() = default hash function
+  # $hash  = name of the type of hash used by hash()
+
+  hash="";
+
+  if type -ft openssl > /dev/null; then
+    if [ -z "${hash}" ]; then hash="md5"; fi;
+    md5 () { "$(type -p openssl)" dgst -md5 "$@"; }
+  elif type -ft md5 > /dev/null; then
+    if [ -z "${hash}" ]; then hash="md5"; fi;
+    md5 () { "$(type -p md5)" "$@"; }
+  elif type -ft md5sum > /dev/null; then
+    if [ -z "${hash}" ]; then hash="md5"; fi;
+    md5 () { "$(type -p md5sum)" "$@"; }
+  fi;
+
+  if type -ft shasum > /dev/null; then
+    if [ -z "${hash}" ]; then hash="sha1"; fi;
+    sha1 () { "$(type -p shasum)" "$@"; }
+  fi;
+
+  if [ "${hash}" == "sha1" ]; then
+    hash () { sha1 "$@"; }
+  elif [ "${hash}" == "md5" ]; then
     hash () { md5 "$@"; }
-  elif type -t md5sum > /dev/null; then
-    hash="md5";
-    hash () { md5sum "$@"; }
   elif type -t cksum > /dev/null; then
     hash="hash";
     hash () { cksum "$@" | cut -f 1 -d " "; }
@@ -110,7 +128,6 @@ init_build () {
     hash="hash";
     hash () { sum "$@" | cut -f 1 -d " "; }
   else
-    hash="";
     hash () { echo "INTERNAL ERROR: No hash function."; exit 1; }
   fi;
 
@@ -264,7 +281,7 @@ www_get () {
 
           if egrep "^${pkg_host}" "${HOME}/.ssh/known_hosts" > /dev/null 2>&1; then
             echo "Copying cache file up to ${pkg_host}.";
-            if ! scp "${tmp}" "${pkg_host}:/www/hosts/${pkg_host}${pkg_path}/${cache_basename}"; then
+            if ! scp "${tmp}" "${pkg_host}:/var/www/static${pkg_path}/${cache_basename}"; then
               echo "Failed to copy cache file up to ${pkg_host}.";
             fi;
             echo ""
