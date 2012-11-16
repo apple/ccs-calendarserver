@@ -49,12 +49,12 @@ from txdav.caldav.icalendarstore import (
     ICalendarObject, ICalendarHome,
     ICalendar, IAttachment, ICalendarTransaction)
 
-
 from twistedcaldav.customxml import InviteNotification, InviteSummary
 from txdav.caldav.icalendarstore import IAttachmentStorageTransport
 from txdav.caldav.icalendarstore import QuotaExceeded
-from txdav.common.datastore.test.util import deriveQuota
-from txdav.common.datastore.test.util import withSpecialQuota
+from txdav.common.datastore.test.util import (
+    deriveQuota, withSpecialQuota, transactionClean
+)
 from txdav.common.icommondatastore import ConcurrentModification
 from twistedcaldav.ical import Component
 from twistedcaldav.config import config
@@ -590,23 +590,6 @@ class CommonTests(CommonCommonTests):
             create=True)
         name = yield home.nodeName()
         self.assertEquals(name, None)
-
-
-    @inlineCallbacks
-    def test_calendarHomes(self):
-        """
-        Finding all existing calendar homes.
-        """
-        calendarHomes = (yield self.transactionUnderTest().calendarHomes())
-        self.assertEquals(
-            [home.name() for home in calendarHomes],
-            [
-                "home1",
-                "home_no_splits",
-                "home_splits",
-                "home_splits_shared",
-            ]
-        )
 
 
     @inlineCallbacks
@@ -2272,31 +2255,64 @@ END:VCALENDAR
 
 
     @inlineCallbacks
-    def test_eachCalendarHome(self):
+    def test_withEachCalendarHomeDo(self):
         """
-        L{ICalendarTransaction.eachCalendarHome} returns an iterator that
-        yields 2-tuples of (transaction, home).
+        L{ICalendarStore.withEachCalendarHomeDo} executes its C{action}
+        argument repeatedly with all homes that have been created.
         """
-        # create some additional calendar homes
         additionalUIDs = set('alpha-uid home2 home3 beta-uid'.split())
         txn = self.transactionUnderTest()
         for name in additionalUIDs:
-            # maybe it's not actually necessary to yield (i.e. wait) for each
-            # one?  commit() should wait for all of them.
             yield txn.calendarHomeWithUID(name, create=True)
         yield self.commit()
-        foundUIDs = set([])
-        lastTxn = None
-        for txn, home in (yield self.storeUnderTest().eachCalendarHome()):
-            self.addCleanup(txn.commit)
-            foundUIDs.add(home.uid())
-            self.assertNotIdentical(lastTxn, txn)
-            lastTxn = txn
-        requiredUIDs = set([
-            uid for uid in self.requirements
-            if self.requirements[uid] is not None
-        ])
-        additionalUIDs.add("home_bad")
-        additionalUIDs.add("home_attachments")
-        expectedUIDs = additionalUIDs.union(requiredUIDs)
-        self.assertEquals(foundUIDs, expectedUIDs)
+        store = yield self.storeUnderTest()
+        def toEachCalendarHome(txn, eachHome):
+            return eachHome.createCalendarWithName("a-new-calendar")
+        result = yield store.withEachCalendarHomeDo(toEachCalendarHome)
+        self.assertEquals(result, None)
+        txn2 = self.transactionUnderTest()
+        for uid in additionalUIDs:
+            home = yield txn2.calendarHomeWithUID(uid)
+            self.assertNotIdentical(
+                None, (yield home.calendarWithName("a-new-calendar"))
+            )
+
+
+    @transactionClean
+    @inlineCallbacks
+    def test_withEachCalendarHomeDont(self):
+        """
+        When the function passed to L{ICalendarStore.withEachCalendarHomeDo}
+        raises an exception, processing is halted and the transaction is
+        aborted.  The exception is re-raised.
+        """
+        # create some calendar homes.
+        additionalUIDs = set('home2 home3'.split())
+        txn = self.transactionUnderTest()
+        for uid in additionalUIDs:
+            yield txn.calendarHomeWithUID(uid, create=True)
+        yield self.commit()
+        # try to create a calendar in all of them, then fail.
+        class AnException(Exception): pass
+        caught = []
+        @inlineCallbacks
+        def toEachCalendarHome(txn, eachHome):
+            caught.append(eachHome.uid())
+            yield eachHome.createCalendarWithName("wont-be-created")
+            raise AnException()
+        store = self.storeUnderTest()
+        yield self.failUnlessFailure(
+            store.withEachCalendarHomeDo(toEachCalendarHome), AnException
+        )
+        self.assertEquals(len(caught), 1)
+        @inlineCallbacks
+        def noNewCalendar(x):
+            home = yield txn.calendarHomeWithUID(uid, create=False)
+            self.assertIdentical(
+                (yield home.calendarWithName("wont-be-created")), None
+            )
+        txn = self.transactionUnderTest()
+        yield noNewCalendar(caught[0])
+        yield noNewCalendar('home2')
+        yield noNewCalendar('home3')
+

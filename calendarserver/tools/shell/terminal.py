@@ -89,7 +89,28 @@ class ShellOptions(Options):
         super(ShellOptions, self).__init__()
 
 
+
 class ShellService(Service, object):
+    """
+    A L{ShellService} collects all the information that a shell needs to run;
+    when run, it invokes the shell on stdin/stdout.
+
+    @ivar store: the calendar / addressbook store.
+    @type store: L{txdav.idav.IDataStore}
+
+    @ivar directory: the directory service, to look up principals' names
+    @type directory: L{twistedcaldav.directory.idirectory.IDirectoryService}
+
+    @ivar options: the command-line options used to create this shell service
+    @type options: L{ShellOptions}
+
+    @ivar reactor: the reactor under which this service is running
+    @type reactor: L{IReactorTCP}, L{IReactorTime}, L{IReactorThreads} etc
+
+    @ivar config: the configuration associated with this shell service.
+    @type config: L{twistedcaldav.config.Config}
+    """
+
     def __init__(self, store, directory, options, reactor, config):
         super(ShellService, self).__init__()
         self.store      = store
@@ -99,6 +120,7 @@ class ShellService(Service, object):
         self.config     = config
         self.terminalFD = None
         self.protocol   = None
+
 
     def startService(self):
         """
@@ -114,6 +136,7 @@ class ShellService(Service, object):
         self.protocol = ServerProtocol(lambda: ShellProtocol(self))
         StandardIO(self.protocol)
 
+
     def stopService(self):
         """
         Stop the service.
@@ -123,9 +146,13 @@ class ShellService(Service, object):
         os.write(self.terminalFD, "\r\x1bc\r")
 
 
+
 class ShellProtocol(ReceiveLineProtocol):
     """
     Data store shell protocol.
+
+    @ivar service: a service representing the running shell
+    @type service: L{ShellService}
     """
 
     # FIXME:

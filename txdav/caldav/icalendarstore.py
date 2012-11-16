@@ -88,14 +88,6 @@ class ICalendarTransaction(ICommonTransaction):
     Transaction functionality required to be implemented by calendar stores.
     """
 
-    def calendarHomes():
-        """
-        Retrieve each calendar home in the store.
-
-        @return: a L{Deferred} which fires with a list of L{ICalendarHome}.
-        """
-
-
     def calendarHomeWithUID(uid, create=False):
         """
         Retrieve the calendar home for the principal with the given C{uid}.
@@ -114,14 +106,40 @@ class ICalendarStore(IDataStore):
     API root for calendar data storage.
     """
 
-    def eachCalendarHome(self):
+    def withEachCalendarHomeDo(action, batchSize=None):
         """
-        Enumerate all calendar homes in this store, with each one in an
-        accompanying transaction.
+        Execute a given action with each calendar home present in this store,
+        in serial, committing after each batch of homes of a given size.
 
-        @return: an iterator of 2-tuples of C{(transaction, calendar home)}
-            where C{transaction} is an L{ITransaction} provider and C{calendar
-            home} is an L{ICalendarHome} provider.
+        @note: This does not execute an action with each directory principal
+            for which there might be a calendar home; it works only on calendar
+            homes which have already been provisioned.  To execute an action on
+            every possible calendar user, you will need to inspect the
+            directory API instead.
+
+        @note: The list of calendar homes is loaded incrementally, so this will
+            not necessarily present a consistent snapshot of the entire
+            database at a particular moment.  (If this behavior is desired,
+            pass a C{batchSize} greater than the number of homes in the
+            database.)
+
+        @param action: a 2-argument callable, taking an L{ICalendarTransaction}
+            and an L{ICalendarHome}, and returning a L{Deferred} that fires
+            with C{None} when complete.  Note that C{action} should not commit
+            or abort the given L{ICalendarTransaction}.  If C{action} completes
+            normally, then it will be called again with the next
+            L{ICalendarHome}.  If it raises an exception or returns a
+            L{Deferred} that fails, processing will stop and the L{Deferred}
+            returned from C{withEachCalendarHomeDo} will fail with that same
+            L{Failure}.
+        @type action: L{callable}
+
+        @param batchSize: The maximum count of calendar homes to include in a
+            single transaction.
+        @type batchSize: L{int}
+
+        @return: a L{Deferred} which fires with L{None} when all homes have
+            completed processing, or fails with the traceback.
         """
 
 

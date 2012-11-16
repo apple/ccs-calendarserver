@@ -25,6 +25,8 @@ __all__ = [
     "CommonHome",
 ]
 
+import sys
+
 from uuid import uuid4, UUID
 
 from zope.interface import implements, directlyProvides
@@ -178,18 +180,46 @@ class CommonDataStore(Service, object):
             self.queryCacher = None
 
 
-    def eachCalendarHome(self):
+    @inlineCallbacks
+    def _withEachHomeDo(self, homeTable, homeFromTxn, action, batchSize):
         """
-        @see: L{ICalendarStore.eachCalendarHome}
+        Implementation of L{ICalendarStore.withEachCalendarHomeDo} and
+        L{IAddressbookStore.withEachAddressbookHomeDo}.
         """
-        return []
+        txn = yield self.newTransaction()
+        try:
+            allUIDs = yield (Select([homeTable.OWNER_UID], From=homeTable)
+                             .on(txn))
+            for [uid] in allUIDs:
+                yield action(txn, (yield homeFromTxn(txn, uid)))
+        except:
+            a, b, c = sys.exc_info()
+            yield txn.abort()
+            raise a, b, c
+        else:
+            yield txn.commit()
 
 
-    def eachAddressbookHome(self):
+    def withEachCalendarHomeDo(self, action, batchSize=None):
         """
-        @see: L{IAddressbookStore.eachAddressbookHome}
+        Implementation of L{ICalendarStore.withEachCalendarHomeDo}.
         """
-        return []
+        return self._withEachHomeDo(
+            schema.CALENDAR_HOME,
+            lambda txn, uid: txn.calendarHomeWithUID(uid),
+            action, batchSize
+        )
+
+
+    def withEachAddressbookHomeDo(self, action, batchSize=None):
+        """
+        Implementation of L{IAddressbookStore.withEachAddressbookHomeDo}.
+        """
+        return self._withEachHomeDo(
+            schema.ADDRESSBOOK_HOME,
+            lambda txn, uid: txn.addressbookHomeWithUID(uid),
+            action, batchSize
+        )
 
 
     def newTransaction(self, label="unlabeled", disableCache=False):
@@ -465,16 +495,8 @@ class CommonStoreTransaction(object):
         raise RuntimeError("Database key %s cannot be determined." % (key,))
 
 
-    def calendarHomes(self):
-        return self.homes(ECALENDARTYPE)
-
-
     def calendarHomeWithUID(self, uid, create=False):
         return self.homeWithUID(ECALENDARTYPE, uid, create=create)
-
-
-    def addressbookHomes(self):
-        return self.homes(EADDRESSBOOKTYPE)
 
 
     def addressbookHomeWithUID(self, uid, create=False):

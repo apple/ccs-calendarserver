@@ -502,25 +502,6 @@ class FileStorageTests(CommonTests, unittest.TestCase):
 
 
     @inlineCallbacks
-    def test_calendarHomes(self):
-        """
-        Finding all existing calendar homes.
-        """
-        calendarHomes = (yield self.transactionUnderTest().calendarHomes())
-        self.assertEquals(
-            [home.name() for home in calendarHomes],
-            [
-                "home1",
-                "home_attachments",
-                "home_bad",
-                "home_no_splits",
-                "home_splits",
-                "home_splits_shared",
-            ]
-        )
-
-
-    @inlineCallbacks
     def test_calendarObjectsWithDotFile(self):
         """
         Adding a dotfile to the calendar home should not increase the number of
