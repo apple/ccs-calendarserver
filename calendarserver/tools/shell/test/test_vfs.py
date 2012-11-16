@@ -129,14 +129,9 @@ class UIDsFolderTests(TestCase):
         """
         Create a L{UIDsFolder}.
         """
-        x = None
-        store = yield buildStore(self, None)
-        directory = DirectoryStubber(self).service()
-        options = x
-        reactor = x
-        config = x
-
-        self.svc = ShellService(store, directory, options, reactor, config)
+        self.svc = ShellService(store=(yield buildStore(self, None)),
+                                directory=DirectoryStubber(self).service(),
+                                options=None, reactor=None, config=None)
         self.folder = UIDsFolder(self.svc, ())
 
 
