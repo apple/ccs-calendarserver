@@ -132,10 +132,14 @@ class CommonDataStore(DataStore):
         )
 
 
+    @inlineCallbacks
     def withEachCalendarHomeDo(self, action, batchSize=None):
         """
         Implementation of L{ICalendarStore.withEachCalendarHomeDo}.
         """
+        for txn, home in self.eachCalendarHome():
+            yield action(txn, home)
+            yield txn.commit()
 
 
     def setMigrating(self, state):
