@@ -398,16 +398,11 @@ class AddressBookObject(CommonObjectResource, AddressBookSharingMixIn):
                 assert memberAddress in groupComponent.resourceMemberAddresses(), "remove: member %s not in %s" % (self.component(), groupComponent)
                 groupComponent.removeProperty(Property("X-ADDRESSBOOKSERVER-MEMBER", memberAddress))
                 #groupComponent.replaceProperty(Property("PRODID", vCardProductID))
-                yield groupObject.updateDatabase(groupComponent)
+                yield groupObject.updateDatabase(groupComponent, removingObject=None if ownerGroup else self)
 
         if ownerGroup:
             pass  # convert delete in shared group to remove of member only part 2
         else:
-
-            #the object to be deleted still exists so updateDatabase could have left it around on a
-
-
-
             yield super(AddressBookObject, self).remove()
             self._kind = None
             self._ownerAddressBookResourceID = None
@@ -626,7 +621,7 @@ class AddressBookObject(CommonObjectResource, AddressBookSharingMixIn):
 
     @inlineCallbacks
     def updateDatabase(self, component, expand_until=None, reCreate=False,
-                       inserting=False):
+                       inserting=False, removingObject=None):
         """
         Update the database tables for the new data being written.
 
@@ -716,7 +711,7 @@ class AddressBookObject(CommonObjectResource, AddressBookSharingMixIn):
             memberAddress = "urn:uuid:" + self._uid
             for group in groups:
                 groupComponent = yield group.component()
-                assert memberAddress not in groupComponent.resourceMemberAddresses(), "insert: member %s already in %s" % (component, groupComponent)
+                assert memberAddress not in groupComponent.resourceMemberAddresses(), "updateDatabase(): member %s already in %s" % (component, groupComponent)
                 groupComponent.addProperty(Property("X-ADDRESSBOOKSERVER-MEMBER", memberAddress))
                 #groupComponent.replaceProperty(Property("PRODID", vCardProductID))
                 yield group.updateDatabase(groupComponent)
@@ -757,6 +752,10 @@ class AddressBookObject(CommonObjectResource, AddressBookSharingMixIn):
             memberIDsToDelete = set(currentMemberIDs) - set(memberIDs)
             memberIDsToAdd = set(memberIDs) - set(currentMemberIDs)
 
+            #correct for object that is about to be removed
+            if removingObject:
+                memberIDsToDelete |= set([removingObject._resourceID])
+
             for memberIDToDelete in memberIDsToDelete:
                 yield Delete(
                     aboMembers,
@@ -771,28 +770,35 @@ class AddressBookObject(CommonObjectResource, AddressBookSharingMixIn):
                      aboMembers.MEMBER_ID: memberIDToAdd, }
                 ).on(self._txn)
 
-            #get current foreign members 
-            currentForeignMemberRows = yield Select([aboForeignMembers.MEMBER_ADDRESS],
-                                                 From=aboForeignMembers,
-                                                 Where=aboForeignMembers.GROUP_ID == self._resourceID,).on(self._txn)
-            currentForeignMemberAddrs = [currentForeignMemberRow[0] for currentForeignMemberRow in currentForeignMemberRows]
+            # don't bother with aboForeignMembers on address books
+            if self._resourceID != self._ownerAddressBookResourceID:
 
-            foreignMemberAddrsToDelete = set(currentForeignMemberAddrs) - set(foreignMemberAddrs)
-            foreignMemberAddrsToAdd = set(foreignMemberAddrs) - set(currentForeignMemberAddrs)
+                #get current foreign members 
+                currentForeignMemberRows = yield Select([aboForeignMembers.MEMBER_ADDRESS],
+                                                     From=aboForeignMembers,
+                                                     Where=aboForeignMembers.GROUP_ID == self._resourceID,).on(self._txn)
+                currentForeignMemberAddrs = [currentForeignMemberRow[0] for currentForeignMemberRow in currentForeignMemberRows]
 
-            for foreignMemberAddrToDelete in foreignMemberAddrsToDelete:
-                yield Delete(
-                    aboForeignMembers,
-                    Where=((aboForeignMembers.GROUP_ID == self._resourceID).And(
-                            aboForeignMembers.MEMBER_ADDRESS == foreignMemberAddrToDelete))
-                ).on(self._txn)
+                foreignMemberAddrsToDelete = set(currentForeignMemberAddrs) - set(foreignMemberAddrs)
+                foreignMemberAddrsToAdd = set(foreignMemberAddrs) - set(currentForeignMemberAddrs)
 
-            for foreignMemberAddrToAdd in foreignMemberAddrsToAdd:
-                yield Insert(
-                    {aboForeignMembers.GROUP_ID: self._resourceID,
-                     aboForeignMembers.ADDRESSBOOK_ID: self._ownerAddressBookResourceID,
-                     aboForeignMembers.MEMBER_ADDRESS: foreignMemberAddrToAdd, }
-                ).on(self._txn)
+                for foreignMemberAddrToDelete in foreignMemberAddrsToDelete:
+                    yield Delete(
+                        aboForeignMembers,
+                        Where=((aboForeignMembers.GROUP_ID == self._resourceID).And(
+                                aboForeignMembers.MEMBER_ADDRESS == foreignMemberAddrToDelete))
+                    ).on(self._txn)
+
+                #correct for object that is about to be removed
+                if removingObject:
+                    foreignMemberAddrsToAdd |= set(["urn:uuid:" + removingObject.uid()])
+
+                for foreignMemberAddrToAdd in foreignMemberAddrsToAdd:
+                    yield Insert(
+                        {aboForeignMembers.GROUP_ID: self._resourceID,
+                         aboForeignMembers.ADDRESSBOOK_ID: self._ownerAddressBookResourceID,
+                         aboForeignMembers.MEMBER_ADDRESS: foreignMemberAddrToAdd, }
+                    ).on(self._txn)
 
 
     @inlineCallbacks
