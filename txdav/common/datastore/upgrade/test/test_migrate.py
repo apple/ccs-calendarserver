@@ -156,7 +156,8 @@ class HomeMigrationTests(TestCase):
         class StubService(Service, object):
             def startService(self):
                 super(StubService, self).startService()
-                subStarted.callback(None)
+                if not subStarted.called:
+                    subStarted.callback(None)
         from twisted.python import log
         def justOnce(evt):
             if evt.get('isError') and not hasattr(subStarted, 'result'):

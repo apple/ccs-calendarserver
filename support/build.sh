@@ -93,16 +93,34 @@ init_build () {
 
   patches="${caldav}/lib-patches";
 
-  # Find a command that can hash up a string for us
-  if type -t openssl > /dev/null; then
-    hash="md5";
-    hash () { openssl dgst -md5 "$@"; }
-  elif type -t md5 > /dev/null; then
-    hash="md5";
+  # Find some hashing commands
+  # sha1() = sha1 hash, if available
+  # md5()  = md5 hash, if available
+  # hash() = default hash function
+  # $hash  = name of the type of hash used by hash()
+
+  hash="";
+
+  if type -ft openssl > /dev/null; then
+    if [ -z "${hash}" ]; then hash="md5"; fi;
+    md5 () { "$(type -p openssl)" dgst -md5 "$@"; }
+  elif type -ft md5 > /dev/null; then
+    if [ -z "${hash}" ]; then hash="md5"; fi;
+    md5 () { "$(type -p md5)" "$@"; }
+  elif type -ft md5sum > /dev/null; then
+    if [ -z "${hash}" ]; then hash="md5"; fi;
+    md5 () { "$(type -p md5sum)" "$@"; }
+  fi;
+
+  if type -ft shasum > /dev/null; then
+    if [ -z "${hash}" ]; then hash="sha1"; fi;
+    sha1 () { "$(type -p shasum)" "$@"; }
+  fi;
+
+  if [ "${hash}" == "sha1" ]; then
+    hash () { sha1 "$@"; }
+  elif [ "${hash}" == "md5" ]; then
     hash () { md5 "$@"; }
-  elif type -t md5sum > /dev/null; then
-    hash="md5";
-    hash () { md5sum "$@"; }
   elif type -t cksum > /dev/null; then
     hash="hash";
     hash () { cksum "$@" | cut -f 1 -d " "; }
@@ -110,7 +128,6 @@ init_build () {
     hash="hash";
     hash () { sum "$@" | cut -f 1 -d " "; }
   else
-    hash="";
     hash () { echo "INTERNAL ERROR: No hash function."; exit 1; }
   fi;
 
@@ -173,12 +190,14 @@ apply_patches () {
 www_get () {
   if ! "${do_get}"; then return 0; fi;
 
-  local md5="";
+  local  md5="";
+  local sha1="";
 
   OPTIND=1;
-  while getopts "m:" option; do
+  while getopts "m:s:" option; do
     case "${option}" in
-      'm') md5="${OPTARG}"; ;;
+      'm')  md5="${OPTARG}"; ;;
+      's') sha1="${OPTARG}"; ;;
     esac;
   done;
   shift $((${OPTIND} - 1));
@@ -211,17 +230,26 @@ www_get () {
       check_hash () {
         local file="$1"; shift;
 
-        if [ "${hash}" == "md5" ]; then
-          local sum="$(hash "${file}" | perl -pe 's|^.*([0-9a-f]{32}).*$|\1|')";
-          if [ -n "${md5}" ]; then
-            echo "Checking MD5 sum for ${name}...";
-            if [ "${md5}" != "${sum}" ]; then
-              echo "ERROR: MD5 sum for downloaded file is wrong: ${sum} != ${md5}";
-              return 1;
-            fi;
-          else
-            echo "MD5 sum for ${name} is ${sum}";
+        local sum="$(md5 "${file}" | perl -pe 's|^.*([0-9a-f]{32}).*$|\1|')";
+        if [ -n "${md5}" ]; then
+          echo "Checking MD5 sum for ${name}...";
+          if [ "${md5}" != "${sum}" ]; then
+            echo "ERROR: MD5 sum for downloaded file is wrong: ${sum} != ${md5}";
+            return 1;
           fi;
+        else
+          echo "MD5 sum for ${name} is ${sum}";
+        fi;
+
+        local sum="$(sha1 "${file}" | perl -pe 's|^.*([0-9a-f]{40}).*$|\1|')";
+        if [ -n "${sha1}" ]; then
+          echo "Checking SHA1 sum for ${name}...";
+          if [ "${sha1}" != "${sum}" ]; then
+            echo "ERROR: SHA1 sum for downloaded file is wrong: ${sum} != ${sha1}";
+            return 1;
+          fi;
+        else
+          echo "SHA1 sum for ${name} is ${sum}";
         fi;
       }
 
@@ -264,7 +292,7 @@ www_get () {
 
           if egrep "^${pkg_host}" "${HOME}/.ssh/known_hosts" > /dev/null 2>&1; then
             echo "Copying cache file up to ${pkg_host}.";
-            if ! scp "${tmp}" "${pkg_host}:/www/hosts/${pkg_host}${pkg_path}/${cache_basename}"; then
+            if ! scp "${tmp}" "${pkg_host}:/var/www/static${pkg_path}/${cache_basename}"; then
               echo "Failed to copy cache file up to ${pkg_host}.";
             fi;
             echo ""
@@ -441,10 +469,10 @@ py_dependency () {
   local revision="0";     # Revision (if svn)
   local get_type="www";   # Protocol to use
   local  version="";      # Minimum version required
-  local   f_hash="";      # Checksum
+  local   f_hash="";      # Checksum flag
 
   OPTIND=1;
-  while getopts "ofi:er:v:m:" option; do
+  while getopts "ofi:er:v:m:s:" option; do
     case "${option}" in
       'o') optional="true"; ;;
       'f') override="true"; ;;
@@ -452,6 +480,7 @@ py_dependency () {
       'r') get_type="svn"; revision="${OPTARG}"; ;;
       'v')  version="-v ${OPTARG}"; ;;
       'm')   f_hash="-m ${OPTARG}"; ;;
+      's')   f_hash="-s ${OPTARG}"; ;;
       'i')
         if [ -z "${OPTARG}" ]; then
           inplace=".";
@@ -535,9 +564,10 @@ c_dependency () {
   local f_hash="";
 
   OPTIND=1;
-  while getopts "m:" option; do
+  while getopts "m:s:" option; do
     case "${option}" in
       'm') f_hash="-m ${OPTARG}"; ;;
+      's') f_hash="-s ${OPTARG}"; ;;
     esac;
   done;
   shift $((${OPTIND} - 1));
@@ -703,12 +733,6 @@ dependencies () {
       "${svn_uri_base}/PyKerberos/trunk";
   fi;
 
-  if [ "$(uname -s)" == "Darwin" ]; then
-    py_dependency -r 6656 \
-      "PyOpenDirectory" "opendirectory" "PyOpenDirectory" \
-      "${svn_uri_base}/PyOpenDirectory/trunk";
-  fi;
-
   py_dependency -v 0.5 -r 1038 \
     "xattr" "xattr" "xattr" \
     "http://svn.red-bean.com/bob/xattr/releases/xattr-0.6.1/";
@@ -759,7 +783,7 @@ dependencies () {
 
   local sv="0.1.2";
   local sq="sqlparse-${sv}";
-  py_dependency -o -v "${sv}" -m "aa9852ad81822723adcd9f96838de14e" \
+  py_dependency -o -v "${sv}" -s "978874e5ebbd78e6d419e8182ce4fb3c30379642" \
     "SQLParse" "sqlparse" "${sq}" \
     "http://python-sqlparse.googlecode.com/files/${sq}.tar.gz";
 

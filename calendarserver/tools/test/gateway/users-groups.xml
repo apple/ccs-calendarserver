@@ -37,4 +37,13 @@ limitations under the License.
       <member type="users">user02</member>
     </members>
   </group>
+  <group>
+    <uid>testgroup2</uid>
+    <guid>f5a6142c-4189-4e9e-90b0-9cd0268b314b</guid>
+    <password>test</password>
+    <name>Group 02</name>
+    <members>
+      <member type="users">user01</member>
+    </members>
+  </group>
 </accounts>

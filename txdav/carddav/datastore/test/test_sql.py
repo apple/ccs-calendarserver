@@ -223,19 +223,6 @@ class AddressBookSQLStorageTests(AddressBookCommonTests, unittest.TestCase):
         self.assertEqual(int(homeVersion, version))
 
 
-
-    def test_eachAddressbookHome(self):
-        """
-        L{IAddressbookStore.eachAddressbookHome} is currently stubbed out by
-        L{txdav.common.datastore.sql.CommonDataStore}.
-        """
-        return super(AddressBookSQLStorageTests, self).test_eachAddressbookHome()
-
-
-    test_eachAddressbookHome.todo = (
-        "stubbed out, as migration only needs to go from file->sql currently")
-
-
     @inlineCallbacks
     def test_putConcurrency(self):
         """

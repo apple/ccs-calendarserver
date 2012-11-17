@@ -994,14 +994,20 @@ class DirectoryPrincipalResource (
     def getAutoSchedule(self):
         return self.record.autoSchedule
 
-    def canAutoSchedule(self):
+    def canAutoSchedule(self, organizer=None):
         """
         Determine the auto-schedule state based on record state, type and config settings.
+
+        @param organizer: the CUA of the organizer trying to schedule this principal
+        @type organizer: C{str}
         """
-        
+
         if config.Scheduling.Options.AutoSchedule.Enabled:
-            if config.Scheduling.Options.AutoSchedule.Always or self.getAutoSchedule():
-                if self.getCUType() != "INDIVIDUAL" or config.Scheduling.Options.AutoSchedule.AllowUsers:
+            if (config.Scheduling.Options.AutoSchedule.Always or
+                self.getAutoSchedule() or
+                self.autoAcceptFromOrganizer(organizer)):
+                if (self.getCUType() != "INDIVIDUAL" or
+                    config.Scheduling.Options.AutoSchedule.AllowUsers):
                     return True
         return False
 
@@ -1012,8 +1018,64 @@ class DirectoryPrincipalResource (
         augmentRecord.autoScheduleMode = autoScheduleMode
         (yield self.record.service.augmentService.addAugmentRecords([augmentRecord]))
 
-    def getAutoScheduleMode(self):
-        return self.record.autoScheduleMode
+    def getAutoScheduleMode(self, organizer=None):
+        """
+        Return the auto schedule mode value for the principal.  If the optional
+        organizer is provided, and that organizer is a member of the principal's
+        auto-accept group, return "automatic" instead; this allows specifying a
+        priliveged group whose scheduling requests are automatically accepted or
+        declined, regardless of whether the principal is normally managed by a
+        delegate.
+
+        @param organizer: the CUA of the organizer scheduling this principal
+        @type organizer: C{str}
+        @return: auto schedule mode; one of: none, accept-always, decline-always,
+            accept-if-free, decline-if-busy, automatic (see stdconfig.py)
+        @rtype: C{str}
+        """
+        autoScheduleMode = self.record.autoScheduleMode
+        if self.autoAcceptFromOrganizer(organizer):
+            autoScheduleMode = "automatic"
+        return autoScheduleMode
+
+
+    @inlineCallbacks
+    def setAutoAcceptGroup(self, autoAcceptGroup):
+        """
+        Sets the group whose members can automatically schedule with this principal
+        even if this principal's auto-schedule is False (assuming no conflicts).
+
+        @param autoAcceptGroup:  GUID of the group
+        @type autoAcceptGroup: C{str}
+        """
+        self.record.autoAcceptGroup = autoAcceptGroup
+        augmentRecord = (yield self.record.service.augmentService.getAugmentRecord(self.record.guid, self.record.recordType))
+        augmentRecord.autoAcceptGroup = autoAcceptGroup
+        (yield self.record.service.augmentService.addAugmentRecords([augmentRecord]))
+
+    def getAutoAcceptGroup(self):
+        """
+        Returns the GUID of the auto accept group assigned to this principal, or empty
+        string if not assigned
+        """
+        return self.record.autoAcceptGroup
+
+    def autoAcceptFromOrganizer(self, organizer):
+        """
+        Is the organizer a member of this principal's autoAcceptGroup?
+
+        @param organizer: CUA of the organizer
+        @type organizer: C{str}
+        @return: True if the autoAcceptGroup is assigned, and the organizer is a member
+            of that group.  False otherwise.
+        @rtype: C{bool}
+        """
+        if organizer is not None and self.record.autoAcceptGroup is not None:
+            organizerPrincipal = self.parent.principalForCalendarUserAddress(organizer)
+            if organizerPrincipal is not None:
+                if organizerPrincipal.record.guid in self.record.autoAcceptMembers():
+                    return True
+        return False
 
     def getCUType(self):
         return self.record.getCUType()

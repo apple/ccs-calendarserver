@@ -234,20 +234,6 @@ class CommonTests(CommonCommonTests):
 
 
     @inlineCallbacks
-    def test_addressbookHomes(self):
-        """
-        Finding all existing addressbook homes.
-        """
-        addressbookHomes = (yield self.transactionUnderTest().addressbookHomes())
-        self.assertEquals(
-            [home.name() for home in addressbookHomes],
-            [
-                "home1",
-            ]
-        )
-
-
-    @inlineCallbacks
     def test_addressbookHomeWithUID_exists(self):
         """
         Finding an existing addressbook home by UID results in an object that
@@ -967,29 +953,3 @@ class CommonTests(CommonCommonTests):
                 (yield addressbook2.addressbookObjectWithUID(obj.uid())), None)
 
 
-    @inlineCallbacks
-    def test_eachAddressbookHome(self):
-        """
-        L{IAddressbookTransaction.eachAddressbookHome} returns an iterator that
-        yields 2-tuples of (transaction, home).
-        """
-        # create some additional addressbook homes
-        additionalUIDs = set('alpha-uid home2 home3 beta-uid'.split())
-        txn = self.transactionUnderTest()
-        for name in additionalUIDs:
-            yield txn.addressbookHomeWithUID(name, create=True)
-        yield self.commit()
-        foundUIDs = set([])
-        lastTxn = None
-        for txn, home in (yield self.storeUnderTest().eachAddressbookHome()):
-            self.addCleanup(txn.commit)
-            foundUIDs.add(home.uid())
-            self.assertNotIdentical(lastTxn, txn)
-            lastTxn = txn
-        requiredUIDs = set([
-            uid for uid in self.requirements
-            if self.requirements[uid] is not None
-        ])
-        additionalUIDs.add("home_bad")
-        expectedUIDs = additionalUIDs.union(requiredUIDs)
-        self.assertEquals(foundUIDs, expectedUIDs)

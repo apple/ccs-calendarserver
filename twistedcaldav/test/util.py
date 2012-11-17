@@ -45,6 +45,10 @@ from twistedcaldav.directory.xmlfile import XMLDirectoryService
 from txdav.common.datastore.test.util import deriveQuota
 from txdav.common.datastore.file import CommonDataStore
 
+from twext.python.log import Logger
+
+log = Logger()
+
 
 __all__ = [
     "featureUnimplemented",
@@ -633,6 +637,7 @@ class CapturingProcessProtocol(ProcessProtocol):
         self.input = inputData
         self.output = []
         self.error = []
+        self.terminated = False
 
 
     def connectionMade(self):
@@ -655,14 +660,18 @@ class CapturingProcessProtocol(ProcessProtocol):
         """
         Some output was received on stderr.
         """
+        # Ignore the Postgres "NOTICE" output
+        if "NOTICE" in data:
+            return
+
         self.error.append(data)
+
         # Attempt to exit promptly if a traceback is displayed, so we don't
         # deal with timeouts.
-        lines = ''.join(self.error).split("\n")
-        if len(lines) > 1:
-            errorReportLine = lines[-2].split(": ", 1)
-            if len(errorReportLine) == 2 and ' ' not in errorReportLine[0] and '\t' not in errorReportLine[0]:
-                self.transport.signalProcess("TERM")
+        if "Traceback" in data and not self.terminated:
+            log.error("Terminating process due to output: %s" % (data,))
+            self.terminated = True
+            self.transport.signalProcess("TERM")
 
 
     def processEnded(self, why):

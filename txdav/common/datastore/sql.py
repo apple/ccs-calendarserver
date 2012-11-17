@@ -25,6 +25,8 @@ __all__ = [
     "CommonHome",
 ]
 
+import sys
+
 from uuid import uuid4, UUID
 
 from zope.interface import implements, directlyProvides
@@ -178,18 +180,46 @@ class CommonDataStore(Service, object):
             self.queryCacher = None
 
 
-    def eachCalendarHome(self):
+    @inlineCallbacks
+    def _withEachHomeDo(self, homeTable, homeFromTxn, action, batchSize):
         """
-        @see: L{ICalendarStore.eachCalendarHome}
+        Implementation of L{ICalendarStore.withEachCalendarHomeDo} and
+        L{IAddressbookStore.withEachAddressbookHomeDo}.
         """
-        return []
+        txn = yield self.newTransaction()
+        try:
+            allUIDs = yield (Select([homeTable.OWNER_UID], From=homeTable)
+                             .on(txn))
+            for [uid] in allUIDs:
+                yield action(txn, (yield homeFromTxn(txn, uid)))
+        except:
+            a, b, c = sys.exc_info()
+            yield txn.abort()
+            raise a, b, c
+        else:
+            yield txn.commit()
 
 
-    def eachAddressbookHome(self):
+    def withEachCalendarHomeDo(self, action, batchSize=None):
         """
-        @see: L{IAddressbookStore.eachAddressbookHome}
+        Implementation of L{ICalendarStore.withEachCalendarHomeDo}.
         """
-        return []
+        return self._withEachHomeDo(
+            schema.CALENDAR_HOME,
+            lambda txn, uid: txn.calendarHomeWithUID(uid),
+            action, batchSize
+        )
+
+
+    def withEachAddressbookHomeDo(self, action, batchSize=None):
+        """
+        Implementation of L{IAddressbookStore.withEachAddressbookHomeDo}.
+        """
+        return self._withEachHomeDo(
+            schema.ADDRESSBOOK_HOME,
+            lambda txn, uid: txn.addressbookHomeWithUID(uid),
+            action, batchSize
+        )
 
 
     def newTransaction(self, label="unlabeled", disableCache=False):
@@ -465,16 +495,8 @@ class CommonStoreTransaction(object):
         raise RuntimeError("Database key %s cannot be determined." % (key,))
 
 
-    def calendarHomes(self):
-        return self.homes(ECALENDARTYPE)
-
-
     def calendarHomeWithUID(self, uid, create=False):
         return self.homeWithUID(ECALENDARTYPE, uid, create=create)
-
-
-    def addressbookHomes(self):
-        return self.homes(EADDRESSBOOKTYPE)
 
 
     def addressbookHomeWithUID(self, uid, create=False):
@@ -2819,6 +2841,42 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic, HomeChildBas
         returnValue(child)
 
 
+    # TODO: move to Calendar
+    @classproperty
+    def _insertHomeChild(cls): #@NoSelf
+        """
+        DAL statement to create a home child with all default values.
+        """
+        child = cls._homeChildSchema
+        return Insert({child.RESOURCE_ID: schema.RESOURCE_ID_SEQ},
+                      Return=(child.RESOURCE_ID))
+
+
+    # TODO: move to Calendar
+    @classproperty
+    def _insertHomeChildMetaData(cls): #@NoSelf
+        """
+        DAL statement to create a home child with all default values.
+        """
+        child = cls._homeChildMetaDataSchema
+        return Insert({child.RESOURCE_ID: Parameter("resourceID")},
+                      Return=(child.CREATED, child.MODIFIED))
+
+
+    # TODO: Make abstract here and move to Calendar
+    @classmethod
+    @inlineCallbacks
+    def _createChild(cls, home, name):
+        # Create this object
+        resourceID = (
+            yield cls._insertHomeChild.on(home._txn))[0][0]
+
+        created, modified = (
+            yield cls._insertHomeChildMetaData.on(home._txn,
+                                                  resourceID=resourceID))[0]
+        returnValue((resourceID, created, modified))
+
+
     @classmethod
     @inlineCallbacks
     def create(cls, home, name):
@@ -3085,7 +3143,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic, HomeChildBas
                       Where=obj.PARENT_RESOURCE_ID == Parameter('resourceID'))
 
 
-    # TODO: Make abstract here, and and move to Calendar
+    # TODO: Make abstract here and move to Calendar
     @inlineCallbacks
     def listObjectResources(self):
         if self._objectNames is None:
@@ -3106,7 +3164,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic, HomeChildBas
                       Where=obj.PARENT_RESOURCE_ID == Parameter('resourceID'))
 
 
-    # TODO: Make abstract here, and and move to Calendar
+    # TODO: Make abstract here and move to Calendar
     @inlineCallbacks
     def countObjectResources(self):
         if self._objectNames is None:
@@ -3514,7 +3572,7 @@ class CommonObjectResource(LoggingMixIn, FancyEqMixin):
         return Select(cls._allColumns, From=obj,
                       Where=obj.PARENT_RESOURCE_ID == Parameter("parentID"))
 
-    # TODO: Make abstract here, and and move to CalendarObject
+    # TODO: Make abstract here and move to CalendarObject
     @classmethod
     @inlineCallbacks
     def _allColumnsWithParent(cls, parent):
@@ -3587,7 +3645,7 @@ class CommonObjectResource(LoggingMixIn, FancyEqMixin):
                           obj.RESOURCE_NAME.In(Parameter("names", len(names)))))
 
 
-    # TODO: Make abstract here, and and move to CalendarObject
+    # TODO: Make abstract here and move to CalendarObject
     @classmethod
     @inlineCallbacks
     def _allColumnsWithParentAndNames(cls, parent, names):

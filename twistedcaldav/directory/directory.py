@@ -82,6 +82,8 @@ class DirectoryService(LoggingMixIn):
     searchContext_location = "location"
     searchContext_attendee = "attendee"
 
+    aggregateService = None
+
     def _generatedGUID(self):
         if not hasattr(self, "_guid"):
             realmName = self.realmName
@@ -477,6 +479,7 @@ class DirectoryService(LoggingMixIn):
             autoaccept = wpframework.get("AutoAcceptsInvitation", False)
             proxy = wpframework.get("CalendaringDelegate", None)
             read_only_proxy = wpframework.get("ReadOnlyCalendaringDelegate", None)
+            autoAcceptGroup = wpframework.get("AutoAcceptGroup", "")
         except (ExpatError, AttributeError), e:
             self.log_error(
                 "Failed to parse ResourceInfo attribute of record (%s)%s (guid=%s): %s\n%s" %
@@ -484,7 +487,7 @@ class DirectoryService(LoggingMixIn):
             )
             raise ValueError("Invalid ResourceInfo")
 
-        return (autoaccept, proxy, read_only_proxy,)
+        return (autoaccept, proxy, read_only_proxy, autoAcceptGroup)
 
 
     def getExternalProxyAssignments(self):
@@ -1245,6 +1248,7 @@ class DirectoryRecord(LoggingMixIn):
         firstName=None, lastName=None, emailAddresses=set(),
         calendarUserAddresses=set(),
         autoSchedule=False, autoScheduleMode=None,
+        autoAcceptGroup="",
         enabledForCalendaring=None,
         enabledForAddressBooks=None,
         uid=None,
@@ -1280,6 +1284,7 @@ class DirectoryRecord(LoggingMixIn):
         self.enabledForCalendaring = enabledForCalendaring
         self.autoSchedule = autoSchedule
         self.autoScheduleMode = autoScheduleMode
+        self.autoAcceptGroup = autoAcceptGroup
         self.enabledForAddressBooks = enabledForAddressBooks
         self.enabledForLogin = enabledForLogin
         self.extProxies = extProxies
@@ -1353,6 +1358,7 @@ class DirectoryRecord(LoggingMixIn):
             self.enabledForAddressBooks = augment.enabledForAddressBooks
             self.autoSchedule = augment.autoSchedule
             self.autoScheduleMode = augment.autoScheduleMode
+            self.autoAcceptGroup = augment.autoAcceptGroup
             self.enabledForLogin = augment.enabledForLogin
 
             if (self.enabledForCalendaring or self.enabledForAddressBooks) and self.recordType == self.service.recordType_groups:
@@ -1555,6 +1561,27 @@ class DirectoryRecord(LoggingMixIn):
                 return s.thisServer
         return True
 
+
+    def autoAcceptMembers(self):
+        """
+        Return the list of GUIDs for which this record will automatically accept
+        invites from (assuming no conflicts).  This list is based on the group
+        assigned to record.autoAcceptGroup.  Cache the expanded group membership
+        within the record.
+
+        @return: the list of members of the autoAcceptGroup, or an empty list if
+            not assigned
+        @rtype: C{list} of GUID C{str}
+        """
+        if not hasattr(self, "_cachedAutoAcceptMembers"):
+            self._cachedAutoAcceptMembers = []
+            if self.autoAcceptGroup:
+                service = self.service.aggregateService or self.service
+                groupRecord = service.recordWithGUID(self.autoAcceptGroup)
+                if groupRecord is not None:
+                    self._cachedAutoAcceptMembers = [m.guid for m in groupRecord.expandedMembers()]
+
+        return self._cachedAutoAcceptMembers
 
 
 class DirectoryError(RuntimeError):

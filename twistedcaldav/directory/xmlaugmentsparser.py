@@ -43,6 +43,7 @@ ELEMENT_ENABLEADDRESSBOOK = "enable-addressbook"
 ELEMENT_ENABLELOGIN       = "enable-login"
 ELEMENT_AUTOSCHEDULE      = "auto-schedule"
 ELEMENT_AUTOSCHEDULE_MODE = "auto-schedule-mode"
+ELEMENT_AUTOACCEPTGROUP   = "auto-accept-group"
 
 ATTRIBUTE_REPEAT          = "repeat"
 
@@ -60,6 +61,7 @@ ELEMENT_AUGMENTRECORD_MAP = {
     ELEMENT_ENABLELOGIN:       "enabledForLogin",
     ELEMENT_AUTOSCHEDULE:      "autoSchedule",
     ELEMENT_AUTOSCHEDULE_MODE: "autoScheduleMode",
+    ELEMENT_AUTOACCEPTGROUP:   "autoAcceptGroup",
 }
 
 class XMLAugmentsParser(object):
@@ -103,6 +105,7 @@ class XMLAugmentsParser(object):
                     ELEMENT_PARTITIONID,
                     ELEMENT_HOSTEDAT,
                     ELEMENT_AUTOSCHEDULE_MODE,
+                    ELEMENT_AUTOACCEPTGROUP,
                 ):
                     fields[node.tag] = node.text if node.text else ""
                 elif node.tag in (

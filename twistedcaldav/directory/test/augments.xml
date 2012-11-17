@@ -120,6 +120,7 @@ limitations under the License.
     <enable>true</enable>
     <enable-calendar>true</enable-calendar>
     <enable-addressbook>true</enable-addressbook>
+    <auto-accept-group>both_coasts</auto-accept-group>
   </record>
   <record>
     <uid>orion</uid>

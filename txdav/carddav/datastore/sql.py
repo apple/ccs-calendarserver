@@ -403,6 +403,11 @@ class AddressBookObject(CommonObjectResource, AddressBookSharingMixIn):
         if ownerGroup:
             pass  # convert delete in shared group to remove of member only part 2
         else:
+
+            #the object to be deleted still exists so updateDatabase could have left it around on a
+
+
+
             yield super(AddressBookObject, self).remove()
             self._kind = None
             self._ownerAddressBookResourceID = None

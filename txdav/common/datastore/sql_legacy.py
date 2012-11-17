@@ -39,7 +39,7 @@ from txdav.common.icommondatastore import IndexedSearchException, \
     ReservationError, NoSuchObjectResourceError
 
 from txdav.common.datastore.sql_tables import schema
-from twext.enterprise.dal.syntax import Parameter, Select
+from twext.enterprise.dal.syntax import Parameter, Select 
 from twext.python.clsprop import classproperty
 from twext.python.log import Logger, LoggingMixIn
 
@@ -226,7 +226,7 @@ class CalDAVSQLBehaviorMixin(RealSQLBehaviorMixin):
 
         # For SQL data DB we need to restrict the query to just the targeted calendar resource-id if provided
         if self.calendarid:
-
+            
             test = expression.isExpression("CALENDAR_OBJECT.CALENDAR_RESOURCE_ID", str(self.calendarid), True)
 
             # Since timerange expression already have the calendar resource-id test in them, do not
@@ -236,10 +236,10 @@ class CalDAVSQLBehaviorMixin(RealSQLBehaviorMixin):
             # Top-level timerange expression already has calendar resource-id restriction in it
             if isinstance(self.expression, expression.timerangeExpression):
                 pass
-
+            
             # Top-level OR - check each component
             elif isinstance(self.expression, expression.orExpression):
-
+                
                 def _hasTopLevelTimerange(testexpr):
                     if isinstance(testexpr, expression.timerangeExpression):
                         return True
@@ -247,7 +247,7 @@ class CalDAVSQLBehaviorMixin(RealSQLBehaviorMixin):
                         return any([isinstance(expr, expression.timerangeExpression) for expr in testexpr.expressions])
                     else:
                         return False
-
+                        
                 hasTimerange = any([_hasTopLevelTimerange(expr) for expr in self.expression.expressions])
 
                 if hasTimerange:
@@ -255,16 +255,16 @@ class CalDAVSQLBehaviorMixin(RealSQLBehaviorMixin):
                     pass
                 else:
                     # AND the whole thing with calendarid
-                    self.expression = test.andWith(self.expression)
+                    self.expression = test.andWith(self.expression)    
 
-
+            
             # Top-level AND - only add additional expression if timerange not present
             elif isinstance(self.expression, expression.andExpression):
                 hasTimerange = any([isinstance(expr, expression.timerangeExpression) for expr in self.expression.expressions])
                 if not hasTimerange:
                     # AND the whole thing
-                    self.expression = test.andWith(self.expression)
-
+                    self.expression = test.andWith(self.expression)    
+            
             # Just AND the entire thing
             else:
                 self.expression = test.andWith(self.expression)
@@ -472,10 +472,10 @@ class PostgresLegacyIndexEmulator(LegacyIndexHelper):
         with a longer expansion.
         """
         obj = yield self.calendar.calendarObjectWithName(name)
-
+        
         # Use a new transaction to do this update quickly without locking the row for too long. However, the original
         # transaction may have the row locked, so use wait=False and if that fails, fall back to using the original txn. 
-
+        
         newTxn = obj.transaction().store().newTransaction()
         try:
             yield obj.lock(wait=False, txn=newTxn)
@@ -494,7 +494,7 @@ class PostgresLegacyIndexEmulator(LegacyIndexHelper):
             else:
                 # We repeat this check because the resource may have been re-expanded by someone else
                 rmin, rmax = (yield obj.recurrenceMinMax(txn=newTxn))
-
+                
                 # If the resource is not fully expanded, see if within the required range or not.
                 # Note that expand_start could be None if no lower limit is applied, but expand_end will
                 # never be None
@@ -585,7 +585,7 @@ class PostgresLegacyIndexEmulator(LegacyIndexHelper):
                     if minDate < truncateLowerLimit:
                         raise TimeRangeLowerLimit(truncateLowerLimit)
 
-
+                        
                 if maxDate is not None or minDate is not None:
                     yield self.testAndUpdateIndex(minDate, maxDate)
 
@@ -739,10 +739,10 @@ class CardDAVSQLBehaviorMixin(RealSQLBehaviorMixin):
 
         # For SQL data DB we need to restrict the query to just the targeted calendar resource-id if provided
         if self.calendarid:
-
+            
             # AND the whole thing
             test = expression.isExpression("ADDRESSBOOK_OBJECT.ADDRESSBOOK_RESOURCE_ID", str(self.calendarid), True)
-            self.expression = test.andWith(self.expression)
+            self.expression = test.andWith(self.expression)    
 
         # Generate ' where ...' partial statement
         self.sout.write(self.WHERE)

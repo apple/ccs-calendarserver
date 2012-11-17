@@ -182,6 +182,7 @@ class LdapDirectoryService(CachingDirectoryService):
                 "autoScheduleEnabledValue": "yes",
                 "proxyAttr": None, # list of GUIDs
                 "readOnlyProxyAttr": None, # list of GUIDs
+                "autoAcceptGroupAttr": None, # single group GUID
             },
             "partitionSchema": {
                 "serverIdAttr": None, # maps to augments server-id
@@ -261,6 +262,8 @@ class LdapDirectoryService(CachingDirectoryService):
             attrSet.add(self.resourceSchema["resourceInfoAttr"])
         if self.resourceSchema["autoScheduleAttr"]:
             attrSet.add(self.resourceSchema["autoScheduleAttr"])
+        if self.resourceSchema["autoAcceptGroupAttr"]:
+            attrSet.add(self.resourceSchema["autoAcceptGroupAttr"])
         if self.resourceSchema["proxyAttr"]:
             attrSet.add(self.resourceSchema["proxyAttr"])
         if self.resourceSchema["readOnlyProxyAttr"]:
@@ -787,6 +790,7 @@ class LdapDirectoryService(CachingDirectoryService):
         proxyGUIDs = ()
         readOnlyProxyGUIDs = ()
         autoSchedule = False
+        autoAcceptGroup = ""
         memberGUIDs = []
 
         # LDAP attribute -> principal matchings
@@ -836,7 +840,8 @@ class LdapDirectoryService(CachingDirectoryService):
                         (
                             autoSchedule,
                             proxy,
-                            readOnlyProxy
+                            readOnlyProxy,
+                            autoAcceptGroup
                         ) = self.parseResourceInfo(
                             resourceInfo,
                             guid,
@@ -861,6 +866,9 @@ class LdapDirectoryService(CachingDirectoryService):
                 if self.resourceSchema["readOnlyProxyAttr"]:
                     readOnlyProxyGUIDs = set(self._getMultipleLdapAttributes(attrs,
                         self.resourceSchema["readOnlyProxyAttr"]))
+                if self.resourceSchema["autoAcceptGroupAttr"]:
+                    autoAcceptGroup = self._getUniqueLdapAttribute(attrs,
+                        self.resourceSchema["autoAcceptGroupAttr"])
 
         serverID = partitionID = None
         if self.partitionSchema["serverIdAttr"]:
@@ -906,6 +914,7 @@ class LdapDirectoryService(CachingDirectoryService):
                 partitionID=partitionID,
                 enabledForCalendaring=enabledForCalendaring,
                 autoSchedule=autoSchedule,
+                autoAcceptGroup=autoAcceptGroup,
                 enabledForAddressBooks=enabledForAddressBooks, # TODO: add to LDAP?
                 enabledForLogin=enabledForLogin,
             )

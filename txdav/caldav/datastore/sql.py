@@ -674,39 +674,6 @@ class Calendar(CommonHomeChild):
         return super(Calendar, self).unshare(ECALENDARTYPE)
 
 
-    @classproperty
-    def _insertHomeChild(cls): #@NoSelf
-        """
-        DAL statement to create a home child with all default values.
-        """
-        child = cls._homeChildSchema
-        return Insert({child.RESOURCE_ID: schema.RESOURCE_ID_SEQ},
-                      Return=(child.RESOURCE_ID))
-
-
-    @classproperty
-    def _insertHomeChildMetaData(cls): #@NoSelf
-        """
-        DAL statement to create a home child with all default values.
-        """
-        child = cls._homeChildMetaDataSchema
-        return Insert({child.RESOURCE_ID: Parameter("resourceID")},
-                      Return=(child.CREATED, child.MODIFIED))
-
-
-    @classmethod
-    @inlineCallbacks
-    def _createChild(cls, home, name):
-        # Create this object
-        resourceID = (
-            yield cls._insertHomeChild.on(home._txn))[0][0]
-
-        created, modified = (
-            yield cls._insertHomeChildMetaData.on(home._txn,
-                                                  resourceID=resourceID))[0]
-        returnValue((resourceID, created, modified))
-
-
 icalfbtype_to_indexfbtype = {
     "UNKNOWN"         : 0,
     "FREE"            : 1,

@@ -91,11 +91,11 @@
 
     <!-- Log root -->
     <key>LogRoot</key>
-    <string>/var/log/caldavd</string>
+    <string>Logs</string>
 
     <!-- Run root -->
     <key>RunRoot</key>
-    <string>/var/run</string>
+    <string>Logs/state</string>
 
     <!-- Child aliases -->
     <key>Aliases</key>
@@ -279,7 +279,7 @@
      -->
 
 	<key>ProxyLoadFromFile</key>
-    <string>conf/auth/proxies-test.xml</string>
+    <string></string>
 
     <!--
         Special principals

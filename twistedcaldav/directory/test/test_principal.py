@@ -560,7 +560,7 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
         """
         DirectoryPrincipalResource.canAutoSchedule()
         """
-        
+
         # Set all resources and locations to auto-schedule, plus one user
         for provisioningResource, recordType, recordResource, record in self._allRecords():
             if record.enabledForCalendaring:
@@ -589,6 +589,27 @@ class ProvisionedPrincipals (twistedcaldav.test.util.TestCase):
         for provisioningResource, recordType, recordResource, record in self._allRecords():
             if record.enabledForCalendaring:
                 self.assertFalse(recordResource.canAutoSchedule())
+
+
+    def test_canAutoScheduleAutoAcceptGroup(self):
+        """
+        DirectoryPrincipalResource.canAutoSchedule(organizer)
+        """
+
+        # Location "apollo" has an auto-accept group ("both_coasts") set in augments.xml,
+        # therefore any organizer in that group should be able to auto schedule
+
+        for provisioningResource, recordType, recordResource, record in self._allRecords():
+            if record.uid == "apollo":
+
+                # No organizer
+                self.assertFalse(recordResource.canAutoSchedule())
+
+                # Organizer in auto-accept group
+                self.assertTrue(recordResource.canAutoSchedule(organizer="mailto:wsanchez@example.com"))
+                # Organizer not in auto-accept group
+                self.assertFalse(recordResource.canAutoSchedule(organizer="mailto:a@example.com"))
+
 
     @inlineCallbacks
     def test_defaultAccessControlList_principals(self):

@@ -193,7 +193,17 @@ class SQLStoreBuilder(object):
         store.label = currentTestID
         cp.startService()
         def stopIt():
-            return cp.stopService()
+            # active transactions should have been shut down.
+            wasBusy = len(cp._busy)
+            busyText = repr(cp._busy)
+            stop = cp.stopService()
+            def checkWasBusy(ignored):
+                if wasBusy:
+                    testCase.fail("Outstanding Transactions: " + busyText)
+                return ignored
+            if deriveValue(testCase, _SPECIAL_TXN_CLEAN, lambda tc: False):
+                stop.addBoth(checkWasBusy)
+            return stop
         testCase.addCleanup(stopIt)
         yield self.cleanStore(testCase, store)
         returnValue(store)
@@ -250,13 +260,20 @@ def deriveValue(testCase, attribute, computeDefault):
     for that test.
 
     @param testCase: the test case instance.
+    @type testCase: L{TestCase}
 
     @param attribute: the name of the attribute (the same name passed to
         L{withSpecialValue}).
+    @type attribute: L{str}
 
     @param computeDefault: A 1-argument callable, which will be called with
         C{testCase} to compute a default value for the attribute for the given
         test if no custom one was specified.
+    @type computeDefault: L{callable}
+
+    @return: the value of the given C{attribute} for the given C{testCase}, as
+        decorated with C{withSpecialValue}.
+    @rtype: same type as the return type of L{computeDefault}
     """
     testID = testCase.id()
     testMethodName = testID.split(".")[-1]
@@ -295,6 +312,7 @@ def _computeDefaultQuota(testCase):
 
 
 _SPECIAL_QUOTA = "__special_quota__"
+_SPECIAL_TXN_CLEAN = "__special_txn_clean__"
 
 
 
@@ -328,9 +346,26 @@ def withSpecialQuota(quotaValue):
     Test method decorator that will cause L{deriveQuota} to return a different
     value for test cases that run that test method.
 
-    @see: withSpecialValue
+    @see: L{withSpecialValue}
     """
     return withSpecialValue(_SPECIAL_QUOTA, quotaValue)
+
+
+
+def transactionClean(f=None):
+    """
+    Test method decorator that will cause L{buildStore} to check that no
+    transactions were left outstanding at the end of the test, and fail the
+    test if they are outstanding rather than terminating them by shutting down
+    the connection pool service.
+
+    @see: L{withSpecialValue}
+    """
+    decorator = withSpecialValue(_SPECIAL_TXN_CLEAN, True)
+    if f:
+        return decorator(f)
+    else:
+        return decorator
 
 
 

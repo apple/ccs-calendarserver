@@ -1,3 +1,4 @@
+# -*- test-case-name: calendarserver.tools.shell.test.test_vfs -*-
 ##
 # Copyright (c) 2011-2012 Apple Inc. All rights reserved.
 #
@@ -56,6 +57,7 @@ class ListEntry(object):
     """
     Information about a C{File} as returned by C{File.list()}.
     """
+
     def __init__(self, parent, Class, Name, **fields):
         self.parent    = parent # The class implementing list()
         self.fileClass = Class
@@ -64,8 +66,10 @@ class ListEntry(object):
 
         fields["Name"] = Name
 
+
     def __str__(self):
         return self.toString()
+
 
     def __repr__(self):
         fields = self.fields.copy()
@@ -83,14 +87,17 @@ class ListEntry(object):
             fields,
         )
 
+
     def isFolder(self):
         return issubclass(self.fileClass, Folder)
+
 
     def toString(self):
         if self.isFolder():
             return "%s/" % (self.fileName,)
         else:
             return self.fileName
+
 
     @property
     def fieldNames(self):
@@ -101,9 +108,11 @@ class ListEntry(object):
                 else:
                     self._fieldNames = ("Name",) + tuple(self.parent.list.fieldNames)
             else:
-                self._fieldNames = ["Name"] + sorted(n for n in self.fields if n != "Name")
+                self._fieldNames = ["Name"] + sorted(n for n in self.fields
+                                                     if n != "Name")
 
         return self._fieldNames
+
 
     def toFields(self):
         try:
@@ -113,6 +122,7 @@ class ListEntry(object):
                 "Field %s is not in %r, defined by %s"
                 % (e, self.fields.keys(), self.parent.__name__)
             )
+
 
 
 class File(object):
@@ -217,7 +227,8 @@ class RootFolder(Folder):
     """
     Root of virtual data hierarchy.
 
-    Hierarchy:
+    Hierarchy::
+
       /                    RootFolder
         uids/              UIDsFolder
           <uid>/           PrincipalHomeFolder
@@ -262,9 +273,8 @@ class UIDsFolder(Folder):
         # FIXME: Merge in directory UIDs also?
         # FIXME: Add directory info (eg. name) to list entry
 
-        def addResult(uid):
-            if uid in results:
-                return
+        def addResult(ignoredTxn, home):
+            uid = home.uid()
 
             record = self.service.directory.recordWithUID(uid)
             if record:
@@ -277,19 +287,9 @@ class UIDsFolder(Folder):
                 info = {}
 
             results[uid] = ListEntry(self, PrincipalHomeFolder, uid, **info)
-
-        txn = self.service.store.newTransaction()
-        try:
-            for home in (yield txn.calendarHomes()):
-                addResult(home.uid())
-            for home in (yield txn.addressbookHomes()):
-                addResult(home.uid())
-        finally:
-            (yield txn.abort())
-
+        yield self.service.store.withEachCalendarHomeDo(addResult)
+        yield self.service.store.withEachAddressbookHomeDo(addResult)
         returnValue(results.itervalues())
-
-        list.fieldNames = ("Record Name", "Short Name", "Full Name")
 
 
 
