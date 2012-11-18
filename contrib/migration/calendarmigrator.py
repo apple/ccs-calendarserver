@@ -485,6 +485,16 @@ def mergePlist(caldav, carddav, combined):
     # ConfigRoot is now always "Config"
     combined["ConfigRoot"] = "Config"
 
+    # Remove the RunRoot, PIDFile keys so they use new defaults
+    try:
+        del combined["RunRoot"]
+    except:
+        pass
+    try:
+        del combined["PIDFile"]
+    except:
+        pass
+
     return adminChanges
 
 

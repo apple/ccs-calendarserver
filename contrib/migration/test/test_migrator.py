@@ -63,6 +63,34 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
         self.patch(contrib.migration.calendarmigrator, "grp", FakeGrp())
 
 
+    def test_keyRemoval(self):
+
+        oldCalDAV = {
+            "RunRoot": "xyzzy",
+            "PIDFile": "plugh",
+            "ignored": "ignored",
+        }
+        oldCardDAV = {
+        }
+        expected = {
+            "ignored": "ignored",
+            "BindHTTPPorts": [8008, 8800],
+            "BindSSLPorts": [8443, 8843],
+            "ConfigRoot" : "Config",
+            "DSN" : "/Library/Server/PostgreSQL For Server Services/Socket:caldav:caldav:::",
+            "EnableSSL" : False,
+            "HTTPPort": 8008,
+            "RedirectHTTPToHTTPS": False,
+            "SSLAuthorityChain": "",
+            "SSLCertificate": "",
+            "SSLPort": 8443,
+            "SSLPrivateKey": "",
+        }
+        newCombined = { }
+        adminChanges = mergePlist(oldCalDAV, oldCardDAV, newCombined)
+        self.assertEquals(adminChanges, [])
+        self.assertEquals(newCombined, expected)
+
     def test_mergeSSL(self):
 
         # SSL on for both services
