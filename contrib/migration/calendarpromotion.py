@@ -43,6 +43,15 @@ def updatePlist(plistData):
     plistData["DSN"] = ""
     plistData["ConfigRoot"] = "Config"
     plistData["DBImportFile"] = "/Library/Server/Calendar and Contacts/DataDump.sql"
+    # Remove RunRoot and PIDFile keys so they use the new defaults
+    try:
+        del plistData["RunRoot"]
+    except:
+        pass
+    try:
+        del plistData["PIDFile"]
+    except:
+        pass
 
 
 
