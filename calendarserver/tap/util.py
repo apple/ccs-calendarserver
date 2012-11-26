@@ -233,8 +233,14 @@ def storeFromConfig(config, txnFactory):
     if quota == 0:
         quota = None
     if txnFactory is not None:
+        if config.EnableSSL:
+            uri = "https://%s:%s" % (config.ServerHostName, config.SSLPort,)
+        else:
+            uri = "http://%s:%s" % (config.ServerHostName, config.HTTPPort,)
+        attachments_uri = uri + "/calendars/__uids__/%(home)s/attachments/%(name)s"
         return CommonSQLDataStore(
-            txnFactory, notifierFactory, FilePath(config.AttachmentsRoot),
+            txnFactory, notifierFactory,
+            FilePath(config.AttachmentsRoot), attachments_uri,
             config.EnableCalDAV, config.EnableCardDAV,
             quota=quota,
             logLabels=config.LogDatabase.LabelsInSQL,

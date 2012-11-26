@@ -2181,9 +2181,8 @@ class CalendarObjectResource(_CalendarObjectMetaDataMixin, _CommonObjectResource
         if action == "attachment-add":
             rids = _getRIDs()
             content_type, filename = _getContentInfo()
-            uri = "https://caldav.corp.apple.com:8443/calendars/__uids__/%s/attachments/%s"
             try:
-                attachment, location = (yield self._newStoreObject.addAttachment(uri, rids, content_type, filename, request.stream))
+                attachment, location = (yield self._newStoreObject.addAttachment(rids, content_type, filename, request.stream))
             except AttachmentStoreFailed:
                 raise HTTPError(ErrorResponse(
                     FORBIDDEN,
@@ -2212,9 +2211,8 @@ class CalendarObjectResource(_CalendarObjectMetaDataMixin, _CommonObjectResource
         elif action == "attachment-update":
             mid = _getMID()
             content_type, filename = _getContentInfo()
-            uri = "https://caldav.corp.apple.com:8443/calendars/__uids__/%s/attachments/%s"
             try:
-                attachment, location = (yield self._newStoreObject.updateAttachment(uri, mid, content_type, filename, request.stream))
+                attachment, location = (yield self._newStoreObject.updateAttachment(mid, content_type, filename, request.stream))
             except AttachmentStoreValidManagedID:
                 raise HTTPError(ErrorResponse(
                     FORBIDDEN,

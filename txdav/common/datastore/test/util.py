@@ -188,7 +188,11 @@ class SQLStoreBuilder(object):
                             maxConnections=5)
         quota = deriveQuota(testCase)
         store = CommonDataStore(
-            cp.connection, notifierFactory, attachmentRoot, quota=quota
+            cp.connection,
+            notifierFactory,
+            attachmentRoot,
+            "https://example.com/calendars/__uids__/%(home)s/attachments/%(name)s",
+            quota=quota
         )
         store.label = currentTestID
         cp.startService()

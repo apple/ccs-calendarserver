@@ -145,7 +145,8 @@ class CommonDataStore(Service, object):
 
     implements(ICalendarStore)
 
-    def __init__(self, sqlTxnFactory, notifierFactory, attachmentsPath,
+    def __init__(self, sqlTxnFactory, notifierFactory,
+                 attachmentsPath, attachmentsURIPattern,
                  enableCalendars=True, enableAddressBooks=True,
                  label="unlabeled", quota=(2 ** 20),
                  logLabels=False, logStats=False, logStatsLogFile=None, logSQL=False,
@@ -157,6 +158,7 @@ class CommonDataStore(Service, object):
         self.sqlTxnFactory = sqlTxnFactory
         self.notifierFactory = notifierFactory
         self.attachmentsPath = attachmentsPath
+        self.attachmentsURIPattern = attachmentsURIPattern
         self.enableCalendars = enableCalendars
         self.enableAddressBooks = enableAddressBooks
         self.label = label
