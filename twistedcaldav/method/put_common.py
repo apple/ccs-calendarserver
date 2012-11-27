@@ -42,6 +42,7 @@ from twext.web2.stream import MemoryStream
 from twext.python.log import Logger
 from twext.web2.dav.http import ErrorResponse
 
+from txdav.caldav.icalendarstore import AttachmentStoreValidManagedID
 from txdav.common.icommondatastore import ReservationError
 
 from twistedcaldav.config import config
@@ -51,7 +52,7 @@ from twistedcaldav.customxml import calendarserver_namespace
 from twistedcaldav.datafilters.peruserdata import PerUserDataFilter
 
 from twistedcaldav.ical import Component, Property
-from twistedcaldav.instance import TooManyInstancesError,\
+from twistedcaldav.instance import TooManyInstancesError, \
     InvalidOverriddenInstanceError
 from twistedcaldav.memcachelock import MemcacheLock, MemcacheLockTimeoutError
 from twistedcaldav.scheduling.implicit import ImplicitScheduler
@@ -61,7 +62,7 @@ log = Logger()
 class StoreCalendarObjectResource(object):
 
     class UIDReservation(object):
-        
+
         def __init__(self, index, uid, uri, internal_request, transaction):
             if internal_request:
                 self.lock = None
@@ -77,10 +78,10 @@ class StoreCalendarObjectResource(object):
             self.uid = uid
             self.uri = uri
             self.transaction = transaction
-            
+
         @inlineCallbacks
         def reserve(self):
-            
+
             # Implicit lock
             if self.lock:
                 try:
@@ -99,19 +100,19 @@ class StoreCalendarObjectResource(object):
                 except ReservationError:
                     self.reserved = False
                 failure_count += 1
-                
+
                 pause = Deferred()
                 def _timedDeferred():
                     pause.callback(True)
                 reactor.callLater(0.5, _timedDeferred)
                 yield pause
-            
+
             if self.uri and not self.reserved:
                 if self.lock:
                     # Can release immediately as nothing happened
                     yield self.lock.release()
                 raise HTTPError(StatusResponse(responsecode.CONFLICT, "Resource: %s currently in use in calendar." % (self.uri,)))
-        
+
         @inlineCallbacks
         def unreserve(self):
             if self.reserved:
@@ -121,6 +122,7 @@ class StoreCalendarObjectResource(object):
                 # Release lock after commit or abort
                 self.transaction.postCommit(self.lock.clean)
                 self.transaction.postAbort(self.lock.clean)
+
 
     def __init__(
         self,
@@ -136,7 +138,7 @@ class StoreCalendarObjectResource(object):
     ):
         """
         Function that does common PUT/COPY/MOVE behavior.
-        
+
         @param request:           the L{twext.web2.server.Request} for the current HTTP request.
         @param source:            the L{CalDAVResource} for the source resource to copy from, or None if source data
             is to be read from the request.
@@ -155,7 +157,7 @@ class StoreCalendarObjectResource(object):
         @param processing_organizer: True if implicit processing for an organizer, False if for an attendee, None if not implicit processing.
         @param returnData:         True if the caller wants the actual data written to the store returned
         """
-        
+
         # Check that all arguments are valid
         try:
             assert destination is not None and destinationparent is not None and destination_uri is not None
@@ -198,6 +200,7 @@ class StoreCalendarObjectResource(object):
         self.access = None
         self.hasPrivateComments = False
         self.isScheduleResource = False
+
 
     @inlineCallbacks
     def fullValidation(self):
@@ -262,7 +265,7 @@ class StoreCalendarObjectResource(object):
                             (caldav_namespace, "supported-calendar-data"),
                             "Invalid content-type for data",
                         ))
-                
+
                     # At this point we need the calendar data to do more tests
                     try:
                         self.calendar = (yield self.source.iCalendarForUser(self.request))
@@ -400,7 +403,7 @@ class StoreCalendarObjectResource(object):
                     msg = "Calendar-to-calendar %s with different homes are not supported" % ("moves" if self.deletesource else "copies",)
                     log.debug(msg)
                     raise HTTPError(StatusResponse(responsecode.FORBIDDEN, msg))
-                    
+
                 # Calendar to calendar moves where Organizer is present are not OK if the owners are different.
                 sourceowner = (yield self.sourceparent.ownerPrincipal(self.request))
                 destowner = (yield self.destinationparent.ownerPrincipal(self.request))
@@ -411,7 +414,7 @@ class StoreCalendarObjectResource(object):
                     if organizer is None and self.destination.exists() and self.destinationcal:
                         oldCal = yield self.destination.iCalendar()
                         organizer = oldCal.getOrganizer()
-                    
+
                     if organizer is not None:
                         msg = "Calendar-to-calendar %s with an organizer property present and different owners are not supported" % ("moves" if self.deletesource else "copies",)
                         log.debug(msg)
@@ -448,6 +451,7 @@ class StoreCalendarObjectResource(object):
                 # always do smart merge now if If-Match is present.
                 self.schedule_tag_match = self.request.headers.getHeader("If-Match") is not None
 
+
     def validResourceName(self):
         """
         Make sure that the resource name for the new resource is valid.
@@ -460,7 +464,8 @@ class StoreCalendarObjectResource(object):
             message = "File name %s not allowed in calendar collection" % (filename,)
 
         return result, message
-        
+
+
     def validContentType(self):
         """
         Make sure that the content-type of the source resource is text/calendar.
@@ -474,7 +479,8 @@ class StoreCalendarObjectResource(object):
             message = "MIME type %s not allowed in calendar collection" % (content_type,)
 
         return result, message
-        
+
+
     def validContentLength(self):
         """
         Make sure that the length of the source data is within bounds.
@@ -488,7 +494,8 @@ class StoreCalendarObjectResource(object):
                 message = "File size %d bytes is larger than allowed limit %d bytes" % (calsize, config.MaxResourceSize)
 
         return result, message
-    
+
+
     @inlineCallbacks
     def validCollectionSize(self):
         """
@@ -503,7 +510,8 @@ class StoreCalendarObjectResource(object):
                 message = "Too many resources in collection %s" % (self.destinationparent,)
 
         returnValue((result, message,))
-        
+
+
     def validCalendarDataCheck(self):
         """
         Check that the calendar data is valid iCalendar.
@@ -521,9 +529,10 @@ class StoreCalendarObjectResource(object):
             except ValueError, e:
                 result = False
                 message = "Invalid calendar data: %s" % (e,)
-        
+
         return result, message
-    
+
+
     def validCalDAVDataCheck(self):
         """
         Check that the calendar data is valid as a CalDAV calendar object resource.
@@ -537,22 +546,24 @@ class StoreCalendarObjectResource(object):
         except ValueError, e:
             result = False
             message = "Calendar data does not conform to CalDAV requirements: %s" % (e,)
-        
+
         return result, message
-    
+
+
     def validComponentType(self):
         """
         Make sure that any limits on the number of resources in a collection are enforced.
         """
         result = True
         message = ""
-        
+
         if not self.destinationparent.isSupportedComponent(self.calendar.mainType()):
             result = False
             message = "Invalid component type %s for calendar: %s" % (self.calendar.mainType(), self.destinationparent,)
 
         return result, message
-        
+
+
     def validSizeCheck(self):
         """
         Make sure that the content-type of the source resource is text/calendar.
@@ -569,12 +580,13 @@ class StoreCalendarObjectResource(object):
 
         return result, message
 
+
     @inlineCallbacks
     def validAttendeeListSizeCheck(self):
         """
         Make sure that the Attendee list length is within bounds. We don't do this check for inbox because we
         will assume that the limit has been applied on the PUT causing the iTIP message to be created.
-        
+
         FIXME: The inbox check might not take into account iSchedule stuff from outside. That needs to have
         the max attendees check applied at the time of delivery.
         """
@@ -586,7 +598,7 @@ class StoreCalendarObjectResource(object):
                 uniqueAttendees.add(attendee.value())
             attendeeListLength = len(uniqueAttendees)
             if attendeeListLength > config.MaxAttendeesPerInstance:
-                
+
                 # Check to see whether we are increasing the count on an existing resource
                 if self.destination.exists() and self.destinationcal:
                     oldcalendar = (yield self.destination.iCalendarForUser(self.request))
@@ -596,20 +608,21 @@ class StoreCalendarObjectResource(object):
                     oldAttendeeListLength = len(uniqueAttendees)
                 else:
                     oldAttendeeListLength = 0
-                
+
                 if attendeeListLength > oldAttendeeListLength:
                     result = False
                     message = "Attendee list size %d is larger than allowed limit %d" % (attendeeListLength, config.MaxAttendeesPerInstance)
 
         returnValue((result, message,))
 
+
     def validAccess(self):
         """
         Make sure that the X-CALENDARSERVER-ACCESS property is properly dealt with.
         """
-        
+
         if self.calendar.hasProperty(Component.ACCESS_PROPERTY):
-            
+
             # Must be a value we know about
             self.access = self.calendar.accessLevel(default=None)
             if self.access is None:
@@ -618,11 +631,11 @@ class StoreCalendarObjectResource(object):
                     (calendarserver_namespace, "valid-access-restriction"),
                     "Private event access level not allowed",
                 ))
-                
+
             # Only DAV:owner is able to set the property to other than PUBLIC
             if not self.internal_request:
                 def _callback(parent_owner):
-                    
+
                     authz = self.destinationparent.currentPrincipal(self.request)
                     if davxml.Principal(parent_owner) != authz and self.access != Component.ACCESS_PUBLIC:
                         raise HTTPError(ErrorResponse(
@@ -630,9 +643,9 @@ class StoreCalendarObjectResource(object):
                             (calendarserver_namespace, "valid-access-restriction-change"),
                             "Private event access level change not allowed",
                         ))
-                    
+
                     return None
-    
+
                 d = self.destinationparent.owner(self.request)
                 d.addCallback(_callback)
                 return d
@@ -641,7 +654,7 @@ class StoreCalendarObjectResource(object):
             if not self.source and self.destination.exists() and self.destination.accessMode:
                 old_access = self.destination.accessMode
                 self.calendar.addProperty(Property(name=Component.ACCESS_PROPERTY, value=old_access))
-                
+
         return succeed(None)
 
 
@@ -659,7 +672,7 @@ class StoreCalendarObjectResource(object):
                 "X-CALENDARSERVER-PRIVATE-COMMENT",
                 "X-CALENDARSERVER-ATTENDEE-COMMENT",
             ))
-            
+
             if old_has_private_comments and not self.hasPrivateComments:
                 # Transfer old comments to new calendar
                 log.debug("Private Comments properties were entirely removed by the client. Restoring existing properties.")
@@ -684,18 +697,18 @@ class StoreCalendarObjectResource(object):
             old_organizer = old_calendar.getOrganizerProperty()
             new_attendees = self.calendar.getAttendees()
             old_attendees = tuple(old_calendar.getAllAttendeeProperties())
-            
+
             new_completed = self.calendar.mainComponent().hasProperty("COMPLETED")
             old_completed = old_calendar.mainComponent().hasProperty("COMPLETED")
-            
+
             if old_organizer and not new_organizer and len(old_attendees) > 0 and len(new_attendees) == 0:
                 # Transfer old organizer and attendees to new calendar
                 log.debug("Organizer and attendee properties were entirely removed by the client. Restoring existing properties.")
-                
+
                 # Get the originator who is the owner of the calendar resource being modified
                 originatorPrincipal = (yield self.destination.ownerPrincipal(self.request))
                 originatorAddresses = originatorPrincipal.calendarUserAddresses()
-                
+
                 for component in self.calendar.subcomponents():
                     if component.name() != "VTODO":
                         continue
@@ -708,15 +721,15 @@ class StoreCalendarObjectResource(object):
                             if old_component.hasProperty("DTSTART"):
                                 component.addProperty(old_component.getProperty("DTSTART"))
                                 break
-                
+
                     # Add organizer back in from previous resource
                     component.addProperty(old_organizer)
-                    
+
                     # Add attendees back in from previous resource
                     for anAttendee in old_attendees:
                         if component.hasProperty("COMPLETED") and anAttendee.value() in originatorAddresses:
                             anAttendee.setParameter("PARTSTAT", "COMPLETED")
-                        component.addProperty(anAttendee)                   
+                        component.addProperty(anAttendee)
 
             elif new_completed ^ old_completed and not self.internal_request:
                 # COMPLETED changed - sync up attendee state
@@ -727,15 +740,15 @@ class StoreCalendarObjectResource(object):
 
                 # Transfer old organizer and attendees to new calendar
                 log.debug("Sync COMPLETED property change.")
-                
+
                 # Get the originator who is the owner of the calendar resource being modified
                 originatorPrincipal = (yield self.destination.ownerPrincipal(self.request))
                 originatorAddresses = originatorPrincipal.calendarUserAddresses()
-                
+
                 for component in self.calendar.subcomponents():
                     if component.name() != "VTODO":
                         continue
-                    
+
                     # Change owner partstat
                     for anAttendee in component.properties("ATTENDEE"):
                         if anAttendee.value() in originatorAddresses:
@@ -743,18 +756,18 @@ class StoreCalendarObjectResource(object):
                             newpartstat = "COMPLETED" if component.hasProperty("COMPLETED") else "IN-PROCESS"
                             if newpartstat != oldpartstat:
                                 anAttendee.setParameter("PARTSTAT", newpartstat)
-                
+
 
     @inlineCallbacks
     def dropboxPathNormalization(self):
         """
         Make sure sharees only use dropbox paths of the sharer.
         """
-        
+
         # Only relevant if calendar is sharee collection
         changed = False
         if self.destinationparent.isShareeCollection():
-            
+
             # Get all X-APPLE-DROPBOX's and ATTACH's that are http URIs
             xdropboxes = self.calendar.getAllPropertiesInAnyComponent(
                 "X-APPLE-DROPBOX",
@@ -770,7 +783,7 @@ class StoreCalendarObjectResource(object):
             ]
 
             if len(xdropboxes) or len(attachments):
-                
+
                 # Determine owner GUID
                 ownerPrincipal = (yield self.destinationparent.ownerPrincipal(self.request))
                 owner = ownerPrincipal.principalURL().split("/")[-2]
@@ -802,13 +815,14 @@ class StoreCalendarObjectResource(object):
                     if uri:
                         attachment.setValue(uri)
                         changed = True
-        
+
         returnValue(changed)
+
 
     def processAlarms(self):
         """
         Remove duplicate alarms. Add a default alarm if required.
-        
+
         @return: indicate whether a change was made
         @rtype: C{bool}
         """
@@ -825,7 +839,7 @@ class StoreCalendarObjectResource(object):
         # Check that we are creating and this is not the inbox
         if not self.destinationcal or self.destination.exists() or self.isiTIP:
             return changed
-        
+
         # Never add default alarms to calendar data in shared calendars
         if self.destinationparent.isShareeCollection():
             return changed
@@ -835,60 +849,61 @@ class StoreCalendarObjectResource(object):
         if self.calendar.mainType().upper() not in ("VEVENT", "VTODO"):
             return changed
         vevent = mtype == "VEVENT"
-        
+
         # Check timed or all-day
         start, _ignore_end = self.calendar.mainComponent(allow_multiple=True).getEffectiveStartEnd()
         if start is None:
             # Yes VTODOs might have no DTSTART or DUE - in this case we do not add a default
             return changed
         timed = not start.isDateOnly()
-        
+
         # See if default exists and add using appropriate logic
         alarm = self.destinationparent.getDefaultAlarm(vevent, timed)
         if alarm:
             changed = self.calendar.addAlarms(alarm)
         return changed
 
-    @inlineCallbacks
-    def noUIDConflict(self, uid): 
-        """ 
-        Check that the UID of the new calendar object conforms to the requirements of 
-        CalDAV, i.e. it must be unique in the collection and we must not overwrite a 
-        different UID. 
-        @param uid: the UID for the resource being stored. 
-        @return: tuple: (True/False if the UID is valid, log message string, 
-            name of conflicted resource). 
-        """ 
-        
-        result = True 
-        message = "" 
-        rname = "" 
 
-        # Adjust for a move into same calendar collection 
-        oldname = None 
-        if self.sourceparent and (self.sourceparent == self.destinationparent) and self.deletesource: 
-            oldname = self.source.name() 
-        
-        # UID must be unique 
-        index = self.destinationparent.index() 
-        if not (yield index.isAllowedUID(uid, oldname, self.destination.name())): 
-            rname = yield index.resourceNameForUID(uid) 
-            # This can happen if two simultaneous PUTs occur with the same UID. 
-            # i.e. one PUT has reserved the UID but has not yet written the resource, 
-            # the other PUT tries to reserve and fails but no index entry exists yet. 
-            if rname is None: 
-                rname = "<<Unknown Resource>>" 
-            result = False 
-            message = "Calendar resource %s already exists with same UID %s" % (rname, uid) 
-        else: 
-            # Cannot overwrite a resource with different UID 
-            if self.destination.exists(): 
-                olduid = yield index.resourceUIDForName(self.destination.name()) 
-                if olduid != uid: 
-                    rname = self.destination.name() 
-                    result = False 
-                    message = "Cannot overwrite calendar resource %s with different UID %s" % (rname, olduid) 
-         
+    @inlineCallbacks
+    def noUIDConflict(self, uid):
+        """
+        Check that the UID of the new calendar object conforms to the requirements of
+        CalDAV, i.e. it must be unique in the collection and we must not overwrite a
+        different UID.
+        @param uid: the UID for the resource being stored.
+        @return: tuple: (True/False if the UID is valid, log message string,
+            name of conflicted resource).
+        """
+
+        result = True
+        message = ""
+        rname = ""
+
+        # Adjust for a move into same calendar collection
+        oldname = None
+        if self.sourceparent and (self.sourceparent == self.destinationparent) and self.deletesource:
+            oldname = self.source.name()
+
+        # UID must be unique
+        index = self.destinationparent.index()
+        if not (yield index.isAllowedUID(uid, oldname, self.destination.name())):
+            rname = yield index.resourceNameForUID(uid)
+            # This can happen if two simultaneous PUTs occur with the same UID.
+            # i.e. one PUT has reserved the UID but has not yet written the resource,
+            # the other PUT tries to reserve and fails but no index entry exists yet.
+            if rname is None:
+                rname = "<<Unknown Resource>>"
+            result = False
+            message = "Calendar resource %s already exists with same UID %s" % (rname, uid)
+        else:
+            # Cannot overwrite a resource with different UID
+            if self.destination.exists():
+                olduid = yield index.resourceUIDForName(self.destination.name())
+                if olduid != uid:
+                    rname = self.destination.name()
+                    result = False
+                    message = "Cannot overwrite calendar resource %s with different UID %s" % (rname, olduid)
+
         returnValue((result, message, rname))
 
 
@@ -901,7 +916,7 @@ class StoreCalendarObjectResource(object):
         # Do scheduling
         if not self.isiTIP:
             scheduler = ImplicitScheduler()
-            
+
             # Determine type of operation PUT, COPY or DELETE
             if not self.source:
                 # PUT
@@ -938,7 +953,7 @@ class StoreCalendarObjectResource(object):
                     self.calendar,
                     internal_request=self.internal_request,
                 ))
-            
+
             if do_implicit_action and self.allowImplicitSchedule:
 
                 # Cannot do implicit in sharee's shared calendar
@@ -960,7 +975,7 @@ class StoreCalendarObjectResource(object):
                 did_implicit_action = True
         else:
             is_scheduling_resource = False
-            
+
         returnValue((is_scheduling_resource, data_changed, did_implicit_action,))
 
 
@@ -1041,7 +1056,7 @@ class StoreCalendarObjectResource(object):
         # store as the store will "commit" the new value.
         if self.access:
             self.destination.accessMode = self.access
-            
+
         # Do not remove the property if access was not specified and we are storing in a calendar.
         # This ensure that clients that do not preserve the iCalendar property do not cause access
         # restrictions to be lost.
@@ -1076,7 +1091,6 @@ class StoreCalendarObjectResource(object):
             if change_scheduletag or not self.destination.scheduleTag:
                 self.destination.scheduleTag = str(uuid.uuid4())
 
-
             # Handle weak etag compatibility
             if config.Scheduling.CalDAV.ScheduleTagCompatibility:
                 if change_scheduletag:
@@ -1091,11 +1105,10 @@ class StoreCalendarObjectResource(object):
                 etags += (hashlib.md5(data + (self.destination.scheduleTag if self.destination.scheduleTag else "")).hexdigest(),)
                 self.destination.scheduleEtags = etags
             else:
-                self.destination.scheduleEtags = ()                
+                self.destination.scheduleEtags = ()
         else:
             self.destination.scheduleTag = ""
-            self.destination.scheduleEtags = ()                
-
+            self.destination.scheduleEtags = ()
 
         if componentToStore is None:
             stream = MemoryStream(data)
@@ -1107,9 +1120,10 @@ class StoreCalendarObjectResource(object):
 
         if self.isScheduleResource:
             # Add a response header
-            response.headers.setHeader("Schedule-Tag", self.destination.scheduleTag)                
+            response.headers.setHeader("Schedule-Tag", self.destination.scheduleTag)
 
         returnValue(response)
+
 
     @inlineCallbacks
     def doSourceDelete(self):
@@ -1117,6 +1131,7 @@ class StoreCalendarObjectResource(object):
         yield self.source.storeRemove(self.request, False, self.source_uri)
         log.debug("Source removed %s" % (self.source,))
         returnValue(None)
+
 
     @inlineCallbacks
     def run(self):
@@ -1142,11 +1157,11 @@ class StoreCalendarObjectResource(object):
                     self.destination._associatedTransaction,
                 )
                 yield reservation.reserve()
-                # UID conflict check - note we do this after reserving the UID to avoid a race condition where two requests 
-                # try to write the same calendar data to two different resource URIs. 
-                if not self.isiTIP: 
-                    result, message, rname = yield self.noUIDConflict(self.uid) 
-                    if not result: 
+                # UID conflict check - note we do this after reserving the UID to avoid a race condition where two requests
+                # try to write the same calendar data to two different resource URIs.
+                if not self.isiTIP:
+                    result, message, rname = yield self.noUIDConflict(self.uid)
+                    if not result:
                         log.err(message)
                         raise HTTPError(ErrorResponse(
                             responsecode.FORBIDDEN,
@@ -1161,10 +1176,9 @@ class StoreCalendarObjectResource(object):
                             "UID already exists",
                         ))
 
-
             # Preserve private comments
             yield self.preservePrivateComments()
-    
+
             # Fix broken VTODOs
             yield self.replaceMissingToDoProperties()
 
@@ -1180,13 +1194,13 @@ class StoreCalendarObjectResource(object):
                 if implicit_result == ImplicitScheduler.STATUS_ORPHANED_CANCELLED_EVENT:
                     if reservation:
                         yield reservation.unreserve()
-            
+
                     returnValue(StatusResponse(responsecode.CREATED, "Resource created but immediately deleted by the server."))
 
                 elif implicit_result == ImplicitScheduler.STATUS_ORPHANED_EVENT:
                     if reservation:
                         yield reservation.unreserve()
-            
+
                     # Now forcibly delete the event
                     if self.destination.exists():
                         yield self.destination.storeRemove(self.request, False, self.destination_uri)
@@ -1226,14 +1240,14 @@ class StoreCalendarObjectResource(object):
 
             if reservation:
                 yield reservation.unreserve()
-    
+
             returnValue(response)
-    
+
         except Exception, err:
 
             if reservation:
                 yield reservation.unreserve()
-    
+
             if isinstance(err, InvalidOverriddenInstanceError):
                 raise HTTPError(ErrorResponse(
                     responsecode.FORBIDDEN,
@@ -1245,6 +1259,12 @@ class StoreCalendarObjectResource(object):
                     responsecode.FORBIDDEN,
                     MaxInstances.fromString(str(err.max_allowed)),
                     "Too many recurrence instances",
+                ))
+            elif isinstance(err, AttachmentStoreValidManagedID):
+                raise HTTPError(ErrorResponse(
+                    responsecode.FORBIDDEN,
+                    (caldav_namespace, "valid-managed-id"),
+                    "Invalid Managed-ID parameter in calendar data",
                 ))
             else:
                 raise err
