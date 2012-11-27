@@ -365,7 +365,7 @@ class AddressBookObject(CommonObjectResource, AddressBookSharingMixIn):
     def remove(self):
 
         if self._addressbook.owned():
-            if self._kind == _ABO_KIND_GROUP:
+            if self._kind == _ABO_KIND_GROUP: # optimization
                 # need to invalidate queryCacher of sharee's home
                 queryCacher = self._txn._queryCacher
                 if queryCacher:
@@ -401,7 +401,9 @@ class AddressBookObject(CommonObjectResource, AddressBookSharingMixIn):
                 yield groupObject.updateDatabase(groupComponent, removingObject=removingObject)
 
         if ownerGroup:
-            pass  # convert delete in shared group to remove of member only part 2
+            # convert delete in shared group to remove of member only part 2
+            ownerAddressBook = yield self.ownerAddressBook()
+            self._changeAddressBookRevision(ownerAddressBook)
         else:
             yield super(AddressBookObject, self).remove()
             self._kind = None
@@ -548,22 +550,38 @@ class AddressBookObject(CommonObjectResource, AddressBookSharingMixIn):
 
 
     @inlineCallbacks
+    def _changeAddressBookRevision(self, addressbook, inserting=False):
+        if inserting:
+            yield addressbook._insertRevision(self._name)
+        else:
+            yield addressbook._updateRevision(self._name)
+
+        yield addressbook.notifyChanged()
+
+
+    @inlineCallbacks
     def setComponent(self, component, inserting=False):
 
         validateAddressBookComponent(self, self._addressbook, component, inserting)
-
         yield self.updateDatabase(component, inserting=inserting)
+        yield self._changeAddressBookRevision(self._addressbook, inserting)
 
-        ownerAddressBook = yield self.ownerAddressBook()
+        if self._addressbook.owned():
+            # update revision table of the sharee group address book
+            #
+            # Alternatively, we could create an address book object for this group
+            #                and update that.
+            if self._kind == _ABO_KIND_GROUP:  # optimization
+                for shareeAddressBook in (yield self.asShared()):
+                    yield self._changeAddressBookRevision(shareeAddressBook, inserting)
 
-        if inserting:
-            yield ownerAddressBook._insertRevision(self._name)
+                    # one is enough because all have the same resourceID
+                    break
         else:
-            yield ownerAddressBook._updateRevision(self._name)
-
-        yield ownerAddressBook.notifyChanged()
-
-        #FIXME: handle case where owner changes group.  Also check remove()
+            if self._addressbook._resourceID != self._ownerAddressBookResourceID: # this is a group shared address book
+                # update owner address book
+                ownerAddressBook = yield self.ownerAddressBook()
+                yield self._changeAddressBookRevision(ownerAddressBook, inserting)
 
 
     @inlineCallbacks
@@ -585,6 +603,7 @@ class AddressBookObject(CommonObjectResource, AddressBookSharingMixIn):
                         break
 
         returnValue((ownerGroup, ownerAddressBook))
+
 
     @inlineCallbacks
     def ownerGroup(self):
