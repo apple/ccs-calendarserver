@@ -553,17 +553,24 @@ class AddressBookObject(CommonObjectResource, AddressBookSharingMixIn):
         validateAddressBookComponent(self, self._addressbook, component, inserting)
 
         yield self.updateDatabase(component, inserting=inserting)
-        if inserting:
-            yield self._addressbook._insertRevision(self._name)
-        else:
-            yield self._addressbook._updateRevision(self._name)
 
-        yield self._addressbook.notifyChanged()
+        ownerAddressBook = yield self.ownerAddressBook()
+
+        if inserting:
+            yield ownerAddressBook._insertRevision(self._name)
+        else:
+            yield ownerAddressBook._updateRevision(self._name)
+
+        yield ownerAddressBook.notifyChanged()
+
+        #FIXME: handle case where owner changes group.  Also check remove()
 
 
     @inlineCallbacks
     def _ownerGroupAndAddressBook(self):
-        # find the owning address book
+        """ 
+        Find the owner shared group and owner address book.  owner shared group may be None 
+        """
         ownerGroup = None
         ownerAddressBook = None
         if self._addressbook.owned():
@@ -581,7 +588,6 @@ class AddressBookObject(CommonObjectResource, AddressBookSharingMixIn):
 
     @inlineCallbacks
     def ownerGroup(self):
-
         if not hasattr(self, "_ownerGroup"):
             self._ownerGroup, self._ownerAddressBook = yield self._ownerGroupAndAddressBook()
         returnValue(self._ownerGroup)
@@ -589,7 +595,6 @@ class AddressBookObject(CommonObjectResource, AddressBookSharingMixIn):
 
     @inlineCallbacks
     def ownerAddressBook(self):
-
         if not hasattr(self, "_ownerAddressBook"):
             self._ownerGroup, self._ownerAddressBook = yield self._ownerGroupAndAddressBook()
         returnValue(self._ownerAddressBook)
