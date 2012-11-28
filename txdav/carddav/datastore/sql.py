@@ -403,7 +403,7 @@ class AddressBookObject(CommonObjectResource, AddressBookSharingMixIn):
         if ownerGroup:
             # convert delete in shared group to remove of member only part 2
             ownerAddressBook = yield self.ownerAddressBook()
-            self._changeAddressBookRevision(ownerAddressBook)
+            yield self._changeAddressBookRevision(ownerAddressBook)
         else:
             yield super(AddressBookObject, self).remove()
             self._kind = None
