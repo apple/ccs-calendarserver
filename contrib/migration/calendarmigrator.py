@@ -28,6 +28,7 @@ import pwd
 import shutil
 import subprocess
 import sys
+import time
 
 from plistlib import readPlist, readPlistFromString, writePlist
 
@@ -50,6 +51,8 @@ CARDDAV_LAUNCHD_KEY = "org.addressbookserver.addressbookserver"
 LAUNCHD_OVERRIDES = "var/db/launchd.db/com.apple.launchd/overrides.plist"
 LAUNCHD_PREFS_DIR = "System/Library/LaunchDaemons"
 SERVER_ADMIN = "%s/usr/sbin/serveradmin" % (SERVER_APP_ROOT,)
+NUM_RETRIES = 120
+SECONDS_BETWEEN_RETRIES = 5
 
 # Processed by mergePlist
 specialKeys = """
@@ -232,14 +235,51 @@ def examineRunState(options):
 
 def setRunState(options, enableCalDAV, enableCardDAV):
     """
-    Use serveradmin to launch the service if needed.
+    Use serveradmin to launch the service if needed.  If both protocols are enabled,
+    wait for calendar to be up and running before starting addressbook, so that we
+    don't interrupt any processing of migrated data.
     """
 
-    if enableCalDAV or enableCardDAV:
+    if enableCalDAV and enableCardDAV:
+        log("Starting Calendar service via serveradmin start calendar")
+        ret = subprocess.call([SERVER_ADMIN, "start", "calendar"])
+        log("serveradmin exited with %d" % (ret,))
+        waitForRunning("calendar")
+        log("Starting Contacts service via serveradmin start addressbook")
+        ret = subprocess.call([SERVER_ADMIN, "start", "addressbook"])
+        log("serveradmin exited with %d" % (ret,))
+    elif enableCalDAV or enableCardDAV:
         serviceName = "calendar" if enableCalDAV else "addressbook"
         log("Starting service via serveradmin start %s" % (serviceName,))
         ret = subprocess.call([SERVER_ADMIN, "start", serviceName])
         log("serveradmin exited with %d" % (ret,))
+
+
+
+def waitForRunning(serviceName):
+    """
+    Return only after serveradmin reports the given service name is up and
+    running (or after NUM_RETRIES * SECONDS_BETWEEN_RETRIES has passed, or
+    if serveradmin returns non-zero).
+
+    @param serviceName: the name of the service to wait for
+    @type serviceName: C{str}
+    """
+    retries = NUM_RETRIES
+    cmdArgs = [SERVER_ADMIN, "status", serviceName]
+
+    while retries:
+        try:
+            out = subprocess.check_output(cmdArgs, stderr=subprocess.STDOUT)
+            if "RUNNING" in out:
+                log("%s is now running" % (serviceName,))
+                break
+            log("%s is not yet running" % (serviceName,))
+        except subprocess.CalledProcessError, e:
+            log("Error from serveradmin: %s" % (e,))
+            break
+        time.sleep(SECONDS_BETWEEN_RETRIES)
+        retries -= 1
 
 
 def isServiceDisabled(source, service, launchdOverrides=LAUNCHD_OVERRIDES,
