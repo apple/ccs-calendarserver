@@ -516,19 +516,6 @@ END:VCALENDAR
             Where=ch.OWNER_UID == "home_version",
         ).on(txn)[0][0]
         self.assertEqual(int(homeVersion, version))
-        
-        
-
-    def test_eachCalendarHome(self):
-        """
-        L{ICalendarStore.eachCalendarHome} is currently stubbed out by
-        L{txdav.common.datastore.sql.CommonDataStore}.
-        """
-        return super(CalendarSQLStorageTests, self).test_eachCalendarHome()
-
-
-    test_eachCalendarHome.todo = (
-        "stubbed out, as migration only needs to go from file->sql currently")
 
 
     @inlineCallbacks

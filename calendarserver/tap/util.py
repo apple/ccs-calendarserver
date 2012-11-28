@@ -131,7 +131,8 @@ def pgServiceFromConfig(config, subServiceFactory, uid=None, gid=None):
         maxConnections=config.Postgres.MaxConnections,
         options=config.Postgres.Options,
         uid=uid, gid=gid,
-        spawnedDBUser=config.SpawnedDBUser
+        spawnedDBUser=config.SpawnedDBUser,
+        importFileName=config.DBImportFile
     )
 
 

@@ -547,6 +547,7 @@ else:
                     "autoScheduleAttr": None,
                     "proxyAttr": None,
                     "readOnlyProxyAttr": None,
+                    "autoAcceptGroupAttr": None,
                 },
                 "partitionSchema": {
                     "serverIdAttr": "server-id", # maps to augments server-id
@@ -762,6 +763,7 @@ else:
                     "autoScheduleAttr": None,
                     "proxyAttr": None,
                     "readOnlyProxyAttr": None,
+                    "autoAcceptGroupAttr": None,
                 },
                 "partitionSchema": {
                     "serverIdAttr": "server-id", # maps to augments server-id
@@ -979,6 +981,7 @@ else:
                     "autoScheduleAttr": None,
                     "proxyAttr": None,
                     "readOnlyProxyAttr": None,
+                    "autoAcceptGroupAttr": None,
                 },
                 "partitionSchema": {
                     "serverIdAttr": "server-id", # maps to augments server-id
@@ -1192,6 +1195,7 @@ else:
                     "autoScheduleAttr": None,
                     "proxyAttr": None,
                     "readOnlyProxyAttr": None,
+                    "autoAcceptGroupAttr": None,
                 },
                 "partitionSchema": {
                     "serverIdAttr": "server-id", # maps to augments server-id
@@ -1363,7 +1367,7 @@ else:
                      ])
             )
 
-            # Resource with delegates and autoSchedule = True
+            # Resource with delegates, autoSchedule = True, and autoAcceptGroup
 
             dn = "cn=odtestresource,cn=resources,dc=example,dc=com"
             guid = 'D3094652-344B-4633-8DB8-09639FA00FB6'
@@ -1382,6 +1386,8 @@ else:
 <string>6C6CD280-E6E3-11DF-9492-0800200C9A66</string>
 <key>ReadOnlyCalendaringDelegate</key>
 <string>6AA1AE12-592F-4190-A069-547CD83C47C0</string>
+<key>AutoAcceptGroup</key>
+<string>77A8EB52-AA2A-42ED-8843-B2BEE863AC70</string>
 </dict>
 </dict>
 </plist>"""]
@@ -1394,6 +1400,8 @@ else:
             self.assertEquals(record.externalReadOnlyProxies(),
                 set(['6AA1AE12-592F-4190-A069-547CD83C47C0']))
             self.assertTrue(record.autoSchedule)
+            self.assertEquals(record.autoAcceptGroup,
+                '77A8EB52-AA2A-42ED-8843-B2BEE863AC70')
 
             # Resource with no delegates and autoSchedule = False
 
@@ -1422,6 +1430,7 @@ else:
             self.assertEquals(record.externalReadOnlyProxies(),
                 set())
             self.assertFalse(record.autoSchedule)
+            self.assertEquals(record.autoAcceptGroup, "")
 
 
             # Now switch off the resourceInfoAttr and switch to individual
@@ -1432,6 +1441,7 @@ else:
                 "autoScheduleEnabledValue" : "yes",
                 "proxyAttr" : "proxy",
                 "readOnlyProxyAttr" : "read-only-proxy",
+                "autoAcceptGroupAttr" : "auto-accept-group",
             }
 
             # Resource with delegates and autoSchedule = True
@@ -1444,6 +1454,7 @@ else:
                 'auto-schedule' : ['yes'],
                 'proxy' : ['6C6CD280-E6E3-11DF-9492-0800200C9A66'],
                 'read-only-proxy' : ['6AA1AE12-592F-4190-A069-547CD83C47C0'],
+                'auto-accept-group' : ['77A8EB52-AA2A-42ED-8843-B2BEE863AC70'],
             }
             record = self.service._ldapResultToRecord(dn, attrs,
                 self.service.recordType_resources)
@@ -1453,6 +1464,8 @@ else:
             self.assertEquals(record.externalReadOnlyProxies(),
                 set(['6AA1AE12-592F-4190-A069-547CD83C47C0']))
             self.assertTrue(record.autoSchedule)
+            self.assertEquals(record.autoAcceptGroup,
+                '77A8EB52-AA2A-42ED-8843-B2BEE863AC70')
 
         def test_listRecords(self):
             """

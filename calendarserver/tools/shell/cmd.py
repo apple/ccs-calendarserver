@@ -67,6 +67,12 @@ class InsufficientArguments(UsageError):
 
 
 class CommandsBase(object):
+    """
+    Base class for commands.
+
+    @ivar protocol: a protocol for parsing the incoming command line.
+    @type protocol: L{calendarserver.tools.shell.terminal.ShellProtocol}
+    """
     def __init__(self, protocol):
         self.protocol = protocol
 

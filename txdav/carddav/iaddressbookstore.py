@@ -37,14 +37,6 @@ class IAddressBookTransaction(ICommonTransaction):
     Transaction interface that addressbook stores must provide.
     """
 
-    def addressbookHomes():
-        """
-        Retrieve each addressbook home in the store.
-
-        @return: a L{Deferred} which fires with a list of L{ICalendarHome}.
-        """
-
-
     def addressbookHomeWithUID(uid, create=False):
         """
         Retrieve the addressbook home for the principal with the given C{uid}.

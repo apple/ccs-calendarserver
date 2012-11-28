@@ -285,6 +285,8 @@ DEFAULT_CONFIG = {
 
     "SpawnedDBUser" : "caldav", # The username to use when DBType is empty
 
+    "DBImportFile" : "", # File path to SQL file to import at startup (includes schema)
+
     "DSN"          : "", # Data Source Name.  Used to connect to an external
                            # database if DBType is non-empty.  Format varies
                            # depending on database type.

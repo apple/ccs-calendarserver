@@ -472,21 +472,6 @@ class FileStorageTests(CommonTests, unittest.TestCase):
 
 
     @inlineCallbacks
-    def test_addressbookHomes(self):
-        """
-        Finding all existing addressbook homes.
-        """
-        addressbookHomes = (yield self.transactionUnderTest().addressbookHomes())
-        self.assertEquals(
-            [home.name() for home in addressbookHomes],
-            [
-                "home1",
-                "home_bad",
-            ]
-        )
-
-
-    @inlineCallbacks
     def test_addressbookObjectsWithDotFile(self):
         """
         Adding a dotfile to the addressbook home should not create a new

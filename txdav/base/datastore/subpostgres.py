@@ -165,7 +165,8 @@ class PostgresService(MultiService):
                  maxConnections=20, options=[],
                  testMode=False,
                  uid=None, gid=None,
-                 spawnedDBUser="caldav"):
+                 spawnedDBUser="caldav",
+                 importFileName=None):
         """
         Initialize a L{PostgresService} pointed at a data store directory.
 
@@ -175,6 +176,11 @@ class PostgresService(MultiService):
         @param subServiceFactory: a 1-arg callable that will be called with a
             1-arg callable which returns a DB-API cursor.
         @type subServiceFactory: C{callable}
+
+        @param spawnedDBUser: the postgres role
+        @type spawnedDBUser: C{str}
+        @param importFileName: path to SQL file containing previous data to import
+        @type importFileName: C{str}
         """
 
         # FIXME: By default there is very little (4MB) shared memory available,
@@ -225,6 +231,7 @@ class PostgresService(MultiService):
         self.uid = uid
         self.gid = gid
         self.spawnedDBUser = spawnedDBUser
+        self.importFileName = importFileName
         self.schema = schema
         self.monitor = None
         self.openConnections = []
@@ -281,6 +288,8 @@ class PostgresService(MultiService):
     def ready(self):
         """
         Subprocess is ready.  Time to initialize the subservice.
+        If the database has not been created and there is a dump file,
+        then the dump file is imported.
         """
         createDatabaseConn = self.produceConnection(
             'schema creation', 'postgres'
@@ -301,20 +310,29 @@ class PostgresService(MultiService):
                 "create database %s with encoding 'UTF8'" % (self.databaseName)
             )
         except:
-            execSchema = False
+            # database already exists
+            executeSQL = False
         else:
-            execSchema = True
+            # database does not yet exist; if dump file exists, execute it, otherwise
+            # execute schema
+            executeSQL = True
+            sqlToExecute = self.schema
+            if self.importFileName:
+                importFilePath = CachingFilePath(self.importFileName)
+                if importFilePath.exists():
+                    sqlToExecute = importFilePath.getContent()
 
         createDatabaseCursor.close()
         createDatabaseConn.close()
 
-        if execSchema:
+        if executeSQL:
             connection = self.produceConnection()
             cursor = connection.cursor()
-            cursor.execute(self.schema)
+            cursor.execute(sqlToExecute)
             connection.commit()
             connection.close()
 
+        # TODO: anyone know why these two lines are here?
         connection = self.produceConnection()
         cursor = connection.cursor()
 

@@ -15,14 +15,18 @@
 # limitations under the License.
 ##
 
-import twisted.trial.unittest 
-from twisted.internet.defer import succeed
+from twisted.trial.unittest import TestCase
+from twisted.internet.defer import succeed, inlineCallbacks
 
 from calendarserver.tools.shell.vfs import ListEntry
 from calendarserver.tools.shell.vfs import File, Folder
+from calendarserver.tools.shell.vfs import UIDsFolder
+from calendarserver.tools.shell.terminal import ShellService
+from twistedcaldav.directory.test.test_xmlfile import XMLFileBase
+from txdav.common.datastore.test.util import buildStore
 
 
-class TestListEntry(twisted.trial.unittest.TestCase):
+class TestListEntry(TestCase):
     def test_toString(self):
         self.assertEquals(ListEntry(None, File  , "thingo"           ).toString(), "thingo" )
         self.assertEquals(ListEntry(None, File  , "thingo", Foo="foo").toString(), "thingo" )
@@ -100,3 +104,58 @@ class TestListEntry(twisted.trial.unittest.TestCase):
             def list(self): return succeed(())
             list.fieldNames = ()
         self.assertEquals(fields(MyFile), ("thingo",))
+
+
+
+class DirectoryStubber(XMLFileBase):
+    """
+    Object which creates a stub L{IDirectoryService}.
+    """
+    def __init__(self, testCase):
+        self.testCase = testCase
+
+    def mktemp(self):
+        return self.testCase.mktemp()
+
+
+
+class UIDsFolderTests(TestCase):
+    """
+    L{UIDsFolder} contains all principals and is keyed by UID.
+    """
+
+    @inlineCallbacks
+    def setUp(self):
+        """
+        Create a L{UIDsFolder}.
+        """
+        self.svc = ShellService(store=(yield buildStore(self, None)),
+                                directory=DirectoryStubber(self).service(),
+                                options=None, reactor=None, config=None)
+        self.folder = UIDsFolder(self.svc, ())
+
+
+    @inlineCallbacks
+    def test_list(self):
+        """
+        L{UIDsFolder.list} returns a L{Deferred} firing an iterable of
+        L{ListEntry} objects, reflecting the directory information for all
+        calendars and addressbooks created in the store.
+        """
+        txn = self.svc.store.newTransaction()
+        wsanchez = "6423F94A-6B76-4A3A-815B-D52CFD77935D"
+        dreid = "5FF60DAD-0BDE-4508-8C77-15F0CA5C8DD1"
+        yield txn.calendarHomeWithUID(wsanchez, create=True)
+        yield txn.addressbookHomeWithUID(dreid, create=True)
+        yield txn.commit()
+        listing = list((yield self.folder.list()))
+        self.assertEquals(
+            [x.fields for x in listing],
+            [{"Record Type": "users", "Short Name": "wsanchez",
+              "Full Name": "Wilfredo Sanchez", "Name": wsanchez},
+              {"Record Type": "users", "Short Name": "dreid",
+              "Full Name": "David Reid", "Name": dreid}]
+        )
+
+
+

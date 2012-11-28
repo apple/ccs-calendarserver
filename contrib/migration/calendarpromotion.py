@@ -27,8 +27,9 @@ LOG_DIR = "/var/log/caldavd"
 
 def updatePlist(plistData):
     """
-    Update the passed-in plist data with new values for disabling the XMPPNotifier, and
-    to set the DSN to use the server-specific Postgres.
+    Update the passed-in plist data with new values for disabling the XMPPNotifier,
+    to set DBType to empty string indicating we'll be starting our own Postgres server,
+    and to specify the new location for ConfigRoot ("Config" directory beneath ServerRoot).
 
     @param plistData: the plist data to update in place
     @type plistData: C{dict}
@@ -38,7 +39,20 @@ def updatePlist(plistData):
             plistData["Notifications"]["Services"]["XMPPNotifier"]["Enabled"] = False
     except KeyError:
         pass
-    plistData["DSN"] = "/Library/Server/PostgreSQL For Server Services/Socket:caldav:caldav:::"
+    plistData["DBType"] = ""
+    plistData["DSN"] = ""
+    plistData["ConfigRoot"] = "Config"
+    plistData["DBImportFile"] = "/Library/Server/Calendar and Contacts/DataDump.sql"
+    # Remove RunRoot and PIDFile keys so they use the new defaults
+    try:
+        del plistData["RunRoot"]
+    except:
+        pass
+    try:
+        del plistData["PIDFile"]
+    except:
+        pass
+
 
 
 def main():

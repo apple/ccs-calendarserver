@@ -29,10 +29,15 @@ class PromotionTests(twistedcaldav.test.util.TestCase):
 
         orig = {
             "ignored" : "ignored",
+            "RunRoot" : "xyzzy",
+            "PIDFile" : "plugh",
         }
         expected = {
             "ignored" : "ignored",
-            "DSN" : "/Library/Server/PostgreSQL For Server Services/Socket:caldav:caldav:::",
+            "DBImportFile" : "/Library/Server/Calendar and Contacts/DataDump.sql",
+            "DBType" : "",
+            "DSN" : "",
+            "ConfigRoot" : "Config",
         }
         updatePlist(orig)
         self.assertEquals(orig, expected)
@@ -44,7 +49,9 @@ class PromotionTests(twistedcaldav.test.util.TestCase):
                         "Enabled" : True
                     }
                 }
-            }
+            },
+            "ConfigRoot" : "/etc/caldavd",
+
         }
         expected = {
             "Notifications" : {
@@ -54,7 +61,10 @@ class PromotionTests(twistedcaldav.test.util.TestCase):
                     }
                 }
             },
-            "DSN" : "/Library/Server/PostgreSQL For Server Services/Socket:caldav:caldav:::",
+            "DBImportFile" : "/Library/Server/Calendar and Contacts/DataDump.sql",
+            "DBType" : "",
+            "DSN" : "",
+            "ConfigRoot" : "Config",
         }
         updatePlist(orig)
         self.assertEquals(orig, expected)

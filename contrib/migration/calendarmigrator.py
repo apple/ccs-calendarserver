@@ -169,7 +169,12 @@ def main():
             # Trigger migration of locations and resources from OD
             triggerResourceMigration(newServerRoot)
 
-            setRunState(options, enableCalDAV, enableCardDAV)
+            # TODO: instead of starting now, leave breadcrumbs for
+            # the commonextra to start the service, so that data can
+            # be dumped from the old Postgres to a file which will
+            # be executed by calendar server when it next starts up.
+
+            # setRunState(options, enableCalDAV, enableCardDAV)
 
     else:
         log("ERROR: --sourceRoot and --sourceVersion must be specified")
@@ -479,11 +484,27 @@ def mergePlist(caldav, carddav, combined):
     # If SSL is enabled, redirect HTTP to HTTPS.
     combined["RedirectHTTPToHTTPS"] = enableSSL
 
-    # New DSN value for server-specific Postgres
-    combined["DSN"] = "/Library/Server/PostgreSQL For Server Services/Socket:caldav:caldav:::"
+    # New DBType value indicating we launch our own Postgres
+    combined["DBType"] = ""
+
+    # No DSN value since we launch our own Postgres
+    combined["DSN"] = ""
+
+    # Path to SQL file to import previous data from
+    combined["DBImportFile"] = "/Library/Server/Calendar and Contacts/DataDump.sql"
 
     # ConfigRoot is now always "Config"
     combined["ConfigRoot"] = "Config"
+
+    # Remove RunRoot and PIDFile keys so they use the new defaults
+    try:
+        del combined["RunRoot"]
+    except:
+        pass
+    try:
+        del combined["PIDFile"]
+    except:
+        pass
 
     return adminChanges
 

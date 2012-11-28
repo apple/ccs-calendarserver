@@ -216,9 +216,9 @@ class ParsingExampleTests(TestCase, SchemaTestHelper):
         """
         for identicalSchema in [
                 "create table sample (example integer unique);",
-                "create table sample (example integer, unique(example));",
+                "create table sample (example integer, unique (example));",
                 "create table sample "
-                "(example integer, constraint unique_example unique(example))"]:
+                "(example integer, constraint unique_example unique (example))"]:
             s = self.schemaFromString(identicalSchema)
             table = s.tableNamed('sample')
             column = table.columnNamed('example')
@@ -242,14 +242,14 @@ class ParsingExampleTests(TestCase, SchemaTestHelper):
             self.assertEqual(expr.op, '>')
             self.assertEqual(constraint.name, checkName)
         checkOneConstraint(
-            "create table sample (example integer check(example >  5));"
+            "create table sample (example integer check (example >  5));"
         )
         checkOneConstraint(
-            "create table sample (example integer, check(example  > 5));"
+            "create table sample (example integer, check (example  > 5));"
         )
         checkOneConstraint(
             "create table sample "
-            "(example integer, constraint gt_5 check(example>5))", "gt_5"
+            "(example integer, constraint gt_5 check (example>5))", "gt_5"
         )
 
 
@@ -273,7 +273,7 @@ class ParsingExampleTests(TestCase, SchemaTestHelper):
             )
         checkOneConstraint(
             "create table sample "
-            "(example integer check(example = lower(example)));"
+            "(example integer check (example = lower (example)));"
         )
 
 
@@ -283,7 +283,7 @@ class ParsingExampleTests(TestCase, SchemaTestHelper):
         listing that column as a unique set.
         """
         s = self.schemaFromString(
-            "create table a (b integer, c integer, unique(b, c), unique(c));"
+            "create table a (b integer, c integer, unique (b, c), unique (c));"
         )
         a = s.tableNamed('a')
         b = a.columnNamed('b')
@@ -310,7 +310,7 @@ class ParsingExampleTests(TestCase, SchemaTestHelper):
         C{primaryKey} attribute on the Table object.
         """
         s = self.schemaFromString(
-            "create table a (b integer, c integer, primary key(b, c))"
+            "create table a (b integer, c integer, primary key (b, c))"
         )
         a = s.tableNamed("a")
         self.assertEquals(
