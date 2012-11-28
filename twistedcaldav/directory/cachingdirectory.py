@@ -96,9 +96,8 @@ class DictRecordTypeCache(RecordTypeCache, LoggingMixIn):
         for indexType, indexKey in indexTypes:
             self.recordsIndexedBy[indexType][indexKey] = record
             if useMemcache:
-                key = "dir|%s|%s|%s|%s" % (self.directoryService.baseGUID,
-                    indexType, indexKey,
-                    "|".join(self.directoryService.recordTypes()))
+                key = self.directoryService.generateMemcacheKey(indexType, indexKey,
+                    record.recordType)
                 self.log_debug("Memcache: storing %s" % (key,))
                 try:
                     self.directoryService.memcacheSet(key, record)
@@ -226,6 +225,22 @@ class CachingDirectoryService(DirectoryService):
                 raise DirectoryMemcacheError("Failed to read from memcache")
         return record
 
+    def generateMemcacheKey(self, indexType, indexKey, recordType):
+        """
+        Return a key that can be used to store/retrieve a record in memcache.
+
+        @param indexType: one of the indexTypes( ) values
+        @type indexType: C{str}
+        @param indexKey: the value being indexed
+        @type indexKey: C{str}
+        @param recordType: the type of record being cached
+        @type recordType: C{str}
+        @return: a memcache key comprised of the passed-in values and the directory
+            service's baseGUID
+        @rtype: C{str}
+        """
+        return  "dir|%s|%s|%s|%s" % (self.baseGUID, recordType, indexType, indexKey)
+
     def _initCaches(self):
         self._recordCaches = dict([
             (recordType, self.cacheClass(self, recordType))
@@ -315,35 +330,35 @@ class CachingDirectoryService(DirectoryService):
 
         # Check memcache
         if config.Memcached.Pools.Default.ClientEnabled:
-            key = "dir|%s|%s|%s|%s" % (self.baseGUID, indexType, indexKey,
-                "|".join(self.recordTypes()))
-            self.log_debug("Memcache: checking %s" % (key,))
+            for recordType in recordTypes:
+                key = self.generateMemcacheKey(indexType, indexKey, recordType)
+                self.log_debug("Memcache: checking %s" % (key,))
 
-            try:
-                record = self.memcacheGet(key)
-            except DirectoryMemcacheError:
-                self.log_error("Memcache: failed to get %s" % (key,))
-                record = None
-
-            if record is None:
-                self.log_debug("Memcache: miss %s" % (key,))
-            else:
-                self.log_debug("Memcache: hit %s" % (key,))
-                self.recordCacheForType(record.recordType).addRecord(record, indexType, indexKey, useMemcache=False)
-                return record
-
-            if self.negativeCaching:
-
-                # Check negative memcache
                 try:
-                    val = self.memcacheGet("-%s" % (key,))
+                    record = self.memcacheGet(key)
                 except DirectoryMemcacheError:
-                    self.log_error("Memcache: failed to get -%s" % (key,))
-                    val = None
-                if val == 1:
-                    self.log_debug("Memcache: negative %s" % (key,))
-                    self._disabledKeys[indexType][indexKey] = time.time()
-                    return None
+                    self.log_error("Memcache: failed to get %s" % (key,))
+                    record = None
+
+                if record is None:
+                    self.log_debug("Memcache: miss %s" % (key,))
+                else:
+                    self.log_debug("Memcache: hit %s" % (key,))
+                    self.recordCacheForType(record.recordType).addRecord(record, indexType, indexKey, useMemcache=False)
+                    return record
+
+                if self.negativeCaching:
+
+                    # Check negative memcache
+                    try:
+                        val = self.memcacheGet("-%s" % (key,))
+                    except DirectoryMemcacheError:
+                        self.log_error("Memcache: failed to get -%s" % (key,))
+                        val = None
+                    if val == 1:
+                        self.log_debug("Memcache: negative %s" % (key,))
+                        self._disabledKeys[indexType][indexKey] = time.time()
+                        return None
 
         # Try query
         self.log_debug("Faulting record for attribute '%s' with value '%s'" % (indexType, indexKey,))

@@ -126,13 +126,13 @@ class ClientFactory(object):
                  pickler=pickle.Pickler, unpickler=pickle.Unpickler,
                  pload=None, pid=None):
 
-        if config.Memcached.Pools.Default.ClientEnabled:
-            return Client(servers, debug=debug, pickleProtocol=pickleProtocol,
-                pickler=pickler, unpickler=unpickler, pload=pload, pid=pid)
-        elif cls.allowTestCache:
+        if cls.allowTestCache:
             return TestClient(servers, debug=debug,
                 pickleProtocol=pickleProtocol, pickler=pickler,
                 unpickler=unpickler, pload=pload, pid=pid)
+        elif config.Memcached.Pools.Default.ClientEnabled:
+            return Client(servers, debug=debug, pickleProtocol=pickleProtocol,
+                pickler=pickler, unpickler=unpickler, pload=pload, pid=pid)
         else:
             return None
 
