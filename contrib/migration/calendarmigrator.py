@@ -412,8 +412,9 @@ def migrateConfiguration(options, newServerRootValue, newDataRootValue, enableCa
     newCalDAVDPlist["DocumentRoot"] = "Documents"
     newCalDAVDPlist["DataRoot"] = newDataRootValue
 
-    newCalDAVDPlist["EnableCalDAV"] = enableCalDAV
-    newCalDAVDPlist["EnableCardDAV"] = enableCardDAV
+    # These will get set when setRunState runs
+    newCalDAVDPlist["EnableCalDAV"] = False
+    newCalDAVDPlist["EnableCardDAV"] = False
 
     log("Writing %s" % (newConfigFile,))
     writePlist(newCalDAVDPlist, newConfigFile)
