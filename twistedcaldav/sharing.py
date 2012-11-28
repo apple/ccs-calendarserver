@@ -529,7 +529,7 @@ class SharedCollectionMixin(object):
 
 
     @inlineCallbacks
-    def _allInvitations(self, includeAccepted=True):
+    def _allInvitations(self):
         """
         Get list of all invitations to this object
         
@@ -539,25 +539,25 @@ class SharedCollectionMixin(object):
         if not self.exists():
             returnValue([])
 
-        invitedHomeChildren = yield self._newStoreObject.asInvited()
-        if includeAccepted:
+        if not hasattr(self, "_invitations"):
+
             acceptedHomeChildren = yield self._newStoreObject.asShared()
-            # remove direct shares (it might be OK not to remove these, that would be different from legacy code)
+            # remove direct shares (it might be OK not to remove these, but that would be different from legacy code)
             indirectAccceptedHomeChildren = [homeChild for homeChild in acceptedHomeChildren
                                              if homeChild.shareMode() != _BIND_MODE_DIRECT]
-            invitedHomeChildren += indirectAccceptedHomeChildren
+            invitedHomeChildren = (yield self._newStoreObject.asInvited()) + indirectAccceptedHomeChildren
 
-        invitations = [Invitation(homeChild) for homeChild in invitedHomeChildren]
-        invitations.sort(key=lambda invitation:invitation.shareeUID())
+            self._invitations = sorted([Invitation(homeChild) for homeChild in invitedHomeChildren],
+                                 key=lambda invitation:invitation.shareeUID())
 
-        returnValue(invitations)
+        returnValue(self._invitations)
 
     @inlineCallbacks
-    def _invitationForShareeUID(self, shareeUID, includeAccepted=True):
+    def _invitationForShareeUID(self, shareeUID):
         """
         Get an invitation for this sharee principal UID
         """
-        invitations = yield self._allInvitations(includeAccepted=includeAccepted)
+        invitations = yield self._allInvitations()
         for invitation in invitations:
             if invitation.shareeUID() == shareeUID:
                 returnValue(invitation)
@@ -565,11 +565,11 @@ class SharedCollectionMixin(object):
 
 
     @inlineCallbacks
-    def _invitationForUID(self, uid, includeAccepted=True):
+    def _invitationForUID(self, uid):
         """
         Get an invitation for an invitations uid 
         """
-        invitations = yield self._allInvitations(includeAccepted=includeAccepted)
+        invitations = yield self._allInvitations()
         for invitation in invitations:
             if invitation.uid() == uid:
                 returnValue(invitation)
