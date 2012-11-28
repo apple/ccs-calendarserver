@@ -719,14 +719,15 @@ class StoreCalendarObjectResource(object):
                             if old_component.name() != "VTODO":
                                 continue
                             if old_component.hasProperty("DTSTART"):
-                                component.addProperty(old_component.getProperty("DTSTART"))
+                                component.addProperty(old_component.getProperty("DTSTART").duplicate())
                                 break
 
                     # Add organizer back in from previous resource
-                    component.addProperty(old_organizer)
+                    component.addProperty(old_organizer.duplicate())
 
                     # Add attendees back in from previous resource
                     for anAttendee in old_attendees:
+                        anAttendee = anAttendee.duplicate()
                         if component.hasProperty("COMPLETED") and anAttendee.value() in originatorAddresses:
                             anAttendee.setParameter("PARTSTAT", "COMPLETED")
                         component.addProperty(anAttendee)
