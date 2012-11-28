@@ -326,3 +326,17 @@ class GUIDLookups(CachingDirectoryTest):
         record = self.service.recordWithShortName(DirectoryService.recordType_locations,
             "Duplicate")
         self.assertEquals(record.recordType, DirectoryService.recordType_locations)
+
+    def test_generateMemcacheKey(self):
+        """
+        Verify keys are correctly generated based on the index type -- if index type is
+        short-name, then the recordtype is encoded into the key.
+        """
+        self.assertEquals(
+            self.service.generateMemcacheKey(self.service.INDEX_TYPE_GUID, "foo", "users"),
+            "dir|v2|20CB1593-DE3F-4422-A7D7-BA9C2099B317|guid|foo",
+        )
+        self.assertEquals(
+            self.service.generateMemcacheKey(self.service.INDEX_TYPE_SHORTNAME, "foo", "users"),
+            "dir|v2|20CB1593-DE3F-4422-A7D7-BA9C2099B317|users|shortname|foo",
+        )
