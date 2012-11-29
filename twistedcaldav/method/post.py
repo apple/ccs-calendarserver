@@ -59,8 +59,11 @@ def http_POST(self, request):
             action = action[0]
             if action in ("attachment-add", "attachment-update", "attachment-remove") and \
                 hasattr(self, "POST_handler_attachment"):
-                result = (yield self.POST_handler_attachment(request, action))
-                returnValue(result)
+                if config.EnableManagedAttachments:
+                    result = (yield self.POST_handler_attachment(request, action))
+                    returnValue(result)
+                else:
+                    returnValue(StatusResponse(responsecode.FORBIDDEN, "Managed Attachments not supported."))
 
     # Content-type handlers
     contentType = request.headers.getHeader("content-type")
