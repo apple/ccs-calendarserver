@@ -1113,11 +1113,12 @@ class SharedHomeMixin(LinkFollowerMixIn):
         #FIXME: addcresourceType to dead properties for share groups -
         #        it's already there for shared address book and calendars
         if isNewShare and sharedCollection.isGroup():
-                shareeCollection.writeDeadProperty(carddavxml.ResourceType.addressbook)
+            shareeCollection.writeDeadProperty(carddavxml.ResourceType.addressbook)
 
-        # Set per-user displayname or color to whatever was given
-        if displayname:
+        # For calendars only, per-user displayname and color
+        if displayname and shareeCollection.isCalendarCollection():
             yield shareeCollection.writeProperty(element.DisplayName.fromString(displayname), request)
+
         if color:
             yield shareeCollection.writeProperty(customxml.CalendarColor.fromString(color), request)
 
