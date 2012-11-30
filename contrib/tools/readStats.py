@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 ##
 # Copyright (c) 2012 Apple Inc. All rights reserved.
 #
@@ -52,7 +53,7 @@ def readSock(sockname, useTCP):
 
 
 
-def printStats(stats):
+def printStats(stats, multimode):
     if len(stats) == 1:
         if "Failed" in stats[0]:
             printFailedStats(stats[0]["Failed"])
@@ -64,7 +65,7 @@ def printStats(stats):
                 sys.exit(1)
 
     else:
-        printMultipleStats(stats)
+        printMultipleStats(stats, multimode)
 
 
 
@@ -93,7 +94,7 @@ def printStat(stats):
 
 
 
-def printMultipleStats(stats):
+def printMultipleStats(stats, multimode):
 
     labels = serverLabels(stats)
 
@@ -123,8 +124,8 @@ def printMultipleStats(stats):
     print "Current CPU: %s" % (", ".join(cpus),)
     print "Current Memory Used: %s" % (", ".join(memories),)
     print
-    printMultiRequestSummary(stats, labels, ("5 Minutes", 5 * 60,))
-    printMultiHistogramSummary(stats, "5 Minutes")
+    printMultiRequestSummary(stats, labels, multimode)
+    printMultiHistogramSummary(stats, multimode[0])
 
 
 
@@ -186,12 +187,15 @@ def printRequestSummary(stats):
 
 
 def printMultiRequestSummary(stats, labels, index):
+
+    key, seconds = index
+
     table = tables.Table()
     table.addHeader(
         ("Server", "Requests", "Av. Requests", "Av. Response", "Av. Response", "Max. Response", "Slot", "CPU", "500's"),
     )
     table.addHeader(
-        ("", "", "per second", "(ms)", "no write(ms)", "(ms)", "Average", "Average", ""),
+        (key, "", "per second", "(ms)", "no write(ms)", "(ms)", "Average", "Average", ""),
     )
     table.setDefaultColumnFormats(
        (
@@ -207,7 +211,6 @@ def printMultiRequestSummary(stats, labels, index):
         )
     )
 
-    key, seconds = index
     totals = ["Overall:", 0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0]
     for ctr, stat in enumerate(stats):
 
@@ -293,7 +296,7 @@ def printMultiHistogramSummary(stats, index):
             for k in keys[1:]:
                 totals[i][k] += stat[index][i][k]
 
-    print "5 minute average response histogram"
+    print "%s average response histogram" % (index,)
     table = tables.Table()
     table.addHeader(
         ("", "<10ms", "10ms<->100ms", "100ms<->1s", "1s<->10s", "10s<->30s", "30s<->60s", ">60s", "Over 1s", "Over 10s"),
@@ -341,6 +344,10 @@ Options:
     -s            Name of local socket to read from
     -t            Delay in seconds between each sample [10 seconds]
     --tcp host:port Use TCP connection with host:port
+    --0           Display multiserver current average
+    --1           Display multiserver 1 minute average
+    --5           Display multiserver 5 minute average (the default)
+    --60          Display multiserver 1 hour average
 
 Description:
     This utility will print a summary of statistics read from a
@@ -360,7 +367,10 @@ if __name__ == '__main__':
     servers = ("data/Logs/state/caldavd-stats.sock",)
     useTCP = False
 
-    options, args = getopt.getopt(sys.argv[1:], "hs:t:", ["tcp=", ])
+    multimodes = (("Current", 60,), ("1 Minute", 60,), ("5 Minutes", 5 * 60,), ("1 Hour", 60 * 60,),)
+    multimode = multimodes[2]
+
+    options, args = getopt.getopt(sys.argv[1:], "hs:t:", ["tcp=", "0", "1", "5", "60"])
 
     for option, value in options:
         if option == "-h":
@@ -372,7 +382,15 @@ if __name__ == '__main__':
         elif option == "--tcp":
             servers = [(host, int(port),) for host, port in [server.split(":") for server in value.split(",")]]
             useTCP = True
+        elif option == "--0":
+            multimode = multimodes[0]
+        elif option == "--1":
+            multimode = multimodes[1]
+        elif option == "--5":
+            multimode = multimodes[2]
+        elif option == "--60":
+            multimode = multimodes[3]
 
     while True:
-        printStats([readSock(server, useTCP) for server in servers])
+        printStats([readSock(server, useTCP) for server in servers], multimode)
         time.sleep(delay)
