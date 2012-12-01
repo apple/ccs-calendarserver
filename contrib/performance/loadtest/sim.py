@@ -17,7 +17,8 @@
 ##
 
 from collections import namedtuple
-from os import environ
+from os import environ, mkdir
+from os.path import isdir
 from plistlib import readPlist
 from random import Random
 from sys import argv, stdout
@@ -256,6 +257,13 @@ class LoadSimulator(object):
             if 'clientDataSerialization' in config:
                 if config['clientDataSerialization']['Enabled']:
                     serializationPath = config['clientDataSerialization']['Path']
+                    if not isdir(serializationPath):
+                        try:
+                            mkdir(serializationPath)
+                        except OSError:
+                            print "Unable to create client data serialization directory: %s" % (serializationPath)
+                            print "Please consult the clientDataSerialization stanza of contrib/performance/loadtest/config.plist"
+                            raise
 
             if 'arrival' in config:
                 arrival = Arrival(
