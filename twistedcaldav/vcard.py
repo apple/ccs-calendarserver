@@ -393,6 +393,13 @@ class Component (object):
         self._pycard.removeProperty(property._pycard)
         self._pycard.finalise()
 
+    def removeProperties(self, name):
+        """
+        remove all properties with name
+        @param name: the name of the properties to remove.
+        """
+        self._pycard.removeProperties(name)
+
     def replaceProperty(self, property):
         """
         Add or replace a property in this component.
