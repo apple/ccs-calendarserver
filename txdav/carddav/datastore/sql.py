@@ -159,8 +159,9 @@ class AddressBookSharingMixIn(SharingMixIn):
                     abo.CREATED,
                     abo.MODIFIED))
 
+
     @classmethod
-    def _columnsWithResourceIDsQuery(cls, columns, resourceIDs): #@NoSelf
+    def _abObjectColumnsWithResourceIDsQuery(cls, columns, resourceIDs): #@NoSelf
         """
         DAL statement to retrieve addressbook object rows with given columns.
         """
@@ -299,31 +300,30 @@ END:VCARD
         """
         Get all addressbookobject resource IDs in this address book
         """
-        # TODO: cache in attr
-        # TODO: optimize
+        # TODO: see if result can be cached in attr
 
-        allMemberIDs = set() if self.owned() else set([self._resourceID, ])
+        objectIDs = set() if self.owned() else set([self._resourceID, ])
         examinedIDs = set()
         remainingIDs = set([self._resourceID, ])
         while remainingIDs:
             memberRows = yield self._memberIDsWithGroupIDsQuery(remainingIDs).on(self._txn, groupIDs=remainingIDs)
-            allMemberIDs |= set([memberRow[0] for memberRow in memberRows])
+            objectIDs |= set([memberRow[0] for memberRow in memberRows])
             examinedIDs |= remainingIDs
-            remainingIDs = allMemberIDs - examinedIDs
+            remainingIDs = objectIDs - examinedIDs
 
-        returnValue(tuple(allMemberIDs))
+        returnValue(tuple(objectIDs))
 
 
     @inlineCallbacks
     def listObjectResources(self):
         if self._objectNames is None:
             abo = schema.ADDRESSBOOK_OBJECT
-            memberIDs = yield self._allAddressBookObjectIDs()
-            rows = (yield self._columnsWithResourceIDsQuery(
+            objectIDs = yield self._allAddressBookObjectIDs()
+            rows = (yield self._abObjectColumnsWithResourceIDsQuery(
                     [abo.RESOURCE_NAME],
-                    memberIDs).on(
-                        self._txn, resourceIDs=memberIDs)
-                    ) if memberIDs else []
+                    objectIDs).on(
+                        self._txn, resourceIDs=objectIDs)
+                    ) if objectIDs else []
             self._objectNames = sorted([row[0] for row in rows])
 
         returnValue(self._objectNames)
@@ -363,6 +363,14 @@ class AddressBookObject(CommonObjectResource, AddressBookSharingMixIn):
         return self._kind
 
 
+    @classmethod
+    def _deleteMembersWithMemberIDAndGroupIDsQuery(cls, memberID, groupIDs): #@NoSelf
+        aboMembers = schema.ABO_MEMBERS
+        return Delete(
+            aboMembers,
+            Where=(aboMembers.MEMBER_ID == memberID).And(
+                    aboMembers.GROUP_ID.In(Parameter("groupIDs", len(groupIDs)))))
+
     @inlineCallbacks
     def remove(self):
 
@@ -388,25 +396,14 @@ class AddressBookObject(CommonObjectResource, AddressBookSharingMixIn):
             # convert delete in sharee shared group address book to remove of memberships
             # that make this object visible to the sharee
 
-            # FIX ME: Combine into one query
-            memberIDs = yield self._addressbook._allAddressBookObjectIDs()
-
-            groupIDRows = yield Select(
-                [aboMembers.GROUP_ID],
-                From=aboMembers,
-                Where=(aboMembers.MEMBER_ID == self._resourceID).And(
-                        aboMembers.GROUP_ID != self._ownerAddressBookResourceID),
-            ).on(self._txn)
-            groupIDs = [groupIDRow[0] for groupIDRow in groupIDRows]
-
-            for groupID in set(groupIDs) & set(memberIDs):
-                yield Delete(
-                    aboMembers,
-                    Where=(aboMembers.MEMBER_ID == self._resourceID).And(
-                            aboMembers.GROUP_ID == groupID),
-                ).on(self._txn)
-
             ownerAddressBook = yield self.ownerAddressBook()
+            objectIDs = yield ownerAddressBook._allAddressBookObjectIDs()
+            assert self._ownerAddressBookResourceID not in objectIDs
+
+            if objectIDs:
+                yield self._deleteMembersWithMemberIDAndGroupIDsQuery(self._resourceID, objectIDs).on(
+                    self._txn, groupIDs=objectIDs)
+
             yield self._changeAddressBookRevision(ownerAddressBook)
 
         else:
@@ -475,18 +472,18 @@ class AddressBookObject(CommonObjectResource, AddressBookSharingMixIn):
         @return: L{self} if object exists in the DB, else C{None}
         """
 
-        memberIDs = yield self._addressbook._allAddressBookObjectIDs()
+        objectIDs = yield self._addressbook._allAddressBookObjectIDs()
         if self._name:
-            rows = (yield self._allWithResourceIDAndName(memberIDs).on(
+            rows = (yield self._allWithResourceIDAndName(objectIDs).on(
                 self._txn, name=self._name,
-                resourceIDs=memberIDs,)) if memberIDs else []
+                resourceIDs=objectIDs,)) if objectIDs else []
         elif self._uid:
-            rows = (yield self._allWithResourceIDAndUID(memberIDs).on(
+            rows = (yield self._allWithResourceIDAndUID(objectIDs).on(
                 self._txn, uid=self._uid,
-                resourceIDs=memberIDs,)) if memberIDs else []
+                resourceIDs=objectIDs,)) if objectIDs else []
         elif self._resourceID:
             rows = (yield self._allWithResourceID.on(
-                self._txn, resourceID=self._resourceID,)) if (self._resourceID in memberIDs) else []
+                self._txn, resourceID=self._resourceID,)) if (self._resourceID in objectIDs) else []
 
         if rows:
             self._initFromRow(tuple(rows[0]))
@@ -534,9 +531,9 @@ class AddressBookObject(CommonObjectResource, AddressBookSharingMixIn):
     @classmethod
     @inlineCallbacks
     def _allColumnsWithParent(cls, parent): #@NoSelf
-        memberIDs = yield parent._allAddressBookObjectIDs()
-        rows = (yield cls._columnsWithResourceIDsQuery(cls._allColumns, memberIDs).on(
-            parent._txn, resourceIDs=memberIDs)) if memberIDs else []
+        objectIDs = yield parent._allAddressBookObjectIDs()
+        rows = (yield cls._abObjectColumnsWithResourceIDsQuery(cls._allColumns, objectIDs).on(
+            parent._txn, resourceIDs=objectIDs)) if objectIDs else []
         returnValue(rows)
 
 
@@ -551,9 +548,9 @@ class AddressBookObject(CommonObjectResource, AddressBookSharingMixIn):
     @classmethod
     @inlineCallbacks
     def _allColumnsWithParentAndNames(cls, parent, names): #@NoSelf
-        memberIDs = yield parent._allAddressBookObjectIDs()
-        rows = (yield cls._allColumnsWithResourceIDsAndNamesQuery(memberIDs, names).on(
-            parent._txn, resourceIDs=memberIDs, names=names)) if memberIDs else []
+        objectIDs = yield parent._allAddressBookObjectIDs()
+        rows = (yield cls._allColumnsWithResourceIDsAndNamesQuery(objectIDs, names).on(
+            parent._txn, resourceIDs=objectIDs, names=names)) if objectIDs else []
         returnValue(rows)
 
 
@@ -635,9 +632,27 @@ class AddressBookObject(CommonObjectResource, AddressBookSharingMixIn):
                       )
 
 
+    @classmethod
+    def _deleteMembersWithGroupIDAndMemberIDsQuery(cls, groupID, memberIDs): #@NoSelf
+        aboMembers = schema.ABO_MEMBERS
+        return Delete(
+            aboMembers,
+            Where=(aboMembers.GROUP_ID == groupID).And(
+                    aboMembers.MEMBER_ID.In(Parameter("memberIDs", len(memberIDs)))))
+
+
+    @classmethod
+    def _deleteForeignMembersWithGroupIDAndMembeAddrsQuery(cls, groupID, memberAddrs): #@NoSelf
+        aboForeignMembers = schema.ABO_FOREIGN_MEMBERS
+        return Delete(
+            aboForeignMembers,
+            Where=(aboForeignMembers.GROUP_ID == groupID).And(
+                    aboForeignMembers.MEMBER_ADDRESS.In(Parameter("memberAddrs", len(memberAddrs)))))
+
+
     @inlineCallbacks
     def updateDatabase(self, component, expand_until=None, reCreate=False,
-                       inserting=False, removingObject=None):
+                       inserting=False):
         """
         Update the database tables for the new data being written.
 
@@ -778,16 +793,9 @@ class AddressBookObject(CommonObjectResource, AddressBookSharingMixIn):
             memberIDsToDelete = set(currentMemberIDs) - set(memberIDs)
             memberIDsToAdd = set(memberIDs) - set(currentMemberIDs)
 
-            #correct for object that is about to be removed
-            if removingObject:
-                memberIDsToDelete |= set([removingObject._resourceID])
-
-            for memberIDToDelete in memberIDsToDelete:
-                yield Delete(
-                    aboMembers,
-                    Where=((aboMembers.GROUP_ID == self._resourceID).And(
-                            aboMembers.MEMBER_ID == memberIDToDelete))
-                ).on(self._txn)
+            if memberIDsToDelete:
+                yield self._deleteMembersWithGroupIDAndMemberIDsQuery(self._resourceID, memberIDsToDelete).on(
+                    self._txn, memberIDs=memberIDsToDelete)
 
             for memberIDToAdd in memberIDsToAdd:
                 yield Insert(
@@ -808,16 +816,9 @@ class AddressBookObject(CommonObjectResource, AddressBookSharingMixIn):
                 foreignMemberAddrsToDelete = set(currentForeignMemberAddrs) - set(foreignMemberAddrs)
                 foreignMemberAddrsToAdd = set(foreignMemberAddrs) - set(currentForeignMemberAddrs)
 
-                for foreignMemberAddrToDelete in foreignMemberAddrsToDelete:
-                    yield Delete(
-                        aboForeignMembers,
-                        Where=((aboForeignMembers.GROUP_ID == self._resourceID).And(
-                                aboForeignMembers.MEMBER_ADDRESS == foreignMemberAddrToDelete))
-                    ).on(self._txn)
-
-                #correct for object that is about to be removed
-                if removingObject:
-                    foreignMemberAddrsToAdd |= set(["urn:uuid:" + removingObject.uid()])
+                if foreignMemberAddrsToDelete:
+                    yield self._deleteForeignMembersWithGroupIDAndMembeAddrsQuery(self._resourceID, foreignMemberAddrsToDelete).on(
+                        self._txn, memberAddrs=foreignMemberAddrsToDelete)
 
                 for foreignMemberAddrToAdd in foreignMemberAddrsToAdd:
                     yield Insert(
@@ -869,7 +870,7 @@ class AddressBookObject(CommonObjectResource, AddressBookSharingMixIn):
 
             # then get member UIDs
             abo = schema.ADDRESSBOOK_OBJECT
-            memberUIDRows = (yield self._columnsWithResourceIDsQuery(
+            memberUIDRows = (yield self._abObjectColumnsWithResourceIDsQuery(
                              [abo.VCARD_UID],
                              memberIDs).on(
                                 self._txn, resourceIDs=memberIDs)
