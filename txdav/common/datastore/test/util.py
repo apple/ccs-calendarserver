@@ -126,7 +126,8 @@ class SQLStoreBuilder(object):
         reactor.addSystemEventTrigger("before", "shutdown", cp.stopService)
         cds = CommonDataStore(
             cp.connection, StubNotifierFactory(),
-            attachmentRoot, quota=staticQuota
+            attachmentRoot, "",
+            quota=staticQuota
         )
         return cds
 

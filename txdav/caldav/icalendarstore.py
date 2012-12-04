@@ -298,6 +298,18 @@ class ICalendarHome(INotifier, IDataStoreObject):
         """
 
 
+    def objectResourceWithID(rid):
+        """
+        Return the calendar object resource with the specified ID, assumed to be a child of
+        a calendar collection within this home.
+
+        @param rid: resource id of object to find
+        @type rid: C{int}
+
+        @return: L{ICalendar} or C{None} if not found
+        """
+
+
 
 class ICalendar(INotifier, IShareableCollection, IDataStoreObject):
     """

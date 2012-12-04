@@ -41,12 +41,13 @@ from twext.web2.http import HTTPError, StatusResponse, Response
 from twext.web2.http_headers import ETag, MimeType, MimeDisposition
 from twext.web2.dav.http import ErrorResponse, ResponseQueue, MultiStatusResponse
 from twext.web2.dav.noneprops import NonePropertyStore
-from twext.web2.dav.resource import TwistedACLInheritable, AccessDeniedError
+from twext.web2.dav.resource import TwistedACLInheritable, AccessDeniedError, \
+    davPrivilegeSet
 from twext.web2.dav.util import parentForURL, allDataFromStream, joinURL, davXMLFromStream
 from twext.web2.responsecode import (
     FORBIDDEN, NO_CONTENT, NOT_FOUND, CREATED, CONFLICT, PRECONDITION_FAILED,
     BAD_REQUEST, OK, INSUFFICIENT_STORAGE_SPACE, SERVICE_UNAVAILABLE
-)
+, INTERNAL_SERVER_ERROR)
 
 from twistedcaldav import customxml, carddavxml, caldavxml
 from twistedcaldav.cache import CacheStoreNotifier, ResponseCacheMixin, \
@@ -69,6 +70,7 @@ from twistedcaldav.scheduling.implicit import ImplicitScheduler
 from twistedcaldav.vcard import Component as VCard, InvalidVCardDataError
 from pycalendar.datetime import PyCalendarDateTime
 import uuid
+from twext.web2.filter.location import addLocation
 
 """
 Wrappers to translate between the APIs in L{txdav.caldav.icalendarstore} and
@@ -148,7 +150,7 @@ def requiresPermissions(*permissions, **kw):
     fromParent = kw.get('fromParent')
     # FIXME: direct unit tests
     def wrap(thunk):
-        def authAndContinue(self, request):
+        def authAndContinue(self, request, *args, **kwargs):
             if permissions:
                 d = self.authorize(request, permissions)
             else:
@@ -161,7 +163,7 @@ def requiresPermissions(*permissions, **kw):
                     lambda parent:
                         parent.authorize(request, fromParent)
                 )
-            d.addCallback(lambda whatever: thunk(self, request))
+            d.addCallback(lambda whatever: thunk(self, request, *args, **kwargs))
             return d
         return authAndContinue
     return wrap
@@ -1632,8 +1634,9 @@ class AttachmentsCollection(_GetChildHelper):
     def __init__(self, parent, *a, **kw):
         kw.update(principalCollections=parent.principalCollections())
         super(AttachmentsCollection, self).__init__(*a, **kw)
-        self._newStoreHome = parent._newStoreHome
-        parent.propagateTransaction(self)
+        self.parent = parent
+        self._newStoreHome = self.parent._newStoreHome
+        self.parent.propagateTransaction(self)
 
 
     def isCollection(self):
@@ -1663,6 +1666,64 @@ class AttachmentsCollection(_GetChildHelper):
 
     def listChildren(self):
         return self._newStoreHome.getAllAttachmentNames()
+
+
+    def supportedPrivileges(self, request):
+        # Just DAV standard privileges - no CalDAV ones
+        return succeed(davPrivilegeSet)
+
+
+    def defaultAccessControlList(self):
+        """
+        Only read privileges allowed for managed attachments.
+        """
+        myPrincipal = self.parent.principalForRecord()
+
+        read_privs = (
+            davxml.Privilege(davxml.Read()),
+            davxml.Privilege(davxml.ReadCurrentUserPrivilegeSet()),
+        )
+
+        aces = (
+            # Inheritable access for the resource's associated principal.
+            davxml.ACE(
+                davxml.Principal(davxml.HRef(myPrincipal.principalURL())),
+                davxml.Grant(*read_privs),
+                davxml.Protected(),
+                TwistedACLInheritable(),
+            ),
+        )
+
+        # Give read access to config.ReadPrincipals
+        aces += config.ReadACEs
+
+        # Give all access to config.AdminPrincipals
+        aces += config.AdminACEs
+
+        if config.EnableProxyPrincipals:
+            aces += (
+                # DAV:read/DAV:read-current-user-privilege-set access for this principal's calendar-proxy-read users.
+                davxml.ACE(
+                    davxml.Principal(davxml.HRef(joinURL(myPrincipal.principalURL(), "calendar-proxy-read/"))),
+                    davxml.Grant(*read_privs),
+                    davxml.Protected(),
+                    TwistedACLInheritable(),
+                ),
+                # DAV:read/DAV:read-current-user-privilege-set access for this principal's calendar-proxy-write users.
+                davxml.ACE(
+                    davxml.Principal(davxml.HRef(joinURL(myPrincipal.principalURL(), "calendar-proxy-write/"))),
+                    davxml.Grant(*read_privs),
+                    davxml.Protected(),
+                    TwistedACLInheritable(),
+                ),
+            )
+
+        return davxml.ACL(*aces)
+
+
+    def accessControlList(self, request, inheritance=True, expanding=False, inherited_aces=None):
+        # Permissions here are fixed, and are not subject to inheritance rules, etc.
+        return succeed(self.defaultAccessControlList())
 
 
 
@@ -1779,6 +1840,105 @@ class CalendarAttachment(_NewStoreFileMetaDataHelper, _GetChildHelper):
         return False
 
 
+    def supportedPrivileges(self, request):
+        # Just DAV standard privileges - no CalDAV ones
+        return succeed(davPrivilegeSet)
+
+
+    @inlineCallbacks
+    def accessControlList(self, request, *a, **kw):
+        """
+        Special case managed attachments, but not dropbox (which is handled by parent collection).
+        All principals identified as ATTENDEEs on the event for this attachment
+        may read it. Also include proxies of ATTENDEEs. Ignore unknown attendees.
+        """
+
+        originalACL = yield super(CalendarAttachment, self).accessControlList(request, *a, **kw)
+        if not self._managed or not self.exists():
+            returnValue(originalACL)
+        originalACEs = list(originalACL.children)
+
+        # Look at attendees
+        if self._newStoreCalendarObject is None:
+            self._newStoreCalendarObject = (yield self._newStoreAttachment.objectResource())
+
+        cuas = (yield self._newStoreCalendarObject.component()).getAttendees()
+        newACEs = []
+        for calendarUserAddress in cuas:
+            principal = self.principalForCalendarUserAddress(
+                calendarUserAddress
+            )
+            if principal is None:
+                continue
+
+            principalURL = principal.principalURL()
+            privileges = (
+                davxml.Privilege(davxml.Read()),
+                davxml.Privilege(davxml.ReadCurrentUserPrivilegeSet()),
+            )
+            newACEs.append(davxml.ACE(
+                davxml.Principal(davxml.HRef(principalURL)),
+                davxml.Grant(*privileges),
+                davxml.Protected(),
+            ))
+            newACEs.append(davxml.ACE(
+                davxml.Principal(davxml.HRef(joinURL(principalURL, "calendar-proxy-write/"))),
+                davxml.Grant(*privileges),
+                davxml.Protected(),
+            ))
+            newACEs.append(davxml.ACE(
+                davxml.Principal(davxml.HRef(joinURL(principalURL, "calendar-proxy-read/"))),
+                davxml.Grant(*privileges),
+                davxml.Protected(),
+            ))
+
+        # Now also need sharees
+        newACEs.extend((yield self.sharedManagedACEs()))
+
+        returnValue(davxml.ACL(*tuple(originalACEs + newACEs)))
+
+
+    @inlineCallbacks
+    def sharedManagedACEs(self):
+
+        aces = ()
+        calendars = yield self._newStoreCalendarObject._parentCollection.asShared()
+        for calendar in calendars:
+
+            read_privs = (
+                davxml.Privilege(davxml.Read()),
+                davxml.Privilege(davxml.ReadCurrentUserPrivilegeSet()),
+            )
+
+            principal = self.principalForUID(calendar._home.uid())
+            aces += (
+                # Specific access for the resource's associated principal.
+                davxml.ACE(
+                    davxml.Principal(davxml.HRef(principal.principalURL())),
+                    davxml.Grant(*read_privs),
+                    davxml.Protected(),
+                ),
+            )
+
+            if config.EnableProxyPrincipals:
+                aces += (
+                    # DAV:read/DAV:read-current-user-privilege-set access for this principal's calendar-proxy-read users.
+                    davxml.ACE(
+                        davxml.Principal(davxml.HRef(joinURL(principal.principalURL(), "calendar-proxy-read/"))),
+                        davxml.Grant(*read_privs),
+                        davxml.Protected(),
+                    ),
+                    # DAV:read/DAV:read-current-user-privilege-set/DAV:write access for this principal's calendar-proxy-write users.
+                    davxml.ACE(
+                        davxml.Principal(davxml.HRef(joinURL(principal.principalURL(), "calendar-proxy-write/"))),
+                        davxml.Grant(*read_privs),
+                        davxml.Protected(),
+                    ),
+                )
+
+        returnValue(aces)
+
+
 
 class NoParent(CalDAVResource):
 
@@ -1828,6 +1988,10 @@ class _CommonObjectResource(_NewStoreFileMetaDataHelper, CalDAVResource, FancyEq
         return succeed(self._newStoreObject.size())
 
 
+    def uid(self):
+        return self._newStoreObject.uid()
+
+
     def component(self):
         return self._newStoreObject.component()
 
@@ -1857,6 +2021,72 @@ class _CommonObjectResource(_NewStoreFileMetaDataHelper, CalDAVResource, FancyEq
         return self.storeRemove(request, True, request.uri)
 
 
+    @inlineCallbacks
+    def http_MOVE(self, request):
+        """
+        MOVE for object resources.
+        """
+
+        # Do some pre-flight checks - must exist, must be move to another
+        # CommonHomeChild in the same Home, destination resource must not exist
+        if not self.exists():
+            log.debug("Resource not found: %s" % (self,))
+            raise HTTPError(NOT_FOUND)
+
+        parent = (yield request.locateResource(parentForURL(request.uri)))
+
+        #
+        # Find the destination resource
+        #
+        destination_uri = request.headers.getHeader("destination")
+        overwrite = request.headers.getHeader("overwrite", True)
+
+        if not destination_uri:
+            msg = "No destination header in MOVE request."
+            log.err(msg)
+            raise HTTPError(StatusResponse(BAD_REQUEST, msg))
+
+        destination = (yield request.locateResource(destination_uri))
+        if destination is None:
+            msg = "Destination of MOVE does not exist: %s" % (destination_uri,)
+            log.debug(msg)
+            raise HTTPError(StatusResponse(BAD_REQUEST, msg))
+        if destination.exists():
+            if overwrite:
+                msg = "Cannot overwrite existing resource with a MOVE"
+                log.debug(msg)
+                raise HTTPError(StatusResponse(FORBIDDEN, msg))
+            else:
+                msg = "Cannot MOVE to existing resource without overwrite flag enabled"
+                log.debug(msg)
+                raise HTTPError(StatusResponse(PRECONDITION_FAILED, msg))
+
+        # Check for parent calendar collection
+        destination_uri = urlsplit(destination_uri)[2]
+        destinationparent = (yield request.locateResource(parentForURL(destination_uri)))
+        if not isinstance(destinationparent, _CommonHomeChildCollectionMixin):
+            msg = "Destination of MOVE is not valid: %s" % (destination_uri,)
+            log.debug(msg)
+            raise HTTPError(StatusResponse(FORBIDDEN, msg))
+        if parentForURL(parentForURL(destination_uri)) != parentForURL(parentForURL(request.uri)):
+            msg = "Can only MOVE within the same home collection: %s" % (destination_uri,)
+            log.debug(msg)
+            raise HTTPError(StatusResponse(FORBIDDEN, msg))
+
+        #
+        # Check authentication and access controls
+        #
+        yield parent.authorize(request, (davxml.Unbind(),))
+        yield destinationparent.authorize(request, (davxml.Bind(),))
+
+        # May need to add a location header
+        addLocation(request, destination_uri)
+
+        storer = self.storeResource(request, parent, destination, destination_uri, destinationparent)
+        result = (yield storer.move())
+        returnValue(result)
+
+
     def http_PROPPATCH(self, request):
         """
         No dead properties allowed on object resources.
@@ -1865,6 +2095,13 @@ class _CommonObjectResource(_NewStoreFileMetaDataHelper, CalDAVResource, FancyEq
             return super(_CommonObjectResource, self).http_PROPPATCH(request)
         else:
             return FORBIDDEN
+
+
+    def storeResource(self, request, parent, destination, destination_uri, destaination_parent):
+        """
+        Create the appropriate StoreXXX class for storing of data.
+        """
+        raise NotImplementedError
 
 
     @inlineCallbacks
@@ -1903,6 +2140,28 @@ class _CommonObjectResource(_NewStoreFileMetaDataHelper, CalDAVResource, FancyEq
             self._initializeWithObject(self._newStoreObject, self._newStoreParent)
 
             returnValue(CREATED)
+
+
+    @inlineCallbacks
+    def storeMove(self, request, destinationparent, destination_name):
+        """
+        Move this object to a different parent.
+
+        @param request:
+        @type request: L{twext.web2.iweb.IRequest}
+        @param destinationparent: Parent to move to
+        @type destinationparent: L{CommonHomeChild}
+        @param destination_name: name of new resource
+        @type destination_name: C{str}
+        """
+
+        try:
+            yield self._newStoreObject.moveTo(destinationparent._newStoreObject, destination_name)
+        except Exception, e:
+            log.err(e)
+            raise HTTPError(INTERNAL_SERVER_ERROR)
+
+        returnValue(CREATED)
 
 
     @inlineCallbacks
@@ -2042,6 +2301,21 @@ class CalendarObjectResource(_CalendarObjectMetaDataMixin, _CommonObjectResource
                 raise HTTPError(PRECONDITION_FAILED)
 
 
+    def storeResource(self, request, parent, destination, destination_uri, destaination_parent):
+        return StoreCalendarObjectResource(
+            request=request,
+            source=self,
+            source_uri=request.uri,
+            sourceparent=parent,
+            sourcecal=True,
+            deletesource=True,
+            destination=destination,
+            destination_uri=destination_uri,
+            destinationparent=destaination_parent,
+            destinationcal=True,
+        )
+
+
     @inlineCallbacks
     def storeRemove(self, request, implicitly, where):
         """
@@ -2125,6 +2399,7 @@ class CalendarObjectResource(_CalendarObjectMetaDataMixin, _CommonObjectResource
         returnValue(NO_CONTENT)
 
 
+    @requiresPermissions(davxml.WriteContent())
     @inlineCallbacks
     def POST_handler_attachment(self, request, action):
         """
@@ -2448,6 +2723,21 @@ class AddressBookObjectResource(_CommonObjectResource):
         returnValue(str(data))
 
     vCard = _CommonObjectResource.component
+
+
+    def storeResource(self, request, parent, destination, destination_uri, destination_parent):
+        return StoreAddressObjectResource(
+            request=request,
+            source=self,
+            source_uri=request.uri,
+            sourceparent=parent,
+            sourceadbk=True,
+            deletesource=True,
+            destination=destination,
+            destination_uri=destination_uri,
+            destinationparent=destination_parent,
+            destinationadbk=True,
+        )
 
 
 

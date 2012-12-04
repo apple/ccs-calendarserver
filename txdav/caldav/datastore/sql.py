@@ -2223,19 +2223,19 @@ class ManagedAttachment(Attachment):
     def load(cls, txn, managedID):
         attco = schema.ATTACHMENT_CALENDAR_OBJECT
         rows = (yield Select(
-            [attco.ATTACHMENT_ID, ],
+            [attco.ATTACHMENT_ID, attco.CALENDAR_OBJECT_RESOURCE_ID, ],
             From=attco,
             Where=(attco.MANAGED_ID == managedID),
         ).on(txn))
-        aids = [row[0] for row in rows] if rows is not None else ()
-        if len(aids) == 0:
+        if len(rows) == 0:
             returnValue(None)
-        elif len(aids) != 1:
+        elif len(rows) != 1:
             raise AttachmentStoreValidManagedID
 
-        attachment = cls(txn, aids[0], None, None)
+        attachment = cls(txn, rows[0][0], None, None)
         attachment = (yield attachment.initFromStore())
         attachment._managedID = managedID
+        attachment._objectResourceID = rows[0][1]
         returnValue(attachment)
 
 
@@ -2317,6 +2317,17 @@ class ManagedAttachment(Attachment):
 
     def managedID(self):
         return self._managedID
+
+
+    @inlineCallbacks
+    def objectResource(self):
+        """
+        Return the calendar object resource associated with this attachment.
+        """
+
+        home = (yield self._txn.calendarHomeWithResourceID(self._ownerHomeID))
+        obj = (yield home.objectResourceWithID(self._objectResourceID))
+        returnValue(obj)
 
 
     @property

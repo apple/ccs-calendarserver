@@ -220,7 +220,7 @@ class StoreCalendarObjectResource(object):
                 result, message = self.validResourceName()
                 if not result:
                     log.err(message)
-                    raise HTTPError(StatusResponse(responsecode.FORBIDDEN, "Resource name not allowed"))
+                    raise HTTPError(StatusResponse(responsecode.FORBIDDEN, message))
 
                 # Valid collection size check on the destination parent resource
                 result, message = (yield self.validCollectionSize())
@@ -229,7 +229,7 @@ class StoreCalendarObjectResource(object):
                     raise HTTPError(ErrorResponse(
                         responsecode.FORBIDDEN,
                         customxml.MaxResources(),
-                        "Too many resources in collection",
+                        message,
                     ))
 
                 # Valid data sizes - do before parsing the data
@@ -241,7 +241,7 @@ class StoreCalendarObjectResource(object):
                         raise HTTPError(ErrorResponse(
                             responsecode.FORBIDDEN,
                             (caldav_namespace, "max-resource-size"),
-                            "Calendar data too large",
+                            message,
                         ))
                 else:
                     # Valid calendar data size check
@@ -251,7 +251,7 @@ class StoreCalendarObjectResource(object):
                         raise HTTPError(ErrorResponse(
                             responsecode.FORBIDDEN,
                             (caldav_namespace, "max-resource-size"),
-                            "Calendar data too large",
+                            message,
                         ))
 
             if not self.sourcecal:
@@ -263,7 +263,7 @@ class StoreCalendarObjectResource(object):
                         raise HTTPError(ErrorResponse(
                             responsecode.FORBIDDEN,
                             (caldav_namespace, "supported-calendar-data"),
-                            "Invalid content-type for data",
+                            message,
                         ))
 
                     # At this point we need the calendar data to do more tests
@@ -274,7 +274,7 @@ class StoreCalendarObjectResource(object):
                         raise HTTPError(ErrorResponse(
                             responsecode.FORBIDDEN,
                             (caldav_namespace, "valid-calendar-data"),
-                            description="Can't parse calendar data"
+                            "Can't parse calendar data"
                         ))
                 else:
                     try:
@@ -285,7 +285,7 @@ class StoreCalendarObjectResource(object):
                         raise HTTPError(ErrorResponse(
                             responsecode.FORBIDDEN,
                             (caldav_namespace, "valid-calendar-data"),
-                            description="Can't parse calendar data"
+                            "Can't parse calendar data"
                         ))
 
                 # Possible timezone stripping
@@ -302,7 +302,7 @@ class StoreCalendarObjectResource(object):
                         raise HTTPError(ErrorResponse(
                             responsecode.FORBIDDEN,
                             (caldav_namespace, "valid-calendar-data"),
-                            description=message
+                            message
                         ))
 
                     # Valid calendar data for CalDAV check
@@ -312,7 +312,7 @@ class StoreCalendarObjectResource(object):
                         raise HTTPError(ErrorResponse(
                             responsecode.FORBIDDEN,
                             (caldav_namespace, "valid-calendar-object-resource"),
-                            "Invalid calendar data",
+                            message,
                         ))
 
                     # Valid calendar component for check
@@ -322,7 +322,7 @@ class StoreCalendarObjectResource(object):
                         raise HTTPError(ErrorResponse(
                             responsecode.FORBIDDEN,
                             (caldav_namespace, "supported-component"),
-                            "Invalid calendar data",
+                            message,
                         ))
 
                     # Valid attendee list size check
@@ -333,7 +333,7 @@ class StoreCalendarObjectResource(object):
                             ErrorResponse(
                                 responsecode.FORBIDDEN,
                                 MaxAttendeesPerInstance.fromString(str(config.MaxAttendeesPerInstance)),
-                                "Too many attendees in calendar data",
+                                message,
                             )
                         )
 
@@ -1238,6 +1238,124 @@ class StoreCalendarObjectResource(object):
                 _removeEtag.handleErrors = True
 
                 self.request.addResponseFilter(_removeEtag, atEnd=True)
+
+            if reservation:
+                yield reservation.unreserve()
+
+            returnValue(response)
+
+        except Exception, err:
+
+            if reservation:
+                yield reservation.unreserve()
+
+            if isinstance(err, InvalidOverriddenInstanceError):
+                raise HTTPError(ErrorResponse(
+                    responsecode.FORBIDDEN,
+                    (caldav_namespace, "valid-calendar-data"),
+                    description="Invalid overridden instance"
+                ))
+            elif isinstance(err, TooManyInstancesError):
+                raise HTTPError(ErrorResponse(
+                    responsecode.FORBIDDEN,
+                    MaxInstances.fromString(str(err.max_allowed)),
+                    "Too many recurrence instances",
+                ))
+            elif isinstance(err, AttachmentStoreValidManagedID):
+                raise HTTPError(ErrorResponse(
+                    responsecode.FORBIDDEN,
+                    (caldav_namespace, "valid-managed-id"),
+                    "Invalid Managed-ID parameter in calendar data",
+                ))
+            else:
+                raise err
+
+
+    @inlineCallbacks
+    def moveValidation(self):
+        """
+        Do full validation of source and destination calendar data.
+        """
+
+        # Basic validation
+        self.validIfScheduleMatch()
+
+        # Valid resource name check
+        result, message = self.validResourceName()
+        if not result:
+            log.err(message)
+            raise HTTPError(StatusResponse(responsecode.FORBIDDEN, message))
+
+        # Valid collection size check on the destination parent resource
+        result, message = (yield self.validCollectionSize())
+        if not result:
+            log.err(message)
+            raise HTTPError(ErrorResponse(
+                responsecode.FORBIDDEN,
+                customxml.MaxResources(),
+                message,
+            ))
+
+        # Check that moves to shared calendars are OK
+        yield self.validCopyMoveOperation()
+
+        returnValue(None)
+
+
+    @inlineCallbacks
+    def doStoreMove(self):
+
+        # Do move
+        response = (yield self.source.storeMove(self.request, self.destinationparent, self.destination._name))
+        returnValue(response)
+
+
+    @inlineCallbacks
+    def move(self):
+        """
+        Function that does common MOVE behavior.
+
+        @return: a Deferred with a status response result.
+        """
+
+        try:
+            reservation = None
+
+            # Handle all validation operations here.
+            self.calendar = (yield self.source.iCalendarForUser(self.request))
+            yield self.moveValidation()
+
+            # Reservation and UID conflict checking is next.
+
+            # Reserve UID
+            self.destination_index = self.destinationparent.index()
+            reservation = StoreCalendarObjectResource.UIDReservation(
+                self.destination_index, self.source.uid(), self.destination_uri,
+                self.internal_request or self.isiTIP,
+                self.destination._associatedTransaction,
+            )
+            yield reservation.reserve()
+            # UID conflict check - note we do this after reserving the UID to avoid a race condition where two requests
+            # try to write the same calendar data to two different resource URIs.
+            if not self.isiTIP:
+                result, message, rname = yield self.noUIDConflict(self.source.uid())
+                if not result:
+                    log.err(message)
+                    raise HTTPError(ErrorResponse(
+                        responsecode.FORBIDDEN,
+                        NoUIDConflict(
+                            davxml.HRef.fromString(
+                                joinURL(
+                                    parentForURL(self.destination_uri),
+                                    rname.encode("utf-8")
+                                )
+                            )
+                        ),
+                        "UID already exists",
+                    ))
+
+            # Do the actual put or copy
+            response = (yield self.doStoreMove())
 
             if reservation:
                 yield reservation.unreserve()
