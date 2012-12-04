@@ -374,7 +374,9 @@ class CalendarUserProxyPrincipalResource (
         for uid in members:
             p = self.pcollection.principalForUID(uid)
             if p:
-                found.append(p)
+                # Only principals enabledForLogin can be a delegate
+                if p.record.enabledForLogin:
+                    found.append(p)
                 # Make sure any outstanding deletion timer entries for
                 # existing principals are removed
                 yield self._index().refreshPrincipal(uid)

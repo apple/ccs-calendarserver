@@ -439,5 +439,34 @@ class ProxyPrincipals (twistedcaldav.test.util.TestCase):
         """
         self.assertEquals(
             set((yield calendaruserproxy.ProxyDBService.getAllMembers())),
-            set([u'6423F94A-6B76-4A3A-815B-D52CFD77935D', u'8A985493-EE2C-4665-94CF-4DFEA3A89500', u'9FF60DAD-0BDE-4508-8C77-15F0CA5C8DD2', u'both_coasts', u'left_coast', u'non_calendar_group', u'recursive1_coasts', u'recursive2_coasts'])
+            set([u'6423F94A-6B76-4A3A-815B-D52CFD77935D', u'8A985493-EE2C-4665-94CF-4DFEA3A89500', u'9FF60DAD-0BDE-4508-8C77-15F0CA5C8DD2', u'both_coasts', u'left_coast', u'non_calendar_group', u'recursive1_coasts', u'recursive2_coasts', u'EC465590-E9E9-4746-ACE8-6C756A49FE4D'])
+        )
+
+
+    @inlineCallbacks
+    def test_hideDisabledDelegates(self):
+        """
+        Delegates who are not enabledForLogin are "hidden" from the delegate lists
+        """
+
+        record = self.directoryService.recordWithGUID("EC465590-E9E9-4746-ACE8-6C756A49FE4D")
+
+        record.enabledForLogin = True
+        yield self._groupMembersTest(
+            DirectoryService.recordType_users, "delegator", "calendar-proxy-write",
+            ("Occasional Delegate",),
+        )
+
+        # Login disabled -- no longer shown as a delegate
+        record.enabledForLogin = False
+        yield self._groupMembersTest(
+            DirectoryService.recordType_users, "delegator", "calendar-proxy-write",
+            [],
+        )
+
+        # Login re-enabled -- once again a delegate (it wasn't not removed from proxydb)
+        record.enabledForLogin = True
+        yield self._groupMembersTest(
+            DirectoryService.recordType_users, "delegator", "calendar-proxy-write",
+            ("Occasional Delegate",),
         )

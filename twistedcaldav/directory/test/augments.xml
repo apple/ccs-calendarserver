@@ -175,4 +175,15 @@ limitations under the License.
     <enable>true</enable>
     <enable-addressbook>true</enable-addressbook>
   </record>
+  <record>
+    <uid>FC465590-E9E9-4746-ACE8-6C756A49FE4D</uid>
+    <enable>true</enable>
+    <enable-calendar>true</enable-calendar>
+  </record>
+  <record>
+    <uid>EC465590-E9E9-4746-ACE8-6C756A49FE4D</uid>
+    <enable>true</enable>
+    <enable-calendar>true</enable-calendar>
+    <enable-login>true</enable-login>
+  </record>
 </augments>
