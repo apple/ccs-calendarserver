@@ -507,6 +507,8 @@
       <dict>
         <key>Enabled</key>
         <true/>
+        <key>AllowedOverNonSSL</key>
+        <true/>
       </dict>
 
       <!-- Digest challenge/response -->

@@ -406,7 +406,10 @@ DEFAULT_CONFIG = {
     # Authentication
     #
     "Authentication": {
-        "Basic": { "Enabled": False }, # Clear text; best avoided
+        "Basic": {                         # Clear text; best avoided
+            "Enabled": False,
+            "AllowedOverNonSSL": False,
+        },
         "Digest": {                        # Digest challenge/response
             "Enabled": True,
             "Algorithm": "md5",

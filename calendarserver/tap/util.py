@@ -688,6 +688,7 @@ def getRootResource(config, newStore, resources=None):
         credentialFactories,
         (auth.IPrincipal,),
         overrides=overrides,
+        allowBasicOverNonSSL=config.Authentication.Basic.AllowedOverNonSSL,
     )
 
     logWrapper = DirectoryLogWrapperResource(

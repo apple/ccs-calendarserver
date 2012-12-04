@@ -242,6 +242,8 @@
       <key>Basic</key>
       <dict>
         <key>Enabled</key>
+        <true/>
+        <key>AllowedOverNonSSL</key>
         <false/>
       </dict>
 
