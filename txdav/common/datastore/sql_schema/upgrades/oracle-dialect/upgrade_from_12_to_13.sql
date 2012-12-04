@@ -18,24 +18,24 @@
 -- Upgrade database schema from VERSION 12 to 13 --
 ---------------------------------------------------
 
-
 -- Attachment related updates
 
 create sequence ATTACHMENT_ID_SEQ;
 
 
 alter table ATTACHMENT
- drop constraint ATTACHMENT_PKEY,
- alter column DROPBOX_ID drop not null,
- add column ATTACHMENT_ID integer primary key default nextval('ATTACHMENT_ID_SEQ');
+ drop primary key ("DROPBOX_ID", "PATH");
+alter table ATTACHMENT
+ modify (DROPBOX_ID null);
+alter table ATTACHMENT
+ add ("ATTACHMENT_ID" integer primary key);
 
 create table ATTACHMENT_CALENDAR_OBJECT (
-  ATTACHMENT_ID                  integer      not null references ATTACHMENT on delete cascade,
-  MANAGED_ID                     varchar(255) not null,
-  CALENDAR_OBJECT_RESOURCE_ID    integer      not null references CALENDAR_OBJECT on delete cascade,
-
-  primary key (ATTACHMENT_ID, CALENDAR_OBJECT_RESOURCE_ID), -- implicit index
-  unique (MANAGED_ID, CALENDAR_OBJECT_RESOURCE_ID) --implicit index
+    "ATTACHMENT_ID" integer not null references ATTACHMENT on delete cascade,
+    "MANAGED_ID" nvarchar2(255),
+    "CALENDAR_OBJECT_RESOURCE_ID" integer not null references CALENDAR_OBJECT on delete cascade, 
+    primary key ("ATTACHMENT_ID", "CALENDAR_OBJECT_RESOURCE_ID"), 
+    unique ("MANAGED_ID", "CALENDAR_OBJECT_RESOURCE_ID")
 );
 
 

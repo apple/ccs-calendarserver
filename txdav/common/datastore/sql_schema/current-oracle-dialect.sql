@@ -1,5 +1,6 @@
 create sequence RESOURCE_ID_SEQ;
 create sequence INSTANCE_ID_SEQ;
+create sequence ATTACHMENT_ID_SEQ;
 create sequence REVISION_SEQ;
 create table NODE_INFO (
     "HOSTNAME" nvarchar2(255),
@@ -159,6 +160,7 @@ create table TRANSPARENCY (
 );
 
 create table ATTACHMENT (
+    "ATTACHMENT_ID" integer primary key,
     "CALENDAR_HOME_RESOURCE_ID" integer not null references CALENDAR_HOME,
     "DROPBOX_ID" nvarchar2(255),
     "CONTENT_TYPE" nvarchar2(255),
@@ -166,8 +168,15 @@ create table ATTACHMENT (
     "MD5" nchar(32),
     "CREATED" timestamp default CURRENT_TIMESTAMP at time zone 'UTC',
     "MODIFIED" timestamp default CURRENT_TIMESTAMP at time zone 'UTC',
-    "PATH" nvarchar2(1024), 
-    primary key("DROPBOX_ID", "PATH")
+    "PATH" nvarchar2(1024)
+);
+
+create table ATTACHMENT_CALENDAR_OBJECT (
+    "ATTACHMENT_ID" integer not null references ATTACHMENT on delete cascade,
+    "MANAGED_ID" nvarchar2(255),
+    "CALENDAR_OBJECT_RESOURCE_ID" integer not null references CALENDAR_OBJECT on delete cascade, 
+    primary key("ATTACHMENT_ID", "CALENDAR_OBJECT_RESOURCE_ID"), 
+    unique("MANAGED_ID", "CALENDAR_OBJECT_RESOURCE_ID")
 );
 
 create table RESOURCE_PROPERTY (
@@ -268,7 +277,7 @@ create table CALENDARSERVER (
     "VALUE" nvarchar2(255)
 );
 
-insert into CALENDARSERVER (NAME, VALUE) values ('VERSION', '12');
+insert into CALENDARSERVER (NAME, VALUE) values ('VERSION', '13');
 insert into CALENDARSERVER (NAME, VALUE) values ('CALENDAR-DATAVERSION', '3');
 insert into CALENDARSERVER (NAME, VALUE) values ('ADDRESSBOOK-DATAVERSION', '1');
 create index INVITE_INVITE_UID_9b0902ff on INVITE (
