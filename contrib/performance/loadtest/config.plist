@@ -471,7 +471,7 @@
 						<key>params</key>
 						<dict>
 							<key>enabled</key>
-							<false/>
+							<true/>
 
 							<!-- Define the interval (in seconds) at which this profile will use
 								its client to create a new task. -->
