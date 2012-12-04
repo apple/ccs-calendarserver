@@ -37,8 +37,7 @@ from txdav.xml.element import WebDAVTextElement, Principal, HRef
 
 
 class AuthenticationWrapper(WrapperResource):
-    def __init__(self, resource, portal, credentialFactories, loginInterfaces,
-        allowBasicOverNonSSL=False):
+    def __init__(self, resource, portal, credentialFactories, loginInterfaces):
         """
         Wrap the given resource and use the parameters to set up the request
         to allow anyone to challenge and handle authentication.
@@ -49,32 +48,18 @@ class AuthenticationWrapper(WrapperResource):
         @param credentialFactories: Sequence of credentialFactories that can
             be used to authenticate by resources in this tree.
         @param loginInterfaces: More cred stuff
-        @param allowBasicOverNonSSL: Should we advertise Basic over non SSL
-            connections?
-        @type allowBasicOverNonSSL: C{bool}
         """
         super(AuthenticationWrapper, self).__init__(resource)
 
         self.portal = portal
         self.credentialFactories = dict([(factory.scheme, factory)
                                          for factory in credentialFactories])
-        self.secureCredentialFactories = dict([(factory.scheme, factory)
-                                         for factory in credentialFactories
-                                         if factory.scheme != "basic"])
         self.loginInterfaces = loginInterfaces
-        self.allowBasicOverNonSSL = allowBasicOverNonSSL
 
     def hook(self, req):
         req.portal = self.portal
+        req.credentialFactories = self.credentialFactories
         req.loginInterfaces = self.loginInterfaces
-
-        # If not using SSL, use the factory list which excludes "Basic"
-        if req.chanRequest is None: # This is only None in unit tests
-            secureConnection = True
-        else:
-            ignored, secureConnection = req.chanRequest.getHostInfo()
-        req.credentialFactories = (self.credentialFactories if secureConnection or
-            self.allowBasicOverNonSSL else self.secureCredentialFactories)
 
 
 class IPrincipal(Interface):

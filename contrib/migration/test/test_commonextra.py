@@ -34,7 +34,6 @@ class CommonExtraTests(twistedcaldav.test.util.TestCase):
         orig = {
         }
         expected = {
-            'Authentication': {'Basic': {'Enabled': True}},
             'EnableSSL': True,
             'RedirectHTTPToHTTPS': True,
             'SSLAuthorityChain': '/test/pchain.pem',

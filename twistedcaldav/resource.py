@@ -3024,10 +3024,10 @@ class AuthenticationWrapper(SuperAuthenticationWrapper):
         credentialFactories on a per-resource-path basis """
 
     def __init__(self, resource, portal, credentialFactories, loginInterfaces,
-        overrides=None, allowBasicOverNonSSL=False):
+        overrides=None):
 
         super(AuthenticationWrapper, self).__init__(resource, portal,
-            credentialFactories, loginInterfaces, allowBasicOverNonSSL=allowBasicOverNonSSL)
+            credentialFactories, loginInterfaces)
 
         self.overrides = {}
         if overrides:
@@ -3043,7 +3043,7 @@ class AuthenticationWrapper(SuperAuthenticationWrapper):
         super(AuthenticationWrapper, self).hook(req)
 
         factories = self.overrides.get(req.path.rstrip("/"),
-            req.credentialFactories)
+            self.credentialFactories)
         req.credentialFactories = factories
 
 
