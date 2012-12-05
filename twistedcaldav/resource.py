@@ -79,7 +79,7 @@ from twistedcaldav.notify import (
     getPubSubConfiguration, getPubSubXMPPURI, getPubSubHeartbeatURI,
     getPubSubAPSConfiguration,
 )
-from twistedcaldav.sharing import SharedCollectionMixin, SharedHomeMixin
+from twistedcaldav.sharing import SharedResourceMixin, SharedHomeMixin
 from twistedcaldav.util import normalizationLookup
 from twistedcaldav.vcard import Component as vComponent
 
@@ -224,7 +224,7 @@ def updateCacheTokenOnCallback(f):
 
 
 class CalDAVResource (
-        CalDAVComplianceMixIn, SharedCollectionMixin,
+        CalDAVComplianceMixIn, SharedResourceMixin,
         DAVResourceWithChildrenMixin, DAVResource, LoggingMixIn
     ):
     """

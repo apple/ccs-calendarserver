@@ -21,10 +21,9 @@ Sharing behavior
 
 
 __all__ = [
-    "SharedCollectionMixin",
+    "SharedResourceMixin",
 ]
 
-from twext.python.log import LoggingMixIn
 from twext.web2 import responsecode
 from twext.web2.http import HTTPError, Response, XMLResponse
 from twext.web2.dav.http import ErrorResponse, MultiStatusResponse
@@ -44,12 +43,9 @@ from twistedcaldav.config import config
 from twistedcaldav.customxml import calendarserver_namespace
 from twistedcaldav.directory.wiki import WikiDirectoryService, getWikiAccess
 from twistedcaldav.linkresource import LinkFollowerMixIn
-from twistedcaldav.sql import AbstractSQLDatabase, db_prefix
 
 from pycalendar.datetime import PyCalendarDateTime
 
-import os
-import types
 
 # FIXME: Get rid of these imports
 from twistedcaldav.directory.util import TRANSACTION_KEY
@@ -60,7 +56,7 @@ EADDRESSBOOKTYPE = 1
 #ENOTIFICATIONTYPE = 2
 
 
-class SharedCollectionMixin(object):
+class SharedResourceMixin(object):
 
     @inlineCallbacks
     def inviteProperty(self, request):
@@ -260,7 +256,7 @@ class SharedCollectionMixin(object):
 
 
     def resourceType(self):
-        superObject = super(SharedCollectionMixin, self)
+        superObject = super(SharedResourceMixin, self)
         try:
             superMethod = superObject.resourceType
         except AttributeError:
@@ -1015,17 +1011,17 @@ class SharedHomeMixin(LinkFollowerMixIn):
         elif self._newStoreHome._homeType == EADDRESSBOOKTYPE:
             sharerHomeCollection = yield sharer.addressBookHome(request)
 
-        itemShared = yield child.ownerHome().childWithID(child._resourceID)
-        if itemShared:
-            url = joinURL(sharerHomeCollection.url(), itemShared.name())
+        sharerHomeChild = yield child.ownerHome().childWithID(child._resourceID)
+        if sharerHomeChild:
+            url = joinURL(sharerHomeCollection.url(), sharerHomeChild.name())
+            share = Share(shareeHomeChild=child, sharerHomeChildOrGroup=sharerHomeChild, url=url)
         else:
             for sharerHomeChild in (yield child.ownerHome().children()):
-                itemShared = yield sharerHomeChild.objectResourceWithID(child._resourceID)
-                if itemShared:
-                    url = joinURL(sharerHomeCollection.url(), itemShared._parentCollection.name(), itemShared.name())
+                sharedGroup = yield sharerHomeChild.objectResourceWithID(child._resourceID)
+                if sharedGroup:
+                    url = joinURL(sharerHomeCollection.url(), sharerHomeChild.name(), sharedGroup.name())
+                    share = Share(shareeHomeChild=child, sharerHomeChildOrGroup=sharedGroup, url=url)
                     break
-
-        share = Share(shareeHomeChild=child, sharerHomeChild=itemShared, url=url)
 
         returnValue(share)
 
@@ -1059,9 +1055,9 @@ class SharedHomeMixin(LinkFollowerMixIn):
         if oldShare:
             share = oldShare
         else:
-            sharedCollection = yield request.locateResource(hostUrl)
+            sharedResource = yield request.locateResource(hostUrl)
             shareeHomeChild = yield self._newStoreHome.childWithName(inviteUID)
-            share = Share(shareeHomeChild=shareeHomeChild, sharerHomeChild=sharedCollection._newStoreObject, url=hostUrl)
+            share = Share(shareeHomeChild=shareeHomeChild, sharerHomeChildOrGroup=sharedResource._newStoreObject, url=hostUrl)
 
         response = yield self._acceptShare(request, not oldShare, share, displayname)
         returnValue(response)
@@ -1082,7 +1078,7 @@ class SharedHomeMixin(LinkFollowerMixIn):
                                                     message=displayname)
 
             shareeHomeChild = yield self._newStoreHome.childWithName(sharedName)
-            share = Share(shareeHomeChild=shareeHomeChild, sharerHomeChild=sharedCollection._newStoreObject, url=hostUrl)
+            share = Share(shareeHomeChild=shareeHomeChild, sharerHomeChildOrGroup=sharedCollection._newStoreObject, url=hostUrl)
 
         response = yield self._acceptShare(request, not oldShare, share, displayname)
         returnValue(response)
@@ -1091,20 +1087,20 @@ class SharedHomeMixin(LinkFollowerMixIn):
     def _acceptShare(self, request, isNewShare, share, displayname=None):
 
         # Get shared collection in non-share mode first
-        sharedCollection = yield request.locateResource(share.url())
+        sharedResource = yield request.locateResource(share.url())
 
         # For a direct share we will copy any calendar-color over using the owners view
         color = None
-        if share.direct() and isNewShare and sharedCollection.isCalendarCollection():
+        if share.direct() and isNewShare and sharedResource.isCalendarCollection():
             try:
-                color = (yield sharedCollection.readProperty(customxml.CalendarColor, request))
+                color = (yield sharedResource.readProperty(customxml.CalendarColor, request))
             except HTTPError:
                 pass
 
         sharee = self.principalForUID(share.shareeUID())
-        if sharedCollection.isCalendarCollection():
+        if sharedResource.isCalendarCollection():
             shareeHomeResource = yield sharee.calendarHome(request)
-        elif sharedCollection.isAddressBookCollection() or sharedCollection.isGroup():
+        elif sharedResource.isAddressBookCollection() or sharedResource.isGroup():
             shareeHomeResource = yield sharee.addressBookHome(request)
         shareeURL = joinURL(shareeHomeResource.url(), share.name())
         shareeCollection = yield request.locateResource(shareeURL)
@@ -1112,7 +1108,7 @@ class SharedHomeMixin(LinkFollowerMixIn):
 
         #FIXME: addcresourceType to dead properties for share groups -
         #        it's already there for shared address book and calendars
-        if isNewShare and sharedCollection.isGroup():
+        if isNewShare and sharedResource.isGroup():
             shareeCollection.writeDeadProperty(carddavxml.ResourceType.addressbook)
 
         # For calendars only, per-user displayname and color
@@ -1192,9 +1188,9 @@ class SharedHomeMixin(LinkFollowerMixIn):
 
 
         if share.direct():
-            yield share._sharerHomeChild.unshareWith(share._shareeHomeChild.viewerHome())
+            yield share._sharerHomeChildOrGroup.unshareWith(share._shareeHomeChild.viewerHome())
         else:
-            yield share._sharerHomeChild.updateShare(share._shareeHomeChild, status=_BIND_STATUS_DECLINED)
+            yield share._sharerHomeChildOrGroup.updateShare(share._shareeHomeChild, status=_BIND_STATUS_DECLINED)
 
         returnValue(displayname)
 
@@ -1219,8 +1215,8 @@ class SharedHomeMixin(LinkFollowerMixIn):
         # Change state in sharer invite
         ownerPrincipal = (yield self.ownerPrincipal(request))
         ownerPrincipalUID = ownerPrincipal.principalUID()
-        sharedCollection = (yield request.locateResource(hostUrl))
-        if sharedCollection is None:
+        sharedResource = (yield request.locateResource(hostUrl))
+        if sharedResource is None:
             # Original shared collection is gone - nothing we can do except ignore it
             raise HTTPError(ErrorResponse(
                 responsecode.FORBIDDEN,
@@ -1229,16 +1225,16 @@ class SharedHomeMixin(LinkFollowerMixIn):
             ))
 
         # Change the record
-        yield sharedCollection.changeUserInviteState(request, replytoUID, ownerPrincipalUID, state, displayname)
+        yield sharedResource.changeUserInviteState(request, replytoUID, ownerPrincipalUID, state, displayname)
 
-        yield self.sendReply(request, ownerPrincipal, sharedCollection, state, hostUrl, replytoUID, displayname)
+        yield self.sendReply(request, ownerPrincipal, sharedResource, state, hostUrl, replytoUID, displayname)
 
 
     @inlineCallbacks
-    def sendReply(self, request, shareePrincipal, sharedCollection, state, hostUrl, replytoUID, displayname=None):
+    def sendReply(self, request, shareePrincipal, sharedResource, state, hostUrl, replytoUID, displayname=None):
 
         # Locate notifications collection for sharer
-        sharer = (yield sharedCollection.ownerPrincipal(request))
+        sharer = (yield sharedResource.ownerPrincipal(request))
         notificationResource = (yield request.locateResource(sharer.notificationURL()))
         notifications = notificationResource._newStoreNotifications
 
@@ -1312,20 +1308,11 @@ class SharedHomeMixin(LinkFollowerMixIn):
 
 
 
-class SharedCollectionRecord(object):
-
-    def __init__(self, shareuid, sharetype, hosturl, localname, summary):
-        self.shareuid = shareuid
-        self.sharetype = sharetype
-        self.hosturl = hosturl
-        self.localname = localname
-        self.summary = summary
-
 class Share(object):
 
-    def __init__(self, sharerHomeChild, shareeHomeChild, url):
+    def __init__(self, sharerHomeChildOrGroup, shareeHomeChild, url):
         self._shareeHomeChild = shareeHomeChild
-        self._sharerHomeChild = sharerHomeChild
+        self._sharerHomeChildOrGroup = sharerHomeChildOrGroup
         self._sharedResourceURL = url
 
     @classmethod
@@ -1335,7 +1322,7 @@ class Share(object):
     def uid(self):
         # Move to CommonHomeChild shareUID?
         if self._shareeHomeChild.shareMode() == _BIND_MODE_DIRECT:
-            return self.directUID(shareeHome=self._shareeHomeChild.viewerHome(), sharerHomeChild=self._sharerHomeChild,)
+            return self.directUID(shareeHome=self._shareeHomeChild.viewerHome(), sharerHomeChild=self._sharerHomeChildOrGroup,)
         else:
             return self._shareeHomeChild.shareUID()
 
@@ -1353,145 +1340,3 @@ class Share(object):
 
     def shareeUID(self):
         return self._shareeHomeChild.viewerHome().uid()
-
-class SharedCollectionsDatabase(AbstractSQLDatabase, LoggingMixIn):
-
-    db_basename = db_prefix + "shares"
-    schema_version = "1"
-    db_type = "shares"
-
-    def __init__(self, resource):
-        """
-        @param resource: the L{CalDAVResource} resource for
-            the shared collection. C{resource} must be a calendar/addressbook home collection.)
-        """
-        self.resource = resource
-        db_filename = os.path.join(self.resource.fp.path, SharedCollectionsDatabase.db_basename)
-        super(SharedCollectionsDatabase, self).__init__(db_filename, True, autocommit=True)
-
-
-    def get_dbpath(self):
-        return self.resource.fp.child(SharedCollectionsDatabase.db_basename).path
-
-
-    def set_dbpath(self, newpath):
-        pass
-
-    dbpath = property(get_dbpath, set_dbpath)
-
-
-    def create(self):
-        """
-        Create the index and initialize it.
-        """
-        self._db()
-
-
-    def allRecords(self):
-
-        records = self._db_execute("select * from SHARES order by LOCALNAME")
-        return [self._makeRecord(row) for row in (records if records is not None else ())]
-
-
-    def recordForShareUID(self, shareUID):
-
-        row = self._db_execute("select * from SHARES where SHAREUID = :1", shareUID)
-        return self._makeRecord(row[0]) if row else None
-
-
-    def addOrUpdateRecord(self, record):
-
-        self._db_execute("""insert or replace into SHARES (SHAREUID, SHARETYPE, HOSTURL, LOCALNAME, SUMMARY)
-            values (:1, :2, :3, :4, :5)
-            """, record.shareuid, record.sharetype, record.hosturl, record.localname, record.summary,
-        )
-
-
-    def removeRecordForLocalName(self, localname):
-
-        self._db_execute("delete from SHARES where LOCALNAME = :1", localname)
-
-
-    def removeRecordForShareUID(self, shareUID):
-
-        self._db_execute("delete from SHARES where SHAREUID = :1", shareUID)
-
-
-    def remove(self):
-
-        self._db_close()
-        os.remove(self.dbpath)
-
-
-    def directShareID(self, shareeHome, sharerCollection):
-        return "Direct-%s-%s" % (shareeHome.resourceID(), sharerCollection.resourceID(),)
-
-
-    def _db_version(self):
-        """
-        @return: the schema version assigned to this index.
-        """
-        return SharedCollectionsDatabase.schema_version
-
-
-    def _db_type(self):
-        """
-        @return: the collection type assigned to this index.
-        """
-        return SharedCollectionsDatabase.db_type
-
-
-    def _db_init_data_tables(self, q):
-        """
-        Initialise the underlying database tables.
-        @param q:           a database cursor to use.
-        """
-        #
-        # SHARES table is the primary table
-        #   SHAREUID: UID for this share
-        #   SHARETYPE: type of share: "I" for invite, "D" for direct
-        #   HOSTURL: URL for data source
-        #   LOCALNAME: local path name
-        #   SUMMARY: Share summary
-        #
-        q.execute(
-            """
-            create table SHARES (
-                SHAREUID       text unique,
-                SHARETYPE      text(1),
-                HOSTURL        text,
-                LOCALNAME      text,
-                SUMMARY        text
-            )
-            """
-        )
-
-        q.execute(
-            """
-            create index SHAREUID on SHARES (SHAREUID)
-            """
-        )
-        q.execute(
-            """
-            create index HOSTURL on SHARES (HOSTURL)
-            """
-        )
-        q.execute(
-            """
-            create index LOCALNAME on SHARES (LOCALNAME)
-            """
-        )
-
-
-    def _db_upgrade_data_tables(self, q, old_version):
-        """
-        Upgrade the data from an older version of the DB.
-        """
-
-        # Nothing to do as we have not changed the schema
-        pass
-
-
-    def _makeRecord(self, row):
-
-        return SharedCollectionRecord(*[str(item) if type(item) == types.UnicodeType else item for item in row])

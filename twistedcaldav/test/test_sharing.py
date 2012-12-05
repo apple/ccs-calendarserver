@@ -25,7 +25,7 @@ from twisted.internet.defer import inlineCallbacks, returnValue, succeed
 from twistedcaldav import customxml
 from twistedcaldav.config import config
 from twistedcaldav.test.util import HomeTestCase, norequest
-from twistedcaldav.sharing import SharedCollectionMixin, WikiDirectoryService
+from twistedcaldav.sharing import SharedResourceMixin, WikiDirectoryService
 
 from twistedcaldav.resource import CalDAVResource
 from txdav.common.datastore.test.util import buildStore, StubNotifierFactory
@@ -627,7 +627,7 @@ class SharingTests(HomeTestCase):
             def shareeUID(self):
                 return StubUserPrincipal().record.guid
 
-        class TestCollection(SharedCollectionMixin, StubCollection):
+        class TestCollection(SharedResourceMixin, StubCollection):
             def principalForUID(self, uid):
                 principal = StubUserPrincipal()
                 return principal if principal.record.guid == uid else None
