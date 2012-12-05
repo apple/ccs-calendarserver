@@ -347,6 +347,10 @@ class AddressBookObject(CommonObjectResource, AddressBookSharingMixIn):
 
         self._kind = None
         self._ownerAddressBookResourceID = None
+        # _self._component is the cached, current component
+        # super._objectText now contains the text as read of the database only,
+        #     not including group member text
+        self._component = None
         super(AddressBookObject, self).__init__(addressbook, name, uid, resourceID)
 
 
@@ -427,6 +431,7 @@ class AddressBookObject(CommonObjectResource, AddressBookSharingMixIn):
             yield super(AddressBookObject, self).remove()
             self._kind = None
             self._ownerAddressBookResourceID = None
+            self._component = None
 
 
     @classmethod
@@ -487,7 +492,16 @@ class AddressBookObject(CommonObjectResource, AddressBookSharingMixIn):
 
         if rows:
             self._initFromRow(tuple(rows[0]))
+
+            if self._kind == _ABO_KIND_GROUP:
+                # generate "X-ADDRESSBOOKSERVER-MEMBER" properties
+                # calc md5 and set size
+                componentText = str((yield self.component()))
+                self._md5 = hashlib.md5(componentText).hexdigest()
+                self._size = len(componentText)
+
             yield self._loadPropertyStore()
+
             returnValue(self)
         else:
             returnValue(None)
@@ -584,6 +598,8 @@ class AddressBookObject(CommonObjectResource, AddressBookSharingMixIn):
                 # update revisions table a shared group's containing address book
                 ownerAddressBook = yield self.ownerAddressBook()
                 yield self._changeAddressBookRevision(ownerAddressBook, inserting)
+
+        self._component = component
 
 
     @inlineCallbacks
@@ -836,69 +852,68 @@ class AddressBookObject(CommonObjectResource, AddressBookSharingMixIn):
         the caller - that is not ideal but in theory we should have checked everything on the way in and
         only allowed in good data.
         """
-        text = yield self._text()
 
-        try:
-            component = VCard.fromString(text)
-        except InvalidVCardDataError, e:
-            # This is a really bad situation, so do raise
-            raise InternalDataStoreError(
-                "Data corruption detected (%s) in id: %s"
-                % (e, self._resourceID)
-            )
+        if self._component is None:
 
-        # Fix any bogus data we can
-        fixed, unfixed = component.validVCardData(doFix=True, doRaise=False)
+            text = yield self._text()
 
-        if unfixed:
-            self.log_error("Address data id=%s had unfixable problems:\n  %s" % (self._resourceID, "\n  ".join(unfixed),))
+            try:
+                component = VCard.fromString(text)
+            except InvalidVCardDataError, e:
+                # This is a really bad situation, so do raise
+                raise InternalDataStoreError(
+                    "Data corruption detected (%s) in id: %s"
+                    % (e, self._resourceID)
+                )
 
-        if fixed:
-            self.log_error("Address data id=%s had fixable problems:\n  %s" % (self._resourceID, "\n  ".join(fixed),))
+            # Fix any bogus data we can
+            fixed, unfixed = component.validVCardData(doFix=True, doRaise=False)
 
-        if self._kind == _ABO_KIND_GROUP:
-            assert not component.hasProperty("X-ADDRESSBOOKSERVER-MEMBER"), "database group vCard text contains members %s" % (component,)
-            # component.removeProperties("X-ADDRESSBOOKSERVER-MEMBER")
+            if unfixed:
+                self.log_error("Address data id=%s had unfixable problems:\n  %s" % (self._resourceID, "\n  ".join(unfixed),))
 
-            # generate member properties
-            # first get member resource ids
-            aboMembers = schema.ABO_MEMBERS
-            memberRows = yield Select([aboMembers.MEMBER_ID],
-                                 From=aboMembers,
-                                 Where=aboMembers.GROUP_ID == self._resourceID,).on(self._txn)
-            memberIDs = [memberRow[0] for memberRow in memberRows]
+            if fixed:
+                self.log_error("Address data id=%s had fixable problems:\n  %s" % (self._resourceID, "\n  ".join(fixed),))
 
-            # then get member UIDs
-            abo = schema.ADDRESSBOOK_OBJECT
-            memberUIDRows = (yield self._abObjectColumnsWithResourceIDsQuery(
-                             [abo.VCARD_UID],
-                             memberIDs).on(
-                                self._txn, resourceIDs=memberIDs)
-                            ) if memberIDs else []
-            memberUIDs = [memberUIDRow[0] for memberUIDRow in memberUIDRows]
+            if self._kind == _ABO_KIND_GROUP:
+                assert not component.hasProperty("X-ADDRESSBOOKSERVER-MEMBER"), "database group vCard text contains members %s" % (component,)
 
-            # add prefix to get property string
-            memberAddresses = ["urn:uuid:" + memberUID for memberUID in memberUIDs]
+                # generate "X-ADDRESSBOOKSERVER-MEMBER" properties
+                # first get member resource ids
+                aboMembers = schema.ABO_MEMBERS
+                memberRows = yield Select([aboMembers.MEMBER_ID],
+                                     From=aboMembers,
+                                     Where=aboMembers.GROUP_ID == self._resourceID,).on(self._txn)
+                memberIDs = [memberRow[0] for memberRow in memberRows]
 
-            # get foreign members
-            aboForeignMembers = schema.ABO_FOREIGN_MEMBERS
-            foreignMemberRows = yield Select([aboForeignMembers.MEMBER_ADDRESS],
-                                             From=aboForeignMembers,
-                                             Where=aboForeignMembers.GROUP_ID == self._resourceID,
-                                            ).on(self._txn)
-            foreignMembers = [foreignMemberRow[0] for foreignMemberRow in foreignMemberRows]
+                # then get member UIDs
+                abo = schema.ADDRESSBOOK_OBJECT
+                memberUIDRows = (yield self._abObjectColumnsWithResourceIDsQuery(
+                                 [abo.VCARD_UID],
+                                 memberIDs).on(
+                                    self._txn, resourceIDs=memberIDs)
+                                ) if memberIDs else []
+                memberUIDs = [memberUIDRow[0] for memberUIDRow in memberUIDRows]
+
+                # add prefix to get property string
+                memberAddresses = ["urn:uuid:" + memberUID for memberUID in memberUIDs]
+
+                # get foreign members
+                aboForeignMembers = schema.ABO_FOREIGN_MEMBERS
+                foreignMemberRows = yield Select([aboForeignMembers.MEMBER_ADDRESS],
+                                                 From=aboForeignMembers,
+                                                 Where=aboForeignMembers.GROUP_ID == self._resourceID,
+                                                ).on(self._txn)
+                foreignMembers = [foreignMemberRow[0] for foreignMemberRow in foreignMemberRows]
 
 
-            # now add the properties to the component
-            for memberAddress in sorted(memberAddresses + foreignMembers):
-                component.addProperty(Property("X-ADDRESSBOOKSERVER-MEMBER", memberAddress))
+                # now add the properties to the component
+                for memberAddress in sorted(memberAddresses + foreignMembers):
+                    component.addProperty(Property("X-ADDRESSBOOKSERVER-MEMBER", memberAddress))
 
-            # FIXME, this should be set in the database
-            componentText = str(component)
-            self._md5 = hashlib.md5(componentText).hexdigest()
-            self._size = len(componentText)
+            self._component = component
 
-        returnValue(component)
+        returnValue(self._component)
 
 
     # IDataStoreObject
