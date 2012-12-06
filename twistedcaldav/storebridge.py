@@ -2082,7 +2082,7 @@ class _CommonObjectResource(_NewStoreFileMetaDataHelper, CalDAVResource, FancyEq
         # May need to add a location header
         addLocation(request, destination_uri)
 
-        storer = self.storeResource(request, parent, destination, destination_uri, destinationparent)
+        storer = self.storeResource(request, parent, destination, destination_uri, destinationparent, True, None)
         result = (yield storer.move())
         returnValue(result)
 
@@ -2097,7 +2097,7 @@ class _CommonObjectResource(_NewStoreFileMetaDataHelper, CalDAVResource, FancyEq
             return FORBIDDEN
 
 
-    def storeResource(self, request, parent, destination, destination_uri, destaination_parent):
+    def storeResource(self, request, parent, destination, destination_uri, destination_parent, hasSource, component):
         """
         Create the appropriate StoreXXX class for storing of data.
         """
@@ -2108,21 +2108,9 @@ class _CommonObjectResource(_NewStoreFileMetaDataHelper, CalDAVResource, FancyEq
     def storeStream(self, stream):
 
         # FIXME: direct tests
-        component = self._componentFromStream(
-            (yield allDataFromStream(stream))
-        )
-        if self._newStoreObject:
-            yield self._newStoreObject.setComponent(component)
-            returnValue(NO_CONTENT)
-        else:
-            self._newStoreObject = (yield self._newStoreParent.createObjectResourceWithName(
-                self.name(), component, self._metadata
-            ))
-
-            # Re-initialize to get stuff setup again now we have no object
-            self._initializeWithObject(self._newStoreObject, self._newStoreParent)
-
-            returnValue(CREATED)
+        component = self._componentFromStream((yield allDataFromStream(stream)))
+        result = (yield self.storeComponent(component))
+        returnValue(result)
 
 
     @inlineCallbacks
@@ -2193,6 +2181,27 @@ class _CommonObjectResource(_NewStoreFileMetaDataHelper, CalDAVResource, FancyEq
         self._initializeWithObject(None, self._newStoreParent)
 
         returnValue(NO_CONTENT)
+
+
+    @inlineCallbacks
+    def preProcessManagedAttachments(self, calendar):
+        # If store object exists pass through, otherwise use underlying store ManagedAttachments object to determine changes
+        if self._newStoreObject:
+            copied, removed = (yield self._newStoreObject.updatingResourceCheckAttachments(calendar))
+        else:
+            copied = (yield self._newStoreParent.creatingResourceCheckAttachments(calendar))
+            removed = None
+
+        returnValue((copied, removed,))
+
+
+    @inlineCallbacks
+    def postProcessManagedAttachments(self, copied, removed):
+        # Pass through directly to store object
+        if copied:
+            yield self._newStoreObject.copyResourceAttachments(copied)
+        if removed:
+            yield self._newStoreObject.removeResourceAttachments(removed)
 
 
 
@@ -2301,18 +2310,20 @@ class CalendarObjectResource(_CalendarObjectMetaDataMixin, _CommonObjectResource
                 raise HTTPError(PRECONDITION_FAILED)
 
 
-    def storeResource(self, request, parent, destination, destination_uri, destaination_parent):
+    def storeResource(self, request, parent, destination, destination_uri, destination_parent, hasSource, component, attachmentProcessingDone=False):
         return StoreCalendarObjectResource(
             request=request,
-            source=self,
-            source_uri=request.uri,
-            sourceparent=parent,
-            sourcecal=True,
-            deletesource=True,
+            source=self if hasSource else None,
+            source_uri=request.uri if hasSource else None,
+            sourceparent=parent if hasSource else None,
+            sourcecal=hasSource,
+            deletesource=hasSource,
             destination=destination,
             destination_uri=destination_uri,
-            destinationparent=destaination_parent,
+            destinationparent=destination_parent,
             destinationcal=True,
+            calendar=component,
+            attachmentProcessingDone=attachmentProcessingDone,
         )
 
 
@@ -2452,12 +2463,31 @@ class CalendarObjectResource(_CalendarObjectMetaDataMixin, _CommonObjectResource
                 filename = content_disposition.params["filename"]
             return content_type, filename
 
+        valid_preconditions = {
+            "attachment-add": "valid-attachment-add",
+            "attachment-update": "valid-attachment-update",
+            "attachment-remove": "valid-attachment-remove",
+        }
+
+        # Only allow organizers to manipulate managed attachments for now
+        calendar = (yield self.iCalendarForUser(request))
+        scheduler = ImplicitScheduler()
+        is_attendee = (yield scheduler.testAttendeeEvent(request, self, calendar,))
+        if is_attendee and action in valid_preconditions:
+            raise HTTPError(ErrorResponse(
+                FORBIDDEN,
+                (caldav_namespace, valid_preconditions[action],),
+                "Attendees are not allowed to manipulate managed attachments",
+            ))
+
         # Dispatch to store object
         if action == "attachment-add":
+
+            # Add an attachment property
             rids = _getRIDs()
             content_type, filename = _getContentInfo()
             try:
-                attachment, location = (yield self._newStoreObject.addAttachment(rids, content_type, filename, request.stream))
+                attachment, location = (yield self._newStoreObject.addAttachment(rids, content_type, filename, request.stream, calendar))
             except AttachmentStoreFailed:
                 raise HTTPError(ErrorResponse(
                     FORBIDDEN,
@@ -2471,23 +2501,13 @@ class CalendarObjectResource(_CalendarObjectMetaDataMixin, _CommonObjectResource
                     "Could not store the supplied attachment because user quota would be exceeded",
                 ))
 
-            # Look for Prefer header
-            if "return-representation" in request.headers.getHeader("prefer", {}):
-                result = (yield self.render(request))
-                result.code = OK
-                result.headers.setHeader("content-location", request.path)
-                result.headers.setHeader("location", location)
-            else:
-                result = Response(CREATED)
-                result.headers.setHeader("location", location)
-            result.headers.addRawHeader("Cal-Managed-ID", attachment.dropboxID())
-            returnValue(result)
+            post_result = Response(CREATED)
 
         elif action == "attachment-update":
             mid = _getMID()
             content_type, filename = _getContentInfo()
             try:
-                attachment, location = (yield self._newStoreObject.updateAttachment(mid, content_type, filename, request.stream))
+                attachment, location = (yield self._newStoreObject.updateAttachment(mid, content_type, filename, request.stream, calendar))
             except AttachmentStoreValidManagedID:
                 raise HTTPError(ErrorResponse(
                     FORBIDDEN,
@@ -2507,22 +2527,13 @@ class CalendarObjectResource(_CalendarObjectMetaDataMixin, _CommonObjectResource
                     "Could not store the supplied attachment because user quota would be exceeded",
                 ))
 
-            # Look for Prefer header
-            if "return-representation" in request.headers.getHeader("prefer", {}):
-                result = (yield self.render(request))
-                result.code = OK
-                result.headers.setHeader("content-location", request.path)
-            else:
-                result = Response(NO_CONTENT)
-                result.headers.setHeader("location", location)
-            result.headers.addRawHeader("Cal-Managed-ID", attachment.dropboxID())
-            returnValue(result)
+            post_result = Response(NO_CONTENT)
 
         elif action == "attachment-remove":
             rids = _getRIDs()
             mid = _getMID()
             try:
-                yield self._newStoreObject.removeAttachment(rids, mid)
+                yield self._newStoreObject.removeAttachment(rids, mid, calendar)
             except AttachmentStoreValidManagedID:
                 raise HTTPError(ErrorResponse(
                     FORBIDDEN,
@@ -2536,14 +2547,7 @@ class CalendarObjectResource(_CalendarObjectMetaDataMixin, _CommonObjectResource
                     "Could not remove the specified attachment",
                 ))
 
-            # Look for Prefer header
-            if "return-representation" in request.headers.getHeader("prefer", {}):
-                result = (yield self.render(request))
-                result.code = OK
-                result.headers.setHeader("content-location", request.path)
-            else:
-                result = Response(NO_CONTENT)
-            returnValue(result)
+            post_result = Response(NO_CONTENT)
 
         else:
             raise HTTPError(ErrorResponse(
@@ -2551,6 +2555,25 @@ class CalendarObjectResource(_CalendarObjectMetaDataMixin, _CommonObjectResource
                 (caldav_namespace, "valid-action-parameter",),
                 "The action parameter in the request-URI is not valid",
             ))
+
+        # TODO: The storing piece here should go away once we do implicit in the store
+        # Store new resource
+        parent = (yield request.locateResource(parentForURL(request.path)))
+        storer = self.storeResource(request, None, self, request.uri, parent, False, calendar, attachmentProcessingDone=True)
+        result = (yield storer.run())
+
+        # Look for Prefer header
+        if "return-representation" in request.headers.getHeader("prefer", {}) and result.code / 100 == 2:
+            result = (yield self.render(request))
+            result.code = OK
+            result.headers.setHeader("content-location", request.path)
+        else:
+            result = post_result
+        if action == "attachment-add":
+            result.headers.setHeader("location", location)
+        if action in ("attachment-add", "attachment-update",):
+            result.headers.addRawHeader("Cal-Managed-ID", attachment.dropboxID())
+        returnValue(result)
 
 
 
@@ -2725,18 +2748,19 @@ class AddressBookObjectResource(_CommonObjectResource):
     vCard = _CommonObjectResource.component
 
 
-    def storeResource(self, request, parent, destination, destination_uri, destination_parent):
+    def storeResource(self, request, parent, destination, destination_uri, destination_parent, hasSource, component):
         return StoreAddressObjectResource(
             request=request,
-            source=self,
-            source_uri=request.uri,
-            sourceparent=parent,
-            sourceadbk=True,
-            deletesource=True,
+            source=self if hasSource else None,
+            source_uri=request.uri if hasSource else None,
+            sourceparent=parent if hasSource else None,
+            sourceadbk=hasSource,
+            deletesource=hasSource,
             destination=destination,
             destination_uri=destination_uri,
             destinationparent=destination_parent,
             destinationadbk=True,
+            vcard=component,
         )
 
 

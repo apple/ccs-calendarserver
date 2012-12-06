@@ -135,6 +135,7 @@ class StoreCalendarObjectResource(object):
         internal_request=False,
         processing_organizer=None,
         returnData=False,
+        attachmentProcessingDone=False,
     ):
         """
         Function that does common PUT/COPY/MOVE behavior.
@@ -156,6 +157,7 @@ class StoreCalendarObjectResource(object):
         @param internal_request:   True if this request originates internally and needs to bypass scheduling authorization checks.
         @param processing_organizer: True if implicit processing for an organizer, False if for an attendee, None if not implicit processing.
         @param returnData:         True if the caller wants the actual data written to the store returned
+        @param attachmentProcessingDone    True if the caller has already processed managed attachment changes
         """
 
         # Check that all arguments are valid
@@ -196,6 +198,7 @@ class StoreCalendarObjectResource(object):
         self.internal_request = internal_request
         self.processing_organizer = processing_organizer
         self.returnData = returnData
+        self.attachmentProcessingDone = attachmentProcessingDone
 
         self.access = None
         self.hasPrivateComments = False
@@ -1186,6 +1189,10 @@ class StoreCalendarObjectResource(object):
             # Handle sharing dropbox normalization
             dropboxChanged = (yield self.dropboxPathNormalization())
 
+            # Pre-process managed attachments
+            if not self.internal_request and not self.attachmentProcessingDone:
+                managed_copied, managed_removed = (yield self.destination.preProcessManagedAttachments(self.calendar))
+
             # Default/duplicate alarms
             alarmChanged = self.processAlarms()
 
@@ -1229,6 +1236,10 @@ class StoreCalendarObjectResource(object):
 
             # Do the actual put or copy
             response = (yield self.doStore(data_changed))
+
+            # Post process managed attachments
+            if not self.internal_request and not self.attachmentProcessingDone:
+                yield self.destination.postProcessManagedAttachments(managed_copied, managed_removed)
 
             # Must not set ETag in response if data changed
             if did_implicit_action or dropboxChanged or alarmChanged:
