@@ -23,6 +23,7 @@ from twisted.internet.endpoints import TCP4ClientEndpoint, TCP4ServerEndpoint
 from twisted.internet.protocol import Factory, ServerFactory
 from twisted.protocols import amp
 from twistedcaldav.notify import getPubSubPath
+import time
 import uuid
 
 
@@ -44,7 +45,7 @@ class UnsubscribeFromID(amp.Command):
 # AMP Commands sent to client
 
 class NotificationForID(amp.Command):
-    arguments = [('id', amp.String())]
+    arguments = [('id', amp.String()), ('dataChangedTimestamp', amp.Integer())]
     response = [('status', amp.String())]
 
 
@@ -84,14 +85,13 @@ class AMPPushNotifierService(StreamServerEndpointService, LoggingMixIn):
         self.log_debug("Removed subscriber")
         self.subscribers.remove(p)
 
-    def enqueue(self, op, id):
+    def enqueue(self, op, id, dataChangedTimestamp=None):
         """
         Sends an AMP push notification to any clients subscribing to this id.
 
         @param op: The operation that took place, either "create" or "update"
             (ignored in this implementation)
         @type op: C{str}
-
         @param id: The identifier of the resource that was updated, including
             a prefix indicating whether this is CalDAV or CardDAV related.
             The prefix is separated from the id with "|", e.g.:
@@ -102,6 +102,9 @@ class AMPPushNotifierService(StreamServerEndpointService, LoggingMixIn):
             is used in conjunction with the prefix and the server hostname
             to build the actual key value that devices subscribe to.
         @type id: C{str}
+        @param dataChangedTimestamp: Timestamp (epoch seconds) for the data change
+            which triggered this notification (Only used for unit tests)
+            @type key: C{int}
         """
 
         try:
@@ -113,29 +116,33 @@ class AMPPushNotifierService(StreamServerEndpointService, LoggingMixIn):
 
         id = getPubSubPath(id, {"host": self.serverHostName})
 
+        # Unit tests can pass this value in; otherwise it defaults to now
+        if dataChangedTimestamp is None:
+            dataChangedTimestamp = int(time.time())
+
         tokens = []
         for subscriber in self.subscribers:
             token = subscriber.subscribedToID(id)
             if token is not None:
                 tokens.append(token)
         if tokens:
-            return self.scheduleNotifications(tokens, id)
+            return self.scheduleNotifications(tokens, id, dataChangedTimestamp)
 
 
     @inlineCallbacks
-    def sendNotification(self, token, id):
+    def sendNotification(self, token, id, dataChangedTimestamp):
         for subscriber in self.subscribers:
             if subscriber.subscribedToID(id):
-                yield subscriber.notify(token, id)
+                yield subscriber.notify(token, id, dataChangedTimestamp)
 
 
     @inlineCallbacks
-    def scheduleNotifications(self, tokens, id):
+    def scheduleNotifications(self, tokens, id, dataChangedTimestamp):
         if self.scheduler is not None:
-            self.scheduler.schedule(tokens, id)
+            self.scheduler.schedule(tokens, id, dataChangedTimestamp)
         else:
             for token in tokens:
-                yield self.sendNotification(token, id)
+                yield self.sendNotification(token, id, dataChangedTimestamp)
 
 
 class AMPPushNotifierProtocol(amp.AMP, LoggingMixIn):
@@ -162,10 +169,11 @@ class AMPPushNotifierProtocol(amp.AMP, LoggingMixIn):
         return {"status" : "OK"}
     UnsubscribeFromID.responder(unsubscribe)
 
-    def notify(self, token, id):
+    def notify(self, token, id, dataChangedTimestamp):
         if self.subscribedToID(id) == token:
             self.log_debug("Sending notification for %s to %s" % (id, token))
-            return self.callRemote(NotificationForID, id=id)
+            return self.callRemote(NotificationForID, id=id,
+                dataChangedTimestamp=dataChangedTimestamp)
 
     def subscribedToID(self, id):
         if self.any is not None:
@@ -204,8 +212,8 @@ class AMPPushClientProtocol(amp.AMP):
         self.callback = callback
 
     @inlineCallbacks
-    def notificationForID(self, id):
-        yield self.callback(id)
+    def notificationForID(self, id, dataChangedTimestamp):
+        yield self.callback(id, dataChangedTimestamp)
         returnValue( {"status" : "OK"} )
 
     NotificationForID.responder(notificationForID)
