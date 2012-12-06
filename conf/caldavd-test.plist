@@ -507,12 +507,16 @@
       <dict>
         <key>Enabled</key>
         <true/>
+        <key>AllowedOverWireUnencrypted</key> <!-- advertised over non SSL? -->
+        <true/>
       </dict>
 
       <!-- Digest challenge/response -->
       <key>Digest</key>
       <dict>
         <key>Enabled</key>
+        <true/>
+        <key>AllowedOverWireUnencrypted</key> <!-- advertised over non SSL? -->
         <true/>
         <key>Algorithm</key>
         <string>md5</string>
@@ -524,6 +528,8 @@
       <key>Kerberos</key>
       <dict>
         <key>Enabled</key>
+        <true/>
+        <key>AllowedOverWireUnencrypted</key> <!-- advertised over non SSL? -->
         <true/>
         <key>ServicePrincipal</key>
         <string></string>

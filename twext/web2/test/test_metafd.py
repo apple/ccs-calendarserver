@@ -53,6 +53,9 @@ class FakeSocket(object):
             raise SocketError(ENOTCONN, "Transport endpoint not connected")
 
 
+    def getsockname(self):
+        return ("4.3.2.1", 4321)
+
 
 class InheritedPortForTesting(sendfdport.InheritedPort):
     """

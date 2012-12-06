@@ -242,7 +242,7 @@
       <key>Basic</key>
       <dict>
         <key>Enabled</key>
-        <false/>
+        <true/>
       </dict>
 
       <!-- Digest challenge/response -->

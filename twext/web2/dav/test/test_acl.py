@@ -72,6 +72,7 @@ class ACL(twext.web2.dav.test.util.TestCase):
             rootResource,
             portal,
             credentialFactories,
+            credentialFactories,
             loginInterfaces
         ))
 
