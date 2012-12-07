@@ -32,6 +32,7 @@ Maintainer: James Y Knight
 """
 #        import traceback; log.msg(''.join(traceback.format_stack()))
 
+import json
 import time
 
 from twisted.internet import interfaces, error
@@ -50,13 +51,13 @@ from twext.web2.stream import IByteStream, readAndDiscard
 log = Logger()
 
 
-defaultPortForScheme = {'http': 80, 'https':443, 'ftp':21}
+defaultPortForScheme = {'http': 80, 'https': 443, 'ftp': 21}
 
 def splitHostPort(scheme, hostport):
-    """Split the host in "host:port" format into host and port fields. 
+    """Split the host in "host:port" format into host and port fields.
     If port was not specified, use the default for the given scheme, if
     known. Returns a tuple of (hostname, portnumber)."""
-    
+
     # Split hostport into host and port
     hostport = hostport.split(':', 1)
     try:
@@ -65,6 +66,7 @@ def splitHostPort(scheme, hostport):
     except ValueError:
         pass
     return hostport[0], defaultPortForScheme.get(scheme, 0)
+
 
 
 def parseVersion(strversion):
@@ -80,7 +82,9 @@ def parseVersion(strversion):
     return (proto.lower(), major, minor)
 
 
+
 class HTTPError(Exception):
+
     def __init__(self, codeOrResponse):
         """An Exception for propagating HTTP Error Responses.
 
@@ -91,28 +95,30 @@ class HTTPError(Exception):
         self.response = iweb.IResponse(codeOrResponse)
         Exception.__init__(self, str(self.response))
 
+
     def __repr__(self):
         return "<%s %s>" % (self.__class__.__name__, self.response)
+
 
 
 class Response(object):
     """An object representing an HTTP Response to be sent to the client.
     """
     implements(iweb.IResponse)
-    
+
     code = responsecode.OK
     headers = None
     stream = None
-    
+
     def __init__(self, code=None, headers=None, stream=None):
         """
         @param code: The HTTP status code for this Response
         @type code: C{int}
-        
+
         @param headers: Headers to be sent to the client.
-        @type headers: C{dict}, L{twext.web2.http_headers.Headers}, or 
+        @type headers: C{dict}, L{twext.web2.http_headers.Headers}, or
             C{None}
-        
+
         @param stream: Content body to send to the HTTP client
         @type stream: L{twext.web2.stream.IByteStream}
         """
@@ -123,12 +129,13 @@ class Response(object):
         if headers is not None:
             if isinstance(headers, dict):
                 headers = http_headers.Headers(headers)
-            self.headers=headers
+            self.headers = headers
         else:
             self.headers = http_headers.Headers()
 
         if stream is not None:
             self.stream = IByteStream(stream)
+
 
     def __repr__(self):
         if self.stream is None:
@@ -137,6 +144,7 @@ class Response(object):
             streamlen = self.stream.length
 
         return "<%s.%s code=%d, streamlen=%s>" % (self.__module__, self.__class__.__name__, self.code, streamlen)
+
 
 
 class StatusResponseElement(Element):
@@ -216,10 +224,11 @@ class RedirectResponse (StatusResponse):
 
         self.headers.setHeader("location", location)
 
-        
+
+
 def NotModifiedResponse(oldResponse=None):
     if oldResponse is not None:
-        headers=http_headers.Headers()
+        headers = http_headers.Headers()
         for header in (
             # Required from sec 10.3.5:
             'date', 'etag', 'content-location', 'expires',
@@ -232,7 +241,8 @@ def NotModifiedResponse(oldResponse=None):
     else:
         headers = None
     return Response(code=responsecode.NOT_MODIFIED, headers=headers)
-    
+
+
 
 def checkPreconditions(request, response=None, entityExists=True, etag=None, lastModified=None):
     """Check to see if this request passes the conditional checks specified
@@ -246,7 +256,7 @@ def checkPreconditions(request, response=None, entityExists=True, etag=None, las
     However, if you are implementing other request methods, like PUT
     for your resource, you will need to call this after determining
     the etag and last-modified time of the existing resource but
-    before actually doing the requested action. In that case, 
+    before actually doing the requested action. In that case,
 
     This examines the appropriate request headers for conditionals,
     (If-Modified-Since, If-Unmodified-Since, If-Match, If-None-Match,
@@ -259,15 +269,15 @@ def checkPreconditions(request, response=None, entityExists=True, etag=None, las
              shouldn't be separately specified. Not providing the
              response with a GET request may cause the emitted
              "Not Modified" responses to be non-conformant.
-             
+
     @param entityExists: Set to False if the entity in question doesn't
              yet exist. Necessary for PUT support with 'If-None-Match: *'.
-             
+
     @param etag: The etag of the resource to check against, or None.
-    
+
     @param lastModified: The last modified date of the resource to check
               against, or None.
-              
+
     @raise: HTTPError: Raised when the preconditions fail, in order to
              abort processing and emit an error page.
 
@@ -280,7 +290,8 @@ def checkPreconditions(request, response=None, entityExists=True, etag=None, las
             return False
         etag = response.headers.getHeader("etag")
         lastModified = response.headers.getHeader("last-modified")
-    
+
+
     def matchETag(tags, allowWeak):
         if entityExists and '*' in tags:
             return True
@@ -322,7 +333,7 @@ def checkPreconditions(request, response=None, entityExists=True, etag=None, las
     if inm:
         if request.method in ("HEAD", "GET"):
             # If it's a range request, don't allow a weak ETag, as that
-            # would break. 
+            # would break.
             canBeWeak = not request.headers.hasHeader('Range')
             if notModified != False and matchETag(inm, canBeWeak):
                 raise HTTPError(NotModifiedResponse(response))
@@ -332,6 +343,8 @@ def checkPreconditions(request, response=None, entityExists=True, etag=None, las
     else:
         if notModified == True:
             raise HTTPError(NotModifiedResponse(response))
+
+
 
 def checkIfRange(request, response):
     """Checks for the If-Range header, and if it exists, checks if the
@@ -347,24 +360,28 @@ def checkIfRange(request, response):
         return ifrange == response.headers.getHeader("last-modified")
 
 
+
 class _NotifyingProducerStream(stream.ProducerStream):
     doStartReading = None
 
     def __init__(self, length=None, doStartReading=None):
         stream.ProducerStream.__init__(self, length=length)
         self.doStartReading = doStartReading
-    
+
+
     def read(self):
         if self.doStartReading is not None:
             doStartReading = self.doStartReading
             self.doStartReading = None
             doStartReading()
-            
+
         return stream.ProducerStream.read(self)
+
 
     def write(self, data):
         self.doStartReading = None
         stream.ProducerStream.write(self, data)
+
 
     def finish(self):
         self.doStartReading = None
@@ -379,18 +396,18 @@ class Request(object):
 
     Subclasses should override the process() method to determine how
     the request will be processed.
-    
+
     @ivar method: The HTTP method that was used.
     @ivar uri: The full URI that was requested (includes arguments).
     @ivar headers: All received headers
     @ivar clientproto: client HTTP version
     @ivar stream: incoming data stream.
     """
-    
+
     implements(iweb.IRequest, interfaces.IConsumer)
-    
+
     known_expects = ('100-continue',)
-    
+
     def __init__(self, chanRequest, command, path, version, contentLength, headers):
         """
         @param chanRequest: the channel request we're associated with.
@@ -399,16 +416,17 @@ class Request(object):
         self.method = command
         self.uri = path
         self.clientproto = version
-        
+
         self.headers = headers
-        
+
         if '100-continue' in self.headers.getHeader('expect', ()):
             doStartReading = self._sendContinue
         else:
             doStartReading = None
         self.stream = _NotifyingProducerStream(contentLength, doStartReading)
         self.stream.registerProducer(self.chanRequest, True)
-        
+
+
     def checkExpect(self):
         """Ensure there are no expectations that cannot be met.
         Checks Expect header against self.known_expects."""
@@ -416,49 +434,58 @@ class Request(object):
         for expect in expects:
             if expect not in self.known_expects:
                 raise HTTPError(responsecode.EXPECTATION_FAILED)
-    
+
+
     def process(self):
         """Called by channel to let you process the request.
-        
+
         Can be overridden by a subclass to do something useful."""
         pass
-    
+
+
     def handleContentChunk(self, data):
         """Callback from channel when a piece of data has been received.
         Puts the data in .stream"""
         self.stream.write(data)
-    
+
+
     def handleContentComplete(self):
         """Callback from channel when all data has been received. """
         self.stream.unregisterProducer()
         self.stream.finish()
-        
+
+
     def connectionLost(self, reason):
         """connection was lost"""
         pass
 
+
     def __repr__(self):
-        return '<%s %s %s>'% (self.method, self.uri, self.clientproto)
+        return '<%s %s %s>' % (self.method, self.uri, self.clientproto)
+
 
     def _sendContinue(self):
         self.chanRequest.writeIntermediateResponse(responsecode.CONTINUE)
 
+
     def _reallyFinished(self, x):
         """We are finished writing data."""
         self.chanRequest.finish()
-        
+
+
     def _finished(self, x):
         """
         We are finished writing data.
         But we need to check that we have also finished reading all data as we
         might have sent a, for example, 401 response before we read any data.
         To make sure that the stream/producer sequencing works properly we need
-        to discard the remaining data in the request.  
+        to discard the remaining data in the request.
         """
         if self.stream.length != 0:
             return readAndDiscard(self.stream).addCallback(self._reallyFinished).addErrback(self._error)
         else:
             self._reallyFinished(x)
+
 
     def _error(self, reason):
         if reason.check(error.ConnectionLost):
@@ -467,7 +494,8 @@ class Request(object):
             log.err(reason)
             # Only bother with cleanup on errors other than lost connection.
             self.chanRequest.abortConnection()
-        
+
+
     def writeResponse(self, response):
         """
         Write a response.
@@ -476,10 +504,10 @@ class Request(object):
             # Expect: 100-continue was requested, but 100 response has not been
             # sent, and there's a possibility that data is still waiting to be
             # sent.
-            # 
+            #
             # Ideally this means the remote side will not send any data.
             # However, because of compatibility requirements, it might timeout,
-            # and decide to do so anyways at the same time we're sending back 
+            # and decide to do so anyways at the same time we're sending back
             # this response. Thus, the read state is unknown after this.
             # We must close the connection.
             self.chanRequest.channel.setReadPersistent(False)
@@ -493,7 +521,7 @@ class Request(object):
             elif response.stream.length is not None:
                 response.headers.setHeader('content-length', response.stream.length)
         self.chanRequest.writeHeaders(response.code, response.headers)
-        
+
         # if this is a "HEAD" request, or a special response code,
         # don't return any data.
         if self.method == "HEAD" or response.code in NO_BODY_CODES:
@@ -501,9 +529,11 @@ class Request(object):
                 response.stream.close()
             self._finished(None)
             return
-            
+
         d = stream.StreamProducer(response.stream).beginProducing(self.chanRequest)
         d.addCallback(self._finished).addErrback(self._error)
+
+
 
 class XMLResponse (Response):
     """
@@ -517,8 +547,21 @@ class XMLResponse (Response):
         Response.__init__(self, code, stream=element.toxml())
         self.headers.setHeader("content-type", http_headers.MimeType("text", "xml"))
 
-    
+
+
+class JSONResponse (Response):
+    """
+    JSON L{Response} object.
+    Renders itself as an JSON document.
+    """
+    def __init__(self, code, jobj):
+        """
+        @param xml_responses: an iterable of davxml.Response objects.
+        """
+        Response.__init__(self, code, stream=json.dumps(jobj))
+        self.headers.setHeader("content-type", http_headers.MimeType("application", "json"))
+
+
 components.registerAdapter(Response, int, iweb.IResponse)
 
-__all__ = ['HTTPError', 'NotModifiedResponse', 'Request', 'Response', 'StatusResponse', 'RedirectResponse', 'checkIfRange', 'checkPreconditions', 'defaultPortForScheme', 'parseVersion', 'splitHostPort', "XMLResponse"]
-
+__all__ = ['HTTPError', 'NotModifiedResponse', 'Request', 'Response', 'StatusResponse', 'RedirectResponse', 'checkIfRange', 'checkPreconditions', 'defaultPortForScheme', 'parseVersion', 'splitHostPort', "XMLResponse", "JSONResponse"]
