@@ -63,6 +63,8 @@ class Configure(Command):
     Configure this worker process with the text of an XML property list.
     """
     arguments = [("plist", String())]
+    # Pass OSError exceptions through, presenting the exception message to the user.
+    errors = {OSError: 'OSError'}
 
 
 

@@ -415,7 +415,8 @@ def getRootResource(config, newStore, resources=None):
     #
     # Configure the Site and Wrappers
     #
-    credentialFactories = []
+    wireEncryptedCredentialFactories = []
+    wireUnencryptedCredentialFactories = []
 
     portal = Portal(auth.DavRealm())
 
@@ -470,7 +471,9 @@ def getRootResource(config, newStore, resources=None):
                 log.error("Unknown scheme: %s" % (scheme,))
 
         if credFactory:
-            credentialFactories.append(credFactory)
+            wireEncryptedCredentialFactories.append(credFactory)
+            if schemeConfig.get("AllowedOverWireUnencrypted", False):
+                wireUnencryptedCredentialFactories.append(credFactory)
 
     #
     # Setup Resource hierarchy
@@ -691,9 +694,10 @@ def getRootResource(config, newStore, resources=None):
     authWrapper = AuthenticationWrapper(
         root,
         portal,
-        credentialFactories,
+        wireEncryptedCredentialFactories,
+        wireUnencryptedCredentialFactories,
         (auth.IPrincipal,),
-        overrides=overrides,
+        overrides=overrides
     )
 
     logWrapper = DirectoryLogWrapperResource(

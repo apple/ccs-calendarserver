@@ -3208,23 +3208,23 @@ def tzexpandlocal(tzdata, start, end):
     if tzexpanded:
         if start != tzexpanded[0][0]:
             results.append((
-                str(start),
-                PyCalendarUTCOffsetValue(tzexpanded[0][1]).getText(),
-                PyCalendarUTCOffsetValue(tzexpanded[0][1]).getText(),
+                start,
+                tzexpanded[0][1],
+                tzexpanded[0][1],
                 tzexpanded[0][3],
             ))
     else:
         results.append((
-            str(start),
-            PyCalendarUTCOffsetValue(tzcomp._pycalendar.getTimezoneOffsetSeconds(start)).getText(),
-            PyCalendarUTCOffsetValue(tzcomp._pycalendar.getTimezoneOffsetSeconds(start)).getText(),
-            tzcomp.getTZName(),
+            start,
+            tzcomp._pycalendar.getTimezoneOffsetSeconds(start),
+            tzcomp._pycalendar.getTimezoneOffsetSeconds(start),
+            tzcomp._pycalendar.getTimezoneDescriptor(start),
         ))
     for tzstart, tzoffsetfrom, tzoffsetto, name in tzexpanded:
         results.append((
-            tzstart.getText(),
-            PyCalendarUTCOffsetValue(tzoffsetfrom).getText(),
-            PyCalendarUTCOffsetValue(tzoffsetto).getText(),
+            tzstart,
+            tzoffsetfrom,
+            tzoffsetto,
             name,
         ))
 

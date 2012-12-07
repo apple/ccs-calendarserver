@@ -406,15 +406,20 @@ DEFAULT_CONFIG = {
     # Authentication
     #
     "Authentication": {
-        "Basic": { "Enabled": False }, # Clear text; best avoided
+        "Basic": {                         # Clear text; best avoided
+            "Enabled": True,
+            "AllowedOverWireUnencrypted": False, # Advertised over non-SSL?
+        },
         "Digest": {                        # Digest challenge/response
             "Enabled": True,
             "Algorithm": "md5",
             "Qop": "",
+            "AllowedOverWireUnencrypted": True, # Advertised over non-SSL?
         },
         "Kerberos": {                       # Kerberos/SPNEGO
             "Enabled": False,
-            "ServicePrincipal": ""
+            "ServicePrincipal": "",
+            "AllowedOverWireUnencrypted": True, # Advertised over non-SSL?
         },
         "Wiki": {
             "Enabled": False,

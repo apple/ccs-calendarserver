@@ -637,11 +637,7 @@ class HTTPChannelRequest(HTTPParser):
                 self._cleanup()
 
     def getHostInfo(self):
-        t=self.channel.transport
-        secure = interfaces.ISSLTransport(t, None) is not None
-        host = t.getHost()
-        host.host = _cachedGetHostByAddr(host.host)
-        return host, secure
+        return self.channel._host, self.channel._secure
 
     def getRemoteHost(self):
         return self.channel.transport.getPeer()
@@ -783,6 +779,9 @@ class HTTPChannel(basic.LineReceiver, policies.TimeoutMixin, object):
         self.requests = []
         
     def connectionMade(self):
+        self._secure = interfaces.ISSLTransport(self.transport, None) is not None
+        address = self.transport.getHost()
+        self._host = _cachedGetHostByAddr(address.host)
         self.setTimeout(self.inputTimeOut)
         self.factory.addConnectedChannel(self)
     

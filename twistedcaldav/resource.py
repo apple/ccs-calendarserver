@@ -3041,11 +3041,13 @@ class AuthenticationWrapper(SuperAuthenticationWrapper):
     """ AuthenticationWrapper implementation which allows overriding
         credentialFactories on a per-resource-path basis """
 
-    def __init__(self, resource, portal, credentialFactories, loginInterfaces,
-        overrides=None):
+    def __init__(self, resource, portal,
+        wireEncryptedCredentialFactories, wireUnencryptedCredentialFactories,
+        loginInterfaces, overrides=None):
 
         super(AuthenticationWrapper, self).__init__(resource, portal,
-            credentialFactories, loginInterfaces)
+            wireEncryptedCredentialFactories, wireUnencryptedCredentialFactories,
+            loginInterfaces)
 
         self.overrides = {}
         if overrides:
@@ -3061,7 +3063,7 @@ class AuthenticationWrapper(SuperAuthenticationWrapper):
         super(AuthenticationWrapper, self).hook(req)
 
         factories = self.overrides.get(req.path.rstrip("/"),
-            self.credentialFactories)
+            req.credentialFactories)
         req.credentialFactories = factories
 
 

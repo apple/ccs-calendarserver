@@ -14,6 +14,7 @@
 # limitations under the License.
 ##
 
+import json
 import struct
 import time
 from calendarserver.push.applepush import (
@@ -125,11 +126,13 @@ class ApplePushNotifierServiceTests(CommonCommonTests, TestCase):
         # case by doing it prior to startService()
 
         # Notification arrives from calendar server
-        yield service.enqueue("update", "CalDAV|user01/calendar")
+        dataChangedTimestamp = 1354815999
+        yield service.enqueue("update", "CalDAV|user01/calendar",
+            dataChangedTimestamp=dataChangedTimestamp)
 
         # The notifications should be in the queue
-        self.assertTrue((token, key1) in service.providers["CalDAV"].queue)
-        self.assertTrue((token2, key1) in service.providers["CalDAV"].queue)
+        self.assertTrue(((token, key1), dataChangedTimestamp) in service.providers["CalDAV"].queue)
+        self.assertTrue(((token2, key1), dataChangedTimestamp) in service.providers["CalDAV"].queue)
 
         # Start the service, making the connection which should service the
         # queue
@@ -141,14 +144,17 @@ class ApplePushNotifierServiceTests(CommonCommonTests, TestCase):
         # Verify data sent to APN
         providerConnector = service.providers["CalDAV"].testConnector
         rawData = providerConnector.transport.data
-        self.assertEquals(len(rawData), 103)
+        self.assertEquals(len(rawData), 183)
         data = struct.unpack("!BIIH32sH", rawData[:45])
         self.assertEquals(data[0], 1) # command
         self.assertEquals(data[4].encode("hex"), token.replace(" ", "")) # token
         payloadLength = data[5]
         payload = struct.unpack("%ds" % (payloadLength,),
             rawData[45:])
-        self.assertEquals(payload[0], '{"key" : "%s"}' % (key1,))
+        payload = json.loads(payload[0])
+        self.assertEquals(payload["key"], u"/CalDAV/calendars.example.com/user01/calendar/")
+        self.assertEquals(payload["dataChangedTimestamp"], dataChangedTimestamp)
+        self.assertTrue(payload.has_key("pushRequestSubmittedTimestamp"))
         # Verify token history is updated
         self.assertTrue(token in [t for (i, t) in providerConnector.service.protocol.history.history])
         self.assertTrue(token2 in [t for (i, t) in providerConnector.service.protocol.history.history])
@@ -163,11 +169,11 @@ class ApplePushNotifierServiceTests(CommonCommonTests, TestCase):
         # Send notification while service is connected
         yield service.enqueue("update", "CalDAV|user01/calendar")
         clock.advance(1) # so that first push is sent
-        self.assertEquals(len(providerConnector.transport.data), 103)
+        self.assertEquals(len(providerConnector.transport.data), 183)
         # Reset sent data
         providerConnector.transport.data = None
         clock.advance(3) # so that second push is sent
-        self.assertEquals(len(providerConnector.transport.data), 103)
+        self.assertEquals(len(providerConnector.transport.data), 183)
 
 
         def errorTestFunction(status, identifier):

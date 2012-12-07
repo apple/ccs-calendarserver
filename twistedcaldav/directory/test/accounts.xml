@@ -110,6 +110,20 @@ limitations under the License.
     <name>佐藤佐藤佐藤</name>
     <email-address>nonascii@example.com</email-address>
   </user>
+  <user>
+    <uid>delegator</uid>
+    <guid>FC465590-E9E9-4746-ACE8-6C756A49FE4D</guid>
+    <password>a</password>
+    <name>Calendar Delegator</name>
+    <email-address>calendardelegator@example.com</email-address>
+  </user>
+  <user>
+    <uid>occasionaldelegate</uid>
+    <guid>EC465590-E9E9-4746-ACE8-6C756A49FE4D</guid>
+    <password>a</password>
+    <name>Occasional Delegate</name>
+    <email-address>occasional@example.com</email-address>
+  </user>
   <user repeat="2">
     <uid>user%02d</uid>
     <guid>user%02d</guid>

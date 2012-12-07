@@ -31,6 +31,7 @@ from twisted.internet.protocol import ClientFactory, ReconnectingClientFactory
 from twisted.internet.task import LoopingCall
 from twistedcaldav.extensions import DAVResource, DAVResourceWithoutChildrenMixin
 from twistedcaldav.resource import ReadOnlyNoCopyResourceMixIn
+import json
 import OpenSSL
 import struct
 import time
@@ -176,7 +177,7 @@ class ApplePushNotifierService(service.MultiService, LoggingMixIn):
 
 
     @inlineCallbacks
-    def enqueue(self, op, id):
+    def enqueue(self, op, id, dataChangedTimestamp=None):
         """
         Sends an Apple Push Notification to any device token subscribed to
         this id.
@@ -184,7 +185,6 @@ class ApplePushNotifierService(service.MultiService, LoggingMixIn):
         @param op: The operation that took place, either "create" or "update"
             (ignored in this implementation)
         @type op: C{str}
-
         @param id: The identifier of the resource that was updated, including
             a prefix indicating whether this is CalDAV or CardDAV related.
             The prefix is separated from the id with "|", e.g.:
@@ -195,6 +195,9 @@ class ApplePushNotifierService(service.MultiService, LoggingMixIn):
             is used in conjunction with the prefix and the server hostname
             to build the actual key value that devices subscribe to.
         @type id: C{str}
+        @param dataChangedTimestamp: Timestamp (epoch seconds) for the data change
+            which triggered this notification (Only used for unit tests)
+        @type key: C{int}
         """
 
         try:
@@ -203,6 +206,10 @@ class ApplePushNotifierService(service.MultiService, LoggingMixIn):
             # id has no protocol, so we can't do anything with it
             self.log_error("Notification id '%s' is missing protocol" % (id,))
             return
+
+        # Unit tests can pass this value in; otherwise it defaults to now
+        if dataChangedTimestamp is None:
+            dataChangedTimestamp = int(time.time())
 
         provider = self.providers.get(protocol, None)
         if provider is not None:
@@ -222,7 +229,7 @@ class ApplePushNotifierService(service.MultiService, LoggingMixIn):
                     if token and uid:
                         tokens.append(token)
                 if tokens:
-                    provider.scheduleNotifications(tokens, key)
+                    provider.scheduleNotifications(tokens, key, dataChangedTimestamp)
 
 
 
@@ -332,19 +339,21 @@ class APNProviderProtocol(protocol.Protocol, LoggingMixIn):
                 yield txn.commit()
 
 
-    def sendNotification(self, token, key):
+    def sendNotification(self, token, key, dataChangedTimestamp):
         """
         Sends a push notification message for the key to the device associated
         with the token.
 
         @param token: The device token subscribed to the key
         @type token: C{str}
-
         @param key: The key we're sending a notification about
         @type key: C{str}
+        @param dataChangedTimestamp: Timestamp (epoch seconds) for the data change
+            which triggered this notification
+        @type key: C{int}
         """
 
-        if not (token and key):
+        if not (token and key and dataChangedTimestamp):
             return
 
         try:
@@ -354,7 +363,13 @@ class APNProviderProtocol(protocol.Protocol, LoggingMixIn):
             return
 
         identifier = self.history.add(token)
-        payload = '{"key" : "%s"}' % (key,)
+        payload = json.dumps(
+            {
+                "key" : key,
+                "dataChangedTimestamp" : dataChangedTimestamp,
+                "pushRequestSubmittedTimestamp" : int(time.time()),
+            }
+        )
         payloadLength = len(payload)
         self.log_debug("Sending APNS notification to %s: id=%d payload=%s" %
             (token, identifier, payload))
@@ -488,12 +503,12 @@ class APNProviderService(APNConnectionService):
             # sent will be put back into the queue.
             queued = list(self.queue)
             self.queue = []
-            for token, key in queued:
-                if token and key:
-                    self.sendNotification(token, key)
+            for (token, key), dataChangedTimestamp in queued:
+                if token and key and dataChangedTimestamp:
+                    self.sendNotification(token, key, dataChangedTimestamp)
 
 
-    def scheduleNotifications(self, tokens, key):
+    def scheduleNotifications(self, tokens, key, dataChangedTimestamp):
         """
         The starting point for getting notifications to the APNS server.  If there is
         a connection to the APNS server, these notifications are scheduled (or directly
@@ -504,59 +519,70 @@ class APNProviderService(APNConnectionService):
         @type tokens: List of strings
         @param key: The key to use for this batch of notifications
         @type key: String
+        @param dataChangedTimestamp: Timestamp (epoch seconds) for the data change
+            which triggered this notification
+        @type key: C{int}
         """
         # Service has reference to factory has reference to protocol instance
         connection = getattr(self.factory, "connection", None)
         if connection is not None:
             if self.scheduler is not None:
-                self.scheduler.schedule(tokens, key)
+                self.scheduler.schedule(tokens, key, dataChangedTimestamp)
             else:
                 for token in tokens:
-                    self.sendNotification(token, key)
+                    self.sendNotification(token, key, dataChangedTimestamp)
         else:
-            self._saveForWhenConnected(tokens, key)
+            self._saveForWhenConnected(tokens, key, dataChangedTimestamp)
 
 
-    def _saveForWhenConnected(self, tokens, key):
+    def _saveForWhenConnected(self, tokens, key, dataChangedTimestamp):
         """
         Called in order to save notifications that can't be sent now because there
         is no connection to the APNS server.  (token, key) tuples are appended to
         the queue which is serviced during clientConnectionMade()
 
         @param tokens: The device tokens to schedule notifications for
-        @type tokens: List of strings
+        @type tokens: List of C{str}
         @param key: The key to use for this batch of notifications
-        @type key: String
+        @type key: C{str}
+        @param dataChangedTimestamp: Timestamp (epoch seconds) for the data change
+            which triggered this notification
+        @type key: C{int}
         """
         for token in tokens:
             tokenKeyPair = (token, key)
-            if tokenKeyPair not in self.queue:
-                self.log_debug("APNProviderService has no connection; queuing: %s %s" % (token, key))
-                self.queue.append((token, key))
+            for existingPair, ignored in self.queue:
+                if tokenKeyPair == existingPair:
+                    self.log_debug("APNProviderService has no connection; skipping duplicate: %s %s" % (token, key))
+                    break # Already scheduled
             else:
-                self.log_debug("APNProviderService has no connection; skipping duplicate: %s %s" % (token, key))
+                self.log_debug("APNProviderService has no connection; queuing: %s %s" % (token, key))
+                self.queue.append(((token, key), dataChangedTimestamp))
 
 
 
-    def sendNotification(self, token, key):
+    def sendNotification(self, token, key, dataChangedTimestamp):
         """
         If there is a connection the notification is sent right away, otherwise
         the notification is saved for later.
 
         @param token: The device token to send a notifications to
-        @type token: Strings
+        @type token: C{str}
         @param key: The key to use for this notification
-        @type key: String
+        @type key: C{str}
+        @param dataChangedTimestamp: Timestamp (epoch seconds) for the data change
+            which triggered this notification
+        @type key: C{int}
         """
-        if not (token and key):
+        if not (token and key and dataChangedTimestamp):
             return
 
         # Service has reference to factory has reference to protocol instance
         connection = getattr(self.factory, "connection", None)
         if connection is None:
-            self._saveForWhenConnected([token], key)
+            self._saveForWhenConnected([token], key, dataChangedTimestamp)
         else:
-            connection.sendNotification(token, key)
+            connection.sendNotification(token, key, dataChangedTimestamp)
 
 
 

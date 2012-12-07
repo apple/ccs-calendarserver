@@ -85,7 +85,8 @@ class RootTests(TestCase):
         self.root = auth.AuthenticationWrapper(
             root,
             portal,
-            credentialFactories=(basic.BasicCredentialFactory("Test realm"),),
+            (basic.BasicCredentialFactory("Test realm"),),
+            (basic.BasicCredentialFactory("Test realm"),),
             loginInterfaces=(auth.IPrincipal,))
 
         self.site = server.Site(self.root)
