@@ -989,6 +989,11 @@ DEFAULT_CONFIG = {
     # during migration
     "MigratedInboxDaysCutoff": 60,
 
+    # The default timezone for the server; on OS X you can leave this empty and the
+    # system's timezone will be used.  If empty and not on OS X it will default to
+    # America/Los_Angeles.
+    "DefaultTimezone" : "",
+
     "Includes": [], # Other plists to parse after this one
 }
 
