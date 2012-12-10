@@ -1954,6 +1954,10 @@ class NoParent(CalDAVResource):
         return False
 
 
+    def exists(self):
+        return False
+
+
 
 class _CommonObjectResource(_NewStoreFileMetaDataHelper, CalDAVResource, FancyEqMixin):
 
