@@ -40,6 +40,8 @@ from twistedcaldav.extensions import DAVFile, ReadOnlyResourceMixIn
 
 from twisted.internet.defer import succeed
 
+from calendarserver.platform.darwin.timezone import getLocalTimezone
+
 
 class WebCalendarResource (ReadOnlyResourceMixIn, DAVFile):
 
@@ -152,7 +154,8 @@ class WebCalendarResource (ReadOnlyResourceMixIn, DAVFile):
         #
         tzid = queryValue("tzid")
         if not tzid:
-            tzid = "America/Los_Angeles"
+            tzid = getLocalTimezone()
+            self.log_debug("Determined timezone to be %s" % (tzid,))
 
         #
         # Make some HTML

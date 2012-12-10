@@ -820,7 +820,7 @@ class SecondaryTimezoneDatabase(CommonTimezoneDatabase):
                 lastmod = timezone["last-modified"]
                 aliases = timezone.get("aliases", ())
                 timezones[tzid] = TimezoneInfo(tzid, aliases, lastmod, None)
-        except ValueError, KeyError:
+        except (ValueError, KeyError):
             log.debug("Failed to parse JSON timezone list response: %s" % (response.data,))
             returnValue(None)
         log.debug("Got %s timezones from secondary server" % (len(timezones),))

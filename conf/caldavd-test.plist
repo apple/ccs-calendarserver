@@ -909,6 +909,28 @@
     <key>EnableTimezoneService</key>
     <true/>
 
+    <!-- Standard Timezone Service -->
+    <key>TimezoneService</key>
+    <dict>
+    	<key>Enabled</key>
+    	<true/>
+    	<key>Mode</key>
+    	<string>primary</string>
+    	<key>BasePath</key>
+    	<string></string>
+    	<key>XMLInfoPath</key>
+    	<string></string>
+    	<key>SecondaryService</key>
+    	<dict>
+    		<key>Host</key>
+    		<string></string>
+    		<key>URI</key>
+    		<string></string>
+    		<key>UpdateIntervalMinutes</key>
+    		<integer>1440</integer>
+    	</dict>
+    </dict>
+
     <!-- Batch Upload via POST -->
     <key>EnableBatchUpload</key>
     <true/>
