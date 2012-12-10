@@ -2444,6 +2444,14 @@ class CalendarObjectResource(_CalendarObjectMetaDataMixin, _CommonObjectResource
                         (caldav_namespace, "valid-rid-parameter",),
                         "The rid parameter in the request-URI contains an invalid value",
                     ))
+
+                if rids:
+                    raise HTTPError(ErrorResponse(
+                        FORBIDDEN,
+                        (caldav_namespace, "valid-rid-parameter",),
+                        "Server does not support per-instance attachments",
+                    ))
+
             return rids
 
         def _getMID():
