@@ -27,30 +27,27 @@ __all__ = [
 
 from twext.python.log import Logger
 from twext.web2 import responsecode
-from txdav.xml import element as davxml
-from twext.web2.dav.http import ErrorResponse
 from twext.web2.dav.method.propfind import http_PROPFIND
 from twext.web2.dav.noneprops import NonePropertyStore
-from twext.web2.http import HTTPError, StatusResponse
+from twext.web2.http import HTTPError, JSONResponse
 from twext.web2.http import Response
-from twext.web2.http import XMLResponse
 from twext.web2.http_headers import MimeType
 from twext.web2.stream import MemoryStream
+from txdav.xml import element as davxml
 
-from twisted.internet.defer import succeed, inlineCallbacks, returnValue,\
+from twisted.internet.defer import succeed, inlineCallbacks, returnValue, \
     DeferredList
 
-from twistedcaldav import timezonexml, xmlutil
+from twistedcaldav import xmlutil
 from twistedcaldav.client.geturl import getURL
 from twistedcaldav.config import config
-from twistedcaldav.customxml import calendarserver_namespace
-from twistedcaldav.extensions import DAVResource,\
+from twistedcaldav.extensions import DAVResource, \
     DAVResourceWithoutChildrenMixin
 from twistedcaldav.ical import tzexpandlocal
 from twistedcaldav.resource import ReadOnlyNoCopyResourceMixIn
-from twistedcaldav.timezones import TimezoneException, TimezoneCache, readVTZ,\
+from twistedcaldav.timezones import TimezoneException, TimezoneCache, readVTZ, \
     addVTZ
-from twistedcaldav.xmlutil import addSubElement, readXMLString
+from twistedcaldav.xmlutil import addSubElement
 
 from pycalendar.calendar import PyCalendar
 from pycalendar.datetime import PyCalendarDateTime
@@ -58,6 +55,7 @@ from pycalendar.exceptions import PyCalendarInvalidData
 
 import hashlib
 import itertools
+import json
 import os
 
 log = Logger()
@@ -69,7 +67,6 @@ class TimezoneStdServiceResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithou
     Extends L{DAVResource} to provide timezone service functionality.
     """
 
-
     def __init__(self, parent):
         """
         @param parent: the parent resource of this one.
@@ -80,6 +77,8 @@ class TimezoneStdServiceResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithou
 
         self.parent = parent
         self.expandcache = {}
+        self.primary = True
+        self.info_source = None
 
         if config.TimezoneService.Mode == "primary":
             log.info("Using primary Timezone Service")
@@ -89,7 +88,8 @@ class TimezoneStdServiceResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithou
             self._initSecondaryService()
         else:
             raise ValueError("Invalid TimezoneService mode: %s" % (config.TimezoneService.Mode,))
-            
+
+
     def _initPrimaryService(self):
         tzpath = TimezoneCache.getDBPath()
         xmlfile = os.path.join(tzpath, "timezones.xml")
@@ -98,9 +98,11 @@ class TimezoneStdServiceResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithou
             self.timezones.createNewDatabase()
         else:
             self.timezones.readDatabase()
+        self.info_source = "Primary"
+
 
     def _initSecondaryService(self):
-        
+
         # Must have writeable paths
         tzpath = TimezoneCache.getDBPath()
         xmlfile = config.TimezoneService.XMLInfoPath
@@ -111,23 +113,31 @@ class TimezoneStdServiceResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithou
             self.timezones.readDatabase()
         except:
             pass
+        self.info_source = "Secondary"
+        self.primary = False
+
 
     def onStartup(self):
         return self.timezones.onStartup()
+
 
     def deadProperties(self):
         if not hasattr(self, "_dead_properties"):
             self._dead_properties = NonePropertyStore(self)
         return self._dead_properties
 
+
     def etag(self):
         return succeed(None)
+
 
     def checkPreconditions(self, request):
         return None
 
+
     def checkPrivileges(self, request, privileges, recurse=False, principal=None, inherited_aces=None):
         return succeed(None)
+
 
     def defaultAccessControlList(self):
         return davxml.ACL(
@@ -141,20 +151,26 @@ class TimezoneStdServiceResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithou
             ),
         )
 
+
     def contentType(self):
-        return MimeType.fromString("text/html; charset=utf-8");
+        return MimeType.fromString("text/html; charset=utf-8")
+
 
     def resourceType(self):
         return None
 
+
     def isCollection(self):
         return False
+
 
     def isCalendarCollection(self):
         return False
 
+
     def isPseudoCalendarCollection(self):
         return False
+
 
     def render(self, request):
         output = """<html>
@@ -176,9 +192,10 @@ class TimezoneStdServiceResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithou
         """
         The timezone service POST method.
         """
-        
+
         # GET and POST do the same thing
         return self.http_POST(request)
+
 
     def http_POST(self, request):
         """
@@ -187,109 +204,99 @@ class TimezoneStdServiceResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithou
 
         # Check authentication and access controls
         def _gotResult(_):
-            
+
             if not request.args:
                 # Do normal GET behavior
                 return self.render(request)
-    
+
             action = request.args.get("action", ("",))
             if len(action) != 1:
-                raise HTTPError(StatusResponse(
+                raise HTTPError(JSONResponse(
                     responsecode.BAD_REQUEST,
-                    "Invalid action query parameter",
+                    {
+                        "error": "invalid-action",
+                        "description": "Invalid action query parameter",
+                    },
                 ))
             action = action[0]
-                
+
             action = {
                 "capabilities"  : self.doCapabilities,
                 "list"          : self.doList,
                 "get"           : self.doGet,
                 "expand"        : self.doExpand,
             }.get(action, None)
-            
+
             if action is None:
-                raise HTTPError(StatusResponse(
+                raise HTTPError(JSONResponse(
                     responsecode.BAD_REQUEST,
-                    "Unknown action query parameter",
+                    {
+                        "error": "invalid-action",
+                        "description": "Unknown action query parameter",
+                    },
                 ))
-    
+
             return action(request)
-            
+
         d = self.authorize(request, (davxml.Read(),))
         d.addCallback(_gotResult)
         return d
+
 
     def doCapabilities(self, request):
         """
         Return a list of all timezones known to the server.
         """
-        
-        result = timezonexml.Capabilities(
-            
-            timezonexml.Operation(
-                timezonexml.Action.fromString("capabilities"),
-                timezonexml.Description.fromString("Get capabilities of the server"),
-            ),
-            
-            timezonexml.Operation(
-                timezonexml.Action.fromString("list"),
-                timezonexml.Description.fromString("List timezones on the server"),
-                timezonexml.AcceptParameter(
-                    timezonexml.Name.fromString("changedsince"),
-                    timezonexml.Required.fromString("false"),
-                    timezonexml.Multi.fromString("false"),
-                ),
-            ),
-            
-            timezonexml.Operation(
-                timezonexml.Action.fromString("get"),
-                timezonexml.Description.fromString("Get timezones from the server"),
-                timezonexml.AcceptParameter(
-                    timezonexml.Name.fromString("format"),
-                    timezonexml.Required.fromString("false"),
-                    timezonexml.Multi.fromString("false"),
-                    timezonexml.Value.fromString("text/calendar"),
-                    timezonexml.Value.fromString("text/plain"),
-                ),
-                timezonexml.AcceptParameter(
-                    timezonexml.Name.fromString("tzid"),
-                    timezonexml.Required.fromString("true"),
-                    timezonexml.Multi.fromString("false"),
-                ),
-            ),
-            
-            timezonexml.Operation(
-                timezonexml.Action.fromString("expand"),
-                timezonexml.Description.fromString("Expand timezones from the server"),
-                timezonexml.AcceptParameter(
-                    timezonexml.Name.fromString("tzid"),
-                    timezonexml.Required.fromString("true"),
-                    timezonexml.Multi.fromString("false"),
-                ),
-                timezonexml.AcceptParameter(
-                    timezonexml.Name.fromString("start"),
-                    timezonexml.Required.fromString("false"),
-                    timezonexml.Multi.fromString("false"),
-                ),
-                timezonexml.AcceptParameter(
-                    timezonexml.Name.fromString("end"),
-                    timezonexml.Required.fromString("false"),
-                    timezonexml.Multi.fromString("false"),
-                ),
-            ),
-        )
-        return XMLResponse(responsecode.OK, result)
+
+        result = {
+            "info" : {
+                "primary-source" if self.primary else "secondary_source": self.info_source,
+                "contacts" : [],
+            },
+            "actions" : [
+                {
+                    "name": "capabilities",
+                    "parameters": [],
+                },
+                {
+                    "name": "list",
+                    "parameters": [
+                        {"name": "changedsince", "required": False, "multi": False, },
+                    ],
+                },
+                {
+                    "name": "get",
+                    "parameters": [
+                        {"name": "format", "required": False, "multi": False, "values": ["text/calendar", "text/plain", ], },
+                        {"name": "tzid", "required": True, "multi": False, },
+                    ],
+                },
+                {
+                    "name": "expand",
+                    "parameters": [
+                        {"name": "tzid", "required": True, "multi": False, },
+                        {"name": "start", "required": False, "multi": False, },
+                        {"name": "end", "required": False, "multi": False, },
+                    ],
+                },
+            ]
+        }
+        return JSONResponse(responsecode.OK, result)
+
 
     def doList(self, request):
         """
         Return a list of all timezones known to the server.
         """
-        
+
         changedsince = request.args.get("changedsince", ())
         if len(changedsince) > 1:
-            raise HTTPError(StatusResponse(
+            raise HTTPError(JSONResponse(
                 responsecode.BAD_REQUEST,
-                "Invalid changedsince query parameter",
+                {
+                    "error": "invalid-changedsince",
+                    "description": "Invalid changedsince query parameter",
+                },
             ))
         if len(changedsince) == 1:
             # Validate a date-time stamp
@@ -297,58 +304,67 @@ class TimezoneStdServiceResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithou
             try:
                 dt = PyCalendarDateTime.parseText(changedsince)
             except ValueError:
-                raise HTTPError(StatusResponse(
+                raise HTTPError(JSONResponse(
                     responsecode.BAD_REQUEST,
-                    "Invalid changedsince query parameter value",
+                    {
+                        "error": "invalid-changedsince",
+                        "description": "Invalid changedsince query parameter",
+                    },
                 ))
             if not dt.utc():
-                raise HTTPError(StatusResponse(
+                raise HTTPError(JSONResponse(
                     responsecode.BAD_REQUEST,
                     "Invalid changedsince query parameter value",
                 ))
-                
 
         timezones = []
         for tz in self.timezones.listTimezones(changedsince):
-            timezones.append(
-                timezonexml.Summary(
-                    timezonexml.Tzid.fromString(tz.tzid),
-                    timezonexml.LastModified.fromString(tz.dtstamp),
-                    *tuple([timezonexml.Alias.fromString(alias) for alias in tz.aliases])
-                )
-            )
-        result = timezonexml.TimezoneList(
-            timezonexml.Dtstamp.fromString(self.timezones.dtstamp),
-            *timezones
-        )
-        return XMLResponse(responsecode.OK, result)
+            timezones.append({
+                "tzid": tz.tzid,
+                "last-modified": tz.dtstamp,
+                "aliases": tz.aliases,
+            })
+        result = {
+            "dtstamp": self.timezones.dtstamp,
+            "timezones": timezones,
+        }
+        return JSONResponse(responsecode.OK, result)
+
 
     def doGet(self, request):
         """
         Return the specified timezone data.
         """
-        
+
         tzids = request.args.get("tzid", ())
         if len(tzids) != 1:
-            raise HTTPError(StatusResponse(
+            raise HTTPError(JSONResponse(
                 responsecode.BAD_REQUEST,
-                "Invalid tzid query parameter",
+                {
+                    "error": "invalid-tzid",
+                    "description": "Invalid tzid query parameter",
+                },
             ))
 
         format = request.args.get("format", ("text/calendar",))
         if len(format) != 1 or format[0] not in ("text/calendar", "text/plain",):
-            raise HTTPError(StatusResponse(
+            raise HTTPError(JSONResponse(
                 responsecode.BAD_REQUEST,
-                "Invalid format query parameter",
+                {
+                    "error": "invalid-format",
+                    "description": "Invalid format query parameter",
+                },
             ))
         format = format[0]
 
         calendar = self.timezones.getTimezone(tzids[0])
         if calendar is None:
-            raise HTTPError(ErrorResponse(
+            raise HTTPError(JSONResponse(
                 responsecode.NOT_FOUND,
-                (calendarserver_namespace, "invalid-tzid"),
-                "Tzid could not be found",
+                {
+                    "error": "missing-tzid",
+                    "description": "Tzid could not be found",
+                }
             ))
 
         tzdata = calendar.getText()
@@ -358,6 +374,7 @@ class TimezoneStdServiceResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithou
         response.headers.setHeader("content-type", MimeType.fromString("%s; charset=utf-8" % (format,)))
         return response
 
+
     def doExpand(self, request):
         """
         Expand a timezone within specified start/end dates.
@@ -365,9 +382,12 @@ class TimezoneStdServiceResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithou
 
         tzids = request.args.get("tzid", ())
         if len(tzids) != 1:
-            raise HTTPError(StatusResponse(
+            raise HTTPError(JSONResponse(
                 responsecode.BAD_REQUEST,
-                "Invalid tzid query parameter",
+                {
+                    "error": "invalid-tzid",
+                    "description": "Invalid tzid query parameter",
+                },
             ))
 
         try:
@@ -381,10 +401,12 @@ class TimezoneStdServiceResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithou
                 start.setDay(1)
                 start.setMonth(1)
         except ValueError:
-            raise HTTPError(ErrorResponse(
+            raise HTTPError(JSONResponse(
                 responsecode.BAD_REQUEST,
-                (calendarserver_namespace, "valid-start-date"),
-                "Invalid start query parameter",
+                {
+                    "error": "invalid-start",
+                    "description": "Invalid start query parameter",
+                }
             ))
 
         try:
@@ -401,59 +423,59 @@ class TimezoneStdServiceResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithou
             if end <= start:
                 raise ValueError()
         except ValueError:
-            raise HTTPError(ErrorResponse(
+            raise HTTPError(JSONResponse(
                 responsecode.BAD_REQUEST,
-                (calendarserver_namespace, "valid-end-date"),
-                "Invalid end query parameter",
+                {
+                    "error": "invalid-end",
+                    "description": "Invalid end query parameter",
+                }
             ))
 
-        results = []
-        
         tzid = tzids[0]
         tzdata = self.timezones.getTimezone(tzid)
         if tzdata is None:
-            raise HTTPError(ErrorResponse(
+            raise HTTPError(JSONResponse(
                 responsecode.NOT_FOUND,
-                (calendarserver_namespace, "invalid-tzid"),
-                "Tzid could not be found",
+                {
+                    "error": "missing-tzid",
+                    "description": "Tzid could not be found",
+                }
             ))
-            
+
         # Now do the expansion (but use a cache to avoid re-calculating TZs)
         observances = self.expandcache.get((tzid, start, end), None)
         if observances is None:
             observances = tzexpandlocal(tzdata, start, end)
             self.expandcache[(tzid, start, end)] = observances
 
-        # Turn into XML
-        results.append(timezonexml.Tzdata(
-            timezonexml.Tzid.fromString(tzid),
-            *[
-                timezonexml.Observance(
-                    timezonexml.Name(name),
-                    timezonexml.Onset(onset),
-                    timezonexml.UTCOffsetFrom(utc_offset_from),
-                    timezonexml.UTCOffsetTo(utc_offset_to),
-                ) for onset, utc_offset_from, utc_offset_to, name in observances
-            ]
-        ))
-        
-        result = timezonexml.Timezones(
-            timezonexml.Dtstamp.fromString(self.timezones.dtstamp),
-            *results
-        )
-        return XMLResponse(responsecode.OK, result)
+        # Turn into JSON
+        result = {
+            "dtstamp": self.timezones.dtstamp,
+            "observances": [
+                {
+                    "name": name,
+                    "onset": onset.getXMLText(),
+                    "utc-offset-from": utc_offset_from,
+                    "utc-offset-to": utc_offset_to,
+                } for onset, utc_offset_from, utc_offset_to, name in observances
+            ],
+        }
+        return JSONResponse(responsecode.OK, result)
+
+
 
 class TimezoneInfo(object):
     """
     Maintains information from an on-disk store of timezone files.
     """
-    
+
     def __init__(self, tzid, aliases, dtstamp, md5):
         self.tzid = tzid
         self.aliases = aliases
         self.dtstamp = dtstamp
         self.md5 = md5
-    
+
+
     @classmethod
     def readXML(cls, node):
         """
@@ -466,7 +488,8 @@ class TimezoneInfo(object):
         aliases = tuple([alias_node.text for alias_node in node.findall("alias")])
         md5 = node.findtext("md5")
         return cls(tzid, aliases, dtstamp, md5)
-    
+
+
     def generateXML(self, parent):
         """
         Generate the XML element for this timezone info.
@@ -478,11 +501,13 @@ class TimezoneInfo(object):
             xmlutil.addSubElement(node, "alias", alias)
         xmlutil.addSubElement(node, "md5", self.md5)
 
+
+
 class CommonTimezoneDatabase(object):
     """
     Maintains the database of timezones read from an XML file.
     """
-    
+
     def __init__(self, basepath, xmlfile):
         self.basepath = basepath
         self.xmlfile = xmlfile
@@ -490,8 +515,10 @@ class CommonTimezoneDatabase(object):
         self.timezones = {}
         self.aliases = {}
 
+
     def onStartup(self):
         return succeed(None)
+
 
     def readDatabase(self):
         """
@@ -507,21 +534,23 @@ class CommonTimezoneDatabase(object):
                     for alias in tz.aliases:
                         self.aliases[alias] = tz.tzid
 
+
     def listTimezones(self, changedsince):
         """
         List timezones (not aliases) possibly changed since a particular dtstamp.
         """
-        
-        for tzid, tzinfo in sorted(self.timezones.items(), key=lambda x:x[0]):
+
+        for tzid, tzinfo in sorted(self.timezones.items(), key=lambda x: x[0]):
             # Ignore those that are aliases
             if tzid in self.aliases:
                 continue
-            
+
             # Detect timestamp changes
             if changedsince and tzinfo.dtstamp <= changedsince:
                 continue
-            
+
             yield tzinfo
+
 
     def getTimezone(self, tzid):
         """
@@ -533,7 +562,7 @@ class CommonTimezoneDatabase(object):
             vtz = readVTZ(tzid)
             calendar.addComponent(vtz.getComponents()[0].duplicate())
         except TimezoneException:
-            
+
             # Check if an alias exists and create data for that
             if tzid in self.aliases:
                 try:
@@ -552,31 +581,36 @@ class CommonTimezoneDatabase(object):
 
         return calendar
 
+
     def _dumpTZs(self):
-        
+
         _ignore, root = xmlutil.newElementTreeWithRoot("timezones")
         addSubElement(root, "dtstamp", self.dtstamp)
-        for _ignore,v in sorted(self.timezones.items(), key=lambda x:x[0]):
+        for _ignore, v in sorted(self.timezones.items(), key=lambda x: x[0]):
             v.generateXML(root)
         xmlutil.writeXML(self.xmlfile, root)
-    
+
+
     def _buildAliases(self):
         """
         Rebuild aliases mappings from current tzinfo.
         """
-        
+
         self.aliases = {}
         for tzinfo in self.timezones.values():
             for alias in tzinfo.aliases:
                 self.aliases[alias] = tzinfo.tzid
 
+
+
 class PrimaryTimezoneDatabase(CommonTimezoneDatabase):
     """
     Maintains the database of timezones read from an XML file.
     """
-    
+
     def __init__(self, basepath, xmlfile):
         super(PrimaryTimezoneDatabase, self).__init__(basepath, xmlfile)
+
 
     def createNewDatabase(self):
         """
@@ -586,6 +620,7 @@ class PrimaryTimezoneDatabase(CommonTimezoneDatabase):
         self.dtstamp = PyCalendarDateTime.getNowUTC().getXMLText()
         self._scanTZs("")
         self._dumpTZs()
+
 
     def _scanTZs(self, path, checkIfChanged=False):
         # Read in all timezone files first
@@ -601,7 +636,7 @@ class PrimaryTimezoneDatabase(CommonTimezoneDatabase):
                 except IOError:
                     log.error("Unable to read timezone file: %s" % (fullPath,))
                     continue
-                
+
                 if checkIfChanged:
                     oldtz = self.timezones.get(tzid)
                     if oldtz != None and oldtz.md5 == md5:
@@ -609,14 +644,14 @@ class PrimaryTimezoneDatabase(CommonTimezoneDatabase):
                     self.changeCount += 1
                     self.changed.add(tzid)
                 self.timezones[tzid] = TimezoneInfo(tzid, (), self.dtstamp, md5)
-        
+
         # Try links (aliases) file
         try:
             aliases = open(os.path.join(self.basepath, "links.txt")).read()
         except IOError, e:
             log.error("Unable to read links.txt file: %s" % (str(e),))
             aliases = ""
-        
+
         try:
             for alias in aliases.splitlines():
                 alias_from, alias_to = alias.split()
@@ -630,8 +665,8 @@ class PrimaryTimezoneDatabase(CommonTimezoneDatabase):
                     log.error("Missing alias from '%s' to '%s'" % (alias_from, alias_to,))
         except ValueError:
             log.error("Unable to parse links.txt file: %s" % (str(e),))
-            
-    
+
+
     def updateDatabase(self):
         """
         Update existing DB info by comparing md5's.
@@ -643,11 +678,13 @@ class PrimaryTimezoneDatabase(CommonTimezoneDatabase):
         if self.changeCount:
             self._dumpTZs()
 
+
+
 class SecondaryTimezoneDatabase(CommonTimezoneDatabase):
     """
     Caches a database of timezones from another timezone service.
     """
-    
+
     def __init__(self, basepath, xmlfile, uri):
         super(SecondaryTimezoneDatabase, self).__init__(basepath, xmlfile)
         self.uri = uri
@@ -658,22 +695,24 @@ class SecondaryTimezoneDatabase(CommonTimezoneDatabase):
 
         if not os.path.exists(self.basepath):
             os.makedirs(self.basepath)
-            
+
         # Paths need to be writeable
         if not os.access(basepath, os.W_OK):
             raise ValueError("Secondary Timezone Service needs writeable zoneinfo path at: %s" % (basepath,))
         if os.path.exists(xmlfile) and not os.access(xmlfile, os.W_OK):
             raise ValueError("Secondary Timezone Service needs writeable xmlfile path at: %s" % (xmlfile,))
 
+
     def onStartup(self):
         return self.syncWithServer()
+
 
     @inlineCallbacks
     def syncWithServer(self):
         """
         Sync local data with that from the server we are replicating.
         """
-        
+
         log.debug("Sync'ing with secondary server")
         result = (yield self._getTimezoneListFromServer())
         if result is None:
@@ -681,18 +720,18 @@ class SecondaryTimezoneDatabase(CommonTimezoneDatabase):
             log.debug("No changes on secondary server")
             returnValue(None)
         newdtstamp, newtimezones = result
-        
+
         # Compare timezone infos
-        
+
         # New ones on the server
         newtzids = set(newtimezones.keys()) - set(self.timezones.keys())
-        
+
         # Check for changes
         changedtzids = set()
         for tzid in set(newtimezones.keys()) & set(self.timezones.keys()):
             if self.timezones[tzid].dtstamp < newtimezones[tzid].dtstamp:
                 changedtzids.add(tzid)
-        
+
         log.debug("Fetching %d new, %d changed timezones on secondary server" % (len(newtzids), len(changedtzids),))
 
         # Now apply changes - do requests in parallel for speedier fetching
@@ -708,15 +747,16 @@ class SecondaryTimezoneDatabase(CommonTimezoneDatabase):
         self._buildAliases()
 
         log.debug("Sync with secondary server complete")
-        
+
         returnValue((len(newtzids), len(changedtzids),))
-        
+
+
     @inlineCallbacks
     def _discoverServer(self):
         """
         Make sure we know the timezone service path
         """
-        
+
         if self.uri is None:
             if config.TimezoneService.SecondaryService.Host:
                 self.uri = "https://%s/.well-known/timezone" % (config.TimezoneService.SecondaryService.Host,)
@@ -724,7 +764,7 @@ class SecondaryTimezoneDatabase(CommonTimezoneDatabase):
                 self.uri = config.TimezoneService.SecondaryService.URI
         elif not self.uri.startswith("https:") and not self.uri.startswith("http:"):
             self.uri = "https://%s/.well-known/timezone" % (self.uri,)
-            
+
         testURI = "%s?action=capabilities" % (self.uri,)
         log.debug("Discovering secondary server: %s" % (testURI,))
         response = (yield getURL(testURI))
@@ -732,29 +772,30 @@ class SecondaryTimezoneDatabase(CommonTimezoneDatabase):
             log.error("Unable to discover secondary server: %s" % (testURI,))
             self.discovered = False
             returnValue(False)
-        
+
         # Cache the redirect target
         if hasattr(response, "location"):
-            self.uri = response.location 
+            self.uri = response.location
             log.debug("Redirected secondary server to: %s" % (self.uri,))
 
         # TODO: Ignoring the data from capabilities for now
 
         self.discovered = True
         returnValue(True)
-    
+
+
     @inlineCallbacks
     def _getTimezoneListFromServer(self):
         """
         Retrieve the timezone list from the specified server
         """
-        
+
         # Make sure we have the server
         if not self.discovered:
             result = (yield self._discoverServer())
             if not result:
                 returnValue(None)
-        
+
         # List all from the server
         url = "%s?action=list" % (self.uri,)
         if self.dtstamp:
@@ -763,25 +804,29 @@ class SecondaryTimezoneDatabase(CommonTimezoneDatabase):
         response = (yield getURL(url))
         if response is None or response.code / 100 != 2:
             returnValue(None)
-        
+
         ct = response.headers.getRawHeaders("content-type", ("bogus/type",))[0]
         ct = ct.split(";", 1)
         ct = ct[0]
-        if ct not in ("application/xml", "text/xml",):
+        if ct not in ("application/json",):
             returnValue(None)
-        
-        etroot, _ignore = readXMLString(response.data, timezonexml.TimezoneList.sname())
-        dtstamp = etroot.findtext(timezonexml.Dtstamp.sname())
-        timezones = {}
-        for summary in etroot.findall(timezonexml.Summary.sname()):
-            tzid = summary.findtext(timezonexml.Tzid.sname())
-            lastmod = summary.findtext(timezonexml.LastModified.sname())
-            aliases = tuple([alias_node.text for alias_node in summary.findall(timezonexml.Alias.sname())])
-            timezones[tzid] = TimezoneInfo(tzid, aliases, lastmod, None)
 
+        try:
+            jroot = json.loads(response.data)
+            dtstamp = jroot["dtstamp"]
+            timezones = {}
+            for timezone in jroot["timezones"]:
+                tzid = timezone["tzid"]
+                lastmod = timezone["last-modified"]
+                aliases = timezone.get("aliases", ())
+                timezones[tzid] = TimezoneInfo(tzid, aliases, lastmod, None)
+        except (ValueError, KeyError):
+            log.debug("Failed to parse JSON timezone list response: %s" % (response.data,))
+            returnValue(None)
         log.debug("Got %s timezones from secondary server" % (len(timezones),))
-        
+
         returnValue((dtstamp, timezones,))
+
 
     @inlineCallbacks
     def _getTimezoneFromServer(self, tzinfo):
@@ -791,14 +836,14 @@ class SecondaryTimezoneDatabase(CommonTimezoneDatabase):
         response = (yield getURL(url))
         if response is None or response.code / 100 != 2:
             returnValue(None)
-        
+
         ct = response.headers.getRawHeaders("content-type", ("bogus/type",))[0]
         ct = ct.split(";", 1)
         ct = ct[0]
         if ct not in ("text/calendar",):
             log.error("Invalid content-type '%s' for tzid : %s" % (ct, tzinfo.tzid,))
             returnValue(None)
-        
+
         ical = response.data
         try:
             calendar = PyCalendar.parseText(ical)
@@ -808,7 +853,7 @@ class SecondaryTimezoneDatabase(CommonTimezoneDatabase):
         ical = calendar.getText()
 
         tzinfo.md5 = hashlib.md5(ical).hexdigest()
-        
+
         try:
             tzpath = os.path.join(self.basepath, tzinfo.tzid) + ".ics"
             if not os.path.exists(os.path.dirname(tzpath)):
@@ -820,6 +865,7 @@ class SecondaryTimezoneDatabase(CommonTimezoneDatabase):
             log.error("Unable to write calendar file for %s: %s" % (tzinfo.tzid, str(e),))
         else:
             self.timezones[tzinfo.tzid] = tzinfo
+
 
     def _removeTimezone(self, tzid):
         tzpath = os.path.join(self.basepath, tzid) + ".ics"

@@ -406,15 +406,20 @@ DEFAULT_CONFIG = {
     # Authentication
     #
     "Authentication": {
-        "Basic": { "Enabled": False }, # Clear text; best avoided
+        "Basic": {                         # Clear text; best avoided
+            "Enabled": True,
+            "AllowedOverWireUnencrypted": False, # Advertised over non-SSL?
+        },
         "Digest": {                        # Digest challenge/response
             "Enabled": True,
             "Algorithm": "md5",
             "Qop": "",
+            "AllowedOverWireUnencrypted": True, # Advertised over non-SSL?
         },
         "Kerberos": {                       # Kerberos/SPNEGO
             "Enabled": False,
-            "ServicePrincipal": ""
+            "ServicePrincipal": "",
+            "AllowedOverWireUnencrypted": True, # Advertised over non-SSL?
         },
         "Wiki": {
             "Enabled": False,
@@ -983,6 +988,11 @@ DEFAULT_CONFIG = {
     # Inbox items created more than MigratedInboxDaysCutoff days in the past are removed
     # during migration
     "MigratedInboxDaysCutoff": 60,
+
+    # The default timezone for the server; on OS X you can leave this empty and the
+    # system's timezone will be used.  If empty and not on OS X it will default to
+    # America/Los_Angeles.
+    "DefaultTimezone" : "",
 
     "Includes": [], # Other plists to parse after this one
 }

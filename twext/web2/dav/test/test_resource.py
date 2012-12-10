@@ -240,6 +240,7 @@ class AccessTests(TestCase):
             self.rootresource,
             portal,
             credentialFactories,
+            credentialFactories,
             loginInterfaces,
         ))
 

@@ -215,14 +215,17 @@
 
       <key>params</key>
       <dict>
-        <key>restrictEnabledRecords</key>
-        <false/>
-        <key>restrictToGroup</key>
-        <string>odtestgrouptop</string>
+        <key>recordTypes</key>
+        <array>
+           <string>users</string>
+           <string>groups</string>
+           <string>locations</string>
+           <string>resources</string>
+        </array>
         <key>cacheTimeout</key>
-        <integer>30</integer>
+        <integer>10</integer>
         <key>uri</key>
-        <string>ldap://example.com/</string>
+        <string>ldap://ldapserver.example.com/</string>
         <key>tls</key>
         <false/>
         <key>tlsCACertFile</key>
@@ -234,96 +237,118 @@
         <key>credentials</key>
         <dict>
           <key>dn</key>
-          <string></string>
+          <string>uid=admin,ou=people,o=example.com</string>
           <key>password</key>
-          <string></string>
+          <string>PASSWORD</string>
         </dict>
-        <key>authMethod</key>
-        <string>LDAP</string>
         <key>rdnSchema</key>
         <dict>
           <key>base</key>
-          <string>dc=example,dc=com</string>
+          <string>o=example.com</string>
           <key>guidAttr</key>
-          <string>entryUUID</string>
+          <string>GUID</string>
           <key>users</key>
           <dict>
             <key>rdn</key>
-            <string>cn=users</string>
-            <key>attr</key>
-            <string>uid</string>
-            <key>emailSuffix</key>
-            <string></string>
-            <key>filter</key>
-            <string></string>
-            <key>loginEnabledAttr</key>
-            <string></string>
-            <key>loginEnabledValue</key>
-            <string>yes</string>
+            <string>ou=people</string>
             <key>mapping</key>
             <dict>
-              <key>recordName</key>
-              <string>uid</string>
-              <key>fullName</key>
-              <string>cn</string>
-              <key>emailAddresses</key>
-              <array>
-                  <string>mail</string>
-              </array>
-              <key>firstName</key>
-              <string>givenName</string>
-              <key>lastName</key>
-              <string>sn</string>
+                <key>recordName</key>
+                <string>uid</string>
+                <key>fullName</key>
+                <string>cn</string>
+                <key>emailAddresses</key>
+                <array>
+                    <string>mail</string>
+                    <string>mailAlias</string>
+                </array>
+                <key>firstName</key>
+                <string>givenName</string>
+                <key>lastName</key>
+                <string>sn</string>
             </dict>
           </dict>
           <key>groups</key>
           <dict>
             <key>rdn</key>
-            <string>cn=groups</string>
-            <key>attr</key>
-            <string>cn</string>
-            <key>emailSuffix</key>
-            <string></string>
-            <key>filter</key>
-            <string></string>
+            <string>ou=groups</string>
             <key>mapping</key>
             <dict>
-              <key>recordName</key>
-              <string>cn</string>
-              <key>fullName</key>
-              <string>cn</string>
-              <key>emailAddresses</key>
-              <array>
-                  <string>mail</string>
-              </array>
-              <key>firstName</key>
-              <string>givenName</string>
-              <key>lastName</key>
-              <string>sn</string>
+                <key>recordName</key>
+                <string>cn</string>
+                <key>fullName</key>
+                <string>cn</string>
+                <key>emailAddresses</key>
+                <array>
+                    <string>mail</string>
+                    <string>mailAlias</string>
+                </array>
+                <key>firstName</key>
+                <string></string>
+                <key>lastName</key>
+                <string></string>
+            </dict>
+          </dict>
+          <key>locations</key>
+          <dict>
+            <key>rdn</key>
+            <string>ou=locations</string>
+            <key>mapping</key>
+            <dict>
+                <key>recordName</key>
+                <string>cn</string>
+                <key>fullName</key>
+                <string>cn</string>
+                <key>emailAddresses</key>
+                <array>
+                </array>
+                <key>firstName</key>
+                <string></string>
+                <key>lastName</key>
+                <string></string>
+            </dict>
+          </dict>
+          <key>resources</key>
+          <dict>
+            <key>rdn</key>
+            <string>ou=resources</string>
+            <key>mapping</key>
+            <dict>
+                <key>recordName</key>
+                <string>cn</string>
+                <key>fullName</key>
+                <string>cn</string>
+                <key>emailAddresses</key>
+                <array>
+                </array>
+                <key>firstName</key>
+                <string></string>
+                <key>lastName</key>
+                <string></string>
             </dict>
           </dict>
         </dict>
         <key>groupSchema</key>
         <dict>
           <key>membersAttr</key>
-          <string>apple-group-memberguid</string>
+          <string>uniqueMember</string>
           <key>nestedGroupsAttr</key>
-          <string>apple-group-nestedgroup</string>
+          <string></string>
           <key>memberIdAttr</key>
-          <string>apple-generateduid</string>
+          <string></string>
         </dict>
         <key>resourceSchema</key>
         <dict>
-          <key>resourceInfoAttr</key>
-          <string>apple-resource-info</string>
-          <key>autoScheduleAttr</key>
-          <string></string>
-          <key>autoScheduleEnabledValue</key>
-          <string>yes</string>
-          <key>proxyAttr</key>
-          <string></string>
-          <key>readOnlyProxyAttr</key>
-          <string></string>
+         <key>resourceInfoAttr</key>
+         <string></string>
+         <key>autoScheduleAttr</key>
+         <string></string>
+         <key>autoScheduleEnabledValue</key>
+         <string></string>
+         <key>proxyAttr</key>
+         <string></string>
+         <key>readOnlyProxyAttr</key>
+         <string></string>
         </dict>
       </dict>
     </dict>
@@ -482,12 +507,16 @@
       <dict>
         <key>Enabled</key>
         <true/>
+        <key>AllowedOverWireUnencrypted</key> <!-- advertised over non SSL? -->
+        <true/>
       </dict>
 
       <!-- Digest challenge/response -->
       <key>Digest</key>
       <dict>
         <key>Enabled</key>
+        <true/>
+        <key>AllowedOverWireUnencrypted</key> <!-- advertised over non SSL? -->
         <true/>
         <key>Algorithm</key>
         <string>md5</string>
@@ -499,6 +528,8 @@
       <key>Kerberos</key>
       <dict>
         <key>Enabled</key>
+        <true/>
+        <key>AllowedOverWireUnencrypted</key> <!-- advertised over non SSL? -->
         <true/>
         <key>ServicePrincipal</key>
         <string></string>
@@ -877,6 +908,28 @@
     <!-- Timezone Service -->
     <key>EnableTimezoneService</key>
     <true/>
+
+    <!-- Standard Timezone Service -->
+    <key>TimezoneService</key>
+    <dict>
+    	<key>Enabled</key>
+    	<true/>
+    	<key>Mode</key>
+    	<string>primary</string>
+    	<key>BasePath</key>
+    	<string></string>
+    	<key>XMLInfoPath</key>
+    	<string></string>
+    	<key>SecondaryService</key>
+    	<dict>
+    		<key>Host</key>
+    		<string></string>
+    		<key>URI</key>
+    		<string></string>
+    		<key>UpdateIntervalMinutes</key>
+    		<integer>1440</integer>
+    	</dict>
+    </dict>
 
     <!-- Batch Upload via POST -->
     <key>EnableBatchUpload</key>

@@ -1277,6 +1277,7 @@ class CommonHomeChild(FileMetaDataMixin, LoggingMixIn, FancyEqMixin, HomeChildBa
         returnValue([])
 
 
+
 class CommonObjectResource(FileMetaDataMixin, LoggingMixIn, FancyEqMixin):
     """
     @ivar _path: The path of the file on disk

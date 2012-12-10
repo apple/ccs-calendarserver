@@ -127,7 +127,7 @@ def main():
         MonitorAMPNotifications,
     )
 
-def notificationCallback(id):
+def notificationCallback(id, dataChangedTimestamp):
     print "Received notification for:", id
     return succeed(True)
 
