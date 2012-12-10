@@ -35,7 +35,7 @@ create table NODE_INFO (
   PORT      integer not null,
   TIME      timestamp not null default timezone('UTC', CURRENT_TIMESTAMP),
 
-  primary key (HOSTNAME, PORT)
+  primary key(HOSTNAME, PORT)
 );
 
 
@@ -46,7 +46,7 @@ create table NODE_INFO (
 create table CALENDAR_HOME (
   RESOURCE_ID      integer      primary key default nextval('RESOURCE_ID_SEQ'), -- implicit index
   OWNER_UID        varchar(255) not null unique,                                 -- implicit index
-  DATAVERSION      integer      default 0 not null
+  DATAVERSION	   integer      default 0 not null
 );
 
 ----------------------------
@@ -201,7 +201,7 @@ create table CALENDAR_OBJECT (
   CREATED              timestamp    default timezone('UTC', CURRENT_TIMESTAMP),
   MODIFIED             timestamp    default timezone('UTC', CURRENT_TIMESTAMP),
 
-  unique (CALENDAR_RESOURCE_ID, RESOURCE_NAME) -- implicit index
+  unique(CALENDAR_RESOURCE_ID, RESOURCE_NAME) -- implicit index
 
   -- since the 'inbox' is a 'calendar resource' for the purpose of storing
   -- calendar objects, this constraint has to be selectively enforced by the
@@ -302,38 +302,25 @@ create table TRANSPARENCY (
 create index TRANSPARENCY_TIME_RANGE_INSTANCE_ID on
   TRANSPARENCY(TIME_RANGE_INSTANCE_ID);
 
-
 ----------------
 -- Attachment --
 ----------------
 
-create sequence ATTACHMENT_ID_SEQ;
-
 create table ATTACHMENT (
-  ATTACHMENT_ID               integer           primary key default nextval('ATTACHMENT_ID_SEQ'), -- implicit index
-  CALENDAR_HOME_RESOURCE_ID   integer           not null references CALENDAR_HOME,
-  DROPBOX_ID                  varchar(255),
-  CONTENT_TYPE                varchar(255)      not null,
-  SIZE                        integer           not null,
-  MD5                         char(32)          not null,
+  CALENDAR_HOME_RESOURCE_ID   integer       not null references CALENDAR_HOME,
+  DROPBOX_ID                  varchar(255)  not null,
+  CONTENT_TYPE                varchar(255)  not null,
+  SIZE                        integer       not null,
+  MD5                         char(32)      not null,
   CREATED                     timestamp default timezone('UTC', CURRENT_TIMESTAMP),
   MODIFIED                    timestamp default timezone('UTC', CURRENT_TIMESTAMP),
-  PATH                        varchar(1024)     not null
+  PATH                        varchar(1024) not null,
+
+  primary key(DROPBOX_ID, PATH) --implicit index
 );
 
 create index ATTACHMENT_CALENDAR_HOME_RESOURCE_ID on
   ATTACHMENT(CALENDAR_HOME_RESOURCE_ID);
-
--- Many-to-many relationship between attachments and calendar objects
-create table ATTACHMENT_CALENDAR_OBJECT (
-  ATTACHMENT_ID                  integer      not null references ATTACHMENT on delete cascade,
-  MANAGED_ID                     varchar(255) not null,
-  CALENDAR_OBJECT_RESOURCE_ID    integer      not null references CALENDAR_OBJECT on delete cascade,
-
-  primary key (ATTACHMENT_ID, CALENDAR_OBJECT_RESOURCE_ID), -- implicit index
-  unique (MANAGED_ID, CALENDAR_OBJECT_RESOURCE_ID) --implicit index
-);
-
 
 -----------------------
 -- Resource Property --
@@ -345,7 +332,7 @@ create table RESOURCE_PROPERTY (
   VALUE       text         not null, -- FIXME: xml?
   VIEWER_UID  varchar(255),
 
-  primary key (RESOURCE_ID, NAME, VIEWER_UID) -- implicit index
+  primary key(RESOURCE_ID, NAME, VIEWER_UID) -- implicit index
 );
 
 
@@ -356,7 +343,7 @@ create table RESOURCE_PROPERTY (
 create table ADDRESSBOOK_HOME (
   RESOURCE_ID      integer      primary key default nextval('RESOURCE_ID_SEQ'), -- implicit index
   OWNER_UID        varchar(255) not null unique,                                -- implicit index
-  DATAVERSION      integer      default 0 not null
+  DATAVERSION	   integer      default 0 not null
 );
 
 -------------------------------
@@ -410,8 +397,8 @@ create table ADDRESSBOOK_BIND (
   SEEN_BY_SHAREE               boolean      not null,
   MESSAGE                      text,                  -- FIXME: xml?
 
-  primary key (ADDRESSBOOK_HOME_RESOURCE_ID, ADDRESSBOOK_RESOURCE_ID), -- implicit index
-  unique (ADDRESSBOOK_HOME_RESOURCE_ID, ADDRESSBOOK_RESOURCE_NAME)     -- implicit index
+  primary key(ADDRESSBOOK_HOME_RESOURCE_ID, ADDRESSBOOK_RESOURCE_ID), -- implicit index
+  unique(ADDRESSBOOK_HOME_RESOURCE_ID, ADDRESSBOOK_RESOURCE_NAME)     -- implicit index
 );
 
 create index ADDRESSBOOK_BIND_RESOURCE_ID on
@@ -427,8 +414,8 @@ create table ADDRESSBOOK_OBJECT (
   CREATED                 timestamp    default timezone('UTC', CURRENT_TIMESTAMP),
   MODIFIED                timestamp    default timezone('UTC', CURRENT_TIMESTAMP),
 
-  unique (ADDRESSBOOK_RESOURCE_ID, RESOURCE_NAME), -- implicit index
-  unique (ADDRESSBOOK_RESOURCE_ID, VCARD_UID)      -- implicit index
+  unique(ADDRESSBOOK_RESOURCE_ID, RESOURCE_NAME), -- implicit index
+  unique(ADDRESSBOOK_RESOURCE_ID, VCARD_UID)      -- implicit index
 );
 
 ---------------
@@ -510,7 +497,7 @@ create table APN_SUBSCRIPTIONS (
   USER_AGENT                    varchar(255) default null,
   IP_ADDR                       varchar(255) default null,
 
-  primary key (TOKEN, RESOURCE_KEY) -- implicit index
+  primary key(TOKEN, RESOURCE_KEY) -- implicit index
 );
 
 create index APN_SUBSCRIPTIONS_RESOURCE_KEY
@@ -526,6 +513,6 @@ create table CALENDARSERVER (
   VALUE                         varchar(255)
 );
 
-insert into CALENDARSERVER values ('VERSION', '13');
+insert into CALENDARSERVER values ('VERSION', '12');
 insert into CALENDARSERVER values ('CALENDAR-DATAVERSION', '3');
 insert into CALENDARSERVER values ('ADDRESSBOOK-DATAVERSION', '1');

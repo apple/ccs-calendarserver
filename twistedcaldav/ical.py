@@ -67,9 +67,9 @@ allowedComponents = (
     "VEVENT",
     "VTODO",
     "VTIMEZONE",
-    #"VJOURNAL",
+    # "VJOURNAL",
     "VFREEBUSY",
-    #"VAVAILABILITY",
+    # "VAVAILABILITY",
 )
 
 # 2445 default values and parameters
@@ -172,7 +172,8 @@ class Property (object):
             self._pycalendar = pyobj
         else:
             # Convert params dictionary to list of lists format used by pycalendar
-            self._pycalendar = PyCalendarProperty(name, value)
+            valuetype = kwargs.get("valuetype")
+            self._pycalendar = PyCalendarProperty(name, value, valuetype=valuetype)
             for attrname, attrvalue in params.items():
                 self._pycalendar.addAttribute(PyCalendarAttribute(attrname, attrvalue))
 
@@ -1639,8 +1640,8 @@ class Component (object):
         timezone_refs = set()
         timezones = set()
         got_master = False
-        #got_override     = False
-        #master_recurring = False
+        # got_override     = False
+        # master_recurring = False
 
         for subcomponent in self.subcomponents():
             if subcomponent.name() == "VTIMEZONE":
@@ -1790,9 +1791,9 @@ class Component (object):
         else:
             return None
 
-    ##
+    # #
     # iTIP stuff
-    ##
+    # #
 
 
     def isValidMethod(self):
@@ -2247,6 +2248,77 @@ class Component (object):
             if component.name() in ignoredComponents:
                 continue
             component.replaceProperty(property)
+
+
+    def hasPropertyWithParameterMatch(self, propname, param_name, param_value, param_value_is_default=False):
+        """
+        See if property whose name, and parameter name, value match in any components.
+
+        @param property: the L{Property} to replace in this component.
+        @param param_name: the C{str} of parameter name to match.
+        @param param_value: the C{str} of parameter value to match, if C{None} then just match on the
+            presence of the parameter name.
+        @param param_value_is_default: C{bool} to indicate whether absence of the named parameter
+            also implies a match
+
+        @return: C{True} if matching property found, C{False} if not
+        @rtype: C{bool}
+        """
+
+        if self.name() == "VCALENDAR":
+            for component in self.subcomponents():
+                if component.name() in ignoredComponents:
+                    continue
+                if component.hasPropertyWithParameterMatch(propname, param_name, param_value, param_value_is_default):
+                    return True
+        else:
+            for oldprop in tuple(self.properties(propname)):
+                pvalue = oldprop.parameterValue(param_name)
+                if pvalue is None and param_value_is_default or pvalue == param_value or param_value is None:
+                    return True
+
+        return False
+
+
+    def replaceAllPropertiesWithParameterMatch(self, property, param_name, param_value, param_value_is_default=False):
+        """
+        Replace a property whose name, and parameter name, value match in all components.
+
+        @param property: the L{Property} to replace in this component.
+        @param param_name: the C{str} of parameter name to match.
+        @param param_value: the C{str} of parameter value to match.
+        @param param_value_is_default: C{bool} to indicate whether absence of the named parameter
+            also implies a match
+        """
+
+        if self.name() == "VCALENDAR":
+            for component in self.subcomponents():
+                if component.name() in ignoredComponents:
+                    continue
+                component.replaceAllPropertiesWithParameterMatch(property, param_name, param_value, param_value_is_default)
+        else:
+            for oldprop in tuple(self.properties(property.name())):
+                pvalue = oldprop.parameterValue(param_name)
+                if pvalue is None and param_value_is_default or pvalue == param_value:
+                    self.removeProperty(oldprop)
+                    self.addProperty(property)
+
+
+    def removeAllPropertiesWithParameterMatch(self, propname, param_name, param_value, param_value_is_default=False):
+        """
+        Remove all properties whose name, and parameter name, value match in all components.
+        """
+
+        if self.name() == "VCALENDAR":
+            for component in self.subcomponents():
+                if component.name() in ignoredComponents:
+                    continue
+                component.removeAllPropertiesWithParameterMatch(propname, param_name, param_value, param_value_is_default)
+        else:
+            for oldprop in tuple(self.properties(propname)):
+                pvalue = oldprop.parameterValue(param_name)
+                if pvalue is None and param_value_is_default or pvalue == param_value:
+                    self.removeProperty(oldprop)
 
 
     def transferProperties(self, from_calendar, properties):
@@ -3054,9 +3126,9 @@ END:VCALENDAR
 
 
 
-##
+# #
 # Timezones
-##
+# #
 
 def tzexpand(tzdata, start, end):
     """
@@ -3160,9 +3232,9 @@ def tzexpandlocal(tzdata, start, end):
 
 
 
-##
+# #
 # Utilities
-##
+# #
 
 def normalizeCUAddress(cuaddr, lookupFunction, principalFunction, toUUID=True):
     # Check that we can lookup this calendar user address - if not

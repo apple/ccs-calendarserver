@@ -36,7 +36,7 @@ def _populateSchema(version=None):
     """
     Generate the global L{SchemaSyntax}.
     """
-    
+
     if version is None:
         pathObj = getModule(__name__).filePath.sibling("sql_schema").child("current.sql")
     else:
@@ -102,7 +102,7 @@ def _combine(**kw):
     result = {}
     for tableRole, tableDictionary in kw.items():
         result.update([("%s:%s" % (tableRole, k), v)
-                       for k,v in tableDictionary.items()])
+                       for k, v in tableDictionary.items()])
     return result
 
 
@@ -114,8 +114,8 @@ def _S(tableSyntax):
     """
     result = {}
     result['name'] = tableSyntax.model.name
-    #pkey = tableSyntax.model.primaryKey
-    #if pkey is not None:
+    # pkey = tableSyntax.model.primaryKey
+    # if pkey is not None:
     #    default = pkey.default
     #    if isinstance(default, Sequence):
     #        result['sequence'] = default.name
@@ -147,18 +147,18 @@ _bindStatus = _schemaConstants(
     schema.CALENDAR_BIND_STATUS.ID
 )
 
-_BIND_STATUS_INVITED  = _bindStatus('invited')
+_BIND_STATUS_INVITED = _bindStatus('invited')
 _BIND_STATUS_ACCEPTED = _bindStatus('accepted')
 _BIND_STATUS_DECLINED = _bindStatus('declined')
-_BIND_STATUS_INVALID  = _bindStatus('invalid')
+_BIND_STATUS_INVALID = _bindStatus('invalid')
 
 _attachmentsMode = _schemaConstants(
     schema.CALENDAR_OBJECT_ATTACHMENTS_MODE.DESCRIPTION,
     schema.CALENDAR_OBJECT_ATTACHMENTS_MODE.ID
 )
 
-_ATTACHMENTS_MODE_NONE  = _attachmentsMode('none')
-_ATTACHMENTS_MODE_READ  = _attachmentsMode('read')
+_ATTACHMENTS_MODE_NONE = _attachmentsMode('none')
+_ATTACHMENTS_MODE_READ = _attachmentsMode('read')
 _ATTACHMENTS_MODE_WRITE = _attachmentsMode('write')
 
 
@@ -175,20 +175,20 @@ _BIND_MODE_DIRECT = _bindMode('direct')
 
 
 # Compatibility tables for string formatting:
-CALENDAR_HOME_TABLE                 = _S(schema.CALENDAR_HOME)
-CALENDAR_HOME_METADATA_TABLE        = _S(schema.CALENDAR_HOME_METADATA)
-ADDRESSBOOK_HOME_TABLE              = _S(schema.ADDRESSBOOK_HOME)
-ADDRESSBOOK_HOME_METADATA_TABLE     = _S(schema.ADDRESSBOOK_HOME_METADATA)
-NOTIFICATION_HOME_TABLE             = _S(schema.NOTIFICATION_HOME)
-CALENDAR_TABLE                      = _S(schema.CALENDAR)
-ADDRESSBOOK_TABLE                   = _S(schema.ADDRESSBOOK)
-CALENDAR_BIND_TABLE                 = _S(schema.CALENDAR_BIND)
-ADDRESSBOOK_BIND_TABLE              = _S(schema.ADDRESSBOOK_BIND)
-CALENDAR_OBJECT_REVISIONS_TABLE     = _S(schema.CALENDAR_OBJECT_REVISIONS)
-ADDRESSBOOK_OBJECT_REVISIONS_TABLE  = _S(schema.ADDRESSBOOK_OBJECT_REVISIONS)
+CALENDAR_HOME_TABLE = _S(schema.CALENDAR_HOME)
+CALENDAR_HOME_METADATA_TABLE = _S(schema.CALENDAR_HOME_METADATA)
+ADDRESSBOOK_HOME_TABLE = _S(schema.ADDRESSBOOK_HOME)
+ADDRESSBOOK_HOME_METADATA_TABLE = _S(schema.ADDRESSBOOK_HOME_METADATA)
+NOTIFICATION_HOME_TABLE = _S(schema.NOTIFICATION_HOME)
+CALENDAR_TABLE = _S(schema.CALENDAR)
+ADDRESSBOOK_TABLE = _S(schema.ADDRESSBOOK)
+CALENDAR_BIND_TABLE = _S(schema.CALENDAR_BIND)
+ADDRESSBOOK_BIND_TABLE = _S(schema.ADDRESSBOOK_BIND)
+CALENDAR_OBJECT_REVISIONS_TABLE = _S(schema.CALENDAR_OBJECT_REVISIONS)
+ADDRESSBOOK_OBJECT_REVISIONS_TABLE = _S(schema.ADDRESSBOOK_OBJECT_REVISIONS)
 NOTIFICATION_OBJECT_REVISIONS_TABLE = _S(schema.NOTIFICATION_OBJECT_REVISIONS)
-CALENDAR_OBJECT_TABLE               = _S(schema.CALENDAR_OBJECT)
-ADDRESSBOOK_OBJECT_TABLE            = _S(schema.ADDRESSBOOK_OBJECT)
+CALENDAR_OBJECT_TABLE = _S(schema.CALENDAR_OBJECT)
+ADDRESSBOOK_OBJECT_TABLE = _S(schema.ADDRESSBOOK_OBJECT)
 
 # Some combined tables used in join-string-formatting.
 CALENDAR_AND_CALENDAR_BIND = _combine(CHILD=CALENDAR_TABLE,
@@ -322,12 +322,12 @@ def _translateSchema(out, schema=schema):
                         elif default is False:
                             default = 0
                         out.write(" " + repr(default))
-            if ( (not column.model.canBeNull())
+            if ((not column.model.canBeNull())
                  # Oracle treats empty strings as NULLs, so we have to accept
                  # NULL values in columns of a string type.  Other types should
                  # be okay though.
                  and typeName not in ('varchar', 'nclob', 'char', 'nchar',
-                                      'nvarchar', 'nvarchar2') ):
+                                      'nvarchar', 'nvarchar2')):
                 out.write(' not null')
             if [column.model] in list(table.model.uniques()):
                 out.write(' unique')
@@ -387,11 +387,8 @@ def _translateSchema(out, schema=schema):
 if __name__ == '__main__':
     import sys
     if len(sys.argv) == 2:
-        # Argument is the name of a old/postgres-dialect file (without the .sql suffix), e.g. "v4" 
+        # Argument is the name of a old/postgres-dialect file (without the .sql suffix), e.g. "v4"
         schema = _populateSchema(sys.argv[1])
     else:
         schema = _populateSchema()
     _translateSchema(sys.stdout, schema=schema)
-
-
-

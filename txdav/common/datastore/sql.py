@@ -147,7 +147,8 @@ class CommonDataStore(Service, object):
 
     implements(ICalendarStore)
 
-    def __init__(self, sqlTxnFactory, notifierFactory, attachmentsPath,
+    def __init__(self, sqlTxnFactory, notifierFactory,
+                 attachmentsPath, attachmentsURIPattern,
                  enableCalendars=True, enableAddressBooks=True,
                  label="unlabeled", quota=(2 ** 20),
                  logLabels=False, logStats=False, logStatsLogFile=None, logSQL=False,
@@ -159,6 +160,7 @@ class CommonDataStore(Service, object):
         self.sqlTxnFactory = sqlTxnFactory
         self.notifierFactory = notifierFactory
         self.attachmentsPath = attachmentsPath
+        self.attachmentsURIPattern = attachmentsURIPattern
         self.enableCalendars = enableCalendars
         self.enableAddressBooks = enableAddressBooks
         self.label = label
@@ -836,6 +838,7 @@ class CommonStoreTransaction(object):
             a = ("-- Label: %s\n" % (self._label.replace("%", "%%"),) + a[0],) + a[1:]
         if self._store.logSQL:
             log.error("SQL: %r %r" % (a, kw,))
+        results = None
         try:
             results = (yield self._sqlTxn.execSQL(*a, **kw))
         finally:
@@ -1006,13 +1009,13 @@ class CommonStoreTransaction(object):
         """
 
         # TODO: see if there is a better way to import Attachment
-        from txdav.caldav.datastore.sql import Attachment
+        from txdav.caldav.datastore.sql import DropBoxAttachment
 
         results = (yield self.orphanedAttachments(batchSize=batchSize))
         count = 0
         for dropboxID, path in results:
-            attachment = Attachment(self, dropboxID, path)
-            (yield attachment.remove())
+            attachment = (yield DropBoxAttachment.load(self, dropboxID, path))
+            yield attachment.remove()
             count += 1
         returnValue(count)
 
@@ -1585,6 +1588,34 @@ class CommonHome(LoggingMixIn):
                     results.append(objectResource)
 
         returnValue(results)
+
+
+    @classmethod
+    def _objectResourceIDQuery(cls):
+        obj = cls._objectSchema
+        return Select(
+            [obj.PARENT_RESOURCE_ID],
+            From=obj,
+            Where=(obj.RESOURCE_ID == Parameter("resourceID")),
+        )
+
+
+    @inlineCallbacks
+    def objectResourceWithID(self, rid):
+        """
+        Return all child object resources with the specified resource-ID.
+        """
+        rows = (yield self._objectResourceIDQuery().on(
+            self._txn, resourceID=rid
+        ))
+        if rows and len(rows) == 1:
+            child = (yield self.childWithID(rows[0][0]))
+            objectResource = (
+                yield child.objectResourceWithID(rid)
+            )
+            returnValue(objectResource)
+
+        returnValue(None)
 
 
     @classproperty
@@ -3288,13 +3319,18 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic, HomeChildBas
 
 
     @classproperty
-    def _moveParentUpdateQuery(cls): #@NoSelf
+    def _moveParentUpdateQuery(cls, adjustName=False): #@NoSelf
         """
         DAL query to update a child to be in a new parent.
         """
         obj = cls._objectSchema
+        cols = {
+            obj.PARENT_RESOURCE_ID: Parameter("newParentID")
+        }
+        if adjustName:
+            cols[obj.RESOURCE_NAME] = Parameter("newName")
         return Update(
-            {obj.PARENT_RESOURCE_ID: Parameter("newParentID")},
+            cols,
             Where=obj.RESOURCE_ID == Parameter("resourceID")
         )
 
@@ -3308,7 +3344,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic, HomeChildBas
 
 
     @inlineCallbacks
-    def moveObjectResource(self, child, newparent):
+    def moveObjectResource(self, child, newparent, newname=None):
         """
         Move a child of this collection into another collection without actually removing/re-inserting the data.
         Make sure sync and cache details for both collections are updated.
@@ -3320,10 +3356,18 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic, HomeChildBas
         @type child: L{CommonObjectResource}
         @param newparent: the parent to move to
         @type newparent: L{CommonHomeChild}
+        @param newname: new name to use in new parent
+        @type newname: C{str} or C{None} for existing name
         """
+
+        if newname and newname.startswith("."):
+            raise ObjectResourceNameNotAllowedError(newname)
 
         name = child.name()
         uid = child.uid()
+
+        if newname is None:
+            newname = name
 
         # Clean this collections cache and signal sync change
         self._objects.pop(name, None)
@@ -3332,17 +3376,32 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic, HomeChildBas
         yield self._deleteRevision(name)
         yield self.notifyChanged()
 
-        # Adjust the child to be a child of the new parent and update ancillary tables
-        yield self._moveParentUpdateQuery.on(
+        # Handle cases where move is within the same collection or to a different collection
+        # with/without a name change
+        obj = self._objectSchema
+        cols = {}
+        if newparent._resourceID != self._resourceID:
+            cols[obj.PARENT_RESOURCE_ID] = Parameter("newParentID")
+        if newname != name:
+            cols[obj.RESOURCE_NAME] = Parameter("newName")
+        yield Update(
+            cols,
+            Where=obj.RESOURCE_ID == Parameter("resourceID")
+        ).on(
             self._txn,
+            resourceID=child._resourceID,
             newParentID=newparent._resourceID,
-            resourceID=child._resourceID
+            newName=newname,
         )
-        yield self._movedObjectResource(child, newparent)
+
+        # Only signal a move when parent is different
+        if newparent._resourceID != self._resourceID:
+            yield self._movedObjectResource(child, newparent)
+
         child._parentCollection = newparent
 
         # Signal sync change on new collection
-        yield newparent._insertRevision(name)
+        yield newparent._insertRevision(newname)
         yield newparent.notifyChanged()
 
 
@@ -3854,6 +3913,21 @@ class CommonObjectResource(LoggingMixIn, FancyEqMixin):
         DAL statement to delete a L{CommonObjectResource} by its resource ID.
         """
         return Delete(cls._objectSchema, Where=cls._objectSchema.RESOURCE_ID == Parameter("resourceID"))
+
+
+    def moveTo(self, destination, name):
+        """
+        Move object to another collection.
+
+        @param destination: parent collection to move to
+        @type destination: L{CommonHomeChild}
+        @param name: new name in destination
+        @type name: C{str} or C{None} to use existing name
+        """
+
+        if name and name.startswith("."):
+            raise ObjectResourceNameNotAllowedError(name)
+        return self._parentCollection.moveObjectResource(self, destination, name)
 
 
     @inlineCallbacks
