@@ -72,7 +72,7 @@ class AuthenticationWrapper(WrapperResource):
         req.loginInterfaces = self.loginInterfaces
 
         # If not using SSL, use the factory list which excludes "Basic"
-        if req.chanRequest is None: # This is only None in unit tests
+        if getattr(req, "chanRequest", None) is None: # This is only None in unit tests
             secureConnection = True
         else:
             ignored, secureConnection = req.chanRequest.getHostInfo()

@@ -18,7 +18,6 @@
 
 import os
 import sys
-import traceback
 from errno import ENOENT, EACCES
 from getopt import getopt, GetoptError
 
@@ -775,7 +774,6 @@ def purgeUID(store, uid, directory, root, verbose=False, dryrun=False, proxies=T
                                 except Exception, e:
                                     print "Exception deleting %s/%s/%s: %s" % (uid,
                                         collName, childName, str(e))
-                                    traceback.print_stack()
                                     retry = True
 
                                 if retry and doimplicit:
@@ -790,7 +788,6 @@ def purgeUID(store, uid, directory, root, verbose=False, dryrun=False, proxies=T
                                             incrementCount = True
                                     except Exception, e:
                                         print "Still couldn't delete %s/%s/%s even with implicit scheduling turned off: %s" % (uid, collName, childName, str(e))
-                                        traceback.print_stack()
 
                             if incrementCount:
                                 count += 1
