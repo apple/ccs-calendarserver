@@ -40,7 +40,7 @@ from twistedcaldav.extensions import DAVFile, ReadOnlyResourceMixIn
 
 from twisted.internet.defer import succeed
 
-from calendarserver.platform.darwin.timezone import getLocalTimezone
+from twext.python.timezone import getLocalTimezone
 
 
 class WebCalendarResource (ReadOnlyResourceMixIn, DAVFile):

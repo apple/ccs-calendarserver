@@ -16,9 +16,9 @@
 
 from twistedcaldav.test.util import TestCase
 from twistedcaldav.config import config
-import calendarserver.platform.darwin.timezone
+import twext.python.timezone
 import twistedcaldav.timezones
-from calendarserver.platform.darwin.timezone import getLocalTimezone, DEFAULT_TIMEZONE
+from twext.python.timezone import getLocalTimezone, DEFAULT_TIMEZONE
 
 class DefaultTimezoneTests(TestCase):
 
@@ -29,8 +29,7 @@ class DefaultTimezoneTests(TestCase):
         return self._storedHasTZ.pop()
 
     def setUp(self):
-        self.patch(calendarserver.platform.darwin.timezone,
-            "lookupSystemTimezone", self.stubLookup)
+        self.patch(twext.python.timezone, "lookupSystemTimezone", self.stubLookup)
         self.patch(twistedcaldav.timezones,
             "hasTZ", self.stubHasTZ)
 
