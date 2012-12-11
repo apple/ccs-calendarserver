@@ -901,6 +901,10 @@
     <key>EnableDropBox</key>
     <true/>
 
+    <!-- Calendar Managed Attachments -->
+    <key>EnableManagedAttachments</key>
+    <true/>
+
     <!-- Private Events -->
     <key>EnablePrivateEvents</key>
     <true/>

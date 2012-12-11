@@ -525,7 +525,7 @@ DEFAULT_CONFIG = {
     "EnableWellKnown"             : True, # /.well-known resource
     "EnableCalendarQueryExtended" : True, # Extended calendar-query REPORT
 
-    "EnableManagedAttachments"    : True, # Support Managed Attachments
+    "EnableManagedAttachments"    : False, # Support Managed Attachments
 
     #
     # Non-standard CalDAV extensions
