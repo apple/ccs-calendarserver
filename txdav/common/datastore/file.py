@@ -294,7 +294,7 @@ class CommonStoreTransaction(DataStoreTransaction):
         returnValue([kv[1] for kv in sorted(self._determineMemo(storeType, None).items(), key=lambda x: x[0])])
 
 
-    @memoizedKey("uid", _determineMemo)
+    @memoizedKey("uid", _determineMemo, deferredResult=False)
     def homeWithUID(self, storeType, uid, create=False):
         if uid.startswith("."):
             return None
@@ -305,7 +305,7 @@ class CommonStoreTransaction(DataStoreTransaction):
         return self._homeClass[storeType].homeWithUID(self, uid, create, storeType == ECALENDARTYPE)
 
 
-    @memoizedKey("uid", "_notificationHomes")
+    @memoizedKey("uid", "_notificationHomes", deferredResult=False)
     def notificationsWithUID(self, uid, home=None):
 
         if home is None:
@@ -832,6 +832,15 @@ class CommonHome(FileMetaDataMixin, LoggingMixIn):
             if object:
                 results.append(object)
         return results
+
+
+    def objectResourceWithID(self, rid):
+        """
+        Return all child object resources with the specified resource-ID.
+        """
+
+        # File store does not have resource ids.
+        raise NotImplementedError
 
 
     def quotaUsedBytes(self):

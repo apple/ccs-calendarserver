@@ -1400,3 +1400,16 @@ END:VCALENDAR
         resources.sort(key=lambda x:x._name)
         prop = caldavxml.CalendarDescription.fromString("p2")
         self.assertEqual(resources[0].properties()[PropertyName.fromElement(prop)], prop)
+
+    @inlineCallbacks
+    def test_objectResourceWithID(self):
+        """
+        L{ICalendarHome.objectResourceWithID} will return the calendar object..
+        """
+        home = yield self.homeUnderTest()
+        calendarObject = (yield home.objectResourceWithID(9999))
+        self.assertEquals(calendarObject, None)
+
+        obj = (yield self.calendarObjectUnderTest())
+        calendarObject = (yield home.objectResourceWithID(obj._resourceID))
+        self.assertNotEquals(calendarObject, None)

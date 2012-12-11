@@ -18,7 +18,6 @@
 
 import os
 import sys
-import traceback
 from errno import ENOENT, EACCES
 from getopt import getopt, GetoptError
 
@@ -687,7 +686,7 @@ def purgeUID(store, uid, directory, root, verbose=False, dryrun=False, proxies=T
 
     # Anything in the past is left alone
     whenString = when.getText()
-    filter = caldavxml.Filter(
+    filter =  caldavxml.Filter(
           caldavxml.ComponentFilter(
               caldavxml.ComponentFilter(
                   TimeRange(start=whenString,),
@@ -774,7 +773,6 @@ def purgeUID(store, uid, directory, root, verbose=False, dryrun=False, proxies=T
                                 except Exception, e:
                                     print "Exception deleting %s/%s/%s: %s" % (uid,
                                         collName, childName, str(e))
-                                    traceback.print_stack()
                                     retry = True
 
                                 if retry and doimplicit:
@@ -789,7 +787,6 @@ def purgeUID(store, uid, directory, root, verbose=False, dryrun=False, proxies=T
                                             incrementCount = True
                                     except Exception, e:
                                         print "Still couldn't delete %s/%s/%s even with implicit scheduling turned off: %s" % (uid, collName, childName, str(e))
-                                        traceback.print_stack()
 
                             if incrementCount:
                                 count += 1
@@ -841,8 +838,8 @@ def purgeUID(store, uid, directory, root, verbose=False, dryrun=False, proxies=T
         # Remove VCards
         storeAbHome = (yield txn.addressbookHomeWithUID(uid))
         if storeAbHome is not None:
-            for abColl in list((yield storeAbHome.addressbooks())):
-                for card in list((yield abColl.addressbookObjects())):
+            for abColl in list( (yield storeAbHome.addressbooks()) ):
+                for card in list( (yield abColl.addressbookObjects()) ):
                     cardName = card.name()
                     if verbose:
                         uri = "/addressbooks/__uids__/%s/%s/%s" % (uid, abColl.name(), cardName)

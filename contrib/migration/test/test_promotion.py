@@ -29,6 +29,8 @@ class PromotionTests(twistedcaldav.test.util.TestCase):
 
         orig = {
             "ignored" : "ignored",
+            "RunRoot" : "xyzzy",
+            "PIDFile" : "plugh",
         }
         expected = {
             "ignored" : "ignored",

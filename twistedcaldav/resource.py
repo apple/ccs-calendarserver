@@ -2551,6 +2551,12 @@ class CalendarHomeResource(DefaultAlarmPropertyMixin, CommonHomeResource):
             (customxml.calendarserver_namespace, "xmpp-heartbeat-uri"),
             (customxml.calendarserver_namespace, "xmpp-server"),
         )
+
+        if config.EnableManagedAttachments:
+            existing += (
+                caldavxml.ManagedAttachmentsServerURL.qname(),
+            )
+
         return existing
 
 
@@ -2579,6 +2585,14 @@ class CalendarHomeResource(DefaultAlarmPropertyMixin, CommonHomeResource):
                 prop = caldavxml.SupportedCalendarComponentSets()
             returnValue(prop)
 
+        elif qname == caldavxml.ManagedAttachmentsServerURL.qname():
+            if config.EnableManagedAttachments:
+                # The HRef is empty - this will force the client to treat all managed attachment URLs
+                # as relative to this server scheme/host.
+                returnValue(caldavxml.ManagedAttachmentsServerURL(element.HRef.fromString("")))
+            else:
+                returnValue(None)
+
         result = (yield super(CalendarHomeResource, self).readProperty(property, request))
         returnValue(result)
 
@@ -2595,6 +2609,10 @@ class CalendarHomeResource(DefaultAlarmPropertyMixin, CommonHomeResource):
         if config.EnableDropBox:
             from twistedcaldav.storebridge import DropboxCollection
             self._provisionedChildren["dropbox"] = DropboxCollection
+
+        if config.EnableManagedAttachments:
+            from twistedcaldav.storebridge import AttachmentsCollection
+            self._provisionedChildren["attachments"] = AttachmentsCollection
 
         if config.FreeBusyURL.Enabled:
             from twistedcaldav.freebusyurl import FreeBusyURLResource

@@ -368,6 +368,18 @@ class Calendar(CommonHomeChild):
         # TODO: implement this for filestore
         pass
 
+
+    def creatingResourceCheckAttachments(self, component):
+        """
+        When component data is created or changed we need to look for changes related to managed attachments.
+
+        @param component: the new calendar data
+        @type component: L{Component}
+        """
+        return succeed(None)
+
+
+
 class CalendarObject(CommonObjectResource, CalendarObjectBase):
     """
     @ivar _path: The path of the .ics file on disk
@@ -602,6 +614,19 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
     hasPrivateComment = property(_get_hasPrivateComment, _set_hasPrivateComment)
 
+
+    def addAttachment(self, pathpattern, rids, content_type, filename, stream):
+        raise NotImplementedError
+
+
+    def updateAttachment(self, pathpattern, managed_id, content_type, filename, stream):
+        raise NotImplementedError
+
+
+    def removeAttachment(self, rids, managed_id):
+        raise NotImplementedError
+
+
     @inlineCallbacks
     def createAttachmentWithName(self, name):
         """
@@ -708,7 +733,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
 class AttachmentStorageTransport(StorageTransportBase):
 
-    def __init__(self, attachment, contentType):
+    def __init__(self, attachment, contentType, dispositionName):
         """
         Initialize this L{AttachmentStorageTransport} and open its file for
         writing.
@@ -717,7 +742,7 @@ class AttachmentStorageTransport(StorageTransportBase):
         @type attachment: L{Attachment}
         """
         super(AttachmentStorageTransport, self).__init__(
-            attachment, contentType)
+            attachment, contentType, dispositionName)
         self._path = self._attachment._path.temporarySibling()
         self._file = self._path.open("w")
 
@@ -785,8 +810,8 @@ class Attachment(FileMetaDataMixin):
         return propStoreClass(uid, lambda: self._path)
 
 
-    def store(self, contentType):
-        return AttachmentStorageTransport(self, contentType)
+    def store(self, contentType, dispositionName=None):
+        return AttachmentStorageTransport(self, contentType, dispositionName)
 
 
     def retrieve(self, protocol):

@@ -25,11 +25,18 @@ __all__ = [
     "CalendarObject",
 ]
 
+from twext.enterprise.dal.syntax import Delete
+from twext.enterprise.dal.syntax import Insert
+from twext.enterprise.dal.syntax import Len
+from twext.enterprise.dal.syntax import Parameter
+from twext.enterprise.dal.syntax import Select, Count, ColumnSyntax
+from twext.enterprise.dal.syntax import Update
+from twext.enterprise.dal.syntax import utcNowSQL
 from twext.python.clsprop import classproperty
-from twext.python.vcomponent import VComponent
-from txdav.xml.rfc2518 import ResourceType
-from twext.web2.http_headers import MimeType, generateContentType
 from twext.python.filepath import CachingFilePath
+from twext.python.vcomponent import VComponent
+from twext.web2.http_headers import MimeType, generateContentType
+from twext.web2.stream import readStream
 
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.python import hashlib
@@ -39,15 +46,19 @@ from twistedcaldav.caldavxml import ScheduleCalendarTransp, Opaque
 from twistedcaldav.config import config
 from twistedcaldav.dateops import normalizeForIndex, datetimeMktime, \
     parseSQLTimestamp, pyCalendarTodatetime, parseSQLDateToPyCalendar
-from twistedcaldav.ical import Component, InvalidICalendarDataError
+from twistedcaldav.ical import Component, InvalidICalendarDataError, Property
 from twistedcaldav.instance import InvalidOverriddenInstanceError
 from twistedcaldav.memcacher import Memcacher
 
 from txdav.base.propertystore.base import PropertyName
+from txdav.caldav.datastore.util import AttachmentRetrievalTransport
+from txdav.caldav.datastore.util import CalendarObjectBase
+from txdav.caldav.datastore.util import StorageTransportBase
 from txdav.caldav.datastore.util import validateCalendarComponent, \
     dropboxIDFromCalendarObject
 from txdav.caldav.icalendarstore import ICalendarHome, ICalendar, ICalendarObject, \
-    IAttachment
+    IAttachment, AttachmentStoreFailed, AttachmentStoreValidManagedID
+from txdav.caldav.icalendarstore import QuotaExceeded
 from txdav.common.datastore.sql import CommonHome, CommonHomeChild, \
     CommonObjectResource, ECALENDARTYPE
 from txdav.common.datastore.sql_legacy import PostgresLegacyIndexEmulator, \
@@ -58,30 +69,19 @@ from txdav.common.datastore.sql_tables import CALENDAR_TABLE, \
     CALENDAR_HOME_TABLE, CALENDAR_HOME_METADATA_TABLE, \
     CALENDAR_AND_CALENDAR_BIND, CALENDAR_OBJECT_REVISIONS_AND_BIND_TABLE, \
     CALENDAR_OBJECT_AND_BIND_TABLE, schema
-from twext.enterprise.dal.syntax import Select, Count, ColumnSyntax
-from twext.enterprise.dal.syntax import Insert
-from twext.enterprise.dal.syntax import Update
-from twext.enterprise.dal.syntax import Delete
-from twext.enterprise.dal.syntax import Parameter
-from twext.enterprise.dal.syntax import utcNowSQL
-from twext.enterprise.dal.syntax import Len
-
-from txdav.caldav.datastore.util import CalendarObjectBase
-from txdav.caldav.icalendarstore import QuotaExceeded
-
-from txdav.caldav.datastore.util import StorageTransportBase
 from txdav.common.icommondatastore import IndexedSearchException, \
     InternalDataStoreError, HomeChildNameAlreadyExistsError, \
     HomeChildNameNotAllowedError
+from txdav.xml.rfc2518 import ResourceType
 
 from pycalendar.datetime import PyCalendarDateTime
 from pycalendar.duration import PyCalendarDuration
 from pycalendar.timezone import PyCalendarTimezone
-
-from txdav.caldav.datastore.util import AttachmentRetrievalTransport
+from pycalendar.value import PyCalendarValue
 
 from zope.interface.declarations import implements
 
+import collections
 import os
 import tempfile
 import uuid
@@ -115,7 +115,6 @@ class CalendarHome(CommonHome):
         self._childClass = Calendar
         super(CalendarHome, self).__init__(transaction, ownerUID, notifiers)
 
-
     createCalendarWithName = CommonHome.createChildWithName
     removeCalendarWithName = CommonHome.removeChildWithName
     calendarWithName = CommonHome.childWithName
@@ -128,28 +127,10 @@ class CalendarHome(CommonHome):
         ch = schema.CALENDAR_HOME
         cb = schema.CALENDAR_BIND
         cor = schema.CALENDAR_OBJECT_REVISIONS
-        at = schema.ATTACHMENT
         rp = schema.RESOURCE_PROPERTY
 
         # delete attachments corresponding to this home, also removing from disk
-        rows = (yield Select(
-            [at.DROPBOX_ID, at.PATH, ],
-            From=at,
-            Where=(
-                at.CALENDAR_HOME_RESOURCE_ID == self._resourceID
-            ),
-        ).on(self._txn))
-        for dropboxID, path in rows:
-            attachment = Attachment._attachmentPathRoot(self._txn, dropboxID).child(path)
-            if attachment.exists():
-                yield attachment.remove()
-
-        yield Delete(
-            From=at,
-            Where=(
-                at.CALENDAR_HOME_RESOURCE_ID == self._resourceID
-            ),
-        ).on(self._txn)
+        yield Attachment.removedHome(self._txn, self._resourceID)
 
         yield Delete(
             From=cb,
@@ -175,7 +156,7 @@ class CalendarHome(CommonHome):
 
 
     @inlineCallbacks
-    def hasCalendarResourceUIDSomewhereElse(self, uid, ok_object, type):
+    def hasCalendarResourceUIDSomewhereElse(self, uid, ok_object, mode):
         """
         Determine if this calendar home contains any calendar objects which
         would potentially conflict with the given UID for scheduling purposes.
@@ -188,7 +169,7 @@ class CalendarHome(CommonHome):
             being updated).  May be C{None} if all objects potentially count.
         @type ok_object: L{CalendarObject} or C{NoneType}
 
-        @param type: a string, indicating the mode to check for conflicts.  If
+        @param mode: a string, indicating the mode to check for conflicts.  If
             this is the string "schedule", then we are checking for potential
             conflicts with a new scheduled calendar object, which will conflict
             with any calendar object matching the given C{uid} in the home.
@@ -210,9 +191,9 @@ class CalendarHome(CommonHome):
         for objectResource in objectResources:
             if ok_object and objectResource._resourceID == ok_object._resourceID:
                 continue
-            matched_type = ("schedule" if objectResource.isScheduleObject
+            matched_mode = ("schedule" if objectResource.isScheduleObject
                             else "calendar")
-            if type == "schedule" or matched_type == "schedule":
+            if mode == "schedule" or matched_mode == "schedule":
                 returnValue(True)
 
         returnValue(False)
@@ -270,6 +251,24 @@ class CalendarHome(CommonHome):
 
 
     @inlineCallbacks
+    def getAllAttachmentNames(self):
+        att = schema.ATTACHMENT
+        rows = (yield Select(
+            [att.DROPBOX_ID],
+            From=att,
+            Where=(att.CALENDAR_HOME_RESOURCE_ID == self._resourceID),
+            OrderBy=att.DROPBOX_ID
+        ).on(self._txn))
+        returnValue([row[0] for row in rows])
+
+
+    @inlineCallbacks
+    def attachmentObjectWithID(self, managedID):
+        attach = (yield ManagedAttachment.load(self._txn, managedID))
+        returnValue(attach)
+
+
+    @inlineCallbacks
     def createdHome(self):
 
         # Default calendar
@@ -287,6 +286,7 @@ class CalendarHome(CommonHome):
 
         yield self.createCalendarWithName("inbox")
 
+
     @inlineCallbacks
     def splitCalendars(self):
         """
@@ -298,13 +298,14 @@ class CalendarHome(CommonHome):
         calendars = yield self.calendars()
         for calendar in calendars:
 
-            # Ignore inbox - also shared calendars are not part of .calendars() 
+            # Ignore inbox - also shared calendars are not part of .calendars()
             if calendar.name() == "inbox":
                 continue
             split_count = yield calendar.splitCollectionByComponentTypes()
             self.log_warn("  Calendar: '%s', split into %d" % (calendar.name(), split_count + 1,))
 
         yield self.ensureDefaultCalendarsExist()
+
 
     @inlineCallbacks
     def ensureDefaultCalendarsExist(self):
@@ -394,6 +395,7 @@ class Calendar(CommonHomeChild):
             cls._homeChildMetaDataSchema.SUPPORTED_COMPONENTS,
         )
 
+
     @classmethod
     def metadataAttributes(cls):
         """
@@ -410,6 +412,7 @@ class Calendar(CommonHomeChild):
             "_supportedComponents",
         )
 
+
     @property
     def _calendarHome(self):
         return self._home
@@ -417,8 +420,7 @@ class Calendar(CommonHomeChild):
 
     # FIXME: resource type is DAV.  This doesn't belong in the data store.  -wsv
     def resourceType(self):
-        return ResourceType.calendar #@UndefinedVariable
-
+        return ResourceType.calendar # @UndefinedVariable
 
     ownerCalendarHome = CommonHomeChild.ownerHome
     viewerCalendarHome = CommonHomeChild.viewerHome
@@ -465,14 +467,17 @@ class Calendar(CommonHomeChild):
             cacheKey = queryCacher.keyForHomeChildMetaData(self._resourceID)
             yield queryCacher.invalidateAfterCommit(self._txn, cacheKey)
 
+
     def getSupportedComponents(self):
         return self._supportedComponents
+
 
     def isSupportedComponent(self, componentType):
         if self._supportedComponents:
             return componentType.upper() in self._supportedComponents.split(",")
         else:
             return True
+
 
     def initPropertyStore(self, props):
         # Setup peruser special properties
@@ -487,6 +492,7 @@ class Calendar(CommonHomeChild):
             ),
         )
 
+
     # FIXME: this is DAV-ish.  Data store calendar objects don't have
     # mime types.  -wsv
     def contentType(self):
@@ -494,6 +500,7 @@ class Calendar(CommonHomeChild):
         The content type of Calendar objects is text/calendar.
         """
         return MimeType.fromString("text/calendar; charset=utf-8")
+
 
     @inlineCallbacks
     def splitCollectionByComponentTypes(self):
@@ -517,7 +524,7 @@ class Calendar(CommonHomeChild):
 
         # We will leave the component type with the highest count in the current calendar and create new calendars
         # for the others which will be moved over
-        maxComponent = max(components, key=lambda x:x[1])[0]
+        maxComponent = max(components, key=lambda x: x[1])[0]
 
         for component, _ignore_count in components:
             if component == maxComponent:
@@ -530,12 +537,13 @@ class Calendar(CommonHomeChild):
 
         returnValue(split_count)
 
+
     @inlineCallbacks
     def _countComponentTypes(self):
         """
         Count each component type in this calendar.
-        
-        @return: a C{tuple} of C{tuple} containing the component type name and count. 
+
+        @return: a C{tuple} of C{tuple} containing the component type name and count.
         """
 
         ob = self._objectSchema
@@ -550,12 +558,13 @@ class Calendar(CommonHomeChild):
         result = tuple([(componentType, componentCount) for componentType, componentCount in sorted(rows, key=lambda x:x[0])])
         returnValue(result)
 
+
     @inlineCallbacks
     def _splitComponentType(self, component):
         """
         Create a new calendar and move all components of the specified component type into the new one.
         Make sure properties and sharing state is preserved on the new calendar.
-        
+
         @param component: Component type to split out
         @type component: C{str}
         """
@@ -585,6 +594,7 @@ class Calendar(CommonHomeChild):
 
         # Now move calendar data over
         yield self._transferCalendarObjects(newcalendar, component)
+
 
     @inlineCallbacks
     def _transferSharingDetails(self, newcalendar, component):
@@ -616,6 +626,7 @@ class Calendar(CommonHomeChild):
             columnMap[cb.CALENDAR_RESOURCE_NAME] = "%s-%s" % (columnMap[cb.CALENDAR_RESOURCE_NAME], component.lower(),)
             yield Insert(columnMap).on(self._txn)
 
+
     @inlineCallbacks
     def _transferCalendarObjects(self, newcalendar, component):
         """
@@ -645,8 +656,9 @@ class Calendar(CommonHomeChild):
             child = yield self.objectResourceWithID(resourceID)
             yield self.moveObjectResource(child, newcalendar)
 
+
     @classproperty
-    def _moveTimeRangeUpdateQuery(cls): #@NoSelf
+    def _moveTimeRangeUpdateQuery(cls): # @NoSelf
         """
         DAL query to update a child to be in a new parent.
         """
@@ -655,6 +667,7 @@ class Calendar(CommonHomeChild):
             {tr.CALENDAR_RESOURCE_ID: Parameter("newParentID")},
             Where=tr.CALENDAR_OBJECT_RESOURCE_ID == Parameter("resourceID")
         )
+
 
     @inlineCallbacks
     def _movedObjectResource(self, child, newparent):
@@ -667,11 +680,22 @@ class Calendar(CommonHomeChild):
             resourceID=child._resourceID
         )
 
+
     def unshare(self):
         """
         Unshares a collection, regardless of which "direction" it was shared.
         """
         return super(Calendar, self).unshare(ECALENDARTYPE)
+
+
+    def creatingResourceCheckAttachments(self, component):
+        """
+        When component data is created or changed we need to look for changes related to managed attachments.
+
+        @param component: the new calendar data
+        @type component: L{Component}
+        """
+        return CalendarObject.creatingResourceCheckAttachments(self._txn, self, component)
 
 
 icalfbtype_to_indexfbtype = {
@@ -721,7 +745,6 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         self.scheduleTag = metadata.get("scheduleTag", "")
         self.scheduleEtags = metadata.get("scheduleEtags", "")
         self.hasPrivateComment = metadata.get("hasPrivateComment", False)
-
 
     _allColumns = [
         _objectSchema.RESOURCE_ID,
@@ -777,6 +800,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         validateCalendarComponent(self, self._calendar, component, inserting, self._txn._migrating)
 
         yield self.updateDatabase(component, inserting=inserting)
+
         if inserting:
             yield self._calendar._insertRevision(self._name)
         else:
@@ -965,9 +989,11 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
                         Where=tr.CALENDAR_OBJECT_RESOURCE_ID == self._resourceID
                     ).on(txn)
         else:
+            # Keep MODIFIED the same when doing an index-only update
             values = {
                 co.RECURRANCE_MIN : pyCalendarTodatetime(normalizeForIndex(recurrenceLowerLimit)) if recurrenceLowerLimit else None,
                 co.RECURRANCE_MAX : pyCalendarTodatetime(normalizeForIndex(recurrenceLimit)) if recurrenceLimit else None,
+                co.MODIFIED : self._modified,
             }
 
             yield Update(
@@ -1006,18 +1032,18 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             instance = instances[key]
             start = instance.start
             end = instance.end
-            float = instance.start.floating()
+            floating = instance.start.floating()
             transp = instance.component.propertyValue("TRANSP") == "TRANSPARENT"
             fbtype = instance.component.getFBType()
             start.setTimezoneUTC(True)
             end.setTimezoneUTC(True)
 
-            # Ignore if below the lower limit            
+            # Ignore if below the lower limit
             if truncateLowerLimit and end < truncateLowerLimit:
                 lowerLimitApplied = True
                 continue
 
-            yield self._addInstanceDetails(component, instance.rid, start, end, float, transp, fbtype, txn)
+            yield self._addInstanceDetails(component, instance.rid, start, end, floating, transp, fbtype, txn)
 
         # For truncated items we insert a tomb stone lower bound so that a time-range
         # query with just an end bound will match
@@ -1029,7 +1055,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         # Special - for unbounded recurrence we insert a value for "infinity"
         # that will allow an open-ended time-range to always match it.
         # We also need to add the "infinity" value if the event was bounded but
-        # starts after the future expansion cut-off limit. 
+        # starts after the future expansion cut-off limit.
         if component.isRecurringUnbounded() or instances.limit and len(instances.instances) == 0:
             start = PyCalendarDateTime(2100, 1, 1, 0, 0, 0, tzid=PyCalendarTimezone(utc=True))
             end = PyCalendarDateTime(2100, 1, 1, 1, 0, 0, tzid=PyCalendarTimezone(utc=True))
@@ -1037,7 +1063,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
 
     @inlineCallbacks
-    def _addInstanceDetails(self, component, rid, start, end, float, transp, fbtype, txn):
+    def _addInstanceDetails(self, component, rid, start, end, floating, transp, fbtype, txn):
 
         tr = schema.TIME_RANGE
         tpy = schema.TRANSPARENCY
@@ -1045,7 +1071,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         instanceid = (yield Insert({
             tr.CALENDAR_RESOURCE_ID        : self._calendar._resourceID,
             tr.CALENDAR_OBJECT_RESOURCE_ID : self._resourceID,
-            tr.FLOATING                    : float,
+            tr.FLOATING                    : floating,
             tr.START_DATE                  : pyCalendarTodatetime(start),
             tr.END_DATE                    : pyCalendarTodatetime(end),
             tr.FBTYPE                      : icalfbtype_to_indexfbtype.get(fbtype, icalfbtype_to_indexfbtype["FREE"]),
@@ -1070,6 +1096,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         ideal but in theory we should have checked everything on the way in and
         only allowed in good data.
         """
+
         text = yield self._text()
 
         try:
@@ -1095,8 +1122,15 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         returnValue(component)
 
 
+    @inlineCallbacks
+    def remove(self):
+        # Need to also remove attachments
+        yield ManagedAttachment.resourceRemoved(self._txn, self._resourceID)
+        yield super(CalendarObject, self).remove()
+
+
     @classproperty
-    def _recurrenceMinMaxByIDQuery(cls): #@NoSelf
+    def _recurrenceMinMaxByIDQuery(cls): # @NoSelf
         """
         DAL query to load RECURRANCE_MIN, RECURRANCE_MAX via an object's resource ID.
         """
@@ -1113,7 +1147,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         """
         Get the RECURRANCE_MIN, RECURRANCE_MAX value from the database. Occasionally we might need to do an
         update to time-range data via a separate transaction, so we allow that to be passed in.
-    
+
         @return: L{PyCalendarDateTime} result
         """
         # Setup appropriate txn
@@ -1130,7 +1164,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
 
     @classproperty
-    def _instanceQuery(cls): #@NoSelf
+    def _instanceQuery(cls): # @NoSelf
         """
         DAL query to load TIME_RANGE data via an object's resource ID.
         """
@@ -1150,7 +1184,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
     def instances(self, txn=None):
         """
         Get the set of instances from the database.
-    
+
         @return: C{list} result
         """
         # Setup appropriate txn
@@ -1177,8 +1211,10 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         metadata["hasPrivateComment"] = self.hasPrivateComment
         return metadata
 
+
     def _get_accessMode(self):
         return accesstype_to_accessMode[self._access]
+
 
     def _set_accessMode(self, value):
         self._access = accessMode_to_type[value]
@@ -1188,6 +1224,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
     def _get_isScheduleObject(self):
         return self._schedule_object
 
+
     def _set_isScheduleObject(self, value):
         self._schedule_object = value
 
@@ -1195,6 +1232,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
     def _get_scheduleTag(self):
         return self._schedule_tag
+
 
     def _set_scheduleTag(self, value):
         self._schedule_tag = value
@@ -1204,6 +1242,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
     def _get_scheduleEtags(self):
         return tuple(self._schedule_etags.split(",")) if self._schedule_etags else ()
 
+
     def _set_scheduleEtags(self, value):
         self._schedule_etags = ",".join(value) if value else ""
 
@@ -1212,10 +1251,369 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
     def _get_hasPrivateComment(self):
         return self._private_comments
 
+
     def _set_hasPrivateComment(self, value):
         self._private_comments = value
 
     hasPrivateComment = property(_get_hasPrivateComment, _set_hasPrivateComment)
+
+    @inlineCallbacks
+    def _preProcessAttachmentsOnResourceChange(self, component, inserting):
+        """
+        When component data is created or changed we need to look for changes related to managed attachments.
+
+        @param component: the new calendar data
+        @type component: L{Component}
+        @param inserting: C{True} if resource is being created
+        @type inserting: C{bool}
+        """
+        if inserting:
+            self._copyAttachments = (yield self.creatingResourceCheckAttachments(component))
+            self._removeAttachments = None
+        else:
+            self._copyAttachments, self._removeAttachments = (yield self.updatingResourceCheckAttachments(component))
+
+
+    @classmethod
+    @inlineCallbacks
+    def creatingResourceCheckAttachments(cls, txn, parent, component):
+        """
+        A new component is going to be stored. Check any ATTACH properties that may be present
+        to verify they owned by the organizer/owner of the resource and re-write the managed-ids.
+
+        @param component: calendar component about to be stored
+        @type component: L{Component}
+        """
+
+        # Retrieve all ATTACH properties with a MANAGED-ID
+        attached = collections.defaultdict(list)
+        attachments = component.getAllPropertiesInAnyComponent("ATTACH", depth=1,)
+        for attachment in attachments:
+            managed_id = attachment.parameterValue("MANAGED-ID")
+            if managed_id is not None:
+                attached[managed_id].append(attachment)
+
+        # Punt if no managed attachments
+        if len(attached) == 0:
+            returnValue(None)
+
+        changes = yield cls._addingManagedIDs(txn, parent, attached, component.resourceUID())
+        returnValue(changes)
+
+
+    @inlineCallbacks
+    def updatingResourceCheckAttachments(self, component):
+        """
+        A component is being changed. Check any ATTACH properties that may be present
+        to verify they owned by the organizer/owner of the resource and re-write the managed-ids.
+
+        @param component: calendar component about to be stored
+        @type component: L{Component}
+        """
+
+        # Retrieve all ATTACH properties with a MANAGED-ID in new data
+        newattached = collections.defaultdict(list)
+        newattachments = component.getAllPropertiesInAnyComponent("ATTACH", depth=1,)
+        for attachment in newattachments:
+            managed_id = attachment.parameterValue("MANAGED-ID")
+            if managed_id is not None:
+                newattached[managed_id].append(attachment)
+
+        # Retrieve all ATTACH properties with a MANAGED-ID in old data
+        oldcomponent = (yield self.component())
+        oldattached = collections.defaultdict(list)
+        oldattachments = oldcomponent.getAllPropertiesInAnyComponent("ATTACH", depth=1,)
+        for attachment in oldattachments:
+            managed_id = attachment.parameterValue("MANAGED-ID")
+            if managed_id is not None:
+                oldattached[managed_id].append(attachment)
+
+        # Punt if no managed attachments
+        if len(newattached) + len(oldattached) == 0:
+            returnValue((None, None,))
+
+        newattached_keys = set(newattached.keys())
+        oldattached_keys = set(oldattached.keys())
+
+        # Determine what was removed
+        removed = set(oldattached_keys) - set(newattached_keys)
+
+        # Determine what was added
+        added = set(newattached_keys) - set(oldattached_keys)
+        changed = {}
+        for managed_id in added:
+            changed[managed_id] = newattached[managed_id]
+
+        changes = yield self._addingManagedIDs(self._txn, self._parentCollection, changed, component.resourceUID())
+
+        # Make sure existing data is not changed
+        same = oldattached_keys & newattached_keys
+        for managed_id in same:
+            newattachment = newattached[managed_id]
+            oldattachment = oldattached[managed_id][0]
+            for newattachment in newattached[managed_id]:
+                if newattachment != oldattachment:
+                    newattachment.setParameter("MTAG", oldattachment.parameterValue("MTAG"))
+                    newattachment.setParameter("FMTTYPE", oldattachment.parameterValue("FMTTYPE"))
+                    newattachment.setParameter("FILENAME", oldattachment.parameterValue("FILENAME"))
+                    newattachment.setParameter("SIZE", oldattachment.parameterValue("SIZE"))
+                    newattachment.setValue(oldattachment.value())
+
+        returnValue((changes, removed,))
+
+
+    @classmethod
+    @inlineCallbacks
+    def _addingManagedIDs(cls, txn, parent, attached, newuid):
+        # Now check each managed-id
+        changes = []
+        for managed_id, attachments in attached.items():
+
+            # Must be in the same home as this resource
+            details = (yield ManagedAttachment.usedManagedID(txn, managed_id))
+            if len(details) == 0:
+                raise AttachmentStoreValidManagedID
+            if len(details) != 1:
+                # This is a bad store error - there should be only one home associated with a managed-id
+                raise InternalDataStoreError
+            home_id, _ignore_resource_id, uid = details[0]
+
+            # Policy:
+            #
+            # 1. If Managed-ID is re-used in a resource with the same UID - it is fine - just rewrite the details
+            # 2. If Managed-ID is re-used in a different resource but owned by the same user - change managed-id to new one
+            # 3. Otherwise, strip off the managed-id property and treat as unmanaged.
+
+            # 1. UID check
+            if uid == newuid:
+                yield cls._syncAttachmentProperty(txn, managed_id, attachments)
+
+            # 2. Same home
+            elif home_id == parent.ownerHome()._resourceID:
+
+                # Need to rewrite the managed-id, value in the properties
+                new_id = str(uuid.uuid4())
+                yield cls._syncAttachmentProperty(txn, managed_id, attachments, new_id)
+                changes.append((managed_id, new_id,))
+
+            else:
+                cls._stripAttachmentProperty(attachments)
+
+        returnValue(changes)
+
+
+    @classmethod
+    @inlineCallbacks
+    def _syncAttachmentProperty(cls, txn, managed_id, attachments, new_id=None):
+        """
+        Make sure the supplied set of attach properties are all sync'd with the current value of the
+        matching managed-id attachment.
+
+        @param managed_id: Managed-Id to sync with
+        @type managed_id: C{str}
+        @param attachments: list of attachment properties
+        @type attachments: C{list} of L{twistedcaldav.ical.Property}
+        @param new_id: Value of new Managed-ID to use
+        @type new_id: C{str}
+        """
+        original_attachment = (yield ManagedAttachment.load(txn, managed_id))
+        for attachment in attachments:
+            attachment.setParameter("MANAGED-ID", managed_id if new_id is None else new_id)
+            attachment.setParameter("MTAG", original_attachment.md5())
+            attachment.setParameter("FMTTYPE", "%s/%s" % (original_attachment.contentType().mediaType, original_attachment.contentType().mediaSubtype))
+            attachment.setParameter("FILENAME", original_attachment.name())
+            attachment.setParameter("SIZE", str(original_attachment.size()))
+            attachment.setValue((yield original_attachment.location(new_id)))
+
+
+    @classmethod
+    def _stripAttachmentProperty(cls, attachments):
+        """
+        Strip off managed-id related properties from an attachment.
+        """
+        for attachment in attachments:
+            attachment.removeParameter("MANAGED-ID")
+            attachment.removeParameter("MTAG")
+
+
+    @inlineCallbacks
+    def copyResourceAttachments(self, attached):
+        """
+        Copy an attachment reference for some other resource and link it to this resource.
+
+        @param attached: tuple of old, new managed ids for the attachments to copy
+        @type attached: C{tuple}
+        """
+        for old_id, new_id in attached:
+            yield ManagedAttachment.copyManagedID(self._txn, old_id, new_id, self._resourceID)
+
+
+    @inlineCallbacks
+    def removeResourceAttachments(self, attached):
+        """
+        Remove an attachment reference for this resource.
+
+        @param attached: managed-ids to remove
+        @type attached: C{tuple}
+        """
+        for managed_id in attached:
+            yield self.removeManagedAttachmentWithID(managed_id)
+
+
+    @inlineCallbacks
+    def addAttachment(self, rids, content_type, filename, stream, calendar):
+
+        # First write the data stream
+
+        # We need to know the resource_ID of the home collection of the owner
+        # (not sharee) of this event
+        try:
+            attachment = (yield self.createManagedAttachment())
+            t = attachment.store(content_type, filename)
+            yield readStream(stream, t.write)
+        except Exception, e:
+            self.log_error("Unable to store attachment: %s" % (e,))
+            raise AttachmentStoreFailed
+        yield t.loseConnection()
+
+        # Now try and adjust the actual calendar data
+        #calendar = (yield self.component())
+
+        location = (yield attachment.location())
+        attach = Property("ATTACH", location, params={
+            "MANAGED-ID": attachment.managedID(),
+            "MTAG": attachment.md5(),
+            "FMTTYPE": "%s/%s" % (attachment.contentType().mediaType, attachment.contentType().mediaSubtype),
+            "FILENAME": attachment.name(),
+            "SIZE": str(attachment.size()),
+        }, valuetype=PyCalendarValue.VALUETYPE_URI)
+        if rids is None:
+            calendar.addPropertyToAllComponents(attach)
+        else:
+            # TODO - per-recurrence attachments
+            pass
+
+        # TODO: Here is where we want to store data implicitly - for now we have to let app layer deal with it
+        #yield self.setComponent(calendar)
+
+        returnValue((attachment, location,))
+
+
+    @inlineCallbacks
+    def updateAttachment(self, managed_id, content_type, filename, stream, calendar):
+
+        # First check the supplied managed-id is associated with this resource
+        cobjs = (yield ManagedAttachment.referencesTo(self._txn, managed_id))
+        if self._resourceID not in cobjs:
+            raise AttachmentStoreValidManagedID
+
+        # Next write the data stream to existing attachment
+
+        # We need to know the resource_ID of the home collection of the owner
+        # (not sharee) of this event
+        try:
+            # Check that this is a proper update
+            oldattachment = (yield self.attachmentWithManagedID(managed_id))
+            if oldattachment is None:
+                self.log_error("Missing managed attachment even though ATTACHMENT_CALENDAR_OBJECT indicates it is present: %s" % (managed_id,))
+                raise AttachmentStoreFailed
+
+            # We actually create a brand new attachment object for the update, but with the same managed-id. That way, other resources
+            # referencing the old attachment data will still see that.
+            attachment = (yield self.updateManagedAttachment(managed_id, oldattachment))
+            t = attachment.store(content_type, filename)
+            yield readStream(stream, t.write)
+        except Exception, e:
+            self.log_error("Unable to store attachment: %s" % (e,))
+            raise AttachmentStoreFailed
+        yield t.loseConnection()
+
+        # Now try and adjust the actual calendar data
+        #calendar = (yield self.component())
+
+        location = self._txn._store.attachmentsURIPattern % {
+            "home": self._parentCollection.ownerHome().name(),
+            "name": attachment.managedID(),
+        }
+        attach = Property("ATTACH", location, params={
+            "MANAGED-ID": attachment.managedID(),
+            "MTAG": attachment.md5(),
+            "FMTTYPE": "%s/%s" % (attachment.contentType().mediaType, attachment.contentType().mediaSubtype),
+            "FILENAME": attachment.name(),
+            "SIZE": str(attachment.size()),
+        }, valuetype=PyCalendarValue.VALUETYPE_URI)
+        calendar.replaceAllPropertiesWithParameterMatch(attach, "MANAGED-ID", managed_id)
+
+        # TODO: Here is where we want to store data implicitly - for now we have to let app layer deal with it
+        #yield self.setComponent(calendar)
+
+        returnValue((attachment, location,))
+
+
+    @inlineCallbacks
+    def removeAttachment(self, rids, managed_id, calendar):
+
+        # First check the supplied managed-id is associated with this resource
+        cobjs = (yield ManagedAttachment.referencesTo(self._txn, managed_id))
+        if self._resourceID not in cobjs:
+            raise AttachmentStoreValidManagedID
+
+        # Now try and adjust the actual calendar data
+        all_removed = False
+        #calendar = (yield self.component())
+        if rids is None:
+            calendar.removeAllPropertiesWithParameterMatch("ATTACH", "MANAGED-ID", managed_id)
+            all_removed = True
+        else:
+            # TODO: per-recurrence removal
+            pass
+
+        # TODO: Here is where we want to store data implicitly - for now we have to let app layer deal with it
+        #yield self.setComponent(calendar)
+
+        # Remove it - this will take care of actually removing it from the store if there are
+        # no more references to the attachment
+        if all_removed:
+            yield self.removeManagedAttachmentWithID(managed_id)
+
+
+    @inlineCallbacks
+    def createManagedAttachment(self):
+
+        # We need to know the resource_ID of the home collection of the owner
+        # (not sharee) of this event
+        sharerHomeID = (yield self._parentCollection.sharerHomeID())
+        managedID = str(uuid.uuid4())
+        returnValue((
+            yield ManagedAttachment.create(
+                self._txn, managedID, sharerHomeID, self._resourceID,
+            )
+        ))
+
+
+    @inlineCallbacks
+    def updateManagedAttachment(self, managedID, oldattachment):
+
+        # We need to know the resource_ID of the home collection of the owner
+        # (not sharee) of this event
+        sharerHomeID = (yield self._parentCollection.sharerHomeID())
+        returnValue((
+            yield ManagedAttachment.update(
+                self._txn, managedID, sharerHomeID, self._resourceID, oldattachment._attachmentID,
+            )
+        ))
+
+
+    def attachmentWithManagedID(self, managed_id):
+        return ManagedAttachment.load(self._txn, managed_id)
+
+
+    @inlineCallbacks
+    def removeManagedAttachmentWithID(self, managed_id):
+        attachment = (yield self.attachmentWithManagedID(managed_id))
+        if attachment._objectResourceID == self._resourceID:
+            yield attachment.removeFromResource(self._resourceID)
+
 
     @inlineCallbacks
     def createAttachmentWithName(self, name):
@@ -1223,26 +1621,28 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         # We need to know the resource_ID of the home collection of the owner
         # (not sharee) of this event
         sharerHomeID = (yield self._parentCollection.sharerHomeID())
+        dropboxID = (yield self.dropboxID())
         returnValue((
-            yield Attachment.create(
-                self._txn, (yield self.dropboxID()), name, sharerHomeID
+            yield DropBoxAttachment.create(
+                self._txn, dropboxID, name, sharerHomeID,
             )
         ))
+
 
     @inlineCallbacks
     def removeAttachmentWithName(self, name):
         attachment = (yield self.attachmentWithName(name))
         yield attachment.remove()
 
+
     def attachmentWithName(self, name):
-        return Attachment.loadWithName(self._txn, self._dropboxID, name)
+        return DropBoxAttachment.load(self._txn, self._dropboxID, name)
+
 
     def attendeesCanManageAttachments(self):
         return self._attachment == _ATTACHMENTS_MODE_WRITE
 
-
     dropboxID = dropboxIDFromCalendarObject
-
 
     _attachmentsQuery = Select(
         [schema.ATTACHMENT.PATH],
@@ -1276,6 +1676,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             ),
         )
 
+
     # IDataStoreObject
     def contentType(self):
         """
@@ -1289,9 +1690,9 @@ class AttachmentStorageTransport(StorageTransportBase):
 
     _TEMPORARY_UPLOADS_DIRECTORY = "Temporary"
 
-    def __init__(self, attachment, contentType, creating=False):
+    def __init__(self, attachment, contentType, dispositionName, creating=False):
         super(AttachmentStorageTransport, self).__init__(
-            attachment, contentType)
+            attachment, contentType, dispositionName)
 
         fileDescriptor, fileName = self._temporaryFile()
         # Wrap the file descriptor in a file object we can write to
@@ -1353,23 +1754,12 @@ class AttachmentStorageTransport(StorageTransportBase):
             raise QuotaExceeded()
 
         self._path.moveTo(self._attachment._path)
-        self._attachment._contentType = self._contentType
-        self._attachment._md5 = self._hash.hexdigest()
-        self._attachment._size = newSize
-        att = schema.ATTACHMENT
-        self._attachment._created, self._attachment._modified = map(
-            sqltime,
-            (yield Update(
-                {
-                    att.CONTENT_TYPE : generateContentType(self._contentType),
-                    att.SIZE         : self._attachment._size,
-                    att.MD5          : self._attachment._md5,
-                    att.MODIFIED     : utcNowSQL
-                },
-                Where=(att.PATH == self._attachment.name()).And(
-                    att.DROPBOX_ID == self._attachment._dropboxID
-                ),
-                Return=(att.CREATED, att.MODIFIED)).on(self._txn))[0]
+
+        yield self._attachment.changed(
+            self._contentType,
+            self._dispositionName,
+            self._hash.hexdigest(),
+            newSize
         )
 
         if home:
@@ -1384,59 +1774,28 @@ class AttachmentStorageTransport(StorageTransportBase):
 def sqltime(value):
     return datetimeMktime(parseSQLTimestamp(value))
 
+
+
 class Attachment(object):
 
     implements(IAttachment)
 
-    def __init__(self, txn, dropboxID, name, ownerHomeID=None, justCreated=False):
+    def __init__(self, txn, a_id, dropboxID, name, ownerHomeID=None, justCreated=False):
         self._txn = txn
-        self._dropboxID = dropboxID
-        self._name = name
+        self._attachmentID = a_id
         self._ownerHomeID = ownerHomeID
+        self._dropboxID = dropboxID
+        self._contentType = None
         self._size = 0
+        self._md5 = None
+        self._created = None
+        self._modified = None
+        self._name = name
         self._justCreated = justCreated
 
 
-    @classmethod
-    def _attachmentPathRoot(cls, txn, dropboxID):
-        attachmentRoot = txn._store.attachmentsPath
-
-        # Use directory hashing scheme based on MD5 of dropboxID
-        hasheduid = hashlib.md5(dropboxID).hexdigest()
-        return attachmentRoot.child(hasheduid[0:2]).child(
-            hasheduid[2:4]).child(hasheduid)
-
-
-    @classmethod
-    @inlineCallbacks
-    def create(cls, txn, dropboxID, name, ownerHomeID):
-
-        # File system paths need to exist
-        try:
-            cls._attachmentPathRoot(txn, dropboxID).makedirs()
-        except:
-            pass
-
-        # Now create the DB entry
-        attachment = cls(txn, dropboxID, name, ownerHomeID, True)
-        att = schema.ATTACHMENT
-        yield Insert({
-            att.CALENDAR_HOME_RESOURCE_ID : ownerHomeID,
-            att.DROPBOX_ID                : dropboxID,
-            att.CONTENT_TYPE              : "",
-            att.SIZE                      : 0,
-            att.MD5                       : "",
-            att.PATH                      : name
-        }).on(txn)
-        returnValue(attachment)
-
-
-    @classmethod
-    @inlineCallbacks
-    def loadWithName(cls, txn, dropboxID, name):
-        attachment = cls(txn, dropboxID, name)
-        attachment = (yield attachment.initFromStore())
-        returnValue(attachment)
+    def _attachmentPathRoot(self):
+        return self._txn._store.attachmentsPath
 
 
     @inlineCallbacks
@@ -1447,58 +1806,81 @@ class Attachment(object):
         @return: C{True} if this attachment exists, C{False} otherwise.
         """
         att = schema.ATTACHMENT
-        rows = (yield Select([att.CALENDAR_HOME_RESOURCE_ID, att.CONTENT_TYPE,
-                              att.SIZE, att.MD5, att.CREATED, att.MODIFIED],
-                             From=att,
-                             Where=(att.DROPBOX_ID == self._dropboxID).And(
-                                 att.PATH == self._name)).on(self._txn))
+        if self._dropboxID is not None:
+            where = (att.DROPBOX_ID == self._dropboxID).And(
+                   att.PATH == self._name)
+        else:
+            where = (att.ATTACHMENT_ID == self._attachmentID)
+        rows = (yield Select(
+            [
+                att.ATTACHMENT_ID,
+                att.DROPBOX_ID,
+                att.CALENDAR_HOME_RESOURCE_ID,
+                att.CONTENT_TYPE,
+                att.SIZE,
+                att.MD5,
+                att.CREATED,
+                att.MODIFIED,
+                att.PATH,
+            ],
+            From=att,
+            Where=where
+        ).on(self._txn))
+
         if not rows:
             returnValue(None)
-        self._ownerHomeID = rows[0][0]
-        self._contentType = MimeType.fromString(rows[0][1])
-        self._size = rows[0][2]
-        self._md5 = rows[0][3]
-        self._created = sqltime(rows[0][4])
-        self._modified = sqltime(rows[0][5])
+
+        row_iter = iter(rows[0])
+        self._attachmentID = row_iter.next()
+        self._dropboxID = row_iter.next()
+        self._ownerHomeID = row_iter.next()
+        self._contentType = MimeType.fromString(row_iter.next())
+        self._size = row_iter.next()
+        self._md5 = row_iter.next()
+        self._created = sqltime(row_iter.next())
+        self._modified = sqltime(row_iter.next())
+        self._name = row_iter.next()
+
         returnValue(self)
+
+
+    def dropboxID(self):
+        return self._dropboxID
+
+
+    def isManaged(self):
+        return not self._dropboxID
 
 
     def name(self):
         return self._name
 
 
-    @property
-    def _path(self):
-        attachmentRoot = self._txn._store.attachmentsPath
-        # Use directory hashing scheme based on MD5 of dropboxID
-        hasheduid = hashlib.md5(self._dropboxID).hexdigest()
-        return attachmentRoot.child(hasheduid[0:2]).child(
-            hasheduid[2:4]).child(hasheduid).child(self.name())
-
-
     def properties(self):
         pass # stub
 
 
-    def store(self, contentType):
-        return AttachmentStorageTransport(self, contentType, self._justCreated)
+    def store(self, contentType, dispositionName=None):
+        return AttachmentStorageTransport(self, contentType, dispositionName, self._justCreated)
 
 
     def retrieve(self, protocol):
         return AttachmentRetrievalTransport(self._path).start(protocol)
 
 
+    def changed(self, contentType, dispositionName, md5, size):
+        raise NotImplementedError
+
     _removeStatement = Delete(
         From=schema.ATTACHMENT,
-        Where=(schema.ATTACHMENT.DROPBOX_ID == Parameter("dropboxID")).And(
-            schema.ATTACHMENT.PATH == Parameter("path")
-        ))
+        Where=(schema.ATTACHMENT.ATTACHMENT_ID == Parameter("attachmentID"))
+    )
 
 
     @inlineCallbacks
     def remove(self):
         oldSize = self._size
-        self._txn.postCommit(self._path.remove)
+        self._txn.postCommit(self.removePaths)
         yield self._internalRemove()
         # Adjust quota
         home = (yield self._txn.calendarHomeWithResourceID(self._ownerHomeID))
@@ -1509,14 +1891,78 @@ class Attachment(object):
             yield home.notifyChanged()
 
 
+    def removePaths(self):
+        """
+        Remove the actual file and up to attachment parent directory if empty.
+        """
+        self._path.remove()
+        parent = self._path.parent()
+        toppath = self._attachmentPathRoot().path
+        while parent.path != toppath:
+            if len(parent.listdir()) == 0:
+                parent.remove()
+                parent = parent.parent()
+            else:
+                break
+
+
     def _internalRemove(self):
         """
         Just delete the row; don't do any accounting / bookkeeping.  (This is
         for attachments that have failed to be created due to errors during
         storage.)
         """
-        return self._removeStatement.on(self._txn, dropboxID=self._dropboxID,
-                                        path=self._name)
+        return self._removeStatement.on(self._txn, attachmentID=self._attachmentID)
+
+
+    @classmethod
+    @inlineCallbacks
+    def removedHome(cls, txn, homeID):
+        """
+        A calendar home is being removed so all of its attachments must go too. When removing,
+        we don't care about quota adjustment as there will be no quota once the home is removed.
+
+        TODO: this needs to be transactional wrt the actual file deletes.
+        """
+        att = schema.ATTACHMENT
+        attco = schema.ATTACHMENT_CALENDAR_OBJECT
+
+        rows = (yield Select(
+            [att.ATTACHMENT_ID, att.DROPBOX_ID, ],
+            From=att,
+            Where=(
+                att.CALENDAR_HOME_RESOURCE_ID == homeID
+            ),
+        ).on(txn))
+
+        for attachmentID, dropboxID in rows:
+            if dropboxID:
+                attachment = DropBoxAttachment(txn, attachmentID, None, None)
+            else:
+                attachment = ManagedAttachment(txn, attachmentID, None, None)
+            attachment = (yield attachment.initFromStore())
+            if attachment._path.exists():
+                attachment.removePaths()
+
+        yield Delete(
+            From=attco,
+            Where=(
+                attco.ATTACHMENT_ID.In(Select(
+                    [att.ATTACHMENT_ID, ],
+                    From=att,
+                    Where=(
+                        att.CALENDAR_HOME_RESOURCE_ID == homeID
+                    ),
+                ))
+            ),
+        ).on(txn)
+
+        yield Delete(
+            From=att,
+            Where=(
+                att.CALENDAR_HOME_RESOURCE_ID == homeID
+            ),
+        ).on(txn)
 
 
     # IDataStoreObject
@@ -1538,6 +1984,407 @@ class Attachment(object):
 
     def modified(self):
         return self._modified
+
+
+
+class DropBoxAttachment(Attachment):
+
+    @classmethod
+    @inlineCallbacks
+    def create(cls, txn, dropboxID, name, ownerHomeID):
+        """
+        Create a new Attachment object.
+
+        @param txn: The transaction to use
+        @type txn: L{CommonStoreTransaction}
+        @param dropboxID: the identifier for the attachment (dropbox id or managed id)
+        @type dropboxID: C{str}
+        @param name: the name of the attachment
+        @type name: C{str}
+        @param ownerHomeID: the resource-id of the home collection of the attachment owner
+        @type ownerHomeID: C{int}
+        """
+
+        # Now create the DB entry
+        att = schema.ATTACHMENT
+        rows = (yield Insert({
+            att.CALENDAR_HOME_RESOURCE_ID : ownerHomeID,
+            att.DROPBOX_ID                : dropboxID,
+            att.CONTENT_TYPE              : "",
+            att.SIZE                      : 0,
+            att.MD5                       : "",
+            att.PATH                      : name,
+        }, Return=(att.ATTACHMENT_ID, att.CREATED, att.MODIFIED)).on(txn))
+
+        row_iter = iter(rows[0])
+        a_id = row_iter.next()
+        created = sqltime(row_iter.next())
+        modified = sqltime(row_iter.next())
+
+        attachment = cls(txn, a_id, dropboxID, name, ownerHomeID, True)
+        attachment._created = created
+        attachment._modified = modified
+
+        # File system paths need to exist
+        try:
+            attachment._path.parent().makedirs()
+        except:
+            pass
+
+        returnValue(attachment)
+
+
+    @classmethod
+    @inlineCallbacks
+    def load(cls, txn, dropboxID, name):
+        attachment = cls(txn, None, dropboxID, name)
+        attachment = (yield attachment.initFromStore())
+        returnValue(attachment)
+
+
+    @property
+    def _path(self):
+        # Use directory hashing scheme based on MD5 of dropboxID
+        hasheduid = hashlib.md5(self._dropboxID).hexdigest()
+        attachmentRoot = self._attachmentPathRoot().child(hasheduid[0:2]).child(hasheduid[2:4]).child(hasheduid)
+        return attachmentRoot.child(self.name())
+
+
+    @inlineCallbacks
+    def changed(self, contentType, dispositionName, md5, size):
+        """
+        Dropbox attachments never change their path - ignore dispositionName.
+        """
+
+        self._contentType = contentType
+        self._md5 = md5
+        self._size = size
+
+        att = schema.ATTACHMENT
+        self._created, self._modified = map(
+            sqltime,
+            (yield Update(
+                {
+                    att.CONTENT_TYPE    : generateContentType(self._contentType),
+                    att.SIZE            : self._size,
+                    att.MD5             : self._md5,
+                    att.MODIFIED        : utcNowSQL,
+                },
+                Where=(att.ATTACHMENT_ID == self._attachmentID),
+                Return=(att.CREATED, att.MODIFIED)).on(self._txn))[0]
+        )
+
+
+
+class ManagedAttachment(Attachment):
+
+    @classmethod
+    @inlineCallbacks
+    def _create(cls, txn, managedID, ownerHomeID):
+        """
+        Create a new Attachment object.
+
+        @param txn: The transaction to use
+        @type txn: L{CommonStoreTransaction}
+        @param managedID: the identifier for the attachment
+        @type managedID: C{str}
+        @param ownerHomeID: the resource-id of the home collection of the attachment owner
+        @type ownerHomeID: C{int}
+        """
+
+        # Now create the DB entry
+        att = schema.ATTACHMENT
+        rows = (yield Insert({
+            att.CALENDAR_HOME_RESOURCE_ID : ownerHomeID,
+            att.DROPBOX_ID                : None,
+            att.CONTENT_TYPE              : "",
+            att.SIZE                      : 0,
+            att.MD5                       : "",
+            att.PATH                      : "",
+        }, Return=(att.ATTACHMENT_ID, att.CREATED, att.MODIFIED)).on(txn))
+
+        row_iter = iter(rows[0])
+        a_id = row_iter.next()
+        created = sqltime(row_iter.next())
+        modified = sqltime(row_iter.next())
+
+        attachment = cls(txn, a_id, managedID, None, ownerHomeID, True)
+        attachment._managedID = managedID
+        attachment._created = created
+        attachment._modified = modified
+
+        # File system paths need to exist
+        try:
+            attachment._path.parent().makedirs()
+        except:
+            pass
+
+        returnValue(attachment)
+
+
+    @classmethod
+    @inlineCallbacks
+    def create(cls, txn, managedID, ownerHomeID, referencedBy):
+        """
+        Create a new Attachment object.
+
+        @param txn: The transaction to use
+        @type txn: L{CommonStoreTransaction}
+        @param managedID: the identifier for the attachment
+        @type managedID: C{str}
+        @param ownerHomeID: the resource-id of the home collection of the attachment owner
+        @type ownerHomeID: C{int}
+        @param referencedBy: the resource-id of the calendar object referencing the attachment
+        @type referencedBy: C{int}
+        """
+
+        # Now create the DB entry
+        attachment = (yield cls._create(txn, managedID, ownerHomeID))
+
+        # Create the attachment<->calendar object relationship for managed attachments
+        attco = schema.ATTACHMENT_CALENDAR_OBJECT
+        yield Insert({
+            attco.ATTACHMENT_ID               : attachment._attachmentID,
+            attco.MANAGED_ID                  : managedID,
+            attco.CALENDAR_OBJECT_RESOURCE_ID : referencedBy,
+        }).on(txn)
+
+        returnValue(attachment)
+
+
+    @classmethod
+    @inlineCallbacks
+    def update(cls, txn, managedID, ownerHomeID, referencedBy, oldAttachmentID):
+        """
+        Create a new Attachment object.
+
+        @param txn: The transaction to use
+        @type txn: L{CommonStoreTransaction}
+        @param managedID: the identifier for the attachment
+        @type managedID: C{str}
+        @param ownerHomeID: the resource-id of the home collection of the attachment owner
+        @type ownerHomeID: C{int}
+        @param referencedBy: the resource-id of the calendar object referencing the attachment
+        @type referencedBy: C{int}
+        @param oldAttachmentID: the attachment-id of the existing attachment being updated
+        @type oldAttachmentID: C{int}
+        """
+
+        # Now create the DB entry
+        attachment = (yield cls._create(txn, managedID, ownerHomeID))
+
+        # Update the attachment<->calendar object relationship for managed attachments
+        attco = schema.ATTACHMENT_CALENDAR_OBJECT
+        yield Update(
+            {
+                attco.ATTACHMENT_ID    : attachment._attachmentID,
+            },
+            Where=(attco.MANAGED_ID == managedID).And(
+                attco.CALENDAR_OBJECT_RESOURCE_ID == referencedBy
+            ),
+        ).on(txn)
+
+        # Now check whether old attachmentID is still referenced - if not delete it
+        rows = (yield Select(
+            [attco.ATTACHMENT_ID, ],
+            From=attco,
+            Where=(attco.ATTACHMENT_ID == oldAttachmentID),
+        ).on(txn))
+        aids = [row[0] for row in rows] if rows is not None else ()
+        if len(aids) == 0:
+            oldattachment = ManagedAttachment(txn, oldAttachmentID, None, None)
+            oldattachment = (yield oldattachment.initFromStore())
+            yield oldattachment.remove()
+
+        returnValue(attachment)
+
+
+    @classmethod
+    @inlineCallbacks
+    def load(cls, txn, managedID):
+        attco = schema.ATTACHMENT_CALENDAR_OBJECT
+        rows = (yield Select(
+            [attco.ATTACHMENT_ID, attco.CALENDAR_OBJECT_RESOURCE_ID, ],
+            From=attco,
+            Where=(attco.MANAGED_ID == managedID),
+        ).on(txn))
+        if len(rows) == 0:
+            returnValue(None)
+        elif len(rows) != 1:
+            raise AttachmentStoreValidManagedID
+
+        attachment = cls(txn, rows[0][0], None, None)
+        attachment = (yield attachment.initFromStore())
+        attachment._managedID = managedID
+        attachment._objectResourceID = rows[0][1]
+        returnValue(attachment)
+
+
+    @classmethod
+    @inlineCallbacks
+    def referencesTo(cls, txn, managedID):
+        """
+        Find all the calendar object resourceIds referenced by this supplied managed-id.
+        """
+        attco = schema.ATTACHMENT_CALENDAR_OBJECT
+        rows = (yield Select(
+            [attco.CALENDAR_OBJECT_RESOURCE_ID, ],
+            From=attco,
+            Where=(attco.MANAGED_ID == managedID),
+        ).on(txn))
+        cobjs = set([row[0] for row in rows]) if rows is not None else set()
+        returnValue(cobjs)
+
+
+    @classmethod
+    @inlineCallbacks
+    def usedManagedID(cls, txn, managedID):
+        """
+        Return the "owner" home and referencing resource is, and UID for a managed-id.
+        """
+        att = schema.ATTACHMENT
+        attco = schema.ATTACHMENT_CALENDAR_OBJECT
+        co = schema.CALENDAR_OBJECT
+        rows = (yield Select(
+            [
+                att.CALENDAR_HOME_RESOURCE_ID,
+                attco.CALENDAR_OBJECT_RESOURCE_ID,
+                co.ICALENDAR_UID,
+            ],
+            From=att.join(
+                attco, att.ATTACHMENT_ID == attco.ATTACHMENT_ID, "left outer"
+            ).join(co, co.RESOURCE_ID == attco.CALENDAR_OBJECT_RESOURCE_ID),
+            Where=(attco.MANAGED_ID == managedID),
+        ).on(txn))
+        returnValue(rows)
+
+
+    @classmethod
+    @inlineCallbacks
+    def resourceRemoved(cls, txn, resourceID):
+        """
+        Remove all attachments referencing the specified resource.
+        """
+
+        # Find all reference attachment-ids and dereference
+        attco = schema.ATTACHMENT_CALENDAR_OBJECT
+        rows = (yield Select(
+            [attco.MANAGED_ID, ],
+            From=attco,
+            Where=(attco.CALENDAR_OBJECT_RESOURCE_ID == resourceID),
+        ).on(txn))
+        mids = set([row[0] for row in rows]) if rows is not None else set()
+        for managedID in mids:
+            attachment = (yield ManagedAttachment.load(txn, managedID))
+            (yield attachment.removeFromResource(resourceID))
+
+
+    @classmethod
+    @inlineCallbacks
+    def copyManagedID(cls, txn, oldManagedID, newManagedID, referencedBy):
+        """
+        Copy a managed-ID to a new ID and associate the original attachment with the
+        new resource.
+        """
+
+        # Find all reference attachment-ids and dereference
+        attco = schema.ATTACHMENT_CALENDAR_OBJECT
+        aid = (yield Select(
+            [attco.ATTACHMENT_ID, ],
+            From=attco,
+            Where=(attco.MANAGED_ID == oldManagedID),
+        ).on(txn))[0][0]
+
+        yield Insert({
+            attco.ATTACHMENT_ID               : aid,
+            attco.MANAGED_ID                  : newManagedID,
+            attco.CALENDAR_OBJECT_RESOURCE_ID : referencedBy,
+        }).on(txn)
+
+
+    def managedID(self):
+        return self._managedID
+
+
+    @inlineCallbacks
+    def objectResource(self):
+        """
+        Return the calendar object resource associated with this attachment.
+        """
+
+        home = (yield self._txn.calendarHomeWithResourceID(self._ownerHomeID))
+        obj = (yield home.objectResourceWithID(self._objectResourceID))
+        returnValue(obj)
+
+
+    @property
+    def _path(self):
+        # Use directory hashing scheme based on MD5 of attachmentID
+        hasheduid = hashlib.md5(str(self._attachmentID)).hexdigest()
+        return self._attachmentPathRoot().child(hasheduid[0:2]).child(hasheduid[2:4]).child(hasheduid)
+
+
+    @inlineCallbacks
+    def location(self, new_id=None):
+        """
+        Return the URI location of the attachment. Use a different managed-id if one is passed in. That is used
+        when creating a reference to an existing attachment via a new Managed-ID.
+        """
+        if not hasattr(self, "_ownerName"):
+            home = (yield self._txn.calendarHomeWithResourceID(self._ownerHomeID))
+            self._ownerName = home.name()
+        location = self._txn._store.attachmentsURIPattern % {
+            "home": self._ownerName,
+            "name": self._managedID if new_id is None else new_id,
+        }
+        returnValue(location)
+
+
+    @inlineCallbacks
+    def changed(self, contentType, dispositionName, md5, size):
+        """
+        Always update name to current disposition name.
+        """
+
+        self._contentType = contentType
+        self._name = dispositionName
+        self._md5 = md5
+        self._size = size
+        att = schema.ATTACHMENT
+        self._created, self._modified = map(
+            sqltime,
+            (yield Update(
+                {
+                    att.CONTENT_TYPE    : generateContentType(self._contentType),
+                    att.SIZE            : self._size,
+                    att.MD5             : self._md5,
+                    att.MODIFIED        : utcNowSQL,
+                    att.PATH            : self._name,
+                },
+                Where=(att.ATTACHMENT_ID == self._attachmentID),
+                Return=(att.CREATED, att.MODIFIED)).on(self._txn))[0]
+        )
+
+
+    @inlineCallbacks
+    def removeFromResource(self, resourceID):
+
+        # Delete the reference
+        attco = schema.ATTACHMENT_CALENDAR_OBJECT
+        yield Delete(
+            From=attco,
+            Where=(attco.ATTACHMENT_ID == self._attachmentID).And(
+                   attco.CALENDAR_OBJECT_RESOURCE_ID == resourceID),
+        ).on(self._txn)
+
+        # References still exist - if not remove actual attachment
+        rows = (yield Select(
+            [attco.CALENDAR_OBJECT_RESOURCE_ID, ],
+            From=attco,
+            Where=(attco.ATTACHMENT_ID == self._attachmentID),
+        ).on(self._txn))
+        if len(rows) == 0:
+            yield self.remove()
 
 
 Calendar._objectResourceClass = CalendarObject

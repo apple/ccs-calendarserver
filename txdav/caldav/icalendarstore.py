@@ -56,6 +56,27 @@ __all__ = [
 
 
 
+class AttachmentStoreFailed(Exception):
+    """
+    Unable to store an attachment.
+    """
+
+
+
+class AttachmentStoreValidManagedID(Exception):
+    """
+    Specified attachment managed-id is not valid.
+    """
+
+
+
+class AttachmentRemoveFailed(Exception):
+    """
+    Unable to remove an attachment.
+    """
+
+
+
 class QuotaExceeded(Exception):
     """
     The quota for a particular user has been exceeded.
@@ -274,6 +295,18 @@ class ICalendarHome(INotifier, IDataStoreObject):
         @type delta: C{int}
 
         @raise QuotaExceeded: when the quota is exceeded.
+        """
+
+
+    def objectResourceWithID(rid):
+        """
+        Return the calendar object resource with the specified ID, assumed to be a child of
+        a calendar collection within this home.
+
+        @param rid: resource id of object to find
+        @type rid: C{int}
+
+        @return: L{ICalendar} or C{None} if not found
         """
 
 
@@ -545,6 +578,67 @@ class ICalendarObject(IDataStoreObject):
         @return: a URI string.
         """
 
+
+    #
+    # New managed attachment APIs that supersede dropbox
+    #
+
+    def addAttachment(pathpattern, rids, content_type, filename, stream):
+        """
+        Add a managed attachment to the calendar data.
+
+        @param pathpattern: URI template for the attachment property value.
+        @type pathpattern: C{str}
+        @param rids: set of RECURRENCE-ID values (not adjusted for UTC or TZID offset) to add the
+            new attachment to. The server must create necessary overrides if none already exist.
+        @type rids: C{iterable}
+        @param content_type: content-type information for the attachment data.
+        @type content_type: L{MimeType}
+        @param filename: display file name to use for the attachment.
+        @type filename: C{str}
+        @param stream: stream from which attachment data can be retrieved.
+        @type stream: L{IStream}
+
+        @raise: if anything goes wrong...
+        """
+
+
+    def updateAttachment(pathpattern, managed_id, content_type, filename, stream):
+        """
+        Update an existing managed attachment in the calendar data.
+
+        @param pathpattern: URI template for the attachment property value.
+        @type pathpattern: C{str}
+        @param managed_id: the identifier of the attachment to update.
+        @type managed_id: C{str}
+        @param content_type: content-type information for the attachment data.
+        @type content_type: L{MimeType}
+        @param filename: display file name to use for the attachment.
+        @type filename: C{str}
+        @param stream: stream from which attachment data can be retrieved.
+        @type stream: L{IStream}
+
+        @raise: if anything goes wrong...
+        """
+
+
+    def removeAttachment(rids, managed_id):
+        """
+        Remove an existing managed attachment from the calendar data.
+
+        @param rids: set of RECURRENCE-ID values (not adjusted for UTC or TZID offset) to remove the
+            attachment from. The server must create necessary overrides if none already exist.
+        @type rids: C{iterable}
+        @param managed_id: the identifier of the attachment to remove.
+        @type managed_id: C{str}
+
+        @raise: if anything goes wrong...
+        """
+
+    #
+    # The following APIs are for the older Dropbox protocol, which is now deprecated in favor of
+    # managed attachments
+    #
 
     def dropboxID():
         """

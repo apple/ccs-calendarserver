@@ -211,6 +211,32 @@ class ImplicitScheduler(object):
         returnValue((self.action != "none", False,))
 
 
+    @inlineCallbacks
+    def testAttendeeEvent(self, request, resource, calendar):
+        """
+        Test the existing resource to see if it is an Attendee scheduling object resource.
+
+        @param request: the request object
+        @type request: L{Request}
+        @param resource: the existing resource to test
+        @type resource: L{Resource}
+        """
+
+        self.request = request
+        self.resource = resource
+        self.calendar = calendar
+        self.internal_request = False
+        self.action = "modify"
+
+        is_scheduling_object = (yield self.checkSchedulingObjectResource(resource))
+        if not is_scheduling_object:
+            returnValue(False)
+
+        yield self.checkImplicitState()
+
+        returnValue(self.state in ("attendee", "attendee-missing",))
+
+
     def checkValidOrganizer(self):
         """
         Make sure the ORGANIZER is allowed to do certain scheduling operations.
@@ -1051,7 +1077,7 @@ class ImplicitScheduler(object):
 
                 if not doITipReply:
                     log.debug("Implicit - attendee '%s' is updating UID: '%s' but change is not significant" % (self.attendee, self.uid))
-                    returnValue(None)
+                    returnValue(self.return_calendar)
                 log.debug("Attendee '%s' is allowed to update UID: '%s' with local organizer '%s'" % (self.attendee, self.uid, self.organizer))
 
             elif isinstance(self.organizerAddress, LocalCalendarUser):

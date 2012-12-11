@@ -525,6 +525,8 @@ DEFAULT_CONFIG = {
     "EnableWellKnown"             : True, # /.well-known resource
     "EnableCalendarQueryExtended" : True, # Extended calendar-query REPORT
 
+    "EnableManagedAttachments"    : True, # Support Managed Attachments
+
     #
     # Non-standard CalDAV extensions
     #
@@ -1530,6 +1532,8 @@ def _updateCompliance(configDict, reloading=False):
             compliance += caldavxml.caldav_query_extended_compliance
         if configDict.EnableDefaultAlarms:
             compliance += caldavxml.caldav_default_alarms_compliance
+        if configDict.EnableManagedAttachments:
+            compliance += caldavxml.caldav_managed_attachments_compliance
     else:
         compliance = ()
 

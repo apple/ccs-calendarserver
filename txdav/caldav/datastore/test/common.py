@@ -1929,7 +1929,7 @@ END:VCALENDAR
         attachment = yield obj.createAttachmentWithName(
             "new.attachment",
         )
-        t = attachment.store(MimeType("text", "x-fixture"))
+        t = attachment.store(MimeType("text", "x-fixture"), "")
         self.assertProvides(IAttachmentStorageTransport, t)
         t.write("new attachment")
         t.write(" text")
@@ -1990,7 +1990,7 @@ END:VCALENDAR
             created, once all the bytes have been stored.
         """
         att = yield obj.createAttachmentWithName(name)
-        t = att.store(mimeType)
+        t = att.store(mimeType, "")
         t.write(contents)
         yield t.loseConnection()
         returnValue(att)
@@ -2068,7 +2068,7 @@ END:VCALENDAR
         obj = yield self.calendarObjectUnderTest()
         name = 'a-fun-attachment'
         attachment = yield obj.createAttachmentWithName(name)
-        transport = attachment.store(MimeType("test", "x-something"))
+        transport = attachment.store(MimeType("test", "x-something"), "")
         peer = transport.getPeer()
         host = transport.getHost()
         self.assertIdentical(peer.attachment, attachment)
@@ -2087,7 +2087,7 @@ END:VCALENDAR
         """
         home = yield self.homeUnderTest()
         attachment = yield getit()
-        t = attachment.store(MimeType("text", "x-fixture"))
+        t = attachment.store(MimeType("text", "x-fixture"), "")
         sample = "all work and no play makes jack a dull boy"
         chunk = (sample * (home.quotaAllowedBytes() / len(sample)))
 
@@ -2124,7 +2124,7 @@ END:VCALENDAR
         create = lambda: obj.createAttachmentWithName("exists.attachment")
         get = lambda: obj.attachmentWithName("exists.attachment")
         attachment = yield create()
-        t = attachment.store(MimeType("text", "x-fixture"))
+        t = attachment.store(MimeType("text", "x-fixture"), "")
         sampleData = "a reasonably sized attachment"
         t.write(sampleData)
         yield t.loseConnection()
@@ -2187,7 +2187,7 @@ END:VCALENDAR
         attachment = yield obj.createAttachmentWithName(
             "new.attachment",
         )
-        t = attachment.store(MimeType("text", "plain"))
+        t = attachment.store(MimeType("text", "plain"), "")
         t.write("new attachment text")
         yield t.loseConnection()
         yield self.commit()
