@@ -44,6 +44,9 @@ from calendarserver.tap.util import getRootResource
 
 from calendarserver.tools.cmdline import utilityMain
 from calendarserver.tools.principals import removeProxy
+from calendarserver.tools import tables
+
+import collections
 
 log = Logger()
 
@@ -61,7 +64,7 @@ def usage_purge_events(e=None):
     print "  -h --help: print this help and exit"
     print "  -f --config <path>: Specify caldavd.plist configuration path"
     print "  -d --days <number>: specify how many days in the past to retain (default=%d)" % (DEFAULT_RETAIN_DAYS,)
-   #print "  -b --batch <number>: number of events to remove in each transaction (default=%d)" % (DEFAULT_BATCH_SIZE,)
+    #print "  -b --batch <number>: number of events to remove in each transaction (default=%d)" % (DEFAULT_BATCH_SIZE,)
     print "  -n --dry-run: calculate how many events to purge, but do not purge data"
     print "  -v --verbose: print progress information"
     print ""
@@ -71,6 +74,8 @@ def usage_purge_events(e=None):
         sys.exit(64)
     else:
         sys.exit(0)
+
+
 
 def usage_purge_orphaned_attachments(e=None):
 
@@ -82,7 +87,7 @@ def usage_purge_orphaned_attachments(e=None):
     print "options:"
     print "  -h --help: print this help and exit"
     print "  -f --config <path>: Specify caldavd.plist configuration path"
-   #print "  -b --batch <number>: number of attachments to remove in each transaction (default=%d)" % (DEFAULT_BATCH_SIZE,)
+    #print "  -b --batch <number>: number of attachments to remove in each transaction (default=%d)" % (DEFAULT_BATCH_SIZE,)
     print "  -n --dry-run: calculate how many attachments to purge, but do not purge data"
     print "  -v --verbose: print progress information"
     print ""
@@ -92,6 +97,8 @@ def usage_purge_orphaned_attachments(e=None):
         sys.exit(64)
     else:
         sys.exit(0)
+
+
 
 def usage_purge_principal(e=None):
 
@@ -115,10 +122,12 @@ def usage_purge_principal(e=None):
         sys.exit(0)
 
 
+
 class WorkerService(Service):
 
     def __init__(self, store):
         self._store = store
+
 
     def rootResource(self):
         try:
@@ -209,7 +218,6 @@ class PurgePrincipalService(WorkerService):
 
 
 
-
 def main_purge_events():
 
     try:
@@ -285,6 +293,7 @@ def main_purge_events():
     )
 
 
+
 def main_purge_orphaned_attachments():
 
     try:
@@ -347,6 +356,7 @@ def main_purge_orphaned_attachments():
     )
 
 
+
 def main_purge_principals():
 
     try:
@@ -401,11 +411,11 @@ def main_purge_principals():
     PurgePrincipalService.verbose = verbose
     PurgePrincipalService.doimplicit = doimplicit
 
-
     utilityMain(
         configFileName,
         PurgePrincipalService
     )
+
 
 
 @inlineCallbacks
@@ -462,15 +472,41 @@ def purgeOrphanedAttachments(store, batchSize, verbose=False, dryrun=False):
             print "(Dry run) Searching for orphaned attachments..."
         txn = store.newTransaction(label="Find orphaned attachments")
         orphans = (yield txn.orphanedAttachments())
-        orphanCount = len(orphans)
         if verbose:
-            if orphanCount == 0:
-                print "No orphaned attachments"
-            elif orphanCount == 1:
-                print "1 orphaned attachment"
-            else:
-                print "%d orphaned attachments" % (orphanCount,)
-        returnValue(orphanCount)
+            # Print aggregate details by user
+            byuser = collections.defaultdict(int)
+            for owner_uid, _ignore_dropbox_id, _ignore_path, size in orphans:
+                byuser[owner_uid] += size
+
+            # Print table of results
+            table = tables.Table()
+            table.addHeader(("User", "Current Quota", "Orphaned Size", "Orphaned Count"))
+            table.setDefaultColumnFormats(
+               (
+                    tables.Table.ColumnFormat("%s", tables.Table.ColumnFormat.LEFT_JUSTIFY),
+                    tables.Table.ColumnFormat("%d", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
+                    tables.Table.ColumnFormat("%d", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
+                    tables.Table.ColumnFormat("%d", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
+                )
+            )
+            total = 0
+            for user, quota, size, count in sorted(orphans):
+                table.addRow((
+                    user,
+                    quota,
+                    size,
+                    count,
+                ))
+                total += count
+            table.addFooter(("Total:", "", "", total))
+
+            print "\n"
+            print "Orphaned Attachments by User:\n"
+            table.printTable()
+        else:
+            total = sum([x[3] for x in orphans])
+
+        returnValue(total)
 
     if verbose:
         print "Removing orphaned attachments..."
@@ -499,14 +535,12 @@ def purgeOrphanedAttachments(store, batchSize, verbose=False, dryrun=False):
 
 
 
-
-
 @inlineCallbacks
 def purgeUIDs(store, directory, root, uids, verbose=False, dryrun=False,
     completely=False, doimplicit=True):
     total = 0
 
-    allAssignments = { }
+    allAssignments = {}
 
     for uid in uids:
         count, allAssignments[uid] = (yield purgeUID(store, uid, directory, root,
@@ -607,7 +641,6 @@ def cancelEvent(event, when, cua):
                     main.removeProperty(exdate_rdate)
                     dirty = True
 
-
     # Remove any overridden components beyond the cutoff
     for component in tuple(event.subcomponents()):
         if component.name() == "VEVENT":
@@ -623,6 +656,7 @@ def cancelEvent(event, when, cua):
         return CANCELEVENT_MODIFIED
     else:
         return CANCELEVENT_NOT_MODIFIED
+
 
 
 @inlineCallbacks
@@ -687,7 +721,7 @@ def purgeUID(store, uid, directory, root, verbose=False, dryrun=False, proxies=T
 
     # Anything in the past is left alone
     whenString = when.getText()
-    filter =  caldavxml.Filter(
+    filter = caldavxml.Filter(
           caldavxml.ComponentFilter(
               caldavxml.ComponentFilter(
                   TimeRange(start=whenString,),
@@ -718,7 +752,7 @@ def purgeUID(store, uid, directory, root, verbose=False, dryrun=False, proxies=T
                             childNames.append(childName)
                     else:
                         # events matching filter
-                        for childName, childUid, childType in (yield collection.index().indexedSearch(filter)):
+                        for childName, _ignore_childUid, _ignore_childType in (yield collection.index().indexedSearch(filter)):
                             childNames.append(childName)
 
                     for childName in childNames:
@@ -792,7 +826,6 @@ def purgeUID(store, uid, directory, root, verbose=False, dryrun=False, proxies=T
                             if incrementCount:
                                 count += 1
 
-
         txn = getattr(request, "_newStoreTransaction", None)
         # Commit
         if txn is not None:
@@ -835,12 +868,11 @@ def purgeUID(store, uid, directory, root, verbose=False, dryrun=False, proxies=T
                 if not dryrun:
                     (yield storeCalHome.remove())
 
-
         # Remove VCards
         storeAbHome = (yield txn.addressbookHomeWithUID(uid))
         if storeAbHome is not None:
-            for abColl in list( (yield storeAbHome.addressbooks()) ):
-                for card in list( (yield abColl.addressbookObjects()) ):
+            for abColl in list((yield storeAbHome.addressbooks())):
+                for card in list((yield abColl.addressbookObjects())):
                     cardName = card.name()
                     if verbose:
                         uri = "/addressbooks/__uids__/%s/%s/%s" % (uid, abColl.name(), cardName)
@@ -885,6 +917,7 @@ def purgeUID(store, uid, directory, root, verbose=False, dryrun=False, proxies=T
     returnValue((count, assignments))
 
 
+
 @inlineCallbacks
 def purgeProxyAssignments(principal):
 
@@ -905,4 +938,3 @@ def purgeProxyAssignments(principal):
         (yield subPrincipal.writeProperty(davxml.GroupMemberSet(), None))
 
     returnValue(assignments)
-

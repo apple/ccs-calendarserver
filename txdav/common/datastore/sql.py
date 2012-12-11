@@ -74,7 +74,7 @@ from twext.enterprise.dal.parseschema import significant
 
 from twext.enterprise.dal.syntax import \
     Delete, utcNowSQL, Union, Insert, Len, Max, Parameter, SavepointAction, \
-    Select, Update, ColumnSyntax, TableSyntax, Upper, Count, ALL_COLUMNS
+    Select, Update, ColumnSyntax, TableSyntax, Upper, Count, ALL_COLUMNS, Sum
 
 from twistedcaldav.config import config
 
@@ -969,6 +969,45 @@ class CommonStoreTransaction(object):
         returnValue(count)
 
 
+    def _orphanedSummary(limited): #@NoSelf
+        at = schema.ATTACHMENT
+        co = schema.CALENDAR_OBJECT
+        ch = schema.CALENDAR_HOME
+        chm = schema.CALENDAR_HOME_METADATA
+        kwds = {}
+        if limited:
+            kwds["Limit"] = Parameter('batchSize')
+        return Select(
+            [ch.OWNER_UID, chm.QUOTA_USED_BYTES, Sum(at.SIZE), Count(at.DROPBOX_ID)],
+            From=at.join(
+                co, at.DROPBOX_ID == co.DROPBOX_ID, "left outer").join(
+                ch, at.CALENDAR_HOME_RESOURCE_ID == ch.RESOURCE_ID).join(
+                chm, ch.RESOURCE_ID == chm.RESOURCE_ID
+            ),
+            Where=co.DROPBOX_ID == None,
+            GroupBy=(ch.OWNER_UID, chm.QUOTA_USED_BYTES),
+            **kwds
+        )
+
+    _orphanedSummaryLimited = _orphanedSummary(True)
+    _orphanedSummaryUnlimited = _orphanedSummary(False)
+    del _orphanedSummary
+
+    def orphanedAttachments(self, batchSize=None):
+        """
+        Find attachments no longer referenced by any events.
+
+        Returns a deferred to a list of (calendar_home_owner_uid, dropbox_id, path, size) tuples.
+        """
+        if batchSize is not None:
+            kwds = {'batchSize': batchSize}
+            query = self._orphanedSummaryLimited
+        else:
+            kwds = {}
+            query = self._orphanedSummaryUnlimited
+        return query.on(self, **kwds)
+
+
     def _orphanedBase(limited): #@NoSelf
         at = schema.ATTACHMENT
         co = schema.CALENDAR_OBJECT
@@ -987,21 +1026,6 @@ class CommonStoreTransaction(object):
     del _orphanedBase
 
 
-    def orphanedAttachments(self, batchSize=None):
-        """
-        Find attachments no longer referenced by any events.
-
-        Returns a deferred to a list of (dropbox_id, path) tuples.
-        """
-        if batchSize is not None:
-            kwds = {'batchSize': batchSize}
-            query = self._orphanedLimited
-        else:
-            kwds = {}
-            query = self._orphanedUnlimited
-        return query.on(self, **kwds)
-
-
     @inlineCallbacks
     def removeOrphanedAttachments(self, batchSize=None):
         """
@@ -1011,7 +1035,13 @@ class CommonStoreTransaction(object):
         # TODO: see if there is a better way to import Attachment
         from txdav.caldav.datastore.sql import DropBoxAttachment
 
-        results = (yield self.orphanedAttachments(batchSize=batchSize))
+        if batchSize is not None:
+            kwds = {'batchSize': batchSize}
+            query = self._orphanedLimited
+        else:
+            kwds = {}
+            query = self._orphanedUnlimited
+        results = (yield query.on(self, **kwds))
         count = 0
         for dropboxID, path in results:
             attachment = (yield DropBoxAttachment.load(self, dropboxID, path))

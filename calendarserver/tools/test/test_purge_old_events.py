@@ -84,7 +84,7 @@ DTSTAMP:20100303T181220Z
 SEQUENCE:2
 END:VEVENT
 END:VCALENDAR
-""".replace("\n", "\r\n") % {"year":now-5}
+""".replace("\n", "\r\n") % {"year": now - 5}
 
 OLD_ATTACHMENT_ICS = """BEGIN:VCALENDAR
 VERSION:2.0
@@ -134,7 +134,7 @@ X-APPLE-DROPBOX:/calendars/__uids__/user01/dropbox/57A5D1F6-9A57-4F74-95
 SEQUENCE:2
 END:VEVENT
 END:VCALENDAR
-""".replace("\n", "\r\n") % {"year":now-5}
+""".replace("\n", "\r\n") % {"year": now - 5}
 
 ENDLESS_ICS = """BEGIN:VCALENDAR
 VERSION:2.0
@@ -183,7 +183,7 @@ DTSTAMP:20100303T194710Z
 SEQUENCE:4
 END:VEVENT
 END:VCALENDAR
-""".replace("\n", "\r\n") % {"year":now-5}
+""".replace("\n", "\r\n") % {"year": now - 5}
 
 REPEATING_AWHILE_ICS = """BEGIN:VCALENDAR
 VERSION:2.0
@@ -232,7 +232,7 @@ DTSTAMP:20100303T194747Z
 SEQUENCE:6
 END:VEVENT
 END:VCALENDAR
-""".replace("\n", "\r\n") % {"year":now-5}
+""".replace("\n", "\r\n") % {"year": now - 5}
 
 STRADDLING_ICS = """BEGIN:VCALENDAR
 VERSION:2.0
@@ -267,7 +267,7 @@ DTSTAMP:20100303T213704Z
 SEQUENCE:5
 END:VEVENT
 END:VCALENDAR
-""".replace("\n", "\r\n") % {"year":now-2, "until":now+1}
+""".replace("\n", "\r\n") % {"year": now - 2, "until": now + 1}
 
 RECENT_ICS = """BEGIN:VCALENDAR
 VERSION:2.0
@@ -301,7 +301,7 @@ DTSTAMP:20100303T195203Z
 SEQUENCE:2
 END:VEVENT
 END:VCALENDAR
-""".replace("\n", "\r\n") % {"year":now}
+""".replace("\n", "\r\n") % {"year": now}
 
 
 VCARD_1 = """BEGIN:VCARD
@@ -421,7 +421,7 @@ class PurgeOldEventsTests(CommonCommonTests, unittest.TestCase):
         count = (yield txn.removeOldEvents(cutoff))
         self.assertEquals(count, 3)
         results = (yield txn.eventsOlderThan(cutoff))
-        self.assertEquals(results, [ ])
+        self.assertEquals(results, [])
 
         # Remove oldest events (none left)
         count = (yield txn.removeOldEvents(cutoff))
@@ -470,6 +470,7 @@ class PurgeOldEventsTests(CommonCommonTests, unittest.TestCase):
         # Just look for orphaned attachments but don't delete
         orphans = (yield txn.orphanedAttachments())
         self.assertEquals(len(orphans), 1)
+        self.assertEquals(orphans, [["home1", 19, 19, 1]])
 
         # Remove orphaned attachments, should be 1
         count = (yield txn.removeOrphanedAttachments(batchSize=100))
@@ -515,12 +516,12 @@ class PurgeOldEventsTests(CommonCommonTests, unittest.TestCase):
         abColl = (yield abHome.addressbookWithName("addressbook"))
         (yield abColl.createAddressBookObjectWithName("card1",
             VCardComponent.fromString(VCARD_1)))
-        self.assertEquals(len( (yield abColl.addressbookObjects()) ), 1)
+        self.assertEquals(len((yield abColl.addressbookObjects())), 1)
 
         # Verify there are 3 events in calendar1
         calHome = (yield txn.calendarHomeWithUID("home1"))
         calColl = (yield calHome.calendarWithName("calendar1"))
-        self.assertEquals(len( (yield calColl.calendarObjects()) ), 3)
+        self.assertEquals(len((yield calColl.calendarObjects())), 3)
 
         # Make the newly created objects available to the purgeUID transaction
         (yield txn.commit())
@@ -540,7 +541,7 @@ class PurgeOldEventsTests(CommonCommonTests, unittest.TestCase):
 
         calHome = (yield txn.calendarHomeWithUID("home1"))
         calColl = (yield calHome.calendarWithName("calendar1"))
-        self.assertEquals(len( (yield calColl.calendarObjects()) ), 2)
+        self.assertEquals(len((yield calColl.calendarObjects())), 2)
 
 
     @inlineCallbacks
@@ -552,12 +553,12 @@ class PurgeOldEventsTests(CommonCommonTests, unittest.TestCase):
         abColl = (yield abHome.addressbookWithName("addressbook"))
         (yield abColl.createAddressBookObjectWithName("card1",
             VCardComponent.fromString(VCARD_1)))
-        self.assertEquals(len( (yield abColl.addressbookObjects()) ), 1)
+        self.assertEquals(len((yield abColl.addressbookObjects())), 1)
 
         # Verify there are 3 events in calendar1
         calHome = (yield txn.calendarHomeWithUID("home1"))
         calColl = (yield calHome.calendarWithName("calendar1"))
-        self.assertEquals(len( (yield calColl.calendarObjects()) ), 3)
+        self.assertEquals(len((yield calColl.calendarObjects())), 3)
 
         # Make the newly created objects available to the purgeUID transaction
         (yield txn.commit())
@@ -601,4 +602,3 @@ class PurgeOldEventsTests(CommonCommonTests, unittest.TestCase):
         total = (yield purgeOrphanedAttachments(self._sqlCalendarStore, 2,
             dryrun=False, verbose=False))
         self.assertEquals(total, 0)
-
