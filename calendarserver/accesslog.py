@@ -35,7 +35,8 @@ except ImportError:
     psutil = None
 import time
 
-from calendarserver.methodDescriptor import getAdjustedMethodName
+from calendarserver.logAnalysis import getAdjustedMethodName, \
+    getAdjustedClientName
 
 from twext.python.log import Logger
 from twext.web2 import iweb
@@ -468,27 +469,34 @@ class RotatingFileAccessLoggingObserver(CommonAccessLoggingObserverExtensions):
             }
 
         return {
-            "requests" : 0,
-            "method"   : collections.defaultdict(int),
-            "uid"      : collections.defaultdict(int),
-            "500"      : 0,
-            "t"        : 0.0,
-            "t-resp-wr": 0.0,
-            "slots"    : 0,
-            "T"        : initTimeHistogram(),
-            "T-RESP-WR": initTimeHistogram(),
-            "T-MAX"    : 0.0,
-            "cpu"      : self.systemStats.items["cpu use"],
+            "requests"   : 0,
+            "method"     : collections.defaultdict(int),
+            "method-t"   : collections.defaultdict(float),
+            "uid"        : collections.defaultdict(int),
+            "user-agent" : collections.defaultdict(int),
+            "500"        : 0,
+            "t"          : 0.0,
+            "t-resp-wr"  : 0.0,
+            "slots"      : 0,
+            "T"          : initTimeHistogram(),
+            "T-RESP-WR"  : initTimeHistogram(),
+            "T-MAX"      : 0.0,
+            "cpu"        : self.systemStats.items["cpu use"],
         }
 
 
     def updateStats(self, current, stats):
         # Gather specific information and aggregate into our persistent stats
+        adjustedMethod = getAdjustedMethodName(stats)
+        adjustedClient = getAdjustedClientName(stats)
+
         if current["requests"] == 0:
             current["cpu"] = 0.0
         current["requests"] += 1
-        current["method"][getAdjustedMethodName(stats["method"], stats["uri"], stats)] += 1
+        current["method"][adjustedMethod] += 1
+        current["method-t"][adjustedMethod] += stats.get("t", 0.0)
         current["uid"][stats["uid"]] += 1
+        current["user-agent"][adjustedClient] += 1
         if stats["statusCode"] >= 500:
             current["500"] += 1
         current["t"] += stats.get("t", 0.0)
@@ -532,8 +540,12 @@ class RotatingFileAccessLoggingObserver(CommonAccessLoggingObserverExtensions):
         current["requests"] += stats["requests"]
         for method in stats["method"].keys():
             current["method"][method] += stats["method"][method]
+        for method in stats["method-t"].keys():
+            current["method-t"][method] += stats["method-t"][method]
         for uid in stats["uid"].keys():
             current["uid"][uid] += stats["uid"][uid]
+        for ua in stats["user-agent"].keys():
+            current["user-agent"][ua] += stats["user-agent"][ua]
         current["500"] += stats["500"]
         current["t"] += stats["t"]
         current["t-resp-wr"] += stats["t-resp-wr"]

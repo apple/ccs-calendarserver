@@ -89,17 +89,18 @@ METHOD_DELETE_ADDRESSBOOK = "DELETE Adbk"
 METHOD_DELETE_VCF = "DELETE vcf"
 
 
-def getAdjustedMethodName(method, uri, extended):
+def getAdjustedMethodName(stats):
 
-    uribits = uri.rstrip("/").split('/')[1:]
+    method = stats["method"]
+    uribits = stats["uri"].rstrip("/").split('/')[1:]
     if len(uribits) == 0:
-        uribits = [uri]
+        uribits = [stats["uri"]]
 
     calendar_specials = ("attachments", "dropbox", "notification", "freebusy", "outbox",)
     adbk_specials = ("notification",)
 
     def _PROPFIND():
-        cached = "cached" in extended
+        cached = "cached" in stats
 
         if uribits[0] == "calendars":
 
@@ -181,13 +182,13 @@ def getAdjustedMethodName(method, uri, extended):
                 return METHOD_POST_CALENDAR_HOME
             elif len(uribits) == 4:
                 if uribits[3] == "outbox":
-                    if "recipients" in extended:
+                    if "recipients" in stats:
                         return METHOD_POST_FREEBUSY
-                    elif "freebusy" in extended:
+                    elif "freebusy" in stats:
                         return METHOD_POST_FREEBUSY
-                    elif "itip.request" in extended or "itip.cancel" in extended:
+                    elif "itip.request" in stats or "itip.cancel" in stats:
                         return METHOD_POST_ORGANIZER
-                    elif "itip.reply" in extended:
+                    elif "itip.reply" in stats:
                         return METHOD_POST_ATTENDEE
                     else:
                         return METHOD_POST_OUTBOX
@@ -209,7 +210,7 @@ def getAdjustedMethodName(method, uri, extended):
                     return METHOD_POST_ADDRESSBOOK
 
         elif uribits[0] == "ischedule":
-            if "fb-cached" in extended or "fb-uncached" in extended or "freebusy" in extended:
+            if "fb-cached" in stats or "fb-uncached" in stats or "freebusy" in stats:
                 return METHOD_POST_ISCHEDULE_FREEBUSY
             else:
                 return METHOD_POST_ISCHEDULE
@@ -232,9 +233,9 @@ def getAdjustedMethodName(method, uri, extended):
                 elif len(uribits) == 4:
                     pass
                 else:
-                    if "itip.requests" in extended:
+                    if "itip.requests" in stats:
                         return METHOD_PUT_ORGANIZER
-                    elif "itip.reply" in extended:
+                    elif "itip.reply" in stats:
                         return METHOD_PUT_ATTENDEE
                     else:
                         return METHOD_PUT_ICS
@@ -328,3 +329,45 @@ def getAdjustedMethodName(method, uri, extended):
         "PUT" : _PUT,
         "REPORT" : _REPORT,
     }.get(method.split("(")[0], _ANY)()
+
+
+
+versionClients = (
+    "Mac OS X/",
+    "iOS/",
+    "iCal/",
+    "iPhone/",
+    "CalendarAgent",
+    "Calendar/",
+    "CoreDAV/",
+    "Safari/",
+    "dataaccessd",
+    "curl/",
+    "DAVKit",
+)
+
+quickclients = (
+    ("InterMapper/", "InterMapper"),
+    ("CardDAVPlugin/", "CardDAVPlugin"),
+    ("Address%20Book/", "AddressBook"),
+    ("AddressBook/", "AddressBook"),
+    ("Mail/", "Mail"),
+    ("iChat/", "iChat"),
+)
+
+def getAdjustedClientName(stats):
+
+    userAgent = stats["userAgent"]
+    for client in versionClients:
+        index = userAgent.find(client)
+        if index != -1:
+            l = len(client)
+            endex = userAgent[index + l:].find(' ', index)
+            return userAgent[index:] if endex == -1 else userAgent[index:endex + l]
+
+    for quick, result in quickclients:
+        index = userAgent.find(quick)
+        if index != -1:
+            return result
+
+    return userAgent[:20]
