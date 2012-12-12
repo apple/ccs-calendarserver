@@ -35,29 +35,35 @@ except ImportError:
     psutil = None
 import time
 
-from twisted.internet import protocol, task
-from twisted.protocols import amp
+from calendarserver.methodDescriptor import getAdjustedMethodName
+
+from twext.python.log import Logger
 from twext.web2 import iweb
-from txdav.xml import element as davxml
 from twext.web2.log import BaseCommonAccessLoggingObserver
 from twext.web2.log import LogWrapperResource
 
-from twext.python.log import Logger
+from twisted.internet import protocol, task
+from twisted.protocols import amp
 
 from twistedcaldav.config import config
 from twistedcaldav.directory.directory import DirectoryService
 
+from txdav.xml import element as davxml
+
 log = Logger()
 
 class DirectoryLogWrapperResource(LogWrapperResource):
-    
+
     def __init__(self, resource, directory):
         super(DirectoryLogWrapperResource, self).__init__(resource)
-        
+
         self.directory = directory
-        
+
+
     def getDirectory(self):
         return self.directory
+
+
 
 class CommonAccessLoggingObserverExtensions(BaseCommonAccessLoggingObserver):
     """
@@ -69,7 +75,7 @@ class CommonAccessLoggingObserverExtensions(BaseCommonAccessLoggingObserver):
         format = None
         formatArgs = None
         if eventDict.get("interface") is iweb.IRequest:
-            
+
             request = eventDict["request"]
             response = eventDict["response"]
             loginfo = eventDict["loginfo"]
@@ -82,7 +88,7 @@ class CommonAccessLoggingObserverExtensions(BaseCommonAccessLoggingObserver):
                     uidz = None
                     if hasattr(request, "authzUser") and str(request.authzUser.children[0]) != uidn:
                         uidz = str(request.authzUser.children[0])
-                        
+
                     def convertUIDtoShortName(uid):
                         uid = uid.rstrip("/")
                         uid = uid[uid.rfind("/") + 1:]
@@ -94,11 +100,11 @@ class CommonAccessLoggingObserverExtensions(BaseCommonAccessLoggingObserver):
                                 return "(%s)%s" % (record.recordType, record.shortNames[0],)
                         else:
                             return uid
-                        
+
                     uidn = convertUIDtoShortName(uidn)
                     if uidz:
                         uidz = convertUIDtoShortName(uidz)
-                        
+
                     if uidn and uidz:
                         uid = '"%s as %s"' % (uidn, uidz,)
                     else:
@@ -142,10 +148,10 @@ class CommonAccessLoggingObserverExtensions(BaseCommonAccessLoggingObserver):
             if config.EnableExtendedAccessLog:
                 format += ' i=%(serverInstance)s'
                 formatArgs["serverInstance"] = config.LogID if config.LogID else "0"
-                
+
                 format += ' or=%(outstandingRequests)s'
                 formatArgs["outstandingRequests"] = request.chanRequest.channel.factory.outstandingRequests
-                
+
                 # Tags for time stamps collected along the way - the first one in the list is the initial
                 # time for request creation - we use that to track the entire request/response time
                 nowtime = time.time()
@@ -213,39 +219,41 @@ class CommonAccessLoggingObserverExtensions(BaseCommonAccessLoggingObserver):
             if config.EnableExtendedAccessLog:
                 format += ' p=%(serverPort)s'
                 formatArgs["serverPort"] = overloaded.transport.server.port
-                
+
                 format += ' or=%(outstandingRequests)s'
                 formatArgs["outstandingRequests"] = overloaded.outstandingRequests
-
 
         # Write anything we got to the log and stats
         if format is not None:
             # sanitize output to mitigate log injection
-            for k,v in formatArgs.items():
+            for k, v in formatArgs.items():
                 if not isinstance(v, basestring):
                     continue
                 v = v.replace("\r", "\\r")
                 v = v.replace("\n", "\\n")
                 v = v.replace("\"", "\\\"")
                 formatArgs[k] = v
-    
+
             formatArgs["type"] = "access-log"
             formatArgs["log-format"] = format
             self.logStats(formatArgs)
+
+
 
 class RotatingFileAccessLoggingObserver(CommonAccessLoggingObserverExtensions):
     """
     Class to do "apache" style access logging to a rotating log file. The log
     file is rotated after midnight each day.
-    
+
     This class also currently handles the collection of system and log statistics.
     """
 
     def __init__(self, logpath):
-        self.logpath = logpath        
+        self.logpath = logpath
 
         self.systemStats = None
         self.statsByMinute = []
+
 
     def accessLog(self, message, allowrotate=True):
         """
@@ -261,6 +269,7 @@ class RotatingFileAccessLoggingObserver(CommonAccessLoggingObserverExtensions):
             self.rotate()
         self.f.write(message + "\n")
 
+
     def start(self):
         """
         Start logging. Open the log file and log an "open" message.
@@ -270,6 +279,7 @@ class RotatingFileAccessLoggingObserver(CommonAccessLoggingObserverExtensions):
         self._open()
         self.accessLog("Log opened - server start: [%s]." % (datetime.datetime.now().ctime(),))
 
+
     def stop(self):
         """
         Stop logging. Close the log file and log an "open" message.
@@ -278,9 +288,10 @@ class RotatingFileAccessLoggingObserver(CommonAccessLoggingObserverExtensions):
         self.accessLog("Log closed - server stop: [%s]." % (datetime.datetime.now().ctime(),), False)
         super(RotatingFileAccessLoggingObserver, self).stop()
         self._close()
-        
+
         if self.systemStats is not None:
             self.systemStats.stop()
+
 
     def _open(self):
         """
@@ -290,6 +301,7 @@ class RotatingFileAccessLoggingObserver(CommonAccessLoggingObserverExtensions):
         self.f = open(self.logpath, "a", 1)
         self.lastDate = self.toDate(os.stat(self.logpath)[8])
 
+
     def _close(self):
         """
         Close the log file.
@@ -297,12 +309,14 @@ class RotatingFileAccessLoggingObserver(CommonAccessLoggingObserverExtensions):
 
         self.f.close()
 
+
     def flush(self):
         """
         Flush the log file.
         """
 
         self.f.flush()
+
 
     def shouldRotate(self):
         """
@@ -313,6 +327,7 @@ class RotatingFileAccessLoggingObserver(CommonAccessLoggingObserverExtensions):
             return self.toDate() > self.lastDate
         else:
             return False
+
 
     def toDate(self, *args):
         """
@@ -326,6 +341,7 @@ class RotatingFileAccessLoggingObserver(CommonAccessLoggingObserverExtensions):
         # primarily so this can be unit tested easily
         return time.localtime(*args)[:3]
 
+
     def suffix(self, tupledate):
         """
         Return the suffix given a (year, month, day) tuple or unixtime
@@ -336,6 +352,7 @@ class RotatingFileAccessLoggingObserver(CommonAccessLoggingObserverExtensions):
         except:
             # try taking a float unixtime
             return "_".join(map(str, self.toDate(tupledate)))
+
 
     def rotate(self):
         """
@@ -356,10 +373,11 @@ class RotatingFileAccessLoggingObserver(CommonAccessLoggingObserverExtensions):
         self._open()
         self.accessLog("Log opened - rotated: [%s]." % (datetime.datetime.now().ctime(),), False)
 
-    def logStats(self, stats): 
-        """ 
+
+    def logStats(self, stats):
+        """
         Update stats
-        """ 
+        """
 
         if self.systemStats is None:
             self.systemStats = SystemMonitor()
@@ -367,18 +385,19 @@ class RotatingFileAccessLoggingObserver(CommonAccessLoggingObserverExtensions):
         # Currently only storing stats for access log type
         if "type" not in stats or stats["type"] != "access-log":
             return
-    
+
         currentStats = self.ensureSequentialStats()
         self.updateStats(currentStats, stats)
-        
+
         if stats["type"] == "access-log":
             self.accessLog(stats["log-format"] % stats)
 
-    def getStats(self): 
-        """ 
-        Return the stats 
+
+    def getStats(self):
         """
-        
+        Return the stats
+        """
+
         if self.systemStats is None:
             self.systemStats = SystemMonitor()
 
@@ -407,17 +426,18 @@ class RotatingFileAccessLoggingObserver(CommonAccessLoggingObserverExtensions):
             self.mergeStats(oneHour, stat)
 
         printStats = {
-            "System":self.systemStats.items,
-            "Current":currentStats,
-            "1 Minute":previousMinute,
-            "5 Minutes":fiveMinutes,
-            "1 Hour":oneHour,
+            "System": self.systemStats.items,
+            "Current": currentStats,
+            "1 Minute": previousMinute,
+            "5 Minutes": fiveMinutes,
+            "1 Hour": oneHour,
         }
         return json.dumps(printStats)
 
+
     def ensureSequentialStats(self):
         """
-        Make sure the list of timed stats is contiguous wrt time. 
+        Make sure the list of timed stats is contiguous wrt time.
         """
         dtindex = int(time.time() / 60.0) * 60
 
@@ -431,8 +451,9 @@ class RotatingFileAccessLoggingObserver(CommonAccessLoggingObserverExtensions):
             self.statsByMinute.append((dtindex, self.initStats(),))
         return self.statsByMinute[-1][1]
 
+
     def initStats(self):
-        
+
         def initTimeHistogram():
             return {
                 "<10ms": 0,
@@ -460,12 +481,13 @@ class RotatingFileAccessLoggingObserver(CommonAccessLoggingObserverExtensions):
             "cpu"      : self.systemStats.items["cpu use"],
         }
 
+
     def updateStats(self, current, stats):
         # Gather specific information and aggregate into our persistent stats
         if current["requests"] == 0:
             current["cpu"] = 0.0
         current["requests"] += 1
-        current["method"][stats["method"]] += 1
+        current["method"][getAdjustedMethodName(stats["method"], stats["uri"], stats)] += 1
         current["uid"][stats["uid"]] += 1
         if stats["statusCode"] >= 500:
             current["500"] += 1
@@ -473,7 +495,7 @@ class RotatingFileAccessLoggingObserver(CommonAccessLoggingObserverExtensions):
         current["t-resp-wr"] += stats.get("t-resp-wr", 0.0)
         current["slots"] += stats.get("outstandingRequests", 0)
         current["cpu"] += self.systemStats.items["cpu use"]
-        
+
         def histogramUpdate(t, key):
             if t >= 60000.0:
                 current[key][">60s"] += 1
@@ -493,7 +515,7 @@ class RotatingFileAccessLoggingObserver(CommonAccessLoggingObserverExtensions):
                 current[key]["Over 1s"] += 1
             elif t >= 10000.0:
                 current[key]["Over 10s"] += 1
-            
+
         t = stats.get("t", None)
         if t is not None:
             histogramUpdate(t, "T")
@@ -501,6 +523,7 @@ class RotatingFileAccessLoggingObserver(CommonAccessLoggingObserverExtensions):
         t = stats.get("t-resp-wr", None)
         if t is not None:
             histogramUpdate(t, "T-RESP-WR")
+
 
     def mergeStats(self, current, stats):
         # Gather specific information and aggregate into our persistent stats
@@ -516,7 +539,7 @@ class RotatingFileAccessLoggingObserver(CommonAccessLoggingObserverExtensions):
         current["t-resp-wr"] += stats["t-resp-wr"]
         current["slots"] += stats["slots"]
         current["cpu"] += stats["cpu"]
-        
+
         def histogramUpdate(t, key):
             if t >= 60000.0:
                 current[key][">60s"] += 1
@@ -536,7 +559,7 @@ class RotatingFileAccessLoggingObserver(CommonAccessLoggingObserverExtensions):
                 current[key]["Over 1s"] += 1
             elif t >= 10000.0:
                 current[key]["Over 10s"] += 1
-        
+
         for bin in stats["T"].keys():
             current["T"][bin] += stats["T"][bin]
         current["T-MAX"] = max(current["T-MAX"], stats["T-MAX"])
@@ -547,10 +570,10 @@ class RotatingFileAccessLoggingObserver(CommonAccessLoggingObserverExtensions):
 
 class SystemMonitor(object):
     """
-    Keeps track of system usage information. This installs a reacxtor task to
+    Keeps track of system usage information. This installs a reactor task to
     run about once per second and track system use.
     """
-    
+
     CPUStats = collections.namedtuple("CPUStats", ("total", "idle",))
 
     def __init__(self):
@@ -561,24 +584,26 @@ class SystemMonitor(object):
             "memory percent": 0.0,
             "start time"    : time.time(),
         }
-        
+
         if psutil is not None:
             times = psutil.cpu_times()
             self.previous_cpu = SystemMonitor.CPUStats(sum(times), times.idle,)
         else:
             self.previous_cpu = SystemMonitor.CPUStats(0, 0)
-        
+
         self.task = task.LoopingCall(self.update)
         self.task.start(1.0)
-    
+
+
     def stop(self):
         """
         Just stop the task
         """
         self.task.stop()
 
+
     def update(self):
-        
+
         # CPU usage based on diff'ing CPU times
         if psutil is not None:
             times = psutil.cpu_times()
@@ -588,16 +613,18 @@ class SystemMonitor(object):
             except ZeroDivisionError:
                 self.items["cpu use"] = 0.0
             self.previous_cpu = cpu_now
-        
+
         # Memory usage
         if psutil is not None:
             mem = psutil.virtual_memory()
             self.items["memory used"] = mem.used
             self.items["memory percent"] = mem.percent
 
-    
+
+
 class LogStats(amp.Command):
     arguments = [("message", amp.String())]
+
 
 
 class AMPCommonAccessLoggingObserver(CommonAccessLoggingObserverExtensions):
@@ -620,18 +647,18 @@ class AMPCommonAccessLoggingObserver(CommonAccessLoggingObserverExtensions):
         self.flushBuffer()
 
 
-    def logStats(self, message): 
-        """ 
-        Log server stats via the remote AMP Protocol 
-        """ 
+    def logStats(self, message):
+        """
+        Log server stats via the remote AMP Protocol
+        """
 
         if self.protocol is not None:
-            message=json.dumps(message)
+            message = json.dumps(message)
             if isinstance(message, unicode):
                 message = message.encode("utf-8")
-            d = self.protocol.callRemote(LogStats, message=message) 
-            d.addErrback(log.err) 
-        else: 
+            d = self.protocol.callRemote(LogStats, message=message)
+            d.addErrback(log.err)
+        else:
             self._buffer.append(message)
 
 
@@ -646,10 +673,11 @@ class AMPLoggingProtocol(amp.AMP):
 
         super(AMPLoggingProtocol, self).__init__()
 
-    def logStats(self, message): 
+
+    def logStats(self, message):
         stats = json.loads(message)
-        self.observer.logStats(stats) 
-        return {} 
+        self.observer.logStats(stats)
+        return {}
 
     LogStats.responder(logStats)
 
@@ -670,6 +698,3 @@ class AMPLoggingFactory(protocol.ServerFactory):
 
     def buildProtocol(self, addr):
         return AMPLoggingProtocol(self.observer)
-
-
-
