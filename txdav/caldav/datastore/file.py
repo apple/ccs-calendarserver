@@ -89,7 +89,6 @@ class CalendarHome(CommonHome):
 
         self._childClass = Calendar
 
-
     createCalendarWithName = CommonHome.createChildWithName
     removeCalendarWithName = CommonHome.removeChildWithName
 
@@ -139,6 +138,7 @@ class CalendarHome(CommonHome):
 
         returnValue(False)
 
+
     @inlineCallbacks
     def getCalendarResourcesForUID(self, uid, allow_shared=False):
 
@@ -149,6 +149,7 @@ class CalendarHome(CommonHome):
                 results.append(objectResource)
 
         returnValue(results)
+
 
     @inlineCallbacks
     def calendarObjectWithDropboxID(self, dropboxID):
@@ -197,6 +198,7 @@ class CalendarHome(CommonHome):
 
         self.createCalendarWithName("inbox")
 
+
     def ensureDefaultCalendarsExist(self):
         """
         Double check that we have calendars supporting at least VEVENT and VTODO,
@@ -224,6 +226,8 @@ class CalendarHome(CommonHome):
 
             _requireCalendarWithType("VEVENT", "calendar")
             _requireCalendarWithType("VTODO", "tasks")
+
+
 
 class Calendar(CommonHomeChild):
     """
@@ -289,9 +293,11 @@ class Calendar(CommonHomeChild):
         elif pname in self.properties():
             del self.properties()[pname]
 
+
     def getSupportedComponents(self):
         result = str(self.properties().get(PropertyName.fromElement(customxml.TwistedCalendarSupportedComponents), ""))
         return result if result else None
+
 
     def isSupportedComponent(self, componentType):
         supported = self.getSupportedComponents()
@@ -299,6 +305,7 @@ class Calendar(CommonHomeChild):
             return componentType.upper() in supported.split(",")
         else:
             return True
+
 
     def initPropertyStore(self, props):
         # Setup peruser special properties
@@ -313,11 +320,13 @@ class Calendar(CommonHomeChild):
             ),
         )
 
+
     def contentType(self):
         """
         The content type of Calendar objects is text/calendar.
         """
         return MimeType.fromString("text/calendar; charset=utf-8")
+
 
     def splitCollectionByComponentTypes(self):
         """
@@ -329,28 +338,31 @@ class Calendar(CommonHomeChild):
         # TODO: implement this for filestore
         pass
 
+
     def _countComponentTypes(self):
         """
         Count each component type in this calendar.
-        
-        @return: a C{tuple} of C{tuple} containing the component type name and count. 
+
+        @return: a C{tuple} of C{tuple} containing the component type name and count.
         """
 
         rows = self._index._oldIndex.componentTypeCounts()
         result = tuple([(componentType, componentCount) for componentType, componentCount in sorted(rows, key=lambda x:x[0])])
         return result
 
+
     def _splitComponentType(self, component):
         """
         Create a new calendar and move all components of the specified component type into the new one.
         Make sure properties and sharing state is preserved on the new calendar.
-        
+
         @param component: Component type to split out
         @type component: C{str}
         """
 
         # TODO: implement this for filestore
         pass
+
 
     def _transferSharingDetails(self, newcalendar, component):
         """
@@ -359,6 +371,7 @@ class Calendar(CommonHomeChild):
 
         # TODO: implement this for filestore
         pass
+
 
     def _transferCalendarObjects(self, newcalendar, component):
         """
@@ -522,18 +535,22 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         self._objectText = text
         return text
 
+
     def uid(self):
         if not hasattr(self, "_uid"):
             self._uid = self.component().resourceUID()
         return self._uid
+
 
     def componentType(self):
         if not hasattr(self, "_componentType"):
             self._componentType = self.component().mainType()
         return self._componentType
 
+
     def organizer(self):
         return self.component().getOrganizer()
+
 
     def getMetadata(self):
         metadata = {}
@@ -544,8 +561,10 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         metadata["hasPrivateComment"] = self.hasPrivateComment
         return metadata
 
+
     def _get_accessMode(self):
         return str(self.properties().get(PropertyName.fromElement(customxml.TwistedCalendarAccessProperty), ""))
+
 
     def _set_accessMode(self, value):
         pname = PropertyName.fromElement(customxml.TwistedCalendarAccessProperty)
@@ -566,6 +585,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             prop = str(prop) == "true"
         return prop
 
+
     def _set_isScheduleObject(self, value):
         pname = PropertyName.fromElement(customxml.TwistedSchedulingObjectResource)
         if value is not None:
@@ -578,6 +598,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
     def _get_scheduleTag(self):
         return str(self.properties().get(PropertyName.fromElement(caldavxml.ScheduleTag), ""))
 
+
     def _set_scheduleTag(self, value):
         pname = PropertyName.fromElement(caldavxml.ScheduleTag)
         if value:
@@ -589,6 +610,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
     def _get_scheduleEtags(self):
         return tuple([str(etag) for etag in self.properties().get(PropertyName.fromElement(customxml.TwistedScheduleMatchETags), customxml.TwistedScheduleMatchETags()).children])
+
 
     def _set_scheduleEtags(self, value):
         if value:
@@ -604,6 +626,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
     def _get_hasPrivateComment(self):
         return PropertyName.fromElement(customxml.TwistedCalendarHasPrivateCommentsProperty) in self.properties()
+
 
     def _set_hasPrivateComment(self, value):
         pname = PropertyName.fromElement(customxml.TwistedCalendarHasPrivateCommentsProperty)
@@ -721,6 +744,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
                 PropertyName.fromElement(customxml.ScheduleChanges),
             ),
         )
+
 
     # IDataStoreObject
     def contentType(self):

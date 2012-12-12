@@ -114,8 +114,8 @@ def _S(tableSyntax):
     """
     result = {}
     result['name'] = tableSyntax.model.name
-    #pkey = tableSyntax.model.primaryKey
-    #if pkey is not None:
+    # pkey = tableSyntax.model.primaryKey
+    # if pkey is not None:
     #    default = pkey.default
     #    if isinstance(default, Sequence):
     #        result['sequence'] = default.name
@@ -399,11 +399,8 @@ def _translateSchema(out, schema=schema):
 if __name__ == '__main__':
     import sys
     if len(sys.argv) == 2:
-        # Argument is the name of a old/postgres-dialect file (without the .sql suffix), e.g. "v4" 
+        # Argument is the name of a old/postgres-dialect file (without the .sql suffix), e.g. "v4"
         schema = _populateSchema(sys.argv[1])
     else:
         schema = _populateSchema()
     _translateSchema(sys.stdout, schema=schema)
-
-
-

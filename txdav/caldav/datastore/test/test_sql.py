@@ -63,7 +63,8 @@ class CalendarSQLStorageTests(CalendarCommonTests, unittest.TestCase):
         self._sqlCalendarStore = yield buildStore(self, self.notifierFactory)
         yield self.populate()
 
-        self.nowYear = {"now":PyCalendarDateTime.getToday().getYear()}
+        self.nowYear = {"now": PyCalendarDateTime.getToday().getYear()}
+
 
     @inlineCallbacks
     def populate(self):
@@ -354,6 +355,7 @@ END:VEVENT
 END:VCALENDAR
 """.replace("\n", "\r\n") % self.nowYear)
 
+
     @inlineCallbacks
     def test_migrateDuplicateAttachmentsCalendarFromFile(self):
         """
@@ -370,6 +372,7 @@ END:VCALENDAR
                                lambda x: x.component()))
         self.assertEqual(ok, 3)
         self.assertEqual(bad, 0)
+
 
     @inlineCallbacks
     def test_migrateCalendarFromFile_Transparency(self):
@@ -402,6 +405,7 @@ END:VCALENDAR
         _ignore_name, uid, _ignore_type, _ignore_organizer, _ignore_float, _ignore_start, _ignore_end, _ignore_fbtype, transp = results[0]
         self.assertEquals(uid, "uid4")
         self.assertEquals(transp, 'T')
+
 
     @inlineCallbacks
     def test_migrateHomeFromFile(self):
@@ -470,6 +474,7 @@ END:VCALENDAR
 
         self.assertEqual(supported_components, set(("VEVENT", "VTODO",)))
 
+
     @inlineCallbacks
     def test_migrateHomeNoSplits(self):
         """
@@ -496,6 +501,7 @@ END:VCALENDAR
             supported_components.add(result)
 
         self.assertEqual(supported_components, set(("VEVENT", "VTODO",)))
+
 
     def test_calendarHomeVersion(self):
         """
@@ -695,6 +701,7 @@ END:VCALENDAR
         yield d1
         yield d2
 
+
     @inlineCallbacks
     def test_datetimes(self):
         calendarStore = self._sqlCalendarStore
@@ -713,6 +720,7 @@ END:VCALENDAR
         obj._modified = "2011-02-08 11:22:47"
         self.assertEqual(obj.created(), datetimeMktime(datetime.datetime(2011, 2, 7, 11, 22, 47)))
         self.assertEqual(obj.modified(), datetimeMktime(datetime.datetime(2011, 2, 8, 11, 22, 47)))
+
 
     @inlineCallbacks
     def test_notificationsProvisioningConcurrency(self):
@@ -752,6 +760,7 @@ END:VCALENDAR
 
         self.assertNotEqual(notification_uid1_1, None)
         self.assertNotEqual(notification_uid1_2, None)
+
 
     @inlineCallbacks
     def test_removeCalendarPropertiesOnDelete(self):
@@ -793,6 +802,7 @@ END:VCALENDAR
         rows = yield _allWithID.on(self.transactionUnderTest(), resourceID=resourceID)
         self.assertEqual(len(tuple(rows)), 0)
         yield self.commit()
+
 
     @inlineCallbacks
     def test_removeCalendarObjectPropertiesOnDelete(self):
@@ -838,6 +848,7 @@ END:VCALENDAR
         rows = yield _allWithID.on(self.transactionUnderTest(), resourceID=resourceID)
         self.assertEqual(len(tuple(rows)), 0)
         yield self.commit()
+
 
     @inlineCallbacks
     def test_removeInboxObjectPropertiesOnDelete(self):
@@ -891,6 +902,7 @@ END:VCALENDAR
         self.assertEqual(len(tuple(rows)), 0)
         yield self.commit()
 
+
     @inlineCallbacks
     def test_directShareCreateConcurrency(self):
         """
@@ -942,6 +954,7 @@ END:VCALENDAR
         yield d1
         yield d2
 
+
     @inlineCallbacks
     def test_transferSharingDetails(self):
         """
@@ -982,6 +995,7 @@ END:VCALENDAR
         self.assertTrue(sharedCalendar is not None)
         self.assertEqual(sharedCalendar._resourceID, newcalendar._resourceID)
 
+
     @inlineCallbacks
     def test_moveCalendarObjectResource(self):
         """
@@ -1002,6 +1016,7 @@ END:VCALENDAR
 
         child = yield calendar1.calendarObjectWithName("5.ics")
         self.assertTrue(child is not None)
+
 
     @inlineCallbacks
     def test_splitCalendars(self):
@@ -1073,6 +1088,7 @@ END:VCALENDAR
         self.assertTrue(pkey in calendar2.properties())
         self.assertEqual(str(calendar2.properties()[pkey]), "A birthday calendar")
 
+
     @inlineCallbacks
     def test_noSplitCalendars(self):
         """
@@ -1098,6 +1114,7 @@ END:VCALENDAR
             supported_components.add(result)
 
         self.assertEqual(supported_components, set(("VEVENT", "VTODO",)))
+
 
     @inlineCallbacks
     def test_resourceLock(self):
@@ -1175,6 +1192,7 @@ END:VCALENDAR
         rMin, rMax = yield resource.recurrenceMinMax()
         self.assertEqual(rMin, None)
         self.assertEqual(rMax, None)
+
 
     @inlineCallbacks
     def test_notExpandedWithin(self):
@@ -1292,8 +1310,8 @@ END:VCALENDAR
         yield calendarObject.setComponent(component)
         instances2 = yield calendarObject.instances()
         self.assertNotEqual(
-            sorted(instances, key=lambda x:x[0])[0],
-            sorted(instances2, key=lambda x:x[0])[0],
+            sorted(instances, key=lambda x: x[0])[0],
+            sorted(instances2, key=lambda x: x[0])[0],
         )
         yield self.commit()
 
@@ -1304,12 +1322,13 @@ END:VCALENDAR
         yield calendarObject.setComponent(component)
         instances3 = yield calendarObject.instances()
         self.assertEqual(
-            sorted(instances2, key=lambda x:x[0])[0],
-            sorted(instances3, key=lambda x:x[0])[0],
+            sorted(instances2, key=lambda x: x[0])[0],
+            sorted(instances3, key=lambda x: x[0])[0],
         )
 
         yield calendar.removeCalendarObjectWithName("indexing.ics")
         yield self.commit()
+
 
     @inlineCallbacks
     def test_loadObjectResourcesWithName(self):
@@ -1390,16 +1409,17 @@ END:VCALENDAR
         self.assertEqual(resources[0].properties()[PropertyName.fromElement(prop)], prop)
 
         resources = yield inbox.objectResourcesWithNames(("1.ics", "2.ics",))
-        resources.sort(key=lambda x:x._name)
+        resources.sort(key=lambda x: x._name)
         prop = caldavxml.CalendarDescription.fromString("p1")
         self.assertEqual(resources[0].properties()[PropertyName.fromElement(prop)], prop)
         prop = caldavxml.CalendarDescription.fromString("p2")
         self.assertEqual(resources[1].properties()[PropertyName.fromElement(prop)], prop)
 
         resources = yield inbox.objectResourcesWithNames(("bogus1.ics", "2.ics",))
-        resources.sort(key=lambda x:x._name)
+        resources.sort(key=lambda x: x._name)
         prop = caldavxml.CalendarDescription.fromString("p2")
         self.assertEqual(resources[0].properties()[PropertyName.fromElement(prop)], prop)
+
 
     @inlineCallbacks
     def test_objectResourceWithID(self):

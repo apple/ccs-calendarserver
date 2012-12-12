@@ -54,23 +54,23 @@ def readSock(sockname, useTCP):
 
 
 
-def printStats(stats, multimode, showMethods, topUsers):
+def printStats(stats, multimode, showMethods, topUsers, showAgents):
     if len(stats) == 1:
         if "Failed" in stats[0]:
             printFailedStats(stats[0]["Failed"])
         else:
             try:
-                printStat(stats[0], multimode[0], showMethods, topUsers)
+                printStat(stats[0], multimode[0], showMethods, topUsers, showAgents)
             except KeyError, e:
                 printFailedStats("Unable to find key '%s' in statistics from server socket" % (e,))
                 sys.exit(1)
 
     else:
-        printMultipleStats(stats, multimode, showMethods, topUsers)
+        printMultipleStats(stats, multimode, showMethods, topUsers, showAgents)
 
 
 
-def printStat(stats, index, showMethods, topUsers):
+def printStat(stats, index, showMethods, topUsers, showAgents):
 
     print "- " * 40
     print "Server: %s" % (stats["Server"],)
@@ -91,15 +91,17 @@ def printStat(stats, index, showMethods, topUsers):
         print "Current Memory Used: Unavailable"
     print
     printRequestSummary(stats)
-    printHistogramSummary(stats[index])
+    printHistogramSummary(stats[index], index)
     if showMethods:
         printMethodCounts(stats[index])
     if topUsers:
         printUserCounts(stats[index], topUsers)
+    if showAgents:
+        printAgentCounts(stats[index])
 
 
 
-def printMultipleStats(stats, multimode, showMethods, topUsers):
+def printMultipleStats(stats, multimode, showMethods, topUsers, showAgents):
 
     labels = serverLabels(stats)
 
@@ -130,6 +132,8 @@ def printMultipleStats(stats, multimode, showMethods, topUsers):
         printMultiMethodCounts(stats, multimode[0])
     if topUsers:
         printMultiUserCounts(stats, multimode[0], topUsers)
+    if showAgents:
+        printMultiAgentCounts(stats, multimode[0])
 
 
 
@@ -274,9 +278,9 @@ def printMultiRequestSummary(stats, cpus, memories, times, labels, index):
 
 
 
-def printHistogramSummary(stat):
+def printHistogramSummary(stat, index):
 
-    print "5 minute average response histogram"
+    print "%s average response histogram" % (index,)
     table = tables.Table()
     table.addHeader(
         ("", "<10ms", "10ms<->100ms", "100ms<->1s", "1s<->10s", "10s<->30s", "30s<->60s", ">60s", "Over 1s", "Over 10s"),
@@ -329,41 +333,7 @@ def printMultiHistogramSummary(stats, index):
             for k in keys[1:]:
                 totals[i][k] += stat[index][i][k]
 
-    print "%s average response histogram" % (index,)
-    table = tables.Table()
-    table.addHeader(
-        ("", "<10ms", "10ms<->100ms", "100ms<->1s", "1s<->10s", "10s<->30s", "30s<->60s", ">60s", "Over 1s", "Over 10s"),
-    )
-    table.setDefaultColumnFormats(
-       (
-            tables.Table.ColumnFormat("%s", tables.Table.ColumnFormat.LEFT_JUSTIFY),
-            tables.Table.ColumnFormat("%d (%.1f%%)", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
-            tables.Table.ColumnFormat("%d (%.1f%%)", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
-            tables.Table.ColumnFormat("%d (%.1f%%)", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
-            tables.Table.ColumnFormat("%d (%.1f%%)", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
-            tables.Table.ColumnFormat("%d (%.1f%%)", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
-            tables.Table.ColumnFormat("%d (%.1f%%)", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
-            tables.Table.ColumnFormat("%d (%.1f%%)", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
-            tables.Table.ColumnFormat("%.1f%%", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
-            tables.Table.ColumnFormat("%.1f%%", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
-        )
-    )
-    for i in ("T", "T-RESP-WR",):
-        table.addRow((
-            "Overall Response" if i == "T" else "Response Write",
-            (totals[i]["<10ms"], safeDivision(totals[i]["<10ms"], totals[i]["requests"], 100.0)),
-            (totals[i]["10ms<->100ms"], safeDivision(totals[i]["10ms<->100ms"], totals[i]["requests"], 100.0)),
-            (totals[i]["100ms<->1s"], safeDivision(totals[i]["100ms<->1s"], totals[i]["requests"], 100.0)),
-            (totals[i]["1s<->10s"], safeDivision(totals[i]["1s<->10s"], totals[i]["requests"], 100.0)),
-            (totals[i]["10s<->30s"], safeDivision(totals[i]["10s<->30s"], totals[i]["requests"], 100.0)),
-            (totals[i]["30s<->60s"], safeDivision(totals[i]["30s<->60s"], totals[i]["requests"], 100.0)),
-            (totals[i][">60s"], safeDivision(totals[i][">60s"], totals[i]["requests"], 100.0)),
-            safeDivision(totals[i]["Over 1s"], totals[i]["requests"], 100.0),
-            safeDivision(totals[i]["Over 10s"], totals[i]["requests"], 100.0),
-        ))
-    os = StringIO()
-    table.printTable(os=os)
-    print os.getvalue()
+    printHistogramSummary(totals, index)
 
 
 
@@ -372,22 +342,38 @@ def printMethodCounts(stat):
     print "Method Counts"
     table = tables.Table()
     table.addHeader(
-        ("Method", "Total", "Percentage"),
+        ("Method", "Count", "%", "Av. Response", "%", "Total Resp. %"),
+    )
+    table.addHeader(
+        ("", "", "", "(ms)", "", ""),
     )
     table.setDefaultColumnFormats(
        (
             tables.Table.ColumnFormat("%s", tables.Table.ColumnFormat.LEFT_JUSTIFY),
             tables.Table.ColumnFormat("%d", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
             tables.Table.ColumnFormat("%.1f%%", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
+            tables.Table.ColumnFormat("%.1f", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
+            tables.Table.ColumnFormat("%.1f%%", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
+            tables.Table.ColumnFormat("%.1f%%", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
         )
     )
 
-    total = sum(stat["method"].values())
+    response_average = {}
+    for method in stat["method"].keys():
+        response_average[method] = stat["method-t"][method] / stat["method"][method]
+
+    total_count = sum(stat["method"].values())
+    total_avresponse = sum(response_average.values())
+    total_response = sum(stat["method-t"].values())
+
     for method in sorted(stat["method"].keys()):
         table.addRow((
             method,
             stat["method"][method],
-            safeDivision(stat["method"][method], total, 100.0),
+            safeDivision(stat["method"][method], total_count, 100.0),
+            response_average[method],
+            safeDivision(response_average[method], total_avresponse, 100.0),
+            safeDivision(stat["method-t"][method], total_response, 100.0),
         ))
     os = StringIO()
     table.printTable(os=os)
@@ -398,33 +384,14 @@ def printMethodCounts(stat):
 def printMultiMethodCounts(stats, index):
 
     methods = collections.defaultdict(int)
+    method_times = collections.defaultdict(float)
     for stat in stats:
         for method in stat[index]["method"]:
             methods[method] += stat[index]["method"][method]
+        for method_time in stat[index]["method-t"]:
+            method_times[method_time] += stat[index]["method-t"][method_time]
 
-    print "Method Counts"
-    table = tables.Table()
-    table.addHeader(
-        ("Method", "Total", "Percentage"),
-    )
-    table.setDefaultColumnFormats(
-       (
-            tables.Table.ColumnFormat("%s", tables.Table.ColumnFormat.LEFT_JUSTIFY),
-            tables.Table.ColumnFormat("%d", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
-            tables.Table.ColumnFormat("%.1f%%", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
-        )
-    )
-
-    total = sum(methods.values())
-    for method in sorted(methods.keys()):
-        table.addRow((
-            method,
-            methods[method],
-            safeDivision(methods[method], total, 100.0),
-        ))
-    os = StringIO()
-    table.printTable(os=os)
-    print os.getvalue()
+    printMethodCounts({"method": methods, "method-t": method_times})
 
 
 
@@ -444,11 +411,11 @@ def printUserCounts(stat, topUsers):
     )
 
     total = sum(stat["uid"].values())
-    for uid in sorted(stat["uid"].items(), key=lambda x: x[1], reverse=True)[:topUsers]:
+    for uid, value in sorted(stat["uid"].items(), key=lambda x: x[1], reverse=True)[:topUsers]:
         table.addRow((
             uid,
-            stat["uid"][uid],
-            safeDivision(stat["uid"][uid], total, 100.0),
+            value,
+            safeDivision(value, total, 100.0),
         ))
     os = StringIO()
     table.printTable(os=os)
@@ -463,29 +430,46 @@ def printMultiUserCounts(stats, index, topUsers):
         for uid in stat[index]["uid"]:
             uids[uid] += stat[index]["uid"][uid]
 
-    print "User Counts"
+    printUserCounts({"uid": uids}, topUsers)
+
+
+
+def printAgentCounts(stat):
+
+    print "User-Agent Counts"
     table = tables.Table()
     table.addHeader(
-        ("User", "Total", "Percentage"),
+        ("User-Agent", "Total", "Percentage"),
     )
     table.setDefaultColumnFormats(
-        (
+       (
             tables.Table.ColumnFormat("%s", tables.Table.ColumnFormat.LEFT_JUSTIFY),
             tables.Table.ColumnFormat("%d", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
             tables.Table.ColumnFormat("%.1f%%", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
         )
     )
 
-    total = sum(uids.values())
-    for uid, count in sorted(uids.items(), key=lambda x: x[1], reverse=True)[:topUsers]:
+    total = sum(stat["user-agent"].values())
+    for ua in sorted(stat["user-agent"].keys()):
         table.addRow((
-            uid,
-            count,
-            safeDivision(count, total, 100.0),
+            ua,
+            stat["user-agent"][ua],
+            safeDivision(stat["user-agent"][ua], total, 100.0),
         ))
     os = StringIO()
     table.printTable(os=os)
     print os.getvalue()
+
+
+
+def printMultiAgentCounts(stats, index):
+
+    uas = collections.defaultdict(int)
+    for stat in stats:
+        for ua in stat[index]["user-agent"]:
+            uas[ua] += stat[index]["user-agent"][ua]
+
+    printUserCounts({"user-agent": uas})
 
 
 
@@ -505,6 +489,7 @@ Options:
     --60          Display multiserver 1 hour average
     --methods     Include details about HTTP method usage
     --users N     Include details about top N users
+    --agents      Include details about HTTP User-Agent usage
 
 Description:
     This utility will print a summary of statistics read from a
@@ -525,11 +510,12 @@ if __name__ == '__main__':
     useTCP = False
     showMethods = False
     topUsers = 0
+    showAgents = False
 
     multimodes = (("Current", 60,), ("1 Minute", 60,), ("5 Minutes", 5 * 60,), ("1 Hour", 60 * 60,),)
     multimode = multimodes[2]
 
-    options, args = getopt.getopt(sys.argv[1:], "hs:t:", ["tcp=", "0", "1", "5", "60", "methods", "users="])
+    options, args = getopt.getopt(sys.argv[1:], "hs:t:", ["tcp=", "0", "1", "5", "60", "methods", "users=", "agents"])
 
     for option, value in options:
         if option == "-h":
@@ -553,7 +539,9 @@ if __name__ == '__main__':
             showMethods = True
         elif option == "--users":
             topUsers = int(value)
+        elif option == "--agents":
+            showAgents = True
 
     while True:
-        printStats([readSock(server, useTCP) for server in servers], multimode, showMethods, topUsers)
+        printStats([readSock(server, useTCP) for server in servers], multimode, showMethods, topUsers, showAgents)
         time.sleep(delay)

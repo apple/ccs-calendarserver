@@ -61,7 +61,6 @@ from twistedcaldav.sql import AbstractSQLDatabase, db_prefix
 import os
 import types
 
-
 ECALENDARTYPE = 0
 EADDRESSBOOKTYPE = 1
 
@@ -530,7 +529,6 @@ class SharedCollectionsDatabase(AbstractSQLDatabase, LoggingMixIn):
     def _makeRecord(self, row):
 
         return SharedCollectionRecord(*[str(item) if type(item) == types.UnicodeType else item for item in row])
-
 
 class CommonHome(FileMetaDataMixin, LoggingMixIn):
 
@@ -1284,8 +1282,6 @@ class CommonHomeChild(FileMetaDataMixin, LoggingMixIn, FancyEqMixin, HomeChildBa
         """
         yield None
         returnValue([])
-
-
 
 class CommonObjectResource(FileMetaDataMixin, LoggingMixIn, FancyEqMixin):
     """

@@ -254,6 +254,8 @@ www_get () {
       }
 
       if [ ! -f "${cache_file}" ]; then
+        echo "No cache file: ${cache_file}";
+
         echo "Downloading ${name}...";
 
         local pkg_host="static.calendarserver.org";

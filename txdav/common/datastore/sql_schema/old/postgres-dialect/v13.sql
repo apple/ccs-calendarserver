@@ -81,6 +81,24 @@ create table CALENDAR_METADATA (
 );
 
 
+------------------------
+-- Sharing Invitation --
+------------------------
+
+create table INVITE (
+    INVITE_UID         varchar(255) not null,
+    NAME               varchar(255) not null,
+    RECIPIENT_ADDRESS  varchar(255) not null,
+    HOME_RESOURCE_ID   integer      not null,
+    RESOURCE_ID        integer      not null
+
+    -- Need primary key on (INVITE_UID, NAME, RECIPIENT_ADDRESS)?
+);
+
+create index INVITE_INVITE_UID on INVITE(INVITE_UID);
+create index INVITE_RESOURCE_ID on INVITE(RESOURCE_ID);
+create index INVITE_HOME_RESOURCE_ID on INVITE(HOME_RESOURCE_ID);
+
 ---------------------------
 -- Sharing Notifications --
 ---------------------------
@@ -115,9 +133,15 @@ create index NOTIFICATION_NOTIFICATION_HOME_RESOURCE_ID on
 create table CALENDAR_BIND (
   CALENDAR_HOME_RESOURCE_ID integer      not null references CALENDAR_HOME,
   CALENDAR_RESOURCE_ID      integer      not null references CALENDAR on delete cascade,
-  CALENDAR_RESOURCE_NAME    varchar(255) not null,
+
+  -- An invitation which hasn't been accepted yet will not yet have a resource
+  -- name, so this field may be null.
+
+  CALENDAR_RESOURCE_NAME    varchar(255),
   BIND_MODE                 integer      not null, -- enum CALENDAR_BIND_MODE
   BIND_STATUS               integer      not null, -- enum CALENDAR_BIND_STATUS
+  SEEN_BY_OWNER             boolean      not null,
+  SEEN_BY_SHAREE            boolean      not null,
   MESSAGE                   text,
 
   primary key(CALENDAR_HOME_RESOURCE_ID, CALENDAR_RESOURCE_ID), -- implicit index
@@ -346,75 +370,45 @@ create table ADDRESSBOOK_HOME_METADATA (
   MODIFIED         timestamp    default timezone('UTC', CURRENT_TIMESTAMP)
 );
 
------------------------------
--- AddressBook Object --
------------------------------
+-----------------
+-- AddressBook --
+-----------------
 
-
-  create table ADDRESSBOOK_OBJECT (
-  RESOURCE_ID             integer      primary key default nextval('RESOURCE_ID_SEQ'),	-- implicit index
-  ADDRESSBOOK_RESOURCE_ID integer      references ADDRESSBOOK_OBJECT on delete cascade,	-- ### could add non-null, but ab would reference itself
-  RESOURCE_NAME           varchar(255) not null,
-  VCARD_TEXT              text         not null,
-  VCARD_UID               varchar(255) not null,
-  MD5                     char(32)     not null,
-  CREATED                 timestamp    default timezone('UTC', CURRENT_TIMESTAMP),
-  MODIFIED                timestamp    default timezone('UTC', CURRENT_TIMESTAMP),
-  KIND 			  		  integer      not null, -- enum OBJECT_KIND 
-  
-  unique (ADDRESSBOOK_RESOURCE_ID, RESOURCE_NAME), -- implicit index
-  unique (ADDRESSBOOK_RESOURCE_ID, VCARD_UID)      -- implicit index
+create table ADDRESSBOOK (
+  RESOURCE_ID integer   primary key default nextval('RESOURCE_ID_SEQ') -- implicit index
 );
 
------------------------------
--- AddressBook Object kind --
------------------------------
 
-create table ADDRESSBOOK_OBJECT_KIND (
-  ID          integer     primary key,
-  DESCRIPTION varchar(16) not null unique
+--------------------------
+-- AddressBook Metadata --
+--------------------------
+
+create table ADDRESSBOOK_METADATA (
+  RESOURCE_ID integer   primary key references ADDRESSBOOK on delete cascade, -- implicit index
+  CREATED     timestamp default timezone('UTC', CURRENT_TIMESTAMP),
+  MODIFIED    timestamp default timezone('UTC', CURRENT_TIMESTAMP)
 );
 
-insert into ADDRESSBOOK_OBJECT_KIND values (0, 'person');
-insert into ADDRESSBOOK_OBJECT_KIND values (1, 'group' );
-insert into ADDRESSBOOK_OBJECT_KIND values (2, 'resource');
-insert into ADDRESSBOOK_OBJECT_KIND values (3, 'location');
-
----------------------------------
--- Address Book Object Members --
----------------------------------
-
-create table ABO_MEMBERS (
-    GROUP_ID              integer      not null references ADDRESSBOOK_OBJECT on delete cascade,	-- AddressBook Object's (kind=='group') RESOURCE_ID
- 	ADDRESSBOOK_ID		  integer      not null references ADDRESSBOOK_OBJECT on delete cascade,	-- only used on insert and whole address book delete
-    MEMBER_ID             integer      not null references ADDRESSBOOK_OBJECT,						-- member AddressBook Object's RESOURCE_ID
-    primary key (GROUP_ID, MEMBER_ID) -- implicit index
-);
-
-------------------------------------------
--- Address Book Object Foreign Members  --
-------------------------------------------
-
-create table ABO_FOREIGN_MEMBERS (
-    GROUP_ID              integer      not null references ADDRESSBOOK_OBJECT on delete cascade,	-- AddressBook Object's (kind=='group') RESOURCE_ID
- 	ADDRESSBOOK_ID		  integer      not null references ADDRESSBOOK_OBJECT on delete cascade,	-- only used on insert and whole address book delete
-    MEMBER_ADDRESS  	  varchar(255) not null, 													-- member AddressBook Object's 'calendar' address
-    primary key (GROUP_ID, MEMBER_ADDRESS) -- implicit index
-);
 
 ----------------------
 -- AddressBook Bind --
 ----------------------
 
--- Joins ADDRESSBOOK_HOME and ADDRESSBOOK_OBJECT (acting as Address Book)
+-- Joins ADDRESSBOOK_HOME and ADDRESSBOOK
 
-create table ADDRESSBOOK_BIND (	
-  ADDRESSBOOK_HOME_RESOURCE_ID 		integer      not null references ADDRESSBOOK_HOME,
-  ADDRESSBOOK_RESOURCE_ID     		integer      not null references ADDRESSBOOK_OBJECT on delete cascade,
-  ADDRESSBOOK_RESOURCE_NAME    		varchar(255) not null,
-  BIND_MODE                    		integer      not null, 	-- enum CALENDAR_BIND_MODE
-  BIND_STATUS                  		integer      not null, 	-- enum CALENDAR_BIND_STATUS
-  MESSAGE                      		text,        			-- FIXME: xml?
+create table ADDRESSBOOK_BIND (
+  ADDRESSBOOK_HOME_RESOURCE_ID integer      not null references ADDRESSBOOK_HOME,
+  ADDRESSBOOK_RESOURCE_ID      integer      not null references ADDRESSBOOK on delete cascade,
+
+  -- An invitation which hasn't been accepted yet will not yet have a resource
+  -- name, so this field may be null.
+
+  ADDRESSBOOK_RESOURCE_NAME    varchar(255),
+  BIND_MODE                    integer      not null, -- enum CALENDAR_BIND_MODE
+  BIND_STATUS                  integer      not null, -- enum CALENDAR_BIND_STATUS
+  SEEN_BY_OWNER                boolean      not null,
+  SEEN_BY_SHAREE               boolean      not null,
+  MESSAGE                      text,                  -- FIXME: xml?
 
   primary key (ADDRESSBOOK_HOME_RESOURCE_ID, ADDRESSBOOK_RESOURCE_ID), -- implicit index
   unique (ADDRESSBOOK_HOME_RESOURCE_ID, ADDRESSBOOK_RESOURCE_NAME)     -- implicit index
@@ -423,11 +417,30 @@ create table ADDRESSBOOK_BIND (
 create index ADDRESSBOOK_BIND_RESOURCE_ID on
   ADDRESSBOOK_BIND(ADDRESSBOOK_RESOURCE_ID);
 
+create table ADDRESSBOOK_OBJECT (
+  RESOURCE_ID             integer      primary key default nextval('RESOURCE_ID_SEQ'),    -- implicit index
+  ADDRESSBOOK_RESOURCE_ID integer      not null references ADDRESSBOOK on delete cascade,
+  RESOURCE_NAME           varchar(255) not null,
+  VCARD_TEXT              text         not null,
+  VCARD_UID               varchar(255) not null,
+  MD5                     char(32)     not null,
+  CREATED                 timestamp    default timezone('UTC', CURRENT_TIMESTAMP),
+  MODIFIED                timestamp    default timezone('UTC', CURRENT_TIMESTAMP),
+
+  unique (ADDRESSBOOK_RESOURCE_ID, RESOURCE_NAME), -- implicit index
+  unique (ADDRESSBOOK_RESOURCE_ID, VCARD_UID)      -- implicit index
+);
+
 ---------------
 -- Revisions --
 ---------------
 
 create sequence REVISION_SEQ;
+
+
+---------------
+-- Revisions --
+---------------
 
 create table CALENDAR_OBJECT_REVISIONS (
   CALENDAR_HOME_RESOURCE_ID integer      not null references CALENDAR_HOME,
@@ -447,13 +460,13 @@ create index CALENDAR_OBJECT_REVISIONS_RESOURCE_ID_RESOURCE_NAME
 create index CALENDAR_OBJECT_REVISIONS_RESOURCE_ID_REVISION
   on CALENDAR_OBJECT_REVISIONS(CALENDAR_RESOURCE_ID, REVISION);
 
-----------------------------------
+-------------------------------
 -- AddressBook Object Revisions --
-----------------------------------
+-------------------------------
 
 create table ADDRESSBOOK_OBJECT_REVISIONS (
   ADDRESSBOOK_HOME_RESOURCE_ID integer      not null references ADDRESSBOOK_HOME,
-  ADDRESSBOOK_RESOURCE_ID      integer      references ADDRESSBOOK_OBJECT on delete cascade,
+  ADDRESSBOOK_RESOURCE_ID      integer      references ADDRESSBOOK,
   ADDRESSBOOK_NAME             varchar(255) default null,
   RESOURCE_NAME                varchar(255),
   REVISION                     integer      default nextval('REVISION_SEQ') not null,
