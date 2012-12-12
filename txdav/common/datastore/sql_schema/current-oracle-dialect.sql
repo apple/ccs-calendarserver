@@ -54,7 +54,7 @@ create table NOTIFICATION (
 create table CALENDAR_BIND (
     "CALENDAR_HOME_RESOURCE_ID" integer not null references CALENDAR_HOME,
     "CALENDAR_RESOURCE_ID" integer not null references CALENDAR on delete cascade,
-    "CALENDAR_RESOURCE_NAME" nvarchar2(255),
+    "CALENDAR_RESOURCE_NAME" nvarchar2(255) not null,
     "BIND_MODE" integer not null,
     "BIND_STATUS" integer not null,
     "MESSAGE" nclob, 
@@ -203,7 +203,7 @@ create table ADDRESSBOOK_METADATA (
 create table ADDRESSBOOK_BIND (
     "ADDRESSBOOK_HOME_RESOURCE_ID" integer not null references ADDRESSBOOK_HOME,
     "ADDRESSBOOK_RESOURCE_ID" integer not null references ADDRESSBOOK on delete cascade,
-    "ADDRESSBOOK_RESOURCE_NAME" nvarchar2(255),
+    "ADDRESSBOOK_RESOURCE_NAME" nvarchar2(255) not null,
     "BIND_MODE" integer not null,
     "BIND_STATUS" integer not null,
     "MESSAGE" nclob, 
