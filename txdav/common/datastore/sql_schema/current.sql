@@ -115,11 +115,7 @@ create index NOTIFICATION_NOTIFICATION_HOME_RESOURCE_ID on
 create table CALENDAR_BIND (
   CALENDAR_HOME_RESOURCE_ID integer      not null references CALENDAR_HOME,
   CALENDAR_RESOURCE_ID      integer      not null references CALENDAR on delete cascade,
-
-  -- An invitation which hasn't been accepted yet will not yet have a resource
-  -- name, so this field may be null.
-
-  CALENDAR_RESOURCE_NAME    varchar(255),
+  CALENDAR_RESOURCE_NAME    varchar(255) not null,
   BIND_MODE                 integer      not null, -- enum CALENDAR_BIND_MODE
   BIND_STATUS               integer      not null, -- enum CALENDAR_BIND_STATUS
   MESSAGE                   text,
@@ -379,11 +375,7 @@ create table ADDRESSBOOK_METADATA (
 create table ADDRESSBOOK_BIND (
   ADDRESSBOOK_HOME_RESOURCE_ID integer      not null references ADDRESSBOOK_HOME,
   ADDRESSBOOK_RESOURCE_ID      integer      not null references ADDRESSBOOK on delete cascade,
-
-  -- An invitation which hasn't been accepted yet will not yet have a resource
-  -- name, so this field may be null.
-
-  ADDRESSBOOK_RESOURCE_NAME    varchar(255),
+  ADDRESSBOOK_RESOURCE_NAME    varchar(255) not null,
   BIND_MODE                    integer      not null, -- enum CALENDAR_BIND_MODE
   BIND_STATUS                  integer      not null, -- enum CALENDAR_BIND_STATUS
   MESSAGE                      text,                  -- FIXME: xml?
