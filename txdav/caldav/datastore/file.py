@@ -44,7 +44,6 @@ from twistedcaldav import caldavxml, customxml
 from twistedcaldav.caldavxml import ScheduleCalendarTransp, Opaque
 from twistedcaldav.config import config
 from twistedcaldav.ical import InvalidICalendarDataError
-from twistedcaldav.sharing import InvitesDatabase
 
 from txdav.caldav.icalendarstore import IAttachment
 from txdav.caldav.icalendarstore import ICalendar, ICalendarObject
@@ -254,7 +253,6 @@ class Calendar(CommonHomeChild):
         super(Calendar, self).__init__(name, calendarHome, owned, realName=realName)
 
         self._index = Index(self)
-        self._invites = Invites(self)
         self._objectResourceClass = CalendarObject
 
 
@@ -266,13 +264,6 @@ class Calendar(CommonHomeChild):
     def resourceType(self):
         return ResourceType.calendar #@UndefinedVariable
 
-
-    def asShared(self):
-        """
-        Stub for interface-compliance tests.
-        """
-        # TODO: implement me.
-        raise NotImplementedError()
 
     ownerCalendarHome = CommonHomeChild.ownerHome
     viewerCalendarHome = CommonHomeChild.viewerHome
@@ -908,14 +899,3 @@ class Index(object):
 
             yield calendarObject
 
-
-
-class Invites(object):
-    #
-    # OK, here's where we get ugly.
-    # The index code needs to be rewritten also, but in the meantime...
-    #
-    def __init__(self, calendar):
-        self.calendar = calendar
-        stubResource = CalendarStubResource(calendar)
-        self._oldInvites = InvitesDatabase(stubResource)

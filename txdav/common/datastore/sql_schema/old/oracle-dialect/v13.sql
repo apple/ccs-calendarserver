@@ -34,6 +34,14 @@ create table CALENDAR_METADATA (
     "MODIFIED" timestamp default CURRENT_TIMESTAMP at time zone 'UTC'
 );
 
+create table INVITE (
+    "INVITE_UID" nvarchar2(255),
+    "NAME" nvarchar2(255),
+    "RECIPIENT_ADDRESS" nvarchar2(255),
+    "HOME_RESOURCE_ID" integer not null,
+    "RESOURCE_ID" integer not null
+);
+
 create table NOTIFICATION_HOME (
     "RESOURCE_ID" integer primary key,
     "OWNER_UID" nvarchar2(255) unique
@@ -57,6 +65,8 @@ create table CALENDAR_BIND (
     "CALENDAR_RESOURCE_NAME" nvarchar2(255),
     "BIND_MODE" integer not null,
     "BIND_STATUS" integer not null,
+    "SEEN_BY_OWNER" integer not null,
+    "SEEN_BY_SHAREE" integer not null,
     "MESSAGE" nclob, 
     primary key("CALENDAR_HOME_RESOURCE_ID", "CALENDAR_RESOURCE_ID"), 
     unique("CALENDAR_HOME_RESOURCE_ID", "CALENDAR_RESOURCE_NAME")
@@ -206,6 +216,8 @@ create table ADDRESSBOOK_BIND (
     "ADDRESSBOOK_RESOURCE_NAME" nvarchar2(255),
     "BIND_MODE" integer not null,
     "BIND_STATUS" integer not null,
+    "SEEN_BY_OWNER" integer not null,
+    "SEEN_BY_SHAREE" integer not null,
     "MESSAGE" nclob, 
     primary key("ADDRESSBOOK_HOME_RESOURCE_ID", "ADDRESSBOOK_RESOURCE_ID"), 
     unique("ADDRESSBOOK_HOME_RESOURCE_ID", "ADDRESSBOOK_RESOURCE_NAME")
@@ -265,9 +277,20 @@ create table CALENDARSERVER (
     "VALUE" nvarchar2(255)
 );
 
-insert into CALENDARSERVER (NAME, VALUE) values ('VERSION', '14');
+insert into CALENDARSERVER (NAME, VALUE) values ('VERSION', '13');
 insert into CALENDARSERVER (NAME, VALUE) values ('CALENDAR-DATAVERSION', '3');
 insert into CALENDARSERVER (NAME, VALUE) values ('ADDRESSBOOK-DATAVERSION', '1');
+create index INVITE_INVITE_UID_9b0902ff on INVITE (
+    INVITE_UID
+);
+
+create index INVITE_RESOURCE_ID_b36ddc23 on INVITE (
+    RESOURCE_ID
+);
+
+create index INVITE_HOME_RESOURCE__e9bdf77e on INVITE (
+    HOME_RESOURCE_ID
+);
 
 create index NOTIFICATION_NOTIFICA_f891f5f9 on NOTIFICATION (
     NOTIFICATION_HOME_RESOURCE_ID

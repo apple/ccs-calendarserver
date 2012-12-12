@@ -36,7 +36,6 @@ from twistedcaldav import customxml
 from twistedcaldav.customxml import NotificationType
 from twistedcaldav.notifications import NotificationRecord
 from twistedcaldav.notifications import NotificationsDatabase as OldNotificationIndex
-from twistedcaldav.sharing import SharedCollectionsDatabase
 from txdav.caldav.icalendarstore import ICalendarStore, BIND_OWN
 
 from txdav.common.datastore.common import HomeChildBase
@@ -58,6 +57,9 @@ from errno import EEXIST, ENOENT
 from zope.interface import implements, directlyProvides
 
 import uuid
+from twistedcaldav.sql import AbstractSQLDatabase, db_prefix
+import os
+import types
 
 ECALENDARTYPE = 0
 EADDRESSBOOKTYPE = 1
@@ -375,6 +377,158 @@ class StubResource(object):
         return self._commonHome._path
 
 
+
+class SharedCollectionRecord(object):
+
+    def __init__(self, shareuid, sharetype, hosturl, localname, summary):
+        self.shareuid = shareuid
+        self.sharetype = sharetype
+        self.hosturl = hosturl
+        self.localname = localname
+        self.summary = summary
+
+
+class SharedCollectionsDatabase(AbstractSQLDatabase, LoggingMixIn):
+
+    db_basename = db_prefix + "shares"
+    schema_version = "1"
+    db_type = "shares"
+
+    def __init__(self, resource):
+        """
+        @param resource: the L{CalDAVResource} resource for
+            the shared collection. C{resource} must be a calendar/addressbook home collection.)
+        """
+        self.resource = resource
+        db_filename = os.path.join(self.resource.fp.path, SharedCollectionsDatabase.db_basename)
+        super(SharedCollectionsDatabase, self).__init__(db_filename, True, autocommit=True)
+
+
+    def get_dbpath(self):
+        return self.resource.fp.child(SharedCollectionsDatabase.db_basename).path
+
+
+    def set_dbpath(self, newpath):
+        pass
+
+    dbpath = property(get_dbpath, set_dbpath)
+
+
+    def create(self):
+        """
+        Create the index and initialize it.
+        """
+        self._db()
+
+
+    def allRecords(self):
+
+        records = self._db_execute("select * from SHARES order by LOCALNAME")
+        return [self._makeRecord(row) for row in (records if records is not None else ())]
+
+
+    def recordForShareUID(self, shareUID):
+
+        row = self._db_execute("select * from SHARES where SHAREUID = :1", shareUID)
+        return self._makeRecord(row[0]) if row else None
+
+
+    def addOrUpdateRecord(self, record):
+
+        self._db_execute("""insert or replace into SHARES (SHAREUID, SHARETYPE, HOSTURL, LOCALNAME, SUMMARY)
+            values (:1, :2, :3, :4, :5)
+            """, record.shareuid, record.sharetype, record.hosturl, record.localname, record.summary,
+        )
+
+
+    def removeRecordForLocalName(self, localname):
+
+        self._db_execute("delete from SHARES where LOCALNAME = :1", localname)
+
+
+    def removeRecordForShareUID(self, shareUID):
+
+        self._db_execute("delete from SHARES where SHAREUID = :1", shareUID)
+
+
+    def remove(self):
+
+        self._db_close()
+        os.remove(self.dbpath)
+
+
+    def directShareID(self, shareeHome, sharerCollection):
+        return "Direct-%s-%s" % (shareeHome.resourceID(), sharerCollection.resourceID(),)
+
+
+    def _db_version(self):
+        """
+        @return: the schema version assigned to this index.
+        """
+        return SharedCollectionsDatabase.schema_version
+
+
+    def _db_type(self):
+        """
+        @return: the collection type assigned to this index.
+        """
+        return SharedCollectionsDatabase.db_type
+
+
+    def _db_init_data_tables(self, q):
+        """
+        Initialise the underlying database tables.
+        @param q:           a database cursor to use.
+        """
+        #
+        # SHARES table is the primary table
+        #   SHAREUID: UID for this share
+        #   SHARETYPE: type of share: "I" for invite, "D" for direct
+        #   HOSTURL: URL for data source
+        #   LOCALNAME: local path name
+        #   SUMMARY: Share summary
+        #
+        q.execute(
+            """
+            create table SHARES (
+                SHAREUID       text unique,
+                SHARETYPE      text(1),
+                HOSTURL        text,
+                LOCALNAME      text,
+                SUMMARY        text
+            )
+            """
+        )
+
+        q.execute(
+            """
+            create index SHAREUID on SHARES (SHAREUID)
+            """
+        )
+        q.execute(
+            """
+            create index HOSTURL on SHARES (HOSTURL)
+            """
+        )
+        q.execute(
+            """
+            create index LOCALNAME on SHARES (LOCALNAME)
+            """
+        )
+
+
+    def _db_upgrade_data_tables(self, q, old_version):
+        """
+        Upgrade the data from an older version of the DB.
+        """
+
+        # Nothing to do as we have not changed the schema
+        pass
+
+
+    def _makeRecord(self, row):
+
+        return SharedCollectionRecord(*[str(item) if type(item) == types.UnicodeType else item for item in row])
 
 class CommonHome(FileMetaDataMixin, LoggingMixIn):
 
@@ -1113,7 +1267,21 @@ class CommonHomeChild(FileMetaDataMixin, LoggingMixIn, FancyEqMixin, HomeChildBa
                 self._transaction.postCommit(notifier.notify)
             self._transaction.notificationAddedForObject(self)
 
+    @inlineCallbacks
+    def asInvited(self):
+        """
+        Stub for interface-compliance tests.
+        """
+        yield None
+        returnValue([])
 
+    @inlineCallbacks
+    def asShared(self):
+        """
+        Stub for interface-compliance tests.
+        """
+        yield None
+        returnValue([])
 
 class CommonObjectResource(FileMetaDataMixin, LoggingMixIn, FancyEqMixin):
     """

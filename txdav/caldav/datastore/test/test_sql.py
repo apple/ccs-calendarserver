@@ -975,8 +975,6 @@ END:VCALENDAR
             bind.MESSAGE: "Shared to you",
             bind.BIND_MODE: _BIND_MODE_DIRECT,
             bind.BIND_STATUS: _BIND_STATUS_ACCEPTED,
-            bind.SEEN_BY_OWNER: True,
-            bind.SEEN_BY_SHAREE: True,
         })
         yield _bindCreate.on(self.transactionUnderTest())
         sharedCalendar = yield shareeHome.childWithName("shared_1")

@@ -21,13 +21,13 @@ This tool allows data in the database to be directly inspected using a set
 of simple commands.
 """
 
-from caldavclientlibrary.admin.xmlaccounts.recordtypes import recordType_users,\
+from caldavclientlibrary.admin.xmlaccounts.recordtypes import recordType_users, \
     recordType_locations, recordType_resources, recordType_groups
 from calendarserver.tap.util import directoryFromConfig
 from calendarserver.tools import tables
 from calendarserver.tools.cmdline import utilityMain
 from pycalendar.datetime import PyCalendarDateTime
-from twext.enterprise.dal.syntax import Select, Parameter, Count, Delete,\
+from twext.enterprise.dal.syntax import Select, Parameter, Count, Delete, \
     Constant
 from twisted.application.service import Service
 from twisted.internet.defer import inlineCallbacks, returnValue
@@ -93,13 +93,13 @@ class DBInspectOptions(Options):
 def UserNameFromUID(txn, uid):
     record = txn._directory.recordWithGUID(uid)
     return record.shortNames[0] if record else "(%s)" % (uid,)
-    
+
 def UIDFromInput(txn, value):
     try:
         return str(UUID(value)).upper()
     except (ValueError, TypeError):
         pass
-    
+
     record = txn._directory.recordWithShortName(recordType_users, value)
     if record is None:
         record = txn._directory.recordWithShortName(recordType_locations, value)
@@ -108,11 +108,11 @@ def UIDFromInput(txn, value):
     if record is None:
         record = txn._directory.recordWithShortName(recordType_groups, value)
     return record.guid if record else None
-    
+
 class Cmd(object):
-    
+
     _name = None
-    
+
     @classmethod
     def name(cls):
         return cls._name
@@ -122,18 +122,18 @@ class Cmd(object):
 
 
 class TableSizes(Cmd):
-    
+
     _name = "Show Size of each Table"
-    
+
     @inlineCallbacks
     def doIt(self, txn):
-        
+
         results = []
         for dbtable in schema.model.tables: #@UndefinedVariable
             dbtable = getattr(schema, dbtable.name)
             count = yield self.getTableSize(txn, dbtable)
             results.append((dbtable.model.name, count,))
-        
+
         # Print table of results
         table = tables.Table()
         table.addHeader(("Table", "Row Count"))
@@ -142,7 +142,7 @@ class TableSizes(Cmd):
                 dbtable,
                 count,
             ))
-        
+
         print "\n"
         print "Database Tables (total=%d):\n" % (len(results),)
         table.printTable()
@@ -150,21 +150,21 @@ class TableSizes(Cmd):
     @inlineCallbacks
     def getTableSize(self, txn, dbtable):
         rows = (yield Select(
-            [Count(Constant(1)),],
+            [Count(Constant(1)), ],
             From=dbtable,
         ).on(txn))
         returnValue(rows[0][0])
 
 
 class CalendarHomes(Cmd):
-    
+
     _name = "List Calendar Homes"
-    
+
     @inlineCallbacks
     def doIt(self, txn):
-        
+
         uids = yield self.getAllHomeUIDs(txn)
-        
+
         # Print table of results
         missing = 0
         table = tables.Table()
@@ -177,7 +177,7 @@ class CalendarHomes(Cmd):
                 uid,
                 shortname,
             ))
-        
+
         print "\n"
         print "Calendar Homes (total=%d, missing=%d):\n" % (len(uids), missing,)
         table.printTable()
@@ -186,21 +186,21 @@ class CalendarHomes(Cmd):
     def getAllHomeUIDs(self, txn):
         ch = schema.CALENDAR_HOME
         rows = (yield Select(
-            [ch.OWNER_UID,],
+            [ch.OWNER_UID, ],
             From=ch,
         ).on(txn))
         returnValue(tuple([row[0] for row in rows]))
 
 
 class CalendarHomesSummary(Cmd):
-    
+
     _name = "List Calendar Homes with summary information"
-    
+
     @inlineCallbacks
     def doIt(self, txn):
-        
+
         uids = yield self.getCalendars(txn)
-        
+
         results = {}
         for uid, calname, count in sorted(uids, key=lambda x:x[0]):
             totalname, totalcount = results.get(uid, (0, 0,))
@@ -208,7 +208,7 @@ class CalendarHomesSummary(Cmd):
                 totalname += 1
                 totalcount += count
                 results[uid] = (totalname, totalcount,)
-        
+
         # Print table of results
         table = tables.Table()
         table.addHeader(("Owner UID", "Short Name", "Calendars", "Resources"))
@@ -228,10 +228,10 @@ class CalendarHomesSummary(Cmd):
         table.addFooter((
             "Average",
             "",
-            "%.2f" % ((1.0 * totals[1])/totals[0] if totals[0] else 0,),
-            "%.2f" % ((1.0 * totals[2])/totals[0] if totals[0] else 0,),
+            "%.2f" % ((1.0 * totals[1]) / totals[0] if totals[0] else 0,),
+            "%.2f" % ((1.0 * totals[2]) / totals[0] if totals[0] else 0,),
         ))
-        
+
         print "\n"
         print "Calendars with resource count (total=%d):\n" % (len(results),)
         table.printTable()
@@ -257,14 +257,14 @@ class CalendarHomesSummary(Cmd):
 
 
 class Calendars(Cmd):
-    
+
     _name = "List Calendars"
-    
+
     @inlineCallbacks
     def doIt(self, txn):
-        
+
         uids = yield self.getCalendars(txn)
-        
+
         # Print table of results
         table = tables.Table()
         table.addHeader(("Owner UID", "Short Name", "Calendar", "Resources"))
@@ -276,7 +276,7 @@ class Calendars(Cmd):
                 calname,
                 count
             ))
-        
+
         print "\n"
         print "Calendars with resource count (total=%d):\n" % (len(uids),)
         table.printTable()
@@ -302,20 +302,20 @@ class Calendars(Cmd):
 
 
 class CalendarsByOwner(Cmd):
-    
+
     _name = "List Calendars for Owner UID/Short Name"
-    
+
     @inlineCallbacks
     def doIt(self, txn):
-        
+
         uid = raw_input("Owner UID/Name: ")
         uid = UIDFromInput(txn, uid)
         uids = yield self.getCalendars(txn, uid)
-        
+
         # Print table of results
         table = tables.Table()
         table.addHeader(("Owner UID", "Short Name", "Calendars", "ID", "Resources"))
-        totals = [0, 0,]
+        totals = [0, 0, ]
         for uid, calname, resid, count in sorted(uids, key=lambda x:x[1]):
             shortname = UserNameFromUID(txn, uid)
             table.addRow((
@@ -328,7 +328,7 @@ class CalendarsByOwner(Cmd):
             totals[0] += 1
             totals[1] += count
         table.addFooter(("Total", "", totals[0], "", totals[1]))
-        
+
         print "\n"
         print "Calendars with resource count (total=%d):\n" % (len(uids),)
         table.printTable()
@@ -356,14 +356,14 @@ class CalendarsByOwner(Cmd):
 
 
 class Events(Cmd):
-    
+
     _name = "List Events"
-    
+
     @inlineCallbacks
     def doIt(self, txn):
-        
+
         uids = yield self.getEvents(txn)
-        
+
         # Print table of results
         table = tables.Table()
         table.addHeader(("Owner UID", "Short Name", "Calendar", "ID", "Type", "UID"))
@@ -377,7 +377,7 @@ class Events(Cmd):
                 caltype,
                 caluid
             ))
-        
+
         print "\n"
         print "Calendar events (total=%d):\n" % (len(uids),)
         table.printTable()
@@ -403,12 +403,12 @@ class Events(Cmd):
         returnValue(tuple(rows))
 
 class EventsByCalendar(Cmd):
-    
+
     _name = "List Events for a specific calendar"
-    
+
     @inlineCallbacks
     def doIt(self, txn):
-        
+
         rid = raw_input("Resource-ID: ")
         try:
             int(rid)
@@ -416,7 +416,7 @@ class EventsByCalendar(Cmd):
             print 'Resource ID must be an integer'
             returnValue(None)
         uids = yield self.getEvents(txn, rid)
-        
+
         # Print table of results
         table = tables.Table()
         table.addHeader(("Type", "UID", "Resource Name", "Resource ID",))
@@ -427,7 +427,7 @@ class EventsByCalendar(Cmd):
                 rname,
                 rid,
             ))
-        
+
         print "\n"
         print "Calendar events (total=%d):\n" % (len(uids),)
         table.printTable()
@@ -470,7 +470,7 @@ class EventDetails(Cmd):
         print "\n"
         table.printTable()
         print data
-    
+
     @inlineCallbacks
     def getEventData(self, txn, whereClause, whereParams):
         ch = schema.CALENDAR_HOME
@@ -495,13 +495,13 @@ class EventDetails(Cmd):
         returnValue(tuple(rows))
 
 class Event(EventDetails):
-    
+
     _name = "Get Event Data by Resource-ID"
-    
+
     @inlineCallbacks
     def doIt(self, txn):
-        
-        
+
+
         rid = raw_input("Resource-ID: ")
         try:
             int(rid)
@@ -520,13 +520,13 @@ class Event(EventDetails):
 
 
 class EventsByUID(EventDetails):
-    
+
     _name = "Get Event Data by iCalendar UID"
-    
+
     @inlineCallbacks
     def doIt(self, txn):
-        
-        
+
+
         uid = raw_input("UID: ")
         rows = yield self.getData(txn, uid)
         if rows:
@@ -541,13 +541,13 @@ class EventsByUID(EventDetails):
 
 
 class EventsByName(EventDetails):
-    
+
     _name = "Get Event Data by resource name"
-    
+
     @inlineCallbacks
     def doIt(self, txn):
-        
-        
+
+
         name = raw_input("Resource Name: ")
         rows = yield self.getData(txn, name)
         if rows:
@@ -562,13 +562,13 @@ class EventsByName(EventDetails):
 
 
 class EventsByOwner(EventDetails):
-    
+
     _name = "Get Event Data by Owner UID/Short Name"
-    
+
     @inlineCallbacks
     def doIt(self, txn):
-        
-        
+
+
         uid = raw_input("Owner UID/Name: ")
         uid = UIDFromInput(txn, uid)
         rows = yield self.getData(txn, uid)
@@ -584,13 +584,13 @@ class EventsByOwner(EventDetails):
 
 
 class EventsByOwnerCalendar(EventDetails):
-    
+
     _name = "Get Event Data by Owner UID/Short Name and calendar name"
-    
+
     @inlineCallbacks
     def doIt(self, txn):
-        
-        
+
+
         uid = raw_input("Owner UID/Name: ")
         uid = UIDFromInput(txn, uid)
         name = raw_input("Calendar resource name: ")
@@ -608,13 +608,13 @@ class EventsByOwnerCalendar(EventDetails):
 
 
 class EventsByPath(EventDetails):
-    
+
     _name = "Get Event Data by HTTP Path"
-    
+
     @inlineCallbacks
     def doIt(self, txn):
-        
-        
+
+
         path = raw_input("Path: ")
         pathbits = path.split("/")
         if len(pathbits) != 6:
@@ -646,13 +646,13 @@ class EventsByPath(EventDetails):
 
 
 class EventsByContent(EventDetails):
-    
+
     _name = "Get Event Data by Searching its Text Data"
-    
+
     @inlineCallbacks
     def doIt(self, txn):
-        
-        
+
+
         uid = raw_input("Search for: ")
         rows = yield self.getData(txn, uid)
         if rows:
@@ -667,13 +667,13 @@ class EventsByContent(EventDetails):
 
 
 class EventsInTimerange(Cmd):
-    
+
     _name = "Get Event Data within a specified time range"
-    
+
     @inlineCallbacks
     def doIt(self, txn):
-        
-        
+
+
         uid = raw_input("Owner UID/Name: ")
         start = raw_input("Start Time (UTC YYYYMMDDTHHMMSSZ or YYYYMMDD): ")
         if len(start) == 8:
@@ -698,12 +698,12 @@ class EventsInTimerange(Cmd):
         if home is None:
             print "Could not find calendar home"
             returnValue(None)
-            
+
         yield self.eventsForEachCalendar(home, uid, timerange)
 
     @inlineCallbacks
     def eventsForEachCalendar(self, home, uid, timerange):
-        
+
         calendars = yield home.calendars()
         for calendar in calendars:
             if calendar.name() == "inbox":
@@ -712,9 +712,9 @@ class EventsInTimerange(Cmd):
 
     @inlineCallbacks
     def eventsInTimeRange(self, calendar, uid, timerange):
-        
+
         # Create fake filter element to match time-range
-        filter =  caldavxml.Filter(
+        filter = caldavxml.Filter(
                       caldavxml.ComponentFilter(
                           caldavxml.ComponentFilter(
                               timerange,
@@ -747,13 +747,13 @@ class EventsInTimerange(Cmd):
 
 
 class Purge(Cmd):
-    
+
     _name = "Purge all data from tables"
-    
+
     @inlineCallbacks
     def doIt(self, txn):
-        
-        
+
+
         if raw_input("Do you really want to remove all data [y/n]: ")[0].lower() != 'y':
             print "No data removed"
             returnValue(None)
@@ -771,13 +771,12 @@ class Purge(Cmd):
             #schema.CALENDAR_OBJECT, - cascades
             #schema.TIME_RANGE, - cascades
             #schema.TRANSPARENCY, - cascades
-            
+
 
             schema.CALENDAR_HOME,
             #schema.CALENDAR_HOME_METADATA - cascades
-            schema.INVITE,
             schema.ATTACHMENT,
-            
+
             schema.ADDRESSBOOK_OBJECT_REVISIONS,
 
             schema.ADDRESSBOOK,
@@ -795,13 +794,13 @@ class Purge(Cmd):
         for tableschema in wipeout:
             yield self.removeTableData(txn, tableschema)
             print "Removed rows in table %s" % (tableschema,)
-            
+
         if calendaruserproxy.ProxyDBService is not None:
             calendaruserproxy.ProxyDBService.clean() #@UndefinedVariable
             print "Removed all proxies"
         else:
             print "No proxy database to clean."
-        
+
         fp = FilePath(config.AttachmentsRoot)
         if fp.exists():
             for child in fp.children():
@@ -825,7 +824,7 @@ class DBInspectService(Service, object):
 
     def __init__(self, store, options, reactor, config):
         super(DBInspectService, self).__init__()
-        self.store   = store
+        self.store = store
         self.options = options
         self.reactor = reactor
         self.config = config
@@ -839,7 +838,7 @@ class DBInspectService(Service, object):
         Start the service.
         """
         super(DBInspectService, self).startService()
-        
+
         # Register commands
         self.registerCommand(TableSizes)
         self.registerCommand(CalendarHomes)
@@ -891,10 +890,10 @@ class DBInspectService(Service, object):
             yield txn.abort()
 
     def printCommands(self):
-        
+
         print "\n<---- Commands ---->"
         for ctr, name in enumerate(self.commands):
-            print "%d. %s" % (ctr+1, name,)
+            print "%d. %s" % (ctr + 1, name,)
         if self.options["purging"]:
             print "P. Purge\n"
         print "Q. Quit\n"
@@ -904,7 +903,7 @@ class DBInspectService(Service, object):
         """
         Poll for commands, stopping the reactor when done.
         """
-        
+
         while True:
             self.printCommands()
             cmd = raw_input("Command: ")
@@ -918,8 +917,8 @@ class DBInspectService(Service, object):
                 except ValueError:
                     print "Invalid command. Try again.\n"
                     continue
-            
-                yield self.runCommandByPosition(position-1)
+
+                yield self.runCommandByPosition(position - 1)
 
         self.reactor.stop()
 

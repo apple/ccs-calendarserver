@@ -1385,10 +1385,8 @@ class CommonHome(LoggingMixIn):
         if child is None:
             raise NoSuchHomeChildError()
 
-        try:
-            yield child.remove()
-        finally:
-            self._children.pop(name, None)
+        yield child.remove()
+        self._children.pop(name, None)
 
 
     @classproperty
@@ -1806,6 +1804,19 @@ class CommonHome(LoggingMixIn):
                 self._txn.postCommit(notifier.notify)
             self._txn.notificationAddedForObject(self)
 
+
+    @inlineCallbacks
+    def removeUnacceptedShares(self):
+        """
+        Unbinds any collections that have been shared to this home but not yet
+        accepted.  Associated invite entries are also removed.
+        """
+        bind = self._bindSchema
+        kwds = {"homeResourceID" : self._resourceID}
+        yield Delete(
+            From=bind,
+            Where=(bind.HOME_RESOURCE_ID == Parameter("homeResourceID")).And(bind.BIND_STATUS != _BIND_STATUS_ACCEPTED)
+        ).on(self._txn, **kwds)
 
 
 class _SharedSyncLogic(object):
@@ -2882,8 +2893,6 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic, HomeChildBas
             bind.BIND_MODE: Parameter("mode"),
             bind.BIND_STATUS: Parameter("bindStatus"),
             bind.MESSAGE: Parameter("message"),
-            bind.SEEN_BY_OWNER: Parameter("seenByOwner"),
-            bind.SEEN_BY_SHAREE: Parameter("seenBySharee"),
         })
 
 
@@ -2912,8 +2921,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic, HomeChildBas
         # Bind table needs entry
         yield cls._bindInsertQuery.on(
             home._txn, homeID=home._resourceID, resourceID=resourceID,
-            name=name, mode=_BIND_MODE_OWN, seenByOwner=True,
-            seenBySharee=True, bindStatus=_BIND_STATUS_ACCEPTED,
+            name=name, mode=_BIND_MODE_OWN, bindStatus=_BIND_STATUS_ACCEPTED,
             message=None,
         )
 
@@ -3339,13 +3347,11 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic, HomeChildBas
     def _removeObjectResource(self, child):
         name = child.name()
         uid = child.uid()
-        try:
-            yield child.remove()
-        finally:
-            self._objects.pop(name, None)
-            self._objects.pop(uid, None)
-            yield self._deleteRevision(name)
-            yield self.notifyChanged()
+        yield child.remove()
+        self._objects.pop(name, None)
+        self._objects.pop(uid, None)
+        yield self._deleteRevision(name)
+        yield self.notifyChanged()
 
 
     @classproperty

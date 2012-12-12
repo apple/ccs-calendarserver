@@ -81,6 +81,24 @@ create table CALENDAR_METADATA (
 );
 
 
+------------------------
+-- Sharing Invitation --
+------------------------
+
+create table INVITE (
+    INVITE_UID         varchar(255) not null,
+    NAME               varchar(255) not null,
+    RECIPIENT_ADDRESS  varchar(255) not null,
+    HOME_RESOURCE_ID   integer      not null,
+    RESOURCE_ID        integer      not null
+
+    -- Need primary key on (INVITE_UID, NAME, RECIPIENT_ADDRESS)?
+);
+
+create index INVITE_INVITE_UID on INVITE(INVITE_UID);
+create index INVITE_RESOURCE_ID on INVITE(RESOURCE_ID);
+create index INVITE_HOME_RESOURCE_ID on INVITE(HOME_RESOURCE_ID);
+
 ---------------------------
 -- Sharing Notifications --
 ---------------------------
@@ -122,6 +140,8 @@ create table CALENDAR_BIND (
   CALENDAR_RESOURCE_NAME    varchar(255),
   BIND_MODE                 integer      not null, -- enum CALENDAR_BIND_MODE
   BIND_STATUS               integer      not null, -- enum CALENDAR_BIND_STATUS
+  SEEN_BY_OWNER             boolean      not null,
+  SEEN_BY_SHAREE            boolean      not null,
   MESSAGE                   text,
 
   primary key(CALENDAR_HOME_RESOURCE_ID, CALENDAR_RESOURCE_ID), -- implicit index
@@ -386,6 +406,8 @@ create table ADDRESSBOOK_BIND (
   ADDRESSBOOK_RESOURCE_NAME    varchar(255),
   BIND_MODE                    integer      not null, -- enum CALENDAR_BIND_MODE
   BIND_STATUS                  integer      not null, -- enum CALENDAR_BIND_STATUS
+  SEEN_BY_OWNER                boolean      not null,
+  SEEN_BY_SHAREE               boolean      not null,
   MESSAGE                      text,                  -- FIXME: xml?
 
   primary key (ADDRESSBOOK_HOME_RESOURCE_ID, ADDRESSBOOK_RESOURCE_ID), -- implicit index
@@ -504,6 +526,6 @@ create table CALENDARSERVER (
   VALUE                         varchar(255)
 );
 
-insert into CALENDARSERVER values ('VERSION', '14');
+insert into CALENDARSERVER values ('VERSION', '13');
 insert into CALENDARSERVER values ('CALENDAR-DATAVERSION', '3');
 insert into CALENDARSERVER values ('ADDRESSBOOK-DATAVERSION', '1');

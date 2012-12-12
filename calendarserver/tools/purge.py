@@ -712,7 +712,6 @@ def purgeUID(store, uid, directory, root, verbose=False, dryrun=False, proxies=T
 
         if not dryrun:
             (yield storeCalHome.removeUnacceptedShares())
-            (yield storeCalHome.removeInvites())
             notificationHome = (yield txn.notificationsWithUID(uid))
             if notificationHome is not None:
                 (yield notificationHome.remove())
