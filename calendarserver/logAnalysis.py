@@ -332,18 +332,22 @@ def getAdjustedMethodName(stats):
 
 
 
-versionClients = (
+osClients = (
     "Mac OS X/",
     "iOS/",
+)
+
+versionClients = (
     "iCal/",
     "iPhone/",
-    "CalendarAgent",
+    "CalendarAgent/",
     "Calendar/",
     "CoreDAV/",
     "Safari/",
-    "dataaccessd",
+    "dataaccessd/",
+    "Preferences/",
     "curl/",
-    "DAVKit",
+    "DAVKit/",
 )
 
 quickclients = (
@@ -358,16 +362,27 @@ quickclients = (
 def getAdjustedClientName(stats):
 
     userAgent = stats["userAgent"]
-    for client in versionClients:
+    os = ""
+    for client in osClients:
         index = userAgent.find(client)
         if index != -1:
             l = len(client)
-            endex = userAgent[index + l:].find(' ', index)
-            return userAgent[index:] if endex == -1 else userAgent[index:endex + l]
+            endex = userAgent.find(' ', index + l)
+            os = (userAgent[index:] if endex == -1 else userAgent[index:endex]) + " "
+
+    for client in versionClients:
+        index = userAgent.find(client)
+        if index != -1:
+            if os:
+                return os + client[:-1]
+            else:
+                l = len(client)
+                endex = userAgent.find(' ', index + l)
+                return os + (userAgent[index:] if endex == -1 else userAgent[index:endex])
 
     for quick, result in quickclients:
         index = userAgent.find(quick)
         if index != -1:
-            return result
+            return os + result
 
     return userAgent[:20]

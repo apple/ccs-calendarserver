@@ -15,12 +15,11 @@
 ##
 
 from twisted.trial.unittest import TestCase
-from calendarserver.methodDescriptor import getAdjustedMethodName
+from calendarserver.logAnalysis import getAdjustedMethodName, \
+    getAdjustedClientName
 
-class MethodDescriptor(TestCase):
-    """
-    Tests for L{getAdjustedMethodName}.
-    """
+class LogAnalysis(TestCase):
+
     def test_getAdjustedMethodName(self):
         """
         L{getAdjustedMethodName} returns the appropriate method.
@@ -64,4 +63,25 @@ class MethodDescriptor(TestCase):
         )
 
         for method, uri, extras, result in data:
-            self.assertEqual(getAdjustedMethodName(method, uri, extras), result, "Failed getAdjustedMethodName: %s" % (result,))
+            extras["method"] = method
+            extras["uri"] = uri
+            self.assertEqual(getAdjustedMethodName(extras), result, "Failed getAdjustedMethodName: %s" % (result,))
+
+
+    def test_getAdjustedClientName(self):
+        """
+        L{getAdjustedClientName} returns the appropriate method.
+        """
+
+        data = (
+            ("Mac OS X/10.8.2 (12C60) CalendarAgent/55", "Mac OS X/10.8.2 CalendarAgent",),
+            ("CalendarStore/5.0.3 (1204.2); iCal/5.0.3 (1605.4); Mac OS X/10.7.5 (11G63b)", "Mac OS X/10.7.5 iCal",),
+            ("DAVKit/5.0 (767); iCalendar/5.0 (79); iPhone/4.2.1 8C148", "iPhone/4.2.1",),
+            ("iOS/6.0 (10A405) Preferences/1.0", "iOS/6.0 Preferences",),
+            ("iOS/6.0.1 (10A523) dataaccessd/1.0", "iOS/6.0.1 dataaccessd",),
+            ("InterMapper/5.4.3", "InterMapper",),
+            ("Mac OS X/10.8.2 (12C60) AddressBook/1167", "Mac OS X/10.8.2 AddressBook",),
+        )
+
+        for ua, result in data:
+            self.assertEqual(getAdjustedClientName({"userAgent": ua}), result, "Failed getAdjustedClientName: %s" % (ua,))
