@@ -154,8 +154,8 @@ def displayAPNSubscriptions(store, directory, root, users):
             (yield txn.commit())
             if subscriptions:
                 byKey = { }
-                for token, key, timestamp in subscriptions:
-                    byKey.setdefault(key, []).append((token, timestamp))
+                for token, key, timestamp, userAgent, ipAddr in subscriptions:
+                    byKey.setdefault(key, []).append((token, timestamp, userAgent, ipAddr))
                 for key, tokens in byKey.iteritems():
                     print
                     protocol, host, path = key.strip("/").split("/", 2)
@@ -176,8 +176,9 @@ def displayAPNSubscriptions(store, directory, root, users):
                         print "...is subscribed to %s's %s home" % (user, resource),
                         # print "   (key: %s)\n" % (key,)
                     print "with %d device(s):" % (len(tokens),)
-                    for token, timestamp in tokens:
-                        print " %s  %ss ago" % (token, int(time.time()) - timestamp)
+                    for token, timestamp, userAgent, ipAddr in tokens:
+                        print " %s\n   '%s' from %s\n   %s" % (token, userAgent, ipAddr,
+                            time.strftime("on %a, %d %b %Y at %H:%M:%S %z(%Z)", time.localtime(timestamp)))
             else:
                 print " ...is not subscribed to anything."
         else:

@@ -96,9 +96,9 @@ class ApplePushNotifierServiceTests(CommonCommonTests, TestCase):
         yield txn.addAPNSubscription(token, key2, timestamp2, uid, userAgent, ipAddr)
 
         subscriptions = (yield txn.apnSubscriptionsBySubscriber(uid))
-        self.assertTrue([token, key1, timestamp1] in subscriptions)
-        self.assertTrue([token, key2, timestamp2] in subscriptions)
-        self.assertTrue([token2, key1, timestamp1] in subscriptions)
+        self.assertTrue([token, key1, timestamp1, userAgent, ipAddr] in subscriptions)
+        self.assertTrue([token, key2, timestamp2, userAgent, ipAddr] in subscriptions)
+        self.assertTrue([token2, key1, timestamp1, userAgent, ipAddr] in subscriptions)
 
         # Verify an update to a subscription with a different uid takes on
         # the new uid
@@ -106,10 +106,10 @@ class ApplePushNotifierServiceTests(CommonCommonTests, TestCase):
         uid2 = "D8FFB335-9D36-4CE8-A3B9-D1859E38C0DA"
         yield txn.addAPNSubscription(token, key2, timestamp3, uid2, userAgent, ipAddr)
         subscriptions = (yield txn.apnSubscriptionsBySubscriber(uid))
-        self.assertTrue([token, key1, timestamp1] in subscriptions)
-        self.assertFalse([token, key2, timestamp3] in subscriptions)
+        self.assertTrue([token, key1, timestamp1, userAgent, ipAddr] in subscriptions)
+        self.assertFalse([token, key2, timestamp3, userAgent, ipAddr] in subscriptions)
         subscriptions = (yield txn.apnSubscriptionsBySubscriber(uid2))
-        self.assertTrue([token, key2, timestamp3] in subscriptions)
+        self.assertTrue([token, key2, timestamp3, userAgent, ipAddr] in subscriptions)
         # Change it back
         yield txn.addAPNSubscription(token, key2, timestamp2, uid, userAgent, ipAddr)
 
