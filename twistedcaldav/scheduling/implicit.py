@@ -437,6 +437,9 @@ class ImplicitScheduler(object):
                 "Only one organizer allowed in scheduling object resource",
             ))
 
+        # Coerce any local with SCHEDULE-AGENT=CLIENT
+        yield self.coerceAttendeeScheduleAgent()
+
         # Get the ATTENDEEs
         self.attendeesByInstance = self.calendar.getAttendeesByInstance(True, onlyScheduleAgentServer=True)
         self.instances = set(self.calendar.getComponentInstances())
@@ -872,6 +875,26 @@ class ImplicitScheduler(object):
                     changed = True
 
         return changed
+
+
+    @inlineCallbacks
+    def coerceAttendeeScheduleAgent(self):
+        """
+        Do not allow SCHEDULE-AGENT=CLIENT/NONE for attendees hosted by this server. Coerce to
+        SCHEDULE-AGENT=SERVER.
+        """
+
+        coerced = {}
+        for attendee in self.calendar.getAllAttendeeProperties():
+            if attendee.parameterValue("SCHEDULE-AGENT", "SERVER").upper() == "CLIENT":
+                cuaddr = attendee.value()
+                if cuaddr not in coerced:
+                    attendeePrincipal = self.resource.principalForCalendarUserAddress(cuaddr)
+                    attendeeAddress = (yield addressmapping.mapper.getCalendarUser(cuaddr, attendeePrincipal))
+                    local_attendee = type(attendeeAddress) in (LocalCalendarUser, PartitionedCalendarUser, OtherServerCalendarUser,)
+                    coerced[cuaddr] = local_attendee
+                if coerced[cuaddr]:
+                    attendee.removeParameter("SCHEDULE-AGENT")
 
 
     @inlineCallbacks
