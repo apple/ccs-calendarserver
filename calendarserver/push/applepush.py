@@ -798,6 +798,9 @@ class APNSubscriptionResource(ReadOnlyNoCopyResourceMixIn,
 
         userAgent = request.headers.getHeader("user-agent", "-")
         host = request.remoteAddr.host
+        fwdHeaders = request.headers.getRawHeaders("x-forwarded-for", [])
+        if fwdHeaders:
+            host = fwdHeaders[0]
 
         if not (key and token):
             code = responsecode.BAD_REQUEST

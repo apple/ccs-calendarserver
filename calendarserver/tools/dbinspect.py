@@ -779,6 +779,7 @@ class Purge(Cmd):
 
             schema.ADDRESSBOOK_OBJECT_REVISIONS,
 
+            schema.ADDRESSBOOK,
             schema.ABO_MEMBERS,
             schema.ADDRESSBOOK_OBJECT,
             #schema.ADDRESSBOOK_BIND, - cascades

@@ -742,18 +742,6 @@ class CoreHTTPTestCase(HTTPTests):
         cxn.client.loseConnection()
         self.assertDone(cxn)
 
-
-    def test_http1_1_sts(self):
-        """
-        L{SSLRedirectRequest} uses strict transport security, and will set the
-        appropriate header.
-        """
-        self.requestClass = TestSSLRedirectRequest
-        return self.testHTTP1_1_chunking(
-            "Strict-Transport-Security: max-age=600"
-        )
-
-
     def testHTTP1_1_expect_continue(self):
         cxn = self.connect()
         cmds = [[]]

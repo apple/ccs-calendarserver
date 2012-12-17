@@ -250,6 +250,8 @@ DEFAULT_CONFIG = {
     "RedirectHTTPToHTTPS" : False, # If True, all nonSSL requests redirected to an SSL Port
     "SSLMethod" : "SSLv3_METHOD", # SSLv2_METHOD, SSLv3_METHOD, SSLv23_METHOD, TLSv1_METHOD
     "SSLCiphers" : "ALL:!aNULL:!ADH:!eNULL:!LOW:!EXP:RC4+RSA:+HIGH:+MEDIUM",
+    "StrictTransportSecuritySeconds" : 7 * 24 * 60 * 60, # max-age value for
+        # Strict-Transport-Security header; set to 0 to disable header.
 
     #
     # Network address configuration information
@@ -692,7 +694,8 @@ DEFAULT_CONFIG = {
             "UIDLockTimeoutSeconds"               : 60, # Time for implicit UID lock timeout
             "UIDLockExpirySeconds"                : 300, # Expiration time for UID lock,
             "V1Compatibility"                     : False, # Allow /path-based CUAs in scheduling replies
-            "PrincipalHostAliases"                : [], # Hostnames matched in http(s) CUAs
+            "PrincipalHostAliases"                : [], # Host names matched in http(s) CUAs
+            "TimestampAttendeePartStatChanges"    : True, # Add a time stamp when an Attendee changes their PARTSTAT
 
             "DelegeteRichFreeBusy"                : True, # Delegates can get extra info in a freebusy request
             "RoomResourceRichFreeBusy"            : True, # Any user can get extra info for rooms/resources in a freebusy request
@@ -1534,6 +1537,8 @@ def _updateCompliance(configDict, reloading=False):
             compliance += caldavxml.caldav_default_alarms_compliance
         if configDict.EnableManagedAttachments:
             compliance += caldavxml.caldav_managed_attachments_compliance
+        if configDict.Scheduling.Options.TimestampAttendeePartStatChanges:
+            compliance += customxml.calendarserver_partstat_changes_compliance
     else:
         compliance = ()
 

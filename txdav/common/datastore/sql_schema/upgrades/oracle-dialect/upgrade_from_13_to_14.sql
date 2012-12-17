@@ -23,10 +23,18 @@
 drop table INVITE;
 
 alter table CALENDAR_BIND
- drop column SEEN_BY_OWNER, SEEN_BY_SHAREE;
-
+ drop column SEEN_BY_OWNER;
+alter table CALENDAR_BIND
+ drop column SEEN_BY_SHAREE;
+alter table CALENDAR_BIND
+ modify (ADDRESSBOOK_RESOURCE_NAME not null);
+ 
 alter table ADDRESSBOOK_BIND
- drop column SEEN_BY_OWNER, SEEN_BY_SHAREE;
+ drop column SEEN_BY_OWNER;
+alter table ADDRESSBOOK_BIND
+ drop column SEEN_BY_SHAREE;
+alter table ADDRESSBOOK_BIND
+ modify (ADDRESSBOOK_RESOURCE_NAME not null);
 
 -- Now update the version
 -- No data upgrades
