@@ -731,6 +731,21 @@ class AttachmentStorageTransport(StorageTransportBase):
         self._path = self._attachment._path.temporarySibling()
         self._file = self._path.open("w")
 
+        self._txn.postAbort(self.aborted)
+
+
+    @property
+    def _txn(self):
+        return self._attachment._txn
+
+
+    def aborted(self):
+        """
+        Transaction aborted - clean up temp files.
+        """
+        if self._path.exists():
+            self._path.remove()
+
 
     def write(self, data):
         # FIXME: multiple chunks
@@ -782,6 +797,11 @@ class Attachment(FileMetaDataMixin):
         self._calendarObject = calendarObject
         self._name = name
         self._dropboxPath = dropboxPath
+
+
+    @property
+    def _txn(self):
+        return self._calendarObject._txn
 
 
     def name(self):

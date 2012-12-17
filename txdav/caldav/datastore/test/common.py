@@ -20,8 +20,9 @@ Tests for common calendar store API functions.
 """
 
 from StringIO import StringIO
+import os
 
-from twisted.internet.defer import Deferred, inlineCallbacks, returnValue,\
+from twisted.internet.defer import Deferred, inlineCallbacks, returnValue, \
     maybeDeferred
 from twisted.internet.protocol import Protocol
 from twisted.python import hashlib
@@ -811,12 +812,12 @@ class CommonTests(CommonCommonTests):
         """
         Test Calendar._countComponentTypes to make sure correct counts are returned.
         """
-        
+
         tests = (
             ("calendar_1", (("VEVENT", 3),)),
             ("calendar_2", (("VEVENT", 3), ("VTODO", 2))),
         )
-        
+
         for calname, results in tests:
             testalendar = yield (yield self.transactionUnderTest().calendarHomeWithUID(
                 "home_splits")).calendarWithName(calname)
@@ -1451,7 +1452,7 @@ END:VCALENDAR
             set(c.name() for c in calendars),
             set(home1_calendarNames)
         )
-        
+
         for c in calendars:
             self.assertTrue(c.properties() is not None)
 
@@ -1705,7 +1706,7 @@ END:VCALENDAR
             self.assertNotEquals(event1_text, event1_text_withDifferentSubject)
             newComponent = VComponent.fromString(event1_text_withDifferentSubject)
             yield obj.setComponent(newComponent)
-    
+
             # Putting everything into a separate transaction to account for any
             # caching that may take place.
             yield self.commit()
@@ -1996,6 +1997,37 @@ END:VCALENDAR
 
 
     @inlineCallbacks
+    def test_attachmentTemporaryFileCleanup(self):
+        """
+        L{IAttachmentStream} object cleans-up its temporary file on txn abort.
+        """
+        obj = yield self.calendarObjectUnderTest()
+        attachment = yield obj.createAttachmentWithName(
+            "new.attachment",
+        )
+        t = attachment.store(MimeType("text", "x-fixture"))
+
+        temp = t._path.path
+
+        yield self.abort()
+
+        self.assertFalse(os.path.exists(temp))
+
+        obj = yield self.calendarObjectUnderTest()
+        attachment = yield obj.createAttachmentWithName(
+            "new.attachment",
+        )
+        t = attachment.store(MimeType("text", "x-fixture"))
+
+        temp = t._path.path
+        os.remove(temp)
+
+        yield self.abort()
+
+        self.assertFalse(os.path.exists(temp))
+
+
+    @inlineCallbacks
     def test_quotaAllowedBytes(self):
         """
         L{ICalendarHome.quotaAllowedBytes} should return the configuration value
@@ -2047,7 +2079,7 @@ END:VCALENDAR
         that fails with L{QuotaExceeded}.
         """
         home = yield self.homeUnderTest()
-        attachment = yield getit() 
+        attachment = yield getit()
         t = attachment.store(MimeType("text", "x-fixture"))
         sample = "all work and no play makes jack a dull boy"
         chunk = (sample * (home.quotaAllowedBytes() / len(sample)))

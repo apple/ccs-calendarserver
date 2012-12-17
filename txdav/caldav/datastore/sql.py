@@ -1358,6 +1358,8 @@ class AttachmentStorageTransport(StorageTransportBase):
         self._hash = hashlib.md5()
         self._creating = creating
 
+        self._txn.postAbort(self.aborted)
+
 
     def _temporaryFile(self):
         """
@@ -1376,6 +1378,14 @@ class AttachmentStorageTransport(StorageTransportBase):
     @property
     def _txn(self):
         return self._attachment._txn
+
+
+    def aborted(self):
+        """
+        Transaction aborted - clean up temp files.
+        """
+        if self._path.exists():
+            self._path.remove()
 
 
     def write(self, data):
