@@ -684,7 +684,7 @@ class CommonStoreTransaction(object):
     @classproperty
     def _apnSubscriptionsBySubscriberQuery(cls): #@NoSelf
         apn = schema.APN_SUBSCRIPTIONS
-        return Select([apn.TOKEN, apn.RESOURCE_KEY, apn.MODIFIED],
+        return Select([apn.TOKEN, apn.RESOURCE_KEY, apn.MODIFIED, apn.USER_AGENT, apn.IP_ADDR],
                       From=apn, Where=apn.SUBSCRIBER_GUID == Parameter("subscriberGUID"))
 
 
