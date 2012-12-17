@@ -20,6 +20,7 @@ import twistedcaldav.test.util
 from difflib import unified_diff
 
 import itertools
+import re
 
 class ICalDiff (twistedcaldav.test.util.TestCase):
     """
@@ -558,7 +559,7 @@ UID:12345-67890
 DTSTART:20080601T120000Z
 DTEND:20080601T130000Z
 ATTENDEE:mailto:user1@example.com
-ATTENDEE;PARTSTAT=ACCEPTED:mailto:user2@example.com
+ATTENDEE;PARTSTAT=ACCEPTED;X-CALENDARSERVER-DTSTAMP=XXXXXXXXTXXXXXXZ:mailto:user2@example.com
 ORGANIZER;CN=User 01:mailto:user1@example.com
 END:VEVENT
 END:VCALENDAR
@@ -1180,7 +1181,11 @@ END:VCALENDAR
                 diffResult[0],
                 diffResult[1],
                 tuple(sorted(diffResult[2])),
-                str(diffResult[3]).replace("\r", "") if diffResult[3] else None,
+                re.sub(
+                    "X-CALENDARSERVER-DTSTAMP=[^Z]+",
+                    "X-CALENDARSERVER-DTSTAMP=XXXXXXXXTXXXXXX",
+                    str(diffResult[3]).replace("\r", "").replace("\n ", "")
+                ) if diffResult[3] else None,
             )
             self.assertEqual(diffResult, result, msg="%s: actual result: (%s)" % (description, ", ".join([str(i).replace("\r", "") for i in diffResult]),))
 
@@ -1566,7 +1571,7 @@ UID:12345-67890
 RECURRENCE-ID:20080602T120000Z
 DTSTART:20080602T123000Z
 DTEND:20080602T130000Z
-ATTENDEE;PARTSTAT=ACCEPTED;RSVP=TRUE:mailto:user2@example.com
+ATTENDEE;PARTSTAT=ACCEPTED;RSVP=TRUE;X-CALENDARSERVER-DTSTAMP=XXXXXXXXTXXXXXXZ:mailto:user2@example.com
 ORGANIZER:mailto:user1@example.com
 END:VEVENT
 BEGIN:VEVENT
@@ -1575,7 +1580,7 @@ RECURRENCE-ID:20080604T120000Z
 DTSTART:20080604T120000Z
 DTEND:20080604T130000Z
 ATTENDEE:mailto:user1@example.com
-ATTENDEE;PARTSTAT=DECLINED;RSVP=TRUE:mailto:user2@example.com
+ATTENDEE;PARTSTAT=DECLINED;RSVP=TRUE;X-CALENDARSERVER-DTSTAMP=XXXXXXXXTXXXXXXZ:mailto:user2@example.com
 ORGANIZER;CN=User 01:mailto:user1@example.com
 END:VEVENT
 END:VCALENDAR
@@ -1678,7 +1683,11 @@ END:VCALENDAR
                 diffResult[0],
                 diffResult[1],
                 tuple(sorted(diffResult[2])),
-                str(diffResult[3]).replace("\r", "") if diffResult[3] else None,
+                re.sub(
+                    "X-CALENDARSERVER-DTSTAMP=[^Z]+",
+                    "X-CALENDARSERVER-DTSTAMP=XXXXXXXXTXXXXXX",
+                    str(diffResult[3]).replace("\r", "").replace("\n ", "")
+                ) if diffResult[3] else None,
             )
             self.assertEqual(diffResult, result, msg="%s: actual result: (%s)" % (description, ", ".join([str(i).replace("\r", "") for i in diffResult]),))
 
@@ -2715,7 +2724,7 @@ RECURRENCE-ID:20080601T120000Z
 DTSTART:20080601T120000Z
 DTEND:20080601T130000Z
 ATTENDEE:mailto:user1@example.com
-ATTENDEE;PARTSTAT=ACCEPTED:mailto:user2@example.com
+ATTENDEE;PARTSTAT=ACCEPTED;X-CALENDARSERVER-DTSTAMP=XXXXXXXXTXXXXXXZ:mailto:user2@example.com
 ORGANIZER;CN=User 01:mailto:user1@example.com
 END:VEVENT
 END:VCALENDAR
@@ -2760,7 +2769,7 @@ RECURRENCE-ID:20080601T120000Z
 DTSTART:20080601T130000Z
 DTEND:20080601T140000Z
 ATTENDEE:mailto:user1@example.com
-ATTENDEE;PARTSTAT=ACCEPTED:mailto:user2@example.com
+ATTENDEE;PARTSTAT=ACCEPTED;X-CALENDARSERVER-DTSTAMP=XXXXXXXXTXXXXXXZ:mailto:user2@example.com
 ORGANIZER;CN=User 01:mailto:user1@example.com
 END:VEVENT
 END:VCALENDAR
@@ -2805,7 +2814,7 @@ RECURRENCE-ID:20080601T120000Z
 DTSTART:20080601T130000Z
 DTEND:20080601T140000Z
 ATTENDEE:mailto:user1@example.com
-ATTENDEE;PARTSTAT=ACCEPTED:mailto:user2@example.com
+ATTENDEE;PARTSTAT=ACCEPTED;X-CALENDARSERVER-DTSTAMP=XXXXXXXXTXXXXXXZ:mailto:user2@example.com
 ORGANIZER;CN=User 01:mailto:user1@example.com
 END:VEVENT
 END:VCALENDAR
@@ -2868,7 +2877,7 @@ RECURRENCE-ID:20080601T120000Z
 DTSTART:20080601T120000Z
 DTEND:20080601T130000Z
 ATTENDEE:mailto:user1@example.com
-ATTENDEE;PARTSTAT=ACCEPTED:mailto:user2@example.com
+ATTENDEE;PARTSTAT=ACCEPTED;X-CALENDARSERVER-DTSTAMP=XXXXXXXXTXXXXXXZ:mailto:user2@example.com
 ORGANIZER;CN=User 01:mailto:user1@example.com
 END:VEVENT
 BEGIN:VEVENT
@@ -2877,7 +2886,7 @@ RECURRENCE-ID:20080602T120000Z
 DTSTART:20080602T120000Z
 DTEND:20080602T130000Z
 ATTENDEE:mailto:user1@example.com
-ATTENDEE;PARTSTAT=ACCEPTED;RSVP=TRUE:mailto:user2@example.com
+ATTENDEE;PARTSTAT=ACCEPTED;RSVP=TRUE;X-CALENDARSERVER-DTSTAMP=XXXXXXXXTXXXXXXZ:mailto:user2@example.com
 ORGANIZER;CN=User 01:mailto:user1@example.com
 END:VEVENT
 END:VCALENDAR
@@ -2940,7 +2949,7 @@ RECURRENCE-ID:20080601T120000Z
 DTSTART:20080601T140000Z
 DTEND:20080601T150000Z
 ATTENDEE:mailto:user1@example.com
-ATTENDEE;PARTSTAT=ACCEPTED:mailto:user2@example.com
+ATTENDEE;PARTSTAT=ACCEPTED;X-CALENDARSERVER-DTSTAMP=XXXXXXXXTXXXXXXZ:mailto:user2@example.com
 ORGANIZER;CN=User 01:mailto:user1@example.com
 END:VEVENT
 BEGIN:VEVENT
@@ -2949,7 +2958,7 @@ RECURRENCE-ID:20080602T120000Z
 DTSTART:20080602T120000Z
 DTEND:20080602T130000Z
 ATTENDEE:mailto:user1@example.com
-ATTENDEE;PARTSTAT=ACCEPTED:mailto:user2@example.com
+ATTENDEE;PARTSTAT=ACCEPTED;X-CALENDARSERVER-DTSTAMP=XXXXXXXXTXXXXXXZ:mailto:user2@example.com
 ORGANIZER;CN=User 01:mailto:user1@example.com
 END:VEVENT
 END:VCALENDAR
@@ -3066,7 +3075,7 @@ RECURRENCE-ID:20080601T120000Z
 DTSTART:20080601T120000Z
 DTEND:20080601T130000Z
 ATTENDEE:mailto:user1@example.com
-ATTENDEE;PARTSTAT=ACCEPTED:mailto:user2@example.com
+ATTENDEE;PARTSTAT=ACCEPTED;X-CALENDARSERVER-DTSTAMP=XXXXXXXXTXXXXXXZ:mailto:user2@example.com
 ORGANIZER;CN=User 01:mailto:user1@example.com
 END:VEVENT
 END:VCALENDAR
@@ -3134,7 +3143,7 @@ RECURRENCE-ID:20080601T120000Z
 DTSTART:20080601T120000Z
 DTEND:20080601T130000Z
 ATTENDEE:mailto:user1@example.com
-ATTENDEE;PARTSTAT=ACCEPTED:mailto:user2@example.com
+ATTENDEE;PARTSTAT=ACCEPTED;X-CALENDARSERVER-DTSTAMP=XXXXXXXXTXXXXXXZ:mailto:user2@example.com
 ORGANIZER;CN=User 01:mailto:user1@example.com
 END:VEVENT
 END:VCALENDAR
@@ -3203,7 +3212,7 @@ RECURRENCE-ID:20080601T120000Z
 DTSTART:20080601T120000Z
 DTEND:20080601T130000Z
 ATTENDEE:mailto:user1@example.com
-ATTENDEE;PARTSTAT=ACCEPTED:mailto:user2@example.com
+ATTENDEE;PARTSTAT=ACCEPTED;X-CALENDARSERVER-DTSTAMP=XXXXXXXXTXXXXXXZ:mailto:user2@example.com
 ORGANIZER;CN=User 01:mailto:user1@example.com
 END:VEVENT
 END:VCALENDAR
@@ -3218,7 +3227,11 @@ END:VCALENDAR
                 diffResult[0],
                 diffResult[1],
                 tuple(sorted(diffResult[2])),
-                str(diffResult[3]).replace("\r", "") if diffResult[3] else None,
+                re.sub(
+                    "X-CALENDARSERVER-DTSTAMP=[^Z]+",
+                    "X-CALENDARSERVER-DTSTAMP=XXXXXXXXTXXXXXX",
+                    str(diffResult[3]).replace("\r", "").replace("\n ", "")
+                ) if diffResult[3] else None,
             )
             self.assertEqual(diffResult, result, msg="%s: actual result: (%s)" % (description, ", ".join([str(i).replace("\r", "") for i in diffResult]),))
 

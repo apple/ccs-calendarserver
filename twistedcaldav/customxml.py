@@ -59,7 +59,6 @@ calendarserver_principal_search_compliance = (
     "calendarserver-principal-search",
 )
 
-
 calendarserver_sharing_compliance = (
     "calendarserver-sharing",
 )
@@ -67,6 +66,10 @@ calendarserver_sharing_compliance = (
 # TODO: This is only needed whilst we do not support scheduling in shared calendars
 calendarserver_sharing_no_scheduling_compliance = (
     "calendarserver-sharing-no-scheduling",
+)
+
+calendarserver_partstat_changes_compliance = (
+    "calendarserver-partstat-changes",
 )
 
 

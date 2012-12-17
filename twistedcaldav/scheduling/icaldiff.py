@@ -14,16 +14,18 @@
 # limitations under the License.
 ##
 
+from difflib import unified_diff
+
+from pycalendar.datetime import PyCalendarDateTime
+from pycalendar.period import PyCalendarPeriod
+
 from twext.python.log import Logger
 
+from twistedcaldav import accounting
+from twistedcaldav.config import config
 from twistedcaldav.ical import Component, Property
 from twistedcaldav.scheduling.cuaddress import normalizeCUAddr
 from twistedcaldav.scheduling.itip import iTipGenerator
-from twistedcaldav import accounting
-
-from difflib import unified_diff
-from pycalendar.period import PyCalendarPeriod
-from pycalendar.datetime import PyCalendarDateTime
 
 """
 Class that handles diff'ing two calendar objects.
@@ -483,7 +485,13 @@ class iCalDiff(object):
 
         if serverAttendee.parameterValue("PARTSTAT", "NEEDS-ACTION") != clientAttendee.parameterValue("PARTSTAT", "NEEDS-ACTION"):
             serverAttendee.setParameter("PARTSTAT", clientAttendee.parameterValue("PARTSTAT", "NEEDS-ACTION"))
+
+            # If PARTSTAT was changed by the attendee, add a timestamp if needed
+            if config.Scheduling.Options.TimestampAttendeePartStatChanges:
+                serverAttendee.setParameter("X-CALENDARSERVER-DTSTAMP", PyCalendarDateTime.getNowUTC().getText())
+
             replyNeeded = True
+
         if serverAttendee.parameterValue("RSVP", "FALSE") != clientAttendee.parameterValue("RSVP", "FALSE"):
             if clientAttendee.parameterValue("RSVP", "FALSE") == "FALSE":
                 try:
