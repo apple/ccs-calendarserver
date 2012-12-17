@@ -237,7 +237,7 @@ class ICommonTransaction(ITransaction):
         @param guid: The GUID of the subscribed principal
         @type guid: C{str}
 
-        @return: tuples of (token, key, timestamp, userAgent, ipAddr)
+        @return: tuples of (token, key, timestamp)
         """
 
 

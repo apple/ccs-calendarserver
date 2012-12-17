@@ -41,7 +41,7 @@ from calendarserver.push.util import getAPNTopicFromCertificate
 log = Logger()
 
 if platform.isMacOSX():
-    DEFAULT_CONFIG_FILE = "/Applications/Server.app/Contents/ServerRoot/private/etc/caldavd/caldavd-apple.plist"
+    DEFAULT_CONFIG_FILE = "/Library/Server/Calendar and Contacts/Config/caldavd.plist"
 else:
     DEFAULT_CONFIG_FILE = "/etc/caldavd/caldavd.plist"
 
@@ -1029,15 +1029,13 @@ class PListConfigProvider(ConfigProvider):
             configDict = self._parseConfigFromFile(self._configFileName)
         # Now check for Includes and parse and add each of those
         if "Includes" in configDict:
+            configRoot = os.path.join(configDict.ServerRoot, configDict.ConfigRoot)
             for include in configDict.Includes:
-                path = _expandPath(fullServerPath(configDict.ConfigRoot, include))
-                if os.path.exists(path):
-                    additionalDict = self._parseConfigFromFile(path)
-                    if additionalDict:
-                        log.info("Adding configuration from file: '%s'" % (path,))
-                        configDict.update(additionalDict)
-                else:
-                    log.warn("Missing configuration file: '%s'" % (path,))
+                path = _expandPath(fullServerPath(configRoot, include))
+                additionalDict = self._parseConfigFromFile(path)
+                if additionalDict:
+                    log.info("Adding configuration from file: '%s'" % (path,))
+                    configDict.update(additionalDict)
         return configDict
 
 

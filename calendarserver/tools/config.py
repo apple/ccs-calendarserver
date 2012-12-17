@@ -24,8 +24,10 @@ requested value.
 import os, sys
 from getopt import getopt, GetoptError
 
-from twistedcaldav.config import config, ConfigurationError
+from twistedcaldav.config import ConfigurationError
 from twistedcaldav.stdconfig import DEFAULT_CONFIG_FILE
+
+from calendarserver.tools.util import loadConfig
 
 def usage(e=None):
     if e:
@@ -48,17 +50,15 @@ def usage(e=None):
 def main():
     try:
         (optargs, args) = getopt(
-            sys.argv[1:], "hf:w:", [
+            sys.argv[1:], "hf:", [
                 "help",
                 "config=",
-                "write=",
             ],
         )
     except GetoptError, e:
         usage(e)
 
     configFileName = DEFAULT_CONFIG_FILE
-    writeConfigFileName = DEFAULT_CONFIG_FILE
 
     for opt, arg in optargs:
         if opt in ("-h", "--help"):
@@ -66,9 +66,6 @@ def main():
 
         elif opt in ("-f", "--config"):
             configFileName = arg
-
-        elif opt in ("-w", "--write"):
-            writeConfigFileName = arg
 
     try:
         config = loadConfig(configFileName)
