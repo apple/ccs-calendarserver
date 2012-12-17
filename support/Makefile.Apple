@@ -85,7 +85,7 @@ install:: build
 	$(_v) cd $(BuildDirectory)/pycrypto-2.5       && $(Environment) $(PYTHON) setup.py install $(PY_INSTALL_FLAGS)
 	$(_v) for so in $$(find "$(DSTROOT)$(PY_HOME)/lib" -type f -name '*.so'); do $(STRIP) -Sx "$${so}"; done 
 	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)$(SIPP)$(ETCDIR)$(CALDAVDSUBDIR)"
-	$(_v) $(INSTALL_FILE) "$(Sources)/conf/caldavd-apple.plist" "$(DSTROOT)$(SIPP)$(ETCDIR)$(CALDAVDSUBDIR)/caldavd.plist"
+	$(_v) $(INSTALL_FILE) "$(Sources)/conf/caldavd-apple.plist" "$(DSTROOT)$(SIPP)$(ETCDIR)$(CALDAVDSUBDIR)/caldavd-apple.plist"
 	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)$(SIPP)$(ETCDIR)$(WEBAPPSSUBDIR)"
 	$(_v) $(INSTALL_FILE) "$(Sources)/contrib/migration/com.apple.webapp.contacts.plist" "$(DSTROOT)$(SIPP)$(ETCDIR)$(WEBAPPSSUBDIR)/com.apple.webapp.contacts.plist"
 	$(_v) $(INSTALL_FILE) "$(Sources)/contrib/migration/com.apple.webapp.contactsssl.plist" "$(DSTROOT)$(SIPP)$(ETCDIR)$(WEBAPPSSUBDIR)/com.apple.webapp.contactsssl.plist"

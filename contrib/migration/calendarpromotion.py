@@ -71,6 +71,7 @@ def main():
         # Already exists
         pass
 
+    # XYZZY CHANGE ALL THIS:
     plistPath = os.path.join(DEST_CONFIG_DIR, CALDAVD_PLIST)
 
     if os.path.exists(plistPath):
