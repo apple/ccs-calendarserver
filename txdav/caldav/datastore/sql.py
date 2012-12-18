@@ -37,27 +37,27 @@ from twisted.python import hashlib
 from twistedcaldav import caldavxml, customxml
 from twistedcaldav.caldavxml import ScheduleCalendarTransp, Opaque
 from twistedcaldav.config import config
-from twistedcaldav.dateops import normalizeForIndex, datetimeMktime,\
+from twistedcaldav.dateops import normalizeForIndex, datetimeMktime, \
     parseSQLTimestamp, pyCalendarTodatetime, parseSQLDateToPyCalendar
 from twistedcaldav.ical import Component, InvalidICalendarDataError
 from twistedcaldav.instance import InvalidOverriddenInstanceError
 from twistedcaldav.memcacher import Memcacher
 
 from txdav.base.propertystore.base import PropertyName
-from txdav.caldav.datastore.util import validateCalendarComponent,\
+from txdav.caldav.datastore.util import validateCalendarComponent, \
     dropboxIDFromCalendarObject
-from txdav.caldav.icalendarstore import ICalendarHome, ICalendar, ICalendarObject,\
+from txdav.caldav.icalendarstore import ICalendarHome, ICalendar, ICalendarObject, \
     IAttachment
-from txdav.common.datastore.sql import CommonHome, CommonHomeChild,\
+from txdav.common.datastore.sql import CommonHome, CommonHomeChild, \
     CommonObjectResource, ECALENDARTYPE
 from txdav.common.datastore.sql_legacy import \
-    PostgresLegacyIndexEmulator, SQLLegacyCalendarInvites,\
+    PostgresLegacyIndexEmulator, SQLLegacyCalendarInvites, \
     SQLLegacyCalendarShares, PostgresLegacyInboxIndexEmulator
-from txdav.common.datastore.sql_tables import CALENDAR_TABLE,\
-    CALENDAR_BIND_TABLE, CALENDAR_OBJECT_REVISIONS_TABLE, CALENDAR_OBJECT_TABLE,\
-    _ATTACHMENTS_MODE_NONE, _ATTACHMENTS_MODE_READ, _ATTACHMENTS_MODE_WRITE,\
-    CALENDAR_HOME_TABLE, CALENDAR_HOME_METADATA_TABLE,\
-    CALENDAR_AND_CALENDAR_BIND, CALENDAR_OBJECT_REVISIONS_AND_BIND_TABLE,\
+from txdav.common.datastore.sql_tables import CALENDAR_TABLE, \
+    CALENDAR_BIND_TABLE, CALENDAR_OBJECT_REVISIONS_TABLE, CALENDAR_OBJECT_TABLE, \
+    _ATTACHMENTS_MODE_NONE, _ATTACHMENTS_MODE_READ, _ATTACHMENTS_MODE_WRITE, \
+    CALENDAR_HOME_TABLE, CALENDAR_HOME_METADATA_TABLE, \
+    CALENDAR_AND_CALENDAR_BIND, CALENDAR_OBJECT_REVISIONS_AND_BIND_TABLE, \
     CALENDAR_OBJECT_AND_BIND_TABLE, _BIND_STATUS_INVITED, schema
 from twext.enterprise.dal.syntax import Select, Count, ColumnSyntax
 from twext.enterprise.dal.syntax import Insert
@@ -71,8 +71,8 @@ from txdav.caldav.datastore.util import CalendarObjectBase
 from txdav.caldav.icalendarstore import QuotaExceeded
 
 from txdav.caldav.datastore.util import StorageTransportBase
-from txdav.common.icommondatastore import IndexedSearchException,\
-    InternalDataStoreError, HomeChildNameAlreadyExistsError,\
+from txdav.common.icommondatastore import IndexedSearchException, \
+    InternalDataStoreError, HomeChildNameAlreadyExistsError, \
     HomeChildNameNotAllowedError
 
 from pycalendar.datetime import PyCalendarDateTime
@@ -116,7 +116,6 @@ class CalendarHome(CommonHome):
         self._childClass = Calendar
         super(CalendarHome, self).__init__(transaction, ownerUID, notifiers)
         self._shares = SQLLegacyCalendarShares(self)
-
 
     createCalendarWithName = CommonHome.createChildWithName
     removeCalendarWithName = CommonHome.removeChildWithName
@@ -273,40 +272,42 @@ class CalendarHome(CommonHome):
 
     @inlineCallbacks
     def createdHome(self):
-        
+
         # Default calendar
         defaultCal = yield self.createCalendarWithName("calendar")
         props = defaultCal.properties()
         props[PropertyName(*ScheduleCalendarTransp.qname())] = ScheduleCalendarTransp(Opaque())
-        
+
         # Check whether components type must be separate
         if config.RestrictCalendarsToOneComponentType:
             yield defaultCal.setSupportedComponents("VEVENT")
-            
+
             # Default tasks
             defaultTasks = yield self.createCalendarWithName("tasks")
             yield defaultTasks.setSupportedComponents("VTODO")
-            
+
         yield self.createCalendarWithName("inbox")
+
 
     @inlineCallbacks
     def splitCalendars(self):
         """
         Split all regular calendars by component type
         """
-        
+
         # Make sure the loop does not operate on any new calendars created during the loop
         self.log_warn("Splitting calendars for user %s" % (self._ownerUID,))
         calendars = yield self.calendars()
         for calendar in calendars:
-            
-            # Ignore inbox - also shared calendars are not part of .calendars() 
+
+            # Ignore inbox - also shared calendars are not part of .calendars()
             if calendar.name() == "inbox":
                 continue
             split_count = yield calendar.splitCollectionByComponentTypes()
-            self.log_warn("  Calendar: '%s', split into %d" % (calendar.name(), split_count+1,))
+            self.log_warn("  Calendar: '%s', split into %d" % (calendar.name(), split_count + 1,))
 
         yield self.ensureDefaultCalendarsExist()
+
 
     @inlineCallbacks
     def ensureDefaultCalendarsExist(self):
@@ -358,7 +359,7 @@ class CalendarHome(CommonHome):
         cb = schema.CALENDAR_BIND
         rows = yield self._unacceptedSharesQuery.on(self._txn, homeResourceID=self._resourceID)
         for (resourceName,) in rows:
-            kwds = { "ResourceName" : resourceName }
+            kwds = {"ResourceName": resourceName}
             yield Delete(
                 From=inv,
                 Where=(
@@ -380,7 +381,7 @@ class CalendarHome(CommonHome):
         Remove all remaining invite entries for this home.
         """
         inv = schema.INVITE
-        kwds = { "HomeResourceID" : self._resourceID }
+        kwds = {"HomeResourceID": self._resourceID}
         yield Delete(
             From=inv,
             Where=(inv.HOME_RESOURCE_ID == Parameter("HomeResourceID"))
@@ -433,15 +434,16 @@ class Calendar(CommonHomeChild):
         different child classes to have their own type specific data, but still make use of the
         common base logic.
         """
-        
+
         # Common behavior is to have created and modified
-        
+
         return (
             cls._homeChildMetaDataSchema.CREATED,
             cls._homeChildMetaDataSchema.MODIFIED,
             cls._homeChildMetaDataSchema.SUPPORTED_COMPONENTS,
         )
-        
+
+
     @classmethod
     def metadataAttributes(cls):
         """
@@ -449,15 +451,16 @@ class Calendar(CommonHomeChild):
         different child classes to have their own type specific data, but still make use of the
         common base logic.
         """
-        
+
         # Common behavior is to have created and modified
-        
+
         return (
             "_created",
             "_modified",
             "_supportedComponents",
         )
-        
+
+
     @property
     def _calendarHome(self):
         return self._home
@@ -466,7 +469,6 @@ class Calendar(CommonHomeChild):
     # FIXME: resource type is DAV.  This doesn't belong in the data store.  -wsv
     def resourceType(self):
         return ResourceType.calendar #@UndefinedVariable
-
 
     ownerCalendarHome = CommonHomeChild.ownerHome
     viewerCalendarHome = CommonHomeChild.viewerHome
@@ -513,14 +515,17 @@ class Calendar(CommonHomeChild):
             cacheKey = queryCacher.keyForHomeChildMetaData(self._resourceID)
             yield queryCacher.invalidateAfterCommit(self._txn, cacheKey)
 
+
     def getSupportedComponents(self):
         return self._supportedComponents
+
 
     def isSupportedComponent(self, componentType):
         if self._supportedComponents:
             return componentType.upper() in self._supportedComponents.split(",")
         else:
             return True
+
 
     def initPropertyStore(self, props):
         # Setup peruser special properties
@@ -535,6 +540,7 @@ class Calendar(CommonHomeChild):
             ),
         )
 
+
     # FIXME: this is DAV-ish.  Data store calendar objects don't have
     # mime types.  -wsv
     def contentType(self):
@@ -542,6 +548,7 @@ class Calendar(CommonHomeChild):
         The content type of Calendar objects is text/calendar.
         """
         return MimeType.fromString("text/calendar; charset=utf-8")
+
 
     @inlineCallbacks
     def splitCollectionByComponentTypes(self):
@@ -551,7 +558,7 @@ class Calendar(CommonHomeChild):
         on any new calendars created. Also restrict the new calendars to only the one appropriate component type. Return
         the number of splits done.
         """
-        
+
         # First see how many different component types there are
         split_count = 0
         components = yield self._countComponentTypes()
@@ -562,11 +569,11 @@ class Calendar(CommonHomeChild):
             yield self.setSupportedComponents(component.upper())
 
             returnValue(split_count)
-        
+
         # We will leave the component type with the highest count in the current calendar and create new calendars
         # for the others which will be moved over
-        maxComponent = max(components, key=lambda x:x[1])[0]
-        
+        maxComponent = max(components, key=lambda x: x[1])[0]
+
         for component, _ignore_count in components:
             if component == maxComponent:
                 continue
@@ -578,12 +585,13 @@ class Calendar(CommonHomeChild):
 
         returnValue(split_count)
 
+
     @inlineCallbacks
     def _countComponentTypes(self):
         """
         Count each component type in this calendar.
-        
-        @return: a C{tuple} of C{tuple} containing the component type name and count. 
+
+        @return: a C{tuple} of C{tuple} containing the component type name and count.
         """
 
         ob = self._objectSchema
@@ -597,17 +605,18 @@ class Calendar(CommonHomeChild):
         rows = yield _componentsQuery.on(self._txn, calID=self._resourceID)
         result = tuple([(componentType, componentCount) for componentType, componentCount in sorted(rows, key=lambda x:x[0])])
         returnValue(result)
-        
+
+
     @inlineCallbacks
     def _splitComponentType(self, component):
         """
         Create a new calendar and move all components of the specified component type into the new one.
         Make sure properties and sharing state is preserved on the new calendar.
-        
+
         @param component: Component type to split out
         @type component: C{str}
         """
-        
+
         # Create the new calendar
         try:
             newcalendar = yield self._home.createCalendarWithName("%s-%s" % (self._name, component.lower(),))
@@ -615,25 +624,26 @@ class Calendar(CommonHomeChild):
             # If the name we want exists, try repeating with up to ten more
             for ctr in range(10):
                 try:
-                    newcalendar = yield self._home.createCalendarWithName("%s-%s-%d" % (self._name, component.lower(), ctr+1,))
+                    newcalendar = yield self._home.createCalendarWithName("%s-%s-%d" % (self._name, component.lower(), ctr + 1,))
                 except HomeChildNameAlreadyExistsError:
                     continue
             else:
                 # At this point we are stuck
                 raise HomeChildNameNotAllowedError
-        
+
         # Restrict calendar to single component type
         yield newcalendar.setSupportedComponents(component.upper())
-        
+
         # Transfer properties over
         yield newcalendar._properties.copyAllProperties(self._properties)
-        
+
         # Transfer sharing
         yield self._transferSharingDetails(newcalendar, component)
-        
+
         # Now move calendar data over
         yield self._transferCalendarObjects(newcalendar, component)
-        
+
+
     @inlineCallbacks
     def _transferSharingDetails(self, newcalendar, component):
         """
@@ -653,26 +663,27 @@ class Calendar(CommonHomeChild):
                 cb.CALENDAR_RESOURCE_ID == inv.RESOURCE_ID).And(
                 cb.CALENDAR_HOME_RESOURCE_ID == inv.HOME_RESOURCE_ID)
         )
-        
+
         rows = yield _bindInviteQuery.on(
             self._txn,
             calID=self._resourceID,
             homeID=self._home._resourceID,
         )
-        
+
         if len(rows) == 0:
             returnValue(None)
-        
+
         for row in rows:
             columnMap = dict(zip(bindcolumns, row[:len(bindcolumns)]))
             columnMap[cb.CALENDAR_RESOURCE_ID] = newcalendar._resourceID
             columnMap[cb.CALENDAR_RESOURCE_NAME] = "%s-%s" % (columnMap[cb.CALENDAR_RESOURCE_NAME], component.lower(),)
-            yield Insert(columnMap).on(self._txn)   
+            yield Insert(columnMap).on(self._txn)
 
             columnMap = dict(zip(invitecolumns, row[len(bindcolumns):]))
             columnMap[inv.INVITE_UID] = "%s-%s" % (columnMap[inv.INVITE_UID], component.lower(),)
             columnMap[inv.RESOURCE_ID] = newcalendar._resourceID
             yield Insert(columnMap).on(self._txn)
+
 
     @inlineCallbacks
     def _transferCalendarObjects(self, newcalendar, component):
@@ -694,14 +705,15 @@ class Calendar(CommonHomeChild):
             calID=self._resourceID,
             componentType=component,
         )
-        
+
         if len(rows) == 0:
             returnValue(None)
-        
+
         for row in rows:
             resourceID = row[0]
             child = yield self.objectResourceWithID(resourceID)
             yield self.moveObjectResource(child, newcalendar)
+
 
     @classproperty
     def _moveTimeRangeUpdateQuery(cls): #@NoSelf
@@ -714,6 +726,7 @@ class Calendar(CommonHomeChild):
             Where=tr.CALENDAR_OBJECT_RESOURCE_ID == Parameter("resourceID")
         )
 
+
     @inlineCallbacks
     def _movedObjectResource(self, child, newparent):
         """
@@ -724,6 +737,7 @@ class Calendar(CommonHomeChild):
             newParentID=newparent._resourceID,
             resourceID=child._resourceID
         )
+
 
     def unshare(self):
         """
@@ -755,7 +769,7 @@ accessMode_to_type = {
     Component.ACCESS_CONFIDENTIAL: 3,
     Component.ACCESS_RESTRICTED  : 4,
 }
-accesstype_to_accessMode = dict([(v, k) for k,v in accessMode_to_type.items()])
+accesstype_to_accessMode = dict([(v, k) for k, v in accessMode_to_type.items()])
 
 def _pathToName(path):
     return path.rsplit(".", 1)[0]
@@ -779,7 +793,6 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         self.scheduleTag = metadata.get("scheduleTag", "")
         self.scheduleEtags = metadata.get("scheduleEtags", "")
         self.hasPrivateComment = metadata.get("hasPrivateComment", False)
-
 
     _allColumns = [
         _objectSchema.RESOURCE_ID,
@@ -866,7 +879,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         # freebusy related properties have changed (e.g. an attendee reply and refresh). In those cases
         # the component will have a special attribute present to let us know to suppress the instance indexing.
         instanceIndexingRequired = not hasattr(component, "noInstanceIndexing") or inserting or reCreate
-        
+
         if instanceIndexingRequired:
 
             # Decide how far to expand based on the component. doInstanceIndexing will indicate whether we
@@ -874,28 +887,28 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             # operation.
             doInstanceIndexing = False
             master = component.masterComponent()
-            if ( master is None or not component.isRecurring() ):
+            if (master is None or not component.isRecurring()):
                 # When there is no master we have a set of overridden components -
                 #   index them all.
                 # When there is one instance - index it.
                 expand = PyCalendarDateTime(2100, 1, 1, 0, 0, 0, tzid=PyCalendarTimezone(utc=True))
                 doInstanceIndexing = True
             else:
-    
+
                 # If migrating or re-creating or config option for delayed indexing is off, always index
                 if reCreate or txn._migrating or (not config.FreeBusyIndexDelayedExpand and not isInboxItem):
                     doInstanceIndexing = True
-    
+
                 # Duration into the future through which recurrences are expanded in the index
                 # by default.  This is a caching parameter which affects the size of the index;
                 # it does not affect search results beyond this period, but it may affect
                 # performance of such a search.
                 expand = (PyCalendarDateTime.getToday() +
                           PyCalendarDuration(days=config.FreeBusyIndexExpandAheadDays))
-    
+
                 if expand_until and expand_until > expand:
                     expand = expand_until
-    
+
                 # Maximum duration into the future through which recurrences are expanded in the
                 # index.  This is a caching parameter which affects the size of the index; it
                 # does not affect search results beyond this period, but it may affect
@@ -911,7 +924,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
                 if expand > (PyCalendarDateTime.getToday() +
                              PyCalendarDuration(days=config.FreeBusyIndexExpandMaxDays)):
                     raise IndexedSearchException
-    
+
             if config.FreeBusyIndexLowerLimitDays:
                 truncateLowerLimit = PyCalendarDateTime.getToday()
                 truncateLowerLimit.offsetDay(-config.FreeBusyIndexLowerLimitDays)
@@ -927,7 +940,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             except InvalidOverriddenInstanceError, e:
                 self.log_error("Invalid instance %s when indexing %s in %s" %
                                (e.rid, self._name, self._calendar,))
-    
+
                 if txn._migrating:
                     # TODO: fix the data here by re-writing component then re-index
                     instances = component.expandTimeRanges(expand, lowerLimit=truncateLowerLimit, ignoreInvalidInstances=True)
@@ -935,7 +948,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
                     recurrenceLowerLimit = instances.lowerLimit
                 else:
                     raise
-    
+
             # Now coerce indexing to off if needed
             if not doInstanceIndexing:
                 instances = None
@@ -1015,7 +1028,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
                         Where=co.RESOURCE_ID == self._resourceID
                     ).on(txn)
                 )[0][0]
-                
+
                 # Need to wipe the existing time-range for this and rebuild if required
                 if instanceIndexingRequired:
                     yield Delete(
@@ -1041,8 +1054,8 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
         if instanceIndexingRequired and doInstanceIndexing:
             yield self._addInstances(component, instances, truncateLowerLimit, txn)
-    
-    
+
+
     @inlineCallbacks
     def _addInstances(self, component, instances, truncateLowerLimit, txn):
         """
@@ -1070,7 +1083,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             start.setTimezoneUTC(True)
             end.setTimezoneUTC(True)
 
-            # Ignore if below the lower limit            
+            # Ignore if below the lower limit
             if truncateLowerLimit and end < truncateLowerLimit:
                 lowerLimitApplied = True
                 continue
@@ -1087,7 +1100,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         # Special - for unbounded recurrence we insert a value for "infinity"
         # that will allow an open-ended time-range to always match it.
         # We also need to add the "infinity" value if the event was bounded but
-        # starts after the future expansion cut-off limit. 
+        # starts after the future expansion cut-off limit.
         if component.isRecurringUnbounded() or instances.limit and len(instances.instances) == 0:
             start = PyCalendarDateTime(2100, 1, 1, 0, 0, 0, tzid=PyCalendarTimezone(utc=True))
             end = PyCalendarDateTime(2100, 1, 1, 1, 0, 0, tzid=PyCalendarTimezone(utc=True))
@@ -1153,6 +1166,14 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         returnValue(component)
 
 
+    @inlineCallbacks
+    def remove(self):
+        # Need to also remove attachments
+        if self._dropboxID:
+            yield Attachment.resourceRemoved(self._txn, self._resourceID, self._dropboxID)
+        yield super(CalendarObject, self).remove()
+
+
     @classproperty
     def _recurrenceMinMaxByIDQuery(cls): #@NoSelf
         """
@@ -1160,7 +1181,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         """
         co = schema.CALENDAR_OBJECT
         return Select(
-            [co.RECURRANCE_MIN, co.RECURRANCE_MAX,],
+            [co.RECURRANCE_MIN, co.RECURRANCE_MAX, ],
             From=co,
             Where=co.RESOURCE_ID == Parameter("resourceID"),
         )
@@ -1171,7 +1192,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         """
         Get the RECURRANCE_MIN, RECURRANCE_MAX value from the database. Occasionally we might need to do an
         update to time-range data via a separate transaction, so we allow that to be passed in.
-    
+
         @return: L{PyCalendarDateTime} result
         """
         # Setup appropriate txn
@@ -1208,7 +1229,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
     def instances(self, txn=None):
         """
         Get the set of instances from the database.
-    
+
         @return: C{list} result
         """
         # Setup appropriate txn
@@ -1235,8 +1256,10 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         metadata["hasPrivateComment"] = self.hasPrivateComment
         return metadata
 
+
     def _get_accessMode(self):
         return accesstype_to_accessMode[self._access]
+
 
     def _set_accessMode(self, value):
         self._access = accessMode_to_type[value]
@@ -1246,6 +1269,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
     def _get_isScheduleObject(self):
         return self._schedule_object
 
+
     def _set_isScheduleObject(self, value):
         self._schedule_object = value
 
@@ -1253,6 +1277,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
     def _get_scheduleTag(self):
         return self._schedule_tag
+
 
     def _set_scheduleTag(self, value):
         self._schedule_tag = value
@@ -1262,6 +1287,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
     def _get_scheduleEtags(self):
         return tuple(self._schedule_etags.split(",")) if self._schedule_etags else ()
 
+
     def _set_scheduleEtags(self, value):
         self._schedule_etags = ",".join(value) if value else ""
 
@@ -1269,6 +1295,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
     def _get_hasPrivateComment(self):
         return self._private_comments
+
 
     def _set_hasPrivateComment(self, value):
         self._private_comments = value
@@ -1287,20 +1314,21 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             )
         ))
 
+
     @inlineCallbacks
     def removeAttachmentWithName(self, name):
         attachment = (yield self.attachmentWithName(name))
         yield attachment.remove()
 
+
     def attachmentWithName(self, name):
         return Attachment.loadWithName(self._txn, self._dropboxID, name)
+
 
     def attendeesCanManageAttachments(self):
         return self._attachment == _ATTACHMENTS_MODE_WRITE
 
-
     dropboxID = dropboxIDFromCalendarObject
-
 
     _attachmentsQuery = Select(
         [schema.ATTACHMENT.PATH],
@@ -1333,6 +1361,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
                 PropertyName.fromElement(customxml.ScheduleChanges),
             ),
         )
+
 
     # IDataStoreObject
     def contentType(self):
@@ -1452,6 +1481,8 @@ class AttachmentStorageTransport(StorageTransportBase):
 def sqltime(value):
     return datetimeMktime(parseSQLTimestamp(value))
 
+
+
 class Attachment(object):
 
     implements(IAttachment)
@@ -1507,6 +1538,36 @@ class Attachment(object):
         returnValue(attachment)
 
 
+    @classmethod
+    @inlineCallbacks
+    def resourceRemoved(cls, txn, resourceID, dropboxID):
+        """
+        Remove all attachments referencing the specified resource.
+        """
+
+        # See if any other resources still reference this dropbox ID
+        co = schema.CALENDAR_OBJECT
+        rows = (yield Select(
+            [co.RESOURCE_ID, ],
+            From=co,
+            Where=(co.DROPBOX_ID == dropboxID).And(
+                co.RESOURCE_ID != resourceID)
+        ).on(txn))
+
+        if not rows:
+            # Find each attachment with matching dropbox ID
+            att = schema.ATTACHMENT
+            rows = (yield Select(
+                [att.PATH],
+                From=att,
+                Where=(att.DROPBOX_ID == dropboxID)
+            ).on(txn))
+            for name in rows:
+                name = name[0]
+                attachment = yield cls.loadWithName(txn, dropboxID, name)
+                yield attachment.remove()
+
+
     @inlineCallbacks
     def initFromStore(self):
         """
@@ -1554,7 +1615,6 @@ class Attachment(object):
 
     def retrieve(self, protocol):
         return AttachmentRetrievalTransport(self._path).start(protocol)
-
 
     _removeStatement = Delete(
         From=schema.ATTACHMENT,

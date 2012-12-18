@@ -17,9 +17,14 @@
 """
 Tests for calendarserver.tools.purge
 """
+
 from calendarserver.tap.util import getRootResource
 from calendarserver.tools.purge import purgeOldEvents, purgeUID, purgeOrphanedAttachments
 
+from pycalendar.datetime import PyCalendarDateTime
+from pycalendar.timezone import PyCalendarTimezone
+
+from twext.enterprise.dal.syntax import Update
 from twext.web2.http_headers import MimeType
 
 from twisted.internet.defer import inlineCallbacks, returnValue
@@ -28,10 +33,8 @@ from twisted.trial import unittest
 from twistedcaldav.config import config
 from twistedcaldav.vcard import Component as VCardComponent
 
+from txdav.common.datastore.sql_tables import schema
 from txdav.common.datastore.test.util import buildStore, populateCalendarsFrom, CommonCommonTests
-
-from pycalendar.datetime import PyCalendarDateTime
-from pycalendar.timezone import PyCalendarTimezone
 
 import os
 
@@ -84,7 +87,7 @@ DTSTAMP:20100303T181220Z
 SEQUENCE:2
 END:VEVENT
 END:VCALENDAR
-""".replace("\n", "\r\n") % {"year":now-5}
+""".replace("\n", "\r\n") % {"year": now - 5}
 
 OLD_ATTACHMENT_ICS = """BEGIN:VCALENDAR
 VERSION:2.0
@@ -134,7 +137,7 @@ X-APPLE-DROPBOX:/calendars/__uids__/user01/dropbox/57A5D1F6-9A57-4F74-95
 SEQUENCE:2
 END:VEVENT
 END:VCALENDAR
-""".replace("\n", "\r\n") % {"year":now-5}
+""".replace("\n", "\r\n") % {"year": now - 5}
 
 ENDLESS_ICS = """BEGIN:VCALENDAR
 VERSION:2.0
@@ -183,7 +186,7 @@ DTSTAMP:20100303T194710Z
 SEQUENCE:4
 END:VEVENT
 END:VCALENDAR
-""".replace("\n", "\r\n") % {"year":now-5}
+""".replace("\n", "\r\n") % {"year": now - 5}
 
 REPEATING_AWHILE_ICS = """BEGIN:VCALENDAR
 VERSION:2.0
@@ -232,7 +235,7 @@ DTSTAMP:20100303T194747Z
 SEQUENCE:6
 END:VEVENT
 END:VCALENDAR
-""".replace("\n", "\r\n") % {"year":now-5}
+""".replace("\n", "\r\n") % {"year": now - 5}
 
 STRADDLING_ICS = """BEGIN:VCALENDAR
 VERSION:2.0
@@ -267,7 +270,7 @@ DTSTAMP:20100303T213704Z
 SEQUENCE:5
 END:VEVENT
 END:VCALENDAR
-""".replace("\n", "\r\n") % {"year":now-2, "until":now+1}
+""".replace("\n", "\r\n") % {"year": now - 2, "until": now + 1}
 
 RECENT_ICS = """BEGIN:VCALENDAR
 VERSION:2.0
@@ -301,7 +304,7 @@ DTSTAMP:20100303T195203Z
 SEQUENCE:2
 END:VEVENT
 END:VCALENDAR
-""".replace("\n", "\r\n") % {"year":now}
+""".replace("\n", "\r\n") % {"year": now}
 
 
 VCARD_1 = """BEGIN:VCARD
@@ -421,7 +424,7 @@ class PurgeOldEventsTests(CommonCommonTests, unittest.TestCase):
         count = (yield txn.removeOldEvents(cutoff))
         self.assertEquals(count, 3)
         results = (yield txn.eventsOlderThan(cutoff))
-        self.assertEquals(results, [ ])
+        self.assertEquals(results, [])
 
         # Remove oldest events (none left)
         count = (yield txn.removeOldEvents(cutoff))
@@ -429,7 +432,7 @@ class PurgeOldEventsTests(CommonCommonTests, unittest.TestCase):
 
 
     @inlineCallbacks
-    def _addAttachment(self):
+    def _addAttachment(self, orphan=False):
 
         txn = self._sqlCalendarStore.newTransaction()
 
@@ -442,6 +445,15 @@ class PurgeOldEventsTests(CommonCommonTests, unittest.TestCase):
         t.write("old attachment")
         t.write(" text")
         (yield t.loseConnection())
+
+        if orphan:
+            # Reset dropbox id in calendar_object
+            co = schema.CALENDAR_OBJECT
+            Update(
+                {co.DROPBOX_ID: None, },
+                Where=co.RESOURCE_ID == event._resourceID,
+            ).on(txn)
+
         (yield txn.commit())
 
         returnValue(attachment)
@@ -449,41 +461,46 @@ class PurgeOldEventsTests(CommonCommonTests, unittest.TestCase):
 
     @inlineCallbacks
     def test_removeOrphanedAttachments(self):
+
+        home = (yield self.transactionUnderTest().calendarHomeWithUID("home1"))
+        quota = (yield home.quotaUsedBytes())
+        self.assertEqual(quota, 0)
+
         attachment = (yield self._addAttachment())
-        txn = self._sqlCalendarStore.newTransaction()
         attachmentPath = attachment._path.path
         self.assertTrue(os.path.exists(attachmentPath))
+        (yield self.commit())
 
-        orphans = (yield txn.orphanedAttachments())
+        home = (yield self.transactionUnderTest().calendarHomeWithUID("home1"))
+        quota = (yield home.quotaUsedBytes())
+        self.assertNotEqual(quota, 0)
+
+        orphans = (yield self.transactionUnderTest().orphanedAttachments())
         self.assertEquals(len(orphans), 0)
 
-        count = (yield txn.removeOrphanedAttachments(batchSize=100))
+        count = (yield self.transactionUnderTest().removeOrphanedAttachments(batchSize=100))
         self.assertEquals(count, 0)
+        (yield self.commit())
+
+        home = (yield self.transactionUnderTest().calendarHomeWithUID("home1"))
+        quota = (yield home.quotaUsedBytes())
+        self.assertNotEqual(quota, 0)
 
         # File still exists
         self.assertTrue(os.path.exists(attachmentPath))
 
         # Delete all old events (including the event containing the attachment)
         cutoff = PyCalendarDateTime(now, 4, 1, 0, 0, 0)
-        count = (yield txn.removeOldEvents(cutoff))
+        count = (yield self.transactionUnderTest().removeOldEvents(cutoff))
+        (yield self.commit())
+
+        home = (yield self.transactionUnderTest().calendarHomeWithUID("home1"))
+        quota = (yield home.quotaUsedBytes())
+        self.assertEqual(quota, 0)
 
         # Just look for orphaned attachments but don't delete
-        orphans = (yield txn.orphanedAttachments())
-        self.assertEquals(len(orphans), 1)
-
-        # Remove orphaned attachments, should be 1
-        count = (yield txn.removeOrphanedAttachments(batchSize=100))
-        self.assertEquals(count, 1)
-
-        # Remove orphaned attachments, shouldn't be any
-        count = (yield txn.removeOrphanedAttachments())
-        self.assertEquals(count, 0)
-
-        # File isn't actually removed until after commit
-        (yield txn.commit())
-
-        # Verify the file itself is gone
-        self.assertFalse(os.path.exists(attachmentPath))
+        orphans = (yield self.transactionUnderTest().orphanedAttachments())
+        self.assertEquals(len(orphans), 0)
 
 
     @inlineCallbacks
@@ -515,12 +532,12 @@ class PurgeOldEventsTests(CommonCommonTests, unittest.TestCase):
         abColl = (yield abHome.addressbookWithName("addressbook"))
         (yield abColl.createAddressBookObjectWithName("card1",
             VCardComponent.fromString(VCARD_1)))
-        self.assertEquals(len( (yield abColl.addressbookObjects()) ), 1)
+        self.assertEquals(len((yield abColl.addressbookObjects())), 1)
 
         # Verify there are 3 events in calendar1
         calHome = (yield txn.calendarHomeWithUID("home1"))
         calColl = (yield calHome.calendarWithName("calendar1"))
-        self.assertEquals(len( (yield calColl.calendarObjects()) ), 3)
+        self.assertEquals(len((yield calColl.calendarObjects())), 3)
 
         # Make the newly created objects available to the purgeUID transaction
         (yield txn.commit())
@@ -540,7 +557,7 @@ class PurgeOldEventsTests(CommonCommonTests, unittest.TestCase):
 
         calHome = (yield txn.calendarHomeWithUID("home1"))
         calColl = (yield calHome.calendarWithName("calendar1"))
-        self.assertEquals(len( (yield calColl.calendarObjects()) ), 2)
+        self.assertEquals(len((yield calColl.calendarObjects())), 2)
 
 
     @inlineCallbacks
@@ -552,12 +569,12 @@ class PurgeOldEventsTests(CommonCommonTests, unittest.TestCase):
         abColl = (yield abHome.addressbookWithName("addressbook"))
         (yield abColl.createAddressBookObjectWithName("card1",
             VCardComponent.fromString(VCARD_1)))
-        self.assertEquals(len( (yield abColl.addressbookObjects()) ), 1)
+        self.assertEquals(len((yield abColl.addressbookObjects())), 1)
 
         # Verify there are 3 events in calendar1
         calHome = (yield txn.calendarHomeWithUID("home1"))
         calColl = (yield calHome.calendarWithName("calendar1"))
-        self.assertEquals(len( (yield calColl.calendarObjects()) ), 3)
+        self.assertEquals(len((yield calColl.calendarObjects())), 3)
 
         # Make the newly created objects available to the purgeUID transaction
         (yield txn.commit())
@@ -580,25 +597,47 @@ class PurgeOldEventsTests(CommonCommonTests, unittest.TestCase):
     @inlineCallbacks
     def test_purgeOrphanedAttachments(self):
 
-        (yield self._addAttachment())
+        home = (yield self.transactionUnderTest().calendarHomeWithUID("home1"))
+        quota = (yield home.quotaUsedBytes())
+        self.assertEqual(quota, 0)
+
+        (yield self._addAttachment(orphan=True))
+        (yield self.commit())
+
+        home = (yield self.transactionUnderTest().calendarHomeWithUID("home1"))
+        quota = (yield home.quotaUsedBytes())
+        self.assertNotEqual(quota, 0)
 
         # Remove old events first
         total = (yield purgeOldEvents(self._sqlCalendarStore, self.directory,
             self.rootResource, PyCalendarDateTime(now, 4, 1, 0, 0, 0), 2, verbose=False))
         self.assertEquals(total, 4)
 
+        home = (yield self.transactionUnderTest().calendarHomeWithUID("home1"))
+        quota = (yield home.quotaUsedBytes())
+        self.assertNotEqual(quota, 0)
+
         # Dry run
         total = (yield purgeOrphanedAttachments(self._sqlCalendarStore, 2,
             dryrun=True, verbose=False))
         self.assertEquals(total, 1)
+        (yield self.commit())
+
+        home = (yield self.transactionUnderTest().calendarHomeWithUID("home1"))
+        quota = (yield home.quotaUsedBytes())
+        self.assertNotEqual(quota, 0)
 
         # Actually remove
         total = (yield purgeOrphanedAttachments(self._sqlCalendarStore, 2,
             dryrun=False, verbose=False))
         self.assertEquals(total, 1)
+        (yield self.commit())
+
+        home = (yield self.transactionUnderTest().calendarHomeWithUID("home1"))
+        quotaAfter = (yield home.quotaUsedBytes())
+        self.assertEqual(quotaAfter, 0)
 
         # There should be no more left
         total = (yield purgeOrphanedAttachments(self._sqlCalendarStore, 2,
             dryrun=False, verbose=False))
         self.assertEquals(total, 0)
-
