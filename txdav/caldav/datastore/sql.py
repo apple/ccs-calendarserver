@@ -1125,6 +1125,8 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
     @inlineCallbacks
     def remove(self):
         # Need to also remove attachments
+        if self._dropboxID:
+            yield DropBoxAttachment.resourceRemoved(self._txn, self._resourceID, self._dropboxID)
         yield ManagedAttachment.resourceRemoved(self._txn, self._resourceID)
         yield super(CalendarObject, self).remove()
 
@@ -1701,6 +1703,8 @@ class AttachmentStorageTransport(StorageTransportBase):
         self._hash = hashlib.md5()
         self._creating = creating
 
+        self._txn.postAbort(self.aborted)
+
 
     def _temporaryFile(self):
         """
@@ -1719,6 +1723,14 @@ class AttachmentStorageTransport(StorageTransportBase):
     @property
     def _txn(self):
         return self._attachment._txn
+
+
+    def aborted(self):
+        """
+        Transaction aborted - clean up temp files.
+        """
+        if self._path.exists():
+            self._path.remove()
 
 
     def write(self, data):
@@ -2048,6 +2060,36 @@ class DropBoxAttachment(Attachment):
         hasheduid = hashlib.md5(self._dropboxID).hexdigest()
         attachmentRoot = self._attachmentPathRoot().child(hasheduid[0:2]).child(hasheduid[2:4]).child(hasheduid)
         return attachmentRoot.child(self.name())
+
+
+    @classmethod
+    @inlineCallbacks
+    def resourceRemoved(cls, txn, resourceID, dropboxID):
+        """
+        Remove all attachments referencing the specified resource.
+        """
+
+        # See if any other resources still reference this dropbox ID
+        co = schema.CALENDAR_OBJECT
+        rows = (yield Select(
+            [co.RESOURCE_ID, ],
+            From=co,
+            Where=(co.DROPBOX_ID == dropboxID).And(
+                co.RESOURCE_ID != resourceID)
+        ).on(txn))
+
+        if not rows:
+            # Find each attachment with matching dropbox ID
+            att = schema.ATTACHMENT
+            rows = (yield Select(
+                [att.PATH],
+                From=att,
+                Where=(att.DROPBOX_ID == dropboxID)
+            ).on(txn))
+            for name in rows:
+                name = name[0]
+                attachment = yield cls.load(txn, dropboxID, name)
+                yield attachment.remove()
 
 
     @inlineCallbacks

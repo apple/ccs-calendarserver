@@ -264,7 +264,6 @@ class Calendar(CommonHomeChild):
     def resourceType(self):
         return ResourceType.calendar #@UndefinedVariable
 
-
     ownerCalendarHome = CommonHomeChild.ownerHome
     viewerCalendarHome = CommonHomeChild.viewerHome
     calendarObjects = CommonHomeChild.objectResources
@@ -496,6 +495,10 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             self.log_error("Calendar data at %s had fixable problems:\n  %s" % (self._path.path, "\n  ".join(fixed),))
 
         return component
+
+
+    def remove(self):
+        pass
 
 
     def _text(self):
@@ -770,6 +773,21 @@ class AttachmentStorageTransport(StorageTransportBase):
         self._path = self._attachment._path.temporarySibling()
         self._file = self._path.open("w")
 
+        self._txn.postAbort(self.aborted)
+
+
+    @property
+    def _txn(self):
+        return self._attachment._txn
+
+
+    def aborted(self):
+        """
+        Transaction aborted - clean up temp files.
+        """
+        if self._path.exists():
+            self._path.remove()
+
 
     def write(self, data):
         # FIXME: multiple chunks
@@ -821,6 +839,11 @@ class Attachment(FileMetaDataMixin):
         self._calendarObject = calendarObject
         self._name = name
         self._dropboxPath = dropboxPath
+
+
+    @property
+    def _txn(self):
+        return self._calendarObject._txn
 
 
     def name(self):
@@ -898,4 +921,3 @@ class Index(object):
             calendarObject._componentType = componentType
 
             yield calendarObject
-

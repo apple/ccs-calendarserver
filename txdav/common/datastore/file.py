@@ -388,6 +388,7 @@ class SharedCollectionRecord(object):
         self.summary = summary
 
 
+
 class SharedCollectionsDatabase(AbstractSQLDatabase, LoggingMixIn):
 
     db_basename = db_prefix + "shares"
@@ -529,6 +530,8 @@ class SharedCollectionsDatabase(AbstractSQLDatabase, LoggingMixIn):
     def _makeRecord(self, row):
 
         return SharedCollectionRecord(*[str(item) if type(item) == types.UnicodeType else item for item in row])
+
+
 
 class CommonHome(FileMetaDataMixin, LoggingMixIn):
 
@@ -1267,6 +1270,7 @@ class CommonHomeChild(FileMetaDataMixin, LoggingMixIn, FancyEqMixin, HomeChildBa
                 self._transaction.postCommit(notifier.notify)
             self._transaction.notificationAddedForObject(self)
 
+
     @inlineCallbacks
     def asInvited(self):
         """
@@ -1275,6 +1279,7 @@ class CommonHomeChild(FileMetaDataMixin, LoggingMixIn, FancyEqMixin, HomeChildBa
         yield None
         returnValue([])
 
+
     @inlineCallbacks
     def asShared(self):
         """
@@ -1282,6 +1287,8 @@ class CommonHomeChild(FileMetaDataMixin, LoggingMixIn, FancyEqMixin, HomeChildBa
         """
         yield None
         returnValue([])
+
+
 
 class CommonObjectResource(FileMetaDataMixin, LoggingMixIn, FancyEqMixin):
     """
@@ -1309,6 +1316,11 @@ class CommonObjectResource(FileMetaDataMixin, LoggingMixIn, FancyEqMixin):
 
     def __repr__(self):
         return "<%s: %s>" % (self.__class__.__name__, self._path.path)
+
+
+    @property
+    def _txn(self):
+        return self._transaction
 
 
     def transaction(self):

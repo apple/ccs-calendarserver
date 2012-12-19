@@ -20,6 +20,7 @@ Tests for common calendar store API functions.
 """
 
 from StringIO import StringIO
+import os
 
 from twisted.internet.defer import Deferred, inlineCallbacks, returnValue, \
     maybeDeferred
@@ -2035,6 +2036,37 @@ END:VCALENDAR
 
 
     @inlineCallbacks
+    def test_attachmentTemporaryFileCleanup(self):
+        """
+        L{IAttachmentStream} object cleans-up its temporary file on txn abort.
+        """
+        obj = yield self.calendarObjectUnderTest()
+        attachment = yield obj.createAttachmentWithName(
+            "new.attachment",
+        )
+        t = attachment.store(MimeType("text", "x-fixture"))
+
+        temp = t._path.path
+
+        yield self.abort()
+
+        self.assertFalse(os.path.exists(temp))
+
+        obj = yield self.calendarObjectUnderTest()
+        attachment = yield obj.createAttachmentWithName(
+            "new.attachment",
+        )
+        t = attachment.store(MimeType("text", "x-fixture"))
+
+        temp = t._path.path
+        os.remove(temp)
+
+        yield self.abort()
+
+        self.assertFalse(os.path.exists(temp))
+
+
+    @inlineCallbacks
     def test_quotaAllowedBytes(self):
         """
         L{ICalendarHome.quotaAllowedBytes} should return the configuration value
@@ -2292,8 +2324,12 @@ END:VCALENDAR
         for uid in additionalUIDs:
             yield txn.calendarHomeWithUID(uid, create=True)
         yield self.commit()
+
+
         # try to create a calendar in all of them, then fail.
-        class AnException(Exception): pass
+        class AnException(Exception):
+            pass
+
         caught = []
         @inlineCallbacks
         def toEachCalendarHome(txn, eachHome):
@@ -2315,4 +2351,3 @@ END:VCALENDAR
         yield noNewCalendar(caught[0])
         yield noNewCalendar('home2')
         yield noNewCalendar('home3')
-
