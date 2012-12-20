@@ -70,7 +70,7 @@ from twext.enterprise.dal.parseschema import significant
 
 from twext.enterprise.dal.syntax import \
     Delete, utcNowSQL, Union, Insert, Len, Max, Parameter, SavepointAction, \
-    Select, Update, ColumnSyntax, TableSyntax, Upper, Count, ALL_COLUMNS
+    Select, Update, ColumnSyntax, TableSyntax, Upper, Count, ALL_COLUMNS, Sum
 
 from twistedcaldav.config import config
 
@@ -781,7 +781,7 @@ class CommonStoreTransaction(object):
         Execute some SQL (delegate to L{IAsyncTransaction}).
         """
         if self._stats:
-            statsContext = self._stats.startStatement(a[0], a[1])
+            statsContext = self._stats.startStatement(a[0], a[1] if len(a) > 1 else ())
         self.currentStatement = a[0]
         if self._store.logTransactionWaits and a[0].split(" ", 1)[0].lower() in ("insert", "update", "delete",):
             self.iudCount += 1
@@ -790,7 +790,7 @@ class CommonStoreTransaction(object):
             a = ("-- Label: %s\n" % (self._label.replace("%", "%%"),) + a[0],) + a[1:]
         if self._store.logSQL:
             log.error("SQL: %r %r" % (a, kw,))
-        results = ()
+        results = None
         try:
             results = (yield self._sqlTxn.execSQL(*a, **kw))
         finally:
@@ -921,41 +921,72 @@ class CommonStoreTransaction(object):
         returnValue(count)
 
 
-    def _orphanedBase(limited): #@NoSelf
+    def _orphanedSummary(self, uuid, limited):
         at = schema.ATTACHMENT
         co = schema.CALENDAR_OBJECT
+        ch = schema.CALENDAR_HOME
+        chm = schema.CALENDAR_HOME_METADATA
+
         kwds = {}
         if limited:
             kwds["Limit"] = Parameter('batchSize')
+
+        where = co.DROPBOX_ID == None
+        if uuid:
+            where = where.And(ch.OWNER_UID == Parameter('uuid'))
+
         return Select(
-            [at.DROPBOX_ID, at.PATH],
-            From=at.join(co, at.DROPBOX_ID == co.DROPBOX_ID, "left outer"),
-            Where=co.DROPBOX_ID == None,
+            [ch.OWNER_UID, chm.QUOTA_USED_BYTES, Sum(at.SIZE), Count(at.DROPBOX_ID)],
+            From=at.join(
+                co, at.DROPBOX_ID == co.DROPBOX_ID, "left outer").join(
+                ch, at.CALENDAR_HOME_RESOURCE_ID == ch.RESOURCE_ID).join(
+                chm, ch.RESOURCE_ID == chm.RESOURCE_ID
+            ),
+            Where=where,
+            GroupBy=(ch.OWNER_UID, chm.QUOTA_USED_BYTES),
             **kwds
         )
 
-    _orphanedLimited = _orphanedBase(True)
-    _orphanedUnlimited = _orphanedBase(False)
-    del _orphanedBase
 
-
-    def orphanedAttachments(self, batchSize=None):
+    def orphanedAttachments(self, uuid=None, batchSize=None):
         """
         Find attachments no longer referenced by any events.
 
-        Returns a deferred to a list of (dropbox_id, path) tuples.
+        Returns a deferred to a list of (calendar_home_owner_uid, quota used, total orphan size, total orphan count) tuples.
         """
+        kwds = {}
+        if uuid:
+            kwds["uuid"] = uuid
         if batchSize is not None:
-            kwds = {'batchSize': batchSize}
-            query = self._orphanedLimited
-        else:
-            kwds = {}
-            query = self._orphanedUnlimited
-        return query.on(self, **kwds)
+            kwds["batchSize"] = batchSize
+        return self._orphanedSummary(uuid, batchSize is not None).on(self, **kwds)
+
+
+    def _orphanedBase(self, uuid, limited):
+        ch = schema.CALENDAR_HOME
+        at = schema.ATTACHMENT
+        co = schema.CALENDAR_OBJECT
+
+        kwds = {}
+        if limited:
+            kwds["Limit"] = Parameter('batchSize')
+
+        sfrom = at.join(co, at.DROPBOX_ID == co.DROPBOX_ID, "left outer")
+        where = co.DROPBOX_ID == None
+        if uuid:
+            sfrom = sfrom.join(ch, at.CALENDAR_HOME_RESOURCE_ID == ch.RESOURCE_ID)
+            where = where.And(ch.OWNER_UID == Parameter('uuid'))
+
+        return Select(
+            [at.DROPBOX_ID, at.PATH],
+            From=sfrom,
+            Where=where,
+            **kwds
+        )
 
 
     @inlineCallbacks
-    def removeOrphanedAttachments(self, batchSize=None):
+    def removeOrphanedAttachments(self, uuid=None, batchSize=None):
         """
         Remove attachments that no longer have any references to them
         """
@@ -963,11 +994,120 @@ class CommonStoreTransaction(object):
         # TODO: see if there is a better way to import Attachment
         from txdav.caldav.datastore.sql import Attachment
 
-        results = (yield self.orphanedAttachments(batchSize=batchSize))
+        kwds = {}
+        if uuid:
+            kwds["uuid"] = uuid
+        if batchSize is not None:
+            kwds["batchSize"] = batchSize
+        results = (yield self._orphanedBase(uuid, batchSize is not None).on(self, **kwds))
+
         count = 0
         for dropboxID, path in results:
             attachment = (yield Attachment.loadWithName(self, dropboxID, path))
-            (yield attachment.remove())
+            yield attachment.remove()
+            count += 1
+        returnValue(count)
+
+
+    def _oldAttachmentsSummaryBase(self, uuid, limited):
+        ch = schema.CALENDAR_HOME
+        chm = schema.CALENDAR_HOME_METADATA
+        co = schema.CALENDAR_OBJECT
+        tr = schema.TIME_RANGE
+        at = schema.ATTACHMENT
+
+        kwds = {}
+        if limited:
+            kwds["Limit"] = Parameter('batchSize')
+
+        where = co.DROPBOX_ID == Select(
+            [at.DROPBOX_ID],
+            From=at.join(co, at.DROPBOX_ID == co.DROPBOX_ID, "inner").join(
+                tr, co.RESOURCE_ID == tr.CALENDAR_OBJECT_RESOURCE_ID
+            ),
+            GroupBy=(at.DROPBOX_ID,),
+            Having=Max(tr.END_DATE) < Parameter("CutOff"),
+        )
+
+        if uuid:
+            where = where.And(ch.OWNER_UID == Parameter('uuid'))
+
+        return Select(
+            [ch.OWNER_UID, chm.QUOTA_USED_BYTES, Sum(at.SIZE), Count(at.DROPBOX_ID)],
+            From=at.join(
+                co, at.DROPBOX_ID == co.DROPBOX_ID, "left outer").join(
+                ch, at.CALENDAR_HOME_RESOURCE_ID == ch.RESOURCE_ID).join(
+                chm, ch.RESOURCE_ID == chm.RESOURCE_ID
+            ),
+            Where=where,
+            GroupBy=(ch.OWNER_UID, chm.QUOTA_USED_BYTES),
+            **kwds
+        )
+
+
+    def oldAttachments(self, cutoff, uuid, batchSize=None):
+        """
+        Find attachments attached to only events whose last instance is older than the specified cut-off.
+
+        Returns a deferred to a list of (calendar_home_owner_uid, quota used, total old size, total old count) tuples.
+        """
+        kwds = {"CutOff": pyCalendarTodatetime(cutoff)}
+        if uuid:
+            kwds["uuid"] = uuid
+        if batchSize is not None:
+            kwds["batchSize"] = batchSize
+        return self._oldAttachmentsSummaryBase(uuid, batchSize is not None).on(self, **kwds)
+
+
+    def _oldAttachmentsBase(self, uuid, limited):
+        ch = schema.CALENDAR_HOME
+        co = schema.CALENDAR_OBJECT
+        tr = schema.TIME_RANGE
+        at = schema.ATTACHMENT
+
+        kwds = {}
+        if limited:
+            kwds["Limit"] = Parameter('batchSize')
+
+        sfrom = at.join(
+            co, at.DROPBOX_ID == co.DROPBOX_ID, "inner").join(
+            tr, co.RESOURCE_ID == tr.CALENDAR_OBJECT_RESOURCE_ID
+        )
+        where = None
+        if uuid:
+            sfrom = sfrom.join(ch, at.CALENDAR_HOME_RESOURCE_ID == ch.RESOURCE_ID)
+            where = (ch.OWNER_UID == Parameter('uuid'))
+
+        return Select(
+            [at.DROPBOX_ID, at.PATH, ],
+            From=sfrom,
+            Where=where,
+            GroupBy=(at.DROPBOX_ID, at.PATH,),
+            Having=Max(tr.END_DATE) < Parameter("CutOff"),
+            **kwds
+        )
+
+
+    @inlineCallbacks
+    def removeOldAttachments(self, cutoff, uuid, batchSize=None):
+        """
+        Remove attachments attached to events in the past.
+        """
+
+        # TODO: see if there is a better way to import Attachment
+        from txdav.caldav.datastore.sql import Attachment
+
+        kwds = {"CutOff": pyCalendarTodatetime(cutoff)}
+        if uuid:
+            kwds["uuid"] = uuid
+        if batchSize is not None:
+            kwds["batchSize"] = batchSize
+        results = (yield self._oldAttachmentsBase(uuid, batchSize is not None).on(self, **kwds))
+
+        count = 0
+        for dropboxID, path in results:
+            attachment = (yield Attachment.loadWithName(self, dropboxID, path))
+            yield attachment.remove()
             count += 1
         returnValue(count)
 
