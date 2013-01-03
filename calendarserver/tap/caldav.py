@@ -859,6 +859,22 @@ class CalDAVServiceMaker (LoggingMixIn):
             def requestFactory(*args, **kw):
                 return SSLRedirectRequest(site=underlyingSite, *args, **kw)
 
+        # Add the Strict-Transport-Security header to all secured requests
+        # if enabled.
+        if config.StrictTransportSecuritySeconds:
+            previousRequestFactory = requestFactory
+            def requestFactory(*args, **kw):
+                request = previousRequestFactory(*args, **kw)
+                def responseFilter(ignored, response):
+                    ignored, secure = request.chanRequest.getHostInfo()
+                    if secure:
+                        response.headers.addRawHeader("Strict-Transport-Security",
+                            "max-age={max_age:d}"
+                            .format(max_age=config.StrictTransportSecuritySeconds))
+                    return response
+                request.addResponseFilter(responseFilter)
+                return request
+
         httpFactory = LimitingHTTPFactory(
             requestFactory,
             maxRequests=config.MaxRequests,
@@ -878,6 +894,9 @@ class CalDAVServiceMaker (LoggingMixIn):
         connectionService = MultiService()
         connectionService.setName(CalDAVService.connectionServiceName)
         connectionService.setServiceParent(service)
+
+        # For calendarserver.tap.test.test_caldav.BaseServiceMakerTests.getSite():
+        connectionService.underlyingSite = underlyingSite
 
         if config.InheritFDs or config.InheritSSLFDs:
             # Inherit sockets to call accept() on them individually.

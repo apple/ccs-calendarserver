@@ -379,9 +379,10 @@ class BaseServiceMakerTests(TestCase):
                 # NOTE: in a database 'single' configuration, PostgresService
                 # will prevent the HTTP services from actually getting added to
                 # the hierarchy until the hierarchy has started.
-                lambda x: hasattr(x, 'args')
+                # 'underlyingSite' assigned in caldav.py
+                lambda x: hasattr(x, 'underlyingSite')
             ):
-            return listeningService.args[1].protocolArgs['requestFactory']
+            return listeningService.underlyingSite
         raise RuntimeError("No site found.")
 
 
