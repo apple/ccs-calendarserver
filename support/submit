@@ -23,10 +23,12 @@
 set -e
 set -u
 
-version="18";
+version="19";
 
  wd="$(cd "$(dirname "$0")" && pwd)";
 src="$(cd "${wd}/.." && pwd)";
+
+unset CALENDARSERVER_BUILD_DEPS;
 
 ##
 # Command line
