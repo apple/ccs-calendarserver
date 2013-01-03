@@ -835,14 +835,14 @@ class CommonStoreTransaction(object):
         return self._sqlTxn.abort()
 
 
-    def _oldEventsBase(limited): #@NoSelf
+    def _oldEventsBase(self, limit):
         ch = schema.CALENDAR_HOME
         co = schema.CALENDAR_OBJECT
         cb = schema.CALENDAR_BIND
         tr = schema.TIME_RANGE
         kwds = {}
-        if limited:
-            kwds["Limit"] = Parameter("batchSize")
+        if limit:
+            kwds["Limit"] = limit
         return Select(
             [
                 ch.OWNER_UID,
@@ -867,10 +867,6 @@ class CommonStoreTransaction(object):
             **kwds
         )
 
-    _oldEventsLimited = _oldEventsBase(True)
-    _oldEventsUnlimited = _oldEventsBase(False)
-    del _oldEventsBase
-
 
     def eventsOlderThan(self, cutoff, batchSize=None):
         """
@@ -889,12 +885,7 @@ class CommonStoreTransaction(object):
                 raise ValueError("Cannot query events older than %s" % (truncateLowerLimit.getText(),))
 
         kwds = {"CutOff": pyCalendarTodatetime(cutoff)}
-        if batchSize is not None:
-            kwds["batchSize"] = batchSize
-            query = self._oldEventsLimited
-        else:
-            query = self._oldEventsUnlimited
-        return query.on(self, **kwds)
+        return self._oldEventsBase(batchSize).on(self, **kwds)
 
 
     @inlineCallbacks
@@ -921,15 +912,11 @@ class CommonStoreTransaction(object):
         returnValue(count)
 
 
-    def _orphanedSummary(self, uuid, limited):
+    def _orphanedSummary(self, uuid):
         at = schema.ATTACHMENT
         co = schema.CALENDAR_OBJECT
         ch = schema.CALENDAR_HOME
         chm = schema.CALENDAR_HOME_METADATA
-
-        kwds = {}
-        if limited:
-            kwds["Limit"] = Parameter('batchSize')
 
         where = co.DROPBOX_ID == None
         if uuid:
@@ -944,11 +931,10 @@ class CommonStoreTransaction(object):
             ),
             Where=where,
             GroupBy=(ch.OWNER_UID, chm.QUOTA_USED_BYTES),
-            **kwds
         )
 
 
-    def orphanedAttachments(self, uuid=None, batchSize=None):
+    def orphanedAttachments(self, uuid=None):
         """
         Find attachments no longer referenced by any events.
 
@@ -957,19 +943,17 @@ class CommonStoreTransaction(object):
         kwds = {}
         if uuid:
             kwds["uuid"] = uuid
-        if batchSize is not None:
-            kwds["batchSize"] = batchSize
-        return self._orphanedSummary(uuid, batchSize is not None).on(self, **kwds)
+        return self._orphanedSummary(uuid).on(self, **kwds)
 
 
-    def _orphanedBase(self, uuid, limited):
+    def _orphanedBase(self, uuid, limit):
         ch = schema.CALENDAR_HOME
         at = schema.ATTACHMENT
         co = schema.CALENDAR_OBJECT
 
         kwds = {}
-        if limited:
-            kwds["Limit"] = Parameter('batchSize')
+        if limit:
+            kwds["Limit"] = limit
 
         sfrom = at.join(co, at.DROPBOX_ID == co.DROPBOX_ID, "left outer")
         where = co.DROPBOX_ID == None
@@ -997,9 +981,7 @@ class CommonStoreTransaction(object):
         kwds = {}
         if uuid:
             kwds["uuid"] = uuid
-        if batchSize is not None:
-            kwds["batchSize"] = batchSize
-        results = (yield self._orphanedBase(uuid, batchSize is not None).on(self, **kwds))
+        results = (yield self._orphanedBase(uuid, batchSize).on(self, **kwds))
 
         count = 0
         for dropboxID, path in results:
@@ -1009,25 +991,21 @@ class CommonStoreTransaction(object):
         returnValue(count)
 
 
-    def _oldAttachmentsSummaryBase(self, uuid, limited):
+    def _oldAttachmentsSummaryBase(self, uuid):
         ch = schema.CALENDAR_HOME
         chm = schema.CALENDAR_HOME_METADATA
         co = schema.CALENDAR_OBJECT
         tr = schema.TIME_RANGE
         at = schema.ATTACHMENT
 
-        kwds = {}
-        if limited:
-            kwds["Limit"] = Parameter('batchSize')
-
-        where = co.DROPBOX_ID == Select(
+        where = at.DROPBOX_ID.In(Select(
             [at.DROPBOX_ID],
             From=at.join(co, at.DROPBOX_ID == co.DROPBOX_ID, "inner").join(
                 tr, co.RESOURCE_ID == tr.CALENDAR_OBJECT_RESOURCE_ID
             ),
             GroupBy=(at.DROPBOX_ID,),
             Having=Max(tr.END_DATE) < Parameter("CutOff"),
-        )
+        ))
 
         if uuid:
             where = where.And(ch.OWNER_UID == Parameter('uuid'))
@@ -1035,17 +1013,15 @@ class CommonStoreTransaction(object):
         return Select(
             [ch.OWNER_UID, chm.QUOTA_USED_BYTES, Sum(at.SIZE), Count(at.DROPBOX_ID)],
             From=at.join(
-                co, at.DROPBOX_ID == co.DROPBOX_ID, "left outer").join(
                 ch, at.CALENDAR_HOME_RESOURCE_ID == ch.RESOURCE_ID).join(
                 chm, ch.RESOURCE_ID == chm.RESOURCE_ID
             ),
             Where=where,
             GroupBy=(ch.OWNER_UID, chm.QUOTA_USED_BYTES),
-            **kwds
         )
 
 
-    def oldAttachments(self, cutoff, uuid, batchSize=None):
+    def oldAttachments(self, cutoff, uuid):
         """
         Find attachments attached to only events whose last instance is older than the specified cut-off.
 
@@ -1054,20 +1030,18 @@ class CommonStoreTransaction(object):
         kwds = {"CutOff": pyCalendarTodatetime(cutoff)}
         if uuid:
             kwds["uuid"] = uuid
-        if batchSize is not None:
-            kwds["batchSize"] = batchSize
-        return self._oldAttachmentsSummaryBase(uuid, batchSize is not None).on(self, **kwds)
+        return self._oldAttachmentsSummaryBase(uuid).on(self, **kwds)
 
 
-    def _oldAttachmentsBase(self, uuid, limited):
+    def _oldAttachmentsBase(self, uuid, limit):
         ch = schema.CALENDAR_HOME
         co = schema.CALENDAR_OBJECT
         tr = schema.TIME_RANGE
         at = schema.ATTACHMENT
 
         kwds = {}
-        if limited:
-            kwds["Limit"] = Parameter('batchSize')
+        if limit:
+            kwds["Limit"] = limit
 
         sfrom = at.join(
             co, at.DROPBOX_ID == co.DROPBOX_ID, "inner").join(
@@ -1100,9 +1074,7 @@ class CommonStoreTransaction(object):
         kwds = {"CutOff": pyCalendarTodatetime(cutoff)}
         if uuid:
             kwds["uuid"] = uuid
-        if batchSize is not None:
-            kwds["batchSize"] = batchSize
-        results = (yield self._oldAttachmentsBase(uuid, batchSize is not None).on(self, **kwds))
+        results = (yield self._oldAttachmentsBase(uuid, batchSize).on(self, **kwds))
 
         count = 0
         for dropboxID, path in results:

@@ -38,7 +38,7 @@ from txdav.common.icommondatastore import NotFoundError
 from calendarserver.version import version
 from calendarserver.tap.util import getRootResource
 from calendarserver.tools.tables import Table
-from calendarserver.tools.purge import purgeUID
+from calendarserver.tools.purge import PurgePrincipalService
 from calendarserver.tools.shell.vfs import Folder, RootFolder
 from calendarserver.tools.shell.directory import findRecords, summarizeRecords, recordInfo
 
@@ -658,8 +658,11 @@ class Commands(CommandsBase):
 
         total = 0
         for record in records:
-            count, assignments = (yield purgeUID(
-                record.uid, directory, rootResource,
+            count, assignments = (yield PurgePrincipalService.purgeUIDs(
+                self.protocol.service.store,
+                directory,
+                rootResource,
+                (record.uid,),
                 verbose    = False,
                 dryrun     = dryRun,
                 completely = completely,

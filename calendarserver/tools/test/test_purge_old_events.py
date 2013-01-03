@@ -25,14 +25,13 @@ from calendarserver.tools.purge import PurgeOldEventsService, PurgeAttachmentsSe
 from pycalendar.datetime import PyCalendarDateTime
 from pycalendar.timezone import PyCalendarTimezone
 
-from twext.enterprise.dal.syntax import Update
+from twext.enterprise.dal.syntax import Update, Delete
 from twext.web2.http_headers import MimeType
 
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.trial import unittest
 
 from twistedcaldav.config import config
-from twistedcaldav.ical import Component
 from twistedcaldav.vcard import Component as VCardComponent
 
 from txdav.common.datastore.sql_tables import schema
@@ -91,7 +90,7 @@ END:VEVENT
 END:VCALENDAR
 """.replace("\n", "\r\n") % {"year": now - 5}
 
-OLD_ATTACHMENT_ICS = """BEGIN:VCALENDAR
+ATTACHMENT_ICS = """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//Apple Inc.//iCal 4.0.1//EN
 CALSCALE:GREGORIAN
@@ -128,118 +127,17 @@ END:STANDARD
 END:VTIMEZONE
 BEGIN:VEVENT
 CREATED:20100303T181216Z
-UID:57A5D1F6-9A57-4F74-9520-25C617F54B88
+UID:57A5D1F6-9A57-4F74-9520-25C617F54B88-%(uid)s
 TRANSP:OPAQUE
 SUMMARY:Ancient event with attachment
 DTSTART;TZID=US/Pacific:%(year)s0308T111500
 DTEND;TZID=US/Pacific:%(year)s0308T151500
 DTSTAMP:20100303T181220Z
-X-APPLE-DROPBOX:/calendars/__uids__/user01/dropbox/57A5D1F6-9A57-4F74-95
- 20-25C617F54B88.dropbox
+X-APPLE-DROPBOX:/calendars/__uids__/user01/dropbox/%(dropboxid)s.dropbox
 SEQUENCE:2
 END:VEVENT
 END:VCALENDAR
-""".replace("\n", "\r\n") % {"year": now - 5}
-
-OLD_ATTACHMENT2_ICS = """BEGIN:VCALENDAR
-VERSION:2.0
-PRODID:-//Apple Inc.//iCal 4.0.1//EN
-CALSCALE:GREGORIAN
-BEGIN:VTIMEZONE
-TZID:US/Pacific
-BEGIN:STANDARD
-TZOFFSETFROM:-0700
-RRULE:FREQ=YEARLY;UNTIL=20061029T090000Z;BYMONTH=10;BYDAY=-1SU
-DTSTART:19621028T020000
-TZNAME:PST
-TZOFFSETTO:-0800
-END:STANDARD
-BEGIN:DAYLIGHT
-TZOFFSETFROM:-0800
-RRULE:FREQ=YEARLY;UNTIL=20060402T100000Z;BYMONTH=4;BYDAY=1SU
-DTSTART:19870405T020000
-TZNAME:PDT
-TZOFFSETTO:-0700
-END:DAYLIGHT
-BEGIN:DAYLIGHT
-TZOFFSETFROM:-0800
-RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=2SU
-DTSTART:20070311T020000
-TZNAME:PDT
-TZOFFSETTO:-0700
-END:DAYLIGHT
-BEGIN:STANDARD
-TZOFFSETFROM:-0700
-RRULE:FREQ=YEARLY;BYMONTH=11;BYDAY=1SU
-DTSTART:20071104T020000
-TZNAME:PST
-TZOFFSETTO:-0800
-END:STANDARD
-END:VTIMEZONE
-BEGIN:VEVENT
-CREATED:20100303T181216Z
-UID:57A5D1F6-9A57-4F74-9520-25C617F54B88-2
-TRANSP:OPAQUE
-SUMMARY:Ancient event with attachment #2
-DTSTART;TZID=US/Pacific:%(year)s0408T111500
-DTEND;TZID=US/Pacific:%(year)s0408T151500
-DTSTAMP:20100303T181220Z
-X-APPLE-DROPBOX:/calendars/__uids__/user01/dropbox/57A5D1F6-9A57-4F74-95
- 20-25C617F54B88-2.dropbox
-SEQUENCE:2
-END:VEVENT
-END:VCALENDAR
-""".replace("\n", "\r\n") % {"year": now - 5}
-
-CURRENT_ATTACHMENT3_ICS = """BEGIN:VCALENDAR
-VERSION:2.0
-PRODID:-//Apple Inc.//iCal 4.0.1//EN
-CALSCALE:GREGORIAN
-BEGIN:VTIMEZONE
-TZID:US/Pacific
-BEGIN:STANDARD
-TZOFFSETFROM:-0700
-RRULE:FREQ=YEARLY;UNTIL=20061029T090000Z;BYMONTH=10;BYDAY=-1SU
-DTSTART:19621028T020000
-TZNAME:PST
-TZOFFSETTO:-0800
-END:STANDARD
-BEGIN:DAYLIGHT
-TZOFFSETFROM:-0800
-RRULE:FREQ=YEARLY;UNTIL=20060402T100000Z;BYMONTH=4;BYDAY=1SU
-DTSTART:19870405T020000
-TZNAME:PDT
-TZOFFSETTO:-0700
-END:DAYLIGHT
-BEGIN:DAYLIGHT
-TZOFFSETFROM:-0800
-RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=2SU
-DTSTART:20070311T020000
-TZNAME:PDT
-TZOFFSETTO:-0700
-END:DAYLIGHT
-BEGIN:STANDARD
-TZOFFSETFROM:-0700
-RRULE:FREQ=YEARLY;BYMONTH=11;BYDAY=1SU
-DTSTART:20071104T020000
-TZNAME:PST
-TZOFFSETTO:-0800
-END:STANDARD
-END:VTIMEZONE
-BEGIN:VEVENT
-CREATED:20100303T181216Z
-UID:57A5D1F6-9A57-4F74-9520-25C617F54B88-3
-TRANSP:OPAQUE
-SUMMARY:Ancient event with attachment #3
-DTSTART;TZID=US/Pacific:%(year)s0408T111500
-DTEND;TZID=US/Pacific:%(year)s0408T151500
-DTSTAMP:20100303T181220Z
-X-APPLE-DROPBOX:/calendars/__uids__/user01/dropbox/57A5D1F6-9A57-4F74-95
- 20-25C617F54B88-2.dropbox
-SEQUENCE:2
-END:VEVENT
-END:VCALENDAR
-""".replace("\n", "\r\n") % {"year": now + 1}
+""".replace("\n", "\r\n")
 
 ENDLESS_ICS = """BEGIN:VCALENDAR
 VERSION:2.0
@@ -437,13 +335,19 @@ class PurgeOldEventsTests(CommonCommonTests, unittest.TestCase):
             "calendar1" : {
                 "old.ics" : (OLD_ICS, metadata,),
                 "endless.ics" : (ENDLESS_ICS, metadata,),
-                "oldattachment.ics" : (OLD_ATTACHMENT_ICS, metadata,),
+                "oldattachment1.ics" : (ATTACHMENT_ICS % {"year": now - 5, "uid": "1.1", "dropboxid": "1.1"}, metadata,),
+                "oldattachment2.ics" : (ATTACHMENT_ICS % {"year": now - 5, "uid": "1.2", "dropboxid": "1.2"}, metadata,),
+                "currentattachment3.ics" : (ATTACHMENT_ICS % {"year": now + 1, "uid": "1.3", "dropboxid": "1.3"}, metadata,),
             }
         },
         "home2" : {
             "calendar2" : {
                 "straddling.ics" : (STRADDLING_ICS, metadata,),
                 "recent.ics" : (RECENT_ICS, metadata,),
+                "oldattachment1.ics" : (ATTACHMENT_ICS % {"year": now - 5, "uid": "2.1", "dropboxid": "2.1"}, metadata,),
+                "oldattachment2.ics" : (ATTACHMENT_ICS % {"year": now + 1, "uid": "2.2", "dropboxid": "2.1"}, metadata,),
+                "oldattachment3.ics" : (ATTACHMENT_ICS % {"year": now - 5, "uid": "2.3", "dropboxid": "2.2"}, metadata,),
+                "oldattachment4.ics" : (ATTACHMENT_ICS % {"year": now - 5, "uid": "2.4", "dropboxid": "2.2"}, metadata,),
             },
             "calendar3" : {
                 "repeating_awhile.ics" : (REPEATING_AWHILE_ICS, metadata,),
@@ -479,6 +383,14 @@ class PurgeOldEventsTests(CommonCommonTests, unittest.TestCase):
         yield populateCalendarsFrom(self.requirements, self.storeUnderTest())
         self.notifierFactory.reset()
 
+        txn = self._sqlCalendarStore.newTransaction()
+        Delete(
+            From=schema.ATTACHMENT,
+            Where=None
+        ).on(txn)
+
+        (yield txn.commit())
+
 
     def storeUnderTest(self):
         """
@@ -497,14 +409,18 @@ class PurgeOldEventsTests(CommonCommonTests, unittest.TestCase):
         self.assertEquals(sorted(results),
             sorted([
                 ['home1', 'calendar1', 'old.ics', '1901-01-01 01:00:00'],
-                ['home1', 'calendar1', 'oldattachment.ics', '1901-01-01 01:00:00'],
+                ['home1', 'calendar1', 'oldattachment1.ics', '1901-01-01 01:00:00'],
+                ['home1', 'calendar1', 'oldattachment2.ics', '1901-01-01 01:00:00'],
                 ['home2', 'calendar3', 'repeating_awhile.ics', '1901-01-01 01:00:00'],
                 ['home2', 'calendar2', 'recent.ics', '%s-03-04 22:15:00' % (now,)],
+                ['home2', 'calendar2', 'oldattachment1.ics', '1901-01-01 01:00:00'],
+                ['home2', 'calendar2', 'oldattachment3.ics', '1901-01-01 01:00:00'],
+                ['home2', 'calendar2', 'oldattachment4.ics', '1901-01-01 01:00:00'],
             ])
         )
 
         # Query for oldest event - actually with limited time caching, the oldest event
-        # cannot be precisely know, all we get back is the first one in the sorted list
+        # cannot be precisely known, all we get back is the first one in the sorted list
         # where each has the 1901 "dummy" time stamp to indicate a partial cache
         results = (yield txn.eventsOlderThan(cutoff, batchSize=1))
         self.assertEquals(len(results), 1)
@@ -520,11 +436,11 @@ class PurgeOldEventsTests(CommonCommonTests, unittest.TestCase):
         count = (yield txn.removeOldEvents(cutoff, batchSize=1))
         self.assertEquals(count, 1)
         results = (yield txn.eventsOlderThan(cutoff))
-        self.assertEquals(len(results), 3)
+        self.assertEquals(len(results), 7)
 
         # Remove remaining oldest events
         count = (yield txn.removeOldEvents(cutoff))
-        self.assertEquals(count, 3)
+        self.assertEquals(count, 7)
         results = (yield txn.eventsOlderThan(cutoff))
         self.assertEquals(results, [])
 
@@ -534,47 +450,19 @@ class PurgeOldEventsTests(CommonCommonTests, unittest.TestCase):
 
 
     @inlineCallbacks
-    def _addAttachment(self, orphan=False, old2=False, current3=False):
+    def _addAttachment(self, home, calendar, event, name):
 
         txn = self._sqlCalendarStore.newTransaction()
 
         # Create an event with an attachment
-        home = (yield txn.calendarHomeWithUID("home1"))
-        calendar = (yield home.calendarWithName("calendar1"))
-        event = (yield calendar.calendarObjectWithName("oldattachment.ics"))
-        attachment = (yield event.createAttachmentWithName("oldattachment.txt"))
+        home = (yield txn.calendarHomeWithUID(home))
+        calendar = (yield home.calendarWithName(calendar))
+        event = (yield calendar.calendarObjectWithName(event))
+        attachment = (yield event.createAttachmentWithName(name))
         t = attachment.store(MimeType("text", "x-fixture"))
-        t.write("old attachment")
-        t.write(" text")
+        t.write("%s/%s/%s/%s" % (home, calendar, event, name,))
+        t.write(" attachment")
         (yield t.loseConnection())
-
-        if orphan:
-            # Reset dropbox id in calendar_object
-            co = schema.CALENDAR_OBJECT
-            Update(
-                {co.DROPBOX_ID: None, },
-                Where=co.RESOURCE_ID == event._resourceID,
-            ).on(txn)
-
-        if old2:
-            event = (yield calendar.createCalendarObjectWithName(
-                "oldattachment2.ics", Component.fromString(OLD_ATTACHMENT2_ICS)
-            ))
-            attachment = (yield event.createAttachmentWithName("oldattachment2.txt"))
-            t = attachment.store(MimeType("text", "x-fixture"))
-            t.write("old attachment #2")
-            t.write(" text")
-            (yield t.loseConnection())
-
-        if current3:
-            event = (yield calendar.createCalendarObjectWithName(
-                "currentattachment3.ics", Component.fromString(CURRENT_ATTACHMENT3_ICS)
-            ))
-            attachment = (yield event.createAttachmentWithName("currentattachment3.txt"))
-            t = attachment.store(MimeType("text", "x-fixture"))
-            t.write("current attachment #3")
-            t.write(" text")
-            (yield t.loseConnection())
 
         (yield txn.commit())
 
@@ -582,19 +470,38 @@ class PurgeOldEventsTests(CommonCommonTests, unittest.TestCase):
 
 
     @inlineCallbacks
+    def _orphanAttachment(self, home, calendar, event):
+
+        txn = self._sqlCalendarStore.newTransaction()
+
+        # Reset dropbox id in calendar_object
+        home = (yield txn.calendarHomeWithUID(home))
+        calendar = (yield home.calendarWithName(calendar))
+        event = (yield calendar.calendarObjectWithName(event))
+        co = schema.CALENDAR_OBJECT
+        Update(
+            {co.DROPBOX_ID: None, },
+            Where=co.RESOURCE_ID == event._resourceID,
+        ).on(txn)
+
+        (yield txn.commit())
+
+
+    @inlineCallbacks
     def test_removeOrphanedAttachments(self):
 
         home = (yield self.transactionUnderTest().calendarHomeWithUID("home1"))
         quota = (yield home.quotaUsedBytes())
+        (yield self.commit())
         self.assertEqual(quota, 0)
 
-        attachment = (yield self._addAttachment())
+        attachment = (yield self._addAttachment("home1", "calendar1", "oldattachment1.ics", "att1"))
         attachmentPath = attachment._path.path
         self.assertTrue(os.path.exists(attachmentPath))
-        (yield self.commit())
 
         home = (yield self.transactionUnderTest().calendarHomeWithUID("home1"))
         quota = (yield home.quotaUsedBytes())
+        (yield self.commit())
         self.assertNotEqual(quota, 0)
 
         orphans = (yield self.transactionUnderTest().orphanedAttachments())
@@ -602,10 +509,10 @@ class PurgeOldEventsTests(CommonCommonTests, unittest.TestCase):
 
         count = (yield self.transactionUnderTest().removeOrphanedAttachments(batchSize=100))
         self.assertEquals(count, 0)
-        (yield self.commit())
 
         home = (yield self.transactionUnderTest().calendarHomeWithUID("home1"))
         quota = (yield home.quotaUsedBytes())
+        (yield self.commit())
         self.assertNotEqual(quota, 0)
 
         # File still exists
@@ -614,10 +521,10 @@ class PurgeOldEventsTests(CommonCommonTests, unittest.TestCase):
         # Delete all old events (including the event containing the attachment)
         cutoff = PyCalendarDateTime(now, 4, 1, 0, 0, 0)
         count = (yield self.transactionUnderTest().removeOldEvents(cutoff))
-        (yield self.commit())
 
         home = (yield self.transactionUnderTest().calendarHomeWithUID("home1"))
         quota = (yield home.quotaUsedBytes())
+        (yield self.commit())
         self.assertEqual(quota, 0)
 
         # Just look for orphaned attachments but don't delete
@@ -636,7 +543,7 @@ class PurgeOldEventsTests(CommonCommonTests, unittest.TestCase):
             dryrun=True,
             verbose=False
         ))
-        self.assertEquals(total, 4)
+        self.assertEquals(total, 8)
 
         # Actually remove
         total = (yield PurgeOldEventsService.purgeOldEvents(
@@ -645,7 +552,7 @@ class PurgeOldEventsTests(CommonCommonTests, unittest.TestCase):
             2,
             verbose=False
         ))
-        self.assertEquals(total, 4)
+        self.assertEquals(total, 8)
 
         # There should be no more left
         total = (yield PurgeOldEventsService.purgeOldEvents(
@@ -668,10 +575,10 @@ class PurgeOldEventsTests(CommonCommonTests, unittest.TestCase):
             VCardComponent.fromString(VCARD_1)))
         self.assertEquals(len((yield abColl.addressbookObjects())), 1)
 
-        # Verify there are 3 events in calendar1
+        # Verify there are 5 events in calendar1
         calHome = (yield txn.calendarHomeWithUID("home1"))
         calColl = (yield calHome.calendarWithName("calendar1"))
-        self.assertEquals(len((yield calColl.calendarObjects())), 3)
+        self.assertEquals(len((yield calColl.calendarObjects())), 5)
 
         # Make the newly created objects available to the purgeUID transaction
         (yield txn.commit())
@@ -681,8 +588,8 @@ class PurgeOldEventsTests(CommonCommonTests, unittest.TestCase):
             self.rootResource, ("home1",), verbose=False, proxies=False,
             when=PyCalendarDateTime(now, 4, 1, 12, 0, 0, 0, PyCalendarTimezone(utc=True))))
 
-        # 2 items deleted: 1 event and 1 vcard
-        self.assertEquals(total, 2)
+        # 4 items deleted: 2 events and 1 vcard
+        self.assertEquals(total, 3)
 
         txn = self._sqlCalendarStore.newTransaction()
         # adressbook home is deleted since it's now empty
@@ -691,7 +598,7 @@ class PurgeOldEventsTests(CommonCommonTests, unittest.TestCase):
 
         calHome = (yield txn.calendarHomeWithUID("home1"))
         calColl = (yield calHome.calendarWithName("calendar1"))
-        self.assertEquals(len((yield calColl.calendarObjects())), 2)
+        self.assertEquals(len((yield calColl.calendarObjects())), 3)
 
 
     @inlineCallbacks
@@ -705,10 +612,10 @@ class PurgeOldEventsTests(CommonCommonTests, unittest.TestCase):
             VCardComponent.fromString(VCARD_1)))
         self.assertEquals(len((yield abColl.addressbookObjects())), 1)
 
-        # Verify there are 3 events in calendar1
+        # Verify there are 5 events in calendar1
         calHome = (yield txn.calendarHomeWithUID("home1"))
         calColl = (yield calHome.calendarWithName("calendar1"))
-        self.assertEquals(len((yield calColl.calendarObjects())), 3)
+        self.assertEquals(len((yield calColl.calendarObjects())), 5)
 
         # Make the newly created objects available to the purgeUID transaction
         (yield txn.commit())
@@ -717,8 +624,8 @@ class PurgeOldEventsTests(CommonCommonTests, unittest.TestCase):
         total, ignored = (yield PurgePrincipalService.purgeUIDs(self._sqlCalendarStore, self.directory,
             self.rootResource, ("home1",), verbose=False, proxies=False, completely=True))
 
-        # 4 items deleted: 3 events and 1 vcard
-        self.assertEquals(total, 4)
+        # 4 items deleted: 5 events and 1 vcard
+        self.assertEquals(total, 6)
 
         # Homes have been deleted as well
         txn = self._sqlCalendarStore.newTransaction()
@@ -736,13 +643,22 @@ class PurgeOldEventsTests(CommonCommonTests, unittest.TestCase):
 
         home = (yield self.transactionUnderTest().calendarHomeWithUID("home1"))
         quota1 = (yield home.quotaUsedBytes())
+        (yield self.commit())
         self.assertEqual(quota1, 0)
 
-        (yield self._addAttachment(orphan=True, current3=True))
-        (yield self.commit())
+        (yield self._addAttachment("home1", "calendar1", "oldattachment1.ics", "att1"))
+        (yield self._addAttachment("home1", "calendar1", "oldattachment2.ics", "att2.1"))
+        (yield self._addAttachment("home1", "calendar1", "oldattachment2.ics", "att2.2"))
+        (yield self._addAttachment("home1", "calendar1", "currentattachment3.ics", "att3"))
+        (yield self._addAttachment("home2", "calendar2", "oldattachment1.ics", "att4"))
+        (yield self._addAttachment("home2", "calendar2", "oldattachment2.ics", "att5"))
+        (yield self._addAttachment("home2", "calendar2", "oldattachment3.ics", "att6"))
+        (yield self._addAttachment("home2", "calendar2", "oldattachment4.ics", "att7"))
+        (yield self._orphanAttachment("home1", "calendar1", "oldattachment1.ics"))
 
         home = (yield self.transactionUnderTest().calendarHomeWithUID("home1"))
         quota2 = (yield home.quotaUsedBytes())
+        (yield self.commit())
         self.assertTrue(quota2 > quota1)
 
         # Remove old events first
@@ -752,28 +668,29 @@ class PurgeOldEventsTests(CommonCommonTests, unittest.TestCase):
             2,
             verbose=False
         ))
-        self.assertEquals(total, 4)
+        self.assertEquals(total, 8)
 
         home = (yield self.transactionUnderTest().calendarHomeWithUID("home1"))
         quota3 = (yield home.quotaUsedBytes())
-        self.assertTrue(quota3 == quota2)
+        (yield self.commit())
+        self.assertTrue(quota3 < quota2)
 
         # Dry run
         total = (yield PurgeAttachmentsService.purgeOrphanedAttachments(self._sqlCalendarStore, None, 0, 2, dryrun=True, verbose=False))
         self.assertEquals(total, 1)
-        (yield self.commit())
 
         home = (yield self.transactionUnderTest().calendarHomeWithUID("home1"))
         quota4 = (yield home.quotaUsedBytes())
+        (yield self.commit())
         self.assertTrue(quota4 == quota3)
 
         # Actually remove
         total = (yield PurgeAttachmentsService.purgeOrphanedAttachments(self._sqlCalendarStore, None, 0, 2, dryrun=False, verbose=False))
         self.assertEquals(total, 1)
-        (yield self.commit())
 
         home = (yield self.transactionUnderTest().calendarHomeWithUID("home1"))
         quota5 = (yield home.quotaUsedBytes())
+        (yield self.commit())
         self.assertTrue(quota5 < quota4)
 
         # There should be no more left
@@ -789,31 +706,42 @@ class PurgeOldEventsTests(CommonCommonTests, unittest.TestCase):
 
         home = (yield self.transactionUnderTest().calendarHomeWithUID("home1"))
         quota1 = (yield home.quotaUsedBytes())
+        (yield self.commit())
         self.assertEqual(quota1, 0)
 
-        (yield self._addAttachment(orphan=True, old2=True))
-        (yield self.commit())
+        (yield self._addAttachment("home1", "calendar1", "oldattachment1.ics", "att1"))
+        (yield self._addAttachment("home1", "calendar1", "oldattachment2.ics", "att2.1"))
+        (yield self._addAttachment("home1", "calendar1", "oldattachment2.ics", "att2.2"))
+        (yield self._addAttachment("home1", "calendar1", "currentattachment3.ics", "att3"))
+        (yield self._addAttachment("home2", "calendar2", "oldattachment1.ics", "att4"))
+        (yield self._addAttachment("home2", "calendar2", "oldattachment2.ics", "att5"))
+        (yield self._addAttachment("home2", "calendar2", "oldattachment3.ics", "att6"))
+        (yield self._addAttachment("home2", "calendar2", "oldattachment4.ics", "att7"))
+        (yield self._orphanAttachment("home1", "calendar1", "oldattachment1.ics"))
+        (yield self._orphanAttachment("home2", "calendar2", "oldattachment1.ics"))
+        (yield self._orphanAttachment("home2", "calendar2", "oldattachment2.ics"))
 
         home = (yield self.transactionUnderTest().calendarHomeWithUID("home1"))
         quota2 = (yield home.quotaUsedBytes())
+        (yield self.commit())
         self.assertTrue(quota2 > quota1)
 
         # Dry run
         total = (yield PurgeAttachmentsService.purgeOrphanedAttachments(self._sqlCalendarStore, None, 0, 2, dryrun=True, verbose=False))
-        self.assertEquals(total, 1)
-        (yield self.commit())
+        self.assertEquals(total, 3)
 
         home = (yield self.transactionUnderTest().calendarHomeWithUID("home1"))
         quota3 = (yield home.quotaUsedBytes())
+        (yield self.commit())
         self.assertTrue(quota3 == quota2)
 
         # Actually remove
         total = (yield PurgeAttachmentsService.purgeOrphanedAttachments(self._sqlCalendarStore, None, 0, 2, dryrun=False, verbose=False))
-        self.assertEquals(total, 1)
-        (yield self.commit())
+        self.assertEquals(total, 3)
 
         home = (yield self.transactionUnderTest().calendarHomeWithUID("home1"))
         quota4 = (yield home.quotaUsedBytes())
+        (yield self.commit())
         self.assertTrue(quota4 < quota3)
 
         # There should be no more left
@@ -829,31 +757,42 @@ class PurgeOldEventsTests(CommonCommonTests, unittest.TestCase):
 
         home = (yield self.transactionUnderTest().calendarHomeWithUID("home1"))
         quota1 = (yield home.quotaUsedBytes())
+        (yield self.commit())
         self.assertEqual(quota1, 0)
 
-        (yield self._addAttachment(orphan=True, old2=True))
-        (yield self.commit())
+        (yield self._addAttachment("home1", "calendar1", "oldattachment1.ics", "att1"))
+        (yield self._addAttachment("home1", "calendar1", "oldattachment2.ics", "att2.1"))
+        (yield self._addAttachment("home1", "calendar1", "oldattachment2.ics", "att2.2"))
+        (yield self._addAttachment("home1", "calendar1", "currentattachment3.ics", "att3"))
+        (yield self._addAttachment("home2", "calendar2", "oldattachment1.ics", "att4"))
+        (yield self._addAttachment("home2", "calendar2", "oldattachment2.ics", "att5"))
+        (yield self._addAttachment("home2", "calendar2", "oldattachment3.ics", "att6"))
+        (yield self._addAttachment("home2", "calendar2", "oldattachment4.ics", "att7"))
+        (yield self._orphanAttachment("home1", "calendar1", "oldattachment1.ics"))
+        (yield self._orphanAttachment("home2", "calendar2", "oldattachment1.ics"))
+        (yield self._orphanAttachment("home2", "calendar2", "oldattachment2.ics"))
 
         home = (yield self.transactionUnderTest().calendarHomeWithUID("home1"))
         quota2 = (yield home.quotaUsedBytes())
+        (yield self.commit())
         self.assertTrue(quota2 > quota1)
 
         # Dry run
         total = (yield PurgeAttachmentsService.purgeOrphanedAttachments(self._sqlCalendarStore, "home1", 0, 2, dryrun=True, verbose=False))
         self.assertEquals(total, 1)
-        (yield self.commit())
 
         home = (yield self.transactionUnderTest().calendarHomeWithUID("home1"))
         quota3 = (yield home.quotaUsedBytes())
+        (yield self.commit())
         self.assertTrue(quota3 == quota2)
 
         # Actually remove
         total = (yield PurgeAttachmentsService.purgeOrphanedAttachments(self._sqlCalendarStore, "home1", 0, 2, dryrun=False, verbose=False))
         self.assertEquals(total, 1)
-        (yield self.commit())
 
         home = (yield self.transactionUnderTest().calendarHomeWithUID("home1"))
         quota4 = (yield home.quotaUsedBytes())
+        (yield self.commit())
         self.assertTrue(quota4 < quota3)
 
         # There should be no more left
@@ -869,31 +808,40 @@ class PurgeOldEventsTests(CommonCommonTests, unittest.TestCase):
 
         home = (yield self.transactionUnderTest().calendarHomeWithUID("home1"))
         quota1 = (yield home.quotaUsedBytes())
+        (yield self.commit())
         self.assertEqual(quota1, 0)
 
-        (yield self._addAttachment(orphan=True, old2=True))
-        (yield self.commit())
+        (yield self._addAttachment("home1", "calendar1", "oldattachment1.ics", "att1"))
+        (yield self._addAttachment("home1", "calendar1", "oldattachment2.ics", "att2.1"))
+        (yield self._addAttachment("home1", "calendar1", "oldattachment2.ics", "att2.2"))
+        (yield self._addAttachment("home1", "calendar1", "currentattachment3.ics", "att3"))
+        (yield self._addAttachment("home2", "calendar2", "oldattachment1.ics", "att4"))
+        (yield self._addAttachment("home2", "calendar2", "oldattachment2.ics", "att5"))
+        (yield self._addAttachment("home2", "calendar2", "oldattachment3.ics", "att6"))
+        (yield self._addAttachment("home2", "calendar2", "oldattachment4.ics", "att7"))
+        (yield self._orphanAttachment("home1", "calendar1", "oldattachment1.ics"))
 
         home = (yield self.transactionUnderTest().calendarHomeWithUID("home1"))
         quota2 = (yield home.quotaUsedBytes())
+        (yield self.commit())
         self.assertTrue(quota2 > quota1)
 
         # Dry run
         total = (yield PurgeAttachmentsService.purgeOrphanedAttachments(self._sqlCalendarStore, "home2", 0, 2, dryrun=True, verbose=False))
         self.assertEquals(total, 0)
-        (yield self.commit())
 
         home = (yield self.transactionUnderTest().calendarHomeWithUID("home1"))
         quota3 = (yield home.quotaUsedBytes())
+        (yield self.commit())
         self.assertTrue(quota3 == quota2)
 
         # Actually remove
         total = (yield PurgeAttachmentsService.purgeOrphanedAttachments(self._sqlCalendarStore, "home2", 0, 2, dryrun=False, verbose=False))
         self.assertEquals(total, 0)
-        (yield self.commit())
 
         home = (yield self.transactionUnderTest().calendarHomeWithUID("home1"))
         quota4 = (yield home.quotaUsedBytes())
+        (yield self.commit())
         self.assertTrue(quota4 == quota3)
 
         # There should be no more left
@@ -902,38 +850,49 @@ class PurgeOldEventsTests(CommonCommonTests, unittest.TestCase):
 
 
     @inlineCallbacks
-    def test_purgeOrphanedAttachmentsWithCutoffOld(self):
+    def test_purgeOrphanedAttachmentsWithCutoff(self):
         """
         L{PurgeAttachmentsService.purgeOrphanedAttachments} purges only orphaned attachments, not current ones.
         """
 
         home = (yield self.transactionUnderTest().calendarHomeWithUID("home1"))
         quota1 = (yield home.quotaUsedBytes())
+        (yield self.commit())
         self.assertEqual(quota1, 0)
 
-        (yield self._addAttachment(orphan=True, old2=True))
-        (yield self.commit())
+        (yield self._addAttachment("home1", "calendar1", "oldattachment1.ics", "att1"))
+        (yield self._addAttachment("home1", "calendar1", "oldattachment2.ics", "att2.1"))
+        (yield self._addAttachment("home1", "calendar1", "oldattachment2.ics", "att2.2"))
+        (yield self._addAttachment("home1", "calendar1", "currentattachment3.ics", "att3"))
+        (yield self._addAttachment("home2", "calendar2", "oldattachment1.ics", "att4"))
+        (yield self._addAttachment("home2", "calendar2", "oldattachment2.ics", "att5"))
+        (yield self._addAttachment("home2", "calendar2", "oldattachment3.ics", "att6"))
+        (yield self._addAttachment("home2", "calendar2", "oldattachment4.ics", "att7"))
+        (yield self._orphanAttachment("home1", "calendar1", "oldattachment1.ics"))
+        (yield self._orphanAttachment("home2", "calendar2", "oldattachment1.ics"))
+        (yield self._orphanAttachment("home2", "calendar2", "oldattachment2.ics"))
 
         home = (yield self.transactionUnderTest().calendarHomeWithUID("home1"))
         quota2 = (yield home.quotaUsedBytes())
+        (yield self.commit())
         self.assertTrue(quota2 > quota1)
 
         # Dry run
         total = (yield PurgeAttachmentsService.purgeOrphanedAttachments(self._sqlCalendarStore, None, 14, 2, dryrun=True, verbose=False))
-        self.assertEquals(total, 2)
-        (yield self.commit())
+        self.assertEquals(total, 7)
 
         home = (yield self.transactionUnderTest().calendarHomeWithUID("home1"))
         quota3 = (yield home.quotaUsedBytes())
+        (yield self.commit())
         self.assertTrue(quota3 == quota2)
 
         # Actually remove
         total = (yield PurgeAttachmentsService.purgeOrphanedAttachments(self._sqlCalendarStore, None, 14, 2, dryrun=False, verbose=False))
-        self.assertEquals(total, 2)
-        (yield self.commit())
+        self.assertEquals(total, 7)
 
         home = (yield self.transactionUnderTest().calendarHomeWithUID("home1"))
         quota4 = (yield home.quotaUsedBytes())
+        (yield self.commit())
         self.assertTrue(quota4 < quota3)
 
         # There should be no more left
@@ -942,38 +901,49 @@ class PurgeOldEventsTests(CommonCommonTests, unittest.TestCase):
 
 
     @inlineCallbacks
-    def test_purgeOrphanedAttachmentsWithCutoffOldWithMatchingUUID(self):
+    def test_purgeOrphanedAttachmentsWithCutoffWithMatchingUUID(self):
         """
         L{PurgeAttachmentsService.purgeOrphanedAttachments} purges only orphaned attachments, not current ones.
         """
 
         home = (yield self.transactionUnderTest().calendarHomeWithUID("home1"))
         quota1 = (yield home.quotaUsedBytes())
+        (yield self.commit())
         self.assertEqual(quota1, 0)
 
-        (yield self._addAttachment(orphan=True, old2=True))
-        (yield self.commit())
+        (yield self._addAttachment("home1", "calendar1", "oldattachment1.ics", "att1"))
+        (yield self._addAttachment("home1", "calendar1", "oldattachment2.ics", "att2.1"))
+        (yield self._addAttachment("home1", "calendar1", "oldattachment2.ics", "att2.2"))
+        (yield self._addAttachment("home1", "calendar1", "currentattachment3.ics", "att3"))
+        (yield self._addAttachment("home2", "calendar2", "oldattachment1.ics", "att4"))
+        (yield self._addAttachment("home2", "calendar2", "oldattachment2.ics", "att5"))
+        (yield self._addAttachment("home2", "calendar2", "oldattachment3.ics", "att6"))
+        (yield self._addAttachment("home2", "calendar2", "oldattachment4.ics", "att7"))
+        (yield self._orphanAttachment("home1", "calendar1", "oldattachment1.ics"))
+        (yield self._orphanAttachment("home2", "calendar2", "oldattachment1.ics"))
+        (yield self._orphanAttachment("home2", "calendar2", "oldattachment2.ics"))
 
         home = (yield self.transactionUnderTest().calendarHomeWithUID("home1"))
         quota2 = (yield home.quotaUsedBytes())
+        (yield self.commit())
         self.assertTrue(quota2 > quota1)
 
         # Dry run
         total = (yield PurgeAttachmentsService.purgeOrphanedAttachments(self._sqlCalendarStore, "home1", 14, 2, dryrun=True, verbose=False))
-        self.assertEquals(total, 2)
-        (yield self.commit())
+        self.assertEquals(total, 3)
 
         home = (yield self.transactionUnderTest().calendarHomeWithUID("home1"))
         quota3 = (yield home.quotaUsedBytes())
+        (yield self.commit())
         self.assertTrue(quota3 == quota2)
 
         # Actually remove
         total = (yield PurgeAttachmentsService.purgeOrphanedAttachments(self._sqlCalendarStore, "home1", 14, 2, dryrun=False, verbose=False))
-        self.assertEquals(total, 2)
-        (yield self.commit())
+        self.assertEquals(total, 3)
 
         home = (yield self.transactionUnderTest().calendarHomeWithUID("home1"))
         quota4 = (yield home.quotaUsedBytes())
+        (yield self.commit())
         self.assertTrue(quota4 < quota3)
 
         # There should be no more left
@@ -982,120 +952,51 @@ class PurgeOldEventsTests(CommonCommonTests, unittest.TestCase):
 
 
     @inlineCallbacks
-    def test_purgeOrphanedAttachmentsWithCutoffOldWithoutMatchingUUID(self):
+    def test_purgeOrphanedAttachmentsWithCutoffWithoutMatchingUUID(self):
         """
         L{PurgeAttachmentsService.purgeOrphanedAttachments} purges only orphaned attachments, not current ones.
         """
 
         home = (yield self.transactionUnderTest().calendarHomeWithUID("home1"))
         quota1 = (yield home.quotaUsedBytes())
+        (yield self.commit())
         self.assertEqual(quota1, 0)
 
-        (yield self._addAttachment(orphan=True, old2=True))
-        (yield self.commit())
+        (yield self._addAttachment("home1", "calendar1", "oldattachment1.ics", "att1"))
+        (yield self._addAttachment("home1", "calendar1", "oldattachment2.ics", "att2.1"))
+        (yield self._addAttachment("home1", "calendar1", "oldattachment2.ics", "att2.2"))
+        (yield self._addAttachment("home1", "calendar1", "currentattachment3.ics", "att3"))
+        (yield self._addAttachment("home2", "calendar2", "oldattachment1.ics", "att4"))
+        (yield self._addAttachment("home2", "calendar2", "oldattachment2.ics", "att5"))
+        (yield self._addAttachment("home2", "calendar2", "oldattachment3.ics", "att6"))
+        (yield self._addAttachment("home2", "calendar2", "oldattachment4.ics", "att7"))
+        (yield self._orphanAttachment("home1", "calendar1", "oldattachment1.ics"))
+        (yield self._orphanAttachment("home2", "calendar2", "oldattachment1.ics"))
+        (yield self._orphanAttachment("home2", "calendar2", "oldattachment2.ics"))
 
         home = (yield self.transactionUnderTest().calendarHomeWithUID("home1"))
         quota2 = (yield home.quotaUsedBytes())
+        (yield self.commit())
         self.assertTrue(quota2 > quota1)
 
         # Dry run
         total = (yield PurgeAttachmentsService.purgeOrphanedAttachments(self._sqlCalendarStore, "home2", 14, 2, dryrun=True, verbose=False))
-        self.assertEquals(total, 0)
-        (yield self.commit())
+        self.assertEquals(total, 4)
 
         home = (yield self.transactionUnderTest().calendarHomeWithUID("home1"))
         quota3 = (yield home.quotaUsedBytes())
+        (yield self.commit())
         self.assertTrue(quota3 == quota2)
 
         # Actually remove
         total = (yield PurgeAttachmentsService.purgeOrphanedAttachments(self._sqlCalendarStore, "home2", 14, 2, dryrun=False, verbose=False))
-        self.assertEquals(total, 0)
-        (yield self.commit())
+        self.assertEquals(total, 4)
 
         home = (yield self.transactionUnderTest().calendarHomeWithUID("home1"))
         quota4 = (yield home.quotaUsedBytes())
+        (yield self.commit())
         self.assertTrue(quota4 == quota3)
 
         # There should be no more left
         total = (yield PurgeAttachmentsService.purgeOrphanedAttachments(self._sqlCalendarStore, "home2", 14, 2, dryrun=False, verbose=False))
-        self.assertEquals(total, 0)
-
-
-    @inlineCallbacks
-    def test_purgeOrphanedAttachmentsWithCutoffCurrent(self):
-        """
-        L{PurgeAttachmentsService.purgeOrphanedAttachments} purges only orphaned attachments, not current ones.
-        """
-
-        home = (yield self.transactionUnderTest().calendarHomeWithUID("home1"))
-        quota1 = (yield home.quotaUsedBytes())
-        self.assertEqual(quota1, 0)
-
-        (yield self._addAttachment(orphan=True, current3=True))
-        (yield self.commit())
-
-        home = (yield self.transactionUnderTest().calendarHomeWithUID("home1"))
-        quota2 = (yield home.quotaUsedBytes())
-        self.assertTrue(quota2 > quota1)
-
-        # Dry run
-        total = (yield PurgeAttachmentsService.purgeOrphanedAttachments(self._sqlCalendarStore, None, 14, 2, dryrun=True, verbose=False))
-        self.assertEquals(total, 1)
-        (yield self.commit())
-
-        home = (yield self.transactionUnderTest().calendarHomeWithUID("home1"))
-        quota3 = (yield home.quotaUsedBytes())
-        self.assertTrue(quota3 == quota2)
-
-        # Actually remove
-        total = (yield PurgeAttachmentsService.purgeOrphanedAttachments(self._sqlCalendarStore, None, 14, 2, dryrun=False, verbose=False))
-        self.assertEquals(total, 1)
-        (yield self.commit())
-
-        home = (yield self.transactionUnderTest().calendarHomeWithUID("home1"))
-        quota4 = (yield home.quotaUsedBytes())
-        self.assertTrue(quota4 < quota3)
-
-        # There should be no more left
-        total = (yield PurgeAttachmentsService.purgeOrphanedAttachments(self._sqlCalendarStore, None, 14, 2, dryrun=False, verbose=False))
-        self.assertEquals(total, 0)
-
-
-    @inlineCallbacks
-    def test_purgeOrphanedAttachmentsWithCutoffCurrentOld(self):
-        """
-        L{PurgeAttachmentsService.purgeOrphanedAttachments} purges only orphaned attachments, not current ones.
-        """
-
-        home = (yield self.transactionUnderTest().calendarHomeWithUID("home1"))
-        quota1 = (yield home.quotaUsedBytes())
-        self.assertEqual(quota1, 0)
-
-        (yield self._addAttachment(orphan=True, old2=True, current3=True))
-        (yield self.commit())
-
-        home = (yield self.transactionUnderTest().calendarHomeWithUID("home1"))
-        quota2 = (yield home.quotaUsedBytes())
-        self.assertTrue(quota2 > quota1)
-
-        # Dry run
-        total = (yield PurgeAttachmentsService.purgeOrphanedAttachments(self._sqlCalendarStore, None, 14, 2, dryrun=True, verbose=False))
-        self.assertEquals(total, 1)
-        (yield self.commit())
-
-        home = (yield self.transactionUnderTest().calendarHomeWithUID("home1"))
-        quota3 = (yield home.quotaUsedBytes())
-        self.assertTrue(quota3 == quota2)
-
-        # Actually remove
-        total = (yield PurgeAttachmentsService.purgeOrphanedAttachments(self._sqlCalendarStore, None, 14, 2, dryrun=False, verbose=False))
-        self.assertEquals(total, 1)
-        (yield self.commit())
-
-        home = (yield self.transactionUnderTest().calendarHomeWithUID("home1"))
-        quota4 = (yield home.quotaUsedBytes())
-        self.assertTrue(quota4 < quota3)
-
-        # There should be no more left
-        total = (yield PurgeAttachmentsService.purgeOrphanedAttachments(self._sqlCalendarStore, None, 14, 2, dryrun=False, verbose=False))
         self.assertEquals(total, 0)
