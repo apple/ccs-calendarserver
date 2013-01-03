@@ -39,7 +39,7 @@ from txdav.common.icommondatastore import IndexedSearchException, \
     ReservationError, NoSuchObjectResourceError
 
 from txdav.common.datastore.sql_tables import schema
-from twext.enterprise.dal.syntax import Parameter, Select 
+from twext.enterprise.dal.syntax import Parameter, Select
 from twext.python.clsprop import classproperty
 from twext.python.log import Logger, LoggingMixIn
 
@@ -61,10 +61,12 @@ class MemcachedUIDReserver(CachePoolUserMixIn, LoggingMixIn):
         self.index = index
         self._cachePool = cachePool
 
+
     def _key(self, uid):
         return 'reservation:%s' % (
             hashlib.md5('%s:%s' % (uid,
                                    self.index.resource._resourceID)).hexdigest())
+
 
     def reserveUID(self, uid):
         uid = uid.encode('utf-8')
@@ -120,16 +122,20 @@ class MemcachedUIDReserver(CachePoolUserMixIn, LoggingMixIn):
         d.addCallback(_checkValue)
         return d
 
+
+
 class DummyUIDReserver(LoggingMixIn):
 
     def __init__(self, index):
         self.index = index
         self.reservations = set()
 
+
     def _key(self, uid):
         return 'reservation:%s' % (
             hashlib.md5('%s:%s' % (uid,
                                    self.index.resource._resourceID)).hexdigest())
+
 
     def reserveUID(self, uid):
         uid = uid.encode('utf-8')
@@ -184,11 +190,15 @@ class RealSQLBehaviorMixin(object):
     def containsArgument(self, arg):
         return "%%%s%%" % (arg,)
 
+
     def startswithArgument(self, arg):
         return "%s%%" % (arg,)
 
+
     def endswithArgument(self, arg):
         return "%%%s" % (arg,)
+
+
 
 class CalDAVSQLBehaviorMixin(RealSQLBehaviorMixin):
     """
@@ -197,7 +207,7 @@ class CalDAVSQLBehaviorMixin(RealSQLBehaviorMixin):
 
     FIELDS = {
         "TYPE": "CALENDAR_OBJECT.ICALENDAR_TYPE",
-        "UID":  "CALENDAR_OBJECT.ICALENDAR_UID",
+        "UID": "CALENDAR_OBJECT.ICALENDAR_UID",
     }
     RESOURCEDB = "CALENDAR_OBJECT"
     TIMESPANDB = "TIME_RANGE"
@@ -226,7 +236,7 @@ class CalDAVSQLBehaviorMixin(RealSQLBehaviorMixin):
 
         # For SQL data DB we need to restrict the query to just the targeted calendar resource-id if provided
         if self.calendarid:
-            
+
             test = expression.isExpression("CALENDAR_OBJECT.CALENDAR_RESOURCE_ID", str(self.calendarid), True)
 
             # Since timerange expression already have the calendar resource-id test in them, do not
@@ -236,10 +246,10 @@ class CalDAVSQLBehaviorMixin(RealSQLBehaviorMixin):
             # Top-level timerange expression already has calendar resource-id restriction in it
             if isinstance(self.expression, expression.timerangeExpression):
                 pass
-            
+
             # Top-level OR - check each component
             elif isinstance(self.expression, expression.orExpression):
-                
+
                 def _hasTopLevelTimerange(testexpr):
                     if isinstance(testexpr, expression.timerangeExpression):
                         return True
@@ -247,7 +257,7 @@ class CalDAVSQLBehaviorMixin(RealSQLBehaviorMixin):
                         return any([isinstance(expr, expression.timerangeExpression) for expr in testexpr.expressions])
                     else:
                         return False
-                        
+
                 hasTimerange = any([_hasTopLevelTimerange(expr) for expr in self.expression.expressions])
 
                 if hasTimerange:
@@ -255,16 +265,15 @@ class CalDAVSQLBehaviorMixin(RealSQLBehaviorMixin):
                     pass
                 else:
                     # AND the whole thing with calendarid
-                    self.expression = test.andWith(self.expression)    
+                    self.expression = test.andWith(self.expression)
 
-            
             # Top-level AND - only add additional expression if timerange not present
             elif isinstance(self.expression, expression.andExpression):
                 hasTimerange = any([isinstance(expr, expression.timerangeExpression) for expr in self.expression.expressions])
                 if not hasTimerange:
                     # AND the whole thing
-                    self.expression = test.andWith(self.expression)    
-            
+                    self.expression = test.andWith(self.expression)
+
             # Just AND the entire thing
             else:
                 self.expression = test.andWith(self.expression)
@@ -276,7 +285,7 @@ class CalDAVSQLBehaviorMixin(RealSQLBehaviorMixin):
         select = self.FROM + self.RESOURCEDB
         if self.usedtimespan:
 
-            # Free busy needs transparency join            
+            # Free busy needs transparency join
             if self.freebusy:
                 self.frontArgument(self.userid)
                 select += ", %s LEFT OUTER JOIN %s ON (%s)" % (
@@ -300,6 +309,7 @@ class CalDAVSQLBehaviorMixin(RealSQLBehaviorMixin):
         select = select % tuple(self.substitutions)
 
         return select, self.arguments
+
 
 
 class FormatParamStyleMixin(object):
@@ -331,6 +341,7 @@ class postgresqlgenerator(FormatParamStyleMixin, CalDAVSQLBehaviorMixin,
     """
     Query generator for PostgreSQL indexed searches.
     """
+
 
 
 def fixbools(sqltext):
@@ -472,10 +483,10 @@ class PostgresLegacyIndexEmulator(LegacyIndexHelper):
         with a longer expansion.
         """
         obj = yield self.calendar.calendarObjectWithName(name)
-        
+
         # Use a new transaction to do this update quickly without locking the row for too long. However, the original
-        # transaction may have the row locked, so use wait=False and if that fails, fall back to using the original txn. 
-        
+        # transaction may have the row locked, so use wait=False and if that fails, fall back to using the original txn.
+
         newTxn = obj.transaction().store().newTransaction()
         try:
             yield obj.lock(wait=False, txn=newTxn)
@@ -494,7 +505,7 @@ class PostgresLegacyIndexEmulator(LegacyIndexHelper):
             else:
                 # We repeat this check because the resource may have been re-expanded by someone else
                 rmin, rmax = (yield obj.recurrenceMinMax(txn=newTxn))
-                
+
                 # If the resource is not fully expanded, see if within the required range or not.
                 # Note that expand_start could be None if no lower limit is applied, but expand_end will
                 # never be None
@@ -567,6 +578,7 @@ class PostgresLegacyIndexEmulator(LegacyIndexHelper):
                 maxDate, isStartDate = filter.getmaxtimerange()
                 if maxDate:
                     maxDate = maxDate.duplicate()
+                    maxDate.offsetDay(1)
                     maxDate.setDateOnly(True)
                     upperLimit = today + PyCalendarDuration(days=config.FreeBusyIndexExpandMaxDays)
                     if maxDate > upperLimit:
@@ -574,7 +586,7 @@ class PostgresLegacyIndexEmulator(LegacyIndexHelper):
                     if isStartDate:
                         maxDate += PyCalendarDuration(days=365)
 
-                # Determine if the start date is too early for the restricted range we 
+                # Determine if the start date is too early for the restricted range we
                 # are applying. If it is today or later we don't need to worry about truncation
                 # in the past.
                 minDate, _ignore_isEndDate = filter.getmintimerange()
@@ -585,7 +597,6 @@ class PostgresLegacyIndexEmulator(LegacyIndexHelper):
                     if minDate < truncateLowerLimit:
                         raise TimeRangeLowerLimit(truncateLowerLimit)
 
-                        
                 if maxDate is not None or minDate is not None:
                     yield self.testAndUpdateIndex(minDate, maxDate)
 
@@ -699,11 +710,14 @@ class PostgresLegacyInboxIndexEmulator(PostgresLegacyIndexEmulator):
     def isAllowedUID(self):
         return succeed(True)
 
+
     def reserveUID(self, uid):
         return succeed(None)
 
+
     def unreserveUID(self, uid):
         return succeed(None)
+
 
     def isReservedUID(self, uid):
         return succeed(False)
@@ -718,7 +732,7 @@ class CardDAVSQLBehaviorMixin(RealSQLBehaviorMixin):
     """
 
     FIELDS = {
-        "UID":  "ADDRESSBOOK_OBJECT.VCARD_UID",
+        "UID": "ADDRESSBOOK_OBJECT.VCARD_UID",
     }
     RESOURCEDB = "ADDRESSBOOK_OBJECT"
 
@@ -739,10 +753,10 @@ class CardDAVSQLBehaviorMixin(RealSQLBehaviorMixin):
 
         # For SQL data DB we need to restrict the query to just the targeted calendar resource-id if provided
         if self.calendarid:
-            
+
             # AND the whole thing
             test = expression.isExpression("ADDRESSBOOK_OBJECT.ADDRESSBOOK_RESOURCE_ID", str(self.calendarid), True)
-            self.expression = test.andWith(self.expression)    
+            self.expression = test.andWith(self.expression)
 
         # Generate ' where ...' partial statement
         self.sout.write(self.WHERE)
@@ -762,6 +776,8 @@ class postgresqladbkgenerator(FormatParamStyleMixin, CardDAVSQLBehaviorMixin, sq
     """
     Query generator for PostgreSQL indexed searches.
     """
+
+
 
 class oraclesqladbkgenerator(CardDAVSQLBehaviorMixin, sqlgenerator):
     """
@@ -870,4 +886,3 @@ class PostgresLegacyABIndexEmulator(LegacyIndexHelper):
     def resourcesExist(self, names):
         returnValue(list(set(names).intersection(
             set((yield self.addressbook.listAddressbookObjects())))))
-
