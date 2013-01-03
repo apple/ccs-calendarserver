@@ -1254,6 +1254,7 @@ class PostgresLegacyIndexEmulator(LegacyIndexHelper):
                 maxDate, isStartDate = filter.getmaxtimerange()
                 if maxDate:
                     maxDate = maxDate.duplicate()
+                    maxDate.offsetDay(1)
                     maxDate.setDateOnly(True)
                     upperLimit = today + PyCalendarDuration(days=config.FreeBusyIndexExpandMaxDays)
                     if maxDate > upperLimit:
