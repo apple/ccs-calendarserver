@@ -29,5 +29,5 @@ if __name__ == "__main__":
         except ImportError:
             sys.exc_clear()
 
-    from calendarserver.tools.purge import main_purge_principals
-    main_purge_principals()
+    from calendarserver.tools.purge import PurgePrincipalService
+    PurgePrincipalService.main()

@@ -883,14 +883,14 @@ class CommonStoreTransaction(object):
         return self._sqlTxn.abort()
 
 
-    def _oldEventsBase(limited): #@NoSelf
+    def _oldEventsBase(self, limit):
         ch = schema.CALENDAR_HOME
         co = schema.CALENDAR_OBJECT
         cb = schema.CALENDAR_BIND
         tr = schema.TIME_RANGE
         kwds = {}
-        if limited:
-            kwds["Limit"] = Parameter("batchSize")
+        if limit:
+            kwds["Limit"] = limit
         return Select(
             [
                 ch.OWNER_UID,
@@ -915,10 +915,6 @@ class CommonStoreTransaction(object):
             **kwds
         )
 
-    _oldEventsLimited = _oldEventsBase(True)
-    _oldEventsUnlimited = _oldEventsBase(False)
-    del _oldEventsBase
-
 
     def eventsOlderThan(self, cutoff, batchSize=None):
         """
@@ -937,12 +933,7 @@ class CommonStoreTransaction(object):
                 raise ValueError("Cannot query events older than %s" % (truncateLowerLimit.getText(),))
 
         kwds = {"CutOff": pyCalendarTodatetime(cutoff)}
-        if batchSize is not None:
-            kwds["batchSize"] = batchSize
-            query = self._oldEventsLimited
-        else:
-            query = self._oldEventsUnlimited
-        return query.on(self, **kwds)
+        return self._oldEventsBase(batchSize).on(self, **kwds)
 
 
     @inlineCallbacks
@@ -969,14 +960,29 @@ class CommonStoreTransaction(object):
         returnValue(count)
 
 
-    def _orphanedSummary(limited): #@NoSelf
-        at = schema.ATTACHMENT
-        co = schema.CALENDAR_OBJECT
+    def orphanedAttachments(self, uuid=None, batchSize=None):
+        """
+        Find attachments no longer referenced by any events.
+
+        Returns a deferred to a list of (calendar_home_owner_uid, quota used, total orphan size, total orphan count) tuples.
+        """
+        kwds = {}
+        if uuid:
+            kwds["uuid"] = uuid
+
+        options = {}
+        if batchSize:
+            options["Limit"] = batchSize
+
         ch = schema.CALENDAR_HOME
         chm = schema.CALENDAR_HOME_METADATA
-        kwds = {}
-        if limited:
-            kwds["Limit"] = Parameter('batchSize')
+        co = schema.CALENDAR_OBJECT
+        at = schema.ATTACHMENT
+
+        where = (co.DROPBOX_ID == None).And(at.DROPBOX_ID != ".")
+        if uuid:
+            where = where.And(ch.OWNER_UID == Parameter('uuid'))
+
         return Select(
             [ch.OWNER_UID, chm.QUOTA_USED_BYTES, Sum(at.SIZE), Count(at.DROPBOX_ID)],
             From=at.join(
@@ -984,50 +990,14 @@ class CommonStoreTransaction(object):
                 ch, at.CALENDAR_HOME_RESOURCE_ID == ch.RESOURCE_ID).join(
                 chm, ch.RESOURCE_ID == chm.RESOURCE_ID
             ),
-            Where=co.DROPBOX_ID == None,
+            Where=where,
             GroupBy=(ch.OWNER_UID, chm.QUOTA_USED_BYTES),
-            **kwds
-        )
-
-    _orphanedSummaryLimited = _orphanedSummary(True)
-    _orphanedSummaryUnlimited = _orphanedSummary(False)
-    del _orphanedSummary
-
-    def orphanedAttachments(self, batchSize=None):
-        """
-        Find attachments no longer referenced by any events.
-
-        Returns a deferred to a list of (calendar_home_owner_uid, dropbox_id, path, size) tuples.
-        """
-        if batchSize is not None:
-            kwds = {'batchSize': batchSize}
-            query = self._orphanedSummaryLimited
-        else:
-            kwds = {}
-            query = self._orphanedSummaryUnlimited
-        return query.on(self, **kwds)
-
-
-    def _orphanedBase(limited): #@NoSelf
-        at = schema.ATTACHMENT
-        co = schema.CALENDAR_OBJECT
-        kwds = {}
-        if limited:
-            kwds["Limit"] = Parameter('batchSize')
-        return Select(
-            [at.DROPBOX_ID, at.PATH],
-            From=at.join(co, at.DROPBOX_ID == co.DROPBOX_ID, "left outer"),
-            Where=co.DROPBOX_ID == None,
-            **kwds
-        )
-
-    _orphanedLimited = _orphanedBase(True)
-    _orphanedUnlimited = _orphanedBase(False)
-    del _orphanedBase
+            **options
+        ).on(self, **kwds)
 
 
     @inlineCallbacks
-    def removeOrphanedAttachments(self, batchSize=None):
+    def removeOrphanedAttachments(self, uuid=None, batchSize=None):
         """
         Remove attachments that no longer have any references to them
         """
@@ -1035,16 +1005,209 @@ class CommonStoreTransaction(object):
         # TODO: see if there is a better way to import Attachment
         from txdav.caldav.datastore.sql import DropBoxAttachment
 
-        if batchSize is not None:
-            kwds = {'batchSize': batchSize}
-            query = self._orphanedLimited
-        else:
-            kwds = {}
-            query = self._orphanedUnlimited
-        results = (yield query.on(self, **kwds))
+        kwds = {}
+        if uuid:
+            kwds["uuid"] = uuid
+
+        options = {}
+        if batchSize:
+            options["Limit"] = batchSize
+
+        ch = schema.CALENDAR_HOME
+        co = schema.CALENDAR_OBJECT
+        at = schema.ATTACHMENT
+
+        sfrom = at.join(co, at.DROPBOX_ID == co.DROPBOX_ID, "left outer")
+        where = (co.DROPBOX_ID == None).And(at.DROPBOX_ID != ".")
+        if uuid:
+            sfrom = sfrom.join(ch, at.CALENDAR_HOME_RESOURCE_ID == ch.RESOURCE_ID)
+            where = where.And(ch.OWNER_UID == Parameter('uuid'))
+
+        results = (yield Select(
+            [at.DROPBOX_ID, at.PATH],
+            From=sfrom,
+            Where=where,
+            **options
+        ).on(self, **kwds))
+
         count = 0
         for dropboxID, path in results:
             attachment = (yield DropBoxAttachment.load(self, dropboxID, path))
+            yield attachment.remove()
+            count += 1
+        returnValue(count)
+
+
+    def oldDropboxAttachments(self, cutoff, uuid):
+        """
+        Find managed attachments attached to only events whose last instance is older than the specified cut-off.
+
+        Returns a deferred to a list of (calendar_home_owner_uid, quota used, total old size, total old count) tuples.
+        """
+        kwds = {"CutOff": pyCalendarTodatetime(cutoff)}
+        if uuid:
+            kwds["uuid"] = uuid
+
+        ch = schema.CALENDAR_HOME
+        chm = schema.CALENDAR_HOME_METADATA
+        co = schema.CALENDAR_OBJECT
+        tr = schema.TIME_RANGE
+        at = schema.ATTACHMENT
+
+        where = at.DROPBOX_ID.In(Select(
+            [at.DROPBOX_ID],
+            From=at.join(co, at.DROPBOX_ID == co.DROPBOX_ID, "inner").join(
+                tr, co.RESOURCE_ID == tr.CALENDAR_OBJECT_RESOURCE_ID
+            ),
+            GroupBy=(at.DROPBOX_ID,),
+            Having=Max(tr.END_DATE) < Parameter("CutOff"),
+        ))
+
+        if uuid:
+            where = where.And(ch.OWNER_UID == Parameter('uuid'))
+
+        return Select(
+            [ch.OWNER_UID, chm.QUOTA_USED_BYTES, Sum(at.SIZE), Count(at.DROPBOX_ID)],
+            From=at.join(
+                ch, at.CALENDAR_HOME_RESOURCE_ID == ch.RESOURCE_ID).join(
+                chm, ch.RESOURCE_ID == chm.RESOURCE_ID
+            ),
+            Where=where,
+            GroupBy=(ch.OWNER_UID, chm.QUOTA_USED_BYTES),
+        ).on(self, **kwds)
+
+
+    @inlineCallbacks
+    def removeOldDropboxAttachments(self, cutoff, uuid, batchSize=None):
+        """
+        Remove dropbox attachments attached to events in the past.
+        """
+
+        # TODO: see if there is a better way to import Attachment
+        from txdav.caldav.datastore.sql import DropBoxAttachment
+
+        kwds = {"CutOff": pyCalendarTodatetime(cutoff)}
+        if uuid:
+            kwds["uuid"] = uuid
+
+        options = {}
+        if batchSize:
+            options["Limit"] = batchSize
+
+        ch = schema.CALENDAR_HOME
+        co = schema.CALENDAR_OBJECT
+        tr = schema.TIME_RANGE
+        at = schema.ATTACHMENT
+
+        sfrom = at.join(
+            co, at.DROPBOX_ID == co.DROPBOX_ID, "inner").join(
+            tr, co.RESOURCE_ID == tr.CALENDAR_OBJECT_RESOURCE_ID
+        )
+        where = None
+        if uuid:
+            sfrom = sfrom.join(ch, at.CALENDAR_HOME_RESOURCE_ID == ch.RESOURCE_ID)
+            where = (ch.OWNER_UID == Parameter('uuid'))
+
+        results = (yield Select(
+            [at.DROPBOX_ID, at.PATH, ],
+            From=sfrom,
+            Where=where,
+            GroupBy=(at.DROPBOX_ID, at.PATH,),
+            Having=Max(tr.END_DATE) < Parameter("CutOff"),
+            **options
+        ).on(self, **kwds))
+
+        count = 0
+        for dropboxID, path in results:
+            attachment = (yield DropBoxAttachment.load(self, dropboxID, path))
+            yield attachment.remove()
+            count += 1
+        returnValue(count)
+
+
+    def oldManagedAttachments(self, cutoff, uuid):
+        """
+        Find managed attachments attached to only events whose last instance is older than the specified cut-off.
+
+        Returns a deferred to a list of (calendar_home_owner_uid, quota used, total old size, total old count) tuples.
+        """
+        kwds = {"CutOff": pyCalendarTodatetime(cutoff)}
+        if uuid:
+            kwds["uuid"] = uuid
+
+        ch = schema.CALENDAR_HOME
+        chm = schema.CALENDAR_HOME_METADATA
+        tr = schema.TIME_RANGE
+        at = schema.ATTACHMENT
+        atco = schema.ATTACHMENT_CALENDAR_OBJECT
+
+        where = at.ATTACHMENT_ID.In(Select(
+            [at.ATTACHMENT_ID],
+            From=at.join(
+                atco, at.ATTACHMENT_ID == atco.ATTACHMENT_ID, "inner").join(
+                tr, atco.CALENDAR_OBJECT_RESOURCE_ID == tr.CALENDAR_OBJECT_RESOURCE_ID
+            ),
+            GroupBy=(at.ATTACHMENT_ID,),
+            Having=Max(tr.END_DATE) < Parameter("CutOff"),
+        ))
+
+        if uuid:
+            where = where.And(ch.OWNER_UID == Parameter('uuid'))
+
+        return Select(
+            [ch.OWNER_UID, chm.QUOTA_USED_BYTES, Sum(at.SIZE), Count(at.ATTACHMENT_ID)],
+            From=at.join(
+                ch, at.CALENDAR_HOME_RESOURCE_ID == ch.RESOURCE_ID).join(
+                chm, ch.RESOURCE_ID == chm.RESOURCE_ID
+            ),
+            Where=where,
+            GroupBy=(ch.OWNER_UID, chm.QUOTA_USED_BYTES),
+        ).on(self, **kwds)
+
+
+    @inlineCallbacks
+    def removeOldManagedAttachments(self, cutoff, uuid, batchSize=None):
+        """
+        Remove attachments attached to events in the past.
+        """
+
+        # TODO: see if there is a better way to import Attachment
+        from txdav.caldav.datastore.sql import ManagedAttachment
+
+        kwds = {"CutOff": pyCalendarTodatetime(cutoff)}
+        if uuid:
+            kwds["uuid"] = uuid
+
+        options = {}
+        if batchSize:
+            options["Limit"] = batchSize
+
+        ch = schema.CALENDAR_HOME
+        tr = schema.TIME_RANGE
+        at = schema.ATTACHMENT
+        atco = schema.ATTACHMENT_CALENDAR_OBJECT
+
+        sfrom = atco.join(
+            at, atco.ATTACHMENT_ID == at.ATTACHMENT_ID, "inner").join(
+            tr, atco.CALENDAR_OBJECT_RESOURCE_ID == tr.CALENDAR_OBJECT_RESOURCE_ID
+        )
+        where = None
+        if uuid:
+            sfrom = sfrom.join(ch, at.CALENDAR_HOME_RESOURCE_ID == ch.RESOURCE_ID)
+            where = (ch.OWNER_UID == Parameter('uuid'))
+
+        results = (yield Select(
+            [atco.ATTACHMENT_ID, atco.MANAGED_ID, ],
+            From=sfrom,
+            Where=where,
+            GroupBy=(atco.ATTACHMENT_ID, atco.MANAGED_ID,),
+            Having=Max(tr.END_DATE) < Parameter("CutOff"),
+            **options
+        ).on(self, **kwds))
+
+        count = 0
+        for _ignore, managedID in results:
+            attachment = (yield ManagedAttachment.load(self, managedID))
             yield attachment.remove()
             count += 1
         returnValue(count)
@@ -1817,6 +1980,7 @@ class CommonHome(LoggingMixIn):
             From=bind,
             Where=(bind.HOME_RESOURCE_ID == Parameter("homeResourceID")).And(bind.BIND_STATUS != _BIND_STATUS_ACCEPTED)
         ).on(self._txn, **kwds)
+
 
 
 class _SharedSyncLogic(object):

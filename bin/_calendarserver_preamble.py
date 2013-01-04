@@ -42,10 +42,13 @@ def bootstrapFromRun():
         return
 
     child = Popen((run, "-e"), stdout=PIPE)
-    stdout, stderr = child.communicate()
+    stdout, _ignore_stderr = child.communicate()
     stdout = stdout.rstrip("\n")
 
-    evars = eval(stdout)
+    try:
+        evars = eval(stdout)
+    except SyntaxError:
+        return
     os.environ.update(evars)
 
     # PYTHONPATH needs special treatment, because Python has already processed
@@ -69,4 +72,3 @@ def bootstrapFromRun():
 
 
 bootstrapFromRun()
-

@@ -1861,7 +1861,7 @@ class Attachment(object):
 
 
     def isManaged(self):
-        return not self._dropboxID
+        return self._dropboxID == "."
 
 
     def name(self):
@@ -2138,7 +2138,7 @@ class ManagedAttachment(Attachment):
         att = schema.ATTACHMENT
         rows = (yield Insert({
             att.CALENDAR_HOME_RESOURCE_ID : ownerHomeID,
-            att.DROPBOX_ID                : None,
+            att.DROPBOX_ID                : ".",
             att.CONTENT_TYPE              : "",
             att.SIZE                      : 0,
             att.MD5                       : "",

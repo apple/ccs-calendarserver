@@ -29,5 +29,5 @@ if __name__ == "__main__":
         except ImportError:
             sys.exc_clear()
 
-    from calendarserver.tools.purge import main_purge_orphaned_attachments
-    main_purge_orphaned_attachments()
+    from calendarserver.tools.purge import PurgeAttachmentsService
+    PurgeAttachmentsService.main()
