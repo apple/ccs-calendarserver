@@ -26,6 +26,13 @@ from twext.enterprise.dal.syntax import SchemaSyntax
 from twext.enterprise.dal.model import Schema
 
 
+class AlreadyUnlocked(Exception):
+    """
+    The lock you were trying to unlock was already unlocked.
+    """
+
+
+
 def makeLockSchema(inSchema):
     """
     Create a self-contained schema just for L{Locker} use, in C{inSchema}.
@@ -69,5 +76,31 @@ class Locker(object):
             has fired, or fails when the lock has not been acquired.
         """
         raise NotImplementedError()
+
+
+
+class AcquiredLock(object):
+    """
+    An L{AcquiredLock} lock against a shared data store that the current
+    process holds via the referenced transaction.
+    """
+
+    def release(self, ignoreAlreadyUnlocked=False):
+        """
+        Release this lock.
+
+        @param ignoreAlreadyUnlocked: If you don't care about the current
+            status of this lock, and just want to release it if it is still
+            acquired, pass this parameter as L{True}.  Otherwise this method
+            will raise an exception if it is invoked when the lock has already
+            been released.
+
+        @raise: L{AlreadyUnlocked}
+
+        @return: A L{Deferred} that fires with L{None} when the lock has been
+            unlocked.
+        """
+        raise NotImplementedError()
+
 
 
