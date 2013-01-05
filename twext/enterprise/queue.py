@@ -932,15 +932,15 @@ class WorkProposal(object):
         """
         @passthru(self.workItemType.create(self.txn, **self.kw).addCallback)
         def whenCreated(item):
-            self._whenProposed.callback(None)
+            self._whenProposed.callback(self)
             @self.txn.postCommit
             def whenDone():
-                self._whenCommitted.callback(None)
+                self._whenCommitted.callback(self)
                 performer = self._chooser.choosePerformer()
                 @passthru(performer.performWork(item.table, item.workID)
                           .addCallback)
                 def performed(result):
-                    self._whenExecuted.callback(None)
+                    self._whenExecuted.callback(self)
                 @performed.addErrback
                 def notPerformed(why):
                     self._whenExecuted.errback(why)
@@ -966,8 +966,8 @@ class WorkProposal(object):
             completed within the transaction of the L{WorkItem.doWork} that
             gets executed.
 
-        @return: a L{Deferred} that fires with C{None} when the work has been
-            completed remotely.
+        @return: a L{Deferred} that fires with this L{WorkProposal} when the
+            work has been completed remotely.
         """
         return _cloneDeferred(self._whenExecuted)
 
@@ -977,9 +977,10 @@ class WorkProposal(object):
         Let the caller know when the work has been proposed; i.e. when the work
         is first transmitted to the database.
 
-        @return: a L{Deferred} that fires with C{None} when the relevant
-            commands have been sent to the database to create the L{WorkItem},
-            and fails if those commands do not succeed for some reason.
+        @return: a L{Deferred} that fires with this L{WorkProposal} when the
+            relevant commands have been sent to the database to create the
+            L{WorkItem}, and fails if those commands do not succeed for some
+            reason.
         """
         return _cloneDeferred(self._whenProposed)
 
@@ -990,9 +991,9 @@ class WorkProposal(object):
         transaction where the work was proposed has been committed to the
         database.
 
-        @return: a L{Deferred} that fires with C{None} when the relevant
-            transaction has been committed, or fails if the transaction is not
-            committed for any reason.
+        @return: a L{Deferred} that fires with this L{WorkProposal} when the
+            relevant transaction has been committed, or fails if the
+            transaction is not committed for any reason.
         """
         return _cloneDeferred(self._whenCommitted)
 

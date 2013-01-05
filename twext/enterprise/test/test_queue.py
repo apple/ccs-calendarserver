@@ -35,7 +35,7 @@ from twext.enterprise.queue import inTransaction, PeerConnectionPool, WorkItem
 
 from twisted.trial.unittest import TestCase
 from twisted.internet.defer import (
-    Deferred, inlineCallbacks, gatherResults, passthru, returnValue
+    Deferred, inlineCallbacks, gatherResults, passthru#, returnValue
 )
 
 from twisted.application.service import Service, MultiService
@@ -71,6 +71,14 @@ def transactionally(transactionCreator):
     def thunk(operation):
         return inTransaction(transactionCreator, operation)
     return thunk
+
+
+
+def astimestamp(v):
+    """
+    Convert the given datetime to a POSIX timestamp.
+    """
+    return (v - datetime.datetime.utcfromtimestamp(0)).total_seconds()
 
 
 
@@ -328,8 +336,7 @@ class PeerConnectionPoolUnitTests(TestCase):
         # An arbitrary point in time.
         fakeNow = datetime.datetime(2012, 12, 12, 12, 12, 12)
         # *why* does datetime still not have .astimestamp()
-        sinceEpoch = ((fakeNow - datetime.datetime.utcfromtimestamp(0))
-                      .total_seconds())
+        sinceEpoch = astimestamp(fakeNow)
         clock = Clock()
         clock.advance(sinceEpoch)
         qpool = PeerConnectionPool(clock, dbpool.connection, 0, schema)
@@ -365,6 +372,52 @@ class PeerConnectionPoolUnitTests(TestCase):
             return DummyWorkDone.all(txn)
         every = yield check
         self.assertEquals([x.aPlusB for x in every], [7])
+
+
+    @inlineCallbacks
+    def test_notBeforeWhenEnqueueing(self):
+        """
+        L{PeerConnectionPool}
+        """
+        dbpool = buildConnectionPool(self, schemaText + nodeSchema)
+        fakeNow = datetime.datetime(2012, 12, 12, 12, 12, 12)
+        sinceEpoch = astimestamp(fakeNow)
+        clock = Clock()
+        clock.advance(sinceEpoch)
+        qpool = PeerConnectionPool(clock, dbpool.connection, 0, schema)
+        realChoosePerformer = qpool.choosePerformer
+        performerChosen = []
+        def catchPerformerChoice():
+            result = realChoosePerformer()
+            performerChosen.append(True)
+            return result
+        qpool.choosePerformer = catchPerformerChoice
+        @transactionally(dbpool.connection)
+        def check(txn):
+            return qpool.enqueueWork(
+                txn, DummyWorkItem,
+                notBefore=datetime.datetime(2012, 12, 12, 12, 12, 20)
+            ).whenProposed()
+
+        proposal = yield check
+
+        # This is going to schedule the work to happen with some asynchronous
+        # I/O in the middle; this is a problem because how do we know when it's
+        # time to check to see if the work has started?  We need to intercept
+        # the thing that kicks off the work; we can then wait for the work
+        # itself.
+
+        self.assertEquals(performerChosen, [])
+
+        # Advance to exactly the appointed second.
+        clock.advance(20 - 12)
+        self.assertEquals(performerChosen, [True])
+
+        # FIXME: if this fails, it will hang, but that's better than no
+        # notification that it is broken at all.
+
+        result = yield proposal.whenExecuted()
+        self.assertIdentical(result, proposal)
 
 
 
