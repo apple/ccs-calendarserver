@@ -955,7 +955,7 @@ class WorkProposal(object):
                     def notPerformed(why):
                         self._whenExecuted.errback(why)
                 reactor = self._chooser.reactor
-                when = astimestamp(item.notBefore) - reactor.seconds()
+                when = max(0, astimestamp(item.notBefore) - reactor.seconds())
                 # TODO: Track the returned DelayedCall so it can be stopped when
                 # the service stops.
                 self._chooser.reactor.callLater(when, maybeLater)

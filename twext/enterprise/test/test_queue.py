@@ -23,7 +23,7 @@ import datetime
 # TODO: There should be a store-building utility within twext.enterprise.
 
 from twisted.protocols.amp import Command
-from twisted.internet.task import Clock
+from twisted.internet.task import Clock as _Clock
 
 from txdav.common.datastore.test.util import buildStore
 
@@ -53,6 +53,19 @@ from twext.enterprise.queue import ConnectionFromPeerNode
 from twext.enterprise.fixtures import buildConnectionPool
 from zope.interface.verify import verifyObject
 from twisted.test.proto_helpers import StringTransport
+
+class Clock(_Clock):
+    """
+    More careful L{IReactorTime} fake which mimics the exception behavior of
+    the real reactor.
+    """
+
+    def callLater(self, _seconds, _f, *args, **kw):
+        if _seconds < 0:
+            raise ValueError("%s<0: "%(_seconds,))
+        return super(Clock, self).callLater(_seconds, _f, *args, **kw)
+
+
 
 def transactionally(transactionCreator):
     """
@@ -371,7 +384,9 @@ class PeerConnectionPoolUnitTests(TestCase):
     @inlineCallbacks
     def test_notBeforeWhenEnqueueing(self):
         """
-        L{PeerConnectionPool}
+        L{PeerConnectionPool.enqueueWork} enqueues some work immediately, but
+        only executes it when enough time has elapsed to allow the C{notBefore}
+        attribute of the given work item to have passed.
         """
         dbpool = buildConnectionPool(self, schemaText + nodeSchema)
         fakeNow = datetime.datetime(2012, 12, 12, 12, 12, 12)
@@ -409,6 +424,41 @@ class PeerConnectionPoolUnitTests(TestCase):
 
         # FIXME: if this fails, it will hang, but that's better than no
         # notification that it is broken at all.
+
+        result = yield proposal.whenExecuted()
+        self.assertIdentical(result, proposal)
+
+
+    @inlineCallbacks
+    def test_notBeforeBefore(self):
+        """
+        L{PeerConnectionPool.enqueueWork} will execute its work immediately if
+        the C{notBefore} attribute of the work item in question is in the past.
+        """
+        dbpool = buildConnectionPool(self, schemaText + nodeSchema)
+        fakeNow = datetime.datetime(2012, 12, 12, 12, 12, 12)
+        sinceEpoch = astimestamp(fakeNow)
+        clock = Clock()
+        clock.advance(sinceEpoch)
+        qpool = PeerConnectionPool(clock, dbpool.connection, 0, schema)
+        realChoosePerformer = qpool.choosePerformer
+        performerChosen = []
+        def catchPerformerChoice():
+            result = realChoosePerformer()
+            performerChosen.append(True)
+            return result
+        qpool.choosePerformer = catchPerformerChoice
+        @transactionally(dbpool.connection)
+        def check(txn):
+            return qpool.enqueueWork(
+                txn, DummyWorkItem, a=3, b=9,
+                notBefore=datetime.datetime(2012, 12, 12, 12, 12, 0)
+            ).whenProposed()
+        proposal = yield check
+
+        clock.advance(1000)
+        # Advance far beyond the given timestamp.
+        self.assertEquals(performerChosen, [True])
 
         result = yield proposal.whenExecuted()
         self.assertIdentical(result, proposal)
