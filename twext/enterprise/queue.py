@@ -827,15 +827,16 @@ def ultimatelyPerform(txnFactory, table, workID):
 
 
 
-class ImmediatePerformer(object):
+class LocalPerformer(object):
     """
-    Implementor of C{performWork} that does its work immediately, regardless.
+    Implementor of C{performWork} that does its work in the local process,
+    regardless of other conditions.
     """
     implements(_IWorkPerformer)
 
     def __init__(self, txnFactory):
         """
-        Create this L{ImmediatePerformer} with a transaction factory.
+        Create this L{LocalPerformer} with a transaction factory.
         """
         self.txnFactory = txnFactory
 
@@ -1123,7 +1124,7 @@ class PeerConnectionPool(MultiService, object):
         if self.peers and not onlyLocally:
             return sorted(self.peers, lambda p: p.currentLoadEstimate())[0]
         else:
-            return ImmediatePerformer(self.transactionFactory)
+            return LocalPerformer(self.transactionFactory)
 
 
     def performWorkForPeer(self, table, workID):

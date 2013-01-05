@@ -39,7 +39,7 @@ from twisted.internet.defer import (
 from twisted.application.service import Service, MultiService
 
 from twext.enterprise.queue import (
-    ImmediatePerformer, _IWorkPerformer, WorkerConnectionPool, SchemaAMP,
+    LocalPerformer, _IWorkPerformer, WorkerConnectionPool, SchemaAMP,
     TableSyntaxByName
 )
 
@@ -214,7 +214,7 @@ class PeerConnectionPoolUnitTests(TestCase):
         or outgoing), then it chooses an implementation of C{performWork} that
         simply executes the work locally.
         """
-        self.checkPerformer(ImmediatePerformer)
+        self.checkPerformer(LocalPerformer)
 
 
     def test_choosingPerformerWithLocalCapacity(self):
@@ -435,7 +435,7 @@ class PeerConnectionPoolIntegrationTests(TestCase):
             # is not the fact with a raw t.w.enterprise transaction.  Should
             # probably do something with components.
             return txn.enqueue(DummyWorkItem, a=3, b=4, workID=4321,
-                               notBefore=datetime.datetime.now())
+                               notBefore=datetime.datetime.utcnow())
         result = yield inTransaction(self.store.newTransaction, operation)
         # Wait for it to be executed.  Hopefully this does not time out :-\.
         yield result.whenExecuted()
