@@ -104,6 +104,7 @@ from twext.enterprise.dal.model import Table, Schema, SQLType, Constraint
 from twisted.internet.endpoints import TCP4ServerEndpoint
 from twext.enterprise.ienterprise import IQueuer
 from zope.interface.interface import Interface
+from twext.enterprise.locking import NamedLock
 
 
 class _IWorkPerformer(Interface):
@@ -812,6 +813,8 @@ def ultimatelyPerform(txnFactory, table, workID):
     def work(txn):
         workItemClass = WorkItem.forTable(table)
         workItem = yield workItemClass.load(txn, workID)
+        if workItem.group is not None:
+            yield NamedLock.acquire(txn, workItem.group)
         # TODO: what if we fail?  error-handling should be recorded someplace,
         # the row should probably be marked, re-tries should be triggerable
         # administratively.
