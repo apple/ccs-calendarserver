@@ -30,6 +30,7 @@ from twisted.python.failure import Failure
 from twisted.trial.unittest import TestCase
 
 from twisted.internet.task import Clock
+from twisted.internet.defer import Deferred, fail
 
 from twisted.internet.interfaces import IReactorThreads
 
@@ -72,11 +73,24 @@ class AssertResultHelper(object):
     """
 
     def assertResultList(self, resultList, expected):
+        """
+        Assert that a list created with L{resultOf} contais the expected
+        result.
+
+        @param resultList: The return value of L{resultOf}.
+        @type resultList: L{list}
+
+        @param expected: The expected value that should be present in the list;
+            a L{Failure} if an exception is expected to be raised.
+        """
         if not resultList:
             self.fail("No result; Deferred didn't fire yet.")
         else:
             if isinstance(resultList[0], Failure):
-                resultList[0].raiseException()
+                if isinstance(expected, Failure):
+                    resultList[0].trap(expected.type)
+                else:
+                    resultList[0].raiseException()
             else:
                 self.assertEqual(resultList, [expected])
 
@@ -369,11 +383,11 @@ class FakeThreadHolder(ThreadHolder):
 
 
     @property
-    def _q(self):
+    def _get_q(self):
         return self._q_
 
 
-    @_q.setter
+    @_get_q.setter
     def _q(self, newq):
         if newq is not None:
             oget = newq.get
@@ -1078,6 +1092,87 @@ class ConnectionPoolTests(ConnectionPoolHelper, TestCase, AssertResultHelper):
         errors = self.flushLoggedErrors(BindingSpecificException)
         self.assertEquals(len(errors), 1)
         return t
+
+
+    def test_preCommitSuccess(self):
+        """
+        Callables passed to L{IAsyncTransaction.preCommit} will be invoked upon
+        commit.
+        """
+        txn = self.createTransaction()
+        def simple():
+            simple.done = True
+        simple.done = False
+        txn.preCommit(simple)
+        self.assertEquals(simple.done, False)
+        result = self.resultOf(txn.commit())
+        self.assertEquals(len(result), 1)
+        self.assertEquals(simple.done, True)
+
+
+    def test_deferPreCommit(self):
+        """
+        If callables passed to L{IAsyncTransaction.preCommit} return
+        L{Deferred}s, they will defer the actual commit operation until it has
+        fired.
+        """
+        txn = self.createTransaction()
+        d = Deferred()
+        def wait():
+            wait.started = True
+            def executed(it):
+                wait.sqlResult = it
+            # To make sure the _underlying_ commit operation was Deferred, we
+            # have to execute some SQL to make sure it happens.
+            return (d.addCallback(lambda ignored: txn.execSQL("some test sql"))
+                     .addCallback(executed))
+        wait.started = False
+        wait.sqlResult = None
+        txn.preCommit(wait)
+        result = self.resultOf(txn.commit())
+        self.flushHolders()
+        self.assertEquals(wait.started, True)
+        self.assertEquals(wait.sqlResult, None)
+        self.assertEquals(result, [])
+        d.callback(None)
+        # allow network I/O for pooled / networked implementation; there should
+        # be the commit message now.
+        self.flushHolders()
+        self.assertEquals(len(result), 1)
+        self.assertEquals(wait.sqlResult, [[1, "some test sql"]])
+
+
+    def test_failPreCommit(self):
+        """
+        If callables passed to L{IAsyncTransaction.preCommit} raise an
+        exception or return a Failure, subsequent callables will not be run,
+        and the transaction will be aborted.
+        """
+        def test(flawedCallable, exc):
+            # Set up.
+            test.committed = False
+            test.aborted = False
+            # Create transaction and add monitoring hooks.
+            txn = self.createTransaction()
+            def didCommit():
+                test.committed = True
+            def didAbort():
+                test.aborted = True
+            txn.postCommit(didCommit)
+            txn.postAbort(didAbort)
+            txn.preCommit(flawedCallable)
+            result = self.resultOf(txn.commit())
+            self.flushHolders()
+            self.assertResultList(result, Failure(exc()))
+            self.assertEquals(test.committed, False)
+            self.assertEquals(test.aborted, True)
+
+        def failer():
+            return fail(ZeroDivisionError())
+        def raiser():
+            raise EOFError()
+        test(failer, ZeroDivisionError)
+        test(raiser, EOFError)
 
 
     def test_noOpCommitDoesntHinderReconnection(self):

@@ -491,7 +491,7 @@ class _HookableOperation(object):
 
 
     @inlineCallbacks
-    def runHooks(self, ignored):
+    def runHooks(self, ignored=None):
         """
         Callback for C{commit} and C{abort} Deferreds.
         """
@@ -516,8 +516,25 @@ class _CommitAndAbortHooks(object):
     # covered by txdav's test suite.
 
     def __init__(self):
+        self._preCommit = _HookableOperation()
         self._commit = _HookableOperation()
         self._abort = _HookableOperation()
+
+
+    def _commitWithHooks(self, doCommit):
+        """
+        Run pre-hooks, commit, the real DB commit, and then post-hooks.
+        """
+        pre = self._preCommit.runHooks()
+        def ok(ignored):
+            return doCommit().addCallback(self._commit.runHooks)
+        def failed(why):
+            return self.abort().addCallback(lambda ignored: why)
+        return pre.addCallbacks(ok, failed)
+
+
+    def preCommit(self, operation):
+        return self._preCommit.addHook(operation)
 
 
     def postCommit(self, operation):
@@ -648,9 +665,10 @@ class _SingleTxn(_CommitAndAbortHooks,
             # We're in the process of executing a block of commands.  Wait until
             # they're done.  (Commit will be repeated in _checkNextBlock.)
             return self._blockedQueue.commit()
-        self._markComplete()
-        return (super(_SingleTxn, self).commit()
-                .addCallback(self._commit.runHooks))
+        def reallyCommit():
+            self._markComplete()
+            return super(_SingleTxn, self).commit()
+        return self._commitWithHooks(reallyCommit)
 
 
     def abort(self):
@@ -1550,12 +1568,13 @@ class _NetTransaction(_CommitAndAbortHooks):
 
 
     def commit(self):
-        self._committing = True
-        def done(whatever):
-            self._committed = True
-            return whatever
-        return (self._complete(Commit).addBoth(done)
-                .addCallback(self._commit.runHooks))
+        def reallyCommit():
+            self._committing = True
+            def done(whatever):
+                self._committed = True
+                return whatever
+            return self._complete(Commit).addBoth(done)
+        return self._commitWithHooks(reallyCommit)
 
 
     def abort(self):

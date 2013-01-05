@@ -10,10 +10,6 @@ create table NODE_INFO (
     primary key("HOSTNAME", "PORT")
 );
 
-create table NAMED_LOCK (
-    "LOCK_NAME" nvarchar2(255) primary key
-);
-
 create table CALENDAR_HOME (
     "RESOURCE_ID" integer primary key,
     "OWNER_UID" nvarchar2(255) unique,
@@ -269,7 +265,7 @@ create table CALENDARSERVER (
     "VALUE" nvarchar2(255)
 );
 
-insert into CALENDARSERVER (NAME, VALUE) values ('VERSION', '15');
+insert into CALENDARSERVER (NAME, VALUE) values ('VERSION', '14');
 insert into CALENDARSERVER (NAME, VALUE) values ('CALENDAR-DATAVERSION', '3');
 insert into CALENDARSERVER (NAME, VALUE) values ('ADDRESSBOOK-DATAVERSION', '1');
 

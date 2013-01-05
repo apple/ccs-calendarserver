@@ -50,6 +50,7 @@ from twext.enterprise.ienterprise import AlreadyFinishedError
 from twistedcaldav.vcard import Component as ABComponent
 
 from pycalendar.datetime import PyCalendarDateTime
+from txdav.common.datastore.sql_tables import schema
 
 md5key = PropertyName.fromElement(TwistedGETContentMD5)
 
@@ -219,23 +220,17 @@ class SQLStoreBuilder(object):
         cleanupTxn = storeToClean.sqlTxnFactory(
             "%s schema-cleanup" % (testCase.id(),)
         )
-        # TODO: should be getting these tables from a declaration of the schema
-        # somewhere.
-        tables = ['RESOURCE_PROPERTY',
-                  'ATTACHMENT',
-                  'NOTIFICATION_OBJECT_REVISIONS',
-                  'ADDRESSBOOK_OBJECT_REVISIONS',
-                  'CALENDAR_OBJECT_REVISIONS',
-                  'ADDRESSBOOK_OBJECT',
-                  'CALENDAR_OBJECT',
-                  'CALENDAR_BIND',
-                  'ADDRESSBOOK_BIND',
-                  'CALENDAR',
-                  'ADDRESSBOOK',
-                  'CALENDAR_HOME',
-                  'ADDRESSBOOK_HOME',
-                  'NOTIFICATION',
-                  'NOTIFICATION_HOME']
+
+        # Tables are defined in the schema in the order in which the 'create
+        # table' statements are issued, so it's not possible to reference a
+        # later table.  Therefore it's OK to drop them in the (reverse) order
+        # that they happen to be in.
+        tables = [t.name for t in schema.model.tables
+                  # All tables with rows _in_ the schema are populated
+                  # exclusively _by_ the schema and shouldn't be manipulated
+                  # while the server is running, so we leave those populated.
+                  if not t.schemaRows][::-1]
+
         for table in tables:
             try:
                 yield cleanupTxn.execSQL("delete from " + table, [])

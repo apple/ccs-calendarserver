@@ -13,11 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
-from pycalendar.datetime import PyCalendarDateTime
-from pycalendar.timezone import PyCalendarTimezone
-from pycalendar.period import PyCalendarPeriod
-import datetime
-import dateutil.tz
 
 """
 Date/time Utilities
@@ -32,6 +27,13 @@ __all__ = [
     "normalizePeriodList",
     "clipPeriod"
 ]
+
+from pycalendar.datetime import PyCalendarDateTime
+from pycalendar.timezone import PyCalendarTimezone
+from pycalendar.period import PyCalendarPeriod
+
+import datetime
+import dateutil.tz
 
 import calendar
 
@@ -258,14 +260,6 @@ def pyCalendarTodatetime(pydt):
             second=pydt.getSeconds(),
             tzinfo=dateutil.tz.tzutc()
         )
-
-SQL_TIMESTAMP_FORMAT = "%Y-%m-%d %H:%M:%S.%f"
-
-def parseSQLTimestamp(ts):
-    # Handle case where fraction seconds may not be present
-    if len(ts) < 20:
-        ts += ".0"
-    return datetime.datetime.strptime(ts, SQL_TIMESTAMP_FORMAT)
 
 def parseSQLTimestampToPyCalendar(ts):
     """

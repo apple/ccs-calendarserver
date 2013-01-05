@@ -84,11 +84,11 @@ from txdav.base.propertystore.sql import PropertyStore
 
 from txdav.common.icommondatastore import ConcurrentModification
 from twistedcaldav.customxml import NotificationType
-from twistedcaldav.dateops import datetimeMktime, parseSQLTimestamp, \
-    pyCalendarTodatetime
+from twistedcaldav.dateops import datetimeMktime, pyCalendarTodatetime
 
 from txdav.base.datastore.util import normalizeUUIDOrNot
-from twext.enterprise.queue import NullQueuer
+from twext.enterprise.queue import LocalQueuer
+from twext.enterprise.util import parseSQLTimestamp
 
 from pycalendar.datetime import PyCalendarDateTime
 
@@ -139,7 +139,7 @@ class CommonDataStore(Service, object):
     @type quota: C{int} or C{NoneType}
 
     @ivar queuer: An object with an C{enqueueWork} method, from
-        L{twext.enterprise.queue}.  Initially, this is a L{NullQueuer}, so it
+        L{twext.enterprise.queue}.  Initially, this is a L{LocalQueuer}, so it
         is always usable, but in a properly configured environment it will be
         upgraded to a more capable object that can distribute work throughout a
         cluster.
@@ -171,7 +171,7 @@ class CommonDataStore(Service, object):
         self.logSQL = logSQL
         self.logTransactionWaits = logTransactionWaits
         self.timeoutTransactions = timeoutTransactions
-        self.queuer = NullQueuer()
+        self.queuer = LocalQueuer(self.newTransaction)
         self._migrating = False
         self._enableNotifications = True
 
@@ -690,6 +690,14 @@ class CommonStoreTransaction(object):
 
     def apnSubscriptionsBySubscriber(self, guid):
         return self._apnSubscriptionsBySubscriberQuery.on(self, subscriberGUID=guid)
+
+
+    def preCommit(self, operation):
+        """
+        Run things before C{commit}.  (Note: only provided by SQL
+        implementation, used only for cleaning up database state.)
+        """
+        return self._sqlTxn.preCommit(operation)
 
 
     def postCommit(self, operation):

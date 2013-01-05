@@ -38,12 +38,6 @@ create table NODE_INFO (
   primary key (HOSTNAME, PORT)
 );
 
--- Unique named locks.  This table should always be empty, but rows are
--- temporarily created in order to prevent undesirable concurrency.
-create table NAMED_LOCK (
-    LOCK_NAME varchar(255) primary key
-);
-
 
 -------------------
 -- Calendar Home --
@@ -502,6 +496,6 @@ create table CALENDARSERVER (
   VALUE                         varchar(255)
 );
 
-insert into CALENDARSERVER values ('VERSION', '15');
+insert into CALENDARSERVER values ('VERSION', '14');
 insert into CALENDARSERVER values ('CALENDAR-DATAVERSION', '3');
 insert into CALENDARSERVER values ('ADDRESSBOOK-DATAVERSION', '1');

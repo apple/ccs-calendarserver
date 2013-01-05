@@ -54,6 +54,7 @@ from twistedcaldav.directory.test.test_xmlfile import XMLFileBase
 from txdav.caldav.icalendarstore import ICalendarHome
 from txdav.carddav.iaddressbookstore import IAddressBookHome
 
+from twisted.internet.defer import maybeDeferred
 from txdav.caldav.datastore.file import Calendar
 
 
@@ -248,8 +249,10 @@ class WrappingTests(TestCase):
                                       % (pathType, pathType))
             yield req.process()
             self.assertEquals(req.chanRequest.code, 404)
-            self.assertRaises(AlreadyFinishedError,
-                              req._newStoreTransaction.commit)
+            yield self.failUnlessFailure(
+                maybeDeferred(req._newStoreTransaction.commit),
+                AlreadyFinishedError
+            )
 
 
     @inlineCallbacks

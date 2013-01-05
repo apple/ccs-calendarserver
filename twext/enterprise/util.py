@@ -1,4 +1,4 @@
-
+# -*- test-case-name: twext.enterprise.test.test_util -*-
 ##
 # Copyright (c) 2010-2012 Apple Inc. All rights reserved.
 #
@@ -20,7 +20,21 @@ Utilities for dealing with different databases.
 """
 
 from datetime import datetime
-from twistedcaldav.dateops import SQL_TIMESTAMP_FORMAT
+
+SQL_TIMESTAMP_FORMAT = "%Y-%m-%d %H:%M:%S.%f"
+
+
+
+def parseSQLTimestamp(ts):
+    """
+    Parse an SQL timestamp string.
+    """
+    # Handle case where fraction seconds may not be present
+    if len(ts) < len(SQL_TIMESTAMP_FORMAT):
+        ts += ".0"
+    return datetime.strptime(ts, SQL_TIMESTAMP_FORMAT)
+
+
 
 def mapOracleOutputType(column):
     """

@@ -109,7 +109,22 @@ class IAsyncTransaction(ISQLExecutor):
         Commit changes caused by this transaction.
 
         @return: L{Deferred} which fires with C{None} upon successful
-            completion of this transaction.
+            completion of this transaction, or fails if this transaction could
+            not be committed.  It fails with L{AlreadyFinishedError} if the
+            transaction has already been committed or rolled back.
+        """
+
+
+    def preCommit(operation):
+        """
+        Perform the given operation when this L{IAsyncTransaction}'s C{commit}
+        method is called, but before the underlying transaction commits.  If
+        any exception is raised by this operation, underlying database commit
+        will be blocked and rollback run instead.
+
+        @param operation: a 0-argument callable that may return a L{Deferred}.
+            If it does, then the subsequent operations added by L{postCommit}
+            will not fire until that L{Deferred} fires.
         """
 
 

@@ -136,6 +136,7 @@ class DataStoreTransaction(LoggingMixIn):
     def store(self):
         return self._dataStore
 
+
     def addOperation(self, operation, name):
         self._operations.append(operation)
         self._tracker.info.append(name)
@@ -148,7 +149,7 @@ class DataStoreTransaction(LoggingMixIn):
         terminated.
 
         @param mode: The manner of the termination of this transaction.
-        
+
         @type mode: C{str}
 
         @raise AlreadyFinishedError: This transaction has already been
