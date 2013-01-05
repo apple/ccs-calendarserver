@@ -80,7 +80,10 @@ class NamedLock(Record, fromTable(LockSchema.NAMED_LOCK)):
         @return: a L{Deferred} that fires with an L{AcquiredLock} when the lock
             has fired, or fails when the lock has not been acquired.
         """
-        return cls.create(txn, lockName=name)
+        def autoRelease(self):
+            txn.preCommit(lambda: self.release(True))
+            return self
+        return cls.create(txn, lockName=name).addCallback(autoRelease)
 
 
     def release(self, ignoreAlreadyUnlocked=False):
