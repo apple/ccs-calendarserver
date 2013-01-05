@@ -113,6 +113,19 @@ class IAsyncTransaction(ISQLExecutor):
         """
 
 
+    def preCommit(operation):
+        """
+        Perform the given operation when this L{IAsyncTransaction}'s C{commit}
+        method is called, but before the underlying transaction commits.  If
+        any exception is raised by this operation, underlying database commit
+        will be blocked and rollback run instead.
+
+        @param operation: a 0-argument callable that may return a L{Deferred}.
+            If it does, then the subsequent operations added by L{postCommit}
+            will not fire until that L{Deferred} fires.
+        """
+
+
     def postCommit(operation):
         """
         Perform the given operation only after this L{IAsyncTransaction}
