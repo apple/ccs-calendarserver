@@ -202,9 +202,7 @@ class TableSyntaxByName(Argument):
 
         @param proto: an L{SchemaAMP}
         """
-        return TableSyntax(
-            proto.schema.model.tableNamed(inString.decode("UTF-8"))
-        )
+        return getattr(proto.schema, inString.decode("UTF-8"))
 
 
     def toString(self, inObject):
