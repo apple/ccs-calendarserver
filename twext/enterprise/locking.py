@@ -65,17 +65,13 @@ class NamedLock(Record, fromTable(LockSchema.NAMED_LOCK)):
     """
 
     @classmethod
-    def acquire(cls, txn, name, wait=False):
+    def acquire(cls, txn, name):
         """
         Acquire a lock with the given name.
 
         @param name: The name of the lock to acquire.  Against the same store,
             no two locks may be acquired.
         @type name: L{unicode}
-
-        @param wait: Whether or not to wait for the lock.  If L{True}, the
-            L{Deferred} returned by L{lock} make some time to fire; if
-            L{False}, it should quickly fail instead.
 
         @return: a L{Deferred} that fires with an L{AcquiredLock} when the lock
             has fired, or fails when the lock has not been acquired.
