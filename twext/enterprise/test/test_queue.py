@@ -1,4 +1,5 @@
 ##
+from twext.enterprise.dal.record import Record
 # Copyright (c) 2012 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -21,6 +22,10 @@ Tests for L{twext.enterprise.queue}.
 import datetime
 
 # TODO: There should be a store-building utility within twext.enterprise.
+from twext.enterprise.queue import SchemaAMP
+from twisted.test.proto_helpers import StringTransportWithDisconnection
+from twext.enterprise.queue import TableSyntaxByName
+from twisted.protocols.amp import Command
 from txdav.common.datastore.test.util import buildStore
 
 from twext.enterprise.dal.syntax import SchemaSyntax
@@ -34,7 +39,6 @@ from twisted.internet.defer import Deferred, inlineCallbacks, gatherResults, pas
 
 from twisted.application.service import Service, MultiService
 
-from twext.enterprise.dal.syntax import Insert
 from twext.enterprise.queue import ImmediatePerformer, _IWorkPerformer
 from twext.enterprise.queue import WorkerConnectionPool
 from zope.interface.verify import verifyObject
@@ -105,21 +109,67 @@ dropSQL = ["drop table {name}".format(name=table.model.name)
            for table in schema]
 
 
+class DummyWorkDone(Record, fromTable(schema.DUMMY_WORK_DONE)):
+    """
+    Work result.
+    """
+
+
 
 class DummyWorkItem(WorkItem, fromTable(schema.DUMMY_WORK_ITEM)):
     """
     Sample L{WorkItem} subclass that adds two integers together and stores them
     in another table.
     """
-    group = None
 
     def doWork(self):
-        # Perform the work.
-        result = self.a + self.b
-        # Store the result.
-        return (Insert({schema.DUMMY_WORK_DONE.WORK_ID: self.workID,
-                        schema.DUMMY_WORK_DONE.A_PLUS_B: result})
-                .on(self.transaction))
+        return DummyWorkDone.create(self.transaction, workID=self.workID,
+                                    aPlusB=self.a + self.b)
+
+
+
+class SchemaAMPTests(TestCase):
+    """
+    Tests for L{SchemaAMP} faithfully relaying tables across the wire.
+    """
+
+    def test_sendTableWithName(self):
+        """
+        You can send a reference to a table through a L{SchemaAMP} via
+        L{TableSyntaxByName}.
+        """
+        client = SchemaAMP(schema)
+        class SampleCommand(Command):
+            arguments = [('table', TableSyntaxByName())]
+        class Receiver(SchemaAMP):
+            @SampleCommand.responder
+            def gotIt(self, table):
+                self.it = table
+                return {}
+        server = Receiver(schema)
+        clientT = StringTransport()
+        serverT = StringTransport()
+        client.makeConnection(clientT)
+        server.makeConnection(serverT)
+        client.callRemote(SampleCommand, table=schema.DUMMY_WORK_ITEM)
+        server.dataReceived(clientT.io.getvalue())
+        self.assertEqual(server.it, schema.DUMMY_WORK_ITEM)
+
+
+
+
+class WorkItemTests(TestCase):
+    """
+    A L{WorkItem} is an item of work that can be executed.
+    """
+
+    def test_forTable(self):
+        """
+        L{WorkItem.forTable} returns L{WorkItem} subclasses mapped to the given
+        table.
+        """
+        self.assertIdentical(WorkItem.forTable(schema.DUMMY_WORK_ITEM),
+                             DummyWorkItem)
 
 
 

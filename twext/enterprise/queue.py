@@ -87,7 +87,7 @@ from zope.interface import implements
 from twisted.application.service import MultiService
 from twisted.internet.protocol import Factory
 from twisted.internet.defer import (
-    inlineCallbacks, returnValue, Deferred, succeed
+    inlineCallbacks, returnValue, Deferred
 )
 from twisted.internet.endpoints import TCP4ClientEndpoint
 from twisted.protocols.amp import AMP, Command, Integer, Argument, String
@@ -371,11 +371,13 @@ class WorkItem(Record):
         @return: the relevant subclass
         @rtype: L{type}
         """
+        tableName = table.model.name
         for subcls in cls.__subclasses__():
-            if table == getattr(subcls, "table", None):
+            clstable = getattr(subcls, "table", None)
+            if table == clstable:
                 return subcls
         raise KeyError("No mapped {0} class for {1}.".format(
-            cls, table
+            cls, tableName
         ))
 
 
@@ -473,7 +475,6 @@ class ConnectionFromPeerNode(SchemaAMP):
         @see: L{AMP.__init__}
         """
         self.peerPool = peerPool
-        self.localWorkerPool = peerPool.workerPool
         self._bonusLoad = 0
         self._reportedLoad = 0
         super(ConnectionFromPeerNode, self).__init__(peerPool.schema,
@@ -484,8 +485,7 @@ class ConnectionFromPeerNode(SchemaAMP):
         """
         Report the current load for the local worker pool to this peer.
         """
-        return self.callRemote(ReportLoad,
-                               load=self.localWorkerPool.totalLoad())
+        return self.callRemote(ReportLoad, load=self.totalLoad())
 
 
     @ReportLoad.responder
@@ -559,7 +559,7 @@ class ConnectionFromPeerNode(SchemaAMP):
 
         @return: a L{Deferred} that fires when the work has been completed.
         """
-        return self.localWorkerPool.performWork(table, workID)
+        return self.peerPool.performWorkForPeer(table, workID)
 
 
     @IdentifyNode.responder
@@ -611,7 +611,7 @@ class WorkerConnectionPool(object):
         return False
 
 
-    def totalLoad(self):
+    def allWorkerLoad(self):
         """
         The total load of all currently connected workers.
         """
@@ -654,15 +654,12 @@ class ConnectionFromWorker(SchemaAMP):
     """
     An individual connection from a worker, as seem from the master's
     perspective.  L{ConnectionFromWorker}s go into a L{WorkerConnectionPool}.
-
-    @ivar workerPool: The connection pool that this individual connection is
-        participating in.
-    @type workerPool: L{WorkerConnectionPool}
     """
 
-    def __init__(self, schema, workerPool, boxReceiver=None, locator=None):
-        self.workerPool = workerPool
-        super(ConnectionFromWorker, self).__init__(schema, boxReceiver, locator)
+    def __init__(self, peerPool, boxReceiver=None, locator=None):
+        super(ConnectionFromWorker, self).__init__(peerPool.schema, boxReceiver,
+                                                   locator)
+        self.peerPool = peerPool
         self._load = 0
 
 
@@ -680,7 +677,7 @@ class ConnectionFromWorker(SchemaAMP):
         state.
         """
         result = super(ConnectionFromWorker, self).startReceivingBoxes(sender)
-        self.workerPool.addWorker(self)
+        self.peerPool.workerPool.addWorker(self)
         return result
 
 
@@ -689,7 +686,7 @@ class ConnectionFromWorker(SchemaAMP):
         AMP boxes will no longer be received.
         """
         result = super(ConnectionFromWorker, self).stopReceivingBoxes(reason)
-        self.workerPool.removeWorker(self)
+        self.peerPool.workerPool.removeWorker(self)
         return result
 
 
@@ -1075,13 +1072,16 @@ class PeerConnectionPool(MultiService, object):
         self.peers.append(peer)
 
 
+    def totalLoad(self):
+        return self.workerPool.allWorkerLoad()
+
+
     def workerListenerFactory(self):
         """
         Factory that listens for connections from workers.
         """
         f = Factory()
-        f.buildProtocol = lambda addr: ConnectionFromWorker(self.schema,
-                                                            self.workerPool)
+        f.buildProtocol = lambda addr: ConnectionFromWorker(self)
         return f
 
 
@@ -1092,7 +1092,7 @@ class PeerConnectionPool(MultiService, object):
         self.peers.remove(peer)
 
 
-    def choosePerformer(self):
+    def choosePerformer(self, onlyLocally=False):
         """
         Choose a peer to distribute work to based on the current known slot
         occupancy of the other nodes.  Note that this will prefer distributing
@@ -1106,10 +1106,18 @@ class PeerConnectionPool(MultiService, object):
         """
         if self.workerPool.hasAvailableCapacity():
             return self.workerPool
-        if self.peers:
+        if self.peers and not onlyLocally:
             return sorted(self.peers, lambda p: p.currentLoadEstimate())[0]
         else:
             return ImmediatePerformer(self.transactionFactory)
+
+
+    def performWorkForPeer(self, table, workID):
+        """
+        A peer has requested us to perform some work; choose a work performer
+        local to this node, and then execute it.
+        """
+        return self.choosePerformer(onlyLocally=True).performWork(table, workID)
 
 
     def enqueueWork(self, txn, workItemType, **kw):
