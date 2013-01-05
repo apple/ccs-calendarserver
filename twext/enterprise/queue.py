@@ -228,15 +228,60 @@ def abstract(thunk):
 
 class WorkItem(Record):
     """
-    An item of work.
+    A L{WorkItem} is an item of work which may be stored in a database, then
+    executed later.
 
-    @ivar workID: the unique identifier (primary key) for items of this type.
-        There must be a corresponding column in the database.
-    @type workID: L{int}
+    L{WorkItem} is an abstract class, since it is a L{Record} with no table
+    associated via L{fromTable}.  Concrete subclasses must associate a specific
+    table by inheriting like so::
 
-    @cvar created: the timestamp that a given item was created, or the column
-        describing its creation time, on the class.
-    @type created: L{datetime.datetime}
+        class MyWorkItem(WorkItem, fromTable(schema.MY_TABLE)):
+
+    Concrete L{WorkItem}s should generally not be created directly; they are
+    both created and thereby implicitly scheduled to be executed by calling
+    L{enqueueWork <twext.enterprise.ienterprise.IQueuer.enqueueWork>} with the
+    appropriate L{WorkItem} concrete subclass.  There are different queue
+    implementations (L{PeerConnectionPool} and L{NullQueuer}, for example), so
+    the exact timing and location of the work execution may differ.
+
+    L{WorkItem}s may be constrained in the ordering and timing of their
+    execution, to control concurrency and for performance reasons repsectively.
+
+    Although all the usual database mutual-exclusion rules apply to work
+    executed in L{WorkItem.doWork}, locking is not always the best way to
+    manage concurrency.  Quite often the L{WorkItem}s that affect a particular
+    logical object (such as a user, or an account), and those that affect the
+    same logical object should not be run concurrently with each other, but
+    those that affect different objects can be run with any level of
+    concurrency without interfering.
+
+    To accomplish this sort of isolation, simply set the C{group} attribute on
+    your L{WorkItem} class.
+
+    @cvar workID: the unique identifier (primary key) for items of this type.
+        On an instance of a concrete L{WorkItem} subclass, this attribute must
+        be an integer; on the concrete L{WorkItem} subclass itself, this
+        attribute must be a L{twext.enterprise.dal.syntax.ColumnSyntax}.  Note
+        that this is automatically taken care of if you simply have a
+        corresponding C{work_id} column in the associated L{fromTable} on your
+        L{WorkItem} subclass.  This column must be unique, and it must be an
+        integer.  In almost all cases, this column really ought to be filled
+        out by a database-defined sequence; if not, you need some other
+        mechanism for establishing a cluster-wide sequence.
+    @type workID: L{int} on instance,
+        L{twext.enterprise.dal.syntax.ColumnSyntax} on class.
+
+    @cvar notBefore: the timestamp before which this item should I{not} be
+        processed.  If unspecified, this should be the date and time of the
+        creation of the L{WorkItem}.
+    @type notBefore: L{datetime.datetime} on instance,
+        L{twext.enterprise.dal.syntax.ColumnSyntax} on class.
+
+    @cvar group: If not C{None}.
+    @type group: any type on the instance,
+        L{twext.enterprise.dal.syntax.ExpressionSyntax} naming one or more
+        L{twext.enterprise.dal.syntax.ColumnSyntax}es on the class (in other
+        words,: a L{ColumnSyntax} or a L{Tuple}).
     """
 
     @abstract
@@ -775,7 +820,7 @@ class WorkProposal(object):
         commit, and asking the local node controller process to do the work.
         """
         @passthru(self.workItemType.create(self.txn, **self.kw).addCallback)
-        def created(item):
+        def whenCreated(item):
             self._whenProposed.callback(None)
             @self.txn.postCommit
             def whenDone():
@@ -1054,7 +1099,12 @@ class PeerConnectionPool(MultiService, object):
             for itemType in self.allWorkItemTypes():
                 for overdueItem in (
                         yield itemType.query(
-                            txn, itemType.created > self.queueProcessTimeout
+                            txn,
+                            (itemType.notBefore >
+                             datetime.datetime.utcfromtimestamp(
+                                self.reactor.seconds () +
+                                self.queueProcessTimeout
+                            ))
                     )):
                     peer = yield self.choosePerformer()
                     yield peer.performWork(overdueItem.table,
