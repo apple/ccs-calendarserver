@@ -275,15 +275,36 @@ class WorkItem(Record):
     execution, to control concurrency and for performance reasons repsectively.
 
     Although all the usual database mutual-exclusion rules apply to work
-    executed in L{WorkItem.doWork}, locking is not always the best way to
-    manage concurrency.  Quite often the L{WorkItem}s that affect a particular
-    logical object (such as a user, or an account), and those that affect the
-    same logical object should not be run concurrently with each other, but
-    those that affect different objects can be run with any level of
-    concurrency without interfering.
+    executed in L{WorkItem.doWork}, implicit database row locking is not always
+    the best way to manage concurrency.  They have some problems, including:
 
-    To accomplish this sort of isolation, simply set the C{group} attribute on
-    your L{WorkItem} class.
+        - implicit locks are easy to accidentally acquire out of order, which
+          can lead to deadlocks
+
+        - implicit locks are easy to forget to acquire correctly - for example,
+          any read operation which subsequently turns into a write operation
+          must have been acquired with C{Select(..., ForUpdate=True)}, but it
+          is difficult to consistently indicate that methods which abstract out
+          read operations must pass this flag in certain cases and not others.
+
+        - implicit locks are held until the transaction ends, which means that
+          if expensive (long-running) queue operations share the same lock with
+          cheap (short-running) queue operations or user interactions, the
+          cheap operations all have to wait for the expensive ones to complete,
+          but continue to consume whatever database resources they were using.
+
+    In order to ameliorate these problems with potentiallly concurrent work
+    that uses the same resources, L{WorkItem} provides a database-wide mutex
+    that is automatically acquired at the beginning of the transaction and
+    released at the end.  To use it, simply L{align
+    <twext.enterprise.dal.record.Record.namingConvention>} the C{group}
+    attribute on your L{WorkItem} subclass with a column holding a string
+    (varchar).  L{WorkItem} subclasses with the same value for C{group} will
+    not execute their C{doWork} methods concurrently.  Furthermore, if the lock
+    cannot be quickly acquired, database resources associated with the
+    transaction attempting it will be released, and the transaction rolled back
+    until a future transaction I{can} can acquire it quickly.  If you do not
+    want any limits to concurrency, simply leave it set to C{None}.
 
     In some applications it's possible to coalesce work together; to grab
     multiple L{WorkItem}s in one C{doWork} transaction.  All you need to do is
@@ -319,11 +340,9 @@ class WorkItem(Record):
     @type notBefore: L{datetime.datetime} on instance,
         L{twext.enterprise.dal.syntax.ColumnSyntax} on class.
 
-    @cvar group: If not C{None}.
-    @type group: any type on the instance,
-        L{twext.enterprise.dal.syntax.ExpressionSyntax} naming one or more
-        L{twext.enterprise.dal.syntax.ColumnSyntax}es on the class (in other
-        words,: a L{ColumnSyntax} or a L{Tuple}).
+    @ivar group: If specified, the name of the mutual exclusion.
+    @type group: L{unicode} on instance,
+        L{twext.enterprise.dal.syntax.ColumnSyntax} on class.
     """
 
     @abstract
