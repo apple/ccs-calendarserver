@@ -328,7 +328,8 @@ class PeerConnectionPoolUnitTests(TestCase):
         # An arbitrary point in time.
         fakeNow = datetime.datetime(2012, 12, 12, 12, 12, 12)
         # *why* does datetime still not have .astimestamp()
-        sinceEpoch = (fakeNow - datetime.datetime.utcfromtimestamp(0)).seconds
+        sinceEpoch = ((fakeNow - datetime.datetime.utcfromtimestamp(0))
+                      .total_seconds())
         clock = Clock()
         clock.advance(sinceEpoch)
         qpool = PeerConnectionPool(clock, dbpool.connection, 0, schema)
