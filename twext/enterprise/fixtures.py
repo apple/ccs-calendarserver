@@ -35,6 +35,10 @@ def buildConnectionPool(testCase, schemaText="", dialect=SQLITE_DIALECT):
     @param schemaText: The text of the schema with which to initialize the
         database.
     @type schemaText: L{str}
+
+    @return: a L{ConnectionPool} service whose C{startService} method has
+        already been invoked.
+    @rtype: L{ConnectionPool}
     """
     sqlitename = testCase.mktemp()
     seqs = {}
