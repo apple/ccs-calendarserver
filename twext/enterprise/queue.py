@@ -1401,7 +1401,7 @@ class LocalQueuer(object):
 
     def enqueueWork(self, txn, workItemType, **kw):
         """
-        Do this work immediately.
+        Do this work in the local process.
 
         @see: L{PeerConnectionPool.enqueueWork}
 
