@@ -177,7 +177,9 @@ class TableSyntaxByName(Argument):
 
         @param proto: an L{SchemaAMP}
         """
-        return TableSyntax(proto.schema.tableNamed(inString.decode("UTF-8")))
+        return TableSyntax(
+            proto.schema.model.tableNamed(inString.decode("UTF-8"))
+        )
 
 
     def toString(self, inObject):
@@ -605,7 +607,9 @@ class WorkerConnectionPool(object):
             complete.
         @rtype: L{Deferred} firing L{dict}
         """
-        return self._selectLowestLoadWorker().performWork(table, workID)
+        preferredWorker = self._selectLowestLoadWorker()
+        result = preferredWorker.performWork(table, workID)
+        return result
 
 
 
@@ -699,7 +703,7 @@ class ConnectionFromController(SchemaAMP):
         C{self}, since C{self} is also an object that has a C{performWork}
         method.
         """
-        return succeed(self)
+        return self
 
 
     def performWork(self, table, workID):
@@ -738,18 +742,60 @@ class ConnectionFromController(SchemaAMP):
         process has instructed this worker to do it; so, look up the data in
         the row, and do it.
         """
-        @inlineCallbacks
-        def work(txn):
-            workItemClass = WorkItem.forTable(table)
-            workItem = yield workItemClass.load(txn, workID)
-            # TODO: what if we fail?  error-handling should be recorded
-            # someplace, the row should probably be marked, re-tries should be
-            # triggerable administratively.
-            yield workItem.delete()
-            # TODO: verify that workID is the primary key someplace.
-            yield workItem.doWork()
-            returnValue({})
-        return inTransaction(self.transactionFactory, work)
+        return (ultimatelyPerform(self.transactionFactory, table, workID)
+                .addCallback(lambda ignored: {}))
+
+
+
+def ultimatelyPerform(txnFactory, table, workID):
+    """
+    Eventually, after routing the work to the appropriate place, somebody
+    actually has to I{do} it.
+
+    @param txnFactory: a 0- or 1-argument callable that creates an
+        L{IAsyncTransaction}
+    @type txnFactory: L{callable}
+
+    @param table: the table object that corresponds to the necessary work item
+    @type table: L{twext.enterprise.dal.syntax.TableSyntax}
+
+    @param workID: the ID of the work to be performed
+    @type workID: L{int}
+
+    @return: a L{Deferred} which fires with C{None} when the work has been
+        performed, or fails if the work can't be performed.
+    """
+    @inlineCallbacks
+    def work(txn):
+        workItemClass = WorkItem.forTable(table)
+        workItem = yield workItemClass.load(txn, workID)
+        # TODO: what if we fail?  error-handling should be recorded someplace,
+        # the row should probably be marked, re-tries should be triggerable
+        # administratively.
+        yield workItem.delete()
+        # TODO: verify that workID is the primary key someplace.
+        yield workItem.doWork()
+    return inTransaction(txnFactory, work)
+
+
+
+class ImmediatePerformer(object):
+    """
+    Implementor of C{performWork} that does its work immediately, regardless.
+    """
+
+    def __init__(self, txnFactory):
+        """
+        Create this L{ImmediatePerformer} with a transaction factory.
+        """
+        self.txnFactory = txnFactory
+
+
+    def performWork(self, table, workID):
+        """
+        Perform the given work right now.
+        """
+        return ultimatelyPerform(self.txnFactory, table, workID)
 
 
 
@@ -840,17 +886,14 @@ class WorkProposal(object):
             @self.txn.postCommit
             def whenDone():
                 self._whenCommitted.callback(None)
-                @passthru(self.pool.choosePerformer().addCallback)
-                def performerChosen(performer):
-                    @passthru(performer.performWork(item.table, item.workID))
-                    def performed(result):
-                        self._whenExecuted.callback(None)
-                    @performed.addErrback
-                    def notPerformed(why):
-                        self._whenExecuted.errback(why)
-                @performerChosen.addErrback
-                def notChosen(whyNot):
-                    self._whenExecuted.errback(whyNot)
+                performer = self.pool.choosePerformer()
+                @passthru(performer.performWork(item.table, item.workID)
+                          .addCallback)
+                def performed(result):
+                    self._whenExecuted.callback(None)
+                @performed.addErrback
+                def notPerformed(why):
+                    self._whenExecuted.errback(why)
             @self.txn.postAbort
             def whenFailed():
                 self._whenCommitted.errback(TransactionFailed)
@@ -1027,10 +1070,12 @@ class PeerConnectionPool(MultiService, object):
         @rtype: L{Deferred <twisted.internet.defer.Deferred>} firing
             L{ConnectionFromPeerNode} or L{WorkerConnectionPool}
         """
-        if not self.workerPool.hasAvailableCapacity() and self.peers:
+        if self.workerPool.hasAvailableCapacity():
+            return succeed(self.workerPool)
+        if self.peers:
             return sorted(self.peers, lambda p: p.currentLoadEstimate())[0]
         else:
-            return succeed(self.workerPool)
+            return ImmediatePerformer(self.transactionFactory)
 
 
     def enqueueWork(self, txn, workItemType, **kw):
@@ -1121,7 +1166,7 @@ class PeerConnectionPool(MultiService, object):
                                 self.queueProcessTimeout
                             ))
                     )):
-                    peer = yield self.choosePerformer()
+                    peer = self.choosePerformer()
                     yield peer.performWork(overdueItem.table,
                                            overdueItem.workID)
         return inTransaction(self.transactionFactory, workCheck)

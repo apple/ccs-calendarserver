@@ -35,6 +35,7 @@ from twisted.internet.defer import Deferred, inlineCallbacks, gatherResults, pas
 from twisted.application.service import Service, MultiService
 
 from twext.enterprise.dal.syntax import Insert
+from twext.enterprise.queue import ImmediatePerformer
 
 from twext.enterprise.dal.syntax import Select
 class UtilityTests(TestCase):
@@ -89,7 +90,8 @@ class SimpleSchemaHelper(SchemaTestHelper):
 SQL = passthru
 
 schemaText = SQL("""
-    create table DUMMY_WORK_ITEM (WORK_ID integer, NOT_BEFORE timestamp,
+    create table DUMMY_WORK_ITEM (WORK_ID integer primary key,
+                                  NOT_BEFORE timestamp,
                                   A integer, B integer);
     create table DUMMY_WORK_DONE (WORK_ID integer, A_PLUS_B integer);
 """)
@@ -115,6 +117,31 @@ class DummyWorkItem(WorkItem, fromTable(schema.DUMMY_WORK_ITEM)):
         return (Insert({schema.DUMMY_WORK_DONE.WORK_ID: self.workID,
                         schema.DUMMY_WORK_DONE.A_PLUS_B: result})
                 .on(self.transaction))
+
+
+
+class WorkerConnectionPoolTests(TestCase):
+    """
+    A L{WorkerConnectionPool} is responsible for managing, in a node's
+    controller (master) process, the collection of worker (slave) processes
+    that are capable of executing queue work.
+    """
+
+
+class PeerConnectionPoolUnitTests(TestCase):
+    """
+    L{PeerConnectionPool} has many internal components.
+    """
+
+    def test_choosingPerformerWhenNoPeersAndNoWorkers(self):
+        """
+        If L{PeerConnectionPool.choosePerformer} is invoked when no workers
+        have spawned and no peers have established connections (either incoming
+        or outgoing), then it chooses an implementation of C{performWork} that
+        simply executes the work locally.
+        """
+        pcp = PeerConnectionPool(None, None, 4321, schema)
+        self.assertIsInstance(pcp.choosePerformer(), ImmediatePerformer)
 
 
 
@@ -202,6 +229,6 @@ class PeerConnectionPoolIntegrationTests(TestCase):
                            schema.DUMMY_WORK_DONE.A_PLUS_B],
                            From=schema.DUMMY_WORK_DONE).on(txn)
         rows = yield inTransaction(self.store.newTransaction, op2)
-        self.assertEquals(rows, [(3421, 7)])
+        self.assertEquals(rows, [[4321, 7]])
 
 
