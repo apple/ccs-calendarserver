@@ -282,7 +282,7 @@ class Record(object):
 
 
     @classmethod
-    def query(cls, transaction, expr, order=None, ascending=True):
+    def query(cls, transaction, expr, order=None, ascending=True, group=None):
         """
         Query the table that corresponds to C{cls}, and return instances of
         C{cls} corresponding to the rows that are returned from that table.
@@ -297,10 +297,15 @@ class Record(object):
 
         @param ascending: A boolean; if C{order} is not C{None}, whether to
             sort in ascending or descending order.
+
+        @param group: a L{ColumnSyntax} to group the resulting record objects
+            by.
         """
         kw = {}
         if order is not None:
             kw.update(OrderBy=order, Ascending=ascending)
+        if group is not None:
+            kw.update(GroupBy=group)
         return cls._rowsFromQuery(transaction, Select(list(cls.table),
                                                       From=cls.table,
                                                       Where=expr, **kw), None)
