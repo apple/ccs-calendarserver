@@ -78,9 +78,7 @@ Such an application might be implemented with this queueing system like so::
             queuer.enqueueWork(txn, CouponWork, customerID=customerID)
 """
 
-from socket import getfqdn
 from functools import wraps
-from os import getpid
 from datetime import datetime
 
 from zope.interface import implements
@@ -301,13 +299,16 @@ class ReportLoad(Command):
     response = []
 
 
+
 class IdentifyNode(Command):
     """
     Identify this node to its peer.  The connector knows which hostname it's
     looking for, and which hostname it considers itself to be, only the
     initiator (not the listener) issues this command.  This command is
-    necessary because if reverse DNS isn't set up perfectly, the listener may
-    not be able to identify its peer.
+    necessary because we don't want to rely on DNS; if reverse DNS weren't set
+    up perfectly, the listener would not be able to identify its peer, and it
+    is easier to modify local configuration so that L{socket.getfqdn} returns
+    the right value than to ensure that DNS doesself.
     """
 
     arguments = [
@@ -335,16 +336,32 @@ class ConnectionFromPeerNode(SchemaAMP):
     """
     A connection to a peer node.  Symmetric; since the 'client' and the
     'server' both serve the same role, the logic is the same in every node.
+
+    @ivar localWorkerPool: the pool of local worker procesess that can process
+        queue work.
+    @type localWorkerPool: L{WorkerConnectionPool}
+
+    @ivar _reportedLoad: The number of outstanding requests being processed by
+        the peer of this connection, from all requestors (both the host of this
+        connection and others), as last reported by the most recent
+        L{ReportLoad} message received from the peer.
+    @type _reportedLoad: L{int}
+
+    @ivar _bonusLoad: The number of additional outstanding requests being
+        processed by the peer of this connection; the number of requests made
+        by the host of this connection since the last L{ReportLoad} message.
+    @type _bonusLoad: L{int}
     """
 
     def __init__(self, peerPool, boxReceiver=None, locator=None):
         """
-        Initialize this L{ConnectionFromPeerNode} with a reference to a pool of
-        local workers.
+        Initialize this L{ConnectionFromPeerNode} with a reference to a
+        L{PeerConnectionPool}, as well as required initialization arguments for
+        L{AMP}.
 
-        @param localWorkerPool: the pool of local worker procesess that can
-            process queue work.
-        @type localWorkerPool: L{WorkerConnectionPool}
+        @param peerPool: the connection pool within which this
+            L{ConnectionFromPeerNode} is a participant.
+        @type peerPool: L{PeerConnectionPool}
 
         @see: L{AMP.__init__}
         """
@@ -365,7 +382,7 @@ class ConnectionFromPeerNode(SchemaAMP):
 
 
     @ReportLoad.responder
-    def repotedLoad(self, load):
+    def reportedLoad(self, load):
         """
         The peer reports its load.
         """
@@ -632,9 +649,9 @@ class ConnectionFromController(SchemaAMP):
 
     def enqueueWork(self, txn, workItemType, **kw):
         """
-        There is some work to do.  Do it, someplace else, ideally in parallel.
-        Later, let the caller know that the work has been completed by firing a
-        L{Deferred}.
+        There is some work to do.  Do it, ideally someplace else, ideally in
+        parallel.  Later, let the caller know that the work has been completed
+        by firing a L{Deferred}.
 
         @param workItemType: The type of work item to be enqueued.
         @type workItemType: A subtype of L{WorkItem}
@@ -865,6 +882,8 @@ class PeerConnectionPool(Service, object):
     """
     implements(IQueuer)
 
+    from socket import getfqdn
+    from os import getpid
     getfqdn = staticmethod(getfqdn)
     getpid = staticmethod(getpid)
 
