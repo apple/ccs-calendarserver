@@ -32,6 +32,9 @@ from twext.enterprise.dal.syntax import Parameter
 from twext.enterprise.dal.syntax import Select, Count, ColumnSyntax
 from twext.enterprise.dal.syntax import Update
 from twext.enterprise.dal.syntax import utcNowSQL
+
+from twext.enterprise.util import parseSQLTimestamp
+
 from twext.python.clsprop import classproperty
 from twext.python.filepath import CachingFilePath
 from twext.python.vcomponent import VComponent
@@ -45,7 +48,7 @@ from twistedcaldav import caldavxml, customxml
 from twistedcaldav.caldavxml import ScheduleCalendarTransp, Opaque
 from twistedcaldav.config import config
 from twistedcaldav.dateops import normalizeForIndex, datetimeMktime, \
-    parseSQLTimestamp, pyCalendarTodatetime, parseSQLDateToPyCalendar
+    pyCalendarTodatetime, parseSQLDateToPyCalendar
 from twistedcaldav.ical import Component, InvalidICalendarDataError, Property
 from twistedcaldav.instance import InvalidOverriddenInstanceError
 from twistedcaldav.memcacher import Memcacher

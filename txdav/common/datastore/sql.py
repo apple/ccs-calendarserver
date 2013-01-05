@@ -84,11 +84,11 @@ from txdav.base.propertystore.sql import PropertyStore
 
 from txdav.common.icommondatastore import ConcurrentModification
 from twistedcaldav.customxml import NotificationType
-from twistedcaldav.dateops import datetimeMktime, parseSQLTimestamp, \
-    pyCalendarTodatetime
+from twistedcaldav.dateops import datetimeMktime, pyCalendarTodatetime
 
 from txdav.base.datastore.util import normalizeUUIDOrNot
 from twext.enterprise.queue import NullQueuer
+from twext.enterprise.util import parseSQLTimestamp
 
 from pycalendar.datetime import PyCalendarDateTime
 
