@@ -1,6 +1,4 @@
 ##
-from twext.enterprise.dal.record import fromTable
-from twext.enterprise.queue import WorkItem
 # Copyright (c) 2012 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -10,7 +8,6 @@ from twext.enterprise.queue import WorkItem
 # http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
-from twext.enterprise.dal.syntax import SchemaSyntax
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
@@ -21,13 +18,19 @@ from twext.enterprise.dal.syntax import SchemaSyntax
 Tests for L{twext.enterprise.queue}.
 """
 
-from twisted.trial.unittest import TestCase
-from twisted.internet.defer import Deferred, inlineCallbacks
+from twext.enterprise.dal.syntax import SchemaSyntax
+from twext.enterprise.dal.record import fromTable
+from twext.enterprise.dal.test.test_parseschema import SchemaTestHelper
 
-from twext.enterprise.queue import inTransaction, PeerConnectionPool
+from twext.enterprise.queue import inTransaction, PeerConnectionPool, WorkItem
+
+from twisted.trial.unittest import TestCase
+from twisted.internet.defer import Deferred, inlineCallbacks, gatherResults
+
+from twisted.application.service import Service, MultiService
+
 
 from txdav.common.datastore.test.util import buildStore
-from twext.enterprise.dal.test.test_parseschema import SchemaTestHelper
 
 class UtilityTests(TestCase):
     """
@@ -89,7 +92,7 @@ class DummyWorkItem(WorkItem, fromTable(schema.DUMMY_WORK_ITEM)):
 
 
 
-class PeerConnectionPoolTests(TestCase):
+class PeerConnectionPoolIntegrationTests(TestCase):
     """
     L{PeerConnectionPool} is the service responsible for coordinating
     eventually-consistent task queuing within a cluster.
@@ -100,20 +103,51 @@ class PeerConnectionPoolTests(TestCase):
         """
         L{PeerConnectionPool} requires access to a database and the reactor.
         """
-        store = yield buildStore(self, None)
+        self.store = yield buildStore(self, None)
         def doit(txn):
             return txn.execSQL(schemaText)
-        yield inTransaction(lambda: store.newTransaction("bonus schema"), doit)
+        yield inTransaction(lambda: self.store.newTransaction("bonus schema"),
+                            doit)
         def deschema():
             def deletestuff(txn):
                 return txn.execSQL("drop table DUMMY_WORK_ITEM")
-            return inTransaction(store.newTransaction, deletestuff)
+            return inTransaction(self.store.newTransaction, deletestuff)
         self.addCleanup(deschema)
 
+        from twisted.internet import reactor
+        self.node1 = PeerConnectionPool(
+            reactor, self.store.newTransaction, 0, schema)
+        self.node2 = PeerConnectionPool(
+            reactor, self.store.newTransaction, 0, schema)
 
-    def test_nothing(self):
+        class FireMeService(Service, object):
+            def __init__(self, d):
+                super(FireMeService, self).__init__()
+                self.d = d
+            def startService(self):
+                self.d.callback(None)
+        d1 = Deferred()
+        d2 = Deferred()
+        FireMeService(d1).setServiceParent(self.node1)
+        FireMeService(d2).setServiceParent(self.node2)
+        ms = MultiService()
+        self.node1.setServiceParent(ms)
+        self.node2.setServiceParent(ms)
+        ms.startService()
+        self.addCleanup(ms.stopService)
+        yield gatherResults([d1, d2])
+
+
+    def test_currentNodeInfo(self):
         """
-        Just making sure that setup can run.
+        There will be two C{NODE_INFO} rows in the database, retrievable as two
+        L{NodeInfo} objects, once both nodes have started up.
         """
+        @inlineCallbacks
+        def check(txn):
+            self.assertEquals(len((yield self.node1.activeNodes(txn))), 2)
+            self.assertEquals(len((yield self.node2.activeNodes(txn))), 2)
+        return inTransaction(self.store.newTransaction, check)
+
 
 
