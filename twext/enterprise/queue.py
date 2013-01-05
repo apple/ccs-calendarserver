@@ -344,10 +344,12 @@ class WorkItem(Record):
     @type notBefore: L{datetime.datetime} on instance,
         L{twext.enterprise.dal.syntax.ColumnSyntax} on class.
 
-    @ivar group: If specified, the name of the mutual exclusion.
-    @type group: L{unicode} on instance,
-        L{twext.enterprise.dal.syntax.ColumnSyntax} on class.
+    @ivar group: If not C{None}, a unique-to-the-database identifier for which
+        only one L{WorkItem} will execute at a time.
+    @type group: L{unicode} or L{NoneType}
     """
+
+    group = None
 
     @abstract
     def doWork(self):
