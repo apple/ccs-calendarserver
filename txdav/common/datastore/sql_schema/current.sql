@@ -38,6 +38,12 @@ create table NODE_INFO (
   primary key (HOSTNAME, PORT)
 );
 
+-- Unique named locks.  This table should always be empty, but rows are
+-- temporarily created in order to prevent undesirable concurrency.
+create table NAMED_LOCK (
+    LOCK_NAME varchar(255) primary key
+);
+
 
 -------------------
 -- Calendar Home --
