@@ -541,6 +541,9 @@ class ConnectionFromPeerNode(SchemaAMP):
         def performed(result):
             self._bonusLoad -= 1
             return result
+        @d.addCallback
+        def success(result):
+            return None
         return d
 
 
@@ -558,7 +561,9 @@ class ConnectionFromPeerNode(SchemaAMP):
 
         @return: a L{Deferred} that fires when the work has been completed.
         """
-        return self.peerPool.performWorkForPeer(table, workID)
+        return self.peerPool.performWorkForPeer(table, workID).addCallback(
+            lambda ignored: {}
+        )
 
 
     @IdentifyNode.responder
