@@ -272,7 +272,7 @@ class WorkItem(Record):
     both created and thereby implicitly scheduled to be executed by calling
     L{enqueueWork <twext.enterprise.ienterprise.IQueuer.enqueueWork>} with the
     appropriate L{WorkItem} concrete subclass.  There are different queue
-    implementations (L{PeerConnectionPool} and L{NullQueuer}, for example), so
+    implementations (L{PeerConnectionPool} and L{LocalQueuer}, for example), so
     the exact timing and location of the work execution may differ.
 
     L{WorkItem}s may be constrained in the ordering and timing of their
@@ -899,9 +899,9 @@ class WorkProposal(object):
     A L{WorkProposal} is a proposal for work that will be executed, perhaps on
     another node, perhaps in the future.
 
-    @ivar pool: the connection pool which this L{WorkProposal} will use to
-        submit its work.
-    @type pool: L{PeerConnectionPool}
+    @ivar _chooser: The object which will choose where the work in this
+        proposal gets performed.
+    @type _chooser: L{PeerConnectionPool} or L{LocalQueuer}
 
     @ivar txn: The transaction where the work will be enqueued.
     @type txn: L{IAsyncTransaction}
@@ -914,8 +914,8 @@ class WorkProposal(object):
     @type kw: L{dict}
     """
 
-    def __init__(self, pool, txn, workItemType, kw):
-        self.pool = pool
+    def __init__(self, chooser, txn, workItemType, kw):
+        self._chooser = chooser
         self.txn = txn
         self.workItemType = workItemType
         self.kw = kw
@@ -936,7 +936,7 @@ class WorkProposal(object):
             @self.txn.postCommit
             def whenDone():
                 self._whenCommitted.callback(None)
-                performer = self.pool.choosePerformer()
+                performer = self._chooser.choosePerformer()
                 @passthru(performer.performWork(item.table, item.workID)
                           .addCallback)
                 def performed(result):
@@ -1380,38 +1380,24 @@ class _PeerPoolFactory(Factory, object):
 
 
 
-class ImmediateWorkProposal(object):
-    """
-    Like L{WorkProposal}, but for items that must be executed immediately
-    because no real queue is set up yet.
-
-    @see: L{WorkProposal}, L{NullQueuer.enqueueWork}
-    """
-    def __init__(self, proposed, done):
-        self.proposed = proposed
-        self.done = done
-
-
-    def whenExecuted(self):
-        return _cloneDeferred(self.done)
-
-
-    def whenProposed(self):
-        return _cloneDeferred(self.proposed)
-
-
-    def whenCommitted(self):
-        return _cloneDeferred(self.done)
-
-
-
-class NullQueuer(object):
+class LocalQueuer(object):
     """
     When work is enqueued with this queuer, it is just executed immediately,
     within the same transaction.  While this is technically correct, it is not
     very efficient.
     """
     implements(IQueuer)
+
+    def __init__(self, txnFactory):
+        self.txnFactory = txnFactory
+
+
+    def choosePerformer(self):
+        """
+        Choose to perform the work locally.
+        """
+        return LocalPerformer(self.txnFactory)
+
 
     def enqueueWork(self, txn, workItemType, **kw):
         """
@@ -1421,26 +1407,12 @@ class NullQueuer(object):
 
         @return: a pseudo work proposal, since everything completes at the same
             time.
-        @rtype: L{ImmediateWorkProposal}
+        @rtype: L{WorkProposal}
         """
-        proposed = Deferred()
-        done = Deferred()
-        @inlineCallbacks
-        def doit():
-            item = yield self.workItemType.create(self.txn, **self.kw)
-            proposed.callback(True)
-            yield item.delete()
-            yield item.doWork()
-        @txn.postCommit
-        def committed():
-            done.callback(True)
-        @txn.postAbort
-        def aborted():
-            tf = TransactionFailed()
-            done.errback(tf)
-            if not proposed.called:
-                proposed.errback(tf)
-        return ImmediateWorkProposal(proposed, done)
+        wp = WorkProposal(self, txn, workItemType, kw)
+        wp._start()
+        return wp
+
 
 
 
