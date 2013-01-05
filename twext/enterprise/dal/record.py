@@ -26,6 +26,7 @@ from twisted.internet.defer import inlineCallbacks, returnValue
 from twext.enterprise.dal.syntax import (
     Select, Tuple, Constant, ColumnSyntax, Insert, Update, Delete
 )
+from twext.enterprise.util import parseSQLTimestamp
 # from twext.enterprise.dal.syntax import ExpressionSyntax
 
 class ReadOnly(AttributeError):
@@ -229,7 +230,11 @@ class Record(object):
         result = yield (Insert(colmap, Return=needsCols if needsCols else None)
                         .on(transaction))
         if needsCols:
-            for neededAttr, neededValue in zip(needsAttrs, result[0]):
+            for neededAttr, neededValue, neededColumn in zip(needsAttrs,
+                                                             result[0],
+                                                             needsCols):
+                if neededColumn.model.type.name == "timestamp":
+                    neededValue = parseSQLTimestamp(neededValue)
                 setattr(self, neededAttr, neededValue)
         self.transaction = transaction
         returnValue(self)
@@ -328,7 +333,8 @@ class Record(object):
     @inlineCallbacks
     def _rowsFromQuery(cls, transaction, qry, rozrc):
         """
-        Execute the given query, and transform its results into rows.
+        Execute the given query, and transform its results into instances of
+        C{cls}.
 
         @param transaction: an L{IAsyncTransaction} to execute the query on.
 
@@ -338,8 +344,8 @@ class Record(object):
 
         @param rozrc: The C{raiseOnZeroRowCount} argument.
 
-        @return: a L{Deferred} that succeeds with a C{list} or fails with an
-            exception produced by C{rozrc}.
+        @return: a L{Deferred} that succeeds with a C{list} of instances of
+            C{cls} or fails with an exception produced by C{rozrc}.
         """
         rows = yield qry.on(transaction, raiseOnZeroRowCount=rozrc)
         selves = []
