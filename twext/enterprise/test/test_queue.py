@@ -18,6 +18,11 @@
 Tests for L{twext.enterprise.queue}.
 """
 
+import datetime
+
+# TODO: There should be a store-building utility within twext.enterprise.
+from txdav.common.datastore.test.util import buildStore
+
 from twext.enterprise.dal.syntax import SchemaSyntax
 from twext.enterprise.dal.record import fromTable
 from twext.enterprise.dal.test.test_parseschema import SchemaTestHelper
@@ -25,13 +30,13 @@ from twext.enterprise.dal.test.test_parseschema import SchemaTestHelper
 from twext.enterprise.queue import inTransaction, PeerConnectionPool, WorkItem
 
 from twisted.trial.unittest import TestCase
-from twisted.internet.defer import Deferred, inlineCallbacks, gatherResults
+from twisted.internet.defer import Deferred, inlineCallbacks, gatherResults, passthru
 
 from twisted.application.service import Service, MultiService
 
+from twext.enterprise.dal.syntax import Insert
 
-from txdav.common.datastore.test.util import buildStore
-
+from twext.enterprise.dal.syntax import Select
 class UtilityTests(TestCase):
     """
     Tests for supporting utilities.
@@ -81,14 +86,35 @@ class SimpleSchemaHelper(SchemaTestHelper):
     def id(self):
         return 'worker'
 
-schemaText = """
-    create table DUMMY_WORK_ITEM (WORK_ID integer, CREATED timestamp);
-"""
+SQL = passthru
+
+schemaText = SQL("""
+    create table DUMMY_WORK_ITEM (WORK_ID integer, NOT_BEFORE timestamp,
+                                  A integer, B integer);
+    create table DUMMY_WORK_DONE (WORK_ID integer, A_PLUS_B integer);
+""")
+
 schema = SchemaSyntax(SimpleSchemaHelper().schemaFromString(schemaText))
+
+dropSQL = ["drop table {name}".format(name=table.model.name)
+           for table in schema]
+
 
 
 class DummyWorkItem(WorkItem, fromTable(schema.DUMMY_WORK_ITEM)):
-    pass
+    """
+    Sample L{WorkItem} subclass that adds two integers together and stores them
+    in another table.
+    """
+    group = None
+
+    def doWork(self):
+        # Perform the work.
+        result = self.a + self.b
+        # Store the result.
+        return (Insert({schema.DUMMY_WORK_DONE.WORK_ID: self.workID,
+                        schema.DUMMY_WORK_DONE.A_PLUS_B: result})
+                .on(self.transaction))
 
 
 
@@ -109,8 +135,10 @@ class PeerConnectionPoolIntegrationTests(TestCase):
         yield inTransaction(lambda: self.store.newTransaction("bonus schema"),
                             doit)
         def deschema():
+            @inlineCallbacks
             def deletestuff(txn):
-                return txn.execSQL("drop table DUMMY_WORK_ITEM")
+                for stmt in dropSQL:
+                    yield txn.execSQL(stmt)
             return inTransaction(self.store.newTransaction, deletestuff)
         self.addCleanup(deschema)
 
@@ -149,5 +177,29 @@ class PeerConnectionPoolIntegrationTests(TestCase):
             self.assertEquals(len((yield self.node2.activeNodes(txn))), 2)
         return inTransaction(self.store.newTransaction, check)
 
+
+    @inlineCallbacks
+    def test_enqueueHappyPath(self):
+        """
+        When a L{WorkItem} is scheduled for execution via
+        L{PeerConnectionPool.enqueueWork} its C{doWork} method will be invoked
+        by the time the L{Deferred} returned from the resulting
+        L{WorkProposal}'s C{whenExecuted} method has fired.
+        """
+        def operation(txn):
+            # TODO: how does 'enqueue' get associated with the transaction? This
+            # is not the fact with a raw t.w.enterprise transaction.  Should
+            # probably do something with components.
+            return txn.enqueue(DummyWorkItem, a=3, b=4, workID=4321,
+                               notBefore=datetime.datetime.now())
+        result = yield inTransaction(self.store.newTransaction, operation)
+        # Wait for it to be executed.  Hopefully this does not time out :-\.
+        yield result.whenExecuted()
+        def op2(txn):
+            return Select([schema.DUMMY_WORK_DONE.WORK_ID,
+                           schema.DUMMY_WORK_DONE.A_PLUS_B],
+                           From=schema.DUMMY_WORK_DONE).on(txn)
+        rows = yield inTransaction(self.store.newTransaction, op2)
+        self.assertEquals(rows, [(3421, 7)])
 
 
