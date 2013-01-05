@@ -558,6 +558,7 @@ class WorkerConnectionPool(object):
     L{ConnectionFromPeerNode}, but one that dispenses work to the local worker
     processes rather than to a remote connection pool.
     """
+    implements(_IWorkPerformer)
 
     def __init__(self, maximumLoadPerWorker=5):
         self.workers = []
