@@ -186,6 +186,7 @@ def _computeEnvVars(parent):
     ]
 
     optionalVars = [
+        "PYTHONHASHSEED",
         "KRB5_KTNAME",
         "ORACLE_HOME",
         "VERSIONER_PYTHON_PREFER_32_BIT",
