@@ -30,7 +30,7 @@ from twisted.python.failure import Failure
 from twisted.trial.unittest import TestCase
 
 from twisted.internet.task import Clock
-from twisted.internet.defer import Deferred
+from twisted.internet.defer import Deferred, fail
 
 from twisted.internet.interfaces import IReactorThreads
 
@@ -73,11 +73,24 @@ class AssertResultHelper(object):
     """
 
     def assertResultList(self, resultList, expected):
+        """
+        Assert that a list created with L{resultOf} contais the expected
+        result.
+
+        @param resultList: The return value of L{resultOf}.
+        @type resultList: L{list}
+
+        @param expected: The expected value that should be present in the list;
+            a L{Failure} if an exception is expected to be raised.
+        """
         if not resultList:
             self.fail("No result; Deferred didn't fire yet.")
         else:
             if isinstance(resultList[0], Failure):
-                resultList[0].raiseException()
+                if isinstance(expected, Failure):
+                    resultList[0].trap(expected.type)
+                else:
+                    resultList[0].raiseException()
             else:
                 self.assertEqual(resultList, [expected])
 
@@ -1122,9 +1135,44 @@ class ConnectionPoolTests(ConnectionPoolHelper, TestCase, AssertResultHelper):
         self.assertEquals(wait.sqlResult, None)
         self.assertEquals(result, [])
         d.callback(None)
+        # allow network I/O for pooled / networked implementation; there should
+        # be the commit message now.
         self.flushHolders()
         self.assertEquals(len(result), 1)
         self.assertEquals(wait.sqlResult, [[1, "some test sql"]])
+
+
+    def test_failPreCommit(self):
+        """
+        If callables passed to L{IAsyncTransaction.preCommit} raise an
+        exception or return a Failure, subsequent callables will not be run,
+        and the transaction will be aborted.
+        """
+        def test(flawedCallable, exc):
+            # Set up.
+            test.committed = False
+            test.aborted = False
+            # Create transaction and add monitoring hooks.
+            txn = self.createTransaction()
+            def didCommit():
+                test.committed = True
+            def didAbort():
+                test.aborted = True
+            txn.postCommit(didCommit)
+            txn.postAbort(didAbort)
+            txn.preCommit(flawedCallable)
+            result = self.resultOf(txn.commit())
+            self.flushHolders()
+            self.assertResultList(result, Failure(exc()))
+            self.assertEquals(test.aborted, True)
+            self.assertEquals(test.committed, False)
+
+        def failer():
+            return fail(ZeroDivisionError())
+        def raiser():
+            raise EOFError()
+        test(failer, ZeroDivisionError)
+        test(raiser, EOFError)
 
 
     def test_noOpCommitDoesntHinderReconnection(self):
