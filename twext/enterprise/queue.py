@@ -1016,8 +1016,10 @@ class PeerConnectionPool(MultiService, object):
         up or if it is shutting down.
     @type thisProcess: L{NodeInfo}
 
-    @ivar queueProcessTimeout: The maximum amount of time allowed for a queue
-        item to be processed.  By default, 10 minutes.
+    @ivar queueProcessTimeout: The amount of time after a L{WorkItem} is
+        scheduled to be processed (its C{notBefore} attribute) that it is
+        considered to be "orphaned" and will be run by a lost-work check rather
+        than waiting for it to be requested.  By default, 10 minutes.
     @type queueProcessTimeout: L{float} (in seconds)
 
     @ivar queueDelayedProcessInterval: The amount of time between database
