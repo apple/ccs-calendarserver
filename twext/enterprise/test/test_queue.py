@@ -1,4 +1,6 @@
 ##
+from twext.enterprise.dal.record import fromTable
+from twext.enterprise.queue import WorkItem
 # Copyright (c) 2012 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -8,6 +10,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
+from twext.enterprise.dal.syntax import SchemaSyntax
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
@@ -19,9 +22,12 @@ Tests for L{twext.enterprise.queue}.
 """
 
 from twisted.trial.unittest import TestCase
-from twisted.internet.defer import Deferred
+from twisted.internet.defer import Deferred, inlineCallbacks
 
-from twext.enterprise.queue import inTransaction
+from twext.enterprise.queue import inTransaction, PeerConnectionPool
+
+from txdav.common.datastore.test.util import buildStore
+from twext.enterprise.dal.test.test_parseschema import SchemaTestHelper
 
 class UtilityTests(TestCase):
     """
@@ -65,5 +71,49 @@ class UtilityTests(TestCase):
         createdTxns[0].commits[0].callback(42)
         # Committed, everything's done.
         self.assertEquals(x, [35])
+
+
+
+class SimpleSchemaHelper(SchemaTestHelper):
+    def id(self):
+        return 'worker'
+
+schemaText = """
+    create table DUMMY_WORK_ITEM (alpha integer, beta timestamp);
+"""
+schema = SchemaSyntax(SimpleSchemaHelper().schemaFromString(schemaText))
+
+
+class DummyWorkItem(WorkItem, fromTable(schema.DUMMY_WORK_ITEM)):
+    pass
+
+
+
+class PeerConnectionPoolTests(TestCase):
+    """
+    L{PeerConnectionPool} is the service responsible for coordinating
+    eventually-consistent task queuing within a cluster.
+    """
+
+    @inlineCallbacks
+    def setUp(self):
+        """
+        L{PeerConnectionPool} requires access to a database and the reactor.
+        """
+        store = yield buildStore(self, None)
+        def doit(txn):
+            return txn.execSQL(schemaText)
+        yield inTransaction(lambda: store.newTransaction("bonus schema"), doit)
+        def deschema():
+            def deletestuff(txn):
+                return txn.execSQL("drop table DUMMY_WORK_ITEM")
+            return inTransaction(store.newTransaction, deletestuff)
+        self.addCleanup(deschema)
+
+
+    def test_nothing(self):
+        """
+        Just making sure that setup can run.
+        """
 
 
