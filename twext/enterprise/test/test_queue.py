@@ -1,5 +1,4 @@
 ##
-from twext.enterprise.dal.record import Record
 # Copyright (c) 2012 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -22,29 +21,33 @@ Tests for L{twext.enterprise.queue}.
 import datetime
 
 # TODO: There should be a store-building utility within twext.enterprise.
-from twext.enterprise.queue import SchemaAMP
-from twisted.test.proto_helpers import StringTransportWithDisconnection
-from twext.enterprise.queue import TableSyntaxByName
+
 from twisted.protocols.amp import Command
 from txdav.common.datastore.test.util import buildStore
 
-from twext.enterprise.dal.syntax import SchemaSyntax
+from twext.enterprise.dal.syntax import SchemaSyntax, Select
 from twext.enterprise.dal.record import fromTable
 from twext.enterprise.dal.test.test_parseschema import SchemaTestHelper
 
 from twext.enterprise.queue import inTransaction, PeerConnectionPool, WorkItem
 
 from twisted.trial.unittest import TestCase
-from twisted.internet.defer import Deferred, inlineCallbacks, gatherResults, passthru
+from twisted.internet.defer import (
+    Deferred, inlineCallbacks, gatherResults, passthru
+)
 
 from twisted.application.service import Service, MultiService
 
-from twext.enterprise.queue import ImmediatePerformer, _IWorkPerformer
-from twext.enterprise.queue import WorkerConnectionPool
+from twext.enterprise.queue import (
+    ImmediatePerformer, _IWorkPerformer, WorkerConnectionPool, SchemaAMP,
+    TableSyntaxByName
+)
+
+from twext.enterprise.dal.record import Record
+
 from zope.interface.verify import verifyObject
 from twisted.test.proto_helpers import StringTransport
 
-from twext.enterprise.dal.syntax import Select
 class UtilityTests(TestCase):
     """
     Tests for supporting utilities.
