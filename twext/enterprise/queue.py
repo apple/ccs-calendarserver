@@ -1217,14 +1217,13 @@ class PeerConnectionPool(MultiService, object):
                     (self.thisProcess.hostname, self.thisProcess.port)
                 )
             for itemType in self.allWorkItemTypes():
+                tooLate = datetime.utcfromtimestamp(
+                    self.reactor.seconds() + self.queueProcessTimeout
+                )
                 for overdueItem in (
                         yield itemType.query(
                             txn,
-                            (itemType.notBefore >
-                             datetime.utcfromtimestamp(
-                                self.reactor.seconds () +
-                                self.queueProcessTimeout
-                            ))
+                            (itemType.notBefore < tooLate)
                     )):
                     peer = self.choosePerformer()
                     yield peer.performWork(overdueItem.table,
