@@ -16,10 +16,11 @@
 ##
 
 """
-L{twext.enterprise.queue} is a task-queueing system for use by applications
-with multiple front-end servers talking to a single database instance, that
-want to defer and parallelize work that involves storing the results of
-computation.
+L{twext.enterprise.queue} is an U{eventually consistent
+<https://en.wikipedia.org/wiki/Eventual_consistency>} task-queueing system for
+use by applications with multiple front-end servers talking to a single
+database instance, that want to defer and parallelize work that involves
+storing the results of computation.
 
 By enqueuing with L{twisted.enterprise.queue}, you may guarantee that the work
 will I{eventually} be done, and reliably commit to doing it in the future, but
