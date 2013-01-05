@@ -87,22 +87,21 @@ from zope.interface import implements
 from twisted.application.service import MultiService
 from twisted.internet.protocol import Factory
 from twisted.internet.defer import (
-    inlineCallbacks, returnValue, Deferred
+    inlineCallbacks, returnValue, Deferred, passthru
 )
 from twisted.internet.endpoints import TCP4ClientEndpoint
 from twisted.protocols.amp import AMP, Command, Integer, Argument, String
 from twisted.python.reflect import qual
 from twisted.python import log
 
-from twext.enterprise.dal.syntax import SchemaSyntax
+from twext.enterprise.dal.syntax import SchemaSyntax, Lock, NamedValue
+
 from twext.enterprise.dal.model import ProcedureCall
-from twext.enterprise.dal.syntax import NamedValue
 from twext.enterprise.dal.record import Record, fromTable
 from twisted.python.failure import Failure
-from twisted.internet.defer import passthru
+
 from twext.enterprise.dal.model import Table, Schema, SQLType, Constraint
 from twisted.internet.endpoints import TCP4ServerEndpoint
-from twext.enterprise.dal.syntax import Lock
 from twext.enterprise.ienterprise import IQueuer
 from zope.interface.interface import Interface
 
