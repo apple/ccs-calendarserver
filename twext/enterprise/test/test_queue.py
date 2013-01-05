@@ -79,7 +79,7 @@ class SimpleSchemaHelper(SchemaTestHelper):
         return 'worker'
 
 schemaText = """
-    create table DUMMY_WORK_ITEM (alpha integer, beta timestamp);
+    create table DUMMY_WORK_ITEM (WORK_ID integer, CREATED timestamp);
 """
 schema = SchemaSyntax(SimpleSchemaHelper().schemaFromString(schemaText))
 
