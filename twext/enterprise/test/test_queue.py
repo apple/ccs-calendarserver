@@ -173,6 +173,7 @@ class PeerConnectionPoolUnitTests(TestCase):
         proto = wlf.buildProtocol(None)
         proto.makeConnection(StringTransport())
         # Sanity check.
+        self.assertEqual(len(self.pcp.workerPool.workers), 1)
         self.assertEqual(self.pcp.workerPool.hasAvailableCapacity(), True)
         # Now it has some capacity.
         self.checkPerformer(WorkerConnectionPool)
