@@ -32,7 +32,7 @@ def parseSQLTimestamp(ts):
     # Handle case where fraction seconds may not be present
     if len(ts) < len(SQL_TIMESTAMP_FORMAT):
         ts += ".0"
-    return datetime.datetime.strptime(ts, SQL_TIMESTAMP_FORMAT)
+    return datetime.strptime(ts, SQL_TIMESTAMP_FORMAT)
 
 
 

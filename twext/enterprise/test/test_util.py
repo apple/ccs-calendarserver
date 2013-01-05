@@ -16,7 +16,7 @@
 
 import datetime
 
-from twisted.python.unittest import TestCase
+from twisted.trial.unittest import TestCase
 
 from twext.enterprise.util import parseSQLTimestamp
 
