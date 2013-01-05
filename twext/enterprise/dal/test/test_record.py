@@ -18,6 +18,8 @@
 Test cases for L{twext.enterprise.dal.record}.
 """
 
+import datetime
+
 from twisted.internet.defer import inlineCallbacks
 
 from twisted.trial.unittest import TestCase
@@ -38,7 +40,8 @@ sth.id = lambda : __name__
 schemaString = """
 create table ALPHA (BETA integer primary key, GAMMA text);
 create table DELTA (PHI integer primary key default (nextval('myseq')),
-                    EPSILON text not null);
+                    EPSILON text not null,
+                    ZETA timestamp not null default '2012-12-12 12:12:12' );
 """
 
 # sqlite can be made to support nextval() as a function, but 'create sequence'
@@ -136,6 +139,17 @@ class TestCRUD(TestCase):
         te = yield self.failUnlessFailure(TestAutoRecord.create(txn),
                                           TypeError)
         self.assertIn("required attribute 'epsilon' not passed", str(te))
+
+
+    @inlineCallbacks
+    def test_datetimeType(self):
+        """
+        When a L{Record} references a timestamp column, it retrieves the date
+        as UTC.
+        """
+        txn = self.pool.connection()
+        rec = yield TestAutoRecord.create(txn, epsilon=1)
+        self.assertEquals(rec.zeta, datetime.datetime(2012, 12, 12, 12, 12, 12))
 
 
     @inlineCallbacks
