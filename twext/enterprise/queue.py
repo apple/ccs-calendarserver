@@ -378,6 +378,62 @@ class WorkItem(Record):
         ))
 
 
+class AlreadyUnlocked(Exception):
+    """
+    The lock you were trying to unlock was already unlocked.
+    """
+
+
+
+class AcquiredLock(object):
+    """
+    An L{AcquiredLock} lock against a shared data store that the current
+    process holds via the referenced transaction.
+    """
+
+    def release(self, ignoreAlreadyUnlocked=False):
+        """
+        Release this lock.
+
+        @param ignoreAlreadyUnlocked: If you don't care about the current
+            status of this lock, and just want to release it if it is still
+            acquired, pass this parameter as L{True}.  Otherwise this method
+            will raise an exception if it is invoked when the lock has already
+            been released.
+
+        @raise: L{AlreadyUnlocked}
+
+        @return: A L{Deferred} that fires with L{None} when the lock has been
+            unlocked.
+        """
+        raise NotImplementedError()
+
+
+
+
+class Locker(object):
+    """
+    Acquire named locks against a database.
+    """
+
+    def lock(self, name, wait=False):
+        """
+        Acquire a lock with the given name.
+
+        @param name: The name of the lock to acquire.  Against the same store,
+            no two locks may be acquired.
+        @type name: L{unicode}
+
+        @param wait: Whether or not to wait for the lock.  If L{True}, the
+            L{Deferred} returned by L{lock} make some time to fire; if
+            L{False}, it should quickly fail instead.
+
+        @return: a L{Deferred} that fires with an L{AcquiredLock} when the lock
+            has fired, or fails when the lock has not been acquired.
+        """
+        raise NotImplementedError()
+
+
 
 class PerformWork(Command):
     """
