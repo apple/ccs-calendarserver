@@ -692,6 +692,14 @@ class CommonStoreTransaction(object):
         return self._apnSubscriptionsBySubscriberQuery.on(self, subscriberGUID=guid)
 
 
+    def preCommit(self, operation):
+        """
+        Run things before C{commit}.  (Note: only provided by SQL
+        implementation, used only for cleaning up database state.)
+        """
+        return self._sqlTxn.preCommit(operation)
+
+
     def postCommit(self, operation):
         """
         Run things after C{commit}.
