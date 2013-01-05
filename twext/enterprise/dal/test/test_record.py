@@ -148,8 +148,15 @@ class TestCRUD(TestCase):
         as UTC.
         """
         txn = self.pool.connection()
+        # Create ...
         rec = yield TestAutoRecord.create(txn, epsilon=1)
         self.assertEquals(rec.zeta, datetime.datetime(2012, 12, 12, 12, 12, 12))
+        yield txn.commit()
+        # ... should have the same effect as loading.
+        txn = self.pool.connection()
+        rec = (yield TestAutoRecord.all(txn))[0]
+        self.assertEquals(rec.zeta, datetime.datetime(2012, 12, 12, 12, 12, 12))
+
 
 
     @inlineCallbacks
