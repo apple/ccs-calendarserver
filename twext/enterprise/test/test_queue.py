@@ -45,6 +45,7 @@ from twext.enterprise.queue import (
 
 from twext.enterprise.dal.record import Record
 
+from twext.enterprise.queue import ConnectionFromPeerNode
 from zope.interface.verify import verifyObject
 from twisted.test.proto_helpers import StringTransport
 
@@ -239,8 +240,78 @@ class PeerConnectionPoolUnitTests(TestCase):
         have spawned but some peers have connected, then it should choose a
         connection from the network to perform it.
         """
+        peer = PeerConnectionPool(None, None, 4321, schema)
+        local = self.pcp.peerFactory().buildProtocol(None)
+        remote = peer.peerFactory().buildProtocol(None)
+        connection = Connection(local, remote)
+        connection.start()
+        self.checkPerformer(ConnectionFromPeerNode)
 
-    test_choosingPerformerFromNetwork.skip = "not implemented yet..."
+
+
+class HalfConnection(object):
+    def __init__(self, protocol):
+        self.protocol = protocol
+        self.transport = StringTransport()
+
+
+    def start(self):
+        """
+        Hook up the protocol and the transport.
+        """
+        self.protocol.makeConnection(self.transport)
+
+
+    def extract(self):
+        """
+        Extract the data currently present in this protocol's output buffer.
+        """
+        io = self.transport.io
+        value = io.getvalue()
+        io.seek(0)
+        io.truncate()
+        return value
+
+
+    def deliver(self, data):
+        """
+        Deliver the given data to this L{HalfConnection}'s protocol's
+        C{dataReceived} method.
+
+        @return: a boolean indicating whether any data was delivered.
+        @rtype: L{bool}
+        """
+        if data:
+            self.protocol.dataReceived(data)
+            return True
+        return False
+
+
+
+class Connection(object):
+
+    def __init__(self, local, remote):
+        """
+        Connect two protocol instances to each other via string transports.
+        """
+        self.receiver = HalfConnection(local)
+        self.sender = HalfConnection(remote)
+
+
+    def start(self):
+        """
+        Start up the connection.
+        """
+        self.sender.start()
+        self.receiver.start()
+
+
+    def pump(self):
+        """
+        Relay data in one direction between the two connections.
+        """
+        self.receiver.deliver(self.sender.extract())
+        self.receiver, self.sender = self.sender, self.receiver
 
 
 

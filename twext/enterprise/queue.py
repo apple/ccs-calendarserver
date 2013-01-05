@@ -459,6 +459,7 @@ class ConnectionFromPeerNode(SchemaAMP):
         by the host of this connection since the last L{ReportLoad} message.
     @type _bonusLoad: L{int}
     """
+    implements(_IWorkPerformer)
 
     def __init__(self, peerPool, boxReceiver=None, locator=None):
         """
@@ -1249,11 +1250,9 @@ class PeerConnectionPool(MultiService, object):
         @inlineCallbacks
         def startup(txn):
             endpoint = TCP4ServerEndpoint(self.reactor, self.ampPort)
-            f = Factory()
-            f.buildProtocol = self.createPeerConnection
             # If this fails, the failure mode is going to be ugly, just like all
             # conflicted-port failures.  But, at least it won't proceed.
-            self._listeningPortObject = yield endpoint.listen(f)
+            self._listeningPortObject = yield endpoint.listen(self.peerFactory())
             self.ampPort = self._listeningPortObject.getHost().port
             yield Lock.exclusive(NodeInfo.table).on(txn)
             nodes = yield self.activeNodes(txn)
@@ -1325,9 +1324,7 @@ class PeerConnectionPool(MultiService, object):
         @param node: a description of the master to connect to.
         @type node: L{NodeInfo}
         """
-        f = Factory()
-        f.buildProtocol = self.createPeerConnection
-        connected = node.endpoint(self.reactor).connect(f)
+        connected = node.endpoint(self.reactor).connect(self.peerFactory())
         def whenConnected(proto):
             self.mapPeer(node.hostname, node.port, proto)
             proto.callRemote(IdentifyNode,
@@ -1341,8 +1338,29 @@ class PeerConnectionPool(MultiService, object):
         connected.addCallbacks(whenConnected, noted)
 
 
-    def createPeerConnection(self, addr):
-        return ConnectionFromPeerNode(self)
+    def peerFactory(self):
+        """
+        Factory for peer connections.
+
+        @return: a L{Factory} that will produce L{ConnectionFromPeerNode}
+            protocols attached to this L{PeerConnectionPool}.
+        """
+        return _PeerPoolFactory(self)
+
+
+
+class _PeerPoolFactory(Factory, object):
+    """
+    Protocol factory responsible for creating L{ConnectionFromPeerNode}
+    connections, both client and server.
+    """
+
+    def __init__(self, peerConnectionPool):
+        self.peerConnectionPool = peerConnectionPool
+
+
+    def buildProtocol(self, addr):
+        return ConnectionFromPeerNode(self.peerConnectionPool)
 
 
 
