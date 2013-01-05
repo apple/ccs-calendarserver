@@ -24,6 +24,8 @@ from twext.enterprise.dal.model import SQLType
 from twext.enterprise.dal.model import Constraint
 from twext.enterprise.dal.syntax import SchemaSyntax
 from twext.enterprise.dal.model import Schema
+from twext.enterprise.dal.record import Record
+from twext.enterprise.dal.record import fromTable
 
 
 class AlreadyUnlocked(Exception):
@@ -42,7 +44,7 @@ def makeLockSchema(inSchema):
 
     @return: inSchema
     """
-    LockTable = Table(inSchema, 'NAMED_LOCKS')
+    LockTable = Table(inSchema, 'NAMED_LOCK')
 
     LockTable.addColumn("LOCK_NAME", SQLType("varchar", 255))
     LockTable.tableConstraint(Constraint.NOT_NULL, ["LOCK_NAME"])
@@ -55,12 +57,15 @@ LockSchema = SchemaSyntax(makeLockSchema(Schema(__file__)))
 
 
 
-class Locker(object):
+
+class NamedLock(Record, fromTable(LockSchema.NAMED_LOCK)):
     """
-    Acquire named locks against a database.
+    An L{AcquiredLock} lock against a shared data store that the current
+    process holds via the referenced transaction.
     """
 
-    def lock(self, name, wait=False):
+    @classmethod
+    def acquire(cls, txn, name, wait=False):
         """
         Acquire a lock with the given name.
 
@@ -75,15 +80,8 @@ class Locker(object):
         @return: a L{Deferred} that fires with an L{AcquiredLock} when the lock
             has fired, or fails when the lock has not been acquired.
         """
-        raise NotImplementedError()
+        return cls.create(txn, lockName=name)
 
-
-
-class AcquiredLock(object):
-    """
-    An L{AcquiredLock} lock against a shared data store that the current
-    process holds via the referenced transaction.
-    """
 
     def release(self, ignoreAlreadyUnlocked=False):
         """
