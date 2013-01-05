@@ -559,7 +559,7 @@ class WorkerConnectionPool(object):
     processes rather than to a remote connection pool.
     """
 
-    def __init__(self, maximumLoadPerWorker=0):
+    def __init__(self, maximumLoadPerWorker=5):
         self.workers = []
         self.maximumLoadPerWorker = maximumLoadPerWorker
 
