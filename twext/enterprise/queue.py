@@ -258,6 +258,21 @@ class WorkItem(Record):
     To accomplish this sort of isolation, simply set the C{group} attribute on
     your L{WorkItem} class.
 
+    In some applications it's possible to coalesce work together; to grab
+    multiple L{WorkItem}s in one C{doWork} transaction.  All you need to do is
+    to delete the rows which back other L{WorkItem}s from the database, and
+    they won't be processed.  Using the C{group} attribute, you can easily
+    prevent concurrency so that you can easily group these items together and
+    remove them as a set (otherwise, other workers might be attempting to
+    concurrently work on them and you'll get deletion errors).
+
+    However, if doing more work at once is less expensive, and you want to
+    avoid processing lots of individual rows in tiny transactions, you may also
+    delay the execution of a L{WorkItem} by setting its C{notBefore} attribute.
+    This must be backed by a database timestamp, so that processes which happen
+    to be restarting and examining the work to be done in the database don't
+    jump the gun and do it too early.
+
     @cvar workID: the unique identifier (primary key) for items of this type.
         On an instance of a concrete L{WorkItem} subclass, this attribute must
         be an integer; on the concrete L{WorkItem} subclass itself, this
