@@ -35,7 +35,10 @@ from twisted.internet.defer import Deferred, inlineCallbacks, gatherResults, pas
 from twisted.application.service import Service, MultiService
 
 from twext.enterprise.dal.syntax import Insert
-from twext.enterprise.queue import ImmediatePerformer
+from twext.enterprise.queue import ImmediatePerformer, _IWorkPerformer
+from twext.enterprise.queue import WorkerConnectionPool
+from zope.interface.verify import verifyObject
+from twisted.test.proto_helpers import StringTransport
 
 from twext.enterprise.dal.syntax import Select
 class UtilityTests(TestCase):
@@ -132,6 +135,22 @@ class PeerConnectionPoolUnitTests(TestCase):
     """
     L{PeerConnectionPool} has many internal components.
     """
+    def setUp(self):
+        """
+        Create a L{PeerConnectionPool} that is just initialized enough.
+        """
+        self.pcp = PeerConnectionPool(None, None, 4321, schema)
+
+
+    def checkPerformer(self, cls):
+        """
+        Verify that the performer returned by
+        L{PeerConnectionPool.choosePerformer}.
+        """
+        performer = self.pcp.choosePerformer()
+        self.failUnlessIsInstance(performer, cls)
+        verifyObject(_IWorkPerformer, performer)
+
 
     def test_choosingPerformerWhenNoPeersAndNoWorkers(self):
         """
@@ -140,8 +159,31 @@ class PeerConnectionPoolUnitTests(TestCase):
         or outgoing), then it chooses an implementation of C{performWork} that
         simply executes the work locally.
         """
-        pcp = PeerConnectionPool(None, None, 4321, schema)
-        self.assertIsInstance(pcp.choosePerformer(), ImmediatePerformer)
+        self.checkPerformer(ImmediatePerformer)
+
+
+    def test_choosingPerformerWithLocalCapacity(self):
+        """
+        If L{PeerConnectionPool.choosePerformer} is invoked when some workers
+        have spawned, then it should choose the worker pool as the local
+        performer.
+        """
+        # Give it some local capacity.
+        wlf = self.pcp.workerListenerFactory()
+        proto = wlf.buildProtocol(None)
+        proto.makeConnection(StringTransport())
+        # Now it has some capacity.
+        self.checkPerformer(WorkerConnectionPool)
+
+
+    def test_choosingPerformerFromNetwork(self):
+        """
+        If L{PeerConnectionPool.choosePerformer} is invoked when no workers
+        have spawned but some peers have connected, then it should choose a
+        connection from the network to perform it.
+        """
+
+    test_choosingPerformerFromNetwork.skip = "not implemented yet..."
 
 
 

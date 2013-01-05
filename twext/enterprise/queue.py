@@ -104,6 +104,31 @@ from twext.enterprise.dal.model import Table, Schema, SQLType, Constraint
 from twisted.internet.endpoints import TCP4ServerEndpoint
 from twext.enterprise.dal.syntax import Lock
 from twext.enterprise.ienterprise import IQueuer
+from zope.interface.interface import Interface
+
+
+class _IWorkPerformer(Interface):
+    """
+    An object that can perform work.
+
+    Internal interface; implemented by several classes here since work has to
+    (in the worst case) pass from worker->controller->controller->worker.
+    """
+
+    def performWork(table, workID):
+        """
+        @param table: The table where work is waiting.
+        @type table: L{TableSyntax}
+
+        @param workID: The primary key identifier of the given work.
+        @type workID: L{int}
+
+        @return: a L{Deferred} firing with an empty dictionary when the work is
+            complete.
+        @rtype: L{Deferred} firing L{dict}
+        """
+
+
 
 def makeNodeSchema(inSchema):
     """
@@ -490,15 +515,7 @@ class ConnectionFromPeerNode(SchemaAMP):
         specific peer node-controller process to perform some work, having
         already determined that it's appropriate.
 
-        @param table: The table where work is waiting.
-        @type table: L{TableSyntax}
-
-        @param workID: The primary key identifier of the given work.
-        @type workID: L{int}
-
-        @return: a L{Deferred} firing with an empty dictionary when the work is
-            complete.
-        @rtype: L{Deferred} firing L{dict}
+        @see: L{_IWorkPerformer.performWork}
         """
         d = self.callRemote(PerformWork, table=table, workID=workID)
         self._bonusLoad += 1
@@ -569,7 +586,7 @@ class WorkerConnectionPool(object):
         hasAvailableCapacity to process another queue item?
         """
         for worker in self.workers:
-            if worker.currentLoad() < self.maximumLoadPerWorker:
+            if worker.currentLoad < self.maximumLoadPerWorker:
                 return True
         return False
 
@@ -1062,16 +1079,12 @@ class PeerConnectionPool(MultiService, object):
         should be lower-latency.  Also, if no peers are available, work will be
         submitted locally even if the worker pool is already over-subscribed.
 
-        @return: a L{Deferred <twisted.internet.defer.Deferred>} which fires
-            with the chosen 'peer', i.e. object with a C{performWork} method,
-            as soon as one is available.  Normally this will be synchronous,
-            but we need to account for the possibility that we may need to
-            connect to other hosts.
-        @rtype: L{Deferred <twisted.internet.defer.Deferred>} firing
-            L{ConnectionFromPeerNode} or L{WorkerConnectionPool}
+        @return: the chosen peer.
+        @rtype: L{_IWorkPerformer} L{ConnectionFromPeerNode} or
+            L{WorkerConnectionPool}
         """
         if self.workerPool.hasAvailableCapacity():
-            return succeed(self.workerPool)
+            return self.workerPool
         if self.peers:
             return sorted(self.peers, lambda p: p.currentLoadEstimate())[0]
         else:
