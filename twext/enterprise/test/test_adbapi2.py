@@ -47,6 +47,7 @@ from twext.enterprise.adbapi2 import FailsafeException
 from twext.enterprise.adbapi2 import DEFAULT_PARAM_STYLE
 from twext.enterprise.adbapi2 import ConnectionPool
 from twext.internet.threadutils import ThreadHolder
+from twext.enterprise.adbapi2 import Commit
 
 
 def resultOf(deferred, propagate=False):
@@ -151,6 +152,8 @@ class FakeConnection(Parent, Child):
         Child.__init__(self, factory)
         self.id = factory.idcounter.next()
         self._executeFailQueue = []
+        self._commitCount = 0
+        self._rollbackCount = 0
 
 
     def executeWillFail(self, thunk):
@@ -172,12 +175,14 @@ class FakeConnection(Parent, Child):
 
 
     def commit(self):
+        self._commitCount += 1
         if self.parent.commitFail:
             self.parent.commitFail = False
             raise CommitFail()
 
 
     def rollback(self):
+        self._rollbackCount += 1
         if self.parent.rollbackFail:
             self.parent.rollbackFail = False
             raise RollbackFail()
@@ -883,9 +888,10 @@ class ConnectionPoolTests(ConnectionPoolHelper, TestCase, AssertResultHelper):
         executed) will result in all of its Deferreds immediately failing and
         none of the queued statements being executed.
         """
+        active = []
         # Use up the available connections ...
         for i in xrange(self.pool.maxConnections):
-            self.createTransaction()
+            active.append(self.createTransaction())
         # ... so that this one has to be spooled.
         spooled = self.createTransaction()
         result = self.resultOf(spooled.execSQL("alpha"))
@@ -920,6 +926,25 @@ class ConnectionPoolTests(ConnectionPoolHelper, TestCase, AssertResultHelper):
         self.flushHolders()
         self.assertEquals(abortResult, [None])
         self.assertEquals(stopResult, [None])
+
+
+    def test_garbageCollectedTransactionAborts(self):
+        """
+        When an L{IAsyncTransaction} is garbage collected, it ought to abort
+        itself.
+        """
+        t = self.createTransaction()
+        self.resultOf(t.execSQL("echo", []))
+        import gc
+        conns = self.factory.connections
+        self.assertEquals(len(conns), 1)
+        self.assertEquals(conns[0]._rollbackCount, 0)
+        del t
+        gc.collect()
+        self.flushHolders()
+        self.assertEquals(len(conns), 1)
+        self.assertEquals(conns[0]._rollbackCount, 1)
+        self.assertEquals(conns[0]._commitCount, 0)
 
 
     def test_tooManyConnectionsWhileOthersFinish(self):
@@ -1585,6 +1610,8 @@ class NetworkedPoolHelper(ConnectionPoolHelper):
         them.  Flush the locally logged error of the given type and return
         L{UnknownRemoteError}.
         """
+        if err in Commit.errors:
+            return err
         self.flushLoggedErrors(err)
         return FailsafeException
 
