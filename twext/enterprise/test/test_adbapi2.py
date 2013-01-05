@@ -30,6 +30,7 @@ from twisted.python.failure import Failure
 from twisted.trial.unittest import TestCase
 
 from twisted.internet.task import Clock
+from twisted.internet.defer import Deferred
 
 from twisted.internet.interfaces import IReactorThreads
 
@@ -369,11 +370,11 @@ class FakeThreadHolder(ThreadHolder):
 
 
     @property
-    def _q(self):
+    def _get_q(self):
         return self._q_
 
 
-    @_q.setter
+    @_get_q.setter
     def _q(self, newq):
         if newq is not None:
             oget = newq.get
@@ -1078,6 +1079,52 @@ class ConnectionPoolTests(ConnectionPoolHelper, TestCase, AssertResultHelper):
         errors = self.flushLoggedErrors(BindingSpecificException)
         self.assertEquals(len(errors), 1)
         return t
+
+
+    def test_preCommitSuccess(self):
+        """
+        Callables passed to L{IAsyncTransaction.preCommit} will be invoked upon
+        commit.
+        """
+        txn = self.createTransaction()
+        def simple():
+            simple.done = True
+        simple.done = False
+        txn.preCommit(simple)
+        self.assertEquals(simple.done, False)
+        result = self.resultOf(txn.commit())
+        self.assertEquals(len(result), 1)
+        self.assertEquals(simple.done, True)
+
+
+    def test_deferPreCommit(self):
+        """
+        If callables passed to L{IAsyncTransaction.preCommit} return
+        L{Deferred}s, they will defer the actual commit operation until it has
+        fired.
+        """
+        txn = self.createTransaction()
+        d = Deferred()
+        def wait():
+            wait.started = True
+            def executed(it):
+                wait.sqlResult = it
+            # To make sure the _underlying_ commit operation was Deferred, we
+            # have to execute some SQL to make sure it happens.
+            return (d.addCallback(lambda ignored: txn.execSQL("some test sql"))
+                     .addCallback(executed))
+        wait.started = False
+        wait.sqlResult = None
+        txn.preCommit(wait)
+        result = self.resultOf(txn.commit())
+        self.flushHolders()
+        self.assertEquals(wait.started, True)
+        self.assertEquals(wait.sqlResult, None)
+        self.assertEquals(result, [])
+        d.callback(None)
+        self.flushHolders()
+        self.assertEquals(len(result), 1)
+        self.assertEquals(wait.sqlResult, [[1, "some test sql"]])
 
 
     def test_noOpCommitDoesntHinderReconnection(self):
