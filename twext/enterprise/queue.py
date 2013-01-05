@@ -800,6 +800,7 @@ class ImmediatePerformer(object):
     """
     Implementor of C{performWork} that does its work immediately, regardless.
     """
+    implements(_IWorkPerformer)
 
     def __init__(self, txnFactory):
         """
