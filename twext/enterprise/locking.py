@@ -98,6 +98,7 @@ class NamedLock(Record, fromTable(LockSchema.NAMED_LOCK)):
         @return: A L{Deferred} that fires with L{None} when the lock has been
             unlocked.
         """
+        return self.delete()
 
 
 
