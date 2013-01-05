@@ -1382,9 +1382,7 @@ class _PeerPoolFactory(Factory, object):
 
 class LocalQueuer(object):
     """
-    When work is enqueued with this queuer, it is just executed immediately,
-    within the same transaction.  While this is technically correct, it is not
-    very efficient.
+    When work is enqueued with this queuer, it is just executed locally.
     """
     implements(IQueuer)
 

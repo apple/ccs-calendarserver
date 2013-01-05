@@ -429,7 +429,7 @@ class PeerConnectionPoolIntegrationTests(TestCase):
         by the time the L{Deferred} returned from the resulting
         L{WorkProposal}'s C{whenExecuted} method has fired.
         """
-        # TODO: this exact test should run against NullQueuer as well.
+        # TODO: this exact test should run against LocalQueuer as well.
         def operation(txn):
             # TODO: how does 'enqueue' get associated with the transaction? This
             # is not the fact with a raw t.w.enterprise transaction.  Should
