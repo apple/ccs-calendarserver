@@ -246,8 +246,8 @@ class TestCRUD(TestCase):
         txn = self.pool.connection()
         yield txn.execSQL("insert into ALPHA values (:1, :2)", [789, u'nine'])
         rec = list((yield TestRecord.all(txn)))[0]
-        self.assertIn("789", repr(rec))
-        self.assertIn("'nine'", repr(rec))
+        self.assertIn(" beta=789", repr(rec))
+        self.assertIn(" gamma=u'nine'", repr(rec))
 
 
     @inlineCallbacks
