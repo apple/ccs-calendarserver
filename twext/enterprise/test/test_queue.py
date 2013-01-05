@@ -164,6 +164,7 @@ class PeerConnectionPoolIntegrationTests(TestCase):
         ms.startService()
         self.addCleanup(ms.stopService)
         yield gatherResults([d1, d2])
+        self.store.queuer = self.node1
 
 
     def test_currentNodeInfo(self):
@@ -186,6 +187,7 @@ class PeerConnectionPoolIntegrationTests(TestCase):
         by the time the L{Deferred} returned from the resulting
         L{WorkProposal}'s C{whenExecuted} method has fired.
         """
+        # TODO: this exact test should run against NullQueuer as well.
         def operation(txn):
             # TODO: how does 'enqueue' get associated with the transaction? This
             # is not the fact with a raw t.w.enterprise transaction.  Should
