@@ -240,12 +240,48 @@ class PeerConnectionPoolUnitTests(TestCase):
         have spawned but some peers have connected, then it should choose a
         connection from the network to perform it.
         """
-        peer = PeerConnectionPool(None, None, 4321, schema)
+        peer = PeerConnectionPool(None, None, 4322, schema)
         local = self.pcp.peerFactory().buildProtocol(None)
         remote = peer.peerFactory().buildProtocol(None)
         connection = Connection(local, remote)
         connection.start()
         self.checkPerformer(ConnectionFromPeerNode)
+
+
+    def test_performingWorkOnNetwork(self):
+        """
+        The L{PerformWork} command will get relayed to the remote peer
+        controller.
+        """
+        peer = PeerConnectionPool(None, None, 4322, schema)
+        local = self.pcp.peerFactory().buildProtocol(None)
+        remote = peer.peerFactory().buildProtocol(None)
+        connection = Connection(local, remote)
+        connection.start()
+        d = Deferred()
+        class DummyPerformer(object):
+            def performWork(self, table, workID):
+                self.table = table
+                self.workID = workID
+                return d
+        # Doing real database I/O in this test would be tedious so fake the
+        # first method in the call stack which actually talks to the DB.
+        dummy = DummyPerformer()
+        def chooseDummy(onlyLocally=False):
+            return dummy
+        peer.choosePerformer = chooseDummy
+        performed = local.performWork(schema.DUMMY_WORK_ITEM, 7384)
+        performResult = []
+        performed.addCallback(performResult.append)
+        # Sanity check.
+        self.assertEquals(performResult, [])
+        connection.flush()
+        self.assertEquals(dummy.table, schema.DUMMY_WORK_ITEM)
+        self.assertEquals(dummy.workID, 7384)
+        self.assertEquals(performResult, [])
+        d.callback(128374)
+        connection.flush()
+        self.assertEquals(performResult, [None])
 
 
 
@@ -310,8 +346,17 @@ class Connection(object):
         """
         Relay data in one direction between the two connections.
         """
-        self.receiver.deliver(self.sender.extract())
+        result = self.receiver.deliver(self.sender.extract())
         self.receiver, self.sender = self.sender, self.receiver
+        return result
+
+    def flush(self, turns=10):
+        """
+        Keep relaying data until there's no more.
+        """
+        for x in range(turns):
+            if not (self.pump() or self.pump()):
+                return
 
 
 
