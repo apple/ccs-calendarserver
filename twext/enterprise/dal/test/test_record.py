@@ -238,6 +238,17 @@ class TestCRUD(TestCase):
             sorted(data)
         )
 
+    @inlineCallbacks
+    def test_repr(self):
+        """
+        The C{repr} of a L{Record} presents all its values.
+        """
+        txn = self.pool.connection()
+        yield txn.execSQL("insert into ALPHA values (:1, :2)", [789, u'nine'])
+        rec = list((yield TestRecord.all(txn)))[0]
+        self.assertIn("789", repr(rec))
+        self.assertIn("'nine'", repr(rec))
+
 
     @inlineCallbacks
     def test_orderedQuery(self):

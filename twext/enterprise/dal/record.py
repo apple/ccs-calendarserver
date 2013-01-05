@@ -143,6 +143,15 @@ class Record(object):
         return super(Record, self).__setattr__(name, value)
 
 
+    def __repr__(self):
+        r = "<{0} record from table {1} ".format(self.__class__.__name__,
+                                                 self.table.model.name)
+        for k in sorted(self.__attrmap__.keys()):
+            r += "{0}={1}".format(k, repr(getattr(self, k)))
+        r += ">"
+        return r
+
+
     @staticmethod
     def namingConvention(columnName):
         """
