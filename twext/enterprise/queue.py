@@ -94,7 +94,7 @@ from twisted.protocols.amp import AMP, Command, Integer, Argument, String
 from twisted.python.reflect import qual
 from twisted.python import log
 
-from twext.enterprise.dal.syntax import TableSyntax, SchemaSyntax
+from twext.enterprise.dal.syntax import SchemaSyntax
 from twext.enterprise.dal.model import ProcedureCall
 from twext.enterprise.dal.syntax import NamedValue
 from twext.enterprise.dal.record import Record, fromTable
