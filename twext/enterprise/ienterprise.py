@@ -109,7 +109,9 @@ class IAsyncTransaction(ISQLExecutor):
         Commit changes caused by this transaction.
 
         @return: L{Deferred} which fires with C{None} upon successful
-            completion of this transaction.
+            completion of this transaction, or fails if this transaction could
+            not be committed.  It fails with L{AlreadyFinishedError} if the
+            transaction has already been committed or rolled back.
         """
 
 

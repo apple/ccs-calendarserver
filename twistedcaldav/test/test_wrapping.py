@@ -248,8 +248,8 @@ class WrappingTests(TestCase):
                                       % (pathType, pathType))
             yield req.process()
             self.assertEquals(req.chanRequest.code, 404)
-            self.assertRaises(AlreadyFinishedError,
-                              req._newStoreTransaction.commit)
+            yield self.failUnlessFailure(req._newStoreTransaction.commit(),
+                                         AlreadyFinishedError)
 
 
     @inlineCallbacks
