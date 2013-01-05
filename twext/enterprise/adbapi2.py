@@ -525,9 +525,12 @@ class _CommitAndAbortHooks(object):
         """
         Run pre-hooks, commit, the real DB commit, and then post-hooks.
         """
-        return self._preCommit.runHooks().addCallback(
-            lambda ignored: doCommit().addCallback(self._commit.runHooks)
-        )
+        pre = self._preCommit.runHooks()
+        def ok(ignored):
+            return doCommit().addCallback(self._commit.runHooks)
+        def failed(why):
+            return self.abort().addCallback(lambda ignored: why)
+        return pre.addCallbacks(ok, failed)
 
 
     def preCommit(self, operation):

@@ -1164,8 +1164,8 @@ class ConnectionPoolTests(ConnectionPoolHelper, TestCase, AssertResultHelper):
             result = self.resultOf(txn.commit())
             self.flushHolders()
             self.assertResultList(result, Failure(exc()))
-            self.assertEquals(test.aborted, True)
             self.assertEquals(test.committed, False)
+            self.assertEquals(test.aborted, True)
 
         def failer():
             return fail(ZeroDivisionError())
