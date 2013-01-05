@@ -543,10 +543,23 @@ class SQLLegacyShares(object):
             localname = resourceName
             if bindMode != _BIND_MODE_DIRECT:
                 sharetype = 'I'
-                [[shareuid]] = yield self._inviteUIDByResourceIDsQuery.on(
+                expectUID = yield self._inviteUIDByResourceIDsQuery.on(
                     self._txn, resourceID=resourceID,
                     homeID=self._home._resourceID
                 )
+                if len(expectUID) != 1:
+                    # This was a split task collection, leaving an orphaned bind
+                    # row behind.  Let's ignore it and drop it so it won't get
+                    # picked up in the future; the user can re-share if they
+                    # intended to share both calendar event and reminders.
+                    bind = self._bindSchema
+                    yield Delete(
+                        From=bind,
+                        Where=(bind.RESOURCE_ID == resourceID)
+                          .And(bind.HOME_RESOURCE_ID == self._home._resourceID)
+                    ).on(self._txn)
+                    continue
+                [[shareuid]] = expectUID
             else:
                 sharetype = 'D'
                 shareuid = "Direct-%s-%s" % (self._home._resourceID, resourceID,)
