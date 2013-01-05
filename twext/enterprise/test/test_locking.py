@@ -63,3 +63,16 @@ class TestLocking(TestCase):
         yield lck.release()
         rows = yield Select(From=LockSchema.NAMED_LOCK).on(txn)
         self.assertEquals(rows, [])
+
+
+    @inlineCallbacks
+    def test_autoRelease(self):
+        """
+        Committing a transaction automatically releases all of its locks.
+        """
+        txn = self.pool.connection()
+        yield NamedLock.acquire(txn, u"something")
+        yield txn.commit()
+        txn2 = self.pool.connection()
+        rows = yield Select(From=LockSchema.NAMED_LOCK).on(txn2)
+        self.assertEquals(rows, [])
