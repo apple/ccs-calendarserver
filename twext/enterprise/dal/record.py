@@ -230,14 +230,24 @@ class Record(object):
         result = yield (Insert(colmap, Return=needsCols if needsCols else None)
                         .on(transaction))
         if needsCols:
-            for neededAttr, neededValue, neededColumn in zip(needsAttrs,
-                                                             result[0],
-                                                             needsCols):
-                if neededColumn.model.type.name == "timestamp":
-                    neededValue = parseSQLTimestamp(neededValue)
-                setattr(self, neededAttr, neededValue)
+            self._attributesFromRow(zip(needsAttrs, result[0]))
         self.transaction = transaction
         returnValue(self)
+
+
+    def _attributesFromRow(self, attributeList):
+        """
+        Take some data loaded from a row and apply it to this instance,
+        converting types as necessary.
+
+        @param attributeList: a C{list} of 2-C{tuples} of C{(attributeName,
+            attributeValue)}.
+        """
+        for setAttribute, setValue in attributeList:
+            setColumn = self.__attrmap__[setAttribute]
+            if setColumn.model.type.name == "timestamp":
+                setValue = parseSQLTimestamp(setValue)
+            setattr(self, setAttribute, setValue)
 
 
     def delete(self):
@@ -349,11 +359,10 @@ class Record(object):
         """
         rows = yield qry.on(transaction, raiseOnZeroRowCount=rozrc)
         selves = []
+        names = [cls.__colmap__[column] for column in list(cls.table)]
         for row in rows:
             self = cls()
-            for (column, value) in zip(list(cls.table), row):
-                name = cls.__colmap__[column]
-                setattr(self, name, value)
+            self._attributesFromRow(zip(names, row))
             self.transaction = transaction
             selves.append(self)
         returnValue(selves)
