@@ -52,3 +52,14 @@ class TestLocking(TestCase):
         rows = yield Select(From=LockSchema.NAMED_LOCK).on(txn)
         self.assertEquals(rows, [tuple([u"a test lock"])])
 
+
+    @inlineCallbacks
+    def test_release(self):
+        """
+        Releasing an acquired lock removes the row.
+        """
+        txn = self.pool.connection()
+        lck = yield NamedLock.acquire(txn, u"a test lock")
+        yield lck.release()
+        rows = yield Select(From=LockSchema.NAMED_LOCK).on(txn)
+        self.assertEquals(rows, [])
