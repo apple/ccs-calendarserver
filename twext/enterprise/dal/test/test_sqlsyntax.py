@@ -146,6 +146,16 @@ class GenerationTests(ExampleSchemaHelper, TestCase, AssertResultHelper):
                           SQLFragment("select * from FOO", []))
 
 
+    def test_tableSyntaxFromSchemaSyntaxCompare(self):
+        """
+        One L{TableSyntax} is equivalent to another wrapping the same table;
+        one wrapping a different table is different.
+        """
+        self.assertEquals(self.schema.FOO, self.schema.FOO)
+        self.assertNotEquals(self.schema.FOO, self.schema.BOZ)
+
+
+
     def test_simpleWhereClause(self):
         """
         L{Select} generates a 'select' statement with a 'where' clause
