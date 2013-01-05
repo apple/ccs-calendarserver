@@ -131,7 +131,10 @@ class _IWorkPerformer(Interface):
 
 def makeNodeSchema(inSchema):
     """
-    Create a self-contained schema for L{NodeInfo} to use.
+    Create a self-contained schema for L{NodeInfo} to use, in C{inSchema}.
+
+    @param inSchema: a L{Schema} to add the node-info table to.
+    @type inSchema: L{Schema}
 
     @return: a schema with just the one table.
     """
@@ -139,6 +142,7 @@ def makeNodeSchema(inSchema):
     # should really be accomplished with independent schema objects that the
     # transaction is made aware of somehow.
     NodeTable = Table(inSchema, 'NODE_INFO')
+
     NodeTable.addColumn("HOSTNAME", SQLType("varchar", 255))
     NodeTable.addColumn("PID", SQLType("integer", None))
     NodeTable.addColumn("PORT", SQLType("integer", None))
@@ -151,9 +155,33 @@ def makeNodeSchema(inSchema):
         NodeTable.tableConstraint(Constraint.NOT_NULL, [column.name])
     NodeTable.primaryKey = [NodeTable.columnNamed("HOSTNAME"),
                             NodeTable.columnNamed("PORT")]
+
     return inSchema
 
 NodeInfoSchema = SchemaSyntax(makeNodeSchema(Schema(__file__)))
+
+
+
+def makeLockSchema(inSchema):
+    """
+    Create a self-contained schema just for L{Locker} use, in C{inSchema}.
+
+    @param inSchema: a L{Schema} to add the locks table to.
+    @type inSchema: L{Schema}
+
+    @return: inSchema
+    """
+    LockTable = Table(inSchema, 'NAMED_LOCKS')
+
+    LockTable.addColumn("LOCK_NAME", SQLType("varchar", 255))
+    LockTable.tableConstraint(Constraint.NOT_NULL, ["LOCK_NAME"])
+    LockTable.tableConstraint(Constraint.UNIQUE, ["LOCK_NAME"])
+    LockTable.primaryKey = [LockTable.columnNamed("LOCK_NAME")]
+
+    return inSchema
+
+LockSchema = SchemaSyntax(makeLockSchema(Schema(__file__)))
+
 
 
 @inlineCallbacks
@@ -407,7 +435,6 @@ class AcquiredLock(object):
             unlocked.
         """
         raise NotImplementedError()
-
 
 
 
