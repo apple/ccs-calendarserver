@@ -222,6 +222,7 @@ class SQLStoreBuilder(object):
         # TODO: should be getting these tables from a declaration of the schema
         # somewhere.
         tables = ['RESOURCE_PROPERTY',
+                  'NODE_INFO',
                   'ATTACHMENT',
                   'NOTIFICATION_OBJECT_REVISIONS',
                   'ADDRESSBOOK_OBJECT_REVISIONS',
