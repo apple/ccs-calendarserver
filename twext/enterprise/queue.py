@@ -83,7 +83,7 @@ from datetime import datetime
 
 from zope.interface import implements
 
-from twisted.application.service import Service
+from twisted.application.service import MultiService
 from twisted.internet.protocol import Factory
 from twisted.internet.defer import (
     inlineCallbacks, returnValue, Deferred, succeed
@@ -466,6 +466,7 @@ class ConnectionFromPeerNode(SchemaAMP):
     @IdentifyNode.responder
     def identifyPeer(self, host, port):
         self.peerPool.mapPeer(host, port, self)
+        return {}
 
 
 
@@ -843,7 +844,7 @@ class WorkProposal(object):
 
 
 
-class PeerConnectionPool(Service, object):
+class PeerConnectionPool(MultiService, object):
     """
     Each node has a L{PeerConnectionPool} connecting it to all the other nodes
     currently active on the same database.
@@ -908,6 +909,7 @@ class PeerConnectionPool(Service, object):
             the L{WorkItem}s that this L{PeerConnectionPool} will process.
         @type schema: L{Schema}
         """
+        super(PeerConnectionPool, self).__init__()
         self.reactor = reactor
         self.transactionFactory = transactionFactory
         self.hostname = self.getfqdn()
@@ -1100,7 +1102,8 @@ class PeerConnectionPool(Service, object):
             f.buildProtocol = self.createPeerConnection
             # If this fails, the failure mode is going to be ugly, just like all
             # conflicted-port failures.  But, at least it won't proceed.
-            yield endpoint.listen(f)
+            self._listeningPortObject = yield endpoint.listen(f)
+            self.ampPort = self._listeningPortObject.getHost().port
             yield Lock.exclusive(NodeInfo.table).on(txn)
             nodes = yield self.activeNodes(txn)
             selves = [node for node in nodes
@@ -1123,6 +1126,7 @@ class PeerConnectionPool(Service, object):
         @self._startingUp.addBoth
         def done(result):
             self._startingUp = None
+            super(PeerConnectionPool, self).startService()
             return result
 
 
@@ -1141,7 +1145,7 @@ class PeerConnectionPool(Service, object):
         if self._currentWorkDeferred is not None:
             yield self._currentWorkDeferred
         for peer in self.peers:
-            peer.transport.loseConnection()
+            peer.transport.abortConnection()
 
 
     def activeNodes(self, txn):
@@ -1172,10 +1176,18 @@ class PeerConnectionPool(Service, object):
         """
         f = Factory()
         f.buildProtocol = self.createPeerConnection
-        @passthru(node.endpoint(self.reactor).connect(f).addCallback)
-        def connected(proto):
-            self.mapPeer(node, proto)
-            proto.callRemote(IdentifyNode, self.thisProcess)
+        connected = node.endpoint(self.reactor).connect(f)
+        def whenConnected(proto):
+            self.mapPeer(node.hostname, node.port, proto)
+            proto.callRemote(IdentifyNode,
+                             host=self.thisProcess.hostname,
+                             port=self.thisProcess.port).addErrback(
+                                 noted, "identify"
+                             )
+        def noted(err, x="connect"):
+            log.msg("Could not {0} to cluster peer {1} because {2}"
+                    .format(x, node, str(err.value)))
+        connected.addCallbacks(whenConnected, noted)
 
 
     def createPeerConnection(self, addr):
