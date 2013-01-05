@@ -23,5 +23,5 @@ create table NAMED_LOCK (
     "LOCK_NAME" nvarchar2(255) primary key
 );
 -- Now update the version
-update CALENDARSERVER set VALUE = '' where NAME = 'VERSION';
+update CALENDARSERVER set VALUE = '15' where NAME = 'VERSION';
 
