@@ -31,7 +31,9 @@ from twext.enterprise.dal.syntax import SchemaSyntax, Select
 from twext.enterprise.dal.record import fromTable
 from twext.enterprise.dal.test.test_parseschema import SchemaTestHelper
 
-from twext.enterprise.queue import inTransaction, PeerConnectionPool, WorkItem
+from twext.enterprise.queue import (
+    inTransaction, PeerConnectionPool, WorkItem, astimestamp
+)
 
 from twisted.trial.unittest import TestCase
 from twisted.internet.defer import (
@@ -71,14 +73,6 @@ def transactionally(transactionCreator):
     def thunk(operation):
         return inTransaction(transactionCreator, operation)
     return thunk
-
-
-
-def astimestamp(v):
-    """
-    Convert the given datetime to a POSIX timestamp.
-    """
-    return (v - datetime.datetime.utcfromtimestamp(0)).total_seconds()
 
 
 
@@ -395,7 +389,7 @@ class PeerConnectionPoolUnitTests(TestCase):
         @transactionally(dbpool.connection)
         def check(txn):
             return qpool.enqueueWork(
-                txn, DummyWorkItem,
+                txn, DummyWorkItem, a=3, b=9,
                 notBefore=datetime.datetime(2012, 12, 12, 12, 12, 20)
             ).whenProposed()
 

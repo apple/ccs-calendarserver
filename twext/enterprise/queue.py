@@ -192,6 +192,14 @@ def inTransaction(transactionCreator, operation):
 
 
 
+def astimestamp(v):
+    """
+    Convert the given datetime to a POSIX timestamp.
+    """
+    return (v - datetime.utcfromtimestamp(0)).total_seconds()
+
+
+
 class TableSyntaxByName(Argument):
     """
     Serialize and deserialize L{TableSyntax} objects for an AMP protocol with
@@ -900,7 +908,8 @@ class WorkProposal(object):
     another node, perhaps in the future.
 
     @ivar _chooser: The object which will choose where the work in this
-        proposal gets performed.
+        proposal gets performed.  This must have both a C{choosePerformer}
+        method and a C{reactor} attribute, providing an L{IReactorTime}.
     @type _chooser: L{PeerConnectionPool} or L{LocalQueuer}
 
     @ivar txn: The transaction where the work will be enqueued.
@@ -936,14 +945,20 @@ class WorkProposal(object):
             @self.txn.postCommit
             def whenDone():
                 self._whenCommitted.callback(self)
-                performer = self._chooser.choosePerformer()
-                @passthru(performer.performWork(item.table, item.workID)
-                          .addCallback)
-                def performed(result):
-                    self._whenExecuted.callback(self)
-                @performed.addErrback
-                def notPerformed(why):
-                    self._whenExecuted.errback(why)
+                def maybeLater():
+                    performer = self._chooser.choosePerformer()
+                    @passthru(performer.performWork(item.table, item.workID)
+                              .addCallback)
+                    def performed(result):
+                        self._whenExecuted.callback(self)
+                    @performed.addErrback
+                    def notPerformed(why):
+                        self._whenExecuted.errback(why)
+                reactor = self._chooser.reactor
+                when = astimestamp(item.notBefore) - reactor.seconds()
+                # TODO: Track the returned DelayedCall so it can be stopped when
+                # the service stops.
+                self._chooser.reactor.callLater(when, maybeLater)
             @self.txn.postAbort
             def whenFailed():
                 self._whenCommitted.errback(TransactionFailed)
@@ -1388,8 +1403,11 @@ class LocalQueuer(object):
     """
     implements(IQueuer)
 
-    def __init__(self, txnFactory):
+    def __init__(self, txnFactory, reactor=None):
         self.txnFactory = txnFactory
+        if reactor is None:
+            from twisted.internet import reactor
+        self.reactor = reactor
 
 
     def choosePerformer(self):
