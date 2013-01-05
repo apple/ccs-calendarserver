@@ -1208,19 +1208,20 @@ class PeerConnectionPool(MultiService, object):
         """
         @inlineCallbacks
         def workCheck(txn):
-
-            nodes = [(node.hostname, node.port) for node in
-                     (yield self.activeNodes(txn))]
-            nodes.sort()
-            self._lastSeenTotalNodes = len(nodes)
-            self._lastSeenNodeIndex = nodes.index((self.thisProcess.hostname,
-                                                   self.thisProcess.port))
+            if self.thisProcess:
+                nodes = [(node.hostname, node.port) for node in
+                         (yield self.activeNodes(txn))]
+                nodes.sort()
+                self._lastSeenTotalNodes = len(nodes)
+                self._lastSeenNodeIndex = nodes.index(
+                    (self.thisProcess.hostname, self.thisProcess.port)
+                )
             for itemType in self.allWorkItemTypes():
                 for overdueItem in (
                         yield itemType.query(
                             txn,
                             (itemType.notBefore >
-                             datetime.datetime.utcfromtimestamp(
+                             datetime.utcfromtimestamp(
                                 self.reactor.seconds () +
                                 self.queueProcessTimeout
                             ))
