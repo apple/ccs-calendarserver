@@ -1,6 +1,6 @@
 # -*- test-case-name: txdav.caldav.datastore -*-
 ##
-# Copyright (c) 2010-2012 Apple Inc. All rights reserved.
+# Copyright (c) 2010-2013 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -118,6 +118,7 @@ test_event_text = (
         "DTSTART;TZID=US/Pacific:20100207T170000\r\n"
         "DTSTAMP:20100203T013909Z\r\n"
         "SEQUENCE:3\r\n"
+        "X-APPLE-DROPBOX:/calendars/users/wsanchez/dropbox/uid-test.dropbox\r\n"
         "BEGIN:VALARM\r\n"
           "X-WR-ALARMUID:1377CCC7-F85C-4610-8583-9513D4B364E1\r\n"
           "TRIGGER:-PT20M\r\n"
