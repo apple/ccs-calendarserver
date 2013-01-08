@@ -475,7 +475,7 @@ END:VCARD
         aboForeignMembers = schema.ABO_FOREIGN_MEMBERS
         aboMembers = schema.ABO_MEMBERS
         memberRows = yield Select([aboMembers.GROUP_ID, aboMembers.MEMBER_ID], From=aboMembers,).on(txn)
-        self.assertEqual(sorted(memberRows), sorted([[adbk._resourceID, personObject._resourceID], [adbk._resourceID, groupObject._resourceID]]))
+        self.assertEqual(memberRows, [])
 
         foreignMemberRows = yield Select([aboForeignMembers.GROUP_ID, aboForeignMembers.MEMBER_ADDRESS], From=aboForeignMembers).on(txn)
         self.assertEqual(foreignMemberRows, [[groupObject._resourceID, "urn:uuid:uid3"]])
@@ -499,9 +499,6 @@ END:VCARD
         self.assertEqual(sorted(memberRows), sorted([
                                                      [groupObject._resourceID, subgroupObject._resourceID],
                                                      [subgroupObject._resourceID, personObject._resourceID],
-                                                     [adbk._resourceID, personObject._resourceID],
-                                                     [adbk._resourceID, subgroupObject._resourceID],
-                                                     [adbk._resourceID, groupObject._resourceID],
                                                     ]))
 
         foreignMemberRows = yield Select([aboForeignMembers.GROUP_ID, aboForeignMembers.MEMBER_ADDRESS], From=aboForeignMembers).on(txn)
@@ -510,7 +507,7 @@ END:VCARD
 
         yield adbk.removeAddressBookObjectWithName("sg.vcf")
         memberRows = yield Select([aboMembers.GROUP_ID, aboMembers.MEMBER_ID], From=aboMembers,).on(txn)
-        self.assertEqual(sorted(memberRows), sorted([[adbk._resourceID, personObject._resourceID], [adbk._resourceID, groupObject._resourceID]]))
+        self.assertEqual(memberRows, [])
 
         foreignMemberRows = yield Select([aboForeignMembers.GROUP_ID, aboForeignMembers.MEMBER_ADDRESS], From=aboForeignMembers,
                                                  #Where=(aboForeignMembers.GROUP_ID == groupObject._resourceID),

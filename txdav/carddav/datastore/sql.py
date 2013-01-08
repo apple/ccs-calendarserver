@@ -179,8 +179,8 @@ class AddressBook(CommonHomeChild, AddressBookSharingMixIn):
     # structured tables.  (new, preferred)
     _homeSchema = schema.ADDRESSBOOK_HOME
     _bindSchema = schema.ADDRESSBOOK_BIND
-    _homeChildSchema = schema.ADDRESSBOOK_OBJECT
-    _homeChildMetaDataSchema = schema.ADDRESSBOOK_OBJECT
+    _homeChildSchema = schema.ADDRESSBOOK
+    _homeChildMetaDataSchema = schema.ADDRESSBOOK_METADATA
     _revisionsSchema = schema.ADDRESSBOOK_OBJECT_REVISIONS
     _objectSchema = schema.ADDRESSBOOK_OBJECT
 
@@ -245,7 +245,7 @@ class AddressBook(CommonHomeChild, AddressBookSharingMixIn):
         """
         return super(AddressBook, self).unshare(EADDRESSBOOKTYPE)
 
-
+    '''
     @classmethod
     @inlineCallbacks
     def _createChild(cls, home, name):  #@NoSelf
@@ -282,7 +282,7 @@ END:VCARD
                 ))[0]
 
         returnValue((resourceID, created, modified))
-
+    '''
 
     @classmethod
     def _memberIDsWithGroupIDsQuery(cls, groupIDs): #@NoSelf
@@ -313,7 +313,7 @@ END:VCARD
 
         returnValue(tuple(objectIDs))
 
-
+    '''
     @inlineCallbacks
     def listObjectResources(self):
         if self._objectNames is None:
@@ -332,6 +332,7 @@ END:VCARD
     @inlineCallbacks
     def countObjectResources(self):
         returnValue(len((yield self._allAddressBookObjectIDs())))
+    '''
 
 
 class AddressBookObject(CommonObjectResource, AddressBookSharingMixIn):
@@ -340,7 +341,7 @@ class AddressBookObject(CommonObjectResource, AddressBookSharingMixIn):
 
     _objectTable = ADDRESSBOOK_OBJECT_TABLE
     _objectSchema = schema.ADDRESSBOOK_OBJECT
-    _bindSchema = schema.ADDRESSBOOK_BIND
+    _bindSchema = schema.GROUP_ADDRESSBOOK_BIND
 
 
     def __init__(self, addressbook, name, uid, resourceID=None, metadata=None):
@@ -476,6 +477,8 @@ class AddressBookObject(CommonObjectResource, AddressBookSharingMixIn):
 
         @return: L{self} if object exists in the DB, else C{None}
         """
+        if isinstance(self._addressbook, AddressBook):
+            returnValue((yield super(AddressBookObject, self).initFromStore()))
 
         objectIDs = yield self._addressbook._allAddressBookObjectIDs()
         if self._name:
@@ -545,6 +548,9 @@ class AddressBookObject(CommonObjectResource, AddressBookSharingMixIn):
     @classmethod
     @inlineCallbacks
     def _allColumnsWithParent(cls, parent): #@NoSelf
+        if isinstance(parent, AddressBook):
+            returnValue((yield super(AddressBookObject, cls)._allColumnsWithParent(parent)))
+
         objectIDs = yield parent._allAddressBookObjectIDs()
         rows = (yield cls._abObjectColumnsWithResourceIDsQuery(cls._allColumns, objectIDs).on(
             parent._txn, resourceIDs=objectIDs)) if objectIDs else []
@@ -595,7 +601,7 @@ class AddressBookObject(CommonObjectResource, AddressBookSharingMixIn):
                     break
         else:
             if self._addressbook._resourceID != self._ownerAddressBookResourceID:
-                # update revisions table a shared group's containing address book
+                # update revisions table of shared group's containing address book
                 ownerAddressBook = yield self.ownerAddressBook()
                 yield self._changeAddressBookRevision(ownerAddressBook, inserting)
 
@@ -775,7 +781,7 @@ class AddressBookObject(CommonObjectResource, AddressBookSharingMixIn):
             groupIDs = [groupIDRow[0] for groupIDRow in groupIDRows]
 
             # add group if of this owner address book
-            groupIDs.append(self._ownerAddressBookResourceID)
+            # groupIDs.append(self._ownerAddressBookResourceID)
 
             # add owner group if there is one
             ownerGroup = yield self.ownerGroup()
