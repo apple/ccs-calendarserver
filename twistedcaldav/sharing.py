@@ -1,6 +1,6 @@
 # -*- test-case-name: twistedcaldav.test.test_sharing -*-
 ##
-# Copyright (c) 2010-2012 Apple Inc. All rights reserved.
+# Copyright (c) 2010-2013 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -116,6 +116,7 @@ class SharedCollectionMixin(object):
         rtype = self.resourceType()
         rtype = element.ResourceType(*(rtype.children + (customxml.SharedOwner(),)))
         self.writeDeadProperty(rtype)
+
 
     @inlineCallbacks
     def downgradeFromShare(self, request):
@@ -289,6 +290,16 @@ class SharedCollectionMixin(object):
 
     @inlineCallbacks
     def shareeAccessControlList(self, request, *args, **kwargs):
+        """
+        Return WebDAV ACLs appropriate for the current user accessing the shared collection. For
+        an "invite" share we take the privilege granted to the sharee in the invite and map that
+        to WebDAV ACLs. For a "direct" share, if it is a wiki collection we map the wiki privileges
+        into WebDAV ACLs, otherwise we use whatever privileges exist on the underlying shared
+        collection.
+
+        @return: the appropriate WebDAV ACL for the sharee
+        @rtype: L{davxml.ACL}
+        """
 
         assert self._isShareeCollection, "Only call this for a sharee collection"
 
@@ -509,6 +520,7 @@ class SharedCollectionMixin(object):
         invitation = Invitation(shareeHomeChild)
         returnValue(invitation)
 
+
     @inlineCallbacks
     def _updateInvitation(self, invitation, access=None, state=None, summary=None):
         mode = None if access is None else invitationAccessToBindModeMap[access]
@@ -524,7 +536,7 @@ class SharedCollectionMixin(object):
     def _allInvitations(self, includeAccepted=True):
         """
         Get list of all invitations to this object
-        
+
         For legacy reasons, all invitations are all invited + shared (accepted, not direct).
         Combine these two into a single sorted list so code is similar to that for legacy invite db
         """
@@ -537,9 +549,10 @@ class SharedCollectionMixin(object):
             invitedHomeChildren += indirectAccceptedHomeChildren
 
         invitations = [Invitation(homeChild) for homeChild in invitedHomeChildren]
-        invitations.sort(key=lambda invitation:invitation.shareeUID())
+        invitations.sort(key=lambda invitation: invitation.shareeUID())
 
         returnValue(invitations)
+
 
     @inlineCallbacks
     def _invitationForShareeUID(self, shareeUID, includeAccepted=True):
@@ -556,14 +569,13 @@ class SharedCollectionMixin(object):
     @inlineCallbacks
     def _invitationForUID(self, uid, includeAccepted=True):
         """
-        Get an invitation for an invitations uid 
+        Get an invitation for an invitations uid
         """
         invitations = yield self._allInvitations(includeAccepted=includeAccepted)
         for invitation in invitations:
             if invitation.uid() == uid:
                 returnValue(invitation)
         returnValue(None)
-
 
 
     @inlineCallbacks
@@ -671,7 +683,7 @@ class SharedCollectionMixin(object):
         state = notificationState if notificationState else invitation.state()
         summary = invitation.summary() if displayName is None else displayName
 
-        typeAttr = {'shared-type':self.sharedResourceType()}
+        typeAttr = {'shared-type': self.sharedResourceType()}
         xmltype = customxml.InviteNotification(**typeAttr)
         xmldata = customxml.Notification(
             customxml.DTStamp.fromString(PyCalendarDateTime.getNowUTC().getText()),
@@ -696,6 +708,7 @@ class SharedCollectionMixin(object):
         # Add to collections
         yield notifications.writeNotificationObject(invitation.uid(), xmltype, xmldata)
 
+
     @inlineCallbacks
     def removeInviteNotification(self, invitation, request):
 
@@ -708,6 +721,7 @@ class SharedCollectionMixin(object):
 
         # Add to collections
         yield notifications.removeNotificationObjectWithUID(invitation.uid())
+
 
     @inlineCallbacks
     def _xmlHandleInvite(self, request, docroot):
@@ -947,20 +961,26 @@ class Invitation(object):
     def __init__(self, shareeHomeChild):
         self._shareeHomeChild = shareeHomeChild
 
+
     def uid(self):
         return self._shareeHomeChild.shareUID()
+
 
     def shareeUID(self):
         return self._shareeHomeChild.viewerHome().uid()
 
+
     def access(self):
         return invitationAccessFromBindModeMap.get(self._shareeHomeChild.shareMode())
+
 
     def state(self):
         return invitationStateFromBindStatusMap.get(self._shareeHomeChild.shareStatus())
 
+
     def summary(self):
         return self._shareeHomeChild.shareMessage()
+
 
 
 class SharedHomeMixin(LinkFollowerMixIn):
@@ -969,12 +989,12 @@ class SharedHomeMixin(LinkFollowerMixIn):
     manipulating a sharee's set of shared calendars.
     """
 
-
     @inlineCallbacks
     def provisionShare(self, child, request=None):
         share = yield self._shareForHomeChild(child._newStoreObject, request)
         if share:
             child.setShare(share)
+
 
     @inlineCallbacks
     def _shareForHomeChild(self, child, request=None):
@@ -989,7 +1009,8 @@ class SharedHomeMixin(LinkFollowerMixIn):
 
         if not request:
             # FIXEME:  Fake up a request that can be used to get the sharer home resource
-            class _FakeRequest(object):pass
+            class _FakeRequest(object):
+                pass
             fakeRequest = _FakeRequest()
             setattr(fakeRequest, TRANSACTION_KEY, self._newStoreHome._txn)
             request = fakeRequest
@@ -1003,6 +1024,7 @@ class SharedHomeMixin(LinkFollowerMixIn):
         share = Share(shareeHomeChild=child, sharerHomeChild=sharerHomeChild, url=url)
 
         returnValue(share)
+
 
     @inlineCallbacks
     def _shareForUID(self, shareUID, request):
@@ -1022,6 +1044,7 @@ class SharedHomeMixin(LinkFollowerMixIn):
                 returnValue(share)
 
         returnValue(None)
+
 
     @inlineCallbacks
     def acceptInviteShare(self, request, hostUrl, inviteUID, displayname=None):
@@ -1061,6 +1084,7 @@ class SharedHomeMixin(LinkFollowerMixIn):
 
         response = yield self._acceptShare(request, not oldShare, share, displayname)
         returnValue(response)
+
 
     @inlineCallbacks
     def _acceptShare(self, request, isNewShare, share, displayname=None):
@@ -1140,6 +1164,7 @@ class SharedHomeMixin(LinkFollowerMixIn):
         else:
             returnValue(None)
 
+
     @inlineCallbacks
     def removeDirectShare(self, request, share):
         """
@@ -1158,7 +1183,6 @@ class SharedHomeMixin(LinkFollowerMixIn):
             if inboxURL:
                 inbox = (yield request.locateResource(inboxURL))
                 inbox.processFreeBusyCalendar(shareURL, False)
-
 
         if share.direct():
             yield share._sharerHomeChild.unshareWith(share._shareeHomeChild.viewerHome())
@@ -1290,6 +1314,8 @@ class SharedCollectionRecord(object):
         self.localname = localname
         self.summary = summary
 
+
+
 class Share(object):
 
     def __init__(self, sharerHomeChild, shareeHomeChild, url):
@@ -1297,9 +1323,11 @@ class Share(object):
         self._sharerHomeChild = sharerHomeChild
         self._sharedResourceURL = url
 
+
     @classmethod
     def directUID(cls, shareeHome, sharerHomeChild):
         return "Direct-%s-%s" % (shareeHome._resourceID, sharerHomeChild._resourceID,)
+
 
     def uid(self):
         # Move to CommonHomeChild shareUID?
@@ -1308,17 +1336,22 @@ class Share(object):
         else:
             return self._shareeHomeChild.shareUID()
 
+
     def direct(self):
         return self._shareeHomeChild.shareMode() == _BIND_MODE_DIRECT
+
 
     def url(self):
         return self._sharedResourceURL
 
+
     def name(self):
         return self._shareeHomeChild.name()
 
+
     def summary(self):
         return self._shareeHomeChild.shareMessage()
+
 
     def shareeUID(self):
         return self._shareeHomeChild.viewerHome().uid()
