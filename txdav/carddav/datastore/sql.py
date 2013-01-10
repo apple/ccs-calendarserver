@@ -57,8 +57,6 @@ from txdav.common.datastore.sql_tables import ADDRESSBOOK_TABLE, \
     _ABO_KIND_LOCATION, schema
 from txdav.xml.rfc2518 import ResourceType
 
-from uuid import uuid4
-
 from zope.interface.declarations import implements
 
 
@@ -86,6 +84,7 @@ class AddressBookHome(CommonHome):
     _dataVersionKey = "ADDRESSBOOK-DATAVERSION"
 
     _cacher = Memcacher("SQL.adbkhome", pickle=True, key_normalization=False)
+
 
     def __init__(self, transaction, ownerUID, notifiers):
 
@@ -140,6 +139,7 @@ AddressBookHome._register(EADDRESSBOOKTYPE)
 
 class AddressBookSharingMixIn(SharingMixIn):
 
+
     @classproperty
     def _insertABObject(cls): #@NoSelf
         """
@@ -170,6 +170,16 @@ class AddressBookSharingMixIn(SharingMixIn):
                       Where=obj.RESOURCE_ID.In(Parameter("resourceIDs", len(resourceIDs))),)
 
 
+    @classmethod
+    def _abObjectColumnsWithAddressBookResourceID(cls, columns,): #@NoSelf
+        """
+        DAL statement to retrieve addressbook object rows with given columns.
+        """
+        obj = cls._objectSchema
+        return Select(columns, From=obj,
+                      Where=obj.ADDRESSBOOK_RESOURCE_ID == Parameter("addressbookResourceID"),)
+
+
 class AddressBook(CommonHomeChild, AddressBookSharingMixIn):
     """
     SQL-based implementation of L{IAddressBook}.
@@ -192,6 +202,7 @@ class AddressBook(CommonHomeChild, AddressBookSharingMixIn):
     _revisionsBindTable = ADDRESSBOOK_OBJECT_REVISIONS_AND_BIND_TABLE
     _objectTable = ADDRESSBOOK_OBJECT_TABLE
 
+
     def __init__(self, *args, **kw):
         super(AddressBook, self).__init__(*args, **kw)
         self._index = PostgresLegacyABIndexEmulator(self)
@@ -205,9 +216,11 @@ class AddressBook(CommonHomeChild, AddressBookSharingMixIn):
     def resourceType(self):
         return ResourceType.addressbook #@UndefinedVariable
 
+
     #FIXME: Only used for shared group resouretype in SharedResourceMixin.upgradeToShare() and SharedResourceMixin.downgradeFromShare()
     def objectResourcesHaveProperties(self):
         return True
+
 
     ownerAddressBookHome = CommonHomeChild.ownerHome
     addressbookObjects = CommonHomeChild.objectResources
@@ -245,94 +258,62 @@ class AddressBook(CommonHomeChild, AddressBookSharingMixIn):
         """
         return super(AddressBook, self).unshare(EADDRESSBOOKTYPE)
 
-    '''
-    @classmethod
-    @inlineCallbacks
-    def _createChild(cls, home, name):  #@NoSelf
-        # Create this object
 
-        # TODO:  N, FN, set to resource name for now,
-        #        but "may" have to change when shared
-        #        and perhaps will need to reflect a per-user property
-        uid = str(uuid4())
-        component = VCard.fromString(
-            """BEGIN:VCARD
-VERSION:3.0
-PRODID:%s
-UID:%s
-FN:%s
-N:%s;;;;
-X-ADDRESSBOOKSERVER-KIND:group
-END:VCARD
-""".replace("\n", "\r\n") % (vCardProductID, uid, name, name)
-            )
-
-        componentText = str(component)
-        md5 = hashlib.md5(componentText).hexdigest()
-
-        resourceID, created, modified = (#@UnusedVariable
-            yield cls._insertABObject.on(
-                home._txn,
-                addressbookResourceID=None,
-                name=name,
-                text=componentText,
-                uid=component.resourceUID(),
-                md5=md5,
-                kind=_ABO_KIND_GROUP,
-                ))[0]
-
-        returnValue((resourceID, created, modified))
-    '''
-
-    @classmethod
-    def _memberIDsWithGroupIDsQuery(cls, groupIDs): #@NoSelf
-        """
-        DAL query to load all object resource names for a home child.
-        """
-        aboMembers = schema.ABO_MEMBERS
-        return Select([aboMembers.MEMBER_ID], From=aboMembers,
-                      Where=aboMembers.GROUP_ID.In(Parameter("groupIDs", len(groupIDs))),
-                      )
-
-
-    @inlineCallbacks
-    def _allAddressBookObjectIDs(self):
-        """
-        Get all addressbookobject resource IDs in this address book
-        """
-        # TODO: see if result can be cached in attr
-
-        objectIDs = set() if self.owned() else set([self._resourceID, ])
-        examinedIDs = set()
-        remainingIDs = set([self._resourceID, ])
-        while remainingIDs:
-            memberRows = yield self._memberIDsWithGroupIDsQuery(remainingIDs).on(self._txn, groupIDs=remainingIDs)
-            objectIDs |= set([memberRow[0] for memberRow in memberRows])
-            examinedIDs |= remainingIDs
-            remainingIDs = objectIDs - examinedIDs
-
-        returnValue(tuple(objectIDs))
-
-    '''
     @inlineCallbacks
     def listObjectResources(self):
-        if self._objectNames is None:
-            abo = schema.ADDRESSBOOK_OBJECT
-            objectIDs = yield self._allAddressBookObjectIDs()
-            rows = (yield self._abObjectColumnsWithResourceIDsQuery(
-                    [abo.RESOURCE_NAME],
-                    objectIDs).on(
-                        self._txn, resourceIDs=objectIDs)
-                    ) if objectIDs else []
-            self._objectNames = sorted([row[0] for row in rows])
 
-        returnValue(self._objectNames)
+        result = yield super(AddressBook, self).listObjectResources()
+        if not self.owned():
+            sharedABGroupName = yield self._sharedABGroupName()
+            if not sharedABGroupName in result:
+                result.append(sharedABGroupName)
+        returnValue(result)
 
 
     @inlineCallbacks
     def countObjectResources(self):
-        returnValue(len((yield self._allAddressBookObjectIDs())))
-    '''
+        if self.owned():
+            result = yield super(AddressBook, self).countObjectResources()
+        else:
+            result = len((yield self.listObjectResources()))
+        returnValue(result)
+
+
+    @inlineCallbacks
+    def ownerAddressBook(self):
+        if not hasattr(self, "_ownerAddressBook"):
+            if self.owned():
+                self._ownerAddressBook = self
+            else:
+                self._ownerAddressBook = yield self.ownerAddressBookHome().childWithID(self._resourceID)
+        returnValue(self._ownerAddressBook)
+
+
+    @inlineCallbacks
+    def _sharedABGroupRow(self): #@NoSelf
+
+        returnValue([
+            self._resourceID, # obj.ADDRESSBOOK_RESOURCE_ID,
+            self._resourceID, # obj.RESOURCE_ID,
+            (yield self._sharedABGroupName()), # obj.RESOURCE_NAME, shared name is UID and thus avoids collisions
+            (yield self._sharedABGroupUID()), # obj.UID, shared name is uuid
+            _ABO_KIND_GROUP, # obj.KIND,
+            "1", # obj.MD5, unused
+            "1", # Len(obj.TEXT), unused
+            self._created, # obj.CREATED,
+            self._modified, # obj.CREATED,
+        ])
+
+
+    @inlineCallbacks
+    def _sharedABGroupName(self):
+        returnValue((yield self.ownerAddressBook()).name() + ".vcf")
+
+
+    @inlineCallbacks
+    def _sharedABGroupUID(self):
+        yield None
+        returnValue(self.name())
 
 
 class AddressBookObject(CommonObjectResource, AddressBookSharingMixIn):
@@ -401,14 +382,14 @@ class AddressBookObject(CommonObjectResource, AddressBookSharingMixIn):
             # convert delete in sharee shared group address book to remove of memberships
             # that make this object visible to the sharee
 
-            ownerAddressBook = yield self.ownerAddressBook()
-            objectIDs = yield ownerAddressBook._allAddressBookObjectIDs()
+            objectIDs = yield ownerGroup._allGroupObjectIDs()
             assert self._ownerAddressBookResourceID not in objectIDs
 
             if objectIDs:
                 yield self._deleteMembersWithMemberIDAndGroupIDsQuery(self._resourceID, objectIDs).on(
                     self._txn, groupIDs=objectIDs)
 
+            ownerAddressBook = yield self.ownerAddressBook()
             yield self._changeAddressBookRevision(ownerAddressBook)
 
         else:
@@ -477,21 +458,36 @@ class AddressBookObject(CommonObjectResource, AddressBookSharingMixIn):
 
         @return: L{self} if object exists in the DB, else C{None}
         """
-        if isinstance(self._addressbook, AddressBook):
-            returnValue((yield super(AddressBookObject, self).initFromStore()))
+        #print("initFromStore: self=%s, self._name=%s, self._uid=%s, self._resourceID=%s" % (self, self._name, self._uid, self._resourceID,))
 
-        objectIDs = yield self._addressbook._allAddressBookObjectIDs()
         if self._name:
-            rows = (yield self._allWithResourceIDAndName(objectIDs).on(
+            rows = yield self._allWithParentAndName.on(
                 self._txn, name=self._name,
-                resourceIDs=objectIDs,)) if objectIDs else []
+                parentID=self._parentCollection._resourceID)
         elif self._uid:
-            rows = (yield self._allWithResourceIDAndUID(objectIDs).on(
+            rows = yield self._allWithParentAndUID.on(
                 self._txn, uid=self._uid,
-                resourceIDs=objectIDs,)) if objectIDs else []
+                parentID=self._parentCollection._resourceID)
         elif self._resourceID:
-            rows = (yield self._allWithResourceID.on(
-                self._txn, resourceID=self._resourceID,)) if (self._resourceID in objectIDs) else []
+            rows = yield self._allWithParentAndID.on(
+                self._txn, resourceID=self._resourceID,
+                parentID=self._parentCollection._resourceID)
+
+        #print("initFromStore: self=%s, rows=%s" % (self, rows,))
+
+        # get special group vCard
+        if not rows and not self._addressbook.owned():
+            if self._name:
+                if self._name == (yield self._addressbook._sharedABGroupName()):
+                    rows = [(yield self._addressbook._sharedABGroupRow())]
+            elif self._uid:
+                if self._uid == (yield self._addressbook._sharedABGroupUID()):
+                    rows = [(yield self._addressbook._sharedABGroupRow())]
+            elif self._resourceID:
+                if self._resourceID == self._addressbook._resourceID:
+                    rows = [(yield self._addressbook._sharedABGroupRow())]
+
+        #print("initFromStore: self=%s, rows2=%s" % (self, rows,))
 
         if rows:
             self._initFromRow(tuple(rows[0]))
@@ -508,6 +504,35 @@ class AddressBookObject(CommonObjectResource, AddressBookSharingMixIn):
             returnValue(self)
         else:
             returnValue(None)
+
+
+    @classmethod
+    def _memberIDsWithGroupIDsQuery(cls, groupIDs): #@NoSelf
+        """
+        DAL query to load all object resource names for a home child.
+        """
+        aboMembers = schema.ABO_MEMBERS
+        return Select([aboMembers.MEMBER_ID], From=aboMembers,
+                      Where=aboMembers.GROUP_ID.In(Parameter("groupIDs", len(groupIDs))),
+                      )
+
+    @inlineCallbacks
+    def _allGroupObjectIDs(self):
+        """
+        Get all addressbookobject resource IDs in this address book
+        """
+        # TODO: see if result can be cached in attr
+
+        objectIDs = set() if self.owned() else set([self._resourceID, ])
+        examinedIDs = set()
+        remainingIDs = set([self._resourceID, ])
+        while remainingIDs:
+            memberRows = yield self._memberIDsWithGroupIDsQuery(remainingIDs).on(self._txn, groupIDs=remainingIDs)
+            objectIDs |= set([memberRow[0] for memberRow in memberRows])
+            examinedIDs |= remainingIDs
+            remainingIDs = objectIDs - examinedIDs
+
+        returnValue(tuple(objectIDs))
 
 
     @classproperty
@@ -545,16 +570,24 @@ class AddressBookObject(CommonObjectResource, AddressBookSharingMixIn):
          self._created,
          self._modified,) = tuple(row)
 
+
     @classmethod
     @inlineCallbacks
     def _allColumnsWithParent(cls, parent): #@NoSelf
-        if isinstance(parent, AddressBook):
-            returnValue((yield super(AddressBookObject, cls)._allColumnsWithParent(parent)))
 
-        objectIDs = yield parent._allAddressBookObjectIDs()
-        rows = (yield cls._abObjectColumnsWithResourceIDsQuery(cls._allColumns, objectIDs).on(
-            parent._txn, resourceIDs=objectIDs)) if objectIDs else []
-        returnValue(rows)
+        #print("_allColumnsWithParent: cls=%s, parent=%s" % (cls, parent,))
+
+        if parent.owned() or isinstance(parent, AddressBook):
+            result = yield super(AddressBookObject, cls)._allColumnsWithParent(parent)
+        else:
+            objectIDs = yield parent._allGroupObjectIDs()
+            result = (yield cls._abObjectColumnsWithResourceIDsQuery(cls._allColumns, objectIDs).on(
+                parent._txn, resourceIDs=objectIDs)) if objectIDs else []
+
+        # add group vCard for shared address books
+        if not parent.owned():
+            result.append((yield parent._sharedABGroupRow()))
+        returnValue(result)
 
 
     @classmethod
@@ -568,10 +601,20 @@ class AddressBookObject(CommonObjectResource, AddressBookSharingMixIn):
     @classmethod
     @inlineCallbacks
     def _allColumnsWithParentAndNames(cls, parent, names): #@NoSelf
-        objectIDs = yield parent._allAddressBookObjectIDs()
-        rows = (yield cls._allColumnsWithResourceIDsAndNamesQuery(objectIDs, names).on(
-            parent._txn, resourceIDs=objectIDs, names=names)) if objectIDs else []
-        returnValue(rows)
+
+        #print("_allColumnsWithParentAndNames: cls=%s, parent=%s, names=%s" % (cls, parent, names))
+        if parent.owned() or isinstance(parent, AddressBook):
+            result = yield super(AddressBookObject, cls)._allColumnsWithParentAndNames(parent, names)
+        else:
+            objectIDs = yield parent._allGroupObjectIDs()
+            result = (yield cls._allColumnsWithResourceIDsAndNamesQuery(objectIDs, names).on(
+                parent._txn, resourceIDs=objectIDs, names=names)) if objectIDs else []
+
+        # add group vCard for shared address books
+        if not parent.owned() and (yield parent._sharedABGroupName()) in names:
+            result.append((yield parent._sharedABGroupRow(parent)))
+
+        returnValue(result)
 
 
     @inlineCallbacks
@@ -614,17 +657,13 @@ class AddressBookObject(CommonObjectResource, AddressBookSharingMixIn):
         Find the owner shared group and owner address book.  owner shared group may be None 
         """
         ownerGroup = None
-        ownerAddressBook = None
-        if self._addressbook.owned():
-            ownerAddressBook = self._addressbook
-        else:
-            ownerAddressBook = yield self._addressbook.ownerAddressBookHome().childWithID(self._addressbook._resourceID)
-            if not ownerAddressBook:
-                for addressbook in (yield self._addressbook.ownerAddressBookHome().addressbooks()):
-                    ownerGroup = yield addressbook.objectResourceWithID(self._addressbook._resourceID)
-                    if ownerGroup:
-                        ownerAddressBook = addressbook
-                        break
+        ownerAddressBook = yield self._addressbook.ownerAddressBook()
+        if not ownerAddressBook:
+            for addressbook in (yield self._addressbook.ownerAddressBookHome().addressbooks()):
+                ownerGroup = yield addressbook.objectResourceWithID(self._addressbook._resourceID)
+                if ownerGroup:
+                    ownerAddressBook = addressbook
+                    break
 
         returnValue((ownerGroup, ownerAddressBook))
 
@@ -717,9 +756,10 @@ class AddressBookObject(CommonObjectResource, AddressBookSharingMixIn):
             foreignMemberAddrs.extend(["urn:uuid:" + missingUID for missingUID in set(memberUIDs) - set(foundUIDs)])
 
             #in shared group, all members must be inside the shared group
-            if (yield self.ownerGroup()):
+            ownerGroup = yield self.ownerGroup()
+            if ownerGroup:
                 if foreignMemberAddrs or \
-                    set(memberIDs) - set((yield self._addressbook._allAddressBookObjectIDs())):
+                    set(memberIDs) - set((yield ownerGroup._allGroupObjectIDs())):
                     raise GroupWithUnsharedAddressNotAllowedError
 
             # don't store group members in object text
@@ -861,61 +901,96 @@ class AddressBookObject(CommonObjectResource, AddressBookSharingMixIn):
 
         if self._component is None:
 
-            text = yield self._text()
+            if not self._addressbook.owned() and  self._resourceID == self._addressbook._resourceID:
 
-            try:
-                component = VCard.fromString(text)
-            except InvalidVCardDataError, e:
-                # This is a really bad situation, so do raise
-                raise InternalDataStoreError(
-                    "Data corruption detected (%s) in id: %s"
-                    % (e, self._resourceID)
+                N = self.name()
+                if N.endswith(".vcf"):
+                    N = N[:-4]
+                FN = N
+
+                component = VCard.fromString(
+                    """BEGIN:VCARD
+VERSION:3.0
+PRODID:%s
+UID:%s
+FN:%s
+N:%s;;;;
+X-ADDRESSBOOKSERVER-KIND:group
+END:VCARD
+""".replace("\n", "\r\n") % (vCardProductID, self.uid(), N, FN,)
                 )
 
-            # Fix any bogus data we can
-            fixed, unfixed = component.validVCardData(doFix=True, doRaise=False)
-
-            if unfixed:
-                self.log_error("Address data id=%s had unfixable problems:\n  %s" % (self._resourceID, "\n  ".join(unfixed),))
-
-            if fixed:
-                self.log_error("Address data id=%s had fixable problems:\n  %s" % (self._resourceID, "\n  ".join(fixed),))
-
-            if self._kind == _ABO_KIND_GROUP:
-                assert not component.hasProperty("X-ADDRESSBOOKSERVER-MEMBER"), "database group vCard text contains members %s" % (component,)
-
-                # generate "X-ADDRESSBOOKSERVER-MEMBER" properties
-                # first get member resource ids
-                aboMembers = schema.ABO_MEMBERS
-                memberRows = yield Select([aboMembers.MEMBER_ID],
-                                     From=aboMembers,
-                                     Where=aboMembers.GROUP_ID == self._resourceID,).on(self._txn)
-                memberIDs = [memberRow[0] for memberRow in memberRows]
 
                 # then get member UIDs
                 abo = schema.ADDRESSBOOK_OBJECT
-                memberUIDRows = (yield self._abObjectColumnsWithResourceIDsQuery(
-                                 [abo.VCARD_UID],
-                                 memberIDs).on(
-                                    self._txn, resourceIDs=memberIDs)
-                                ) if memberIDs else []
+                memberUIDRows = yield self._abObjectColumnsWithAddressBookResourceID(
+                                 [abo.VCARD_UID]).on(
+                                    self._txn, addressbookResourceID=self._addressbook._resourceID)
                 memberUIDs = [memberUIDRow[0] for memberUIDRow in memberUIDRows]
 
                 # add prefix to get property string
                 memberAddresses = ["urn:uuid:" + memberUID for memberUID in memberUIDs]
 
-                # get foreign members
-                aboForeignMembers = schema.ABO_FOREIGN_MEMBERS
-                foreignMemberRows = yield Select([aboForeignMembers.MEMBER_ADDRESS],
-                                                 From=aboForeignMembers,
-                                                 Where=aboForeignMembers.GROUP_ID == self._resourceID,
-                                                ).on(self._txn)
-                foreignMembers = [foreignMemberRow[0] for foreignMemberRow in foreignMemberRows]
-
-
                 # now add the properties to the component
-                for memberAddress in sorted(memberAddresses + foreignMembers):
+                for memberAddress in sorted(memberAddresses):
                     component.addProperty(Property("X-ADDRESSBOOKSERVER-MEMBER", memberAddress))
+
+            else:
+                text = yield self._text()
+
+                try:
+                    component = VCard.fromString(text)
+                except InvalidVCardDataError, e:
+                    # This is a really bad situation, so do raise
+                    raise InternalDataStoreError(
+                        "Data corruption detected (%s) in id: %s"
+                        % (e, self._resourceID)
+                    )
+
+                # Fix any bogus data we can
+                fixed, unfixed = component.validVCardData(doFix=True, doRaise=False)
+
+                if unfixed:
+                    self.log_error("Address data id=%s had unfixable problems:\n  %s" % (self._resourceID, "\n  ".join(unfixed),))
+
+                if fixed:
+                    self.log_error("Address data id=%s had fixable problems:\n  %s" % (self._resourceID, "\n  ".join(fixed),))
+
+                if self._kind == _ABO_KIND_GROUP:
+                    assert not component.hasProperty("X-ADDRESSBOOKSERVER-MEMBER"), "database group vCard text contains members %s" % (component,)
+
+                    # generate "X-ADDRESSBOOKSERVER-MEMBER" properties
+                    # first get member resource ids
+                    aboMembers = schema.ABO_MEMBERS
+                    memberRows = yield Select([aboMembers.MEMBER_ID],
+                                         From=aboMembers,
+                                         Where=aboMembers.GROUP_ID == self._resourceID,).on(self._txn)
+                    memberIDs = [memberRow[0] for memberRow in memberRows]
+
+                    # then get member UIDs
+                    abo = schema.ADDRESSBOOK_OBJECT
+                    memberUIDRows = (yield self._abObjectColumnsWithResourceIDsQuery(
+                                     [abo.VCARD_UID],
+                                     memberIDs).on(
+                                        self._txn, resourceIDs=memberIDs)
+                                    ) if memberIDs else []
+                    memberUIDs = [memberUIDRow[0] for memberUIDRow in memberUIDRows]
+
+                    # add prefix to get property string
+                    memberAddresses = ["urn:uuid:" + memberUID for memberUID in memberUIDs]
+
+                    # get foreign members
+                    aboForeignMembers = schema.ABO_FOREIGN_MEMBERS
+                    foreignMemberRows = yield Select([aboForeignMembers.MEMBER_ADDRESS],
+                                                     From=aboForeignMembers,
+                                                     Where=aboForeignMembers.GROUP_ID == self._resourceID,
+                                                    ).on(self._txn)
+                    foreignMembers = [foreignMemberRow[0] for foreignMemberRow in foreignMemberRows]
+
+
+                    # now add the properties to the component
+                    for memberAddress in sorted(memberAddresses + foreignMembers):
+                        component.addProperty(Property("X-ADDRESSBOOKSERVER-MEMBER", memberAddress))
 
             self._component = component
 
