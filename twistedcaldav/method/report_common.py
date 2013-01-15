@@ -59,7 +59,7 @@ from twistedcaldav.datafilters.calendardata import CalendarDataFilter
 from twistedcaldav.datafilters.hiddeninstance import HiddenInstanceFilter
 from twistedcaldav.datafilters.privateevents import PrivateEventFilter
 from twistedcaldav.datafilters.addressdata import AddressDataFilter
-from twistedcaldav.dateops import clipPeriod, normalizePeriodList, timeRangesOverlap,\
+from twistedcaldav.dateops import clipPeriod, normalizePeriodList, timeRangesOverlap, \
     compareDateTime, normalizeToUTC, parseSQLTimestampToPyCalendar
 from twistedcaldav.ical import Component, Property, iCalendarProductID
 from twistedcaldav.instance import InstanceList
@@ -76,8 +76,8 @@ from pycalendar.period import PyCalendarPeriod
 
 log = Logger()
 
-COLLECTION_TYPE_REGULAR     = "collection"
-COLLECTION_TYPE_CALENDAR    = "calendar"
+COLLECTION_TYPE_REGULAR = "collection"
+COLLECTION_TYPE_CALENDAR = "calendar"
 COLLECTION_TYPE_ADDRESSBOOK = "adressbook"
 
 @inlineCallbacks
@@ -86,7 +86,7 @@ def applyToCalendarCollections(resource, request, request_uri, depth, apply, pri
     Run an operation on all calendar collections, starting at the specified
     root, to the specified depth. This involves scanning the URI hierarchy
     down from the root. Return a MultiStatus element of all responses.
-    
+
     @param request: the L{IRequest} for the current request.
     @param resource: the L{CalDAVResource} representing the root to start scanning
         for calendar collections.
@@ -110,12 +110,14 @@ def applyToCalendarCollections(resource, request, request_uri, depth, apply, pri
         resources = [(resource, request_uri)]
     else:
         resources = []
-        yield resource.findCalendarCollections(depth, request, lambda x, y: resources.append((x, y)), privileges = privileges)
-         
+        yield resource.findCalendarCollections(depth, request, lambda x, y: resources.append((x, y)), privileges=privileges)
+
     for calresource, uri in resources:
         result = (yield apply(calresource, uri))
         if not result:
             break
+
+
 
 @inlineCallbacks
 def applyToAddressBookCollections(resource, request, request_uri, depth, apply, privileges):
@@ -123,7 +125,7 @@ def applyToAddressBookCollections(resource, request, request_uri, depth, apply, 
     Run an operation on all address book collections, starting at the specified
     root, to the specified depth. This involves scanning the URI hierarchy
     down from the root. Return a MultiStatus element of all responses.
-    
+
     @param request: the L{IRequest} for the current request.
     @param resource: the L{CalDAVResource} representing the root to start scanning
         for address book collections.
@@ -138,7 +140,7 @@ def applyToAddressBookCollections(resource, request, request_uri, depth, apply, 
         try:
             yield resource.checkPrivileges(request, privileges)
         except AccessDeniedError:
-            returnValue( None )
+            returnValue(None)
 
     # When scanning we only go down as far as an address book collection - not into one
     if resource.isAddressBookCollection():
@@ -147,12 +149,14 @@ def applyToAddressBookCollections(resource, request, request_uri, depth, apply, 
         resources = [(resource, request_uri)]
     else:
         resources = []
-        yield resource.findAddressBookCollections(depth, request, lambda x, y: resources.append((x, y)), privileges = privileges)
-         
+        yield resource.findAddressBookCollections(depth, request, lambda x, y: resources.append((x, y)), privileges=privileges)
+
     for addrresource, uri in resources:
         result = yield apply(addrresource, uri)
         if not result:
             break
+
+
 
 def responseForHref(request, responses, href, resource, propertiesForResource, propertyreq, isowner=True, calendar=None, timezone=None, vcard=None):
     """
@@ -197,6 +201,8 @@ def responseForHref(request, responses, href, resource, propertiesForResource, p
     d.addCallback(_defer)
     return d
 
+
+
 def allPropertiesForResource(request, prop, resource, calendar=None, timezone=None, vcard=None, isowner=True):
     """
     Return all (non-hidden) properties for the specified resource.
@@ -223,6 +229,8 @@ def allPropertiesForResource(request, prop, resource, calendar=None, timezone=No
     d.addCallback(_defer)
     return d
 
+
+
 def propertyNamesForResource(request, prop, resource, calendar=None, timezone=None, vcard=None, isowner=True): #@UnusedVariable
     """
     Return property names for all properties on the specified resource.
@@ -243,10 +251,12 @@ def propertyNamesForResource(request, prop, resource, calendar=None, timezone=No
             responsecode.OK: [propertyName(p) for p in props]
         }
         return properties_by_status
-    
+
     d = resource.listProperties(request)
     d.addCallback(_defer)
     return d
+
+
 
 def propertyListForResource(request, prop, resource, calendar=None, timezone=None, vcard=None, isowner=True):
     """
@@ -262,8 +272,10 @@ def propertyListForResource(request, prop, resource, calendar=None, timezone=Non
         C{False} otherwise.
     @return: a map of OK and NOT FOUND property values.
     """
-    
+
     return _namedPropertiesForResource(request, prop.children, resource, calendar, timezone, vcard, isowner)
+
+
 
 def validPropertyListCalendarDataTypeVersion(prop):
     """
@@ -274,7 +286,7 @@ def validPropertyListCalendarDataTypeVersion(prop):
     @return:     a tuple: (True/False if the calendar-data element is one we can handle or not present,
                            error message).
     """
-    
+
     result = True
     message = ""
     generate_calendar_data = False
@@ -282,11 +294,13 @@ def validPropertyListCalendarDataTypeVersion(prop):
         if isinstance(property, caldavxml.CalendarData):
             if not property.verifyTypeVersion([("text/calendar", "2.0")]):
                 result = False
-                message = "Calendar-data element type/version not supported: content-type: %s, version: %s" % (property.content_type,property.version)
+                message = "Calendar-data element type/version not supported: content-type: %s, version: %s" % (property.content_type, property.version)
             generate_calendar_data = True
             break
 
     return result, message, generate_calendar_data
+
+
 
 def validPropertyListAddressDataTypeVersion(prop):
     """
@@ -297,7 +311,7 @@ def validPropertyListAddressDataTypeVersion(prop):
     @return:     a tuple: (True/False if the address-data element is one we can handle or not present,
                            error message).
     """
-    
+
     result = True
     message = ""
     generate_address_data = False
@@ -305,11 +319,13 @@ def validPropertyListAddressDataTypeVersion(prop):
         if isinstance(property, carddavxml.AddressData):
             if not property.verifyTypeVersion([("text/vcard", "3.0")]):
                 result = False
-                message = "Address-data element type/version not supported: content-type: %s, version: %s" % (property.content_type,property.version)
+                message = "Address-data element type/version not supported: content-type: %s, version: %s" % (property.content_type, property.version)
             generate_address_data = True
             break
 
     return result, message, generate_address_data
+
+
 
 @inlineCallbacks
 def _namedPropertiesForResource(request, props, resource, calendar=None, timezone=None, vcard=None, isowner=True):
@@ -333,10 +349,10 @@ def _namedPropertiesForResource(request, props, resource, calendar=None, timezon
         responsecode.OK        : [],
         responsecode.NOT_FOUND : [],
     }
-    
+
     # Look for Prefer header first, then try Brief
     prefer = request.headers.getHeader("prefer", {})
-    returnMinimal = "return-minimal" in prefer
+    returnMinimal = any([key == "return" and value == "minimal" for key, value, _ignore_args in prefer])
     if not returnMinimal:
         returnMinimal = request.headers.getHeader("brief", False)
 
@@ -351,7 +367,7 @@ def _namedPropertiesForResource(request, props, resource, calendar=None, timezon
             propvalue = CalendarData().fromCalendar(filtered)
             properties_by_status[responsecode.OK].append(propvalue)
             continue
-    
+
         if isinstance(property, carddavxml.AddressData):
             if vcard is None:
                 vcard = (yield resource.vCard())
@@ -359,12 +375,12 @@ def _namedPropertiesForResource(request, props, resource, calendar=None, timezon
             propvalue = AddressData().fromAddress(filtered)
             properties_by_status[responsecode.OK].append(propvalue)
             continue
-    
+
         if isinstance(property, element.WebDAVElement):
             qname = property.qname()
         else:
             qname = property
-    
+
         has = (yield resource.hasProperty(property, request))
 
         if has:
@@ -377,12 +393,13 @@ def _namedPropertiesForResource(request, props, resource, calendar=None, timezon
             except HTTPError:
                 f = Failure()
                 status = statusForFailure(f, "getting property: %s" % (qname,))
-                if status not in properties_by_status: properties_by_status[status] = []
+                if status not in properties_by_status:
+                        properties_by_status[status] = []
                 if not returnMinimal or status != responsecode.NOT_FOUND:
                     properties_by_status[status].append(propertyName(qname))
         elif not returnMinimal:
             properties_by_status[responsecode.NOT_FOUND].append(propertyName(qname))
-    
+
     returnValue(properties_by_status)
 
 fbtype_mapper = {"BUSY": 0, "BUSY-TENTATIVE": 1, "BUSY-UNAVAILABLE": 2}
@@ -391,37 +408,39 @@ fbtype_index_mapper = {'B': 0, 'T': 1, 'U': 2}
 fbcacher = Memcacher("FBCache", pickle=True)
 
 class FBCacheEntry(object):
-    
+
     CACHE_DAYS_FLOATING_ADJUST = 1
-    
+
     def __init__(self, key, token, timerange, fbresults):
         self.key = key
         self.token = token
         self.timerange = timerange
         self.fbresults = fbresults
-    
+
+
     @classmethod
     @inlineCallbacks
     def getCacheEntry(cls, calresource, useruid, timerange):
-        
+
         key = calresource.resourceID() + "/" + useruid
         token = (yield calresource.getInternalSyncToken())
         entry = (yield fbcacher.get(key))
-        
+
         if entry:
-    
+
             # Offset one day at either end to account for floating
             cached_start = entry.timerange.start + PyCalendarDuration(days=FBCacheEntry.CACHE_DAYS_FLOATING_ADJUST)
             cached_end = entry.timerange.end - PyCalendarDuration(days=FBCacheEntry.CACHE_DAYS_FLOATING_ADJUST)
 
             # Verify that the requested timerange lies within the cache timerange
             if compareDateTime(timerange.end, cached_end) <= 0 and compareDateTime(timerange.start, cached_start) >= 0:
-                
+
                 # Verify that cached entry is still valid
                 if token == entry.token:
                     returnValue(entry.fbresults)
-        
-        returnValue(None) 
+
+        returnValue(None)
+
 
     @classmethod
     @inlineCallbacks
@@ -431,6 +450,8 @@ class FBCacheEntry(object):
         token = (yield calresource.getInternalSyncToken())
         entry = cls(key, token, timerange, fbresults)
         yield fbcacher.set(key, entry)
+
+
 
 @inlineCallbacks
 def generateFreeBusyInfo(
@@ -479,7 +500,7 @@ def generateFreeBusyInfo(
     organizer_principal = calresource.principalForCalendarUserAddress(organizer) if organizer else None
     organizer_uid = organizer_principal.principalUID() if organizer_principal else ""
 
-    # Free busy is per-user 
+    # Free busy is per-user
     userPrincipal = (yield calresource.resourceOwnerPrincipal(request))
     if userPrincipal:
         useruid = userPrincipal.principalUID()
@@ -501,7 +522,7 @@ def generateFreeBusyInfo(
     }
     do_event_details = False
     if event_details is not None and organizer_principal is not None and userPrincipal is not None:
-         
+
         # Check if organizer is attendee
         if organizer_principal == userPrincipal:
             do_event_details = True
@@ -518,12 +539,11 @@ def generateFreeBusyInfo(
             do_event_details = True
             rich_options["resource"] = True
 
-
     # Try cache
     resources = (yield FBCacheEntry.getCacheEntry(calresource, useruid, timerange)) if config.EnableFreeBusyCache else None
 
     if resources is None:
-        
+
         caching = False
         if config.EnableFreeBusyCache:
             # Log extended item
@@ -532,22 +552,22 @@ def generateFreeBusyInfo(
             request.extendedLogItems["fb-uncached"] = request.extendedLogItems.get("fb-uncached", 0) + 1
 
             # We want to cache a large range of time based on the current date
-            cache_start = normalizeToUTC(PyCalendarDateTime.getToday() + PyCalendarDuration(days=-config.FreeBusyCacheDaysBack))
+            cache_start = normalizeToUTC(PyCalendarDateTime.getToday() + PyCalendarDuration(days=0 - config.FreeBusyCacheDaysBack))
             cache_end = normalizeToUTC(PyCalendarDateTime.getToday() + PyCalendarDuration(days=config.FreeBusyCacheDaysForward))
-            
+
             # If the requested timerange would fit in our allowed cache range, trigger the cache creation
             if compareDateTime(timerange.start, cache_start) >= 0 and compareDateTime(timerange.end, cache_end) <= 0:
                 cache_timerange = TimeRange(start=cache_start.getText(), end=cache_end.getText())
                 caching = True
- 
+
         #
         # What we do is a fake calendar-query for VEVENT/VFREEBUSYs in the specified time-range.
         # We then take those results and merge them into one VFREEBUSY component
         # with appropriate FREEBUSY properties, and return that single item as iCal data.
         #
-    
+
         # Create fake filter element to match time-range
-        filter =  caldavxml.Filter(
+        filter = caldavxml.Filter(
                       caldavxml.ComponentFilter(
                           caldavxml.ComponentFilter(
                               cache_timerange if caching else timerange,
@@ -558,7 +578,7 @@ def generateFreeBusyInfo(
                   )
         filter = calendarqueryfilter.Filter(filter)
         tzinfo = filter.settimezone(tz)
-    
+
         try:
             resources = yield maybeDeferred(calresource.index().indexedSearch,
                 filter, useruid=useruid, fbtype=True
@@ -567,7 +587,7 @@ def generateFreeBusyInfo(
                 yield FBCacheEntry.makeCacheEntry(calresource, useruid, cache_timerange, resources)
         except IndexedSearchException:
             resources = yield maybeDeferred(calresource.index().bruteForceSearch)
-            
+
     else:
         # Log extended item
         if not hasattr(request, "extendedLogItems"):
@@ -592,13 +612,13 @@ def generateFreeBusyInfo(
         if type == "VEVENT" and aggregated_resources[key][0][3] != '?':
 
             matchedResource = False
-            
+
             # Look at each instance
             for float, start, end, fbtype in aggregated_resources[key]:
                 # Ignore free time or unknown
                 if fbtype in ('F', '?'):
                     continue
-                
+
                 # Ignore ones of this UID
                 if excludeuid:
                     # See if we have a UID match
@@ -612,7 +632,7 @@ def generateFreeBusyInfo(
                         # Check for no ORGANIZER and check by same calendar user
                         elif (test_uid == "") and same_calendar_user:
                             continue
-                        
+
                 # Apply a timezone to any floating times
                 fbstart = parseSQLTimestampToPyCalendar(start)
                 if float == 'Y':
@@ -624,9 +644,9 @@ def generateFreeBusyInfo(
                     fbend.setTimezone(tzinfo)
                 else:
                     fbend.setTimezone(PyCalendarTimezone(utc=True))
-                
+
                 # Clip instance to time range
-                clipped = clipPeriod(PyCalendarPeriod(fbstart, duration=fbend-fbstart), PyCalendarPeriod(timerange.start, timerange.end))
+                clipped = clipPeriod(PyCalendarPeriod(fbstart, duration=fbend - fbstart), PyCalendarPeriod(timerange.start, timerange.end))
 
                 # Double check for overlap
                 if clipped:
@@ -638,7 +658,7 @@ def generateFreeBusyInfo(
                 matchtotal += 1
                 if matchtotal > max_number_of_matches:
                     raise NumberOfMatchesWithinLimits(max_number_of_matches)
-                
+
                 # Add extended details
                 if do_event_details:
                     child = (yield request.locateChildResource(calresource, name))
@@ -648,14 +668,14 @@ def generateFreeBusyInfo(
         else:
             child = (yield request.locateChildResource(calresource, name))
             calendar = (yield child.iCalendarForUser(request))
-            
+
             # The calendar may come back as None if the resource is being changed, or was deleted
             # between our initial index query and getting here. For now we will ignore this error, but in
             # the longer term we need to implement some form of locking, perhaps.
             if calendar is None:
                 log.err("Calendar %s is missing from calendar collection %r" % (name, calresource))
                 continue
-            
+
             # Ignore ones of this UID
             if excludeuid:
                 # See if we have a UID match
@@ -663,20 +683,20 @@ def generateFreeBusyInfo(
                     test_organizer = calendar.getOrganizer()
                     test_principal = calresource.principalForCalendarUserAddress(test_organizer) if test_organizer else None
                     test_uid = test_principal.principalUID() if test_principal else ""
-    
+
                     # Check that ORGANIZER's match (security requirement)
                     if (organizer is None) or (organizer_uid == test_uid):
                         continue
                     # Check for no ORGANIZER and check by same calendar user
                     elif (test_organizer is None) and same_calendar_user:
                         continue
-    
+
             if filter.match(calendar, None):
                 # Check size of results is within limit
                 matchtotal += 1
                 if matchtotal > max_number_of_matches:
                     raise NumberOfMatchesWithinLimits(max_number_of_matches)
-    
+
                 if calendar.mainType() == "VEVENT":
                     processEventFreeBusy(calendar, fbinfo, timerange, tzinfo)
                 elif calendar.mainType() == "VFREEBUSY":
@@ -691,14 +711,16 @@ def generateFreeBusyInfo(
                     child = (yield request.locateChildResource(calresource, name))
                     calendar = (yield child.iCalendarForUser(request))
                     _addEventDetails(calendar, event_details, rich_options, timerange, tzinfo)
-    
+
     returnValue(matchtotal)
+
+
 
 def _addEventDetails(calendar, event_details, rich_options, timerange, tzinfo):
     """
     Expand events within the specified time range and limit the set of properties to those allowed for
     delegate extended free busy.
-    
+
     @param calendar: the calendar object to expand
     @type calendar: L{Component}
     @param event_details: list to append VEVENT components to
@@ -739,6 +761,7 @@ def _addEventDetails(calendar, event_details, rich_options, timerange, tzinfo):
     event_details.extend([subcomponent for subcomponent in expanded.subcomponents() if subcomponent.name() == "VEVENT"])
 
 
+
 def processEventFreeBusy(calendar, fbinfo, timerange, tzinfo):
     """
     Extract free busy data from a VEVENT component.
@@ -747,10 +770,10 @@ def processEventFreeBusy(calendar, fbinfo, timerange, tzinfo):
     @param timerange: the time range to restrict free busy data to.
     @param tzinfo: the L{PyCalendarTimezone} for the timezone to use for floating/all-day events.
     """
-    
+
     # Expand out the set of instances for the event with in the required range
     instances = calendar.expandTimeRanges(timerange.end, lowerLimit=timerange.start, ignoreInvalidInstances=True)
-    
+
     # Can only do timed events
     for key in instances:
         instance = instances[key]
@@ -759,7 +782,7 @@ def processEventFreeBusy(calendar, fbinfo, timerange, tzinfo):
         break
     else:
         return
-        
+
     for key in instances:
         instance = instances[key]
 
@@ -770,19 +793,19 @@ def processEventFreeBusy(calendar, fbinfo, timerange, tzinfo):
         fbend = instance.end
         if fbend.floating():
             fbend.setTimezone(tzinfo)
-        
+
         # Check TRANSP property of underlying component
         if instance.component.hasProperty("TRANSP"):
             # If its TRANSPARENT we always ignore it
             if instance.component.propertyValue("TRANSP") == "TRANSPARENT":
                 continue
-        
+
         # Determine status
         if instance.component.hasProperty("STATUS"):
             status = instance.component.propertyValue("STATUS")
         else:
             status = "CONFIRMED"
-        
+
         # Ignore cancelled
         if status == "CANCELLED":
             continue
@@ -790,17 +813,19 @@ def processEventFreeBusy(calendar, fbinfo, timerange, tzinfo):
         # Clip period for this instance - use duration for period end if that
         # is what original component used
         if instance.component.hasProperty("DURATION"):
-            period = PyCalendarPeriod(fbstart, duration=fbend-fbstart)
+            period = PyCalendarPeriod(fbstart, duration=fbend - fbstart)
         else:
             period = PyCalendarPeriod(fbstart, fbend)
         clipped = clipPeriod(period, PyCalendarPeriod(timerange.start, timerange.end))
-        
+
         # Double check for overlap
         if clipped:
             if status == "TENTATIVE":
                 fbinfo[1].append(clipped)
             else:
                 fbinfo[0].append(clipped)
+
+
 
 def processFreeBusyFreeBusy(calendar, fbinfo, timerange):
     """
@@ -817,14 +842,14 @@ def processFreeBusyFreeBusy(calendar, fbinfo, timerange):
         if start and end:
             if not timeRangesOverlap(start, end, timerange.start, timerange.end):
                 continue
-        
+
         # Now look at each FREEBUSY property
         for fb in vfb.properties("FREEBUSY"):
             # Check the type
             fbtype = fb.parameterValue("FBTYPE", default="BUSY")
             if fbtype == "FREE":
                 continue
-            
+
             # Look at each period in the property
             assert isinstance(fb.value(), list), "FREEBUSY property does not contain a list of values: %r" % (fb,)
             for period in fb.value():
@@ -833,6 +858,8 @@ def processFreeBusyFreeBusy(calendar, fbinfo, timerange):
                 if clipped:
                     fbinfo[fbtype_mapper.get(fbtype, 0)].append(clipped)
 
+
+
 def processAvailabilityFreeBusy(calendar, fbinfo, timerange):
     """
     Extract free-busy data from a VAVAILABILITY component.
@@ -840,7 +867,7 @@ def processAvailabilityFreeBusy(calendar, fbinfo, timerange):
     @param fbinfo: the tuple used to store the three types of fb data.
     @param timerange: the time range to restrict free busy data to.
     """
-    
+
     for vav in [x for x in calendar.subcomponents() if x.name() == "VAVAILABILITY"]:
 
         # Get overall start/end
@@ -854,10 +881,10 @@ def processAvailabilityFreeBusy(calendar, fbinfo, timerange):
         overall = clipPeriod(period, PyCalendarPeriod(timerange.start, timerange.end))
         if overall is None:
             continue
-        
+
         # Now get periods for each instance of AVAILABLE sub-components
         periods = processAvailablePeriods(vav, timerange)
-        
+
         # Now invert the periods and store in accumulator
         busyperiods = []
         last_end = timerange.start
@@ -874,7 +901,8 @@ def processAvailabilityFreeBusy(calendar, fbinfo, timerange):
             fbtype = "BUSY-UNAVAILABLE"
 
         fbinfo[fbtype_mapper.get(fbtype, 2)].extend(busyperiods)
-            
+
+
 
 def processAvailablePeriods(calendar, timerange):
     """
@@ -882,7 +910,7 @@ def processAvailablePeriods(calendar, timerange):
     @param calendar: the L{Component} that is the VAVAILABILITY containing the AVAILABLE's.
     @param timerange: the time range to restrict free busy data to.
     """
-    
+
     periods = []
 
     # First we need to group all AVAILABLE sub-components by UID
@@ -891,12 +919,12 @@ def processAvailablePeriods(calendar, timerange):
         if component.name() == "AVAILABLE":
             uid = component.propertyValue("UID")
             uidmap.setdefault(uid, []).append(component)
-            
+
     # Then we expand each uid set separately
     for componentSet in uidmap.itervalues():
         instances = InstanceList(ignoreInvalidInstances=True)
         instances.expandTimeRanges(componentSet, timerange.end)
-        
+
         # Now convert instances into period list
         for key in instances:
             instance = instances[key]
@@ -912,15 +940,17 @@ def processAvailablePeriods(calendar, timerange):
             # Clip period for this instance - use duration for period end if that
             # is what original component used
             if instance.component.hasProperty("DURATION"):
-                period = PyCalendarPeriod(start, duration=end-start)
+                period = PyCalendarPeriod(start, duration=end - start)
             else:
                 period = PyCalendarPeriod(start, end)
             clipped = clipPeriod(period, PyCalendarPeriod(timerange.start, timerange.end))
             if clipped:
                 periods.append(clipped)
-            
+
     normalizePeriodList(periods)
     return periods
+
+
 
 def buildFreeBusyResult(fbinfo, timerange, organizer=None, attendee=None, uid=None, method=None, event_details=None):
     """
@@ -936,12 +966,12 @@ def buildFreeBusyResult(fbinfo, timerange, organizer=None, attendee=None, uid=No
     @param event_details: VEVENT components to add.
     @return:              the L{Component} containing the calendar data.
     """
-    
+
     # Merge overlapping time ranges in each fb info section
     normalizePeriodList(fbinfo[0])
     normalizePeriodList(fbinfo[1])
     normalizePeriodList(fbinfo[2])
-    
+
     # Now build a new calendar object with the free busy info we have
     fbcalendar = Component("VCALENDAR")
     fbcalendar.addProperty(Property("VERSION", "2.0"))

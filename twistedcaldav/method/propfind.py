@@ -115,8 +115,8 @@ def http_PROPFIND(self, request):
 
     # Look for Prefer header first, then try Brief
     prefer = request.headers.getHeader("prefer", {})
-    returnMinimal = "return-minimal" in prefer
-    noRoot = "depth-noroot" in prefer
+    returnMinimal = any([key == "return" and value == "minimal" for key, value, _ignore_args in prefer])
+    noRoot = any([key == "depth-noroot" and value is None for key, value, _ignore_args in prefer])
     if not returnMinimal:
         returnMinimal = request.headers.getHeader("brief", False)
 

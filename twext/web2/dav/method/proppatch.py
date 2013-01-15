@@ -8,10 +8,10 @@
 # to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 # copies of the Software, and to permit persons to whom the Software is
 # furnished to do so, subject to the following conditions:
-# 
+#
 # The above copyright notice and this permission notice shall be included in all
 # copies or substantial portions of the Software.
-# 
+#
 # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 # IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 # FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -86,7 +86,7 @@ def http_PROPPATCH(self, request):
 
     # Look for Prefer header
     prefer = request.headers.getHeader("prefer", {})
-    returnMinimal = "return-minimal" in prefer
+    returnMinimal = any([key == "return" and value == "minimal" for key, value, _ignore_args in prefer])
 
     try:
         #
@@ -146,7 +146,7 @@ def http_PROPPATCH(self, request):
                 else:
                     responses.add(responsecode.OK, property)
 
-                    # Only add undo action for those that succeed because those that fail will not have changed               
+                    # Only add undo action for those that succeed because those that fail will not have changed
                     undoActions.append(undo)
 
                     yield True
@@ -196,7 +196,7 @@ def http_PROPPATCH(self, request):
         responses.error()
 
     #
-    # Return response - use 200 if Prefer:return-minimal set and no errors
+    # Return response - use 200 if Prefer:return=minimal set and no errors
     #
     if returnMinimal and not gotError:
         yield responsecode.OK

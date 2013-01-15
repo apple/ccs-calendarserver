@@ -133,7 +133,7 @@ def POST_handler_add_member(self, request):
 
             # Look for Prefer header
             prefer = request.headers.getHeader("prefer", {})
-            returnRepresentation = "return-representation" in prefer
+            returnRepresentation = any([key == "return" and value == "representation" for key, value, _ignore_args in prefer])
 
             if returnRepresentation and result.code / 100 == 2:
                 result = (yield newchild.http_GET(request))
@@ -201,7 +201,7 @@ def POST_handler_add_member(self, request):
 
             # Look for Prefer header
             prefer = request.headers.getHeader("prefer", {})
-            returnRepresentation = "return-representation" in prefer
+            returnRepresentation = any([key == "return" and value == "representation" for key, value, _ignore_args in prefer])
 
             if returnRepresentation and result.code / 100 == 2:
                 result = (yield newchild.http_GET(request))

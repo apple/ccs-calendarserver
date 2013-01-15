@@ -855,6 +855,13 @@ def parseAuthorization(header):
 
 
 
+def parsePrefer(field):
+    etype, args = parseArgs(field)
+    etype = parseKeyValue(etype)
+    return (etype[0], etype[1], args)
+
+
+
 #### Header generators
 def generateAccept(accept):
     mimeType, q = accept
@@ -1029,6 +1036,18 @@ def generateWWWAuthenticate(headers):
 
 def generateAuthorization(seq):
     return [' '.join(seq)]
+
+
+
+def generatePrefer(items):
+    key, value, args = items
+    if value is None:
+        out = '%s' % (key,)
+    else:
+        out = '%s=%s' % (key, value)
+    if args:
+        out += ';' + generateKeyValues(args)
+    return out
 
 
 
@@ -1732,7 +1751,7 @@ parser_request_headers = {
     'If-Range': (parseIfRange,),
     'If-Unmodified-Since': (last, parseDateTime),
     'Max-Forwards': (last, int),
-    'Prefer': (tokenize, listParser(parseExpect), dict), # Prefer like Expect
+    'Prefer': (tokenize, listParser(parsePrefer), list),
 #    'Proxy-Authorization': str, # what is "credentials"
     'Range': (tokenize, parseRange),
     'Referer': (last, str), # TODO: URI object?
@@ -1756,7 +1775,7 @@ generator_request_headers = {
     'If-Range': (generateIfRange, singleHeader),
     'If-Unmodified-Since': (generateDateTime, singleHeader),
     'Max-Forwards': (str, singleHeader),
-    'Prefer': (iteritems, listGenerator(generateExpect), singleHeader), # Prefer like Expect
+    'Prefer': (listGenerator(generatePrefer), singleHeader),
 #    'Proxy-Authorization': str, # what is "credentials"
     'Range': (generateRange, singleHeader),
     'Referer': (str, singleHeader),

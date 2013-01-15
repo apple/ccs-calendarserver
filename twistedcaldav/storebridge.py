@@ -2774,7 +2774,9 @@ class CalendarObjectResource(_CalendarObjectMetaDataMixin, _CommonObjectResource
         result = (yield storer.run())
 
         # Look for Prefer header
-        if "return-representation" in request.headers.getHeader("prefer", {}) and result.code / 100 == 2:
+        prefer = request.headers.getHeader("prefer", {})
+        returnRepresentation = any([key == "return" and value == "representation" for key, value, _ignore_args in prefer])
+        if returnRepresentation and result.code / 100 == 2:
             result = (yield self.render(request))
             result.code = OK
             result.headers.setHeader("content-location", request.path)

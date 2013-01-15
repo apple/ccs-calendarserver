@@ -111,7 +111,7 @@ def http_MKCOL(self, request):
 
     if doc is not None:
 
-        # Can ignore Prefer:return-minimal as we don't return a body for success by default
+        # Can ignore Prefer:return=minimal as we don't return a body for success by default
 
         # Parse response body
         mkcol = doc.root_element
