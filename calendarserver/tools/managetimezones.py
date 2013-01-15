@@ -76,7 +76,7 @@ def _doRefresh(tzpath, xmlfile, tzdb, tzvers):
         t.extractall(zonedir)
     print "Converting data at: %s" % (zonedir,)
     startYear = 1800
-    endYear = 2018
+    endYear = PyCalendarDateTime.getToday().getYear() + 10
     PyCalendar.sProdID = "-//calendarserver.org//Zonal//EN"
     zonefiles = "northamerica", "southamerica", "europe", "africa", "asia", "australasia", "antarctica", "etcetera", "backward"
     parser = tzconvert()

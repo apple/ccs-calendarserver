@@ -899,7 +899,7 @@
 
     <!-- Calendar Drop Box -->
     <key>EnableDropBox</key>
-    <true/>
+    <false/>
 
     <!-- Calendar Managed Attachments -->
     <key>EnableManagedAttachments</key>

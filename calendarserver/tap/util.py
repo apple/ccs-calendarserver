@@ -238,7 +238,7 @@ def storeFromConfig(config, txnFactory):
             uri = "https://%s:%s" % (config.ServerHostName, config.SSLPort,)
         else:
             uri = "http://%s:%s" % (config.ServerHostName, config.HTTPPort,)
-        attachments_uri = uri + "/calendars/__uids__/%(home)s/attachments/%(name)s"
+        attachments_uri = uri + "/calendars/__uids__/%(home)s/dropbox/%(dropbox_id)s/%(name)s"
         return CommonSQLDataStore(
             txnFactory, notifierFactory,
             FilePath(config.AttachmentsRoot), attachments_uri,

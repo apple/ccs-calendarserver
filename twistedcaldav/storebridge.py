@@ -1384,6 +1384,10 @@ class DropboxCollection(_GetChildHelper):
 
 class NoDropboxHere(_GetChildHelper):
 
+    def getChild(self, name):
+        raise HTTPError(FORBIDDEN)
+
+
     def isCollection(self):
         return False
 
@@ -1627,7 +1631,8 @@ class CalendarObjectDropbox(_GetChildHelper):
 class AttachmentsCollection(_GetChildHelper):
     """
     A collection of all managed attachments, presented as a
-    resource under the user's calendar home.
+    resource under the user's calendar home. Attachments are stored
+    in L{AttachmentsChildCollection} child collections of this one.
     """
     # FIXME: no direct tests for this class at all.
 
@@ -1648,24 +1653,29 @@ class AttachmentsCollection(_GetChildHelper):
 
     @inlineCallbacks
     def getChild(self, name):
-        attachmentObject = yield self._newStoreHome.attachmentObjectWithID(name)
-        result = CalendarAttachment(
-            None,
-            attachmentObject,
-            name,
-            True,
-            principalCollections=self.principalCollections()
+        calendarObject = yield self._newStoreHome.calendarObjectWithDropboxID(name)
+
+        # Hide the dropbox if it has no children
+        if calendarObject:
+            l = (yield calendarObject.managedAttachmentList())
+            if len(l) == 0:
+                calendarObject = None
+
+        if calendarObject is None:
+            returnValue(NoDropboxHere())
+        objectDropbox = AttachmentsChildCollection(
+            calendarObject, self, principalCollections=self.principalCollections()
         )
-        self.propagateTransaction(result)
-        returnValue(result)
+        self.propagateTransaction(objectDropbox)
+        returnValue(objectDropbox)
 
 
     def resourceType(self,):
-        return davxml.ResourceType.collection # @UndefinedVariable
+        return davxml.ResourceType.dropboxhome # @UndefinedVariable
 
 
     def listChildren(self):
-        return self._newStoreHome.getAllAttachmentNames()
+        return self._newStoreHome.getAllDropboxIDs()
 
 
     def supportedPrivileges(self, request):
@@ -1724,6 +1734,195 @@ class AttachmentsCollection(_GetChildHelper):
     def accessControlList(self, request, inheritance=True, expanding=False, inherited_aces=None):
         # Permissions here are fixed, and are not subject to inheritance rules, etc.
         return succeed(self.defaultAccessControlList())
+
+
+
+class AttachmentsChildCollection(_GetChildHelper):
+    """
+    A collection of all containers for attachments, presented as a
+    resource under the user's calendar home, where a dropbox is a
+    L{CalendarObjectDropbox}.
+    """
+    # FIXME: no direct tests for this class at all.
+
+    def __init__(self, calendarObject, parent, *a, **kw):
+        kw.update(principalCollections=parent.principalCollections())
+        super(AttachmentsChildCollection, self).__init__(*a, **kw)
+        self._newStoreCalendarObject = calendarObject
+        parent.propagateTransaction(self)
+
+
+    def isCollection(self):
+        """
+        It is a collection.
+        """
+        return True
+
+
+    @inlineCallbacks
+    def getChild(self, name):
+        attachmentObject = yield self._newStoreCalendarObject.managedAttachmentRetrieval(name)
+        result = CalendarAttachment(
+            None,
+            attachmentObject,
+            name,
+            True,
+            principalCollections=self.principalCollections()
+        )
+        self.propagateTransaction(result)
+        returnValue(result)
+
+
+    def resourceType(self,):
+        return davxml.ResourceType.dropbox # @UndefinedVariable
+
+
+    @inlineCallbacks
+    def listChildren(self):
+        l = (yield self._newStoreCalendarObject.managedAttachmentList())
+        returnValue(l)
+
+
+    @inlineCallbacks
+    def http_ACL(self, request):
+        # For managed attachment compatibility this is always forbidden as dropbox clients must never be
+        # allowed to store attachments or make any changes.
+        return FORBIDDEN
+
+
+    def http_MKCOL(self, request):
+        # For managed attachment compatibility this is always forbidden as dropbox clients must never be
+        # allowed to store attachments or make any changes.
+        return FORBIDDEN
+
+
+    @requiresPermissions(fromParent=[davxml.Unbind()])
+    def http_DELETE(self, request):
+        # For managed attachment compatibility this always succeeds as dropbox clients will do
+        # this but we don't want them to see an error. Managed attachments will always be cleaned
+        # up on removal of the actual calendar object resource.
+        return NO_CONTENT
+
+
+    @inlineCallbacks
+    def accessControlList(self, request, *a, **kw):
+        """
+        All principals identified as ATTENDEEs on the event for this dropbox
+        may read all its children. Also include proxies of ATTENDEEs. Ignore
+        unknown attendees. Do not allow attendees to write as we don't support
+        that with managed attachments.
+        """
+        originalACL = yield super(
+            AttachmentsChildCollection, self).accessControlList(request, *a, **kw)
+        originalACEs = list(originalACL.children)
+
+        if config.EnableProxyPrincipals:
+            owner = (yield self.ownerPrincipal(request))
+
+            originalACEs += (
+                # DAV:write-acl access for this principal's calendar-proxy-write users.
+                davxml.ACE(
+                    davxml.Principal(davxml.HRef(joinURL(owner.principalURL(), "calendar-proxy-write/"))),
+                    davxml.Grant(
+                        davxml.Privilege(davxml.WriteACL()),
+                    ),
+                    davxml.Protected(),
+                    TwistedACLInheritable(),
+                ),
+            )
+
+        cuas = (yield self._newStoreCalendarObject.component()).getAttendees()
+        newACEs = []
+        for calendarUserAddress in cuas:
+            principal = self.principalForCalendarUserAddress(
+                calendarUserAddress
+            )
+            if principal is None:
+                continue
+
+            principalURL = principal.principalURL()
+            privileges = [
+                davxml.Privilege(davxml.Read()),
+                davxml.Privilege(davxml.ReadCurrentUserPrivilegeSet()),
+            ]
+            newACEs.append(davxml.ACE(
+                davxml.Principal(davxml.HRef(principalURL)),
+                davxml.Grant(*privileges),
+                davxml.Protected(),
+                TwistedACLInheritable(),
+            ))
+            newACEs.append(davxml.ACE(
+                davxml.Principal(davxml.HRef(joinURL(principalURL, "calendar-proxy-write/"))),
+                davxml.Grant(*privileges),
+                davxml.Protected(),
+                TwistedACLInheritable(),
+            ))
+            newACEs.append(davxml.ACE(
+                davxml.Principal(davxml.HRef(joinURL(principalURL, "calendar-proxy-read/"))),
+                davxml.Grant(*privileges),
+                davxml.Protected(),
+                TwistedACLInheritable(),
+            ))
+
+        # Now also need invitees
+        newACEs.extend((yield self.sharedDropboxACEs()))
+
+        returnValue(davxml.ACL(*tuple(originalACEs + newACEs)))
+
+
+    @inlineCallbacks
+    def sharedDropboxACEs(self):
+
+        aces = ()
+        calendars = yield self._newStoreCalendarObject._parentCollection.asShared()
+        for calendar in calendars:
+
+            userprivs = [
+            ]
+            if calendar.shareMode() in (_BIND_MODE_READ, _BIND_MODE_WRITE,):
+                userprivs.append(davxml.Privilege(davxml.Read()))
+                userprivs.append(davxml.Privilege(davxml.ReadACL()))
+                userprivs.append(davxml.Privilege(davxml.ReadCurrentUserPrivilegeSet()))
+            if calendar.shareMode() in (_BIND_MODE_READ,):
+                userprivs.append(davxml.Privilege(davxml.WriteProperties()))
+            if calendar.shareMode() in (_BIND_MODE_WRITE,):
+                userprivs.append(davxml.Privilege(davxml.Write()))
+            proxyprivs = list(userprivs)
+            proxyprivs.remove(davxml.Privilege(davxml.ReadACL()))
+
+            principal = self.principalForUID(calendar._home.uid())
+            aces += (
+                # Inheritable specific access for the resource's associated principal.
+                davxml.ACE(
+                    davxml.Principal(davxml.HRef(principal.principalURL())),
+                    davxml.Grant(*userprivs),
+                    davxml.Protected(),
+                    TwistedACLInheritable(),
+                ),
+            )
+
+            if config.EnableProxyPrincipals:
+                aces += (
+                    # DAV:read/DAV:read-current-user-privilege-set access for this principal's calendar-proxy-read users.
+                    davxml.ACE(
+                        davxml.Principal(davxml.HRef(joinURL(principal.principalURL(), "calendar-proxy-read/"))),
+                        davxml.Grant(
+                            davxml.Privilege(davxml.Read()),
+                            davxml.Privilege(davxml.ReadCurrentUserPrivilegeSet()),
+                        ),
+                        davxml.Protected(),
+                        TwistedACLInheritable(),
+                    ),
+                    # DAV:read/DAV:read-current-user-privilege-set/DAV:write access for this principal's calendar-proxy-write users.
+                    davxml.ACE(
+                        davxml.Principal(davxml.HRef(joinURL(principal.principalURL(), "calendar-proxy-write/"))),
+                        davxml.Grant(*proxyprivs),
+                        davxml.Protected(),
+                        TwistedACLInheritable(),
+                    ),
+                )
+
+        returnValue(aces)
 
 
 
@@ -2581,10 +2780,9 @@ class CalendarObjectResource(_CalendarObjectMetaDataMixin, _CommonObjectResource
             result.headers.setHeader("content-location", request.path)
         else:
             result = post_result
-        if action == "attachment-add":
-            result.headers.setHeader("location", location)
         if action in ("attachment-add", "attachment-update",):
-            result.headers.addRawHeader("Cal-Managed-ID", attachment.dropboxID())
+            result.headers.setHeader("location", location)
+            result.headers.addRawHeader("Cal-Managed-ID", attachment.managedID())
         returnValue(result)
 
 

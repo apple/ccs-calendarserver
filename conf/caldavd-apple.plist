@@ -485,6 +485,10 @@
 
     <!-- Calendar Drop Box -->
     <key>EnableDropBox</key>
+    <false/>
+
+    <!-- Calendar Managed Attachments -->
+    <key>EnableManagedAttachments</key>
     <true/>
 
     <!-- Private Events -->
