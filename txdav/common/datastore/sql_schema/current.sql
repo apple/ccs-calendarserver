@@ -508,7 +508,8 @@ create index CALENDAR_OBJECT_REVISIONS_RESOURCE_ID_REVISION
 
 create table ADDRESSBOOK_OBJECT_REVISIONS (
   ADDRESSBOOK_HOME_RESOURCE_ID integer      not null references ADDRESSBOOK_HOME,
-  ADDRESSBOOK_RESOURCE_ID      integer      references ADDRESSBOOK,
+  -- ADDRESSBOOK_RESOURCE_ID      integer      references ADDRESSBOOK,		-- FIXME
+  ADDRESSBOOK_RESOURCE_ID      integer,
   ADDRESSBOOK_NAME             varchar(255) default null,
   RESOURCE_NAME                varchar(255),
   REVISION                     integer      default nextval('REVISION_SEQ') not null,

@@ -2169,7 +2169,7 @@ class SharingMixIn(object):
             L{_BIND_MODE_WRITE} or L{_BIND_MODE_DIRECT}
         @type mode: L{str}
 
-        @param status: The sharing mode; L{_BIND_STATUS_INVITED} or
+        @param status: The sharing status; L{_BIND_STATUS_INVITED} or
             L{_BIND_STATUS_ACCEPTED} or L{_BIND_STATUS_DECLINED} or
             L{_BIND_STATUS_INVALID}.
         @type mode: L{str}
@@ -2223,7 +2223,7 @@ class SharingMixIn(object):
             L{_BIND_MODE_WRITE} or None to not update
         @type mode: L{str}
 
-        @param status: The sharing mode; L{_BIND_STATUS_INVITED} or
+        @param status: The sharing status; L{_BIND_STATUS_INVITED} or
             L{_BIND_STATUS_ACCEPTED} or L{_BIND_STATUS_DECLINED} or
             L{_BIND_STATUS_INVALID}  or None to not update
         @type status: L{str}
@@ -2332,30 +2332,6 @@ class SharingMixIn(object):
 
 
 
-    @classmethod
-    def _bindFor(cls, condition): #@NoSelf
-        bind = cls._bindSchema
-        return Select(
-            [bind.BIND_MODE,
-             bind.HOME_RESOURCE_ID,
-             bind.RESOURCE_ID,
-             bind.RESOURCE_NAME,
-             bind.BIND_STATUS,
-             bind.MESSAGE],
-                  From=bind,
-                  Where=condition
-        )
-
-
-    @classproperty
-    def _sharedBindForResourceID(cls): #@NoSelf
-        bind = cls._bindSchema
-        return cls._bindFor((bind.RESOURCE_ID == Parameter("resourceID"))
-                            .And(bind.BIND_STATUS == _BIND_STATUS_ACCEPTED)
-                            .And(bind.BIND_MODE != _BIND_MODE_OWN)
-                            )
-
-
     @inlineCallbacks
     def asShared(self):
         """
@@ -2391,15 +2367,6 @@ class SharingMixIn(object):
             yield new.initFromStore()
             result.append(new)
         returnValue(result)
-
-
-    @classproperty
-    def _invitedBindForResourceID(cls): #@NoSelf
-        bind = cls._bindSchema
-        return cls._bindFor((bind.RESOURCE_ID == Parameter("resourceID"))
-                            .And(bind.BIND_STATUS != _BIND_STATUS_ACCEPTED)
-                            )
-
 
     @inlineCallbacks
     def asInvited(self):
@@ -2437,7 +2404,80 @@ class SharingMixIn(object):
         returnValue(result)
 
 
+    @classmethod
+    def _bindFor(cls, condition): #@NoSelf
+        bind = cls._bindSchema
+        return Select(
+            [bind.BIND_MODE,
+             bind.HOME_RESOURCE_ID,
+             bind.RESOURCE_ID,
+             bind.RESOURCE_NAME,
+             bind.BIND_STATUS,
+             bind.MESSAGE],
+                  From=bind,
+                  Where=condition
+        )
 
+
+    @classproperty
+    def _invitedBindForResourceID(cls): #@NoSelf
+        bind = cls._bindSchema
+        return cls._bindFor((bind.RESOURCE_ID == Parameter("resourceID"))
+                            .And(bind.BIND_STATUS != _BIND_STATUS_ACCEPTED)
+                            )
+
+
+    @classproperty
+    def _sharedBindForResourceID(cls): #@NoSelf
+        bind = cls._bindSchema
+        return cls._bindFor((bind.RESOURCE_ID == Parameter("resourceID"))
+                            .And(bind.BIND_STATUS == _BIND_STATUS_ACCEPTED)
+                            .And(bind.BIND_MODE != _BIND_MODE_OWN)
+                            )
+
+
+    @classmethod
+    def _sharedBindForResourceIDRows(cls, txn, resourceID, homeID): #@NoSelf
+        return cls._sharedBindForResourceID.on(
+            txn, resourceID=resourceID, homeID=homeID
+        )
+
+
+    @classproperty
+    def _invitedBindForHomeID(cls): #@NoSelf
+        bind = cls._bindSchema
+        return cls._bindFor((bind.HOME_RESOURCE_ID == Parameter("homeID"))
+                            .And(bind.BIND_STATUS != _BIND_STATUS_ACCEPTED))
+
+
+    @classproperty
+    def _invitedBindForNameAndHomeID(cls): #@NoSelf
+        bind = cls._bindSchema
+        return cls._bindFor((bind.RESOURCE_NAME == Parameter("name"))
+                               .And(bind.HOME_RESOURCE_ID == Parameter("homeID"))
+                               .And(bind.BIND_STATUS != _BIND_STATUS_ACCEPTED)
+                               )
+
+
+    @classproperty
+    def _childForNameAndHomeID(cls): #@NoSelf
+        bind = cls._bindSchema
+        return cls._bindFor((bind.RESOURCE_NAME == Parameter("name"))
+                               .And(bind.HOME_RESOURCE_ID == Parameter("homeID"))
+                               .And(bind.BIND_STATUS == _BIND_STATUS_ACCEPTED)
+                               )
+
+
+    @classproperty
+    def _bindForResourceIDAndHomeID(cls): #@NoSelf
+        """
+        DAL query that looks up home child names / bind modes by home child
+        resource ID and home resource ID.
+        """
+        bind = cls._bindSchema
+        return cls._bindFor((bind.RESOURCE_ID == Parameter("resourceID"))
+                               .And(bind.HOME_RESOURCE_ID == Parameter("homeID"))
+                               )
 
 
 class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic, HomeChildBase, SharingMixIn):
@@ -2548,12 +2588,6 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic, HomeChildBas
         names = [row[0] for row in rows]
         returnValue(names)
 
-
-    @classproperty
-    def _invitedBindForHomeID(cls): #@NoSelf
-        bind = cls._bindSchema
-        return cls._bindFor((bind.HOME_RESOURCE_ID == Parameter("homeID"))
-                            .And(bind.BIND_STATUS != _BIND_STATUS_ACCEPTED))
 
 
     @classmethod
@@ -2725,13 +2759,6 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic, HomeChildBas
         returnValue(results)
 
 
-    @classproperty
-    def _invitedBindForNameAndHomeID(cls): #@NoSelf
-        bind = cls._bindSchema
-        return cls._bindFor((bind.RESOURCE_NAME == Parameter("name"))
-                               .And(bind.HOME_RESOURCE_ID == Parameter("homeID"))
-                               .And(bind.BIND_STATUS != _BIND_STATUS_ACCEPTED)
-                               )
 
 
     @classmethod
@@ -2785,15 +2812,6 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic, HomeChildBas
         )
         yield child.initFromStore()
         returnValue(child)
-
-
-    @classproperty
-    def _childForNameAndHomeID(cls): #@NoSelf
-        bind = cls._bindSchema
-        return cls._bindFor((bind.RESOURCE_NAME == Parameter("name"))
-                               .And(bind.HOME_RESOURCE_ID == Parameter("homeID"))
-                               .And(bind.BIND_STATUS == _BIND_STATUS_ACCEPTED)
-                               )
 
 
     @classmethod
@@ -2854,18 +2872,6 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic, HomeChildBas
         )
         yield child.initFromStore()
         returnValue(child)
-
-
-    @classproperty
-    def _bindForResourceIDAndHomeID(cls): #@NoSelf
-        """
-        DAL query that looks up home child names / bind modes by home child
-        resource ID and home resource ID.
-        """
-        bind = cls._bindSchema
-        return cls._bindFor((bind.RESOURCE_ID == Parameter("resourceID"))
-                               .And(bind.HOME_RESOURCE_ID == Parameter("homeID"))
-                               )
 
 
     @classmethod
@@ -3576,6 +3582,13 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic, HomeChildBas
 
 
     @inlineCallbacks
+    def _bumpModified(self, subtxn):
+        yield self._lockLastModifiedQuery.on(subtxn, resourceID=self._resourceID)
+        result = (yield self._changeLastModifiedQuery.on(subtxn, resourceID=self._resourceID))
+        returnValue(result)
+
+
+    @inlineCallbacks
     def bumpModified(self):
         """
         Bump the MODIFIED value. A possible deadlock could happen here if two or more
@@ -3589,14 +3602,8 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic, HomeChildBas
             returnValue(None)
         self._txn.bumpAddedForObject(self)
 
-        @inlineCallbacks
-        def _bumpModified(subtxn):
-            yield self._lockLastModifiedQuery.on(subtxn, resourceID=self._resourceID)
-            result = (yield self._changeLastModifiedQuery.on(subtxn, resourceID=self._resourceID))
-            returnValue(result)
-
         try:
-            self._modified = (yield self._txn.subtransaction(_bumpModified, retries=0, failureOK=True))[0][0]
+            self._modified = (yield self._txn.subtransaction(self._bumpModified, retries=0, failureOK=True))[0][0]
 
             queryCacher = self._txn._queryCacher
             if queryCacher is not None:

@@ -27,7 +27,7 @@ __all__ = [
 ]
 
 from twext.enterprise.dal.syntax import Delete, Insert, Len, Parameter, \
-    Update, Select, utcNowSQL
+    Update, Union, Select, utcNowSQL
 
 from twext.python.clsprop import classproperty
 from twext.web2.http_headers import MimeType
@@ -54,7 +54,9 @@ from txdav.common.datastore.sql_tables import ADDRESSBOOK_TABLE, \
     ADDRESSBOOK_OBJECT_AND_BIND_TABLE, \
     ADDRESSBOOK_OBJECT_REVISIONS_AND_BIND_TABLE, \
     _ABO_KIND_PERSON, _ABO_KIND_GROUP, _ABO_KIND_RESOURCE, \
-    _ABO_KIND_LOCATION, schema
+    _ABO_KIND_LOCATION, schema, \
+    _BIND_MODE_OWN, _BIND_STATUS_ACCEPTED
+
 from txdav.xml.rfc2518 import ResourceType
 
 from zope.interface.declarations import implements
@@ -280,12 +282,37 @@ class AddressBook(CommonHomeChild, AddressBookSharingMixIn):
 
 
     @inlineCallbacks
+    def _ownerGroupAndAddressBook(self):
+        """ 
+        Find the owner shared group and owner address book.  owner shared group may be None 
+        """
+        ownerGroup = None
+        if self.owned():
+            yield None
+            ownerAddressBook = self
+        else:
+            ownerAddressBook = yield self.ownerAddressBookHome().childWithID(self._resourceID)
+            if not ownerAddressBook:
+                for addressbook in (yield self.ownerAddressBookHome().addressbooks()):
+                    ownerGroup = yield addressbook.objectResourceWithID(self._resourceID)
+                    if ownerGroup:
+                        ownerAddressBook = addressbook
+                        break
+
+        returnValue((ownerGroup, ownerAddressBook))
+
+
+    @inlineCallbacks
+    def ownerGroup(self):
+        if not hasattr(self, "_ownerGroup"):
+            self._ownerGroup, self._ownerAddressBook = yield self._ownerGroupAndAddressBook()
+        returnValue(self._ownerGroup)
+
+
+    @inlineCallbacks
     def ownerAddressBook(self):
         if not hasattr(self, "_ownerAddressBook"):
-            if self.owned():
-                self._ownerAddressBook = self
-            else:
-                self._ownerAddressBook = yield self.ownerAddressBookHome().childWithID(self._resourceID)
+            self._ownerGroup, self._ownerAddressBook = yield self._ownerGroupAndAddressBook()
         returnValue(self._ownerAddressBook)
 
 
@@ -314,6 +341,124 @@ class AddressBook(CommonHomeChild, AddressBookSharingMixIn):
     def _sharedABGroupUID(self):
         yield None
         returnValue(self.name())
+
+    @classmethod
+    def _bindsFor(cls, where): #@NoSelf
+
+        def columns(bind): #@NoSelf
+            return [bind.BIND_MODE,
+                    bind.HOME_RESOURCE_ID,
+                    bind.RESOURCE_ID,
+                    bind.RESOURCE_NAME,
+                    bind.BIND_STATUS,
+                    bind.MESSAGE]
+
+        addressbookBind = cls._bindSchema
+        groupBind = AddressBookObject._bindSchema
+        return Select(
+            columns(addressbookBind),
+            From=addressbookBind,
+            Where=where(addressbookBind),
+            SetExpression=Union(
+                Select(
+                    columns(groupBind),
+                    From=groupBind,
+                    Where=where(groupBind),
+                    ),
+                optype=Union.OPTYPE_ALL,
+            )
+        )
+
+
+    @classproperty
+    def _invitedBindForResourceID(cls): #@NoSelf
+        return cls._bindsFor(lambda bind: ((bind.RESOURCE_ID == Parameter("resourceID"))
+                            .And(bind.BIND_STATUS != _BIND_STATUS_ACCEPTED)
+                            ))
+
+
+    @classproperty
+    def _sharedBindForResourceID(cls): #@NoSelf
+        return cls._bindsFor(lambda bind: ((bind.RESOURCE_ID == Parameter("resourceID"))
+                            .And(bind.BIND_STATUS == _BIND_STATUS_ACCEPTED)
+                            .And(bind.BIND_MODE != _BIND_MODE_OWN)
+                            ))
+
+
+    @classproperty
+    def _invitedBindForHomeID(cls): #@NoSelf
+        return cls._bindsFor(lambda bind: ((bind.HOME_RESOURCE_ID == Parameter("homeID"))
+                            .And(bind.BIND_STATUS != _BIND_STATUS_ACCEPTED)
+                            ))
+
+
+    @classproperty
+    def _invitedBindForNameAndHomeID(cls): #@NoSelf
+        return cls._bindsFor(lambda bind: ((bind.RESOURCE_NAME == Parameter("name"))
+                               .And(bind.HOME_RESOURCE_ID == Parameter("homeID"))
+                               .And(bind.BIND_STATUS != _BIND_STATUS_ACCEPTED)
+                               ))
+
+
+    @classproperty
+    def _childForNameAndHomeID(cls): #@NoSelf
+        return cls._bindsFor(lambda bind: ((bind.RESOURCE_NAME == Parameter("name"))
+                               .And(bind.HOME_RESOURCE_ID == Parameter("homeID"))
+                               .And(bind.BIND_STATUS == _BIND_STATUS_ACCEPTED)
+                               ))
+
+
+    @classproperty
+    def _bindForResourceIDAndHomeID(cls): #@NoSelf
+        return cls._bindsFor(lambda bind: ((bind.RESOURCE_ID == Parameter("resourceID"))
+                               .And(bind.HOME_RESOURCE_ID == Parameter("homeID"))
+                               ))
+
+
+    @classproperty
+    def _metadataByIDQuery(cls): #@NoSelf
+        """
+        DAL query to retrieve created/modified dates based on a resource ID.
+        """
+        child = cls._homeChildMetaDataSchema
+        abo = schema.ADDRESSBOOK_OBJECT
+        return Select(
+            cls.metadataColumns(),
+            From=child,
+            Where=child.RESOURCE_ID == Parameter("resourceID"),
+            SetExpression=Union(
+                Select(
+                    [abo.CREATED, abo.MODIFIED],
+                    From=abo,
+                    Where=abo.RESOURCE_ID == Parameter("resourceID"),
+                    ),
+                optype=Union.OPTYPE_ALL,
+            )
+        )
+
+
+    @classproperty
+    def _changeABForSharedGroupLastModifiedQuery(cls): #@NoSelf
+        schema = AddressBook._objectSchema
+        return Update({schema.MODIFIED: utcNowSQL},
+                      Where=schema.RESOURCE_ID == Parameter("resourceID"),
+                      Return=schema.MODIFIED)
+
+
+    @inlineCallbacks
+    def _bumpModified(self, subtxn):
+        print ("_bumpModified:self = %s" % (self,))
+
+        yield self._lockLastModifiedQuery.on(subtxn, resourceID=self._resourceID)
+
+        # can't call self.ownerGroup() on a subtranaction,
+        # So just try AB schema first, then ABOBject schema
+        result = yield self._changeLastModifiedQuery.on(subtxn, resourceID=self._resourceID)
+
+        if not result:
+            result = yield self._changeABForSharedGroupLastModifiedQuery.on(subtxn, resourceID=self._resourceID)
+
+        returnValue(result)
 
 
 class AddressBookObject(CommonObjectResource, AddressBookSharingMixIn):
@@ -377,7 +522,7 @@ class AddressBookObject(CommonObjectResource, AddressBookSharingMixIn):
         aboMembers = schema.ABO_MEMBERS
         aboForeignMembers = schema.ABO_FOREIGN_MEMBERS
 
-        ownerGroup = yield self.ownerGroup()
+        ownerGroup = yield self._addressbook.ownerGroup()
         if ownerGroup:
             # convert delete in sharee shared group address book to remove of memberships
             # that make this object visible to the sharee
@@ -389,7 +534,7 @@ class AddressBookObject(CommonObjectResource, AddressBookSharingMixIn):
                 yield self._deleteMembersWithMemberIDAndGroupIDsQuery(self._resourceID, objectIDs).on(
                     self._txn, groupIDs=objectIDs)
 
-            ownerAddressBook = yield self.ownerAddressBook()
+            ownerAddressBook = yield self._addressbook.ownerAddressBook()
             yield self._changeAddressBookRevision(ownerAddressBook)
 
         else:
@@ -551,7 +696,7 @@ class AddressBookObject(CommonObjectResource, AddressBookSharingMixIn):
             obj.MD5,
             Len(obj.TEXT),
             obj.CREATED,
-            obj.MODIFIED
+            obj.MODIFIED,
         ]
 
 
@@ -645,41 +790,10 @@ class AddressBookObject(CommonObjectResource, AddressBookSharingMixIn):
         else:
             if self._addressbook._resourceID != self._ownerAddressBookResourceID:
                 # update revisions table of shared group's containing address book
-                ownerAddressBook = yield self.ownerAddressBook()
+                ownerAddressBook = yield self._addressbook.ownerAddressBook()
                 yield self._changeAddressBookRevision(ownerAddressBook, inserting)
 
         self._component = component
-
-
-    @inlineCallbacks
-    def _ownerGroupAndAddressBook(self):
-        """ 
-        Find the owner shared group and owner address book.  owner shared group may be None 
-        """
-        ownerGroup = None
-        ownerAddressBook = yield self._addressbook.ownerAddressBook()
-        if not ownerAddressBook:
-            for addressbook in (yield self._addressbook.ownerAddressBookHome().addressbooks()):
-                ownerGroup = yield addressbook.objectResourceWithID(self._addressbook._resourceID)
-                if ownerGroup:
-                    ownerAddressBook = addressbook
-                    break
-
-        returnValue((ownerGroup, ownerAddressBook))
-
-
-    @inlineCallbacks
-    def ownerGroup(self):
-        if not hasattr(self, "_ownerGroup"):
-            self._ownerGroup, self._ownerAddressBook = yield self._ownerGroupAndAddressBook()
-        returnValue(self._ownerGroup)
-
-
-    @inlineCallbacks
-    def ownerAddressBook(self):
-        if not hasattr(self, "_ownerAddressBook"):
-            self._ownerGroup, self._ownerAddressBook = yield self._ownerGroupAndAddressBook()
-        returnValue(self._ownerAddressBook)
 
 
     @classmethod
@@ -735,7 +849,7 @@ class AddressBookObject(CommonObjectResource, AddressBookSharingMixIn):
         # For shared groups:  Non owner may NOT add group members not currently in group!
         # (Or it would be possible to troll for unshared vCard UIDs and make them shared.)
         if not self._ownerAddressBookResourceID:
-            ownerAddressBook = yield self.ownerAddressBook()
+            ownerAddressBook = yield self._addressbook.ownerAddressBook()
             self._ownerAddressBookResourceID = ownerAddressBook._resourceID
 
         if self._kind == _ABO_KIND_GROUP:
@@ -756,7 +870,7 @@ class AddressBookObject(CommonObjectResource, AddressBookSharingMixIn):
             foreignMemberAddrs.extend(["urn:uuid:" + missingUID for missingUID in set(memberUIDs) - set(foundUIDs)])
 
             #in shared group, all members must be inside the shared group
-            ownerGroup = yield self.ownerGroup()
+            ownerGroup = yield self._addressbook.ownerGroup()
             if ownerGroup:
                 if foreignMemberAddrs or \
                     set(memberIDs) - set((yield ownerGroup._allGroupObjectIDs())):
@@ -824,9 +938,9 @@ class AddressBookObject(CommonObjectResource, AddressBookSharingMixIn):
             # groupIDs.append(self._ownerAddressBookResourceID)
 
             # add owner group if there is one
-            ownerGroup = yield self.ownerGroup()
+            ownerGroup = yield self._addressbook.ownerGroup()
             if ownerGroup:
-                groupIDs.append(self._ownerGroup._resourceID)
+                groupIDs.append(ownerGroup._resourceID)
 
             # add to member table rows
             for groupID in groupIDs:
