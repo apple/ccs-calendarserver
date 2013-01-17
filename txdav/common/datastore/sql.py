@@ -2123,40 +2123,6 @@ class SharingMixIn(object):
     """
         Common class for CommonHomeChild and AddressBookObject
     """
-    @classproperty
-    def _bindInsertQuery(cls, **kw): #@NoSelf
-        """
-        DAL statement to create a bind entry that connects a collection to its
-        home.
-        """
-        bind = cls._bindSchema
-        return Insert({
-            bind.HOME_RESOURCE_ID: Parameter("homeID"),
-            bind.RESOURCE_ID: Parameter("resourceID"),
-            bind.RESOURCE_NAME: Parameter("name"),
-            bind.BIND_MODE: Parameter("mode"),
-            bind.BIND_STATUS: Parameter("bindStatus"),
-            bind.MESSAGE: Parameter("message"),
-        })
-
-    @classmethod
-    def _updateBindColumnsQuery(cls, columnMap): #@NoSelf
-        bind = cls._bindSchema
-        return Update(columnMap,
-                      Where=(bind.RESOURCE_ID == Parameter("resourceID"))
-                      .And(bind.HOME_RESOURCE_ID == Parameter("homeID")),
-                      Return=bind.RESOURCE_NAME)
-
-
-    @classproperty
-    def _updateBindQuery(cls): #@NoSelf
-        bind = cls._bindSchema
-        return cls._updateBindColumnsQuery(
-                    {bind.BIND_MODE: Parameter("mode"),
-                     bind.BIND_STATUS: Parameter("status"),
-                     bind.MESSAGE: Parameter("message")})
-
-
     @inlineCallbacks
     def shareWith(self, shareeHome, mode, status=None, message=None):
         """
@@ -2206,7 +2172,6 @@ class SharingMixIn(object):
 
         # Must send notification to ensure cache invalidation occurs
         yield self.notifyChanged()
-
         returnValue(sharedName)
 
 
@@ -2331,7 +2296,6 @@ class SharingMixIn(object):
         returnValue(resourceName)
 
 
-
     @inlineCallbacks
     def asShared(self):
         """
@@ -2368,6 +2332,7 @@ class SharingMixIn(object):
             result.append(new)
         returnValue(result)
 
+
     @inlineCallbacks
     def asInvited(self):
         """
@@ -2402,6 +2367,41 @@ class SharingMixIn(object):
             result.append(new)
 
         returnValue(result)
+
+
+    @classproperty
+    def _bindInsertQuery(cls, **kw): #@NoSelf
+        """
+        DAL statement to create a bind entry that connects a collection to its
+        home.
+        """
+        bind = cls._bindSchema
+        return Insert({
+            bind.HOME_RESOURCE_ID: Parameter("homeID"),
+            bind.RESOURCE_ID: Parameter("resourceID"),
+            bind.RESOURCE_NAME: Parameter("name"),
+            bind.BIND_MODE: Parameter("mode"),
+            bind.BIND_STATUS: Parameter("bindStatus"),
+            bind.MESSAGE: Parameter("message"),
+        })
+
+    @classmethod
+    def _updateBindColumnsQuery(cls, columnMap): #@NoSelf
+        bind = cls._bindSchema
+        return Update(columnMap,
+                      Where=(bind.RESOURCE_ID == Parameter("resourceID"))
+                      .And(bind.HOME_RESOURCE_ID == Parameter("homeID")),
+                      Return=bind.RESOURCE_NAME)
+
+
+    @classproperty
+    def _updateBindQuery(cls): #@NoSelf
+        bind = cls._bindSchema
+        return cls._updateBindColumnsQuery(
+                    {bind.BIND_MODE: Parameter("mode"),
+                     bind.BIND_STATUS: Parameter("status"),
+                     bind.MESSAGE: Parameter("message")})
+
 
 
     @classmethod
@@ -2586,6 +2586,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic, HomeChildBas
         rows = yield cls._childNamesForHomeID.on(
                 home._txn, homeID=home._resourceID)
         names = [row[0] for row in rows]
+
         returnValue(names)
 
 
@@ -2692,6 +2693,19 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic, HomeChildBas
             (yield sharerCollection.unshareWith(self._home))
 
 
+    @classproperty
+    def _revisionsForHomeID(cls): #@NoSelf
+            bind = cls._bindSchema
+            rev = cls._revisionsSchema
+            return Select(
+                [rev.RESOURCE_ID, Max(rev.REVISION)],
+                From=rev.join(bind, rev.RESOURCE_ID == bind.RESOURCE_ID, 'left'),
+                Where=(bind.HOME_RESOURCE_ID == Parameter("homeID")).
+                    And((rev.RESOURCE_NAME != None).Or(rev.DELETED == False)),
+                GroupBy=rev.RESOURCE_ID
+            )
+
+
     @classmethod
     @inlineCallbacks
     def loadAllObjects(cls, home):
@@ -2716,15 +2730,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic, HomeChildBas
                 home._resourceID
             ))
 
-            bind = cls._bindSchema
-            rev = cls._revisionsSchema
-            revisions = (yield Select(
-                [rev.RESOURCE_ID, Max(rev.REVISION)],
-                From=rev.join(bind, rev.RESOURCE_ID == bind.RESOURCE_ID, 'left'),
-                Where=(bind.HOME_RESOURCE_ID == home._resourceID).
-                    And((rev.RESOURCE_NAME != None).Or(rev.DELETED == False)),
-                GroupBy=rev.RESOURCE_ID
-            ).on(home._txn))
+            revisions = (yield cls._revisionsForHomeID.on(home._txn, homeID=home._resourceID))
             revisions = dict(revisions)
 
         # Create the actual objects merging in properties
@@ -2759,8 +2765,6 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic, HomeChildBas
         returnValue(results)
 
 
-
-
     @classmethod
     @inlineCallbacks
     def ownerHomeID(cls, txn, resourceID):
@@ -2777,6 +2781,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic, HomeChildBas
             ownerHomeRows = yield cls._ownerHomeWithResourceID.on(txn, resourceID=groupAddressBookID)
 
         returnValue(ownerHomeRows[0][0])
+
 
     @classmethod
     @inlineCallbacks
@@ -3849,8 +3854,7 @@ class CommonObjectResource(LoggingMixIn, FancyEqMixin):
 
     @classproperty
     def _allWithParentAndID(cls): #@NoSelf
-        return cls._allWithParentAnd(cls._objectSchema.RESOURCE_ID,
-                                     "resourceID")
+        return cls._allWithParentAnd(cls._objectSchema.RESOURCE_ID, "resourceID")
 
 
     @inlineCallbacks

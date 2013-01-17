@@ -27,7 +27,7 @@ __all__ = [
 ]
 
 from twext.enterprise.dal.syntax import Delete, Insert, Len, Parameter, \
-    Update, Union, Select, utcNowSQL
+    Update, Union, Max, Select, utcNowSQL
 
 from twext.python.clsprop import classproperty
 from twext.web2.http_headers import MimeType
@@ -135,6 +135,21 @@ class AddressBookHome(CommonHome):
     def createdHome(self):
         return self.createAddressBookWithName("addressbook")
 
+
+    @inlineCallbacks
+    def removeUnacceptedShares(self):
+        """
+        Unbinds any collections that have been shared to this home but not yet
+        accepted.  Associated invite entries are also removed.
+        """
+        super(AddressBookHome, self).removeUnacceptedShares()
+
+        bind = AddressBookObject._bindSchema
+        kwds = {"homeResourceID" : self._resourceID}
+        yield Delete(
+            From=bind,
+            Where=(bind.HOME_RESOURCE_ID == Parameter("homeResourceID")).And(bind.BIND_STATUS != _BIND_STATUS_ACCEPTED)
+        ).on(self._txn, **kwds)
 
 
 AddressBookHome._register(EADDRESSBOOKTYPE)
@@ -266,7 +281,7 @@ class AddressBook(CommonHomeChild, AddressBookSharingMixIn):
 
         result = yield super(AddressBook, self).listObjectResources()
         if not self.owned():
-            sharedABGroupName = yield self._sharedABGroupName()
+            sharedABGroupName = yield self._groupForSharedAddressBookName()
             if not sharedABGroupName in result:
                 result.append(sharedABGroupName)
         returnValue(result)
@@ -317,13 +332,13 @@ class AddressBook(CommonHomeChild, AddressBookSharingMixIn):
 
 
     @inlineCallbacks
-    def _sharedABGroupRow(self): #@NoSelf
+    def _groupForSharedAddressBookRow(self): #@NoSelf
 
         returnValue([
             self._resourceID, # obj.ADDRESSBOOK_RESOURCE_ID,
             self._resourceID, # obj.RESOURCE_ID,
-            (yield self._sharedABGroupName()), # obj.RESOURCE_NAME, shared name is UID and thus avoids collisions
-            (yield self._sharedABGroupUID()), # obj.UID, shared name is uuid
+            (yield self._groupForSharedAddressBookName()), # obj.RESOURCE_NAME, shared name is UID and thus avoids collisions
+            (yield self._groupForSharedAddressBookUID()), # obj.UID, shared name is uuid
             _ABO_KIND_GROUP, # obj.KIND,
             "1", # obj.MD5, unused
             "1", # Len(obj.TEXT), unused
@@ -333,14 +348,84 @@ class AddressBook(CommonHomeChild, AddressBookSharingMixIn):
 
 
     @inlineCallbacks
-    def _sharedABGroupName(self):
-        returnValue((yield self.ownerAddressBook()).name() + ".vcf")
+    def _groupForSharedAddressBookName(self):
+        ownerGroup = yield self.ownerGroup()
+        if ownerGroup:
+            returnValue(ownerGroup.name())
+        else:
+            returnValue((yield self.ownerAddressBook()).name() + ".vcf")
 
 
     @inlineCallbacks
-    def _sharedABGroupUID(self):
+    def _groupForSharedAddressBookUID(self):
         yield None
         returnValue(self.name())
+
+    @inlineCallbacks
+    def _groupForSharedAddressBookComponent(self):
+
+        ownerGroup = yield self.ownerGroup()
+        if ownerGroup:
+            returnValue((yield ownerGroup.component()))
+        else:
+            n = (yield self.ownerAddressBook()).name()
+            fn = n
+            uid = self.name()
+
+            component = VCard.fromString(
+                """BEGIN:VCARD
+VERSION:3.0
+PRODID:%s
+UID:%s
+FN:%s
+N:%s;;;;
+X-ADDRESSBOOKSERVER-KIND:group
+END:VCARD
+""".replace("\n", "\r\n") % (vCardProductID, uid, n, fn,)
+            )
+
+            # then get member UIDs
+            abo = schema.ADDRESSBOOK_OBJECT
+            memberUIDRows = yield self._abObjectColumnsWithAddressBookResourceID(
+                             [abo.VCARD_UID]).on(
+                                self._txn, addressbookResourceID=self._resourceID)
+            memberUIDs = [memberUIDRow[0] for memberUIDRow in memberUIDRows]
+
+            # add prefix to get property string
+            memberAddresses = ["urn:uuid:" + memberUID for memberUID in memberUIDs]
+
+            # now add the properties to the component
+            for memberAddress in sorted(memberAddresses):
+                component.addProperty(Property("X-ADDRESSBOOKSERVER-MEMBER", memberAddress))
+
+            returnValue(component)
+
+
+    @classproperty
+    def _childNamesForHomeID(cls): #@NoSelf
+        def columns(bind): #@NoSelf
+            return [bind.RESOURCE_NAME, ]
+
+        def where(bind): #@NoSelf
+            return ((bind.HOME_RESOURCE_ID ==
+                             Parameter("homeID")).And
+                                (bind.BIND_STATUS == _BIND_STATUS_ACCEPTED))
+
+        addressbookBind = cls._bindSchema
+        aboBind = AddressBookObject._bindSchema
+        return Select(
+            columns(addressbookBind),
+            From=addressbookBind,
+            Where=where(addressbookBind),
+            SetExpression=Union(
+                Select(
+                    columns(aboBind),
+                    From=aboBind,
+                    Where=where(aboBind),
+                    ),
+                optype=Union.OPTYPE_ALL,
+            )
+        )
 
     @classmethod
     def _bindsFor(cls, where): #@NoSelf
@@ -354,16 +439,16 @@ class AddressBook(CommonHomeChild, AddressBookSharingMixIn):
                     bind.MESSAGE]
 
         addressbookBind = cls._bindSchema
-        groupBind = AddressBookObject._bindSchema
+        aboBind = AddressBookObject._bindSchema
         return Select(
             columns(addressbookBind),
             From=addressbookBind,
             Where=where(addressbookBind),
             SetExpression=Union(
                 Select(
-                    columns(groupBind),
-                    From=groupBind,
-                    Where=where(groupBind),
+                    columns(aboBind),
+                    From=aboBind,
+                    Where=where(aboBind),
                     ),
                 optype=Union.OPTYPE_ALL,
             )
@@ -439,7 +524,7 @@ class AddressBook(CommonHomeChild, AddressBookSharingMixIn):
 
     @classproperty
     def _changeABForSharedGroupLastModifiedQuery(cls): #@NoSelf
-        schema = AddressBook._objectSchema
+        schema = AddressBookObject._objectSchema
         return Update({schema.MODIFIED: utcNowSQL},
                       Where=schema.RESOURCE_ID == Parameter("resourceID"),
                       Return=schema.MODIFIED)
@@ -447,18 +532,106 @@ class AddressBook(CommonHomeChild, AddressBookSharingMixIn):
 
     @inlineCallbacks
     def _bumpModified(self, subtxn):
-        print ("_bumpModified:self = %s" % (self,))
 
         yield self._lockLastModifiedQuery.on(subtxn, resourceID=self._resourceID)
 
         # can't call self.ownerGroup() on a subtranaction,
-        # So just try AB schema first, then ABOBject schema
+        # So just try AB schema first, then ABOBject schema 
+        # The following line makes shared groups faster, but a bit of a hack
+        #if hasattr(self, "_ownerGroup") and not (yield self.ownerGroup()):
         result = yield self._changeLastModifiedQuery.on(subtxn, resourceID=self._resourceID)
 
         if not result:
             result = yield self._changeABForSharedGroupLastModifiedQuery.on(subtxn, resourceID=self._resourceID)
 
         returnValue(result)
+
+
+    @classproperty
+    def _childrenAndMetadataForHomeID(cls): #@NoSelf
+
+        def columns(bind, metaColumns):
+            cols = [bind.BIND_MODE,
+                    bind.HOME_RESOURCE_ID,
+                    bind.RESOURCE_ID,
+                    bind.RESOURCE_NAME,
+                    bind.BIND_STATUS,
+                    bind.MESSAGE,
+                   ]
+            cols.extend(metaColumns)
+            return cols
+
+        def _from(bind, child, childMetaData=None):
+            if childMetaData:
+                return child.join(
+                                 bind, child.RESOURCE_ID == bind.RESOURCE_ID,
+                                 'left outer').join(
+                                 childMetaData, childMetaData.RESOURCE_ID == bind.RESOURCE_ID,
+                                 'left outer')
+            else:
+                return child.join(
+                                 bind, child.RESOURCE_ID == bind.RESOURCE_ID,
+                                 'left outer')
+
+        def where(bind):
+            return ((bind.HOME_RESOURCE_ID == Parameter("homeID")
+                               ).And(bind.BIND_STATUS == _BIND_STATUS_ACCEPTED))
+
+        addressbookBind = cls._bindSchema
+        addressbookSchema = cls._homeChildSchema
+        addressbookMetaDataSchema = cls._homeChildMetaDataSchema
+        addressbookMetaDataColumns = cls.metadataColumns()
+
+        aboBind = AddressBookObject._bindSchema
+        aboSchema = AddressBookObject._objectSchema
+        aboMetaDataColumns = [aboSchema.CREATED, aboSchema.MODIFIED, ]
+
+        return Select(columns(addressbookBind, addressbookMetaDataColumns),
+                         From=_from(addressbookBind, addressbookSchema, addressbookMetaDataSchema),
+                         Where=where(addressbookBind),
+                         SetExpression=Union(
+                            Select(
+                                   columns(aboBind, aboMetaDataColumns),
+                                   From=_from(aboBind, aboSchema),
+                                   Where=where(aboBind),
+                                ),
+                            optype=Union.OPTYPE_ALL,
+                        ),
+                )
+
+
+    @classproperty
+    def _revisionsForHomeID(cls): #@NoSelf
+
+        rev = cls._revisionsSchema
+        def columns():
+            return [rev.RESOURCE_ID, Max(rev.REVISION)]
+
+        def _from(bind):
+            return rev.join(bind, rev.RESOURCE_ID == bind.RESOURCE_ID, 'left')
+
+        def where(bind):
+            return ((bind.HOME_RESOURCE_ID == Parameter("homeID")).
+                And((rev.RESOURCE_NAME != None).Or(rev.DELETED == False)))
+
+        addressbookBind = cls._bindSchema
+        aboBind = cls._bindSchema
+        return Select(
+            columns(),
+            From=_from(addressbookBind),
+            Where=where(addressbookBind),
+            GroupBy=rev.RESOURCE_ID,
+            SetExpression=Union(
+                Select(
+                    columns(),
+                    From=_from(aboBind),
+                    Where=where(aboBind),
+                    GroupBy=rev.RESOURCE_ID
+                    ),
+                optype=Union.OPTYPE_ALL,
+           ),
+        )
+
 
 
 class AddressBookObject(CommonObjectResource, AddressBookSharingMixIn):
@@ -502,6 +675,7 @@ class AddressBookObject(CommonObjectResource, AddressBookSharingMixIn):
             Where=(aboMembers.MEMBER_ID == memberID).And(
                     aboMembers.GROUP_ID.In(Parameter("groupIDs", len(groupIDs)))))
 
+
     @inlineCallbacks
     def remove(self):
 
@@ -528,7 +702,7 @@ class AddressBookObject(CommonObjectResource, AddressBookSharingMixIn):
             # that make this object visible to the sharee
 
             objectIDs = yield ownerGroup._allGroupObjectIDs()
-            assert self._ownerAddressBookResourceID not in objectIDs
+            assert self._ownerAddressBookResourceID not in objectIDs, "self._ownerAddressBookResourceID=%s not in objectIDs=%s" % (self._ownerAddressBookResourceID, objectIDs,)
 
             if objectIDs:
                 yield self._deleteMembersWithMemberIDAndGroupIDsQuery(self._resourceID, objectIDs).on(
@@ -559,7 +733,6 @@ class AddressBookObject(CommonObjectResource, AddressBookSharingMixIn):
             self._kind = None
             self._ownerAddressBookResourceID = None
             self._component = None
-
 
     @classmethod
     def _allWithResourceIDAnd(cls, resourceIDs, column, paramName):
@@ -593,6 +766,36 @@ class AddressBookObject(CommonObjectResource, AddressBookSharingMixIn):
             Where=obj.RESOURCE_ID == Parameter("resourceID"),)
 
 
+    '''
+    @classmethod
+    def _allWithParentAnd(cls, column, paramName):
+        """
+        DAL query for all columns where PARENT_RESOURCE_ID matches a parentID
+        parameter and a given instance column matches a given parameter name.
+        """
+        return Select(
+            cls._allColumns, From=cls._objectSchema,
+            Where=(column == Parameter(paramName)).And(
+                cls._objectSchema.PARENT_RESOURCE_ID == Parameter("parentID"))
+        )
+
+
+    @classproperty
+    def _allWithParentAndName(cls): #@NoSelf
+        return cls._allWithParentAnd(cls._objectSchema.RESOURCE_NAME, "name")
+
+
+    @classproperty
+    def _allWithParentAndUID(cls): #@NoSelf
+        return cls._allWithParentAnd(cls._objectSchema.UID, "uid")
+
+
+    @classproperty
+    def _allWithParentAndID(cls): #@NoSelf
+        return cls._allWithParentAnd(cls._objectSchema.RESOURCE_ID, "resourceID")
+
+    '''
+
     @inlineCallbacks
     def initFromStore(self):
         """
@@ -603,36 +806,48 @@ class AddressBookObject(CommonObjectResource, AddressBookSharingMixIn):
 
         @return: L{self} if object exists in the DB, else C{None}
         """
-        #print("initFromStore: self=%s, self._name=%s, self._uid=%s, self._resourceID=%s" % (self, self._name, self._uid, self._resourceID,))
+        ownerGroup = yield self._addressbook.ownerGroup()
+        if ownerGroup:
 
-        if self._name:
-            rows = yield self._allWithParentAndName.on(
-                self._txn, name=self._name,
-                parentID=self._parentCollection._resourceID)
-        elif self._uid:
-            rows = yield self._allWithParentAndUID.on(
-                self._txn, uid=self._uid,
-                parentID=self._parentCollection._resourceID)
-        elif self._resourceID:
-            rows = yield self._allWithParentAndID.on(
-                self._txn, resourceID=self._resourceID,
-                parentID=self._parentCollection._resourceID)
+            objectIDs = yield ownerGroup._allGroupObjectIDs()
+            if self._name:
+                rows = (yield self._allWithResourceIDAndName(objectIDs).on(
+                    self._txn, name=self._name,
+                    resourceIDs=objectIDs,)) if objectIDs else []
+            elif self._uid:
+                rows = (yield self._allWithResourceIDAndUID(objectIDs).on(
+                    self._txn, uid=self._uid,
+                    resourceIDs=objectIDs,)) if objectIDs else []
+            elif self._resourceID:
+                rows = (yield self._allWithResourceID.on(
+                    self._txn, resourceID=self._resourceID,)) if (self._resourceID in objectIDs) else []
 
-        #print("initFromStore: self=%s, rows=%s" % (self, rows,))
+        else:
+            if self._name:
+                rows = yield self._allWithParentAndName.on(
+                    self._txn, name=self._name,
+                    parentID=self._parentCollection._resourceID)
+            elif self._uid:
+                rows = yield self._allWithParentAndUID.on(
+                    self._txn, uid=self._uid,
+                    parentID=self._parentCollection._resourceID)
+            elif self._resourceID:
+                rows = yield self._allWithParentAndID.on(
+                    self._txn, resourceID=self._resourceID,
+                    parentID=self._parentCollection._resourceID)
+
 
         # get special group vCard
         if not rows and not self._addressbook.owned():
             if self._name:
-                if self._name == (yield self._addressbook._sharedABGroupName()):
-                    rows = [(yield self._addressbook._sharedABGroupRow())]
+                if self._name == (yield self._addressbook._groupForSharedAddressBookName()):
+                    rows = [(yield self._addressbook._groupForSharedAddressBookRow())]
             elif self._uid:
-                if self._uid == (yield self._addressbook._sharedABGroupUID()):
-                    rows = [(yield self._addressbook._sharedABGroupRow())]
+                if self._uid == (yield self._addressbook._groupForSharedAddressBookUID()):
+                    rows = [(yield self._addressbook._groupForSharedAddressBookRow())]
             elif self._resourceID:
                 if self._resourceID == self._addressbook._resourceID:
-                    rows = [(yield self._addressbook._sharedABGroupRow())]
-
-        #print("initFromStore: self=%s, rows2=%s" % (self, rows,))
+                    rows = [(yield self._addressbook._groupForSharedAddressBookRow())]
 
         if rows:
             self._initFromRow(tuple(rows[0]))
@@ -666,7 +881,6 @@ class AddressBookObject(CommonObjectResource, AddressBookSharingMixIn):
         """
         Get all addressbookobject resource IDs in this address book
         """
-        # TODO: see if result can be cached in attr
 
         objectIDs = set() if self.owned() else set([self._resourceID, ])
         examinedIDs = set()
@@ -720,18 +934,11 @@ class AddressBookObject(CommonObjectResource, AddressBookSharingMixIn):
     @inlineCallbacks
     def _allColumnsWithParent(cls, parent): #@NoSelf
 
-        #print("_allColumnsWithParent: cls=%s, parent=%s" % (cls, parent,))
-
-        if parent.owned() or isinstance(parent, AddressBook):
-            result = yield super(AddressBookObject, cls)._allColumnsWithParent(parent)
-        else:
-            objectIDs = yield parent._allGroupObjectIDs()
-            result = (yield cls._abObjectColumnsWithResourceIDsQuery(cls._allColumns, objectIDs).on(
-                parent._txn, resourceIDs=objectIDs)) if objectIDs else []
+        result = yield super(AddressBookObject, cls)._allColumnsWithParent(parent)
 
         # add group vCard for shared address books
         if not parent.owned():
-            result.append((yield parent._sharedABGroupRow()))
+            result.append((yield parent._groupForSharedAddressBookRow()))
         returnValue(result)
 
 
@@ -747,17 +954,11 @@ class AddressBookObject(CommonObjectResource, AddressBookSharingMixIn):
     @inlineCallbacks
     def _allColumnsWithParentAndNames(cls, parent, names): #@NoSelf
 
-        #print("_allColumnsWithParentAndNames: cls=%s, parent=%s, names=%s" % (cls, parent, names))
-        if parent.owned() or isinstance(parent, AddressBook):
-            result = yield super(AddressBookObject, cls)._allColumnsWithParentAndNames(parent, names)
-        else:
-            objectIDs = yield parent._allGroupObjectIDs()
-            result = (yield cls._allColumnsWithResourceIDsAndNamesQuery(objectIDs, names).on(
-                parent._txn, resourceIDs=objectIDs, names=names)) if objectIDs else []
+        result = yield super(AddressBookObject, cls)._allColumnsWithParentAndNames(parent, names)
 
         # add group vCard for shared address books
-        if not parent.owned() and (yield parent._sharedABGroupName()) in names:
-            result.append((yield parent._sharedABGroupRow(parent)))
+        if not parent.owned() and (yield parent._groupForSharedAddressBookName()) in names:
+            result.append((yield parent._groupForSharedAddressBookRow(parent)))
 
         returnValue(result)
 
@@ -784,7 +985,6 @@ class AddressBookObject(CommonObjectResource, AddressBookSharingMixIn):
             if self._kind == _ABO_KIND_GROUP:  # optimization
                 for shareeAddressBook in (yield self.asShared()):
                     yield self._changeAddressBookRevision(shareeAddressBook, inserting)
-
                     # one is enough because all have the same resourceID
                     break
         else:
@@ -1017,37 +1217,7 @@ class AddressBookObject(CommonObjectResource, AddressBookSharingMixIn):
 
             if not self._addressbook.owned() and  self._resourceID == self._addressbook._resourceID:
 
-                N = self.name()
-                if N.endswith(".vcf"):
-                    N = N[:-4]
-                FN = N
-
-                component = VCard.fromString(
-                    """BEGIN:VCARD
-VERSION:3.0
-PRODID:%s
-UID:%s
-FN:%s
-N:%s;;;;
-X-ADDRESSBOOKSERVER-KIND:group
-END:VCARD
-""".replace("\n", "\r\n") % (vCardProductID, self.uid(), N, FN,)
-                )
-
-
-                # then get member UIDs
-                abo = schema.ADDRESSBOOK_OBJECT
-                memberUIDRows = yield self._abObjectColumnsWithAddressBookResourceID(
-                                 [abo.VCARD_UID]).on(
-                                    self._txn, addressbookResourceID=self._addressbook._resourceID)
-                memberUIDs = [memberUIDRow[0] for memberUIDRow in memberUIDRows]
-
-                # add prefix to get property string
-                memberAddresses = ["urn:uuid:" + memberUID for memberUID in memberUIDs]
-
-                # now add the properties to the component
-                for memberAddress in sorted(memberAddresses):
-                    component.addProperty(Property("X-ADDRESSBOOKSERVER-MEMBER", memberAddress))
+                component = yield self._addressbook._groupForSharedAddressBookComponent()
 
             else:
                 text = yield self._text()
