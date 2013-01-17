@@ -37,6 +37,7 @@ from twext.enterprise.util import parseSQLTimestamp
 
 from twext.python.clsprop import classproperty
 from twext.python.filepath import CachingFilePath
+from twext.python.log import Logger
 from twext.python.vcomponent import VComponent
 from twext.web2.http_headers import MimeType, generateContentType
 from twext.web2.stream import readStream
@@ -91,6 +92,8 @@ import os
 import tempfile
 import uuid
 
+log = Logger()
+
 class CalendarStoreFeatures(object):
     """
     Manages store-wide operations specific to calendars.
@@ -105,10 +108,30 @@ class CalendarStoreFeatures(object):
 
 
     @inlineCallbacks
-    def upgradeToManagedAttachments(self, txn, batchSize=10):
+    def hasDropboxAttachments(self, txn):
+        """
+        Determine whether any dropbox attachments are present.
+
+        @param txn: the transaction to run under
+        @type txn: L{txdav.common.datastore.sql.CommonStoreTransaction}
+        """
+
+        at = schema.ATTACHMENT
+        rows = (yield Select(
+            (at.DROPBOX_ID,),
+            From=at,
+            Where=at.DROPBOX_ID != ".",
+            Limit=1,
+        ).on(txn))
+        returnValue(len(rows) != 0)
+
+
+    @inlineCallbacks
+    def upgradeToManagedAttachments(self, batchSize=10):
         """
         Upgrade the calendar server from old-style dropbox attachments to the new
-        managed attachments. This is a one-way, one-time migration step.
+        managed attachments. This is a one-way, one-time migration step. This method
+        creates its own transactions as needed (possibly multiple when batching).
 
         Things to do:
 
@@ -122,30 +145,61 @@ class CalendarStoreFeatures(object):
         TODO: parallelize this as much as possible as it will have to touch a lot of data.
         """
 
-        # Clear out unused CALENDAR_OBJECT.DROPBOX_IDs
-        co = schema.CALENDAR_OBJECT
-        at = schema.ATTACHMENT
-        yield Update(
-            {co.DROPBOX_ID: None},
-            Where=co.RESOURCE_ID.In(Select(
-                (co.RESOURCE_ID,),
-                From=co.join(at, co.DROPBOX_ID == at.DROPBOX_ID, "left outer"),
-                Where=(co.DROPBOX_ID != None).And(at.DROPBOX_ID == None),
-            )),
-        ).on(txn)
+        txn = self._store.newTransaction("CalendarStoreFeatures.upgradeToManagedAttachments - preliminary work")
+        try:
+            # Clear out unused CALENDAR_OBJECT.DROPBOX_IDs
+            co = schema.CALENDAR_OBJECT
+            at = schema.ATTACHMENT
+            yield Update(
+                {co.DROPBOX_ID: None},
+                Where=co.RESOURCE_ID.In(Select(
+                    (co.RESOURCE_ID,),
+                    From=co.join(at, co.DROPBOX_ID == at.DROPBOX_ID, "left outer"),
+                    Where=(co.DROPBOX_ID != None).And(at.DROPBOX_ID == None),
+                )),
+            ).on(txn)
 
-        # For each remaining attachment
-        while True:
+            # Count number to process so we can display progress
             rows = (yield Select(
-                (at.DROPBOX_ID,),
+                (Count(at.DROPBOX_ID),),
                 From=at,
                 Where=at.DROPBOX_ID != ".",
+                GroupBy=at.DROPBOX_ID,
                 Limit=batchSize,
             ).on(txn))
-            if len(rows) == 0:
-                break
-            for dropbox_id in rows:
-                (yield self._upgradeDropbox(txn, dropbox_id))
+            total = rows[0][0]
+            count = 0
+            log.warn("%d dropbox ids to migrate" % (total,))
+        except RuntimeError:
+            yield txn.abort()
+            raise
+        else:
+            yield txn.commit()
+
+        # For each remaining attachment
+        rows = -1
+        while rows:
+            txn = self._store.newTransaction("CalendarStoreFeatures.upgradeToManagedAttachments - attachment loop count: %d" % (count,))
+            try:
+                dropbox_id = "Batched select"
+                rows = (yield Select(
+                    (at.DROPBOX_ID,),
+                    From=at,
+                    Where=at.DROPBOX_ID != ".",
+                    Limit=batchSize,
+                    Distinct=True,
+                ).on(txn))
+                if len(rows) > 0:
+                    for dropbox_id in rows:
+                        (yield self._upgradeDropbox(txn, dropbox_id))
+                    count += len(rows)
+                    log.warn("%d of %d dropbox ids migrated" % (count, total,))
+            except RuntimeError, e:
+                log.error("Dropbox migration failed for '%s': %s" % (dropbox_id, e,))
+                yield txn.abort()
+                raise
+            else:
+                yield txn.commit()
 
 
     @inlineCallbacks
@@ -161,8 +215,11 @@ class CalendarStoreFeatures(object):
         @type dropbox_id: C{str}
         """
 
+        log.debug("Processing dropbox id: %s" % (dropbox_id,))
+
         # Get all affected calendar objects
         cobjs = (yield self._loadCalendarObjectsForDropboxID(txn, dropbox_id))
+        log.debug("  %d affected calendar objects" % (len(cobjs),))
 
         # Get names of each matching attachment
         at = schema.ATTACHMENT
@@ -171,9 +228,12 @@ class CalendarStoreFeatures(object):
             From=at,
             Where=at.DROPBOX_ID == dropbox_id,
         ).on(txn))
+        log.debug("  %d associated attachment objects" % (len(names),))
 
         # For each attachment, update each calendar object
         for name in names:
+            name = name[0]
+            log.debug("  processing attachment object: %s" % (name,))
             attachment = (yield DropBoxAttachment.load(txn, dropbox_id, name))
 
             # Find owner objects and group all by UID
@@ -183,24 +243,32 @@ class CalendarStoreFeatures(object):
                 if cobj._parentCollection.ownerHome()._resourceID == attachment._ownerHomeID:
                     owners.append(cobj)
                 cobj_by_UID[cobj.uid()].append(cobj)
+            log.debug("    %d owner calendar objects" % (len(owners),))
+            log.debug("    %d UIDs" % (len(cobj_by_UID),))
+            log.debug("    %d total calendar objects" % (sum([len(items) for items in cobj_by_UID.values()]),))
 
             if owners:
                 # Create the managed attachment without references to calendar objects.
                 managed = (yield attachment.convertToManaged())
+                log.debug("    converted attachment: %r" % (attachment,))
 
                 # Do conversion for each owner object
                 for owner_obj in owners:
 
                     # Add a reference to the managed attachment
                     mattachment = (yield managed.newReference(owner_obj._resourceID))
+                    log.debug("    added reference for: %r" % (owner_obj,))
 
                     # Rewrite calendar data
                     for cobj in cobj_by_UID[owner_obj.uid()]:
                         (yield cobj.convertAttachments(attachment, mattachment))
+                        log.debug("    re-wrote calendar object: %r" % (cobj,))
             else:
                 # TODO: look for cobjs that were not changed and remove their ATTACH properties.
                 # These could happen if the owner object no longer exists.
                 pass
+
+        log.debug("  finished dropbox id: %s" % (dropbox_id,))
 
 
     @inlineCallbacks
@@ -1745,18 +1813,14 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         for component in cal.subcomponents():
             attachments = component.properties("ATTACH")
             removed = False
-            still_contains_dropbox = False
             for attachment in tuple(attachments):
                 if attachment.value().endswith("/dropbox/%s/%s" % (oldattachment.dropboxID(), oldattachment.name(),)):
                     component.removeProperty(attachment)
                     removed = True
-                elif attachment.value().find("/dropbox/") != -1:
-                    still_contains_dropbox = True
             if removed:
                 attach, _ignore_location = (yield newattachment.attachProperty())
                 component.addProperty(attach)
-            if not still_contains_dropbox:
-                component.removePropertiesWithName("X-APPLE-DROPBOX")
+            component.removeAllPropertiesWithName("X-APPLE-DROPBOX")
 
         # Write the component back (and no need to re-index as we have not
         # changed any timing properties in the calendar data).
@@ -2027,6 +2091,10 @@ class Attachment(object):
         self._modified = None
         self._name = name
         self._justCreated = justCreated
+
+
+    def __repr__(self):
+        return "<%s: %s>" % (self.__class__.__name__, self._attachmentID)
 
 
     def _attachmentPathRoot(self):

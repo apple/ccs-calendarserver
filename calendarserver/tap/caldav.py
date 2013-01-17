@@ -64,7 +64,7 @@ from twext.web2.metafd import ConnectionLimiter, ReportingHTTPService
 
 from txdav.common.datastore.sql_tables import schema
 from txdav.common.datastore.upgrade.sql.upgrade import (
-    UpgradeDatabaseSchemaService, UpgradeDatabaseDataService,
+    UpgradeDatabaseSchemaService, UpgradeDatabaseDataService, UpgradeDatabaseOtherService,
 )
 from txdav.common.datastore.upgrade.migrate import UpgradeToDatabaseService
 
@@ -1123,7 +1123,10 @@ class CalDAVServiceMaker (LoggingMixIn):
                         UpgradeDatabaseDataService.wrapService(
                             UpgradeToDatabaseService.wrapService(
                                 CachingFilePath(config.DocumentRoot),
-                                postImport,
+                                UpgradeDatabaseOtherService.wrapService(
+                                    postImport,
+                                    store, uid=overrideUID, gid=overrideGID,
+                                ),
                                 store, uid=overrideUID, gid=overrideGID,
                                 spawner=spawner, merge=config.MergeUpgrades,
                                 parallel=parallel
@@ -2051,6 +2054,8 @@ def getSSLPassphrase(*ignored):
 
     return None
 
+
+
 def getSystemIDs(userName, groupName):
     """
     Return the system ID numbers corresponding to either:
@@ -2069,7 +2074,7 @@ def getSystemIDs(userName, groupName):
         try:
             uid = getpwnam(userName).pw_uid
         except KeyError:
-           raise ConfigurationError("Invalid user name: %s" % (userName,))
+            raise ConfigurationError("Invalid user name: %s" % (userName,))
     else:
         uid = getuid()
 

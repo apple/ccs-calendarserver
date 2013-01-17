@@ -954,16 +954,19 @@ class Component (object):
         self._markAsDirty()
 
 
-    def removePropertiesWithName(self, pname):
+    def removeAllPropertiesWithName(self, pname):
         """
-        Remove all properties with the given name from this component.
+        Remove all properties with the given name from all components.
 
-        @param pname: the property name to remove from this component.
+        @param pname: the property name to remove from all components.
         @type pname: C{str}
         """
 
         for property in self.properties(pname):
             self.removeProperty(property)
+
+        for component in self.subcomponents():
+            component.removeAllPropertiesWithName(pname)
 
 
     def replaceProperty(self, property):

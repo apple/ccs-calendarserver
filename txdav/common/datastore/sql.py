@@ -181,6 +181,11 @@ class CommonDataStore(Service, object):
         else:
             self.queryCacher = None
 
+        # Always import these here to trigger proper "registration" of the calendar and address book
+        # home classes
+        __import__("txdav.caldav.datastore.sql")
+        __import__("txdav.carddav.datastore.sql")
+
 
     @inlineCallbacks
     def _withEachHomeDo(self, homeTable, homeFromTxn, action, batchSize):
@@ -427,7 +432,6 @@ class CommonStoreTransaction(object):
                 self._primaryHomeType = EADDRESSBOOKTYPE
         directlyProvides(self, *extraInterfaces)
 
-        self._circularImportHack()
         self._sqlTxn = sqlTxn
         self.paramstyle = sqlTxn.paramstyle
         self.dialect = sqlTxn.dialect
@@ -439,20 +443,6 @@ class CommonStoreTransaction(object):
         self.statementCount = 0
         self.iudCount = 0
         self.currentStatement = None
-
-
-    @classmethod
-    def _circularImportHack(cls):
-        """
-        This method is run when the first L{CommonStoreTransaction} is
-        instantiated, to populate class-scope (in other words, global) state
-        that requires importing modules which depend on this one.
-
-        @see: L{CommonHome._register}
-        """
-        if not cls._homeClass:
-            __import__("txdav.caldav.datastore.sql")
-            __import__("txdav.carddav.datastore.sql")
 
 
     def enqueue(self, workItem, **kw):

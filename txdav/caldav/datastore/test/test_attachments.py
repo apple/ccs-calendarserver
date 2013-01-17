@@ -471,10 +471,6 @@ class AttachmentMigrationTests(CommonCommonTests, unittest.TestCase):
         home = (yield txn.calendarHomeWithUID("home1"))
         calendar = (yield home.calendarWithName("calendar1"))
         event = (yield calendar.calendarObjectWithName("1.2.ics"))
-        component = (yield event.component()).mainComponent()
-
-        # Still has X-APPLE-DROPBOX
-        self.assertTrue(component.hasProperty("X-APPLE-DROPBOX"))
 
         # Check that one managed-id and one dropbox ATTACH exist
         attachments = (yield event.component()).mainComponent().properties("ATTACH")
@@ -611,10 +607,8 @@ class AttachmentMigrationTests(CommonCommonTests, unittest.TestCase):
 
         yield self._addAllAttachments()
 
-        txn = self._sqlCalendarStore.newTransaction()
         calstore = CalendarStoreFeatures(self._sqlCalendarStore)
-        yield calstore.upgradeToManagedAttachments(txn, 2)
-        yield txn.commit()
+        yield calstore.upgradeToManagedAttachments(2)
 
         yield self._verifyConversion("home1", "calendar1", "1.2.ics", ("attach_1_2_1.txt", "attach_1_2_2.txt",))
         yield self._verifyConversion("home1", "calendar1", "1.3.ics", ("attach_1_3.txt",))
