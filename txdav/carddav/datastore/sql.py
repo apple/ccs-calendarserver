@@ -934,12 +934,18 @@ class AddressBookObject(CommonObjectResource, AddressBookSharingMixIn):
     @inlineCallbacks
     def _allColumnsWithParent(cls, parent): #@NoSelf
 
-        result = yield super(AddressBookObject, cls)._allColumnsWithParent(parent)
+        ownerGroup = yield parent.ownerGroup()
+        if ownerGroup:
+            objectIDs = yield ownerGroup._allGroupObjectIDs()
+            rows = (yield cls._abObjectColumnsWithResourceIDsQuery(cls._allColumns, objectIDs).on(
+                parent._txn, resourceIDs=objectIDs)) if objectIDs else []
+        else:
+            rows = yield super(AddressBookObject, cls)._allColumnsWithParent(parent)
+            # add group vCard for shared address books
+            if not parent.owned():
+                rows.append((yield parent._groupForSharedAddressBookRow()))
 
-        # add group vCard for shared address books
-        if not parent.owned():
-            result.append((yield parent._groupForSharedAddressBookRow()))
-        returnValue(result)
+        returnValue(rows)
 
 
     @classmethod
@@ -954,13 +960,19 @@ class AddressBookObject(CommonObjectResource, AddressBookSharingMixIn):
     @inlineCallbacks
     def _allColumnsWithParentAndNames(cls, parent, names): #@NoSelf
 
-        result = yield super(AddressBookObject, cls)._allColumnsWithParentAndNames(parent, names)
+        ownerGroup = yield parent.ownerGroup()
+        if ownerGroup:
+            objectIDs = yield parent._allAddressBookObjectIDs()
+            rows = (yield cls._allColumnsWithResourceIDsAndNamesQuery(objectIDs, names).on(
+                parent._txn, resourceIDs=objectIDs, names=names)) if objectIDs else []
+        else:
+            rows = yield super(AddressBookObject, cls)._allColumnsWithParentAndNames(parent, names)
 
-        # add group vCard for shared address books
-        if not parent.owned() and (yield parent._groupForSharedAddressBookName()) in names:
-            result.append((yield parent._groupForSharedAddressBookRow(parent)))
+            # add group vCard for shared address books
+            if not parent.owned() and (yield parent._groupForSharedAddressBookName()) in names:
+                rows.append((yield parent._groupForSharedAddressBookRow(parent)))
 
-        returnValue(result)
+        returnValue(rows)
 
 
     @inlineCallbacks
