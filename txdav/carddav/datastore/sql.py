@@ -239,19 +239,24 @@ class AddressBook(CommonHomeChild, SharingMixIn):
 
         result = yield super(AddressBook, self).listObjectResources()
         if not self.owned():
-            sharedABGroupName = yield self._groupForSharedAddressBookName()
-            if not sharedABGroupName in result:
-                result.append(sharedABGroupName)
+            groupForSharedAB = yield self._groupForSharedABName()
+            if not groupForSharedAB in result:
+                result.append(groupForSharedAB)
         returnValue(result)
 
 
     @inlineCallbacks
     def countObjectResources(self):
-        if self.owned():
-            result = yield super(AddressBook, self).countObjectResources()
-        else:
-            result = len((yield self.listObjectResources()))
-        returnValue(result)
+        if self._objectNames is None:
+            rows = yield self._objectCountQuery.on(
+                self._txn, resourceID=self._resourceID)
+            count = rows[0][0]
+
+            #add in group for shared address book
+            if not self.owned():
+                count += 1
+            returnValue(count)
+        returnValue(len(self._objectNames))
 
 
     @inlineCallbacks
@@ -300,13 +305,13 @@ class AddressBook(CommonHomeChild, SharingMixIn):
 
 
     @inlineCallbacks
-    def _groupForSharedAddressBookRow(self): #@NoSelf
+    def _groupForSharedABRow(self): #@NoSelf
 
         returnValue([
             self._resourceID, # obj.ADDRESSBOOK_RESOURCE_ID,
             self._resourceID, # obj.RESOURCE_ID,
-            (yield self._groupForSharedAddressBookName()), # obj.RESOURCE_NAME, shared name is UID and thus avoids collisions
-            (yield self._groupForSharedAddressBookUID()), # obj.UID, shared name is uuid
+            (yield self._groupForSharedABName()), # obj.RESOURCE_NAME, shared name is UID and thus avoids collisions
+            (yield self._groupForSharedABUID()), # obj.UID, shared name is uuid
             _ABO_KIND_GROUP, # obj.KIND,
             "1", # obj.MD5, unused
             "1", # Len(obj.TEXT), unused
@@ -316,7 +321,7 @@ class AddressBook(CommonHomeChild, SharingMixIn):
 
 
     @inlineCallbacks
-    def _groupForSharedAddressBookName(self):
+    def _groupForSharedABName(self):
         ownerGroup = yield self.ownerGroup()
         if ownerGroup:
             returnValue(ownerGroup.name())
@@ -325,12 +330,12 @@ class AddressBook(CommonHomeChild, SharingMixIn):
 
 
     @inlineCallbacks
-    def _groupForSharedAddressBookUID(self):
+    def _groupForSharedABUID(self):
         yield None
         returnValue(self.name())
 
     @inlineCallbacks
-    def _groupForSharedAddressBookComponent(self):
+    def _groupForSharedABComponent(self):
 
         ownerGroup = yield self.ownerGroup()
         if ownerGroup:
@@ -571,29 +576,29 @@ END:VCARD
     @classproperty
     def _revisionsForHomeID(cls): #@NoSelf
 
-        rev = cls._revisionsSchema
-        def columns():
+        def columns(rev):
             return [rev.RESOURCE_ID, Max(rev.REVISION)]
 
-        def _from(bind):
+        def _from(rev, bind):
             return rev.join(bind, rev.RESOURCE_ID == bind.RESOURCE_ID, 'left')
 
-        def where(bind):
+        def where(rev, bind):
             return ((bind.HOME_RESOURCE_ID == Parameter("homeID")).
                 And((rev.RESOURCE_NAME != None).Or(rev.DELETED == False)))
 
         addressbookBind = cls._bindSchema
-        aboBind = cls._bindSchema
+        aboBind = AddressBookObject._bindSchema
+        rev = cls._revisionsSchema
         return Select(
-            columns(),
-            From=_from(addressbookBind),
-            Where=where(addressbookBind),
+            columns(rev),
+            From=_from(rev, addressbookBind),
+            Where=where(rev, addressbookBind),
             GroupBy=rev.RESOURCE_ID,
             SetExpression=Union(
                 Select(
-                    columns(),
-                    From=_from(aboBind),
-                    Where=where(aboBind),
+                    columns(rev),
+                    From=_from(rev, aboBind),
+                    Where=where(rev, aboBind),
                     GroupBy=rev.RESOURCE_ID
                     ),
                 optype=Union.OPTYPE_ALL,
@@ -778,14 +783,14 @@ class AddressBookObject(CommonObjectResource, SharingMixIn):
         # get special group vCard
         if not rows and not self._addressbook.owned():
             if self._name:
-                if self._name == (yield self._addressbook._groupForSharedAddressBookName()):
-                    rows = [(yield self._addressbook._groupForSharedAddressBookRow())]
+                if self._name == (yield self._addressbook._groupForSharedABName()):
+                    rows = [(yield self._addressbook._groupForSharedABRow())]
             elif self._uid:
-                if self._uid == (yield self._addressbook._groupForSharedAddressBookUID()):
-                    rows = [(yield self._addressbook._groupForSharedAddressBookRow())]
+                if self._uid == (yield self._addressbook._groupForSharedABUID()):
+                    rows = [(yield self._addressbook._groupForSharedABRow())]
             elif self._resourceID:
                 if self._resourceID == self._addressbook._resourceID:
-                    rows = [(yield self._addressbook._groupForSharedAddressBookRow())]
+                    rows = [(yield self._addressbook._groupForSharedABRow())]
 
         if rows:
             self._initFromRow(tuple(rows[0]))
@@ -891,7 +896,7 @@ class AddressBookObject(CommonObjectResource, SharingMixIn):
             rows = yield super(AddressBookObject, cls)._allColumnsWithParent(parent)
             # add group vCard for shared address books
             if not parent.owned():
-                rows.append((yield parent._groupForSharedAddressBookRow()))
+                rows.append((yield parent._groupForSharedABRow()))
 
         returnValue(rows)
 
@@ -917,8 +922,8 @@ class AddressBookObject(CommonObjectResource, SharingMixIn):
             rows = yield super(AddressBookObject, cls)._allColumnsWithParentAndNames(parent, names)
 
             # add group vCard for shared address books
-            if not parent.owned() and (yield parent._groupForSharedAddressBookName()) in names:
-                rows.append((yield parent._groupForSharedAddressBookRow(parent)))
+            if not parent.owned() and (yield parent._groupForSharedABName()) in names:
+                rows.append((yield parent._groupForSharedABRow(parent)))
 
         returnValue(rows)
 
@@ -1197,7 +1202,7 @@ class AddressBookObject(CommonObjectResource, SharingMixIn):
 
             if not self._addressbook.owned() and  self._resourceID == self._addressbook._resourceID:
 
-                component = yield self._addressbook._groupForSharedAddressBookComponent()
+                component = yield self._addressbook._groupForSharedABComponent()
 
             else:
                 text = yield self._text()

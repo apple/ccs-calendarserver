@@ -2905,7 +2905,6 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic, HomeChildBas
         returnValue(child)
 
 
-    # TODO: move to Calendar
     @classproperty
     def _insertHomeChild(cls): #@NoSelf
         """
@@ -2916,7 +2915,6 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic, HomeChildBas
                       Return=(child.RESOURCE_ID))
 
 
-    # TODO: move to Calendar
     @classproperty
     def _insertHomeChildMetaData(cls): #@NoSelf
         """
@@ -2925,20 +2923,6 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic, HomeChildBas
         child = cls._homeChildMetaDataSchema
         return Insert({child.RESOURCE_ID: Parameter("resourceID")},
                       Return=(child.CREATED, child.MODIFIED))
-
-
-    # TODO: Make abstract here and move to Calendar
-    @classmethod
-    @inlineCallbacks
-    def _createChild(cls, home, name):
-        # Create this object
-        resourceID = (
-            yield cls._insertHomeChild.on(home._txn))[0][0]
-
-        created, modified = (
-            yield cls._insertHomeChildMetaData.on(home._txn,
-                                                  resourceID=resourceID))[0]
-        returnValue((resourceID, created, modified))
 
 
     @classmethod
@@ -2954,7 +2938,12 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic, HomeChildBas
         if name.startswith("."):
             raise HomeChildNameNotAllowedError(name)
 
-        resourceID, created, modified = yield cls._createChild(home, name)
+        resourceID = (
+            yield cls._insertHomeChild.on(home._txn))[0][0]
+
+        created, modified = (
+            yield cls._insertHomeChildMetaData.on(home._txn,
+                                                  resourceID=resourceID))[0]
 
         # Bind table needs entry
         yield cls._bindInsertQuery.on(
@@ -3196,7 +3185,6 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic, HomeChildBas
         returnValue(results)
 
 
-    # TODO: move to Calendar
     @classproperty
     def _objectResourceNamesQuery(cls): #@NoSelf
         """
@@ -3207,7 +3195,6 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic, HomeChildBas
                       Where=obj.PARENT_RESOURCE_ID == Parameter('resourceID'))
 
 
-    # TODO: Make abstract here and move to Calendar
     @inlineCallbacks
     def listObjectResources(self):
         if self._objectNames is None:
@@ -3217,7 +3204,6 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic, HomeChildBas
         returnValue(self._objectNames)
 
 
-    # TODO: move to Calendar
     @classproperty
     def _objectCountQuery(cls): #@NoSelf
         """
@@ -3228,7 +3214,6 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic, HomeChildBas
                       Where=obj.PARENT_RESOURCE_ID == Parameter('resourceID'))
 
 
-    # TODO: Make abstract here and move to Calendar
     @inlineCallbacks
     def countObjectResources(self):
         if self._objectNames is None:
@@ -3658,14 +3643,12 @@ class CommonObjectResource(LoggingMixIn, FancyEqMixin):
         self._locked = False
 
 
-    #TODO: move to CalendarObject
     @classproperty
     def _allColumnsWithParentQuery(cls): #@NoSelf
         obj = cls._objectSchema
         return Select(cls._allColumns, From=obj,
                       Where=obj.PARENT_RESOURCE_ID == Parameter("parentID"))
 
-    # TODO: Make abstract here and move to CalendarObject
     @classmethod
     @inlineCallbacks
     def _allColumnsWithParent(cls, parent):
@@ -3729,7 +3712,6 @@ class CommonObjectResource(LoggingMixIn, FancyEqMixin):
         returnValue(results)
 
 
-    #TODO: move to CalendarObject
     @classmethod
     def _allColumnsWithParentAndNamesQuery(cls, names): #@NoSelf
         obj = cls._objectSchema
@@ -3738,7 +3720,6 @@ class CommonObjectResource(LoggingMixIn, FancyEqMixin):
                           obj.RESOURCE_NAME.In(Parameter("names", len(names)))))
 
 
-    # TODO: Make abstract here and move to CalendarObject
     @classmethod
     @inlineCallbacks
     def _allColumnsWithParentAndNames(cls, parent, names):
