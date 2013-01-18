@@ -154,50 +154,8 @@ class AddressBookHome(CommonHome):
 
 AddressBookHome._register(EADDRESSBOOKTYPE)
 
-class AddressBookSharingMixIn(SharingMixIn):
 
-
-    @classproperty
-    def _insertABObject(cls): #@NoSelf
-        """
-        DAL statement to create an addressbook object with all default values.
-        """
-        abo = schema.ADDRESSBOOK_OBJECT
-        return Insert(
-            {abo.RESOURCE_ID: schema.RESOURCE_ID_SEQ,
-             abo.ADDRESSBOOK_RESOURCE_ID: Parameter("addressbookResourceID"),
-             abo.RESOURCE_NAME: Parameter("name"),
-             abo.VCARD_TEXT: Parameter("text"),
-             abo.VCARD_UID: Parameter("uid"),
-             abo.KIND: Parameter("kind"),
-             abo.MD5: Parameter("md5"),
-             },
-            Return=(abo.RESOURCE_ID,
-                    abo.CREATED,
-                    abo.MODIFIED))
-
-
-    @classmethod
-    def _abObjectColumnsWithResourceIDsQuery(cls, columns, resourceIDs): #@NoSelf
-        """
-        DAL statement to retrieve addressbook object rows with given columns.
-        """
-        obj = cls._objectSchema
-        return Select(columns, From=obj,
-                      Where=obj.RESOURCE_ID.In(Parameter("resourceIDs", len(resourceIDs))),)
-
-
-    @classmethod
-    def _abObjectColumnsWithAddressBookResourceID(cls, columns,): #@NoSelf
-        """
-        DAL statement to retrieve addressbook object rows with given columns.
-        """
-        obj = cls._objectSchema
-        return Select(columns, From=obj,
-                      Where=obj.ADDRESSBOOK_RESOURCE_ID == Parameter("addressbookResourceID"),)
-
-
-class AddressBook(CommonHomeChild, AddressBookSharingMixIn):
+class AddressBook(CommonHomeChild, SharingMixIn):
     """
     SQL-based implementation of L{IAddressBook}.
     """
@@ -329,6 +287,16 @@ class AddressBook(CommonHomeChild, AddressBookSharingMixIn):
         if not hasattr(self, "_ownerAddressBook"):
             self._ownerGroup, self._ownerAddressBook = yield self._ownerGroupAndAddressBook()
         returnValue(self._ownerAddressBook)
+
+
+    @classmethod
+    def _abObjectColumnsWithAddressBookResourceID(cls, columns,): #@NoSelf
+        """
+        DAL statement to retrieve addressbook object rows with given columns.
+        """
+        obj = cls._objectSchema
+        return Select(columns, From=obj,
+                      Where=obj.ADDRESSBOOK_RESOURCE_ID == Parameter("addressbookResourceID"),)
 
 
     @inlineCallbacks
@@ -634,7 +602,7 @@ END:VCARD
 
 
 
-class AddressBookObject(CommonObjectResource, AddressBookSharingMixIn):
+class AddressBookObject(CommonObjectResource, SharingMixIn):
 
     implements(IAddressBookObject)
 
@@ -765,36 +733,6 @@ class AddressBookObject(CommonObjectResource, AddressBookSharingMixIn):
             cls._allColumns, From=obj,
             Where=obj.RESOURCE_ID == Parameter("resourceID"),)
 
-
-    '''
-    @classmethod
-    def _allWithParentAnd(cls, column, paramName):
-        """
-        DAL query for all columns where PARENT_RESOURCE_ID matches a parentID
-        parameter and a given instance column matches a given parameter name.
-        """
-        return Select(
-            cls._allColumns, From=cls._objectSchema,
-            Where=(column == Parameter(paramName)).And(
-                cls._objectSchema.PARENT_RESOURCE_ID == Parameter("parentID"))
-        )
-
-
-    @classproperty
-    def _allWithParentAndName(cls): #@NoSelf
-        return cls._allWithParentAnd(cls._objectSchema.RESOURCE_NAME, "name")
-
-
-    @classproperty
-    def _allWithParentAndUID(cls): #@NoSelf
-        return cls._allWithParentAnd(cls._objectSchema.UID, "uid")
-
-
-    @classproperty
-    def _allWithParentAndID(cls): #@NoSelf
-        return cls._allWithParentAnd(cls._objectSchema.RESOURCE_ID, "resourceID")
-
-    '''
 
     @inlineCallbacks
     def initFromStore(self):
@@ -931,6 +869,16 @@ class AddressBookObject(CommonObjectResource, AddressBookSharingMixIn):
 
 
     @classmethod
+    def _abObjectColumnsWithResourceIDsQuery(cls, columns, resourceIDs): #@NoSelf
+        """
+        DAL statement to retrieve addressbook object rows with given columns.
+        """
+        obj = cls._objectSchema
+        return Select(columns, From=obj,
+                      Where=obj.RESOURCE_ID.In(Parameter("resourceIDs", len(resourceIDs))),)
+
+
+    @classmethod
     @inlineCallbacks
     def _allColumnsWithParent(cls, parent): #@NoSelf
 
@@ -1035,6 +983,26 @@ class AddressBookObject(CommonObjectResource, AddressBookSharingMixIn):
             aboForeignMembers,
             Where=(aboForeignMembers.GROUP_ID == groupID).And(
                     aboForeignMembers.MEMBER_ADDRESS.In(Parameter("memberAddrs", len(memberAddrs)))))
+
+
+    @classproperty
+    def _insertABObject(cls): #@NoSelf
+        """
+        DAL statement to create an addressbook object with all default values.
+        """
+        abo = schema.ADDRESSBOOK_OBJECT
+        return Insert(
+            {abo.RESOURCE_ID: schema.RESOURCE_ID_SEQ,
+             abo.ADDRESSBOOK_RESOURCE_ID: Parameter("addressbookResourceID"),
+             abo.RESOURCE_NAME: Parameter("name"),
+             abo.VCARD_TEXT: Parameter("text"),
+             abo.VCARD_UID: Parameter("uid"),
+             abo.KIND: Parameter("kind"),
+             abo.MD5: Parameter("md5"),
+             },
+            Return=(abo.RESOURCE_ID,
+                    abo.CREATED,
+                    abo.MODIFIED))
 
 
     @inlineCallbacks

@@ -2123,6 +2123,33 @@ class SharingMixIn(object):
     """
         Common class for CommonHomeChild and AddressBookObject
     """
+
+    @classproperty
+    def _bindInsertQuery(cls, **kw): #@NoSelf
+        """
+        DAL statement to create a bind entry that connects a collection to its
+        home.
+        """
+        bind = cls._bindSchema
+        return Insert({
+            bind.HOME_RESOURCE_ID: Parameter("homeID"),
+            bind.RESOURCE_ID: Parameter("resourceID"),
+            bind.RESOURCE_NAME: Parameter("name"),
+            bind.BIND_MODE: Parameter("mode"),
+            bind.BIND_STATUS: Parameter("bindStatus"),
+            bind.MESSAGE: Parameter("message"),
+        })
+
+
+    @classproperty
+    def _updateBindQuery(cls): #@NoSelf
+        bind = cls._bindSchema
+        return cls._updateBindColumnsQuery(
+                    {bind.BIND_MODE: Parameter("mode"),
+                     bind.BIND_STATUS: Parameter("status"),
+                     bind.MESSAGE: Parameter("message")})
+
+
     @inlineCallbacks
     def shareWith(self, shareeHome, mode, status=None, message=None):
         """
@@ -2173,6 +2200,15 @@ class SharingMixIn(object):
         # Must send notification to ensure cache invalidation occurs
         yield self.notifyChanged()
         returnValue(sharedName)
+
+
+    @classmethod
+    def _updateBindColumnsQuery(cls, columnMap): #@NoSelf
+        bind = cls._bindSchema
+        return Update(columnMap,
+                      Where=(bind.RESOURCE_ID == Parameter("resourceID"))
+                      .And(bind.HOME_RESOURCE_ID == Parameter("homeID")),
+                      Return=bind.RESOURCE_NAME)
 
 
     @inlineCallbacks
@@ -2296,6 +2332,30 @@ class SharingMixIn(object):
         returnValue(resourceName)
 
 
+    @classmethod
+    def _bindFor(cls, condition): #@NoSelf
+        bind = cls._bindSchema
+        return Select(
+            [bind.BIND_MODE,
+             bind.HOME_RESOURCE_ID,
+             bind.RESOURCE_ID,
+             bind.RESOURCE_NAME,
+             bind.BIND_STATUS,
+             bind.MESSAGE],
+                  From=bind,
+                  Where=condition
+        )
+
+
+    @classproperty
+    def _sharedBindForResourceID(cls): #@NoSelf
+        bind = cls._bindSchema
+        return cls._bindFor((bind.RESOURCE_ID == Parameter("resourceID"))
+                            .And(bind.BIND_STATUS == _BIND_STATUS_ACCEPTED)
+                            .And(bind.BIND_MODE != _BIND_MODE_OWN)
+                            )
+
+
     @inlineCallbacks
     def asShared(self):
         """
@@ -2333,6 +2393,14 @@ class SharingMixIn(object):
         returnValue(result)
 
 
+    @classproperty
+    def _invitedBindForResourceID(cls): #@NoSelf
+        bind = cls._bindSchema
+        return cls._bindFor((bind.RESOURCE_ID == Parameter("resourceID"))
+                            .And(bind.BIND_STATUS != _BIND_STATUS_ACCEPTED)
+                            )
+
+
     @inlineCallbacks
     def asInvited(self):
         """
@@ -2367,117 +2435,6 @@ class SharingMixIn(object):
             result.append(new)
 
         returnValue(result)
-
-
-    @classproperty
-    def _bindInsertQuery(cls, **kw): #@NoSelf
-        """
-        DAL statement to create a bind entry that connects a collection to its
-        home.
-        """
-        bind = cls._bindSchema
-        return Insert({
-            bind.HOME_RESOURCE_ID: Parameter("homeID"),
-            bind.RESOURCE_ID: Parameter("resourceID"),
-            bind.RESOURCE_NAME: Parameter("name"),
-            bind.BIND_MODE: Parameter("mode"),
-            bind.BIND_STATUS: Parameter("bindStatus"),
-            bind.MESSAGE: Parameter("message"),
-        })
-
-    @classmethod
-    def _updateBindColumnsQuery(cls, columnMap): #@NoSelf
-        bind = cls._bindSchema
-        return Update(columnMap,
-                      Where=(bind.RESOURCE_ID == Parameter("resourceID"))
-                      .And(bind.HOME_RESOURCE_ID == Parameter("homeID")),
-                      Return=bind.RESOURCE_NAME)
-
-
-    @classproperty
-    def _updateBindQuery(cls): #@NoSelf
-        bind = cls._bindSchema
-        return cls._updateBindColumnsQuery(
-                    {bind.BIND_MODE: Parameter("mode"),
-                     bind.BIND_STATUS: Parameter("status"),
-                     bind.MESSAGE: Parameter("message")})
-
-
-
-    @classmethod
-    def _bindFor(cls, condition): #@NoSelf
-        bind = cls._bindSchema
-        return Select(
-            [bind.BIND_MODE,
-             bind.HOME_RESOURCE_ID,
-             bind.RESOURCE_ID,
-             bind.RESOURCE_NAME,
-             bind.BIND_STATUS,
-             bind.MESSAGE],
-                  From=bind,
-                  Where=condition
-        )
-
-
-    @classproperty
-    def _invitedBindForResourceID(cls): #@NoSelf
-        bind = cls._bindSchema
-        return cls._bindFor((bind.RESOURCE_ID == Parameter("resourceID"))
-                            .And(bind.BIND_STATUS != _BIND_STATUS_ACCEPTED)
-                            )
-
-
-    @classproperty
-    def _sharedBindForResourceID(cls): #@NoSelf
-        bind = cls._bindSchema
-        return cls._bindFor((bind.RESOURCE_ID == Parameter("resourceID"))
-                            .And(bind.BIND_STATUS == _BIND_STATUS_ACCEPTED)
-                            .And(bind.BIND_MODE != _BIND_MODE_OWN)
-                            )
-
-
-    @classmethod
-    def _sharedBindForResourceIDRows(cls, txn, resourceID, homeID): #@NoSelf
-        return cls._sharedBindForResourceID.on(
-            txn, resourceID=resourceID, homeID=homeID
-        )
-
-
-    @classproperty
-    def _invitedBindForHomeID(cls): #@NoSelf
-        bind = cls._bindSchema
-        return cls._bindFor((bind.HOME_RESOURCE_ID == Parameter("homeID"))
-                            .And(bind.BIND_STATUS != _BIND_STATUS_ACCEPTED))
-
-
-    @classproperty
-    def _invitedBindForNameAndHomeID(cls): #@NoSelf
-        bind = cls._bindSchema
-        return cls._bindFor((bind.RESOURCE_NAME == Parameter("name"))
-                               .And(bind.HOME_RESOURCE_ID == Parameter("homeID"))
-                               .And(bind.BIND_STATUS != _BIND_STATUS_ACCEPTED)
-                               )
-
-
-    @classproperty
-    def _childForNameAndHomeID(cls): #@NoSelf
-        bind = cls._bindSchema
-        return cls._bindFor((bind.RESOURCE_NAME == Parameter("name"))
-                               .And(bind.HOME_RESOURCE_ID == Parameter("homeID"))
-                               .And(bind.BIND_STATUS == _BIND_STATUS_ACCEPTED)
-                               )
-
-
-    @classproperty
-    def _bindForResourceIDAndHomeID(cls): #@NoSelf
-        """
-        DAL query that looks up home child names / bind modes by home child
-        resource ID and home resource ID.
-        """
-        bind = cls._bindSchema
-        return cls._bindFor((bind.RESOURCE_ID == Parameter("resourceID"))
-                               .And(bind.HOME_RESOURCE_ID == Parameter("homeID"))
-                               )
 
 
 class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic, HomeChildBase, SharingMixIn):
@@ -2586,9 +2543,14 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic, HomeChildBas
         rows = yield cls._childNamesForHomeID.on(
                 home._txn, homeID=home._resourceID)
         names = [row[0] for row in rows]
-
         returnValue(names)
 
+
+    @classproperty
+    def _invitedBindForHomeID(cls): #@NoSelf
+        bind = cls._bindSchema
+        return cls._bindFor((bind.HOME_RESOURCE_ID == Parameter("homeID"))
+                            .And(bind.BIND_STATUS != _BIND_STATUS_ACCEPTED))
 
 
     @classmethod
@@ -2765,6 +2727,15 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic, HomeChildBas
         returnValue(results)
 
 
+    @classproperty
+    def _invitedBindForNameAndHomeID(cls): #@NoSelf
+        bind = cls._bindSchema
+        return cls._bindFor((bind.RESOURCE_NAME == Parameter("name"))
+                               .And(bind.HOME_RESOURCE_ID == Parameter("homeID"))
+                               .And(bind.BIND_STATUS != _BIND_STATUS_ACCEPTED)
+                               )
+
+
     @classmethod
     @inlineCallbacks
     def ownerHomeID(cls, txn, resourceID):
@@ -2817,6 +2788,15 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic, HomeChildBas
         )
         yield child.initFromStore()
         returnValue(child)
+
+
+    @classproperty
+    def _childForNameAndHomeID(cls): #@NoSelf
+        bind = cls._bindSchema
+        return cls._bindFor((bind.RESOURCE_NAME == Parameter("name"))
+                               .And(bind.HOME_RESOURCE_ID == Parameter("homeID"))
+                               .And(bind.BIND_STATUS == _BIND_STATUS_ACCEPTED)
+                               )
 
 
     @classmethod
@@ -2877,6 +2857,18 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic, HomeChildBas
         )
         yield child.initFromStore()
         returnValue(child)
+
+
+    @classproperty
+    def _bindForResourceIDAndHomeID(cls): #@NoSelf
+        """
+        DAL query that looks up home child names / bind modes by home child
+        resource ID and home resource ID.
+        """
+        bind = cls._bindSchema
+        return cls._bindFor((bind.RESOURCE_ID == Parameter("resourceID"))
+                               .And(bind.HOME_RESOURCE_ID == Parameter("homeID"))
+                               )
 
 
     @classmethod
