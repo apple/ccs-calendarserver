@@ -2743,23 +2743,15 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic, HomeChildBas
                    bind.BIND_STATUS,
                    bind.MESSAGE]
         columns.extend(cls.metadataColumns())
+        return Select(columns,
+                     From=child.join(
+                         bind, child.RESOURCE_ID == bind.RESOURCE_ID,
+                         'left outer').join(
+                         childMetaData, childMetaData.RESOURCE_ID == bind.RESOURCE_ID,
+                         'left outer'),
+                     Where=(bind.HOME_RESOURCE_ID == Parameter("homeID")
+                           ).And(bind.BIND_STATUS == _BIND_STATUS_ACCEPTED))
 
-        if child == childMetaData:
-            return Select(columns,
-                         From=child.join(
-                             bind, child.RESOURCE_ID == bind.RESOURCE_ID,
-                             'left outer'),
-                         Where=(bind.HOME_RESOURCE_ID == Parameter("homeID")
-                               ).And(bind.BIND_STATUS == _BIND_STATUS_ACCEPTED))
-        else:
-            return Select(columns,
-                         From=child.join(
-                             bind, child.RESOURCE_ID == bind.RESOURCE_ID,
-                             'left outer').join(
-                             childMetaData, childMetaData.RESOURCE_ID == bind.RESOURCE_ID,
-                             'left outer'),
-                         Where=(bind.HOME_RESOURCE_ID == Parameter("homeID")
-                               ).And(bind.BIND_STATUS == _BIND_STATUS_ACCEPTED))
 
 
     def shareMode(self):
@@ -3100,10 +3092,12 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic, HomeChildBas
         if name.startswith("."):
             raise HomeChildNameNotAllowedError(name)
 
+        # Create this object
         resourceID = (
             yield cls._insertHomeChild.on(home._txn))[0][0]
 
-        created, modified = (
+        # Initialize this object
+        _created, _modified = (
             yield cls._insertHomeChildMetaData.on(home._txn,
                                                   resourceID=resourceID))[0]
 
@@ -3116,8 +3110,8 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic, HomeChildBas
 
         # Initialize other state
         child = cls(home, name, resourceID, _BIND_MODE_OWN, _BIND_STATUS_ACCEPTED)
-        child._created = created
-        child._modified = modified
+        child._created = _created
+        child._modified = _modified
         yield child._loadPropertyStore()
 
         child.properties()[
