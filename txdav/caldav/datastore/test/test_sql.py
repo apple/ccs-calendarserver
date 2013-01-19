@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2010-2012 Apple Inc. All rights reserved.
+# Copyright (c) 2010-2013 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,15 +19,25 @@ Tests for txdav.caldav.datastore.postgres, mostly based on
 L{txdav.caldav.datastore.test.common}.
 """
 
+from pycalendar.datetime import PyCalendarDateTime
+from pycalendar.timezone import PyCalendarTimezone
+
+from twext.enterprise.dal.syntax import Select, Parameter, Insert
+from twext.python.vcomponent import VComponent
+from twext.web2.http_headers import MimeType
+
 from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.internet.task import deferLater
 from twisted.python import hashlib
 from twisted.trial import unittest
 
-from twext.enterprise.dal.syntax import Select, Parameter, Insert
-from twext.python.vcomponent import VComponent
-from txdav.xml.rfc2518 import GETContentLanguage, ResourceType
+from twistedcaldav import caldavxml
+from twistedcaldav.caldavxml import CalendarDescription
+from twistedcaldav.config import config
+from twistedcaldav.dateops import datetimeMktime
+from twistedcaldav.ical import Component
+from twistedcaldav.query import calendarqueryfilter
 
 from txdav.base.propertystore.base import PropertyName
 from txdav.caldav.datastore.test.common import CommonTests as CalendarCommonTests, \
@@ -40,17 +50,10 @@ from txdav.common.datastore.sql_tables import schema, _BIND_MODE_DIRECT, \
     _BIND_STATUS_ACCEPTED
 from txdav.common.datastore.test.util import buildStore, populateCalendarsFrom
 from txdav.common.icommondatastore import NoSuchObjectResourceError
-
-from twistedcaldav import caldavxml
-from twistedcaldav.caldavxml import CalendarDescription
-from twistedcaldav.config import config
-from twistedcaldav.dateops import datetimeMktime
-from twistedcaldav.ical import Component
-from twistedcaldav.query import calendarqueryfilter
+from txdav.xml.rfc2518 import GETContentLanguage, ResourceType
 
 import datetime
-from pycalendar.datetime import PyCalendarDateTime
-from pycalendar.timezone import PyCalendarTimezone
+import os
 
 class CalendarSQLStorageTests(CalendarCommonTests, unittest.TestCase):
     """
@@ -1433,3 +1436,200 @@ END:VCALENDAR
         obj = (yield self.calendarObjectUnderTest())
         calendarObject = (yield home.objectResourceWithID(obj._resourceID))
         self.assertNotEquals(calendarObject, None)
+
+
+    @inlineCallbacks
+    def test_cleanupAttachments(self):
+        """
+        L{ICalendarObject.remove} will remove an associated calendar
+        attachment.
+        """
+
+        # Create attachment
+        obj = yield self.calendarObjectUnderTest()
+        attachment = yield obj.createAttachmentWithName(
+            "new.attachment",
+        )
+        t = attachment.store(MimeType("text", "x-fixture"))
+        t.write("new attachment")
+        t.write(" text")
+        yield t.loseConnection()
+        apath = attachment._path.path
+        yield self.commit()
+
+        self.assertTrue(os.path.exists(apath))
+
+        home = (yield self.transactionUnderTest().calendarHomeWithUID("home1"))
+        quota = (yield home.quotaUsedBytes())
+        yield self.commit()
+        self.assertNotEqual(quota, 0)
+
+        # Remove resource
+        obj = yield self.calendarObjectUnderTest()
+        yield obj.remove()
+        yield self.commit()
+
+        self.assertFalse(os.path.exists(apath))
+
+        home = (yield self.transactionUnderTest().calendarHomeWithUID("home1"))
+        quota = (yield home.quotaUsedBytes())
+        yield self.commit()
+        self.assertEqual(quota, 0)
+
+
+    @inlineCallbacks
+    def test_cleanupMultipleAttachments(self):
+        """
+        L{ICalendarObject.remove} will remove all associated calendar
+        attachments.
+        """
+
+        # Create attachment
+        obj = yield self.calendarObjectUnderTest()
+
+        attachment = yield obj.createAttachmentWithName(
+            "new.attachment",
+        )
+        t = attachment.store(MimeType("text", "x-fixture"))
+        t.write("new attachment")
+        t.write(" text")
+        yield t.loseConnection()
+        apath1 = attachment._path.path
+
+        attachment = yield obj.createAttachmentWithName(
+            "new.attachment2",
+        )
+        t = attachment.store(MimeType("text", "x-fixture"))
+        t.write("new attachment 2")
+        t.write(" text")
+        yield t.loseConnection()
+        apath2 = attachment._path.path
+
+        yield self.commit()
+
+        self.assertTrue(os.path.exists(apath1))
+        self.assertTrue(os.path.exists(apath2))
+
+        home = (yield self.transactionUnderTest().calendarHomeWithUID("home1"))
+        quota = (yield home.quotaUsedBytes())
+        yield self.commit()
+        self.assertNotEqual(quota, 0)
+
+        # Remove resource
+        obj = yield self.calendarObjectUnderTest()
+        yield obj.remove()
+        yield self.commit()
+
+        self.assertFalse(os.path.exists(apath1))
+        self.assertFalse(os.path.exists(apath2))
+
+        home = (yield self.transactionUnderTest().calendarHomeWithUID("home1"))
+        quota = (yield home.quotaUsedBytes())
+        yield self.commit()
+        self.assertEqual(quota, 0)
+
+
+    @inlineCallbacks
+    def test_cleanupAttachmentsOnMultipleResources(self):
+        """
+        L{ICalendarObject.remove} will remove all associated calendar
+        attachments unless used in another resource.
+        """
+
+        # Create attachment
+        obj = yield self.calendarObjectUnderTest()
+
+        attachment = yield obj.createAttachmentWithName(
+            "new.attachment",
+        )
+        t = attachment.store(MimeType("text", "x-fixture"))
+        t.write("new attachment")
+        t.write(" text")
+        yield t.loseConnection()
+        apath = attachment._path.path
+
+        new_component = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Apple Inc.//iCal 4.0.1//EN
+CALSCALE:GREGORIAN
+BEGIN:VTIMEZONE
+TZID:US/Pacific
+BEGIN:DAYLIGHT
+TZOFFSETFROM:-0800
+RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=2SU
+DTSTART:20070311T020000
+TZNAME:PDT
+TZOFFSETTO:-0700
+END:DAYLIGHT
+BEGIN:STANDARD
+TZOFFSETFROM:-0700
+RRULE:FREQ=YEARLY;BYMONTH=11;BYDAY=1SU
+DTSTART:20071104T020000
+TZNAME:PST
+TZOFFSETTO:-0800
+END:STANDARD
+END:VTIMEZONE
+BEGIN:VEVENT
+ATTENDEE;CN="Wilfredo Sanchez";CUTYPE=INDIVIDUAL;PARTSTAT=ACCEPTED:mailt
+ o:wsanchez@example.com
+ATTENDEE;CN="Cyrus Daboo";CUTYPE=INDIVIDUAL;PARTSTAT=ACCEPTED:mailto:cda
+ boo@example.com
+DTEND;TZID=US/Pacific:%(now)s0324T124500
+TRANSP:OPAQUE
+ORGANIZER;CN="Wilfredo Sanchez":mailto:wsanchez@example.com
+UID:uid1-attachmenttest
+DTSTAMP:20090326T145447Z
+LOCATION:Wilfredo's Office
+SEQUENCE:2
+X-APPLE-EWS-BUSYSTATUS:BUSY
+X-APPLE-DROPBOX:/calendars/__uids__/user01/dropbox/FE5CDC6F-7776-4607-83
+ A9-B90FF7ACC8D0.dropbox
+SUMMARY:CalDAV protocol updates
+DTSTART;TZID=US/Pacific:%(now)s0324T121500
+CREATED:20090326T145440Z
+BEGIN:VALARM
+X-WR-ALARMUID:DB39AB67-449C-441C-89D2-D740B5F41A73
+TRIGGER;VALUE=DATE-TIME:%(now)s0324T180009Z
+ACTION:AUDIO
+END:VALARM
+END:VEVENT
+END:VCALENDAR
+""".replace("\n", "\r\n") % {"now": 2012}
+
+        calendar = yield self.calendarUnderTest()
+        yield calendar.createCalendarObjectWithName(
+            "test.ics", VComponent.fromString(new_component)
+        )
+
+        yield self.commit()
+
+        self.assertTrue(os.path.exists(apath))
+
+        home = (yield self.transactionUnderTest().calendarHomeWithUID("home1"))
+        quota = (yield home.quotaUsedBytes())
+        yield self.commit()
+        self.assertNotEqual(quota, 0)
+
+        # Remove resource
+        obj = yield self.calendarObjectUnderTest()
+        yield obj.remove()
+        yield self.commit()
+
+        self.assertTrue(os.path.exists(apath))
+
+        home = (yield self.transactionUnderTest().calendarHomeWithUID("home1"))
+        quota = (yield home.quotaUsedBytes())
+        yield self.commit()
+        self.assertNotEqual(quota, 0)
+
+        # Remove resource
+        obj = yield self.calendarObjectUnderTest("test.ics")
+        yield obj.remove()
+        yield self.commit()
+
+        self.assertFalse(os.path.exists(apath))
+
+        home = (yield self.transactionUnderTest().calendarHomeWithUID("home1"))
+        quota = (yield home.quotaUsedBytes())
+        yield self.commit()
+        self.assertEqual(quota, 0)

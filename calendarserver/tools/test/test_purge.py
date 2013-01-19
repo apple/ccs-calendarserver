@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2005-2012 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2013 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,8 +16,7 @@
 
 
 from calendarserver.tap.util import getRootResource
-from calendarserver.tools.purge import cancelEvent, purgeUID
-from calendarserver.tools.purge import CANCELEVENT_MODIFIED, CANCELEVENT_SHOULD_DELETE
+from calendarserver.tools.purge import PurgePrincipalService
 
 from twistedcaldav.config import config
 from twistedcaldav.ical import Component
@@ -233,55 +232,61 @@ class CancelEventTestCase(TestCase):
     def test_cancelRepeating(self):
         # A repeating event where purged CUA is organizer
         event = Component.fromString(REPEATING_1_ICS_BEFORE)
-        action = cancelEvent(event, PyCalendarDateTime(2010, 12, 6, 12, 0, 0, PyCalendarTimezone(utc=True)),
+        action = PurgePrincipalService._cancelEvent(event, PyCalendarDateTime(2010, 12, 6, 12, 0, 0, PyCalendarTimezone(utc=True)),
             "urn:uuid:0F168477-CF3D-45D3-AE60-9875EA02C4D1")
-        self.assertEquals(action, CANCELEVENT_MODIFIED)
+        self.assertEquals(action, PurgePrincipalService.CANCELEVENT_MODIFIED)
         self.assertEquals(str(event), REPEATING_1_ICS_AFTER)
+
 
     def test_cancelAllDayRepeating(self):
         # A repeating All Day event where purged CUA is organizer
         event = Component.fromString(REPEATING_2_ICS_BEFORE)
-        action = cancelEvent(event, PyCalendarDateTime(2010, 12, 6, 12, 0, 0, PyCalendarTimezone(utc=True)),
+        action = PurgePrincipalService._cancelEvent(event, PyCalendarDateTime(2010, 12, 6, 12, 0, 0, PyCalendarTimezone(utc=True)),
             "urn:uuid:0F168477-CF3D-45D3-AE60-9875EA02C4D1")
-        self.assertEquals(action, CANCELEVENT_MODIFIED)
+        self.assertEquals(action, PurgePrincipalService.CANCELEVENT_MODIFIED)
         self.assertEquals(str(event), REPEATING_2_ICS_AFTER)
+
 
     def test_cancelFutureEvent(self):
         # A future event
         event = Component.fromString(FUTURE_EVENT_ICS)
-        action = cancelEvent(event, PyCalendarDateTime(2010, 12, 6, 12, 0, 0, PyCalendarTimezone(utc=True)),
+        action = PurgePrincipalService._cancelEvent(event, PyCalendarDateTime(2010, 12, 6, 12, 0, 0, PyCalendarTimezone(utc=True)),
             "urn:uuid:0F168477-CF3D-45D3-AE60-9875EA02C4D1")
-        self.assertEquals(action, CANCELEVENT_SHOULD_DELETE)
+        self.assertEquals(action, PurgePrincipalService.CANCELEVENT_SHOULD_DELETE)
+
 
     def test_cancelNonMeeting(self):
         # A repeating non-meeting event
         event = Component.fromString(REPEATING_NON_MEETING_ICS)
-        action = cancelEvent(event, PyCalendarDateTime(2010, 12, 6, 12, 0, 0, PyCalendarTimezone(utc=True)),
+        action = PurgePrincipalService._cancelEvent(event, PyCalendarDateTime(2010, 12, 6, 12, 0, 0, PyCalendarTimezone(utc=True)),
             "urn:uuid:0F168477-CF3D-45D3-AE60-9875EA02C4D1")
-        self.assertEquals(action, CANCELEVENT_SHOULD_DELETE)
+        self.assertEquals(action, PurgePrincipalService.CANCELEVENT_SHOULD_DELETE)
+
 
     def test_cancelAsAttendee(self):
         # A repeating meeting event where purged CUA is an attendee
         event = Component.fromString(REPEATING_ATTENDEE_MEETING_ICS)
-        action = cancelEvent(event, PyCalendarDateTime(2010, 12, 6, 12, 0, 0, PyCalendarTimezone(utc=True)),
+        action = PurgePrincipalService._cancelEvent(event, PyCalendarDateTime(2010, 12, 6, 12, 0, 0, PyCalendarTimezone(utc=True)),
             "urn:uuid:0F168477-CF3D-45D3-AE60-9875EA02C4D1")
-        self.assertEquals(action, CANCELEVENT_SHOULD_DELETE)
+        self.assertEquals(action, PurgePrincipalService.CANCELEVENT_SHOULD_DELETE)
+
 
     def test_cancelAsAttendeeOccurrence(self):
         # A repeating meeting occurrence with no master, where purged CUA is
         # an attendee
         event = Component.fromString(INVITED_TO_OCCURRENCE_ICS)
-        action = cancelEvent(event, PyCalendarDateTime(2010, 12, 6, 12, 0, 0, PyCalendarTimezone(utc=True)),
+        action = PurgePrincipalService._cancelEvent(event, PyCalendarDateTime(2010, 12, 6, 12, 0, 0, PyCalendarTimezone(utc=True)),
             "urn:uuid:9DC04A71-E6DD-11DF-9492-0800200C9A66")
-        self.assertEquals(action, CANCELEVENT_SHOULD_DELETE)
+        self.assertEquals(action, PurgePrincipalService.CANCELEVENT_SHOULD_DELETE)
+
 
     def test_cancelAsAttendeeMultipleOccurrences(self):
         # Multiple meeting occurrences with no master, where purged CUA is
         # an attendee
         event = Component.fromString(INVITED_TO_MULTIPLE_OCCURRENCES_ICS)
-        action = cancelEvent(event, PyCalendarDateTime(2010, 12, 6, 12, 0, 0, PyCalendarTimezone(utc=True)),
+        action = PurgePrincipalService._cancelEvent(event, PyCalendarDateTime(2010, 12, 6, 12, 0, 0, PyCalendarTimezone(utc=True)),
             "urn:uuid:9DC04A71-E6DD-11DF-9492-0800200C9A66")
-        self.assertEquals(action, CANCELEVENT_SHOULD_DELETE)
+        self.assertEquals(action, PurgePrincipalService.CANCELEVENT_SHOULD_DELETE)
 
 # This event begins on Nov 30, 2010, has two EXDATES (Dec 3 and 9), and has two
 # overridden instances (Dec 4 and 11).  The Dec 11 one will be removed since
@@ -725,7 +730,6 @@ ATTENDEE;CN="Betty Test";CUTYPE=INDIVIDUAL;EMAIL="betty@example.com";PAR
 DTEND;TZID=America/Los_Angeles:20111105T170000
 TRANSP:OPAQUE
 ORGANIZER;CN="Amanda Test":urn:uuid:9DC04A70-E6DD-11DF-9492-0800200C9A66
- 
 UID:44A391CF-52F5-46B4-B35A-E000E3002084
 DTSTAMP:20111102T162426Z
 SEQUENCE:5
@@ -736,9 +740,6 @@ CREATED:20111101T205355Z
 END:VEVENT
 END:VCALENDAR
 """.replace("\n", "\r\n")
-
-
-
 
 
 ATTACHMENT_ICS = """BEGIN:VCALENDAR
@@ -775,7 +776,6 @@ X-APPLE-DROPBOX:/calendars/__uids__/6423F94A-6B76-4A3A-815B-D52CFD77935D/dropbox
 END:VEVENT
 END:VCALENDAR
 """.replace("\n", "\r\n")
-
 
 
 
@@ -869,9 +869,9 @@ class PurgePrincipalTests(CommonCommonTests, unittest.TestCase):
 
 
     @inlineCallbacks
-    def test_purgeUID(self):
+    def test_purgeUIDs(self):
         """
-        Verify purgeUID removes homes, and doesn't provision homes that don't exist
+        Verify purgeUIDs removes homes, and doesn't provision homes that don't exist
         """
 
         # Now you see it
@@ -880,8 +880,8 @@ class PurgePrincipalTests(CommonCommonTests, unittest.TestCase):
         self.assertNotEquals(home, None)
         (yield txn.commit())
 
-        count, ignored = (yield purgeUID(self.storeUnderTest(), self.uid, self.directory,
-            self.rootResource, verbose=False, proxies=False, completely=True))
+        count, ignored = (yield PurgePrincipalService.purgeUIDs(self.storeUnderTest(), self.directory,
+            self.rootResource, (self.uid,), verbose=False, proxies=False, completely=True))
         self.assertEquals(count, 1) # 1 event
 
         # Now you don't
@@ -893,8 +893,8 @@ class PurgePrincipalTests(CommonCommonTests, unittest.TestCase):
         self.assertEquals((yield home2.childWithName(self.sharedName)), None)
         (yield txn.commit())
 
-        count, ignored = (yield purgeUID(self.storeUnderTest(), self.uid, self.directory,
-            self.rootResource, verbose=False, proxies=False, completely=True))
+        count, ignored = (yield PurgePrincipalService.purgeUIDs(self.storeUnderTest(), self.directory,
+            self.rootResource, (self.uid,), verbose=False, proxies=False, completely=True))
         self.assertEquals(count, 0)
 
         # And you still don't (making sure it's not provisioned)

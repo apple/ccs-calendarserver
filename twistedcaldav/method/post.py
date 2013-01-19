@@ -1,5 +1,5 @@
 # #
-# Copyright (c) 2005-2012 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2013 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -133,7 +133,7 @@ def POST_handler_add_member(self, request):
 
             # Look for Prefer header
             prefer = request.headers.getHeader("prefer", {})
-            returnRepresentation = "return-representation" in prefer
+            returnRepresentation = any([key == "return" and value == "representation" for key, value, _ignore_args in prefer])
 
             if returnRepresentation and result.code / 100 == 2:
                 result = (yield newchild.http_GET(request))
@@ -201,7 +201,7 @@ def POST_handler_add_member(self, request):
 
             # Look for Prefer header
             prefer = request.headers.getHeader("prefer", {})
-            returnRepresentation = "return-representation" in prefer
+            returnRepresentation = any([key == "return" and value == "representation" for key, value, _ignore_args in prefer])
 
             if returnRepresentation and result.code / 100 == 2:
                 result = (yield newchild.http_GET(request))

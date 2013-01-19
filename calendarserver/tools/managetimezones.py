@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 ##
-# Copyright (c) 2011-2012 Apple Inc. All rights reserved.
+# Copyright (c) 2011-2013 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -76,7 +76,7 @@ def _doRefresh(tzpath, xmlfile, tzdb, tzvers):
         t.extractall(zonedir)
     print "Converting data at: %s" % (zonedir,)
     startYear = 1800
-    endYear = 2018
+    endYear = PyCalendarDateTime.getToday().getYear() + 10
     PyCalendar.sProdID = "-//calendarserver.org//Zonal//EN"
     zonefiles = "northamerica", "southamerica", "europe", "africa", "asia", "australasia", "antarctica", "etcetera", "backward"
     parser = tzconvert()

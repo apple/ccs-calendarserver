@@ -1,6 +1,6 @@
 # -*- test-case-name: txdav -*-
 ##
-# Copyright (c) 2010-2012 Apple Inc. All rights reserved.
+# Copyright (c) 2010-2013 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -136,6 +136,7 @@ class DataStoreTransaction(LoggingMixIn):
     def store(self):
         return self._dataStore
 
+
     def addOperation(self, operation, name):
         self._operations.append(operation)
         self._tracker.info.append(name)
@@ -148,7 +149,7 @@ class DataStoreTransaction(LoggingMixIn):
         terminated.
 
         @param mode: The manner of the termination of this transaction.
-        
+
         @type mode: C{str}
 
         @raise AlreadyFinishedError: This transaction has already been

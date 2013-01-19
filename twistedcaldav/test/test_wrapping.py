@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2010-2012 Apple Inc. All rights reserved.
+# Copyright (c) 2010-2013 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -54,6 +54,7 @@ from twistedcaldav.directory.test.test_xmlfile import XMLFileBase
 from txdav.caldav.icalendarstore import ICalendarHome
 from txdav.carddav.iaddressbookstore import IAddressBookHome
 
+from twisted.internet.defer import maybeDeferred
 from txdav.caldav.datastore.file import Calendar
 
 
@@ -248,8 +249,10 @@ class WrappingTests(TestCase):
                                       % (pathType, pathType))
             yield req.process()
             self.assertEquals(req.chanRequest.code, 404)
-            self.assertRaises(AlreadyFinishedError,
-                              req._newStoreTransaction.commit)
+            yield self.failUnlessFailure(
+                maybeDeferred(req._newStoreTransaction.commit),
+                AlreadyFinishedError
+            )
 
 
     @inlineCallbacks

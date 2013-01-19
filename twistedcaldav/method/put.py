@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2005-2012 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2013 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -31,7 +31,7 @@ from twext.web2.dav.http import ErrorResponse
 from twistedcaldav.caldavxml import caldav_namespace
 
 from twistedcaldav.method.put_common import StoreCalendarObjectResource
-from twistedcaldav.resource import isPseudoCalendarCollectionResource,\
+from twistedcaldav.resource import isPseudoCalendarCollectionResource, \
     CalDAVResource
 
 log = Logger()
@@ -57,7 +57,7 @@ def http_PUT(self, request):
                 (caldav_namespace, "supported-calendar-data"),
                 "Invalid MIME type for calendar collection",
             ))
-            
+
         # Read the calendar component from the stream
         try:
             calendardata = (yield allDataFromStream(request.stream))
@@ -75,24 +75,24 @@ def http_PUT(self, request):
                 ))
 
             storer = StoreCalendarObjectResource(
-                request = request,
-                destination = self,
-                destination_uri = request.uri,
-                destinationcal = True,
-                destinationparent = parent,
-                calendar = calendardata,
+                request=request,
+                destination=self,
+                destination_uri=request.uri,
+                destinationcal=True,
+                destinationparent=parent,
+                calendar=calendardata,
             )
             result = (yield storer.run())
 
             # Look for Prefer header
             prefer = request.headers.getHeader("prefer", {})
-            returnRepresentation = "return-representation" in prefer
+            returnRepresentation = any([key == "return" and value == "representation" for key, value, _ignore_args in prefer])
 
             if returnRepresentation and result.code / 100 == 2:
                 oldcode = result.code
                 result = (yield self.http_GET(request))
                 if oldcode == responsecode.CREATED:
-                    result.code =  responsecode.CREATED
+                    result.code = responsecode.CREATED
                 result.headers.setHeader("content-location", request.path)
 
             returnValue(result)
@@ -112,7 +112,7 @@ def http_PUT(self, request):
                 (carddav_namespace, "supported-address-data"),
                 "Invalid MIME type for address book collection",
             ))
-            
+
         # Read the vcard component from the stream
         try:
             vcarddata = (yield allDataFromStream(request.stream))
@@ -130,25 +130,25 @@ def http_PUT(self, request):
                 ))
 
             storer = StoreAddressObjectResource(
-                request = request,
-                sourceadbk = False,
-                vcard = vcarddata,
-                destination = self,
-                destination_uri = request.uri,
-                destinationadbk = True,
-                destinationparent = parent,
+                request=request,
+                sourceadbk=False,
+                vcard=vcarddata,
+                destination=self,
+                destination_uri=request.uri,
+                destinationadbk=True,
+                destinationparent=parent,
             )
             result = (yield storer.run())
 
             # Look for Prefer header
             prefer = request.headers.getHeader("prefer", {})
-            returnRepresentation = "return-representation" in prefer
+            returnRepresentation = any([key == "return" and value == "representation" for key, value, _ignore_args in prefer])
 
             if returnRepresentation and result.code / 100 == 2:
                 oldcode = result.code
                 result = (yield self.http_GET(request))
                 if oldcode == responsecode.CREATED:
-                    result.code =  responsecode.CREATED
+                    result.code = responsecode.CREATED
                 result.headers.setHeader("content-location", request.path)
 
             returnValue(result)
@@ -166,5 +166,5 @@ def http_PUT(self, request):
         if clength == 0:
             clength = self.contentLength()
         request.extendedLogItems["cl"] = str(clength)
-        
+
         returnValue(result)

@@ -1,6 +1,6 @@
 # -*- test-case-name: twistedcaldav.test.test_icalendar -*-
 ##
-# Copyright (c) 2005-2012 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2013 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -952,6 +952,21 @@ class Component (object):
         self._pycalendar.finalise()
         property._parent = None
         self._markAsDirty()
+
+
+    def removeAllPropertiesWithName(self, pname):
+        """
+        Remove all properties with the given name from all components.
+
+        @param pname: the property name to remove from all components.
+        @type pname: C{str}
+        """
+
+        for property in self.properties(pname):
+            self.removeProperty(property)
+
+        for component in self.subcomponents():
+            component.removeAllPropertiesWithName(pname)
 
 
     def replaceProperty(self, property):

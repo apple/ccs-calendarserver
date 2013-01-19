@@ -1,6 +1,6 @@
 # -*- test-case-name: twext.enterprise.dal.test.test_record -*-
 ##
-# Copyright (c) 2012 Apple Inc. All rights reserved.
+# Copyright (c) 2012-2013 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -26,6 +26,7 @@ from twisted.internet.defer import inlineCallbacks, returnValue
 from twext.enterprise.dal.syntax import (
     Select, Tuple, Constant, ColumnSyntax, Insert, Update, Delete
 )
+from twext.enterprise.util import parseSQLTimestamp
 # from twext.enterprise.dal.syntax import ExpressionSyntax
 
 class ReadOnly(AttributeError):
@@ -143,6 +144,15 @@ class Record(object):
         return super(Record, self).__setattr__(name, value)
 
 
+    def __repr__(self):
+        r = "<{0} record from table {1}".format(self.__class__.__name__,
+                                                self.table.model.name)
+        for k in sorted(self.__attrmap__.keys()):
+            r += " {0}={1}".format(k, repr(getattr(self, k)))
+        r += ">"
+        return r
+
+
     @staticmethod
     def namingConvention(columnName):
         """
@@ -220,10 +230,24 @@ class Record(object):
         result = yield (Insert(colmap, Return=needsCols if needsCols else None)
                         .on(transaction))
         if needsCols:
-            for neededAttr, neededValue in zip(needsAttrs, result[0]):
-                setattr(self, neededAttr, neededValue)
+            self._attributesFromRow(zip(needsAttrs, result[0]))
         self.transaction = transaction
         returnValue(self)
+
+
+    def _attributesFromRow(self, attributeList):
+        """
+        Take some data loaded from a row and apply it to this instance,
+        converting types as necessary.
+
+        @param attributeList: a C{list} of 2-C{tuples} of C{(attributeName,
+            attributeValue)}.
+        """
+        for setAttribute, setValue in attributeList:
+            setColumn = self.__attrmap__[setAttribute]
+            if setColumn.model.type.name == "timestamp":
+                setValue = parseSQLTimestamp(setValue)
+            setattr(self, setAttribute, setValue)
 
 
     def delete(self):
@@ -273,7 +297,7 @@ class Record(object):
 
 
     @classmethod
-    def query(cls, transaction, expr, order=None, ascending=True):
+    def query(cls, transaction, expr, order=None, ascending=True, group=None):
         """
         Query the table that corresponds to C{cls}, and return instances of
         C{cls} corresponding to the rows that are returned from that table.
@@ -288,10 +312,15 @@ class Record(object):
 
         @param ascending: A boolean; if C{order} is not C{None}, whether to
             sort in ascending or descending order.
+
+        @param group: a L{ColumnSyntax} to group the resulting record objects
+            by.
         """
         kw = {}
         if order is not None:
             kw.update(OrderBy=order, Ascending=ascending)
+        if group is not None:
+            kw.update(GroupBy=group)
         return cls._rowsFromQuery(transaction, Select(list(cls.table),
                                                       From=cls.table,
                                                       Where=expr, **kw), None)
@@ -314,7 +343,8 @@ class Record(object):
     @inlineCallbacks
     def _rowsFromQuery(cls, transaction, qry, rozrc):
         """
-        Execute the given query, and transform its results into rows.
+        Execute the given query, and transform its results into instances of
+        C{cls}.
 
         @param transaction: an L{IAsyncTransaction} to execute the query on.
 
@@ -324,16 +354,15 @@ class Record(object):
 
         @param rozrc: The C{raiseOnZeroRowCount} argument.
 
-        @return: a L{Deferred} that succeeds with a C{list} or fails with an
-            exception produced by C{rozrc}.
+        @return: a L{Deferred} that succeeds with a C{list} of instances of
+            C{cls} or fails with an exception produced by C{rozrc}.
         """
         rows = yield qry.on(transaction, raiseOnZeroRowCount=rozrc)
         selves = []
+        names = [cls.__colmap__[column] for column in list(cls.table)]
         for row in rows:
             self = cls()
-            for (column, value) in zip(list(cls.table), row):
-                name = cls.__colmap__[column]
-                setattr(self, name, value)
+            self._attributesFromRow(zip(names, row))
             self.transaction = transaction
             selves.append(self)
         returnValue(selves)

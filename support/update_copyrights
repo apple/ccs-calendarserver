@@ -1,0 +1,66 @@
+#!/bin/sh
+# -*- sh-basic-offset: 2 -*-
+
+##
+# Copyright (c) 2013 Apple Inc. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+##
+
+set -e;
+set -u;
+
+find_files () {
+  where="$1"; shift;
+
+  find "${where}"               \
+    ! \(                        \
+      -type d                   \
+      \(                        \
+        -name .svn -o           \
+        -name build -o          \
+        -name data -o          \
+        -name '_trial_temp*'    \
+      \)                        \
+      -prune                    \
+    \)                          \
+    -type f                     \
+    ! -name '.#*'               \
+    ! -name '#*#'               \
+    ! -name '*~'                \
+    ! -name '*.pyc'             \
+    ! -name '*.log'             \
+    ! -name update_copyrights   \
+    -print0;
+}
+
+wd="$(cd "$(dirname "$0")/.." && pwd)";
+
+this_year="$(date "+%Y")";
+last_year=$((${this_year} - 1));
+
+tmp="$(mktemp -t "$$")";
+find_files "${wd}" > "${tmp}";
+
+ff () { cat "${tmp}"; }
+
+echo "Updating copyrights from ${last_year} to ${this_year}...";
+
+ff | xargs -0 perl -i -pe 's|(Copyright \(c\) .*-)'"${last_year}"'( Apple)|${1}'"${this_year}"'${2}|';
+ff | xargs -0 perl -i -pe 's|(Copyright \(c\) )'"${last_year}"'( Apple)|${1}'"${last_year}-${this_year}"'${2}|';
+
+ff | xargs -0 grep -e 'Copyright (c) .* Apple' \
+  | grep -v -e 'Copyright (c) .*'"${this_year}"' Apple' \
+  ;
+
+rm "${tmp}";

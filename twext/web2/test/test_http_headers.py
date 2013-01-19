@@ -449,6 +449,18 @@ class RequestHeaderParsingTests(HeaderParsingTestBase):
         self.runRoundtripTest("Expect", table)
 
 
+    def testPrefer(self):
+        table = (
+            ("wait",
+             [("wait", None, [])]),
+            ("return = representation",
+             [("return", "representation", [])]),
+            ("return =minimal;arg1;arg2=val2",
+             [("return", "minimal", [("arg1", None), ("arg2", "val2")])]),
+            )
+        self.runRoundtripTest("Prefer", table)
+
+
     def testFrom(self):
         self.runRoundtripTest("From", (("webmaster@w3.org", "webmaster@w3.org"),))
 

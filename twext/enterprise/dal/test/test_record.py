@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2012 Apple Inc. All rights reserved.
+# Copyright (c) 2012-2013 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,6 +17,8 @@
 """
 Test cases for L{twext.enterprise.dal.record}.
 """
+
+import datetime
 
 from twisted.internet.defer import inlineCallbacks
 
@@ -38,7 +40,8 @@ sth.id = lambda : __name__
 schemaString = """
 create table ALPHA (BETA integer primary key, GAMMA text);
 create table DELTA (PHI integer primary key default (nextval('myseq')),
-                    EPSILON text not null);
+                    EPSILON text not null,
+                    ZETA timestamp not null default '2012-12-12 12:12:12' );
 """
 
 # sqlite can be made to support nextval() as a function, but 'create sequence'
@@ -136,6 +139,24 @@ class TestCRUD(TestCase):
         te = yield self.failUnlessFailure(TestAutoRecord.create(txn),
                                           TypeError)
         self.assertIn("required attribute 'epsilon' not passed", str(te))
+
+
+    @inlineCallbacks
+    def test_datetimeType(self):
+        """
+        When a L{Record} references a timestamp column, it retrieves the date
+        as UTC.
+        """
+        txn = self.pool.connection()
+        # Create ...
+        rec = yield TestAutoRecord.create(txn, epsilon=1)
+        self.assertEquals(rec.zeta, datetime.datetime(2012, 12, 12, 12, 12, 12))
+        yield txn.commit()
+        # ... should have the same effect as loading.
+        txn = self.pool.connection()
+        rec = (yield TestAutoRecord.all(txn))[0]
+        self.assertEquals(rec.zeta, datetime.datetime(2012, 12, 12, 12, 12, 12))
+
 
 
     @inlineCallbacks
@@ -237,6 +258,17 @@ class TestCRUD(TestCase):
             [(x.beta, x.gamma) for x in (yield TestRecord.all(txn))],
             sorted(data)
         )
+
+    @inlineCallbacks
+    def test_repr(self):
+        """
+        The C{repr} of a L{Record} presents all its values.
+        """
+        txn = self.pool.connection()
+        yield txn.execSQL("insert into ALPHA values (:1, :2)", [789, u'nine'])
+        rec = list((yield TestRecord.all(txn)))[0]
+        self.assertIn(" beta=789", repr(rec))
+        self.assertIn(" gamma=u'nine'", repr(rec))
 
 
     @inlineCallbacks

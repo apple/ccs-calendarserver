@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 ##
-# Copyright (c) 2006-2012 Apple Inc. All rights reserved.
+# Copyright (c) 2006-2013 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -31,7 +31,7 @@ from calendarserver.tools.principals import (
     principalForPrincipalID, proxySubprincipal, addProxy, removeProxy,
     getProxies, setProxies, ProxyError, ProxyWarning, updateRecord
 )
-from calendarserver.tools.purge import WorkerService, purgeOldEvents, DEFAULT_BATCH_SIZE, DEFAULT_RETAIN_DAYS
+from calendarserver.tools.purge import WorkerService, PurgeOldEventsService, DEFAULT_BATCH_SIZE, DEFAULT_RETAIN_DAYS
 from calendarserver.tools.cmdline import utilityMain
 
 from twext.python.log import StandardIOObserver
@@ -57,6 +57,7 @@ def usage(e=None):
         sys.exit(0)
 
 
+
 class RunnerService(WorkerService):
     """
     A wrapper around Runner which uses utilityMain to get the store
@@ -73,13 +74,14 @@ class RunnerService(WorkerService):
         directory = rootResource.getDirectory()
         runner = Runner(rootResource, directory, self._store, self.commands)
         if runner.validate():
-            yield runner.run( )
+            yield runner.run()
+
 
 
 def main():
 
     try:
-        (optargs, args) = getopt(
+        (optargs, _ignore_args) = getopt(
             sys.argv[1:], "hef:", [
                 "help",
                 "error",
@@ -107,7 +109,6 @@ def main():
 
         else:
             raise NotImplementedError(opt)
-
 
     #
     # Read commands from stdin
@@ -158,10 +159,11 @@ class Runner(object):
         self.store = store
         self.commands = commands
 
+
     def validate(self):
         # Make sure commands are valid
         for command in self.commands:
-            if not command.has_key('command'):
+            if 'command' not in command:
                 respondWithError("'command' missing from plist")
                 return False
             commandName = command['command']
@@ -170,6 +172,7 @@ class Runner(object):
                 respondWithError("Unknown command '%s'" % (commandName,))
                 return False
         return True
+
 
     @inlineCallbacks
     def run(self):
@@ -188,14 +191,16 @@ class Runner(object):
 
     # Locations
 
+
     def command_getLocationList(self, command):
         respondWithRecordsOfType(self.dir, command, "locations")
+
 
     @inlineCallbacks
     def command_createLocation(self, command):
         kwargs = {}
         for key, info in attrMap.iteritems():
-            if command.has_key(key):
+            if key in command:
                 kwargs[info['attr']] = command[key]
 
         try:
@@ -210,6 +215,7 @@ class Runner(object):
         (yield setProxies(principal, readProxies, writeProxies, directory=self.dir))
 
         respondWithRecordsOfType(self.dir, command, "locations")
+
 
     @inlineCallbacks
     def command_getLocationAttributes(self, command):
@@ -243,7 +249,7 @@ class Runner(object):
 
         kwargs = {}
         for key, info in attrMap.iteritems():
-            if command.has_key(key):
+            if key in command:
                 kwargs[info['attr']] = command[key]
         try:
             record = (yield updateRecord(False, self.dir, "locations", **kwargs))
@@ -258,10 +264,11 @@ class Runner(object):
 
         yield self.command_getLocationAttributes(command)
 
+
     def command_deleteLocation(self, command):
         kwargs = {}
         for key, info in attrMap.iteritems():
-            if command.has_key(key):
+            if key in command:
                 kwargs[info['attr']] = command[key]
         try:
             self.dir.destroyRecord("locations", **kwargs)
@@ -272,14 +279,16 @@ class Runner(object):
 
     # Resources
 
+
     def command_getResourceList(self, command):
         respondWithRecordsOfType(self.dir, command, "resources")
+
 
     @inlineCallbacks
     def command_createResource(self, command):
         kwargs = {}
         for key, info in attrMap.iteritems():
-            if command.has_key(key):
+            if key in command:
                 kwargs[info['attr']] = command[key]
 
         try:
@@ -295,6 +304,7 @@ class Runner(object):
 
         respondWithRecordsOfType(self.dir, command, "resources")
 
+
     @inlineCallbacks
     def command_setResourceAttributes(self, command):
 
@@ -307,7 +317,7 @@ class Runner(object):
 
         kwargs = {}
         for key, info in attrMap.iteritems():
-            if command.has_key(key):
+            if key in command:
                 kwargs[info['attr']] = command[key]
         try:
             record = (yield updateRecord(False, self.dir, "resources", **kwargs))
@@ -322,10 +332,11 @@ class Runner(object):
 
         yield self.command_getResourceAttributes(command)
 
+
     def command_deleteResource(self, command):
         kwargs = {}
         for key, info in attrMap.iteritems():
-            if command.has_key(key):
+            if key in command:
                 kwargs[info['attr']] = command[key]
         try:
             self.dir.destroyRecord("resources", **kwargs)
@@ -336,6 +347,7 @@ class Runner(object):
 
     # Proxies
 
+
     @inlineCallbacks
     def command_listWriteProxies(self, command):
         principal = principalForPrincipalID(command['Principal'], directory=self.dir)
@@ -343,6 +355,7 @@ class Runner(object):
             respondWithError("Principal not found: %s" % (command['Principal'],))
             return
         (yield respondWithProxies(self.dir, command, principal, "write"))
+
 
     @inlineCallbacks
     def command_addWriteProxy(self, command):
@@ -365,6 +378,7 @@ class Runner(object):
             pass
         (yield respondWithProxies(self.dir, command, principal, "write"))
 
+
     @inlineCallbacks
     def command_removeWriteProxy(self, command):
         principal = principalForPrincipalID(command['Principal'], directory=self.dir)
@@ -384,6 +398,7 @@ class Runner(object):
             pass
         (yield respondWithProxies(self.dir, command, principal, "write"))
 
+
     @inlineCallbacks
     def command_listReadProxies(self, command):
         principal = principalForPrincipalID(command['Principal'], directory=self.dir)
@@ -391,6 +406,7 @@ class Runner(object):
             respondWithError("Principal not found: %s" % (command['Principal'],))
             return
         (yield respondWithProxies(self.dir, command, principal, "read"))
+
 
     @inlineCallbacks
     def command_addReadProxy(self, command):
@@ -410,6 +426,7 @@ class Runner(object):
         except ProxyWarning, e:
             pass
         (yield respondWithProxies(self.dir, command, principal, "read"))
+
 
     @inlineCallbacks
     def command_removeReadProxy(self, command):
@@ -444,8 +461,9 @@ class Runner(object):
         cutoff = PyCalendarDateTime.getToday()
         cutoff.setDateOnly(False)
         cutoff.offsetDay(-retainDays)
-        eventCount = (yield purgeOldEvents(self.store, self.dir, self.root, cutoff, DEFAULT_BATCH_SIZE))
+        eventCount = (yield PurgeOldEventsService.purgeOldEvents(self.store, cutoff, DEFAULT_BATCH_SIZE))
         respond(command, {'EventsRemoved' : eventCount, "RetainDays" : retainDays})
+
 
 
 @inlineCallbacks
@@ -464,6 +482,7 @@ def respondWithProxies(directory, command, principal, proxyType):
     })
 
 
+
 def recordToDict(record):
     recordDict = {}
     for key, info in attrMap.iteritems():
@@ -479,6 +498,8 @@ def recordToDict(record):
             pass
     return recordDict
 
+
+
 def respondWithRecordsOfType(directory, command, recordType):
     result = []
     for record in directory.listRecords(recordType):
@@ -486,11 +507,15 @@ def respondWithRecordsOfType(directory, command, recordType):
         result.append(recordDict)
     respond(command, result)
 
+
+
 def respond(command, result):
-    sys.stdout.write(writePlistToString( { 'command' : command['command'], 'result' : result } ) )
+    sys.stdout.write(writePlistToString({'command' : command['command'], 'result' : result}))
+
+
 
 def respondWithError(msg, status=1):
-    sys.stdout.write(writePlistToString( { 'error' : msg, } ) )
+    sys.stdout.write(writePlistToString({'error' : msg, }))
     """
     try:
         reactor.stop()

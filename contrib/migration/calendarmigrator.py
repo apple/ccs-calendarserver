@@ -10,7 +10,7 @@
 # The only argument this script currently cares about is --sourceRoot, which
 # should point to the root of the previous system.
 #
-# Copyright (c) 2005-2012 Apple Inc.  All Rights Reserved.
+# Copyright (c) 2005-2013 Apple Inc.  All Rights Reserved.
 #
 # IMPORTANT NOTE:  This file is licensed only for use on Apple-labeled
 # computers and is subject to the terms and conditions of the Apple

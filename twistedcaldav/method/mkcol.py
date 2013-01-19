@@ -1,6 +1,6 @@
 # -*- test-case-name: twistedcaldav.test.test_DAV.MKCOL -*-
 ##
-# Copyright (c) 2005-2012 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2013 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -111,7 +111,7 @@ def http_MKCOL(self, request):
 
     if doc is not None:
 
-        # Can ignore Prefer:return-minimal as we don't return a body for success by default
+        # Can ignore Prefer:return=minimal as we don't return a body for success by default
 
         # Parse response body
         mkcol = doc.root_element

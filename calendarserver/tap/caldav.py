@@ -1,6 +1,6 @@
 # -*- test-case-name: calendarserver.tap.test.test_caldav -*-
 ##
-# Copyright (c) 2005-2012 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2013 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -64,7 +64,7 @@ from twext.web2.metafd import ConnectionLimiter, ReportingHTTPService
 
 from txdav.common.datastore.sql_tables import schema
 from txdav.common.datastore.upgrade.sql.upgrade import (
-    UpgradeDatabaseSchemaService, UpgradeDatabaseDataService,
+    UpgradeDatabaseSchemaService, UpgradeDatabaseDataService, UpgradeDatabaseOtherService,
 )
 from txdav.common.datastore.upgrade.migrate import UpgradeToDatabaseService
 
@@ -186,6 +186,7 @@ def _computeEnvVars(parent):
     ]
 
     optionalVars = [
+        "PYTHONHASHSEED",
         "KRB5_KTNAME",
         "ORACLE_HOME",
         "VERSIONER_PYTHON_PREFER_32_BIT",
@@ -1122,7 +1123,10 @@ class CalDAVServiceMaker (LoggingMixIn):
                         UpgradeDatabaseDataService.wrapService(
                             UpgradeToDatabaseService.wrapService(
                                 CachingFilePath(config.DocumentRoot),
-                                postImport,
+                                UpgradeDatabaseOtherService.wrapService(
+                                    postImport,
+                                    store, uid=overrideUID, gid=overrideGID,
+                                ),
                                 store, uid=overrideUID, gid=overrideGID,
                                 spawner=spawner, merge=config.MergeUpgrades,
                                 parallel=parallel
@@ -2050,6 +2054,8 @@ def getSSLPassphrase(*ignored):
 
     return None
 
+
+
 def getSystemIDs(userName, groupName):
     """
     Return the system ID numbers corresponding to either:
@@ -2068,7 +2074,7 @@ def getSystemIDs(userName, groupName):
         try:
             uid = getpwnam(userName).pw_uid
         except KeyError:
-           raise ConfigurationError("Invalid user name: %s" % (userName,))
+            raise ConfigurationError("Invalid user name: %s" % (userName,))
     else:
         uid = getuid()
 

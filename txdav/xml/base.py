@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2005-2012 Apple Computer, Inc. All rights reserved.
+# Copyright (c) 2005-2013 Apple Computer, Inc. All rights reserved.
 # Copyright (c) 2007 Twisted Matrix Laboratories.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy

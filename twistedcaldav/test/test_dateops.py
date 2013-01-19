@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2005-2012 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2013 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,9 +17,11 @@
 import twistedcaldav.test.util
 from twisted.trial.unittest import SkipTest
 from pycalendar.datetime import PyCalendarDateTime
+
 from twistedcaldav.dateops import parseSQLTimestampToPyCalendar,\
-    parseSQLDateToPyCalendar, parseSQLTimestamp, pyCalendarTodatetime,\
+    parseSQLDateToPyCalendar, pyCalendarTodatetime,\
     normalizeForExpand, normalizeForIndex, normalizeToUTC, timeRangesOverlap
+
 import datetime
 import dateutil
 from pycalendar.timezone import PyCalendarTimezone
@@ -241,11 +243,11 @@ class Dateops(twistedcaldav.test.util.TestCase):
     def test_clipPeriod(self):
         raise SkipTest("test unimplemented")
 
+
     def test_pyCalendarTodatetime(self):
         """
         dateops.pyCalendarTodatetime
         """
-        
         tests = (
             (PyCalendarDateTime(2012, 4, 4, 12, 34, 56), datetime.datetime(2012, 4, 4, 12, 34, 56, tzinfo=dateutil.tz.tzutc())),
             (PyCalendarDateTime(2012, 12, 31), datetime.date(2012, 12, 31)),
@@ -254,24 +256,11 @@ class Dateops(twistedcaldav.test.util.TestCase):
         for pycal, result in tests:
             self.assertEqual(pyCalendarTodatetime(pycal), result)
 
-    def test_parseSQLTimestamp(self):
-        """
-        dateops.parseSQLTimestamp
-        """
-        
-        tests = (
-            ("2012-04-04 12:34:56", datetime.datetime(2012, 4, 4, 12, 34, 56)),
-            ("2012-12-31 01:01:01", datetime.datetime(2012, 12, 31, 1, 1, 1)),
-        )
-
-        for sqlStr, result in tests:
-            self.assertEqual(parseSQLTimestamp(sqlStr), result)
 
     def test_parseSQLTimestampToPyCalendar(self):
         """
         dateops.parseSQLTimestampToPyCalendar
         """
-        
         tests = (
             ("2012-04-04 12:34:56", PyCalendarDateTime(2012, 4, 4, 12, 34, 56)),
             ("2012-12-31 01:01:01", PyCalendarDateTime(2012, 12, 31, 1, 1, 1)),

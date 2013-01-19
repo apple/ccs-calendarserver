@@ -1,7 +1,7 @@
 -- -*- test-case-name: txdav.caldav.datastore.test.test_sql,txdav.carddav.datastore.test.test_sql -*-
 
 ----
--- Copyright (c) 2010-2012 Apple Inc. All rights reserved.
+-- Copyright (c) 2010-2013 Apple Inc. All rights reserved.
 --
 -- Licensed under the Apache License, Version 2.0 (the "License");
 -- you may not use this file except in compliance with the License.
@@ -38,6 +38,12 @@ create table NODE_INFO (
   TIME      timestamp not null default timezone('UTC', CURRENT_TIMESTAMP),
 
   primary key (HOSTNAME, PORT)
+);
+
+-- Unique named locks.  This table should always be empty, but rows are
+-- temporarily created in order to prevent undesirable concurrency.
+create table NAMED_LOCK (
+    LOCK_NAME varchar(255) primary key
 );
 
 
@@ -571,6 +577,6 @@ create table CALENDARSERVER (
   VALUE                         varchar(255)
 );
 
-insert into CALENDARSERVER values ('VERSION', '14');
+insert into CALENDARSERVER values ('VERSION', '15');
 insert into CALENDARSERVER values ('CALENDAR-DATAVERSION', '3');
 insert into CALENDARSERVER values ('ADDRESSBOOK-DATAVERSION', '1');

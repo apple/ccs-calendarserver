@@ -1,6 +1,6 @@
 # -*- test-case-name: twext.enterprise.test.test_queue -*-
 ##
-# Copyright (c) 2012 Apple Inc. All rights reserved.
+# Copyright (c) 2012-2013 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,10 +16,11 @@
 ##
 
 """
-L{twext.enterprise.queue} is a task-queueing system for use by applications
-with multiple front-end servers talking to a single database instance, that
-want to defer and parallelize work that involves storing the results of
-computation.
+L{twext.enterprise.queue} is an U{eventually consistent
+<https://en.wikipedia.org/wiki/Eventual_consistency>} task-queueing system for
+use by applications with multiple front-end servers talking to a single
+database instance, that want to defer and parallelize work that involves
+storing the results of computation.
 
 By enqueuing with L{twisted.enterprise.queue}, you may guarantee that the work
 will I{eventually} be done, and reliably commit to doing it in the future, but
@@ -78,37 +79,63 @@ Such an application might be implemented with this queueing system like so::
             queuer.enqueueWork(txn, CouponWork, customerID=customerID)
 """
 
-from socket import getfqdn
 from functools import wraps
-from os import getpid
 from datetime import datetime
 
 from zope.interface import implements
 
-from twisted.application.service import Service
+from twisted.application.service import MultiService
 from twisted.internet.protocol import Factory
 from twisted.internet.defer import (
-    inlineCallbacks, returnValue, Deferred, succeed
+    inlineCallbacks, returnValue, Deferred, passthru
 )
 from twisted.internet.endpoints import TCP4ClientEndpoint
 from twisted.protocols.amp import AMP, Command, Integer, Argument, String
 from twisted.python.reflect import qual
 from twisted.python import log
 
-from twext.enterprise.dal.syntax import TableSyntax, SchemaSyntax
+from twext.enterprise.dal.syntax import SchemaSyntax, Lock, NamedValue
+
 from twext.enterprise.dal.model import ProcedureCall
-from twext.enterprise.dal.syntax import NamedValue
 from twext.enterprise.dal.record import Record, fromTable
 from twisted.python.failure import Failure
-from twisted.internet.defer import passthru
+
 from twext.enterprise.dal.model import Table, Schema, SQLType, Constraint
 from twisted.internet.endpoints import TCP4ServerEndpoint
-from twext.enterprise.dal.syntax import Lock
 from twext.enterprise.ienterprise import IQueuer
+from zope.interface.interface import Interface
+from twext.enterprise.locking import NamedLock
+
+
+class _IWorkPerformer(Interface):
+    """
+    An object that can perform work.
+
+    Internal interface; implemented by several classes here since work has to
+    (in the worst case) pass from worker->controller->controller->worker.
+    """
+
+    def performWork(table, workID):
+        """
+        @param table: The table where work is waiting.
+        @type table: L{TableSyntax}
+
+        @param workID: The primary key identifier of the given work.
+        @type workID: L{int}
+
+        @return: a L{Deferred} firing with an empty dictionary when the work is
+            complete.
+        @rtype: L{Deferred} firing L{dict}
+        """
+
+
 
 def makeNodeSchema(inSchema):
     """
-    Create a self-contained schema for L{NodeInfo} to use.
+    Create a self-contained schema for L{NodeInfo} to use, in C{inSchema}.
+
+    @param inSchema: a L{Schema} to add the node-info table to.
+    @type inSchema: L{Schema}
 
     @return: a schema with just the one table.
     """
@@ -116,6 +143,7 @@ def makeNodeSchema(inSchema):
     # should really be accomplished with independent schema objects that the
     # transaction is made aware of somehow.
     NodeTable = Table(inSchema, 'NODE_INFO')
+
     NodeTable.addColumn("HOSTNAME", SQLType("varchar", 255))
     NodeTable.addColumn("PID", SQLType("integer", None))
     NodeTable.addColumn("PORT", SQLType("integer", None))
@@ -128,9 +156,11 @@ def makeNodeSchema(inSchema):
         NodeTable.tableConstraint(Constraint.NOT_NULL, [column.name])
     NodeTable.primaryKey = [NodeTable.columnNamed("HOSTNAME"),
                             NodeTable.columnNamed("PORT")]
+
     return inSchema
 
 NodeInfoSchema = SchemaSyntax(makeNodeSchema(Schema(__file__)))
+
 
 
 @inlineCallbacks
@@ -162,6 +192,14 @@ def inTransaction(transactionCreator, operation):
 
 
 
+def astimestamp(v):
+    """
+    Convert the given datetime to a POSIX timestamp.
+    """
+    return (v - datetime.utcfromtimestamp(0)).total_seconds()
+
+
+
 class TableSyntaxByName(Argument):
     """
     Serialize and deserialize L{TableSyntax} objects for an AMP protocol with
@@ -178,7 +216,7 @@ class TableSyntaxByName(Argument):
 
         @param proto: an L{SchemaAMP}
         """
-        return TableSyntax(proto.schema.tableNamed(inString.decode("UTF-8")))
+        return getattr(proto.schema, inString.decode("UTF-8"))
 
 
     def toString(self, inObject):
@@ -229,16 +267,97 @@ def abstract(thunk):
 
 class WorkItem(Record):
     """
-    An item of work.
+    A L{WorkItem} is an item of work which may be stored in a database, then
+    executed later.
 
-    @ivar workID: the unique identifier (primary key) for items of this type.
-        There must be a corresponding column in the database.
-    @type workID: L{int}
+    L{WorkItem} is an abstract class, since it is a L{Record} with no table
+    associated via L{fromTable}.  Concrete subclasses must associate a specific
+    table by inheriting like so::
 
-    @cvar created: the timestamp that a given item was created, or the column
-        describing its creation time, on the class.
-    @type created: L{datetime.datetime}
+        class MyWorkItem(WorkItem, fromTable(schema.MY_TABLE)):
+
+    Concrete L{WorkItem}s should generally not be created directly; they are
+    both created and thereby implicitly scheduled to be executed by calling
+    L{enqueueWork <twext.enterprise.ienterprise.IQueuer.enqueueWork>} with the
+    appropriate L{WorkItem} concrete subclass.  There are different queue
+    implementations (L{PeerConnectionPool} and L{LocalQueuer}, for example), so
+    the exact timing and location of the work execution may differ.
+
+    L{WorkItem}s may be constrained in the ordering and timing of their
+    execution, to control concurrency and for performance reasons repsectively.
+
+    Although all the usual database mutual-exclusion rules apply to work
+    executed in L{WorkItem.doWork}, implicit database row locking is not always
+    the best way to manage concurrency.  They have some problems, including:
+
+        - implicit locks are easy to accidentally acquire out of order, which
+          can lead to deadlocks
+
+        - implicit locks are easy to forget to acquire correctly - for example,
+          any read operation which subsequently turns into a write operation
+          must have been acquired with C{Select(..., ForUpdate=True)}, but it
+          is difficult to consistently indicate that methods which abstract out
+          read operations must pass this flag in certain cases and not others.
+
+        - implicit locks are held until the transaction ends, which means that
+          if expensive (long-running) queue operations share the same lock with
+          cheap (short-running) queue operations or user interactions, the
+          cheap operations all have to wait for the expensive ones to complete,
+          but continue to consume whatever database resources they were using.
+
+    In order to ameliorate these problems with potentiallly concurrent work
+    that uses the same resources, L{WorkItem} provides a database-wide mutex
+    that is automatically acquired at the beginning of the transaction and
+    released at the end.  To use it, simply L{align
+    <twext.enterprise.dal.record.Record.namingConvention>} the C{group}
+    attribute on your L{WorkItem} subclass with a column holding a string
+    (varchar).  L{WorkItem} subclasses with the same value for C{group} will
+    not execute their C{doWork} methods concurrently.  Furthermore, if the lock
+    cannot be quickly acquired, database resources associated with the
+    transaction attempting it will be released, and the transaction rolled back
+    until a future transaction I{can} can acquire it quickly.  If you do not
+    want any limits to concurrency, simply leave it set to C{None}.
+
+    In some applications it's possible to coalesce work together; to grab
+    multiple L{WorkItem}s in one C{doWork} transaction.  All you need to do is
+    to delete the rows which back other L{WorkItem}s from the database, and
+    they won't be processed.  Using the C{group} attribute, you can easily
+    prevent concurrency so that you can easily group these items together and
+    remove them as a set (otherwise, other workers might be attempting to
+    concurrently work on them and you'll get deletion errors).
+
+    However, if doing more work at once is less expensive, and you want to
+    avoid processing lots of individual rows in tiny transactions, you may also
+    delay the execution of a L{WorkItem} by setting its C{notBefore} attribute.
+    This must be backed by a database timestamp, so that processes which happen
+    to be restarting and examining the work to be done in the database don't
+    jump the gun and do it too early.
+
+    @cvar workID: the unique identifier (primary key) for items of this type.
+        On an instance of a concrete L{WorkItem} subclass, this attribute must
+        be an integer; on the concrete L{WorkItem} subclass itself, this
+        attribute must be a L{twext.enterprise.dal.syntax.ColumnSyntax}.  Note
+        that this is automatically taken care of if you simply have a
+        corresponding C{work_id} column in the associated L{fromTable} on your
+        L{WorkItem} subclass.  This column must be unique, and it must be an
+        integer.  In almost all cases, this column really ought to be filled
+        out by a database-defined sequence; if not, you need some other
+        mechanism for establishing a cluster-wide sequence.
+    @type workID: L{int} on instance,
+        L{twext.enterprise.dal.syntax.ColumnSyntax} on class.
+
+    @cvar notBefore: the timestamp before which this item should I{not} be
+        processed.  If unspecified, this should be the date and time of the
+        creation of the L{WorkItem}.
+    @type notBefore: L{datetime.datetime} on instance,
+        L{twext.enterprise.dal.syntax.ColumnSyntax} on class.
+
+    @ivar group: If not C{None}, a unique-to-the-database identifier for which
+        only one L{WorkItem} will execute at a time.
+    @type group: L{unicode} or L{NoneType}
     """
+
+    group = None
 
     @abstract
     def doWork(self):
@@ -266,11 +385,13 @@ class WorkItem(Record):
         @return: the relevant subclass
         @rtype: L{type}
         """
+        tableName = table.model.name
         for subcls in cls.__subclasses__():
-            if table == getattr(subcls, "table", None):
+            clstable = getattr(subcls, "table", None)
+            if table == clstable:
                 return subcls
         raise KeyError("No mapped {0} class for {1}.".format(
-            cls, table
+            cls, tableName
         ))
 
 
@@ -301,13 +422,16 @@ class ReportLoad(Command):
     response = []
 
 
+
 class IdentifyNode(Command):
     """
     Identify this node to its peer.  The connector knows which hostname it's
     looking for, and which hostname it considers itself to be, only the
     initiator (not the listener) issues this command.  This command is
-    necessary because if reverse DNS isn't set up perfectly, the listener may
-    not be able to identify its peer.
+    necessary because we don't want to rely on DNS; if reverse DNS weren't set
+    up perfectly, the listener would not be able to identify its peer, and it
+    is easier to modify local configuration so that L{socket.getfqdn} returns
+    the right value than to ensure that DNS doesself.
     """
 
     arguments = [
@@ -335,21 +459,37 @@ class ConnectionFromPeerNode(SchemaAMP):
     """
     A connection to a peer node.  Symmetric; since the 'client' and the
     'server' both serve the same role, the logic is the same in every node.
+
+    @ivar localWorkerPool: the pool of local worker procesess that can process
+        queue work.
+    @type localWorkerPool: L{WorkerConnectionPool}
+
+    @ivar _reportedLoad: The number of outstanding requests being processed by
+        the peer of this connection, from all requestors (both the host of this
+        connection and others), as last reported by the most recent
+        L{ReportLoad} message received from the peer.
+    @type _reportedLoad: L{int}
+
+    @ivar _bonusLoad: The number of additional outstanding requests being
+        processed by the peer of this connection; the number of requests made
+        by the host of this connection since the last L{ReportLoad} message.
+    @type _bonusLoad: L{int}
     """
+    implements(_IWorkPerformer)
 
     def __init__(self, peerPool, boxReceiver=None, locator=None):
         """
-        Initialize this L{ConnectionFromPeerNode} with a reference to a pool of
-        local workers.
+        Initialize this L{ConnectionFromPeerNode} with a reference to a
+        L{PeerConnectionPool}, as well as required initialization arguments for
+        L{AMP}.
 
-        @param localWorkerPool: the pool of local worker procesess that can
-            process queue work.
-        @type localWorkerPool: L{WorkerConnectionPool}
+        @param peerPool: the connection pool within which this
+            L{ConnectionFromPeerNode} is a participant.
+        @type peerPool: L{PeerConnectionPool}
 
         @see: L{AMP.__init__}
         """
         self.peerPool = peerPool
-        self.localWorkerPool = peerPool.workerPool
         self._bonusLoad = 0
         self._reportedLoad = 0
         super(ConnectionFromPeerNode, self).__init__(peerPool.schema,
@@ -360,12 +500,11 @@ class ConnectionFromPeerNode(SchemaAMP):
         """
         Report the current load for the local worker pool to this peer.
         """
-        return self.callRemote(ReportLoad,
-                               load=self.localWorkerPool.totalLoad())
+        return self.callRemote(ReportLoad, load=self.totalLoad())
 
 
     @ReportLoad.responder
-    def repotedLoad(self, load):
+    def reportedLoad(self, load):
         """
         The peer reports its load.
         """
@@ -410,15 +549,7 @@ class ConnectionFromPeerNode(SchemaAMP):
         specific peer node-controller process to perform some work, having
         already determined that it's appropriate.
 
-        @param table: The table where work is waiting.
-        @type table: L{TableSyntax}
-
-        @param workID: The primary key identifier of the given work.
-        @type workID: L{int}
-
-        @return: a L{Deferred} firing with an empty dictionary when the work is
-            complete.
-        @rtype: L{Deferred} firing L{dict}
+        @see: L{_IWorkPerformer.performWork}
         """
         d = self.callRemote(PerformWork, table=table, workID=workID)
         self._bonusLoad += 1
@@ -426,6 +557,9 @@ class ConnectionFromPeerNode(SchemaAMP):
         def performed(result):
             self._bonusLoad -= 1
             return result
+        @d.addCallback
+        def success(result):
+            return None
         return d
 
 
@@ -443,12 +577,15 @@ class ConnectionFromPeerNode(SchemaAMP):
 
         @return: a L{Deferred} that fires when the work has been completed.
         """
-        return self.localWorkerPool.performWork(table, workID)
+        return self.peerPool.performWorkForPeer(table, workID).addCallback(
+            lambda ignored: {}
+        )
 
 
     @IdentifyNode.responder
     def identifyPeer(self, host, port):
         self.peerPool.mapPeer(host, port, self)
+        return {}
 
 
 
@@ -460,8 +597,9 @@ class WorkerConnectionPool(object):
     L{ConnectionFromPeerNode}, but one that dispenses work to the local worker
     processes rather than to a remote connection pool.
     """
+    implements(_IWorkPerformer)
 
-    def __init__(self, maximumLoadPerWorker=0):
+    def __init__(self, maximumLoadPerWorker=5):
         self.workers = []
         self.maximumLoadPerWorker = maximumLoadPerWorker
 
@@ -488,12 +626,12 @@ class WorkerConnectionPool(object):
         hasAvailableCapacity to process another queue item?
         """
         for worker in self.workers:
-            if worker.currentLoad() < self.maximumLoadPerWorker:
+            if worker.currentLoad < self.maximumLoadPerWorker:
                 return True
         return False
 
 
-    def totalLoad(self):
+    def allWorkerLoad(self):
         """
         The total load of all currently connected workers.
         """
@@ -526,7 +664,9 @@ class WorkerConnectionPool(object):
             complete.
         @rtype: L{Deferred} firing L{dict}
         """
-        return self._selectLowestLoadWorker().performWork(table, workID)
+        preferredWorker = self._selectLowestLoadWorker()
+        result = preferredWorker.performWork(table, workID)
+        return result
 
 
 
@@ -534,15 +674,12 @@ class ConnectionFromWorker(SchemaAMP):
     """
     An individual connection from a worker, as seem from the master's
     perspective.  L{ConnectionFromWorker}s go into a L{WorkerConnectionPool}.
-
-    @ivar workerPool: The connection pool that this individual connection is
-        participating in.
-    @type workerPool: L{WorkerConnectionPool}
     """
 
-    def __init__(self, schema, workerPool, boxReceiver=None, locator=None):
-        self.workerPool = workerPool
-        super(ConnectionFromWorker, self).__init__(schema, boxReceiver, locator)
+    def __init__(self, peerPool, boxReceiver=None, locator=None):
+        super(ConnectionFromWorker, self).__init__(peerPool.schema, boxReceiver,
+                                                   locator)
+        self.peerPool = peerPool
         self._load = 0
 
 
@@ -560,7 +697,7 @@ class ConnectionFromWorker(SchemaAMP):
         state.
         """
         result = super(ConnectionFromWorker, self).startReceivingBoxes(sender)
-        self.workerPool.addWorker(self)
+        self.peerPool.workerPool.addWorker(self)
         return result
 
 
@@ -569,7 +706,7 @@ class ConnectionFromWorker(SchemaAMP):
         AMP boxes will no longer be received.
         """
         result = super(ConnectionFromWorker, self).stopReceivingBoxes(reason)
-        self.workerPool.removeWorker(self)
+        self.peerPool.workerPool.removeWorker(self)
         return result
 
 
@@ -620,7 +757,7 @@ class ConnectionFromController(SchemaAMP):
         C{self}, since C{self} is also an object that has a C{performWork}
         method.
         """
-        return succeed(self)
+        return self
 
 
     def performWork(self, table, workID):
@@ -632,9 +769,9 @@ class ConnectionFromController(SchemaAMP):
 
     def enqueueWork(self, txn, workItemType, **kw):
         """
-        There is some work to do.  Do it, someplace else, ideally in parallel.
-        Later, let the caller know that the work has been completed by firing a
-        L{Deferred}.
+        There is some work to do.  Do it, ideally someplace else, ideally in
+        parallel.  Later, let the caller know that the work has been completed
+        by firing a L{Deferred}.
 
         @param workItemType: The type of work item to be enqueued.
         @type workItemType: A subtype of L{WorkItem}
@@ -659,18 +796,64 @@ class ConnectionFromController(SchemaAMP):
         process has instructed this worker to do it; so, look up the data in
         the row, and do it.
         """
-        @inlineCallbacks
-        def work(txn):
-            workItemClass = WorkItem.forTable(table)
-            workItem = yield workItemClass.load(txn, workID)
-            # TODO: what if we fail?  error-handling should be recorded
-            # someplace, the row should probably be marked, re-tries should be
-            # triggerable administratively.
-            yield workItem.delete()
-            # TODO: verify that workID is the primary key someplace.
-            yield workItem.doWork()
-            returnValue({})
-        return inTransaction(self.transactionFactory, work)
+        return (ultimatelyPerform(self.transactionFactory, table, workID)
+                .addCallback(lambda ignored: {}))
+
+
+
+def ultimatelyPerform(txnFactory, table, workID):
+    """
+    Eventually, after routing the work to the appropriate place, somebody
+    actually has to I{do} it.
+
+    @param txnFactory: a 0- or 1-argument callable that creates an
+        L{IAsyncTransaction}
+    @type txnFactory: L{callable}
+
+    @param table: the table object that corresponds to the necessary work item
+    @type table: L{twext.enterprise.dal.syntax.TableSyntax}
+
+    @param workID: the ID of the work to be performed
+    @type workID: L{int}
+
+    @return: a L{Deferred} which fires with C{None} when the work has been
+        performed, or fails if the work can't be performed.
+    """
+    @inlineCallbacks
+    def work(txn):
+        workItemClass = WorkItem.forTable(table)
+        workItem = yield workItemClass.load(txn, workID)
+        if workItem.group is not None:
+            yield NamedLock.acquire(txn, workItem.group)
+        # TODO: what if we fail?  error-handling should be recorded someplace,
+        # the row should probably be marked, re-tries should be triggerable
+        # administratively.
+        yield workItem.delete()
+        # TODO: verify that workID is the primary key someplace.
+        yield workItem.doWork()
+    return inTransaction(txnFactory, work)
+
+
+
+class LocalPerformer(object):
+    """
+    Implementor of C{performWork} that does its work in the local process,
+    regardless of other conditions.
+    """
+    implements(_IWorkPerformer)
+
+    def __init__(self, txnFactory):
+        """
+        Create this L{LocalPerformer} with a transaction factory.
+        """
+        self.txnFactory = txnFactory
+
+
+    def performWork(self, table, workID):
+        """
+        Perform the given work right now.
+        """
+        return ultimatelyPerform(self.txnFactory, table, workID)
 
 
 
@@ -724,9 +907,10 @@ class WorkProposal(object):
     A L{WorkProposal} is a proposal for work that will be executed, perhaps on
     another node, perhaps in the future.
 
-    @ivar pool: the connection pool which this L{WorkProposal} will use to
-        submit its work.
-    @type pool: L{PeerConnectionPool}
+    @ivar _chooser: The object which will choose where the work in this
+        proposal gets performed.  This must have both a C{choosePerformer}
+        method and a C{reactor} attribute, providing an L{IReactorTime}.
+    @type _chooser: L{PeerConnectionPool} or L{LocalQueuer}
 
     @ivar txn: The transaction where the work will be enqueued.
     @type txn: L{IAsyncTransaction}
@@ -739,8 +923,8 @@ class WorkProposal(object):
     @type kw: L{dict}
     """
 
-    def __init__(self, pool, txn, workItemType, kw):
-        self.pool = pool
+    def __init__(self, chooser, txn, workItemType, kw):
+        self._chooser = chooser
         self.txn = txn
         self.workItemType = workItemType
         self.kw = kw
@@ -756,22 +940,25 @@ class WorkProposal(object):
         commit, and asking the local node controller process to do the work.
         """
         @passthru(self.workItemType.create(self.txn, **self.kw).addCallback)
-        def created(item):
-            self._whenProposed.callback(None)
+        def whenCreated(item):
+            self._whenProposed.callback(self)
             @self.txn.postCommit
             def whenDone():
-                self._whenCommitted.callback(None)
-                @passthru(self.pool.choosePerformer().addCallback)
-                def performerChosen(performer):
-                    @passthru(performer.performWork(item.table, item.workID))
+                self._whenCommitted.callback(self)
+                def maybeLater():
+                    performer = self._chooser.choosePerformer()
+                    @passthru(performer.performWork(item.table, item.workID)
+                              .addCallback)
                     def performed(result):
-                        self._whenExecuted.callback(None)
+                        self._whenExecuted.callback(self)
                     @performed.addErrback
                     def notPerformed(why):
                         self._whenExecuted.errback(why)
-                @performerChosen.addErrback
-                def notChosen(whyNot):
-                    self._whenExecuted.errback(whyNot)
+                reactor = self._chooser.reactor
+                when = max(0, astimestamp(item.notBefore) - reactor.seconds())
+                # TODO: Track the returned DelayedCall so it can be stopped when
+                # the service stops.
+                self._chooser.reactor.callLater(when, maybeLater)
             @self.txn.postAbort
             def whenFailed():
                 self._whenCommitted.errback(TransactionFailed)
@@ -794,8 +981,8 @@ class WorkProposal(object):
             completed within the transaction of the L{WorkItem.doWork} that
             gets executed.
 
-        @return: a L{Deferred} that fires with C{None} when the work has been
-            completed remotely.
+        @return: a L{Deferred} that fires with this L{WorkProposal} when the
+            work has been completed remotely.
         """
         return _cloneDeferred(self._whenExecuted)
 
@@ -805,9 +992,10 @@ class WorkProposal(object):
         Let the caller know when the work has been proposed; i.e. when the work
         is first transmitted to the database.
 
-        @return: a L{Deferred} that fires with C{None} when the relevant
-            commands have been sent to the database to create the L{WorkItem},
-            and fails if those commands do not succeed for some reason.
+        @return: a L{Deferred} that fires with this L{WorkProposal} when the
+            relevant commands have been sent to the database to create the
+            L{WorkItem}, and fails if those commands do not succeed for some
+            reason.
         """
         return _cloneDeferred(self._whenProposed)
 
@@ -818,15 +1006,15 @@ class WorkProposal(object):
         transaction where the work was proposed has been committed to the
         database.
 
-        @return: a L{Deferred} that fires with C{None} when the relevant
-            transaction has been committed, or fails if the transaction is not
-            committed for any reason.
+        @return: a L{Deferred} that fires with this L{WorkProposal} when the
+            relevant transaction has been committed, or fails if the
+            transaction is not committed for any reason.
         """
         return _cloneDeferred(self._whenCommitted)
 
 
 
-class PeerConnectionPool(Service, object):
+class PeerConnectionPool(MultiService, object):
     """
     Each node has a L{PeerConnectionPool} connecting it to all the other nodes
     currently active on the same database.
@@ -844,8 +1032,10 @@ class PeerConnectionPool(Service, object):
         up or if it is shutting down.
     @type thisProcess: L{NodeInfo}
 
-    @ivar queueProcessTimeout: The maximum amount of time allowed for a queue
-        item to be processed.  By default, 10 minutes.
+    @ivar queueProcessTimeout: The amount of time after a L{WorkItem} is
+        scheduled to be processed (its C{notBefore} attribute) that it is
+        considered to be "orphaned" and will be run by a lost-work check rather
+        than waiting for it to be requested.  By default, 10 minutes.
     @type queueProcessTimeout: L{float} (in seconds)
 
     @ivar queueDelayedProcessInterval: The amount of time between database
@@ -865,6 +1055,8 @@ class PeerConnectionPool(Service, object):
     """
     implements(IQueuer)
 
+    from socket import getfqdn
+    from os import getpid
     getfqdn = staticmethod(getfqdn)
     getpid = staticmethod(getpid)
 
@@ -889,6 +1081,7 @@ class PeerConnectionPool(Service, object):
             the L{WorkItem}s that this L{PeerConnectionPool} will process.
         @type schema: L{Schema}
         """
+        super(PeerConnectionPool, self).__init__()
         self.reactor = reactor
         self.transactionFactory = transactionFactory
         self.hostname = self.getfqdn()
@@ -912,13 +1105,16 @@ class PeerConnectionPool(Service, object):
         self.peers.append(peer)
 
 
+    def totalLoad(self):
+        return self.workerPool.allWorkerLoad()
+
+
     def workerListenerFactory(self):
         """
         Factory that listens for connections from workers.
         """
         f = Factory()
-        f.buildProtocol = lambda addr: ConnectionFromWorker(self.schema,
-                                                            self.workerPool)
+        f.buildProtocol = lambda addr: ConnectionFromWorker(self)
         return f
 
 
@@ -929,7 +1125,7 @@ class PeerConnectionPool(Service, object):
         self.peers.remove(peer)
 
 
-    def choosePerformer(self):
+    def choosePerformer(self, onlyLocally=False):
         """
         Choose a peer to distribute work to based on the current known slot
         occupancy of the other nodes.  Note that this will prefer distributing
@@ -937,18 +1133,24 @@ class PeerConnectionPool(Service, object):
         should be lower-latency.  Also, if no peers are available, work will be
         submitted locally even if the worker pool is already over-subscribed.
 
-        @return: a L{Deferred <twisted.internet.defer.Deferred>} which fires
-            with the chosen 'peer', i.e. object with a C{performWork} method,
-            as soon as one is available.  Normally this will be synchronous,
-            but we need to account for the possibility that we may need to
-            connect to other hosts.
-        @rtype: L{Deferred <twisted.internet.defer.Deferred>} firing
-            L{ConnectionFromPeerNode} or L{WorkerConnectionPool}
+        @return: the chosen peer.
+        @rtype: L{_IWorkPerformer} L{ConnectionFromPeerNode} or
+            L{WorkerConnectionPool}
         """
-        if not self.workerPool.hasAvailableCapacity() and self.peers:
+        if self.workerPool.hasAvailableCapacity():
+            return self.workerPool
+        if self.peers and not onlyLocally:
             return sorted(self.peers, lambda p: p.currentLoadEstimate())[0]
         else:
-            return succeed(self.workerPool)
+            return LocalPerformer(self.transactionFactory)
+
+
+    def performWorkForPeer(self, table, workID):
+        """
+        A peer has requested us to perform some work; choose a work performer
+        local to this node, and then execute it.
+        """
+        return self.choosePerformer(onlyLocally=True).performWork(table, workID)
 
 
     def enqueueWork(self, txn, workItemType, **kw):
@@ -1022,19 +1224,23 @@ class PeerConnectionPool(Service, object):
         """
         @inlineCallbacks
         def workCheck(txn):
-
-            nodes = [(node.hostname, node.port) for node in
-                     (yield self.activeNodes(txn))]
-            nodes.sort()
-            self._lastSeenTotalNodes = len(nodes)
-            self._lastSeenNodeIndex = nodes.index((self.thisProcess.hostname,
-                                                   self.thisProcess.port))
+            if self.thisProcess:
+                nodes = [(node.hostname, node.port) for node in
+                         (yield self.activeNodes(txn))]
+                nodes.sort()
+                self._lastSeenTotalNodes = len(nodes)
+                self._lastSeenNodeIndex = nodes.index(
+                    (self.thisProcess.hostname, self.thisProcess.port)
+                )
             for itemType in self.allWorkItemTypes():
-                for overdueItem in (
-                        yield itemType.query(
-                            txn, itemType.created > self.queueProcessTimeout
-                    )):
-                    peer = yield self.choosePerformer()
+                tooLate = datetime.utcfromtimestamp(
+                    self.reactor.seconds() - self.queueProcessTimeout
+                )
+                overdueItems = (yield itemType.query(
+                    txn, (itemType.notBefore < tooLate))
+                )
+                for overdueItem in overdueItems:
+                    peer = self.choosePerformer()
                     yield peer.performWork(overdueItem.table,
                                            overdueItem.workID)
         return inTransaction(self.transactionFactory, workCheck)
@@ -1077,11 +1283,10 @@ class PeerConnectionPool(Service, object):
         @inlineCallbacks
         def startup(txn):
             endpoint = TCP4ServerEndpoint(self.reactor, self.ampPort)
-            f = Factory()
-            f.buildProtocol = self.createPeerConnection
             # If this fails, the failure mode is going to be ugly, just like all
             # conflicted-port failures.  But, at least it won't proceed.
-            yield endpoint.listen(f)
+            self._listeningPortObject = yield endpoint.listen(self.peerFactory())
+            self.ampPort = self._listeningPortObject.getHost().port
             yield Lock.exclusive(NodeInfo.table).on(txn)
             nodes = yield self.activeNodes(txn)
             selves = [node for node in nodes
@@ -1104,6 +1309,7 @@ class PeerConnectionPool(Service, object):
         @self._startingUp.addBoth
         def done(result):
             self._startingUp = None
+            super(PeerConnectionPool, self).startService()
             return result
 
 
@@ -1122,7 +1328,7 @@ class PeerConnectionPool(Service, object):
         if self._currentWorkDeferred is not None:
             yield self._currentWorkDeferred
         for peer in self.peers:
-            peer.transport.loseConnection()
+            peer.transport.abortConnection()
 
 
     def activeNodes(self, txn):
@@ -1151,80 +1357,80 @@ class PeerConnectionPool(Service, object):
         @param node: a description of the master to connect to.
         @type node: L{NodeInfo}
         """
-        f = Factory()
-        f.buildProtocol = self.createPeerConnection
-        @passthru(node.endpoint(self.reactor).connect(f).addCallback)
-        def connected(proto):
-            self.mapPeer(node, proto)
-            proto.callRemote(IdentifyNode, self.thisProcess)
+        connected = node.endpoint(self.reactor).connect(self.peerFactory())
+        def whenConnected(proto):
+            self.mapPeer(node.hostname, node.port, proto)
+            proto.callRemote(IdentifyNode,
+                             host=self.thisProcess.hostname,
+                             port=self.thisProcess.port).addErrback(
+                                 noted, "identify"
+                             )
+        def noted(err, x="connect"):
+            log.msg("Could not {0} to cluster peer {1} because {2}"
+                    .format(x, node, str(err.value)))
+        connected.addCallbacks(whenConnected, noted)
 
 
-    def createPeerConnection(self, addr):
-        return ConnectionFromPeerNode(self)
+    def peerFactory(self):
+        """
+        Factory for peer connections.
+
+        @return: a L{Factory} that will produce L{ConnectionFromPeerNode}
+            protocols attached to this L{PeerConnectionPool}.
+        """
+        return _PeerPoolFactory(self)
 
 
 
-class ImmediateWorkProposal(object):
+class _PeerPoolFactory(Factory, object):
     """
-    Like L{WorkProposal}, but for items that must be executed immediately
-    because no real queue is set up yet.
-
-    @see: L{WorkProposal}, L{NullQueuer.enqueueWork}
+    Protocol factory responsible for creating L{ConnectionFromPeerNode}
+    connections, both client and server.
     """
-    def __init__(self, proposed, done):
-        self.proposed = proposed
-        self.done = done
+
+    def __init__(self, peerConnectionPool):
+        self.peerConnectionPool = peerConnectionPool
 
 
-    def whenExecuted(self):
-        return _cloneDeferred(self.done)
-
-
-    def whenProposed(self):
-        return _cloneDeferred(self.proposed)
-
-
-    def whenCommitted(self):
-        return _cloneDeferred(self.done)
+    def buildProtocol(self, addr):
+        return ConnectionFromPeerNode(self.peerConnectionPool)
 
 
 
-class NullQueuer(object):
+class LocalQueuer(object):
     """
-    When work is enqueued with this queuer, it is just executed immediately,
-    within the same transaction.  While this is technically correct, it is not
-    very efficient.
+    When work is enqueued with this queuer, it is just executed locally.
     """
     implements(IQueuer)
 
+    def __init__(self, txnFactory, reactor=None):
+        self.txnFactory = txnFactory
+        if reactor is None:
+            from twisted.internet import reactor
+        self.reactor = reactor
+
+
+    def choosePerformer(self):
+        """
+        Choose to perform the work locally.
+        """
+        return LocalPerformer(self.txnFactory)
+
+
     def enqueueWork(self, txn, workItemType, **kw):
         """
-        Do this work immediately.
+        Do this work in the local process.
 
         @see: L{PeerConnectionPool.enqueueWork}
 
         @return: a pseudo work proposal, since everything completes at the same
             time.
-        @rtype: L{ImmediateWorkProposal}
+        @rtype: L{WorkProposal}
         """
-        proposed = Deferred()
-        done = Deferred()
-        @inlineCallbacks
-        def doit():
-            item = yield self.workItemType.create(self.txn, **self.kw)
-            proposed.callback(True)
-            yield item.delete()
-            yield item.doWork()
-        @txn.postCommit
-        def committed():
-            done.callback(True)
-        @txn.postAbort
-        def aborted():
-            tf = TransactionFailed()
-            done.errback(tf)
-            if not proposed.called:
-                proposed.errback(tf)
-        return ImmediateWorkProposal(proposed, done)
+        wp = WorkProposal(self, txn, workItemType, kw)
+        wp._start()
+        return wp
+
 
 
 

@@ -1,6 +1,6 @@
 # -*- test-case-name: twistedcaldav.test.test_resource,twistedcaldav.test.test_wrapping -*-
 ##
-# Copyright (c) 2005-2012 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2013 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -1874,7 +1874,7 @@ class CalendarPrincipalResource (CalDAVComplianceMixIn, DAVResourceWithChildrenM
             if self.directoryAddressBookEnabled():
                 baseProperties += (carddavxml.DirectoryGateway.qname(),)
 
-        if config.EnableDropBox:
+        if config.EnableDropBox or config.EnableManagedAttachments:
             baseProperties += (customxml.DropBoxHomeURL.qname(),)
 
         if config.Sharing.Enabled:
@@ -1937,7 +1937,7 @@ class CalendarPrincipalResource (CalDAVComplianceMixIn, DAVResourceWithChildrenM
                 returnValue(caldavxml.CalendarUserType(self.record.getCUType()))
 
         elif namespace == calendarserver_namespace:
-            if name == "dropbox-home-URL" and config.EnableDropBox:
+            if name == "dropbox-home-URL" and (config.EnableDropBox or config.EnableManagedAttachments):
                 url = self.dropboxURL()
                 if url is None:
                     returnValue(None)
@@ -2606,13 +2606,13 @@ class CalendarHomeResource(DefaultAlarmPropertyMixin, CommonHomeResource):
         from twistedcaldav.scheduling.caldav.resource import ScheduleOutboxResource
         self._provisionedChildren["outbox"] = ScheduleOutboxResource
 
-        if config.EnableDropBox:
+        if config.EnableDropBox and not config.EnableManagedAttachments:
             from twistedcaldav.storebridge import DropboxCollection
             self._provisionedChildren["dropbox"] = DropboxCollection
 
         if config.EnableManagedAttachments:
             from twistedcaldav.storebridge import AttachmentsCollection
-            self._provisionedChildren["attachments"] = AttachmentsCollection
+            self._provisionedChildren["dropbox"] = AttachmentsCollection
 
         if config.FreeBusyURL.Enabled:
             from twistedcaldav.freebusyurl import FreeBusyURLResource
@@ -2774,7 +2774,7 @@ class CalendarHomeResource(DefaultAlarmPropertyMixin, CommonHomeResource):
                 changed.append("notification/")
 
             # Dropbox is never synchronized
-            if config.EnableDropBox:
+            if config.EnableDropBox or config.EnableManagedAttachments:
                 notallowed.append("dropbox/")
 
         # Add in notification changes
