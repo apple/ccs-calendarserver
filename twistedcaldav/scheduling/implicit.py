@@ -613,6 +613,8 @@ class ImplicitScheduler(object):
                 # Check for removed attendees
                 if not recurrence_reschedule:
                     self.findRemovedAttendees()
+                else:
+                    self.findRemovedAttendeesOnRecurrenceChange()
 
                 # For now we always bump the sequence number on modifications because we cannot track DTSTAMP on
                 # the Attendee side. But we check the old and the new and only bump if the client did not already do it.
@@ -736,6 +738,10 @@ class ImplicitScheduler(object):
         """
         Look for attendees that have been removed from any instances. Save those off
         as users that need to be sent a cancel.
+
+        This method does not handle a full recurrence change (one where the RRULE pattern
+        changes or the associated DTSTART changes). For the full change we will have another
+        method to handle that.
         """
 
         # Several possibilities for when CANCELs need to be sent:
@@ -795,13 +801,37 @@ class ImplicitScheduler(object):
                 # as the set of attendees in the override may be different from the master set, but the override
                 # will have been accounted for by the previous attendee/instance logic.
                 if exdate not in removedInstances:
-                    self.cancelledAttendees.add((attendee, exdate))
+                    self.cancelledAttendees.add((attendee, exdate,))
 
         # For overridden instances added, check whether any attendees were removed from the master
         for attendee, _ignore in master_attendees:
             for rid in addedInstances:
                 if (attendee, rid) not in mappedNew and rid not in oldexdates:
-                    self.cancelledAttendees.add((attendee, rid))
+                    self.cancelledAttendees.add((attendee, rid,))
+
+
+    def findRemovedAttendeesOnRecurrenceChange(self):
+        """
+        Look for attendees that have been removed during a change to the overall recurrence.
+
+        This is a special case to try and minimize the number of cancels sent to just those
+        attendees actually removed. The basic policy is this:
+
+        1) If an attendee is present in the master component of the new event, they never
+        receive a CANCEL as they will always receive a REQUEST with the entire new event
+        data. i.e., they will see an event "replacement" rather than a cancel+new request.
+
+        2) For all attendees in the old event, not in the new master, send a cancel of
+        the master or each override they appear in. That happens even if they appear in an
+        override in the new calendar, since in all likelihood there is no guaranteed exact
+        mapping between old and new instances.
+        """
+
+        self.cancelledAttendees = set()
+        new_master_attendees = set([attendee for attendee, _ignore in self.calendar.masterComponent().getAttendeesByInstance(onlyScheduleAgentServer=True)])
+        for attendee, rid in self.oldAttendeesByInstance:
+            if attendee not in new_master_attendees:
+                self.cancelledAttendees.add((attendee, rid,))
 
 
     def coerceAttendeesPartstatOnCreate(self):
