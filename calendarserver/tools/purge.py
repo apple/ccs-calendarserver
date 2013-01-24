@@ -733,7 +733,7 @@ class PurgePrincipalService(WorkerService):
     def doWork(self):
 
         if self.root is None:
-            self.root = self.getRootResource()
+            self.root = self.rootResource()
         if self.directory is None:
             self.directory = self.root.getDirectory()
 
