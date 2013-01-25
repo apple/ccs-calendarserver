@@ -119,6 +119,11 @@ class iTipProcessing(object):
             organizer_schedule_status = organizer.parameterValue("SCHEDULE-STATUS", None) if organizer else None
             attendee = current_master.getAttendeeProperty((recipient,))
             attendee_dtstamp = attendee.parameterValue("X-CALENDARSERVER-DTSTAMP") if attendee else None
+            other_props = {}
+            for pname in config.Scheduling.CalDAV.PerAttendeeProperties:
+                props = tuple(current_master.properties(pname))
+                if props:
+                    other_props[pname] = props
         else:
             master_valarms = ()
             private_comments = ()
@@ -126,6 +131,7 @@ class iTipProcessing(object):
             completeds = ()
             organizer_schedule_status = None
             attendee_dtstamp = None
+            other_props = {}
 
         if itip_message.masterComponent() is not None:
 
@@ -150,11 +156,13 @@ class iTipProcessing(object):
                 attendee = master_component.getAttendeeProperty((recipient,))
                 if attendee:
                     attendee.setParameter("X-CALENDARSERVER-DTSTAMP", attendee_dtstamp)
+            for props in other_props.values():
+                [master_component.replaceProperty(prop) for prop in props]
 
             # Now try to match recurrences in the new calendar
             for component in tuple(new_calendar.subcomponents()):
                 if component.name() != "VTIMEZONE" and component.getRecurrenceIDUTC() is not None:
-                    iTipProcessing.transferItems(calendar, master_valarms, private_comments, transps, completeds, organizer_schedule_status, attendee_dtstamp, component, recipient)
+                    iTipProcessing.transferItems(calendar, master_valarms, private_comments, transps, completeds, organizer_schedule_status, attendee_dtstamp, other_props, component, recipient)
 
             # Now try to match recurrences from the old calendar
             for component in calendar.subcomponents():
@@ -165,7 +173,7 @@ class iTipProcessing(object):
                         new_component = new_calendar.deriveInstance(rid, allowCancelled=allowCancelled)
                         if new_component:
                             new_calendar.addComponent(new_component)
-                            iTipProcessing.transferItems(calendar, master_valarms, private_comments, transps, completeds, organizer_schedule_status, attendee_dtstamp, new_component, recipient)
+                            iTipProcessing.transferItems(calendar, master_valarms, private_comments, transps, completeds, organizer_schedule_status, attendee_dtstamp, other_props, new_component, recipient)
 
             # Replace the entire object
             return new_calendar, rids
@@ -182,7 +190,7 @@ class iTipProcessing(object):
                         calendar.addComponent(component)
                 else:
                     component = component.duplicate()
-                    missingDeclined = iTipProcessing.transferItems(calendar, master_valarms, private_comments, transps, completeds, organizer_schedule_status, attendee_dtstamp, component, recipient, remove_matched=True)
+                    missingDeclined = iTipProcessing.transferItems(calendar, master_valarms, private_comments, transps, completeds, organizer_schedule_status, attendee_dtstamp, other_props, component, recipient, remove_matched=True)
                     if not missingDeclined:
                         calendar.addComponent(component)
                         if recipient:
@@ -493,7 +501,7 @@ class iTipProcessing(object):
 
 
     @staticmethod
-    def transferItems(from_calendar, master_valarms, private_comments, transps, completeds, organizer_schedule_status, attendee_dtstamp, to_component, recipient, remove_matched=False):
+    def transferItems(from_calendar, master_valarms, private_comments, transps, completeds, organizer_schedule_status, attendee_dtstamp, other_props, to_component, recipient, remove_matched=False):
         """
         Transfer properties from a calendar to a component by first trying to match the component in the original calendar and
         use the properties from that, or use the values provided as arguments (which have been derived from the original calendar's
@@ -533,6 +541,9 @@ class iTipProcessing(object):
 
             if attendee and attendee_dtstamp:
                 attendee.setParameter("X-CALENDARSERVER-DTSTAMP", attendee_dtstamp)
+
+            for pname in config.Scheduling.CalDAV.PerAttendeeProperties:
+                [to_component.replaceProperty(prop) for prop in matched.properties(pname)]
         else:
             # Check for incoming DECLINED
             attendee = to_component.getAttendeeProperty((recipient,))
@@ -545,6 +556,7 @@ class iTipProcessing(object):
             [to_component.addProperty(comment) for comment in private_comments]
             [to_component.replaceProperty(transp) for transp in transps]
             [to_component.replaceProperty(completed) for completed in completeds]
+
             if organizer_schedule_status:
                 organizer = to_component.getProperty("ORGANIZER")
                 if organizer:
@@ -553,6 +565,9 @@ class iTipProcessing(object):
                 attendee = to_component.getAttendeeProperty((recipient,))
                 if attendee:
                     attendee.setParameter("X-CALENDARSERVER-DTSTAMP", attendee_dtstamp)
+
+            for props in other_props.values():
+                [to_component.replaceProperty(prop) for prop in props]
 
         return False
 

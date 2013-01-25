@@ -628,6 +628,13 @@ DEFAULT_CONFIG = {
             "OldDraftCompatibility"      : True, # Whether to maintain compatibility with non-implicit mode
             "ScheduleTagCompatibility"   : True, # Whether to support older clients that do not use Schedule-Tag feature
             "EnablePrivateComments"      : True, # Private comments from attendees to organizer
+            "PerAttendeeProperties"      : [     # Names of iCalendar properties that are preserved when an Attendee does an invite PUT
+                "X-APPLE-NEEDS-REPLY",
+                "X-APPLE-TRAVEL-DURATION",
+                "X-APPLE-TRAVEL-START",
+                "X-APPLE-TRAVEL-RETURN-DURATION",
+                "X-APPLE-TRAVEL-RETURN",
+            ],
         },
 
         "iSchedule": {
