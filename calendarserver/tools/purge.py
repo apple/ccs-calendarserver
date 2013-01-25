@@ -32,7 +32,7 @@ from twext.web2.responsecode import NO_CONTENT
 
 from twisted.application.service import Service
 from twisted.internet import reactor
-from twisted.internet.defer import inlineCallbacks, returnValue
+from twisted.internet.defer import inlineCallbacks, returnValue, succeed
 
 from twistedcaldav import caldavxml
 from twistedcaldav.caldavxml import TimeRange
@@ -81,6 +81,14 @@ class WorkerService(Service):
             else:
                 raise
         return rootResource
+
+
+    def doWork(self):
+        """
+        Turn off attendee refresh batching
+        """
+        config.Scheduling.Options.AttendeeRefreshBatch = 0
+        return succeed(None)
 
 
     @inlineCallbacks
@@ -219,6 +227,8 @@ class PurgeOldEventsService(WorkerService):
 
     @inlineCallbacks
     def doWork(self):
+
+        yield (WorkerService.doWork(self))
 
         if self.dryrun:
             if self.verbose:
@@ -402,6 +412,8 @@ class PurgeAttachmentsService(WorkerService):
 
     @inlineCallbacks
     def doWork(self):
+
+        yield (WorkerService.doWork(self))
 
         if self.dryrun:
             orphans = (yield self._orphansDryRun())
@@ -673,6 +685,8 @@ class PurgePrincipalService(WorkerService):
     @inlineCallbacks
     def doWork(self):
 
+        yield (WorkerService.doWork(self))
+
         if self.root is None:
             self.root = self.rootResource()
         if self.directory is None:
@@ -731,8 +745,8 @@ class PurgePrincipalService(WorkerService):
         storeCalHome = (yield txn.calendarHomeWithUID(uid))
         calHomeProvisioned = storeCalHome is not None
 
-        # If in "completely" mode, unshare collections, remove notifications
-        if calHomeProvisioned and self.completely:
+        # Unshare collections, remove notifications
+        if calHomeProvisioned:
 
             # Process shared-to-me calendars
             names = list((yield storeCalHome.listSharedChildren()))
