@@ -201,6 +201,8 @@ class ImplicitProcessor(object):
             log.debug("ImplicitProcessing - originator '%s' to recipient '%s' processing METHOD:REPLY, UID: '%s' - updating event" % (self.originator.cuaddr, self.recipient.cuaddr, self.uid))
             self.organizer_calendar_resource = (yield self.writeCalendarResource(self.recipient_calendar_collection_uri, self.recipient_calendar_collection, self.recipient_calendar_name, self.recipient_calendar))
 
+            organizer = self.recipient_calendar.getOrganizer()
+
             # Build the schedule-changes XML element
             attendeeReplying, rids = processed
             partstatChanged = False
@@ -232,7 +234,7 @@ class ImplicitProcessor(object):
             # and only if the request does not indicate we should skip attendee refresh
             # (e.g. inbox item processing during migration from non-implicit server)
             if partstatChanged and not getattr(self.request, "noAttendeeRefresh", False):
-                yield self.queueAttendeeUpdate((attendeeReplying,))
+                yield self.queueAttendeeUpdate((attendeeReplying, organizer,))
 
             result = (True, False, True, changes,)
 
@@ -282,27 +284,26 @@ class ImplicitProcessor(object):
             try:
                 # Get all attendees to refresh
                 allAttendees = sorted(list(self.recipient_calendar.getAllUniqueAttendees()))
+                allAttendees = filter(lambda x: x not in exclude_attendees, allAttendees)
 
-                # Always need to refresh every attendee
-                exclude_attendees = ()
+                if allAttendees:
+                    # See if there is already a pending refresh and merge current attendees into that list,
+                    # otherwise just mark all attendees as pending
+                    cache = Memcacher("BatchRefreshAttendees", pickle=True)
+                    pendingAttendees = yield cache.get(self.uid)
+                    firstTime = False
+                    if pendingAttendees:
+                        for attendee in allAttendees:
+                            if attendee not in pendingAttendees:
+                                pendingAttendees.append(attendee)
+                    else:
+                        firstTime = True
+                        pendingAttendees = allAttendees
+                    yield cache.set(self.uid, pendingAttendees)
 
-                # See if there is already a pending refresh and merge current attendees into that list,
-                # otherwise just mark all attendees as pending
-                cache = Memcacher("BatchRefreshAttendees", pickle=True)
-                pendingAttendees = yield cache.get(self.uid)
-                firstTime = False
-                if pendingAttendees:
-                    for attendee in allAttendees:
-                        if attendee not in pendingAttendees:
-                            pendingAttendees.append(attendee)
-                else:
-                    firstTime = True
-                    pendingAttendees = allAttendees
-                yield cache.set(self.uid, pendingAttendees)
-
-                # Now start the first batch off
-                if firstTime:
-                    reactor.callLater(config.Scheduling.Options.AttendeeRefreshBatchDelaySeconds, self._doBatchRefresh)
+                    # Now start the first batch off
+                    if firstTime:
+                        self._enqueueBatchRefresh()
             finally:
                 yield lock.clean()
 
@@ -383,6 +384,13 @@ class ImplicitProcessor(object):
             yield uidlock.clean()
 
 
+    def _enqueueBatchRefresh(self):
+        """
+        Mostly here to help unit test by being able to stub this out.
+        """
+        reactor.callLater(config.Scheduling.Options.AttendeeRefreshBatchDelaySeconds, self._doBatchRefresh)
+
+
     @inlineCallbacks
     def _doBatchRefresh(self):
         """
@@ -426,7 +434,7 @@ class ImplicitProcessor(object):
 
                 # Queue the next refresh if needed
                 if pendingAttendees:
-                    reactor.callLater(config.Scheduling.Options.AttendeeRefreshBatchIntervalSeconds, self._doBatchRefresh)
+                    self._enqueueBatchRefresh()
             else:
                 yield cache.delete(self.uid)
                 yield lock.release()
