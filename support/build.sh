@@ -774,9 +774,9 @@ dependencies () {
     "${pypi}/p/python-ldap/${ld}.tar.gz";
 
   # XXX actually PyCalendar should be imported in-place.
-  py_dependency -fe -i "src" -r 10547 \
+  py_dependency -fe -i "src" -r 10554 \
     "pycalendar" "pycalendar" "pycalendar" \
-    "${svn_uri_base}/PyCalendar/branches/server";
+    "${svn_uri_base}/PyCalendar/trunk";
 
   #
   # Tool dependencies.  The code itself doesn't depend on these, but
