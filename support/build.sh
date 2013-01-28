@@ -753,9 +753,9 @@ dependencies () {
 
   # Maintenance note: next time the Twisted dependency gets updated, check out
   # twext/patches.py.
-  py_dependency -v 12 -m "cf49a8676c21c50faf1b42b528049471" \
-    "Twisted" "twisted" "Twisted-12.0.0" \
-    "${pypi}/T/Twisted/Twisted-12.0.0.tar.bz2";
+  py_dependency -v 12.2 -m "6e289825f3bf5591cfd670874cc0862d" \
+    "Twisted" "twisted" "Twisted-12.3.0" \
+    "${pypi}/T/Twisted/Twisted-12.3.0.tar.bz2";
 
   local du="python-dateutil-1.5";
   py_dependency -m "35f3732db3f2cc4afdc68a8533b60a52" \

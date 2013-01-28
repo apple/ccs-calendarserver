@@ -20,8 +20,10 @@ Directory service interface.
 
 __all__ = [
     "DirectoryServiceError",
+    "QueryNotSupportedError",
     "FieldName",
     "MatchType",
+    "Operand",
     "QueryFlags",
     "IDirectoryQueryMatchExpression",
     "IDirectoryService",
@@ -93,7 +95,7 @@ class IDirectoryQueryMatchExpression(Interface):
     """
     Directory query.
     """
-    fieldName  = Attribute("A L{Field}.")
+    fieldName  = Attribute("A L{FieldName}.")
     fieldValue = Attribute("A text value to match.")
     matchType  = Attribute("A L{MatchType}.")
     flags      = Attribute("L{QueryFlags}.")
@@ -127,4 +129,4 @@ class IDirectoryRecord(Interface):
     Directory record.
     """
     service = Attribute("The L{IDirectoryService} this record exists in.")
-    fields  = Attribute("...") # FIXME
+    fields  = Attribute("A dictionary with L{FieldName} keys and text values.")
