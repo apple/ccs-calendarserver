@@ -718,11 +718,10 @@ dependencies () {
     "setuptools" "setuptools" "${st}" \
     "$pypi/s/setuptools/${st}.tar.gz";
 
-  local zv="3.3.0";
-  local zi="zope.interface-${zv}";
-  py_dependency -m "93668855e37b4691c5c956665c33392c" \
+  local zi="zope.interface-4.0.3";
+  py_dependency -v "3.6.0" -m "1ddd308f2c83703accd1696158c300eb" \
     "Zope Interface" "zope.interface" "${zi}" \
-    "http://www.zope.org/Products/ZopeInterface/${zv}/${zi}.tar.gz";
+    "http://pypi.python.org/packages/source/z/zope.interface/${zi}.tar.gz";
 
   local po="pyOpenSSL-0.10";
   py_dependency -v 0.9 -m "34db8056ec53ce80c7f5fc58bee9f093" \
