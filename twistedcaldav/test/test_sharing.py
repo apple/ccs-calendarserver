@@ -22,9 +22,7 @@ from txdav.xml import element as davxml
 from txdav.xml.parser import WebDAVDocument
 
 from twext.web2 import responsecode
-from twext.web2.http_headers import MimeType
 from twext.web2.iweb import IResource
-from twext.web2.stream import MemoryStream
 from twext.web2.test.test_server import SimpleRequest
 
 from twisted.internet.defer import inlineCallbacks, returnValue, succeed
@@ -36,7 +34,6 @@ from twistedcaldav.sharing import SharedCollectionMixin, WikiDirectoryService
 from twistedcaldav.resource import CalDAVResource
 
 from txdav.common.datastore.test.util import buildStore, StubNotifierFactory
-from twext.web2.dav.util import allDataFromStream
 from txdav.caldav.icalendarstore import BIND_DIRECT
 from twistedcaldav.directory.aggregate import AggregateDirectoryService
 from twistedcaldav.directory.principal import DirectoryPrincipalProvisioningResource
@@ -243,7 +240,7 @@ class SharingTests(HomeTestCase):
             if "bogus" in cuaddr:
                 return None
             else:
-                return SharingTests.FakePrincipal(cuaddr, self)
+                return FakePrincipal(cuaddr, self)
 
         @patched
         def validUserIDForShare(resourceSelf, userid, request):
@@ -276,54 +273,9 @@ class SharingTests(HomeTestCase):
         returnValue(result)
 
 
-    @inlineCallbacks
-    def do(self, method, path="/", body="", mimetype="text", subtype="xml",
-           resultcode=responsecode.OK, headers=()):
-        """
-        Do a simple request.
-
-        @param method: the HTTP method
-        @type method: L{bytes}
-
-        @param path: the absolute path portion of the HTTP URI
-        @type path: L{bytes}
-
-        @param body: the content body of the request
-        @type body: L{bytes}
-
-        @param mimetype: the main type of the mime type of the body of the
-            request
-        @type mimetype: L{bytes}
-
-        @param subtype: the subtype of the mimetype of the body of the request
-        @type subtype: L{bytes}
-
-        @param resultcode: The expected result code for the response to the
-            request.
-        @type resultcode: L{int}
-
-        @param headers: An iterable of 2-tuples of C{(header, value)}; headers
-            to set on the outgoing request.
-
-        @return: a L{Deferred} which fires with an L{IResponse} if the request
-            was successfully processed and fails with an L{HTTPError} if not;
-            or, if the resultcode does not match the response's code, fails
-            with L{FailTest}.
-        """
-        request = SimpleRequest(self.site, method, path)
-        if headers is not None:
-            for k, v in headers:
-                request.headers.setHeader(k, v)
-        request.headers.setHeader("content-type", MimeType(mimetype, subtype))
-        request.stream = MemoryStream(body)
-
-        response = (yield self.send(request, None))
-        self.assertEqual(response.code, resultcode)
-        returnValue(response)
-
-
     def _doPOST(self, body, resultcode=responsecode.OK):
-        return self.do("POST", "/calendar/", body, resultcode=resultcode)
+        return self.simpleSend("POST", "/calendar/", body,
+                               resultcode=resultcode)
 
 
     def _clearUIDElementValue(self, xml):
@@ -723,7 +675,7 @@ class SharingTests(HomeTestCase):
     def test_POSTaddInvalidInvitee(self):
         self.resource.upgradeToShare()
 
-        response = (yield self._doPOST(
+        data = (yield self._doPOST(
             """<?xml version="1.0" encoding="utf-8" ?>
             <CS:share xmlns:D="DAV:" xmlns:CS="http://calendarserver.org/ns/">
                 <CS:set>
@@ -736,7 +688,7 @@ class SharingTests(HomeTestCase):
             responsecode.MULTI_STATUS
         ))
         self.assertXMLEquals(
-            str(response.stream.read()).replace("\r\n", "\n"),
+            data,
             """<?xml version='1.0' encoding='UTF-8'?>
             <multistatus xmlns='DAV:'>
               <response>
@@ -901,10 +853,10 @@ class SharingTests(HomeTestCase):
         self.patch(sharing, "getWikiAccess", stubWikiAccessMethod)
         @inlineCallbacks
         def listChildrenViaPropfind():
-            response = yield self.do("PROPFIND", "/",
-                                     resultcode=responsecode.MULTI_STATUS,
-                                     headers=[('Depth', '1')])
-            data = yield allDataFromStream(response.stream)
+            data = yield self.simpleSend(
+                "PROPFIND", "/", resultcode=responsecode.MULTI_STATUS,
+                headers=[('Depth', '1')]
+            )
             tree = XML(data)
             seq = [e.text for e in tree.findall("{DAV:}response/{DAV:}href")]
             shortest = min(seq, key=len)
