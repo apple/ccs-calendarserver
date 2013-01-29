@@ -33,7 +33,9 @@ from twistedcaldav.test.util import HomeTestCase, norequest
 from twistedcaldav.sharing import SharedCollectionMixin, WikiDirectoryService
 
 from twistedcaldav.resource import CalDAVResource
+
 from txdav.common.datastore.test.util import buildStore, StubNotifierFactory
+from txdav.caldav.icalendarstore import BIND_DIRECT
 
 
 sharedOwnerType = davxml.ResourceType.sharedownercalendar #@UndefinedVariable
@@ -774,7 +776,26 @@ class SharingTests(HomeTestCase):
         access controls for a directly shared collection, it will automatically
         un-share that collection.
         """
-        yield self.fail()
+        # Since this is a HomeTestCase, self.site.resource refers to a _calendar
+        # home_, not the actual site root.  Rummage around in the bag of state
+        # there looking for the relevant stuff to test with.
+        txn = self.site.resource._associatedTransaction
+        sharee = self.site.resource._newStoreHome
+
+        sharer = yield txn.calendarHomeWithUID("wiki-testing", create=True)
+        cal = yield sharer.calendarWithName("calendar")
+        access = "write"
+        def stubWikiAccessMethod(userID, wikiID):
+            return access
+        from twistedcaldav import sharing
+        self.patch(sharing, "getWikiAccess", stubWikiAccessMethod)
+        sharedName = yield cal.shareWith(sharee, BIND_DIRECT)
+        childNames = yield self.site.resource.listChildren()
+        self.assertIn(sharedName, childNames)
+        access = "no-access"
+        childNames = yield self.site.resource.listChildren()
+        self.assertNotIn(sharedName, childNames)
+
 
 
 
