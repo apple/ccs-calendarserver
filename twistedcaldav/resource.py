@@ -2074,6 +2074,15 @@ class DefaultAlarmPropertyMixin(object):
 class CommonHomeResource(PropfindCacheMixin, SharedHomeMixin, CalDAVResource):
     """
     Logic common to Calendar and Addressbook home resources.
+
+    @ivar _provisionedChildren: A map of resource names to built-in children
+        with protocol-level meanings, like C{"attachments"}, C{"inbox"},
+        C{"outbox"}, and so on.
+    @type _provisionedChildren: L{dict} mapping L{bytes} to L{Resource}
+
+    @ivar _provisionedLinks: A map of resource names to built-in links that the
+        server has inserted into this L{CommonHomeResource}.
+    @type _provisionedLinks: L{dict} mapping L{bytes} to L{Resource}
     """
     cacheNotifierFactory = DisabledCacheNotifier
 
