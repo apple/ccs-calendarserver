@@ -14,22 +14,24 @@
 # limitations under the License.
 ##
 
+from zope.interface import implements
 
 from twext.web2 import responsecode
 from txdav.xml import element as davxml
+
 from twext.web2.http_headers import MimeType
 from twext.web2.iweb import IResource
 from twext.web2.stream import MemoryStream
 from twext.web2.test.test_server import SimpleRequest
+
 from twisted.internet.defer import inlineCallbacks, returnValue, succeed
 from twistedcaldav import customxml
 from twistedcaldav.config import config
 from twistedcaldav.test.util import HomeTestCase, norequest
-from twistedcaldav.sharing import SharedCollectionMixin, WikiDirectoryService
+from twistedcaldav.sharing import SharedCollectionMixin, WikiDirectoryService, Share
 
 from twistedcaldav.resource import CalDAVResource
 from txdav.common.datastore.test.util import buildStore, StubNotifierFactory
-from zope.interface import implements
 
 
 sharedOwnerType = davxml.ResourceType.sharedownercalendar #@UndefinedVariable
@@ -707,6 +709,14 @@ class SharingTests(HomeTestCase):
         self.assertTrue("<write/>" in acl.toxml())
 
 
+    @inlineCallbacks
+    def test_noWikiAccess(self):
+        """
+        If L{SharedCollectionMixin.shareeAccessControlList} detects missing
+        access controls for a directly shared collection, it will automatically
+        un-share that collection.
+        """
+        yield self.fail()
 
 
 
