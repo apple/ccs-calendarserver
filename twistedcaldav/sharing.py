@@ -324,6 +324,17 @@ class SharedCollectionMixin(object):
         @param request: the request used to locate the owner resource.
         @type request: L{twext.web2.iweb.IRequest}
 
+        @param args: The arguments for
+            L{twext.web2.dav.idav.IDAVResource.accessControlList}
+
+        @param kwargs: The keyword arguments for
+            L{twext.web2.dav.idav.IDAVResource.accessControlList}, plus
+            keyword-only arguments.
+
+        @param wikiAccessMethod: (keyword-only) A callable argument used for
+            checking external access controls.  By default, L{getWikiAccess};
+            must be signature-compatible with that method.
+
         @return: the appropriate WebDAV ACL for the sharee
         @rtype: L{davxml.ACL}
         """
