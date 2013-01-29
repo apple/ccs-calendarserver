@@ -231,14 +231,6 @@ class TestCase(twext.web2.dav.test.util.TestCase):
         return self.directoryFixture.directoryService
 
 
-    @property
-    def principalsResource(self):
-        """
-        Read-only alias for L{DirectoryFixture.principalsResource} for
-        compatibility with older tests.  TODO: remove this.
-        """
-
-
     def setUp(self):
         super(TestCase, self).setUp()
 
