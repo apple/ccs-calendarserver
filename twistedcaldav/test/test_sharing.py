@@ -801,23 +801,7 @@ class SharingTests(HomeTestCase):
         wcreate = self.calendarStore.newTransaction("create wiki")
         yield wcreate.calendarHomeWithUID("wiki-testing", create=True)
         yield wcreate.commit()
-
-        # Since this is a HomeTestCase, self.site.resource refers to a _calendar
-        # home_, not the actual site root.  Rummage around in the bag of state
-        # there looking for the relevant stuff to test with.
-
-        testwiki = WikiDirectoryService()
-        testwiki.realmName = "Test"
-        self.directoryService = AggregateDirectoryService(
-            [testwiki, self.directoryService], None
-        )
-        self.homeProvisioner = DirectoryCalendarHomeProvisioningResource(
-            self.directoryService, "/calendars/", self.calendarStore
-        )
-        DirectoryPrincipalProvisioningResource(
-            "/principals/", self.directoryService
-        )
-
+        self.directoryFixture.addDirectoryService(WikiDirectoryService())
         origRefreshRoot = self._refreshRoot
         @inlineCallbacks
         def _newRefreshRoot(request=None):
