@@ -61,6 +61,12 @@ class FakeRecord(object):
         self.fullName = name
         self.guid = name
         self.calendarUserAddresses = set((cuaddr,))
+        if name.startswith("wiki-"):
+            recordType = WikiDirectoryService.recordType_wikis
+        else:
+            recordType = None
+        self.recordType = recordType
+        self.shortNames = [name]
 
 
 
