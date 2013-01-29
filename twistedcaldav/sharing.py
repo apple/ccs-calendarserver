@@ -312,6 +312,52 @@ class SharedCollectionMixin(object):
 
 
     @inlineCallbacks
+    def _checkAccessControl(self, externalAccessMethod=None):
+        """
+        Check the shared access mode of this resource, potentially consulting
+        an external access method if necessary.
+
+        @param externalAccessMethod: see C{wikiAccessMethod} in
+            L{SharedCollectionMixin.shareeAccessControlList}
+
+        @return: a L{Deferred} firing a L{bytes} or L{None}, with one of the
+            potential values: C{"own"}, which means that the home is the owner
+            of the collection and it is not shared; C{"read-only"}, meaning
+            that the home that this collection is bound into has only read
+            access to this collection; C{"read-write"}, which means that the
+            home has both read and write access; C{"original"}, which means
+            that it should inherit the ACLs of the owner's collection, whatever
+            those happen to be, or C{None}, which means that the external
+            access control mechanism has dictate the home should no longer have
+            any access at all.
+        """
+        if externalAccessMethod is None:
+            externalAccessMethod = getWikiAccess
+        if self._share.direct():
+            ownerUID = self._share.ownerUID()
+            owner = self.principalForUID(ownerUID)
+            if owner.record.recordType == WikiDirectoryService.recordType_wikis:
+                # Access level comes from what the wiki has granted to the
+                # sharee
+                sharee = self.principalForUID(self._share.shareeUID())
+                userID = sharee.record.guid
+                wikiID = owner.record.shortNames[0]
+                access = (yield externalAccessMethod(userID, wikiID))
+                if access == "read":
+                    returnValue("read-only")
+                elif access in ("write", "admin"):
+                    returnValue("read-write")
+                else:
+                    returnValue(None)
+            else:
+                returnValue("original")
+        else:
+            # Invited shares use access mode from the invite
+            # Get the access for self
+            returnValue(Invitation(self._newStoreObject).access())
+
+
+    @inlineCallbacks
     def shareeAccessControlList(self, request, *args, **kwargs):
         """
         Return WebDAV ACLs appropriate for the current user accessing the
@@ -345,32 +391,15 @@ class SharedCollectionMixin(object):
 
         sharee = self.principalForUID(self._share.shareeUID())
 
-        # Direct shares use underlying privileges of shared collection
-        if self._share.direct():
-            ownerUID = self._share.ownerUID()
-            owner = self.principalForUID(ownerUID)
-            if owner.record.recordType == WikiDirectoryService.recordType_wikis:
-                # Access level comes from what the wiki has granted to the
-                # sharee
-                userID = sharee.record.guid
-                wikiID = owner.record.shortNames[0]
-                access = (yield wikiAccessMethod(userID, wikiID))
-                if access == "read":
-                    access = "read-only"
-                elif access in ("write", "admin"):
-                    access = "read-write"
-                else:
-                    access = None
-            else:
-                original = (yield request.locateResource(self._share.url()))
-                result = (yield original.accessControlList(request, *args,
-                    **kwargs))
-                returnValue(result)
-        else:
-            # Invited shares use access mode from the invite
-            # Get the access for self
-            access = Invitation(self._newStoreObject).access()
+        access = yield self._checkAccessControl(wikiAccessMethod)
 
+        if access == "original":
+            original = (yield request.locateResource(self._share.url()))
+            result = (yield original.accessControlList(request, *args,
+                **kwargs))
+            returnValue(result)
+
+        # Direct shares use underlying privileges of shared collection
         userprivs = [
         ]
         if access in ("read-only", "read-write",):
