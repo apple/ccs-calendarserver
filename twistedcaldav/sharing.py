@@ -1037,6 +1037,7 @@ class SharedHomeMixin(LinkFollowerMixIn):
         share = yield self._shareForHomeChild(child._newStoreObject, request)
         if share:
             child.setShare(share)
+        returnValue(child)
 
 
     @inlineCallbacks
@@ -1402,16 +1403,15 @@ class Share(object):
 
     def __init__(self, sharerHomeChild, shareeHomeChild, url):
         """
-        @param sharerHomeChild: The HTTP resource representing the shared
+        @param sharerHomeChild: The data store object representing the shared
             collection as present in the owner's home collection; the owner's
             reference.
-        @type sharerHomeChild: L{twistedcaldav.resource.CalDAVResource}
+        @type sharerHomeChild: L{txdav.caldav.icalendarstore.ICalendar}
 
         @param shareeHomeChild: The data store object representing the
             collection as present in the sharee's home collection; the sharee's
             reference.
-        @type shareeHomeChild:
-            L{txdav.common.icommondatastore.IShareableCollection}
+        @type shareeHomeChild: L{txdav.caldav.icalendarstore.ICalendar}
 
         @param url: The URL referring to the sharer's version of the resource.
         @type url: L{bytes}

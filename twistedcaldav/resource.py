@@ -2261,10 +2261,11 @@ class CommonHomeResource(PropfindCacheMixin, SharedHomeMixin, CalDAVResource):
             returnValue(child)
 
         # get regular or shared child
-        child = (yield self.makeRegularChild(name))
+        child = yield self.makeRegularChild(name)
 
-        # add _share attribute if child is shared
-        yield self.provisionShare(child)
+        # add _share attribute if child is shared; verify that child should
+        # still be accessible and convert it to None if it's not.
+        child = yield self.provisionShare(child)
 
         returnValue(child)
 
