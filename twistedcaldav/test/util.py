@@ -37,9 +37,12 @@ from twistedcaldav.bind import doBind
 from twistedcaldav.config import config
 from twistedcaldav.directory import augment
 from twistedcaldav.directory.addressbook import DirectoryAddressBookHomeProvisioningResource
-from twistedcaldav.directory.calendar import DirectoryCalendarHomeProvisioningResource
+from twistedcaldav.directory.calendar import (
+    DirectoryCalendarHomeProvisioningResource
+)
 from twistedcaldav.directory.principal import (
     DirectoryPrincipalProvisioningResource)
+from twistedcaldav.directory.aggregate import AggregateDirectoryService
 from twistedcaldav.directory.xmlfile import XMLDirectoryService
 
 from txdav.common.datastore.test.util import deriveQuota
@@ -74,32 +77,80 @@ proxiesFile = dirTest.child("proxies.xml")
 
 
 
+class DirectoryFixture(object):
+    """
+    Test fixture for creating various parts of the resource hierarchy related
+    to directories.
+    """
+
+    def __init__(self):
+        def _setUpPrincipals(ds):
+            # FIXME: see FIXME in
+            # DirectoryPrincipalProvisioningResource.__init__; this performs a
+            # necessary modification to any directory service object for it to
+            # be fully functional.
+            self.principalsResource = DirectoryPrincipalProvisioningResource(
+                "/principals/", ds
+            )
+        self._directoryChangeHooks = [_setUpPrincipals]
+
+
+    directoryService = None
+    principalsResource = None
+
+    def addDirectoryService(self, newService):
+        """
+        Add an L{IDirectoryService} to this test case.
+
+        If this test case does not have a directory service yet, create it and
+        assign C{directoryService} and C{principalsResource} attributes to this
+        test case.
+
+        If the test case already has a directory service, create an
+        L{AggregateDirectoryService} and re-assign the C{self.directoryService}
+        attribute to point at it instead, while setting the C{realmName} of the
+        new service to match the old one.
+
+        If the test already has an L{AggregateDirectoryService}, create a
+        I{new} L{AggregateDirectoryService} with the same list of services,
+        after adjusting the new service's realm to match the existing ones.
+        """
+
+        if self.directoryService is None:
+            directoryService = newService
+        else:
+            newService.realmName = self.directoryService.realmName
+            if isinstance(self.directoryService, AggregateDirectoryService):
+                directories = set(self.directoryService._recordTypes.items())
+                directories.add(newService)
+            else:
+                directories = [newService, self.directoryService]
+            directoryService = AggregateDirectoryService(directories, None)
+
+        self.directoryService = directoryService
+        # FIXME: see FIXME in DirectoryPrincipalProvisioningResource.__init__;
+        # this performs a necessary modification to the directory service object
+        # for it to be fully functional.
+        for hook in self._directoryChangeHooks:
+            hook(directoryService)
+
+
+    def whenDirectoryServiceChanges(self, callback):
+        """
+        When the C{directoryService} attribute is changed by
+        L{TestCase.addDirectoryService}, call the given callback in order to
+        update any state which relies upon that service.
+
+        If there's already a directory, invoke the callback immediately.
+        """
+        self._directoryChangeHooks.append(callback)
+        if self.directoryService is not None:
+            callback(self.directoryService)
+
+
+
 class TestCase(twext.web2.dav.test.util.TestCase):
     resource_class = RootResource
-
-    def createStockDirectoryService(self):
-        """
-        Create a stock C{directoryService} attribute and assign it.
-        """
-        self.xmlFile = FilePath(config.DataRoot).child("accounts.xml")
-        self.xmlFile.setContent(xmlFile.getContent())
-
-
-        self.directoryService = XMLDirectoryService(
-            {
-                "xmlFile" : "accounts.xml",
-                "augmentService" :
-                    augment.AugmentXMLDB( xmlFiles=(augmentsFile.path,)),
-            }
-        )
-
-        # FIXME: see FIXME in DirectoryPrincipalProvisioningResource.__init__;
-        # this performs a necessary modification to the directory service
-        # object for it to be fully functional.
-        self.principalsResource = DirectoryPrincipalProvisioningResource(
-            "/principals/", self.directoryService
-        )
-
 
     def createDataStore(self):
         """
@@ -111,30 +162,40 @@ class TestCase(twext.web2.dav.test.util.TestCase):
                                quota=deriveQuota(self))
 
 
+    def createStockDirectoryService(self):
+        """
+        Create a stock C{directoryService} attribute and assign it.
+        """
+        self.xmlFile = FilePath(config.DataRoot).child("accounts.xml")
+        self.xmlFile.setContent(xmlFile.getContent())
+        self.directoryFixture.addDirectoryService(XMLDirectoryService({
+            "xmlFile": "accounts.xml",
+            "augmentService":
+                augment.AugmentXMLDB(xmlFiles=(augmentsFile.path,)),
+        }))
+
+
     def setupCalendars(self):
         """
         Set up the resource at /calendars (a
         L{DirectoryCalendarHomeProvisioningResource}), and assign it as
         C{self.calendarCollection}.
         """
-
-        # Need a data store
-        self._newStore = self.createDataStore()
-
-        self.calendarCollection = DirectoryCalendarHomeProvisioningResource(
-            self.directoryService,
-            "/calendars/",
-            self._newStore
-        )
-        self.site.resource.putChild("calendars", self.calendarCollection)
-
-        self.addressbookCollection = DirectoryAddressBookHomeProvisioningResource(
-            self.directoryService,
-            "/addressbooks/",
-            self._newStore
-        )
-        self.site.resource.putChild("addressbooks", self.addressbookCollection)
-
+        newStore = self.createDataStore()
+        def putAllChildren(ds):
+            self.calendarCollection = (
+                DirectoryCalendarHomeProvisioningResource(
+                    ds, "/calendars/", newStore
+                ))
+            self.site.resource.putChild("calendars",
+                                        self.calendarCollection)
+            self.addressbookCollection = (
+                DirectoryAddressBookHomeProvisioningResource(
+                    ds, "/addressbooks/", newStore
+                ))
+            self.site.resource.putChild("addressbooks",
+                                        self.addressbookCollection)
+        self.directoryFixture.whenDirectoryServiceChanges(putAllChildren)
 
 
     def configure(self):
@@ -156,8 +217,27 @@ class TestCase(twext.web2.dav.test.util.TestCase):
         config.DirectoryAddressBook.Enabled = False
 
 
+    @property
+    def directoryService(self):
+        """
+        Read-only alias for L{DirectoryFixture.directoryService} for
+        compatibility with older tests.  TODO: remove this.
+        """
+        return self.directoryFixture.directoryService
+
+
+    @property
+    def principalsResource(self):
+        """
+        Read-only alias for L{DirectoryFixture.principalsResource} for
+        compatibility with older tests.  TODO: remove this.
+        """
+
+
     def setUp(self):
         super(TestCase, self).setUp()
+
+        self.directoryFixture = DirectoryFixture()
 
         # FIXME: this is only here to workaround circular imports
         doBind()
@@ -175,7 +255,6 @@ class TestCase(twext.web2.dav.test.util.TestCase):
             os.makedirs(config.ConfigRoot)
         if not os.path.exists(config.LogRoot):
             os.makedirs(config.LogRoot)
-
 
 
     def createHierarchy(self, structure, root=None):
@@ -216,6 +295,7 @@ class TestCase(twext.web2.dav.test.util.TestCase):
 
         createChildren(root, structure)
         return root
+
 
     def verifyHierarchy(self, root, structure):
 
@@ -356,16 +436,12 @@ class HomeTestCase(TestCase):
         that stores the data for that L{CalendarHomeResource}.
         """
         super(HomeTestCase, self).setUp()
-
         self.createStockDirectoryService()
-
-        # Need a data store
-        _newStore = self.createDataStore()
-
-        self.homeProvisioner = DirectoryCalendarHomeProvisioningResource(
-            self.directoryService, "/calendars/",
-            _newStore
-        )
+        @self.directoryFixture.whenDirectoryServiceChanges
+        def addHomeProvisioner(ds):
+            self.homeProvisioner = DirectoryCalendarHomeProvisioningResource(
+                ds, "/calendars/", self.createDataStore()
+            )
 
         def _defer(user):
             # Commit the transaction
@@ -445,19 +521,12 @@ class AddressBookHomeTestCase(TestCase):
         file.
         """
         super(AddressBookHomeTestCase, self).setUp()
-
-        fp = FilePath(self.mktemp())
-        fp.createDirectory()
-
         self.createStockDirectoryService()
-
-        # Need a data store
-        _newStore = CommonDataStore(fp, None, True, False)
-
-        self.homeProvisioner = DirectoryAddressBookHomeProvisioningResource(
-            self.directoryService, "/addressbooks/",
-            _newStore
-        )
+        @self.directoryFixture.whenDirectoryServiceChanges
+        def addHomeProvisioner(ds):
+            self.homeProvisioner = DirectoryAddressBookHomeProvisioningResource(
+                ds, "/calendars/", self.createDataStore()
+            )
 
         @inlineCallbacks
         def _defer(user):
@@ -466,6 +535,7 @@ class AddressBookHomeTestCase(TestCase):
             self.docroot = user._newStoreHome._path.path
 
         return self._refreshRoot().addCallback(_defer)
+
 
     @inlineCallbacks
     def _refreshRoot(self):
