@@ -347,8 +347,8 @@ class SharedCollectionMixin(object):
 
         # Direct shares use underlying privileges of shared collection
         if self._share.direct():
-            original = (yield request.locateResource(self._share.url()))
-            owner = yield original.ownerPrincipal(request)
+            ownerUID = self._share.ownerUID()
+            owner = self.principalForUID(ownerUID)
             if owner.record.recordType == WikiDirectoryService.recordType_wikis:
                 # Access level comes from what the wiki has granted to the
                 # sharee
@@ -362,6 +362,7 @@ class SharedCollectionMixin(object):
                 else:
                     access = None
             else:
+                original = (yield request.locateResource(self._share.url()))
                 result = (yield original.accessControlList(request, *args,
                     **kwargs))
                 returnValue(result)
@@ -1462,3 +1463,7 @@ class Share(object):
 
     def shareeUID(self):
         return self._shareeHomeChild.viewerHome().uid()
+
+
+    def ownerUID(self):
+        return self._sharerHomeChild.ownerHome().uid()
