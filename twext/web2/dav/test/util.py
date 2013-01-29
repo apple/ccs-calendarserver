@@ -29,18 +29,60 @@ from tempfile import mkdtemp
 from shutil import copy
 
 from twisted.trial import unittest
+from twisted.internet import address
+
 from twisted.internet.defer import Deferred
 
 from twext.python.log import Logger
 from twext.web2.http import HTTPError, StatusResponse
-from twext.web2 import responsecode
+from twext.web2 import responsecode, server
+from twext.web2 import http_headers
+from twext.web2 import stream
+
 from twext.web2.dav.resource import TwistedACLInheritable
 from twext.web2.dav.static import DAVFile
 from twext.web2.dav.util import joinURL
 from txdav.xml import element
 from txdav.xml.base import encodeXMLName
+from twext.web2.http_headers import MimeType
+from twext.web2.dav.util import allDataFromStream
 
 log = Logger()
+
+
+
+class SimpleRequest(server.Request):
+    """
+    A L{SimpleRequest} can be used in cases where a L{server.Request} object is
+    necessary but it is beneficial to bypass the concrete transport (and
+    associated logic with the C{chanRequest} attribute).
+    """
+
+    clientproto = (1,1)
+
+    def __init__(self, site, method, uri, headers=None, content=None):
+        if not headers:
+            headers = http_headers.Headers(headers)
+
+        super(SimpleRequest, self).__init__(
+            site=site,
+            chanRequest=None,
+            command=method,
+            path=uri,
+            version=self.clientproto,
+            contentLength=len(content or ''),
+            headers=headers)
+
+        self.stream = stream.MemoryStream(content or '')
+
+        self.remoteAddr = address.IPv4Address('TCP', '127.0.0.1', 0)
+        self._parseURL()
+        self.host = 'localhost'
+        self.port = 8080
+
+    def writeResponse(self, response):
+        return response
+
 
 
 class InMemoryPropertyStore (object):
@@ -202,6 +244,17 @@ class TestCase (unittest.TestCase):
 
 
     def send(self, request, callback=None):
+        """
+        Invoke the logic involved in traversing a given L{server.Request} as if
+        a client had sent it; call C{locateResource} to look up the resource to
+        be rendered, and render it by calling its C{renderHTTP} method.
+
+        @param request: A L{server.Request} (generally, to avoid real I/O, a
+            L{SimpleRequest}) already associated with a site.
+
+        @return: asynchronously return a response object or L{None}
+        @rtype: L{Deferred} firing L{Response} or L{None}
+        """
         log.msg("Sending %s request for URI %s" % (request.method, request.uri))
 
         d = request.locateResource(request.uri)
@@ -215,6 +268,57 @@ class TestCase (unittest.TestCase):
                 d.addCallback(callback)
 
         return d
+
+
+    def simpleSend(self, method, path="/", body="", mimetype="text",
+                   subtype="xml", resultcode=responsecode.OK, headers=()):
+        """
+        Assemble and send a simple request using L{SimpleRequest}.  This
+        L{SimpleRequest} is associated with this L{TestCase}'s C{site}
+        attribute.
+
+        @param method: the HTTP method
+        @type method: L{bytes}
+
+        @param path: the absolute path portion of the HTTP URI
+        @type path: L{bytes}
+
+        @param body: the content body of the request
+        @type body: L{bytes}
+
+        @param mimetype: the main type of the mime type of the body of the
+            request
+        @type mimetype: L{bytes}
+
+        @param subtype: the subtype of the mimetype of the body of the request
+        @type subtype: L{bytes}
+
+        @param resultcode: The expected result code for the response to the
+            request.
+        @type resultcode: L{int}
+
+        @param headers: An iterable of 2-tuples of C{(header, value)}; headers
+            to set on the outgoing request.
+
+        @return: a L{Deferred} which fires with a L{bytes}  if the request was
+            successfully processed and fails with an L{HTTPError} if not; or,
+            if the resultcode does not match the response's code, fails with
+            L{FailTest}.
+        """
+        request = SimpleRequest(self.site, method, path, content=body)
+        if headers is not None:
+            for k, v in headers:
+                request.headers.setHeader(k, v)
+        request.headers.setHeader("content-type", MimeType(mimetype, subtype))
+        def checkResult(response):
+            self.assertEqual(response.code, resultcode)
+            if response.stream is None:
+                return None
+            return allDataFromStream(response.stream)
+        return self.send(request, None).addCallback(checkResult)
+
+
+
 
 class Site:
     # FIXME: There is no ISite interface; there should be.

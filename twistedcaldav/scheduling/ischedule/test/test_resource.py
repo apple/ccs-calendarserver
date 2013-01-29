@@ -28,7 +28,9 @@ class iSchedulePOST (TestCase):
         super(iSchedulePOST, self).setUp()
         self.createStockDirectoryService()
         self.setupCalendars()
-        self.site.resource.putChild("ischedule", IScheduleInboxResource(self.site.resource, self._newStore))
+        self.site.resource.putChild(
+            "ischedule", IScheduleInboxResource(self.site.resource,
+                                                self.createDataStore()))
 
 
     @inlineCallbacks

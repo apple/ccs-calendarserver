@@ -236,6 +236,15 @@ class WrappingTests(TestCase):
     pathTypes = ['calendar', 'addressbook']
 
 
+    def checkPrincipalCollections(self, resource):
+        """
+        Verify that the C{_principalCollections} attribute of the given
+        L{Resource} is accurately set.
+        """
+        self.assertEquals(resource._principalCollections,
+                          frozenset([self.directoryFixture.principalsResource]))
+
+
     @inlineCallbacks
     def test_autoRevertUnCommitted(self):
         """
@@ -392,8 +401,7 @@ class WrappingTests(TestCase):
             "calendars/users/wsanchez/calendar/1.ics"
         )
         yield self.commit()
-        self.assertEquals(calDavFileCalendar._principalCollections,
-                          frozenset([self.principalsResource]))
+        self.checkPrincipalCollections(calDavFileCalendar)
         self.assertEquals(calDavFileCalendar._associatedTransaction,
                           calendarHome._associatedTransaction)
 
@@ -435,8 +443,7 @@ class WrappingTests(TestCase):
             "calendars/users/wsanchez/calendar/xyzzy.ics"
         )
         yield self.commit()
-        self.assertEquals(calDavFileCalendar._principalCollections,
-                          frozenset([self.principalsResource]))
+        self.checkPrincipalCollections(calDavFileCalendar)
 
 
     def test_createAddressBookStore(self):
@@ -468,8 +475,7 @@ class WrappingTests(TestCase):
         """
         calDavFile = yield self.getResource("addressbooks/users/wsanchez/addressbook")
         yield self.commit()
-        self.assertEquals(calDavFile._principalCollections,
-                          frozenset([self.principalsResource]))
+        self.checkPrincipalCollections(calDavFile)
 
 
     @inlineCallbacks
@@ -487,8 +493,7 @@ class WrappingTests(TestCase):
         yield calDavFile.createAddressBookCollection()
         self.assertTrue(calDavFile.exists())
         yield self.commit()
-        self.assertEquals(calDavFile._principalCollections,
-                          frozenset([self.principalsResource]))
+        self.checkPrincipalCollections(calDavFile)
 
 
     @inlineCallbacks
@@ -503,8 +508,7 @@ class WrappingTests(TestCase):
             "addressbooks/users/wsanchez/addressbook/1.vcf"
         )
         yield self.commit()
-        self.assertEquals(calDavFileAddressBook._principalCollections,
-                          frozenset([self.principalsResource]))
+        self.checkPrincipalCollections(calDavFileAddressBook)
 
 
     @inlineCallbacks
@@ -518,8 +522,7 @@ class WrappingTests(TestCase):
             "addressbooks/users/wsanchez/addressbook/xyzzy.ics"
         )
         yield self.commit()
-        self.assertEquals(calDavFileAddressBook._principalCollections,
-                          frozenset([self.principalsResource]))
+        self.checkPrincipalCollections(calDavFileAddressBook)
 
 
     @inlineCallbacks
