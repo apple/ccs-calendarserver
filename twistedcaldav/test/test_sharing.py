@@ -35,6 +35,89 @@ from zope.interface import implements
 sharedOwnerType = davxml.ResourceType.sharedownercalendar #@UndefinedVariable
 regularCalendarType = davxml.ResourceType.calendar #@UndefinedVariable
 
+
+
+class StubCollection(object):
+
+    def __init__(self):
+        self._isShareeCollection = True
+        self._shareePrincipal = StubUserPrincipal()
+
+
+    def isCalendarCollection(self):
+        return True
+
+
+
+class StubShare(object):
+
+    def direct(self):
+        return True
+
+    def url(self):
+        return "/wikifoo"
+
+    def uid(self):
+        return "012345"
+
+    def shareeUID(self):
+        return StubUserPrincipal().record.guid
+
+
+
+class TestCollection(SharedCollectionMixin, StubCollection):
+    def principalForUID(self, uid):
+        principal = StubUserPrincipal()
+        return principal if principal.record.guid == uid else None
+
+
+
+class StubRecord(object):
+    def __init__(self, recordType, name, guid):
+        self.recordType = recordType
+        self.shortNames = [name]
+        self.guid = guid
+
+
+
+class StubUserPrincipal(object):
+    def __init__(self):
+        self.record = StubRecord(
+            "users",
+            "testuser",
+            "4F364813-0415-45CB-9FD4-DBFEF7A0A8E0"
+        )
+
+
+    def principalURL(self):
+        return "/principals/__uids__/%s/" % (self.record.guid,)
+
+
+
+class StubWikiPrincipal(object):
+    def __init__(self):
+        self.record = StubRecord(
+            WikiDirectoryService.recordType_wikis,
+            "wikifoo",
+            "foo"
+        )
+
+class StubWikiResource(object):
+    implements(IResource)
+
+    def locateChild(self, req, segments):
+        pass
+
+
+    def renderHTTP(self, req):
+        pass
+
+
+    def ownerPrincipal(self, req):
+        return succeed(StubWikiPrincipal())
+
+
+
 class SharingTests(HomeTestCase):
 
     class FakePrincipal(object):
@@ -607,69 +690,6 @@ class SharingTests(HomeTestCase):
         def stubWikiAccessMethod(userID, wikiID):
             return access
 
-        class StubCollection(object):
-            def __init__(self):
-                self._isShareeCollection = True
-                self._shareePrincipal = StubUserPrincipal()
-            def isCalendarCollection(self):
-                return True
-
-        class StubShare(object):
-            def direct(self):
-                return True
-
-            def url(self):
-                return "/wikifoo"
-
-            def uid(self):
-                return "012345"
-
-            def shareeUID(self):
-                return StubUserPrincipal().record.guid
-
-        class TestCollection(SharedCollectionMixin, StubCollection):
-            def principalForUID(self, uid):
-                principal = StubUserPrincipal()
-                return principal if principal.record.guid == uid else None
-
-        class StubRecord(object):
-            def __init__(self, recordType, name, guid):
-                self.recordType = recordType
-                self.shortNames = [name]
-                self.guid = guid
-
-        class StubUserPrincipal(object):
-            def __init__(self):
-                self.record = StubRecord(
-                    "users",
-                    "testuser",
-                    "4F364813-0415-45CB-9FD4-DBFEF7A0A8E0"
-                )
-            def principalURL(self):
-                return "/principals/__uids__/%s/" % (self.record.guid,)
-
-        class StubWikiPrincipal(object):
-            def __init__(self):
-                self.record = StubRecord(
-                    WikiDirectoryService.recordType_wikis,
-                    "wikifoo",
-                    "foo"
-                )
-
-        class StubWikiResource(object):
-            implements(IResource)
-
-            def locateChild(self, req, segments):
-                pass
-
-
-            def renderHTTP(self, req):
-                pass
-
-
-            def ownerPrincipal(self, req):
-                return succeed(StubWikiPrincipal())
-
         collection = TestCollection()
         collection._share = StubShare()
         self.site.resource.putChild("wikifoo", StubWikiResource())
@@ -687,16 +707,6 @@ class SharingTests(HomeTestCase):
         self.assertTrue("<write/>" in acl.toxml())
 
 
-'''
-class DatabaseSharingTests(SharingTests):
-
-    @inlineCallbacks
-    def setUp(self):
-        self.calendarStore = yield buildStore(self, StubNotifierFactory())
-        yield super(DatabaseSharingTests, self).setUp()
 
 
-    def createDataStore(self):
-        return self.calendarStore
 
-'''
