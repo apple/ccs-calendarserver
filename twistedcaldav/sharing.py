@@ -1067,6 +1067,9 @@ class SharedHomeMixin(LinkFollowerMixIn):
         share = yield self._shareForHomeChild(child._newStoreObject, request)
         if share:
             child.setShare(share)
+            access = yield child._checkAccessControl()
+            if access is None:
+                returnValue(None)
         returnValue(child)
 
 
