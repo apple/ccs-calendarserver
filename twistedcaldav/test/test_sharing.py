@@ -14,11 +14,13 @@
 # limitations under the License.
 ##
 
+
 from zope.interface import implements
 
-from twext.web2 import responsecode
 from txdav.xml import element as davxml
+from txdav.xml.parser import WebDAVDocument
 
+from twext.web2 import responsecode
 from twext.web2.http_headers import MimeType
 from twext.web2.iweb import IResource
 from twext.web2.stream import MemoryStream
@@ -36,6 +38,15 @@ from txdav.common.datastore.test.util import buildStore, StubNotifierFactory
 
 sharedOwnerType = davxml.ResourceType.sharedownercalendar #@UndefinedVariable
 regularCalendarType = davxml.ResourceType.calendar #@UndefinedVariable
+
+
+
+def normalize(x):
+    """
+    Normalize some XML by parsing it, collapsing whitespace, and
+    pretty-printing.
+    """
+    return WebDAVDocument.fromString(x).toxml()
 
 
 
@@ -300,14 +311,14 @@ class SharingTests(HomeTestCase):
         self.resource.upgradeToShare()
 
         yield self._doPOST("""<?xml version="1.0" encoding="utf-8" ?>
-<CS:share xmlns:D="DAV:" xmlns:CS="http://calendarserver.org/ns/">
-    <CS:set>
-        <D:href>mailto:user02@example.com</D:href>
-        <CS:summary>My Shared Calendar</CS:summary>
-        <CS:read-write/>
-    </CS:set>
-</CS:share>
-""")
+            <CS:share xmlns:D="DAV:" xmlns:CS="http://calendarserver.org/ns/">
+                <CS:set>
+                    <D:href>mailto:user02@example.com</D:href>
+                    <CS:summary>My Shared Calendar</CS:summary>
+                    <CS:read-write/>
+                </CS:set>
+            </CS:share>
+            """)
 
         propInvite = (yield self.resource.readProperty(customxml.Invite, None))
         self.assertEquals(self._clearUIDElementValue(propInvite), customxml.Invite(
@@ -330,15 +341,14 @@ class SharingTests(HomeTestCase):
     def test_POSTaddInviteeNotAlreadyShared(self):
 
         yield self._doPOST("""<?xml version="1.0" encoding="utf-8" ?>
-<CS:share xmlns:D="DAV:" xmlns:CS="http://calendarserver.org/ns/">
-    <CS:set>
-        <D:href>mailto:user02@example.com</D:href>
-        <CS:summary>My Shared Calendar</CS:summary>
-        <CS:read-write/>
-    </CS:set>
-</CS:share>
-"""
-        )
+        <CS:share xmlns:D="DAV:" xmlns:CS="http://calendarserver.org/ns/">
+            <CS:set>
+                <D:href>mailto:user02@example.com</D:href>
+                <CS:summary>My Shared Calendar</CS:summary>
+                <CS:read-write/>
+            </CS:set>
+        </CS:share>
+        """)
 
         propInvite = (yield self.resource.readProperty(customxml.Invite, None))
         self.assertEquals(self._clearUIDElementValue(propInvite), customxml.Invite(
@@ -364,27 +374,27 @@ class SharingTests(HomeTestCase):
         self.assertFalse(isShared)
 
         yield self._doPOST("""<?xml version="1.0" encoding="utf-8" ?>
-<CS:share xmlns:D="DAV:" xmlns:CS="http://calendarserver.org/ns/">
-    <CS:set>
-        <D:href>mailto:user02@example.com</D:href>
-        <CS:summary>My Shared Calendar</CS:summary>
-        <CS:read-write/>
-    </CS:set>
-</CS:share>
-""")
+            <CS:share xmlns:D="DAV:" xmlns:CS="http://calendarserver.org/ns/">
+                <CS:set>
+                    <D:href>mailto:user02@example.com</D:href>
+                    <CS:summary>My Shared Calendar</CS:summary>
+                    <CS:read-write/>
+                </CS:set>
+            </CS:share>
+            """)
 
         isShared = (yield self.resource.isShared(None))
         self.assertTrue(isShared)
 
         yield self._doPOST("""<?xml version="1.0" encoding="utf-8" ?>
-<CS:share xmlns:D="DAV:" xmlns:CS="http://calendarserver.org/ns/">
-    <CS:set>
-        <D:href>mailto:user02@example.com</D:href>
-        <CS:summary>My Shared Calendar</CS:summary>
-        <CS:read/>
-    </CS:set>
-</CS:share>
-""")
+            <CS:share xmlns:D="DAV:" xmlns:CS="http://calendarserver.org/ns/">
+                <CS:set>
+                    <D:href>mailto:user02@example.com</D:href>
+                    <CS:summary>My Shared Calendar</CS:summary>
+                    <CS:read/>
+                </CS:set>
+            </CS:share>
+            """)
 
         isShared = (yield self.resource.isShared(None))
         self.assertTrue(isShared)
@@ -408,25 +418,25 @@ class SharingTests(HomeTestCase):
         self.assertFalse(isShared)
 
         yield self._doPOST("""<?xml version="1.0" encoding="utf-8" ?>
-<CS:share xmlns:D="DAV:" xmlns:CS="http://calendarserver.org/ns/">
-    <CS:set>
-        <D:href>mailto:user02@example.com</D:href>
-        <CS:summary>My Shared Calendar</CS:summary>
-        <CS:read-write/>
-    </CS:set>
-</CS:share>
-""")
+            <CS:share xmlns:D="DAV:" xmlns:CS="http://calendarserver.org/ns/">
+                <CS:set>
+                    <D:href>mailto:user02@example.com</D:href>
+                    <CS:summary>My Shared Calendar</CS:summary>
+                    <CS:read-write/>
+                </CS:set>
+            </CS:share>
+            """)
 
         isShared = (yield self.resource.isShared(None))
         self.assertTrue(isShared)
 
         yield self._doPOST("""<?xml version="1.0" encoding="utf-8" ?>
-<CS:share xmlns:D="DAV:" xmlns:CS="http://calendarserver.org/ns/">
-    <CS:remove>
-        <D:href>mailto:user02@example.com</D:href>
-    </CS:remove>
-</CS:share>
-""")
+            <CS:share xmlns:D="DAV:" xmlns:CS="http://calendarserver.org/ns/">
+                <CS:remove>
+                    <D:href>mailto:user02@example.com</D:href>
+                </CS:remove>
+            </CS:share>
+            """)
 
         isShared = (yield self.resource.isShared(None))
         self.assertFalse(isShared)
@@ -441,28 +451,28 @@ class SharingTests(HomeTestCase):
         self.resource.upgradeToShare()
 
         yield self._doPOST("""<?xml version="1.0" encoding="utf-8" ?>
-<CS:share xmlns:D="DAV:" xmlns:CS="http://calendarserver.org/ns/">
-    <CS:set>
-        <D:href>mailto:user02@example.com</D:href>
-        <CS:summary>My Shared Calendar</CS:summary>
-        <CS:read-write/>
-    </CS:set>
-</CS:share>
-""")
+            <CS:share xmlns:D="DAV:" xmlns:CS="http://calendarserver.org/ns/">
+                <CS:set>
+                    <D:href>mailto:user02@example.com</D:href>
+                    <CS:summary>My Shared Calendar</CS:summary>
+                    <CS:read-write/>
+                </CS:set>
+            </CS:share>
+            """)
         yield self._doPOST("""<?xml version="1.0" encoding="utf-8" ?>
-<CS:share xmlns:D="DAV:" xmlns:CS="http://calendarserver.org/ns/">
-    <CS:set>
-        <D:href>mailto:user03@example.com</D:href>
-        <CS:summary>Your Shared Calendar</CS:summary>
-        <CS:read-write/>
-    </CS:set>
-    <CS:set>
-        <D:href>mailto:user04@example.com</D:href>
-        <CS:summary>Your Shared Calendar</CS:summary>
-        <CS:read-write/>
-    </CS:set>
-</CS:share>
-""")
+            <CS:share xmlns:D="DAV:" xmlns:CS="http://calendarserver.org/ns/">
+                <CS:set>
+                    <D:href>mailto:user03@example.com</D:href>
+                    <CS:summary>Your Shared Calendar</CS:summary>
+                    <CS:read-write/>
+                </CS:set>
+                <CS:set>
+                    <D:href>mailto:user04@example.com</D:href>
+                    <CS:summary>Your Shared Calendar</CS:summary>
+                    <CS:read-write/>
+                </CS:set>
+            </CS:share>
+            """)
 
         propInvite = (yield self.resource.readProperty(customxml.Invite, None))
         self.assertEquals(self._clearUIDElementValue(propInvite), customxml.Invite(
@@ -496,31 +506,31 @@ class SharingTests(HomeTestCase):
         self.resource.upgradeToShare()
 
         yield self._doPOST("""<?xml version="1.0" encoding="utf-8" ?>
-<CS:share xmlns:D="DAV:" xmlns:CS="http://calendarserver.org/ns/">
-    <CS:set>
-        <D:href>mailto:user02@example.com</D:href>
-        <CS:summary>My Shared Calendar</CS:summary>
-        <CS:read-write/>
-    </CS:set>
-    <CS:set>
-        <D:href>mailto:user03@example.com</D:href>
-        <CS:summary>My Shared Calendar</CS:summary>
-        <CS:read-write/>
-    </CS:set>
-</CS:share>
-""")
+            <CS:share xmlns:D="DAV:" xmlns:CS="http://calendarserver.org/ns/">
+                <CS:set>
+                    <D:href>mailto:user02@example.com</D:href>
+                    <CS:summary>My Shared Calendar</CS:summary>
+                    <CS:read-write/>
+                </CS:set>
+                <CS:set>
+                    <D:href>mailto:user03@example.com</D:href>
+                    <CS:summary>My Shared Calendar</CS:summary>
+                    <CS:read-write/>
+                </CS:set>
+            </CS:share>
+            """)
         yield self._doPOST("""<?xml version="1.0" encoding="utf-8" ?>
-<CS:share xmlns:D="DAV:" xmlns:CS="http://calendarserver.org/ns/">
-    <CS:remove>
-        <D:href>mailto:user03@example.com</D:href>
-    </CS:remove>
-    <CS:set>
-        <D:href>mailto:user04@example.com</D:href>
-        <CS:summary>Your Shared Calendar</CS:summary>
-        <CS:read-write/>
-    </CS:set>
-</CS:share>
-""")
+            <CS:share xmlns:D="DAV:" xmlns:CS="http://calendarserver.org/ns/">
+                <CS:remove>
+                    <D:href>mailto:user03@example.com</D:href>
+                </CS:remove>
+                <CS:set>
+                    <D:href>mailto:user04@example.com</D:href>
+                    <CS:summary>Your Shared Calendar</CS:summary>
+                    <CS:read-write/>
+                </CS:set>
+            </CS:share>
+            """)
 
         propInvite = (yield self.resource.readProperty(customxml.Invite, None))
         self.assertEquals(self._clearUIDElementValue(propInvite), customxml.Invite(
@@ -546,31 +556,31 @@ class SharingTests(HomeTestCase):
         self.resource.upgradeToShare()
 
         yield self._doPOST("""<?xml version="1.0" encoding="utf-8" ?>
-<CS:share xmlns:D="DAV:" xmlns:CS="http://calendarserver.org/ns/">
-    <CS:set>
-        <D:href>mailto:user02@example.com</D:href>
-        <CS:summary>My Shared Calendar</CS:summary>
-        <CS:read-write/>
-    </CS:set>
-    <CS:set>
-        <D:href>mailto:user03@example.com</D:href>
-        <CS:summary>My Shared Calendar</CS:summary>
-        <CS:read-write/>
-    </CS:set>
-</CS:share>
-""")
+            <CS:share xmlns:D="DAV:" xmlns:CS="http://calendarserver.org/ns/">
+                <CS:set>
+                    <D:href>mailto:user02@example.com</D:href>
+                    <CS:summary>My Shared Calendar</CS:summary>
+                    <CS:read-write/>
+                </CS:set>
+                <CS:set>
+                    <D:href>mailto:user03@example.com</D:href>
+                    <CS:summary>My Shared Calendar</CS:summary>
+                    <CS:read-write/>
+                </CS:set>
+            </CS:share>
+            """)
         yield self._doPOST("""<?xml version="1.0" encoding="utf-8" ?>
-<CS:share xmlns:D="DAV:" xmlns:CS="http://calendarserver.org/ns/">
-    <CS:remove>
-        <D:href>mailto:user03@example.com</D:href>
-    </CS:remove>
-    <CS:set>
-        <D:href>mailto:user03@example.com</D:href>
-        <CS:summary>Your Shared Calendar</CS:summary>
-        <CS:read/>
-    </CS:set>
-</CS:share>
-""")
+            <CS:share xmlns:D="DAV:" xmlns:CS="http://calendarserver.org/ns/">
+                <CS:remove>
+                    <D:href>mailto:user03@example.com</D:href>
+                </CS:remove>
+                <CS:set>
+                    <D:href>mailto:user03@example.com</D:href>
+                    <CS:summary>Your Shared Calendar</CS:summary>
+                    <CS:read/>
+                </CS:set>
+            </CS:share>
+            """)
 
         propInvite = (yield self.resource.readProperty(customxml.Invite, None))
         self.assertEquals(self._clearUIDElementValue(propInvite), customxml.Invite(
@@ -602,36 +612,36 @@ class SharingTests(HomeTestCase):
         self.resource.upgradeToShare()
 
         yield self._doPOST("""<?xml version="1.0" encoding="utf-8" ?>
-<CS:share xmlns:D="DAV:" xmlns:CS="http://calendarserver.org/ns/">
-    <CS:set>
-        <D:href>mailto:user02@example.com</D:href>
-        <CS:summary>My Shared Calendar</CS:summary>
-        <CS:read-write/>
-    </CS:set>
-    <CS:set>
-        <D:href>mailto:user03@example.com</D:href>
-        <CS:summary>My Shared Calendar</CS:summary>
-        <CS:read-write/>
-    </CS:set>
-</CS:share>
-""")
+            <CS:share xmlns:D="DAV:" xmlns:CS="http://calendarserver.org/ns/">
+                <CS:set>
+                    <D:href>mailto:user02@example.com</D:href>
+                    <CS:summary>My Shared Calendar</CS:summary>
+                    <CS:read-write/>
+                </CS:set>
+                <CS:set>
+                    <D:href>mailto:user03@example.com</D:href>
+                    <CS:summary>My Shared Calendar</CS:summary>
+                    <CS:read-write/>
+                </CS:set>
+            </CS:share>
+            """)
         yield self._doPOST("""<?xml version="1.0" encoding="utf-8" ?>
-<CS:share xmlns:D="DAV:" xmlns:CS="http://calendarserver.org/ns/">
-    <CS:remove>
-        <D:href>mailto:user03@example.com</D:href>
-    </CS:remove>
-</CS:share>
-""")
+            <CS:share xmlns:D="DAV:" xmlns:CS="http://calendarserver.org/ns/">
+                <CS:remove>
+                    <D:href>mailto:user03@example.com</D:href>
+                </CS:remove>
+            </CS:share>
+            """)
         yield self._doPOST("""<?xml version="1.0" encoding="utf-8" ?>
-<CS:share xmlns:D="DAV:" xmlns:CS="http://calendarserver.org/ns/">
-    <CS:remove>
-        <D:href>mailto:user02@example.com</D:href>
-    </CS:remove>
-    <CS:remove>
-        <D:href>mailto:user03@example.com</D:href>
-    </CS:remove>
-</CS:share>
-""")
+            <CS:share xmlns:D="DAV:" xmlns:CS="http://calendarserver.org/ns/">
+                <CS:remove>
+                    <D:href>mailto:user02@example.com</D:href>
+                </CS:remove>
+                <CS:remove>
+                    <D:href>mailto:user03@example.com</D:href>
+                </CS:remove>
+            </CS:share>
+            """)
 
         propInvite = (yield self.resource.readProperty(customxml.Invite, None))
         self.assertEquals(propInvite, None)
@@ -641,30 +651,37 @@ class SharingTests(HomeTestCase):
     def test_POSTaddInvalidInvitee(self):
         self.resource.upgradeToShare()
 
-        response = (yield self._doPOST("""<?xml version="1.0" encoding="utf-8" ?>
-<CS:share xmlns:D="DAV:" xmlns:CS="http://calendarserver.org/ns/">
-    <CS:set>
-        <D:href>mailto:bogus@example.net</D:href>
-        <CS:summary>My Shared Calendar</CS:summary>
-        <CS:read-write/>
-    </CS:set>
-</CS:share>
-""",
+        response = (yield self._doPOST(
+            """<?xml version="1.0" encoding="utf-8" ?>
+            <CS:share xmlns:D="DAV:" xmlns:CS="http://calendarserver.org/ns/">
+                <CS:set>
+                    <D:href>mailto:bogus@example.net</D:href>
+                    <CS:summary>My Shared Calendar</CS:summary>
+                    <CS:read-write/>
+                </CS:set>
+            </CS:share>
+            """,
             responsecode.MULTI_STATUS
         ))
-        self.assertEqual(
+        self.assertXMLEquals(
             str(response.stream.read()).replace("\r\n", "\n"),
             """<?xml version='1.0' encoding='UTF-8'?>
-<multistatus xmlns='DAV:'>
-  <response>
-    <href>mailto:bogus@example.net</href>
-    <status>HTTP/1.1 403 Forbidden</status>
-  </response>
-</multistatus>"""
+            <multistatus xmlns='DAV:'>
+              <response>
+                <href>mailto:bogus@example.net</href>
+                <status>HTTP/1.1 403 Forbidden</status>
+              </response>
+            </multistatus>"""
         )
         propInvite = (yield self.resource.readProperty(customxml.Invite, None))
-
         self.assertEquals(propInvite, None)
+
+
+    def assertXMLEquals(self, a, b):
+        """
+        Assert two strings are equivalent as XML.
+        """
+        self.assertEquals(normalize(a), normalize(b))
 
 
     @inlineCallbacks
@@ -673,14 +690,14 @@ class SharingTests(HomeTestCase):
         self.resource.upgradeToShare()
 
         yield self._doPOST("""<?xml version="1.0" encoding="utf-8" ?>
-<CS:share xmlns:D="DAV:" xmlns:CS="http://calendarserver.org/ns/">
-    <CS:set>
-        <D:href>mailto:user01@example.com</D:href>
-        <CS:summary>My Shared Calendar</CS:summary>
-        <CS:read-write/>
-    </CS:set>
-</CS:share>
-""")
+            <CS:share xmlns:D="DAV:" xmlns:CS="http://calendarserver.org/ns/">
+                <CS:set>
+                    <D:href>mailto:user01@example.com</D:href>
+                    <CS:summary>My Shared Calendar</CS:summary>
+                    <CS:read-write/>
+                </CS:set>
+            </CS:share>
+            """)
 
         propInvite = (yield self.resource.readProperty(customxml.Invite, None))
         self.assertEquals(self._clearUIDElementValue(propInvite), customxml.Invite(
@@ -709,12 +726,12 @@ class SharingTests(HomeTestCase):
         ))
 
         yield self._doPOST("""<?xml version="1.0" encoding="utf-8" ?>
-<CS:share xmlns:D="DAV:" xmlns:CS="http://calendarserver.org/ns/">
-    <CS:remove>
-        <D:href>mailto:user01@example.com</D:href>
-    </CS:remove>
-</CS:share>
-""")
+            <CS:share xmlns:D="DAV:" xmlns:CS="http://calendarserver.org/ns/">
+                <CS:remove>
+                    <D:href>mailto:user01@example.com</D:href>
+                </CS:remove>
+            </CS:share>
+            """)
 
         propInvite = (yield self.resource.readProperty(customxml.Invite, None))
         self.assertEquals(propInvite, None)
