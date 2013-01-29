@@ -34,7 +34,12 @@ from twisted.internet.defer import inlineCallbacks, returnValue
 
 class AggregateDirectoryService(DirectoryService):
     """
-    L{IDirectoryService} implementation which aggregates multiple directory services.
+    L{IDirectoryService} implementation which aggregates multiple directory
+    services.
+
+    @ivar _recordTypes: A map of record types to L{IDirectoryService}s.
+    @type _recordTypes: L{dict} mapping L{bytes} to L{IDirectoryService}
+        provider.
     """
     baseGUID = "06FB225F-39E7-4D34-B1D1-29925F5E619B"
 
