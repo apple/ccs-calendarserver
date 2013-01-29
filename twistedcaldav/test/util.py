@@ -341,8 +341,9 @@ class HomeTestCase(TestCase):
     def setUp(self):
         """
         Replace self.site.resource with an appropriately provisioned
-        CalendarHomeResource, and replace self.docroot with a path pointing at that
-        file.
+        L{CalendarHomeResource}, and, if the data store backing this test is a
+        file store, replace C{self.docroot} with a path pointing at the path
+        that stores the data for that L{CalendarHomeResource}.
         """
         super(HomeTestCase, self).setUp()
 
@@ -355,7 +356,7 @@ class HomeTestCase(TestCase):
             self.directoryService, "/calendars/",
             _newStore
         )
-        
+
         def _defer(user):
             # Commit the transaction
             self.addCleanup(self.noRenderCommit)
