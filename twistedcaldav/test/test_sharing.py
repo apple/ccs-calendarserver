@@ -16,28 +16,22 @@
 
 from xml.etree.cElementTree import XML
 
-from zope.interface import implements
-
 from txdav.xml import element as davxml
 from txdav.xml.parser import WebDAVDocument
 
 from twext.web2 import responsecode
-from twext.web2.iweb import IResource
 from twext.web2.test.test_server import SimpleRequest
 
 from twisted.internet.defer import inlineCallbacks, returnValue, succeed
 from twistedcaldav import customxml
 from twistedcaldav.config import config
 from twistedcaldav.test.util import HomeTestCase, norequest
-from twistedcaldav.sharing import SharedCollectionMixin, WikiDirectoryService
+from twistedcaldav.sharing import WikiDirectoryService
 
 from twistedcaldav.resource import CalDAVResource
 
 from txdav.common.datastore.test.util import buildStore, StubNotifierFactory
 from txdav.caldav.icalendarstore import BIND_DIRECT
-from twistedcaldav.directory.aggregate import AggregateDirectoryService
-from twistedcaldav.directory.principal import DirectoryPrincipalProvisioningResource
-from twistedcaldav.directory.calendar import DirectoryCalendarHomeProvisioningResource
 from twistedcaldav.test.test_cache import StubResponseCacheResource
 
 
@@ -52,87 +46,6 @@ def normalize(x):
     pretty-printing.
     """
     return WebDAVDocument.fromString(x).toxml()
-
-
-
-class StubCollection(object):
-
-    def __init__(self):
-        self._isShareeCollection = True
-        self._shareePrincipal = StubUserPrincipal()
-
-
-    def isCalendarCollection(self):
-        return True
-
-
-
-class StubShare(object):
-
-    def direct(self):
-        return True
-
-    def url(self):
-        return "/wikifoo"
-
-    def uid(self):
-        return "012345"
-
-    def shareeUID(self):
-        return StubUserPrincipal().record.guid
-
-
-
-class TestCollection(SharedCollectionMixin, StubCollection):
-    def principalForUID(self, uid):
-        principal = StubUserPrincipal()
-        return principal if principal.record.guid == uid else None
-
-
-
-class StubRecord(object):
-    def __init__(self, recordType, name, guid):
-        self.recordType = recordType
-        self.shortNames = [name]
-        self.guid = guid
-
-
-
-class StubUserPrincipal(object):
-    def __init__(self):
-        self.record = StubRecord(
-            "users",
-            "testuser",
-            "4F364813-0415-45CB-9FD4-DBFEF7A0A8E0"
-        )
-
-
-    def principalURL(self):
-        return "/principals/__uids__/%s/" % (self.record.guid,)
-
-
-
-class StubWikiPrincipal(object):
-    def __init__(self):
-        self.record = StubRecord(
-            WikiDirectoryService.recordType_wikis,
-            "wikifoo",
-            "foo"
-        )
-
-class StubWikiResource(object):
-    implements(IResource)
-
-    def locateChild(self, req, segments):
-        pass
-
-
-    def renderHTTP(self, req):
-        pass
-
-
-    def ownerPrincipal(self, req):
-        return succeed(StubWikiPrincipal())
 
 
 
@@ -270,6 +183,8 @@ class SharingTests(HomeTestCase):
         self.resource = (
             yield self.site.resource.locateChild(request, ["calendar"])
         )[0]
+        self.site.resource.responseCache = StubResponseCacheResource()
+        self.site.resource.putChild("calendars", self.homeProvisioner)
         returnValue(result)
 
 
@@ -774,10 +689,9 @@ class SharingTests(HomeTestCase):
         def stubWikiAccessMethod(userID, wikiID):
             return access
 
-        collection = TestCollection()
-        collection._share = StubShare()
-        self.site.resource.putChild("wikifoo", StubWikiResource())
-        request = SimpleRequest(self.site, "GET", "/wikifoo")
+        sharedName = yield self.wikiSetup()
+        request = SimpleRequest(self.site, "GET", "/404")
+        collection = yield request.locateResource("/" + sharedName)
 
         # Simulate the wiki server granting Read access
         acl = (yield collection.shareeAccessControlList(request,
@@ -792,44 +706,29 @@ class SharingTests(HomeTestCase):
 
 
     @inlineCallbacks
+    def wikiSetup(self):
+        wcreate = self.calendarStore.newTransaction("create wiki")
+        yield wcreate.calendarHomeWithUID("wiki-testing", create=True)
+        yield wcreate.commit()
+        self.directoryFixture.addDirectoryService(WikiDirectoryService())
+
+        txn = self.site.resource._associatedTransaction
+        sharee = self.site.resource._newStoreHome
+        sharer = yield txn.calendarHomeWithUID("wiki-testing")
+        cal = yield sharer.calendarWithName("calendar")
+        sharedName = yield cal.shareWith(sharee, BIND_DIRECT)
+        yield self._refreshRoot()
+        returnValue(sharedName)
+
+
+    @inlineCallbacks
     def test_noWikiAccess(self):
         """
         If L{SharedCollectionMixin.shareeAccessControlList} detects missing
         access controls for a directly shared collection, it will automatically
         un-share that collection.
         """
-        wcreate = self.calendarStore.newTransaction("create wiki")
-        yield wcreate.calendarHomeWithUID("wiki-testing", create=True)
-        yield wcreate.commit()
-        self.directoryFixture.addDirectoryService(WikiDirectoryService())
-        origRefreshRoot = self._refreshRoot
-        @inlineCallbacks
-        def _newRefreshRoot(request=None):
-            yield origRefreshRoot(request)
-            self.site.resource.responseCache = StubResponseCacheResource()
-            self.site.resource.putChild("calendars", self.homeProvisioner)
-            # if request is not None:
-            #     request._rememberResource(self.site.resource, "/")
-        self._refreshRoot = _newRefreshRoot
-
-        @inlineCallbacks
-        def getSharedName():
-            """
-            Share a resource from a wiki; get its name.  Put this in its own
-            function so it doesn't leak any soon-to-expire variables to the
-            outer test.
-            """
-            txn = self.site.resource._associatedTransaction
-            sharee = self.site.resource._newStoreHome
-
-            sharer = yield txn.calendarHomeWithUID("wiki-testing")
-            cal = yield sharer.calendarWithName("calendar")
-            sharedName = yield cal.shareWith(sharee, BIND_DIRECT)
-
-            yield self._refreshRoot()
-            returnValue(sharedName)
-
-        sharedName = yield getSharedName()
+        sharedName = yield self.wikiSetup()
         access = "write"
         def stubWikiAccessMethod(userID, wikiID):
             return access
