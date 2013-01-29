@@ -28,7 +28,7 @@ from twisted.internet.defer import inlineCallbacks, returnValue, succeed
 from twistedcaldav import customxml
 from twistedcaldav.config import config
 from twistedcaldav.test.util import HomeTestCase, norequest
-from twistedcaldav.sharing import SharedCollectionMixin, WikiDirectoryService, Share
+from twistedcaldav.sharing import SharedCollectionMixin, WikiDirectoryService
 
 from twistedcaldav.resource import CalDAVResource
 from txdav.common.datastore.test.util import buildStore, StubNotifierFactory
@@ -170,15 +170,56 @@ class SharingTests(HomeTestCase):
         self.patch(config.Sharing, "Enabled", True)
         self.patch(config.Sharing.Calendars, "Enabled", True)
 
-        CalDAVResource.sendInviteNotification = lambda self, record, request: succeed(True)
-        CalDAVResource.removeInviteNotification = lambda self, record, request: succeed(True)
+        def patched(c):
+            """
+            The decorated method is patched on L{CalDAVResource} for the
+            duration of the test.
+            """
+            self.patch(CalDAVResource, c.__name__, c)
+            return c
 
-        self.patch(CalDAVResource, "validUserIDForShare", lambda self, userid, request: None if "bogus" in userid else SharingTests.FakePrincipal(userid).principalURL())
-        self.patch(CalDAVResource, "principalForCalendarUserAddress", lambda self, cuaddr: None if "bogus" in cuaddr else SharingTests.FakePrincipal(cuaddr))
-        self.patch(CalDAVResource, "principalForUID", lambda self, principalUID: SharingTests.FakePrincipal("urn:uuid:" + principalUID))
+        @patched
+        def sendInviteNotification(resourceSelf, record, request):
+            """
+            For testing purposes, sending an invite notification succeeds
+            without doing anything.
+            """
+            return succeed(True)
+
+        @patched
+        def removeInviteNotification(resourceSelf, record, request):
+            """
+            For testing purposes, removing an invite notification succeeds
+            without doing anything.
+            """
+            return succeed(True)
+
+        @patched
+        def principalForCalendarUserAddress(resourceSelf, cuaddr):
+            if "bogus" in cuaddr:
+                return None
+            else:
+                return SharingTests.FakePrincipal(cuaddr)
+
+        @patched
+        def validUserIDForShare(resourceSelf, userid, request):
+            """
+            Temporary replacement for L{CalDAVResource.validUserIDForShare}
+            that marks any principal without 'bogus' in its name.
+            """
+            result = principalForCalendarUserAddress(resourceSelf, userid)
+            if result is None:
+                return result
+            return result.principalURL()
+
+        @patched
+        def principalForUID(resourceSelf, principalUID):
+            return SharingTests.FakePrincipal("urn:uuid:" + principalUID)
+
 
     def createDataStore(self):
         return self.calendarStore
+
 
     @inlineCallbacks
     def _refreshRoot(self, request=None):
