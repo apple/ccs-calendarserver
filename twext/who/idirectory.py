@@ -143,6 +143,8 @@ class IDirectoryService(Interface):
 class IDirectoryRecord(Interface):
     """
     Directory record.
+
+    Fields may also be accessed as attributes of L{IDirectoryRecord} objects.
     """
     service = Attribute("The L{IDirectoryService} this record exists in.")
     fields  = Attribute("A dictionary with L{FieldName} keys and text values.")
