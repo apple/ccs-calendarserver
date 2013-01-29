@@ -26,6 +26,7 @@ from twisted.internet.defer import inlineCallbacks, returnValue, succeed
 from twistedcaldav import customxml
 from twistedcaldav.config import config
 from twistedcaldav.test.util import HomeTestCase, norequest
+from twistedcaldav import sharing
 from twistedcaldav.sharing import WikiDirectoryService
 
 from twistedcaldav.resource import CalDAVResource
@@ -712,23 +713,21 @@ class SharingTests(HomeTestCase):
         """
 
         access = "read"
-
         def stubWikiAccessMethod(userID, wikiID):
             return access
+        self.patch(sharing, "getWikiAccess", stubWikiAccessMethod)
 
         sharedName = yield self.wikiSetup()
         request = SimpleRequest(self.site, "GET", "/404")
         collection = yield request.locateResource("/" + sharedName)
 
         # Simulate the wiki server granting Read access
-        acl = (yield collection.shareeAccessControlList(request,
-            wikiAccessMethod=stubWikiAccessMethod))
+        acl = (yield collection.shareeAccessControlList(request))
         self.assertFalse("<write/>" in acl.toxml())
 
         # Simulate the wiki server granting Read-Write access
         access = "write"
-        acl = (yield collection.shareeAccessControlList(request,
-            wikiAccessMethod=stubWikiAccessMethod))
+        acl = (yield collection.shareeAccessControlList(request))
         self.assertTrue("<write/>" in acl.toxml())
 
 
@@ -743,7 +742,6 @@ class SharingTests(HomeTestCase):
         access = "write"
         def stubWikiAccessMethod(userID, wikiID):
             return access
-        from twistedcaldav import sharing
         self.patch(sharing, "getWikiAccess", stubWikiAccessMethod)
         @inlineCallbacks
         def listChildrenViaPropfind():
