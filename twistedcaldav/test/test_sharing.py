@@ -14,6 +14,7 @@
 # limitations under the License.
 ##
 
+from xml.etree.cElementTree import XML
 
 from zope.interface import implements
 
@@ -35,7 +36,11 @@ from twistedcaldav.sharing import SharedCollectionMixin, WikiDirectoryService
 from twistedcaldav.resource import CalDAVResource
 
 from txdav.common.datastore.test.util import buildStore, StubNotifierFactory
+from twext.web2.dav.util import allDataFromStream
 from txdav.caldav.icalendarstore import BIND_DIRECT
+from twistedcaldav.directory.aggregate import AggregateDirectoryService
+from twistedcaldav.directory.principal import DirectoryPrincipalProvisioningResource
+from twistedcaldav.directory.calendar import DirectoryCalendarHomeProvisioningResource
 
 
 sharedOwnerType = davxml.ResourceType.sharedownercalendar #@UndefinedVariable
@@ -144,7 +149,7 @@ class SharingTests(HomeTestCase):
                 self.guid = name
                 self.calendarUserAddresses = set((cuaddr,))
 
-        def __init__(self, cuaddr):
+        def __init__(self, cuaddr, test):
             if cuaddr.startswith("mailto:"):
                 name = cuaddr[7:].split('@')[0]
             elif cuaddr.startswith("urn:uuid:"):
@@ -156,13 +161,24 @@ class SharingTests(HomeTestCase):
             self.homepath = "/calendars/__uids__/%s" % (name,)
             self.displayname = name.upper()
             self.record = self.FakeRecord(name, cuaddr)
+            self._test = test
+            self._name = name
 
 
+        @inlineCallbacks
         def calendarHome(self, request):
-            class FakeHome(object):
-                def removeShareByUID(self, request, uid):
-                    pass
-            return FakeHome()
+            a, seg = yield self._test.homeProvisioner.locateChild(request,
+                                                                  ["__uids__"])
+            b, seg = yield a.locateChild(request, [self._name])
+            if b is None:
+                # XXX all tests except test_noWikiAccess currently rely on the
+                # fake thing here.
+                class FakeHome(object):
+                    def removeShareByUID(self, request, uid):
+                        pass
+                returnValue(FakeHome())
+            returnValue(b)
+
 
         def principalURL(self):
             return self.path
@@ -174,14 +190,20 @@ class SharingTests(HomeTestCase):
             return self.displayname
 
 
+    def configure(self):
+        """
+        Turn on sharing.
+        """
+        super(SharingTests, self).configure()
+        self.patch(config.Sharing, "Enabled", True)
+        self.patch(config.Sharing.Calendars, "Enabled", True)
+
+
     @inlineCallbacks
     def setUp(self):
         self.calendarStore = yield buildStore(self, StubNotifierFactory())
 
         yield super(SharingTests, self).setUp()
-
-        self.patch(config.Sharing, "Enabled", True)
-        self.patch(config.Sharing.Calendars, "Enabled", True)
 
         def patched(c):
             """
@@ -212,7 +234,7 @@ class SharingTests(HomeTestCase):
             if "bogus" in cuaddr:
                 return None
             else:
-                return SharingTests.FakePrincipal(cuaddr)
+                return SharingTests.FakePrincipal(cuaddr, self)
 
         @patched
         def validUserIDForShare(resourceSelf, userid, request):
@@ -227,7 +249,7 @@ class SharingTests(HomeTestCase):
 
         @patched
         def principalForUID(resourceSelf, principalUID):
-            return SharingTests.FakePrincipal("urn:uuid:" + principalUID)
+            return SharingTests.FakePrincipal("urn:uuid:" + principalUID, self)
 
 
     def createDataStore(self):
@@ -246,14 +268,46 @@ class SharingTests(HomeTestCase):
 
 
     @inlineCallbacks
-    def _doPOST(self, body, resultcode=responsecode.OK):
-        request = SimpleRequest(self.site, "POST", "/calendar/")
-        request.headers.setHeader("content-type", MimeType("text", "xml"))
+    def do(self, method, path="/", body="", mimetype="text", subtype="xml",
+           resultcode=responsecode.OK):
+        """
+        Do a simple request.
+
+        @param method: the HTTP method
+        @type method: L{bytes}
+
+        @param path: the absolute path portion of the HTTP URI
+        @type path: L{bytes}
+
+        @param body: the content body of the request
+        @type body: L{bytes}
+
+        @param mimetype: the main type of the mime type of the body of the
+            request
+        @type mimetype: L{bytes}
+
+        @param subtype: the subtype of the mimetype of the body of the request
+        @type subtype: L{bytes}
+
+        @param resultcode: The expected result code for the response to the
+            request.
+
+        @return: a L{Deferred} which fires with an L{IResponse} if the request
+            was successfully processed and fails with an L{HTTPError} if not;
+            or, if the resultcode does not match the response's code, fails
+            with L{FailTest}.
+        """
+        request = SimpleRequest(self.site, method, path)
+        request.headers.setHeader("content-type", MimeType(mimetype, subtype))
         request.stream = MemoryStream(body)
 
         response = (yield self.send(request, None))
         self.assertEqual(response.code, resultcode)
         returnValue(response)
+
+
+    def _doPOST(self, body, resultcode=responsecode.OK):
+        return self.do("POST", "/calendar/", body, resultcode=resultcode)
 
 
     def _clearUIDElementValue(self, xml):
@@ -776,13 +830,33 @@ class SharingTests(HomeTestCase):
         access controls for a directly shared collection, it will automatically
         un-share that collection.
         """
+        wcreate = self.calendarStore.newTransaction("create wiki")
+        yield wcreate.calendarHomeWithUID("wiki-testing", create=True)
+        yield wcreate.commit()
+
         # Since this is a HomeTestCase, self.site.resource refers to a _calendar
         # home_, not the actual site root.  Rummage around in the bag of state
         # there looking for the relevant stuff to test with.
+
+        testwiki = WikiDirectoryService()
+        testwiki.realmName = "Test"
+        self.directoryService = AggregateDirectoryService(
+            [testwiki, self.directoryService], None
+        )
+        self.homeProvisioner = DirectoryCalendarHomeProvisioningResource(
+            self.directoryService, "/calendars/", self.calendarStore
+        )
+        DirectoryPrincipalProvisioningResource(
+            "/principals/", self.directoryService
+        )
+
+
+        yield self._refreshRoot()
+        # Allow the site to see its other resources.
+        self.site.resource.putChild("calendars", self.homeProvisioner)
         txn = self.site.resource._associatedTransaction
         sharee = self.site.resource._newStoreHome
-
-        sharer = yield txn.calendarHomeWithUID("wiki-testing", create=True)
+        sharer = yield txn.calendarHomeWithUID("wiki-testing")
         cal = yield sharer.calendarWithName("calendar")
         access = "write"
         def stubWikiAccessMethod(userID, wikiID):
@@ -790,10 +864,28 @@ class SharingTests(HomeTestCase):
         from twistedcaldav import sharing
         self.patch(sharing, "getWikiAccess", stubWikiAccessMethod)
         sharedName = yield cal.shareWith(sharee, BIND_DIRECT)
-        childNames = yield self.site.resource.listChildren()
+        @inlineCallbacks
+        def listChildrenViaPropfind():
+            # response = yield self.do("PROPFIND", "/",
+            #                          resultcode=responsecode.MULTI_STATUS)
+            req = SimpleRequest(self.site, "PROPFIND", "/")
+            req._rememberResource(self.site.resource, "/")
+            req.headers.setHeader("Depth", "1")
+            # Invoke http_PROPFIND directly rather than using HTTP machinery so
+            # we can simply do everything in one transaction rather than
+            # repeatedly spinning up new ones.
+            response = yield self.site.resource.http_PROPFIND(req)
+            data = yield allDataFromStream(response.stream)
+            tree = XML(data)
+            seq = [e.text for e in tree.findall("{DAV:}response/{DAV:}href")]
+            shortest = min(seq, key=len)
+            seq.remove(shortest)
+            filtered = [elem[len(shortest):].rstrip("/") for elem in seq]
+            returnValue(filtered)
+        childNames = yield listChildrenViaPropfind()
         self.assertIn(sharedName, childNames)
         access = "no-access"
-        childNames = yield self.site.resource.listChildren()
+        childNames = yield listChildrenViaPropfind()
         self.assertNotIn(sharedName, childNames)
 
 
