@@ -136,19 +136,36 @@ class TestCase(twext.web2.dav.test.util.TestCase):
         self.site.resource.putChild("addressbooks", self.addressbookCollection)
 
 
+
+    def configure(self):
+        """
+        Adjust the global configuration for this test.
+        """
+        config.reset()
+
+        config.ServerRoot = os.path.abspath(self.serverRoot)
+        config.ConfigRoot = "config"
+        config.LogRoot = "logs"
+        config.RunRoot = "logs"
+
+        config.Memcached.Pools.Default.ClientEnabled = False
+        config.Memcached.Pools.Default.ServerEnabled = False
+        ClientFactory.allowTestCache = True
+        memcacher.Memcacher.allowTestCache = True
+        memcacher.Memcacher.memoryCacheInstance = None
+        config.DirectoryAddressBook.Enabled = False
+
+
     def setUp(self):
         super(TestCase, self).setUp()
 
         # FIXME: this is only here to workaround circular imports
         doBind()
 
-        config.reset()
-        serverroot = self.mktemp()
-        os.mkdir(serverroot)
-        config.ServerRoot = os.path.abspath(serverroot)
-        config.ConfigRoot = "config"
-        config.LogRoot = "logs"
-        config.RunRoot = "logs"
+        self.serverRoot = self.mktemp()
+        os.mkdir(self.serverRoot)
+
+        self.configure()
 
         if not os.path.exists(config.DataRoot):
             os.makedirs(config.DataRoot)
@@ -159,13 +176,6 @@ class TestCase(twext.web2.dav.test.util.TestCase):
         if not os.path.exists(config.LogRoot):
             os.makedirs(config.LogRoot)
 
-        config.Memcached.Pools.Default.ClientEnabled = False
-        config.Memcached.Pools.Default.ServerEnabled = False
-        ClientFactory.allowTestCache = True
-        memcacher.Memcacher.allowTestCache = True
-        memcacher.Memcacher.memoryCacheInstance = None
-
-        config.DirectoryAddressBook.Enabled = False
 
 
     def createHierarchy(self, structure, root=None):
