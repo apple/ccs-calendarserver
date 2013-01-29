@@ -177,25 +177,30 @@ class TestCase(twext.web2.dav.test.util.TestCase):
 
     def setupCalendars(self):
         """
-        Set up the resource at /calendars (a
-        L{DirectoryCalendarHomeProvisioningResource}), and assign it as
-        C{self.calendarCollection}.
+        When a directory service exists, set up the resources at C{/calendars}
+        and C{/addressbooks} (a L{DirectoryCalendarHomeProvisioningResource}
+        and L{DirectoryAddressBookHomeProvisioningResource} respectively), and
+        assign them to the C{self.calendarCollection} and
+        C{self.addressbookCollection} attributes.
+
+        A directory service may be associated with this L{TestCase} with
+        L{TestCase.createStockDirectoryService} or
+        L{TestCase.directoryFixture.addDirectoryService}.
         """
         newStore = self.createDataStore()
+        @self.directoryFixture.whenDirectoryServiceChanges
         def putAllChildren(ds):
             self.calendarCollection = (
                 DirectoryCalendarHomeProvisioningResource(
                     ds, "/calendars/", newStore
                 ))
-            self.site.resource.putChild("calendars",
-                                        self.calendarCollection)
+            self.site.resource.putChild("calendars", self.calendarCollection)
             self.addressbookCollection = (
                 DirectoryAddressBookHomeProvisioningResource(
                     ds, "/addressbooks/", newStore
                 ))
             self.site.resource.putChild("addressbooks",
                                         self.addressbookCollection)
-        self.directoryFixture.whenDirectoryServiceChanges(putAllChildren)
 
 
     def configure(self):
