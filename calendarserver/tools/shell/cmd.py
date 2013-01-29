@@ -858,3 +858,11 @@ class Commands(CommandsBase):
         self.protocol.reloadCommands()
 
     cmd_reload.hidden = "test tool"
+
+    def cmd_xyzzy(self, tokens):
+        """
+        """
+        self.terminal.write("Nothing happens.")
+        self.terminal.nextLine()
+        
+    cmd_sql.hidden = ""

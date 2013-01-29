@@ -25,7 +25,7 @@ __all__ = [
     "MatchType",
     "Operand",
     "QueryFlags",
-    "IDirectoryQueryMatchExpression",
+    "DirectoryQueryMatchExpression",
     "IDirectoryService",
     "IDirectoryRecord",
 ]
@@ -54,8 +54,12 @@ class QueryNotSupportedError(DirectoryServiceError):
 
 
 ##
-# Constants
+# Data Types
 ##
+
+class RecordType(Names):
+    user  = NamedConstant()
+    group = NamedConstant()
 
 class FieldName(Names):
     """
@@ -66,6 +70,13 @@ class FieldName(Names):
     uid            = NamedConstant()
     guid           = NamedConstant()
     emailAddresses = NamedConstant()
+
+    shortNames.multiValue     = True
+    emailAddresses.multiValue = True
+
+    @classmethod
+    def isMultiValue(cls, name):
+        return hasattr(name, "multiValue") and name.multiValue
 
 class MatchType(Names):
     """
@@ -85,22 +96,27 @@ class QueryFlags(Flags):
     """
     caseInsensitive = FlagConstant()
 
+class DirectoryQueryMatchExpression(object):
+    """
+    Directory query.
+
+    @ivar fieldName: a L{FieldName}
+    @ivar fieldValue: a text value to match
+    @ivar matchType: a L{MatchType}
+    @ivar flags: l{QueryFlags}
+    """
+
+    def __init__(self, fieldName, fieldValue, matchType=MatchType.equals, flags=None):
+        self.fieldName  = fieldName
+        self.fieldValue = fieldValue
+        self.matchType  = matchType
+        self.flags      = flags
+
 
 
 ##
 # Interfaces
 ##
-
-class IDirectoryQueryMatchExpression(Interface):
-    """
-    Directory query.
-    """
-    fieldName  = Attribute("A L{FieldName}.")
-    fieldValue = Attribute("A text value to match.")
-    matchType  = Attribute("A L{MatchType}.")
-    flags      = Attribute("L{QueryFlags}.")
-
-
 
 class IDirectoryService(Interface):
     """
