@@ -677,6 +677,27 @@ class SharingTests(HomeTestCase):
 
 
     @inlineCallbacks
+    def wikiSetup(self):
+        """
+        Create a wiki called C{wiki-testing}, and share it with the user whose
+        home is at /.  Return the name of the newly shared calendar in the
+        sharee's home.
+        """
+        wcreate = self.calendarStore.newTransaction("create wiki")
+        yield wcreate.calendarHomeWithUID("wiki-testing", create=True)
+        yield wcreate.commit()
+        self.directoryFixture.addDirectoryService(WikiDirectoryService())
+
+        txn = self.site.resource._associatedTransaction
+        sharee = self.site.resource._newStoreHome
+        sharer = yield txn.calendarHomeWithUID("wiki-testing")
+        cal = yield sharer.calendarWithName("calendar")
+        sharedName = yield cal.shareWith(sharee, BIND_DIRECT)
+        yield self._refreshRoot()
+        returnValue(sharedName)
+
+
+    @inlineCallbacks
     def test_wikiACL(self):
         """
         Ensure shareeAccessControlList( ) honors the access granted by the wiki
@@ -703,22 +724,6 @@ class SharingTests(HomeTestCase):
         acl = (yield collection.shareeAccessControlList(request,
             wikiAccessMethod=stubWikiAccessMethod))
         self.assertTrue("<write/>" in acl.toxml())
-
-
-    @inlineCallbacks
-    def wikiSetup(self):
-        wcreate = self.calendarStore.newTransaction("create wiki")
-        yield wcreate.calendarHomeWithUID("wiki-testing", create=True)
-        yield wcreate.commit()
-        self.directoryFixture.addDirectoryService(WikiDirectoryService())
-
-        txn = self.site.resource._associatedTransaction
-        sharee = self.site.resource._newStoreHome
-        sharer = yield txn.calendarHomeWithUID("wiki-testing")
-        cal = yield sharer.calendarWithName("calendar")
-        sharedName = yield cal.shareWith(sharee, BIND_DIRECT)
-        yield self._refreshRoot()
-        returnValue(sharedName)
 
 
     @inlineCallbacks
