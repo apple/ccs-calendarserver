@@ -77,13 +77,13 @@ class GroupMembershipTests (TestCase):
     def setUp(self):
         super(GroupMembershipTests, self).setUp()
 
-        self.directoryService = XMLDirectoryService(
+        self.directoryFixture.addDirectoryService(XMLDirectoryService(
             {
                 'xmlFile' : xmlFile,
                 'augmentService' :
                     augment.AugmentXMLDB(xmlFiles=(augmentsFile.path,)),
             }
-        )
+        ))
         calendaruserproxy.ProxyDBService = calendaruserproxy.ProxySqliteDB("proxies.sqlite")
 
         # Set up a principals hierarchy for each service we're testing with
@@ -787,13 +787,13 @@ class RecordsMatchingTokensTests(TestCase):
     def setUp(self):
         super(RecordsMatchingTokensTests, self).setUp()
 
-        self.directoryService = XMLDirectoryService(
+        self.directoryFixture.addDirectoryService(XMLDirectoryService(
             {
                 'xmlFile' : xmlFile,
                 'augmentService' :
                     augment.AugmentXMLDB(xmlFiles=(augmentsFile.path,)),
             }
-        )
+        ))
         calendaruserproxy.ProxyDBService = calendaruserproxy.ProxySqliteDB("proxies.sqlite")
 
         # Set up a principals hierarchy for each service we're testing with
