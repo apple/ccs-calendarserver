@@ -77,6 +77,12 @@ class DirectoryRecord(FancyEqMixin, object):
                     if not value:
                         raise ValueError("%s field must not be empty." % (fieldName,))
 
+        if fields[FieldName.recordType] not in service.RecordTypeClass.iterconstants():
+            raise ValueError("Record type must be one of %r, not %r." % (
+                tuple(service.RecordTypeClass.iterconstants()),
+                fields[FieldName.recordType]
+            ))
+
         self.service = service
         self.fields  = fields
 

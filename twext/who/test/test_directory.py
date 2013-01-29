@@ -137,6 +137,11 @@ class DirectoryRecordTest(unittest.TestCase):
         fields[FieldName.shortNames] = ("wsanchez", "")
         self.assertRaises(ValueError, self._testRecord, fields)
 
+    def test_initWithBogusRecordType(self):
+        fields = self.fields_wsanchez.copy()
+        fields[FieldName.recordType] = object()
+        self.assertRaises(ValueError, self._testRecord, fields)
+
     def test_compare(self):
         fields_glyphmod = self.fields_glyph.copy()
         del fields_glyphmod[FieldName.emailAddresses]
