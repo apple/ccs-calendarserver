@@ -359,7 +359,6 @@ class IScheduleRequest(object):
 
         self.headers = Headers()
         self.headers.setHeader("Host", utf8String(host + ":%s" % (port,)))
-        self.sign_headers.append("Host")
 
         # The Originator must be the ORGANIZER (for a request) or ATTENDEE (for a reply)
         originator = self.scheduler.organizer.cuaddr if self.scheduler.isiTIPRequest else self.scheduler.attendee
@@ -370,8 +369,8 @@ class IScheduleRequest(object):
         for recipient in self.recipients:
             self.headers.addRawHeader("Recipient", utf8String(recipient.cuaddr))
 
-        # Remember to "over sign" the Recipient header
-        self.sign_headers.append("Recipient+")
+        # Only one Recipient header as they get concatenated in ischedule-relaxed canonicalization
+        self.sign_headers.append("Recipient")
 
         self._doAuthentication()
 

@@ -641,6 +641,7 @@ DEFAULT_CONFIG = {
             "Enabled"          : False, # iSchedule protocol
             "AddressPatterns"  : [], # Reg-ex patterns to match iSchedule-able calendar user addresses
             "RemoteServers"    : "remoteservers.xml", # iSchedule server configurations
+            "SerialNumber"     : 1,  # Capabilities serial number
             "DNSDebug"         : "", # File where a fake Bind zone exists for creating fake DNS results
             "DKIM"             : {      # DKIM options
                 "Enabled"               : True, # DKIM signing/verification enabled

@@ -30,6 +30,7 @@ from twistedcaldav.scheduling.caldav.resource import deliverSchedulePrivilegeSet
 from twistedcaldav.scheduling.ischedule.scheduler import IScheduleScheduler
 from txdav.xml import element as davxml
 import twistedcaldav.scheduling.ischedule.xml  as ischedulexml
+from twistedcaldav.scheduling.ischedule.dkim import ISCHEDULE_CAPABILITIES
 
 __all__ = [
     "IScheduleInboxResource",
@@ -156,6 +157,7 @@ class IScheduleInboxResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithoutChi
         result = ischedulexml.QueryResult(
 
             ischedulexml.Capabilities(
+                ischedulexml.Version.fromString(config.Scheduling.iSchedule.SerialNumber),
                 ischedulexml.Versions(
                     ischedulexml.Version.fromString("1.0"),
                 ),
@@ -194,7 +196,9 @@ class IScheduleInboxResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithoutChi
                 ischedulexml.Administrator.fromString(request.unparseURL(params="", querystring="", fragment="")),
             ),
         )
-        return XMLResponse(responsecode.OK, result)
+        response = XMLResponse(responsecode.OK, result)
+        response.headers.addRawHeader(ISCHEDULE_CAPABILITIES, str(config.Scheduling.iSchedule.SerialNumber))
+        return response
 
 
     @inlineCallbacks
@@ -218,7 +222,9 @@ class IScheduleInboxResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithoutChi
             raise e
         else:
             yield txn.commit()
-        returnValue(result.response())
+        response = result.response()
+        response.headers.addRawHeader(ISCHEDULE_CAPABILITIES, str(config.Scheduling.iSchedule.SerialNumber))
+        returnValue(response)
 
     ##
     # ACL

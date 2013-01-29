@@ -33,8 +33,6 @@ from Crypto.PublicKey import RSA
 from Crypto.Signature import PKCS1_v1_5
 
 import base64
-import binascii
-import collections
 import hashlib
 import os
 import textwrap
@@ -61,7 +59,7 @@ DKIM_SIGNATURE = "DKIM-Signature"
 ISCHEDULE_VERSION = "iSchedule-Version"
 ISCHEDULE_VERSION_VALUE = "1.0"
 ISCHEDULE_MESSAGE_ID = "iSchedule-Message-ID"
-
+ISCHEDULE_CAPABILITIES = "iSchedule-Capabilities"
 
 
 class DKIMUtils(object):
@@ -207,7 +205,18 @@ class DKIMUtils(object):
 
 
     @staticmethod
-    def canonicalizeHeader(name, value, remove_b=None):
+    def canonicalizeHeader(name, value, dkim_tags=None, method="ischedule-relaxed"):
+
+        if method == "relaxed":
+            return DKIMUtils.relaxedHeader(name, value, dkim_tags)
+        elif method == "ischedule-relaxed":
+            return DKIMUtils.ischeduleHeader(name, value, dkim_tags)
+        else:
+            assert "Invalid header canonicalization method: %s" % (method,)
+
+
+    @staticmethod
+    def relaxedHeader(name, value, dkim_tags=None):
         """
         Canonicalize the header using "relaxed" method. Optionally remove the b= value from
         any DKIM-Signature present.
@@ -220,22 +229,67 @@ class DKIMUtils(object):
         @type name: C{str}
         @param value: header value
         @type value: C{str}
-        @param remove_b: the b= value to remove, or C{None} if no removal needed
-        @type remove_b: C{str} or C{None}
+        @param dkim_tags: the extracted DKIM tags, or C{None} if no removal needed
+        @type dkim_tags: C{dict} or C{None}
         """
 
-        # Basic relaxed behavior
-        name = name.lower()
-        value = " ".join(value.split())
-
         # Special case DKIM-Signature: remove the b= value for signature
-        if remove_b is not None and name == DKIM_SIGNATURE.lower():
-            pos = value.find(remove_b)
-            value = value[:pos] + value[pos + len(remove_b):]
-            value = " ".join(value.split())
+        name = name.lower()
+        if dkim_tags is not None and name == DKIM_SIGNATURE.lower():
+            value = DKIMUtils.canonicalizeDKIMHeaderFields(value, dkim_tags)
+
+        # Basic relaxed behavior
+        value = " ".join(value.split())
 
         crlf = "" if name == DKIM_SIGNATURE.lower() else "\r\n"
         return "%s:%s%s" % (name, value, crlf)
+
+
+    @staticmethod
+    def ischeduleHeader(name, value, dkim_tags=None):
+        """
+        Canonicalize the header using "ischedule-relaxed" method. Optionally remove the b= value from
+        any DKIM-Signature present.
+
+        FIXME: this needs to be smarter about where valid WSP can occur in a header. Right now it will
+        blindly collapse all runs of SP/HTAB into a single SP. That could be wrong if a legitimate sequence of
+        SP/HTAB occurs in a header value.
+
+        @param name: header name
+        @type name: C{str}
+        @param value: header value
+        @type value: C{str}
+        @param dkim_tags: the extracted DKIM tags, or C{None} if no removal needed
+        @type dkim_tags: C{dict} or C{None}
+        """
+
+        # Special case DKIM-Signature: remove the b= value for signature
+        name = name.lower()
+        if dkim_tags is not None and name == DKIM_SIGNATURE.lower():
+            value = DKIMUtils.canonicalizeDKIMHeaderFields(value, dkim_tags)
+
+        # Basic relaxed behavior
+        value = " ".join(value.split())
+        value = value.replace(" ,", ",")
+        value = value.replace(", ", ",")
+
+        crlf = "" if name == DKIM_SIGNATURE.lower() else "\r\n"
+        return "%s:%s%s" % (name, value, crlf)
+
+
+    @staticmethod
+    def canonicalizeDKIMHeaderFields(value, dkim_tags):
+        """
+        DKIM-Signature b= value needs to be stripped.
+
+        @param value: header value to process
+        @type value: C{str}
+        """
+
+        pos = value.find(dkim_tags["b"])
+        value = value[:pos] + value[pos + len(dkim_tags["b"]):]
+        value = " ".join(value.split())
+        return value
 
 
     @staticmethod
@@ -402,13 +456,11 @@ class DKIMRequest(ClientRequest):
         sign_headers = []
         raw = dict([(name.lower(), values) for name, values in self.headers.getAllRawHeaders()])
         for name in self.sign_headers:
-            oversign = name[-1] == "+"
-            name = name.rstrip("+")
-            for value in reversed(raw.get(name.lower(), ())):
-                headers.append(DKIMUtils.canonicalizeHeader(name, value))
-                sign_headers.append(name)
-            if oversign:
-                sign_headers.append(name)
+            # ischedule-relaxed canonicalization requires headers with the same name concatenated
+            # with a comma in between
+            value = ",".join(raw.get(name.lower(), ()))
+            headers.append(DKIMUtils.canonicalizeHeader(name, value))
+            sign_headers.append(name)
 
         # Generate the DKIM header tags we care about
         dkim_tags = []
@@ -419,8 +471,7 @@ class DKIMRequest(ClientRequest):
         dkim_tags.append(("x", self.expire,))
         dkim_tags.append(("a", self.algorithm,))
         dkim_tags.append(("q", ":".join(self.keyMethods),))
-        dkim_tags.append(("http", base64.encodestring("%s:%s" % (self.method, self.uri,)).strip()))
-        dkim_tags.append(("c", "relaxed/simple",))
+        dkim_tags.append(("c", "ischedule-relaxed/simple",))
         dkim_tags.append(("h", ":".join(sign_headers),))
         dkim_tags.append(("bh", (yield self.bodyHash()),))
         dkim_tags.append(("b", "",))
@@ -501,7 +552,7 @@ class DKIMVerifier(object):
 
         # Do header verification
         try:
-            DKIMUtils.verify(headers, self.dkim_tags["b"], pubkey, self.hash_func)
+            DKIMUtils.verify(headers, self.dkim_tags["_b"], pubkey, self.hash_func)
         except ValueError:
             msg = "Could not verify signature"
             _debug_msg = """
@@ -524,7 +575,7 @@ Public key used:
         self.request.stream.doStartReading = None
         body = DKIMUtils.canonicalizeBody(data)
         bh = base64.b64encode(self.hash_method(body).digest())
-        if bh != self.dkim_tags["bh"]:
+        if bh != self.dkim_tags["_bh"]:
             msg = "Could not verify the DKIM body hash"
             _debug_msg = """
 DKIM-Signature:%s
@@ -566,7 +617,7 @@ Base64 encoded body:
         self.dkim_tags = DKIMUtils.extractTags(dkim)
 
         # Verify validity of tags
-        required_tags = ("v", "a", "b", "bh", "c", "d", "h", "s", "http",)
+        required_tags = ("v", "a", "b", "bh", "c", "d", "h", "s",)
         for tag in required_tags:
             if tag not in self.dkim_tags:
                 msg = "Missing DKIM-Signature tag: %s" % (tag,)
@@ -576,7 +627,7 @@ Base64 encoded body:
         check_values = {
             "v": ("1",),
             "a": (RSA1, RSA256,),
-            "c": ("relaxed", "relaxed/simple",),
+            "c": ("ischedule-relaxed", "ischedule-relaxed/simple",),
             "q": (Q_DNS, Q_HTTP, Q_PRIVATE,),
         }
         for tag, values in check_values.items():
@@ -594,6 +645,14 @@ Base64 encoded body:
                     log.debug("DKIM: " + msg)
                     raise DKIMVerificationError(msg)
 
+        # Check time stamp
+        if "t" in self.dkim_tags:
+            diff_time = self.time - int(self.dkim_tags["t"])
+            if diff_time < -360:
+                msg = "Signature time to far in the future: %d seconds" % (diff_time,)
+                log.debug("DKIM: " + msg)
+                raise DKIMVerificationError(msg)
+
         # Check expiration
         if "x" in self.dkim_tags:
             diff_time = self.time - int(self.dkim_tags["x"])
@@ -602,27 +661,9 @@ Base64 encoded body:
                 log.debug("DKIM: " + msg)
                 raise DKIMVerificationError(msg)
 
-        # Check HTTP method/request-uri
-        try:
-            http_tag = base64.decodestring(self.dkim_tags["http"])
-        except binascii.Error:
-            msg = "Tag: http is not valid base64"
-            log.debug("DKIM: " + msg)
-            raise DKIMVerificationError(msg)
-        try:
-            method, uri = http_tag.split(":", 1)
-        except ValueError:
-            msg = "Tag: base64-decoded http is not valid: %s" % (http_tag,)
-            log.debug("DKIM: " + msg)
-            raise DKIMVerificationError(msg)
-        if method != self.request.method:
-            msg = "Tag: http method does not match: %s" % (method,)
-            log.debug("DKIM: " + msg)
-            raise DKIMVerificationError(msg)
-        if uri != self.request.uri:
-            msg = "Tag: http request-URI does not match: %s" % (uri,)
-            log.debug("DKIM: " + msg)
-            raise DKIMVerificationError(msg)
+        # Base64 encoded tags might include WSP which we need to ignore
+        for tag in ("b", "bh",):
+            self.dkim_tags["_%s" % (tag,)] = "".join(self.dkim_tags[tag].split())
 
         # Some useful bits
         self.hash_method = DKIMUtils.hashlib_method(self.dkim_tags["a"])
@@ -636,26 +677,21 @@ Base64 encoded body:
         and return the expected signed data.
         """
 
-        # Extract all the expected signed headers taking into account the possibility of "over_counting"
-        # headers - a technique used to ensure headers cannot be added in transit
+        # Extract all the expected signed headers taking into account multiple occurrences of a header
+        # which get concatenated with a single comma in between.
         header_list = [hdr.strip() for hdr in self.dkim_tags["h"].split(":")]
-        header_counter = collections.defaultdict(int)
 
         headers = []
         for header in header_list:
             actual_headers = self.request.headers.getRawHeaders(header)
             if actual_headers:
-                try:
-                    headers.append((header, actual_headers[-1 - header_counter[header]],))
-                except IndexError:
-                    pass
-            header_counter[header] += 1
+                headers.append((header, ",".join(actual_headers),))
 
         # DKIM-Signature is always included at the end
         headers.append((DKIM_SIGNATURE, self.request.headers.getRawHeaders(DKIM_SIGNATURE)[0],))
 
         # Now canonicalize the values
-        return "".join([DKIMUtils.canonicalizeHeader(name, value, remove_b=self.dkim_tags["b"]) for name, value in headers])
+        return "".join([DKIMUtils.canonicalizeHeader(name, value, dkim_tags=self.dkim_tags) for name, value in headers])
 
 
     @inlineCallbacks
