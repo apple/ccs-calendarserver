@@ -270,8 +270,6 @@ class TestCase(twext.web2.dav.test.util.TestCase):
                     # This is a file
                     with open(childPath, "w") as child:
                         child.write(childStructure["@contents"])
-
-
                 else:
                     # This is a directory
                     os.mkdir(childPath)
