@@ -312,13 +312,10 @@ class SharedCollectionMixin(object):
 
 
     @inlineCallbacks
-    def _checkAccessControl(self, externalAccessMethod=None):
+    def _checkAccessControl(self):
         """
         Check the shared access mode of this resource, potentially consulting
         an external access method if necessary.
-
-        @param externalAccessMethod: see C{wikiAccessMethod} in
-            L{SharedCollectionMixin.shareeAccessControlList}
 
         @return: a L{Deferred} firing a L{bytes} or L{None}, with one of the
             potential values: C{"own"}, which means that the home is the owner
@@ -331,8 +328,6 @@ class SharedCollectionMixin(object):
             access control mechanism has dictate the home should no longer have
             any access at all.
         """
-        if externalAccessMethod is None:
-            externalAccessMethod = getWikiAccess
         if self._share.direct():
             ownerUID = self._share.ownerUID()
             owner = self.principalForUID(ownerUID)
@@ -342,7 +337,7 @@ class SharedCollectionMixin(object):
                 sharee = self.principalForUID(self._share.shareeUID())
                 userID = sharee.record.guid
                 wikiID = owner.record.shortNames[0]
-                access = (yield externalAccessMethod(userID, wikiID))
+                access = (yield getWikiAccess(userID, wikiID))
                 if access == "read":
                     returnValue("read-only")
                 elif access in ("write", "admin"):
@@ -377,21 +372,14 @@ class SharedCollectionMixin(object):
             L{twext.web2.dav.idav.IDAVResource.accessControlList}, plus
             keyword-only arguments.
 
-        @param wikiAccessMethod: (keyword-only) A callable argument used for
-            checking external access controls.  By default, L{getWikiAccess};
-            must be signature-compatible with that method.
-
         @return: the appropriate WebDAV ACL for the sharee
         @rtype: L{davxml.ACL}
         """
 
         assert self._isShareeCollection, "Only call this for a sharee collection"
 
-        wikiAccessMethod = kwargs.get("wikiAccessMethod", getWikiAccess)
-
         sharee = self.principalForUID(self._share.shareeUID())
-
-        access = yield self._checkAccessControl(wikiAccessMethod)
+        access = yield self._checkAccessControl()
 
         if access == "original":
             original = (yield request.locateResource(self._share.url()))
