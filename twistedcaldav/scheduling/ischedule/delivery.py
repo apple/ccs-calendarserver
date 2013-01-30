@@ -16,27 +16,28 @@
 
 from StringIO import StringIO
 
-from twisted.internet.defer import inlineCallbacks, DeferredList, returnValue
-from twisted.internet.protocol import Factory
+from calendarserver.version import version
 
-from twisted.python.failure import Failure
-
+from twext.internet.gaiendpoint import GAIEndpoint
+from twext.python.log import Logger
 from twext.web2 import responsecode
 from twext.web2.client.http import ClientRequest
 from twext.web2.client.http import HTTPClientProtocol
+from twext.web2.dav.http import ErrorResponse
 from twext.web2.dav.util import davXMLFromStream, joinURL, allDataFromStream
 from twext.web2.http import HTTPError
 from twext.web2.http_headers import Headers
 from twext.web2.http_headers import MimeType
 from twext.web2.stream import MemoryStream
 
-from twext.internet.gaiendpoint import GAIEndpoint
-from twext.python.log import Logger
-from twext.web2.dav.http import ErrorResponse
+from twisted.internet.defer import inlineCallbacks, DeferredList, returnValue
+from twisted.internet.protocol import Factory
+from twisted.python.failure import Failure
 
 from twistedcaldav.accounting import accountingEnabledForCategory, emitAccounting
 from twistedcaldav.client.pool import _configuredClientContextFactory
 from twistedcaldav.config import config
+from twistedcaldav.ical import normalizeCUAddress, Component
 from twistedcaldav.scheduling.cuaddress import PartitionedCalendarUser, RemoteCalendarUser, \
     OtherServerCalendarUser
 from twistedcaldav.scheduling.delivery import DeliveryService
@@ -49,8 +50,8 @@ from twistedcaldav.scheduling.ischedule.xml import ScheduleResponse, Response, \
     ResponseDescription, Error
 from twistedcaldav.scheduling.itip import iTIPRequestStatus
 from twistedcaldav.util import utf8String, normalizationLookup
+
 from urlparse import urlsplit
-from twistedcaldav.ical import normalizeCUAddress
 
 """
 Handles the sending of iSchedule scheduling messages. Used for both cross-domain scheduling,
@@ -346,11 +347,11 @@ class IScheduleRequest(object):
         whilst following redirects.
         """
 
-        self._prepareHeaders(host, port)
-        self._prepareData()
+        component, method = self._prepareData()
+        self._prepareHeaders(host, port, component, method)
 
 
-    def _prepareHeaders(self, host, port):
+    def _prepareHeaders(self, host, port, component, method):
         """
         Always generate a new set of headers because the Host may varying during redirects,
         or we may need to dump DKIM added headers during a redirect.
@@ -374,8 +375,18 @@ class IScheduleRequest(object):
 
         self._doAuthentication()
 
-        self.headers.setHeader("Content-Type", MimeType("text", "calendar", params={"charset": "utf-8"}))
+        self.headers.setHeader("Content-Type", MimeType(
+            "text", "calendar",
+            params={
+                "charset": "utf-8",
+                "component": component,
+                "method": method,
+            }
+        ))
         self.sign_headers.append("Content-Type")
+
+        self.headers.setHeader("User-Agent", "CalendarServer/%s" % (version,))
+        self.sign_headers.append("User-Agent")
 
         # Add any additional headers
         for name, value in self.server.moreHeaders:
@@ -415,7 +426,15 @@ class IScheduleRequest(object):
             if self.scheduler.isfreebusy:
                 normalizedCalendar.removeAllButTheseAttendees([recipient.cuaddr for recipient in self.recipients])
 
+            component = normalizedCalendar.mainType()
+            method = normalizedCalendar.propertyValue("METHOD")
             self.data = str(normalizedCalendar)
+            return component, method
+        else:
+            cal = Component.fromString(self.data)
+            component = cal.mainType()
+            method = cal.propertyValue("METHOD")
+            return component, method
 
 
     @inlineCallbacks
