@@ -59,8 +59,8 @@ class DirectoryRecord(FancyEqMixin, object):
     implements(IDirectoryRecord)
 
     requiredFields = (
-        FieldName.recordType,
         FieldName.uid,
+        FieldName.recordType,
         FieldName.shortNames,
     )
 

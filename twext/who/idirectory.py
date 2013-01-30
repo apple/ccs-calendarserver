@@ -21,6 +21,7 @@ Directory service interface.
 __all__ = [
     "DirectoryServiceError",
     "QueryNotSupportedError",
+    "RecordType",
     "FieldName",
     "MatchType",
     "Operand",
@@ -65,18 +66,20 @@ class FieldName(Names):
     """
     Constants for common field names.
     """
-    recordType     = NamedConstant()
-    shortNames     = NamedConstant()
     uid            = NamedConstant()
     guid           = NamedConstant()
+    recordType     = NamedConstant()
+    shortNames     = NamedConstant()
+    fullNames      = NamedConstant()
     emailAddresses = NamedConstant()
 
     shortNames.multiValue     = True
+    fullNames.multiValue      = True
     emailAddresses.multiValue = True
 
     @classmethod
     def isMultiValue(cls, name):
-        return hasattr(name, "multiValue") and name.multiValue
+        return getattr(name, "multiValue", False)
 
 class MatchType(Names):
     """
