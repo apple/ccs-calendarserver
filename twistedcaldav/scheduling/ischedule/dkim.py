@@ -646,15 +646,15 @@ Base64 encoded body:
                     raise DKIMVerificationError(msg)
 
         # Check time stamp
-        if "t" in self.dkim_tags:
+        if "t" in self.dkim_tags and self.time:
             diff_time = self.time - int(self.dkim_tags["t"])
             if diff_time < -360:
-                msg = "Signature time to far in the future: %d seconds" % (diff_time,)
+                msg = "Signature time too far in the future: %d seconds" % (diff_time,)
                 log.debug("DKIM: " + msg)
                 raise DKIMVerificationError(msg)
 
         # Check expiration
-        if "x" in self.dkim_tags:
+        if "x" in self.dkim_tags and self.time:
             diff_time = self.time - int(self.dkim_tags["x"])
             if diff_time > 0:
                 msg = "Signature expired: %d seconds" % (diff_time,)
