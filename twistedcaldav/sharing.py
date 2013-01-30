@@ -1036,11 +1036,12 @@ class SharedHomeMixin(LinkFollowerMixIn):
             share = Share(shareeHomeChild=child, sharerHomeChildOrGroup=sharerHomeChild, url=url)
         else:
             for sharerHomeChild in (yield child.ownerHome().children()):
-                sharedGroup = yield sharerHomeChild.objectResourceWithID(child._resourceID)
-                if sharedGroup:
-                    url = joinURL(sharerHomeCollection.url(), sharerHomeChild.name(), sharedGroup.name())
-                    share = Share(shareeHomeChild=child, sharerHomeChildOrGroup=sharedGroup, url=url)
-                    break
+                if sharerHomeChild.owned():
+                    sharedGroup = yield sharerHomeChild.objectResourceWithID(child._resourceID)
+                    if sharedGroup:
+                        url = joinURL(sharerHomeCollection.url(), sharerHomeChild.name(), sharedGroup.name())
+                        share = Share(shareeHomeChild=child, sharerHomeChildOrGroup=sharedGroup, url=url)
+                        break
 
         returnValue(share)
 
