@@ -819,7 +819,8 @@ class PurgePrincipalService(WorkerService):
                         for childName in childNames:
 
                             childResource = (yield collection.getChild(childName))
-                            if self.completely:
+                            # Always delete inbox items
+                            if self.completely or collName == "inbox":
                                 action = self.CANCELEVENT_SHOULD_DELETE
                             else:
                                 event = (yield childResource.iCalendar())
