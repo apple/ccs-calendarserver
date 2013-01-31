@@ -20,6 +20,7 @@ Directory service interface.
 
 __all__ = [
     "DirectoryServiceError",
+    "DirectoryAvailabilityError",
     "QueryNotSupportedError",
     "RecordType",
     "FieldName",
@@ -63,11 +64,18 @@ class QueryNotSupportedError(DirectoryServiceError):
 # Data Types
 ##
 
-class RecordType(Names):
+class _DescriptionMixIn(object):
+    def __str__(self):
+        return getattr(self, "description", Names.__str__(self))
+
+class RecordType(Names, _DescriptionMixIn):
     user  = NamedConstant()
     group = NamedConstant()
 
-class FieldName(Names):
+    user.description  = "user"
+    group.description = "group"
+
+class FieldName(Names, _DescriptionMixIn):
     """
     Constants for common field names.
     """
@@ -77,6 +85,15 @@ class FieldName(Names):
     shortNames     = NamedConstant()
     fullNames      = NamedConstant()
     emailAddresses = NamedConstant()
+    password       = NamedConstant()
+
+    uid.description            = "UID"
+    guid.description           = "GUID"
+    recordType.description     = "record type"
+    shortNames.description     = "short names"
+    fullNames.description      = "full names"
+    emailAddresses.description = "email addresses"
+    password.description       = "password"
 
     shortNames.multiValue     = True
     fullNames.multiValue      = True
@@ -86,7 +103,7 @@ class FieldName(Names):
     def isMultiValue(cls, name):
         return getattr(name, "multiValue", False)
 
-class MatchType(Names):
+class MatchType(Names, _DescriptionMixIn):
     """
     Query match types.
     """
@@ -94,15 +111,24 @@ class MatchType(Names):
     startsWith = NamedConstant()
     contains   = NamedConstant()
 
-class Operand(Names):
+    equals.description     = "equals"
+    startsWith.description = "starts with"
+    contains.description   = "contains"
+
+class Operand(Names, _DescriptionMixIn):
     OR  = NamedConstant()
     AND = NamedConstant()
 
-class QueryFlags(Flags):
+    OR.description  = "or"
+    AND.description = "and"
+
+class QueryFlags(Flags, _DescriptionMixIn):
     """
     Query flags.
     """
     caseInsensitive = FlagConstant()
+
+    caseInsensitive.description = "case insensitive"
 
 class DirectoryQueryMatchExpression(object):
     """
