@@ -47,6 +47,11 @@ class DirectoryServiceError(RuntimeError):
     Directory service generic error.
     """
 
+class DirectoryAvailabilityError(DirectoryServiceError):
+    """
+    Directory not available.
+    """
+
 class QueryNotSupportedError(DirectoryServiceError):
     """
     Query not supported.
