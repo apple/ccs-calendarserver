@@ -44,11 +44,21 @@ class DirectoryService(FancyEqMixin, object):
     RecordTypeClass = RecordType
     FieldNameClass  = FieldName
 
+
     def __init__(self, realmName):
         self.realmName = realmName
 
+
+    def __repr__(self):
+        return "<%s %s>" % (
+            self.__class__.__name__,
+            self.realmName,
+        )
+
+
     def recordTypes(self):
         return self.RecordTypeClass.iterconstants()
+
 
     def recordFromQuery(self, expressions, operand=Operand.AND):
         raise QueryNotSupportedError("")
@@ -63,6 +73,7 @@ class DirectoryRecord(FancyEqMixin, object):
         FieldName.recordType,
         FieldName.shortNames,
     )
+
 
     def __init__(self, service, fields):
         for fieldName in self.requiredFields:
@@ -86,6 +97,7 @@ class DirectoryRecord(FancyEqMixin, object):
         self.service = service
         self.fields  = fields
 
+
     def __repr__(self):
         recordType = getattr(self.recordType, "description", self.recordType)
 
@@ -95,6 +107,7 @@ class DirectoryRecord(FancyEqMixin, object):
             self.shortNames[0],
         )
 
+
     def __eq__(self, other):
         if isinstance(self, other.__class__):
             return (
@@ -102,6 +115,7 @@ class DirectoryRecord(FancyEqMixin, object):
                 self.fields[FieldName.uid] == other.fields[FieldName.uid]
             )
         return NotImplemented
+
 
     def __getattr__(self, name):
         try:
