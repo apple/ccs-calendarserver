@@ -28,12 +28,17 @@ from twext.who.directory import DirectoryService, DirectoryRecord
 
 
 
-class DirectoryServiceTest(unittest.TestCase):
+class BaseTest(unittest.TestCase):
     realmName = "xyzzy"
 
     def _testService(self):
-        return DirectoryService(self.realmName)
+        if not hasattr(self, "_service"):
+            self._service = DirectoryService(self.realmName)
+        return self._service
 
+
+
+class DirectoryServiceTest(BaseTest):
     def test_interface(self):
         service = self._testService()
         try:
@@ -59,27 +64,22 @@ class DirectoryServiceTest(unittest.TestCase):
 
 
 
-class DirectoryRecordTest(unittest.TestCase):
-    realmName = "xyzzy"
-
+class DirectoryRecordTest(BaseTest):
     fields_wsanchez = {
-        FieldName.recordType:     RecordType.user,
-        FieldName.shortNames:     ("wsanchez",),
         FieldName.uid:            "wsanchez",
+        FieldName.recordType:     RecordType.user,
+        FieldName.shortNames:     ("wsanchez", "wilfredo_sanchez"),
+        FieldName.fullNames:      ("Wilfredo Sanchez", "Wilfredo Sanchez Vega"),
         FieldName.emailAddresses: ("wsanchez@calendarserver.org", "wsanchez@example.com")
     }
 
     fields_glyph = {
+        FieldName.uid:            "glyph",
         FieldName.recordType:     RecordType.user,
         FieldName.shortNames:     ("glyph",),
-        FieldName.uid:            "glyph",
-        FieldName.emailAddresses: ("glyph@calendarserver.org", "glyph@example.com")
+        FieldName.fullNames:      ("Glyph Lefkowitz",),
+        FieldName.emailAddresses: ("glyph@calendarserver.org",)
     }
-
-    def _testService(self):
-        if not hasattr(self, "_service"):
-            self._service = DirectoryService(self.realmName)
-        return self._service
 
     def _testRecord(self, fields=None, service=None):
         if fields is None:
