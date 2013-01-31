@@ -22,8 +22,9 @@ from zope.interface.verify import verifyObject, BrokenMethodImplementation
 
 from twisted.trial import unittest
 
-from twext.who.idirectory import IDirectoryService, IDirectoryRecord
+from twext.who.idirectory import QueryNotSupportedError
 from twext.who.idirectory import RecordType, FieldName
+from twext.who.idirectory import IDirectoryService, IDirectoryRecord
 from twext.who.directory import DirectoryService, DirectoryRecord
 
 
@@ -57,10 +58,15 @@ class DirectoryServiceTest(BaseTest):
             set(service.RecordTypeClass.iterconstants())
         )
 
-    def test_recordFromQuery(self):
-        raise NotImplementedError()
+    def test_recordsFromQueryNone(self):
+        service = self._testService()
+        records = service.recordsFromQuery(())
+        for record in records:
+            self.failTest("No records expected")
 
-    test_recordFromQuery.todo = "Not implemented."
+    def test_recordsFromQueryBogus(self):
+        service = self._testService()
+        self.assertRaises(QueryNotSupportedError, service.recordsFromQuery, (object(),))
 
 
 

@@ -60,8 +60,10 @@ class DirectoryService(FancyEqMixin, object):
         return self.RecordTypeClass.iterconstants()
 
 
-    def recordFromQuery(self, expressions, operand=Operand.AND):
-        raise QueryNotSupportedError("")
+    def recordsFromQuery(self, expressions, operand=Operand.AND):
+        for expression in expressions:
+            raise QueryNotSupportedError("")
+        return ()
 
 
 

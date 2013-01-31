@@ -165,7 +165,7 @@ class IDirectoryService(Interface):
             C{("users", "groups", "resources")}.
         """
 
-    def recordFromQuery(expressions, operand=Operand.AND):
+    def recordsFromQuery(expressions, operand=Operand.AND):
         """
         @return: a deferred iterable of matching L{IDirectoryRecord}s.
         @raises: L{QueryNotSupportedError} is the query is not
