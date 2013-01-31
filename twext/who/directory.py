@@ -86,6 +86,15 @@ class DirectoryRecord(FancyEqMixin, object):
         self.service = service
         self.fields  = fields
 
+    def __repr__(self):
+        recordType = getattr(self.recordType, "description", self.recordType)
+
+        return "<%s (%s)%s>" % (
+            self.__class__.__name__,
+            recordType,
+            self.shortNames[0],
+        )
+
     def __eq__(self, other):
         if isinstance(self, other.__class__):
             return (
