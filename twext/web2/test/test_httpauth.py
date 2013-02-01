@@ -24,16 +24,27 @@ class FakeDigestCredentialFactory(digest.DigestCredentialFactory):
 
     def __init__(self, *args, **kwargs):
         super(FakeDigestCredentialFactory, self).__init__(*args, **kwargs)
+        self._real.privateKey = self._fakeStaticPrivateKey
 
-        self.privateKey = "0"
+        # FIXME: These tests are somewhat redundant with the tests for Twisted's
+        # built-in digest auth; these private values need to be patched to
+        # create deterministic results, but at some future point the whole
+        # digest module should be removed from twext.web2 (as all of twext.web2
+        # should be removed) and we can just get rid of this.
 
-    def generateNonce(self):
+        self._real._generateNonce = self._fakeStaticNonce
+        self._real._getTime = self._fakeStaticTime
+
+
+    _fakeStaticPrivateKey = "0"
+
+    def _fakeStaticNonce(self):
         """
         Generate a static nonce
         """
         return '178288758716122392881254770685'
 
-    def _getTime(self):
+    def _fakeStaticTime(self):
         """
         Return a stable time
         """
@@ -376,7 +387,8 @@ class DigestAuthTestCase(unittest.TestCase):
             key = '%s,%s,%s' % (challenge['nonce'],
                                 clientAddress.host,
                                 '-137876876')
-            digest = md5(key + credentialFactory.privateKey).hexdigest()
+            digest = (md5(key + credentialFactory._fakeStaticPrivateKey)
+                      .hexdigest())
             ekey = key.encode('base64')
 
             oldNonceOpaque = '%s-%s' % (digest, ekey.strip('\n'))
