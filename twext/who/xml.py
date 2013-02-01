@@ -30,8 +30,9 @@ from xml.etree.ElementTree import ParseError as XMLParseError
 
 from twisted.python.constants import Values, ValueConstant
 
-from twext.who.idirectory import RecordType, FieldName
 from twext.who.idirectory import DirectoryServiceError
+from twext.who.idirectory import RecordType, FieldName
+from twext.who.idirectory import DirectoryQueryMatchExpression
 from twext.who.directory import DirectoryService as BaseDirectoryService
 from twext.who.directory import DirectoryRecord
 
@@ -237,3 +238,10 @@ class DirectoryService(BaseDirectoryService):
         self._unknownFieldNames  = unknownFieldNames
 
         self._index = index
+
+
+    def recordsFromExpression(self, expression):
+        if isinstance(expression, DirectoryQueryMatchExpression):
+            raise NotImplementedError()
+        else:
+            return BaseDirectoryService.recordsFromExpression(self, expression)

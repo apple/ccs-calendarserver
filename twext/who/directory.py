@@ -60,10 +60,31 @@ class DirectoryService(FancyEqMixin, object):
         return self.RecordTypeClass.iterconstants()
 
 
+    def recordsFromExpression(self, expression):
+        raise QueryNotSupportedError("Unknown expression: %s" % (expression,))
+
+
     def recordsFromQuery(self, expressions, operand=Operand.AND):
+        results = None
+
         for expression in expressions:
-            raise QueryNotSupportedError("")
-        return ()
+            recordsMatchingExpression = self.recordsFromExpression(expression)
+
+            if results is None:
+                results = recordsMatchingExpression
+                break
+
+            if operand == Operand.AND:
+                raise NotImplementedError()
+            elif operand == Operand.OR:
+                raise NotImplementedError()
+            else:
+                raise QueryNotSupportedError("Unknown operand: %s" % (operand,))
+
+        if results is None:
+            return ()
+
+        return results
 
 
 
