@@ -92,15 +92,19 @@ class Attribute(Values):
 
 
 class Value(Values):
+    #
     # Booleans
+    #
     true  = ValueConstant("true")
     false = ValueConstant("false")
 
+    #
     # Record types
-    user  = ValueConstant("user")
-    group = ValueConstant("group")
+    #
+    user = ValueConstant("user")
+    user.recordType = RecordType.user
 
-    user.recordType  = RecordType.user
+    group = ValueConstant("group")
     group.recordType = RecordType.group
 
 
