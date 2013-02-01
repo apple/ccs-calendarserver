@@ -15,7 +15,6 @@
 ##
 
 import sys
-import time
 from hashlib import md5
 
 from twisted.cred import error
