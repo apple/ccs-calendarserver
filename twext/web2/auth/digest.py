@@ -104,6 +104,10 @@ DigestedCredentials = credentials.DigestedCredentials
 class DigestCredentialFactory(object):
     implements(ICredentialFactory)
 
+    CHALLENGE_LIFETIME_SECS = (
+        credentials.DigestCredentialFactory.CHALLENGE_LIFETIME_SECS
+    )
+
     def __init__(self, algorithm, realm):
         self._real = credentials.DigestCredentialFactory(algorithm, realm)
 
