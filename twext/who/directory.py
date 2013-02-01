@@ -27,9 +27,11 @@ from zope.interface import implements
 
 from twisted.python.util import FancyEqMixin
 
+from twext.who.idirectory import DirectoryServiceError
 from twext.who.idirectory import QueryNotSupportedError
 from twext.who.idirectory import FieldName, RecordType
 from twext.who.idirectory import Operand
+from twext.who.idirectory import DirectoryQueryMatchExpression
 from twext.who.idirectory import IDirectoryService, IDirectoryRecord
 
 
@@ -65,27 +67,53 @@ class DirectoryService(FancyEqMixin, object):
 
 
     def recordsFromQuery(self, expressions, operand=Operand.AND):
-        results = None
+        expressionIterator = iter(expressions)
+
+        try:
+            expression = expressionIterator.next()
+        except StopIteration:
+            return set()
+
+        results = self.recordsFromExpression(expression)
 
         for expression in expressions:
+            if (operand == Operand.AND and not results):
+                # No need to bother continuing here
+                return set()
+
             recordsMatchingExpression = self.recordsFromExpression(expression)
 
-            if results is None:
-                results = recordsMatchingExpression
-                break
-
             if operand == Operand.AND:
-                raise NotImplementedError()
+                results &= recordsMatchingExpression
             elif operand == Operand.OR:
-                raise NotImplementedError()
+                results |= recordsMatchingExpression
             else:
                 raise QueryNotSupportedError("Unknown operand: %s" % (operand,))
 
-        if results is None:
-            return ()
-
         return results
 
+
+    def recordsWithFieldValue(self, fieldName, value):
+        return self.recordsFromExpression(DirectoryQueryMatchExpression(fieldName, value))
+
+    def recordWithUID(self, uid):
+        return uniqueResult(self.recordsWithFieldValue(FieldName.uid, uid))
+               
+    def recordWithGUID(self, guid):
+        return uniqueResult(self.recordsWithFieldValue(FieldName.guid, guid))
+
+    def recordsWithRecordType(self, recordType):
+        return self.recordsWithFieldValue(FieldName.recordType, recordType)
+
+    def recordWithShortName(self, recordType, shortName):
+        return uniqueResult(self.recordsFromQuery((
+            DirectoryQueryMatchExpression(FieldName.recordType, recordType),
+            DirectoryQueryMatchExpression(FieldName.shortNames, shortName ),
+        )))
+
+    def recordsWithEmailAddress(self, emailAddress):
+        return self.recordsWithFieldValue(FieldName.emailAddresses, emailAddress)
+               
 
 
 class DirectoryRecord(FancyEqMixin, object):
@@ -150,3 +178,14 @@ class DirectoryRecord(FancyEqMixin, object):
             return self.fields[fieldName]
         except KeyError:
             raise AttributeError(name)
+
+
+
+def uniqueResult(values):
+    result = None
+    for value in values:
+        if result is None:
+            result = value
+        else:
+            raise DirectoryServiceError("Multiple values found where one expected.")
+    return result

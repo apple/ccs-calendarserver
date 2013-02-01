@@ -167,9 +167,53 @@ class IDirectoryService(Interface):
 
     def recordsFromQuery(expressions, operand=Operand.AND):
         """
+        Find records matching a query consisting of an interable of
+        expressions and an L{Operand}.
         @return: a deferred iterable of matching L{IDirectoryRecord}s.
-        @raises: L{QueryNotSupportedError} is the query is not
+        @raises: L{QueryNotSupportedError} if the query is not
             supported by this directory service.
+        """
+
+    def recordsWithFieldValue(fieldName, value):
+        """
+        Find records that have the given L{FieldName} with the given
+        value.
+        @return: an iterable of L{IDirectoryRecord}s.
+        """
+
+    def recordWithUID(uid):
+        """
+        Find the record that has the given L{FieldName.uid}.
+        @return: an iterable of L{IDirectoryRecord}s, or C{None} if
+            there is no such record.
+        """
+               
+    def recordWithGUID(guid):
+        """
+        Find the record that has the given L{FieldName.guid}.
+        @return: an iterable of L{IDirectoryRecord}s, or C{None} if
+            there is no such record.
+        """
+
+    def recordsWithRecordType(recordType):
+        """
+        Find the records that have the given L{RecordType}.
+        @return: an iterable of L{IDirectoryRecord}s.
+        """
+
+    def recordWithShortName(recordType, shortName):
+        """
+        Find the record that has the given L{RecordType} and
+        L{FieldName.shortName}.
+        @return: an iterable of L{IDirectoryRecord}s, or C{None} if
+            there is no such record.
+        """
+
+    def recordsWithEmailAddress(emailAddress):
+        """
+        Find the records that have the given L{FieldName.emailAddress}.
+        @return: an iterable of L{IDirectoryRecord}s, or C{None} if
+            there is no such record.
         """
 
 

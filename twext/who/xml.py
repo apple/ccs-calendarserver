@@ -32,6 +32,7 @@ from twisted.python.constants import Values, ValueConstant
 
 from twext.who.idirectory import DirectoryServiceError
 from twext.who.idirectory import RecordType, FieldName
+from twext.who.idirectory import MatchType
 from twext.who.idirectory import DirectoryQueryMatchExpression
 from twext.who.directory import DirectoryService as BaseDirectoryService
 from twext.who.directory import DirectoryRecord
@@ -240,8 +241,22 @@ class DirectoryService(BaseDirectoryService):
         self._index = index
 
 
+    def indexedRecordsFromMatchExpression(self, expression):
+        if expression.matchType != MatchType.equals:
+            raise NotImplementedError("Handle MatchType != equals")
+
+        if expression.flags:
+            raise NotImplementedError("Handle QueryFlags")
+
+        return self.index[expression.fieldName].get(expression.fieldValue, ())
+
+
     def recordsFromExpression(self, expression):
         if isinstance(expression, DirectoryQueryMatchExpression):
-            raise NotImplementedError()
+            if expression.fieldName in self.indexedFields:
+                return self.indexedRecordsFromMatchExpression(expression)
+
+            raise NotImplementedError("Handle unindexed field")
+
         else:
             return BaseDirectoryService.recordsFromExpression(self, expression)

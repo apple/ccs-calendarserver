@@ -19,6 +19,8 @@ XML directory service tests
 """
 
 from twisted.python.filepath import FilePath
+
+from twext.who.idirectory import RecordType
 from twext.who.xml import DirectoryService
 
 from twext.who.test import test_directory
@@ -67,7 +69,37 @@ class BaseTest(object):
 
 
 class DirectoryServiceTest(BaseTest, test_directory.DirectoryServiceTest):
-    def test_XYZZY(self):
+    def test_recordWithUID(self):
         service = self._testService()
+        record = service.recordWithUID("wsanchez")
+        self.assertEquals(record.uid, "wsanchez")
 
-        service.loadRecords()
+
+    def test_recordWithGUID(self):
+        service = self._testService()
+        record = service.recordWithGUID("wsanchez")
+        self.assertEquals(record, None)
+
+
+    def test_recordsWithRecordType(self):
+        service = self._testService()
+        records = service.recordsWithRecordType(RecordType.user)
+        self.assertEquals(
+            set((record.uid for record in records)),
+            set(("wsanchez", "glyph")),
+        )
+
+
+    def test_recordWithShortName(self):
+        service = self._testService()
+        record = service.recordWithShortName(RecordType.user, "wsanchez")
+        self.assertEquals(record.uid, "wsanchez")
+
+
+    def test_recordsWithEmailAddress(self):
+        service = self._testService()
+        records = service.recordsWithEmailAddress("wsanchez@example.com")
+        self.assertEquals(
+            set((record.uid for record in records)),
+            set(("wsanchez",)),
+        )

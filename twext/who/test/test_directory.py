@@ -21,6 +21,7 @@ Generic directory service base implementation tests
 from zope.interface.verify import verifyObject, BrokenMethodImplementation
 
 from twisted.trial import unittest
+from twisted.trial.unittest import SkipTest
 
 from twext.who.idirectory import QueryNotSupportedError
 from twext.who.idirectory import RecordType, FieldName
@@ -31,6 +32,7 @@ from twext.who.directory import DirectoryService, DirectoryRecord
 
 class BaseTest(unittest.TestCase):
     realmName = "xyzzy"
+
 
     def _testService(self):
         if not hasattr(self, "_service"):
@@ -47,9 +49,11 @@ class DirectoryServiceTest(BaseTest):
         except BrokenMethodImplementation, e:
             self.fail(e)
 
+
     def test_init(self):
         service = self._testService()
         self.assertEquals(service.realmName, self.realmName)
+
 
     def test_recordTypes(self):
         service = self._testService()
@@ -58,15 +62,33 @@ class DirectoryServiceTest(BaseTest):
             set(service.RecordTypeClass.iterconstants())
         )
 
+
     def test_recordsFromQueryNone(self):
         service = self._testService()
         records = service.recordsFromQuery(())
         for record in records:
             self.failTest("No records expected")
 
+
     def test_recordsFromQueryBogus(self):
         service = self._testService()
         self.assertRaises(QueryNotSupportedError, service.recordsFromQuery, (object(),))
+
+
+    def test_recordWithUID(self):
+        raise SkipTest("Subclasses should implement this test.")
+
+    def test_recordWithGUID(self):
+        raise SkipTest("Subclasses should implement this test.")
+
+    def test_recordsWithRecordType(self):
+        raise SkipTest("Subclasses should implement this test.")
+
+    def test_recordWithShortName(self):
+        raise SkipTest("Subclasses should implement this test.")
+
+    def test_recordsWithEmailAddress(self):
+        raise SkipTest("Subclasses should implement this test.")
 
 
 
@@ -87,12 +109,14 @@ class DirectoryRecordTest(BaseTest):
         FieldName.emailAddresses: ("glyph@calendarserver.org",)
     }
 
+
     def _testRecord(self, fields=None, service=None):
         if fields is None:
             fields = self.fields_wsanchez
         if service is None:
             service = self._testService()
         return DirectoryRecord(service, fields)
+
 
     def test_interface(self):
         record = self._testRecord()
@@ -101,12 +125,14 @@ class DirectoryRecordTest(BaseTest):
         except BrokenMethodImplementation, e:
             self.fail(e)
 
+
     def test_init(self):
         service  = self._testService()
         wsanchez = self._testRecord(self.fields_wsanchez)
 
         self.assertEquals(wsanchez.service, service)
         self.assertEquals(wsanchez.fields , self.fields_wsanchez)
+
 
     def test_initWithNoUID(self):
         fields = self.fields_wsanchez.copy()
@@ -117,6 +143,7 @@ class DirectoryRecordTest(BaseTest):
         fields[FieldName.uid] = ""
         self.assertRaises(ValueError, self._testRecord, fields)
 
+
     def test_initWithNoRecordType(self):
         fields = self.fields_wsanchez.copy()
         del fields[FieldName.recordType]
@@ -125,6 +152,7 @@ class DirectoryRecordTest(BaseTest):
         fields = self.fields_wsanchez.copy()
         fields[FieldName.recordType] = ""
         self.assertRaises(ValueError, self._testRecord, fields)
+
 
     def test_initWithNoShortNames(self):
         fields = self.fields_wsanchez.copy()
@@ -143,10 +171,12 @@ class DirectoryRecordTest(BaseTest):
         fields[FieldName.shortNames] = ("wsanchez", "")
         self.assertRaises(ValueError, self._testRecord, fields)
 
+
     def test_initWithBogusRecordType(self):
         fields = self.fields_wsanchez.copy()
         fields[FieldName.recordType] = object()
         self.assertRaises(ValueError, self._testRecord, fields)
+
 
     def test_compare(self):
         fields_glyphmod = self.fields_glyph.copy()
@@ -162,6 +192,7 @@ class DirectoryRecordTest(BaseTest):
         self.assertEquals(glyph, glyphmod) # UID matches
         self.assertNotEqual(glyphmod, wsanchez)
         self.assertNotEqual(wsanchez, wsanchezmod) # Different service
+
 
     def test_attributeAccess(self):
         wsanchez = self._testRecord(self.fields_wsanchez)
