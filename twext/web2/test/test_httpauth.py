@@ -16,9 +16,11 @@ import base64
 
 _trivial_GET = SimpleRequest(None, 'GET', '/')
 
+FAKE_STATIC_NONCE = '178288758716122392881254770685'
+
 
 def makeDigestDeterministic(twistedDigestFactory, key="0",
-                            nonce='178288758716122392881254770685', time=0):
+                            nonce=FAKE_STATIC_NONCE, time=0):
     """
     Patch up various bits of private state to make a digest credential factory
     (the one that comes from Twisted) behave deterministically.
