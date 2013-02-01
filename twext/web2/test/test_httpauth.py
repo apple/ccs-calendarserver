@@ -16,6 +16,39 @@ import base64
 
 _trivial_GET = SimpleRequest(None, 'GET', '/')
 
+
+def makeDigestDeterministic(twistedDigestFactory, key="0",
+                            nonce='178288758716122392881254770685', time=0):
+    """
+    Patch up various bits of private state to make a digest credential factory
+    (the one that comes from Twisted) behave deterministically.
+    """
+
+    def _fakeStaticNonce():
+        """
+        Generate a static nonce
+        """
+        return nonce
+
+    def _fakeStaticTime():
+        """
+        Return a stable time
+        """
+        return time
+
+    twistedDigestFactory.privateKey = key
+
+    # FIXME: These tests are somewhat redundant with the tests for Twisted's
+    # built-in digest auth; these private values need to be patched to
+    # create deterministic results, but at some future point the whole
+    # digest module should be removed from twext.web2 (as all of twext.web2
+    # should be removed) and we can just get rid of this.
+
+    twistedDigestFactory._generateNonce = _fakeStaticNonce
+    twistedDigestFactory._getTime = _fakeStaticTime
+
+
+
 class FakeDigestCredentialFactory(digest.DigestCredentialFactory):
     """
     A Fake Digest Credential Factory that generates a predictable
@@ -24,31 +57,10 @@ class FakeDigestCredentialFactory(digest.DigestCredentialFactory):
 
     def __init__(self, *args, **kwargs):
         super(FakeDigestCredentialFactory, self).__init__(*args, **kwargs)
-        self._real.privateKey = self._fakeStaticPrivateKey
-
-        # FIXME: These tests are somewhat redundant with the tests for Twisted's
-        # built-in digest auth; these private values need to be patched to
-        # create deterministic results, but at some future point the whole
-        # digest module should be removed from twext.web2 (as all of twext.web2
-        # should be removed) and we can just get rid of this.
-
-        self._real._generateNonce = self._fakeStaticNonce
-        self._real._getTime = self._fakeStaticTime
-
+        makeDigestDeterministic(self._real, self._fakeStaticPrivateKey)
 
     _fakeStaticPrivateKey = "0"
 
-    def _fakeStaticNonce(self):
-        """
-        Generate a static nonce
-        """
-        return '178288758716122392881254770685'
-
-    def _fakeStaticTime(self):
-        """
-        Return a stable time
-        """
-        return 0
 
 
 class BasicAuthTestCase(unittest.TestCase):
