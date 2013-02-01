@@ -1,3 +1,4 @@
+# -*- test-case-name: twistedcaldav.directory.test.test_digest -*-
 ##
 # Copyright (c) 2006-2013 Apple Inc. All rights reserved.
 #
