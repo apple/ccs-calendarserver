@@ -298,10 +298,7 @@ class DirectoryRecord(BaseDirectoryRecord):
     XML directory record
     """
     def members(self):
-        if self.recordType != RecordType.group:
-            return succeed(())
-
         return succeed((
             self.service.recordForUID(uid)
-            for uid in self.memberUIDs
+            for uid in getattr(self, "memberUIDs", ())
         ))
