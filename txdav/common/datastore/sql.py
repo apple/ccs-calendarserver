@@ -1507,6 +1507,17 @@ class CommonHome(LoggingMixIn):
         return self._childClass.objectWithName(self, name)
 
 
+    def childWithVBindName(self, name):
+        """
+        Retrieve the child with the given bind identifier contained in this
+        home.
+
+        @param name: a string.
+        @return: an L{ICalendar} or C{None} if no such child exists.
+        """
+        return self._childClass.objectWithName(self, name)
+
+
     @memoizedKey("resourceID", "_children")
     def childWithID(self, resourceID):
         """
@@ -2313,7 +2324,7 @@ class SharingMixIn(object):
 
 
     @inlineCallbacks
-    def shareWith(self, shareeHome, mode, status=None, message=None):
+    def _shareWith(self, shareeHome, mode, status=None, message=None):
         """
         Share this (owned) L{CommonHomeChild} with another home.
 
@@ -2325,8 +2336,7 @@ class SharingMixIn(object):
         @type mode: L{str}
 
         @param status: The sharing status; L{_BIND_STATUS_INVITED} or
-            L{_BIND_STATUS_ACCEPTED} or L{_BIND_STATUS_DECLINED} or
-            L{_BIND_STATUS_INVALID}.
+            L{_BIND_STATUS_ACCEPTED}
         @type mode: L{str}
 
         @param message: The proposed message to go along with the share, which
@@ -2362,6 +2372,40 @@ class SharingMixIn(object):
         # Must send notification to ensure cache invalidation occurs
         yield self.notifyChanged()
         returnValue(sharedName)
+
+
+    @inlineCallbacks
+    def shareWith(self, shareeHome, mode, status=None, message=None):
+        """
+        Share this (owned) L{CommonHomeChild} with another home.
+
+        @param shareeHome: The home of the sharee.
+        @type shareeHome: L{CommonHome}
+
+        @param mode: The sharing mode; L{_BIND_MODE_READ} or
+            L{_BIND_MODE_WRITE} or L{_BIND_MODE_DIRECT}
+        @type mode: L{str}
+
+        @param status: The sharing status; L{_BIND_STATUS_INVITED} or
+            L{_BIND_STATUS_ACCEPTED}
+        @type mode: L{str}
+
+        @param message: The proposed message to go along with the share, which
+            will be used as the default display name.
+        @type mode: L{str}
+
+        @return: the name of the shared home child in the new home.
+        @rtype: L{CommonHomeChild}
+        """
+
+        sharedName = yield self._shareWith(shareeHome, mode, status=status, message=message)
+
+        if status == _BIND_STATUS_ACCEPTED:
+            shareeHomeChild = yield shareeHome.childWithName(sharedName)
+        else:
+            shareeHomeChild = yield shareeHome.invitedChildWithName(sharedName)
+
+        returnValue(shareeHomeChild)
 
 
     @classmethod
@@ -2599,6 +2643,57 @@ class SharingMixIn(object):
         returnValue(result)
 
 
+    @classproperty
+    def _childForNameAndHomeID(cls): #@NoSelf
+        bind = cls._bindSchema
+        return cls._bindFor((bind.RESOURCE_NAME == Parameter("name"))
+                               .And(bind.HOME_RESOURCE_ID == Parameter("homeID"))
+                               .And(bind.BIND_STATUS == _BIND_STATUS_ACCEPTED)
+                               )
+
+
+
+    def shareMode(self):
+        """
+        @see: L{ICalendar.shareMode}
+        """
+        return self._bindMode
+
+
+    def owned(self):
+        """
+        @see: L{ICalendar.owned}
+        """
+        return self._bindMode == _BIND_MODE_OWN
+
+
+    def shareStatus(self):
+        """
+        @see: L{ICalendar.shareStatus}
+        """
+        return self._bindStatus
+
+
+    def shareMessage(self):
+        """
+        @see: L{ICalendar.shareMessage}
+        """
+        return self._bindMessage
+
+
+    def shareUID(self):
+        """
+        @see: L{ICalendar.shareUID}
+        """
+        return self.name()
+
+    @classproperty
+    def _bindForHomeID(cls): #@NoSelf
+        bind = cls._bindSchema
+        return cls._bindFor((bind.HOME_RESOURCE_ID == Parameter("homeID"))
+                            .And(bind.BIND_STATUS == _BIND_STATUS_ACCEPTED))
+
+
 class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic, HomeChildBase, SharingMixIn):
     """
     Common ancestor class of AddressBooks and Calendars.
@@ -2652,15 +2747,6 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic, HomeChildBas
         self._index = None  # Derived classes need to set this
 
 
-    @classproperty
-    def _childNamesForHomeID(cls): #@NoSelf
-        bind = cls._bindSchema
-        return Select([bind.RESOURCE_NAME], From=bind,
-                      Where=(bind.HOME_RESOURCE_ID ==
-                             Parameter("homeID")).And
-                                (bind.BIND_STATUS == _BIND_STATUS_ACCEPTED))
-
-
     @classmethod
     def metadataColumns(cls):
         """
@@ -2702,9 +2788,10 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic, HomeChildBas
         @return: an iterable of C{str}s.
         """
         # FIXME: tests don't cover this as directly as they should.
-        rows = yield cls._childNamesForHomeID.on(
-                home._txn, homeID=home._resourceID)
-        names = [row[0] for row in rows]
+        rows = yield cls._bindsForHomeID.on(
+                home._txn, homeID=home._resourceID
+        )
+        names = [row[3] for row in rows]
         returnValue(names)
 
 
@@ -2752,41 +2839,6 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic, HomeChildBas
                      Where=(bind.HOME_RESOURCE_ID == Parameter("homeID")
                            ).And(bind.BIND_STATUS == _BIND_STATUS_ACCEPTED))
 
-
-
-    def shareMode(self):
-        """
-        @see: L{ICalendar.shareMode}
-        """
-        return self._bindMode
-
-
-    def owned(self):
-        """
-        @see: L{ICalendar.owned}
-        """
-        return self._bindMode == _BIND_MODE_OWN
-
-
-    def shareStatus(self):
-        """
-        @see: L{ICalendar.shareStatus}
-        """
-        return self._bindStatus
-
-
-    def shareMessage(self):
-        """
-        @see: L{ICalendar.shareMessage}
-        """
-        return self._bindMessage
-
-
-    def shareUID(self):
-        """
-        @see: L{ICalendar.shareUID}
-        """
-        return self.name()
 
 
     @inlineCallbacks
@@ -2893,18 +2945,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic, HomeChildBas
     @classmethod
     @inlineCallbacks
     def ownerHomeID(cls, txn, resourceID):
-
         ownerHomeRows = yield cls._ownerHomeWithResourceID.on(txn, resourceID=resourceID)
-
-        if not ownerHomeRows:
-            # no owner, so shared item must be group
-            abo = schema.ADDRESSBOOK_OBJECT
-            groupAddressBookRows = yield Select([abo.ADDRESSBOOK_RESOURCE_ID],
-                                         From=abo,
-                                         Where=(abo.RESOURCE_ID == Parameter("resourceID"))).on(txn, resourceID=resourceID)
-            groupAddressBookID = groupAddressBookRows[0][0]
-            ownerHomeRows = yield cls._ownerHomeWithResourceID.on(txn, resourceID=groupAddressBookID)
-
         returnValue(ownerHomeRows[0][0])
 
 

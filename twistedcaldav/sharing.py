@@ -515,12 +515,11 @@ class SharedResourceMixin(object):
         elif self.isAddressBookCollection() or self.isGroup():
             shareeHome = yield self._newStoreObject._txn.addressbookHomeWithUID(shareeUID, create=True)
 
-        sharedName = yield self._newStoreObject.shareWith(shareeHome,
+        shareeHomeChild = yield self._newStoreObject.shareWith(shareeHome,
                                                     mode=invitationAccessToBindModeMap[access],
                                                     status=_BIND_STATUS_INVITED,
                                                     message=summary)
 
-        shareeHomeChild = yield shareeHome.invitedChildWithName(sharedName)
         invitation = Invitation(shareeHomeChild)
         returnValue(invitation)
 
@@ -1050,7 +1049,7 @@ class SharedHomeMixin(LinkFollowerMixIn):
     def _shareForUID(self, shareUID, request):
 
         # since child.shareUID() == child.name() for indirect shares
-        child = yield self._newStoreHome.childWithName(shareUID)
+        child = yield self._newStoreHome.childWithBindName(shareUID)
         if child:
             share = yield self._shareForHomeChild(child, request)
             if share and share.uid() == shareUID:
@@ -1078,7 +1077,8 @@ class SharedHomeMixin(LinkFollowerMixIn):
             share = oldShare
         else:
             sharedResource = yield request.locateResource(hostUrl)
-            shareeHomeChild = yield self._newStoreHome.childWithName(inviteUID)
+            shareeHomeChild = yield self._newStoreHome.childWithBindName(inviteUID)
+
             share = Share(shareeHomeChild=shareeHomeChild, sharerHomeChildOrGroup=sharedResource._newStoreObject, url=hostUrl)
 
         response = yield self._acceptShare(request, not oldShare, share, displayname)
@@ -1094,12 +1094,11 @@ class SharedHomeMixin(LinkFollowerMixIn):
             share = oldShare
         else:
             sharedCollection = yield request.locateResource(hostUrl)
-            sharedName = yield sharedCollection._newStoreObject.shareWith(shareeHome=self._newStoreHome,
+            shareeHomeChild = yield sharedCollection._newStoreObject.shareWith(shareeHome=self._newStoreHome,
                                                     mode=_BIND_MODE_DIRECT,
                                                     status=_BIND_STATUS_ACCEPTED,
                                                     message=displayname)
 
-            shareeHomeChild = yield self._newStoreHome.childWithName(sharedName)
             share = Share(shareeHomeChild=shareeHomeChild, sharerHomeChildOrGroup=sharedCollection._newStoreObject, url=hostUrl)
 
         response = yield self._acceptShare(request, not oldShare, share, displayname)
