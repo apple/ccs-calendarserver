@@ -187,6 +187,12 @@ class DirectoryRecord(FancyEqMixin, object):
             raise AttributeError(name)
 
 
+    def members(self):
+        if self.recordType == RecordType.group:
+            raise NotImplementedError()
+        return succeed(())
+
+
 
 def uniqueResult(values):
     result = None

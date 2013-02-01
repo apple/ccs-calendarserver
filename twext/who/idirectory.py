@@ -178,42 +178,42 @@ class IDirectoryService(Interface):
         """
         Find records that have the given L{FieldName} with the given
         value.
-        @return: an iterable of L{IDirectoryRecord}s.
+        @return: a deferred iterable of L{IDirectoryRecord}s.
         """
 
     def recordWithUID(uid):
         """
         Find the record that has the given L{FieldName.uid}.
-        @return: an iterable of L{IDirectoryRecord}s, or C{None} if
-            there is no such record.
+        @return: a deferred iterable of L{IDirectoryRecord}s, or
+            C{None} if there is no such record.
         """
                
     def recordWithGUID(guid):
         """
         Find the record that has the given L{FieldName.guid}.
-        @return: an iterable of L{IDirectoryRecord}s, or C{None} if
-            there is no such record.
+        @return: a deferred iterable of L{IDirectoryRecord}s, or
+            C{None} if there is no such record.
         """
 
     def recordsWithRecordType(recordType):
         """
         Find the records that have the given L{RecordType}.
-        @return: an iterable of L{IDirectoryRecord}s.
+        @return: a deferred iterable of L{IDirectoryRecord}s.
         """
 
     def recordWithShortName(recordType, shortName):
         """
         Find the record that has the given L{RecordType} and
         L{FieldName.shortName}.
-        @return: an iterable of L{IDirectoryRecord}s, or C{None} if
-            there is no such record.
+        @return: a deferred iterable of L{IDirectoryRecord}s, or
+            C{None} if there is no such record.
         """
 
     def recordsWithEmailAddress(emailAddress):
         """
         Find the records that have the given L{FieldName.emailAddress}.
-        @return: an iterable of L{IDirectoryRecord}s, or C{None} if
-            there is no such record.
+        @return: a deferred iterable of L{IDirectoryRecord}s, or
+            C{None} if there is no such record.
         """
 
 
@@ -226,3 +226,11 @@ class IDirectoryRecord(Interface):
     """
     service = Attribute("The L{IDirectoryService} this record exists in.")
     fields  = Attribute("A dictionary with L{FieldName} keys and text values.")
+
+    def members():
+        """
+        Find the records that are members of this group.  Only direct
+        members are included; members of members are not expanded.
+        @return: an iterable of L{IDirectoryRecord}s which are direct
+            members of this group.
+        """

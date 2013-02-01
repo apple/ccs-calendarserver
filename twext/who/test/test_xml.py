@@ -30,40 +30,113 @@ from twext.who.test import test_directory
 
 xmlRealmName = "Test Realm"
 
+testXMLConfig = """<?xml version="1.0" encoding="utf-8"?>
+
+<directory realm="xyzzy">
+
+  <record type="user">
+    <uid>__wsanchez__</uid>
+    <short-name>wsanchez</short-name>
+    <short-name>wilfredo_sanchez</short-name>
+    <full-name>Wilfredo Sanchez</full-name>
+    <password>zehcnasw</password>
+    <email>wsanchez@bitbucket.calendarserver.org</email>
+    <email>wsanchez@devnull.twistedmatrix.com</email>
+  </record>
+
+  <record type="user">
+    <uid>__glyph__</uid>
+    <short-name>glyph</short-name>
+    <full-name>Glyph Lefkowitz</full-name>
+    <password>hpylg</password>
+    <email>glyph@bitbucket.calendarserver.org</email>
+    <email>glyph@devnull.twistedmatrix.com</email>
+  </record>
+
+  <record type="user">
+    <uid>__sagen__</uid>
+    <short-name>sagen</short-name>
+    <full-name>Morgen Sagen</full-name>
+    <password>negas</password>
+    <email>sagen@bitbucket.calendarserver.org</email>
+    <email>shared@example.com</email>
+  </record>
+
+  <record type="user">
+    <uid>__cdaboo__</uid>
+    <short-name>cdaboo</short-name>
+    <full-name>Cyrus Daboo</full-name>
+    <password>suryc</password>
+    <email>cdaboo@bitbucket.calendarserver.org</email>
+  </record>
+
+  <record type="user">
+    <uid>__dre__</uid>
+    <short-name>dre</short-name>
+    <full-name>Andre LaBranche</full-name>
+    <password>erd</password>
+    <email>dre@bitbucket.calendarserver.org</email>
+    <email>shared@example.com</email>
+  </record>
+
+  <record type="user">
+    <uid>__exarkun__</uid>
+    <short-name>exarkun</short-name>
+    <full-name>Jean-Paul Calderone</full-name>
+    <password>nucraxe</password>
+    <email>exarkun@devnull.twistedmatrix.com</email>
+  </record>
+
+  <record type="user">
+    <uid>__dreid__</uid>
+    <short-name>dreid</short-name>
+    <full-name>David Reid</full-name>
+    <password>dierd</password>
+    <email>dreid@devnull.twistedmatrix.com</email>
+  </record>
+
+  <record type="user">
+    <uid>__joe__</uid>
+    <short-name>joe</short-name>
+    <full-name>Joe Schmoe</full-name>
+    <password>eoj</password>
+    <email>joe@example.com</email>
+  </record>
+
+  <record type="group">
+    <uid>__calendar-dev__</uid>
+    <short-name>calendar-dev</short-name>
+    <full-name>Calendar Server developers</full-name>
+    <email>dev@bitbucket.calendarserver.org</email>
+    <member-uid>__wsanchez__</member-uid>
+    <member-uid>__glyph__</member-uid>
+    <member-uid>__sagen__</member-uid>
+    <member-uid>__cdaboo__</member-uid>
+    <member-uid>__dre__</member-uid>
+  </record>
+
+  <record type="group">
+    <uid>__twisted__</uid>
+    <short-name>twisted</short-name>
+    <full-name>Twisted Matrix Laboratories</full-name>
+    <email>hack@devnull.twistedmatrix.com</email>
+    <member-uid>__wsanchez__</member-uid>
+    <member-uid>__glyph__</member-uid>
+    <member-uid>__exarkun__</member-uid>
+    <member-uid>__dreid__</member-uid>
+    <member-uid>__dre__</member-uid>
+  </record>
+
+</directory>
+"""
+
 
 
 class BaseTest(object):
     def _testService(self):
         if not hasattr(self, "_service"):
             filePath = FilePath(self.mktemp())
-
-            filePath.setContent(
-                """<?xml version="1.0" encoding="utf-8"?>
-
-<directory realm="xyzzy">
-
-  <record type="user">
-    <uid>wsanchez</uid>
-    <short-name>wsanchez</short-name>
-    <short-name>wilfredo_sanchez</short-name>
-    <full-name>Wilfredo Sanchez</full-name>
-    <password>zehcnasw</password>
-    <email>wsanchez@calendarserver.org</email>
-    <email>wsanchez@example.com</email>
-  </record>
-
-  <record type="user">
-    <uid>glyph</uid>
-    <short-name>glyph</short-name>
-    <full-name>Glyph Lefkowitz</full-name>
-    <password>hpylg</password>
-    <email>glyph@calendarserver.org</email>
-  </record>
-
-</directory>
-"""
-            )
-
+            filePath.setContent(testXMLConfig)
             self._service = DirectoryService(filePath)
         return self._service
 
@@ -73,38 +146,87 @@ class DirectoryServiceTest(BaseTest, test_directory.DirectoryServiceTest):
     @inlineCallbacks
     def test_recordWithUID(self):
         service = self._testService()
-        record = (yield service.recordWithUID("wsanchez"))
-        self.assertEquals(record.uid, "wsanchez")
+        record = (yield service.recordWithUID("__wsanchez__"))
+        self.assertEquals(record.uid, "__wsanchez__")
 
 
     @inlineCallbacks
     def test_recordWithGUID(self):
         service = self._testService()
-        record = (yield service.recordWithGUID("wsanchez"))
+        record = (yield service.recordWithGUID("6C495FCD-7E78-4D5C-AA66-BC890AD04C9D"))
         self.assertEquals(record, None)
 
     @inlineCallbacks
     def test_recordsWithRecordType(self):
         service = self._testService()
+
         records = (yield service.recordsWithRecordType(RecordType.user))
         self.assertEquals(
             set((record.uid for record in records)),
-            set(("wsanchez", "glyph")),
+            set((
+                "__wsanchez__",
+                "__glyph__",
+                "__sagen__",
+                "__cdaboo__",
+                "__dre__",
+                "__exarkun__",
+                "__dreid__",
+                "__joe__",
+            )),
+        )
+
+        records = (yield service.recordsWithRecordType(RecordType.group))
+        self.assertEquals(
+            set((record.uid for record in records)),
+            set((
+                "__calendar-dev__",
+                "__twisted__",
+            ))
         )
 
 
     @inlineCallbacks
     def test_recordWithShortName(self):
         service = self._testService()
+
         record = (yield service.recordWithShortName(RecordType.user, "wsanchez"))
-        self.assertEquals(record.uid, "wsanchez")
+        self.assertEquals(record.uid, "__wsanchez__")
+
+        record = (yield service.recordWithShortName(RecordType.user, "wilfredo_sanchez"))
+        self.assertEquals(record.uid, "__wsanchez__")
 
 
     @inlineCallbacks
     def test_recordsWithEmailAddress(self):
         service = self._testService()
-        records = (yield service.recordsWithEmailAddress("wsanchez@example.com"))
+
+        records = (yield service.recordsWithEmailAddress("wsanchez@bitbucket.calendarserver.org"))
         self.assertEquals(
             set((record.uid for record in records)),
-            set(("wsanchez",)),
+            set(("__wsanchez__",)),
         )
+
+        records = (yield service.recordsWithEmailAddress("wsanchez@devnull.twistedmatrix.com"))
+        self.assertEquals(
+            set((record.uid for record in records)),
+            set(("__wsanchez__",)),
+        )
+
+        records = (yield service.recordsWithEmailAddress("shared@example.com"))
+        self.assertEquals(
+            set((record.uid for record in records)),
+            set(("__sagen__", "__dre__")),
+        )
+
+
+
+class DirectoryRecordTest(BaseTest, test_directory.DirectoryRecordTest):
+    @inlineCallbacks
+    def test_members(self):
+        service = self._testService()
+
+        wsanchez = (yield service.recordWithUID("__wsanchez__"))
+        members = (yield wsanchez.members())
+        self.assertEquals(set(members), set())
+
+        # FIXME: GROUP

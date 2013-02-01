@@ -28,20 +28,31 @@ __all__ = [
 from xml.etree.ElementTree import parse as parseXML
 from xml.etree.ElementTree import ParseError as XMLParseError
 
-from twisted.python.constants import Values, ValueConstant
+from twisted.python.constants import Values, ValueConstant, NamedConstant
 from twisted.internet.defer import succeed, inlineCallbacks, returnValue
 
 from twext.who.idirectory import DirectoryServiceError
-from twext.who.idirectory import RecordType, FieldName
+from twext.who.idirectory import RecordType, FieldName as BaseFieldName
 from twext.who.idirectory import MatchType
 from twext.who.idirectory import DirectoryQueryMatchExpression
 from twext.who.directory import DirectoryService as BaseDirectoryService
-from twext.who.directory import DirectoryRecord
+from twext.who.directory import DirectoryRecord as BaseDirectoryRecord
 
 
 
 ##
-# XML Constants
+# Data type extentions
+##
+
+class FieldName (BaseFieldName):
+    memberUIDs = NamedConstant()
+    memberUIDs.description = "member UIDs"
+    memberUIDs.multiValue = True
+
+
+
+##
+# XML constants
 ##
 
 class Element(Values):
@@ -53,7 +64,7 @@ class Element(Values):
     fullName     = ValueConstant("full-name")
     emailAddress = ValueConstant("email")
     password     = ValueConstant("password")
-    member       = ValueConstant("member-uid")
+    memberUID    = ValueConstant("member-uid")
 
     uid.fieldName          = FieldName.uid
     guid.fieldName         = FieldName.guid
@@ -92,6 +103,8 @@ class DirectoryService(BaseDirectoryService):
     """
     XML directory service.
     """
+
+    FieldNameClass  = FieldName
 
     ElementClass   = Element
     AttributeClass = Attribute
@@ -193,7 +206,7 @@ class DirectoryService(BaseDirectoryService):
                 recordType = self.ValueClass.lookupByValue(recordTypeAttribute).recordType
             except (ValueError, AttributeError):
                 unknownRecordTypes.add(recordTypeAttribute)
-                break
+                continue
 
             fields = {}
             fields[FieldName.recordType] = recordType
@@ -203,6 +216,7 @@ class DirectoryService(BaseDirectoryService):
                     fieldName = self.ElementClass.lookupByValue(fieldNode.tag).fieldName
                 except (ValueError, AttributeError):
                     unknownFieldNames.add(fieldNode.tag)
+                    continue
 
                 value = fieldNode.text.encode("utf-8")
 
@@ -262,3 +276,18 @@ class DirectoryService(BaseDirectoryService):
 
         else:
             returnValue((yield BaseDirectoryService.recordsFromExpression(self, expression)))
+
+
+
+class DirectoryRecord(BaseDirectoryRecord):
+    """
+    XML directory record
+    """
+    def members(self):
+        if self.recordType != RecordType.group:
+            return succeed(())
+
+        return succeed((
+            self.service.recordForUID(uid)
+            for uid in self.memberUIDs
+        ))
