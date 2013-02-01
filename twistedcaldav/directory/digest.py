@@ -144,11 +144,12 @@ class QopDigestCredentialFactory(DigestCredentialFactory):
         self.qop = qop
         self.db = DigestCredentialsMemcache(namespace)
 
+
     @inlineCallbacks
     def getChallenge(self, peer):
         """
-        Generate the challenge for use in the WWW-Authenticate header
-        Do the default behavior but then strip out any 'qop' from the challenge fields
+        Generate the challenge for use in the WWW-Authenticate header Do the
+        default behavior but then strip out any 'qop' from the challenge fields
         if no qop was specified.
 
         @param peer: The L{IAddress} of the requesting client.
@@ -157,7 +158,9 @@ class QopDigestCredentialFactory(DigestCredentialFactory):
             header.
         """
 
-        c = self.generateNonce()
+        challenge = yield (super(QopDigestCredentialFactory, self)
+                           .getChallenge(peer))
+        c = challenge['nonce']
 
         # Make sure it is not a duplicate
         result = (yield self.db.has_key(c))
@@ -166,13 +169,6 @@ class QopDigestCredentialFactory(DigestCredentialFactory):
 
         # The database record is a tuple of (nonce-count, timestamp)
         yield self.db.set(c, (0, time.time()))
-
-        challenge = {
-            'nonce': c,
-            'qop': 'auth',
-            'algorithm': self.algorithm,
-            'realm': self.realm,
-        }
 
         if self.qop:
             challenge['qop'] = self.qop
@@ -184,6 +180,7 @@ class QopDigestCredentialFactory(DigestCredentialFactory):
             challenge['stale'] = 'true'
 
         returnValue(challenge)
+
 
     @inlineCallbacks
     def decode(self, response, request):
@@ -236,10 +233,9 @@ class QopDigestCredentialFactory(DigestCredentialFactory):
                 originalMethod = None
 
             credentials = DigestedCredentials(username,
-                                              request.method,
-                                              self.realm,
-                                              auth,
-                                              originalMethod)
+                                              originalMethod or request.method,
+                                              self._real.authenticationRealm,
+                                              auth)
 
             if not self.qop and credentials.fields.has_key('qop'):
                 del credentials.fields['qop']
