@@ -30,6 +30,7 @@ from twistedcaldav.directory.digest import QopDigestCredentialFactory
 from twistedcaldav.test.util import TestCase
 from twistedcaldav.config import config
 from twext.web2.auth.digest import DigestCredentialFactory
+from twext.web2.test.test_httpauth import makeDigestDeterministic
 
 class FakeDigestCredentialFactory(QopDigestCredentialFactory):
     """
@@ -39,12 +40,8 @@ class FakeDigestCredentialFactory(QopDigestCredentialFactory):
 
     def __init__(self, *args, **kwargs):
         super(FakeDigestCredentialFactory, self).__init__(*args, **kwargs)
+        makeDigestDeterministic(self._real)
 
-    def generateNonce(self):
-        """
-        Generate a static nonce
-        """
-        return '178288758716122392881254770685'
 
 
 clientAddress = address.IPv4Address('TCP', '127.0.0.1', 80)
