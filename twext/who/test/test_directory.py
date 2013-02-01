@@ -22,6 +22,7 @@ from zope.interface.verify import verifyObject, BrokenMethodImplementation
 
 from twisted.trial import unittest
 from twisted.trial.unittest import SkipTest
+from twisted.internet.defer import inlineCallbacks
 
 from twext.who.idirectory import QueryNotSupportedError
 from twext.who.idirectory import RecordType, FieldName
@@ -55,24 +56,26 @@ class DirectoryServiceTest(BaseTest):
         self.assertEquals(service.realmName, self.realmName)
 
 
+    @inlineCallbacks
     def test_recordTypes(self):
         service = self._testService()
         self.assertEquals(
-            set(service.recordTypes()),
+            set((yield service.recordTypes())),
             set(service.RecordTypeClass.iterconstants())
         )
 
 
+    @inlineCallbacks
     def test_recordsFromQueryNone(self):
         service = self._testService()
-        records = service.recordsFromQuery(())
+        records = (yield service.recordsFromQuery(()))
         for record in records:
             self.failTest("No records expected")
 
 
     def test_recordsFromQueryBogus(self):
         service = self._testService()
-        self.assertRaises(QueryNotSupportedError, service.recordsFromQuery, (object(),))
+        self.assertFailure(service.recordsFromQuery((object(),)), QueryNotSupportedError)
 
 
     def test_recordWithUID(self):

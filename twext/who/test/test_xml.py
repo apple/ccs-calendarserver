@@ -19,6 +19,7 @@ XML directory service tests
 """
 
 from twisted.python.filepath import FilePath
+from twisted.internet.defer import inlineCallbacks
 
 from twext.who.idirectory import RecordType
 from twext.who.xml import DirectoryService
@@ -69,36 +70,40 @@ class BaseTest(object):
 
 
 class DirectoryServiceTest(BaseTest, test_directory.DirectoryServiceTest):
+    @inlineCallbacks
     def test_recordWithUID(self):
         service = self._testService()
-        record = service.recordWithUID("wsanchez")
+        record = (yield service.recordWithUID("wsanchez"))
         self.assertEquals(record.uid, "wsanchez")
 
 
+    @inlineCallbacks
     def test_recordWithGUID(self):
         service = self._testService()
-        record = service.recordWithGUID("wsanchez")
+        record = (yield service.recordWithGUID("wsanchez"))
         self.assertEquals(record, None)
 
-
+    @inlineCallbacks
     def test_recordsWithRecordType(self):
         service = self._testService()
-        records = service.recordsWithRecordType(RecordType.user)
+        records = (yield service.recordsWithRecordType(RecordType.user))
         self.assertEquals(
             set((record.uid for record in records)),
             set(("wsanchez", "glyph")),
         )
 
 
+    @inlineCallbacks
     def test_recordWithShortName(self):
         service = self._testService()
-        record = service.recordWithShortName(RecordType.user, "wsanchez")
+        record = (yield service.recordWithShortName(RecordType.user, "wsanchez"))
         self.assertEquals(record.uid, "wsanchez")
 
 
+    @inlineCallbacks
     def test_recordsWithEmailAddress(self):
         service = self._testService()
-        records = service.recordsWithEmailAddress("wsanchez@example.com")
+        records = (yield service.recordsWithEmailAddress("wsanchez@example.com"))
         self.assertEquals(
             set((record.uid for record in records)),
             set(("wsanchez",)),

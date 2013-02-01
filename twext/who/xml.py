@@ -29,6 +29,7 @@ from xml.etree.ElementTree import parse as parseXML
 from xml.etree.ElementTree import ParseError as XMLParseError
 
 from twisted.python.constants import Values, ValueConstant
+from twisted.internet.defer import succeed, inlineCallbacks, returnValue
 
 from twext.who.idirectory import DirectoryServiceError
 from twext.who.idirectory import RecordType, FieldName
@@ -248,15 +249,16 @@ class DirectoryService(BaseDirectoryService):
         if expression.flags:
             raise NotImplementedError("Handle QueryFlags")
 
-        return self.index[expression.fieldName].get(expression.fieldValue, ())
+        return succeed(self.index[expression.fieldName].get(expression.fieldValue, ()))
 
 
+    @inlineCallbacks
     def recordsFromExpression(self, expression):
         if isinstance(expression, DirectoryQueryMatchExpression):
             if expression.fieldName in self.indexedFields:
-                return self.indexedRecordsFromMatchExpression(expression)
+                returnValue((yield self.indexedRecordsFromMatchExpression(expression)))
 
             raise NotImplementedError("Handle unindexed field")
 
         else:
-            return BaseDirectoryService.recordsFromExpression(self, expression)
+            returnValue((yield BaseDirectoryService.recordsFromExpression(self, expression)))

@@ -26,6 +26,8 @@ __all__ = [
 from zope.interface import implements
 
 from twisted.python.util import FancyEqMixin
+from twisted.internet.defer import inlineCallbacks, returnValue
+from twisted.internet.defer import succeed, fail
 
 from twext.who.idirectory import DirectoryServiceError
 from twext.who.idirectory import QueryNotSupportedError
@@ -59,29 +61,30 @@ class DirectoryService(FancyEqMixin, object):
 
 
     def recordTypes(self):
-        return self.RecordTypeClass.iterconstants()
+        return succeed(self.RecordTypeClass.iterconstants())
 
 
     def recordsFromExpression(self, expression):
-        raise QueryNotSupportedError("Unknown expression: %s" % (expression,))
+        return fail(QueryNotSupportedError("Unknown expression: %s" % (expression,)))
 
 
+    @inlineCallbacks
     def recordsFromQuery(self, expressions, operand=Operand.AND):
         expressionIterator = iter(expressions)
 
         try:
             expression = expressionIterator.next()
         except StopIteration:
-            return set()
+            returnValue(set())
 
-        results = self.recordsFromExpression(expression)
+        results = (yield self.recordsFromExpression(expression))
 
         for expression in expressions:
             if (operand == Operand.AND and not results):
                 # No need to bother continuing here
-                return set()
+                returnValue(set())
 
-            recordsMatchingExpression = self.recordsFromExpression(expression)
+            recordsMatchingExpression = (yield self.recordsFromExpression(expression))
 
             if operand == Operand.AND:
                 results &= recordsMatchingExpression
@@ -90,26 +93,30 @@ class DirectoryService(FancyEqMixin, object):
             else:
                 raise QueryNotSupportedError("Unknown operand: %s" % (operand,))
 
-        return results
+        returnValue(results)
 
 
+    @inlineCallbacks
     def recordsWithFieldValue(self, fieldName, value):
-        return self.recordsFromExpression(DirectoryQueryMatchExpression(fieldName, value))
+        returnValue((yield self.recordsFromExpression(DirectoryQueryMatchExpression(fieldName, value))))
 
+    @inlineCallbacks
     def recordWithUID(self, uid):
-        return uniqueResult(self.recordsWithFieldValue(FieldName.uid, uid))
+        returnValue(uniqueResult((yield self.recordsWithFieldValue(FieldName.uid, uid))))
                
+    @inlineCallbacks
     def recordWithGUID(self, guid):
-        return uniqueResult(self.recordsWithFieldValue(FieldName.guid, guid))
+        returnValue(uniqueResult((yield self.recordsWithFieldValue(FieldName.guid, guid))))
 
     def recordsWithRecordType(self, recordType):
         return self.recordsWithFieldValue(FieldName.recordType, recordType)
 
+    @inlineCallbacks
     def recordWithShortName(self, recordType, shortName):
-        return uniqueResult(self.recordsFromQuery((
+        returnValue(uniqueResult((yield self.recordsFromQuery((
             DirectoryQueryMatchExpression(FieldName.recordType, recordType),
             DirectoryQueryMatchExpression(FieldName.shortNames, shortName ),
-        )))
+        )))))
 
     def recordsWithEmailAddress(self, emailAddress):
         return self.recordsWithFieldValue(FieldName.emailAddresses, emailAddress)
