@@ -56,22 +56,32 @@ class FieldName (BaseFieldName):
 ##
 
 class Element(Values):
-    directory    = ValueConstant("directory")
-    record       = ValueConstant("record")
-    uid          = ValueConstant("uid")
-    guid         = ValueConstant("guid")
-    shortName    = ValueConstant("short-name")
-    fullName     = ValueConstant("full-name")
-    emailAddress = ValueConstant("email")
-    password     = ValueConstant("password")
-    memberUID    = ValueConstant("member-uid")
+    directory = ValueConstant("directory")
+    record    = ValueConstant("record")
 
-    uid.fieldName          = FieldName.uid
-    guid.fieldName         = FieldName.guid
-    shortName.fieldName    = FieldName.shortNames
-    fullName.fieldName     = FieldName.fullNames
+    #
+    # Field names
+    #
+    uid = ValueConstant("uid")
+    uid.fieldName = FieldName.uid
+
+    guid = ValueConstant("guid")
+    guid.fieldName = FieldName.guid
+
+    shortName = ValueConstant("short-name")
+    shortName.fieldName = FieldName.shortNames
+
+    fullName = ValueConstant("full-name")
+    fullName.fieldName = FieldName.fullNames
+
+    emailAddress = ValueConstant("email")
     emailAddress.fieldName = FieldName.emailAddresses
-    password.fieldName     = FieldName.password
+
+    password = ValueConstant("password")
+    password.fieldName = FieldName.password
+
+    memberUID = ValueConstant("member-uid")
+    memberUID.fieldName = FieldName.memberUIDs
 
 
 
