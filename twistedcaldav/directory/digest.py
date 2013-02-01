@@ -45,14 +45,14 @@ class IDigestCredentialsDatabase(Interface):
     An interface to a digest credentials database that is used to hold per-client digest credentials so that fast
     re-authentication can be done with replay attacks etc prevented.
     """
-    
+
     def has_key(self, key):
         """
         See whether the matching key exists.
 
         @param key:    the key to check.
         @type key:     C{str}.
-        
+
         @return:       C{True} if the key exists, C{False} otherwise.
         """
         pass
@@ -67,7 +67,7 @@ class IDigestCredentialsDatabase(Interface):
         @type value:       any.
         """
         pass
-    
+
     def get(self, key):
         """
         Validate client supplied credentials by comparing with the cached values. If valid, store the new
@@ -79,7 +79,7 @@ class IDigestCredentialsDatabase(Interface):
         @return:       the value for the corresponding key, or C{None} if the key is not found.
         """
         pass
-    
+
     def delete(self, key):
         """
         Remove the record associated with the supplied key.
@@ -100,7 +100,7 @@ class DigestCredentialsMemcache(Memcacher):
             namespace=namespace,
             pickle=True,
         )
-    
+
     def has_key(self, key):
         """
         See IDigestCredentialsDatabase.
@@ -158,7 +158,7 @@ class QopDigestCredentialFactory(DigestCredentialFactory):
         """
 
         c = self.generateNonce()
-        
+
         # Make sure it is not a duplicate
         result = (yield self.db.has_key(c))
         if result:
@@ -178,7 +178,7 @@ class QopDigestCredentialFactory(DigestCredentialFactory):
             challenge['qop'] = self.qop
         else:
             del challenge['qop']
-        
+
         # If stale was marked when decoding this request's Authorization header, add that to the challenge
         if hasattr(peer, 'stale') and peer.stale:
             challenge['stale'] = 'true'
@@ -209,17 +209,17 @@ class QopDigestCredentialFactory(DigestCredentialFactory):
         """
 
         response = ' '.join(response.splitlines())
-        
+
         try:
             parts = split(tokenize((response,), foldCase=False), Token(","))
-    
+
             auth = {}
-    
+
             for (k, v) in [parseKeyValue(p) for p in parts]:
                 auth[k.strip()] = v.strip()
         except ValueError:
             raise error.LoginFailed('Invalid response.')
-            
+
         username = auth.get('username')
         if not username:
             raise error.LoginFailed('Invalid response, no username given.')
@@ -258,7 +258,7 @@ class QopDigestCredentialFactory(DigestCredentialFactory):
         @type auth:         C{dict}
         @param request:     the request being processed.
         @type request:      L{twext.web2.server.Request}
-        
+
         @return:            C{True} if validated.
         @raise LoginFailed: if validation fails.
         """
@@ -280,13 +280,13 @@ class QopDigestCredentialFactory(DigestCredentialFactory):
             if nonce_count is None:
                 yield self._invalidate(nonce)
                 raise error.LoginFailed('nonce-count is required when qop is specified')
-                
+
             # Next check the nonce-count is one greater than the previous one and update it in the DB
             try:
                 nonce_count = int(nonce_count, 16)
             except ValueError:
                 yield self._invalidate(nonce)
-                raise error.LoginFailed('nonce-count is not a valid hex string: %s' % (auth.get('nonce-count'),))            
+                raise error.LoginFailed('nonce-count is not a valid hex string: %s' % (auth.get('nonce-count'),))
             if nonce_count != db_nonce_count + 1:
                 yield self._invalidate(nonce)
                 raise error.LoginFailed('nonce-count value out of sequence: %s should be one more than %s' % (nonce_count, db_nonce_count,))
@@ -296,8 +296,8 @@ class QopDigestCredentialFactory(DigestCredentialFactory):
             # i.e. we can't allow a qop auth then a non-qop auth with the same nonce
             if db_nonce_count != 0:
                 yield self._invalidate(nonce)
-                raise error.LoginFailed('nonce-count was sent with this nonce: %s' % (nonce,))                
-        
+                raise error.LoginFailed('nonce-count was sent with this nonce: %s' % (nonce,))
+
         # Now check timestamp
         if db_timestamp + DigestCredentialFactory.CHALLENGE_LIFETIME_SECS <= time.time():
             yield self._invalidate(nonce)
@@ -306,7 +306,7 @@ class QopDigestCredentialFactory(DigestCredentialFactory):
             raise error.LoginFailed('Digest credentials expired')
 
         returnValue(True)
-    
+
     def _invalidate(self, nonce):
         """
         Invalidate cached credentials for the specified nonce value.
