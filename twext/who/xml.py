@@ -165,6 +165,12 @@ class DirectoryService(BaseDirectoryService):
         return self._unknownRecordTypes
 
     @property
+    def unknownFieldElements(self):
+        if not hasattr(self, "_unknownFieldElements"):
+            self.loadRecords()
+        return self._unknownFieldElements
+
+    @property
     def unknownFieldNames(self):
         if not hasattr(self, "_unknownFieldNames"):
             self.loadRecords()
@@ -206,29 +212,36 @@ class DirectoryService(BaseDirectoryService):
         if not realmName:
             raise DirectoryServiceError("No realm name.")
 
-        unknownRecordTypes = set()
-        unknownFieldNames  = set()
+        unknownRecordTypes   = set()
+        unknownFieldElements = set()
+        unknownFieldNames    = set()
 
         records = set()
 
         for recordNode in directoryNode.getchildren():
             recordTypeAttribute = getAttribute(recordNode, self.AttributeClass.recordType.value)
-            if not recordTypeAttribute:
-                recordTypeAttribute = "user"
-
-            try:
-                recordType = self.ValueClass.lookupByValue(recordTypeAttribute).recordType
-            except (ValueError, AttributeError):
-                unknownRecordTypes.add(recordTypeAttribute)
-                continue
+            if recordTypeAttribute:
+                try:
+                    recordType = self.ValueClass.lookupByValue(recordTypeAttribute).recordType
+                except (ValueError, AttributeError):
+                    unknownRecordTypes.add(recordTypeAttribute)
+                    continue
+            else:
+                recordType = self.RecordTypeClass.user
 
             fields = {}
             fields[FieldName.recordType] = recordType
 
             for fieldNode in recordNode.getchildren():
                 try:
-                    fieldName = self.ElementClass.lookupByValue(fieldNode.tag).fieldName
-                except (ValueError, AttributeError):
+                    fieldElement = self.ElementClass.lookupByValue(fieldNode.tag)
+                except ValueError:
+                    unknownFieldElements.add(fieldNode.tag)
+                    continue
+
+                try:
+                    fieldName = fieldElement.fieldName
+                except AttributeError:
                     unknownFieldNames.add(fieldNode.tag)
                     continue
 
@@ -239,6 +252,7 @@ class DirectoryService(BaseDirectoryService):
                     values.append(value)
                 else:
                     fields[fieldName] = value
+
 
             records.add(DirectoryRecord(self, fields))
 
@@ -264,8 +278,9 @@ class DirectoryService(BaseDirectoryService):
 
         self._realmName = realmName
 
-        self._unknownRecordTypes = unknownRecordTypes
-        self._unknownFieldNames  = unknownFieldNames
+        self._unknownRecordTypes   = unknownRecordTypes
+        self._unknownFieldElements = unknownFieldElements
+        self._unknownFieldNames    = unknownFieldNames
 
         self._index = index
 
