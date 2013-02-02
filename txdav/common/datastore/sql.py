@@ -2398,14 +2398,9 @@ class SharingMixIn(object):
         @rtype: L{CommonHomeChild}
         """
 
-        sharedName = yield self._shareWith(shareeHome, mode, status=status, message=message)
-
-        if status == _BIND_STATUS_ACCEPTED:
-            shareeHomeChild = yield shareeHome.childWithName(sharedName)
-        else:
-            shareeHomeChild = yield shareeHome.invitedChildWithName(sharedName)
-
-        returnValue(shareeHomeChild)
+        yield self._shareWith(shareeHome, mode, status=status, message=message)
+        child = yield shareeHome.childWithID(self._resourceID)
+        returnValue(child)
 
 
     @classmethod
@@ -2644,7 +2639,7 @@ class SharingMixIn(object):
 
 
     @classproperty
-    def _childForNameAndHomeID(cls): #@NoSelf
+    def _childBindForNameAndHomeID(cls): #@NoSelf
         bind = cls._bindSchema
         return cls._bindFor((bind.RESOURCE_NAME == Parameter("name"))
                                .And(bind.HOME_RESOURCE_ID == Parameter("homeID"))
@@ -2688,10 +2683,23 @@ class SharingMixIn(object):
         return self.name()
 
     @classproperty
-    def _bindForHomeID(cls): #@NoSelf
+    def _childBindForHomeID(cls): #@NoSelf
         bind = cls._bindSchema
         return cls._bindFor((bind.HOME_RESOURCE_ID == Parameter("homeID"))
                             .And(bind.BIND_STATUS == _BIND_STATUS_ACCEPTED))
+
+
+    @classproperty
+    def _bindForResourceIDAndHomeID(cls): #@NoSelf
+        """
+        DAL query that looks up home child names / bind modes by home child
+        resource ID and home resource ID.
+        """
+        bind = cls._bindSchema
+        return cls._bindFor((bind.RESOURCE_ID == Parameter("resourceID"))
+                               .And(bind.HOME_RESOURCE_ID == Parameter("homeID"))
+                               )
+
 
 
 class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic, HomeChildBase, SharingMixIn):
@@ -2788,7 +2796,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic, HomeChildBas
         @return: an iterable of C{str}s.
         """
         # FIXME: tests don't cover this as directly as they should.
-        rows = yield cls._bindsForHomeID.on(
+        rows = yield cls._childBindForHomeID.on(
                 home._txn, homeID=home._resourceID
         )
         names = [row[3] for row in rows]
@@ -2985,15 +2993,6 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic, HomeChildBas
         returnValue(child)
 
 
-    @classproperty
-    def _childForNameAndHomeID(cls): #@NoSelf
-        bind = cls._bindSchema
-        return cls._bindFor((bind.RESOURCE_NAME == Parameter("name"))
-                               .And(bind.HOME_RESOURCE_ID == Parameter("homeID"))
-                               .And(bind.BIND_STATUS == _BIND_STATUS_ACCEPTED)
-                               )
-
-
     @classmethod
     @inlineCallbacks
     def objectWithName(cls, home, name):
@@ -3019,7 +3018,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic, HomeChildBas
 
         if rows is None:
             # No cached copy
-            rows = yield cls._childForNameAndHomeID.on(home._txn, name=name, homeID=home._resourceID)
+            rows = yield cls._childBindForNameAndHomeID.on(home._txn, name=name, homeID=home._resourceID)
 
             if rows:
                 bindMode, homeID, resourceID, resourceName, bindStatus, bindMessage = rows[0] #@UnusedVariable
@@ -3052,18 +3051,6 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic, HomeChildBas
         )
         yield child.initFromStore()
         returnValue(child)
-
-
-    @classproperty
-    def _bindForResourceIDAndHomeID(cls): #@NoSelf
-        """
-        DAL query that looks up home child names / bind modes by home child
-        resource ID and home resource ID.
-        """
-        bind = cls._bindSchema
-        return cls._bindFor((bind.RESOURCE_ID == Parameter("resourceID"))
-                               .And(bind.HOME_RESOURCE_ID == Parameter("homeID"))
-                               )
 
 
     @classmethod
