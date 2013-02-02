@@ -132,12 +132,12 @@ class QueryFlags(Flags, _DescriptionMixIn):
 
 class DirectoryQueryMatchExpression(object):
     """
-    Directory query.
+    Query for a matching value in a given field.
 
-    @ivar fieldName: a L{FieldName}
+    @ivar fieldName: a L{NamedConstant} specifying the field
     @ivar fieldValue: a text value to match
-    @ivar matchType: a L{MatchType}
-    @ivar flags: l{QueryFlags}
+    @ivar matchType: a L{NamedConstant} specifying the match algorythm
+    @ivar flags: L{NamedConstant} specifying additional options
     """
 
     def __init__(self, fieldName, fieldValue, matchType=MatchType.equals, flags=None):
@@ -167,8 +167,12 @@ class IDirectoryService(Interface):
 
     def recordsFromQuery(expressions, operand=Operand.AND):
         """
-        Find records matching a query consisting of an interable of
-        expressions and an L{Operand}.
+        Find records matching a query consisting of an iterable of
+        expressions and an operand.
+        @param expressions: an iterable of expressions
+        @type expressions: L{object}
+        @param operand: an operand
+        @type operand: a L{NamedConstant}
         @return: a deferred iterable of matching L{IDirectoryRecord}s.
         @raises: L{QueryNotSupportedError} if the query is not
             supported by this directory service.
@@ -176,42 +180,57 @@ class IDirectoryService(Interface):
 
     def recordsWithFieldValue(fieldName, value):
         """
-        Find records that have the given L{FieldName} with the given
+        Find records that have the given field name with the given
         value.
+        @param fieldName: a field name
+        @type fieldName: L{NamedConstant}
+        @param value: a value to match
+        @type value: L{bytes}
         @return: a deferred iterable of L{IDirectoryRecord}s.
         """
 
     def recordWithUID(uid):
         """
-        Find the record that has the given L{FieldName.uid}.
+        Find the record that has the given UID.
+        @param uid: a UID
+        @type uid: L{bytes}
         @return: a deferred iterable of L{IDirectoryRecord}s, or
             C{None} if there is no such record.
         """
                
     def recordWithGUID(guid):
         """
-        Find the record that has the given L{FieldName.guid}.
+        Find the record that has the given GUID.
+        @param guid: a GUID
+        @type guid: L{bytes}
         @return: a deferred iterable of L{IDirectoryRecord}s, or
             C{None} if there is no such record.
         """
 
     def recordsWithRecordType(recordType):
         """
-        Find the records that have the given L{RecordType}.
+        Find the records that have the given record type.
+        @param recordType: a record type
+        @type recordType: L{NamedConstant}
         @return: a deferred iterable of L{IDirectoryRecord}s.
         """
 
     def recordWithShortName(recordType, shortName):
         """
-        Find the record that has the given L{RecordType} and
-        L{FieldName.shortName}.
+        Find the record that has the given record type and short name.
+        @param recordType: a record type
+        @type recordType: L{NamedConstant}
+        @param shortName: a short name
+        @type shortName: L{bytes}
         @return: a deferred iterable of L{IDirectoryRecord}s, or
             C{None} if there is no such record.
         """
 
     def recordsWithEmailAddress(emailAddress):
         """
-        Find the records that have the given L{FieldName.emailAddress}.
+        Find the records that have the given email address.
+        @param emailAddress: an email address
+        @type emailAddress: L{bytes}
         @return: a deferred iterable of L{IDirectoryRecord}s, or
             C{None} if there is no such record.
         """
@@ -222,10 +241,10 @@ class IDirectoryRecord(Interface):
     """
     Directory record.
 
-    Fields may also be accessed as attributes of L{IDirectoryRecord} objects.
+    Fields may also be accessed as attributes.
     """
     service = Attribute("The L{IDirectoryService} this record exists in.")
-    fields  = Attribute("A dictionary with L{FieldName} keys and text values.")
+    fields  = Attribute("A mapping with L{NamedConstant} keys.")
 
     def members():
         """
