@@ -95,7 +95,7 @@ testXMLConfig = """<?xml version="1.0" encoding="utf-8"?>
     <email>dreid@devnull.twistedmatrix.com</email>
   </record>
 
-  <record type="user">
+  <record> <!-- type defaults to "user" -->
     <uid>__joe__</uid>
     <short-name>joe</short-name>
     <full-name>Joe Schmoe</full-name>
@@ -219,6 +219,24 @@ class DirectoryServiceTest(BaseTest, test_directory.DirectoryServiceTest):
         )
 
 
+    def test_unknownRecordTypes(self):
+        service = self._testService()
+        service.loadRecords()
+        self.assertEquals(set(service.unknownRecordTypes), set())
+
+
+    def test_unknownFieldElements(self):
+        service = self._testService()
+        service.loadRecords()
+        self.assertEquals(set(service.unknownFieldElements), set())
+
+
+    def test_unknownFieldNames(self):
+        service = self._testService()
+        service.loadRecords()
+        self.assertEquals(set(service.unknownFieldNames), set())
+
+
 
 class DirectoryRecordTest(BaseTest, test_directory.DirectoryRecordTest):
     @inlineCallbacks
@@ -229,4 +247,17 @@ class DirectoryRecordTest(BaseTest, test_directory.DirectoryRecordTest):
         members = (yield wsanchez.members())
         self.assertEquals(set(members), set())
 
-        # FIXME: GROUP
+        wsanchez = (yield service.recordWithUID("__twisted__"))
+        members = (yield wsanchez.members())
+        self.assertEquals(
+            set(members),
+            set((
+                "__wsanchez__",
+                "__glyph__",
+                "__exarkun__",
+                "__dreid__",
+                "__dre__",
+            ))
+        )
+
+    test_members.todo = "No worky."
