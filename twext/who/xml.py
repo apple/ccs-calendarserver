@@ -122,9 +122,9 @@ class DirectoryService(BaseDirectoryService):
 
     fieldName = MergedConstants(BaseFieldName, FieldName)
 
-    ElementClass   = Element
-    AttributeClass = Attribute
-    ValueClass     = Value
+    element   = Element
+    attribute = Attribute
+    value     = Value
 
     indexedFields = (
         BaseFieldName.recordType,
@@ -203,13 +203,13 @@ class DirectoryService(BaseDirectoryService):
         # Pull data from DOM
         #
         directoryNode = etree.getroot()
-        if directoryNode.tag != self.ElementClass.directory.value:
+        if directoryNode.tag != self.element.directory.value:
             raise DirectoryServiceError("Incorrect root element: %s" % (directoryNode.tag,))
 
         def getAttribute(node, name):
             return node.get(name, "").encode("utf-8")
 
-        realmName = getAttribute(directoryNode, self.AttributeClass.realm.value)
+        realmName = getAttribute(directoryNode, self.attribute.realm.value)
 
         if not realmName:
             raise DirectoryServiceError("No realm name.")
@@ -221,10 +221,10 @@ class DirectoryService(BaseDirectoryService):
         records = set()
 
         for recordNode in directoryNode.getchildren():
-            recordTypeAttribute = getAttribute(recordNode, self.AttributeClass.recordType.value)
+            recordTypeAttribute = getAttribute(recordNode, self.attribute.recordType.value)
             if recordTypeAttribute:
                 try:
-                    recordType = self.ValueClass.lookupByValue(recordTypeAttribute).recordType
+                    recordType = self.value.lookupByValue(recordTypeAttribute).recordType
                 except (ValueError, AttributeError):
                     unknownRecordTypes.add(recordTypeAttribute)
                     continue
@@ -236,7 +236,7 @@ class DirectoryService(BaseDirectoryService):
 
             for fieldNode in recordNode.getchildren():
                 try:
-                    fieldElement = self.ElementClass.lookupByValue(fieldNode.tag)
+                    fieldElement = self.element.lookupByValue(fieldNode.tag)
                 except ValueError:
                     unknownFieldElements.add(fieldNode.tag)
                     continue
