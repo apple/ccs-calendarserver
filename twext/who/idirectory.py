@@ -99,8 +99,8 @@ class FieldName(Names, _DescriptionMixIn):
     fullNames.multiValue      = True
     emailAddresses.multiValue = True
 
-    @classmethod
-    def isMultiValue(cls, name):
+    @staticmethod
+    def isMultiValue(name):
         return getattr(name, "multiValue", False)
 
 class MatchType(Names, _DescriptionMixIn):

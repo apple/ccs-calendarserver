@@ -28,7 +28,7 @@ __all__ = [
 from xml.etree.ElementTree import parse as parseXML
 from xml.etree.ElementTree import ParseError as XMLParseError
 
-from twisted.python.constants import Values, ValueConstant, NamedConstant
+from twisted.python.constants import Names, NamedConstant, Values, ValueConstant
 from twisted.internet.defer import succeed, inlineCallbacks, returnValue
 
 from twext.who.idirectory import DirectoryServiceError
@@ -37,6 +37,8 @@ from twext.who.idirectory import MatchType
 from twext.who.idirectory import DirectoryQueryMatchExpression
 from twext.who.directory import DirectoryService as BaseDirectoryService
 from twext.who.directory import DirectoryRecord as BaseDirectoryRecord
+from twext.who.directory import MergedConstants
+from twext.who.idirectory import _DescriptionMixIn # FIXME
 
 
 
@@ -44,7 +46,7 @@ from twext.who.directory import DirectoryRecord as BaseDirectoryRecord
 # Data type extentions
 ##
 
-class FieldName (BaseFieldName):
+class FieldName(Names, _DescriptionMixIn):
     memberUIDs = NamedConstant()
     memberUIDs.description = "member UIDs"
     memberUIDs.multiValue = True
@@ -63,22 +65,22 @@ class Element(Values):
     # Field names
     #
     uid = ValueConstant("uid")
-    uid.fieldName = FieldName.uid
+    uid.fieldName = BaseFieldName.uid
 
     guid = ValueConstant("guid")
-    guid.fieldName = FieldName.guid
+    guid.fieldName = BaseFieldName.guid
 
     shortName = ValueConstant("short-name")
-    shortName.fieldName = FieldName.shortNames
+    shortName.fieldName = BaseFieldName.shortNames
 
     fullName = ValueConstant("full-name")
-    fullName.fieldName = FieldName.fullNames
+    fullName.fieldName = BaseFieldName.fullNames
 
     emailAddress = ValueConstant("email")
-    emailAddress.fieldName = FieldName.emailAddresses
+    emailAddress.fieldName = BaseFieldName.emailAddresses
 
     password = ValueConstant("password")
-    password.fieldName = FieldName.password
+    password.fieldName = BaseFieldName.password
 
     memberUID = ValueConstant("member-uid")
     memberUID.fieldName = FieldName.memberUIDs
@@ -118,18 +120,18 @@ class DirectoryService(BaseDirectoryService):
     XML directory service.
     """
 
-    FieldNameClass  = FieldName
+    FieldNameClass = MergedConstants(BaseFieldName, FieldName)
 
     ElementClass   = Element
     AttributeClass = Attribute
     ValueClass     = Value
 
     indexedFields = (
-        FieldName.recordType,
-        FieldName.uid,
-        FieldName.guid,
-        FieldName.shortNames,
-        FieldName.emailAddresses,
+        BaseFieldName.recordType,
+        BaseFieldName.uid,
+        BaseFieldName.guid,
+        BaseFieldName.shortNames,
+        BaseFieldName.emailAddresses,
     )
 
 
@@ -230,7 +232,7 @@ class DirectoryService(BaseDirectoryService):
                 recordType = self.RecordTypeClass.user
 
             fields = {}
-            fields[FieldName.recordType] = recordType
+            fields[self.FieldNameClass.recordType] = recordType
 
             for fieldNode in recordNode.getchildren():
                 try:
@@ -312,8 +314,9 @@ class DirectoryRecord(BaseDirectoryRecord):
     """
     XML directory record
     """
+    @inlineCallbacks
     def members(self):
-        return succeed((
-            self.service.recordForUID(uid)
-            for uid in getattr(self, "memberUIDs", ())
-        ))
+        uids = set()
+        for uid in getattr(self, "memberUIDs", ()):
+            uids.add((yield self.service.recordWithUID(uid)).uid)
+        returnValue(uids)

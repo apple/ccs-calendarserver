@@ -259,5 +259,3 @@ class DirectoryRecordTest(BaseTest, test_directory.DirectoryRecordTest):
                 "__dre__",
             ))
         )
-
-    test_members.todo = "No worky."
