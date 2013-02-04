@@ -61,7 +61,7 @@ class DirectoryServiceTest(BaseTest):
         service = self._testService()
         self.assertEquals(
             set((yield service.recordTypes())),
-            set(service.RecordTypeClass.iterconstants())
+            set(service.recordType.iterconstants())
         )
 
 

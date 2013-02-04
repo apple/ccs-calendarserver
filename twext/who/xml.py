@@ -120,7 +120,7 @@ class DirectoryService(BaseDirectoryService):
     XML directory service.
     """
 
-    FieldNameClass = MergedConstants(BaseFieldName, FieldName)
+    fieldName = MergedConstants(BaseFieldName, FieldName)
 
     ElementClass   = Element
     AttributeClass = Attribute
@@ -229,10 +229,10 @@ class DirectoryService(BaseDirectoryService):
                     unknownRecordTypes.add(recordTypeAttribute)
                     continue
             else:
-                recordType = self.RecordTypeClass.user
+                recordType = self.recordType.user
 
             fields = {}
-            fields[self.FieldNameClass.recordType] = recordType
+            fields[self.fieldName.recordType] = recordType
 
             for fieldNode in recordNode.getchildren():
                 try:
@@ -249,7 +249,7 @@ class DirectoryService(BaseDirectoryService):
 
                 value = fieldNode.text.encode("utf-8")
 
-                if self.FieldNameClass.isMultiValue(fieldName):
+                if self.fieldName.isMultiValue(fieldName):
                     values = fields.setdefault(fieldName, [])
                     values.append(value)
                 else:
@@ -272,7 +272,7 @@ class DirectoryService(BaseDirectoryService):
                 values = record.fields.get(fieldName, None)
 
                 if values is not None:
-                    if not self.FieldNameClass.isMultiValue(fieldName):
+                    if not self.fieldName.isMultiValue(fieldName):
                         values = (values,)
 
                     for value in values:

@@ -82,8 +82,8 @@ class DirectoryService(FancyEqMixin, object):
         "realmName",
     )
 
-    RecordTypeClass = MergedConstants(RecordType)
-    FieldNameClass  = MergedConstants(FieldName)
+    recordType = MergedConstants(RecordType)
+    fieldName  = MergedConstants(FieldName)
 
 
     def __init__(self, realmName):
@@ -98,7 +98,7 @@ class DirectoryService(FancyEqMixin, object):
 
 
     def recordTypes(self):
-        return succeed(self.RecordTypeClass.iterconstants())
+        return succeed(self.recordType.iterconstants())
 
 
     def recordsFromExpression(self, expression):
@@ -183,9 +183,9 @@ class DirectoryRecord(FancyEqMixin, object):
                     if not value:
                         raise ValueError("%s field must not be empty." % (fieldName,))
 
-        if fields[FieldName.recordType] not in service.RecordTypeClass.iterconstants():
+        if fields[FieldName.recordType] not in service.recordType.iterconstants():
             raise ValueError("Record type must be one of %r, not %r." % (
-                tuple(service.RecordTypeClass.iterconstants()),
+                tuple(service.recordType.iterconstants()),
                 fields[FieldName.recordType]
             ))
 
@@ -214,7 +214,7 @@ class DirectoryRecord(FancyEqMixin, object):
 
     def __getattr__(self, name):
         try:
-            fieldName = self.service.FieldNameClass.lookupByName(name)
+            fieldName = self.service.fieldName.lookupByName(name)
         except ValueError:
             raise AttributeError(name)
 
