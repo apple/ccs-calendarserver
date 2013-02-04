@@ -452,7 +452,7 @@ class ImplicitScheduler(object):
 
 
     @inlineCallbacks
-    def hasCalendarResourceUIDSomewhereElse(self, check_resource, check_uri, type):
+    def hasCalendarResourceUIDSomewhereElse(self, check_resource, check_uri, mode):
         """
         See if a calendar component with a matching UID exists anywhere in the calendar home of the
         current recipient owner and is not the resource being targeted.
@@ -467,7 +467,7 @@ class ImplicitScheduler(object):
         calendar_home = yield calendar_owner_principal.calendarHome(self.request)
 
         # Check for matching resource somewhere else in the home
-        foundElsewhere = (yield calendar_home.hasCalendarResourceUIDSomewhereElse(self.uid, check_resource, type))
+        foundElsewhere = (yield calendar_home.hasCalendarResourceUIDSomewhereElse(self.uid, check_resource, mode))
         if foundElsewhere:
             log.debug("Implicit - found component with same UID in a different collection: %s" % (check_uri,))
             raise HTTPError(ErrorResponse(

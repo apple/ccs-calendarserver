@@ -3493,7 +3493,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic, HomeChildBas
         child = (yield self.objectResourceWithName(name))
         if child is None:
             raise NoSuchObjectResourceError
-        yield self._removeObjectResource(child)
+        yield self.removeObjectResource(child)
 
 
     @inlineCallbacks
@@ -3502,11 +3502,11 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic, HomeChildBas
         child = (yield self.objectResourceWithUID(uid))
         if child is None:
             raise NoSuchObjectResourceError
-        yield self._removeObjectResource(child)
+        yield self.removeObjectResource(child)
 
 
     @inlineCallbacks
-    def _removeObjectResource(self, child):
+    def removeObjectResource(self, child):
         name = child.name()
         uid = child.uid()
         yield child.remove()

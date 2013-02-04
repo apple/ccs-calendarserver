@@ -2662,13 +2662,13 @@ class CalendarHomeResource(DefaultAlarmPropertyMixin, CommonHomeResource):
         returnValue(similar)
 
 
-    def hasCalendarResourceUIDSomewhereElse(self, uid, ok_object, type):
+    def hasCalendarResourceUIDSomewhereElse(self, uid, ok_object, mode):
         """
         Test if there are other child object resources with the specified UID.
 
         Pass through direct to store.
         """
-        return self._newStoreHome.hasCalendarResourceUIDSomewhereElse(uid, ok_object._newStoreObject, type)
+        return self._newStoreHome.hasCalendarResourceUIDSomewhereElse(uid, ok_object._newStoreObject, mode)
 
 
     def getCalendarResourcesForUID(self, uid, allow_shared=False):

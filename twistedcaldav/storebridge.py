@@ -2542,7 +2542,7 @@ class CalendarObjectResource(_CalendarObjectMetaDataMixin, _CommonObjectResource
         @type request: L{twext.web2.iweb.IRequest}
 
         @param implicitly: Should implicit scheduling operations be triggered
-            as a resut of this C{DELETE}?
+            as a result of this C{DELETE}?
 
         @type implicitly: C{bool}
 

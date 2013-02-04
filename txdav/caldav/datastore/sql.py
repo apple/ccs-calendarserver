@@ -390,7 +390,7 @@ class CalendarHome(CommonHome):
             Otherwise, (if this is the string "calendar") we are checking for
             conflicts with a new unscheduled calendar object, which will
             conflict only with other scheduled objects.
-        @type type: C{str}
+        @type mode: C{str}
 
         @return: a L{Deferred} which fires with C{True} if there is a conflict
             and C{False} if not.

@@ -912,6 +912,39 @@ class StoreCalendarObjectResource(object):
 
 
     @inlineCallbacks
+    def hasCalendarResourceUIDSomewhereElse(self, uid):
+        """
+        See if a calendar component with a matching UID exists anywhere in the calendar home of the
+        current recipient owner and is not the resource being targeted.
+        """
+
+        # Ignore for an overwrite or a MOVE
+        if self.destination.exists() or self.sourceparent and self.deletesource:
+            returnValue(None)
+
+        failed = False
+
+        # Always fail a copy
+        if self.sourceparent and self.sourcecal and not self.deletesource and self.destinationcal:
+            failed = True
+        else:
+            # Get owner's calendar-home
+            calendar_owner_principal = (yield self.destination.resourceOwnerPrincipal(self.request))
+            calendar_home = yield calendar_owner_principal.calendarHome(self.request)
+
+            # Check for matching resource somewhere else in the home use the "schedule" mode to prevent any kind of match
+            failed = (yield calendar_home.hasCalendarResourceUIDSomewhereElse(uid, self.destination, "schedule"))
+
+        if failed:
+            log.debug("Implicit - found component with same UID in a different collection: %s" % (self.destination_uri,))
+            raise HTTPError(ErrorResponse(
+                responsecode.FORBIDDEN,
+                (caldav_namespace, "unique-scheduling-object-resource"),
+                "Cannot duplicate scheduling object resource",
+            ))
+
+
+    @inlineCallbacks
     def doImplicitScheduling(self):
 
         data_changed = False
@@ -1179,6 +1212,7 @@ class StoreCalendarObjectResource(object):
                             ),
                             "UID already exists",
                         ))
+                    yield self.hasCalendarResourceUIDSomewhereElse(self.uid)
 
             # Preserve private comments
             yield self.preservePrivateComments()
