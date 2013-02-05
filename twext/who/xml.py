@@ -25,6 +25,8 @@ __all__ = [
     "DirectoryRecord",
 ]
 
+from time import time
+
 from xml.etree.ElementTree import parse as parseXML
 from xml.etree.ElementTree import ParseError as XMLParseError
 
@@ -141,6 +143,8 @@ class DirectoryService(BaseDirectoryService):
         self.filePath = filePath
         self.refreshInterval = refreshInterval
 
+        self.flush()
+
 
     def __repr__(self):
         return "<%s %s>" % (
@@ -151,8 +155,7 @@ class DirectoryService(BaseDirectoryService):
 
     @property
     def realmName(self):
-        if not hasattr(self, "_realmName"):
-            self.loadRecords()
+        self.loadRecords()
         return self._realmName
 
     @realmName.setter
@@ -162,30 +165,40 @@ class DirectoryService(BaseDirectoryService):
 
     @property
     def unknownRecordTypes(self):
-        if not hasattr(self, "_unknownRecordTypes"):
-            self.loadRecords()
+        self.loadRecords()
         return self._unknownRecordTypes
 
     @property
     def unknownFieldElements(self):
-        if not hasattr(self, "_unknownFieldElements"):
-            self.loadRecords()
+        self.loadRecords()
         return self._unknownFieldElements
 
     @property
     def unknownFieldNames(self):
-        if not hasattr(self, "_unknownFieldNames"):
-            self.loadRecords()
+        self.loadRecords()
         return self._unknownFieldNames
 
     @property
     def index(self):
-        if not hasattr(self, "_index"):
-            self.loadRecords()
+        self.loadRecords()
         return self._index
 
 
     def loadRecords(self):
+        #
+        # Punt if we've read the file recently
+        #
+        now = time()
+        if now - self._lastRefresh < self.refreshInterval:
+            return
+
+        #
+        # Punt if we've read the file and it's still the same.
+        #
+        cacheTag = (self.filePath.getmtime(), self.filePath.getsize())
+        if cacheTag == self._cacheTag:
+            return
+
         #
         # Open and parse the file
         #
@@ -285,6 +298,19 @@ class DirectoryService(BaseDirectoryService):
         self._unknownFieldNames    = unknownFieldNames
 
         self._index = index
+
+        self._cacheTag = cacheTag
+        self._lastRefresh = now
+
+
+    def flush(self):
+        self._realmName            = None
+        self._unknownRecordTypes   = None
+        self._unknownFieldElements = None
+        self._unknownFieldNames    = None
+        self._index                = None
+        self._cacheTag             = None
+        self._lastRefresh          = 0
 
 
     def indexedRecordsFromMatchExpression(self, expression):
