@@ -194,6 +194,13 @@ def responseForHref(request, responses, href, resource, propertiesForResource, p
 
                 propstats.append(xml_propstat)
 
+        # Always need to have at least one propstat present (required by Prefer header behavior)
+        if len(propstats) == 0:
+            propstats.append(element.PropertyStatus(
+                element.PropertyContainer(),
+                element.Status.fromResponseCode(responsecode.OK)
+            ))
+
         if propstats:
             responses.append(element.PropertyStatusResponse(href, *propstats))
 
