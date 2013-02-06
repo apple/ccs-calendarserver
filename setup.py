@@ -134,6 +134,7 @@ def doSetup():
                             #"bin/calendarserver_config",
                             #"bin/calendarserver_dbinspect",
                              "bin/calendarserver_export",
+                            #"bin/calendarserver_icalendar_validate",
                             #"bin/calendarserver_load_augmentdb",
                             #"bin/calendarserver_make_partition",
                             #"bin/calendarserver_manage_postgres",
