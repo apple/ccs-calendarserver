@@ -85,9 +85,10 @@ class WorkerService(Service):
 
     def doWork(self):
         """
-        Turn off attendee refresh batching
+        Turn off attendee refresh batching and remove the free/busy index limit 
         """
         config.Scheduling.Options.AttendeeRefreshBatch = 0
+        config.FreeBusyIndexLowerLimitDays = 0
         return succeed(None)
 
 
