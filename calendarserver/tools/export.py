@@ -31,7 +31,6 @@ Please also note that this is not an appropriate tool for backups, as there is
 data associated with users and calendars beyond the iCalendar as visible to the
 owner of that calendar, including DAV properties, information about sharing, and
 per-user data such as alarms.
-
 """
 
 import os
