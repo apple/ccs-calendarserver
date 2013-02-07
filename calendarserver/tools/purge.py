@@ -33,6 +33,7 @@ from twext.web2.responsecode import NO_CONTENT
 from twisted.application.service import Service
 from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks, returnValue, succeed
+from twisted.python.log import addObserver, removeObserver
 
 from twistedcaldav import caldavxml
 from twistedcaldav.caldavxml import TimeRange
@@ -53,6 +54,36 @@ log = Logger()
 
 DEFAULT_BATCH_SIZE = 100
 DEFAULT_RETAIN_DAYS = 365
+
+class StandardIOObserver (object):
+    """
+    Log observer that writes to standard I/O.
+    """
+    def emit(self, eventDict):
+        text = None
+
+        if eventDict["isError"]:
+            output = sys.stderr
+            if "failure" in eventDict:
+                text = eventDict["failure"].getTraceback()
+        else:
+            output = sys.stdout
+
+        if not text:
+            text = " ".join([str(m) for m in eventDict["message"]]) + "\n"
+
+        output.write(text)
+        output.flush()
+
+
+    def start(self):
+        addObserver(self.emit)
+
+
+    def stop(self):
+        removeObserver(self.emit)
+
+
 
 class WorkerService(Service):
 
@@ -85,7 +116,7 @@ class WorkerService(Service):
 
     def doWork(self):
         """
-        Turn off attendee refresh batching and remove the free/busy index limit 
+        Turn off attendee refresh batching and remove the free/busy index limit
         """
         config.Scheduling.Options.AttendeeRefreshBatch = 0
         config.FreeBusyIndexLowerLimitDays = 0
@@ -207,6 +238,9 @@ class PurgeOldEventsService(WorkerService):
         cls.dryrun = dryrun
         cls.verbose = verbose
 
+        if verbose:
+            observer = StandardIOObserver()
+            observer.start()
         utilityMain(
             configFileName,
             cls,
@@ -385,6 +419,9 @@ class PurgeAttachmentsService(WorkerService):
         cls.dryrun = dryrun
         cls.verbose = verbose
 
+        if verbose:
+            observer = StandardIOObserver()
+            observer.start()
         utilityMain(
             configFileName,
             cls,
@@ -658,6 +695,9 @@ class PurgePrincipalService(WorkerService):
         cls.verbose = verbose
         cls.doimplicit = doimplicit
 
+        if verbose:
+            observer = StandardIOObserver()
+            observer.start()
         utilityMain(
             configFileName,
             cls
