@@ -348,5 +348,6 @@ class DirectoryRecord(BaseDirectoryRecord):
             members.add((yield self.service.recordWithUID(uid)))
         returnValue(members)
 
+
     def groups(self):
         return self.service.recordsWithFieldValue(FieldName.memberUIDs, self.uid)

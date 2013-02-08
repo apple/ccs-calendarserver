@@ -23,55 +23,18 @@ __all__ = [
     "DirectoryRecord",
 ]
 
-from types import FunctionType
-
 from zope.interface import implements
 
 from twisted.python.util import FancyEqMixin
-from twisted.python.constants import NamedConstant
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.internet.defer import succeed, fail
 
-from twext.who.idirectory import DirectoryServiceError
 from twext.who.idirectory import QueryNotSupportedError
 from twext.who.idirectory import FieldName, RecordType
 from twext.who.idirectory import Operand
 from twext.who.idirectory import DirectoryQueryMatchExpression
 from twext.who.idirectory import IDirectoryService, IDirectoryRecord
-
-
-
-class MergedConstants(object):
-    """
-    Work-around for the fact that Names is apparently not subclassable
-    and doesn't provide a way to merge multiple Names classes.
-    """
-    def __init__(self, *containers):
-        self._containers = containers
-
-    def __getattr__(self, name):
-        for container in self._containers:
-            attr = getattr(container, name, None)
-            if attr is not None:
-                # Named constant or static method
-                if isinstance(attr, (NamedConstant, FunctionType)):
-                    return attr
-
-        raise AttributeError(name)
-
-    def iterconstants(self):
-        for container in self._containers:
-            for constant in container.iterconstants():
-                yield constant
-
-    def lookupByName(self, name):
-        for container in self._containers:
-            try:
-                return container.lookupByName(name)
-            except ValueError:
-                pass
-
-        raise ValueError(name)
+from twext.who.util import MergedConstants, uniqueResult
 
 
 
@@ -229,16 +192,6 @@ class DirectoryRecord(FancyEqMixin, object):
             raise NotImplementedError()
         return succeed(())
 
+
     def groups(self):
         raise NotImplementedError()
-
-
-
-def uniqueResult(values):
-    result = None
-    for value in values:
-        if result is None:
-            result = value
-        else:
-            raise DirectoryServiceError("Multiple values found where one expected.")
-    return result
