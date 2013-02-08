@@ -64,18 +64,16 @@ class QueryNotSupportedError(DirectoryServiceError):
 # Data Types
 ##
 
-class _DescriptionMixIn(object):
-    def __str__(self):
-        return getattr(self, "description", Names.__str__(self))
-
-class RecordType(Names, _DescriptionMixIn):
+class RecordType(Names):
     user  = NamedConstant()
     group = NamedConstant()
 
     user.description  = "user"
     group.description = "group"
 
-class FieldName(Names, _DescriptionMixIn):
+
+
+class FieldName(Names):
     """
     Constants for common field names.
     """
@@ -103,7 +101,9 @@ class FieldName(Names, _DescriptionMixIn):
     def isMultiValue(name):
         return getattr(name, "multiValue", False)
 
-class MatchType(Names, _DescriptionMixIn):
+
+
+class MatchType(Names):
     """
     Query match types.
     """
@@ -115,20 +115,26 @@ class MatchType(Names, _DescriptionMixIn):
     startsWith.description = "starts with"
     contains.description   = "contains"
 
-class Operand(Names, _DescriptionMixIn):
+
+
+class Operand(Names):
     OR  = NamedConstant()
     AND = NamedConstant()
 
     OR.description  = "or"
     AND.description = "and"
 
-class QueryFlags(Flags, _DescriptionMixIn):
+
+
+class QueryFlags(Flags):
     """
     Query flags.
     """
     caseInsensitive = FlagConstant()
 
     caseInsensitive.description = "case insensitive"
+
+
 
 class DirectoryQueryMatchExpression(object):
     """
@@ -145,6 +151,26 @@ class DirectoryQueryMatchExpression(object):
         self.fieldValue = fieldValue
         self.matchType  = matchType
         self.flags      = flags
+
+    def __repr__(self):
+        def describe(constant):
+            if hasattr(constant, "description"):
+                return constant.description
+            else:
+                return str(constant)
+
+        if self.flags is None:
+            flags = ""
+        else:
+            flags = " (%s)" % (self.flags,)
+
+        return "<%s: %r %s %r%s>" % (
+            self.__class__.__name__,
+            describe(self.fieldName),
+            describe(self.matchType),
+            describe(self.fieldValue),
+            flags
+        )
 
 
 
