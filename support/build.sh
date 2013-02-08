@@ -788,10 +788,10 @@ dependencies () {
     "SQLParse" "sqlparse" "${sq}" \
     "http://python-sqlparse.googlecode.com/files/${sq}.tar.gz";
 
-  local v="0.5.0";
+  local v="0.6.1";
   local n="pyflakes";
   local p="${n}-${v}";
-  py_dependency -o -v "${v}" -m "568dab27c42e5822787aa8a603898672" \
+  py_dependency -o -v "${v}" -m "00debd2280b962e915dfee552a675915" \
     "Pyflakes" "${n}" "${p}" \
     "${pypi}/p/${n}/${p}.tar.gz";
  
