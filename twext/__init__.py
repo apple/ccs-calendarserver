@@ -15,8 +15,9 @@
 ##
 
 """
-Extentions to the Twisted Framework.
+Extensions to the Twisted Framework.
 """
 
 from twext import patches
-patches; del(patches)
+patches
+del(patches)
