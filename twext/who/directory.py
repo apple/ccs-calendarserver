@@ -82,7 +82,7 @@ class DirectoryService(FancyEqMixin, object):
         except StopIteration:
             returnValue(())
 
-        results = (yield self.recordsFromExpression(expression))
+        results = set((yield self.recordsFromExpression(expression)))
 
         for expression in expressions:
             if (operand == Operand.AND and not results):
