@@ -315,6 +315,12 @@ class DirectoryService(BaseDirectoryService):
 
 
     def indexedRecordsFromMatchExpression(self, expression):
+        """
+        Finds records in the internal indexes matching a single
+        expression.
+        @param expression: an expression
+        @type expression: L{object}
+        """
         if expression.matchType != MatchType.equals:
             raise NotImplementedError("Handle MatchType != equals")
 
@@ -324,17 +330,25 @@ class DirectoryService(BaseDirectoryService):
         return succeed(self.index[expression.fieldName].get(expression.fieldValue, ()))
 
 
-    @inlineCallbacks
+    def unIndexedRecordsFromMatchExpression(self, expression):
+        """
+        Finds records not in the internal indexes matching a single
+        expression.
+        @param expression: an expression
+        @type expression: L{object}
+        """
+        raise NotImplementedError("Handle unindexed fields")
+
     def recordsFromExpression(self, expression):
         if isinstance(expression, DirectoryQueryMatchExpression):
             if expression.fieldName in self.indexedFields:
-                returnValue((yield self.indexedRecordsFromMatchExpression(expression)))
-
-            raise NotImplementedError("Handle unindexed field")
-
+                records = self.indexedRecordsFromMatchExpression(expression)
+            else:
+                records = self.unIndexedRecordsFromMatchExpression(expression)
         else:
-            returnValue((yield BaseDirectoryService.recordsFromExpression(self, expression)))
+            records = BaseDirectoryService.recordsFromExpression(self, expression)
 
+        return records
 
 
 class DirectoryRecord(BaseDirectoryRecord):

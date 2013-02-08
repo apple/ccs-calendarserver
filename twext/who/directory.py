@@ -65,6 +65,11 @@ class DirectoryService(FancyEqMixin, object):
 
 
     def recordsFromExpression(self, expression):
+        """
+        Finds records matching a single expression.
+        @param expression: an expression
+        @type expression: L{object}
+        """
         return fail(QueryNotSupportedError("Unknown expression: %s" % (expression,)))
 
 
