@@ -215,8 +215,8 @@ class DirectoryServiceTest(BaseTest, test_directory.DirectoryServiceTest):
     def test_recordWithShortName(self):
         service = self._testService()
 
-        #record = (yield service.recordWithShortName(RecordType.user, "null"))
-        #self.assertEquals(record, None)
+        record = (yield service.recordWithShortName(RecordType.user, "null"))
+        self.assertEquals(record, None)
 
         record = (yield service.recordWithShortName(RecordType.user, "wsanchez"))
         self.assertEquals(record.uid, "__wsanchez__")
