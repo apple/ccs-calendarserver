@@ -237,6 +237,28 @@ class IDirectoryService(Interface):
 
 
 
+class IMutableDirectoryService(IDirectoryService):
+    """
+    Mutable directory service.
+    """
+    def updateRecords(self, records, create=False):
+        """
+        Updates existing directory records.
+        @param records: the records to update
+        @type records: iterable of L{IDirectoryRecord}s
+        @param create: if true, create records if necessary
+        @type create: boolean
+        """
+
+    def removeRecords(self, uids):
+        """
+        Removes the records with the given UIDs.
+        @param uids: the UIDs of the records to remove
+        @type uids: iterable of L{bytes}
+        """
+
+
+
 class IDirectoryRecord(Interface):
     """
     Directory record.
@@ -250,6 +272,15 @@ class IDirectoryRecord(Interface):
         """
         Find the records that are members of this group.  Only direct
         members are included; members of members are not expanded.
-        @return: an iterable of L{IDirectoryRecord}s which are direct
-            members of this group.
+        @return: a deferred iterable of L{IDirectoryRecord}s which are
+            direct members of this group.
+        """
+
+    def groups():
+        """
+        Find the group records that this record is a member of.  Only
+        groups for which this record is a direct member is are
+        included; membership is not expanded.
+        @return: a deferred iterable of L{IDirectoryRecord}s which are
+            groups that this record is a member of.
         """

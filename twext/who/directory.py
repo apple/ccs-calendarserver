@@ -112,16 +112,16 @@ class DirectoryService(FancyEqMixin, object):
         try:
             expression = expressionIterator.next()
         except StopIteration:
-            returnValue(set())
+            returnValue(())
 
         results = (yield self.recordsFromExpression(expression))
 
         for expression in expressions:
             if (operand == Operand.AND and not results):
                 # No need to bother continuing here
-                returnValue(set())
+                returnValue(())
 
-            recordsMatchingExpression = (yield self.recordsFromExpression(expression))
+            recordsMatchingExpression = frozenset((yield self.recordsFromExpression(expression)))
 
             if operand == Operand.AND:
                 results &= recordsMatchingExpression
@@ -228,6 +228,9 @@ class DirectoryRecord(FancyEqMixin, object):
         if self.recordType == RecordType.group:
             raise NotImplementedError()
         return succeed(())
+
+    def groups(self):
+        raise NotImplementedError()
 
 
 

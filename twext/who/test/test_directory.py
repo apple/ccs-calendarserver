@@ -204,3 +204,17 @@ class DirectoryRecordTest(BaseTest):
         self.assertEquals(wsanchez.uid           , wsanchez.fields[FieldName.uid           ])
         self.assertEquals(wsanchez.shortNames    , wsanchez.fields[FieldName.shortNames    ])
         self.assertEquals(wsanchez.emailAddresses, wsanchez.fields[FieldName.emailAddresses])
+
+    @inlineCallbacks
+    def test_members(self):
+        wsanchez = self._testRecord(self.fields_wsanchez)
+
+        self.assertEquals(
+            set((yield wsanchez.members())),
+            set()
+        )
+
+        raise SkipTest("Subclasses should implement this test.")
+
+    def test_groups(self):
+        raise SkipTest("Subclasses should implement this test.")

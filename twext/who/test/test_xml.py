@@ -103,6 +103,14 @@ testXMLConfig = """<?xml version="1.0" encoding="utf-8"?>
     <email>joe@example.com</email>
   </record>
 
+  <record>
+    <uid>__alyssa__</uid>
+    <short-name>alyssa</short-name>
+    <full-name>Alyssa P. Hacker</full-name>
+    <password>assyla</password>
+    <email>alyssa@example.com</email>
+  </record>
+
   <record type="group">
     <uid>__calendar-dev__</uid>
     <short-name>calendar-dev</short-name>
@@ -127,6 +135,15 @@ testXMLConfig = """<?xml version="1.0" encoding="utf-8"?>
     <member-uid>__dre__</member-uid>
   </record>
 
+  <record type="group">
+    <uid>__developers__</uid>
+    <short-name>developers</short-name>
+    <full-name>All Developers</full-name>
+    <member-uid>__calendar-dev__</member-uid>
+    <member-uid>__twisted__</member-uid>
+    <member-uid>__alyssa__</member-uid>
+  </record>
+
 </directory>
 """
 
@@ -146,6 +163,10 @@ class DirectoryServiceTest(BaseTest, test_directory.DirectoryServiceTest):
     @inlineCallbacks
     def test_recordWithUID(self):
         service = self._testService()
+
+        record = (yield service.recordWithUID("__null__"))
+        self.assertEquals(record, None)
+
         record = (yield service.recordWithUID("__wsanchez__"))
         self.assertEquals(record.uid, "__wsanchez__")
 
@@ -160,6 +181,9 @@ class DirectoryServiceTest(BaseTest, test_directory.DirectoryServiceTest):
     def test_recordsWithRecordType(self):
         service = self._testService()
 
+        records = (yield service.recordsWithRecordType(object()))
+        self.assertEquals(set(records), set())
+
         records = (yield service.recordsWithRecordType(RecordType.user))
         self.assertEquals(
             set((record.uid for record in records)),
@@ -171,6 +195,7 @@ class DirectoryServiceTest(BaseTest, test_directory.DirectoryServiceTest):
                 "__dre__",
                 "__exarkun__",
                 "__dreid__",
+                "__alyssa__",
                 "__joe__",
             )),
         )
@@ -181,6 +206,7 @@ class DirectoryServiceTest(BaseTest, test_directory.DirectoryServiceTest):
             set((
                 "__calendar-dev__",
                 "__twisted__",
+                "__developers__",
             ))
         )
 
@@ -188,6 +214,9 @@ class DirectoryServiceTest(BaseTest, test_directory.DirectoryServiceTest):
     @inlineCallbacks
     def test_recordWithShortName(self):
         service = self._testService()
+
+        #record = (yield service.recordWithShortName(RecordType.user, "null"))
+        #self.assertEquals(record, None)
 
         record = (yield service.recordWithShortName(RecordType.user, "wsanchez"))
         self.assertEquals(record.uid, "__wsanchez__")
@@ -243,19 +272,44 @@ class DirectoryRecordTest(BaseTest, test_directory.DirectoryRecordTest):
     def test_members(self):
         service = self._testService()
 
-        wsanchez = (yield service.recordWithUID("__wsanchez__"))
-        members = (yield wsanchez.members())
+        record = (yield service.recordWithUID("__wsanchez__"))
+        members = (yield record.members())
         self.assertEquals(set(members), set())
 
-        wsanchez = (yield service.recordWithUID("__twisted__"))
-        members = (yield wsanchez.members())
+        record = (yield service.recordWithUID("__twisted__"))
+        members = (yield record.members())
         self.assertEquals(
-            set(members),
+            set((member.uid for member in members)),
             set((
                 "__wsanchez__",
                 "__glyph__",
                 "__exarkun__",
                 "__dreid__",
                 "__dre__",
+            ))
+        )
+
+        record = (yield service.recordWithUID("__developers__"))
+        members = (yield record.members())
+        self.assertEquals(
+            set((member.uid for member in members)),
+            set((
+                "__calendar-dev__",
+                "__twisted__",
+                "__alyssa__",
+            ))
+        )
+
+    @inlineCallbacks
+    def test_groups(self):
+        service = self._testService()
+
+        record = (yield service.recordWithUID("__wsanchez__"))
+        groups = (yield record.groups())
+        self.assertEquals(
+            set(group.uid for group in groups),
+            set((
+                "__calendar-dev__",
+                "__twisted__",
             ))
         )

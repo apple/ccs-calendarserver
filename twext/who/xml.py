@@ -134,6 +134,7 @@ class DirectoryService(BaseDirectoryService):
         BaseFieldName.guid,
         BaseFieldName.shortNames,
         BaseFieldName.emailAddresses,
+        FieldName.memberUIDs,
     )
 
 
@@ -342,7 +343,10 @@ class DirectoryRecord(BaseDirectoryRecord):
     """
     @inlineCallbacks
     def members(self):
-        uids = set()
+        members = set()
         for uid in getattr(self, "memberUIDs", ()):
-            uids.add((yield self.service.recordWithUID(uid)).uid)
-        returnValue(uids)
+            members.add((yield self.service.recordWithUID(uid)))
+        returnValue(members)
+
+    def groups(self):
+        return self.service.recordsWithFieldValue(FieldName.memberUIDs, self.uid)
