@@ -40,7 +40,6 @@ from twext.who.idirectory import DirectoryQueryMatchExpression
 from twext.who.directory import DirectoryService as BaseDirectoryService
 from twext.who.directory import DirectoryRecord as BaseDirectoryRecord
 from twext.who.directory import MergedConstants
-from twext.who.idirectory import _DescriptionMixIn # FIXME
 
 
 
@@ -48,7 +47,7 @@ from twext.who.idirectory import _DescriptionMixIn # FIXME
 # Data type extentions
 ##
 
-class FieldName(Names, _DescriptionMixIn):
+class FieldName(Names):
     memberUIDs = NamedConstant()
     memberUIDs.description = "member UIDs"
     memberUIDs.multiValue = True
@@ -321,13 +320,17 @@ class DirectoryService(BaseDirectoryService):
         @param expression: an expression
         @type expression: L{object}
         """
+        fieldIndex = self.index[expression.fieldName]
+
         if expression.matchType != MatchType.equals:
             raise NotImplementedError("Handle MatchType != equals")
 
         if expression.flags:
             raise NotImplementedError("Handle QueryFlags")
 
-        return succeed(self.index[expression.fieldName].get(expression.fieldValue, ()))
+        matchingRecords = fieldIndex.get(expression.fieldValue, ())
+
+        return succeed(frozenset(matchingRecords))
 
 
     def unIndexedRecordsFromMatchExpression(self, expression):
@@ -338,6 +341,7 @@ class DirectoryService(BaseDirectoryService):
         @type expression: L{object}
         """
         raise NotImplementedError("Handle unindexed fields")
+
 
     def recordsFromExpression(self, expression):
         if isinstance(expression, DirectoryQueryMatchExpression):
