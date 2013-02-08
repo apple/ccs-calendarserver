@@ -150,6 +150,7 @@ class CommonDataStore(Service, object):
     def __init__(self, sqlTxnFactory, notifierFactory,
                  attachmentsPath, attachmentsURIPattern,
                  enableCalendars=True, enableAddressBooks=True,
+                 enableManagedAttachments=True,
                  label="unlabeled", quota=(2 ** 20),
                  logLabels=False, logStats=False, logStatsLogFile=None, logSQL=False,
                  logTransactionWaits=0, timeoutTransactions=0,
@@ -163,6 +164,7 @@ class CommonDataStore(Service, object):
         self.attachmentsURIPattern = attachmentsURIPattern
         self.enableCalendars = enableCalendars
         self.enableAddressBooks = enableAddressBooks
+        self.enableManagedAttachments = enableManagedAttachments
         self.label = label
         self.quota = quota
         self.logLabels = logLabels
@@ -262,6 +264,18 @@ class CommonDataStore(Service, object):
         Set the "upgrading" state
         """
         self._enableNotifications = not state
+
+
+    @inlineCallbacks
+    def dropboxAllowed(self, txn):
+        """
+        Determine whether dropbox attachments are allowed. Once we have migrated to managed attachments,
+        we should never allow dropbox-style attachments to be created.
+        """
+        if not hasattr(self, "_dropbox_ok"):
+            already_migrated = (yield txn.calendarserverValue("MANAGED-ATTACHMENTS", raiseIfMissing=False))
+            self._dropbox_ok = already_migrated is None
+        returnValue(self._dropbox_ok)
 
 
 
@@ -480,11 +494,31 @@ class CommonStoreTransaction(object):
 
 
     @inlineCallbacks
-    def calendarserverValue(self, key):
+    def calendarserverValue(self, key, raiseIfMissing=True):
         result = yield self._calendarserver.on(self, name=key)
         if result and len(result) == 1:
             returnValue(result[0][0])
-        raise RuntimeError("Database key %s cannot be determined." % (key,))
+        if raiseIfMissing:
+            raise RuntimeError("Database key %s cannot be determined." % (key,))
+        else:
+            returnValue(None)
+
+
+    @inlineCallbacks
+    def setCalendarserverValue(self, key, value):
+        cs = schema.CALENDARSERVER
+        yield Insert(
+            {cs.NAME: key, cs.VALUE: value},
+        ).on(self)
+
+
+    @inlineCallbacks
+    def updateCalendarserverValue(self, key, value):
+        cs = schema.CALENDARSERVER
+        yield Update(
+            {cs.VALUE: value},
+            Where=cs.NAME == key,
+        ).on(self)
 
 
     def calendarHomeWithUID(self, uid, create=False):

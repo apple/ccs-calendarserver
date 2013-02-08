@@ -197,11 +197,11 @@ class AttachmentMigrationTests(CommonCommonTests, unittest.TestCase):
         self.notifierFactory.reset()
 
         txn = self._sqlCalendarStore.newTransaction()
-        Delete(
+        yield Delete(
             From=schema.ATTACHMENT,
             Where=None
         ).on(txn)
-        Delete(
+        yield Delete(
             From=schema.ATTACHMENT_CALENDAR_OBJECT,
             Where=None
         ).on(txn)
@@ -219,6 +219,7 @@ class AttachmentMigrationTests(CommonCommonTests, unittest.TestCase):
     @inlineCallbacks
     def _addAttachment(self, home, calendar, event, dropboxid, name):
 
+        self._sqlCalendarStore._dropbox_ok = True
         txn = self._sqlCalendarStore.newTransaction()
 
         # Create an event with an attachment
@@ -239,6 +240,7 @@ class AttachmentMigrationTests(CommonCommonTests, unittest.TestCase):
         ))
         yield event.setComponent(cal)
         yield txn.commit()
+        self._sqlCalendarStore._dropbox_ok = False
 
         returnValue(attachment)
 

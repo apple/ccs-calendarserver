@@ -31,7 +31,8 @@ from txdav.xml import element as davxml
 from txdav.xml.base import dav_namespace, WebDAVUnknownElement, encodeXMLName
 from txdav.base.propertystore.base import PropertyName
 from txdav.caldav.icalendarstore import QuotaExceeded, AttachmentStoreFailed, \
-    AttachmentStoreValidManagedID, AttachmentRemoveFailed
+    AttachmentStoreValidManagedID, AttachmentRemoveFailed, \
+    AttachmentDropboxNotAllowed
 from txdav.common.icommondatastore import NoSuchObjectResourceError
 from txdav.common.datastore.sql_tables import _BIND_MODE_READ, _BIND_MODE_WRITE
 from txdav.idav import PropertyChangeNotAllowedError
@@ -1967,6 +1968,11 @@ class CalendarAttachment(_NewStoreFileMetaDataHelper, _GetChildHelper):
                         self.attachmentName))
             t = self._newStoreAttachment.store(content_type)
             yield readStream(request.stream, t.write)
+
+        except AttachmentDropboxNotAllowed:
+            log.error("Dropbox cannot be used after migration to managed attachments")
+            raise HTTPError(FORBIDDEN)
+
         except Exception, e:
             log.error("Unable to store attachment: %s" % (e,))
             raise HTTPError(SERVICE_UNAVAILABLE)

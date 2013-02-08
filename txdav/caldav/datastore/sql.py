@@ -62,7 +62,7 @@ from txdav.caldav.datastore.util import validateCalendarComponent, \
     dropboxIDFromCalendarObject
 from txdav.caldav.icalendarstore import ICalendarHome, ICalendar, ICalendarObject, \
     IAttachment, AttachmentStoreFailed, AttachmentStoreValidManagedID, \
-    AttachmentMigrationFailed
+    AttachmentMigrationFailed, AttachmentDropboxNotAllowed
 from txdav.caldav.icalendarstore import QuotaExceeded
 from txdav.common.datastore.sql import CommonHome, CommonHomeChild, \
     CommonObjectResource, ECALENDARTYPE
@@ -90,6 +90,7 @@ from zope.interface.declarations import implements
 import collections
 import os
 import tempfile
+import urllib
 import uuid
 
 log = Logger()
@@ -170,7 +171,8 @@ class CalendarStoreFeatures(object):
             total = rows[0][0]
             count = 0
             log.warn("%d dropbox ids to migrate" % (total,))
-        except RuntimeError:
+        except RuntimeError, e:
+            log.error("Dropbox migration failed when cleaning out dropbox ids: %s" % (e,))
             yield txn.abort()
             raise
         else:
@@ -1814,7 +1816,10 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             attachments = component.properties("ATTACH")
             removed = False
             for attachment in tuple(attachments):
-                if attachment.value().endswith("/dropbox/%s/%s" % (oldattachment.dropboxID(), oldattachment.name(),)):
+                if attachment.value().endswith("/dropbox/%s/%s" % (
+                    urllib.quote(oldattachment.dropboxID()),
+                    urllib.quote(oldattachment.name()),
+                )):
                     component.removeProperty(attachment)
                     removed = True
             if removed:
@@ -2308,6 +2313,11 @@ class DropBoxAttachment(Attachment):
         @type ownerHomeID: C{int}
         """
 
+        # If store has already migrated to managed attachments we will prevent creation of dropbox attachments
+        dropbox = (yield txn.store().dropboxAllowed(txn))
+        if not dropbox:
+            raise AttachmentDropboxNotAllowed
+
         # Now create the DB entry
         att = schema.ATTACHMENT
         rows = (yield Insert({
@@ -2726,8 +2736,8 @@ class ManagedAttachment(Attachment):
         fname = self.lastSegmentOfUriPath(self._managedID, self._name)
         location = self._txn._store.attachmentsURIPattern % {
             "home": self._ownerName,
-            "dropbox_id": self._objectDropboxID,
-            "name": fname,
+            "dropbox_id": urllib.quote(self._objectDropboxID),
+            "name": urllib.quote(fname),
         }
         returnValue(location)
 

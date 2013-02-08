@@ -243,6 +243,7 @@ def storeFromConfig(config, txnFactory):
             txnFactory, notifierFactory,
             FilePath(config.AttachmentsRoot), attachments_uri,
             config.EnableCalDAV, config.EnableCardDAV,
+            config.EnableManagedAttachments,
             quota=quota,
             logLabels=config.LogDatabase.LabelsInSQL,
             logStats=config.LogDatabase.Statistics,

@@ -828,6 +828,7 @@ class PurgePrincipalTests(CommonCommonTests, unittest.TestCase):
         txn = self._sqlCalendarStore.newTransaction()
 
         # Add attachment to attachment.ics
+        self._sqlCalendarStore._dropbox_ok = True
         home = (yield txn.calendarHomeWithUID(self.uid))
         calendar = (yield home.calendarWithName("calendar1"))
         event = (yield calendar.calendarObjectWithName("attachment.ics"))
@@ -836,6 +837,7 @@ class PurgePrincipalTests(CommonCommonTests, unittest.TestCase):
         t.write("attachment")
         t.write(" text")
         (yield t.loseConnection())
+        self._sqlCalendarStore._dropbox_ok = False
 
         # Share calendars each way
         home2 = (yield txn.calendarHomeWithUID(self.uid2))
