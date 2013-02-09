@@ -44,6 +44,30 @@ from twext.who.directory import MergedConstants
 
 
 ##
+# Exceptions
+##
+
+class ParseError(RuntimeError):
+    """
+    Parse error.
+    """
+    def __init__(self, token):
+        RuntimeError.__init__(self, token)
+        self.token = token
+
+class UnknownRecordTypeParseError(ParseError):
+    """
+    Unknown record type.
+    """
+
+class UnknownFieldNameParseError(ParseError):
+    """
+    Unknown field name.
+    """
+
+
+
+##
 # Data type extentions
 ##
 
@@ -228,10 +252,7 @@ class DirectoryService(BaseDirectoryService):
         if directoryNode.tag != self.element.directory.value:
             raise DirectoryServiceError("Incorrect root element: %s" % (directoryNode.tag,))
 
-        def getAttribute(node, name):
-            return node.get(name, "").encode("utf-8")
-
-        realmName = getAttribute(directoryNode, self.attribute.realm.value)
+        realmName = directoryNode.get(self.attribute.realm.value, "").encode("utf-8")
 
         if not realmName:
             raise DirectoryServiceError("No realm name.")
@@ -243,42 +264,12 @@ class DirectoryService(BaseDirectoryService):
         records = set()
 
         for recordNode in directoryNode.getchildren():
-            recordTypeAttribute = getAttribute(recordNode, self.attribute.recordType.value)
-            if recordTypeAttribute:
-                try:
-                    recordType = self.value.lookupByValue(recordTypeAttribute).recordType
-                except (ValueError, AttributeError):
-                    unknownRecordTypes.add(recordTypeAttribute)
-                    continue
-            else:
-                recordType = self.recordType.user
-
-            fields = {}
-            fields[self.fieldName.recordType] = recordType
-
-            for fieldNode in recordNode.getchildren():
-                try:
-                    fieldElement = self.element.lookupByValue(fieldNode.tag)
-                except ValueError:
-                    unknownFieldElements.add(fieldNode.tag)
-                    continue
-
-                try:
-                    fieldName = fieldElement.fieldName
-                except AttributeError:
-                    unknownFieldNames.add(fieldNode.tag)
-                    continue
-
-                value = fieldNode.text.encode("utf-8")
-
-                if self.fieldName.isMultiValue(fieldName):
-                    values = fields.setdefault(fieldName, [])
-                    values.append(value)
-                else:
-                    fields[fieldName] = value
-
-
-            records.add(DirectoryRecord(self, fields))
+            try:
+                records.add(self.parseRecordNode(recordNode))
+            except UnknownRecordTypeParseError, e:
+                unknownRecordTypes.add(e.token)
+            except UnknownFieldNameParseError, e:
+                unknownFieldNames.add(e.token)
 
         #
         # Store results
@@ -312,6 +303,41 @@ class DirectoryService(BaseDirectoryService):
         self._lastRefresh = now
 
         return etree
+
+
+    def parseRecordNode(self, recordNode):
+        recordTypeAttribute = recordNode.get(self.attribute.recordType.value, "").encode("utf-8")
+        if recordTypeAttribute:
+            try:
+                recordType = self.value.lookupByValue(recordTypeAttribute).recordType
+            except (ValueError, AttributeError):
+                raise UnknownRecordTypeParseError(recordTypeAttribute)
+        else:
+            recordType = self.recordType.user
+
+        fields = {}
+        fields[self.fieldName.recordType] = recordType
+
+        for fieldNode in recordNode.getchildren():
+            try:
+                fieldElement = self.element.lookupByValue(fieldNode.tag)
+            except ValueError:
+                raise UnknownFieldNameParseError(fieldNode.tag)
+
+            try:
+                fieldName = fieldElement.fieldName
+            except AttributeError:
+                raise UnknownFieldNameParseError(fieldNode.tag)
+
+            value = fieldNode.text.encode("utf-8")
+
+            if self.fieldName.isMultiValue(fieldName):
+                values = fields.setdefault(fieldName, [])
+                values.append(value)
+            else:
+                fields[fieldName] = value
+
+        return DirectoryRecord(self, fields)
 
 
     def flush(self):
@@ -370,15 +396,19 @@ class DirectoryService(BaseDirectoryService):
         self.flush()
         etree = self.loadRecords(loadNow=True)
 
+        recordsByUID = dict(((record.uid, record) for record in records))
+
         directoryNode = etree.getroot()
 
-        for record in records:
-            for recordNode in directoryNode.getchildren():
-                raise NotImplementedError()
+        for recordNode in directoryNode.getchildren():
+            uidNode = recordNode.find(self.element.uid.value)
+            if uidNode is None:
+                raise NotImplementedError("No UID node")
 
-            raise NotImplementedError()
+            record = recordsByUID.get(uidNode.text, None)
 
-        raise NotImplementedError()
+            if record:
+                raise NotImplementedError("Update record: %s" % (record,))
 
 
 
