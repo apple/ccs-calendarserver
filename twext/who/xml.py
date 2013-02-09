@@ -184,12 +184,21 @@ class DirectoryService(BaseDirectoryService):
         return self._index
 
 
-    def loadRecords(self):
+    def loadRecords(self, loadNow=False):
+        """
+        Load records from L{self.filePath}.
+
+        Does nothing if a successful refresh has happened within the
+        last L{self.refreshInterval} seconds.
+
+        @param loadNow: Load now (ignore L{self.refreshInterval})
+        @type loadNow: boolean
+        """
         #
         # Punt if we've read the file recently
         #
         now = time()
-        if now - self._lastRefresh < self.refreshInterval:
+        if not loadNow and now - self._lastRefresh <= self.refreshInterval:
             return
 
         #
@@ -302,6 +311,8 @@ class DirectoryService(BaseDirectoryService):
         self._cacheTag = cacheTag
         self._lastRefresh = now
 
+        return etree
+
 
     def flush(self):
         self._realmName            = None
@@ -353,6 +364,22 @@ class DirectoryService(BaseDirectoryService):
             records = BaseDirectoryService.recordsFromExpression(self, expression)
 
         return records
+
+
+    def updateRecords(self, records, create=False):
+        self.flush()
+        etree = self.loadRecords(loadNow=True)
+
+        directoryNode = etree.getroot()
+
+        for record in records:
+            for recordNode in directoryNode.getchildren():
+                raise NotImplementedError()
+
+            raise NotImplementedError()
+
+        raise NotImplementedError()
+
 
 
 class DirectoryRecord(BaseDirectoryRecord):
