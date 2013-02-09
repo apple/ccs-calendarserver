@@ -22,7 +22,7 @@ from twisted.python.filepath import FilePath
 from twisted.internet.defer import inlineCallbacks
 
 from twext.who.idirectory import RecordType
-from twext.who.xml import DirectoryService
+from twext.who.xml import DirectoryService, DirectoryRecord
 
 from twext.who.test import test_directory
 
@@ -264,6 +264,30 @@ class DirectoryServiceTest(BaseTest, test_directory.DirectoryServiceTest):
         service = self._testService()
         service.loadRecords()
         self.assertEquals(set(service.unknownFieldNames), set())
+
+
+    @inlineCallbacks
+    def test_updateRecord(self):
+        service = self._testService()
+
+        record = (yield service.recordWithUID("__wsanchez__"))
+
+        fields = record.fields.copy()
+        fields[service.fieldName.fullNames] = ["Wilfredo Sanchez Vega"]
+
+        updatedRecord = DirectoryRecord(service, fields)
+        service.updateRecords((updatedRecord,))
+
+        # Verify change is present immediately
+        record = (yield service.recordWithUID("__wsanchez__"))
+        self.assertEquals(record.fullName, "Wilfredo Sanchez Vega")
+
+        # Verify change is persisted
+        service.flush()
+        record = (yield service.recordWithUID("__wsanchez__"))
+        self.assertEquals(record.fullName, "Wilfredo Sanchez Vega")
+
+    test_updateRecord.todo = "Not implemented."
 
 
 
