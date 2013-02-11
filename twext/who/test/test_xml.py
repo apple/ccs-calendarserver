@@ -341,15 +341,11 @@ class DirectoryServiceTest(BaseTest, test_directory.DirectoryServiceTest):
         service.flush()
         self.assertEquals((yield service.recordWithUID("__wsanchez__")), None)
 
-    test_removeRecord.todo = "Not implemented."
-
 
     def test_removeRecordNoExist(self):
         service = self._testService()
 
         return service.removeRecords(("__plugh__",))
-
-    test_removeRecordNoExist.todo = "Not implemented."
 
 
 

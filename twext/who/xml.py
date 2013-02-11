@@ -337,6 +337,14 @@ class DirectoryService(BaseDirectoryService):
         return DirectoryRecord(self, fields)
 
 
+    def _uidForRecordNode(self, recordNode):
+        uidNode = recordNode.find(self.element.uid.value)
+        if uidNode is None:
+            raise NotImplementedError("No UID node")
+
+        return uidNode.text
+
+
     def flush(self):
         self._realmName            = None
         self._unknownRecordTypes   = None
@@ -390,15 +398,10 @@ class DirectoryService(BaseDirectoryService):
 
 
     def updateRecords(self, records, create=False):
-        #
         # Index the records to update by UID
-        #
         recordsByUID = dict(((record.uid, record) for record in records))
 
-        #
-        # Index the record type -> attribute and field name -> element
-        # mappings.
-        #
+        # Index the record type -> attribute mappings.
         recordTypes = {}
         for valueName in self.value.iterconstants():
             recordType = getattr(valueName, "recordType", None)
@@ -406,6 +409,7 @@ class DirectoryService(BaseDirectoryService):
                 recordTypes[recordType] = valueName.value
         del valueName
 
+        # Index the field name -> element mappings.
         fieldNames = {}
         for elementName in self.element.iterconstants():
             fieldName = getattr(elementName, "fieldName", None)
@@ -413,12 +417,7 @@ class DirectoryService(BaseDirectoryService):
                 fieldNames[fieldName] = elementName.value
         del elementName
 
-        #
-        # Drop cached data and load the XML DOM.
-        #
-        self.flush()
-        etree = self.loadRecords(loadNow=True)
-        directoryNode = etree.getroot()
+        directoryNode = self._directoryNodeForEditing()
 
         def fillRecordNode(recordNode, record):
             for (name, value) in record.fields.items():
@@ -445,21 +444,17 @@ class DirectoryService(BaseDirectoryService):
                     else:
                         raise AssertionError("Unknown field name: %r" % (name,))
 
-        #
         # Walk through the record nodes in the XML tree and apply
         # updates.
-        #
         for recordNode in directoryNode.getchildren():
-            uidNode = recordNode.find(self.element.uid.value)
-            if uidNode is None:
-                raise NotImplementedError("No UID node")
+            uid = self._uidForRecordNode(recordNode)
 
-            record = recordsByUID.get(uidNode.text, None)
+            record = recordsByUID.get(uid, None)
 
             if record:
                 recordNode.clear()
                 fillRecordNode(recordNode, record)
-                del recordsByUID[record.uid]
+                del recordsByUID[uid]
 
         if recordsByUID:
             if not create:
@@ -470,6 +465,35 @@ class DirectoryService(BaseDirectoryService):
                 fillRecordNode(recordNode, record)
                 directoryNode.append(recordNode)
 
+        self._writeDirectoryNode(directoryNode)
+
+
+    def removeRecords(self, uids):
+        directoryNode = self._directoryNodeForEditing()
+
+        #
+        # Walk through the record nodes in the XML tree and start
+        # zapping.
+        #
+        for recordNode in directoryNode.getchildren():
+            uid = self._uidForRecordNode(recordNode)
+
+            if uid in uids:
+                directoryNode.remove(recordNode)
+
+        self._writeDirectoryNode(directoryNode)
+
+
+    def _directoryNodeForEditing(self):
+        """
+        Drop cached data and load the XML DOM.
+        """
+        self.flush()
+        etree = self.loadRecords(loadNow=True)
+        return etree.getroot()
+
+
+    def _writeDirectoryNode(self, directoryNode):
         self.filePath.setContent(etreeToString(directoryNode))
         self.flush()
 
