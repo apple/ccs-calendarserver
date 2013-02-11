@@ -29,7 +29,7 @@ from twisted.python.util import FancyEqMixin
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.internet.defer import succeed, fail
 
-from twext.who.idirectory import QueryNotSupportedError
+from twext.who.idirectory import QueryNotSupportedError, NotAllowedError
 from twext.who.idirectory import FieldName, RecordType
 from twext.who.idirectory import Operand
 from twext.who.idirectory import DirectoryQueryMatchExpression
@@ -124,7 +124,15 @@ class DirectoryService(FancyEqMixin, object):
 
     def recordsWithEmailAddress(self, emailAddress):
         return self.recordsWithFieldValue(FieldName.emailAddresses, emailAddress)
-               
+
+    def updateRecords(self, records, create=False):
+        for record in records:
+            raise NotAllowedError("Record updates not allowed.")
+
+    def removeRecords(self, uids):
+        for uid in uids:
+            raise NotAllowedError("Record removal not allowed.")
+
 
 
 class DirectoryRecord(FancyEqMixin, object):

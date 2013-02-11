@@ -23,6 +23,7 @@ __all__ = [
     "DirectoryAvailabilityError",
     "QueryNotSupportedError",
     "NoSuchRecordError",
+    "NotAllowedError",
     "RecordType",
     "FieldName",
     "MatchType",
@@ -62,6 +63,11 @@ class QueryNotSupportedError(DirectoryServiceError):
 class NoSuchRecordError(DirectoryServiceError):
     """
     Record does not exist.
+    """
+
+class NotAllowedError(DirectoryServiceError):
+    """
+    Apparently, you can't do that.
     """
 
 
@@ -267,13 +273,7 @@ class IDirectoryService(Interface):
             C{None} if there is no such record.
         """
 
-
-
-class IMutableDirectoryService(IDirectoryService):
-    """
-    Mutable directory service.
-    """
-    def updateRecords(self, records, create=False):
+    def updateRecords(records, create=False):
         """
         Updates existing directory records.
         @param records: the records to update
@@ -282,7 +282,7 @@ class IMutableDirectoryService(IDirectoryService):
         @type create: boolean
         """
 
-    def removeRecords(self, uids):
+    def removeRecords(uids):
         """
         Removes the records with the given UIDs.
         @param uids: the UIDs of the records to remove

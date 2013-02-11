@@ -417,9 +417,7 @@ class DirectoryService(BaseDirectoryService):
         # Drop cached data and load the XML DOM.
         #
         self.flush()
-
         etree = self.loadRecords(loadNow=True)
-
         directoryNode = etree.getroot()
 
         def fillRecordNode(recordNode, record):
