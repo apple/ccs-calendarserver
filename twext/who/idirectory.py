@@ -22,6 +22,7 @@ __all__ = [
     "DirectoryServiceError",
     "DirectoryAvailabilityError",
     "QueryNotSupportedError",
+    "NoSuchRecordError",
     "RecordType",
     "FieldName",
     "MatchType",
@@ -56,6 +57,11 @@ class DirectoryAvailabilityError(DirectoryServiceError):
 class QueryNotSupportedError(DirectoryServiceError):
     """
     Query not supported.
+    """
+
+class NoSuchRecordError(DirectoryServiceError):
+    """
+    Record does not exist.
     """
 
 
