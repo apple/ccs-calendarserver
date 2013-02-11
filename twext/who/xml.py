@@ -396,9 +396,32 @@ class DirectoryService(BaseDirectoryService):
 
     def updateRecords(self, records, create=False):
         self.flush()
-        etree = self.loadRecords(loadNow=True)
 
+        #
+        # Index the records to update by UID
+        #
         recordsByUID = dict(((record.uid, record) for record in records))
+
+        #
+        # Find the record types and field names that our parser can
+        # map to.
+        #
+        recordTypes = set()
+        for valueName in self.value.iterconstants():
+            recordType = getattr(valueName, "recordType", None)
+            if recordType is not None:
+                recordTypes.add(recordType)
+
+        fieldNames = set()
+        for elementName in self.element.iterconstants():
+            fieldName = getattr(elementName, "fieldName", None)
+            if fieldName is not None:
+                fieldNames.add(fieldName)
+
+        #
+        # Walk through the record nodes in the XML tree
+        #
+        etree = self.loadRecords(loadNow=True)
 
         directoryNode = etree.getroot()
 
@@ -414,11 +437,8 @@ class DirectoryService(BaseDirectoryService):
 
                 for (name, value) in record.fields.items():
                     if name == self.fieldName.recordType:
-                        # FIXME: This lookup of the record type value is a bit much to do in a loop
-                        for valueName in self.value.iterconstants():
-                            if getattr(valueName, "recordType", None) == value:
-                                recordNode.set(self.attribute.recordType.value, valueName.value)
-                                break
+                        if value in recordTypes:
+                            recordNode.set(self.attribute.recordType.value, valueName.value)
                         else:
                             raise AssertionError("Unknown record type: %r" % (value,))
                     else:
