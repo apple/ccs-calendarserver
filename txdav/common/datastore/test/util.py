@@ -225,7 +225,7 @@ class SQLStoreBuilder(object):
         # table' statements are issued, so it's not possible to reference a
         # later table.  Therefore it's OK to drop them in the (reverse) order
         # that they happen to be in.
-        tables = [t.name for t in schema.model.tables
+        tables = [t.name for t in schema.model.tables #@UndefinedVariable
                   # All tables with rows _in_ the schema are populated
                   # exclusively _by_ the schema and shouldn't be manipulated
                   # while the server is running, so we leave those populated.
@@ -415,13 +415,16 @@ def populateCalendarsFrom(requirements, store, migrating=False):
     yield populateTxn.commit()
 
 
+
 def updateToCurrentYear(data):
     """
     Update the supplied iCalendar data so that all dates are updated to the current year.
     """
 
     nowYear = PyCalendarDateTime.getToday().getYear()
-    return data % {"now":nowYear}
+    return data % {"now": nowYear}
+
+
 
 @inlineCallbacks
 def resetCalendarMD5s(md5s, store):
@@ -451,6 +454,7 @@ def resetCalendarMD5s(md5s, store):
                         )
                         obj.properties()[md5key] = TwistedGETContentMD5.fromString(md5)
     yield populateTxn.commit()
+
 
 
 @inlineCallbacks
@@ -488,6 +492,8 @@ def populateAddressBooksFrom(requirements, store):
                         )
     yield populateTxn.commit()
 
+
+
 @inlineCallbacks
 def resetAddressBookMD5s(md5s, store):
     """
@@ -516,6 +522,7 @@ def resetAddressBookMD5s(md5s, store):
                         )
                         obj.properties()[md5key] = TwistedGETContentMD5.fromString(md5)
     yield populateTxn.commit()
+
 
 
 def assertProvides(testCase, interface, provider):
@@ -618,6 +625,7 @@ class StubNodeCacher(object):
             return succeed(True)
 
 
+
 class StubNotifierFactory(object):
     """
     For testing push notifications without an XMPP server.
@@ -633,11 +641,14 @@ class StubNotifierFactory(object):
             "port" : "123",
         }
 
+
     def newNotifier(self, label="default", id=None, prefix=None):
         return Notifier(self, label=label, id=id, prefix=prefix)
 
+
     def send(self, op, id):
         self.history.append((op, id))
+
 
     def reset(self):
         self.history = []
@@ -659,5 +670,3 @@ def disableMemcacheForTest(aTest):
     aTest.patch(config.Memcached.Pools.Default, "ClientEnabled", False)
     aTest.patch(config.Memcached.Pools.Default, "ServerEnabled", False)
     aTest.patch(Memcacher, "allowTestCache", True)
-
-

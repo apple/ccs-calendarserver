@@ -1577,6 +1577,8 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         for managed_id in added:
             changed[managed_id] = newattached[managed_id]
 
+        if self._dropboxID is None:
+            self._dropboxID = str(uuid.uuid4())
         changes = yield self._addingManagedIDs(self._txn, self._parentCollection, self._dropboxID, changed, component.resourceUID())
 
         # Make sure existing data is not changed
@@ -1652,7 +1654,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         new_attachment = (yield ManagedAttachment.load(txn, managed_id))
         if new_id:
             new_attachment._managedID = new_id
-            new_attachment._objectDropboxID = dropbox_id
+        new_attachment._objectDropboxID = dropbox_id
         for attachment in attachments:
             yield new_attachment.updateProperty(attachment)
 
