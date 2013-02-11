@@ -33,9 +33,9 @@ from xml.etree.ElementTree import tostring as etreeToString
 from xml.etree.ElementTree import Element as XMLElement
 
 from twisted.python.constants import Names, NamedConstant, Values, ValueConstant
-from twisted.internet.defer import succeed, inlineCallbacks, returnValue
+from twisted.internet.defer import succeed, fail, inlineCallbacks, returnValue
 
-from twext.who.idirectory import DirectoryServiceError
+from twext.who.idirectory import DirectoryServiceError, NoSuchRecordError
 from twext.who.idirectory import RecordType, FieldName as BaseFieldName
 from twext.who.idirectory import MatchType
 from twext.who.idirectory import DirectoryQueryMatchExpression
@@ -443,7 +443,7 @@ class DirectoryService(BaseDirectoryService):
 
         if recordsByUID:
             if not create:
-                raise NotImplementedError("Raise something.")
+                return fail(NoSuchRecordError(recordsByUID.keys()))
 
             raise NotImplementedError("Add new records.")
 
