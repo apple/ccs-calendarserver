@@ -328,6 +328,30 @@ class DirectoryServiceTest(BaseTest, test_directory.DirectoryServiceTest):
         self.assertFailure(service.updateRecords((newRecord,)), NoSuchRecordError)
 
 
+    @inlineCallbacks
+    def test_removeRecord(self):
+        service = self._testService()
+
+        yield service.removeRecords(("__wsanchez__",))
+
+        # Verify change is present immediately
+        self.assertEquals((yield service.recordWithUID("__wsanchez__")), None)
+
+        # Verify change is persisted
+        service.flush()
+        self.assertEquals((yield service.recordWithUID("__wsanchez__")), None)
+
+    test_removeRecord.todo = "Not implemented."
+
+
+    def test_removeRecordNoExist(self):
+        service = self._testService()
+
+        return service.removeRecords(("__plugh__",))
+
+    test_removeRecordNoExist.todo = "Not implemented."
+
+
 
 class DirectoryRecordTest(BaseTest, test_directory.DirectoryRecordTest):
     @inlineCallbacks
