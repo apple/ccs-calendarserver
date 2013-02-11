@@ -403,20 +403,22 @@ class DirectoryService(BaseDirectoryService):
         recordsByUID = dict(((record.uid, record) for record in records))
 
         #
-        # Find the record types and field names that our parser can
-        # map to.
+        # Index the record type -> attribute and field name -> element
+        # mappings.
         #
-        recordTypes = set()
+        recordTypes = {}
         for valueName in self.value.iterconstants():
             recordType = getattr(valueName, "recordType", None)
             if recordType is not None:
-                recordTypes.add(recordType)
+                recordTypes[recordType] = valueName.value
+        del valueName
 
-        fieldNames = set()
+        fieldNames = {}
         for elementName in self.element.iterconstants():
             fieldName = getattr(elementName, "fieldName", None)
             if fieldName is not None:
-                fieldNames.add(fieldName)
+                fieldNames[fieldName] = elementName.value
+        del elementName
 
         #
         # Walk through the record nodes in the XML tree
@@ -438,24 +440,24 @@ class DirectoryService(BaseDirectoryService):
                 for (name, value) in record.fields.items():
                     if name == self.fieldName.recordType:
                         if value in recordTypes:
-                            recordNode.set(self.attribute.recordType.value, valueName.value)
+                            recordNode.set(self.attribute.recordType.value, recordTypes[value])
                         else:
                             raise AssertionError("Unknown record type: %r" % (value,))
+
                     else:
-                        # FIXME: This lookup of the field name element is a bit much to do in a loop
-                        for elementName in self.element.iterconstants():
-                            if getattr(elementName, "fieldName", None) == name:
-                                if self.fieldName.isMultiValue(name):
-                                    values = value
-                                else:
-                                    values = (value,)
+                        if name in fieldNames:
+                            tag = fieldNames[name]
 
-                                for value in values:
-                                    subNode = XMLElement(tag=elementName.value)
-                                    subNode.text = value
-                                    recordNode.append(subNode)
+                            if self.fieldName.isMultiValue(name):
+                                values = value
+                            else:
+                                values = (value,)
 
-                                break
+                            for value in values:
+                                subNode = XMLElement(tag)
+                                subNode.text = value
+                                recordNode.append(subNode)
+
                         else:
                             raise AssertionError("Unknown field name: %r" % (name,))
 
