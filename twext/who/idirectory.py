@@ -21,15 +21,18 @@ Directory service interface.
 __all__ = [
     "DirectoryServiceError",
     "DirectoryAvailabilityError",
+    "UnknownRecordTypeError",
     "QueryNotSupportedError",
     "NoSuchRecordError",
     "NotAllowedError",
+
     "RecordType",
     "FieldName",
     "MatchType",
     "Operand",
     "QueryFlags",
     "DirectoryQueryMatchExpression",
+
     "IDirectoryService",
     "IDirectoryRecord",
 ]
@@ -45,7 +48,7 @@ from twisted.python.constants import Flags, FlagConstant
 # Exceptions
 ##
 
-class DirectoryServiceError(RuntimeError):
+class DirectoryServiceError(Exception):
     """
     Directory service generic error.
     """
@@ -54,6 +57,14 @@ class DirectoryAvailabilityError(DirectoryServiceError):
     """
     Directory not available.
     """
+
+class UnknownRecordTypeError(DirectoryServiceError):
+    """
+    Unknown record type.
+    """
+    def __init__(self, token):
+        DirectoryServiceError.__init__(self, token)
+        self.token = token
 
 class QueryNotSupportedError(DirectoryServiceError):
     """

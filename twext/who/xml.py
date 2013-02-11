@@ -35,32 +35,14 @@ from xml.etree.ElementTree import Element as XMLElement
 from twisted.python.constants import Names, NamedConstant, Values, ValueConstant
 from twisted.internet.defer import succeed, fail, inlineCallbacks, returnValue
 
-from twext.who.idirectory import DirectoryServiceError, NoSuchRecordError
+from twext.who.idirectory import DirectoryServiceError
+from twext.who.idirectory import NoSuchRecordError, UnknownRecordTypeError
 from twext.who.idirectory import RecordType, FieldName as BaseFieldName
 from twext.who.idirectory import MatchType
 from twext.who.idirectory import DirectoryQueryMatchExpression
 from twext.who.directory import DirectoryService as BaseDirectoryService
 from twext.who.directory import DirectoryRecord as BaseDirectoryRecord
 from twext.who.directory import MergedConstants
-
-
-
-##
-# Exceptions
-##
-
-class ParseError(RuntimeError):
-    """
-    Parse error.
-    """
-    def __init__(self, token):
-        RuntimeError.__init__(self, token)
-        self.token = token
-
-class UnknownRecordTypeParseError(ParseError):
-    """
-    Unknown record type.
-    """
 
 
 
@@ -136,8 +118,6 @@ class Value(Values):
 ##
 # Directory Service
 ##
-
-noRealmName = object()
 
 class DirectoryService(BaseDirectoryService):
     """
@@ -265,7 +245,7 @@ class DirectoryService(BaseDirectoryService):
         for recordNode in directoryNode:
             try:
                 records.add(self.parseRecordNode(recordNode, unknownFieldElements))
-            except UnknownRecordTypeParseError, e:
+            except UnknownRecordTypeError, e:
                 unknownRecordTypes.add(e.token)
 
         #
@@ -307,7 +287,7 @@ class DirectoryService(BaseDirectoryService):
             try:
                 recordType = self.value.lookupByValue(recordTypeAttribute).recordType
             except (ValueError, AttributeError):
-                raise UnknownRecordTypeParseError(recordTypeAttribute)
+                raise UnknownRecordTypeError(recordTypeAttribute)
         else:
             recordType = self.recordType.user
 
@@ -513,3 +493,6 @@ class DirectoryRecord(BaseDirectoryRecord):
 
     def groups(self):
         return self.service.recordsWithFieldValue(FieldName.memberUIDs, self.uid)
+
+
+noRealmName = object()
