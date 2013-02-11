@@ -62,11 +62,6 @@ class UnknownRecordTypeParseError(ParseError):
     Unknown record type.
     """
 
-class UnknownFieldNameParseError(ParseError):
-    """
-    Unknown field name.
-    """
-
 
 
 ##
@@ -270,8 +265,6 @@ class DirectoryService(BaseDirectoryService):
                 records.add(self.parseRecordNode(recordNode))
             except UnknownRecordTypeParseError, e:
                 unknownRecordTypes.add(e.token)
-            except UnknownFieldNameParseError, e:
-                unknownFieldNames.add(e.token)
 
         #
         # Store results
@@ -307,7 +300,7 @@ class DirectoryService(BaseDirectoryService):
         return etree
 
 
-    def parseRecordNode(self, recordNode):
+    def parseRecordNode(self, recordNode, unknownFieldNamesSet=None):
         recordTypeAttribute = recordNode.get(self.attribute.recordType.value, "").encode("utf-8")
         if recordTypeAttribute:
             try:
@@ -324,12 +317,14 @@ class DirectoryService(BaseDirectoryService):
             try:
                 fieldElement = self.element.lookupByValue(fieldNode.tag)
             except ValueError:
-                raise UnknownFieldNameParseError(fieldNode.tag)
+                if unknownFieldNamesSet is not None:
+                    unknownFieldNamesSet.add(fieldNode.tag)
 
             try:
                 fieldName = fieldElement.fieldName
             except AttributeError:
-                raise UnknownFieldNameParseError(fieldNode.tag)
+                if unknownFieldNamesSet is not None:
+                    unknownFieldNamesSet.add(fieldNode.tag)
 
             value = fieldNode.text.encode("utf-8")
 
