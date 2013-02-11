@@ -52,7 +52,6 @@ from twisted.application.internet import TCPServer, UNIXServer
 from twisted.application.service import MultiService, IServiceMaker
 from twisted.application.service import Service
 
-import twext
 from twext.web2.server import Site
 from twext.python.log import Logger, LoggingMixIn
 from twext.python.log import logLevelForNamespace, setLogLevelForNamespace
@@ -118,8 +117,9 @@ except ImportError:
     from version import version as getVersion
     version = "%s (%s*)" % getVersion()
 
-twext.web2.server.VERSION = "CalendarServer/%s %s" % (
-    version.replace(" ", ""), twext.web2.server.VERSION,
+from twext.web2.server import VERSION as TWISTED_VERSION
+TWISTED_VERSION = "CalendarServer/%s %s" % (
+    version.replace(" ", ""), TWISTED_VERSION,
 )
 
 log = Logger()
