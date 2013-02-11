@@ -21,7 +21,7 @@ XML directory service tests
 from twisted.python.filepath import FilePath
 from twisted.internet.defer import inlineCallbacks
 
-from twext.who.idirectory import RecordType
+from twext.who.idirectory import NoSuchRecordError
 from twext.who.xml import DirectoryService, DirectoryRecord
 
 from twext.who.test import test_directory
@@ -184,7 +184,7 @@ class DirectoryServiceTest(BaseTest, test_directory.DirectoryServiceTest):
         records = (yield service.recordsWithRecordType(object()))
         self.assertEquals(set(records), set())
 
-        records = (yield service.recordsWithRecordType(RecordType.user))
+        records = (yield service.recordsWithRecordType(service.recordType.user))
         self.assertEquals(
             set((record.uid for record in records)),
             set((
@@ -200,7 +200,7 @@ class DirectoryServiceTest(BaseTest, test_directory.DirectoryServiceTest):
             )),
         )
 
-        records = (yield service.recordsWithRecordType(RecordType.group))
+        records = (yield service.recordsWithRecordType(service.recordType.group))
         self.assertEquals(
             set((record.uid for record in records)),
             set((
@@ -215,13 +215,13 @@ class DirectoryServiceTest(BaseTest, test_directory.DirectoryServiceTest):
     def test_recordWithShortName(self):
         service = self._testService()
 
-        record = (yield service.recordWithShortName(RecordType.user, "null"))
+        record = (yield service.recordWithShortName(service.recordType.user, "null"))
         self.assertEquals(record, None)
 
-        record = (yield service.recordWithShortName(RecordType.user, "wsanchez"))
+        record = (yield service.recordWithShortName(service.recordType.user, "wsanchez"))
         self.assertEquals(record.uid, "__wsanchez__")
 
-        record = (yield service.recordWithShortName(RecordType.user, "wilfredo_sanchez"))
+        record = (yield service.recordWithShortName(service.recordType.user, "wilfredo_sanchez"))
         self.assertEquals(record.uid, "__wsanchez__")
 
 
@@ -276,7 +276,7 @@ class DirectoryServiceTest(BaseTest, test_directory.DirectoryServiceTest):
         fields[service.fieldName.fullNames] = ["Wilfredo Sanchez Vega"]
 
         updatedRecord = DirectoryRecord(service, fields)
-        service.updateRecords((updatedRecord,))
+        yield service.updateRecords((updatedRecord,))
 
         # Verify change is present immediately
         record = (yield service.recordWithUID("__wsanchez__"))
@@ -290,20 +290,26 @@ class DirectoryServiceTest(BaseTest, test_directory.DirectoryServiceTest):
 
     @inlineCallbacks
     def test_addRecord(self):
-        service = self._testService()
+        #service = self._testService()
 
         raise NotImplementedError()
 
     test_addRecord.todo = "Not implemented."
 
 
-    @inlineCallbacks
     def test_addRecordNo(self):
         service = self._testService()
 
-        raise NotImplementedError()
+        newRecord = DirectoryRecord(
+            service,
+            fields = {
+                service.fieldName.uid:        "__plugh__",
+                service.fieldName.recordType: service.recordType.user,
+                service.fieldName.shortNames: ("plugh",),
+            }
+        )
 
-    test_addRecord.todo = "Not implemented."
+        self.assertFailure(service.updateRecords((newRecord,)), NoSuchRecordError)
 
 
 
