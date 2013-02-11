@@ -220,7 +220,7 @@ class DirectoryService(BaseDirectoryService):
 
             try:
                 etree = parseXML(fh)
-            except XMLParseError, e:
+            except XMLParseError as e:
                 raise DirectoryServiceError(e.getMessage())
         finally:
             fh.close()
@@ -245,7 +245,7 @@ class DirectoryService(BaseDirectoryService):
         for recordNode in directoryNode:
             try:
                 records.add(self.parseRecordNode(recordNode, unknownFieldElements))
-            except UnknownRecordTypeError, e:
+            except UnknownRecordTypeError as e:
                 unknownRecordTypes.add(e.token)
 
         #

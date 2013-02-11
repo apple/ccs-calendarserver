@@ -47,7 +47,7 @@ class DirectoryServiceTest(BaseTest):
         service = self._testService()
         try:
             verifyObject(IDirectoryService, service)
-        except BrokenMethodImplementation, e:
+        except BrokenMethodImplementation as e:
             self.fail(e)
 
 
@@ -130,7 +130,7 @@ class DirectoryRecordTest(BaseTest):
         record = self._testRecord()
         try:
             verifyObject(IDirectoryRecord, record)
-        except BrokenMethodImplementation, e:
+        except BrokenMethodImplementation as e:
             self.fail(e)
 
 
