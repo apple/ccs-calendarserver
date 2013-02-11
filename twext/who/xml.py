@@ -390,8 +390,6 @@ class DirectoryService(BaseDirectoryService):
 
 
     def updateRecords(self, records, create=False):
-        self.flush()
-
         #
         # Index the records to update by UID
         #
@@ -416,12 +414,43 @@ class DirectoryService(BaseDirectoryService):
         del elementName
 
         #
-        # Walk through the record nodes in the XML tree
+        # Drop cached data and load the XML DOM.
         #
+        self.flush()
+
         etree = self.loadRecords(loadNow=True)
 
         directoryNode = etree.getroot()
 
+        def fillRecordNode(recordNode, record):
+            for (name, value) in record.fields.items():
+                if name == self.fieldName.recordType:
+                    if value in recordTypes:
+                        recordNode.set(self.attribute.recordType.value, recordTypes[value])
+                    else:
+                        raise AssertionError("Unknown record type: %r" % (value,))
+
+                else:
+                    if name in fieldNames:
+                        tag = fieldNames[name]
+
+                        if self.fieldName.isMultiValue(name):
+                            values = value
+                        else:
+                            values = (value,)
+
+                        for value in values:
+                            subNode = XMLElement(tag)
+                            subNode.text = value
+                            recordNode.append(subNode)
+
+                    else:
+                        raise AssertionError("Unknown field name: %r" % (name,))
+
+        #
+        # Walk through the record nodes in the XML tree and apply
+        # updates.
+        #
         for recordNode in directoryNode.getchildren():
             uidNode = recordNode.find(self.element.uid.value)
             if uidNode is None:
@@ -431,38 +460,17 @@ class DirectoryService(BaseDirectoryService):
 
             if record:
                 recordNode.clear()
-
-                for (name, value) in record.fields.items():
-                    if name == self.fieldName.recordType:
-                        if value in recordTypes:
-                            recordNode.set(self.attribute.recordType.value, recordTypes[value])
-                        else:
-                            raise AssertionError("Unknown record type: %r" % (value,))
-
-                    else:
-                        if name in fieldNames:
-                            tag = fieldNames[name]
-
-                            if self.fieldName.isMultiValue(name):
-                                values = value
-                            else:
-                                values = (value,)
-
-                            for value in values:
-                                subNode = XMLElement(tag)
-                                subNode.text = value
-                                recordNode.append(subNode)
-
-                        else:
-                            raise AssertionError("Unknown field name: %r" % (name,))
-
+                fillRecordNode(recordNode, record)
                 del recordsByUID[record.uid]
 
         if recordsByUID:
             if not create:
                 return fail(NoSuchRecordError(recordsByUID.keys()))
 
-            raise NotImplementedError("Add new records.")
+            for uid, record in recordsByUID.items():
+                recordNode = XMLElement(self.element.record.value)
+                fillRecordNode(recordNode, record)
+                directoryNode.append(recordNode)
 
         self.filePath.setContent(etreeToString(directoryNode))
         self.flush()

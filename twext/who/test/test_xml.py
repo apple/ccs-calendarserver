@@ -312,8 +312,6 @@ class DirectoryServiceTest(BaseTest, test_directory.DirectoryServiceTest):
         record = (yield service.recordWithUID("__plugh__"))
         self.assertEquals(set(record.shortNames), set(("plugh",)))
 
-    test_addRecord.todo = "Not implemented."
-
 
     def test_addRecordNoCreate(self):
         service = self._testService()
