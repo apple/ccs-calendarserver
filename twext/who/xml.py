@@ -137,6 +137,8 @@ class Value(Values):
 # Directory Service
 ##
 
+noRealmName = object()
+
 class DirectoryService(BaseDirectoryService):
     """
     XML directory service.
@@ -159,7 +161,7 @@ class DirectoryService(BaseDirectoryService):
 
 
     def __init__(self, filePath, refreshInterval=4):
-        BaseDirectoryService.__init__(self, realmName=None)
+        BaseDirectoryService.__init__(self, realmName=noRealmName)
 
         self.filePath = filePath
         self.refreshInterval = refreshInterval
@@ -187,7 +189,7 @@ class DirectoryService(BaseDirectoryService):
 
     @realmName.setter
     def realmName(self, value):
-        if value is not None:
+        if value is not noRealmName:
             raise AssertionError("realmName may not be set directly")
 
     @property
