@@ -195,11 +195,6 @@ class DirectoryService(BaseDirectoryService):
         return self._unknownFieldElements
 
     @property
-    def unknownFieldNames(self):
-        self.loadRecords()
-        return self._unknownFieldNames
-
-    @property
     def index(self):
         self.loadRecords()
         return self._index
@@ -256,13 +251,12 @@ class DirectoryService(BaseDirectoryService):
 
         unknownRecordTypes   = set()
         unknownFieldElements = set()
-        unknownFieldNames    = set()
 
         records = set()
 
-        for recordNode in directoryNode.getchildren():
+        for recordNode in directoryNode:
             try:
-                records.add(self.parseRecordNode(recordNode))
+                records.add(self.parseRecordNode(recordNode, unknownFieldElements))
             except UnknownRecordTypeParseError, e:
                 unknownRecordTypes.add(e.token)
 
@@ -290,7 +284,6 @@ class DirectoryService(BaseDirectoryService):
 
         self._unknownRecordTypes   = unknownRecordTypes
         self._unknownFieldElements = unknownFieldElements
-        self._unknownFieldNames    = unknownFieldNames
 
         self._index = index
 
@@ -300,7 +293,7 @@ class DirectoryService(BaseDirectoryService):
         return etree
 
 
-    def parseRecordNode(self, recordNode, unknownFieldNamesSet=None):
+    def parseRecordNode(self, recordNode, unknownFieldElements=None):
         recordTypeAttribute = recordNode.get(self.attribute.recordType.value, "").encode("utf-8")
         if recordTypeAttribute:
             try:
@@ -313,18 +306,18 @@ class DirectoryService(BaseDirectoryService):
         fields = {}
         fields[self.fieldName.recordType] = recordType
 
-        for fieldNode in recordNode.getchildren():
+        for fieldNode in recordNode:
             try:
                 fieldElement = self.element.lookupByValue(fieldNode.tag)
             except ValueError:
-                if unknownFieldNamesSet is not None:
-                    unknownFieldNamesSet.add(fieldNode.tag)
+                if unknownFieldElements is not None:
+                    unknownFieldElements.add(fieldNode.tag)
 
             try:
                 fieldName = fieldElement.fieldName
             except AttributeError:
-                if unknownFieldNamesSet is not None:
-                    unknownFieldNamesSet.add(fieldNode.tag)
+                if unknownFieldElements is not None:
+                    unknownFieldElements.add(fieldNode.tag)
 
             value = fieldNode.text.encode("utf-8")
 
@@ -349,7 +342,6 @@ class DirectoryService(BaseDirectoryService):
         self._realmName            = None
         self._unknownRecordTypes   = None
         self._unknownFieldElements = None
-        self._unknownFieldNames    = None
         self._index                = None
         self._cacheTag             = None
         self._lastRefresh          = 0
@@ -446,7 +438,7 @@ class DirectoryService(BaseDirectoryService):
 
         # Walk through the record nodes in the XML tree and apply
         # updates.
-        for recordNode in directoryNode.getchildren():
+        for recordNode in directoryNode:
             uid = self._uidForRecordNode(recordNode)
 
             record = recordsByUID.get(uid, None)
@@ -475,7 +467,7 @@ class DirectoryService(BaseDirectoryService):
         # Walk through the record nodes in the XML tree and start
         # zapping.
         #
-        for recordNode in directoryNode.getchildren():
+        for recordNode in directoryNode:
             uid = self._uidForRecordNode(recordNode)
 
             if uid in uids:

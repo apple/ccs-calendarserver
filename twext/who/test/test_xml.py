@@ -150,11 +150,16 @@ testXMLConfig = """<?xml version="1.0" encoding="utf-8"?>
 
 
 class BaseTest(object):
-    def _testService(self):
+    def _testService(self, xmlData=None):
         if not hasattr(self, "_service"):
+            if xmlData is None:
+                xmlData = testXMLConfig
+
             filePath = FilePath(self.mktemp())
-            filePath.setContent(testXMLConfig)
+            filePath.setContent(xmlData)
+
             self._service = DirectoryService(filePath)
+
         return self._service
 
 
@@ -248,22 +253,46 @@ class DirectoryServiceTest(BaseTest, test_directory.DirectoryServiceTest):
         )
 
 
-    def test_unknownRecordTypes(self):
+    def test_unknownRecordTypesClean(self):
         service = self._testService()
-        service.loadRecords()
         self.assertEquals(set(service.unknownRecordTypes), set())
 
 
-    def test_unknownFieldElements(self):
+    def test_unknownRecordTypesDirty(self):
+        service = self._testService(xmlData=
+"""<?xml version="1.0" encoding="utf-8"?>
+
+<directory realm="Unknown Record Types">
+  <record type="camera">
+    <uid>__d600__</uid>
+    <short-name>d600</short-name>
+    <full-name>Nikon D600</full-name>
+  </record>
+</directory>
+"""
+        )
+        self.assertEquals(set(service.unknownRecordTypes), set(("camera",)))
+
+
+    def test_unknownFieldElementsClean(self):
         service = self._testService()
-        service.loadRecords()
         self.assertEquals(set(service.unknownFieldElements), set())
 
 
-    def test_unknownFieldNames(self):
-        service = self._testService()
-        service.loadRecords()
-        self.assertEquals(set(service.unknownFieldNames), set())
+    def test_unknownFieldElementsDirty(self):
+        service = self._testService(xmlData=
+"""<?xml version="1.0" encoding="utf-8"?>
+
+<directory realm="Unknown Record Types">
+  <record type="user">
+    <uid>__wsanchez__</uid>
+    <short-name>wsanchez</short-name>
+    <political-affiliation>Community and Freedom Party</political-affiliation>
+  </record>
+</directory>
+"""
+        )
+        self.assertEquals(set(service.unknownFieldElements), set(("political-affiliation",)))
 
 
     @inlineCallbacks
