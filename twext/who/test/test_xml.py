@@ -290,14 +290,32 @@ class DirectoryServiceTest(BaseTest, test_directory.DirectoryServiceTest):
 
     @inlineCallbacks
     def test_addRecord(self):
-        #service = self._testService()
+        service = self._testService()
 
-        raise NotImplementedError()
+        newRecord = DirectoryRecord(
+            service,
+            fields = {
+                service.fieldName.uid:        "__plugh__",
+                service.fieldName.recordType: service.recordType.user,
+                service.fieldName.shortNames: ("plugh",),
+            }
+        )
+
+        yield service.updateRecords((newRecord,), create=True)
+
+        # Verify change is present immediately
+        record = (yield service.recordWithUID("__plugh__"))
+        self.assertEquals(set(record.shortNames), set(("plugh",)))
+
+        # Verify change is persisted
+        service.flush()
+        record = (yield service.recordWithUID("__plugh__"))
+        self.assertEquals(set(record.shortNames), set(("plugh",)))
 
     test_addRecord.todo = "Not implemented."
 
 
-    def test_addRecordNo(self):
+    def test_addRecordNoCreate(self):
         service = self._testService()
 
         newRecord = DirectoryRecord(
