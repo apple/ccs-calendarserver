@@ -101,9 +101,8 @@ class DirectoryService(FancyEqMixin, object):
         returnValue(results)
 
 
-    @inlineCallbacks
     def recordsWithFieldValue(self, fieldName, value):
-        returnValue((yield self.recordsFromExpression(DirectoryQueryMatchExpression(fieldName, value))))
+        return self.recordsFromExpression(DirectoryQueryMatchExpression(fieldName, value))
 
     @inlineCallbacks
     def recordWithUID(self, uid):
