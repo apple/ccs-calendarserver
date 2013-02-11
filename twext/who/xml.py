@@ -168,9 +168,15 @@ class DirectoryService(BaseDirectoryService):
 
 
     def __repr__(self):
+        realmName = self._realmName
+        if realmName is None:
+            realmName = "(not loaded)"
+        else:
+            realmName = repr(realmName)
+
         return "<%s %s>" % (
             self.__class__.__name__,
-            self._realmName,
+            realmName,
         )
 
 

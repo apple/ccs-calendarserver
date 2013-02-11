@@ -165,6 +165,14 @@ class BaseTest(object):
 
 
 class DirectoryServiceTest(BaseTest, test_directory.DirectoryServiceTest):
+    def test_repr(self):
+        service = self._testService()
+
+        self.assertEquals(repr(service), "<DirectoryService (not loaded)>")
+        service.loadRecords()
+        self.assertEquals(repr(service), "<DirectoryService 'xyzzy'>")
+
+
     @inlineCallbacks
     def test_recordWithUID(self):
         service = self._testService()

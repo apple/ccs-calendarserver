@@ -56,6 +56,11 @@ class DirectoryServiceTest(BaseTest):
         self.assertEquals(service.realmName, self.realmName)
 
 
+    def test_repr(self):
+        service = self._testService()
+        self.assertEquals(repr(service), "<DirectoryService 'xyzzy'>")
+
+
     @inlineCallbacks
     def test_recordTypes(self):
         service = self._testService()
