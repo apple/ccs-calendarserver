@@ -192,6 +192,28 @@ class DirectoryRecord(FancyEqMixin, object):
             raise AttributeError(name)
 
 
+    def description(self):
+        description = [self.__class__.__name__, ":"]
+
+        for name, value in self.fields.items():
+            if hasattr(name, "description"):
+                name = name.description
+            else:
+                name = str(name)
+
+            if hasattr(value, "description"):
+                value = value.description
+            else:
+                value = str(value)
+
+            description.append("\n  ")
+            description.append(name)
+            description.append(" = ")
+            description.append(value)
+
+        return "".join(description)
+
+
     def members(self):
         if self.recordType == RecordType.group:
             raise NotImplementedError()

@@ -280,14 +280,30 @@ class DirectoryServiceTest(BaseTest, test_directory.DirectoryServiceTest):
 
         # Verify change is present immediately
         record = (yield service.recordWithUID("__wsanchez__"))
-        self.assertEquals(record.fullName, "Wilfredo Sanchez Vega")
+        self.assertEquals(set(record.fullNames), set(("Wilfredo Sanchez Vega",)))
 
         # Verify change is persisted
         service.flush()
         record = (yield service.recordWithUID("__wsanchez__"))
-        self.assertEquals(record.fullName, "Wilfredo Sanchez Vega")
+        self.assertEquals(set(record.fullNames), set(("Wilfredo Sanchez Vega",)))
 
-    test_updateRecord.todo = "Not implemented."
+
+    @inlineCallbacks
+    def test_addRecord(self):
+        service = self._testService()
+
+        raise NotImplementedError()
+
+    test_addRecord.todo = "Not implemented."
+
+
+    @inlineCallbacks
+    def test_addRecordNo(self):
+        service = self._testService()
+
+        raise NotImplementedError()
+
+    test_addRecord.todo = "Not implemented."
 
 
 

@@ -29,6 +29,8 @@ from time import time
 
 from xml.etree.ElementTree import parse as parseXML
 from xml.etree.ElementTree import ParseError as XMLParseError
+from xml.etree.ElementTree import tostring as etreeToString
+from xml.etree.ElementTree import Element as XMLElement
 
 from twisted.python.constants import Names, NamedConstant, Values, ValueConstant
 from twisted.internet.defer import succeed, inlineCallbacks, returnValue
@@ -408,7 +410,45 @@ class DirectoryService(BaseDirectoryService):
             record = recordsByUID.get(uidNode.text, None)
 
             if record:
-                raise NotImplementedError("Update record: %s" % (record,))
+                recordNode.clear()
+
+                for (name, value) in record.fields.items():
+                    if name == self.fieldName.recordType:
+                        # FIXME: This lookup of the record type value is a bit much to do in a loop
+                        for valueName in self.value.iterconstants():
+                            if getattr(valueName, "recordType", None) == value:
+                                recordNode.set(self.attribute.recordType.value, valueName.value)
+                                break
+                        else:
+                            raise AssertionError("Unknown record type: %r" % (value,))
+                    else:
+                        # FIXME: This lookup of the field name element is a bit much to do in a loop
+                        for elementName in self.element.iterconstants():
+                            if getattr(elementName, "fieldName", None) == name:
+                                if self.fieldName.isMultiValue(name):
+                                    values = value
+                                else:
+                                    values = (value,)
+
+                                for value in values:
+                                    subNode = XMLElement(tag=elementName.value)
+                                    subNode.text = value
+                                    recordNode.append(subNode)
+
+                                break
+                        else:
+                            raise AssertionError("Unknown field name: %r" % (name,))
+
+                del recordsByUID[record.uid]
+
+        if recordsByUID:
+            if not create:
+                raise NotImplementedError("Raise something.")
+
+            raise NotImplementedError("Add new records.")
+
+        self.filePath.setContent(etreeToString(directoryNode))
+        self.flush()
 
 
 
