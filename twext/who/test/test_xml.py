@@ -18,6 +18,8 @@
 XML directory service tests
 """
 
+from time import sleep
+
 from twisted.python.filepath import FilePath
 from twisted.internet.defer import inlineCallbacks
 
@@ -179,6 +181,26 @@ class DirectoryServiceTest(BaseTest, test_directory.DirectoryServiceTest):
             service.realmName = "foo"
 
         self.assertRaises(AssertionError, setRealmName)
+
+
+    def test_reloadInterval(self):
+        service = self._testService()
+        service.loadRecords(stat=False)
+        lastRefresh = service._lastRefresh
+        self.assertTrue(service._lastRefresh)
+        sleep(1)
+        service.loadRecords(stat=False)
+        self.assertEquals(lastRefresh, service._lastRefresh)
+
+
+    def test_reloadStat(self):
+        service = self._testService()
+        service.loadRecords(loadNow=True)
+        lastRefresh = service._lastRefresh
+        self.assertTrue(service._lastRefresh)
+        sleep(1)
+        service.loadRecords(loadNow=True)
+        self.assertEquals(lastRefresh, service._lastRefresh)
 
 
     @inlineCallbacks

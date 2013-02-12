@@ -188,7 +188,7 @@ class DirectoryService(BaseDirectoryService):
         return self._index
 
 
-    def loadRecords(self, loadNow=False):
+    def loadRecords(self, loadNow=False, stat=True):
         """
         Load records from L{self.filePath}.
 
@@ -208,9 +208,13 @@ class DirectoryService(BaseDirectoryService):
         #
         # Punt if we've read the file and it's still the same.
         #
-        cacheTag = (self.filePath.getmtime(), self.filePath.getsize())
-        if cacheTag == self._cacheTag:
-            return
+        if stat:
+            self.filePath.restat()
+            cacheTag = (self.filePath.getModificationTime(), self.filePath.getsize())
+            if cacheTag == self._cacheTag:
+                return
+        else:
+            cacheTag = None
 
         #
         # Open and parse the file
