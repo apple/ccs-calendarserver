@@ -204,14 +204,24 @@ class DirectoryQueryMatchExpression(object):
 class IDirectoryService(Interface):
     """
     Directory service.
+
+    A directory service is a service that vends information about
+    principals such as users, locations, printers, and other
+    resources.  This information is provided in the form of directory
+    records.
+
+    A directory service can be queried for the types of records it
+    supports, and for specific records matching certain criteria.
+
+    A directory service may allow support the editing, removal and
+    addition of records.
     """
     realmName = Attribute("The name of the authentication realm this service represents.")
 
     def recordTypes():
         """
-        @return: a deferred iterable of strings denoting the record
-            types that are kept in the directory.  For example:
-            C{("users", "groups", "resources")}.
+        @return: a deferred iterable of L{NamedConstant}s denoting the
+            record types that are kept in this directory.
         """
 
     def recordsFromQuery(expressions, operand=Operand.AND):
@@ -306,7 +316,29 @@ class IDirectoryRecord(Interface):
     """
     Directory record.
 
-    Fields may also be accessed as attributes.
+    A directory record corresponds to a principal, and contains
+    information about the principal such as idenfiers, names and
+    passwords.
+
+    This information is stored in a set of fields (a mapping of field
+    names and values).
+
+    Some fields allow for multiple values while others allow only one
+    value.  This is discoverable by calling L{FieldName.isMultiValue}
+    on the field name.
+
+    The field L{FieldName.recordType} will be present in all directory
+    records, as all records must have a type.  Which other fields are
+    required is implementation-specific.
+
+    Principals (called group principals) may have references to other
+    principals as members.  Records representing group principals will
+    typically be records with the record type L{RecordType.group}, but
+    it is not prohibited for other record types to have members.
+
+    Fields may also be accessed as attributes.  For example:
+    C{record.recordType} is equivalent to
+    C{record.fields[FieldName.recordType]}.
     """
     service = Attribute("The L{IDirectoryService} this record exists in.")
     fields  = Attribute("A mapping with L{NamedConstant} keys.")
