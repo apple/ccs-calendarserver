@@ -153,8 +153,10 @@ class QueryFlags(Flags):
     """
     Query flags.
     """
-    caseInsensitive = FlagConstant()
+    NOT = FlagConstant()
+    NOT.description = "not"
 
+    caseInsensitive = FlagConstant()
     caseInsensitive.description = "case insensitive"
 
 
