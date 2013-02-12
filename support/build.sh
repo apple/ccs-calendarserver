@@ -386,8 +386,10 @@ svn_get () {
       svn checkout -r "${revision}" "${uri}@${revision}" "${path}";
     }
 
-    if [ "${revision}" != "HEAD" ] && [ -n "${cache_deps}" ] \
-        && [ -n "${hash}" ]; then
+    if [ "${revision}" != "HEAD" ] && \
+       [ -n "${cache_deps}" ] && \
+       [ -n "${hash}" ] \
+    ; then
       local cacheid="${name}-$(echo "${uri}" | hash)";
       local cache_file="${cache_deps}/${cacheid}@r${revision}.tgz";
 
