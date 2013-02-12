@@ -73,7 +73,7 @@ import uuid
 from twext.web2.filter.location import addLocation
 
 from txdav.carddav.iaddressbookstore import GroupWithUnsharedAddressNotAllowedError, \
-    DeleteOfShadowGroupNotAllowedError
+    DeleteOfGroupForSharedAddressBookNotAllowedError
 
 """
 Wrappers to translate between the APIs in L{txdav.caldav.icalendarstore} and
@@ -3010,7 +3010,7 @@ class AddressBookObjectResource(_CommonObjectResource):
         try:
             returnValue((yield super(AddressBookObjectResource, self).http_DELETE(request)))
 
-        except DeleteOfShadowGroupNotAllowedError:
+        except DeleteOfGroupForSharedAddressBookNotAllowedError:
             raise HTTPError(StatusResponse(
                 FORBIDDEN,
                 "Sharee cannot delete group vcard shadowing shared address book",)

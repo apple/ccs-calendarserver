@@ -38,7 +38,7 @@ from txdav.xml import element
 from twisted.internet.defer import succeed, inlineCallbacks, DeferredList, \
     returnValue
 
-from twistedcaldav import customxml, caldavxml, carddavxml
+from twistedcaldav import customxml, caldavxml
 from twistedcaldav.config import config
 from twistedcaldav.customxml import calendarserver_namespace
 from twistedcaldav.directory.wiki import WikiDirectoryService, getWikiAccess
@@ -515,12 +515,12 @@ class SharedResourceMixin(object):
         elif self.isAddressBookCollection() or self.isGroup():
             shareeHome = yield self._newStoreObject._txn.addressbookHomeWithUID(shareeUID, create=True)
 
-        shareeHomeChild = yield self._newStoreObject.shareWith(shareeHome,
+        shareeStoreObject = yield self._newStoreObject.shareWith(shareeHome,
                                                     mode=invitationAccessToBindModeMap[access],
                                                     status=_BIND_STATUS_INVITED,
                                                     message=summary)
 
-        invitation = Invitation(shareeHomeChild)
+        invitation = Invitation(shareeStoreObject)
         returnValue(invitation)
 
 
@@ -529,7 +529,7 @@ class SharedResourceMixin(object):
         mode = None if access is None else invitationAccessToBindModeMap[access]
         status = None if state is None else invitationStateToBindStatusMap[state]
 
-        yield self._newStoreObject.updateShare(invitation._shareeHomeChild, mode=mode, status=status, message=summary)
+        yield self._newStoreObject.updateShare(invitation._shareeStoreObject, mode=mode, status=status, message=summary)
         assert not access or access == invitation.access(), "access=%s != invitation.access()=%s" % (access, invitation.access())
         assert not state or state == invitation.state(), "state=%s != invitation.state()=%s" % (state, invitation.state())
         assert not summary or summary == invitation.summary(), "summary=%s != invitation.summary()=%s" % (summary, invitation.summary())
@@ -635,9 +635,11 @@ class SharedResourceMixin(object):
         if sharee:
             if self.isCalendarCollection():
                 shareeHomeResource = yield sharee.calendarHome(request)
+                displayName = yield shareeHomeResource.removeShareByUID(request, invitation.uid())
             elif self.isAddressBookCollection() or self.isGroup():
                 shareeHomeResource = yield sharee.addressBookHome(request)
-            displayName = (yield shareeHomeResource.removeShareByUID(request, invitation.uid()))
+                yield shareeHomeResource.removeShareByUID(request, invitation.uid())
+                displayName = None
             # If current user state is accepted then we send an invite with the new state, otherwise
             # we cancel any existing invites for the user
             if invitation and invitation.state() != "ACCEPTED":
@@ -646,7 +648,7 @@ class SharedResourceMixin(object):
                 yield self.sendInviteNotification(invitation, request, displayName=displayName, notificationState="DELETED")
 
         # Direct shares for  with valid sharee principal will already be deleted
-        yield self._newStoreObject.unshareWith(invitation._shareeHomeChild.viewerHome())
+        yield self._newStoreObject.unshareWith(invitation._shareeStoreObject.viewerHome())
 
         returnValue(True)
 
@@ -770,6 +772,7 @@ class SharedResourceMixin(object):
                     (customxml.calendarserver_namespace, "valid-request"),
                     "%s: %s" % (", ".join(error_text), inviteset,),
                 ))
+
 
         def _handleInviteRemove(inviteremove):
             userid = None
@@ -914,6 +917,7 @@ class SharedResourceMixin(object):
         customxml.InviteReply: _xmlHandleInviteReply,
     }
 
+
     def isGroup(self):
         try:
             return self._newStoreObject._kind == _ABO_KIND_GROUP
@@ -936,6 +940,7 @@ class SharedResourceMixin(object):
         ("application", "xml") : xmlRequestHandler,
         ("text", "xml") : xmlRequestHandler,
     }
+
 
 invitationAccessMapToXML = {
     "read-only"           : customxml.ReadAccess,
@@ -966,32 +971,33 @@ invitationAccessToBindModeMap = {
     }
 invitationAccessFromBindModeMap = dict((v, k) for k, v in invitationAccessToBindModeMap.iteritems())
 
+
 class Invitation(object):
     """
         Invitation is a read-only wrapper for CommonHomeChild, that uses terms similar LegacyInvite sharing.py code base.
     """
-    def __init__(self, shareeHomeChild):
-        self._shareeHomeChild = shareeHomeChild
+    def __init__(self, shareeStoreObject):
+        self._shareeStoreObject = shareeStoreObject
 
 
     def uid(self):
-        return self._shareeHomeChild.shareUID()
+        return self._shareeStoreObject.shareUID()
 
 
     def shareeUID(self):
-        return self._shareeHomeChild.viewerHome().uid()
+        return self._shareeStoreObject.viewerHome().uid()
 
 
     def access(self):
-        return invitationAccessFromBindModeMap.get(self._shareeHomeChild.shareMode())
+        return invitationAccessFromBindModeMap.get(self._shareeStoreObject.shareMode())
 
 
     def state(self):
-        return invitationStateFromBindStatusMap.get(self._shareeHomeChild.shareStatus())
+        return invitationStateFromBindStatusMap.get(self._shareeStoreObject.shareStatus())
 
 
     def summary(self):
-        return self._shareeHomeChild.shareMessage()
+        return self._shareeStoreObject.shareMessage()
 
 
 
@@ -1003,19 +1009,19 @@ class SharedHomeMixin(LinkFollowerMixIn):
 
     @inlineCallbacks
     def provisionShare(self, child, request=None):
-        share = yield self._shareForHomeChild(child._newStoreObject, request)
+        share = yield self._shareForStoreObject(child._newStoreObject, request)
         if share:
             child.setShare(share)
 
 
     @inlineCallbacks
-    def _shareForHomeChild(self, child, request=None):
-        # Try to find a matching share
-        if not child or child.owned():
+    def _shareForStoreObject(self, storeObject, request=None):
+        # Find a matching share
+        if not storeObject or storeObject.owned():
             returnValue(None)
 
         # get the shared object's URL
-        sharer = self.principalForUID(child.ownerHome().uid())
+        sharer = self.principalForUID(storeObject.ownerHome().uid())
 
         if not request:
             # FIXEME:  Fake up a request that can be used to get the sharer home resource
@@ -1029,17 +1035,18 @@ class SharedHomeMixin(LinkFollowerMixIn):
         elif self._newStoreHome._homeType == EADDRESSBOOKTYPE:
             sharerHomeCollection = yield sharer.addressBookHome(request)
 
-        sharerHomeChild = yield child.ownerHome().childWithID(child._resourceID)
+        sharerHomeChild = yield storeObject.ownerHome().childWithID(storeObject._resourceID)
         if sharerHomeChild:
+            assert sharerHomeChild != storeObject
             url = joinURL(sharerHomeCollection.url(), sharerHomeChild.name())
-            share = Share(shareeHomeChild=child, sharerHomeChildOrGroup=sharerHomeChild, url=url)
-        else:
-            for sharerHomeChild in (yield child.ownerHome().children()):
+            share = Share(shareeStoreObject=storeObject, sharerStoreObject=sharerHomeChild, url=url)
+        elif self._newStoreHome._homeType == EADDRESSBOOKTYPE:
+            for sharerHomeChild in (yield storeObject.ownerHome().children()):
                 if sharerHomeChild.owned():
-                    sharedGroup = yield sharerHomeChild.objectResourceWithID(child._resourceID)
+                    sharedGroup = yield sharerHomeChild.objectResourceWithID(storeObject._resourceID)
                     if sharedGroup:
                         url = joinURL(sharerHomeCollection.url(), sharerHomeChild.name(), sharedGroup.name())
-                        share = Share(shareeHomeChild=child, sharerHomeChildOrGroup=sharedGroup, url=url)
+                        share = Share(shareeStoreObject=storeObject, sharerStoreObject=sharedGroup, url=url)
                         break
 
         returnValue(share)
@@ -1048,17 +1055,16 @@ class SharedHomeMixin(LinkFollowerMixIn):
     @inlineCallbacks
     def _shareForUID(self, shareUID, request):
 
-        # since child.shareUID() == child.name() for indirect shares
-        child = yield self._newStoreHome.childWithBindName(shareUID)
+        child = yield self._newStoreHome.objectWithBindName(shareUID)
         if child:
-            share = yield self._shareForHomeChild(child, request)
+            share = yield self._shareForStoreObject(child, request)
             if share and share.uid() == shareUID:
                 returnValue(share)
 
         # find direct shares
         children = yield self._newStoreHome.children()
         for child in children:
-            share = yield self._shareForHomeChild(child, request)
+            share = yield self._shareForStoreObject(child, request)
             if share and share.uid() == shareUID:
                 returnValue(share)
 
@@ -1077,9 +1083,9 @@ class SharedHomeMixin(LinkFollowerMixIn):
             share = oldShare
         else:
             sharedResource = yield request.locateResource(hostUrl)
-            shareeHomeChild = yield self._newStoreHome.childWithBindName(inviteUID)
+            shareeStoreObject = yield self._newStoreHome.objectWithBindName(inviteUID)
 
-            share = Share(shareeHomeChild=shareeHomeChild, sharerHomeChildOrGroup=sharedResource._newStoreObject, url=hostUrl)
+            share = Share(shareeStoreObject=shareeStoreObject, sharerStoreObject=sharedResource._newStoreObject, url=hostUrl)
 
         response = yield self._acceptShare(request, not oldShare, share, displayname)
         returnValue(response)
@@ -1094,12 +1100,12 @@ class SharedHomeMixin(LinkFollowerMixIn):
             share = oldShare
         else:
             sharedCollection = yield request.locateResource(hostUrl)
-            shareeHomeChild = yield sharedCollection._newStoreObject.shareWith(shareeHome=self._newStoreHome,
+            shareeStoreObject = yield sharedCollection._newStoreObject.shareWith(shareeHome=self._newStoreHome,
                                                     mode=_BIND_MODE_DIRECT,
                                                     status=_BIND_STATUS_ACCEPTED,
                                                     message=displayname)
 
-            share = Share(shareeHomeChild=shareeHomeChild, sharerHomeChildOrGroup=sharedCollection._newStoreObject, url=hostUrl)
+            share = Share(shareeStoreObject=shareeStoreObject, sharerStoreObject=sharedCollection._newStoreObject, url=hostUrl)
 
         response = yield self._acceptShare(request, not oldShare, share, displayname)
         returnValue(response)
@@ -1110,52 +1116,63 @@ class SharedHomeMixin(LinkFollowerMixIn):
 
         # Get shared collection in non-share mode first
         sharedResource = yield request.locateResource(share.url())
-
-        # For a direct share we will copy any calendar-color over using the owners view
-        color = None
-        if share.direct() and isNewShare and sharedResource.isCalendarCollection():
-            try:
-                color = (yield sharedResource.readProperty(customxml.CalendarColor, request))
-            except HTTPError:
-                pass
-
         sharee = self.principalForUID(share.shareeUID())
+
         if sharedResource.isCalendarCollection():
             shareeHomeResource = yield sharee.calendarHome(request)
-        elif sharedResource.isAddressBookCollection() or sharedResource.isGroup():
+            shareeCalenderURL = joinURL(shareeHomeResource.url(), share.name())
+            shareeCalender = yield request.locateResource(shareeCalenderURL)
+            shareeCalender.setShare(share)
+
+            # For calendars only, per-user displayname and color
+            if displayname:
+                yield shareeCalender.writeProperty(element.DisplayName.fromString(displayname), request)
+
+            if isNewShare:
+                # For a direct share we will copy any calendar-color over using the owners view
+                if share.direct():
+                    try:
+                        color = yield sharedResource.readProperty(customxml.CalendarColor, request)
+                    except HTTPError:
+                        color = None
+                    if color:
+                        yield shareeCalender.writeProperty(customxml.CalendarColor.fromString(color), request)
+
+                # Calendars always start out transparent and with empty default alarms
+                yield shareeCalender.writeProperty(caldavxml.ScheduleCalendarTransp(caldavxml.Transparent()), request)
+                yield shareeCalender.writeProperty(caldavxml.DefaultAlarmVEventDateTime.fromString(""), request)
+                yield shareeCalender.writeProperty(caldavxml.DefaultAlarmVEventDate.fromString(""), request)
+                yield shareeCalender.writeProperty(caldavxml.DefaultAlarmVToDoDateTime.fromString(""), request)
+                yield shareeCalender.writeProperty(caldavxml.DefaultAlarmVToDoDate.fromString(""), request)
+
+        elif sharedResource.isAddressBookCollection():
             shareeHomeResource = yield sharee.addressBookHome(request)
-        shareeURL = joinURL(shareeHomeResource.url(), share.name())
-        shareeCollection = yield request.locateResource(shareeURL)
-        shareeCollection.setShare(share)
+            shareeAddressBookURL = joinURL(shareeHomeResource.url(), share.sharerUID())
+            shareeAddressBook = yield request.locateResource(shareeAddressBookURL)
+            shareeAddressBook.setShare(share)
 
-        #FIXME: addcresourceType to dead properties for share groups -
-        #        it's already there for shared address book and calendars
-        if isNewShare and sharedResource.isGroup():
-            shareeCollection.writeDeadProperty(carddavxml.ResourceType.addressbook)
-
-        # For calendars only, per-user displayname and color
-        if displayname and shareeCollection.isCalendarCollection():
-            yield shareeCollection.writeProperty(element.DisplayName.fromString(displayname), request)
-
-        if color:
-            yield shareeCollection.writeProperty(customxml.CalendarColor.fromString(color), request)
-
-        # Calendars always start out transparent and with empty default alarms
-        if isNewShare and shareeCollection.isCalendarCollection():
-            yield shareeCollection.writeProperty(caldavxml.ScheduleCalendarTransp(caldavxml.Transparent()), request)
-            yield shareeCollection.writeProperty(caldavxml.DefaultAlarmVEventDateTime.fromString(""), request)
-            yield shareeCollection.writeProperty(caldavxml.DefaultAlarmVEventDate.fromString(""), request)
-            yield shareeCollection.writeProperty(caldavxml.DefaultAlarmVToDoDateTime.fromString(""), request)
-            yield shareeCollection.writeProperty(caldavxml.DefaultAlarmVToDoDate.fromString(""), request)
+        elif sharedResource.isGroup():
+            shareeHomeResource = yield sharee.addressBookHome(request)
+            shareeGroupURL = joinURL(shareeHomeResource.url(), share.sharerUID(), share.name())
+            shareeGroup = yield request.locateResource(shareeGroupURL)
+            shareeGroup.setShare(share)
 
         # Notify client of changes
         yield self.notifyChanged()
+
+        #FIXME: shouldn't sharedAsURLbe the same as shareeCollectionURL ?
+        if sharedResource.isCalendarCollection():
+            sharedAsURL = joinURL(self.url(), share.name())
+        elif sharedResource.isAddressBookCollection():
+            sharedAsURL = joinURL(self.url(), share.sharerUID())
+        elif sharedResource.isGroup():
+            sharedAsURL = joinURL(self.url(), share.sharerUID(), share.name())
 
         # Return the URL of the shared collection
         returnValue(XMLResponse(
             code=responsecode.OK,
             element=customxml.SharedAs(
-                element.HRef.fromString(joinURL(self.url(), share.name()))
+                element.HRef.fromString(sharedAsURL)
             )
         ))
 
@@ -1196,7 +1213,6 @@ class SharedHomeMixin(LinkFollowerMixIn):
         Remove a shared collection but do not send a decline back. Return the
         current display name of the shared collection.
         """
-
         shareURL = joinURL(self.url(), share.name())
         shared = (yield request.locateResource(shareURL))
         displayname = shared.displayName()
@@ -1210,9 +1226,9 @@ class SharedHomeMixin(LinkFollowerMixIn):
                 inbox.processFreeBusyCalendar(shareURL, False)
 
         if share.direct():
-            yield share._sharerHomeChildOrGroup.unshareWith(share._shareeHomeChild.viewerHome())
+            yield share._sharerStoreObject.unshareWith(share._shareeStoreObject.viewerHome())
         else:
-            yield share._sharerHomeChildOrGroup.updateShare(share._shareeHomeChild, status=_BIND_STATUS_DECLINED)
+            yield share._sharerStoreObject.updateShare(share._shareeStoreObject, status=_BIND_STATUS_DECLINED)
 
         returnValue(displayname)
 
@@ -1222,9 +1238,7 @@ class SharedHomeMixin(LinkFollowerMixIn):
 
         # Remove it if it is in the DB
         yield self.removeShareByUID(request, inviteUID)
-
         yield self._changeShare(request, "DECLINED", hostUrl, inviteUID)
-
         returnValue(Response(code=responsecode.NO_CONTENT))
 
 
@@ -1233,7 +1247,6 @@ class SharedHomeMixin(LinkFollowerMixIn):
         """
         Accept or decline an invite to a shared collection.
         """
-
         # Change state in sharer invite
         ownerPrincipal = (yield self.ownerPrincipal(request))
         ownerPrincipalUID = ownerPrincipal.principalUID()
@@ -1298,7 +1311,9 @@ class SharedHomeMixin(LinkFollowerMixIn):
 
 
     def _handleInviteReply(self, request, invitereplydoc):
-        """ Handle a user accepting or declining a sharing invite """
+        """
+        Handle a user accepting or declining a sharing invite
+        """
         hostUrl = None
         accepted = None
         summary = None
@@ -1329,13 +1344,12 @@ class SharedHomeMixin(LinkFollowerMixIn):
             return self.declineShare(request, hostUrl, replytoUID)
 
 
-
 class Share(object):
 
-    def __init__(self, sharerHomeChildOrGroup, shareeHomeChild, url):
-        self._shareeHomeChild = shareeHomeChild
-        self._sharerHomeChildOrGroup = sharerHomeChildOrGroup
-        self._sharedResourceURL = url
+    def __init__(self, sharerStoreObject, shareeStoreObject, url):
+        self._shareeStoreObject = shareeStoreObject
+        self._sharerStoreObject = sharerStoreObject
+        self._sharerResourceURL = url
 
 
     @classmethod
@@ -1345,27 +1359,31 @@ class Share(object):
 
     def uid(self):
         # Move to CommonHomeChild shareUID?
-        if self._shareeHomeChild.shareMode() == _BIND_MODE_DIRECT:
-            return self.directUID(shareeHome=self._shareeHomeChild.viewerHome(), sharerHomeChild=self._sharerHomeChildOrGroup,)
+        if self._shareeStoreObject.shareMode() == _BIND_MODE_DIRECT:
+            return self.directUID(shareeHome=self._shareeStoreObject.viewerHome(), sharerHomeChild=self._sharerStoreObject,)
         else:
-            return self._shareeHomeChild.shareUID()
+            return self._shareeStoreObject.shareUID()
 
 
     def direct(self):
-        return self._shareeHomeChild.shareMode() == _BIND_MODE_DIRECT
+        return self._shareeStoreObject.shareMode() == _BIND_MODE_DIRECT
 
 
     def url(self):
-        return self._sharedResourceURL
+        return self._sharerResourceURL
 
 
     def name(self):
-        return self._shareeHomeChild.name()
+        return self._shareeStoreObject.name()
 
 
     def summary(self):
-        return self._shareeHomeChild.shareMessage()
+        return self._shareeStoreObject.shareMessage()
 
 
     def shareeUID(self):
-        return self._shareeHomeChild.viewerHome().uid()
+        return self._shareeStoreObject.viewerHome().uid()
+
+
+    def sharerUID(self):
+        return self._shareeStoreObject.ownerHome().uid()

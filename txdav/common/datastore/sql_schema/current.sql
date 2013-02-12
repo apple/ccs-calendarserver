@@ -402,9 +402,9 @@ create index ADDRESSBOOK_BIND_RESOURCE_ID on
   ADDRESSBOOK_BIND(ADDRESSBOOK_RESOURCE_ID);
 
 
------------------------------
+------------------------
 -- AddressBook Object --
------------------------------
+------------------------
 
 create table ADDRESSBOOK_OBJECT (
   RESOURCE_ID             integer      primary key default nextval('RESOURCE_ID_SEQ'),    -- implicit index
