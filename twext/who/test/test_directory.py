@@ -102,7 +102,7 @@ class DirectoryServiceTest(BaseTest):
 
 class DirectoryRecordTest(BaseTest):
     fields_wsanchez = {
-        FieldName.uid:            "wsanchez",
+        FieldName.uid:            "UID:wsanchez",
         FieldName.recordType:     RecordType.user,
         FieldName.shortNames:     ("wsanchez", "wilfredo_sanchez"),
         FieldName.fullNames:      ("Wilfredo Sanchez", "Wilfredo Sanchez Vega"),
@@ -110,11 +110,19 @@ class DirectoryRecordTest(BaseTest):
     }
 
     fields_glyph = {
-        FieldName.uid:            "glyph",
+        FieldName.uid:            "UID:glyph",
         FieldName.recordType:     RecordType.user,
         FieldName.shortNames:     ("glyph",),
         FieldName.fullNames:      ("Glyph Lefkowitz",),
         FieldName.emailAddresses: ("glyph@calendarserver.org",)
+    }
+
+    fields_sagen = {
+        FieldName.uid:            "UID:sagen",
+        FieldName.recordType:     RecordType.user,
+        FieldName.shortNames:     ("sagen",),
+        FieldName.fullNames:      ("Morgen Sagen",),
+        FieldName.emailAddresses: ("sagen@CalendarServer.org",)
     }
 
 
@@ -136,7 +144,7 @@ class DirectoryRecordTest(BaseTest):
 
     def test_init(self):
         service  = self._testService()
-        wsanchez = self._testRecord(self.fields_wsanchez)
+        wsanchez = self._testRecord(self.fields_wsanchez, service=service)
 
         self.assertEquals(wsanchez.service, service)
         self.assertEquals(wsanchez.fields , self.fields_wsanchez)
@@ -184,6 +192,15 @@ class DirectoryRecordTest(BaseTest):
         fields = self.fields_wsanchez.copy()
         fields[FieldName.recordType] = object()
         self.assertRaises(ValueError, self._testRecord, fields)
+
+
+    def test_initNormalize(self):
+        sagen = self._testRecord(self.fields_sagen)
+
+        self.assertEquals(
+            sagen.fields[FieldName.emailAddresses],
+            ("sagen@calendarserver.org",)
+        )
 
 
     def test_compare(self):

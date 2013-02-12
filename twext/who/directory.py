@@ -164,8 +164,22 @@ class DirectoryRecord(FancyEqMixin, object):
                 fields[FieldName.recordType]
             ))
 
+        # Normalize fields
+        normalizedFields = {}
+        for name, value in fields.items():
+            normalize = getattr(name, "normalize", None)
+
+            if normalize is None:
+                normalizedFields[name] = value
+                continue
+
+            if FieldName.isMultiValue(name):
+                normalizedFields[name] = tuple((normalize(v) for v in value))
+            else:
+                normalizedFields[name] = normalize(value)
+        
         self.service = service
-        self.fields  = fields
+        self.fields  = normalizedFields
 
 
     def __repr__(self):
