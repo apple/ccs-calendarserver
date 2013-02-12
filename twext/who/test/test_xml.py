@@ -24,6 +24,8 @@ from twisted.python.filepath import FilePath
 from twisted.internet.defer import inlineCallbacks
 
 from twext.who.idirectory import NoSuchRecordError
+from twext.who.idirectory import DirectoryQueryMatchExpression
+from twext.who.idirectory import Operand, QueryFlags
 from twext.who.xml import ParseError
 from twext.who.xml import DirectoryService, DirectoryRecord
 
@@ -334,6 +336,95 @@ class DirectoryServiceTest(BaseTest, test_directory.DirectoryServiceTest):
             set((record.uid for record in records)),
             set(("__sagen__", "__dre__")),
         )
+
+
+    @inlineCallbacks
+    def test_queryAnd(self):
+        service = self._testService()
+        records = yield service.recordsFromQuery(
+            (
+                DirectoryQueryMatchExpression(
+                    service.fieldName.emailAddresses,
+                    "shared@example.com",
+                ),
+                DirectoryQueryMatchExpression(
+                    service.fieldName.shortNames,
+                    "sagen",
+                ),
+            ),
+            operand=Operand.AND
+        )
+        self.assertEquals(
+            set((record.uid for record in records)),
+            set(("__sagen__",)),
+        )
+
+
+    @inlineCallbacks
+    def test_queryOr(self):
+        service = self._testService()
+        records = yield service.recordsFromQuery(
+            (
+                DirectoryQueryMatchExpression(
+                    service.fieldName.emailAddresses,
+                    "shared@example.com",
+                ),
+                DirectoryQueryMatchExpression(
+                    service.fieldName.shortNames,
+                    "wsanchez",
+                ),
+            ),
+            operand=Operand.OR
+        )
+        self.assertEquals(
+            set((record.uid for record in records)),
+            set(("__sagen__", "__dre__", "__wsanchez__")),
+        )
+
+
+    @inlineCallbacks
+    def test_queryNot(self):
+        service = self._testService()
+        records = yield service.recordsFromQuery(
+            (
+                DirectoryQueryMatchExpression(
+                    service.fieldName.emailAddresses,
+                    "shared@example.com",
+                ),
+                DirectoryQueryMatchExpression(
+                    service.fieldName.shortNames,
+                    "sagen",
+                    flags = QueryFlags.NOT,
+                ),
+            ),
+            operand=Operand.AND
+        )
+        self.assertEquals(
+            set((record.uid for record in records)),
+            set(("__dre__",)),
+        )
+
+    test_queryNot.todo = "Not implemented."
+
+
+    @inlineCallbacks
+    def test_queryCaseInsensitive(self):
+        service = self._testService()
+        records = yield service.recordsFromQuery(
+            (
+                DirectoryQueryMatchExpression(
+                    service.fieldName.shortNames,
+                    "SagEn",
+                    flags = QueryFlags.caseInsensitive,
+                ),
+            ),
+        )
+        self.assertEquals(
+            set((record.uid for record in records)),
+            set(("__sagen__",)),
+        )
+
+    test_queryCaseInsensitive.todo = "Not implemented."
 
 
     def test_unknownRecordTypesClean(self):
