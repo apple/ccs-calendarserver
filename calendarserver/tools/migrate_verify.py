@@ -75,6 +75,7 @@ class MigrateVerifyOptions(Options):
     synopsis = description
 
     optFlags = [
+        ['debug', 'D', "Debug logging."],
     ]
 
     optParameters = [
@@ -107,6 +108,7 @@ class MigrateVerifyOptions(Options):
             return open(self.outputName, 'wb')
 
 
+
 class MigrateVerifyService(Service, object):
     """
     Service which runs, does its stuff, then stops the reactor.
@@ -128,6 +130,7 @@ class MigrateVerifyService(Service, object):
         self.missingGUIDs = []
         self.missingCalendars = []
         self.missingResources = []
+
 
     def startService(self):
         """
@@ -157,7 +160,7 @@ class MigrateVerifyService(Service, object):
 
 
     def readPaths(self):
-        
+
         self.output.write("-- Reading data file: %s\n" % (self.options["data"]))
 
         datafile = open(os.path.expanduser(self.options["data"]))
@@ -183,7 +186,7 @@ class MigrateVerifyService(Service, object):
                 elif len(segments) > 6:
                     self.badPaths.append(line)
                     invalidGUIDs.add(guid)
-                else:                
+                else:
                     self.pathsByGUID.setdefault(guid, {}).setdefault(calendar, set()).add(resource)
                     self.validPaths += 1
             else:
@@ -210,27 +213,27 @@ class MigrateVerifyService(Service, object):
         for invalidGUID in sorted(invalidGUIDs):
             self.output.write("Invalid GUID: %s\n" % (invalidGUID,))
 
-
         self.output.write("\n-- Bad paths\n")
         for badPath in sorted(self.badPaths):
             self.output.write("Bad path: %s\n" % (badPath,))
+
 
     @inlineCallbacks
     def doCheck(self):
         """
         Check path data against the SQL store.
         """
-        
+
         self.output.write("\n-- Scanning database for missed migrations\n")
 
         # Get list of distinct resource_property resource_ids to delete
         self.txn = self.store.newTransaction()
-        
+
         total = len(self.pathsByGUID)
         totalMissingCalendarResources = 0
         count = 0
         for guid in self.pathsByGUID:
-            
+
             if divmod(count, 10)[1] == 0:
                 self.output.write(("\r%d of %d (%d%%)" % (
                     count,
@@ -244,7 +247,7 @@ class MigrateVerifyService(Service, object):
             if homeID is None:
                 self.missingGUIDs.append(guid)
                 continue
-            
+
             # Now get the list of calendar names and calendar resource IDs
             results = (yield self.calendarsForUser(homeID))
             if results is None:
@@ -261,7 +264,7 @@ class MigrateVerifyService(Service, object):
                         results = []
                     results = [result[0] for result in results]
                     db_resources = set(results)
-                    
+
                     # Also check for split calendar
                     if "%s-vtodo" % (calendar,) in calendars:
                         results = (yield self.resourcesForCalendar(calendars["%s-vtodo" % (calendar,)]))
@@ -269,7 +272,7 @@ class MigrateVerifyService(Service, object):
                             results = []
                         results = [result[0] for result in results]
                         db_resources.update(results)
-                    
+
                     # Also check for split calendar
                     if "%s-vevent" % (calendar,) in calendars:
                         results = (yield self.resourcesForCalendar(calendars["%s-vevent" % (calendar,)]))
@@ -277,7 +280,7 @@ class MigrateVerifyService(Service, object):
                             results = []
                         results = [result[0] for result in results]
                         db_resources.update(results)
-                    
+
                     old_resources = set(self.pathsByGUID[guid][calendar])
                     self.missingResources.extend(["%s/%s/%s" % (guid, calendar, resource,) for resource in old_resources.difference(db_resources)])
 
@@ -285,7 +288,7 @@ class MigrateVerifyService(Service, object):
             if divmod(count + 1, 10)[1] == 0:
                 yield self.txn.commit()
                 self.txn = self.store.newTransaction()
-            
+
             count += 1
 
         yield self.txn.commit()
@@ -302,12 +305,12 @@ class MigrateVerifyService(Service, object):
         self.output.write("\nTotal missing Resources: %d\n" % (len(self.missingResources),))
         for resource in sorted(self.missingResources):
             self.output.write("%s\n" % (resource,))
-                    
+
 
     @inlineCallbacks
     def guid2ResourceID(self, guid):
         ch = schema.CALENDAR_HOME
-        kwds = { "GUID" : guid }
+        kwds = {"GUID" : guid}
         rows = (yield Select(
             [
                 ch.RESOURCE_ID,
@@ -324,7 +327,7 @@ class MigrateVerifyService(Service, object):
     @inlineCallbacks
     def calendarsForUser(self, rid):
         cb = schema.CALENDAR_BIND
-        kwds = { "RID" : rid }
+        kwds = {"RID" : rid}
         rows = (yield Select(
             [
                 cb.CALENDAR_RESOURCE_NAME,
@@ -338,11 +341,11 @@ class MigrateVerifyService(Service, object):
 
         returnValue(rows)
 
-    
+
     @inlineCallbacks
     def resourcesForCalendar(self, rid):
         co = schema.CALENDAR_OBJECT
-        kwds = { "RID" : rid }
+        kwds = {"RID" : rid}
         rows = (yield Select(
             [
                 co.RESOURCE_NAME,
@@ -355,7 +358,7 @@ class MigrateVerifyService(Service, object):
 
         returnValue(rows)
 
-    
+
     def stopService(self):
         """
         Stop the service.  Nothing to do; everything should be finished by this
@@ -378,12 +381,13 @@ def main(argv=sys.argv, stderr=sys.stderr, reactor=None):
         stderr.write("Unable to open output file for writing: %s\n" % (e))
         sys.exit(1)
 
+
     def makeService(store):
         from twistedcaldav.config import config
         config.TransactionTimeoutSeconds = 0
         return MigrateVerifyService(store, options, output, reactor, config)
 
-    utilityMain(options['config'], makeService, reactor)
+    utilityMain(options['config'], makeService, reactor, verbose=options["debug"])
 
 if __name__ == '__main__':
     main()

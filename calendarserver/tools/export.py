@@ -84,8 +84,13 @@ class ExportOptions(Options):
 
     synopsis = description
 
-    optParameters = [['config', 'f', DEFAULT_CONFIG_FILE,
-                      "Specify caldavd.plist configuration path."]]
+    optFlags = [
+        ['debug', 'D', "Debug logging."],
+    ]
+
+    optParameters = [
+        ['config', 'f', DEFAULT_CONFIG_FILE, "Specify caldavd.plist configuration path."],
+    ]
 
     def __init__(self):
         super(ExportOptions, self).__init__()
@@ -284,9 +289,9 @@ class ExporterService(Service, object):
 
     def __init__(self, store, options, output, reactor, config):
         super(ExporterService, self).__init__()
-        self.store   = store
+        self.store = store
         self.options = options
-        self.output  = output
+        self.output = output
         self.reactor = reactor
         self.config = config
         self._directory = None
@@ -365,8 +370,9 @@ def main(argv=sys.argv, stderr=sys.stderr, reactor=None):
                      (e))
         sys.exit(1)
 
+
     def makeService(store):
         from twistedcaldav.config import config
         return ExporterService(store, options, output, reactor, config)
 
-    utilityMain(options["config"], makeService, reactor)
+    utilityMain(options["config"], makeService, reactor, verbose=options["debug"])

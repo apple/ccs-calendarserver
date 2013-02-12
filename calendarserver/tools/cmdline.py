@@ -18,15 +18,19 @@
 Shared main-point between utilities.
 """
 
-import os, sys
-
 from calendarserver.tap.caldav import CalDAVServiceMaker, CalDAVOptions
 from calendarserver.tools.util import loadConfig, autoDisableMemcached
+
+from twext.python.log import StandardIOObserver
+
 from twistedcaldav.config import ConfigurationError
 
-# TODO: direct unit tests for this function.
+import os
+import sys
 
-def utilityMain(configFileName, serviceClass, reactor=None, serviceMaker=CalDAVServiceMaker):
+# TODO: direct unit tests for these functions.
+
+def utilityMain(configFileName, serviceClass, reactor=None, serviceMaker=CalDAVServiceMaker, verbose=False):
     """
     Shared main-point for utilities.
 
@@ -52,6 +56,12 @@ def utilityMain(configFileName, serviceClass, reactor=None, serviceMaker=CalDAVS
         L{IReactorTCP} (etc) provider to use.  If C{None}, the default reactor
         will be imported and used.
     """
+
+    # Install std i/o observer
+    if verbose:
+        observer = StandardIOObserver()
+        observer.start()
+
     if reactor is None:
         from twisted.internet import reactor
     try:

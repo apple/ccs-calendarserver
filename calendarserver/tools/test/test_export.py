@@ -53,6 +53,8 @@ def holiday(uid):
             .getContent()
     )
 
+
+
 def sample(name):
     return (
         getModule("twistedcaldav.test").filePath
@@ -195,7 +197,6 @@ class IntegrationTests(TestCase):
         self.mainCalled = False
         self.patch(export, "utilityMain", self.fakeUtilityMain)
 
-
         self.store = yield buildStore(self, None)
         self.waitToStop = Deferred()
 
@@ -208,7 +209,7 @@ class IntegrationTests(TestCase):
         self.waitToStop.callback(None)
 
 
-    def fakeUtilityMain(self, configFileName, serviceClass, reactor=None):
+    def fakeUtilityMain(self, configFileName, serviceClass, reactor=None, verbose=False):
         """
         Verify a few basic things.
         """
@@ -484,5 +485,3 @@ class IntegrationTests(TestCase):
             Component.fromString(resultForUser2),
             Component.fromString(output.getContent())
         )
-
-

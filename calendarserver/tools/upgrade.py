@@ -70,10 +70,14 @@ class UpgradeOptions(Options):
 
     synopsis = description
 
-    optParameters = [['config', 'f', DEFAULT_CONFIG_FILE,
-                      "Specify caldavd.plist configuration path."]]
+    optFlags = [
+        ['postprocess', 'p', "Perform post-database-import processing."],
+        ['debug', 'D', "Debug logging."],
+    ]
 
-    optFlags = [['postprocess', 'p', "Perform post-database-import processing."]]
+    optParameters = [
+        ['config', 'f', DEFAULT_CONFIG_FILE, "Specify caldavd.plist configuration path."],
+    ]
 
     def __init__(self):
         super(UpgradeOptions, self).__init__()
@@ -119,9 +123,9 @@ class UpgraderService(Service, object):
 
     def __init__(self, store, options, output, reactor, config):
         super(UpgraderService, self).__init__()
-        self.store   = store
+        self.store = store
         self.options = options
-        self.output  = output
+        self.output = output
         self.reactor = reactor
         self.config = config
         self._directory = None
@@ -146,6 +150,7 @@ class UpgraderService(Service, object):
         Stop the service.  Nothing to do; everything should be finished by this
         time.
         """
+
 
 
 def main(argv=sys.argv, stderr=sys.stderr, reactor=None):
@@ -174,11 +179,13 @@ def main(argv=sys.argv, stderr=sys.stderr, reactor=None):
             data.MergeUpgrades = True
         config.addPostUpdateHooks([setMerge])
 
+
     def makeService(store):
         return UpgraderService(store, options, output, reactor, config)
 
+
     def onlyUpgradeEvents(event):
-        output.write(logDateString()+' '+log.textFromEventDict(event)+"\n")
+        output.write(logDateString() + ' ' + log.textFromEventDict(event) + "\n")
         output.flush()
 
     setLogLevelForNamespace(None, "debug")
@@ -187,7 +194,9 @@ def main(argv=sys.argv, stderr=sys.stderr, reactor=None):
         customService = CalDAVServiceMaker()
         customService.doPostImport = options["postprocess"]
         return customService
-    utilityMain(options["config"], makeService, reactor, customServiceMaker)
+    utilityMain(options["config"], makeService, reactor, customServiceMaker, verbose=options["debug"])
+
+
 
 def logDateString():
     logtime = time.localtime()
@@ -195,6 +204,8 @@ def logDateString():
     tz = computeTimezoneForLog(time.timezone)
 
     return '%02d-%02d-%02d %02d:%02d:%02d%s' % (Y, M, D, h, m, s, tz)
+
+
 
 def computeTimezoneForLog(tz):
     if tz > 0:

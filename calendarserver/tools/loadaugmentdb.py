@@ -15,55 +15,31 @@
 # limitations under the License.
 ##
 
-import os
-import sys
+from calendarserver.tools.managetimezones import StandardIOObserver
+from calendarserver.tools.util import loadConfig, getDirectory, \
+    autoDisableMemcached
 
 from getopt import getopt, GetoptError
 from grp import getgrnam
 from pwd import getpwnam
-from sys import stdout, stderr
 
 from twext.python.log import setLogLevelForNamespace
 
 from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks
-from twisted.python.log import addObserver, removeObserver
 from twisted.python.util import switchUID
+
 from twistedcaldav.config import config, ConfigurationError
 from twistedcaldav.directory import augment
 from twistedcaldav.directory.augment import AugmentXMLDB
 
-from calendarserver.tools.util import loadConfig, getDirectory,\
-    autoDisableMemcached
+import os
+import sys
 
 class UsageError (StandardError):
     pass
 
-class StandardIOObserver (object):
-    """
-    Log observer that writes to standard I/O.
-    """
-    def emit(self, eventDict):
-        text = None
 
-        if eventDict["isError"]:
-            output = stderr
-            if "failure" in eventDict:
-                text = eventDict["failure"].getTraceback()
-        else:
-            output = stdout
-
-        if not text:
-            text = " ".join([str(m) for m in eventDict["message"]]) + "\n"
-
-        output.write(text)
-        output.flush()
-
-    def start(self):
-        addObserver(self.emit)
-
-    def stop(self):
-        removeObserver(self.emit)
 
 def usage(e=None):
     if e:
@@ -86,6 +62,8 @@ def usage(e=None):
         sys.exit(64)
     else:
         sys.exit(0)
+
+
 
 def main():
     try:
@@ -156,16 +134,18 @@ def main():
     reactor.callLater(0, run, dbxml)
     reactor.run()
 
+
+
 @inlineCallbacks
 def run(dbxml):
-    
+
     try:
         uids = set((yield augment.AugmentService.getAllUIDs()))
         added = 0
         updated = 0
         removed = 0
         if dbxml:
-            yield augment.AugmentService.addAugmentRecords(dbxml.db.values(), )
+            yield augment.AugmentService.addAugmentRecords(dbxml.db.values(),)
             add_records = list()
             modify_records = list()
             for record in dbxml.db.values():
@@ -179,7 +159,7 @@ def run(dbxml):
             remove_uids = uids.difference(dbxml.db.keys())
             yield augment.AugmentService.removeAugmentRecords(remove_uids)
             removed = len(remove_uids)
-            
+
         print "Changes:"
         print "  Added: %d" % (added,)
         print "  Changed: %d" % (updated,)

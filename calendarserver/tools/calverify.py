@@ -272,6 +272,7 @@ class CalVerifyOptions(Options):
     optFlags = [
         ['ical', 'i', "Calendar data check."],
         ['badcua', 'b', "Calendar data check for bad CALENDARSERVER-OLD-CUA only."],
+        ['debug', 'D', "Debug logging."],
         ['nobase64', 'n', "Do not apply CALENDARSERVER-OLD-CUA base64 transform when fixing."],
         ['mismatch', 's', "Detect organizer/attendee mismatches."],
         ['missing', 'm', "Show 'orphaned' homes."],
@@ -1927,7 +1928,7 @@ def main(argv=sys.argv, stderr=sys.stderr, reactor=None):
         config.TransactionTimeoutSeconds = 0
         return CalVerifyService(store, options, output, reactor, config)
 
-    utilityMain(options['config'], makeService, reactor)
+    utilityMain(options['config'], makeService, reactor, verbose=options['debug'])
 
 if __name__ == '__main__':
     main()
