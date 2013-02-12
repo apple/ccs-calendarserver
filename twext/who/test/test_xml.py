@@ -176,7 +176,7 @@ class DirectoryServiceTest(BaseTest, test_directory.DirectoryServiceTest):
         self.assertEquals(repr(service), "<DirectoryService 'xyzzy'>")
 
 
-    def realmNameImmutable(self):
+    def test_realmNameImmutable(self):
         def setRealmName():
             service = self._testService()
             service.realmName = "foo"
