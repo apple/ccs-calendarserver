@@ -2171,6 +2171,8 @@ class Attachment(object):
 
 
     def store(self, contentType, dispositionName=None):
+        if not self._name:
+            self._name = dispositionName
         return AttachmentStorageTransport(self, contentType, dispositionName, self._justCreated)
 
 

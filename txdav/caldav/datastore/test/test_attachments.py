@@ -14,25 +14,1244 @@
 # limitations under the License.
 ##
 
-from twisted.trial import unittest
-from txdav.common.datastore.test.util import CommonCommonTests, buildStore, \
-    populateCalendarsFrom
-from twisted.internet.defer import inlineCallbacks, returnValue
-from twistedcaldav.config import config
-import os
 from calendarserver.tap.util import getRootResource
-from twext.enterprise.dal.syntax import Delete
-from txdav.common.datastore.sql_tables import schema
+
 from pycalendar.datetime import PyCalendarDateTime
+from pycalendar.value import PyCalendarValue
+
+from twext.enterprise.dal.syntax import Delete
+from twext.python.clsprop import classproperty
+from twext.web2.http_headers import MimeType
+from twext.web2.stream import MemoryStream
+
+from twisted.internet.defer import inlineCallbacks, returnValue
+from twisted.python.filepath import FilePath
+from twisted.trial import unittest
+
+from twistedcaldav.config import config
+from twistedcaldav.ical import Property, Component
+
 from txdav.caldav.datastore.sql import CalendarStoreFeatures, DropBoxAttachment, \
     ManagedAttachment
-from twext.web2.http_headers import MimeType
-from twistedcaldav.ical import Property
-from pycalendar.value import PyCalendarValue
+from txdav.caldav.datastore.test.common import CaptureProtocol
+from txdav.caldav.icalendarstore import IAttachmentStorageTransport, IAttachment, \
+    QuotaExceeded
+from txdav.common.datastore.sql_tables import schema
+from txdav.common.datastore.test.util import CommonCommonTests, buildStore, \
+    populateCalendarsFrom, deriveQuota, withSpecialQuota
+
+import hashlib
+import os
+import uuid
 
 """
 Tests for txdav.caldav.datastore.sql attachment handling.
 """
+
+storePath = FilePath(__file__).parent().child("calendar_store")
+homeRoot = storePath.child("ho").child("me").child("home1")
+cal1Root = homeRoot.child("calendar_1")
+
+calendar1_objectNames = [
+    "1.ics",
+    "2.ics",
+    "3.ics",
+    "4.ics",
+]
+
+home1_calendarNames = [
+    "calendar_1",
+]
+
+
+class AttachmentTests(CommonCommonTests, unittest.TestCase):
+
+    metadata1 = {
+        "accessMode": "PUBLIC",
+        "isScheduleObject": True,
+        "scheduleTag": "abc",
+        "scheduleEtags": (),
+        "hasPrivateComment": False,
+    }
+    metadata2 = {
+        "accessMode": "PRIVATE",
+        "isScheduleObject": False,
+        "scheduleTag": "",
+        "scheduleEtags": (),
+        "hasPrivateComment": False,
+    }
+    metadata3 = {
+        "accessMode": "PUBLIC",
+        "isScheduleObject": None,
+        "scheduleTag": "abc",
+        "scheduleEtags": (),
+        "hasPrivateComment": True,
+    }
+    metadata4 = {
+        "accessMode": "PUBLIC",
+        "isScheduleObject": True,
+        "scheduleTag": "abc4",
+        "scheduleEtags": (),
+        "hasPrivateComment": False,
+    }
+
+
+    @inlineCallbacks
+    def setUp(self):
+        yield super(AttachmentTests, self).setUp()
+        self._sqlCalendarStore = yield buildStore(self, self.notifierFactory)
+        yield self.populate()
+
+
+    @inlineCallbacks
+    def populate(self):
+        yield populateCalendarsFrom(self.requirements, self.storeUnderTest())
+        self.notifierFactory.reset()
+
+
+    @classproperty(cache=False)
+    def requirements(cls): #@NoSelf
+        metadata1 = cls.metadata1.copy()
+        metadata2 = cls.metadata2.copy()
+        metadata3 = cls.metadata3.copy()
+        metadata4 = cls.metadata4.copy()
+        return {
+        "home1": {
+            "calendar_1": {
+                "1.ics": (cal1Root.child("1.ics").getContent(), metadata1),
+                "2.ics": (cal1Root.child("2.ics").getContent(), metadata2),
+                "3.ics": (cal1Root.child("3.ics").getContent(), metadata3),
+                "4.ics": (cal1Root.child("4.ics").getContent(), metadata4),
+            },
+        },
+    }
+
+
+    def storeUnderTest(self):
+        """
+        Create and return a L{CalendarStore} for testing.
+        """
+        return self._sqlCalendarStore
+
+
+
+class DropBoxAttachmentTests(AttachmentTests):
+
+    eventWithDropbox = "\r\n".join("""
+BEGIN:VCALENDAR
+CALSCALE:GREGORIAN
+PRODID:-//Example Inc.//Example Calendar//EN
+VERSION:2.0
+BEGIN:VTIMEZONE
+LAST-MODIFIED:20040110T032845Z
+TZID:US/Eastern
+BEGIN:DAYLIGHT
+DTSTART:20000404T020000
+RRULE:FREQ=YEARLY;BYDAY=1SU;BYMONTH=4
+TZNAME:EDT
+TZOFFSETFROM:-0500
+TZOFFSETTO:-0400
+END:DAYLIGHT
+BEGIN:STANDARD
+DTSTART:20001026T020000
+RRULE:FREQ=YEARLY;BYDAY=-1SU;BYMONTH=10
+TZNAME:EST
+TZOFFSETFROM:-0400
+TZOFFSETTO:-0500
+END:STANDARD
+END:VTIMEZONE
+BEGIN:VEVENT
+DTSTAMP:20051222T205953Z
+CREATED:20060101T150000Z
+DTSTART;TZID=US/Eastern:20060101T100000
+DURATION:PT1H
+SUMMARY:event 1
+UID:event1@ninevah.local
+ORGANIZER:user01
+ATTENDEE;PARTSTAT=ACCEPTED:user01
+ATTACH;VALUE=URI:/calendars/users/home1/some-dropbox-id/some-dropbox-id/caldavd.plist
+X-APPLE-DROPBOX:/calendars/users/home1/dropbox/some-dropbox-id
+END:VEVENT
+END:VCALENDAR
+    """.strip().split("\n"))
+
+
+    @inlineCallbacks
+    def setUp(self):
+        yield super(DropBoxAttachmentTests, self).setUp()
+
+        # Need to tweak config and settings to setup dropbox to work
+        self.patch(config, "EnableDropBox", True)
+        self.patch(config, "EnableManagedAttachments", False)
+        self._sqlCalendarStore.enableManagedAttachments = False
+
+        txn = self._sqlCalendarStore.newTransaction()
+        cs = schema.CALENDARSERVER
+        yield Delete(
+            From=cs,
+            Where=cs.NAME == "MANAGED-ATTACHMENTS"
+        ).on(txn)
+        yield txn.commit()
+
+
+    @inlineCallbacks
+    def createAttachmentTest(self, refresh):
+        """
+        Common logic for attachment-creation tests.
+        """
+        obj = yield self.calendarObjectUnderTest()
+        attachment = yield obj.createAttachmentWithName(
+            "new.attachment",
+        )
+        t = attachment.store(MimeType("text", "x-fixture"), "")
+        self.assertProvides(IAttachmentStorageTransport, t)
+        t.write("new attachment")
+        t.write(" text")
+        yield t.loseConnection()
+        obj = yield refresh(obj)
+        attachment = yield obj.attachmentWithName("new.attachment")
+        self.assertProvides(IAttachment, attachment)
+        data = yield self.attachmentToString(attachment)
+        self.assertEquals(data, "new attachment text")
+        contentType = attachment.contentType()
+        self.assertIsInstance(contentType, MimeType)
+        self.assertEquals(contentType, MimeType("text", "x-fixture"))
+        self.assertEquals(attachment.md5(), '50a9f27aeed9247a0833f30a631f1858')
+        self.assertEquals(
+            [attachment.name() for attachment in (yield obj.attachments())],
+            ['new.attachment']
+        )
+
+
+    @inlineCallbacks
+    def stringToAttachment(self, obj, name, contents,
+                           mimeType=MimeType("text", "x-fixture")):
+        """
+        Convenience for producing an attachment from a calendar object.
+
+        @param obj: the calendar object which owns the dropbox associated with
+            the to-be-created attachment.
+
+        @param name: the (utf-8 encoded) name to create the attachment with.
+
+        @type name: C{bytes}
+
+        @param contents: the desired contents of the new attachment.
+
+        @type contents: C{bytes}
+
+        @param mimeType: the mime type of the incoming bytes.
+
+        @return: a L{Deferred} that fires with the L{IAttachment} that is
+            created, once all the bytes have been stored.
+        """
+        att = yield obj.createAttachmentWithName(name)
+        t = att.store(mimeType, "")
+        t.write(contents)
+        yield t.loseConnection()
+        returnValue(att)
+
+
+    def attachmentToString(self, attachment):
+        """
+        Convenience to convert an L{IAttachment} to a string.
+
+        @param attachment: an L{IAttachment} provider to convert into a string.
+
+        @return: a L{Deferred} that fires with the contents of the attachment.
+
+        @rtype: L{Deferred} firing C{bytes}
+        """
+        capture = CaptureProtocol()
+        attachment.retrieve(capture)
+        return capture.deferred
+
+
+    @inlineCallbacks
+    def test_attachmentPath(self):
+        """
+        L{ICalendarObject.createAttachmentWithName} will store an
+        L{IAttachment} object that can be retrieved by
+        L{ICalendarObject.attachmentWithName}.
+        """
+        yield self.createAttachmentTest(lambda x: x)
+        attachmentRoot = (
+            yield self.calendarObjectUnderTest()
+        )._txn._store.attachmentsPath
+        obj = yield self.calendarObjectUnderTest()
+        hasheduid = hashlib.md5(obj._dropboxID).hexdigest()
+        attachmentPath = attachmentRoot.child(
+            hasheduid[0:2]).child(hasheduid[2:4]).child(hasheduid).child(
+                "new.attachment")
+        self.assertTrue(attachmentPath.isfile())
+
+
+    @inlineCallbacks
+    def test_dropboxID(self):
+        """
+        L{ICalendarObject.dropboxID} should synthesize its dropbox from the X
+        -APPLE-DROPBOX property, if available.
+        """
+        cal = yield self.calendarUnderTest()
+        yield cal.createCalendarObjectWithName("drop.ics", Component.fromString(
+                self.eventWithDropbox
+            )
+        )
+        obj = yield cal.calendarObjectWithName("drop.ics")
+        self.assertEquals((yield obj.dropboxID()), "some-dropbox-id")
+
+
+    @inlineCallbacks
+    def test_dropboxIDs(self):
+        """
+        L{ICalendarObject.getAllDropboxIDs} returns a L{Deferred} that fires
+        with a C{list} of all Dropbox IDs.
+        """
+        home = yield self.homeUnderTest()
+        # The only item in the home which has an ATTACH or X-APPLE-DROPBOX
+        # property.
+        allDropboxIDs = set([
+            u'FE5CDC6F-7776-4607-83A9-B90FF7ACC8D0.dropbox',
+        ])
+        self.assertEquals(set((yield home.getAllDropboxIDs())),
+                          allDropboxIDs)
+
+
+    @inlineCallbacks
+    def test_indexByDropboxProperty(self):
+        """
+        L{ICalendarHome.calendarObjectWithDropboxID} will return a calendar
+        object in the calendar home with the given final segment in its C{X
+        -APPLE-DROPBOX} property URI.
+        """
+        objName = "with-dropbox.ics"
+        cal = yield self.calendarUnderTest()
+        yield cal.createCalendarObjectWithName(
+            objName, Component.fromString(
+                self.eventWithDropbox
+            )
+        )
+        yield self.commit()
+        home = yield self.homeUnderTest()
+        cal = yield self.calendarUnderTest()
+        fromName = yield cal.calendarObjectWithName(objName)
+        fromDropbox = yield home.calendarObjectWithDropboxID("some-dropbox-id")
+        self.assertEquals(fromName, fromDropbox)
+
+
+    @inlineCallbacks
+    def test_twoAttachmentsWithTheSameName(self):
+        """
+        Attachments are uniquely identified by their associated object and path;
+        two attachments with the same name won't overwrite each other.
+        """
+        obj = yield self.calendarObjectUnderTest()
+        obj2 = yield self.calendarObjectUnderTest("2.ics")
+        att1 = yield self.stringToAttachment(obj, "sample.attachment",
+                                             "test data 1")
+        att2 = yield self.stringToAttachment(obj2, "sample.attachment",
+                                             "test data 2")
+        data1 = yield self.attachmentToString(att1)
+        data2 = yield self.attachmentToString(att2)
+        self.assertEquals(data1, "test data 1")
+        self.assertEquals(data2, "test data 2")
+
+
+    def test_createAttachment(self):
+        """
+        L{ICalendarObject.createAttachmentWithName} will store an
+        L{IAttachment} object that can be retrieved by
+        L{ICalendarObject.attachmentWithName}.
+        """
+        return self.createAttachmentTest(lambda x: x)
+
+
+    def test_createAttachmentCommit(self):
+        """
+        L{ICalendarObject.createAttachmentWithName} will store an
+        L{IAttachment} object that can be retrieved by
+        L{ICalendarObject.attachmentWithName} in subsequent transactions.
+        """
+        @inlineCallbacks
+        def refresh(obj):
+            yield self.commit()
+            result = yield self.calendarObjectUnderTest()
+            returnValue(result)
+        return self.createAttachmentTest(refresh)
+
+
+    @inlineCallbacks
+    def test_attachmentTemporaryFileCleanup(self):
+        """
+        L{IAttachmentStream} object cleans-up its temporary file on txn abort.
+        """
+        obj = yield self.calendarObjectUnderTest()
+        attachment = yield obj.createAttachmentWithName(
+            "new.attachment",
+        )
+        t = attachment.store(MimeType("text", "x-fixture"))
+
+        temp = t._path.path
+
+        yield self.abort()
+
+        self.assertFalse(os.path.exists(temp))
+
+        obj = yield self.calendarObjectUnderTest()
+        attachment = yield obj.createAttachmentWithName(
+            "new.attachment",
+        )
+        t = attachment.store(MimeType("text", "x-fixture"))
+
+        temp = t._path.path
+        os.remove(temp)
+
+        yield self.abort()
+
+        self.assertFalse(os.path.exists(temp))
+
+
+    @inlineCallbacks
+    def test_quotaAllowedBytes(self):
+        """
+        L{ICalendarHome.quotaAllowedBytes} should return the configuration value
+        passed to the calendar store's constructor.
+        """
+        expected = deriveQuota(self)
+        home = yield self.homeUnderTest()
+        actual = home.quotaAllowedBytes()
+        self.assertEquals(expected, actual)
+
+
+    @withSpecialQuota(None)
+    @inlineCallbacks
+    def test_quotaUnlimited(self):
+        """
+        When L{ICalendarHome.quotaAllowedBytes} returns C{None}, quota is
+        unlimited; any sized attachment can be stored.
+        """
+        home = yield self.homeUnderTest()
+        allowed = home.quotaAllowedBytes()
+        self.assertIdentical(allowed, None)
+        yield self.test_createAttachment()
+
+
+    @inlineCallbacks
+    def test_quotaTransportAddress(self):
+        """
+        Since L{IAttachmentStorageTransport} is a subinterface of L{ITransport},
+        it must provide peer and host addresses.
+        """
+        obj = yield self.calendarObjectUnderTest()
+        name = 'a-fun-attachment'
+        attachment = yield obj.createAttachmentWithName(name)
+        transport = attachment.store(MimeType("test", "x-something"), "")
+        peer = transport.getPeer()
+        host = transport.getHost()
+        self.assertIdentical(peer.attachment, attachment)
+        self.assertIdentical(host.attachment, attachment)
+        self.assertIn(name, repr(peer))
+        self.assertIn(name, repr(host))
+
+
+    @inlineCallbacks
+    def exceedQuotaTest(self, getit):
+        """
+        If too many bytes are passed to the transport returned by
+        L{ICalendarObject.createAttachmentWithName},
+        L{IAttachmentStorageTransport.loseConnection} will return a L{Deferred}
+        that fails with L{QuotaExceeded}.
+        """
+        home = yield self.homeUnderTest()
+        attachment = yield getit()
+        t = attachment.store(MimeType("text", "x-fixture"), "")
+        sample = "all work and no play makes jack a dull boy"
+        chunk = (sample * (home.quotaAllowedBytes() / len(sample)))
+
+        t.write(chunk)
+        t.writeSequence([chunk, chunk])
+
+        d = t.loseConnection()
+        yield self.failUnlessFailure(d, QuotaExceeded)
+
+
+    @inlineCallbacks
+    def test_exceedQuotaNew(self):
+        """
+        When quota is exceeded on a new attachment, that attachment will no
+        longer exist.
+        """
+        obj = yield self.calendarObjectUnderTest()
+        yield self.exceedQuotaTest(
+            lambda: obj.createAttachmentWithName("too-big.attachment")
+        )
+        self.assertEquals((yield obj.attachments()), [])
+        yield self.commit()
+        obj = yield self.calendarObjectUnderTest()
+        self.assertEquals((yield obj.attachments()), [])
+
+
+    @inlineCallbacks
+    def test_exceedQuotaReplace(self):
+        """
+        When quota is exceeded while replacing an attachment, that attachment's
+        contents will not be replaced.
+        """
+        obj = yield self.calendarObjectUnderTest()
+        create = lambda: obj.createAttachmentWithName("exists.attachment")
+        get = lambda: obj.attachmentWithName("exists.attachment")
+        attachment = yield create()
+        t = attachment.store(MimeType("text", "x-fixture"), "")
+        sampleData = "a reasonably sized attachment"
+        t.write(sampleData)
+        yield t.loseConnection()
+        yield self.exceedQuotaTest(get)
+        @inlineCallbacks
+        def checkOriginal():
+            actual = yield self.attachmentToString(attachment)
+            expected = sampleData
+            # note: 60 is less than len(expected); trimming is just to make
+            # the error message look sane when the test fails.
+            actual = actual[:60]
+            self.assertEquals(actual, expected)
+        yield checkOriginal()
+        yield self.commit()
+        # Make sure that things go back to normal after a commit of that
+        # transaction.
+        obj = yield self.calendarObjectUnderTest()
+        attachment = yield get()
+        yield checkOriginal()
+
+
+    def test_removeAttachmentWithName(self, refresh=lambda x: x):
+        """
+        L{ICalendarObject.removeAttachmentWithName} will remove the calendar
+        object with the given name.
+        """
+        @inlineCallbacks
+        def deleteIt(ignored):
+            obj = yield self.calendarObjectUnderTest()
+            yield obj.removeAttachmentWithName("new.attachment")
+            obj = yield refresh(obj)
+            self.assertIdentical(
+                None, (yield obj.attachmentWithName("new.attachment"))
+            )
+            self.assertEquals(list((yield obj.attachments())), [])
+        return self.test_createAttachmentCommit().addCallback(deleteIt)
+
+
+    def test_removeAttachmentWithNameCommit(self):
+        """
+        L{ICalendarObject.removeAttachmentWithName} will remove the calendar
+        object with the given name.  (After commit, it will still be gone.)
+        """
+        @inlineCallbacks
+        def refresh(obj):
+            yield self.commit()
+            result = yield self.calendarObjectUnderTest()
+            returnValue(result)
+        return self.test_removeAttachmentWithName(refresh)
+
+
+    @inlineCallbacks
+    def test_noDropboxCalendar(self):
+        """
+        L{ICalendarObject.createAttachmentWithName} may create a directory
+        named 'dropbox', but this should not be seen as a calendar by
+        L{ICalendarHome.calendarWithName} or L{ICalendarHome.calendars}.
+        """
+        obj = yield self.calendarObjectUnderTest()
+        attachment = yield obj.createAttachmentWithName(
+            "new.attachment",
+        )
+        t = attachment.store(MimeType("text", "plain"), "")
+        t.write("new attachment text")
+        yield t.loseConnection()
+        yield self.commit()
+        home = (yield self.homeUnderTest())
+        calendars = (yield home.calendars())
+        self.assertEquals((yield home.calendarWithName("dropbox")), None)
+        self.assertEquals(
+            set([n.name() for n in calendars]),
+            set(home1_calendarNames))
+
+
+    @inlineCallbacks
+    def test_cleanupAttachments(self):
+        """
+        L{ICalendarObject.remove} will remove an associated calendar
+        attachment.
+        """
+
+        # Create attachment
+        obj = yield self.calendarObjectUnderTest()
+        attachment = yield obj.createAttachmentWithName(
+            "new.attachment",
+        )
+        t = attachment.store(MimeType("text", "x-fixture"))
+        t.write("new attachment")
+        t.write(" text")
+        yield t.loseConnection()
+        apath = attachment._path.path
+        yield self.commit()
+
+        self.assertTrue(os.path.exists(apath))
+
+        home = (yield self.transactionUnderTest().calendarHomeWithUID("home1"))
+        quota = (yield home.quotaUsedBytes())
+        yield self.commit()
+        self.assertNotEqual(quota, 0)
+
+        # Remove resource
+        obj = yield self.calendarObjectUnderTest()
+        yield obj.remove()
+        yield self.commit()
+
+        self.assertFalse(os.path.exists(apath))
+
+        home = (yield self.transactionUnderTest().calendarHomeWithUID("home1"))
+        quota = (yield home.quotaUsedBytes())
+        yield self.commit()
+        self.assertEqual(quota, 0)
+
+
+    @inlineCallbacks
+    def test_cleanupMultipleAttachments(self):
+        """
+        L{ICalendarObject.remove} will remove all associated calendar
+        attachments.
+        """
+
+        # Create attachment
+        obj = yield self.calendarObjectUnderTest()
+
+        attachment = yield obj.createAttachmentWithName(
+            "new.attachment",
+        )
+        t = attachment.store(MimeType("text", "x-fixture"))
+        t.write("new attachment")
+        t.write(" text")
+        yield t.loseConnection()
+        apath1 = attachment._path.path
+
+        attachment = yield obj.createAttachmentWithName(
+            "new.attachment2",
+        )
+        t = attachment.store(MimeType("text", "x-fixture"))
+        t.write("new attachment 2")
+        t.write(" text")
+        yield t.loseConnection()
+        apath2 = attachment._path.path
+
+        yield self.commit()
+
+        self.assertTrue(os.path.exists(apath1))
+        self.assertTrue(os.path.exists(apath2))
+
+        home = (yield self.transactionUnderTest().calendarHomeWithUID("home1"))
+        quota = (yield home.quotaUsedBytes())
+        yield self.commit()
+        self.assertNotEqual(quota, 0)
+
+        # Remove resource
+        obj = yield self.calendarObjectUnderTest()
+        yield obj.remove()
+        yield self.commit()
+
+        self.assertFalse(os.path.exists(apath1))
+        self.assertFalse(os.path.exists(apath2))
+
+        home = (yield self.transactionUnderTest().calendarHomeWithUID("home1"))
+        quota = (yield home.quotaUsedBytes())
+        yield self.commit()
+        self.assertEqual(quota, 0)
+
+
+    @inlineCallbacks
+    def test_cleanupAttachmentsOnMultipleResources(self):
+        """
+        L{ICalendarObject.remove} will remove all associated calendar
+        attachments unless used in another resource.
+        """
+
+        # Create attachment
+        obj = yield self.calendarObjectUnderTest()
+
+        attachment = yield obj.createAttachmentWithName(
+            "new.attachment",
+        )
+        t = attachment.store(MimeType("text", "x-fixture"))
+        t.write("new attachment")
+        t.write(" text")
+        yield t.loseConnection()
+        apath = attachment._path.path
+
+        new_component = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Apple Inc.//iCal 4.0.1//EN
+CALSCALE:GREGORIAN
+BEGIN:VTIMEZONE
+TZID:US/Pacific
+BEGIN:DAYLIGHT
+TZOFFSETFROM:-0800
+RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=2SU
+DTSTART:20070311T020000
+TZNAME:PDT
+TZOFFSETTO:-0700
+END:DAYLIGHT
+BEGIN:STANDARD
+TZOFFSETFROM:-0700
+RRULE:FREQ=YEARLY;BYMONTH=11;BYDAY=1SU
+DTSTART:20071104T020000
+TZNAME:PST
+TZOFFSETTO:-0800
+END:STANDARD
+END:VTIMEZONE
+BEGIN:VEVENT
+ATTENDEE;CN="Wilfredo Sanchez";CUTYPE=INDIVIDUAL;PARTSTAT=ACCEPTED:mailt
+ o:wsanchez@example.com
+ATTENDEE;CN="Cyrus Daboo";CUTYPE=INDIVIDUAL;PARTSTAT=ACCEPTED:mailto:cda
+ boo@example.com
+DTEND;TZID=US/Pacific:%(now)s0324T124500
+TRANSP:OPAQUE
+ORGANIZER;CN="Wilfredo Sanchez":mailto:wsanchez@example.com
+UID:uid1-attachmenttest
+DTSTAMP:20090326T145447Z
+LOCATION:Wilfredo's Office
+SEQUENCE:2
+X-APPLE-EWS-BUSYSTATUS:BUSY
+X-APPLE-DROPBOX:/calendars/__uids__/user01/dropbox/FE5CDC6F-7776-4607-83
+ A9-B90FF7ACC8D0.dropbox
+SUMMARY:CalDAV protocol updates
+DTSTART;TZID=US/Pacific:%(now)s0324T121500
+CREATED:20090326T145440Z
+BEGIN:VALARM
+X-WR-ALARMUID:DB39AB67-449C-441C-89D2-D740B5F41A73
+TRIGGER;VALUE=DATE-TIME:%(now)s0324T180009Z
+ACTION:AUDIO
+END:VALARM
+END:VEVENT
+END:VCALENDAR
+""".replace("\n", "\r\n") % {"now": 2012}
+
+        calendar = yield self.calendarUnderTest()
+        yield calendar.createCalendarObjectWithName(
+            "test.ics", Component.fromString(new_component)
+        )
+
+        yield self.commit()
+
+        self.assertTrue(os.path.exists(apath))
+
+        home = (yield self.transactionUnderTest().calendarHomeWithUID("home1"))
+        quota = (yield home.quotaUsedBytes())
+        yield self.commit()
+        self.assertNotEqual(quota, 0)
+
+        # Remove resource
+        obj = yield self.calendarObjectUnderTest()
+        yield obj.remove()
+        yield self.commit()
+
+        self.assertTrue(os.path.exists(apath))
+
+        home = (yield self.transactionUnderTest().calendarHomeWithUID("home1"))
+        quota = (yield home.quotaUsedBytes())
+        yield self.commit()
+        self.assertNotEqual(quota, 0)
+
+        # Remove resource
+        obj = yield self.calendarObjectUnderTest("test.ics")
+        yield obj.remove()
+        yield self.commit()
+
+        self.assertFalse(os.path.exists(apath))
+
+        home = (yield self.transactionUnderTest().calendarHomeWithUID("home1"))
+        quota = (yield home.quotaUsedBytes())
+        yield self.commit()
+        self.assertEqual(quota, 0)
+
+
+
+class ManagedAttachmentTests(AttachmentTests):
+
+    @inlineCallbacks
+    def setUp(self):
+        yield super(ManagedAttachmentTests, self).setUp()
+
+        # Need to tweak config and settings to setup dropbox to work
+        self.patch(config, "EnableDropBox", False)
+        self.patch(config, "EnableManagedAttachments", True)
+        self._sqlCalendarStore.enableManagedAttachments = True
+
+
+    @inlineCallbacks
+    def createAttachmentTest(self, refresh):
+        """
+        Common logic for attachment-creation tests.
+        """
+        obj = yield self.calendarObjectUnderTest()
+        attachment = yield obj.createManagedAttachment()
+        mid = attachment.managedID()
+        t = attachment.store(MimeType("text", "x-fixture"), "new.attachment")
+        self.assertProvides(IAttachmentStorageTransport, t)
+        t.write("new attachment")
+        t.write(" text")
+        yield t.loseConnection()
+        obj = yield refresh(obj)
+        attachment = yield obj.attachmentWithManagedID(mid)
+        self.assertProvides(IAttachment, attachment)
+        data = yield self.attachmentToString(attachment)
+        self.assertEquals(data, "new attachment text")
+        contentType = attachment.contentType()
+        self.assertIsInstance(contentType, MimeType)
+        self.assertEquals(contentType, MimeType("text", "x-fixture"))
+        self.assertEquals(attachment.md5(), '50a9f27aeed9247a0833f30a631f1858')
+        self.assertEquals(
+            (yield obj.managedAttachmentList()),
+            ['new-%s.attachment' % (mid[:8],)]
+        )
+
+        returnValue(mid)
+
+
+    @inlineCallbacks
+    def stringToAttachment(self, obj, name, contents,
+                           mimeType=MimeType("text", "x-fixture")):
+        """
+        Convenience for producing an attachment from a calendar object.
+
+        @param obj: the calendar object which owns the dropbox associated with
+            the to-be-created attachment.
+
+        @param name: the (utf-8 encoded) name to create the attachment with.
+
+        @type name: C{bytes}
+
+        @param contents: the desired contents of the new attachment.
+
+        @type contents: C{bytes}
+
+        @param mimeType: the mime type of the incoming bytes.
+
+        @return: a L{Deferred} that fires with the L{IAttachment} that is
+            created, once all the bytes have been stored.
+        """
+        att = yield obj.createManagedAttachment()
+        t = att.store(mimeType, name)
+        t.write(contents)
+        yield t.loseConnection()
+        returnValue(att)
+
+
+    def attachmentToString(self, attachment):
+        """
+        Convenience to convert an L{IAttachment} to a string.
+
+        @param attachment: an L{IAttachment} provider to convert into a string.
+
+        @return: a L{Deferred} that fires with the contents of the attachment.
+
+        @rtype: L{Deferred} firing C{bytes}
+        """
+        capture = CaptureProtocol()
+        attachment.retrieve(capture)
+        return capture.deferred
+
+
+    @inlineCallbacks
+    def test_attachmentPath(self):
+        """
+        L{ICalendarObject.createManagedAttachment} will store an
+        L{IAttachment} object that can be retrieved by
+        L{ICalendarObject.attachmentWithManagedID}.
+        """
+
+        mid = yield self.createAttachmentTest(lambda x: x)
+        obj = yield self.calendarObjectUnderTest()
+        attachment = yield obj.attachmentWithManagedID(mid)
+        hasheduid = hashlib.md5(str(attachment._attachmentID)).hexdigest()
+
+        attachmentRoot = (
+            yield self.calendarObjectUnderTest()
+        )._txn._store.attachmentsPath
+        attachmentPath = attachmentRoot.child(
+            hasheduid[0:2]).child(hasheduid[2:4]).child(hasheduid)
+        self.assertTrue(attachmentPath.isfile())
+
+
+    @inlineCallbacks
+    def test_twoAttachmentsWithTheSameName(self):
+        """
+        Attachments are uniquely identified by their associated object and path;
+        two attachments with the same name won't overwrite each other.
+        """
+        obj = yield self.calendarObjectUnderTest()
+        obj2 = yield self.calendarObjectUnderTest("2.ics")
+        att1 = yield self.stringToAttachment(obj, "sample.attachment",
+                                             "test data 1")
+        att2 = yield self.stringToAttachment(obj2, "sample.attachment",
+                                             "test data 2")
+        data1 = yield self.attachmentToString(att1)
+        data2 = yield self.attachmentToString(att2)
+        self.assertEquals(data1, "test data 1")
+        self.assertEquals(data2, "test data 2")
+
+
+    def test_createAttachment(self):
+        """
+        L{ICalendarObject.createManagedAttachment} will store an
+        L{IAttachment} object that can be retrieved by
+        L{ICalendarObject.attachmentWithManagedID}.
+        """
+        return self.createAttachmentTest(lambda x: x)
+
+
+    def test_createAttachmentCommit(self):
+        """
+        L{ICalendarObject.createManagedAttachment} will store an
+        L{IAttachment} object that can be retrieved by
+        L{ICalendarObject.attachmentWithManagedID} in subsequent transactions.
+        """
+        @inlineCallbacks
+        def refresh(obj):
+            yield self.commit()
+            result = yield self.calendarObjectUnderTest()
+            returnValue(result)
+        return self.createAttachmentTest(refresh)
+
+
+    @inlineCallbacks
+    def test_attachmentTemporaryFileCleanup(self):
+        """
+        L{IAttachmentStream} object cleans-up its temporary file on txn abort.
+        """
+        obj = yield self.calendarObjectUnderTest()
+        attachment = yield obj.createManagedAttachment()
+        t = attachment.store(MimeType("text", "x-fixture"), "new.attachment")
+
+        temp = t._path.path
+
+        yield self.abort()
+
+        self.assertFalse(os.path.exists(temp))
+
+        obj = yield self.calendarObjectUnderTest()
+        attachment = yield obj.createManagedAttachment()
+        t = attachment.store(MimeType("text", "x-fixture"), "new.attachment")
+
+        temp = t._path.path
+        os.remove(temp)
+
+        yield self.abort()
+
+        self.assertFalse(os.path.exists(temp))
+
+
+    @inlineCallbacks
+    def test_quotaAllowedBytes(self):
+        """
+        L{ICalendarHome.quotaAllowedBytes} should return the configuration value
+        passed to the calendar store's constructor.
+        """
+        expected = deriveQuota(self)
+        home = yield self.homeUnderTest()
+        actual = home.quotaAllowedBytes()
+        self.assertEquals(expected, actual)
+
+
+    @withSpecialQuota(None)
+    @inlineCallbacks
+    def test_quotaUnlimited(self):
+        """
+        When L{ICalendarHome.quotaAllowedBytes} returns C{None}, quota is
+        unlimited; any sized attachment can be stored.
+        """
+        home = yield self.homeUnderTest()
+        allowed = home.quotaAllowedBytes()
+        self.assertIdentical(allowed, None)
+        yield self.test_createAttachment()
+
+
+    @inlineCallbacks
+    def test_quotaTransportAddress(self):
+        """
+        Since L{IAttachmentStorageTransport} is a subinterface of L{ITransport},
+        it must provide peer and host addresses.
+        """
+        obj = yield self.calendarObjectUnderTest()
+        name = 'a-fun-attachment'
+        attachment = yield obj.createManagedAttachment()
+        transport = attachment.store(MimeType("test", "x-something"), name)
+        peer = transport.getPeer()
+        host = transport.getHost()
+        self.assertIdentical(peer.attachment, attachment)
+        self.assertIdentical(host.attachment, attachment)
+        self.assertIn(name, repr(peer))
+        self.assertIn(name, repr(host))
+
+
+    @inlineCallbacks
+    def exceedQuotaTest(self, getit, name):
+        """
+        If too many bytes are passed to the transport returned by
+        L{ICalendarObject.createManagedAttachment},
+        L{IAttachmentStorageTransport.loseConnection} will return a L{Deferred}
+        that fails with L{QuotaExceeded}.
+        """
+        home = yield self.homeUnderTest()
+        attachment = yield getit()
+        t = attachment.store(MimeType("text", "x-fixture"), name)
+        sample = "all work and no play makes jack a dull boy"
+        chunk = (sample * (home.quotaAllowedBytes() / len(sample)))
+
+        t.write(chunk)
+        t.writeSequence([chunk, chunk])
+
+        d = t.loseConnection()
+        yield self.failUnlessFailure(d, QuotaExceeded)
+
+
+    @inlineCallbacks
+    def test_exceedQuotaNew(self):
+        """
+        When quota is exceeded on a new attachment, that attachment will no
+        longer exist.
+        """
+        obj = yield self.calendarObjectUnderTest()
+        yield self.exceedQuotaTest(
+            lambda: obj.createManagedAttachment(), "too-big.attachment"
+        )
+        self.assertEquals((yield obj.managedAttachmentList()), [])
+        yield self.commit()
+        obj = yield self.calendarObjectUnderTest()
+        self.assertEquals((yield obj.managedAttachmentList()), [])
+
+
+    @inlineCallbacks
+    def test_exceedQuotaReplace(self):
+        """
+        When quota is exceeded while replacing an attachment, that attachment's
+        contents will not be replaced.
+        """
+        obj = yield self.calendarObjectUnderTest()
+        create = lambda: obj.createManagedAttachment()
+        attachment = yield create()
+        get = lambda: obj.attachmentWithManagedID(attachment.managedID())
+        t = attachment.store(MimeType("text", "x-fixture"), "new.attachment")
+        sampleData = "a reasonably sized attachment"
+        t.write(sampleData)
+        yield t.loseConnection()
+        yield self.exceedQuotaTest(get, "exists.attachment")
+        @inlineCallbacks
+        def checkOriginal():
+            actual = yield self.attachmentToString(attachment)
+            expected = sampleData
+            # note: 60 is less than len(expected); trimming is just to make
+            # the error message look sane when the test fails.
+            actual = actual[:60]
+            self.assertEquals(actual, expected)
+        yield checkOriginal()
+        yield self.commit()
+        # Make sure that things go back to normal after a commit of that
+        # transaction.
+        obj = yield self.calendarObjectUnderTest()
+        attachment = yield get()
+        yield checkOriginal()
+
+
+    def test_removeManagedAttachmentWithID(self, refresh=lambda x: x):
+        """
+        L{ICalendarObject.removeManagedAttachmentWithID} will remove the calendar
+        object with the given managed-id.
+        """
+        @inlineCallbacks
+        def deleteIt(mid):
+            obj = yield self.calendarObjectUnderTest()
+            yield obj.removeManagedAttachmentWithID(mid)
+            obj = yield refresh(obj)
+            self.assertIdentical(
+                None, (yield obj.attachmentWithManagedID(mid))
+            )
+            self.assertEquals(list((yield obj.managedAttachmentList())), [])
+        return self.test_createAttachmentCommit().addCallback(deleteIt)
+
+
+    def test_removeManagedAttachmentWithIDCommit(self):
+        """
+        L{ICalendarObject.removeManagedAttachmentWithID} will remove the calendar
+        object with the given managed-id.  (After commit, it will still be gone.)
+        """
+        @inlineCallbacks
+        def refresh(obj):
+            yield self.commit()
+            result = yield self.calendarObjectUnderTest()
+            returnValue(result)
+        return self.test_removeManagedAttachmentWithID(refresh)
+
+
+    @inlineCallbacks
+    def test_noDropboxCalendar(self):
+        """
+        L{ICalendarObject.createManagedAttachment} may create a directory
+        named 'dropbox', but this should not be seen as a calendar by
+        L{ICalendarHome.calendarWithName} or L{ICalendarHome.calendars}.
+        """
+        obj = yield self.calendarObjectUnderTest()
+        attachment = yield obj.createManagedAttachment()
+        t = attachment.store(MimeType("text", "plain"), "new.attachment")
+        t.write("new attachment text")
+        yield t.loseConnection()
+        yield self.commit()
+        home = (yield self.homeUnderTest())
+        calendars = (yield home.calendars())
+        self.assertEquals((yield home.calendarWithName("dropbox")), None)
+        self.assertEquals(
+            set([n.name() for n in calendars]),
+            set(home1_calendarNames))
+
+
+    @inlineCallbacks
+    def test_cleanupAttachments(self):
+        """
+        L{ICalendarObject.remove} will remove an associated calendar
+        attachment.
+        """
+
+        # Create attachment
+        obj = yield self.calendarObjectUnderTest()
+        attachment = yield obj.createManagedAttachment()
+        t = attachment.store(MimeType("text", "x-fixture"), "new.attachment")
+        t.write("new attachment")
+        t.write(" text")
+        yield t.loseConnection()
+        apath = attachment._path.path
+        yield self.commit()
+
+        self.assertTrue(os.path.exists(apath))
+
+        home = (yield self.transactionUnderTest().calendarHomeWithUID("home1"))
+        quota = (yield home.quotaUsedBytes())
+        yield self.commit()
+        self.assertNotEqual(quota, 0)
+
+        # Remove resource
+        obj = yield self.calendarObjectUnderTest()
+        yield obj.remove()
+        yield self.commit()
+
+        self.assertFalse(os.path.exists(apath))
+
+        home = (yield self.transactionUnderTest().calendarHomeWithUID("home1"))
+        quota = (yield home.quotaUsedBytes())
+        yield self.commit()
+        self.assertEqual(quota, 0)
+
+
+    @inlineCallbacks
+    def test_cleanupMultipleAttachments(self):
+        """
+        L{ICalendarObject.remove} will remove all associated calendar
+        attachments.
+        """
+
+        # Create attachment
+        obj = yield self.calendarObjectUnderTest()
+
+        attachment = yield obj.createManagedAttachment()
+        t = attachment.store(MimeType("text", "x-fixture"), "new.attachment")
+        t.write("new attachment")
+        t.write(" text")
+        yield t.loseConnection()
+        apath1 = attachment._path.path
+
+        attachment = yield obj.createManagedAttachment()
+        t = attachment.store(MimeType("text", "x-fixture"), "new.attachment2")
+        t.write("new attachment 2")
+        t.write(" text")
+        yield t.loseConnection()
+        apath2 = attachment._path.path
+
+        yield self.commit()
+
+        self.assertTrue(os.path.exists(apath1))
+        self.assertTrue(os.path.exists(apath2))
+
+        home = (yield self.transactionUnderTest().calendarHomeWithUID("home1"))
+        quota = (yield home.quotaUsedBytes())
+        yield self.commit()
+        self.assertNotEqual(quota, 0)
+
+        # Remove resource
+        obj = yield self.calendarObjectUnderTest()
+        yield obj.remove()
+        yield self.commit()
+
+        self.assertFalse(os.path.exists(apath1))
+        self.assertFalse(os.path.exists(apath2))
+
+        home = (yield self.transactionUnderTest().calendarHomeWithUID("home1"))
+        quota = (yield home.quotaUsedBytes())
+        yield self.commit()
+        self.assertEqual(quota, 0)
+
+
+    @inlineCallbacks
+    def test_cleanupAttachmentsOnMultipleResources(self):
+        """
+        L{ICalendarObject.remove} will remove all associated calendar
+        attachments unless used in another resource.
+        """
+
+        # Create attachment
+        obj = yield self.calendarObjectUnderTest()
+        cdata = yield obj.component()
+
+        attachment, _ignore_location = yield obj.addAttachment(None, MimeType("text", "x-fixture"), "new.attachment", MemoryStream("new attachment text"), cdata)
+        mid = attachment.managedID()
+        apath = attachment._path.path
+
+        newcdata = Component.fromString(str(cdata).replace("uid1", "uid1-attached"))
+        calendar = yield self.calendarUnderTest()
+        cobj = yield calendar.createCalendarObjectWithName(
+            "test.ics", newcdata
+        )
+        yield cobj.copyResourceAttachments(((mid, str(uuid.uuid4()),),))
+        yield self.commit()
+
+        self.assertTrue(os.path.exists(apath))
+
+        home = (yield self.transactionUnderTest().calendarHomeWithUID("home1"))
+        quota = (yield home.quotaUsedBytes())
+        yield self.commit()
+        self.assertNotEqual(quota, 0)
+
+        # Remove resource
+        obj = yield self.calendarObjectUnderTest()
+        yield obj.remove()
+        yield self.commit()
+
+        self.assertTrue(os.path.exists(apath))
+
+        home = (yield self.transactionUnderTest().calendarHomeWithUID("home1"))
+        quota = (yield home.quotaUsedBytes())
+        yield self.commit()
+        self.assertNotEqual(quota, 0)
+
+        # Remove resource
+        obj = yield self.calendarObjectUnderTest("test.ics")
+        yield obj.remove()
+        yield self.commit()
+
+        self.assertFalse(os.path.exists(apath))
+
+        home = (yield self.transactionUnderTest().calendarHomeWithUID("home1"))
+        quota = (yield home.quotaUsedBytes())
+        yield self.commit()
+        self.assertEqual(quota, 0)
+
+
 
 now = PyCalendarDateTime.getToday().getYear()
 

@@ -615,6 +615,36 @@ class CommonCommonTests(object):
         raise NotImplementedError("CommonCommonTests subclasses must implement.")
 
 
+    @inlineCallbacks
+    def homeUnderTest(self, txn=None, name="home1"):
+        """
+        Get the calendar home detailed by C{requirements['home1']}.
+        """
+        if txn is None:
+            txn = self.transactionUnderTest()
+        returnValue((yield txn.calendarHomeWithUID(name)))
+
+
+    @inlineCallbacks
+    def calendarUnderTest(self, txn=None, name="calendar_1", home="home1"):
+        """
+        Get the calendar detailed by C{requirements['home1']['calendar_1']}.
+        """
+        returnValue((yield
+            (yield self.homeUnderTest(txn, home)).calendarWithName(name))
+        )
+
+
+    @inlineCallbacks
+    def calendarObjectUnderTest(self, name="1.ics", txn=None):
+        """
+        Get the calendar detailed by
+        C{requirements['home1']['calendar_1'][name]}.
+        """
+        returnValue((yield (yield self.calendarUnderTest(txn))
+                     .calendarObjectWithName(name)))
+
+
 
 class StubNodeCacher(object):
 
