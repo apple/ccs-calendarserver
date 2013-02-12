@@ -218,7 +218,7 @@ END:VCALENDAR
         self.assertEquals(contentType, MimeType("text", "x-fixture"))
         self.assertEquals(attachment.md5(), '50a9f27aeed9247a0833f30a631f1858')
         self.assertEquals(
-            [attachment.name() for attachment in (yield obj.attachments())],
+            [_attachment.name() for _attachment in (yield obj.attachments())],
             ['new.attachment']
         )
 

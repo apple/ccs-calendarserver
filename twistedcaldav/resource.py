@@ -1450,7 +1450,7 @@ class CalDAVResource (
 
                         # Always test against the current etag first just in case schedule-etags is out of sync
                         etag = (yield self.etag())
-                        etags = (etag,) + tuple([http_headers.ETag(etag) for etag in etags])
+                        etags = (etag,) + tuple([http_headers.ETag(schedule_etag) for schedule_etag in etags])
 
                         # Loop over each tag and succeed if any one matches, else re-raise last exception
                         exists = self.exists()
@@ -1974,7 +1974,7 @@ class CalendarPrincipalResource (CalDAVComplianceMixIn, DAVResourceWithChildrenM
         elif namespace == carddav_namespace and self.addressBooksEnabled():
             if name == "addressbook-home-set":
                 returnValue(carddavxml.AddressBookHomeSet(
-                    *[element.HRef(url) for url in self.addressBookHomeURLs()]
+                    *[element.HRef(abhome_url) for abhome_url in self.addressBookHomeURLs()]
                  ))
             elif name == "directory-gateway" and self.directoryAddressBookEnabled():
                 returnValue(carddavxml.DirectoryGateway(

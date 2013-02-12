@@ -1282,17 +1282,17 @@ def _updateACLs(configDict, reloading=False):
 
     configDict.AdminACEs = tuple(
         davxml.ACE(
-            davxml.Principal(davxml.HRef(principal)),
+            davxml.Principal(davxml.HRef(admin_principal)),
             davxml.Grant(davxml.Privilege(davxml.All())),
             davxml.Protected(),
             TwistedACLInheritable(),
         )
-        for principal in configDict.AdminPrincipals
+        for admin_principal in configDict.AdminPrincipals
     )
 
     configDict.ReadACEs = tuple(
         davxml.ACE(
-            davxml.Principal(davxml.HRef(principal)),
+            davxml.Principal(davxml.HRef(read_principal)),
             davxml.Grant(
                 davxml.Privilege(davxml.Read()),
                 davxml.Privilege(davxml.ReadCurrentUserPrivilegeSet()),
@@ -1300,7 +1300,7 @@ def _updateACLs(configDict, reloading=False):
             davxml.Protected(),
             TwistedACLInheritable(),
         )
-        for principal in configDict.ReadPrincipals
+        for read_principal in configDict.ReadPrincipals
     )
 
     configDict.RootResourceACL = davxml.ACL(
@@ -1320,7 +1320,7 @@ def _updateACLs(configDict, reloading=False):
         # Add read and read-acl access for admins
         * [
             davxml.ACE(
-                davxml.Principal(davxml.HRef(principal)),
+                davxml.Principal(davxml.HRef(_principal)),
                 davxml.Grant(
                     davxml.Privilege(davxml.Read()),
                     davxml.Privilege(davxml.ReadACL()),
@@ -1328,7 +1328,7 @@ def _updateACLs(configDict, reloading=False):
                 ),
                 davxml.Protected(),
             )
-            for principal in configDict.AdminPrincipals
+            for _principal in configDict.AdminPrincipals
         ]
     )
 

@@ -142,7 +142,7 @@ class ProxyPrincipals (twistedcaldav.test.util.TestCase):
     def _proxyForTest(self, recordType, recordName, expectedProxies, read_write):
         principal = self._getPrincipalByShortName(recordType, recordName)
         proxies = (yield principal.proxyFor(read_write))
-        proxies = sorted([principal.displayName() for principal in proxies])
+        proxies = sorted([_principal.displayName() for _principal in proxies])
         self.assertEquals(proxies, sorted(expectedProxies))
 
 

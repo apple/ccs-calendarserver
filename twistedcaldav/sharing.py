@@ -516,7 +516,7 @@ class SharedCollectionMixin(object):
         if type(cn) is not list:
             cn = [cn]
 
-        dl = [self.inviteSingleUserToShare(user, cn, ace, summary, request) for user, cn in zip(userid, cn)]
+        dl = [self.inviteSingleUserToShare(_user, _cn, ace, summary, request) for _user, _cn in zip(userid, cn)]
         return self._processShareActionList(dl, resultIsList)
 
 
@@ -546,7 +546,7 @@ class SharedCollectionMixin(object):
         if type(cn) is not list:
             cn = [cn]
 
-        dl = [self.inviteSingleUserUpdateToShare(user, cn, aceOLD, aceNEW, summary, request) for user, cn in zip(userid, cn)]
+        dl = [self.inviteSingleUserUpdateToShare(_user, _cn, aceOLD, aceNEW, summary, request) for _user, _cn in zip(userid, cn)]
         return self._processShareActionList(dl, resultIsList)
 
 
