@@ -21,6 +21,7 @@ XML directory service implementation.
 """
 
 __all__ = [
+    "ParseError",
     "DirectoryService",
     "DirectoryRecord",
 ]
@@ -43,6 +44,17 @@ from twext.who.idirectory import DirectoryQueryMatchExpression
 from twext.who.directory import DirectoryService as BaseDirectoryService
 from twext.who.directory import DirectoryRecord as BaseDirectoryRecord
 from twext.who.directory import MergedConstants
+
+
+
+##
+# Exceptions
+##
+
+class ParseError(DirectoryServiceError):
+    """
+    Parse error.
+    """
 
 
 
@@ -225,7 +237,7 @@ class DirectoryService(BaseDirectoryService):
             try:
                 etree = parseXML(fh)
             except XMLParseError as e:
-                raise DirectoryServiceError(e.getMessage())
+                raise ParseError(e)
         finally:
             fh.close()
 
@@ -234,12 +246,12 @@ class DirectoryService(BaseDirectoryService):
         #
         directoryNode = etree.getroot()
         if directoryNode.tag != self.element.directory.value:
-            raise DirectoryServiceError("Incorrect root element: %s" % (directoryNode.tag,))
+            raise ParseError("Incorrect root element: %s" % (directoryNode.tag,))
 
         realmName = directoryNode.get(self.attribute.realm.value, "").encode("utf-8")
 
         if not realmName:
-            raise DirectoryServiceError("No realm name.")
+            raise ParseError("No realm name.")
 
         unknownRecordTypes   = set()
         unknownFieldElements = set()

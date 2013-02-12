@@ -24,6 +24,7 @@ from twisted.python.filepath import FilePath
 from twisted.internet.defer import inlineCallbacks
 
 from twext.who.idirectory import NoSuchRecordError
+from twext.who.xml import ParseError
 from twext.who.xml import DirectoryService, DirectoryRecord
 
 from twext.who.test import test_directory
@@ -185,9 +186,11 @@ class DirectoryServiceTest(BaseTest, test_directory.DirectoryServiceTest):
 
     def test_reloadInterval(self):
         service = self._testService()
+
         service.loadRecords(stat=False)
         lastRefresh = service._lastRefresh
         self.assertTrue(service._lastRefresh)
+
         sleep(1)
         service.loadRecords(stat=False)
         self.assertEquals(lastRefresh, service._lastRefresh)
@@ -195,12 +198,54 @@ class DirectoryServiceTest(BaseTest, test_directory.DirectoryServiceTest):
 
     def test_reloadStat(self):
         service = self._testService()
+
         service.loadRecords(loadNow=True)
         lastRefresh = service._lastRefresh
         self.assertTrue(service._lastRefresh)
+
         sleep(1)
         service.loadRecords(loadNow=True)
         self.assertEquals(lastRefresh, service._lastRefresh)
+
+
+    def test_badXML(self):
+        service = self._testService(xmlData="Hello")
+
+        self.assertRaises(ParseError, service.loadRecords)
+
+
+    def test_badRootElement(self):
+        service = self._testService(xmlData=
+"""<?xml version="1.0" encoding="utf-8"?>
+
+<frobnitz />
+"""
+        )
+
+        self.assertRaises(ParseError, service.loadRecords)
+        try:
+            service.loadRecords()
+        except ParseError as e:
+            self.assertTrue(str(e).startswith("Incorrect root element"), e)
+        else:
+            raise AssertionError
+
+
+    def test_noRealmName(self):
+        service = self._testService(xmlData=
+"""<?xml version="1.0" encoding="utf-8"?>
+
+<directory />
+"""
+        )
+
+        self.assertRaises(ParseError, service.loadRecords)
+        try:
+            service.loadRecords()
+        except ParseError as e:
+            self.assertTrue(str(e).startswith("No realm name"), e)
+        else:
+            raise AssertionError
 
 
     @inlineCallbacks
