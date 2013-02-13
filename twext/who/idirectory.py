@@ -37,8 +37,6 @@ __all__ = [
     "IDirectoryRecord",
 ]
 
-from uuid import UUID
-
 from zope.interface import Attribute, Interface
 
 from twisted.python.constants import Names, NamedConstant
@@ -125,9 +123,6 @@ class FieldName(Names):
     @staticmethod
     def isMultiValue(name):
         return getattr(name, "multiValue", False)
-
-    guid.normalize           = lambda g: UUID(g).hex
-    emailAddresses.normalize = lambda e: e.lower()
 
 
 

@@ -23,6 +23,8 @@ __all__ = [
     "DirectoryRecord",
 ]
 
+from uuid import UUID
+
 from zope.interface import implements
 
 from twisted.python.util import FancyEqMixin
@@ -47,6 +49,11 @@ class DirectoryService(FancyEqMixin, object):
 
     recordType = MergedConstants(RecordType)
     fieldName  = MergedConstants(FieldName)
+
+    fieldNormalizer = {
+        FieldName.guid:           lambda g: UUID(g).hex,
+        FieldName.emailAddresses: lambda e: e.lower(),
+    }
 
 
     def __init__(self, realmName):
@@ -167,7 +174,7 @@ class DirectoryRecord(FancyEqMixin, object):
         # Normalize fields
         normalizedFields = {}
         for name, value in fields.items():
-            normalize = getattr(name, "normalize", None)
+            normalize = service.fieldNormalizer.get(name, None)
 
             if normalize is None:
                 normalizedFields[name] = value
