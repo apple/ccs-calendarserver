@@ -2803,8 +2803,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic, HomeChildBas
         bind = cls._bindSchema
         child = cls._homeChildSchema
         childMetaData = cls._homeChildMetaDataSchema
-        columns = cls._bindColumns
-        columns = columns.extend(cls.metadataColumns())
+        columns = cls._bindColumns + list(cls.metadataColumns())
         return Select(columns,
                      From=child.join(
                          bind, child.RESOURCE_ID == bind.RESOURCE_ID,
@@ -3488,23 +3487,6 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic, HomeChildBas
         self._objects.pop(uid, None)
         yield self._deleteRevision(name)
         yield self.notifyChanged()
-
-
-    @classproperty
-    def _moveParentUpdateQuery(cls, adjustName=False): #@NoSelf
-        """
-        DAL query to update a child to be in a new parent.
-        """
-        obj = cls._objectSchema
-        cols = {
-            obj.PARENT_RESOURCE_ID: Parameter("newParentID")
-        }
-        if adjustName:
-            cols[obj.RESOURCE_NAME] = Parameter("newName")
-        return Update(
-            cols,
-            Where=obj.RESOURCE_ID == Parameter("resourceID")
-        )
 
 
     def _movedObjectResource(self, child, newparent):
