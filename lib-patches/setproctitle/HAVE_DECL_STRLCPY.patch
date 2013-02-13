@@ -1,0 +1,12 @@
+diff -ur ./src/spt_config.h ../setproctitle-1.1.6.patched/src/spt_config.h
+--- ./src/spt_config.h	2012-04-27 03:00:09.000000000 -0700
++++ ../setproctitle-1.1.6.patched/src/spt_config.h	2013-02-13 14:53:20.000000000 -0800
+@@ -15,7 +15,7 @@
+ 
+ /* Define to 1 if you have the declaration of `strlcpy', and to 0 if you
+    don't. */
+-#define HAVE_DECL_STRLCPY 0
++#define HAVE_DECL_STRLCPY 1
+ 
+ /* GCC 4.0 and later have support for specifying symbol visibility */
+ #if __GNUC__ >= 4 && !defined(__MINGW32__)
