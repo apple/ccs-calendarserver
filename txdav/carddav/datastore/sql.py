@@ -622,18 +622,25 @@ END:VCARD
         bindRows = yield cls._acceptedBindForNameAndHomeID.on(home._txn, name=bindName, homeID=home._resourceID)
         if bindRows:
             bindMode, homeID, resourceID, bindName, bindStatus, bindMessage = bindRows[0] #@UnusedVariable
-            #TODO: use childWithName, since it is cached by querycacher
-            returnValue((yield home.childWithID(resourceID)))
+            # use childWithName, since it is cached by querycacher
+            # returnValue((yield home.childWithID(resourceID)))
+            ownerHomeID = yield cls.ownerHomeID(home._txn, resourceID)
+            ownerHome = yield home._txn.homeWithResourceID(home._homeType, ownerHomeID)
+            ownerAddressBook = yield ownerHome.addressbook()
+            returnValue((yield home.childWithName(ownerAddressBook.shareeABName())))
+
 
         groupBindRows = yield AddressBookObject._acceptedBindForNameAndHomeID.on(home._txn, name=bindName, homeID=home._resourceID)
         if groupBindRows:
             bindMode, homeID, resourceID, bindName, bindStatus, bindMessage = groupBindRows[0] #@UnusedVariable
             ownerAddressBookIDRows = yield AddressBookObject._parentIDForObjectID.on(home._txn, objectID=resourceID)
-            #TODO: use childWithName, since it is cached by querycacher
-            sharedAB = yield cls.objectWithID(home, ownerAddressBookIDRows[0][0])
-            #sharedAB = yield home.childWithID(ownerAddressBookIDRows[0][0])
-            result = yield sharedAB.objectResourceWithID(resourceID)
-            returnValue(result)
+            # use childWithName, since it is cached by querycacher
+            # addressbook = yield cls.objectWithID(home, ownerAddressBookIDRows[0][0])
+            ownerHomeID = yield cls.ownerHomeID(home._txn, ownerAddressBookIDRows[0][0])
+            ownerHome = yield home._txn.homeWithResourceID(home._homeType, ownerHomeID)
+            ownerAddressBook = yield ownerHome.addressbook()
+            addressbook = yield home.childWithName(ownerAddressBook.shareeABName())
+            returnValue((yield addressbook.objectResourceWithID(resourceID)))
 
         returnValue(None)
 
