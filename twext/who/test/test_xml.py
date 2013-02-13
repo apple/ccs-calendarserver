@@ -25,7 +25,7 @@ from twisted.internet.defer import inlineCallbacks
 
 from twext.who.idirectory import NoSuchRecordError
 from twext.who.idirectory import DirectoryQueryMatchExpression
-from twext.who.idirectory import Operand, QueryFlags
+from twext.who.idirectory import Operand, MatchType, QueryFlags
 from twext.who.xml import ParseError
 from twext.who.xml import DirectoryService, DirectoryRecord
 
@@ -425,6 +425,88 @@ class DirectoryServiceTest(BaseTest, test_directory.DirectoryServiceTest):
         )
 
     test_queryCaseInsensitive.todo = "Not implemented."
+
+
+    @inlineCallbacks
+    def test_noIndexQueryStartsWith(self):
+        service = self._testService()
+        records = yield service.recordsFromQuery(
+            (
+                DirectoryQueryMatchExpression(
+                    service.fieldName.fullNames,
+                    "Wilfredo",
+                    matchType = MatchType.startsWith,
+                ),
+            ),
+        )
+        self.assertEquals(
+            set((record.uid for record in records)),
+            set(("__wsanchez__",)),
+        )
+
+    test_noIndexQueryStartsWith.todo = "Not implemented."
+
+
+    @inlineCallbacks
+    def test_noIndexQueryStartsWithCaseInsensitive(self):
+        service = self._testService()
+        records = yield service.recordsFromQuery(
+            (
+                DirectoryQueryMatchExpression(
+                    service.fieldName.fullNames,
+                    "wilfrEdo",
+                    matchType = MatchType.startsWith,
+                    flags = QueryFlags.caseInsensitive,
+                ),
+            ),
+        )
+        self.assertEquals(
+            set((record.uid for record in records)),
+            set(("__wsanchez__",)),
+        )
+
+    test_noIndexQueryStartsWithCaseInsensitive.todo = "Not implemented."
+
+
+    @inlineCallbacks
+    def test_noIndexQueryContains(self):
+        service = self._testService()
+        records = yield service.recordsFromQuery(
+            (
+                DirectoryQueryMatchExpression(
+                    service.fieldName.fullNames,
+                    "fredo",
+                    matchType = MatchType.contains,
+                ),
+            ),
+        )
+        self.assertEquals(
+            set((record.uid for record in records)),
+            set(("__wsanchez__",)),
+        )
+
+    test_noIndexQueryContains.todo = "Not implemented."
+
+
+    @inlineCallbacks
+    def test_noIndexQueryContainsCaseInsensitive(self):
+        service = self._testService()
+        records = yield service.recordsFromQuery(
+            (
+                DirectoryQueryMatchExpression(
+                    service.fieldName.fullNames,
+                    "frEdo",
+                    matchType = MatchType.contains,
+                    flags = QueryFlags.caseInsensitive,
+                ),
+            ),
+        )
+        self.assertEquals(
+            set((record.uid for record in records)),
+            set(("__wsanchez__",)),
+        )
+
+    test_noIndexQueryContainsCaseInsensitive.todo = "Not implemented."
 
 
     def test_unknownRecordTypesClean(self):
