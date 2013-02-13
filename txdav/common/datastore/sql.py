@@ -2342,7 +2342,7 @@ class SharingMixIn(object):
 
 
     @classproperty
-    def _invitedBindForResourceID(cls): #@NoSelf
+    def _unacceptedBindForResourceID(cls): #@NoSelf
         bind = cls._bindSchema
         return cls._bindFor((bind.RESOURCE_ID == Parameter("resourceID"))
                             .And(bind.BIND_STATUS != _BIND_STATUS_ACCEPTED)
@@ -2443,8 +2443,7 @@ class SharingMixIn(object):
             will be used as the default display name.
         @type mode: L{str}
 
-        @return: the name of the shared home child in the new home.
-        @rtype: L{CommonHomeChild}
+        @rtype: a L{Deferred} which fires with a L{ICalendar} if the sharee item
         """
 
         yield self._shareWith(shareeHome, mode, status=status, message=message)
@@ -2510,10 +2509,10 @@ class SharingMixIn(object):
                         )
 
             #update affected attributes
-            if mode:
+            if mode is not None:
                 shareeView._bindMode = columnMap[bind.BIND_MODE]
 
-            if status:
+            if status is not None:
                 shareeView._bindStatus = columnMap[bind.BIND_STATUS]
                 if shareeView._bindStatus == _BIND_STATUS_ACCEPTED:
                     yield shareeView._initSyncToken()
@@ -2521,7 +2520,7 @@ class SharingMixIn(object):
                     shareeView._deletedSyncToken(sharedRemoval=True)
                     shareeView._home._children.pop(shareeView._name, None)
 
-            if message:
+            if message is not None:
                 shareeView._bindMessage = columnMap[bind.MESSAGE]
 
             queryCacher = self._txn._queryCacher
@@ -2562,6 +2561,8 @@ class SharingMixIn(object):
         @return: a L{Deferred} which will fire with the previously-used name.
         """
 
+        resourceName = None
+
         #remove sync tokens
         shareeChildren = yield shareeHome.children()
         for shareeChild in shareeChildren:
@@ -2573,18 +2574,17 @@ class SharingMixIn(object):
                     cacheKey = queryCacher.keyForObjectWithName(shareeHome._resourceID, shareeChild._name)
                     queryCacher.invalidateAfterCommit(self._txn, cacheKey)
 
+                resourceName = shareeChild._name
+                shareeHome._children.pop(resourceName, None)
+
+                # Must send notification to ensure cache invalidation occurs
+                yield self.notifyChanged()
+
                 break
 
-        rows = yield self._deleteBindWithResourceIDAndHomeID.on(self._txn, resourceID=self._resourceID,
+        # delete binds including invites
+        yield self._deleteBindWithResourceIDAndHomeID.on(self._txn, resourceID=self._resourceID,
              homeID=shareeHome._resourceID)
-
-        resourceName = None
-        if rows:
-            resourceName = rows[0][0]
-            shareeHome._children.pop(resourceName, None)
-
-        # Must send notification to ensure cache invalidation occurs
-        yield self.notifyChanged()
 
         returnValue(resourceName)
 
@@ -2640,7 +2640,7 @@ class SharingMixIn(object):
         if not self.owned():
             returnValue([])
 
-        rows = yield self._invitedBindForResourceID.on(
+        rows = yield self._unacceptedBindForResourceID.on(
             self._txn, resourceID=self._resourceID,
         )
         cls = self._home._childClass # for ease of grepping...
@@ -3351,11 +3351,11 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic, HomeChildBas
         if resourceID in self._objects:
             return succeed(self._objects[resourceID])
         else:
-            return self._makeObjectResource(resourceID=resourceID, cache=False)
+            return self._makeObjectResource(resourceID=resourceID)
 
 
     @inlineCallbacks
-    def _makeObjectResource(self, name=None, uid=None, resourceID=None, cache=True):
+    def _makeObjectResource(self, name=None, uid=None, resourceID=None):
         """
         We create the empty object first then have it initialize itself from the
         store.
@@ -3368,7 +3368,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic, HomeChildBas
             objectResource = (
                 yield self._objectResourceClass.objectWithName(self, name, uid)
             )
-        if objectResource and cache:
+        if objectResource:
             self._objects[objectResource.name()] = objectResource
             self._objects[objectResource.uid()] = objectResource
             self._objects[objectResource._resourceID] = objectResource

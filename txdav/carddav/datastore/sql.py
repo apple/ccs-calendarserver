@@ -471,6 +471,7 @@ END:VCARD
             if ownerHomeID not in ownerHomeIDToDataRowMap:
                 groupBindRow[0] = _BIND_MODE_WRITE
                 groupBindRow[3] = None # bindName
+                groupBindRow[4] = None # bindStatus
                 groupBindRow[5] = None # bindMessage
                 ownerHomeIDToDataRowMap[ownerHomeID] = groupBindRow
 
@@ -578,6 +579,7 @@ END:VCARD
                         groupBindRow = groupBindRows[0]
                         groupBindRow[0] = _BIND_MODE_WRITE
                         groupBindRow[3] = None # bindName
+                        groupBindRow[4] = None # bindStatus
                         groupBindRow[5] = None # bindMessage
                         groupBindRow.append(ownerHome._resourceID)
                         rows = [groupBindRow]
@@ -663,15 +665,20 @@ END:VCARD
                 yield child.initFromStore()
                 returnValue(child)
         else:
-
-            groupBindRows = yield AddressBookObject._bindWithHomeIDAndAddressBookID.on(
+            # TODO: do one query
+            groupBindRows = yield AddressBookObject._invitedBindWithHomeIDAndAddressBookID.on(
                     home._txn, homeID=home._resourceID, addressbookID=resourceID
             )
+            if not groupBindRows:
+                groupBindRows = yield AddressBookObject._acceptedBindWithHomeIDAndAddressBookID.on(
+                        home._txn, homeID=home._resourceID, addressbookID=resourceID
+                )
             if groupBindRows:
                 #bindMode, homeID, resourceID, bindName, bindStatus, bindMessage = groupBindRows[0] #@UnusedVariable
                 groupBindRow = groupBindRows[0]
                 groupBindRow[0] = _BIND_MODE_WRITE
                 groupBindRow[3] = None # bindName
+                groupBindRow[4] = None # bindStatus
                 groupBindRow[5] = None # bindMessage
                 rows = [groupBindRow]
 
@@ -735,7 +742,7 @@ END:VCARD
 
 
     def fullyShared(self):
-        return bool(self._bindName)
+        return not self.owned() and self._bindStatus == _BIND_STATUS_ACCEPTED
 
 
     @classmethod
@@ -845,6 +852,91 @@ END:VCARD
 
 
     @inlineCallbacks
+    def updateShare(self, shareeView, mode=None, status=None, message=None, name=None):
+        """
+        Update share mode, status, and message for a home child shared with
+        this (owned) L{CommonHomeChild}.
+
+        @param shareeView: The sharee home child that shares this.
+        @type shareeView: L{CommonHomeChild}
+
+        @param mode: The sharing mode; L{_BIND_MODE_READ} or
+            L{_BIND_MODE_WRITE} or None to not update
+        @type mode: L{str}
+
+        @param status: The sharing status; L{_BIND_STATUS_INVITED} or
+            L{_BIND_STATUS_ACCEPTED} or L{_BIND_STATUS_DECLINED} or
+            L{_BIND_STATUS_INVALID}  or None to not update
+        @type status: L{str}
+
+        @param message: The proposed message to go along with the share, which
+            will be used as the default display name, or None to not update
+        @type message: L{str}
+
+        @param name: The bind resource name or None to not update
+        @type message: L{str}
+
+        @return: the name of the shared item in the sharee's home.
+        @rtype: a L{Deferred} which fires with a L{str}
+        """
+        # TODO: raise a nice exception if shareeView is not, in fact, a shared
+        # version of this same L{CommonHomeChild}
+
+        #remove None parameters, and substitute None for empty string
+        bind = self._bindSchema
+        columnMap = dict([(k, v if v else None)
+                          for k, v in {bind.BIND_MODE:mode,
+                            bind.BIND_STATUS:status,
+                            bind.MESSAGE:message,
+                            bind.RESOURCE_NAME:name}.iteritems() if v is not None])
+
+        if len(columnMap):
+
+            # count accepted 
+            if status is not None:
+                previouslyAcceptedBinds = 1 if shareeView.fullyShared() else 0
+                previouslyAcceptedBinds += len((yield AddressBookObject._acceptedBindWithHomeIDAndAddressBookID.on(
+                        self._txn, homeID=shareeView._home._resourceID, addressbookID=shareeView._resourceID
+                )))
+
+            #TODO:  with bit of parameter wrangling, call shareWith() here instead.
+            sharedname = yield self._updateBindColumnsQuery(columnMap).on(
+                            self._txn,
+                            resourceID=self._resourceID, homeID=shareeView._home._resourceID
+                        )
+
+            #update affected attributes
+            if mode is not None:
+                shareeView._bindMode = columnMap[bind.BIND_MODE]
+
+            if status is not None:
+                shareeView._bindStatus = columnMap[bind.BIND_STATUS]
+                if shareeView._bindStatus == _BIND_STATUS_ACCEPTED:
+                    if 0 == previouslyAcceptedBinds:
+                        yield shareeView._initSyncToken()
+                elif shareeView._bindStatus == _BIND_STATUS_DECLINED:
+                    if 1 == previouslyAcceptedBinds:
+                        shareeView._deletedSyncToken(sharedRemoval=True)
+                        shareeView._home._children.pop(shareeView._name, None)
+
+
+            if message is not None:
+                shareeView._bindMessage = columnMap[bind.MESSAGE]
+
+            queryCacher = self._txn._queryCacher
+            if queryCacher:
+                cacheKey = queryCacher.keyForObjectWithName(shareeView._home._resourceID, shareeView._name)
+                queryCacher.invalidateAfterCommit(self._txn, cacheKey)
+
+            shareeView._name = sharedname[0][0]
+
+            # Must send notification to ensure cache invalidation occurs
+            yield self.notifyChanged()
+
+        returnValue(shareeView._name)
+
+
+    @inlineCallbacks
     def asShared(self):
         """
         Retrieve all the versions of this L{CommonHomeChild} as it is shared to
@@ -873,6 +965,7 @@ END:VCARD
             if homeID not in homeIDToBindRowMap:
                 groupBindRow[0] = _BIND_MODE_WRITE
                 groupBindRow[3] = None # bindName
+                groupBindRow[4] = None # bindStatus
                 groupBindRow[5] = None # bindMessage
                 homeIDToBindRowMap[homeID] = groupBindRow
 
@@ -910,12 +1003,12 @@ END:VCARD
             returnValue([])
 
         # get all accepted shared binds
-        rows = yield self._invitedBindForResourceID.on(
-            self._txn, resourceID=self._resourceID, homeID=self._home._resourceID
+        rows = yield self._unacceptedBindForResourceID.on(
+            self._txn, resourceID=self._resourceID
         )
         homeIDToBindRowMap = dict([(row[1], row) for row in rows])
 
-        groupBindRows = yield AddressBookObject._invitedBindWithAddressBookID.on(
+        groupBindRows = yield AddressBookObject._unacceptedBindWithAddressBookID.on(
                 self._txn, addressbookID=self._resourceID
         )
         for groupBindRow in groupBindRows:
@@ -923,6 +1016,7 @@ END:VCARD
             if homeID not in homeIDToBindRowMap:
                 groupBindRow[0] = _BIND_MODE_WRITE
                 groupBindRow[3] = None # bindName
+                groupBindRow[4] = None # bindStatus
                 groupBindRow[5] = None # bindMessage
                 homeIDToBindRowMap[homeID] = groupBindRow
                 break
@@ -958,32 +1052,31 @@ END:VCARD
 
         @return: a L{Deferred} which will fire with the previously-used name.
         """
-        sharedAddressBook = yield shareeHome.addressbookWithName(self.shareeABName())
-        if not sharedAddressBook:
-            returnValue(None)
+        resourceName = None
 
-        sharedRemoval = False
-        if sharedAddressBook.fullyShared():
-            groupIDs = yield sharedAddressBook.acceptedGroupIDs()
-            sharedRemoval = not bool(len(groupIDs))
-            if sharedRemoval:
-                sharedAddressBook._deletedSyncToken(sharedRemoval=True)
+        sharedAddressBook = yield shareeHome.addressbookWithName(self.shareeABName())
+        if sharedAddressBook:
+
+            sharedRemoval = False
+            if sharedAddressBook.fullyShared():
+                acceptedGroupBinds = len((yield AddressBookObject._acceptedBindWithHomeIDAndAddressBookID.on(
+                        self._txn, homeID=sharedAddressBook._home._resourceID, addressbookID=sharedAddressBook._resourceID
+                )))
+                sharedRemoval = acceptedGroupBinds == 0
+                if sharedRemoval:
+                    sharedAddressBook._deletedSyncToken(sharedRemoval=True)
+                    shareeHome._children.pop(resourceName, None)
+
+            # Must send notification to ensure cache invalidation occurs
+            yield self.notifyChanged()
 
         queryCacher = self._txn._queryCacher
         if queryCacher:
             cacheKey = queryCacher.keyForObjectWithName(shareeHome._resourceID, self.shareeABName())
             queryCacher.invalidateAfterCommit(self._txn, cacheKey)
 
-        rows = yield self._deleteBindWithResourceIDAndHomeID.on(self._txn, resourceID=self._resourceID,
+        yield self._deleteBindWithResourceIDAndHomeID.on(self._txn, resourceID=self._resourceID,
              homeID=shareeHome._resourceID)
-
-        resourceName = None
-        if rows and sharedRemoval:
-            resourceName = self.shareeABName()
-            shareeHome._children.pop(resourceName, None)
-
-        # Must send notification to ensure cache invalidation occurs
-        yield self.notifyChanged()
 
         returnValue(resourceName)
 
@@ -1005,6 +1098,10 @@ class AddressBookObject(CommonObjectResource, SharingMixIn):
         # super._objectText now contains the text as read of the database only,
         #     not including group member text
         self._component = None
+        self._bindMode = None
+        self._bindStatus = None
+        self._bindMessage = None
+        self._bindName = None
         super(AddressBookObject, self).__init__(addressbook, name, uid, resourceID)
 
 
@@ -1044,6 +1141,8 @@ class AddressBookObject(CommonObjectResource, SharingMixIn):
         else:
             # sharee cannot delete group representing shared address book
             if self._resourceID == self._addressbook._resourceID:
+                raise DeleteOfGroupForSharedAddressBookNotAllowedError
+            elif self._bindName:
                 raise DeleteOfGroupForSharedAddressBookNotAllowedError
 
         aboMembers = schema.ABO_MEMBERS
@@ -1165,8 +1264,8 @@ class AddressBookObject(CommonObjectResource, SharingMixIn):
                     self._txn, uid=self._uid,
                     resourceIDs=allowedObjectIDs,)) if allowedObjectIDs else []
             elif self._resourceID:
-                invitedGroupIDs = yield self._addressbook.invitedGroupIDs()
-                allowedObjectIDs = tuple(set(allowedObjectIDs) | set(invitedGroupIDs))
+                if self._resourceID not in allowedObjectIDs:
+                    allowedObjectIDs = yield self._addressbook.invitedGroupIDs()
                 rows = (yield self._allColumnsWithResourceID.on(
                     self._txn, resourceID=self._resourceID,)) if (self._resourceID in allowedObjectIDs) else []
 
@@ -1650,44 +1749,11 @@ class AddressBookObject(CommonObjectResource, SharingMixIn):
         return self._addressbook.viewerHome()
 
 
-    def shareMode(self):
-        """
-        @see: L{ICalendar.shareMode}
-        """
-        if hasattr(self, "_bindMode"):
-            return self._bindMode
-        else:
-            return self._addressbook.shareMode()
-
-
-    def shareStatus(self):
-        """
-        @see: L{ICalendar.shareStatus}
-        """
-        if hasattr(self, "_bindStatus"):
-            return self._bindStatus
-        else:
-            return self._addressbook.shareStatus()
-
-
-    def shareMessage(self):
-        """
-        @see: L{ICalendar.shareMessage}
-        """
-        if hasattr(self, "_bindMessage"):
-            return self._bindMessage
-        else:
-            return self._addressbook.shareMessage()
-
-
     def shareUID(self):
         """
         @see: L{ICalendar.shareUID}
         """
-        if hasattr(self, "_bindName"):
-            return self._bindName
-        else:
-            return self._addressbook.shareUID()
+        return self._bindName
 
 
     @classmethod
@@ -1747,8 +1813,7 @@ class AddressBookObject(CommonObjectResource, SharingMixIn):
             will be used as the default display name.
         @type mode: L{str}
 
-        @return: the name of the shared calendar in the new calendar home.
-        @rtype: L{str}
+        @rtype: a L{Deferred} which fires with a L{ICalendar} if the sharee item
         """
 
         yield self._shareWith(shareeHome, mode, status=status, message=message)
@@ -1806,15 +1871,15 @@ class AddressBookObject(CommonObjectResource, SharingMixIn):
             returnValue([])
 
         # get all accepted shared binds
-        groupBindRows = yield self._invitedBindForResourceID.on(
-            self._txn, resourceID=self._resourceID, homeID=self._home._resourceID
+        groupBindRows = yield self._unacceptedBindForResourceID.on(
+            self._txn, resourceID=self._resourceID
         )
 
         result = []
         for bindMode, homeID, resourceID, bindName, bindStatus, bindMessage in groupBindRows: #@UnusedVariable
             home = yield self._txn.homeWithResourceID(self._home._homeType, homeID)
             addressbook = yield home.childWithID(self._addressbook._resourceID)
-            new = yield addressbook.objectResourceWithID(resourceID)
+            new = yield AddressBookObject.objectWithID(addressbook, resourceID) # avoids object cache
             result.append(new)
 
         returnValue(result)
@@ -1844,33 +1909,32 @@ class AddressBookObject(CommonObjectResource, SharingMixIn):
         @return: a L{Deferred} which will fire with the previously-used name.
         """
 
+        resourceName = None
         sharedAddressBook = yield shareeHome.addressbookWithName(self._addressbook.shareeABName())
-        if not sharedAddressBook:
+        if sharedAddressBook:
             returnValue(None)
 
-        sharedRemoval = False
-        if not sharedAddressBook.fullyShared():
-            groupIDs = yield sharedAddressBook.acceptedGroupIDs()
-            assert self._resourceID in groupIDs
-            sharedRemoval = len(groupIDs) == 1
-            if sharedRemoval:
-                sharedAddressBook._deletedSyncToken(sharedRemoval=True)
+            sharedRemoval = False
+            if not sharedAddressBook.fullyShared():
+                acceptedGroupBinds = len((yield AddressBookObject._acceptedBindWithHomeIDAndAddressBookID.on(
+                        self._txn, homeID=sharedAddressBook._home._resourceID, addressbookID=sharedAddressBook._resourceID
+                )))
+                sharedRemoval = acceptedGroupBinds == 1
+                if sharedRemoval:
+                    sharedAddressBook._deletedSyncToken(sharedRemoval=True)
+                    shareeHome._children.pop(resourceName, None)
+
+                # Must send notification to ensure cache invalidation occurs
+                yield self._addressbook.notifyChanged()
 
         queryCacher = self._txn._queryCacher
         if queryCacher:
             cacheKey = queryCacher.keyForObjectWithName(shareeHome._resourceID, self._addressbook.shareeABName())
             queryCacher.invalidateAfterCommit(self._txn, cacheKey)
 
-        rows = yield self._deleteBindWithResourceIDAndHomeID.on(self._txn, resourceID=self._resourceID,
+        yield self._deleteBindWithResourceIDAndHomeID.on(self._txn, resourceID=self._resourceID,
              homeID=shareeHome._resourceID)
 
-        resourceName = None
-        if rows and sharedRemoval:
-            resourceName = rows[0][0]
-            shareeHome._children.pop(resourceName, None)
-
-        # Must send notification to ensure cache invalidation occurs
-        yield self._addressbook.notifyChanged()
 
         returnValue(resourceName)
 
@@ -1917,6 +1981,13 @@ class AddressBookObject(CommonObjectResource, SharingMixIn):
 
         if len(columnMap):
 
+            # count accepted 
+            if status is not None:
+                previouslyAcceptedBinds = 1 if shareeView._addressbook.fullyShared() else 0
+                previouslyAcceptedBinds += len((yield AddressBookObject._acceptedBindWithHomeIDAndAddressBookID.on(
+                        self._txn, homeID=shareeView._home._resourceID, addressbookID=shareeView._resourceID
+                )))
+
             #TODO:  with bit of parameter wrangling, call shareWith() here instead.
             sharedname = yield self._updateBindColumnsQuery(columnMap).on(
                             self._txn,
@@ -1924,20 +1995,23 @@ class AddressBookObject(CommonObjectResource, SharingMixIn):
                         )
 
             #update affected attributes
-            if mode:
+            if mode is not None:
                 shareeView._bindMode = columnMap[bind.BIND_MODE]
 
-            if status:
+            if status is not None:
                 shareeView._bindStatus = columnMap[bind.BIND_STATUS]
                 if shareeView._bindStatus == _BIND_STATUS_ACCEPTED:
-                    yield shareeView._addressbook._initSyncToken()
+                    if 0 == previouslyAcceptedBinds:
+                        yield shareeView._addressbook._initSyncToken()
                 elif shareeView._bindStatus == _BIND_STATUS_DECLINED:
-                    shareeView._addressbook._deletedSyncToken(sharedRemoval=True)
-                    shareeView._home._children.pop(shareeView._addressbook._name, None)
+                    if 1 == previouslyAcceptedBinds:
+                        shareeView._addressbook._deletedSyncToken(sharedRemoval=True)
+                        shareeView._home._children.pop(shareeView._addressbook._name, None)
 
-            if message:
+            if message is not None:
                 shareeView._bindMessage = columnMap[bind.MESSAGE]
 
+            # safer to just invalidate in all cases rather than calculate when to invalidate
             queryCacher = self._txn._queryCacher
             if queryCacher:
                 cacheKey = queryCacher.keyForObjectWithName(shareeView._home._resourceID, shareeView._addressbook._name)
@@ -1964,13 +2038,13 @@ class AddressBookObject(CommonObjectResource, SharingMixIn):
         )
 
     @classproperty
-    def _invitedBindWithAddressBookID(cls): #@NoSelf
+    def _unacceptedBindWithAddressBookID(cls): #@NoSelf
         bind = cls._bindSchema
         abo = cls._objectSchema
         return Select(
                   cls._bindColumns,
                   From=bind.join(abo),
-                  Where=(bind.BIND_STATUS == _BIND_STATUS_INVITED)
+                  Where=(bind.BIND_STATUS != _BIND_STATUS_ACCEPTED)
                         .And(bind.RESOURCE_ID == abo.RESOURCE_ID)
                         .And(abo.ADDRESSBOOK_RESOURCE_ID == Parameter("addressbookID"))
         )

@@ -546,7 +546,7 @@ class SharedResourceMixin(object):
         if not self.exists():
             returnValue([])
 
-        if not hasattr(self, "_invitations"):
+        if True:#not hasattr(self, "_invitations"):
 
             acceptedHomeChildren = yield self._newStoreObject.asShared()
             # remove direct shares (it might be OK not to remove these, but that would be different from legacy code)
@@ -685,10 +685,14 @@ class SharedResourceMixin(object):
             pass
         '''
 
+
         # Generate invite XML
         userid = "urn:uuid:" + invitation.shareeUID()
         state = notificationState if notificationState else invitation.state()
         summary = invitation.summary() if displayName is None else displayName
+
+
+        assert state != "DECLINED"
 
         typeAttr = {'shared-type': self.sharedResourceType()}
         xmltype = customxml.InviteNotification(**typeAttr)
