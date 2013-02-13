@@ -19,10 +19,12 @@ from plistlib import readPlist, writePlist
 SRC_CONFIG_DIR = "/Applications/Server.app/Contents/ServerRoot/private/etc/caldavd"
 CALENDAR_SERVER_ROOT = "/Library/Server/Calendar and Contacts"
 DEST_CONFIG_DIR = "%s/Config" % (CALENDAR_SERVER_ROOT,)
+DEST_DATA_DIR = "%s/Data" % (CALENDAR_SERVER_ROOT,)
 CALDAVD_PLIST = "caldavd.plist"
 USER_NAME = "calendar"
 GROUP_NAME = "calendar"
 LOG_DIR = "/var/log/caldavd"
+RUN_DIR = "/var/run/caldavd"
 
 
 def updatePlist(plistData):
@@ -57,19 +59,26 @@ def updatePlist(plistData):
 
 def main():
 
-    try:
-        # Create calendar ServerRoot
-        os.mkdir(CALENDAR_SERVER_ROOT)
-    except OSError:
-        # Already exists
-        pass
+    for dirName in (
+        CALENDAR_SERVER_ROOT,
+        DEST_CONFIG_DIR,
+        DEST_DATA_DIR,
+        LOG_DIR,
+        RUN_DIR
+    ):
+        try:
+            os.mkdir(dirName)
+        except OSError:
+            # Already exists
+            pass
 
-    try:
-        # Create calendar ConfigRoot
-        os.mkdir(DEST_CONFIG_DIR)
-    except OSError:
-        # Already exists
-        pass
+        try:
+            uid = getpwnam(USER_NAME).pw_uid
+            gid = getgrnam(GROUP_NAME).gr_gid
+            os.chown(dirName, uid, gid)
+        except Exception, e:
+            print "Unable to chown %s: %s" % (dirName, e)
+
 
     plistPath = os.path.join(DEST_CONFIG_DIR, CALDAVD_PLIST)
 
@@ -87,20 +96,6 @@ def main():
         srcPlistPath = os.path.join(SRC_CONFIG_DIR, CALDAVD_PLIST)
         shutil.copy(srcPlistPath, DEST_CONFIG_DIR)
 
-    # Create log directory
-    try:
-        os.mkdir(LOG_DIR, 0755)
-    except OSError:
-        # Already exists
-        pass
-
-    # Set ownership on log directory
-    try:
-        uid = getpwnam(USER_NAME).pw_uid
-        gid = getgrnam(GROUP_NAME).gr_gid
-        os.chown(LOG_DIR, uid, gid)
-    except Exception, e:
-        print "Unable to chown %s: %s" % (LOG_DIR, e)
 
 if __name__ == '__main__':
     main()
