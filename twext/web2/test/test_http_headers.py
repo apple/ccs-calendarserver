@@ -799,10 +799,10 @@ class DateTimeTest(unittest.TestCase):
 
     def testRoundtrip(self):
         for _ignore in range(2000):
-            time = random.randint(0, 2000000000)
-            timestr = http_headers.generateDateTime(time)
+            randomTime = random.randint(0, 2000000000)
+            timestr = http_headers.generateDateTime(randomTime)
             time2 = http_headers.parseDateTime(timestr)
-            self.assertEquals(time, time2)
+            self.assertEquals(randomTime, time2)
 
 
 

@@ -17,7 +17,13 @@
 from twisted.internet.task import Clock
 from twisted.words.protocols.jabber.client import IQ
 from twisted.words.protocols.jabber.error import StanzaError
-from twistedcaldav.notify import *
+from twistedcaldav.notify import Notifier, NotifierFactory
+from twistedcaldav.notify import NotificationClientFactory, Coalescer
+from twistedcaldav.notify import SimpleLineNotifier, SimpleLineNotificationFactory
+from twistedcaldav.notify import SimpleLineNotificationProtocol
+from twistedcaldav.notify import XMPPNotifier, XMPPNotificationFactory
+from twistedcaldav.notify import getPubSubConfiguration, getPubSubAPSConfiguration
+from twistedcaldav.notify import getXMPPSettings
 from twistedcaldav.config import Config
 from twistedcaldav.stdconfig import DEFAULT_CONFIG, PListConfigProvider
 from twistedcaldav.test.util import TestCase

@@ -16,7 +16,6 @@
 
 from calendarserver.push.util import PushScheduler
 from twext.python.log import Logger, LoggingMixIn
-from twext.python.log import LoggingMixIn
 from twisted.application.internet import StreamServerEndpointService
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.internet.endpoints import TCP4ClientEndpoint, TCP4ServerEndpoint
