@@ -22,6 +22,7 @@ __all__ = [
     "MergedConstants",
     "uniqueResult",
     "describe",
+    "iterFlags",
 ]
 
 from types import FunctionType
@@ -78,3 +79,9 @@ def uniqueResult(values):
 
 def describe(constant):
     return getattr(constant, "description", str(constant))
+
+
+def iterFlags(flags):
+    # Work around http://twistedmatrix.com/trac/ticket/6302
+    # FIXME: This depends on a private attribute (flags._container)
+    return (flags._container.lookupByName(name) for name in flags.names)
