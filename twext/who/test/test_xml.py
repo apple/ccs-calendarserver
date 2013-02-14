@@ -427,8 +427,6 @@ class DirectoryServiceTest(BaseTest, test_directory.DirectoryServiceTest):
         ))
         self.assertRecords(records, ("__wsanchez__",))
 
-    test_queryStartsWith.todo = "Not implemented."
-
 
     @inlineCallbacks
     def test_queryStartsWithNoIndex(self):
@@ -478,8 +476,6 @@ class DirectoryServiceTest(BaseTest, test_directory.DirectoryServiceTest):
             service.query("shortNames", "sanchez", matchType=MatchType.contains),
         ))
         self.assertRecords(records, ("__wsanchez__",))
-
-    test_queryContains.todo = "Not implemented."
 
 
     @inlineCallbacks
