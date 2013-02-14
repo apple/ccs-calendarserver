@@ -27,7 +27,6 @@ from uuid import UUID
 
 from zope.interface import implements
 
-from twisted.python.util import FancyEqMixin
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.internet.defer import succeed, fail
 
@@ -40,12 +39,8 @@ from twext.who.util import uniqueResult
 
 
 
-class DirectoryService(FancyEqMixin, object):
+class DirectoryService(object):
     implements(IDirectoryService)
-
-    compareAttributes = (
-        "realmName",
-    )
 
     recordType = RecordType
     fieldName  = FieldName
@@ -65,6 +60,19 @@ class DirectoryService(FancyEqMixin, object):
             self.__class__.__name__,
             self.realmName,
         )
+
+
+    def __eq__(self, other):
+        if IDirectoryService.implementedBy(other.__class__):
+            return self.realmName == other.realmName
+        return NotImplemented
+
+
+    def __ne__(self, other):
+        eq = self.__eq__(other)
+        if eq is NotImplemented:
+            return NotImplemented
+        return not eq
 
 
     def recordTypes(self):
@@ -142,7 +150,7 @@ class DirectoryService(FancyEqMixin, object):
 
 
 
-class DirectoryRecord(FancyEqMixin, object):
+class DirectoryRecord(object):
     implements(IDirectoryRecord)
 
     requiredFields = (
@@ -200,12 +208,19 @@ class DirectoryRecord(FancyEqMixin, object):
 
 
     def __eq__(self, other):
-        if isinstance(self, other.__class__):
+        if IDirectoryRecord.implementedBy(other.__class__):
             return (
                 self.service == other.service and
                 self.fields[FieldName.uid] == other.fields[FieldName.uid]
             )
         return NotImplemented
+
+
+    def __ne__(self, other):
+        eq = self.__eq__(other)
+        if eq is NotImplemented:
+            return NotImplemented
+        return not eq
 
 
     def __getattr__(self, name):
