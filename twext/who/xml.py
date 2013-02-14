@@ -39,11 +39,11 @@ from twisted.internet.defer import succeed, fail, inlineCallbacks, returnValue
 from twext.who.idirectory import DirectoryServiceError
 from twext.who.idirectory import NoSuchRecordError, UnknownRecordTypeError
 from twext.who.idirectory import RecordType, FieldName as BaseFieldName
-from twext.who.idirectory import MatchType
+from twext.who.idirectory import MatchType, QueryFlags
 from twext.who.idirectory import DirectoryQueryMatchExpression
 from twext.who.directory import DirectoryService as BaseDirectoryService
 from twext.who.directory import DirectoryRecord as BaseDirectoryRecord
-from twext.who.util import MergedConstants
+from twext.who.util import MergedConstants, describe
 
 
 
@@ -360,15 +360,23 @@ class DirectoryService(BaseDirectoryService):
         """
         fieldIndex = self.index[expression.fieldName]
 
-        if expression.matchType != MatchType.equals:
-            raise NotImplementedError("Handle MatchType != equals")
+        if expression.flags is not None:
+            raise NotImplementedError("Unknown query flags: %s" % (expression.flags,))
 
-        if expression.flags:
-            raise NotImplementedError("Handle QueryFlags")
+        if expression.matchType == MatchType.startsWith:
+            raise NotImplementedError("Handle MatchType.startsWith")
+        elif expression.matchType == MatchType.contains:
+            raise NotImplementedError("Handle MatchType.contains")
+        elif expression.matchType == MatchType.equals:
+            indexKeys = (expression.fieldValue,)
+        else:
+            raise NotImplementedError("Unknown match type: %s" % (describe(expression.matchType),))
 
-        matchingRecords = fieldIndex.get(expression.fieldValue, ())
+        matchingRecords = set()
+        for key in indexKeys:
+            matchingRecords |= fieldIndex.get(key, frozenset())
 
-        return succeed(frozenset(matchingRecords))
+        return succeed(matchingRecords)
 
 
     def unIndexedRecordsFromMatchExpression(self, expression):
