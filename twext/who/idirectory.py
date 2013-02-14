@@ -179,10 +179,7 @@ class DirectoryQueryMatchExpression(object):
 
     def __repr__(self):
         def describe(constant):
-            if hasattr(constant, "description"):
-                return constant.description
-            else:
-                return str(constant)
+            return getattr(constant, "description", str(constant))
 
         if self.flags is None:
             flags = ""

@@ -35,7 +35,7 @@ from twext.who.idirectory import FieldName, RecordType
 from twext.who.idirectory import Operand
 from twext.who.idirectory import DirectoryQueryMatchExpression
 from twext.who.idirectory import IDirectoryService, IDirectoryRecord
-from twext.who.util import uniqueResult
+from twext.who.util import uniqueResult, describe
 
 
 
@@ -198,11 +198,9 @@ class DirectoryRecord(object):
 
 
     def __repr__(self):
-        recordType = getattr(self.recordType, "description", self.recordType)
-
         return "<%s (%s)%s>" % (
             self.__class__.__name__,
-            recordType,
+            describe(self.recordType),
             self.shortNames[0],
         )
 

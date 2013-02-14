@@ -77,8 +77,4 @@ def uniqueResult(values):
 
 
 def describe(constant):
-    description = getattr(constant, "description", None)
-    if description is None:
-        return str(constant)
-    else:
-        return description
+    return getattr(constant, "description", str(constant))

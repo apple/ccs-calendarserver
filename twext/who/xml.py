@@ -39,7 +39,7 @@ from twisted.internet.defer import succeed, fail, inlineCallbacks, returnValue
 from twext.who.idirectory import DirectoryServiceError
 from twext.who.idirectory import NoSuchRecordError, UnknownRecordTypeError
 from twext.who.idirectory import RecordType, FieldName as BaseFieldName
-from twext.who.idirectory import MatchType, QueryFlags
+from twext.who.idirectory import MatchType
 from twext.who.idirectory import DirectoryQueryMatchExpression
 from twext.who.directory import DirectoryService as BaseDirectoryService
 from twext.who.directory import DirectoryRecord as BaseDirectoryRecord
