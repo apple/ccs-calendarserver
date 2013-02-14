@@ -1040,7 +1040,7 @@ class CommonTests(CommonCommonTests):
         """
         cal = yield self.calendarUnderTest()
         other = yield self.homeUnderTest(name=OTHER_HOME_UID)
-        newCalName = yield cal.shareWith(other, _BIND_MODE_WRITE)
+        newCalName = (yield cal.shareWith(other, _BIND_MODE_WRITE)).name()
         self.sharedName = newCalName
         yield self.commit()
         normalCal = yield self.calendarUnderTest()
@@ -1065,7 +1065,7 @@ class CommonTests(CommonCommonTests):
         # yield self.commit() # txn is none? why?
         cal = yield self.calendarUnderTest()
         other = yield self.homeUnderTest(name=OTHER_HOME_UID)
-        newName = yield cal.shareWith(other, _BIND_MODE_READ)
+        newName = (yield cal.shareWith(other, _BIND_MODE_READ)).name()
         otherCal = yield other.childWithName(self.sharedName)
 
         # Name should not change just because we updated the mode.

@@ -840,8 +840,8 @@ class PurgePrincipalTests(CommonCommonTests, unittest.TestCase):
         # Share calendars each way
         home2 = (yield txn.calendarHomeWithUID(self.uid2))
         calendar2 = (yield home2.calendarWithName("calendar2"))
-        self.sharedName = (yield calendar2.shareWith(home, _BIND_MODE_WRITE))
-        self.sharedName2 = (yield calendar.shareWith(home2, _BIND_MODE_WRITE))
+        self.sharedName = (yield calendar2.shareWith(home, _BIND_MODE_WRITE)).name()
+        self.sharedName2 = (yield calendar.shareWith(home2, _BIND_MODE_WRITE)).name()
 
         (yield txn.commit())
 
