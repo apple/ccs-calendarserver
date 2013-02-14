@@ -36,7 +36,7 @@ from twext.who.idirectory import FieldName, RecordType
 from twext.who.idirectory import Operand
 from twext.who.idirectory import DirectoryQueryMatchExpression
 from twext.who.idirectory import IDirectoryService, IDirectoryRecord
-from twext.who.util import MergedConstants, uniqueResult
+from twext.who.util import uniqueResult
 
 
 
@@ -47,8 +47,8 @@ class DirectoryService(FancyEqMixin, object):
         "realmName",
     )
 
-    recordType = MergedConstants(RecordType)
-    fieldName  = MergedConstants(FieldName)
+    recordType = RecordType
+    fieldName  = FieldName
 
     fieldNormalizer = {
         FieldName.guid:           lambda g: UUID(g).hex,
