@@ -359,14 +359,15 @@ class DirectoryService(BaseDirectoryService):
         @type expression: L{object}
         """
         fieldIndex = self.index[expression.fieldName]
+        matchValue = expression.fieldValue
 
         if expression.flags is not None:
             raise NotImplementedError("Unknown query flags: %s" % (expression.flags,))
 
         if expression.matchType == MatchType.startsWith:
-            raise NotImplementedError("Handle MatchType.startsWith")
+            indexKeys = (key for key in fieldIndex if key.startswith(matchValue))
         elif expression.matchType == MatchType.contains:
-            raise NotImplementedError("Handle MatchType.contains")
+            indexKeys = (key for key in fieldIndex if matchValue in key)
         elif expression.matchType == MatchType.equals:
             indexKeys = (expression.fieldValue,)
         else:
