@@ -1545,10 +1545,12 @@ class CalDAVResource (
         return fail(NotImplementedError())
 
 
-    def iCalendarRolledup(self):
+    def iCalendarRolledup(self, request):
         """
         Only implemented by calendar collections; see storebridge.
         """
+        raise HTTPError(responsecode.NOT_ALLOWED)
+
 
     @inlineCallbacks
     def iCalendarFiltered(self, isowner, accessUID=None):
