@@ -156,16 +156,23 @@ testXMLConfig = """<?xml version="1.0" encoding="utf-8"?>
 
 class BaseTest(object):
     def _testService(self, xmlData=None):
-        if not hasattr(self, "_service"):
-            if xmlData is None:
-                xmlData = testXMLConfig
+        if xmlData is None:
+            xmlData = testXMLConfig
 
-            filePath = FilePath(self.mktemp())
-            filePath.setContent(xmlData)
+        filePath = FilePath(self.mktemp())
+        filePath.setContent(xmlData)
 
-            self._service = DirectoryService(filePath)
+        class TestService(DirectoryService):
+            def query(self, field, value, matchType=MatchType.equals, flags=None):
+                name = getattr(self.fieldName, field)
+                assert name is not None
+                return DirectoryQueryMatchExpression(
+                    name, value,
+                    matchType=matchType,
+                    flags=flags,
+                )
 
-        return self._service
+        return TestService(filePath)
 
 
 
@@ -173,9 +180,16 @@ class DirectoryServiceTest(BaseTest, test_directory.DirectoryServiceTest):
     def test_repr(self):
         service = self._testService()
 
-        self.assertEquals(repr(service), "<DirectoryService (not loaded)>")
+        self.assertEquals(repr(service), "<TestService (not loaded)>")
         service.loadRecords()
-        self.assertEquals(repr(service), "<DirectoryService 'xyzzy'>")
+        self.assertEquals(repr(service), "<TestService 'xyzzy'>")
+
+
+    def assertRecords(self, records, uids):
+        self.assertEquals(
+            frozenset((record.uid for record in records)),
+            frozenset((uids)),
+        )
 
 
     def test_realmNameImmutable(self):
@@ -275,9 +289,8 @@ class DirectoryServiceTest(BaseTest, test_directory.DirectoryServiceTest):
         self.assertEquals(set(records), set())
 
         records = (yield service.recordsWithRecordType(service.recordType.user))
-        self.assertEquals(
-            set((record.uid for record in records)),
-            set((
+        self.assertRecords(records,
+            (
                 "__wsanchez__",
                 "__glyph__",
                 "__sagen__",
@@ -287,17 +300,16 @@ class DirectoryServiceTest(BaseTest, test_directory.DirectoryServiceTest):
                 "__dreid__",
                 "__alyssa__",
                 "__joe__",
-            )),
+            ),
         )
 
         records = (yield service.recordsWithRecordType(service.recordType.group))
-        self.assertEquals(
-            set((record.uid for record in records)),
-            set((
+        self.assertRecords(records,
+            (
                 "__calendar-dev__",
                 "__twisted__",
                 "__developers__",
-            ))
+            ),
         )
 
 
@@ -320,22 +332,13 @@ class DirectoryServiceTest(BaseTest, test_directory.DirectoryServiceTest):
         service = self._testService()
 
         records = (yield service.recordsWithEmailAddress("wsanchez@bitbucket.calendarserver.org"))
-        self.assertEquals(
-            set((record.uid for record in records)),
-            set(("__wsanchez__",)),
-        )
+        self.assertRecords(records, ("__wsanchez__",))
 
         records = (yield service.recordsWithEmailAddress("wsanchez@devnull.twistedmatrix.com"))
-        self.assertEquals(
-            set((record.uid for record in records)),
-            set(("__wsanchez__",)),
-        )
+        self.assertRecords(records, ("__wsanchez__",))
 
         records = (yield service.recordsWithEmailAddress("shared@example.com"))
-        self.assertEquals(
-            set((record.uid for record in records)),
-            set(("__sagen__", "__dre__")),
-        )
+        self.assertRecords(records, ("__sagen__", "__dre__"))
 
 
     @inlineCallbacks
@@ -343,21 +346,12 @@ class DirectoryServiceTest(BaseTest, test_directory.DirectoryServiceTest):
         service = self._testService()
         records = yield service.recordsFromQuery(
             (
-                DirectoryQueryMatchExpression(
-                    service.fieldName.emailAddresses,
-                    "shared@example.com",
-                ),
-                DirectoryQueryMatchExpression(
-                    service.fieldName.shortNames,
-                    "sagen",
-                ),
+                service.query("emailAddresses", "shared@example.com"),
+                service.query("shortNames", "sagen"),
             ),
             operand=Operand.AND
         )
-        self.assertEquals(
-            set((record.uid for record in records)),
-            set(("__sagen__",)),
-        )
+        self.assertRecords(records, ("__sagen__",))
 
 
     @inlineCallbacks
@@ -365,21 +359,12 @@ class DirectoryServiceTest(BaseTest, test_directory.DirectoryServiceTest):
         service = self._testService()
         records = yield service.recordsFromQuery(
             (
-                DirectoryQueryMatchExpression(
-                    service.fieldName.emailAddresses,
-                    "shared@example.com",
-                ),
-                DirectoryQueryMatchExpression(
-                    service.fieldName.shortNames,
-                    "wsanchez",
-                ),
+                service.query("emailAddresses", "shared@example.com"),
+                service.query("shortNames", "wsanchez"),
             ),
             operand=Operand.OR
         )
-        self.assertEquals(
-            set((record.uid for record in records)),
-            set(("__sagen__", "__dre__", "__wsanchez__")),
-        )
+        self.assertRecords(records, ("__sagen__", "__dre__", "__wsanchez__"))
 
 
     @inlineCallbacks
@@ -387,126 +372,92 @@ class DirectoryServiceTest(BaseTest, test_directory.DirectoryServiceTest):
         service = self._testService()
         records = yield service.recordsFromQuery(
             (
-                DirectoryQueryMatchExpression(
-                    service.fieldName.emailAddresses,
-                    "shared@example.com",
-                ),
-                DirectoryQueryMatchExpression(
-                    service.fieldName.shortNames,
-                    "sagen",
-                    flags = QueryFlags.NOT,
-                ),
+                service.query("emailAddresses", "shared@example.com"),
+                service.query("shortNames", "sagen", flags=QueryFlags.NOT),
             ),
             operand=Operand.AND
         )
-        self.assertEquals(
-            set((record.uid for record in records)),
-            set(("__dre__",)),
-        )
+        self.assertRecords(records, ("__dre__",))
 
     test_queryNot.todo = "Not implemented."
 
 
     @inlineCallbacks
-    def test_queryCaseInsensitive(self):
+    def test_queryNotNoIndex(self):
         service = self._testService()
         records = yield service.recordsFromQuery(
             (
-                DirectoryQueryMatchExpression(
-                    service.fieldName.shortNames,
-                    "SagEn",
-                    flags = QueryFlags.caseInsensitive,
-                ),
+                service.query("emailAddresses", "shared@example.com"),
+                service.query("fullNames", "Andre LaBranche", flags=QueryFlags.NOT),
             ),
+            operand=Operand.AND
         )
-        self.assertEquals(
-            set((record.uid for record in records)),
-            set(("__sagen__",)),
-        )
+        self.assertRecords(records, ("__sagen__",))
+
+    test_queryNotNoIndex.todo = "Not implemented."
+
+
+    @inlineCallbacks
+    def test_queryCaseInsensitive(self):
+        service = self._testService()
+        records = yield service.recordsFromQuery((
+            service.query("shortNames", "SagEn", flags=QueryFlags.caseInsensitive),
+        ))
+        self.assertRecords(records, ("__sagen__",))
 
     test_queryCaseInsensitive.todo = "Not implemented."
 
 
     @inlineCallbacks
-    def test_noIndexQueryStartsWith(self):
+    def test_queryStartsWithNoIndex(self):
         service = self._testService()
-        records = yield service.recordsFromQuery(
-            (
-                DirectoryQueryMatchExpression(
-                    service.fieldName.fullNames,
-                    "Wilfredo",
-                    matchType = MatchType.startsWith,
-                ),
-            ),
-        )
-        self.assertEquals(
-            set((record.uid for record in records)),
-            set(("__wsanchez__",)),
-        )
+        records = yield service.recordsFromQuery((
+            service.query("fullNames", "Wilfredo", matchType=MatchType.startsWith),
+        ))
+        self.assertRecords(records, ("__wsanchez__",))
 
-    test_noIndexQueryStartsWith.todo = "Not implemented."
+    test_queryStartsWithNoIndex.todo = "Not implemented."
 
 
     @inlineCallbacks
-    def test_noIndexQueryStartsWithCaseInsensitive(self):
+    def test_queryStartsWithCaseInsensitiveNoIndex(self):
         service = self._testService()
-        records = yield service.recordsFromQuery(
-            (
-                DirectoryQueryMatchExpression(
-                    service.fieldName.fullNames,
-                    "wilfrEdo",
-                    matchType = MatchType.startsWith,
-                    flags = QueryFlags.caseInsensitive,
-                ),
+        records = yield service.recordsFromQuery((
+            service.query(
+                "fullNames", "wilfrEdo",
+                matchType=MatchType.startsWith,
+                flags=QueryFlags.caseInsensitive,
             ),
-        )
-        self.assertEquals(
-            set((record.uid for record in records)),
-            set(("__wsanchez__",)),
-        )
+        ))
+        self.assertRecords(records, ("__wsanchez__",))
 
-    test_noIndexQueryStartsWithCaseInsensitive.todo = "Not implemented."
+    test_queryStartsWithCaseInsensitiveNoIndex.todo = "Not implemented."
 
 
     @inlineCallbacks
-    def test_noIndexQueryContains(self):
+    def test_queryContainsNoIndex(self):
         service = self._testService()
-        records = yield service.recordsFromQuery(
-            (
-                DirectoryQueryMatchExpression(
-                    service.fieldName.fullNames,
-                    "fredo",
-                    matchType = MatchType.contains,
-                ),
-            ),
-        )
-        self.assertEquals(
-            set((record.uid for record in records)),
-            set(("__wsanchez__",)),
-        )
+        records = yield service.recordsFromQuery((
+            service.query("fullNames", "fredo", matchType=MatchType.contains),
+        ))
+        self.assertRecords(records, ("__wsanchez__",))
 
-    test_noIndexQueryContains.todo = "Not implemented."
+    test_queryContainsNoIndex.todo = "Not implemented."
 
 
     @inlineCallbacks
-    def test_noIndexQueryContainsCaseInsensitive(self):
+    def test_queryContainsCaseInsensitiveNoIndex(self):
         service = self._testService()
-        records = yield service.recordsFromQuery(
-            (
-                DirectoryQueryMatchExpression(
-                    service.fieldName.fullNames,
-                    "frEdo",
-                    matchType = MatchType.contains,
-                    flags = QueryFlags.caseInsensitive,
-                ),
+        records = yield service.recordsFromQuery((
+            service.query(
+                "fullNames", "frEdo",
+                matchType=MatchType.contains,
+                flags=QueryFlags.caseInsensitive,
             ),
-        )
-        self.assertEquals(
-            set((record.uid for record in records)),
-            set(("__wsanchez__",)),
-        )
+        ))
+        self.assertRecords(records, ("__wsanchez__",))
 
-    test_noIndexQueryContainsCaseInsensitive.todo = "Not implemented."
+    test_queryContainsCaseInsensitiveNoIndex.todo = "Not implemented."
 
 
     def test_unknownRecordTypesClean(self):
