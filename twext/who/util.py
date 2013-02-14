@@ -20,6 +20,8 @@ Directory service module utilities.
 
 __all__ = [
     "MergedConstants",
+    "uniqueResult",
+    "describe",
 ]
 
 from types import FunctionType
@@ -72,3 +74,11 @@ def uniqueResult(values):
         else:
             raise DirectoryServiceError("Multiple values found where one expected.")
     return result
+
+
+def describe(constant):
+    description = getattr(constant, "description", None)
+    if description is None:
+        return str(constant)
+    else:
+        return description
