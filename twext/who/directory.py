@@ -50,7 +50,7 @@ class DirectoryService(FancyEqMixin, object):
     recordType = RecordType
     fieldName  = FieldName
 
-    fieldNormalizer = {
+    normalizedFields = {
         FieldName.guid:           lambda g: UUID(g).hex,
         FieldName.emailAddresses: lambda e: e.lower(),
     }
@@ -174,7 +174,7 @@ class DirectoryRecord(FancyEqMixin, object):
         # Normalize fields
         normalizedFields = {}
         for name, value in fields.items():
-            normalize = service.fieldNormalizer.get(name, None)
+            normalize = service.normalizedFields.get(name, None)
 
             if normalize is None:
                 normalizedFields[name] = value
