@@ -43,7 +43,7 @@ from twext.who.idirectory import MatchType
 from twext.who.idirectory import DirectoryQueryMatchExpression
 from twext.who.directory import DirectoryService as BaseDirectoryService
 from twext.who.directory import DirectoryRecord as BaseDirectoryRecord
-from twext.who.directory import MergedConstants
+from twext.who.util import MergedConstants
 
 
 
@@ -136,7 +136,7 @@ class DirectoryService(BaseDirectoryService):
     XML directory service.
     """
 
-    fieldName = MergedConstants(BaseFieldName, FieldName)
+    fieldName = MergedConstants(BaseDirectoryService.fieldName, FieldName)
 
     element   = Element
     attribute = Attribute
