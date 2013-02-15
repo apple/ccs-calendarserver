@@ -358,32 +358,42 @@ class DirectoryService(BaseDirectoryService):
         @param expression: an expression
         @type expression: L{object}
         """
-        fieldIndex = self.index[expression.fieldName]
-        matchValue = expression.fieldValue
-
+        #
+        # Flags
+        #
         predicate = lambda x: x
+        normalize = lambda x: x
 
         if expression.flags is not None:
             for flag in iterFlags(expression.flags):
                 if flag == QueryFlags.NOT:
                     predicate = lambda x: not x
                 elif flag == QueryFlags.caseInsensitive:
-                    raise NotImplementedError("Unknown query flag: %s" % (describe(flag),))
+                    normalize = lambda x: x.lower()
                 else:
                     raise NotImplementedError("Unknown query flag: %s" % (describe(flag),))
 
+        #
+        # Find matching index keys
+        #
+        fieldIndex = self.index[expression.fieldName]
+        matchValue = normalize(expression.fieldValue)
+
         if expression.matchType == MatchType.startsWith:
-            indexKeys = (key for key in fieldIndex if predicate(key.startswith(matchValue)))
+            indexKeys = (key for key in fieldIndex if predicate(normalize(key).startswith(matchValue)))
         elif expression.matchType == MatchType.contains:
-            indexKeys = (key for key in fieldIndex if predicate(matchValue in key))
+            indexKeys = (key for key in fieldIndex if predicate(matchValue in normalize(key)))
         elif expression.matchType == MatchType.equals:
             if predicate(True):
                 indexKeys = (matchValue,)
             else:
-                indexKeys = (key for key in fieldIndex if key != matchValue)
+                indexKeys = (key for key in fieldIndex if normalize(key) != matchValue)
         else:
             raise NotImplementedError("Unknown match type: %s" % (describe(expression.matchType),))
 
+        #
+        # Lookup and return the results
+        #
         matchingRecords = set()
         for key in indexKeys:
             matchingRecords |= fieldIndex.get(key, frozenset())

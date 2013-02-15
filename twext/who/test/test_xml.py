@@ -403,8 +403,6 @@ class DirectoryServiceTest(BaseTest, test_directory.DirectoryServiceTest):
         ))
         self.assertRecords(records, ("__sagen__",))
 
-    test_queryCaseInsensitive.todo = "Not implemented."
-
 
     @inlineCallbacks
     def test_queryCaseInsensitiveNoIndex(self):
@@ -527,8 +525,6 @@ class DirectoryServiceTest(BaseTest, test_directory.DirectoryServiceTest):
         ))
         self.assertRecords(records, ("__wsanchez__",))
 
-    test_queryStartsWithCaseInsensitive.todo = "Not implemented."
-
 
     @inlineCallbacks
     def test_queryStartsWithCaseInsensitiveNoIndex(self):
@@ -634,8 +630,6 @@ class DirectoryServiceTest(BaseTest, test_directory.DirectoryServiceTest):
             ),
         ))
         self.assertRecords(records, ("__wsanchez__",))
-
-    test_queryContainsCaseInsensitive.todo = "Not implemented."
 
 
     @inlineCallbacks
