@@ -379,8 +379,6 @@ class DirectoryServiceTest(BaseTest, test_directory.DirectoryServiceTest):
         )
         self.assertRecords(records, ("__dre__",))
 
-    test_queryNot.todo = "Not implemented."
-
 
     @inlineCallbacks
     def test_queryNotNoIndex(self):
@@ -559,8 +557,6 @@ class DirectoryServiceTest(BaseTest, test_directory.DirectoryServiceTest):
                 '__twisted__',
             ),
         )
-
-    test_queryContainsNot.todo = "Not implemented."
 
 
     @inlineCallbacks
