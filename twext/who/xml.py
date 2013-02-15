@@ -43,7 +43,7 @@ from twext.who.idirectory import MatchType, QueryFlags
 from twext.who.idirectory import DirectoryQueryMatchExpression
 from twext.who.directory import DirectoryService as BaseDirectoryService
 from twext.who.directory import DirectoryRecord as BaseDirectoryRecord
-from twext.who.util import MergedConstants, describe, iterFlags
+from twext.who.util import MergedConstants, describe, uniqueResult, iterFlags
 
 
 
@@ -351,21 +351,13 @@ class DirectoryService(BaseDirectoryService):
         self._lastRefresh          = 0
 
 
-    def indexedRecordsFromMatchExpression(self, expression):
-        """
-        Finds records in the internal indexes matching a single
-        expression.
-        @param expression: an expression
-        @type expression: L{object}
-        """
-        #
-        # Flags
-        #
+    @staticmethod
+    def _queryFlags(flags):
         predicate = lambda x: x
         normalize = lambda x: x
 
-        if expression.flags is not None:
-            for flag in iterFlags(expression.flags):
+        if flags is not None:
+            for flag in iterFlags(flags):
                 if flag == QueryFlags.NOT:
                     predicate = lambda x: not x
                 elif flag == QueryFlags.caseInsensitive:
@@ -373,54 +365,91 @@ class DirectoryService(BaseDirectoryService):
                 else:
                     raise NotImplementedError("Unknown query flag: %s" % (describe(flag),))
 
-        #
-        # Find matching index keys
-        #
+        return predicate, normalize
+
+
+    def indexedRecordsFromMatchExpression(self, expression, records=None):
+        """
+        Finds records in the internal indexes matching a single
+        expression.
+        @param expression: an expression
+        @type expression: L{object}
+        """
+        predicate, normalize = self._queryFlags(expression.flags)
+
         fieldIndex = self.index[expression.fieldName]
         matchValue = normalize(expression.fieldValue)
+        matchType  = expression.matchType
 
-        if expression.matchType == MatchType.startsWith:
+        if matchType == MatchType.startsWith:
             indexKeys = (key for key in fieldIndex if predicate(normalize(key).startswith(matchValue)))
-        elif expression.matchType == MatchType.contains:
+        elif matchType == MatchType.contains:
             indexKeys = (key for key in fieldIndex if predicate(matchValue in normalize(key)))
-        elif expression.matchType == MatchType.equals:
+        elif matchType == MatchType.equals:
             if predicate(True):
                 indexKeys = (matchValue,)
             else:
                 indexKeys = (key for key in fieldIndex if normalize(key) != matchValue)
         else:
-            raise NotImplementedError("Unknown match type: %s" % (describe(expression.matchType),))
+            raise NotImplementedError("Unknown match type: %s" % (describe(matchType),))
 
-        #
-        # Lookup and return the results
-        #
         matchingRecords = set()
         for key in indexKeys:
             matchingRecords |= fieldIndex.get(key, frozenset())
 
+        if records is not None:
+            matchingRecords &= records
+
         return succeed(matchingRecords)
 
 
-    def unIndexedRecordsFromMatchExpression(self, expression):
+    def unIndexedRecordsFromMatchExpression(self, expression, records=None):
         """
         Finds records not in the internal indexes matching a single
         expression.
         @param expression: an expression
         @type expression: L{object}
         """
-        raise NotImplementedError("Handle unindexed fields")
+        predicate, normalize = self._queryFlags(expression.flags)
+
+        matchValue = normalize(expression.fieldValue)
+        matchType  = expression.matchType
+
+        if matchType == MatchType.startsWith:
+            match = lambda fieldValue: predicate(fieldValue.startswith(matchValue))
+        elif matchType == MatchType.contains:
+            match = lambda fieldValue: predicate(matchValue in fieldValue)
+        elif matchType == MatchType.equals:
+            match = lambda fieldValue: predicate(fieldValue == matchValue)
+        else:
+            raise NotImplementedError("Unknown match type: %s" % (describe(matchType),))
+
+        result = set()
+
+        if records is None:
+            records = (uniqueResult(values) for values in self.index[self.fieldName.uid].itervalues())
+
+        for record in records:
+            fieldValues = record.fields.get(expression.fieldName, None)
+
+            if fieldValues is None:
+                continue
+
+            for fieldValue in fieldValues:
+                if match(normalize(fieldValue)):
+                    result.add(record)
+
+        return result
 
 
-    def recordsFromExpression(self, expression):
+    def recordsFromExpression(self, expression, records=None):
         if isinstance(expression, DirectoryQueryMatchExpression):
             if expression.fieldName in self.indexedFields:
-                records = self.indexedRecordsFromMatchExpression(expression)
+                return self.indexedRecordsFromMatchExpression(expression, records=records)
             else:
-                records = self.unIndexedRecordsFromMatchExpression(expression)
+                return self.unIndexedRecordsFromMatchExpression(expression, records=records)
         else:
-            records = BaseDirectoryService.recordsFromExpression(self, expression)
-
-        return records
+            return BaseDirectoryService.recordsFromExpression(self, expression, records=records)
 
 
     def updateRecords(self, records, create=False):

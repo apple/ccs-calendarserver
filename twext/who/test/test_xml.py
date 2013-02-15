@@ -392,8 +392,6 @@ class DirectoryServiceTest(BaseTest, test_directory.DirectoryServiceTest):
         )
         self.assertRecords(records, ("__sagen__",))
 
-    test_queryNotNoIndex.todo = "Not implemented."
-
 
     @inlineCallbacks
     def test_queryCaseInsensitive(self):
@@ -408,11 +406,9 @@ class DirectoryServiceTest(BaseTest, test_directory.DirectoryServiceTest):
     def test_queryCaseInsensitiveNoIndex(self):
         service = self._testService()
         records = yield service.recordsFromQuery((
-            service.query("fullNames", "moRG", flags=QueryFlags.caseInsensitive),
+            service.query("fullNames", "moRGen SAGen", flags=QueryFlags.caseInsensitive),
         ))
         self.assertRecords(records, ("__sagen__",))
-
-    test_queryCaseInsensitiveNoIndex.todo = "Not implemented."
 
 
     @inlineCallbacks
@@ -431,8 +427,6 @@ class DirectoryServiceTest(BaseTest, test_directory.DirectoryServiceTest):
             service.query("fullNames", "Wilfredo", matchType=MatchType.startsWith),
         ))
         self.assertRecords(records, ("__wsanchez__",))
-
-    test_queryStartsWithNoIndex.todo = "Not implemented."
 
 
     @inlineCallbacks
@@ -508,9 +502,22 @@ class DirectoryServiceTest(BaseTest, test_directory.DirectoryServiceTest):
                 flags = QueryFlags.NOT,
             ),
         ))
-        self.assertRecords(records, ("__wsanchez__",))
-
-    test_queryStartsWithNotNoIndex.todo = "Not implemented."
+        self.assertRecords(
+            records,
+            (
+                '__alyssa__',
+                '__calendar-dev__',
+                '__cdaboo__',
+                '__developers__',
+                '__dre__',
+                '__dreid__',
+                '__exarkun__',
+                '__glyph__',
+                '__joe__',
+                '__sagen__',
+                '__twisted__',
+            ),
+        )
 
 
     @inlineCallbacks
@@ -538,8 +545,6 @@ class DirectoryServiceTest(BaseTest, test_directory.DirectoryServiceTest):
         ))
         self.assertRecords(records, ("__wsanchez__",))
 
-    test_queryStartsWithCaseInsensitiveNoIndex.todo = "Not implemented."
-
 
     @inlineCallbacks
     def test_queryContains(self):
@@ -557,8 +562,6 @@ class DirectoryServiceTest(BaseTest, test_directory.DirectoryServiceTest):
             service.query("fullNames", "fred", matchType=MatchType.contains),
         ))
         self.assertRecords(records, ("__wsanchez__",))
-
-    test_queryContainsNoIndex.todo = "Not implemented."
 
 
     @inlineCallbacks
@@ -616,8 +619,6 @@ class DirectoryServiceTest(BaseTest, test_directory.DirectoryServiceTest):
             ),
         )
 
-    test_queryContainsNotNoIndex.todo = "Not implemented."
-
 
     @inlineCallbacks
     def test_queryContainsCaseInsensitive(self):
@@ -643,8 +644,6 @@ class DirectoryServiceTest(BaseTest, test_directory.DirectoryServiceTest):
             ),
         ))
         self.assertRecords(records, ("__wsanchez__",))
-
-    test_queryContainsCaseInsensitiveNoIndex.todo = "Not implemented."
 
 
     def test_unknownRecordTypesClean(self):

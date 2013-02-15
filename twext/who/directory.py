@@ -79,11 +79,14 @@ class DirectoryService(object):
         return succeed(self.recordType.iterconstants())
 
 
-    def recordsFromExpression(self, expression):
+    def recordsFromExpression(self, expression, records=None):
         """
         Finds records matching a single expression.
         @param expression: an expression
         @type expression: L{object}
+        @param records: a set of records to search within. C{None} if
+            the whole directory should be searched.
+        @type records: L{set} or L{frozenset}
         """
         return fail(QueryNotSupportedError("Unknown expression: %s" % (expression,)))
 
@@ -100,11 +103,18 @@ class DirectoryService(object):
         results = set((yield self.recordsFromExpression(expression)))
 
         for expression in expressions:
-            if (operand == Operand.AND and not results):
-                # No need to bother continuing here
-                returnValue(())
+            if operand == Operand.AND:
+                if not results:
+                    # No need to bother continuing here
+                    returnValue(())
 
-            recordsMatchingExpression = frozenset((yield self.recordsFromExpression(expression)))
+                records = results
+            else:
+                records = None
+
+            recordsMatchingExpression = frozenset((
+                yield self.recordsFromExpression(expression, records=records)
+            ))
 
             if operand == Operand.AND:
                 results &= recordsMatchingExpression
