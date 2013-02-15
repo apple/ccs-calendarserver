@@ -79,7 +79,7 @@ def setUpHome1(test):
 @inlineCallbacks
 def setUpAddressBook1(test):
     yield setUpHome1(test)
-    test.addressbook1 = yield test.home1.addressbookWithName("addressbook_1")
+    test.addressbook1 = yield test.home1.addressbookWithName("addressbook")
     assert test.addressbook1 is not None, "No addressbook?"
 
 
@@ -305,7 +305,7 @@ class AddressBookTest(unittest.TestCase):
         """
         self.txn = self.addressbookStore.newTransaction(self.id())
         self.home1 = yield self.txn.addressbookHomeWithUID("home1")
-        self.addressbook1 = yield self.home1.addressbookWithName("addressbook_1")
+        self.addressbook1 = yield self.home1.addressbookWithName("addressbook")
 
 
     @inlineCallbacks

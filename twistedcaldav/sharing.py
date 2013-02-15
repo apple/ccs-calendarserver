@@ -152,7 +152,7 @@ class SharedResourceMixin(object):
                 "Invalid invitation uid: %s" % (inviteUID,),
             ))
 
-        # Only certain states are sharer controlled
+        # Only certain states are owner controlled
         if invitation.state() in ("NEEDS-ACTION", "ACCEPTED", "DECLINED",):
             yield self._updateInvitation(invitation, state=state, summary=summary)
 
@@ -685,14 +685,10 @@ class SharedResourceMixin(object):
             pass
         '''
 
-
         # Generate invite XML
         userid = "urn:uuid:" + invitation.shareeUID()
         state = notificationState if notificationState else invitation.state()
         summary = invitation.summary() if displayName is None else displayName
-
-
-        assert state != "DECLINED"
 
         typeAttr = {'shared-type': self.sharedResourceType()}
         xmltype = customxml.InviteNotification(**typeAttr)
@@ -1025,32 +1021,32 @@ class SharedHomeMixin(LinkFollowerMixIn):
             returnValue(None)
 
         # get the shared object's URL
-        sharer = self.principalForUID(storeObject.ownerHome().uid())
+        owner = self.principalForUID(storeObject.ownerHome().uid())
 
         if not request:
-            # FIXEME:  Fake up a request that can be used to get the sharer home resource
+            # FIXEME:  Fake up a request that can be used to get the owner home resource
             class _FakeRequest(object):pass
             fakeRequest = _FakeRequest()
             setattr(fakeRequest, TRANSACTION_KEY, self._newStoreHome._txn)
             request = fakeRequest
 
         if self._newStoreHome._homeType == ECALENDARTYPE:
-            sharerHomeCollection = yield sharer.calendarHome(request)
+            ownerHomeCollection = yield owner.calendarHome(request)
         elif self._newStoreHome._homeType == EADDRESSBOOKTYPE:
-            sharerHomeCollection = yield sharer.addressBookHome(request)
+            ownerHomeCollection = yield owner.addressBookHome(request)
 
-        sharerHomeChild = yield storeObject.ownerHome().childWithID(storeObject._resourceID)
-        if sharerHomeChild:
-            assert sharerHomeChild != storeObject
-            url = joinURL(sharerHomeCollection.url(), sharerHomeChild.name())
-            share = Share(shareeStoreObject=storeObject, sharerStoreObject=sharerHomeChild, url=url)
-        elif self._newStoreHome._homeType == EADDRESSBOOKTYPE:
-            for sharerHomeChild in (yield storeObject.ownerHome().children()):
-                if sharerHomeChild.owned():
-                    sharedGroup = yield sharerHomeChild.objectResourceWithID(storeObject._resourceID)
+        ownerHomeChild = yield storeObject.ownerHome().childWithID(storeObject._resourceID)
+        if ownerHomeChild:
+            assert ownerHomeChild != storeObject
+            url = joinURL(ownerHomeCollection.url(), ownerHomeChild.name())
+            share = Share(shareeStoreObject=storeObject, ownerStoreObject=ownerHomeChild, url=url)
+        else:
+            for ownerHomeChild in (yield storeObject.ownerHome().children()):
+                if ownerHomeChild.owned():
+                    sharedGroup = yield ownerHomeChild.objectResourceWithID(storeObject._resourceID)
                     if sharedGroup:
-                        url = joinURL(sharerHomeCollection.url(), sharerHomeChild.name(), sharedGroup.name())
-                        share = Share(shareeStoreObject=storeObject, sharerStoreObject=sharedGroup, url=url)
+                        url = joinURL(ownerHomeCollection.url(), ownerHomeChild.name(), sharedGroup.name())
+                        share = Share(shareeStoreObject=storeObject, ownerStoreObject=sharedGroup, url=url)
                         break
 
         returnValue(share)
@@ -1059,7 +1055,7 @@ class SharedHomeMixin(LinkFollowerMixIn):
     @inlineCallbacks
     def _shareForUID(self, shareUID, request):
 
-        child = yield self._newStoreHome.objectWithBindName(shareUID)
+        child = yield self._newStoreHome.objectWithShareUID(shareUID)
         if child:
             share = yield self._shareForStoreObject(child, request)
             if share and share.uid() == shareUID:
@@ -1087,9 +1083,9 @@ class SharedHomeMixin(LinkFollowerMixIn):
             share = oldShare
         else:
             sharedResource = yield request.locateResource(hostUrl)
-            shareeStoreObject = yield self._newStoreHome.objectWithBindName(inviteUID)
+            shareeStoreObject = yield self._newStoreHome.objectWithShareUID(inviteUID)
 
-            share = Share(shareeStoreObject=shareeStoreObject, sharerStoreObject=sharedResource._newStoreObject, url=hostUrl)
+            share = Share(shareeStoreObject=shareeStoreObject, ownerStoreObject=sharedResource._newStoreObject, url=hostUrl)
 
         response = yield self._acceptShare(request, not oldShare, share, displayname)
         returnValue(response)
@@ -1109,7 +1105,7 @@ class SharedHomeMixin(LinkFollowerMixIn):
                                                     status=_BIND_STATUS_ACCEPTED,
                                                     message=displayname)
 
-            share = Share(shareeStoreObject=shareeStoreObject, sharerStoreObject=sharedCollection._newStoreObject, url=hostUrl)
+            share = Share(shareeStoreObject=shareeStoreObject, ownerStoreObject=sharedCollection._newStoreObject, url=hostUrl)
 
         response = yield self._acceptShare(request, not oldShare, share, displayname)
         returnValue(response)
@@ -1151,13 +1147,13 @@ class SharedHomeMixin(LinkFollowerMixIn):
 
         elif sharedResource.isAddressBookCollection():
             shareeHomeResource = yield sharee.addressBookHome(request)
-            shareeAddressBookURL = joinURL(shareeHomeResource.url(), share.sharerUID())
+            shareeAddressBookURL = joinURL(shareeHomeResource.url(), share.ownerUID())
             shareeAddressBook = yield request.locateResource(shareeAddressBookURL)
             shareeAddressBook.setShare(share)
 
         elif sharedResource.isGroup():
             shareeHomeResource = yield sharee.addressBookHome(request)
-            shareeGroupURL = joinURL(shareeHomeResource.url(), share.sharerUID(), share.name())
+            shareeGroupURL = joinURL(shareeHomeResource.url(), share.ownerUID(), share.name())
             shareeGroup = yield request.locateResource(shareeGroupURL)
             shareeGroup.setShare(share)
 
@@ -1168,9 +1164,9 @@ class SharedHomeMixin(LinkFollowerMixIn):
         if sharedResource.isCalendarCollection():
             sharedAsURL = joinURL(self.url(), share.name())
         elif sharedResource.isAddressBookCollection():
-            sharedAsURL = joinURL(self.url(), share.sharerUID())
+            sharedAsURL = joinURL(self.url(), share.ownerUID())
         elif sharedResource.isGroup():
-            sharedAsURL = joinURL(self.url(), share.sharerUID(), share.name())
+            sharedAsURL = joinURL(self.url(), share.ownerUID(), share.name())
 
         # Return the URL of the shared collection
         returnValue(XMLResponse(
@@ -1230,9 +1226,9 @@ class SharedHomeMixin(LinkFollowerMixIn):
                 inbox.processFreeBusyCalendar(shareURL, False)
 
         if share.direct():
-            yield share._sharerStoreObject.unshareWith(share._shareeStoreObject.viewerHome())
+            yield share._ownerStoreObject.unshareWith(share._shareeStoreObject.viewerHome())
         else:
-            yield share._sharerStoreObject.updateShare(share._shareeStoreObject, status=_BIND_STATUS_DECLINED)
+            yield share._ownerStoreObject.updateShare(share._shareeStoreObject, status=_BIND_STATUS_DECLINED)
 
         returnValue(displayname)
 
@@ -1251,7 +1247,7 @@ class SharedHomeMixin(LinkFollowerMixIn):
         """
         Accept or decline an invite to a shared collection.
         """
-        # Change state in sharer invite
+        # Change state in owner invite
         ownerPrincipal = (yield self.ownerPrincipal(request))
         ownerPrincipalUID = ownerPrincipal.principalUID()
         sharedResource = (yield request.locateResource(hostUrl))
@@ -1272,9 +1268,9 @@ class SharedHomeMixin(LinkFollowerMixIn):
     @inlineCallbacks
     def sendReply(self, request, shareePrincipal, sharedResource, state, hostUrl, replytoUID, displayname=None):
 
-        # Locate notifications collection for sharer
-        sharer = (yield sharedResource.ownerPrincipal(request))
-        notificationResource = (yield request.locateResource(sharer.notificationURL()))
+        # Locate notifications collection for owner
+        owner = (yield sharedResource.ownerPrincipal(request))
+        notificationResource = (yield request.locateResource(owner.notificationURL()))
         notifications = notificationResource._newStoreNotifications
 
         # Generate invite XML
@@ -1350,21 +1346,21 @@ class SharedHomeMixin(LinkFollowerMixIn):
 
 class Share(object):
 
-    def __init__(self, sharerStoreObject, shareeStoreObject, url):
+    def __init__(self, ownerStoreObject, shareeStoreObject, url):
         self._shareeStoreObject = shareeStoreObject
-        self._sharerStoreObject = sharerStoreObject
-        self._sharerResourceURL = url
+        self._ownerStoreObject = ownerStoreObject
+        self._ownerResourceURL = url
 
 
     @classmethod
-    def directUID(cls, shareeHome, sharerHomeChild):
-        return "Direct-%s-%s" % (shareeHome._resourceID, sharerHomeChild._resourceID,)
+    def directUID(cls, shareeHome, ownerHomeChild):
+        return "Direct-%s-%s" % (shareeHome._resourceID, ownerHomeChild._resourceID,)
 
 
     def uid(self):
         # Move to CommonHomeChild shareUID?
         if self._shareeStoreObject.shareMode() == _BIND_MODE_DIRECT:
-            return self.directUID(shareeHome=self._shareeStoreObject.viewerHome(), sharerHomeChild=self._sharerStoreObject,)
+            return self.directUID(shareeHome=self._shareeStoreObject.viewerHome(), ownerHomeChild=self._ownerStoreObject,)
         else:
             return self._shareeStoreObject.shareUID()
 
@@ -1374,7 +1370,7 @@ class Share(object):
 
 
     def url(self):
-        return self._sharerResourceURL
+        return self._ownerResourceURL
 
 
     def name(self):
@@ -1389,5 +1385,5 @@ class Share(object):
         return self._shareeStoreObject.viewerHome().uid()
 
 
-    def sharerUID(self):
+    def ownerUID(self):
         return self._shareeStoreObject.ownerHome().uid()

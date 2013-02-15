@@ -908,13 +908,6 @@ class Calendar(CommonHomeChild):
         )
 
 
-    def unshare(self):
-        """
-        Unshares a collection, regardless of which "direction" it was shared.
-        """
-        return super(Calendar, self).unshare(ECALENDARTYPE)
-
-
     def creatingResourceCheckAttachments(self, component):
         """
         When component data is created or changed we need to look for changes related to managed attachments.

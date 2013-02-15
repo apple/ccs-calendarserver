@@ -48,7 +48,7 @@ storePath = FilePath(__file__).parent().child("addressbook_store")
 
 homeRoot = storePath.child("ho").child("me").child("home1")
 
-adbk1Root = homeRoot.child("addressbook_1")
+adbk1Root = homeRoot.child("addressbook")
 
 addressbook1_objectNames = [
     "1.vcf",
@@ -58,9 +58,7 @@ addressbook1_objectNames = [
 
 
 home1_addressbookNames = [
-    "addressbook_1",
-    "addressbook_2",
-    "addressbook_empty",
+    "addressbook",
 ]
 
 
@@ -114,26 +112,22 @@ class CommonTests(CommonCommonTests):
     )
     requirements = {
         "home1": {
-            "addressbook_1": {
+            "addressbook": {
                 "1.vcf": adbk1Root.child("1.vcf").getContent(),
                 "2.vcf": adbk1Root.child("2.vcf").getContent(),
                 "3.vcf": adbk1Root.child("3.vcf").getContent()
             },
-            "addressbook_2": {},
-            "addressbook_empty": {},
             "not_a_addressbook": None
         },
         "not_a_home": None
     }
     md5s = {
         "home1": {
-            "addressbook_1": {
+            "addressbook": {
                 "1.vcf": md5Values[0],
                 "2.vcf": md5Values[1],
                 "3.vcf": md5Values[2],
             },
-            "addressbook_2": {},
-            "addressbook_empty": {},
             "not_a_addressbook": None
         },
         "not_a_home": None
@@ -161,17 +155,17 @@ class CommonTests(CommonCommonTests):
     @inlineCallbacks
     def addressbookUnderTest(self):
         """
-        Get the addressbook detailed by C{requirements['home1']['addressbook_1']}.
+        Get the addressbook detailed by C{requirements['home1']['addressbook']}.
         """
         returnValue((yield (yield self.homeUnderTest())
-            .addressbookWithName("addressbook_1")))
+            .addressbookWithName("addressbook")))
 
 
     @inlineCallbacks
     def addressbookObjectUnderTest(self):
         """
         Get the addressbook detailed by
-        C{requirements['home1']['addressbook_1']['1.vcf']}.
+        C{requirements['home1']['addressbook']['1.vcf']}.
         """
         returnValue((yield (yield self.addressbookUnderTest())
                     .addressbookObjectWithName("1.vcf")))
@@ -228,9 +222,9 @@ class CommonTests(CommonCommonTests):
     def test_notifierID(self):
         home = yield self.homeUnderTest()
         self.assertEquals(home.notifierID(), "CardDAV|home1")
-        addressbook = yield home.addressbookWithName("addressbook_1")
+        addressbook = yield home.addressbookWithName("addressbook")
         self.assertEquals(addressbook.notifierID(), "CardDAV|home1")
-        self.assertEquals(addressbook.notifierID(label="collection"), "CardDAV|home1/addressbook_1")
+        self.assertEquals(addressbook.notifierID(label="collection"), "CardDAV|home1/addressbook")
 
 
     @inlineCallbacks
@@ -277,13 +271,13 @@ class CommonTests(CommonCommonTests):
         L{IAddressBook.rename} changes the name of the L{IAddressBook}.
         """
         home = yield self.homeUnderTest()
-        addressbook = yield home.addressbookWithName("addressbook_1")
+        addressbook = yield home.addressbookWithName("addressbook")
         yield addressbook.rename("some_other_name")
         @inlineCallbacks
         def positiveAssertions():
             self.assertEquals(addressbook.name(), "some_other_name")
             self.assertEquals(addressbook, (yield home.addressbookWithName("some_other_name")))
-            self.assertEquals(None, (yield home.addressbookWithName("addressbook_1")))
+            self.assertEquals(None, (yield home.addressbookWithName("addressbook")))
         yield positiveAssertions()
         yield self.commit()
         home = yield self.homeUnderTest()
@@ -380,11 +374,7 @@ class CommonTests(CommonCommonTests):
             self.notifierFactory.history,
             [
                 ("update", "CardDAV|home1"),
-                ("update", "CardDAV|home1/addressbook_1"),
-                ("update", "CardDAV|home1"),
-                ("update", "CardDAV|home1/addressbook_2"),
-                ("update", "CardDAV|home1"),
-                ("update", "CardDAV|home1/addressbook_empty")
+                ("update", "CardDAV|home1/addressbook"),
             ]
         )
 
@@ -516,7 +506,7 @@ class CommonTests(CommonCommonTests):
             self.notifierFactory.history,
             [
                 ("update", "CardDAV|home1"),
-                ("update", "CardDAV|home1/addressbook_1"),
+                ("update", "CardDAV|home1/addressbook"),
             ]
         )
 
@@ -538,7 +528,7 @@ class CommonTests(CommonCommonTests):
         """
         L{AddressBook.name} reflects the name of the addressbook.
         """
-        self.assertEquals((yield self.addressbookUnderTest()).name(), "addressbook_1")
+        self.assertEquals((yield self.addressbookUnderTest()).name(), "addressbook")
 
 
     @inlineCallbacks
@@ -822,7 +812,7 @@ class CommonTests(CommonCommonTests):
             self.notifierFactory.history,
             [
                 ("update", "CardDAV|home1"),
-                ("update", "CardDAV|home1/addressbook_1"),
+                ("update", "CardDAV|home1/addressbook"),
             ]
         )
 
@@ -929,7 +919,7 @@ class CommonTests(CommonCommonTests):
         home2 = yield self.transactionUnderTest().addressbookHomeWithUID(
             "home2", create=True
         )
-        self.assertIdentical((yield home2.addressbookWithName("addressbook_1")), None)
+        self.assertIdentical((yield home2.addressbookWithName("addressbook")), None)
 
 
     @inlineCallbacks
@@ -941,11 +931,11 @@ class CommonTests(CommonCommonTests):
         home1 = yield self.homeUnderTest()
         home2 = yield self.transactionUnderTest().addressbookHomeWithUID(
             "home2", create=True)
-        addressbook1 = yield home1.addressbookWithName("addressbook_1")
+        addressbook1 = yield home1.addressbookWithName("addressbook")
         addressbook2 = yield home2.addressbookWithName("addressbook")
         objects = list((yield (yield home2.addressbookWithName("addressbook")).addressbookObjects()))
         self.assertEquals(objects, [])
-        for resourceName in self.requirements['home1']['addressbook_1'].keys():
+        for resourceName in self.requirements['home1']['addressbook'].keys():
             obj = yield addressbook1.addressbookObjectWithName(resourceName)
             self.assertIdentical(
                 (yield addressbook2.addressbookObjectWithName(resourceName)), None)

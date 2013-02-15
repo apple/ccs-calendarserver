@@ -1498,7 +1498,7 @@ class CommonHome(LoggingMixIn):
         return self._childClass.objectWithName(self, name)
 
 
-    def objectWithBindName(self, name):
+    def objectWithShareUID(self, shareUID):
         """
         Retrieve the child with the given bind identifier contained in this
         home.
@@ -1506,7 +1506,7 @@ class CommonHome(LoggingMixIn):
         @param name: a string.
         @return: an L{ICalendar} or C{None} if no such child exists.
         """
-        return self._childClass.objectWithName(self, name)
+        return self._childClass.objectWithName(self, shareUID)
 
 
     @memoizedKey("resourceID", "_children")
@@ -2303,24 +2303,22 @@ class SharingMixIn(object):
                      bind.MESSAGE: Parameter("message")})
 
 
-    @classproperty
+    @classmethod
     def _bindColumns(cls): #@NoSelf
         bind = cls._bindSchema
-        return [
-                bind.BIND_MODE,
+        return (bind.BIND_MODE,
                 bind.HOME_RESOURCE_ID,
                 bind.RESOURCE_ID,
                 bind.RESOURCE_NAME,
                 bind.BIND_STATUS,
-                bind.MESSAGE,
-                ]
+                bind.MESSAGE,)
 
 
     @classmethod
     def _bindFor(cls, condition): #@NoSelf
         bind = cls._bindSchema
         return Select(
-                  cls._bindColumns,
+                  cls._bindColumns(),
                   From=bind,
                   Where=condition
         )
@@ -2588,6 +2586,25 @@ class SharingMixIn(object):
 
         returnValue(resourceName)
 
+
+    @inlineCallbacks
+    def unshare(self):
+        """
+        Unshares a collection, regardless of which "direction" it was shared.
+        """
+        if self.owned():
+            # This collection may be shared to others
+            for sharedToHome in [x.viewerHome() for x in (yield self.asShared())]:
+                yield self.unshareWith(sharedToHome)
+        else:
+            # This collection is shared to me
+            ownerHomeID = yield self.ownerHomeID(self._txn, self._resourceID)
+            ownerHome = yield self._txn.homeWithResourceID(self._home._homeType,
+                ownerHomeID)
+            ownerHomeChild = yield ownerHome.childWithID(self._resourceID)
+            yield ownerHomeChild.unshareWith(self._home)
+
+
     @inlineCallbacks
     def asShared(self):
         """
@@ -2803,7 +2820,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic, HomeChildBas
         bind = cls._bindSchema
         child = cls._homeChildSchema
         childMetaData = cls._homeChildMetaDataSchema
-        columns = cls._bindColumns + list(cls.metadataColumns())
+        columns = cls._bindColumns() + cls.metadataColumns()
         return Select(columns,
                      From=child.join(
                          bind, child.RESOURCE_ID == bind.RESOURCE_ID,
@@ -2812,26 +2829,6 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic, HomeChildBas
                          'left outer'),
                      Where=(bind.HOME_RESOURCE_ID == Parameter("homeID")
                            ).And(bind.BIND_STATUS == _BIND_STATUS_ACCEPTED))
-
-
-    @inlineCallbacks
-    def unshare(self, homeType):
-        """
-        Unshares a collection, regardless of which "direction" it was shared.
-
-        @param homeType: a valid store type (ECALENDARTYPE or EADDRESSBOOKTYPE)
-        """
-        if self.owned():
-            # This collection may be shared to others
-            for sharedToHome in [x.viewerHome() for x in (yield self.asShared())]:
-                (yield self.unshareWith(sharedToHome))
-        else:
-            # This collection is shared to me
-            sharerHomeID = (yield self.sharerHomeID())
-            sharerHome = (yield self._txn.homeWithResourceID(homeType,
-                sharerHomeID))
-            sharerCollection = (yield sharerHome.childWithID(self._resourceID))
-            (yield sharerCollection.unshareWith(self._home))
 
 
     @classproperty
