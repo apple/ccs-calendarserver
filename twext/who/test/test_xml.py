@@ -168,8 +168,8 @@ class BaseTest(object):
                 assert name is not None
                 return DirectoryQueryMatchExpression(
                     name, value,
-                    matchType=matchType,
-                    flags=flags,
+                    matchType = matchType,
+                    flags = flags,
                 )
 
         return TestService(filePath)
@@ -440,13 +440,57 @@ class DirectoryServiceTest(BaseTest, test_directory.DirectoryServiceTest):
 
 
     @inlineCallbacks
+    def test_queryStartsWithNot(self):
+        service = self._testService()
+        records = yield service.recordsFromQuery((
+            service.query(
+                "shortNames", "wil",
+                matchType = MatchType.startsWith,
+                flags = QueryFlags.NOT,
+            ),
+        ))
+        self.assertRecords(
+            records,
+            (
+                '__alyssa__',
+                '__calendar-dev__',
+                '__cdaboo__',
+                '__developers__',
+                '__dre__',
+                '__dreid__',
+                '__exarkun__',
+                '__glyph__',
+                '__joe__',
+                '__sagen__',
+                '__twisted__',
+            ))
+
+    test_queryStartsWithNot.todo = "Not implemented."
+
+
+    @inlineCallbacks
+    def test_queryStartsWithNotNoIndex(self):
+        service = self._testService()
+        records = yield service.recordsFromQuery((
+            service.query(
+                "fullNames", "Wilfredo",
+                matchType = MatchType.startsWith,
+                flags = QueryFlags.NOT,
+            ),
+        ))
+        self.assertRecords(records, ("__wsanchez__",))
+
+    test_queryStartsWithNotNoIndex.todo = "Not implemented."
+
+
+    @inlineCallbacks
     def test_queryStartsWithCaseInsensitive(self):
         service = self._testService()
         records = yield service.recordsFromQuery((
             service.query(
                 "shortNames", "WIL",
-                matchType=MatchType.startsWith,
-                flags=QueryFlags.caseInsensitive,
+                matchType = MatchType.startsWith,
+                flags = QueryFlags.caseInsensitive,
             ),
         ))
         self.assertRecords(records, ("__wsanchez__",))
@@ -460,8 +504,8 @@ class DirectoryServiceTest(BaseTest, test_directory.DirectoryServiceTest):
         records = yield service.recordsFromQuery((
             service.query(
                 "fullNames", "wilfrEdo",
-                matchType=MatchType.startsWith,
-                flags=QueryFlags.caseInsensitive,
+                matchType = MatchType.startsWith,
+                flags = QueryFlags.caseInsensitive,
             ),
         ))
         self.assertRecords(records, ("__wsanchez__",))
@@ -487,6 +531,66 @@ class DirectoryServiceTest(BaseTest, test_directory.DirectoryServiceTest):
         self.assertRecords(records, ("__wsanchez__",))
 
     test_queryContainsNoIndex.todo = "Not implemented."
+
+
+    @inlineCallbacks
+    def test_queryContainsNot(self):
+        service = self._testService()
+        records = yield service.recordsFromQuery((
+            service.query(
+                "shortNames", "sanchez",
+                matchType = MatchType.contains,
+                flags = QueryFlags.NOT,
+            ),
+        ))
+        self.assertRecords(
+            records,
+            (
+                '__alyssa__',
+                '__calendar-dev__',
+                '__cdaboo__',
+                '__developers__',
+                '__dre__',
+                '__dreid__',
+                '__exarkun__',
+                '__glyph__',
+                '__joe__',
+                '__sagen__',
+                '__twisted__',
+            ),
+        )
+
+    test_queryContainsNot.todo = "Not implemented."
+
+
+    @inlineCallbacks
+    def test_queryContainsNoIndexNot(self):
+        service = self._testService()
+        records = yield service.recordsFromQuery((
+            service.query(
+                "fullNames", "fred",
+                matchType = MatchType.contains,
+                flags = QueryFlags.NOT,
+            ),
+        ))
+        self.assertRecords(
+            records,
+            (
+                '__alyssa__',
+                '__calendar-dev__',
+                '__cdaboo__',
+                '__developers__',
+                '__dre__',
+                '__dreid__',
+                '__exarkun__',
+                '__glyph__',
+                '__joe__',
+                '__sagen__',
+                '__twisted__',
+            ),
+        )
+
+    test_queryContainsNoIndexNot.todo = "Not implemented."
 
 
     @inlineCallbacks
