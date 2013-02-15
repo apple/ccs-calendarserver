@@ -39,7 +39,24 @@ class MergedConstants(object):
     and doesn't provide a way to merge multiple Names classes.
     """
     def __init__(self, *containers):
-        self._containers = containers
+        seenNames = set()
+        myContainers = set()
+        for container in containers:
+            for constant in container.iterconstants():
+                if constant.name in seenNames:
+                    raise ValueError(
+                        "Multiple constants with the same name may not be merged: %s"
+                        % (constant.name,)
+                    )
+                seenNames.add(constant.name)
+
+            if isinstance(container, MergedConstants):
+                # Avoid nesting
+                myContainers |= container._containers
+            else:
+                myContainers.add(container)
+
+        self._containers = myContainers
 
     def __getattr__(self, name):
         for container in self._containers:
