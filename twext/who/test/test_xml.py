@@ -442,6 +442,40 @@ class DirectoryServiceTest(BaseTest, test_directory.DirectoryServiceTest):
         service = self._testService()
         records = yield service.recordsFromQuery((
             service.query(
+                "shortNames", "w",
+                matchType = MatchType.startsWith,
+                flags = QueryFlags.NOT,
+            ),
+        ))
+        self.assertRecords(
+            records,
+            (
+                '__alyssa__',
+                '__calendar-dev__',
+                '__cdaboo__',
+                '__developers__',
+                '__dre__',
+                '__dreid__',
+                '__exarkun__',
+                '__glyph__',
+                '__joe__',
+                '__sagen__',
+                '__twisted__',
+            ),
+        )
+
+
+    @inlineCallbacks
+    def test_queryStartsWithNotAny(self):
+        """
+        FIXME?: In the this case, the record __wsanchez__ has two
+        shortNames, and one doesn't match the query.  Should it be
+        included or not?  It is, because one matches the query, but
+        should NOT require that all match?
+        """
+        service = self._testService()
+        records = yield service.recordsFromQuery((
+            service.query(
                 "shortNames", "wil",
                 matchType = MatchType.startsWith,
                 flags = QueryFlags.NOT,
@@ -461,9 +495,9 @@ class DirectoryServiceTest(BaseTest, test_directory.DirectoryServiceTest):
                 '__joe__',
                 '__sagen__',
                 '__twisted__',
-            ))
-
-    test_queryStartsWithNot.todo = "Not implemented."
+                '__wsanchez__',
+            ),
+        )
 
 
     @inlineCallbacks
@@ -560,7 +594,7 @@ class DirectoryServiceTest(BaseTest, test_directory.DirectoryServiceTest):
 
 
     @inlineCallbacks
-    def test_queryContainsNoIndexNot(self):
+    def test_queryContainsNotNoIndex(self):
         service = self._testService()
         records = yield service.recordsFromQuery((
             service.query(
@@ -586,7 +620,7 @@ class DirectoryServiceTest(BaseTest, test_directory.DirectoryServiceTest):
             ),
         )
 
-    test_queryContainsNoIndexNot.todo = "Not implemented."
+    test_queryContainsNotNoIndex.todo = "Not implemented."
 
 
     @inlineCallbacks
