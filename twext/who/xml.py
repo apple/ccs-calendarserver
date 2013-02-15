@@ -39,11 +39,11 @@ from twisted.internet.defer import succeed, fail, inlineCallbacks, returnValue
 from twext.who.idirectory import DirectoryServiceError
 from twext.who.idirectory import NoSuchRecordError, UnknownRecordTypeError
 from twext.who.idirectory import RecordType, FieldName as BaseFieldName
-from twext.who.idirectory import MatchType
+from twext.who.idirectory import MatchType, QueryFlags
 from twext.who.idirectory import DirectoryQueryMatchExpression
 from twext.who.directory import DirectoryService as BaseDirectoryService
 from twext.who.directory import DirectoryRecord as BaseDirectoryRecord
-from twext.who.util import MergedConstants, describe
+from twext.who.util import MergedConstants, describe, iterFlags
 
 
 
@@ -361,15 +361,26 @@ class DirectoryService(BaseDirectoryService):
         fieldIndex = self.index[expression.fieldName]
         matchValue = expression.fieldValue
 
+        predicate = lambda x: x
+
         if expression.flags is not None:
-            raise NotImplementedError("Unknown query flags: %s" % (expression.flags,))
+            for flag in iterFlags(expression.flags):
+                if flag == QueryFlags.NOT:
+                    predicate = lambda x: not x
+                elif flag == QueryFlags.caseInsensitive:
+                    raise NotImplementedError("Unknown query flag: %s" % (describe(flag),))
+                else:
+                    raise NotImplementedError("Unknown query flag: %s" % (describe(flag),))
 
         if expression.matchType == MatchType.startsWith:
-            indexKeys = (key for key in fieldIndex if key.startswith(matchValue))
+            indexKeys = (key for key in fieldIndex if predicate(key.startswith(matchValue)))
         elif expression.matchType == MatchType.contains:
-            indexKeys = (key for key in fieldIndex if matchValue in key)
+            indexKeys = (key for key in fieldIndex if predicate(matchValue in key))
         elif expression.matchType == MatchType.equals:
-            indexKeys = (expression.fieldValue,)
+            if predicate(True):
+                indexKeys = (matchValue,)
+            else:
+                indexKeys = (key for key in fieldIndex if key != matchValue)
         else:
             raise NotImplementedError("Unknown match type: %s" % (describe(expression.matchType),))
 
