@@ -33,17 +33,15 @@ from xml.etree.ElementTree import ParseError as XMLParseError
 from xml.etree.ElementTree import tostring as etreeToString
 from xml.etree.ElementTree import Element as XMLElement
 
-from twisted.python.constants import Names, NamedConstant, Values, ValueConstant
-from twisted.internet.defer import succeed, fail, inlineCallbacks, returnValue
+from twisted.python.constants import Values, ValueConstant
+from twisted.internet.defer import fail
 
 from twext.who.idirectory import DirectoryServiceError
 from twext.who.idirectory import NoSuchRecordError, UnknownRecordTypeError
 from twext.who.idirectory import RecordType, FieldName as BaseFieldName
-from twext.who.idirectory import MatchType, QueryFlags
-from twext.who.idirectory import DirectoryQueryMatchExpression
-from twext.who.directory import DirectoryService as BaseDirectoryService
-from twext.who.directory import DirectoryRecord as BaseDirectoryRecord
-from twext.who.util import MergedConstants, describe, uniqueResult, iterFlags
+from twext.who.index import DirectoryService as BaseDirectoryService
+from twext.who.index import DirectoryRecord
+from twext.who.index import FieldName as IndexFieldName
 
 
 
@@ -55,17 +53,6 @@ class ParseError(DirectoryServiceError):
     """
     Parse error.
     """
-
-
-
-##
-# Data type extentions
-##
-
-class FieldName(Names):
-    memberUIDs = NamedConstant()
-    memberUIDs.description = "member UIDs"
-    memberUIDs.multiValue = True
 
 
 
@@ -99,7 +86,7 @@ class Element(Values):
     password.fieldName = BaseFieldName.password
 
     memberUID = ValueConstant("member-uid")
-    memberUID.fieldName = FieldName.memberUIDs
+    memberUID.fieldName = IndexFieldName.memberUIDs
 
 
 
@@ -136,20 +123,9 @@ class DirectoryService(BaseDirectoryService):
     XML directory service.
     """
 
-    fieldName = MergedConstants(BaseDirectoryService.fieldName, FieldName)
-
     element   = Element
     attribute = Attribute
     value     = Value
-
-    indexedFields = (
-        BaseFieldName.recordType,
-        BaseFieldName.uid,
-        BaseFieldName.guid,
-        BaseFieldName.shortNames,
-        BaseFieldName.emailAddresses,
-        FieldName.memberUIDs,
-    )
 
 
     def __init__(self, filePath, refreshInterval=4):
@@ -157,8 +133,6 @@ class DirectoryService(BaseDirectoryService):
 
         self.filePath = filePath
         self.refreshInterval = refreshInterval
-
-        self.flush()
 
 
     def __repr__(self):
@@ -179,25 +153,23 @@ class DirectoryService(BaseDirectoryService):
         self.loadRecords()
         return self._realmName
 
+
     @realmName.setter
     def realmName(self, value):
         if value is not noRealmName:
             raise AssertionError("realmName may not be set directly")
+
 
     @property
     def unknownRecordTypes(self):
         self.loadRecords()
         return self._unknownRecordTypes
 
+
     @property
     def unknownFieldElements(self):
         self.loadRecords()
         return self._unknownFieldElements
-
-    @property
-    def index(self):
-        self.loadRecords()
-        return self._index
 
 
     def loadRecords(self, loadNow=False, stat=True):
@@ -207,8 +179,13 @@ class DirectoryService(BaseDirectoryService):
         Does nothing if a successful refresh has happened within the
         last L{self.refreshInterval} seconds.
 
-        @param loadNow: Load now (ignore L{self.refreshInterval})
-        @type loadNow: boolean
+        @param loadNow: If true, load now (ignoring
+            L{self.refreshInterval})
+        @type loadNow: L{type}
+
+        @param stat: If true, check file metadata and don't reload if
+            unchanged.
+        @type loadNow: L{type}
         """
         #
         # Punt if we've read the file recently
@@ -289,10 +266,10 @@ class DirectoryService(BaseDirectoryService):
         self._unknownRecordTypes   = unknownRecordTypes
         self._unknownFieldElements = unknownFieldElements
 
-        self._index = index
-
         self._cacheTag = cacheTag
         self._lastRefresh = now
+
+        self.index = index
 
         return etree
 
@@ -343,113 +320,13 @@ class DirectoryService(BaseDirectoryService):
 
 
     def flush(self):
+        BaseDirectoryService.flush(self)
+
         self._realmName            = None
         self._unknownRecordTypes   = None
         self._unknownFieldElements = None
-        self._index                = None
         self._cacheTag             = None
         self._lastRefresh          = 0
-
-
-    @staticmethod
-    def _queryFlags(flags):
-        predicate = lambda x: x
-        normalize = lambda x: x
-
-        if flags is not None:
-            for flag in iterFlags(flags):
-                if flag == QueryFlags.NOT:
-                    predicate = lambda x: not x
-                elif flag == QueryFlags.caseInsensitive:
-                    normalize = lambda x: x.lower()
-                else:
-                    raise NotImplementedError("Unknown query flag: %s" % (describe(flag),))
-
-        return predicate, normalize
-
-
-    def indexedRecordsFromMatchExpression(self, expression, records=None):
-        """
-        Finds records in the internal indexes matching a single
-        expression.
-        @param expression: an expression
-        @type expression: L{object}
-        """
-        predicate, normalize = self._queryFlags(expression.flags)
-
-        fieldIndex = self.index[expression.fieldName]
-        matchValue = normalize(expression.fieldValue)
-        matchType  = expression.matchType
-
-        if matchType == MatchType.startsWith:
-            indexKeys = (key for key in fieldIndex if predicate(normalize(key).startswith(matchValue)))
-        elif matchType == MatchType.contains:
-            indexKeys = (key for key in fieldIndex if predicate(matchValue in normalize(key)))
-        elif matchType == MatchType.equals:
-            if predicate(True):
-                indexKeys = (matchValue,)
-            else:
-                indexKeys = (key for key in fieldIndex if normalize(key) != matchValue)
-        else:
-            raise NotImplementedError("Unknown match type: %s" % (describe(matchType),))
-
-        matchingRecords = set()
-        for key in indexKeys:
-            matchingRecords |= fieldIndex.get(key, frozenset())
-
-        if records is not None:
-            matchingRecords &= records
-
-        return succeed(matchingRecords)
-
-
-    def unIndexedRecordsFromMatchExpression(self, expression, records=None):
-        """
-        Finds records not in the internal indexes matching a single
-        expression.
-        @param expression: an expression
-        @type expression: L{object}
-        """
-        predicate, normalize = self._queryFlags(expression.flags)
-
-        matchValue = normalize(expression.fieldValue)
-        matchType  = expression.matchType
-
-        if matchType == MatchType.startsWith:
-            match = lambda fieldValue: predicate(fieldValue.startswith(matchValue))
-        elif matchType == MatchType.contains:
-            match = lambda fieldValue: predicate(matchValue in fieldValue)
-        elif matchType == MatchType.equals:
-            match = lambda fieldValue: predicate(fieldValue == matchValue)
-        else:
-            raise NotImplementedError("Unknown match type: %s" % (describe(matchType),))
-
-        result = set()
-
-        if records is None:
-            records = (uniqueResult(values) for values in self.index[self.fieldName.uid].itervalues())
-
-        for record in records:
-            fieldValues = record.fields.get(expression.fieldName, None)
-
-            if fieldValues is None:
-                continue
-
-            for fieldValue in fieldValues:
-                if match(normalize(fieldValue)):
-                    result.add(record)
-
-        return result
-
-
-    def recordsFromExpression(self, expression, records=None):
-        if isinstance(expression, DirectoryQueryMatchExpression):
-            if expression.fieldName in self.indexedFields:
-                return self.indexedRecordsFromMatchExpression(expression, records=records)
-            else:
-                return self.unIndexedRecordsFromMatchExpression(expression, records=records)
-        else:
-            return BaseDirectoryService.recordsFromExpression(self, expression, records=records)
 
 
     def updateRecords(self, records, create=False):
@@ -552,22 +429,6 @@ class DirectoryService(BaseDirectoryService):
         self.filePath.setContent(etreeToString(directoryNode))
         self.flush()
 
-
-
-class DirectoryRecord(BaseDirectoryRecord):
-    """
-    XML directory record
-    """
-    @inlineCallbacks
-    def members(self):
-        members = set()
-        for uid in getattr(self, "memberUIDs", ()):
-            members.add((yield self.service.recordWithUID(uid)))
-        returnValue(members)
-
-
-    def groups(self):
-        return self.service.recordsWithFieldValue(FieldName.memberUIDs, self.uid)
 
 
 noRealmName = object()
