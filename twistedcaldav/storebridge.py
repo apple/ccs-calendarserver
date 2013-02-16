@@ -3001,7 +3001,7 @@ class AddressBookObjectResource(_CommonObjectResource):
         except GroupWithUnsharedAddressNotAllowedError:
             raise HTTPError(StatusResponse(
                 FORBIDDEN,
-                "Sharee cannot add or modify group vcard such that result contains addresses of unshared vcards.",)
+                "Sharee cannot add unshared group members",)
             )
 
     @inlineCallbacks
@@ -3013,7 +3013,7 @@ class AddressBookObjectResource(_CommonObjectResource):
         except GroupForSharedAddressBookDeleteNotAllowedError:
             raise HTTPError(StatusResponse(
                 FORBIDDEN,
-                "Sharee cannot delete the group for a whole address book ",)
+                "Sharee cannot delete the group for a shared address book",)
             )
 
         except SharedGroupDeleteNotAllowedError:

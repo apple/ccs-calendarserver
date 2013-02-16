@@ -38,19 +38,19 @@ __all__ = [
 
 class GroupForSharedAddressBookDeleteNotAllowedError(CommonStoreError):
     """
-    Sharee cannot delete the group for a shared address book
+    Sharee cannot delete the group for a shared address book.
     """
 
 
 class GroupWithUnsharedAddressNotAllowedError(CommonStoreError):
     """
-    Sharee cannot add or modify group vcard such that result contains addresses of unshared vcards.
+    Sharee cannot add unshared group members.
     """
 
 
 class SharedGroupDeleteNotAllowedError(CommonStoreError):
     """
-    Sharee cannot delete a shared group
+    Sharee cannot delete a shared group.
     """
 
 
