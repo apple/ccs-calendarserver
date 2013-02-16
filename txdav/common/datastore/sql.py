@@ -2556,35 +2556,33 @@ class SharingMixIn(object):
         @param shareeHome: The home with which this L{CommonHomeChild} was
             previously shared.
 
-        @return: a L{Deferred} which will fire with the previously-used name.
+        @return: a L{Deferred} which will fire with the previous shareUID
         """
-
-        resourceName = None
-
         #remove sync tokens
         shareeChildren = yield shareeHome.children()
         for shareeChild in shareeChildren:
             if not shareeChild.owned() and shareeChild._resourceID == self._resourceID:
                 shareeChild._deletedSyncToken(sharedRemoval=True)
-
-                queryCacher = self._txn._queryCacher
-                if queryCacher:
-                    cacheKey = queryCacher.keyForObjectWithName(shareeHome._resourceID, shareeChild._name)
-                    queryCacher.invalidateAfterCommit(self._txn, cacheKey)
-
-                resourceName = shareeChild._name
-                shareeHome._children.pop(resourceName, None)
+                shareeHome._children.pop(shareeChild._name, None)
 
                 # Must send notification to ensure cache invalidation occurs
                 yield self.notifyChanged()
-
                 break
 
         # delete binds including invites
-        yield self._deleteBindWithResourceIDAndHomeID.on(self._txn, resourceID=self._resourceID,
+        deletedBindNameRows = yield self._deleteBindWithResourceIDAndHomeID.on(self._txn, resourceID=self._resourceID,
              homeID=shareeHome._resourceID)
 
-        returnValue(resourceName)
+        if deletedBindNameRows:
+            deletedBindName = deletedBindNameRows[0][0]
+            queryCacher = self._txn._queryCacher
+            if queryCacher:
+                cacheKey = queryCacher.keyForObjectWithName(shareeHome._resourceID, shareeChild._name)
+                queryCacher.invalidateAfterCommit(self._txn, cacheKey)
+        else:
+            deletedBindName = None
+
+        returnValue(deletedBindName)
 
 
     @inlineCallbacks

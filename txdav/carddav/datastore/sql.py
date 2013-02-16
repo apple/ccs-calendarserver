@@ -43,8 +43,8 @@ from txdav.base.propertystore.base import PropertyName
 from txdav.base.propertystore.sql import PropertyStore
 from txdav.carddav.datastore.util import validateAddressBookComponent
 from txdav.carddav.iaddressbookstore import IAddressBookHome, IAddressBook, \
-    IAddressBookObject, GroupWithUnsharedAddressNotAllowedError, \
-    SharedGroupDeleteNotAllowedError
+    IAddressBookObject, GroupForSharedAddressBookDeleteNotAllowedError, \
+    GroupWithUnsharedAddressNotAllowedError, SharedGroupDeleteNotAllowedError
 from txdav.common.datastore.sql import CommonHome, CommonHomeChild, \
     CommonObjectResource, EADDRESSBOOKTYPE, SharingMixIn
 from txdav.common.datastore.sql_legacy import PostgresLegacyABIndexEmulator
@@ -936,9 +936,8 @@ END:VCARD
 
         returnValue(shareeView._name)
 
-
     @inlineCallbacks
-    def asShared(self):
+    def asShared(self, includeGroupBinds=False):
         """
         Retrieve all the versions of this L{CommonHomeChild} as it is shared to
         everyone.
@@ -953,26 +952,30 @@ END:VCARD
             returnValue([])
 
         # get all accepted shared binds
-        rows = yield self._sharedBindForResourceID.on(
+        bindRows = yield self._sharedBindForResourceID.on(
             self._txn, resourceID=self._resourceID, homeID=self._home._resourceID
         )
-        homeIDToBindRowMap = dict([(row[1], row) for row in rows])
 
-        groupBindRows = yield AddressBookObject._acceptedBindWithAddressBookID.on(
-                self._txn, addressbookID=self._resourceID
-        )
-        for groupBindRow in groupBindRows:
-            bindMode, homeID, resourceID, bindName, bindStatus, bindMessage = groupBindRow #@UnusedVariable
-            if homeID not in homeIDToBindRowMap:
-                groupBindRow[0] = _BIND_MODE_WRITE
-                groupBindRow[3] = None # bindName
-                groupBindRow[4] = None # bindStatus
-                groupBindRow[5] = None # bindMessage
-                homeIDToBindRowMap[homeID] = groupBindRow
+        if includeGroupBinds:
+            homeIDToBindRowMap = dict([(bindRow[1], bindRow) for bindRow in bindRows])
+
+            groupBindRows = yield AddressBookObject._acceptedBindWithAddressBookID.on(
+                    self._txn, addressbookID=self._resourceID
+            )
+            for groupBindRow in groupBindRows:
+                bindMode, homeID, resourceID, bindName, bindStatus, bindMessage = groupBindRow #@UnusedVariable
+                if homeID not in homeIDToBindRowMap:
+                    groupBindRow[0] = _BIND_MODE_WRITE
+                    groupBindRow[3] = None # bindName
+                    groupBindRow[4] = None # bindStatus
+                    groupBindRow[5] = None # bindMessage
+                    homeIDToBindRowMap[homeID] = groupBindRow
+
+            bindRows = homeIDToBindRowMap.values()
 
         result = []
         cls = self._home._childClass # for ease of grepping...
-        for bindMode, homeID, resourceID, bindName, bindStatus, bindMessage in homeIDToBindRowMap.values(): #@UnusedVariable
+        for bindMode, homeID, resourceID, bindName, bindStatus, bindMessage in bindRows: #@UnusedVariable
 
             home = yield self._txn.homeWithResourceID(self._home._homeType, homeID)
             new = cls(
@@ -989,7 +992,7 @@ END:VCARD
 
 
     @inlineCallbacks
-    def asInvited(self):
+    def asInvited(self, includeGroupBinds=False):
         """
         Retrieve all the versions of this L{CommonHomeChild} as it is invited to
         everyone.
@@ -1004,27 +1007,30 @@ END:VCARD
             returnValue([])
 
         # get all accepted shared binds
-        rows = yield self._unacceptedBindForResourceID.on(
+        bindRows = yield self._unacceptedBindForResourceID.on(
             self._txn, resourceID=self._resourceID
         )
-        homeIDToBindRowMap = dict([(row[1], row) for row in rows])
+        homeIDToBindRowMap = dict([(bindRow[1], bindRow) for bindRow in bindRows])
 
-        groupBindRows = yield AddressBookObject._unacceptedBindWithAddressBookID.on(
-                self._txn, addressbookID=self._resourceID
-        )
-        for groupBindRow in groupBindRows:
-            bindMode, homeID, resourceID, bindName, bindStatus, bindMessage = groupBindRow #@UnusedVariable
-            if homeID not in homeIDToBindRowMap:
-                groupBindRow[0] = _BIND_MODE_WRITE
-                groupBindRow[3] = None # bindName
-                groupBindRow[4] = None # bindStatus
-                groupBindRow[5] = None # bindMessage
-                homeIDToBindRowMap[homeID] = groupBindRow
-                break
+        if includeGroupBinds:
+            groupBindRows = yield AddressBookObject._unacceptedBindWithAddressBookID.on(
+                    self._txn, addressbookID=self._resourceID
+            )
+            for groupBindRow in groupBindRows:
+                bindMode, homeID, resourceID, bindName, bindStatus, bindMessage = groupBindRow #@UnusedVariable
+                if homeID not in homeIDToBindRowMap:
+                    groupBindRow[0] = _BIND_MODE_WRITE
+                    groupBindRow[3] = None # bindName
+                    groupBindRow[4] = None # bindStatus
+                    groupBindRow[5] = None # bindMessage
+                    homeIDToBindRowMap[homeID] = groupBindRow
+                    break
+
+            bindRows = homeIDToBindRowMap.values()
 
         result = []
         cls = self._home._childClass # for ease of grepping...
-        for bindMode, homeID, resourceID, bindName, bindStatus, bindMessage in homeIDToBindRowMap.values(): #@UnusedVariable
+        for bindMode, homeID, resourceID, bindName, bindStatus, bindMessage in bindRows: #@UnusedVariable
 
             home = yield self._txn.homeWithResourceID(self._home._homeType, homeID)
             new = cls(
@@ -1051,10 +1057,8 @@ END:VCARD
         @param shareeHome: The home with which this L{CommonHomeChild} was
             previously shared.
 
-        @return: a L{Deferred} which will fire with the previously-used name.
+        @return: a L{Deferred} which will fire with the previous shareUID
         """
-        resourceName = None
-
         sharedAddressBook = yield shareeHome.addressbookWithName(self.shareeABName())
         if sharedAddressBook:
 
@@ -1063,24 +1067,25 @@ END:VCARD
                     self._txn, homeID=sharedAddressBook._home._resourceID, addressbookID=sharedAddressBook._resourceID
             )))
             if acceptedBinds == 1:
-                resourceName = self.shareeABName()
                 sharedAddressBook._deletedSyncToken(sharedRemoval=True)
                 shareeHome._children.pop(self.shareeABName(), None)
-
-            queryCacher = self._txn._queryCacher
-            if queryCacher:
-                cacheKey = queryCacher.keyForObjectWithName(shareeHome._resourceID, self.shareeABName())
-                queryCacher.invalidateAfterCommit(self._txn, cacheKey)
-
-            deleted = yield self._deleteBindWithResourceIDAndHomeID.on(self._txn, resourceID=self._resourceID,
-                 homeID=shareeHome._resourceID)
 
             # Must send notification to ensure cache invalidation occurs
             yield self.notifyChanged()
 
-        returnValue(resourceName)
+        # delete binds including invites
+        deletedBindNameRows = yield self._deleteBindWithResourceIDAndHomeID.on(self._txn, resourceID=self._resourceID,
+             homeID=shareeHome._resourceID)
+        if deletedBindNameRows:
+            deletedBindName = deletedBindNameRows[0][0]
+            queryCacher = self._txn._queryCacher
+            if queryCacher:
+                cacheKey = queryCacher.keyForObjectWithName(shareeHome._resourceID, self.shareeABName())
+                queryCacher.invalidateAfterCommit(self._txn, cacheKey)
+        else:
+            deletedBindName = None
 
-
+        returnValue(deletedBindName)
 
 
 class AddressBookObject(CommonObjectResource, SharingMixIn):
@@ -1144,8 +1149,8 @@ class AddressBookObject(CommonObjectResource, SharingMixIn):
             # cannot delete share for now
             # TODO: convert to unshare
             if self._resourceID == self._addressbook._resourceID:
-                raise SharedGroupDeleteNotAllowedError
-            elif self._bindName:
+                raise GroupForSharedAddressBookDeleteNotAllowedError
+            elif self.shareUID():
                 raise SharedGroupDeleteNotAllowedError
 
         aboMembers = schema.ABO_MEMBERS
@@ -1937,7 +1942,6 @@ class AddressBookObject(CommonObjectResource, SharingMixIn):
 
         @return: a L{Deferred} which will fire with the previously-used name.
         """
-
         resourceName = None
         sharedAddressBook = yield shareeHome.addressbookWithName(self._addressbook.shareeABName())
         if sharedAddressBook:
@@ -1952,18 +1956,22 @@ class AddressBookObject(CommonObjectResource, SharingMixIn):
                 sharedAddressBook._deletedSyncToken(sharedRemoval=True)
                 shareeHome._children.pop(resourceName, None)
 
-            queryCacher = self._txn._queryCacher
-            if queryCacher:
-                cacheKey = queryCacher.keyForObjectWithName(shareeHome._resourceID, self._addressbook.shareeABName())
-                queryCacher.invalidateAfterCommit(self._txn, cacheKey)
-
-            deleted = yield self._deleteBindWithResourceIDAndHomeID.on(self._txn, resourceID=self._resourceID,
-                 homeID=shareeHome._resourceID)
-
             # Must send notification to ensure cache invalidation occurs
             yield self._addressbook.notifyChanged()
 
-        returnValue(resourceName)
+        # delete binds including invites
+        deletedBindNameRows = yield self._deleteBindWithResourceIDAndHomeID.on(self._txn, resourceID=self._addressbook._resourceID,
+             homeID=shareeHome._resourceID)
+        if deletedBindNameRows:
+            deletedBindName = deletedBindNameRows[0][0]
+            queryCacher = self._txn._queryCacher
+            if queryCacher:
+                cacheKey = queryCacher.keyForObjectWithName(shareeHome._resourceID, self.shareeABName())
+                queryCacher.invalidateAfterCommit(self._txn, cacheKey)
+        else:
+            deletedBindName = None
+
+        returnValue(deletedBindName)
 
 
     @inlineCallbacks
