@@ -35,10 +35,12 @@ __all__ = [
     "IAddressBookObject",
 ]
 
+
 class GroupForSharedAddressBookDeleteNotAllowedError(CommonStoreError):
     """
     Sharee cannot delete the group for a shared address book
     """
+
 
 class GroupWithUnsharedAddressNotAllowedError(CommonStoreError):
     """
