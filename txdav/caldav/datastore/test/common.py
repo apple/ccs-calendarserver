@@ -445,8 +445,8 @@ class CommonTests(CommonCommonTests):
         # Make sure notification fired after commit
         self.assertEquals(self.notifierFactory.history,
             [
-                ("update", "CalDAV|home1"),
-                ("update", "CalDAV|home1/notification"),
+                "CalDAV|home1",
+                "CalDAV|home1/notification",
             ]
         )
 
@@ -463,8 +463,8 @@ class CommonTests(CommonCommonTests):
         # Make sure notification fired after commit
         self.assertEquals(self.notifierFactory.history,
             [
-                ("update", "CalDAV|home1"),
-                ("update", "CalDAV|home1/notification"),
+                "CalDAV|home1",
+                "CalDAV|home1/notification",
             ]
         )
 
@@ -535,15 +535,6 @@ class CommonTests(CommonCommonTests):
         name = yield home.nodeName()
         self.assertEquals(name, "/CalDAV/example.com/home1/")
 
-
-    @inlineCallbacks
-    def test_nodeNameFailure(self):
-        # The StubNodeCacher is set up to fail when the node name has the
-        # word "fail" in it, for testing the failure mode:
-        home = yield self.transactionUnderTest().calendarHomeWithUID("fail",
-            create=True)
-        name = yield home.nodeName()
-        self.assertEquals(name, None)
 
 
     @inlineCallbacks
@@ -716,7 +707,7 @@ class CommonTests(CommonCommonTests):
         yield self.commit()
 
         # Make sure notification fired after commit
-        self.assertTrue(("update", "CalDAV|home1") in self.notifierFactory.history)
+        self.assertTrue("CalDAV|home1" in self.notifierFactory.history)
 
         # Make sure it's available in a new transaction; i.e. test the commit.
         home = yield self.homeUnderTest()
@@ -765,12 +756,12 @@ class CommonTests(CommonCommonTests):
         self.assertEquals(
             self.notifierFactory.history,
             [
-                ("update", "CalDAV|home1"),
-                ("update", "CalDAV|home1/calendar_1"),
-                ("update", "CalDAV|home1"),
-                ("update", "CalDAV|home1/calendar_2"),
-                ("update", "CalDAV|home1"),
-                ("update", "CalDAV|home1/calendar_empty"),
+                "CalDAV|home1",
+                "CalDAV|home1/calendar_1",
+                "CalDAV|home1",
+                "CalDAV|home1/calendar_2",
+                "CalDAV|home1",
+                "CalDAV|home1/calendar_empty",
             ]
         )
 
@@ -943,8 +934,8 @@ class CommonTests(CommonCommonTests):
         self.assertEquals(
             self.notifierFactory.history,
             [
-                ("update", "CalDAV|home1"),
-                ("update", "CalDAV|home1/calendar_1"),
+                "CalDAV|home1",
+                "CalDAV|home1/calendar_1",
             ]
         )
 
@@ -1495,8 +1486,8 @@ END:VCALENDAR
         self.assertEquals(
             self.notifierFactory.history,
             [
-                ("update", "CalDAV|home1"),
-                ("update", "CalDAV|home1/calendar_1"),
+                "CalDAV|home1",
+                "CalDAV|home1/calendar_1",
             ]
         )
 
@@ -1612,8 +1603,8 @@ END:VCALENDAR
         self.assertEquals(
             self.notifierFactory.history,
             [
-                ("update", "CalDAV|home1"),
-                ("update", "CalDAV|home1/calendar_1"),
+                "CalDAV|home1",
+                "CalDAV|home1/calendar_1",
             ]
         )
 

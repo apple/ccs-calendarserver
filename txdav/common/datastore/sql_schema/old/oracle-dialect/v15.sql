@@ -2,7 +2,6 @@ create sequence RESOURCE_ID_SEQ;
 create sequence INSTANCE_ID_SEQ;
 create sequence ATTACHMENT_ID_SEQ;
 create sequence REVISION_SEQ;
-create sequence WORKITEM_SEQ;
 create table NODE_INFO (
     "HOSTNAME" nvarchar2(255),
     "PID" integer not null,
@@ -59,7 +58,7 @@ create table NOTIFICATION (
 create table CALENDAR_BIND (
     "CALENDAR_HOME_RESOURCE_ID" integer not null references CALENDAR_HOME,
     "CALENDAR_RESOURCE_ID" integer not null references CALENDAR on delete cascade,
-    "CALENDAR_RESOURCE_NAME" nvarchar2(255),
+    "CALENDAR_RESOURCE_NAME" nvarchar2(255) not null,
     "BIND_MODE" integer not null,
     "BIND_STATUS" integer not null,
     "MESSAGE" nclob, 
@@ -208,7 +207,7 @@ create table ADDRESSBOOK_METADATA (
 create table ADDRESSBOOK_BIND (
     "ADDRESSBOOK_HOME_RESOURCE_ID" integer not null references ADDRESSBOOK_HOME,
     "ADDRESSBOOK_RESOURCE_ID" integer not null references ADDRESSBOOK on delete cascade,
-    "ADDRESSBOOK_RESOURCE_NAME" nvarchar2(255),
+    "ADDRESSBOOK_RESOURCE_NAME" nvarchar2(255) not null,
     "BIND_MODE" integer not null,
     "BIND_STATUS" integer not null,
     "MESSAGE" nclob, 
@@ -265,50 +264,15 @@ create table APN_SUBSCRIPTIONS (
     primary key("TOKEN", "RESOURCE_KEY")
 );
 
-create table IMIP_TOKENS (
-    "TOKEN" nvarchar2(255),
-    "ORGANIZER" nvarchar2(255),
-    "ATTENDEE" nvarchar2(255),
-    "ICALUID" nvarchar2(255),
-    "ACCESSED" timestamp default CURRENT_TIMESTAMP at time zone 'UTC', 
-    primary key("ORGANIZER", "ATTENDEE", "ICALUID")
-);
-
-create table IMIP_INVITATION_WORK (
-    "WORK_ID" integer primary key not null,
-    "NOT_BEFORE" timestamp default CURRENT_TIMESTAMP at time zone 'UTC',
-    "FROM_ADDR" nvarchar2(255),
-    "TO_ADDR" nvarchar2(255),
-    "ICALENDAR_TEXT" nclob
-);
-
-create table IMIP_POLLING_WORK (
-    "WORK_ID" integer primary key not null,
-    "NOT_BEFORE" timestamp default CURRENT_TIMESTAMP at time zone 'UTC'
-);
-
-create table IMIP_REPLY_WORK (
-    "WORK_ID" integer primary key not null,
-    "NOT_BEFORE" timestamp default CURRENT_TIMESTAMP at time zone 'UTC',
-    "ORGANIZER" nvarchar2(255),
-    "ATTENDEE" nvarchar2(255),
-    "ICALENDAR_TEXT" nclob
-);
-
-create table PUSH_NOTIFICATION_WORK (
-    "WORK_ID" integer primary key not null,
-    "NOT_BEFORE" timestamp default CURRENT_TIMESTAMP at time zone 'UTC',
-    "PUSH_ID" nvarchar2(255)
-);
-
 create table CALENDARSERVER (
     "NAME" nvarchar2(255) primary key,
     "VALUE" nvarchar2(255)
 );
 
-insert into CALENDARSERVER (NAME, VALUE) values ('VERSION', '16');
+insert into CALENDARSERVER (NAME, VALUE) values ('VERSION', '15');
 insert into CALENDARSERVER (NAME, VALUE) values ('CALENDAR-DATAVERSION', '3');
 insert into CALENDARSERVER (NAME, VALUE) values ('ADDRESSBOOK-DATAVERSION', '1');
+
 create index NOTIFICATION_NOTIFICA_f891f5f9 on NOTIFICATION (
     NOTIFICATION_HOME_RESOURCE_ID
 );
@@ -392,9 +356,5 @@ create index NOTIFICATION_OBJECT_R_036a9cee on NOTIFICATION_OBJECT_REVISIONS (
 
 create index APN_SUBSCRIPTIONS_RES_9610d78e on APN_SUBSCRIPTIONS (
     RESOURCE_KEY
-);
-
-create index IMIP_TOKENS_TOKEN_e94b918f on IMIP_TOKENS (
-    TOKEN
 );
 

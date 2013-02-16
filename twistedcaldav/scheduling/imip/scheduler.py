@@ -15,22 +15,17 @@
 ##
 
 from twext.python.log import Logger
-from twext.web2 import responsecode
 from twext.web2.dav.http import ErrorResponse
-from twext.web2.http import HTTPError
-from twisted.internet.defer import inlineCallbacks
+from twisted.internet.defer import succeed
 from twistedcaldav.caldavxml import caldav_namespace
-from twistedcaldav.config import config
-from twistedcaldav.scheduling import addressmapping
 from twistedcaldav.scheduling.cuaddress import RemoteCalendarUser
-from twistedcaldav.scheduling.scheduler import RemoteScheduler, \
-    ScheduleResponseQueue
-import itertools
-import socket
+from twistedcaldav.scheduling.scheduler import RemoteScheduler
+from twistedcaldav.scheduling.scheduler import ScheduleResponseQueue
 
 
 """
-L{IMIPScheduler} - handles deliveries for scheduling messages being POSTed to the iMIP inbox.
+L{IMIPScheduler} - handles deliveries for scheduling messages retrieved via
+mail
 """
 
 __all__ = [
@@ -63,24 +58,12 @@ class IMIPScheduler(RemoteScheduler):
         pass
 
 
-    @inlineCallbacks
     def checkOriginator(self):
         """
-        Check the validity of the Originator header.
+        The originator always comes out of the tokens db
         """
-
-        # For remote requests we do not allow the originator to be a local user or one within our domain.
-        originatorPrincipal = self.resource.principalForCalendarUserAddress(self.originator)
-        localUser = (yield addressmapping.mapper.isCalendarUserInMyDomain(self.originator))
-        if originatorPrincipal or localUser:
-            log.err("Cannot use originator that is on this server: %s" % (self.originator,))
-            raise HTTPError(self.errorResponse(
-                responsecode.FORBIDDEN,
-                self.errorElements["originator-denied"],
-                "Originator cannot be local to server",
-            ))
-        else:
-            self.originator = RemoteCalendarUser(self.originator)
+        self.originator = RemoteCalendarUser(self.originator)
+        return succeed(None)
 
 
     def checkOrganizerAsOriginator(self):
@@ -92,21 +75,4 @@ class IMIPScheduler(RemoteScheduler):
 
 
     def securityChecks(self):
-        """
-        Check that the connection is from the mail gateway
-        """
-        allowed = config.Scheduling['iMIP']['MailGatewayServer']
-        # Get the request IP and map to hostname.
-        clientip = self.request.remoteAddr.host
-        host, aliases, _ignore_ips = socket.gethostbyaddr(clientip)
-        for host in itertools.chain((host, clientip), aliases):
-            if host == allowed:
-                break
-        else:
-            log.err("Only %s is allowed to submit internal scheduling requests, not %s" % (allowed, host))
-            # TODO: verify this is the right response:
-            raise HTTPError(self.errorResponse(
-                responsecode.FORBIDDEN,
-                self.errorElements["originator-denied"],
-                "Originator server not allowed to send to this server",
-            ))
+        pass

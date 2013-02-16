@@ -30,6 +30,7 @@ from twistedcaldav.scheduling.caldav.resource import deliverSchedulePrivilegeSet
 from twistedcaldav.scheduling.ischedule.scheduler import IScheduleScheduler
 from txdav.xml import element as davxml
 import twistedcaldav.scheduling.ischedule.xml  as ischedulexml
+from twistedcaldav.directory.util import transactionFromRequest
 from twistedcaldav.scheduling.ischedule.dkim import ISCHEDULE_CAPABILITIES
 
 __all__ = [
@@ -211,7 +212,7 @@ class IScheduleInboxResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithoutChi
         scheduler = IScheduleScheduler(request, self)
 
         # Need a transaction to work with
-        txn = self._newStore.newTransaction("new transaction for Server To Server Inbox Resource")
+        txn = transactionFromRequest(request, self._newStore)
         request._newStoreTransaction = txn
 
         # Do the POST processing treating this as a non-local schedule

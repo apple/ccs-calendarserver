@@ -75,10 +75,7 @@ from twistedcaldav.ical import Component
 
 from twistedcaldav.icaldav import ICalDAVResource, ICalendarPrincipalResource
 from twistedcaldav.linkresource import LinkResource
-from twistedcaldav.notify import (
-    getPubSubConfiguration, getPubSubXMPPURI, getPubSubHeartbeatURI,
-    getPubSubAPSConfiguration,
-)
+from calendarserver.push.notifier import getPubSubAPSConfiguration
 from twistedcaldav.sharing import SharedCollectionMixin, SharedHomeMixin
 from twistedcaldav.util import normalizationLookup
 from twistedcaldav.vcard import Component as vComponent
@@ -2323,8 +2320,7 @@ class CommonHomeResource(PropfindCacheMixin, SharedHomeMixin, CalDAVResource):
 
         elif qname == (customxml.calendarserver_namespace, "push-transports"):
 
-            if (config.Notifications.Services.XMPPNotifier.Enabled or
-                config.Notifications.Services.ApplePushNotifier.Enabled):
+            if config.Notifications.Services.ApplePushNotifier.Enabled:
 
                 nodeName = (yield self._newStoreHome.nodeName())
                 if nodeName:
@@ -2354,76 +2350,16 @@ class CommonHomeResource(PropfindCacheMixin, SharedHomeMixin, CalDAVResource):
                                 )
                             )
 
-                        pubSubConfiguration = getPubSubConfiguration(config)
-                        if (pubSubConfiguration['enabled'] and
-                            pubSubConfiguration['xmpp-server']):
-                            children.append(
-                                customxml.PubSubTransportProperty(
-                                    customxml.PubSubXMPPServerProperty(
-                                        pubSubConfiguration['xmpp-server']
-                                    ),
-                                    customxml.PubSubXMPPURIProperty(
-                                        getPubSubXMPPURI(notifierID, pubSubConfiguration)
-                                    ),
-                                    type="XMPP",
-                                )
-                            )
 
                         returnValue(customxml.PubSubPushTransportsProperty(*children))
             returnValue(None)
 
         elif qname == (customxml.calendarserver_namespace, "pushkey"):
-            if (config.Notifications.Services.XMPPNotifier.Enabled or
-                config.Notifications.Services.AMPNotifier.Enabled or
+            if (config.Notifications.Services.AMPNotifier.Enabled or
                 config.Notifications.Services.ApplePushNotifier.Enabled):
                 nodeName = (yield self._newStoreHome.nodeName())
                 if nodeName:
                     returnValue(customxml.PubSubXMPPPushKeyProperty(nodeName))
-            returnValue(None)
-
-        elif qname == (customxml.calendarserver_namespace, "xmpp-uri"):
-            if config.Notifications.Services.XMPPNotifier.Enabled:
-                nodeName = (yield self._newStoreHome.nodeName())
-                if nodeName:
-                    notifierID = self._newStoreHome.notifierID()
-                    if notifierID:
-                        pubSubConfiguration = getPubSubConfiguration(config)
-                        returnValue(customxml.PubSubXMPPURIProperty(
-                            getPubSubXMPPURI(notifierID, pubSubConfiguration)))
-
-            returnValue(None)
-
-        elif qname == (customxml.calendarserver_namespace, "xmpp-heartbeat-uri"):
-            if config.Notifications.Services.XMPPNotifier.Enabled:
-                # Look up node name not because we want to return it, but
-                # to see if XMPP server is actually responding.  If it comes
-                # back with an empty nodeName, don't advertise
-                # xmpp-heartbeat-uri
-                nodeName = (yield self._newStoreHome.nodeName())
-                if nodeName:
-                    pubSubConfiguration = getPubSubConfiguration(config)
-                    returnValue(
-                        customxml.PubSubHeartbeatProperty(
-                            customxml.PubSubHeartbeatURIProperty(
-                                getPubSubHeartbeatURI(pubSubConfiguration)
-                            ),
-                            customxml.PubSubHeartbeatMinutesProperty(
-                                str(pubSubConfiguration['heartrate'])
-                            )
-                        )
-                    )
-            returnValue(None)
-
-        elif qname == (customxml.calendarserver_namespace, "xmpp-server"):
-            if config.Notifications.Services.XMPPNotifier.Enabled:
-                # Look up node name not because we want to return it, but
-                # to see if XMPP server is actually responding.  If it comes
-                # back with an empty nodeName, don't advertise xmpp-server
-                nodeName = (yield self._newStoreHome.nodeName())
-                if nodeName:
-                    pubSubConfiguration = getPubSubConfiguration(config)
-                    returnValue(customxml.PubSubXMPPServerProperty(
-                        pubSubConfiguration['xmpp-server']))
             returnValue(None)
 
         returnValue((yield super(CommonHomeResource, self).readProperty(property, request)))
@@ -2557,11 +2493,6 @@ class CalendarHomeResource(DefaultAlarmPropertyMixin, CommonHomeResource):
             #caldavxml.DefaultAlarmVToDoDateTime.qname(),
             #caldavxml.DefaultAlarmVToDoDate.qname(),
 
-        )
-        existing += (
-            (customxml.calendarserver_namespace, "xmpp-uri"),
-            (customxml.calendarserver_namespace, "xmpp-heartbeat-uri"),
-            (customxml.calendarserver_namespace, "xmpp-server"),
         )
 
         if config.EnableManagedAttachments:

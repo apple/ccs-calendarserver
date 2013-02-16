@@ -148,6 +148,13 @@ class InvalidSubscriptionValues(ValueError):
     Invalid APN subscription values passed in.
     """
 
+# IMIP Tokens
+
+class InvalidIMIPTokenValues(ValueError):
+    """
+    Invalid IMIP token values passed in.
+    """
+
 #
 # Interfaces
 #
@@ -240,6 +247,58 @@ class ICommonTransaction(ITransaction):
         @return: tuples of (token, key, timestamp, userAgent, ipAddr)
         """
 
+    def imipCreateToken(organizer, attendee, icaluid, token=None):
+        """
+        Add an entry in the database; if no token is provided, one will be
+        generated.
+
+        @param organizer: the CUA of the organizer
+        @type organizer: C{str}
+        @param attendee: the mailto: CUA of the attendee
+        @type organizer: C{str}
+        @param icaluid: the icalendar UID of the VEVENT
+        @type organizer: C{str}
+        @param token: the value to use in the "plus address" of the reply-to
+        @type token: C{str}
+        """
+
+    def imipLookupByToken(token):
+        """
+        Returns the organizer, attendee, and icaluid corresponding to the token
+
+        @param token: the token to look up
+        @type token: C{str}
+        """
+
+
+    def imipGetToken(organizer, attendee, icaluid):
+        """
+        Returns the token (if any) corresponding to the given organizer, attendee,
+        and icaluid combination
+
+        @param organizer: the CUA of the organizer
+        @type organizer: C{str}
+        @param attendee: the mailto: CUA of the attendee
+        @type organizer: C{str}
+        @param icaluid: the icalendar UID of the VEVENT
+        @type organizer: C{str}
+        """
+
+
+    def imipRemoveToken(token):
+        """
+        Removes the entry for the given token.
+
+        @param token: the token to remove
+        @type token: C{str}
+        """
+
+
+    def purgeOldIMIPTokens(olderThan):
+        """
+        Removes all tokens whose access time is before olderThan
+        """
+        
 
 class IShareableCollection(Interface):
     """

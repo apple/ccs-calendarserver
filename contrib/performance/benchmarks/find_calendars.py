@@ -32,8 +32,6 @@ PROPFIND = """\
 <?xml version="1.0" encoding="utf-8"?>
 <x0:propfind xmlns:x0="DAV:" xmlns:x3="http://apple.com/ns/ical/" xmlns:x1="http://calendarserver.org/ns/" xmlns:x2="urn:ietf:params:xml:ns:caldav">
  <x0:prop>
-  <x1:xmpp-server/>
-  <x1:xmpp-uri/>
   <x1:getctag/>
   <x0:displayname/>
   <x2:calendar-description/>

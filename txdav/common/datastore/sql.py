@@ -64,7 +64,8 @@ from txdav.common.datastore.sql_tables import _BIND_MODE_OWN, \
 from txdav.common.icommondatastore import HomeChildNameNotAllowedError, \
     HomeChildNameAlreadyExistsError, NoSuchHomeChildError, \
     ObjectResourceNameNotAllowedError, ObjectResourceNameAlreadyExistsError, \
-    NoSuchObjectResourceError, AllRetriesFailed, InvalidSubscriptionValues
+    NoSuchObjectResourceError, AllRetriesFailed, InvalidSubscriptionValues, \
+    InvalidIMIPTokenValues
 from txdav.common.inotifications import INotificationCollection, \
     INotificationObject
 
@@ -176,6 +177,7 @@ class CommonDataStore(Service, object):
         self.queuer = LocalQueuer(self.newTransaction)
         self._migrating = False
         self._enableNotifications = True
+        self._newTransactionCallbacks = set()
 
         if cacheQueries:
             self.queryCacher = QueryCacher(cachePool=cachePool,
@@ -187,6 +189,16 @@ class CommonDataStore(Service, object):
         # home classes
         __import__("txdav.caldav.datastore.sql")
         __import__("txdav.carddav.datastore.sql")
+
+
+    def callWithNewTransactions(self, callback):
+        """
+        Registers a method to be called whenever a new transaction is
+        created.
+
+        @param callback: callable taking a single argument, a transaction
+        """
+        self._newTransactionCallbacks.add(callback)
 
 
     @inlineCallbacks
@@ -248,6 +260,8 @@ class CommonDataStore(Service, object):
         if self.logTransactionWaits or self.timeoutTransactions:
             CommonStoreTransactionMonitor(txn, self.logTransactionWaits,
                                           self.timeoutTransactions)
+        for callback in self._newTransactionCallbacks:
+            callback(txn)
         return txn
 
 
@@ -714,6 +728,105 @@ class CommonStoreTransaction(object):
 
     def apnSubscriptionsBySubscriber(self, guid):
         return self._apnSubscriptionsBySubscriberQuery.on(self, subscriberGUID=guid)
+
+
+    # Create IMIP token
+
+    @classproperty
+    def _insertIMIPTokenQuery(cls): #@NoSelf
+        imip = schema.IMIP_TOKENS
+        return Insert({imip.TOKEN: Parameter("token"),
+                       imip.ORGANIZER: Parameter("organizer"),
+                       imip.ATTENDEE: Parameter("attendee"),
+                       imip.ICALUID: Parameter("icaluid"),
+                      })
+
+    @inlineCallbacks
+    def imipCreateToken(self, organizer, attendee, icaluid, token=None):
+        if not (organizer and attendee and icaluid):
+            raise InvalidIMIPTokenValues()
+
+        if token is None:
+            token = str(uuid4())
+
+        try:
+            yield self._insertIMIPTokenQuery.on(self,
+                token=token, organizer=organizer, attendee=attendee,
+                icaluid=icaluid)
+        except Exception:
+            # TODO: is it okay if someone else created the same row just now?
+            pass
+        returnValue(token)
+
+    # Lookup IMIP organizer+attendee+icaluid for token
+
+    @classproperty
+    def _selectIMIPTokenByTokenQuery(cls): #@NoSelf
+        imip = schema.IMIP_TOKENS
+        return Select([imip.ORGANIZER, imip.ATTENDEE, imip.ICALUID], From=imip,
+                      Where=(imip.TOKEN == Parameter("token")))
+
+    def imipLookupByToken(self, token):
+        return self._selectIMIPTokenByTokenQuery.on(self, token=token)
+
+    # Lookup IMIP token for organizer+attendee+icaluid
+
+    @classproperty
+    def _selectIMIPTokenQuery(cls): #@NoSelf
+        imip = schema.IMIP_TOKENS
+        return Select([imip.TOKEN], From=imip,
+                      Where=(imip.ORGANIZER == Parameter("organizer")).And(
+                             imip.ATTENDEE == Parameter("attendee")).And(
+                             imip.ICALUID == Parameter("icaluid")))
+    @classproperty
+    def _updateIMIPTokenQuery(cls): #@NoSelf
+        imip = schema.IMIP_TOKENS
+        return Update({imip.ACCESSED: utcNowSQL,},
+                      Where=(imip.ORGANIZER == Parameter("organizer")).And(
+                             imip.ATTENDEE == Parameter("attendee")).And(
+                             imip.ICALUID == Parameter("icaluid")))
+
+
+    @inlineCallbacks
+    def imipGetToken(self, organizer, attendee, icaluid):
+        row = (yield self._selectIMIPTokenQuery.on(self, organizer=organizer,
+            attendee=attendee, icaluid=icaluid))
+        if row:
+            token = row[0][0]
+            # update the timestamp
+            yield self._updateIMIPTokenQuery.on(self, organizer=organizer,
+                attendee=attendee, icaluid=icaluid)
+        else:
+            token = None
+        returnValue(token)
+
+    # Remove IMIP token
+
+    @classproperty
+    def _removeIMIPTokenQuery(cls): #@NoSelf
+        imip = schema.IMIP_TOKENS
+        return Delete(From=imip,
+                      Where=(imip.TOKEN == Parameter("token")))
+
+    def imipRemoveToken(self, token):
+        return self._removeIMIPTokenQuery.on(self, token=token)
+
+    # Purge old IMIP tokens
+
+    @classproperty
+    def _purgeOldIMIPTokensQuery(cls): #@NoSelf
+        imip = schema.IMIP_TOKENS
+        return Delete(From=imip,
+                      Where=(imip.ACCESSED < Parameter("olderThan")))
+
+    def purgeOldIMIPTokens(self, olderThan):
+        """
+        @type olderThan: datetime
+        """
+        return self._purgeOldIMIPTokensQuery.on(self,
+            olderThan=olderThan)
+
+    # End of IMIP
 
 
     def preCommit(self, operation):

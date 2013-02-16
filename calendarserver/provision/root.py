@@ -208,31 +208,6 @@ class RootResource (ReadOnlyResourceMixIn, DirectoryPrincipalPropertySearchMixIn
         for filter in self.contentFilters:
             request.addResponseFilter(filter[0], atEnd=filter[1])
 
-        # Examine headers for our special internal authorization, used for
-        # POSTing to /inbox between workers and mail gateway sidecar.
-        if not hasattr(request, "checkedInternalAuthHeader"):
-            request.checkedInternalAuthHeader = True
-            headerName = config.Scheduling.iMIP.Header
-            secrets = request.headers.getRawHeaders(headerName, None)
-            secretVerified = False
-            if secrets is not None:
-                log.debug("Internal authentication header (%s) detected" %
-                    (headerName,))
-                for secret in secrets:
-                    if secret == config.Scheduling.iMIP.Password:
-                        secretVerified = True
-                        break
-
-            if secretVerified:
-                log.debug("Internal authentication header (%s) verified" %
-                    (headerName,))
-                guid = config.Scheduling.iMIP.GUID
-                log.debug("Internal principal %s being assigned to authnUser and authzUser" % (guid,))
-                request.authzUser = request.authnUser = davxml.Principal(
-                    davxml.HRef.fromString("/principals/__uids__/%s/" % (guid,))
-                )
-
-
         # Examine cookies for wiki auth token; if there, ask the paired wiki
         # server for the corresponding record name.  If that maps to a
         # principal, assign that to authnuser.

@@ -44,7 +44,7 @@ from twistedcaldav.config import config, ConfigurationError
 from twistedcaldav.directory import calendaruserproxy
 from twistedcaldav.directory.aggregate import AggregateDirectoryService
 from twistedcaldav.directory.directory import DirectoryService, DirectoryRecord
-from twistedcaldav.notify import NotifierFactory
+from calendarserver.push.notifier import NotifierFactory
 from twistedcaldav.stdconfig import DEFAULT_CONFIG_FILE
 
 from txdav.common.datastore.file import CommonDataStore
@@ -77,9 +77,10 @@ def getDirectory(config=config):
             if not hasattr(self, "_principalCollection"):
 
                 if config.Notifications.Enabled:
+                    # FIXME: NotifierFactory needs reference to the store in order
+                    # to get a txn in order to create a Work item
                     notifierFactory = NotifierFactory(
-                        config.Notifications.InternalNotificationHost,
-                        config.Notifications.InternalNotificationPort,
+                        None, config.ServerHostName,
                     )
                 else:
                     notifierFactory = None
@@ -87,6 +88,8 @@ def getDirectory(config=config):
                 # Need a data store
                 _newStore = CommonDataStore(FilePath(config.DocumentRoot), 
                     notifierFactory, True, False)
+                if notifierFactory is not None:
+                    notifierFactory.store = _newStore
 
                 #
                 # Instantiating a DirectoryCalendarHomeProvisioningResource with a directory

@@ -98,9 +98,6 @@ def updatePlist(plist, oldIP, newIP, oldHostname, newHostname, verbose=False):
     keys = (
         ("Authentication", "Wiki", "Hostname"),
         ("BindAddresses",),
-        ("Notifications", "Services", "XMPPNotifier", "Host"),
-        ("Notifications", "Services", "XMPPNotifier", "JID"),
-        ("Notifications", "Services", "XMPPNotifier", "ServiceAddress"),
         ("Scheduling", "iMIP", "Receiving", "Server"),
         ("Scheduling", "iMIP", "Sending", "Server"),
         ("Scheduling", "iMIP", "Sending", "Address"),

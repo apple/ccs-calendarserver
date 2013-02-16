@@ -30,7 +30,7 @@ from twext.python.vcomponent import VComponent
 from twext.web2.dav.resource import TwistedGETContentMD5
 
 from twisted.internet import reactor
-from twisted.internet.defer import Deferred, inlineCallbacks, succeed
+from twisted.internet.defer import Deferred, inlineCallbacks
 from twisted.internet.task import deferLater
 from twisted.python import log
 from twisted.application.service import Service
@@ -45,7 +45,7 @@ from txdav.common.icommondatastore import NoSuchHomeChildError
 from twext.enterprise.adbapi2 import ConnectionPool
 from twisted.trial.unittest import TestCase
 from twisted.internet.defer import returnValue
-from twistedcaldav.notify import Notifier, NodeCreationException
+from calendarserver.push.notifier import Notifier
 from twext.enterprise.ienterprise import AlreadyFinishedError
 from twistedcaldav.vcard import Component as ABComponent
 
@@ -646,15 +646,6 @@ class CommonCommonTests(object):
 
 
 
-class StubNodeCacher(object):
-
-    def waitForNode(self, notifier, nodeName):
-        if "fail" in nodeName:
-            raise NodeCreationException("Could not create node")
-        else:
-            return succeed(True)
-
-
 
 class StubNotifierFactory(object):
     """
@@ -663,21 +654,31 @@ class StubNotifierFactory(object):
 
     def __init__(self):
         self.reset()
-        self.nodeCacher = StubNodeCacher()
-        self.pubSubConfig = {
-            "enabled" : True,
-            "service" : "pubsub.example.com",
-            "host" : "example.com",
-            "port" : "123",
-        }
+        self.hostname = "example.com"
 
 
     def newNotifier(self, label="default", id=None, prefix=None):
         return Notifier(self, label=label, id=id, prefix=prefix)
 
 
-    def send(self, op, id):
-        self.history.append((op, id))
+    def pushKeyForId(self, id):
+        path = "/"
+
+        try:
+            prefix, id = id.split("|", 1)
+            path += "%s/" % (prefix,)
+        except ValueError:
+            # id has no prefix
+            pass
+
+        path += "%s/" % (self.hostname,)
+        if id:
+            path += "%s/" % (id,)
+        return path
+
+
+    def send(self, id):
+        self.history.append(id)
 
 
     def reset(self):

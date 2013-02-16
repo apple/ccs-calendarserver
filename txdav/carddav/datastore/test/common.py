@@ -330,7 +330,7 @@ class CommonTests(CommonCommonTests):
         yield self.commit()
 
         # Make sure notification fired after commit
-        self.assertTrue(("update", "CardDAV|home1") in self.notifierFactory.history)
+        self.assertTrue("CardDAV|home1" in self.notifierFactory.history)
 
         # Make sure it's available in a new transaction; i.e. test the commit.
         home = yield self.homeUnderTest()
@@ -379,12 +379,12 @@ class CommonTests(CommonCommonTests):
         self.assertEquals(
             self.notifierFactory.history,
             [
-                ("update", "CardDAV|home1"),
-                ("update", "CardDAV|home1/addressbook_1"),
-                ("update", "CardDAV|home1"),
-                ("update", "CardDAV|home1/addressbook_2"),
-                ("update", "CardDAV|home1"),
-                ("update", "CardDAV|home1/addressbook_empty")
+                "CardDAV|home1",
+                "CardDAV|home1/addressbook_1",
+                "CardDAV|home1",
+                "CardDAV|home1/addressbook_2",
+                "CardDAV|home1",
+                "CardDAV|home1/addressbook_empty"
             ]
         )
 
@@ -515,8 +515,8 @@ class CommonTests(CommonCommonTests):
         self.assertEquals(
             self.notifierFactory.history,
             [
-                ("update", "CardDAV|home1"),
-                ("update", "CardDAV|home1/addressbook_1"),
+                "CardDAV|home1",
+                "CardDAV|home1/addressbook_1",
             ]
         )
 
@@ -705,8 +705,8 @@ class CommonTests(CommonCommonTests):
         self.assertEquals(
             self.notifierFactory.history,
             [
-                ("update", "CardDAV|home1"),
-                ("update", "CardDAV|home1/addressbook_1"),
+                "CardDAV|home1",
+                "CardDAV|home1/addressbook_1",
             ]
         )
 
@@ -821,8 +821,8 @@ class CommonTests(CommonCommonTests):
         self.assertEquals(
             self.notifierFactory.history,
             [
-                ("update", "CardDAV|home1"),
-                ("update", "CardDAV|home1/addressbook_1"),
+                "CardDAV|home1",
+                "CardDAV|home1/addressbook_1",
             ]
         )
 

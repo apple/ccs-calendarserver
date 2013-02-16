@@ -710,6 +710,7 @@ class ConnectionFromWorker(SchemaAMP):
         return result
 
 
+    @PerformWork.responder
     def performWork(self, table, workID):
         """
         Dispatch work to this worker.
@@ -742,6 +743,9 @@ class ConnectionFromController(SchemaAMP):
                                                        boxReceiver, locator)
         self.transactionFactory = transactionFactory
         self.whenConnected = whenConnected
+        # FIXME: Glyph it appears WorkProposal expects this to have reactor...
+        from twisted.internet import reactor
+        self.reactor = reactor
 
 
     def startReceivingBoxes(self, sender):
@@ -1012,9 +1016,45 @@ class WorkProposal(object):
         """
         return _cloneDeferred(self._whenCommitted)
 
+class _BaseQueuer(object):
+    implements(IQueuer)
+
+    def __init__(self):
+        super(_BaseQueuer, self).__init__()
+        self.proposalCallbacks = set()
+
+    def callWithNewProposals(self, callback):
+        self.proposalCallbacks.add(callback);
+
+    def transferProposalCallbacks(self, newQueuer):
+        newQueuer.proposalCallbacks = self.proposalCallbacks
+        return newQueuer
+
+    def enqueueWork(self, txn, workItemType, **kw):
+        """
+        There is some work to do.  Do it, someplace else, ideally in parallel.
+        Later, let the caller know that the work has been completed by firing a
+        L{Deferred}.
+
+        @param workItemType: The type of work item to be enqueued.
+        @type workItemType: A subtype of L{WorkItem}
+
+        @param kw: The parameters to construct a work item.
+        @type kw: keyword parameters to C{workItemType.create}, i.e.
+            C{workItemType.__init__}
+
+        @return: an object that can track the enqueuing and remote execution of
+            this work.
+        @rtype: L{WorkProposal}
+        """
+        wp = WorkProposal(self, txn, workItemType, kw)
+        wp._start()
+        for callback in self.proposalCallbacks:
+            callback(wp)
+        return wp
 
 
-class PeerConnectionPool(MultiService, object):
+class PeerConnectionPool(_BaseQueuer, MultiService, object):
     """
     Each node has a L{PeerConnectionPool} connecting it to all the other nodes
     currently active on the same database.
@@ -1153,26 +1193,6 @@ class PeerConnectionPool(MultiService, object):
         return self.choosePerformer(onlyLocally=True).performWork(table, workID)
 
 
-    def enqueueWork(self, txn, workItemType, **kw):
-        """
-        There is some work to do.  Do it, someplace else, ideally in parallel.
-        Later, let the caller know that the work has been completed by firing a
-        L{Deferred}.
-
-        @param workItemType: The type of work item to be enqueued.
-        @type workItemType: A subtype of L{WorkItem}
-
-        @param kw: The parameters to construct a work item.
-        @type kw: keyword parameters to C{workItemType.create}, i.e.
-            C{workItemType.__init__}
-
-        @return: an object that can track the enqueuing and remote execution of
-            this work.
-        @rtype: L{WorkProposal}
-        """
-        wp = WorkProposal(self, txn, workItemType, kw)
-        wp._start()
-        return wp
 
 
     def allWorkItemTypes(self):
@@ -1397,13 +1417,16 @@ class _PeerPoolFactory(Factory, object):
 
 
 
-class LocalQueuer(object):
+
+
+class LocalQueuer(_BaseQueuer):
     """
     When work is enqueued with this queuer, it is just executed locally.
     """
     implements(IQueuer)
 
     def __init__(self, txnFactory, reactor=None):
+        super(LocalQueuer, self).__init__()
         self.txnFactory = txnFactory
         if reactor is None:
             from twisted.internet import reactor
@@ -1415,22 +1438,3 @@ class LocalQueuer(object):
         Choose to perform the work locally.
         """
         return LocalPerformer(self.txnFactory)
-
-
-    def enqueueWork(self, txn, workItemType, **kw):
-        """
-        Do this work in the local process.
-
-        @see: L{PeerConnectionPool.enqueueWork}
-
-        @return: a pseudo work proposal, since everything completes at the same
-            time.
-        @rtype: L{WorkProposal}
-        """
-        wp = WorkProposal(self, txn, workItemType, kw)
-        wp._start()
-        return wp
-
-
-
-

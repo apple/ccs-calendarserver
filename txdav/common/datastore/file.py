@@ -117,6 +117,16 @@ class CommonDataStore(DataStore):
         self.quota = quota
         self._migrating = False
         self._enableNotifications = True
+        self._newTransactionCallbacks = set()
+
+    def callWithNewTransactions(self, callback):
+        """
+        Registers a method to be called whenever a new transaction is
+        created.
+
+        @param callback: callable taking a single argument, a transaction
+        """
+        self._newTransactionCallbacks.add(callback)
 
 
     def newTransaction(self, name='no name'):
@@ -125,7 +135,7 @@ class CommonDataStore(DataStore):
 
         @see: L{Transaction}
         """
-        return self._transactionClass(
+        txn = self._transactionClass(
             self,
             name,
             self.enableCalendars,
@@ -133,6 +143,9 @@ class CommonDataStore(DataStore):
             self._notifierFactory if self._enableNotifications else None,
             self._migrating,
         )
+        for callback in self._newTransactionCallbacks:
+            callback(txn)
+        return txn
 
 
     @inlineCallbacks
@@ -334,6 +347,26 @@ class CommonStoreTransaction(DataStoreTransaction):
 
 
     def apnSubscriptionsBySubscriber(self, guid):
+        return NotImplementedError
+
+
+    def imipCreateToken(self, organizer, attendee, icaluid, token=None):
+        return NotImplementedError
+
+
+    def imipLookupByToken(self, token):
+        return NotImplementedError
+
+
+    def imipGetToken(self, organizer, attendee, icaluid):
+        return NotImplementedError
+
+
+    def imipRemoveToken(self, token):
+        return NotImplementedError
+
+
+    def purgeOldIMIPTokens(self, olderThan):
         return NotImplementedError
 
 

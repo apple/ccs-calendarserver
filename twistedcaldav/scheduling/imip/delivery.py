@@ -19,23 +19,18 @@
 Handles the sending of scheduling messages via iMIP (mail gateway).
 """
 
-from twisted.python.failure import Failure
-from twisted.internet.defer import inlineCallbacks, returnValue
-
 from twext.python.log import Logger
-from twext.web2.dav.http import ErrorResponse
-
 from twext.web2 import responsecode
+from twext.web2.dav.http import ErrorResponse
 from twext.web2.http import HTTPError
-from twisted.web import client
-
+from twisted.internet.defer import inlineCallbacks, returnValue
+from twisted.python.failure import Failure
 from twistedcaldav.caldavxml import caldav_namespace
-from twistedcaldav.config import config
-from twistedcaldav.util import AuthorizedHTTPGetter
+from twistedcaldav.directory.util import transactionFromRequest
 from twistedcaldav.scheduling.delivery import DeliveryService
+from twistedcaldav.scheduling.imip.outbound import IMIPInvitationWork
 from twistedcaldav.scheduling.itip import iTIPRequestStatus
-from twext.internet.gaiendpoint import GAIEndpoint
-from twext.internet.adaptendpoint import connect
+
 
 
 __all__ = [
@@ -105,8 +100,10 @@ class ScheduleViaIMip(DeliveryService):
 
                     fromAddr = str(self.scheduler.originator.cuaddr)
 
-                    log.debug("POSTing iMIP message to gateway...  To: '%s', From :'%s'\n%s" % (toAddr, fromAddr, caldata,))
-                    yield self.postToGateway(fromAddr, toAddr, caldata)
+                    txn = transactionFromRequest(self.scheduler.request, self.scheduler.request._newStoreTransaction.store)
+                    log.debug("Submitting iMIP message...  To: '%s', From :'%s'\n%s" % (toAddr, fromAddr, caldata,))
+                    yield txn.enqueue(IMIPInvitationWork, fromAddr=fromAddr, toAddr=toAddr, icalendarText=caldata)
+
 
                 except Exception, e:
                     # Generated failed response for this recipient
@@ -125,26 +122,3 @@ class ScheduleViaIMip(DeliveryService):
             log.debug("iMIP request %s failed: %s" % (self, e))
             for recipient in self.recipients:
                 failForRecipient(recipient)
-
-
-    def postToGateway(self, fromAddr, toAddr, caldata, reactor=None):
-        if reactor is None:
-            from twisted.internet import reactor
-
-        mailGatewayServer = config.Scheduling['iMIP']['MailGatewayServer']
-        mailGatewayPort = config.Scheduling['iMIP']['MailGatewayPort']
-        url = "http://%s:%d/inbox" % (mailGatewayServer, mailGatewayPort)
-        headers = {
-            'Content-Type' : 'text/calendar',
-            'Originator' : fromAddr,
-            'Recipient' : toAddr,
-            config.Scheduling.iMIP.Header : config.Scheduling.iMIP.Password,
-        }
-        factory = client.HTTPClientFactory(url, method='POST', headers=headers,
-            postdata=caldata, agent="CalDAV server")
-
-        factory.noisy = False
-        factory.protocol = AuthorizedHTTPGetter
-        connect(GAIEndpoint(reactor, mailGatewayServer, mailGatewayPort),
-                factory)
-        return factory.deferred

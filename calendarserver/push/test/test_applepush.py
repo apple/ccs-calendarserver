@@ -118,7 +118,7 @@ class ApplePushNotifierServiceTests(CommonCommonTests, TestCase):
         # Set up the service
         clock = Clock()
         service = (yield ApplePushNotifierService.makeService(settings,
-            self.store, "localhost", testConnectorClass=TestConnector, reactor=clock))
+            self.store, testConnectorClass=TestConnector, reactor=clock))
         self.assertEquals(set(service.providers.keys()), set(["CalDAV","CardDAV"]))
         self.assertEquals(set(service.feedbacks.keys()), set(["CalDAV","CardDAV"]))
 
@@ -127,7 +127,7 @@ class ApplePushNotifierServiceTests(CommonCommonTests, TestCase):
 
         # Notification arrives from calendar server
         dataChangedTimestamp = 1354815999
-        yield service.enqueue("update", "CalDAV|user01/calendar",
+        yield service.enqueue("CalDAV|user01/calendar",
             dataChangedTimestamp=dataChangedTimestamp)
 
         # The notifications should be in the queue
@@ -167,7 +167,7 @@ class ApplePushNotifierServiceTests(CommonCommonTests, TestCase):
         # Reset sent data
         providerConnector.transport.data = None
         # Send notification while service is connected
-        yield service.enqueue("update", "CalDAV|user01/calendar")
+        yield service.enqueue("CalDAV|user01/calendar")
         clock.advance(1) # so that first push is sent
         self.assertEquals(len(providerConnector.transport.data), 183)
         # Reset sent data

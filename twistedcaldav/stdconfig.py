@@ -661,12 +661,6 @@ DEFAULT_CONFIG = {
 
         "iMIP": {
             "Enabled"          : False, # Server-to-iMIP protocol
-            "MailGatewayServer" : "localhost",
-            "MailGatewayPort"   : 62310,
-            "Username"          : "com.apple.calendarserver", # For account injecting replies
-            "Password"          : "", # For account injecting replies
-            "GUID"              : "B86ED9D3-49BD-44F8-8F5E-C89D08753DAC", # GUID for special internal user
-            "Header"            : "x-calendarserver-internal", # HTTP header for internal authentication
             "Sending": {
                 "Server"        : "", # SMTP server to relay messages through
                 "Port"          : 587, # SMTP server port to relay messages through
@@ -735,16 +729,8 @@ DEFAULT_CONFIG = {
     "Notifications" : {
         "Enabled": False,
         "CoalesceSeconds" : 3,
-        "InternalNotificationHost" : "localhost",
-        "InternalNotificationPort" : 62309,
-        "BindAddress" : "127.0.0.1",
 
         "Services" : {
-            "SimpleLineNotifier" : {
-                "Service" : "twistedcaldav.notify.SimpleLineNotifierService",
-                "Enabled" : False,
-                "Port" : 62308,
-            },
             "ApplePushNotifier" : {
                 "Service" : "calendarserver.push.applepush.ApplePushNotifierService",
                 "Enabled" : False,
@@ -778,36 +764,11 @@ DEFAULT_CONFIG = {
             },
             "AMPNotifier" : {
                 "Service" : "calendarserver.push.amppush.AMPPushNotifierService",
-                "Enabled" : True,
+                "Enabled" : False,
                 "Port" : 62311,
                 "EnableStaggering" : False,
                 "StaggerSeconds" : 3,
-            },
-            "XMPPNotifier" : {
-                "Service" : "twistedcaldav.notify.XMPPNotifierService",
-                "Enabled" : False,
-                "Host" : "", # "xmpp.host.name"
-                "Port" : 5222,
-                "JID" : "", # "jid@xmpp.host.name/resource"
-                "Password" : "",
-                "ServiceAddress" : "", # "pubsub.xmpp.host.name"
-                "CalDAV" : {
-                    "APSBundleID" : "",
-                    "SubscriptionURL" : "",
-                    "APSEnvironment" : "PRODUCTION",
-                },
-                "CardDAV" : {
-                    "APSBundleID" : "",
-                    "SubscriptionURL" : "",
-                    "APSEnvironment" : "PRODUCTION",
-                },
-                "NodeConfiguration" : {
-                    "pubsub#deliver_payloads" : "1",
-                    "pubsub#persist_items" : "1",
-                },
-                "KeepAliveSeconds" : 120,
-                "HeartbeatMinutes" : 30,
-                "AllowedJIDs": [],
+                "DataHost" : "",
             },
         }
     },
@@ -1425,36 +1386,15 @@ def _updateNotifications(configDict, reloading=False):
                 except KeychainPasswordNotFound:
                     # The password doesn't exist in the keychain.
                     log.info("%s APN certificate passphrase not found in keychain" % (protocol,))
-
+                    
         if (
-            service["Service"] == "twistedcaldav.notify.XMPPNotifierService" and
+            service["Service"] == "calendarserver.push.amppush.AMPPushNotifierService" and
             service["Enabled"]
         ):
-            # If we already have the password, don't fetch it again
-            if service["Password"]:
-                continue
+            # The default for apple push DataHost is ServerHostName
+            if service["DataHost"] == "":
+                service["DataHost"] = configDict.ServerHostName
 
-            # Get password from keychain.  If not there, fall back to what
-            # is in the plist.
-            try:
-                password = getPasswordFromKeychain(service["JID"])
-                service["Password"] = password
-                log.info("XMPP password retreived from keychain")
-            except KeychainAccessError:
-                # The system doesn't support keychain
-                pass
-            except KeychainPasswordNotFound:
-                # The password doesn't exist in the keychain.
-                log.info("XMPP password not found in keychain")
-
-            # Check for empty fields
-            for key, value in service.iteritems():
-                if not value and key not in (
-                    "AllowedJIDs", "HeartbeatMinutes", "Password",
-                    "SubscriptionURL", "APSBundleID"
-                ):
-                    raise ConfigurationError("Invalid %s for XMPPNotifierService: %r"
-                                             % (key, value))
 
 
 
@@ -1470,22 +1410,6 @@ def _updateScheduling(configDict, reloading=False):
     service = configDict.Scheduling["iMIP"]
 
     if service["Enabled"]:
-
-        # If we already have the password, don't fetch it again
-        if service["Password"]:
-            return
-
-        # Get password for the user that is allowed to inject iMIP replies
-        # to the server's /inbox; if not available, fall back to plist
-        if service["Username"]:
-            try:
-                service["Password"] = getPasswordFromKeychain(service["Username"])
-            except KeychainAccessError:
-                # The system doesn't support keychain
-                pass
-            except KeychainPasswordNotFound:
-                # The password doesn't exist in the keychain.
-                log.info("iMIP injecting password not found in keychain")
 
         for direction in ("Sending", "Receiving"):
             if service[direction].Username:
@@ -1638,12 +1562,9 @@ def _preserveConfig(configDict):
     re-fetched after the process has shed privileges
     """
     iMIP = configDict.Scheduling.iMIP
-    XMPP = configDict.Notifications.Services.XMPPNotifier
     preserved = {
-        "iMIPPassword" : iMIP.Password,
         "MailSendingPassword" : iMIP.Sending.Password,
         "MailReceivingPassword" : iMIP.Receiving.Password,
-        "XMPPPassword" : XMPP.Password,
     }
     return preserved
 
@@ -1655,11 +1576,8 @@ def _restoreConfig(configDict, preserved):
     re-fetched after the process has shed privileges
     """
     iMIP = configDict.Scheduling.iMIP
-    XMPP = configDict.Notifications.Services.XMPPNotifier
-    iMIP.Password = preserved["iMIPPassword"]
     iMIP.Sending.Password = preserved["MailSendingPassword"]
     iMIP.Receiving.Password = preserved["MailReceivingPassword"]
-    XMPP.Password = preserved["XMPPPassword"]
 
 
 config.addResetHooks(_preserveConfig, _restoreConfig)
