@@ -1269,6 +1269,13 @@ class ImplicitScheduler(object):
         if oldcalendar is None:
             oldcalendar = self.organizer_calendar
             oldcalendar.attendeesView((self.attendee,), onlyScheduleAgentServer=True)
+            if oldcalendar.mainType() is None:
+                log.debug("Implicit - attendee '%s' cannot use an event they are not an attendee of, UID: '%s'" % (self.attendee, self.uid))
+                raise HTTPError(ErrorResponse(
+                    responsecode.FORBIDDEN,
+                    (caldav_namespace, "valid-attendee-change"),
+                    "Cannot use an event when not listed as an attendee in the organizer's copy",
+                ))
         differ = iCalDiff(oldcalendar, self.calendar, self.do_smart_merge)
         return differ.attendeeMerge(self.attendee)
 
