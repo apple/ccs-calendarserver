@@ -214,7 +214,7 @@ class DirectoryRecordTest(BaseTest):
 
         self.assertEquals(wsanchez, wsanchez)
         self.assertNotEqual(wsanchez, glyph)
-        self.assertEquals(glyph, glyphmod) # UID matches
+        self.assertNotEqual(glyph, glyphmod) # UID matches, other fields do not
         self.assertNotEqual(glyphmod, wsanchez)
         self.assertNotEqual(wsanchez, wsanchezmod) # Different service
 
