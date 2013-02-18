@@ -62,19 +62,6 @@ class DirectoryService(object):
         )
 
 
-    def __eq__(self, other):
-        if IDirectoryService.implementedBy(other.__class__):
-            return self.realmName == other.realmName
-        return NotImplemented
-
-
-    def __ne__(self, other):
-        eq = self.__eq__(other)
-        if eq is NotImplemented:
-            return NotImplemented
-        return not eq
-
-
     def recordTypes(self):
         return succeed(self.recordType.iterconstants())
 
@@ -219,7 +206,7 @@ class DirectoryRecord(object):
         if IDirectoryRecord.implementedBy(other.__class__):
             return (
                 self.service == other.service and
-                self.fields[FieldName.uid] == other.fields[FieldName.uid]
+                self.fields == other.fields
             )
         return NotImplemented
 
