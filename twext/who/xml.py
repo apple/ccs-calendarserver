@@ -1,3 +1,4 @@
+# -*- test-case-name: twext.who.test.test_xml -*-
 ##
 # Copyright (c) 2006-2013 Apple Inc. All rights reserved.
 #
