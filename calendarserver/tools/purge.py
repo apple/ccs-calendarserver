@@ -118,6 +118,7 @@ class PurgeOldEventsService(WorkerService):
         #print "  -b --batch <number>: number of events to remove in each transaction (default=%d)" % (DEFAULT_BATCH_SIZE,)
         print "  -n --dry-run: calculate how many events to purge, but do not purge data"
         print "  -v --verbose: print progress information"
+        print "  -D --debug: debug logging"
         print ""
 
         if e:
@@ -132,13 +133,14 @@ class PurgeOldEventsService(WorkerService):
 
         try:
             (optargs, args) = getopt(
-                sys.argv[1:], "d:b:f:hnv", [
+                sys.argv[1:], "Dd:b:f:hnv", [
                     "days=",
                     "batch=",
                     "dry-run",
                     "config=",
                     "help",
                     "verbose",
+                    "debug",
                 ],
             )
         except GetoptError, e:
@@ -152,6 +154,7 @@ class PurgeOldEventsService(WorkerService):
         batchSize = DEFAULT_BATCH_SIZE
         dryrun = False
         verbose = False
+        debug = False
 
         for opt, arg in optargs:
             if opt in ("-h", "--help"):
@@ -173,6 +176,9 @@ class PurgeOldEventsService(WorkerService):
 
             elif opt in ("-v", "--verbose"):
                 verbose = True
+
+            elif opt in ("-D", "--debug"):
+                debug = True
 
             elif opt in ("-n", "--dry-run"):
                 dryrun = True
@@ -200,6 +206,7 @@ class PurgeOldEventsService(WorkerService):
         utilityMain(
             configFileName,
             cls,
+            verbose=debug,
         )
 
 
@@ -285,6 +292,7 @@ class PurgeAttachmentsService(WorkerService):
         print "  -d --days <number>: specify how many days in the past to retain (default=%d) zero means no removal of old attachments" % (DEFAULT_RETAIN_DAYS,)
         print "  -n --dry-run: calculate how many attachments to purge, but do not purge data"
         print "  -v --verbose: print progress information"
+        print "  -D --debug: debug logging"
         print ""
 
         if e:
@@ -299,7 +307,7 @@ class PurgeAttachmentsService(WorkerService):
 
         try:
             (optargs, args) = getopt(
-                sys.argv[1:], "d:b:f:hnu:v", [
+                sys.argv[1:], "Dd:b:f:hnu:v", [
                     "uuid=",
                     "days=",
                     "batch=",
@@ -307,6 +315,7 @@ class PurgeAttachmentsService(WorkerService):
                     "config=",
                     "help",
                     "verbose",
+                    "debug",
                 ],
             )
         except GetoptError, e:
@@ -321,6 +330,7 @@ class PurgeAttachmentsService(WorkerService):
         batchSize = DEFAULT_BATCH_SIZE
         dryrun = False
         verbose = False
+        debug = False
 
         for opt, arg in optargs:
             if opt in ("-h", "--help"):
@@ -345,6 +355,9 @@ class PurgeAttachmentsService(WorkerService):
 
             elif opt in ("-v", "--verbose"):
                 verbose = True
+
+            elif opt in ("-D", "--debug"):
+                debug = True
 
             elif opt in ("-n", "--dry-run"):
                 dryrun = True
@@ -376,6 +389,7 @@ class PurgeAttachmentsService(WorkerService):
         utilityMain(
             configFileName,
             cls,
+            verbose=debug,
         )
 
 
@@ -640,6 +654,7 @@ class PurgePrincipalService(WorkerService):
         print "  -f --config <path>: Specify caldavd.plist configuration path"
         print "  -n --dry-run: calculate how many events and contacts to purge, but do not purge data"
         print "  -v --verbose: print progress information"
+        print "  -D --debug: debug logging"
         print ""
 
         if e:
@@ -654,12 +669,13 @@ class PurgePrincipalService(WorkerService):
 
         try:
             (optargs, args) = getopt(
-                sys.argv[1:], "cf:hnv", [
+                sys.argv[1:], "cDf:hnv", [
                     "completely",
                     "dry-run",
                     "config=",
                     "help",
                     "verbose",
+                    "debug",
                     "noimplicit",
                 ],
             )
@@ -672,6 +688,7 @@ class PurgePrincipalService(WorkerService):
         configFileName = None
         dryrun = False
         verbose = False
+        debug = False
         completely = False
         doimplicit = True
 
@@ -684,6 +701,9 @@ class PurgePrincipalService(WorkerService):
 
             elif opt in ("-v", "--verbose"):
                 verbose = True
+
+            elif opt in ("-D", "--debug"):
+                debug = True
 
             elif opt in ("-n", "--dry-run"):
                 dryrun = True
@@ -706,7 +726,8 @@ class PurgePrincipalService(WorkerService):
 
         utilityMain(
             configFileName,
-            cls
+            cls,
+            verbose=debug,
         )
 
 
@@ -733,7 +754,7 @@ class PurgePrincipalService(WorkerService):
     def doWork(self):
 
         if self.root is None:
-            self.root = self.getRootResource()
+            self.root = self.rootResource()
         if self.directory is None:
             self.directory = self.root.getDirectory()
 
@@ -851,7 +872,8 @@ class PurgePrincipalService(WorkerService):
                         for childName in childNames:
 
                             childResource = (yield collection.getChild(childName))
-                            if self.completely:
+                            # Allways delete inbox items
+                            if self.completely or collName == "inbox":
                                 action = self.CANCELEVENT_SHOULD_DELETE
                             else:
                                 event = (yield childResource.iCalendar())

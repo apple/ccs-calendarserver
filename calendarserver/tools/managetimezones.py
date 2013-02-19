@@ -15,22 +15,26 @@
 # limitations under the License.
 ##
 
-from twistedcaldav.timezonestdservice import PrimaryTimezoneDatabase, \
-    SecondaryTimezoneDatabase
-from sys import stdout, stderr
-import getopt
+from pycalendar.calendar import PyCalendar
+from pycalendar.datetime import PyCalendarDateTime
+
+
+from twext.python.log import StandardIOObserver
 from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks
-from twisted.python.log import addObserver, removeObserver
-import sys
+from twisted.python.filepath import FilePath
+
+from twistedcaldav.timezonestdservice import PrimaryTimezoneDatabase, \
+    SecondaryTimezoneDatabase
+
+from zonal.tzconvert import tzconvert
+
+import getopt
 import os
-import urllib
+import sys
 import tarfile
 import tempfile
-from pycalendar.calendar import PyCalendar
-from zonal.tzconvert import tzconvert
-from twisted.python.filepath import FilePath
-from pycalendar.datetime import PyCalendarDateTime
+import urllib
 
 
 def _doPrimaryActions(action, tzpath, xmlfile, changed, tzvers):
@@ -162,36 +166,6 @@ def _doChanged(xmlfile, changed, tzdb):
         print "Changed:"
         for k in sorted(results):
             print "  %s" % (k,)
-
-
-
-class StandardIOObserver (object):
-    """
-    Log observer that writes to standard I/O.
-    """
-    def emit(self, eventDict):
-        text = None
-
-        if eventDict["isError"]:
-            output = stderr
-            if "failure" in eventDict:
-                text = eventDict["failure"].getTraceback()
-        else:
-            output = stdout
-
-        if not text:
-            text = " ".join([str(m) for m in eventDict["message"]]) + "\n"
-
-        output.write(text)
-        output.flush()
-
-
-    def start(self):
-        addObserver(self.emit)
-
-
-    def stop(self):
-        removeObserver(self.emit)
 
 
 

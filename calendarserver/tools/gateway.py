@@ -34,7 +34,6 @@ from calendarserver.tools.principals import (
 from calendarserver.tools.purge import WorkerService, PurgeOldEventsService, DEFAULT_BATCH_SIZE, DEFAULT_RETAIN_DAYS
 from calendarserver.tools.cmdline import utilityMain
 
-from twext.python.log import StandardIOObserver
 from pycalendar.datetime import PyCalendarDateTime
 
 
@@ -95,14 +94,14 @@ def main():
     # Get configuration
     #
     configFileName = None
+    debug = False
 
     for opt, arg in optargs:
         if opt in ("-h", "--help"):
             usage()
 
         if opt in ("-e", "--error"):
-            observer = StandardIOObserver()
-            observer.start()
+            debug = True
 
         elif opt in ("-f", "--config"):
             configFileName = arg
@@ -128,7 +127,7 @@ def main():
         commands = [plist]
 
     RunnerService.commands = commands
-    utilityMain(configFileName, RunnerService)
+    utilityMain(configFileName, RunnerService, verbose=debug)
 
 
 attrMap = {

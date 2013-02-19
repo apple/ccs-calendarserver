@@ -40,6 +40,7 @@ def usage(e=None):
     print "options:"
     print "  -h --help: print this help and exit"
     print "  -f --config <path>: Specify caldavd.plist configuration path"
+    print "  -D --debug: debug logging"
     print ""
 
     if e:
@@ -49,10 +50,12 @@ def usage(e=None):
         sys.exit(0)
 
 
+
 class WorkerService(Service):
 
     def __init__(self, store):
         self._store = store
+
 
     def rootResource(self):
         try:
@@ -90,6 +93,7 @@ class WorkerService(Service):
             reactor.stop()
 
 
+
 class DisplayAPNSubscriptions(WorkerService):
 
     users = []
@@ -101,13 +105,15 @@ class DisplayAPNSubscriptions(WorkerService):
             self.users)
 
 
+
 def main():
 
     try:
         (optargs, args) = getopt(
-            sys.argv[1:], "f:h", [
+            sys.argv[1:], "Df:h", [
                 "config=",
                 "help",
+                "debug",
             ],
         )
     except GetoptError, e:
@@ -117,6 +123,7 @@ def main():
     # Get configuration
     #
     configFileName = None
+    debug = False
 
     for opt, arg in optargs:
         if opt in ("-h", "--help"):
@@ -125,20 +132,22 @@ def main():
         elif opt in ("-f", "--config"):
             configFileName = arg
 
+        if opt in ("-d", "--debug"):
+            debug = True
+
         else:
             raise NotImplementedError(opt)
 
     if not args:
         usage("Not enough arguments")
 
-
     DisplayAPNSubscriptions.users = args
 
     utilityMain(
         configFileName,
         DisplayAPNSubscriptions,
+        verbose=debug,
     )
-
 
 
 
@@ -153,12 +162,12 @@ def displayAPNSubscriptions(store, directory, root, users):
             subscriptions = (yield txn.apnSubscriptionsBySubscriber(record.uid))
             (yield txn.commit())
             if subscriptions:
-                byKey = { }
+                byKey = {}
                 for token, key, timestamp, userAgent, ipAddr in subscriptions:
                     byKey.setdefault(key, []).append((token, timestamp, userAgent, ipAddr))
                 for key, tokens in byKey.iteritems():
                     print
-                    protocol, host, path = key.strip("/").split("/", 2)
+                    protocol, _ignore_host, path = key.strip("/").split("/", 2)
                     resource = {
                         "CalDAV" : "calendar",
                         "CardDAV" : "addressbook",

@@ -69,7 +69,6 @@ class MemcachedUIDReserver(CachePoolUserMixIn, LoggingMixIn):
 
 
     def reserveUID(self, uid):
-        uid = uid.encode('utf-8')
         self.log_debug("Reserving UID %r @ %r" % (
                 uid,
                 self.index.resource))
@@ -89,7 +88,6 @@ class MemcachedUIDReserver(CachePoolUserMixIn, LoggingMixIn):
 
 
     def unreserveUID(self, uid):
-        uid = uid.encode('utf-8')
         self.log_debug("Unreserving UID %r @ %r" % (
                 uid,
                 self.index.resource))
@@ -107,7 +105,6 @@ class MemcachedUIDReserver(CachePoolUserMixIn, LoggingMixIn):
 
 
     def isReservedUID(self, uid):
-        uid = uid.encode('utf-8')
         self.log_debug("Is reserved UID %r @ %r" % (
                 uid,
                 self.index.resource))
@@ -138,7 +135,6 @@ class DummyUIDReserver(LoggingMixIn):
 
 
     def reserveUID(self, uid):
-        uid = uid.encode('utf-8')
         self.log_debug("Reserving UID %r @ %r" % (
                 uid,
                 self.index.resource))
@@ -154,7 +150,6 @@ class DummyUIDReserver(LoggingMixIn):
 
 
     def unreserveUID(self, uid):
-        uid = uid.encode('utf-8')
         self.log_debug("Unreserving UID %r @ %r" % (
                 uid,
                 self.index.resource))
@@ -166,7 +161,6 @@ class DummyUIDReserver(LoggingMixIn):
 
 
     def isReservedUID(self, uid):
-        uid = uid.encode('utf-8')
         self.log_debug("Is reserved UID %r @ %r" % (
                 uid,
                 self.index.resource))

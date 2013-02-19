@@ -21,6 +21,7 @@ from difflib import unified_diff
 
 import itertools
 import re
+from twistedcaldav.config import config
 
 class ICalDiff (twistedcaldav.test.util.TestCase):
     """
@@ -2670,6 +2671,7 @@ END:VCALENDAR
             ),
         )
 
+        self.patch(config, "EnableDropBox", True)
         for description, calendar1, calendar2, attendee, result in data:
             differ = iCalDiff(Component.fromString(calendar1), Component.fromString(calendar2), False)
             diffResult = differ.attendeeMerge(attendee)

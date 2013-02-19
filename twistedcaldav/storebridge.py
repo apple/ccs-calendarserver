@@ -15,39 +15,28 @@
 # limitations under the License.
 ##
 
-import time
-import hashlib
-from urlparse import urlsplit
-
-from twisted.python.hashlib import md5
-from twisted.python.log import err as logDefaultException
-from twisted.python.util import FancyEqMixin
-from twisted.internet.defer import succeed, inlineCallbacks, returnValue, maybeDeferred
-from twisted.internet.protocol import Protocol
+from pycalendar.datetime import PyCalendarDateTime
 
 from twext.python.log import Logger
-
-from txdav.xml import element as davxml
-from txdav.xml.base import dav_namespace, WebDAVUnknownElement, encodeXMLName
-from txdav.base.propertystore.base import PropertyName
-from txdav.caldav.icalendarstore import QuotaExceeded, AttachmentStoreFailed, \
-    AttachmentStoreValidManagedID, AttachmentRemoveFailed
-from txdav.common.icommondatastore import NoSuchObjectResourceError
-from txdav.common.datastore.sql_tables import _BIND_MODE_READ, _BIND_MODE_WRITE
-from txdav.idav import PropertyChangeNotAllowedError
-
-from twext.web2.stream import ProducerStream, readStream, MemoryStream
-from twext.web2.http import HTTPError, StatusResponse, Response
-from twext.web2.http_headers import ETag, MimeType, MimeDisposition
 from twext.web2.dav.http import ErrorResponse, ResponseQueue, MultiStatusResponse
 from twext.web2.dav.noneprops import NonePropertyStore
 from twext.web2.dav.resource import TwistedACLInheritable, AccessDeniedError, \
     davPrivilegeSet
 from twext.web2.dav.util import parentForURL, allDataFromStream, joinURL, davXMLFromStream
-from twext.web2.responsecode import (
-    FORBIDDEN, NO_CONTENT, NOT_FOUND, CREATED, CONFLICT, PRECONDITION_FAILED,
-    BAD_REQUEST, OK, INSUFFICIENT_STORAGE_SPACE, SERVICE_UNAVAILABLE
-, INTERNAL_SERVER_ERROR)
+from twext.web2.filter.location import addLocation
+from twext.web2.http import HTTPError, StatusResponse, Response
+from twext.web2.http_headers import ETag, MimeType, MimeDisposition
+from twext.web2.responsecode import \
+    FORBIDDEN, NO_CONTENT, NOT_FOUND, CREATED, CONFLICT, PRECONDITION_FAILED, \
+    BAD_REQUEST, OK, INSUFFICIENT_STORAGE_SPACE, SERVICE_UNAVAILABLE, \
+    INTERNAL_SERVER_ERROR
+from twext.web2.stream import ProducerStream, readStream, MemoryStream
+
+from twisted.internet.defer import succeed, inlineCallbacks, returnValue, maybeDeferred
+from twisted.internet.protocol import Protocol
+from twisted.python.hashlib import md5
+from twisted.python.log import err as logDefaultException
+from twisted.python.util import FancyEqMixin
 
 from twistedcaldav import customxml, carddavxml, caldavxml
 from twistedcaldav.cache import CacheStoreNotifier, ResponseCacheMixin, \
@@ -55,25 +44,36 @@ from twistedcaldav.cache import CacheStoreNotifier, ResponseCacheMixin, \
 from twistedcaldav.caldavxml import caldav_namespace
 from twistedcaldav.carddavxml import carddav_namespace
 from twistedcaldav.config import config
+from twistedcaldav.directory.wiki import WikiDirectoryService, getWikiAccess
 from twistedcaldav.ical import Component as VCalendar, Property as VProperty, \
     InvalidICalendarDataError, iCalendarProductID, allowedComponents
 from twistedcaldav.memcachelock import MemcacheLock, MemcacheLockTimeoutError
 from twistedcaldav.method.put_addressbook_common import StoreAddressObjectResource
 from twistedcaldav.method.put_common import StoreCalendarObjectResource
-from twistedcaldav.notifications import (
-    NotificationCollectionResource, NotificationResource
-)
+from twistedcaldav.notifications import NotificationCollectionResource, NotificationResource
 from twistedcaldav.resource import CalDAVResource, GlobalAddressBookResource, \
     DefaultAlarmPropertyMixin
 from twistedcaldav.scheduling.caldav.resource import ScheduleInboxResource
 from twistedcaldav.scheduling.implicit import ImplicitScheduler
 from twistedcaldav.vcard import Component as VCard, InvalidVCardDataError
-from pycalendar.datetime import PyCalendarDateTime
-import uuid
-from twext.web2.filter.location import addLocation
 
+from txdav.base.propertystore.base import PropertyName
+from txdav.caldav.icalendarstore import QuotaExceeded, AttachmentStoreFailed, \
+    AttachmentStoreValidManagedID, AttachmentRemoveFailed, \
+    AttachmentDropboxNotAllowed
 from txdav.carddav.iaddressbookstore import GroupWithUnsharedAddressNotAllowedError, \
     GroupForSharedAddressBookDeleteNotAllowedError, SharedGroupDeleteNotAllowedError
+from txdav.common.datastore.sql_tables import _BIND_MODE_READ, _BIND_MODE_WRITE, \
+    _BIND_MODE_DIRECT
+from txdav.common.icommondatastore import NoSuchObjectResourceError
+from txdav.idav import PropertyChangeNotAllowedError
+from txdav.xml import element as davxml
+from txdav.xml.base import dav_namespace, WebDAVUnknownElement, encodeXMLName
+
+from urlparse import urlsplit
+import hashlib
+import time
+import uuid
 
 """
 Wrappers to translate between the APIs in L{txdav.caldav.icalendarstore} and
@@ -446,8 +446,8 @@ class _CommonHomeChildCollectionMixin(ResponseCacheMixin):
         """
 
         # Check sharee collection first
-        isShareeCollection = self.isShareeCollection()
-        if isShareeCollection:
+        isShareeResource = self.isShareeResource()
+        if isShareeResource:
             log.debug("Removing shared collection %s" % (self,))
             yield self.removeShareeCollection(request)
             returnValue(NO_CONTENT)
@@ -1813,7 +1813,7 @@ class AttachmentsChildCollection(_GetChildHelper):
         All principals identified as ATTENDEEs on the event for this dropbox
         may read all its children. Also include proxies of ATTENDEEs. Ignore
         unknown attendees. Do not allow attendees to write as we don't support
-        that with managed attachments.
+        that with managed attachments. Also include sharees of the event.
         """
         originalACL = yield super(
             AttachmentsChildCollection, self).accessControlList(request, *a, **kw)
@@ -1874,24 +1874,63 @@ class AttachmentsChildCollection(_GetChildHelper):
 
 
     @inlineCallbacks
+    def _sharedAccessControl(self, calendar, shareMode):
+        """
+        Check the shared access mode of this resource, potentially consulting
+        an external access method if necessary.
+
+        @return: a L{Deferred} firing a L{bytes} or L{None}, with one of the
+            potential values: C{"own"}, which means that the home is the owner
+            of the collection and it is not shared; C{"read-only"}, meaning
+            that the home that this collection is bound into has only read
+            access to this collection; C{"read-write"}, which means that the
+            home has both read and write access; C{"original"}, which means
+            that it should inherit the ACLs of the owner's collection, whatever
+            those happen to be, or C{None}, which means that the external
+            access control mechanism has dictate the home should no longer have
+            any access at all.
+        """
+        if shareMode in (_BIND_MODE_DIRECT,):
+            ownerUID = calendar.ownerHome().uid()
+            owner = self.principalForUID(ownerUID)
+            shareeUID = calendar.viewerHome().uid()
+            if owner.record.recordType == WikiDirectoryService.recordType_wikis:
+                # Access level comes from what the wiki has granted to the
+                # sharee
+                sharee = self.principalForUID(shareeUID)
+                userID = sharee.record.guid
+                wikiID = owner.record.shortNames[0]
+                access = (yield getWikiAccess(userID, wikiID))
+                if access == "read":
+                    returnValue("read-only")
+                elif access in ("write", "admin"):
+                    returnValue("read-write")
+                else:
+                    returnValue(None)
+            else:
+                returnValue("original")
+        elif shareMode in (_BIND_MODE_READ,):
+            returnValue("read-only")
+        elif shareMode in (_BIND_MODE_WRITE,):
+            returnValue("read-write")
+        returnValue("original")
+
+
+    @inlineCallbacks
     def sharedDropboxACEs(self):
 
         aces = ()
         calendars = yield self._newStoreCalendarObject._parentCollection.asShared()
         for calendar in calendars:
 
-            userprivs = [
+            privileges = [
+                davxml.Privilege(davxml.Read()),
+                davxml.Privilege(davxml.ReadCurrentUserPrivilegeSet()),
             ]
-            if calendar.shareMode() in (_BIND_MODE_READ, _BIND_MODE_WRITE,):
-                userprivs.append(davxml.Privilege(davxml.Read()))
-                userprivs.append(davxml.Privilege(davxml.ReadACL()))
-                userprivs.append(davxml.Privilege(davxml.ReadCurrentUserPrivilegeSet()))
-            if calendar.shareMode() in (_BIND_MODE_READ,):
-                userprivs.append(davxml.Privilege(davxml.WriteProperties()))
-            if calendar.shareMode() in (_BIND_MODE_WRITE,):
-                userprivs.append(davxml.Privilege(davxml.Write()))
-            proxyprivs = list(userprivs)
-            proxyprivs.remove(davxml.Privilege(davxml.ReadACL()))
+            userprivs = []
+            access = (yield self._sharedAccessControl(calendar, calendar.shareMode()))
+            if access in ("read-only", "read-write",):
+                userprivs.extend(privileges)
 
             principal = self.principalForUID(calendar._home.uid())
             aces += (
@@ -1909,17 +1948,14 @@ class AttachmentsChildCollection(_GetChildHelper):
                     # DAV:read/DAV:read-current-user-privilege-set access for this principal's calendar-proxy-read users.
                     davxml.ACE(
                         davxml.Principal(davxml.HRef(joinURL(principal.principalURL(), "calendar-proxy-read/"))),
-                        davxml.Grant(
-                            davxml.Privilege(davxml.Read()),
-                            davxml.Privilege(davxml.ReadCurrentUserPrivilegeSet()),
-                        ),
+                        davxml.Grant(*userprivs),
                         davxml.Protected(),
                         TwistedACLInheritable(),
                     ),
                     # DAV:read/DAV:read-current-user-privilege-set/DAV:write access for this principal's calendar-proxy-write users.
                     davxml.ACE(
                         davxml.Principal(davxml.HRef(joinURL(principal.principalURL(), "calendar-proxy-write/"))),
-                        davxml.Grant(*proxyprivs),
+                        davxml.Grant(*userprivs),
                         davxml.Protected(),
                         TwistedACLInheritable(),
                     ),
@@ -1970,6 +2006,11 @@ class CalendarAttachment(_NewStoreFileMetaDataHelper, _GetChildHelper):
                         self.attachmentName))
             t = self._newStoreAttachment.store(content_type)
             yield readStream(request.stream, t.write)
+
+        except AttachmentDropboxNotAllowed:
+            log.error("Dropbox cannot be used after migration to managed attachments")
+            raise HTTPError(FORBIDDEN)
+
         except Exception, e:
             log.error("Unable to store attachment: %s" % (e,))
             raise HTTPError(SERVICE_UNAVAILABLE)
@@ -2045,100 +2086,6 @@ class CalendarAttachment(_NewStoreFileMetaDataHelper, _GetChildHelper):
     def supportedPrivileges(self, request):
         # Just DAV standard privileges - no CalDAV ones
         return succeed(davPrivilegeSet)
-
-
-    @inlineCallbacks
-    def accessControlList(self, request, *a, **kw):
-        """
-        Special case managed attachments, but not dropbox (which is handled by parent collection).
-        All principals identified as ATTENDEEs on the event for this attachment
-        may read it. Also include proxies of ATTENDEEs. Ignore unknown attendees.
-        """
-
-        originalACL = yield super(CalendarAttachment, self).accessControlList(request, *a, **kw)
-        if not self._managed or not self.exists():
-            returnValue(originalACL)
-        originalACEs = list(originalACL.children)
-
-        # Look at attendees
-        if self._newStoreCalendarObject is None:
-            self._newStoreCalendarObject = (yield self._newStoreAttachment.objectResource())
-
-        cuas = (yield self._newStoreCalendarObject.component()).getAttendees()
-        newACEs = []
-        for calendarUserAddress in cuas:
-            principal = self.principalForCalendarUserAddress(
-                calendarUserAddress
-            )
-            if principal is None:
-                continue
-
-            principalURL = principal.principalURL()
-            privileges = (
-                davxml.Privilege(davxml.Read()),
-                davxml.Privilege(davxml.ReadCurrentUserPrivilegeSet()),
-            )
-            newACEs.append(davxml.ACE(
-                davxml.Principal(davxml.HRef(principalURL)),
-                davxml.Grant(*privileges),
-                davxml.Protected(),
-            ))
-            newACEs.append(davxml.ACE(
-                davxml.Principal(davxml.HRef(joinURL(principalURL, "calendar-proxy-write/"))),
-                davxml.Grant(*privileges),
-                davxml.Protected(),
-            ))
-            newACEs.append(davxml.ACE(
-                davxml.Principal(davxml.HRef(joinURL(principalURL, "calendar-proxy-read/"))),
-                davxml.Grant(*privileges),
-                davxml.Protected(),
-            ))
-
-        # Now also need sharees
-        newACEs.extend((yield self.sharedManagedACEs()))
-
-        returnValue(davxml.ACL(*tuple(originalACEs + newACEs)))
-
-
-    @inlineCallbacks
-    def sharedManagedACEs(self):
-
-        aces = ()
-        calendars = yield self._newStoreCalendarObject._parentCollection.asShared()
-        for calendar in calendars:
-
-            read_privs = (
-                davxml.Privilege(davxml.Read()),
-                davxml.Privilege(davxml.ReadCurrentUserPrivilegeSet()),
-            )
-
-            principal = self.principalForUID(calendar._home.uid())
-            aces += (
-                # Specific access for the resource's associated principal.
-                davxml.ACE(
-                    davxml.Principal(davxml.HRef(principal.principalURL())),
-                    davxml.Grant(*read_privs),
-                    davxml.Protected(),
-                ),
-            )
-
-            if config.EnableProxyPrincipals:
-                aces += (
-                    # DAV:read/DAV:read-current-user-privilege-set access for this principal's calendar-proxy-read users.
-                    davxml.ACE(
-                        davxml.Principal(davxml.HRef(joinURL(principal.principalURL(), "calendar-proxy-read/"))),
-                        davxml.Grant(*read_privs),
-                        davxml.Protected(),
-                    ),
-                    # DAV:read/DAV:read-current-user-privilege-set/DAV:write access for this principal's calendar-proxy-write users.
-                    davxml.ACE(
-                        davxml.Principal(davxml.HRef(joinURL(principal.principalURL(), "calendar-proxy-write/"))),
-                        davxml.Grant(*read_privs),
-                        davxml.Protected(),
-                    ),
-                )
-
-        returnValue(aces)
 
 
 
@@ -2545,7 +2492,7 @@ class CalendarObjectResource(_CalendarObjectMetaDataMixin, _CommonObjectResource
         @type request: L{twext.web2.iweb.IRequest}
 
         @param implicitly: Should implicit scheduling operations be triggered
-            as a resut of this C{DELETE}?
+            as a result of this C{DELETE}?
 
         @type implicitly: C{bool}
 

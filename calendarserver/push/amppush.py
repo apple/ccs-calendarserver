@@ -16,13 +16,11 @@
 
 from calendarserver.push.util import PushScheduler
 from twext.python.log import Logger, LoggingMixIn
-from twext.python.log import LoggingMixIn
 from twisted.application.internet import StreamServerEndpointService
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.internet.endpoints import TCP4ClientEndpoint, TCP4ServerEndpoint
 from twisted.internet.protocol import Factory, ServerFactory
 from twisted.protocols import amp
-from twistedcaldav.notify import getPubSubPath
 import time
 import uuid
 
@@ -51,6 +49,7 @@ class NotificationForID(amp.Command):
 
 # Server classes
 
+
 class AMPPushNotifierService(StreamServerEndpointService, LoggingMixIn):
     """
     AMPPushNotifierService allows clients to use AMP to subscribe to,
@@ -58,24 +57,23 @@ class AMPPushNotifierService(StreamServerEndpointService, LoggingMixIn):
     """
 
     @classmethod
-    def makeService(cls, settings, ignored, serverHostName, reactor=None):
-        return cls(settings, serverHostName, reactor=reactor)
+    def makeService(cls, settings, ignored, reactor=None):
+        return cls(settings, reactor=reactor)
 
-    def __init__(self, settings, serverHostName, reactor=None):
+    def __init__(self, settings, reactor=None):
         if reactor is None:
             from twisted.internet import reactor
         factory = AMPPushNotifierFactory(self)
         endpoint = TCP4ServerEndpoint(reactor, settings["Port"])
         super(AMPPushNotifierService, self).__init__(endpoint, factory)
         self.subscribers = []
+        self.dataHost = settings["DataHost"]
 
         if settings["EnableStaggering"]:
             self.scheduler = PushScheduler(reactor, self.sendNotification,
                 staggerSeconds=settings["StaggerSeconds"])
         else:
             self.scheduler = None
-
-        self.serverHostName = serverHostName
 
     def addSubscriber(self, p):
         self.log_debug("Added subscriber")
@@ -85,13 +83,10 @@ class AMPPushNotifierService(StreamServerEndpointService, LoggingMixIn):
         self.log_debug("Removed subscriber")
         self.subscribers.remove(p)
 
-    def enqueue(self, op, id, dataChangedTimestamp=None):
+    def enqueue(self, id, dataChangedTimestamp=None):
         """
         Sends an AMP push notification to any clients subscribing to this id.
 
-        @param op: The operation that took place, either "create" or "update"
-            (ignored in this implementation)
-        @type op: C{str}
         @param id: The identifier of the resource that was updated, including
             a prefix indicating whether this is CalDAV or CardDAV related.
             The prefix is separated from the id with "|", e.g.:
@@ -108,17 +103,17 @@ class AMPPushNotifierService(StreamServerEndpointService, LoggingMixIn):
         """
 
         try:
-            id.split("|", 1)
+            protocol, id = id.split("|", 1)
         except ValueError:
             # id has no protocol, so we can't do anything with it
             self.log_error("Notification id '%s' is missing protocol" % (id,))
             return
 
-        id = getPubSubPath(id, {"host": self.serverHostName})
-
         # Unit tests can pass this value in; otherwise it defaults to now
         if dataChangedTimestamp is None:
             dataChangedTimestamp = int(time.time())
+
+        id = "/%s/%s/%s/" % (protocol, self.dataHost, id)
 
         tokens = []
         for subscriber in self.subscribers:

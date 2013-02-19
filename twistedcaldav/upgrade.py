@@ -66,6 +66,8 @@ from calendarserver.tools.resources import migrateResources
 from calendarserver.tools.util import getDirectory
 
 from twext.python.parallel import Parallelizer
+from twistedcaldav.scheduling.imip.mailgateway import migrateTokensToStore
+
 
 deadPropertyXattrPrefix = namedAny(
     "txdav.base.propertystore.xattr.PropertyStore.deadPropertyXattrPrefix"
@@ -1048,6 +1050,8 @@ class PostDBImportService(Service, object):
         Start the service.
         """
 
+        directory = directoryFromConfig(self.config)
+
         # Load proxy assignments from XML if specified
         if self.config.ProxyLoadFromFile:
             proxydbClass = namedClass(self.config.ProxyDBService.type)
@@ -1063,7 +1067,6 @@ class PostDBImportService(Service, object):
             if proxydb is None:
                 proxydbClass = namedClass(self.config.ProxyDBService.type)
                 proxydb = proxydbClass(**self.config.ProxyDBService.params)
-            directory = directoryFromConfig(self.config)
 
             updater = GroupMembershipCacheUpdater(proxydb,
                 directory, self.config.GroupCaching.ExpireSeconds,
@@ -1081,6 +1084,10 @@ class PostDBImportService(Service, object):
         self.store.setMigrating(True)
         yield self.processInboxItems()
         self.store.setMigrating(False)
+
+        # Migrate mail tokens from sqlite to store
+        yield migrateTokensToStore(self.config.DataRoot, self.store)
+
 
 
     @inlineCallbacks

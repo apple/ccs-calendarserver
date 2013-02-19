@@ -62,7 +62,7 @@ from txdav.caldav.datastore.util import validateCalendarComponent, \
     dropboxIDFromCalendarObject
 from txdav.caldav.icalendarstore import ICalendarHome, ICalendar, ICalendarObject, \
     IAttachment, AttachmentStoreFailed, AttachmentStoreValidManagedID, \
-    AttachmentMigrationFailed
+    AttachmentMigrationFailed, AttachmentDropboxNotAllowed
 from txdav.caldav.icalendarstore import QuotaExceeded
 from txdav.common.datastore.sql import CommonHome, CommonHomeChild, \
     CommonObjectResource, ECALENDARTYPE
@@ -90,6 +90,7 @@ from zope.interface.declarations import implements
 import collections
 import os
 import tempfile
+import urllib
 import uuid
 
 log = Logger()
@@ -170,7 +171,8 @@ class CalendarStoreFeatures(object):
             total = rows[0][0]
             count = 0
             log.warn("%d dropbox ids to migrate" % (total,))
-        except RuntimeError:
+        except RuntimeError, e:
+            log.error("Dropbox migration failed when cleaning out dropbox ids: %s" % (e,))
             yield txn.abort()
             raise
         else:
@@ -390,7 +392,7 @@ class CalendarHome(CommonHome):
             Otherwise, (if this is the string "calendar") we are checking for
             conflicts with a new unscheduled calendar object, which will
             conflict only with other scheduled objects.
-        @type type: C{str}
+        @type mode: C{str}
 
         @return: a L{Deferred} which fires with C{True} if there is a conflict
             and C{False} if not.
@@ -1568,6 +1570,8 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         for managed_id in added:
             changed[managed_id] = newattached[managed_id]
 
+        if self._dropboxID is None:
+            self._dropboxID = str(uuid.uuid4())
         changes = yield self._addingManagedIDs(self._txn, self._parentCollection, self._dropboxID, changed, component.resourceUID())
 
         # Make sure existing data is not changed
@@ -1643,7 +1647,7 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         new_attachment = (yield ManagedAttachment.load(txn, managed_id))
         if new_id:
             new_attachment._managedID = new_id
-            new_attachment._objectDropboxID = dropbox_id
+        new_attachment._objectDropboxID = dropbox_id
         for attachment in attachments:
             yield new_attachment.updateProperty(attachment)
 
@@ -1807,7 +1811,10 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             attachments = component.properties("ATTACH")
             removed = False
             for attachment in tuple(attachments):
-                if attachment.value().endswith("/dropbox/%s/%s" % (oldattachment.dropboxID(), oldattachment.name(),)):
+                if attachment.value().endswith("/dropbox/%s/%s" % (
+                    urllib.quote(oldattachment.dropboxID()),
+                    urllib.quote(oldattachment.name()),
+                )):
                     component.removeProperty(attachment)
                     removed = True
             if removed:
@@ -2157,6 +2164,8 @@ class Attachment(object):
 
 
     def store(self, contentType, dispositionName=None):
+        if not self._name:
+            self._name = dispositionName
         return AttachmentStorageTransport(self, contentType, dispositionName, self._justCreated)
 
 
@@ -2300,6 +2309,11 @@ class DropBoxAttachment(Attachment):
         @param ownerHomeID: the resource-id of the home collection of the attachment owner
         @type ownerHomeID: C{int}
         """
+
+        # If store has already migrated to managed attachments we will prevent creation of dropbox attachments
+        dropbox = (yield txn.store().dropboxAllowed(txn))
+        if not dropbox:
+            raise AttachmentDropboxNotAllowed
 
         # Now create the DB entry
         att = schema.ATTACHMENT
@@ -2719,8 +2733,8 @@ class ManagedAttachment(Attachment):
         fname = self.lastSegmentOfUriPath(self._managedID, self._name)
         location = self._txn._store.attachmentsURIPattern % {
             "home": self._ownerName,
-            "dropbox_id": self._objectDropboxID,
-            "name": fname,
+            "dropbox_id": urllib.quote(self._objectDropboxID),
+            "name": urllib.quote(fname),
         }
         returnValue(location)
 

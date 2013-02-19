@@ -324,7 +324,7 @@ class CommonTests(CommonCommonTests):
         yield self.commit()
 
         # Make sure notification fired after commit
-        self.assertTrue(("update", "CardDAV|home1") in self.notifierFactory.history)
+        self.assertTrue("CardDAV|home1" in self.notifierFactory.history)
 
         # Make sure it's available in a new transaction; i.e. test the commit.
         home = yield self.homeUnderTest()
@@ -373,8 +373,8 @@ class CommonTests(CommonCommonTests):
         self.assertEquals(
             self.notifierFactory.history,
             [
-                ("update", "CardDAV|home1"),
-                ("update", "CardDAV|home1/addressbook"),
+                "CardDAV|home1",
+                "CardDAV|home1/addressbook",
             ]
         )
 
@@ -505,8 +505,8 @@ class CommonTests(CommonCommonTests):
         self.assertEquals(
             self.notifierFactory.history,
             [
-                ("update", "CardDAV|home1"),
-                ("update", "CardDAV|home1/addressbook"),
+                "CardDAV|home1",
+                "CardDAV|home1/addressbook",
             ]
         )
 
@@ -695,8 +695,8 @@ class CommonTests(CommonCommonTests):
         self.assertEquals(
             self.notifierFactory.history,
             [
-                ("update", "CardDAV|home1"),
-                ("update", "CardDAV|home1/addressbook_1"),
+                "CardDAV|home1",
+                "CardDAV|home1/addressbook",
             ]
         )
 
@@ -811,8 +811,8 @@ class CommonTests(CommonCommonTests):
         self.assertEquals(
             self.notifierFactory.history,
             [
-                ("update", "CardDAV|home1"),
-                ("update", "CardDAV|home1/addressbook"),
+                "CardDAV|home1",
+                "CardDAV|home1/addressbook",
             ]
         )
 
@@ -916,10 +916,10 @@ class CommonTests(CommonCommonTests):
         Addressbooks in one user's addressbook home should not show up in another
         user's addressbook home.
         """
-        home2 = yield self.transactionUnderTest().addressbookHomeWithUID(
-            "home2", create=True
+        home3 = yield self.transactionUnderTest().addressbookHomeWithUID(
+            "home3", create=True
         )
-        self.assertIdentical((yield home2.addressbookWithName("addressbook")), None)
+        self.assertEquals(((yield home3.addressbookWithName("addressbook")).addressbookObjects()), [])
 
 
     @inlineCallbacks
@@ -929,11 +929,11 @@ class CommonTests(CommonCommonTests):
         user's via uid or name queries.
         """
         home1 = yield self.homeUnderTest()
-        home2 = yield self.transactionUnderTest().addressbookHomeWithUID(
-            "home2", create=True)
+        home3 = yield self.transactionUnderTest().addressbookHomeWithUID(
+            "home3", create=True)
         addressbook1 = yield home1.addressbookWithName("addressbook")
-        addressbook2 = yield home2.addressbookWithName("addressbook")
-        objects = list((yield (yield home2.addressbookWithName("addressbook")).addressbookObjects()))
+        addressbook2 = yield home3.addressbookWithName("addressbook")
+        objects = list((yield (yield home3.addressbookWithName("addressbook")).addressbookObjects()))
         self.assertEquals(objects, [])
         for resourceName in self.requirements['home1']['addressbook'].keys():
             obj = yield addressbook1.addressbookObjectWithName(resourceName)

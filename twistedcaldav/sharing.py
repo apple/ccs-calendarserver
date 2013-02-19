@@ -57,6 +57,14 @@ EADDRESSBOOKTYPE = 1
 
 
 class SharedResourceMixin(object):
+    """
+    A mix-in for calendar/addressbook resources that implements sharing-related
+    functionality.
+
+    @ivar _share: If this L{SharedCollectionMixin} is the sharee's version of a
+        resource, this refers to the L{Share} that describes it.
+    @type _share: L{Share} or L{NoneType}
+    """
 
     @inlineCallbacks
     def inviteProperty(self, request):
@@ -89,7 +97,7 @@ class SharedResourceMixin(object):
                 ))
 
             # See if it is on the sharee calendar
-            if self.isShareeCollection():
+            if self.isShareeResource():
                 original = (yield request.locateResource(self._share.url()))
                 yield original.validateInvites(request)
                 invitations = yield original._allInvitations()
@@ -110,8 +118,10 @@ class SharedResourceMixin(object):
 
 
     def upgradeToShare(self):
-        """ Upgrade this collection to a shared state """
-
+        """
+        Set the resource-type property on this resource to indicate that this
+        is the owner's version of a resource which has been shared.
+        """
         # Change resourcetype
         rtype = self.resourceType()
         rtype = element.ResourceType(*(rtype.children + (customxml.SharedOwner(),)))
@@ -160,11 +170,16 @@ class SharedResourceMixin(object):
     @inlineCallbacks
     def directShare(self, request):
         """
-        Directly bind an accessible calendar/address book collection into the current
-        principal's calendar/addressbook home.
+        Directly bind an accessible calendar/address book collection into the
+        current principal's calendar/addressbook home.
 
         @param request: the request triggering this action
         @type request: L{IRequest}
+
+        @return: the (asynchronous) HTTP result to respond to the direct-share
+            request.
+        @rtype: L{Deferred} firing L{twext.web2.http.Response}, failing with
+            L{HTTPError}
         """
 
         # Need to have at least DAV:read to do this
@@ -228,19 +243,27 @@ class SharedResourceMixin(object):
 
     @inlineCallbacks
     def isShared(self, request):
-        """ Return True if this is an owner shared calendar collection """
+        """
+        Return True if this is an owner shared calendar collection.
+        """
         returnValue((yield self.isSpecialCollection(customxml.SharedOwner)) or
                     bool((yield self._allInvitations()))) # same as, len(SharedAs() + InvitedAs())
 
 
     def setShare(self, share):
-        self._isShareeCollection = True #  _isShareeCollection attr is used by self tests
+        """
+        Set the L{Share} associated with this L{SharedCollectionMixin}.  (This
+        is only invoked on the sharee's resource, not the owner's.)
+        """
+        self._isShareeResource = True #  _isShareeResource attr is used by self tests
         self._share = share
 
 
-    def isShareeCollection(self):
-        """ Return True if this is a sharee view of a shared calendar collection """
-        return hasattr(self, "_isShareeCollection")
+    def isShareeResource(self):
+        """
+        Return True if this is a sharee view of a shared calendar collection.
+        """
+        return hasattr(self, "_isShareeResource")
 
 
     @inlineCallbacks
@@ -265,8 +288,8 @@ class SharedResourceMixin(object):
         else:
             rtype = superMethod()
 
-        isShareeCollection = self.isShareeCollection()
-        if isShareeCollection:
+        isShareeResource = self.isShareeResource()
+        if isShareeResource:
             rtype = element.ResourceType(
                 *(
                     tuple([child for child in rtype.children if child.qname() != customxml.SharedOwner.qname()]) +
@@ -293,49 +316,82 @@ class SharedResourceMixin(object):
 
 
     @inlineCallbacks
+    def _checkAccessControl(self):
+        """
+        Check the shared access mode of this resource, potentially consulting
+        an external access method if necessary.
+
+        @return: a L{Deferred} firing a L{bytes} or L{None}, with one of the
+            potential values: C{"own"}, which means that the home is the owner
+            of the collection and it is not shared; C{"read-only"}, meaning
+            that the home that this collection is bound into has only read
+            access to this collection; C{"read-write"}, which means that the
+            home has both read and write access; C{"original"}, which means
+            that it should inherit the ACLs of the owner's collection, whatever
+            those happen to be, or C{None}, which means that the external
+            access control mechanism has dictate the home should no longer have
+            any access at all.
+        """
+        if self._share.direct():
+            ownerUID = self._share.ownerUID()
+            owner = self.principalForUID(ownerUID)
+            if owner.record.recordType == WikiDirectoryService.recordType_wikis:
+                # Access level comes from what the wiki has granted to the
+                # sharee
+                sharee = self.principalForUID(self._share.shareeUID())
+                userID = sharee.record.guid
+                wikiID = owner.record.shortNames[0]
+                access = (yield getWikiAccess(userID, wikiID))
+                if access == "read":
+                    returnValue("read-only")
+                elif access in ("write", "admin"):
+                    returnValue("read-write")
+                else:
+                    returnValue(None)
+            else:
+                returnValue("original")
+        else:
+            # Invited shares use access mode from the invite
+            # Get the access for self
+            returnValue(Invitation(self._newStoreObject).access())
+
+
+    @inlineCallbacks
     def shareeAccessControlList(self, request, *args, **kwargs):
         """
-        Return WebDAV ACLs appropriate for the current user accessing the shared collection. For
-        an "invite" share we take the privilege granted to the sharee in the invite and map that
-        to WebDAV ACLs. For a "direct" share, if it is a wiki collection we map the wiki privileges
-        into WebDAV ACLs, otherwise we use whatever privileges exist on the underlying shared
-        collection.
+        Return WebDAV ACLs appropriate for the current user accessing the
+        shared collection.  For an "invite" share we take the privilege granted
+        to the sharee in the invite and map that to WebDAV ACLs.  For a
+        "direct" share, if it is a wiki collection we map the wiki privileges
+        into WebDAV ACLs, otherwise we use whatever privileges exist on the
+        underlying shared collection.
+
+        @param request: the request used to locate the owner resource.
+        @type request: L{twext.web2.iweb.IRequest}
+
+        @param args: The arguments for
+            L{twext.web2.dav.idav.IDAVResource.accessControlList}
+
+        @param kwargs: The keyword arguments for
+            L{twext.web2.dav.idav.IDAVResource.accessControlList}, plus
+            keyword-only arguments.
 
         @return: the appropriate WebDAV ACL for the sharee
         @rtype: L{davxml.ACL}
         """
 
-        assert self._isShareeCollection, "Only call this for a sharee collection"
-
-        wikiAccessMethod = kwargs.get("wikiAccessMethod", getWikiAccess)
+        assert self._isShareeResource, "Only call this for a sharee collection"
 
         sharee = self.principalForUID(self._share.shareeUID())
+        access = yield self._checkAccessControl()
+
+        if access == "original":
+            original = (yield request.locateResource(self._share.url()))
+            result = (yield original.accessControlList(request, *args,
+                **kwargs))
+            returnValue(result)
 
         # Direct shares use underlying privileges of shared collection
-        if self._share.direct():
-            original = (yield request.locateResource(self._share.url()))
-            owner = yield original.ownerPrincipal(request)
-            if owner.record.recordType == WikiDirectoryService.recordType_wikis:
-                # Access level comes from what the wiki has granted to the
-                # sharee
-                userID = sharee.record.guid
-                wikiID = owner.record.shortNames[0]
-                access = (yield wikiAccessMethod(userID, wikiID))
-                if access == "read":
-                    access = "read-only"
-                elif access in ("write", "admin"):
-                    access = "read-write"
-                else:
-                    access = None
-            else:
-                result = (yield original.accessControlList(request, *args,
-                    **kwargs))
-                returnValue(result)
-        else:
-            # Invited shares use access mode from the invite
-            # Get the access for self
-            access = Invitation(self._newStoreObject).access()
-
         userprivs = [
         ]
         if access in ("read-only", "read-write",):
@@ -464,7 +520,7 @@ class SharedResourceMixin(object):
         if type(cn) is not list:
             cn = [cn]
 
-        dl = [self.inviteSingleUserToShare(user, cn, ace, summary, request) for user, cn in zip(userid, cn)]
+        dl = [self.inviteSingleUserToShare(_user, _cn, ace, summary, request) for _user, _cn in zip(userid, cn)]
         return self._processShareActionList(dl, resultIsList)
 
 
@@ -494,7 +550,7 @@ class SharedResourceMixin(object):
         if type(cn) is not list:
             cn = [cn]
 
-        dl = [self.inviteSingleUserUpdateToShare(user, cn, aceOLD, aceNEW, summary, request) for user, cn in zip(userid, cn)]
+        dl = [self.inviteSingleUserUpdateToShare(_user, _cn, aceOLD, aceNEW, summary, request) for _user, _cn in zip(userid, cn)]
         return self._processShareActionList(dl, resultIsList)
 
 
@@ -515,11 +571,11 @@ class SharedResourceMixin(object):
         elif self.isAddressBookCollection() or self.isGroup():
             shareeHome = yield self._newStoreObject._txn.addressbookHomeWithUID(shareeUID, create=True)
 
-        shareeStoreObject = yield self._newStoreObject.shareWith(shareeHome,
+        shareUID = yield self._newStoreObject.shareWith(shareeHome,
                                                     mode=invitationAccessToBindModeMap[access],
                                                     status=_BIND_STATUS_INVITED,
                                                     message=summary)
-
+        shareeStoreObject = yield self._newStoreHome.objectWithShareUID(shareUID)
         invitation = Invitation(shareeStoreObject)
         returnValue(invitation)
 
@@ -546,6 +602,7 @@ class SharedResourceMixin(object):
         if not self.exists():
             returnValue([])
 
+        #TODO: Cache
         if True:#not hasattr(self, "_invitations"):
 
             acceptedHomeChildren = yield self._newStoreObject.asShared()
@@ -1055,9 +1112,9 @@ class SharedHomeMixin(LinkFollowerMixIn):
     @inlineCallbacks
     def _shareForUID(self, shareUID, request):
 
-        child = yield self._newStoreHome.objectWithShareUID(shareUID)
-        if child:
-            share = yield self._shareForStoreObject(child, request)
+        shareeStoreObject = yield self._newStoreHome.objectWithShareUID(shareUID)
+        if shareeStoreObject:
+            share = yield self._shareForStoreObject(shareeStoreObject, request)
             if share and share.uid() == shareUID:
                 returnValue(share)
 

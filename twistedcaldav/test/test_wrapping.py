@@ -32,7 +32,7 @@ from twisted.internet.defer import inlineCallbacks, returnValue
 from twistedcaldav.ical import Component as VComponent
 from twistedcaldav.vcard import Component as VCComponent
 
-from twistedcaldav.storebridge import DropboxCollection,\
+from twistedcaldav.storebridge import DropboxCollection, \
     CalendarCollectionResource, AddressBookCollectionResource
 
 from twistedcaldav.test.util import TestCase
@@ -42,7 +42,7 @@ from txdav.caldav.datastore.test.test_file import test_event_text
 
 from txdav.carddav.datastore.test.test_file import vcard4_text
 
-from txdav.common.datastore.test.util import buildStore, assertProvides,\
+from txdav.common.datastore.test.util import buildStore, assertProvides, \
     StubNotifierFactory
 
 
@@ -65,18 +65,32 @@ class FakeChanRequest(object):
     def writeHeaders(self, code, headers):
         self.code = code
         self.headers = headers
+
+
     def registerProducer(self, producer, streaming):
         pass
+
+
     def write(self, data):
         pass
+
+
     def unregisterProducer(self):
         pass
+
+
     def abortConnection(self):
         pass
+
+
     def getHostInfo(self):
         return '127.0.0.1', False
+
+
     def getRemoteHost(self):
         return '127.0.0.1'
+
+
     def finish(self):
         pass
 
@@ -160,7 +174,6 @@ class WrappingTests(TestCase):
         )
         yield txn.commit()
 
-
     requestUnderTest = None
 
     @inlineCallbacks
@@ -232,8 +245,16 @@ class WrappingTests(TestCase):
         req.credentialFactories = {}
         return req
 
-
     pathTypes = ['calendar', 'addressbook']
+
+
+    def checkPrincipalCollections(self, resource):
+        """
+        Verify that the C{_principalCollections} attribute of the given
+        L{Resource} is accurately set.
+        """
+        self.assertEquals(resource._principalCollections,
+                          frozenset([self.directoryFixture.principalsResource]))
 
 
     @inlineCallbacks
@@ -392,8 +413,7 @@ class WrappingTests(TestCase):
             "calendars/users/wsanchez/calendar/1.ics"
         )
         yield self.commit()
-        self.assertEquals(calDavFileCalendar._principalCollections,
-                          frozenset([self.principalsResource]))
+        self.checkPrincipalCollections(calDavFileCalendar)
         self.assertEquals(calDavFileCalendar._associatedTransaction,
                           calendarHome._associatedTransaction)
 
@@ -404,6 +424,9 @@ class WrappingTests(TestCase):
         Exceeding quota on an attachment returns an HTTP error code.
         """
         self.patch(config, "EnableDropBox", True)
+        if not hasattr(self.calendarCollection._newStore, "_dropbox_ok"):
+            self.calendarCollection._newStore._dropbox_ok = False
+        self.patch(self.calendarCollection._newStore, "_dropbox_ok", True)
         self.patch(Calendar, "asShared", lambda self: [])
 
         yield self.populateOneObject("1.ics", test_event_text)
@@ -435,8 +458,7 @@ class WrappingTests(TestCase):
             "calendars/users/wsanchez/calendar/xyzzy.ics"
         )
         yield self.commit()
-        self.assertEquals(calDavFileCalendar._principalCollections,
-                          frozenset([self.principalsResource]))
+        self.checkPrincipalCollections(calDavFileCalendar)
 
 
     def test_createAddressBookStore(self):
@@ -468,8 +490,7 @@ class WrappingTests(TestCase):
         """
         calDavFile = yield self.getResource("addressbooks/users/wsanchez/addressbook")
         yield self.commit()
-        self.assertEquals(calDavFile._principalCollections,
-                          frozenset([self.principalsResource]))
+        self.checkPrincipalCollections(calDavFile)
 
 
     @inlineCallbacks
@@ -487,8 +508,7 @@ class WrappingTests(TestCase):
         yield calDavFile.createAddressBookCollection()
         self.assertTrue(calDavFile.exists())
         yield self.commit()
-        self.assertEquals(calDavFile._principalCollections,
-                          frozenset([self.principalsResource]))
+        self.checkPrincipalCollections(calDavFile)
 
 
     @inlineCallbacks
@@ -503,8 +523,7 @@ class WrappingTests(TestCase):
             "addressbooks/users/wsanchez/addressbook/1.vcf"
         )
         yield self.commit()
-        self.assertEquals(calDavFileAddressBook._principalCollections,
-                          frozenset([self.principalsResource]))
+        self.checkPrincipalCollections(calDavFileAddressBook)
 
 
     @inlineCallbacks
@@ -518,8 +537,7 @@ class WrappingTests(TestCase):
             "addressbooks/users/wsanchez/addressbook/xyzzy.ics"
         )
         yield self.commit()
-        self.assertEquals(calDavFileAddressBook._principalCollections,
-                          frozenset([self.principalsResource]))
+        self.checkPrincipalCollections(calDavFileAddressBook)
 
 
     @inlineCallbacks
@@ -568,7 +586,7 @@ class DatabaseWrappingTests(WrappingTests):
         # see twistedcaldav/directory/test/accounts.xml
         wsanchez = '6423F94A-6B76-4A3A-815B-D52CFD77935D'
         cdaboo = '5A985493-EE2C-4665-94CF-4DFEA3A89500'
-        eventTemplate="""\
+        eventTemplate = """\
 BEGIN:VCALENDAR
 CALSCALE:GREGORIAN
 PRODID:-//Example Inc.//Example Calendar//EN
@@ -612,9 +630,7 @@ SUMMARY:Test
 END:VEVENT""".format(wsanchez=wsanchez, cdaboo=cdaboo)
         #txn = self.requestUnderTest._newStoreTransaction
         invalidEvent = eventTemplate.format(invalidInstance, wsanchez=wsanchez, cdaboo=cdaboo).replace(CR, CRLF)
-        resp2, rsrc2 = yield putEvt(invalidEvent)
+        yield putEvt(invalidEvent)
         self.requestUnderTest = None
         yield self.assertCalendarEmpty(wsanchez)
         yield self.assertCalendarEmpty(cdaboo)
-
-

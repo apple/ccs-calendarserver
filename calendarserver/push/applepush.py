@@ -59,7 +59,7 @@ class ApplePushNotifierService(service.MultiService, LoggingMixIn):
     """
 
     @classmethod
-    def makeService(cls, settings, store, serverHostName, testConnectorClass=None,
+    def makeService(cls, settings, store, testConnectorClass=None,
         reactor=None):
         """
         Creates the various "subservices" that work together to implement
@@ -177,14 +177,11 @@ class ApplePushNotifierService(service.MultiService, LoggingMixIn):
 
 
     @inlineCallbacks
-    def enqueue(self, op, id, dataChangedTimestamp=None):
+    def enqueue(self, id, dataChangedTimestamp=None):
         """
         Sends an Apple Push Notification to any device token subscribed to
         this id.
 
-        @param op: The operation that took place, either "create" or "update"
-            (ignored in this implementation)
-        @type op: C{str}
         @param id: The identifier of the resource that was updated, including
             a prefix indicating whether this is CalDAV or CardDAV related.
             The prefix is separated from the id with "|", e.g.:

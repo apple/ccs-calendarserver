@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2012 Apple Inc. All rights reserved.
+# Copyright (c) 2012-2013 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -58,7 +58,7 @@ def lookupServerViaSRV(domain, service="_ischedules"):
     lookup = "%s._tcp.%s" % (service, domain,)
     log.debug("DNS SRV: lookup: %s" % (lookup,))
     try:
-        answers = (yield DebugResolver.lookupService(lookup))
+        answers = (yield DebugResolver.lookupService(lookup))[0]
     except (DomainError, AuthoritativeDomainError), e:
         log.debug("DNS SRV: lookup failed: %s" % (e,))
         returnValue(None)
@@ -117,7 +117,7 @@ def lookupDataViaTXT(domain, prefix=""):
     lookup = "%s.%s" % (prefix, domain,) if prefix else domain
     log.debug("DNS TXT: lookup: %s" % (lookup,))
     try:
-        answers = (yield DebugResolver.lookupText(lookup))
+        answers = (yield DebugResolver.lookupText(lookup))[0]
     except (DomainError, AuthoritativeDomainError), e:
         log.debug("DNS TXT: lookup failed: %s" % (e,))
         answers = ()
@@ -142,7 +142,7 @@ class FakeBindAuthority(BindAuthority):
         log.debug("DNS FakeBindAuthority: lookup: %s %s %s" % (name, cls, type,))
         result = yield BindAuthority._lookup(self, name, cls, type, timeout)
         log.debug("DNS FakeBindAuthority: lookup results: %s %s %s\n%s" % (name, cls, type, result[0]))
-        returnValue(result[0])
+        returnValue(result)
 
 
     def stripComments(self, lines):

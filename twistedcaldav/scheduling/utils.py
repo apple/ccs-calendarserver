@@ -24,6 +24,9 @@ log = Logger()
 def getCalendarObjectForPrincipals(request, principal, uid, allow_shared=False):
     """
     Get a copy of the event for a principal.
+
+    NOTE: if more than one resource with the same UID is found, we will delete all but
+    one of them to avoid scheduling problems.
     """
 
     result = {
@@ -44,13 +47,18 @@ def getCalendarObjectForPrincipals(request, principal, uid, allow_shared=False):
         # Get matching newstore objects
         objectResources = (yield calendar_home.getCalendarResourcesForUID(uid, allow_shared))
 
+        if len(objectResources) > 1:
+            # Delete all but the first one
+            log.debug("Should only have zero or one scheduling object resource with UID '%s' in calendar home: %s" % (uid, calendar_home,))
+            for resource in objectResources[1:]:
+                yield resource._parentCollection.removeObjectResource(resource)
+            objectResources = objectResources[:1]
+
         # We really want only one or zero of these
         if len(objectResources) == 1:
             result["calendar_collection_uri"] = joinURL(calendar_home.url(), objectResources[0]._parentCollection.name())
             result["calendar_collection"] = (yield request.locateResource(result["calendar_collection_uri"]))
             result["resource_name"] = objectResources[0].name()
             result["resource"] = (yield request.locateResource(joinURL(result["calendar_collection_uri"], result["resource_name"])))
-        elif len(objectResources):
-            log.debug("Should only have zero or one scheduling object resource with UID '%s' in calendar home: %s" % (uid, calendar_home,))
 
     returnValue((result["resource"], result["resource_name"], result["calendar_collection"], result["calendar_collection_uri"],))

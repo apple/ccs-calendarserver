@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2005-2009 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2013 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -375,7 +375,7 @@ class DefaultCalendar (TestCase):
             self.assertEqual(str(default.children[0]), "/calendars/__uids__/6423F94A-6B76-4A3A-815B-D52CFD77935D/newcalendar")
 
         # Force the new calendar to think it is a virtual share
-        newcalendar._isShareeCollection = True
+        newcalendar._isShareeResource = True
 
         try:
             default = yield inbox.readProperty(caldavxml.ScheduleDefaultCalendarURL, request)

@@ -64,7 +64,8 @@ from txdav.common.datastore.sql_tables import _BIND_MODE_OWN, \
 from txdav.common.icommondatastore import HomeChildNameNotAllowedError, \
     HomeChildNameAlreadyExistsError, NoSuchHomeChildError, \
     ObjectResourceNameNotAllowedError, ObjectResourceNameAlreadyExistsError, \
-    NoSuchObjectResourceError, AllRetriesFailed, InvalidSubscriptionValues
+    NoSuchObjectResourceError, AllRetriesFailed, InvalidSubscriptionValues, \
+    InvalidIMIPTokenValues
 from txdav.common.inotifications import INotificationCollection, \
     INotificationObject
 
@@ -150,6 +151,7 @@ class CommonDataStore(Service, object):
     def __init__(self, sqlTxnFactory, notifierFactory,
                  attachmentsPath, attachmentsURIPattern,
                  enableCalendars=True, enableAddressBooks=True,
+                 enableManagedAttachments=True,
                  label="unlabeled", quota=(2 ** 20),
                  logLabels=False, logStats=False, logStatsLogFile=None, logSQL=False,
                  logTransactionWaits=0, timeoutTransactions=0,
@@ -163,6 +165,7 @@ class CommonDataStore(Service, object):
         self.attachmentsURIPattern = attachmentsURIPattern
         self.enableCalendars = enableCalendars
         self.enableAddressBooks = enableAddressBooks
+        self.enableManagedAttachments = enableManagedAttachments
         self.label = label
         self.quota = quota
         self.logLabels = logLabels
@@ -174,6 +177,7 @@ class CommonDataStore(Service, object):
         self.queuer = LocalQueuer(self.newTransaction)
         self._migrating = False
         self._enableNotifications = True
+        self._newTransactionCallbacks = set()
 
         if cacheQueries:
             self.queryCacher = QueryCacher(cachePool=cachePool,
@@ -185,6 +189,16 @@ class CommonDataStore(Service, object):
         # home classes
         __import__("txdav.caldav.datastore.sql")
         __import__("txdav.carddav.datastore.sql")
+
+
+    def callWithNewTransactions(self, callback):
+        """
+        Registers a method to be called whenever a new transaction is
+        created.
+
+        @param callback: callable taking a single argument, a transaction
+        """
+        self._newTransactionCallbacks.add(callback)
 
 
     @inlineCallbacks
@@ -246,6 +260,8 @@ class CommonDataStore(Service, object):
         if self.logTransactionWaits or self.timeoutTransactions:
             CommonStoreTransactionMonitor(txn, self.logTransactionWaits,
                                           self.timeoutTransactions)
+        for callback in self._newTransactionCallbacks:
+            callback(txn)
         return txn
 
 
@@ -262,6 +278,18 @@ class CommonDataStore(Service, object):
         Set the "upgrading" state
         """
         self._enableNotifications = not state
+
+
+    @inlineCallbacks
+    def dropboxAllowed(self, txn):
+        """
+        Determine whether dropbox attachments are allowed. Once we have migrated to managed attachments,
+        we should never allow dropbox-style attachments to be created.
+        """
+        if not hasattr(self, "_dropbox_ok"):
+            already_migrated = (yield txn.calendarserverValue("MANAGED-ATTACHMENTS", raiseIfMissing=False))
+            self._dropbox_ok = already_migrated is None
+        returnValue(self._dropbox_ok)
 
 
 
@@ -480,11 +508,31 @@ class CommonStoreTransaction(object):
 
 
     @inlineCallbacks
-    def calendarserverValue(self, key):
+    def calendarserverValue(self, key, raiseIfMissing=True):
         result = yield self._calendarserver.on(self, name=key)
         if result and len(result) == 1:
             returnValue(result[0][0])
-        raise RuntimeError("Database key %s cannot be determined." % (key,))
+        if raiseIfMissing:
+            raise RuntimeError("Database key %s cannot be determined." % (key,))
+        else:
+            returnValue(None)
+
+
+    @inlineCallbacks
+    def setCalendarserverValue(self, key, value):
+        cs = schema.CALENDARSERVER
+        yield Insert(
+            {cs.NAME: key, cs.VALUE: value},
+        ).on(self)
+
+
+    @inlineCallbacks
+    def updateCalendarserverValue(self, key, value):
+        cs = schema.CALENDARSERVER
+        yield Update(
+            {cs.VALUE: value},
+            Where=cs.NAME == key,
+        ).on(self)
 
 
     def calendarHomeWithUID(self, uid, create=False):
@@ -680,6 +728,105 @@ class CommonStoreTransaction(object):
 
     def apnSubscriptionsBySubscriber(self, guid):
         return self._apnSubscriptionsBySubscriberQuery.on(self, subscriberGUID=guid)
+
+
+    # Create IMIP token
+
+    @classproperty
+    def _insertIMIPTokenQuery(cls): #@NoSelf
+        imip = schema.IMIP_TOKENS
+        return Insert({imip.TOKEN: Parameter("token"),
+                       imip.ORGANIZER: Parameter("organizer"),
+                       imip.ATTENDEE: Parameter("attendee"),
+                       imip.ICALUID: Parameter("icaluid"),
+                      })
+
+    @inlineCallbacks
+    def imipCreateToken(self, organizer, attendee, icaluid, token=None):
+        if not (organizer and attendee and icaluid):
+            raise InvalidIMIPTokenValues()
+
+        if token is None:
+            token = str(uuid4())
+
+        try:
+            yield self._insertIMIPTokenQuery.on(self,
+                token=token, organizer=organizer, attendee=attendee,
+                icaluid=icaluid)
+        except Exception:
+            # TODO: is it okay if someone else created the same row just now?
+            pass
+        returnValue(token)
+
+    # Lookup IMIP organizer+attendee+icaluid for token
+
+    @classproperty
+    def _selectIMIPTokenByTokenQuery(cls): #@NoSelf
+        imip = schema.IMIP_TOKENS
+        return Select([imip.ORGANIZER, imip.ATTENDEE, imip.ICALUID], From=imip,
+                      Where=(imip.TOKEN == Parameter("token")))
+
+    def imipLookupByToken(self, token):
+        return self._selectIMIPTokenByTokenQuery.on(self, token=token)
+
+    # Lookup IMIP token for organizer+attendee+icaluid
+
+    @classproperty
+    def _selectIMIPTokenQuery(cls): #@NoSelf
+        imip = schema.IMIP_TOKENS
+        return Select([imip.TOKEN], From=imip,
+                      Where=(imip.ORGANIZER == Parameter("organizer")).And(
+                             imip.ATTENDEE == Parameter("attendee")).And(
+                             imip.ICALUID == Parameter("icaluid")))
+    @classproperty
+    def _updateIMIPTokenQuery(cls): #@NoSelf
+        imip = schema.IMIP_TOKENS
+        return Update({imip.ACCESSED: utcNowSQL, },
+                      Where=(imip.ORGANIZER == Parameter("organizer")).And(
+                             imip.ATTENDEE == Parameter("attendee")).And(
+                             imip.ICALUID == Parameter("icaluid")))
+
+
+    @inlineCallbacks
+    def imipGetToken(self, organizer, attendee, icaluid):
+        row = (yield self._selectIMIPTokenQuery.on(self, organizer=organizer,
+            attendee=attendee, icaluid=icaluid))
+        if row:
+            token = row[0][0]
+            # update the timestamp
+            yield self._updateIMIPTokenQuery.on(self, organizer=organizer,
+                attendee=attendee, icaluid=icaluid)
+        else:
+            token = None
+        returnValue(token)
+
+    # Remove IMIP token
+
+    @classproperty
+    def _removeIMIPTokenQuery(cls): #@NoSelf
+        imip = schema.IMIP_TOKENS
+        return Delete(From=imip,
+                      Where=(imip.TOKEN == Parameter("token")))
+
+    def imipRemoveToken(self, token):
+        return self._removeIMIPTokenQuery.on(self, token=token)
+
+    # Purge old IMIP tokens
+
+    @classproperty
+    def _purgeOldIMIPTokensQuery(cls): #@NoSelf
+        imip = schema.IMIP_TOKENS
+        return Delete(From=imip,
+                      Where=(imip.ACCESSED < Parameter("olderThan")))
+
+    def purgeOldIMIPTokens(self, olderThan):
+        """
+        @type olderThan: datetime
+        """
+        return self._purgeOldIMIPTokensQuery.on(self,
+            olderThan=olderThan)
+
+    # End of IMIP
 
 
     def preCommit(self, operation):
@@ -2274,7 +2421,7 @@ class _SharedSyncLogic(object):
 
 class SharingMixIn(object):
     """
-        Common class for CommonHomeChild and AddressBookObject
+    Common class for CommonHomeChild and AddressBookObject
     """
 
     @classproperty
@@ -2373,7 +2520,7 @@ class SharingMixIn(object):
 
 
     @inlineCallbacks
-    def _shareWith(self, shareeHome, mode, status=None, message=None):
+    def shareWith(self, shareeHome, mode, status=None, message=None):
         """
         Share this (owned) L{CommonHomeChild} with another home.
 
@@ -2404,8 +2551,9 @@ class SharingMixIn(object):
             newName = str(uuid4())
             yield self._bindInsertQuery.on(
                 subt, homeID=shareeHome._resourceID,
-                resourceID=self._resourceID, name=newName,
-                mode=mode, bindStatus=status, message=message
+                resourceID=self._resourceID, name=newName, mode=mode,
+                seenByOwner=True, seenBySharee=True,
+                bindStatus=status, message=message
             )
             returnValue(newName)
         try:
@@ -2418,36 +2566,10 @@ class SharingMixIn(object):
                 resourceID=self._resourceID, homeID=shareeHome._resourceID
             ))[0][0]
 
-        returnValue(sharedName)
-
-
-    @inlineCallbacks
-    def shareWith(self, shareeHome, mode, status=None, message=None):
-        """
-        Share this (owned) L{CommonHomeChild} with another home.
-
-        @param shareeHome: The home of the sharee.
-        @type shareeHome: L{CommonHome}
-
-        @param mode: The sharing mode; L{_BIND_MODE_READ} or
-            L{_BIND_MODE_WRITE} or L{_BIND_MODE_DIRECT}
-        @type mode: L{str}
-
-        @param status: The sharing status; L{_BIND_STATUS_INVITED} or
-            L{_BIND_STATUS_ACCEPTED}
-        @type mode: L{str}
-
-        @param message: The proposed message to go along with the share, which
-            will be used as the default display name.
-        @type mode: L{str}
-
-        @rtype: a L{Deferred} which fires with a L{ICalendar} if the sharee item
-        """
-
-        yield self._shareWith(shareeHome, mode, status=status, message=message)
-        child = yield shareeHome.childWithID(self._resourceID)
+        # Must send notification to ensure cache invalidation occurs
         yield self.notifyChanged()
-        returnValue(child)
+
+        returnValue(sharedName)
 
 
     @classmethod

@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2011-2012 Apple Inc. All rights reserved.
+# Copyright (c) 2011-2013 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -48,6 +48,7 @@ class Capabilities (WebDAVElement):
     name = "capabilities"
 
     allowed_children = {
+        (ischedule_namespace, "serial-number"): (1, 1),
         (ischedule_namespace, "versions"): (1, 1),
         (ischedule_namespace, "scheduling-messages"): (1, 1),
         (ischedule_namespace, "calendar-data-types"): (1, 1),
@@ -60,6 +61,13 @@ class Capabilities (WebDAVElement):
         (ischedule_namespace, "max-recipients"): (1, 1),
         (ischedule_namespace, "administrator"): (1, 1),
     }
+
+
+
+@registerElement
+class SerialNumber (WebDAVTextElement):
+    namespace = ischedule_namespace
+    name = "serial-number"
 
 
 

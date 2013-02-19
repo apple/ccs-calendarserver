@@ -87,6 +87,15 @@ limitations under the License.
     <auto-schedule>true</auto-schedule>
     <auto-schedule-mode>automatic</auto-schedule-mode>
   </record>
+  <record>
+    <uid>resource11</uid>
+    <enable>true</enable>
+    <enable-calendar>true</enable-calendar>
+    <enable-addressbook>true</enable-addressbook>
+    <auto-schedule>true</auto-schedule>
+    <auto-schedule-mode>decline-always</auto-schedule-mode>
+    <auto-accept-group>group01</auto-accept-group>
+  </record>
   <record repeat="10">
     <uid>group%02d</uid>
     <enable>true</enable>

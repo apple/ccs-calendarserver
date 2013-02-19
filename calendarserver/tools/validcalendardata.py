@@ -62,6 +62,7 @@ class ValidOptions(Options):
 
     optFlags = [
         ['verbose', 'v', "Verbose logging."],
+        ['debug', 'D', "Debug logging."],
         ['parse-only', 'p', "Only validate parsing of the data."],
     ]
 
@@ -227,7 +228,7 @@ def main(argv=sys.argv, stderr=sys.stderr, reactor=None):
     def makeService(store):
         return ValidService(store, options, output, input, reactor, config)
 
-    utilityMain(options["config"], makeService, reactor)
+    utilityMain(options["config"], makeService, reactor, verbose=options["debug"])
 
 
 

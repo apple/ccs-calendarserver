@@ -30,7 +30,7 @@ from twext.python.vcomponent import VComponent
 from twext.web2.dav.resource import TwistedGETContentMD5
 
 from twisted.internet import reactor
-from twisted.internet.defer import Deferred, inlineCallbacks, succeed
+from twisted.internet.defer import Deferred, inlineCallbacks
 from twisted.internet.task import deferLater
 from twisted.python import log
 from twisted.application.service import Service
@@ -45,7 +45,7 @@ from txdav.common.icommondatastore import NoSuchHomeChildError
 from twext.enterprise.adbapi2 import ConnectionPool
 from twisted.trial.unittest import TestCase
 from twisted.internet.defer import returnValue
-from twistedcaldav.notify import Notifier, NodeCreationException
+from calendarserver.push.notifier import Notifier
 from twext.enterprise.ienterprise import AlreadyFinishedError
 from twistedcaldav.vcard import Component as ABComponent
 
@@ -225,7 +225,7 @@ class SQLStoreBuilder(object):
         # table' statements are issued, so it's not possible to reference a
         # later table.  Therefore it's OK to drop them in the (reverse) order
         # that they happen to be in.
-        tables = [t.name for t in schema.model.tables
+        tables = [t.name for t in schema.model.tables #@UndefinedVariable
                   # All tables with rows _in_ the schema are populated
                   # exclusively _by_ the schema and shouldn't be manipulated
                   # while the server is running, so we leave those populated.
@@ -415,13 +415,16 @@ def populateCalendarsFrom(requirements, store, migrating=False):
     yield populateTxn.commit()
 
 
+
 def updateToCurrentYear(data):
     """
     Update the supplied iCalendar data so that all dates are updated to the current year.
     """
 
     nowYear = PyCalendarDateTime.getToday().getYear()
-    return data % {"now":nowYear}
+    return data % {"now": nowYear}
+
+
 
 @inlineCallbacks
 def resetCalendarMD5s(md5s, store):
@@ -451,6 +454,7 @@ def resetCalendarMD5s(md5s, store):
                         )
                         obj.properties()[md5key] = TwistedGETContentMD5.fromString(md5)
     yield populateTxn.commit()
+
 
 
 @inlineCallbacks
@@ -488,6 +492,8 @@ def populateAddressBooksFrom(requirements, store):
                         )
     yield populateTxn.commit()
 
+
+
 @inlineCallbacks
 def resetAddressBookMD5s(md5s, store):
     """
@@ -516,6 +522,7 @@ def resetAddressBookMD5s(md5s, store):
                         )
                         obj.properties()[md5key] = TwistedGETContentMD5.fromString(md5)
     yield populateTxn.commit()
+
 
 
 def assertProvides(testCase, interface, provider):
@@ -608,14 +615,36 @@ class CommonCommonTests(object):
         raise NotImplementedError("CommonCommonTests subclasses must implement.")
 
 
+    @inlineCallbacks
+    def homeUnderTest(self, txn=None, name="home1"):
+        """
+        Get the calendar home detailed by C{requirements['home1']}.
+        """
+        if txn is None:
+            txn = self.transactionUnderTest()
+        returnValue((yield txn.calendarHomeWithUID(name)))
 
-class StubNodeCacher(object):
 
-    def waitForNode(self, notifier, nodeName):
-        if "fail" in nodeName:
-            raise NodeCreationException("Could not create node")
-        else:
-            return succeed(True)
+    @inlineCallbacks
+    def calendarUnderTest(self, txn=None, name="calendar_1", home="home1"):
+        """
+        Get the calendar detailed by C{requirements['home1']['calendar_1']}.
+        """
+        returnValue((yield
+            (yield self.homeUnderTest(txn, home)).calendarWithName(name))
+        )
+
+
+    @inlineCallbacks
+    def calendarObjectUnderTest(self, name="1.ics", txn=None):
+        """
+        Get the calendar detailed by
+        C{requirements['home1']['calendar_1'][name]}.
+        """
+        returnValue((yield (yield self.calendarUnderTest(txn))
+                     .calendarObjectWithName(name)))
+
+
 
 
 class StubNotifierFactory(object):
@@ -625,19 +654,32 @@ class StubNotifierFactory(object):
 
     def __init__(self):
         self.reset()
-        self.nodeCacher = StubNodeCacher()
-        self.pubSubConfig = {
-            "enabled" : True,
-            "service" : "pubsub.example.com",
-            "host" : "example.com",
-            "port" : "123",
-        }
+        self.hostname = "example.com"
+
 
     def newNotifier(self, label="default", id=None, prefix=None):
         return Notifier(self, label=label, id=id, prefix=prefix)
 
-    def send(self, op, id):
-        self.history.append((op, id))
+
+    def pushKeyForId(self, id):
+        path = "/"
+
+        try:
+            prefix, id = id.split("|", 1)
+            path += "%s/" % (prefix,)
+        except ValueError:
+            # id has no prefix
+            pass
+
+        path += "%s/" % (self.hostname,)
+        if id:
+            path += "%s/" % (id,)
+        return path
+
+
+    def send(self, id):
+        self.history.append(id)
+
 
     def reset(self):
         self.history = []
@@ -659,5 +701,3 @@ def disableMemcacheForTest(aTest):
     aTest.patch(config.Memcached.Pools.Default, "ClientEnabled", False)
     aTest.patch(config.Memcached.Pools.Default, "ServerEnabled", False)
     aTest.patch(Memcacher, "allowTestCache", True)
-
-

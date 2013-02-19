@@ -84,6 +84,13 @@ class AttachmentMigrationFailed(Exception):
 
 
 
+class AttachmentDropboxNotAllowed(Exception):
+    """
+    Dropbox attachments no longer allowed.
+    """
+
+
+
 class QuotaExceeded(Exception):
     """
     The quota for a particular user has been exceeded.

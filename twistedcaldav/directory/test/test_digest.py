@@ -15,7 +15,6 @@
 ##
 
 import sys
-import time
 from hashlib import md5
 
 from twisted.cred import error
@@ -30,6 +29,8 @@ from twistedcaldav.directory.digest import QopDigestCredentialFactory
 from twistedcaldav.test.util import TestCase
 from twistedcaldav.config import config
 from twext.web2.auth.digest import DigestCredentialFactory
+from twext.web2.test.test_httpauth import makeDigestDeterministic
+from twext.web2.test.test_httpauth import FAKE_STATIC_NONCE
 
 class FakeDigestCredentialFactory(QopDigestCredentialFactory):
     """
@@ -39,12 +40,8 @@ class FakeDigestCredentialFactory(QopDigestCredentialFactory):
 
     def __init__(self, *args, **kwargs):
         super(FakeDigestCredentialFactory, self).__init__(*args, **kwargs)
+        makeDigestDeterministic(self._real)
 
-    def generateNonce(self):
-        """
-        Generate a static nonce
-        """
-        return '178288758716122392881254770685'
 
 
 clientAddress = address.IPv4Address('TCP', '127.0.0.1', 80)
@@ -432,7 +429,7 @@ class DigestAuthTestCase(TestCase):
                 request
             )
 
-            factory._invalidate(factory.generateNonce())
+            factory._invalidate(FAKE_STATIC_NONCE)
             response = (yield UnauthorizedResponse.makeResponse(
                 {"Digest":factory},
                 request.remoteAddr
@@ -525,9 +522,12 @@ class DigestAuthTestCase(TestCase):
         """
         Test that we can decode a valid response to our challenge
         """
-
-        oldTime = DigestCredentialFactory.CHALLENGE_LIFETIME_SECS
-        DigestCredentialFactory.CHALLENGE_LIFETIME_SECS = 2
+        theTime = 0
+        class newtime(object):
+            def time(self):
+                return theTime
+        from twistedcaldav.directory import digest
+        self.patch(digest, "time", newtime())
 
         for ctr, factory in enumerate(self.credentialFactories):
             challenge = (yield factory.getChallenge(clientAddress))
@@ -540,7 +540,7 @@ class DigestAuthTestCase(TestCase):
             creds = (yield factory.decode(clientResponse, _trivial_GET()))
             self.failUnless(creds.checkPassword('password'))
             
-            time.sleep(3)
+            theTime += DigestCredentialFactory.CHALLENGE_LIFETIME_SECS + 1
             request = _trivial_GET()
             try:
                 clientResponse = authRequest2[ctr] % (
@@ -556,7 +556,6 @@ class DigestAuthTestCase(TestCase):
             challenge = (yield factory.getChallenge(request.remoteAddr))
             self.assertTrue(challenge.get("stale") == "true")
             
-        DigestCredentialFactory.CHALLENGE_LIFETIME_SECS = oldTime
 
 def _trivial_GET():
     return SimpleRequest(None, 'GET', '/')

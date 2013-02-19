@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 ##
-# Copyright (c) 2012 Apple Inc. All rights reserved.
+# Copyright (c) 2012-2013 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,14 +17,19 @@
 
 from Crypto.PublicKey import RSA
 from StringIO import StringIO
+
+from twext.python.log import setLogLevelForNamespace, StandardIOObserver
 from twext.web2.client.http import ClientRequest
 from twext.web2.http_headers import Headers
 from twext.web2.stream import MemoryStream
+
 from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks
 from twisted.python.usage import Options
+
 from twistedcaldav.scheduling.ischedule.dkim import RSA256, DKIMRequest, \
     PublicKeyLookup, DKIMVerifier, DKIMVerificationError
+
 import sys
 
 
@@ -59,6 +64,9 @@ def _doKeyGeneration(options):
 
 @inlineCallbacks
 def _doRequest(options):
+
+    if options["verbose"]:
+        setLogLevelForNamespace("twistedcaldav.scheduling.ischedule.dkim", "debug")
 
     # Parse the HTTP file
     request = open(options["request"]).read()
@@ -118,7 +126,7 @@ def _doVerify(options):
 
     dkim = DKIMVerifier(request, lookup)
     if options["fake-time"]:
-        dkim.time = 100
+        dkim.time = 0
 
     try:
         yield dkim.verify()
@@ -283,6 +291,15 @@ def _runInReactor(fn, options):
 def main(argv=sys.argv, stderr=sys.stderr):
     options = DKIMToolOptions()
     options.parseOptions(argv[1:])
+
+    #
+    # Send logging output to stdout
+    #
+    observer = StandardIOObserver()
+    observer.start()
+
+    if options["verbose"]:
+        setLogLevelForNamespace("twistedcaldav.scheduling.ischedule.dkim", "debug")
 
     if options["key-gen"]:
         _doKeyGeneration(options)

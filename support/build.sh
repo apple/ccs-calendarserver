@@ -264,7 +264,7 @@ www_get () {
         #
         # Try getting a copy from calendarserver.org.
         #
-        local tmp="$(mktemp "/tmp/${cache_basename}.XXXXX")";
+        local tmp="$(mktemp "/tmp/${cache_basename}.XXXXXX")";
         curl -L "http://${pkg_host}${pkg_path}/${cache_basename}" -o "${tmp}" || true;
         echo "";
         if [ ! -s "${tmp}" ] || grep '<title>404 Not Found</title>' "${tmp}" > /dev/null; then
@@ -386,8 +386,10 @@ svn_get () {
       svn checkout -r "${revision}" "${uri}@${revision}" "${path}";
     }
 
-    if [ "${revision}" != "HEAD" ] && [ -n "${cache_deps}" ] \
-        && [ -n "${hash}" ]; then
+    if [ "${revision}" != "HEAD" ] && \
+       [ -n "${cache_deps}" ] && \
+       [ -n "${hash}" ] \
+    ; then
       local cacheid="${name}-$(echo "${uri}" | hash)";
       local cache_file="${cache_deps}/${cacheid}@r${revision}.tgz";
 
@@ -718,11 +720,10 @@ dependencies () {
     "setuptools" "setuptools" "${st}" \
     "$pypi/s/setuptools/${st}.tar.gz";
 
-  local zv="3.3.0";
-  local zi="zope.interface-${zv}";
-  py_dependency -m "93668855e37b4691c5c956665c33392c" \
+  local zi="zope.interface-4.0.3";
+  py_dependency -v "3.6.0" -m "1ddd308f2c83703accd1696158c300eb" \
     "Zope Interface" "zope.interface" "${zi}" \
-    "http://www.zope.org/Products/ZopeInterface/${zv}/${zi}.tar.gz";
+    "http://pypi.python.org/packages/source/z/zope.interface/${zi}.tar.gz";
 
   local po="pyOpenSSL-0.10";
   py_dependency -v 0.9 -m "34db8056ec53ce80c7f5fc58bee9f093" \
@@ -753,9 +754,9 @@ dependencies () {
 
   # Maintenance note: next time the Twisted dependency gets updated, check out
   # twext/patches.py.
-  py_dependency -v 12 -m "cf49a8676c21c50faf1b42b528049471" \
-    "Twisted" "twisted" "Twisted-12.0.0" \
-    "${pypi}/T/Twisted/Twisted-12.0.0.tar.bz2";
+  py_dependency -v 12.2 -m "6e289825f3bf5591cfd670874cc0862d" \
+    "Twisted" "twisted" "Twisted-12.3.0" \
+    "${pypi}/T/Twisted/Twisted-12.3.0.tar.bz2";
 
   local du="python-dateutil-1.5";
   py_dependency -m "35f3732db3f2cc4afdc68a8533b60a52" \
@@ -774,9 +775,9 @@ dependencies () {
     "${pypi}/p/python-ldap/${ld}.tar.gz";
 
   # XXX actually PyCalendar should be imported in-place.
-  py_dependency -fe -i "src" -r 214 \
+  py_dependency -fe -i "src" -r 10554 \
     "pycalendar" "pycalendar" "pycalendar" \
-    "http://svn.mulberrymail.com/repos/PyCalendar/branches/server";
+    "${svn_uri_base}/PyCalendar/trunk";
 
   #
   # Tool dependencies.  The code itself doesn't depend on these, but
@@ -789,10 +790,10 @@ dependencies () {
     "SQLParse" "sqlparse" "${sq}" \
     "http://python-sqlparse.googlecode.com/files/${sq}.tar.gz";
 
-  local v="0.5.0";
+  local v="0.6.1";
   local n="pyflakes";
   local p="${n}-${v}";
-  py_dependency -o -v "${v}" -m "568dab27c42e5822787aa8a603898672" \
+  py_dependency -o -v "${v}" -m "00debd2280b962e915dfee552a675915" \
     "Pyflakes" "${n}" "${p}" \
     "${pypi}/p/${n}/${p}.tar.gz";
  

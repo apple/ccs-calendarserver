@@ -1,0 +1,153 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!--
+Copyright (c) 2006-2013 Apple Inc. All rights reserved.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+ -->
+
+<!-- <!DOCTYPE accounts SYSTEM "accounts.dtd"> -->
+
+<directory realm="Test Realm">
+  <record type="user">
+    <uid>admin</uid>
+    <short-name>admin</short-name>
+    <password>admin</password>
+    <full-name>Super User</full-name>
+  </record>
+  <record type="user">
+    <uid>apprentice</uid>
+    <short-name>apprentice</short-name>
+    <full-name>Apprentice Super User</full-name>
+    <password>apprentice</password>
+  </record>
+  <record type="user">
+    <uid>wsanchez</uid>
+    <short-name>wsanchez</short-name>
+    <email-address>wsanchez@example.com</email-address>
+    <full-name>Wilfredo Sanchez Vega</full-name>
+    <password>test</password>
+  </record>
+  <record type="user">
+    <uid>cdaboo</uid>
+    <short-name>cdaboo</short-name>
+    <email-address>cdaboo@example.com</email-address>
+    <full-name>Cyrus Daboo</full-name>
+    <password>test</password>
+  </record>
+  <record type="user">
+    <uid>sagen</uid>
+    <short-name>sagen</short-name>
+    <email-address>sagen@example.com</email-address>
+    <full-name>Morgen Sagen</full-name>
+    <password>test</password>
+  </record>
+  <record type="user">
+    <uid>andre</uid>
+    <short-name>dre</short-name>
+    <email-address>dre@example.com</email-address>
+    <full-name>Andre LaBranche</full-name>
+    <password>test</password>
+  </record>
+  <record type="user">
+    <uid>glyph</uid>
+    <short-name>glyph</short-name>
+    <email-address>glyph@example.com</email-address>
+    <full-name>Glyph Lefkowitz</full-name>
+    <password>test</password>
+  </record>
+  <record type="user">
+    <uid>i18nuser</uid>
+    <short-name>i18nuser</short-name>
+    <email-address>i18nuser@example.com</email-address>
+    <full-name>まだ</full-name>
+    <password>i18nuser</password>
+  </record>
+  <record type="user" repeat="99">
+    <uid>user%02d</uid>
+    <short-name>user%02d</short-name>
+    <short-name>User %02d</short-name>
+    <full-name>User %02d</full-name>
+    <email-address>user%02d@example.com</email-address>
+    <password>user%02d</password>
+  </record>
+  <record type="user" repeat="10">
+    <uid>public%02d</uid>
+    <short-name>public%02d</short-name>
+    <full-name>Public %02d</full-name>
+    <password>public%02d</password>
+  </record>
+  <record type="group">
+    <uid>group01</uid>
+    <short-name>group01</short-name>
+    <full-name>Group 01</full-name>
+    <password>group01</password>
+    <member-uid>user01</member>
+  </record>
+  <record type="group">
+    <uid>group02</uid>
+    <short-name>group02</short-name>
+    <full-name>Group 02</full-name>
+    <password>group02</password>
+    <member-uid>user06</member>
+    <member-uid>user07</member>
+  </record>
+  <record type="group">
+    <uid>group03</uid>
+    <short-name>group03</short-name>
+    <full-name>Group 03</full-name>
+    <password>group03</password>
+    <member-uid>user08</member>
+    <member-uid>user09</member>
+  </record>
+  <record type="group">
+    <uid>group04</uid>
+    <short-name>group04</short-name>
+    <full-name>Group 04</full-name>
+    <password>group04</password>
+    <member-uid>group02</member>
+    <member-uid>group03</member>
+    <member-uid>user10</member>
+  </record>
+  <record type="group"> <!-- delegategroup -->
+    <uid>group05</uid>
+    <short-name>group05</short-name>
+    <full-name>Group 05</full-name>
+    <password>group05</password>
+    <member-uid>group06</member>
+    <member-uid>user20</member>
+  </record>
+  <record type="group"> <!-- delegatesubgroup -->
+    <uid>group06</uid>
+    <short-name>group06</short-name>
+    <full-name>Group 06</full-name>
+    <password>group06</password>
+    <member-uid>user21</member>
+  </record>
+  <record type="group"> <!-- readonlydelegategroup -->
+    <uid>group07</uid>
+    <short-name>group07</short-name>
+    <full-name>Group 07</full-name>
+    <password>group07</password>
+    <member-uid>user22</member>
+    <member-uid>user23</member>
+    <member-uid>user24</member>
+  </record>
+  <record type="group">
+    <uid>disabledgroup</uid>
+    <short-name>disabledgroup</short-name>
+    <full-name>Disabled Group</full-name>
+    <password>disabledgroup</password>
+    <member-uid>user01</member>
+  </record>
+</directory>

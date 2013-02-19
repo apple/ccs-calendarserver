@@ -19,7 +19,7 @@ from txdav.xml import element as davxml
 
 from twistedcaldav.directory.directory import DirectoryService
 from twistedcaldav.test.util import xmlFile, augmentsFile, proxiesFile
-from twistedcaldav.directory.principal import DirectoryPrincipalProvisioningResource,\
+from twistedcaldav.directory.principal import DirectoryPrincipalProvisioningResource, \
     DirectoryPrincipalResource
 from twistedcaldav.directory.xmlfile import XMLDirectoryService
 
@@ -37,13 +37,13 @@ class ProxyPrincipals (twistedcaldav.test.util.TestCase):
     def setUp(self):
         super(ProxyPrincipals, self).setUp()
 
-        self.directoryService = XMLDirectoryService(
+        self.directoryFixture.addDirectoryService(XMLDirectoryService(
             {
                 'xmlFile' : xmlFile,
                 'augmentService' :
                     augment.AugmentXMLDB(xmlFiles=(augmentsFile.path,)),
             }
-        )
+        ))
         calendaruserproxy.ProxyDBService = calendaruserproxy.ProxySqliteDB("proxies.sqlite")
 
         # Set up a principals hierarchy for each service we're testing with
@@ -59,13 +59,16 @@ class ProxyPrincipals (twistedcaldav.test.util.TestCase):
 
         yield XMLCalendarUserProxyLoader(proxiesFile.path).updateProxyDB()
 
+
     def tearDown(self):
         """ Empty the proxy db between tests """
-        return calendaruserproxy.ProxyDBService.clean()
+        return calendaruserproxy.ProxyDBService.clean() #@UndefinedVariable
+
 
     def _getPrincipalByShortName(self, type, name):
         provisioningResource = self.principalRootResources[self.directoryService.__class__.__name__]
         return provisioningResource.principalForShortName(type, name)
+
 
     def _groupMembersTest(self, recordType, recordName, subPrincipalName, expectedMembers):
         def gotMembers(members):
@@ -80,6 +83,7 @@ class ProxyPrincipals (twistedcaldav.test.util.TestCase):
         d.addCallback(gotMembers)
         return d
 
+
     def _groupMembershipsTest(self, recordType, recordName, subPrincipalName, expectedMemberships):
         def gotMemberships(memberships):
             uids = set([p.principalUID() for p in memberships])
@@ -92,7 +96,8 @@ class ProxyPrincipals (twistedcaldav.test.util.TestCase):
         d = principal.groupMemberships()
         d.addCallback(gotMemberships)
         return d
-    
+
+
     @inlineCallbacks
     def _addProxy(self, principal, subPrincipalName, proxyPrincipal):
 
@@ -104,8 +109,9 @@ class ProxyPrincipals (twistedcaldav.test.util.TestCase):
         if isinstance(proxyPrincipal, tuple):
             proxyPrincipal = self._getPrincipalByShortName(proxyPrincipal[0], proxyPrincipal[1])
         members.add(proxyPrincipal)
-        
+
         yield principal.setGroupMemberSetPrincipals(members)
+
 
     @inlineCallbacks
     def _removeProxy(self, recordType, recordName, subPrincipalName, proxyRecordType, proxyRecordName):
@@ -119,8 +125,9 @@ class ProxyPrincipals (twistedcaldav.test.util.TestCase):
             if p.principalUID() == proxyPrincipal.principalUID():
                 members.remove(p)
                 break
-        
+
         yield principal.setGroupMemberSetPrincipals(members)
+
 
     @inlineCallbacks
     def _clearProxy(self, principal, subPrincipalName):
@@ -130,12 +137,14 @@ class ProxyPrincipals (twistedcaldav.test.util.TestCase):
         principal = principal.getChild(subPrincipalName)
         yield principal.setGroupMemberSetPrincipals(set())
 
+
     @inlineCallbacks
     def _proxyForTest(self, recordType, recordName, expectedProxies, read_write):
         principal = self._getPrincipalByShortName(recordType, recordName)
         proxies = (yield principal.proxyFor(read_write))
-        proxies = sorted([principal.displayName() for principal in proxies])
+        proxies = sorted([_principal.displayName() for _principal in proxies])
         self.assertEquals(proxies, sorted(expectedProxies))
+
 
     @inlineCallbacks
     def test_multipleProxyAssignmentsAtOnce(self):
@@ -150,6 +159,7 @@ class ProxyPrincipals (twistedcaldav.test.util.TestCase):
             True
         )
 
+
     def test_groupMembersRegular(self):
         """
         DirectoryPrincipalResource.expandedGroupMembers()
@@ -158,6 +168,7 @@ class ProxyPrincipals (twistedcaldav.test.util.TestCase):
             DirectoryService.recordType_groups, "both_coasts", None,
             ("Chris Lecroy", "David Reid", "Wilfredo Sanchez", "West Coast", "East Coast", "Cyrus Daboo",),
         )
+
 
     def test_groupMembersRecursive(self):
         """
@@ -168,6 +179,7 @@ class ProxyPrincipals (twistedcaldav.test.util.TestCase):
             ("Wilfredo Sanchez", "Recursive2 Coasts", "Cyrus Daboo",),
         )
 
+
     def test_groupMembersProxySingleUser(self):
         """
         DirectoryPrincipalResource.expandedGroupMembers()
@@ -176,6 +188,7 @@ class ProxyPrincipals (twistedcaldav.test.util.TestCase):
             DirectoryService.recordType_locations, "gemini", "calendar-proxy-write",
             ("Wilfredo Sanchez",),
         )
+
 
     def test_groupMembersProxySingleGroup(self):
         """
@@ -186,6 +199,7 @@ class ProxyPrincipals (twistedcaldav.test.util.TestCase):
             ("Chris Lecroy", "David Reid", "Wilfredo Sanchez", "West Coast",),
         )
 
+
     def test_groupMembersProxySingleGroupWithNestedGroups(self):
         """
         DirectoryPrincipalResource.expandedGroupMembers()
@@ -195,6 +209,7 @@ class ProxyPrincipals (twistedcaldav.test.util.TestCase):
             ("Chris Lecroy", "David Reid", "Wilfredo Sanchez", "West Coast", "East Coast", "Cyrus Daboo", "Both Coasts",),
         )
 
+
     def test_groupMembersProxySingleGroupWithNestedRecursiveGroups(self):
         """
         DirectoryPrincipalResource.expandedGroupMembers()
@@ -203,6 +218,7 @@ class ProxyPrincipals (twistedcaldav.test.util.TestCase):
             DirectoryService.recordType_locations, "orion", "calendar-proxy-write",
             ("Wilfredo Sanchez", "Cyrus Daboo", "Recursive1 Coasts", "Recursive2 Coasts",),
         )
+
 
     def test_groupMembersProxySingleGroupWithNonCalendarGroup(self):
         """
@@ -221,6 +237,7 @@ class ProxyPrincipals (twistedcaldav.test.util.TestCase):
         ))
 
         return DeferredList(ds)
+
 
     def test_groupMembersProxyMissingUser(self):
         """
@@ -244,6 +261,7 @@ class ProxyPrincipals (twistedcaldav.test.util.TestCase):
         d.addCallback(gotMembers)
         d.addCallback(check)
         return d
+
 
     def test_groupMembershipsMissingUser(self):
         """
@@ -269,6 +287,7 @@ class ProxyPrincipals (twistedcaldav.test.util.TestCase):
         d.addCallback(check)
         return d
 
+
     @inlineCallbacks
     def test_setGroupMemberSet(self):
         class StubMemberDB(object):
@@ -281,7 +300,6 @@ class ProxyPrincipals (twistedcaldav.test.util.TestCase):
 
             def getMembers(self, uid):
                 return succeed(self.members)
-
 
         user = self._getPrincipalByShortName(self.directoryService.recordType_users,
                                            "cdaboo")
@@ -304,6 +322,7 @@ class ProxyPrincipals (twistedcaldav.test.util.TestCase):
             set([str(p) for p in memberdb.members]),
             set(["5FF60DAD-0BDE-4508-8C77-15F0CA5C8DD1",
                  "8B4288F6-CC82-491D-8EF9-642EF4F3E7D0"]))
+
 
     @inlineCallbacks
     def test_setGroupMemberSetNotifiesPrincipalCaches(self):
@@ -336,13 +355,15 @@ class ProxyPrincipals (twistedcaldav.test.util.TestCase):
         finally:
             DirectoryPrincipalResource.cacheNotifierFactory = oldCacheNotifier
 
+
     def test_proxyFor(self):
 
         return self._proxyForTest(
-            DirectoryService.recordType_users, "wsanchez", 
-            ("Mercury Seven", "Gemini Twelve", "Apollo Eleven", "Orion", ),
+            DirectoryService.recordType_users, "wsanchez",
+            ("Mercury Seven", "Gemini Twelve", "Apollo Eleven", "Orion",),
             True
         )
+
 
     @inlineCallbacks
     def test_proxyForDuplicates(self):
@@ -354,22 +375,24 @@ class ProxyPrincipals (twistedcaldav.test.util.TestCase):
         )
 
         yield self._proxyForTest(
-            DirectoryService.recordType_users, "wsanchez", 
-            ("Mercury Seven", "Gemini Twelve", "Apollo Eleven", "Orion", ),
+            DirectoryService.recordType_users, "wsanchez",
+            ("Mercury Seven", "Gemini Twelve", "Apollo Eleven", "Orion",),
             True
         )
+
 
     def test_readOnlyProxyFor(self):
 
         return self._proxyForTest(
-            DirectoryService.recordType_users, "wsanchez", 
-            ("Non-calendar proxy", ),
+            DirectoryService.recordType_users, "wsanchez",
+            ("Non-calendar proxy",),
             False
         )
 
+
     @inlineCallbacks
     def test_UserProxy(self):
-        
+
         for proxyType in ("calendar-proxy-read", "calendar-proxy-write"):
 
             yield self._addProxy(
@@ -377,31 +400,31 @@ class ProxyPrincipals (twistedcaldav.test.util.TestCase):
                 proxyType,
                 (DirectoryService.recordType_users, "cdaboo",),
             )
-    
+
             yield self._groupMembersTest(
                 DirectoryService.recordType_users, "wsanchez",
                 proxyType,
                 ("Cyrus Daboo",),
             )
-            
+
             yield self._addProxy(
                 (DirectoryService.recordType_users, "wsanchez",),
                 proxyType,
                 (DirectoryService.recordType_users, "lecroy",),
             )
-    
+
             yield self._groupMembersTest(
                 DirectoryService.recordType_users, "wsanchez",
                 proxyType,
                 ("Cyrus Daboo", "Chris Lecroy",),
             )
-    
+
             yield self._removeProxy(
                 DirectoryService.recordType_users, "wsanchez",
                 proxyType,
                 DirectoryService.recordType_users, "cdaboo",
             )
-    
+
             yield self._groupMembersTest(
                 DirectoryService.recordType_users, "wsanchez",
                 proxyType,
@@ -421,7 +444,7 @@ class ProxyPrincipals (twistedcaldav.test.util.TestCase):
 
         record = self.directoryService.recordWithGUID("320B73A1-46E2-4180-9563-782DFDBE1F63")
         provisioningResource = self.principalRootResources[self.directoryService.__class__.__name__]
-        principal =  provisioningResource.principalForRecord(record)
+        principal = provisioningResource.principalForRecord(record)
         proxyPrincipal = provisioningResource.principalForShortName(recordType,
             "wsanchez")
 
@@ -438,7 +461,7 @@ class ProxyPrincipals (twistedcaldav.test.util.TestCase):
         delegated-to directly
         """
         self.assertEquals(
-            set((yield calendaruserproxy.ProxyDBService.getAllMembers())),
+            set((yield calendaruserproxy.ProxyDBService.getAllMembers())), #@UndefinedVariable
             set([u'6423F94A-6B76-4A3A-815B-D52CFD77935D', u'8A985493-EE2C-4665-94CF-4DFEA3A89500', u'9FF60DAD-0BDE-4508-8C77-15F0CA5C8DD2', u'both_coasts', u'left_coast', u'non_calendar_group', u'recursive1_coasts', u'recursive2_coasts', u'EC465590-E9E9-4746-ACE8-6C756A49FE4D'])
         )
 

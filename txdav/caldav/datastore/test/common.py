@@ -20,7 +20,6 @@ Tests for common calendar store API functions.
 """
 
 from StringIO import StringIO
-import os
 
 from twisted.internet.defer import Deferred, inlineCallbacks, returnValue, \
     maybeDeferred
@@ -31,7 +30,6 @@ from twext.python.clsprop import classproperty
 from twext.python.vcomponent import VComponent
 from twext.python.filepath import CachingFilePath as FilePath
 from twext.enterprise.ienterprise import AlreadyFinishedError
-from twext.web2.http_headers import MimeType
 
 from txdav.xml.element import WebDAVUnknownElement, ResourceType
 from txdav.idav import IPropertyStore, IDataStore
@@ -48,14 +46,10 @@ from txdav.common.datastore.sql_tables import _BIND_MODE_WRITE, _BIND_MODE_READ
 
 from txdav.caldav.icalendarstore import (
     ICalendarObject, ICalendarHome,
-    ICalendar, IAttachment, ICalendarTransaction)
+    ICalendar, ICalendarTransaction)
 
 from twistedcaldav.customxml import InviteNotification, InviteSummary
-from txdav.caldav.icalendarstore import IAttachmentStorageTransport
-from txdav.caldav.icalendarstore import QuotaExceeded
-from txdav.common.datastore.test.util import (
-    deriveQuota, withSpecialQuota, transactionClean
-)
+from txdav.common.datastore.test.util import transactionClean
 from txdav.common.icommondatastore import ConcurrentModification
 from twistedcaldav.ical import Component
 from twistedcaldav.config import config
@@ -314,48 +308,6 @@ class CommonTests(CommonCommonTests):
     }
 
 
-    def storeUnderTest(self):
-        """
-        Subclasses must override this to return an L{ICommonDataStore} provider
-        which adheres to the structure detailed by L{CommonTests.requirements}.
-        This attribute is a dict of dict of dicts; the outermost layer
-        representing UIDs mapping to calendar homes, then calendar names mapping
-        to calendar collections, and finally calendar object names mapping to
-        calendar object text.
-        """
-        raise NotImplementedError()
-
-
-    @inlineCallbacks
-    def homeUnderTest(self, txn=None, name="home1"):
-        """
-        Get the calendar home detailed by C{requirements['home1']}.
-        """
-        if txn is None:
-            txn = self.transactionUnderTest()
-        returnValue((yield txn.calendarHomeWithUID(name)))
-
-
-    @inlineCallbacks
-    def calendarUnderTest(self, txn=None, name="calendar_1", home="home1"):
-        """
-        Get the calendar detailed by C{requirements['home1']['calendar_1']}.
-        """
-        returnValue((yield
-            (yield self.homeUnderTest(txn, home)).calendarWithName(name))
-        )
-
-
-    @inlineCallbacks
-    def calendarObjectUnderTest(self, name="1.ics", txn=None):
-        """
-        Get the calendar detailed by
-        C{requirements['home1']['calendar_1'][name]}.
-        """
-        returnValue((yield (yield self.calendarUnderTest(txn))
-                     .calendarObjectWithName(name)))
-
-
     def test_calendarStoreProvides(self):
         """
         The calendar store provides L{IDataStore} and its required attributes.
@@ -493,8 +445,8 @@ class CommonTests(CommonCommonTests):
         # Make sure notification fired after commit
         self.assertEquals(self.notifierFactory.history,
             [
-                ("update", "CalDAV|home1"),
-                ("update", "CalDAV|home1/notification"),
+                "CalDAV|home1",
+                "CalDAV|home1/notification",
             ]
         )
 
@@ -511,8 +463,8 @@ class CommonTests(CommonCommonTests):
         # Make sure notification fired after commit
         self.assertEquals(self.notifierFactory.history,
             [
-                ("update", "CalDAV|home1"),
-                ("update", "CalDAV|home1/notification"),
+                "CalDAV|home1",
+                "CalDAV|home1/notification",
             ]
         )
 
@@ -583,15 +535,6 @@ class CommonTests(CommonCommonTests):
         name = yield home.nodeName()
         self.assertEquals(name, "/CalDAV/example.com/home1/")
 
-
-    @inlineCallbacks
-    def test_nodeNameFailure(self):
-        # The StubNodeCacher is set up to fail when the node name has the
-        # word "fail" in it, for testing the failure mode:
-        home = yield self.transactionUnderTest().calendarHomeWithUID("fail",
-            create=True)
-        name = yield home.nodeName()
-        self.assertEquals(name, None)
 
 
     @inlineCallbacks
@@ -764,7 +707,7 @@ class CommonTests(CommonCommonTests):
         yield self.commit()
 
         # Make sure notification fired after commit
-        self.assertTrue(("update", "CalDAV|home1") in self.notifierFactory.history)
+        self.assertTrue("CalDAV|home1" in self.notifierFactory.history)
 
         # Make sure it's available in a new transaction; i.e. test the commit.
         home = yield self.homeUnderTest()
@@ -813,12 +756,12 @@ class CommonTests(CommonCommonTests):
         self.assertEquals(
             self.notifierFactory.history,
             [
-                ("update", "CalDAV|home1"),
-                ("update", "CalDAV|home1/calendar_1"),
-                ("update", "CalDAV|home1"),
-                ("update", "CalDAV|home1/calendar_2"),
-                ("update", "CalDAV|home1"),
-                ("update", "CalDAV|home1/calendar_empty"),
+                "CalDAV|home1",
+                "CalDAV|home1/calendar_1",
+                "CalDAV|home1",
+                "CalDAV|home1/calendar_2",
+                "CalDAV|home1",
+                "CalDAV|home1/calendar_empty",
             ]
         )
 
@@ -991,8 +934,8 @@ class CommonTests(CommonCommonTests):
         self.assertEquals(
             self.notifierFactory.history,
             [
-                ("update", "CalDAV|home1"),
-                ("update", "CalDAV|home1/calendar_1"),
+                "CalDAV|home1",
+                "CalDAV|home1/calendar_1",
             ]
         )
 
@@ -1040,7 +983,7 @@ class CommonTests(CommonCommonTests):
         """
         cal = yield self.calendarUnderTest()
         other = yield self.homeUnderTest(name=OTHER_HOME_UID)
-        newCalName = (yield cal.shareWith(other, _BIND_MODE_WRITE)).name()
+        newCalName = yield cal.shareWith(other, _BIND_MODE_WRITE)
         self.sharedName = newCalName
         yield self.commit()
         normalCal = yield self.calendarUnderTest()
@@ -1065,7 +1008,7 @@ class CommonTests(CommonCommonTests):
         # yield self.commit() # txn is none? why?
         cal = yield self.calendarUnderTest()
         other = yield self.homeUnderTest(name=OTHER_HOME_UID)
-        newName = (yield cal.shareWith(other, _BIND_MODE_READ)).name()
+        newName = yield cal.shareWith(other, _BIND_MODE_READ)
         otherCal = yield other.childWithName(self.sharedName)
 
         # Name should not change just because we updated the mode.
@@ -1543,8 +1486,8 @@ END:VCALENDAR
         self.assertEquals(
             self.notifierFactory.history,
             [
-                ("update", "CalDAV|home1"),
-                ("update", "CalDAV|home1/calendar_1"),
+                "CalDAV|home1",
+                "CalDAV|home1/calendar_1",
             ]
         )
 
@@ -1660,8 +1603,8 @@ END:VCALENDAR
         self.assertEquals(
             self.notifierFactory.history,
             [
-                ("update", "CalDAV|home1"),
-                ("update", "CalDAV|home1/calendar_1"),
+                "CalDAV|home1",
+                "CalDAV|home1/calendar_1",
             ]
         )
 
@@ -1756,59 +1699,6 @@ END:VCALENDAR
                 propertyContent
             )
 
-    eventWithDropbox = "\r\n".join("""
-BEGIN:VCALENDAR
-CALSCALE:GREGORIAN
-PRODID:-//Example Inc.//Example Calendar//EN
-VERSION:2.0
-BEGIN:VTIMEZONE
-LAST-MODIFIED:20040110T032845Z
-TZID:US/Eastern
-BEGIN:DAYLIGHT
-DTSTART:20000404T020000
-RRULE:FREQ=YEARLY;BYDAY=1SU;BYMONTH=4
-TZNAME:EDT
-TZOFFSETFROM:-0500
-TZOFFSETTO:-0400
-END:DAYLIGHT
-BEGIN:STANDARD
-DTSTART:20001026T020000
-RRULE:FREQ=YEARLY;BYDAY=-1SU;BYMONTH=10
-TZNAME:EST
-TZOFFSETFROM:-0400
-TZOFFSETTO:-0500
-END:STANDARD
-END:VTIMEZONE
-BEGIN:VEVENT
-DTSTAMP:20051222T205953Z
-CREATED:20060101T150000Z
-DTSTART;TZID=US/Eastern:20060101T100000
-DURATION:PT1H
-SUMMARY:event 1
-UID:event1@ninevah.local
-ORGANIZER:user01
-ATTENDEE;PARTSTAT=ACCEPTED:user01
-ATTACH;VALUE=URI:/calendars/users/home1/some-dropbox-id/some-dropbox-id/caldavd.plist
-X-APPLE-DROPBOX:/calendars/users/home1/dropbox/some-dropbox-id
-END:VEVENT
-END:VCALENDAR
-    """.strip().split("\n"))
-
-
-    @inlineCallbacks
-    def test_dropboxID(self):
-        """
-        L{ICalendarObject.dropboxID} should synthesize its dropbox from the X
-        -APPLE-DROPBOX property, if available.
-        """
-        cal = yield self.calendarUnderTest()
-        yield cal.createCalendarObjectWithName("drop.ics", VComponent.fromString(
-                self.eventWithDropbox
-            )
-        )
-        obj = yield cal.calendarObjectWithName("drop.ics")
-        self.assertEquals((yield obj.dropboxID()), "some-dropbox-id")
-
 
     def token2revision(self, token):
         """
@@ -1835,7 +1725,7 @@ END:VCALENDAR
         cal = yield self.calendarUnderTest()
         st = yield home.syncToken()
         yield cal.createCalendarObjectWithName("new.ics", VComponent.fromString(
-                self.eventWithDropbox
+                test_event_text
             )
         )
 
@@ -1870,7 +1760,7 @@ END:VCALENDAR
         st = yield cal.syncToken()
         rev = self.token2revision(st)
         yield cal.createCalendarObjectWithName("new.ics", VComponent.fromString(
-                self.eventWithDropbox
+                test_event_text
             )
         )
         yield cal.removeCalendarObjectWithName("2.ics")
@@ -1882,354 +1772,6 @@ END:VCALENDAR
         changed, deleted = yield cal.resourceNamesSinceToken(rev2)
         self.assertEquals(set(changed), set([]))
         self.assertEquals(set(deleted), set([]))
-
-
-    @inlineCallbacks
-    def test_dropboxIDs(self):
-        """
-        L{ICalendarObject.getAllDropboxIDs} returns a L{Deferred} that fires
-        with a C{list} of all Dropbox IDs.
-        """
-        home = yield self.homeUnderTest()
-        # The only item in the home which has an ATTACH or X-APPLE-DROPBOX
-        # property.
-        allDropboxIDs = set([
-            u'FE5CDC6F-7776-4607-83A9-B90FF7ACC8D0.dropbox',
-        ])
-        self.assertEquals(set((yield home.getAllDropboxIDs())),
-                          allDropboxIDs)
-
-
-    @inlineCallbacks
-    def test_indexByDropboxProperty(self):
-        """
-        L{ICalendarHome.calendarObjectWithDropboxID} will return a calendar
-        object in the calendar home with the given final segment in its C{X
-        -APPLE-DROPBOX} property URI.
-        """
-        objName = "with-dropbox.ics"
-        cal = yield self.calendarUnderTest()
-        yield cal.createCalendarObjectWithName(
-            objName, VComponent.fromString(
-                self.eventWithDropbox
-            )
-        )
-        yield self.commit()
-        home = yield self.homeUnderTest()
-        cal = yield self.calendarUnderTest()
-        fromName = yield cal.calendarObjectWithName(objName)
-        fromDropbox = yield home.calendarObjectWithDropboxID("some-dropbox-id")
-        self.assertEquals(fromName, fromDropbox)
-
-
-    @inlineCallbacks
-    def createAttachmentTest(self, refresh):
-        """
-        Common logic for attachment-creation tests.
-        """
-        obj = yield self.calendarObjectUnderTest()
-        attachment = yield obj.createAttachmentWithName(
-            "new.attachment",
-        )
-        t = attachment.store(MimeType("text", "x-fixture"), "")
-        self.assertProvides(IAttachmentStorageTransport, t)
-        t.write("new attachment")
-        t.write(" text")
-        yield t.loseConnection()
-        obj = yield refresh(obj)
-        attachment = yield obj.attachmentWithName("new.attachment")
-        self.assertProvides(IAttachment, attachment)
-        data = yield self.attachmentToString(attachment)
-        self.assertEquals(data, "new attachment text")
-        contentType = attachment.contentType()
-        self.assertIsInstance(contentType, MimeType)
-        self.assertEquals(contentType, MimeType("text", "x-fixture"))
-        self.assertEquals(attachment.md5(), '50a9f27aeed9247a0833f30a631f1858')
-        self.assertEquals(
-            [attachment.name() for attachment in (yield obj.attachments())],
-            ['new.attachment']
-        )
-
-
-    @inlineCallbacks
-    def test_twoAttachmentsWithTheSameName(self):
-        """
-        Attachments are uniquely identified by their associated object and path;
-        two attachments with the same name won't overwrite each other.
-        """
-        obj = yield self.calendarObjectUnderTest()
-        obj2 = yield self.calendarObjectUnderTest("2.ics")
-        att1 = yield self.stringToAttachment(obj, "sample.attachment",
-                                             "test data 1")
-        att2 = yield self.stringToAttachment(obj2, "sample.attachment",
-                                             "test data 2")
-        data1 = yield self.attachmentToString(att1)
-        data2 = yield self.attachmentToString(att2)
-        self.assertEquals(data1, "test data 1")
-        self.assertEquals(data2, "test data 2")
-
-
-    @inlineCallbacks
-    def stringToAttachment(self, obj, name, contents,
-                           mimeType=MimeType("text", "x-fixture")):
-        """
-        Convenience for producing an attachment from a calendar object.
-
-        @param obj: the calendar object which owns the dropbox associated with
-            the to-be-created attachment.
-
-        @param name: the (utf-8 encoded) name to create the attachment with.
-
-        @type name: C{bytes}
-
-        @param contents: the desired contents of the new attachment.
-
-        @type contents: C{bytes}
-
-        @param mimeType: the mime type of the incoming bytes.
-
-        @return: a L{Deferred} that fires with the L{IAttachment} that is
-            created, once all the bytes have been stored.
-        """
-        att = yield obj.createAttachmentWithName(name)
-        t = att.store(mimeType, "")
-        t.write(contents)
-        yield t.loseConnection()
-        returnValue(att)
-
-
-    def attachmentToString(self, attachment):
-        """
-        Convenience to convert an L{IAttachment} to a string.
-
-        @param attachment: an L{IAttachment} provider to convert into a string.
-
-        @return: a L{Deferred} that fires with the contents of the attachment.
-
-        @rtype: L{Deferred} firing C{bytes}
-        """
-        capture = CaptureProtocol()
-        attachment.retrieve(capture)
-        return capture.deferred
-
-
-    def test_createAttachment(self):
-        """
-        L{ICalendarObject.createAttachmentWithName} will store an
-        L{IAttachment} object that can be retrieved by
-        L{ICalendarObject.attachmentWithName}.
-        """
-        return self.createAttachmentTest(lambda x: x)
-
-
-    def test_createAttachmentCommit(self):
-        """
-        L{ICalendarObject.createAttachmentWithName} will store an
-        L{IAttachment} object that can be retrieved by
-        L{ICalendarObject.attachmentWithName} in subsequent transactions.
-        """
-        @inlineCallbacks
-        def refresh(obj):
-            yield self.commit()
-            result = yield self.calendarObjectUnderTest()
-            returnValue(result)
-        return self.createAttachmentTest(refresh)
-
-
-    @inlineCallbacks
-    def test_attachmentTemporaryFileCleanup(self):
-        """
-        L{IAttachmentStream} object cleans-up its temporary file on txn abort.
-        """
-        obj = yield self.calendarObjectUnderTest()
-        attachment = yield obj.createAttachmentWithName(
-            "new.attachment",
-        )
-        t = attachment.store(MimeType("text", "x-fixture"))
-
-        temp = t._path.path
-
-        yield self.abort()
-
-        self.assertFalse(os.path.exists(temp))
-
-        obj = yield self.calendarObjectUnderTest()
-        attachment = yield obj.createAttachmentWithName(
-            "new.attachment",
-        )
-        t = attachment.store(MimeType("text", "x-fixture"))
-
-        temp = t._path.path
-        os.remove(temp)
-
-        yield self.abort()
-
-        self.assertFalse(os.path.exists(temp))
-
-
-    @inlineCallbacks
-    def test_quotaAllowedBytes(self):
-        """
-        L{ICalendarHome.quotaAllowedBytes} should return the configuration value
-        passed to the calendar store's constructor.
-        """
-        expected = deriveQuota(self)
-        home = yield self.homeUnderTest()
-        actual = home.quotaAllowedBytes()
-        self.assertEquals(expected, actual)
-
-
-    @withSpecialQuota(None)
-    @inlineCallbacks
-    def test_quotaUnlimited(self):
-        """
-        When L{ICalendarHome.quotaAllowedBytes} returns C{None}, quota is
-        unlimited; any sized attachment can be stored.
-        """
-        home = yield self.homeUnderTest()
-        allowed = home.quotaAllowedBytes()
-        self.assertIdentical(allowed, None)
-        yield self.test_createAttachment()
-
-
-    @inlineCallbacks
-    def test_quotaTransportAddress(self):
-        """
-        Since L{IAttachmentStorageTransport} is a subinterface of L{ITransport},
-        it must provide peer and host addresses.
-        """
-        obj = yield self.calendarObjectUnderTest()
-        name = 'a-fun-attachment'
-        attachment = yield obj.createAttachmentWithName(name)
-        transport = attachment.store(MimeType("test", "x-something"), "")
-        peer = transport.getPeer()
-        host = transport.getHost()
-        self.assertIdentical(peer.attachment, attachment)
-        self.assertIdentical(host.attachment, attachment)
-        self.assertIn(name, repr(peer))
-        self.assertIn(name, repr(host))
-
-
-    @inlineCallbacks
-    def exceedQuotaTest(self, getit):
-        """
-        If too many bytes are passed to the transport returned by
-        L{ICalendarObject.createAttachmentWithName},
-        L{IAttachmentStorageTransport.loseConnection} will return a L{Deferred}
-        that fails with L{QuotaExceeded}.
-        """
-        home = yield self.homeUnderTest()
-        attachment = yield getit()
-        t = attachment.store(MimeType("text", "x-fixture"), "")
-        sample = "all work and no play makes jack a dull boy"
-        chunk = (sample * (home.quotaAllowedBytes() / len(sample)))
-
-        t.write(chunk)
-        t.writeSequence([chunk, chunk])
-
-        d = t.loseConnection()
-        yield self.failUnlessFailure(d, QuotaExceeded)
-
-
-    @inlineCallbacks
-    def test_exceedQuotaNew(self):
-        """
-        When quota is exceeded on a new attachment, that attachment will no
-        longer exist.
-        """
-        obj = yield self.calendarObjectUnderTest()
-        yield self.exceedQuotaTest(
-            lambda: obj.createAttachmentWithName("too-big.attachment")
-        )
-        self.assertEquals((yield obj.attachments()), [])
-        yield self.commit()
-        obj = yield self.calendarObjectUnderTest()
-        self.assertEquals((yield obj.attachments()), [])
-
-
-    @inlineCallbacks
-    def test_exceedQuotaReplace(self):
-        """
-        When quota is exceeded while replacing an attachment, that attachment's
-        contents will not be replaced.
-        """
-        obj = yield self.calendarObjectUnderTest()
-        create = lambda: obj.createAttachmentWithName("exists.attachment")
-        get = lambda: obj.attachmentWithName("exists.attachment")
-        attachment = yield create()
-        t = attachment.store(MimeType("text", "x-fixture"), "")
-        sampleData = "a reasonably sized attachment"
-        t.write(sampleData)
-        yield t.loseConnection()
-        yield self.exceedQuotaTest(get)
-        @inlineCallbacks
-        def checkOriginal():
-            actual = yield self.attachmentToString(attachment)
-            expected = sampleData
-            # note: 60 is less than len(expected); trimming is just to make
-            # the error message look sane when the test fails.
-            actual = actual[:60]
-            self.assertEquals(actual, expected)
-        yield checkOriginal()
-        yield self.commit()
-        # Make sure that things go back to normal after a commit of that
-        # transaction.
-        obj = yield self.calendarObjectUnderTest()
-        attachment = yield get()
-        yield checkOriginal()
-
-
-    def test_removeAttachmentWithName(self, refresh=lambda x: x):
-        """
-        L{ICalendarObject.removeAttachmentWithName} will remove the calendar
-        object with the given name.
-        """
-        @inlineCallbacks
-        def deleteIt(ignored):
-            obj = yield self.calendarObjectUnderTest()
-            yield obj.removeAttachmentWithName("new.attachment")
-            obj = yield refresh(obj)
-            self.assertIdentical(
-                None, (yield obj.attachmentWithName("new.attachment"))
-            )
-            self.assertEquals(list((yield obj.attachments())), [])
-        return self.test_createAttachmentCommit().addCallback(deleteIt)
-
-
-    def test_removeAttachmentWithNameCommit(self):
-        """
-        L{ICalendarObject.removeAttachmentWithName} will remove the calendar
-        object with the given name.  (After commit, it will still be gone.)
-        """
-        @inlineCallbacks
-        def refresh(obj):
-            yield self.commit()
-            result = yield self.calendarObjectUnderTest()
-            returnValue(result)
-        return self.test_removeAttachmentWithName(refresh)
-
-
-    @inlineCallbacks
-    def test_noDropboxCalendar(self):
-        """
-        L{ICalendarObject.createAttachmentWithName} may create a directory
-        named 'dropbox', but this should not be seen as a calendar by
-        L{ICalendarHome.calendarWithName} or L{ICalendarHome.calendars}.
-        """
-        obj = yield self.calendarObjectUnderTest()
-        attachment = yield obj.createAttachmentWithName(
-            "new.attachment",
-        )
-        t = attachment.store(MimeType("text", "plain"), "")
-        t.write("new attachment text")
-        yield t.loseConnection()
-        yield self.commit()
-        home = (yield self.homeUnderTest())
-        calendars = (yield home.calendars())
-        self.assertEquals((yield home.calendarWithName("dropbox")), None)
-        self.assertEquals(
-            set([n.name() for n in calendars]),
-            set(home1_calendarNames))
 
 
     @inlineCallbacks

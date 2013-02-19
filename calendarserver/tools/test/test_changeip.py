@@ -35,14 +35,6 @@ class ChangeIPTestCase(TestCase):
                 "original_hostname",
             ],
             "ServerHostName" : "",
-            "Notifications" : {
-                "Services" : {
-                    "XMPPNotifier" : {
-                        "Host" : "original_hostname",
-                        "JID" : "com.apple.notificationuser@original_hostname",
-                    },
-                },
-            },
             "Scheduling" : {
                 "iMIP" : {
                     "Receiving" : {
@@ -74,14 +66,6 @@ class ChangeIPTestCase(TestCase):
                     "new_hostname",
                 ],
                 "ServerHostName" : "",
-                "Notifications" : {
-                    "Services" : {
-                        "XMPPNotifier" : {
-                            "Host" : "new_hostname",
-                            "JID" : "com.apple.notificationuser@new_hostname",
-                        },
-                    },
-                },
                 "Scheduling" : {
                     "iMIP" : {
                         "Receiving" : {

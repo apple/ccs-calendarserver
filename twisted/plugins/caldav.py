@@ -53,6 +53,4 @@ class TAP(object):
 
 
 TwistedCalDAV = TAP("calendarserver.tap.caldav.CalDAVServiceMaker")
-CalDAVNotifier = TAP("twistedcaldav.notify.NotificationServiceMaker")
-CalDAVMailGateway = TAP("twistedcaldav.scheduling.imip.mailgateway.MailGatewayServiceMaker")
 CalDAVGroupCacher = TAP("twistedcaldav.directory.directory.GroupMembershipCacherServiceMaker")

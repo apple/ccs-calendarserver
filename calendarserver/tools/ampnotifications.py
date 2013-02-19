@@ -15,18 +15,19 @@
 # limitations under the License.
 ##
 
+from calendarserver.push.amppush import subscribeToIDs
 from calendarserver.tools.cmdline import utilityMain
+
 from getopt import getopt, GetoptError
+
 from twext.python.log import Logger
+
 from twisted.application.service import Service
 from twisted.internet.defer import inlineCallbacks, succeed
 from twistedcaldav.config import ConfigurationError
+
 import os
 import sys
-
-from twisted.internet.defer import inlineCallbacks, succeed
-
-from calendarserver.push.amppush import subscribeToIDs
 
 log = Logger()
 
@@ -42,6 +43,7 @@ def usage(e=None):
     print "  -f --config <path>: Specify caldavd.plist configuration path"
     print "  -p --port <port>: AMP port to connect to"
     print "  -s --server <hostname>: AMP server to connect to"
+    print "  --debug: verbose logging"
     print ""
 
     if e:
@@ -51,10 +53,12 @@ def usage(e=None):
         sys.exit(0)
 
 
+
 class WorkerService(Service):
 
     def __init__(self, store):
         self._store = store
+
 
     @inlineCallbacks
     def startService(self):
@@ -67,6 +71,7 @@ class WorkerService(Service):
             raise
 
 
+
 class MonitorAMPNotifications(WorkerService):
 
     ids = []
@@ -77,12 +82,14 @@ class MonitorAMPNotifications(WorkerService):
         return monitorAMPNotifications(self.hostname, self.port, self.ids)
 
 
+
 def main():
 
     try:
         (optargs, args) = getopt(
-            sys.argv[1:], "f:hp:s:", [
+            sys.argv[1:], "f:hp:s:v", [
                 "config=",
+                "debug",
                 "help",
                 "port=",
                 "server=",
@@ -97,6 +104,7 @@ def main():
     configFileName = None
     hostname = "localhost"
     port = 62311
+    debug = False
 
     for opt, arg in optargs:
         if opt in ("-h", "--help"):
@@ -111,12 +119,14 @@ def main():
         elif opt in ("-s", "--server"):
             hostname = arg
 
+        elif opt in ("--debug"):
+            debug = True
+
         else:
             raise NotImplementedError(opt)
 
     if not args:
         usage("Not enough arguments")
-
 
     MonitorAMPNotifications.ids = args
     MonitorAMPNotifications.hostname = hostname
@@ -125,11 +135,16 @@ def main():
     utilityMain(
         configFileName,
         MonitorAMPNotifications,
+        verbose=debug
     )
+
+
 
 def notificationCallback(id, dataChangedTimestamp):
     print "Received notification for:", id
     return succeed(True)
+
+
 
 @inlineCallbacks
 def monitorAMPNotifications(hostname, port, ids):

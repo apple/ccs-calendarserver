@@ -26,7 +26,7 @@ from txdav.idav import IDataStoreObject
 
 __all__ = [
     # Classes
-    "GroupForSharedAddressBookDeleteNotAllowedError"
+    "GroupForSharedAddressBookDeleteNotAllowedError",
     "GroupWithUnsharedAddressNotAllowedError",
     "SharedGroupDeleteNotAllowedError",
     "IAddressBookTransaction",

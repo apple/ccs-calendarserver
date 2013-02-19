@@ -567,6 +567,72 @@ create table APN_SUBSCRIPTIONS (
 create index APN_SUBSCRIPTIONS_RESOURCE_KEY
    on APN_SUBSCRIPTIONS(RESOURCE_KEY);
 
+-----------------
+-- IMIP Tokens --
+-----------------
+
+create table IMIP_TOKENS (
+  TOKEN                         varchar(255) not null,
+  ORGANIZER                     varchar(255) not null,
+  ATTENDEE                      varchar(255) not null,
+  ICALUID                       varchar(255) not null,
+  ACCESSED                      timestamp default timezone('UTC', CURRENT_TIMESTAMP),
+
+  primary key (ORGANIZER, ATTENDEE, ICALUID) -- implicit index
+);
+
+create index IMIP_TOKENS_TOKEN
+   on IMIP_TOKENS(TOKEN);
+
+----------------
+-- Work Items --
+----------------
+
+create sequence WORKITEM_SEQ;
+
+---------------------------
+-- IMIP Inivitation Work --
+---------------------------
+
+create table IMIP_INVITATION_WORK (
+  WORK_ID                       integer primary key default nextval('WORKITEM_SEQ') not null,
+  NOT_BEFORE                    timestamp    default timezone('UTC', CURRENT_TIMESTAMP),
+  FROM_ADDR                     varchar(255) not null,
+  TO_ADDR                       varchar(255) not null,
+  ICALENDAR_TEXT                text         not null
+);
+
+-----------------------
+-- IMIP Polling Work --
+-----------------------
+
+create table IMIP_POLLING_WORK (
+  WORK_ID                       integer primary key default nextval('WORKITEM_SEQ') not null,
+  NOT_BEFORE                    timestamp    default timezone('UTC', CURRENT_TIMESTAMP)
+);
+
+---------------------
+-- IMIP Reply Work --
+---------------------
+
+create table IMIP_REPLY_WORK (
+  WORK_ID                       integer primary key default nextval('WORKITEM_SEQ') not null,
+  NOT_BEFORE                    timestamp    default timezone('UTC', CURRENT_TIMESTAMP),
+  ORGANIZER                     varchar(255) not null,
+  ATTENDEE                      varchar(255) not null,
+  ICALENDAR_TEXT                text         not null
+);
+
+------------------------
+-- Push Notifications --
+------------------------
+
+create table PUSH_NOTIFICATION_WORK (
+  WORK_ID                       integer primary key default nextval('WORKITEM_SEQ') not null,
+  NOT_BEFORE                    timestamp    default timezone('UTC', CURRENT_TIMESTAMP),
+  PUSH_ID                       varchar(255) not null
+);
+
 
 --------------------
 -- Schema Version --
@@ -577,6 +643,6 @@ create table CALENDARSERVER (
   VALUE                         varchar(255)
 );
 
-insert into CALENDARSERVER values ('VERSION', '15');
+insert into CALENDARSERVER values ('VERSION', '16');
 insert into CALENDARSERVER values ('CALENDAR-DATAVERSION', '3');
 insert into CALENDARSERVER values ('ADDRESSBOOK-DATAVERSION', '1');

@@ -36,7 +36,7 @@ class StubProperty(object):
 class StubHome(object):
     def properties(self):
         return []
-    
+
     def addNotifier(self, notifier):
         pass
 
@@ -73,63 +73,17 @@ class CommonHomeResourceTests(TestCase):
         resource = CalendarHomeResource(None, None, None, StubHome())
         self.assertTrue(('http://calendarserver.org/ns/', 'push-transports') in resource.liveProperties())
         self.assertTrue(('http://calendarserver.org/ns/', 'pushkey') in resource.liveProperties())
-        self.assertTrue(('http://calendarserver.org/ns/', 'xmpp-uri') in resource.liveProperties())
-        self.assertTrue(('http://calendarserver.org/ns/', 'xmpp-heartbeat-uri') in resource.liveProperties())
-        self.assertTrue(('http://calendarserver.org/ns/', 'xmpp-server') in resource.liveProperties())
 
 
     def test_addressBookHomeliveProperties(self):
         resource = AddressBookHomeResource(None, None, None, StubHome())
         self.assertTrue(('http://calendarserver.org/ns/', 'push-transports') in resource.liveProperties())
         self.assertTrue(('http://calendarserver.org/ns/', 'pushkey') in resource.liveProperties())
-        self.assertTrue(('http://calendarserver.org/ns/', 'xmpp-uri') not in resource.liveProperties())
-        self.assertTrue(('http://calendarserver.org/ns/', 'xmpp-heartbeat-uri') not in resource.liveProperties())
-        self.assertTrue(('http://calendarserver.org/ns/', 'xmpp-server') not in resource.liveProperties())
 
     def test_notificationCollectionLiveProperties(self):
         resource = NotificationCollectionResource()
         self.assertTrue(('http://calendarserver.org/ns/', 'getctag') in resource.liveProperties())
 
-
-    @inlineCallbacks
-    def test_push404(self):
-        """
-        If push is configured, yet we can't communicate with the XMPP server
-        for whatever reason, readProperty on the various push-related properties
-        should return None
-        """
-        resource = CalendarHomeResource(None, None, None, StubHome())
-        self.assertEqual((yield resource.readProperty(('http://calendarserver.org/ns/', 'push-transports'), None)), None)
-
-        self.patch(config, "ServerHostName", "cal.example.com")
-        self.patch(config, "SSLPort", 8443)
-        self.patch(config.Notifications, "Enabled", True)
-        self.patch(config.Notifications.Services, "XMPPNotifier", 
-            {
-                "Enabled" : True,
-                "Host" : "xmpp.example.com",
-                "Port" : 5218,
-                "ServiceAddress" : "pubsub.xmpp.example.com",
-                "Service" : "twistedcaldav.notify.XMPPNotifierService",
-                "HeartbeatMinutes" : 30,
-            }
-        )
-
-        # Verify that when push is "working" we get a value
-        resource._newStoreHome.setPushWorking(True)
-        self.assertEqual((yield resource.readProperty(('http://calendarserver.org/ns/', 'push-transports'), None)).toxml(), "<?xml version='1.0' encoding='UTF-8'?>\n<push-transports xmlns='http://calendarserver.org/ns/'>\r\n  <transport type='XMPP'>\r\n    <xmpp-server>xmpp.example.com:5218</xmpp-server>\r\n    <xmpp-uri>xmpp:pubsub.xmpp.example.com?pubsub;node=/cal.example.com/xyzzy/</xmpp-uri>\r\n  </transport>\r\n</push-transports>")
-        self.assertEqual((yield resource.readProperty(('http://calendarserver.org/ns/', 'pushkey'), None)).toxml(), "<?xml version='1.0' encoding='UTF-8'?>\n<pushkey xmlns='http://calendarserver.org/ns/'>xyzzy</pushkey>")
-        self.assertEqual((yield resource.readProperty(('http://calendarserver.org/ns/', 'xmpp-uri'), None)).toxml(), "<?xml version='1.0' encoding='UTF-8'?>\n<xmpp-uri xmlns='http://calendarserver.org/ns/'>xmpp:pubsub.xmpp.example.com?pubsub;node=/cal.example.com/xyzzy/</xmpp-uri>")
-        self.assertEqual((yield resource.readProperty(('http://calendarserver.org/ns/', 'xmpp-heartbeat-uri'), None)).toxml(), "<?xml version='1.0' encoding='UTF-8'?>\n<xmpp-heartbeat xmlns='http://calendarserver.org/ns/'>\r\n  <xmpp-heartbeat-uri>xmpp:pubsub.xmpp.example.com?pubsub;node=/cal.example.com/</xmpp-heartbeat-uri>\r\n  <xmpp-heartbeat-minutes>30</xmpp-heartbeat-minutes>\r\n</xmpp-heartbeat>")
-        self.assertEqual((yield resource.readProperty(('http://calendarserver.org/ns/', 'xmpp-server'), None)).toxml(), "<?xml version='1.0' encoding='UTF-8'?>\n<xmpp-server xmlns='http://calendarserver.org/ns/'>xmpp.example.com:5218</xmpp-server>")
-
-        # Verify that when push is "not working" we get None
-        resource._newStoreHome.setPushWorking(False)
-        self.assertEqual((yield resource.readProperty(('http://calendarserver.org/ns/', 'push-transports'), None)), None)
-        self.assertEqual((yield resource.readProperty(('http://calendarserver.org/ns/', 'pushkey'), None)), None)
-        self.assertEqual((yield resource.readProperty(('http://calendarserver.org/ns/', 'xmpp-uri'), None)), None)
-        self.assertEqual((yield resource.readProperty(('http://calendarserver.org/ns/', 'xmpp-heartbeat-uri'), None)), None)
-        self.assertEqual((yield resource.readProperty(('http://calendarserver.org/ns/', 'xmpp-server'), None)), None)
 
 
 
@@ -228,7 +182,7 @@ class DefaultAddressBook (TestCase):
         """
         Make calendar
         """
-        
+
 
         request = SimpleRequest(self.site, "GET", "/addressbooks/users/wsanchez/")
         home = yield request.locateResource("/addressbooks/users/wsanchez")
@@ -257,7 +211,7 @@ class DefaultAddressBook (TestCase):
         """
         Make adbk
         """
-        
+
 
         request = SimpleRequest(self.site, "GET", "/addressbooks/users/wsanchez/")
         home = yield request.locateResource("/addressbooks/users/wsanchez")
@@ -277,7 +231,7 @@ class DefaultAddressBook (TestCase):
             HRef("/addressbooks/__uids__/6423F94A-6B76-4A3A-815B-D52CFD77935D/newadbk/")
         ))
         request._newStoreTransaction.commit()
-        
+
         # Delete the normal adbk
         request = SimpleRequest(self.site, "GET", "/addressbooks/users/wsanchez/")
         home = yield request.locateResource("/addressbooks/users/wsanchez")
@@ -285,7 +239,7 @@ class DefaultAddressBook (TestCase):
         yield adbk.storeRemove(request, False, "/addressbooks/users/wsanchez/addressbook")
 
         home.removeDeadProperty(carddavxml.DefaultAddressBookURL)
-        
+
         # default property not present
         try:
             home.readDeadProperty(carddavxml.DefaultAddressBookURL)
@@ -313,7 +267,7 @@ class DefaultAddressBook (TestCase):
         """
         Make calendar
         """
-        
+
 
         request = SimpleRequest(self.site, "GET", "/addressbooks/users/wsanchez/")
         home = yield request.locateResource("/addressbooks/users/wsanchez")
@@ -330,10 +284,10 @@ class DefaultAddressBook (TestCase):
             self.fail("carddavxml.DefaultAddressBookURL is not present")
         else:
             self.assertEqual(str(default.children[0]), "/addressbooks/__uids__/6423F94A-6B76-4A3A-815B-D52CFD77935D/newadbk/")
-        
+
         # Force the new calendar to think it is a sharee collection
-        newadbk._isShareeCollection = True
-        
+        newadbk._isShareeResource = True
+
         try:
             default = yield home.readProperty(carddavxml.DefaultAddressBookURL, request)
         except HTTPError:

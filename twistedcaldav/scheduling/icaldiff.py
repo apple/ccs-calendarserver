@@ -506,11 +506,13 @@ class iCalDiff(object):
         self._transferProperty("TRANSP", serverComponent, clientComponent)
         self._transferProperty("DTSTAMP", serverComponent, clientComponent)
         self._transferProperty("LAST-MODIFIED", serverComponent, clientComponent)
-        self._transferProperty("X-APPLE-NEEDS-REPLY", serverComponent, clientComponent)
         self._transferProperty("COMPLETED", serverComponent, clientComponent)
+        for pname in config.Scheduling.CalDAV.PerAttendeeProperties:
+            self._transferProperty(pname, serverComponent, clientComponent)
 
         # Dropbox - this now never returns false
-        self._transferDropBoxData(serverComponent, clientComponent)
+        if config.EnableDropBox:
+            self._transferDropBoxData(serverComponent, clientComponent)
 
         # Handle VALARMs
         serverComponent.removeAlarms()

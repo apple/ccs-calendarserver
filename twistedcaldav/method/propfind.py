@@ -208,6 +208,13 @@ def http_PROPFIND(self, request):
 
                 propstats.append(xml_propstat)
 
+            # Always need to have at least one propstat present (required by Prefer header behavior)
+            if len(propstats) == 0:
+                propstats.append(davxml.PropertyStatus(
+                    davxml.PropertyContainer(),
+                    davxml.Status.fromResponseCode(responsecode.OK)
+                ))
+
             xml_response = davxml.PropertyStatusResponse(davxml.HRef(uri), *propstats)
 
             # This needed for propfind cache tracking of children changes

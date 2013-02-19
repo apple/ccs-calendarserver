@@ -613,27 +613,31 @@ END:VCARD
         @return: an L{CommonHomeChild} or C{None} if no such child
             exists.
         """
-        bindRows = yield cls._acceptedBindForNameAndHomeID.on(home._txn, name=shareUID, homeID=home._resourceID)
+        bindRows = yield cls._bindForNameAndHomeID.on(home._txn, name=shareUID, homeID=home._resourceID)
         if bindRows:
             bindMode, homeID, resourceID, bindName, bindStatus, bindMessage = bindRows[0] #@UnusedVariable
             # use childWithName, since it is cached by querycacher
-            # returnValue((yield home.childWithID(resourceID)))
-            ownerHomeID = yield cls.ownerHomeID(home._txn, resourceID)
-            ownerHome = yield home._txn.homeWithResourceID(home._homeType, ownerHomeID)
-            ownerAddressBook = yield ownerHome.addressbook()
-            returnValue((yield home.childWithName(ownerAddressBook.shareeABName())))
+            if bindStatus == _BIND_STATUS_ACCEPTED:
+                ownerHomeID = yield cls.ownerHomeID(home._txn, resourceID)
+                ownerHome = yield home._txn.homeWithResourceID(home._homeType, ownerHomeID)
+                ownerAddressBook = yield ownerHome.addressbook()
+                returnValue((yield home.childWithName(ownerAddressBook.shareeABName())))
+            else:
+                returnValue((yield home.childWithID(resourceID)))
 
 
-        groupBindRows = yield AddressBookObject._acceptedBindForNameAndHomeID.on(home._txn, name=shareUID, homeID=home._resourceID)
+        groupBindRows = yield AddressBookObject._bindForNameAndHomeID.on(home._txn, name=shareUID, homeID=home._resourceID)
         if groupBindRows:
             bindMode, homeID, resourceID, bindName, bindStatus, bindMessage = groupBindRows[0] #@UnusedVariable
             ownerAddressBookID = yield AddressBookObject.ownerAddressBookID(home._txn, resourceID)
             # use childWithName, since it is cached by querycacher
-            # addressbook = yield cls.objectWithID(home, ownerAddressBookIDRows[0][0])
-            ownerHomeID = yield cls.ownerHomeID(home._txn, ownerAddressBookID)
-            ownerHome = yield home._txn.homeWithResourceID(home._homeType, ownerHomeID)
-            ownerAddressBook = yield ownerHome.addressbook()
-            addressbook = yield home.childWithName(ownerAddressBook.shareeABName())
+            if bindStatus == _BIND_STATUS_ACCEPTED:
+                ownerHomeID = yield cls.ownerHomeID(home._txn, ownerAddressBookID)
+                ownerHome = yield home._txn.homeWithResourceID(home._homeType, ownerHomeID)
+                ownerAddressBook = yield ownerHome.addressbook()
+                addressbook = yield home.childWithName(ownerAddressBook.shareeABName())
+            else:
+                addressbook = yield cls.objectWithID(home, ownerAddressBookID)
             returnValue((yield addressbook.objectResourceWithID(resourceID)))
 
         returnValue(None)
@@ -794,7 +798,7 @@ END:VCARD
         remainingIDs = set(groupIDs)
         while remainingIDs:
             memberRows = yield cls._memberIDsWithGroupIDsQuery(remainingIDs).on(txn, groupIDs=remainingIDs)
-            objectIDs |= set([memberRow[0] for memberRow in memberRows])
+            objectIDs |= set(memberRow[0] for memberRow in memberRows)
             examinedIDs |= remainingIDs
             remainingIDs = objectIDs - examinedIDs
 
@@ -1802,35 +1806,8 @@ class AddressBookObject(CommonObjectResource, SharingMixIn):
 
 
     @inlineCallbacks
-    def shareWith(self, shareeHome, mode, status=None, message=None):
-        """
-        Share this (owned) L{CommonHomeChild} with another home.
-
-        @param shareeHome: The home of the sharee.
-        @type shareeHome: L{CommonHome}
-
-        @param mode: The sharing mode; L{_BIND_MODE_READ} or
-            L{_BIND_MODE_WRITE} or L{_BIND_MODE_DIRECT}
-        @type mode: L{str}
-
-        @param status: The sharing status; L{_BIND_STATUS_INVITED} or
-            L{_BIND_STATUS_ACCEPTED}
-        @type mode: L{str}
-
-        @param message: The proposed message to go along with the share, which
-            will be used as the default display name.
-        @type mode: L{str}
-
-        @rtype: a L{Deferred} which fires with a L{ICalendar} if the sharee item
-        """
-
-        yield self._shareWith(shareeHome, mode, status=status, message=message)
-        addressbook = yield self.addressbook()
-        shareeAddressBook = yield shareeHome.childWithID(addressbook._resourceID)
-
-        sharedGroup = yield shareeAddressBook.objectResourceWithID(self._resourceID)
-        yield self._addressbook.notifyChanged()
-        returnValue(sharedGroup)
+    def notifyChanged(self):
+        returnValue((yield self._addressbook.notifyChanged()))
 
 
     @inlineCallbacks

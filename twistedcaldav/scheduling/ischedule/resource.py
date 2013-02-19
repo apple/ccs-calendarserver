@@ -1,5 +1,5 @@
 ##
-# Copyright (c) 2005-2012 Apple Inc. All rights reserved.
+# Copyright (c) 2005-2013 Apple Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -30,6 +30,8 @@ from twistedcaldav.scheduling.caldav.resource import deliverSchedulePrivilegeSet
 from twistedcaldav.scheduling.ischedule.scheduler import IScheduleScheduler
 from txdav.xml import element as davxml
 import twistedcaldav.scheduling.ischedule.xml  as ischedulexml
+from twistedcaldav.directory.util import transactionFromRequest
+from twistedcaldav.scheduling.ischedule.dkim import ISCHEDULE_CAPABILITIES
 
 __all__ = [
     "IScheduleInboxResource",
@@ -156,6 +158,7 @@ class IScheduleInboxResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithoutChi
         result = ischedulexml.QueryResult(
 
             ischedulexml.Capabilities(
+                ischedulexml.Version.fromString(config.Scheduling.iSchedule.SerialNumber),
                 ischedulexml.Versions(
                     ischedulexml.Version.fromString("1.0"),
                 ),
@@ -194,7 +197,9 @@ class IScheduleInboxResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithoutChi
                 ischedulexml.Administrator.fromString(request.unparseURL(params="", querystring="", fragment="")),
             ),
         )
-        return XMLResponse(responsecode.OK, result)
+        response = XMLResponse(responsecode.OK, result)
+        response.headers.addRawHeader(ISCHEDULE_CAPABILITIES, str(config.Scheduling.iSchedule.SerialNumber))
+        return response
 
 
     @inlineCallbacks
@@ -207,7 +212,7 @@ class IScheduleInboxResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithoutChi
         scheduler = IScheduleScheduler(request, self)
 
         # Need a transaction to work with
-        txn = self._newStore.newTransaction("new transaction for Server To Server Inbox Resource")
+        txn = transactionFromRequest(request, self._newStore)
         request._newStoreTransaction = txn
 
         # Do the POST processing treating this as a non-local schedule
@@ -218,7 +223,9 @@ class IScheduleInboxResource (ReadOnlyNoCopyResourceMixIn, DAVResourceWithoutChi
             raise e
         else:
             yield txn.commit()
-        returnValue(result.response())
+        response = result.response()
+        response.headers.addRawHeader(ISCHEDULE_CAPABILITIES, str(config.Scheduling.iSchedule.SerialNumber))
+        returnValue(response)
 
     ##
     # ACL

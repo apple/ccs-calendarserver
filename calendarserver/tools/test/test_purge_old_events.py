@@ -512,6 +512,7 @@ class PurgeOldEventsTests(CommonCommonTests, unittest.TestCase):
     @inlineCallbacks
     def _addAttachment(self, home, calendar, event, name):
 
+        self._sqlCalendarStore._dropbox_ok = True
         txn = self._sqlCalendarStore.newTransaction()
 
         # Create an event with an attachment
@@ -525,6 +526,7 @@ class PurgeOldEventsTests(CommonCommonTests, unittest.TestCase):
         (yield t.loseConnection())
 
         (yield txn.commit())
+        self._sqlCalendarStore._dropbox_ok = False
 
         returnValue(attachment)
 
