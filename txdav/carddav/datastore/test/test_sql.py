@@ -41,6 +41,11 @@ from txdav.common.datastore.test.util import buildStore
 from txdav.xml.rfc2518 import GETContentLanguage, ResourceType
 
 
+def _todo(f, why):
+    f.todo = why
+    return f
+rewriteOrRemove = lambda f: _todo(f, "Rewrite or remove")
+
 class AddressBookSQLStorageTests(AddressBookCommonTests, unittest.TestCase):
     """
     AddressBook SQL storage tests.
@@ -132,6 +137,7 @@ class AddressBookSQLStorageTests(AddressBookCommonTests, unittest.TestCase):
 
 
     @inlineCallbacks
+    @rewriteOrRemove
     def test_migrateAddressbookFromFile(self):
         """
         C{_migrateAddressbook()} can migrate a file-backed addressbook to a
@@ -148,6 +154,7 @@ class AddressBookSQLStorageTests(AddressBookCommonTests, unittest.TestCase):
 
 
     @inlineCallbacks
+    @rewriteOrRemove
     def test_migrateBadAddressbookFromFile(self):
         """
         C{_migrateAddressbook()} can migrate a file-backed addressbook to a
@@ -166,6 +173,7 @@ class AddressBookSQLStorageTests(AddressBookCommonTests, unittest.TestCase):
 
 
     @inlineCallbacks
+    @rewriteOrRemove
     def test_migrateHomeFromFile(self):
         """
         L{migrateHome} will migrate an L{IAddressbookHome} provider from one
@@ -520,6 +528,7 @@ END:VCARD
 
 
     @inlineCallbacks
+    @rewriteOrRemove
     def test_removeAddressBookPropertiesOnDelete(self):
         """
         L{IAddressBookHome.removeAddressBookWithName} removes an address book that already

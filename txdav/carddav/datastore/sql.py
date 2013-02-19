@@ -259,7 +259,7 @@ class AddressBook(CommonHomeChild, SharingMixIn):
     def create(cls, home, name):
 
         if name != home.addressbookName():
-            assert False, "create(cls=%s home=%s, name=%s): should not be here." % (cls, home, name,)
+            #assert False, "create(cls=%s home=%s, name=%s): should not be here." % (cls, home, name,)
             raise NotImplementedError()
 
         returnValue((yield super(AddressBook, cls).create(home, name)))
