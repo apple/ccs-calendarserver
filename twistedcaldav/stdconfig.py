@@ -302,6 +302,10 @@ DEFAULT_CONFIG = {
                                     # the master process, rather than having
                                     # each client make its connections directly.
 
+    "FailIfUpgradeNeeded"  : True, # Set to True to prevent the server or utility tools
+                                   # tools from running if the database needs a schema
+                                   # upgrade.
+
     #
     # Types of service provided
     #
@@ -1342,14 +1346,14 @@ def _updateNotifications(configDict, reloading=False):
     if reloading:
         return
 
-    for key, service in configDict.Notifications["Services"].iteritems():
+    for _ignore_key, service in configDict.Notifications["Services"].iteritems():
         if service["Enabled"]:
             configDict.Notifications["Enabled"] = True
             break
     else:
         configDict.Notifications["Enabled"] = False
 
-    for key, service in configDict.Notifications["Services"].iteritems():
+    for _ignore_key, service in configDict.Notifications["Services"].iteritems():
 
         if (
             service["Service"] == "calendarserver.push.applepush.ApplePushNotifierService" and
@@ -1386,7 +1390,7 @@ def _updateNotifications(configDict, reloading=False):
                 except KeychainPasswordNotFound:
                     # The password doesn't exist in the keychain.
                     log.info("%s APN certificate passphrase not found in keychain" % (protocol,))
-                    
+
         if (
             service["Service"] == "calendarserver.push.amppush.AMPPushNotifierService" and
             service["Enabled"]
@@ -1394,7 +1398,6 @@ def _updateNotifications(configDict, reloading=False):
             # The default for apple push DataHost is ServerHostName
             if service["DataHost"] == "":
                 service["DataHost"] = configDict.ServerHostName
-
 
 
 

@@ -52,7 +52,7 @@ class UpgradeDatabaseCoreService(Service, LoggingMixIn, object):
     """
 
     @classmethod
-    def wrapService(cls, service, store, uid=None, gid=None):
+    def wrapService(cls, service, store, uid=None, gid=None, **kwargs):
         """
         Create an L{UpgradeDatabaseSchemaService} when starting the database
         so we can check the schema version and do any upgrades.
@@ -73,10 +73,10 @@ class UpgradeDatabaseCoreService(Service, LoggingMixIn, object):
         @return: a service
         @rtype: L{IService}
         """
-        return cls(store, service, uid=uid, gid=gid,)
+        return cls(store, service, uid=uid, gid=gid, **kwargs)
 
 
-    def __init__(self, sqlStore, service, uid=None, gid=None):
+    def __init__(self, sqlStore, service, uid=None, gid=None, failIfUpgradeNeeded=False, stopOnFail=True):
         """
         Initialize the service.
         """
@@ -84,6 +84,8 @@ class UpgradeDatabaseCoreService(Service, LoggingMixIn, object):
         self.sqlStore = sqlStore
         self.uid = uid
         self.gid = gid
+        self.failIfUpgradeNeeded = failIfUpgradeNeeded
+        self.stopOnFail = stopOnFail
         self.schemaLocation = getModule(__name__).filePath.parent().parent().sibling("sql_schema")
         self.pyLocation = getModule(__name__).filePath.parent()
 
@@ -118,6 +120,10 @@ class UpgradeDatabaseCoreService(Service, LoggingMixIn, object):
             )
             self.log_error(msg)
             raise RuntimeError(msg)
+        elif self.failIfUpgradeNeeded:
+            if self.stopOnFail:
+                reactor.stop()
+            raise RuntimeError("Database upgrade is needed but not allowed.")
         else:
             self.sqlStore.setUpgrading(True)
             yield self.upgradeVersion(actual_version, required_version, dialect)
@@ -275,14 +281,14 @@ class UpgradeDatabaseSchemaService(UpgradeDatabaseCoreService):
     @type wrappedService: L{IService} or C{NoneType}
     """
 
-    def __init__(self, sqlStore, service, uid=None, gid=None):
+    def __init__(self, sqlStore, service, **kwargs):
         """
         Initialize the service.
 
         @param sqlStore: The store to operate on. Can be C{None} when doing unit tests.
         @param service:  Wrapped service. Can be C{None} when doing unit tests.
         """
-        super(UpgradeDatabaseSchemaService, self).__init__(sqlStore, service, uid, gid)
+        super(UpgradeDatabaseSchemaService, self).__init__(sqlStore, service, **kwargs)
 
         self.versionKey = "VERSION"
         self.versionDescriptor = "schema"
@@ -328,14 +334,14 @@ class UpgradeDatabaseDataService(UpgradeDatabaseCoreService):
     @type wrappedService: L{IService} or C{NoneType}
     """
 
-    def __init__(self, sqlStore, service, uid=None, gid=None):
+    def __init__(self, sqlStore, service, **kwargs):
         """
         Initialize the service.
 
         @param sqlStore: The store to operate on. Can be C{None} when doing unit tests.
         @param service:  Wrapped service. Can be C{None} when doing unit tests.
         """
-        super(UpgradeDatabaseDataService, self).__init__(sqlStore, service, uid, gid)
+        super(UpgradeDatabaseDataService, self).__init__(sqlStore, service, **kwargs)
 
         self.versionKey = "CALENDAR-DATAVERSION"
         self.versionDescriptor = "data"
@@ -380,14 +386,14 @@ class UpgradeDatabaseOtherService(UpgradeDatabaseCoreService):
     @type wrappedService: L{IService} or C{NoneType}
     """
 
-    def __init__(self, sqlStore, service, uid=None, gid=None):
+    def __init__(self, sqlStore, service, **kwargs):
         """
         Initialize the service.
 
         @param sqlStore: The store to operate on. Can be C{None} when doing unit tests.
         @param service:  Wrapped service. Can be C{None} when doing unit tests.
         """
-        super(UpgradeDatabaseOtherService, self).__init__(sqlStore, service, uid, gid)
+        super(UpgradeDatabaseOtherService, self).__init__(sqlStore, service, **kwargs)
 
         self.versionDescriptor = "other upgrades"
 

@@ -539,7 +539,6 @@ class SlaveSpawnerService(Service):
             )
             self.monitor.addProcessObject(process, PARENT_ENVIRONMENT)
 
-
         if config.GroupCaching.Enabled and config.GroupCaching.EnableUpdater:
             self.maker.log_info("Adding group caching service")
 
@@ -714,7 +713,6 @@ class CalDAVServiceMaker (LoggingMixIn):
         directory = result.rootResource.getDirectory()
         if pool is not None:
             pool.setServiceParent(result)
-
 
         # Optionally set up push notifications
         if config.Notifications.Enabled:
@@ -1111,6 +1109,7 @@ class CalDAVServiceMaker (LoggingMixIn):
                             store, uid=overrideUID, gid=overrideGID,
                         ),
                         store, uid=overrideUID, gid=overrideGID,
+                        failIfUpgradeNeeded=config.FailIfUpgradeNeeded,
                     )
                 )
                 upgradeSvc.setServiceParent(ms)
