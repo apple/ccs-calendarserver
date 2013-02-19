@@ -734,7 +734,7 @@ class SharingTests(HomeTestCase):
     @inlineCallbacks
     def test_noWikiAccess(self):
         """
-        If L{SharedCollectionMixin.shareeAccessControlList} detects missing
+        If L{SharedResourceMixin.shareeAccessControlList} detects missing
         access controls for a directly shared collection, it will automatically
         un-share that collection.
         """

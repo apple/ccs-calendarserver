@@ -575,7 +575,7 @@ class SharedResourceMixin(object):
                                                     mode=invitationAccessToBindModeMap[access],
                                                     status=_BIND_STATUS_INVITED,
                                                     message=summary)
-        shareeStoreObject = yield self._newStoreHome.objectWithShareUID(shareUID)
+        shareeStoreObject = yield shareeHome.objectWithShareUID(shareUID)
         invitation = Invitation(shareeStoreObject)
         returnValue(invitation)
 
@@ -584,11 +584,7 @@ class SharedResourceMixin(object):
     def _updateInvitation(self, invitation, access=None, state=None, summary=None):
         mode = None if access is None else invitationAccessToBindModeMap[access]
         status = None if state is None else invitationStateToBindStatusMap[state]
-
         yield self._newStoreObject.updateShare(invitation._shareeStoreObject, mode=mode, status=status, message=summary)
-        assert not access or access == invitation.access(), "access=%s != invitation.access()=%s" % (access, invitation.access())
-        assert not state or state == invitation.state(), "state=%s != invitation.state()=%s" % (state, invitation.state())
-        assert not summary or summary == invitation.summary(), "summary=%s != invitation.summary()=%s" % (summary, invitation.summary())
 
 
     @inlineCallbacks
@@ -1066,13 +1062,35 @@ class SharedHomeMixin(LinkFollowerMixIn):
 
     @inlineCallbacks
     def provisionShare(self, child, request=None):
+        """
+        If the given child resource (a L{SharedCollectionMixin}) of this
+        L{SharedHomeMixin} is a I{sharee}'s view of a shared calendar object,
+        associate it with a L{Share}.
+        """
         share = yield self._shareForStoreObject(child._newStoreObject, request)
         if share:
             child.setShare(share)
+            access = yield child._checkAccessControl()
+            if access is None:
+                returnValue(None)
+        returnValue(child)
 
 
     @inlineCallbacks
     def _shareForStoreObject(self, storeObject, request=None):
+        """
+        Determine the L{Share} associated with the given child.
+
+        @param child: A calendar or addressbook data store object, a child of
+            the resource represented by this L{SharedHomeMixin} instance, which
+            may be shared.
+        @type child: L{txdav.caldav.icalendarstore.ICalendar} or
+            L{txdav.carddav.iaddressbookstore.IAddressBook}
+
+        @return: a L{Share} if C{child} is not the owner's view of the share,
+            or C{None}.
+        @rtype: L{Share} or L{NoneType}
+        """
         # Find a matching share
         if not storeObject or storeObject.owned():
             returnValue(None)
@@ -1135,21 +1153,26 @@ class SharedHomeMixin(LinkFollowerMixIn):
         oldShare = yield self._shareForUID(inviteUID, request)
 
         # Send the invite reply then add the link
-        yield self._changeShare(request, "ACCEPTED", hostUrl, inviteUID, displayname)
+        yield self._changeShare(request, "ACCEPTED", hostUrl, inviteUID,
+                                displayname)
         if oldShare:
             share = oldShare
         else:
             sharedResource = yield request.locateResource(hostUrl)
             shareeStoreObject = yield self._newStoreHome.objectWithShareUID(inviteUID)
 
-            share = Share(shareeStoreObject=shareeStoreObject, ownerStoreObject=sharedResource._newStoreObject, url=hostUrl)
+            share = Share(shareeStoreObject=shareeStoreObject, 
+                          ownerStoreObject=sharedResource._newStoreObject, 
+                          url=hostUrl)
 
-        response = yield self._acceptShare(request, not oldShare, share, displayname)
+        response = yield self._acceptShare(request, not oldShare, share,
+                                           displayname)
         returnValue(response)
 
 
     @inlineCallbacks
-    def acceptDirectShare(self, request, hostUrl, resourceUID, displayname=None):
+    def acceptDirectShare(self, request, hostUrl, resourceUID,
+                          displayname=None):
 
         # Just add the link
         oldShare = yield self._shareForUID(resourceUID, request)
@@ -1157,20 +1180,46 @@ class SharedHomeMixin(LinkFollowerMixIn):
             share = oldShare
         else:
             sharedCollection = yield request.locateResource(hostUrl)
-            shareeStoreObject = yield sharedCollection._newStoreObject.shareWith(shareeHome=self._newStoreHome,
-                                                    mode=_BIND_MODE_DIRECT,
-                                                    status=_BIND_STATUS_ACCEPTED,
-                                                    message=displayname)
+            shareUID = yield sharedCollection._newStoreObject.shareWith(
+                shareeHome=self._newStoreHome,
+                mode=_BIND_MODE_DIRECT,
+                status=_BIND_STATUS_ACCEPTED,
+                message=displayname
+            )
 
-            share = Share(shareeStoreObject=shareeStoreObject, ownerStoreObject=sharedCollection._newStoreObject, url=hostUrl)
+            shareeStoreObject = yield self._newStoreHome.objectWithShareUID(shareUID)
+            share = Share(shareeStoreObject=shareeStoreObject, 
+                          ownerStoreObject=sharedCollection._newStoreObject,
+                          url=hostUrl)
 
-        response = yield self._acceptShare(request, not oldShare, share, displayname)
+        response = yield self._acceptShare(request, not oldShare, share,
+                                           displayname)
         returnValue(response)
 
 
     @inlineCallbacks
     def _acceptShare(self, request, isNewShare, share, displayname=None):
+        """
+        Mark a pending shared invitation I{to} this, the owner's collection, as
+        accepted, generating the HTTP response to the request that accepted it.
 
+        @param request: The HTTP request that is accepting it.
+        @type request: L{twext.web2.iweb.IRequest}
+
+        @param isNewShare: a boolean indicating whether this share is new.
+        @type isNewShare: L{bool}
+
+        @param share: The share referencing the proposed sharer and sharee.
+        @type share: L{Share}
+
+        @param displayname: the UTF-8 encoded contents of the display-name
+            property on the resource to be created while accepting.
+        @type displayname: L{bytes}
+
+        @return: a L{twext.web2.iweb.IResponse} containing a serialized
+            L{customxml.SharedAs} element as its body.
+        @rtype: L{Deferred} firing L{XMLResponse}
+        """
         # Get shared collection in non-share mode first
         sharedResource = yield request.locateResource(share.url())
         sharee = self.principalForUID(share.shareeUID())
@@ -1402,8 +1451,26 @@ class SharedHomeMixin(LinkFollowerMixIn):
 
 
 class Share(object):
+    """
+    A L{Share} represents information about a collection which has been shared
+    from one user to another.
+    """
 
     def __init__(self, ownerStoreObject, shareeStoreObject, url):
+        """
+        @param sharerHomeChild: The data store object representing the shared
+            collection as present in the owner's home collection; the owner's
+            reference.
+        @type sharerHomeChild: L{txdav.caldav.icalendarstore.ICalendar}
+
+        @param shareeHomeChild: The data store object representing the
+            collection as present in the sharee's home collection; the sharee's
+            reference.
+        @type shareeHomeChild: L{txdav.caldav.icalendarstore.ICalendar}
+
+        @param url: The URL referring to the sharer's version of the resource.
+        @type url: L{bytes}
+        """
         self._shareeStoreObject = shareeStoreObject
         self._ownerStoreObject = ownerStoreObject
         self._ownerResourceURL = url
@@ -1411,22 +1478,32 @@ class Share(object):
 
     @classmethod
     def directUID(cls, shareeHome, ownerHomeChild):
-        return "Direct-%s-%s" % (shareeHome._resourceID, ownerHomeChild._resourceID,)
+        return "Direct-%s-%s" % (shareeHome._resourceID, 
+                                 ownerHomeChild._resourceID,)
 
 
     def uid(self):
         # Move to CommonHomeChild shareUID?
         if self._shareeStoreObject.shareMode() == _BIND_MODE_DIRECT:
-            return self.directUID(shareeHome=self._shareeStoreObject.viewerHome(), ownerHomeChild=self._ownerStoreObject,)
+            return self.directUID(shareeHome=self._shareeStoreObject.viewerHome(),
+                                  ownerHomeChild=self._ownerStoreObject,)
         else:
             return self._shareeStoreObject.shareUID()
 
 
     def direct(self):
+        """
+        Is this L{Share} a "direct" share?
+
+        @return: a boolean indicating whether it's direct.
+        """
         return self._shareeStoreObject.shareMode() == _BIND_MODE_DIRECT
 
 
     def url(self):
+        """
+        @return: The URL to the owner's version of the shared collection.
+        """
         return self._ownerResourceURL
 
 

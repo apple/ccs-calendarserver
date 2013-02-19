@@ -46,6 +46,10 @@ from txdav.common.datastore.upgrade.migrate import UpgradeToDatabaseService, \
     StoreSpawnerService, swapAMP
 
 import copy
+def _todo(f, why):
+    f.todo = why
+    return f
+rewriteOrRemove = lambda f: _todo(f, "Rewrite or remove")
 
 
 
@@ -378,6 +382,7 @@ class HomeMigrationTests(TestCase):
 
 
     @inlineCallbacks
+    @rewriteOrRemove
     def test_upgradeAddressBookHomes(self):
         """
         L{UpgradeToDatabaseService.startService} will do the upgrade, then
