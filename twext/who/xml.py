@@ -128,12 +128,13 @@ class DirectoryService(BaseDirectoryService):
     attribute = Attribute
     value     = Value
 
+    refreshInterval = 4
 
-    def __init__(self, filePath, refreshInterval=4):
+
+    def __init__(self, filePath):
         BaseDirectoryService.__init__(self, realmName=noRealmName)
 
         self.filePath = filePath
-        self.refreshInterval = refreshInterval
 
 
     def __repr__(self):
