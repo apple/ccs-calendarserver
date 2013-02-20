@@ -57,7 +57,10 @@ from txdav.carddav.iaddressbookstore import IAddressBookHome
 from twisted.internet.defer import maybeDeferred
 from txdav.caldav.datastore.file import Calendar
 
-
+def _todo(f, why):
+    f.todo = why
+    return f
+rewriteOrRemove = lambda f: _todo(f, "Rewrite or remove")
 
 class FakeChanRequest(object):
     code = 'request-not-finished'
@@ -492,9 +495,11 @@ class WrappingTests(TestCase):
         yield self.commit()
         self.checkPrincipalCollections(calDavFile)
 
-
     @inlineCallbacks
+    @rewriteOrRemove
     def test_lookupNewAddressBook(self):
+
+
         """
         When a L{CalDAVResource} which represents a not-yet-created addressbook
         collection is looked up in a L{AddressBookHomeFile} representing a addressbook

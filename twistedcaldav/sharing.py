@@ -61,7 +61,7 @@ class SharedResourceMixin(object):
     A mix-in for calendar/addressbook resources that implements sharing-related
     functionality.
 
-    @ivar _share: If this L{SharedCollectionMixin} is the sharee's version of a
+    @ivar _share: If this L{SharedResourceMixin} is the sharee's version of a
         resource, this refers to the L{Share} that describes it.
     @type _share: L{Share} or L{NoneType}
     """
@@ -252,7 +252,7 @@ class SharedResourceMixin(object):
 
     def setShare(self, share):
         """
-        Set the L{Share} associated with this L{SharedCollectionMixin}.  (This
+        Set the L{Share} associated with this L{SharedResourceMixin}.  (This
         is only invoked on the sharee's resource, not the owner's.)
         """
         self._isShareeResource = True #  _isShareeResource attr is used by self tests
@@ -525,8 +525,9 @@ class SharedResourceMixin(object):
 
 
     def uninviteUserToShare(self, userid, ace, request):
-        """ Send out in uninvite first, and then remove this user from the share list."""
-
+        """ 
+        Send out in uninvite first, and then remove this user from the share list.
+        """
         # Do not validate the userid - we want to allow invalid users to be removed because they
         # may have been valid when added, but no longer valid now. Clients should be able to clear out
         # anything known to be invalid.
@@ -563,9 +564,9 @@ class SharedResourceMixin(object):
 
     @inlineCallbacks
     def _createInvitation(self, shareeUID, access, summary,):
-        '''
+        """
         Create a new homeChild and wrap it in an Invitation
-        '''
+        """
         if self.isCalendarCollection():
             shareeHome = yield self._newStoreObject._txn.calendarHomeWithUID(shareeUID, create=True)
         elif self.isAddressBookCollection() or self.isGroup():
@@ -1063,7 +1064,7 @@ class SharedHomeMixin(LinkFollowerMixIn):
     @inlineCallbacks
     def provisionShare(self, child, request=None):
         """
-        If the given child resource (a L{SharedCollectionMixin}) of this
+        If the given child resource (a L{SharedResourceMixin}) of this
         L{SharedHomeMixin} is a I{sharee}'s view of a shared calendar object,
         associate it with a L{Share}.
         """
@@ -1161,8 +1162,8 @@ class SharedHomeMixin(LinkFollowerMixIn):
             sharedResource = yield request.locateResource(hostUrl)
             shareeStoreObject = yield self._newStoreHome.objectWithShareUID(inviteUID)
 
-            share = Share(shareeStoreObject=shareeStoreObject, 
-                          ownerStoreObject=sharedResource._newStoreObject, 
+            share = Share(shareeStoreObject=shareeStoreObject,
+                          ownerStoreObject=sharedResource._newStoreObject,
                           url=hostUrl)
 
         response = yield self._acceptShare(request, not oldShare, share,
@@ -1188,7 +1189,7 @@ class SharedHomeMixin(LinkFollowerMixIn):
             )
 
             shareeStoreObject = yield self._newStoreHome.objectWithShareUID(shareUID)
-            share = Share(shareeStoreObject=shareeStoreObject, 
+            share = Share(shareeStoreObject=shareeStoreObject,
                           ownerStoreObject=sharedCollection._newStoreObject,
                           url=hostUrl)
 
@@ -1478,7 +1479,7 @@ class Share(object):
 
     @classmethod
     def directUID(cls, shareeHome, ownerHomeChild):
-        return "Direct-%s-%s" % (shareeHome._resourceID, 
+        return "Direct-%s-%s" % (shareeHome._resourceID,
                                  ownerHomeChild._resourceID,)
 
 
