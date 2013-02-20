@@ -20,7 +20,8 @@ Tests for calendarserver.tools.calverify
 
 from StringIO import StringIO
 from calendarserver.tap.util import getRootResource
-from calendarserver.tools.calverify import CalVerifyService
+from calendarserver.tools.calverify import BadDataService, \
+    SchedulingMismatchService
 from pycalendar.datetime import PyCalendarDateTime
 from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks, returnValue
@@ -530,6 +531,7 @@ class CalVerifyDataTests(CommonCommonTests, unittest.TestCase):
 
         options = {
             "ical": True,
+            "fix": False,
             "nobase64": False,
             "verbose": False,
             "uid": "",
@@ -537,9 +539,9 @@ class CalVerifyDataTests(CommonCommonTests, unittest.TestCase):
             "tzid": "",
         }
         output = StringIO()
-        calverify = CalVerifyService(self._sqlCalendarStore, options, output, reactor, config)
+        calverify = BadDataService(self._sqlCalendarStore, options, output, reactor, config)
         calverify.emailDomain = "example.com"
-        yield calverify.doScan(True, False, False)
+        yield calverify.doAction()
 
         self.assertEqual(calverify.results["Number of events to process"], 13)
         self.verifyResultsByUID(calverify.results["Bad iCalendar data"], set((
@@ -572,6 +574,7 @@ class CalVerifyDataTests(CommonCommonTests, unittest.TestCase):
 
         options = {
             "ical": True,
+            "fix": True,
             "nobase64": False,
             "verbose": False,
             "uid": "",
@@ -583,9 +586,9 @@ class CalVerifyDataTests(CommonCommonTests, unittest.TestCase):
         # Do fix
         self.patch(config.Scheduling.Options, "PrincipalHostAliases", "demo.com")
         self.patch(config, "HTTPPort", 8008)
-        calverify = CalVerifyService(self._sqlCalendarStore, options, output, reactor, config)
+        calverify = BadDataService(self._sqlCalendarStore, options, output, reactor, config)
         calverify.emailDomain = "example.com"
-        yield calverify.doScan(True, False, True)
+        yield calverify.doAction()
 
         self.assertEqual(calverify.results["Number of events to process"], 13)
         self.verifyResultsByUID(calverify.results["Bad iCalendar data"], set((
@@ -603,9 +606,10 @@ class CalVerifyDataTests(CommonCommonTests, unittest.TestCase):
         )))
 
         # Do scan
-        calverify = CalVerifyService(self._sqlCalendarStore, options, output, reactor, config)
+        options["fix"] = False
+        calverify = BadDataService(self._sqlCalendarStore, options, output, reactor, config)
         calverify.emailDomain = "example.com"
-        yield calverify.doScan(True, False, False)
+        yield calverify.doAction()
 
         self.assertEqual(calverify.results["Number of events to process"], 13)
         self.verifyResultsByUID(calverify.results["Bad iCalendar data"], set((
@@ -640,6 +644,7 @@ class CalVerifyDataTests(CommonCommonTests, unittest.TestCase):
 
         options = {
             "ical": False,
+            "fix": False,
             "badcua": True,
             "nobase64": False,
             "verbose": False,
@@ -648,9 +653,9 @@ class CalVerifyDataTests(CommonCommonTests, unittest.TestCase):
             "tzid": "",
         }
         output = StringIO()
-        calverify = CalVerifyService(self._sqlCalendarStore, options, output, reactor, config)
+        calverify = BadDataService(self._sqlCalendarStore, options, output, reactor, config)
         calverify.emailDomain = "example.com"
-        yield calverify.doScan(True, False, False)
+        yield calverify.doAction()
 
         self.assertEqual(calverify.results["Number of events to process"], 13)
         self.verifyResultsByUID(calverify.results["Bad iCalendar data"], set((
@@ -679,6 +684,7 @@ class CalVerifyDataTests(CommonCommonTests, unittest.TestCase):
 
         options = {
             "ical": False,
+            "fix": True,
             "badcua": True,
             "nobase64": False,
             "verbose": False,
@@ -691,9 +697,9 @@ class CalVerifyDataTests(CommonCommonTests, unittest.TestCase):
         # Do fix
         self.patch(config.Scheduling.Options, "PrincipalHostAliases", "demo.com")
         self.patch(config, "HTTPPort", 8008)
-        calverify = CalVerifyService(self._sqlCalendarStore, options, output, reactor, config)
+        calverify = BadDataService(self._sqlCalendarStore, options, output, reactor, config)
         calverify.emailDomain = "example.com"
-        yield calverify.doScan(True, False, True)
+        yield calverify.doAction()
 
         self.assertEqual(calverify.results["Number of events to process"], 13)
         self.verifyResultsByUID(calverify.results["Bad iCalendar data"], set((
@@ -707,9 +713,10 @@ class CalVerifyDataTests(CommonCommonTests, unittest.TestCase):
         )))
 
         # Do scan
-        calverify = CalVerifyService(self._sqlCalendarStore, options, output, reactor, config)
+        options["fix"] = False
+        calverify = BadDataService(self._sqlCalendarStore, options, output, reactor, config)
         calverify.emailDomain = "example.com"
-        yield calverify.doScan(True, False, False)
+        yield calverify.doAction()
 
         self.assertEqual(calverify.results["Number of events to process"], 13)
         self.verifyResultsByUID(calverify.results["Bad iCalendar data"], set((
@@ -907,7 +914,7 @@ END:VCALENDAR
             "uuid": "",
             "tzid": "",
         }
-        calverifyNo64 = CalVerifyService(self._sqlCalendarStore, optionsNo64, StringIO(), reactor, config)
+        calverifyNo64 = BadDataService(self._sqlCalendarStore, optionsNo64, StringIO(), reactor, config)
         calverifyNo64.emailDomain = "example.com"
 
         options64 = {
@@ -918,7 +925,7 @@ END:VCALENDAR
             "uuid": "",
             "tzid": "",
         }
-        calverify64 = CalVerifyService(self._sqlCalendarStore, options64, StringIO(), reactor, config)
+        calverify64 = BadDataService(self._sqlCalendarStore, options64, StringIO(), reactor, config)
         calverify64.emailDomain = "example.com"
 
         for bad, oknobase64, okbase64 in data:
@@ -1467,15 +1474,17 @@ END:VCALENDAR
             "badcua": False,
             "mismatch": True,
             "nobase64": False,
+            "fix": False,
             "verbose": False,
             "details": False,
             "uid": "",
             "uuid": "",
             "tzid": "",
+            "start": PyCalendarDateTime(now, 1, 1, 0, 0, 0),
         }
         output = StringIO()
-        calverify = CalVerifyService(self._sqlCalendarStore, options, output, reactor, config)
-        yield calverify.doScan(False, True, False, start=PyCalendarDateTime(now, 1, 1, 0, 0, 0))
+        calverify = SchedulingMismatchService(self._sqlCalendarStore, options, output, reactor, config)
+        yield calverify.doAction()
 
         self.assertEqual(calverify.results["Number of events to process"], 17)
         self.assertEqual(calverify.results["Missing Attendee"], set((
@@ -1532,15 +1541,17 @@ END:VCALENDAR
             "badcua": False,
             "mismatch": True,
             "nobase64": False,
+            "fix": True,
             "verbose": False,
             "details": False,
             "uid": "",
             "uuid": "",
             "tzid": "",
+            "start": PyCalendarDateTime(now, 1, 1, 0, 0, 0),
         }
         output = StringIO()
-        calverify = CalVerifyService(self._sqlCalendarStore, options, output, reactor, config)
-        yield calverify.doScan(False, True, True, start=PyCalendarDateTime(now, 1, 1, 0, 0, 0))
+        calverify = SchedulingMismatchService(self._sqlCalendarStore, options, output, reactor, config)
+        yield calverify.doAction()
 
         self.assertEqual(calverify.results["Number of events to process"], 17)
         self.assertEqual(calverify.results["Missing Attendee"], set((
@@ -1615,8 +1626,9 @@ END:VCALENDAR
 
         # Re-scan after changes to make sure there are no errors
         self.commit()
-        calverify = CalVerifyService(self._sqlCalendarStore, options, output, reactor, config)
-        yield calverify.doScan(False, True, False, start=PyCalendarDateTime(now, 1, 1, 0, 0, 0))
+        options["fix"] = False
+        calverify = SchedulingMismatchService(self._sqlCalendarStore, options, output, reactor, config)
+        yield calverify.doAction()
 
         self.assertEqual(calverify.results["Number of events to process"], 14)
         self.assertTrue("Missing Attendee" not in calverify.results)
@@ -1738,15 +1750,17 @@ END:VCALENDAR
             "badcua": False,
             "mismatch": True,
             "nobase64": False,
+            "fix": False,
             "verbose": False,
             "details": False,
             "uid": "",
             "uuid": "",
             "tzid": "",
+            "start": PyCalendarDateTime(now, 1, 1, 0, 0, 0),
         }
         output = StringIO()
-        calverify = CalVerifyService(self._sqlCalendarStore, options, output, reactor, config)
-        yield calverify.doScan(False, True, False, start=PyCalendarDateTime(now, 1, 1, 0, 0, 0))
+        calverify = SchedulingMismatchService(self._sqlCalendarStore, options, output, reactor, config)
+        yield calverify.doAction()
 
         self.assertEqual(calverify.results["Number of events to process"], 3)
         self.assertEqual(calverify.results["Missing Attendee"], set((
@@ -1787,15 +1801,17 @@ END:VCALENDAR
             "badcua": False,
             "mismatch": True,
             "nobase64": False,
+            "fix": True,
             "verbose": False,
             "details": False,
             "uid": "",
             "uuid": "",
             "tzid": "",
+            "start": PyCalendarDateTime(now, 1, 1, 0, 0, 0),
         }
         output = StringIO()
-        calverify = CalVerifyService(self._sqlCalendarStore, options, output, reactor, config)
-        yield calverify.doScan(False, True, True, start=PyCalendarDateTime(now, 1, 1, 0, 0, 0))
+        calverify = SchedulingMismatchService(self._sqlCalendarStore, options, output, reactor, config)
+        yield calverify.doAction()
 
         self.assertEqual(calverify.results["Number of events to process"], 3)
         self.assertEqual(calverify.results["Missing Attendee"], set((
@@ -1837,8 +1853,9 @@ END:VCALENDAR
 
         # Re-scan after changes to make sure there are no errors
         self.commit()
-        calverify = CalVerifyService(self._sqlCalendarStore, options, output, reactor, config)
-        yield calverify.doScan(False, True, False, start=PyCalendarDateTime(now, 1, 1, 0, 0, 0))
+        options["fix"] = False
+        calverify = SchedulingMismatchService(self._sqlCalendarStore, options, output, reactor, config)
+        yield calverify.doAction()
 
         self.assertEqual(calverify.results["Number of events to process"], 4)
         self.assertTrue("Missing Attendee" not in calverify.results)
