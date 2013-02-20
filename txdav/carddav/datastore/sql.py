@@ -30,7 +30,9 @@ from twext.enterprise.dal.syntax import Delete, Insert, Len, Parameter, \
     Update, Union, Max, Select, utcNowSQL
 
 from twext.python.clsprop import classproperty
+from twext.web2.http import HTTPError
 from twext.web2.http_headers import MimeType
+from twext.web2.responsecode import FORBIDDEN
 
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.python import hashlib
@@ -61,7 +63,6 @@ from txdav.common.datastore.sql_tables import ADDRESSBOOK_TABLE, \
 from txdav.xml.rfc2518 import ResourceType
 
 from zope.interface.declarations import implements
-
 
 
 class AddressBookHome(CommonHome):
@@ -101,17 +102,6 @@ class AddressBookHome(CommonHome):
     addressbookWithName = CommonHome.childWithName
     createAddressBookWithName = CommonHome.createChildWithName
     removeAddressBookWithName = CommonHome.removeChildWithName
-
-
-    def objectWithShareUID(self, shareUID):
-        """
-        Retrieve the child with the given C{name} contained in this
-        home.
-
-        @param name: a string.
-        @return: an L{ICalendar} or C{None} if no such child exists.
-        """
-        return self._childClass.objectWithShareUID(self, shareUID)
 
 
     @inlineCallbacks
@@ -259,8 +249,7 @@ class AddressBook(CommonHomeChild, SharingMixIn):
     def create(cls, home, name):
 
         if name != home.addressbookName():
-            #assert False, "create(cls=%s home=%s, name=%s): should not be here." % (cls, home, name,)
-            raise NotImplementedError()
+            raise HTTPError(FORBIDDEN)
 
         returnValue((yield super(AddressBook, cls).create(home, name)))
 
@@ -335,10 +324,8 @@ class AddressBook(CommonHomeChild, SharingMixIn):
         returnValue((yield self.ownerAddressBook()).name() + ".vcf")
 
 
-    @inlineCallbacks
     def _groupForEntireAB_UID(self):
-        yield None
-        returnValue(self.name())
+        return self.name()
 
 
     @inlineCallbacks
@@ -601,7 +588,7 @@ END:VCARD
 
     @classmethod
     @inlineCallbacks
-    def objectWithShareUID(cls, home, shareUID):
+    def objectWithBindName(cls, home, name):
         """
         Retrieve the child with the given C{name} contained in the given
         C{home}.
@@ -613,7 +600,7 @@ END:VCARD
         @return: an L{CommonHomeChild} or C{None} if no such child
             exists.
         """
-        bindRows = yield cls._bindForNameAndHomeID.on(home._txn, name=shareUID, homeID=home._resourceID)
+        bindRows = yield cls._bindForNameAndHomeID.on(home._txn, name=name, homeID=home._resourceID)
         if bindRows:
             bindMode, homeID, resourceID, bindName, bindStatus, bindMessage = bindRows[0] #@UnusedVariable
             # use childWithName, since it is cached by querycacher
@@ -626,7 +613,7 @@ END:VCARD
                 returnValue((yield home.childWithID(resourceID)))
 
 
-        groupBindRows = yield AddressBookObject._bindForNameAndHomeID.on(home._txn, name=shareUID, homeID=home._resourceID)
+        groupBindRows = yield AddressBookObject._bindForNameAndHomeID.on(home._txn, name=name, homeID=home._resourceID)
         if groupBindRows:
             bindMode, homeID, resourceID, bindName, bindStatus, bindMessage = groupBindRows[0] #@UnusedVariable
             ownerAddressBookID = yield AddressBookObject.ownerAddressBookID(home._txn, resourceID)

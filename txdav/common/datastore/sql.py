@@ -1653,7 +1653,7 @@ class CommonHome(LoggingMixIn):
         @param name: a string.
         @return: an L{ICalendar} or C{None} if no such child exists.
         """
-        return self._childClass.objectWithName(self, shareUID)
+        return self._childClass.objectWithBindName(self, shareUID)
 
 
     @memoizedKey("resourceID", "_children")
@@ -2507,6 +2507,17 @@ class SharingMixIn(object):
 
 
     @classproperty
+    def _bindForNameAndHomeID(cls): #@NoSelf
+        """
+        DAL query that looks up any bind rows by home child
+        resource ID and home resource ID.
+        """
+        bind = cls._bindSchema
+        return cls._bindFor((bind.RESOURCE_NAME == Parameter("name"))
+                               .And(bind.HOME_RESOURCE_ID == Parameter("homeID"))
+                               )
+
+    @classproperty
     def _acceptedBindForNameAndHomeID(cls): #@NoSelf
         """
         DAL query that looks up accepted bind rows by home child
@@ -2516,6 +2527,18 @@ class SharingMixIn(object):
         return cls._bindFor((bind.RESOURCE_NAME == Parameter("name"))
                                .And(bind.HOME_RESOURCE_ID == Parameter("homeID"))
                                .And(bind.BIND_STATUS == _BIND_STATUS_ACCEPTED)
+                               )
+
+    @classproperty
+    def _unacceptedBindForNameAndHomeID(cls): #@NoSelf
+        """
+        DAL query that looks up invited bind rows by home child
+        resource ID and home resource ID.
+        """
+        bind = cls._bindSchema
+        return cls._bindFor((bind.RESOURCE_NAME == Parameter("name"))
+                               .And(bind.HOME_RESOURCE_ID == Parameter("homeID"))
+                               .And(bind.BIND_STATUS != _BIND_STATUS_ACCEPTED)
                                )
 
 
@@ -3023,19 +3046,36 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic, HomeChildBas
         returnValue(results)
 
 
-    @classproperty
-    def _bindForNameAndHomeID(cls): #@NoSelf
-        bind = cls._bindSchema
-        return cls._bindFor((bind.RESOURCE_NAME == Parameter("name"))
-                               .And(bind.HOME_RESOURCE_ID == Parameter("homeID"))
-                               )
-
-
     @classmethod
     @inlineCallbacks
     def ownerHomeID(cls, txn, resourceID):
         ownerHomeRows = yield cls._ownerHomeWithResourceID.on(txn, resourceID=resourceID)
         returnValue(ownerHomeRows[0][0])
+
+
+    @classmethod
+    @inlineCallbacks
+    def objectWithBindName(cls, home, name):
+        """
+        Retrieve the child with the given C{name} contained in the given
+        C{home}.
+
+        @param home: a L{CommonHome}.
+
+        @param name: a string; the name of the L{CommonHomeChild} to retrieve.
+
+        @return: an L{CommonHomeChild} or C{None} if no such child
+            exists.
+        """
+        # try accepted, then invited
+        result = yield home.childWithName(name)
+        if not result:
+            bindRows = yield cls._unacceptedBindForNameAndHomeID.on(home._txn, name=name, homeID=home._resourceID)
+            if bindRows:
+                bindMode, homeID, resourceID, bindName, bindStatus, bindMessage = bindRows[0] #@UnusedVariable
+                result = yield home.childWithID(resourceID)
+
+        returnValue(result)
 
 
     @classmethod
@@ -3287,6 +3327,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic, HomeChildBas
             cacheKey = queryCacher.keyForObjectWithName(self._home._resourceID, oldName)
             yield queryCacher.invalidateAfterCommit(self._home._txn, cacheKey)
 
+        print("_renameQuery:%s, name=%s" % (self, name))
         yield self._renameQuery.on(self._txn, name=name,
                                    resourceID=self._resourceID,
                                    homeID=self._home._resourceID)
@@ -3294,12 +3335,15 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic, HomeChildBas
         # update memos
         del self._home._children[oldName]
         self._home._children[name] = self
+        print("_renameSyncToken:%s, name=%s" % (self, name))
         yield self._renameSyncToken()
 
+        print("notifyChanged:%s, name=%s" % (self, name))
         yield self.notifyChanged()
 
         # Make sure home collection modified is changed - not that we do not use _home.notifiedChanged() here
         # since we are sending the notification on the existing child collection object
+        print("bumpModified:%s, name=%s" % (self, name))
         yield self._home.bumpModified()
 
 

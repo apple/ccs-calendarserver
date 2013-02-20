@@ -2864,22 +2864,11 @@ class AddressBookCollectionResource(_CommonHomeChildCollectionMixin, CalDAVResou
         returnValue(response)
 
 
-    # FIXME: access control
-    @inlineCallbacks
     def http_MOVE(self, request):
         """
-        Moving an address book collection is allowed for the purposes of changing
-        that address book's name.
+        Addressbooks may not be renamed.
         """
-        defaultAddressBook = (yield self.isDefaultAddressBook(request))
-
-        result = (yield super(AddressBookCollectionResource, self).http_MOVE(request))
-        if result == NO_CONTENT:
-            destinationURI = urlsplit(request.headers.getHeader("destination"))[2]
-            destination = yield request.locateResource(destinationURI)
-            yield self.movedAddressBook(request, defaultAddressBook,
-                               destination, destinationURI)
-        returnValue(result)
+        return FORBIDDEN
 
 
 
