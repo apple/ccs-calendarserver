@@ -26,8 +26,8 @@ from twext.who.test.test_xml import xmlService
 
 
 class BaseTest(object):
-    def service(self):
-        raise NotImplementedError(DirectoryService)
+    def service(self, subservices=()):
+        return DirectoryService("xyzzy", subservices)
 
     def xmlService(self, xmlData=None):
         return xmlService(self.mktemp(), xmlData)

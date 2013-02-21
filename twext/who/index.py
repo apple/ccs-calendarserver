@@ -24,10 +24,12 @@ __all__ = [
     "DirectoryRecord",
 ]
 
+from itertools import chain
+
 from twisted.python.constants import Names, NamedConstant
 from twisted.internet.defer import succeed, inlineCallbacks, returnValue
 
-from twext.who.util import MergedConstants, describe, uniqueResult, iterFlags
+from twext.who.util import ConstantsContainer, describe, uniqueResult, iterFlags
 from twext.who.idirectory import FieldName as BaseFieldName
 from twext.who.expression import MatchExpression, MatchType, MatchFlags
 from twext.who.directory import DirectoryService as BaseDirectoryService
@@ -55,7 +57,7 @@ class DirectoryService(BaseDirectoryService):
     XML directory service.
     """
 
-    fieldName = MergedConstants(BaseDirectoryService.fieldName, FieldName)
+    fieldName = ConstantsContainer(chain(BaseDirectoryService.fieldName.iterconstants(), FieldName.iterconstants()))
 
     indexedFields = (
         BaseFieldName.recordType,

@@ -257,7 +257,7 @@ class DirectoryService(BaseDirectoryService):
                 values = record.fields.get(fieldName, None)
 
                 if values is not None:
-                    if not self.fieldName.isMultiValue(fieldName):
+                    if not BaseFieldName.isMultiValue(fieldName):
                         values = (values,)
 
                     for value in values:
@@ -304,7 +304,7 @@ class DirectoryService(BaseDirectoryService):
 
             value = fieldNode.text.encode("utf-8")
 
-            if self.fieldName.isMultiValue(fieldName):
+            if BaseFieldName.isMultiValue(fieldName):
                 values = fields.setdefault(fieldName, [])
                 values.append(value)
             else:
@@ -365,7 +365,7 @@ class DirectoryService(BaseDirectoryService):
                     if name in fieldNames:
                         tag = fieldNames[name]
 
-                        if self.fieldName.isMultiValue(name):
+                        if BaseFieldName.isMultiValue(name):
                             values = value
                         else:
                             values = (value,)
