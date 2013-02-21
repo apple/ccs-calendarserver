@@ -156,23 +156,7 @@ testXMLConfig = """<?xml version="1.0" encoding="utf-8"?>
 
 class BaseTest(object):
     def service(self, xmlData=None):
-        if xmlData is None:
-            xmlData = testXMLConfig
-
-        filePath = FilePath(self.mktemp())
-        filePath.setContent(xmlData)
-
-        class TestService(DirectoryService):
-            def query(self, field, value, matchType=MatchType.equals, flags=None):
-                name = getattr(self.fieldName, field)
-                assert name is not None
-                return MatchExpression(
-                    name, value,
-                    matchType = matchType,
-                    flags = flags,
-                )
-
-        return TestService(filePath)
+        return xmlService(self.mktemp(), xmlData)
 
 
 
@@ -817,3 +801,24 @@ class DirectoryRecordTest(BaseTest, test_directory.DirectoryRecordTest):
                 "__twisted__",
             ))
         )
+
+
+
+def xmlService(tmp, xmlData=None):
+    if xmlData is None:
+        xmlData = testXMLConfig
+
+    filePath = FilePath(tmp)
+    filePath.setContent(xmlData)
+
+    class TestService(DirectoryService):
+        def query(self, field, value, matchType=MatchType.equals, flags=None):
+            name = getattr(self.fieldName, field)
+            assert name is not None
+            return MatchExpression(
+                name, value,
+                matchType = matchType,
+                flags = flags,
+            )
+
+    return TestService(filePath)
