@@ -24,8 +24,8 @@ from twisted.python.filepath import FilePath
 from twisted.internet.defer import inlineCallbacks
 
 from twext.who.idirectory import NoSuchRecordError
-from twext.who.idirectory import DirectoryQueryMatchExpression
-from twext.who.idirectory import Operand, MatchType, QueryFlags
+from twext.who.idirectory import Operand
+from twext.who.expression import MatchExpression, MatchType, MatchFlags
 from twext.who.xml import ParseError
 from twext.who.xml import DirectoryService, DirectoryRecord
 
@@ -166,7 +166,7 @@ class BaseTest(object):
             def query(self, field, value, matchType=MatchType.equals, flags=None):
                 name = getattr(self.fieldName, field)
                 assert name is not None
-                return DirectoryQueryMatchExpression(
+                return MatchExpression(
                     name, value,
                     matchType = matchType,
                     flags = flags,
@@ -373,7 +373,7 @@ class DirectoryServiceTest(BaseTest, test_directory.DirectoryServiceTest):
         records = yield service.recordsFromQuery(
             (
                 service.query("emailAddresses", "shared@example.com"),
-                service.query("shortNames", "sagen", flags=QueryFlags.NOT),
+                service.query("shortNames", "sagen", flags=MatchFlags.NOT),
             ),
             operand=Operand.AND
         )
@@ -386,7 +386,7 @@ class DirectoryServiceTest(BaseTest, test_directory.DirectoryServiceTest):
         records = yield service.recordsFromQuery(
             (
                 service.query("emailAddresses", "shared@example.com"),
-                service.query("fullNames", "Andre LaBranche", flags=QueryFlags.NOT),
+                service.query("fullNames", "Andre LaBranche", flags=MatchFlags.NOT),
             ),
             operand=Operand.AND
         )
@@ -397,7 +397,7 @@ class DirectoryServiceTest(BaseTest, test_directory.DirectoryServiceTest):
     def test_queryCaseInsensitive(self):
         service = self._testService()
         records = yield service.recordsFromQuery((
-            service.query("shortNames", "SagEn", flags=QueryFlags.caseInsensitive),
+            service.query("shortNames", "SagEn", flags=MatchFlags.caseInsensitive),
         ))
         self.assertRecords(records, ("__sagen__",))
 
@@ -406,7 +406,7 @@ class DirectoryServiceTest(BaseTest, test_directory.DirectoryServiceTest):
     def test_queryCaseInsensitiveNoIndex(self):
         service = self._testService()
         records = yield service.recordsFromQuery((
-            service.query("fullNames", "moRGen SAGen", flags=QueryFlags.caseInsensitive),
+            service.query("fullNames", "moRGen SAGen", flags=MatchFlags.caseInsensitive),
         ))
         self.assertRecords(records, ("__sagen__",))
 
@@ -436,7 +436,7 @@ class DirectoryServiceTest(BaseTest, test_directory.DirectoryServiceTest):
             service.query(
                 "shortNames", "w",
                 matchType = MatchType.startsWith,
-                flags = QueryFlags.NOT,
+                flags = MatchFlags.NOT,
             ),
         ))
         self.assertRecords(
@@ -470,7 +470,7 @@ class DirectoryServiceTest(BaseTest, test_directory.DirectoryServiceTest):
             service.query(
                 "shortNames", "wil",
                 matchType = MatchType.startsWith,
-                flags = QueryFlags.NOT,
+                flags = MatchFlags.NOT,
             ),
         ))
         self.assertRecords(
@@ -499,7 +499,7 @@ class DirectoryServiceTest(BaseTest, test_directory.DirectoryServiceTest):
             service.query(
                 "fullNames", "Wilfredo",
                 matchType = MatchType.startsWith,
-                flags = QueryFlags.NOT,
+                flags = MatchFlags.NOT,
             ),
         ))
         self.assertRecords(
@@ -527,7 +527,7 @@ class DirectoryServiceTest(BaseTest, test_directory.DirectoryServiceTest):
             service.query(
                 "shortNames", "WIL",
                 matchType = MatchType.startsWith,
-                flags = QueryFlags.caseInsensitive,
+                flags = MatchFlags.caseInsensitive,
             ),
         ))
         self.assertRecords(records, ("__wsanchez__",))
@@ -540,7 +540,7 @@ class DirectoryServiceTest(BaseTest, test_directory.DirectoryServiceTest):
             service.query(
                 "fullNames", "wilfrEdo",
                 matchType = MatchType.startsWith,
-                flags = QueryFlags.caseInsensitive,
+                flags = MatchFlags.caseInsensitive,
             ),
         ))
         self.assertRecords(records, ("__wsanchez__",))
@@ -571,7 +571,7 @@ class DirectoryServiceTest(BaseTest, test_directory.DirectoryServiceTest):
             service.query(
                 "shortNames", "sanchez",
                 matchType = MatchType.contains,
-                flags = QueryFlags.NOT,
+                flags = MatchFlags.NOT,
             ),
         ))
         self.assertRecords(
@@ -599,7 +599,7 @@ class DirectoryServiceTest(BaseTest, test_directory.DirectoryServiceTest):
             service.query(
                 "fullNames", "fred",
                 matchType = MatchType.contains,
-                flags = QueryFlags.NOT,
+                flags = MatchFlags.NOT,
             ),
         ))
         self.assertRecords(
@@ -627,7 +627,7 @@ class DirectoryServiceTest(BaseTest, test_directory.DirectoryServiceTest):
             service.query(
                 "shortNames", "Sanchez",
                 matchType=MatchType.contains,
-                flags=QueryFlags.caseInsensitive,
+                flags=MatchFlags.caseInsensitive,
             ),
         ))
         self.assertRecords(records, ("__wsanchez__",))
@@ -640,7 +640,7 @@ class DirectoryServiceTest(BaseTest, test_directory.DirectoryServiceTest):
             service.query(
                 "fullNames", "frEdo",
                 matchType=MatchType.contains,
-                flags=QueryFlags.caseInsensitive,
+                flags=MatchFlags.caseInsensitive,
             ),
         ))
         self.assertRecords(records, ("__wsanchez__",))

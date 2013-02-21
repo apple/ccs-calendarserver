@@ -29,8 +29,7 @@ from twisted.internet.defer import succeed, inlineCallbacks, returnValue
 
 from twext.who.util import MergedConstants, describe, uniqueResult, iterFlags
 from twext.who.idirectory import FieldName as BaseFieldName
-from twext.who.idirectory import MatchType, QueryFlags
-from twext.who.idirectory import DirectoryQueryMatchExpression
+from twext.who.expression import MatchExpression, MatchType, MatchFlags
 from twext.who.directory import DirectoryService as BaseDirectoryService
 from twext.who.directory import DirectoryRecord as BaseDirectoryRecord
 
@@ -106,9 +105,9 @@ class DirectoryService(BaseDirectoryService):
 
         if flags is not None:
             for flag in iterFlags(flags):
-                if flag == QueryFlags.NOT:
+                if flag == MatchFlags.NOT:
                     predicate = lambda x: not x
-                elif flag == QueryFlags.caseInsensitive:
+                elif flag == MatchFlags.caseInsensitive:
                     normalize = lambda x: x.lower()
                 else:
                     raise NotImplementedError("Unknown query flag: %s" % (describe(flag),))
@@ -191,7 +190,7 @@ class DirectoryService(BaseDirectoryService):
 
 
     def recordsFromExpression(self, expression, records=None):
-        if isinstance(expression, DirectoryQueryMatchExpression):
+        if isinstance(expression, MatchExpression):
             if expression.fieldName in self.indexedFields:
                 return self.indexedRecordsFromMatchExpression(expression, records=records)
             else:

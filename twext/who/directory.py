@@ -34,8 +34,8 @@ from twisted.internet.defer import succeed, fail
 from twext.who.idirectory import QueryNotSupportedError, NotAllowedError
 from twext.who.idirectory import FieldName, RecordType
 from twext.who.idirectory import Operand
-from twext.who.idirectory import DirectoryQueryMatchExpression
 from twext.who.idirectory import IDirectoryService, IDirectoryRecord
+from twext.who.expression import MatchExpression
 from twext.who.util import uniqueResult, describe
 
 
@@ -115,7 +115,7 @@ class DirectoryService(object):
 
 
     def recordsWithFieldValue(self, fieldName, value):
-        return self.recordsFromExpression(DirectoryQueryMatchExpression(fieldName, value))
+        return self.recordsFromExpression(MatchExpression(fieldName, value))
 
     @inlineCallbacks
     def recordWithUID(self, uid):
@@ -131,8 +131,8 @@ class DirectoryService(object):
     @inlineCallbacks
     def recordWithShortName(self, recordType, shortName):
         returnValue(uniqueResult((yield self.recordsFromQuery((
-            DirectoryQueryMatchExpression(FieldName.recordType, recordType),
-            DirectoryQueryMatchExpression(FieldName.shortNames, shortName ),
+            MatchExpression(FieldName.recordType, recordType),
+            MatchExpression(FieldName.shortNames, shortName ),
         )))))
 
     def recordsWithEmailAddress(self, emailAddress):
