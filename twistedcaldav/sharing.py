@@ -576,7 +576,7 @@ class SharedResourceMixin(object):
                                                     mode=invitationAccessToBindModeMap[access],
                                                     status=_BIND_STATUS_INVITED,
                                                     message=summary)
-        shareeStoreObject = yield shareeHome.objectWithShareUID(shareUID)
+        shareeStoreObject = yield shareeHome.invitedObjectWithShareUID(shareUID)
         invitation = Invitation(shareeStoreObject)
         returnValue(invitation)
 
