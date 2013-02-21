@@ -35,7 +35,7 @@ class BaseTest(unittest.TestCase):
     realmName = "xyzzy"
 
 
-    def _testService(self):
+    def service(self):
         if not hasattr(self, "_service"):
             self._service = DirectoryService(self.realmName)
         return self._service
@@ -44,7 +44,7 @@ class BaseTest(unittest.TestCase):
 
 class DirectoryServiceTest(BaseTest):
     def test_interface(self):
-        service = self._testService()
+        service = self.service()
         try:
             verifyObject(IDirectoryService, service)
         except BrokenMethodImplementation as e:
@@ -52,18 +52,18 @@ class DirectoryServiceTest(BaseTest):
 
 
     def test_init(self):
-        service = self._testService()
+        service = self.service()
         self.assertEquals(service.realmName, self.realmName)
 
 
     def test_repr(self):
-        service = self._testService()
+        service = self.service()
         self.assertEquals(repr(service), "<DirectoryService 'xyzzy'>")
 
 
     @inlineCallbacks
     def test_recordTypes(self):
-        service = self._testService()
+        service = self.service()
         self.assertEquals(
             set((yield service.recordTypes())),
             set(service.recordType.iterconstants())
@@ -72,14 +72,14 @@ class DirectoryServiceTest(BaseTest):
 
     @inlineCallbacks
     def test_recordsFromQueryNone(self):
-        service = self._testService()
+        service = self.service()
         records = (yield service.recordsFromQuery(()))
         for record in records:
             self.failTest("No records expected")
 
 
     def test_recordsFromQueryBogus(self):
-        service = self._testService()
+        service = self.service()
         self.assertFailure(service.recordsFromQuery((object(),)), QueryNotSupportedError)
 
 
@@ -130,7 +130,7 @@ class DirectoryRecordTest(BaseTest):
         if fields is None:
             fields = self.fields_wsanchez
         if service is None:
-            service = self._testService()
+            service = self.service()
         return DirectoryRecord(service, fields)
 
 
@@ -143,7 +143,7 @@ class DirectoryRecordTest(BaseTest):
 
 
     def test_init(self):
-        service  = self._testService()
+        service  = self.service()
         wsanchez = self._testRecord(self.fields_wsanchez, service=service)
 
         self.assertEquals(wsanchez.service, service)
