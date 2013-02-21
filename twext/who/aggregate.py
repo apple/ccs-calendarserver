@@ -29,6 +29,7 @@ from itertools import chain
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.internet.defer import gatherResults
 
+from twext.who.idirectory import DirectoryConfigurationError
 from twext.who.idirectory import IDirectoryService
 from twext.who.index import DirectoryService as BaseDirectoryService
 from twext.who.index import DirectoryRecord
@@ -40,9 +41,18 @@ class DirectoryService(BaseDirectoryService):
     """
 
     def __init__(self, realmName, services):
+        recordTypes = set()
+
         for service in services:
             if not IDirectoryService.implementedBy(service):
                 raise ValueError("Not a directory service: %s" % (service,))
+
+            for recordType in service.recordTypes():
+                if recordType in recordTypes:
+                    raise DirectoryConfigurationError(
+                        "Aggregated services may not vend the same record type: %s"
+                        % (recordType,)
+                    )
 
         BaseDirectoryService.__init__(self, realmName)
 

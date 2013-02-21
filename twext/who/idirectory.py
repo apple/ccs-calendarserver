@@ -20,6 +20,7 @@ Directory service interface.
 
 __all__ = [
     "DirectoryServiceError",
+    "DirectoryConfigurationError",
     "DirectoryAvailabilityError",
     "UnknownRecordTypeError",
     "QueryNotSupportedError",
@@ -47,6 +48,11 @@ from twisted.python.constants import Names, NamedConstant
 class DirectoryServiceError(Exception):
     """
     Directory service generic error.
+    """
+
+class DirectoryConfigurationError(DirectoryServiceError):
+    """
+    Directory configurtion error.
     """
 
 class DirectoryAvailabilityError(DirectoryServiceError):
