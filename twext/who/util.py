@@ -70,7 +70,7 @@ def uniqueResult(values):
 
 
 def describe(constant):
-    return getattr(constant, "description", str(constant))
+    return getattr(constant, "description", constant.name)
 
 
 def iterFlags(flags):
