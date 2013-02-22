@@ -85,7 +85,7 @@ class MatchExpression(object):
         if self.flags is None:
             flags = ""
         else:
-            flags = " (%s)" % (self.flags,)
+            flags = " (%s)" % (describe(self.flags),)
 
         return "<%s: %r %s %r%s>" % (
             self.__class__.__name__,
