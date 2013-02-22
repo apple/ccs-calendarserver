@@ -23,8 +23,8 @@ from twisted.python.components import proxyForInterface
 from twext.who.idirectory import IDirectoryService
 from twext.who.aggregate import DirectoryService
 
-from twext.who.test import test_directory
-from twext.who.test.test_xml import xmlService
+from twext.who.test import test_xml
+from twext.who.test.test_xml import QueryMixIn, xmlService
 
 
 
@@ -43,7 +43,10 @@ class BaseTest(object):
             for s in services
         ))
 
-        return DirectoryService("xyzzy", services)
+        class TestService(DirectoryService, QueryMixIn):
+            pass
+
+        return TestService("xyzzy", services)
 
 
     def xmlService(self, xmlData=None):
@@ -51,5 +54,7 @@ class BaseTest(object):
 
 
 
-class DirectoryServiceTest(BaseTest, test_directory.DirectoryServiceTest):
-    pass
+class DirectoryServiceTest(BaseTest, test_xml.DirectoryServiceBaseTest):
+    def test_repr(self):
+        service = self.service()
+        self.assertEquals(repr(service), "<TestService 'xyzzy'>")
