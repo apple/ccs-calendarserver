@@ -64,7 +64,7 @@ class DirectoryService(object):
 
 
     def recordTypes(self):
-        return succeed(self.recordType.iterconstants())
+        return self.recordType.iterconstants()
 
 
     def recordsFromExpression(self, expression, records=None):

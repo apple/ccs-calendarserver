@@ -160,8 +160,8 @@ class IDirectoryService(Interface):
 
     def recordTypes():
         """
-        @return: a deferred iterable of L{NamedConstant}s denoting the
-            record types that are kept in this directory.
+        @return: an iterable of L{NamedConstant}s denoting the record
+            types that are kept in this directory.
         """
 
     def recordsFromQuery(expressions, operand=Operand.AND):

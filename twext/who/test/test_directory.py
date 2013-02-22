@@ -61,11 +61,10 @@ class DirectoryServiceTest(BaseTest):
         self.assertEquals(repr(service), "<DirectoryService 'xyzzy'>")
 
 
-    @inlineCallbacks
     def test_recordTypes(self):
         service = self.service()
         self.assertEquals(
-            set((yield service.recordTypes())),
+            set(service.recordTypes()),
             set(service.recordType.iterconstants())
         )
 
