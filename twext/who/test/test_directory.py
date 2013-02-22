@@ -15,7 +15,7 @@
 ##
 
 """
-Generic directory service base implementation tests
+Generic directory service base implementation tests.
 """
 
 from zope.interface.verify import verifyObject, BrokenMethodImplementation

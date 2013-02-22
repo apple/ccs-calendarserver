@@ -15,7 +15,7 @@
 ##
 
 """
-Aggregate directory service tests
+Aggregate directory service tests.
 """
 
 from twisted.python.components import proxyForInterface

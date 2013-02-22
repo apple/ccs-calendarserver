@@ -37,7 +37,7 @@ class ConstantsContainer(object):
     def __init__(self, constants):
         myConstants = {}
         for constant in constants:
-            if hasattr(self, constant.name):
+            if constant.name in myConstants:
                 raise ValueError("Name conflict: %r" % (constant.name,))
             myConstants[constant.name] = constant
 
@@ -45,7 +45,7 @@ class ConstantsContainer(object):
 
     def __getattr__(self, name):
         try:
-            return self.lookupByName(name)
+            return self._constants[name]
         except KeyError:
             raise AttributeError(name)
 
@@ -53,8 +53,10 @@ class ConstantsContainer(object):
         return self._constants.itervalues()
 
     def lookupByName(self, name):
-        return self._constants[name]
-
+        try:
+            return self._constants[name]
+        except KeyError:
+            raise ValueError(name)
 
 
 def uniqueResult(values):

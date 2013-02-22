@@ -15,7 +15,7 @@
 ##
 
 """
-XML directory service tests
+XML directory service tests.
 """
 
 from time import sleep
