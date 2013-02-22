@@ -24,7 +24,7 @@ from twisted.trial import unittest
 from twisted.trial.unittest import SkipTest
 from twisted.internet.defer import inlineCallbacks
 
-from twext.who.idirectory import QueryNotSupportedError
+from twext.who.idirectory import QueryNotSupportedError, NotAllowedError
 from twext.who.idirectory import RecordType, FieldName
 from twext.who.idirectory import IDirectoryService, IDirectoryRecord
 from twext.who.directory import DirectoryService, DirectoryRecord
@@ -85,17 +85,56 @@ class DirectoryServiceTest(BaseTest):
     def test_recordWithUID(self):
         raise SkipTest("Subclasses should implement this test.")
 
+
     def test_recordWithGUID(self):
         raise SkipTest("Subclasses should implement this test.")
+
 
     def test_recordsWithRecordType(self):
         raise SkipTest("Subclasses should implement this test.")
 
+
     def test_recordWithShortName(self):
         raise SkipTest("Subclasses should implement this test.")
 
+
     def test_recordsWithEmailAddress(self):
         raise SkipTest("Subclasses should implement this test.")
+
+
+
+class DirectoryServiceImmutableTest(BaseTest):
+    def test_updateRecordsNotAllowed(self):
+        service = self.service()
+
+        newRecord = DirectoryRecord(
+            service,
+            fields = {
+                service.fieldName.uid:        "__plugh__",
+                service.fieldName.recordType: service.recordType.user,
+                service.fieldName.shortNames: ("plugh",),
+            }
+        )
+
+        self.assertFailure(
+            service.updateRecords((newRecord,), create=True),
+            NotAllowedError,
+        )
+
+        self.assertFailure(
+            service.updateRecords((newRecord,), create=False),
+            NotAllowedError,
+        )
+
+
+    def test_removeRecordsNotAllowed(self):
+        service = self.service()
+
+        service.removeRecords(())
+        self.assertFailure(
+            service.removeRecords(("foo",)),
+            NotAllowedError,
+        )
 
 
 

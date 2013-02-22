@@ -23,7 +23,7 @@ from twisted.python.components import proxyForInterface
 from twext.who.idirectory import IDirectoryService
 from twext.who.aggregate import DirectoryService
 
-from twext.who.test import test_xml
+from twext.who.test import test_directory, test_xml
 from twext.who.test.test_xml import QueryMixIn, xmlService
 
 
@@ -62,4 +62,9 @@ class DirectoryServiceBaseTest(BaseTest, test_xml.DirectoryServiceBaseTest):
 
 
 class DirectoryServiceQueryTest(BaseTest, test_xml.DirectoryServiceQueryTest):
+    pass
+
+
+
+class DirectoryServiceImmutableTest(BaseTest, test_directory.DirectoryServiceImmutableTest):
     pass
