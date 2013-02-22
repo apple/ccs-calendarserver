@@ -21,7 +21,7 @@ Tests for calendarserver.tools.calverify
 from StringIO import StringIO
 from calendarserver.tap.util import getRootResource
 from calendarserver.tools.calverify import BadDataService, \
-    SchedulingMismatchService
+    SchedulingMismatchService, DoubleBookingService
 from pycalendar.datetime import PyCalendarDateTime
 from twisted.internet import reactor
 from twisted.internet.defer import inlineCallbacks, returnValue
@@ -1514,7 +1514,7 @@ END:VCALENDAR
         self.assertTrue("Fix remove" not in calverify.results)
         self.assertTrue("Fix remove" not in calverify.results)
         self.assertTrue("Fix failures" not in calverify.results)
-        self.assertTrue("Fixed Auto-Accepts" not in calverify.results)
+        self.assertTrue("Auto-Accepts" not in calverify.results)
 
         sync_token_new1 = (yield (yield self.calendarUnderTest(self.uuid1)).syncToken())
         sync_token_new2 = (yield (yield self.calendarUnderTest(self.uuid2)).syncToken())
@@ -1615,7 +1615,7 @@ END:VCALENDAR
         self.assertEqual(obj, None)
 
         self.assertEqual(calverify.results["Fix failures"], 0)
-        self.assertEqual(calverify.results["Fixed Auto-Accepts"], [])
+        self.assertEqual(calverify.results["Auto-Accepts"], [])
 
         sync_token_new1 = (yield (yield self.calendarUnderTest(self.uuid1)).syncToken())
         sync_token_new2 = (yield (yield self.calendarUnderTest(self.uuid2)).syncToken())
@@ -1639,7 +1639,7 @@ END:VCALENDAR
         self.assertTrue("Fix add inbox" not in calverify.results)
         self.assertTrue("Fix remove" not in calverify.results)
         self.assertTrue("Fix failures" not in calverify.results)
-        self.assertTrue("Fixed Auto-Accepts" not in calverify.results)
+        self.assertTrue("Auto-Accepts" not in calverify.results)
 
 
 
@@ -1777,7 +1777,7 @@ END:VCALENDAR
         self.assertTrue("Fix add inbox" not in calverify.results)
         self.assertTrue("Fix remove" not in calverify.results)
         self.assertTrue("Fix failures" not in calverify.results)
-        self.assertTrue("Fixed Auto-Accepts" not in calverify.results)
+        self.assertTrue("Auto-Accepts" not in calverify.results)
 
         sync_token_new1 = (yield (yield self.calendarUnderTest(self.uuid1)).syncToken())
         sync_token_newl1 = (yield (yield self.calendarUnderTest(self.uuidl1)).syncToken())
@@ -1839,7 +1839,7 @@ END:VCALENDAR
         self.assertTrue("Fix remove" not in calverify.results)
 
         self.assertEqual(calverify.results["Fix failures"], 0)
-        testResults = sorted(calverify.results["Fixed Auto-Accepts"], key=lambda x: x["uid"])
+        testResults = sorted(calverify.results["Auto-Accepts"], key=lambda x: x["uid"])
         self.assertEqual(testResults[0]["path"], "/calendars/__uids__/%s/calendar/mismatched_attendee.ics" % self.uuidl1)
         self.assertEqual(testResults[0]["uid"], "MISMATCH_ATTENDEE_ICS")
         self.assertEqual(testResults[0]["start"].getText(), "%s0307T031500" % (now,))
@@ -1866,4 +1866,344 @@ END:VCALENDAR
         self.assertTrue("Fix add inbox" not in calverify.results)
         self.assertTrue("Fix remove" not in calverify.results)
         self.assertTrue("Fix failures" not in calverify.results)
-        self.assertTrue("Fixed Auto-Accepts" not in calverify.results)
+        self.assertTrue("Auto-Accepts" not in calverify.results)
+
+
+
+class CalVerifyDoubleBooked(CalVerifyMismatchTestsBase):
+    """
+    Tests calverify for double-bookings.
+    """
+
+    # No overlap
+    INVITE_NO_OVERLAP_ICS = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Apple Inc.//iCal 4.0.1//EN
+CALSCALE:GREGORIAN
+BEGIN:VEVENT
+CREATED:20100303T181216Z
+UID:INVITE_NO_OVERLAP_ICS
+TRANSP:OPAQUE
+SUMMARY:Ancient event
+DTSTART:%(year)s0307T100000Z
+DURATION:PT1H
+DTSTAMP:20100303T181220Z
+SEQUENCE:2
+ORGANIZER:urn:uuid:D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
+ATTENDEE:urn:uuid:D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
+ATTENDEE:urn:uuid:75EA36BE-F71B-40F9-81F9-CF59BF40CA8F
+END:VEVENT
+END:VCALENDAR
+""".replace("\n", "\r\n") % {"year": now}
+
+    # Two overlapping
+    INVITE_NO_OVERLAP1_1_ICS = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Apple Inc.//iCal 4.0.1//EN
+CALSCALE:GREGORIAN
+BEGIN:VEVENT
+CREATED:20100303T181216Z
+UID:INVITE_NO_OVERLAP1_1_ICS
+TRANSP:OPAQUE
+SUMMARY:Ancient event
+DTSTART:%(year)s0307T110000Z
+DURATION:PT2H
+DTSTAMP:20100303T181220Z
+SEQUENCE:2
+ORGANIZER:urn:uuid:D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
+ATTENDEE:urn:uuid:D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
+ATTENDEE:urn:uuid:75EA36BE-F71B-40F9-81F9-CF59BF40CA8F
+END:VEVENT
+END:VCALENDAR
+""".replace("\n", "\r\n") % {"year": now}
+
+    INVITE_NO_OVERLAP1_2_ICS = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Apple Inc.//iCal 4.0.1//EN
+CALSCALE:GREGORIAN
+BEGIN:VEVENT
+CREATED:20100303T181216Z
+UID:INVITE_NO_OVERLAP1_2_ICS
+TRANSP:OPAQUE
+SUMMARY:Ancient event
+DTSTART:%(year)s0307T120000Z
+DURATION:PT1H
+DTSTAMP:20100303T181220Z
+SEQUENCE:2
+ORGANIZER:urn:uuid:D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
+ATTENDEE:urn:uuid:D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
+ATTENDEE:urn:uuid:75EA36BE-F71B-40F9-81F9-CF59BF40CA8F
+END:VEVENT
+END:VCALENDAR
+""".replace("\n", "\r\n") % {"year": now}
+
+    # Two overlapping with one transparent
+    INVITE_NO_OVERLAP2_1_ICS = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Apple Inc.//iCal 4.0.1//EN
+CALSCALE:GREGORIAN
+BEGIN:VEVENT
+CREATED:20100303T181216Z
+UID:INVITE_NO_OVERLAP2_1_ICS
+TRANSP:OPAQUE
+SUMMARY:Ancient event
+DTSTART:%(year)s0307T140000Z
+DURATION:PT2H
+DTSTAMP:20100303T181220Z
+SEQUENCE:2
+ORGANIZER:urn:uuid:D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
+ATTENDEE:urn:uuid:D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
+ATTENDEE:urn:uuid:75EA36BE-F71B-40F9-81F9-CF59BF40CA8F
+END:VEVENT
+END:VCALENDAR
+""".replace("\n", "\r\n") % {"year": now}
+
+    INVITE_NO_OVERLAP2_2_ICS = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Apple Inc.//iCal 4.0.1//EN
+CALSCALE:GREGORIAN
+BEGIN:VEVENT
+CREATED:20100303T181216Z
+UID:INVITE_NO_OVERLAP2_2_ICS
+SUMMARY:Ancient event
+DTSTART:%(year)s0307T150000Z
+DURATION:PT1H
+DTSTAMP:20100303T181220Z
+SEQUENCE:2
+ORGANIZER:urn:uuid:D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
+ATTENDEE:urn:uuid:D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
+ATTENDEE:urn:uuid:75EA36BE-F71B-40F9-81F9-CF59BF40CA8F
+TRANSP:TRANSPARENT
+END:VEVENT
+END:VCALENDAR
+""".replace("\n", "\r\n") % {"year": now}
+
+    # Two overlapping with one cancelled
+    INVITE_NO_OVERLAP3_1_ICS = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Apple Inc.//iCal 4.0.1//EN
+CALSCALE:GREGORIAN
+BEGIN:VEVENT
+CREATED:20100303T181216Z
+UID:INVITE_NO_OVERLAP3_1_ICS
+TRANSP:OPAQUE
+SUMMARY:Ancient event
+DTSTART:%(year)s0307T170000Z
+DURATION:PT2H
+DTSTAMP:20100303T181220Z
+SEQUENCE:2
+ORGANIZER:urn:uuid:D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
+ATTENDEE:urn:uuid:D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
+ATTENDEE:urn:uuid:75EA36BE-F71B-40F9-81F9-CF59BF40CA8F
+END:VEVENT
+END:VCALENDAR
+""".replace("\n", "\r\n") % {"year": now}
+
+    INVITE_NO_OVERLAP3_2_ICS = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Apple Inc.//iCal 4.0.1//EN
+CALSCALE:GREGORIAN
+BEGIN:VEVENT
+CREATED:20100303T181216Z
+UID:INVITE_NO_OVERLAP3_2_ICS
+SUMMARY:Ancient event
+DTSTART:%(year)s0307T180000Z
+DURATION:PT1H
+DTSTAMP:20100303T181220Z
+SEQUENCE:2
+ORGANIZER:urn:uuid:D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
+ATTENDEE:urn:uuid:D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
+ATTENDEE:urn:uuid:75EA36BE-F71B-40F9-81F9-CF59BF40CA8F
+STATUS:CANCELLED
+END:VEVENT
+END:VCALENDAR
+""".replace("\n", "\r\n") % {"year": now}
+
+    # Two overlapping recurring
+    INVITE_NO_OVERLAP4_1_ICS = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Apple Inc.//iCal 4.0.1//EN
+CALSCALE:GREGORIAN
+BEGIN:VEVENT
+CREATED:20100303T181216Z
+UID:INVITE_NO_OVERLAP4_1_ICS
+TRANSP:OPAQUE
+SUMMARY:Ancient event
+DTSTART:%(year)s0308T120000Z
+DURATION:PT2H
+DTSTAMP:20100303T181220Z
+SEQUENCE:2
+ORGANIZER:urn:uuid:D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
+ATTENDEE:urn:uuid:D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
+ATTENDEE:urn:uuid:75EA36BE-F71B-40F9-81F9-CF59BF40CA8F
+RRULE:FREQ=DAILY;COUNT=3
+END:VEVENT
+END:VCALENDAR
+""".replace("\n", "\r\n") % {"year": now}
+
+    INVITE_NO_OVERLAP4_2_ICS = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Apple Inc.//iCal 4.0.1//EN
+CALSCALE:GREGORIAN
+BEGIN:VEVENT
+CREATED:20100303T181216Z
+UID:INVITE_NO_OVERLAP4_2_ICS
+SUMMARY:Ancient event
+DTSTART:%(year)s0309T120000Z
+DURATION:PT1H
+DTSTAMP:20100303T181220Z
+SEQUENCE:2
+ORGANIZER:urn:uuid:D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
+ATTENDEE:urn:uuid:D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
+ATTENDEE:urn:uuid:75EA36BE-F71B-40F9-81F9-CF59BF40CA8F
+RRULE:FREQ=DAILY;COUNT=2
+END:VEVENT
+END:VCALENDAR
+""".replace("\n", "\r\n") % {"year": now}
+
+    # Two overlapping on one recurrence instance
+    INVITE_NO_OVERLAP5_1_ICS = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Apple Inc.//iCal 4.0.1//EN
+CALSCALE:GREGORIAN
+BEGIN:VEVENT
+CREATED:20100303T181216Z
+UID:INVITE_NO_OVERLAP5_1_ICS
+TRANSP:OPAQUE
+SUMMARY:Ancient event
+DTSTART:%(year)s0312T120000Z
+DURATION:PT2H
+DTSTAMP:20100303T181220Z
+SEQUENCE:2
+ORGANIZER:urn:uuid:D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
+ATTENDEE:urn:uuid:D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
+ATTENDEE:urn:uuid:75EA36BE-F71B-40F9-81F9-CF59BF40CA8F
+RRULE:FREQ=DAILY;COUNT=3
+END:VEVENT
+END:VCALENDAR
+""".replace("\n", "\r\n") % {"year": now}
+
+    INVITE_NO_OVERLAP5_2_ICS = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Apple Inc.//iCal 4.0.1//EN
+CALSCALE:GREGORIAN
+BEGIN:VEVENT
+CREATED:20100303T181216Z
+UID:INVITE_NO_OVERLAP5_2_ICS
+SUMMARY:Ancient event
+DTSTART:%(year)s0313T140000Z
+DURATION:PT1H
+DTSTAMP:20100303T181220Z
+SEQUENCE:2
+ORGANIZER:urn:uuid:D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
+ATTENDEE:urn:uuid:D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
+ATTENDEE:urn:uuid:75EA36BE-F71B-40F9-81F9-CF59BF40CA8F
+RRULE:FREQ=DAILY;COUNT=2
+END:VEVENT
+BEGIN:VEVENT
+CREATED:20100303T181216Z
+UID:INVITE_NO_OVERLAP5_2_ICS
+SUMMARY:Ancient event
+RECURRENCE-ID:%(year)s0314T140000Z
+DTSTART:%(year)s0314T130000Z
+DURATION:PT1H
+DTSTAMP:20100303T181220Z
+SEQUENCE:2
+ORGANIZER:urn:uuid:D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
+ATTENDEE:urn:uuid:D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
+ATTENDEE:urn:uuid:75EA36BE-F71B-40F9-81F9-CF59BF40CA8F
+END:VEVENT
+END:VCALENDAR
+""".replace("\n", "\r\n") % {"year": now}
+
+    requirements = {
+        CalVerifyMismatchTestsBase.uuid1 : {
+            "calendar" : {
+                 "invite1.ics"      : (INVITE_NO_OVERLAP_ICS, CalVerifyMismatchTestsBase.metadata,),
+                 "invite2.ics"      : (INVITE_NO_OVERLAP1_1_ICS, CalVerifyMismatchTestsBase.metadata,),
+                 "invite3.ics"      : (INVITE_NO_OVERLAP1_2_ICS, CalVerifyMismatchTestsBase.metadata,),
+                 "invite4.ics"      : (INVITE_NO_OVERLAP2_1_ICS, CalVerifyMismatchTestsBase.metadata,),
+                 "invite5.ics"      : (INVITE_NO_OVERLAP2_2_ICS, CalVerifyMismatchTestsBase.metadata,),
+                 "invite6.ics"      : (INVITE_NO_OVERLAP3_1_ICS, CalVerifyMismatchTestsBase.metadata,),
+                 "invite7.ics"      : (INVITE_NO_OVERLAP3_2_ICS, CalVerifyMismatchTestsBase.metadata,),
+                 "invite8.ics"      : (INVITE_NO_OVERLAP4_1_ICS, CalVerifyMismatchTestsBase.metadata,),
+                 "invite9.ics"      : (INVITE_NO_OVERLAP4_2_ICS, CalVerifyMismatchTestsBase.metadata,),
+                 "invite10.ics"     : (INVITE_NO_OVERLAP5_1_ICS, CalVerifyMismatchTestsBase.metadata,),
+                 "invite11.ics"     : (INVITE_NO_OVERLAP5_2_ICS, CalVerifyMismatchTestsBase.metadata,),
+           },
+           "inbox" : {},
+        },
+        CalVerifyMismatchTestsBase.uuid2 : {
+            "calendar" : {},
+            "inbox" : {},
+        },
+        CalVerifyMismatchTestsBase.uuid3 : {
+            "calendar" : {},
+            "inbox" : {},
+        },
+        CalVerifyMismatchTestsBase.uuidl1 : {
+            "calendar" : {
+                 "invite1.ics"      : (INVITE_NO_OVERLAP_ICS, CalVerifyMismatchTestsBase.metadata,),
+                 "invite2.ics"      : (INVITE_NO_OVERLAP1_1_ICS, CalVerifyMismatchTestsBase.metadata,),
+                 "invite3.ics"      : (INVITE_NO_OVERLAP1_2_ICS, CalVerifyMismatchTestsBase.metadata,),
+                 "invite4.ics"      : (INVITE_NO_OVERLAP2_1_ICS, CalVerifyMismatchTestsBase.metadata,),
+                 "invite5.ics"      : (INVITE_NO_OVERLAP2_2_ICS, CalVerifyMismatchTestsBase.metadata,),
+                 "invite6.ics"      : (INVITE_NO_OVERLAP3_1_ICS, CalVerifyMismatchTestsBase.metadata,),
+                 "invite7.ics"      : (INVITE_NO_OVERLAP3_2_ICS, CalVerifyMismatchTestsBase.metadata,),
+                 "invite8.ics"      : (INVITE_NO_OVERLAP4_1_ICS, CalVerifyMismatchTestsBase.metadata,),
+                 "invite9.ics"      : (INVITE_NO_OVERLAP4_2_ICS, CalVerifyMismatchTestsBase.metadata,),
+                 "invite10.ics"     : (INVITE_NO_OVERLAP5_1_ICS, CalVerifyMismatchTestsBase.metadata,),
+                 "invite11.ics"     : (INVITE_NO_OVERLAP5_2_ICS, CalVerifyMismatchTestsBase.metadata,),
+           },
+           "inbox" : {},
+        },
+    }
+
+    @inlineCallbacks
+    def test_scanDoubleBookingOnly(self):
+        """
+        CalVerifyService.doScan without fix for mismatches. Make sure it detects
+        as much as it can. Make sure sync-token is not changed.
+        """
+
+        sync_token_old1 = (yield (yield self.calendarUnderTest(self.uuid1)).syncToken())
+        sync_token_oldl1 = (yield (yield self.calendarUnderTest(self.uuidl1)).syncToken())
+        self.commit()
+
+        options = {
+            "ical": False,
+            "badcua": False,
+            "mismatch": False,
+            "nobase64": False,
+            "double": True,
+            "fix": False,
+            "verbose": False,
+            "details": False,
+            "summary": False,
+            "days": 365,
+            "uid": "",
+            "uuid": self.uuidl1,
+            "tzid": "utc",
+            "start": PyCalendarDateTime(now, 1, 1, 0, 0, 0),
+        }
+        output = StringIO()
+        calverify = DoubleBookingService(self._sqlCalendarStore, options, output, reactor, config)
+        yield calverify.doAction()
+
+        self.assertEqual(calverify.results["Number of events to process"], len(self.requirements[CalVerifyMismatchTestsBase.uuidl1]["calendar"]))
+        self.assertEqual(
+            [(i.uid1, i.uid2, str(i.start),) for i in calverify.results["Double-bookings"]],
+            [
+                ("INVITE_NO_OVERLAP1_1_ICS", "INVITE_NO_OVERLAP1_2_ICS", "%(year)s0307T120000Z" % {"year": now}),
+                ("INVITE_NO_OVERLAP4_1_ICS", "INVITE_NO_OVERLAP4_2_ICS", "%(year)s0309T120000Z" % {"year": now}),
+                ("INVITE_NO_OVERLAP4_1_ICS", "INVITE_NO_OVERLAP4_2_ICS", "%(year)s0310T120000Z" % {"year": now}),
+                ("INVITE_NO_OVERLAP5_1_ICS", "INVITE_NO_OVERLAP5_2_ICS", "%(year)s0314T130000Z" % {"year": now}),
+            ],
+        )
+        self.assertEqual(calverify.results["Number of double-bookings"], 4)
+        self.assertEqual(calverify.results["Number of unique double-bookings"], 3)
+
+        sync_token_new1 = (yield (yield self.calendarUnderTest(self.uuid1)).syncToken())
+        sync_token_newl1 = (yield (yield self.calendarUnderTest(self.uuidl1)).syncToken())
+        self.assertEqual(sync_token_old1, sync_token_new1)
+        self.assertEqual(sync_token_oldl1, sync_token_newl1)

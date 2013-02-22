@@ -15,6 +15,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+from twistedcaldav.directory.directory import DirectoryService
+from twistedcaldav.datafilters.peruserdata import PerUserDataFilter
 
 """
 This tool scans the calendar store to analyze organizer/attendee event
@@ -223,6 +225,7 @@ Modes of operation:
 --mismatch          : verify scheduling state.
 --missing           : display orphaned calendar homes - can be used.
                       with either --ical or --mismatch.
+--double            : detect double-bookings.
 
 --nuke PATH|RID     : remove specific calendar resources - can
                       only be used by itself. PATH is the full
@@ -249,10 +252,21 @@ Options for --mismatch:
 --details  : log extended details on each mismatch.
 --tzid     : timezone to adjust details to.
 
+Options for --double:
+
+--uuid     : only scan specified calendar homes. Can be a partial GUID
+             to scan all GUIDs with that as a prefix or "*" for all GUIDS
+             (that are marked as resources or locations in the directory).
+--tzid     : timezone to adjust details to.
+--summary  : report only which GUIDs have double-bookings - no details.
+--days     : number of days ahead to scan [DEFAULT: 365]
+
 CHANGES
 v8: Detects ORGANIZER or ATTENDEE properties with mailto: calendar user
     addresses for users that have valid directory records. Fix is to
     replace the value with a urn:uuid: form.
+
+v9: Detects double-bookings.
 
 """ % (VERSION,)
 
@@ -276,9 +290,11 @@ class CalVerifyOptions(Options):
         ['nobase64', 'n', "Do not apply CALENDARSERVER-OLD-CUA base64 transform when fixing."],
         ['mismatch', 's', "Detect organizer/attendee mismatches."],
         ['missing', 'm', "Show 'orphaned' homes."],
+        ['double', 'd', "Detect double-bookings."],
         ['fix', 'x', "Fix problems."],
         ['verbose', 'v', "Verbose logging."],
         ['details', 'V', "Detailed logging."],
+        ['summary', 'S', "Summary of double-bookings."],
         ['tzid', 't', "Timezone to adjust displayed times to."],
     ]
 
@@ -286,7 +302,8 @@ class CalVerifyOptions(Options):
         ['config', 'f', DEFAULT_CONFIG_FILE, "Specify caldavd.plist configuration path."],
         ['uuid', 'u', "", "Only check this user."],
         ['uid', 'U', "", "Only this event UID."],
-        ['nuke', 'e', "", "Remove event given its path"]
+        ['nuke', 'e', "", "Remove event given its path."],
+        ['days', 'T', "365", "Number of days for scanning events into the future."]
     ]
 
 
@@ -399,6 +416,18 @@ class CalVerifyService(Service, object):
             [ch.OWNER_UID, ],
             From=ch,
         ).on(self.txn))
+        returnValue(tuple([uid[0] for uid in rows]))
+
+
+    @inlineCallbacks
+    def getMatchingHomeUIDs(self, uuid):
+        ch = schema.CALENDAR_HOME
+        kwds = {"uuid": uuid}
+        rows = (yield Select(
+            [ch.OWNER_UID, ],
+            From=ch,
+            Where=(ch.OWNER_UID.StartsWith(Parameter("uuid"))),
+        ).on(self.txn, **kwds))
         returnValue(tuple([uid[0] for uid in rows]))
 
 
@@ -716,6 +745,12 @@ class CalVerifyService(Service, object):
             returnValue(False)
 
 
+    def logResult(self, key, value, total=None):
+        self.output.write("%s: %s\n" % (key, value,))
+        self.results[key] = value
+        self.addToSummary(key, value, total)
+
+
     def addToSummary(self, title, count, total=None):
         if total is not None:
             percent = safePercent(count, total),
@@ -735,7 +770,7 @@ class CalVerifyService(Service, object):
         table.setDefaultColumnFormats(
             (
                 tables.Table.ColumnFormat("%s", tables.Table.ColumnFormat.LEFT_JUSTIFY),
-                tables.Table.ColumnFormat("%d", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
+                tables.Table.ColumnFormat("%s", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
                 tables.Table.ColumnFormat("%.1f%%", tables.Table.ColumnFormat.RIGHT_JUSTIFY),
             )
         )
@@ -809,7 +844,7 @@ class NukeService(CalVerifyService):
 
 class OrphansService(CalVerifyService):
     """
-    Service which removes specific events.
+    Service which detects orphaned calendar homes.
     """
 
     def title(self):
@@ -877,9 +912,8 @@ class OrphansService(CalVerifyService):
             ))
 
         self.output.write("\n")
-        self.output.write("Homes without a matching directory record (total=%d):\n" % (len(missing),))
+        self.logResult("Homes without a matching directory record", len(missing), uids_len)
         table.printTable(os=self.output)
-        self.addToSummary("Homes without a matching directory record", len(missing), uids_len)
 
         # Print table of results
         table = tables.Table()
@@ -892,9 +926,8 @@ class OrphansService(CalVerifyService):
             ))
 
         self.output.write("\n")
-        self.output.write("Homes not hosted on this server (total=%d):\n" % (len(wrong_server),))
+        self.logResult("Homes not hosted on this server", len(wrong_server), uids_len)
         table.printTable(os=self.output)
-        self.addToSummary("Homes not hosted on this server", len(wrong_server), uids_len)
 
         # Print table of results
         table = tables.Table()
@@ -907,9 +940,8 @@ class OrphansService(CalVerifyService):
             ))
 
         self.output.write("\n")
-        self.output.write("Homes without an enabled directory record (total=%d):\n" % (len(disabled),))
+        self.logResult("Homes without an enabled directory record", len(disabled), uids_len)
         table.printTable(os=self.output)
-        self.addToSummary("Homes without an enabled directory record", len(disabled), uids_len)
 
         self.printSummary()
 
@@ -960,9 +992,7 @@ class BadDataService(CalVerifyService):
             self.output.write("%s time: %.1fs\n" % (descriptor, time.time() - t,))
 
         self.total = len(rows)
-        self.output.write("Number of events to process: %s\n" % (len(rows,)))
-        self.results["Number of events to process"] = len(rows)
-        self.addToSummary("Number of events to process", self.total)
+        self.logResult("Number of events to process", self.total)
         self.addSummaryBreak()
 
         yield self.calendarDataCheck(rows)
@@ -1042,11 +1072,9 @@ class BadDataService(CalVerifyService):
             ))
 
         self.output.write("\n")
-        self.output.write("Bad iCalendar data (total=%d):\n" % (len(results_bad),))
-        table.printTable(os=self.output)
-
+        self.logResult("Bad iCalendar data", len(results_bad), total)
         self.results["Bad iCalendar data"] = results_bad
-        self.addToSummary("Bad iCalendar data", len(results_bad), total)
+        table.printTable(os=self.output)
 
         if self.options["verbose"]:
             diff_time = time.time() - t
@@ -1243,7 +1271,7 @@ class BadDataService(CalVerifyService):
 
 class SchedulingMismatchService(CalVerifyService):
     """
-    Service which runs, exports the appropriate records, then stops the reactor.
+    Service which detects mismatched scheduled events.
     """
 
     metadata = {
@@ -1273,6 +1301,10 @@ class SchedulingMismatchService(CalVerifyService):
         self.fixOrganizersForAttendeeMismatch = 0
         self.fixFailed = 0
         self.fixedAutoAccepts = []
+
+
+    def title(self):
+        return "Scheduling Mismatch Service"
 
 
     @inlineCallbacks
@@ -1308,9 +1340,7 @@ class SchedulingMismatchService(CalVerifyService):
             self.output.write("%s time: %.1fs\n" % (descriptor, time.time() - t,))
 
         self.total = len(rows)
-        self.output.write("Number of events to process: %s\n" % (len(rows,)))
-        self.results["Number of events to process"] = len(rows)
-        self.addToSummary("Number of events to process", self.total)
+        self.logResult("Number of events to process", self.total)
 
         # Split into organizer events and attendee events
         self.organized = []
@@ -1320,15 +1350,10 @@ class SchedulingMismatchService(CalVerifyService):
         self.matched_attendee_to_organizer = collections.defaultdict(set)
         skipped, inboxes = self.buildResourceInfo(rows)
 
-        self.output.write("Number of organizer events to process: %s\n" % (len(self.organized),))
-        self.output.write("Number of attendee events to process: %s\n" % (len(self.attended,)))
-        self.results["Number of organizer events to process"] = len(self.organized)
-        self.results["Number of attendee events to process"] = len(self.attended)
-        self.results["Number of skipped events"] = skipped
-        self.results["Number of inbox events"] = inboxes
-        self.addToSummary("Number of organizer events to process", len(self.organized), self.total)
-        self.addToSummary("Number of attendee events to process", len(self.attended), self.total)
-        self.addToSummary("Number of skipped events", skipped, self.total)
+        self.logResult("Number of organizer events to process", len(self.organized), self.total)
+        self.logResult("Number of attendee events to process", len(self.attended), self.total)
+        self.logResult("Number of skipped events", skipped, self.total)
+        self.logResult("Number of inbox events", inboxes)
         self.addSummaryBreak()
 
         self.totalErrors = 0
@@ -1338,17 +1363,13 @@ class SchedulingMismatchService(CalVerifyService):
         # Need to add fix summary information
         if self.fix:
             self.addSummaryBreak()
-            self.results["Fixed missing attendee events"] = self.fixAttendeesForOrganizerMissing
-            self.results["Fixed mismatched attendee events"] = self.fixAttendeesForOrganizerMismatch
-            self.results["Fixed missing organizer events"] = self.fixOrganizersForAttendeeMissing
-            self.results["Fixed mismatched organizer events"] = self.fixOrganizersForAttendeeMismatch
-            self.results["Fix failures"] = self.fixFailed
-            self.results["Fixed Auto-Accepts"] = self.fixedAutoAccepts
-            self.addToSummary("Fixed missing attendee events", self.fixAttendeesForOrganizerMissing)
-            self.addToSummary("Fixed mismatched attendee events", self.fixAttendeesForOrganizerMismatch)
-            self.addToSummary("Fixed missing organizer events", self.fixOrganizersForAttendeeMissing)
-            self.addToSummary("Fixed mismatched organizer events", self.fixOrganizersForAttendeeMismatch)
-            self.addToSummary("Fix failures", self.fixFailed)
+            self.logResult("Fixed missing attendee events", self.fixAttendeesForOrganizerMissing)
+            self.logResult("Fixed mismatched attendee events", self.fixAttendeesForOrganizerMismatch)
+            self.logResult("Fixed missing organizer events", self.fixOrganizersForAttendeeMissing)
+            self.logResult("Fixed mismatched organizer events", self.fixOrganizersForAttendeeMismatch)
+            self.logResult("Fix failures", self.fixFailed)
+            self.logResult("Fixed Auto-Accepts", len(self.fixedAutoAccepts))
+            self.results["Auto-Accepts"] = self.fixedAutoAccepts
 
             self.printAutoAccepts()
 
@@ -1437,7 +1458,6 @@ class SchedulingMismatchService(CalVerifyService):
         # Test organized events
         t = time.time()
         for ctr, organizerEvent in enumerate(self.organized):
-
             if self.options["verbose"] and divmod(ctr, organizer_div)[1] == 0:
                 self.output.write(("\r%d of %d (%d%%) Missing: %d  Mismatched: %s" % (
                     ctr + 1,
@@ -1571,9 +1591,8 @@ class SchedulingMismatchService(CalVerifyService):
             ))
 
         self.output.write("\n")
-        self.output.write("Events missing from Attendee's calendars (total=%d):\n" % (len(results_missing),))
+        self.logResult("Events missing from Attendee's calendars", len(results_missing), self.total)
         table.printTable(os=self.output)
-        self.addToSummary("Events missing from Attendee's calendars", len(results_missing), self.total)
         self.totalErrors += len(results_missing)
 
         # Print table of results
@@ -1597,9 +1616,8 @@ class SchedulingMismatchService(CalVerifyService):
             ))
 
         self.output.write("\n")
-        self.output.write("Events mismatched between Organizer's and Attendee's calendars (total=%d):\n" % (len(results_mismatch),))
+        self.logResult("Events mismatched between Organizer's and Attendee's calendars", len(results_mismatch), self.total)
         table.printTable(os=self.output)
-        self.addToSummary("Events mismatched between Organizer's and Attendee's calendars", len(results_mismatch), self.total)
         self.totalErrors += len(results_mismatch)
 
 
@@ -1748,9 +1766,8 @@ class SchedulingMismatchService(CalVerifyService):
             ))
 
         self.output.write("\n")
-        self.output.write("Attendee events mismatched in Organizer's calendar (total=%d):\n" % (len(mismatched),))
+        self.logResult("Attendee events mismatched in Organizer's calendar", len(mismatched), self.total)
         table.printTable(os=self.output)
-        self.addToSummary("Attendee events mismatched in Organizer's calendar", len(mismatched), self.total)
         self.totalErrors += len(mismatched)
 
 
@@ -1986,6 +2003,298 @@ class SchedulingMismatchService(CalVerifyService):
 
 
 
+class DoubleBookingService(CalVerifyService):
+    """
+    Service which detects double-booked events.
+    """
+
+    def title(self):
+        return "Double Booking Service"
+
+
+    @inlineCallbacks
+    def doAction(self):
+
+        if self.options["fix"]:
+            self.output.write("\nFixing is not supported.\n")
+            returnValue(None)
+
+        self.output.write("\n---- Scanning calendar data ----\n")
+
+        self.now = PyCalendarDateTime.getNowUTC()
+        self.start = PyCalendarDateTime.getToday()
+        self.start.setDateOnly(False)
+        self.end = self.start.duplicate()
+        self.end.offsetYear(1)
+        self.fix = self.options["fix"]
+
+        self.tzid = PyCalendarTimezone(tzid=self.options["tzid"] if self.options["tzid"] else "America/Los_Angeles")
+
+        if self.options["verbose"] and self.options["summary"]:
+            ot = time.time()
+
+        # Check loop over uuid
+        UUIDDetails = collections.namedtuple("UUIDDetails", ("uuid", "rname", "auto", "doubled",))
+        self.uuid_details = []
+        if len(self.options["uuid"]) != 36:
+            self.txn = self.store.newTransaction()
+            if self.options["uuid"]:
+                homes = yield self.getMatchingHomeUIDs(self.options["uuid"])
+            else:
+                homes = yield self.getAllHomeUIDs()
+            yield self.txn.commit()
+            self.txn = None
+            uuids = []
+            for uuid in sorted(homes):
+                record = self.directoryService().recordWithGUID(uuid)
+                if record is not None and record.recordType in (DirectoryService.recordType_locations, DirectoryService.recordType_resources):
+                    uuids.append(uuid)
+        else:
+            uuids = [self.options["uuid"], ]
+
+        count = 0
+        for uuid in uuids:
+            self.results = {}
+            self.summary = []
+            self.total = 0
+            count += 1
+
+            record = self.directoryService().recordWithGUID(uuid)
+            if record is None:
+                continue
+            if not record.thisServer() or not record.enabledForCalendaring:
+                continue
+
+            rname = record.shortNames[0]
+            auto = record.autoSchedule
+
+            if len(uuids) > 1 and not self.options["summary"]:
+                self.output.write("\n\n-----------------------------\n")
+
+            self.txn = self.store.newTransaction()
+
+            if self.options["verbose"]:
+                t = time.time()
+            rows = yield self.getTimeRangeInfoWithUUID(uuid, self.start)
+            descriptor = "getTimeRangeInfoWithUUID"
+
+            yield self.txn.commit()
+            self.txn = None
+
+            if self.options["verbose"]:
+                if not self.options["summary"]:
+                    self.output.write("%s time: %.1fs\n" % (descriptor, time.time() - t,))
+                else:
+                    self.output.write("%s (%d/%d)" % (uuid, count, len(uuids),))
+                    self.output.flush()
+
+            self.total = len(rows)
+            if not self.options["summary"]:
+                self.logResult("UUID to process", uuid)
+                self.logResult("Record name", rname)
+                self.logResult("Auto-schedule", "True" if auto else "False")
+                self.addSummaryBreak()
+                self.logResult("Number of events to process", self.total)
+
+            if rows:
+                if not self.options["summary"]:
+                    self.addSummaryBreak()
+                doubled = yield self.doubleBookCheck(rows, uuid, self.start)
+            else:
+                doubled = False
+
+            self.uuid_details.append(UUIDDetails(uuid, rname, auto, doubled))
+
+            if not self.options["summary"]:
+                self.printSummary()
+            else:
+                self.output.write(" - %s\n" % ("Double-booked" if doubled else "OK",))
+                self.output.flush()
+
+        if self.options["summary"]:
+            table = tables.Table()
+            table.addHeader(("GUID", "Name", "Auto-Schedule", "Double-Booked",))
+            doubled = 0
+            for item in sorted(self.uuid_details):
+                table.addRow((
+                    item.uuid,
+                    item.rname,
+                    item.auto,
+                    item.doubled,
+                ))
+                if item.doubled:
+                    doubled += 1
+            table.addFooter(("Total", "", "", "%d of %d" % (doubled, len(self.uuid_details),),))
+            self.output.write("\n")
+            table.printTable(os=self.output)
+
+            if self.options["verbose"]:
+                self.output.write("%s time: %.1fs\n" % ("Summary", time.time() - ot,))
+
+
+    @inlineCallbacks
+    def getTimeRangeInfoWithUUID(self, uuid, start):
+        co = schema.CALENDAR_OBJECT
+        cb = schema.CALENDAR_BIND
+        ch = schema.CALENDAR_HOME
+        tr = schema.TIME_RANGE
+        kwds = {
+            "uuid": uuid,
+            "Start" : pyCalendarTodatetime(start),
+        }
+        rows = (yield Select(
+            [co.RESOURCE_ID, ],
+            From=ch.join(
+                cb, type="inner", on=(ch.RESOURCE_ID == cb.CALENDAR_HOME_RESOURCE_ID)).join(
+                co, type="inner", on=(cb.CALENDAR_RESOURCE_ID == co.CALENDAR_RESOURCE_ID).And(
+                    cb.BIND_MODE == _BIND_MODE_OWN).And(
+                    cb.CALENDAR_RESOURCE_NAME != "inbox").And(
+                    co.ORGANIZER != "")).join(
+                tr, type="left", on=(co.RESOURCE_ID == tr.CALENDAR_OBJECT_RESOURCE_ID)),
+            Where=(ch.OWNER_UID == Parameter("uuid")).And((tr.START_DATE >= Parameter("Start")).Or(co.RECURRANCE_MAX <= Parameter("Start"))),
+            Distinct=True,
+        ).on(self.txn, **kwds))
+        returnValue(tuple(rows))
+
+
+    @inlineCallbacks
+    def doubleBookCheck(self, rows, uuid, start):
+        """
+        Check each calendar resource by expanding instances within the next year, and looking for
+        any that overlap with status not CANCELLED and PARTSTAT ACCEPTED.
+        """
+
+        if not self.options["summary"]:
+            self.output.write("\n---- Checking instances for double-booking ----\n")
+        self.txn = self.store.newTransaction()
+
+        if self.options["verbose"]:
+            t = time.time()
+
+        InstanceDetails = collections.namedtuple("InstanceDetails", ("resid", "uid", "start", "end",))
+
+        end = start.duplicate()
+        end.offsetDay(int(self.options["days"]))
+        count = 0
+        total = len(rows)
+        total_instances = 0
+        booked_instances = 0
+        details = []
+        rjust = 10
+        for resid in rows:
+            resid = resid[0]
+            caldata = yield self.getCalendar(resid, self.fix)
+            if caldata is None:
+                if self.parseError:
+                    returnValue((False, self.parseError))
+                else:
+                    returnValue((True, "Nothing to scan"))
+
+            cal = Component(None, pycalendar=caldata)
+            cal = PerUserDataFilter(uuid).filter(cal)
+            uid = cal.resourceUID()
+            instances = cal.expandTimeRanges(end, start, ignoreInvalidInstances=True)
+            count += 1
+
+            for instance in instances.instances.values():
+                total_instances += 1
+
+                # See if it is CANCELLED or TRANSPARENT
+                if instance.component.propertyValue("STATUS") == "CANCELLED":
+                    continue
+                if instance.component.propertyValue("TRANSP") == "TRANSPARENT":
+                    continue
+
+                details.append(InstanceDetails(resid, uid, instance.start, instance.end,))
+                booked_instances += 1
+
+            if self.options["verbose"] and not self.options["summary"]:
+                if count == 1:
+                    self.output.write("Instances".rjust(rjust) + "Current".rjust(rjust) + "Total".rjust(rjust) + "Complete".rjust(rjust) + "\n")
+                if divmod(count, 100)[1] == 0:
+                    self.output.write((
+                        "\r" +
+                        ("%s" % total_instances).rjust(rjust) +
+                        ("%s" % count).rjust(rjust) +
+                        ("%s" % total).rjust(rjust) +
+                        ("%d%%" % safePercent(count, total)).rjust(rjust)
+                    ).ljust(80))
+                    self.output.flush()
+
+            # To avoid holding locks on all the rows scanned, commit every 100 resources
+            if divmod(count, 100)[1] == 0:
+                yield self.txn.commit()
+                self.txn = self.store.newTransaction()
+
+        yield self.txn.commit()
+        self.txn = None
+        if self.options["verbose"] and not self.options["summary"]:
+            self.output.write((
+                "\r" +
+                ("%s" % total_instances).rjust(rjust) +
+                ("%s" % count).rjust(rjust) +
+                ("%s" % total).rjust(rjust) +
+                ("%d%%" % safePercent(count, total)).rjust(rjust)
+            ).ljust(80) + "\n")
+
+        if not self.options["summary"]:
+            self.logResult("Number of instances in time-range", total_instances)
+            self.logResult("Number of booked instances", booked_instances)
+
+        # Now look for double-bookings
+        DoubleBookedDetails = collections.namedtuple("DoubleBookedDetails", ("resid1", "uid1", "resid2", "uid2", "start",))
+        double_booked = []
+        details.sort(key=lambda x: x.start)
+        current = details[0] if details else None
+        for next in details[1:]:
+            if current.end > next.start:
+                dt = next.start.duplicate()
+                dt.adjustTimezone(self.tzid)
+                double_booked.append(DoubleBookedDetails(current.resid, current.uid, next.resid, next.uid, dt,))
+            current = next
+
+        # Print table of results
+        if double_booked and not self.options["summary"]:
+            table = tables.Table()
+            table.addHeader(("RID #1", "UID #1", "RID #2", "UID #2", "Start",))
+            previous1 = None
+            previous2 = None
+            unique_events = 0
+            for item in sorted(double_booked):
+                if previous1 != item.resid1:
+                    unique_events += 1
+                resid1 = item.resid1 if previous1 != item.resid1 else "."
+                uid1 = item.uid1 if previous1 != item.resid1 else "."
+                resid2 = item.resid2 if previous2 != item.resid2 else "."
+                uid2 = item.uid2 if previous2 != item.resid2 else "."
+                table.addRow((
+                    resid1,
+                    uid1,
+                    resid2,
+                    uid2,
+                    item.start,
+                ))
+                previous1 = item.resid1
+                previous2 = item.resid2
+
+            self.output.write("\n")
+            self.logResult("Number of double-bookings", len(double_booked))
+            self.logResult("Number of unique double-bookings", unique_events)
+            table.printTable(os=self.output)
+
+        self.results["Double-bookings"] = double_booked
+
+        if self.options["verbose"] and not self.options["summary"]:
+            diff_time = time.time() - t
+            self.output.write("Time: %.2f s  Average: %.1f ms/resource\n" % (
+                diff_time,
+                safePercent(diff_time, total, 1000.0),
+            ))
+
+        returnValue(len(double_booked) != 0)
+
+
+
 def main(argv=sys.argv, stderr=sys.stderr, reactor=None):
 
     if reactor is None:
@@ -2014,6 +2323,8 @@ def main(argv=sys.argv, stderr=sys.stderr, reactor=None):
             return BadDataService(store, options, output, reactor, config)
         elif options["mismatch"]:
             return SchedulingMismatchService(store, options, output, reactor, config)
+        elif options["double"]:
+            return DoubleBookingService(store, options, output, reactor, config)
 
     utilityMain(options['config'], makeService, reactor)
 
