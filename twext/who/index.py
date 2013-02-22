@@ -188,7 +188,7 @@ class DirectoryService(BaseDirectoryService):
                 if match(normalize(fieldValue)):
                     result.add(record)
 
-        return result
+        return succeed(result)
 
 
     def recordsFromExpression(self, expression, records=None):
