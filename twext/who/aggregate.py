@@ -86,6 +86,6 @@ class DirectoryService(BaseDirectoryService):
             return f.value.subFailure
 
         d = gatherResults(ds, consumeErrors=True)
-        d.addCallback(chain)
+        d.addCallback(lambda results: chain(*results))
         d.addErrback(unwrapFirstError)
         return d
