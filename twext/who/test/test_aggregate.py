@@ -58,8 +58,3 @@ class DirectoryServiceTest(BaseTest, test_xml.DirectoryServiceBaseTest):
     def test_repr(self):
         service = self.service()
         self.assertEquals(repr(service), "<TestService 'xyzzy'>")
-
-
-
-class DirectoryServiceRealmTest(BaseTest, test_xml.DirectoryServiceRealmTest):
-    pass
