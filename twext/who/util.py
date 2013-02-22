@@ -26,6 +26,8 @@ __all__ = [
     "iterFlags",
 ]
 
+from twisted.python.constants import FlagConstant
+
 from twext.who.idirectory import DirectoryServiceError
 
 
@@ -70,7 +72,13 @@ def uniqueResult(values):
 
 
 def describe(constant):
-    return getattr(constant, "description", constant.name)
+    if isinstance(constant, FlagConstant):
+        parts = []
+        for flag in iterFlags(constant):
+            parts.append(getattr(flag, "description", flag.name))
+        return "|".join(parts)
+    else:
+        return getattr(constant, "description", constant.name)
 
 
 def iterFlags(flags):

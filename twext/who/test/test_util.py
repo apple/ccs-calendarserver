@@ -20,6 +20,7 @@ Directory service utility tests.
 
 from twisted.trial import unittest
 from twisted.python.constants import Names, NamedConstant
+from twisted.python.constants import Flags, FlagConstant
 
 from twext.who.idirectory import DirectoryServiceError
 from twext.who.util import ConstantsContainer
@@ -35,9 +36,23 @@ class Tools(Names):
     screwdriver.description = "screw twister"
 
 
+
 class Instruments(Names):
     hammer = NamedConstant()
     chisel = NamedConstant()
+
+
+
+class Switches(Flags):
+    r = FlagConstant()
+    g = FlagConstant()
+    b = FlagConstant()
+
+    r.description = "red"
+    g.description = "green"
+    b.description = "blue"
+
+    black = FlagConstant()
 
 
 
@@ -98,3 +113,8 @@ class UtilTest(unittest.TestCase):
     def test_describe(self):
         self.assertEquals("nail pounder", describe(Tools.hammer))
         self.assertEquals("hammer", describe(Instruments.hammer))
+
+    def test_describeFlags(self):
+        self.assertEquals("blue", describe(Switches.b))
+        self.assertEquals("red|green", describe(Switches.r|Switches.g))
+        self.assertEquals("blue|black", describe(Switches.b|Switches.black))
