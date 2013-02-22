@@ -351,6 +351,27 @@ class DirectoryServiceParsingTest(BaseTest):
         self.assertEquals(set(service.unknownFieldElements), set(("political-affiliation",)))
 
 
+    def test_unknownRecordTypesClean(self):
+        service = self.service()
+        self.assertEquals(set(service.unknownRecordTypes), set())
+
+
+    def test_unknownRecordTypesDirty(self):
+        service = self.service(xmlData=
+"""<?xml version="1.0" encoding="utf-8"?>
+
+<directory realm="Unknown Record Types">
+  <record type="camera">
+    <uid>__d600__</uid>
+    <short-name>d600</short-name>
+    <full-name>Nikon D600</full-name>
+  </record>
+</directory>
+"""
+        )
+        self.assertEquals(set(service.unknownRecordTypes), set(("camera",)))
+
+
 
 class DirectoryServiceQueryTest(BaseTest):
     @inlineCallbacks
@@ -656,27 +677,6 @@ class DirectoryServiceQueryTest(BaseTest):
             ),
         ))
         self.assertRecords(records, ("__wsanchez__",))
-
-
-    def test_unknownRecordTypesClean(self):
-        service = self.service()
-        self.assertEquals(set(service.unknownRecordTypes), set())
-
-
-    def test_unknownRecordTypesDirty(self):
-        service = self.service(xmlData=
-"""<?xml version="1.0" encoding="utf-8"?>
-
-<directory realm="Unknown Record Types">
-  <record type="camera">
-    <uid>__d600__</uid>
-    <short-name>d600</short-name>
-    <full-name>Nikon D600</full-name>
-  </record>
-</directory>
-"""
-        )
-        self.assertEquals(set(service.unknownRecordTypes), set(("camera",)))
 
 
 
