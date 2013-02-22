@@ -38,10 +38,10 @@ class BaseTest(object):
         # implementation assumptions about the IDirectoryService
         # objects it gets.
         #
-#        services = tuple((
-#            proxyForInterface(IDirectoryService)(s)
-#            for s in services
-#        ))
+        services = tuple((
+            proxyForInterface(IDirectoryService)(s)
+            for s in services
+        ))
 
         return DirectoryService("xyzzy", services)
 
