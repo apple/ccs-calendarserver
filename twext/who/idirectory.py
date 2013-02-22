@@ -164,12 +164,22 @@ class IDirectoryService(Interface):
             types that are kept in this directory.
         """
 
+    def recordsFromExpression(self, expression):
+        """
+        Find records matching an expression.
+        @param expression: an expression to apply
+        @type expression: L{object}
+        @return: a deferred iterable of matching L{IDirectoryRecord}s.
+        @raises: L{QueryNotSupportedError} if the expression is not
+            supported by this directory service.
+        """
+
     def recordsFromQuery(expressions, operand=Operand.AND):
         """
-        Find records matching a query consisting of an iterable of
+        Find records by composing a query consisting of an iterable of
         expressions and an operand.
-        @param expressions: an iterable of expressions
-        @type expressions: L{object}
+        @param expressions: expressions to query against
+        @type expressions: iterable of L{object}s
         @param operand: an operand
         @type operand: a L{NamedConstant}
         @return: a deferred iterable of matching L{IDirectoryRecord}s.
