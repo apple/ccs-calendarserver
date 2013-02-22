@@ -117,16 +117,20 @@ class DirectoryService(object):
     def recordsWithFieldValue(self, fieldName, value):
         return self.recordsFromExpression(MatchExpression(fieldName, value))
 
+
     @inlineCallbacks
     def recordWithUID(self, uid):
         returnValue(uniqueResult((yield self.recordsWithFieldValue(FieldName.uid, uid))))
                
+
     @inlineCallbacks
     def recordWithGUID(self, guid):
         returnValue(uniqueResult((yield self.recordsWithFieldValue(FieldName.guid, guid))))
 
+
     def recordsWithRecordType(self, recordType):
         return self.recordsWithFieldValue(FieldName.recordType, recordType)
+
 
     @inlineCallbacks
     def recordWithShortName(self, recordType, shortName):
@@ -135,16 +139,19 @@ class DirectoryService(object):
             MatchExpression(FieldName.shortNames, shortName ),
         )))))
 
+
     def recordsWithEmailAddress(self, emailAddress):
         return self.recordsWithFieldValue(FieldName.emailAddresses, emailAddress)
 
+
     def updateRecords(self, records, create=False):
         for record in records:
-            raise NotAllowedError("Record updates not allowed.")
+            return fail(NotAllowedError("Record updates not allowed."))
+
 
     def removeRecords(self, uids):
         for uid in uids:
-            raise NotAllowedError("Record removal not allowed.")
+            return fail(NotAllowedError("Record removal not allowed."))
 
 
 
