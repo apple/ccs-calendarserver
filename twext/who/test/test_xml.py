@@ -388,6 +388,22 @@ class DirectoryServiceQueryTest(BaseTest):
 
 
     @inlineCallbacks
+    def test_queryAndNoneFirst(self):
+        """
+        Test optimized case, where first expression yields no results.
+        """
+        service = self.service()
+        records = yield service.recordsFromQuery(
+            (
+                service.query("emailAddresses", "nobody@example.com"),
+                service.query("shortNames", "sagen"),
+            ),
+            operand=Operand.AND
+        )
+        self.assertRecords(records, ())
+
+
+    @inlineCallbacks
     def test_queryOr(self):
         service = self.service()
         records = yield service.recordsFromQuery(
