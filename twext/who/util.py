@@ -1,3 +1,4 @@
+# -*- test-case-name: twext.who.test.test_util -*-
 ##
 # Copyright (c) 2013 Apple Inc. All rights reserved.
 #
