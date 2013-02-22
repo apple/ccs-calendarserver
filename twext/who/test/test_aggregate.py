@@ -54,7 +54,7 @@ class BaseTest(object):
 
 
 
-class DirectoryServiceTest(BaseTest, test_xml.DirectoryServiceBaseTest):
+class DirectoryServiceBaseTest(BaseTest, test_xml.DirectoryServiceBaseTest):
     def test_repr(self):
         service = self.service()
         self.assertEquals(repr(service), "<TestService 'xyzzy'>")
