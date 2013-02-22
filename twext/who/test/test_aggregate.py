@@ -18,21 +18,38 @@
 Aggregate directory service tests
 """
 
+from twisted.python.components import proxyForInterface
+
+from twext.who.idirectory import IDirectoryService
 from twext.who.aggregate import DirectoryService
 
-#from twext.who.test import test_directory
+from twext.who.test import test_directory
 from twext.who.test.test_xml import xmlService
 
 
 
 class BaseTest(object):
-    def service(self, subservices=()):
-        return DirectoryService("xyzzy", subservices)
+    def service(self, services=None):
+        if services is None:
+            services = (self.xmlService(),)
+
+        #
+        # Make sure aggregate DirectoryService isn't making
+        # implementation assumptions about the IDirectoryService
+        # objects it gets.
+        #
+#        services = tuple((
+#            proxyForInterface(IDirectoryService)(s)
+#            for s in services
+#        ))
+
+        return DirectoryService("xyzzy", services)
+
 
     def xmlService(self, xmlData=None):
         return xmlService(self.mktemp(), xmlData)
 
 
 
-#class DirectoryServiceTest(BaseTest, test_directory.DirectoryServiceTest):
-#    pass
+class DirectoryServiceTest(BaseTest, test_directory.DirectoryServiceTest):
+    pass

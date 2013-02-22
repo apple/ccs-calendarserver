@@ -26,13 +26,14 @@ __all__ = [
 
 from itertools import chain
 
-from twisted.internet.defer import inlineCallbacks, returnValue
-from twisted.internet.defer import gatherResults
+#from twisted.internet.defer import inlineCallbacks, returnValue
+from twisted.internet.defer import gatherResults, FirstError
 
 from twext.who.idirectory import DirectoryConfigurationError
 from twext.who.idirectory import IDirectoryService
 from twext.who.index import DirectoryService as BaseDirectoryService
 from twext.who.index import DirectoryRecord
+from twext.who.util import ConstantsContainer
 
 
 class DirectoryService(BaseDirectoryService):
@@ -44,7 +45,7 @@ class DirectoryService(BaseDirectoryService):
         recordTypes = set()
 
         for service in services:
-            if not IDirectoryService.implementedBy(service):
+            if not IDirectoryService.implementedBy(service.__class__):
                 raise ValueError("Not a directory service: %s" % (service,))
 
             for recordType in service.recordTypes():
@@ -64,17 +65,14 @@ class DirectoryService(BaseDirectoryService):
         return self._services
 
 
-    @inlineCallbacks
-    def recordTypes(self):
-        if not hasattr(self, "_recordTypes"):
-            recordTypes = set()
-            for service in self._services:
-                for recordType in (yield service.recordTypes()):
-                    recordTypes.add(recordType)
-
-            self._recordTypes = recordTypes
-
-        returnValue(self._recordTypes)
+    @property
+    def recordType(self):
+        if not hasattr(self, "_recordType"):
+            self._recordType = ConstantsContainer(chain(*tuple(
+                s.recordTypes()
+                for s in self.services
+            )))
+        return self._recordType
 
 
     def recordsFromExpression(self, expression, records=None):
@@ -83,4 +81,11 @@ class DirectoryService(BaseDirectoryService):
             d = service.recordsFromExpression(expression, records)
             ds.append(d)
 
-        return gatherResults(ds).addCallback(chain)
+        def unwrapFirstError(f):
+            f.trap(FirstError)
+            return f.value.subFailure
+
+        d = gatherResults(ds, consumeErrors=True)
+        d.addCallback(chain)
+        d.addErrback(unwrapFirstError)
+        return d
