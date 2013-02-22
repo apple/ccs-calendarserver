@@ -1653,7 +1653,7 @@ class CommonHome(LoggingMixIn):
         @param name: a string.
         @return: an L{ICalendar} or C{None} if no such child exists.
         """
-        return self._childClass.objectWithName(self, shareUID, accepted=True)
+        return self.childWithName(shareUID)
 
 
     def invitedObjectWithShareUID(self, shareUID):
@@ -3117,7 +3117,10 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic, HomeChildBas
             home._txn, resourceID=resourceID, homeID=home._resourceID)
         if rows:
             bindMode, homeID, resourceID, resourceName, bindStatus, bindMessage = rows[0] #@UnusedVariable
-            returnValue((yield cls.objectWithName(home, resourceName, accepted=(bindStatus == _BIND_STATUS_ACCEPTED))))
+            if bindStatus == _BIND_STATUS_ACCEPTED:
+                returnValue((yield home.childWithName(resourceName)))
+            else:
+                returnValue((yield cls.objectWithName(home, resourceName, accepted=False)))
 
         returnValue(None)
 

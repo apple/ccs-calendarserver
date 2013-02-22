@@ -642,7 +642,10 @@ END:VCARD
                 ownerHomeID = yield cls.ownerHomeID(home._txn, resourceID)
                 ownerHome = yield home._txn.homeWithResourceID(home._homeType, ownerHomeID)
                 ownerAddressBook = yield ownerHome.addressbook()
-                returnValue((yield cls.objectWithName(home, ownerAddressBook.shareeABName(), accepted=accepted)))
+                if accepted:
+                    returnValue((yield home.childWithName(ownerAddressBook.shareeABName())))
+                else:
+                    returnValue((yield cls.objectWithName(home, ownerAddressBook.shareeABName(), accepted=False)))
 
         groupBindRows = yield AddressBookObject._bindForNameAndHomeID.on(
             home._txn, name=name, homeID=home._resourceID
@@ -656,10 +659,11 @@ END:VCARD
                 ownerHomeID = yield cls.ownerHomeID(home._txn, ownerAddressBookID)
                 ownerHome = yield home._txn.homeWithResourceID(home._homeType, ownerHomeID)
                 ownerAddressBook = yield ownerHome.addressbook()
-                addressbook = yield cls.objectWithName(home, ownerAddressBook.shareeABName(), accepted=accepted)
                 if accepted:
+                    addressbook = yield home.childWithName(ownerAddressBook.shareeABName())
                     returnValue((yield addressbook.objectResourceWithID(resourceID)))
                 else:
+                    addressbook = yield cls.objectWithName(home, ownerAddressBook.shareeABName(), accepted=False)
                     returnValue((yield AddressBookObject.objectWithID(addressbook, resourceID))) # avoids object cache
 
         returnValue(None)
@@ -685,7 +689,10 @@ END:VCARD
             ownerHomeID = yield cls.ownerHomeID(home._txn, resourceID)
             ownerHome = yield home._txn.homeWithResourceID(home._homeType, ownerHomeID)
             ownerAddressBook = yield ownerHome.addressbook()
-            returnValue((yield cls.objectWithName(home, ownerAddressBook.shareeABName(), accepted=(bindStatus == _BIND_STATUS_ACCEPTED))))
+            if bindStatus == _BIND_STATUS_ACCEPTED:
+                returnValue((yield home.childWithName(ownerAddressBook.shareeABName())))
+            else:
+                returnValue((yield cls.objectWithName(home, ownerAddressBook.shareeABName(), accepted=False)))
 
         groupBindRows = yield AddressBookObject._bindWithHomeIDAndAddressBookID.on(
                     home._txn, homeID=home._resourceID, addressbookID=resourceID
@@ -696,7 +703,10 @@ END:VCARD
             ownerHomeID = yield cls.ownerHomeID(home._txn, ownerAddressBookID)
             ownerHome = yield home._txn.homeWithResourceID(home._homeType, ownerHomeID)
             ownerAddressBook = yield ownerHome.addressbook()
-            returnValue((yield cls.objectWithName(home, ownerAddressBook.shareeABName(), accepted=(bindStatus == _BIND_STATUS_ACCEPTED))))
+            if bindStatus == _BIND_STATUS_ACCEPTED:
+                returnValue((yield home.childWithName(ownerAddressBook.shareeABName())))
+            else:
+                returnValue((yield cls.objectWithName(home, ownerAddressBook.shareeABName(), accepted=False)))
 
         returnValue(None)
 
