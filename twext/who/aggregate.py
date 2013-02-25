@@ -26,7 +26,6 @@ __all__ = [
 
 from itertools import chain
 
-#from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.internet.defer import gatherResults, FirstError
 
 from twext.who.idirectory import DirectoryConfigurationError
@@ -54,6 +53,7 @@ class DirectoryService(BaseDirectoryService):
                         "Aggregated services may not vend the same record type: %s"
                         % (recordType,)
                     )
+                recordTypes.add(recordType)
 
         BaseDirectoryService.__init__(self, realmName)
 
