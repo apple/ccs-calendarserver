@@ -1884,7 +1884,7 @@ BEGIN:VEVENT
 CREATED:20100303T181216Z
 UID:INVITE_NO_OVERLAP_ICS
 TRANSP:OPAQUE
-SUMMARY:Ancient event
+SUMMARY:INVITE_NO_OVERLAP_ICS
 DTSTART:%(year)s0307T100000Z
 DURATION:PT1H
 DTSTAMP:20100303T181220Z
@@ -1905,7 +1905,7 @@ BEGIN:VEVENT
 CREATED:20100303T181216Z
 UID:INVITE_NO_OVERLAP1_1_ICS
 TRANSP:OPAQUE
-SUMMARY:Ancient event
+SUMMARY:INVITE_NO_OVERLAP1_1_ICS
 DTSTART:%(year)s0307T110000Z
 DURATION:PT2H
 DTSTAMP:20100303T181220Z
@@ -1925,7 +1925,7 @@ BEGIN:VEVENT
 CREATED:20100303T181216Z
 UID:INVITE_NO_OVERLAP1_2_ICS
 TRANSP:OPAQUE
-SUMMARY:Ancient event
+SUMMARY:INVITE_NO_OVERLAP1_2_ICS
 DTSTART:%(year)s0307T120000Z
 DURATION:PT1H
 DTSTAMP:20100303T181220Z
@@ -1946,7 +1946,7 @@ BEGIN:VEVENT
 CREATED:20100303T181216Z
 UID:INVITE_NO_OVERLAP2_1_ICS
 TRANSP:OPAQUE
-SUMMARY:Ancient event
+SUMMARY:INVITE_NO_OVERLAP2_1_ICS
 DTSTART:%(year)s0307T140000Z
 DURATION:PT2H
 DTSTAMP:20100303T181220Z
@@ -1965,7 +1965,7 @@ CALSCALE:GREGORIAN
 BEGIN:VEVENT
 CREATED:20100303T181216Z
 UID:INVITE_NO_OVERLAP2_2_ICS
-SUMMARY:Ancient event
+SUMMARY:INVITE_NO_OVERLAP2_2_ICS
 DTSTART:%(year)s0307T150000Z
 DURATION:PT1H
 DTSTAMP:20100303T181220Z
@@ -2006,7 +2006,7 @@ CALSCALE:GREGORIAN
 BEGIN:VEVENT
 CREATED:20100303T181216Z
 UID:INVITE_NO_OVERLAP3_2_ICS
-SUMMARY:Ancient event
+SUMMARY:INVITE_NO_OVERLAP3_2_ICS
 DTSTART:%(year)s0307T180000Z
 DURATION:PT1H
 DTSTAMP:20100303T181220Z
@@ -2028,7 +2028,7 @@ BEGIN:VEVENT
 CREATED:20100303T181216Z
 UID:INVITE_NO_OVERLAP4_1_ICS
 TRANSP:OPAQUE
-SUMMARY:Ancient event
+SUMMARY:INVITE_NO_OVERLAP4_1_ICS
 DTSTART:%(year)s0308T120000Z
 DURATION:PT2H
 DTSTAMP:20100303T181220Z
@@ -2048,7 +2048,7 @@ CALSCALE:GREGORIAN
 BEGIN:VEVENT
 CREATED:20100303T181216Z
 UID:INVITE_NO_OVERLAP4_2_ICS
-SUMMARY:Ancient event
+SUMMARY:INVITE_NO_OVERLAP4_2_ICS
 DTSTART:%(year)s0309T120000Z
 DURATION:PT1H
 DTSTAMP:20100303T181220Z
@@ -2070,7 +2070,7 @@ BEGIN:VEVENT
 CREATED:20100303T181216Z
 UID:INVITE_NO_OVERLAP5_1_ICS
 TRANSP:OPAQUE
-SUMMARY:Ancient event
+SUMMARY:INVITE_NO_OVERLAP5_1_ICS
 DTSTART:%(year)s0312T120000Z
 DURATION:PT2H
 DTSTAMP:20100303T181220Z
@@ -2090,7 +2090,7 @@ CALSCALE:GREGORIAN
 BEGIN:VEVENT
 CREATED:20100303T181216Z
 UID:INVITE_NO_OVERLAP5_2_ICS
-SUMMARY:Ancient event
+SUMMARY:INVITE_NO_OVERLAP5_2_ICS
 DTSTART:%(year)s0313T140000Z
 DURATION:PT1H
 DTSTAMP:20100303T181220Z
@@ -2103,7 +2103,7 @@ END:VEVENT
 BEGIN:VEVENT
 CREATED:20100303T181216Z
 UID:INVITE_NO_OVERLAP5_2_ICS
-SUMMARY:Ancient event
+SUMMARY:INVITE_NO_OVERLAP5_2_ICS
 RECURRENCE-ID:%(year)s0314T140000Z
 DTSTART:%(year)s0314T130000Z
 DURATION:PT1H
@@ -2116,22 +2116,126 @@ END:VEVENT
 END:VCALENDAR
 """.replace("\n", "\r\n") % {"year": now}
 
+    # Two not overlapping - one all-day
+    INVITE_NO_OVERLAP6_1_ICS = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Apple Inc.//iCal 4.0.1//EN
+CALSCALE:GREGORIAN
+BEGIN:VTIMEZONE
+TZID:America/Los_Angeles
+BEGIN:DAYLIGHT
+DTSTART:20070311T020000
+RRULE:FREQ=YEARLY;BYDAY=2SU;BYMONTH=3
+TZNAME:PDT
+TZOFFSETFROM:-0800
+TZOFFSETTO:-0700
+END:DAYLIGHT
+BEGIN:STANDARD
+DTSTART:20071104T020000
+RRULE:FREQ=YEARLY;BYDAY=1SU;BYMONTH=11
+TZNAME:PST
+TZOFFSETFROM:-0700
+TZOFFSETTO:-0800
+END:STANDARD
+END:VTIMEZONE
+BEGIN:VEVENT
+CREATED:20100303T181216Z
+UID:INVITE_NO_OVERLAP6_1_ICS
+TRANSP:OPAQUE
+SUMMARY:INVITE_NO_OVERLAP6_1_ICS
+DTSTART;TZID=America/Los_Angeles:%(year)s0320T200000
+DURATION:PT2H
+DTSTAMP:20100303T181220Z
+SEQUENCE:2
+ORGANIZER:urn:uuid:D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
+ATTENDEE:urn:uuid:D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
+ATTENDEE:urn:uuid:75EA36BE-F71B-40F9-81F9-CF59BF40CA8F
+END:VEVENT
+END:VCALENDAR
+""".replace("\n", "\r\n") % {"year": now}
+
+    INVITE_NO_OVERLAP6_2_ICS = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Apple Inc.//iCal 4.0.1//EN
+CALSCALE:GREGORIAN
+BEGIN:VEVENT
+CREATED:20100303T181216Z
+UID:INVITE_NO_OVERLAP6_2_ICS
+TRANSP:OPAQUE
+SUMMARY:INVITE_NO_OVERLAP6_2_ICS
+DTSTART;VALUE=DATE:%(year)s0321
+DTSTAMP:20100303T181220Z
+SEQUENCE:2
+ORGANIZER:urn:uuid:D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
+ATTENDEE:urn:uuid:D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
+ATTENDEE:urn:uuid:75EA36BE-F71B-40F9-81F9-CF59BF40CA8F
+END:VEVENT
+END:VCALENDAR
+""".replace("\n", "\r\n") % {"year": now}
+
+    # Two overlapping - same organizer and summary
+    INVITE_NO_OVERLAP7_1_ICS = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Apple Inc.//iCal 4.0.1//EN
+CALSCALE:GREGORIAN
+BEGIN:VEVENT
+CREATED:20100303T181216Z
+UID:INVITE_NO_OVERLAP7_1_ICS
+TRANSP:OPAQUE
+SUMMARY:INVITE_NO_OVERLAP7_1_ICS
+DTSTART:%(year)s0323T110000Z
+DURATION:PT2H
+DTSTAMP:20100303T181220Z
+SEQUENCE:2
+ORGANIZER:urn:uuid:D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
+ATTENDEE:urn:uuid:D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
+ATTENDEE:urn:uuid:75EA36BE-F71B-40F9-81F9-CF59BF40CA8F
+END:VEVENT
+END:VCALENDAR
+""".replace("\n", "\r\n") % {"year": now}
+
+    INVITE_NO_OVERLAP7_2_ICS = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Apple Inc.//iCal 4.0.1//EN
+CALSCALE:GREGORIAN
+BEGIN:VEVENT
+CREATED:20100303T181216Z
+UID:INVITE_NO_OVERLAP7_2_ICS
+TRANSP:OPAQUE
+SUMMARY:INVITE_NO_OVERLAP7_1_ICS
+DTSTART:%(year)s0323T120000Z
+DURATION:PT1H
+DTSTAMP:20100303T181220Z
+SEQUENCE:2
+ORGANIZER:urn:uuid:D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
+ATTENDEE:urn:uuid:D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
+ATTENDEE:urn:uuid:75EA36BE-F71B-40F9-81F9-CF59BF40CA8F
+END:VEVENT
+END:VCALENDAR
+""".replace("\n", "\r\n") % {"year": now}
+
+    allEvents = {
+        "invite1.ics"      : (INVITE_NO_OVERLAP_ICS, CalVerifyMismatchTestsBase.metadata,),
+        "invite2.ics"      : (INVITE_NO_OVERLAP1_1_ICS, CalVerifyMismatchTestsBase.metadata,),
+        "invite3.ics"      : (INVITE_NO_OVERLAP1_2_ICS, CalVerifyMismatchTestsBase.metadata,),
+        "invite4.ics"      : (INVITE_NO_OVERLAP2_1_ICS, CalVerifyMismatchTestsBase.metadata,),
+        "invite5.ics"      : (INVITE_NO_OVERLAP2_2_ICS, CalVerifyMismatchTestsBase.metadata,),
+        "invite6.ics"      : (INVITE_NO_OVERLAP3_1_ICS, CalVerifyMismatchTestsBase.metadata,),
+        "invite7.ics"      : (INVITE_NO_OVERLAP3_2_ICS, CalVerifyMismatchTestsBase.metadata,),
+        "invite8.ics"      : (INVITE_NO_OVERLAP4_1_ICS, CalVerifyMismatchTestsBase.metadata,),
+        "invite9.ics"      : (INVITE_NO_OVERLAP4_2_ICS, CalVerifyMismatchTestsBase.metadata,),
+        "invite10.ics"     : (INVITE_NO_OVERLAP5_1_ICS, CalVerifyMismatchTestsBase.metadata,),
+        "invite11.ics"     : (INVITE_NO_OVERLAP5_2_ICS, CalVerifyMismatchTestsBase.metadata,),
+        "invite12.ics"     : (INVITE_NO_OVERLAP6_1_ICS, CalVerifyMismatchTestsBase.metadata,),
+        "invite13.ics"     : (INVITE_NO_OVERLAP6_2_ICS, CalVerifyMismatchTestsBase.metadata,),
+        "invite14.ics"     : (INVITE_NO_OVERLAP7_1_ICS, CalVerifyMismatchTestsBase.metadata,),
+        "invite15.ics"     : (INVITE_NO_OVERLAP7_2_ICS, CalVerifyMismatchTestsBase.metadata,),
+    }
+
     requirements = {
         CalVerifyMismatchTestsBase.uuid1 : {
-            "calendar" : {
-                 "invite1.ics"      : (INVITE_NO_OVERLAP_ICS, CalVerifyMismatchTestsBase.metadata,),
-                 "invite2.ics"      : (INVITE_NO_OVERLAP1_1_ICS, CalVerifyMismatchTestsBase.metadata,),
-                 "invite3.ics"      : (INVITE_NO_OVERLAP1_2_ICS, CalVerifyMismatchTestsBase.metadata,),
-                 "invite4.ics"      : (INVITE_NO_OVERLAP2_1_ICS, CalVerifyMismatchTestsBase.metadata,),
-                 "invite5.ics"      : (INVITE_NO_OVERLAP2_2_ICS, CalVerifyMismatchTestsBase.metadata,),
-                 "invite6.ics"      : (INVITE_NO_OVERLAP3_1_ICS, CalVerifyMismatchTestsBase.metadata,),
-                 "invite7.ics"      : (INVITE_NO_OVERLAP3_2_ICS, CalVerifyMismatchTestsBase.metadata,),
-                 "invite8.ics"      : (INVITE_NO_OVERLAP4_1_ICS, CalVerifyMismatchTestsBase.metadata,),
-                 "invite9.ics"      : (INVITE_NO_OVERLAP4_2_ICS, CalVerifyMismatchTestsBase.metadata,),
-                 "invite10.ics"     : (INVITE_NO_OVERLAP5_1_ICS, CalVerifyMismatchTestsBase.metadata,),
-                 "invite11.ics"     : (INVITE_NO_OVERLAP5_2_ICS, CalVerifyMismatchTestsBase.metadata,),
-           },
-           "inbox" : {},
+            "calendar" : allEvents,
+            "inbox" : {},
         },
         CalVerifyMismatchTestsBase.uuid2 : {
             "calendar" : {},
@@ -2142,20 +2246,8 @@ END:VCALENDAR
             "inbox" : {},
         },
         CalVerifyMismatchTestsBase.uuidl1 : {
-            "calendar" : {
-                 "invite1.ics"      : (INVITE_NO_OVERLAP_ICS, CalVerifyMismatchTestsBase.metadata,),
-                 "invite2.ics"      : (INVITE_NO_OVERLAP1_1_ICS, CalVerifyMismatchTestsBase.metadata,),
-                 "invite3.ics"      : (INVITE_NO_OVERLAP1_2_ICS, CalVerifyMismatchTestsBase.metadata,),
-                 "invite4.ics"      : (INVITE_NO_OVERLAP2_1_ICS, CalVerifyMismatchTestsBase.metadata,),
-                 "invite5.ics"      : (INVITE_NO_OVERLAP2_2_ICS, CalVerifyMismatchTestsBase.metadata,),
-                 "invite6.ics"      : (INVITE_NO_OVERLAP3_1_ICS, CalVerifyMismatchTestsBase.metadata,),
-                 "invite7.ics"      : (INVITE_NO_OVERLAP3_2_ICS, CalVerifyMismatchTestsBase.metadata,),
-                 "invite8.ics"      : (INVITE_NO_OVERLAP4_1_ICS, CalVerifyMismatchTestsBase.metadata,),
-                 "invite9.ics"      : (INVITE_NO_OVERLAP4_2_ICS, CalVerifyMismatchTestsBase.metadata,),
-                 "invite10.ics"     : (INVITE_NO_OVERLAP5_1_ICS, CalVerifyMismatchTestsBase.metadata,),
-                 "invite11.ics"     : (INVITE_NO_OVERLAP5_2_ICS, CalVerifyMismatchTestsBase.metadata,),
-           },
-           "inbox" : {},
+            "calendar" : allEvents,
+            "inbox" : {},
         },
     }
 
@@ -2207,3 +2299,69 @@ END:VCALENDAR
         sync_token_newl1 = (yield (yield self.calendarUnderTest(self.uuidl1)).syncToken())
         self.assertEqual(sync_token_old1, sync_token_new1)
         self.assertEqual(sync_token_oldl1, sync_token_newl1)
+
+
+    def test_instance(self):
+        """
+        CalVerifyService.doScan without fix for mismatches. Make sure it detects
+        as much as it can. Make sure sync-token is not changed.
+        """
+
+        s = """BEGIN:VCALENDAR
+VERSION:2.0
+CALSCALE:GREGORIAN
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VTIMEZONE
+TZID:America/Los_Angeles
+BEGIN:DAYLIGHT
+DTSTART:20070311T020000
+RRULE:FREQ=YEARLY;BYDAY=2SU;BYMONTH=3
+TZNAME:PDT
+TZOFFSETFROM:-0800
+TZOFFSETTO:-0700
+END:DAYLIGHT
+BEGIN:STANDARD
+DTSTART:20071104T020000
+RRULE:FREQ=YEARLY;BYDAY=1SU;BYMONTH=11
+TZNAME:PST
+TZOFFSETFROM:-0700
+TZOFFSETTO:-0800
+END:STANDARD
+END:VTIMEZONE
+BEGIN:VEVENT
+UID:4760FF93-C7F8-4EB0-B3E8-0B22A96DB1BC
+DTSTART;TZID=America/Los_Angeles:20130221T170000
+DTEND;TZID=America/Los_Angeles:20130221T180000
+ATTENDEE;CN=Casa Blanca APPLE EMP ONLY (12) DA03 4th;CUTYPE=ROOM;PARTSTAT=
+ ACCEPTED;ROLE=REQ-PARTICIPANT:urn:uuid:366CC7BE-FEF7-4FFF-B713-6B883538A24
+ 9
+ATTENDEE;CN=Mark Chu;CUTYPE=INDIVIDUAL;EMAIL=markchu@apple.com;PARTSTAT=AC
+ CEPTED;ROLE=REQ-PARTICIPANT:urn:uuid:46F9D5D9-08E8-4987-9636-CC796F4093C6
+ATTENDEE;CN=Kristie Phan;CUTYPE=INDIVIDUAL;EMAIL=kristie_phan@apple.com;PA
+ RTSTAT=ACCEPTED:urn:uuid:97E8720F-4364-DBEC-6721-123E9A92B980
+CREATED:20130220T200530Z
+DTSTAMP:20130222T002246Z
+EXDATE:20130228T010000Z
+EXDATE:20130314T000000Z
+EXDATE:20130321T000000Z
+EXDATE:20130327T000000Z
+EXDATE:20130328T000000Z
+EXDATE:20130403T000000Z
+LOCATION:Casa Blanca APPLE EMP ONLY (12) DA03 4th
+ORGANIZER;CN=Kristie Phan;EMAIL=kristie_phan@apple.com;SCHEDULE-STATUS=1.2
+ :urn:uuid:97E8720F-4364-DBEC-6721-123E9A92B980
+RRULE:FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR;WKST=SU
+SEQUENCE:13
+SUMMARY:ESD Daily Meeting
+END:VEVENT
+END:VCALENDAR
+"""
+        from twistedcaldav.ical import Component
+        c = Component.fromString(s)
+        start = PyCalendarDateTime.getToday()
+        start.setDateOnly(False)
+        end = start.duplicate()
+        end.offsetDay(30)
+        config.MaxAllowedInstances = 3000
+        i = c.expandTimeRanges(end, start, ignoreInvalidInstances=True)
+        print i

@@ -2021,14 +2021,14 @@ class DoubleBookingService(CalVerifyService):
 
         self.output.write("\n---- Scanning calendar data ----\n")
 
+        self.tzid = PyCalendarTimezone(tzid=self.options["tzid"] if self.options["tzid"] else "America/Los_Angeles")
         self.now = PyCalendarDateTime.getNowUTC()
         self.start = PyCalendarDateTime.getToday()
         self.start.setDateOnly(False)
+        self.start.setTimezone(self.tzid)
         self.end = self.start.duplicate()
         self.end.offsetYear(1)
         self.fix = self.options["fix"]
-
-        self.tzid = PyCalendarTimezone(tzid=self.options["tzid"] if self.options["tzid"] else "America/Los_Angeles")
 
         if self.options["verbose"] and self.options["summary"]:
             ot = time.time()
@@ -2065,7 +2065,7 @@ class DoubleBookingService(CalVerifyService):
             if not record.thisServer() or not record.enabledForCalendaring:
                 continue
 
-            rname = record.shortNames[0]
+            rname = record.fullName
             auto = record.autoSchedule
 
             if len(uuids) > 1 and not self.options["summary"]:
@@ -2116,14 +2116,15 @@ class DoubleBookingService(CalVerifyService):
             table.addHeader(("GUID", "Name", "Auto-Schedule", "Double-Booked",))
             doubled = 0
             for item in sorted(self.uuid_details):
+                if not item.doubled:
+                    continue
                 table.addRow((
                     item.uuid,
                     item.rname,
                     item.auto,
                     item.doubled,
                 ))
-                if item.doubled:
-                    doubled += 1
+                doubled += 1
             table.addFooter(("Total", "", "", "%d of %d" % (doubled, len(self.uuid_details),),))
             self.output.write("\n")
             table.printTable(os=self.output)
@@ -2171,7 +2172,7 @@ class DoubleBookingService(CalVerifyService):
         if self.options["verbose"]:
             t = time.time()
 
-        InstanceDetails = collections.namedtuple("InstanceDetails", ("resid", "uid", "start", "end",))
+        InstanceDetails = collections.namedtuple("InstanceDetails", ("resid", "uid", "start", "end", "organizer", "summary",))
 
         end = start.duplicate()
         end.offsetDay(int(self.options["days"]))
@@ -2181,6 +2182,8 @@ class DoubleBookingService(CalVerifyService):
         booked_instances = 0
         details = []
         rjust = 10
+        tzid = None
+        hasFloating = False
         for resid in rows:
             resid = resid[0]
             caldata = yield self.getCalendar(resid, self.fix)
@@ -2193,7 +2196,7 @@ class DoubleBookingService(CalVerifyService):
             cal = Component(None, pycalendar=caldata)
             cal = PerUserDataFilter(uuid).filter(cal)
             uid = cal.resourceUID()
-            instances = cal.expandTimeRanges(end, start, ignoreInvalidInstances=True)
+            instances = cal.expandTimeRanges(end, start, ignoreInvalidInstances=False)
             count += 1
 
             for instance in instances.instances.values():
@@ -2204,8 +2207,12 @@ class DoubleBookingService(CalVerifyService):
                     continue
                 if instance.component.propertyValue("TRANSP") == "TRANSPARENT":
                     continue
+                dtstart = instance.component.propertyValue("DTSTART")
+                if tzid is None and dtstart.getTimezoneID():
+                    tzid = PyCalendarTimezone(tzid=dtstart.getTimezoneID())
+                hasFloating |= dtstart.isDateOnly() or dtstart.floating()
 
-                details.append(InstanceDetails(resid, uid, instance.start, instance.end,))
+                details.append(InstanceDetails(resid, uid, instance.start, instance.end, instance.component.getOrganizer(), instance.component.propertyValue("SUMMARY")))
                 booked_instances += 1
 
             if self.options["verbose"] and not self.options["summary"]:
@@ -2241,13 +2248,24 @@ class DoubleBookingService(CalVerifyService):
             self.logResult("Number of instances in time-range", total_instances)
             self.logResult("Number of booked instances", booked_instances)
 
+        # Adjust floating and sort
+        if hasFloating and tzid is not None:
+            utc = PyCalendarTimezone(utc=True)
+            for item in details:
+                if item.start.floating():
+                    item.start.setTimezone(tzid)
+                    item.start.adjustTimezone(utc)
+                if item.end.floating():
+                    item.end.setTimezone(tzid)
+                    item.end.adjustTimezone(utc)
+        details.sort(key=lambda x: x.start)
+
         # Now look for double-bookings
         DoubleBookedDetails = collections.namedtuple("DoubleBookedDetails", ("resid1", "uid1", "resid2", "uid2", "start",))
         double_booked = []
-        details.sort(key=lambda x: x.start)
         current = details[0] if details else None
         for next in details[1:]:
-            if current.end > next.start:
+            if current.end > next.start and current.resid != next.resid and not (current.organizer == next.organizer and current.summary == next.summary):
                 dt = next.start.duplicate()
                 dt.adjustTimezone(self.tzid)
                 double_booked.append(DoubleBookedDetails(current.resid, current.uid, next.resid, next.uid, dt,))
