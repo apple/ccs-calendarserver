@@ -778,6 +778,7 @@ class CommonStoreTransaction(object):
                       Where=(imip.ORGANIZER == Parameter("organizer")).And(
                              imip.ATTENDEE == Parameter("attendee")).And(
                              imip.ICALUID == Parameter("icaluid")))
+
     @classproperty
     def _updateIMIPTokenQuery(cls): #@NoSelf
         imip = schema.IMIP_TOKENS
@@ -2128,6 +2129,15 @@ class CommonHome(LoggingMixIn):
             Where=(bind.HOME_RESOURCE_ID == Parameter("homeResourceID")).And(bind.BIND_STATUS != _BIND_STATUS_ACCEPTED)
         ).on(self._txn, **kwds)
 
+    @inlineCallbacks
+    def ownerHomeForChildID(self, resourceID):
+        """
+        Get the owner home for a shared child ID
+        Subclasses may override.  Currently Unused.
+        """
+        ownerHomeRows = yield self._childClass._ownerHomeWithResourceID.on(self._txn, resourceID=resourceID)
+        ownerHome = yield self._txn.homeWithResourceID(self._homeType, ownerHomeRows[0][0])
+        returnValue(ownerHome)
 
 
 class _SharedSyncLogic(object):
@@ -2462,7 +2472,7 @@ class SharingMixIn(object):
 
 
     @classmethod
-    def _bindColumns(cls): #@NoSelf
+    def _bindColumns(cls):
         bind = cls._bindSchema
         return (bind.BIND_MODE,
                 bind.HOME_RESOURCE_ID,
@@ -2473,7 +2483,7 @@ class SharingMixIn(object):
 
 
     @classmethod
-    def _bindFor(cls, condition): #@NoSelf
+    def _bindFor(cls, condition):
         bind = cls._bindSchema
         return Select(
                   cls._bindColumns(),
@@ -2582,7 +2592,7 @@ class SharingMixIn(object):
 
 
     @classmethod
-    def _updateBindColumnsQuery(cls, columnMap): #@NoSelf
+    def _updateBindColumnsQuery(cls, columnMap):
         bind = cls._bindSchema
         return Update(columnMap,
                       Where=(bind.RESOURCE_ID == Parameter("resourceID"))
@@ -2727,10 +2737,7 @@ class SharingMixIn(object):
                 yield self.unshareWith(sharedToHome)
         else:
             # This collection is shared to me
-            ownerHomeID = yield self.ownerHomeID(self._txn, self._resourceID)
-            ownerHome = yield self._txn.homeWithResourceID(self._home._homeType,
-                ownerHomeID)
-            ownerHomeChild = yield ownerHome.childWithID(self._resourceID)
+            ownerHomeChild = yield self.ownerHome().childWithID(self._resourceID)
             yield ownerHomeChild.unshareWith(self._home)
 
 
@@ -3925,7 +3932,7 @@ class CommonObjectResource(LoggingMixIn, FancyEqMixin):
 
 
     @classmethod
-    def _allColumnsWithParentAndNamesQuery(cls, names): #@NoSelf
+    def _allColumnsWithParentAndNamesQuery(cls, names):
         obj = cls._objectSchema
         return Select(cls._allColumns, From=obj,
                       Where=(obj.PARENT_RESOURCE_ID == Parameter("parentID")).And(
@@ -4151,7 +4158,7 @@ class CommonObjectResource(LoggingMixIn, FancyEqMixin):
 
 
     @classmethod
-    def _selectForUpdateQuery(cls, nowait): #@NoSelf
+    def _selectForUpdateQuery(cls, nowait):
         """
         DAL statement to lock a L{CommonObjectResource} by its resource ID.
         """

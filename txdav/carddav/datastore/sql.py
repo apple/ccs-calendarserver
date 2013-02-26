@@ -296,7 +296,6 @@ class AddressBook(CommonHomeChild, SharingMixIn):
     @inlineCallbacks
     def remove(self):
 
-        print("removeChildWithName:%s, name=%s" % (self, self.name()))
         if self._resourceID == self._home._resourceID:
 
             # allow remove, as a way to reset the address book to an empty state
@@ -368,7 +367,7 @@ class AddressBook(CommonHomeChild, SharingMixIn):
 
 
     @classmethod
-    def _abObjectColumnsWithAddressBookResourceID(cls, columns,): #@NoSelf
+    def _abObjectColumnsWithAddressBookResourceID(cls, columns):
         """
         DAL statement to retrieve addressbook object rows with given columns.
         """
@@ -590,6 +589,7 @@ END:VCARD
 
                 for attr, value in zip(cls.metadataAttributes(), metadata):
                     setattr(child, attr, value)
+                #FIXME
                 child._syncTokenRevision = revisions[resourceID]
                 propstore = propertyStores.get(resourceID, None)
 
@@ -854,7 +854,7 @@ END:VCARD
 
 
     @classmethod
-    def _memberIDsWithGroupIDsQuery(cls, groupIDs): #@NoSelf
+    def _memberIDsWithGroupIDsQuery(cls, groupIDs):
         """
         DAL query to load all object resource names for a home child.
         """
@@ -1180,7 +1180,7 @@ class AddressBookObject(CommonObjectResource, SharingMixIn):
 
 
     @classmethod
-    def _deleteMembersWithMemberIDAndGroupIDsQuery(cls, memberID, groupIDs): #@NoSelf
+    def _deleteMembersWithMemberIDAndGroupIDsQuery(cls, memberID, groupIDs):
         aboMembers = schema.ABO_MEMBERS
         return Delete(
             aboMembers,
@@ -1257,12 +1257,12 @@ class AddressBookObject(CommonObjectResource, SharingMixIn):
 
 
     @classmethod
-    def _allColumnsWithResourceIDsAndName(cls, resourceIDs): #@NoSelf
+    def _allColumnsWithResourceIDsAndName(cls, resourceIDs):
         return cls._allColumnsWithResourceIDsAnd(resourceIDs, cls._objectSchema.RESOURCE_NAME, "name")
 
 
     @classmethod
-    def _allColumnsWithResourceIDsAndUID(cls, resourceIDs): #@NoSelf
+    def _allColumnsWithResourceIDsAndUID(cls, resourceIDs):
         return cls._allColumnsWithResourceIDsAnd(resourceIDs, cls._objectSchema.UID, "uid")
 
 
@@ -1405,7 +1405,7 @@ class AddressBookObject(CommonObjectResource, SharingMixIn):
 
 
     @classmethod
-    def _columnsWithResourceIDsQuery(cls, columns, resourceIDs): #@NoSelf
+    def _columnsWithResourceIDsQuery(cls, columns, resourceIDs):
         """
         DAL statement to retrieve addressbook object rows with given columns.
         """
@@ -1416,7 +1416,7 @@ class AddressBookObject(CommonObjectResource, SharingMixIn):
 
     @classmethod
     @inlineCallbacks
-    def _allColumnsWithParent(cls, addressbook): #@NoSelf
+    def _allColumnsWithParent(cls, addressbook):
         if addressbook.owned() or addressbook.fullyShared():
             rows = yield super(AddressBookObject, cls)._allColumnsWithParent(addressbook)
             if addressbook.fullyShared():
@@ -1431,7 +1431,7 @@ class AddressBookObject(CommonObjectResource, SharingMixIn):
 
 
     @classmethod
-    def _allColumnsWithResourceIDsAndNamesQuery(cls, resourceIDs, names): #@NoSelf
+    def _allColumnsWithResourceIDsAndNamesQuery(cls, resourceIDs, names):
         obj = cls._objectSchema
         return Select(cls._allColumns, From=obj,
                       Where=(obj.RESOURCE_ID.In(Parameter("resourceIDs", len(resourceIDs))).And(
@@ -1440,7 +1440,7 @@ class AddressBookObject(CommonObjectResource, SharingMixIn):
 
     @classmethod
     @inlineCallbacks
-    def _allColumnsWithParentAndNames(cls, addressbook, names): #@NoSelf
+    def _allColumnsWithParentAndNames(cls, addressbook, names):
 
         if addressbook.owned() or addressbook.fullyShared():
             rows = yield super(AddressBookObject, cls)._allColumnsWithParentAndNames(addressbook, names)
@@ -1489,7 +1489,7 @@ class AddressBookObject(CommonObjectResource, SharingMixIn):
 
 
     @classmethod
-    def _resourceIDAndUIDForUIDsAndAddressBookResourceIDQuery(cls, uids): #@NoSelf
+    def _resourceIDAndUIDForUIDsAndAddressBookResourceIDQuery(cls, uids):
         abo = schema.ADDRESSBOOK_OBJECT
         return Select([abo.RESOURCE_ID, abo.VCARD_UID],
                       From=abo,
@@ -1500,7 +1500,7 @@ class AddressBookObject(CommonObjectResource, SharingMixIn):
 
 
     @classmethod
-    def _deleteMembersWithGroupIDAndMemberIDsQuery(cls, groupID, memberIDs): #@NoSelf
+    def _deleteMembersWithGroupIDAndMemberIDsQuery(cls, groupID, memberIDs):
         aboMembers = schema.ABO_MEMBERS
         return Delete(
             aboMembers,
@@ -1509,7 +1509,7 @@ class AddressBookObject(CommonObjectResource, SharingMixIn):
 
 
     @classmethod
-    def _deleteForeignMembersWithGroupIDAndMembeAddrsQuery(cls, groupID, memberAddrs): #@NoSelf
+    def _deleteForeignMembersWithGroupIDAndMembeAddrsQuery(cls, groupID, memberAddrs):
         aboForeignMembers = schema.ABO_FOREIGN_MEMBERS
         return Delete(
             aboForeignMembers,
@@ -1835,8 +1835,7 @@ class AddressBookObject(CommonObjectResource, SharingMixIn):
     @inlineCallbacks
     def ownerHomeID(cls, txn, resourceID):
 
-        # no owner, so shared item must be group
-        abo = schema.ADDRESSBOOK_OBJECT
+        abo = cls._objectSchema
         groupAddressBookRows = yield Select(
             [abo.ADDRESSBOOK_RESOURCE_ID],
             From=abo,
