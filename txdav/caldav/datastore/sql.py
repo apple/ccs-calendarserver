@@ -1833,11 +1833,11 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
         # We need to know the resource_ID of the home collection of the owner
         # (not sharee) of this event
-        sharerHomeID = (yield self._parentCollection.sharerHomeID())
+        ownerHomeID = self._parentCollection.ownerHome()._resourceID
         managedID = str(uuid.uuid4())
         returnValue((
             yield ManagedAttachment.create(
-                self._txn, managedID, sharerHomeID, self._resourceID,
+                self._txn, managedID, ownerHomeID, self._resourceID,
             )
         ))
 
@@ -1847,10 +1847,10 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
         # We need to know the resource_ID of the home collection of the owner
         # (not sharee) of this event
-        sharerHomeID = (yield self._parentCollection.sharerHomeID())
+        ownerHomeID = self._parentCollection.ownerHome()._resourceID
         returnValue((
             yield ManagedAttachment.update(
-                self._txn, managedID, sharerHomeID, self._resourceID, oldattachment._attachmentID,
+                self._txn, managedID, ownerHomeID, self._resourceID, oldattachment._attachmentID,
             )
         ))
 
@@ -1909,11 +1909,11 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
 
         # We need to know the resource_ID of the home collection of the owner
         # (not sharee) of this event
-        sharerHomeID = (yield self._parentCollection.sharerHomeID())
+        ownerHomeID = self._parentCollection.ownerHome()._resourceID
         dropboxID = (yield self.dropboxID())
         returnValue((
             yield DropBoxAttachment.create(
-                self._txn, dropboxID, name, sharerHomeID,
+                self._txn, dropboxID, name, ownerHomeID,
             )
         ))
 

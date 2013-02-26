@@ -202,7 +202,7 @@ class CommonDataStore(Service, object):
 
 
     @inlineCallbacks
-    def _withEachHomeDo(self, homeTable, homeFromTxn, action, batchSize):
+    def _withEachHomeDo(self, homeTable, homeFromTxn, action, batchSize): #@UnusedVariable
         """
         Implementation of L{ICalendarStore.withEachCalendarHomeDo} and
         L{IAddressbookStore.withEachAddressbookHomeDo}.
@@ -543,7 +543,7 @@ class CommonStoreTransaction(object):
         return self.homeWithUID(EADDRESSBOOKTYPE, uid, create=create)
 
 
-    def _determineMemo(self, storeType, uid, create=False):
+    def _determineMemo(self, storeType, uid, create=False): #@UnusedVariable
         """
         Determine the memo dictionary to use for homeWithUID.
         """
@@ -1362,15 +1362,15 @@ class CommonStoreTransaction(object):
 
 class _EmptyCacher(object):
 
-    def set(self, key, value):
+    def set(self, key, value): #@UnusedVariable
         return succeed(True)
 
 
-    def get(self, key, withIdentifier=False):
+    def get(self, key, withIdentifier=False): #@UnusedVariable
         return succeed(None)
 
 
-    def delete(self, key):
+    def delete(self, key): #@UnusedVariable
         return succeed(True)
 
 
@@ -1765,7 +1765,7 @@ class CommonHome(LoggingMixIn):
 
 
     @inlineCallbacks
-    def resourceNamesSinceToken(self, token, depth):
+    def resourceNamesSinceToken(self, token, depth): #@UnusedVariable
 
         results = [
             (
@@ -2130,10 +2130,10 @@ class CommonHome(LoggingMixIn):
         ).on(self._txn, **kwds)
 
     @inlineCallbacks
-    def ownerHomeForChildID(self, resourceID):
+    def ownerHomeFromChildID(self, resourceID):
         """
         Get the owner home for a shared child ID
-        Subclasses may override.  Currently Unused.
+        Subclasses may override.
         """
         ownerHomeRows = yield self._childClass._ownerHomeWithResourceID.on(self._txn, resourceID=resourceID)
         ownerHome = yield self._txn.homeWithResourceID(self._homeType, ownerHomeRows[0][0])
@@ -2446,7 +2446,7 @@ class SharingMixIn(object):
     """
 
     @classproperty
-    def _bindInsertQuery(cls, **kw): #@NoSelf
+    def _bindInsertQuery(cls, **kw): #@NoSelf #@UnusedVariable
         """
         DAL statement to create a bind entry that connects a collection to its
         home.
@@ -3015,8 +3015,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic, HomeChildBas
                 ownerHome = home
             else:
                 #TODO: get all ownerHomeIDs at once
-                ownerHomeID = yield cls.ownerHomeID(home._txn, resourceID)
-                ownerHome = yield home._txn.homeWithResourceID(home._homeType, ownerHomeID)
+                ownerHome = yield home.ownerHomeFromChildID(resourceID)
 
             child = cls(
                 home=home,
@@ -3036,13 +3035,6 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic, HomeChildBas
             yield child._loadPropertyStore(propstore)
             results.append(child)
         returnValue(results)
-
-
-    @classmethod
-    @inlineCallbacks
-    def ownerHomeID(cls, txn, resourceID):
-        ownerHomeRows = yield cls._ownerHomeWithResourceID.on(txn, resourceID=resourceID)
-        returnValue(ownerHomeRows[0][0])
 
 
     @classmethod
@@ -3072,15 +3064,6 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic, HomeChildBas
             # No cached copy
             rows = yield cls._bindForNameAndHomeID.on(home._txn, name=name, homeID=home._resourceID)
 
-            if rows:
-                bindMode, homeID, resourceID, resourceName, bindStatus, bindMessage = rows[0] #@UnusedVariable
-                # get ownerHomeID
-                if bindMode == _BIND_MODE_OWN:
-                    ownerHomeID = homeID
-                else:
-                    ownerHomeID = yield cls.ownerHomeID(home._txn, resourceID)
-                rows[0].append(ownerHomeID)
-
             if rows and queryCacher:
                 # Cache the result
                 queryCacher.setAfterCommit(home._txn, cacheKey, rows)
@@ -3088,14 +3071,14 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic, HomeChildBas
         if not rows:
             returnValue(None)
 
-        bindMode, homeID, resourceID, resourceName, bindStatus, bindMessage, ownerHomeID = rows[0] #@UnusedVariable
+        bindMode, homeID, resourceID, resourceName, bindStatus, bindMessage = rows[0] #@UnusedVariable
         if (bindStatus == _BIND_STATUS_ACCEPTED) != bool(accepted):
             returnValue(None)
 
         if bindMode == _BIND_MODE_OWN:
             ownerHome = home
         else:
-            ownerHome = yield home._txn.homeWithResourceID(home._homeType, ownerHomeID)
+            ownerHome = yield home.ownerHomeWithResourceID(resourceID)
 
         child = cls(
             home=home,
@@ -3379,23 +3362,6 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic, HomeChildBas
 
 
     @inlineCallbacks
-    def sharerHomeID(self):
-        """
-        Retrieve the resource ID of the owner of this home.
-
-        @return: a L{Deferred} that fires with the resource ID.
-        @rtype: L{Deferred} firing L{int}
-        """
-        if self.owned():
-            # If this was loaded by its owner then we can skip the query, since
-            # we already know who the owner is.
-            returnValue(self._home._resourceID)
-        else:
-            ownerHomeID = yield self.ownerHomeID(self._txn, self._resourceID)
-            returnValue(ownerHomeID)
-
-
-    @inlineCallbacks
     def objectResources(self):
         """
         Load and cache all children - Depth:1 optimization
@@ -3616,7 +3582,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic, HomeChildBas
         yield self.notifyChanged()
 
 
-    def _movedObjectResource(self, child, newparent):
+    def _movedObjectResource(self, child, newparent): #@UnusedVariable
         """
         Method that subclasses can override to do an extra DB adjustments when a resource
         is moved.
@@ -3848,7 +3814,7 @@ class CommonObjectResource(LoggingMixIn, FancyEqMixin):
 
     BATCH_LOAD_SIZE = 50
 
-    def __init__(self, parent, name, uid, resourceID=None, metadata=None):
+    def __init__(self, parent, name, uid, resourceID=None, metadata=None): #@UnusedVariable
         self._parentCollection = parent
         self._resourceID = resourceID
         self._name = name
@@ -4757,7 +4723,7 @@ class NotificationObject(LoggingMixIn, FancyEqMixin):
             returnValue(None)
 
 
-    def _loadPropertyStore(self, props=None, created=False):
+    def _loadPropertyStore(self, props=None, created=False): #@UnusedVariable
         if props is None:
             props = NonePropertyStore(self._home.uid())
         self._propertyStore = props
