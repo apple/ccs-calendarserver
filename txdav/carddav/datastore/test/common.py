@@ -48,6 +48,7 @@ def _todo(f, why):
     f.todo = why
     return f
 rewriteOrRemove = lambda f: _todo(f, "Rewrite or remove")
+fixFile = lambda f: _todo(f, "fix file implementation")
 
 storePath = FilePath(__file__).parent().child("addressbook_store")
 
@@ -361,6 +362,7 @@ class CommonTests(CommonCommonTests):
 
 
     @inlineCallbacks
+    @fixFile
     def test_removeAddressBookWithName_exists(self):
         """
         L{IAddressBookHome.removeAddressBookWithName} removes a addressbook that already
@@ -371,7 +373,9 @@ class CommonTests(CommonCommonTests):
         for name in home1_addressbookNames:
             self.assertNotIdentical((yield home.addressbookWithName(name)), None)
             yield home.removeAddressBookWithName(name)
-            self.assertEquals((yield home.addressbookWithName(name)), None)
+            # address book is not deleted, but cleared
+            ab = yield home.addressbookWithName(name)
+            self.assertEquals((yield ab.listAddressBookObjects()), [])
 
         yield self.commit()
 

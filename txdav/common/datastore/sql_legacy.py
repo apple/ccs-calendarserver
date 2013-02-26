@@ -879,4 +879,4 @@ class PostgresLegacyABIndexEmulator(LegacyIndexHelper):
     @inlineCallbacks
     def resourcesExist(self, names):
         returnValue(list(set(names).intersection(
-            set((yield self.addressbook.listAddressbookObjects())))))
+            set((yield self.addressbook.listAddressBookObjects())))))

@@ -14,7 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
-from txdav.common.icommondatastore import InternalDataStoreError
 
 """
 SQL backend for CardDAV storage.
@@ -30,6 +29,7 @@ from twext.enterprise.dal.syntax import Delete, Insert, Len, Parameter, \
     Update, Union, Max, Select, utcNowSQL
 
 from twext.python.clsprop import classproperty
+
 from twext.web2.http import HTTPError
 from twext.web2.http_headers import MimeType
 from twext.web2.responsecode import FORBIDDEN
@@ -50,16 +50,18 @@ from txdav.carddav.iaddressbookstore import IAddressBookHome, IAddressBook, \
 from txdav.common.datastore.sql import CommonHome, CommonHomeChild, \
     CommonObjectResource, EADDRESSBOOKTYPE, SharingMixIn
 from txdav.common.datastore.sql_legacy import PostgresLegacyABIndexEmulator
-from txdav.common.datastore.sql_tables import ADDRESSBOOK_TABLE, \
-    ADDRESSBOOK_BIND_TABLE, ADDRESSBOOK_OBJECT_REVISIONS_TABLE, \
+from txdav.common.datastore.sql_tables import \
+    ADDRESSBOOK_HOME_BIND_TABLE, ADDRESSBOOK_OBJECT_REVISIONS_TABLE, \
     ADDRESSBOOK_OBJECT_TABLE, ADDRESSBOOK_HOME_TABLE, \
-    ADDRESSBOOK_HOME_METADATA_TABLE, ADDRESSBOOK_AND_ADDRESSBOOK_BIND, \
+    ADDRESSBOOK_HOME_METADATA_TABLE, ADDRESSBOOK_HOME_AND_ADDRESSBOOK_HOME_BIND, \
     ADDRESSBOOK_OBJECT_AND_BIND_TABLE, \
     ADDRESSBOOK_OBJECT_REVISIONS_AND_BIND_TABLE, \
     _ABO_KIND_PERSON, _ABO_KIND_GROUP, _ABO_KIND_RESOURCE, \
     _ABO_KIND_LOCATION, schema, \
     _BIND_MODE_OWN, _BIND_MODE_WRITE, _BIND_STATUS_ACCEPTED, \
     _BIND_STATUS_DECLINED, _BIND_STATUS_INVITED
+from txdav.common.icommondatastore import HomeChildNameNotAllowedError, \
+    HomeChildNameAlreadyExistsError, InternalDataStoreError
 from txdav.xml.rfc2518 import ResourceType
 
 from zope.interface.declarations import implements
@@ -71,7 +73,7 @@ class AddressBookHome(CommonHome):
 
     # structured tables.  (new, preferred)
     _homeSchema = schema.ADDRESSBOOK_HOME
-    _bindSchema = schema.ADDRESSBOOK_BIND
+    _bindSchema = schema.ADDRESSBOOK_HOME_BIND
     _homeMetaDataSchema = schema.ADDRESSBOOK_HOME_METADATA
     _revisionsSchema = schema.ADDRESSBOOK_OBJECT_REVISIONS
     _objectSchema = schema.ADDRESSBOOK_OBJECT
@@ -79,8 +81,8 @@ class AddressBookHome(CommonHome):
     # string mappings (old, removing)
     _homeTable = ADDRESSBOOK_HOME_TABLE
     _homeMetaDataTable = ADDRESSBOOK_HOME_METADATA_TABLE
-    _childTable = ADDRESSBOOK_TABLE
-    _bindTable = ADDRESSBOOK_BIND_TABLE
+    _childTable = ADDRESSBOOK_HOME_TABLE
+    _bindTable = ADDRESSBOOK_HOME_BIND_TABLE
     _objectBindTable = ADDRESSBOOK_OBJECT_AND_BIND_TABLE
     _notifierPrefix = "CardDAV"
     _revisionsTable = ADDRESSBOOK_OBJECT_REVISIONS_TABLE
@@ -94,6 +96,7 @@ class AddressBookHome(CommonHome):
 
         self._childClass = AddressBook
         super(AddressBookHome, self).__init__(transaction, ownerUID, notifiers)
+        self._homeResourceID = None
 
 
     addressbooks = CommonHome.children
@@ -107,13 +110,13 @@ class AddressBookHome(CommonHome):
     @inlineCallbacks
     def remove(self):
         ah = schema.ADDRESSBOOK_HOME
-        ab = schema.ADDRESSBOOK_BIND
+        ahb = schema.ADDRESSBOOK_HOME_BIND
         aor = schema.ADDRESSBOOK_OBJECT_REVISIONS
         rp = schema.RESOURCE_PROPERTY
 
         yield Delete(
-            From=ab,
-            Where=ab.ADDRESSBOOK_HOME_RESOURCE_ID == self._resourceID,
+            From=ahb,
+            Where=ahb.ADDRESSBOOK_HOME_RESOURCE_ID == self._resourceID,
         ).on(self._txn)
 
         yield Delete(
@@ -135,7 +138,7 @@ class AddressBookHome(CommonHome):
 
 
     def createdHome(self):
-        return self.createAddressBookWithName(self.addressbookName())
+        pass
 
 
     @inlineCallbacks
@@ -187,6 +190,16 @@ class AddressBookHome(CommonHome):
         return self._childClass.objectWithBindName(self, shareUID, accepted=False)
 
 
+    @inlineCallbacks
+    def removeChildWithName(self, name):
+        # need to override so that _children is non pop-ed for main address book
+        if name != self.addressbookName():
+            returnValue((yield super(AddressBook, self).removeChildWithName(name)))
+
+        child = yield self.childWithName(name)
+        yield child.remove()
+
+
 AddressBookHome._register(EADDRESSBOOKTYPE)
 
 
@@ -198,16 +211,16 @@ class AddressBook(CommonHomeChild, SharingMixIn):
 
     # structured tables.  (new, preferred)
     _homeSchema = schema.ADDRESSBOOK_HOME
-    _bindSchema = schema.ADDRESSBOOK_BIND
-    _homeChildSchema = schema.ADDRESSBOOK
-    _homeChildMetaDataSchema = schema.ADDRESSBOOK_METADATA
+    _bindSchema = schema.ADDRESSBOOK_HOME_BIND
+    _homeChildSchema = schema.ADDRESSBOOK_HOME
+    _homeChildMetaDataSchema = schema.ADDRESSBOOK_HOME_METADATA
     _revisionsSchema = schema.ADDRESSBOOK_OBJECT_REVISIONS
     _objectSchema = schema.ADDRESSBOOK_OBJECT
 
     # string mappings (old, removing)
-    _bindTable = ADDRESSBOOK_BIND_TABLE
-    _homeChildTable = ADDRESSBOOK_TABLE
-    _homeChildBindTable = ADDRESSBOOK_AND_ADDRESSBOOK_BIND
+    _bindTable = ADDRESSBOOK_HOME_BIND_TABLE
+    _homeChildTable = ADDRESSBOOK_HOME_TABLE
+    _homeChildBindTable = ADDRESSBOOK_HOME_AND_ADDRESSBOOK_HOME_BIND
     _revisionsTable = ADDRESSBOOK_OBJECT_REVISIONS_TABLE
     _revisionsBindTable = ADDRESSBOOK_OBJECT_REVISIONS_AND_BIND_TABLE
     _objectTable = ADDRESSBOOK_OBJECT_TABLE
@@ -234,7 +247,7 @@ class AddressBook(CommonHomeChild, SharingMixIn):
 
     ownerAddressBookHome = CommonHomeChild.ownerHome
     addressbookObjects = CommonHomeChild.objectResources
-    listAddressbookObjects = CommonHomeChild.listObjectResources
+    listAddressBookObjects = CommonHomeChild.listObjectResources
     addressbookObjectWithName = CommonHomeChild.objectResourceWithName
     addressbookObjectWithUID = CommonHomeChild.objectResourceWithUID
     createAddressBookObjectWithName = CommonHomeChild.createObjectResourceWithName
@@ -267,13 +280,51 @@ class AddressBook(CommonHomeChild, SharingMixIn):
 
 
     @classmethod
+    def _insertHomeChildAndMetaData(cls, home, name):
+        return((home._resourceID, home._created, home._modified))
+
+
+    @classmethod
     @inlineCallbacks
     def create(cls, home, name):
+        if name == home.addressbookName():
+            raise HomeChildNameAlreadyExistsError
+        else:
+            raise HomeChildNameNotAllowedError
 
-        if name != home.addressbookName():
-            raise HTTPError(FORBIDDEN)
 
-        returnValue((yield super(AddressBook, cls).create(home, name)))
+    @inlineCallbacks
+    def remove(self):
+
+        print("removeChildWithName:%s, name=%s" % (self, self.name()))
+        if self._resourceID == self._home._resourceID:
+
+            # allow remove, as a way to reset the address book to an empty state
+            for abo in (yield self.objectResources()):
+                yield abo.remove()
+
+            self.properties()._removeResource()
+
+            # Set to non-existent state
+            self._resourceID = None
+            self._created = None
+            self._modified = None
+            self._objects = {}
+
+            yield self.notifyChanged()
+
+            # Make sure home collection modified is changed - not that we do not use _home.notifiedChanged() here
+            # since we are sending the notification on the previously existing child collection object
+            yield self._home.bumpModified()
+        else:
+            returnValue((yield super(AddressBook, self).remove()))
+
+
+    @inlineCallbacks
+    def rename(self, name):
+        # better error?
+        #raise HomeChildNameNotAllowedError
+        raise HTTPError(FORBIDDEN)
 
 
     @inlineCallbacks
@@ -458,21 +509,32 @@ END:VCARD
         """
         results = []
 
+        # start with home address book row
+        # TODO: simplify
+        ownerHomeIDToDataRowMap = {
+            home._resourceID: (
+                _BIND_MODE_OWN, # bindMode,
+                home._resourceID, # homeID,
+                home._resourceID, # resourceID,
+                home.addressbookName(), # bindName,
+                _BIND_STATUS_ACCEPTED, # bindStatus,
+                None, # bindMessage,
+                home._created, # metadata[0]
+                home._modified, # metadata[1]
+            )
+        }
+
         # Load from the main table first
         dataRows = yield cls._childrenAndMetadataForHomeID.on(
             home._txn, homeID=home._resourceID
         )
 
         # get ownerHomeIDs
-        ownerHomeIDToDataRowMap = {}
         for dataRow in dataRows:
             bindMode, homeID, resourceID, bindName, bindStatus, bindMessage = dataRow[:6] #@UnusedVariable
-            if bindStatus == _BIND_MODE_OWN:
-                ownerHomeIDToDataRowMap[home._resourceID] = dataRow
-            else:
-                ownerHomeID = yield cls.ownerHomeID(home._txn, resourceID)
-                ownerHomeIDToDataRowMap[ownerHomeID] = dataRow
-
+            assert bindStatus != _BIND_MODE_OWN
+            ownerHomeID = yield cls.ownerHomeID(home._txn, resourceID)
+            ownerHomeIDToDataRowMap[ownerHomeID] = dataRow
 
         # now get group rows:
         groupBindRows = yield AddressBookObject._childrenAndMetadataForHomeID.on(
@@ -488,6 +550,7 @@ END:VCARD
                 groupBindRow[4] = None # bindStatus
                 groupBindRow[5] = None # bindMessage
                 ownerHomeIDToDataRowMap[ownerHomeID] = groupBindRow
+
 
         if ownerHomeIDToDataRowMap:
 
@@ -556,7 +619,13 @@ END:VCARD
             exists.
         """
         if name == home.addressbookName():
-            returnValue((yield super(AddressBook, cls).objectWithName(home, name)))
+            child = cls(
+                home=home,
+                name=name, resourceID=home._resourceID,
+                mode=_BIND_MODE_OWN, status=_BIND_STATUS_ACCEPTED,
+            )
+            yield child.initFromStore()
+            returnValue(child)
 
         #all shared address books now
 
@@ -605,7 +674,11 @@ END:VCARD
         if not rows:
             returnValue(None)
 
-        bindMode, homeID, resourceID, bindName, bindStatus, bindMessage, ownerHomeID = rows[0] #@UnusedVariable
+        bindMode, homeID, resourceID, bindName, bindStatus, bindMessage, ownerHomeID = rows[0] #@UnusedVariable        
+        # if wrong status, exit here.  Item is in queryCache
+        if (bindStatus == _BIND_STATUS_ACCEPTED) != bool(accepted):
+            returnValue(None)
+
         ownerHome = yield home._txn.homeWithResourceID(home._homeType, ownerHomeID)
         ownerAddressBook = yield ownerHome.addressbook()
         child = cls(
@@ -764,7 +837,8 @@ END:VCARD
 
         @return: an iterable of C{str}s.
         """
-        names = set()
+        names = set([home.addressbookName()])
+
         rows = yield cls._acceptedBindForHomeID.on(
             home._txn, homeID=home._resourceID
         )
@@ -772,13 +846,10 @@ END:VCARD
             home._txn, homeID=home._resourceID
         )))
         for bindMode, homeID, resourceID, bindName, bindStatus, bindMessage in rows: #@UnusedVariable
-            if bindMode == _BIND_MODE_OWN:
-                addressbook = yield home.addressbook()
-                names |= set([addressbook.name()])
-            else:
-                ownerHome = yield home._txn.homeWithResourceID(home._homeType, homeID)
-                ownerAddressBook = yield ownerHome.addressbook()
-                names |= set([ownerAddressBook.shareeABName()])
+            assert bindMode != _BIND_MODE_OWN
+            ownerHome = yield home._txn.homeWithResourceID(home._homeType, homeID)
+            ownerAddressBook = yield ownerHome.addressbook()
+            names |= set([ownerAddressBook.shareeABName()])
         returnValue(tuple(names))
 
 
@@ -948,6 +1019,7 @@ END:VCARD
 
         returnValue(shareeView._name)
 
+
     @inlineCallbacks
     def asShared(self):
         """
@@ -1076,7 +1148,7 @@ class AddressBookObject(CommonObjectResource, SharingMixIn):
 
     _objectTable = ADDRESSBOOK_OBJECT_TABLE
     _objectSchema = schema.ADDRESSBOOK_OBJECT
-    _bindSchema = schema.GROUP_ADDRESSBOOK_BIND
+    _bindSchema = schema.GROUP_ADDRESSBOOK_HOME_BIND
 
 
     def __init__(self, addressbook, name, uid, resourceID=None, metadata=None):

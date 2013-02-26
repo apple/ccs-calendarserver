@@ -342,9 +342,10 @@ create table RESOURCE_PROPERTY (
 ----------------------
 
 create table ADDRESSBOOK_HOME (
-  RESOURCE_ID      integer      primary key default nextval('RESOURCE_ID_SEQ'), -- implicit index
-  OWNER_UID        varchar(255) not null unique,                                -- implicit index
-  DATAVERSION      integer      default 0 not null
+  RESOURCE_ID      	integer      primary key default nextval('RESOURCE_ID_SEQ'), -- implicit index
+  HOME_RESOURCE_ID	integer      default nextval('RESOURCE_ID_SEQ') not null, 	 -- implicit index
+  OWNER_UID        	varchar(255) not null unique,                                -- implicit index
+  DATAVERSION      	integer      default 0 not null
 );
 
 
@@ -360,35 +361,15 @@ create table ADDRESSBOOK_HOME_METADATA (
 );
 
 
------------------
--- AddressBook --
------------------
-
-create table ADDRESSBOOK (
-  RESOURCE_ID integer   primary key default nextval('RESOURCE_ID_SEQ') -- implicit index
-);
-
-
---------------------------
--- AddressBook Metadata --
---------------------------
-
-create table ADDRESSBOOK_METADATA (
-  RESOURCE_ID integer   primary key references ADDRESSBOOK on delete cascade, -- implicit index
-  CREATED     timestamp default timezone('UTC', CURRENT_TIMESTAMP),
-  MODIFIED    timestamp default timezone('UTC', CURRENT_TIMESTAMP)
-);
-
-
 ----------------------
 -- AddressBook Bind --
 ----------------------
 
--- Joins ADDRESSBOOK_HOME and ADDRESSBOOK
+-- Joins ADDRESSBOOK_HOME and ADDRESSBOOK_HOME
 
-create table ADDRESSBOOK_BIND (
+create table ADDRESSBOOK_HOME_BIND (
   ADDRESSBOOK_HOME_RESOURCE_ID integer      not null references ADDRESSBOOK_HOME,
-  ADDRESSBOOK_RESOURCE_ID      integer      not null references ADDRESSBOOK on delete cascade,
+  ADDRESSBOOK_RESOURCE_ID      integer      not null references ADDRESSBOOK_HOME on delete cascade,
   ADDRESSBOOK_RESOURCE_NAME    varchar(255) not null,
   BIND_MODE                    integer      not null, -- enum CALENDAR_BIND_MODE
   BIND_STATUS                  integer      not null, -- enum CALENDAR_BIND_STATUS
@@ -398,8 +379,8 @@ create table ADDRESSBOOK_BIND (
   unique (ADDRESSBOOK_HOME_RESOURCE_ID, ADDRESSBOOK_RESOURCE_NAME)     -- implicit index
 );
 
-create index ADDRESSBOOK_BIND_RESOURCE_ID on
-  ADDRESSBOOK_BIND(ADDRESSBOOK_RESOURCE_ID);
+create index ADDRESSBOOK_HOME_BIND_RESOURCE_ID on
+  ADDRESSBOOK_HOME_BIND(ADDRESSBOOK_RESOURCE_ID);
 
 
 ------------------------
@@ -408,7 +389,7 @@ create index ADDRESSBOOK_BIND_RESOURCE_ID on
 
 create table ADDRESSBOOK_OBJECT (
   RESOURCE_ID             integer      primary key default nextval('RESOURCE_ID_SEQ'),    -- implicit index
-  ADDRESSBOOK_RESOURCE_ID integer      not null references ADDRESSBOOK on delete cascade,
+  ADDRESSBOOK_RESOURCE_ID integer      not null references ADDRESSBOOK_HOME on delete cascade,
   RESOURCE_NAME           varchar(255) not null,
   VCARD_TEXT              text         not null,
   VCARD_UID               varchar(255) not null,
@@ -443,7 +424,7 @@ insert into ADDRESSBOOK_OBJECT_KIND values (3, 'location');
 
 create table ABO_MEMBERS (
     GROUP_ID              integer      not null references ADDRESSBOOK_OBJECT on delete cascade,	-- AddressBook Object's (kind=='group') RESOURCE_ID
- 	ADDRESSBOOK_ID		  integer      not null references ADDRESSBOOK on delete cascade,
+ 	ADDRESSBOOK_ID		  integer      not null references ADDRESSBOOK_HOME on delete cascade,
     MEMBER_ID             integer      not null references ADDRESSBOOK_OBJECT,						-- member AddressBook Object's RESOURCE_ID
     primary key (GROUP_ID, MEMBER_ID) -- implicit index
 );
@@ -455,7 +436,7 @@ create table ABO_MEMBERS (
 
 create table ABO_FOREIGN_MEMBERS (
     GROUP_ID              integer      not null references ADDRESSBOOK_OBJECT on delete cascade,	-- AddressBook Object's (kind=='group') RESOURCE_ID
- 	ADDRESSBOOK_ID		  integer      not null references ADDRESSBOOK on delete cascade,
+ 	ADDRESSBOOK_ID		  integer      not null references ADDRESSBOOK_HOME on delete cascade,
     MEMBER_ADDRESS  	  varchar(255) not null, 													-- member AddressBook Object's 'calendar' address
     primary key (GROUP_ID, MEMBER_ADDRESS) -- implicit index
 );
@@ -467,7 +448,7 @@ create table ABO_FOREIGN_MEMBERS (
 
 -- Joins ADDRESSBOOK_HOME and ADDRESSBOOK_OBJECT (acting as Address Book)
 
-create table GROUP_ADDRESSBOOK_BIND (	
+create table GROUP_ADDRESSBOOK_HOME_BIND (	
   ADDRESSBOOK_HOME_RESOURCE_ID 		integer      not null references ADDRESSBOOK_HOME,
   GROUP_RESOURCE_ID      			integer      not null references ADDRESSBOOK_OBJECT on delete cascade,
   GROUP_ADDRESSBOOK_RESOURCE_NAME	varchar(255) not null,
@@ -479,8 +460,8 @@ create table GROUP_ADDRESSBOOK_BIND (
   unique (ADDRESSBOOK_HOME_RESOURCE_ID, GROUP_ADDRESSBOOK_RESOURCE_NAME)     -- implicit index
 );
 
-create index GROUP_ADDRESSBOOK_BIND_RESOURCE_ID on
-  GROUP_ADDRESSBOOK_BIND(GROUP_RESOURCE_ID);
+create index GROUP_ADDRESSBOOK_HOME_BIND_RESOURCE_ID on
+  GROUP_ADDRESSBOOK_HOME_BIND(GROUP_RESOURCE_ID);
 
 
 ---------------
@@ -514,8 +495,7 @@ create index CALENDAR_OBJECT_REVISIONS_RESOURCE_ID_REVISION
 
 create table ADDRESSBOOK_OBJECT_REVISIONS (
   ADDRESSBOOK_HOME_RESOURCE_ID integer      not null references ADDRESSBOOK_HOME,
-  -- ADDRESSBOOK_RESOURCE_ID      integer      references ADDRESSBOOK,		-- FIXME
-  ADDRESSBOOK_RESOURCE_ID      integer,
+  ADDRESSBOOK_RESOURCE_ID      integer, 	-- FIXME, should reference ADDRESSBOOK_HOME
   ADDRESSBOOK_NAME             varchar(255) default null,
   RESOURCE_NAME                varchar(255),
   REVISION                     integer      default nextval('REVISION_SEQ') not null,

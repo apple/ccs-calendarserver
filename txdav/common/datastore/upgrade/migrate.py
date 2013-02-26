@@ -409,7 +409,8 @@ class UpgradeToDatabaseService(Service, LoggingMixIn, object):
 
         for homeType, eachFunc in [
                 ("calendar", self.fileStore.withEachCalendarHomeDo),
-                ("addressbook", self.fileStore.withEachAddressbookHomeDo),
+                # FIXME:
+                # ("addressbook", self.fileStore.withEachAddressbookHomeDo),
             ]:
             yield eachFunc(
                 lambda txn, home: self._upgradeAction(

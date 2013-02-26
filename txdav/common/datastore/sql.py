@@ -2561,9 +2561,8 @@ class SharingMixIn(object):
             newName = str(uuid4())
             yield self._bindInsertQuery.on(
                 subt, homeID=shareeHome._resourceID,
-                resourceID=self._resourceID, name=newName, mode=mode,
-                seenByOwner=True, seenBySharee=True,
-                bindStatus=status, message=message
+                resourceID=self._resourceID, name=newName,
+                mode=mode, bindStatus=status, message=message
             )
             returnValue(newName)
         try:
@@ -3147,21 +3146,14 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic, HomeChildBas
 
     @classmethod
     @inlineCallbacks
-    def create(cls, home, name):
-
-        if (yield cls._bindForNameAndHomeID.on(home._txn,
-                              name=name, homeID=home._resourceID)):
-            raise HomeChildNameAlreadyExistsError(name)
-
-        if name.startswith("."):
-            raise HomeChildNameNotAllowedError(name)
+    def _insertHomeChildAndMetaData(cls, home, name):
 
         # Create this object
         resourceID = (
             yield cls._insertHomeChild.on(home._txn))[0][0]
 
         # Initialize this object
-        _created, _modified = (
+        created, modified = (
             yield cls._insertHomeChildMetaData.on(home._txn,
                                                   resourceID=resourceID))[0]
 
@@ -3171,6 +3163,23 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic, HomeChildBas
             name=name, mode=_BIND_MODE_OWN, bindStatus=_BIND_STATUS_ACCEPTED,
             message=None,
         )
+
+        returnValue((resourceID, created, modified))
+
+
+    @classmethod
+    @inlineCallbacks
+    def create(cls, home, name):
+
+        if (yield cls._bindForNameAndHomeID.on(home._txn,
+            name=name, homeID=home._resourceID)):
+            raise HomeChildNameAlreadyExistsError(name)
+
+        if name.startswith("."):
+            raise HomeChildNameNotAllowedError(name)
+
+        # Create this object
+        resourceID, _created, _modified = yield cls._insertHomeChildAndMetaData(home, name)
 
         # Initialize other state
         child = cls(home, name, resourceID, _BIND_MODE_OWN, _BIND_STATUS_ACCEPTED)

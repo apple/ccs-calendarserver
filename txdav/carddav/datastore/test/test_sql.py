@@ -66,17 +66,17 @@ class AddressBookSQLStorageTests(AddressBookCommonTests, unittest.TestCase):
                 home = yield populateTxn.addressbookHomeWithUID(homeUID, True)
                 # We don't want the default addressbook to appear unless it's
                 # explicitly listed.
-                yield home.removeAddressBookWithName("addressbook")
-                for addressbookName in addressbooks:
-                    addressbookObjNames = addressbooks[addressbookName]
-                    if addressbookObjNames is not None:
-                        yield home.createAddressBookWithName(addressbookName)
-                        addressbook = yield home.addressbookWithName(addressbookName)
-                        for objectName in addressbookObjNames:
-                            objData = addressbookObjNames[objectName]
-                            yield addressbook.createAddressBookObjectWithName(
-                                objectName, VCard.fromString(objData)
-                            )
+                addressbookName = (yield home.addressbook()).name()
+                yield home.removeAddressBookWithName(addressbookName)
+                addressbook = yield home.addressbook()
+
+                addressbookObjNames = addressbooks[addressbookName]
+                if addressbookObjNames is not None:
+                    for objectName in addressbookObjNames:
+                        objData = addressbookObjNames[objectName]
+                        yield addressbook.createAddressBookObjectWithName(
+                            objectName, VCard.fromString(objData)
+                        )
 
         yield populateTxn.commit()
         self.notifierFactory.reset()
