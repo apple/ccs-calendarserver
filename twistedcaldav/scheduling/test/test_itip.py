@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+from __future__ import print_function
 
 from pycalendar.datetime import PyCalendarDateTime
 from pycalendar.timezone import PyCalendarTimezone
@@ -867,9 +868,9 @@ END:VCALENDAR
             reply_success, reply_processed = iTipProcessing.processReply(itipmsg, calendar)
 #            if not description.startswith("#3.1"):
 #                continue
-#            print description
-#            print str(calendar)
-#            print str(result)
+#            print(description)
+#            print(str(calendar))
+#            print(str(result))
             self.assertEqual(
                 str(calendar).replace("\r", "").replace("\n ", ""),
                 str(result).replace("\n ", ""),

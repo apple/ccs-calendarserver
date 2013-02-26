@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+from __future__ import print_function
 
 """
 Prints out an SQL statement that can be used in an SQL shell against
@@ -27,16 +28,16 @@ import sys
 
 def usage(error_msg=None):
     if error_msg:
-        print error_msg
+        print(error_msg)
 
-    print "sqldata_from_path PATH"
-    print
-    print "PATH   filestore or HTTP path"
-    print
-    print """Prints out an SQL statement that can be used in an SQL shell against
-an sqlstore database to return the calendar or address data for the provided
-filestore or HTTP path. Path must be a __uids__ path.
-"""
+    print("sqldata_from_path PATH")
+    print("")
+    print("PATH   filestore or HTTP path")
+    print("""
+Prints out an SQL statement that can be used in an SQL shell against
+an sqlstore database to return the calendar or address data for the
+provided filestore or HTTP path. Path must be a __uids__ path.
+""")
 
     if error_msg:
         raise ValueError(error_msg)
@@ -105,11 +106,11 @@ if __name__ == '__main__':
     sqlstrings[datatype]["collection"] = collection
     sqlstrings[datatype]["resource"] = resource
 
-    print """select %(object_data)s from %(object_table)s where
+    print("""select %(object_data)s from %(object_table)s where
     %(object_name)s = '%(resource)s' and %(object_bind_id)s = (
         select %(bind_id)s from %(bind_table)s where
             %(bind_name)s = '%(collection)s' and %(bind_home_id)s = (
                 select RESOURCE_ID from %(home_table)s where OWNER_UID = '%(uid)s'
             )
-    );""" % sqlstrings[datatype]
+    );""" % sqlstrings[datatype])
     

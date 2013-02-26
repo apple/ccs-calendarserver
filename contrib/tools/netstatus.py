@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+from __future__ import print_function
 
 """
 Tool to monitor network connection status and track queue sizes and
@@ -80,20 +81,20 @@ if __name__ == '__main__':
             else:
                 pendingq[key] = (timestamp, recv, sendq,)
 
-        print "------------------------"
-        print ""
-        print time.asctime()
-        print "State        Total    RecvQ    SendQ"
+        print("------------------------")
+        print("")
+        print(time.asctime())
+        print("State        Total    RecvQ    SendQ")
         for ctr, items in enumerate(stateNames):
-            print "%11s  %5d    %5d    %5d" % (items[0], states[ctr][0], states[ctr][1], states[ctr][2])
+            print("%11s  %5d    %5d    %5d" % (items[0], states[ctr][0], states[ctr][1], states[ctr][2]))
     
-        print ""
-        print "Source IP              Established (secs)    RecvQ    SendQ"
+        print("")
+        print("Source IP              Established (secs)    RecvQ    SendQ")
         for key, value in sorted(pendingq.iteritems(), key=lambda x:x[1]):
             startedat, recv, sendq = value
             deltatime = timestamp - startedat
             if deltatime > 0:
-                print "%-20s   %3d                   %5s    %5s" % (key, deltatime, recv, sendq,)
+                print("%-20s   %3d                   %5s    %5s" % (key, deltatime, recv, sendq,))
 
         sys.stdout.flush()
         time.sleep(5)

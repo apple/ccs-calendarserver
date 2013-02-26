@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+from __future__ import print_function
 
 import sys, pickle
 
@@ -41,7 +42,7 @@ def main():
     try:
         options.parseOptions(sys.argv[1:])
     except UsageError, e:
-        print e
+        print(e)
         return 1
 
     fname = options['filename']

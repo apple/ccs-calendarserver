@@ -1,5 +1,5 @@
 # -*- test-case-name: twext.web2.test.test_http_headers -*-
-# #
+##
 # Copyright (c) 2008 Twisted Matrix Laboratories.
 # Copyright (c) 2010-2013 Apple Computer, Inc. All rights reserved.
 #
@@ -21,7 +21,8 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 #
-# #
+##
+from __future__ import print_function
 
 """
 HTTP header representation, parsing, and serialization.
@@ -100,7 +101,7 @@ class HeaderHandler(object):
 
         try:
             for p in parser:
-                # print "Parsing %s: %s(%s)" % (name, repr(p), repr(h))
+                # print("Parsing %s: %s(%s)" % (name, repr(p), repr(h)))
                 header = p(header)
                 # if isinstance(h, types.GeneratorType):
                 #     h=list(h)
@@ -125,7 +126,7 @@ class HeaderHandler(object):
         generator = self.HTTPGenerators.get(name, None)
 
         if generator is None:
-            # print self.generators
+            # print(self.generators)
             raise ValueError("No header generator for header '%s', either add one or use setHeaderRaw." % (name,))
 
         for g in generator:

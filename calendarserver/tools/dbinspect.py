@@ -15,6 +15,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+from __future__ import print_function
 
 """
 This tool allows data in the database to be directly inspected using a set
@@ -49,8 +50,8 @@ import traceback
 
 def usage(e=None):
     if e:
-        print e
-        print ""
+        print(e)
+        print("")
     try:
         DBInspectOptions().opt_help()
     except SystemExit:
@@ -152,8 +153,8 @@ class TableSizes(Cmd):
                 count,
             ))
 
-        print "\n"
-        print "Database Tables (total=%d):\n" % (len(results),)
+        print("\n")
+        print("Database Tables (total=%d):\n" % (len(results),))
         table.printTable()
 
 
@@ -189,8 +190,8 @@ class CalendarHomes(Cmd):
                 shortname,
             ))
 
-        print "\n"
-        print "Calendar Homes (total=%d, missing=%d):\n" % (len(uids), missing,)
+        print("\n")
+        print("Calendar Homes (total=%d, missing=%d):\n" % (len(uids), missing,))
         table.printTable()
 
 
@@ -245,8 +246,8 @@ class CalendarHomesSummary(Cmd):
             "%.2f" % ((1.0 * totals[2]) / totals[0] if totals[0] else 0,),
         ))
 
-        print "\n"
-        print "Calendars with resource count (total=%d):\n" % (len(results),)
+        print("\n")
+        print("Calendars with resource count (total=%d):\n" % (len(results),))
         table.printTable()
 
 
@@ -292,8 +293,8 @@ class Calendars(Cmd):
                 count
             ))
 
-        print "\n"
-        print "Calendars with resource count (total=%d):\n" % (len(uids),)
+        print("\n")
+        print("Calendars with resource count (total=%d):\n" % (len(uids),))
         table.printTable()
 
 
@@ -346,8 +347,8 @@ class CalendarsByOwner(Cmd):
             totals[1] += count
         table.addFooter(("Total", "", totals[0], "", totals[1]))
 
-        print "\n"
-        print "Calendars with resource count (total=%d):\n" % (len(uids),)
+        print("\n")
+        print("Calendars with resource count (total=%d):\n" % (len(uids),))
         table.printTable()
 
 
@@ -397,8 +398,8 @@ class Events(Cmd):
                 caluid
             ))
 
-        print "\n"
-        print "Calendar events (total=%d):\n" % (len(uids),)
+        print("\n")
+        print("Calendar events (total=%d):\n" % (len(uids),))
         table.printTable()
 
 
@@ -435,7 +436,7 @@ class EventsByCalendar(Cmd):
         try:
             int(rid)
         except ValueError:
-            print 'Resource ID must be an integer'
+            print('Resource ID must be an integer')
             returnValue(None)
         uids = yield self.getEvents(txn, rid)
 
@@ -450,8 +451,8 @@ class EventsByCalendar(Cmd):
                 rid,
             ))
 
-        print "\n"
-        print "Calendar events (total=%d):\n" % (len(uids),)
+        print("\n")
+        print("Calendar events (total=%d):\n" % (len(uids),))
         table.printTable()
 
 
@@ -492,9 +493,9 @@ class EventDetails(Cmd):
         table.addRow(("Resource ID:", resource_id))
         table.addRow(("Created", created))
         table.addRow(("Modified", modified))
-        print "\n"
+        print("\n")
         table.printTable()
-        print data
+        print(data)
 
 
     @inlineCallbacks
@@ -533,13 +534,13 @@ class Event(EventDetails):
         try:
             int(rid)
         except ValueError:
-            print 'Resource ID must be an integer'
+            print('Resource ID must be an integer')
             returnValue(None)
         result = yield self.getData(txn, rid)
         if result:
             self.printEventDetails(txn, result[0])
         else:
-            print "Could not find resource"
+            print("Could not find resource")
 
 
     def getData(self, txn, rid):
@@ -561,7 +562,7 @@ class EventsByUID(EventDetails):
             for result in rows:
                 self.printEventDetails(txn, result)
         else:
-            print "Could not find icalendar data"
+            print("Could not find icalendar data")
 
 
     def getData(self, txn, uid):
@@ -583,7 +584,7 @@ class EventsByName(EventDetails):
             for result in rows:
                 self.printEventDetails(txn, result)
         else:
-            print "Could not find icalendar data"
+            print("Could not find icalendar data")
 
 
     def getData(self, txn, name):
@@ -606,7 +607,7 @@ class EventsByOwner(EventDetails):
             for result in rows:
                 self.printEventDetails(txn, result)
         else:
-            print "Could not find icalendar data"
+            print("Could not find icalendar data")
 
 
     def getData(self, txn, uid):
@@ -630,7 +631,7 @@ class EventsByOwnerCalendar(EventDetails):
             for result in rows:
                 self.printEventDetails(txn, result)
         else:
-            print "Could not find icalendar data"
+            print("Could not find icalendar data")
 
 
     def getData(self, txn, uid, name):
@@ -650,7 +651,7 @@ class EventsByPath(EventDetails):
         path = raw_input("Path: ")
         pathbits = path.split("/")
         if len(pathbits) != 6:
-            print "Not a valid calendar object resource path"
+            print("Not a valid calendar object resource path")
             returnValue(None)
         homeName = pathbits[3]
         calendarName = pathbits[4]
@@ -660,7 +661,7 @@ class EventsByPath(EventDetails):
             for result in rows:
                 self.printEventDetails(txn, result)
         else:
-            print "Could not find icalendar data"
+            print("Could not find icalendar data")
 
 
     def getData(self, txn, homeName, calendarName, resourceName):
@@ -692,7 +693,7 @@ class EventsByContent(EventDetails):
             for result in rows:
                 self.printEventDetails(txn, result)
         else:
-            print "Could not find icalendar data"
+            print("Could not find icalendar data")
 
 
     def getData(self, txn, text):
@@ -719,18 +720,18 @@ class EventsInTimerange(Cmd):
         try:
             start = PyCalendarDateTime.parseText(start)
         except ValueError:
-            print "Invalid start value"
+            print("Invalid start value")
             returnValue(None)
         try:
             end = PyCalendarDateTime.parseText(end)
         except ValueError:
-            print "Invalid end value"
+            print("Invalid end value")
             returnValue(None)
         timerange = caldavxml.TimeRange(start=start.getText(), end=end.getText())
 
         home = yield txn.calendarHomeWithUID(uid)
         if home is None:
-            print "Could not find calendar home"
+            print("Could not find calendar home")
             returnValue(None)
 
         yield self.eventsForEachCalendar(home, uid, timerange)
@@ -777,9 +778,9 @@ class EventsInTimerange(Cmd):
             table.addRow(("Resource ID:", event._resourceID))
             table.addRow(("Created", event.created()))
             table.addRow(("Modified", event.modified()))
-            print "\n"
+            print("\n")
             table.printTable()
-            print ical_data.getTextWithTimezones(includeTimezones=False)
+            print(ical_data.getTextWithTimezones(includeTimezones=False))
 
 
 
@@ -791,7 +792,7 @@ class Purge(Cmd):
     def doIt(self, txn):
 
         if raw_input("Do you really want to remove all data [y/n]: ")[0].lower() != 'y':
-            print "No data removed"
+            print("No data removed")
             returnValue(None)
 
         wipeout = (
@@ -829,21 +830,21 @@ class Purge(Cmd):
 
         for tableschema in wipeout:
             yield self.removeTableData(txn, tableschema)
-            print "Removed rows in table %s" % (tableschema,)
+            print("Removed rows in table %s" % (tableschema,))
 
         if calendaruserproxy.ProxyDBService is not None:
             calendaruserproxy.ProxyDBService.clean() #@UndefinedVariable
-            print "Removed all proxies"
+            print("Removed all proxies")
         else:
-            print "No proxy database to clean."
+            print("No proxy database to clean.")
 
         fp = FilePath(config.AttachmentsRoot)
         if fp.exists():
             for child in fp.children():
                 child.remove()
-            print "Removed attachments."
+            print("Removed attachments.")
         else:
-            print "No attachments path to delete."
+            print("No attachments path to delete.")
 
 
     @inlineCallbacks
@@ -906,7 +907,7 @@ class DBInspectService(Service, object):
         try:
             yield self.runCommandByName(self.commands[position])
         except IndexError:
-            print "Position %d not available" % (position,)
+            print("Position %d not available" % (position,))
             returnValue(None)
 
 
@@ -915,7 +916,7 @@ class DBInspectService(Service, object):
         try:
             yield self.runCommand(self.commandMap[name])
         except IndexError:
-            print "Unknown command: '%s'" % (name,)
+            print("Unknown command: '%s'" % (name,))
 
 
     @inlineCallbacks
@@ -927,18 +928,18 @@ class DBInspectService(Service, object):
             yield txn.commit()
         except Exception, e:
             traceback.print_exc()
-            print "Command '%s' failed because of: %s" % (cmd.name(), e,)
+            print("Command '%s' failed because of: %s" % (cmd.name(), e,))
             yield txn.abort()
 
 
     def printCommands(self):
 
-        print "\n<---- Commands ---->"
+        print("\n<---- Commands ---->")
         for ctr, name in enumerate(self.commands):
-            print "%d. %s" % (ctr + 1, name,)
+            print("%d. %s" % (ctr + 1, name,))
         if self.options["purging"]:
-            print "P. Purge\n"
-        print "Q. Quit\n"
+            print("P. Purge\n")
+        print("Q. Quit\n")
 
 
     @inlineCallbacks
@@ -958,7 +959,7 @@ class DBInspectService(Service, object):
                 try:
                     position = int(cmd)
                 except ValueError:
-                    print "Invalid command. Try again.\n"
+                    print("Invalid command. Try again.\n")
                     continue
 
                 yield self.runCommandByPosition(position - 1)
@@ -977,7 +978,7 @@ class DBInspectService(Service, object):
             try:
                 calendaruserproxy.ProxyDBService = proxydbClass(**config.ProxyDBService.params)
             except IOError:
-                print "Could not start proxydb service"
+                print("Could not start proxydb service")
         return self._directory
 
 

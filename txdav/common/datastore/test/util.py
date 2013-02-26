@@ -14,6 +14,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+from __future__ import print_function
+
 """
 Store test utility functions
 """
@@ -71,10 +73,10 @@ def dumpConnectionStatus():
     between tests.  (It is currently not invoked anywhere, but may be useful if
     these types of bugs crop up in the future.)
     """
-    print '+++ ALL CONNECTIONS +++'
+    print("+++ ALL CONNECTIONS +++")
     for connection in allInstancesOf(DiagnosticConnectionWrapper):
-        print connection.label, connection.state
-    print '--- CONNECTIONS END ---'
+        print(connection.label, connection.state)
+    print("--- CONNECTIONS END ---")
 
 
 

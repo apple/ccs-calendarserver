@@ -14,6 +14,7 @@
 # limitations under the License.
 #
 ##
+from __future__ import print_function
 
 from caldavclientlibrary.protocol.caldav.definitions import caldavxml
 from caldavclientlibrary.protocol.caldav.definitions import csxml
@@ -316,10 +317,10 @@ class _PubSubClientFactory(PubSubClientFactory):
         self._client = client
 
     def initFailed(self, reason):
-        print 'XMPP initialization failed', reason
+        print('XMPP initialization failed', reason)
 
     def authFailed(self, reason):
-        print 'XMPP Authentication failed', reason
+        print('XMPP Authentication failed', reason)
 
     def handleMessageEventItems(self, iq):
         item = iq.firstChildElement().firstChildElement()
@@ -1986,7 +1987,7 @@ class RequestLogger(object):
                 formatArgs['success'] = self.success
             else:
                 formatArgs['success'] = self.failure
-            print (self.format % formatArgs).encode('utf-8')
+            print((self.format % formatArgs).encode('utf-8'))
 
 
     def report(self, output):

@@ -15,6 +15,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+from __future__ import print_function
 
 """
 This tool reads calendar data from a series of inputs and generates a single
@@ -52,8 +53,8 @@ from calendarserver.tap.util import directoryFromConfig
 
 def usage(e=None):
     if e:
-        print e
-        print ""
+        print(e)
+        print("")
     try:
         ExportOptions().opt_help()
     except SystemExit:

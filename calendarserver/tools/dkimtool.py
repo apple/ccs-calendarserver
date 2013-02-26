@@ -41,7 +41,7 @@ def _doKeyGeneration(options):
     if options["key"]:
         open(options["key"], "w").write(output)
     else:
-        print output
+        print(output)
         lineBreak = True
 
     output = key.publickey().exportKey()
@@ -50,7 +50,7 @@ def _doKeyGeneration(options):
     else:
         if lineBreak:
             print
-        print output
+        print(output)
         lineBreak = True
 
     if options["txt"]:
@@ -58,7 +58,7 @@ def _doKeyGeneration(options):
         txt = "v=DKIM1; p=%s" % (output,)
         if lineBreak:
             print
-        print txt
+        print(txt)
 
 
 
@@ -105,7 +105,7 @@ def _doRequest(options):
 
     s = StringIO()
     _writeRequest(dkim, s)
-    print s.getvalue()
+    print(s.getvalue())
 
 
 
@@ -131,9 +131,9 @@ def _doVerify(options):
     try:
         yield dkim.verify()
     except DKIMVerificationError, e:
-        print "Verification Failed: %s" % (e,)
+        print("Verification Failed: %s" % (e,))
     else:
-        print "Verification Succeeded"
+        print("Verification Succeeded")
 
 
 
@@ -192,8 +192,8 @@ class PublicKeyLookup_File(PublicKeyLookup):
 
 def usage(e=None):
     if e:
-        print e
-        print ""
+        print(e)
+        print("")
     try:
         DKIMToolOptions().opt_help()
     except SystemExit:
@@ -282,7 +282,7 @@ def _runInReactor(fn, options):
     try:
         yield fn(options)
     except Exception, e:
-        print e
+        print(e)
     finally:
         reactor.stop()
 

@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+from __future__ import print_function
 
 import pickle
 from time import time
@@ -192,7 +193,7 @@ def sample(dtrace, sampleTime, agent, paramgen, responseCode, concurrency=1):
     msg('dtrace stopped')
     for (k, v) in leftOver.items():
         if v:
-            print 'Extra', k, ':', v
+            print('Extra', k, ':', v)
     returnValue(data)
 
 

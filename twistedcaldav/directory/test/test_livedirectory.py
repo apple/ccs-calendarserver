@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+from __future__ import print_function
 
 runLDAPTests = False
 runODTests = False
@@ -33,7 +34,7 @@ try:
         pass # Don't run live tests
 
 except ImportError:
-    print "Could not import ldap module (skipping LDAP tests)"
+    print("Could not import ldap module (skipping LDAP tests)")
 
 try:
     from calendarserver.platform.darwin.od import opendirectory, dsattributes
@@ -54,10 +55,10 @@ try:
     if "odtestamanda" in recordNames:
         runODTests = True
     else:
-        print "Test OD records not found (skipping OD tests)"
+        print("Test OD records not found (skipping OD tests)")
 
 except ImportError:
-    print "Could not import OpenDirectory framework (skipping OD tests)"
+    print("Could not import OpenDirectory framework (skipping OD tests)")
 
 
 if runLDAPTests or runODTests:
@@ -144,7 +145,7 @@ if runLDAPTests or runODTests:
     if runLDAPTests:
 
         from twistedcaldav.directory.ldapdirectory import LdapDirectoryService
-        print "Running live LDAP tests against %s" % (testServer,)
+        print("Running live LDAP tests against %s" % (testServer,))
 
         class LiveLDAPDirectoryServiceCase(LiveDirectoryTests, TestCase):
 
@@ -181,7 +182,7 @@ if runLDAPTests or runODTests:
     if runODTests:
 
         from twistedcaldav.directory.appleopendirectory import OpenDirectoryService
-        print "Running live OD tests"
+        print("Running live OD tests")
 
         class LiveODDirectoryServiceCase(LiveDirectoryTests, TestCase):
 

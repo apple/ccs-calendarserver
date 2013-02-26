@@ -15,6 +15,7 @@
 # limitations under the License.
 #
 ##
+from __future__ import print_function
 
 """
 Tools for generating a population of CalendarServer users based on
@@ -336,10 +337,10 @@ class SimpleStatistics(StatisticsBase):
     def eventReceived(self, event):
         self._times.append(event['duration'])
         if len(self._times) == 200:
-            print 'mean:', mean(self._times)
-            print 'median:', median(self._times)
-            print 'stddev:', stddev(self._times)
-            print 'mad:', mad(self._times)
+            print('mean:', mean(self._times))
+            print('median:', median(self._times))
+            print('stddev:', stddev(self._times))
+            print('mad:', mad(self._times))
             del self._times[:100]
 
 

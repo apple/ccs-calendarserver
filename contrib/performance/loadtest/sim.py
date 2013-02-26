@@ -15,6 +15,7 @@
 # limitations under the License.
 #
 ##
+from __future__ import print_function
 
 from collections import namedtuple
 from os import environ, mkdir
@@ -261,8 +262,8 @@ class LoadSimulator(object):
                         try:
                             mkdir(serializationPath)
                         except OSError:
-                            print "Unable to create client data serialization directory: %s" % (serializationPath)
-                            print "Please consult the clientDataSerialization stanza of contrib/performance/loadtest/config.plist"
+                            print("Unable to create client data serialization directory: %s" % (serializationPath))
+                            print("Please consult the clientDataSerialization stanza of contrib/performance/loadtest/config.plist")
                             raise
 
             if 'arrival' in config:

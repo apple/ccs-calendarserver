@@ -95,11 +95,32 @@ if ${flaky}; then
   rm -f "${tmp}";
 fi;
 
+search_py ()
+{
+  find . \
+    ! '(' -type d '(' -path '*/.*' -or -name data ')' -prune ')' \
+    -type f -name '*.py' \
+    -print0 \
+    | xargs -0 -n 100 grep "$@";
+}
+
+#tmp="$(mktemp "/tmp/calendarserver_test_flakish.XXXXX")";
+#echo "";
+#echo "Checking for other issues..."
+#search_py 'print  *[^(]' | sed 's|#.*||' | grep 'print  *[^(]' > "${tmp}" || true;
+#if [ -s "${tmp}" ]; then
+#    echo "**** Use of legacy print statement found. ****";
+#    cat "${tmp}";
+#    exit 1;
+#fi;
+#rm -f "${tmp}";
+
 tmp="$(mktemp "/tmp/calendarserver_test_emtpy.XXXXX")";
-find "${wd}" '!' '(' -type d '(' -path '*/.*' -o -name data ')' -prune ')' -type f -size 0 > "${tmp}";
+find "${wd}" '!' '(' -type d '(' -path '*/.*' -or -name data ')' -prune ')' -type f -size 0 > "${tmp}";
 if [ -s "${tmp}" ]; then
     echo "**** Empty files: ****";
     cat "${tmp}";
     exit 1;
 fi;
 rm -f "${tmp}";
+

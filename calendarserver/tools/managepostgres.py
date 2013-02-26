@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+from __future__ import print_function
 
 from optparse import OptionParser
 import os
@@ -22,11 +23,11 @@ import sys
 import time
 
 def error(s):
-    print s
+    print(s)
     sys.exit(1)
 
 def cmd(s):
-    print s
+    print(s)
     subprocess.call(s, shell=True)
 
 def doInit(basedir):

@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+from __future__ import print_function
 
 from StringIO import StringIO
 import collections
@@ -72,23 +73,23 @@ def printStats(stats, multimode, showMethods, topUsers, showAgents):
 
 def printStat(stats, index, showMethods, topUsers, showAgents):
 
-    print "- " * 40
-    print "Server: %s" % (stats["Server"],)
-    print datetime.datetime.now().strftime("%Y/%m/%d %H:%M:%S")
-    print "Service Uptime: %s" % (datetime.timedelta(seconds=(int(time.time() - stats["System"]["start time"]))),)
+    print("- " * 40)
+    print("Server: %s" % (stats["Server"],))
+    print(datetime.datetime.now().strftime("%Y/%m/%d %H:%M:%S"))
+    print("Service Uptime: %s" % (datetime.timedelta(seconds=(int(time.time() - stats["System"]["start time"]))),))
     if stats["System"]["cpu count"] > 0:
-        print "Current CPU: %.1f%% (%d CPUs)" % (
+        print("Current CPU: %.1f%% (%d CPUs)" % (
             stats["System"]["cpu use"],
             stats["System"]["cpu count"],
-        )
-        print "Current Memory Used: %d bytes (%.1f GB) (%.1f%% of total)" % (
+        ))
+        print("Current Memory Used: %d bytes (%.1f GB) (%.1f%% of total)" % (
             stats["System"]["memory used"],
             stats["System"]["memory used"] / (1024.0 * 1024 * 1024),
             stats["System"]["memory percent"],
-        )
+        ))
     else:
-        print "Current CPU: Unavailable"
-        print "Current Memory Used: Unavailable"
+        print("Current CPU: Unavailable")
+        print("Current Memory Used: Unavailable")
     print
     printRequestSummary(stats)
     printHistogramSummary(stats[index], index)
@@ -105,8 +106,8 @@ def printMultipleStats(stats, multimode, showMethods, topUsers, showAgents):
 
     labels = serverLabels(stats)
 
-    print "- " * 40
-    print datetime.datetime.now().strftime("%Y/%m/%d %H:%M:%S")
+    print("- " * 40)
+    print(datetime.datetime.now().strftime("%Y/%m/%d %H:%M:%S"))
 
     times = []
     for stat in stats:
@@ -163,10 +164,10 @@ def serverLabels(stats):
 
 def printFailedStats(message):
 
-    print "- " * 40
-    print datetime.datetime.now().strftime("%Y/%m/%d %H:%M:%S")
-    print message
-    print
+    print("- " * 40)
+    print(datetime.datetime.now().strftime("%Y/%m/%d %H:%M:%S"))
+    print(message)
+    print("")
 
 
 
@@ -209,7 +210,7 @@ def printRequestSummary(stats):
 
     os = StringIO()
     table.printTable(os=os)
-    print os.getvalue()
+    print(os.getvalue())
 
 
 
@@ -274,13 +275,13 @@ def printMultiRequestSummary(stats, cpus, memories, times, labels, index):
 
     os = StringIO()
     table.printTable(os=os)
-    print os.getvalue()
+    print(os.getvalue())
 
 
 
 def printHistogramSummary(stat, index):
 
-    print "%s average response histogram" % (index,)
+    print("%s average response histogram" % (index,))
     table = tables.Table()
     table.addHeader(
         ("", "<10ms", "10ms<->100ms", "100ms<->1s", "1s<->10s", "10s<->30s", "30s<->60s", ">60s", "Over 1s", "Over 10s"),
@@ -314,7 +315,7 @@ def printHistogramSummary(stat, index):
         ))
     os = StringIO()
     table.printTable(os=os)
-    print os.getvalue()
+    print(os.getvalue())
 
 
 
@@ -339,7 +340,7 @@ def printMultiHistogramSummary(stats, index):
 
 def printMethodCounts(stat):
 
-    print "Method Counts"
+    print("Method Counts")
     table = tables.Table()
     table.addHeader(
         ("Method", "Count", "%", "Av. Response", "%", "Total Resp. %"),
@@ -377,7 +378,7 @@ def printMethodCounts(stat):
         ))
     os = StringIO()
     table.printTable(os=os)
-    print os.getvalue()
+    print(os.getvalue())
 
 
 
@@ -397,7 +398,7 @@ def printMultiMethodCounts(stats, index):
 
 def printUserCounts(stat, topUsers):
 
-    print "User Counts"
+    print("User Counts")
     table = tables.Table()
     table.addHeader(
         ("User", "Total", "Percentage"),
@@ -419,7 +420,7 @@ def printUserCounts(stat, topUsers):
         ))
     os = StringIO()
     table.printTable(os=os)
-    print os.getvalue()
+    print(os.getvalue())
 
 
 
@@ -436,7 +437,7 @@ def printMultiUserCounts(stats, index, topUsers):
 
 def printAgentCounts(stat):
 
-    print "User-Agent Counts"
+    print("User-Agent Counts")
     table = tables.Table()
     table.addHeader(
         ("User-Agent", "Total", "Percentage"),
@@ -458,7 +459,7 @@ def printAgentCounts(stat):
         ))
     os = StringIO()
     table.printTable(os=os)
-    print os.getvalue()
+    print(os.getvalue())
 
 
 
@@ -475,9 +476,9 @@ def printMultiAgentCounts(stats, index):
 
 def usage(error_msg=None):
     if error_msg:
-        print error_msg
+        print(error_msg)
 
-    print """Usage: readStats [options]
+    print("""Usage: readStats [options]
 Options:
     -h            Print this help and exit
     -s            Name of local socket to read from
@@ -495,7 +496,7 @@ Description:
     This utility will print a summary of statistics read from a
     server continuously with the specified delay.
 
-"""
+""")
 
     if error_msg:
         raise ValueError(error_msg)

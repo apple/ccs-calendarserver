@@ -9,6 +9,7 @@
 # Software License Agreement accompanying the package this file is a
 # part of.  You may not port this file to another platform without
 # Apple's written consent.
+from __future__ import print_function
 
 import os
 from plistlib import readPlist, writePlist
@@ -30,7 +31,7 @@ def main():
             writePlist(plistData, plistPath)
 
         except Exception, e:
-            print "Unable to disable services in %s: %s" % (plistPath, e)
+            print("Unable to disable services in %s: %s" % (plistPath, e))
 
 
 if __name__ == '__main__':

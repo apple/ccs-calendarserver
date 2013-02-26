@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+from __future__ import print_function
 
 from cStringIO import StringIO
 import os
@@ -102,7 +103,7 @@ class OutboundTests(TestCase):
         self.store.queuer.callWithNewProposals(self._proposalCallback)
 
     def _proposalCallback(self, wp):
-        # print "New proposal", wp
+        # print("New proposal", wp)
         self.wp = wp
 
     @inlineCallbacks

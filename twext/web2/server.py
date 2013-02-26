@@ -22,6 +22,7 @@
 # SOFTWARE.
 #
 ##
+from __future__ import print_function
 
 """
 This is a web-server which integrates with the twisted.internet
@@ -297,7 +298,7 @@ class Request(http.Request):
         else:
             self.prepath = []
             self.postpath = path
-        #print "_parseURL", self.uri, (self.uri, self.scheme, self.host, self.path, self.params, self.querystring)
+        #print("_parseURL", self.uri, (self.uri, self.scheme, self.host, self.path, self.params, self.querystring))
 
     def _schemeFromPort(self, port):
         """

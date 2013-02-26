@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+from __future__ import print_function
 
 """
 This tool takes data from stdin and validates it as iCalendar data suitable
@@ -32,8 +33,8 @@ import sys
 
 def usage(e=None):
     if e:
-        print e
-        print ""
+        print(e)
+        print("")
     try:
         ValidOptions().opt_help()
     except SystemExit:
@@ -145,9 +146,9 @@ class ValidService(Service, object):
             result, message = self.validCalendarData()
 
         if result:
-            print "Calendar data OK"
+            print("Calendar data OK")
         else:
-            print message
+            print(message)
         self.reactor.stop()
 
 
@@ -167,7 +168,7 @@ class ValidService(Service, object):
             if unfixed:
                 raise InvalidICalendarDataError("Calendar data had unfixable problems:\n  %s" % ("\n  ".join(unfixed),))
             if fixed:
-                print "Calendar data had fixable problems:\n  %s" % ("\n  ".join(fixed),)
+                print("Calendar data had fixable problems:\n  %s" % ("\n  ".join(fixed),))
 
         except ValueError, e:
             result = False

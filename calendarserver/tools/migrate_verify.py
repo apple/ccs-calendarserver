@@ -15,6 +15,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+from __future__ import print_function
+
 from txdav.common.datastore.sql_tables import schema, _BIND_MODE_OWN
 from twext.enterprise.dal.syntax import Select, Parameter
 
@@ -38,8 +40,8 @@ VERSION = "1"
 
 def usage(e=None):
     if e:
-        print e
-        print ""
+        print(e)
+        print("")
     try:
         MigrateVerifyOptions().opt_help()
     except SystemExit:

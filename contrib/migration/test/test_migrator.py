@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+from __future__ import print_function
 
 import twistedcaldav.test.util
 from contrib.migration.calendarmigrator import (
@@ -1093,7 +1094,7 @@ class MigrationTests(twistedcaldav.test.util.TestCase):
         ]
 
         for description, (source, target), paths, expected in info:
-            # print "-=-=-=- %s -=-=-=-" % (description,)
+            # print("-=-=-=- %s -=-=-=-" % (description,))
             accessor = StubDiskAccessor(paths)
             actual = examinePreviousSystem(source, target, diskAccessor=accessor)
             self.assertEquals(expected, actual)

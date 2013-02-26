@@ -15,6 +15,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+from __future__ import print_function
 
 import os
 from os.path import dirname, basename
@@ -75,4 +76,4 @@ def version():
 
 if __name__ == "__main__":
     base_version, comment = version()
-    print "%s (%s)" % (base_version, comment)
+    print("%s (%s)" % (base_version, comment))

@@ -16,8 +16,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
-
+from __future__ import print_function
 from __future__ import with_statement
+
 import collections
 import getopt
 import os
@@ -55,7 +56,7 @@ class Dtrace(object):
             
             re_matched = re.match("(..) ([^ ]+) \(([^\)]+)\)", line)
             if re_matched is None:
-                print line
+                print(line)
             results = re_matched.groups()
             if results[0] == "<-":
                 self.entering = False
@@ -175,7 +176,7 @@ class Dtrace(object):
                             backstack.pop()
                         if backstack: backstack.pop()
                         if indent < 0:
-                            print "help"
+                            print("help")
                     current_line = current_line.parent if current_line else None
                 min_indent = min(min_indent, indent)
 
@@ -229,7 +230,7 @@ class Dtrace(object):
 
     def analyze(self, do_stack, no_collapse):
         
-        print "Parsing dtrace output."
+        print("Parsing dtrace output.")
         
         # Parse the trace lines first and look for the start of the call times
         lines = []
@@ -254,22 +255,22 @@ class Dtrace(object):
         self.printTraceDetails(lines, do_stack, no_collapse)
         
         for ctr, title in enumerate(("Sorted by Count", "Sorted by Exclusive", "Sorted by Inclusive",)):
-            print title
+            print(title)
             self.printCallTimeTotals(ctr)
 
     def printTraceDetails(self, lines, do_stack, no_collapse):
 
-        print "Found %d lines" % (len(lines),)
-        print "============================"
-        print ""
+        print("Found %d lines" % (len(lines),))
+        print("============================")
+        print("")
         
         self.stack = Dtrace.DtraceStack(lines, no_collapse)
         if do_stack:
             with file("stacked.txt", "w") as f:
                 self.stack.prettyPrint(f)
-            print "Wrote stack calls to 'stacked.txt'"
-            print "============================"
-            print ""
+            print("Wrote stack calls to 'stacked.txt'")
+            print("============================")
+            print("")
 
         # Get stats for each call
         stats = {}
@@ -285,17 +286,17 @@ class Dtrace(object):
             else:
                 last_exit = line.getPartialKey()
         
-        print "Function Call Counts"
-        print ""
+        print("Function Call Counts")
+        print("")
         table = tables.Table()
         table.addHeader(("Count", "Function", "File",))
         for key, value in sorted(stats.iteritems(), key=lambda x: x[1][0], reverse=True):
             table.addRow(("%d (%d)" % value, key[1], key[0],))
         table.printTable()
 
-        print ""
-        print "Called By Counts"
-        print ""
+        print("")
+        print("Called By Counts")
+        print("")
         table = tables.Table()
         table.addHeader(("Function", "Caller", "Count",))
         for main_key in sorted(self.stack.called_by.keys(), key=lambda x: x[1] + x[0]):
@@ -309,9 +310,9 @@ class Dtrace(object):
                 first = False
         table.printTable()
 
-        print ""
-        print "Call Into Counts"
-        print ""
+        print("")
+        print("Call Into Counts")
+        print("")
         table = tables.Table()
         table.addHeader(("Function", "Calls", "Count",))
         for main_key in sorted(self.stack.call_into.keys(), key=lambda x: x[1] + x[0]):
@@ -324,7 +325,7 @@ class Dtrace(object):
                 ))
                 first = False
         table.printTable()
-        print ""
+        print("")
 
     def parseCallTimeLine(self, line, index):
     
@@ -370,13 +371,13 @@ class Dtrace(object):
         ))
     
         table.printTable()
-        print ""
+        print("")
 
 def usage(error_msg=None):
     if error_msg:
-        print error_msg
+        print(error_msg)
 
-    print """Usage: dtraceanalyze [options] FILE
+    print("""Usage: dtraceanalyze [options] FILE
 Options:
     -h          Print this help and exit
     --stack     Save indented stack to file
@@ -396,7 +397,7 @@ Description:
     > sudo ./trace.d PID > results.txt
     ...
     > ./dtraceanalyze.py results.txt
-"""
+""")
 
     if error_msg:
         raise ValueError(error_msg)
@@ -432,17 +433,17 @@ if __name__ == "__main__":
         if not os.path.exists(filepath):
             usage("File '%s' does not exist" % (filepath,))
             
-        print "CalendarServer dtrace analysis tool tool"
-        print "====================================="
-        print ""
+        print("CalendarServer dtrace analysis tool tool")
+        print("=====================================")
+        print("")
         if do_stack:
-            print "Generating nested stack call file."
+            print("Generating nested stack call file.")
         if no_collapse:
-            print "Consecutive function calls will not be removed."
+            print("Consecutive function calls will not be removed.")
         else:
-            print "Consecutive function calls will be removed."
-        print "============================"
-        print ""
+            print("Consecutive function calls will be removed.")
+        print("============================")
+        print("")
     
         Dtrace(filepath).analyze(do_stack, no_collapse)
 

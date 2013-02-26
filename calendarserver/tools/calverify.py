@@ -15,6 +15,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+from __future__ import print_function
+
 from twistedcaldav.directory.directory import DirectoryService
 from twistedcaldav.datafilters.peruserdata import PerUserDataFilter
 
@@ -197,8 +199,8 @@ VERSION = "9"
 
 def printusage(e=None):
     if e:
-        print e
-        print ""
+        print(e)
+        print("")
     try:
         CalVerifyOptions().opt_help()
     except SystemExit:
@@ -741,7 +743,7 @@ class CalVerifyService(Service, object):
 
             returnValue(True)
         except Exception, e:
-            print "Failed to remove resource whilst fixing: %d\n%s" % (resid, e,)
+            print("Failed to remove resource whilst fixing: %d\n%s" % (resid, e,))
             returnValue(False)
 
 
@@ -1024,7 +1026,7 @@ class BadDataService(CalVerifyService):
                 result = False
                 message = "Exception for validCalendarData"
                 if self.options["verbose"]:
-                    print e
+                    print(e)
             if not result:
                 results_bad.append((owner, uid, resid, message))
                 badlen += 1
@@ -1258,8 +1260,8 @@ class BadDataService(CalVerifyService):
                 self.txn._migrating = True
                 component = yield calendarObj.setComponent(component)
             except Exception, e:
-                print e, component
-                print traceback.print_exc()
+                print(e, component)
+                print(traceback.print_exc())
                 result = False
                 message = "Exception fix: "
             yield self.txn.commit()
@@ -1520,7 +1522,7 @@ class SchedulingMismatchService(CalVerifyService):
                         eachAttendeesOwnStatus[organizerAttendee] = self.buildAttendeeStates(calendar, self.start, self.end, attendee_only=organizerAttendee)
                         attendeeResIDs[(organizerAttendee, uid)] = attresid
                         attendeeCreatedModified[organizerAttendee] = (att_created, att_modified,)
-                        #print "Reloaded missing attendee data"
+                        #print("Reloaded missing attendee data")
 
                 # If an entry for the attendee exists, then check whether attendee status matches
                 if organizerAttendee in eachAttendeesOwnStatus:
@@ -1679,7 +1681,7 @@ class SchedulingMismatchService(CalVerifyService):
                 self.buildResourceInfo(rows, onlyOrganizer=True)
 
                 #if uid in self.organized_byuid:
-                #    print "Reloaded missing organizer data: %s" % (uid,)
+                #    print("Reloaded missing organizer data: %s" % (uid,))
 
             if uid not in self.organized_byuid:
 
@@ -1864,7 +1866,7 @@ class SchedulingMismatchService(CalVerifyService):
             returnValue(True)
 
         except Exception, e:
-            print "Failed to fix resource: %d for attendee: %s\n%s" % (orgresid, attendee, e,)
+            print("Failed to fix resource: %d for attendee: %s\n%s" % (orgresid, attendee, e,))
             returnValue(False)
 
 

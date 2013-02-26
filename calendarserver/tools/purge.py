@@ -15,6 +15,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+from __future__ import print_function
 
 from calendarserver.tap.util import FakeRequest
 from calendarserver.tap.util import getRootResource
@@ -107,19 +108,19 @@ class PurgeOldEventsService(WorkerService):
     def usage(cls, e=None):
 
         name = os.path.basename(sys.argv[0])
-        print "usage: %s [options]" % (name,)
-        print ""
-        print "  Remove old events from the calendar server"
-        print ""
-        print "options:"
-        print "  -h --help: print this help and exit"
-        print "  -f --config <path>: Specify caldavd.plist configuration path"
-        print "  -d --days <number>: specify how many days in the past to retain (default=%d)" % (DEFAULT_RETAIN_DAYS,)
-        #print "  -b --batch <number>: number of events to remove in each transaction (default=%d)" % (DEFAULT_BATCH_SIZE,)
-        print "  -n --dry-run: calculate how many events to purge, but do not purge data"
-        print "  -v --verbose: print progress information"
-        print "  -D --debug: debug logging"
-        print ""
+        print("usage: %s [options]" % (name,))
+        print("")
+        print("  Remove old events from the calendar server")
+        print("")
+        print("options:")
+        print("  -h --help: print this help and exit")
+        print("  -f --config <path>: Specify caldavd.plist configuration path")
+        print("  -d --days <number>: specify how many days in the past to retain (default=%d)" % (DEFAULT_RETAIN_DAYS,))
+        #print("  -b --batch <number>: number of events to remove in each transaction (default=%d)" % (DEFAULT_BATCH_SIZE,))
+        print("  -n --dry-run: calculate how many events to purge, but do not purge data")
+        print("  -v --verbose: print progress information")
+        print("  -D --debug: debug logging")
+        print("")
 
         if e:
             sys.stderr.write("%s\n" % (e,))
@@ -164,14 +165,14 @@ class PurgeOldEventsService(WorkerService):
                 try:
                     days = int(arg)
                 except ValueError, e:
-                    print "Invalid value for --days: %s" % (arg,)
+                    print("Invalid value for --days: %s" % (arg,))
                     cls.usage(e)
 
             elif opt in ("-b", "--batch"):
                 try:
                     batchSize = int(arg)
                 except ValueError, e:
-                    print "Invalid value for --batch: %s" % (arg,)
+                    print("Invalid value for --batch: %s" % (arg,))
                     cls.usage(e)
 
             elif opt in ("-v", "--verbose"):
@@ -228,21 +229,21 @@ class PurgeOldEventsService(WorkerService):
 
         if self.dryrun:
             if self.verbose:
-                print "(Dry run) Searching for old events..."
+                print("(Dry run) Searching for old events...")
             txn = self._store.newTransaction(label="Find old events")
             oldEvents = (yield txn.eventsOlderThan(self.cutoff))
             eventCount = len(oldEvents)
             if self.verbose:
                 if eventCount == 0:
-                    print "No events are older than %s" % (self.cutoff,)
+                    print("No events are older than %s" % (self.cutoff,))
                 elif eventCount == 1:
-                    print "1 event is older than %s" % (self.cutoff,)
+                    print("1 event is older than %s" % (self.cutoff,))
                 else:
-                    print "%d events are older than %s" % (eventCount, self.cutoff)
+                    print("%d events are older than %s" % (eventCount, self.cutoff))
             returnValue(eventCount)
 
         if self.verbose:
-            print "Removing events older than %s..." % (self.cutoff,)
+            print("Removing events older than %s..." % (self.cutoff,))
 
         numEventsRemoved = -1
         totalRemoved = 0
@@ -253,16 +254,16 @@ class PurgeOldEventsService(WorkerService):
             if numEventsRemoved:
                 totalRemoved += numEventsRemoved
                 if self.verbose:
-                    print "%d," % (totalRemoved,),
+                    print("%d," % (totalRemoved,),)
 
         if self.verbose:
-            print
+            print("")
             if totalRemoved == 0:
-                print "No events were removed"
+                print("No events were removed")
             elif totalRemoved == 1:
-                print "1 event was removed in total"
+                print("1 event was removed in total")
             else:
-                print "%d events were removed in total" % (totalRemoved,)
+                print("%d events were removed in total" % (totalRemoved,))
 
         returnValue(totalRemoved)
 
@@ -280,20 +281,20 @@ class PurgeAttachmentsService(WorkerService):
     def usage(cls, e=None):
 
         name = os.path.basename(sys.argv[0])
-        print "usage: %s [options]" % (name,)
-        print ""
-        print "  Remove old or orphaned attachments from the calendar server"
-        print ""
-        print "options:"
-        print "  -h --help: print this help and exit"
-        print "  -f --config <path>: Specify caldavd.plist configuration path"
-        print "  -u --uuid <owner uid>: target a specific user UID"
-        #print "  -b --batch <number>: number of attachments to remove in each transaction (default=%d)" % (DEFAULT_BATCH_SIZE,)
-        print "  -d --days <number>: specify how many days in the past to retain (default=%d) zero means no removal of old attachments" % (DEFAULT_RETAIN_DAYS,)
-        print "  -n --dry-run: calculate how many attachments to purge, but do not purge data"
-        print "  -v --verbose: print progress information"
-        print "  -D --debug: debug logging"
-        print ""
+        print("usage: %s [options]" % (name,))
+        print("")
+        print("  Remove old or orphaned attachments from the calendar server")
+        print("")
+        print("options:")
+        print("  -h --help: print this help and exit")
+        print("  -f --config <path>: Specify caldavd.plist configuration path")
+        print("  -u --uuid <owner uid>: target a specific user UID")
+        #print("  -b --batch <number>: number of attachments to remove in each transaction (default=%d)" % (DEFAULT_BATCH_SIZE,))
+        print("  -d --days <number>: specify how many days in the past to retain (default=%d) zero means no removal of old attachments" % (DEFAULT_RETAIN_DAYS,))
+        print("  -n --dry-run: calculate how many attachments to purge, but do not purge data")
+        print("  -v --verbose: print progress information")
+        print("  -D --debug: debug logging")
+        print("")
 
         if e:
             sys.stderr.write("%s\n" % (e,))
@@ -343,14 +344,14 @@ class PurgeAttachmentsService(WorkerService):
                 try:
                     days = int(arg)
                 except ValueError, e:
-                    print "Invalid value for --days: %s" % (arg,)
+                    print("Invalid value for --days: %s" % (arg,))
                     cls.usage(e)
 
             elif opt in ("-b", "--batch"):
                 try:
                     batchSize = int(arg)
                 except ValueError, e:
-                    print "Invalid value for --batch: %s" % (arg,)
+                    print("Invalid value for --batch: %s" % (arg,))
                     cls.usage(e)
 
             elif opt in ("-v", "--verbose"):
@@ -438,7 +439,7 @@ class PurgeAttachmentsService(WorkerService):
     def _orphansDryRun(self):
 
         if self.verbose:
-            print "(Dry run) Searching for orphaned attachments..."
+            print("(Dry run) Searching for orphaned attachments...")
         txn = self._store.newTransaction(label="Find orphaned attachments")
         orphans = (yield txn.orphanedAttachments(self.uuid))
         returnValue(orphans)
@@ -448,7 +449,7 @@ class PurgeAttachmentsService(WorkerService):
     def _dropboxDryRun(self):
 
         if self.verbose:
-            print "(Dry run) Searching for old dropbox attachments..."
+            print("(Dry run) Searching for old dropbox attachments...")
         txn = self._store.newTransaction(label="Find old dropbox attachments")
         cutoffs = (yield txn.oldDropboxAttachments(self.cutoff, self.uuid))
         yield txn.commit()
@@ -460,7 +461,7 @@ class PurgeAttachmentsService(WorkerService):
     def _managedDryRun(self):
 
         if self.verbose:
-            print "(Dry run) Searching for old managed attachments..."
+            print("(Dry run) Searching for old managed attachments...")
         txn = self._store.newTransaction(label="Find old managed attachments")
         cutoffs = (yield txn.oldManagedAttachments(self.cutoff, self.uuid))
         yield txn.commit()
@@ -525,8 +526,8 @@ class PurgeAttachmentsService(WorkerService):
             table.addFooter(("Total:", "",) + tuple(totals))
             total = totals[7]
 
-            print "\n"
-            print "Orphaned/Old Attachments by User:\n"
+            print("\n")
+            print("Orphaned/Old Attachments by User:\n")
             table.printTable()
         else:
             total = sum([x[3] for x in orphans]) + sum([x[3] for x in dropbox]) + sum([x[3] for x in managed])
@@ -538,7 +539,7 @@ class PurgeAttachmentsService(WorkerService):
     def _orphansPurge(self):
 
         if self.verbose:
-            print "Removing orphaned attachments...",
+            print("Removing orphaned attachments...",)
 
         numOrphansRemoved = -1
         totalRemoved = 0
@@ -549,18 +550,18 @@ class PurgeAttachmentsService(WorkerService):
             if numOrphansRemoved:
                 totalRemoved += numOrphansRemoved
                 if self.verbose:
-                    print " %d," % (totalRemoved,),
+                    print(" %d," % (totalRemoved,),)
             elif self.verbose:
-                print
+                print("")
 
         if self.verbose:
             if totalRemoved == 0:
-                print "No orphaned attachments were removed"
+                print("No orphaned attachments were removed")
             elif totalRemoved == 1:
-                print "1 orphaned attachment was removed in total"
+                print("1 orphaned attachment was removed in total")
             else:
-                print "%d orphaned attachments were removed in total" % (totalRemoved,)
-            print
+                print("%d orphaned attachments were removed in total" % (totalRemoved,))
+            print("")
 
         returnValue(totalRemoved)
 
@@ -569,7 +570,7 @@ class PurgeAttachmentsService(WorkerService):
     def _dropboxPurge(self):
 
         if self.verbose:
-            print "Removing old dropbox attachments...",
+            print("Removing old dropbox attachments...",)
 
         numOldRemoved = -1
         totalRemoved = 0
@@ -580,18 +581,18 @@ class PurgeAttachmentsService(WorkerService):
             if numOldRemoved:
                 totalRemoved += numOldRemoved
                 if self.verbose:
-                    print " %d," % (totalRemoved,),
+                    print(" %d," % (totalRemoved,),)
             elif self.verbose:
-                print
+                print("")
 
         if self.verbose:
             if totalRemoved == 0:
-                print "No old dropbox attachments were removed"
+                print("No old dropbox attachments were removed")
             elif totalRemoved == 1:
-                print "1 old dropbox attachment was removed in total"
+                print("1 old dropbox attachment was removed in total")
             else:
-                print "%d old dropbox attachments were removed in total" % (totalRemoved,)
-            print
+                print("%d old dropbox attachments were removed in total" % (totalRemoved,))
+            print("")
 
         returnValue(totalRemoved)
 
@@ -600,7 +601,7 @@ class PurgeAttachmentsService(WorkerService):
     def _managedPurge(self):
 
         if self.verbose:
-            print "Removing old managed attachments...",
+            print("Removing old managed attachments...",)
 
         numOldRemoved = -1
         totalRemoved = 0
@@ -611,18 +612,18 @@ class PurgeAttachmentsService(WorkerService):
             if numOldRemoved:
                 totalRemoved += numOldRemoved
                 if self.verbose:
-                    print " %d," % (totalRemoved,),
+                    print(" %d," % (totalRemoved,),)
             elif self.verbose:
-                print
+                print("")
 
         if self.verbose:
             if totalRemoved == 0:
-                print "No old managed attachments were removed"
+                print("No old managed attachments were removed")
             elif totalRemoved == 1:
-                print "1 old managed attachment was removed in total"
+                print("1 old managed attachment was removed in total")
             else:
-                print "%d old managed attachments were removed in total" % (totalRemoved,)
-            print
+                print("%d old managed attachments were removed in total" % (totalRemoved,))
+            print("")
 
         returnValue(totalRemoved)
 
@@ -644,18 +645,18 @@ class PurgePrincipalService(WorkerService):
     def usage(cls, e=None):
 
         name = os.path.basename(sys.argv[0])
-        print "usage: %s [options]" % (name,)
-        print ""
-        print "  Remove a principal's events and contacts from the calendar server"
-        print ""
-        print "options:"
-        print "  -c --completely: By default, only future events are canceled; this option cancels all events"
-        print "  -h --help: print this help and exit"
-        print "  -f --config <path>: Specify caldavd.plist configuration path"
-        print "  -n --dry-run: calculate how many events and contacts to purge, but do not purge data"
-        print "  -v --verbose: print progress information"
-        print "  -D --debug: debug logging"
-        print ""
+        print("usage: %s [options]" % (name,))
+        print("")
+        print("  Remove a principal's events and contacts from the calendar server")
+        print("")
+        print("options:")
+        print("  -c --completely: By default, only future events are canceled; this option cancels all events")
+        print("  -h --help: print this help and exit")
+        print("  -f --config <path>: Specify caldavd.plist configuration path")
+        print("  -n --dry-run: calculate how many events and contacts to purge, but do not purge data")
+        print("  -v --verbose: print progress information")
+        print("  -D --debug: debug logging")
+        print("")
 
         if e:
             sys.stderr.write("%s\n" % (e,))
@@ -769,9 +770,9 @@ class PurgePrincipalService(WorkerService):
         if self.verbose:
             amount = "%d event%s" % (total, "s" if total > 1 else "")
             if self.dryrun:
-                print "Would have modified or deleted %s" % (amount,)
+                print("Would have modified or deleted %s" % (amount,))
             else:
-                print "Modified or deleted %s" % (amount,)
+                print("Modified or deleted %s" % (amount,))
 
         returnValue((total, allAssignments,))
 
@@ -819,9 +820,9 @@ class PurgePrincipalService(WorkerService):
             for child in children:
                 if self.verbose:
                     if self.dryrun:
-                        print "Would unshare: %s" % (child.name(),)
+                        print("Would unshare: %s" % (child.name(),))
                     else:
-                        print "Unsharing: %s" % (child.name(),)
+                        print("Unsharing: %s" % (child.name(),))
                 if not self.dryrun:
                     (yield child.unshare())
 
@@ -895,9 +896,9 @@ class PurgePrincipalService(WorkerService):
                                 )
                                 if self.verbose:
                                     if self.dryrun:
-                                        print "Would modify: %s" % (uri,)
+                                        print("Would modify: %s" % (uri,))
                                     else:
-                                        print "Modifying: %s" % (uri,)
+                                        print("Modifying: %s" % (uri,))
                                 if not self.dryrun:
                                     result = (yield storer.run())
 
@@ -906,37 +907,37 @@ class PurgePrincipalService(WorkerService):
                                 request._rememberResource(childResource, uri)
                                 if self.verbose:
                                     if self.dryrun:
-                                        print "Would delete: %s" % (uri,)
+                                        print("Would delete: %s" % (uri,))
                                     else:
-                                        print "Deleting: %s" % (uri,)
+                                        print("Deleting: %s" % (uri,))
                                 if not self.dryrun:
                                     retry = False
                                     try:
                                         result = (yield childResource.storeRemove(request, self.doimplicit, uri))
                                         if result != NO_CONTENT:
-                                            print "Error deleting %s/%s/%s: %s" % (uid,
-                                                collName, childName, result)
+                                            print("Error deleting %s/%s/%s: %s" % (uid,
+                                                collName, childName, result))
                                             retry = True
                                         else:
                                             incrementCount = True
 
                                     except Exception, e:
-                                        print "Exception deleting %s/%s/%s: %s" % (uid,
-                                            collName, childName, str(e))
+                                        print("Exception deleting %s/%s/%s: %s" % (uid,
+                                            collName, childName, str(e)))
                                         retry = True
 
                                     if retry and self.doimplicit:
                                         # Try again with implicit scheduling off
-                                        print "Retrying deletion of %s/%s/%s with implicit scheduling turned off" % (uid, collName, childName)
+                                        print("Retrying deletion of %s/%s/%s with implicit scheduling turned off" % (uid, collName, childName))
                                         try:
                                             result = (yield childResource.storeRemove(request, False, uri))
                                             if result != NO_CONTENT:
-                                                print "Error deleting %s/%s/%s: %s" % (uid,
-                                                    collName, childName, result)
+                                                print("Error deleting %s/%s/%s: %s" % (uid,
+                                                    collName, childName, result))
                                             else:
                                                 incrementCount = True
                                         except Exception, e:
-                                            print "Still couldn't delete %s/%s/%s even with implicit scheduling turned off: %s" % (uid, collName, childName, str(e))
+                                            print("Still couldn't delete %s/%s/%s even with implicit scheduling turned off: %s" % (uid, collName, childName, str(e)))
 
                                 if incrementCount:
                                     count += 1
@@ -968,18 +969,18 @@ class PurgePrincipalService(WorkerService):
                         calendarName = calColl.name()
                         if self.verbose:
                             if self.dryrun:
-                                print "Would delete calendar: %s" % (calendarName,)
+                                print("Would delete calendar: %s" % (calendarName,))
                             else:
-                                print "Deleting calendar: %s" % (calendarName,)
+                                print("Deleting calendar: %s" % (calendarName,))
                         if not self.dryrun:
                             (yield storeCalHome.removeChildWithName(calendarName))
 
                 if not remainingCalendars:
                     if self.verbose:
                         if self.dryrun:
-                            print "Would delete calendar home"
+                            print("Would delete calendar home")
                         else:
-                            print "Deleting calendar home"
+                            print("Deleting calendar home")
                     if not self.dryrun:
                         (yield storeCalHome.remove())
 
@@ -992,27 +993,27 @@ class PurgePrincipalService(WorkerService):
                         if self.verbose:
                             uri = "/addressbooks/__uids__/%s/%s/%s" % (uid, abColl.name(), cardName)
                             if self.dryrun:
-                                print "Would delete: %s" % (uri,)
+                                print("Would delete: %s" % (uri,))
                             else:
-                                print "Deleting: %s" % (uri,)
+                                print("Deleting: %s" % (uri,))
                         if not self.dryrun:
                             (yield abColl.removeObjectResourceWithName(cardName))
                         count += 1
                     if self.verbose:
                         abName = abColl.name()
                         if self.dryrun:
-                            print "Would delete addressbook: %s" % (abName,)
+                            print("Would delete addressbook: %s" % (abName,))
                         else:
-                            print "Deleting addressbook: %s" % (abName,)
+                            print("Deleting addressbook: %s" % (abName,))
                     if not self.dryrun:
                         # Also remove the addressbook collection itself
                         (yield storeAbHome.removeChildWithName(abColl.name()))
 
                 if self.verbose:
                     if self.dryrun:
-                        print "Would delete addressbook home"
+                        print("Would delete addressbook home")
                     else:
-                        print "Deleting addressbook home"
+                        print("Deleting addressbook home")
                 if not self.dryrun:
                     (yield storeAbHome.remove())
 
@@ -1026,7 +1027,7 @@ class PurgePrincipalService(WorkerService):
 
         if self.proxies and not self.dryrun:
             if self.verbose:
-                print "Deleting any proxy assignments"
+                print("Deleting any proxy assignments")
             assignments = (yield self._purgeProxyAssignments(principal))
 
         returnValue((count, assignments))

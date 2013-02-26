@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+from __future__ import print_function
 
 """
 Interactive shell for terminals.
@@ -56,8 +57,8 @@ from calendarserver.tools.shell.cmd import Commands, UsageError as CommandUsageE
 
 def usage(e=None):
     if e:
-        print e
-        print ""
+        print(e)
+        print("")
     try:
         ShellOptions().opt_help()
     except SystemExit:
@@ -340,7 +341,7 @@ class ShellProtocol(ReceiveLineProtocol):
 
         if tokens:
             cmd = tokens.pop(0)
-            #print "Arguments: %r" % (tokens,)
+            #print("Arguments: %r" % (tokens,))
 
             m = getattr(self.commands, "cmd_%s" % (cmd,), None)
             if m:
@@ -410,6 +411,6 @@ def main(argv=sys.argv, stderr=sys.stderr, reactor=None):
         directory = getDirectory()
         return ShellService(store, directory, options, reactor, config)
 
-    print "Initializing shell..."
+    print("Initializing shell...")
 
     utilityMain(options["config"], makeService, reactor)

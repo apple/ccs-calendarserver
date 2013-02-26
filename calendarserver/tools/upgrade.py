@@ -15,6 +15,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+from __future__ import print_function
 
 """
 This tool allows any necessary upgrade to complete, then exits.
@@ -38,8 +39,8 @@ from calendarserver.tap.caldav import CalDAVServiceMaker
 
 def usage(e=None):
     if e:
-        print e
-        print ""
+        print(e)
+        print("")
     try:
         UpgradeOptions().opt_help()
     except SystemExit:
@@ -214,7 +215,7 @@ def main(argv=sys.argv, stderr=sys.stderr, reactor=None):
 
     def _onShutdown():
         if not UpgraderService.started:
-            print "Failed to start service."
+            print("Failed to start service.")
 
     utilityMain(options["config"], makeService, reactor, customServiceMaker, patchConfig=_patchConfig, onShutdown=_onShutdown, verbose=options["debug"])
 

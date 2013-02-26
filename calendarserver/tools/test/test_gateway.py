@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+from __future__ import print_function
 
 import os
 import sys
@@ -95,7 +96,7 @@ class GatewayTestCase(TestCase):
         try:
             plist = readPlistFromString(output)
         except xml.parsers.expat.ExpatError, e:
-            print "Error (%s) parsing (%s)" % (e, output)
+            print("Error (%s) parsing (%s)" % (e, output))
             raise
 
         returnValue(plist)

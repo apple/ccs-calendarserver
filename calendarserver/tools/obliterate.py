@@ -15,6 +15,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+from __future__ import print_function
 
 """
 This tool scans wipes out user data without using slow store object apis
@@ -43,8 +44,8 @@ VERSION = "1"
 
 def usage(e=None):
     if e:
-        print e
-        print ""
+        print(e)
+        print("")
     try:
         ObliterateOptions().opt_help()
     except SystemExit:

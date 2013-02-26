@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+from __future__ import print_function
 
 """
 Parser for SQL schema.
@@ -167,7 +168,7 @@ def addSQLToSchema(schema, schemaData):
 
             schema.tableNamed(tableName).insertSchemaRow(rowData)
         else:
-            print 'unknown type:', stmt.get_type()
+            print('unknown type:', stmt.get_type())
     return schema
 
 
@@ -438,8 +439,8 @@ class _ColumnParser(object):
                 else:
                     expected = False
                 if not expected:
-                    print 'UNEXPECTED TOKEN:', repr(val), theColumn
-                    print self.parens
+                    print('UNEXPECTED TOKEN:', repr(val), theColumn)
+                    print(self.parens)
                     import pprint
                     pprint.pprint(self.parens.tokens)
                     return 0

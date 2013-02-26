@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+from __future__ import print_function
 
 from dateutil.parser import parse as dateparse
 from subprocess import Popen, PIPE, STDOUT
@@ -41,7 +42,7 @@ if output == "Darwin":
 elif output == "Linux":
     OS = "Linux"
 else:
-    print "Unknown OS: %s" % (output,)
+    print("Unknown OS: %s" % (output,))
     sys.exit(1)
 
 # Some system commands we need to detect
@@ -215,8 +216,8 @@ def freemem():
             return "%d bytes (%.1f GB)" % (freed, freed / (1024.0 * 1024 * 1024),)
     except Exception, e:
         if debug:
-            print "freemem failure", e
-            print traceback.print_exc()
+            print("freemem failure", e)
+            print(traceback.print_exc())
         return "error"
 
 
@@ -290,22 +291,22 @@ def safePercent(value, total):
 
 
 def usage():
-    print "request_monitor [OPTIONS] [FILENAME]"
-    print
-    print "FILENAME   optional path of access log to monitor [/var/log/caldavd/access.log]"
-    print
-    print "OPTIONS"
-    print "-h         print help and exit"
-    print "--debug    print tracebacks and error details"
-    print "--lines N  specifies how many lines to tail from access.log (default: 10000)"
-    print "--range M:N  specifies a range of lines to analyze from access.log (default: all)"
-    print "--procs N  specifies how many python processes are expected in the log file (default: 80)"
-    print "--top N    how many long requests to print (default: 10)"
-    print "--users N  how many top users to print (default: 5)"
-    print "--router   analyze a partition server router node"
-    print "--worker   analyze a partition server worker node"
-    print
-    print "Version: 5"
+    print("request_monitor [OPTIONS] [FILENAME]")
+    print("")
+    print("FILENAME   optional path of access log to monitor [/var/log/caldavd/access.log]")
+    print("")
+    print("OPTIONS")
+    print("-h         print help and exit")
+    print("--debug    print tracebacks and error details")
+    print("--lines N  specifies how many lines to tail from access.log (default: 10000)")
+    print("--range M:N  specifies a range of lines to analyze from access.log (default: all)")
+    print("--procs N  specifies how many python processes are expected in the log file (default: 80)")
+    print("--top N    how many long requests to print (default: 10)")
+    print("--users N  how many top users to print (default: 5)")
+    print("--router   analyze a partition server router node")
+    print("--worker   analyze a partition server worker node")
+    print("")
+    print("Version: 5")
 
 numLines = 10000
 numProcs = 80
@@ -342,21 +343,21 @@ if len(args):
 
 for filename in filenames:
     if not os.path.isfile(filename):
-        print "Path %s does not exist" % (filename,)
-        print
+        print("Path %s does not exist" % (filename,))
+        print("")
         usage()
         sys.exit(1)
 
 for filename in filenames:
     if not os.access(filename, os.R_OK):
-        print "Path %s does not exist" % (filename,)
-        print
+        print("Path %s does not exist" % (filename,))
+        print("")
         usage()
         sys.exit(1)
 
 if debug:
-    print "Starting: access log files: %s" % (", ".join(filenames),)
-    print
+    print("Starting: access log files: %s" % (", ".join(filenames),))
+    print("")
 
 while True:
 
@@ -405,11 +406,11 @@ while True:
                     parseErrors += 1
 
                     if debug:
-                        print "Access log line parse failure", e
-                        print traceback.print_exc()
-                        print "---"
-                        print line
-                        print "---"
+                        print("Access log line parse failure", e)
+                        print(traceback.print_exc())
+                        print("---")
+                        print(line)
+                        print("---")
 
                     continue
 
@@ -491,24 +492,24 @@ while True:
 
         times.sort()
         if len(times) == 0:
-            print "No data to analyze"
+            print("No data to analyze")
             time.sleep(10)
             continue
 
         totalRequests = sum(numRequests.values())
 
-        print "- " * 40
-        print datetime.datetime.now().strftime("%Y/%m/%d %H:%M:%S"),
+        print("- " * 40)
+        print(datetime.datetime.now().strftime("%Y/%m/%d %H:%M:%S"),)
         if enableListenQueue:
             q, lqssl, lqnon = listenQueueHistory()
-            print "Listenq (ssl+non):", q[0], " (Recent", ", ".join(q[1:]), "Oldest)"
+            print("Listenq (ssl+non):", q[0], " (Recent", ", ".join(q[1:]), "Oldest)")
         if enableCpuIdle:
             q = idleHistory()
-            print "CPU idle %:", q[0], " (Recent", ", ".join(q[1:]), "Oldest)"
+            print("CPU idle %:", q[0], " (Recent", ", ".join(q[1:]), "Oldest)")
         if enableFreeMem:
-            print "Memory free:", freemem()
-        print "CPU Per Daemon:", cpuPerDaemon()
-        print
+            print("Memory free:", freemem())
+        print("CPU Per Daemon:", cpuPerDaemon())
+        print("")
 
         table = tables.Table()
         table.addHeader(
@@ -592,14 +593,14 @@ while True:
 
         os = StringIO()
         table.printTable(os=os)
-        print os.getvalue()
+        print(os.getvalue())
 
         if enableListenQueue:
             lqlatency = (lqssl / avgRequests, lqnon / avgRequests,) if avgRequests else (0.0, 0.0,)
-            print " listenq latency (ssl+non): %.1f s %.1f s" % (
+            print(" listenq latency (ssl+non): %.1f s %.1f s" % (
                 lqlatency[0],
                 lqlatency[1],
-            )
+            ))
 
         table = tables.Table()
         table.addHeader(
@@ -634,19 +635,19 @@ while True:
             ))
         os = StringIO()
         table.printTable(os=os)
-        print os.getvalue()
+        print(os.getvalue())
         print
         if errorCount:
-            print "Number of 500 errors: %d" % (errorCount,)
+            print("Number of 500 errors: %d" % (errorCount,))
         if parseErrors:
-            print "Number of access log parsing errors: %d" % (parseErrors,)
+            print("Number of access log parsing errors: %d" % (parseErrors,))
         if errorCount or parseErrors:
-            print
+            print("")
 
-        print "Proc:   Peak outstanding:        Seconds of processing (number of requests):"
+        print("Proc:   Peak outstanding:        Seconds of processing (number of requests):")
         for l in xrange((numProcs - 1) / 10 + 1):
             base = l * 10
-            print "%2d-%2d: " % (base, base + 9),
+            print("%2d-%2d: " % (base, base + 9),)
 
             for i in xrange(base, base + 10):
                 try:
@@ -654,9 +655,9 @@ while True:
                     s = "%1d" % (r,)
                 except KeyError:
                     s = "."
-                print s,
+                print(s, end="")
 
-            print "    ",
+            print("    ", end="")
 
             for i in xrange(base, base + 10):
                 try:
@@ -665,12 +666,12 @@ while True:
                     s = "%4.0f(%4d)" % (r, c)
                 except KeyError:
                     s = "         ."
-                print s,
+                print(s, end="")
 
-            print
+            print("")
 
-        print
-        print "Top %d longest (in most recent %d requests):" % (numTop, sum(numRequests.values()),)
+        print("")
+        print("Top %d longest (in most recent %d requests):" % (numTop, sum(numRequests.values()),))
         requests.sort()
         requests.reverse()
         for i in xrange(numTop):
@@ -683,14 +684,14 @@ while True:
                     if _logId == logId and _logTime > reqStartTime and _reqStartTime < logTime:
                         overlapCount += 1
 
-                print "%7.1fms  %-12s %s res:%.1fKB, %s [%s] #%d +%d %s->%s" % (respTime, userId, method, kb, ext, client, logId, overlapCount, reqStartTime.strftime("%H:%M:%S"), logTime.strftime("%H:%M:%S"),)
+                print("%7.1fms  %-12s %s res:%.1fKB, %s [%s] #%d +%d %s->%s" % (respTime, userId, method, kb, ext, client, logId, overlapCount, reqStartTime.strftime("%H:%M:%S"), logTime.strftime("%H:%M:%S"),))
                 """
-                print "%7.1fms  %-12s %s res:%.1fKB, %s [%s] #%d %s->%s" % (respTime, userId, method, kb, ext, client, logId, reqStartTime.strftime("%H:%M:%S"), logTime.strftime("%H:%M:%S"),)
+                print("%7.1fms  %-12s %s res:%.1fKB, %s [%s] #%d %s->%s" % (respTime, userId, method, kb, ext, client, logId, reqStartTime.strftime("%H:%M:%S"), logTime.strftime("%H:%M:%S"),))
             except:
                 pass
 
-        print
-        print "Top %d busiest users (in most recent %d requests):" % (numUsers, totalRequests,)
+        print("")
+        print("Top %d busiest users (in most recent %d requests):" % (numUsers, totalRequests,))
         userlist = []
         for user, userStat in users.iteritems():
             userlist.append((userStat['count'], user, userStat))
@@ -699,16 +700,16 @@ while True:
         for i in xrange(numUsers):
             try:
                 count, user, userStat = userlist[i]
-                print "%3d  %-12s " % (count, user),
+                print("%3d  %-12s " % (count, user), end="")
                 clientStat = userStat['clients']
                 clients = clientStat.keys()
                 if len(clients) == 1:
-                    print "[%s]" % (clients[0],)
+                    print("[%s]" % (clients[0],))
                 else:
                     clientList = []
                     for client in clients:
                         clientList.append("%s: %d" % (client, clientStat[client]))
-                    print "[%s]" % ", ".join(clientList)
+                    print("[%s]" % ", ".join(clientList))
             except:
                 pass
 
@@ -719,8 +720,8 @@ while True:
             break
 
     except Exception, e:
-        print "Script failure", e
+        print("Script failure", e)
         if debug:
-            print traceback.print_exc()
+            print(traceback.print_exc())
 
     time.sleep(10)

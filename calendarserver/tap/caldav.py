@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+from __future__ import print_function
 
 __all__ = [
     "CalDAVService",
@@ -366,7 +367,7 @@ class CalDAVOptions (Options, LoggingMixIn):
             self.loadConfiguration()
             self.checkConfiguration()
         except ConfigurationError, e:
-            print "Invalid configuration: %s" % (e,)
+            print("Invalid configuration: %s" % (e,))
             sys.exit(1)
 
 
@@ -375,7 +376,7 @@ class CalDAVOptions (Options, LoggingMixIn):
             raise ConfigurationError("Config file %s not found. Exiting."
                                      % (self["config"],))
 
-        print "Reading configuration from file: %s" % (self["config"],)
+        print("Reading configuration from file: %s" % (self["config"],))
 
         config.load(self["config"])
         config.updateDefaults(self.overrides)
@@ -390,7 +391,7 @@ class CalDAVOptions (Options, LoggingMixIn):
         # Having CalDAV *and* CardDAV both disabled is an illegal configuration
         # for a running server (but is fine for command-line utilities)
         if not config.EnableCalDAV and not config.EnableCardDAV:
-            print "Neither EnableCalDAV nor EnableCardDAV are set to True."
+            print("Neither EnableCalDAV nor EnableCardDAV are set to True.")
             sys.exit(1)
 
         uid, gid = None, None
@@ -753,10 +754,10 @@ class CalDAVServiceMaker (LoggingMixIn):
                     "passwd" : config.Manhole.PasswordFilePath,
                 })
                 manholeService.setServiceParent(result)
-                # Using print because logging isn't ready at this point
-                print "Manhole access enabled: %s" % (portString,)
+                # Using print(because logging isn't ready at this point)
+                print("Manhole access enabled: %s" % (portString,))
             except ImportError:
-                print "Manhole access could not enabled because manhole_tap could not be imported"
+                print("Manhole access could not enabled because manhole_tap could not be imported")
 
         return result
 
@@ -1323,10 +1324,10 @@ class CalDAVServiceMaker (LoggingMixIn):
                     "passwd" : config.Manhole.PasswordFilePath,
                 })
                 manholeService.setServiceParent(s)
-                # Using print because logging isn't ready at this point
-                print "Manhole access enabled: %s" % (portString,)
+                # Using print(because logging isn't ready at this point)
+                print("Manhole access enabled: %s" % (portString,))
             except ImportError:
-                print "Manhole access could not enabled because manhole_tap could not be imported"
+                print("Manhole access could not enabled because manhole_tap could not be imported")
 
 
         # Finally, let's get the real show on the road.  Create a service that
