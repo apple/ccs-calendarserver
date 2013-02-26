@@ -527,7 +527,7 @@ class ImplicitProcessor(object):
                     store_inbox = True
 
                 # Let the store know that no time-range info has changed for a refresh
-                if hasattr(self.request, "doing_attendee_refresh"):
+                if hasattr(self.request, "doing_attendee_refresh") and not send_reply:
                     new_calendar.noInstanceIndexing = True
     
                 # Update the attendee's copy of the event
