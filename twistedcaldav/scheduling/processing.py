@@ -761,7 +761,7 @@ class ImplicitProcessor(object):
         cuas = self.recipient.principal.calendarUserAddresses()
 
         # First expand current one to get instances (only go 1 year into the future)
-        default_future_expansion_duration = PyCalendarDuration(days=365)
+        default_future_expansion_duration = PyCalendarDuration(days=config.Scheduling.Options.AutoSchedule.FutureFreeBusyDays)
         expand_max = PyCalendarDateTime.getToday() + default_future_expansion_duration
         instances = calendar.expandTimeRanges(expand_max, ignoreInvalidInstances=True)
 

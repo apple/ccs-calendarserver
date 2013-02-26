@@ -717,6 +717,7 @@ DEFAULT_CONFIG = {
                                                                    # "accept-if-free"  - accept if free, do nothing if busy
                                                                    # "decline-if-busy" - decline if busy, do nothing if free
                                                                    # "automatic"       - accept if free, decline if busy
+                "FutureFreeBusyDays"              : 3 * 365,       # How far into the future to check for booking conflicts
             }
         }
     },
