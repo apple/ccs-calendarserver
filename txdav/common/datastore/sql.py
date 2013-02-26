@@ -2130,7 +2130,7 @@ class CommonHome(LoggingMixIn):
         ).on(self._txn, **kwds)
 
     @inlineCallbacks
-    def ownerHomeFromChildID(self, resourceID):
+    def ownerHomeWithChildID(self, resourceID):
         """
         Get the owner home for a shared child ID
         Subclasses may override.
@@ -3015,7 +3015,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic, HomeChildBas
                 ownerHome = home
             else:
                 #TODO: get all ownerHomeIDs at once
-                ownerHome = yield home.ownerHomeFromChildID(resourceID)
+                ownerHome = yield home.ownerHomeWithChildID(resourceID)
 
             child = cls(
                 home=home,
@@ -3078,7 +3078,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic, HomeChildBas
         if bindMode == _BIND_MODE_OWN:
             ownerHome = home
         else:
-            ownerHome = yield home.ownerHomeWithResourceID(resourceID)
+            ownerHome = yield home.ownerHomeWithChildID(resourceID)
 
         child = cls(
             home=home,

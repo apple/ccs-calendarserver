@@ -201,7 +201,7 @@ class AddressBookHome(CommonHome):
 
 
     @inlineCallbacks
-    def ownerHomeFromChildID(self, resourceID):
+    def ownerHomeWithChildID(self, resourceID):
         """
         Get the owner home for a shared child ID
         """
@@ -540,7 +540,7 @@ END:VCARD
         for dataRow in dataRows:
             bindMode, homeID, resourceID, bindName, bindStatus, bindMessage = dataRow[:6] #@UnusedVariable
             assert bindStatus != _BIND_MODE_OWN
-            ownerHome = yield home.ownerHomeFromChildID(resourceID)
+            ownerHome = yield home.ownerHomeWithChildID(resourceID)
             ownerHomeID = ownerHome._resourceID
             ownerHomeIDToDataRowMap[ownerHomeID] = dataRow
 
@@ -586,7 +586,7 @@ END:VCARD
                         message=bindMessage,
                     )
                 else:
-                    ownerHome = yield home.ownerHomeFromChildID(resourceID)
+                    ownerHome = yield home.ownerHomeWithChildID(resourceID)
                     ownerAddressBook = yield ownerHome.addressbook()
 
                     child = cls(
@@ -688,7 +688,7 @@ END:VCARD
         if (cachedBindStatus == _BIND_STATUS_ACCEPTED) != bool(accepted):
             returnValue(None)
 
-        ownerHome = yield home.ownerHomeFromChildID(ownerAddressBookID)
+        ownerHome = yield home.ownerHomeWithChildID(ownerAddressBookID)
         ownerAddressBook = yield ownerHome.addressbook()
         child = cls(
                 home=home,
@@ -721,7 +721,7 @@ END:VCARD
             if (bindStatus == _BIND_STATUS_ACCEPTED) == bool(accepted):
                 # alt:
                 # returnValue((yield cls.objectWithID(home, resourceID)))
-                ownerHome = yield home.ownerHomeFromChildID(resourceID)
+                ownerHome = yield home.ownerHomeWithChildID(resourceID)
                 ownerAddressBook = yield ownerHome.addressbook()
                 if accepted:
                     returnValue((yield home.childWithName(ownerAddressBook.shareeABName())))
@@ -737,7 +737,7 @@ END:VCARD
                 ownerAddressBookID = yield AddressBookObject.ownerAddressBookFromGroupID(home._txn, resourceID)
                 # alt:
                 # addressbook = yield cls.objectWithID(home, ownerAddressBookID)
-                ownerHome = yield home.ownerHomeFromChildID(ownerAddressBookID)
+                ownerHome = yield home.ownerHomeWithChildID(ownerAddressBookID)
                 ownerAddressBook = yield ownerHome.addressbook()
                 if accepted:
                     addressbook = yield home.childWithName(ownerAddressBook.shareeABName())
@@ -782,7 +782,7 @@ END:VCARD
         if groupBindRows:
             bindMode, homeID, resourceID, bindName, bindStatus, bindMessage = groupBindRows[0] #@UnusedVariable
             ownerAddressBookID = yield AddressBookObject.ownerAddressBookFromGroupID(home._txn, resourceID)
-            ownerHome = yield home.ownerHomeFromChildID(ownerAddressBookID)
+            ownerHome = yield home.ownerHomeWithChildID(ownerAddressBookID)
             ownerAddressBook = yield ownerHome.addressbook()
             if bindStatus == _BIND_STATUS_ACCEPTED:
                 returnValue((yield home.childWithName(ownerAddressBook.shareeABName())))
