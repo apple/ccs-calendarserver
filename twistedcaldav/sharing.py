@@ -687,6 +687,7 @@ class SharedResourceMixin(object):
         # Remove any shared calendar or address book
         sharee = self.principalForUID(invitation.shareeUID())
         if sharee:
+            previousInvitationState = invitation.state()
             if self.isCalendarCollection():
                 shareeHomeResource = yield sharee.calendarHome(request)
                 displayName = yield shareeHomeResource.removeShareByUID(request, invitation.uid())
@@ -696,9 +697,9 @@ class SharedResourceMixin(object):
                 displayName = None
             # If current user state is accepted then we send an invite with the new state, otherwise
             # we cancel any existing invites for the user
-            if invitation and invitation.state() != "ACCEPTED":
+            if previousInvitationState != "ACCEPTED":
                 yield self.removeInviteNotification(invitation, request)
-            elif invitation:
+            else:
                 yield self.sendInviteNotification(invitation, request, displayName=displayName, notificationState="DELETED")
 
         # Direct shares for  with valid sharee principal will already be deleted
@@ -1320,10 +1321,12 @@ class SharedHomeMixin(LinkFollowerMixIn):
         Remove a shared collection but do not send a decline back. Return the
         current display name of the shared collection.
         """
+        #FIXME: This is only works for calendar
         shareURL = joinURL(self.url(), share.name())
         shared = (yield request.locateResource(shareURL))
         displayname = shared.displayName()
 
+        #FIXME: remove if not needed
         if self.isCalendarCollection():
             # For backwards compatibility we need to sync this up with the calendar-free-busy-set on the inbox
             principal = (yield self.resourceOwnerPrincipal(request))

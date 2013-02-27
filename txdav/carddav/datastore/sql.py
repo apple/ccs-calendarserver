@@ -551,7 +551,7 @@ END:VCARD
         for groupBindRow in groupBindRows:
             bindMode, homeID, resourceID, bindName, bindStatus, bindMessage = groupBindRow[:6] #@UnusedVariable        
             ownerAddressBookID = yield AddressBookObject.ownerAddressBookFromGroupID(home._txn, resourceID)
-            ownerHome = yield home.ownerHomeIDFromChildID(home._txn, ownerAddressBookID)
+            ownerHome = yield home.ownerHomeWithChildID(home._txn, ownerAddressBookID)
             ownerHomeID = ownerHome._resourceID
             if ownerHomeID not in ownerHomeIDToDataRowMap:
                 groupBindRow[0] = _BIND_MODE_WRITE
@@ -560,55 +560,51 @@ END:VCARD
                 groupBindRow[5] = None # bindMessage
                 ownerHomeIDToDataRowMap[ownerHomeID] = groupBindRow
 
+        # Get property stores for all these child resources (if any found)
+        propertyStores = (yield PropertyStore.forMultipleResources(
+            home.uid(), home._txn,
+            cls._bindSchema.RESOURCE_ID, cls._bindSchema.HOME_RESOURCE_ID,
+            home._resourceID
+        ))
+        revisions = yield cls._revisionsForHomeID.on(home._txn, homeID=home._resourceID)
+        revisions = dict(revisions)
 
-        if ownerHomeIDToDataRowMap:
+        # Create the actual objects merging in properties
+        for dataRow in ownerHomeIDToDataRowMap.values():
+            bindMode, homeID, resourceID, bindName, bindStatus, bindMessage = dataRow[:6] #@UnusedVariable
+            metadata = dataRow[6:]
 
-            # Get property stores for all these child resources (if any found)
-            propertyStores = (yield PropertyStore.forMultipleResources(
-                home.uid(), home._txn,
-                cls._bindSchema.RESOURCE_ID, cls._bindSchema.HOME_RESOURCE_ID,
-                home._resourceID
-            ))
+            if bindStatus == _BIND_MODE_OWN:
+                child = cls(
+                    home=home,
+                    name=bindName, resourceID=resourceID,
+                    mode=bindMode, status=bindStatus,
+                    message=bindMessage,
+                )
+            else:
+                ownerHome = yield home.ownerHomeWithChildID(resourceID)
+                ownerAddressBook = yield ownerHome.addressbook()
 
-            revisions = yield cls._revisionsForHomeID.on(home._txn, homeID=home._resourceID)
-            revisions = dict(revisions)
+                child = cls(
+                    home=home,
+                    name=ownerAddressBook.shareeABName(), resourceID=ownerAddressBook._resourceID,
+                    mode=bindMode, status=bindStatus,
+                    message=bindMessage, ownerHome=ownerHome,
+                    bindName=bindName
+                )
 
-            # Create the actual objects merging in properties
-            for dataRow in ownerHomeIDToDataRowMap.values():
-                bindMode, homeID, resourceID, bindName, bindStatus, bindMessage = dataRow[:6] #@UnusedVariable
-                metadata = dataRow[6:]
+            for attr, value in zip(cls.metadataAttributes(), metadata):
+                setattr(child, attr, value)
+            #FIXME
+            child._syncTokenRevision = revisions[resourceID]
+            propstore = propertyStores.get(resourceID, None)
 
-                if bindStatus == _BIND_MODE_OWN:
-                    child = cls(
-                        home=home,
-                        name=bindName, resourceID=resourceID,
-                        mode=bindMode, status=bindStatus,
-                        message=bindMessage,
-                    )
-                else:
-                    ownerHome = yield home.ownerHomeWithChildID(resourceID)
-                    ownerAddressBook = yield ownerHome.addressbook()
-
-                    child = cls(
-                        home=home,
-                        name=ownerAddressBook.shareeABName(), resourceID=ownerAddressBook._resourceID,
-                        mode=bindMode, status=bindStatus,
-                        message=bindMessage, ownerHome=ownerHome,
-                        bindName=bindName
-                    )
-
-                for attr, value in zip(cls.metadataAttributes(), metadata):
-                    setattr(child, attr, value)
-                #FIXME
-                child._syncTokenRevision = revisions[resourceID]
-                propstore = propertyStores.get(resourceID, None)
-
-                # We have to re-adjust the property store object to account for possible shared
-                # collections as previously we loaded them all as if they were owned
-                if bindStatus != _BIND_MODE_OWN:
-                    propstore._setDefaultUserUID(ownerHome.uid())
-                yield child._loadPropertyStore(propstore)
-                results.append(child)
+            # We have to re-adjust the property store object to account for possible shared
+            # collections as previously we loaded them all as if they were owned
+            if bindStatus != _BIND_MODE_OWN:
+                propstore._setDefaultUserUID(ownerHome.uid())
+            yield child._loadPropertyStore(propstore)
+            results.append(child)
 
         returnValue(results)
 
@@ -660,7 +656,7 @@ END:VCARD
                 )
                 if rows:
                     rows[0].append(ownerAddressBook._resourceID)
-                    rows[0].append(rows[4]) # cachedStatus = bindStatus
+                    rows[0].append(rows[0][4]) # cachedStatus = bindStatus
                 else:
                     groupBindRows = yield AddressBookObject._bindWithHomeIDAndAddressBookID.on(
                             home._txn, homeID=home._resourceID, addressbookID=ownerAddressBook._resourceID
@@ -769,7 +765,7 @@ END:VCARD
         )
         if bindRows:
             bindMode, homeID, resourceID, bindName, bindStatus, bindMessage = bindRows[0] #@UnusedVariable
-            ownerHome = yield home.ownerHomeIDFromChildID(resourceID)
+            ownerHome = yield home.ownerHomeWithChildID(resourceID)
             ownerAddressBook = yield ownerHome.addressbook()
             if bindStatus == _BIND_STATUS_ACCEPTED:
                 returnValue((yield home.childWithName(ownerAddressBook.shareeABName())))
@@ -2011,6 +2007,7 @@ class AddressBookObject(CommonObjectResource, SharingMixIn):
 
 
     @inlineCallbacks
+    #TODO:  This is almost the same as AddressBook.updateShare(): combine
     def updateShare(self, shareeView, mode=None, status=None, message=None, name=None):
         """
         Update share mode, status, and message for a home child shared with
