@@ -332,7 +332,7 @@ class iTipProcessing(object):
         new_master = itip_message.masterComponent()
         attendees = set()
         rids = set()
-        if new_master:
+        if new_master is not None and old_master is not None:
             attendee, partstat, private_comment = iTipProcessing.updateAttendeeData(new_master, old_master)
             if attendee:
                 attendees.add(attendee)

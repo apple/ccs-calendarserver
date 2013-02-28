@@ -27,6 +27,210 @@ class iTIPProcessing (twistedcaldav.test.util.TestCase):
     iCalendar support tests
     """
 
+    def test_processReply(self):
+        """
+        Test iTIPProcessing.processReply
+        """
+
+        data = (
+            (
+                "1.1 Simple Reply - non recurring",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071114T000000Z
+DTSTAMP:20071114T000000Z
+ORGANIZER:mailto:user01@example.com
+ATTENDEE:mailto:user01@example.com
+ATTENDEE;PARTSTAT=NEEDS-ACTION:mailto:user02@example.com
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+METHOD:REPLY
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071115T000000Z
+DTSTAMP:20071114T000000Z
+ORGANIZER:mailto:user01@example.com
+ATTENDEE;PARTSTAT=ACCEPTED:mailto:user02@example.com
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071114T000000Z
+DTSTAMP:20071114T000000Z
+ORGANIZER:mailto:user01@example.com
+ATTENDEE:mailto:user01@example.com
+ATTENDEE;PARTSTAT=ACCEPTED;SCHEDULE-STATUS=2.0:mailto:user02@example.com
+END:VEVENT
+END:VCALENDAR
+""",
+                True,
+            ),
+            (
+                "1.2 Simple Reply - recurring no overrides",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071114T000000Z
+DTSTAMP:20071114T000000Z
+ORGANIZER:mailto:user01@example.com
+ATTENDEE:mailto:user01@example.com
+ATTENDEE;PARTSTAT=NEEDS-ACTION:mailto:user02@example.com
+RRULE:FREQ=DAILY
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+METHOD:REPLY
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071115T000000Z
+DTSTAMP:20071114T000000Z
+ORGANIZER:mailto:user01@example.com
+ATTENDEE;PARTSTAT=ACCEPTED:mailto:user02@example.com
+RRULE:FREQ=DAILY
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071114T000000Z
+DTSTAMP:20071114T000000Z
+ORGANIZER:mailto:user01@example.com
+ATTENDEE:mailto:user01@example.com
+ATTENDEE;PARTSTAT=ACCEPTED;SCHEDULE-STATUS=2.0:mailto:user02@example.com
+RRULE:FREQ=DAILY
+END:VEVENT
+END:VCALENDAR
+""",
+                True,
+            ),
+            (
+                "1.3 Simple Reply - recurring with missing master",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+RECURRENCE-ID:20071114T000000Z
+DTSTART:20071114T000000Z
+DTSTAMP:20071114T000000Z
+ORGANIZER:mailto:user01@example.com
+ATTENDEE:mailto:user01@example.com
+ATTENDEE;PARTSTAT=NEEDS-ACTION:mailto:user02@example.com
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+METHOD:REPLY
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071115T000000Z
+DTSTAMP:20071114T000000Z
+ORGANIZER:mailto:user01@example.com
+ATTENDEE;PARTSTAT=ACCEPTED:mailto:user02@example.com
+RRULE:FREQ=DAILY
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890-1
+RECURRENCE-ID:20071114T000000Z
+DTSTART:20071115T000000Z
+DTSTAMP:20071114T000000Z
+ORGANIZER:mailto:user01@example.com
+ATTENDEE;PARTSTAT=ACCEPTED:mailto:user02@example.com
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+RECURRENCE-ID:20071114T000000Z
+DTSTART:20071114T000000Z
+DTSTAMP:20071114T000000Z
+ORGANIZER:mailto:user01@example.com
+ATTENDEE:mailto:user01@example.com
+ATTENDEE;PARTSTAT=ACCEPTED;SCHEDULE-STATUS=2.0:mailto:user02@example.com
+END:VEVENT
+END:VCALENDAR
+""",
+                True,
+            ),
+            (
+                "1.4 Simple Reply - recurring with missing master, invalid override",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+BEGIN:VEVENT
+UID:12345-67890-1
+RECURRENCE-ID:20071114T000000Z
+DTSTART:20071114T000000Z
+DTSTAMP:20071114T000000Z
+ORGANIZER:mailto:user01@example.com
+ATTENDEE:mailto:user01@example.com
+ATTENDEE;PARTSTAT=NEEDS-ACTION:mailto:user02@example.com
+END:VEVENT
+END:VCALENDAR
+""",
+                """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
+METHOD:REPLY
+BEGIN:VEVENT
+UID:12345-67890-1
+DTSTART:20071114T000000Z
+DTSTAMP:20071114T000000Z
+ORGANIZER:mailto:user01@example.com
+ATTENDEE;PARTSTAT=ACCEPTED:mailto:user02@example.com
+RRULE:FREQ=DAILY
+END:VEVENT
+BEGIN:VEVENT
+UID:12345-67890-1
+RECURRENCE-ID:20071115T000000Z
+DTSTART:20071115T000000Z
+DTSTAMP:20071114T000000Z
+ORGANIZER:mailto:user01@example.com
+ATTENDEE;PARTSTAT=ACCEPTED:mailto:user02@example.com
+END:VEVENT
+END:VCALENDAR
+""",
+                None,
+                False,
+            ),
+        )
+
+        for title, calendar_txt, itip_txt, changed_txt, expected in data:
+            calendar = Component.fromString(calendar_txt)
+            itip = Component.fromString(itip_txt)
+            if expected:
+                changed = Component.fromString(changed_txt)
+
+            result, _ignore = iTipProcessing.processReply(itip, calendar)
+            self.assertEqual(result, expected, msg="Result mismatch: %s" % (title,))
+            if expected:
+                self.assertEqual(changed, calendar, msg="Calendar mismatch: %s" % (title,))
+
+
     def test_update_attendee_partstat(self):
 
         data = (
