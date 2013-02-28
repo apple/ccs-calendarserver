@@ -3136,14 +3136,23 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic, HomeChildBas
 
     @classmethod
     @inlineCallbacks
-    def _insertHomeChildAndMetaData(cls, home, name):
+    def create(cls, home, name):
+        child = (yield cls.objectWithName(home, name))
+        if child is not None:
+            raise HomeChildNameAlreadyExistsError(name)
+        invite = (yield cls.invitedObjectWithName(home, name))
+        if invite is not None:
+            raise HomeChildNameAlreadyExistsError(name)
+
+        if name.startswith("."):
+            raise HomeChildNameNotAllowedError(name)
 
         # Create this object
         resourceID = (
             yield cls._insertHomeChild.on(home._txn))[0][0]
 
         # Initialize this object
-        created, modified = (
+        _created, _modified = (
             yield cls._insertHomeChildMetaData.on(home._txn,
                                                   resourceID=resourceID))[0]
 
@@ -3153,23 +3162,6 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic, HomeChildBas
             name=name, mode=_BIND_MODE_OWN, bindStatus=_BIND_STATUS_ACCEPTED,
             message=None,
         )
-
-        returnValue((resourceID, created, modified))
-
-
-    @classmethod
-    @inlineCallbacks
-    def create(cls, home, name):
-
-        if (yield cls._bindForNameAndHomeID.on(home._txn,
-            name=name, homeID=home._resourceID)):
-            raise HomeChildNameAlreadyExistsError(name)
-
-        if name.startswith("."):
-            raise HomeChildNameNotAllowedError(name)
-
-        # Create this object
-        resourceID, _created, _modified = yield cls._insertHomeChildAndMetaData(home, name)
 
         # Initialize other state
         child = cls(home, name, resourceID, _BIND_MODE_OWN, _BIND_STATUS_ACCEPTED)
