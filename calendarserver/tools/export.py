@@ -15,7 +15,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
-from __future__ import print_function
 
 """
 This tool reads calendar data from a series of inputs and generates a single
@@ -33,6 +32,8 @@ data associated with users and calendars beyond the iCalendar as visible to the
 owner of that calendar, including DAV properties, information about sharing, and
 per-user data such as alarms.
 """
+
+from __future__ import print_function
 
 import os
 import sys
