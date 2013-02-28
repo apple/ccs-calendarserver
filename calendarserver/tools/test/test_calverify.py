@@ -2285,12 +2285,12 @@ END:VCALENDAR
 
         self.assertEqual(calverify.results["Number of events to process"], len(self.requirements[CalVerifyMismatchTestsBase.uuidl1]["calendar"]))
         self.assertEqual(
-            [(i.uid1, i.uid2, str(i.start),) for i in calverify.results["Double-bookings"]],
+            [(sorted((i.uid1, i.uid2,)), str(i.start),) for i in calverify.results["Double-bookings"]],
             [
-                ("INVITE_NO_OVERLAP1_1_ICS", "INVITE_NO_OVERLAP1_2_ICS", "%(year)s0307T120000Z" % {"year": now}),
-                ("INVITE_NO_OVERLAP4_1_ICS", "INVITE_NO_OVERLAP4_2_ICS", "%(year)s0309T120000Z" % {"year": now}),
-                ("INVITE_NO_OVERLAP4_1_ICS", "INVITE_NO_OVERLAP4_2_ICS", "%(year)s0310T120000Z" % {"year": now}),
-                ("INVITE_NO_OVERLAP5_1_ICS", "INVITE_NO_OVERLAP5_2_ICS", "%(year)s0314T130000Z" % {"year": now}),
+                (["INVITE_NO_OVERLAP1_1_ICS", "INVITE_NO_OVERLAP1_2_ICS"], "%(year)s0307T120000Z" % {"year": now}),
+                (["INVITE_NO_OVERLAP4_1_ICS", "INVITE_NO_OVERLAP4_2_ICS"], "%(year)s0309T120000Z" % {"year": now}),
+                (["INVITE_NO_OVERLAP4_1_ICS", "INVITE_NO_OVERLAP4_2_ICS"], "%(year)s0310T120000Z" % {"year": now}),
+                (["INVITE_NO_OVERLAP5_1_ICS", "INVITE_NO_OVERLAP5_2_ICS"], "%(year)s0314T130000Z" % {"year": now}),
             ],
         )
         self.assertEqual(calverify.results["Number of double-bookings"], 4)
