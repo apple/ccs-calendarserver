@@ -199,7 +199,6 @@ class AddressBookHome(CommonHome):
         # initialize address book properties, synctoken
         child = yield self.addressbook()
         yield child._loadPropertyStore()
-        child._initProperties()
         yield child._initSyncToken()
 
 
@@ -936,9 +935,9 @@ END:VCARD
 
 
     @inlineCallbacks
-    def writeableAcceptedGroupIDs(self):
+    def accessControlGroupIDs(self):
         if self.owned():
-            returnValue([])
+            returnValue(([], []))
         else:
             groupBindRows = yield AddressBookObject._acceptedBindWithHomeIDAndAddressBookID.on(
                     self._txn, homeID=self._home._resourceID, addressbookID=self._resourceID
@@ -957,9 +956,19 @@ END:VCARD
                 adjustedReadOnlyGroupIDs = set(readonlyGroupIDs) - set(allWriteableIDs)
                 adjustedReadWriteGroupIDs = set(readwriteGroupIDs) | (set(readonlyGroupIDs) - adjustedReadOnlyGroupIDs)
             else:
-                #adjustedReadOnlyGroupIDs = readonlyGroupIDs
+                adjustedReadOnlyGroupIDs = readonlyGroupIDs
                 adjustedReadWriteGroupIDs = readwriteGroupIDs
-            returnValue(tuple(adjustedReadWriteGroupIDs))
+            returnValue((tuple(adjustedReadOnlyGroupIDs), tuple(adjustedReadWriteGroupIDs)))
+
+
+    @inlineCallbacks
+    def readonlyGroupIDs(self):
+        returnValue((yield self.accessControlGroupIDs())[0])
+        
+        
+    @inlineCallbacks
+    def writeableGroupIDs(self):
+        returnValue((yield self.accessControlGroupIDs())[1])
 
 
     @inlineCallbacks
@@ -1235,9 +1244,9 @@ class AddressBookObject(CommonObjectResource, SharingMixIn):
             # convert delete in sharee shared group address book to remove of memberships
             # that make this object visible to the sharee
 
-            writeableAcceptedGroupIDs = yield self._addressbook.writeableAcceptedGroupIDs()
-            if writeableAcceptedGroupIDs:
-                objectsIDs = yield self._addressbook._objectIDsInExpandedGroupIDs(self._txn, writeableAcceptedGroupIDs)
+            writeableGroupIDs = yield self._addressbook.writeableGroupIDs()
+            if writeableGroupIDs:
+                objectsIDs = yield self._addressbook._objectIDsInExpandedGroupIDs(self._txn, writeableGroupIDs)
                 yield self._deleteMembersWithMemberIDAndGroupIDsQuery(self._resourceID, objectsIDs).on(
                     self._txn, groupIDs=objectsIDs
                 )
@@ -1688,9 +1697,9 @@ class AddressBookObject(CommonObjectResource, SharingMixIn):
             # FIXME: Is this correct?
             if not self.owned():
                 if not self._addressbook.fullyShared() or self._addressbook.shareMode() != _BIND_MODE_WRITE:
-                    writeableAcceptedGroupIDs = yield self._addressbook.writeableAcceptedGroupIDs()
-                    assert writeableAcceptedGroupIDs, "no access"
-                    groupIDs.extend(writeableAcceptedGroupIDs)
+                    writeableGroupIDs = yield self._addressbook.writeableGroupIDs()
+                    assert writeableGroupIDs, "no access"
+                    groupIDs.extend(writeableGroupIDs)
 
             # add to member table rows
             for groupID in groupIDs:
