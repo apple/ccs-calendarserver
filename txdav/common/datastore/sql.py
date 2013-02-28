@@ -3137,11 +3137,9 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic, HomeChildBas
     @classmethod
     @inlineCallbacks
     def create(cls, home, name):
-        child = (yield cls.objectWithName(home, name))
-        if child is not None:
-            raise HomeChildNameAlreadyExistsError(name)
-        invite = (yield cls.invitedObjectWithName(home, name))
-        if invite is not None:
+
+        if (yield cls._bindForNameAndHomeID.on(home._txn,
+            name=name, homeID=home._resourceID)):
             raise HomeChildNameAlreadyExistsError(name)
 
         if name.startswith("."):
@@ -3155,7 +3153,6 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic, HomeChildBas
         _created, _modified = (
             yield cls._insertHomeChildMetaData.on(home._txn,
                                                   resourceID=resourceID))[0]
-
         # Bind table needs entry
         yield cls._bindInsertQuery.on(
             home._txn, homeID=home._resourceID, resourceID=resourceID,
