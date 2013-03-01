@@ -171,6 +171,7 @@ create table CALENDAR_OBJECT (
   ATTACHMENTS_MODE     integer      default 0 not null, -- enum CALENDAR_OBJECT_ATTACHMENTS_MODE
   DROPBOX_ID           varchar(255),
   ORGANIZER            varchar(255),
+  ORGANIZER_OBJECT     integer      references CALENDAR_OBJECT,
   RECURRANCE_MIN       date,        -- minimum date that recurrences have been expanded to.
   RECURRANCE_MAX       date,        -- maximum date that recurrences have been expanded to.
   ACCESS               integer      default 0 not null,
@@ -197,8 +198,8 @@ create index CALENDAR_OBJECT_CALENDAR_RESOURCE_ID_AND_ICALENDAR_UID on
 create index CALENDAR_OBJECT_CALENDAR_RESOURCE_ID_RECURRANCE_MAX on
   CALENDAR_OBJECT(CALENDAR_RESOURCE_ID, RECURRANCE_MAX);
 
-create index CALENDAR_OBJECT_ICALENDAR_UID on
-  CALENDAR_OBJECT(ICALENDAR_UID);
+create index CALENDAR_OBJECT_ORGANIZER_OBJECT on
+  CALENDAR_OBJECT(ORGANIZER_OBJECT);
 
 create index CALENDAR_OBJECT_DROPBOX_ID on
   CALENDAR_OBJECT(DROPBOX_ID);
@@ -567,6 +568,6 @@ create table CALENDARSERVER (
   VALUE                         varchar(255)
 );
 
-insert into CALENDARSERVER values ('VERSION', '17');
+insert into CALENDARSERVER values ('VERSION', '16');
 insert into CALENDARSERVER values ('CALENDAR-DATAVERSION', '3');
 insert into CALENDARSERVER values ('ADDRESSBOOK-DATAVERSION', '1');

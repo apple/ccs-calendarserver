@@ -1871,6 +1871,225 @@ END:VCALENDAR
 
 
 
+class CalVerifyMismatchTestsUUID(CalVerifyMismatchTestsBase):
+    """
+    Tests calverify for iCalendar mismatch problems for auto-accept attendees.
+    """
+
+    # Organizer has event, attendee do not
+    MISSING_ATTENDEE_1_ICS = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Apple Inc.//iCal 4.0.1//EN
+CALSCALE:GREGORIAN
+BEGIN:VEVENT
+CREATED:20100303T181216Z
+UID:MISSING_ATTENDEE_ICS
+DTEND:%(year)s0307T151500Z
+TRANSP:OPAQUE
+SUMMARY:Ancient event
+DTSTART:%(year)s0307T111500Z
+DTSTAMP:20100303T181220Z
+SEQUENCE:2
+ORGANIZER:urn:uuid:D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
+ATTENDEE:urn:uuid:D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
+ATTENDEE:urn:uuid:75EA36BE-F71B-40F9-81F9-CF59BF40CA8F
+END:VEVENT
+END:VCALENDAR
+""".replace("\n", "\r\n") % {"year": now}
+
+    # Attendee partstat mismatch
+    MISMATCH_ATTENDEE_1_ICS = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Apple Inc.//iCal 4.0.1//EN
+CALSCALE:GREGORIAN
+BEGIN:VEVENT
+CREATED:20100303T181216Z
+UID:MISMATCH_ATTENDEE_ICS
+DTEND:%(year)s0307T151500Z
+TRANSP:OPAQUE
+SUMMARY:Ancient event
+DTSTART:%(year)s0307T111500Z
+DTSTAMP:20100303T181220Z
+SEQUENCE:2
+ORGANIZER:urn:uuid:D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
+ATTENDEE;PARTSTAT=ACCEPTED:urn:uuid:D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
+ATTENDEE;PARTSTAT=NEEDS-ACTION:urn:uuid:75EA36BE-F71B-40F9-81F9-CF59BF40CA8F
+END:VEVENT
+END:VCALENDAR
+""".replace("\n", "\r\n") % {"year": now}
+
+    MISMATCH_ATTENDEE_L1_ICS = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Apple Inc.//iCal 4.0.1//EN
+CALSCALE:GREGORIAN
+BEGIN:VEVENT
+CREATED:20100303T181216Z
+UID:MISMATCH_ATTENDEE_ICS
+DTEND:%(year)s0307T151500Z
+TRANSP:OPAQUE
+SUMMARY:Ancient event
+DTSTART:%(year)s0307T111500Z
+DTSTAMP:20100303T181220Z
+SEQUENCE:2
+ORGANIZER:urn:uuid:D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
+ATTENDEE;PARTSTAT=ACCEPTED:urn:uuid:D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
+ATTENDEE;PARTSTAT=ACCEPTED:urn:uuid:75EA36BE-F71B-40F9-81F9-CF59BF40CA8F
+END:VEVENT
+END:VCALENDAR
+""".replace("\n", "\r\n") % {"year": now}
+
+    requirements = {
+        CalVerifyMismatchTestsBase.uuid1 : {
+            "calendar" : {
+                 "missing_attendee.ics"      : (MISSING_ATTENDEE_1_ICS, CalVerifyMismatchTestsBase.metadata,),
+                 "mismatched_attendee.ics"   : (MISMATCH_ATTENDEE_1_ICS, CalVerifyMismatchTestsBase.metadata,),
+           },
+           "inbox" : {},
+        },
+        CalVerifyMismatchTestsBase.uuid2 : {
+            "calendar" : {},
+            "inbox" : {},
+        },
+        CalVerifyMismatchTestsBase.uuid3 : {
+            "calendar" : {},
+            "inbox" : {},
+        },
+        CalVerifyMismatchTestsBase.uuidl1 : {
+            "calendar" : {
+                "mismatched_attendee.ics"   : (MISMATCH_ATTENDEE_L1_ICS, CalVerifyMismatchTestsBase.metadata,),
+            },
+            "inbox" : {},
+        },
+    }
+
+    @inlineCallbacks
+    def test_scanMismatchOnly(self):
+        """
+        CalVerifyService.doScan without fix for mismatches. Make sure it detects
+        as much as it can. Make sure sync-token is not changed.
+        """
+
+        sync_token_old1 = (yield (yield self.calendarUnderTest(self.uuid1)).syncToken())
+        sync_token_oldl1 = (yield (yield self.calendarUnderTest(self.uuidl1)).syncToken())
+        self.commit()
+
+        options = {
+            "ical": False,
+            "badcua": False,
+            "mismatch": True,
+            "nobase64": False,
+            "fix": False,
+            "verbose": False,
+            "details": False,
+            "uid": "",
+            "uuid": CalVerifyMismatchTestsBase.uuidl1,
+            "tzid": "",
+            "start": PyCalendarDateTime(now, 1, 1, 0, 0, 0),
+        }
+        output = StringIO()
+        calverify = SchedulingMismatchService(self._sqlCalendarStore, options, output, reactor, config)
+        yield calverify.doAction()
+
+        self.assertEqual(calverify.results["Number of events to process"], 2)
+        self.assertTrue("Missing Attendee" not in calverify.results)
+        self.assertEqual(calverify.results["Mismatch Attendee"], set((
+            ("MISMATCH_ATTENDEE_ICS", self.uuid1, self.uuidl1,),
+        )))
+        self.assertTrue("Missing Organizer" not in calverify.results)
+        self.assertTrue("Mismatch Organizer" not in calverify.results)
+
+        self.assertTrue("Fix change event" not in calverify.results)
+        self.assertTrue("Fix add event" not in calverify.results)
+        self.assertTrue("Fix add inbox" not in calverify.results)
+        self.assertTrue("Fix remove" not in calverify.results)
+        self.assertTrue("Fix failures" not in calverify.results)
+        self.assertTrue("Auto-Accepts" not in calverify.results)
+
+        sync_token_new1 = (yield (yield self.calendarUnderTest(self.uuid1)).syncToken())
+        sync_token_newl1 = (yield (yield self.calendarUnderTest(self.uuidl1)).syncToken())
+        self.assertEqual(sync_token_old1, sync_token_new1)
+        self.assertEqual(sync_token_oldl1, sync_token_newl1)
+
+
+    @inlineCallbacks
+    def test_fixMismatch(self):
+        """
+        CalVerifyService.doScan with fix for mismatches. Make sure it detects
+        and fixes as much as it can. Make sure sync-token is not changed.
+        """
+
+        sync_token_old1 = (yield (yield self.calendarUnderTest(self.uuid1)).syncToken())
+        sync_token_oldl1 = (yield (yield self.calendarUnderTest(self.uuidl1)).syncToken())
+        self.commit()
+
+        options = {
+            "ical": False,
+            "badcua": False,
+            "mismatch": True,
+            "nobase64": False,
+            "fix": True,
+            "verbose": False,
+            "details": False,
+            "uid": "",
+            "uuid": CalVerifyMismatchTestsBase.uuidl1,
+            "tzid": "",
+            "start": PyCalendarDateTime(now, 1, 1, 0, 0, 0),
+        }
+        output = StringIO()
+        calverify = SchedulingMismatchService(self._sqlCalendarStore, options, output, reactor, config)
+        yield calverify.doAction()
+
+        self.assertEqual(calverify.results["Number of events to process"], 2)
+        self.assertTrue("Missing Attendee" not in calverify.results)
+        self.assertEqual(calverify.results["Mismatch Attendee"], set((
+            ("MISMATCH_ATTENDEE_ICS", self.uuid1, self.uuidl1,),
+        )))
+        self.assertTrue("Missing Organizer" not in calverify.results)
+        self.assertTrue("Mismatch Organizer" not in calverify.results)
+
+        self.assertEqual(calverify.results["Fix change event"], set((
+            (self.uuidl1, "calendar", "MISMATCH_ATTENDEE_ICS",),
+        )))
+
+        self.assertTrue("Fix add event" not in calverify.results)
+
+        self.assertEqual(calverify.results["Fix add inbox"], set((
+            (self.uuidl1, "MISMATCH_ATTENDEE_ICS",),
+        )))
+
+        self.assertTrue("Fix remove" not in calverify.results)
+
+        self.assertEqual(calverify.results["Fix failures"], 0)
+        testResults = sorted(calverify.results["Auto-Accepts"], key=lambda x: x["uid"])
+        self.assertEqual(testResults[0]["path"], "/calendars/__uids__/%s/calendar/mismatched_attendee.ics" % self.uuidl1)
+        self.assertEqual(testResults[0]["uid"], "MISMATCH_ATTENDEE_ICS")
+        self.assertEqual(testResults[0]["start"].getText(), "%s0307T031500" % (now,))
+
+        sync_token_new1 = (yield (yield self.calendarUnderTest(self.uuid1)).syncToken())
+        sync_token_newl1 = (yield (yield self.calendarUnderTest(self.uuidl1)).syncToken())
+        self.assertEqual(sync_token_old1, sync_token_new1)
+        self.assertNotEqual(sync_token_oldl1, sync_token_newl1)
+
+        # Re-scan after changes to make sure there are no errors
+        self.commit()
+        options["fix"] = False
+        options["uuid"] = CalVerifyMismatchTestsBase.uuidl1
+        calverify = SchedulingMismatchService(self._sqlCalendarStore, options, output, reactor, config)
+        yield calverify.doAction()
+
+        self.assertEqual(calverify.results["Number of events to process"], 2)
+        self.assertTrue("Missing Attendee" not in calverify.results)
+        self.assertTrue("Mismatch Attendee" not in calverify.results)
+        self.assertTrue("Missing Organizer" not in calverify.results)
+        self.assertTrue("Mismatch Organizer" not in calverify.results)
+        self.assertTrue("Fix add event" not in calverify.results)
+        self.assertTrue("Fix add inbox" not in calverify.results)
+        self.assertTrue("Fix remove" not in calverify.results)
+        self.assertTrue("Fix failures" not in calverify.results)
+        self.assertTrue("Auto-Accepts" not in calverify.results)
+
+
+
 class CalVerifyDoubleBooked(CalVerifyMismatchTestsBase):
     """
     Tests calverify for double-bookings.

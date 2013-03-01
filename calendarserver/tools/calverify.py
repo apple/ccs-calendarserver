@@ -559,6 +559,44 @@ class CalVerifyService(Service, object):
 
 
     @inlineCallbacks
+    def getAllResourceInfoTimeRangeWithUUID(self, start, uuid):
+        co = schema.CALENDAR_OBJECT
+        cb = schema.CALENDAR_BIND
+        ch = schema.CALENDAR_HOME
+        tr = schema.TIME_RANGE
+
+        cojoin = (cb.CALENDAR_RESOURCE_ID == co.CALENDAR_RESOURCE_ID).And(
+                cb.BIND_MODE == _BIND_MODE_OWN).And(
+                cb.CALENDAR_RESOURCE_NAME != "inbox")
+
+        kwds = {
+            "Start" : pyCalendarTodatetime(start),
+            "Max"   : pyCalendarTodatetime(PyCalendarDateTime(1900, 1, 1, 0, 0, 0)),
+            "UUID" : uuid,
+        }
+        rows = (yield Select(
+            [ch.OWNER_UID, co.RESOURCE_ID, co.ICALENDAR_UID, cb.CALENDAR_RESOURCE_NAME, co.MD5, co.ORGANIZER, co.CREATED, co.MODIFIED],
+            From=ch.join(
+                cb, type="inner", on=(ch.RESOURCE_ID == cb.CALENDAR_HOME_RESOURCE_ID)).join(
+                co, type="inner", on=cojoin),
+            Where=(co.ICALENDAR_UID.In(Select(
+                [co.ICALENDAR_UID],
+                From=ch.join(
+                    cb, type="inner", on=(ch.RESOURCE_ID == cb.CALENDAR_HOME_RESOURCE_ID)).join(
+                    co, type="inner", on=(cb.CALENDAR_RESOURCE_ID == co.CALENDAR_RESOURCE_ID).And(
+                        cb.BIND_MODE == _BIND_MODE_OWN).And(
+                        cb.CALENDAR_RESOURCE_NAME != "inbox").And(
+                        co.ORGANIZER != "")).join(
+                    tr, type="left", on=(co.RESOURCE_ID == tr.CALENDAR_OBJECT_RESOURCE_ID)),
+                Where=(ch.OWNER_UID == Parameter("UUID")).And((tr.START_DATE >= Parameter("Start")).Or(co.RECURRANCE_MAX <= Parameter("Start"))),
+                GroupBy=(ch.OWNER_UID, co.RESOURCE_ID, co.ICALENDAR_UID, cb.CALENDAR_RESOURCE_NAME, co.MD5, co.ORGANIZER, co.CREATED, co.MODIFIED,),
+            ))),
+            GroupBy=(ch.OWNER_UID, co.RESOURCE_ID, co.ICALENDAR_UID, cb.CALENDAR_RESOURCE_NAME, co.MD5, co.ORGANIZER, co.CREATED, co.MODIFIED,),
+        ).on(self.txn, **kwds))
+        returnValue(tuple(rows))
+
+
+    @inlineCallbacks
     def getAllResourceInfoForResourceID(self, resid):
         co = schema.CALENDAR_OBJECT
         cb = schema.CALENDAR_BIND
@@ -1331,6 +1369,10 @@ class SchedulingMismatchService(CalVerifyService):
         if self.options["uid"]:
             rows = yield self.getAllResourceInfoWithUID(self.options["uid"])
             descriptor = "getAllResourceInfoWithUID"
+        elif self.options["uuid"]:
+            rows = yield self.getAllResourceInfoTimeRangeWithUUID(self.start, self.options["uuid"])
+            descriptor = "getAllResourceInfoTimeRangeWithUUID"
+            self.options["uuid"] = None
         else:
             rows = yield self.getAllResourceInfoTimeRange(self.start)
             descriptor = "getAllResourceInfoTimeRange"
