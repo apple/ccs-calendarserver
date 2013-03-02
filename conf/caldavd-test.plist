@@ -670,7 +670,7 @@
           <key>Service</key>
           <string>calendarserver.push.amppush.AMPPushNotifierService</string>
           <key>Enabled</key>
-          <true/>
+          <false/>
           <key>Port</key>
           <integer>62311</integer>
           <key>EnableStaggering</key>
