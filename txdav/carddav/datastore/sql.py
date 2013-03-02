@@ -662,7 +662,6 @@ END:VCARD
             returnValue(child)
 
         #all shared address books now
-
         rows = None
         queryCacher = home._txn._queryCacher
         ownerHome = None
@@ -892,7 +891,7 @@ END:VCARD
 
     @classmethod
     @inlineCallbacks
-    def _objectIDsInExpandedGroupIDs(cls, txn, groupIDs, includeGroupIDs=True):
+    def expandGroupIDs(cls, txn, groupIDs, includeGroupIDs=True):
         """
         Get all AddressBookObject resource IDs contains in the given shared groups with the given groupIDs
         """
@@ -942,32 +941,32 @@ END:VCARD
             groupBindRows = yield AddressBookObject._acceptedBindWithHomeIDAndAddressBookID.on(
                     self._txn, homeID=self._home._resourceID, addressbookID=self._resourceID
             )
-            readwriteGroupIDs = []
-            readonlyGroupIDs = []
+            readWriteGroupIDs = []
+            readOnlyGroupIDs = []
             for bindMode, homeID, resourceID, bindName, bindStatus, bindMessage in groupBindRows: #@UnusedVariable
                 if bindMode == _BIND_MODE_WRITE:
-                    readwriteGroupIDs.append(resourceID)
+                    readWriteGroupIDs.append(resourceID)
                 else:
-                    readonlyGroupIDs.append(resourceID)
+                    readOnlyGroupIDs.append(resourceID)
 
-            if readonlyGroupIDs and readwriteGroupIDs:
+            if readOnlyGroupIDs and readWriteGroupIDs:
                 # expand read-write groups and remove any subgroups from read-only group list
-                allWriteableIDs = yield self._objectIDsInExpandedGroupIDs(self._txn, readwriteGroupIDs)
-                adjustedReadOnlyGroupIDs = set(readonlyGroupIDs) - set(allWriteableIDs)
-                adjustedReadWriteGroupIDs = set(readwriteGroupIDs) | (set(readonlyGroupIDs) - adjustedReadOnlyGroupIDs)
+                allWriteableIDs = yield self.expandGroupIDs(self._txn, readWriteGroupIDs)
+                adjustedReadOnlyGroupIDs = set(readOnlyGroupIDs) - set(allWriteableIDs)
+                adjustedReadWriteGroupIDs = set(readWriteGroupIDs) | (set(readOnlyGroupIDs) - adjustedReadOnlyGroupIDs)
             else:
-                adjustedReadOnlyGroupIDs = readonlyGroupIDs
-                adjustedReadWriteGroupIDs = readwriteGroupIDs
+                adjustedReadOnlyGroupIDs = readOnlyGroupIDs
+                adjustedReadWriteGroupIDs = readWriteGroupIDs
             returnValue((tuple(adjustedReadOnlyGroupIDs), tuple(adjustedReadWriteGroupIDs)))
 
+    '''
+    @inlineCallbacks
+    def readOnlyGroupIDs(self):
+        returnValue((yield self.accessControlGroupIDs())[0])
+    '''
 
     @inlineCallbacks
-    def readonlyGroupIDs(self):
-        returnValue((yield self.accessControlGroupIDs())[0])
-        
-        
-    @inlineCallbacks
-    def writeableGroupIDs(self):
+    def readWriteGroupIDs(self):
         returnValue((yield self.accessControlGroupIDs())[1])
 
 
@@ -1244,9 +1243,9 @@ class AddressBookObject(CommonObjectResource, SharingMixIn):
             # convert delete in sharee shared group address book to remove of memberships
             # that make this object visible to the sharee
 
-            writeableGroupIDs = yield self._addressbook.writeableGroupIDs()
-            if writeableGroupIDs:
-                objectsIDs = yield self._addressbook._objectIDsInExpandedGroupIDs(self._txn, writeableGroupIDs)
+            readWriteGroupIDs = yield self._addressbook.readWriteGroupIDs()
+            if readWriteGroupIDs:
+                objectsIDs = yield self._addressbook.expandGroupIDs(self._txn, readWriteGroupIDs)
                 yield self._deleteMembersWithMemberIDAndGroupIDsQuery(self._resourceID, objectsIDs).on(
                     self._txn, groupIDs=objectsIDs
                 )
@@ -1276,6 +1275,22 @@ class AddressBookObject(CommonObjectResource, SharingMixIn):
             self._kind = None
             self._ownerAddressBookResourceID = None
             self._component = None
+
+
+    @inlineCallbacks
+    def readWriteAccess(self):
+        assert not self.owned(), "Don't call items in owned address book"
+
+        # if fully shared and rw, must be RW since sharing group read-only has no affect
+        if self._addressbook.fullyShared() and self._addressbook.shareMode() == _BIND_MODE_WRITE:
+            yield None
+            returnValue(True)
+
+        readWriteGroupIDs = yield self._addressbook.readWriteGroupIDs()
+        if self._resourceID in (yield self._addressbook.expandGroupIDs(self._txn, readWriteGroupIDs)):
+            returnValue(True)
+
+        returnValue(False)
 
 
     @classmethod
@@ -1350,7 +1365,7 @@ class AddressBookObject(CommonObjectResource, SharingMixIn):
                         rows = [(yield self._addressbook._groupForEntireAB_Row())]
         else:
             acceptedGroupIDs = yield self._addressbook.acceptedGroupIDs()
-            allowedObjectIDs = yield self._addressbook._objectIDsInExpandedGroupIDs(self._txn, acceptedGroupIDs)
+            allowedObjectIDs = yield self._addressbook.expandGroupIDs(self._txn, acceptedGroupIDs)
             if self._name:
                 if allowedObjectIDs:
                     rows = (yield self._allColumnsWithResourceIDsAndName(allowedObjectIDs).on(
@@ -1398,14 +1413,6 @@ class AddressBookObject(CommonObjectResource, SharingMixIn):
             returnValue(self)
         else:
             returnValue(None)
-
-
-    @inlineCallbacks
-    def _objectIDsInExpandedGroup(self):
-        """
-        Get all AddressBookObject resource IDs contained in this shared group
-        """
-        returnValue((yield self._addressbook._objectIDsInExpandedGroupIDs(self._txn, [self._resourceID])))
 
 
     @classproperty
@@ -1463,7 +1470,7 @@ class AddressBookObject(CommonObjectResource, SharingMixIn):
                 rows.append((yield addressbook._groupForEntireAB_Row()))
         else:
             acceptedGroupIDs = addressbook.acceptedGroupIDs()
-            allowedObjectIDs = yield addressbook._objectIDsInExpandedGroupIDs(addressbook._txn, acceptedGroupIDs)
+            allowedObjectIDs = yield addressbook.expandGroupIDs(addressbook._txn, acceptedGroupIDs)
             rows = yield cls._columnsWithResourceIDsQuery(cls._allColumns, allowedObjectIDs).on(
                 addressbook._txn, resourceIDs=allowedObjectIDs
             )
@@ -1488,7 +1495,7 @@ class AddressBookObject(CommonObjectResource, SharingMixIn):
                 rows.append((yield addressbook._groupForEntireAB_Row()))
         else:
             acceptedGroupIDs = addressbook.acceptedGroupIDs()
-            allowedObjectIDs = yield addressbook._objectIDsInExpandedGroupIDs(addressbook._txn, acceptedGroupIDs)
+            allowedObjectIDs = yield addressbook.expandGroupIDs(addressbook._txn, acceptedGroupIDs)
             rows = yield cls._allColumnsWithResourceIDsAndNamesQuery(allowedObjectIDs, names).on(
                 addressbook._txn, resourceIDs=allowedObjectIDs, names=names
             )
@@ -1631,7 +1638,7 @@ class AddressBookObject(CommonObjectResource, SharingMixIn):
                         raise GroupWithUnsharedAddressNotAllowedError
 
                     acceptedGroupIDs = yield self._addressbook.acceptedGroupIDs()
-                    allowedObjectIDs = yield self._addressbook._objectIDsInExpandedGroupIDs(self._txn, acceptedGroupIDs)
+                    allowedObjectIDs = yield self._addressbook.expandGroupIDs(self._txn, acceptedGroupIDs)
                     if set(memberIDs) - set(allowedObjectIDs):
                         raise GroupWithUnsharedAddressNotAllowedError
 
@@ -1694,12 +1701,12 @@ class AddressBookObject(CommonObjectResource, SharingMixIn):
             ).on(self._txn)
             groupIDs = [groupIDRow[0] for groupIDRow in groupIDRows]
 
-            # FIXME: Is this correct?
+            # FIXME: Is this correct? Write test case
             if not self.owned():
                 if not self._addressbook.fullyShared() or self._addressbook.shareMode() != _BIND_MODE_WRITE:
-                    writeableGroupIDs = yield self._addressbook.writeableGroupIDs()
-                    assert writeableGroupIDs, "no access"
-                    groupIDs.extend(writeableGroupIDs)
+                    readWriteGroupIDs = yield self._addressbook.readWriteGroupIDs()
+                    assert readWriteGroupIDs, "no access"
+                    groupIDs.extend(readWriteGroupIDs)
 
             # add to member table rows
             for groupID in groupIDs:

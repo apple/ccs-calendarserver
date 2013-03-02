@@ -380,7 +380,8 @@ class SharedResourceMixin(object):
         @rtype: L{davxml.ACL}
         """
 
-        assert self._isShareeResource, "Only call this for a sharee collection"
+        assert self._isShareeResource, "Only call this for a sharee resource"
+        assert self.isCalendarCollection() or self.isAddressBookCollection(), "Only call this for a address book or calendar resource"
 
         sharee = self.principalForUID(self._share.shareeUID())
         access = yield self._checkAccessControl()
@@ -392,8 +393,7 @@ class SharedResourceMixin(object):
             returnValue(result)
 
         # Direct shares use underlying privileges of shared collection
-        userprivs = [
-        ]
+        userprivs = []
         if access in ("read-only", "read-write",):
             userprivs.append(element.Privilege(element.Read()))
             userprivs.append(element.Privilege(element.ReadACL()))
@@ -435,7 +435,7 @@ class SharedResourceMixin(object):
         # Give all access to config.AdminPrincipals
         aces += config.AdminACEs
 
-        if config.EnableProxyPrincipals:
+        if self.isCalendarCollection() and config.EnableProxyPrincipals:
             aces += (
                 # DAV:read/DAV:read-current-user-privilege-set access for this principal's calendar-proxy-read users.
                 element.ACE(

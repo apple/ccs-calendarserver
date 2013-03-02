@@ -3104,14 +3104,25 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic, HomeChildBas
         """
         rows = yield cls._bindForResourceIDAndHomeID.on(
             home._txn, resourceID=resourceID, homeID=home._resourceID)
-        if rows:
-            bindMode, homeID, resourceID, resourceName, bindStatus, bindMessage = rows[0] #@UnusedVariable
-            if bindStatus == _BIND_STATUS_ACCEPTED:
-                returnValue((yield home.childWithName(resourceName)))
-            else:
-                returnValue((yield cls.objectWithName(home, resourceName, accepted=False)))
+        if not rows:
+            returnValue(None)
 
-        returnValue(None)
+        bindMode, homeID, resourceID, resourceName, bindStatus, bindMessage = rows[0] #@UnusedVariable
+
+        if bindMode == _BIND_MODE_OWN:
+            ownerHome = home
+        else:
+            ownerHomeID = (yield cls._ownerHomeWithResourceID.on(
+                            home._txn, resourceID=resourceID))[0][0]
+            ownerHome = yield home._txn.homeWithResourceID(home._homeType, ownerHomeID)
+        child = cls(
+            home=home,
+            name=resourceName, resourceID=resourceID,
+            mode=bindMode, status=bindStatus,
+            message=bindMessage, ownerHome=ownerHome,
+        )
+        yield child.initFromStore()
+        returnValue(child)
 
 
     @classproperty

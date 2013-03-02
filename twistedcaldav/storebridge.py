@@ -1734,7 +1734,7 @@ class AttachmentsCollection(_GetChildHelper):
         return davxml.ACL(*aces)
 
 
-    def accessControlList(self, request, inheritance=True, expanding=False, inherited_aces=None):
+    def accessControlList(self, request, inheritance=True, expanding=False, inherited_aces=None): #@UnusedVariable
         # Permissions here are fixed, and are not subject to inheritance rules, etc.
         return succeed(self.defaultAccessControlList())
 
@@ -2957,6 +2957,68 @@ class AddressBookObjectResource(_CommonObjectResource):
                 FORBIDDEN,
                 "Sharee cannot delete a shared group",)
             )
+
+    @inlineCallbacks
+    def accessControlList(self, request, *a, **kw):
+        """
+        Return WebDAV ACLs appropriate for the current user accessing the
+        a vcard in a shared addressbook or shared group.
+        
+        Items in an "invite" share get read-onlly privileges.
+        (It's not clear if that case ever occurs)
+        
+        "direct" shares are not supported.
+
+        @param request: the request used to locate the owner resource.
+        @type request: L{twext.web2.iweb.IRequest}
+
+        @param args: The arguments for
+            L{twext.web2.dav.idav.IDAVResource.accessControlList}
+
+        @param kwargs: The keyword arguments for
+            L{twext.web2.dav.idav.IDAVResource.accessControlList}, plus
+            keyword-only arguments.
+
+        @return: the appropriate WebDAV ACL for the sharee
+        @rtype: L{davxml.ACL}
+        """
+        if not self.exists():
+            log.debug("Resource not found: %s" % (self,))
+            raise HTTPError(NOT_FOUND)
+
+        if self._newStoreObject.addressbook().owned():
+            returnValue((yield super(AddressBookObjectResource, self).accessControlList(request, *a, **kw)))
+
+        # Direct shares use underlying privileges of shared collection
+        userprivs = []
+        userprivs.append(davxml.Privilege(davxml.Read()))
+        userprivs.append(davxml.Privilege(davxml.ReadACL()))
+        userprivs.append(davxml.Privilege(davxml.ReadCurrentUserPrivilegeSet()))
+
+        if (yield self._newStoreObject.readWriteAccess()):
+            userprivs.append(davxml.Privilege(davxml.Write()))
+        else:
+            userprivs.append(davxml.Privilege(davxml.WriteProperties()))
+
+        sharee = self.principalForUID(self._newStoreObject.viewerHome().uid())
+        aces = (
+            # Inheritable specific access for the resource's associated principal.
+            davxml.ACE(
+                davxml.Principal(davxml.HRef(sharee.principalURL())),
+                davxml.Grant(*userprivs),
+                davxml.Protected(),
+                TwistedACLInheritable(),
+            ),
+        )
+
+        # Give read access to config.ReadPrincipals
+        aces += config.ReadACEs
+
+        # Give all access to config.AdminPrincipals
+        aces += config.AdminACEs
+
+        returnValue(davxml.ACL(*aces))
+
 
 
 class _NotificationChildHelper(object):
