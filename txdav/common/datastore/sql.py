@@ -3787,8 +3787,6 @@ class CommonObjectResource(LoggingMixIn, FancyEqMixin):
         "_parentCollection",
     )
 
-    _objectTable = None
-
     _objectSchema = None
 
     BATCH_LOAD_SIZE = 50

@@ -313,15 +313,7 @@ class CalendarHome(CommonHome):
     _revisionsSchema = schema.CALENDAR_OBJECT_REVISIONS
     _objectSchema = schema.CALENDAR_OBJECT
 
-    # string mappings (old, removing)
-    _homeTable = CALENDAR_HOME_TABLE
-    _homeMetaDataTable = CALENDAR_HOME_METADATA_TABLE
-    _childTable = CALENDAR_TABLE
-    _bindTable = CALENDAR_BIND_TABLE
-    _objectBindTable = CALENDAR_OBJECT_AND_BIND_TABLE
     _notifierPrefix = "CalDAV"
-    _revisionsTable = CALENDAR_OBJECT_REVISIONS_TABLE
-
     _dataVersionKey = "CALENDAR-DATAVERSION"
 
     _cacher = Memcacher("SQL.calhome", pickle=True, key_normalization=False)
@@ -586,14 +578,6 @@ class Calendar(CommonHomeChild):
     _revisionsSchema = schema.CALENDAR_OBJECT_REVISIONS
     _objectSchema = schema.CALENDAR_OBJECT
     _timeRangeSchema = schema.TIME_RANGE
-
-    # string mappings (old, removing)
-    _bindTable = CALENDAR_BIND_TABLE
-    _homeChildTable = CALENDAR_TABLE
-    _homeChildBindTable = CALENDAR_AND_CALENDAR_BIND
-    _revisionsTable = CALENDAR_OBJECT_REVISIONS_TABLE
-    _revisionsBindTable = CALENDAR_OBJECT_REVISIONS_AND_BIND_TABLE
-    _objectTable = CALENDAR_OBJECT_TABLE
 
     _supportedComponents = None
 
@@ -953,7 +937,6 @@ def _pathToName(path):
 class CalendarObject(CommonObjectResource, CalendarObjectBase):
     implements(ICalendarObject)
 
-    _objectTable = CALENDAR_OBJECT_TABLE
     _objectSchema = schema.CALENDAR_OBJECT
 
     def __init__(self, calendar, name, uid, resourceID=None, metadata=None):
