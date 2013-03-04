@@ -33,13 +33,11 @@ class HiddenInstanceFilter(CalendarFilter):
 
         @param ical: iCalendar object
         @type ical: L{Component} or C{str}
-        
+
         @return: L{Component} for the filtered calendar data
         """
-        
+
         master = ical.masterComponent()
-        if master is None:
-            return ical
         for component in tuple(ical.subcomponents()):
             if component.name() in ignoredComponents:
                 continue
@@ -49,15 +47,17 @@ class HiddenInstanceFilter(CalendarFilter):
             if component.hasProperty(Component.HIDDEN_INSTANCE_PROPERTY):
                 rid = component.getRecurrenceIDUTC()
                 ical.removeComponent(component)
-                
+
                 # Add EXDATE and try to preserve same timezone as DTSTART
-                dtstart = master.getProperty("DTSTART")
-                if dtstart is not None and not dtstart.value().isDateOnly() and dtstart.value().local():
-                    rid.adjustTimezone(dtstart.value().getTimezone())
-                master.addProperty(Property("EXDATE", [rid,]))
-        
+                if master is not None:
+                    dtstart = master.getProperty("DTSTART")
+                    if dtstart is not None and not dtstart.value().isDateOnly() and dtstart.value().local():
+                        rid.adjustTimezone(dtstart.value().getTimezone())
+                    master.addProperty(Property("EXDATE", [rid, ]))
+
         return ical
-   
+
+
     def merge(self, icalnew, icalold):
         """
         Private event merging does not happen

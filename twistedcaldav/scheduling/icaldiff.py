@@ -339,11 +339,9 @@ class iCalDiff(object):
                         changedRids.append(rid.getText() if rid else "")
 
                     # When a master component is present we keep the missing override in place but mark it as hidden.
-                    # When no master is present we remove the override,
-                    if exdatesnew is not None:
-                        overridden.replaceProperty(Property(Component.HIDDEN_INSTANCE_PROPERTY, "T"))
-                    else:
-                        returnCalendar.removeComponent(overridden)
+                    # When no master is present we now do the same so we can track updates to the override correctly.
+                    overridden.replaceProperty(Property(Component.HIDDEN_INSTANCE_PROPERTY, "T"))
+
                 else:
                     # We used to generate a 403 here - but instead we now ignore this error and let the server data
                     # override the client
