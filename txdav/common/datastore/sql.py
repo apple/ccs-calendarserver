@@ -1382,11 +1382,7 @@ class CommonHome(LoggingMixIn):
     _homeMetaDataTable = None
     _childClass = None
     _childTable = None
-    _bindTable = None
-    _objectBindTable = None
     _notifierPrefix = None
-    _revisionsTable = None
-    _notificationRevisionsTable = NOTIFICATION_OBJECT_REVISIONS_TABLE
 
     _dataVersionKey = None
     _dataVersionValue = None
@@ -1406,13 +1402,6 @@ class CommonHome(LoggingMixIn):
         self._syncTokenRevision = None
         if transaction._disableCache:
             self._cacher = _EmptyCacher()
-
-        # Needed for REVISION/BIND table join
-        self._revisionBindJoinTable = {}
-        for key, value in self._revisionsTable.iteritems():
-            self._revisionBindJoinTable["REV:%s" % (key,)] = value
-        for key, value in self._bindTable.iteritems():
-            self._revisionBindJoinTable["BIND:%s" % (key,)] = value
 
 
     @classmethod
@@ -2849,59 +2838,6 @@ class SharingMixIn(object):
         return self.name()
 
 
-class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic, HomeChildBase, SharingMixIn):
-    """
-    Common ancestor class of AddressBooks and Calendars.
-    """
-
-    compareAttributes = (
-        "_name",
-        "_home",
-        "_resourceID",
-    )
-
-    _objectResourceClass = None
-
-    _bindSchema = None
-    _homeSchema = None
-    _homeChildSchema = None
-    _homeChildMetaDataSchema = None
-    _revisionsSchema = None
-    _objectSchema = None
-
-    _bindTable = None
-    _homeChildTable = None
-    _homeChildBindTable = None
-    _revisionsTable = None
-    _revisionsBindTable = None
-    _objectTable = None
-
-
-    def __init__(self, home, name, resourceID, mode, status, message=None, ownerHome=None):
-
-        if home._notifiers:
-            childID = "%s/%s" % (home.uid(), name)
-            notifiers = [notifier.clone(label="collection", id=childID)
-                         for notifier in home._notifiers]
-        else:
-            notifiers = None
-
-        self._home = home
-        self._name = name
-        self._resourceID = resourceID
-        self._bindMode = mode
-        self._bindStatus = status
-        self._bindMessage = message
-        self._ownerHome = home if ownerHome is None else ownerHome
-        self._created = None
-        self._modified = None
-        self._objects = {}
-        self._objectNames = None
-        self._syncTokenRevision = None
-        self._notifiers = notifiers
-        self._index = None  # Derived classes need to set this
-
-
     @classmethod
     def metadataColumns(cls):
         """
@@ -2933,6 +2869,49 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic, HomeChildBas
             "_modified",
         )
 
+class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic, HomeChildBase, SharingMixIn):
+    """
+    Common ancestor class of AddressBooks and Calendars.
+    """
+
+    compareAttributes = (
+        "_name",
+        "_home",
+        "_resourceID",
+    )
+
+    _objectResourceClass = None
+
+    _bindSchema = None
+    _homeSchema = None
+    _homeChildSchema = None
+    _homeChildMetaDataSchema = None
+    _revisionsSchema = None
+    _objectSchema = None
+
+    def __init__(self, home, name, resourceID, mode, status, message=None, ownerHome=None):
+
+        if home._notifiers:
+            childID = "%s/%s" % (home.uid(), name)
+            notifiers = [notifier.clone(label="collection", id=childID)
+                         for notifier in home._notifiers]
+        else:
+            notifiers = None
+
+        self._home = home
+        self._name = name
+        self._resourceID = resourceID
+        self._bindMode = mode
+        self._bindStatus = status
+        self._bindMessage = message
+        self._ownerHome = home if ownerHome is None else ownerHome
+        self._created = None
+        self._modified = None
+        self._objects = {}
+        self._objectNames = None
+        self._syncTokenRevision = None
+        self._notifiers = notifiers
+        self._index = None  # Derived classes need to set this
 
     @classmethod
     @inlineCallbacks
