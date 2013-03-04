@@ -355,30 +355,6 @@
 
       <key>Services</key>
       <dict>
-        <key>XMPPNotifier</key>
-        <dict>
-          <!-- XMPP notification service -->
-          <key>Service</key>
-          <string>twistedcaldav.notify.XMPPNotifierService</string>
-          <key>Enabled</key>
-          <false/>
-
-          <!-- XMPP host and port to contact -->
-          <key>Host</key>
-          <string>xmpp.host.name</string>
-          <key>Port</key>
-          <integer>5222</integer>
-
-          <!-- Jabber ID and password for the server -->
-          <key>JID</key>
-          <string>jid@xmpp.host.name/resource</string>
-          <key>Password</key>
-          <string>password_goes_here</string>
-
-          <!-- PubSub service address -->
-          <key>ServiceAddress</key>
-          <string>pubsub.xmpp.host.name</string>
-        </dict>
       </dict>
     </dict>
 

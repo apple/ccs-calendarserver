@@ -654,7 +654,7 @@ def getRootResource(config, newStore, resources=None, directory=None):
     #
     # Apple Push Notification Subscriptions
     #
-    apnConfig = config.Notifications.Services["ApplePushNotifier"]
+    apnConfig = config.Notifications.Services.APNS
     if apnConfig.Enabled:
         log.info("Setting up APNS resource at /%s" %
             (apnConfig["SubscriptionURL"],))
