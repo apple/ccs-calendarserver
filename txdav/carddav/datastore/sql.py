@@ -137,6 +137,7 @@ class AddressBookHome(CommonHome):
         else:
             returnValue(None)
 
+
     @inlineCallbacks
     def _loadPropertyStore(self):
         props = yield PropertyStore.load(
@@ -940,7 +941,7 @@ END:VCARD
                 adjustedReadWriteGroupIDs = readWriteGroupIDs
             returnValue((tuple(adjustedReadOnlyGroupIDs), tuple(adjustedReadWriteGroupIDs)))
 
-    '''
+    ''' unused
     @inlineCallbacks
     def readOnlyGroupIDs(self):
         returnValue((yield self.accessControlGroupIDs())[0])
@@ -950,6 +951,55 @@ END:VCARD
     def readWriteGroupIDs(self):
         returnValue((yield self.accessControlGroupIDs())[1])
 
+
+    ''' unused: may be good for future caching
+    @inlineCallbacks
+    def accessControlObjectIDs(self):
+        readOnlyIDs = set()
+        readWriteIDs = set()
+        if self.owned() or self.fullyShared():
+            rows = yield self._allColumnsWithParent(self)
+            ids = set([row[1] for row in rows])
+            if self.fullyShared():
+                ids |= set([self._resourceID, ])
+            if self.owned() or self._bindMode == _BIND_MODE_WRITE:
+                returnValue(tuple(readOnlyIDs), tuple(readWriteIDs))
+            readOnlyIDs = set(ids)
+
+        groupBindRows = yield AddressBookObject._acceptedBindWithHomeIDAndAddressBookID.on(
+                self._txn, homeID=self._home._resourceID, addressbookID=self._resourceID
+        )
+        readWriteGroupIDs = []
+        readOnlyGroupIDs = []
+        for bindMode, homeID, resourceID, bindName, bindStatus, bindMessage in groupBindRows: #@UnusedVariable
+            if bindMode == _BIND_MODE_WRITE:
+                readWriteGroupIDs.append(resourceID)
+            else:
+                readOnlyGroupIDs.append(resourceID)
+
+        if readOnlyGroupIDs:
+            readOnlyIDs |= set((yield self.expandGroupIDs(self._txn, readOnlyGroupIDs)))
+        if readWriteGroupIDs:
+            readWriteIDs |= set((yield self.expandGroupIDs(self._txn, readWriteGroupIDs)))
+        readOnlyIDs -= readWriteIDs
+        returnValue(tuple(readOnlyIDs), tuple(readWriteIDs))
+
+
+    @inlineCallbacks
+    def readOnlyObjectIDs(self):
+        returnValue((yield self.accessControlObjectIDs())[1])
+
+
+    @inlineCallbacks
+    def readWriteObjectIDs(self):
+        returnValue((yield self.accessControlObjectIDs())[1])
+
+
+    @inlineCallbacks
+    def allObjectIDs(self):
+        readOnlyIDs, readWriteIDs = yield self.accessControlObjectIDs()
+        returnValue((readOnlyIDs + readWriteIDs))
+    '''
 
     @inlineCallbacks
     def updateShare(self, shareeView, mode=None, status=None, message=None, name=None):
@@ -1450,7 +1500,7 @@ class AddressBookObject(CommonObjectResource, SharingMixIn):
             if addressbook.fullyShared():
                 rows.append((yield addressbook._groupForEntireAB_Row()))
         else:
-            acceptedGroupIDs = addressbook.acceptedGroupIDs()
+            acceptedGroupIDs = yield addressbook.acceptedGroupIDs()
             allowedObjectIDs = yield addressbook.expandGroupIDs(addressbook._txn, acceptedGroupIDs)
             rows = yield cls._columnsWithResourceIDsQuery(cls._allColumns, allowedObjectIDs).on(
                 addressbook._txn, resourceIDs=allowedObjectIDs
@@ -1475,7 +1525,7 @@ class AddressBookObject(CommonObjectResource, SharingMixIn):
             if addressbook.fullyShared() and (yield addressbook._groupForEntireAB_Name()) in names:
                 rows.append((yield addressbook._groupForEntireAB_Row()))
         else:
-            acceptedGroupIDs = addressbook.acceptedGroupIDs()
+            acceptedGroupIDs = yield addressbook.acceptedGroupIDs()
             allowedObjectIDs = yield addressbook.expandGroupIDs(addressbook._txn, acceptedGroupIDs)
             rows = yield cls._allColumnsWithResourceIDsAndNamesQuery(allowedObjectIDs, names).on(
                 addressbook._txn, resourceIDs=allowedObjectIDs, names=names
