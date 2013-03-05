@@ -766,12 +766,27 @@ class ImplicitProcessor(object):
         expand_max = PyCalendarDateTime.getToday() + default_future_expansion_duration
         instances = calendar.expandTimeRanges(expand_max, ignoreInvalidInstances=True)
 
+        # We are goin g to ignore auto-accept processing for anything more than a day old (actually use -2 days
+        # to add some slop to account for possible timezone offsets)
+        min_date = PyCalendarDateTime.getToday()
+        min_date.offsetDay(-2)
+        allOld = True
+
         # Cache the current attendee partstat on the instance object for later use, and
         # also mark whether the instance time slot would be free
         for instance in instances.instances.itervalues():
             attendee = instance.component.getAttendeeProperty(cuas)
             instance.partstat = attendee.parameterValue("PARTSTAT", "NEEDS-ACTION") if attendee else None
             instance.free = True
+            instance.active = (instance.end > min_date)
+            if instance.active:
+                allOld = False
+
+        # If every instance is in the past we punt right here so we don't waste time on freebusy lookups etc.
+        # There will be no auto-accept and no inbox item stored (so as not to waste storage on items that will
+        # never be processed).
+        if allOld:
+            returnValue((False, False, "",))
 
         # Extract UID from primary component as we want to ignore this one if we match it
         # in any calendars.
@@ -796,7 +811,7 @@ class ImplicitProcessor(object):
             # Now do search for overlapping time-range and set instance.free based
             # on whether there is an overlap or not
             for instance in instances.instances.itervalues():
-                if instance.partstat == "NEEDS-ACTION" and instance.free:
+                if instance.partstat == "NEEDS-ACTION" and instance.free and instance.active:
                     try:
                         # First list is BUSY, second BUSY-TENTATIVE, third BUSY-UNAVAILABLE
                         fbinfo = ([], [], [])
@@ -830,10 +845,11 @@ class ImplicitProcessor(object):
                 break
 
         # Now adjust the instance.partstat currently set to "NEEDS-ACTION" to the
-        # value determined by auto-accept logic based on instance.free state
+        # value determined by auto-accept logic based on instance.free state. However,
+        # ignore any instance in the past - leave them as NEEDS-ACTION.
         partstat_counts = collections.defaultdict(int)
         for instance in instances.instances.itervalues():
-            if instance.partstat == "NEEDS-ACTION":
+            if instance.partstat == "NEEDS-ACTION" and instance.active:
                 if automode == "accept-always":
                     freePartstat = busyPartstat = "ACCEPTED"
                 elif automode == "decline-always":
@@ -846,14 +862,14 @@ class ImplicitProcessor(object):
 
         if len(partstat_counts) == 0:
             # Nothing to do
-            returnValue((False, True, "",))
+            returnValue((False, False, "",))
 
         elif len(partstat_counts) == 1:
             # Do the simple case of all PARTSTATs the same separately
             # Extract the ATTENDEE property matching current recipient from the calendar data
             attendeeProps = calendar.getAttendeeProperties(cuas)
             if not attendeeProps:
-                returnValue((False, True, "",))
+                returnValue((False, False, "",))
 
             made_changes = False
             partstat = partstat_counts.keys()[0]
@@ -862,7 +878,7 @@ class ImplicitProcessor(object):
             store_inbox = partstat == "NEEDS-ACTION"
 
         else:
-            # Hard case: some accepted some declined
+            # Hard case: some accepted, some declined, some needs-action
             # What we will do is mark any master instance as accepted, then mark each existing
             # overridden instance as accepted or declined, and generate new overridden instances for
             # any other declines.
@@ -895,7 +911,7 @@ class ImplicitProcessor(object):
 
                 if overridden:
                     # Change ATTENDEE property to match new state
-                    if instance.partstat == "NEEDS-ACTION":
+                    if instance.partstat == "NEEDS-ACTION" and instance.active:
                         store_inbox = True
                     made_changes |= self.resetAttendeePartstat(overridden, cuas, instance.partstat)
                 else:
@@ -905,7 +921,7 @@ class ImplicitProcessor(object):
                     if derived:
                         attendee = derived.getAttendeeProperty(cuas)
                         if attendee:
-                            if instance.partstat == "NEEDS-ACTION":
+                            if instance.partstat == "NEEDS-ACTION" and instance.active:
                                 store_inbox = True
                             self.resetAttendeePartstat(derived, cuas, instance.partstat, hadMasterRsvp)
                             made_changes = True
