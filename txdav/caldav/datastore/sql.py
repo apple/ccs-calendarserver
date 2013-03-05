@@ -68,13 +68,9 @@ from txdav.common.datastore.sql import CommonHome, CommonHomeChild, \
     CommonObjectResource, ECALENDARTYPE
 from txdav.common.datastore.sql_legacy import PostgresLegacyIndexEmulator, \
     PostgresLegacyInboxIndexEmulator
-from txdav.common.datastore.sql_tables import CALENDAR_TABLE, \
-    CALENDAR_BIND_TABLE, CALENDAR_OBJECT_REVISIONS_TABLE, CALENDAR_OBJECT_TABLE, \
-    _ATTACHMENTS_MODE_NONE, _ATTACHMENTS_MODE_WRITE, \
-    CALENDAR_HOME_TABLE, CALENDAR_HOME_METADATA_TABLE, \
-    CALENDAR_AND_CALENDAR_BIND, CALENDAR_OBJECT_REVISIONS_AND_BIND_TABLE, \
-    CALENDAR_OBJECT_AND_BIND_TABLE, schema, _BIND_MODE_OWN, \
-    _ATTACHMENTS_MODE_READ
+from txdav.common.datastore.sql_tables import _ATTACHMENTS_MODE_NONE, \
+    _ATTACHMENTS_MODE_READ, _ATTACHMENTS_MODE_WRITE, \
+    _BIND_MODE_OWN, schema
 from txdav.common.icommondatastore import IndexedSearchException, \
     InternalDataStoreError, HomeChildNameAlreadyExistsError, \
     HomeChildNameNotAllowedError

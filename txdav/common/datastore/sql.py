@@ -59,8 +59,7 @@ from txdav.carddav.iaddressbookstore import IAddressBookTransaction
 from txdav.common.datastore.common import HomeChildBase
 from txdav.common.datastore.sql_tables import schema
 from txdav.common.datastore.sql_tables import _BIND_MODE_OWN, \
-    _BIND_STATUS_ACCEPTED, _BIND_STATUS_DECLINED, \
-    NOTIFICATION_OBJECT_REVISIONS_TABLE
+    _BIND_STATUS_ACCEPTED, _BIND_STATUS_DECLINED
 from txdav.common.icommondatastore import HomeChildNameNotAllowedError, \
     HomeChildNameAlreadyExistsError, NoSuchHomeChildError, \
     ObjectResourceNameNotAllowedError, ObjectResourceNameAlreadyExistsError, \
@@ -4250,7 +4249,6 @@ class NotificationCollection(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
         "_resourceID",
     )
 
-    _revisionsTable = NOTIFICATION_OBJECT_REVISIONS_TABLE
     _revisionsSchema = schema.NOTIFICATION_OBJECT_REVISIONS
     _homeSchema = schema.NOTIFICATION_HOME
 

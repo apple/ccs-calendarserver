@@ -50,14 +50,8 @@ from txdav.carddav.iaddressbookstore import IAddressBookHome, IAddressBook, \
 from txdav.common.datastore.sql import CommonHome, CommonHomeChild, \
     CommonObjectResource, EADDRESSBOOKTYPE, SharingMixIn
 from txdav.common.datastore.sql_legacy import PostgresLegacyABIndexEmulator
-from txdav.common.datastore.sql_tables import \
-    ADDRESSBOOK_HOME_BIND_TABLE, ADDRESSBOOK_OBJECT_REVISIONS_TABLE, \
-    ADDRESSBOOK_OBJECT_TABLE, ADDRESSBOOK_HOME_TABLE, \
-    ADDRESSBOOK_HOME_METADATA_TABLE, ADDRESSBOOK_HOME_AND_ADDRESSBOOK_HOME_BIND, \
-    ADDRESSBOOK_OBJECT_AND_BIND_TABLE, \
-    ADDRESSBOOK_OBJECT_REVISIONS_AND_BIND_TABLE, \
-    _ABO_KIND_PERSON, _ABO_KIND_GROUP, _ABO_KIND_RESOURCE, \
-    _ABO_KIND_LOCATION, schema, \
+from txdav.common.datastore.sql_tables import _ABO_KIND_PERSON, \
+    _ABO_KIND_GROUP, _ABO_KIND_RESOURCE, _ABO_KIND_LOCATION, schema, \
     _BIND_MODE_OWN, _BIND_MODE_WRITE, _BIND_STATUS_ACCEPTED, \
     _BIND_STATUS_DECLINED, _BIND_STATUS_INVITED
 from txdav.common.icommondatastore import HomeChildNameNotAllowedError, \
@@ -1165,7 +1159,6 @@ class AddressBookObject(CommonObjectResource, SharingMixIn):
 
     implements(IAddressBookObject)
 
-    _objectTable = ADDRESSBOOK_OBJECT_TABLE
     _objectSchema = schema.ADDRESSBOOK_OBJECT
     _bindSchema = schema.GROUP_ADDRESSBOOK_HOME_BIND
 
