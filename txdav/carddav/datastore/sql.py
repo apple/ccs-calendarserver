@@ -77,8 +77,8 @@ class AddressBookHome(CommonHome):
     _homeMetaDataSchema = schema.ADDRESSBOOK_HOME_METADATA
     _revisionsSchema = schema.ADDRESSBOOK_OBJECT_REVISIONS
     _objectSchema = schema.ADDRESSBOOK_OBJECT
-    _notifierPrefix = "CardDAV"
 
+    _notifierPrefix = "CardDAV"
     _dataVersionKey = "ADDRESSBOOK-DATAVERSION"
     _cacher = Memcacher("SQL.adbkhome", pickle=True, key_normalization=False)
 
@@ -1872,13 +1872,12 @@ class AddressBookObject(CommonObjectResource, SharingMixIn):
         different child classes to have their own type specific data, but still make use of the
         common base logic.
         """
-
         # Common behavior is to have created and modified
-
         return (
             cls._objectSchema.CREATED,
             cls._objectSchema.MODIFIED,
         )
+
 
     # same as CommonHomeChild._childrenAndMetadataForHomeID() w/o metadata join
     @classproperty
