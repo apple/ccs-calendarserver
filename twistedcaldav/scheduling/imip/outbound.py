@@ -23,7 +23,6 @@ from __future__ import with_statement
 from cStringIO import StringIO
 import os
 
-from email.mime.image import MIMEImage
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 import email.utils
@@ -39,7 +38,7 @@ from twisted.web.microdom import parseString
 from twisted.web.template import XMLString, TEMPLATE_NAMESPACE, Element, renderer, flattenString, tags
 from twistedcaldav.config import config
 from twistedcaldav.ical import Component
-from twistedcaldav.localization import translationTo, _
+from twistedcaldav.localization import translationTo, _, getLanguage
 from twistedcaldav.scheduling.cuaddress import normalizeCUAddr
 from twistedcaldav.scheduling.imip.smtpsender import SMTPSender
 from txdav.common.datastore.sql_tables import schema
@@ -81,7 +80,7 @@ class IMIPInvitationWork(WorkItem, fromTable(schema.IMIP_INVITATION_WORK)):
                 smtpSender = SMTPSender(settings.Username, settings.Password,
                     settings.UseSSL, settings.Server, settings.Port)
                 cls.mailSender = MailSender(settings.Address,
-                    settings.SuppressionDays, smtpSender=smtpSender)
+                    settings.SuppressionDays, smtpSender, getLanguage(config))
         return cls.mailSender
 
     @inlineCallbacks
@@ -302,15 +301,15 @@ class MailSender(LoggingMixIn):
     Generates outbound IMIP messages and sends them.
     """
 
-    def __init__(self, address, suppressionDays, smtpSender):
+    def __init__(self, address, suppressionDays, smtpSender, language):
         self.address = address
         self.suppressionDays = suppressionDays
         self.smtpSender = smtpSender
+        self.language = language
 
 
     @inlineCallbacks
-    def outbound(self, txn, originator, recipient, calendar, language='en',
-        onlyAfter=None):
+    def outbound(self, txn, originator, recipient, calendar, onlyAfter=None):
         """
         Generates and sends an outbound IMIP message.
 
@@ -473,7 +472,7 @@ class MailSender(LoggingMixIn):
 
         msgId, message = self.generateEmail(inviteState, calendar, orgEmail,
             orgCN, attendees, formattedFrom, addressWithToken, recipient,
-            language=language)
+            language=self.language)
 
         try:
             success = (yield self.smtpSender.sendMessage(fromAddr, toAddr,
@@ -482,32 +481,6 @@ class MailSender(LoggingMixIn):
         except Exception, e:
             self.log_error("Failed to send IMIP message (%s)" % (str(e),))
             returnValue(False)
-
-
-    def getIconPath(self, details, canceled, language='en'):
-        iconDir = config.Scheduling.iMIP.MailIconsDirectory.rstrip("/")
-
-        if canceled:
-            iconName = "canceled.png"
-            iconPath = os.path.join(iconDir, iconName)
-            if os.path.exists(iconPath):
-                return iconPath
-            else:
-                return None
-
-        else:
-            month = int(details['month'])
-            day = int(details['day'])
-            with translationTo(language) as trans:
-                monthName = trans.monthAbbreviation(month)
-            iconName = "%02d.png" % (day,)
-            iconPath = os.path.join(iconDir, monthName.encode("utf-8"), iconName)
-            if not os.path.exists(iconPath):
-                # Try the generic (numeric) version
-                iconPath = os.path.join(iconDir, "%02d" % (month,), iconName)
-                if not os.path.exists(iconPath):
-                    return None
-            return iconPath
 
 
     def generateEmail(self, inviteState, calendar, orgEmail, orgCN,
@@ -562,18 +535,16 @@ class MailSender(LoggingMixIn):
 
         details = self.getEventDetails(calendar, language=language)
         canceled = (calendar.propertyValue("METHOD") == "CANCEL")
-        iconPath = self.getIconPath(details, canceled, language=language)
 
         subjectFormat, labels = localizedLabels(language, canceled, inviteState)
         details.update(labels)
 
         details['subject'] = subjectFormat % {'summary' : details['summary']}
-        details['iconName'] = iconName = "calicon.png"
 
         plainText = self.renderPlainText(details, (orgCN, orgEmail),
                                          attendees, canceled)
 
-        [addIcon, htmlText] = self.renderHTML(details, (orgCN, orgEmail),
+        htmlText = self.renderHTML(details, (orgCN, orgEmail),
                                               attendees, canceled)
 
         msg = MIMEMultipart()
@@ -598,19 +569,6 @@ class MailSender(LoggingMixIn):
 
         msgHtml = MIMEText(htmlText, "html", "UTF-8")
         msgHtmlRelated.attach(msgHtml)
-
-        # an image for html version
-        if addIcon and iconPath != None and os.path.exists(iconPath):
-
-            with open(iconPath) as iconFile:
-                msgIcon = MIMEImage(iconFile.read(),
-                    _subtype='png;x-apple-mail-type=stationery;name="%s"' %
-                    (iconName,))
-
-            msgIcon.add_header("Content-ID", "<%s>" % (iconName,))
-            msgIcon.add_header("Content-Disposition", "inline;filename=%s" %
-                (iconName,))
-            msgHtmlRelated.attach(msgIcon)
 
         calendarText = str(calendar)
         # the icalendar attachment
@@ -663,10 +621,7 @@ class MailSender(LoggingMixIn):
         Render HTML message part based on invitation details and a flag
         indicating whether the message is a cancellation.
 
-        @return: a 2-tuple of (should add icon (C{bool}), html text (C{str},
-            representing utf-8 encoded bytes)).  The first element indicates
-            whether the MIME generator needs to add a C{cid:} icon image part to
-            satisfy the HTML links.
+        @return: html text (C{str}, representing utf-8 encoded bytes)).
         """
         orgCN, orgEmail = organizer
 
@@ -727,11 +682,7 @@ class MailSender(LoggingMixIn):
         textCollector = []
         flattenString(None, EmailElement()).addCallback(textCollector.append)
         htmlText = textCollector[0]
-
-        # If the template refers to an icon in a cid: link, it needs to be added
-        # in the MIME.
-        addIcon = (htmlTemplate.find("cid:%(iconName)s") != -1)
-        return (addIcon, htmlText)
+        return htmlText
 
 
     def getEventDetails(self, calendar, language='en'):

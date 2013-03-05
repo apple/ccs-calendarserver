@@ -93,7 +93,8 @@ class OutboundTests(TestCase):
                     augment.AugmentXMLDB(xmlFiles=(augmentsFile.path,)),
             }
         )
-        self.sender = MailSender("server@example.com", 7, DummySMTPSender())
+        self.sender = MailSender("server@example.com", 7, DummySMTPSender(),
+            language="en")
 
         def _getSender(ignored):
             return self.sender
@@ -103,7 +104,6 @@ class OutboundTests(TestCase):
         self.store.queuer.callWithNewProposals(self._proposalCallback)
 
     def _proposalCallback(self, wp):
-        # print("New proposal", wp)
         self.wp = wp
 
     @inlineCallbacks
@@ -271,7 +271,6 @@ END:VCALENDAR
                 inputOriginator,
                 inputRecipient,
                 Component.fromString(inputCalendar.replace("\n", "\r\n")),
-                language="ja",
                 onlyAfter=PyCalendarDateTime(2010, 1, 1, 0, 0, 0)
             )
             yield txn.commit()
