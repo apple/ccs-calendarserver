@@ -81,6 +81,7 @@ def getDirectory(config=config):
                     # to get a txn in order to create a Work item
                     notifierFactory = NotifierFactory(
                         None, config.ServerHostName,
+                        config.Notifications.CoalesceSeconds,
                     )
                 else:
                     notifierFactory = None

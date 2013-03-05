@@ -97,7 +97,7 @@ from twisted.python import log
 from twext.enterprise.dal.syntax import SchemaSyntax, Lock, NamedValue
 
 from twext.enterprise.dal.model import ProcedureCall
-from twext.enterprise.dal.record import Record, fromTable
+from twext.enterprise.dal.record import Record, fromTable, NoSuchRecord
 from twisted.python.failure import Failure
 
 from twext.enterprise.dal.model import Table, Schema, SQLType, Constraint
@@ -826,15 +826,19 @@ def ultimatelyPerform(txnFactory, table, workID):
     @inlineCallbacks
     def work(txn):
         workItemClass = WorkItem.forTable(table)
-        workItem = yield workItemClass.load(txn, workID)
-        if workItem.group is not None:
-            yield NamedLock.acquire(txn, workItem.group)
-        # TODO: what if we fail?  error-handling should be recorded someplace,
-        # the row should probably be marked, re-tries should be triggerable
-        # administratively.
-        yield workItem.delete()
-        # TODO: verify that workID is the primary key someplace.
-        yield workItem.doWork()
+        try:
+            workItem = yield workItemClass.load(txn, workID)
+            if workItem.group is not None:
+                yield NamedLock.acquire(txn, workItem.group)
+            # TODO: what if we fail?  error-handling should be recorded someplace,
+            # the row should probably be marked, re-tries should be triggerable
+            # administratively.
+            yield workItem.delete()
+            # TODO: verify that workID is the primary key someplace.
+            yield workItem.doWork()
+        except NoSuchRecord:
+            # The record has already been removed
+            pass
     return inTransaction(txnFactory, work)
 
 

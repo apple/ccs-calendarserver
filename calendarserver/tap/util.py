@@ -225,7 +225,8 @@ def storeFromConfig(config, txnFactory):
     if config.Notifications.Enabled:
         # FIXME: NotifierFactory needs reference to the store in order
         # to get a txn in order to create a Work item
-        notifierFactory = NotifierFactory(None, config.ServerHostName)
+        notifierFactory = NotifierFactory(None, config.ServerHostName,
+            config.Notifications.CoalesceSeconds)
     else:
         notifierFactory = None
     quota = config.UserQuota
