@@ -794,7 +794,7 @@ END:VCARD
             if not result:
                 result = yield cls.objectWithName(home, ownerHome.shareeAddressBookName(), accepted=False)
             assert result
-            
+
         returnValue(result)
 
 
@@ -1168,7 +1168,10 @@ class AddressBookObject(CommonObjectResource, SharingMixIn):
     _objectTable = ADDRESSBOOK_OBJECT_TABLE
     _objectSchema = schema.ADDRESSBOOK_OBJECT
     _bindSchema = schema.GROUP_ADDRESSBOOK_HOME_BIND
-    _homeChildMetaDataSchema = schema.ADDRESSBOOK_OBJECT # used by CommonHomeChild._childrenAndMetadataForHomeID() only
+
+    # used by CommonHomeChild._childrenAndMetadataForHomeID() only
+    #_homeChildSchema = schema.ADDRESSBOOK_OBJECT
+    #_homeChildMetaDataSchema = schema.ADDRESSBOOK_OBJECT
 
 
     def __init__(self, addressbook, name, uid, resourceID=None, metadata=None): #@UnusedVariable
@@ -1861,6 +1864,35 @@ class AddressBookObject(CommonObjectResource, SharingMixIn):
         @see: L{ICalendar.shareUID}
         """
         return self._bindName
+
+    @classmethod
+    def metadataColumns(cls):
+        """
+        Return a list of column name for retrieval of metadata. This allows
+        different child classes to have their own type specific data, but still make use of the
+        common base logic.
+        """
+
+        # Common behavior is to have created and modified
+
+        return (
+            cls._objectSchema.CREATED,
+            cls._objectSchema.MODIFIED,
+        )
+
+    # same as CommonHomeChild._childrenAndMetadataForHomeID() w/o metadata join
+    @classproperty
+    def _childrenAndMetadataForHomeID(cls): #@NoSelf
+        bind = cls._bindSchema
+        child = cls._objectSchema
+        columns = cls._bindColumns() + cls.metadataColumns()
+        return Select(columns,
+                     From=child.join(
+                         bind, child.RESOURCE_ID == bind.RESOURCE_ID,
+                         'left outer'),
+                     Where=(bind.HOME_RESOURCE_ID == Parameter("homeID")
+                           ).And(bind.BIND_STATUS == _BIND_STATUS_ACCEPTED))
+
 
 
     @inlineCallbacks
