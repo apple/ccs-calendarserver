@@ -31,8 +31,7 @@ from twext.web2.dav.http import ErrorResponse
 from twistedcaldav.caldavxml import caldav_namespace
 
 from twistedcaldav.method.put_common import StoreCalendarObjectResource
-from twistedcaldav.resource import isPseudoCalendarCollectionResource, \
-    CalDAVResource
+from twistedcaldav.resource import isPseudoCalendarCollectionResource
 
 log = Logger()
 
@@ -158,13 +157,6 @@ def http_PUT(self, request):
             raise HTTPError(StatusResponse(responsecode.BAD_REQUEST, str(e)))
 
     else:
-        result = (yield super(CalDAVResource, self).http_PUT(request))
-
-        if not hasattr(request, "extendedLogItems"):
-            request.extendedLogItems = {}
-        clength = request.headers.getHeader("content-length", 0)
-        if clength == 0:
-            clength = self.contentLength()
-        request.extendedLogItems["cl"] = str(clength)
-
-        returnValue(result)
+        # No longer support arbitrary PUTs to resource. Instead we are going to require all the
+        # resource classes we care about to explicitly define their own http_PUT.
+        raise HTTPError(StatusResponse(responsecode.FORBIDDEN, "PUTs not allowed here"))
