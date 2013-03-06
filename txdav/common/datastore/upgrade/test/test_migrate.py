@@ -45,6 +45,9 @@ from txdav.common.datastore.test.util import theStoreBuilder, \
 from txdav.common.datastore.upgrade.migrate import UpgradeToDatabaseService, \
     StoreSpawnerService, swapAMP
 
+import copy
+
+
 
 class CreateStore(Command):
     """
