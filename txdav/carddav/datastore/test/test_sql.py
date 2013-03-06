@@ -144,7 +144,7 @@ class AddressBookSQLStorageTests(AddressBookCommonTests, unittest.TestCase):
         database- backed addressbook.
         """
         fromAddressbook = yield self.fileTransaction().addressbookHomeWithUID(
-            "home1").addressbookWithName("addressbook_1")
+            "home1").addressbookWithName("addressbook")
         toHome = yield self.transactionUnderTest().addressbookHomeWithUID(
             "new-home", create=True)
         toAddressbook = yield toHome.addressbookWithName("addressbook")
@@ -162,7 +162,7 @@ class AddressBookSQLStorageTests(AddressBookCommonTests, unittest.TestCase):
         is "bad" address data present in the file-backed addressbook.
         """
         fromAddressbook = yield self.fileTransaction().addressbookHomeWithUID(
-            "home_bad").addressbookWithName("addressbook_bad")
+            "home_bad").addressbookWithName("addressbook")
         toHome = yield self.transactionUnderTest().addressbookHomeWithUID(
             "new-home", create=True)
         toAddressbook = yield toHome.addressbookWithName("addressbook")
@@ -189,7 +189,7 @@ class AddressBookSQLStorageTests(AddressBookCommonTests, unittest.TestCase):
 
         key = PropertyName.fromElement(GETContentLanguage)
         fromHome.properties()[key] = GETContentLanguage("C")
-        (yield fromHome.addressbookWithName("addressbook_1")).properties()[
+        (yield fromHome.addressbookWithName("addressbook")).properties()[
             key] = (
             GETContentLanguage("pig-latin")
         )

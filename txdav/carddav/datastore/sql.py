@@ -55,7 +55,7 @@ from txdav.common.datastore.sql_tables import _ABO_KIND_PERSON, \
     _BIND_MODE_OWN, _BIND_MODE_WRITE, _BIND_STATUS_ACCEPTED, \
     _BIND_STATUS_DECLINED, _BIND_STATUS_INVITED
 from txdav.common.icommondatastore import HomeChildNameNotAllowedError, \
-    HomeChildNameAlreadyExistsError, InternalDataStoreError
+    InternalDataStoreError
 from txdav.xml.rfc2518 import ResourceType
 
 from zope.interface.declarations import implements
@@ -326,7 +326,9 @@ class AddressBook(CommonHomeChild, SharingMixIn):
     @inlineCallbacks
     def create(cls, home, name):
         if name == home.addressbookName():
-            raise HomeChildNameAlreadyExistsError
+            #raise HomeChildNameAlreadyExistsError
+            yield None
+            pass
         else:
             raise HomeChildNameNotAllowedError
 
@@ -392,14 +394,11 @@ class AddressBook(CommonHomeChild, SharingMixIn):
 
     @inlineCallbacks
     def ownerAddressBook(self):
-        if not hasattr(self, "_ownerAddressBook"):
-            if self.owned():
-                yield None
-                self._ownerAddressBook = self
-            else:
-                ownerHome = yield self.ownerAddressBookHome()
-                self._ownerAddressBook = yield ownerHome.addressbook()
-        returnValue(self._ownerAddressBook)
+        if self.owned():
+            yield None
+            returnValue(self)
+        else:
+            returnValue((yield self.ownerAddressBookHome().addressbook()))
 
 
     @classmethod

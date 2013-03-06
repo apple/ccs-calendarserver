@@ -45,13 +45,6 @@ from txdav.common.datastore.test.util import theStoreBuilder, \
 from txdav.common.datastore.upgrade.migrate import UpgradeToDatabaseService, \
     StoreSpawnerService, swapAMP
 
-import copy
-def _todo(f, why):
-    f.todo = why
-    return f
-rewriteOrRemove = lambda f: _todo(f, "Rewrite or remove")
-
-
 
 class CreateStore(Command):
     """
@@ -382,7 +375,6 @@ class HomeMigrationTests(TestCase):
 
 
     @inlineCallbacks
-    @rewriteOrRemove
     def test_upgradeAddressBookHomes(self):
         """
         L{UpgradeToDatabaseService.startService} will do the upgrade, then
@@ -404,7 +396,7 @@ class HomeMigrationTests(TestCase):
 
         # Want metadata preserved
         home = (yield txn.addressbookHomeWithUID("home1"))
-        adbk = (yield home.addressbookWithName("addressbook_1"))
+        adbk = (yield home.addressbookWithName("addressbook"))
         for name, md5 in (
             ("1.vcf", ABCommonTests.md5Values[0]),
             ("2.vcf", ABCommonTests.md5Values[1]),
