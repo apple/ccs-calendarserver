@@ -1281,7 +1281,7 @@ class Component (object):
         is added as STATUS:CANCELLED and the EXDATE removed.
 
         @param rid: recurrence-id value
-        @type rid: L{PyCalendarDateTime}
+        @type rid: L{PyCalendarDateTime} or C{str}
         @param allowCancelled: whether to allow a STATUS:CANCELLED override
         @type allowCancelled: C{bool}
 
@@ -1295,6 +1295,9 @@ class Component (object):
         master = self.masterComponent()
         if master is None:
             return None
+
+        if isinstance(rid, str):
+            rid = PyCalendarDateTime.parseText(rid) if rid else None
 
         # TODO: Check that the recurrence-id is a valid instance
         # For now we just check that there is no matching EXDATE

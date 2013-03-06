@@ -597,6 +597,9 @@ class ImplicitScheduler(object):
 
                 for rid in self.needs_action_rids:
                     comp = self.calendar.overriddenComponent(rid)
+                    if comp is None:
+                        comp = self.calendar.deriveInstance(rid)
+                        self.calendar.addComponent(comp)
 
                     for attendee in comp.getAllAttendeeProperties():
                         if attendee.hasParameter("PARTSTAT"):
