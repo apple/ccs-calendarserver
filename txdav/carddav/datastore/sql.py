@@ -82,6 +82,7 @@ class AddressBookHome(CommonHome):
         self._childClass = AddressBook
         super(AddressBookHome, self).__init__(transaction, ownerUID, notifiers)
         self._homeResourceID = None
+        self._addressbook = None
 
 
     addressbooks = CommonHome.children
@@ -131,8 +132,20 @@ class AddressBookHome(CommonHome):
                     yield queryCacher.setAfterCommit(self._txn, cacheKey, data)
 
             self._created, self._modified = data
-
             yield self._loadPropertyStore()
+
+            # created owned address book
+            addressbook = AddressBook(
+                home=self,
+                name="addressbook", resourceID=self._resourceID,
+                mode=_BIND_MODE_OWN, status=_BIND_STATUS_ACCEPTED,
+            )
+            yield addressbook._loadPropertyStore()
+            addressbook.properties()[
+                PropertyName.fromElement(ResourceType)
+            ] = addressbook.resourceType()
+            self._addressbook = addressbook
+
             returnValue(self)
         else:
             returnValue(None)
@@ -183,7 +196,7 @@ class AddressBookHome(CommonHome):
     @inlineCallbacks
     def createdHome(self):
         # initialize address book properties, synctoken
-        child = yield self.addressbook()
+        child = self.addressbook()
         #FIXME:  define as same property
         child._created = self._created
         child._modified = self._modified
@@ -207,21 +220,8 @@ class AddressBookHome(CommonHome):
         ).on(self._txn, **kwds)
 
 
-    @inlineCallbacks
     def addressbook(self):
-        if not hasattr(self, "_addressbook"):
-            child = AddressBook(
-                home=self,
-                name="addressbook", resourceID=self._resourceID,
-                mode=_BIND_MODE_OWN, status=_BIND_STATUS_ACCEPTED,
-            )
-            yield child._loadPropertyStore()
-            child.properties()[
-                PropertyName.fromElement(ResourceType)
-            ] = child.resourceType()
-            self._addressbook = child
-
-        returnValue(self._addressbook)
+        return self._addressbook
 
 
     def shareeAddressBookName(self):
@@ -333,7 +333,7 @@ class AddressBook(CommonHomeChild, SharingMixIn):
 
     @classmethod
     def create(cls, home, name):
-        if name == (yield home.addressbook()).name():
+        if name == home.addressbook().name():
             #raise HomeChildNameAlreadyExistsError
             pass
         else:
@@ -539,7 +539,7 @@ END:VCARD
         operations to keep this constant wrt the number of children.  This is an
         optimization for Depth:1 operations on the home.
         """
-        results = [(yield home.addressbook()), ]
+        results = [home.addressbook(), ]
         ownerHomeIDToDataRowMap = {}
 
         # Load from the main table first
@@ -756,7 +756,7 @@ END:VCARD
             exists.
         """
         if home._resourceID == resourceID:
-            returnValue((yield home.addressbook()))
+            returnValue(home.addressbook())
 
         bindRows = yield cls._bindForResourceIDAndHomeID.on(
             home._txn, resourceID=resourceID, homeID=home._resourceID
@@ -837,7 +837,7 @@ END:VCARD
 
         @return: an iterable of C{str}s.
         """
-        names = set([(yield home.addressbook()).name()])
+        names = set([home.addressbook().name()])
 
         rows = yield cls._acceptedBindForHomeID.on(
             home._txn, homeID=home._resourceID
@@ -2025,7 +2025,7 @@ class AddressBookObject(CommonObjectResource, SharingMixIn):
                 yield self.unshareWith(sharedToHome)
         else:
             # This collection is shared to me
-            ownerAddressBook = yield self._addressbook.ownerHome().addressbook()
+            ownerAddressBook = self._addressbook.ownerHome().addressbook()
             ownerGroup = yield ownerAddressBook.objectResourceWithID(self._resourceID)
             yield ownerGroup.unshareWith(self._home)
 
