@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+from __future__ import print_function
 
 __all__ = [
     "CalDAVService",
@@ -105,7 +106,9 @@ from calendarserver.tap.util import pgConnectorFromConfig
 from calendarserver.tap.util import oracleConnectorFromConfig
 from calendarserver.tap.cfgchild import ConfiguredChildSpawner
 from calendarserver.tools.util import checkDirectory
-from calendarserver.push.notifier import PushService
+from calendarserver.push.notifier import PushDistributor
+from calendarserver.push.amppush import AMPPushMaster, AMPPushForwarder
+from calendarserver.push.applepush import ApplePushNotifierService
 from twistedcaldav.scheduling.imip.inbound import MailRetriever
 
 try:
@@ -366,7 +369,7 @@ class CalDAVOptions (Options, LoggingMixIn):
             self.loadConfiguration()
             self.checkConfiguration()
         except ConfigurationError, e:
-            print "Invalid configuration: %s" % (e,)
+            print("Invalid configuration: %s" % (e,))
             sys.exit(1)
 
 
@@ -375,7 +378,7 @@ class CalDAVOptions (Options, LoggingMixIn):
             raise ConfigurationError("Config file %s not found. Exiting."
                                      % (self["config"],))
 
-        print "Reading configuration from file: %s" % (self["config"],)
+        print("Reading configuration from file: %s" % (self["config"],))
 
         config.load(self["config"])
         config.updateDefaults(self.overrides)
@@ -390,7 +393,7 @@ class CalDAVOptions (Options, LoggingMixIn):
         # Having CalDAV *and* CardDAV both disabled is an illegal configuration
         # for a running server (but is fine for command-line utilities)
         if not config.EnableCalDAV and not config.EnableCardDAV:
-            print "Neither EnableCalDAV nor EnableCardDAV are set to True."
+            print("Neither EnableCalDAV nor EnableCardDAV are set to True.")
             sys.exit(1)
 
         uid, gid = None, None
@@ -538,7 +541,6 @@ class SlaveSpawnerService(Service):
                 config.BindAddresses, **extraArgs
             )
             self.monitor.addProcessObject(process, PARENT_ENVIRONMENT)
-
 
         if config.GroupCaching.Enabled and config.GroupCaching.EnableUpdater:
             self.maker.log_info("Adding group caching service")
@@ -710,18 +712,56 @@ class CalDAVServiceMaker (LoggingMixIn):
         """
         pool, txnFactory = getDBPool(config)
         store = storeFromConfig(config, txnFactory)
-        result = self.requestProcessingService(options, store)
+        logObserver = AMPCommonAccessLoggingObserver()
+        result = self.requestProcessingService(options, store, logObserver)
         directory = result.rootResource.getDirectory()
         if pool is not None:
             pool.setServiceParent(result)
 
+        if config.ControlSocket:
+            id = config.ControlSocket
+            self.log_info("Control via AF_UNIX: %s" % (id,))
+            endpointFactory = lambda reactor: UNIXClientEndpoint(
+                reactor, id)
+        else:
+            id = int(config.ControlPort)
+            self.log_info("Control via AF_INET: %d" % (id,))
+            endpointFactory = lambda reactor: TCP4ClientEndpoint(
+                reactor, "127.0.0.1", id)
+        controlSocketClient = ControlSocket()
+        class LogClient(AMP):
+            def startReceivingBoxes(self, sender):
+                super(LogClient, self).startReceivingBoxes(sender)
+                logObserver.addClient(self)
+        f = Factory()
+        f.protocol = LogClient
+        controlSocketClient.addFactory(_LOG_ROUTE, f)
+        from txdav.common.datastore.sql import CommonDataStore as SQLStore
+        if isinstance(store, SQLStore):
+            def queueMasterAvailable(connectionFromMaster):
+                store.queuer = store.queuer.transferProposalCallbacks(connectionFromMaster)
+            queueFactory = QueueWorkerFactory(store.newTransaction, schema,
+                                              queueMasterAvailable)
+            controlSocketClient.addFactory(_QUEUE_ROUTE, queueFactory)
+        controlClient = ControlSocketConnectingService(
+            endpointFactory, controlSocketClient
+        )
+        controlClient.setServiceParent(result)
 
         # Optionally set up push notifications
+        pushDistributor = None
         if config.Notifications.Enabled:
-            pushService = PushService.makeService(config.Notifications, store)
-            pushService.setServiceParent(result)
-        else:
-            pushService = None
+            observers = []
+            if config.Notifications.Services.APNS.Enabled:
+                pushSubService = ApplePushNotifierService.makeService(
+                    config.Notifications.Services.APNS, store)
+                observers.append(pushSubService)
+                pushSubService.setServiceParent(result)
+            if config.Notifications.Services.AMP.Enabled:
+                pushSubService = AMPPushForwarder(controlSocketClient)
+                observers.append(pushSubService)
+            if observers:
+                pushDistributor = PushDistributor(observers)
 
         # Optionally set up mail retrieval
         if config.Scheduling.iMIP.Enabled:
@@ -732,7 +772,7 @@ class CalDAVServiceMaker (LoggingMixIn):
             mailRetriever = None
 
         def decorateTransaction(txn):
-            txn._pushService = pushService
+            txn._pushDistributor = pushDistributor
             txn._rootResource = result.rootResource
             txn._mailRetriever = mailRetriever
 
@@ -755,15 +795,15 @@ class CalDAVServiceMaker (LoggingMixIn):
                     "passwd" : config.Manhole.PasswordFilePath,
                 })
                 manholeService.setServiceParent(result)
-                # Using print because logging isn't ready at this point
-                print "Manhole access enabled: %s" % (portString,)
+                # Using print(because logging isn't ready at this point)
+                print("Manhole access enabled: %s" % (portString,))
             except ImportError:
-                print "Manhole access could not enabled because manhole_tap could not be imported"
+                print("Manhole access could not enabled because manhole_tap could not be imported")
 
         return result
 
 
-    def requestProcessingService(self, options, store):
+    def requestProcessingService(self, options, store, logObserver):
         """
         Make a service that will actually process HTTP requests.
 
@@ -787,52 +827,8 @@ class CalDAVServiceMaker (LoggingMixIn):
         #
         self.log_info("Setting up service")
 
-        bonusServices = []
-
-        if config.ProcessType == "Slave":
-            logObserver = AMPCommonAccessLoggingObserver()
-
-            if config.ControlSocket:
-                id = config.ControlSocket
-                self.log_info("Control via AF_UNIX: %s" % (id,))
-                endpointFactory = lambda reactor: UNIXClientEndpoint(
-                    reactor, id)
-            else:
-                id = int(config.ControlPort)
-                self.log_info("Control via AF_INET: %d" % (id,))
-                endpointFactory = lambda reactor: TCP4ClientEndpoint(
-                    reactor, "127.0.0.1", id)
-            controlSocketClient = ControlSocket()
-            class LogClient(AMP):
-                def startReceivingBoxes(self, sender):
-                    super(LogClient, self).startReceivingBoxes(sender)
-                    logObserver.addClient(self)
-            f = Factory()
-            f.protocol = LogClient
-            controlSocketClient.addFactory(_LOG_ROUTE, f)
-            from txdav.common.datastore.sql import CommonDataStore as SQLStore
-            if isinstance(store, SQLStore):
-                def queueMasterAvailable(connectionFromMaster):
-                    store.queuer = store.queuer.transferProposalCallbacks(connectionFromMaster)
-                queueFactory = QueueWorkerFactory(store.newTransaction, schema,
-                                                  queueMasterAvailable)
-                controlSocketClient.addFactory(_QUEUE_ROUTE, queueFactory)
-            controlClient = ControlSocketConnectingService(
-                endpointFactory, controlSocketClient
-            )
-            bonusServices.append(controlClient)
-        elif config.ProcessType == "Single":
-            # Make sure no old socket files are lying around.
-            self.deleteStaleSocketFiles()
-            logObserver = RotatingFileAccessLoggingObserver(
-                config.AccessLogFile,
-            )
-
         self.log_info("Configuring access log observer: %s" % (logObserver,))
-
         service = CalDAVService(logObserver)
-        for bonus in bonusServices:
-            bonus.setServiceParent(service)
 
         rootResource = getRootResource(config, store, additional)
         service.rootResource = rootResource
@@ -1019,11 +1015,55 @@ class CalDAVServiceMaker (LoggingMixIn):
         Create a service to be used in a single-process, stand-alone
         configuration.
         """
-        def slaveSvcCreator(pool, store):
-            return self.requestProcessingService(options, store)
+        def slaveSvcCreator(pool, store, logObserver):
+            result = self.requestProcessingService(options, store, logObserver)
+
+            # Optionally set up push notifications
+            pushDistributor = None
+            if config.Notifications.Enabled:
+                observers = []
+                if config.Notifications.Services.APNS.Enabled:
+                    pushSubService = ApplePushNotifierService.makeService(
+                        config.Notifications.Services.APNS, store)
+                    observers.append(pushSubService)
+                    pushSubService.setServiceParent(result)
+                if config.Notifications.Services.AMP.Enabled:
+                    pushSubService = AMPPushMaster(None, result,
+                        config.Notifications.Services.AMP.Port,
+                        config.Notifications.Services.AMP.EnableStaggering,
+                        config.Notifications.Services.AMP.StaggerSeconds
+                        )
+                    observers.append(pushSubService)
+                if observers:
+                    pushDistributor = PushDistributor(observers)
+
+            # Optionally set up mail retrieval
+            if config.Scheduling.iMIP.Enabled:
+                directory = result.rootResource.getDirectory()
+                mailRetriever = MailRetriever(store, directory,
+                    config.Scheduling.iMIP.Receiving)
+                mailRetriever.setServiceParent(result)
+            else:
+                mailRetriever = None
+
+            def decorateTransaction(txn):
+                txn._pushDistributor = pushDistributor
+                txn._rootResource = result.rootResource
+                txn._mailRetriever = mailRetriever
+
+            store.callWithNewTransactions(decorateTransaction)
+
+            return result 
 
         uid, gid = getSystemIDs(config.UserName, config.GroupName)
-        return self.storageService(slaveSvcCreator, uid=uid, gid=gid)
+
+        # Make sure no old socket files are lying around.
+        self.deleteStaleSocketFiles()
+        logObserver = RotatingFileAccessLoggingObserver(
+            config.AccessLogFile,
+        )
+
+        return self.storageService(slaveSvcCreator, logObserver, uid=uid, gid=gid)
 
 
     def makeService_Utility(self, options):
@@ -1034,14 +1074,14 @@ class CalDAVServiceMaker (LoggingMixIn):
         When created, that service will have access to the storage facilities.
         """
 
-        def toolServiceCreator(pool, store):
+        def toolServiceCreator(pool, store, ignored):
             return config.UtilityServiceClass(store)
 
         uid, gid = getSystemIDs(config.UserName, config.GroupName)
-        return self.storageService(toolServiceCreator, uid=uid, gid=gid)
+        return self.storageService(toolServiceCreator, None, uid=uid, gid=gid)
 
 
-    def storageService(self, createMainService, uid=None, gid=None):
+    def storageService(self, createMainService, logObserver, uid=None, gid=None):
         """
         If necessary, create a service to be started used for storage; for
         example, starting a database backend.  This service will then start the
@@ -1080,7 +1120,7 @@ class CalDAVServiceMaker (LoggingMixIn):
                                     maxConnections=config.MaxDBConnectionsPerPool)
                 cp.setServiceParent(ms)
                 store = storeFromConfig(config, cp.connection)
-                mainService = createMainService(cp, store)
+                mainService = createMainService(cp, store, logObserver)
                 if config.SharedConnectionPool:
                     dispenser = ConnectionDispenser(cp)
                 else:
@@ -1111,6 +1151,7 @@ class CalDAVServiceMaker (LoggingMixIn):
                             store, uid=overrideUID, gid=overrideGID,
                         ),
                         store, uid=overrideUID, gid=overrideGID,
+                        failIfUpgradeNeeded=config.FailIfUpgradeNeeded,
                     )
                 )
                 upgradeSvc.setServiceParent(ms)
@@ -1153,7 +1194,7 @@ class CalDAVServiceMaker (LoggingMixIn):
                 raise UsageError("Unknown database type %r" (config.DBType,))
         else:
             store = storeFromConfig(config, None)
-            return createMainService(None, store)
+            return createMainService(None, store, logObserver)
 
 
     def makeService_Combined(self, options):
@@ -1196,6 +1237,17 @@ class CalDAVServiceMaker (LoggingMixIn):
 
         controlSocket = ControlSocket()
         controlSocket.addFactory(_LOG_ROUTE, logger)
+
+        # Optionally set up AMPPushMaster
+        if config.Notifications.Enabled and config.Notifications.Services.AMP.Enabled:
+            ampSettings = config.Notifications.Services.AMP
+            AMPPushMaster(
+                controlSocket,
+                s,
+                ampSettings["Port"],
+                ampSettings["EnableStaggering"],
+                ampSettings["StaggerSeconds"]
+            )
         if config.ControlSocket:
             controlSocketService = GroupOwnedUNIXServer(
                 gid, config.ControlSocket, controlSocket, mode=0660
@@ -1324,10 +1376,10 @@ class CalDAVServiceMaker (LoggingMixIn):
                     "passwd" : config.Manhole.PasswordFilePath,
                 })
                 manholeService.setServiceParent(s)
-                # Using print because logging isn't ready at this point
-                print "Manhole access enabled: %s" % (portString,)
+                # Using print(because logging isn't ready at this point)
+                print("Manhole access enabled: %s" % (portString,))
             except ImportError:
-                print "Manhole access could not enabled because manhole_tap could not be imported"
+                print("Manhole access could not enabled because manhole_tap could not be imported")
 
 
         # Finally, let's get the real show on the road.  Create a service that
@@ -1338,7 +1390,7 @@ class CalDAVServiceMaker (LoggingMixIn):
         # to), and second, the service which does an upgrade from the
         # filesystem to the database (if that's necessary, and there is
         # filesystem data in need of upgrading).
-        def spawnerSvcCreator(pool, store):
+        def spawnerSvcCreator(pool, store, ignored):
             from twisted.internet import reactor
             pool = PeerConnectionPool(reactor, store.newTransaction,
                                       7654, schema)

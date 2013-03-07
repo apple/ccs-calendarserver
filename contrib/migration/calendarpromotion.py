@@ -9,6 +9,7 @@
 # Software License Agreement accompanying the package this file is a
 # part of.  You may not port this file to another platform without
 # Apple's written consent.
+from __future__ import print_function
 
 import os
 import shutil
@@ -77,7 +78,7 @@ def main():
             gid = getgrnam(GROUP_NAME).gr_gid
             os.chown(dirName, uid, gid)
         except Exception, e:
-            print "Unable to chown %s: %s" % (dirName, e)
+            print("Unable to chown %s: %s" % (dirName, e))
 
 
     plistPath = os.path.join(DEST_CONFIG_DIR, CALDAVD_PLIST)
@@ -89,7 +90,7 @@ def main():
             writePlist(plistData, plistPath)
 
         except Exception, e:
-            print "Unable to disable update values in %s: %s" % (plistPath, e)
+            print("Unable to disable update values in %s: %s" % (plistPath, e))
 
     else:
         # Copy configuration

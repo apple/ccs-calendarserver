@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+from __future__ import print_function
 
 """
 Utility code for backup and restore
@@ -42,12 +43,12 @@ class Options(dict):
 
 def debug(string):
     if VERBOSE:
-        print "DEBUG:", string
+        print("DEBUG:", string)
 
 
 def funclog(string):
     if FUNCLOG:
-        print "FUNCLOG:", string
+        print("FUNCLOG:", string)
 
 
 def logFuncCall(func):

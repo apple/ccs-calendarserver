@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+from __future__ import print_function
 
 from calendarserver.tap.util import getRootResource
 from calendarserver.tools.cmdline import utilityMain
@@ -33,15 +34,15 @@ log = Logger()
 def usage(e=None):
 
     name = os.path.basename(sys.argv[0])
-    print "usage: %s [options] [user ...]" % (name,)
-    print ""
-    print "  Display Apple Push Notification subscriptions"
-    print ""
-    print "options:"
-    print "  -h --help: print this help and exit"
-    print "  -f --config <path>: Specify caldavd.plist configuration path"
-    print "  -D --debug: debug logging"
-    print ""
+    print("usage: %s [options] [user ...]" % (name,))
+    print("")
+    print("  Display Apple Push Notification subscriptions")
+    print("")
+    print("options:")
+    print("  -h --help: print this help and exit")
+    print("  -f --config <path>: Specify caldavd.plist configuration path")
+    print("  -D --debug: debug logging")
+    print("")
 
     if e:
         sys.stderr.write("%s\n" % (e,))
@@ -157,7 +158,7 @@ def displayAPNSubscriptions(store, directory, root, users):
         print
         record = directory.recordWithShortName("users", user)
         if record is not None:
-            print "User %s (%s)..." % (user, record.uid)
+            print("User %s (%s)..." % (user, record.uid))
             txn = store.newTransaction(label="Display APN Subscriptions")
             subscriptions = (yield txn.apnSubscriptionsBySubscriber(record.uid))
             (yield txn.commit())
@@ -180,15 +181,20 @@ def displayAPNSubscriptions(store, directory, root, users):
                     record = directory.recordWithUID(uid)
                     user = record.shortNames[0]
                     if collection:
-                        print "...is subscribed to a share from %s's %s home" % (user, resource),
+                        print("...is subscribed to a share from %s's %s home" % (user, resource),)
                     else:
-                        print "...is subscribed to %s's %s home" % (user, resource),
-                        # print "   (key: %s)\n" % (key,)
-                    print "with %d device(s):" % (len(tokens),)
+                        print("...is subscribed to %s's %s home" % (user, resource),)
+                        # print("   (key: %s)\n" % (key,))
+                    print("with %d device(s):" % (len(tokens),))
                     for token, timestamp, userAgent, ipAddr in tokens:
-                        print " %s\n   '%s' from %s\n   %s" % (token, userAgent, ipAddr,
-                            time.strftime("on %a, %d %b %Y at %H:%M:%S %z(%Z)", time.localtime(timestamp)))
+                        print(" %s\n   '%s' from %s\n   %s" % (
+                            token, userAgent, ipAddr,
+                            time.strftime(
+                                "on %a, %d %b %Y at %H:%M:%S %z(%Z)",
+                                time.localtime(timestamp)
+                            )
+                        ))
             else:
-                print " ...is not subscribed to anything."
+                print(" ...is not subscribed to anything.")
         else:
-            print "User %s not found" % (user,)
+            print("User %s not found" % (user,))

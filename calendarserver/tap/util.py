@@ -225,7 +225,8 @@ def storeFromConfig(config, txnFactory):
     if config.Notifications.Enabled:
         # FIXME: NotifierFactory needs reference to the store in order
         # to get a txn in order to create a Work item
-        notifierFactory = NotifierFactory(None, config.ServerHostName)
+        notifierFactory = NotifierFactory(None, config.ServerHostName,
+            config.Notifications.CoalesceSeconds)
     else:
         notifierFactory = None
     quota = config.UserQuota
@@ -654,7 +655,7 @@ def getRootResource(config, newStore, resources=None, directory=None):
     #
     # Apple Push Notification Subscriptions
     #
-    apnConfig = config.Notifications.Services["ApplePushNotifier"]
+    apnConfig = config.Notifications.Services.APNS
     if apnConfig.Enabled:
         log.info("Setting up APNS resource at /%s" %
             (apnConfig["SubscriptionURL"],))

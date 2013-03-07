@@ -15,6 +15,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+from __future__ import print_function
 
 from getopt import getopt, GetoptError
 import os
@@ -40,15 +41,15 @@ from pycalendar.datetime import PyCalendarDateTime
 def usage(e=None):
 
     name = os.path.basename(sys.argv[0])
-    print "usage: %s [options]" % (name,)
-    print ""
-    print "  TODO: describe usage"
-    print ""
-    print "options:"
-    print "  -h --help: print this help and exit"
-    print "  -e --error: send stderr to stdout"
-    print "  -f --config <path>: Specify caldavd.plist configuration path"
-    print ""
+    print("usage: %s [options]" % (name,))
+    print("")
+    print("  TODO: describe usage")
+    print("")
+    print("options:")
+    print("  -h --help: print this help and exit")
+    print("  -e --error: send stderr to stdout")
+    print("  -f --config <path>: Specify caldavd.plist configuration path")
+    print("")
 
     if e:
         sys.exit(64)

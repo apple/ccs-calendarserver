@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+from __future__ import print_function
 
 from calendarserver.tools.util import loadConfig
 from datetime import datetime
@@ -42,26 +43,26 @@ import uuid
 
 def usage(e=None):
     name = os.path.basename(sys.argv[0])
-    print "usage: %s [options] username" % (name,)
-    print ""
-    print " Monitor push notification events from calendar server"
-    print ""
-    print "options:"
-    print "  -a --admin <username>: Specify an administrator username"
-    print "  -f --config <path>: Specify caldavd.plist configuration path"
-    print "  -h --help: print this help and exit"
-    print "  -H --host <hostname>: calendar server host name"
-    print "  -n --node <pubsub node>: pubsub node to subscribe to *"
-    print "  -p --port <port number>: calendar server port number"
-    print "  -s --ssl: use https (default is http)"
-    print "  -v --verbose: print additional information including XMPP traffic"
-    print ""
-    print " * The --node option is only required for calendar servers that"
-    print "   don't advertise the push-transports DAV property (such as a Snow"
-    print "   Leopard server).  In this case, --host should specify the name"
-    print "   of the XMPP server and --port should specify the port XMPP is"
-    print "   is listening on."
-    print ""
+    print("usage: %s [options] username" % (name,))
+    print("")
+    print(" Monitor push notification events from calendar server")
+    print("")
+    print("options:")
+    print("  -a --admin <username>: Specify an administrator username")
+    print("  -f --config <path>: Specify caldavd.plist configuration path")
+    print("  -h --help: print this help and exit")
+    print("  -H --host <hostname>: calendar server host name")
+    print("  -n --node <pubsub node>: pubsub node to subscribe to *")
+    print("  -p --port <port number>: calendar server port number")
+    print("  -s --ssl: use https (default is http)")
+    print("  -v --verbose: print additional information including XMPP traffic")
+    print("")
+    print(" * The --node option is only required for calendar servers that")
+    print("   don't advertise the push-transports DAV property (such as a Snow")
+    print("   Leopard server).  In this case, --host should specify the name")
+    print("   of the XMPP server and --port should specify the port XMPP is")
+    print("   is listening on.")
+    print("")
 
     if e:
         sys.stderr.write("%s\n" % (e,))
@@ -125,7 +126,7 @@ def main():
         try:
             loadConfig(configFileName)
         except ConfigurationError, e:
-            print "Error in configuration: %s" % (e,)
+            print("Error in configuration: %s" % (e,))
             sys.exit(1)
 
         useSSL = config.EnableSSL
@@ -168,7 +169,7 @@ class PubSubClientFactory(xmlstream.XmlStreamFactory):
         self.verbose = verbose
 
         if self.verbose:
-            print "JID:", self.jid, "Pubsub service:", self.service
+            print("JID:", self.jid, "Pubsub service:", self.service)
 
         self.presenceSeconds = 60
         self.presenceCall = None
@@ -193,7 +194,7 @@ class PubSubClientFactory(xmlstream.XmlStreamFactory):
 
     @inlineCallbacks
     def sigint_handler(self, num, frame):
-        print " Shutting down..."
+        print(" Shutting down...")
         yield self.unsubscribeAll()
         reactor.stop()
 
@@ -206,7 +207,7 @@ class PubSubClientFactory(xmlstream.XmlStreamFactory):
     def connected(self, xmlStream):
         self.xmlStream = xmlStream
         if self.verbose:
-            print "XMPP connection successful"
+            print("XMPP connection successful")
             xmlStream.rawDataInFn = self.rawDataIn
             xmlStream.rawDataOutFn = self.rawDataOut
         xmlStream.addObserver("/message/event/items",
@@ -218,25 +219,25 @@ class PubSubClientFactory(xmlstream.XmlStreamFactory):
             self.presenceCall.cancel()
             self.presenceCall = None
         if self.verbose:
-            print "XMPP disconnected"
+            print("XMPP disconnected")
 
     def initFailed(self, failure):
         self.xmlStream = None
-        print "XMPP connection failure: %s" % (failure,)
+        print("XMPP connection failure: %s" % (failure,))
         reactor.stop()
 
     @inlineCallbacks
     def authenticated(self, xmlStream):
         if self.verbose:
-            print "XMPP authentication successful"
+            print("XMPP authentication successful")
         self.sendPresence()
         for node, (url, name, kind) in self.nodes.iteritems():
             yield self.subscribe(node, name, kind)
 
-        print "Awaiting notifications (hit Control-C to end)"
+        print("Awaiting notifications (hit Control-C to end)")
 
     def authFailed(self, e):
-        print "XMPP authentication failed"
+        print("XMPP authentication failed")
         reactor.stop()
 
     def sendPresence(self):
@@ -254,10 +255,10 @@ class PubSubClientFactory(xmlstream.XmlStreamFactory):
                 node = str(node)
                 url, name, kind = self.nodes.get(node, ("Not subscribed", "Unknown", "Unknown"))
                 timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                print '%s | Notification for "%s" (%s)' % (timestamp, name, kind)
+                print('%s | Notification for "%s" (%s)' % (timestamp, name, kind))
                 if self.verbose:
-                    print " node = %s" % (node,)
-                    print " url = %s" % (url,)
+                    print(" node = %s" % (node,))
+                    print(" url = %s" % (url,))
 
 
     @inlineCallbacks
@@ -267,14 +268,14 @@ class PubSubClientFactory(xmlstream.XmlStreamFactory):
         subElement = pubsubElement.addElement("subscribe")
         subElement["node"] = node
         subElement["jid"] = self.jid
-        print 'Subscribing to "%s" (%s)' % (name, kind)
+        print('Subscribing to "%s" (%s)' % (name, kind))
         if self.verbose:
-            print node
+            print(node)
         try:
             yield iq.send(to=self.service)
-            print "OK"
+            print("OK")
         except Exception, e:
-            print "Subscription failure: %s %s" % (node, e)
+            print("Subscription failure: %s %s" % (node, e))
 
     @inlineCallbacks
     def unsubscribe(self, node, name, kind):
@@ -283,14 +284,14 @@ class PubSubClientFactory(xmlstream.XmlStreamFactory):
         subElement = pubsubElement.addElement("unsubscribe")
         subElement["node"] = node
         subElement["jid"] = self.jid
-        print 'Unsubscribing from "%s" (%s)' % (name, kind)
+        print('Unsubscribing from "%s" (%s)' % (name, kind))
         if self.verbose:
-            print node
+            print(node)
         try:
             yield iq.send(to=self.service)
-            print "OK"
+            print("OK")
         except Exception, e:
-            print "Unsubscription failure: %s %s" % (node, e)
+            print("Unsubscription failure: %s %s" % (node, e))
 
 
     @inlineCallbacks
@@ -299,18 +300,18 @@ class PubSubClientFactory(xmlstream.XmlStreamFactory):
         iq = IQ(self.xmlStream)
         pubsubElement = iq.addElement("pubsub", defaultUri=self.pubsubNS)
         pubsubElement.addElement("subscriptions")
-        print "Requesting list of subscriptions"
+        print("Requesting list of subscriptions")
         try:
             yield iq.send(to=self.service)
         except Exception, e:
-            print "Subscription list failure: %s" % (e,)
+            print("Subscription list failure: %s" % (e,))
 
 
     def rawDataIn(self, buf):
-        print "RECV: %s" % unicode(buf, 'utf-8').encode('ascii', 'replace')
+        print("RECV: %s" % unicode(buf, 'utf-8').encode('ascii', 'replace'))
 
     def rawDataOut(self, buf):
-        print "SEND: %s" % unicode(buf, 'utf-8').encode('ascii', 'replace')
+        print("SEND: %s" % unicode(buf, 'utf-8').encode('ascii', 'replace'))
 
 
 class PropfindRequestor(AuthorizedHTTPGetter):
@@ -345,14 +346,14 @@ class PushMonitorService(Service):
                 principal = "/principals/users/%s/" % (self.username,)
                 name, homes = (yield self.getPrincipalDetails(principal))
                 if self.verbose:
-                    print name, homes
+                    print(name, homes)
                 for home in homes:
                     paths.add(home)
                 for principal in (yield self.getProxyFor()):
                     name, homes = (yield self.getPrincipalDetails(principal,
                         includeCardDAV=False))
                     if self.verbose:
-                        print name, homes
+                        print(name, homes)
                     for home in homes:
                         if home.startswith("/"):
                             # Only support homes on the same server for now.
@@ -371,11 +372,11 @@ class PushMonitorService(Service):
             if subscribeNodes:
                 self.startMonitoring(host, port, subscribeNodes)
             else:
-                print "No nodes to monitor"
+                print("No nodes to monitor")
                 reactor.stop()
 
         except Exception, e:
-            print "Error:", e
+            print("Error:", e)
             reactor.stop()
 
     @inlineCallbacks
@@ -434,12 +435,12 @@ class PushMonitorService(Service):
                                         name = displayName
 
             except Exception, e:
-                print "Unable to parse principal details", e
-                print responseBody
+                print("Unable to parse principal details", e)
+                print(responseBody)
                 raise
 
         except Exception, e:
-            print "Unable to look up principal details", e
+            print("Unable to look up principal details", e)
             raise
 
         returnValue( (name, homes) )
@@ -489,12 +490,12 @@ class PushMonitorService(Service):
                                                 proxies.add(href)
 
             except Exception, e:
-                print "Unable to parse proxy information", e
-                print responseBody
+                print("Unable to parse proxy information", e)
+                print(responseBody)
                 raise
 
         except Exception, e:
-            print "Unable to look up who %s is a proxy for" % (self.username,)
+            print("Unable to look up who %s is a proxy for" % (self.username,))
             raise
 
         returnValue(proxies)
@@ -561,7 +562,7 @@ class PushMonitorService(Service):
                                 pushTransports = prop.find("{http://calendarserver.org/ns/}push-transports")
                                 if pushTransports is not None:
                                     if self.verbose:
-                                        print "push-transports:\n\n", ElementTree.tostring(pushTransports)
+                                        print("push-transports:\n\n", ElementTree.tostring(pushTransports))
                                     for transport in pushTransports.findall("{http://calendarserver.org/ns/}transport"):
                                         if transport.attrib["type"] == "XMPP":
                                             xmppServer = transport.find("{http://calendarserver.org/ns/}xmpp-server")
@@ -579,12 +580,12 @@ class PushMonitorService(Service):
                         nodes[key] = (href.text, name, kind)
 
             except Exception, e:
-                print "Unable to parse push information", e
-                print responseBody
+                print("Unable to parse push information", e)
+                print(responseBody)
                 raise
 
         except Exception, e:
-            print "Unable to look up push information for %s" % (self.username,)
+            print("Unable to look up push information for %s" % (self.username,))
             raise
 
         if host is None:

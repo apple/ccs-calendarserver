@@ -97,7 +97,7 @@ class RecipientCopy(CommonCommonTests, unittest.TestCase):
             }
         },
         "user02" : {
-            "calendar1" : {
+            "calendar2" : {
                 "2.ics" : (ATTENDEE_ICS, metadata,),
             },
             "calendar3" : {
@@ -151,8 +151,8 @@ class RecipientCopy(CommonCommonTests, unittest.TestCase):
         request = FakeRequest(self.rootResource, "PUT", path='/user01/outbox')
         for uri in (
             "/calendars/__uids__/user01/calendar1/1.ics",
-            "/calendars/__uids__/user02/calendar1/2.ics",
-            "/calendars/__uids__/user02/calendar2/3.ics",
+            "/calendars/__uids__/user02/calendar2/2.ics",
+            "/calendars/__uids__/user02/calendar3/3.ics",
         ):
             resource = (yield request.locateResource(uri))
             self.assertNotEqual(resource, None)
@@ -171,8 +171,8 @@ class RecipientCopy(CommonCommonTests, unittest.TestCase):
         request = FakeRequest(self.rootResource, "PUT", path='/user01/outbox')
         for uri in (
             "/calendars/__uids__/user01/calendar1/1.ics",
-            "/calendars/__uids__/user02/calendar1/2.ics",
-            "/calendars/__uids__/user02/calendar2/3.ics",
+            "/calendars/__uids__/user02/calendar2/2.ics",
+            "/calendars/__uids__/user02/calendar3/3.ics",
         ):
             resource = (yield request.locateResource(uri))
             self.assertNotEqual(resource, None)

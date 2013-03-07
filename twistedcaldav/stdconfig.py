@@ -302,6 +302,10 @@ DEFAULT_CONFIG = {
                                     # the master process, rather than having
                                     # each client make its connections directly.
 
+    "FailIfUpgradeNeeded"  : True, # Set to True to prevent the server or utility tools
+                                   # tools from running if the database needs a schema
+                                   # upgrade.
+
     #
     # Types of service provided
     #
@@ -713,6 +717,7 @@ DEFAULT_CONFIG = {
                                                                    # "accept-if-free"  - accept if free, do nothing if busy
                                                                    # "decline-if-busy" - decline if busy, do nothing if free
                                                                    # "automatic"       - accept if free, decline if busy
+                "FutureFreeBusyDays"              : 3 * 365,       # How far into the future to check for booking conflicts
             }
         }
     },
@@ -731,14 +736,12 @@ DEFAULT_CONFIG = {
         "CoalesceSeconds" : 3,
 
         "Services" : {
-            "ApplePushNotifier" : {
-                "Service" : "calendarserver.push.applepush.ApplePushNotifierService",
+            "APNS" : {
                 "Enabled" : False,
                 "SubscriptionURL" : "apns",
                 "SubscriptionRefreshIntervalSeconds" : 2 * 24 * 60 * 60, # How often the client should re-register (2 days)
                 "SubscriptionPurgeIntervalSeconds" : 12 * 60 * 60, # How often a purge is done (12 hours)
                 "SubscriptionPurgeSeconds" : 14 * 24 * 60 * 60, # How old a subscription must be before it's purged (14 days)
-                "DataHost" : "",
                 "ProviderHost" : "gateway.push.apple.com",
                 "ProviderPort" : 2195,
                 "FeedbackHost" : "feedback.push.apple.com",
@@ -762,13 +765,11 @@ DEFAULT_CONFIG = {
                     "Topic" : "",
                 },
             },
-            "AMPNotifier" : {
-                "Service" : "calendarserver.push.amppush.AMPPushNotifierService",
+            "AMP" : {
                 "Enabled" : False,
                 "Port" : 62311,
                 "EnableStaggering" : False,
                 "StaggerSeconds" : 3,
-                "DataHost" : "",
             },
         }
     },
@@ -1342,7 +1343,7 @@ def _updateNotifications(configDict, reloading=False):
     if reloading:
         return
 
-    for key, service in configDict.Notifications["Services"].iteritems():
+    for _ignore_key, service in configDict.Notifications["Services"].iteritems():
         if service["Enabled"]:
             configDict.Notifications["Enabled"] = True
             break
@@ -1351,14 +1352,7 @@ def _updateNotifications(configDict, reloading=False):
 
     for key, service in configDict.Notifications["Services"].iteritems():
 
-        if (
-            service["Service"] == "calendarserver.push.applepush.ApplePushNotifierService" and
-            service["Enabled"]
-        ):
-            # The default for apple push DataHost is ServerHostName
-            if service["DataHost"] == "":
-                service["DataHost"] = configDict.ServerHostName
-
+        if (key == "APNS" and service["Enabled"]):
             # Retrieve APN topics from certificates if not explicitly set
             for protocol, accountName in (
                 ("CalDAV", "apns:com.apple.calendar"),
@@ -1386,15 +1380,6 @@ def _updateNotifications(configDict, reloading=False):
                 except KeychainPasswordNotFound:
                     # The password doesn't exist in the keychain.
                     log.info("%s APN certificate passphrase not found in keychain" % (protocol,))
-                    
-        if (
-            service["Service"] == "calendarserver.push.amppush.AMPPushNotifierService" and
-            service["Enabled"]
-        ):
-            # The default for apple push DataHost is ServerHostName
-            if service["DataHost"] == "":
-                service["DataHost"] = configDict.ServerHostName
-
 
 
 

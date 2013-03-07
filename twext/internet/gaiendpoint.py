@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+from __future__ import print_function
 
 """
 L{getaddrinfo}()-based endpoint
@@ -164,18 +165,18 @@ if __name__ == '__main__':
     from twisted.internet.protocol import Factory, Protocol
     class HelloGoobye(Protocol, object):
         def connectionMade(self):
-            print 'Hello!'
+            print('Hello!')
             self.transport.loseConnection()
 
         def connectionLost(self, reason):
-            print 'Goodbye'
+            print('Goodbye')
 
     class MyFactory(Factory, object):
         def buildProtocol(self, addr):
-            print 'Building protocol for:', addr
+            print('Building protocol for:', addr)
             return HelloGoobye()
     def bye(what):
-        print 'bye', what
+        print('bye', what)
         reactor.stop()
     gaie.connect(MyFactory()).addBoth(bye)
     reactor.run()

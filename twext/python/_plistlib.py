@@ -1,6 +1,8 @@
 #
 # Added to standard library in Python 2.6 (Mac only in prior versions)
 #
+from __future__ import print_function
+
 """plistlib.py -- a tool to generate and parse MacOSX .plist files.
 
 The PropertList (.plist) file format is a simple XML pickle supporting
@@ -50,7 +52,7 @@ Generate Plist example::
 Parse Plist example::
 
     pl = readPlist(pathOrFile)
-    print pl["aKey"]
+    print(pl["aKey"])
 """
 
 

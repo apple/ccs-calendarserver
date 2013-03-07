@@ -17,7 +17,7 @@
 # Software License Agreement accompanying the package this file is a
 # part of.  You may not port this file to another platform without
 # Apple's written consent.
-
+from __future__ import print_function
 from __future__ import with_statement
 
 import datetime
@@ -513,7 +513,7 @@ def log(msg):
     try:
         timestamp = datetime.datetime.now().strftime("%b %d %H:%M:%S")
         msg = "calendarmigrator: %s %s" % (timestamp, msg)
-        print msg # so it appears in Setup.log
+        print(msg) # so it appears in Setup.log
         with open(LOG, 'a') as output:
             output.write("%s\n" % (msg,)) # so it appears in our log
     except IOError:

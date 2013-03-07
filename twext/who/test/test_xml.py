@@ -15,17 +15,18 @@
 ##
 
 """
-XML directory service tests
+XML directory service tests.
 """
 
 from time import sleep
 
+from twisted.trial import unittest
 from twisted.python.filepath import FilePath
 from twisted.internet.defer import inlineCallbacks
 
 from twext.who.idirectory import NoSuchRecordError
-from twext.who.idirectory import DirectoryQueryMatchExpression
-from twext.who.idirectory import Operand, MatchType, QueryFlags
+from twext.who.idirectory import Operand
+from twext.who.expression import MatchExpression, MatchType, MatchFlags
 from twext.who.xml import ParseError
 from twext.who.xml import DirectoryService, DirectoryRecord
 
@@ -33,7 +34,710 @@ from twext.who.test import test_directory
 
 
 
-xmlRealmName = "Test Realm"
+class BaseTest(unittest.TestCase):
+    def service(self, xmlData=None):
+        return xmlService(self.mktemp(), xmlData)
+
+
+    def assertRecords(self, records, uids):
+        self.assertEquals(
+            frozenset((record.uid for record in records)),
+            frozenset((uids)),
+        )
+
+
+
+class DirectoryServiceBaseTest(BaseTest, test_directory.DirectoryServiceTest):
+    def test_repr(self):
+        service = self.service()
+
+        self.assertEquals(repr(service), "<TestService (not loaded)>")
+        service.loadRecords()
+        self.assertEquals(repr(service), "<TestService 'xyzzy'>")
+
+
+    @inlineCallbacks
+    def test_recordWithUID(self):
+        service = self.service()
+
+        record = (yield service.recordWithUID("__null__"))
+        self.assertEquals(record, None)
+
+        record = (yield service.recordWithUID("__wsanchez__"))
+        self.assertEquals(record.uid, "__wsanchez__")
+
+
+    @inlineCallbacks
+    def test_recordWithGUID(self):
+        service = self.service()
+        record = (yield service.recordWithGUID("6C495FCD-7E78-4D5C-AA66-BC890AD04C9D"))
+        self.assertEquals(record, None)
+
+    @inlineCallbacks
+    def test_recordsWithRecordType(self):
+        service = self.service()
+
+        records = (yield service.recordsWithRecordType(object()))
+        self.assertEquals(set(records), set())
+
+        records = (yield service.recordsWithRecordType(service.recordType.user))
+        self.assertRecords(records,
+            (
+                "__wsanchez__",
+                "__glyph__",
+                "__sagen__",
+                "__cdaboo__",
+                "__dre__",
+                "__exarkun__",
+                "__dreid__",
+                "__alyssa__",
+                "__joe__",
+            ),
+        )
+
+        records = (yield service.recordsWithRecordType(service.recordType.group))
+        self.assertRecords(records,
+            (
+                "__calendar-dev__",
+                "__twisted__",
+                "__developers__",
+            ),
+        )
+
+
+    @inlineCallbacks
+    def test_recordWithShortName(self):
+        service = self.service()
+
+        record = (yield service.recordWithShortName(service.recordType.user, "null"))
+        self.assertEquals(record, None)
+
+        record = (yield service.recordWithShortName(service.recordType.user, "wsanchez"))
+        self.assertEquals(record.uid, "__wsanchez__")
+
+        record = (yield service.recordWithShortName(service.recordType.user, "wilfredo_sanchez"))
+        self.assertEquals(record.uid, "__wsanchez__")
+
+
+    @inlineCallbacks
+    def test_recordsWithEmailAddress(self):
+        service = self.service()
+
+        records = (yield service.recordsWithEmailAddress("wsanchez@bitbucket.calendarserver.org"))
+        self.assertRecords(records, ("__wsanchez__",))
+
+        records = (yield service.recordsWithEmailAddress("wsanchez@devnull.twistedmatrix.com"))
+        self.assertRecords(records, ("__wsanchez__",))
+
+        records = (yield service.recordsWithEmailAddress("shared@example.com"))
+        self.assertRecords(records, ("__sagen__", "__dre__"))
+
+
+
+class DirectoryServiceRealmTest(BaseTest):
+    def test_realmNameImmutable(self):
+        def setRealmName():
+            service = self.service()
+            service.realmName = "foo"
+
+        self.assertRaises(AssertionError, setRealmName)
+
+
+
+class DirectoryServiceParsingTest(BaseTest):
+    def test_reloadInterval(self):
+        service = self.service()
+
+        service.loadRecords(stat=False)
+        lastRefresh = service._lastRefresh
+        self.assertTrue(service._lastRefresh)
+
+        sleep(1)
+        service.loadRecords(stat=False)
+        self.assertEquals(lastRefresh, service._lastRefresh)
+
+
+    def test_reloadStat(self):
+        service = self.service()
+
+        service.loadRecords(loadNow=True)
+        lastRefresh = service._lastRefresh
+        self.assertTrue(service._lastRefresh)
+
+        sleep(1)
+        service.loadRecords(loadNow=True)
+        self.assertEquals(lastRefresh, service._lastRefresh)
+
+
+    def test_badXML(self):
+        service = self.service(xmlData="Hello")
+
+        self.assertRaises(ParseError, service.loadRecords)
+
+
+    def test_badRootElement(self):
+        service = self.service(xmlData=
+"""<?xml version="1.0" encoding="utf-8"?>
+
+<frobnitz />
+"""
+        )
+
+        self.assertRaises(ParseError, service.loadRecords)
+        try:
+            service.loadRecords()
+        except ParseError as e:
+            self.assertTrue(str(e).startswith("Incorrect root element"), e)
+        else:
+            raise AssertionError
+
+
+    def test_noRealmName(self):
+        service = self.service(xmlData=
+"""<?xml version="1.0" encoding="utf-8"?>
+
+<directory />
+"""
+        )
+
+        self.assertRaises(ParseError, service.loadRecords)
+        try:
+            service.loadRecords()
+        except ParseError as e:
+            self.assertTrue(str(e).startswith("No realm name"), e)
+        else:
+            raise AssertionError
+
+
+    def test_unknownFieldElementsClean(self):
+        service = self.service()
+        self.assertEquals(set(service.unknownFieldElements), set())
+
+
+    def test_unknownFieldElementsDirty(self):
+        service = self.service(xmlData=
+"""<?xml version="1.0" encoding="utf-8"?>
+
+<directory realm="Unknown Record Types">
+  <record type="user">
+    <uid>__wsanchez__</uid>
+    <short-name>wsanchez</short-name>
+    <political-affiliation>Community and Freedom Party</political-affiliation>
+  </record>
+</directory>
+"""
+        )
+        self.assertEquals(set(service.unknownFieldElements), set(("political-affiliation",)))
+
+
+    def test_unknownRecordTypesClean(self):
+        service = self.service()
+        self.assertEquals(set(service.unknownRecordTypes), set())
+
+
+    def test_unknownRecordTypesDirty(self):
+        service = self.service(xmlData=
+"""<?xml version="1.0" encoding="utf-8"?>
+
+<directory realm="Unknown Record Types">
+  <record type="camera">
+    <uid>__d600__</uid>
+    <short-name>d600</short-name>
+    <full-name>Nikon D600</full-name>
+  </record>
+</directory>
+"""
+        )
+        self.assertEquals(set(service.unknownRecordTypes), set(("camera",)))
+
+
+
+class DirectoryServiceQueryTest(BaseTest):
+    @inlineCallbacks
+    def test_queryAnd(self):
+        service = self.service()
+        records = yield service.recordsFromQuery(
+            (
+                service.query("emailAddresses", "shared@example.com"),
+                service.query("shortNames", "sagen"),
+            ),
+            operand=Operand.AND
+        )
+        self.assertRecords(records, ("__sagen__",))
+
+
+    @inlineCallbacks
+    def test_queryAndNoneFirst(self):
+        """
+        Test optimized case, where first expression yields no results.
+        """
+        service = self.service()
+        records = yield service.recordsFromQuery(
+            (
+                service.query("emailAddresses", "nobody@example.com"),
+                service.query("shortNames", "sagen"),
+            ),
+            operand=Operand.AND
+        )
+        self.assertRecords(records, ())
+
+
+    @inlineCallbacks
+    def test_queryOr(self):
+        service = self.service()
+        records = yield service.recordsFromQuery(
+            (
+                service.query("emailAddresses", "shared@example.com"),
+                service.query("shortNames", "wsanchez"),
+            ),
+            operand=Operand.OR
+        )
+        self.assertRecords(records, ("__sagen__", "__dre__", "__wsanchez__"))
+
+
+    @inlineCallbacks
+    def test_queryNot(self):
+        service = self.service()
+        records = yield service.recordsFromQuery(
+            (
+                service.query("emailAddresses", "shared@example.com"),
+                service.query("shortNames", "sagen", flags=MatchFlags.NOT),
+            ),
+            operand=Operand.AND
+        )
+        self.assertRecords(records, ("__dre__",))
+
+
+    @inlineCallbacks
+    def test_queryNotNoIndex(self):
+        service = self.service()
+        records = yield service.recordsFromQuery(
+            (
+                service.query("emailAddresses", "shared@example.com"),
+                service.query("fullNames", "Andre LaBranche", flags=MatchFlags.NOT),
+            ),
+            operand=Operand.AND
+        )
+        self.assertRecords(records, ("__sagen__",))
+
+
+    @inlineCallbacks
+    def test_queryCaseInsensitive(self):
+        service = self.service()
+        records = yield service.recordsFromQuery((
+            service.query("shortNames", "SagEn", flags=MatchFlags.caseInsensitive),
+        ))
+        self.assertRecords(records, ("__sagen__",))
+
+
+    @inlineCallbacks
+    def test_queryCaseInsensitiveNoIndex(self):
+        service = self.service()
+        records = yield service.recordsFromQuery((
+            service.query("fullNames", "moRGen SAGen", flags=MatchFlags.caseInsensitive),
+        ))
+        self.assertRecords(records, ("__sagen__",))
+
+
+    @inlineCallbacks
+    def test_queryStartsWith(self):
+        service = self.service()
+        records = yield service.recordsFromQuery((
+            service.query("shortNames", "wil", matchType=MatchType.startsWith),
+        ))
+        self.assertRecords(records, ("__wsanchez__",))
+
+
+    @inlineCallbacks
+    def test_queryStartsWithNoIndex(self):
+        service = self.service()
+        records = yield service.recordsFromQuery((
+            service.query("fullNames", "Wilfredo", matchType=MatchType.startsWith),
+        ))
+        self.assertRecords(records, ("__wsanchez__",))
+
+
+    @inlineCallbacks
+    def test_queryStartsWithNot(self):
+        service = self.service()
+        records = yield service.recordsFromQuery((
+            service.query(
+                "shortNames", "w",
+                matchType = MatchType.startsWith,
+                flags = MatchFlags.NOT,
+            ),
+        ))
+        self.assertRecords(
+            records,
+            (
+                '__alyssa__',
+                '__calendar-dev__',
+                '__cdaboo__',
+                '__developers__',
+                '__dre__',
+                '__dreid__',
+                '__exarkun__',
+                '__glyph__',
+                '__joe__',
+                '__sagen__',
+                '__twisted__',
+            ),
+        )
+
+
+    @inlineCallbacks
+    def test_queryStartsWithNotAny(self):
+        """
+        FIXME?: In the this case, the record __wsanchez__ has two
+        shortNames, and one doesn't match the query.  Should it be
+        included or not?  It is, because one matches the query, but
+        should NOT require that all match?
+        """
+        service = self.service()
+        records = yield service.recordsFromQuery((
+            service.query(
+                "shortNames", "wil",
+                matchType = MatchType.startsWith,
+                flags = MatchFlags.NOT,
+            ),
+        ))
+        self.assertRecords(
+            records,
+            (
+                '__alyssa__',
+                '__calendar-dev__',
+                '__cdaboo__',
+                '__developers__',
+                '__dre__',
+                '__dreid__',
+                '__exarkun__',
+                '__glyph__',
+                '__joe__',
+                '__sagen__',
+                '__twisted__',
+                '__wsanchez__',
+            ),
+        )
+
+
+    @inlineCallbacks
+    def test_queryStartsWithNotNoIndex(self):
+        service = self.service()
+        records = yield service.recordsFromQuery((
+            service.query(
+                "fullNames", "Wilfredo",
+                matchType = MatchType.startsWith,
+                flags = MatchFlags.NOT,
+            ),
+        ))
+        self.assertRecords(
+            records,
+            (
+                '__alyssa__',
+                '__calendar-dev__',
+                '__cdaboo__',
+                '__developers__',
+                '__dre__',
+                '__dreid__',
+                '__exarkun__',
+                '__glyph__',
+                '__joe__',
+                '__sagen__',
+                '__twisted__',
+            ),
+        )
+
+
+    @inlineCallbacks
+    def test_queryStartsWithCaseInsensitive(self):
+        service = self.service()
+        records = yield service.recordsFromQuery((
+            service.query(
+                "shortNames", "WIL",
+                matchType = MatchType.startsWith,
+                flags = MatchFlags.caseInsensitive,
+            ),
+        ))
+        self.assertRecords(records, ("__wsanchez__",))
+
+
+    @inlineCallbacks
+    def test_queryStartsWithCaseInsensitiveNoIndex(self):
+        service = self.service()
+        records = yield service.recordsFromQuery((
+            service.query(
+                "fullNames", "wilfrEdo",
+                matchType = MatchType.startsWith,
+                flags = MatchFlags.caseInsensitive,
+            ),
+        ))
+        self.assertRecords(records, ("__wsanchez__",))
+
+
+    @inlineCallbacks
+    def test_queryContains(self):
+        service = self.service()
+        records = yield service.recordsFromQuery((
+            service.query("shortNames", "sanchez", matchType=MatchType.contains),
+        ))
+        self.assertRecords(records, ("__wsanchez__",))
+
+
+    @inlineCallbacks
+    def test_queryContainsNoIndex(self):
+        service = self.service()
+        records = yield service.recordsFromQuery((
+            service.query("fullNames", "fred", matchType=MatchType.contains),
+        ))
+        self.assertRecords(records, ("__wsanchez__",))
+
+
+    @inlineCallbacks
+    def test_queryContainsNot(self):
+        service = self.service()
+        records = yield service.recordsFromQuery((
+            service.query(
+                "shortNames", "sanchez",
+                matchType = MatchType.contains,
+                flags = MatchFlags.NOT,
+            ),
+        ))
+        self.assertRecords(
+            records,
+            (
+                '__alyssa__',
+                '__calendar-dev__',
+                '__cdaboo__',
+                '__developers__',
+                '__dre__',
+                '__dreid__',
+                '__exarkun__',
+                '__glyph__',
+                '__joe__',
+                '__sagen__',
+                '__twisted__',
+            ),
+        )
+
+
+    @inlineCallbacks
+    def test_queryContainsNotNoIndex(self):
+        service = self.service()
+        records = yield service.recordsFromQuery((
+            service.query(
+                "fullNames", "fred",
+                matchType = MatchType.contains,
+                flags = MatchFlags.NOT,
+            ),
+        ))
+        self.assertRecords(
+            records,
+            (
+                '__alyssa__',
+                '__calendar-dev__',
+                '__cdaboo__',
+                '__developers__',
+                '__dre__',
+                '__dreid__',
+                '__exarkun__',
+                '__glyph__',
+                '__joe__',
+                '__sagen__',
+                '__twisted__',
+            ),
+        )
+
+
+    @inlineCallbacks
+    def test_queryContainsCaseInsensitive(self):
+        service = self.service()
+        records = yield service.recordsFromQuery((
+            service.query(
+                "shortNames", "Sanchez",
+                matchType=MatchType.contains,
+                flags=MatchFlags.caseInsensitive,
+            ),
+        ))
+        self.assertRecords(records, ("__wsanchez__",))
+
+
+    @inlineCallbacks
+    def test_queryContainsCaseInsensitiveNoIndex(self):
+        service = self.service()
+        records = yield service.recordsFromQuery((
+            service.query(
+                "fullNames", "frEdo",
+                matchType=MatchType.contains,
+                flags=MatchFlags.caseInsensitive,
+            ),
+        ))
+        self.assertRecords(records, ("__wsanchez__",))
+
+
+
+class DirectoryServiceMutableTest(BaseTest):
+    @inlineCallbacks
+    def test_updateRecord(self):
+        service = self.service()
+
+        record = (yield service.recordWithUID("__wsanchez__"))
+
+        fields = record.fields.copy()
+        fields[service.fieldName.fullNames] = ["Wilfredo Sanchez Vega"]
+
+        updatedRecord = DirectoryRecord(service, fields)
+        yield service.updateRecords((updatedRecord,))
+
+        # Verify change is present immediately
+        record = (yield service.recordWithUID("__wsanchez__"))
+        self.assertEquals(set(record.fullNames), set(("Wilfredo Sanchez Vega",)))
+
+        # Verify change is persisted
+        service.flush()
+        record = (yield service.recordWithUID("__wsanchez__"))
+        self.assertEquals(set(record.fullNames), set(("Wilfredo Sanchez Vega",)))
+
+
+    @inlineCallbacks
+    def test_addRecord(self):
+        service = self.service()
+
+        newRecord = DirectoryRecord(
+            service,
+            fields = {
+                service.fieldName.uid:        "__plugh__",
+                service.fieldName.recordType: service.recordType.user,
+                service.fieldName.shortNames: ("plugh",),
+            }
+        )
+
+        yield service.updateRecords((newRecord,), create=True)
+
+        # Verify change is present immediately
+        record = (yield service.recordWithUID("__plugh__"))
+        self.assertEquals(set(record.shortNames), set(("plugh",)))
+
+        # Verify change is persisted
+        service.flush()
+        record = (yield service.recordWithUID("__plugh__"))
+        self.assertEquals(set(record.shortNames), set(("plugh",)))
+
+
+    def test_addRecordNoCreate(self):
+        service = self.service()
+
+        newRecord = DirectoryRecord(
+            service,
+            fields = {
+                service.fieldName.uid:        "__plugh__",
+                service.fieldName.recordType: service.recordType.user,
+                service.fieldName.shortNames: ("plugh",),
+            }
+        )
+
+        self.assertFailure(service.updateRecords((newRecord,)), NoSuchRecordError)
+
+
+    @inlineCallbacks
+    def test_removeRecord(self):
+        service = self.service()
+
+        yield service.removeRecords(("__wsanchez__",))
+
+        # Verify change is present immediately
+        self.assertEquals((yield service.recordWithUID("__wsanchez__")), None)
+
+        # Verify change is persisted
+        service.flush()
+        self.assertEquals((yield service.recordWithUID("__wsanchez__")), None)
+
+
+    def test_removeRecordNoExist(self):
+        service = self.service()
+
+        return service.removeRecords(("__plugh__",))
+
+
+
+class DirectoryRecordTest(BaseTest, test_directory.DirectoryRecordTest):
+    @inlineCallbacks
+    def test_members(self):
+        service = self.service()
+
+        record = (yield service.recordWithUID("__wsanchez__"))
+        members = (yield record.members())
+        self.assertEquals(set(members), set())
+
+        record = (yield service.recordWithUID("__twisted__"))
+        members = (yield record.members())
+        self.assertEquals(
+            set((member.uid for member in members)),
+            set((
+                "__wsanchez__",
+                "__glyph__",
+                "__exarkun__",
+                "__dreid__",
+                "__dre__",
+            ))
+        )
+
+        record = (yield service.recordWithUID("__developers__"))
+        members = (yield record.members())
+        self.assertEquals(
+            set((member.uid for member in members)),
+            set((
+                "__calendar-dev__",
+                "__twisted__",
+                "__alyssa__",
+            ))
+        )
+
+    @inlineCallbacks
+    def test_groups(self):
+        service = self.service()
+
+        record = (yield service.recordWithUID("__wsanchez__"))
+        groups = (yield record.groups())
+        self.assertEquals(
+            set(group.uid for group in groups),
+            set((
+                "__calendar-dev__",
+                "__twisted__",
+            ))
+        )
+
+
+
+class QueryMixIn(object):
+    def query(self, field, value, matchType=MatchType.equals, flags=None):
+        name = getattr(self.fieldName, field)
+        assert name is not None
+        return MatchExpression(
+            name, value,
+            matchType = matchType,
+            flags = flags,
+        )
+
+
+
+class TestService(DirectoryService, QueryMixIn):
+    pass
+
+
+
+def xmlService(tmp, xmlData=None, serviceClass=None):
+    if xmlData is None:
+        xmlData = testXMLConfig
+
+    if serviceClass is None:
+        serviceClass = TestService
+
+    filePath = FilePath(tmp)
+    filePath.setContent(xmlData)
+
+    return serviceClass(filePath)
+
+
 
 testXMLConfig = """<?xml version="1.0" encoding="utf-8"?>
 
@@ -108,7 +812,7 @@ testXMLConfig = """<?xml version="1.0" encoding="utf-8"?>
     <email>joe@example.com</email>
   </record>
 
-  <record>
+  <record> <!-- type defaults to "user" -->
     <uid>__alyssa__</uid>
     <short-name>alyssa</short-name>
     <full-name>Alyssa P. Hacker</full-name>
@@ -151,669 +855,3 @@ testXMLConfig = """<?xml version="1.0" encoding="utf-8"?>
 
 </directory>
 """
-
-
-
-class BaseTest(object):
-    def _testService(self, xmlData=None):
-        if xmlData is None:
-            xmlData = testXMLConfig
-
-        filePath = FilePath(self.mktemp())
-        filePath.setContent(xmlData)
-
-        class TestService(DirectoryService):
-            def query(self, field, value, matchType=MatchType.equals, flags=None):
-                name = getattr(self.fieldName, field)
-                assert name is not None
-                return DirectoryQueryMatchExpression(
-                    name, value,
-                    matchType = matchType,
-                    flags = flags,
-                )
-
-        return TestService(filePath)
-
-
-
-class DirectoryServiceTest(BaseTest, test_directory.DirectoryServiceTest):
-    def test_repr(self):
-        service = self._testService()
-
-        self.assertEquals(repr(service), "<TestService (not loaded)>")
-        service.loadRecords()
-        self.assertEquals(repr(service), "<TestService 'xyzzy'>")
-
-
-    def assertRecords(self, records, uids):
-        self.assertEquals(
-            frozenset((record.uid for record in records)),
-            frozenset((uids)),
-        )
-
-
-    def test_realmNameImmutable(self):
-        def setRealmName():
-            service = self._testService()
-            service.realmName = "foo"
-
-        self.assertRaises(AssertionError, setRealmName)
-
-
-    def test_reloadInterval(self):
-        service = self._testService()
-
-        service.loadRecords(stat=False)
-        lastRefresh = service._lastRefresh
-        self.assertTrue(service._lastRefresh)
-
-        sleep(1)
-        service.loadRecords(stat=False)
-        self.assertEquals(lastRefresh, service._lastRefresh)
-
-
-    def test_reloadStat(self):
-        service = self._testService()
-
-        service.loadRecords(loadNow=True)
-        lastRefresh = service._lastRefresh
-        self.assertTrue(service._lastRefresh)
-
-        sleep(1)
-        service.loadRecords(loadNow=True)
-        self.assertEquals(lastRefresh, service._lastRefresh)
-
-
-    def test_badXML(self):
-        service = self._testService(xmlData="Hello")
-
-        self.assertRaises(ParseError, service.loadRecords)
-
-
-    def test_badRootElement(self):
-        service = self._testService(xmlData=
-"""<?xml version="1.0" encoding="utf-8"?>
-
-<frobnitz />
-"""
-        )
-
-        self.assertRaises(ParseError, service.loadRecords)
-        try:
-            service.loadRecords()
-        except ParseError as e:
-            self.assertTrue(str(e).startswith("Incorrect root element"), e)
-        else:
-            raise AssertionError
-
-
-    def test_noRealmName(self):
-        service = self._testService(xmlData=
-"""<?xml version="1.0" encoding="utf-8"?>
-
-<directory />
-"""
-        )
-
-        self.assertRaises(ParseError, service.loadRecords)
-        try:
-            service.loadRecords()
-        except ParseError as e:
-            self.assertTrue(str(e).startswith("No realm name"), e)
-        else:
-            raise AssertionError
-
-
-    @inlineCallbacks
-    def test_recordWithUID(self):
-        service = self._testService()
-
-        record = (yield service.recordWithUID("__null__"))
-        self.assertEquals(record, None)
-
-        record = (yield service.recordWithUID("__wsanchez__"))
-        self.assertEquals(record.uid, "__wsanchez__")
-
-
-    @inlineCallbacks
-    def test_recordWithGUID(self):
-        service = self._testService()
-        record = (yield service.recordWithGUID("6C495FCD-7E78-4D5C-AA66-BC890AD04C9D"))
-        self.assertEquals(record, None)
-
-    @inlineCallbacks
-    def test_recordsWithRecordType(self):
-        service = self._testService()
-
-        records = (yield service.recordsWithRecordType(object()))
-        self.assertEquals(set(records), set())
-
-        records = (yield service.recordsWithRecordType(service.recordType.user))
-        self.assertRecords(records,
-            (
-                "__wsanchez__",
-                "__glyph__",
-                "__sagen__",
-                "__cdaboo__",
-                "__dre__",
-                "__exarkun__",
-                "__dreid__",
-                "__alyssa__",
-                "__joe__",
-            ),
-        )
-
-        records = (yield service.recordsWithRecordType(service.recordType.group))
-        self.assertRecords(records,
-            (
-                "__calendar-dev__",
-                "__twisted__",
-                "__developers__",
-            ),
-        )
-
-
-    @inlineCallbacks
-    def test_recordWithShortName(self):
-        service = self._testService()
-
-        record = (yield service.recordWithShortName(service.recordType.user, "null"))
-        self.assertEquals(record, None)
-
-        record = (yield service.recordWithShortName(service.recordType.user, "wsanchez"))
-        self.assertEquals(record.uid, "__wsanchez__")
-
-        record = (yield service.recordWithShortName(service.recordType.user, "wilfredo_sanchez"))
-        self.assertEquals(record.uid, "__wsanchez__")
-
-
-    @inlineCallbacks
-    def test_recordsWithEmailAddress(self):
-        service = self._testService()
-
-        records = (yield service.recordsWithEmailAddress("wsanchez@bitbucket.calendarserver.org"))
-        self.assertRecords(records, ("__wsanchez__",))
-
-        records = (yield service.recordsWithEmailAddress("wsanchez@devnull.twistedmatrix.com"))
-        self.assertRecords(records, ("__wsanchez__",))
-
-        records = (yield service.recordsWithEmailAddress("shared@example.com"))
-        self.assertRecords(records, ("__sagen__", "__dre__"))
-
-
-    @inlineCallbacks
-    def test_queryAnd(self):
-        service = self._testService()
-        records = yield service.recordsFromQuery(
-            (
-                service.query("emailAddresses", "shared@example.com"),
-                service.query("shortNames", "sagen"),
-            ),
-            operand=Operand.AND
-        )
-        self.assertRecords(records, ("__sagen__",))
-
-
-    @inlineCallbacks
-    def test_queryOr(self):
-        service = self._testService()
-        records = yield service.recordsFromQuery(
-            (
-                service.query("emailAddresses", "shared@example.com"),
-                service.query("shortNames", "wsanchez"),
-            ),
-            operand=Operand.OR
-        )
-        self.assertRecords(records, ("__sagen__", "__dre__", "__wsanchez__"))
-
-
-    @inlineCallbacks
-    def test_queryNot(self):
-        service = self._testService()
-        records = yield service.recordsFromQuery(
-            (
-                service.query("emailAddresses", "shared@example.com"),
-                service.query("shortNames", "sagen", flags=QueryFlags.NOT),
-            ),
-            operand=Operand.AND
-        )
-        self.assertRecords(records, ("__dre__",))
-
-
-    @inlineCallbacks
-    def test_queryNotNoIndex(self):
-        service = self._testService()
-        records = yield service.recordsFromQuery(
-            (
-                service.query("emailAddresses", "shared@example.com"),
-                service.query("fullNames", "Andre LaBranche", flags=QueryFlags.NOT),
-            ),
-            operand=Operand.AND
-        )
-        self.assertRecords(records, ("__sagen__",))
-
-
-    @inlineCallbacks
-    def test_queryCaseInsensitive(self):
-        service = self._testService()
-        records = yield service.recordsFromQuery((
-            service.query("shortNames", "SagEn", flags=QueryFlags.caseInsensitive),
-        ))
-        self.assertRecords(records, ("__sagen__",))
-
-
-    @inlineCallbacks
-    def test_queryCaseInsensitiveNoIndex(self):
-        service = self._testService()
-        records = yield service.recordsFromQuery((
-            service.query("fullNames", "moRGen SAGen", flags=QueryFlags.caseInsensitive),
-        ))
-        self.assertRecords(records, ("__sagen__",))
-
-
-    @inlineCallbacks
-    def test_queryStartsWith(self):
-        service = self._testService()
-        records = yield service.recordsFromQuery((
-            service.query("shortNames", "wil", matchType=MatchType.startsWith),
-        ))
-        self.assertRecords(records, ("__wsanchez__",))
-
-
-    @inlineCallbacks
-    def test_queryStartsWithNoIndex(self):
-        service = self._testService()
-        records = yield service.recordsFromQuery((
-            service.query("fullNames", "Wilfredo", matchType=MatchType.startsWith),
-        ))
-        self.assertRecords(records, ("__wsanchez__",))
-
-
-    @inlineCallbacks
-    def test_queryStartsWithNot(self):
-        service = self._testService()
-        records = yield service.recordsFromQuery((
-            service.query(
-                "shortNames", "w",
-                matchType = MatchType.startsWith,
-                flags = QueryFlags.NOT,
-            ),
-        ))
-        self.assertRecords(
-            records,
-            (
-                '__alyssa__',
-                '__calendar-dev__',
-                '__cdaboo__',
-                '__developers__',
-                '__dre__',
-                '__dreid__',
-                '__exarkun__',
-                '__glyph__',
-                '__joe__',
-                '__sagen__',
-                '__twisted__',
-            ),
-        )
-
-
-    @inlineCallbacks
-    def test_queryStartsWithNotAny(self):
-        """
-        FIXME?: In the this case, the record __wsanchez__ has two
-        shortNames, and one doesn't match the query.  Should it be
-        included or not?  It is, because one matches the query, but
-        should NOT require that all match?
-        """
-        service = self._testService()
-        records = yield service.recordsFromQuery((
-            service.query(
-                "shortNames", "wil",
-                matchType = MatchType.startsWith,
-                flags = QueryFlags.NOT,
-            ),
-        ))
-        self.assertRecords(
-            records,
-            (
-                '__alyssa__',
-                '__calendar-dev__',
-                '__cdaboo__',
-                '__developers__',
-                '__dre__',
-                '__dreid__',
-                '__exarkun__',
-                '__glyph__',
-                '__joe__',
-                '__sagen__',
-                '__twisted__',
-                '__wsanchez__',
-            ),
-        )
-
-
-    @inlineCallbacks
-    def test_queryStartsWithNotNoIndex(self):
-        service = self._testService()
-        records = yield service.recordsFromQuery((
-            service.query(
-                "fullNames", "Wilfredo",
-                matchType = MatchType.startsWith,
-                flags = QueryFlags.NOT,
-            ),
-        ))
-        self.assertRecords(
-            records,
-            (
-                '__alyssa__',
-                '__calendar-dev__',
-                '__cdaboo__',
-                '__developers__',
-                '__dre__',
-                '__dreid__',
-                '__exarkun__',
-                '__glyph__',
-                '__joe__',
-                '__sagen__',
-                '__twisted__',
-            ),
-        )
-
-
-    @inlineCallbacks
-    def test_queryStartsWithCaseInsensitive(self):
-        service = self._testService()
-        records = yield service.recordsFromQuery((
-            service.query(
-                "shortNames", "WIL",
-                matchType = MatchType.startsWith,
-                flags = QueryFlags.caseInsensitive,
-            ),
-        ))
-        self.assertRecords(records, ("__wsanchez__",))
-
-
-    @inlineCallbacks
-    def test_queryStartsWithCaseInsensitiveNoIndex(self):
-        service = self._testService()
-        records = yield service.recordsFromQuery((
-            service.query(
-                "fullNames", "wilfrEdo",
-                matchType = MatchType.startsWith,
-                flags = QueryFlags.caseInsensitive,
-            ),
-        ))
-        self.assertRecords(records, ("__wsanchez__",))
-
-
-    @inlineCallbacks
-    def test_queryContains(self):
-        service = self._testService()
-        records = yield service.recordsFromQuery((
-            service.query("shortNames", "sanchez", matchType=MatchType.contains),
-        ))
-        self.assertRecords(records, ("__wsanchez__",))
-
-
-    @inlineCallbacks
-    def test_queryContainsNoIndex(self):
-        service = self._testService()
-        records = yield service.recordsFromQuery((
-            service.query("fullNames", "fred", matchType=MatchType.contains),
-        ))
-        self.assertRecords(records, ("__wsanchez__",))
-
-
-    @inlineCallbacks
-    def test_queryContainsNot(self):
-        service = self._testService()
-        records = yield service.recordsFromQuery((
-            service.query(
-                "shortNames", "sanchez",
-                matchType = MatchType.contains,
-                flags = QueryFlags.NOT,
-            ),
-        ))
-        self.assertRecords(
-            records,
-            (
-                '__alyssa__',
-                '__calendar-dev__',
-                '__cdaboo__',
-                '__developers__',
-                '__dre__',
-                '__dreid__',
-                '__exarkun__',
-                '__glyph__',
-                '__joe__',
-                '__sagen__',
-                '__twisted__',
-            ),
-        )
-
-
-    @inlineCallbacks
-    def test_queryContainsNotNoIndex(self):
-        service = self._testService()
-        records = yield service.recordsFromQuery((
-            service.query(
-                "fullNames", "fred",
-                matchType = MatchType.contains,
-                flags = QueryFlags.NOT,
-            ),
-        ))
-        self.assertRecords(
-            records,
-            (
-                '__alyssa__',
-                '__calendar-dev__',
-                '__cdaboo__',
-                '__developers__',
-                '__dre__',
-                '__dreid__',
-                '__exarkun__',
-                '__glyph__',
-                '__joe__',
-                '__sagen__',
-                '__twisted__',
-            ),
-        )
-
-
-    @inlineCallbacks
-    def test_queryContainsCaseInsensitive(self):
-        service = self._testService()
-        records = yield service.recordsFromQuery((
-            service.query(
-                "shortNames", "Sanchez",
-                matchType=MatchType.contains,
-                flags=QueryFlags.caseInsensitive,
-            ),
-        ))
-        self.assertRecords(records, ("__wsanchez__",))
-
-
-    @inlineCallbacks
-    def test_queryContainsCaseInsensitiveNoIndex(self):
-        service = self._testService()
-        records = yield service.recordsFromQuery((
-            service.query(
-                "fullNames", "frEdo",
-                matchType=MatchType.contains,
-                flags=QueryFlags.caseInsensitive,
-            ),
-        ))
-        self.assertRecords(records, ("__wsanchez__",))
-
-
-    def test_unknownRecordTypesClean(self):
-        service = self._testService()
-        self.assertEquals(set(service.unknownRecordTypes), set())
-
-
-    def test_unknownRecordTypesDirty(self):
-        service = self._testService(xmlData=
-"""<?xml version="1.0" encoding="utf-8"?>
-
-<directory realm="Unknown Record Types">
-  <record type="camera">
-    <uid>__d600__</uid>
-    <short-name>d600</short-name>
-    <full-name>Nikon D600</full-name>
-  </record>
-</directory>
-"""
-        )
-        self.assertEquals(set(service.unknownRecordTypes), set(("camera",)))
-
-
-    def test_unknownFieldElementsClean(self):
-        service = self._testService()
-        self.assertEquals(set(service.unknownFieldElements), set())
-
-
-    def test_unknownFieldElementsDirty(self):
-        service = self._testService(xmlData=
-"""<?xml version="1.0" encoding="utf-8"?>
-
-<directory realm="Unknown Record Types">
-  <record type="user">
-    <uid>__wsanchez__</uid>
-    <short-name>wsanchez</short-name>
-    <political-affiliation>Community and Freedom Party</political-affiliation>
-  </record>
-</directory>
-"""
-        )
-        self.assertEquals(set(service.unknownFieldElements), set(("political-affiliation",)))
-
-
-    @inlineCallbacks
-    def test_updateRecord(self):
-        service = self._testService()
-
-        record = (yield service.recordWithUID("__wsanchez__"))
-
-        fields = record.fields.copy()
-        fields[service.fieldName.fullNames] = ["Wilfredo Sanchez Vega"]
-
-        updatedRecord = DirectoryRecord(service, fields)
-        yield service.updateRecords((updatedRecord,))
-
-        # Verify change is present immediately
-        record = (yield service.recordWithUID("__wsanchez__"))
-        self.assertEquals(set(record.fullNames), set(("Wilfredo Sanchez Vega",)))
-
-        # Verify change is persisted
-        service.flush()
-        record = (yield service.recordWithUID("__wsanchez__"))
-        self.assertEquals(set(record.fullNames), set(("Wilfredo Sanchez Vega",)))
-
-
-    @inlineCallbacks
-    def test_addRecord(self):
-        service = self._testService()
-
-        newRecord = DirectoryRecord(
-            service,
-            fields = {
-                service.fieldName.uid:        "__plugh__",
-                service.fieldName.recordType: service.recordType.user,
-                service.fieldName.shortNames: ("plugh",),
-            }
-        )
-
-        yield service.updateRecords((newRecord,), create=True)
-
-        # Verify change is present immediately
-        record = (yield service.recordWithUID("__plugh__"))
-        self.assertEquals(set(record.shortNames), set(("plugh",)))
-
-        # Verify change is persisted
-        service.flush()
-        record = (yield service.recordWithUID("__plugh__"))
-        self.assertEquals(set(record.shortNames), set(("plugh",)))
-
-
-    def test_addRecordNoCreate(self):
-        service = self._testService()
-
-        newRecord = DirectoryRecord(
-            service,
-            fields = {
-                service.fieldName.uid:        "__plugh__",
-                service.fieldName.recordType: service.recordType.user,
-                service.fieldName.shortNames: ("plugh",),
-            }
-        )
-
-        self.assertFailure(service.updateRecords((newRecord,)), NoSuchRecordError)
-
-
-    @inlineCallbacks
-    def test_removeRecord(self):
-        service = self._testService()
-
-        yield service.removeRecords(("__wsanchez__",))
-
-        # Verify change is present immediately
-        self.assertEquals((yield service.recordWithUID("__wsanchez__")), None)
-
-        # Verify change is persisted
-        service.flush()
-        self.assertEquals((yield service.recordWithUID("__wsanchez__")), None)
-
-
-    def test_removeRecordNoExist(self):
-        service = self._testService()
-
-        return service.removeRecords(("__plugh__",))
-
-
-
-class DirectoryRecordTest(BaseTest, test_directory.DirectoryRecordTest):
-    @inlineCallbacks
-    def test_members(self):
-        service = self._testService()
-
-        record = (yield service.recordWithUID("__wsanchez__"))
-        members = (yield record.members())
-        self.assertEquals(set(members), set())
-
-        record = (yield service.recordWithUID("__twisted__"))
-        members = (yield record.members())
-        self.assertEquals(
-            set((member.uid for member in members)),
-            set((
-                "__wsanchez__",
-                "__glyph__",
-                "__exarkun__",
-                "__dreid__",
-                "__dre__",
-            ))
-        )
-
-        record = (yield service.recordWithUID("__developers__"))
-        members = (yield record.members())
-        self.assertEquals(
-            set((member.uid for member in members)),
-            set((
-                "__calendar-dev__",
-                "__twisted__",
-                "__alyssa__",
-            ))
-        )
-
-    @inlineCallbacks
-    def test_groups(self):
-        service = self._testService()
-
-        record = (yield service.recordWithUID("__wsanchez__"))
-        groups = (yield record.groups())
-        self.assertEquals(
-            set(group.uid for group in groups),
-            set((
-                "__calendar-dev__",
-                "__twisted__",
-            ))
-        )

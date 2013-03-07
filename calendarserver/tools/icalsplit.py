@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+from __future__ import print_function
 
 import os
 import sys
@@ -53,7 +54,7 @@ def splitICalendarFile(inputFileName, outputDirectory):
         uid = subcalendar.resourceUID()
         subFileName = os.path.join(outputDirectory, uid + ".ics")
 
-        print "Writing %s" % (subFileName,)
+        print("Writing %s" % (subFileName,))
 
         subcalendar_file = file(subFileName, "w")
         try:
@@ -64,19 +65,19 @@ def splitICalendarFile(inputFileName, outputDirectory):
 
 def usage(e=None):
     if e:
-        print e
-        print ""
+        print(e)
+        print("")
 
     name = os.path.basename(sys.argv[0])
-    print "usage: %s [options] input_file output_directory" % (name,)
-    print ""
-    print "  Splits up monolithic iCalendar data into separate files for each"
-    print "  subcomponent so as to comply with CalDAV requirements for"
-    print "  individual resources."
-    print ""
-    print "options:"
-    print "  -h --help: print this help and exit"
-    print ""
+    print("usage: %s [options] input_file output_directory" % (name,))
+    print("")
+    print("  Splits up monolithic iCalendar data into separate files for each")
+    print("  subcomponent so as to comply with CalDAV requirements for")
+    print("  individual resources.")
+    print("")
+    print("options:")
+    print("  -h --help: print this help and exit")
+    print("")
 
     if e:
         sys.exit(64)

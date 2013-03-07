@@ -15,6 +15,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+from __future__ import print_function
 
 from calendarserver.tools.util import loadConfig, getDirectory, setupMemcached, checkDirectory
 from getopt import getopt, GetoptError
@@ -39,15 +40,15 @@ __all__ = [ "migrateResources", ]
 def usage():
 
     name = os.path.basename(sys.argv[0])
-    print "usage: %s [options] " % (name,)
-    print ""
-    print "  Migrates resources and locations from OD to Calendar Server"
-    print ""
-    print "options:"
-    print "  -h --help: print this help and exit"
-    print "  -f --config <path>: Specify caldavd.plist configuration path"
-    print "  -v --verbose: print debugging information"
-    print ""
+    print("usage: %s [options] " % (name,))
+    print("")
+    print("  Migrates resources and locations from OD to Calendar Server")
+    print("")
+    print("options:")
+    print("  -h --help: print this help and exit")
+    print("  -f --config <path>: Specify caldavd.plist configuration path")
+    print("  -v --verbose: print debugging information")
+    print("")
 
     sys.exit(0)
 
@@ -175,7 +176,7 @@ def queryForType(sourceService, recordType, verbose=False):
     ]
 
     if verbose:
-        print "Querying for all %s records" % (recordType,)
+        print("Querying for all %s records" % (recordType,))
 
     results = list(sourceService.odModule.listAllRecordsWithAttributes_list(
         sourceService.directory,
@@ -184,7 +185,7 @@ def queryForType(sourceService, recordType, verbose=False):
     ))
 
     if verbose:
-        print "Found %d records" % (len(results),)
+        print("Found %d records" % (len(results),))
 
     return results
 
@@ -210,7 +211,7 @@ def migrateResources(sourceService, destService, autoSchedules=None,
                 record = destService.recordWithGUID(guid)
                 if record is None:
                     if verbose:
-                        print "Migrating %s (%s)" % (fullName, recordType)
+                        print("Migrating %s (%s)" % (fullName, recordType))
 
                     if autoSchedules is not None:
                         autoSchedule = autoSchedules.get(guid, 1)

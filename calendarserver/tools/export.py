@@ -33,6 +33,8 @@ owner of that calendar, including DAV properties, information about sharing, and
 per-user data such as alarms.
 """
 
+from __future__ import print_function
+
 import os
 import sys
 import itertools
@@ -52,8 +54,8 @@ from calendarserver.tap.util import directoryFromConfig
 
 def usage(e=None):
     if e:
-        print e
-        print ""
+        print(e)
+        print("")
     try:
         ExportOptions().opt_help()
     except SystemExit:

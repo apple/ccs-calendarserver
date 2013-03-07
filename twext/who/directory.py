@@ -1,3 +1,4 @@
+# -*- test-case-name: twext.who.test.test_directory -*-
 ##
 # Copyright (c) 2006-2013 Apple Inc. All rights reserved.
 #
@@ -33,8 +34,8 @@ from twisted.internet.defer import succeed, fail
 from twext.who.idirectory import QueryNotSupportedError, NotAllowedError
 from twext.who.idirectory import FieldName, RecordType
 from twext.who.idirectory import Operand
-from twext.who.idirectory import DirectoryQueryMatchExpression
 from twext.who.idirectory import IDirectoryService, IDirectoryRecord
+from twext.who.expression import MatchExpression
 from twext.who.util import uniqueResult, describe
 
 
@@ -63,7 +64,7 @@ class DirectoryService(object):
 
 
     def recordTypes(self):
-        return succeed(self.recordType.iterconstants())
+        return self.recordType.iterconstants()
 
 
     def recordsFromExpression(self, expression, records=None):
@@ -114,36 +115,43 @@ class DirectoryService(object):
 
 
     def recordsWithFieldValue(self, fieldName, value):
-        return self.recordsFromExpression(DirectoryQueryMatchExpression(fieldName, value))
+        return self.recordsFromExpression(MatchExpression(fieldName, value))
+
 
     @inlineCallbacks
     def recordWithUID(self, uid):
         returnValue(uniqueResult((yield self.recordsWithFieldValue(FieldName.uid, uid))))
                
+
     @inlineCallbacks
     def recordWithGUID(self, guid):
         returnValue(uniqueResult((yield self.recordsWithFieldValue(FieldName.guid, guid))))
 
+
     def recordsWithRecordType(self, recordType):
         return self.recordsWithFieldValue(FieldName.recordType, recordType)
+
 
     @inlineCallbacks
     def recordWithShortName(self, recordType, shortName):
         returnValue(uniqueResult((yield self.recordsFromQuery((
-            DirectoryQueryMatchExpression(FieldName.recordType, recordType),
-            DirectoryQueryMatchExpression(FieldName.shortNames, shortName ),
+            MatchExpression(FieldName.recordType, recordType),
+            MatchExpression(FieldName.shortNames, shortName ),
         )))))
+
 
     def recordsWithEmailAddress(self, emailAddress):
         return self.recordsWithFieldValue(FieldName.emailAddresses, emailAddress)
 
+
     def updateRecords(self, records, create=False):
         for record in records:
-            raise NotAllowedError("Record updates not allowed.")
+            return fail(NotAllowedError("Record updates not allowed."))
+
 
     def removeRecords(self, uids):
         for uid in uids:
-            raise NotAllowedError("Record removal not allowed.")
+            return fail(NotAllowedError("Record removal not allowed."))
 
 
 

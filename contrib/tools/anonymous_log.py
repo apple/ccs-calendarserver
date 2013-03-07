@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+from __future__ import print_function
 
 from gzip import GzipFile
 import getopt
@@ -47,10 +48,10 @@ class CalendarServerLogAnalyzer(object):
                 
                 if not line.startswith("Log"):
                     line = self.anonymizeLine(line)
-                print line,
+                print(line, end="")
         
         except Exception, e:
-            print "Exception: %s for %s" % (e, line,)
+            print("Exception: %s for %s" % (e, line,))
             raise
 
     def anonymizeLine(self, line):
@@ -108,9 +109,9 @@ class CalendarServerLogAnalyzer(object):
 
 def usage(error_msg=None):
     if error_msg:
-        print error_msg
+        print(error_msg)
 
-    print """Usage: anonymous_log [options] [FILE]
+    print("""Usage: anonymous_log [options] [FILE]
 Options:
     -h            Print this help and exit
 
@@ -120,7 +121,7 @@ Arguments:
 Description:
     This utility will anonymize the content of an access log.
 
-"""
+""")
 
     if error_msg:
         raise ValueError(error_msg)
@@ -153,11 +154,11 @@ if __name__ == "__main__":
             if arg.endswith("/"):
                 arg = arg[:-1]
             if not os.path.exists(arg):
-                print "Path does not exist: '%s'. Ignoring." % (arg,)
+                print("Path does not exist: '%s'. Ignoring." % (arg,))
                 continue
 
             CalendarServerLogAnalyzer().anonymizeLogFile(arg)
 
     except Exception, e:
         sys.exit(str(e))
-        print traceback.print_exc()
+        print(traceback.print_exc())

@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+from __future__ import print_function
 
 try:
     from twistedcaldav.directory.ldapdirectory import (
@@ -29,7 +30,7 @@ try:
     from string import maketrans
     import ldap
 except ImportError:
-    print "Skipping because ldap module not installed"
+    print("Skipping because ldap module not installed")
 else:
     from twistedcaldav.test.util import TestCase
 

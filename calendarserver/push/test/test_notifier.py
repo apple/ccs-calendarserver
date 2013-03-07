@@ -15,15 +15,16 @@
 ##
 
 from twistedcaldav.test.util import TestCase
-from twistedcaldav.config import ConfigDict
-from calendarserver.push.notifier import PushService
+from calendarserver.push.notifier import PushDistributor
+from calendarserver.push.notifier import getPubSubAPSConfiguration
+from calendarserver.push.notifier import PushNotificationWork
 from twisted.internet.defer import inlineCallbacks, succeed
-from twisted.application import service
+from twistedcaldav.config import ConfigDict
+from txdav.common.datastore.test.util import buildStore
 
-class StubService(service.Service):
-    def __init__(self, settings, store):
-        self.settings = settings
-        self.store = store
+
+class StubService(object):
+    def __init__(self):
         self.reset()
 
     def reset(self):
@@ -33,25 +34,89 @@ class StubService(service.Service):
         self.history.append(id)
         return(succeed(None))
 
-    @classmethod
-    def makeService(cls, settings, store):
-        return cls(settings, store)
-
-class PushServiceTests(TestCase):
+class PushDistributorTests(TestCase):
 
     @inlineCallbacks
     def test_enqueue(self):
-        settings = ConfigDict({
-            "Services" : {
-                "Stub" : {
-                    "Service" : "calendarserver.push.test.test_notifier.StubService",
-                    "Enabled" : True,
-                    "Foo" : "Bar",
+        stub = StubService()
+        dist = PushDistributor([stub])
+        yield dist.enqueue("testing")
+        self.assertEquals(stub.history, ["testing"])
+
+    def test_getPubSubAPSConfiguration(self):
+        config = ConfigDict({
+            "EnableSSL" : True,
+            "ServerHostName" : "calendars.example.com",
+            "SSLPort" : 8443,
+            "HTTPPort" : 8008,
+            "Notifications" : {
+                "Services" : {
+                    "APNS" : {
+                        "CalDAV" : {
+                            "Topic" : "test topic",
+                        },
+                        "SubscriptionRefreshIntervalSeconds" : 42,
+                        "SubscriptionURL" : "apns",
+                        "Environment" : "prod",
+                        "Enabled" : True,
+                    },
                 },
             },
         })
-        svc = PushService.makeService(settings, None)
-        yield svc.enqueue("testing")
-        self.assertEquals(svc.subServices[0].history, ["testing"])
+        result = getPubSubAPSConfiguration("CalDAV|foo", config)
+        self.assertEquals(
+            result,
+            {
+                "SubscriptionRefreshIntervalSeconds": 42, 
+                "SubscriptionURL": "https://calendars.example.com:8443/apns", 
+                "APSBundleID": "test topic", 
+                "APSEnvironment": "prod"
+            }
+        )
 
 
+class StubDistributor(object):
+    def __init__(self):
+        self.reset()
+
+    def reset(self):
+        self.history = []
+
+    def enqueue(self, pushID):
+        self.history.append(pushID)
+
+class PushNotificationWorkTests(TestCase):
+
+    @inlineCallbacks
+    def test_work(self):
+        self.store = yield buildStore(self, None)
+
+        pushDistributor = StubDistributor()
+
+        def decorateTransaction(txn):
+            txn._pushDistributor = pushDistributor
+
+        self.store.callWithNewTransactions(decorateTransaction)
+
+        txn = self.store.newTransaction()
+        wp = (yield txn.enqueue(PushNotificationWork,
+            pushID="/CalDAV/localhost/foo/",
+        ))
+        yield txn.commit()
+        yield wp.whenExecuted()
+        self.assertEquals(pushDistributor.history, ["/CalDAV/localhost/foo/"])
+
+        pushDistributor.reset()
+        txn = self.store.newTransaction()
+        wp = (yield txn.enqueue(PushNotificationWork,
+            pushID="/CalDAV/localhost/bar/",
+        ))
+        wp = (yield txn.enqueue(PushNotificationWork,
+            pushID="/CalDAV/localhost/bar/",
+        ))
+        wp = (yield txn.enqueue(PushNotificationWork,
+            pushID="/CalDAV/localhost/bar/",
+        ))
+        yield txn.commit()
+        yield wp.whenExecuted()
+        self.assertEquals(pushDistributor.history, ["/CalDAV/localhost/bar/"])

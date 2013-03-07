@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+from __future__ import print_function
 
 """
 Extensions to web2.dav
@@ -502,7 +503,7 @@ class DirectoryRenderingMixIn(object):
             else:
                 mimeType = child.contentType()
                 if mimeType is None:
-                    print 'BAD contentType() IMPLEMENTATION', child
+                    print('BAD contentType() IMPLEMENTATION', child)
                     contentType = 'application/octet-stream'
                 else:
                     contentType = "%s/%s" % (mimeType.mediaType, mimeType.mediaSubtype)

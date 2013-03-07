@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+from __future__ import print_function
 
 from calendarserver.tools.managetimezones import StandardIOObserver
 from calendarserver.tools.util import loadConfig, getDirectory, \
@@ -43,20 +44,20 @@ class UsageError (StandardError):
 
 def usage(e=None):
     if e:
-        print e
-        print ""
+        print(e)
+        print("")
 
     name = os.path.basename(sys.argv[0])
-    print "usage: %s [options]" % (name,)
-    print ""
-    print "Populate an sqlite or PostgreSQL augments database with values"
-    print "from an XML augments file."
-    print ""
-    print "options:"
-    print "  -h --help: print this help and exit"
-    print "  -f --config: Specify caldavd.plist configuration path"
-    print "  -x --xmlfile: Specify xml augments file path"
-    print "  -r --remove: Remove all entries from the database"
+    print("usage: %s [options]" % (name,))
+    print("")
+    print("Populate an sqlite or PostgreSQL augments database with values")
+    print("from an XML augments file.")
+    print("")
+    print("options:")
+    print("  -h --help: print this help and exit")
+    print("  -f --config: Specify caldavd.plist configuration path")
+    print("  -x --xmlfile: Specify xml augments file path")
+    print("  -r --remove: Remove all entries from the database")
 
     if e:
         sys.exit(64)
@@ -160,10 +161,10 @@ def run(dbxml):
             yield augment.AugmentService.removeAugmentRecords(remove_uids)
             removed = len(remove_uids)
 
-        print "Changes:"
-        print "  Added: %d" % (added,)
-        print "  Changed: %d" % (updated,)
-        print "  Removed: %d" % (removed,)
+        print("Changes:")
+        print("  Added: %d" % (added,))
+        print("  Changed: %d" % (updated,))
+        print("  Removed: %d" % (removed,))
     finally:
         #
         # Stop the reactor

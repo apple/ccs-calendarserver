@@ -190,9 +190,12 @@ class Record(object):
     @classmethod
     @inlineCallbacks
     def load(cls, transaction, *primaryKey):
-        self = (yield cls.query(transaction,
-                                cls._primaryKeyComparison(primaryKey)))[0]
-        returnValue(self)
+        results = (yield cls.query(transaction,
+                                cls._primaryKeyComparison(primaryKey)))
+        if len(results) != 1:
+            raise NoSuchRecord()
+        else:
+            returnValue(results[0])
 
 
     @classmethod

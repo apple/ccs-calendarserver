@@ -15,6 +15,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+from __future__ import print_function
 
 import sys
 import os
@@ -172,7 +173,7 @@ def doSetup():
         for script in dist.scripts:
             scriptPath = os.path.join(install_scripts, os.path.basename(script))
 
-            print "rewriting %s" % (scriptPath,)
+            print("rewriting %s" % (scriptPath,))
 
             script = []
 

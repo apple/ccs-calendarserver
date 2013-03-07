@@ -15,6 +15,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+from __future__ import print_function
 
 """
 This tool allows any necessary upgrade to complete, then exits.
@@ -38,8 +39,8 @@ from calendarserver.tap.caldav import CalDAVServiceMaker
 
 def usage(e=None):
     if e:
-        print e
-        print ""
+        print(e)
+        print("")
     try:
         UpgradeOptions().opt_help()
     except SystemExit:
@@ -63,7 +64,7 @@ class UpgradeOptions(Options):
     """
     Command-line options for 'calendarserver_upgrade'
 
-    @ivar upgradeers: a list of L{DirectoryUpgradeer} objects which can identify the
+    @ivar upgraders: a list of L{DirectoryUpgradeer} objects which can identify the
         calendars to upgrade, given a directory service.  This list is built by
         parsing --record and --collection options.
     """
@@ -71,6 +72,7 @@ class UpgradeOptions(Options):
     synopsis = description
 
     optFlags = [
+        ['status', 's', "Check database status and exit."],
         ['postprocess', 'p', "Perform post-database-import processing."],
         ['debug', 'D', "Debug logging."],
     ]
@@ -121,6 +123,8 @@ class UpgraderService(Service, object):
     Service which runs, exports the appropriate records, then stops the reactor.
     """
 
+    started = False
+
     def __init__(self, store, options, output, reactor, config):
         super(UpgraderService, self).__init__()
         self.store = store
@@ -135,7 +139,13 @@ class UpgraderService(Service, object):
         """
         Immediately stop.  The upgrade will have been run before this.
         """
-        self.output.write("Upgrade complete, shutting down.\n")
+        # If we get this far the database is OK
+        if self.options["status"]:
+            self.output.write("Database OK.\n")
+        else:
+            self.output.write("Upgrade complete, shutting down.\n")
+        UpgraderService.started = True
+
         from twisted.internet import reactor
         from twisted.internet.error import ReactorNotRunning
         try:
@@ -188,13 +198,26 @@ def main(argv=sys.argv, stderr=sys.stderr, reactor=None):
         output.write(logDateString() + ' ' + log.textFromEventDict(event) + "\n")
         output.flush()
 
-    setLogLevelForNamespace(None, "debug")
-    log.addObserver(onlyUpgradeEvents)
+    if not options["status"]:
+        setLogLevelForNamespace(None, "debug")
+        log.addObserver(onlyUpgradeEvents)
+
+
     def customServiceMaker():
         customService = CalDAVServiceMaker()
         customService.doPostImport = options["postprocess"]
         return customService
-    utilityMain(options["config"], makeService, reactor, customServiceMaker, verbose=options["debug"])
+
+
+    def _patchConfig(config):
+        config.FailIfUpgradeNeeded = options["status"]
+
+
+    def _onShutdown():
+        if not UpgraderService.started:
+            print("Failed to start service.")
+
+    utilityMain(options["config"], makeService, reactor, customServiceMaker, patchConfig=_patchConfig, onShutdown=_onShutdown, verbose=options["debug"])
 
 
 
@@ -219,3 +242,6 @@ def computeTimezoneForLog(tz):
         return '-%02d%02d' % (h, m)
     else:
         return '+%02d%02d' % (h, m)
+
+if __name__ == '__main__':
+    main()

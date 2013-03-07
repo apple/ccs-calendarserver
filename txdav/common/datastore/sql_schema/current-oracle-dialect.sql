@@ -95,7 +95,6 @@ create table CALENDAR_OBJECT (
     "ATTACHMENTS_MODE" integer default 0 not null,
     "DROPBOX_ID" nvarchar2(255),
     "ORGANIZER" nvarchar2(255),
-    "ORGANIZER_OBJECT" integer references CALENDAR_OBJECT,
     "RECURRANCE_MIN" date,
     "RECURRANCE_MAX" date,
     "ACCESS" integer default 0 not null,
@@ -306,7 +305,7 @@ create table CALENDARSERVER (
     "VALUE" nvarchar2(255)
 );
 
-insert into CALENDARSERVER (NAME, VALUE) values ('VERSION', '16');
+insert into CALENDARSERVER (NAME, VALUE) values ('VERSION', '17');
 insert into CALENDARSERVER (NAME, VALUE) values ('CALENDAR-DATAVERSION', '3');
 insert into CALENDARSERVER (NAME, VALUE) values ('ADDRESSBOOK-DATAVERSION', '1');
 create index NOTIFICATION_NOTIFICA_f891f5f9 on NOTIFICATION (
@@ -327,8 +326,8 @@ create index CALENDAR_OBJECT_CALEN_96e83b73 on CALENDAR_OBJECT (
     RECURRANCE_MAX
 );
 
-create index CALENDAR_OBJECT_ORGAN_7ce24750 on CALENDAR_OBJECT (
-    ORGANIZER_OBJECT
+create index CALENDAR_OBJECT_ICALE_82e731d5 on CALENDAR_OBJECT (
+    ICALENDAR_UID
 );
 
 create index CALENDAR_OBJECT_DROPB_de041d80 on CALENDAR_OBJECT (

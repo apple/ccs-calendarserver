@@ -15,7 +15,7 @@
 ##
 
 """
-Generic directory service base implementation tests
+Generic directory service base implementation tests.
 """
 
 from zope.interface.verify import verifyObject, BrokenMethodImplementation
@@ -24,7 +24,7 @@ from twisted.trial import unittest
 from twisted.trial.unittest import SkipTest
 from twisted.internet.defer import inlineCallbacks
 
-from twext.who.idirectory import QueryNotSupportedError
+from twext.who.idirectory import QueryNotSupportedError, NotAllowedError
 from twext.who.idirectory import RecordType, FieldName
 from twext.who.idirectory import IDirectoryService, IDirectoryRecord
 from twext.who.directory import DirectoryService, DirectoryRecord
@@ -35,7 +35,7 @@ class BaseTest(unittest.TestCase):
     realmName = "xyzzy"
 
 
-    def _testService(self):
+    def service(self):
         if not hasattr(self, "_service"):
             self._service = DirectoryService(self.realmName)
         return self._service
@@ -44,7 +44,7 @@ class BaseTest(unittest.TestCase):
 
 class DirectoryServiceTest(BaseTest):
     def test_interface(self):
-        service = self._testService()
+        service = self.service()
         try:
             verifyObject(IDirectoryService, service)
         except BrokenMethodImplementation as e:
@@ -52,51 +52,89 @@ class DirectoryServiceTest(BaseTest):
 
 
     def test_init(self):
-        service = self._testService()
+        service = self.service()
         self.assertEquals(service.realmName, self.realmName)
 
 
     def test_repr(self):
-        service = self._testService()
+        service = self.service()
         self.assertEquals(repr(service), "<DirectoryService 'xyzzy'>")
 
 
-    @inlineCallbacks
     def test_recordTypes(self):
-        service = self._testService()
+        service = self.service()
         self.assertEquals(
-            set((yield service.recordTypes())),
+            set(service.recordTypes()),
             set(service.recordType.iterconstants())
         )
 
 
     @inlineCallbacks
     def test_recordsFromQueryNone(self):
-        service = self._testService()
+        service = self.service()
         records = (yield service.recordsFromQuery(()))
         for record in records:
             self.failTest("No records expected")
 
 
     def test_recordsFromQueryBogus(self):
-        service = self._testService()
+        service = self.service()
         self.assertFailure(service.recordsFromQuery((object(),)), QueryNotSupportedError)
 
 
     def test_recordWithUID(self):
         raise SkipTest("Subclasses should implement this test.")
 
+
     def test_recordWithGUID(self):
         raise SkipTest("Subclasses should implement this test.")
+
 
     def test_recordsWithRecordType(self):
         raise SkipTest("Subclasses should implement this test.")
 
+
     def test_recordWithShortName(self):
         raise SkipTest("Subclasses should implement this test.")
 
+
     def test_recordsWithEmailAddress(self):
         raise SkipTest("Subclasses should implement this test.")
+
+
+
+class DirectoryServiceImmutableTest(BaseTest):
+    def test_updateRecordsNotAllowed(self):
+        service = self.service()
+
+        newRecord = DirectoryRecord(
+            service,
+            fields = {
+                service.fieldName.uid:        "__plugh__",
+                service.fieldName.recordType: service.recordType.user,
+                service.fieldName.shortNames: ("plugh",),
+            }
+        )
+
+        self.assertFailure(
+            service.updateRecords((newRecord,), create=True),
+            NotAllowedError,
+        )
+
+        self.assertFailure(
+            service.updateRecords((newRecord,), create=False),
+            NotAllowedError,
+        )
+
+
+    def test_removeRecordsNotAllowed(self):
+        service = self.service()
+
+        service.removeRecords(())
+        self.assertFailure(
+            service.removeRecords(("foo",)),
+            NotAllowedError,
+        )
 
 
 
@@ -130,7 +168,7 @@ class DirectoryRecordTest(BaseTest):
         if fields is None:
             fields = self.fields_wsanchez
         if service is None:
-            service = self._testService()
+            service = self.service()
         return DirectoryRecord(service, fields)
 
 
@@ -143,7 +181,7 @@ class DirectoryRecordTest(BaseTest):
 
 
     def test_init(self):
-        service  = self._testService()
+        service  = self.service()
         wsanchez = self._testRecord(self.fields_wsanchez, service=service)
 
         self.assertEquals(wsanchez.service, service)

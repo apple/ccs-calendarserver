@@ -1,3 +1,4 @@
+# -*- test-case-name: twext.who.test -*-
 ##
 # Copyright (c) 2006-2013 Apple Inc. All rights reserved.
 #
@@ -20,6 +21,7 @@ Directory service interface.
 
 __all__ = [
     "DirectoryServiceError",
+    "DirectoryConfigurationError",
     "DirectoryAvailabilityError",
     "UnknownRecordTypeError",
     "QueryNotSupportedError",
@@ -28,10 +30,7 @@ __all__ = [
 
     "RecordType",
     "FieldName",
-    "MatchType",
     "Operand",
-    "QueryFlags",
-    "DirectoryQueryMatchExpression",
 
     "IDirectoryService",
     "IDirectoryRecord",
@@ -40,7 +39,6 @@ __all__ = [
 from zope.interface import Attribute, Interface
 
 from twisted.python.constants import Names, NamedConstant
-from twisted.python.constants import Flags, FlagConstant
 
 
 
@@ -51,6 +49,11 @@ from twisted.python.constants import Flags, FlagConstant
 class DirectoryServiceError(Exception):
     """
     Directory service generic error.
+    """
+
+class DirectoryConfigurationError(DirectoryServiceError):
+    """
+    Directory configurtion error.
     """
 
 class DirectoryAvailabilityError(DirectoryServiceError):
@@ -126,73 +129,12 @@ class FieldName(Names):
 
 
 
-class MatchType(Names):
-    """
-    Query match types.
-    """
-    equals     = NamedConstant()
-    startsWith = NamedConstant()
-    contains   = NamedConstant()
-
-    equals.description     = "equals"
-    startsWith.description = "starts with"
-    contains.description   = "contains"
-
-
-
 class Operand(Names):
     OR  = NamedConstant()
     AND = NamedConstant()
 
     OR.description  = "or"
     AND.description = "and"
-
-
-
-class QueryFlags(Flags):
-    """
-    Query flags.
-    """
-    NOT = FlagConstant()
-    NOT.description = "not"
-
-    caseInsensitive = FlagConstant()
-    caseInsensitive.description = "case insensitive"
-
-
-
-class DirectoryQueryMatchExpression(object):
-    """
-    Query for a matching value in a given field.
-
-    @ivar fieldName: a L{NamedConstant} specifying the field
-    @ivar fieldValue: a text value to match
-    @ivar matchType: a L{NamedConstant} specifying the match algorythm
-    @ivar flags: L{NamedConstant} specifying additional options
-    """
-
-    def __init__(self, fieldName, fieldValue, matchType=MatchType.equals, flags=None):
-        self.fieldName  = fieldName
-        self.fieldValue = fieldValue
-        self.matchType  = matchType
-        self.flags      = flags
-
-    def __repr__(self):
-        def describe(constant):
-            return getattr(constant, "description", str(constant))
-
-        if self.flags is None:
-            flags = ""
-        else:
-            flags = " (%s)" % (self.flags,)
-
-        return "<%s: %r %s %r%s>" % (
-            self.__class__.__name__,
-            describe(self.fieldName),
-            describe(self.matchType),
-            describe(self.fieldValue),
-            flags
-        )
 
 
 
@@ -219,16 +161,26 @@ class IDirectoryService(Interface):
 
     def recordTypes():
         """
-        @return: a deferred iterable of L{NamedConstant}s denoting the
-            record types that are kept in this directory.
+        @return: an iterable of L{NamedConstant}s denoting the record
+            types that are kept in this directory.
+        """
+
+    def recordsFromExpression(self, expression):
+        """
+        Find records matching an expression.
+        @param expression: an expression to apply
+        @type expression: L{object}
+        @return: a deferred iterable of matching L{IDirectoryRecord}s.
+        @raises: L{QueryNotSupportedError} if the expression is not
+            supported by this directory service.
         """
 
     def recordsFromQuery(expressions, operand=Operand.AND):
         """
-        Find records matching a query consisting of an iterable of
+        Find records by composing a query consisting of an iterable of
         expressions and an operand.
-        @param expressions: an iterable of expressions
-        @type expressions: L{object}
+        @param expressions: expressions to query against
+        @type expressions: iterable of L{object}s
         @param operand: an operand
         @type operand: a L{NamedConstant}
         @return: a deferred iterable of matching L{IDirectoryRecord}s.

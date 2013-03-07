@@ -1,3 +1,4 @@
+# -*- test-case-name: twext.who.test.test_util -*-
 ##
 # Copyright (c) 2013 Apple Inc. All rights reserved.
 #
@@ -19,69 +20,45 @@ Directory service module utilities.
 """
 
 __all__ = [
-    "MergedConstants",
+    "ConstantsContainer",
     "uniqueResult",
     "describe",
     "iterFlags",
 ]
 
-from types import FunctionType
-
-from twisted.python.constants import NamedConstant
+from twisted.python.constants import FlagConstant
 
 from twext.who.idirectory import DirectoryServiceError
 
 
 
-class MergedConstants(object):
+class ConstantsContainer(object):
     """
-    Work-around for the fact that Names is apparently not subclassable
-    and doesn't provide a way to merge multiple Names classes.
+    A container for constants.
     """
-    def __init__(self, *containers):
-        seenNames = set()
-        myContainers = set()
-        for container in containers:
-            for constant in container.iterconstants():
-                if constant.name in seenNames:
-                    raise ValueError(
-                        "Multiple constants with the same name may not be merged: %s"
-                        % (constant.name,)
-                    )
-                seenNames.add(constant.name)
+    def __init__(self, constants):
+        myConstants = {}
+        for constant in constants:
+            if constant.name in myConstants:
+                raise ValueError("Name conflict: %r" % (constant.name,))
+            myConstants[constant.name] = constant
 
-            if isinstance(container, MergedConstants):
-                # Avoid nesting
-                myContainers |= container._containers
-            else:
-                myContainers.add(container)
-
-        self._containers = myContainers
+        self._constants = myConstants
 
     def __getattr__(self, name):
-        for container in self._containers:
-            attr = getattr(container, name, None)
-            if attr is not None:
-                # Named constant or static method
-                if isinstance(attr, (NamedConstant, FunctionType)):
-                    return attr
-
-        raise AttributeError(name)
+        try:
+            return self._constants[name]
+        except KeyError:
+            raise AttributeError(name)
 
     def iterconstants(self):
-        for container in self._containers:
-            for constant in container.iterconstants():
-                yield constant
+        return self._constants.itervalues()
 
     def lookupByName(self, name):
-        for container in self._containers:
-            try:
-                return container.lookupByName(name)
-            except ValueError:
-                pass
-
-        raise ValueError(name)
-
+        try:
+            return self._constants[name]
+        except KeyError:
+            raise ValueError(name)
 
 
 def uniqueResult(values):
@@ -95,7 +72,13 @@ def uniqueResult(values):
 
 
 def describe(constant):
-    return getattr(constant, "description", str(constant))
+    if isinstance(constant, FlagConstant):
+        parts = []
+        for flag in iterFlags(constant):
+            parts.append(getattr(flag, "description", flag.name))
+        return "|".join(parts)
+    else:
+        return getattr(constant, "description", constant.name)
 
 
 def iterFlags(flags):

@@ -98,6 +98,16 @@ class TestCRUD(TestCase):
 
 
     @inlineCallbacks
+    def test_missingLoad(self):
+        """
+        Try loading an row which doesn't exist
+        """
+        txn = self.pool.connection()
+        yield txn.execSQL("insert into ALPHA values (:1, :2)", [234, "one"])
+        self.assertFailure(TestRecord.load(txn, 456), NoSuchRecord)
+
+
+    @inlineCallbacks
     def test_simpleCreate(self):
         """
         When a record object is created, a row with matching column values will

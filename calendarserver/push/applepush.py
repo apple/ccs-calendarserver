@@ -88,7 +88,6 @@ class ApplePushNotifierService(service.MultiService, LoggingMixIn):
         service.store = store
         service.providers = {}
         service.feedbacks = {}
-        service.dataHost = settings["DataHost"]
         service.purgeCall = None
         service.purgeIntervalSeconds = settings["SubscriptionPurgeIntervalSeconds"]
         service.purgeSeconds = settings["SubscriptionPurgeSeconds"]
@@ -177,31 +176,27 @@ class ApplePushNotifierService(service.MultiService, LoggingMixIn):
 
 
     @inlineCallbacks
-    def enqueue(self, id, dataChangedTimestamp=None):
+    def enqueue(self, pushKey, dataChangedTimestamp=None):
         """
         Sends an Apple Push Notification to any device token subscribed to
-        this id.
+        this pushKey.
 
-        @param id: The identifier of the resource that was updated, including
+        @param pushKey: The identifier of the resource that was updated, including
             a prefix indicating whether this is CalDAV or CardDAV related.
-            The prefix is separated from the id with "|", e.g.:
 
-            "CalDAV|abc/def"
+            "/CalDAV/abc/def/"
 
-            The id is an opaque token as far as this code is concerned, and
-            is used in conjunction with the prefix and the server hostname
-            to build the actual key value that devices subscribe to.
-        @type id: C{str}
+        @type pushKey: C{str}
         @param dataChangedTimestamp: Timestamp (epoch seconds) for the data change
             which triggered this notification (Only used for unit tests)
         @type key: C{int}
         """
 
         try:
-            protocol, id = id.split("|", 1)
+            protocol = pushKey.split("/")[1]
         except ValueError:
-            # id has no protocol, so we can't do anything with it
-            self.log_error("Notification id '%s' is missing protocol" % (id,))
+            # pushKey has no protocol, so we can't do anything with it
+            self.log_error("Push key '%s' is missing protocol" % (pushKey,))
             return
 
         # Unit tests can pass this value in; otherwise it defaults to now
@@ -210,23 +205,22 @@ class ApplePushNotifierService(service.MultiService, LoggingMixIn):
 
         provider = self.providers.get(protocol, None)
         if provider is not None:
-            key = "/%s/%s/%s/" % (protocol, self.dataHost, id)
 
             # Look up subscriptions for this key
             txn = self.store.newTransaction()
-            subscriptions = (yield txn.apnSubscriptionsByKey(key))
+            subscriptions = (yield txn.apnSubscriptionsByKey(pushKey))
             yield txn.commit()
 
             numSubscriptions = len(subscriptions)
             if numSubscriptions > 0:
                 self.log_debug("Sending %d APNS notifications for %s" %
-                    (numSubscriptions, key))
+                    (numSubscriptions, pushKey))
                 tokens = []
                 for token, uid in subscriptions:
                     if token and uid:
                         tokens.append(token)
                 if tokens:
-                    provider.scheduleNotifications(tokens, key, dataChangedTimestamp)
+                    provider.scheduleNotifications(tokens, pushKey, dataChangedTimestamp)
 
 
 

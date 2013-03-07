@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+from __future__ import print_function
 
 from calendarserver.push.amppush import subscribeToIDs
 from calendarserver.tools.cmdline import utilityMain
@@ -34,17 +35,17 @@ log = Logger()
 def usage(e=None):
 
     name = os.path.basename(sys.argv[0])
-    print "usage: %s [options] [pushkey ...]" % (name,)
-    print ""
-    print "  Monitor AMP Push Notifications"
-    print ""
-    print "options:"
-    print "  -h --help: print this help and exit"
-    print "  -f --config <path>: Specify caldavd.plist configuration path"
-    print "  -p --port <port>: AMP port to connect to"
-    print "  -s --server <hostname>: AMP server to connect to"
-    print "  --debug: verbose logging"
-    print ""
+    print("usage: %s [options] [pushkey ...]" % (name,))
+    print("")
+    print("  Monitor AMP Push Notifications")
+    print("")
+    print("options:")
+    print("  -h --help: print this help and exit")
+    print("  -f --config <path>: Specify caldavd.plist configuration path")
+    print("  -p --port <port>: AMP port to connect to")
+    print("  -s --server <hostname>: AMP server to connect to")
+    print("  --debug: verbose logging")
+    print("")
 
     if e:
         sys.stderr.write("%s\n" % (e,))
@@ -141,13 +142,13 @@ def main():
 
 
 def notificationCallback(id, dataChangedTimestamp):
-    print "Received notification for:", id
+    print("Received notification for:", id)
     return succeed(True)
 
 
 
 @inlineCallbacks
 def monitorAMPNotifications(hostname, port, ids):
-    print "Subscribing to notifications..."
+    print("Subscribing to notifications...")
     yield subscribeToIDs(hostname, port, ids, notificationCallback)
-    print "Waiting for notifications..."
+    print("Waiting for notifications...")

@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+from __future__ import print_function
 
 from pycalendar.calendar import PyCalendar
 from pycalendar.datetime import PyCalendarDateTime
@@ -65,20 +66,20 @@ def _doRefresh(tzpath, xmlfile, tzdb, tzvers):
     Refresh data from IANA.
     """
 
-    print "Downloading latest data from IANA"
+    print("Downloading latest data from IANA")
     if tzvers:
         path = "http://www.iana.org/time-zones/repository/releases/tzdata%s.tar.gz" % (tzvers,)
     else:
         path = "http://www.iana.org/time-zones/repository/tzdata-latest.tar.gz"
         tzvers = "Latest (%s)" % (PyCalendarDateTime.getToday().getText(),)
     data = urllib.urlretrieve(path)
-    print "Extract data at: %s" % (data[0])
+    print("Extract data at: %s" % (data[0]))
     rootdir = tempfile.mkdtemp()
     zonedir = os.path.join(rootdir, "tzdata")
     os.mkdir(zonedir)
     with tarfile.open(data[0], "r:gz") as t:
         t.extractall(zonedir)
-    print "Converting data at: %s" % (zonedir,)
+    print("Converting data at: %s" % (zonedir,))
     startYear = 1800
     endYear = PyCalendarDateTime.getToday().getYear() + 10
     PyCalendar.sProdID = "-//calendarserver.org//Zonal//EN"
@@ -88,22 +89,22 @@ def _doRefresh(tzpath, xmlfile, tzdb, tzvers):
         parser.parse(os.path.join(zonedir, file))
 
     parser.generateZoneinfoFiles(os.path.join(rootdir, "zoneinfo"), startYear, endYear, filterzones=())
-    print "Copy new zoneinfo to destination: %s" % (tzpath,)
+    print("Copy new zoneinfo to destination: %s" % (tzpath,))
     z = FilePath(os.path.join(rootdir, "zoneinfo"))
     tz = FilePath(tzpath)
     z.copyTo(tz)
-    print "Updating XML file at: %s" % (xmlfile,)
+    print("Updating XML file at: %s" % (xmlfile,))
     tzdb.readDatabase()
     tzdb.updateDatabase()
-    print "Current total: %d" % (len(tzdb.timezones),)
-    print "Total Changed: %d" % (tzdb.changeCount,)
+    print("Current total: %d" % (len(tzdb.timezones),))
+    print("Total Changed: %d" % (tzdb.changeCount,))
     if tzdb.changeCount:
-        print "Changed:"
+        print("Changed:")
         for k in sorted(tzdb.changed):
-            print "  %s" % (k,)
+            print("  %s" % (k,))
 
     versfile = os.path.join(os.path.dirname(xmlfile), "version.txt")
-    print "Updating version file at: %s" % (versfile,)
+    print("Updating version file at: %s" % (versfile,))
     with open(versfile, "w") as f:
         f.write("Olson data source: %s\n" % (tzvers,))
 
@@ -114,9 +115,9 @@ def _doCreate(xmlfile, tzdb):
     Create new xml file.
     """
 
-    print "Creating new XML file at: %s" % (xmlfile,)
+    print("Creating new XML file at: %s" % (xmlfile,))
     tzdb.createNewDatabase()
-    print "Current total: %d" % (len(tzdb.timezones),)
+    print("Current total: %d" % (len(tzdb.timezones),))
 
 
 
@@ -125,15 +126,15 @@ def _doUpdate(xmlfile, tzdb):
     Update xml file.
     """
 
-    print "Updating XML file at: %s" % (xmlfile,)
+    print("Updating XML file at: %s" % (xmlfile,))
     tzdb.readDatabase()
     tzdb.updateDatabase()
-    print "Current total: %d" % (len(tzdb.timezones),)
-    print "Total Changed: %d" % (tzdb.changeCount,)
+    print("Current total: %d" % (len(tzdb.timezones),))
+    print("Total Changed: %d" % (tzdb.changeCount,))
     if tzdb.changeCount:
-        print "Changed:"
+        print("Changed:")
         for k in sorted(tzdb.changed):
-            print "  %s" % (k,)
+            print("  %s" % (k,))
 
 
 
@@ -142,12 +143,12 @@ def _doList(xmlfile, tzdb):
     List current timezones from xml file.
     """
 
-    print "Listing XML file at: %s" % (xmlfile,)
+    print("Listing XML file at: %s" % (xmlfile,))
     tzdb.readDatabase()
-    print "Current timestamp: %s" % (tzdb.dtstamp,)
-    print "Timezones:"
+    print("Current timestamp: %s" % (tzdb.dtstamp,))
+    print("Timezones:")
     for k in sorted(tzdb.timezones.keys()):
-        print "  %s" % (k,)
+        print("  %s" % (k,))
 
 
 
@@ -156,16 +157,16 @@ def _doChanged(xmlfile, changed, tzdb):
     Check for local timezone changes.
     """
 
-    print "Changes from XML file at: %s" % (xmlfile,)
+    print("Changes from XML file at: %s" % (xmlfile,))
     tzdb.readDatabase()
-    print "Check timestamp: %s" % (changed,)
-    print "Current timestamp: %s" % (tzdb.dtstamp,)
+    print("Check timestamp: %s" % (changed,))
+    print("Current timestamp: %s" % (tzdb.dtstamp,))
     results = [k for k, v in tzdb.timezones.items() if v.dtstamp > changed]
-    print "Total Changed: %d" % (len(results),)
+    print("Total Changed: %d" % (len(results),))
     if results:
-        print "Changed:"
+        print("Changed:")
         for k in sorted(results):
-            print "  %s" % (k,)
+            print("  %s" % (k,))
 
 
 
@@ -174,11 +175,11 @@ def _runInReactor(tzdb):
 
     try:
         new, changed = yield tzdb.syncWithServer()
-        print "New:           %d" % (new,)
-        print "Changed:       %d" % (changed,)
-        print "Current total: %d" % (len(tzdb.timezones),)
+        print("New:           %d" % (new,))
+        print("Changed:       %d" % (changed,))
+        print("Current total: %d" % (len(tzdb.timezones),))
     except Exception, e:
-        print "Could not sync with server: %s" % (str(e),)
+        print("Could not sync with server: %s" % (str(e),))
     finally:
         reactor.stop()
 
@@ -192,7 +193,7 @@ def _doSecondaryActions(action, tzpath, xmlfile, url):
     except:
         pass
     if action == "cache":
-        print "Caching from secondary server: %s" % (url,)
+        print("Caching from secondary server: %s" % (url,))
 
         observer = StandardIOObserver()
         observer.start()
@@ -205,10 +206,10 @@ def _doSecondaryActions(action, tzpath, xmlfile, url):
 
 def usage(error_msg=None):
     if error_msg:
-        print error_msg
-        print
+        print(error_msg)
+        print("")
 
-    print """Usage: managetimezones [options]
+    print("""Usage: managetimezones [options]
 Options:
     -h            Print this help and exit
     -f            XML file path
@@ -232,7 +233,7 @@ Description:
     This utility will create, update or list an XML timezone database
     summary file, or refresh iCalendar timezone from IANA (Olson).
 
-"""
+""")
 
     if error_msg:
         raise ValueError(error_msg)

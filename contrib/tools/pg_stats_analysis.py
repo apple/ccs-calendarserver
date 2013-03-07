@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+from __future__ import print_function
 
 import sqlparse
 import os
@@ -51,7 +52,7 @@ def sqlnormalize(sql):
     try:
         statements = sqlparse.parse(sql)
     except ValueError, e:
-        print e
+        print(e)
     # Replace any literal values with placeholders
     qmark = sqlparse.sql.Token('Operator', '?')
     _substitute(statements[0], qmark)
@@ -134,9 +135,9 @@ def sqlStatementsReport(entries):
                     None,
                 ))
 
-        print "Queries sorted by %s" % (sorttype,)
+        print("Queries sorted by %s" % (sorttype,))
         table.printTable()
-        print ""
+        print("")
  
 def parseStats(logFilePath, donormlize=True, verbose=False):
     
@@ -175,20 +176,20 @@ def parseStats(logFilePath, donormlize=True, verbose=False):
                 bits = [bit.strip() for bit in bits]
                 entries.append(bits)
                 if verbose and divmod(len(entries), 1000)[1] == 0:
-                    print "%d entries" % (len(entries),)
+                    print("%d entries" % (len(entries),))
                 #if float(bits[COLUMN_total_time]) > 1:
-                #    print bits[COLUMN_total_time], bits[COLUMN_query]
+                #    print(bits[COLUMN_total_time], bits[COLUMN_query])
     
     if verbose:
-        print "Read %d entries" % (len(entries,))
+        print("Read %d entries" % (len(entries,)))
     
     sqlStatementsReport(entries)
             
 def usage(error_msg=None):
     if error_msg:
-        print error_msg
+        print(error_msg)
 
-    print """Usage: pg_stats_analysis.py [options] FILE
+    print("""Usage: pg_stats_analysis.py [options] FILE
 Options:
     -h             Print this help and exit
     -v             Generate progress information
@@ -199,7 +200,7 @@ Arguments:
 
 Description:
 This utility will analyze the output of s pg_stat_statement table.
-"""
+""")
 
     if error_msg:
         raise ValueError(error_msg)

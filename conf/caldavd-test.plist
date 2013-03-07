@@ -656,21 +656,13 @@
       <key>CoalesceSeconds</key>
       <integer>3</integer>
 
-      <key>InternalNotificationHost</key>
-      <string>localhost</string>
-
-      <key>InternalNotificationPort</key>
-      <integer>62309</integer>
-
       <key>Services</key>
       <dict>
 
-        <key>AMPNotifier</key>
+        <key>AMP</key>
         <dict>
-          <key>Service</key>
-          <string>calendarserver.push.amppush.AMPPushNotifierService</string>
           <key>Enabled</key>
-          <true/>
+          <false/>
           <key>Port</key>
           <integer>62311</integer>
           <key>EnableStaggering</key>
@@ -679,81 +671,6 @@
           <integer>3</integer>
         </dict>
 
-        <key>SimpleLineNotifier</key>
-        <dict>
-          <!-- Simple line notification service (for testing) -->
-          <key>Service</key>
-          <string>twistedcaldav.notify.SimpleLineNotifierService</string>
-          <key>Enabled</key>
-          <false/>
-          <key>Port</key>
-          <integer>62308</integer>
-        </dict>
-
-        <key>XMPPNotifier</key>
-        <dict>
-          <!-- XMPP notification service -->
-          <key>Service</key>
-          <string>twistedcaldav.notify.XMPPNotifierService</string>
-          <key>Enabled</key>
-          <false/>
-
-          <!-- XMPP host and port to contact -->
-          <key>Host</key>
-          <string>xmpp.host.name</string>
-          <key>Port</key>
-          <integer>5222</integer>
-
-          <!-- Jabber ID and password for the server -->
-          <key>JID</key>
-          <string>jid@xmpp.host.name/resource</string>
-          <key>Password</key>
-          <string>password_goes_here</string>
-
-          <!-- PubSub service address -->
-          <key>ServiceAddress</key>
-          <string>pubsub.xmpp.host.name</string>
-
-          <!-- Apple-specific config -->
-          <key>CalDAV</key>
-          <dict>
-              <key>APSBundleID</key>
-              <string></string>
-              <key>SubscriptionURL</key>
-              <string></string>
-          </dict>
-          <key>CardDAV</key>
-          <dict>
-              <key>APSBundleID</key>
-              <string></string>
-              <key>SubscriptionURL</key>
-              <string></string>
-          </dict>
-
-          <key>NodeConfiguration</key>
-          <dict>
-            <key>pubsub#deliver_payloads</key>
-            <string>1</string>
-            <key>pubsub#persist_items</key>
-            <string>1</string>
-          </dict>
-
-          <!-- Sends a presence notification to XMPP server at this interval (prevents disconnect) -->
-          <key>KeepAliveSeconds</key>
-          <integer>120</integer>
-
-          <!-- Sends a pubsub publish to a particular heartbeat node at this interval -->
-          <key>HeartbeatMinutes</key>
-          <integer>30</integer>
-
-          <!-- List of glob-like expressions defining which XMPP JIDs can converse with the server (for debugging) -->
-          <key>AllowedJIDs</key>
-          <array>
-            <!--
-            <string>*.example.com</string>
-             -->
-          </array>
-        </dict>
       </dict>
     </dict>
 

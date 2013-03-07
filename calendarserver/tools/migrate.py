@@ -15,6 +15,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+from __future__ import print_function
 
 """
 This tool migrates existing calendar data from any previous calendar server
@@ -36,17 +37,17 @@ from calendarserver.tools.util import loadConfig, getDirectory
 
 def usage(e=None):
     if e:
-        print e
-        print ""
+        print(e)
+        print("")
 
     name = os.path.basename(sys.argv[0])
-    print "usage: %s [options]" % (name,)
-    print ""
-    print "Migrate calendar data to current version"
-    print __doc__
-    print "options:"
-    print "  -h --help: print this help and exit"
-    print "  -f --config: Specify caldavd.plist configuration path"
+    print("usage: %s [options]" % (name,))
+    print("")
+    print("Migrate calendar data to current version")
+    print(__doc__)
+    print("options:")
+    print("  -h --help: print this help and exit")
+    print("  -f --config: Specify caldavd.plist configuration path")
 
     if e:
         sys.exit(64)

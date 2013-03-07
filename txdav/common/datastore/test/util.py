@@ -14,43 +14,51 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+
 """
 Store test utility functions
 """
 
-import gc
-from hashlib import md5
-from random import Random
-from zope.interface.verify import verifyObject
-from zope.interface.exceptions import BrokenMethodImplementation, \
-    DoesNotImplement
+from __future__ import print_function
 
+from calendarserver.push.notifier import Notifier
+
+from hashlib import md5
+
+from pycalendar.datetime import PyCalendarDateTime
+
+from random import Random
+
+from twext.enterprise.adbapi2 import ConnectionPool
+from twext.enterprise.ienterprise import AlreadyFinishedError
 from twext.python.filepath import CachingFilePath
 from twext.python.vcomponent import VComponent
 from twext.web2.dav.resource import TwistedGETContentMD5
 
+from twisted.application.service import Service
 from twisted.internet import reactor
 from twisted.internet.defer import Deferred, inlineCallbacks
+from twisted.internet.defer import returnValue
 from twisted.internet.task import deferLater
 from twisted.python import log
-from twisted.application.service import Service
+from twisted.trial.unittest import TestCase
 
 from twistedcaldav.config import config
-
-from txdav.common.datastore.sql import CommonDataStore, current_sql_schema
-from txdav.base.datastore.subpostgres import PostgresService
-from txdav.base.datastore.dbapiclient import DiagnosticConnectionWrapper
-from txdav.base.propertystore.base import PropertyName
-from txdav.common.icommondatastore import NoSuchHomeChildError
-from twext.enterprise.adbapi2 import ConnectionPool
-from twisted.trial.unittest import TestCase
-from twisted.internet.defer import returnValue
-from calendarserver.push.notifier import Notifier
-from twext.enterprise.ienterprise import AlreadyFinishedError
+from twistedcaldav.stdconfig import DEFAULT_CONFIG
 from twistedcaldav.vcard import Component as ABComponent
 
-from pycalendar.datetime import PyCalendarDateTime
+from txdav.base.datastore.dbapiclient import DiagnosticConnectionWrapper
+from txdav.base.datastore.subpostgres import PostgresService
+from txdav.base.propertystore.base import PropertyName
+from txdav.common.datastore.sql import CommonDataStore, current_sql_schema
 from txdav.common.datastore.sql_tables import schema
+from txdav.common.icommondatastore import NoSuchHomeChildError
+
+from zope.interface.exceptions import BrokenMethodImplementation, \
+    DoesNotImplement
+from zope.interface.verify import verifyObject
+
+import gc
 
 md5key = PropertyName.fromElement(TwistedGETContentMD5)
 
@@ -71,10 +79,10 @@ def dumpConnectionStatus():
     between tests.  (It is currently not invoked anywhere, but may be useful if
     these types of bugs crop up in the future.)
     """
-    print '+++ ALL CONNECTIONS +++'
+    print("+++ ALL CONNECTIONS +++")
     for connection in allInstancesOf(DiagnosticConnectionWrapper):
-        print connection.label, connection.state
-    print '--- CONNECTIONS END ---'
+        print(connection.label, connection.state)
+    print("--- CONNECTIONS END ---")
 
 
 
@@ -646,7 +654,6 @@ class CommonCommonTests(object):
 
 
 
-
 class StubNotifierFactory(object):
     """
     For testing push notifications without an XMPP server.
@@ -698,6 +705,8 @@ def disableMemcacheForTest(aTest):
 
     from twistedcaldav.memcacher import Memcacher
 
+    if not hasattr(config, "Memcached"):
+        config.setDefaults(DEFAULT_CONFIG)
     aTest.patch(config.Memcached.Pools.Default, "ClientEnabled", False)
     aTest.patch(config.Memcached.Pools.Default, "ServerEnabled", False)
     aTest.patch(Memcacher, "allowTestCache", True)

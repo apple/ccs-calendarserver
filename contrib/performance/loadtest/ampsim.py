@@ -188,4 +188,3 @@ class Manager(AMP):
         msg(**event)
         return {}
 
-

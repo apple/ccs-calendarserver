@@ -22,6 +22,7 @@
 #
 # DRI: Wilfredo Sanchez, wsanchez@apple.com
 ##
+from __future__ import print_function
 
 """
 WebDAV resources.
@@ -759,7 +760,7 @@ class DAVResource (DAVPropertyMixIn, StaticRenderMixin):
             )[2].append((resource, url))
 
         # Now determine whether each ace satisfies privileges
-        #print aclmap
+        #print(aclmap)
         for items in aclmap.itervalues():
             checked = (yield self.checkACLPrivilege(
                 request, items[0], items[1], privileges, inherited_aces

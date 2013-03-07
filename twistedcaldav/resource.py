@@ -2320,7 +2320,7 @@ class CommonHomeResource(PropfindCacheMixin, SharedHomeMixin, CalDAVResource):
 
         elif qname == (customxml.calendarserver_namespace, "push-transports"):
 
-            if config.Notifications.Services.ApplePushNotifier.Enabled:
+            if config.Notifications.Services.APNS.Enabled:
 
                 nodeName = (yield self._newStoreHome.nodeName())
                 if nodeName:
@@ -2355,8 +2355,8 @@ class CommonHomeResource(PropfindCacheMixin, SharedHomeMixin, CalDAVResource):
             returnValue(None)
 
         elif qname == (customxml.calendarserver_namespace, "pushkey"):
-            if (config.Notifications.Services.AMPNotifier.Enabled or
-                config.Notifications.Services.ApplePushNotifier.Enabled):
+            if (config.Notifications.Services.AMP.Enabled or
+                config.Notifications.Services.APNS.Enabled):
                 nodeName = (yield self._newStoreHome.nodeName())
                 if nodeName:
                     returnValue(customxml.PubSubXMPPPushKeyProperty(nodeName))

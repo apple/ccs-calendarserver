@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+from __future__ import print_function
 
 import getopt
 import os
@@ -23,9 +24,9 @@ from pycalendar.calendar import PyCalendar
 
 def usage(error_msg=None):
     if error_msg:
-        print error_msg
+        print(error_msg)
 
-    print """Usage: sortrecurrences FILE
+    print("""Usage: sortrecurrences FILE
 Options:
     -h            Print this help and exit
 
@@ -35,7 +36,7 @@ Arguments:
 Description:
     This utility will output a sorted iCalendar component.
 
-"""
+""")
 
     if error_msg:
         raise ValueError(error_msg)
@@ -68,13 +69,13 @@ if __name__ == "__main__":
             if arg.endswith("/"):
                 arg = arg[:-1]
             if not os.path.exists(arg):
-                print "Path does not exist: '%s'. Ignoring." % (arg,)
+                print("Path does not exist: '%s'. Ignoring." % (arg,))
                 continue
 
             cal = PyCalendar()
             cal.parse(open(arg))
-            print str(cal.serialize())
+            print(str(cal.serialize()))
 
     except Exception, e:
         sys.exit(str(e))
-        print traceback.print_exc()
+        print(traceback.print_exc())

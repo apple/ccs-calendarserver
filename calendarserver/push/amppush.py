@@ -16,9 +16,8 @@
 
 from calendarserver.push.util import PushScheduler
 from twext.python.log import Logger, LoggingMixIn
-from twisted.application.internet import StreamServerEndpointService
 from twisted.internet.defer import inlineCallbacks, returnValue
-from twisted.internet.endpoints import TCP4ClientEndpoint, TCP4ServerEndpoint
+from twisted.internet.endpoints import TCP4ClientEndpoint 
 from twisted.internet.protocol import Factory, ServerFactory
 from twisted.protocols import amp
 import time
@@ -26,6 +25,10 @@ import uuid
 
 
 log = Logger()
+
+
+# Control socket message-routing constants
+PUSH_ROUTE = "push"
 
 
 # AMP Commands sent to server
@@ -40,7 +43,7 @@ class UnsubscribeFromID(amp.Command):
     response = [('status', amp.String())]
 
 
-# AMP Commands sent to client
+# AMP Commands sent to client (and forwarded to Master)
 
 class NotificationForID(amp.Command):
     arguments = [('id', amp.String()), ('dataChangedTimestamp', amp.Integer())]
@@ -49,29 +52,88 @@ class NotificationForID(amp.Command):
 
 # Server classes
 
+class AMPPushForwardingFactory(Factory, LoggingMixIn):
 
-class AMPPushNotifierService(StreamServerEndpointService, LoggingMixIn):
+    def __init__(self, forwarder):
+        self.forwarder = forwarder
+
+    def buildProtocol(self, addr):
+        protocol = amp.AMP()
+        self.forwarder.protocols.append(protocol)
+        return protocol
+
+class AMPPushForwarder(LoggingMixIn):
+    """
+    Runs in the slaves, forwards notifications to the master via AMP
+    """
+    def __init__(self, controlSocket):
+        self.protocols = []
+        controlSocket.addFactory(PUSH_ROUTE, AMPPushForwardingFactory(self))
+
+    @inlineCallbacks
+    def enqueue(self, id, dataChangedTimestamp=None):
+        if dataChangedTimestamp is None:
+            dataChangedTimestamp = int(time.time())
+        for protocol in self.protocols:
+            yield protocol.callRemote(NotificationForID, id=id,
+                dataChangedTimestamp=dataChangedTimestamp)
+
+
+
+class AMPPushMasterListeningProtocol(amp.AMP, LoggingMixIn):
+    """
+    Listens for notifications coming in over AMP from the slaves
+    """
+    def __init__(self, master):
+        super(AMPPushMasterListeningProtocol, self).__init__()
+        self.master = master
+
+    @NotificationForID.responder
+    def enqueueFromWorker(self, id, dataChangedTimestamp=None):
+        if dataChangedTimestamp is None:
+            dataChangedTimestamp = int(time.time())
+        self.master.enqueue(id, dataChangedTimestamp=dataChangedTimestamp)
+        return {"status" : "OK"}
+ 
+
+class AMPPushMasterListenerFactory(Factory, LoggingMixIn):
+
+    def __init__(self, master):
+        self.master = master
+
+    def buildProtocol(self, addr):
+        protocol = AMPPushMasterListeningProtocol(self.master)
+        return protocol
+
+
+class AMPPushMaster(LoggingMixIn):
     """
     AMPPushNotifierService allows clients to use AMP to subscribe to,
     and receive, change notifications.
     """
 
-    @classmethod
-    def makeService(cls, settings, ignored, reactor=None):
-        return cls(settings, reactor=reactor)
-
-    def __init__(self, settings, reactor=None):
+    def __init__(self, controlSocket, parentService, port, enableStaggering,
+        staggerSeconds, reactor=None):
         if reactor is None:
             from twisted.internet import reactor
-        factory = AMPPushNotifierFactory(self)
-        endpoint = TCP4ServerEndpoint(reactor, settings["Port"])
-        super(AMPPushNotifierService, self).__init__(endpoint, factory)
-        self.subscribers = []
-        self.dataHost = settings["DataHost"]
+        from twisted.application.strports import service as strPortsService
 
-        if settings["EnableStaggering"]:
+        if port:
+            # Service which listens for client subscriptions and sends
+            # notifications to them
+            strPortsService(str(port), AMPPushNotifierFactory(self),
+                reactor=reactor).setServiceParent(parentService)
+
+        if controlSocket is not None:
+            # Set up the listener which gets notifications from the slaves
+            controlSocket.addFactory(PUSH_ROUTE,
+                AMPPushMasterListenerFactory(self))
+
+        self.subscribers = []
+
+        if enableStaggering:
             self.scheduler = PushScheduler(reactor, self.sendNotification,
-                staggerSeconds=settings["StaggerSeconds"])
+                staggerSeconds=staggerSeconds)
         else:
             self.scheduler = None
 
@@ -83,45 +145,32 @@ class AMPPushNotifierService(StreamServerEndpointService, LoggingMixIn):
         self.log_debug("Removed subscriber")
         self.subscribers.remove(p)
 
-    def enqueue(self, id, dataChangedTimestamp=None):
+    def enqueue(self, pushKey, dataChangedTimestamp=None):
         """
-        Sends an AMP push notification to any clients subscribing to this id.
+        Sends an AMP push notification to any clients subscribing to this pushKey.
 
-        @param id: The identifier of the resource that was updated, including
+        @param pushKey: The identifier of the resource that was updated, including
             a prefix indicating whether this is CalDAV or CardDAV related.
-            The prefix is separated from the id with "|", e.g.:
 
-            "CalDAV|abc/def"
+            "/CalDAV/abc/def/"
 
-            The id is an opaque token as far as this code is concerned, and
-            is used in conjunction with the prefix and the server hostname
-            to build the actual key value that devices subscribe to.
-        @type id: C{str}
+        @type pushKey: C{str}
         @param dataChangedTimestamp: Timestamp (epoch seconds) for the data change
             which triggered this notification (Only used for unit tests)
             @type key: C{int}
         """
 
-        try:
-            protocol, id = id.split("|", 1)
-        except ValueError:
-            # id has no protocol, so we can't do anything with it
-            self.log_error("Notification id '%s' is missing protocol" % (id,))
-            return
-
         # Unit tests can pass this value in; otherwise it defaults to now
         if dataChangedTimestamp is None:
             dataChangedTimestamp = int(time.time())
 
-        id = "/%s/%s/%s/" % (protocol, self.dataHost, id)
-
         tokens = []
         for subscriber in self.subscribers:
-            token = subscriber.subscribedToID(id)
+            token = subscriber.subscribedToID(pushKey)
             if token is not None:
                 tokens.append(token)
         if tokens:
-            return self.scheduleNotifications(tokens, id, dataChangedTimestamp)
+            return self.scheduleNotifications(tokens, pushKey, dataChangedTimestamp)
 
 
     @inlineCallbacks

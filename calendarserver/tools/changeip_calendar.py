@@ -9,7 +9,7 @@
 # Software License Agreement accompanying the package this file is a
 # part of.  You may not port this file to another platform without
 # Apple's written consent.
-
+from __future__ import print_function
 from __future__ import with_statement
 
 import os
@@ -21,15 +21,15 @@ from plistlib import readPlist, writePlist
 
 def usage():
     name = os.path.basename(sys.argv[0])
-    print "Usage: %s [-hv] old-ip new-ip [old-hostname new-hostname]" % (name,)
-    print "  Options:"
-    print "    -h           - print this message and exit"
-    print "    -v           - print additional information when running"
-    print "  Arguments:"
-    print "    old-ip       - current IPv4 address of the server"
-    print "    new-ip       - new IPv4 address of the server"
-    print "    old-hostname - current FQDN for the server"
-    print "    new-hostname - new FQDN for the server"
+    print("Usage: %s [-hv] old-ip new-ip [old-hostname new-hostname]" % (name,))
+    print("  Options:")
+    print("    -h           - print this message and exit")
+    print("    -v           - print additional information when running")
+    print("  Arguments:")
+    print("    old-ip       - current IPv4 address of the server")
+    print("    new-ip       - new IPv4 address of the server")
+    print("    old-hostname - current FQDN for the server")
+    print("    new-hostname - new FQDN for the server")
 
 
 def main():
@@ -38,7 +38,7 @@ def main():
 
     # Since the serveradmin command must be run as root, so must this script
     if os.getuid() != 0:
-        print "%s must be run as root" % (name,)
+        print("%s must be run as root" % (name,))
         sys.exit(1)
 
     try:
@@ -74,15 +74,15 @@ def main():
         oldHostname = newHostname = None
 
     if verbose:
-        print "Calendar Server: updating %s" % (configFile,)
+        print("Calendar Server: updating %s" % (configFile,))
 
     try:
         plist = readPlist(configFile)
     except IOError:
-        print "Error: could not open %s" % (configFile,)
+        print("Error: could not open %s" % (configFile,))
         sys.exit(1)
     except Exception, e:
-        print "Error: could not parse %s" % (configFile,)
+        print("Error: could not parse %s" % (configFile,))
         raise e
 
     writePlist(plist, "%s.changeip.bak" % (configFile,))
@@ -91,7 +91,7 @@ def main():
     writePlist(plist, configFile)
 
     if verbose:
-        print "Calendar Server: done"
+        print("Calendar Server: done")
 
 def updatePlist(plist, oldIP, newIP, oldHostname, newHostname, verbose=False):
 
@@ -109,7 +109,7 @@ def updatePlist(plist, oldIP, newIP, oldHostname, newHostname, verbose=False):
         if oldHostname and newHostname:
             newValue = newValue.replace(oldHostname, newHostname)
         if verbose and value != newValue:
-            print "Changed %s -> %s" % (value, newValue)
+            print("Changed %s -> %s" % (value, newValue))
         return newValue
 
     for keyPath in keys:

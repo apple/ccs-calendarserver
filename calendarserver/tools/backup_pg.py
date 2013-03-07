@@ -15,6 +15,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+from __future__ import print_function
 
 from getopt import getopt, GetoptError
 import os
@@ -38,19 +39,19 @@ PGSOCKETDIR   = "/Library/Server/PostgreSQL For Server Services/Socket"
 
 def usage(e=None):
     name = os.path.basename(sys.argv[0])
-    print "usage: %s [options] command backup-file" % (name,)
-    print ""
-    print " Backup or restore calendar and addressbook data"
-    print ""
-    print "options:"
-    print "  -f --config <path>: Specify caldavd.plist configuration path"
-    print "  -h --help: print this help and exit"
-    print "  -v --verbose: print additional information"
-    print ""
-    print "commands:"
-    print "  backup: create backup-file in compressed tar format (tgz)"
-    print "  restore: restore from backup-file"
-    print ""
+    print("usage: %s [options] command backup-file" % (name,))
+    print("")
+    print(" Backup or restore calendar and addressbook data")
+    print("")
+    print("options:")
+    print("  -f --config <path>: Specify caldavd.plist configuration path")
+    print("  -h --help: print this help and exit")
+    print("  -v --verbose: print additional information")
+    print("")
+    print("commands:")
+    print("  backup: create backup-file in compressed tar format (tgz)")
+    print("  restore: restore from backup-file")
+    print("")
 
     if e:
         sys.stderr.write("%s\n" % (e,))
@@ -75,14 +76,14 @@ def dumpData(dumpFile, verbose=False):
     ]
     try:
         if verbose:
-            print "\nDumping data to %s" % (dumpFile,)
-            print "Executing: %s" % (" ".join(cmdArgs))
+            print("\nDumping data to %s" % (dumpFile,))
+            print("Executing: %s" % (" ".join(cmdArgs)))
         out = subprocess.check_output(cmdArgs, stderr=subprocess.STDOUT)
         if verbose:
-            print out
+            print(out)
     except subprocess.CalledProcessError, e:
         if verbose:
-            print e.output
+            print(e.output)
         raise BackupError(
             "%s failed:\n%s (exit code = %d)" %
             (PGDUMP, e.output, e.returncode)
@@ -102,14 +103,14 @@ def loadData(dumpFile, verbose=False):
     ]
     try:
         if verbose:
-            print "\nLoading data from %s" % (dumpFile,)
-            print "Executing: %s" % (" ".join(cmdArgs))
+            print("\nLoading data from %s" % (dumpFile,))
+            print("Executing: %s" % (" ".join(cmdArgs)))
         out = subprocess.check_output(cmdArgs, stderr=subprocess.STDOUT)
         if verbose:
-            print out
+            print(out)
     except subprocess.CalledProcessError, e:
         if verbose:
-            print e.output
+            print(e.output)
         raise BackupError(
             "%s failed:\n%s (exit code = %d)" %
             (PSQL, e.output, e.returncode)
@@ -168,24 +169,24 @@ def main():
             dumpData(dumpPath, verbose=verbose)
 
             if verbose:
-                print "Creating %s" % (filename,)
+                print("Creating %s" % (filename,))
             tar = tarfile.open(filename, "w:gz")
 
             if verbose:
-                print "Adding %s" % (serverRoot,)
+                print("Adding %s" % (serverRoot,))
             tar.add(serverRoot)
 
             if not dataRoot.startswith(serverRoot):
                 # DataRoot is not contained within ServerRoot (i.e, it's on
                 # another volume)
                 if verbose:
-                    print "Adding %s" % (dataRoot,)
+                    print("Adding %s" % (dataRoot,))
                 tar.add(dataRoot)
 
             tar.close()
 
             if verbose:
-                print "Done"
+                print("Done")
         except BackupError, e:
             error("Failed to dump database; error: %s" % (e,))
 
@@ -195,13 +196,13 @@ def main():
             tar = tarfile.open(filename, "r:gz")
 
             if verbose:
-                print "Extracting from backup file: %s" % (filename,)
+                print("Extracting from backup file: %s" % (filename,))
             tar.extractall(path="/")
 
             loadData(dumpPath, verbose=verbose)
 
             if verbose:
-                print "Cleaning up database dump file: %s" % (dumpPath,)
+                print("Cleaning up database dump file: %s" % (dumpPath,))
             os.remove(dumpPath)
 
         except BackupError, e:

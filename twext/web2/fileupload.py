@@ -21,7 +21,7 @@
 # SOFTWARE.
 #
 ##
-from __future__ import generators
+from __future__ import print_function
 
 import re
 from zope.interface import implements
@@ -74,7 +74,7 @@ def _readHeaders(stream):
             line = defer.waitForDeferred(line)
             yield line
             line = line.getResult()
-        #print "GOT", line
+        #print("GOT", line)
         if not line.endswith('\r\n'):
             if line == "":
                 raise MimeFormatError("Unexpected end of stream.")
@@ -194,7 +194,7 @@ class MultipartMimeStream(object):
         return d
 
     def _readFirstBoundary(self):
-        #print "_readFirstBoundary"
+        #print("_readFirstBoundary")
         line = self.stream.readline(size=1024)
         if isinstance(line, defer.Deferred):
             line = defer.waitForDeferred(line)
@@ -209,7 +209,7 @@ class MultipartMimeStream(object):
     _readFirstBoundary = defer.deferredGenerator(_readFirstBoundary)
 
     def _readBoundaryLine(self):
-        #print "_readBoundaryLine"
+        #print("_readBoundaryLine")
         line = self.stream.readline(size=1024)
         if isinstance(line, defer.Deferred):
             line = defer.waitForDeferred(line)
@@ -227,7 +227,7 @@ class MultipartMimeStream(object):
     _readBoundaryLine = defer.deferredGenerator(_readBoundaryLine)
 
     def _doReadHeaders(self, morefields):
-        #print "_doReadHeaders", morefields
+        #print("_doReadHeaders", morefields)
         if not morefields:
             return None
         return _readHeaders(self.stream)
@@ -392,7 +392,7 @@ if __name__ == '__main__':
     log = Logger()
     d.addErrback(log.err)
     def pr(s):
-        print s
+        print(s)
     d.addCallback(pr)
 
 

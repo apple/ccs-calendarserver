@@ -393,7 +393,8 @@ class SharedResourceMixin(object):
             returnValue(result)
 
         # Direct shares use underlying privileges of shared collection
-        userprivs = []
+        userprivs = [
+        ]
         if access in ("read-only", "read-write",):
             userprivs.append(element.Privilege(element.Read()))
             userprivs.append(element.Privilege(element.ReadACL()))
@@ -628,7 +629,7 @@ class SharedResourceMixin(object):
     @inlineCallbacks
     def _invitationForUID(self, uid):
         """
-        Get an invitation for an invitations uid 
+        Get an invitation for an invitations uid
         """
         invitations = yield self._allInvitations()
         for invitation in invitations:
@@ -1228,8 +1229,8 @@ class SharedHomeMixin(LinkFollowerMixIn):
 
         if sharedResource.isCalendarCollection():
             shareeHomeResource = yield sharee.calendarHome(request)
-            shareeCalenderURL = joinURL(shareeHomeResource.url(), share.name())
-            shareeCalender = yield request.locateResource(shareeCalenderURL)
+            sharedAsURL = joinURL(shareeHomeResource.url(), share.name())
+            shareeCalender = yield request.locateResource(sharedAsURL)
             shareeCalender.setShare(share)
 
             # For calendars only, per-user displayname and color
@@ -1255,26 +1256,18 @@ class SharedHomeMixin(LinkFollowerMixIn):
 
         elif sharedResource.isAddressBookCollection():
             shareeHomeResource = yield sharee.addressBookHome(request)
-            shareeAddressBookURL = joinURL(shareeHomeResource.url(), share.ownerUID())
-            shareeAddressBook = yield request.locateResource(shareeAddressBookURL)
+            sharedAsURL = joinURL(shareeHomeResource.url(), share.ownerUID())
+            shareeAddressBook = yield request.locateResource(sharedAsURL)
             shareeAddressBook.setShare(share)
 
         elif sharedResource.isGroup():
             shareeHomeResource = yield sharee.addressBookHome(request)
-            shareeGroupURL = joinURL(shareeHomeResource.url(), share.ownerUID(), share.name())
-            shareeGroup = yield request.locateResource(shareeGroupURL)
+            sharedAsURL = joinURL(shareeHomeResource.url(), share.ownerUID(), share.name())
+            shareeGroup = yield request.locateResource(sharedAsURL)
             shareeGroup.setShare(share)
 
         # Notify client of changes
         yield self.notifyChanged()
-
-        #FIXME: shouldn't sharedAsURLbe the same as shareeCollectionURL ?
-        if sharedResource.isCalendarCollection():
-            sharedAsURL = joinURL(self.url(), share.name())
-        elif sharedResource.isAddressBookCollection():
-            sharedAsURL = joinURL(self.url(), share.ownerUID())
-        elif sharedResource.isGroup():
-            sharedAsURL = joinURL(self.url(), share.ownerUID(), share.name())
 
         # Return the URL of the shared collection
         returnValue(XMLResponse(
@@ -1326,7 +1319,7 @@ class SharedHomeMixin(LinkFollowerMixIn):
         shared = (yield request.locateResource(shareURL))
         displayname = shared.displayName()
 
-        #FIXME: remove if not needed
+        #FIXME: Remove! Probably obsolete
         if self.isCalendarCollection():
             # For backwards compatibility we need to sync this up with the calendar-free-busy-set on the inbox
             principal = (yield self.resourceOwnerPrincipal(request))

@@ -13,8 +13,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
-
+from __future__ import print_function
 from __future__ import with_statement
+
 import gettext
 import inspect
 import os
@@ -46,8 +47,8 @@ How to use:
     from localization import translationTo
 
     with translationTo('de'):
-        print _("Hello")
-        print _("The event will last %(days)d days") % { 'days' : 4 }
+        print(_("Hello"))
+        print(_("The event will last %(days)d days") % { 'days' : 4 })
 
     ... Hallo
     ... Die Veranstaltung dauert 4 Tage
@@ -74,12 +75,12 @@ function for the duration of the "with" context.  It's smart enough to allow
 nesting of "with" contexts, as in:
 
     with translationTo('de'):
-        print _("Hello") # in German
+        print(_("Hello") # in German)
 
         with translationTo('fr'):
-            print _("Hello") # in French
+            print(_("Hello") # in French)
 
-        print _("Hello") # in German
+        print(_("Hello") # in German)
 
 If a translation file cannot be found for the specified language, it will fall
 back to 'en'.  If 'en' can't be found, gettext will raise IOError.
@@ -88,12 +89,12 @@ If you use the with/as form, you will get an object that implements some
 helper methods for date formatting:
 
     with translationTo('en') as trans:
-        print trans.dtDate(PyCalendarDateTime.getToday())
+        print(trans.dtDate(PyCalendarDateTime.getToday()))
 
     ... Thursday, October 23, 2008
 
     with translationTo('fr') as trans:
-        print trans.dtDate(PyCalendarDateTime.getToday())
+        print(trans.dtDate(PyCalendarDateTime.getToday()))
 
     ... Jeudi, Octobre 23, 2008
 

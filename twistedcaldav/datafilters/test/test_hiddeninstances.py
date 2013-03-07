@@ -21,7 +21,7 @@ import twistedcaldav.test.util
 class HiddenInstanceFilterTest (twistedcaldav.test.util.TestCase):
 
     def test_public_default(self):
-        
+
         data = (
             (
                 "Nothing hidden, no recurrence",
@@ -378,7 +378,7 @@ END:VCALENDAR
 """,
             ),
             (
-                "No master, one hidden - not really",
+                "No master, one hidden",
                 """BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//CALENDARSERVER.ORG//NONSGML Version 1//EN
@@ -414,22 +414,12 @@ DTEND:20080601T130000Z
 ATTENDEE:mailto:user1@example.com
 ATTENDEE:mailto:user2@example.com
 ORGANIZER;CN=User 01:mailto:user1@example.com
-END:VEVENT
-BEGIN:VEVENT
-UID:12345-67890
-RECURRENCE-ID:20080603T120000Z
-DTSTART:20080603T123000Z
-DTEND:20080601T133000Z
-ATTENDEE:mailto:user1@example.com
-ATTENDEE:mailto:user2@example.com
-ORGANIZER;CN=User 01:mailto:user1@example.com
-X-CALENDARSERVER-HIDDEN-INSTANCE:T
 END:VEVENT
 END:VCALENDAR
 """,
             ),
         )
-        
+
         for title, test, result in data:
             ics = Component.fromString(test.replace("\n", "\r\n"))
             self.assertEqual(str(HiddenInstanceFilter().filter(ics)), result.replace("\n", "\r\n"), msg="Failed: %s" % (title,))

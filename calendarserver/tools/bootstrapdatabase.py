@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
+from __future__ import print_function
 
 from getopt import getopt, GetoptError
 import os
@@ -33,14 +34,14 @@ PSQL          = "/Applications/Server.app/Contents/ServerRoot/usr/bin/psql"
 
 def usage(e=None):
     name = os.path.basename(sys.argv[0])
-    print "usage: %s [options] username" % (name,)
-    print ""
-    print " Bootstrap calendar server postgres database and schema"
-    print ""
-    print "options:"
-    print "  -h --help: print this help and exit"
-    print "  -v --verbose: print additional information"
-    print ""
+    print("usage: %s [options] username" % (name,))
+    print("")
+    print(" Bootstrap calendar server postgres database and schema")
+    print("")
+    print("options:")
+    print("  -h --help: print this help and exit")
+    print("  -v --verbose: print additional information")
+    print("")
 
     if e:
         sys.stderr.write("%s\n" % (e,))
@@ -66,15 +67,15 @@ def createUser(verbose=False):
     ]
     try:
         if verbose:
-            print "\nAttempting to create user..."
-            print "Executing: %s" % (" ".join(cmdArgs))
+            print("\nAttempting to create user...")
+            print("Executing: %s" % (" ".join(cmdArgs)))
         out = subprocess.check_output(cmdArgs, stderr=subprocess.STDOUT)
         if verbose:
-            print out
+            print(out)
         return True
     except subprocess.CalledProcessError, e:
         if verbose:
-            print e.output
+            print(e.output)
         if "already exists" in e.output:
             return False
         raise BootstrapError(
@@ -98,15 +99,15 @@ def createDatabase(verbose=False):
     ]
     try:
         if verbose:
-            print "\nAttempting to create database..."
-            print "Executing: %s" % (" ".join(cmdArgs))
+            print("\nAttempting to create database...")
+            print("Executing: %s" % (" ".join(cmdArgs)))
         out = subprocess.check_output(cmdArgs, stderr=subprocess.STDOUT)
         if verbose:
-            print out
+            print(out)
         return True
     except subprocess.CalledProcessError, e:
         if verbose:
-            print e.output
+            print(e.output)
         if "already exists" in e.output:
             return False
         raise BootstrapError(
@@ -131,14 +132,14 @@ def getSchemaVersion(verbose=False):
     ]
     try:
         if verbose:
-            print "\nAttempting to read schema version..."
-            print "Executing: %s" % (" ".join(cmdArgs))
+            print("\nAttempting to read schema version...")
+            print("Executing: %s" % (" ".join(cmdArgs)))
         out = subprocess.check_output(cmdArgs, stderr=subprocess.STDOUT)
         if verbose:
-            print out
+            print(out)
     except subprocess.CalledProcessError, e:
         if verbose:
-            print e.output
+            print(e.output)
         raise BootstrapError(
             "%s failed:\n%s (exit code = %d)" %
             (PSQL, e.output, e.returncode)
@@ -167,16 +168,16 @@ def installSchema(verbose=False):
     ]
     try:
         if verbose:
-            print "Executing: %s" % (" ".join(cmdArgs))
+            print("Executing: %s" % (" ".join(cmdArgs)))
         out = subprocess.check_output(cmdArgs, stderr=subprocess.STDOUT)
         if verbose:
-            print out
+            print(out)
         if "already exists" in out:
             return False
         return True
     except subprocess.CalledProcessError, e:
         if verbose:
-            print e.output
+            print(e.output)
         raise BootstrapError(
             "%s failed:\n%s (exit code = %d)" %
             (PSQL, e.output, e.returncode)
@@ -216,9 +217,9 @@ def main():
     try:
         newlyCreated = createUser(verbose=verbose)
         if newlyCreated:
-            print "Database user '%s' created" % (USERNAME,)
+            print("Database user '%s' created" % (USERNAME,))
         else:
-            print "Database User '%s' exists" % (USERNAME,)
+            print("Database User '%s' exists" % (USERNAME,))
     except BootstrapError, e:
         error("Failed to create database user '%s': %s" % (USERNAME, e))
 
@@ -226,9 +227,9 @@ def main():
     try:
         newlyCreated = createDatabase(verbose=verbose)
         if newlyCreated:
-            print "Database '%s' created" % (DATABASENAME,)
+            print("Database '%s' created" % (DATABASENAME,))
         else:
-            print "Database '%s' exists" % (DATABASENAME,)
+            print("Database '%s' exists" % (DATABASENAME,))
     except BootstrapError, e:
         error("Failed to create database '%s': %s" % (DATABASENAME, e))
 
@@ -242,20 +243,20 @@ def main():
     try:
         data = open(SCHEMAFILE).read()
     except IOError:
-        print "Unable to open the schema file: %s" % (SCHEMAFILE,)
+        print("Unable to open the schema file: %s" % (SCHEMAFILE,))
     else:
         found = re.search("insert into CALENDARSERVER values \('VERSION', '(\d+)'\);", data)
         if found is None:
-            print "Schema is missing required schema VERSION insert statement: %s" % (SCHEMAFILE,)
+            print("Schema is missing required schema VERSION insert statement: %s" % (SCHEMAFILE,))
         else:
             required_version = int(found.group(1))
             if version == required_version:
-                print "Latest schema version (%d) is installed" % (version,)
+                print("Latest schema version (%d) is installed" % (version,))
         
             elif version == 0: # No schema installed
                 installSchema(verbose=verbose)
                 version = getSchemaVersion(verbose=verbose)
-                print "Successfully installed schema version %d" % (version,)
+                print("Successfully installed schema version %d" % (version,))
         
             else: # upgrade needed
                 error(

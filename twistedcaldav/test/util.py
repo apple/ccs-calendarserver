@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##
-
+from __future__ import print_function
 from __future__ import with_statement
 
 import os
@@ -340,7 +340,7 @@ class TestCase(twext.web2.dav.test.util.TestCase):
                     if childStructure.has_key("@optional"):
                         return True
                     else:
-                        print "Missing:", childPath
+                        print("Missing:", childPath)
                         return False
 
                 if childStructure.has_key("@contents"):
@@ -354,15 +354,15 @@ class TestCase(twext.web2.dav.test.util.TestCase):
                             contents = child.read()
                             for term in expectedContents:
                                 if term not in contents:
-                                    print "Contents mismatch:", childPath
-                                    print "Expecting match:\n%s\n\nActual:\n%s\n" % (term, contents)
+                                    print("Contents mismatch:", childPath)
+                                    print("Expecting match:\n%s\n\nActual:\n%s\n" % (term, contents))
                                     return False
                     else:
                         with open(childPath) as child:
                             contents = child.read()
                             if contents != childStructure["@contents"]:
-                                print "Contents mismatch:", childPath
-                                print "Expected:\n%s\n\nActual:\n%s\n" % (childStructure["@contents"], contents)
+                                print("Contents mismatch:", childPath)
+                                print("Expected:\n%s\n\nActual:\n%s\n" % (childStructure["@contents"], contents))
                                 return False
 
                 else:
@@ -382,8 +382,8 @@ class TestCase(twext.web2.dav.test.util.TestCase):
                         for attr, value in xattrs.iteritems():
                             if isinstance(value, str):
                                 if xattr.getxattr(childPath, attr) != value:
-                                    print "Xattr mismatch:", childPath, attr
-                                    print (xattr.getxattr(childPath, attr), " != ", value)
+                                    print("Xattr mismatch:", childPath, attr)
+                                    print((xattr.getxattr(childPath, attr), " != ", value))
                                     return False
                             else: # method
                                 if not value(xattr.getxattr(childPath, attr)):
@@ -398,7 +398,7 @@ class TestCase(twext.web2.dav.test.util.TestCase):
 
             if actual:
                 # There are unexpected children
-                print "Unexpected:", actual, 'in', parent
+                print("Unexpected:", actual, 'in', parent)
                 return False
 
             return True
