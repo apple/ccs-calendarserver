@@ -33,7 +33,7 @@ from twistedcaldav.ical import Component as VComponent
 from twistedcaldav.vcard import Component as VCComponent
 
 from twistedcaldav.storebridge import DropboxCollection, \
-    CalendarCollectionResource, AddressBookCollectionResource
+    CalendarCollectionResource
 
 from twistedcaldav.test.util import TestCase
 

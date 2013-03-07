@@ -28,9 +28,7 @@ from twistedcaldav.vcard import Component as VComponent
 
 from txdav.idav import IPropertyStore, IDataStore
 from txdav.base.propertystore.base import PropertyName
-from txdav.common.icommondatastore import (
-    HomeChildNameAlreadyExistsError, ICommonTransaction
-)
+from txdav.common.icommondatastore import ICommonTransaction
 from txdav.common.icommondatastore import InvalidObjectResourceError
 from txdav.common.icommondatastore import NoSuchHomeChildError
 from txdav.common.icommondatastore import NoSuchObjectResourceError
