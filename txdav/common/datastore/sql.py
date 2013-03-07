@@ -3556,6 +3556,8 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic, HomeChildBas
         yield child.remove()
         self._objects.pop(name, None)
         self._objects.pop(uid, None)
+        if self._objectNames:
+            self._objectNames.remove(name)
         yield self._deleteRevision(name)
         yield self.notifyChanged()
 

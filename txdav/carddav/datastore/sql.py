@@ -144,7 +144,7 @@ class AddressBookHome(CommonHome):
             self.uid(),
             self.uid(),
             self._txn,
-            self._homeResourceID,
+            self._homeResourceID, # not ._resourceID as in CommonHome._loadPropertyStore()
             notifyCallback=self.notifyChanged
         )
         self._propertyStore = props
@@ -184,7 +184,9 @@ class AddressBookHome(CommonHome):
     def createdHome(self):
         # initialize address book properties, synctoken
         child = yield self.addressbook()
-        yield child._loadPropertyStore()
+        #FIXME:  define as same property
+        child._created = self._created
+        child._modified = self._modified
         yield child._initSyncToken()
 
 
@@ -205,14 +207,21 @@ class AddressBookHome(CommonHome):
         ).on(self._txn, **kwds)
 
 
-    @classmethod
-    def addressbookName(cls):
-        return "addressbook"
-
-
     @inlineCallbacks
     def addressbook(self):
-        returnValue((yield self.addressbookWithName(self.addressbookName())))
+        if not hasattr(self, "_addressbook"):
+            child = AddressBook(
+                home=self,
+                name="addressbook", resourceID=self._resourceID,
+                mode=_BIND_MODE_OWN, status=_BIND_STATUS_ACCEPTED,
+            )
+            yield child._loadPropertyStore()
+            child.properties()[
+                PropertyName.fromElement(ResourceType)
+            ] = child.resourceType()
+            self._addressbook = child
+
+        returnValue(self._addressbook)
 
 
     def shareeAddressBookName(self):
@@ -317,17 +326,15 @@ class AddressBook(CommonHomeChild, SharingMixIn):
 
     def contentType(self):
         """
-        The content type of Addresbook objects is text/vcard.
+        The content type of addressbook objects is text/vcard.
         """
         return MimeType.fromString("text/vcard; charset=utf-8")
 
 
     @classmethod
-    @inlineCallbacks
     def create(cls, home, name):
-        if name == home.addressbookName():
+        if name == (yield home.addressbook()).name():
             #raise HomeChildNameAlreadyExistsError
-            yield None
             pass
         else:
             raise HomeChildNameNotAllowedError
@@ -337,29 +344,19 @@ class AddressBook(CommonHomeChild, SharingMixIn):
     def remove(self):
 
         if self._resourceID == self._home._resourceID:
-
             # allow remove, as a way to reset the address book to an empty state
             for abo in (yield self.objectResources()):
-                yield abo.remove()
-
+                yield self.removeObjectResource(abo)
+            self.unshare()
             self.properties()._removeResource()
-
-            # Set to non-existent state
-            self._resourceID = None
-            self._created = None
-            self._modified = None
-            self._objects = {}
-
-            yield self.notifyChanged()
-
-            # Make sure home collection modified is changed - not that we do not use _home.notifiedChanged() here
-            # since we are sending the notification on the previously existing child collection object
-            yield self._home.bumpModified()
+            self._loadPropertyStore()
+            self.properties()[
+                PropertyName.fromElement(ResourceType)
+            ] = self.resourceType()
         else:
             returnValue((yield super(AddressBook, self).remove()))
 
 
-    @inlineCallbacks
     def rename(self, name):
         # better error?
         #raise HomeChildNameNotAllowedError
@@ -630,14 +627,10 @@ END:VCARD
         @return: an L{CommonHomeChild} or C{None} if no such child
             exists.
         """
-        if name == home.addressbookName():
-            child = cls(
-                home=home,
-                name=name, resourceID=home._resourceID,
-                mode=_BIND_MODE_OWN, status=_BIND_STATUS_ACCEPTED,
-            )
-            yield child.initFromStore()
-            returnValue(child)
+        if accepted:
+            addressbook = yield home.addressbook()
+            if name == addressbook.name():
+                returnValue(addressbook)
 
         #all shared address books now
         rows = None
@@ -844,7 +837,7 @@ END:VCARD
 
         @return: an iterable of C{str}s.
         """
-        names = set([home.addressbookName()])
+        names = set([(yield home.addressbook()).name()])
 
         rows = yield cls._acceptedBindForHomeID.on(
             home._txn, homeID=home._resourceID
@@ -1182,7 +1175,7 @@ END:VCARD
                 sharedAddressBook._deletedSyncToken(sharedRemoval=True)
                 shareeHome._children.pop(self.shareeAddressBookName(), None)
             elif not sharedAddressBook.fullyShared():
-                #TODO: Just remove objects for this group only
+                #FIXME: remove objects for this group only using self.removeObjectResource
                 self._objectNames = None
 
             # Must send notification to ensure cache invalidation occurs

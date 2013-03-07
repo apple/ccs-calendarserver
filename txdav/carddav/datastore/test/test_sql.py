@@ -35,16 +35,16 @@ from txdav.carddav.datastore.test.common import CommonTests as AddressBookCommon
 from txdav.carddav.datastore.test.test_file import setUpAddressBookStore
 from txdav.carddav.datastore.util import _migrateAddressbook, migrateHome
 from txdav.common.datastore.sql import EADDRESSBOOKTYPE
-from txdav.common.datastore.sql_tables import  \
-    _ABO_KIND_PERSON, _ABO_KIND_GROUP, schema
+from txdav.common.datastore.sql_tables import  _ABO_KIND_PERSON, _ABO_KIND_GROUP, \
+    schema
 from txdav.common.datastore.test.util import buildStore
-from txdav.xml.rfc2518 import GETContentLanguage, ResourceType
+from txdav.xml.rfc2518 import GETContentLanguage
 
 
 def _todo(f, why):
     f.todo = why
     return f
-rewriteOrRemove = lambda f: _todo(f, "Rewrite or remove")
+fixMigration = lambda f: _todo(f, "fix migration to shared groups")
 
 class AddressBookSQLStorageTests(AddressBookCommonTests, unittest.TestCase):
     """
@@ -137,7 +137,6 @@ class AddressBookSQLStorageTests(AddressBookCommonTests, unittest.TestCase):
 
 
     @inlineCallbacks
-    @rewriteOrRemove
     def test_migrateAddressbookFromFile(self):
         """
         C{_migrateAddressbook()} can migrate a file-backed addressbook to a
@@ -154,7 +153,6 @@ class AddressBookSQLStorageTests(AddressBookCommonTests, unittest.TestCase):
 
 
     @inlineCallbacks
-    @rewriteOrRemove
     def test_migrateBadAddressbookFromFile(self):
         """
         C{_migrateAddressbook()} can migrate a file-backed addressbook to a
@@ -173,7 +171,7 @@ class AddressBookSQLStorageTests(AddressBookCommonTests, unittest.TestCase):
 
 
     @inlineCallbacks
-    @rewriteOrRemove
+    @fixMigration
     def test_migrateHomeFromFile(self):
         """
         L{migrateHome} will migrate an L{IAddressbookHome} provider from one
@@ -181,8 +179,6 @@ class AddressBookSQLStorageTests(AddressBookCommonTests, unittest.TestCase):
         to the SQL-based backend.
         """
         fromHome = yield self.fileTransaction().addressbookHomeWithUID("home1")
-
-        builtinProperties = [PropertyName.fromElement(ResourceType)]
 
         # Populate an arbitrary / unused dead properties so there's something
         # to verify against.
@@ -205,9 +201,8 @@ class AddressBookSQLStorageTests(AddressBookCommonTests, unittest.TestCase):
         for c in fromAddressbooks:
             self.assertPropertiesSimilar(
                 c, (yield toHome.addressbookWithName(c.name())),
-                builtinProperties
             )
-        self.assertPropertiesSimilar(fromHome, toHome, builtinProperties)
+        self.assertPropertiesSimilar(fromHome, toHome,)
 
 
     def test_addressBookHomeVersion(self):
@@ -528,28 +523,30 @@ END:VCARD
 
 
     @inlineCallbacks
-    @rewriteOrRemove
     def test_removeAddressBookPropertiesOnDelete(self):
         """
-        L{IAddressBookHome.removeAddressBookWithName} removes an address book that already
-        exists and makes sure properties are also removed.
+        L{IAddressBookHome.removeAddressBookWithName} clears an address book that already
+        exists and makes sure added properties are also removed.
         """
-
-        # Create address book and add a property
-        home = yield self.homeUnderTest()
-        name = "remove-me"
-        addressbook = yield home.createAddressBookWithName(name)
-        resourceID = addressbook._resourceID
-        addressbookProperties = addressbook.properties()
-
-        prop = carddavxml.AddressBookDescription.fromString("Address Book to be removed")
-        addressbookProperties[PropertyName.fromElement(prop)] = prop
-        yield self.commit()
 
         prop = schema.RESOURCE_PROPERTY
         _allWithID = Select([prop.NAME, prop.VIEWER_UID, prop.VALUE],
                         From=prop,
                         Where=prop.RESOURCE_ID == Parameter("resourceID"))
+
+        # Create address book and add a property
+        home = yield self.homeUnderTest()
+        name = "addressbook"
+        addressbook = yield home.createAddressBookWithName(name)
+        resourceID = addressbook._resourceID
+
+        rows = yield _allWithID.on(self.transactionUnderTest(), resourceID=resourceID)
+        self.assertEqual(len(tuple(rows)), 1)
+
+        addressbookProperties = addressbook.properties()
+        prop = carddavxml.AddressBookDescription.fromString("Address Book prop to be removed")
+        addressbookProperties[PropertyName.fromElement(prop)] = prop
+        yield self.commit()
 
         # Check that two properties are present
         home = yield self.homeUnderTest()
@@ -561,12 +558,12 @@ END:VCARD
         home = yield self.homeUnderTest()
         yield home.removeAddressBookWithName(name)
         rows = yield _allWithID.on(self.transactionUnderTest(), resourceID=resourceID)
-        self.assertEqual(len(tuple(rows)), 0)
+        self.assertEqual(len(tuple(rows)), 1)
         yield self.commit()
 
         # Recheck it
         rows = yield _allWithID.on(self.transactionUnderTest(), resourceID=resourceID)
-        self.assertEqual(len(tuple(rows)), 0)
+        self.assertEqual(len(tuple(rows)), 1)
         yield self.commit()
 
     @inlineCallbacks

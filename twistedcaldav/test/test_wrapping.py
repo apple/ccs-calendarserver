@@ -495,26 +495,6 @@ class WrappingTests(TestCase):
         yield self.commit()
         self.checkPrincipalCollections(calDavFile)
 
-    @inlineCallbacks
-    @rewriteOrRemove
-    def test_lookupNewAddressBook(self):
-
-
-        """
-        When a L{CalDAVResource} which represents a not-yet-created addressbook
-        collection is looked up in a L{AddressBookHomeFile} representing a addressbook
-        home, it will initially have a new storage backend set to C{None}, but
-        when the addressbook is created via a protocol action, the backend will be
-        initialized to match.
-        """
-        calDavFile = yield self.getResource("addressbooks/users/wsanchez/frobozz")
-        self.assertIsInstance(calDavFile, AddressBookCollectionResource)
-        self.assertFalse(calDavFile.exists())
-        yield calDavFile.createAddressBookCollection()
-        self.assertTrue(calDavFile.exists())
-        yield self.commit()
-        self.checkPrincipalCollections(calDavFile)
-
 
     @inlineCallbacks
     def test_lookupAddressBookObject(self):

@@ -17,12 +17,17 @@
 """
 Tests for common addressbook store API functions.
 """
+from twext.python.filepath import CachingFilePath as FilePath
+from twext.web2.http import HTTPError
+from twext.web2.responsecode import FORBIDDEN
+
 from twisted.internet.defer import inlineCallbacks, returnValue, maybeDeferred
 from twisted.python import hashlib
 
+from twistedcaldav.vcard import Component as VComponent
+
 from txdav.idav import IPropertyStore, IDataStore
 from txdav.base.propertystore.base import PropertyName
-
 from txdav.common.icommondatastore import (
     HomeChildNameAlreadyExistsError, ICommonTransaction
 )
@@ -30,25 +35,12 @@ from txdav.common.icommondatastore import InvalidObjectResourceError
 from txdav.common.icommondatastore import NoSuchHomeChildError
 from txdav.common.icommondatastore import NoSuchObjectResourceError
 from txdav.common.icommondatastore import ObjectResourceNameAlreadyExistsError
-
 from txdav.carddav.iaddressbookstore import (
     IAddressBookObject, IAddressBookHome,
     IAddressBook, IAddressBookTransaction
 )
-
 from txdav.common.datastore.test.util import CommonCommonTests
-
-from twistedcaldav.vcard import Component as VComponent
-
-from twext.python.filepath import CachingFilePath as FilePath
 from txdav.xml.element import WebDAVUnknownElement, ResourceType
-
-
-def _todo(f, why):
-    f.todo = why
-    return f
-rewriteOrRemove = lambda f: _todo(f, "Rewrite or remove")
-fixFile = lambda f: _todo(f, "fix file implementation")
 
 storePath = FilePath(__file__).parent().child("addressbook_store")
 
@@ -270,28 +262,18 @@ class CommonTests(CommonCommonTests):
             self.assertProvides(IAddressBook, addressbook)
             self.assertEquals(addressbook.name(), name)
 
+
     @inlineCallbacks
-    @rewriteOrRemove
     def test_addressbookRename(self):
         """
         L{IAddressBook.rename} changes the name of the L{IAddressBook}.
         """
         home = yield self.homeUnderTest()
         addressbook = yield home.addressbookWithName("addressbook")
-        yield addressbook.rename("some_other_name")
-        @inlineCallbacks
-        def positiveAssertions():
-            self.assertEquals(addressbook.name(), "some_other_name")
-            self.assertEquals(addressbook, (yield home.addressbookWithName("some_other_name")))
-            self.assertEquals(None, (yield home.addressbookWithName("addressbook")))
-        yield positiveAssertions()
-        yield self.commit()
-        home = yield self.homeUnderTest()
-        addressbook = yield home.addressbookWithName("some_other_name")
-        yield positiveAssertions()
-        # FIXME: revert
-        # FIXME: test for multiple renames
-        # FIXME: test for conflicting renames (a->b, c->a in the same txn)
+        try:
+            yield addressbook.rename("some-other-name")
+        except HTTPError, e:
+            self.assertEquals(e.response.code, FORBIDDEN)
 
 
     @inlineCallbacks
@@ -306,7 +288,6 @@ class CommonTests(CommonCommonTests):
 
 
     @inlineCallbacks
-    @rewriteOrRemove
     def test_createAddressBookWithName_absent(self):
         """
         L{IAddressBookHome.createAddressBookWithName} creates a new L{IAddressBook} that
@@ -314,13 +295,13 @@ class CommonTests(CommonCommonTests):
         """
         home = yield self.homeUnderTest()
         name = "addressbook"
-        self.assertIdentical((yield home.addressbookWithName(name)), None)
+        #self.assertIdentical((yield home.addressbookWithName(name)), None)
         yield home.createAddressBookWithName(name)
         self.assertNotIdentical((yield home.addressbookWithName(name)), None)
         @inlineCallbacks
         def checkProperties():
             addressbookProperties = (yield home.addressbookWithName(name)).properties()
-            addressbookType = ResourceType.addressbook #@UndefinedVariable
+            addressbookType = ResourceType.addressbook
             self.assertEquals(
                 addressbookProperties[
                     PropertyName.fromString(ResourceType.sname())
@@ -347,22 +328,6 @@ class CommonTests(CommonCommonTests):
 
 
     @inlineCallbacks
-    def test_createAddressBookWithName_exists(self):
-        """
-        L{IAddressBookHome.createAddressBookWithName} raises
-        L{AddressBookAlreadyExistsError} when the name conflicts with an already-
-        existing address book.
-        """
-        for name in home1_addressbookNames:
-            yield self.failUnlessFailure(
-                maybeDeferred(
-                    (yield self.homeUnderTest()).createAddressBookWithName, name),
-                HomeChildNameAlreadyExistsError,
-            )
-
-
-    @inlineCallbacks
-    @fixFile
     def test_removeAddressBookWithName_exists(self):
         """
         L{IAddressBookHome.removeAddressBookWithName} removes a addressbook that already
@@ -644,7 +609,6 @@ class CommonTests(CommonCommonTests):
 
 
     @inlineCallbacks
-    @rewriteOrRemove
     def test_loadAllAddressBooks(self):
         """
         L{IAddressBookHome.loadAddressBooks} returns an iterable of L{IAddressBook}
@@ -668,22 +632,6 @@ class CommonTests(CommonCommonTests):
 
         for c in addressbooks:
             self.assertTrue(c.properties() is not None)
-
-
-    @inlineCallbacks
-    @rewriteOrRemove
-    def test_addressbooksAfterAddAddressBook(self):
-        """
-        L{IAddressBookHome.addressbooks} includes addressbooks recently added with
-        L{IAddressBookHome.createAddressBookWithName}.
-        """
-        home = yield self.homeUnderTest()
-        allAddressbooks = yield home.addressbooks()
-        before = set(x.name() for x in allAddressbooks)
-        yield home.createAddressBookWithName("new-name")
-        allAddressbooks = yield home.addressbooks()
-        after = set(x.name() for x in allAddressbooks)
-        self.assertEquals(before | set(['new-name']), after)
 
 
     @inlineCallbacks
