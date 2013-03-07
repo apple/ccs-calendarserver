@@ -908,6 +908,11 @@ DEFAULT_CONFIG = {
         "Options": [
             "-c standard_conforming_strings=on",
         ],
+        "Ctl": "pg_ctl", # Iff the DBType is '', and we're spawning postgres
+                         # ourselves, where is the pg_ctl tool to spawn it with?
+        "Init": "initdb", # Iff the DBType is '', and we're spawning postgres
+                          # ourselves, where is the initdb tool to create its
+                          # database cluster with?
     },
 
     "QueryCaching" : {

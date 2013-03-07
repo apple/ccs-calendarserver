@@ -166,7 +166,9 @@ class PostgresService(MultiService):
                  testMode=False,
                  uid=None, gid=None,
                  spawnedDBUser="caldav",
-                 importFileName=None):
+                 importFileName=None,
+                 pgCtl="pg_ctl",
+                 initDB="initdb"):
         """
         Initialize a L{PostgresService} pointed at a data store directory.
 
@@ -235,6 +237,19 @@ class PostgresService(MultiService):
         self.schema = schema
         self.monitor = None
         self.openConnections = []
+        self._pgCtl = pgCtl
+        self._initdb = initDB
+
+
+    def pgCtl(self):
+        """
+        Locate the path to pg_ctl.
+        """
+        return which(self._pgCtl)[0]
+
+
+    def initdb(self):
+        return which(self._initdb)[0]
 
 
     def activateDelayedShutdown(self):
@@ -369,7 +384,7 @@ class PostgresService(MultiService):
         Start the database and initialize the subservice.
         """
         monitor = _PostgresMonitor(self)
-        pg_ctl = which("pg_ctl")[0]
+        pgCtl = self.pgCtl()
         # check consistency of initdb and postgres?
 
         options = []
@@ -386,9 +401,9 @@ class PostgresService(MultiService):
         options.extend(self.options)
 
         reactor.spawnProcess(
-            monitor, pg_ctl,
+            monitor, pgCtl,
             [
-                pg_ctl,
+                pgCtl,
                 "start",
                 "-l", self.logFile,
                 "-w",
@@ -422,7 +437,7 @@ class PostgresService(MultiService):
         env.update(PGDATA=clusterDir.path,
                    PGHOST=self.host,
                    PGUSER=self.spawnedDBUser)
-        initdb = which("initdb")[0]
+        initdb = self.initdb()
         if self.socketDir:
             if not self.socketDir.isdir():
                 self.socketDir.createDirectory()
@@ -470,9 +485,9 @@ class PostgresService(MultiService):
             # database.  (This also happens in command-line tools.)
             if self.shouldStopDatabase:
                 monitor = _PostgresMonitor()
-                pg_ctl = which("pg_ctl")[0]
-                reactor.spawnProcess(monitor, pg_ctl,
-                    [pg_ctl, '-l', 'logfile', 'stop'],
+                pgCtl = self.pgCtl()
+                reactor.spawnProcess(monitor, pgCtl,
+                    [pgCtl, '-l', 'logfile', 'stop'],
                     self.env,
                     uid=self.uid, gid=self.gid,
                 )
