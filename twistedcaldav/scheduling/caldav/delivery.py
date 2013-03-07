@@ -197,12 +197,6 @@ class ScheduleViaCalDAV(DeliveryService):
                 responses.add(recipient.cuaddr, Failure(exc_value=err), reqstatus=iTIPRequestStatus.NO_AUTHORITY)
                 returnValue(False)
             else:
-                # Store CALDAV:originator property
-                child.writeDeadProperty(caldavxml.Originator(davxml.HRef(self.scheduler.originator.cuaddr)))
-
-                # Store CALDAV:recipient property
-                child.writeDeadProperty(caldavxml.Recipient(davxml.HRef(recipient.cuaddr)))
-
                 # Store CS:schedule-changes property if present
                 if changes:
                     child.writeDeadProperty(changes)

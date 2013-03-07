@@ -50,7 +50,7 @@ from twisted.application.service import Service
 
 from txdav.base.datastore.util import QueryCacher
 
-from twext.internet.decorate import memoizedKey
+from twext.internet.decorate import memoizedKey, Memoizable
 
 from txdav.caldav.icalendarstore import ICalendarTransaction, ICalendarStore
 
@@ -741,6 +741,7 @@ class CommonStoreTransaction(object):
                        imip.ICALUID: Parameter("icaluid"),
                       })
 
+
     @inlineCallbacks
     def imipCreateToken(self, organizer, attendee, icaluid, token=None):
         if not (organizer and attendee and icaluid):
@@ -760,16 +761,19 @@ class CommonStoreTransaction(object):
 
     # Lookup IMIP organizer+attendee+icaluid for token
 
+
     @classproperty
     def _selectIMIPTokenByTokenQuery(cls): #@NoSelf
         imip = schema.IMIP_TOKENS
         return Select([imip.ORGANIZER, imip.ATTENDEE, imip.ICALUID], From=imip,
                       Where=(imip.TOKEN == Parameter("token")))
 
+
     def imipLookupByToken(self, token):
         return self._selectIMIPTokenByTokenQuery.on(self, token=token)
 
     # Lookup IMIP token for organizer+attendee+icaluid
+
 
     @classproperty
     def _selectIMIPTokenQuery(cls): #@NoSelf
@@ -778,10 +782,12 @@ class CommonStoreTransaction(object):
                       Where=(imip.ORGANIZER == Parameter("organizer")).And(
                              imip.ATTENDEE == Parameter("attendee")).And(
                              imip.ICALUID == Parameter("icaluid")))
+
+
     @classproperty
     def _updateIMIPTokenQuery(cls): #@NoSelf
         imip = schema.IMIP_TOKENS
-        return Update({imip.ACCESSED: utcNowSQL,},
+        return Update({imip.ACCESSED: utcNowSQL, },
                       Where=(imip.ORGANIZER == Parameter("organizer")).And(
                              imip.ATTENDEE == Parameter("attendee")).And(
                              imip.ICALUID == Parameter("icaluid")))
@@ -800,24 +806,26 @@ class CommonStoreTransaction(object):
             token = None
         returnValue(token)
 
-    # Remove IMIP token
 
+    # Remove IMIP token
     @classproperty
     def _removeIMIPTokenQuery(cls): #@NoSelf
         imip = schema.IMIP_TOKENS
         return Delete(From=imip,
                       Where=(imip.TOKEN == Parameter("token")))
 
+
     def imipRemoveToken(self, token):
         return self._removeIMIPTokenQuery.on(self, token=token)
 
-    # Purge old IMIP tokens
 
+    # Purge old IMIP tokens
     @classproperty
     def _purgeOldIMIPTokensQuery(cls): #@NoSelf
         imip = schema.IMIP_TOKENS
         return Delete(From=imip,
                       Where=(imip.ACCESSED < Parameter("olderThan")))
+
 
     def purgeOldIMIPTokens(self, olderThan):
         """
@@ -1616,6 +1624,7 @@ class CommonHome(LoggingMixIn):
         results = (yield self._childClass.loadAllObjects(self))
         for result in results:
             self._children[result.name()] = result
+            self._children[result._resourceID] = result
         self._childrenLoaded = True
         returnValue(results)
 
@@ -1628,7 +1637,7 @@ class CommonHome(LoggingMixIn):
         """
 
         if self._childrenLoaded:
-            return succeed(self._children.keys())
+            return succeed([k for k in self._children.keys() if isinstance(k, str)])
         else:
             return self._childClass.listObjects(self)
 
@@ -2430,7 +2439,7 @@ class _SharedSyncLogic(object):
 
 
 
-class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic, HomeChildBase):
+class CommonHomeChild(LoggingMixIn, FancyEqMixin, Memoizable, _SharedSyncLogic, HomeChildBase):
     """
     Common ancestor class of AddressBooks and Calendars.
     """
@@ -2481,6 +2490,19 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic, HomeChildBas
         self._syncTokenRevision = None
         self._notifiers = notifiers
         self._index = None  # Derived classes need to set this
+
+
+    def memoMe(self, key, memo):
+        """
+        Add this object to the memo dictionary in whatever fashion is appropriate.
+
+        @param key: key used for lookup
+        @type key: C{object} (typically C{str} or C{int})
+        @param memo: the dict to store to
+        @type memo: C{dict}
+        """
+        memo[self._name] = self
+        memo[self._resourceID] = self
 
 
     @classproperty
