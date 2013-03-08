@@ -2867,6 +2867,7 @@ class SharingMixIn(object):
             "_modified",
         )
 
+
 class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic, HomeChildBase, SharingMixIn):
     """
     Common ancestor class of AddressBooks and Calendars.
@@ -4085,6 +4086,7 @@ class CommonObjectResource(LoggingMixIn, FancyEqMixin):
         @param props: the L{PropertyStore} from C{properties()}.
         """
 
+
     def __repr__(self):
         return "<%s: %s>" % (self.__class__.__name__, self._resourceID)
 
@@ -4093,9 +4095,11 @@ class CommonObjectResource(LoggingMixIn, FancyEqMixin):
     def _txn(self):
         return self._parentCollection._txn
 
+
     @property
     def _home(self):
         return self._parentCollection._home
+
 
     def transaction(self):
         return self._parentCollection._txn
@@ -4287,6 +4291,7 @@ class NotificationCollection(LoggingMixIn, FancyEqMixin, _SharedSyncLogic):
         {_homeSchema.OWNER_UID: Parameter("uid")},
         Return=_homeSchema.RESOURCE_ID
     )
+
 
     @property
     def _home(self):
@@ -4868,7 +4873,6 @@ def determineNewest(uid, homeType):
     )
 
 
-
 @inlineCallbacks
 def mergeHomes(sqlTxn, one, other, homeType):
     """
@@ -4927,7 +4931,6 @@ def mergeHomes(sqlTxn, one, other, homeType):
     yield returnValue(newer)
 
 
-
 def _renameHome(txn, table, oldUID, newUID):
     """
     Rename a calendar, addressbook, or notification home.  Note that this
@@ -4954,13 +4957,11 @@ def _renameHome(txn, table, oldUID, newUID):
                   Where=table.OWNER_UID == oldUID).on(txn)
 
 
-
 def _dontBotherWithNotifications(older, newer, merge):
     """
     Notifications are more transient and can be easily worked around; don't
     bother to migrate all of them when there is a UUID case mismatch.
     """
-
 
 
 @inlineCallbacks
@@ -5045,7 +5046,6 @@ def _normalizeHomeUUIDsIn(t, homeType):
     returnValue(None)
 
 
-
 def _getHome(txn, homeType, uid):
     """
     Like L{CommonHome.homeWithUID} but also honoring ENOTIFICATIONTYPE which
@@ -5067,7 +5067,6 @@ def _getHome(txn, homeType, uid):
         return txn.notificationsWithUID(uid, create=False)
     else:
         return txn.homeWithUID(homeType, uid)
-
 
 
 @inlineCallbacks
@@ -5103,7 +5102,6 @@ def _normalizeColumnUUIDs(txn, column):
             yield Update({column: after}, Where=where).on(txn)
 
 
-
 class _AndNothing(object):
     """
     Simple placeholder for iteratively generating a 'Where' clause; the 'And'
@@ -5115,7 +5113,6 @@ class _AndNothing(object):
         Return the argument.
         """
         return self
-
 
 
 @inlineCallbacks
@@ -5139,7 +5136,6 @@ def _needsNormalizationUpgrade(txn):
                 if normalizeUUIDOrNot(uid) != uid:
                     returnValue(True)
     returnValue(False)
-
 
 
 @inlineCallbacks
