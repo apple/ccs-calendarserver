@@ -2801,7 +2801,6 @@ class SharingMixIn(object):
         returnValue(result)
 
 
-
     def shareMode(self):
         """
         @see: L{ICalendar.shareMode}
@@ -2911,6 +2910,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic, HomeChildBas
         self._syncTokenRevision = None
         self._notifiers = notifiers
         self._index = None  # Derived classes need to set this
+
 
     @classmethod
     @inlineCallbacks

@@ -196,11 +196,7 @@ class AddressBookHome(CommonHome):
     @inlineCallbacks
     def createdHome(self):
         # initialize address book properties, synctoken
-        child = self.addressbook()
-        #FIXME:  define as same property
-        child._created = self._created
-        child._modified = self._modified
-        yield child._initSyncToken()
+        yield self.addressbook()._initSyncToken()
 
 
     @inlineCallbacks
@@ -282,6 +278,66 @@ class AddressBook(CommonHomeChild, SharingMixIn):
         super(AddressBook, self).__init__(home, name, resourceID, mode, status, message=message, ownerHome=ownerHome)
         self._index = PostgresLegacyABIndexEmulator(self)
         self._bindName = bindName
+
+
+        def getCreated():
+            if self._resourceID == self._home._resourceID:
+                return self._home.created()
+            else:
+                return self._created
+
+
+        def setCreated(newValue):
+            if self._resourceID == self._home._resourceID:
+                self._home._created = newValue
+            else:
+                self._created = newValue
+
+
+        def getModified():
+            if self._resourceID == self._home._resourceID:
+                return self._home.created()
+            else:
+                return self._modified
+
+
+        def setModified(newValue):
+            if self._resourceID == self._home._resourceID:
+                self._home._modified = newValue
+            else:
+                self._modified = newValue
+
+        _created = property(self.getCreated, self.setCreated,)
+        _modified = property(self.getModified, self.setModified,)
+
+
+    def getCreated(self):
+        if self._resourceID == self._home._resourceID:
+            return self._home.created()
+        else:
+            return self._created
+
+
+    def setCreated(self, newValue):
+        if self._resourceID == self._home._resourceID:
+            self._home._created = newValue
+        else:
+            self._created = newValue
+
+
+    def getModified(self):
+        if self._resourceID == self._home._resourceID:
+            return self._home.created()
+        else:
+            return self._modified
+
+
+    def setModified(self, newValue):
+        if self._resourceID == self._home._resourceID:
+            self._home._modified = newValue
+        else:
+            self._modified = newValue
+
 
     @property
     def _addressbookHome(self):
@@ -1041,7 +1097,6 @@ END:VCARD
                         self._txn, homeID=shareeView._home._resourceID, addressbookID=shareeView._resourceID
                 )))
 
-            #TODO:  with bit of parameter wrangling, call shareWith() here instead.
             sharedname = yield self._updateBindColumnsQuery(columnMap).on(
                 self._txn,
                 resourceID=self._resourceID, homeID=shareeView._home._resourceID
@@ -1999,7 +2054,6 @@ class AddressBookObject(CommonObjectResource, SharingMixIn):
 
     @classproperty
     def _addressbookIDForResourceID(cls): #@NoSelf
-        #TODO: This query could be part of previously called query using object schema join
         obj = cls._objectSchema
         return Select([obj.PARENT_RESOURCE_ID],
                       From=obj,
