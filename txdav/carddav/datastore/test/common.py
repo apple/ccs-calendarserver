@@ -294,7 +294,7 @@ class CommonTests(CommonCommonTests):
         home = yield self.homeUnderTest()
         name = "addressbook"
         #self.assertIdentical((yield home.addressbookWithName(name)), None)
-        yield home.createAddressBookWithName(name)
+        yield home.removeAddressBookWithName(name)
         self.assertNotIdentical((yield home.addressbookWithName(name)), None)
         @inlineCallbacks
         def checkProperties():

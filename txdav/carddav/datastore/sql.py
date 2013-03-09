@@ -142,9 +142,6 @@ class AddressBookHome(CommonHome):
             )
             self._created, self._modified = data
             yield addressbook._loadPropertyStore()
-            addressbook.properties()[
-                PropertyName.fromElement(ResourceType)
-            ] = addressbook.resourceType()
             self._addressbook = addressbook
 
             returnValue(self)
@@ -196,7 +193,7 @@ class AddressBookHome(CommonHome):
 
     @inlineCallbacks
     def createdHome(self):
-        # initialize address book properties, synctoken
+        # initialize synctoken
         yield self.addressbook()._initSyncToken()
 
 
@@ -255,6 +252,49 @@ class AddressBookHome(CommonHome):
         # addressbook and home have same resourceID
         ownerHome = yield self._txn.homeWithResourceID(self._homeType, resourceID)
         returnValue(ownerHome)
+
+    @classproperty
+    def _syncTokenQuery(cls): #@NoSelf
+        """
+        DAL Select statement to find the sync token.
+        """
+        rev = cls._revisionsSchema
+        bind = cls._bindSchema
+        return Select(
+            [Max(rev.REVISION)],
+            # active address books
+            From=Select(
+                [rev.REVISION],
+                From=rev,
+                Where=(
+                    rev.RESOURCE_ID.In(
+                        Select(
+                            [bind.RESOURCE_ID],
+                            From=bind,
+                            Where=bind.HOME_RESOURCE_ID == Parameter("resourceID"),
+                        )
+                    )
+                ),
+                SetExpression=Union(
+                    # deleted address books
+                    Select(
+                        [rev.REVISION],
+                        From=rev,
+                        Where=(rev.HOME_RESOURCE_ID == Parameter("resourceID")).And(rev.RESOURCE_ID == None),
+                        SetExpression=Union(
+                            # owned address book
+                            Select(
+                                [rev.REVISION],
+                                From=rev,
+                                Where=(rev.HOME_RESOURCE_ID == Parameter("resourceID")).And(rev.RESOURCE_ID == rev.HOME_RESOURCE_ID),
+                            ),
+                            optype=Union.OPTYPE_ALL,
+                        )
+                    ),
+                    optype=Union.OPTYPE_ALL,
+                )
+            ),
+        )
 
 
 AddressBookHome._register(EADDRESSBOOKTYPE)
@@ -367,7 +407,10 @@ class AddressBook(CommonHomeChild, SharingMixIn):
                 yield self.removeObjectResource(abo)
 
             yield self.unshare()  # storebridge should already have done this
-            yield self._deletedSyncToken()
+
+            # don't delete, as that will keep showing the same home synctoken/etag
+            #yield self._deletedSyncToken()
+            yield self._updateRevision(self.name())
 
             self.properties()._removeResource()
             yield self._loadPropertyStore()
