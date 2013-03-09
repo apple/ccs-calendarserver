@@ -132,7 +132,9 @@ def pgServiceFromConfig(config, subServiceFactory, uid=None, gid=None):
         options=config.Postgres.Options,
         uid=uid, gid=gid,
         spawnedDBUser=config.SpawnedDBUser,
-        importFileName=config.DBImportFile
+        importFileName=config.DBImportFile,
+        pgCtl=config.Postgres.Ctl,
+        initDB=config.Postgres.Init,
     )
 
 

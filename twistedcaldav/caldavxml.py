@@ -1110,21 +1110,6 @@ class ScheduleOutboxURL (CalDAVElement):
 
 
 @registerElement
-class Originator (CalDAVElement):
-    """
-    A property on resources in schedule Inbox and Outbox indicating the Originator used
-    for the SCHEDULE operation.
-    (CalDAV-schedule, section x.x.x)
-    """
-    name = "originator"
-    hidden = True
-    protected = True
-
-    allowed_children = {(dav_namespace, "href"): (0, 1)} # NB Minimum is zero because this is a property name
-
-
-
-@registerElement
 class Recipient (CalDAVElement):
     """
     A property on resources in schedule Inbox indicating the Recipients targeted

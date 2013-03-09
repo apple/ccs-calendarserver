@@ -42,7 +42,6 @@ from twistedcaldav import customxml, carddavxml, caldavxml
 from twistedcaldav.cache import CacheStoreNotifier, ResponseCacheMixin, \
     DisabledCacheNotifier
 from twistedcaldav.caldavxml import caldav_namespace
-from twistedcaldav.carddavxml import carddav_namespace
 from twistedcaldav.config import config
 from twistedcaldav.directory.wiki import WikiDirectoryService, getWikiAccess
 from twistedcaldav.ical import Component as VCalendar, Property as VProperty, \

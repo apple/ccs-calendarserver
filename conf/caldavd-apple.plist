@@ -101,6 +101,11 @@
     <string></string>
     <key>DBImportFile</key>
     <string>/Library/Server/Calendar and Contacts/DataDump.sql</string>
+    <key>Postgres</key>
+    <dict>
+        <key>Ctl</key>
+        <string>xpg_ctl</string>
+    </dict>
 
     <!-- Data root -->
     <key>DataRoot</key>

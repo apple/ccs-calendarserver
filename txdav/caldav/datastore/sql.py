@@ -1211,11 +1211,11 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             ).on(txn)
 
         if instanceIndexingRequired and doInstanceIndexing:
-            yield self._addInstances(component, instances, truncateLowerLimit, txn)
+            yield self._addInstances(component, instances, truncateLowerLimit, isInboxItem, txn)
 
 
     @inlineCallbacks
-    def _addInstances(self, component, instances, truncateLowerLimit, txn):
+    def _addInstances(self, component, instances, truncateLowerLimit, isInboxItem, txn):
         """
         Add the set of supplied instances to the store.
 
@@ -1225,6 +1225,8 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         @type instances: L{InstanceList}
         @param truncateLowerLimit: the lower limit for instances
         @type truncateLowerLimit: L{PyCalendarDateTime}
+        @param isInboxItem: indicates if an inbox item
+        @type isInboxItem: C{bool}
         @param txn: transaction to use
         @type txn: L{Transaction}
         """
@@ -1246,14 +1248,14 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
                 lowerLimitApplied = True
                 continue
 
-            yield self._addInstanceDetails(component, instance.rid, start, end, floating, transp, fbtype, txn)
+            yield self._addInstanceDetails(component, instance.rid, start, end, floating, transp, fbtype, isInboxItem, txn)
 
         # For truncated items we insert a tomb stone lower bound so that a time-range
         # query with just an end bound will match
         if lowerLimitApplied or instances.lowerLimit and len(instances.instances) == 0:
             start = PyCalendarDateTime(1901, 1, 1, 0, 0, 0, tzid=PyCalendarTimezone(utc=True))
             end = PyCalendarDateTime(1901, 1, 1, 1, 0, 0, tzid=PyCalendarTimezone(utc=True))
-            yield self._addInstanceDetails(component, None, start, end, False, True, "UNKNOWN", txn)
+            yield self._addInstanceDetails(component, None, start, end, False, True, "UNKNOWN", isInboxItem, txn)
 
         # Special - for unbounded recurrence we insert a value for "infinity"
         # that will allow an open-ended time-range to always match it.
@@ -1262,11 +1264,11 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
         if component.isRecurringUnbounded() or instances.limit and len(instances.instances) == 0:
             start = PyCalendarDateTime(2100, 1, 1, 0, 0, 0, tzid=PyCalendarTimezone(utc=True))
             end = PyCalendarDateTime(2100, 1, 1, 1, 0, 0, tzid=PyCalendarTimezone(utc=True))
-            yield self._addInstanceDetails(component, None, start, end, False, True, "UNKNOWN", txn)
+            yield self._addInstanceDetails(component, None, start, end, False, True, "UNKNOWN", isInboxItem, txn)
 
 
     @inlineCallbacks
-    def _addInstanceDetails(self, component, rid, start, end, floating, transp, fbtype, txn):
+    def _addInstanceDetails(self, component, rid, start, end, floating, transp, fbtype, isInboxItem, txn):
 
         tr = schema.TIME_RANGE
         tpy = schema.TRANSPARENCY
@@ -1280,14 +1282,17 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             tr.FBTYPE                      : icalfbtype_to_indexfbtype.get(fbtype, icalfbtype_to_indexfbtype["FREE"]),
             tr.TRANSPARENT                 : transp,
         }, Return=tr.INSTANCE_ID).on(txn))[0][0]
-        peruserdata = component.perUserTransparency(rid)
-        for useruid, usertransp in peruserdata:
-            if usertransp != transp:
-                (yield Insert({
-                    tpy.TIME_RANGE_INSTANCE_ID : instanceid,
-                    tpy.USER_ID                : useruid,
-                    tpy.TRANSPARENT            : usertransp,
-                }).on(txn))
+
+        # Don't do transparency for inbox items - we never do freebusy on inbox
+        if not isInboxItem:
+            peruserdata = component.perUserTransparency(rid)
+            for useruid, usertransp in peruserdata:
+                if usertransp != transp:
+                    (yield Insert({
+                        tpy.TIME_RANGE_INSTANCE_ID : instanceid,
+                        tpy.USER_ID                : useruid,
+                        tpy.TRANSPARENT            : usertransp,
+                    }).on(txn))
 
 
     @inlineCallbacks
@@ -1938,8 +1943,6 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
             (
             ),
             (
-                PropertyName.fromElement(caldavxml.Originator),
-                PropertyName.fromElement(caldavxml.Recipient),
                 PropertyName.fromElement(customxml.ScheduleChanges),
             ),
         )

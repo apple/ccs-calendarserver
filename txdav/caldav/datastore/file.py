@@ -742,8 +742,6 @@ class CalendarObject(CommonObjectResource, CalendarObjectBase):
                 PropertyName.fromElement(caldavxml.ScheduleTag),
                 PropertyName.fromElement(customxml.TwistedScheduleMatchETags),
                 PropertyName.fromElement(customxml.TwistedCalendarHasPrivateCommentsProperty),
-                PropertyName.fromElement(caldavxml.Originator),
-                PropertyName.fromElement(caldavxml.Recipient),
                 PropertyName.fromElement(customxml.ScheduleChanges),
             ),
         )

@@ -18,14 +18,13 @@
 Notification framework for Calendar Server
 """
 
+import datetime
 from twext.python.log import LoggingMixIn, Logger
-
 from twisted.internet.defer import inlineCallbacks, succeed
 from twext.enterprise.dal.record import fromTable
 from twext.enterprise.queue import WorkItem
 from txdav.common.datastore.sql_tables import schema
-from twisted.application import service
-from twisted.python.reflect import namedClass
+from twext.enterprise.dal.syntax import Delete
 
 
 log = Logger()
@@ -33,14 +32,19 @@ log = Logger()
 
 class PushNotificationWork(WorkItem, fromTable(schema.PUSH_NOTIFICATION_WORK)):
 
+    group = "PUSH_ID"
+
     @inlineCallbacks
     def doWork(self):
 
-        # FIXME: Coalescing goes here?
+        # Delete all other work items with the same pushID
+        yield Delete(From=self.table,
+                     Where=self.table.PUSH_ID == self.pushID 
+                    ).on(self.transaction)
 
-        pushService = self.transaction._pushService
-        if pushService is not None:
-            yield pushService.enqueue(self.pushID)
+        pushDistributor = self.transaction._pushDistributor
+        if pushDistributor is not None:
+            yield pushDistributor.enqueue(self.pushID)
 
 
 
@@ -119,9 +123,10 @@ class NotifierFactory(LoggingMixIn):
     work queue.
     """
 
-    def __init__(self, store, hostname, reactor=None):
+    def __init__(self, store, hostname, coalesceSeconds, reactor=None):
         self.store = store
         self.hostname = hostname
+        self.coalesceSeconds = coalesceSeconds
 
         if reactor is None:
             from twisted.internet import reactor
@@ -130,7 +135,10 @@ class NotifierFactory(LoggingMixIn):
     @inlineCallbacks
     def send(self, id):
         txn = self.store.newTransaction()
-        yield txn.enqueue(PushNotificationWork, pushID=id)
+        notBefore = datetime.datetime.utcnow() + datetime.timedelta(
+            seconds=self.coalesceSeconds)
+        yield txn.enqueue(PushNotificationWork, pushID=self.pushKeyForId(id),
+            notBefore=notBefore)
         yield txn.commit()
 
     def newNotifier(self, label="default", id=None, prefix=None):
@@ -153,22 +161,21 @@ class NotifierFactory(LoggingMixIn):
 
 
 
-def getPubSubAPSConfiguration(id, config):
+def getPubSubAPSConfiguration(pushKey, config):
     """
-    Returns the Apple push notification settings specific to the notifier
-    ID, which includes a prefix that is either "CalDAV" or "CardDAV"
+    Returns the Apple push notification settings specific to the pushKey
     """
     try:
-        prefix, id = id.split("|", 1)
+        protocol, ignored = pushKey.split("|", 1)
     except ValueError:
-        # id has no prefix, so we can't look up APS config
+        # id has no protocol, so we can't look up APS config
         return None
 
     # If we are directly talking to apple push, advertise those settings
-    applePushSettings = config.Notifications.Services.ApplePushNotifier
+    applePushSettings = config.Notifications.Services.APNS
     if applePushSettings.Enabled:
         settings = {}
-        settings["APSBundleID"] = applePushSettings[prefix]["Topic"]
+        settings["APSBundleID"] = applePushSettings[protocol]["Topic"]
         if config.EnableSSL:
             url = "https://%s:%s/%s" % (config.ServerHostName, config.SSLPort,
                 applePushSettings.SubscriptionURL)
@@ -183,27 +190,26 @@ def getPubSubAPSConfiguration(id, config):
     return None
 
 
-class PushService(service.MultiService):
+class PushDistributor(object):
     """
-    A Service which passes along notifications to the protocol-specific subservices
+    Distributes notifications to the protocol-specific subservices
     """
 
-    @classmethod
-    def makeService(cls, settings, store):
-        multiService = cls()
-        for key, subSettings in settings.Services.iteritems():
-            if subSettings["Enabled"]:
-                subService = namedClass(subSettings["Service"]).makeService(
-                    subSettings, store)
-                subService.setServiceParent(multiService)
-                multiService.subServices.append(subService)            
-        return multiService
-
-    def __init__(self):
-        service.MultiService.__init__(self)
-        self.subServices = []
+    def __init__(self, observers):
+        """
+        @param observers: the list of observers to distribute pushKeys to
+        @type observers: C{list} 
+        """
+        # TODO: add an IPushObservers interface?
+        self.observers = observers 
 
     @inlineCallbacks
-    def enqueue(self, id):
-        for subService in self.subServices:
-            yield subService.enqueue(id)
+    def enqueue(self, pushKey):
+        """
+        Pass along enqueued pushKey to any observers
+
+        @param pushKey: the push key to distribute to the observers
+        @type pushKey: C{str}
+        """
+        for observer in self.observers:
+            yield observer.enqueue(pushKey)

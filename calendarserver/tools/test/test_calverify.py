@@ -1033,7 +1033,11 @@ class CalVerifyMismatchTestsBase(CommonCommonTests, unittest.TestCase):
             (yield self.calendarUnderTest(home_name, calendar_name, txn)).calendarObjectWithName(name))
         )
 
-now = PyCalendarDateTime.getToday().getYear()
+now = PyCalendarDateTime.getToday()
+now.setDay(1)
+now.offsetMonth(2)
+nowYear = now.getYear()
+nowMonth = now.getMonth()
 
 class CalVerifyMismatchTestsNonRecurring(CalVerifyMismatchTestsBase):
     """
@@ -1048,10 +1052,10 @@ CALSCALE:GREGORIAN
 BEGIN:VEVENT
 CREATED:20100303T181216Z
 UID:MISSING_ATTENDEE_ICS
-DTEND:%(year)s0307T151500Z
+DTEND:%(year)s%(month)02d07T151500Z
 TRANSP:OPAQUE
 SUMMARY:Ancient event
-DTSTART:%(year)s0307T111500Z
+DTSTART:%(year)s%(month)02d07T111500Z
 DTSTAMP:20100303T181220Z
 SEQUENCE:2
 ORGANIZER:urn:uuid:D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
@@ -1060,7 +1064,7 @@ ATTENDEE:urn:uuid:47B16BB4-DB5F-4BF6-85FE-A7DA54230F92
 ATTENDEE:urn:uuid:AC478592-7783-44D1-B2AE-52359B4E8415
 END:VEVENT
 END:VCALENDAR
-""".replace("\n", "\r\n") % {"year": now}
+""".replace("\n", "\r\n") % {"year": nowYear, "month": nowMonth}
 
     # Attendees have event, organizer does not
     MISSING_ORGANIZER_2_ICS = """BEGIN:VCALENDAR
@@ -1070,10 +1074,10 @@ CALSCALE:GREGORIAN
 BEGIN:VEVENT
 CREATED:20100303T181216Z
 UID:MISSING_ORGANIZER_ICS
-DTEND:%(year)s0307T151500Z
+DTEND:%(year)s%(month)02d07T151500Z
 TRANSP:OPAQUE
 SUMMARY:Ancient event
-DTSTART:%(year)s0307T111500Z
+DTSTART:%(year)s%(month)02d07T111500Z
 DTSTAMP:20100303T181220Z
 SEQUENCE:2
 ORGANIZER:urn:uuid:D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
@@ -1082,7 +1086,7 @@ ATTENDEE:urn:uuid:47B16BB4-DB5F-4BF6-85FE-A7DA54230F92
 ATTENDEE:urn:uuid:AC478592-7783-44D1-B2AE-52359B4E8415
 END:VEVENT
 END:VCALENDAR
-""".replace("\n", "\r\n") % {"year": now}
+""".replace("\n", "\r\n") % {"year": nowYear, "month": nowMonth}
 
     MISSING_ORGANIZER_3_ICS = """BEGIN:VCALENDAR
 VERSION:2.0
@@ -1091,10 +1095,10 @@ CALSCALE:GREGORIAN
 BEGIN:VEVENT
 CREATED:20100303T181216Z
 UID:MISSING_ORGANIZER_ICS
-DTEND:%(year)s0307T151500Z
+DTEND:%(year)s%(month)02d07T151500Z
 TRANSP:OPAQUE
 SUMMARY:Ancient event
-DTSTART:%(year)s0307T111500Z
+DTSTART:%(year)s%(month)02d07T111500Z
 DTSTAMP:20100303T181220Z
 SEQUENCE:2
 ORGANIZER:urn:uuid:D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
@@ -1103,7 +1107,7 @@ ATTENDEE:urn:uuid:47B16BB4-DB5F-4BF6-85FE-A7DA54230F92
 ATTENDEE:urn:uuid:AC478592-7783-44D1-B2AE-52359B4E8415
 END:VEVENT
 END:VCALENDAR
-""".replace("\n", "\r\n") % {"year": now}
+""".replace("\n", "\r\n") % {"year": nowYear, "month": nowMonth}
 
     # Attendee partstat mismatch
     MISMATCH_ATTENDEE_1_ICS = """BEGIN:VCALENDAR
@@ -1113,10 +1117,10 @@ CALSCALE:GREGORIAN
 BEGIN:VEVENT
 CREATED:20100303T181216Z
 UID:MISMATCH_ATTENDEE_ICS
-DTEND:%(year)s0307T151500Z
+DTEND:%(year)s%(month)02d07T151500Z
 TRANSP:OPAQUE
 SUMMARY:Ancient event
-DTSTART:%(year)s0307T111500Z
+DTSTART:%(year)s%(month)02d07T111500Z
 DTSTAMP:20100303T181220Z
 SEQUENCE:2
 ORGANIZER:urn:uuid:D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
@@ -1125,7 +1129,7 @@ ATTENDEE;PARTSTAT=DECLINED:urn:uuid:47B16BB4-DB5F-4BF6-85FE-A7DA54230F92
 ATTENDEE;PARTSTAT=NEEDS-ACTION:urn:uuid:AC478592-7783-44D1-B2AE-52359B4E8415
 END:VEVENT
 END:VCALENDAR
-""".replace("\n", "\r\n") % {"year": now}
+""".replace("\n", "\r\n") % {"year": nowYear, "month": nowMonth}
 
     MISMATCH_ATTENDEE_2_ICS = """BEGIN:VCALENDAR
 VERSION:2.0
@@ -1134,10 +1138,10 @@ CALSCALE:GREGORIAN
 BEGIN:VEVENT
 CREATED:20100303T181216Z
 UID:MISMATCH_ATTENDEE_ICS
-DTEND:%(year)s0307T151500Z
+DTEND:%(year)s%(month)02d07T151500Z
 TRANSP:OPAQUE
 SUMMARY:Ancient event
-DTSTART:%(year)s0307T111500Z
+DTSTART:%(year)s%(month)02d07T111500Z
 DTSTAMP:20100303T181220Z
 SEQUENCE:2
 ORGANIZER:urn:uuid:D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
@@ -1146,7 +1150,7 @@ ATTENDEE;PARTSTAT=NEEDS-ACTION:urn:uuid:47B16BB4-DB5F-4BF6-85FE-A7DA54230F92
 ATTENDEE;PARTSTAT=NEEDS-ACTION:urn:uuid:AC478592-7783-44D1-B2AE-52359B4E8415
 END:VEVENT
 END:VCALENDAR
-""".replace("\n", "\r\n") % {"year": now}
+""".replace("\n", "\r\n") % {"year": nowYear, "month": nowMonth}
 
     MISMATCH_ATTENDEE_3_ICS = """BEGIN:VCALENDAR
 VERSION:2.0
@@ -1155,10 +1159,10 @@ CALSCALE:GREGORIAN
 BEGIN:VEVENT
 CREATED:20100303T181216Z
 UID:MISMATCH_ATTENDEE_ICS
-DTEND:%(year)s0307T151500Z
+DTEND:%(year)s%(month)02d07T151500Z
 TRANSP:OPAQUE
 SUMMARY:Ancient event
-DTSTART:%(year)s0307T111500Z
+DTSTART:%(year)s%(month)02d07T111500Z
 DTSTAMP:20100303T181220Z
 SEQUENCE:2
 ORGANIZER:urn:uuid:D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
@@ -1167,7 +1171,7 @@ ATTENDEE;PARTSTAT=NEEDS-ACTION:urn:uuid:47B16BB4-DB5F-4BF6-85FE-A7DA54230F92
 ATTENDEE;PARTSTAT=ACCEPTED:urn:uuid:AC478592-7783-44D1-B2AE-52359B4E8415
 END:VEVENT
 END:VCALENDAR
-""".replace("\n", "\r\n") % {"year": now}
+""".replace("\n", "\r\n") % {"year": nowYear, "month": nowMonth}
 
     # Attendee events outside time range
     MISMATCH2_ATTENDEE_1_ICS = """BEGIN:VCALENDAR
@@ -1177,10 +1181,10 @@ CALSCALE:GREGORIAN
 BEGIN:VEVENT
 CREATED:20100303T181216Z
 UID:MISMATCH2_ATTENDEE_ICS
-DTEND:%(year)s0307T151500Z
+DTEND:%(year)s%(month)02d07T151500Z
 TRANSP:OPAQUE
 SUMMARY:Ancient event
-DTSTART:%(year)s0307T111500Z
+DTSTART:%(year)s%(month)02d07T111500Z
 DTSTAMP:20100303T181220Z
 SEQUENCE:2
 ORGANIZER:urn:uuid:D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
@@ -1189,7 +1193,7 @@ ATTENDEE;PARTSTAT=DECLINED:urn:uuid:47B16BB4-DB5F-4BF6-85FE-A7DA54230F92
 ATTENDEE;PARTSTAT=NEEDS-ACTION:urn:uuid:AC478592-7783-44D1-B2AE-52359B4E8415
 END:VEVENT
 END:VCALENDAR
-""".replace("\n", "\r\n") % {"year": now}
+""".replace("\n", "\r\n") % {"year": nowYear, "month": nowMonth}
 
     MISMATCH2_ATTENDEE_2_ICS = """BEGIN:VCALENDAR
 VERSION:2.0
@@ -1198,10 +1202,10 @@ CALSCALE:GREGORIAN
 BEGIN:VEVENT
 CREATED:20100303T181216Z
 UID:MISMATCH2_ATTENDEE_ICS
-DTEND:%(year)s0307T151500Z
+DTEND:%(year)s%(month)02d07T151500Z
 TRANSP:OPAQUE
 SUMMARY:Ancient event
-DTSTART:%(year)s0307T111500Z
+DTSTART:%(year)s%(month)02d07T111500Z
 DTSTAMP:20100303T181220Z
 SEQUENCE:2
 ORGANIZER:urn:uuid:D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
@@ -1210,7 +1214,7 @@ ATTENDEE;PARTSTAT=NEEDS-ACTION:urn:uuid:47B16BB4-DB5F-4BF6-85FE-A7DA54230F92
 ATTENDEE;PARTSTAT=NEEDS-ACTION:urn:uuid:AC478592-7783-44D1-B2AE-52359B4E8415
 END:VEVENT
 END:VCALENDAR
-""".replace("\n", "\r\n") % {"year": now}
+""".replace("\n", "\r\n") % {"year": nowYear, "month": nowMonth}
 
     MISMATCH2_ATTENDEE_3_ICS = """BEGIN:VCALENDAR
 VERSION:2.0
@@ -1219,10 +1223,10 @@ CALSCALE:GREGORIAN
 BEGIN:VEVENT
 CREATED:20100303T181216Z
 UID:MISMATCH2_ATTENDEE_ICS
-DTEND:%(year)s0307T151500Z
+DTEND:%(year)s%(month)02d07T151500Z
 TRANSP:OPAQUE
 SUMMARY:Ancient event
-DTSTART:%(year)s0307T111500Z
+DTSTART:%(year)s%(month)02d07T111500Z
 DTSTAMP:20100303T181220Z
 SEQUENCE:2
 ORGANIZER:urn:uuid:D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
@@ -1231,7 +1235,7 @@ ATTENDEE;PARTSTAT=NEEDS-ACTION:urn:uuid:47B16BB4-DB5F-4BF6-85FE-A7DA54230F92
 ATTENDEE;PARTSTAT=ACCEPTED:urn:uuid:AC478592-7783-44D1-B2AE-52359B4E8415
 END:VEVENT
 END:VCALENDAR
-""".replace("\n", "\r\n") % {"year": now}
+""".replace("\n", "\r\n") % {"year": nowYear, "month": nowMonth}
 
     # Organizer event outside time range
     MISMATCH_ORGANIZER_1_ICS = """BEGIN:VCALENDAR
@@ -1241,10 +1245,10 @@ CALSCALE:GREGORIAN
 BEGIN:VEVENT
 CREATED:20100303T181216Z
 UID:MISMATCH_ORGANIZER_ICS
-DTEND:%(year)s0307T151500Z
+DTEND:%(year)s%(month)02d07T151500Z
 TRANSP:OPAQUE
 SUMMARY:Ancient event
-DTSTART:%(year)s0307T111500Z
+DTSTART:%(year)s%(month)02d07T111500Z
 DTSTAMP:20100303T181220Z
 SEQUENCE:2
 ORGANIZER:urn:uuid:D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
@@ -1253,7 +1257,7 @@ ATTENDEE;PARTSTAT=DECLINED:urn:uuid:47B16BB4-DB5F-4BF6-85FE-A7DA54230F92
 ATTENDEE;PARTSTAT=NEEDS-ACTION:urn:uuid:AC478592-7783-44D1-B2AE-52359B4E8415
 END:VEVENT
 END:VCALENDAR
-""".replace("\n", "\r\n") % {"year": now - 2}
+""".replace("\n", "\r\n") % {"year": nowYear - 1, "month": nowMonth}
 
     MISMATCH_ORGANIZER_2_ICS = """BEGIN:VCALENDAR
 VERSION:2.0
@@ -1262,10 +1266,10 @@ CALSCALE:GREGORIAN
 BEGIN:VEVENT
 CREATED:20100303T181216Z
 UID:MISMATCH_ORGANIZER_ICS
-DTEND:%(year)s0307T151500Z
+DTEND:%(year)s%(month)02d07T151500Z
 TRANSP:OPAQUE
 SUMMARY:Ancient event
-DTSTART:%(year)s0307T111500Z
+DTSTART:%(year)s%(month)02d07T111500Z
 DTSTAMP:20100303T181220Z
 SEQUENCE:2
 ORGANIZER:urn:uuid:D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
@@ -1274,7 +1278,7 @@ ATTENDEE;PARTSTAT=NEEDS-ACTION:urn:uuid:47B16BB4-DB5F-4BF6-85FE-A7DA54230F92
 ATTENDEE;PARTSTAT=NEEDS-ACTION:urn:uuid:AC478592-7783-44D1-B2AE-52359B4E8415
 END:VEVENT
 END:VCALENDAR
-""".replace("\n", "\r\n") % {"year": now}
+""".replace("\n", "\r\n") % {"year": nowYear, "month": nowMonth}
 
     # Attendee uuid3 has event with different organizer
     MISMATCH3_ATTENDEE_1_ICS = """BEGIN:VCALENDAR
@@ -1284,10 +1288,10 @@ CALSCALE:GREGORIAN
 BEGIN:VEVENT
 CREATED:20100303T181216Z
 UID:MISMATCH3_ATTENDEE_ICS
-DTEND:%(year)s0307T151500Z
+DTEND:%(year)s%(month)02d07T151500Z
 TRANSP:OPAQUE
 SUMMARY:Ancient event
-DTSTART:%(year)s0307T111500Z
+DTSTART:%(year)s%(month)02d07T111500Z
 DTSTAMP:20100303T181220Z
 SEQUENCE:2
 ORGANIZER:urn:uuid:D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
@@ -1296,7 +1300,7 @@ ATTENDEE;PARTSTAT=ACCEPTED:urn:uuid:47B16BB4-DB5F-4BF6-85FE-A7DA54230F92
 ATTENDEE;PARTSTAT=ACCEPTED:urn:uuid:AC478592-7783-44D1-B2AE-52359B4E8415
 END:VEVENT
 END:VCALENDAR
-""".replace("\n", "\r\n") % {"year": now}
+""".replace("\n", "\r\n") % {"year": nowYear, "month": nowMonth}
 
     MISMATCH3_ATTENDEE_2_ICS = """BEGIN:VCALENDAR
 VERSION:2.0
@@ -1305,10 +1309,10 @@ CALSCALE:GREGORIAN
 BEGIN:VEVENT
 CREATED:20100303T181216Z
 UID:MISMATCH3_ATTENDEE_ICS
-DTEND:%(year)s0307T151500Z
+DTEND:%(year)s%(month)02d07T151500Z
 TRANSP:OPAQUE
 SUMMARY:Ancient event
-DTSTART:%(year)s0307T111500Z
+DTSTART:%(year)s%(month)02d07T111500Z
 DTSTAMP:20100303T181220Z
 SEQUENCE:2
 ORGANIZER:urn:uuid:D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
@@ -1316,7 +1320,7 @@ ATTENDEE;PARTSTAT=ACCEPTED:urn:uuid:D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
 ATTENDEE;PARTSTAT=ACCEPTED:urn:uuid:47B16BB4-DB5F-4BF6-85FE-A7DA54230F92
 END:VEVENT
 END:VCALENDAR
-""".replace("\n", "\r\n") % {"year": now}
+""".replace("\n", "\r\n") % {"year": nowYear, "month": nowMonth}
 
     MISMATCH3_ATTENDEE_3_ICS = """BEGIN:VCALENDAR
 VERSION:2.0
@@ -1325,17 +1329,17 @@ CALSCALE:GREGORIAN
 BEGIN:VEVENT
 CREATED:20100303T181216Z
 UID:MISMATCH3_ATTENDEE_ICS
-DTEND:%(year)s0307T151500Z
+DTEND:%(year)s%(month)02d07T151500Z
 TRANSP:OPAQUE
 SUMMARY:Ancient event
-DTSTART:%(year)s0307T111500Z
+DTSTART:%(year)s%(month)02d07T111500Z
 DTSTAMP:20100303T181220Z
 SEQUENCE:2
 ORGANIZER:urn:uuid:47B16BB4-DB5F-4BF6-85FE-A7DA54230F92
 ATTENDEE;PARTSTAT=ACCEPTED:urn:uuid:47B16BB4-DB5F-4BF6-85FE-A7DA54230F92
 END:VEVENT
 END:VCALENDAR
-""".replace("\n", "\r\n") % {"year": now}
+""".replace("\n", "\r\n") % {"year": nowYear, "month": nowMonth}
 
     MISMATCH_ORGANIZER_3_ICS = """BEGIN:VCALENDAR
 VERSION:2.0
@@ -1344,10 +1348,10 @@ CALSCALE:GREGORIAN
 BEGIN:VEVENT
 CREATED:20100303T181216Z
 UID:MISMATCH_ORGANIZER_ICS
-DTEND:%(year)s0307T151500Z
+DTEND:%(year)s%(month)02d07T151500Z
 TRANSP:OPAQUE
 SUMMARY:Ancient event
-DTSTART:%(year)s0307T111500Z
+DTSTART:%(year)s%(month)02d07T111500Z
 DTSTAMP:20100303T181220Z
 SEQUENCE:2
 ORGANIZER:urn:uuid:D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
@@ -1356,7 +1360,7 @@ ATTENDEE;PARTSTAT=NEEDS-ACTION:urn:uuid:47B16BB4-DB5F-4BF6-85FE-A7DA54230F92
 ATTENDEE;PARTSTAT=ACCEPTED:urn:uuid:AC478592-7783-44D1-B2AE-52359B4E8415
 END:VEVENT
 END:VCALENDAR
-""".replace("\n", "\r\n") % {"year": now}
+""".replace("\n", "\r\n") % {"year": nowYear, "month": nowMonth}
 
     # Attendee uuid3 has event they are not invited to
     MISMATCH2_ORGANIZER_1_ICS = """BEGIN:VCALENDAR
@@ -1366,10 +1370,10 @@ CALSCALE:GREGORIAN
 BEGIN:VEVENT
 CREATED:20100303T181216Z
 UID:MISMATCH2_ORGANIZER_ICS
-DTEND:%(year)s0307T151500Z
+DTEND:%(year)s%(month)02d07T151500Z
 TRANSP:OPAQUE
 SUMMARY:Ancient event
-DTSTART:%(year)s0307T111500Z
+DTSTART:%(year)s%(month)02d07T111500Z
 DTSTAMP:20100303T181220Z
 SEQUENCE:2
 ORGANIZER:urn:uuid:D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
@@ -1377,7 +1381,7 @@ ATTENDEE;PARTSTAT=ACCEPTED:urn:uuid:D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
 ATTENDEE;PARTSTAT=DECLINED:urn:uuid:47B16BB4-DB5F-4BF6-85FE-A7DA54230F92
 END:VEVENT
 END:VCALENDAR
-""".replace("\n", "\r\n") % {"year": now}
+""".replace("\n", "\r\n") % {"year": nowYear, "month": nowMonth}
 
     MISMATCH2_ORGANIZER_2_ICS = """BEGIN:VCALENDAR
 VERSION:2.0
@@ -1386,10 +1390,10 @@ CALSCALE:GREGORIAN
 BEGIN:VEVENT
 CREATED:20100303T181216Z
 UID:MISMATCH2_ORGANIZER_ICS
-DTEND:%(year)s0307T151500Z
+DTEND:%(year)s%(month)02d07T151500Z
 TRANSP:OPAQUE
 SUMMARY:Ancient event
-DTSTART:%(year)s0307T111500Z
+DTSTART:%(year)s%(month)02d07T111500Z
 DTSTAMP:20100303T181220Z
 SEQUENCE:2
 ORGANIZER:urn:uuid:D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
@@ -1397,7 +1401,7 @@ ATTENDEE;PARTSTAT=ACCEPTED:urn:uuid:D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
 ATTENDEE;PARTSTAT=DECLINED:urn:uuid:47B16BB4-DB5F-4BF6-85FE-A7DA54230F92
 END:VEVENT
 END:VCALENDAR
-""".replace("\n", "\r\n") % {"year": now}
+""".replace("\n", "\r\n") % {"year": nowYear, "month": nowMonth}
 
     MISMATCH2_ORGANIZER_3_ICS = """BEGIN:VCALENDAR
 VERSION:2.0
@@ -1406,10 +1410,10 @@ CALSCALE:GREGORIAN
 BEGIN:VEVENT
 CREATED:20100303T181216Z
 UID:MISMATCH2_ORGANIZER_ICS
-DTEND:%(year)s0307T151500Z
+DTEND:%(year)s%(month)02d07T151500Z
 TRANSP:OPAQUE
 SUMMARY:Ancient event
-DTSTART:%(year)s0307T111500Z
+DTSTART:%(year)s%(month)02d07T111500Z
 DTSTAMP:20100303T181220Z
 SEQUENCE:2
 ORGANIZER:urn:uuid:D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
@@ -1418,7 +1422,7 @@ ATTENDEE;PARTSTAT=DECLINED:urn:uuid:47B16BB4-DB5F-4BF6-85FE-A7DA54230F92
 ATTENDEE;PARTSTAT=ACCEPTED:urn:uuid:AC478592-7783-44D1-B2AE-52359B4E8415
 END:VEVENT
 END:VCALENDAR
-""".replace("\n", "\r\n") % {"year": now}
+""".replace("\n", "\r\n") % {"year": nowYear, "month": nowMonth}
 
     requirements = {
         CalVerifyMismatchTestsBase.uuid1 : {
@@ -1481,7 +1485,7 @@ END:VCALENDAR
             "uid": "",
             "uuid": "",
             "tzid": "",
-            "start": PyCalendarDateTime(now, 1, 1, 0, 0, 0),
+            "start": PyCalendarDateTime(nowYear, 1, 1, 0, 0, 0),
         }
         output = StringIO()
         calverify = SchedulingMismatchService(self._sqlCalendarStore, options, output, reactor, config)
@@ -1548,7 +1552,7 @@ END:VCALENDAR
             "uid": "",
             "uuid": "",
             "tzid": "",
-            "start": PyCalendarDateTime(now, 1, 1, 0, 0, 0),
+            "start": PyCalendarDateTime(nowYear, 1, 1, 0, 0, 0),
         }
         output = StringIO()
         calverify = SchedulingMismatchService(self._sqlCalendarStore, options, output, reactor, config)
@@ -1657,10 +1661,10 @@ CALSCALE:GREGORIAN
 BEGIN:VEVENT
 CREATED:20100303T181216Z
 UID:MISSING_ATTENDEE_ICS
-DTEND:%(year)s0307T151500Z
+DTEND:%(year)s%(month)02d07T151500Z
 TRANSP:OPAQUE
 SUMMARY:Ancient event
-DTSTART:%(year)s0307T111500Z
+DTSTART:%(year)s%(month)02d07T111500Z
 DTSTAMP:20100303T181220Z
 SEQUENCE:2
 ORGANIZER:urn:uuid:D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
@@ -1668,7 +1672,7 @@ ATTENDEE:urn:uuid:D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
 ATTENDEE:urn:uuid:75EA36BE-F71B-40F9-81F9-CF59BF40CA8F
 END:VEVENT
 END:VCALENDAR
-""".replace("\n", "\r\n") % {"year": now}
+""".replace("\n", "\r\n") % {"year": nowYear, "month": nowMonth}
 
     # Attendee partstat mismatch
     MISMATCH_ATTENDEE_1_ICS = """BEGIN:VCALENDAR
@@ -1678,10 +1682,10 @@ CALSCALE:GREGORIAN
 BEGIN:VEVENT
 CREATED:20100303T181216Z
 UID:MISMATCH_ATTENDEE_ICS
-DTEND:%(year)s0307T151500Z
+DTEND:%(year)s%(month)02d07T151500Z
 TRANSP:OPAQUE
 SUMMARY:Ancient event
-DTSTART:%(year)s0307T111500Z
+DTSTART:%(year)s%(month)02d07T111500Z
 DTSTAMP:20100303T181220Z
 SEQUENCE:2
 ORGANIZER:urn:uuid:D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
@@ -1689,7 +1693,7 @@ ATTENDEE;PARTSTAT=ACCEPTED:urn:uuid:D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
 ATTENDEE;PARTSTAT=NEEDS-ACTION:urn:uuid:75EA36BE-F71B-40F9-81F9-CF59BF40CA8F
 END:VEVENT
 END:VCALENDAR
-""".replace("\n", "\r\n") % {"year": now}
+""".replace("\n", "\r\n") % {"year": nowYear, "month": nowMonth}
 
     MISMATCH_ATTENDEE_L1_ICS = """BEGIN:VCALENDAR
 VERSION:2.0
@@ -1698,10 +1702,10 @@ CALSCALE:GREGORIAN
 BEGIN:VEVENT
 CREATED:20100303T181216Z
 UID:MISMATCH_ATTENDEE_ICS
-DTEND:%(year)s0307T151500Z
+DTEND:%(year)s%(month)02d07T151500Z
 TRANSP:OPAQUE
 SUMMARY:Ancient event
-DTSTART:%(year)s0307T111500Z
+DTSTART:%(year)s%(month)02d07T111500Z
 DTSTAMP:20100303T181220Z
 SEQUENCE:2
 ORGANIZER:urn:uuid:D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
@@ -1709,7 +1713,7 @@ ATTENDEE;PARTSTAT=ACCEPTED:urn:uuid:D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
 ATTENDEE;PARTSTAT=ACCEPTED:urn:uuid:75EA36BE-F71B-40F9-81F9-CF59BF40CA8F
 END:VEVENT
 END:VCALENDAR
-""".replace("\n", "\r\n") % {"year": now}
+""".replace("\n", "\r\n") % {"year": nowYear, "month": nowMonth}
 
     requirements = {
         CalVerifyMismatchTestsBase.uuid1 : {
@@ -1757,7 +1761,7 @@ END:VCALENDAR
             "uid": "",
             "uuid": "",
             "tzid": "",
-            "start": PyCalendarDateTime(now, 1, 1, 0, 0, 0),
+            "start": PyCalendarDateTime(nowYear, 1, 1, 0, 0, 0),
         }
         output = StringIO()
         calverify = SchedulingMismatchService(self._sqlCalendarStore, options, output, reactor, config)
@@ -1808,7 +1812,7 @@ END:VCALENDAR
             "uid": "",
             "uuid": "",
             "tzid": "",
-            "start": PyCalendarDateTime(now, 1, 1, 0, 0, 0),
+            "start": PyCalendarDateTime(nowYear, 1, 1, 0, 0, 0),
         }
         output = StringIO()
         calverify = SchedulingMismatchService(self._sqlCalendarStore, options, output, reactor, config)
@@ -1843,9 +1847,9 @@ END:VCALENDAR
         testResults = sorted(calverify.results["Auto-Accepts"], key=lambda x: x["uid"])
         self.assertEqual(testResults[0]["path"], "/calendars/__uids__/%s/calendar/mismatched_attendee.ics" % self.uuidl1)
         self.assertEqual(testResults[0]["uid"], "MISMATCH_ATTENDEE_ICS")
-        self.assertEqual(testResults[0]["start"].getText(), "%s0307T031500" % (now,))
+        self.assertEqual(testResults[0]["start"].getText()[:8], "%(year)s%(month)02d07" % {"year": nowYear, "month": nowMonth})
         self.assertEqual(testResults[1]["uid"], "MISSING_ATTENDEE_ICS")
-        self.assertEqual(testResults[1]["start"].getText(), "%s0307T031500" % (now,))
+        self.assertEqual(testResults[1]["start"].getText()[:8], "%(year)s%(month)02d07" % {"year": nowYear, "month": nowMonth})
 
         sync_token_new1 = (yield (yield self.calendarUnderTest(self.uuid1)).syncToken())
         sync_token_newl1 = (yield (yield self.calendarUnderTest(self.uuidl1)).syncToken())
@@ -1884,10 +1888,10 @@ CALSCALE:GREGORIAN
 BEGIN:VEVENT
 CREATED:20100303T181216Z
 UID:MISSING_ATTENDEE_ICS
-DTEND:%(year)s0307T151500Z
+DTEND:%(year)s%(month)02d07T151500Z
 TRANSP:OPAQUE
 SUMMARY:Ancient event
-DTSTART:%(year)s0307T111500Z
+DTSTART:%(year)s%(month)02d07T111500Z
 DTSTAMP:20100303T181220Z
 SEQUENCE:2
 ORGANIZER:urn:uuid:D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
@@ -1895,7 +1899,7 @@ ATTENDEE:urn:uuid:D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
 ATTENDEE:urn:uuid:75EA36BE-F71B-40F9-81F9-CF59BF40CA8F
 END:VEVENT
 END:VCALENDAR
-""".replace("\n", "\r\n") % {"year": now}
+""".replace("\n", "\r\n") % {"year": nowYear, "month": nowMonth}
 
     # Attendee partstat mismatch
     MISMATCH_ATTENDEE_1_ICS = """BEGIN:VCALENDAR
@@ -1905,10 +1909,10 @@ CALSCALE:GREGORIAN
 BEGIN:VEVENT
 CREATED:20100303T181216Z
 UID:MISMATCH_ATTENDEE_ICS
-DTEND:%(year)s0307T151500Z
+DTEND:%(year)s%(month)02d07T151500Z
 TRANSP:OPAQUE
 SUMMARY:Ancient event
-DTSTART:%(year)s0307T111500Z
+DTSTART:%(year)s%(month)02d07T111500Z
 DTSTAMP:20100303T181220Z
 SEQUENCE:2
 ORGANIZER:urn:uuid:D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
@@ -1916,7 +1920,7 @@ ATTENDEE;PARTSTAT=ACCEPTED:urn:uuid:D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
 ATTENDEE;PARTSTAT=NEEDS-ACTION:urn:uuid:75EA36BE-F71B-40F9-81F9-CF59BF40CA8F
 END:VEVENT
 END:VCALENDAR
-""".replace("\n", "\r\n") % {"year": now}
+""".replace("\n", "\r\n") % {"year": nowYear, "month": nowMonth}
 
     MISMATCH_ATTENDEE_L1_ICS = """BEGIN:VCALENDAR
 VERSION:2.0
@@ -1925,10 +1929,10 @@ CALSCALE:GREGORIAN
 BEGIN:VEVENT
 CREATED:20100303T181216Z
 UID:MISMATCH_ATTENDEE_ICS
-DTEND:%(year)s0307T151500Z
+DTEND:%(year)s%(month)02d07T151500Z
 TRANSP:OPAQUE
 SUMMARY:Ancient event
-DTSTART:%(year)s0307T111500Z
+DTSTART:%(year)s%(month)02d07T111500Z
 DTSTAMP:20100303T181220Z
 SEQUENCE:2
 ORGANIZER:urn:uuid:D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
@@ -1936,7 +1940,7 @@ ATTENDEE;PARTSTAT=ACCEPTED:urn:uuid:D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
 ATTENDEE;PARTSTAT=ACCEPTED:urn:uuid:75EA36BE-F71B-40F9-81F9-CF59BF40CA8F
 END:VEVENT
 END:VCALENDAR
-""".replace("\n", "\r\n") % {"year": now}
+""".replace("\n", "\r\n") % {"year": nowYear, "month": nowMonth}
 
     requirements = {
         CalVerifyMismatchTestsBase.uuid1 : {
@@ -1984,7 +1988,7 @@ END:VCALENDAR
             "uid": "",
             "uuid": CalVerifyMismatchTestsBase.uuidl1,
             "tzid": "",
-            "start": PyCalendarDateTime(now, 1, 1, 0, 0, 0),
+            "start": PyCalendarDateTime(nowYear, 1, 1, 0, 0, 0),
         }
         output = StringIO()
         calverify = SchedulingMismatchService(self._sqlCalendarStore, options, output, reactor, config)
@@ -2033,7 +2037,7 @@ END:VCALENDAR
             "uid": "",
             "uuid": CalVerifyMismatchTestsBase.uuidl1,
             "tzid": "",
-            "start": PyCalendarDateTime(now, 1, 1, 0, 0, 0),
+            "start": PyCalendarDateTime(nowYear, 1, 1, 0, 0, 0),
         }
         output = StringIO()
         calverify = SchedulingMismatchService(self._sqlCalendarStore, options, output, reactor, config)
@@ -2063,7 +2067,7 @@ END:VCALENDAR
         testResults = sorted(calverify.results["Auto-Accepts"], key=lambda x: x["uid"])
         self.assertEqual(testResults[0]["path"], "/calendars/__uids__/%s/calendar/mismatched_attendee.ics" % self.uuidl1)
         self.assertEqual(testResults[0]["uid"], "MISMATCH_ATTENDEE_ICS")
-        self.assertEqual(testResults[0]["start"].getText(), "%s0307T031500" % (now,))
+        self.assertEqual(testResults[0]["start"].getText()[:8], "%(year)s%(month)02d07" % {"year": nowYear, "month": nowMonth})
 
         sync_token_new1 = (yield (yield self.calendarUnderTest(self.uuid1)).syncToken())
         sync_token_newl1 = (yield (yield self.calendarUnderTest(self.uuidl1)).syncToken())
@@ -2105,7 +2109,7 @@ CREATED:20100303T181216Z
 UID:INVITE_NO_OVERLAP_ICS
 TRANSP:OPAQUE
 SUMMARY:INVITE_NO_OVERLAP_ICS
-DTSTART:%(year)s0307T100000Z
+DTSTART:%(year)s%(month)02d07T100000Z
 DURATION:PT1H
 DTSTAMP:20100303T181220Z
 SEQUENCE:2
@@ -2114,7 +2118,7 @@ ATTENDEE:urn:uuid:D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
 ATTENDEE:urn:uuid:75EA36BE-F71B-40F9-81F9-CF59BF40CA8F
 END:VEVENT
 END:VCALENDAR
-""".replace("\n", "\r\n") % {"year": now}
+""".replace("\n", "\r\n") % {"year": nowYear, "month": nowMonth}
 
     # Two overlapping
     INVITE_NO_OVERLAP1_1_ICS = """BEGIN:VCALENDAR
@@ -2126,7 +2130,7 @@ CREATED:20100303T181216Z
 UID:INVITE_NO_OVERLAP1_1_ICS
 TRANSP:OPAQUE
 SUMMARY:INVITE_NO_OVERLAP1_1_ICS
-DTSTART:%(year)s0307T110000Z
+DTSTART:%(year)s%(month)02d07T110000Z
 DURATION:PT2H
 DTSTAMP:20100303T181220Z
 SEQUENCE:2
@@ -2135,7 +2139,7 @@ ATTENDEE:urn:uuid:D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
 ATTENDEE:urn:uuid:75EA36BE-F71B-40F9-81F9-CF59BF40CA8F
 END:VEVENT
 END:VCALENDAR
-""".replace("\n", "\r\n") % {"year": now}
+""".replace("\n", "\r\n") % {"year": nowYear, "month": nowMonth}
 
     INVITE_NO_OVERLAP1_2_ICS = """BEGIN:VCALENDAR
 VERSION:2.0
@@ -2146,7 +2150,7 @@ CREATED:20100303T181216Z
 UID:INVITE_NO_OVERLAP1_2_ICS
 TRANSP:OPAQUE
 SUMMARY:INVITE_NO_OVERLAP1_2_ICS
-DTSTART:%(year)s0307T120000Z
+DTSTART:%(year)s%(month)02d07T120000Z
 DURATION:PT1H
 DTSTAMP:20100303T181220Z
 SEQUENCE:2
@@ -2155,7 +2159,7 @@ ATTENDEE:urn:uuid:D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
 ATTENDEE:urn:uuid:75EA36BE-F71B-40F9-81F9-CF59BF40CA8F
 END:VEVENT
 END:VCALENDAR
-""".replace("\n", "\r\n") % {"year": now}
+""".replace("\n", "\r\n") % {"year": nowYear, "month": nowMonth}
 
     # Two overlapping with one transparent
     INVITE_NO_OVERLAP2_1_ICS = """BEGIN:VCALENDAR
@@ -2167,7 +2171,7 @@ CREATED:20100303T181216Z
 UID:INVITE_NO_OVERLAP2_1_ICS
 TRANSP:OPAQUE
 SUMMARY:INVITE_NO_OVERLAP2_1_ICS
-DTSTART:%(year)s0307T140000Z
+DTSTART:%(year)s%(month)02d07T140000Z
 DURATION:PT2H
 DTSTAMP:20100303T181220Z
 SEQUENCE:2
@@ -2176,7 +2180,7 @@ ATTENDEE:urn:uuid:D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
 ATTENDEE:urn:uuid:75EA36BE-F71B-40F9-81F9-CF59BF40CA8F
 END:VEVENT
 END:VCALENDAR
-""".replace("\n", "\r\n") % {"year": now}
+""".replace("\n", "\r\n") % {"year": nowYear, "month": nowMonth}
 
     INVITE_NO_OVERLAP2_2_ICS = """BEGIN:VCALENDAR
 VERSION:2.0
@@ -2186,7 +2190,7 @@ BEGIN:VEVENT
 CREATED:20100303T181216Z
 UID:INVITE_NO_OVERLAP2_2_ICS
 SUMMARY:INVITE_NO_OVERLAP2_2_ICS
-DTSTART:%(year)s0307T150000Z
+DTSTART:%(year)s%(month)02d07T150000Z
 DURATION:PT1H
 DTSTAMP:20100303T181220Z
 SEQUENCE:2
@@ -2196,7 +2200,7 @@ ATTENDEE:urn:uuid:75EA36BE-F71B-40F9-81F9-CF59BF40CA8F
 TRANSP:TRANSPARENT
 END:VEVENT
 END:VCALENDAR
-""".replace("\n", "\r\n") % {"year": now}
+""".replace("\n", "\r\n") % {"year": nowYear, "month": nowMonth}
 
     # Two overlapping with one cancelled
     INVITE_NO_OVERLAP3_1_ICS = """BEGIN:VCALENDAR
@@ -2208,7 +2212,7 @@ CREATED:20100303T181216Z
 UID:INVITE_NO_OVERLAP3_1_ICS
 TRANSP:OPAQUE
 SUMMARY:Ancient event
-DTSTART:%(year)s0307T170000Z
+DTSTART:%(year)s%(month)02d07T170000Z
 DURATION:PT2H
 DTSTAMP:20100303T181220Z
 SEQUENCE:2
@@ -2217,7 +2221,7 @@ ATTENDEE:urn:uuid:D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
 ATTENDEE:urn:uuid:75EA36BE-F71B-40F9-81F9-CF59BF40CA8F
 END:VEVENT
 END:VCALENDAR
-""".replace("\n", "\r\n") % {"year": now}
+""".replace("\n", "\r\n") % {"year": nowYear, "month": nowMonth}
 
     INVITE_NO_OVERLAP3_2_ICS = """BEGIN:VCALENDAR
 VERSION:2.0
@@ -2227,7 +2231,7 @@ BEGIN:VEVENT
 CREATED:20100303T181216Z
 UID:INVITE_NO_OVERLAP3_2_ICS
 SUMMARY:INVITE_NO_OVERLAP3_2_ICS
-DTSTART:%(year)s0307T180000Z
+DTSTART:%(year)s%(month)02d07T180000Z
 DURATION:PT1H
 DTSTAMP:20100303T181220Z
 SEQUENCE:2
@@ -2237,7 +2241,7 @@ ATTENDEE:urn:uuid:75EA36BE-F71B-40F9-81F9-CF59BF40CA8F
 STATUS:CANCELLED
 END:VEVENT
 END:VCALENDAR
-""".replace("\n", "\r\n") % {"year": now}
+""".replace("\n", "\r\n") % {"year": nowYear, "month": nowMonth}
 
     # Two overlapping recurring
     INVITE_NO_OVERLAP4_1_ICS = """BEGIN:VCALENDAR
@@ -2249,7 +2253,7 @@ CREATED:20100303T181216Z
 UID:INVITE_NO_OVERLAP4_1_ICS
 TRANSP:OPAQUE
 SUMMARY:INVITE_NO_OVERLAP4_1_ICS
-DTSTART:%(year)s0308T120000Z
+DTSTART:%(year)s%(month)02d08T120000Z
 DURATION:PT2H
 DTSTAMP:20100303T181220Z
 SEQUENCE:2
@@ -2259,7 +2263,7 @@ ATTENDEE:urn:uuid:75EA36BE-F71B-40F9-81F9-CF59BF40CA8F
 RRULE:FREQ=DAILY;COUNT=3
 END:VEVENT
 END:VCALENDAR
-""".replace("\n", "\r\n") % {"year": now}
+""".replace("\n", "\r\n") % {"year": nowYear, "month": nowMonth}
 
     INVITE_NO_OVERLAP4_2_ICS = """BEGIN:VCALENDAR
 VERSION:2.0
@@ -2269,7 +2273,7 @@ BEGIN:VEVENT
 CREATED:20100303T181216Z
 UID:INVITE_NO_OVERLAP4_2_ICS
 SUMMARY:INVITE_NO_OVERLAP4_2_ICS
-DTSTART:%(year)s0309T120000Z
+DTSTART:%(year)s%(month)02d09T120000Z
 DURATION:PT1H
 DTSTAMP:20100303T181220Z
 SEQUENCE:2
@@ -2279,7 +2283,7 @@ ATTENDEE:urn:uuid:75EA36BE-F71B-40F9-81F9-CF59BF40CA8F
 RRULE:FREQ=DAILY;COUNT=2
 END:VEVENT
 END:VCALENDAR
-""".replace("\n", "\r\n") % {"year": now}
+""".replace("\n", "\r\n") % {"year": nowYear, "month": nowMonth}
 
     # Two overlapping on one recurrence instance
     INVITE_NO_OVERLAP5_1_ICS = """BEGIN:VCALENDAR
@@ -2291,7 +2295,7 @@ CREATED:20100303T181216Z
 UID:INVITE_NO_OVERLAP5_1_ICS
 TRANSP:OPAQUE
 SUMMARY:INVITE_NO_OVERLAP5_1_ICS
-DTSTART:%(year)s0312T120000Z
+DTSTART:%(year)s%(month)02d12T120000Z
 DURATION:PT2H
 DTSTAMP:20100303T181220Z
 SEQUENCE:2
@@ -2301,7 +2305,7 @@ ATTENDEE:urn:uuid:75EA36BE-F71B-40F9-81F9-CF59BF40CA8F
 RRULE:FREQ=DAILY;COUNT=3
 END:VEVENT
 END:VCALENDAR
-""".replace("\n", "\r\n") % {"year": now}
+""".replace("\n", "\r\n") % {"year": nowYear, "month": nowMonth}
 
     INVITE_NO_OVERLAP5_2_ICS = """BEGIN:VCALENDAR
 VERSION:2.0
@@ -2311,7 +2315,7 @@ BEGIN:VEVENT
 CREATED:20100303T181216Z
 UID:INVITE_NO_OVERLAP5_2_ICS
 SUMMARY:INVITE_NO_OVERLAP5_2_ICS
-DTSTART:%(year)s0313T140000Z
+DTSTART:%(year)s%(month)02d13T140000Z
 DURATION:PT1H
 DTSTAMP:20100303T181220Z
 SEQUENCE:2
@@ -2324,8 +2328,8 @@ BEGIN:VEVENT
 CREATED:20100303T181216Z
 UID:INVITE_NO_OVERLAP5_2_ICS
 SUMMARY:INVITE_NO_OVERLAP5_2_ICS
-RECURRENCE-ID:%(year)s0314T140000Z
-DTSTART:%(year)s0314T130000Z
+RECURRENCE-ID:%(year)s%(month)02d14T140000Z
+DTSTART:%(year)s%(month)02d14T130000Z
 DURATION:PT1H
 DTSTAMP:20100303T181220Z
 SEQUENCE:2
@@ -2334,7 +2338,7 @@ ATTENDEE:urn:uuid:D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
 ATTENDEE:urn:uuid:75EA36BE-F71B-40F9-81F9-CF59BF40CA8F
 END:VEVENT
 END:VCALENDAR
-""".replace("\n", "\r\n") % {"year": now}
+""".replace("\n", "\r\n") % {"year": nowYear, "month": nowMonth}
 
     # Two not overlapping - one all-day
     INVITE_NO_OVERLAP6_1_ICS = """BEGIN:VCALENDAR
@@ -2363,7 +2367,7 @@ CREATED:20100303T181216Z
 UID:INVITE_NO_OVERLAP6_1_ICS
 TRANSP:OPAQUE
 SUMMARY:INVITE_NO_OVERLAP6_1_ICS
-DTSTART;TZID=America/Los_Angeles:%(year)s0320T200000
+DTSTART;TZID=America/Los_Angeles:%(year)s%(month)02d20T200000
 DURATION:PT2H
 DTSTAMP:20100303T181220Z
 SEQUENCE:2
@@ -2372,7 +2376,7 @@ ATTENDEE:urn:uuid:D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
 ATTENDEE:urn:uuid:75EA36BE-F71B-40F9-81F9-CF59BF40CA8F
 END:VEVENT
 END:VCALENDAR
-""".replace("\n", "\r\n") % {"year": now}
+""".replace("\n", "\r\n") % {"year": nowYear, "month": nowMonth}
 
     INVITE_NO_OVERLAP6_2_ICS = """BEGIN:VCALENDAR
 VERSION:2.0
@@ -2383,7 +2387,7 @@ CREATED:20100303T181216Z
 UID:INVITE_NO_OVERLAP6_2_ICS
 TRANSP:OPAQUE
 SUMMARY:INVITE_NO_OVERLAP6_2_ICS
-DTSTART;VALUE=DATE:%(year)s0321
+DTSTART;VALUE=DATE:%(year)s%(month)02d21
 DTSTAMP:20100303T181220Z
 SEQUENCE:2
 ORGANIZER:urn:uuid:D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
@@ -2391,7 +2395,7 @@ ATTENDEE:urn:uuid:D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
 ATTENDEE:urn:uuid:75EA36BE-F71B-40F9-81F9-CF59BF40CA8F
 END:VEVENT
 END:VCALENDAR
-""".replace("\n", "\r\n") % {"year": now}
+""".replace("\n", "\r\n") % {"year": nowYear, "month": nowMonth}
 
     # Two overlapping - same organizer and summary
     INVITE_NO_OVERLAP7_1_ICS = """BEGIN:VCALENDAR
@@ -2403,7 +2407,7 @@ CREATED:20100303T181216Z
 UID:INVITE_NO_OVERLAP7_1_ICS
 TRANSP:OPAQUE
 SUMMARY:INVITE_NO_OVERLAP7_1_ICS
-DTSTART:%(year)s0323T110000Z
+DTSTART:%(year)s%(month)02d23T110000Z
 DURATION:PT2H
 DTSTAMP:20100303T181220Z
 SEQUENCE:2
@@ -2412,7 +2416,7 @@ ATTENDEE:urn:uuid:D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
 ATTENDEE:urn:uuid:75EA36BE-F71B-40F9-81F9-CF59BF40CA8F
 END:VEVENT
 END:VCALENDAR
-""".replace("\n", "\r\n") % {"year": now}
+""".replace("\n", "\r\n") % {"year": nowYear, "month": nowMonth}
 
     INVITE_NO_OVERLAP7_2_ICS = """BEGIN:VCALENDAR
 VERSION:2.0
@@ -2423,7 +2427,7 @@ CREATED:20100303T181216Z
 UID:INVITE_NO_OVERLAP7_2_ICS
 TRANSP:OPAQUE
 SUMMARY:INVITE_NO_OVERLAP7_1_ICS
-DTSTART:%(year)s0323T120000Z
+DTSTART:%(year)s%(month)02d23T120000Z
 DURATION:PT1H
 DTSTAMP:20100303T181220Z
 SEQUENCE:2
@@ -2432,7 +2436,7 @@ ATTENDEE:urn:uuid:D46F3D71-04B7-43C2-A7B6-6F92F92E61D0
 ATTENDEE:urn:uuid:75EA36BE-F71B-40F9-81F9-CF59BF40CA8F
 END:VEVENT
 END:VCALENDAR
-""".replace("\n", "\r\n") % {"year": now}
+""".replace("\n", "\r\n") % {"year": nowYear, "month": nowMonth}
 
     allEvents = {
         "invite1.ics"      : (INVITE_NO_OVERLAP_ICS, CalVerifyMismatchTestsBase.metadata,),
@@ -2496,7 +2500,7 @@ END:VCALENDAR
             "uid": "",
             "uuid": self.uuidl1,
             "tzid": "utc",
-            "start": PyCalendarDateTime(now, 1, 1, 0, 0, 0),
+            "start": PyCalendarDateTime(nowYear, 1, 1, 0, 0, 0),
         }
         output = StringIO()
         calverify = DoubleBookingService(self._sqlCalendarStore, options, output, reactor, config)
@@ -2506,10 +2510,10 @@ END:VCALENDAR
         self.assertEqual(
             [(sorted((i.uid1, i.uid2,)), str(i.start),) for i in calverify.results["Double-bookings"]],
             [
-                (["INVITE_NO_OVERLAP1_1_ICS", "INVITE_NO_OVERLAP1_2_ICS"], "%(year)s0307T120000Z" % {"year": now}),
-                (["INVITE_NO_OVERLAP4_1_ICS", "INVITE_NO_OVERLAP4_2_ICS"], "%(year)s0309T120000Z" % {"year": now}),
-                (["INVITE_NO_OVERLAP4_1_ICS", "INVITE_NO_OVERLAP4_2_ICS"], "%(year)s0310T120000Z" % {"year": now}),
-                (["INVITE_NO_OVERLAP5_1_ICS", "INVITE_NO_OVERLAP5_2_ICS"], "%(year)s0314T130000Z" % {"year": now}),
+                (["INVITE_NO_OVERLAP1_1_ICS", "INVITE_NO_OVERLAP1_2_ICS"], "%(year)s%(month)02d07T120000Z" % {"year": nowYear, "month": nowMonth}),
+                (["INVITE_NO_OVERLAP4_1_ICS", "INVITE_NO_OVERLAP4_2_ICS"], "%(year)s%(month)02d09T120000Z" % {"year": nowYear, "month": nowMonth}),
+                (["INVITE_NO_OVERLAP4_1_ICS", "INVITE_NO_OVERLAP4_2_ICS"], "%(year)s%(month)02d10T120000Z" % {"year": nowYear, "month": nowMonth}),
+                (["INVITE_NO_OVERLAP5_1_ICS", "INVITE_NO_OVERLAP5_2_ICS"], "%(year)s%(month)02d14T130000Z" % {"year": nowYear, "month": nowMonth}),
             ],
         )
         self.assertEqual(calverify.results["Number of double-bookings"], 4)
