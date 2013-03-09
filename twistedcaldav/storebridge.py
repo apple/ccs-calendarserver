@@ -2773,10 +2773,8 @@ class AddressBookCollectionResource(_CommonHomeChildCollectionMixin, CalDAVResou
 
 
     def isAddressBookCollection(self):
-        """
-        Yes, it is a calendar collection.
-        """
         return True
+
 
     createAddressBookCollection = _CommonHomeChildCollectionMixin.createCollection
 
@@ -2814,54 +2812,6 @@ class AddressBookCollectionResource(_CommonHomeChildCollectionMixin, CalDAVResou
         yield storer.run()
 
         returnValue(storer.returndata if hasattr(storer, "returndata") else None)
-
-
-    @inlineCallbacks
-    def storeRemove(self, request, viaRequest, where):
-        """
-        Delete this collection resource, first deleting each contained
-        object resource.
-
-        This has to emulate the behavior in fileop.delete in that any errors
-        need to be reported back in a multistatus response.
-
-        @param request: The request used to locate child resources.  Note that
-            this is the request which I{triggered} the C{DELETE}, but which may
-            not actually be a C{DELETE} request itself.
-
-        @type request: L{twext.web2.iweb.IRequest}
-
-        @param viaRequest: Indicates if the delete was a direct result of an http_DELETE
-        which for calendars at least will require implicit cancels to be sent.
-
-        @type request: C{bool}
-
-        @param where: the URI at which the resource is being deleted.
-        @type where: C{str}
-
-        @return: an HTTP response suitable for sending to a client (or
-            including in a multi-status).
-
-        @rtype: something adaptable to L{twext.web2.iweb.IResponse}
-        """
-
-        # Not allowed to delete the default address book
-        default = (yield self.isDefaultAddressBook(request))
-        if default:
-            log.err("Cannot DELETE default address book: %s" % (self,))
-            raise HTTPError(ErrorResponse(
-                FORBIDDEN,
-                (carddav_namespace, "default-addressbook-delete-allowed",),
-                "Cannot delete default address book",
-            ))
-
-        response = (
-            yield super(AddressBookCollectionResource, self).storeRemove(
-                request, viaRequest, where
-            )
-        )
-
-        returnValue(response)
 
 
     def http_MOVE(self, request):
@@ -2925,7 +2875,13 @@ class AddressBookObjectResource(_CommonObjectResource):
         if wasShared:
             yield self.downgradeFromShare(request)
 
-        returnValue((yield super(AddressBookObjectResource, self).storeRemove(request, viaRequest, where)))
+        response = (
+            yield super(AddressBookObjectResource, self).storeRemove(
+                request, viaRequest, where
+            )
+        )
+
+        returnValue(response)
 
 
     @inlineCallbacks

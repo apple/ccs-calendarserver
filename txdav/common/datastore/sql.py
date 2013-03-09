@@ -2117,6 +2117,7 @@ class CommonHome(LoggingMixIn):
             Where=(bind.HOME_RESOURCE_ID == Parameter("homeResourceID")).And(bind.BIND_STATUS != _BIND_STATUS_ACCEPTED)
         ).on(self._txn, **kwds)
 
+
     @inlineCallbacks
     def ownerHomeWithChildID(self, resourceID):
         """
@@ -3557,7 +3558,7 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic, HomeChildBas
         yield child.remove()
         self._objects.pop(name, None)
         self._objects.pop(uid, None)
-        if self._objectNames:
+        if self._objectNames and name in self._objectNames:
             self._objectNames.remove(name)
         yield self._deleteRevision(name)
         yield self.notifyChanged()
@@ -3730,13 +3731,6 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic, HomeChildBas
 
 
     @inlineCallbacks
-    def _bumpModified(self, subtxn):
-        yield self._lockLastModifiedQuery.on(subtxn, resourceID=self._resourceID)
-        result = (yield self._changeLastModifiedQuery.on(subtxn, resourceID=self._resourceID))
-        returnValue(result)
-
-
-    @inlineCallbacks
     def bumpModified(self):
         """
         Bump the MODIFIED value. A possible deadlock could happen here if two or more
@@ -3750,8 +3744,14 @@ class CommonHomeChild(LoggingMixIn, FancyEqMixin, _SharedSyncLogic, HomeChildBas
             returnValue(None)
         self._txn.bumpAddedForObject(self)
 
+        @inlineCallbacks
+        def _bumpModified(subtxn):
+            yield self._lockLastModifiedQuery.on(subtxn, resourceID=self._resourceID)
+            result = (yield self._changeLastModifiedQuery.on(subtxn, resourceID=self._resourceID))
+            returnValue(result)
+
         try:
-            self._modified = (yield self._txn.subtransaction(self._bumpModified, retries=0, failureOK=True))[0][0]
+            self._modified = (yield self._txn.subtransaction(_bumpModified, retries=0, failureOK=True))[0][0]
 
             queryCacher = self._txn._queryCacher
             if queryCacher is not None:

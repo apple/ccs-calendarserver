@@ -131,7 +131,7 @@ class AddressBookHome(CommonHome):
                     # Cache the data
                     yield queryCacher.setAfterCommit(self._txn, cacheKey, data)
 
-            self._created, self._modified = data
+            #self._created, self._modified = data
             yield self._loadPropertyStore()
 
             # created owned address book
@@ -140,6 +140,7 @@ class AddressBookHome(CommonHome):
                 name="addressbook", resourceID=self._resourceID,
                 mode=_BIND_MODE_OWN, status=_BIND_STATUS_ACCEPTED,
             )
+            self._created, self._modified = data
             yield addressbook._loadPropertyStore()
             addressbook.properties()[
                 PropertyName.fromElement(ResourceType)
@@ -280,63 +281,24 @@ class AddressBook(CommonHomeChild, SharingMixIn):
         self._bindName = bindName
 
 
-        def getCreated():
-            if self._resourceID == self._home._resourceID:
-                return self._home.created()
-            else:
-                return self._created
-
-
-        def setCreated(newValue):
-            if self._resourceID == self._home._resourceID:
-                self._home._created = newValue
-            else:
-                self._created = newValue
-
-
-        def getModified():
-            if self._resourceID == self._home._resourceID:
-                return self._home.created()
-            else:
-                return self._modified
-
-
-        def setModified(newValue):
-            if self._resourceID == self._home._resourceID:
-                self._home._modified = newValue
-            else:
-                self._modified = newValue
-
-        _created = property(self.getCreated, self.setCreated,)
-        _modified = property(self.getModified, self.setModified,)
-
-
     def getCreated(self):
-        if self._resourceID == self._home._resourceID:
-            return self._home.created()
-        else:
-            return self._created
+        return self.ownerHome()._created
 
 
     def setCreated(self, newValue):
-        if self._resourceID == self._home._resourceID:
-            self._home._created = newValue
-        else:
-            self._created = newValue
+        self.ownerHome()._created = newValue
 
 
     def getModified(self):
-        if self._resourceID == self._home._resourceID:
-            return self._home.created()
-        else:
-            return self._modified
+        return self.ownerHome()._modified
 
 
     def setModified(self, newValue):
-        if self._resourceID == self._home._resourceID:
-            self._home._modified = newValue
-        else:
-            self._modified = newValue
+        self.ownerHome()._modified = newValue
+
+
+    _created = property(getCreated, setCreated,)
+    _modified = property(getModified, setModified,)
 
 
     @property
@@ -403,12 +365,17 @@ class AddressBook(CommonHomeChild, SharingMixIn):
             # allow remove, as a way to reset the address book to an empty state
             for abo in (yield self.objectResources()):
                 yield self.removeObjectResource(abo)
-            self.unshare()
+
+            yield self.unshare()  # storebridge should already have done this
+            yield self._deletedSyncToken()
+
             self.properties()._removeResource()
-            self._loadPropertyStore()
+            yield self._loadPropertyStore()
             self.properties()[
                 PropertyName.fromElement(ResourceType)
             ] = self.resourceType()
+            yield self.notifyChanged()
+            yield self._home.bumpModified()
         else:
             returnValue((yield super(AddressBook, self).remove()))
 
@@ -530,59 +497,17 @@ END:VCARD
 
         returnValue(component)
 
-    '''
-    @classproperty
-    def _metadataByIDQuery(cls): #@NoSelf
-        """
-        DAL query to retrieve created/modified dates based on a resource ID.
-        """
-        child = cls._homeChildMetaDataSchema
-        abo = schema.ADDRESSBOOK_OBJECT
-        return Select(
-            cls.metadataColumns(),
-            From=child,
-            Where=child.RESOURCE_ID == Parameter("resourceID"),
-            SetExpression=Union(
-                Select(
-                    [abo.CREATED, abo.MODIFIED],
-                    From=abo,
-                    Where=abo.RESOURCE_ID == Parameter("resourceID"),
-                    ),
-                optype=Union.OPTYPE_ALL,
-            )
-        )
-    '''
-
-
-    @classproperty
-    def _changeABForSharedGroupLastModifiedQuery(cls): #@NoSelf
-        schema = AddressBookObject._objectSchema
-        return Update({schema.MODIFIED: utcNowSQL},
-                      Where=schema.RESOURCE_ID == Parameter("resourceID"),
-                      Return=schema.MODIFIED)
-
 
     @inlineCallbacks
-    def _bumpModified(self, subtxn):
+    def bumpModified(self):
+        # TODO: The next line seems the next line work too.  Why?
+        # returnValue((yield self.ownerHome().bumpModified()))
+        #
+        if self._resourceID == self._home._resourceID:
+            returnValue((yield self._home.bumpModified()))
+        else:
+            returnValue((yield super(AddressBook, self).bumpModified()))
 
-        yield self._lockLastModifiedQuery.on(
-            subtxn, resourceID=self._resourceID
-        )
-
-        # can't call self.ownerGroup() on a subtranaction,
-        # So just try AB schema first, then ABOBject schema 
-        # The following line makes shared groups faster, but a bit of a hack
-        #if hasattr(self, "_ownerGroup") and not (yield self.ownerGroup()):
-        result = yield self._changeLastModifiedQuery.on(
-            subtxn, resourceID=self._resourceID
-        )
-
-        if not result:
-            result = yield self._changeABForSharedGroupLastModifiedQuery.on(
-                subtxn, resourceID=self._resourceID
-            )
-
-        returnValue(result)
 
 
     @classmethod
@@ -839,39 +764,6 @@ END:VCARD
             assert result
 
         returnValue(result)
-
-
-    @classproperty
-    def _revisionsForHomeID(cls): #@NoSelf
-
-        def columns(rev):
-            return [rev.RESOURCE_ID, Max(rev.REVISION)]
-
-        def _from(rev, bind):
-            return rev.join(bind, rev.RESOURCE_ID == bind.RESOURCE_ID, 'left')
-
-        def where(rev, bind):
-            return ((bind.HOME_RESOURCE_ID == Parameter("homeID")).
-                And((rev.RESOURCE_NAME != None).Or(rev.DELETED == False)))
-
-        addressbookBind = cls._bindSchema
-        aboBind = AddressBookObject._bindSchema
-        rev = cls._revisionsSchema
-        return Select(
-            columns(rev),
-            From=_from(rev, addressbookBind),
-            Where=where(rev, addressbookBind),
-            GroupBy=rev.RESOURCE_ID,
-            SetExpression=Union(
-                Select(
-                    columns(rev),
-                    From=_from(rev, aboBind),
-                    Where=where(rev, aboBind),
-                    GroupBy=rev.RESOURCE_ID
-                    ),
-                optype=Union.OPTYPE_ALL,
-           ),
-        )
 
 
     def shareUID(self):
@@ -1305,8 +1197,8 @@ class AddressBookObject(CommonObjectResource, SharingMixIn):
     def remove(self):
 
         if self.owned():
-            if self._kind == _ABO_KIND_GROUP: # optimization
-                self.unshare()
+            # storebridge should already have done this
+            yield self.unshare()
         else:
             # Can't delete a share here with notification so raise.
             if self._resourceID == self._addressbook._resourceID:
@@ -1984,9 +1876,8 @@ class AddressBookObject(CommonObjectResource, SharingMixIn):
 
 
 
-    @inlineCallbacks
     def notifyChanged(self):
-        returnValue((yield self._addressbook.notifyChanged()))
+        return self._addressbook.notifyChanged()
 
 
     @inlineCallbacks
@@ -2073,15 +1964,17 @@ class AddressBookObject(CommonObjectResource, SharingMixIn):
         """
         Unshares a group, regardless of which "direction" it was shared.
         """
-        if self.owned():
-            # This collection may be shared to others
-            for sharedToHome in [x.viewerHome() for x in (yield self.asShared())]:
-                yield self.unshareWith(sharedToHome)
-        else:
-            # This collection is shared to me
-            ownerAddressBook = self._addressbook.ownerHome().addressbook()
-            ownerGroup = yield ownerAddressBook.objectResourceWithID(self._resourceID)
-            yield ownerGroup.unshareWith(self._home)
+        if self._kind == _ABO_KIND_GROUP:
+            if self.owned():
+                # This collection may be shared to others
+                for sharedToHome in [x.viewerHome() for x in (yield self.asShared())]:
+                    yield self.unshareWith(sharedToHome)
+            else:
+                # This collection is shared to me
+                ownerAddressBook = self._addressbook.ownerHome().addressbook()
+                ownerGroup = yield ownerAddressBook.objectResourceWithID(self._resourceID)
+                if ownerGroup:
+                    yield ownerGroup.unshareWith(self._home)
 
 
     @inlineCallbacks
@@ -2112,7 +2005,7 @@ class AddressBookObject(CommonObjectResource, SharingMixIn):
                 shareeHome._children.pop(self._addressbook.shareeAddressBookName(), None)
 
             # Must send notification to ensure cache invalidation occurs
-            yield self._addressbook.notifyChanged()
+            yield self.notifyChanged()
 
         # delete binds including invites
         deletedBindNameRows = yield self._deleteBindWithResourceIDAndHomeID.on(
@@ -2214,7 +2107,7 @@ class AddressBookObject(CommonObjectResource, SharingMixIn):
             shareeView._name = sharedname[0][0]
 
             # Must send notification to ensure cache invalidation occurs
-            yield self._addressbook.notifyChanged()
+            yield self.notifyChanged()
 
         returnValue(shareeView._name)
 

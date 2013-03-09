@@ -494,7 +494,7 @@ create index CALENDAR_OBJECT_REVISIONS_RESOURCE_ID_REVISION
 
 create table ADDRESSBOOK_OBJECT_REVISIONS (
   ADDRESSBOOK_HOME_RESOURCE_ID integer      not null references ADDRESSBOOK_HOME,
-  ADDRESSBOOK_RESOURCE_ID      integer, 	-- FIXME, should reference ADDRESSBOOK_HOME
+  ADDRESSBOOK_RESOURCE_ID      integer      references ADDRESSBOOK_HOME,
   ADDRESSBOOK_NAME             varchar(255) default null,
   RESOURCE_NAME                varchar(255),
   REVISION                     integer      default nextval('REVISION_SEQ') not null,
@@ -546,6 +546,7 @@ create table APN_SUBSCRIPTIONS (
 create index APN_SUBSCRIPTIONS_RESOURCE_KEY
    on APN_SUBSCRIPTIONS(RESOURCE_KEY);
 
+   
 -----------------
 -- IMIP Tokens --
 -----------------
@@ -563,11 +564,13 @@ create table IMIP_TOKENS (
 create index IMIP_TOKENS_TOKEN
    on IMIP_TOKENS(TOKEN);
 
+   
 ----------------
 -- Work Items --
 ----------------
 
 create sequence WORKITEM_SEQ;
+
 
 ---------------------------
 -- IMIP Inivitation Work --
@@ -581,6 +584,7 @@ create table IMIP_INVITATION_WORK (
   ICALENDAR_TEXT                text         not null
 );
 
+
 -----------------------
 -- IMIP Polling Work --
 -----------------------
@@ -589,6 +593,7 @@ create table IMIP_POLLING_WORK (
   WORK_ID                       integer primary key default nextval('WORKITEM_SEQ') not null,
   NOT_BEFORE                    timestamp    default timezone('UTC', CURRENT_TIMESTAMP)
 );
+
 
 ---------------------
 -- IMIP Reply Work --
@@ -601,6 +606,7 @@ create table IMIP_REPLY_WORK (
   ATTENDEE                      varchar(255) not null,
   ICALENDAR_TEXT                text         not null
 );
+
 
 ------------------------
 -- Push Notifications --
